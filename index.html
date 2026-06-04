@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MERX — Ulgurji savdo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+<aside id="sb">
+  <div class="logo">
+    <div class="logo-m">MX</div>
+    <div><span class="logo-t">MERX</span><span class="logo-s">Ulgurji savdo</span></div>
+  </div>
+  <nav>
+    <div class="ns">Asosiy</div>
+    <div class="ni on" data-p="dashboard"><i class="ti ti-layout-dashboard"></i>Dashboard</div>
+    <div class="ni" data-p="pos"><i class="ti ti-device-desktop"></i>Sotuv</div>
+    <div class="ns">Boshqaruv</div>
+    <div class="ni" data-p="katalog"><i class="ti ti-box"></i>Katalog</div>
+    <div class="ni" data-p="ombor"><i class="ti ti-package"></i>Ombor</div>
+    <div class="ni" data-p="mijozlar"><i class="ti ti-users"></i>Mijozlar</div>
+    <div class="ni" data-p="qarzlar"><i class="ti ti-credit-card"></i>Qarzlar <span class="nb" id="debt-count">0</span></div>
+    <div class="ni" data-p="tarix"><i class="ti ti-history"></i>Sotuv tarixi</div>
+    <div class="ns">Tizim</div>
+    <div class="ni" data-p="hisobot"><i class="ti ti-chart-dots"></i>Hisobot</div>
+    <div class="ni" data-p="xodimlar"><i class="ti ti-id-badge"></i>Xodimlar</div>
+    <div class="ni" data-p="moliya"><i class="ti ti-cash"></i>Moliya</div>
+    <div class="ni" data-p="egasi"><i class="ti ti-settings"></i>Egasi / Sozlamalar</div>
+  </nav>
+  <div class="sb-bot" id="sb-shop">—</div>
+</aside>
+
+<div id="main">
+  <div id="topbar">
+    <span id="ptitle">Dashboard</span>
+    <div class="tb-right">
+      <div class="tb-pill" onclick="toggleCurrency()" title="Valyutani almashtirish"><i class="ti ti-currency-dollar"></i><span id="tb-rate">—</span> · <span id="tb-cur">so'm</span></div>
+      <div class="tb-pill" id="cloud-pill" onclick="pullFromCloud()" title="Cloud: bosing yangilash uchun" style="display:none;cursor:pointer"><i class="ti ti-cloud"></i><span id="cloud-txt">Ulangan</span></div>
+      <button class="btn btn-acc btn-sm" onclick="nav('pos')"><i class="ti ti-device-desktop"></i>Sotuv</button>
+    </div>
+  </div>
+
+  <div id="pages">
+
+  <!-- DASHBOARD -->
+  <div class="pg on" id="p-dashboard">
+    <div class="kpi-row">
+      <div class="kpi kpi-acc"><div class="kl">Bugungi sotuv</div><div class="kv num" id="kpi-today">0</div><div class="ks"><i class="ti ti-trending-up"></i><span id="kpi-today-cnt">0 sotuv</span></div></div>
+      <div class="kpi kpi-teal"><div class="kl">Jami qarz</div><div class="kv num" id="kpi-debt">0</div><div class="ks"><i class="ti ti-users"></i><span id="kpi-debt-cnt">0 mijoz</span></div></div>
+      <div class="kpi kpi-red"><div class="kl">Muddati o'tgan</div><div class="kv num" id="kpi-over">0</div><div class="ks"><i class="ti ti-clock"></i><span>0 ta</span></div></div>
+      <div class="kpi kpi-grn"><div class="kl">Yetk. qarzi</div><div class="kv num" id="kpi-sup">0</div><div class="ks"><i class="ti ti-package"></i><span id="kpi-sup-s">ta yetkazuvchi</span></div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="ch"><h3><i class="ti ti-chart-bar"></i>7 kunlik sotuv</h3></div>
+        <div style="padding:14px 18px"><div class="chart-wrap"><canvas id="salesChart"></canvas></div></div></div>
+      <div class="card"><div class="ch"><h3><i class="ti ti-clock"></i>So'nggi qarzlar</h3></div>
+        <table><thead><tr><th>Mijoz</th><th>Mahsulot</th><th>Qarz</th><th>Sana</th></tr></thead>
+        <tbody id="dash-debt-body"></tbody></table></div>
+    </div>
+    <div class="card"><div class="ch"><h3><i class="ti ti-list"></i>So'nggi sotuvlar</h3></div>
+      <table><thead><tr><th>#</th><th>Mahsulot(lar)</th><th>Mijoz</th><th>To'lov turi</th><th>Jami</th><th>Holat</th><th>Sana</th></tr></thead>
+      <tbody id="dash-sales-body"></tbody></table></div>
+  </div>
+
+  <!-- POS -->
+  <div id="p-pos">
+    <div class="pos-l">
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="pos-search" style="flex:1"><input id="pos-q" placeholder="Mahsulot qidirish..." oninput="renderPosGrid()"></div>
+        <div class="seg" id="price-type-seg" style="flex-shrink:0">
+          <button data-pt="chakana" class="on" onclick="setPriceType('chakana')">Chakana</button>
+          <button data-pt="ulgurji" onclick="setPriceType('ulgurji')">Ulgurji</button>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="clearCart()"><i class="ti ti-trash"></i></button>
+      </div>
+      <div class="pos-cats" id="pos-cats"></div>
+      <div class="prod-g" id="pos-grid"></div>
+    </div>
+    <div class="pos-r">
+      <div class="cart-hd">
+        <h3><i class="ti ti-shopping-cart" style="font-size:16px"></i> Savatcha</h3>
+        <span class="num" id="cart-cnt" style="font-size:12.5px;color:var(--mut)">bo'sh</span>
+      </div>
+      <div class="cart-scroll" id="cart-items">
+        <div class="cart-mt"><i class="ti ti-shopping-cart"></i><p style="font-size:13px">Mahsulot tanlang</p></div>
+      </div>
+      <div class="cart-ft">
+        <div class="cart-tot"><span>Jami</span><span class="cart-tot-v num" id="cart-total">0 so'm</span></div>
+
+        <div style="margin-bottom:8px">
+          <div style="font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">To'lov usuli</div>
+          <div class="paytypes">
+            <div class="ptbtn on" data-pt="naqd" onclick="setPayType('naqd')"><i class="ti ti-cash" style="font-size:14px;display:block;margin:0 auto 2px"></i>Naqd</div>
+            <div class="ptbtn" data-pt="karta" onclick="setPayType('karta')"><i class="ti ti-credit-card" style="font-size:14px;display:block;margin:0 auto 2px"></i>Karta</div>
+            <div class="ptbtn" data-pt="otkazma" onclick="setPayType('otkazma')"><i class="ti ti-building-bank" style="font-size:14px;display:block;margin:0 auto 2px"></i>O'tkazma</div>
+          </div>
+        </div>
+
+        <div class="pmodes">
+          <button class="pmode-btn on" data-m="full" onclick="setPayMode('full')"><i class="ti ti-check"></i>To'liq to'lov</button>
+          <button class="pmode-btn" data-m="part" onclick="setPayMode('part')"><i class="ti ti-clock"></i>Qisman to'lov</button>
+        </div>
+
+        <div id="part-box" style="display:none;margin-bottom:10px">
+          <div class="fld" style="margin-bottom:8px">
+            <label>Mijoz tanlang</label>
+            <select id="c-cust" onchange="custPick()" style="font-family:inherit;font-size:13.5px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%">
+              <option value="">— Ro'yxatdan tanlang —</option>
+            </select>
+          </div>
+          <div class="r2" style="margin-bottom:8px">
+            <div class="fld" style="margin:0"><label>Ism</label><input id="c-name" placeholder="Yoki qo'lda yozing"></div>
+            <div class="fld" style="margin:0"><label>Telefon</label><input id="c-phone" placeholder="+998 90 ..."></div>
+          </div>
+          <div class="r2" style="margin-bottom:8px">
+            <div class="fld" style="margin:0"><label>Hozir to'landi (so'm)</label><input id="c-paid" type="number" value="0" step="10000" oninput="updateRem()"></div>
+            <div class="fld" style="margin:0"><label>Oxirgi to'lov sanasi</label><input id="c-due" type="date"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:8px 11px;background:var(--red2);border-radius:var(--rs);font-size:13px">
+            <span style="color:#991B1B;font-weight:500">Qolgan qarz:</span>
+            <span class="num" id="rem-view" style="font-weight:700;color:var(--red)">0 so'm</span>
+          </div>
+        </div>
+        <div class="fld" style="margin-bottom:8px">
+          <label>Kassir</label>
+          <select id="pos-staff" style="font-family:inherit;font-size:13px;border:1.5px solid var(--color-border-tertiary,#E5E7EB);border-radius:var(--rs,8px);padding:7px 10px;width:100%">
+            <option value="">— Kassirni tanlang —</option>
+          </select>
+        </div>
+        <button class="btn btn-acc" style="width:100%" onclick="checkout()"><i class="ti ti-check"></i>Sotishni yakunlash</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KATALOG -->
+  <div class="pg" id="p-katalog">
+    <div class="card">
+      <div class="ch">
+        <h3><i class="ti ti-box"></i>Mahsulotlar</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="kat-q" placeholder="Qidirish..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:170px" oninput="renderKatalog()">
+          <button class="btn btn-acc btn-sm" onclick="openModal('addprod')"><i class="ti ti-plus"></i>Yangi</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+      <table><thead><tr><th>SKU</th><th>Nomi</th><th>O'lchov</th><th>Kategoriya</th><th>Variantlar</th><th>Tannarx</th><th>Chakana narx</th><th>Ulgurji narx</th><th>Qoldiq</th><th></th></tr></thead>
+      <tbody id="katalog-body"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- OMBOR -->
+  <div class="pg" id="p-ombor">
+    <div class="stat-row">
+      <div class="stb"><div class="sl">Bugungi kirim</div><div class="sv" id="om-today">0</div></div>
+      <div class="stb"><div class="sl">Bu oy kirim qiymati</div><div class="sv num" id="om-val">0</div></div>
+      <div class="stb" style="border-top:3px solid var(--red)"><div class="sl" style="color:var(--red)">Yetkazuvchi qarzi</div><div class="sv" id="om-debt" style="color:var(--red)">0</div></div>
+      <div class="stb"><div class="sl">Ombor qiymati (tannarx)</div><div class="sv num" id="om-total">0</div></div>
+    </div>
+    <div class="card">
+      <div class="ch">
+        <h3><i class="ti ti-package"></i>Kirim tarixi</h3>
+        <div style="display:flex;gap:8px">
+          <input id="om-q" placeholder="Qidirish..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:160px" oninput="renderOmbor()">
+          <button class="btn btn-acc btn-sm" onclick="openModal('qabul')"><i class="ti ti-plus"></i>Tovar qabul</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+      <table><thead><tr><th>Sana</th><th>Mahsulot</th><th>O'lchov</th><th>Rang/O'lcham</th><th>Miqdor</th><th>Tannarx</th><th>Sotuv narxi</th><th>Jami (tannarx)</th><th>Yetkazuvchi</th><th>Partiya</th><th>To'lov</th></tr></thead>
+      <tbody id="ombor-body"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- MIJOZLAR -->
+  <div class="pg" id="p-mijozlar">
+    <div class="card">
+      <div class="ch"><h3><i class="ti ti-users"></i>Mijozlar</h3>
+        <button class="btn btn-acc btn-sm" onclick="openModal('addcust')"><i class="ti ti-plus"></i>Yangi</button>
+      </div>
+      <table><thead><tr><th>Ism</th><th>Telefon</th><th>Turi</th><th>Sotuvlar</th><th>Jami xarid</th><th>Joriy qarz</th></tr></thead>
+      <tbody id="mijozlar-body"></tbody></table>
+    </div>
+  </div>
+
+  <!-- QARZLAR -->
+  <div class="pg" id="p-qarzlar">
+    <div class="stat-row">
+      <div class="stb"><div class="sl">Umumiy qarz</div><div class="sv num" id="st-total">0</div></div>
+      <div class="stb"><div class="sl">Qarzdorlar</div><div class="sv" id="st-cnt">0</div></div>
+      <div class="stb" style="border-top:3px solid var(--red)"><div class="sl" style="color:var(--red)">Muddati o'tgan</div><div class="sv" id="st-over" style="color:var(--red)">0</div></div>
+      <div class="stb"><div class="sl">Bu oylik yig'im</div><div class="sv num" id="st-month">0</div></div>
+    </div>
+    <div class="card">
+      <div class="ch"><h3><i class="ti ti-credit-card"></i>Qarzlar ro'yxati</h3>
+        <input id="debt-q" placeholder="Mijoz..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:190px" oninput="renderDebts()">
+      </div>
+      <div style="overflow-x:auto">
+      <table><thead><tr><th>Mijoz</th><th>Telefon</th><th>Mahsulot</th><th>Jami</th><th>To'langan</th><th>Qolgan</th><th>Sana</th><th>Holat</th><th>To'lov qabul</th></tr></thead>
+      <tbody id="debt-body"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- TARIX -->
+  <div class="pg" id="p-tarix">
+    <div class="card">
+      <div class="ch"><h3><i class="ti ti-history"></i>Sotuv tarixi</h3>
+        <input id="tarix-q" placeholder="Qidirish..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:190px" oninput="renderTarix()">
+      </div>
+      <div style="overflow-x:auto">
+      <table><thead><tr><th>#</th><th>Sana/Vaqt</th><th>Mahsulot(lar)</th><th>Mijoz</th><th>To'lov turi</th><th>Narx turi</th><th>Jami</th><th>To'langan</th><th>Qolgan</th><th>Holat</th><th></th></tr></thead>
+      <tbody id="tarix-body"></tbody></table></div>
+    </div>
+  </div>
+
+
+  <!-- HISOBOT -->
+  <div class="pg" id="p-hisobot">
+    <div class="rep-filters" id="rep-filters">
+      <button class="rfbtn" data-r="today" onclick="setRepRange('today')">Bugun</button>
+      <button class="rfbtn on" data-r="week" onclick="setRepRange('week')">7 kun</button>
+      <button class="rfbtn" data-r="month" onclick="setRepRange('month')">Bu oy</button>
+      <button class="rfbtn" data-r="quarter" onclick="setRepRange('quarter')">3 oy</button>
+      <button class="rfbtn" data-r="year" onclick="setRepRange('year')">Bu yil</button>
+    </div>
+    <div class="kpi-row" id="rep-kpis">
+      <div class="kpi kpi-acc"><div class="kl">Sotuvlar soni</div><div class="kv num" id="rep-cnt">0</div></div>
+      <div class="kpi kpi-teal"><div class="kl">Jami sotuv</div><div class="kv num" id="rep-rev">0</div></div>
+      <div class="kpi kpi-grn"><div class="kl">Yig'ilgan</div><div class="kv num" id="rep-paid">0</div></div>
+      <div class="kpi kpi-red"><div class="kl">Qolgan qarz</div><div class="kv num" id="rep-debt">0</div></div>
+    </div>
+    <div class="rep-grid">
+      <div class="card"><div class="ch"><h3><i class="ti ti-trending-up"></i>Sotuv dinamikasi</h3></div>
+        <div style="padding:14px 18px"><div class="chart-lg"><canvas id="repTrendChart"></canvas></div></div></div>
+      <div class="card"><div class="ch"><h3><i class="ti ti-chart-donut"></i>To'lov usullari</h3></div>
+        <div style="padding:14px 18px"><div class="chart-sm"><canvas id="repPayChart"></canvas></div>
+        <div id="rep-pay-legend" style="display:flex;gap:12px;justify-content:center;font-size:12.5px;margin-top:8px;flex-wrap:wrap"></div></div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="ch"><h3><i class="ti ti-package"></i>Top mahsulotlar</h3></div>
+        <table><thead><tr><th>Mahsulot</th><th>Soni</th><th>Sotuv</th><th>Ulush</th></tr></thead>
+        <tbody id="rep-products"></tbody></table></div>
+      <div class="card"><div class="ch"><h3><i class="ti ti-users"></i>Top mijozlar</h3></div>
+        <table><thead><tr><th>Mijoz</th><th>Sotuvlar</th><th>Jami</th><th>Qarz</th></tr></thead>
+        <tbody id="rep-customers"></tbody></table></div>
+    </div>
+    <div class="card"><div class="ch"><h3><i class="ti ti-receipt-2"></i>Narx turi tahlili</h3></div>
+      <div style="overflow-x:auto">
+      <table><thead><tr><th>Narx turi</th><th>Sotuvlar</th><th>Jami sotuv</th><th>O'rtacha sotuv</th><th>Ulush</th></tr></thead>
+      <tbody id="rep-pricetype"></tbody></table></div></div>
+  </div>
+
+  <!-- XODIMLAR -->
+  <div class="pg" id="p-xodimlar">
+    <div class="staff-grid" id="staff-cards"></div>
+    <div class="card">
+      <div class="ch"><h3><i class="ti ti-chart-bar"></i>Xodimlar sotuv hisoboti</h3>
+        <button class="btn btn-acc btn-sm" onclick="openModal('addstaff')"><i class="ti ti-plus"></i>Xodim qo'shish</button>
+      </div>
+      <table><thead><tr><th>Xodim</th><th>Lavozim</th><th>Sotuvlar soni</th><th>Jami sotuv</th><th>Bugungi sotuv</th></tr></thead>
+      <tbody id="staff-table"></tbody></table>
+    </div>
+  </div>
+
+  <!-- MOLIYA -->
+  <div class="pg" id="p-moliya">
+    <div class="mol-bal">
+      <div><div class="mol-bal-l">Bugungi kassa balansi</div><div class="mol-bal-v num" id="mol-balans">0 so'm</div>
+        <div style="display:flex;gap:18px;margin-top:8px;font-size:13px">
+          <span style="color:rgba(255,255,255,.7)">Kirim: <b style="color:#9FE1CB" id="mol-kirim">0</b></span>
+          <span style="color:rgba(255,255,255,.7)">Chiqim: <b style="color:#F09595" id="mol-chiqim">0</b></span>
+        </div>
+      </div>
+      <button class="btn btn-acc" onclick="openModal('addxarajat')"><i class="ti ti-plus"></i>Xarajat qo'shish</button>
+    </div>
+    <div class="stat-row" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stb"><div class="sl">Bu oylik sotuv</div><div class="sv num" id="mol-month-rev">0</div></div>
+      <div class="stb"><div class="sl">Bu oylik xarajat</div><div class="sv num" id="mol-month-exp">0</div></div>
+      <div class="stb kpi-grn" style="border-top:3px solid var(--grn)"><div class="sl">Sof foyda (oy)</div><div class="sv num" id="mol-profit" style="color:var(--grn)">0</div></div>
+      <div class="stb"><div class="sl">Jami xarajatlar</div><div class="sv" id="mol-exp-cnt">0 ta</div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="ch"><h3><i class="ti ti-list"></i>Xarajatlar ro'yxati</h3>
+        <input id="exp-q" placeholder="Qidirish..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 10px;width:160px" oninput="renderMoliya()">
+      </div>
+        <table><thead><tr><th>Sana</th><th>Kategoriya</th><th>Summa</th><th>Izoh</th></tr></thead>
+        <tbody id="exp-body"></tbody></table></div>
+      <div class="card"><div class="ch"><h3><i class="ti ti-chart-donut-3"></i>Xarajat tarkibi</h3></div>
+        <div style="padding:14px 18px"><div class="chart-sm"><canvas id="expChart"></canvas></div>
+        <div id="exp-legend" style="display:flex;gap:10px;justify-content:center;font-size:12px;margin-top:8px;flex-wrap:wrap"></div></div></div>
+    </div>
+  </div>
+
+  <!-- EGASI -->
+  <div class="pg" id="p-egasi">
+    <div class="g2">
+      <div>
+        <div class="card"><div class="ch"><h3><i class="ti ti-building-store"></i>Do'kon sozlamalari</h3></div>
+          <div style="padding:16px 18px">
+            <div class="fld"><label>Do'kon nomi</label><input id="s-name" oninput="saveSetting('name',this.value)"></div>
+            <div class="r2">
+              <div class="fld"><label>Kurs (1 USD = ? so'm)</label><input id="s-rate" type="number" step="50" oninput="saveSetting('rate',+this.value)"></div>
+              <div class="fld"><label>Narx ko'rinishi</label>
+                <div class="seg" id="cur-seg">
+                  <button data-c="uzs" onclick="saveSetting('priceCurrency','uzs')">So'm</button>
+                  <button data-c="usd" onclick="saveSetting('priceCurrency','usd')">USD ($)</button>
+                  <button data-c="both" onclick="saveSetting('priceCurrency','both')">Ikkalasi</button>
+                </div>
+              </div>
+            </div>
+            <div class="fld"><label>Do'kon turi</label>
+              <div class="seg" id="type-seg">
+                <button data-t="oyoq" onclick="setShopType('oyoq')">👟 Oyoq kiyim</button>
+                <button data-t="kiyim" onclick="setShopType('kiyim')">👕 Kiyim-kechak</button>
+                <button data-t="ikki" onclick="setShopType('ikki')">🧩 Ikkalasi</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card"><div class="ch"><h3><i class="ti ti-database"></i>Zaxira</h3></div>
+          <div style="padding:16px 18px;display:flex;gap:8px">
+            <button class="btn btn-ghost" onclick="exportDB()"><i class="ti ti-download"></i>Yuklab olish</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('imp-file').click()"><i class="ti ti-upload"></i>Tiklash</button>
+            <input id="imp-file" type="file" accept=".json" style="display:none" onchange="importDB(this)">
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><h3><i class="ti ti-cloud"></i>Cloud (Supabase)</h3><span class="bg bg-gr" id="cloud-status-badge">Ulanmagan</span></div>
+        <div style="padding:16px 18px">
+          <div class="fld"><label>Supabase Project URL</label><input id="s-sup-url" placeholder="https://xxxx.supabase.co" oninput="saveSetting('supabaseUrl',this.value)"></div>
+          <div class="fld"><label>Anon / Public Key</label><input id="s-sup-key" type="password" placeholder="eyJhbGci..." oninput="saveSetting('supabaseKey',this.value)"></div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <button class="btn btn-teal" onclick="connectCloud()"><i class="ti ti-cloud-upload"></i>Ulash + Sinxronlash</button>
+            <button class="btn btn-ghost" onclick="pullFromCloud()"><i class="ti ti-cloud-download"></i>Clouddan yuklash</button>
+          </div>
+          <div style="background:var(--bg);border-radius:var(--rs);padding:10px 12px;font-size:12.5px;color:var(--mut);line-height:1.6">
+            <b style="color:var(--ink)">Qanday olish:</b><br>
+            1. supabase.com → bepul akkaunt → yangi project<br>
+            2. Project Settings → API → Project URL + anon/public key<br>
+            3. SQL Editor → schema.sql faylini ishlating (alohida yuklab oling)
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><h3><i class="ti ti-message"></i>SMS (Eskiz)</h3><span class="bg bg-gr" id="sms-status-badge">Test rejimi</span></div>
+        <div style="padding:16px 18px">
+          <div class="r2">
+            <div class="fld"><label>Eskiz API Token</label><input id="s-eskiz-token" type="password" placeholder="Token..." oninput="saveSetting('eskizToken',this.value)"></div>
+            <div class="fld"><label>SMS jo'natuvchi nomi</label><input id="s-eskiz-sender" placeholder="MERX (4-11 belgi)" oninput="saveSetting('eskizSender',this.value)"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <button class="btn btn-teal btn-sm" onclick="testSms()"><i class="ti ti-send"></i>Test SMS</button>
+          </div>
+          <div style="background:var(--bg);border-radius:var(--rs);padding:10px 12px;font-size:12.5px;color:var(--mut);line-height:1.6">
+            <b style="color:var(--ink)">Token olish:</b> notify.eskiz.uz → Kirish → API → Token olish<br>
+            Token yo'q bo'lsa SMS ekranda ko'rsatiladi (test rejimi).
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div>
+</div>
+
+<!-- MODAL: ADD PRODUCT -->
+<div class="ov" id="ov-addprod" onclick="if(event.target===this)closeModal('addprod')">
+  <div class="modal modal-lg">
+    <button class="m-close" onclick="closeModal('addprod')"><i class="ti ti-x"></i></button>
+    <h2>Yangi mahsulot / variant qo'shish</h2>
+    <div class="r2">
+      <div class="fld"><label>Mahsulot nomi</label><input id="ap-name" placeholder="Krossovka Runner Pro"></div>
+      <div class="fld"><label>Turi (do'kon)</label><select id="ap-type" onchange="apTypeChange()"><option value="oyoq">Oyoq kiyim</option><option value="kiyim">Kiyim-kechak</option></select></div>
+    </div>
+    <div class="r3">
+      <div class="fld"><label>Kategoriya</label><select id="ap-cat"></select></div>
+      <div class="fld"><label>O'lchov birligi</label><select id="ap-unit">
+        <option value="juft">juft (oyoq kiyim)</option>
+        <option value="dona">dona</option>
+        <option value="quti">quti</option>
+        <option value="paket">paket</option>
+        <option value="kg">kg</option>
+        <option value="metr">metr</option>
+      </select></div>
+      <div class="fld"><label>Qutida nechta</label><input id="ap-inbox" type="number" value="1" min="1" title="1 quti/paketda nechta dona/juft bor"></div>
+    </div>
+    <div class="r3">
+      <div class="fld"><label>Rang</label><input id="ap-color" placeholder="Qora"></div>
+      <div class="fld"><label>O'lcham</label><select id="ap-size"></select></div>
+      <div class="fld"><label>Qoldiq</label><input id="ap-qty" type="number" value="10" min="0"></div>
+    </div>
+    <div class="r3">
+      <div class="fld"><label>Tannarx (USD)</label><input id="ap-cost" type="number" value="20" step="0.5" oninput="apCostNote()"></div>
+      <div class="fld"><label>Chakana narx (so'm)</label><input id="ap-price" type="number" value="350000" step="1000"></div>
+      <div class="fld"><label>Ulgurji narx (so'm)</label><input id="ap-ulgurji" type="number" value="300000" step="1000"></div>
+    </div>
+    <div style="background:var(--bg);border-radius:var(--rs);padding:8px 11px;font-size:12.5px;color:var(--mut);margin-bottom:12px" id="ap-cost-note"></div>
+    <button class="btn btn-acc" style="width:100%" onclick="addProduct()"><i class="ti ti-check"></i>Qo'shish</button>
+  </div>
+</div>
+
+<!-- MODAL: EDIT PRODUCT -->
+<div class="ov" id="ov-editprod" onclick="if(event.target===this)closeModal('editprod')">
+  <div class="modal modal-lg">
+    <button class="m-close" onclick="closeModal('editprod')"><i class="ti ti-x"></i></button>
+    <h2 id="ep-title">Mahsulotni tahrirlash</h2>
+    <div class="r3">
+      <div class="fld"><label>Mahsulot nomi</label><input id="ep-name"></div>
+      <div class="fld"><label>Kategoriya</label><input id="ep-cat"></div>
+      <div class="fld"><label>O'lchov birligi</label><select id="ep-unit">
+        <option value="juft">juft</option><option value="dona">dona</option>
+        <option value="quti">quti</option><option value="paket">paket</option>
+        <option value="kg">kg</option><option value="metr">metr</option>
+      </select></div>
+    </div>
+    <div class="r3">
+      <div class="fld"><label>Tannarx (USD)</label><input id="ep-cost" type="number" step="0.5"></div>
+      <div class="fld"><label>Chakana narx (so'm)</label><input id="ep-price" type="number" step="1000"></div>
+      <div class="fld"><label>Ulgurji narx (so'm)</label><input id="ep-ulgurji" type="number" step="1000"></div>
+    </div>
+    <div class="sep"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span style="font-weight:600;font-size:14px">Variantlar</span>
+      <button class="btn btn-ghost btn-sm" onclick="epAddVariantRow()"><i class="ti ti-plus"></i>Qo'shish</button>
+    </div>
+    <table class="vtable"><thead><tr><th>Rang</th><th>O'lcham</th><th>Qoldiq</th><th></th></tr></thead>
+    <tbody id="ep-variants"></tbody></table>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-acc" style="flex:1" onclick="saveEditProduct()"><i class="ti ti-check"></i>Saqlash</button>
+      <button class="btn btn-red btn-sm" onclick="deleteProduct()"><i class="ti ti-trash"></i>O'chirish</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: VARIANT PICKER -->
+<div class="ov" id="ov-variant" onclick="if(event.target===this)closeModal('variant')">
+  <div class="modal">
+    <button class="m-close" onclick="closeModal('variant')"><i class="ti ti-x"></i></button>
+    <h2 id="vm-title">Variant tanlash</h2>
+    <div><span style="font-size:13px;color:var(--mut);display:block;margin-bottom:5px">Rang</span><div class="vchips" id="vm-colors"></div></div>
+    <div><span style="font-size:13px;color:var(--mut);display:block;margin-bottom:5px">O'lcham</span><div class="vchips" id="vm-sizes"></div></div>
+    <div style="background:var(--bg);border-radius:var(--rs);padding:9px 11px;font-size:13px;margin-bottom:12px" id="vm-info">Rang tanlang</div>
+    <div class="fld"><label>Miqdor</label>
+      <input id="vm-qty" type="number" value="1" min="1" style="font-family:inherit;font-size:16px;font-weight:600;text-align:center;border:1.5px solid var(--brd);border-radius:var(--rs);padding:9px">
+    </div>
+    <div id="vm-price-box" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:8px 11px;background:var(--teal2);border-radius:var(--rs)">
+      <span style="font-size:13px;color:#134E4A" id="vm-price-lbl">Narx:</span>
+      <span style="font-family:Sora;font-weight:700;font-size:16px;color:var(--teal)" id="vm-price-val">—</span>
+    </div>
+    <button class="btn btn-teal" style="width:100%" onclick="confirmVariant()"><i class="ti ti-shopping-cart-plus"></i>Savatchaga qo'shish</button>
+  </div>
+</div>
+
+<!-- MODAL: OMBOR QABUL -->
+<div class="ov" id="ov-qabul" onclick="if(event.target===this)closeModal('qabul')">
+  <div class="modal modal-lg">
+    <button class="m-close" onclick="closeModal('qabul')"><i class="ti ti-x"></i></button>
+    <h2>Tovar qabul qilish</h2>
+    <div class="r2">
+      <div class="fld"><label>Mahsulot nomi</label>
+        <input id="qb-name" placeholder="Nomini yozing..." oninput="qbAutofill(this.value)" list="qb-list">
+        <datalist id="qb-list"></datalist>
+      </div>
+      <div class="fld"><label>O'lchov birligi</label><select id="qb-unit">
+        <option value="juft">juft</option><option value="dona">dona</option>
+        <option value="quti">quti</option><option value="paket">paket</option>
+        <option value="kg">kg</option><option value="metr">metr</option>
+      </select></div>
+    </div>
+    <div class="r3">
+      <div class="fld"><label>Rang</label><input id="qb-color" placeholder="Qora" list="qb-colors"><datalist id="qb-colors"></datalist></div>
+      <div class="fld"><label>O'lcham</label><input id="qb-size" placeholder="42" list="qb-sizes"><datalist id="qb-sizes"></datalist></div>
+      <div class="fld"><label>Miqdor</label><input id="qb-qty" type="number" value="10" min="1"></div>
+    </div>
+    <div class="r3">
+      <div class="fld"><label>Tannarx (so'm/dona)</label><input id="qb-cost" type="number" placeholder="0" step="1000"></div>
+      <div class="fld"><label>Chakana narxni yangilash</label><input id="qb-price" type="number" placeholder="0 = o'zgartirmaslik" step="1000"></div>
+      <div class="fld"><label>Ulgurji narxni yangilash</label><input id="qb-ulgurji" type="number" placeholder="0 = o'zgartirmaslik" step="1000"></div>
+    </div>
+    <div class="r3">
+      <div class="fld"><label>Yetkazuvchi</label><input id="qb-sup" placeholder="Yetkazuvchi nomi"></div>
+      <div class="fld"><label>Partiya raqami</label><input id="qb-partiya" placeholder="Masalan: 2025-06-01"></div>
+      <div class="fld"><label>To'lov holati</label>
+        <select id="qb-pay"><option value="tolangan">To'langan</option><option value="qarz">Qarzga (to'lanmagan)</option></select>
+      </div>
+    </div>
+    <div style="background:var(--bg);border-radius:var(--rs);padding:9px 11px;font-size:12.5px;color:var(--mut);margin-bottom:12px" id="qb-info"></div>
+    <button class="btn btn-teal" style="width:100%" onclick="qabulOl()"><i class="ti ti-package"></i>Qabul qilish</button>
+  </div>
+</div>
+
+<!-- MODAL: ADD CUSTOMER -->
+<div class="ov" id="ov-addcust" onclick="if(event.target===this)closeModal('addcust')">
+  <div class="modal">
+    <button class="m-close" onclick="closeModal('addcust')"><i class="ti ti-x"></i></button>
+    <h2>Yangi mijoz</h2>
+    <div class="fld"><label>Ism familiya</label><input id="ac-name" placeholder="Alisher Karimov"></div>
+    <div class="r2">
+      <div class="fld"><label>Telefon</label><input id="ac-phone" placeholder="+998 90 000 00 00"></div>
+      <div class="fld"><label>Mijoz turi</label><select id="ac-type"><option value="chakana">Chakana (do'kon egasi)</option><option value="ulgurji">Ulgurji xaridor</option><option value="other">Boshqa</option></select></div>
+    </div>
+    <div class="fld"><label>Manzil / Izoh</label><input id="ac-note" placeholder="ixtiyoriy"></div>
+    <button class="btn btn-acc" style="width:100%;margin-top:4px" onclick="addCustomer()"><i class="ti ti-check"></i>Saqlash</button>
+  </div>
+</div>
+
+
+<!-- MODAL: ADD STAFF -->
+<div class="ov" id="ov-addstaff" onclick="if(event.target===this)closeModal('addstaff')">
+  <div class="modal">
+    <button class="m-close" onclick="closeModal('addstaff')"><i class="ti ti-x"></i></button>
+    <h2>Xodim qo'shish</h2>
+    <div class="fld"><label>Ism familiya</label><input id="as-name" placeholder="Alisher Karimov"></div>
+    <div class="r2">
+      <div class="fld"><label>Telefon</label><input id="as-phone" placeholder="+998 90 ..."></div>
+      <div class="fld"><label>Lavozim</label><select id="as-role">
+        <option value="kassir">Kassir</option>
+        <option value="menejer">Menejer</option>
+        <option value="omborchi">Omborchi</option>
+      </select></div>
+    </div>
+    <button class="btn btn-acc" style="width:100%;margin-top:4px" onclick="addStaff()"><i class="ti ti-check"></i>Saqlash</button>
+  </div>
+</div>
+
+<!-- MODAL: ADD XARAJAT -->
+<div class="ov" id="ov-addxarajat" onclick="if(event.target===this)closeModal('addxarajat')">
+  <div class="modal">
+    <button class="m-close" onclick="closeModal('addxarajat')"><i class="ti ti-x"></i></button>
+    <h2>Xarajat qo'shish</h2>
+    <div class="mol-cats" id="exp-cats">
+      <span class="mcat on" data-c="Ijara" onclick="expCatPick(this)">Ijara</span>
+      <span class="mcat" data-c="Maosh" onclick="expCatPick(this)">Maosh</span>
+      <span class="mcat" data-c="Transport" onclick="expCatPick(this)">Transport</span>
+      <span class="mcat" data-c="Kommunal" onclick="expCatPick(this)">Kommunal</span>
+      <span class="mcat" data-c="Reklama" onclick="expCatPick(this)">Reklama</span>
+      <span class="mcat" data-c="Yetkazuvchi" onclick="expCatPick(this)">Yetkazuvchi to'lov</span>
+      <span class="mcat" data-c="Boshqa" onclick="expCatPick(this)">Boshqa</span>
+    </div>
+    <input id="exp-cat-val" type="hidden" value="Ijara">
+    <div class="r2">
+      <div class="fld"><label>Summa (so'm)</label><input id="ax-sum" type="number" step="10000" placeholder="0"></div>
+      <div class="fld"><label>Sana</label><input id="ax-date" type="date"></div>
+    </div>
+    <div class="fld"><label>Izoh</label><input id="ax-note" placeholder="ixtiyoriy"></div>
+    <button class="btn btn-red" style="width:100%;margin-top:4px" onclick="addXarajat()"><i class="ti ti-check"></i>Saqlash</button>
+  </div>
+</div>
+
+<div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
+<!-- JS Modules — loading order matters -->
+<script src="js/db.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/sms.js"></script>
+<script src="js/cloud.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/pos.js"></script>
+<script src="js/katalog.js"></script>
+<script src="js/ombor.js"></script>
+<script src="js/mijozlar.js"></script>
+<script src="js/qarzlar.js"></script>
+<script src="js/tarix.js"></script>
+<script src="js/hisobot.js"></script>
+<script src="js/xodimlar.js"></script>
+<script src="js/moliya.js"></script>
+<script src="js/egasi.js"></script>
+<script src="js/init.js"></script>
+</body>
+</html>
