@@ -55,40 +55,110 @@
 .vmut-btn{padding:7px 16px;border-radius:8px;border:1.5px solid var(--brd,#e0ddd8);font-size:12.5px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s;font-weight:500}
 .vmut-btn.on{background:#E9A500;color:#fff;border-color:#E9A500}
 
-/* ═══ POS v4 ═══ */
+/* ═══ POS v5 — Professional Design ═══ */
 #p-pos{padding:0!important}
 .pos-wrap{display:flex;height:calc(100vh - 56px);overflow:hidden}
-.pos-left{flex:1;display:flex;flex-direction:column;background:#fff;border-right:1px solid var(--brd);overflow:hidden;min-width:0}
-.pos-right{width:360px;flex-shrink:0;display:flex;flex-direction:column;background:var(--bg);overflow:hidden}
-.pos-topbar{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--brd);background:#fff;flex-shrink:0}
+
+/* ─ Chap panel ─ */
+.pos-left{flex:1;display:flex;flex-direction:column;background:#F8F7F4;border-right:1px solid #E0DDD8;overflow:hidden;min-width:0}
+.pos-topbar{display:flex;align-items:center;gap:10px;padding:14px 16px 12px;background:#fff;border-bottom:1px solid #E8E5E0;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.04)}
 .pos-search-box{flex:1;position:relative;display:flex;align-items:center}
-.pos-search-box input{width:100%;padding:10px 34px 10px 38px;font-size:14px;border:2px solid var(--brd);border-radius:10px;font-family:inherit;outline:none;transition:border-color .15s}
-.pos-search-box input:focus{border-color:var(--acc)}
-.pos-search-ico{position:absolute;left:12px;font-size:16px;color:#ccc;pointer-events:none}
-.pos-cam-btn{width:42px;height:42px;border-radius:10px;font-size:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0}
-.pos-results{flex:1;overflow-y:auto;padding:12px}
-.pos-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:280px;text-align:center}
-.pos-ri{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid var(--brd);background:#fff;margin-bottom:8px;cursor:pointer;transition:all .15s}
-.pos-ri:hover{border-color:var(--acc);box-shadow:0 3px 14px rgba(233,165,0,.15);transform:translateY(-1px)}
-.pri-ico{width:44px;height:44px;border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.pos-search-box input{width:100%;padding:11px 36px 11px 42px;font-size:14.5px;border:2px solid #E8E5E0;border-radius:12px;font-family:inherit;outline:none;transition:all .2s;background:#F8F7F4;color:#0D1B2A;font-weight:500}
+.pos-search-box input::placeholder{color:#C0BBB4;font-weight:400}
+.pos-search-box input:focus{border-color:#E9A500;background:#fff;box-shadow:0 0 0 4px rgba(233,165,0,.1)}
+.pos-search-ico{position:absolute;left:14px;font-size:17px;color:#C0BBB4;pointer-events:none;transition:color .2s}
+.pos-search-box input:focus ~ .pos-search-ico,.pos-search-box:focus-within .pos-search-ico{color:#E9A500}
+.pos-cam-btn{width:44px;height:44px;border-radius:12px;font-size:19px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0;background:#0D1B2A;color:#fff;border:none;cursor:pointer;transition:background .15s}
+.pos-cam-btn:hover{background:#1a2d42}
+.pos-results{flex:1;overflow-y:auto;padding:14px}
+.pos-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;text-align:center}
+
+/* ─ Mahsulot kartasi ─ */
+.pos-ri{display:flex;align-items:center;gap:14px;padding:13px 16px;border-radius:14px;border:1.5px solid #EDEAE4;background:#fff;margin-bottom:10px;cursor:pointer;transition:all .18s;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.pos-ri:hover{border-color:#E9A500;box-shadow:0 4px 18px rgba(233,165,0,.18);transform:translateY(-2px)}
+.pos-ri:active{transform:none;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .pri-body{flex:1;min-width:0}
-.pri-name{font-weight:700;font-size:13.5px;color:#0D1B2A;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pri-meta{font-size:11.5px;color:#bbb;margin-bottom:4px}
-.pri-colors{display:flex;flex-wrap:wrap;gap:4px}
-.pri-clr{font-size:10.5px;background:var(--bg);border:1px solid var(--brd);border-radius:4px;padding:1px 7px;color:#666}
-.pri-box-badge{margin-left:6px;font-size:10.5px;background:#FFF8E7;color:#856404;border-radius:4px;padding:1px 6px;border:1px solid #f0d882}
+.pri-name{font-weight:700;font-size:14px;color:#0D1B2A;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pri-meta{font-size:11.5px;color:#B8B2A8;margin-bottom:5px}
+.pri-colors{display:flex;flex-wrap:wrap;gap:5px}
+.pri-clr{font-size:11px;background:#F4F2EE;border:1px solid #E8E5E0;border-radius:5px;padding:2px 8px;color:#666;display:inline-flex;align-items:center;gap:4px}
+.pri-box-badge{margin-left:6px;font-size:10.5px;background:#FFF8E7;color:#856404;border-radius:5px;padding:2px 8px;border:1px solid #F0D882}
 .pri-right{text-align:right;flex-shrink:0}
-.pri-price{font-size:14px;font-weight:800;color:var(--acc)}
-.pri-stock{font-size:11px;color:#bbb;margin-top:2px}.pri-stock.low{color:var(--red)}
-.cart-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 10px;border-bottom:1px solid var(--brd);background:#fff;flex-shrink:0}
-.cart-scroll{flex:1;overflow-y:auto;padding:8px 10px}
-.cart-ft{border-top:2px solid var(--brd);padding:12px 14px;background:#fff;overflow-y:auto;flex-shrink:0;max-height:65vh}
-.cart-tot{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--brd)}
-.cart-tot-v{font-size:20px;font-weight:800;color:#0D1B2A}
-.pos-pay-btn{width:100%;padding:14px;background:var(--acc);color:#fff;border:none;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .15s,transform .1s}
-.pos-pay-btn:hover{background:#d49400;transform:translateY(-1px)}
-.pos-pay-btn:active{transform:none}
-.ci-box-badge{font-size:10px;background:#FFF3CD;color:#856404;border-radius:4px;padding:1px 7px;font-weight:600;margin-left:4px}
+.pri-price{font-size:16px;font-weight:800;color:#E9A500;letter-spacing:-.3px}
+.pri-stock{font-size:11.5px;color:#B8B2A8;margin-top:3px}
+.pri-stock.low{color:#E05A5A;font-weight:600}
+
+/* ─ O'ng panel ─ */
+.pos-right{width:380px;flex-shrink:0;display:flex;flex-direction:column;background:#fff;overflow:hidden;box-shadow:-2px 0 12px rgba(0,0,0,.06)}
+
+/* ─ Savatcha header ─ */
+.cart-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;background:#0D1B2A;flex-shrink:0}
+.cart-hd-title{display:flex;align-items:center;gap:8px;color:#fff;font-weight:700;font-size:15px}
+.cart-hd-title i{color:#E9A500;font-size:17px}
+.cart-hd-cnt{font-size:12px;color:rgba(255,255,255,.45);font-weight:400;margin-left:4px}
+
+/* ─ Savatcha items ─ */
+.cart-scroll{flex:1;overflow-y:auto;background:#F8F7F4;padding:10px 12px}
+.cart-mt{display:flex;flex-direction:column;align-items:center;justify-content:center;height:180px;color:#C8C3BB;text-align:center;gap:8px;font-size:13px}
+.cart-mt i{font-size:36px;opacity:.4}
+
+.ci{background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;border:1px solid #EDEAE4;transition:box-shadow .15s}
+.ci:hover{box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.ci-nm{font-weight:700;font-size:13px;color:#0D1B2A;margin-bottom:3px}
+.ci-vr{font-size:11.5px;color:#A8A29E;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.ci-row{display:flex;align-items:center;gap:8px}
+.qty-ctrl{display:flex;align-items:center;gap:0;background:#F4F2EE;border-radius:8px;overflow:hidden;border:1.5px solid #E8E5E0}
+.qty-ctrl button{width:30px;height:30px;border:none;background:transparent;cursor:pointer;font-size:16px;font-weight:700;color:#555;transition:background .12s;display:flex;align-items:center;justify-content:center}
+.qty-ctrl button:hover{background:#E9A50022;color:#E9A500}
+.qty-ctrl input{width:36px;text-align:center;border:none;outline:none;font-family:inherit;font-weight:700;font-size:13.5px;background:transparent;color:#0D1B2A}
+.ci-pr{margin-left:auto;font-weight:800;font-size:14px;color:#0D1B2A}
+.ci-rm{background:none;border:none;cursor:pointer;color:#C8C3BB;padding:4px;border-radius:6px;font-size:15px;transition:color .12s;display:flex}
+.ci-rm:hover{color:#E05A5A;background:#FEF2F2}
+.ci-box-badge{font-size:10px;background:#FFF3CD;color:#856404;border-radius:4px;padding:2px 7px;font-weight:600}
+
+/* ─ Footer (to'lov) ─ */
+.cart-ft{border-top:2px solid #E8E5E0;padding:14px 16px 16px;background:#fff;overflow-y:auto;flex-shrink:0}
+.cart-tot{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:12px 14px;background:#F8F7F4;border-radius:12px;border:1px solid #E8E5E0}
+.cart-tot-lbl{font-size:12px;color:#A8A29E;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.cart-tot-v{font-size:22px;font-weight:900;color:#0D1B2A;letter-spacing:-.5px}
+
+/* ─ Mijoz bo'limi ─ */
+.cust-lbl{font-size:10.5px;color:#A8A29E;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.cust-lbl span{font-weight:400;text-transform:none;color:#C8C3BB}
+
+/* ─ To'lov usuli tugmalari ─ */
+.paytypes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.ptbtn{padding:10px 6px;border-radius:10px;border:2px solid #E8E5E0;font-size:12px;font-family:inherit;cursor:pointer;background:#F8F7F4;color:#888;transition:all .15s;font-weight:600;text-align:center}
+.ptbtn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
+.ptbtn:hover:not(.on){border-color:#0D1B2A;background:#F0EEE8}
+
+/* ─ To'liq/Qisman rejim ─ */
+.pmodes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.pmode-btn{padding:9px;border-radius:10px;border:2px solid #E8E5E0;font-size:12.5px;font-family:inherit;cursor:pointer;background:#F8F7F4;color:#666;transition:all .15s;font-weight:600;display:flex;align-items:center;justify-content:center;gap:5px}
+.pmode-btn.on{background:#fff;border-color:#0D1B2A;color:#0D1B2A;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.pmode-btn:hover:not(.on){border-color:#0D1B2A}
+
+/* ─ Qarz bo'limi ─ */
+.rem-box{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-radius:10px;font-size:13px;margin-bottom:0;transition:background .2s}
+.rem-box.uzs{background:#FEF2F2;border:1px solid #FECACA}
+.rem-box.usd{background:#EBF5FB;border:1px solid #AED6F1}
+.rem-lbl-uzs{color:#991B1B;font-weight:600}
+.rem-lbl-usd{color:#1B4F72;font-weight:600}
+
+/* ─ Sotish tugmasi ─ */
+.pos-pay-btn{width:100%;padding:16px;background:linear-gradient(135deg,#E9A500,#F5C023);color:#fff;border:none;border-radius:14px;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .15s;box-shadow:0 4px 14px rgba(233,165,0,.4);letter-spacing:.01em;margin-top:10px}
+.pos-pay-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(233,165,0,.5)}
+.pos-pay-btn:active{transform:none;box-shadow:0 2px 8px rgba(233,165,0,.3)}
+.pos-pay-btn i{font-size:20px}
+#pos-pay-total{margin-left:auto;font-size:17px;opacity:.95;font-variant-numeric:tabular-nums}
+
+/* Kassir select */
+.pos-right select,
+.pos-right input[type=text],
+.pos-right input[type=number],
+.pos-right input[type=date]{border:1.5px solid #E8E5E0;border-radius:9px;padding:8px 11px;font-family:inherit;font-size:13px;width:100%;background:#F8F7F4;color:#0D1B2A;transition:border-color .15s;outline:none}
+.pos-right select:focus,
+.pos-right input:focus{border-color:#E9A500;background:#fff}
 
 /* ═══ Ombor v2 ═══ */
 .om-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}
@@ -268,12 +338,12 @@
     <!-- O'NG: Savatcha + To'lov -->
     <div class="pos-right">
       <div class="cart-hd">
-        <div style="display:flex;align-items:center;gap:8px">
-          <i class="ti ti-shopping-cart" style="font-size:16px;color:var(--acc)"></i>
-          <span style="font-weight:700;font-size:14px">Savatcha</span>
-          <span id="cart-cnt" style="font-size:12px;color:var(--mut)">bo'sh</span>
+        <div class="cart-hd-title">
+          <i class="ti ti-shopping-cart"></i>
+          Savatcha
+          <span id="cart-cnt" class="cart-hd-cnt">bo'sh</span>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="clearCart()" style="color:var(--red)">
+        <button onclick="clearCart()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;transition:.15s" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">
           <i class="ti ti-trash"></i>
         </button>
       </div>
@@ -285,15 +355,19 @@
       <div class="cart-ft">
         <!-- Jami -->
         <div class="cart-tot">
-          <span style="font-size:13px;color:var(--mut)">Jami</span>
-          <span class="cart-tot-v num" id="cart-total">0 so'm</span>
+          <div>
+            <div class="cart-tot-lbl">Jami to'lov</div>
+            <span class="cart-tot-v num" id="cart-total">0 so'm</span>
+          </div>
+          <div style="text-align:right">
+            <div class="cart-tot-lbl">Tovarlar</div>
+            <div style="font-size:14px;font-weight:700;color:#666" id="cart-items-count">0 ta</div>
+          </div>
         </div>
 
         <!-- Mijoz (ikkala rejimda ham) -->
         <div style="margin-bottom:10px">
-          <div style="font-size:10.5px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
-            Mijoz <span style="font-weight:400;color:#ccc;text-transform:none">(ixtiyoriy)</span>
-          </div>
+          <div class="cust-lbl">Mijoz <span>(ixtiyoriy)</span></div>
           <select id="c-cust" onchange="custPick()"
             style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;width:100%;margin-bottom:6px">
             <option value="">— Mijoz tanlang —</option>

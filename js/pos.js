@@ -308,6 +308,7 @@ function renderCart() {
   const total = cart.reduce((a, c) => a + c.price * c.qty, 0);
   const count = cart.reduce((a, c) => a + c.qty, 0);
   $("cart-cnt").textContent = cart.length ? count + " ta" : "bo'sh";
+  if ($("cart-items-count")) $("cart-items-count").textContent = cart.length ? count + " ta" : "0 ta";
 
   // Pay button totalini yangilash
   if ($("pos-pay-total")) $("pos-pay-total").textContent = priceDisplay(total);
