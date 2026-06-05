@@ -112,21 +112,33 @@ function posSearch() {
     const narx  = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
     const st    = totalStock(p);
     const inBox = p.inBox || 1;
-    const icon  = p.type === "oyoq" ? "👟" : "👕";
     const boxBadge = posPriceType === "ulgurji" && inBox > 1
-      ? `<span class="pri-box-badge">📦 1 karobka = ${inBox} ${p.unit||"dona"}</span>` : "";
-    const colors = [...new Set(p.variants.map(v => v.color))];
+      ? `<span class="pri-box-badge">📦 ${inBox} ${p.unit||"dona"}/karobka</span>` : "";
+    const colorDots = [...new Set(p.variants.map(v => v.color))].map(c => {
+      const v   = p.variants.find(x => x.color === c);
+      const hex = v?.hex || "#888";
+      const qty = p.variants.filter(x => x.color===c).reduce((a,v)=>a+v.qty,0);
+      return `<span class="pri-clr">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;
+          background:${hex};border:1px solid rgba(0,0,0,.15);vertical-align:middle;margin-right:3px"></span>
+        ${c} (${qty})</span>`;
+    }).join("");
+    const imgHtml = p.image
+      ? `<img src="${p.image}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--brd);flex-shrink:0">`
+      : `<div style="width:52px;height:52px;border:1.5px dashed #e0ddd8;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:20px;flex-shrink:0"><i class="ti ti-photo"></i></div>`;
     return `<div class="pos-ri" onclick="openVariantModal('${p.sku}')">
-      <div class="pri-ico">${icon}</div>
+      ${imgHtml}
       <div class="pri-body">
         <div class="pri-name">${p.name}</div>
         <div class="pri-meta">${p.category} · SKU: ${p.sku}${boxBadge}</div>
-        <div class="pri-colors">${colors.map(c =>
-          `<span class="pri-clr">${c}</span>`).join("")}</div>
+        <div class="pri-colors">${colorDots}</div>
       </div>
       <div class="pri-right">
         <div class="pri-price">${priceDisplay(narx)}</div>
-        <div class="pri-stock ${st<=5?"low":""}">${st} ${p.unit||"dona"}</div>
+        <div class="pri-stock ${st<=5?"low":""}">
+          ${st} ${p.unit||"dona"}
+          ${inBox>1?`<span style="font-size:10px;color:#bbb">(${Math.floor(st/inBox)} karobka)</span>`:""}
+        </div>
         ${p.ulgurjiNarx && posPriceType==="chakana"
           ? `<div style="font-size:10px;color:#aaa">Ulgurji: ${priceDisplay(p.ulgurjiNarx)}</div>` : ""}
       </div>
@@ -140,8 +152,11 @@ function posClear() {
   $("pos-q")?.focus();
 }
 
-// ── Narx turi ────────────────────────────────────
-function setPriceType(t) {
+// ── renderPosGrid — utils.js bilan moslik ────────
+// utils.js nav() va toggleCurrency() dan chaqiriladi
+function renderPosGrid() {
+  posSearch();
+}
   posPriceType = t;
   document.querySelectorAll("#price-type-seg button").forEach(b => b.classList.toggle("on", b.dataset.pt === t));
   posSearch(); renderCart();
