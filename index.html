@@ -88,6 +88,23 @@
 .pos-pay-btn:hover{background:#d49400;transform:translateY(-1px)}
 .pos-pay-btn:active{transform:none}
 .ci-box-badge{font-size:10px;background:#FFF3CD;color:#856404;border-radius:4px;padding:1px 7px;font-weight:600;margin-left:4px}
+
+/* ═══ Ombor v2 ═══ */
+.om-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}
+@media(max-width:1100px){.om-kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.om-kpis{grid-template-columns:repeat(2,1fr)}}
+.stb2{background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #ede9e2}
+.stb2-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.stb2-ico{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.stb2-lbl{font-size:11.5px;color:#999}
+.stb2-val{font-size:18px;font-weight:800;color:#0D1B2A;line-height:1;margin-bottom:3px}
+.stb2-sub{font-size:11px;color:#bbb}
+.om-tabbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px}
+.om-tabs{display:flex;gap:4px}
+.om-tab{padding:8px 16px;border-radius:8px;border:1.5px solid var(--brd);font-size:13px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s;display:flex;align-items:center;gap:6px}
+.om-tab.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
+.om-filter-btn{padding:4px 12px;border-radius:6px;border:1.5px solid var(--brd);font-size:12px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.om-filter-btn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
 </style>
 </head>
 <body>
@@ -337,24 +354,89 @@
 
   <!-- OMBOR -->
   <div class="pg" id="p-ombor">
-    <div class="stat-row">
-      <div class="stb"><div class="sl">Bugungi kirim</div><div class="sv" id="om-today">0</div></div>
-      <div class="stb"><div class="sl">Bu oy kirim qiymati</div><div class="sv num" id="om-val">0</div></div>
-      <div class="stb" style="border-top:3px solid var(--red)"><div class="sl" style="color:var(--red)">Yetkazuvchi qarzi</div><div class="sv" id="om-debt" style="color:var(--red)">0</div></div>
-      <div class="stb"><div class="sl">Ombor qiymati (tannarx)</div><div class="sv num" id="om-total">0</div></div>
+
+    <!-- KPI qatori -->
+    <div class="om-kpis" id="om-kpi-row"></div>
+
+    <!-- Tab bar + amallar -->
+    <div class="om-tabbar">
+      <div class="om-tabs">
+        <button class="om-tab on" data-tab="qoldiq" onclick="omSetTab('qoldiq')">
+          <i class="ti ti-package"></i> Joriy qoldiq
+        </button>
+        <button class="om-tab" data-tab="kirim" onclick="omSetTab('kirim')">
+          <i class="ti ti-arrow-down-circle"></i> Kirim tarixi
+        </button>
+        <button class="om-tab" data-tab="sup" onclick="omSetTab('sup')">
+          <i class="ti ti-truck"></i> Yetkazuvchilar
+        </button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="om-q" placeholder="Qidirish..." oninput="omSearch()"
+          style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 12px;width:180px">
+        <button class="btn btn-ghost btn-sm" onclick="omToggleCols()" title="Ustunlarni sozlash">
+          <i class="ti ti-settings"></i>
+        </button>
+        <button class="btn btn-acc btn-sm" onclick="openModal('qabul')">
+          <i class="ti ti-plus"></i> Tovar qabul
+        </button>
+      </div>
     </div>
-    <div class="card">
-      <div class="ch">
-        <h3><i class="ti ti-package"></i>Kirim tarixi</h3>
-        <div style="display:flex;gap:8px">
-          <input id="om-q" placeholder="Qidirish..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:160px" oninput="renderOmbor()">
-          <button class="btn btn-acc btn-sm" onclick="openModal('qabul')"><i class="ti ti-plus"></i>Tovar qabul</button>
-        </div>
+
+    <!-- Ustunlarni sozlash paneli -->
+    <div id="om-cols-panel" style="display:none"></div>
+
+    <!-- TAB 1: Joriy qoldiq -->
+    <div id="om-tab-qoldiq" class="card" style="overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--brd);flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Filtr:</span>
+        <button class="om-filter-btn on" data-f="all" onclick="omSetFilter('all')">Barchasi</button>
+        <button class="om-filter-btn" data-f="low" onclick="omSetFilter('low')">
+          <i class="ti ti-alert-triangle" style="font-size:12px"></i> Kam qoldiq (≤5)
+        </button>
+        <button class="om-filter-btn" data-f="out" onclick="omSetFilter('out')">
+          <i class="ti ti-x" style="font-size:12px"></i> Tugagan
+        </button>
       </div>
       <div style="overflow-x:auto">
-      <table><thead><tr><th>Sana</th><th>Mahsulot</th><th>O'lchov</th><th>Rang/O'lcham</th><th>Miqdor</th><th>Tannarx</th><th>Sotuv narxi</th><th>Jami (tannarx)</th><th>Yetkazuvchi</th><th>Partiya</th><th>To'lov</th></tr></thead>
-      <tbody id="ombor-body"></tbody></table></div>
+        <table id="om-qoldiq-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="om-qoldiq-foot" style="border-top:1px solid var(--brd)"></div>
     </div>
+
+    <!-- TAB 2: Kirim tarixi -->
+    <div id="om-tab-kirim" class="card" style="display:none;overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Sana</th><th>Mahsulot</th><th>Birlik</th><th>Rang/O'lcham</th>
+            <th>Miqdor</th><th>Tannarx</th><th>Chakana narx</th><th>Jami</th>
+            <th>Yetkazuvchi</th><th>Partiya</th><th>To'lov</th>
+          </tr>
+        </thead>
+        <tbody id="ombor-body"></tbody>
+      </table>
+    </div>
+
+    <!-- TAB 3: Yetkazuvchilar -->
+    <div id="om-tab-sup" class="card" style="display:none;overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Yetkazuvchi</th>
+            <th class="num">Jami dona</th>
+            <th class="num">Jami qiymat</th>
+            <th class="num">To'langan</th>
+            <th class="num">Qarz</th>
+          </tr>
+        </thead>
+        <tbody id="om-sup-body"></tbody>
+      </table>
+    </div>
+
   </div>
 
   <!-- MIJOZLAR -->
