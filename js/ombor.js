@@ -384,10 +384,11 @@ function qabulOl() {
     if (qty <= 0) { toast("Miqdor kiriting","err"); return; }
   }
 
-  const kirimN  = parseFloat(($("qb-cost")||{value:0}).value)    || 0;
-  const newChk  = parseFloat(($("qb-price")||{value:0}).value)   || 0;
-  const newUlg  = parseFloat(($("qb-ulgurji")||{value:0}).value) || 0;
-  const unit    = ($("qb-unit")||{value:"dona"}).value;
+  const kirimN    = parseFloat(($("qb-cost")||{value:0}).value)    || 0;
+  const newChk    = parseFloat(($("qb-price")||{value:0}).value)   || 0;
+  const newUlg    = parseFloat(($("qb-ulgurji")||{value:0}).value) || 0;
+  const unit      = ($("qb-unit")||{value:"dona"}).value;
+  const qbBarcode = ($("qb-barcode")||{value:""}).value.trim();
 
   let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (p) {
@@ -400,6 +401,7 @@ function qabulOl() {
     }
     if (newChk > 0) p.priceUzs    = newChk;
     if (newUlg > 0) p.ulgurjiNarx = newUlg;
+    if (qbBarcode)  p.barcode     = qbBarcode;
     p.unit = unit;
   } else {
     db.products.push({
@@ -407,7 +409,7 @@ function qabulOl() {
       name, category:"Qabul qilingan", type:"oyoq", unit, inBox:1,
       costUsd: kirimN / (db.settings.rate||1),
       priceUzs:newChk||0, ulgurjiNarx:newUlg||0,
-      barcode: genEAN13(db.seq),
+      barcode: qbBarcode || genEAN13(db.seq),
       variants:[{color, size, qty, pantone, hex}]
     });
     p = db.products[db.products.length - 1];
@@ -429,7 +431,7 @@ function qabulOl() {
   saveDB(); closeModal("qabul"); renderOmbor();
   if (typeof renderKatalog === "function") renderKatalog();
 
-  ["qb-name","qb-size","qb-sup","qb-partiya"].forEach(id => { if ($(id)) $(id).value = ""; });
+  ["qb-name","qb-size","qb-sup","qb-partiya","qb-barcode"].forEach(id => { if ($(id)) $(id).value = ""; });
   if ($("qb-qty"))  $("qb-qty").value  = "10";
   if ($("qb-cost")) $("qb-cost").value = "";
   if ($("qb-info")) $("qb-info").textContent = "";

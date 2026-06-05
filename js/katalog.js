@@ -257,8 +257,103 @@ function deleteProduct() {
   toast(`"${p.name}" o'chirildi`, "info");
 }
 
-// ── Yangi mahsulot qo'shish ────────────────────
-function apTypeChange() {
+// ── O'lcham rejimi (bitta / oralig'i) ──────────
+let apSizeMode = "single";
+
+function apSetSizeMode(m) {
+  apSizeMode = m;
+  document.querySelectorAll(".ap-smode").forEach(b => b.classList.toggle("on", b.dataset.m === m));
+  $("ap-size-single").style.display = m === "single" ? "" : "none";
+  $("ap-size-range").style.display  = m === "range"  ? "" : "none";
+}
+
+function apCalcBoxes() {
+  const boxes  = parseInt(($("ap-boxes")||{value:1}).value)          || 1;
+  const inBoxC = parseInt(($("ap-inbox-calc")||{value:0}).value)     || 0;
+  const from   = ($("ap-size-from")||{value:""}).value;
+  const to     = ($("ap-size-to")||{value:""}).value;
+  const total  = inBoxC > 0 ? boxes * inBoxC : 0;
+
+  if ($("ap-calc-total")) $("ap-calc-total").textContent = total > 0 ? total + " dona" : "— dona";
+  if ($("ap-qty-range"))  $("ap-qty-range").value = total;
+
+  const prev = $("ap-size-range-preview");
+  if (prev && from && to) prev.textContent = `→ ${from}–${to}`;
+  else if (prev) prev.textContent = "";
+
+  // inBox ni asosiy maydondan ham yangilaymiz
+  const inBoxMain = $("ap-inbox");
+  if (inBoxMain && inBoxC > 0) inBoxMain.value = inBoxC;
+}
+
+function addProduct() {
+  const name = ($("ap-name")||{value:""}).value.trim();
+  if (!name) { toast("Nom kiriting","err"); return; }
+
+  const color   = ($("ap-color")||{value:""}).value.trim();
+  if (!color) { toast("Rang tanlang","err"); return; }
+
+  const t       = ($("ap-type")||{value:"oyoq"}).value;
+  const cost    = parseFloat(($("ap-cost")||{value:0}).value)    || 0;
+  const price   = parseFloat(($("ap-price")||{value:0}).value)   || 0;
+  const ulg     = parseFloat(($("ap-ulgurji")||{value:0}).value) || 0;
+  const unit    = ($("ap-unit")||{value:"dona"}).value;
+  const pantone = ($("ap-pantone")||{value:""}).value.trim();
+  const hex     = ($("ap-hex")||{value:"#888888"}).value;
+  const barcode = ($("ap-barcode")||{value:""}).value.trim();
+
+  let inBox, newVariants;
+
+  if (apSizeMode === "range") {
+    const from = ($("ap-size-from")||{value:""}).value;
+    const to   = ($("ap-size-to")||{value:""}).value;
+    if (!from || !to) { toast("Razmer oralig'ini tanlang","err"); return; }
+    const qty = parseInt(($("ap-qty-range")||{value:0}).value) || 0;
+    if (qty <= 0) { toast("Karobka soni va karobkadagi miqdorni kiriting","err"); return; }
+    inBox = parseInt(($("ap-inbox-calc")||{value:1}).value) || 1;
+    newVariants = [{ color, size:`${from}–${to}`, qty, pantone, hex }];
+  } else {
+    const size = ($("ap-size")||{value:""}).value;
+    const qty  = parseInt(($("ap-qty")||{value:0}).value) || 0;
+    inBox = parseInt(($("ap-inbox")||{value:1}).value) || 1;
+    newVariants = [{ color, size, qty, pantone, hex }];
+  }
+
+  let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
+  if (p) {
+    newVariants.forEach(nv => {
+      const ex = p.variants.find(v => v.color === nv.color && v.size === nv.size);
+      if (ex) { ex.qty += nv.qty; if (pantone) { ex.pantone = pantone; ex.hex = hex; } }
+      else p.variants.push(nv);
+    });
+    if (barcode && !p.barcode) p.barcode = barcode;
+  } else {
+    const autoBarcode = barcode || genEAN13(db.seq);
+    db.products.push({
+      sku: `${t==="oyoq"?"SHOE":"CLTH"}-${String(db.seq++).padStart(3,"0")}`,
+      name, category: ($("ap-cat")||{value:""}).value,
+      type:t, unit, inBox,
+      costUsd:cost, priceUzs:price, ulgurjiNarx:ulg,
+      barcode: autoBarcode,
+      variants: newVariants
+    });
+  }
+
+  saveDB(); closeModal("addprod"); renderKatalog();
+  toast(`"${name}" qo'shildi`);
+
+  // Formani tozalash
+  if ($("ap-name"))       $("ap-name").value       = "";
+  if ($("ap-qty"))        $("ap-qty").value         = "10";
+  if ($("ap-boxes"))      $("ap-boxes").value       = "1";
+  if ($("ap-inbox-calc")) $("ap-inbox-calc").value  = "";
+  if ($("ap-calc-total")) $("ap-calc-total").textContent = "— dona";
+  if ($("ap-barcode"))    $("ap-barcode").value     = "";
+  if ($("ap-cost-note"))  $("ap-cost-note").innerHTML = "";
+  if ($("ap-size-range-preview")) $("ap-size-range-preview").textContent = "";
+  ppReset("ap");
+  apSetSizeMode("single");
+}
   const t = ($("ap-type")||{value:"oyoq"}).value;
   if ($("ap-cat"))  $("ap-cat").innerHTML  = (CATS[t]||[]).map(c => `<option>${c}</option>`).join("");
   if ($("ap-size")) $("ap-size").innerHTML = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");

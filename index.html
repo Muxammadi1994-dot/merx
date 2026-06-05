@@ -128,6 +128,10 @@
 .pp-custom-row input[type=text]:focus{border-color:var(--acc)}
 .pp-custom-row input[type=color]{width:40px;height:38px;border:1.5px solid var(--brd);border-radius:7px;cursor:pointer;padding:2px;background:#fff}
 .vb-swatch{display:inline-block;width:10px;height:10px;border-radius:3px;border:1px solid rgba(0,0,0,.15);vertical-align:middle;margin-right:3px}
+
+/* ═══ Katalog size mode ═══ */
+.ap-smode{padding:5px 14px;border-radius:7px;border:1.5px solid var(--brd);font-size:12.5px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s}
+.ap-smode.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
 </style>
 </head>
 <body>
@@ -699,9 +703,68 @@
       <input type="hidden" id="ap-pantone" value="">
       <input type="hidden" id="ap-hex"     value="#888888">
     </div>
-    <div class="r2">
-      <div class="fld"><label>O'lcham</label><select id="ap-size"></select></div>
-      <div class="fld"><label>Qoldiq (dona/juft)</label><input id="ap-qty" type="number" value="10" min="0"></div>
+    <!-- O'lcham rejimi -->
+    <div style="margin-bottom:10px">
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="ap-smode on" data-m="single" onclick="apSetSizeMode('single')">Bitta o'lcham</button>
+        <button class="ap-smode" data-m="range" onclick="apSetSizeMode('range')">Razmer oralig'i</button>
+      </div>
+
+      <!-- Bitta o'lcham -->
+      <div id="ap-size-single" class="r2">
+        <div class="fld" style="margin:0"><label>O'lcham</label><select id="ap-size"></select></div>
+        <div class="fld" style="margin:0"><label>Qoldiq (dona/juft)</label><input id="ap-qty" type="number" value="10" min="0"></div>
+      </div>
+
+      <!-- Razmer oralig'i -->
+      <div id="ap-size-range" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <select id="ap-size-from" onchange="apCalcBoxes()"
+            style="font-family:inherit;font-size:14px;font-weight:600;border:1.5px solid var(--brd);border-radius:8px;padding:6px 10px;color:#333">
+            <option value="">Dan...</option>
+            <option>35</option><option>36</option><option>37</option><option>38</option>
+            <option>39</option><option>40</option><option>41</option><option>42</option>
+            <option>43</option><option>44</option><option>45</option><option>46</option>
+            <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option>
+          </select>
+          <span style="color:#666;font-weight:600">dan</span>
+          <select id="ap-size-to" onchange="apCalcBoxes()"
+            style="font-family:inherit;font-size:14px;font-weight:600;border:1.5px solid var(--brd);border-radius:8px;padding:6px 10px;color:#333">
+            <option value="">Gacha...</option>
+            <option>35</option><option>36</option><option>37</option><option>38</option>
+            <option>39</option><option>40</option><option>41</option><option>42</option>
+            <option>43</option><option>44</option><option>45</option><option>46</option>
+            <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option>
+          </select>
+          <span id="ap-size-range-preview" style="font-size:12px;color:#aaa"></span>
+        </div>
+        <!-- Karobka kalkulyator -->
+        <div style="background:#FFF8E7;border:1px solid #f0d882;border-radius:var(--rs);padding:12px 14px">
+          <div style="font-size:11.5px;color:#856404;font-weight:600;margin-bottom:8px">
+            <i class="ti ti-package" style="margin-right:4px"></i>Karobka hisobi
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div class="fld" style="margin:0;min-width:100px">
+              <label style="font-size:11px">Karobka soni</label>
+              <input id="ap-boxes" type="number" value="1" min="1" oninput="apCalcBoxes()"
+                style="font-size:16px;font-weight:800;text-align:center;border:2px solid #f0d882;border-radius:8px;padding:7px">
+            </div>
+            <div style="font-size:18px;color:#bbb;padding-top:16px">×</div>
+            <div class="fld" style="margin:0;min-width:90px">
+              <label style="font-size:11px">Karobkada nechta</label>
+              <input id="ap-inbox-calc" type="number" min="1" oninput="apCalcBoxes()"
+                style="font-size:16px;font-weight:800;text-align:center;border:2px solid #f0d882;border-radius:8px;padding:7px;color:#856404"
+                placeholder="8">
+            </div>
+            <div style="font-size:18px;color:#bbb;padding-top:16px">=</div>
+            <div style="text-align:center;padding-top:14px">
+              <div style="font-size:11px;color:#bbb">Jami</div>
+              <div style="font-size:18px;font-weight:800;color:#0D1B2A" id="ap-calc-total">— dona</div>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" id="ap-qty-range" value="0">
+      </div>
     </div>
     <div class="r3">
       <div class="fld"><label>Tannarx (USD)</label><input id="ap-cost" type="number" value="20" step="0.5" oninput="apCostNote()"></div>
@@ -902,6 +965,10 @@
       <div class="fld"><label>To'lov holati</label>
         <select id="qb-pay"><option value="tolangan">To'langan</option><option value="qarz">Qarzga (to'lanmagan)</option></select>
       </div>
+    </div>
+    <div class="fld" style="margin-bottom:10px">
+      <label>Barcode / EAN <span style="font-size:11px;font-weight:400;color:var(--mut)">(USB skaner bilan to'ldirishingiz mumkin)</span></label>
+      <input id="qb-barcode" placeholder="8600000000000" style="font-family:monospace;letter-spacing:.05em">
     </div>
     <div style="background:var(--bg);border-radius:var(--rs);padding:9px 11px;font-size:12.5px;color:var(--mut);margin-bottom:12px" id="qb-info"></div>
     <button class="btn btn-teal" style="width:100%" onclick="qabulOl()"><i class="ti ti-package"></i>Qabul qilish</button>
