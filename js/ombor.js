@@ -192,10 +192,10 @@ function omRenderQoldiq() {
           : `<span class="bg bg-g">${r.qty} ${r.unit}</span>`;
 
     const boxCell = r.inBox > 1
-      ? `<span style="font-weight:700;font-size:13px">${r.boxes != null ? r.boxes.toFixed(1).replace(/\.0$/,'') : '—'}</span>
+      ? `<span style="font-weight:700;font-size:14px">${r.boxes != null ? (Number.isInteger(r.boxes) ? r.boxes : r.boxes.toFixed(1)) : '—'}</span>
          <span style="font-size:10.5px;color:#bbb;margin-left:3px">karobka</span>
          <div style="font-size:10px;color:#aaa">×${r.inBox} ${r.unit}</div>`
-      : `<span style="color:#ccc;font-size:12px">—</span>`;
+      : `<span style="font-size:12px;color:#bbb">donab</span>`;
 
     const margin = r.ulgurji > 0 && r.costUzs > 0
       ? Math.round((r.ulgurji - r.costUzs) / r.ulgurji * 100) : null;
@@ -452,7 +452,8 @@ function qabulOl() {
   } else {
     db.products.push({
       sku:`RECV-${String(db.seq++).padStart(3,"0")}`,
-      name, category:"Qabul qilingan", type:"oyoq", unit, inBox:1,
+      name, category:"Qabul qilingan", type:"oyoq",
+      unit, inBox: inBoxEd > 1 ? inBoxEd : 1,
       costUsd: kirimN / (db.settings.rate||1),
       priceUzs:newChk||0, ulgurjiNarx:newUlg||0,
       barcode: qbBarcode || genEAN13(db.seq),
