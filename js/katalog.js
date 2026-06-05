@@ -230,6 +230,7 @@ function openEditProduct(sku) {
   $("ep-ulgurji").value         = p.ulgurjiNarx || 0;
   if ($("ep-unit"))    $("ep-unit").value    = p.unit    || "dona";
   if ($("ep-barcode")) $("ep-barcode").value = p.barcode || "";
+  if ($("ep-inbox"))   $("ep-inbox").value   = p.inBox   || 1;
 
   // Rasm
   if (p.image) {
@@ -240,6 +241,7 @@ function openEditProduct(sku) {
   } else {
     epRemoveImage();
   }
+  setTimeout(epUpdateBoxHints, 50);
   renderEpVariants(p);
   openModal("editprod");
 }
@@ -286,6 +288,7 @@ function saveEditProduct() {
   p.ulgurjiNarx = parseFloat($("ep-ulgurji").value) || 0;
   if ($("ep-unit"))    p.unit    = $("ep-unit").value    || p.unit;
   if ($("ep-barcode")) p.barcode = $("ep-barcode").value.trim();
+  if ($("ep-inbox"))   p.inBox   = parseInt($("ep-inbox").value) || p.inBox || 1;
   if ($("ep-image") && $("ep-image").value) p.image = $("ep-image").value;
   else if ($("ep-image") && $("ep-image").value === "") p.image = "";
 
@@ -335,6 +338,7 @@ function apCalcBoxes() {
   // inBox ni asosiy maydondan ham yangilaymiz
   const inBoxMain = $("ap-inbox");
   if (inBoxMain && inBoxC > 0) inBoxMain.value = inBoxC;
+  apUpdateBoxHints();
 }
 
 function addProduct() {
@@ -417,14 +421,16 @@ function apCostNote() {
   const c = parseFloat(($("ap-cost")||{value:0}).value) || 0;
   const r = db.settings.rate || 1;
   const p = parseFloat(($("ap-price")||{value:0}).value) || 0;
+  const u = parseFloat(($("ap-ulgurji")||{value:0}).value) || 0;
   const costUzs = c * r;
-  const margin  = p > 0 && costUzs > 0
-    ? Math.round((p - costUzs) / p * 100) : null;
+  const margin  = u > 0 && costUzs > 0
+    ? Math.round((u - costUzs) / u * 100) : null;
   const mTxt = margin != null
     ? ` → <strong style="color:${margin>=30?"var(--grn)":margin>=15?"#E07B39":"var(--red)"}">${margin}% foyda</strong>`
     : "";
   if ($("ap-cost-note")) $("ap-cost-note").innerHTML = c
     ? `Tannarx so'mda: $${c} × ${fmt(r)} = ${fmt(costUzs)} so'm${mTxt}` : "";
+  apUpdateBoxHints();
 }
 
 function addProduct() {
@@ -575,4 +581,33 @@ function epRemoveImage() {
   if ($("ep-img-placeholder")) $("ep-img-placeholder").style.display = "flex";
   if ($("ep-img-remove"))      $("ep-img-remove").style.display = "none";
   if ($("ep-img-input"))       $("ep-img-input").value = "";
+}
+
+// ── Karobka narx hintlari ─────────────────────
+function _showBoxHint(hintId, donaUzs, inBox) {
+  const el = $(hintId); if (!el) return;
+  if (!donaUzs || donaUzs <= 0 || !inBox || inBox < 2) { el.style.display = "none"; return; }
+  const total = donaUzs * inBox;
+  const span  = el.querySelector("span");
+  if (span) span.textContent = `1 karobka = ${fmt(total)} so'm (${inBox} × ${fmt(donaUzs)})`;
+  el.style.display = "inline-flex";
+}
+
+function apUpdateBoxHints() {
+  const rate  = db.settings.rate || 12800;
+  const inBox = parseInt(($("ap-inbox")||{value:0}).value) ||
+                parseInt(($("ap-inbox-calc")||{value:0}).value) || 0;
+  const costUsd = parseFloat(($("ap-cost")||{value:0}).value) || 0;
+  const ulg     = parseFloat(($("ap-ulgurji")||{value:0}).value) || 0;
+  _showBoxHint("ap-cost-hint", Math.round(costUsd * rate), inBox);
+  _showBoxHint("ap-ulg-hint",  ulg, inBox);
+}
+
+function epUpdateBoxHints() {
+  const rate  = db.settings.rate || 12800;
+  const inBox = parseInt(($("ep-inbox")||{value:0}).value) || 0;
+  const costUsd = parseFloat(($("ep-cost")||{value:0}).value) || 0;
+  const ulg     = parseFloat(($("ep-ulgurji")||{value:0}).value) || 0;
+  _showBoxHint("ep-cost-hint", Math.round(costUsd * rate), inBox);
+  _showBoxHint("ep-ulg-hint",  ulg, inBox);
 }

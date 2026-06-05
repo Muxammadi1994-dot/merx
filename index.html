@@ -214,6 +214,10 @@
 .img-placeholder:hover{border-color:var(--acc);color:var(--acc)}
 .kat-thumb{width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--brd)}
 .kat-thumb-empty{width:44px;height:44px;border:1.5px dashed #e0ddd8;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:16px}
+
+/* ─ Karobka narx hint ─ */
+.box-narx-hint{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#856404;background:#FFF8E7;border:1px solid #f0d882;border-radius:7px;padding:4px 10px;margin-top:5px;font-weight:600}
+.box-narx-hint i{font-size:13px}
 </style>
 </head>
 <body>
@@ -877,8 +881,20 @@
       </div>
     </div>
     <div class="r2">
-      <div class="fld"><label>Tannarx (USD)</label><input id="ap-cost" type="number" value="20" step="0.5" oninput="apCostNote()"></div>
-      <div class="fld"><label>Ulgurji narx (so'm)</label><input id="ap-ulgurji" type="number" value="300000" step="1000"></div>
+      <div class="fld">
+        <label>Tannarx (USD)</label>
+        <input id="ap-cost" type="number" value="20" step="0.5" oninput="apCostNote()">
+        <div class="box-narx-hint" id="ap-cost-hint" style="display:none">
+          <i class="ti ti-package"></i><span></span>
+        </div>
+      </div>
+      <div class="fld">
+        <label>Ulgurji narx (so'm)</label>
+        <input id="ap-ulgurji" type="number" value="300000" step="1000" oninput="apUpdateBoxHints()">
+        <div class="box-narx-hint" id="ap-ulg-hint" style="display:none">
+          <i class="ti ti-package"></i><span></span>
+        </div>
+      </div>
     </div>
     <input type="hidden" id="ap-price" value="0">
     <div class="fld">
@@ -930,9 +946,25 @@
         <input type="hidden" id="ep-image" value="">
       </div>
     </div>
-    <div class="r2">
-      <div class="fld"><label>Tannarx (USD)</label><input id="ep-cost" type="number" step="0.5"></div>
-      <div class="fld"><label>Ulgurji narx (so'm)</label><input id="ep-ulgurji" type="number" step="1000"></div>
+    <div class="r3">
+      <div class="fld">
+        <label>Tannarx (USD)</label>
+        <input id="ep-cost" type="number" step="0.5" oninput="epUpdateBoxHints()">
+        <div class="box-narx-hint" id="ep-cost-hint" style="display:none">
+          <i class="ti ti-package"></i><span></span>
+        </div>
+      </div>
+      <div class="fld">
+        <label>Ulgurji narx (so'm)</label>
+        <input id="ep-ulgurji" type="number" step="1000" oninput="epUpdateBoxHints()">
+        <div class="box-narx-hint" id="ep-ulg-hint" style="display:none">
+          <i class="ti ti-package"></i><span></span>
+        </div>
+      </div>
+      <div class="fld">
+        <label>Karobkada nechta</label>
+        <input id="ep-inbox" type="number" min="1" placeholder="1" oninput="epUpdateBoxHints()">
+      </div>
     </div>
     <input type="hidden" id="ep-price" value="0">
     <div class="sep"></div>
@@ -1029,7 +1061,7 @@
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
         <div class="fld" style="margin:0;min-width:110px">
           <label style="font-size:11px">Karobka soni</label>
-          <input id="qb-boxes" type="number" value="1" min="1" oninput="qbCalcBoxes()"
+          <input id="qb-boxes" type="number" value="1" min="1" oninput="qbCalcBoxes();qbUpdateBoxHints()"
             style="font-size:18px;font-weight:800;text-align:center;border:2px solid #f0d882;border-radius:8px;padding:8px">
         </div>
         <div style="font-size:20px;color:#bbb;padding-top:16px">×</div>
@@ -1087,8 +1119,20 @@
     <!-- Karobka rejimida miqdor hidden (qbCalcBoxes to'ldiradi) -->
     <input type="hidden" id="qb-qty-box">
     <div class="r2">
-      <div class="fld"><label>Tannarx (so'm/dona)</label><input id="qb-cost" type="number" placeholder="0" step="1000"></div>
-      <div class="fld"><label>Ulgurji narxni yangilash</label><input id="qb-ulgurji" type="number" placeholder="0 = o'zgartirmaslik" step="1000"></div>
+      <div class="fld">
+        <label>Tannarx (so'm/dona)</label>
+        <input id="qb-cost" type="number" placeholder="0" step="1000" oninput="qbUpdateBoxHints()">
+        <div class="box-narx-hint" id="qb-cost-hint" style="display:none">
+          <i class="ti ti-package"></i><span></span>
+        </div>
+      </div>
+      <div class="fld">
+        <label>Ulgurji narxni yangilash</label>
+        <input id="qb-ulgurji" type="number" placeholder="0 = o'zgartirmaslik" step="1000" oninput="qbUpdateBoxHints()">
+        <div class="box-narx-hint" id="qb-ulg-hint" style="display:none">
+          <i class="ti ti-package"></i><span></span>
+        </div>
+      </div>
     </div>
     <input type="hidden" id="qb-price" value="0">
     <div class="r3">

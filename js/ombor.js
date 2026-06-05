@@ -574,3 +574,22 @@ function downloadCSVOmbor(rows, filename) {
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
 }
+
+// ── Karobka narx hintlari ─────────────────────
+function qbUpdateBoxHints() {
+  const inBox = parseInt(($("qb-inbox-edit")||{value:0}).value) || 0;
+
+  function showHint(hintId, donaVal) {
+    const el = $(hintId); if (!el) return;
+    if (!donaVal || donaVal <= 0 || inBox < 2) { el.style.display = "none"; return; }
+    const total = donaVal * inBox;
+    const span  = el.querySelector("span");
+    if (span) span.textContent = `1 karobka = ${fmt(total)} so'm (${inBox} × ${fmt(donaVal)})`;
+    el.style.display = "inline-flex";
+  }
+
+  const cost = parseFloat(($("qb-cost")||{value:0}).value)    || 0;
+  const ulg  = parseFloat(($("qb-ulgurji")||{value:0}).value) || 0;
+  showHint("qb-cost-hint", cost);
+  showHint("qb-ulg-hint",  ulg);
+}
