@@ -50,6 +50,9 @@
 .rem-box.uzs{background:var(--red2,#fef2f2)}.rem-box.usd{background:#EBF5FB}
 .rem-lbl-uzs{color:#991B1B;font-weight:500}.rem-lbl-usd{color:#1B4F72;font-weight:500}
 .rem-val-uzs{color:var(--red,#dc2626);font-weight:800}.rem-val-usd{color:#1B4F72;font-weight:800}
+/* Karobka/Dona toggle */
+.vmut-btn{padding:7px 16px;border-radius:8px;border:1.5px solid var(--brd,#e0ddd8);font-size:12.5px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s;font-weight:500}
+.vmut-btn.on{background:#E9A500;color:#fff;border-color:#E9A500}
 </style>
 </head>
 <body>
@@ -524,7 +527,19 @@
     <div><span style="font-size:13px;color:var(--mut);display:block;margin-bottom:5px">Rang</span><div class="vchips" id="vm-colors"></div></div>
     <div><span style="font-size:13px;color:var(--mut);display:block;margin-bottom:5px">O'lcham</span><div class="vchips" id="vm-sizes"></div></div>
     <div style="background:var(--bg);border-radius:var(--rs);padding:9px 11px;font-size:13px;margin-bottom:12px" id="vm-info">Rang tanlang</div>
-    <div class="fld"><label>Miqdor</label>
+    <!-- Karobka/Dona toggle — faqat ulgurji + inBox>1 da ko'rinadi -->
+    <div id="vm-unit-toggle" style="display:none;margin-bottom:10px">
+      <span style="font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px">Sotish birligi</span>
+      <div style="display:flex;gap:8px">
+        <button class="vmut-btn on" data-m="karobka" onclick="vmSetMode('karobka')">📦 Karobka</button>
+        <button class="vmut-btn" data-m="dona" onclick="vmSetMode('dona')">🔢 Dona</button>
+      </div>
+    </div>
+    <!-- Karobka hisob-kitobi -->
+    <div id="vm-box-info" style="display:none;background:#FFF8E7;border:1px solid #f0d882;border-radius:var(--rs);padding:8px 12px;font-size:12.5px;color:#856404;margin-bottom:10px">
+      <i class="ti ti-info-circle" style="margin-right:4px"></i><span id="vm-box-detail">1 karobka = 12 dona</span>
+    </div>
+    <div class="fld"><label id="vm-qty-lbl">Miqdor</label>
       <input id="vm-qty" type="number" value="1" min="1" style="font-family:inherit;font-size:16px;font-weight:600;text-align:center;border:1.5px solid var(--brd);border-radius:var(--rs);padding:9px">
     </div>
     <div id="vm-price-box" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:8px 11px;background:var(--teal2);border-radius:var(--rs)">
