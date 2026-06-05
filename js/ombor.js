@@ -292,8 +292,13 @@ function qbAutofill(val) {
 
   const p = db.products.find(x => x.name.toLowerCase() === val.toLowerCase().trim());
   if (!p) {
-    if ($("qb-box-panel")) $("qb-box-panel").style.display = "none";
-    if ($("qb-info"))      $("qb-info").textContent = "";
+    // Yangi mahsulot — karobka panelini ko'rsatamiz, foydalanuvchi o'zi to'ldiradi
+    const boxPanel    = $("qb-box-panel");
+    const normalPanel = $("qb-normal-panel");
+    if (boxPanel)    boxPanel.style.display    = "block";
+    if (normalPanel) normalPanel.style.display = "none";
+    if ($("qb-inbox-edit")) $("qb-inbox-edit").value = "";
+    if ($("qb-info")) $("qb-info").textContent = "Yangi mahsulot — karobka ma'lumotlarini kiriting";
     return;
   }
 
