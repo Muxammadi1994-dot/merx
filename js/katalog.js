@@ -354,6 +354,8 @@ function addProduct() {
   ppReset("ap");
   apSetSizeMode("single");
 }
+
+function apTypeChange() {
   const t = ($("ap-type")||{value:"oyoq"}).value;
   if ($("ap-cat"))  $("ap-cat").innerHTML  = (CATS[t]||[]).map(c => `<option>${c}</option>`).join("");
   if ($("ap-size")) $("ap-size").innerHTML = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
