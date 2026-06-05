@@ -153,10 +153,10 @@ function posClear() {
 }
 
 // ── renderPosGrid — utils.js bilan moslik ────────
-// utils.js nav() va toggleCurrency() dan chaqiriladi
-function renderPosGrid() {
-  posSearch();
-}
+function renderPosGrid() { posSearch(); }
+
+// ── Narx turi ─────────────────────────────────────
+function setPriceType(t) {
   posPriceType = t;
   document.querySelectorAll("#price-type-seg button").forEach(b => b.classList.toggle("on", b.dataset.pt === t));
   posSearch(); renderCart();
