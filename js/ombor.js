@@ -232,10 +232,12 @@ function omRenderQoldiq() {
       <td class="num">${boxCell}</td>
       <td class="num">${qBadge}</td>
       <td class="num" style="font-size:12.5px">
-        ${r.costUzs ? fmt(r.costUzs) + " so'm" : "—"}
+        ${r.costUzs ? `<div style="font-weight:600">${fmt(r.costUzs)} so'm</div>` : "—"}
+        ${r.costUzs && r.inBox > 1 ? `<div style="font-size:11px;color:#856404;margin-top:2px">📦 ${fmt(r.costUzs * r.inBox)} so'm</div>` : ""}
       </td>
-      <td class="num" style="color:var(--acc);font-weight:700;font-size:13px">
-        ${r.ulgurji ? fmt(r.ulgurji) + " so'm" : "—"}
+      <td class="num" style="font-size:12.5px">
+        ${r.ulgurji ? `<div style="font-weight:700;color:var(--acc)">${fmt(r.ulgurji)} so'm</div>` : '<span style="color:#ccc">—</span>'}
+        ${r.ulgurji && r.inBox > 1 ? `<div style="font-size:11px;color:#e9a500;margin-top:2px">📦 ${fmt(r.ulgurji * r.inBox)} so'm</div>` : ""}
         ${margin != null ? `<div style="font-size:10px;color:${margin>=30?"var(--grn)":margin>=15?"#E07B39":"var(--red)"}">margin ${margin}%</div>` : ""}
       </td>
       ${showChakana ? `<td class="num" style="color:var(--teal);font-size:12.5px">${r.chakana ? fmt(r.chakana) + " so'm" : "—"}</td>` : ""}
