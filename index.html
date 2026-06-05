@@ -53,6 +53,41 @@
 /* Karobka/Dona toggle */
 .vmut-btn{padding:7px 16px;border-radius:8px;border:1.5px solid var(--brd,#e0ddd8);font-size:12.5px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s;font-weight:500}
 .vmut-btn.on{background:#E9A500;color:#fff;border-color:#E9A500}
+
+/* ═══ POS v4 ═══ */
+#p-pos{padding:0!important}
+.pos-wrap{display:flex;height:calc(100vh - 56px);overflow:hidden}
+.pos-left{flex:1;display:flex;flex-direction:column;background:#fff;border-right:1px solid var(--brd);overflow:hidden;min-width:0}
+.pos-right{width:360px;flex-shrink:0;display:flex;flex-direction:column;background:var(--bg);overflow:hidden}
+.pos-topbar{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--brd);background:#fff;flex-shrink:0}
+.pos-search-box{flex:1;position:relative;display:flex;align-items:center}
+.pos-search-box input{width:100%;padding:10px 34px 10px 38px;font-size:14px;border:2px solid var(--brd);border-radius:10px;font-family:inherit;outline:none;transition:border-color .15s}
+.pos-search-box input:focus{border-color:var(--acc)}
+.pos-search-ico{position:absolute;left:12px;font-size:16px;color:#ccc;pointer-events:none}
+.pos-cam-btn{width:42px;height:42px;border-radius:10px;font-size:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0}
+.pos-results{flex:1;overflow-y:auto;padding:12px}
+.pos-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:280px;text-align:center}
+.pos-ri{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid var(--brd);background:#fff;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.pos-ri:hover{border-color:var(--acc);box-shadow:0 3px 14px rgba(233,165,0,.15);transform:translateY(-1px)}
+.pri-ico{width:44px;height:44px;border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.pri-body{flex:1;min-width:0}
+.pri-name{font-weight:700;font-size:13.5px;color:#0D1B2A;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pri-meta{font-size:11.5px;color:#bbb;margin-bottom:4px}
+.pri-colors{display:flex;flex-wrap:wrap;gap:4px}
+.pri-clr{font-size:10.5px;background:var(--bg);border:1px solid var(--brd);border-radius:4px;padding:1px 7px;color:#666}
+.pri-box-badge{margin-left:6px;font-size:10.5px;background:#FFF8E7;color:#856404;border-radius:4px;padding:1px 6px;border:1px solid #f0d882}
+.pri-right{text-align:right;flex-shrink:0}
+.pri-price{font-size:14px;font-weight:800;color:var(--acc)}
+.pri-stock{font-size:11px;color:#bbb;margin-top:2px}.pri-stock.low{color:var(--red)}
+.cart-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 10px;border-bottom:1px solid var(--brd);background:#fff;flex-shrink:0}
+.cart-scroll{flex:1;overflow-y:auto;padding:8px 10px}
+.cart-ft{border-top:2px solid var(--brd);padding:12px 14px;background:#fff;overflow-y:auto;flex-shrink:0;max-height:65vh}
+.cart-tot{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--brd)}
+.cart-tot-v{font-size:20px;font-weight:800;color:#0D1B2A}
+.pos-pay-btn{width:100%;padding:14px;background:var(--acc);color:#fff;border:none;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .15s,transform .1s}
+.pos-pay-btn:hover{background:#d49400;transform:translateY(-1px)}
+.pos-pay-btn:active{transform:none}
+.ci-box-badge{font-size:10px;background:#FFF3CD;color:#856404;border-radius:4px;padding:1px 7px;font-weight:600;margin-left:4px}
 </style>
 </head>
 <body>
@@ -145,60 +180,98 @@
 
   <!-- POS -->
   <div id="p-pos">
-    <div class="pos-l">
-      <div style="display:flex;gap:10px;align-items:center">
-        <div class="pos-search" style="flex:1"><input id="pos-q" placeholder="Mahsulot qidirish..." oninput="renderPosGrid()"></div>
-        <div class="seg" id="price-type-seg" style="flex-shrink:0">
+  <div class="pos-wrap">
+
+    <!-- CHAP: Qidiruv + natijalar -->
+    <div class="pos-left">
+      <div class="pos-topbar">
+        <div class="pos-search-box">
+          <i class="ti ti-search pos-search-ico"></i>
+          <input id="pos-q" placeholder="Mahsulot nomi, SKU yoki barcode..."
+            oninput="posSearch()" autocomplete="off">
+          <button id="pos-q-clr" onclick="posClear()"
+            style="display:none;position:absolute;right:10px;background:none;border:none;cursor:pointer;color:#bbb;font-size:16px;line-height:1">×</button>
+        </div>
+        <button class="btn pos-cam-btn" onclick="openBarcodeCamera()" title="Kamera bilan skanerlash">
+          <i class="ti ti-barcode"></i>
+        </button>
+        <div class="seg" id="price-type-seg">
           <button data-pt="chakana" class="on" onclick="setPriceType('chakana')">Chakana</button>
           <button data-pt="ulgurji" onclick="setPriceType('ulgurji')">Ulgurji</button>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="clearCart()"><i class="ti ti-trash"></i></button>
       </div>
-      <div class="pos-cats" id="pos-cats"></div>
-      <div class="prod-g" id="pos-grid"></div>
+      <div id="pos-results" class="pos-results">
+        <div class="pos-empty">
+          <i class="ti ti-search" style="font-size:42px;color:#e0ddd8;display:block;margin-bottom:14px"></i>
+          <div style="font-size:14px;color:#bbb;margin-bottom:6px;font-weight:500">Mahsulot qidiring</div>
+          <div style="font-size:12px;color:#ccc">Nom, SKU yoki barcode skanerlang</div>
+        </div>
+      </div>
     </div>
-    <div class="pos-r">
+
+    <!-- O'NG: Savatcha + To'lov -->
+    <div class="pos-right">
       <div class="cart-hd">
-        <h3><i class="ti ti-shopping-cart" style="font-size:16px"></i> Savatcha</h3>
-        <span class="num" id="cart-cnt" style="font-size:12.5px;color:var(--mut)">bo'sh</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <i class="ti ti-shopping-cart" style="font-size:16px;color:var(--acc)"></i>
+          <span style="font-weight:700;font-size:14px">Savatcha</span>
+          <span id="cart-cnt" style="font-size:12px;color:var(--mut)">bo'sh</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="clearCart()" style="color:var(--red)">
+          <i class="ti ti-trash"></i>
+        </button>
       </div>
-      <div class="cart-scroll" id="cart-items">
+
+      <div id="cart-items" class="cart-scroll">
         <div class="cart-mt"><i class="ti ti-shopping-cart"></i><p style="font-size:13px">Mahsulot tanlang</p></div>
       </div>
+
       <div class="cart-ft">
-        <div class="cart-tot"><span>Jami</span><span class="cart-tot-v num" id="cart-total">0 so'm</span></div>
+        <!-- Jami -->
+        <div class="cart-tot">
+          <span style="font-size:13px;color:var(--mut)">Jami</span>
+          <span class="cart-tot-v num" id="cart-total">0 so'm</span>
+        </div>
 
+        <!-- Mijoz (ikkala rejimda ham) -->
+        <div style="margin-bottom:10px">
+          <div style="font-size:10.5px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
+            Mijoz <span style="font-weight:400;color:#ccc;text-transform:none">(ixtiyoriy)</span>
+          </div>
+          <select id="c-cust" onchange="custPick()"
+            style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;width:100%;margin-bottom:6px">
+            <option value="">— Mijoz tanlang —</option>
+          </select>
+          <div style="display:flex;gap:6px">
+            <input id="c-name" placeholder="Ism" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px">
+            <input id="c-phone" placeholder="+998 90..." style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px">
+          </div>
+        </div>
+
+        <!-- To'lov usuli -->
         <div style="margin-bottom:8px">
-          <div style="font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">To'lov usuli</div>
+          <div style="font-size:10.5px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">To'lov usuli</div>
           <div class="paytypes">
-            <div class="ptbtn on" data-pt="naqd" onclick="setPayType('naqd')"><i class="ti ti-cash" style="font-size:14px;display:block;margin:0 auto 2px"></i>Naqd</div>
-            <div class="ptbtn" data-pt="karta" onclick="setPayType('karta')"><i class="ti ti-credit-card" style="font-size:14px;display:block;margin:0 auto 2px"></i>Karta</div>
-            <div class="ptbtn" data-pt="otkazma" onclick="setPayType('otkazma')"><i class="ti ti-building-bank" style="font-size:14px;display:block;margin:0 auto 2px"></i>O'tkazma</div>
+            <div class="ptbtn on" data-pt="naqd" onclick="setPayType('naqd')"><i class="ti ti-cash" style="font-size:15px;display:block;margin:0 auto 3px"></i>Naqd</div>
+            <div class="ptbtn" data-pt="karta" onclick="setPayType('karta')"><i class="ti ti-credit-card" style="font-size:15px;display:block;margin:0 auto 3px"></i>Karta</div>
+            <div class="ptbtn" data-pt="otkazma" onclick="setPayType('otkazma')"><i class="ti ti-building-bank" style="font-size:15px;display:block;margin:0 auto 3px"></i>O'tkazma</div>
           </div>
         </div>
 
-        <div class="pmodes">
-          <button class="pmode-btn on" data-m="full" onclick="setPayMode('full')"><i class="ti ti-check"></i>To'liq to'lov</button>
-          <button class="pmode-btn" data-m="part" onclick="setPayMode('part')"><i class="ti ti-clock"></i>Qisman to'lov</button>
+        <!-- To'lov rejimi -->
+        <div class="pmodes" style="margin-bottom:10px">
+          <button class="pmode-btn on" data-m="full" onclick="setPayMode('full')"><i class="ti ti-check"></i>To'liq</button>
+          <button class="pmode-btn" data-m="part" onclick="setPayMode('part')"><i class="ti ti-clock"></i>Qisman (nasiya)</button>
         </div>
 
+        <!-- Qisman to'lov detallari -->
         <div id="part-box" style="display:none;margin-bottom:10px">
-          <div class="fld" style="margin-bottom:8px">
-            <label>Mijoz tanlang</label>
-            <select id="c-cust" onchange="custPick()" style="font-family:inherit;font-size:13.5px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%">
-              <option value="">— Ro'yxatdan tanlang —</option>
-            </select>
-          </div>
-          <div class="r2" style="margin-bottom:8px">
-            <div class="fld" style="margin:0"><label>Ism</label><input id="c-name" placeholder="Yoki qo'lda yozing"></div>
-            <div class="fld" style="margin:0"><label>Telefon</label><input id="c-phone" placeholder="+998 90 ..."></div>
-          </div>
-          <div class="r2" style="margin-bottom:8px">
-            <div class="fld" style="margin:0"><label>Hozir to'landi (so'm)</label><input id="c-paid" type="number" value="0" step="10000" oninput="updateRem()"></div>
-            <div class="fld" style="margin:0"><label>Oxirgi to'lov sanasi</label><input id="c-due" type="date"></div>
+          <div style="display:flex;gap:6px;margin-bottom:8px">
+            <div class="fld" style="flex:1;margin:0"><label>Hozir to'landi (so'm)</label><input id="c-paid" type="number" value="0" step="10000" oninput="updateRem()"></div>
+            <div class="fld" style="flex:1;margin:0"><label>To'lov muddati</label><input id="c-due" type="date"></div>
           </div>
           <div style="margin-bottom:8px">
-            <div style="font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Qarz valyutasi</div>
+            <div style="font-size:10.5px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Qarz valyutasi</div>
             <div style="display:flex;gap:8px">
               <button class="dcur-btn on" data-c="uzs" onclick="setDebtCurrency('uzs')">🇺🇿 So'm</button>
               <button class="dcur-btn" data-c="usd" onclick="setDebtCurrency('usd')">💵 USD $</button>
@@ -206,18 +279,41 @@
           </div>
           <div class="rem-box uzs" id="rem-box">
             <span id="rem-lbl" class="rem-lbl-uzs">Qolgan qarz:</span>
-            <span class="num" id="rem-view" style="font-weight:800;font-size:14px">0 so'm</span>
+            <span class="num" id="rem-view" style="font-weight:800;font-size:15px">0 so'm</span>
           </div>
         </div>
-        <div class="fld" style="margin-bottom:8px">
-          <label>Kassir</label>
-          <select id="pos-staff" style="font-family:inherit;font-size:13px;border:1.5px solid var(--color-border-tertiary,#E5E7EB);border-radius:var(--rs,8px);padding:7px 10px;width:100%">
+
+        <!-- Kassir -->
+        <div style="margin-bottom:10px">
+          <div style="font-size:10.5px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Kassir</div>
+          <select id="pos-staff" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;width:100%">
             <option value="">— Kassirni tanlang —</option>
           </select>
         </div>
-        <button class="btn btn-acc" style="width:100%" onclick="checkout()"><i class="ti ti-check"></i>Sotishni yakunlash</button>
+
+        <!-- Sotish tugmasi -->
+        <button class="pos-pay-btn" onclick="checkout()">
+          <i class="ti ti-check" style="font-size:18px"></i>
+          <span>Sotishni yakunlash</span>
+          <span id="pos-pay-total" style="margin-left:auto;font-size:15px;opacity:.9">0 so'm</span>
+        </button>
       </div>
     </div>
+  </div>
+
+  <!-- Kamera barcode modal -->
+  <div class="ov" id="ov-barcode-cam" onclick="if(event.target===this)closeBarcodeCamera()">
+    <div class="modal" style="max-width:380px">
+      <button class="m-close" onclick="closeBarcodeCamera()"><i class="ti ti-x"></i></button>
+      <h2 style="margin-bottom:14px"><i class="ti ti-barcode" style="margin-right:6px"></i>Barcode skanerlash</h2>
+      <div style="position:relative;border-radius:10px;overflow:hidden;background:#000">
+        <video id="barcode-video" style="width:100%;display:block;border-radius:10px" playsinline></video>
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:220px;height:80px;border:2.5px solid #E9A500;border-radius:8px;pointer-events:none;box-shadow:0 0 0 2000px rgba(0,0,0,.3)"></div>
+      </div>
+      <p style="text-align:center;font-size:12px;color:var(--mut);margin-top:10px">Barcode ramkaga to'g'rilang</p>
+    </div>
+  </div>
+
   </div>
 
   <!-- KATALOG -->
@@ -525,7 +621,7 @@
     <button class="m-close" onclick="closeModal('variant')"><i class="ti ti-x"></i></button>
     <h2 id="vm-title">Variant tanlash</h2>
     <div><span style="font-size:13px;color:var(--mut);display:block;margin-bottom:5px">Rang</span><div class="vchips" id="vm-colors"></div></div>
-    <div><span style="font-size:13px;color:var(--mut);display:block;margin-bottom:5px">O'lcham</span><div class="vchips" id="vm-sizes"></div></div>
+    <div id="vm-sizes-row"><span style="font-size:13px;color:var(--mut);display:block;margin-bottom:5px">O'lcham</span><div class="vchips" id="vm-sizes"></div></div>
     <div style="background:var(--bg);border-radius:var(--rs);padding:9px 11px;font-size:13px;margin-bottom:12px" id="vm-info">Rang tanlang</div>
     <!-- Karobka/Dona toggle — faqat ulgurji + inBox>1 da ko'rinadi -->
     <div id="vm-unit-toggle" style="display:none;margin-bottom:10px">
