@@ -105,6 +105,29 @@
 .om-tab.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
 .om-filter-btn{padding:4px 12px;border-radius:6px;border:1.5px solid var(--brd);font-size:12px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
 .om-filter-btn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
+
+/* ═══ Pantone Picker ═══ */
+.pantone-picker{position:relative;width:100%}
+.pp-sel{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--brd);border-radius:var(--rs);cursor:pointer;background:#fff;transition:.15s;user-select:none}
+.pp-sel:hover{border-color:var(--acc)}
+.pp-swatch{width:26px;height:26px;border-radius:6px;flex-shrink:0;border:1px solid rgba(0,0,0,.12);transition:background .2s}
+.pp-text{flex:1;min-width:0}
+.pp-code{font-size:12.5px;font-weight:600;color:#333}
+.pp-name{font-size:11px;color:#aaa;margin-top:1px}
+.pp-dd{position:absolute;top:calc(100% + 6px);left:0;right:0;background:#fff;border:1.5px solid var(--brd);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.13);z-index:200;padding:12px;display:none}
+.pp-dd.open{display:block}
+.pp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;max-height:220px;overflow-y:auto;margin-bottom:10px}
+.pp-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;transition:.1s;border:1.5px solid transparent}
+.pp-item:hover{background:var(--bg)}
+.pp-item.selected{border-color:var(--acc);background:#FFF8E7}
+.pp-dot{width:22px;height:22px;border-radius:5px;flex-shrink:0;border:1px solid rgba(0,0,0,.1)}
+.pp-iname{font-size:11.5px;font-weight:600;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp-icode{font-size:10px;color:#aaa}
+.pp-custom-row{display:flex;gap:6px;padding-top:10px;border-top:1px solid var(--brd);align-items:center}
+.pp-custom-row input[type=text]{flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:7px;padding:7px 10px;outline:none}
+.pp-custom-row input[type=text]:focus{border-color:var(--acc)}
+.pp-custom-row input[type=color]{width:40px;height:38px;border:1.5px solid var(--brd);border-radius:7px;cursor:pointer;padding:2px;background:#fff}
+.vb-swatch{display:inline-block;width:10px;height:10px;border-radius:3px;border:1px solid rgba(0,0,0,.15);vertical-align:middle;margin-right:3px}
 </style>
 </head>
 <body>
@@ -339,15 +362,15 @@
       <div class="ch">
         <h3><i class="ti ti-box"></i>Mahsulotlar</h3>
         <div style="display:flex;gap:8px;align-items:center">
-          <input id="kat-q" placeholder="Qidirish, SKU yoki barcode..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:210px" oninput="renderKatalog()">
-          <button class="btn btn-sm" id="kat-low-btn" onclick="toggleKatLow()" title="Kam qoldiqlar">
+          <input id="kat-q" placeholder="Qidirish, SKU yoki barcode..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:220px" oninput="renderKatalog()">
+          <button class="btn btn-sm" id="kat-low-btn" onclick="toggleKatLow()">
             <i class="ti ti-alert-triangle"></i> Kam qoldiq
           </button>
-          <button class="btn btn-acc btn-sm" onclick="openModal('addprod')"><i class="ti ti-plus"></i>Yangi</button>
+          <button class="btn btn-acc btn-sm" onclick="openModal('addprod')"><i class="ti ti-plus"></i>Yangi mahsulot</button>
         </div>
       </div>
       <div style="overflow-x:auto">
-      <table><thead><tr><th>SKU</th><th>Nomi</th><th>Barcode</th><th>Kategoriya</th><th>Variantlar</th><th>Margin</th><th>Chakana narx</th><th>Ulgurji narx</th><th>Qoldiq</th><th></th></tr></thead>
+      <table style="table-layout:auto"><thead><tr><th style="width:70px">SKU</th><th>Nomi</th><th>Barcode</th><th>Kategoriya</th><th>Ranglar / O'lchamlar</th><th style="width:90px">Margin</th><th class="num">Chakana</th><th class="num">Ulgurji</th><th style="width:100px">Qoldiq</th><th style="width:44px"></th></tr></thead>
       <tbody id="katalog-body"></tbody></table></div>
     </div>
   </div>
@@ -652,10 +675,33 @@
       </select></div>
       <div class="fld"><label>Qutida nechta</label><input id="ap-inbox" type="number" value="1" min="1" title="1 quti/paketda nechta dona/juft bor"></div>
     </div>
-    <div class="r3">
-      <div class="fld"><label>Rang</label><input id="ap-color" placeholder="Qora"></div>
+    <!-- Rang Pantone picker -->
+    <div class="fld" style="margin-bottom:10px">
+      <label>Rang <span style="font-size:11px;font-weight:400;color:var(--mut)">— Pantone rangi tanlang</span></label>
+      <div class="pantone-picker" id="ap-pp-wrap">
+        <div class="pp-sel" onclick="ppToggle('ap')">
+          <div class="pp-swatch" id="ap-pp-swatch" style="background:#e0ddd8"></div>
+          <div class="pp-text">
+            <div class="pp-code" id="ap-pp-code">Rang tanlang</div>
+            <div class="pp-name" id="ap-pp-name">Pantone kodi</div>
+          </div>
+          <i class="ti ti-chevron-down" style="color:#bbb;font-size:14px"></i>
+        </div>
+        <div class="pp-dd" id="ap-pp-dd">
+          <div class="pp-grid" id="ap-pp-grid"></div>
+          <div class="pp-custom-row">
+            <input type="text" id="ap-pp-custom" placeholder="Boshqa rang nomi..." oninput="ppCustomInput('ap')">
+            <input type="color" id="ap-pp-hex-custom" value="#888888" onchange="ppCustomHex('ap')">
+          </div>
+        </div>
+      </div>
+      <input type="hidden" id="ap-color"   value="">
+      <input type="hidden" id="ap-pantone" value="">
+      <input type="hidden" id="ap-hex"     value="#888888">
+    </div>
+    <div class="r2">
       <div class="fld"><label>O'lcham</label><select id="ap-size"></select></div>
-      <div class="fld"><label>Qoldiq</label><input id="ap-qty" type="number" value="10" min="0"></div>
+      <div class="fld"><label>Qoldiq (dona/juft)</label><input id="ap-qty" type="number" value="10" min="0"></div>
     </div>
     <div class="r3">
       <div class="fld"><label>Tannarx (USD)</label><input id="ap-cost" type="number" value="20" step="0.5" oninput="apCostNote()"></div>
@@ -699,7 +745,7 @@
       <span style="font-weight:600;font-size:14px">Variantlar</span>
       <button class="btn btn-ghost btn-sm" onclick="epAddVariantRow()"><i class="ti ti-plus"></i>Qo'shish</button>
     </div>
-    <table class="vtable"><thead><tr><th>Rang</th><th>O'lcham</th><th>Qoldiq</th><th></th></tr></thead>
+    <table class="vtable"><thead><tr><th>Rang (Pantone)</th><th>O'lcham</th><th>Qoldiq</th><th></th></tr></thead>
     <tbody id="ep-variants"></tbody></table>
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn btn-acc" style="flex:1" onclick="saveEditProduct()"><i class="ti ti-check"></i>Saqlash</button>

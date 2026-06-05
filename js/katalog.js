@@ -1,5 +1,5 @@
 // ================================================
-// MERX — js/katalog.js  (v2 — Barcode + Margin)
+// MERX — js/katalog.js  (v3 — Pantone + Yangi dizayn)
 // ================================================
 
 let editSku = null;
@@ -10,17 +10,18 @@ function toggleKatLow() {
   katLowFilter = !katLowFilter;
   const btn = $("kat-low-btn");
   if (btn) {
-    btn.style.background    = katLowFilter ? "var(--red)"  : "";
-    btn.style.color         = katLowFilter ? "#fff"        : "";
-    btn.style.borderColor   = katLowFilter ? "var(--red)"  : "";
+    btn.style.background  = katLowFilter ? "var(--red)" : "";
+    btn.style.color       = katLowFilter ? "#fff"       : "";
+    btn.style.borderColor = katLowFilter ? "var(--red)" : "";
   }
   renderKatalog();
 }
 
 // ── Katalog jadvali ────────────────────────────
 function renderKatalog() {
-  const q   = ($("kat-q")||{value:""}).value.toLowerCase();
+  const q    = ($("kat-q")||{value:""}).value.toLowerCase();
   const rate = db.settings.rate || 12800;
+
   let ps = db.products.filter(p =>
     !q ||
     p.name.toLowerCase().includes(q) ||
@@ -31,68 +32,163 @@ function renderKatalog() {
   if (katLowFilter) ps = ps.filter(p => totalStock(p) <= 5);
 
   $("katalog-body").innerHTML = ps.length ? ps.map(p => {
-    const st       = totalStock(p);
-    const costUzs  = (p.costUsd || 0) * rate;
-    const margin   = p.priceUzs > 0 && costUzs > 0
-      ? Math.round((p.priceUzs - costUzs) / p.priceUzs * 100)
-      : null;
-    const mColor   = margin == null ? "#ccc"
-      : margin >= 30 ? "var(--grn)"
-      : margin >= 15 ? "#E07B39"
-      : "var(--red)";
+    const st      = totalStock(p);
+    const costUzs = (p.costUsd || 0) * rate;
+    const margin  = p.priceUzs > 0 && costUzs > 0
+      ? Math.round((p.priceUzs - costUzs) / p.priceUzs * 100) : null;
+    const mColor  = margin == null ? "#ccc"
+      : margin >= 30 ? "var(--grn)" : margin >= 15 ? "#E07B39" : "var(--red)";
 
-    const chips = p.variants.map(v =>
-      `<span class="vb ${v.qty<=3?"lo":""}">${v.color}/${v.size}: ${v.qty}</span>`
+    // Ranglarni swatch bilan ko'rsatish
+    const colorGroups = {};
+    p.variants.forEach(v => {
+      if (!colorGroups[v.color]) colorGroups[v.color] = { qty:0, hex: v.hex||"#888", pantone: v.pantone||"" };
+      colorGroups[v.color].qty += v.qty;
+    });
+    const colorChips = Object.entries(colorGroups).map(([color, info]) =>
+      `<span class="kat-chip ${info.qty<=3?"lo":""}">
+        <span class="vb-swatch" style="background:${info.hex}" title="${info.pantone||color}"></span>
+        ${color}: <strong>${info.qty}</strong>
+      </span>`
     ).join("");
 
-    return `<tr>
-      <td style="font-size:11px;color:var(--mut);font-family:monospace">${p.sku}</td>
+    // O'lchamlar
+    const sizeChips = [...new Set(p.variants.map(v => v.size))].map(s => {
+      const qty = p.variants.filter(v => v.size === s).reduce((a,v) => a+v.qty, 0);
+      return `<span class="kat-chip ${qty<=0?"lo":""}" style="font-size:11px">${s}:${qty}</span>`;
+    }).join("");
+
+    return `<tr onclick="openEditProduct('${p.sku}')" style="cursor:pointer">
       <td>
-        <div style="font-weight:600">${p.name}</div>
-        <div style="font-size:11px;color:#aaa">${p.unit||"dona"} · ${p.category}</div>
-        ${p.inBox>1?`<div style="font-size:10.5px;color:#bbb">📦 1 karobka = ${p.inBox} ${p.unit||"dona"}</div>`:""}
+        <div style="font-family:monospace;font-size:11px;color:var(--mut)">${p.sku}</div>
+      </td>
+      <td>
+        <div style="font-weight:700;font-size:13.5px;color:#0D1B2A">${p.name}</div>
+        <div style="font-size:11.5px;color:#bbb;margin-top:2px">
+          ${p.unit||"dona"} · ${p.category}
+          ${p.inBox>1?`· <span style="color:#856404">📦 ${p.inBox}/karobka</span>`:""}
+        </div>
       </td>
       <td>
         ${p.barcode
-          ? `<span style="font-family:monospace;font-size:12px;background:var(--bg);padding:2px 7px;border-radius:4px;border:1px solid var(--brd)">${p.barcode}</span>`
+          ? `<span style="font-family:monospace;font-size:11.5px;background:var(--bg);padding:2px 8px;border-radius:5px;border:1px solid var(--brd)">${p.barcode}</span>`
           : `<span style="color:#ccc;font-size:12px">—</span>`}
       </td>
-      <td><span class="bg bg-gr">${p.category}</span></td>
-      <td><div class="vsum">${chips}</div></td>
+      <td><span class="bg bg-t" style="font-size:11px">${p.category}</span></td>
+      <td>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">${colorChips}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px">${sizeChips}</div>
+      </td>
       <td>
         ${margin != null
-          ? `<span style="font-weight:700;color:${mColor};font-size:13px">${margin}%</span>
-             <div style="font-size:10.5px;color:#bbb">${Math.round(costUzs/1000)}K → ${Math.round(p.priceUzs/1000)}K</div>`
+          ? `<span style="font-weight:800;color:${mColor};font-size:14px">${margin}%</span>
+             <div style="font-size:10.5px;color:#bbb">${Math.round(costUzs/1000)}K→${Math.round(p.priceUzs/1000)}K</div>`
           : `<span style="color:#ccc">—</span>`}
       </td>
-      <td class="num" style="color:var(--teal);font-weight:600">${priceDisplay(p.priceUzs)}</td>
-      <td class="num" style="color:var(--acc);font-weight:600">${p.ulgurjiNarx ? priceDisplay(p.ulgurjiNarx) : '<span style="color:#ccc">—</span>'}</td>
+      <td class="num" style="color:var(--teal);font-weight:700">${priceDisplay(p.priceUzs)}</td>
+      <td class="num" style="color:var(--acc);font-weight:700">
+        ${p.ulgurjiNarx ? priceDisplay(p.ulgurjiNarx) : '<span style="color:#ccc">—</span>'}
+      </td>
       <td>
-        <span class="bg ${st<=0?"bg-r":st<=5?"bg-a":"bg-g"}">
+        <span class="bg ${st<=0?"bg-r":st<=5?"bg-a":"bg-g"}" style="font-weight:700">
           ${st} ${p.unit||"dona"}
         </span>
       </td>
-      <td>
+      <td onclick="event.stopPropagation()">
         <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditProduct('${p.sku}')">
           <i class="ti ti-edit"></i>
         </button>
       </td>
     </tr>`;
   }).join("") : `<tr><td colspan="10" class="empty-td">
-    ${katLowFilter ? "Kam qoldiqli mahsulot yo'q 🎉" : "Mahsulot topilmadi"}
+    ${katLowFilter ? "Kam qoldiqli mahsulot yo'q 🎉" : q ? `"${q}" topilmadi` : "Mahsulot yo'q"}
   </td></tr>`;
+}
+
+// ══════════════════════════════════════════════
+// PANTONE PICKER
+// ══════════════════════════════════════════════
+
+function ppRenderGrid(prefix) {
+  const grid = $(`${prefix}-pp-grid`);
+  if (!grid) return;
+  const curCode = $(`${prefix}-pantone`)?.value || "";
+  grid.innerHTML = PANTONE_COLORS.map(p => `
+    <div class="pp-item ${p.code===curCode?"selected":""}"
+      onclick="ppSelect('${prefix}','${p.code}','${p.name.replace(/'/g,"\\'")}','${p.hex}')">
+      <div class="pp-dot" style="background:${p.hex}"></div>
+      <div>
+        <div class="pp-iname">${p.name}</div>
+        <div class="pp-icode">${p.code}</div>
+      </div>
+    </div>`).join("");
+}
+
+function ppToggle(prefix) {
+  const dd = $(`${prefix}-pp-dd`);
+  if (!dd) return;
+  const isOpen = dd.classList.contains("open");
+  // Barcha ochiq dropdownlarni yopamiz
+  document.querySelectorAll(".pp-dd.open").forEach(el => el.classList.remove("open"));
+  if (!isOpen) { dd.classList.add("open"); ppRenderGrid(prefix); }
+}
+
+// Tashqarini bosganda yopish
+document.addEventListener("click", function(e) {
+  if (!e.target.closest(".pantone-picker")) {
+    document.querySelectorAll(".pp-dd.open").forEach(el => el.classList.remove("open"));
+  }
+});
+
+function ppSelect(prefix, code, name, hex) {
+  if ($(`${prefix}-color`))   $(`${prefix}-color`).value   = name;
+  if ($(`${prefix}-pantone`)) $(`${prefix}-pantone`).value = code;
+  if ($(`${prefix}-hex`))     $(`${prefix}-hex`).value     = hex;
+  if ($(`${prefix}-pp-swatch`)) $(`${prefix}-pp-swatch`).style.background = hex;
+  if ($(`${prefix}-pp-code`))   $(`${prefix}-pp-code`).textContent = code;
+  if ($(`${prefix}-pp-name`))   $(`${prefix}-pp-name`).textContent = name;
+  const dd = $(`${prefix}-pp-dd`);
+  if (dd) dd.classList.remove("open");
+}
+
+function ppCustomInput(prefix) {
+  const val = $(`${prefix}-pp-custom`)?.value.trim();
+  const hex = $(`${prefix}-pp-hex-custom`)?.value || "#888888";
+  if (!val) return;
+  if ($(`${prefix}-color`))   $(`${prefix}-color`).value   = val;
+  if ($(`${prefix}-pantone`)) $(`${prefix}-pantone`).value = "Custom";
+  if ($(`${prefix}-hex`))     $(`${prefix}-hex`).value     = hex;
+  if ($(`${prefix}-pp-swatch`)) $(`${prefix}-pp-swatch`).style.background = hex;
+  if ($(`${prefix}-pp-code`))   $(`${prefix}-pp-code`).textContent = val;
+  if ($(`${prefix}-pp-name`))   $(`${prefix}-pp-name`).textContent = "Maxsus rang";
+}
+
+function ppCustomHex(prefix) {
+  const hex = $(`${prefix}-pp-hex-custom`)?.value || "#888888";
+  const name = $(`${prefix}-pp-custom`)?.value.trim() || "Maxsus";
+  ppSelect(prefix, "Custom", name, hex);
+}
+
+function ppReset(prefix) {
+  if ($(`${prefix}-color`))   $(`${prefix}-color`).value   = "";
+  if ($(`${prefix}-pantone`)) $(`${prefix}-pantone`).value = "";
+  if ($(`${prefix}-hex`))     $(`${prefix}-hex`).value     = "#888888";
+  if ($(`${prefix}-pp-swatch`)) $(`${prefix}-pp-swatch`).style.background = "#e0ddd8";
+  if ($(`${prefix}-pp-code`))   $(`${prefix}-pp-code`).textContent = "Rang tanlang";
+  if ($(`${prefix}-pp-name`))   $(`${prefix}-pp-name`).textContent = "Pantone kodi";
+  if ($(`${prefix}-pp-custom`)) $(`${prefix}-pp-custom`).value = "";
 }
 
 // ── Mahsulot tahrirlash ────────────────────────
 function openEditProduct(sku) {
   const p = db.products.find(x => x.sku === sku); if (!p) return;
   editSku = sku;
-  $("ep-title").textContent   = p.name + " — tahrirlash";
-  $("ep-name").value          = p.name;
-  $("ep-cat").value           = p.category;
-  $("ep-cost").value          = p.costUsd;
-  $("ep-price").value         = p.priceUzs;
-  $("ep-ulgurji").value       = p.ulgurjiNarx || 0;
+  $("ep-title").textContent     = p.name + " — tahrirlash";
+  $("ep-name").value            = p.name;
+  $("ep-cat").value             = p.category;
+  $("ep-cost").value            = p.costUsd;
+  $("ep-price").value           = p.priceUzs;
+  $("ep-ulgurji").value         = p.ulgurjiNarx || 0;
   if ($("ep-unit"))    $("ep-unit").value    = p.unit    || "dona";
   if ($("ep-barcode")) $("ep-barcode").value = p.barcode || "";
   renderEpVariants(p);
@@ -101,9 +197,19 @@ function openEditProduct(sku) {
 
 function renderEpVariants(p) {
   $("ep-variants").innerHTML = p.variants.map((v, i) => `<tr>
-    <td><input value="${v.color}" id="epv-c-${i}"></td>
-    <td><input value="${v.size}" id="epv-s-${i}" style="width:70px"></td>
-    <td><input type="number" value="${v.qty}" id="epv-q-${i}" min="0" style="width:80px"></td>
+    <td>
+      <div style="display:flex;align-items:center;gap:7px">
+        <div style="width:20px;height:20px;border-radius:5px;flex-shrink:0;
+          background:${v.hex||"#888"};border:1px solid rgba(0,0,0,.12)"
+          title="${v.pantone||v.color}"></div>
+        <input value="${v.color}" id="epv-c-${i}" style="flex:1;min-width:60px">
+      </div>
+      <div style="font-size:10px;color:#aaa;margin-top:2px;padding-left:27px">
+        ${v.pantone||""}
+      </div>
+    </td>
+    <td><input value="${v.size}" id="epv-s-${i}" style="width:64px"></td>
+    <td><input type="number" value="${v.qty}" id="epv-q-${i}" min="0" style="width:72px"></td>
     <td><button class="btn btn-ghost btn-icon btn-sm" onclick="epDelVariant(${i})">
       <i class="ti ti-trash" style="color:var(--red)"></i>
     </button></td>
@@ -124,8 +230,8 @@ function epDelVariant(i) {
 
 function saveEditProduct() {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
-  p.name        = $("ep-name").value.trim()    || p.name;
-  p.category    = $("ep-cat").value.trim()     || p.category;
+  p.name        = $("ep-name").value.trim()     || p.name;
+  p.category    = $("ep-cat").value.trim()      || p.category;
   p.costUsd     = parseFloat($("ep-cost").value)    || p.costUsd;
   p.priceUzs    = parseFloat($("ep-price").value)   || p.priceUzs;
   p.ulgurjiNarx = parseFloat($("ep-ulgurji").value) || 0;
@@ -165,52 +271,61 @@ function apCostNote() {
   const p = parseFloat(($("ap-price")||{value:0}).value) || 0;
   const costUzs = c * r;
   const margin  = p > 0 && costUzs > 0
-    ? Math.round((p - costUzs) / p * 100)
-    : null;
+    ? Math.round((p - costUzs) / p * 100) : null;
   const mTxt = margin != null
     ? ` → <strong style="color:${margin>=30?"var(--grn)":margin>=15?"#E07B39":"var(--red)"}">${margin}% foyda</strong>`
     : "";
   if ($("ap-cost-note")) $("ap-cost-note").innerHTML = c
-    ? `Tannarx so'mda: $${c} × ${fmt(r)} = ${fmt(costUzs)} so'm${mTxt}`
-    : "";
+    ? `Tannarx so'mda: $${c} × ${fmt(r)} = ${fmt(costUzs)} so'm${mTxt}` : "";
 }
 
 function addProduct() {
-  const name = ($("ap-name")||{value:""}).value.trim(); if (!name) { toast("Nom kiriting","err"); return; }
+  const name = ($("ap-name")||{value:""}).value.trim();
+  if (!name) { toast("Nom kiriting","err"); return; }
+
+  const color   = ($("ap-color")||{value:""}).value.trim();
+  if (!color) { toast("Rang tanlang","err"); return; }
+
   const t       = ($("ap-type")||{value:"oyoq"}).value;
-  const color   = ($("ap-color")||{value:"-"}).value.trim() || "-";
   const size    = ($("ap-size")||{value:""}).value;
-  const qty     = parseInt(($("ap-qty")||{value:0}).value)   || 0;
-  const cost    = parseFloat(($("ap-cost")||{value:0}).value)   || 0;
-  const price   = parseFloat(($("ap-price")||{value:0}).value)  || 0;
-  const ulg     = parseFloat(($("ap-ulgurji")||{value:0}).value)|| 0;
+  const qty     = parseInt(($("ap-qty")||{value:0}).value)    || 0;
+  const cost    = parseFloat(($("ap-cost")||{value:0}).value)    || 0;
+  const price   = parseFloat(($("ap-price")||{value:0}).value)   || 0;
+  const ulg     = parseFloat(($("ap-ulgurji")||{value:0}).value) || 0;
   const unit    = ($("ap-unit")||{value:"dona"}).value;
   const inBox   = parseInt(($("ap-inbox")||{value:1}).value) || 1;
+  const pantone = ($("ap-pantone")||{value:""}).value.trim();
+  const hex     = ($("ap-hex")||{value:"#888888"}).value;
   const barcode = ($("ap-barcode")||{value:""}).value.trim();
 
   let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (p) {
+    // Mavjud mahsulotga variant qo'shish
     const ex = p.variants.find(v => v.color===color && v.size===size);
-    if (ex) ex.qty += qty; else p.variants.push({ color, size, qty });
-    // Barcode yangilash (agar yangi kiritilgan bo'lsa)
+    if (ex) { ex.qty += qty; } 
+    else { p.variants.push({ color, size, qty, pantone, hex }); }
     if (barcode && !p.barcode) p.barcode = barcode;
   } else {
+    // Yangi mahsulot
+    const autoBarcode = barcode || genEAN13(db.seq);
     db.products.push({
       sku: `${t==="oyoq"?"SHOE":"CLTH"}-${String(db.seq++).padStart(3,"0")}`,
-      name, category: ($("ap-cat")||{value:""}).value,
-      type:t, unit, inBox,
-      costUsd:cost, priceUzs:price, ulgurjiNarx:ulg,
-      barcode: barcode || undefined,
-      variants:[{color, size, qty}]
+      name,
+      category: ($("ap-cat")||{value:""}).value,
+      type: t, unit, inBox,
+      costUsd: cost, priceUzs: price, ulgurjiNarx: ulg,
+      barcode: autoBarcode,
+      variants: [{ color, size, qty, pantone, hex }]
     });
   }
 
   saveDB(); closeModal("addprod"); renderKatalog();
   toast(`"${name}" qo'shildi`);
+
   // Formani tozalash
   if ($("ap-name"))    $("ap-name").value    = "";
-  if ($("ap-color"))   $("ap-color").value   = "";
   if ($("ap-qty"))     $("ap-qty").value     = "10";
   if ($("ap-barcode")) $("ap-barcode").value = "";
   if ($("ap-cost-note")) $("ap-cost-note").innerHTML = "";
+  ppReset("ap");
 }
