@@ -48,7 +48,32 @@ function nav(p) {
     mijozlar:renderMijozlar, qarzlar:renderDebts, tarix:renderTarix,
     hisobot:renderHisobot, xodimlar:renderXodimlar, moliya:renderMoliya, egasi:renderEgasi };
   if (fn[p]) fn[p]();
+  if (p === "egasi") setTimeout(initChakanaToggle, 50);
   if (p === "pos") { refreshCustList(); refreshStaffList(); renderPosGrid(); }
+}
+
+// ── Chakana rejim toggle ───────────────────────
+function toggleChakanaMode(val) {
+  if (!db.settings) db.settings = {};
+  db.settings.showChakana = val;
+  saveDB();
+  const lbl = $("s-chakana-lbl");
+  if (lbl) lbl.textContent = val
+    ? "✅ Chakana narx ko'rinyapti"
+    : "Chakana narx ko'rinmayapti (ulgurji rejim)";
+  if (typeof renderKatalog === "function") renderKatalog();
+  if (typeof renderOmbor   === "function") renderOmbor();
+  toast(val ? "Chakana rejim yoqildi" : "Ulgurji rejimga o'tildi", "info");
+}
+
+function initChakanaToggle() {
+  const cb  = $("s-chakana"); if (!cb) return;
+  const val = db.settings?.showChakana || false;
+  cb.checked = val;
+  const lbl = $("s-chakana-lbl");
+  if (lbl) lbl.textContent = val
+    ? "✅ Chakana narx ko'rinyapti"
+    : "Chakana narx ko'rinmayapti (ulgurji rejim)";
 }
 
 function toggleCurrency() {

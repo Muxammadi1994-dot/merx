@@ -132,6 +132,9 @@
 /* ═══ Katalog size mode ═══ */
 .ap-smode{padding:5px 14px;border-radius:7px;border:1.5px solid var(--brd);font-size:12.5px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s}
 .ap-smode.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
+
+.kat-cat-btn{padding:4px 12px;border-radius:7px;border:1.5px solid var(--brd);font-size:12.5px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s}
+.kat-cat-btn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
 </style>
 </head>
 <body>
@@ -365,13 +368,22 @@
     <div class="card">
       <div class="ch">
         <h3><i class="ti ti-box"></i>Mahsulotlar</h3>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input id="kat-q" placeholder="Qidirish, SKU yoki barcode..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:220px" oninput="renderKatalog()">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input id="kat-q" placeholder="Qidirish, SKU yoki barcode..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:200px" oninput="renderKatalog()">
           <button class="btn btn-sm" id="kat-low-btn" onclick="toggleKatLow()">
             <i class="ti ti-alert-triangle"></i> Kam qoldiq
           </button>
+          <button class="btn btn-sm" onclick="exportKatalogExcel()" title="Excel yuklash" style="color:#1D6A39">
+            <i class="ti ti-file-spreadsheet"></i> Excel
+          </button>
           <button class="btn btn-acc btn-sm" onclick="openModal('addprod')"><i class="ti ti-plus"></i>Yangi mahsulot</button>
         </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid var(--brd)">
+        <button class="kat-cat-btn on" data-c="all"   onclick="setKatCat('all')">Barchasi</button>
+        <button class="kat-cat-btn" data-c="oyoq"  onclick="setKatCat('oyoq')">👟 Oyoq kiyim</button>
+        <button class="kat-cat-btn" data-c="kiyim" onclick="setKatCat('kiyim')">👕 Kiyim</button>
+        <div id="kat-cat-dynamic" style="display:flex;gap:6px"></div>
       </div>
       <div style="overflow-x:auto">
       <table style="table-layout:auto"><thead><tr><th style="width:70px">SKU</th><th>Nomi</th><th>Barcode</th><th>Ranglar</th><th class="num">Karobka</th><th class="num">Dona soni</th><th class="num">Tannarx</th><th class="num">Ulgurji narx</th><th style="width:44px"></th></tr></thead>
@@ -403,6 +415,9 @@
           style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 12px;width:180px">
         <button class="btn btn-ghost btn-sm" onclick="omToggleCols()" title="Ustunlarni sozlash">
           <i class="ti ti-settings"></i>
+        </button>
+        <button class="btn btn-sm" onclick="exportOmborExcel()" title="Excel yuklash" style="color:#1D6A39">
+          <i class="ti ti-file-spreadsheet"></i> Excel
         </button>
         <button class="btn btn-acc btn-sm" onclick="openModal('qabul')">
           <i class="ti ti-plus"></i> Tovar qabul
@@ -440,7 +455,7 @@
         <thead>
           <tr>
             <th>Sana</th><th>Mahsulot</th><th>Birlik</th><th>Rang/O'lcham</th>
-            <th>Miqdor</th><th>Tannarx</th><th>Chakana narx</th><th>Jami</th>
+            <th>Miqdor</th><th>Tannarx</th><th>Jami</th>
             <th>Yetkazuvchi</th><th>Partiya</th><th>To'lov</th>
           </tr>
         </thead>
@@ -607,6 +622,18 @@
                 <button data-t="oyoq" onclick="setShopType('oyoq')">👟 Oyoq kiyim</button>
                 <button data-t="kiyim" onclick="setShopType('kiyim')">👕 Kiyim-kechak</button>
                 <button data-t="ikki" onclick="setShopType('ikki')">🧩 Ikkalasi</button>
+              </div>
+            </div>
+            <div class="fld">
+              <label>Chakana narx rejimi
+                <span style="font-size:11px;font-weight:400;color:var(--mut)">— Katalog va Omborda chakana narxni ko'rsatish</span>
+              </label>
+              <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px">
+                  <input type="checkbox" id="s-chakana" onchange="toggleChakanaMode(this.checked)"
+                    style="width:18px;height:18px;accent-color:var(--acc);cursor:pointer">
+                  <span id="s-chakana-lbl">Chakana narx ko'rinmayapti (ulgurji rejim)</span>
+                </label>
               </div>
             </div>
           </div>
@@ -798,11 +825,11 @@
       <label>Barcode / EAN <span style="font-size:11px;font-weight:400;color:var(--mut)">(USB skaner bilan to'ldirishingiz mumkin)</span></label>
       <input id="ep-barcode" placeholder="8600000000000" style="font-family:monospace;letter-spacing:.05em">
     </div>
-    <div class="r3">
+    <div class="r2">
       <div class="fld"><label>Tannarx (USD)</label><input id="ep-cost" type="number" step="0.5"></div>
-      <div class="fld"><label>Chakana narx (so'm)</label><input id="ep-price" type="number" step="1000"></div>
       <div class="fld"><label>Ulgurji narx (so'm)</label><input id="ep-ulgurji" type="number" step="1000"></div>
     </div>
+    <input type="hidden" id="ep-price" value="0">
     <div class="sep"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <span style="font-weight:600;font-size:14px">Variantlar</span>

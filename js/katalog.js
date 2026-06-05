@@ -4,6 +4,28 @@
 
 let editSku = null;
 let katLowFilter = false;
+let katCatFilter = "all"; // "all" | "oyoq" | "kiyim" | category name
+let katSortBy    = null;  // "name" | "qty" | "price"
+let katSortAsc   = true;
+
+// ── Kategoriya filtri ──────────────────────────
+function setKatCat(c) {
+  katCatFilter = c;
+  document.querySelectorAll(".kat-cat-btn").forEach(b =>
+    b.classList.toggle("on", b.dataset.c === c));
+  renderKatalog();
+}
+
+// Dinamik kategoriya tugmalarini yangilash
+function updateKatCatBtns() {
+  const cats = [...new Set(db.products.map(p => p.category))].slice(0, 6);
+  const el = $("kat-cat-dynamic"); if (!el) return;
+  el.innerHTML = cats.map(c =>
+    `<button class="kat-cat-btn ${katCatFilter===c?"on":""}" data-c="${c}" onclick="setKatCat('${c.replace(/'/g,"\\'")}')">
+      ${c}
+    </button>`
+  ).join("");
+}
 
 // ── Kam qoldiq filtri ──────────────────────────
 function toggleKatLow() {
@@ -31,6 +53,12 @@ function renderKatalog() {
     p.category.toLowerCase().includes(q)
   );
   if (katLowFilter) ps = ps.filter(p => totalStock(p) <= 5);
+  if (katCatFilter === "oyoq")  ps = ps.filter(p => p.type === "oyoq");
+  else if (katCatFilter === "kiyim") ps = ps.filter(p => p.type === "kiyim");
+  else if (katCatFilter !== "all")   ps = ps.filter(p => p.category === katCatFilter);
+
+  // Dinamik kategoriya tugmalarini yangilash
+  updateKatCatBtns();
 
   $("katalog-body").innerHTML = ps.length ? ps.map(p => {
     const st      = totalStock(p);
@@ -431,4 +459,57 @@ function addProduct() {
   if ($("ap-barcode")) $("ap-barcode").value = "";
   if ($("ap-cost-note")) $("ap-cost-note").innerHTML = "";
   ppReset("ap");
+}
+
+// ── Excel eksport ──────────────────────────────
+function exportKatalogExcel() {
+  const rate = db.settings.rate || 12800;
+  const rows = [
+    ["SKU", "Nomi", "Kategoriya", "Turi", "Birlik", "Karobka (inBox)",
+     "Barcode", "Rang", "Pantone", "O'lcham", "Qoldiq (dona)",
+     "Tannarx (USD)", "Tannarx (so'm)", "Ulgurji narx (so'm)", "Margin (%)"]
+  ];
+
+  db.products.forEach(p => {
+    const costUzs = Math.round((p.costUsd || 0) * rate);
+    if (p.variants && p.variants.length) {
+      p.variants.forEach(v => {
+        const margin = p.ulgurjiNarx > 0 && costUzs > 0
+          ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : "";
+        rows.push([
+          p.sku, p.name, p.category, p.type === "oyoq" ? "Oyoq kiyim" : "Kiyim",
+          p.unit || "dona", p.inBox || 1,
+          p.barcode || "",
+          v.color, v.pantone || "", v.size, v.qty,
+          p.costUsd || 0, costUzs,
+          p.ulgurjiNarx || 0, margin
+        ]);
+      });
+    } else {
+      rows.push([p.sku, p.name, p.category, "", p.unit||"dona", p.inBox||1,
+        p.barcode||"", "", "", "", 0, p.costUsd||0, costUzs, p.ulgurjiNarx||0, ""]);
+    }
+  });
+
+  downloadCSV(rows, `merx_katalog_${today()}.csv`);
+  toast("Katalog Excel yuklab olindi");
+}
+
+// ── CSV yuklab olish ───────────────────────────
+function downloadCSV(rows, filename) {
+  const bom = "\uFEFF"; // Excel UTF-8 uchun BOM
+  const csv = bom + rows.map(r =>
+    r.map(cell => {
+      const s = String(cell == null ? "" : cell);
+      return s.includes(",") || s.includes('"') || s.includes("\n")
+        ? '"' + s.replace(/"/g, '""') + '"'
+        : s;
+    }).join(",")
+  ).join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
 }

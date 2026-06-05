@@ -287,7 +287,6 @@ function omRenderKirim() {
       </td>
       <td><span class="bg bg-g" style="font-weight:700">+${o.qty}</span></td>
       <td class="num" style="font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi)+" so'm" : "—"}</td>
-      <td class="num" style="color:var(--teal);font-size:12.5px">${o.chakana ? fmt(o.chakana)+" so'm" : "—"}</td>
       <td class="num" style="font-weight:600;font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi*o.qty)+" so'm" : "—"}</td>
       <td style="font-size:12.5px">${o.supplier||"—"}</td>
       <td style="font-size:12px;color:var(--mut)">${o.partiya||"—"}</td>
@@ -486,4 +485,89 @@ function qabulOl() {
   if (typeof ppReset === "function") ppReset("qb");
 
   toast(`✅ ${name} (${color}/${size}) — ${qty} ${unit} qabul qilindi`);
+}
+
+// ── Excel eksport ──────────────────────────────
+function exportOmborExcel() {
+  const rate = db.settings.rate || 12800;
+  const tab  = omActiveTab;
+
+  if (tab === "qoldiq" || tab === "kirim") {
+    const rows = tab === "qoldiq"
+      ? exportOmborQoldiq(rate)
+      : exportOmborKirim();
+    const name = tab === "qoldiq" ? "joriy_qoldiq" : "kirim_tarixi";
+    downloadCSVOmbor(rows, `merx_ombor_${name}_${today()}.csv`);
+    toast(`Ombor ${tab === "qoldiq" ? "joriy qoldiq" : "kirim tarixi"} yuklab olindi`);
+  } else {
+    exportOmborSuppliers(rate);
+  }
+}
+
+function exportOmborQoldiq(rate) {
+  const rows = [["Mahsulot nomi","SKU","Barcode","Rang","Pantone","Karobka soni","Dona soni","Tannarx (so'm)","Ulgurji narx (so'm)","Margin (%)"]];
+  db.products.forEach(p => {
+    const costUzs = Math.round((p.costUsd||0)*rate);
+    const inBox   = p.inBox || 1;
+    const colorGroups = {};
+    p.variants.forEach(v => {
+      if (!colorGroups[v.color]) colorGroups[v.color] = { hex:v.hex||"", pantone:v.pantone||"", qty:0 };
+      colorGroups[v.color].qty += v.qty;
+    });
+    Object.entries(colorGroups).forEach(([color, info]) => {
+      const boxes  = inBox > 1 ? (info.qty / inBox).toFixed(1) : "";
+      const margin = p.ulgurjiNarx > 0 && costUzs > 0
+        ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : "";
+      rows.push([p.name, p.sku, p.barcode||"", color, info.pantone,
+        boxes, info.qty, costUzs, p.ulgurjiNarx||0, margin]);
+    });
+  });
+  return rows;
+}
+
+function exportOmborKirim() {
+  const rows = [["Sana","Mahsulot","SKU","Rang","Pantone","O'lcham","Miqdor","Karobka soni","Tannarx","Jami","Yetkazuvchi","Partiya","To'lov holati"]];
+  db.ombor.slice().reverse().forEach(o => {
+    rows.push([o.date, o.productName, o.sku||"", o.color||"", o.pantone||"",
+      o.size||"", o.qty, o.boxes||"", o.kirimNarxi||0,
+      (o.kirimNarxi||0)*o.qty, o.supplier||"", o.partiya||"",
+      o.payStatus === "qarz" ? "To'lanmagan" : "To'langan"]);
+  });
+  return rows;
+}
+
+function exportOmborSuppliers(rate) {
+  const supMap = {};
+  db.ombor.forEach(o => {
+    const s = o.supplier || "Noma'lum";
+    if (!supMap[s]) supMap[s] = { items:0, value:0, paid:0, debt:0, last:"" };
+    supMap[s].items += o.qty;
+    const val = (o.kirimNarxi||0)*o.qty;
+    supMap[s].value += val;
+    if (o.payStatus==="qarz") supMap[s].debt += val;
+    else supMap[s].paid += val;
+    if (!supMap[s].last || o.date > supMap[s].last) supMap[s].last = o.date;
+  });
+  const rows = [["Yetkazuvchi","Jami dona","Jami qiymat (so'm)","To'langan (so'm)","Qarz (so'm)","Oxirgi yetkazma"]];
+  Object.entries(supMap).forEach(([name, s]) => {
+    rows.push([name, s.items, s.value, s.paid, s.debt, s.last]);
+  });
+  downloadCSVOmbor(rows, `merx_yetkazuvchilar_${today()}.csv`);
+  toast("Yetkazuvchilar ro'yxati yuklab olindi");
+}
+
+function downloadCSVOmbor(rows, filename) {
+  const bom = "\uFEFF";
+  const csv = bom + rows.map(r =>
+    r.map(cell => {
+      const s = String(cell == null ? "" : cell);
+      return s.includes(",") || s.includes('"') || s.includes("\n")
+        ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }).join(",")
+  ).join("\n");
+  const blob = new Blob([csv], { type:"text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
 }
