@@ -139,7 +139,7 @@ function omRenderQoldiq() {
 
     Object.values(colorGroups).forEach(cg => {
       const inBox   = p.inBox || 1;
-      const boxes   = inBox > 1 ? Math.floor(cg.qty / inBox) : null;
+      const boxes   = inBox > 1 ? (cg.qty / inBox) : null;
       const costUzs = Math.round((p.costUsd || 0) * rate);
 
       rows.push({
@@ -172,8 +172,8 @@ function omRenderQoldiq() {
   const thead = `<tr>
     <th>Mahsulot nomi</th>
     <th>Kod (SKU)</th>
-    <th>Rang</th>
     <th>Barcode</th>
+    <th>Rang</th>
     <th class="num">Karobka</th>
     <th class="num">Dona soni</th>
     <th class="num">Tannarx</th>
@@ -191,11 +191,11 @@ function omRenderQoldiq() {
           ? `<span class="bg" style="background:#FFF8E7;color:#856404;font-weight:600">${r.qty} ${r.unit}</span>`
           : `<span class="bg bg-g">${r.qty} ${r.unit}</span>`;
 
-    const boxCell = r.boxes != null
-      ? `<span style="font-weight:700;font-size:13px">${r.boxes}</span>
+    const boxCell = r.inBox > 1
+      ? `<span style="font-weight:700;font-size:13px">${r.boxes != null ? r.boxes.toFixed(1).replace(/\.0$/,'') : '—'}</span>
          <span style="font-size:10.5px;color:#bbb;margin-left:3px">karobka</span>
          <div style="font-size:10px;color:#aaa">×${r.inBox} ${r.unit}</div>`
-      : `<span style="color:#ccc">—</span>`;
+      : `<span style="color:#ccc;font-size:12px">—</span>`;
 
     const margin = r.ulgurji > 0 && r.costUzs > 0
       ? Math.round((r.ulgurji - r.costUzs) / r.ulgurji * 100) : null;
@@ -208,6 +208,11 @@ function omRenderQoldiq() {
         <div style="font-weight:600;font-size:13px">${r.name}</div>
       </td>
       <td style="font-family:monospace;font-size:11.5px;color:var(--mut)">${r.sku}</td>
+      <td style="font-family:monospace;font-size:12px">
+        ${barcode
+          ? `<span style="background:var(--bg);padding:2px 7px;border-radius:5px;border:1px solid var(--brd)">${barcode}</span>`
+          : `<span style="color:#ccc">—</span>`}
+      </td>
       <td>
         <div style="display:flex;align-items:center;gap:7px">
           <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;
@@ -218,11 +223,6 @@ function omRenderQoldiq() {
             ${r.pantone ? `<div style="font-size:10px;color:#aaa">${r.pantone}</div>` : ""}
           </div>
         </div>
-      </td>
-      <td style="font-family:monospace;font-size:12px">
-        ${barcode
-          ? `<span style="background:var(--bg);padding:2px 7px;border-radius:5px;border:1px solid var(--brd)">${barcode}</span>`
-          : `<span style="color:#ccc">—</span>`}
       </td>
       <td class="num">${boxCell}</td>
       <td class="num">${qBadge}</td>
