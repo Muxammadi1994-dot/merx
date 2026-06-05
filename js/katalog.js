@@ -21,6 +21,7 @@ function toggleKatLow() {
 function renderKatalog() {
   const q    = ($("kat-q")||{value:""}).value.toLowerCase();
   const rate = db.settings.rate || 12800;
+  const showChakana = db.settings.showChakana || false;
 
   let ps = db.products.filter(p =>
     !q ||
@@ -33,74 +34,79 @@ function renderKatalog() {
 
   $("katalog-body").innerHTML = ps.length ? ps.map(p => {
     const st      = totalStock(p);
+    const inBox   = p.inBox || 1;
     const costUzs = (p.costUsd || 0) * rate;
-    const margin  = p.priceUzs > 0 && costUzs > 0
-      ? Math.round((p.priceUzs - costUzs) / p.priceUzs * 100) : null;
-    const mColor  = margin == null ? "#ccc"
-      : margin >= 30 ? "var(--grn)" : margin >= 15 ? "#E07B39" : "var(--red)";
 
-    // Ranglarni swatch bilan ko'rsatish
+    // Rang guruhlash
     const colorGroups = {};
     p.variants.forEach(v => {
-      if (!colorGroups[v.color]) colorGroups[v.color] = { qty:0, hex: v.hex||"#888", pantone: v.pantone||"" };
+      if (!colorGroups[v.color]) colorGroups[v.color] = { hex: v.hex||"#888", pantone: v.pantone||"", qty: 0 };
       colorGroups[v.color].qty += v.qty;
     });
+
+    // Ranglar ko'rinishi
     const colorChips = Object.entries(colorGroups).map(([color, info]) =>
-      `<span class="kat-chip ${info.qty<=3?"lo":""}">
-        <span class="vb-swatch" style="background:${info.hex}" title="${info.pantone||color}"></span>
-        ${color}: <strong>${info.qty}</strong>
-      </span>`
+      `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        <div style="width:14px;height:14px;border-radius:4px;flex-shrink:0;
+          background:${info.hex};border:1px solid rgba(0,0,0,.12)"
+          title="${info.pantone}"></div>
+        <span style="font-size:12.5px;font-weight:500">${color}:</span>
+        <span style="font-size:12px;color:#666">${info.qty} ${p.unit||"dona"}</span>
+        ${inBox > 1 ? `<span style="font-size:10.5px;color:#aaa">(${Math.floor(info.qty/inBox)} karobka)</span>` : ""}
+      </div>`
     ).join("");
 
-    // O'lchamlar
-    const sizeChips = [...new Set(p.variants.map(v => v.size))].map(s => {
-      const qty = p.variants.filter(v => v.size === s).reduce((a,v) => a+v.qty, 0);
-      return `<span class="kat-chip ${qty<=0?"lo":""}" style="font-size:11px">${s}:${qty}</span>`;
-    }).join("");
+    // Karobka jami
+    const totalBoxes = inBox > 1 ? Math.floor(st / inBox) : null;
+
+    // Margin (ulgurji asosida)
+    const margin = p.ulgurjiNarx > 0 && costUzs > 0
+      ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : null;
+    const mColor = margin == null ? "#ccc"
+      : margin >= 30 ? "var(--grn)" : margin >= 15 ? "#E07B39" : "var(--red)";
 
     return `<tr onclick="openEditProduct('${p.sku}')" style="cursor:pointer">
-      <td>
-        <div style="font-family:monospace;font-size:11px;color:var(--mut)">${p.sku}</div>
-      </td>
+      <td style="font-family:monospace;font-size:11px;color:var(--mut)">${p.sku}</td>
       <td>
         <div style="font-weight:700;font-size:13.5px;color:#0D1B2A">${p.name}</div>
         <div style="font-size:11.5px;color:#bbb;margin-top:2px">
           ${p.unit||"dona"} · ${p.category}
-          ${p.inBox>1?`· <span style="color:#856404">📦 ${p.inBox}/karobka</span>`:""}
+          ${inBox > 1 ? `· <span style="color:#856404">📦 ${inBox}/karobka</span>` : ""}
         </div>
       </td>
-      <td>
+      <td style="font-family:monospace;font-size:11.5px">
         ${p.barcode
-          ? `<span style="font-family:monospace;font-size:11.5px;background:var(--bg);padding:2px 8px;border-radius:5px;border:1px solid var(--brd)">${p.barcode}</span>`
-          : `<span style="color:#ccc;font-size:12px">—</span>`}
-      </td>
-      <td><span class="bg bg-t" style="font-size:11px">${p.category}</span></td>
-      <td>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">${colorChips}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:3px">${sizeChips}</div>
-      </td>
-      <td>
-        ${margin != null
-          ? `<span style="font-weight:800;color:${mColor};font-size:14px">${margin}%</span>
-             <div style="font-size:10.5px;color:#bbb">${Math.round(costUzs/1000)}K→${Math.round(p.priceUzs/1000)}K</div>`
+          ? `<span style="background:var(--bg);padding:2px 8px;border-radius:5px;border:1px solid var(--brd)">${p.barcode}</span>`
           : `<span style="color:#ccc">—</span>`}
       </td>
-      <td class="num" style="color:var(--teal);font-weight:700">${priceDisplay(p.priceUzs)}</td>
-      <td class="num" style="color:var(--acc);font-weight:700">
-        ${p.ulgurjiNarx ? priceDisplay(p.ulgurjiNarx) : '<span style="color:#ccc">—</span>'}
+      <td>${colorChips}</td>
+      <td class="num">
+        ${totalBoxes != null
+          ? `<span style="font-weight:700;font-size:14px">${totalBoxes}</span>
+             <span style="font-size:10.5px;color:#bbb;margin-left:3px">karobka</span>`
+          : `<span style="color:#bbb;font-size:12px">donab</span>`}
       </td>
-      <td>
+      <td class="num">
         <span class="bg ${st<=0?"bg-r":st<=5?"bg-a":"bg-g"}" style="font-weight:700">
           ${st} ${p.unit||"dona"}
         </span>
       </td>
+      <td class="num" style="font-size:12.5px">
+        ${costUzs ? fmt(costUzs)+" so'm" : "—"}
+        ${p.costUsd ? `<div style="font-size:10.5px;color:#bbb">$${p.costUsd}</div>` : ""}
+      </td>
+      <td class="num" style="color:var(--acc);font-weight:700;font-size:13px">
+        ${p.ulgurjiNarx ? fmt(p.ulgurjiNarx)+" so'm" : '<span style="color:#ccc">—</span>'}
+        ${margin != null ? `<div style="font-size:10px;color:${mColor}">margin ${margin}%</div>` : ""}
+      </td>
+      ${showChakana ? `<td class="num" style="color:var(--teal);font-size:12.5px">${p.priceUzs ? fmt(p.priceUzs)+" so'm" : "—"}</td>` : ""}
       <td onclick="event.stopPropagation()">
         <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditProduct('${p.sku}')">
           <i class="ti ti-edit"></i>
         </button>
       </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="10" class="empty-td">
+  }).join("") : `<tr><td colspan="9" class="empty-td">
     ${katLowFilter ? "Kam qoldiqli mahsulot yo'q 🎉" : q ? `"${q}" topilmadi` : "Mahsulot yo'q"}
   </td></tr>`;
 }
