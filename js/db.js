@@ -42,7 +42,7 @@ const BOX_PRESETS = {
   "S-XXL (12 dona)": {"S":2,"M":3,"L":4,"XL":2,"XXL":1}
 };
 
-const DBKEY = "merx_v3";
+const DBKEY = "merx_v5";
 let mem = null;
 let db;
 
