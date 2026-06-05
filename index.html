@@ -831,38 +831,66 @@
       <div style="font-size:12px;color:#856404;font-weight:600;margin-bottom:10px">
         <i class="ti ti-package" style="margin-right:4px"></i>Karobka hisobi
       </div>
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <div class="fld" style="margin:0;min-width:120px">
-          <label style="font-size:12px">Karobka soni</label>
-          <input id="qb-boxes" type="number" value="1" min="1"
-            oninput="qbCalcBoxes()"
-            style="font-size:16px;font-weight:800;text-align:center;border:2px solid #f0d882;border-radius:8px;padding:8px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <div class="fld" style="margin:0;min-width:110px">
+          <label style="font-size:11px">Karobka soni</label>
+          <input id="qb-boxes" type="number" value="1" min="1" oninput="qbCalcBoxes()"
+            style="font-size:18px;font-weight:800;text-align:center;border:2px solid #f0d882;border-radius:8px;padding:8px">
         </div>
-        <div style="font-size:22px;color:#bbb;padding-top:18px">×</div>
-        <div style="text-align:center;padding-top:14px">
-          <div style="font-size:11px;color:#bbb;margin-bottom:2px">1 karobka</div>
-          <div style="font-size:16px;font-weight:700;color:#856404" id="qb-inbox-show">— dona</div>
+        <div style="font-size:20px;color:#bbb;padding-top:16px">×</div>
+        <div class="fld" style="margin:0;min-width:100px">
+          <label style="font-size:11px">Karobkada nechta</label>
+          <input id="qb-inbox-edit" type="number" value="8" min="1" oninput="qbCalcBoxes()"
+            style="font-size:18px;font-weight:800;text-align:center;border:2px solid #f0d882;border-radius:8px;padding:8px;color:#856404">
         </div>
-        <div style="font-size:22px;color:#bbb;padding-top:18px">=</div>
+        <div style="font-size:20px;color:#bbb;padding-top:16px">=</div>
         <div style="text-align:center;padding-top:14px">
           <div style="font-size:11px;color:#bbb;margin-bottom:2px">Jami</div>
-          <div style="font-size:18px;font-weight:800;color:#0D1B2A" id="qb-total-show">— dona</div>
+          <div style="font-size:20px;font-weight:800;color:#0D1B2A" id="qb-total-show">— dona</div>
+        </div>
+      </div>
+      <!-- Razmer oralig'i -->
+      <div style="border-top:1px solid #f0d882;padding-top:10px">
+        <div style="font-size:11px;color:#856404;font-weight:600;margin-bottom:6px">Razmer oralig'i</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <select id="qb-size-from" onchange="qbCalcBoxes()"
+            style="font-family:inherit;font-size:14px;font-weight:600;border:1.5px solid #f0d882;border-radius:8px;padding:6px 10px;background:#fff;color:#856404">
+            <option value="">Dan...</option>
+            <option>35</option><option>36</option><option>37</option><option>38</option>
+            <option>39</option><option>40</option><option>41</option><option>42</option>
+            <option>43</option><option>44</option><option>45</option><option>46</option>
+            <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option>
+          </select>
+          <span style="color:#856404;font-weight:600">dan</span>
+          <select id="qb-size-to" onchange="qbCalcBoxes()"
+            style="font-family:inherit;font-size:14px;font-weight:600;border:1.5px solid #f0d882;border-radius:8px;padding:6px 10px;background:#fff;color:#856404">
+            <option value="">Gacha...</option>
+            <option>35</option><option>36</option><option>37</option><option>38</option>
+            <option>39</option><option>40</option><option>41</option><option>42</option>
+            <option>43</option><option>44</option><option>45</option><option>46</option>
+            <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option>
+          </select>
+          <span style="color:#bbb;font-size:12px" id="qb-size-preview"></span>
         </div>
       </div>
     </div>
 
-    <!-- O'lcham + Miqdor -->
-    <div class="r2">
-      <div class="fld">
-        <label>O'lcham <span style="font-size:11px;font-weight:400;color:var(--mut)" id="qb-size-hint"></span></label>
-        <input id="qb-size" placeholder="42 yoki Aralash" list="qb-sizes">
-        <datalist id="qb-sizes"></datalist>
-      </div>
-      <div class="fld">
-        <label>Miqdor (dona/juft)</label>
-        <input id="qb-qty" type="number" value="10" min="1">
+    <!-- Oddiy o'lcham + Miqdor (inBox=1 uchun) -->
+    <div id="qb-normal-panel">
+      <div class="r2">
+        <div class="fld">
+          <label>O'lcham <span style="font-size:11px;font-weight:400;color:var(--mut)" id="qb-size-hint"></span></label>
+          <input id="qb-size" placeholder="42" list="qb-sizes">
+          <datalist id="qb-sizes"></datalist>
+        </div>
+        <div class="fld">
+          <label>Miqdor (dona/juft)</label>
+          <input id="qb-qty" type="number" value="10" min="1">
+        </div>
       </div>
     </div>
+    <!-- Karobka rejimida miqdor hidden (qbCalcBoxes to'ldiradi) -->
+    <input type="hidden" id="qb-qty-box">
     <div class="r3">
       <div class="fld"><label>Tannarx (so'm/dona)</label><input id="qb-cost" type="number" placeholder="0" step="1000"></div>
       <div class="fld"><label>Chakana narxni yangilash</label><input id="qb-price" type="number" placeholder="0 = o'zgartirmaslik" step="1000"></div>

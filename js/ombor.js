@@ -309,10 +309,12 @@ function qbAutofill(val) {
 
   // Karobka panel
   const inBox = p.inBox || 1;
-  const boxPanel = $("qb-box-panel");
-  if (boxPanel) boxPanel.style.display = inBox > 1 ? "block" : "none";
+  const boxPanel    = $("qb-box-panel");
+  const normalPanel = $("qb-normal-panel");
+  if (boxPanel)    boxPanel.style.display    = inBox > 1 ? "block" : "none";
+  if (normalPanel) normalPanel.style.display = inBox > 1 ? "none"  : "block";
   if (inBox > 1) {
-    if ($("qb-inbox-show")) $("qb-inbox-show").textContent = inBox + " " + (p.unit||"dona");
+    if ($("qb-inbox-edit")) $("qb-inbox-edit").value = inBox;
     qbCalcBoxes();
   }
 
@@ -327,36 +329,60 @@ function qbAutofill(val) {
 }
 
 function qbCalcBoxes() {
-  const name = ($("qb-name")||{value:""}).value.trim();
-  const p    = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
-  if (!p || !p.inBox || p.inBox <= 1) return;
+  const boxes   = parseInt(($("qb-boxes")||{value:1}).value)      || 1;
+  const inBoxEd = parseInt(($("qb-inbox-edit")||{value:8}).value) || 8;
+  const total   = boxes * inBoxEd;
 
-  const boxes = parseInt(($("qb-boxes")||{value:1}).value) || 1;
-  const total = boxes * p.inBox;
-  if ($("qb-total-show")) $("qb-total-show").textContent = total + " " + (p.unit||"dona");
-  if ($("qb-qty"))        $("qb-qty").value = total;
+  if ($("qb-total-show")) $("qb-total-show").textContent = total + " dona";
+  if ($("qb-qty-box"))    $("qb-qty-box").value = total;
+
+  // Razmer preview
+  const from = ($("qb-size-from")||{value:""}).value;
+  const to   = ($("qb-size-to")||{value:""}).value;
+  const prev = $("qb-size-preview");
+  if (prev && from && to) {
+    prev.textContent = `→ ${from}–${to} razmerlar`;
+  } else if (prev) {
+    prev.textContent = "";
+  }
 }
 
 function qabulOl() {
   const name = ($("qb-name")||{value:""}).value.trim();
   if (!name)  { toast("Mahsulot nomini kiriting","err"); return; }
 
-  const color   = ($("qb-color")||{value:""}).value.trim();
-  if (!color) { toast("Rang tanlang","err"); return; }
+  const isBoxMode = ($("qb-box-panel")?.style.display !== "none");
+  const pantone = ($("qb-pantone")||{value:""}).value.trim();
+  const hex     = ($("qb-hex")||{value:"#888888"}).value;
+  const boxes   = parseInt(($("qb-boxes")||{value:0}).value) || null;
+  const inBoxEd = parseInt(($("qb-inbox-edit")||{value:8}).value) || 8;
 
-  const size    = ($("qb-size")||{value:""}).value.trim();
-  if (!size)  { toast("O'lcham kiriting","err"); return; }
+  let color, size, qty;
 
-  const qty     = parseInt(($("qb-qty")||{value:0}).value) || 0;
-  if (qty <= 0) { toast("Miqdor kiriting","err"); return; }
+  if (isBoxMode) {
+    color = ($("qb-color")||{value:""}).value.trim();
+    if (!color) { toast("Rang tanlang","err"); return; }
+
+    const sizeFrom = ($("qb-size-from")||{value:""}).value;
+    const sizeTo   = ($("qb-size-to")||{value:""}).value;
+    if (!sizeFrom || !sizeTo) { toast("Razmer oralig'ini tanlang","err"); return; }
+
+    qty  = (boxes || 1) * inBoxEd;
+    size = `${sizeFrom}–${sizeTo}`;
+  } else {
+    color = ($("qb-color")||{value:""}).value.trim();
+    size  = ($("qb-size")||{value:""}).value.trim();
+    qty   = parseInt(($("qb-qty")||{value:0}).value) || 0;
+
+    if (!color) { toast("Rang tanlang","err"); return; }
+    if (!size)  { toast("O'lcham kiriting","err"); return; }
+    if (qty <= 0) { toast("Miqdor kiriting","err"); return; }
+  }
 
   const kirimN  = parseFloat(($("qb-cost")||{value:0}).value)    || 0;
   const newChk  = parseFloat(($("qb-price")||{value:0}).value)   || 0;
   const newUlg  = parseFloat(($("qb-ulgurji")||{value:0}).value) || 0;
   const unit    = ($("qb-unit")||{value:"dona"}).value;
-  const pantone = ($("qb-pantone")||{value:""}).value.trim();
-  const hex     = ($("qb-hex")||{value:"#888888"}).value;
-  const boxes   = parseInt(($("qb-boxes")||{value:0}).value) || null;
 
   let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (p) {
