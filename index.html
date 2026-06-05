@@ -12,57 +12,44 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
 <link rel="stylesheet" href="style.css">
 <style>
-/* ═══ MERX Dashboard v2 ═══ */
+/* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
-.dh-left{flex:1;min-width:160px}
-.dh-greet{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:3px}
-.dh-greet strong{color:rgba(255,255,255,.9);font-weight:600}
-.dh-date{font-size:11.5px;color:rgba(255,255,255,.3)}
-.dh-center{flex:2;text-align:center;min-width:200px}
-.dh-lbl{font-size:10.5px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
-.dh-val{font-size:30px;font-weight:800;color:#E9A500;line-height:1.15}
-.dh-right{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-.dash-growth{font-size:12px;font-weight:700;margin-left:6px}
-.dash-growth.up{color:#4ADE80}
-.dash-growth.dn{color:#F87171}
-
+.dh-left{flex:1;min-width:160px}.dh-greet{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:3px}
+.dh-greet strong{color:rgba(255,255,255,.9);font-weight:600}.dh-date{font-size:11.5px;color:rgba(255,255,255,.3)}
+.dh-center{flex:2;text-align:center;min-width:200px}.dh-lbl{font-size:10.5px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
+.dh-val{font-size:30px;font-weight:800;color:#E9A500;line-height:1.15}.dh-right{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.dash-growth{font-size:12px;font-weight:700;margin-left:6px}.dash-growth.up{color:#4ADE80}.dash-growth.dn{color:#F87171}
 .dash-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px}
-@media(max-width:1150px){.dash-kpis{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:700px){.dash-kpis{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:1150px){.dash-kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:700px){.dash-kpis{grid-template-columns:repeat(2,1fr)}}
 .dash-kpi{background:#fff;border-radius:12px;padding:16px 18px;border:1px solid #ede9e2;cursor:pointer;transition:transform .15s,box-shadow .15s}
 .dash-kpi:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.07)}
 .dkpi-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .dkpi-ico{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
-.dkpi-lbl{font-size:11.5px;color:#999;line-height:1.3}
-.dkpi-val{font-size:21px;font-weight:800;color:#0D1B2A;line-height:1;margin-bottom:4px}
-.dkpi-sub{font-size:11.5px;color:#bbb}
-
+.dkpi-lbl{font-size:11.5px;color:#999;line-height:1.3}.dkpi-val{font-size:21px;font-weight:800;color:#0D1B2A;line-height:1;margin-bottom:4px}.dkpi-sub{font-size:11.5px;color:#bbb}
 .dash-mid{display:grid;grid-template-columns:1fr 270px;gap:16px;margin-bottom:16px;align-items:start}
-@media(max-width:950px){.dash-mid{grid-template-columns:1fr}}
-.dash-side-col{display:flex;flex-direction:column;gap:14px}
-
+@media(max-width:950px){.dash-mid{grid-template-columns:1fr}}.dash-side-col{display:flex;flex-direction:column;gap:14px}
 .card-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;font-weight:600;font-size:14px;color:var(--ink,#0D1B2A)}
 .dash-ptab{padding:4px 13px;border-radius:7px;border:1px solid #ddd;font-size:12px;font-family:inherit;cursor:pointer;background:#fff;color:#888;transition:all .15s}
 .dash-ptab.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
-
 .dash-alert{background:#fffcf0;border:1px solid #f0d882;border-radius:12px;padding:14px 18px;margin-bottom:16px}
 .da-hdr{display:flex;align-items:center;gap:8px;font-size:13.5px;color:#9a7000;margin-bottom:10px;flex-wrap:wrap}
 .da-badge{font-size:11px;padding:2px 9px;border-radius:20px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
-.da-badge.crit{background:#fee2e2;color:#dc2626}
-.da-badge.warn{background:#fef3c7;color:#d97706}
+.da-badge.crit{background:#fee2e2;color:#dc2626}.da-badge.warn{background:#fef3c7;color:#d97706}
 .da-items{display:flex;flex-wrap:wrap;gap:7px}
 .da-item{background:#fff;border-radius:8px;padding:5px 11px;font-size:12px;display:flex;align-items:center;gap:7px;border:1px solid #ede9e1}
-.da-item.crit{border-color:#fca5a5;background:#fff5f5}
-.da-item.warn{border-color:#fcd34d}
-.da-item.more{cursor:pointer;color:#666;font-style:italic}
-.da-item.more:hover{background:#f5f2ec}
-.da-nm{font-weight:600;color:#333}
-.da-var{color:#aaa}
-.da-item.crit .da-q{color:#dc2626;font-weight:700}
-.da-item.warn .da-q{color:#d97706;font-weight:700}
-
+.da-item.crit{border-color:#fca5a5;background:#fff5f5}.da-item.warn{border-color:#fcd34d}
+.da-item.more{cursor:pointer;color:#666;font-style:italic}.da-item.more:hover{background:#f5f2ec}
+.da-nm{font-weight:600;color:#333}.da-var{color:#aaa}.da-item.crit .da-q{color:#dc2626;font-weight:700}.da-item.warn .da-q{color:#d97706;font-weight:700}
 .dash-tables{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media(max-width:800px){.dash-tables{grid-template-columns:1fr}}
+/* ═══ Qarz valyutasi tugmalari ═══ */
+.dcur-btn{padding:6px 16px;border-radius:8px;border:1.5px solid var(--brd,#e0ddd8);font-size:12.5px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s;font-weight:500}
+.dcur-btn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
+.dcur-btn[data-c="usd"].on{background:#1B4F72;border-color:#1B4F72}
+.rem-box{display:flex;justify-content:space-between;align-items:center;padding:10px 13px;border-radius:var(--rs,8px);font-size:13px;margin-bottom:0;transition:background .2s}
+.rem-box.uzs{background:var(--red2,#fef2f2)}.rem-box.usd{background:#EBF5FB}
+.rem-lbl-uzs{color:#991B1B;font-weight:500}.rem-lbl-usd{color:#1B4F72;font-weight:500}
+.rem-val-uzs{color:var(--red,#dc2626);font-weight:800}.rem-val-usd{color:#1B4F72;font-weight:800}
 </style>
 </head>
 <body>
@@ -104,14 +91,8 @@
 
   <!-- DASHBOARD v2 -->
   <div class="pg on" id="p-dashboard">
-
-    <!-- Yuqori qo'ng'iroq strip -->
     <div class="dash-header" id="dash-header"></div>
-
-    <!-- 5 ta KPI kartochka -->
     <div class="dash-kpis" id="dash-kpis"></div>
-
-    <!-- O'rta qator: diagramma + yon panel -->
     <div class="dash-mid">
       <div class="card dash-chart-wrap">
         <div class="card-hdr">
@@ -134,11 +115,7 @@
         </div>
       </div>
     </div>
-
-    <!-- Kam qoldiq ogohlantirishlari -->
     <div id="dash-alerts"></div>
-
-    <!-- Pastki jadvallar -->
     <div class="dash-tables">
       <div class="card">
         <div class="card-hdr">
@@ -146,10 +123,8 @@
           <button class="btn btn-sm" onclick="nav('tarix')" style="font-size:12px">Barchasi →</button>
         </div>
         <div style="overflow-x:auto">
-          <table>
-            <thead><tr><th>Mijoz</th><th>Turi</th><th>To'lov</th><th class="num">Summa</th><th>Holat</th></tr></thead>
-            <tbody id="dash-sales-body"></tbody>
-          </table>
+          <table><thead><tr><th>Mijoz</th><th>Turi</th><th>To'lov</th><th class="num">Summa</th><th>Holat</th></tr></thead>
+          <tbody id="dash-sales-body"></tbody></table>
         </div>
       </div>
       <div class="card">
@@ -158,14 +133,11 @@
           <button class="btn btn-sm" onclick="nav('qarzlar')" style="font-size:12px">Barchasi →</button>
         </div>
         <div style="overflow-x:auto">
-          <table>
-            <thead><tr><th>Mijoz</th><th class="num">Qolgan qarz</th><th>Muddat</th></tr></thead>
-            <tbody id="dash-debt-body"></tbody>
-          </table>
+          <table><thead><tr><th>Mijoz</th><th class="num">Qolgan qarz</th><th>Muddat</th></tr></thead>
+          <tbody id="dash-debt-body"></tbody></table>
         </div>
       </div>
     </div>
-
   </div>
 
   <!-- POS -->
@@ -222,9 +194,16 @@
             <div class="fld" style="margin:0"><label>Hozir to'landi (so'm)</label><input id="c-paid" type="number" value="0" step="10000" oninput="updateRem()"></div>
             <div class="fld" style="margin:0"><label>Oxirgi to'lov sanasi</label><input id="c-due" type="date"></div>
           </div>
-          <div style="display:flex;justify-content:space-between;padding:8px 11px;background:var(--red2);border-radius:var(--rs);font-size:13px">
-            <span style="color:#991B1B;font-weight:500">Qolgan qarz:</span>
-            <span class="num" id="rem-view" style="font-weight:700;color:var(--red)">0 so'm</span>
+          <div style="margin-bottom:8px">
+            <div style="font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Qarz valyutasi</div>
+            <div style="display:flex;gap:8px">
+              <button class="dcur-btn on" data-c="uzs" onclick="setDebtCurrency('uzs')">🇺🇿 So'm</button>
+              <button class="dcur-btn" data-c="usd" onclick="setDebtCurrency('usd')">💵 USD $</button>
+            </div>
+          </div>
+          <div class="rem-box uzs" id="rem-box">
+            <span id="rem-lbl" class="rem-lbl-uzs">Qolgan qarz:</span>
+            <span class="num" id="rem-view" style="font-weight:800;font-size:14px">0 so'm</span>
           </div>
         </div>
         <div class="fld" style="margin-bottom:8px">
