@@ -205,7 +205,12 @@ function omRenderQoldiq() {
 
       return `<tr>
       <td>
-        <div style="font-weight:600;font-size:13px">${r.name}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${p?.image
+            ? `<img src="${p.image}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--brd);flex-shrink:0">`
+            : `<div style="width:36px;height:36px;border:1.5px dashed #e0ddd8;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:14px;flex-shrink:0"><i class="ti ti-photo"></i></div>`}
+          <div style="font-weight:600;font-size:13px">${r.name}</div>
+        </div>
       </td>
       <td style="font-family:monospace;font-size:11.5px;color:var(--mut)">${r.sku}</td>
       <td style="font-family:monospace;font-size:12px">

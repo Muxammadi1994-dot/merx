@@ -94,6 +94,11 @@ function renderKatalog() {
       : margin >= 30 ? "var(--grn)" : margin >= 15 ? "#E07B39" : "var(--red)";
 
     return `<tr onclick="openEditProduct('${p.sku}')" style="cursor:pointer">
+      <td onclick="event.stopPropagation()">
+        ${p.image
+          ? `<img src="${p.image}" class="kat-thumb" onclick="openEditProduct('${p.sku}')" style="cursor:pointer">`
+          : `<div class="kat-thumb-empty" onclick="openEditProduct('${p.sku}')" style="cursor:pointer"><i class="ti ti-photo"></i></div>`}
+      </td>
       <td style="font-family:monospace;font-size:11px;color:var(--mut)">${p.sku}</td>
       <td>
         <div style="font-weight:700;font-size:13.5px;color:#0D1B2A">${p.name}</div>
@@ -225,6 +230,16 @@ function openEditProduct(sku) {
   $("ep-ulgurji").value         = p.ulgurjiNarx || 0;
   if ($("ep-unit"))    $("ep-unit").value    = p.unit    || "dona";
   if ($("ep-barcode")) $("ep-barcode").value = p.barcode || "";
+
+  // Rasm
+  if (p.image) {
+    if ($("ep-img-preview"))     { $("ep-img-preview").src = p.image; $("ep-img-preview").style.display = "block"; }
+    if ($("ep-img-placeholder")) $("ep-img-placeholder").style.display = "none";
+    if ($("ep-img-remove"))      $("ep-img-remove").style.display = "";
+    if ($("ep-image"))           $("ep-image").value = p.image;
+  } else {
+    epRemoveImage();
+  }
   renderEpVariants(p);
   openModal("editprod");
 }
@@ -271,6 +286,8 @@ function saveEditProduct() {
   p.ulgurjiNarx = parseFloat($("ep-ulgurji").value) || 0;
   if ($("ep-unit"))    p.unit    = $("ep-unit").value    || p.unit;
   if ($("ep-barcode")) p.barcode = $("ep-barcode").value.trim();
+  if ($("ep-image") && $("ep-image").value) p.image = $("ep-image").value;
+  else if ($("ep-image") && $("ep-image").value === "") p.image = "";
 
   p.variants.forEach((v, i) => {
     v.color = ($("epv-c-"+i)||{value:v.color}).value.trim() || v.color;
@@ -512,4 +529,50 @@ function downloadCSV(rows, filename) {
   const a    = document.createElement("a");
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
+}
+
+// ── Tovar rasmi funksiyalari ───────────────────
+function epLoadImage(input) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast("Rasm 5MB dan kichik bo'lishi kerak","err"); return; }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      // 400x400 ga siqish
+      const MAX = 400;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+      else       { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+
+      // Sifatni kamaytirish (300KB gacha)
+      let q = 0.82, dataUrl;
+      do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
+      while (dataUrl.length > 400000 && q > 0.25);
+
+      // UI yangilash
+      if ($("ep-img-preview"))     { $("ep-img-preview").src = dataUrl; $("ep-img-preview").style.display = "block"; }
+      if ($("ep-img-placeholder")) $("ep-img-placeholder").style.display = "none";
+      if ($("ep-img-remove"))      $("ep-img-remove").style.display = "";
+      if ($("ep-image"))           $("ep-image").value = dataUrl;
+
+      const kb = Math.round(dataUrl.length * 0.75 / 1024);
+      toast(`✅ Rasm yuklandi (${kb}KB)`);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function epRemoveImage() {
+  if ($("ep-image"))           $("ep-image").value = "";
+  if ($("ep-img-preview"))     { $("ep-img-preview").src = ""; $("ep-img-preview").style.display = "none"; }
+  if ($("ep-img-placeholder")) $("ep-img-placeholder").style.display = "flex";
+  if ($("ep-img-remove"))      $("ep-img-remove").style.display = "none";
+  if ($("ep-img-input"))       $("ep-img-input").value = "";
 }
