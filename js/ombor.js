@@ -305,8 +305,7 @@ function qbAutofill(val) {
   if ($("qb-size-hint")) $("qb-size-hint").textContent = sizes.length
     ? `(${sizes[0]}–${sizes[sizes.length-1]})` : "";
 
-  // Ranglar — ranglar Pantone bilan
-  $("qb-colors").innerHTML = [...new Set(p.variants.map(v => v.color))].map(c => `<option value="${c}">`).join("");
+  // Ranglar — Pantone picker orqali tanlanadi (qb-colors datalist olib tashlangan)
 
   // Karobka panel
   const inBox = p.inBox || 1;
