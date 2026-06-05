@@ -173,11 +173,13 @@ function omRenderQoldiq() {
     <th>Mahsulot nomi</th>
     <th>Kod (SKU)</th>
     <th>Rang</th>
+    <th>Barcode</th>
     <th class="num">Karobka</th>
     <th class="num">Dona soni</th>
     <th class="num">Tannarx</th>
     <th class="num">Ulgurji narx</th>
     ${showChakana ? "<th class='num'>Chakana narx</th>" : ""}
+    <th></th>
   </tr>`;
 
   const tbody = rows.length ? rows.map(r => {
@@ -198,7 +200,10 @@ function omRenderQoldiq() {
     const margin = r.ulgurji > 0 && r.costUzs > 0
       ? Math.round((r.ulgurji - r.costUzs) / r.ulgurji * 100) : null;
 
-    return `<tr>
+      const p = db.products.find(x => x.sku === r.sku);
+      const barcode = p?.barcode || "";
+
+      return `<tr>
       <td>
         <div style="font-weight:600;font-size:13px">${r.name}</div>
       </td>
@@ -214,6 +219,11 @@ function omRenderQoldiq() {
           </div>
         </div>
       </td>
+      <td style="font-family:monospace;font-size:12px">
+        ${barcode
+          ? `<span style="background:var(--bg);padding:2px 7px;border-radius:5px;border:1px solid var(--brd)">${barcode}</span>`
+          : `<span style="color:#ccc">—</span>`}
+      </td>
       <td class="num">${boxCell}</td>
       <td class="num">${qBadge}</td>
       <td class="num" style="font-size:12.5px">
@@ -224,6 +234,12 @@ function omRenderQoldiq() {
         ${margin != null ? `<div style="font-size:10px;color:${margin>=30?"var(--grn)":margin>=15?"#E07B39":"var(--red)"}">margin ${margin}%</div>` : ""}
       </td>
       ${showChakana ? `<td class="num" style="color:var(--teal);font-size:12.5px">${r.chakana ? fmt(r.chakana) + " so'm" : "—"}</td>` : ""}
+      <td>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditProduct('${r.sku}')"
+          title="Katalogda tahrirlash">
+          <i class="ti ti-edit"></i>
+        </button>
+      </td>
     </tr>`;
   }).join("") : `<tr><td colspan="8" class="empty-td">
     ${omStockFilter !== "all" ? "Bu filtrda mahsulot yo'q" : q ? `"${q}" topilmadi` : "Mahsulot yo'q"}
