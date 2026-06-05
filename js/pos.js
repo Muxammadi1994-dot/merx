@@ -1,9 +1,10 @@
 // ================================================
-// MERX — js/pos.js
+// MERX — js/pos.js  (v2 — Valyuta qarz tizimi)
 // ================================================
 
 let cart = [], posPayMode = "full", posPayType = "naqd", posPriceType = "chakana";
 let posActiveCat = "Barchasi", vmProd = null, selColor = null, selSize = null;
+let posDebtCurrency = "uzs"; // YANGI: qarz valyutasi
 
 function renderPosGrid() {
   const q = ($("pos-q")||{value:""}).value.toLowerCase();
@@ -71,9 +72,11 @@ function confirmVariant() {
   const v = vmProd.variants.find(x => x.color===selColor && x.size===selSize);
   if (!v || v.qty <= 0) { toast("Bu variant tugagan","err"); return; }
   const qty = Math.max(1, parseInt(($("vm-qty")||{value:1}).value) || 1);
-  if (qty > v.qty) { toast(`Faqat ${v.qty} ${vmProd.unit||"dona"} bor`,"err"); return; }
-  const narx = posPriceType === "ulgurji" ? (vmProd.ulgurjiNarx||vmProd.priceUzs) : vmProd.priceUzs;
+  // Savatchada shu variant allaqachon bormi? Umumiy miqdor qoldiqdan oshmasin
   const ex = cart.find(c => c.sku===vmProd.sku && c.color===selColor && c.size===selSize);
+  const already = ex ? ex.qty : 0;
+  if (already + qty > v.qty) { toast(`Faqat ${v.qty} ${vmProd.unit||"dona"} bor (savatchada ${already} ta)`,"err"); return; }
+  const narx = posPriceType === "ulgurji" ? (vmProd.ulgurjiNarx||vmProd.priceUzs) : vmProd.priceUzs;
   if (ex) ex.qty += qty; else cart.push({ sku:vmProd.sku, name:vmProd.name, color:selColor, size:selSize, unit:vmProd.unit||"dona", price:narx, priceType:posPriceType, qty });
   closeModal("variant"); renderCart();
   toast(`${vmProd.name} (${selColor}/${selSize}) × ${qty} savatchaga qo'shildi`);
@@ -105,11 +108,8 @@ function renderCart() {
 }
 
 function ciQty(i, d) { cart[i].qty = Math.max(1, cart[i].qty + d); renderCart(); }
-
 function ciQtySet(i, v) { cart[i].qty = Math.max(1, v || 1); renderCart(); }
-
 function removeFromCart(i) { cart.splice(i, 1); renderCart(); }
-
 function clearCart() { cart = []; renderCart(); }
 
 function setPayType(t) {
@@ -121,53 +121,136 @@ function setPayMode(m) {
   posPayMode = m;
   document.querySelectorAll(".pmode-btn").forEach(b => b.classList.toggle("on", b.dataset.m === m));
   $("part-box").style.display = m === "part" ? "block" : "none";
+  if (m === "full") {
+    // To'liq to'lovda qarz yo'q, valyutani reset qilamiz
+    setDebtCurrency("uzs");
+  }
   if (m === "part") {
     refreshCustList();
     if ($("c-due") && !$("c-due").value) $("c-due").value = addDays(today(), 30);
+    updateRem();
   }
 }
 
+// ── YANGI: Qarz valyutasini o'zgartirish ────────
+function setDebtCurrency(c) {
+  posDebtCurrency = c;
+  document.querySelectorAll(".dcur-btn").forEach(b => b.classList.toggle("on", b.dataset.c === c));
+  // Rem box rangini va labelni yangilash
+  const box = $("rem-box");
+  const lbl = $("rem-lbl");
+  if (box) { box.className = "rem-box " + c; }
+  if (lbl) { lbl.className = "rem-lbl-" + c; lbl.textContent = c === "usd" ? "Qolgan qarz (USD):" : "Qolgan qarz:"; }
+  updateRem();
+}
+
+// ── YANGILANGAN: Qolgan qarzni ko'rsatish ───────
 function updateRem() {
   const total = cart.reduce((a, c) => a + c.price * c.qty, 0);
   const paid  = parseFloat(($("c-paid")||{value:0}).value) || 0;
-  if ($("rem-view")) $("rem-view").textContent = fmt(Math.max(0, total - paid)) + " so'm";
+  const remUzs = Math.max(0, total - paid);
+  const rate = db.settings.rate || 12800;
+
+  let display;
+  if (posDebtCurrency === "usd") {
+    const remUsd = remUzs / rate;
+    display = "$" + remUsd.toFixed(2);
+  } else {
+    display = fmt(remUzs) + " so'm";
+  }
+  if ($("rem-view")) $("rem-view").textContent = display;
 }
 
+// ── YANGILANGAN: Checkout ────────────────────────
 async function checkout() {
   if (!cart.length) { toast("Savatcha bo'sh","err"); return; }
   const total = cart.reduce((a, c) => a + c.price * c.qty, 0);
   let paid = total, rem = 0, due = "", cName = "", cPhone = "", status = "tolandan";
+  let customerId = null;
+  let debtUsd = null; // YANGI
+
   if (posPayMode === "part") {
-    cName = ($("c-name")||{value:""}).value.trim();
-    if (!cName) { toast("Mijoz ismini kiriting","err"); return; }
-    cPhone = ($("c-phone")||{value:""}).value.trim();
+    const selId     = parseInt(($("c-cust")||{value:""}).value) || null;
+    const nameTyped = ($("c-name")||{value:""}).value.trim();
+    const phoneTyped= ($("c-phone")||{value:""}).value.trim();
+    const norm      = s => (s||"").toLowerCase().replace(/\s/g,"");
+
+    if (selId) {
+      const c = db.customers.find(x => x.id === selId);
+      if (c) {
+        customerId = c.id; cName = c.name; cPhone = c.phone || "";
+        if (!c.phone && phoneTyped) { c.phone = phoneTyped; cPhone = phoneTyped; }
+      }
+    }
+    if (!customerId) {
+      if (!nameTyped) { toast("Mijozni ro'yxatdan tanlang yoki ismini kiriting","err"); return; }
+      const existing = db.customers.find(x =>
+        norm(x.name) === norm(nameTyped) && (!phoneTyped || norm(x.phone) === norm(phoneTyped))
+      );
+      if (existing) {
+        customerId = existing.id; cName = existing.name; cPhone = existing.phone || phoneTyped;
+        if (!existing.phone && phoneTyped) existing.phone = phoneTyped;
+      } else {
+        const nc = { id:db.seq++, name:nameTyped, phone:phoneTyped,
+          type: posPriceType === "ulgurji" ? "ulgurji" : "chakana", note:"POS orqali qo'shildi" };
+        db.customers.push(nc);
+        customerId = nc.id; cName = nc.name; cPhone = nc.phone;
+      }
+    }
+
     paid = parseFloat(($("c-paid")||{value:0}).value) || 0;
     due  = ($("c-due")||{value:""}).value;
     rem  = Math.max(0, total - paid);
     status = rem > 0 ? "qarz" : "tolandan";
+
+    // YANGI: USD qarz hisoblash
+    if (posDebtCurrency === "usd" && rem > 0) {
+      const rate = db.settings.rate || 12800;
+      debtUsd = parseFloat((rem / rate).toFixed(2));
+    }
   }
+
   const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
-  // Decrement stock
+
+  // Qoldiqdan ayirish
   cart.forEach(c => {
     const p = db.products.find(x => x.sku === c.sku);
     if (p) { const v = p.variants.find(x => x.color===c.color && x.size===c.size); if (v) v.qty = Math.max(0, v.qty - c.qty); }
   });
-  const newSale = { id:db.seq++, date:today(), time:nowTime(), priceType:cart[0]?.priceType||"chakana",
-    payType:posPayType, staffId, items:cart.map(c => ({name:c.name, variant:`${c.color} / ${c.size}`, qty:c.qty, price:c.price, unit:c.unit})),
-    total, paid, remaining:rem, due, customerName:cName, customerPhone:cPhone, status };
+
+  const newSale = {
+    id: db.seq++, date: today(), time: nowTime(),
+    priceType: cart[0]?.priceType || "chakana",
+    payType: posPayType, staffId,
+    customerId,
+    items: cart.map(c => ({ name:c.name, variant:`${c.color} / ${c.size}`, qty:c.qty, price:c.price, unit:c.unit })),
+    total, paid, remaining: rem, due,
+    customerName: cName, customerPhone: cPhone, status,
+    debtCurrency: posPayMode === "part" ? posDebtCurrency : "uzs", // YANGI
+    debtUsd: debtUsd                                                // YANGI
+  };
   db.sales.push(newSale); saveDB();
-  // SMS
-  const smsText = rem > 0
-    ? `MERX: Xaridingiz uchun rahmat! Jami: ${fmt(total)} so'm. To'landi: ${fmt(paid)} so'm. Qolgan qarz: ${fmt(rem)} so'm. Sana: ${due||"—"}.`
-    : `MERX: Xaridingiz uchun rahmat! Jami: ${fmt(total)} so'm (${PAYTYPES[posPayType]||"to'liq"}) qabul qilindi.`;
-  await sendSms(cPhone || "Mijoz", smsText);
+
+  // SMS — faqat haqiqiy raqam bo'lganda
+  if (cPhone && cPhone.replace(/\D/g,"").length >= 9) {
+    const debtTxt = debtUsd != null
+      ? `$${debtUsd.toFixed(2)} USD`
+      : (rem > 0 ? `${fmt(rem)} so'm` : "");
+    const smsText = rem > 0
+      ? `MERX: Xaridingiz uchun rahmat! Jami: ${fmt(total)} so'm. To'landi: ${fmt(paid)} so'm. Qolgan qarz: ${debtTxt}. Muddat: ${due||"—"}.`
+      : `MERX: Xaridingiz uchun rahmat! Jami: ${fmt(total)} so'm to'liq qabul qilindi.`;
+    await sendSms(cPhone, smsText);
+  }
+
   // Reset
-  cart = []; renderCart(); setPayMode("full");
+  const saleId = newSale.id;
+  cart = []; renderCart(); setPayMode("full"); setDebtCurrency("uzs");
   if ($("c-name"))  $("c-name").value = "";
   if ($("c-phone")) $("c-phone").value = "";
   if ($("c-paid"))  $("c-paid").value = "0";
   if ($("c-due"))   $("c-due").value = "";
   if ($("c-cust"))  $("c-cust").value = "";
   $("debt-count").textContent = debtSales().length;
-  if (confirm("Chek chiqarilsinmi?")) printReceipt(newSale.id);
+  if (typeof refreshCustList === "function") refreshCustList();
+  if (confirm("Chek chiqarilsinmi?")) printReceipt(saleId);
 }
