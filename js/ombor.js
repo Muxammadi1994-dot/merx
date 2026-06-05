@@ -357,16 +357,14 @@ function qbAutofill(val) {
 
   // Ranglar — Pantone picker orqali tanlanadi (qb-colors datalist olib tashlangan)
 
-  // Karobka panel
+  // Karobka panel — DOIM ko'rsatamiz
   const inBox = p.inBox || 1;
   const boxPanel    = $("qb-box-panel");
   const normalPanel = $("qb-normal-panel");
-  if (boxPanel)    boxPanel.style.display    = inBox > 1 ? "block" : "none";
-  if (normalPanel) normalPanel.style.display = inBox > 1 ? "none"  : "block";
-  if (inBox > 1) {
-    if ($("qb-inbox-edit")) $("qb-inbox-edit").value = inBox;
-    qbCalcBoxes();
-  }
+  if (boxPanel)    boxPanel.style.display    = "block";
+  if (normalPanel) normalPanel.style.display = "none";
+  if ($("qb-inbox-edit")) $("qb-inbox-edit").value = inBox > 1 ? inBox : "";
+  qbCalcBoxes();
 
   // Narx placeholder
   if ($("qb-price"))   $("qb-price").placeholder   = fmt(p.priceUzs) + " (joriy)";
