@@ -801,10 +801,67 @@
         <option value="kg">kg</option><option value="metr">metr</option>
       </select></div>
     </div>
-    <div class="r3">
-      <div class="fld"><label>Rang</label><input id="qb-color" placeholder="Qora" list="qb-colors"><datalist id="qb-colors"></datalist></div>
-      <div class="fld"><label>O'lcham</label><input id="qb-size" placeholder="42" list="qb-sizes"><datalist id="qb-sizes"></datalist></div>
-      <div class="fld"><label>Miqdor</label><input id="qb-qty" type="number" value="10" min="1"></div>
+    <!-- Rang: Pantone picker -->
+    <div class="fld" style="margin-bottom:10px">
+      <label>Rang <span style="font-size:11px;font-weight:400;color:var(--mut)">— Pantone</span></label>
+      <div class="pantone-picker" id="qb-pp-wrap">
+        <div class="pp-sel" onclick="ppToggle('qb')">
+          <div class="pp-swatch" id="qb-pp-swatch" style="background:#e0ddd8"></div>
+          <div class="pp-text">
+            <div class="pp-code" id="qb-pp-code">Rang tanlang</div>
+            <div class="pp-name" id="qb-pp-name">Pantone kodi</div>
+          </div>
+          <i class="ti ti-chevron-down" style="color:#bbb;font-size:14px"></i>
+        </div>
+        <div class="pp-dd" id="qb-pp-dd">
+          <div class="pp-grid" id="qb-pp-grid"></div>
+          <div class="pp-custom-row">
+            <input type="text" id="qb-pp-custom" placeholder="Boshqa rang nomi..." oninput="ppCustomInput('qb')">
+            <input type="color" id="qb-pp-hex-custom" value="#888888" onchange="ppCustomHex('qb')">
+          </div>
+        </div>
+      </div>
+      <input type="hidden" id="qb-color"   value="">
+      <input type="hidden" id="qb-pantone" value="">
+      <input type="hidden" id="qb-hex"     value="#888888">
+    </div>
+
+    <!-- Karobka kalkulyator (inBox>1 da ko'rsatiladi) -->
+    <div id="qb-box-panel" style="display:none;background:#FFF8E7;border:1px solid #f0d882;border-radius:var(--rs);padding:14px;margin-bottom:10px">
+      <div style="font-size:12px;color:#856404;font-weight:600;margin-bottom:10px">
+        <i class="ti ti-package" style="margin-right:4px"></i>Karobka hisobi
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="fld" style="margin:0;min-width:120px">
+          <label style="font-size:12px">Karobka soni</label>
+          <input id="qb-boxes" type="number" value="1" min="1"
+            oninput="qbCalcBoxes()"
+            style="font-size:16px;font-weight:800;text-align:center;border:2px solid #f0d882;border-radius:8px;padding:8px">
+        </div>
+        <div style="font-size:22px;color:#bbb;padding-top:18px">×</div>
+        <div style="text-align:center;padding-top:14px">
+          <div style="font-size:11px;color:#bbb;margin-bottom:2px">1 karobka</div>
+          <div style="font-size:16px;font-weight:700;color:#856404" id="qb-inbox-show">— dona</div>
+        </div>
+        <div style="font-size:22px;color:#bbb;padding-top:18px">=</div>
+        <div style="text-align:center;padding-top:14px">
+          <div style="font-size:11px;color:#bbb;margin-bottom:2px">Jami</div>
+          <div style="font-size:18px;font-weight:800;color:#0D1B2A" id="qb-total-show">— dona</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- O'lcham + Miqdor -->
+    <div class="r2">
+      <div class="fld">
+        <label>O'lcham <span style="font-size:11px;font-weight:400;color:var(--mut)" id="qb-size-hint"></span></label>
+        <input id="qb-size" placeholder="42 yoki Aralash" list="qb-sizes">
+        <datalist id="qb-sizes"></datalist>
+      </div>
+      <div class="fld">
+        <label>Miqdor (dona/juft)</label>
+        <input id="qb-qty" type="number" value="10" min="1">
+      </div>
     </div>
     <div class="r3">
       <div class="fld"><label>Tannarx (so'm/dona)</label><input id="qb-cost" type="number" placeholder="0" step="1000"></div>
