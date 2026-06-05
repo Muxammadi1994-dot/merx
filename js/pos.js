@@ -1,27 +1,37 @@
 // ================================================
-// MERX — js/pos.js  (v2 — Valyuta qarz tizimi)
+// MERX — js/pos.js  (v3 — Karobka + Valyuta qarz)
 // ================================================
 
 let cart = [], posPayMode = "full", posPayType = "naqd", posPriceType = "chakana";
 let posActiveCat = "Barchasi", vmProd = null, selColor = null, selSize = null;
-let posDebtCurrency = "uzs"; // YANGI: qarz valyutasi
+let posDebtCurrency = "uzs";
+let vmSellMode = "dona"; // "karobka" | "dona"
 
+// ── Mahsulot gridi ─────────────────────────────
 function renderPosGrid() {
-  const q = ($("pos-q")||{value:""}).value.toLowerCase();
+  const q  = ($("pos-q")||{value:""}).value.toLowerCase();
   const ps = visProds();
   const allCats = ["Barchasi", ...new Set(ps.map(p => p.category))];
   $("pos-cats").innerHTML = allCats.map(c =>
     `<span class="pcat${c===posActiveCat?" on":""}" onclick="posSetCat(this,'${c.replace(/'/g,"\\'")}')"> ${c}</span>`
   ).join("");
-  const filtered = ps.filter(p => (!q || p.name.toLowerCase().includes(q)) && (posActiveCat === "Barchasi" || p.category === posActiveCat));
+  const filtered = ps.filter(p =>
+    (!q || p.name.toLowerCase().includes(q)) &&
+    (posActiveCat === "Barchasi" || p.category === posActiveCat)
+  );
   $("pos-grid").innerHTML = filtered.map(p => {
     const narx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
-    const st = totalStock(p);
+    const st   = totalStock(p);
+    const inBox = p.inBox || 1;
+    const boxBadge = posPriceType === "ulgurji" && inBox > 1
+      ? `<div class="pc-box"><i class="ti ti-package" style="font-size:11px"></i> 1 karobka = ${inBox} ${p.unit||"dona"}</div>`
+      : "";
     return `<div class="pc" onclick="openVariantModal('${p.sku}')">
       <div class="pn">${p.name}</div>
       <div class="pm">${p.category}</div>
       <div class="pp">${priceDisplay(narx)} <span class="pu">/ ${p.unit||"dona"}</span></div>
       ${p.ulgurjiNarx && posPriceType !== "ulgurji" ? `<div class="pc-ulg">Ulgurji: ${priceDisplay(p.ulgurjiNarx)}</div>` : ""}
+      ${boxBadge}
       <div class="ps ${st<=3?"text-red":""}">${st} ${p.unit||"dona"} qoldiq</div>
     </div>`;
   }).join("") || `<div style="color:var(--mut);padding:22px;font-size:13px">Topilmadi</div>`;
@@ -40,48 +50,134 @@ function setPriceType(t) {
   renderPosGrid(); renderCart();
 }
 
+// ── Variant modal ──────────────────────────────
 function openVariantModal(sku) {
   vmProd = db.products.find(p => p.sku === sku); if (!vmProd) return;
   selColor = null; selSize = null;
   $("vm-title").textContent = vmProd.name;
   $("vm-qty").value = 1;
+
+  const inBox   = vmProd.inBox || 1;
+  const showBox = posPriceType === "ulgurji" && inBox > 1;
+
+  // Karobka toggle ko'rsatish/yashirish
+  if ($("vm-unit-toggle")) $("vm-unit-toggle").style.display = showBox ? "block" : "none";
+  if ($("vm-box-info"))    $("vm-box-info").style.display    = "none";
+
+  // Default: ulgurjida karobka, chakana/dona
+  vmSellMode = showBox ? "karobka" : "dona";
+  document.querySelectorAll(".vmut-btn").forEach(b => b.classList.toggle("on", b.dataset.m === vmSellMode));
+  if ($("vm-qty-lbl")) $("vm-qty-lbl").textContent = vmSellMode === "karobka" ? "Karobka soni" : "Miqdor";
+
   renderVmChips(); openModal("variant");
 }
 
+// Karobka/Dona rejimini almashtirish
+function vmSetMode(m) {
+  vmSellMode = m;
+  document.querySelectorAll(".vmut-btn").forEach(b => b.classList.toggle("on", b.dataset.m === m));
+  if ($("vm-qty-lbl")) $("vm-qty-lbl").textContent = m === "karobka" ? "Karobka soni" : "Miqdor";
+  $("vm-qty").value = 1;
+  renderVmChips();
+}
+
 function renderVmChips() {
+  if (!vmProd) return;
   const colors = [...new Set(vmProd.variants.map(v => v.color))];
   const sizes  = [...new Set(vmProd.variants.map(v => v.size))];
+
   $("vm-colors").innerHTML = colors.map(c =>
     `<div class="vchip${vmProd.variants.some(v => v.color===c && v.qty>0)?"":" out"}${c===selColor?" on":""}" onclick="vmSel('c','${c.replace(/'/g,"\\'")}')"> ${c}</div>`
   ).join("");
   $("vm-sizes").innerHTML = sizes.map(s =>
     `<div class="vchip${(!selColor || vmProd.variants.some(v => v.size===s && v.color===selColor && v.qty>0))?"":" out"}${s===selSize?" on":""}" onclick="vmSel('s','${s.replace(/'/g,"\\'")}')"> ${s}</div>`
   ).join("");
-  const v = selColor && selSize ? vmProd.variants.find(x => x.color===selColor && x.size===selSize) : null;
-  const narx = posPriceType === "ulgurji" ? (vmProd.ulgurjiNarx||vmProd.priceUzs) : vmProd.priceUzs;
-  const qty = parseInt(($("vm-qty")||{value:1}).value) || 1;
-  $("vm-info").textContent = v ? `Qoldiq: ${v.qty} ${vmProd.unit||"dona"}` : selColor ? "O'lcham tanlang" : "Rang tanlang";
-  if ($("vm-price-lbl")) $("vm-price-lbl").textContent = (posPriceType==="ulgurji"?"Ulgurji":"Chakana") + " narx × " + qty + ":";
-  if ($("vm-price-val")) $("vm-price-val").textContent = priceDisplay(narx * qty);
+
+  const v     = selColor && selSize ? vmProd.variants.find(x => x.color===selColor && x.size===selSize) : null;
+  const narx  = posPriceType === "ulgurji" ? (vmProd.ulgurjiNarx||vmProd.priceUzs) : vmProd.priceUzs;
+  const qty   = parseInt(($("vm-qty")||{value:1}).value) || 1;
+  const inBox = (vmSellMode === "karobka" && (vmProd.inBox||1) > 1) ? (vmProd.inBox||1) : 1;
+  const totalDona = qty * inBox;
+
+  // Qoldiq ma'lumoti
+  if (v) {
+    const maxBox = inBox > 1 ? Math.floor(v.qty / inBox) : v.qty;
+    $("vm-info").textContent = inBox > 1
+      ? `Qoldiq: ${v.qty} ${vmProd.unit||"dona"} (${maxBox} karobka)`
+      : `Qoldiq: ${v.qty} ${vmProd.unit||"dona"}`;
+  } else {
+    $("vm-info").textContent = selColor ? "O'lcham tanlang" : "Rang tanlang";
+  }
+
+  // Karobka hisob-kitob bloki
+  const boxInfoEl = $("vm-box-info");
+  if (boxInfoEl) {
+    if (vmSellMode === "karobka" && inBox > 1) {
+      boxInfoEl.style.display = "block";
+      $("vm-box-detail").textContent =
+        `${qty} karobka × ${inBox} ${vmProd.unit||"dona"} = ${totalDona} ${vmProd.unit||"dona"}`;
+    } else {
+      boxInfoEl.style.display = "none";
+    }
+  }
+
+  // Narx
+  if ($("vm-price-lbl")) $("vm-price-lbl").textContent =
+    `${posPriceType==="ulgurji"?"Ulgurji":"Chakana"} narx × ${totalDona} ${vmProd.unit||"dona"}:`;
+  if ($("vm-price-val")) $("vm-price-val").textContent = priceDisplay(narx * totalDona);
 }
 
-function vmSel(t, v) { if (t === "c") { selColor = v; selSize = null; } else selSize = v; renderVmChips(); }
+function vmSel(t, v) {
+  if (t === "c") { selColor = v; selSize = null; } else selSize = v;
+  renderVmChips();
+}
 
 function confirmVariant() {
   if (!selColor || !selSize) { toast("Rang va o'lchamni tanlang","err"); return; }
   const v = vmProd.variants.find(x => x.color===selColor && x.size===selSize);
   if (!v || v.qty <= 0) { toast("Bu variant tugagan","err"); return; }
-  const qty = Math.max(1, parseInt(($("vm-qty")||{value:1}).value) || 1);
-  // Savatchada shu variant allaqachon bormi? Umumiy miqdor qoldiqdan oshmasin
-  const ex = cart.find(c => c.sku===vmProd.sku && c.color===selColor && c.size===selSize);
+
+  const qtyInput = Math.max(1, parseInt(($("vm-qty")||{value:1}).value) || 1);
+  const inBox    = (vmSellMode === "karobka" && (vmProd.inBox||1) > 1) ? (vmProd.inBox||1) : 1;
+  const totalDona = qtyInput * inBox;
+
+  // Savatchadagi mavjud miqdorni hisobga olgan holda qoldiq tekshiruv
+  const ex      = cart.find(c => c.sku===vmProd.sku && c.color===selColor && c.size===selSize);
   const already = ex ? ex.qty : 0;
-  if (already + qty > v.qty) { toast(`Faqat ${v.qty} ${vmProd.unit||"dona"} bor (savatchada ${already} ta)`,"err"); return; }
+  if (already + totalDona > v.qty) {
+    const avail    = v.qty - already;
+    const availBox = inBox > 1 ? Math.floor(avail / inBox) : avail;
+    toast(inBox > 1
+      ? `Faqat ${avail} ${vmProd.unit||"dona"} bor (${availBox} karobka)`
+      : `Faqat ${avail} ${vmProd.unit||"dona"} bor`
+    , "err");
+    return;
+  }
+
   const narx = posPriceType === "ulgurji" ? (vmProd.ulgurjiNarx||vmProd.priceUzs) : vmProd.priceUzs;
-  if (ex) ex.qty += qty; else cart.push({ sku:vmProd.sku, name:vmProd.name, color:selColor, size:selSize, unit:vmProd.unit||"dona", price:narx, priceType:posPriceType, qty });
+
+  if (ex) {
+    ex.qty    += totalDona;
+    if (inBox > 1 && vmSellMode === "karobka") ex.qtyBox = (ex.qtyBox||0) + qtyInput;
+  } else {
+    cart.push({
+      sku: vmProd.sku, name: vmProd.name, color: selColor, size: selSize,
+      unit: vmProd.unit||"dona", price: narx, priceType: posPriceType,
+      qty:     totalDona,                             // dona (ombor va hisob uchun)
+      qtyBox:  inBox > 1 && vmSellMode === "karobka" ? qtyInput : null,
+      inBox:   inBox > 1 ? inBox : null,
+      sellMode: vmSellMode
+    });
+  }
+
   closeModal("variant"); renderCart();
-  toast(`${vmProd.name} (${selColor}/${selSize}) × ${qty} savatchaga qo'shildi`);
+  const dispQty = inBox > 1 && vmSellMode === "karobka"
+    ? `${qtyInput} karobka (${totalDona} ${vmProd.unit||"dona"})`
+    : `${totalDona} ${vmProd.unit||"dona"}`;
+  toast(`${vmProd.name} (${selColor}/${selSize}) × ${dispQty} savatchaga qo'shildi`);
 }
 
+// ── Savatcha ───────────────────────────────────
 function renderCart() {
   $("cart-cnt").textContent = cart.length ? cart.reduce((a, c) => a + c.qty, 0) + " ta" : "bo'sh";
   const total = cart.reduce((a, c) => a + c.price * c.qty, 0);
@@ -89,28 +185,50 @@ function renderCart() {
     $("cart-items").innerHTML = `<div class="cart-mt"><i class="ti ti-shopping-cart"></i><p style="font-size:13px">Mahsulot tanlang</p></div>`;
     $("cart-total").textContent = "0 so'm"; updateRem(); return;
   }
-  $("cart-items").innerHTML = cart.map((c, i) => `<div class="ci">
-    <div class="ci-inf">
-      <div class="ci-nm">${c.name}</div>
-      <div class="ci-vr">${c.color} / ${c.size} · <span class="bg bg-t" style="font-size:10px;padding:1px 6px">${c.unit}</span></div>
-      <div class="ci-row">
-        <div class="qty-ctrl">
-          <button onclick="ciQty(${i},-1)">−</button>
-          <input type="number" value="${c.qty}" min="1" oninput="ciQtySet(${i},+this.value)" style="width:38px;text-align:center;border:none;outline:none;font-weight:600">
-          <button onclick="ciQty(${i},1)">+</button>
+  $("cart-items").innerHTML = cart.map((c, i) => {
+    const unitBadge = c.qtyBox
+      ? `<span style="background:#FFF3CD;color:#856404;font-size:10px;padding:1px 7px;border-radius:4px;font-weight:600">📦 ${c.qtyBox} karobka</span>`
+      : `<span class="bg bg-t" style="font-size:10px;padding:1px 6px">${c.unit}</span>`;
+    return `<div class="ci">
+      <div class="ci-inf">
+        <div class="ci-nm">${c.name}</div>
+        <div class="ci-vr">${c.color} / ${c.size} · ${unitBadge}</div>
+        <div class="ci-row">
+          <div class="qty-ctrl">
+            <button onclick="ciQty(${i},-1)">−</button>
+            <input type="number" value="${c.qty}" min="1"
+              oninput="ciQtySet(${i},+this.value)"
+              style="width:38px;text-align:center;border:none;outline:none;font-weight:600">
+            <button onclick="ciQty(${i},1)">+</button>
+          </div>
+          <span class="ci-pr">${priceDisplay(c.price * c.qty)}</span>
+          <button class="ci-rm" onclick="removeFromCart(${i})"><i class="ti ti-x"></i></button>
         </div>
-        <span class="ci-pr">${priceDisplay(c.price * c.qty)}</span>
-        <button class="ci-rm" onclick="removeFromCart(${i})"><i class="ti ti-x"></i></button>
+        ${c.qtyBox ? `<div style="font-size:11px;color:#aaa;margin-top:2px">${c.qty} ${c.unit} · ${priceDisplay(c.price)} / ${c.unit}</div>` : ""}
       </div>
-    </div>
-  </div>`).join("");
+    </div>`;
+  }).join("");
   $("cart-total").textContent = priceDisplay(total); updateRem();
 }
 
-function ciQty(i, d) { cart[i].qty = Math.max(1, cart[i].qty + d); renderCart(); }
-function ciQtySet(i, v) { cart[i].qty = Math.max(1, v || 1); renderCart(); }
+function ciQty(i, d) {
+  const newQty = Math.max(1, cart[i].qty + d);
+  // Karobka bo'lsa qtyBox ni ham yangilaymiz
+  if (cart[i].inBox && cart[i].qtyBox) {
+    cart[i].qtyBox = Math.round(newQty / cart[i].inBox) || 1;
+  }
+  cart[i].qty = newQty;
+  renderCart();
+}
+function ciQtySet(i, v) {
+  cart[i].qty = Math.max(1, v || 1);
+  if (cart[i].inBox && cart[i].qtyBox) {
+    cart[i].qtyBox = Math.ceil(cart[i].qty / cart[i].inBox);
+  }
+  renderCart();
+}
 function removeFromCart(i) { cart.splice(i, 1); renderCart(); }
-function clearCart() { cart = []; renderCart(); }
+function clearCart()        { cart = []; renderCart(); }
 
 function setPayType(t) {
   posPayType = t;
@@ -121,10 +239,7 @@ function setPayMode(m) {
   posPayMode = m;
   document.querySelectorAll(".pmode-btn").forEach(b => b.classList.toggle("on", b.dataset.m === m));
   $("part-box").style.display = m === "part" ? "block" : "none";
-  if (m === "full") {
-    // To'liq to'lovda qarz yo'q, valyutani reset qilamiz
-    setDebtCurrency("uzs");
-  }
+  if (m === "full") setDebtCurrency("uzs");
   if (m === "part") {
     refreshCustList();
     if ($("c-due") && !$("c-due").value) $("c-due").value = addDays(today(), 30);
@@ -132,48 +247,39 @@ function setPayMode(m) {
   }
 }
 
-// ── YANGI: Qarz valyutasini o'zgartirish ────────
+// ── Qarz valyutasi ─────────────────────────────
 function setDebtCurrency(c) {
   posDebtCurrency = c;
   document.querySelectorAll(".dcur-btn").forEach(b => b.classList.toggle("on", b.dataset.c === c));
-  // Rem box rangini va labelni yangilash
-  const box = $("rem-box");
-  const lbl = $("rem-lbl");
-  if (box) { box.className = "rem-box " + c; }
+  const box = $("rem-box"); const lbl = $("rem-lbl");
+  if (box) box.className = "rem-box " + c;
   if (lbl) { lbl.className = "rem-lbl-" + c; lbl.textContent = c === "usd" ? "Qolgan qarz (USD):" : "Qolgan qarz:"; }
   updateRem();
 }
 
-// ── YANGILANGAN: Qolgan qarzni ko'rsatish ───────
 function updateRem() {
-  const total = cart.reduce((a, c) => a + c.price * c.qty, 0);
-  const paid  = parseFloat(($("c-paid")||{value:0}).value) || 0;
+  const total  = cart.reduce((a, c) => a + c.price * c.qty, 0);
+  const paid   = parseFloat(($("c-paid")||{value:0}).value) || 0;
   const remUzs = Math.max(0, total - paid);
-  const rate = db.settings.rate || 12800;
-
-  let display;
-  if (posDebtCurrency === "usd") {
-    const remUsd = remUzs / rate;
-    display = "$" + remUsd.toFixed(2);
-  } else {
-    display = fmt(remUzs) + " so'm";
-  }
+  const rate   = db.settings.rate || 12800;
+  const display = posDebtCurrency === "usd"
+    ? "$" + (remUzs / rate).toFixed(2)
+    : fmt(remUzs) + " so'm";
   if ($("rem-view")) $("rem-view").textContent = display;
 }
 
-// ── YANGILANGAN: Checkout ────────────────────────
+// ── Savdo yakunlash ────────────────────────────
 async function checkout() {
   if (!cart.length) { toast("Savatcha bo'sh","err"); return; }
   const total = cart.reduce((a, c) => a + c.price * c.qty, 0);
   let paid = total, rem = 0, due = "", cName = "", cPhone = "", status = "tolandan";
-  let customerId = null;
-  let debtUsd = null; // YANGI
+  let customerId = null, debtUsd = null;
 
   if (posPayMode === "part") {
-    const selId     = parseInt(($("c-cust")||{value:""}).value) || null;
-    const nameTyped = ($("c-name")||{value:""}).value.trim();
-    const phoneTyped= ($("c-phone")||{value:""}).value.trim();
-    const norm      = s => (s||"").toLowerCase().replace(/\s/g,"");
+    const selId      = parseInt(($("c-cust")||{value:""}).value) || null;
+    const nameTyped  = ($("c-name")||{value:""}).value.trim();
+    const phoneTyped = ($("c-phone")||{value:""}).value.trim();
+    const norm       = s => (s||"").toLowerCase().replace(/\s/g,"");
 
     if (selId) {
       const c = db.customers.find(x => x.id === selId);
@@ -203,7 +309,6 @@ async function checkout() {
     rem  = Math.max(0, total - paid);
     status = rem > 0 ? "qarz" : "tolandan";
 
-    // YANGI: USD qarz hisoblash
     if (posDebtCurrency === "usd" && rem > 0) {
       const rate = db.settings.rate || 12800;
       debtUsd = parseFloat((rem / rate).toFixed(2));
@@ -212,7 +317,7 @@ async function checkout() {
 
   const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
 
-  // Qoldiqdan ayirish
+  // Qoldiqdan ayirish (dona hisobida)
   cart.forEach(c => {
     const p = db.products.find(x => x.sku === c.sku);
     if (p) { const v = p.variants.find(x => x.color===c.color && x.size===c.size); if (v) v.qty = Math.max(0, v.qty - c.qty); }
@@ -221,17 +326,24 @@ async function checkout() {
   const newSale = {
     id: db.seq++, date: today(), time: nowTime(),
     priceType: cart[0]?.priceType || "chakana",
-    payType: posPayType, staffId,
-    customerId,
-    items: cart.map(c => ({ name:c.name, variant:`${c.color} / ${c.size}`, qty:c.qty, price:c.price, unit:c.unit })),
+    payType: posPayType, staffId, customerId,
+    items: cart.map(c => ({
+      name: c.name,
+      variant: `${c.color} / ${c.size}`,
+      qty: c.qty,
+      qtyBox: c.qtyBox || null,
+      inBox:  c.inBox  || null,
+      price: c.price,
+      unit: c.unit
+    })),
     total, paid, remaining: rem, due,
     customerName: cName, customerPhone: cPhone, status,
-    debtCurrency: posPayMode === "part" ? posDebtCurrency : "uzs", // YANGI
-    debtUsd: debtUsd                                                // YANGI
+    debtCurrency: posPayMode === "part" ? posDebtCurrency : "uzs",
+    debtUsd: debtUsd
   };
   db.sales.push(newSale); saveDB();
 
-  // SMS — faqat haqiqiy raqam bo'lganda
+  // SMS
   if (cPhone && cPhone.replace(/\D/g,"").length >= 9) {
     const debtTxt = debtUsd != null
       ? `$${debtUsd.toFixed(2)} USD`
@@ -245,11 +357,11 @@ async function checkout() {
   // Reset
   const saleId = newSale.id;
   cart = []; renderCart(); setPayMode("full"); setDebtCurrency("uzs");
-  if ($("c-name"))  $("c-name").value = "";
+  if ($("c-name"))  $("c-name").value  = "";
   if ($("c-phone")) $("c-phone").value = "";
-  if ($("c-paid"))  $("c-paid").value = "0";
-  if ($("c-due"))   $("c-due").value = "";
-  if ($("c-cust"))  $("c-cust").value = "";
+  if ($("c-paid"))  $("c-paid").value  = "0";
+  if ($("c-due"))   $("c-due").value   = "";
+  if ($("c-cust"))  $("c-cust").value  = "";
   $("debt-count").textContent = debtSales().length;
   if (typeof refreshCustList === "function") refreshCustList();
   if (confirm("Chek chiqarilsinmi?")) printReceipt(saleId);
