@@ -57,13 +57,8 @@ function saveDB() {
   if (typeof scheduleCloudSync === "function") scheduleCloudSync();
 }
 
-// ── Yordamchi funksiyalar ──────────────────────
-const totalStock = p => p.variants.reduce((a, v) => a + v.qty, 0);
-const debtSales  = () => db.sales.filter(s => s.remaining > 0.5);
-const isOverdue  = s  => s.due && s.due < today();
-const visProds   = () => db.shop.type === "ikki"
-  ? db.products
-  : db.products.filter(p => p.type === db.shop.type);
+// ── Yordamchi funksiyalar (utils.js da aniqlangan) ─
+// totalStock, debtSales, isOverdue, visProds — utils.js da
 
 // ── EAN-13 ichki barcode generatsiya ──────────
 function genEAN13(seq) {
