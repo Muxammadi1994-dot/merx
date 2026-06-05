@@ -117,22 +117,45 @@ function omSetFilter(f) {
 }
 
 function omRenderQoldiq() {
-  const cols = omGetCols();
   const rate = db.settings.rate || 1;
   const q    = ($("om-q")||{value:""}).value.toLowerCase();
+  const showChakana = db.settings.showChakana || false;
 
   let rows = [];
   db.products.forEach(p => {
+    // Rang bo'yicha guruhlash
+    const colorGroups = {};
     p.variants.forEach(v => {
+      if (!colorGroups[v.color]) {
+        colorGroups[v.color] = {
+          color:   v.color,
+          hex:     v.hex    || "#888",
+          pantone: v.pantone || "",
+          qty:     0
+        };
+      }
+      colorGroups[v.color].qty += v.qty;
+    });
+
+    Object.values(colorGroups).forEach(cg => {
+      const inBox   = p.inBox || 1;
+      const boxes   = inBox > 1 ? Math.floor(cg.qty / inBox) : null;
+      const costUzs = Math.round((p.costUsd || 0) * rate);
+
       rows.push({
-        sku:     p.sku, name:p.name, category:p.category,
-        color:   v.color, size:v.size, qty:v.qty,
-        hex:     v.hex || "#888",
-        pantone: v.pantone || "",
-        costUzs: Math.round((p.costUsd||0) * rate),
-        chakana: p.priceUzs, ulgurji: p.ulgurjiNarx || 0,
-        qiymati: Math.round(v.qty * (p.costUsd||0) * rate),
-        barcode: p.barcode || "", inBox: p.inBox || 1, unit: p.unit || "dona"
+        sku:     p.sku,
+        name:    p.name,
+        color:   cg.color,
+        hex:     cg.hex,
+        pantone: cg.pantone,
+        qty:     cg.qty,
+        inBox,
+        boxes,
+        unit:    p.unit || "dona",
+        costUzs,
+        chakana: p.priceUzs,
+        ulgurji: p.ulgurjiNarx || 0,
+        qiymati: Math.round(cg.qty * (p.costUsd || 0) * rate)
       });
     });
   });
@@ -140,22 +163,21 @@ function omRenderQoldiq() {
   if (omStockFilter === "low") rows = rows.filter(r => r.qty > 0 && r.qty <= 5);
   if (omStockFilter === "out") rows = rows.filter(r => r.qty <= 0);
   if (q) rows = rows.filter(r =>
-    r.name.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q) ||
-    r.color.toLowerCase().includes(q) || r.pantone.toLowerCase().includes(q) ||
-    r.barcode.toLowerCase().includes(q)
+    r.name.toLowerCase().includes(q)    ||
+    r.sku.toLowerCase().includes(q)     ||
+    r.color.toLowerCase().includes(q)   ||
+    r.pantone.toLowerCase().includes(q)
   );
 
   const thead = `<tr>
-    <th>Mahsulot</th>
-    ${cols.sku        ? "<th>SKU</th>"              : ""}
-    ${cols.kategoriya ? "<th>Kategoriya</th>"        : ""}
-    <th>Rang / O'lcham</th>
-    <th class="num">Qoldiq</th>
-    ${cols.tannarx    ? "<th class='num'>Tannarx</th>"        : ""}
-    ${cols.chakana    ? "<th class='num'>Chakana</th>"        : ""}
-    ${cols.ulgurji    ? "<th class='num'>Ulgurji</th>"        : ""}
-    ${cols.qiymati    ? "<th class='num'>Qoldiq qiymati</th>" : ""}
-    ${cols.barcode    ? "<th>Barcode</th>"           : ""}
+    <th>Mahsulot nomi</th>
+    <th>Kod (SKU)</th>
+    <th>Rang</th>
+    <th class="num">Karobka</th>
+    <th class="num">Dona soni</th>
+    <th class="num">Tannarx</th>
+    <th class="num">Ulgurji narx</th>
+    ${showChakana ? "<th class='num'>Chakana narx</th>" : ""}
   </tr>`;
 
   const tbody = rows.length ? rows.map(r => {
@@ -163,41 +185,47 @@ function omRenderQoldiq() {
       ? `<span class="bg bg-r">Tugagan</span>`
       : r.qty <= 3
         ? `<span class="bg bg-a" style="font-weight:700">${r.qty} ${r.unit}</span>`
-        : r.qty <= 5
+        : r.qty <= 10
           ? `<span class="bg" style="background:#FFF8E7;color:#856404;font-weight:600">${r.qty} ${r.unit}</span>`
           : `<span class="bg bg-g">${r.qty} ${r.unit}</span>`;
-    const margin = r.chakana > 0 && r.costUzs > 0
-      ? Math.round((r.chakana - r.costUzs) / r.chakana * 100) : null;
+
+    const boxCell = r.boxes != null
+      ? `<span style="font-weight:700;font-size:13px">${r.boxes}</span>
+         <span style="font-size:10.5px;color:#bbb;margin-left:3px">karobka</span>
+         <div style="font-size:10px;color:#aaa">×${r.inBox} ${r.unit}</div>`
+      : `<span style="color:#ccc">—</span>`;
+
+    const margin = r.ulgurji > 0 && r.costUzs > 0
+      ? Math.round((r.ulgurji - r.costUzs) / r.ulgurji * 100) : null;
 
     return `<tr>
       <td>
         <div style="font-weight:600;font-size:13px">${r.name}</div>
-        ${r.inBox > 1 ? `<div style="font-size:10.5px;color:#bbb">📦 ${r.inBox} ${r.unit}/karobka</div>` : ""}
       </td>
-      ${cols.sku        ? `<td style="font-family:monospace;font-size:11.5px;color:var(--mut)">${r.sku}</td>` : ""}
-      ${cols.kategoriya ? `<td><span class="bg bg-t" style="font-size:11px">${r.category}</span></td>` : ""}
+      <td style="font-family:monospace;font-size:11.5px;color:var(--mut)">${r.sku}</td>
       <td>
         <div style="display:flex;align-items:center;gap:7px">
-          <div style="width:16px;height:16px;border-radius:4px;flex-shrink:0;
+          <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;
             background:${r.hex};border:1px solid rgba(0,0,0,.12)"
             title="${r.pantone}"></div>
-          <span style="font-weight:500">${r.color}</span>
-          <span style="color:#bbb">/</span>
-          <span>${r.size}</span>
+          <div>
+            <div style="font-weight:500;font-size:13px">${r.color}</div>
+            ${r.pantone ? `<div style="font-size:10px;color:#aaa">${r.pantone}</div>` : ""}
+          </div>
         </div>
-        ${r.pantone ? `<div style="font-size:10px;color:#aaa;padding-left:23px">${r.pantone}</div>` : ""}
       </td>
+      <td class="num">${boxCell}</td>
       <td class="num">${qBadge}</td>
-      ${cols.tannarx ? `<td class="num" style="font-size:12.5px">${r.costUzs ? fmt(r.costUzs)+" so'm" : "—"}</td>` : ""}
-      ${cols.chakana ? `<td class="num" style="color:var(--teal);font-size:12.5px">
-        ${fmt(r.chakana)} so'm
-        ${margin != null ? `<div style="font-size:10px;color:${margin>=30?"var(--grn)":margin>=15?"#E07B39":"var(--red)"}">${margin}%</div>` : ""}
-      </td>` : ""}
-      ${cols.ulgurji    ? `<td class="num" style="color:var(--acc);font-size:12.5px">${r.ulgurji ? fmt(r.ulgurji)+" so'm" : "—"}</td>` : ""}
-      ${cols.qiymati    ? `<td class="num" style="font-size:12.5px">${r.qiymati ? fmt(r.qiymati)+" so'm" : "—"}</td>` : ""}
-      ${cols.barcode    ? `<td style="font-family:monospace;font-size:12px">${r.barcode || "<span style='color:#ccc'>—</span>"}</td>` : ""}
+      <td class="num" style="font-size:12.5px">
+        ${r.costUzs ? fmt(r.costUzs) + " so'm" : "—"}
+      </td>
+      <td class="num" style="color:var(--acc);font-weight:700;font-size:13px">
+        ${r.ulgurji ? fmt(r.ulgurji) + " so'm" : "—"}
+        ${margin != null ? `<div style="font-size:10px;color:${margin>=30?"var(--grn)":margin>=15?"#E07B39":"var(--red)"}">margin ${margin}%</div>` : ""}
+      </td>
+      ${showChakana ? `<td class="num" style="color:var(--teal);font-size:12.5px">${r.chakana ? fmt(r.chakana) + " so'm" : "—"}</td>` : ""}
     </tr>`;
-  }).join("") : `<tr><td colspan="15" class="empty-td">
+  }).join("") : `<tr><td colspan="8" class="empty-td">
     ${omStockFilter !== "all" ? "Bu filtrda mahsulot yo'q" : q ? `"${q}" topilmadi` : "Mahsulot yo'q"}
   </td></tr>`;
 
@@ -205,15 +233,17 @@ function omRenderQoldiq() {
   el.querySelector("thead").innerHTML = thead;
   el.querySelector("tbody").innerHTML = tbody;
 
-  const totalVal   = rows.reduce((a,r) => a + r.qiymati, 0);
-  const totalUnits = rows.reduce((a,r) => a + r.qty, 0);
+  const totalQty  = rows.reduce((a, r) => a + r.qty, 0);
+  const totalVal  = rows.reduce((a, r) => a + r.qiymati, 0);
+  const totalBoxes = rows.filter(r => r.boxes != null).reduce((a, r) => a + (r.boxes || 0), 0);
   const foot = $("om-qoldiq-foot");
-  if (foot) foot.innerHTML = rows.length
-    ? `<div style="display:flex;gap:20px;font-size:13px;padding:10px 16px;color:var(--mut)">
-        <span>Jami: <strong style="color:#0D1B2A">${rows.length} ta variant</strong></span>
-        <span><strong>${totalUnits}</strong> dona qoldiq</span>
-        ${cols.qiymati ? `<span>Qiymati: <strong style="color:var(--acc)">${fmt(totalVal)} so'm</strong></span>` : ""}
-       </div>` : "";
+  if (foot) foot.innerHTML = rows.length ? `
+    <div style="display:flex;gap:24px;font-size:13px;padding:10px 16px;color:var(--mut);border-top:1px solid var(--brd)">
+      <span>Jami: <strong style="color:#0D1B2A">${rows.length} ta rang varianti</strong></span>
+      <span><strong>${totalBoxes}</strong> karobka</span>
+      <span><strong>${totalQty}</strong> dona qoldiq</span>
+      <span>Qiymati: <strong style="color:var(--acc)">${fmt(totalVal)} so'm</strong></span>
+    </div>` : "";
 }
 
 function omRenderKirim() {
