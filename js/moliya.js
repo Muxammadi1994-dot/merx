@@ -4,8 +4,10 @@
 
 let molPeriod  = "today";
 let _expChart  = null;
-const EXP_CATS = ["Ijara","Maosh","Transport","Kommunal","Reklama","Yetkazuvchi to'lov","Boshqa"];
-const EXP_COLORS = ["#E9A500","#4C9BE8","#36B48C","#8B5CF6","#E07B39","#E05A5A","#aaa"];
+if (typeof EXP_CATS === "undefined") {
+  window.EXP_CATS   = ["Ijara","Maosh","Transport","Kommunal","Reklama","Yetkazuvchi to'lov","Boshqa"];
+  window.EXP_COLORS = ["#E9A500","#4C9BE8","#36B48C","#8B5CF6","#E07B39","#E05A5A","#aaa"];
+}
 
 function setMolPeriod(p) {
   molPeriod = p;
