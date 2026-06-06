@@ -1576,25 +1576,58 @@
 
 <!-- MODAL: ADD XARAJAT -->
 <div class="ov" id="ov-addxarajat" onclick="if(event.target===this)closeModal('addxarajat')">
-  <div class="modal">
+  <div class="modal" style="max-width:480px">
     <button class="m-close" onclick="closeModal('addxarajat')"><i class="ti ti-x"></i></button>
     <h2>Xarajat qo'shish</h2>
-    <div class="mol-cats" id="exp-cats">
-      <span class="mcat on" data-c="Ijara" onclick="expCatPick(this)">Ijara</span>
-      <span class="mcat" data-c="Maosh" onclick="expCatPick(this)">Maosh</span>
-      <span class="mcat" data-c="Transport" onclick="expCatPick(this)">Transport</span>
-      <span class="mcat" data-c="Kommunal" onclick="expCatPick(this)">Kommunal</span>
-      <span class="mcat" data-c="Reklama" onclick="expCatPick(this)">Reklama</span>
-      <span class="mcat" data-c="Yetkazuvchi" onclick="expCatPick(this)">Yetkazuvchi to'lov</span>
-      <span class="mcat" data-c="Boshqa" onclick="expCatPick(this)">Boshqa</span>
+
+    <!-- Kategoriya -->
+    <div class="fld">
+      <label>Kategoriya</label>
+      <div class="mol-cats" id="exp-cats">
+        <span class="mcat on" data-c="Ijara"         onclick="expCatPick(this)">🏠 Ijara</span>
+        <span class="mcat"    data-c="Maosh"         onclick="expCatPick(this)">👤 Maosh</span>
+        <span class="mcat"    data-c="Transport"     onclick="expCatPick(this)">🚗 Transport</span>
+        <span class="mcat"    data-c="Kommunal"      onclick="expCatPick(this)">💡 Kommunal</span>
+        <span class="mcat"    data-c="Reklama"       onclick="expCatPick(this)">📢 Reklama</span>
+        <span class="mcat"    data-c="Yetkazuvchi"   onclick="expCatPick(this)">📦 Yetkazuvchi</span>
+        <span class="mcat"    data-c="Boshqa"        onclick="expCatPick(this)">📋 Boshqa</span>
+      </div>
     </div>
     <input id="exp-cat-val" type="hidden" value="Ijara">
+
+    <!-- Dinamik qo'shimcha maydon -->
+    <div id="ax-extra-wrap" style="margin-bottom:10px"></div>
+
+    <!-- Summa + Sana -->
     <div class="r2">
-      <div class="fld"><label>Summa (so'm)</label><input id="ax-sum" type="number" step="10000" placeholder="0"></div>
-      <div class="fld"><label>Sana</label><input id="ax-date" type="date"></div>
+      <div class="fld">
+        <label>Summa (so'm)</label>
+        <input id="ax-sum" type="number" step="10000" placeholder="0"
+          style="font-size:16px;font-weight:700">
+      </div>
+      <div class="fld">
+        <label>Sana</label>
+        <input id="ax-date" type="date">
+      </div>
     </div>
-    <div class="fld"><label>Izoh</label><input id="ax-note" placeholder="ixtiyoriy"></div>
-    <button class="btn btn-red" style="width:100%;margin-top:4px" onclick="addXarajat()"><i class="ti ti-check"></i>Saqlash</button>
+
+    <!-- Kim to'ladi (kassir) -->
+    <div class="r2">
+      <div class="fld">
+        <label>Kim to'ladi <span style="font-weight:400;color:var(--mut)">(ixtiyoriy)</span></label>
+        <select id="ax-who" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;background:#fff">
+          <option value="">— Tanlang —</option>
+        </select>
+      </div>
+      <div class="fld">
+        <label>Izoh</label>
+        <input id="ax-note" placeholder="ixtiyoriy">
+      </div>
+    </div>
+
+    <button class="btn btn-red" style="width:100%;margin-top:4px" onclick="addXarajat()">
+      <i class="ti ti-check"></i> Saqlash
+    </button>
   </div>
 </div>
 
