@@ -2,10 +2,6 @@
 // MERX — js/tarix.js  (v2 — To'liq sotuv tarixi)
 // ================================================
 
-// PAYTYPES allaqachon boshqa faylda e'lon qilingan bo'lishi mumkin
-if (typeof PAYTYPES === "undefined") {
-  var PAYTYPES = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma" };
-}
 
 let txPeriod  = "all";
 let txStatus  = "all";
