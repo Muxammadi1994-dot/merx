@@ -83,12 +83,7 @@ function posSearch() {
   if (clrBtn) clrBtn.style.display = q ? "flex" : "none";
 
   if (!q) {
-    $("pos-results").innerHTML = `
-      <div class="pos-empty">
-        <i class="ti ti-search"></i>
-        <div>Mahsulot nomi, SKU yoki barcode kiriting</div>
-        <div style="font-size:12px;color:#ccc;margin-top:4px">USB skaner ham ishlaydi</div>
-      </div>`;
+    posShowRecent();
     return;
   }
   const ql = q.toLowerCase();
@@ -303,7 +298,9 @@ function confirmVariant() {
   const inBox     = (vmSellMode === "karobka" && (vmProd.inBox||1) > 1) ? (vmProd.inBox||1) : 1;
   const qtyInput  = Math.max(1, parseInt(($("vm-qty")||{value:1}).value) || 1);
   const totalDona = qtyInput * inBox;
-  const narx      = posPriceType === "ulgurji" ? (vmProd.ulgurjiNarx||vmProd.priceUzs) : vmProd.priceUzs;
+  const baseNarx  = posPriceType === "ulgurji" ? (vmProd.ulgurjiNarx||vmProd.priceUzs) : vmProd.priceUzs;
+  const overrideVal = parseFloat(($("vm-price-input")||{value:0}).value) || 0;
+  const narx      = overrideVal > 0 ? overrideVal : baseNarx;
 
   if (vmSellMode === "karobka") {
     // Rang bo'yicha umumiy qoldiq tekshiruv
@@ -349,6 +346,7 @@ function renderCart() {
   const discount = calcDiscount(subtotal);
   const total    = subtotal - discount;
   const count    = cart.reduce((a, c) => a + c.qty, 0);
+  const rate     = db.settings.rate || 12800;
 
   $("cart-cnt").textContent = cart.length ? count + " ta" : "bo'sh";
   if ($("cart-items-count")) $("cart-items-count").textContent = cart.length ? count + " ta" : "0 ta";
@@ -363,6 +361,12 @@ function renderCart() {
     } else {
       discEl.style.display = "none";
     }
+  }
+
+  // USD ekvivalent
+  const usdEl = $("cart-total-usd");
+  if (usdEl) {
+    usdEl.textContent = total > 0 ? `≈ $${(total/rate).toFixed(0)}` : "";
   }
 
   if (!cart.length) {
@@ -524,6 +528,7 @@ async function checkout() {
   }
 
   const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
+  const saleNote = ($("pos-note")||{value:""}).value.trim();
 
   // Qoldiqdan ayirish
   cart.forEach(c => {
@@ -560,7 +565,7 @@ async function checkout() {
     subtotal, total, paid, remaining:rem, due,
     customerName:cName, customerPhone:cPhone, status,
     debtCurrency: posPayMode==="part" ? posDebtCurrency : "uzs",
-    debtUsd
+    debtUsd, note: saleNote || null
   };
   db.sales.push(newSale); saveDB();
 
@@ -586,8 +591,10 @@ async function checkout() {
   if ($("c-paid"))       $("c-paid").value        = "0";
   if ($("c-due"))        $("c-due").value         = "";
   if ($("c-cust"))       $("c-cust").value        = "";
-  if ($("discount-val")) $("discount-val").value  = "0";
+  if ($("discount-val"))   $("discount-val").value  = "0";
   if ($("discount-result")) $("discount-result").style.display = "none";
+  if ($("pos-note"))       $("pos-note").value       = "";
+  if ($("vm-price-input")) $("vm-price-input").value = "";
   $("debt-count").textContent = debtSales().length;
   refreshCustList();
   showReceiptModal(newSale);
@@ -705,6 +712,17 @@ function showReceiptModal(sale) {
   const staff = db.staff.find(s => s.id === sale.staffId);
   if ($("rcp-staff")) $("rcp-staff").textContent = staff ? staff.name : "—";
 
+  // Izoh
+  const noteWrap = $("rcp-note-wrap");
+  if (noteWrap) {
+    if (sale.note) {
+      noteWrap.style.display = "block";
+      if ($("rcp-note")) $("rcp-note").textContent = sale.note;
+    } else {
+      noteWrap.style.display = "none";
+    }
+  }
+
   // WhatsApp tugmasi
   const waBtn = $("rcp-wa-btn");
   if (waBtn) waBtn.style.display = sale.customerPhone ? "flex" : "none";
@@ -787,4 +805,80 @@ function printReceipt() {
   w.document.close();
   w.focus();
   setTimeout(() => w.print(), 300);
+}
+
+// ── Tezkor miqdor ─────────────────────────────
+function vmSetQty(n) {
+  if ($("vm-qty")) { $("vm-qty").value = n; renderVmChips(); }
+}
+
+// ── Klaviatura shortcuts ──────────────────────
+document.addEventListener("keydown", function(e) {
+  // Agar input/textarea fokusda bo'lsa — qo'shmaymiz
+  const tag = document.activeElement?.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+  // Faqat POS sahifasi ochiq bo'lganda
+  if (!document.getElementById("p-pos")?.classList.contains("active")) return;
+
+  if (e.key === "/" || e.key === "F2") {
+    e.preventDefault();
+    $("pos-q")?.focus();
+  }
+  if (e.key === "Escape") {
+    ["variant","receipt","barcode"].forEach(m => closeModal(m));
+    if ($("pos-q")) { $("pos-q").value = ""; posClear(); }
+  }
+  if (e.key === "Enter" && document.getElementById("ov-variant")?.style.display !== "none") {
+    e.preventDefault();
+    confirmVariant();
+  }
+  if (e.key === "F9") checkout();
+});
+
+// ── So'nggi mahsulotlar (qidiruv bo'sh bo'lganda) ──
+function posShowRecent() {
+  const recent = [...db.products]
+    .filter(p => totalStock(p) > 0)
+    .slice(-8).reverse();
+
+  if (!recent.length) {
+    $("pos-results").innerHTML = `<div class="pos-empty">
+      <i class="ti ti-search" style="font-size:42px;color:#e0ddd8;display:block;margin-bottom:14px"></i>
+      <div style="font-size:14px;color:#bbb;margin-bottom:6px;font-weight:500">Mahsulot qidiring</div>
+      <div style="font-size:12px;color:#ccc">Nom, SKU yoki barcode skanerlang</div>
+    </div>`;
+    return;
+  }
+
+  const rate = db.settings.rate || 12800;
+  $("pos-results").innerHTML = `
+    <div style="font-size:11px;color:#bbb;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;padding:0 2px">
+      So'nggi qo'shilgan mahsulotlar
+    </div>` +
+    recent.map(p => {
+      const narx  = posPriceType === "ulgurji" ? (p.ulgurjiNarx||p.priceUzs) : p.priceUzs;
+      const st    = totalStock(p);
+      const inBox = p.inBox || 1;
+      const imgHtml = p.image
+        ? `<img src="${p.image}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--brd);flex-shrink:0">`
+        : `<div style="width:52px;height:52px;border:1.5px dashed #e0ddd8;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:20px;flex-shrink:0"><i class="ti ti-photo"></i></div>`;
+      const colorDots = [...new Set(p.variants.map(v => v.color))].slice(0,4).map(c => {
+        const v = p.variants.find(x => x.color===c);
+        return `<span class="pri-clr">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${v?.hex||"#888"};border:1px solid rgba(0,0,0,.15);vertical-align:middle;margin-right:3px"></span>${c}</span>`;
+      }).join("");
+      return `<div class="pos-ri" onclick="openVariantModal('${p.sku}')">
+        ${imgHtml}
+        <div class="pri-body">
+          <div class="pri-name">${p.name}</div>
+          <div class="pri-meta">${p.category} · SKU: ${p.sku}</div>
+          <div class="pri-colors">${colorDots}</div>
+        </div>
+        <div class="pri-right">
+          <div class="pri-price">${priceDisplay(narx)}</div>
+          <div class="pri-stock ${st<=5?"low":""}">${st} ${p.unit||"dona"}${inBox>1?` (${Math.floor(st/inBox)} karobka)`:""}</div>
+        </div>
+      </div>`;
+    }).join("");
 }
