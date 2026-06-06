@@ -305,13 +305,25 @@ function confirmVariant() {
 
 // ── Savatcha ──────────────────────────────────────
 function renderCart() {
-  const total = cart.reduce((a, c) => a + c.price * c.qty, 0);
-  const count = cart.reduce((a, c) => a + c.qty, 0);
+  const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
+  const discount = calcDiscount(subtotal);
+  const total    = subtotal - discount;
+  const count    = cart.reduce((a, c) => a + c.qty, 0);
+
   $("cart-cnt").textContent = cart.length ? count + " ta" : "bo'sh";
   if ($("cart-items-count")) $("cart-items-count").textContent = cart.length ? count + " ta" : "0 ta";
+  if ($("pos-pay-total")) $("pos-pay-total").textContent = fmt(total) + " so'm";
 
-  // Pay button totalini yangilash
-  if ($("pos-pay-total")) $("pos-pay-total").textContent = priceDisplay(total);
+  // Chegirma natija
+  const discEl = $("discount-result");
+  if (discEl) {
+    if (discount > 0) {
+      discEl.style.display = "block";
+      discEl.innerHTML = `−${fmt(discount)} so'm → Jami: <strong style="color:#0D1B2A">${fmt(total)} so'm</strong>`;
+    } else {
+      discEl.style.display = "none";
+    }
+  }
 
   if (!cart.length) {
     $("cart-items").innerHTML = `<div class="cart-mt"><i class="ti ti-shopping-cart"></i><p style="font-size:13px">Mahsulot tanlang</p></div>`;
@@ -345,7 +357,7 @@ function renderCart() {
     </div>`;
   }).join("");
 
-  $("cart-total").textContent = priceDisplay(total); updateRem();
+  $("cart-total").textContent = fmt(total) + " so'm"; updateRem();
 }
 
 function ciQty(i, d) {
@@ -388,10 +400,12 @@ function setDebtCurrency(c) {
 }
 
 function updateRem() {
-  const total   = cart.reduce((a, c) => a + c.price * c.qty, 0);
-  const paid    = parseFloat(($("c-paid")||{value:0}).value) || 0;
-  const remUzs  = Math.max(0, total - paid);
-  const rate    = db.settings.rate || 12800;
+  const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
+  const discount = calcDiscount(subtotal);
+  const total    = subtotal - discount;
+  const paid     = parseFloat(($("c-paid")||{value:0}).value) || 0;
+  const remUzs   = Math.max(0, total - paid);
+  const rate     = db.settings.rate || 12800;
   if ($("rem-view")) $("rem-view").textContent = posDebtCurrency === "usd"
     ? "$" + (remUzs / rate).toFixed(2)
     : fmt(remUzs) + " so'm";
@@ -400,10 +414,11 @@ function updateRem() {
 // ── Mijoz tanlash ─────────────────────────────────
 function custPick() {
   const id = parseInt(($("c-cust")||{value:""}).value) || null;
-  if (!id) return;
+  if (!id) { showCustDebt(null); return; }
   const c = db.customers.find(x => x.id === id); if (!c) return;
   if ($("c-name"))  $("c-name").value  = c.name;
   if ($("c-phone")) $("c-phone").value = c.phone || "";
+  showCustDebt(id);
 }
 
 function refreshCustList() {
@@ -423,7 +438,9 @@ function refreshStaffList() {
 // ── Savdo yakunlash ───────────────────────────────
 async function checkout() {
   if (!cart.length) { toast("Savatcha bo'sh","err"); return; }
-  const total = cart.reduce((a, c) => a + c.price * c.qty, 0);
+  const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
+  const discount = calcDiscount(subtotal);
+  const total    = subtotal - discount;
   let paid = total, rem = 0, due = "", cName = "", cPhone = "", status = "tolandan";
   let customerId = null, debtUsd = null;
 
@@ -522,4 +539,44 @@ async function checkout() {
   $("debt-count").textContent = debtSales().length;
   refreshCustList();
   if (confirm("Chek chiqarilsinmi?")) printReceipt(sid);
+}
+
+// ── Chegirma ──────────────────────────────────
+let discType = "pct"; // "pct" | "sum"
+
+function setDiscType(t) {
+  discType = t;
+  document.querySelectorAll(".disc-type-btn").forEach(b => b.classList.toggle("on", b.dataset.d === t));
+  applyDiscount();
+}
+
+function applyDiscount() {
+  renderCart();
+}
+
+function calcDiscount(total) {
+  const val = parseFloat(($("discount-val")||{value:0}).value) || 0;
+  if (!val || val <= 0) return 0;
+  if (discType === "pct") return Math.round(total * val / 100);
+  return Math.min(val, total);
+}
+
+// ── Mijoz qarzi ko'rinishi ────────────────────
+function showCustDebt(custId) {
+  const badge = $("cust-debt-badge");
+  const val   = $("cust-debt-val");
+  if (!badge || !val) return;
+  if (!custId) { badge.style.display = "none"; return; }
+
+  // Qarzlar ro'yxatidan hisoblash
+  const debt = db.sales
+    .filter(s => s.customerId === custId && s.status === "nasiya" && s.remaining > 0)
+    .reduce((a, s) => a + (s.remaining || 0), 0);
+
+  if (debt > 0) {
+    val.textContent = fmt(debt) + " so'm";
+    badge.style.display = "block";
+  } else {
+    badge.style.display = "none";
+  }
 }

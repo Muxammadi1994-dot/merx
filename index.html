@@ -89,7 +89,8 @@
 .pri-stock.low{color:#E05A5A;font-weight:600}
 
 /* ─ O'ng panel ─ */
-.pos-right{width:380px;flex-shrink:0;display:flex;flex-direction:column;background:#fff;overflow:hidden;box-shadow:-2px 0 12px rgba(0,0,0,.06)}
+.pos-mid{width:360px;flex-shrink:0;display:flex;flex-direction:column;background:#fff;border-left:1px solid #E8E5E0;border-right:1px solid #E8E5E0;overflow:hidden}
+.pos-right{width:320px;flex-shrink:0;display:flex;flex-direction:column;background:#F8F7F4;overflow:hidden;box-shadow:-2px 0 12px rgba(0,0,0,.06)}
 
 /* ─ Savatcha header ─ */
 .cart-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;background:#0D1B2A;flex-shrink:0}
@@ -99,6 +100,11 @@
 
 /* ─ Savatcha items ─ */
 .cart-scroll{flex:1;overflow-y:auto;background:#F8F7F4;padding:10px 12px}
+
+/* ─ To'lov panel ─ */
+.checkout-panel{flex:1;overflow-y:auto;padding:14px 16px}
+.checkout-hd{padding:14px 18px 12px;background:#0D1B2A;flex-shrink:0;display:flex;align-items:center;gap:8px;color:#fff;font-weight:700;font-size:15px}
+.checkout-hd i{color:#E9A500;font-size:17px}
 .cart-mt{display:flex;flex-direction:column;align-items:center;justify-content:center;height:180px;color:#C8C3BB;text-align:center;gap:8px;font-size:13px}
 .cart-mt i{font-size:36px;opacity:.4}
 
@@ -153,12 +159,14 @@
 #pos-pay-total{margin-left:auto;font-size:17px;opacity:.95;font-variant-numeric:tabular-nums}
 
 /* Kassir select */
-.pos-right select,
-.pos-right input[type=text],
-.pos-right input[type=number],
-.pos-right input[type=date]{border:1.5px solid #E8E5E0;border-radius:9px;padding:8px 11px;font-family:inherit;font-size:13px;width:100%;background:#F8F7F4;color:#0D1B2A;transition:border-color .15s;outline:none}
-.pos-right select:focus,
-.pos-right input:focus{border-color:#E9A500;background:#fff}
+
+/* Chegirma type btns */
+.disc-type-btn{padding:7px 12px;border-radius:8px;border:1.5px solid var(--brd);font-size:13px;font-family:inherit;cursor:pointer;background:#fff;color:#666;font-weight:700;transition:all .15s}
+.disc-type-btn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
+/* pos-right inputs */
+.pos-right select,.pos-right input[type=text],.pos-right input[type=number],.pos-right input[type=date]{border:1.5px solid #E8E5E0;border-radius:9px;padding:8px 11px;font-family:inherit;font-size:13px;background:#fff;color:#0D1B2A;transition:border-color .15s;outline:none;width:100%}
+.pos-right select:focus,.pos-right input:focus{border-color:#E9A500;background:#fff}
+
 
 /* ═══ Ombor v2 ═══ */
 .om-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}
@@ -339,8 +347,8 @@
       </div>
     </div>
 
-    <!-- O'NG: Savatcha + To'lov -->
-    <div class="pos-right">
+    <!-- O'RTA: Savatcha -->
+    <div class="pos-mid">
       <div class="cart-hd">
         <div class="cart-hd-title">
           <i class="ti ti-shopping-cart"></i>
@@ -351,14 +359,12 @@
           <i class="ti ti-trash"></i>
         </button>
       </div>
-
       <div id="cart-items" class="cart-scroll">
         <div class="cart-mt"><i class="ti ti-shopping-cart"></i><p style="font-size:13px">Mahsulot tanlang</p></div>
       </div>
-
-      <div class="cart-ft">
-        <!-- Jami -->
-        <div class="cart-tot">
+      <!-- Jami — savatchaning pastida -->
+      <div style="padding:14px 16px;background:#fff;border-top:2px solid #E8E5E0">
+        <div class="cart-tot" style="margin-bottom:0">
           <div>
             <div class="cart-tot-lbl">Jami to'lov</div>
             <span class="cart-tot-v num" id="cart-total">0 so'm</span>
@@ -368,48 +374,74 @@
             <div style="font-size:14px;font-weight:700;color:#666" id="cart-items-count">0 ta</div>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- Mijoz (ikkala rejimda ham) -->
-        <div style="margin-bottom:10px">
+    <!-- O'NG: To'lov panel -->
+    <div class="pos-right">
+      <div class="checkout-hd">
+        <i class="ti ti-receipt"></i>
+        To'lov
+      </div>
+      <div class="checkout-panel">
+
+        <!-- Mijoz -->
+        <div style="margin-bottom:14px">
           <div class="cust-lbl">Mijoz <span>(ixtiyoriy)</span></div>
           <select id="c-cust" onchange="custPick()"
-            style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;width:100%;margin-bottom:6px">
+            style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;width:100%;margin-bottom:6px;background:#fff">
             <option value="">— Mijoz tanlang —</option>
           </select>
+          <!-- Mijoz qarzi -->
+          <div id="cust-debt-badge" style="display:none;padding:7px 12px;background:#FEF3C7;border:1px solid #FDE68A;border-radius:9px;font-size:12.5px;margin-bottom:6px">
+            <span style="color:#92400E">Joriy qarz:</span>
+            <strong id="cust-debt-val" style="color:#92400E;margin-left:4px"></strong>
+          </div>
           <div style="display:flex;gap:6px">
-            <input id="c-name" placeholder="Ism" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px">
-            <input id="c-phone" placeholder="+998 90..." style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px">
+            <input id="c-name" placeholder="Ism" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff">
+            <input id="c-phone" placeholder="+998 90..." style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff">
           </div>
         </div>
 
+        <!-- Chegirma -->
+        <div style="margin-bottom:14px">
+          <div style="font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Chegirma</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="discount-val" type="number" min="0" placeholder="0" oninput="applyDiscount()"
+              style="flex:1;font-family:inherit;font-size:14px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;outline:none">
+            <div style="display:flex;gap:4px">
+              <button class="disc-type-btn on" data-d="pct" onclick="setDiscType('pct')">%</button>
+              <button class="disc-type-btn" data-d="sum" onclick="setDiscType('sum')">So'm</button>
+            </div>
+          </div>
+          <div id="discount-result" style="display:none;font-size:12px;color:#856404;margin-top:5px;font-weight:600"></div>
+        </div>
+
         <!-- To'lov usuli -->
-        <div style="margin-bottom:8px">
-          <div style="font-size:10.5px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">To'lov usuli</div>
+        <div style="margin-bottom:12px">
+          <div style="font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">To'lov usuli</div>
           <div class="paytypes">
-            <div class="ptbtn on" data-pt="naqd" onclick="setPayType('naqd')"><i class="ti ti-cash" style="font-size:15px;display:block;margin:0 auto 3px"></i>Naqd</div>
-            <div class="ptbtn" data-pt="karta" onclick="setPayType('karta')"><i class="ti ti-credit-card" style="font-size:15px;display:block;margin:0 auto 3px"></i>Karta</div>
-            <div class="ptbtn" data-pt="otkazma" onclick="setPayType('otkazma')"><i class="ti ti-building-bank" style="font-size:15px;display:block;margin:0 auto 3px"></i>O'tkazma</div>
+            <div class="ptbtn on" data-pt="naqd" onclick="setPayType('naqd')"><i class="ti ti-cash" style="font-size:16px;display:block;margin:0 auto 4px"></i>Naqd</div>
+            <div class="ptbtn" data-pt="karta" onclick="setPayType('karta')"><i class="ti ti-credit-card" style="font-size:16px;display:block;margin:0 auto 4px"></i>Karta</div>
+            <div class="ptbtn" data-pt="otkazma" onclick="setPayType('otkazma')"><i class="ti ti-building-bank" style="font-size:16px;display:block;margin:0 auto 4px"></i>O'tkazma</div>
           </div>
         </div>
 
         <!-- To'lov rejimi -->
-        <div class="pmodes" style="margin-bottom:10px">
+        <div class="pmodes" style="margin-bottom:12px">
           <button class="pmode-btn on" data-m="full" onclick="setPayMode('full')"><i class="ti ti-check"></i>To'liq</button>
-          <button class="pmode-btn" data-m="part" onclick="setPayMode('part')"><i class="ti ti-clock"></i>Qisman (nasiya)</button>
+          <button class="pmode-btn" data-m="part" onclick="setPayMode('part')"><i class="ti ti-clock"></i>Nasiya</button>
         </div>
 
-        <!-- Qisman to'lov detallari -->
-        <div id="part-box" style="display:none;margin-bottom:10px">
+        <!-- Qisman to'lov -->
+        <div id="part-box" style="display:none;margin-bottom:12px">
           <div style="display:flex;gap:6px;margin-bottom:8px">
-            <div class="fld" style="flex:1;margin:0"><label>Hozir to'landi (so'm)</label><input id="c-paid" type="number" value="0" step="10000" oninput="updateRem()"></div>
-            <div class="fld" style="flex:1;margin:0"><label>To'lov muddati</label><input id="c-due" type="date"></div>
+            <div class="fld" style="flex:1;margin:0"><label>Hozir to'landi</label><input id="c-paid" type="number" value="0" step="10000" oninput="updateRem()" style="background:#fff"></div>
+            <div class="fld" style="flex:1;margin:0"><label>Muddat</label><input id="c-due" type="date" style="background:#fff"></div>
           </div>
-          <div style="margin-bottom:8px">
-            <div style="font-size:10.5px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Qarz valyutasi</div>
-            <div style="display:flex;gap:8px">
-              <button class="dcur-btn on" data-c="uzs" onclick="setDebtCurrency('uzs')">🇺🇿 So'm</button>
-              <button class="dcur-btn" data-c="usd" onclick="setDebtCurrency('usd')">💵 USD $</button>
-            </div>
+          <div style="display:flex;gap:6px;margin-bottom:8px">
+            <button class="dcur-btn on" data-c="uzs" onclick="setDebtCurrency('uzs')">🇺🇿 So'm</button>
+            <button class="dcur-btn" data-c="usd" onclick="setDebtCurrency('usd')">💵 USD $</button>
           </div>
           <div class="rem-box uzs" id="rem-box">
             <span id="rem-lbl" class="rem-lbl-uzs">Qolgan qarz:</span>
@@ -418,9 +450,9 @@
         </div>
 
         <!-- Kassir -->
-        <div style="margin-bottom:10px">
-          <div style="font-size:10.5px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Kassir</div>
-          <select id="pos-staff" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;width:100%">
+        <div style="margin-bottom:14px">
+          <div style="font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Kassir</div>
+          <select id="pos-staff" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;width:100%;background:#fff">
             <option value="">— Kassirni tanlang —</option>
           </select>
         </div>
