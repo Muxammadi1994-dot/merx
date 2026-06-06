@@ -246,6 +246,9 @@
 .staff-card{background:#fff;border-radius:14px;padding:18px;border:1.5px solid var(--brd);cursor:pointer;transition:all .18s;position:relative}
 .staff-card:hover{border-color:var(--acc);box-shadow:0 4px 16px rgba(233,165,0,.15);transform:translateY(-2px)}
 .staff-card.top-performer{border-color:#E9A500;background:linear-gradient(135deg,#fff,#FFFBEB)}
+
+.mol-period-btn{padding:4px 10px;border-radius:7px;border:1.5px solid rgba(255,255,255,.2);font-size:12px;font-family:inherit;cursor:pointer;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);transition:all .15s}
+.mol-period-btn.on{background:#E9A500;color:#fff;border-color:#E9A500}
 </style>
 </head>
 <body>
@@ -880,30 +883,75 @@
 
   <!-- MOLIYA -->
   <div class="pg" id="p-moliya">
+    <!-- Kassa balansi header -->
     <div class="mol-bal">
-      <div><div class="mol-bal-l">Bugungi kassa balansi</div><div class="mol-bal-v num" id="mol-balans">0 so'm</div>
+      <div>
+        <div class="mol-bal-l">Kassa balansi</div>
+        <div class="mol-bal-v num" id="mol-balans">0 so'm</div>
         <div style="display:flex;gap:18px;margin-top:8px;font-size:13px">
-          <span style="color:rgba(255,255,255,.7)">Kirim: <b style="color:#9FE1CB" id="mol-kirim">0</b></span>
-          <span style="color:rgba(255,255,255,.7)">Chiqim: <b style="color:#F09595" id="mol-chiqim">0</b></span>
+          <span style="color:rgba(255,255,255,.7)">📈 Kirim: <b style="color:#9FE1CB" id="mol-kirim">0</b></span>
+          <span style="color:rgba(255,255,255,.7)">📉 Chiqim: <b style="color:#F09595" id="mol-chiqim">0</b></span>
         </div>
       </div>
-      <button class="btn btn-acc" onclick="openModal('addxarajat')"><i class="ti ti-plus"></i>Xarajat qo'shish</button>
-    </div>
-    <div class="stat-row" style="grid-template-columns:repeat(4,1fr)">
-      <div class="stb"><div class="sl">Bu oylik sotuv</div><div class="sv num" id="mol-month-rev">0</div></div>
-      <div class="stb"><div class="sl">Bu oylik xarajat</div><div class="sv num" id="mol-month-exp">0</div></div>
-      <div class="stb kpi-grn" style="border-top:3px solid var(--grn)"><div class="sl">Sof foyda (oy)</div><div class="sv num" id="mol-profit" style="color:var(--grn)">0</div></div>
-      <div class="stb"><div class="sl">Jami xarajatlar</div><div class="sv" id="mol-exp-cnt">0 ta</div></div>
-    </div>
-    <div class="g2">
-      <div class="card"><div class="ch"><h3><i class="ti ti-list"></i>Xarajatlar ro'yxati</h3>
-        <input id="exp-q" placeholder="Qidirish..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 10px;width:160px" oninput="renderMoliya()">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <!-- Davr filtri -->
+        <div style="display:flex;gap:4px">
+          <button class="mol-period-btn on" data-p="today" onclick="setMolPeriod('today')">Bugun</button>
+          <button class="mol-period-btn" data-p="week"  onclick="setMolPeriod('week')">Hafta</button>
+          <button class="mol-period-btn" data-p="month" onclick="setMolPeriod('month')">Bu oy</button>
+          <button class="mol-period-btn" data-p="year"  onclick="setMolPeriod('year')">Bu yil</button>
+        </div>
+        <button class="btn btn-acc" onclick="openModal('addxarajat')">
+          <i class="ti ti-plus"></i> Xarajat qo'shish
+        </button>
       </div>
-        <table><thead><tr><th>Sana</th><th>Kategoriya</th><th>Summa</th><th>Izoh</th></tr></thead>
-        <tbody id="exp-body"></tbody></table></div>
-      <div class="card"><div class="ch"><h3><i class="ti ti-chart-donut-3"></i>Xarajat tarkibi</h3></div>
-        <div style="padding:14px 18px"><div class="chart-sm"><canvas id="expChart"></canvas></div>
-        <div id="exp-legend" style="display:flex;gap:10px;justify-content:center;font-size:12px;margin-top:8px;flex-wrap:wrap"></div></div></div>
+    </div>
+
+    <!-- KPI kartalar -->
+    <div class="stat-row" style="grid-template-columns:repeat(5,1fr)">
+      <div class="stb"><div class="sl">Sotuv kirim</div><div class="sv num" id="mol-month-rev">0</div></div>
+      <div class="stb"><div class="sl">Qarz yig'ildi</div><div class="sv num" id="mol-debt-coll" style="color:#4C9BE8">0</div></div>
+      <div class="stb"><div class="sl">Xarajatlar</div><div class="sv num" id="mol-month-exp" style="color:var(--red)">0</div></div>
+      <div class="stb" style="border-top:3px solid var(--grn)">
+        <div class="sl">Sof foyda</div>
+        <div class="sv num" id="mol-profit" style="color:var(--grn)">0</div>
+      </div>
+      <div class="stb"><div class="sl">Xarajatlar soni</div><div class="sv" id="mol-exp-cnt">0 ta</div></div>
+    </div>
+
+    <!-- Jadval + chart -->
+    <div class="g2">
+      <div class="card">
+        <div class="ch" style="flex-wrap:wrap;gap:8px">
+          <h3><i class="ti ti-list"></i>Xarajatlar ro'yxati</h3>
+          <div style="display:flex;gap:6px">
+            <input id="exp-q" placeholder="Qidirish..." oninput="renderMoliya()"
+              style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 10px;width:140px">
+            <button class="btn btn-sm" onclick="exportExpExcel()" style="color:#1D6A39">
+              <i class="ti ti-file-spreadsheet"></i>
+            </button>
+          </div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Sana</th><th>Kategoriya</th>
+            <th class="num">Summa</th><th>Izoh</th><th></th>
+          </tr></thead>
+          <tbody id="exp-body"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="ch"><h3><i class="ti ti-chart-donut-3"></i>Xarajat tarkibi</h3></div>
+        <div style="padding:14px 18px">
+          <div class="chart-sm"><canvas id="expChart"></canvas></div>
+          <div id="exp-legend" style="display:flex;gap:10px;justify-content:center;font-size:12px;margin-top:10px;flex-wrap:wrap"></div>
+        </div>
+        <!-- Kirim-chiqim taqqos -->
+        <div style="padding:0 18px 16px">
+          <div style="font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase;margin-bottom:10px">Kirim vs Chiqim</div>
+          <div id="mol-flow-bars"></div>
+        </div>
+      </div>
     </div>
   </div>
 
