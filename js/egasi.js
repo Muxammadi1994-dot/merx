@@ -1,5 +1,29 @@
 // MERX egasi.js | v2.2 | 2026-06-06
-// Egasi sozlamalari — renderEgasi utils.js/egasi moduli tomonidan boshqariladi
+// Egasi sozlamalari
+
+function saveSetting(key, val) {
+  if (!db.settings) db.settings = {};
+  db.settings[key] = val;
+  saveDB();
+
+  // Narx ko'rinishi tugmalarini yangilash
+  if (key === "priceCurrency") {
+    document.querySelectorAll("[data-c]").forEach(b =>
+      b.classList.toggle("on", b.dataset.c === val));
+    if (typeof updateCostCurrency === "function") updateCostCurrency();
+    if (typeof updateRatePill      === "function") updateRatePill();
+    if (typeof renderKatalog       === "function") renderKatalog();
+    if (typeof renderPosGrid       === "function") renderPosGrid();
+  }
+  if (key === "rate") {
+    if (typeof updateRatePill === "function") updateRatePill();
+  }
+  if (key === "name") {
+    if (!db.shop) db.shop = {};
+    db.shop.name = val;
+    saveDB();
+  }
+}
 
 function renderEgasi() {
   // Do'kon nomi
