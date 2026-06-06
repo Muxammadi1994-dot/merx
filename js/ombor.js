@@ -278,7 +278,6 @@ function omRenderKirim() {
     (o.color||"").toLowerCase().includes(q)
   ).slice().reverse();
 
-  // Ustun sozlamalari (fieldOn orqali)
   const fo = window.fieldOn || (() => true);
   const showRang    = fo("ombor_ustun_rang");
   const showBarcode = fo("ombor_ustun_barcode");
@@ -286,13 +285,10 @@ function omRenderKirim() {
   const showPartiya = fo("ombor_ustun_partiya");
   const showTolova  = fo("ombor_ustun_tolova");
 
-  // Thead
   const theadEl = $("ombor-head");
   if (theadEl) {
     theadEl.innerHTML = `<tr>
-      <th>Sana</th>
-      <th>Mahsulot</th>
-      <th>Birlik</th>
+      <th>Sana</th><th>Mahsulot</th><th>Birlik</th>
       ${showRang    ? "<th>Rang/O'lcham</th>" : ""}
       <th class="num">Miqdor</th>
       <th class="num">Tannarx</th>
@@ -432,9 +428,12 @@ function qbCalcBoxes() {
 
 function qabulOl() {
   const name = ($("qb-name")||{value:""}).value.trim();
-  if (!name)  { toast("Mahsulot nomini kiriting","err"); return; }
+  if (!name) { toast("Mahsulot nomini kiriting","err"); return; }
 
-  const isBoxMode = ($("qb-box-panel")?.style.display !== "none");
+  const fo = window.fieldOn || (() => true);
+  const isBoxMode   = fo("ombor_karobka") && ($("qb-box-panel")?.style.display !== "none");
+  const rangFaol    = fo("ombor_rang");
+  const olchamFaol  = fo("ombor_olcham");
   const pantone = ($("qb-pantone")||{value:""}).value.trim();
   const hex     = ($("qb-hex")||{value:"#888888"}).value;
   const boxes   = parseInt(($("qb-boxes")||{value:0}).value) || null;
@@ -444,22 +443,27 @@ function qabulOl() {
 
   if (isBoxMode) {
     color = ($("qb-color")||{value:""}).value.trim();
-    if (!color) { toast("Rang tanlang","err"); return; }
+    if (rangFaol && !color) { toast("Rang tanlang","err"); return; }
+    color = color || "Standart";
 
     const sizeFrom = ($("qb-size-from")||{value:""}).value;
     const sizeTo   = ($("qb-size-to")||{value:""}).value;
-    if (!sizeFrom || !sizeTo) { toast("Razmer oralig'ini tanlang","err"); return; }
+    if (olchamFaol && (!sizeFrom || !sizeTo)) { toast("Razmer oralig'ini tanlang","err"); return; }
 
     qty  = (boxes || 1) * inBoxEd;
-    size = `${sizeFrom}–${sizeTo}`;
+    size = (sizeFrom && sizeTo) ? `${sizeFrom}–${sizeTo}` : "Aralash";
   } else {
     color = ($("qb-color")||{value:""}).value.trim();
     size  = ($("qb-size")||{value:""}).value.trim();
     qty   = parseInt(($("qb-qty")||{value:0}).value) || 0;
 
-    if (!color) { toast("Rang tanlang","err"); return; }
-    if (!size)  { toast("O'lcham kiriting","err"); return; }
-    if (qty <= 0) { toast("Miqdor kiriting","err"); return; }
+    if (rangFaol   && !color)   { toast("Rang tanlang","err"); return; }
+    if (olchamFaol && !size)    { toast("O'lcham kiriting","err"); return; }
+    if (olchamFaol && qty <= 0) { toast("Miqdor kiriting","err"); return; }
+
+    color = color || "Standart";
+    size  = size  || "Aralash";
+    if (!olchamFaol) qty = parseInt(($("qb-qty")||{value:1}).value) || 1;
   }
 
   const kirimN    = getRawVal("qb-cost");
