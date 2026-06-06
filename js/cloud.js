@@ -168,7 +168,7 @@ async function pullFromCloud() {
 
     // Products
     const { data: prods } = await _sb.from("products").select("*");
-    if (prods) {
+    if (prods && prods.length > 0) {
       db.products = prods.map(p => ({
         sku: p.sku, name: p.name, category: p.category || "",
         type: p.type || "oyoq", unit: p.unit || "dona",
@@ -180,7 +180,7 @@ async function pullFromCloud() {
 
     // Customers
     const { data: custs } = await _sb.from("customers").select("*");
-    if (custs) {
+    if (custs && custs.length > 0) {
       db.customers = custs.map(c => ({
         id: c.id, name: c.name, phone: c.phone || "",
         type: c.type || "ulgurji", note: c.note || ""
@@ -189,7 +189,7 @@ async function pullFromCloud() {
 
     // Staff
     const { data: staffData } = await _sb.from("staff").select("*");
-    if (staffData) {
+    if (staffData && staffData.length > 0) {
       db.staff = staffData.map(s => ({
         id: s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir"
       }));
@@ -197,7 +197,7 @@ async function pullFromCloud() {
 
     // Sales
     const { data: salesData } = await _sb.from("sales").select("*").order("id");
-    if (salesData) {
+    if (salesData && salesData.length > 0) {
       db.sales = salesData.map(s => ({
         id: s.id, chekNum: s.chek_num, date: s.date, time: s.time,
         priceType: s.price_type, payType: s.pay_type,
@@ -213,7 +213,7 @@ async function pullFromCloud() {
 
     // Ombor
     const { data: omborData } = await _sb.from("ombor").select("*").order("id");
-    if (omborData) {
+    if (omborData && omborData.length > 0) {
       db.ombor = omborData.map(o => ({
         id: o.id, date: o.date, sku: o.sku,
         productName: o.product_name, unit: o.unit,
