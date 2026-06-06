@@ -240,6 +240,12 @@
 
 .tx-period-btn,.tx-status-btn{padding:4px 10px;border-radius:7px;border:1.5px solid var(--brd);font-size:12px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s}
 .tx-period-btn.on,.tx-status-btn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
+
+.xod-period-btn{padding:4px 10px;border-radius:7px;border:1.5px solid var(--brd);font-size:12px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s}
+.xod-period-btn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
+.staff-card{background:#fff;border-radius:14px;padding:18px;border:1.5px solid var(--brd);cursor:pointer;transition:all .18s;position:relative}
+.staff-card:hover{border-color:var(--acc);box-shadow:0 4px 16px rgba(233,165,0,.15);transform:translateY(-2px)}
+.staff-card.top-performer{border-color:#E9A500;background:linear-gradient(135deg,#fff,#FFFBEB)}
 </style>
 </head>
 <body>
@@ -829,13 +835,46 @@
 
   <!-- XODIMLAR -->
   <div class="pg" id="p-xodimlar">
-    <div class="staff-grid" id="staff-cards"></div>
+    <!-- KPI -->
+    <div class="stat-row" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stb"><div class="sl">Xodimlar soni</div><div class="sv" id="xod-cnt">0</div></div>
+      <div class="stb"><div class="sl">Bugungi sotuvlar</div><div class="sv num" id="xod-today">0</div></div>
+      <div class="stb"><div class="sl">Bu oylik sotuvlar</div><div class="sv num" id="xod-month">0</div></div>
+      <div class="stb"><div class="sl">Top kassir (oy)</div><div class="sv" id="xod-top">—</div></div>
+    </div>
+
+    <!-- Kartochkalar -->
+    <div class="staff-grid" id="staff-cards" style="margin-bottom:18px"></div>
+
+    <!-- Hisobot jadvali -->
     <div class="card">
-      <div class="ch"><h3><i class="ti ti-chart-bar"></i>Xodimlar sotuv hisoboti</h3>
-        <button class="btn btn-acc btn-sm" onclick="openModal('addstaff')"><i class="ti ti-plus"></i>Xodim qo'shish</button>
+      <div class="ch" style="flex-wrap:wrap;gap:8px">
+        <h3><i class="ti ti-chart-bar"></i>Sotuv hisoboti</h3>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;gap:4px">
+            <button class="xod-period-btn on" data-p="today" onclick="setXodPeriod('today')">Bugun</button>
+            <button class="xod-period-btn" data-p="week"  onclick="setXodPeriod('week')">7 kun</button>
+            <button class="xod-period-btn" data-p="month" onclick="setXodPeriod('month')">Bu oy</button>
+          </div>
+          <button class="btn btn-acc btn-sm" onclick="openModal('addstaff')">
+            <i class="ti ti-plus"></i>Xodim qo'shish
+          </button>
+        </div>
       </div>
-      <table><thead><tr><th>Xodim</th><th>Lavozim</th><th>Sotuvlar soni</th><th>Jami sotuv</th><th>Bugungi sotuv</th></tr></thead>
-      <tbody id="staff-table"></tbody></table>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>Xodim</th><th>Lavozim</th>
+            <th class="num">Sotuvlar</th>
+            <th class="num">Jami sotuv</th>
+            <th class="num">O'rtacha chek</th>
+            <th class="num">Yig'ilgan</th>
+            <th class="num">Qarz qoldirgan</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="staff-table"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
