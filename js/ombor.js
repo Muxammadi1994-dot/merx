@@ -563,8 +563,7 @@ function exportOmborSuppliers(rate) {
 }
 
 function downloadCSVOmbor(rows, filename) {
-  const bom = "\uFEFF";
-  const csv = bom + rows.map(r =>
+  const csv = "sep=;\r\n" + rows.map(r =>
     r.map(cell => {
       const s = String(cell == null ? "" : cell);
       return s.includes(",") || s.includes('"') || s.includes("\n")
@@ -845,9 +844,8 @@ function exportInventExcel() {
     ]);
   });
 
-  const bom = "\uFEFF";
-  const csv = bom + rows.map(r =>
-    r.map(c => { const s=String(c==null?"":c); return s.includes(",")?`"${s}"`:s; }).join(",")
+  const csv = "sep=;\r\n" + rows.map(r =>
+    r.map(c => { const s=String(c==null?"":c); return s.includes(";")?`"${s}"`:s; }).join(";")
   ).join("\n");
   const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
   const url  = URL.createObjectURL(blob);

@@ -270,8 +270,7 @@ function exportTarixExcel() {
     ]);
   });
 
-  const bom = "\uFEFF";
-  const csv = bom + rows.map(r =>
+  const csv = "sep=;\r\n" + rows.map(r =>
     r.map(c => {
       const v = String(c==null?"":c);
       return v.includes(",") || v.includes('"') ? `"${v.replace(/"/g,'""')}"` : v;

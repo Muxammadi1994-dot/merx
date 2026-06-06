@@ -545,7 +545,7 @@ function downloadCSV(rows, filename) {
       return s.includes(",") || s.includes('"') || s.includes("\n")
         ? '"' + s.replace(/"/g, '""') + '"'
         : s;
-    }).join(",")
+    }).join(";")
   ).join("\n");
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
