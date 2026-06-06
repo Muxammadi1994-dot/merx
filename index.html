@@ -453,7 +453,7 @@
         <div style="margin-bottom:14px">
           <div style="font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Chegirma</div>
           <div style="display:flex;gap:6px;align-items:center">
-            <input id="discount-val" type="number" min="0" placeholder="0" oninput="applyDiscount()"
+            <input id="discount-val" type="text" data-price placeholder="0" oninput="fmtInput(this);applyDiscount()"
               style="flex:1;font-family:inherit;font-size:14px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;outline:none">
             <div style="display:flex;gap:4px">
               <button class="disc-type-btn on" data-d="pct" onclick="setDiscType('pct')">%</button>
@@ -482,7 +482,7 @@
         <!-- Qisman to'lov -->
         <div id="part-box" style="display:none;margin-bottom:12px">
           <div style="display:flex;gap:6px;margin-bottom:8px">
-            <div class="fld" style="flex:1;margin:0"><label>Hozir to'landi</label><input id="c-paid" type="number" value="0" step="10000" oninput="updateRem()" style="background:#fff"></div>
+            <div class="fld" style="flex:1;margin:0"><label>Hozir to'landi</label><input id="c-paid" type="text" data-price placeholder="0" oninput="fmtInput(this);updateRem()" style="background:#fff"></div>
             <div class="fld" style="flex:1;margin:0"><label>Muddat</label><input id="c-due" type="date" style="background:#fff"></div>
           </div>
           <div style="display:flex;gap:6px;margin-bottom:8px">
@@ -1158,7 +1158,7 @@
       </div>
       <div class="fld">
         <label>Ulgurji narx (so'm)</label>
-        <input id="ap-ulgurji" type="number" value="300000" step="1000" oninput="apUpdateBoxHints()">
+        <input id="ap-ulgurji" type="text" value="" data-price placeholder="300 000" oninput="fmtInput(this);apUpdateBoxHints()" oninput="apUpdateBoxHints()">
         <div class="box-narx-hint" id="ap-ulg-hint" style="display:none">
           <i class="ti ti-package"></i><span></span>
         </div>
@@ -1224,7 +1224,7 @@
       </div>
       <div class="fld">
         <label>Ulgurji narx (so'm)</label>
-        <input id="ep-ulgurji" type="number" step="1000" oninput="epUpdateBoxHints()">
+        <input id="ep-ulgurji" type="text" data-price placeholder="0" oninput="fmtInput(this);epUpdateBoxHints()" oninput="epUpdateBoxHints()">
         <div class="box-narx-hint" id="ep-ulg-hint" style="display:none">
           <i class="ti ti-package"></i><span></span>
         </div>
@@ -1308,7 +1308,7 @@
         Narx (dona/juft)
         <span style="font-size:10.5px;color:#bbb;font-weight:400">(o'zgartirilmasa katalog narxi)</span>
       </label>
-      <input id="vm-price-input" type="number" placeholder="0 = katalog narxi" step="1000"
+      <input id="vm-price-input" type="text" data-price placeholder="0 = katalog narxi"
         style="font-family:inherit;font-size:14px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px">
     </div>
     <div id="vm-price-box" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:8px 11px;background:var(--teal2);border-radius:var(--rs)">
@@ -1428,14 +1428,14 @@
     <div class="r2">
       <div class="fld">
         <label>Tannarx (so'm/dona)</label>
-        <input id="qb-cost" type="number" placeholder="0" step="1000" oninput="qbUpdateBoxHints()">
+        <input id="qb-cost" type="text" placeholder="0" data-price oninput="fmtInput(this);qbUpdateBoxHints()" oninput="qbUpdateBoxHints()">
         <div class="box-narx-hint" id="qb-cost-hint" style="display:none">
           <i class="ti ti-package"></i><span></span>
         </div>
       </div>
       <div class="fld">
         <label>Ulgurji narxni yangilash</label>
-        <input id="qb-ulgurji" type="number" placeholder="0 = o'zgartirmaslik" step="1000" oninput="qbUpdateBoxHints()">
+        <input id="qb-ulgurji" type="text" placeholder="0 = o'zgartirmaslik" data-price oninput="fmtInput(this);qbUpdateBoxHints()" oninput="qbUpdateBoxHints()">
         <div class="box-narx-hint" id="qb-ulg-hint" style="display:none">
           <i class="ti ti-package"></i><span></span>
         </div>
@@ -1602,7 +1602,7 @@
     <div class="r2">
       <div class="fld">
         <label>Summa (so'm)</label>
-        <input id="ax-sum" type="number" step="10000" placeholder="0"
+        <input id="ax-sum" type="text" data-price placeholder="0"
           style="font-size:16px;font-weight:700">
       </div>
       <div class="fld">

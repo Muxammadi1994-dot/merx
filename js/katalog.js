@@ -352,7 +352,7 @@ function addProduct() {
   const t       = ($("ap-type")||{value:"oyoq"}).value;
   const cost    = parseFloat(($("ap-cost")||{value:0}).value)    || 0;
   const price   = parseFloat(($("ap-price")||{value:0}).value)   || 0;
-  const ulg     = parseFloat(($("ap-ulgurji")||{value:0}).value) || 0;
+  const ulg     = getRawVal("ap-ulgurji");
   const unit    = ($("ap-unit")||{value:"dona"}).value;
   const pantone = ($("ap-pantone")||{value:""}).value.trim();
   const hex     = ($("ap-hex")||{value:"#888888"}).value;
@@ -422,7 +422,7 @@ function apCostNote() {
   const c = parseFloat(($("ap-cost")||{value:0}).value) || 0;
   const r = db.settings.rate || 1;
   const p = parseFloat(($("ap-price")||{value:0}).value) || 0;
-  const u = parseFloat(($("ap-ulgurji")||{value:0}).value) || 0;
+  const u = getRawVal("ap-ulgurji");
   const costUzs = c * r;
   const margin  = u > 0 && costUzs > 0
     ? Math.round((u - costUzs) / u * 100) : null;
@@ -446,7 +446,7 @@ function addProduct() {
   const qty     = parseInt(($("ap-qty")||{value:0}).value)    || 0;
   const cost    = parseFloat(($("ap-cost")||{value:0}).value)    || 0;
   const price   = parseFloat(($("ap-price")||{value:0}).value)   || 0;
-  const ulg     = parseFloat(($("ap-ulgurji")||{value:0}).value) || 0;
+  const ulg     = getRawVal("ap-ulgurji");
   const unit    = ($("ap-unit")||{value:"dona"}).value;
   const inBox   = parseInt(($("ap-inbox")||{value:1}).value) || 1;
   const pantone = ($("ap-pantone")||{value:""}).value.trim();
@@ -599,7 +599,7 @@ function apUpdateBoxHints() {
   const inBox = parseInt(($("ap-inbox")||{value:0}).value) ||
                 parseInt(($("ap-inbox-calc")||{value:0}).value) || 0;
   const costUsd = parseFloat(($("ap-cost")||{value:0}).value) || 0;
-  const ulg     = parseFloat(($("ap-ulgurji")||{value:0}).value) || 0;
+  const ulg     = getRawVal("ap-ulgurji");
   _showBoxHint("ap-cost-hint", Math.round(costUsd * rate), inBox);
   _showBoxHint("ap-ulg-hint",  ulg, inBox);
 }
@@ -608,7 +608,7 @@ function epUpdateBoxHints() {
   const rate  = db.settings.rate || 12800;
   const inBox = parseInt(($("ep-inbox")||{value:0}).value) || 0;
   const costUsd = parseFloat(($("ep-cost")||{value:0}).value) || 0;
-  const ulg     = parseFloat(($("ep-ulgurji")||{value:0}).value) || 0;
+  const ulg     = getRawVal("ep-ulgurji");
   _showBoxHint("ep-cost-hint", Math.round(costUsd * rate), inBox);
   _showBoxHint("ep-ulg-hint",  ulg, inBox);
 }

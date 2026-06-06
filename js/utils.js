@@ -130,3 +130,29 @@ function importDB(inp) {
   };
   r.readAsText(f);
 }
+
+// ── Narx inputi formatlash ────────────────────────
+// input[data-price] yoki input[data-fmt] atributli maydonlar uchun
+function fmtInput(input) {
+  const raw   = input.value.replace(/\D/g, "");
+  const num   = parseInt(raw) || 0;
+  input.value = num > 0 ? num.toLocaleString("ru-RU") : "";
+  input.dataset.raw = raw;
+}
+
+function getRawVal(id) {
+  const el = $(id); if (!el) return 0;
+  // data-raw dan o'qish, yoki to'g'ridan raqam
+  const raw = el.dataset.raw || el.value.replace(/\s/g,"").replace(/,/g,"");
+  return parseFloat(raw) || 0;
+}
+
+// Barcha data-price inputlarini ishga tushirish
+function initPriceInputs() {
+  document.querySelectorAll("input[data-price]").forEach(inp => {
+    inp.addEventListener("input", () => fmtInput(inp));
+    inp.addEventListener("focus", () => {
+      // Focus bo'lganda ham formatlanganligicha qolsin
+    });
+  });
+}

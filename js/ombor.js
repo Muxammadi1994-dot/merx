@@ -434,9 +434,9 @@ function qabulOl() {
     if (qty <= 0) { toast("Miqdor kiriting","err"); return; }
   }
 
-  const kirimN    = parseFloat(($("qb-cost")||{value:0}).value)    || 0;
+  const kirimN    = getRawVal("qb-cost");
   const newChk    = parseFloat(($("qb-price")||{value:0}).value)   || 0;
-  const newUlg    = parseFloat(($("qb-ulgurji")||{value:0}).value) || 0;
+  const newUlg    = getRawVal("qb-ulgurji");
   const unit      = ($("qb-unit")||{value:"dona"}).value;
   const qbBarcode = ($("qb-barcode")||{value:""}).value.trim();
 
@@ -590,8 +590,8 @@ function qbUpdateBoxHints() {
     el.style.display = "inline-flex";
   }
 
-  const cost = parseFloat(($("qb-cost")||{value:0}).value)    || 0;
-  const ulg  = parseFloat(($("qb-ulgurji")||{value:0}).value) || 0;
+  const cost = getRawVal("qb-cost");
+  const ulg  = getRawVal("qb-ulgurji");
   showHint("qb-cost-hint", cost);
   showHint("qb-ulg-hint",  ulg);
 }

@@ -283,7 +283,7 @@ function initExpWhoSelect() {
 // ── Xarajat qo'shish ──────────────────────────────
 function addXarajat() {
   const cat    = ($("exp-cat-val")||{value:"Boshqa"}).value;
-  const sum    = parseFloat(($("ax-sum")||{value:0}).value) || 0;
+  const sum    = getRawVal("ax-sum");
   const date   = ($("ax-date")||{value:""}).value || today();
   const note   = ($("ax-note")||{value:""}).value.trim();
   const paidBy = ($("ax-who")||{value:""}).value;

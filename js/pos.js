@@ -299,7 +299,7 @@ function confirmVariant() {
   const qtyInput  = Math.max(1, parseInt(($("vm-qty")||{value:1}).value) || 1);
   const totalDona = qtyInput * inBox;
   const baseNarx  = posPriceType === "ulgurji" ? (vmProd.ulgurjiNarx||vmProd.priceUzs) : vmProd.priceUzs;
-  const overrideVal = parseFloat(($("vm-price-input")||{value:0}).value) || 0;
+  const overrideVal = getRawVal("vm-price-input");
   const narx      = overrideVal > 0 ? overrideVal : baseNarx;
 
   if (vmSellMode === "karobka") {
@@ -452,7 +452,7 @@ function updateRem() {
   const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
   const discount = calcDiscount(subtotal);
   const total    = subtotal - discount;
-  const paid     = parseFloat(($("c-paid")||{value:0}).value) || 0;
+  const paid     = getRawVal("c-paid");
   const remUzs   = Math.max(0, total - paid);
   const rate     = db.settings.rate || 12800;
   if ($("rem-view")) $("rem-view").textContent = posDebtCurrency === "usd"
@@ -523,7 +523,7 @@ async function checkout() {
 
   if (posPayMode === "part") {
     if (!cName) { toast("Qisman to'lovda mijoz ismi shart","err"); return; }
-    paid    = parseFloat(($("c-paid")||{value:0}).value) || 0;
+    paid    = getRawVal("c-paid");
     due     = ($("c-due")||{value:""}).value;
     rem     = Math.max(0, total - paid);
     status  = rem > 0 ? "qarz" : "tolandan";
@@ -619,7 +619,7 @@ function applyDiscount() {
 }
 
 function calcDiscount(total) {
-  const val = parseFloat(($("discount-val")||{value:0}).value) || 0;
+  const val = getRawVal("discount-val");
   if (!val || val <= 0) return 0;
   if (discType === "pct") return Math.round(total * val / 100);
   return Math.min(val, total);
