@@ -596,3 +596,263 @@ function qbUpdateBoxHints() {
   showHint("qb-cost-hint", cost);
   showHint("qb-ulg-hint",  ulg);
 }
+
+// ================================================
+// INVENTARIZATSIYA
+// ================================================
+
+let _invData    = [];  // [{sku, color, size, systemQty, actualQty, counted}]
+let _invFilter  = "all";
+
+// ── Ochish ────────────────────────────────────────
+function openInvent() {
+  // Barcha mahsulot/rang/o'lcham kombinatsiyalarini yaratish
+  _invData = [];
+  db.products.forEach(p => {
+    p.variants.forEach(v => {
+      _invData.push({
+        sku:       p.sku,
+        name:      p.name,
+        color:     v.color,
+        size:      v.size || "—",
+        hex:       v.hex  || "#888",
+        pantone:   v.pantone || "",
+        unit:      p.unit || "dona",
+        inBox:     p.inBox || 1,
+        barcode:   p.barcode || "",
+        systemQty: v.qty,
+        actualQty: null,   // sanalmaganda null
+        counted:   false
+      });
+    });
+  });
+
+  // Sana
+  const lbl = $("inv-date-lbl");
+  if (lbl) lbl.textContent = `Sana: ${today()} | Tizim: ${_invData.length} ta variant`;
+
+  setInvFilter("all");
+  renderInvTable();
+  updateInvStats();
+
+  // Modalni ochish
+  const ov = $("ov-invent");
+  if (ov) ov.style.display = "flex";
+  setTimeout(() => { if ($("inv-scan")) $("inv-scan").focus(); }, 100);
+}
+
+function closeInvent() {
+  const ov = $("ov-invent");
+  if (ov) ov.style.display = "none";
+}
+
+// ── Filter ────────────────────────────────────────
+function setInvFilter(f) {
+  _invFilter = f;
+  document.querySelectorAll(".inv-filter-btn").forEach(b =>
+    b.classList.toggle("on", b.dataset.f === f));
+  renderInvTable();
+}
+
+// ── Qidiruv/skaner ────────────────────────────────
+function invSearch() {
+  renderInvTable();
+}
+
+function invScanEnter() {
+  const q = ($("inv-scan")||{value:""}).value.trim();
+  if (!q) return;
+
+  // Barcode bo'yicha toping
+  const row = _invData.find(r =>
+    r.barcode === q ||
+    r.name.toLowerCase() === q.toLowerCase()
+  );
+
+  if (row) {
+    // Topilsa — soni 1 ga oshir yoki focus
+    const inputEl = document.querySelector(`input[data-inv-key="${row.sku}_${row.color}_${row.size}"]`);
+    if (inputEl) {
+      const cur = parseInt(inputEl.value) || 0;
+      inputEl.value = cur + 1;
+      invSetQty(row.sku, row.color, row.size, cur + 1);
+      inputEl.classList.add("changed");
+      inputEl.focus();
+    }
+    if ($("inv-scan")) $("inv-scan").value = "";
+  } else {
+    toast(`"${q}" topilmadi`, "err");
+  }
+}
+
+// ── Miqdor o'zgartirish ───────────────────────────
+function invSetQty(sku, color, size, val) {
+  const row = _invData.find(r => r.sku===sku && r.color===color && r.size===size);
+  if (!row) return;
+  const n = parseInt(val);
+  row.actualQty = isNaN(n) ? null : Math.max(0, n);
+  row.counted   = row.actualQty !== null;
+  updateInvStats();
+  renderInvRow(sku, color, size);
+}
+
+// ── Jadval render ─────────────────────────────────
+function renderInvTable() {
+  const q = ($("inv-scan")||{value:""}).value.toLowerCase();
+  const tbody = $("inv-body"); if (!tbody) return;
+
+  let rows = _invData;
+
+  // Filtr
+  if (_invFilter === "diff")    rows = rows.filter(r => r.counted && r.actualQty !== r.systemQty);
+  if (_invFilter === "done")    rows = rows.filter(r => r.counted);
+  if (_invFilter === "notdone") rows = rows.filter(r => !r.counted);
+
+  // Qidiruv
+  if (q) rows = rows.filter(r =>
+    r.name.toLowerCase().includes(q) ||
+    r.color.toLowerCase().includes(q) ||
+    r.barcode.includes(q) ||
+    r.sku.toLowerCase().includes(q)
+  );
+
+  tbody.innerHTML = rows.map(r => invRowHtml(r)).join("");
+}
+
+function invRowHtml(r) {
+  const diff     = r.counted ? (r.actualQty - r.systemQty) : null;
+  const rowClass = !r.counted ? "" : diff !== 0 ? "inv-row-diff" : "inv-row-done";
+  const diffCell = diff === null ? `<span style="color:#ccc">—</span>`
+    : diff > 0 ? `<span style="color:var(--grn);font-weight:700">+${diff}</span>`
+    : diff < 0 ? `<span style="color:var(--red);font-weight:700">${diff}</span>`
+    : `<span style="color:var(--grn)">✓ 0</span>`;
+  const key = `${r.sku}_${r.color}_${r.size}`;
+
+  return `<tr class="${rowClass}" style="border-bottom:1px solid #F0EDE8">
+    <td style="padding:10px 16px">
+      <div style="font-weight:600;font-size:13px">${r.name}</div>
+      <div style="font-size:11px;color:#aaa">${r.sku} ${r.barcode ? "· " + r.barcode : ""}</div>
+    </td>
+    <td style="padding:10px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:14px;height:14px;border-radius:4px;background:${r.hex};border:1px solid rgba(0,0,0,.1)"></div>
+        <span style="font-size:13px">${r.color}</span>
+        ${r.size && r.size!=="—" ? `<span style="color:#bbb;font-size:11px">/ ${r.size}</span>` : ""}
+      </div>
+    </td>
+    <td style="padding:10px;text-align:center">
+      <span style="font-weight:700;font-size:14px">${r.systemQty}</span>
+      <span style="font-size:11px;color:#aaa"> ${r.unit}</span>
+    </td>
+    <td style="padding:10px;text-align:center">
+      <input type="number" min="0" value="${r.actualQty !== null ? r.actualQty : ""}"
+        placeholder="—" class="inv-qty-input ${r.counted?"changed":""}"
+        data-inv-key="${key}"
+        oninput="invSetQty('${r.sku}','${r.color.replace(/'/g,"\\'")}','${r.size}',this.value)"
+        style="width:70px">
+    </td>
+    <td style="padding:10px;text-align:center">${diffCell}</td>
+    <td style="padding:10px;text-align:center">
+      ${r.counted
+        ? diff === 0
+          ? `<span class="bg bg-g" style="font-size:11px">✅ Mos</span>`
+          : `<span class="bg bg-r" style="font-size:11.5px">⚠️ Farq</span>`
+        : `<span class="bg" style="font-size:11px;color:#bbb">🔲 Kutilmoqda</span>`}
+    </td>
+  </tr>`;
+}
+
+function renderInvRow(sku, color, size) {
+  // Bir qatorni qayta render qilish
+  const tbody = $("inv-body"); if (!tbody) return;
+  renderInvTable(); // Sodda yondashuv
+}
+
+// ── Statistika ────────────────────────────────────
+function updateInvStats() {
+  const total = _invData.length;
+  const done  = _invData.filter(r => r.counted).length;
+  const diff  = _invData.filter(r => r.counted && r.actualQty !== r.systemQty).length;
+
+  if ($("inv-total-cnt"))   $("inv-total-cnt").textContent   = total;
+  if ($("inv-done-cnt"))    $("inv-done-cnt").textContent    = done;
+  if ($("inv-diff-cnt"))    $("inv-diff-cnt").textContent    = diff;
+  if ($("inv-progress"))    $("inv-progress").textContent    = `${done}/${total} sanalgan`;
+}
+
+// ── Tasdiqlash ────────────────────────────────────
+function confirmInvent() {
+  const counted = _invData.filter(r => r.counted);
+  if (!counted.length) { toast("Hech narsa sanalmadi","err"); return; }
+
+  const diffs = counted.filter(r => r.actualQty !== r.systemQty);
+  const msg = diffs.length > 0
+    ? `${counted.length} ta variant sanalgan. ${diffs.length} ta farq bor.\n\nQoldiqlarni yangilash tasdiqlaysizmi?`
+    : `${counted.length} ta variant sanalgan. Farq yo'q. Tasdiqlaysizmi?`;
+
+  if (!confirm(msg)) return;
+
+  // Qoldiqlarni yangilash
+  let updated = 0;
+  counted.forEach(r => {
+    const p = db.products.find(x => x.sku === r.sku);
+    if (!p) return;
+    const v = p.variants.find(x => x.color === r.color && x.size === r.size);
+    if (!v) return;
+    if (v.qty !== r.actualQty) {
+      v.qty = r.actualQty;
+      updated++;
+    }
+  });
+
+  // Inventarizatsiya tarixini saqlash
+  if (!db.inventarizatsiya) db.inventarizatsiya = [];
+  db.inventarizatsiya.push({
+    id:      db.seq++,
+    date:    today(),
+    time:    new Date().toTimeString().slice(0,5),
+    counted: counted.length,
+    diffs:   diffs.length,
+    updated,
+    items:   counted.map(r => ({
+      sku:       r.sku,
+      name:      r.name,
+      color:     r.color,
+      size:      r.size,
+      systemQty: r.systemQty,
+      actualQty: r.actualQty,
+      diff:      r.actualQty - r.systemQty
+    }))
+  });
+
+  saveDB();
+  closeInvent();
+  renderOmbor();
+  toast(`✅ ${updated} ta variant yangilandi. Inventarizatsiya tugadi.`);
+}
+
+// ── Excel eksport ─────────────────────────────────
+function exportInventExcel() {
+  const rows = [["Mahsulot","SKU","Rang","O'lcham","Tizim qoldig'i","Haqiqiy qoldiq","Farq","Holat"]];
+  _invData.forEach(r => {
+    const diff = r.counted ? r.actualQty - r.systemQty : null;
+    rows.push([
+      r.name, r.sku, r.color, r.size,
+      r.systemQty,
+      r.actualQty !== null ? r.actualQty : "",
+      diff !== null ? diff : "",
+      !r.counted ? "Sanalmagan" : diff === 0 ? "Mos" : diff > 0 ? "Ortiqcha" : "Kamomad"
+    ]);
+  });
+
+  const bom = "\uFEFF";
+  const csv = bom + rows.map(r =>
+    r.map(c => { const s=String(c==null?"":c); return s.includes(",")?`"${s}"`:s; }).join(",")
+  ).join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href=url; a.download=`merx_invent_${today()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  toast("Inventarizatsiya Excel yuklab olindi");
+}
