@@ -40,6 +40,8 @@ function renderEgasi() {
 
   // Chakana toggle
   if (typeof initChakanaToggle === "function") initChakanaToggle();
+  // Tannarx valyutasi
+  if (typeof updateCostCurrency === "function") updateCostCurrency();
 }
 
 function setShopType(t) {

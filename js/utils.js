@@ -111,6 +111,8 @@ function toggleCurrency() {
   // Aktiv bo'lmasa ham katalog va posni yangilaymiz (har doim kerak)
   if (typeof renderKatalog  === "function") renderKatalog();
   if (typeof renderPosGrid  === "function") renderPosGrid();
+  // Tannarx valyutasini yangilash
+  if (typeof updateCostCurrency === "function") updateCostCurrency();
 }
 function updateRatePill() {
   $("tb-rate").textContent = fmt(db.settings.rate || 0);

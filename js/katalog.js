@@ -420,18 +420,31 @@ function apTypeChange() {
 }
 
 function apCostNote() {
-  const c = parseFloat(($("ap-cost")||{value:0}).value) || 0;
-  const r = db.settings.rate || 1;
-  const p = parseFloat(($("ap-price")||{value:0}).value) || 0;
-  const u = getRawVal("ap-ulgurji");
-  const costUzs = c * r;
-  const margin  = u > 0 && costUzs > 0
-    ? Math.round((u - costUzs) / u * 100) : null;
-  const mTxt = margin != null
-    ? ` → <strong style="color:${margin>=30?"var(--grn)":margin>=15?"#E07B39":"var(--red)"}">${margin}% foyda</strong>`
-    : "";
-  if ($("ap-cost-note")) $("ap-cost-note").innerHTML = c
-    ? `Tannarx so'mda: $${c} × ${fmt(r)} = ${fmt(costUzs)} so'm${mTxt}` : "";
+  const cur  = db.settings?.priceCurrency || "uzs";
+  const rate = db.settings?.rate || 1;
+  const c    = parseFloat(($("ap-cost")||{value:0}).value) || 0;
+  const u    = getRawVal("ap-ulgurji") || 0;
+  const el   = $("ap-cost-note"); if (!el) return;
+
+  if (c > 0) {
+    let costUzs, txt;
+    if (cur === "usd" || cur === "both") {
+      costUzs = c * rate;
+      const margin = u > 0 ? Math.round((u - costUzs) / u * 100) : null;
+      const mCol   = margin == null ? "#aaa" : margin >= 30 ? "var(--grn)" : margin >= 15 ? "#E07B39" : "var(--red)";
+      txt = `$${c} × ${fmt(rate)} = ${fmt(costUzs)} so'm`;
+      if (margin != null) txt += ` → <strong style="color:${mCol}">${margin}% foyda</strong>`;
+    } else {
+      costUzs = c;
+      const margin = u > 0 ? Math.round((u - costUzs) / u * 100) : null;
+      const mCol   = margin == null ? "#aaa" : margin >= 30 ? "var(--grn)" : margin >= 15 ? "#E07B39" : "var(--red)";
+      txt = `Tannarx: ${fmt(costUzs)} so'm`;
+      if (margin != null) txt += ` → <strong style="color:${mCol}">${margin}% foyda</strong>`;
+    }
+    el.innerHTML = txt;
+  } else {
+    el.innerHTML = "";
+  }
   apUpdateBoxHints();
 }
 
@@ -445,19 +458,12 @@ function addProduct() {
   const t       = ($("ap-type")||{value:"oyoq"}).value;
   const size    = ($("ap-size")||{value:""}).value;
   const qty     = parseInt(($("ap-qty")||{value:0}).value)    || 0;
-  const cost    = parseFloat(($("ap-cost")||{value:0}).value)    || 0;
-  const price   = parseFloat(($("ap-price")||{value:0}).value)   || 0;
+  const cur     = db.settings?.priceCurrency || "uzs";
+  const rate    = db.settings?.rate || 12800;
+  const costRaw = parseFloat(($("ap-cost")||{value:0}).value) || 0;
+  const cost    = (cur === "usd" || cur === "both") ? costRaw : (costRaw / rate);
+  const price   = getRawVal("ap-price") || 0;
   const ulg     = getRawVal("ap-ulgurji");
-  const unit    = ($("ap-unit")||{value:"dona"}).value;
-  const inBox   = parseInt(($("ap-inbox")||{value:1}).value) || 1;
-  const pantone = ($("ap-pantone")||{value:""}).value.trim();
-  const hex     = ($("ap-hex")||{value:"#888888"}).value;
-  const barcode = ($("ap-barcode")||{value:""}).value.trim();
-
-  let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
-  if (p) {
-    // Mavjud mahsulotga variant qo'shish
-    const ex = p.variants.find(v => v.color===color && v.size===size);
     if (ex) { ex.qty += qty; } 
     else { p.variants.push({ color, size, qty, pantone, hex }); }
     if (barcode && !p.barcode) p.barcode = barcode;
@@ -612,4 +618,43 @@ function epUpdateBoxHints() {
   const ulg     = getRawVal("ep-ulgurji");
   _showBoxHint("ep-cost-hint", Math.round(costUsd * rate), inBox);
   _showBoxHint("ep-ulg-hint",  ulg, inBox);
+}
+
+// ── Tannarx valyutasini yangilash ─────────────────
+function updateCostCurrency() {
+  const cur  = db.settings?.priceCurrency || "uzs";
+  const rate = db.settings?.rate || 12800;
+  const isUsd  = cur === "usd";
+  const isBoth = cur === "both";
+
+  // Label va unit lar
+  const configs = [
+    ["ap-cost-lbl", "ap-cost-unit", "ap-cost"],
+    ["ep-cost-lbl", "ep-cost-unit", "ep-cost"],
+    ["qb-cost-lbl", "qb-cost-unit", "qb-cost"],
+  ];
+
+  configs.forEach(([lblId, unitId, inputId]) => {
+    const lbl  = $(lblId);
+    const unit = $(unitId);
+    const inp  = $(inputId);
+    if (!lbl || !unit) return;
+
+    if (isUsd) {
+      lbl.textContent  = "Tannarx (USD)";
+      unit.textContent = "USD";
+      unit.style.color = "#4C9BE8";
+      if (inp) inp.step = "0.5";
+    } else if (isBoth) {
+      lbl.textContent  = "Tannarx (USD yoki so'm)";
+      unit.textContent = "USD/so'm";
+      unit.style.color = "#856404";
+    } else {
+      // UZS
+      lbl.textContent  = "Tannarx (so'm)";
+      unit.textContent = "so'm";
+      unit.style.color = "#888";
+      if (inp) inp.step = "1000";
+    }
+  });
 }
