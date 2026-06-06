@@ -668,3 +668,232 @@ function updateCostCurrency() {
     }
   });
 }
+
+// ================================================
+// EXCEL / CSV IMPORT
+// ================================================
+
+let _importRows = [];
+
+function openKatalogImport() {
+  _importRows = [];
+  const prev = $("import-preview"); if (prev) prev.style.display = "none";
+  const res  = $("import-result");  if (res)  res.style.display  = "none";
+  const btn  = $("import-confirm-btn"); if (btn) btn.disabled = true;
+  if ($("import-file")) $("import-file").value = "";
+  openModal("import");
+}
+
+// ── Shablon yuklash ───────────────────────────────
+function downloadImportTemplate() {
+  const headers = ["Nom","Kategoriya","Turi (oyoq/kiyim)","Birlik",
+    "Karobkada nechta","Barcode","Rang","Pantone kodi","O'lcham",
+    "Qoldiq","Tannarx (USD)","Ulgurji narx (so'm)"];
+  const rows = [
+    ["Nike Air Max","Krossovka","oyoq","juft","8","8600000000001","Qora","PMS Black C","39-44","48","25","380000"],
+    ["Nike Air Max","Krossovka","oyoq","juft","8","8600000000001","Oq","PMS White","39-44","24","25","380000"],
+    ["Erkaklar ko'ylagi","Ko'ylak","kiyim","dona","12","","Ko'k","PMS 286 C","S-XL","60","8","150000"],
+  ];
+  const bom = "\uFEFF";
+  const csv = bom + [headers, ...rows].map(r =>
+    r.map(c => { const s=String(c); return s.includes(",")?`"${s}"`:s; }).join(",")
+  ).join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href=url; a.download="merx_import_shablon.csv"; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Fayl tanlash ──────────────────────────────────
+function handleImportDrop(event) {
+  const file = event.dataTransfer?.files?.[0];
+  if (file) processImportFile(file);
+}
+
+function handleImportFile(input) {
+  const file = input.files?.[0];
+  if (file) processImportFile(file);
+}
+
+function processImportFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    parseImportCSV(text);
+  };
+  // UTF-8 BOM ni qo'llab-quvvatlash
+  reader.readAsText(file, "UTF-8");
+}
+
+// ── CSV parse ─────────────────────────────────────
+function parseImportCSV(text) {
+  // BOM ni olib tashlash
+  const clean = text.replace(/^\uFEFF/, "").trim();
+  const lines  = clean.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) { toast("Fayl bo'sh yoki noto'g'ri format","err"); return; }
+
+  // Avtomatic delimiter aniqlash
+  const delim = lines[0].includes(";") ? ";" : ",";
+
+  function parseLine(line) {
+    const result = [];
+    let cur = "", inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === delim && !inQ) { result.push(cur.trim()); cur = ""; }
+      else cur += ch;
+    }
+    result.push(cur.trim());
+    return result;
+  }
+
+  const headers = parseLine(lines[0]).map(h => h.toLowerCase().replace(/['"]/g,"").trim());
+  _importRows = [];
+
+  // Ustun mapping
+  const col = (name) => {
+    const variants = {
+      nom: ["nom","name","nomi","mahsulot"],
+      cat: ["kategoriya","category","kat"],
+      type: ["turi","type","tur"],
+      unit: ["birlik","unit","o'lchov"],
+      inbox: ["karobkada nechta","inbox","karobka","qutida nechta"],
+      barcode: ["barcode","ean","barkod"],
+      color: ["rang","color","rang nomi"],
+      pantone: ["pantone","pantone kodi"],
+      size: ["o'lcham","size","olcham","razmer"],
+      qty: ["qoldiq","qty","miqdor","soni"],
+      cost: ["tannarx","cost","tannarx (usd)","narx usd"],
+      ulg: ["ulgurji","ulgurji narx","ulgurji narx (so'm)","sotuv narxi"],
+    };
+    const keys = variants[name] || [];
+    for (const k of keys) {
+      const idx = headers.findIndex(h => h.includes(k));
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  };
+
+  const cols = {
+    nom:     col("nom"),
+    cat:     col("cat"),
+    type:    col("type"),
+    unit:    col("unit"),
+    inbox:   col("inbox"),
+    barcode: col("barcode"),
+    color:   col("color"),
+    pantone: col("pantone"),
+    size:    col("size"),
+    qty:     col("qty"),
+    cost:    col("cost"),
+    ulg:     col("ulg"),
+  };
+
+  if (cols.nom < 0) { toast("'Nom' ustuni topilmadi","err"); return; }
+
+  for (let i = 1; i < lines.length; i++) {
+    const vals = parseLine(lines[i]);
+    const nom  = vals[cols.nom]?.trim();
+    if (!nom) continue;
+
+    _importRows.push({
+      nom,
+      cat:     cols.cat >= 0     ? vals[cols.cat]?.trim()          : "Qabul qilingan",
+      type:    cols.type >= 0    ? vals[cols.type]?.trim()         : "oyoq",
+      unit:    cols.unit >= 0    ? vals[cols.unit]?.trim()         : "dona",
+      inbox:   cols.inbox >= 0   ? (parseInt(vals[cols.inbox])||1) : 1,
+      barcode: cols.barcode >= 0 ? vals[cols.barcode]?.trim()      : "",
+      color:   cols.color >= 0   ? vals[cols.color]?.trim()        : "Standart",
+      pantone: cols.pantone >= 0 ? vals[cols.pantone]?.trim()      : "",
+      size:    cols.size >= 0    ? vals[cols.size]?.trim()         : "Aralash",
+      qty:     cols.qty >= 0     ? (parseInt(vals[cols.qty])||0)   : 0,
+      cost:    cols.cost >= 0    ? (parseFloat(vals[cols.cost])||0): 0,
+      ulg:     cols.ulg >= 0     ? (parseFloat((vals[cols.ulg]||"0").replace(/\s/g,"").replace(/,/g,""))||0) : 0,
+    });
+  }
+
+  showImportPreview();
+}
+
+// ── Preview ───────────────────────────────────────
+function showImportPreview() {
+  if (!_importRows.length) { toast("Qatorlar topilmadi","err"); return; }
+
+  const prev = $("import-preview"); if (prev) prev.style.display = "block";
+  const lbl  = $("import-preview-lbl");
+  if (lbl) lbl.textContent = `${_importRows.length} ta qator topildi — birinchi 5 tasi:`;
+
+  const head = $("import-preview-head");
+  if (head) head.innerHTML = `<tr>${["Nom","Rang","O'lcham","Qoldiq","Tannarx","Ulgurji"].map(h =>
+    `<th style="padding:6px 10px;font-weight:700;text-align:left;white-space:nowrap">${h}</th>`).join("")}</tr>`;
+
+  const body = $("import-preview-body");
+  if (body) body.innerHTML = _importRows.slice(0,5).map(r => `<tr>
+    <td style="padding:5px 10px;border-top:1px solid var(--brd)">${r.nom}</td>
+    <td style="padding:5px 10px;border-top:1px solid var(--brd)">${r.color}</td>
+    <td style="padding:5px 10px;border-top:1px solid var(--brd)">${r.size}</td>
+    <td style="padding:5px 10px;border-top:1px solid var(--brd)">${r.qty}</td>
+    <td style="padding:5px 10px;border-top:1px solid var(--brd)">$${r.cost}</td>
+    <td style="padding:5px 10px;border-top:1px solid var(--brd)">${fmt(r.ulg)} so'm</td>
+  </tr>`).join("");
+
+  const btn = $("import-confirm-btn");
+  if (btn) btn.disabled = false;
+}
+
+// ── Import tasdiqlash ─────────────────────────────
+function confirmImport() {
+  if (!_importRows.length) return;
+  const skipDup = $("import-skip-dup")?.checked ?? true;
+  const rate    = db.settings?.rate || 12800;
+
+  let added = 0, updated = 0, skipped = 0;
+
+  _importRows.forEach(r => {
+    // Mavjud mahsulotni topish
+    let p = db.products.find(x => x.name.toLowerCase() === r.nom.toLowerCase());
+
+    if (p) {
+      // Mavjud mahsulotga variant qo'shish
+      const ex = p.variants.find(v =>
+        v.color.toLowerCase() === r.color.toLowerCase() &&
+        v.size === r.size
+      );
+      if (ex) {
+        if (!skipDup) { ex.qty += r.qty; updated++; }
+        else skipped++;
+      } else {
+        p.variants.push({ color: r.color, size: r.size, qty: r.qty, pantone: r.pantone, hex: "#888888" });
+        // Narxlarni yangilash
+        if (r.cost > 0) p.costUsd     = r.cost;
+        if (r.ulg  > 0) p.ulgurjiNarx = r.ulg;
+        updated++;
+      }
+    } else {
+      // Yangi mahsulot
+      const sku = `IMP-${String(db.seq++).padStart(4,"0")}`;
+      db.products.push({
+        sku,
+        name:        r.nom,
+        category:    r.cat,
+        type:        r.type === "kiyim" ? "kiyim" : "oyoq",
+        unit:        r.unit || "dona",
+        inBox:       r.inbox || 1,
+        barcode:     r.barcode || genEAN13(db.seq),
+        costUsd:     r.cost,
+        priceUzs:    0,
+        ulgurjiNarx: r.ulg,
+        variants:    [{ color: r.color, size: r.size, qty: r.qty, pantone: r.pantone, hex: "#888888" }]
+      });
+      added++;
+    }
+  });
+
+  saveDB(); renderKatalog(); closeModal("import");
+
+  const res = $("import-result");
+  if (res) { res.style.display = "block"; }
+  toast(`✅ Import tugadi: ${added} ta yangi, ${updated} ta yangilandi, ${skipped} ta o'tkazildi`);
+}

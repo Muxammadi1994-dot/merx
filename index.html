@@ -552,8 +552,11 @@
           <button class="btn btn-sm" id="kat-low-btn" onclick="toggleKatLow()">
             <i class="ti ti-alert-triangle"></i> Kam qoldiq
           </button>
-          <button class="btn btn-sm" onclick="exportKatalogExcel()" title="Excel yuklash" style="color:#1D6A39">
+          <button class="btn btn-sm" onclick="exportKatalogExcel()" title="Excel eksport" style="color:#1D6A39">
             <i class="ti ti-file-spreadsheet"></i> Excel
+          </button>
+          <button class="btn btn-sm" onclick="openKatalogImport()" title="Excel import" style="color:#8B5CF6">
+            <i class="ti ti-upload"></i> Import
           </button>
           <button class="btn btn-acc btn-sm" onclick="openModal('addprod')"><i class="ti ti-plus"></i>Yangi mahsulot</button>
         </div>
@@ -1833,6 +1836,69 @@
           <i class="ti ti-check"></i> Tasdiqlash va saqlash
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: KATALOG IMPORT -->
+<div class="ov" id="ov-import" onclick="if(event.target===this)closeModal('import')">
+  <div class="modal" style="max-width:560px">
+    <button class="m-close" onclick="closeModal('import')"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-upload" style="color:#8B5CF6;margin-right:8px"></i>Excel/CSV Import</h2>
+
+    <!-- Template yuklash -->
+    <div style="background:#F3F0FF;border:1px solid #DDD6FE;border-radius:10px;padding:14px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;color:#6D28D9;margin-bottom:6px">
+        📋 Avval shablon faylni yuklab oling
+      </div>
+      <div style="font-size:12.5px;color:#7C3AED;margin-bottom:10px">
+        To'g'ri ustun tartibida to'ldiring, keyin bu yerga yuklang.
+      </div>
+      <button class="btn btn-sm" onclick="downloadImportTemplate()" style="color:#8B5CF6;border-color:#8B5CF6">
+        <i class="ti ti-download"></i> Shablon yuklash (.csv)
+      </button>
+    </div>
+
+    <!-- Fayl yuklash -->
+    <div class="fld">
+      <label>CSV yoki Excel fayl tanlang</label>
+      <div id="import-drop" style="border:2px dashed #DDD6FE;border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:.15s;background:#FAFAFF"
+        onclick="$('import-file').click()"
+        ondragover="event.preventDefault();this.style.borderColor='#8B5CF6'"
+        ondragleave="this.style.borderColor='#DDD6FE'"
+        ondrop="event.preventDefault();this.style.borderColor='#DDD6FE';handleImportDrop(event)">
+        <i class="ti ti-file-spreadsheet" style="font-size:32px;color:#C4B5FD;display:block;margin-bottom:8px"></i>
+        <div style="font-size:13px;color:#8B5CF6;font-weight:600">Faylni bu yerga tashlang</div>
+        <div style="font-size:12px;color:#bbb;margin-top:4px">yoki bosing (.csv, .xlsx)</div>
+      </div>
+      <input type="file" id="import-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleImportFile(this)">
+    </div>
+
+    <!-- Preview -->
+    <div id="import-preview" style="display:none">
+      <div style="font-size:12px;color:#aaa;font-weight:600;text-transform:uppercase;margin-bottom:8px" id="import-preview-lbl"></div>
+      <div style="max-height:200px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px">
+        <table style="width:100%;font-size:12px">
+          <thead id="import-preview-head" style="background:var(--bg);position:sticky;top:0"></thead>
+          <tbody id="import-preview-body"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center" id="import-options">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="import-skip-dup" checked style="cursor:pointer">
+          Mavjud mahsulotlarga yangi variant qo'sh (duplikat o'tkazib yubor)
+        </label>
+      </div>
+    </div>
+
+    <!-- Natija -->
+    <div id="import-result" style="display:none;padding:12px 14px;border-radius:10px;margin-top:10px;font-size:13px"></div>
+
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn" style="flex:1" onclick="closeModal('import')">Bekor qilish</button>
+      <button class="btn btn-acc" style="flex:2" id="import-confirm-btn" onclick="confirmImport()" disabled>
+        <i class="ti ti-check"></i> Importni boshlash
+      </button>
     </div>
   </div>
 </div>
