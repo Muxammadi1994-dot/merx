@@ -237,6 +237,9 @@
 
 .cust-filter-btn{padding:4px 11px;border-radius:7px;border:1.5px solid var(--brd);font-size:12px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s}
 .cust-filter-btn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
+
+.tx-period-btn,.tx-status-btn{padding:4px 10px;border-radius:7px;border:1.5px solid var(--brd);font-size:12px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s}
+.tx-period-btn.on,.tx-status-btn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
 </style>
 </head>
 <body>
@@ -740,13 +743,48 @@
 
   <!-- TARIX -->
   <div class="pg" id="p-tarix">
+    <!-- KPI -->
+    <div class="stat-row" id="tarix-stats">
+      <div class="stb"><div class="sl">Sotuvlar soni</div><div class="sv" id="tx-cnt">0</div></div>
+      <div class="stb"><div class="sl">Jami sotuv</div><div class="sv num" id="tx-total">0</div></div>
+      <div class="stb"><div class="sl">Yig'ilgan</div><div class="sv num" id="tx-paid">0</div></div>
+      <div class="stb"><div class="sl">Qolgan qarz</div><div class="sv num" id="tx-rem" style="color:var(--red)">0</div></div>
+    </div>
     <div class="card">
-      <div class="ch"><h3><i class="ti ti-history"></i>Sotuv tarixi</h3>
-        <input id="tarix-q" placeholder="Qidirish..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:190px" oninput="renderTarix()">
+      <div class="ch" style="flex-wrap:wrap;gap:8px">
+        <h3><i class="ti ti-history"></i>Sotuv tarixi</h3>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <!-- Davr filtri -->
+          <div style="display:flex;gap:4px" id="tarix-period-btns">
+            <button class="tx-period-btn on" data-p="all"   onclick="setTxPeriod('all')">Hammasi</button>
+            <button class="tx-period-btn" data-p="today"    onclick="setTxPeriod('today')">Bugun</button>
+            <button class="tx-period-btn" data-p="week"     onclick="setTxPeriod('week')">7 kun</button>
+            <button class="tx-period-btn" data-p="month"    onclick="setTxPeriod('month')">Bu oy</button>
+          </div>
+          <!-- Status filtri -->
+          <div style="display:flex;gap:4px">
+            <button class="tx-status-btn on" data-s="all"      onclick="setTxStatus('all')">Barchasi</button>
+            <button class="tx-status-btn" data-s="tolandan"    onclick="setTxStatus('tolandan')">✅ To'langan</button>
+            <button class="tx-status-btn" data-s="qarz"        onclick="setTxStatus('qarz')">💳 Qarzli</button>
+          </div>
+          <input id="tarix-q" placeholder="Mijoz, mahsulot..." oninput="renderTarix()"
+            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:160px">
+          <button class="btn btn-sm" onclick="exportTarixExcel()" style="color:#1D6A39">
+            <i class="ti ti-file-spreadsheet"></i> Excel
+          </button>
+        </div>
       </div>
       <div style="overflow-x:auto">
-      <table><thead><tr><th>#</th><th>Sana/Vaqt</th><th>Mahsulot(lar)</th><th>Mijoz</th><th>To'lov turi</th><th>Narx turi</th><th>Jami</th><th>To'langan</th><th>Qolgan</th><th>Holat</th><th></th></tr></thead>
-      <tbody id="tarix-body"></tbody></table></div>
+        <table>
+          <thead><tr>
+            <th>Chek</th><th>Sana / Vaqt</th><th>Mahsulotlar</th>
+            <th>Mijoz</th><th>To'lov</th>
+            <th class="num">Jami</th><th class="num">To'landi</th>
+            <th class="num">Qoldi</th><th>Holat</th><th></th>
+          </tr></thead>
+          <tbody id="tarix-body"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -1347,6 +1385,35 @@
 </div>
 
 
+
+
+<!-- MODAL: SOTUV DETAIL -->
+<div class="ov" id="ov-saledetail" onclick="if(event.target===this)closeModal('saledetail')">
+  <div class="modal" style="max-width:480px;padding:0;overflow:hidden">
+    <div style="background:#0D1B2A;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:13px;font-weight:800;color:#fff" id="sd-cheknum">#—</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.45)" id="sd-dt">—</div>
+      </div>
+      <button onclick="closeModal('saledetail')" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:5px 10px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:16px 20px;max-height:70vh;overflow-y:auto">
+      <div id="sd-items" style="margin-bottom:14px"></div>
+      <div style="border-top:1px dashed var(--brd);padding-top:12px;margin-bottom:12px" id="sd-totals"></div>
+      <div id="sd-info" style="background:var(--bg);border-radius:10px;padding:12px 14px;font-size:13px"></div>
+      ${'' /* note */}
+      <div id="sd-note-wrap" style="display:none;margin-top:10px;padding:10px 14px;background:#FFFBEB;border-radius:10px;border:1px solid #FDE68A">
+        <div style="font-size:10px;color:#92400E;font-weight:700;text-transform:uppercase;margin-bottom:3px">Izoh</div>
+        <div style="font-size:13px;color:#78350F" id="sd-note"></div>
+      </div>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--brd);display:flex;gap:8px">
+      <button onclick="printSaleDetail()" class="btn btn-sm" style="flex:1"><i class="ti ti-printer"></i> Chek</button>
+      <button id="sd-wa-btn" onclick="shareSaleWhatsApp()" class="btn btn-sm" style="flex:1;color:#25D366;border-color:#25D366"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>
+      <button id="sd-refund-btn" onclick="refundSale()" class="btn btn-sm" style="flex:1;color:var(--red)"><i class="ti ti-arrow-back"></i> Qaytarish</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL: MIJOZ KARTOCHKASI -->
 <div class="ov" id="ov-custcard" onclick="if(event.target===this)closeModal('custcard')">
