@@ -229,6 +229,11 @@
 
 .vm-qbtn{flex:1;padding:6px 4px;border-radius:7px;border:1.5px solid var(--brd);font-size:12px;font-family:inherit;cursor:pointer;background:#F8F7F4;color:#555;font-weight:700;transition:all .12s}
 .vm-qbtn:hover{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
+
+.debt-filter-btn{padding:4px 11px;border-radius:7px;border:1.5px solid var(--brd);font-size:12px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s}
+.debt-filter-btn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
+.debt-row-overdue{background:#FEF2F2}
+.debt-row-overdue td{color:#991B1B}
 </style>
 </head>
 <body>
@@ -645,19 +650,58 @@
 
   <!-- QARZLAR -->
   <div class="pg" id="p-qarzlar">
+    <!-- KPI kartalar -->
     <div class="stat-row">
-      <div class="stb"><div class="sl">Umumiy qarz</div><div class="sv num" id="st-total">0</div></div>
-      <div class="stb"><div class="sl">Qarzdorlar</div><div class="sv" id="st-cnt">0</div></div>
-      <div class="stb" style="border-top:3px solid var(--red)"><div class="sl" style="color:var(--red)">Muddati o'tgan</div><div class="sv" id="st-over" style="color:var(--red)">0</div></div>
-      <div class="stb"><div class="sl">Bu oylik yig'im</div><div class="sv num" id="st-month">0</div></div>
+      <div class="stb">
+        <div class="sl">Umumiy qarz (so'm)</div>
+        <div class="sv num" id="st-total">0</div>
+      </div>
+      <div class="stb">
+        <div class="sl">Umumiy qarz (USD)</div>
+        <div class="sv num" id="st-total-usd" style="color:#1B4F72">$0</div>
+      </div>
+      <div class="stb" style="border-top:3px solid var(--red)">
+        <div class="sl" style="color:var(--red)">Muddati o'tgan</div>
+        <div class="sv" id="st-over" style="color:var(--red)">0</div>
+      </div>
+      <div class="stb">
+        <div class="sl">Qarzdorlar soni</div>
+        <div class="sv" id="st-cnt">0</div>
+      </div>
+      <div class="stb">
+        <div class="sl">Bu oylik yig'im</div>
+        <div class="sv num" id="st-month">0</div>
+      </div>
     </div>
+
     <div class="card">
-      <div class="ch"><h3><i class="ti ti-credit-card"></i>Qarzlar ro'yxati</h3>
-        <input id="debt-q" placeholder="Mijoz..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:190px" oninput="renderDebts()">
+      <div class="ch" style="flex-wrap:wrap;gap:8px">
+        <h3><i class="ti ti-credit-card"></i>Qarzlar ro'yxati</h3>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <!-- Filtr -->
+          <div style="display:flex;gap:4px">
+            <button class="debt-filter-btn on" data-f="all"      onclick="setDebtFilter('all')">Barchasi</button>
+            <button class="debt-filter-btn"    data-f="overdue"  onclick="setDebtFilter('overdue')">⚠️ Muddati o'tgan</button>
+            <button class="debt-filter-btn"    data-f="usd"      onclick="setDebtFilter('usd')">💵 USD</button>
+            <button class="debt-filter-btn"    data-f="month"    onclick="setDebtFilter('month')">Bu oy</button>
+          </div>
+          <!-- Guruh toggle -->
+          <button class="btn btn-sm" id="debt-group-btn" onclick="toggleDebtGroup()" title="Mijoz bo'yicha guruhlash">
+            <i class="ti ti-users"></i> Guruhlab ko'rsatish
+          </button>
+          <!-- Eslatma -->
+          <button class="btn btn-sm" onclick="sendOverdueReminders()" style="color:var(--red)">
+            <i class="ti ti-bell"></i> Muddati o'tganlarga SMS
+          </button>
+          <input id="debt-q" placeholder="Mijoz qidirish..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:160px" oninput="renderDebts()">
+        </div>
       </div>
       <div style="overflow-x:auto">
-      <table><thead><tr><th>Mijoz</th><th>Telefon</th><th>Mahsulot</th><th>Jami</th><th>To'langan</th><th>Qolgan</th><th>Sana</th><th>Holat</th><th>To'lov qabul</th></tr></thead>
-      <tbody id="debt-body"></tbody></table></div>
+        <table id="debt-table">
+          <thead id="debt-head"></thead>
+          <tbody id="debt-body"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
