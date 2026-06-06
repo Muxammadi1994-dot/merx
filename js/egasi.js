@@ -1,38 +1,52 @@
-// ================================================
-// MERX — js/egasi.js
-// ================================================
+// MERX egasi.js | v2.2 | 2026-06-06
+// Egasi sozlamalari — renderEgasi utils.js/egasi moduli tomonidan boshqariladi
 
 function renderEgasi() {
-  $("s-name").value  = db.shop.name;
-  $("s-rate").value  = db.settings.rate;
-  updateRatePill();
-  $("sb-shop").textContent = db.shop.name;
-  document.querySelectorAll("#type-seg button").forEach(b => b.classList.toggle("on", b.dataset.t === db.shop.type));
-  document.querySelectorAll("#cur-seg button").forEach(b => b.classList.toggle("on", b.dataset.c === (db.settings.priceCurrency||"uzs")));
-  if ($("s-sup-url"))    $("s-sup-url").value    = db.settings.supabaseUrl || "";
-  if ($("s-sup-key"))    $("s-sup-key").value    = db.settings.supabaseKey || "";
-  if ($("s-eskiz-token")) $("s-eskiz-token").value = db.settings.eskizToken || "";
-  if ($("s-eskiz-sender")) $("s-eskiz-sender").value = db.settings.eskizSender || "MERX";
-  updateCloudUI(!!supabaseClient);
-  updateSmsUI();
-}
+  // Do'kon nomi
+  if ($("s-name")) $("s-name").value = db.shop?.name || db.settings?.name || "";
+  if ($("s-rate")) $("s-rate").value = db.settings?.rate || 12800;
 
-function saveSetting(k, v) {
-  if (k === "name")           { db.shop.name = v; $("sb-shop").textContent = v; }
-  else if (k === "rate")        db.settings.rate = v;
-  else if (k === "priceCurrency") {
-    db.settings.priceCurrency = v;
-    document.querySelectorAll("#cur-seg button").forEach(b => b.classList.toggle("on", b.dataset.c === v));
+  // Narx ko'rinishi tugmalari
+  const cur = db.settings?.priceCurrency || "uzs";
+  document.querySelectorAll("[data-c]").forEach(b =>
+    b.classList.toggle("on", b.dataset.c === cur));
+
+  // Do'kon turi
+  const st = db.settings?.shopType || "ikki";
+  document.querySelectorAll("[data-t]").forEach(b =>
+    b.classList.toggle("on", b.dataset.t === st));
+
+  // Cloud
+  const url = db.settings?.supabaseUrl || "";
+  const key = db.settings?.supabaseKey || "";
+  if ($("s-sup-url")) $("s-sup-url").value = url;
+  if ($("s-sup-key")) $("s-sup-key").value = key;
+
+  const badge = $("cloud-status-badge");
+  if (badge) {
+    if (url && key) {
+      badge.textContent = "Ulangan ✅";
+      badge.className = "bg bg-g";
+    } else {
+      badge.textContent = "Ulanmagan";
+      badge.className = "bg bg-gr";
+    }
   }
-  else if (k === "supabaseUrl")  db.settings.supabaseUrl = v;
-  else if (k === "supabaseKey")  db.settings.supabaseKey = v;
-  else if (k === "eskizToken") { db.settings.eskizToken = v; updateSmsUI(); }
-  else if (k === "eskizSender")  db.settings.eskizSender = v;
-  updateRatePill(); saveDB();
+
+  // SMS
+  if ($("s-eskiz-token"))  $("s-eskiz-token").value  = db.settings?.eskizToken  || "";
+  if ($("s-eskiz-sender")) $("s-eskiz-sender").value = db.settings?.eskizSender || "";
+  if (typeof updateSmsUI === "function") updateSmsUI();
+
+  // Chakana toggle
+  if (typeof initChakanaToggle === "function") initChakanaToggle();
 }
 
 function setShopType(t) {
-  db.shop.type = t; saveDB();
-  document.querySelectorAll("#type-seg button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
-  renderPosGrid();
+  if (!db.settings) db.settings = {};
+  db.settings.shopType = t;
+  document.querySelectorAll("[data-t]").forEach(b =>
+    b.classList.toggle("on", b.dataset.t === t));
+  saveDB();
+  toast("Do'kon turi saqlandi");
 }
