@@ -14,7 +14,15 @@ function init() {
   refreshStaffList();
   if (typeof updateSmsUI === "function") updateSmsUI();
   if (db.settings?.supabaseUrl && db.settings?.supabaseKey) {
-    initSupabase().then(ok => { if (ok) updateCloudUI(true); });
+    initSupabase().then(async ok => {
+      if (ok) {
+        updateCloudUI(true);
+        // Agar local data bo'sh bo'lsa — clouddan yukla
+        if (!db.products?.length && !db.sales?.length) {
+          await pullFromCloud();
+        }
+      }
+    });
   }
   // POS narx turi paneli — chakana yoqilmagan bo'lsa yashir
   const ptw = $("price-type-wrap");

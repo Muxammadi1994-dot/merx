@@ -268,12 +268,19 @@ async function pullFromCloud() {
   }
 }
 
-// ── Auto-sync: har sotuv/saqlashda ───────────────
-async function autoSync(table, data) {
-  if (!_sb) return;
-  try {
-    await _sb.from(table).upsert(data);
-  } catch(e) {
-    console.warn("Auto-sync xato:", e.message);
-  }
+// ── Auto-sync: saveDB() chaqirilganda ────────────
+let _syncTimer = null;
+
+function scheduleCloudSync() {
+  if (!_sb) return; // Ulanmagan bo'lsa skip
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(async () => {
+    await pushToCloud();
+    // Topbarda qisqa "Saqlandi" belgisi
+    const txt = $("cloud-txt");
+    if (txt) {
+      txt.textContent = "Saqlandi ✓";
+      setTimeout(() => { if (txt) txt.textContent = "Cloud"; }, 2000);
+    }
+  }, 2000); // 2 soniya kutadi (bir nechta o'zgarish bo'lsa birlashadi)
 }
