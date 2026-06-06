@@ -278,6 +278,32 @@ function omRenderKirim() {
     (o.color||"").toLowerCase().includes(q)
   ).slice().reverse();
 
+  // Ustun sozlamalari (fieldOn orqali)
+  const fo = window.fieldOn || (() => true);
+  const showRang    = fo("ombor_ustun_rang");
+  const showBarcode = fo("ombor_ustun_barcode");
+  const showSup     = fo("ombor_ustun_sup");
+  const showPartiya = fo("ombor_ustun_partiya");
+  const showTolova  = fo("ombor_ustun_tolova");
+
+  // Thead
+  const theadEl = $("ombor-head");
+  if (theadEl) {
+    theadEl.innerHTML = `<tr>
+      <th>Sana</th>
+      <th>Mahsulot</th>
+      <th>Birlik</th>
+      ${showRang    ? "<th>Rang/O'lcham</th>" : ""}
+      <th class="num">Miqdor</th>
+      <th class="num">Tannarx</th>
+      <th class="num">Jami</th>
+      ${showSup     ? "<th>Yetkazuvchi</th>" : ""}
+      ${showPartiya ? "<th>Partiya</th>" : ""}
+      ${showBarcode ? "<th>Barcode</th>" : ""}
+      ${showTolova  ? "<th>To'lov</th>" : ""}
+    </tr>`;
+  }
+
   const el = $("ombor-body"); if (!el) return;
   el.innerHTML = list.length ? list.map(o => {
     const hex = o.hex || "#888";
@@ -285,22 +311,23 @@ function omRenderKirim() {
       <td style="font-size:12px;color:var(--mut)">${o.date}</td>
       <td><div style="font-weight:600;font-size:13px">${o.productName}</div></td>
       <td><span class="bg bg-t" style="font-size:11px">${o.unit||"dona"}</span></td>
-      <td>
+      ${showRang ? `<td>
         <div style="display:flex;align-items:center;gap:6px">
           <div style="width:14px;height:14px;border-radius:3px;background:${hex};border:1px solid rgba(0,0,0,.12);flex-shrink:0"></div>
           ${o.color} <span style="color:#bbb">/</span> ${o.size}
         </div>
         ${o.pantone ? `<div style="font-size:10px;color:#aaa">${o.pantone}</div>` : ""}
         ${o.boxes ? `<div style="font-size:10.5px;color:#856404">📦 ${o.boxes} karobka</div>` : ""}
-      </td>
+      </td>` : ""}
       <td><span class="bg bg-g" style="font-weight:700">+${o.qty}</span></td>
       <td class="num" style="font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi)+" so'm" : "—"}</td>
       <td class="num" style="font-weight:600;font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi*o.qty)+" so'm" : "—"}</td>
-      <td style="font-size:12.5px">${o.supplier||"—"}</td>
-      <td style="font-size:12px;color:var(--mut)">${o.partiya||"—"}</td>
-      <td><span class="bg ${o.payStatus==="qarz"?"bg-r":"bg-g"}">${o.payStatus==="qarz"?"To'lanmagan":"To'langan"}</span></td>
+      ${showSup     ? `<td style="font-size:12.5px">${o.supplier||"—"}</td>` : ""}
+      ${showPartiya ? `<td style="font-size:12px;color:var(--mut)">${o.partiya||"—"}</td>` : ""}
+      ${showBarcode ? `<td style="font-family:monospace;font-size:11px">${o.barcode||"—"}</td>` : ""}
+      ${showTolova  ? `<td><span class="bg ${o.payStatus==="qarz"?"bg-r":"bg-g"}">${o.payStatus==="qarz"?"To'lanmagan":"To'langan"}</span></td>` : ""}
     </tr>`;
-  }).join("") : `<tr><td colspan="11" class="empty-td">Kirim yo'q</td></tr>`;
+  }).join("") : `<tr><td colspan="10" class="empty-td">Kirim yo'q</td></tr>`;
 }
 
 function omRenderSuppliers() {
