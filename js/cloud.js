@@ -270,17 +270,20 @@ async function pullFromCloud() {
 
 // ── Auto-sync: saveDB() chaqirilganda ────────────
 let _syncTimer = null;
+let _syncPending = false;
 
 function scheduleCloudSync() {
-  if (!_sb) return; // Ulanmagan bo'lsa skip
+  if (!_sb) return;
+  _syncPending = true;
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(async () => {
+    if (!_syncPending) return;
+    _syncPending = false;
     await pushToCloud();
-    // Topbarda qisqa "Saqlandi" belgisi
     const txt = $("cloud-txt");
     if (txt) {
       txt.textContent = "Saqlandi ✓";
       setTimeout(() => { if (txt) txt.textContent = "Cloud"; }, 2000);
     }
-  }, 2000); // 2 soniya kutadi (bir nechta o'zgarish bo'lsa birlashadi)
+  }, 5000); // 5 soniya — bir nechta o'zgarish birlashtirilib yuboriladi
 }
