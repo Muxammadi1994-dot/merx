@@ -1,35 +1,44 @@
-// MERX egasi.js | v3.2 | To'liq maydonlar boshqaruvi
+// MERX egasi.js | v3.3 | To'liq maydonlar boshqaruvi
 // ================================================
 
 const FIELD_DEFS = {
-  // Katalog — mahsulot qo'shish
-  katalog_kategoriya:  { label:"Kategoriya",              icon:"ti-category",        default:true  },
-  katalog_birlik:      { label:"O'lchov birligi",         icon:"ti-ruler",           default:true  },
-  katalog_karobka:     { label:"Qutida nechta / Karobka", icon:"ti-box",             default:true  },
-  katalog_tannarx:     { label:"Tannarx (USD)",           icon:"ti-coin",            default:true  },
-  katalog_ulgurji:     { label:"Ulgurji narx",            icon:"ti-building-store",  default:true  },
-  katalog_rang:        { label:"Rang (Pantone)",          icon:"ti-palette",         default:true  },
-  katalog_olcham:      { label:"O'lcham / razmer",        icon:"ti-resize",          default:true  },
-  katalog_barcode:     { label:"Barcode / EAN",           icon:"ti-barcode",         default:true  },
-  katalog_rasm:        { label:"Tovar rasmi",             icon:"ti-photo",           default:true  },
+  // Katalog — mahsulot qo'shish / tahrirlash
+  katalog_turi:        { label:"Turi (Oyoq/Kiyim)",       icon:"ti-tag",             default:true },
+  katalog_kategoriya:  { label:"Kategoriya",               icon:"ti-category",        default:true },
+  katalog_birlik:      { label:"O'lchov birligi",          icon:"ti-ruler",           default:true },
+  katalog_karobka:     { label:"Qutida nechta / Karobka",  icon:"ti-box",             default:true },
+  katalog_tannarx:     { label:"Tannarx (USD)",            icon:"ti-coin",            default:true },
+  katalog_ulgurji:     { label:"Ulgurji narx",             icon:"ti-building-store",  default:true },
+  katalog_rang:        { label:"Rang (Pantone)",           icon:"ti-palette",         default:true },
+  katalog_olcham:      { label:"O'lcham / razmer",         icon:"ti-resize",          default:true },
+  katalog_barcode:     { label:"Barcode / EAN",            icon:"ti-barcode",         default:true },
+  katalog_rasm:        { label:"Tovar rasmi",              icon:"ti-photo",           default:true },
+
   // Ombor — tovar qabul
-  ombor_rang:          { label:"Rang (Pantone)",          icon:"ti-palette",         default:true  },
-  ombor_barcode:       { label:"Barcode / EAN",           icon:"ti-barcode",         default:true  },
-  ombor_partiya:       { label:"Partiya raqami",          icon:"ti-hash",            default:true  },
-  ombor_yetkazuvchi:   { label:"Yetkazuvchi",             icon:"ti-user-check",      default:true  },
-  ombor_ulgurji_yangi: { label:"Ulgurji narxni yangilash",icon:"ti-refresh",         default:true  },
+  ombor_birlik:        { label:"O'lchov birligi",          icon:"ti-ruler",           default:true },
+  ombor_rang:          { label:"Rang (Pantone)",           icon:"ti-palette",         default:true },
+  ombor_olcham:        { label:"O'lcham / miqdor",         icon:"ti-resize",          default:true },
+  ombor_karobka:       { label:"Karobka hisobi paneli",    icon:"ti-box",             default:true },
+  ombor_tannarx:       { label:"Tannarx",                  icon:"ti-coin",            default:true },
+  ombor_ulgurji_yangi: { label:"Ulgurji narxni yangilash", icon:"ti-refresh",         default:true },
+  ombor_yetkazuvchi:   { label:"Yetkazuvchi",              icon:"ti-user-check",      default:true },
+  ombor_partiya:       { label:"Partiya raqami",           icon:"ti-hash",            default:true },
+  ombor_tolova:        { label:"To'lov holati",            icon:"ti-credit-card",     default:true },
+  ombor_barcode:       { label:"Barcode / EAN",            icon:"ti-barcode",         default:true },
+
   // Ombor — kirim tarixi ustunlari
-  ombor_ustun_rang:    { label:"Rang/O'lcham ustuni",     icon:"ti-palette",         default:true  },
-  ombor_ustun_barcode: { label:"Barcode ustuni",          icon:"ti-barcode",         default:false },
-  ombor_ustun_sup:     { label:"Yetkazuvchi ustuni",      icon:"ti-user-check",      default:true  },
-  ombor_ustun_partiya: { label:"Partiya ustuni",          icon:"ti-hash",            default:false },
-  ombor_ustun_tolova:  { label:"To'lov holati ustuni",    icon:"ti-credit-card",     default:true  },
+  ombor_ustun_rang:    { label:"Rang/O'lcham ustuni",      icon:"ti-palette",         default:true  },
+  ombor_ustun_barcode: { label:"Barcode ustuni",           icon:"ti-barcode",         default:false },
+  ombor_ustun_sup:     { label:"Yetkazuvchi ustuni",       icon:"ti-user-check",      default:true  },
+  ombor_ustun_partiya: { label:"Partiya ustuni",           icon:"ti-hash",            default:false },
+  ombor_ustun_tolova:  { label:"To'lov holati ustuni",     icon:"ti-credit-card",     default:true  },
+
   // POS
-  pos_chegirma:        { label:"Chegirma maydoni",        icon:"ti-discount",        default:true  },
-  pos_izoh:            { label:"Izoh maydoni",            icon:"ti-notes",           default:true  },
-  pos_usd:             { label:"USD nasiya varianti",     icon:"ti-currency-dollar", default:true  },
-  pos_nasiya_muddat:   { label:"Nasiya muddat sanasi",    icon:"ti-calendar",        default:true  },
-  pos_ulgurji:         { label:"Ulgurji/Chakana tanlash", icon:"ti-building-store",  default:true  },
+  pos_chegirma:        { label:"Chegirma maydoni",         icon:"ti-discount",        default:true },
+  pos_izoh:            { label:"Izoh maydoni",             icon:"ti-notes",           default:true },
+  pos_usd:             { label:"USD nasiya varianti",      icon:"ti-currency-dollar", default:true },
+  pos_nasiya_muddat:   { label:"Nasiya muddat sanasi",     icon:"ti-calendar",        default:true },
+  pos_ulgurji:         { label:"Ulgurji/Chakana tanlash",  icon:"ti-building-store",  default:true },
 };
 
 // ── Global: maydon yoqilganmi? ────────────────────
@@ -39,116 +48,142 @@ window.fieldOn = function(key) {
 };
 
 // ════════════════════════════════════════════════
-// MAYDONLARNI QO'LLASH (modal ochilganda)
+// MAYDONLARNI QO'LLASH
 // ════════════════════════════════════════════════
 
-// Katalog "Yangi mahsulot" + "Tahrirlash" modallari
 window.applyKatalogFields = function() {
   const fo = window.fieldOn;
 
-  // ── ADD PRODUCT MODAL (#ov-addprod) ──
+  // ── ADD PRODUCT MODAL ──
+  // Turi (do'kon) — r2 ichida 2-fld
+  const apR2 = document.querySelector("#ov-addprod .modal > .r2");
+  if (apR2) {
+    const flds = apR2.querySelectorAll(".fld");
+    if (flds[1]) flds[1].style.display = fo("katalog_turi") ? "" : "none";
+  }
 
-  // Kategoriya + O'lchov birligi + Qutida nechta (r3 bloki)
+  // Kategoriya + O'lchov birligi + Qutida nechta (r3)
   const apR3 = document.querySelector("#ov-addprod .modal .r3");
   if (apR3) {
     const flds = apR3.querySelectorAll(".fld");
-    if (flds[0]) flds[0].style.display = fo("katalog_kategoriya") ? "" : "none"; // Kategoriya
-    if (flds[1]) flds[1].style.display = fo("katalog_birlik")     ? "" : "none"; // O'lchov birligi
-    if (flds[2]) flds[2].style.display = fo("katalog_karobka")    ? "" : "none"; // Qutida nechta
+    if (flds[0]) flds[0].style.display = fo("katalog_kategoriya") ? "" : "none";
+    if (flds[1]) flds[1].style.display = fo("katalog_birlik")     ? "" : "none";
+    if (flds[2]) flds[2].style.display = fo("katalog_karobka")    ? "" : "none";
   }
 
-  // Rang (Pantone picker)
-  const apRangWrap = document.querySelector("#ov-addprod .fld:has(#ap-pp-wrap)");
-  if (apRangWrap) apRangWrap.style.display = fo("katalog_rang") ? "" : "none";
+  // Rang
+  const apRang = document.querySelector("#ov-addprod .fld:has(#ap-pp-wrap)");
+  if (apRang) apRang.style.display = fo("katalog_rang") ? "" : "none";
 
-  // O'lcham + razmer (ap-smode tugmalar va size bloklari)
-  const apSizeBlock = document.querySelector("#ov-addprod .modal > div:has(.ap-smode)");
-  if (apSizeBlock) apSizeBlock.style.display = fo("katalog_olcham") ? "" : "none";
+  // O'lcham + razmer bloki
+  const apSize = document.querySelector("#ov-addprod .modal > div:has(.ap-smode)");
+  if (apSize) apSize.style.display = fo("katalog_olcham") ? "" : "none";
 
-  // Tannarx (ap-cost-wrap)
-  const apCostWrap = document.getElementById("ap-cost-wrap");
-  if (apCostWrap) apCostWrap.style.display = fo("katalog_tannarx") ? "" : "none";
+  // Tannarx
+  const apCost = document.getElementById("ap-cost-wrap");
+  if (apCost) apCost.style.display = fo("katalog_tannarx") ? "" : "none";
 
   // Ulgurji narx
-  const apUlgWrap = document.querySelector("#ov-addprod .fld:has(#ap-ulgurji)");
-  if (apUlgWrap) apUlgWrap.style.display = fo("katalog_ulgurji") ? "" : "none";
+  const apUlg = document.querySelector("#ov-addprod .fld:has(#ap-ulgurji)");
+  if (apUlg) apUlg.style.display = fo("katalog_ulgurji") ? "" : "none";
 
   // Barcode
-  const apBarcodeWrap = document.querySelector("#ov-addprod .fld:has(#ap-barcode)");
-  if (apBarcodeWrap) apBarcodeWrap.style.display = fo("katalog_barcode") ? "" : "none";
+  const apBarcode = document.querySelector("#ov-addprod .fld:has(#ap-barcode)");
+  if (apBarcode) apBarcode.style.display = fo("katalog_barcode") ? "" : "none";
 
-  // ── EDIT PRODUCT MODAL (#ov-editprod) ──
-
-  // Kategoriya + birlik (r3 birinchi 2 ta fld)
+  // ── EDIT PRODUCT MODAL ──
+  // r3: nom(doim), kategoriya, birlik
   const epR3 = document.querySelector("#ov-editprod .modal .r3");
   if (epR3) {
     const flds = epR3.querySelectorAll(".fld");
-    // ep-name doim, ep-cat = kategoriya, ep-unit = birlik
     if (flds[1]) flds[1].style.display = fo("katalog_kategoriya") ? "" : "none";
     if (flds[2]) flds[2].style.display = fo("katalog_birlik")     ? "" : "none";
   }
+  const epBarcode = document.querySelector("#ov-editprod .fld:has(#ep-barcode)");
+  if (epBarcode) epBarcode.style.display = fo("katalog_barcode") ? "" : "none";
 
-  // Barcode (edit)
-  const epBarcodeWrap = document.querySelector("#ov-editprod .fld:has(#ep-barcode)");
-  if (epBarcodeWrap) epBarcodeWrap.style.display = fo("katalog_barcode") ? "" : "none";
+  const epRasm = document.querySelector("#ov-editprod .fld:has(#ep-img-preview)");
+  if (epRasm) epRasm.style.display = fo("katalog_rasm") ? "" : "none";
 
-  // Rasm (edit)
-  const epRasmWrap = document.querySelector("#ov-editprod .fld:has(#ep-img-preview)");
-  if (epRasmWrap) epRasmWrap.style.display = fo("katalog_rasm") ? "" : "none";
+  const epCost = document.getElementById("ep-cost-wrap");
+  if (epCost) epCost.style.display = fo("katalog_tannarx") ? "" : "none";
 
-  // Tannarx (edit)
-  const epCostWrap = document.getElementById("ep-cost-wrap");
-  if (epCostWrap) epCostWrap.style.display = fo("katalog_tannarx") ? "" : "none";
+  const epUlg = document.querySelector("#ov-editprod .fld:has(#ep-ulgurji)");
+  if (epUlg) epUlg.style.display = fo("katalog_ulgurji") ? "" : "none";
 
-  // Ulgurji narx (edit)
-  const epUlgWrap = document.querySelector("#ov-editprod .fld:has(#ep-ulgurji)");
-  if (epUlgWrap) epUlgWrap.style.display = fo("katalog_ulgurji") ? "" : "none";
-
-  // Karobkada nechta (edit)
-  const epInboxWrap = document.querySelector("#ov-editprod .fld:has(#ep-inbox)");
-  if (epInboxWrap) epInboxWrap.style.display = fo("katalog_karobka") ? "" : "none";
+  const epInbox = document.querySelector("#ov-editprod .fld:has(#ep-inbox)");
+  if (epInbox) epInbox.style.display = fo("katalog_karobka") ? "" : "none";
 };
 
-// Ombor "Tovar qabul" modal
 window.applyOmborFields = function() {
   const fo = window.fieldOn;
 
-  const qbRangWrap   = document.querySelector(".fld:has(#qb-pp-wrap)");
-  if (qbRangWrap)    qbRangWrap.style.display   = fo("ombor_rang")          ? "" : "none";
+  // r2 ichida 2-fld = O'lchov birligi
+  const qbR2 = document.querySelector("#ov-qabul .modal > .r2");
+  if (qbR2) {
+    const flds = qbR2.querySelectorAll(".fld");
+    if (flds[1]) flds[1].style.display = fo("ombor_birlik") ? "" : "none";
+  }
 
-  const qbUlgWrap    = document.querySelector(".fld:has(#qb-ulgurji)");
-  if (qbUlgWrap)     qbUlgWrap.style.display    = fo("ombor_ulgurji_yangi") ? "" : "none";
+  // Rang
+  const qbRang = document.querySelector(".fld:has(#qb-pp-wrap)");
+  if (qbRang) qbRang.style.display = fo("ombor_rang") ? "" : "none";
 
-  const qbSupWrap    = document.querySelector(".fld:has(#qb-sup)");
-  if (qbSupWrap)     qbSupWrap.style.display    = fo("ombor_yetkazuvchi")   ? "" : "none";
+  // Karobka paneli (sariq box)
+  const qbBox = document.getElementById("qb-box-panel");
+  if (qbBox) {
+    // karobka o'chirilsa normal panel ko'rsatilsin
+    if (!fo("ombor_karobka")) {
+      qbBox.style.display = "none";
+      const np = document.getElementById("qb-normal-panel");
+      if (np) np.style.display = "";
+    }
+  }
 
-  const qbPartWrap   = document.querySelector(".fld:has(#qb-partiya)");
-  if (qbPartWrap)    qbPartWrap.style.display   = fo("ombor_partiya")       ? "" : "none";
+  // Normal panel (o'lcham + miqdor)
+  const qbNormal = document.getElementById("qb-normal-panel");
+  if (qbNormal) qbNormal.style.display = fo("ombor_olcham") ? "" : "none";
 
-  const qbBarcodeWrap= document.querySelector(".fld:has(#qb-barcode)");
-  if (qbBarcodeWrap) qbBarcodeWrap.style.display= fo("ombor_barcode")       ? "" : "none";
+  // Tannarx
+  const qbCost = document.getElementById("qb-cost-wrap");
+  if (qbCost) qbCost.style.display = fo("ombor_tannarx") ? "" : "none";
+
+  // Ulgurji yangilash
+  const qbUlg = document.querySelector(".fld:has(#qb-ulgurji)");
+  if (qbUlg) qbUlg.style.display = fo("ombor_ulgurji_yangi") ? "" : "none";
+
+  // r3: yetkazuvchi, partiya, to'lov holati
+  const qbR3 = document.querySelector("#ov-qabul .modal .r3");
+  if (qbR3) {
+    const flds = qbR3.querySelectorAll(".fld");
+    if (flds[0]) flds[0].style.display = fo("ombor_yetkazuvchi") ? "" : "none";
+    if (flds[1]) flds[1].style.display = fo("ombor_partiya")     ? "" : "none";
+    if (flds[2]) flds[2].style.display = fo("ombor_tolova")      ? "" : "none";
+  }
+
+  // Barcode
+  const qbBarcode = document.querySelector(".fld:has(#qb-barcode)");
+  if (qbBarcode) qbBarcode.style.display = fo("ombor_barcode") ? "" : "none";
 };
 
-// POS checkout paneli
 function _applyPosFields() {
   const fo = window.fieldOn;
 
-  const chegirmaWrap = document.querySelector(".checkout-panel div:has(#discount-val)");
-  if (chegirmaWrap) chegirmaWrap.style.display = fo("pos_chegirma") ? "" : "none";
+  const chegirma = document.querySelector(".checkout-panel div:has(#discount-val)");
+  if (chegirma) chegirma.style.display = fo("pos_chegirma") ? "" : "none";
 
-  const izohWrap = document.querySelector(".checkout-panel div:has(#pos-note)");
-  if (izohWrap) izohWrap.style.display = fo("pos_izoh") ? "" : "none";
+  const izoh = document.querySelector(".checkout-panel div:has(#pos-note)");
+  if (izoh) izoh.style.display = fo("pos_izoh") ? "" : "none";
 
   const usdBtn = document.querySelector("button[data-c='usd'][onclick*='setDebtCurrency']");
   if (usdBtn) usdBtn.style.display = fo("pos_usd") ? "" : "none";
 
-  const muddatWrap = document.querySelector(".fld:has(#c-due)");
-  if (muddatWrap) muddatWrap.style.display = fo("pos_nasiya_muddat") ? "" : "none";
+  const muddat = document.querySelector(".fld:has(#c-due)");
+  if (muddat) muddat.style.display = fo("pos_nasiya_muddat") ? "" : "none";
 
   const ptWrap = document.getElementById("price-type-wrap");
   if (ptWrap) {
-    const show = fo("pos_ulgurji") && (db.settings?.showChakana || false);
-    ptWrap.style.display = show ? "block" : "none";
+    ptWrap.style.display = (fo("pos_ulgurji") && (db.settings?.showChakana || false)) ? "block" : "none";
   }
 }
 
@@ -173,28 +208,20 @@ function saveSetting(key, val) {
   db.settings[key] = val;
   saveDB();
   if (key === "priceCurrency") {
-    document.querySelectorAll("[data-c]").forEach(b =>
-      b.classList.toggle("on", b.dataset.c === val));
+    document.querySelectorAll("[data-c]").forEach(b => b.classList.toggle("on", b.dataset.c === val));
     if (typeof updateCostCurrency === "function") updateCostCurrency();
-    if (typeof updateRatePill      === "function") updateRatePill();
-    if (typeof renderKatalog       === "function") renderKatalog();
-    if (typeof renderPosGrid       === "function") renderPosGrid();
+    if (typeof updateRatePill     === "function") updateRatePill();
+    if (typeof renderKatalog      === "function") renderKatalog();
+    if (typeof renderPosGrid      === "function") renderPosGrid();
   }
-  if (key === "rate") {
-    if (typeof updateRatePill === "function") updateRatePill();
-  }
-  if (key === "name") {
-    if (!db.shop) db.shop = {};
-    db.shop.name = val;
-    saveDB();
-  }
+  if (key === "rate") { if (typeof updateRatePill === "function") updateRatePill(); }
+  if (key === "name") { if (!db.shop) db.shop = {}; db.shop.name = val; saveDB(); }
 }
 
 function setShopType(t) {
   if (!db.settings) db.settings = {};
   db.settings.shopType = t;
-  document.querySelectorAll("[data-t]").forEach(b =>
-    b.classList.toggle("on", b.dataset.t === t));
+  document.querySelectorAll("[data-t]").forEach(b => b.classList.toggle("on", b.dataset.t === t));
   saveDB();
   toast("Do'kon turi saqlandi");
 }
@@ -205,12 +232,10 @@ function renderEgasi() {
   if ($("s-rate")) $("s-rate").value = db.settings?.rate || 12800;
 
   const cur = db.settings?.priceCurrency || "uzs";
-  document.querySelectorAll("[data-c]").forEach(b =>
-    b.classList.toggle("on", b.dataset.c === cur));
+  document.querySelectorAll("[data-c]").forEach(b => b.classList.toggle("on", b.dataset.c === cur));
 
   const st = db.settings?.shopType || "ikki";
-  document.querySelectorAll("[data-t]").forEach(b =>
-    b.classList.toggle("on", b.dataset.t === st));
+  document.querySelectorAll("[data-t]").forEach(b => b.classList.toggle("on", b.dataset.t === st));
 
   const url = db.settings?.supabaseUrl || "";
   const key = db.settings?.supabaseKey || "";
@@ -219,8 +244,8 @@ function renderEgasi() {
 
   const badge = $("cloud-status-badge");
   if (badge) {
-    if (url && key) { badge.textContent = "Ulangan ✅"; badge.className = "bg bg-g"; }
-    else            { badge.textContent = "Ulanmagan";  badge.className = "bg bg-gr"; }
+    badge.textContent = (url && key) ? "Ulangan ✅" : "Ulanmagan";
+    badge.className   = (url && key) ? "bg bg-g"    : "bg bg-gr";
   }
 
   if ($("s-eskiz-token"))  $("s-eskiz-token").value  = db.settings?.eskizToken  || "";
@@ -234,25 +259,28 @@ function renderEgasi() {
 }
 
 // ════════════════════════════════════════════════
-// MAYDONLAR BOSHQARUVI PANELI
+// MAYDONLAR PANELI
 // ════════════════════════════════════════════════
 
 const FIELD_GROUPS = [
   {
     id:"fg_katalog", icon:"ti-tag",
     title:"Katalog — Mahsulot qo'shish / tahrirlash",
-    desc:"Yangi mahsulot formasidagi maydonlar",
-    keys:["katalog_kategoriya","katalog_birlik","katalog_karobka","katalog_tannarx",
-          "katalog_ulgurji","katalog_rang","katalog_olcham","katalog_barcode","katalog_rasm"]
+    desc:"Mahsulot nomidan boshqa hamma maydon boshqariladi",
+    keys:["katalog_turi","katalog_kategoriya","katalog_birlik","katalog_karobka",
+          "katalog_tannarx","katalog_ulgurji","katalog_rang","katalog_olcham",
+          "katalog_barcode","katalog_rasm"]
   },
   {
-    id:"fg_ombor", icon:"ti-truck-delivery",
+    id:"fg_ombor_qabul", icon:"ti-truck-delivery",
     title:"Ombor — Tovar qabul",
-    desc:"Kirim formasidagi maydonlar",
-    keys:["ombor_rang","ombor_barcode","ombor_partiya","ombor_yetkazuvchi","ombor_ulgurji_yangi"]
+    desc:"Mahsulot nomidan boshqa hamma maydon boshqariladi",
+    keys:["ombor_birlik","ombor_rang","ombor_olcham","ombor_karobka",
+          "ombor_tannarx","ombor_ulgurji_yangi","ombor_yetkazuvchi",
+          "ombor_partiya","ombor_tolova","ombor_barcode"]
   },
   {
-    id:"fg_ustun", icon:"ti-table",
+    id:"fg_ombor_ustun", icon:"ti-table",
     title:"Ombor — Kirim tarixi ustunlari",
     desc:"Kirim tarixida ko'rinadigan ustunlar",
     keys:["ombor_ustun_rang","ombor_ustun_barcode","ombor_ustun_sup",
@@ -315,10 +343,9 @@ window.toggleField = function(key, e) {
 
   const label = $("fti_" + key);
   const sw    = label?.querySelector(".ft-sw");
-  if (label) label.classList.toggle("ft-on",  !cur);
-  if (sw)    sw.classList.toggle("ft-sw-on",  !cur);
+  if (label) label.classList.toggle("ft-on",   !cur);
+  if (sw)    sw.classList.toggle("ft-sw-on",   !cur);
 
-  // Darhol qo'llaymiz
   _applyPosFields();
   window.applyOmborFields();
   window.applyKatalogFields();
