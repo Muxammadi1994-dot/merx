@@ -12,7 +12,7 @@ function init() {
   $("sb-shop").textContent    = db.shop.name;
   $("debt-count").textContent = debtSales().length;
   refreshStaffList();
-  updateSmsUI();
+  if (typeof updateSmsUI === "function") updateSmsUI();
   if (db.settings?.supabaseUrl && db.settings?.supabaseKey) {
     initSupabase().then(ok => { if (ok) updateCloudUI(true); });
   }
