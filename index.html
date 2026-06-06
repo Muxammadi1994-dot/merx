@@ -1290,5 +1290,95 @@
 <script src="js/moliya.js"></script>
 <script src="js/egasi.js"></script>
 <script src="js/init.js"></script>
+
+<!-- MODAL: CHEK -->
+<div class="ov" id="ov-receipt" onclick="if(event.target===this)closeReceipt()">
+  <div class="modal" style="max-width:420px;padding:0;overflow:hidden">
+    <!-- Header -->
+    <div style="background:#0D1B2A;padding:20px 24px 16px;text-align:center">
+      <div style="font-size:18px;font-weight:800;color:#fff;letter-spacing:.02em" id="rcp-shop">MERX</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">Ulgurji savdo tizimi</div>
+    </div>
+
+    <!-- Chek raqami va sana -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:#F8F7F4;border-bottom:1px solid #E8E5E0">
+      <div>
+        <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase">Chek raqami</div>
+        <div style="font-size:14px;font-weight:800;color:#0D1B2A;font-family:monospace" id="rcp-num">#—</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase">Sana / Vaqt</div>
+        <div style="font-size:13px;font-weight:600;color:#444" id="rcp-dt">—</div>
+      </div>
+    </div>
+
+    <!-- Mahsulotlar -->
+    <div style="padding:14px 24px;max-height:220px;overflow-y:auto;border-bottom:1px solid #E8E5E0">
+      <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;margin-bottom:8px">Mahsulotlar</div>
+      <div id="rcp-items"></div>
+    </div>
+
+    <!-- Jami -->
+    <div style="padding:14px 24px;border-bottom:1px solid #E8E5E0">
+      <div id="rcp-subtotal-row" style="display:flex;justify-content:space-between;font-size:13px;color:#888;margin-bottom:4px">
+        <span>Subtotal</span><span id="rcp-subtotal">—</span>
+      </div>
+      <div id="rcp-disc-row" style="display:none;justify-content:space-between;font-size:13px;color:#E05A5A;margin-bottom:4px">
+        <span id="rcp-disc-lbl">Chegirma</span><span id="rcp-disc-val">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:8px;border-top:1.5px dashed #E8E5E0">
+        <span style="font-size:13px;font-weight:700;color:#0D1B2A">JAMI</span>
+        <span style="font-size:18px;font-weight:900;color:#0D1B2A" id="rcp-total">—</span>
+      </div>
+    </div>
+
+    <!-- To'lov -->
+    <div style="padding:14px 24px;border-bottom:1px solid #E8E5E0;background:#F8F7F4">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase">To'lov usuli</div>
+          <div style="font-size:13px;font-weight:700;color:#0D1B2A;margin-top:2px" id="rcp-paytype">—</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase">To'landi</div>
+          <div style="font-size:13px;font-weight:700;color:#059669;margin-top:2px" id="rcp-paid">—</div>
+        </div>
+        <div id="rcp-debt-wrap" style="display:none">
+          <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase">Qolgan qarz</div>
+          <div style="font-size:13px;font-weight:700;color:#DC2626;margin-top:2px" id="rcp-debt">—</div>
+        </div>
+        <div id="rcp-due-wrap" style="display:none">
+          <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase">Muddat</div>
+          <div style="font-size:13px;font-weight:700;color:#D97706;margin-top:2px" id="rcp-due">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mijoz / Kassir -->
+    <div style="padding:12px 24px;border-bottom:1px solid #E8E5E0;display:flex;justify-content:space-between">
+      <div>
+        <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase">Mijoz</div>
+        <div style="font-size:13px;font-weight:600;color:#444;margin-top:2px" id="rcp-cust">—</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase">Kassir</div>
+        <div style="font-size:13px;font-weight:600;color:#444;margin-top:2px" id="rcp-staff">—</div>
+      </div>
+    </div>
+
+    <!-- Tugmalar -->
+    <div style="padding:14px 24px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <button onclick="printReceipt()" style="padding:10px;border-radius:10px;border:1.5px solid #E8E5E0;background:#fff;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;color:#444;transition:.15s" onmouseover="this.style.borderColor='#0D1B2A'" onmouseout="this.style.borderColor='#E8E5E0'">
+        <i class="ti ti-printer"></i> Print
+      </button>
+      <button id="rcp-wa-btn" onclick="shareWhatsApp()" style="padding:10px;border-radius:10px;border:1.5px solid #25D366;background:#fff;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;color:#25D366;transition:.15s" onmouseover="this.style.background='#25D366';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#25D366'">
+        <i class="ti ti-brand-whatsapp"></i> WhatsApp
+      </button>
+      <button onclick="closeReceipt()" style="padding:10px;border-radius:10px;border:none;background:#E9A500;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;color:#fff;transition:.15s" onmouseover="this.style.background='#d49400'" onmouseout="this.style.background='#E9A500'">
+        Keyingi →
+      </button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

@@ -542,43 +542,55 @@ async function checkout() {
     }
   });
 
+  // Chek raqami
+  const chekNum = `CHK-${today().replace(/-/g,"")}` +
+    `-${String(db.sales.length).padStart(3,"0")}`;
+
   const newSale = {
-    id:db.seq++, date:today(), time:nowTime(),
-    priceType: cart[0]?.priceType || "chakana",
+    id:db.seq++, chekNum, date:today(), time:nowTime(),
+    priceType: posPriceType,
     payType: posPayType, staffId, customerId,
+    discount, discountType: discType,
     items: cart.map(c => ({
       name: c.name,
       variant: c.sellMode==="karobka" ? `${c.color} (${c.qtyBox} karobka)` : `${c.color} / ${c.size}`,
       qty: c.qty, qtyBox: c.qtyBox||null, inBox: c.inBox||null,
       price: c.price, unit: c.unit
     })),
-    total, paid, remaining:rem, due,
+    subtotal, total, paid, remaining:rem, due,
     customerName:cName, customerPhone:cPhone, status,
     debtCurrency: posPayMode==="part" ? posDebtCurrency : "uzs",
     debtUsd
   };
   db.sales.push(newSale); saveDB();
 
-  // SMS
+  // SMS (boyitilgan)
   if (cPhone && cPhone.replace(/\D/g,"").length >= 9) {
-    const debtTxt = debtUsd != null ? `$${debtUsd.toFixed(2)} USD` : (rem > 0 ? `${fmt(rem)} so'm` : "");
+    const shopName = db.shop?.name || "MERX";
+    const debtTxt  = debtUsd != null
+      ? `$${debtUsd.toFixed(2)} USD`
+      : rem > 0 ? `${fmt(rem)} so'm` : "";
+    const itemsTxt = newSale.items.map(i =>
+      `${i.name} x${i.qty}${i.unit} = ${fmt(i.price*i.qty)} so'm`
+    ).join(", ");
     const sms = rem > 0
-      ? `MERX: Rahmat! Jami: ${fmt(total)} so'm. To'landi: ${fmt(paid)} so'm. Qolgan: ${debtTxt}. Muddat: ${due||"—"}.`
-      : `MERX: Rahmat! Jami: ${fmt(total)} so'm qabul qilindi.`;
+      ? `${shopName} | ${chekNum}\n${itemsTxt}\nJami: ${fmt(total)} so'm\nTo'landi: ${fmt(paid)} so'm\nQarz: ${debtTxt} (${due||"muddatsiz"})`
+      : `${shopName} | ${chekNum}\n${itemsTxt}\nJami: ${fmt(total)} so'm - To'liq qabul qilindi. Rahmat!`;
     await sendSms(cPhone, sms);
   }
 
   // Reset
-  const sid = newSale.id;
   cart = []; renderCart(); setPayMode("full"); setDebtCurrency("uzs");
-  if ($("c-name"))  $("c-name").value  = "";
-  if ($("c-phone")) $("c-phone").value = "";
-  if ($("c-paid"))  $("c-paid").value  = "0";
-  if ($("c-due"))   $("c-due").value   = "";
-  if ($("c-cust"))  $("c-cust").value  = "";
+  if ($("c-name"))       $("c-name").value       = "";
+  if ($("c-phone"))      $("c-phone").value       = "";
+  if ($("c-paid"))       $("c-paid").value        = "0";
+  if ($("c-due"))        $("c-due").value         = "";
+  if ($("c-cust"))       $("c-cust").value        = "";
+  if ($("discount-val")) $("discount-val").value  = "0";
+  if ($("discount-result")) $("discount-result").style.display = "none";
   $("debt-count").textContent = debtSales().length;
   refreshCustList();
-  if (confirm("Chek chiqarilsinmi?")) printReceipt(sid);
+  showReceiptModal(newSale);
 }
 
 // ── Chegirma ──────────────────────────────────
@@ -619,4 +631,160 @@ function showCustDebt(custId) {
   } else {
     badge.style.display = "none";
   }
+}
+
+// ── Chek modal ────────────────────────────────
+let _lastSale = null;
+
+function showReceiptModal(sale) {
+  _lastSale = sale;
+  const shopName = db.shop?.name || "MERX";
+  const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi" };
+
+  // Shop nomi
+  if ($("rcp-shop")) $("rcp-shop").textContent = shopName;
+
+  // Chek raqami va sana
+  if ($("rcp-num")) $("rcp-num").textContent = sale.chekNum || `#${sale.id}`;
+  if ($("rcp-dt"))  $("rcp-dt").textContent  = `${sale.date} / ${sale.time||""}`;
+
+  // Mahsulotlar
+  if ($("rcp-items")) {
+    $("rcp-items").innerHTML = sale.items.map(i => `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;font-size:13px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;color:#0D1B2A">${i.name}</div>
+          <div style="font-size:11.5px;color:#aaa">${i.variant} · ${i.qty} ${i.unit||"dona"}</div>
+        </div>
+        <div style="font-weight:700;color:#0D1B2A;margin-left:12px;white-space:nowrap">${fmt(i.price*i.qty)} so'm</div>
+      </div>`
+    ).join("");
+  }
+
+  // Subtotal va chegirma
+  const subtotal = sale.subtotal || sale.total;
+  const disc     = sale.discount || 0;
+  if ($("rcp-subtotal")) $("rcp-subtotal").textContent = fmt(subtotal) + " so'm";
+  const discRow = $("rcp-disc-row");
+  if (discRow) {
+    if (disc > 0) {
+      discRow.style.display = "flex";
+      const lbl = sale.discountType === "pct"
+        ? `Chegirma (${($("discount-val")||{value:0}).value}%)`
+        : "Chegirma";
+      if ($("rcp-disc-lbl")) $("rcp-disc-lbl").textContent = lbl;
+      if ($("rcp-disc-val")) $("rcp-disc-val").textContent = "−" + fmt(disc) + " so'm";
+    } else {
+      discRow.style.display = "none";
+    }
+  }
+  if ($("rcp-total")) $("rcp-total").textContent = fmt(sale.total) + " so'm";
+
+  // To'lov
+  if ($("rcp-paytype")) $("rcp-paytype").textContent = payLabels[sale.payType] || sale.payType;
+  if ($("rcp-paid"))    $("rcp-paid").textContent    = fmt(sale.paid) + " so'm";
+
+  const debtWrap = $("rcp-debt-wrap");
+  const dueWrap  = $("rcp-due-wrap");
+  if (sale.remaining > 0) {
+    if (debtWrap) debtWrap.style.display = "block";
+    if ($("rcp-debt")) {
+      $("rcp-debt").textContent = sale.debtCurrency === "usd" && sale.debtUsd
+        ? `$${sale.debtUsd.toFixed(2)} USD`
+        : fmt(sale.remaining) + " so'm";
+    }
+    if (dueWrap && sale.due) { dueWrap.style.display = "block"; $("rcp-due").textContent = sale.due; }
+  } else {
+    if (debtWrap) debtWrap.style.display = "none";
+    if (dueWrap)  dueWrap.style.display  = "none";
+  }
+
+  // Mijoz va kassir
+  if ($("rcp-cust")) $("rcp-cust").textContent =
+    sale.customerName ? `${sale.customerName}${sale.customerPhone?" · "+sale.customerPhone:""}` : "Noma'lum";
+  const staff = db.staff.find(s => s.id === sale.staffId);
+  if ($("rcp-staff")) $("rcp-staff").textContent = staff ? staff.name : "—";
+
+  // WhatsApp tugmasi
+  const waBtn = $("rcp-wa-btn");
+  if (waBtn) waBtn.style.display = sale.customerPhone ? "flex" : "none";
+
+  openModal("receipt");
+}
+
+function closeReceipt() {
+  closeModal("receipt");
+}
+
+function shareWhatsApp() {
+  if (!_lastSale) return;
+  const sale     = _lastSale;
+  const shopName = db.shop?.name || "MERX";
+  const payLabels = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma" };
+  const lines = [
+    `🧾 *${shopName}* — Chek`,
+    `📌 ${sale.chekNum || "#"+sale.id} | ${sale.date} ${sale.time||""}`,
+    ``,
+    ...sale.items.map(i => `▪ ${i.name} (${i.variant}) × ${i.qty} ${i.unit} = *${fmt(i.price*i.qty)} so'm*`),
+    ``,
+    sale.discount > 0 ? `Chegirma: -${fmt(sale.discount)} so'm` : null,
+    `*Jami: ${fmt(sale.total)} so'm*`,
+    `To'lov: ${payLabels[sale.payType]||sale.payType}`,
+    sale.remaining > 0 ? `Qarz: ${sale.debtCurrency==="usd"&&sale.debtUsd ? "$"+sale.debtUsd.toFixed(2) : fmt(sale.remaining)+" so'm"}` : `✅ To'liq to'landi`,
+    sale.due ? `Muddat: ${sale.due}` : null,
+    ``,
+    `_Rahmat! Yana kutamiz 🙏_`
+  ].filter(l => l !== null).join("\n");
+
+  const phone = sale.customerPhone?.replace(/\D/g,"");
+  const url   = phone
+    ? `https://wa.me/${phone.startsWith("998") ? phone : "998"+phone}?text=${encodeURIComponent(lines)}`
+    : `https://wa.me/?text=${encodeURIComponent(lines)}`;
+  window.open(url, "_blank");
+}
+
+function printReceipt() {
+  if (!_lastSale) return;
+  const sale     = _lastSale;
+  const shopName = db.shop?.name || "MERX";
+  const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi" };
+  const html = `
+    <html><head><title>Chek ${sale.chekNum||"#"+sale.id}</title>
+    <style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:'Courier New',monospace;font-size:12px;width:300px;margin:0 auto;padding:12px}
+      .center{text-align:center} .bold{font-weight:700} .line{border-top:1px dashed #000;margin:6px 0}
+      .row{display:flex;justify-content:space-between;margin:3px 0}
+      .shop{font-size:16px;font-weight:700;text-align:center;margin-bottom:4px}
+      .total{font-size:14px;font-weight:900}
+      @media print{body{width:80mm}}
+    </style></head><body>
+    <div class="shop">${shopName}</div>
+    <div class="center" style="font-size:10px;color:#666;margin-bottom:8px">Ulgurji savdo</div>
+    <div class="line"></div>
+    <div class="row"><span>${sale.chekNum||"#"+sale.id}</span><span>${sale.date} ${sale.time||""}</span></div>
+    <div class="line"></div>
+    ${sale.items.map(i=>`
+      <div class="bold">${i.name}</div>
+      <div class="row" style="padding-left:8px"><span>${i.variant} × ${i.qty} ${i.unit}</span><span>${fmt(i.price*i.qty)} so'm</span></div>
+    `).join("")}
+    <div class="line"></div>
+    ${sale.discount>0?`<div class="row"><span>Chegirma</span><span>-${fmt(sale.discount)} so'm</span></div>`:""}
+    <div class="row total"><span>JAMI</span><span>${fmt(sale.total)} so'm</span></div>
+    <div class="line"></div>
+    <div class="row"><span>To'lov</span><span>${payLabels[sale.payType]||sale.payType}</span></div>
+    <div class="row"><span>To'landi</span><span>${fmt(sale.paid)} so'm</span></div>
+    ${sale.remaining>0?`<div class="row bold"><span>Qarz</span><span>${sale.debtCurrency==="usd"&&sale.debtUsd?"$"+sale.debtUsd.toFixed(2):fmt(sale.remaining)+" so'm"}</span></div>`:""}
+    ${sale.due?`<div class="row"><span>Muddat</span><span>${sale.due}</span></div>`:""}
+    <div class="line"></div>
+    <div class="row"><span>Mijoz</span><span>${sale.customerName||"—"}</span></div>
+    <div class="row"><span>Kassir</span><span>${(db.staff.find(s=>s.id===sale.staffId)||{name:"—"}).name}</span></div>
+    <div class="line"></div>
+    <div class="center" style="margin-top:8px;font-size:11px">Rahmat! Yana kutamiz 🙏</div>
+    </body></html>`;
+  const w = window.open("","_blank","width=320,height=600");
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 300);
 }
