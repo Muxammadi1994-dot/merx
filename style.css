@@ -287,3 +287,130 @@ tr:hover td{background:#FAFAF8}
 }
 @media (max-width: 800px) { .dash-tables { grid-template-columns: 1fr; } }
 
+
+/* ════════════════════════════════════════════════
+   MAYDONLAR BOSHQARUVI PANELI (egasi.js bilan ishlaydi)
+   ════════════════════════════════════════════════ */
+
+/* Guruh bloki */
+.fg-block {
+  border: 1.5px solid #ede9e2;
+  border-radius: 11px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+.fg-block:last-child { margin-bottom: 0; }
+
+/* Guruh sarlavhasi */
+.fg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 10px;
+  background: #f9f7f3;
+  border-bottom: 1px solid #f0ece4;
+}
+.fg-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fg-title > i {
+  font-size: 18px;
+  color: #0D1B2A;
+  opacity: .55;
+  flex-shrink: 0;
+}
+.fg-title strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0D1B2A;
+  font-family: 'Sora', sans-serif;
+}
+.fg-desc {
+  display: block;
+  font-size: 11.5px;
+  color: #9ca3af;
+  margin-top: 1px;
+}
+
+/* Maydonlar grid */
+.ft-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 6px;
+  padding: 10px 14px 14px;
+}
+
+/* Bitta maydon toggle item */
+.ft-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  background: #f5f3ef;
+  border: 1.5px solid #e8e4dc;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  user-select: none;
+}
+.ft-item:hover { border-color: #E9A500; background: #fdf8ee; }
+.ft-item.ft-on  { border-color: #c8a84b; background: #fffbf0; }
+
+.ft-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.ft-left > i {
+  font-size: 15px;
+  color: #9ca3af;
+  flex-shrink: 0;
+  transition: color .15s;
+}
+.ft-item.ft-on .ft-left > i { color: #E9A500; }
+.ft-left > span {
+  font-size: 12.5px;
+  font-family: 'DM Sans', sans-serif;
+  color: #4b5563;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ft-item.ft-on .ft-left > span { color: #0D1B2A; font-weight: 500; }
+
+/* Toggle switch */
+.ft-sw {
+  flex-shrink: 0;
+  width: 34px;
+  height: 19px;
+  background: #d1d5db;
+  border-radius: 10px;
+  position: relative;
+  margin-left: 10px;
+  transition: background .2s;
+  cursor: pointer;
+}
+.ft-sw.ft-sw-on { background: #E9A500; }
+.ft-knob {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 15px; height: 15px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.18);
+}
+.ft-sw.ft-sw-on .ft-knob { transform: translateX(15px); }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .ft-grid { grid-template-columns: 1fr; padding: 8px 10px 12px; }
+  .fg-head  { flex-direction: column; align-items: flex-start; gap: 7px; }
+}
