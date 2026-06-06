@@ -570,11 +570,7 @@ function downloadCSVOmbor(rows, filename) {
         ? '"' + s.replace(/"/g, '""') + '"' : s;
     }).join(",")
   ).join("\n");
-  const blob = new Blob([csv], { type:"text/csv;charset=utf-8;" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+    downloadCSV(rows, filename);
 }
 
 // ── Karobka narx hintlari ─────────────────────
@@ -847,10 +843,6 @@ function exportInventExcel() {
   const csv = "sep=;\r\n" + rows.map(r =>
     r.map(c => { const s=String(c==null?"":c); return s.includes(";")?`"${s}"`:s; }).join(";")
   ).join("\n");
-  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href=url; a.download=`merx_invent_${today()}.csv`; a.click();
-  URL.revokeObjectURL(url);
+    downloadCSV(rows, `merx_invent_${today()}.xls`);
   toast("Inventarizatsiya Excel yuklab olindi");
 }

@@ -270,18 +270,7 @@ function exportTarixExcel() {
     ]);
   });
 
-  const csv = "sep=;\r\n" + rows.map(r =>
-    r.map(c => {
-      const v = String(c==null?"":c);
-      return v.includes(",") || v.includes('"') ? `"${v.replace(/"/g,'""')}"` : v;
-    }).join(",")
-  ).join("\n");
-
-  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href = url; a.download = `merx_tarix_${today()}.csv`; a.click();
-  URL.revokeObjectURL(url);
+  downloadCSV(rows, `merx_tarix_${today()}.csv`);
   toast("Sotuv tarixi yuklab olindi");
 }
 

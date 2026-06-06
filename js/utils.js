@@ -175,3 +175,30 @@ function initPriceInputs() {
     });
   });
 }
+
+// ── Universal CSV eksport (Excel uchun) ──────────
+function downloadCSV(rows, filename) {
+  // HTML table orqali Excel ga export — encoding muammosi yo'q
+  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+  html += '<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>MERX</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>';
+  rows.forEach((row, i) => {
+    html += '<tr>';
+    row.forEach(cell => {
+      const tag = i === 0 ? 'th' : 'td';
+      const val = String(cell == null ? '' : cell);
+      // Raqamlarni matn sifatida saqlash (barcode uchun)
+      const style = /^\d{8,}$/.test(val) ? ' style="mso-number-format:\'@\'"' : '';
+      html += `<${tag}${style}>${val.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</${tag}>`;
+    });
+    html += '</tr>';
+  });
+  html += '</table></body></html>';
+  
+  const blob = new Blob([html], {type: 'application/vnd.ms-excel;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = filename.replace('.csv', '.xls');
+  a.click();
+  URL.revokeObjectURL(url);
+}
