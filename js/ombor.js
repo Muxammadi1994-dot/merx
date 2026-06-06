@@ -746,7 +746,7 @@ function invRowHtml(r) {
     </td>
     <td style="padding:10px;text-align:center">
       <input type="number" min="0" value="${r.actualQty !== null ? r.actualQty : ""}"
-        placeholder="—" class="inv-qty-input ${r.counted?"changed":""}"
+        placeholder="?" class="inv-qty-input ${r.counted?"changed":""}"
         data-inv-key="${key}"
         oninput="invSetQty('${r.sku}','${r.color.replace(/'/g,"\\'")}','${r.size}',this.value)"
         style="width:70px">
