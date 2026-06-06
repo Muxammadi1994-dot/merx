@@ -40,7 +40,7 @@ function renderHisobot() {
   const paid    = sales.reduce((a, s) => a + (s.paid||0), 0);
   const debt    = sales.reduce((a, s) => a + (s.remaining||0), 0);
 
-  // Foyda hisoblash (ulgurji narx - tannarx)
+  // Foyda hisoblash: paid - tannarx (nasiya hisobga olinadi)
   let profit = 0, costTotal = 0;
   sales.forEach(s => {
     s.items?.forEach(item => {
@@ -49,7 +49,8 @@ function renderHisobot() {
       const costUzs = (p.costUsd || 0) * rate;
       costTotal += costUzs * item.qty;
     });
-    profit += (s.total||0);
+    // Faqat to'langan qismini foydaga hisoblaymiz
+    profit += (s.paid || 0);
   });
   profit -= costTotal;
   const margin = rev > 0 ? Math.round(profit / rev * 100) : 0;

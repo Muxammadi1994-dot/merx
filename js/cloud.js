@@ -83,7 +83,7 @@ async function pushToCloud() {
     if (db.products?.length) {
       const rows = db.products.map(p => ({
         id: p.id || p.sku,
-        sku: p.sku, name: p.name, category: p.category,
+        id: p.sku, sku: p.sku, name: p.name, category: p.category,
         type: p.type, unit: p.unit, in_box: p.inBox || 1,
         barcode: p.barcode, cost_usd: p.costUsd || 0,
         price_uzs: p.priceUzs || 0, ulgurji: p.ulgurjiNarx || 0,

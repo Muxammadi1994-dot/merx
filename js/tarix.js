@@ -225,15 +225,27 @@ function refundSale() {
   s.items?.forEach(item => {
     const p = db.products.find(x => x.name === item.name);
     if (!p) return;
-    if (item.variant && item.variant.includes("/")) {
+
+    if (item.sellMode === "karobka" || (item.variant && !item.variant.includes("/"))) {
+      // Karobka rejimi — rang bo'yicha tiklash
+      const color = (item.variant || "").split("(")[0].trim() || item.color;
+      let rem = item.qty;
+      p.variants.filter(v => v.color === color).forEach(v => {
+        if (rem <= 0) return;
+        v.qty += rem; rem = 0;
+      });
+      if (rem > 0) {
+        // Rang topilmasa birinchi variantga
+        if (p.variants.length) p.variants[0].qty += rem;
+      }
+    } else if (item.variant && item.variant.includes("/")) {
+      // Dona rejimi — rang/o'lcham bo'yicha tiklash
       const [color, size] = item.variant.split("/").map(x => x.trim());
-      const v = p.variants.find(x => x.color===color && x.size===size);
+      const v = p.variants.find(x => x.color === color && x.size === size);
       if (v) v.qty += item.qty;
-    } else {
-      const color = item.variant?.split("(")[0]?.trim();
-      if (color) {
-        const v = p.variants.find(x => x.color===color);
-        if (v) v.qty += item.qty;
+      else {
+        // Variant topilmasa yangi qo'sh
+        p.variants.push({ color, size, qty: item.qty });
       }
     }
   });

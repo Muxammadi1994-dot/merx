@@ -459,7 +459,12 @@ function qabulOl() {
       sku:`RECV-${String(db.seq++).padStart(3,"0")}`,
       name, category:"Qabul qilingan", type:"oyoq",
       unit, inBox: inBoxEd > 1 ? inBoxEd : 1,
-      costUsd: kirimN / (db.settings.rate||1),
+      // Tannarxni USD da saqlash: priceCurrency bo'yicha
+      costUsd: (() => {
+        const cur = db.settings?.priceCurrency || "uzs";
+        if (cur === "usd" || cur === "both") return kirimN; // dollar kiritilgan
+        return kirimN / (db.settings.rate || 12800);         // so'm kiritilgan
+      })(),
       priceUzs:newChk||0, ulgurjiNarx:newUlg||0,
       barcode: qbBarcode || genEAN13(db.seq),
       variants:[{color, size, qty, pantone, hex}]

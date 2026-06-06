@@ -555,13 +555,14 @@ async function checkout() {
 
   // Chek raqami
   const chekNum = `CHK-${today().replace(/-/g,"")}` +
-    `-${String(db.sales.length).padStart(3,"0")}`;
+    `-${String(db.seq).padStart(4,"0")}`;
 
   const newSale = {
     id:db.seq++, chekNum, date:today(), time:nowTime(),
     priceType: posPriceType,
     payType: posPayType, staffId, customerId,
     discount, discountType: discType,
+    discountPct: discType === "pct" ? (getRawVal("discount-val") || 0) : null,
     items: cart.map(c => ({
       name: c.name,
       variant: c.sellMode==="karobka" ? `${c.color} (${c.qtyBox} karobka)` : `${c.color} / ${c.size}`,
@@ -682,9 +683,9 @@ function showReceiptModal(sale) {
   if (discRow) {
     if (disc > 0) {
       discRow.style.display = "flex";
-      const lbl = sale.discountType === "pct"
-        ? `Chegirma (${($("discount-val")||{value:0}).value}%)`
-        : "Chegirma";
+      const lbl = sale.discountType === "pct" && sale.discountPct
+        ? `Chegirma (${sale.discountPct}%)`
+        : sale.discountType === "pct" ? "Chegirma (%)" : "Chegirma";
       if ($("rcp-disc-lbl")) $("rcp-disc-lbl").textContent = lbl;
       if ($("rcp-disc-val")) $("rcp-disc-val").textContent = "−" + fmt(disc) + " so'm";
     } else {

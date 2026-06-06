@@ -75,8 +75,14 @@ function renderDebts() {
   const totalUsd   = allDebt.filter(s => s.debtCurrency === "usd" && s.debtUsd)
                             .reduce((a, s) => a + s.debtUsd, 0);
   const overCount  = allDebt.filter(isOverdue).length;
-  const collected  = db.sales.filter(s => s.date?.startsWith(thisMonth) && s.paid > 0)
-                             .reduce((a, s) => a + (s.paid || 0), 0);
+  // Qarz to'lovlari: status "qarz" bo'lgan yoki "tolandan" lekin originally qarz edi
+  const debtPaid = db.sales
+    .filter(s => s.remaining === 0 && s.paid < s.total && (s.total - s.paid) === 0)
+    .reduce((a, s) => a + 0, 0);
+  // Oddiy hisob: bu oy qilingan sotuvlardagi paid (nasiya + to'liq)
+  const collected = db.sales
+    .filter(s => s.date?.startsWith(thisMonth))
+    .reduce((a, s) => a + (s.paid || 0), 0);
   const custCount  = new Set(allDebt.map(s => debtCust(s).name)).size;
 
   $("st-total").textContent     = fmt(totalUzs) + " so'm";
@@ -250,17 +256,24 @@ async function recordPayment(id) {
   let amtDisplay, debtLeft;
 
   if (isUsd) {
-    const amtSom = amt * rate;
+    // USD to'lov: debtUsd kamayadi, remaining ham mos yangilanadi
+    const newDebtUsd = Math.max(0, (s.debtUsd || 0) - amt);
+    const amtSom     = amt * rate;
     s.paid      += amtSom;
-    s.remaining  = Math.max(0, s.total - s.paid);
-    s.debtUsd    = Math.max(0, (s.debtUsd || 0) - amt);
-    if (s.debtUsd < 0.005) { s.debtUsd = 0; s.remaining = 0; s.status = "tolandan"; }
+    s.debtUsd    = newDebtUsd;
+    // remaining ni debtUsd dan hisoblash (kurs o'zgarishida ham mos bo'lsin)
+    s.remaining  = Math.round(newDebtUsd * rate);
+    if (newDebtUsd < 0.005) {
+      s.debtUsd   = 0;
+      s.remaining = 0;
+      s.status    = "tolandan";
+    }
     amtDisplay = `$${amt.toFixed(2)} USD`;
     debtLeft   = s.debtUsd > 0 ? `$${s.debtUsd.toFixed(2)} USD` : "To'liq to'landi ✅";
   } else {
     s.paid      += amt;
     s.remaining  = Math.max(0, s.total - s.paid);
-    if (s.remaining < 0.5) s.status = "tolandan";
+    if (s.remaining < 100) { s.remaining = 0; s.status = "tolandan"; }
     amtDisplay = fmt(amt) + " so'm";
     debtLeft   = s.remaining > 0 ? fmt(s.remaining) + " so'm qoldi" : "To'liq to'landi ✅";
   }
