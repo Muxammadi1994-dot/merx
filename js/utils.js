@@ -130,7 +130,3 @@ function importDB(inp) {
   };
   r.readAsText(f);
 }
-
-// ── To'lov turi nomlari (global) ──────────────
-const PAYTYPES = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma" };
-
