@@ -1,4 +1,4 @@
-// MERX utils.js | v2.3 | 2026-06-06
+// MERX utils.js | v2.2 | 2026-06-06 06:00
 // ================================================
 // MERX — js/utils.js
 // Yordamchi funksiyalar, toast, navigatsiya
@@ -14,114 +14,11 @@ function addDays(d, n) {
   const r = new Date(d); r.setDate(r.getDate() + n); return r.toISOString().slice(0, 10);
 }
 
-const visProds  = () => db.shop.type === "ikki" ? db.products : db.products.filter(p => p.type === db.shop.type);
-const debtSales = () => db.sales.filter(s => s.remaining > 0.5);
-const isOverdue = s  => s.due && s.due < today();
+const visProds   = () => db.shop.type === "ikki" ? db.products : db.products.filter(p => p.type === db.shop.type);
+const totalStock = p  => p.variants.reduce((a, v) => a + v.qty, 0);
+const debtSales  = () => db.sales.filter(s => s.remaining > 0.5);
+const isOverdue  = s  => s.due && s.due < today();
 
-// ══════════════════════════════════════════════════
-// getStock() — ASOSIY QOLDIQ FUNKSIYASI
-// Ombor kirimi - sotuvlardan hisoblaydi
-// ══════════════════════════════════════════════════
-//
-// Ishlatish:
-//   getStock("adidas")                    → barcha ranglar va o'lchamlar bo'yicha jami
-//   getStock("adidas", "Qora")            → faqat Qora rang jami
-//   getStock("adidas", "Qora", "39-44")   → aniq rang+o'lcham
-//
-// Bu funksiya variants[].qty ga QARAMAYDI.
-// Faqat ombor kirim yig'indisi - sotuv yig'indisi = haqiqiy qoldiq.
-// ══════════════════════════════════════════════════
-function getStock(productName, color, size) {
-  // 1. Ombor kirimi (necha dona kelgan)
-  let kirim = 0;
-  for (const o of (db.ombor || [])) {
-    if (o.productName !== productName) continue;
-    if (color && o.color !== color) continue;
-    if (size  && o.size  !== size)  continue;
-    kirim += (o.qty || 0);
-  }
-
-  // 2. Sotuvlarda ketgan miqdor
-  let chiqim = 0;
-  for (const s of (db.sales || [])) {
-    // Qaytarilgan sotuvni hisobga olmaymiz
-    if (s.status === "qaytarilgan") continue;
-    for (const item of (s.items || [])) {
-      if (item.name !== productName) continue;
-
-      if (!color && !size) {
-        // Jami so'ralganda — hammasini hisobga ol
-        chiqim += (item.qty || 0);
-      } else {
-        // variant = "Qora / 41"  yoki  "Qora (3 karobka)"  yoki  "Qora"
-        const v = item.variant || "";
-        const itemColor = v.split("/")[0].split("(")[0].trim();
-        const itemSize  = v.includes("/") ? v.split("/")[1].trim() : null;
-
-        if (color && itemColor !== color) continue;
-        if (size  && itemSize  && itemSize !== size) continue;
-        chiqim += (item.qty || 0);
-      }
-    }
-  }
-
-  return Math.max(0, kirim - chiqim);
-}
-
-// ── Mahsulot bo'yicha jami qoldiq (katalog uchun) ─
-// totalStock(p) → getStock(p.name) ga yo'naltiradi
-// Eski kod bilan moslik saqlanadi
-function totalStock(p) {
-  // Agar ombor ma'lumoti mavjud bo'lsa — getStock ishlatamiz
-  const omborExists = (db.ombor || []).some(o => o.productName === p.name);
-  if (omborExists) {
-    return getStock(p.name);
-  }
-  // Fallback: eski zaxira fayllarida variants[].qty bo'lishi mumkin
-  return p.variants ? p.variants.reduce((a, v) => a + (v.qty || 0), 0) : 0;
-}
-
-// ── Rang bo'yicha qoldiq (ombor ko'rinishi uchun) ─
-function getStockByColor(productName, color) {
-  return getStock(productName, color);
-}
-
-// ── Variant bo'yicha qoldiq ───────────────────────
-function getStockByVariant(productName, color, size) {
-  return getStock(productName, color, size);
-}
-
-// ── Mahsulotning barcha rang-qoldiqlari ──────────
-// { "Qora": 42, "Krem": 18 } — ombor sahifasi uchun
-function getStockGroupedByColor(productName) {
-  const result = {};
-  // Ombordagi barcha ranglarni topamiz
-  for (const o of (db.ombor || [])) {
-    if (o.productName !== productName) continue;
-    if (!result[o.color]) result[o.color] = { qty: 0, hex: o.hex || "#888", pantone: o.pantone || "" };
-  }
-  // Har bir rang uchun haqiqiy qoldiqni hisoblaymiz
-  for (const color of Object.keys(result)) {
-    result[color].qty = getStock(productName, color);
-  }
-  // Fallback: agar ombor yozuvi yo'q, variants dan olamiz
-  if (!Object.keys(result).length && db.products) {
-    const p = db.products.find(x => x.name === productName);
-    if (p) {
-      const groups = {};
-      (p.variants || []).forEach(v => {
-        if (!groups[v.color]) groups[v.color] = { qty: 0, hex: v.hex || "#888", pantone: v.pantone || "" };
-        groups[v.color].qty += (v.qty || 0);
-      });
-      return groups;
-    }
-  }
-  return result;
-}
-
-// ══════════════════════════════════════════════════
-// Narx ko'rsatish
-// ══════════════════════════════════════════════════
 function priceDisplay(priceUzs) {
   const c = db.settings.priceCurrency || "uzs";
   const r = db.settings.rate || 1;
@@ -130,9 +27,6 @@ function priceDisplay(priceUzs) {
   return fmt(priceUzs) + " so'm";
 }
 
-// ══════════════════════════════════════════════════
-// Toast, navigatsiya, modal
-// ══════════════════════════════════════════════════
 let toastT;
 function toast(msg, type = "ok") {
   const icons = { ok:"ti-check", err:"ti-alert-circle", info:"ti-info-circle" };
@@ -165,7 +59,7 @@ function nav(p) {
   }
 }
 
-// ── Chakana rejim toggle ──────────────────────────
+// ── Chakana rejim toggle ───────────────────────
 function toggleChakanaMode(val) {
   if (!db.settings) db.settings = {};
   db.settings.showChakana = val;
@@ -174,8 +68,10 @@ function toggleChakanaMode(val) {
   if (lbl) lbl.textContent = val
     ? "✅ Chakana narx ko'rinyapti"
     : "Chakana narx ko'rinmayapti (ulgurji rejim)";
+  // POS narx turi paneli
   const ptw = $("price-type-wrap");
   if (ptw) ptw.style.display = val ? "block" : "none";
+  // Agar chakana o'chirilsa — ulgurjiga qaytamiz
   if (!val && typeof setPriceType === "function") setPriceType("ulgurji");
   if (typeof renderKatalog === "function") renderKatalog();
   if (typeof renderOmbor   === "function") renderOmbor();
@@ -199,6 +95,7 @@ function toggleCurrency() {
   const cur = db.settings.priceCurrency || "uzs";
   db.settings.priceCurrency = opts[(opts.indexOf(cur) + 1) % 3];
   saveDB(); updateRatePill();
+  // Barcha ochiq bo'limlarni yangilaymiz
   const renders = [
     ["katalog",  renderKatalog],
     ["ombor",    renderOmbor],
@@ -211,17 +108,17 @@ function toggleCurrency() {
     const el = $("p-" + page);
     if (el && el.classList.contains("on") && typeof fn === "function") fn();
   });
+  // Aktiv bo'lmasa ham katalog va posni yangilaymiz (har doim kerak)
   if (typeof renderKatalog  === "function") renderKatalog();
   if (typeof renderPosGrid  === "function") renderPosGrid();
+  // Tannarx valyutasini yangilash
   if (typeof updateCostCurrency === "function") updateCostCurrency();
 }
-
 function updateRatePill() {
   $("tb-rate").textContent = fmt(db.settings.rate || 0);
   const lbl = { uzs:"so'm", usd:"USD", both:"so'm/USD" };
   $("tb-cur").textContent = lbl[db.settings.priceCurrency || "uzs"] || "so'm";
 }
-
 function openModal(id) {
   $("ov-" + id).classList.add("on");
   if (id === "addprod") { apTypeChange(); setTimeout(() => { if ($("ap-name")) $("ap-name").focus(); }, 50); }
@@ -232,22 +129,17 @@ function openModal(id) {
     setTimeout(() => { if ($("ax-sum")) $("ax-sum").focus(); }, 50);
   }
   if (id === "qabul") {
-    // Katalogdan mahsulotlar ro'yxati
-    const list = $("qb-prod-list");
-    if (list) list.innerHTML = db.products.map(p => `<option value="${p.name}">`).join("");
+    $("qb-list").innerHTML = db.products.map(p => `<option value="${p.name}">`).join("");
     setTimeout(() => { if ($("qb-name")) $("qb-name").focus(); }, 50);
   }
 }
-
 function closeModal(id) { $("ov-" + id).classList.remove("on"); }
-
 function exportDB() {
   const b = new Blob([JSON.stringify(db, null, 2)], { type:"application/json" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(b);
   a.download = "merx_zaxira_" + today() + ".json"; a.click();
   toast("Zaxira yuklab olindi");
 }
-
 function importDB(inp) {
   const f = inp.files[0]; if (!f) return;
   const r = new FileReader();
@@ -259,6 +151,7 @@ function importDB(inp) {
 }
 
 // ── Narx inputi formatlash ────────────────────────
+// input[data-price] yoki input[data-fmt] atributli maydonlar uchun
 function fmtInput(input) {
   const raw   = input.value.replace(/\D/g, "");
   const num   = parseInt(raw) || 0;
@@ -268,18 +161,24 @@ function fmtInput(input) {
 
 function getRawVal(id) {
   const el = $(id); if (!el) return 0;
+  // data-raw dan o'qish, yoki to'g'ridan raqam
   const raw = el.dataset.raw || el.value.replace(/\s/g,"").replace(/,/g,"");
   return parseFloat(raw) || 0;
 }
 
+// Barcha data-price inputlarini ishga tushirish
 function initPriceInputs() {
   document.querySelectorAll("input[data-price]").forEach(inp => {
     inp.addEventListener("input", () => fmtInput(inp));
+    inp.addEventListener("focus", () => {
+      // Focus bo'lganda ham formatlanganligicha qolsin
+    });
   });
 }
 
 // ── Universal CSV eksport (Excel uchun) ──────────
 function downloadCSV(rows, filename) {
+  // HTML table orqali Excel ga export — encoding muammosi yo'q
   let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
   html += '<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>MERX</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>';
   rows.forEach((row, i) => {
@@ -287,12 +186,14 @@ function downloadCSV(rows, filename) {
     row.forEach(cell => {
       const tag = i === 0 ? 'th' : 'td';
       const val = String(cell == null ? '' : cell);
+      // Raqamlarni matn sifatida saqlash (barcode uchun)
       const style = /^\d{8,}$/.test(val) ? ' style="mso-number-format:\'@\'"' : '';
       html += `<${tag}${style}>${val.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</${tag}>`;
     });
     html += '</tr>';
   });
   html += '</table></body></html>';
+  
   const blob = new Blob([html], {type: 'application/vnd.ms-excel;charset=utf-8'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
