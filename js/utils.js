@@ -84,6 +84,8 @@ function initChakanaToggle() {
   if (lbl) lbl.textContent = val
     ? "✅ Chakana narx ko'rinyapti"
     : "Chakana narx ko'rinmayapti (ulgurji rejim)";
+  const ptw = $("price-type-wrap");
+  if (ptw) ptw.style.display = val ? "block" : "none";
 }
 
 function toggleCurrency() {

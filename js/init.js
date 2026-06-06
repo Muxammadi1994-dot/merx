@@ -16,6 +16,9 @@ function init() {
   if (db.settings?.supabaseUrl && db.settings?.supabaseKey) {
     initSupabase().then(ok => { if (ok) updateCloudUI(true); });
   }
+  // POS narx turi paneli — chakana yoqilmagan bo'lsa yashir
+  const ptw = $("price-type-wrap");
+  if (ptw) ptw.style.display = db.settings?.showChakana ? "block" : "none";
   nav("dashboard");
 }
 
