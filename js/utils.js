@@ -49,7 +49,12 @@ function nav(p) {
     hisobot:renderHisobot, xodimlar:renderXodimlar, moliya:renderMoliya, egasi:renderEgasi };
   if (fn[p]) fn[p]();
   if (p === "egasi") setTimeout(initChakanaToggle, 50);
-  if (p === "pos") { refreshCustList(); refreshStaffList(); renderPosGrid(); }
+  if (p === "pos") {
+    refreshCustList(); refreshStaffList(); renderPosGrid();
+    const ptw = $("price-type-wrap");
+    if (ptw) ptw.style.display = db.settings?.showChakana ? "block" : "none";
+    if (!db.settings?.showChakana && typeof setPriceType === "function") setPriceType("ulgurji");
+  }
 }
 
 // ── Chakana rejim toggle ───────────────────────
@@ -61,6 +66,11 @@ function toggleChakanaMode(val) {
   if (lbl) lbl.textContent = val
     ? "✅ Chakana narx ko'rinyapti"
     : "Chakana narx ko'rinmayapti (ulgurji rejim)";
+  // POS narx turi paneli
+  const ptw = $("price-type-wrap");
+  if (ptw) ptw.style.display = val ? "block" : "none";
+  // Agar chakana o'chirilsa — ulgurjiga qaytamiz
+  if (!val && typeof setPriceType === "function") setPriceType("ulgurji");
   if (typeof renderKatalog === "function") renderKatalog();
   if (typeof renderOmbor   === "function") renderOmbor();
   toast(val ? "Chakana rejim yoqildi" : "Ulgurji rejimga o'tildi", "info");

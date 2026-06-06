@@ -381,17 +381,17 @@
       </div>
       <div class="checkout-panel">
 
-        <!-- Narx turi -->
-        <div style="margin-bottom:14px">
+        <!-- Narx turi — faqat chakana rejim yoqilganda ko'rinadi -->
+        <div id="price-type-wrap" style="display:none;margin-bottom:14px">
           <div style="font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Narx turi</div>
           <div class="seg" id="price-type-seg" style="display:flex;gap:0;border-radius:10px;overflow:hidden;border:1.5px solid #E8E5E0">
-            <button data-pt="chakana" class="on" onclick="setPriceType('chakana')"
-              style="flex:1;padding:9px;font-size:13px;font-family:inherit;cursor:pointer;border:none;font-weight:600;transition:all .15s">
-              👤 Chakana
-            </button>
-            <button data-pt="ulgurji" onclick="setPriceType('ulgurji')"
+            <button data-pt="ulgurji" class="on" onclick="setPriceType('ulgurji')"
               style="flex:1;padding:9px;font-size:13px;font-family:inherit;cursor:pointer;border:none;font-weight:600;transition:all .15s">
               📦 Ulgurji
+            </button>
+            <button data-pt="chakana" onclick="setPriceType('chakana')"
+              style="flex:1;padding:9px;font-size:13px;font-family:inherit;cursor:pointer;border:none;font-weight:600;transition:all .15s">
+              👤 Chakana
             </button>
           </div>
         </div>
