@@ -690,15 +690,14 @@ function downloadImportTemplate() {
     "Karobkada nechta","Barcode","Rang","Pantone kodi","O'lcham",
     "Qoldiq","Tannarx (USD)","Ulgurji narx (so'm)"];
   const rows = [
-    ["Nike Air Max","Krossovka","oyoq","juft","8","8600000000001","Qora","PMS Black C","39-44","48","25","380000"],
-    ["Nike Air Max","Krossovka","oyoq","juft","8","8600000000001","Oq","PMS White","39-44","24","25","380000"],
+    ["Nike Air Max","Krossovka","oyoq","juft","8","'8600000000001","Qora","PMS Black C","39-44","48","25","380000"],
+    ["Nike Air Max","Krossovka","oyoq","juft","8","'8600000000001","Oq","PMS White","39-44","24","25","380000"],
     ["Erkaklar ko'ylagi","Ko'ylak","kiyim","dona","12","","Ko'k","PMS 286 C","S-XL","60","8","150000"],
   ];
-  // sep= buyrug'i Excel ga avtomatik delimiter bildiradi
-  const bom = "\uFEFF";
-  const csv = "sep=;\n" + bom + [headers, ...rows].map(r =>
-    r.map(c => { const s=String(c); return s.includes(";")?`"${s}"`:s; }).join(";")
-  ).join("\n");
+  // sep=; — Excel ga delimiter bildiradi, BOM kerak emas
+  const csv = "sep=;\r\n" + [headers, ...rows].map(r =>
+    r.map(c => { const s=String(c); return s.includes(";")||s.includes(",") ? `"${s}"` : s; }).join(";")
+  ).join("\r\n");
   const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
@@ -807,7 +806,7 @@ function parseImportCSV(text) {
       type:    cols.type >= 0    ? vals[cols.type]?.trim()         : "oyoq",
       unit:    cols.unit >= 0    ? vals[cols.unit]?.trim()         : "dona",
       inbox:   cols.inbox >= 0   ? (parseInt(vals[cols.inbox])||1) : 1,
-      barcode: cols.barcode >= 0 ? vals[cols.barcode]?.trim()      : "",
+      barcode: cols.barcode >= 0 ? vals[cols.barcode]?.trim().replace(/^'/,"") : "",
       color:   cols.color >= 0   ? vals[cols.color]?.trim()        : "Standart",
       pantone: cols.pantone >= 0 ? vals[cols.pantone]?.trim()      : "",
       size:    cols.size >= 0    ? vals[cols.size]?.trim()         : "Aralash",
