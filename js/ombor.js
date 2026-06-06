@@ -237,7 +237,7 @@ function omRenderQoldiq() {
       </td>
       <td class="num" style="font-size:12.5px">
         ${r.ulgurji ? `<div style="font-weight:700;color:var(--acc)">${fmt(r.ulgurji)} so'm</div>` : '<span style="color:#ccc">—</span>'}
-        ${r.ulgurji && r.inBox > 1 ? `<div style="font-size:11px;color:#e9a500;margin-top:2px">📦 ${fmt(r.ulgurji * r.inBox)} so'm</div>` : ""}
+        ${r.ulgurji && r.inBox > 1 ? `<div style="font-size:11px;color:#e9a500;margin-top:2px">📦 ${priceDisplay(r.ulgurji * r.inBox)}</div>` : ""}
         ${margin != null ? `<div style="font-size:10px;color:${margin>=30?"var(--grn)":margin>=15?"#E07B39":"var(--red)"}">margin ${margin}%</div>` : ""}
       </td>
       ${showChakana ? `<td class="num" style="color:var(--teal);font-size:12.5px">${r.chakana ? fmt(r.chakana) + " so'm" : "—"}</td>` : ""}

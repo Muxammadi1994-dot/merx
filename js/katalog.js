@@ -130,7 +130,7 @@ function renderKatalog() {
       </td>
       <td class="num" style="font-size:12.5px">
         ${p.ulgurjiNarx ? `<div style="font-weight:700;color:var(--acc)">${fmt(p.ulgurjiNarx)} so'm</div>` : '<span style="color:#ccc">—</span>'}
-        ${p.ulgurjiNarx && inBox > 1 ? `<div style="font-size:11px;color:#e9a500;margin-top:2px">📦 ${fmt(p.ulgurjiNarx * inBox)} so'm</div>` : ""}
+        ${p.ulgurjiNarx && inBox > 1 ? `<div style="font-size:11px;color:#e9a500;margin-top:2px">📦 ${priceDisplay(p.ulgurjiNarx * inBox)}</div>` : ""}
         ${margin != null ? `<div style="font-size:10px;color:${mColor}">margin ${margin}%</div>` : ""}
       </td>
       ${showChakana ? `<td class="num" style="color:var(--teal);font-size:12.5px">${p.priceUzs ? fmt(p.priceUzs)+" so'm" : "—"}</td>` : ""}

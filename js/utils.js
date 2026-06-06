@@ -93,7 +93,23 @@ function toggleCurrency() {
   const opts = ["uzs", "usd", "both"];
   const cur = db.settings.priceCurrency || "uzs";
   db.settings.priceCurrency = opts[(opts.indexOf(cur) + 1) % 3];
-  saveDB(); updateRatePill(); renderKatalog(); renderPosGrid();
+  saveDB(); updateRatePill();
+  // Barcha ochiq bo'limlarni yangilaymiz
+  const renders = [
+    ["katalog",  renderKatalog],
+    ["ombor",    renderOmbor],
+    ["tarix",    renderTarix],
+    ["qarzlar",  renderDebts],
+    ["hisobot",  renderHisobot],
+    ["pos",      renderPosGrid],
+  ];
+  renders.forEach(([page, fn]) => {
+    const el = $("p-" + page);
+    if (el && el.classList.contains("on") && typeof fn === "function") fn();
+  });
+  // Aktiv bo'lmasa ham katalog va posni yangilaymiz (har doim kerak)
+  if (typeof renderKatalog  === "function") renderKatalog();
+  if (typeof renderPosGrid  === "function") renderPosGrid();
 }
 function updateRatePill() {
   $("tb-rate").textContent = fmt(db.settings.rate || 0);

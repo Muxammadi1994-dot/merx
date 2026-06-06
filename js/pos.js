@@ -350,14 +350,14 @@ function renderCart() {
 
   $("cart-cnt").textContent = cart.length ? count + " ta" : "bo'sh";
   if ($("cart-items-count")) $("cart-items-count").textContent = cart.length ? count + " ta" : "0 ta";
-  if ($("pos-pay-total")) $("pos-pay-total").textContent = fmt(total) + " so'm";
+  if ($("pos-pay-total")) $("pos-pay-total").textContent = priceDisplay(total);
 
   // Chegirma natija
   const discEl = $("discount-result");
   if (discEl) {
     if (discount > 0) {
       discEl.style.display = "block";
-      discEl.innerHTML = `−${fmt(discount)} so'm → Jami: <strong style="color:#0D1B2A">${fmt(total)} so'm</strong>`;
+      discEl.innerHTML = `−${priceDisplay(discount)} → Jami: <strong style="color:#0D1B2A">${priceDisplay(total)}</strong>`;
     } else {
       discEl.style.display = "none";
     }
@@ -406,7 +406,7 @@ function renderCart() {
     </div>`;
   }).join("");
 
-  $("cart-total").textContent = fmt(total) + " so'm"; updateRem();
+  $("cart-total").textContent = priceDisplay(total); updateRem();
 }
 
 function ciQty(i, d) {
