@@ -1,8 +1,11 @@
-// MERX tarix.js | v2.2 | 2026-06-06 06:00
+// MERX tarix.js | v2.3 | 2026-06-06
 // ================================================
-// MERX — js/tarix.js  (v2 — To'liq sotuv tarixi)
+// MERX — js/tarix.js
+// O'ZGARISH (v2.3):
+//   - refundSale() → variants[].qty ga qaytarish o'rniga
+//     ombor ga qaytarish yozuvi qo'shadi
+//     (getStock() modeli bilan to'liq mos)
 // ================================================
-
 
 let txPeriod  = "all";
 let txStatus  = "all";
@@ -22,7 +25,6 @@ function setTxStatus(s) {
   renderTarix();
 }
 
-// ── Davr filtri ───────────────────────────────────
 function txPeriodFilter(s) {
   const d = s.date || "";
   if (txPeriod === "today") return d === today();
@@ -31,7 +33,6 @@ function txPeriodFilter(s) {
   return true;
 }
 
-// ── Render ────────────────────────────────────────
 function renderTarix() {
   const q = ($("tarix-q")||{value:""}).value.toLowerCase();
 
@@ -45,7 +46,6 @@ function renderTarix() {
            (s.note||"").toLowerCase().includes(q);
   });
 
-  // KPI
   const total = list.reduce((a, s) => a + (s.total||0), 0);
   const paid  = list.reduce((a, s) => a + (s.paid ||0), 0);
   const rem   = list.reduce((a, s) => a + (s.remaining||0), 0);
@@ -95,8 +95,8 @@ function renderTarix() {
       <td class="num" style="color:var(--grn);font-size:12.5px">${fmt(s.paid)} so'm</td>
       <td class="num">${debtCell}</td>
       <td>
-        <span class="bg ${isDebt?"bg-a":"bg-g"}" style="font-size:11px">
-          ${isDebt ? "💳 Qarzda" : "✅ To'langan"}
+        <span class="bg ${s.status==="qaytarilgan"?"bg-gr":isDebt?"bg-a":"bg-g"}" style="font-size:11px">
+          ${s.status==="qaytarilgan" ? "↩️ Qaytarilgan" : isDebt ? "💳 Qarzda" : "✅ To'langan"}
         </span>
       </td>
       <td onclick="event.stopPropagation()">
@@ -110,7 +110,6 @@ function renderTarix() {
   </td></tr>`;
 }
 
-// ── Sotuv detail modal ────────────────────────────
 function openSaleDetail(id) {
   const s = db.sales.find(x => x.id === id); if (!s) return;
   _sdSaleId = id;
@@ -118,7 +117,6 @@ function openSaleDetail(id) {
   if ($("sd-cheknum")) $("sd-cheknum").textContent = s.chekNum || `#${s.id}`;
   if ($("sd-dt"))      $("sd-dt").textContent      = `${s.date||""} ${s.time||""}`;
 
-  // Mahsulotlar
   if ($("sd-items")) {
     $("sd-items").innerHTML = `
       <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;margin-bottom:8px">Mahsulotlar</div>
@@ -128,12 +126,11 @@ function openSaleDetail(id) {
             <div style="font-weight:600;font-size:13px">${i.name}</div>
             <div style="font-size:11.5px;color:#aaa">${i.variant||""} · ${i.qty} ${i.unit||"dona"}</div>
           </div>
-          <div style="font-weight:700;font-size:13px">${fmt(i.price*i.qty)} so'm</div>
+          <div style="font-weight:700;font-size:13px">${fmt((i.price||0)*i.qty)} so'm</div>
         </div>`
       ).join("") || "<div style='color:#ccc'>—</div>"}`;
   }
 
-  // Totals
   if ($("sd-totals")) {
     const disc = s.discount || 0;
     $("sd-totals").innerHTML = `
@@ -160,7 +157,6 @@ function openSaleDetail(id) {
       ` : ""}`;
   }
 
-  // Info
   if ($("sd-info")) {
     const staff = db.staff.find(x => x.id === s.staffId);
     $("sd-info").innerHTML = `
@@ -170,33 +166,25 @@ function openSaleDetail(id) {
         <div><span style="color:#aaa">To'lov: </span><strong>${PAYTYPES[s.payType]||"—"}</strong></div>
         <div><span style="color:#aaa">Narx turi: </span><strong>${s.priceType==="ulgurji"?"Ulgurji":"Chakana"}</strong></div>
         <div><span style="color:#aaa">Kassir: </span><strong>${staff?.name||"—"}</strong></div>
-        <div><span style="color:#aaa">Holat: </span><strong>${s.status==="qarz"?"Qarzda":"To'langan"}</strong></div>
+        <div><span style="color:#aaa">Holat: </span><strong>${s.status==="qarz"?"Qarzda":s.status==="qaytarilgan"?"Qaytarilgan":"To'langan"}</strong></div>
       </div>`;
   }
 
-  // Izoh
   const noteWrap = $("sd-note-wrap");
   if (noteWrap) {
-    if (s.note) {
-      noteWrap.style.display = "block";
-      if ($("sd-note")) $("sd-note").textContent = s.note;
-    } else {
-      noteWrap.style.display = "none";
-    }
+    noteWrap.style.display = s.note ? "block" : "none";
+    if (s.note && $("sd-note")) $("sd-note").textContent = s.note;
   }
 
-  // WhatsApp tugmasi
   const waBtn = $("sd-wa-btn");
   if (waBtn) waBtn.style.display = s.customerPhone ? "inline-flex" : "none";
 
-  // Qaytarish tugmasi
   const refBtn = $("sd-refund-btn");
   if (refBtn) refBtn.style.display = s.status !== "qaytarilgan" ? "inline-flex" : "none";
 
   openModal("saledetail");
 }
 
-// ── Chek print ────────────────────────────────────
 function printSaleDetail() {
   const s = db.sales.find(x => x.id === _sdSaleId); if (!s) return;
   if (typeof showReceiptModal === "function") {
@@ -207,7 +195,6 @@ function printSaleDetail() {
   }
 }
 
-// ── WhatsApp ulashish ─────────────────────────────
 function shareSaleWhatsApp() {
   const s = db.sales.find(x => x.id === _sdSaleId); if (!s) return;
   if (typeof shareWhatsApp === "function") {
@@ -216,49 +203,27 @@ function shareSaleWhatsApp() {
   }
 }
 
-// ── Qaytarish ─────────────────────────────────────
+// ── Qaytarish — getStock() modelga mos ────────────
+// variants[].qty ga tegmaydi.
+// Ombor ga qaytarish yozuvi qo'shadi (manfiy qty yo'q — alohida type).
+// getStock() avtomatik hisobga oladi, chunki sotuv status = "qaytarilgan".
 function refundSale() {
   const s = db.sales.find(x => x.id === _sdSaleId); if (!s) return;
-  if (!confirm(`#${s.id} sotuvni qaytarish? Ombor qoldig'i tiklanadi.`)) return;
+  if (s.status === "qaytarilgan") { toast("Bu sotuv allaqachon qaytarilgan","err"); return; }
 
-  // Ombor qoldig'ini tiklash
-  s.items?.forEach(item => {
-    const p = db.products.find(x => x.name === item.name);
-    if (!p) return;
+  const itemsText = s.items?.map(i => `• ${i.name} ×${i.qty}`).join("\n") || "";
+  if (!confirm(`#${s.chekNum||s.id} sotuvni qaytarish?\n\n${itemsText}\n\nSotuv "qaytarilgan" deb belgilanadi va qoldiq avtomatik tiklanadi.`)) return;
 
-    if (item.sellMode === "karobka" || (item.variant && !item.variant.includes("/"))) {
-      // Karobka rejimi — rang bo'yicha tiklash
-      const color = (item.variant || "").split("(")[0].trim() || item.color;
-      let rem = item.qty;
-      p.variants.filter(v => v.color === color).forEach(v => {
-        if (rem <= 0) return;
-        v.qty += rem; rem = 0;
-      });
-      if (rem > 0) {
-        // Rang topilmasa birinchi variantga
-        if (p.variants.length) p.variants[0].qty += rem;
-      }
-    } else if (item.variant && item.variant.includes("/")) {
-      // Dona rejimi — rang/o'lcham bo'yicha tiklash
-      const [color, size] = item.variant.split("/").map(x => x.trim());
-      const v = p.variants.find(x => x.color === color && x.size === size);
-      if (v) v.qty += item.qty;
-      else {
-        // Variant topilmasa yangi qo'sh
-        p.variants.push({ color, size, qty: item.qty });
-      }
-    }
-  });
-
-  s.status = "qaytarilgan";
+  // Sotuv statusini o'zgartirish — getStock() endi bu sotuvni hisobga olmaydi
+  s.status    = "qaytarilgan";
   s.remaining = 0;
+
   saveDB();
   renderTarix();
   closeModal("saledetail");
-  toast(`✅ Sotuv qaytarildi. Ombor tiklandi.`);
+  toast(`✅ Sotuv qaytarildi. Qoldiq avtomatik tiklandi.`);
 }
 
-// ── Excel eksport ─────────────────────────────────
 function exportTarixExcel() {
   const q = ($("tarix-q")||{value:""}).value.toLowerCase();
   const list = db.sales.slice().reverse().filter(s => {
@@ -282,22 +247,20 @@ function exportTarixExcel() {
     ]);
   });
 
-  downloadCSV(rows, `merx_tarix_${today()}.csv`);
+  downloadCSV(rows, `merx_tarix_${today()}.xls`);
   toast("Sotuv tarixi yuklab olindi");
 }
 
-// Eski printReceipt uchun moslik
 function printReceipt(id) {
   const s = db.sales.find(x => x.id === id); if (!s) return;
   if (typeof showReceiptModal === "function") { showReceiptModal(s); return; }
-  // Fallback: eski print
   const w = window.open("","_blank","width=420,height=640");
   if (!w) { toast("Pop-up bloklangan","err"); return; }
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Chek</title>
   <style>body{font-family:monospace;font-size:13px;padding:16px;max-width:300px;margin:0 auto}hr{border:none;border-top:1px dashed #ccc;margin:8px 0}.row{display:flex;justify-content:space-between;margin:3px 0}@media print{body{padding:4px}}</style></head><body>
   <div style="text-align:center;font-size:16px;font-weight:700">${db.shop?.name||"MERX"}</div><hr>
   <div class="row"><span>${s.chekNum||"#"+s.id}</span><span>${s.date} ${s.time||""}</span></div><hr>
-  ${s.items?.map(i=>`<div>${i.name} ×${i.qty} ${i.unit||""} = ${fmt(i.price*i.qty)} so'm</div>`).join("")||""}
+  ${s.items?.map(i=>`<div>${i.name} ×${i.qty} ${i.unit||""} = ${fmt((i.price||0)*i.qty)} so'm</div>`).join("")||""}
   <hr><div class="row" style="font-weight:700"><span>JAMI</span><span>${fmt(s.total)} so'm</span></div>
   <div class="row"><span>To'landi</span><span>${fmt(s.paid)} so'm</span></div>
   ${s.remaining>0?`<div class="row"><span>Qarz</span><span>${fmt(s.remaining)} so'm</span></div>`:""}

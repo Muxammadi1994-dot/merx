@@ -1,11 +1,9 @@
-// MERX dashboard.js | v2.2 | 2026-06-06 06:00
-// ================================================
-// MERX — js/dashboard.js  (v2 — To'liq qayta yozildi)
+// MERX dashboard.js | v2.3 | 2026-06-06
+// O'ZGARISH: kam qoldiq hisob-kitob getStock() asosida
 // ================================================
 
 let dashPeriod = 7;
 
-// ── Yordamchi funksiyalar ──────────────────────
 function fmtK(n) {
   if (!n) return '0';
   if (n >= 1000000000) return (n / 1000000000).toFixed(1).replace(/\.0$/, '') + ' mlrd';
@@ -29,11 +27,9 @@ function dashDateStr() {
   return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-// ── Asosiy render ──────────────────────────────
 function renderDashboard() {
   const t = today();
 
-  // Hisob-kitoblar
   const todaySales  = db.sales.filter(s => s.date === t);
   const ystSales    = db.sales.filter(s => s.date === addDays(t, -1));
   const todayTotal  = todaySales.reduce((a, s) => a + s.total, 0);
@@ -45,12 +41,29 @@ function renderDashboard() {
   const overdueList = debts.filter(isOverdue);
   const growth      = ystTotal > 0 ? Math.round((todayTotal - ystTotal) / ystTotal * 100) : null;
 
-  // Kam qoldiq
+  // Kam qoldiq — getStock() asosida (har bir mahsulot × rang)
   const lowStock = [];
-  db.products.forEach(p => p.variants.forEach(v => {
-    if (v.qty > 0 && v.qty <= 3)
-      lowStock.push({ name: p.name, color: v.color, size: v.size, qty: v.qty, unit: p.unit || 'dona' });
-  }));
+  db.products.forEach(p => {
+    const colorGroups = getStockGroupedByColor(p.name);
+    Object.entries(colorGroups).forEach(([color, info]) => {
+      if (info.qty > 0 && info.qty <= 3) {
+        lowStock.push({
+          name:  p.name,
+          color,
+          size:  "—",
+          qty:   info.qty,
+          unit:  p.unit || 'dona'
+        });
+      }
+    });
+    // Fallback: agar ombor yo'q bo'lsa variants dan
+    if (!Object.keys(colorGroups).length) {
+      p.variants?.forEach(v => {
+        if (v.qty > 0 && v.qty <= 3)
+          lowStock.push({ name: p.name, color: v.color, size: v.size, qty: v.qty, unit: p.unit || 'dona' });
+      });
+    }
+  });
 
   renderDashHeader(todayTotal, todayCnt, growth);
   renderDashKpis(todayCnt, avgCheck, totalDebt, debts.length, overdueList.length);
@@ -62,7 +75,6 @@ function renderDashboard() {
   renderDashDebtTable(debts);
 }
 
-// ── Header (qoʻngʻiroq strip) ──────────────────
 function renderDashHeader(todayTotal, todayCnt, growth) {
   const el = $('dash-header');
   if (!el) return;
@@ -93,10 +105,12 @@ function renderDashHeader(todayTotal, todayCnt, growth) {
   `;
 }
 
-// ── KPI kartochkalari ──────────────────────────
 function renderDashKpis(todayCnt, avgCheck, totalDebt, debtCnt, overdueCnt) {
   const el = $('dash-kpis');
   if (!el) return;
+
+  // Jami qoldiq — getStock() asosida
+  const totalUnits = db.products.reduce((a, p) => a + totalStock(p), 0);
 
   const cards = [
     {
@@ -124,7 +138,7 @@ function renderDashKpis(todayCnt, avgCheck, totalDebt, debtCnt, overdueCnt) {
     {
       icon: 'ti-box', color: '#8B5CF6',
       label: 'Katalogdagi tovar', val: db.products.length + ' tur',
-      sub: db.products.reduce((a, p) => a + p.variants.reduce((b, v) => b + v.qty, 0), 0) + ' dona omborda',
+      sub: totalUnits + ' dona omborda',
       click: "nav('katalog')"
     }
   ];
@@ -143,7 +157,6 @@ function renderDashKpis(todayCnt, avgCheck, totalDebt, debtCnt, overdueCnt) {
   `).join('');
 }
 
-// ── Davr tugmalari ─────────────────────────────
 function dashSetPeriod(p) {
   dashPeriod = p;
   document.querySelectorAll('.dash-ptab').forEach(b => b.classList.toggle('on', +b.dataset.p === p));
@@ -152,7 +165,6 @@ function dashSetPeriod(p) {
   renderDashPriceType(p);
 }
 
-// ── Ustun diagramma ────────────────────────────
 function renderDashChart(days) {
   const el = $('dash-chart');
   if (!el) return;
@@ -176,7 +188,6 @@ function renderDashChart(days) {
   const barW = Math.max(10, Math.floor(cW / data.length * 0.55));
   const gap = cW / data.length;
 
-  // Y gridlines
   const gridLines = [0, 0.25, 0.5, 0.75, 1].map(pct => {
     const y = pT + cH - pct * cH;
     return `
@@ -217,7 +228,6 @@ function renderDashChart(days) {
     </svg>`;
 }
 
-// ── Donut diagramma ─────────────────────────────
 function renderDashDonut(days) {
   const el = $('dash-donut');
   if (!el) return;
@@ -265,7 +275,6 @@ function renderDashDonut(days) {
     </div>`;
 }
 
-// ── Chakana/Ulgurji nisbati ─────────────────────
 function renderDashPriceType(days) {
   const el = $('dash-pricetype');
   if (!el) return;
@@ -292,7 +301,6 @@ function renderDashPriceType(days) {
     </div>`;
 }
 
-// ── Kam qoldiq ogohlantirishlari ────────────────
 function renderDashAlerts(lowStock) {
   const el = $('dash-alerts');
   if (!el) return;
@@ -314,7 +322,7 @@ function renderDashAlerts(lowStock) {
         ${lowStock.slice(0, 12).map(i => `
           <div class="da-item ${i.qty <= 1 ? 'crit' : 'warn'}">
             <span class="da-nm">${i.name}</span>
-            <span class="da-var">${i.color} · ${i.size}</span>
+            <span class="da-var">${i.color}${i.size && i.size!=="—" ? ' · '+i.size : ''}</span>
             <span class="da-q">${i.qty} ${i.unit}</span>
           </div>`).join('')}
         ${lowStock.length > 12 ? `<div class="da-item more" onclick="nav('ombor')">+${lowStock.length - 12} ta ko'proq →</div>` : ''}
@@ -322,7 +330,6 @@ function renderDashAlerts(lowStock) {
     </div>`;
 }
 
-// ── So'nggi sotuvlar ───────────────────────────
 function renderDashSalesTable() {
   const el = $('dash-sales-body');
   if (!el) return;
@@ -342,7 +349,6 @@ function renderDashSalesTable() {
     : `<tr><td colspan="5" class="empty-td">Sotuvlar yo'q</td></tr>`;
 }
 
-// ── Shoshilinch qarzlar ────────────────────────
 function renderDashDebtTable(debts) {
   const el = $('dash-debt-body');
   if (!el) return;

@@ -1,6 +1,13 @@
-// MERX ombor.js | v2.3 | 2026-06-06 12:54 | 2026-06-06 06:00
+// MERX ombor.js | v2.3 | 2026-06-06
 // ================================================
-// MERX — js/ombor.js  (v3 — Pantone + Karobka)
+// MERX — js/ombor.js
+// Ombor = kirim tarixi + haqiqiy qoldiq hisob
+// ================================================
+// O'ZGARISHLAR (v2.3):
+//   - omRenderKpis() → getStock() ishlatadi (variants[].qty emas)
+//   - omRenderQoldiq() → getStockGroupedByColor() ishlatadi
+//   - Tovar qabul → faqat ombor kirim yozuvi (narx katalogdan)
+//   - qb-name → katalog dropdown bilan almashtirildi
 // ================================================
 
 let omActiveTab   = "qoldiq";
@@ -33,16 +40,34 @@ function omSetTab(tab) {
   renderOmbor();
 }
 
+// ── KPI — getStock() asosida ──────────────────────
 function omRenderKpis() {
   const rate = db.settings.rate || 1;
   const t    = today(), m = t.slice(0,7);
-  const todayIn  = db.ombor.filter(o => o.date === t).reduce((a,o) => a + o.qty, 0);
-  const monthVal = db.ombor.filter(o => o.date.startsWith(m)).reduce((a,o) => a + (o.kirimNarxi||0)*o.qty, 0);
-  const supDebt  = db.ombor.filter(o => o.payStatus === "qarz").reduce((a,o) => a + (o.kirimNarxi||0)*o.qty, 0);
-  const totalVal = db.products.reduce((a,p) =>
-    a + p.variants.reduce((b,v) => b + (p.costUsd*rate)*v.qty, 0), 0);
-  const totalUnits = db.products.reduce((a,p) =>
-    a + p.variants.reduce((b,v) => b + v.qty, 0), 0);
+
+  // Bugungi kirim (ombor yozuvlaridan)
+  const todayIn = (db.ombor || [])
+    .filter(o => o.date === t)
+    .reduce((a, o) => a + (o.qty || 0), 0);
+
+  // Bu oy kirim tannarxi
+  const monthVal = (db.ombor || [])
+    .filter(o => (o.date || "").startsWith(m))
+    .reduce((a, o) => a + (o.kirimNarxi || 0) * (o.qty || 0), 0);
+
+  // Yetkazuvchi qarzi
+  const supDebt = (db.ombor || [])
+    .filter(o => o.payStatus === "qarz")
+    .reduce((a, o) => a + (o.kirimNarxi || 0) * (o.qty || 0), 0);
+
+  // Jami qoldiq va qiymat — getStock() asosida
+  let totalUnits = 0, totalVal = 0;
+  db.products.forEach(p => {
+    const stock = totalStock(p); // totalStock → getStock() ga yo'naltiradi
+    totalUnits += stock;
+    const costUzs = (p.costUsd || 0) * rate;
+    totalVal += stock * costUzs;
+  });
 
   const el = $("om-kpi-row"); if (!el) return;
   el.innerHTML = [
@@ -117,6 +142,7 @@ function omSetFilter(f) {
   omRenderQoldiq();
 }
 
+// ── Joriy qoldiq — getStockGroupedByColor() asosida ─
 function omRenderQoldiq() {
   const rate = db.settings.rate || 1;
   const q    = ($("om-q")||{value:""}).value.toLowerCase();
@@ -124,43 +150,34 @@ function omRenderQoldiq() {
 
   let rows = [];
   db.products.forEach(p => {
-    // Rang bo'yicha guruhlash
-    const colorGroups = {};
-    p.variants.forEach(v => {
-      if (!colorGroups[v.color]) {
-        colorGroups[v.color] = {
-          color:   v.color,
-          hex:     v.hex    || "#888",
-          pantone: v.pantone || "",
-          qty:     0
-        };
-      }
-      colorGroups[v.color].qty += v.qty;
-    });
+    // Rang bo'yicha qoldiqlarni getStock() orqali olamiz
+    const colorGroups = getStockGroupedByColor(p.name);
 
-    Object.values(colorGroups).forEach(cg => {
+    Object.entries(colorGroups).forEach(([color, info]) => {
+      const qty     = info.qty || 0;
       const inBox   = p.inBox || 1;
-      const boxes   = inBox > 1 ? (cg.qty / inBox) : null;
+      const boxes   = inBox > 1 ? qty / inBox : null;
       const costUzs = Math.round((p.costUsd || 0) * rate);
 
       rows.push({
         sku:     p.sku,
         name:    p.name,
-        color:   cg.color,
-        hex:     cg.hex,
-        pantone: cg.pantone,
-        qty:     cg.qty,
+        color,
+        hex:     info.hex    || "#888",
+        pantone: info.pantone || "",
+        qty,
         inBox,
         boxes,
         unit:    p.unit || "dona",
         costUzs,
-        chakana: p.priceUzs,
+        chakana: p.priceUzs    || 0,
         ulgurji: p.ulgurjiNarx || 0,
-        qiymati: Math.round(cg.qty * (p.costUsd || 0) * rate)
+        qiymati: Math.round(qty * costUzs)
       });
     });
   });
 
+  // Filtr
   if (omStockFilter === "low") rows = rows.filter(r => r.qty > 0 && r.qty <= 5);
   if (omStockFilter === "out") rows = rows.filter(r => r.qty <= 0);
   if (q) rows = rows.filter(r =>
@@ -201,434 +218,394 @@ function omRenderQoldiq() {
     const margin = r.ulgurji > 0 && r.costUzs > 0
       ? Math.round((r.ulgurji - r.costUzs) / r.ulgurji * 100) : null;
 
-      const p = db.products.find(x => x.sku === r.sku);
-      const barcode = p?.barcode || "";
+    const p = db.products.find(x => x.sku === r.sku);
+    const barcode = p?.barcode || "";
 
-      return `<tr>
+    return `<tr>
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           ${p?.image
             ? `<img src="${p.image}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--brd);flex-shrink:0">`
             : `<div style="width:36px;height:36px;border:1.5px dashed #e0ddd8;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:14px;flex-shrink:0"><i class="ti ti-photo"></i></div>`}
-          <div style="font-weight:600;font-size:13px">${r.name}</div>
+          <div>
+            <div style="font-weight:600;font-size:13px">${r.name}</div>
+            <div style="font-size:11px;color:#bbb">${p?.category || ""} · ${r.unit}</div>
+          </div>
         </div>
       </td>
-      <td style="font-family:monospace;font-size:11.5px;color:var(--mut)">${r.sku}</td>
-      <td style="font-family:monospace;font-size:12px">
-        ${barcode
-          ? `<span style="background:var(--bg);padding:2px 7px;border-radius:5px;border:1px solid var(--brd)">${barcode}</span>`
-          : `<span style="color:#ccc">—</span>`}
-      </td>
+      <td style="font-family:monospace;font-size:11px;color:var(--mut)">${r.sku}</td>
+      <td style="font-family:monospace;font-size:11.5px;color:#aaa">${barcode || "—"}</td>
       <td>
         <div style="display:flex;align-items:center;gap:7px">
-          <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;
-            background:${r.hex};border:1px solid rgba(0,0,0,.12)"
-            title="${r.pantone}"></div>
+          <div style="width:16px;height:16px;border-radius:4px;flex-shrink:0;background:${r.hex};border:1px solid rgba(0,0,0,.1)"></div>
           <div>
-            <div style="font-weight:500;font-size:13px">${r.color}</div>
-            ${r.pantone ? `<div style="font-size:10px;color:#aaa">${r.pantone}</div>` : ""}
+            <div style="font-size:13px;font-weight:500">${r.color}</div>
+            ${r.pantone ? `<div style="font-size:10.5px;color:#bbb">${r.pantone}</div>` : ""}
           </div>
         </div>
       </td>
       <td class="num">${boxCell}</td>
       <td class="num">${qBadge}</td>
       <td class="num" style="font-size:12.5px">
-        ${r.costUzs ? `<div style="font-weight:600">${fmt(r.costUzs)} so'm</div>` : "—"}
-        ${r.costUzs && r.inBox > 1 ? `<div style="font-size:11px;color:#856404;margin-top:2px">📦 ${fmt(r.costUzs * r.inBox)} so'm</div>` : ""}
+        ${r.costUzs
+          ? `<div style="font-weight:600">${fmt(r.costUzs)} so'm</div>
+             ${r.inBox > 1 ? `<div style="font-size:10.5px;color:#856404">📦 ${fmt(r.costUzs * r.inBox)} so'm</div>` : ""}`
+          : `<span style="color:#ccc">—</span>`}
       </td>
       <td class="num" style="font-size:12.5px">
-        ${r.ulgurji ? `<div style="font-weight:700;color:var(--acc)">${fmt(r.ulgurji)} so'm</div>` : '<span style="color:#ccc">—</span>'}
-        ${r.ulgurji && r.inBox > 1 ? `<div style="font-size:11px;color:#e9a500;margin-top:2px">📦 ${priceDisplay(r.ulgurji * r.inBox)}</div>` : ""}
-        ${margin != null ? `<div style="font-size:10px;color:${margin>=30?"var(--grn)":margin>=15?"#E07B39":"var(--red)"}">margin ${margin}%</div>` : ""}
+        ${r.ulgurji
+          ? `<div style="font-weight:700;color:var(--acc)">${fmt(r.ulgurji)} so'm</div>
+             ${margin != null ? `<div style="font-size:10px;color:${margin>=30?"var(--grn)":margin>=15?"#E07B39":"var(--red)"}">margin ${margin}%</div>` : ""}`
+          : `<span style="color:#ccc">—</span>`}
       </td>
-      ${showChakana ? `<td class="num" style="color:var(--teal);font-size:12.5px">${r.chakana ? fmt(r.chakana) + " so'm" : "—"}</td>` : ""}
+      ${showChakana ? `<td class="num" style="color:var(--teal);font-size:12.5px">${r.chakana ? fmt(r.chakana)+" so'm" : "—"}</td>` : ""}
       <td>
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditProduct('${r.sku}')"
-          title="Katalogda tahrirlash">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditProduct('${r.sku}')" title="Tahrirlash">
           <i class="ti ti-edit"></i>
         </button>
       </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="8" class="empty-td">
-    ${omStockFilter !== "all" ? "Bu filtrda mahsulot yo'q" : q ? `"${q}" topilmadi` : "Mahsulot yo'q"}
+  }).join("") : `<tr><td colspan="${showChakana?10:9}" class="empty-td">
+    ${omStockFilter==="low" ? "Kam qoldiqli tovar yo'q 🎉" : q ? `"${q}" topilmadi` : "Ombor bo'sh"}
   </td></tr>`;
 
-  const el = $("om-qoldiq-table"); if (!el) return;
-  el.querySelector("thead").innerHTML = thead;
-  el.querySelector("tbody").innerHTML = tbody;
-
-  const totalQty  = rows.reduce((a, r) => a + r.qty, 0);
-  const totalVal  = rows.reduce((a, r) => a + r.qiymati, 0);
-  const totalBoxes = rows.filter(r => r.boxes != null).reduce((a, r) => a + (r.boxes || 0), 0);
-  const foot = $("om-qoldiq-foot");
-  if (foot) foot.innerHTML = rows.length ? `
-    <div style="display:flex;gap:24px;font-size:13px;padding:10px 16px;color:var(--mut);border-top:1px solid var(--brd)">
-      <span>Jami: <strong style="color:#0D1B2A">${rows.length} ta rang varianti</strong></span>
-      <span><strong>${totalBoxes}</strong> karobka</span>
-      <span><strong>${totalQty}</strong> dona qoldiq</span>
-      <span>Qiymati: <strong style="color:var(--acc)">${fmt(totalVal)} so'm</strong></span>
-    </div>` : "";
+  const table = $("om-table");
+  if (table) {
+    const th = table.querySelector("thead");
+    const tb = table.querySelector("tbody");
+    if (th) th.innerHTML = thead;
+    if (tb) tb.innerHTML = tbody;
+  }
 }
 
+// ── Kirim tarixi ──────────────────────────────────
 function omRenderKirim() {
-  const q    = ($("om-q")||{value:""}).value.toLowerCase();
-  const list = db.ombor.filter(o =>
-    !q || o.productName.toLowerCase().includes(q) ||
-    (o.supplier||"").toLowerCase().includes(q) ||
-    (o.color||"").toLowerCase().includes(q)
-  ).slice().reverse();
+  const q = ($("om-kirim-q")||{value:""}).value.toLowerCase();
+  const filterVal = ($("om-kirim-filter")||{value:"all"}).value;
+  const rate = db.settings.rate || 1;
 
-  const el = $("ombor-body"); if (!el) return;
-  el.innerHTML = list.length ? list.map(o => {
-    const hex = o.hex || "#888";
+  let list = [...(db.ombor || [])].sort((a, b) =>
+    (b.date || "") > (a.date || "") ? 1 : -1
+  );
+
+  if (filterVal !== "all") list = list.filter(o => o.payStatus === filterVal);
+  if (q) list = list.filter(o =>
+    (o.productName || "").toLowerCase().includes(q) ||
+    (o.supplier    || "").toLowerCase().includes(q) ||
+    (o.color       || "").toLowerCase().includes(q) ||
+    (o.sku         || "").toLowerCase().includes(q)
+  );
+
+  const tbody = $("om-kirim-body"); if (!tbody) return;
+  tbody.innerHTML = list.length ? list.map(o => {
+    const jami = (o.kirimNarxi || 0) * (o.qty || 0);
+    const p = db.products.find(x => x.name === o.productName || x.sku === o.sku);
     return `<tr>
-      <td style="font-size:12px;color:var(--mut)">${o.date}</td>
-      <td><div style="font-weight:600;font-size:13px">${o.productName}</div></td>
-      <td><span class="bg bg-t" style="font-size:11px">${o.unit||"dona"}</span></td>
+      <td style="font-size:12.5px;white-space:nowrap;font-weight:600">${o.date || "—"}</td>
+      <td>
+        <div style="font-weight:600;font-size:13px">${o.productName || "—"}</div>
+        <div style="font-size:11px;color:#aaa">${o.sku || ""}</div>
+      </td>
+      <td style="font-size:12.5px">${o.unit || "—"}</td>
       <td>
         <div style="display:flex;align-items:center;gap:6px">
-          <div style="width:14px;height:14px;border-radius:3px;background:${hex};border:1px solid rgba(0,0,0,.12);flex-shrink:0"></div>
-          ${o.color} <span style="color:#bbb">/</span> ${o.size}
+          <div style="width:12px;height:12px;border-radius:3px;background:${o.hex||"#888"};border:1px solid rgba(0,0,0,.1)"></div>
+          <span style="font-size:12.5px">${o.color || "—"}</span>
+          ${o.size ? `<span style="font-size:11px;color:#aaa">/ ${o.size}</span>` : ""}
         </div>
-        ${o.pantone ? `<div style="font-size:10px;color:#aaa">${o.pantone}</div>` : ""}
-        ${o.boxes ? `<div style="font-size:10.5px;color:#856404">📦 ${o.boxes} karobka</div>` : ""}
       </td>
-      <td><span class="bg bg-g" style="font-weight:700">+${o.qty}</span></td>
-      <td class="num" style="font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi)+" so'm" : "—"}</td>
-      <td class="num" style="font-weight:600;font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi*o.qty)+" so'm" : "—"}</td>
-      <td style="font-size:12.5px">${o.supplier||"—"}</td>
-      <td style="font-size:12px;color:var(--mut)">${o.partiya||"—"}</td>
-      <td><span class="bg ${o.payStatus==="qarz"?"bg-r":"bg-g"}">${o.payStatus==="qarz"?"To'lanmagan":"To'langan"}</span></td>
+      <td class="num" style="font-weight:700;font-size:13px">
+        ${o.qty || 0}
+        ${o.boxes ? `<div style="font-size:10.5px;color:#856404">${o.boxes} karobka</div>` : ""}
+      </td>
+      <td class="num" style="font-size:12.5px">
+        ${o.kirimNarxi ? fmt(o.kirimNarxi) + " so'm" : "—"}
+      </td>
+      <td class="num" style="font-weight:700;font-size:13px">${jami ? fmt(jami) + " so'm" : "—"}</td>
+      <td style="font-size:12.5px">
+        ${o.supplier ? `<div style="font-weight:500">${o.supplier}</div>` : ""}
+        ${o.partiya  ? `<div style="font-size:11px;color:#aaa">${o.partiya}</div>`  : ""}
+      </td>
+      <td>
+        <span class="bg ${o.payStatus==="qarz"?"bg-r":"bg-g"}" style="font-size:11px">
+          ${o.payStatus === "qarz" ? "⚠️ Qarz" : "✅ To'langan"}
+        </span>
+        ${o.payStatus === "qarz"
+          ? `<button class="btn btn-sm btn-teal" style="margin-top:4px;font-size:11px" onclick="omMarkPaid(${o.id})">
+               To'landi
+             </button>` : ""}
+      </td>
+      <td>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="omDeleteKirim(${o.id})" style="color:var(--red)" title="O'chirish">
+          <i class="ti ti-trash"></i>
+        </button>
+      </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="11" class="empty-td">Kirim yo'q</td></tr>`;
+  }).join("") : `<tr><td colspan="10" class="empty-td">Kirim tarixi bo'sh</td></tr>`;
 }
 
+// ── Yetkazuvchilar ────────────────────────────────
 function omRenderSuppliers() {
-  const supMap = {};
-  db.ombor.forEach(o => {
-    const sup = o.supplier || "Noma'lum yetkazuvchi";
-    if (!supMap[sup]) supMap[sup] = { name:sup, items:0, value:0, paid:0, debt:0, lastDate:"" };
-    supMap[sup].items += o.qty;
-    const val = (o.kirimNarxi||0) * o.qty;
-    supMap[sup].value += val;
-    if (o.payStatus === "qarz") supMap[sup].debt += val;
-    else supMap[sup].paid += val;
-    if (!supMap[sup].lastDate || o.date > supMap[sup].lastDate) supMap[sup].lastDate = o.date;
+  const sups = {};
+  (db.ombor || []).forEach(o => {
+    const name = o.supplier || "Noma'lum";
+    if (!sups[name]) sups[name] = { cnt:0, total:0, paid:0, debt:0 };
+    const val = (o.kirimNarxi || 0) * (o.qty || 0);
+    sups[name].cnt++;
+    sups[name].total += val;
+    if (o.payStatus === "qarz") sups[name].debt += val;
+    else sups[name].paid += val;
   });
 
-  const list = Object.values(supMap).sort((a,b) => b.value - a.value);
-  const el   = $("om-sup-body"); if (!el) return;
-  el.innerHTML = list.length ? list.map(s => `<tr>
-    <td>
-      <div style="font-weight:600;font-size:13px">${s.name}</div>
-      <div style="font-size:11px;color:#bbb">Oxirgi: ${s.lastDate||"—"}</div>
-    </td>
-    <td class="num">${s.items} dona</td>
-    <td class="num" style="font-size:13px">${fmt(s.value)} so'm</td>
+  const el = $("om-sup-body"); if (!el) return;
+  const entries = Object.entries(sups).sort((a, b) => b[1].total - a[1].total);
+
+  el.innerHTML = entries.length ? entries.map(([name, s]) => `<tr>
+    <td style="font-weight:600;font-size:13.5px">${name}</td>
+    <td class="num">${s.cnt} ta</td>
+    <td class="num" style="font-weight:700">${fmt(s.total)} so'm</td>
     <td class="num" style="color:var(--grn)">${fmt(s.paid)} so'm</td>
     <td class="num">
       ${s.debt > 0
-        ? `<span style="font-weight:700;color:var(--red)">${fmt(s.debt)} so'm</span>`
-        : `<span style="color:var(--grn)">✓ To'liq</span>`}
+        ? `<span style="color:var(--red);font-weight:700">${fmt(s.debt)} so'm</span>`
+        : `<span class="bg bg-g" style="font-size:11px">✅</span>`}
     </td>
-  </tr>`).join("")
-  : `<tr><td colspan="5" class="empty-td">Yetkazuvchi yo'q</td></tr>`;
+  </tr>`).join("") : `<tr><td colspan="5" class="empty-td">Yetkazuvchi yo'q</td></tr>`;
 }
 
-function omSearch() { renderOmbor(); }
+// ── Kirimni to'langan deb belgilash ───────────────
+function omMarkPaid(id) {
+  const o = (db.ombor || []).find(x => x.id === id); if (!o) return;
+  o.payStatus = "tolangan";
+  saveDB(); omRenderKirim();
+  toast("✅ To'langan deb belgilandi");
+}
 
-// ── Qabul formasi logikasi ─────────────────────
-function qbAutofill(val) {
-  $("qb-list").innerHTML = db.products
-    .filter(p => p.name.toLowerCase().includes(val.toLowerCase()))
-    .map(p => `<option value="${p.name}">`).join("");
+// ── Kirimni o'chirish ─────────────────────────────
+function omDeleteKirim(id) {
+  const o = (db.ombor || []).find(x => x.id === id); if (!o) return;
+  if (!confirm(`${o.productName} — ${o.qty} ${o.unit} — ${o.date}\nBu kirimni o'chirilsinmi?\n(Qoldiq avtomatik kamayadi)`)) return;
+  db.ombor = db.ombor.filter(x => x.id !== id);
+  saveDB(); renderOmbor();
+  toast("Kirim o'chirildi");
+}
 
-  const p = db.products.find(x => x.name.toLowerCase() === val.toLowerCase().trim());
+// ── Excel eksport ─────────────────────────────────
+function exportOmborExcel() {
+  const rows = [["Sana","Mahsulot","SKU","Birlik","Rang","O'lcham","Miqdor","Karobka","Tannarx","Jami","Yetkazuvchi","Partiya","To'lov"]];
+  (db.ombor || []).forEach(o => {
+    rows.push([
+      o.date||"", o.productName||"", o.sku||"", o.unit||"",
+      o.color||"", o.size||"", o.qty||0, o.boxes||"",
+      o.kirimNarxi||0, (o.kirimNarxi||0)*(o.qty||0),
+      o.supplier||"", o.partiya||"",
+      o.payStatus==="qarz"?"Qarz":"To'langan"
+    ]);
+  });
+  downloadCSV(rows, `merx_ombor_${today()}.xls`);
+  toast("Ombor Excel yuklab olindi");
+}
+
+// ══════════════════════════════════════════════════
+// TOVAR QABUL — YANGI FORMA
+// Katalogdan tanlash → faqat kirim ma'lumotlari
+// ══════════════════════════════════════════════════
+
+// Qabul formasini ochganda katalog ro'yxatini to'ldirish
+function openQabulModal() {
+  // Katalog mahsulotlar ro'yxati (datalist uchun)
+  const list = $("qb-prod-list");
+  if (list) {
+    list.innerHTML = db.products.map(p =>
+      `<option value="${p.name}" data-sku="${p.sku}" data-inbox="${p.inBox||1}" data-unit="${p.unit||'dona'}">`
+    ).join("");
+  }
+  // Formani tozalash
+  qbReset();
+  openModal("qabul");
+}
+
+// Mahsulot tanlanganda — katalogdan narx va unit keladi
+function qbOnProdSelect() {
+  const name = ($("qb-name")||{value:""}).value.trim();
+  const p    = db.products.find(x => x.name === name);
   if (!p) {
-    // Yangi mahsulot — karobka panelini ko'rsatamiz, foydalanuvchi o'zi to'ldiradi
-    const boxPanel    = $("qb-box-panel");
-    const normalPanel = $("qb-normal-panel");
-    if (boxPanel)    boxPanel.style.display    = "block";
-    if (normalPanel) normalPanel.style.display = "none";
-    if ($("qb-inbox-edit")) $("qb-inbox-edit").value = "";
-    if ($("qb-info")) $("qb-info").textContent = "Yangi mahsulot — karobka ma'lumotlarini kiriting";
+    // Yangi mahsulot — barcha maydonlar bo'sh
+    if ($("qb-inbox"))   $("qb-inbox").value   = "";
+    if ($("qb-unit-lbl"))$("qb-unit-lbl").textContent = "dona";
+    if ($("qb-ulgurji-row")) $("qb-ulgurji-row").style.display = "none";
     return;
   }
+  // Katalogdan ma'lumot
+  if ($("qb-inbox"))    $("qb-inbox").value    = p.inBox || 1;
+  if ($("qb-unit-lbl")) $("qb-unit-lbl").textContent = p.unit || "dona";
 
-  if ($("qb-unit")) $("qb-unit").value = p.unit || "dona";
-
-  // O'lchamlar
-  const sizes = [...new Set(p.variants.map(v => v.size))];
-  $("qb-sizes").innerHTML = sizes.map(s => `<option value="${s}">`).join("");
-  if ($("qb-size-hint")) $("qb-size-hint").textContent = sizes.length
-    ? `(${sizes[0]}–${sizes[sizes.length-1]})` : "";
-
-  // Ranglar — Pantone picker orqali tanlanadi (qb-colors datalist olib tashlangan)
-
-  // Karobka panel — DOIM ko'rsatamiz
-  const inBox = p.inBox || 1;
-  const boxPanel    = $("qb-box-panel");
-  const normalPanel = $("qb-normal-panel");
-  if (boxPanel)    boxPanel.style.display    = "block";
-  if (normalPanel) normalPanel.style.display = "none";
-  if ($("qb-inbox-edit")) $("qb-inbox-edit").value = inBox > 1 ? inBox : "";
-  qbCalcBoxes();
-
-  // Narx placeholder
-  if ($("qb-price"))   $("qb-price").placeholder   = fmt(p.priceUzs) + " (joriy)";
-  if ($("qb-ulgurji")) $("qb-ulgurji").placeholder = fmt(p.ulgurjiNarx||0) + " (joriy)";
-
-  // Info matni
-  const st = p.variants.map(v => `${v.color}/${v.size}(${v.qty})`).join(", ");
-  if ($("qb-info")) $("qb-info").textContent =
-    `Joriy: chakana ${fmt(p.priceUzs)} · ulgurji ${fmt(p.ulgurjiNarx||0)} · qoldiq: ${st}`;
-}
-
-function qbCalcBoxes() {
-  const boxes   = parseInt(($("qb-boxes")||{value:1}).value)      || 1;
-  const inBoxEd = parseInt(($("qb-inbox-edit")||{value:8}).value) || 8;
-  const total   = boxes * inBoxEd;
-
-  if ($("qb-total-show")) $("qb-total-show").textContent = total + " dona";
-  if ($("qb-qty-box"))    $("qb-qty-box").value = total;
-
-  // Razmer preview
-  const from = ($("qb-size-from")||{value:""}).value;
-  const to   = ($("qb-size-to")||{value:""}).value;
-  const prev = $("qb-size-preview");
-  if (prev && from && to) {
-    prev.textContent = `→ ${from}–${to} razmerlar`;
-  } else if (prev) {
-    prev.textContent = "";
-  }
-}
-
-function qabulOl() {
-  const name = ($("qb-name")||{value:""}).value.trim();
-  if (!name)  { toast("Mahsulot nomini kiriting","err"); return; }
-
-  const isBoxMode = ($("qb-box-panel")?.style.display !== "none");
-  const pantone = ($("qb-pantone")||{value:""}).value.trim();
-  const hex     = ($("qb-hex")||{value:"#888888"}).value;
-  const boxes   = parseInt(($("qb-boxes")||{value:0}).value) || null;
-  const inBoxEd = parseInt(($("qb-inbox-edit")||{value:8}).value) || 8;
-
-  let color, size, qty;
-
-  if (isBoxMode) {
-    color = ($("qb-color")||{value:""}).value.trim();
-    if (!color) { toast("Rang tanlang","err"); return; }
-
-    const sizeFrom = ($("qb-size-from")||{value:""}).value;
-    const sizeTo   = ($("qb-size-to")||{value:""}).value;
-    if (!sizeFrom || !sizeTo) { toast("Razmer oralig'ini tanlang","err"); return; }
-
-    qty  = (boxes || 1) * inBoxEd;
-    size = `${sizeFrom}–${sizeTo}`;
-  } else {
-    color = ($("qb-color")||{value:""}).value.trim();
-    size  = ($("qb-size")||{value:""}).value.trim();
-    qty   = parseInt(($("qb-qty")||{value:0}).value) || 0;
-
-    if (!color) { toast("Rang tanlang","err"); return; }
-    if (!size)  { toast("O'lcham kiriting","err"); return; }
-    if (qty <= 0) { toast("Miqdor kiriting","err"); return; }
-  }
-
-  const kirimN    = getRawVal("qb-cost");
-  const newChk    = parseFloat(($("qb-price")||{value:0}).value)   || 0;
-  const newUlg    = getRawVal("qb-ulgurji");
-  const unit      = ($("qb-unit")||{value:"dona"}).value;
-  const qbBarcode = ($("qb-barcode")||{value:""}).value.trim();
-
-  let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
-  if (p) {
-    const v = p.variants.find(x => x.color === color && x.size === size);
-    if (v) {
-      v.qty += qty;
-      if (pantone) { v.pantone = pantone; v.hex = hex; }
-    } else {
-      p.variants.push({ color, size, qty, pantone, hex });
+  // Ulgurji narx yangilash (ixtiyoriy)
+  const ulgurjiRow = $("qb-ulgurji-row");
+  if (ulgurjiRow) {
+    ulgurjiRow.style.display = "block";
+    const el = $("qb-ulgurji");
+    if (el) {
+      el.value = p.ulgurjiNarx || "";
+      el.placeholder = `Joriy: ${fmt(p.ulgurjiNarx||0)} so'm`;
     }
-    if (newChk > 0) p.priceUzs    = newChk;
-    if (newUlg > 0) p.ulgurjiNarx = newUlg;
-    if (qbBarcode)  p.barcode     = qbBarcode;
-    p.unit = unit;
-  } else {
-    db.products.push({
-      sku:`RECV-${String(db.seq++).padStart(3,"0")}`,
-      name, category:"Qabul qilingan", type:"oyoq",
-      unit, inBox: inBoxEd > 1 ? inBoxEd : 1,
-      // Tannarxni USD da saqlash: priceCurrency bo'yicha
-      costUsd: (() => {
-        const cur = db.settings?.priceCurrency || "uzs";
-        if (cur === "usd" || cur === "both") return kirimN; // dollar kiritilgan
-        return kirimN / (db.settings.rate || 12800);         // so'm kiritilgan
-      })(),
-      priceUzs:newChk||0, ulgurjiNarx:newUlg||0,
-      barcode: qbBarcode || genEAN13(db.seq),
-      variants:[{color, size, qty, pantone, hex}]
-    });
-    p = db.products[db.products.length - 1];
+  }
+  qbCalcTotal();
+}
+
+// Karobka/dona o'zgarganda jami hisoblash
+function qbCalcTotal() {
+  const boxes  = parseFloat(($("qb-boxes")||{value:0}).value)  || 0;
+  const inBox  = parseFloat(($("qb-inbox")||{value:1}).value)  || 1;
+  const manual = parseFloat(($("qb-qty")||{value:0}).value)    || 0;
+  const total  = boxes > 0 ? Math.round(boxes * inBox) : manual;
+  if ($("qb-total-lbl")) $("qb-total-lbl").textContent = total + " dona/juft";
+}
+
+function qbReset() {
+  ["qb-name","qb-boxes","qb-qty","qb-cost","qb-ulgurji","qb-supplier","qb-partiya"].forEach(id => {
+    if ($(id)) $(id).value = "";
+  });
+  if ($("qb-pay")) $("qb-pay").value = "tolangan";
+  if ($("qb-date")) $("qb-date").value = today();
+  if ($("qb-total-lbl")) $("qb-total-lbl").textContent = "— dona";
+  if ($("qb-ulgurji-row")) $("qb-ulgurji-row").style.display = "none";
+}
+
+// ── Tovarni qabul qilish ──────────────────────────
+function qabulTovar() {
+  const name      = ($("qb-name")||{value:""}).value.trim();
+  const color     = ($("qb-color")||{value:""}).value.trim()   || "Standart";
+  const pantone   = ($("qb-pantone")||{value:""}).value.trim() || "";
+  const hexVal    = ($("qb-hex")||{value:""}).value.trim()     || "#888888";
+  const size      = ($("qb-size")||{value:""}).value.trim()    || "Aralash";
+  const boxes     = parseFloat(($("qb-boxes")||{value:0}).value) || 0;
+  const inBox     = parseFloat(($("qb-inbox")||{value:1}).value) || 1;
+  const manualQty = parseFloat(($("qb-qty")||{value:0}).value)   || 0;
+  const qty       = boxes > 0 ? Math.round(boxes * inBox) : manualQty;
+  const kirimNarxi= getRawVal("qb-cost");
+  const supplier  = ($("qb-supplier")||{value:""}).value.trim();
+  const partiya   = ($("qb-partiya")||{value:""}).value.trim();
+  const payStatus = ($("qb-pay")||{value:"tolangan"}).value;
+  const date      = ($("qb-date")||{value:""}).value || today();
+
+  // Yangi ulgurji narx (ixtiyoriy)
+  const newUlgurji = getRawVal("qb-ulgurji");
+
+  if (!name)  { toast("Mahsulot nomini kiriting", "err"); return; }
+  if (qty <= 0) { toast("Miqdorni kiriting", "err"); return; }
+
+  // Ombor yozuvi
+  const kirim = {
+    id:          db.seq++,
+    date,
+    sku:         db.products.find(x => x.name === name)?.sku || "",
+    productName: name,
+    unit:        db.products.find(x => x.name === name)?.unit || "dona",
+    color,
+    size,
+    qty,
+    boxes:       boxes > 0 ? boxes : null,
+    pantone,
+    hex:         hexVal,
+    kirimNarxi,
+    supplier:    supplier || null,
+    partiya:     partiya  || null,
+    payStatus
+  };
+  if (!db.ombor) db.ombor = [];
+  db.ombor.push(kirim);
+
+  // Agar katalogda yo'q bo'lsa — yangi mahsulot yaratamiz
+  let p = db.products.find(x => x.name === name);
+  if (!p) {
+    p = {
+      sku:         `RECV-${String(db.seq).padStart(3,"0")}`,
+      name,
+      category:    "Qabul qilingan",
+      type:        db.settings?.shopType === "kiyim" ? "kiyim" : "oyoq",
+      unit:        kirim.unit,
+      inBox:       inBox,
+      barcode:     genEAN13(db.seq),
+      costUsd:     0,
+      priceUzs:    0,
+      ulgurjiNarx: newUlgurji || 0,
+      variants:    []   // variants bo'sh — qoldiq getStock() dan hisoblanadi
+    };
+    db.products.push(p);
+    toast(`✅ "${name}" katalogga ham qo'shildi`);
   }
 
-  db.ombor.push({
-    id:db.seq++, date:today(), sku:p.sku,
-    productName:name, unit, color, size, qty,
-    pantone, hex,
-    boxes: boxes || null,
-    kirimNarxi:  kirimN,
-    chakana:     newChk || p.priceUzs    || 0,
-    ulgurji:     newUlg || p.ulgurjiNarx || 0,
-    supplier:    ($("qb-sup")||{value:""}).value,
-    partiya:     ($("qb-partiya")||{value:""}).value,
-    payStatus:   ($("qb-pay")||{value:"tolandan"}).value
-  });
-
-  saveDB(); closeModal("qabul"); renderOmbor();
-  if (typeof renderKatalog === "function") renderKatalog();
-
-  ["qb-name","qb-size","qb-sup","qb-partiya","qb-barcode"].forEach(id => { if ($(id)) $(id).value = ""; });
-  if ($("qb-qty"))  $("qb-qty").value  = "10";
-  if ($("qb-cost")) $("qb-cost").value = "";
-  if ($("qb-info")) $("qb-info").textContent = "";
-  if ($("qb-box-panel")) $("qb-box-panel").style.display = "none";
-  if (typeof ppReset === "function") ppReset("qb");
-
-  toast(`✅ ${name} (${color}/${size}) — ${qty} ${unit} qabul qilindi`);
-}
-
-// ── Excel eksport ──────────────────────────────
-function exportOmborExcel() {
-  const rate = db.settings.rate || 12800;
-  const tab  = omActiveTab;
-
-  if (tab === "qoldiq" || tab === "kirim") {
-    const rows = tab === "qoldiq"
-      ? exportOmborQoldiq(rate)
-      : exportOmborKirim();
-    const name = tab === "qoldiq" ? "joriy_qoldiq" : "kirim_tarixi";
-    downloadCSVOmbor(rows, `merx_ombor_${name}_${today()}.csv`);
-    toast(`Ombor ${tab === "qoldiq" ? "joriy qoldiq" : "kirim tarixi"} yuklab olindi`);
-  } else {
-    exportOmborSuppliers(rate);
-  }
-}
-
-function exportOmborQoldiq(rate) {
-  const rows = [["Mahsulot nomi","SKU","Barcode","Rang","Pantone","Karobka soni","Dona soni","Tannarx (so'm)","Ulgurji narx (so'm)","Margin (%)"]];
-  db.products.forEach(p => {
-    const costUzs = Math.round((p.costUsd||0)*rate);
-    const inBox   = p.inBox || 1;
-    const colorGroups = {};
-    p.variants.forEach(v => {
-      if (!colorGroups[v.color]) colorGroups[v.color] = { hex:v.hex||"", pantone:v.pantone||"", qty:0 };
-      colorGroups[v.color].qty += v.qty;
-    });
-    Object.entries(colorGroups).forEach(([color, info]) => {
-      const boxes  = inBox > 1 ? (info.qty / inBox).toFixed(1) : "";
-      const margin = p.ulgurjiNarx > 0 && costUzs > 0
-        ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : "";
-      rows.push([p.name, p.sku, p.barcode||"", color, info.pantone,
-        boxes, info.qty, costUzs, p.ulgurjiNarx||0, margin]);
-    });
-  });
-  return rows;
-}
-
-function exportOmborKirim() {
-  const rows = [["Sana","Mahsulot","SKU","Rang","Pantone","O'lcham","Miqdor","Karobka soni","Tannarx","Jami","Yetkazuvchi","Partiya","To'lov holati"]];
-  db.ombor.slice().reverse().forEach(o => {
-    rows.push([o.date, o.productName, o.sku||"", o.color||"", o.pantone||"",
-      o.size||"", o.qty, o.boxes||"", o.kirimNarxi||0,
-      (o.kirimNarxi||0)*o.qty, o.supplier||"", o.partiya||"",
-      o.payStatus === "qarz" ? "To'lanmagan" : "To'langan"]);
-  });
-  return rows;
-}
-
-function exportOmborSuppliers(rate) {
-  const supMap = {};
-  db.ombor.forEach(o => {
-    const s = o.supplier || "Noma'lum";
-    if (!supMap[s]) supMap[s] = { items:0, value:0, paid:0, debt:0, last:"" };
-    supMap[s].items += o.qty;
-    const val = (o.kirimNarxi||0)*o.qty;
-    supMap[s].value += val;
-    if (o.payStatus==="qarz") supMap[s].debt += val;
-    else supMap[s].paid += val;
-    if (!supMap[s].last || o.date > supMap[s].last) supMap[s].last = o.date;
-  });
-  const rows = [["Yetkazuvchi","Jami dona","Jami qiymat (so'm)","To'langan (so'm)","Qarz (so'm)","Oxirgi yetkazma"]];
-  Object.entries(supMap).forEach(([name, s]) => {
-    rows.push([name, s.items, s.value, s.paid, s.debt, s.last]);
-  });
-  downloadCSVOmbor(rows, `merx_yetkazuvchilar_${today()}.csv`);
-  toast("Yetkazuvchilar ro'yxati yuklab olindi");
-}
-
-function downloadCSVOmbor(rows, filename) {
-  downloadCSV(rows, filename);
-}
-
-// ── Karobka narx hintlari ─────────────────────
-function qbUpdateBoxHints() {
-  const inBox = parseInt(($("qb-inbox-edit")||{value:0}).value) || 0;
-
-  function showHint(hintId, donaVal) {
-    const el = $(hintId); if (!el) return;
-    if (!donaVal || donaVal <= 0 || inBox < 2) { el.style.display = "none"; return; }
-    const total = donaVal * inBox;
-    const span  = el.querySelector("span");
-    if (span) span.textContent = `1 karobka = ${fmt(total)} so'm (${inBox} × ${fmt(donaVal)})`;
-    el.style.display = "inline-flex";
+  // Ulgurji narxni yangilash (agar kiritilgan bo'lsa)
+  if (newUlgurji > 0 && p.ulgurjiNarx !== newUlgurji) {
+    p.ulgurjiNarx = newUlgurji;
   }
 
-  const cost = getRawVal("qb-cost");
-  const ulg  = getRawVal("qb-ulgurji");
-  showHint("qb-cost-hint", cost);
-  showHint("qb-ulg-hint",  ulg);
+  // inBox ni yangilash (agar karobkada soni o'zgargan bo'lsa)
+  if (boxes > 0 && inBox !== p.inBox) {
+    p.inBox = inBox;
+  }
+
+  saveDB();
+  renderOmbor();
+  closeModal("qabul");
+  toast(`✅ ${name} — ${qty} ${kirim.unit} qabul qilindi`);
 }
 
-// ================================================
+// ══════════════════════════════════════════════════
 // INVENTARIZATSIYA
-// ================================================
+// systemQty ham getStock() dan keladi
+// ══════════════════════════════════════════════════
 
-let _invData    = [];  // [{sku, color, size, systemQty, actualQty, counted}]
-let _invFilter  = "all";
+let _invData   = [];
+let _invFilter = "all";
 
-// ── Ochish ────────────────────────────────────────
 function openInvent() {
-  // Barcha mahsulot/rang/o'lcham kombinatsiyalarini yaratish
+  // Har bir mahsulot × rang × o'lcham kombinatsiyasi
+  // systemQty = getStock(name, color, size) — haqiqiy hisob
   _invData = [];
+
   db.products.forEach(p => {
-    p.variants.forEach(v => {
+    // Ombordagi barcha rang/o'lcham kombinatsiyalarini topamiz
+    const variants = new Map();
+
+    // Ombor kirimi asosida
+    (db.ombor || []).forEach(o => {
+      if (o.productName !== p.name) return;
+      const key = `${o.color}|${o.size || "—"}`;
+      if (!variants.has(key)) {
+        variants.set(key, { color: o.color, size: o.size || "—", hex: o.hex || "#888", barcode: p.barcode || "" });
+      }
+    });
+
+    // Variants dan ham (eski ma'lumotlar uchun fallback)
+    (p.variants || []).forEach(v => {
+      const key = `${v.color}|${v.size || "—"}`;
+      if (!variants.has(key)) {
+        variants.set(key, { color: v.color, size: v.size || "—", hex: v.hex || "#888", barcode: p.barcode || "" });
+      }
+    });
+
+    variants.forEach((info, key) => {
+      const systemQty = getStock(p.name, info.color, info.size !== "—" ? info.size : undefined);
       _invData.push({
-        sku:       p.sku,
-        name:      p.name,
-        color:     v.color,
-        size:      v.size || "—",
-        hex:       v.hex  || "#888",
-        pantone:   v.pantone || "",
-        unit:      p.unit || "dona",
-        inBox:     p.inBox || 1,
-        barcode:   p.barcode || "",
-        systemQty: v.qty,
-        actualQty: null,   // sanalmaganda null
-        counted:   false
+        sku:        p.sku,
+        name:       p.name,
+        unit:       p.unit || "dona",
+        color:      info.color,
+        size:       info.size,
+        hex:        info.hex,
+        barcode:    info.barcode,
+        systemQty,
+        actualQty:  null,
+        counted:    false
       });
     });
   });
 
-  // Sana
-  const lbl = $("inv-date-lbl");
-  if (lbl) lbl.textContent = `Sana: ${today()} | Tizim: ${_invData.length} ta variant`;
-
-  setInvFilter("all");
   renderInvTable();
   updateInvStats();
 
-  // Modalni ochish
   const ov = $("ov-invent");
   if (ov) ov.style.display = "flex";
   setTimeout(() => { if ($("inv-scan")) $("inv-scan").focus(); }, 100);
@@ -639,7 +616,6 @@ function closeInvent() {
   if (ov) ov.style.display = "none";
 }
 
-// ── Filter ────────────────────────────────────────
 function setInvFilter(f) {
   _invFilter = f;
   document.querySelectorAll(".inv-filter-btn").forEach(b =>
@@ -647,23 +623,18 @@ function setInvFilter(f) {
   renderInvTable();
 }
 
-// ── Qidiruv/skaner ────────────────────────────────
-function invSearch() {
-  renderInvTable();
-}
+function invSearch() { renderInvTable(); }
 
 function invScanEnter() {
   const q = ($("inv-scan")||{value:""}).value.trim();
   if (!q) return;
 
-  // Barcode bo'yicha toping
   const row = _invData.find(r =>
     r.barcode === q ||
     r.name.toLowerCase() === q.toLowerCase()
   );
 
   if (row) {
-    // Topilsa — soni 1 ga oshir yoki focus
     const inputEl = document.querySelector(`input[data-inv-key="${row.sku}_${row.color}_${row.size}"]`);
     if (inputEl) {
       const cur = parseInt(inputEl.value) || 0;
@@ -678,7 +649,6 @@ function invScanEnter() {
   }
 }
 
-// ── Miqdor o'zgartirish ───────────────────────────
 function invSetQty(sku, color, size, val) {
   const row = _invData.find(r => r.sku===sku && r.color===color && r.size===size);
   if (!row) return;
@@ -686,22 +656,17 @@ function invSetQty(sku, color, size, val) {
   row.actualQty = isNaN(n) ? null : Math.max(0, n);
   row.counted   = row.actualQty !== null;
   updateInvStats();
-  renderInvRow(sku, color, size);
+  renderInvTable();
 }
 
-// ── Jadval render ─────────────────────────────────
 function renderInvTable() {
   const q = ($("inv-scan")||{value:""}).value.toLowerCase();
   const tbody = $("inv-body"); if (!tbody) return;
 
   let rows = _invData;
-
-  // Filtr
   if (_invFilter === "diff")    rows = rows.filter(r => r.counted && r.actualQty !== r.systemQty);
   if (_invFilter === "done")    rows = rows.filter(r => r.counted);
   if (_invFilter === "notdone") rows = rows.filter(r => !r.counted);
-
-  // Qidiruv
   if (q) rows = rows.filter(r =>
     r.name.toLowerCase().includes(q) ||
     r.color.toLowerCase().includes(q) ||
@@ -755,47 +720,53 @@ function invRowHtml(r) {
   </tr>`;
 }
 
-function renderInvRow(sku, color, size) {
-  // Bir qatorni qayta render qilish
-  const tbody = $("inv-body"); if (!tbody) return;
-  renderInvTable(); // Sodda yondashuv
-}
-
-// ── Statistika ────────────────────────────────────
 function updateInvStats() {
   const total = _invData.length;
   const done  = _invData.filter(r => r.counted).length;
   const diff  = _invData.filter(r => r.counted && r.actualQty !== r.systemQty).length;
-
-  if ($("inv-total-cnt"))   $("inv-total-cnt").textContent   = total;
-  if ($("inv-done-cnt"))    $("inv-done-cnt").textContent    = done;
-  if ($("inv-diff-cnt"))    $("inv-diff-cnt").textContent    = diff;
-  if ($("inv-progress"))    $("inv-progress").textContent    = `${done}/${total} sanalgan`;
+  if ($("inv-total-cnt")) $("inv-total-cnt").textContent = total;
+  if ($("inv-done-cnt"))  $("inv-done-cnt").textContent  = done;
+  if ($("inv-diff-cnt"))  $("inv-diff-cnt").textContent  = diff;
+  if ($("inv-progress"))  $("inv-progress").textContent  = `${done}/${total} sanalgan`;
 }
 
-// ── Tasdiqlash ────────────────────────────────────
+// ── Inventarizatsiyani tasdiqlash ─────────────────
+// Farq bo'lsa → tuzatish yozuvi ombor ga qo'shiladi
 function confirmInvent() {
   const counted = _invData.filter(r => r.counted);
   if (!counted.length) { toast("Hech narsa sanalmadi","err"); return; }
 
   const diffs = counted.filter(r => r.actualQty !== r.systemQty);
   const msg = diffs.length > 0
-    ? `${counted.length} ta variant sanalgan. ${diffs.length} ta farq bor.\n\nQoldiqlarni yangilash tasdiqlaysizmi?`
+    ? `${counted.length} ta variant sanalgan. ${diffs.length} ta farq bor.\n\nFarqlar ombor tuzatish yozuvi sifatida qo'shiladi.`
     : `${counted.length} ta variant sanalgan. Farq yo'q. Tasdiqlaysizmi?`;
 
   if (!confirm(msg)) return;
 
-  // Qoldiqlarni yangilash
+  // Farq bo'lsa — tuzatish kirim yozuvi qo'shamiz
   let updated = 0;
-  counted.forEach(r => {
-    const p = db.products.find(x => x.sku === r.sku);
-    if (!p) return;
-    const v = p.variants.find(x => x.color === r.color && x.size === r.size);
-    if (!v) return;
-    if (v.qty !== r.actualQty) {
-      v.qty = r.actualQty;
-      updated++;
-    }
+  diffs.forEach(r => {
+    const diff = r.actualQty - r.systemQty;
+    if (diff === 0) return;
+
+    // Tuzatish yozuvi: + bo'lsa kirim, - bo'lsa chiqim (manfiy qty)
+    db.ombor.push({
+      id:          db.seq++,
+      date:        today(),
+      sku:         r.sku,
+      productName: r.name,
+      unit:        r.unit,
+      color:       r.color,
+      size:        r.size !== "—" ? r.size : "",
+      qty:         diff,   // manfiy bo'lishi mumkin (kamomad)
+      boxes:       null,
+      kirimNarxi:  0,
+      supplier:    "Inventarizatsiya tuzatish",
+      partiya:     today(),
+      payStatus:   "tolangan",
+      hex:         r.hex || "#888"
+    });
+    updated++;
   });
 
   // Inventarizatsiya tarixini saqlash
@@ -821,10 +792,9 @@ function confirmInvent() {
   saveDB();
   closeInvent();
   renderOmbor();
-  toast(`✅ ${updated} ta variant yangilandi. Inventarizatsiya tugadi.`);
+  toast(`✅ ${updated} ta tuzatish yozildi. Inventarizatsiya tugadi.`);
 }
 
-// ── Excel eksport ─────────────────────────────────
 function exportInventExcel() {
   const rows = [["Mahsulot","SKU","Rang","O'lcham","Tizim qoldig'i","Haqiqiy qoldiq","Farq","Holat"]];
   _invData.forEach(r => {
@@ -837,10 +807,6 @@ function exportInventExcel() {
       !r.counted ? "Sanalmagan" : diff === 0 ? "Mos" : diff > 0 ? "Ortiqcha" : "Kamomad"
     ]);
   });
-
-  const csv = "sep=;\r\n" + rows.map(r =>
-    r.map(c => { const s=String(c==null?"":c); return s.includes(";")?`"${s}"`:s; }).join(";")
-  ).join("\n");
-    downloadCSV(rows, `merx_invent_${today()}.xls`);
+  downloadCSV(rows, `merx_invent_${today()}.xls`);
   toast("Inventarizatsiya Excel yuklab olindi");
 }
