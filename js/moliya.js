@@ -353,15 +353,10 @@ function exportExpExcel() {
 }
 
 // ── Modal ochilganda initializ ────────────────────
-// openModal override — addxarajat uchun
-const _origOpenModal = typeof openModal === "function" ? openModal : null;
-function openModal(id) {
-  if (typeof _origOpenModal === "function") _origOpenModal(id);
-  if (id === "addxarajat") {
-    setTimeout(() => {
-      if ($("ax-date") && !$("ax-date").value) $("ax-date").value = today();
-      initExpWhoSelect();
-      renderExpExtraField($("exp-cat-val")?.value || "Ijara");
-    }, 30);
-  }
+function initExpModal() {
+  setTimeout(() => {
+    if ($("ax-date") && !$("ax-date").value) $("ax-date").value = today();
+    initExpWhoSelect();
+    renderExpExtraField($("exp-cat-val")?.value || "Ijara");
+  }, 30);
 }
