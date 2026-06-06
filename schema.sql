@@ -1,36 +1,140 @@
--- =============================================
--- MERX Cloud Schema — Supabase SQL Editor da ishga tushiring
--- supabase.com → Project → SQL Editor → New Query → paste → Run
--- =============================================
+-- ================================================
+-- MERX — Supabase Schema
+-- SQL Editor da ishga tushiring
+-- ================================================
 
--- 1. Asosiy jadval — butun ma'lumotni saqlaydi
-CREATE TABLE IF NOT EXISTS merx_data (
-  id          TEXT PRIMARY KEY,
-  shop_name   TEXT,
-  data        TEXT NOT NULL,
-  updated_at  TIMESTAMPTZ DEFAULT NOW()
+-- 1. Mahsulotlar
+create table if not exists products (
+  id          bigint primary key,
+  sku         text,
+  name        text not null,
+  category    text,
+  type        text,
+  unit        text default 'dona',
+  in_box      int  default 1,
+  barcode     text,
+  cost_usd    numeric(10,2) default 0,
+  price_uzs   numeric(15,0) default 0,
+  ulgurji     numeric(15,0) default 0,
+  image       text,
+  variants    jsonb default '[]',
+  created_at  timestamptz default now()
 );
 
--- 2. Row Level Security (RLS) — hozircha ochiq, keyinchalik login qo'shiladi
-ALTER TABLE merx_data ENABLE ROW LEVEL SECURITY;
+-- 2. Sotuvlar
+create table if not exists sales (
+  id              bigint primary key,
+  chek_num        text,
+  date            date,
+  time            text,
+  price_type      text,
+  pay_type        text,
+  staff_id        bigint,
+  customer_id     bigint,
+  items           jsonb default '[]',
+  subtotal        numeric(15,0) default 0,
+  discount        numeric(15,0) default 0,
+  total           numeric(15,0) default 0,
+  paid            numeric(15,0) default 0,
+  remaining       numeric(15,0) default 0,
+  due             date,
+  customer_name   text,
+  customer_phone  text,
+  status          text default 'tolandan',
+  debt_currency   text default 'uzs',
+  debt_usd        numeric(10,2),
+  note            text,
+  created_at      timestamptz default now()
+);
 
-CREATE POLICY "Hamma operatsiyalarga ruxsat" ON merx_data
-  FOR ALL USING (true) WITH CHECK (true);
+-- 3. Mijozlar
+create table if not exists customers (
+  id         bigint primary key,
+  name       text not null,
+  phone      text,
+  type       text default 'ulgurji',
+  note       text,
+  created_at timestamptz default now()
+);
 
--- 3. Yangilanish vaqtini avtomatik yangilash
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- 4. Xodimlar
+create table if not exists staff (
+  id         bigint primary key,
+  name       text not null,
+  phone      text,
+  role       text default 'kassir',
+  created_at timestamptz default now()
+);
 
-CREATE TRIGGER merx_data_updated_at
-  BEFORE UPDATE ON merx_data
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+-- 5. Ombor kirim
+create table if not exists ombor (
+  id           bigint primary key,
+  date         date,
+  sku          text,
+  product_name text,
+  unit         text,
+  color        text,
+  size         text,
+  qty          int default 0,
+  boxes        int,
+  pantone      text,
+  hex          text,
+  kirim_narxi  numeric(15,0) default 0,
+  chakana      numeric(15,0) default 0,
+  ulgurji      numeric(15,0) default 0,
+  supplier     text,
+  partiya      text,
+  pay_status   text default 'tolandan',
+  barcode      text,
+  created_at   timestamptz default now()
+);
 
--- =============================================
--- TAYYOR! Endi MERX → Egasi → Cloud bo'limiga
--- Project URL va Anon Key ni kiriting → "Ulash" bosing
--- =============================================
+-- 6. Xarajatlar
+create table if not exists xarajatlar (
+  id         bigint primary key,
+  date       date,
+  category   text,
+  amount     numeric(15,0) default 0,
+  recipient  text,
+  paid_by    text,
+  note       text,
+  created_at timestamptz default now()
+);
+
+-- 7. Sozlamalar (bitta qator)
+create table if not exists settings (
+  id              int primary key default 1,
+  shop_name       text default 'MERX Do''koni #1',
+  rate            numeric(10,0) default 12800,
+  price_currency  text default 'uzs',
+  shop_type       text default 'ikki',
+  show_chakana    boolean default false,
+  eskiz_token     text,
+  eskiz_sender    text,
+  supabase_url    text,
+  supabase_key    text,
+  updated_at      timestamptz default now()
+);
+
+-- RLS (Row Level Security) - agar kerak bo'lsa yoqish mumkin
+-- Hozircha ochiq (anon key bilan o'qish/yozish)
+alter table products   enable row level security;
+alter table sales      enable row level security;
+alter table customers  enable row level security;
+alter table staff      enable row level security;
+alter table ombor      enable row level security;
+alter table xarajatlar enable row level security;
+alter table settings   enable row level security;
+
+-- Anon uchun ruxsat (hozircha to'liq ruxsat)
+create policy "anon_all_products"   on products   for all using (true) with check (true);
+create policy "anon_all_sales"      on sales      for all using (true) with check (true);
+create policy "anon_all_customers"  on customers  for all using (true) with check (true);
+create policy "anon_all_staff"      on staff      for all using (true) with check (true);
+create policy "anon_all_ombor"      on ombor      for all using (true) with check (true);
+create policy "anon_all_xarajatlar" on xarajatlar for all using (true) with check (true);
+create policy "anon_all_settings"   on settings   for all using (true) with check (true);
+
+-- Insert default settings
+insert into settings (id, shop_name) values (1, 'MERX Do''koni #1')
+on conflict (id) do nothing;
