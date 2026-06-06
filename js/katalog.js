@@ -694,9 +694,10 @@ function downloadImportTemplate() {
     ["Nike Air Max","Krossovka","oyoq","juft","8","8600000000001","Oq","PMS White","39-44","24","25","380000"],
     ["Erkaklar ko'ylagi","Ko'ylak","kiyim","dona","12","","Ko'k","PMS 286 C","S-XL","60","8","150000"],
   ];
+  // sep= buyrug'i Excel ga avtomatik delimiter bildiradi
   const bom = "\uFEFF";
-  const csv = bom + [headers, ...rows].map(r =>
-    r.map(c => { const s=String(c); return s.includes(",")?`"${s}"`:s; }).join(",")
+  const csv = "sep=;\n" + bom + [headers, ...rows].map(r =>
+    r.map(c => { const s=String(c); return s.includes(";")?`"${s}"`:s; }).join(";")
   ).join("\n");
   const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
   const url  = URL.createObjectURL(blob);
@@ -730,7 +731,9 @@ function processImportFile(file) {
 function parseImportCSV(text) {
   // BOM ni olib tashlash
   const clean = text.replace(/^\uFEFF/, "").trim();
-  const lines  = clean.split(/\r?\n/).filter(l => l.trim());
+  const allLines = clean.split(/\r?\n/).filter(l => l.trim());
+  // sep= satrini o'tkazib yuborish
+  const lines = allLines.filter(l => !l.startsWith("sep="));
   if (lines.length < 2) { toast("Fayl bo'sh yoki noto'g'ri format","err"); return; }
 
   // Avtomatic delimiter aniqlash
