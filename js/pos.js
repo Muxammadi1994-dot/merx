@@ -158,7 +158,12 @@ function renderPosGrid() { posSearch(); }
 // ── Narx turi ─────────────────────────────────────
 function setPriceType(t) {
   posPriceType = t;
-  document.querySelectorAll("#price-type-seg button").forEach(b => b.classList.toggle("on", b.dataset.pt === t));
+  document.querySelectorAll("#price-type-seg button").forEach(b => {
+    const on = b.dataset.pt === t;
+    b.classList.toggle("on", on);
+    b.style.background = on ? "#0D1B2A" : "#fff";
+    b.style.color      = on ? "#fff"    : "#666";
+  });
   posSearch(); renderCart();
 }
 
@@ -167,9 +172,44 @@ function openVariantModal(sku) {
   vmProd = db.products.find(p => p.sku === sku); if (!vmProd) return;
   selColor = null; selSize = null;
   $("vm-title").textContent = vmProd.name;
-  $("vm-qty").value = 1;
 
-  const inBox   = vmProd.inBox || 1;
+  // Meta
+  if ($("vm-meta")) $("vm-meta").textContent =
+    `${vmProd.category} · ${vmProd.unit||"dona"} · SKU: ${vmProd.sku}`;
+
+  // Rasm
+  const imgWrap = $("vm-img-wrap");
+  if (imgWrap) {
+    if (vmProd.image) {
+      imgWrap.innerHTML = `<img src="${vmProd.image}" style="width:100%;height:100%;object-fit:cover">`;
+    } else {
+      imgWrap.innerHTML = `<i class="ti ti-photo"></i>`;
+    }
+  }
+
+  // Narx header
+  const narx = posPriceType === "ulgurji"
+    ? (vmProd.ulgurjiNarx || vmProd.priceUzs || 0)
+    : (vmProd.priceUzs || 0);
+  const inBox = vmProd.inBox || 1;
+  if ($("vm-price-header")) {
+    let pTxt = fmt(narx) + " so'm";
+    if (inBox > 1) pTxt += `<div style="font-size:10px;font-weight:600;color:#856404">📦 ${fmt(narx*inBox)} so'm/karobka</div>`;
+    $("vm-price-header").innerHTML = pTxt;
+  }
+
+  // Qoldiq header
+  const totalQty = (vmProd.variants||[]).reduce((a,v) => a+v.qty, 0);
+  if ($("vm-stock-header")) {
+    const boxes = inBox > 1 ? `<div style="font-size:10px">${Math.floor(totalQty/inBox)} karobka</div>` : "";
+    $("vm-stock-header").innerHTML = `${totalQty} ${vmProd.unit||"dona"}${boxes}`;
+    const tag = $("vm-stock-tag");
+    if (tag) {
+      if (totalQty <= 0) { tag.style.background="#FEF2F2"; tag.style.borderColor="#FECACA"; tag.querySelector("div").style.color="#991B1B"; $("vm-stock-header").style.color="#991B1B"; }
+      else if (totalQty <= 5) { tag.style.background="#FFF8E7"; tag.style.borderColor="#f0d882"; }
+    }
+  }
+
   const isBox   = posPriceType === "ulgurji" && inBox > 1;
   vmSellMode    = isBox ? "karobka" : "dona";
 
