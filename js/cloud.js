@@ -11,10 +11,13 @@ async function initSupabase() {
   if (!url || !key) return false;
 
   try {
-    const { createClient } = supabase;
-    _sb = createClient(url, key);
+    // Yangi Supabase JS v2 sintaksisi
+    const { createClient } = window.supabase || supabase;
+    _sb = createClient(url, key, {
+      auth: { persistSession: false }
+    });
     // Test ulanish
-    const { error } = await _sb.from("settings").select("id").limit(1);
+    const { data, error } = await _sb.from("settings").select("id").limit(1);
     if (error) throw error;
     updateCloudUI(true);
     return true;
