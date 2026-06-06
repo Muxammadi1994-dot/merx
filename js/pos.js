@@ -315,7 +315,7 @@ function confirmVariant() {
     if (ex) { ex.qty += totalDona; ex.qtyBox = (ex.qtyBox||0) + qtyInput; }
     else cart.push({
       sku:vmProd.sku, name:vmProd.name, color:selColor, size:null,
-      unit:vmProd.unit||"dona", price:narx, priceType:posPriceType,
+      unit:vmProd.unit||"dona", price:narx, basePrice:baseNarx, priceType:posPriceType,
       qty:totalDona, qtyBox:qtyInput, inBox, sellMode:"karobka"
     });
     toast(`${vmProd.name} (${selColor}) × ${qtyInput} karobka (${totalDona} ${vmProd.unit||"dona"}) savatchaga qo'shildi`);
@@ -331,7 +331,7 @@ function confirmVariant() {
     if (ex) ex.qty += totalDona;
     else cart.push({
       sku:vmProd.sku, name:vmProd.name, color:selColor, size:selSize,
-      unit:vmProd.unit||"dona", price:narx, priceType:posPriceType,
+      unit:vmProd.unit||"dona", price:narx, basePrice:baseNarx, priceType:posPriceType,
       qty:totalDona, qtyBox:null, inBox:null, sellMode:"dona"
     });
     toast(`${vmProd.name} (${selColor}/${selSize}) × ${totalDona} savatchaga qo'shildi`);
@@ -378,9 +378,14 @@ function renderCart() {
     const variantLine = c.sellMode === "karobka"
       ? `${c.color} <span class="ci-box-badge">📦 ${c.qtyBox} karobka</span>`
       : `${c.color} / ${c.size}`;
+    const isOverride = c.basePrice && c.basePrice !== c.price;
+    const priceTag = isOverride
+      ? `<span style="text-decoration:line-through;color:#bbb;font-size:11px;margin-right:4px">${fmt(c.basePrice*c.qty)} so'm</span>
+         <span class="ci-pr" style="color:#E9A500">${fmt(c.price*c.qty)} so'm</span>`
+      : `<span class="ci-pr">${priceDisplay(c.price * c.qty)}</span>`;
     const subLine = c.sellMode === "karobka"
-      ? `${c.qty} ${c.unit} · ${priceDisplay(c.price)}/${c.unit}`
-      : "";
+      ? `${c.qty} ${c.unit} · ${fmt(c.price)} so'm/${c.unit}${isOverride?` <span style="color:#E9A500;font-size:10px">(o'zgartirilgan)</span>`:""}`
+      : isOverride ? `<span style="color:#E9A500;font-size:10.5px">Narx o'zgartirilgan: ${fmt(c.basePrice)} → ${fmt(c.price)} so'm</span>` : "";
     return `<div class="ci">
       <div class="ci-inf">
         <div class="ci-nm">${c.name}</div>
@@ -394,7 +399,7 @@ function renderCart() {
               style="width:38px;text-align:center;border:none;outline:none;font-weight:600">
             <button onclick="ciQty(${i},1)">+</button>
           </div>
-          <span class="ci-pr">${priceDisplay(c.price * c.qty)}</span>
+          ${priceTag}
           <button class="ci-rm" onclick="removeFromCart(${i})"><i class="ti ti-x"></i></button>
         </div>
       </div>
@@ -881,4 +886,30 @@ function posShowRecent() {
         </div>
       </div>`;
     }).join("");
+}
+
+// ── Oxirgi sotuv ──────────────────────────────
+function showLastSale() {
+  if (!db.sales.length) { toast("Hali sotuv yo'q","err"); return; }
+  const last = db.sales[db.sales.length - 1];
+  showReceiptModal(last);
+}
+
+// ── Muddati o'tgan qarz eslatmasi ────────────
+function checkDebtAlerts() {
+  const today_ = today();
+  const overdue = db.sales.filter(s =>
+    s.status === "qarz" && s.remaining > 0 && s.due && s.due < today_
+  );
+  const banner = $("debt-alert-banner");
+  const text   = $("debt-alert-text");
+  if (!banner || !text) return;
+
+  if (overdue.length > 0) {
+    const totalDebt = overdue.reduce((a, s) => a + (s.remaining||0), 0);
+    text.textContent = `${overdue.length} ta muddati o'tgan qarz: ${fmt(totalDebt)} so'm`;
+    banner.style.display = "block";
+  } else {
+    banner.style.display = "none";
+  }
 }

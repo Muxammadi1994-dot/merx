@@ -54,6 +54,7 @@ function nav(p) {
     const ptw = $("price-type-wrap");
     if (ptw) ptw.style.display = db.settings?.showChakana ? "block" : "none";
     if (!db.settings?.showChakana && typeof setPriceType === "function") setPriceType("ulgurji");
+    if (typeof checkDebtAlerts === "function") checkDebtAlerts();
   }
 }
 

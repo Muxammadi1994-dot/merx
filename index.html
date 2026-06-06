@@ -354,9 +354,20 @@
           Savatcha
           <span id="cart-cnt" class="cart-hd-cnt">bo'sh</span>
         </div>
-        <button onclick="clearCart()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;transition:.15s" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">
-          <i class="ti ti-trash"></i>
-        </button>
+        <div style="display:flex;gap:6px">
+          <button onclick="showLastSale()" title="Oxirgi sotuv" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;transition:.15s" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">
+            <i class="ti ti-clock-hour-3"></i>
+          </button>
+          <button onclick="clearCart()" title="Savatchani tozalash" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;transition:.15s" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">
+            <i class="ti ti-trash"></i>
+          </button>
+        </div>
+      </div>
+      <!-- Muddati o'tgan qarz eslatmasi -->
+      <div id="debt-alert-banner" style="display:none;background:#FEF2F2;border-bottom:1px solid #FECACA;padding:8px 14px;font-size:12.5px;color:#991B1B;cursor:pointer" onclick="nav('qarzlar')">
+        <i class="ti ti-alert-triangle" style="margin-right:5px"></i>
+        <span id="debt-alert-text"></span>
+        <span style="float:right;font-size:11px;color:#DC2626">Ko'rish →</span>
       </div>
       <div id="cart-items" class="cart-scroll">
         <div class="cart-mt"><i class="ti ti-shopping-cart"></i><p style="font-size:13px">Mahsulot tanlang</p></div>
