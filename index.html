@@ -234,6 +234,9 @@
 .debt-filter-btn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
 .debt-row-overdue{background:#FEF2F2}
 .debt-row-overdue td{color:#991B1B}
+
+.cust-filter-btn{padding:4px 11px;border-radius:7px;border:1.5px solid var(--brd);font-size:12px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s}
+.cust-filter-btn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
 </style>
 </head>
 <body>
@@ -639,12 +642,42 @@
 
   <!-- MIJOZLAR -->
   <div class="pg" id="p-mijozlar">
-    <div class="card">
-      <div class="ch"><h3><i class="ti ti-users"></i>Mijozlar</h3>
-        <button class="btn btn-acc btn-sm" onclick="openModal('addcust')"><i class="ti ti-plus"></i>Yangi</button>
+    <!-- KPI -->
+    <div class="stat-row">
+      <div class="stb"><div class="sl">Jami mijozlar</div><div class="sv" id="mc-total">0</div></div>
+      <div class="stb"><div class="sl">Ulgurji xaridorlar</div><div class="sv" id="mc-ulg">0</div></div>
+      <div class="stb"><div class="sl">Chakana</div><div class="sv" id="mc-chak">0</div></div>
+      <div class="stb" style="border-top:3px solid var(--red)">
+        <div class="sl" style="color:var(--red)">Qarzli mijozlar</div>
+        <div class="sv" id="mc-debt" style="color:var(--red)">0</div>
       </div>
-      <table><thead><tr><th>Ism</th><th>Telefon</th><th>Turi</th><th>Sotuvlar</th><th>Jami xarid</th><th>Joriy qarz</th></tr></thead>
-      <tbody id="mijozlar-body"></tbody></table>
+    </div>
+    <div class="card">
+      <div class="ch" style="flex-wrap:wrap;gap:8px">
+        <h3><i class="ti ti-users"></i>Mijozlar</h3>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;gap:4px">
+            <button class="cust-filter-btn on" data-f="all"     onclick="setCustFilter('all')">Barchasi</button>
+            <button class="cust-filter-btn" data-f="ulgurji"    onclick="setCustFilter('ulgurji')">📦 Ulgurji</button>
+            <button class="cust-filter-btn" data-f="chakana"    onclick="setCustFilter('chakana')">👤 Chakana</button>
+            <button class="cust-filter-btn" data-f="debt"       onclick="setCustFilter('debt')">💳 Qarzli</button>
+          </div>
+          <input id="cust-q" placeholder="Ism yoki telefon..." oninput="renderMijozlar()"
+            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:180px">
+          <button class="btn btn-acc btn-sm" onclick="openModal('addcust')"><i class="ti ti-plus"></i>Yangi mijoz</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>Ism</th><th>Telefon</th><th>Turi</th>
+            <th class="num">Sotuvlar</th><th class="num">Jami xarid</th>
+            <th class="num">Oxirgi xarid</th><th class="num">Joriy qarz</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="mijozlar-body"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -1313,6 +1346,59 @@
   </div>
 </div>
 
+
+
+<!-- MODAL: MIJOZ KARTOCHKASI -->
+<div class="ov" id="ov-custcard" onclick="if(event.target===this)closeModal('custcard')">
+  <div class="modal modal-lg" style="max-width:600px">
+    <button class="m-close" onclick="closeModal('custcard')"><i class="ti ti-x"></i></button>
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--brd)">
+      <div style="width:56px;height:56px;border-radius:14px;background:#0D1B2A;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="ti ti-user" style="color:#E9A500;font-size:26px"></i>
+      </div>
+      <div style="flex:1">
+        <h2 style="margin:0 0 3px;font-size:18px" id="cc-name">—</h2>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <span style="font-size:13px;color:#888" id="cc-phone">—</span>
+          <span class="bg" id="cc-type-badge" style="font-size:11px">—</span>
+          <span style="font-size:12px;color:#aaa" id="cc-note"></span>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <button id="cc-sms-btn" onclick="custCardSms()" class="btn btn-sm" style="margin-bottom:6px">
+          <i class="ti ti-message"></i> SMS
+        </button><br>
+        <button onclick="custCardEdit()" class="btn btn-sm">
+          <i class="ti ti-edit"></i> Tahrirlash
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px">
+      <div style="background:var(--bg);border-radius:10px;padding:12px 14px;text-align:center;border:1px solid var(--brd)">
+        <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;margin-bottom:4px">Sotuvlar</div>
+        <div style="font-size:20px;font-weight:800;color:#0D1B2A" id="cc-sales-cnt">0</div>
+      </div>
+      <div style="background:var(--bg);border-radius:10px;padding:12px 14px;text-align:center;border:1px solid var(--brd)">
+        <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;margin-bottom:4px">Jami xarid</div>
+        <div style="font-size:15px;font-weight:800;color:#0D1B2A" id="cc-total-buy">0</div>
+      </div>
+      <div style="background:#FEF2F2;border-radius:10px;padding:12px 14px;text-align:center;border:1px solid #FECACA">
+        <div style="font-size:10px;color:#991B1B;font-weight:600;text-transform:uppercase;margin-bottom:4px">Joriy qarz</div>
+        <div style="font-size:15px;font-weight:800;color:#DC2626" id="cc-debt">0</div>
+      </div>
+    </div>
+
+    <!-- Xarid tarixi -->
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#aaa;letter-spacing:.05em;margin-bottom:10px">Xarid tarixi (oxirgi 10 ta)</div>
+      <div id="cc-history" style="max-height:260px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL: ADD STAFF -->
 <div class="ov" id="ov-addstaff" onclick="if(event.target===this)closeModal('addstaff')">
