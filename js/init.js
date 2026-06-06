@@ -1,3 +1,4 @@
+// MERX init.js | v2.2 | 2026-06-06 06:00
 // ================================================
 // MERX — js/init.js
 // Ishga tushirish va event listenerlar

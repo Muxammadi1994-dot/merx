@@ -1,3 +1,4 @@
+// MERX utils.js | v2.2 | 2026-06-06 06:00
 // ================================================
 // MERX — js/utils.js
 // Yordamchi funksiyalar, toast, navigatsiya
