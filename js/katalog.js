@@ -78,9 +78,8 @@ function renderKatalog() {
         <div style="width:14px;height:14px;border-radius:4px;flex-shrink:0;
           background:${info.hex};border:1px solid rgba(0,0,0,.12)"
           title="${info.pantone}"></div>
-        <span style="font-size:12.5px;font-weight:500">${color}:</span>
-        <span style="font-size:12px;color:#666">${info.qty} ${p.unit||"dona"}</span>
-        ${inBox > 1 ? `<span style="font-size:10.5px;color:#aaa">(${Math.floor(info.qty/inBox)} karobka)</span>` : ""}
+        <span style="font-size:12.5px;font-weight:500">${color}</span>
+        ${info.pantone ? `<span style="font-size:10px;color:#bbb">${info.pantone}</span>` : ""}
       </div>`
     ).join("");
 
