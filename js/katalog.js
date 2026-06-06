@@ -537,23 +537,7 @@ function exportKatalogExcel() {
 }
 
 // ── CSV yuklab olish ───────────────────────────
-function downloadCSV(rows, filename) {
-  const bom = "\uFEFF"; // Excel UTF-8 uchun BOM
-  const csv = bom + rows.map(r =>
-    r.map(cell => {
-      const s = String(cell == null ? "" : cell);
-      return s.includes(",") || s.includes('"') || s.includes("\n")
-        ? '"' + s.replace(/"/g, '""') + '"'
-        : s;
-    }).join(";")
-  ).join("\n");
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
+// downloadCSV — utils.js da aniqlangan (global)
 
 // ── Tovar rasmi funksiyalari ───────────────────
 function epLoadImage(input) {

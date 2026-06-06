@@ -563,14 +563,7 @@ function exportOmborSuppliers(rate) {
 }
 
 function downloadCSVOmbor(rows, filename) {
-  const csv = "sep=;\r\n" + rows.map(r =>
-    r.map(cell => {
-      const s = String(cell == null ? "" : cell);
-      return s.includes(",") || s.includes('"') || s.includes("\n")
-        ? '"' + s.replace(/"/g, '""') + '"' : s;
-    }).join(",")
-  ).join("\n");
-    downloadCSV(rows, filename);
+  downloadCSV(rows, filename);
 }
 
 // ── Karobka narx hintlari ─────────────────────
