@@ -464,6 +464,16 @@ function addProduct() {
   const cost    = (cur === "usd" || cur === "both") ? costRaw : (costRaw / rate);
   const price   = getRawVal("ap-price") || 0;
   const ulg     = getRawVal("ap-ulgurji");
+  const unit    = ($("ap-unit")||{value:"dona"}).value;
+  const inBox   = parseInt(($("ap-inbox")||{value:1}).value) || 1;
+  const pantone = ($("ap-pantone")||{value:""}).value.trim();
+  const hex     = ($("ap-hex")||{value:"#888888"}).value;
+  const barcode = ($("ap-barcode")||{value:""}).value.trim();
+
+  let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
+  if (p) {
+    // Mavjud mahsulotga variant qo'shish
+    const ex = p.variants.find(v => v.color===color && v.size===size);
     if (ex) { ex.qty += qty; } 
     else { p.variants.push({ color, size, qty, pantone, hex }); }
     if (barcode && !p.barcode) p.barcode = barcode;
