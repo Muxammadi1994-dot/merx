@@ -125,44 +125,52 @@ function renderDebtCustCards() {
   const gList = Object.values(groups).sort((a, b) => {
     if (a.anyOverdue && !b.anyOverdue) return -1;
     if (!a.anyOverdue && b.anyOverdue)  return 1;
-    return (b.totalUzs + b.totalUsd * (db.settings?.rate||12800)) -
-           (a.totalUzs + a.totalUsd * (db.settings?.rate||12800));
+    return (b.totalUzs + b.totalUsd*(db.settings?.rate||12800)) -
+           (a.totalUzs + a.totalUsd*(db.settings?.rate||12800));
   });
 
   if (!gList.length) { el.style.display = "none"; return; }
   el.style.display = "flex";
+  el.style.alignItems = "center";
+  el.style.gap = "10px";
 
-  el.innerHTML = [
-    // "Barchasi" kartasi
-    `<div onclick="debtCustFilter(null)"
-      style="cursor:pointer;padding:8px 14px;border-radius:10px;border:1.5px solid ${_debtCustFilter===null?"#0D1B2A":"var(--brd)"};
-      background:${_debtCustFilter===null?"#0D1B2A":"#fff"};flex-shrink:0;transition:.15s">
-      <div style="font-size:11px;font-weight:600;color:${_debtCustFilter===null?"#E9A500":"var(--mut)"};margin-bottom:2px">Barchasi</div>
-      <div style="font-size:13px;font-weight:700;color:${_debtCustFilter===null?"#fff":"#0D1B2A"}">${allDebt.length} ta sotuv</div>
-    </div>`
-  ].concat(gList.map(g => {
-    const isActive = _debtCustFilter === g.name;
-    const overBdr  = g.anyOverdue ? "#E05A5A" : (isActive ? "#0D1B2A" : "var(--brd)");
-    const bg       = isActive ? "#0D1B2A" : (g.anyOverdue ? "#FEF2F2" : "#fff");
-    const nameCl   = isActive ? "#fff" : "#0D1B2A";
-    const subCl    = isActive ? "rgba(255,255,255,.6)" : "var(--mut)";
-    const amtCl    = isActive ? "#E9A500" : (g.anyOverdue ? "var(--red)" : "var(--acc)");
-
-    const amtTxt = g.totalUsd > 0 && g.totalUzs > 0
-      ? `$${g.totalUsd.toFixed(2)} + ${fmtK(g.totalUzs)}`
-      : g.totalUsd > 0 ? `$${g.totalUsd.toFixed(2)} USD`
+  // Dropdown select — istalgancha mijoz sig'adi
+  const selVal = _debtCustFilter || "";
+  const opts = gList.map(g => {
+    const overMark = g.anyOverdue ? "⚠️ " : "";
+    const amtTxt   = g.totalUsd > 0 && g.totalUzs > 0
+      ? `$${g.totalUsd.toFixed(2)} + ${fmtK(g.totalUzs)} so'm`
+      : g.totalUsd > 0 ? `$${g.totalUsd.toFixed(2)}`
       : fmtK(g.totalUzs) + " so'm";
+    return `<option value="${g.name.replace(/"/g,"&quot;")}" ${selVal===g.name?"selected":""}>
+      ${overMark}${g.name} — ${amtTxt} (${g.cnt} ta)
+    </option>`;
+  }).join("");
 
-    return `<div onclick="debtCustFilter('${g.name.replace(/'/g,"&#39;")}')"
-      style="cursor:pointer;padding:8px 14px;border-radius:10px;border:1.5px solid ${overBdr};
-      background:${bg};flex-shrink:0;min-width:140px;max-width:200px;transition:.15s">
-      <div style="font-size:12px;font-weight:600;color:${nameCl};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">
-        ${g.anyOverdue?"⚠️ ":""}${g.name}
+  el.innerHTML = `
+    <span style="font-size:12px;color:var(--mut);white-space:nowrap;font-weight:600">Mijoz:</span>
+    <select onchange="debtCustFilter(this.value||null)"
+      style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);
+      padding:6px 10px;background:#fff;min-width:220px;max-width:340px">
+      <option value="">— Barchasi (${allDebt.length} ta sotuv) —</option>
+      ${opts}
+    </select>
+    ${_debtCustFilter ? `
+      <div style="padding:6px 12px;background:#fffbf0;border:1.5px solid #c8a84b;border-radius:var(--rs);font-size:12.5px;font-weight:600">
+        ${(() => {
+          const g = gList.find(x => x.name === _debtCustFilter);
+          if (!g) return "";
+          const amtTxt = g.totalUsd > 0 && g.totalUzs > 0
+            ? `$${g.totalUsd.toFixed(2)} + ${fmtK(g.totalUzs)} so'm`
+            : g.totalUsd > 0 ? `$${g.totalUsd.toFixed(2)} USD`
+            : fmtK(g.totalUzs) + " so'm";
+          return `<span style="color:var(--mut)">Jami qarz:</span> <span style="color:var(--acc)">${amtTxt}</span>
+                  <span style="color:var(--mut);margin-left:6px">${g.cnt} ta sotuv</span>`;
+        })()}
       </div>
-      <div style="font-size:11px;color:${subCl};margin-bottom:4px">${g.cnt} ta sotuv</div>
-      <div style="font-size:13px;font-weight:800;color:${amtCl}">${amtTxt}</div>
-    </div>`;
-  })).join("");
+      <button onclick="debtCustFilter(null)" class="btn btn-ghost btn-sm btn-icon" title="Filtrni tozalash">
+        <i class="ti ti-x"></i>
+      </button>` : ""}`;
 }
 
 function debtCustFilter(name) {
@@ -178,8 +186,9 @@ function renderDebtsList(list, rate) {
   const tbody = $("debt-body");
   if (thead) thead.innerHTML = `<tr>
     <th>Mijoz</th><th>Telefon</th><th>Mahsulotlar</th>
-    <th class="num">Sotuv jami</th><th class="num">To'langan</th>
-    <th class="num">Qolgan qarz</th><th>Muddat</th><th>Holat</th>
+    <th class="num">To'langan</th>
+    <th class="num">Qolgan qarz</th>
+    <th>Muddat</th><th>Holat</th>
     <th>To'lov</th>
   </tr>`;
 
@@ -200,7 +209,6 @@ function renderDebtsList(list, rate) {
       <td style="font-size:12px;max-width:160px">
         ${s.items?.map(i => `<div>${i.name} <span style="color:#aaa">×${i.qty}</span></div>`).join("") || "—"}
       </td>
-      <td class="num" style="font-size:12.5px">${fmt(s.total)} so'm</td>
       <td class="num" style="font-size:12.5px;color:var(--grn)">${fmt(s.paid)} so'm</td>
       <td class="num">${debtRemDisplay(s)}</td>
       <td>
@@ -230,7 +238,7 @@ function renderDebtsList(list, rate) {
         </div>
       </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="9" class="empty-td">
+  }).join("") : `<tr><td colspan="8" class="empty-td">
     ${debtFilter !== "all" ? "Bu filtrda qarz yo'q" : "Qarz yo'q 🎉"}
   </td></tr>`;
 }
@@ -241,8 +249,9 @@ function renderDebtsGrouped(list, rate) {
   const tbody = $("debt-body");
   if (thead) thead.innerHTML = `<tr>
     <th>Mijoz</th><th>Telefon</th>
-    <th class="num">Sotuvlar</th><th class="num">Jami qarz</th>
-    <th class="num">Qolgan (USD)</th><th>Eng yaqin muddat</th>
+    <th class="num">Sotuvlar</th>
+    <th class="num">Umumiy qarz</th>
+    <th>Eng yaqin muddat</th>
     <th>Holat</th><th>Amallar</th>
   </tr>`;
   if (!tbody) return;
@@ -252,14 +261,18 @@ function renderDebtsGrouped(list, rate) {
   list.forEach(s => {
     const cu  = debtCust(s);
     const key = cu.name + "|" + cu.phone;
-    if (!groups[key]) groups[key] = { name:cu.name, phone:cu.phone, sales:[], totalRem:0, totalUsd:0 };
+    if (!groups[key]) groups[key] = { name:cu.name, phone:cu.phone, sales:[], totalRem:0, totalUzs:0, totalUsd:0 };
     groups[key].sales.push(s);
     groups[key].totalRem += s.remaining;
-    if (s.debtCurrency === "usd" && s.debtUsd) groups[key].totalUsd += s.debtUsd;
+    if (s.debtCurrency === "usd" && s.debtUsd) {
+      groups[key].totalUsd += s.debtUsd;
+    } else {
+      groups[key].totalUzs += s.remaining;
+    }
   });
 
   if (!Object.keys(groups).length) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty-td">Qarz yo'q 🎉</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-td">Qarz yo'q 🎉</td></tr>`;
     return;
   }
 
@@ -278,12 +291,9 @@ function renderDebtsGrouped(list, rate) {
       </td>
       <td class="num" style="font-weight:600">${g.sales.length}</td>
       <td class="num">
-        <div style="font-weight:800;color:var(--red);font-size:14px">${fmt(g.totalRem)} so'm</div>
-        ${g.totalUsd > 0 ? `<div style="font-size:11px;color:#1B4F72">$${g.totalUsd.toFixed(2)} USD</div>` : ""}
-      </td>
-      <td class="num">
-        ${g.totalUsd > 0
-          ? `<span style="font-weight:700;color:#1B4F72">$${g.totalUsd.toFixed(2)}</span>` : "—"}
+        ${g.totalUzs > 0 ? `<div style="font-weight:800;color:var(--red);font-size:14px">${fmt(g.totalUzs)} so'm</div>` : ""}
+        ${g.totalUsd > 0 ? `<div style="font-weight:800;color:#1B4F72;font-size:14px">$${g.totalUsd.toFixed(2)} USD</div>` : ""}
+        ${!g.totalUzs && !g.totalUsd ? `<span style="color:#ccc">—</span>` : ""}
       </td>
       <td>
         <span class="bg ${anyOverdue?"bg-r":"bg-a"}">${nearestDue}</span>
