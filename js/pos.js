@@ -461,22 +461,113 @@ function updateRem() {
     : fmt(remUzs) + " so'm";
 }
 
-// ── Mijoz tanlash ─────────────────────────────────
-function custPick() {
-  const id = parseInt(($("c-cust")||{value:""}).value) || null;
-  if (!id) { showCustDebt(null); return; }
+// ── Mijoz qidiruv (yangi) ────────────────────────
+let _custSearchTimer = null;
+
+function custSearch(q) {
+  const dd = $("cust-dropdown"); if (!dd) return;
+  const clearBtn = $("cust-clear-btn");
+  const val = q.trim();
+
+  if (clearBtn) clearBtn.style.display = val ? "flex" : "none";
+
+  if (!val) { dd.style.display = "none"; return; }
+
+  const ql = val.toLowerCase();
+  const found = db.customers.filter(c =>
+    c.name.toLowerCase().includes(ql) ||
+    (c.phone||"").replace(/\D/g,"").includes(ql.replace(/\D/g,"")) ||
+    (c.note||"").toLowerCase().includes(ql)
+  ).slice(0, 8);
+
+  if (!found.length) {
+    dd.style.display = "block";
+    dd.innerHTML = `<div style="padding:10px 14px;font-size:12.5px;color:var(--mut);text-align:center">
+      Topilmadi — Ism va telefon quyida kiriting
+    </div>`;
+    return;
+  }
+
+  dd.style.display = "block";
+  dd.innerHTML = found.map(c => {
+    const debts = db.sales.filter(s => s.customerId===c.id && s.status==="qarz" && s.remaining>0);
+    const totalUzs = debts.reduce((a,s)=>a+s.remaining,0);
+    const totalUsd = debts.filter(s=>s.debtCurrency==="usd"&&s.debtUsd).reduce((a,s)=>a+s.debtUsd,0);
+    const debtHtml = totalUzs > 0 || totalUsd > 0
+      ? `<span style="font-size:10.5px;color:#E05A5A;font-weight:600;margin-left:6px">
+          ⚠️ ${totalUsd>0?"$"+totalUsd.toFixed(2)+" USD":fmt(totalUzs)+" so'm"} qarz
+         </span>`
+      : `<span style="font-size:10px;color:#36B48C;margin-left:6px">✓</span>`;
+    return `<div onclick="custSelect(${c.id})"
+      style="padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between"
+      onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+      <div>
+        <div style="font-weight:600;font-size:13px">${c.name}${debtHtml}</div>
+        <div style="font-size:11.5px;color:var(--mut)">${c.phone||"Telefon yo'q"} · ${c.type==="ulgurji"?"Ulgurji":"Chakana"}</div>
+      </div>
+      <i class="ti ti-chevron-right" style="font-size:14px;color:#bbb"></i>
+    </div>`;
+  }).join("");
+}
+
+function custSelect(id) {
   const c = db.customers.find(x => x.id === id); if (!c) return;
+
+  // Hidden input
+  if ($("c-cust")) $("c-cust").value = id;
+
+  // Search input tozalash + yopish
+  const inp = $("cust-search-inp");
+  if (inp) inp.value = "";
+  const dd = $("cust-dropdown");
+  if (dd) dd.style.display = "none";
+  const clearBtn = $("cust-clear-btn");
+  if (clearBtn) clearBtn.style.display = "none";
+
+  // Tanlangan karta ko'rsatish
+  const card = $("cust-selected-card");
+  if (card) {
+    card.style.display = "block";
+    if ($("cust-sel-name"))  $("cust-sel-name").textContent  = c.name;
+    if ($("cust-sel-phone")) $("cust-sel-phone").textContent = c.phone || "Telefon yo'q";
+  }
+
+  // Ism va tel to'ldirish
   if ($("c-name"))  $("c-name").value  = c.name;
   if ($("c-phone")) $("c-phone").value = c.phone || "";
+
   showCustDebt(id);
 }
 
+function custClear() {
+  if ($("c-cust"))           $("c-cust").value           = "";
+  if ($("c-name"))           $("c-name").value           = "";
+  if ($("c-phone"))          $("c-phone").value          = "";
+  if ($("cust-search-inp"))  $("cust-search-inp").value  = "";
+  if ($("cust-dropdown"))    $("cust-dropdown").style.display = "none";
+  if ($("cust-clear-btn"))   $("cust-clear-btn").style.display = "none";
+  const card = $("cust-selected-card");
+  if (card) card.style.display = "none";
+  showCustDebt(null);
+}
+
+// Tashqarini bosganda dropdown yopilsin
+document.addEventListener("click", function(e) {
+  if (!e.target.closest("#cust-search-wrap")) {
+    const dd = $("cust-dropdown");
+    if (dd) dd.style.display = "none";
+  }
+});
+
+function custPick() {
+  // Eski select bilan moslik — endi ishlatilmaydi
+  const id = parseInt(($("c-cust")||{value:""}).value) || null;
+  if (!id) { showCustDebt(null); return; }
+  custSelect(id);
+}
+
 function refreshCustList() {
-  const sel = $("c-cust"); if (!sel) return;
-  sel.innerHTML = '<option value="">— Mijoz tanlang (ixtiyoriy) —</option>' +
-    db.customers.map(c =>
-      `<option value="${c.id}">${c.name}${c.phone?" · "+c.phone:""}</option>`
-    ).join("");
+  // Select yo'q endi — saqlaymiz moslik uchun
 }
 
 function refreshStaffList() {
@@ -598,6 +689,9 @@ async function checkout() {
   if ($("c-paid"))       $("c-paid").value        = "0";
   if ($("c-due"))        $("c-due").value         = "";
   if ($("c-cust"))       $("c-cust").value        = "";
+  if ($("cust-search-inp"))  $("cust-search-inp").value  = "";
+  if ($("cust-selected-card")) $("cust-selected-card").style.display = "none";
+  if ($("cust-dropdown"))    $("cust-dropdown").style.display = "none";
   if ($("discount-val"))   $("discount-val").value  = "0";
   if ($("discount-result")) $("discount-result").style.display = "none";
   if ($("pos-note"))       $("pos-note").value       = "";
@@ -634,17 +728,23 @@ function showCustDebt(custId) {
   if (!badge || !val) return;
   if (!custId) { badge.style.display = "none"; return; }
 
-  // Qarzlar ro'yxatidan hisoblash
-  const debt = db.sales
-    .filter(s => s.customerId === custId && s.status === "qarz" && s.remaining > 0)
-    .reduce((a, s) => a + (s.remaining || 0), 0);
+  const debts   = db.sales.filter(s => s.customerId === custId && s.status === "qarz" && s.remaining > 0);
+  const totalUzs = debts.filter(s => s.debtCurrency !== "usd").reduce((a,s) => a + s.remaining, 0);
+  const totalUsd = debts.filter(s => s.debtCurrency === "usd" && s.debtUsd).reduce((a,s) => a + s.debtUsd, 0);
+  const cntAll   = debts.length;
 
-  if (debt > 0) {
-    val.textContent = fmt(debt) + " so'm";
-    badge.style.display = "block";
+  if (cntAll === 0) { badge.style.display = "none"; return; }
+
+  let txt = "";
+  if (totalUsd > 0 && totalUzs > 0) {
+    txt = `$${totalUsd.toFixed(2)} USD + ${fmt(totalUzs)} so'm`;
+  } else if (totalUsd > 0) {
+    txt = `$${totalUsd.toFixed(2)} USD`;
   } else {
-    badge.style.display = "none";
+    txt = `${fmt(totalUzs)} so'm`;
   }
+  val.innerHTML = `${txt} <span style="font-size:10.5px;font-weight:400;color:#a16207">(${cntAll} ta sotuv)</span>`;
+  badge.style.display = "block";
 }
 
 // ── Chek modal ────────────────────────────────
