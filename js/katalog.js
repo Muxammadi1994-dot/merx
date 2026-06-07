@@ -130,7 +130,7 @@ function renderKatalog() {
         ${p.costUsd && (db.settings?.priceCurrency||"uzs")==="uzs" ? `<div style="font-size:10.5px;color:#bbb">$${(+p.costUsd).toFixed(2)}</div>` : ""}
       </td>
       <td class="num" style="font-size:12.5px">
-        ${p.ulgurjiNarx ? `<div style="font-weight:700;color:var(--acc)">${fmt(p.ulgurjiNarx)} so'm</div>` : '<span style="color:#ccc">—</span>'}
+        ${p.ulgurjiNarx ? `<div style="font-weight:700;color:var(--acc)">${priceDisplay(p.ulgurjiNarx)}</div>` : '<span style="color:#ccc">—</span>'}
         ${p.ulgurjiNarx && inBox > 1 ? `<div style="font-size:11px;color:#e9a500;margin-top:2px">📦 ${priceDisplay(p.ulgurjiNarx * inBox)}</div>` : ""}
         ${margin != null ? `<div style="font-size:10px;color:${mColor}">margin ${margin}%</div>` : ""}
       </td>
