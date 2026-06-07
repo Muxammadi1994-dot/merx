@@ -254,6 +254,17 @@ function renderEgasi() {
   if (typeof initChakanaToggle  === "function") initChakanaToggle();
   if (typeof updateCostCurrency === "function") updateCostCurrency();
 
+  // Kam qoldiq chegara
+  const lsInput = $("s-low-stock");
+  if (lsInput) lsInput.value = db.settings?.lowStockLimit || 5;
+  const lsCount = $("s-low-stock-count");
+  if (lsCount) {
+    const th = db.settings?.lowStockLimit || 5;
+    let cnt = 0;
+    db.products.forEach(p => p.variants.forEach(v => { if (v.qty <= th) cnt++; }));
+    lsCount.textContent = cnt;
+  }
+
   renderFieldPanel();
   _applyPosFields();
 }

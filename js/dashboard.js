@@ -45,12 +45,24 @@ function renderDashboard() {
   const overdueList = debts.filter(isOverdue);
   const growth      = ystTotal > 0 ? Math.round((todayTotal - ystTotal) / ystTotal * 100) : null;
 
-  // Kam qoldiq
+  // Kam qoldiq — chegara settings dan yoki default 5
+  const lowThreshold = db.settings?.lowStockLimit || 5;
   const lowStock = [];
-  db.products.forEach(p => p.variants.forEach(v => {
-    if (v.qty > 0 && v.qty <= 3)
-      lowStock.push({ name: p.name, color: v.color, size: v.size, qty: v.qty, unit: p.unit || 'dona' });
-  }));
+  db.products.forEach(p => {
+    const minQty = p.minStock || lowThreshold;
+    p.variants.forEach(v => {
+      if (v.qty >= 0 && v.qty <= minQty)
+        lowStock.push({
+          name: p.name, sku: p.sku,
+          color: v.color, size: v.size,
+          qty: v.qty, unit: p.unit || 'dona',
+          min: minQty,
+          zero: v.qty === 0
+        });
+    });
+  });
+  // 0 ta bo'lganlar tepaga
+  lowStock.sort((a, b) => a.qty - b.qty);
 
   renderDashHeader(todayTotal, todayCnt, growth);
   renderDashKpis(todayCnt, avgCheck, totalDebt, debts.length, overdueList.length);
@@ -296,30 +308,90 @@ function renderDashPriceType(days) {
 function renderDashAlerts(lowStock) {
   const el = $('dash-alerts');
   if (!el) return;
-  if (!lowStock.length) { el.innerHTML = ''; return; }
 
-  const criticals = lowStock.filter(i => i.qty <= 1);
-  const warnings  = lowStock.filter(i => i.qty > 1);
+  if (!lowStock.length) {
+    el.innerHTML = `
+      <div class="dash-alert" style="border-color:#d1fae5;background:#f0fdf4">
+        <div class="da-hdr" style="color:#166534">
+          <i class="ti ti-circle-check" style="font-size:18px;color:#22c55e"></i>
+          <strong>Barcha tovarlar yetarli</strong>
+          <span style="font-size:12px;color:#16a34a;margin-left:8px">Chegara: ${db.settings?.lowStockLimit||5} ta</span>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const zeros    = lowStock.filter(i => i.qty === 0);
+  const criticals = lowStock.filter(i => i.qty > 0 && i.qty <= 2);
+  const warnings  = lowStock.filter(i => i.qty > 2);
+  const threshold = db.settings?.lowStockLimit || 5;
 
   el.innerHTML = `
     <div class="dash-alert">
       <div class="da-hdr">
         <i class="ti ti-alert-triangle" style="font-size:17px"></i>
         <strong>Kam qolgan tovarlar</strong>
-        ${criticals.length ? `<span class="da-badge crit"><i class="ti ti-circle-filled" style="font-size:7px"></i> ${criticals.length} ta kritik</span>` : ''}
-        ${warnings.length  ? `<span class="da-badge warn">${warnings.length} ta ogohlantirish</span>` : ''}
-        <button class="btn btn-sm" onclick="nav('ombor')" style="margin-left:auto">Omborga o'tish →</button>
+        ${zeros.length     ? `<span class="da-badge crit" style="background:#fee2e2;color:#991b1b">🚫 ${zeros.length} ta tugagan</span>` : ''}
+        ${criticals.length ? `<span class="da-badge crit">⚠️ ${criticals.length} ta kritik</span>` : ''}
+        ${warnings.length  ? `<span class="da-badge warn">${warnings.length} ta kam</span>` : ''}
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:#aaa">Chegara:
+            <input type="number" value="${threshold}" min="1" max="99"
+              style="width:38px;font-size:12px;font-family:inherit;border:1px solid #ddd;border-radius:5px;padding:1px 4px;text-align:center"
+              onchange="setLowStockLimit(+this.value)" title="Kam qoldiq chegarasi">
+            ta</span>
+          <button class="btn btn-sm" onclick="exportLowStock()" title="Excel yuklab olish">
+            <i class="ti ti-download"></i>
+          </button>
+          <button class="btn btn-sm" onclick="nav('ombor')" style="white-space:nowrap">Omborga →</button>
+        </div>
       </div>
       <div class="da-items">
-        ${lowStock.slice(0, 12).map(i => `
-          <div class="da-item ${i.qty <= 1 ? 'crit' : 'warn'}">
+        ${lowStock.slice(0, 20).map(i => `
+          <div class="da-item ${i.qty === 0 ? 'crit' : i.qty <= 2 ? 'crit' : 'warn'}"
+               style="${i.qty===0?'border-color:#fca5a5;background:#fff5f5':''}"
+               title="${i.name} — min: ${i.min} ta">
             <span class="da-nm">${i.name}</span>
-            <span class="da-var">${i.color} · ${i.size}</span>
-            <span class="da-q">${i.qty} ${i.unit}</span>
+            <span class="da-var">${i.color||''} ${i.color&&i.size?' · ':''} ${i.size||''}</span>
+            <span class="da-q" style="${i.qty===0?'color:#dc2626;font-weight:800':''}">
+              ${i.qty === 0 ? '🚫 Tugagan' : i.qty + ' ' + i.unit}
+            </span>
           </div>`).join('')}
-        ${lowStock.length > 12 ? `<div class="da-item more" onclick="nav('ombor')">+${lowStock.length - 12} ta ko'proq →</div>` : ''}
+        ${lowStock.length > 20
+          ? `<div class="da-item more" onclick="nav('ombor')">+${lowStock.length - 20} ta ko'proq →</div>`
+          : ''}
       </div>
     </div>`;
+}
+
+// Chegara sozlamasi
+function setLowStockLimit(val) {
+  if (!val || val < 1) return;
+  if (!db.settings) db.settings = {};
+  db.settings.lowStockLimit = val;
+  saveDB();
+  renderDashboard();
+  toast('Chegara ' + val + ' ta ga o'zgartirildi', 'info');
+}
+
+// Excel eksport
+function exportLowStock() {
+  const threshold = db.settings?.lowStockLimit || 5;
+  const rows = [['Mahsulot', 'Rang', 'O'lcham', 'Qoldiq', 'Birlik', 'Holat']];
+  const lowStock = [];
+  db.products.forEach(p => {
+    const minQty = p.minStock || threshold;
+    p.variants.forEach(v => {
+      if (v.qty <= minQty)
+        lowStock.push([p.name, v.color||'', v.size||'', v.qty, p.unit||'dona',
+          v.qty===0 ? 'Tugagan' : v.qty<=2 ? 'Kritik' : 'Kam']);
+    });
+  });
+  lowStock.sort((a,b) => a[3]-b[3]);
+  if (typeof downloadCSV === 'function') {
+    downloadCSV([rows[0], ...lowStock], 'merx_kam_qoldiq_' + today() + '.csv');
+    toast('Excel yuklab olindi');
+  }
 }
 
 // ── So'nggi sotuvlar ───────────────────────────

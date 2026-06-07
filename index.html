@@ -591,6 +591,10 @@
         <button class="om-tab" data-tab="sup" onclick="omSetTab('sup')">
           <i class="ti ti-truck"></i> Yetkazuvchilar
         </button>
+        <button class="om-tab" data-tab="kam" onclick="omSetTab('kam')" id="om-tab-kam-btn"
+          style="color:#d97706;border-color:#fde68a">
+          <i class="ti ti-alert-triangle"></i> Kam qoldiq
+        </button>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <input id="om-q" placeholder="Qidirish..." oninput="omSearch()"
@@ -662,6 +666,11 @@
         </thead>
         <tbody id="om-sup-body"></tbody>
       </table>
+    </div>
+
+    <!-- TAB 4: Kam qoldiq -->
+    <div id="om-tab-kam" class="card" style="display:none;">
+      <!-- omRenderKamQoldiq() tomonidan to'ldiriladi -->
     </div>
 
   </div>
@@ -1003,6 +1012,21 @@
                     style="width:18px;height:18px;accent-color:var(--acc);cursor:pointer">
                   <span id="s-chakana-lbl">Chakana narx ko'rinmayapti (ulgurji rejim)</span>
                 </label>
+              </div>
+            </div>
+            <div class="fld">
+              <label>Kam qoldiq ogohlantirish chegarasi
+                <span style="font-size:11px;font-weight:400;color:var(--mut)">— bu miqdordan kam bo'lsa ogohlantirish chiqadi</span>
+              </label>
+              <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+                <input type="number" id="s-low-stock" value="5" min="1" max="999"
+                  style="width:80px;font-family:inherit;font-size:16px;font-weight:700;border:2px solid var(--brd);border-radius:var(--rs);padding:6px 10px;text-align:center"
+                  onchange="saveSetting('lowStockLimit',+this.value);toast('Chegara saqlandi','info')">
+                <span style="font-size:14px;color:var(--mut)">ta (dona/juft)</span>
+                <span style="font-size:12px;background:#fff3cd;color:#856404;padding:3px 8px;border-radius:5px">
+                  <i class="ti ti-alert-triangle" style="font-size:12px"></i>
+                  Hozir: <strong id="s-low-stock-count">0</strong> ta variant kam
+                </span>
               </div>
             </div>
           </div>

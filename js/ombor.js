@@ -18,9 +18,10 @@ function omGetCols() {
 
 function renderOmbor() {
   omRenderKpis();
-  if (omActiveTab === "qoldiq")   omRenderQoldiq();
-  else if (omActiveTab === "kirim") omRenderKirim();
-  else if (omActiveTab === "sup")   omRenderSuppliers();
+  if (omActiveTab === "qoldiq")      omRenderQoldiq();
+  else if (omActiveTab === "kirim")  omRenderKirim();
+  else if (omActiveTab === "sup")    omRenderSuppliers();
+  else if (omActiveTab === "kam")    omRenderKamQoldiq();
 }
 
 function omSetTab(tab) {
@@ -30,6 +31,8 @@ function omSetTab(tab) {
   $("om-tab-qoldiq").style.display = tab === "qoldiq" ? "" : "none";
   $("om-tab-kirim").style.display  = tab === "kirim"  ? "" : "none";
   $("om-tab-sup").style.display    = tab === "sup"    ? "" : "none";
+  const kamEl = $("om-tab-kam");
+  if (kamEl) kamEl.style.display   = tab === "kam"    ? "" : "none";
   renderOmbor();
 }
 
@@ -270,6 +273,124 @@ function omRenderQoldiq() {
     </div>` : "";
 }
 
+// ── Kam qoldiq tab ───────────────────────────────
+function omRenderKamQoldiq() {
+  const el = $("om-tab-kam");
+  if (!el) return;
+
+  const threshold = db.settings?.lowStockLimit || 5;
+  const rows = [];
+  db.products.forEach(p => {
+    const minQty = p.minStock || threshold;
+    p.variants.forEach(v => {
+      if (v.qty <= minQty)
+        rows.push({ p, v, minQty });
+    });
+  });
+  rows.sort((a,b) => a.v.qty - b.v.qty);
+
+  const zeros    = rows.filter(r => r.v.qty === 0).length;
+  const criticals = rows.filter(r => r.v.qty > 0 && r.v.qty <= 2).length;
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--brd);flex-wrap:wrap">
+      <strong style="font-size:14px">Kam qoldiq — ${rows.length} ta variant</strong>
+      ${zeros     ? `<span class="bg bg-r" style="font-size:12px">🚫 ${zeros} ta tugagan</span>` : ''}
+      ${criticals ? `<span class="bg bg-a" style="font-size:12px">⚠️ ${criticals} ta kritik</span>` : ''}
+      <span style="font-size:12px;color:var(--mut);margin-left:auto">
+        Chegara:
+        <input type="number" value="${threshold}" min="1" max="999"
+          style="width:44px;font-size:12px;font-family:inherit;border:1.5px solid var(--brd);border-radius:6px;padding:2px 5px;text-align:center;margin:0 3px"
+          onchange="setLowStockLimit(+this.value)">
+        ta
+      </span>
+      <button class="btn btn-sm" onclick="exportLowStock()">
+        <i class="ti ti-download"></i> Excel
+      </button>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>Mahsulot</th>
+          <th>Rang</th>
+          <th>O'lcham</th>
+          <th class="num">Qoldiq</th>
+          <th class="num">Min chegara</th>
+          <th>Holat</th>
+          <th>Tannarx</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+          ${rows.length ? rows.map(({p, v, minQty}) => {
+            const rate = db.settings?.rate || 12800;
+            const costUzs = Math.round((p.costUsd||0)*rate);
+            const status = v.qty === 0
+              ? '<span class="bg bg-r">🚫 Tugagan</span>'
+              : v.qty <= 2
+                ? '<span class="bg bg-r" style="background:#fff3cd;color:#856404">⚠️ Kritik</span>'
+                : '<span class="bg bg-a">📉 Kam</span>';
+            return `<tr style="${v.qty===0?'background:#fff5f5':''}">
+              <td>
+                <div style="font-weight:600;font-size:13px">${p.name}</div>
+                <div style="font-size:11px;color:var(--mut)">${p.sku}</div>
+              </td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div style="width:12px;height:12px;border-radius:3px;background:${v.hex||'#888'};border:1px solid rgba(0,0,0,.1);flex-shrink:0"></div>
+                  ${v.color||'—'}
+                </div>
+              </td>
+              <td style="font-weight:600">${v.size||'—'}</td>
+              <td class="num">
+                <span style="font-size:16px;font-weight:800;color:${v.qty===0?'var(--red)':v.qty<=2?'#d97706':'var(--acc)'}">
+                  ${v.qty}
+                </span>
+                <span style="font-size:11px;color:var(--mut);display:block">${p.unit||'dona'}</span>
+              </td>
+              <td class="num" style="color:var(--mut);font-size:13px">${minQty} ta</td>
+              <td>${status}</td>
+              <td class="num" style="font-size:12.5px">${costUzs ? fmt(costUzs)+' so'm' : '—'}</td>
+              <td>
+                <button class="btn btn-sm btn-ghost" onclick="openModal('qabul');setTimeout(()=>{if($('qb-name'))$('qb-name').value='${p.name.replace(/'/g,"\'")}';},100)"
+                  title="Tovar qabul">
+                  <i class="ti ti-plus"></i> Qabul
+                </button>
+              </td>
+            </tr>`;
+          }).join('') : '<tr><td colspan="8" class="empty-td" style="color:var(--grn)">✅ Barcha tovarlar yetarli</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function setLowStockLimit(val) {
+  if (!val || val < 1) return;
+  if (!db.settings) db.settings = {};
+  db.settings.lowStockLimit = val;
+  saveDB();
+  omRenderKamQoldiq();
+  if (typeof renderDashboard === 'function') renderDashboard();
+  toast('Chegara ' + val + ' ta ga o'zgartirildi', 'info');
+}
+
+function exportLowStock() {
+  const threshold = db.settings?.lowStockLimit || 5;
+  const rows = [["Mahsulot","SKU","Rang","O'lcham","Qoldiq","Birlik","Holat"]];
+  db.products.forEach(p => {
+    const minQty = p.minStock || threshold;
+    p.variants.forEach(v => {
+      if (v.qty <= minQty)
+        rows.push([p.name, p.sku, v.color||'', v.size||'', v.qty, p.unit||'dona',
+          v.qty===0?'Tugagan':v.qty<=2?'Kritik':'Kam']);
+    });
+  });
+  rows.sort((a,b)=>a[4]-b[4]);
+  if (typeof downloadCSV === 'function') {
+    downloadCSV(rows, 'merx_kam_qoldiq_'+today()+'.csv');
+    toast('Excel yuklab olindi');
+  }
+}
+
 function omRenderKirim() {
   const q    = ($("om-q")||{value:""}).value.toLowerCase();
   const list = db.ombor.filter(o =>
@@ -278,28 +399,6 @@ function omRenderKirim() {
     (o.color||"").toLowerCase().includes(q)
   ).slice().reverse();
 
-  const fo = window.fieldOn || (() => true);
-  const showRang    = fo("ombor_ustun_rang");
-  const showBarcode = fo("ombor_ustun_barcode");
-  const showSup     = fo("ombor_ustun_sup");
-  const showPartiya = fo("ombor_ustun_partiya");
-  const showTolova  = fo("ombor_ustun_tolova");
-
-  const theadEl = $("ombor-head");
-  if (theadEl) {
-    theadEl.innerHTML = `<tr>
-      <th>Sana</th><th>Mahsulot</th><th>Birlik</th>
-      ${showRang    ? "<th>Rang/O'lcham</th>" : ""}
-      <th class="num">Miqdor</th>
-      <th class="num">Tannarx</th>
-      <th class="num">Jami</th>
-      ${showSup     ? "<th>Yetkazuvchi</th>" : ""}
-      ${showPartiya ? "<th>Partiya</th>" : ""}
-      ${showBarcode ? "<th>Barcode</th>" : ""}
-      ${showTolova  ? "<th>To'lov</th>" : ""}
-    </tr>`;
-  }
-
   const el = $("ombor-body"); if (!el) return;
   el.innerHTML = list.length ? list.map(o => {
     const hex = o.hex || "#888";
@@ -307,23 +406,22 @@ function omRenderKirim() {
       <td style="font-size:12px;color:var(--mut)">${o.date}</td>
       <td><div style="font-weight:600;font-size:13px">${o.productName}</div></td>
       <td><span class="bg bg-t" style="font-size:11px">${o.unit||"dona"}</span></td>
-      ${showRang ? `<td>
+      <td>
         <div style="display:flex;align-items:center;gap:6px">
           <div style="width:14px;height:14px;border-radius:3px;background:${hex};border:1px solid rgba(0,0,0,.12);flex-shrink:0"></div>
           ${o.color} <span style="color:#bbb">/</span> ${o.size}
         </div>
         ${o.pantone ? `<div style="font-size:10px;color:#aaa">${o.pantone}</div>` : ""}
         ${o.boxes ? `<div style="font-size:10.5px;color:#856404">📦 ${o.boxes} karobka</div>` : ""}
-      </td>` : ""}
+      </td>
       <td><span class="bg bg-g" style="font-weight:700">+${o.qty}</span></td>
       <td class="num" style="font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi)+" so'm" : "—"}</td>
       <td class="num" style="font-weight:600;font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi*o.qty)+" so'm" : "—"}</td>
-      ${showSup     ? `<td style="font-size:12.5px">${o.supplier||"—"}</td>` : ""}
-      ${showPartiya ? `<td style="font-size:12px;color:var(--mut)">${o.partiya||"—"}</td>` : ""}
-      ${showBarcode ? `<td style="font-family:monospace;font-size:11px">${o.barcode||"—"}</td>` : ""}
-      ${showTolova  ? `<td><span class="bg ${o.payStatus==="qarz"?"bg-r":"bg-g"}">${o.payStatus==="qarz"?"To'lanmagan":"To'langan"}</span></td>` : ""}
+      <td style="font-size:12.5px">${o.supplier||"—"}</td>
+      <td style="font-size:12px;color:var(--mut)">${o.partiya||"—"}</td>
+      <td><span class="bg ${o.payStatus==="qarz"?"bg-r":"bg-g"}">${o.payStatus==="qarz"?"To'lanmagan":"To'langan"}</span></td>
     </tr>`;
-  }).join("") : `<tr><td colspan="10" class="empty-td">Kirim yo'q</td></tr>`;
+  }).join("") : `<tr><td colspan="11" class="empty-td">Kirim yo'q</td></tr>`;
 }
 
 function omRenderSuppliers() {
@@ -428,42 +526,34 @@ function qbCalcBoxes() {
 
 function qabulOl() {
   const name = ($("qb-name")||{value:""}).value.trim();
-  if (!name) { toast("Mahsulot nomini kiriting","err"); return; }
+  if (!name)  { toast("Mahsulot nomini kiriting","err"); return; }
 
-  const fo = window.fieldOn || (() => true);
-  const isBoxMode   = fo("ombor_karobka") && ($("qb-box-panel")?.style.display !== "none");
-  const rangFaol    = fo("ombor_rang");
-  const olchamFaol  = fo("ombor_olcham");
+  const isBoxMode = ($("qb-box-panel")?.style.display !== "none");
   const pantone = ($("qb-pantone")||{value:""}).value.trim();
   const hex     = ($("qb-hex")||{value:"#888888"}).value;
-  const boxes   = isBoxMode ? (parseInt(($("qb-boxes")||{value:1}).value) || 1) : null;
+  const boxes   = parseInt(($("qb-boxes")||{value:0}).value) || null;
   const inBoxEd = parseInt(($("qb-inbox-edit")||{value:8}).value) || 8;
 
   let color, size, qty;
 
   if (isBoxMode) {
     color = ($("qb-color")||{value:""}).value.trim();
-    if (rangFaol && !color) { toast("Rang tanlang","err"); return; }
-    color = color || "Standart";
+    if (!color) { toast("Rang tanlang","err"); return; }
 
     const sizeFrom = ($("qb-size-from")||{value:""}).value;
     const sizeTo   = ($("qb-size-to")||{value:""}).value;
-    if (olchamFaol && (!sizeFrom || !sizeTo)) { toast("Razmer oralig'ini tanlang","err"); return; }
+    if (!sizeFrom || !sizeTo) { toast("Razmer oralig'ini tanlang","err"); return; }
 
     qty  = (boxes || 1) * inBoxEd;
-    size = (sizeFrom && sizeTo) ? `${sizeFrom}–${sizeTo}` : "Aralash";
+    size = `${sizeFrom}–${sizeTo}`;
   } else {
     color = ($("qb-color")||{value:""}).value.trim();
     size  = ($("qb-size")||{value:""}).value.trim();
     qty   = parseInt(($("qb-qty")||{value:0}).value) || 0;
 
-    if (rangFaol   && !color)   { toast("Rang tanlang","err"); return; }
-    if (olchamFaol && !size)    { toast("O'lcham kiriting","err"); return; }
-    if (olchamFaol && qty <= 0) { toast("Miqdor kiriting","err"); return; }
-
-    color = color || "Standart";
-    size  = size  || "Aralash";
-    if (!olchamFaol) qty = parseInt(($("qb-qty")||{value:1}).value) || 1;
+    if (!color) { toast("Rang tanlang","err"); return; }
+    if (!size)  { toast("O'lcham kiriting","err"); return; }
+    if (qty <= 0) { toast("Miqdor kiriting","err"); return; }
   }
 
   const kirimN    = getRawVal("qb-cost");
@@ -484,7 +574,6 @@ function qabulOl() {
     if (newChk > 0) p.priceUzs    = newChk;
     if (newUlg > 0) p.ulgurjiNarx = newUlg;
     if (qbBarcode)  p.barcode     = qbBarcode;
-    if (isBoxMode && inBoxEd > 1) p.inBox = inBoxEd; // ← karobkada nechta yangilansin
     p.unit = unit;
   } else {
     db.products.push({
