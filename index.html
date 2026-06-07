@@ -631,6 +631,21 @@
         <button class="om-filter-btn" data-f="out" onclick="omSetFilter('out')">
           <i class="ti ti-x" style="font-size:12px"></i> Tugagan
         </button>
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--mut)">Saralash:</span>
+          <button class="btn btn-sm btn-ghost om-sort-btn" id="sort-name-btn"
+            onclick="omSortBy('name')" title="Nom bo'yicha">
+            <i class="ti ti-sort-az"></i> Nom
+          </button>
+          <button class="btn btn-sm btn-ghost om-sort-btn" id="sort-qty-btn"
+            onclick="omSortBy('qty')" title="Qoldiq bo'yicha">
+            <i class="ti ti-sort-descending"></i> Qoldiq
+          </button>
+          <button class="btn btn-sm btn-ghost om-sort-btn" id="sort-price-btn"
+            onclick="omSortBy('price')" title="Narx bo'yicha">
+            <i class="ti ti-sort-descending"></i> Narx
+          </button>
+        </div>
       </div>
       <div style="overflow-x:auto">
         <table id="om-qoldiq-table">

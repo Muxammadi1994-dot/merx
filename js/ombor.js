@@ -119,6 +119,33 @@ function omSetFilter(f) {
     b.classList.toggle("on", b.dataset.f === f));
   omRenderQoldiq();
 }
+let omSortKey = null;
+let omSortAsc = true;
+
+function omSortBy(key) {
+  if (omSortKey === key) {
+    omSortAsc = !omSortAsc;
+  } else {
+    omSortKey = key;
+    omSortAsc = key === "name"; // nom uchun A→Z, qolganlar uchun kattadan kichikka
+  }
+  // Tugma ko'rinishini yangilash
+  document.querySelectorAll(".om-sort-btn").forEach(b => {
+    b.style.background  = "";
+    b.style.color       = "";
+    b.style.borderColor = "";
+  });
+  const activeMap = { name:"sort-name-btn", qty:"sort-qty-btn", price:"sort-price-btn" };
+  const activeBtn = document.getElementById(activeMap[key]);
+  if (activeBtn) {
+    activeBtn.style.background  = "#0D1B2A";
+    activeBtn.style.color       = "#fff";
+    activeBtn.style.borderColor = "#0D1B2A";
+  }
+  omRenderQoldiq();
+}
+
+
 
 function omRenderQoldiq() {
   const rate = db.settings.rate || 1;
@@ -127,7 +154,7 @@ function omRenderQoldiq() {
 
   let rows = [];
   db.products.forEach(p => {
-    // Rang bo'yicha guruhlash
+    // Rang bo'yicha guruhlash — o'lchamlar ham saqlanadi
     const colorGroups = {};
     p.variants.forEach(v => {
       if (!colorGroups[v.color]) {
@@ -135,10 +162,16 @@ function omRenderQoldiq() {
           color:   v.color,
           hex:     v.hex    || "#888",
           pantone: v.pantone || "",
-          qty:     0
+          qty:     0,
+          sizes:   []   // [{size, qty}]
         };
       }
       colorGroups[v.color].qty += v.qty;
+      if (v.size) {
+        const existing = colorGroups[v.color].sizes.find(s => s.size === v.size);
+        if (existing) existing.qty += v.qty;
+        else colorGroups[v.color].sizes.push({ size: v.size, qty: v.qty });
+      }
     });
 
     Object.values(colorGroups).forEach(cg => {
@@ -153,6 +186,7 @@ function omRenderQoldiq() {
         hex:     cg.hex,
         pantone: cg.pantone,
         qty:     cg.qty,
+        sizes:   cg.sizes,
         inBox,
         boxes,
         unit:    p.unit || "dona",
@@ -172,6 +206,18 @@ function omRenderQoldiq() {
     r.color.toLowerCase().includes(q)   ||
     r.pantone.toLowerCase().includes(q)
   );
+
+  // Saralash
+  if (omSortKey) {
+    rows.sort((a, b) => {
+      let va, vb;
+      if (omSortKey === "name")  { va = a.name;    vb = b.name;    }
+      if (omSortKey === "qty")   { va = a.qty;     vb = b.qty;     }
+      if (omSortKey === "price") { va = a.ulgurji; vb = b.ulgurji; }
+      if (typeof va === "string") return omSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+      return omSortAsc ? va - vb : vb - va;
+    });
+  }
 
   const thead = `<tr>
     <th>Mahsulot nomi</th>
@@ -223,13 +269,26 @@ function omRenderQoldiq() {
           : `<span style="color:#ccc">—</span>`}
       </td>
       <td>
-        <div style="display:flex;align-items:center;gap:7px">
-          <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;
+        <div style="display:flex;align-items:flex-start;gap:7px">
+          <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;margin-top:2px;
             background:${r.hex};border:1px solid rgba(0,0,0,.12)"
             title="${r.pantone}"></div>
-          <div>
+          <div style="min-width:0">
             <div style="font-weight:500;font-size:13px">${r.color}</div>
-            ${r.pantone ? `<div style="font-size:10px;color:#aaa">${r.pantone}</div>` : ""}
+            ${r.pantone ? `<div style="font-size:10px;color:#aaa;margin-bottom:4px">${r.pantone}</div>` : ""}
+            ${r.sizes && r.sizes.length > 0 ? `
+              <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px">
+                ${r.sizes.sort((a,b) => {
+                  // Raqamli o'lchamlarni soniga qarab sort
+                  const na = parseFloat(a.size), nb = parseFloat(b.size);
+                  if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                  return a.size.localeCompare(b.size);
+                }).map(s => {
+                  const lvl = s.qty <= 0 ? "bg-r" : s.qty <= 3 ? "bg-a" : "";
+                  return `<span class="bg ${lvl}" style="font-size:10.5px;padding:1px 6px;font-weight:${s.qty<=3?"700":"400"}"
+                    title="${s.size}: ${s.qty} ${r.unit}">${s.size}<span style="color:${s.qty<=0?"#dc2626":s.qty<=3?"#92400e":"#888"};margin-left:2px;font-size:9.5px">${s.qty}</span></span>`;
+                }).join("")}
+              </div>` : ""}
           </div>
         </div>
       </td>
@@ -335,9 +394,9 @@ function omRenderKamQoldiq() {
                 <div style="font-size:11px;color:var(--mut)">${p.sku}</div>
               </td>
               <td>
-                <div style="display:flex;align-items:center;gap:6px">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:${v.size?'3px':'0'}">
                   <div style="width:12px;height:12px;border-radius:3px;background:${v.hex||'#888'};border:1px solid rgba(0,0,0,.1);flex-shrink:0"></div>
-                  ${v.color||'—'}
+                  <span style="font-weight:500">${v.color||'—'}</span>
                 </div>
               </td>
               <td style="font-weight:600">${v.size||'—'}</td>
