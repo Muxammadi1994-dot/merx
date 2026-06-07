@@ -193,7 +193,64 @@ function openSaleDetail(id) {
   const refBtn = $("sd-refund-btn");
   if (refBtn) refBtn.style.display = s.status !== "qaytarilgan" ? "inline-flex" : "none";
 
+  // To'lov qabul qilish bloki
+  const payBlock = $("sd-pay-block");
+  if (payBlock) {
+    if (s.status === "qarz" && s.remaining > 0) {
+      payBlock.style.display = "block";
+      const isUsd = s.debtCurrency === "usd" && s.debtUsd;
+      const remTxt = isUsd
+        ? `$${(+s.debtUsd).toFixed(2)} USD`
+        : fmt(s.remaining) + " so'm";
+      if ($("sd-pay-rem"))  $("sd-pay-rem").textContent  = remTxt;
+      if ($("sd-pay-inp"))  { $("sd-pay-inp").value = ""; $("sd-pay-inp").placeholder = isUsd ? "$ summa" : "summa"; }
+      if ($("sd-pay-unit")) $("sd-pay-unit").textContent = isUsd ? "USD" : "so'm";
+    } else {
+      payBlock.style.display = "none";
+    }
+  }
+
   openModal("saledetail");
+}
+
+// ── To'lov qabul qilish (sotuv tarixidan) ────────
+function acceptDebtPayment() {
+  const s = db.sales.find(x => x.id === _sdSaleId); if (!s) return;
+  if (s.status !== "qarz" || s.remaining <= 0) return;
+
+  const inp    = $("sd-pay-inp"); if (!inp) return;
+  const isUsd  = s.debtCurrency === "usd" && s.debtUsd;
+  const amount = parseFloat(inp.value) || 0;
+
+  if (amount <= 0) { toast("Summa kiriting","err"); return; }
+
+  if (isUsd) {
+    if (amount > s.debtUsd) { toast(`Qarz: $${s.debtUsd.toFixed(2)} USD dan ko'p kiritdingiz`,"err"); return; }
+    const rate    = db.settings.rate || 12800;
+    const uzsEquiv = Math.round(amount * rate);
+    s.debtUsd   -= amount;
+    s.paid      += uzsEquiv;
+    s.remaining -= uzsEquiv;
+    if (s.debtUsd <= 0.001) {
+      s.debtUsd   = 0;
+      s.remaining = 0;
+      s.status    = "tolangan";
+    }
+    toast(`✅ $${amount.toFixed(2)} USD qabul qilindi`);
+  } else {
+    if (amount > s.remaining) { toast(`Qarz: ${fmt(s.remaining)} so'm dan ko'p kiritdingiz`,"err"); return; }
+    s.paid      += amount;
+    s.remaining -= amount;
+    if (s.remaining <= 0) {
+      s.remaining = 0;
+      s.status    = "tolangan";
+    }
+    toast(`✅ ${fmt(amount)} so'm qabul qilindi`);
+  }
+
+  saveDB();
+  openSaleDetail(_sdSaleId); // modalni yangilash
+  renderTarix();
 }
 
 // ── Chek print ────────────────────────────────────

@@ -1648,10 +1648,32 @@
       <div id="sd-items" style="margin-bottom:14px"></div>
       <div style="border-top:1px dashed var(--brd);padding-top:12px;margin-bottom:12px" id="sd-totals"></div>
       <div id="sd-info" style="background:var(--bg);border-radius:10px;padding:12px 14px;font-size:13px"></div>
-      ${'' /* note */}
       <div id="sd-note-wrap" style="display:none;margin-top:10px;padding:10px 14px;background:#FFFBEB;border-radius:10px;border:1px solid #FDE68A">
         <div style="font-size:10px;color:#92400E;font-weight:700;text-transform:uppercase;margin-bottom:3px">Izoh</div>
         <div style="font-size:13px;color:#78350F" id="sd-note"></div>
+      </div>
+      <!-- To'lov qabul qilish bloki — faqat qarz bo'lganda ko'rinadi -->
+      <div id="sd-pay-block" style="display:none;margin-top:14px;padding:14px;background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:12px">
+        <div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+          <i class="ti ti-cash"></i> To'lov qabul qilish
+        </div>
+        <div style="font-size:12.5px;color:#166534;margin-bottom:10px">
+          Qolgan qarz: <strong id="sd-pay-rem">—</strong>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="position:relative;flex:1">
+            <input id="sd-pay-inp" type="number" min="0" placeholder="summa"
+              style="font-family:inherit;font-size:15px;font-weight:700;border:1.5px solid #86EFAC;
+              border-radius:8px;padding:8px 50px 8px 12px;width:100%;background:#fff;box-sizing:border-box">
+            <span id="sd-pay-unit" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+              font-size:12px;font-weight:600;color:#888">so'm</span>
+          </div>
+          <button onclick="acceptDebtPayment()"
+            style="background:#16A34A;color:#fff;border:none;border-radius:8px;
+            padding:9px 16px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+            <i class="ti ti-check"></i> Qabul
+          </button>
+        </div>
       </div>
     </div>
     <div style="padding:12px 20px;border-top:1px solid var(--brd);display:flex;gap:8px">
