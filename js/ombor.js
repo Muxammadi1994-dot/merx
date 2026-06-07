@@ -436,7 +436,7 @@ function qabulOl() {
   const olchamFaol  = fo("ombor_olcham");
   const pantone = ($("qb-pantone")||{value:""}).value.trim();
   const hex     = ($("qb-hex")||{value:"#888888"}).value;
-  const boxes   = parseInt(($("qb-boxes")||{value:0}).value) || null;
+  const boxes   = isBoxMode ? (parseInt(($("qb-boxes")||{value:1}).value) || 1) : null;
   const inBoxEd = parseInt(($("qb-inbox-edit")||{value:8}).value) || 8;
 
   let color, size, qty;
@@ -484,6 +484,7 @@ function qabulOl() {
     if (newChk > 0) p.priceUzs    = newChk;
     if (newUlg > 0) p.ulgurjiNarx = newUlg;
     if (qbBarcode)  p.barcode     = qbBarcode;
+    if (isBoxMode && inBoxEd > 1) p.inBox = inBoxEd; // ← karobkada nechta yangilansin
     p.unit = unit;
   } else {
     db.products.push({

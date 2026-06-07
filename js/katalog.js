@@ -85,7 +85,7 @@ function renderKatalog() {
     ).join("");
 
     // Karobka jami
-    const totalBoxes = inBox > 1 ? Math.floor(st / inBox) : null;
+    const totalBoxes = inBox > 1 ? +(st / inBox).toFixed(1) : null;
 
     // Margin (ulgurji asosida)
     const margin = p.ulgurjiNarx > 0 && costUzs > 0
@@ -115,7 +115,7 @@ function renderKatalog() {
       <td>${colorChips}</td>
       <td class="num">
         ${totalBoxes != null
-          ? `<span style="font-weight:700;font-size:14px">${totalBoxes}</span>
+          ? `<span style="font-weight:700;font-size:14px">${Number.isInteger(totalBoxes) ? totalBoxes : totalBoxes.toFixed(1)}</span>
              <span style="font-size:10.5px;color:#bbb;margin-left:3px">karobka</span>`
           : `<span style="color:#bbb;font-size:12px">donab</span>`}
       </td>
