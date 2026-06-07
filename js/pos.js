@@ -482,11 +482,27 @@ function custSearch(q) {
 
   if (!found.length) {
     dd.style.display = "block";
-    dd.innerHTML = `<div style="padding:10px 14px;font-size:12.5px;color:var(--mut);text-align:center">
-      Topilmadi — Ism va telefon quyida kiriting
-    </div>`;
+    dd.innerHTML = `
+      <div style="padding:10px 14px;font-size:12.5px;color:var(--mut);text-align:center;border-bottom:1px solid var(--brd)">
+        "${val}" topilmadi
+      </div>
+      <div onclick="custQuickAdd('${val.replace(/'/g,"&#39;")}')"
+        style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#0D1B2A;font-weight:600;font-size:13px"
+        onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background=''">
+        <i class="ti ti-user-plus" style="font-size:16px;color:#36B48C"></i>
+        + Yangi mijoz qo'shish: "<strong>${val}</strong>"
+      </div>`;
     return;
   }
+
+  // Natijalar oxiriga "Yangi qo'shish" ham qo'shamiz
+  const addNewHtml = `
+    <div onclick="custQuickAdd('${val.replace(/'/g,"&#39;")}')"
+      style="padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;border-top:1px solid var(--brd);color:#36B48C;font-size:12.5px;font-weight:600"
+      onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background=''">
+      <i class="ti ti-user-plus" style="font-size:14px"></i>
+      + Yangi mijoz sifatida qo'shish
+    </div>`;
 
   dd.style.display = "block";
   dd.innerHTML = found.map(c => {
@@ -507,7 +523,7 @@ function custSearch(q) {
       </div>
       <i class="ti ti-chevron-right" style="font-size:14px;color:#bbb"></i>
     </div>`;
-  }).join("");
+  }).join("") + addNewHtml;
 }
 
 function custSelect(id) {
@@ -537,6 +553,60 @@ function custSelect(id) {
   if ($("c-phone")) $("c-phone").value = c.phone || "";
 
   showCustDebt(id);
+}
+
+function custQuickAdd(val) {
+  // Dropdown yopamiz
+  const dd = $("cust-dropdown");
+  if (dd) dd.style.display = "none";
+
+  // val ni ism yoki telefon deb aniqlaymiz
+  const isPhone = /^[+\d\s\-()]{6,}$/.test(val.trim());
+  const newName  = isPhone ? "" : val.trim();
+  const newPhone = isPhone ? val.trim() : "";
+
+  // Mini modal ochish — mavjud addcust modal ishlatamiz
+  if ($("ac-name"))  $("ac-name").value  = newName;
+  if ($("ac-phone")) $("ac-phone").value = newPhone;
+  if ($("ac-type"))  $("ac-type").value  = posPriceType === "ulgurji" ? "ulgurji" : "chakana";
+  if ($("ac-note"))  $("ac-note").value  = "";
+
+  // Saqlash tugmasini POS ga qaytadigan qilamiz
+  const btn = document.querySelector("#ov-addcust .btn-acc");
+  if (btn) {
+    btn.textContent = "Saqlash va tanlash";
+    btn.onclick = custQuickSave;
+  }
+  openModal("addcust");
+  setTimeout(() => {
+    const focus = newName ? $("ac-phone") : $("ac-name");
+    if (focus) focus.focus();
+  }, 80);
+}
+
+function custQuickSave() {
+  const name  = ($("ac-name")||{value:""}).value.trim();
+  const phone = ($("ac-phone")||{value:""}).value.trim();
+  if (!name) { toast("Ism kiriting","err"); return; }
+
+  const nc = {
+    id:    db.seq++,
+    name,
+    phone: phone || "",
+    type:  ($("ac-type")||{value:"ulgurji"}).value,
+    note:  ($("ac-note")||{value:""}).value.trim()
+  };
+  db.customers.push(nc);
+  saveDB();
+  closeModal("addcust");
+
+  // Tugmani qaytaramiz
+  const btn = document.querySelector("#ov-addcust .btn-acc");
+  if (btn) { btn.textContent = "Saqlash"; btn.onclick = addCustomer; }
+
+  // POS da tanlash
+  custSelect(nc.id);
+  toast(`✅ "${name}" qo'shildi va tanlandi`, "ok");
 }
 
 function custClear() {
