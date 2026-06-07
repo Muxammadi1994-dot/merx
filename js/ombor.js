@@ -694,21 +694,36 @@ function downloadCSVOmbor(rows, filename) {
 
 // ── Karobka narx hintlari ─────────────────────
 function qbUpdateBoxHints() {
-  const inBox = parseInt(($("qb-inbox-edit")||{value:0}).value) || 0;
+  const inBox  = parseInt(($("qb-inbox-edit")||{value:0}).value) || 0;
+  const rate   = db.settings?.rate || 12800;
+  const cur    = db.settings?.priceCurrency || "uzs";
+  const isUsd  = cur === "usd";
 
-  function showHint(hintId, donaVal) {
+  function showHint(hintId, rawVal) {
     const el = $(hintId); if (!el) return;
-    if (!donaVal || donaVal <= 0 || inBox < 2) { el.style.display = "none"; return; }
-    const total = donaVal * inBox;
-    const span  = el.querySelector("span");
-    if (span) span.textContent = `1 karobka = ${fmt(total)} so'm (${inBox} × ${fmt(donaVal)})`;
+    if (!rawVal || rawVal <= 0 || inBox < 2) { el.style.display = "none"; return; }
+    // qb-cost: USD rejimida USD kiritiladi → so'mga o'giramiz; so'm rejimida to'g'ri
+    const donaUzs = isUsd ? Math.round(rawVal * rate) : rawVal;
+    const total   = donaUzs * inBox;
+    const span    = el.querySelector("span");
+    const unitLbl = isUsd ? `$${rawVal.toFixed(2)}` : fmt(rawVal) + " so'm";
+    const totLbl  = fmt(total) + " so'm";
+    if (span) span.textContent = `1 karobka = ${totLbl} (${inBox} × ${unitLbl})`;
     el.style.display = "inline-flex";
   }
 
   const cost = getRawVal("qb-cost");
   const ulg  = getRawVal("qb-ulgurji");
   showHint("qb-cost-hint", cost);
-  showHint("qb-ulg-hint",  ulg);
+  // Ulgurji har doim so'mda kiritiladi
+  const ulgEl = $("qb-ulg-hint"); if (ulgEl) {
+    if (!ulg || ulg <= 0 || inBox < 2) { ulgEl.style.display = "none"; }
+    else {
+      const span = ulgEl.querySelector("span");
+      if (span) span.textContent = `1 karobka = ${fmt(ulg * inBox)} so'm (${inBox} × ${fmt(ulg)})`;
+      ulgEl.style.display = "inline-flex";
+    }
+  }
 }
 
 // ================================================
