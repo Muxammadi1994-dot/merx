@@ -808,24 +808,23 @@
       <div class="ch" style="flex-wrap:wrap;gap:8px">
         <h3><i class="ti ti-credit-card"></i>Qarzlar ro'yxati</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <!-- Filtr -->
           <div style="display:flex;gap:4px">
             <button class="debt-filter-btn on" data-f="all"      onclick="setDebtFilter('all')">Barchasi</button>
             <button class="debt-filter-btn"    data-f="overdue"  onclick="setDebtFilter('overdue')">⚠️ Muddati o'tgan</button>
             <button class="debt-filter-btn"    data-f="usd"      onclick="setDebtFilter('usd')">💵 USD</button>
             <button class="debt-filter-btn"    data-f="month"    onclick="setDebtFilter('month')">Bu oy</button>
           </div>
-          <!-- Guruh toggle -->
           <button class="btn btn-sm" id="debt-group-btn" onclick="toggleDebtGroup()" title="Mijoz bo'yicha guruhlash">
             <i class="ti ti-users"></i> Guruhlab ko'rsatish
           </button>
-          <!-- Eslatma -->
           <button class="btn btn-sm" onclick="sendOverdueReminders()" style="color:var(--red)">
             <i class="ti ti-bell"></i> Muddati o'tganlarga SMS
           </button>
           <input id="debt-q" placeholder="Mijoz qidirish..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:160px" oninput="renderDebts()">
         </div>
       </div>
+      <!-- Mijoz umumiy qarz kartalar paneli -->
+      <div id="debt-cust-cards" style="display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--brd);background:var(--bg)"></div>
       <div style="overflow-x:auto">
         <table id="debt-table">
           <thead id="debt-head"></thead>

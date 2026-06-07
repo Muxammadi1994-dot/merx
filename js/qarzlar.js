@@ -97,6 +97,79 @@ function renderDebts() {
   } else {
     renderDebtsList(list, rate);
   }
+  renderDebtCustCards();
+}
+
+// ── Mijoz umumiy qarz kartalar paneli ─────────────
+let _debtCustFilter = null; // null = hammasi
+
+function renderDebtCustCards() {
+  const el = $("debt-cust-cards"); if (!el) return;
+  const allDebt = debtSales();
+
+  // Mijoz bo'yicha guruhlash
+  const groups = {};
+  allDebt.forEach(s => {
+    const cu  = debtCust(s);
+    const key = cu.name;
+    if (!groups[key]) groups[key] = {
+      name: cu.name, phone: cu.phone,
+      totalUzs: 0, totalUsd: 0, cnt: 0, anyOverdue: false
+    };
+    groups[key].totalUzs += (s.debtCurrency !== "usd") ? s.remaining : 0;
+    groups[key].totalUsd += (s.debtCurrency === "usd" && s.debtUsd) ? s.debtUsd : 0;
+    groups[key].cnt++;
+    if (isOverdue(s)) groups[key].anyOverdue = true;
+  });
+
+  const gList = Object.values(groups).sort((a, b) => {
+    if (a.anyOverdue && !b.anyOverdue) return -1;
+    if (!a.anyOverdue && b.anyOverdue)  return 1;
+    return (b.totalUzs + b.totalUsd * (db.settings?.rate||12800)) -
+           (a.totalUzs + a.totalUsd * (db.settings?.rate||12800));
+  });
+
+  if (!gList.length) { el.style.display = "none"; return; }
+  el.style.display = "flex";
+
+  el.innerHTML = [
+    // "Barchasi" kartasi
+    `<div onclick="debtCustFilter(null)"
+      style="cursor:pointer;padding:8px 14px;border-radius:10px;border:1.5px solid ${_debtCustFilter===null?"#0D1B2A":"var(--brd)"};
+      background:${_debtCustFilter===null?"#0D1B2A":"#fff"};flex-shrink:0;transition:.15s">
+      <div style="font-size:11px;font-weight:600;color:${_debtCustFilter===null?"#E9A500":"var(--mut)"};margin-bottom:2px">Barchasi</div>
+      <div style="font-size:13px;font-weight:700;color:${_debtCustFilter===null?"#fff":"#0D1B2A"}">${allDebt.length} ta sotuv</div>
+    </div>`
+  ].concat(gList.map(g => {
+    const isActive = _debtCustFilter === g.name;
+    const overBdr  = g.anyOverdue ? "#E05A5A" : (isActive ? "#0D1B2A" : "var(--brd)");
+    const bg       = isActive ? "#0D1B2A" : (g.anyOverdue ? "#FEF2F2" : "#fff");
+    const nameCl   = isActive ? "#fff" : "#0D1B2A";
+    const subCl    = isActive ? "rgba(255,255,255,.6)" : "var(--mut)";
+    const amtCl    = isActive ? "#E9A500" : (g.anyOverdue ? "var(--red)" : "var(--acc)");
+
+    const amtTxt = g.totalUsd > 0 && g.totalUzs > 0
+      ? `$${g.totalUsd.toFixed(2)} + ${fmtK(g.totalUzs)}`
+      : g.totalUsd > 0 ? `$${g.totalUsd.toFixed(2)} USD`
+      : fmtK(g.totalUzs) + " so'm";
+
+    return `<div onclick="debtCustFilter('${g.name.replace(/'/g,"&#39;")}')"
+      style="cursor:pointer;padding:8px 14px;border-radius:10px;border:1.5px solid ${overBdr};
+      background:${bg};flex-shrink:0;min-width:140px;max-width:200px;transition:.15s">
+      <div style="font-size:12px;font-weight:600;color:${nameCl};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">
+        ${g.anyOverdue?"⚠️ ":""}${g.name}
+      </div>
+      <div style="font-size:11px;color:${subCl};margin-bottom:4px">${g.cnt} ta sotuv</div>
+      <div style="font-size:13px;font-weight:800;color:${amtCl}">${amtTxt}</div>
+    </div>`;
+  })).join("");
+}
+
+function debtCustFilter(name) {
+  _debtCustFilter = name;
+  const qEl = $("debt-q");
+  if (qEl) qEl.value = name || "";
+  renderDebts();
 }
 
 // ── Sotuv bo'yicha ro'yxat ────────────────────────
