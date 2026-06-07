@@ -565,8 +565,15 @@ function qabulOl() {
     if (qty <= 0) { toast("Miqdor kiriting","err"); return; }
   }
 
-  const kirimN    = getRawVal("qb-cost");
-  const newChk    = parseFloat(($("qb-price")||{value:0}).value)   || 0;
+  const cur_q   = db.settings?.priceCurrency || "uzs";
+  const rate_q  = db.settings?.rate || 12800;
+  const isUsd_q = cur_q === "usd" || cur_q === "both";
+  const kirimRaw  = getRawVal("qb-cost");
+  // kirimNarxi omborda har doim so'mda saqlanadi
+  const kirimN    = isUsd_q ? Math.round(kirimRaw * rate_q) : kirimRaw;
+  // costUsd mahsulotda har doim USD da saqlanadi
+  const costUsd_q = isUsd_q ? kirimRaw : (kirimRaw > 0 ? kirimRaw / rate_q : 0);
+  const newChk    = getRawVal("qb-price");
   const newUlg    = getRawVal("qb-ulgurji");
   const unit      = ($("qb-unit")||{value:"dona"}).value;
   const qbBarcode = ($("qb-barcode")||{value:""}).value.trim();
@@ -583,18 +590,15 @@ function qabulOl() {
     if (newChk > 0) p.priceUzs    = newChk;
     if (newUlg > 0) p.ulgurjiNarx = newUlg;
     if (qbBarcode)  p.barcode     = qbBarcode;
+    if (kirimRaw > 0) p.costUsd   = costUsd_q;
+    if (isBoxMode && inBoxEd > 1) p.inBox = inBoxEd;
     p.unit = unit;
   } else {
     db.products.push({
       sku:`RECV-${String(db.seq++).padStart(3,"0")}`,
       name, category:"Qabul qilingan", type:"oyoq",
       unit, inBox: inBoxEd > 1 ? inBoxEd : 1,
-      // Tannarxni USD da saqlash: priceCurrency bo'yicha
-      costUsd: (() => {
-        const cur = db.settings?.priceCurrency || "uzs";
-        if (cur === "usd" || cur === "both") return kirimN; // dollar kiritilgan
-        return kirimN / (db.settings.rate || 12800);         // so'm kiritilgan
-      })(),
+      costUsd: costUsd_q,
       priceUzs:newChk||0, ulgurjiNarx:newUlg||0,
       barcode: qbBarcode || genEAN13(db.seq),
       variants:[{color, size, qty, pantone, hex}]
@@ -704,36 +708,36 @@ function downloadCSVOmbor(rows, filename) {
 // ── Karobka narx hintlari ─────────────────────
 function qbUpdateBoxHints() {
   const inBox = parseInt(($("qb-inbox-edit")||{value:0}).value) || 0;
-  if (inBox < 2) {
-    const ch = $("qb-cost-hint"); if (ch) ch.style.display = "none";
-    const uh = $("qb-ulg-hint");  if (uh) uh.style.display = "none";
-    return;
-  }
+  const rate  = db.settings?.rate || 12800;
+  const cur   = db.settings?.priceCurrency || "uzs";
+  const isUsd = cur === "usd" || cur === "both";
 
-  // qb-cost har doim so'mda ko'rsatiladi (UZS yoki konvertatsiya qilingan)
-  // Inputdan faqat raqamlarni olamiz — data-raw yoki value dan
-  function getRawSom(id) {
+  function getVal(id) {
     const el = $(id); if (!el) return 0;
-    const raw = el.dataset.raw
-      ? parseInt(el.dataset.raw) || 0
-      : parseInt((el.value || "").replace(/\D/g, "")) || 0;
-    return raw;
+    // data-raw ishlatilsa — u fmtInput tomonidan saqlanadi (raqamlar faqat)
+    if (el.dataset.raw && el.dataset.raw !== "") return parseInt(el.dataset.raw) || 0;
+    // Aks holda valueni tozalab olamiz
+    return parseFloat((el.value||"").replace(/[^0-9.]/g,"")) || 0;
   }
 
-  const cost = getRawSom("qb-cost");
-  const ulg  = getRawSom("qb-ulgurji");
-
-  function showHint(hintId, donaUzs) {
+  function showHint(hintId, rawVal, convertToUzs) {
     const el = $(hintId); if (!el) return;
-    if (!donaUzs || donaUzs <= 0) { el.style.display = "none"; return; }
-    const total = donaUzs * inBox;
-    const span  = el.querySelector("span");
-    if (span) span.textContent = `1 karobka = ${fmt(total)} so'm (${inBox} × ${fmt(donaUzs)})`;
+    if (!rawVal || rawVal <= 0 || inBox < 2) { el.style.display = "none"; return; }
+    const donaUzs = convertToUzs ? Math.round(rawVal * rate) : rawVal;
+    const total   = donaUzs * inBox;
+    const span    = el.querySelector("span");
+    const unitLbl = convertToUzs ? `$${rawVal.toFixed(2)}` : `${fmt(rawVal)} so'm`;
+    if (span) span.textContent = `1 karobka = ${fmt(total)} so'm (${inBox} × ${unitLbl})`;
     el.style.display = "inline-flex";
   }
 
-  showHint("qb-cost-hint", cost);
-  showHint("qb-ulg-hint",  ulg);
+  const costVal = getVal("qb-cost");
+  const ulgVal  = getVal("qb-ulgurji");
+
+  // qb-cost: USD rejimida USD kiritiladi, so'm rejimida so'm
+  showHint("qb-cost-hint", costVal, isUsd);
+  // qb-ulgurji: har doim so'mda
+  showHint("qb-ulg-hint",  ulgVal,  false);
 }
 
 // ================================================

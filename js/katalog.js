@@ -351,7 +351,11 @@ function addProduct() {
   if (!color) { toast("Rang tanlang","err"); return; }
 
   const t       = ($("ap-type")||{value:"oyoq"}).value;
-  const cost    = parseFloat(($("ap-cost")||{value:0}).value)    || 0;
+  const costRaw = parseFloat(($("ap-cost")||{value:0}).value.replace(/\s/g,"")) || 0;
+  const cur1    = db.settings?.priceCurrency || "uzs";
+  const rate1   = db.settings?.rate || 12800;
+  // Har doim USD da saqlaymiz
+  const cost    = (cur1 === "usd" || cur1 === "both") ? costRaw : costRaw / rate1;
   const price   = parseFloat(($("ap-price")||{value:0}).value)   || 0;
   const ulg     = getRawVal("ap-ulgurji");
   const unit    = ($("ap-unit")||{value:"dona"}).value;
@@ -596,21 +600,26 @@ function _showBoxHint(hintId, donaUzs, inBox) {
 }
 
 function apUpdateBoxHints() {
-  const rate  = db.settings.rate || 12800;
-  const inBox = parseInt(($("ap-inbox")||{value:0}).value) ||
-                parseInt(($("ap-inbox-calc")||{value:0}).value) || 0;
-  const costUsd = parseFloat(($("ap-cost")||{value:0}).value) || 0;
+  const rate   = db.settings?.rate || 12800;
+  const cur    = db.settings?.priceCurrency || "uzs";
+  const inBox  = parseInt(($("ap-inbox")||{value:0}).value) ||
+                 parseInt(($("ap-inbox-calc")||{value:0}).value) || 0;
+  const costRaw = parseFloat(($("ap-cost")||{value:0}).value.replace(/\s/g,"").replace(/,/g,"")) || 0;
+  // USD rejimida → UZS ga o'giramiz; so'm rejimida → to'g'ridan
+  const costUzs = (cur === "usd" || cur === "both") ? Math.round(costRaw * rate) : costRaw;
   const ulg     = getRawVal("ap-ulgurji");
-  _showBoxHint("ap-cost-hint", Math.round(costUsd * rate), inBox);
+  _showBoxHint("ap-cost-hint", costUzs, inBox);
   _showBoxHint("ap-ulg-hint",  ulg, inBox);
 }
 
 function epUpdateBoxHints() {
-  const rate  = db.settings.rate || 12800;
-  const inBox = parseInt(($("ep-inbox")||{value:0}).value) || 0;
-  const costUsd = parseFloat(($("ep-cost")||{value:0}).value) || 0;
+  const rate    = db.settings?.rate || 12800;
+  const cur     = db.settings?.priceCurrency || "uzs";
+  const inBox   = parseInt(($("ep-inbox")||{value:0}).value) || 0;
+  const costRaw = parseFloat(($("ep-cost")||{value:0}).value.replace(/\s/g,"").replace(/,/g,"")) || 0;
+  const costUzs = (cur === "usd" || cur === "both") ? Math.round(costRaw * rate) : costRaw;
   const ulg     = getRawVal("ep-ulgurji");
-  _showBoxHint("ep-cost-hint", Math.round(costUsd * rate), inBox);
+  _showBoxHint("ep-cost-hint", costUzs, inBox);
   _showBoxHint("ep-ulg-hint",  ulg, inBox);
 }
 
@@ -882,287 +891,4 @@ function confirmImport() {
   const res = $("import-result");
   if (res) { res.style.display = "block"; }
   toast(`✅ Import tugadi: ${added} ta yangi, ${updated} ta yangilandi, ${skipped} ta o'tkazildi`);
-}
-
-// ════════════════════════════════════════════════
-// NARXNOMA / YORLIQ CHOP ETISH
-// ════════════════════════════════════════════════
-
-let _narxnomaSelected = new Set(); // tanlangan SKU lar
-let _narxnomaMode = "list";        // "list" | "grid"
-
-function openNarxnoma() {
-  _narxnomaSelected.clear();
-  // Avval modalni ochamiz, keyin render qilamiz (DOM tayyor bo'lsin)
-  const ovEl = document.getElementById("ov-narxnoma");
-  if (ovEl) ovEl.classList.add("on");
-  setTimeout(() => {
-    renderNarxnomaList();
-    renderNarxnomaPreview();
-  }, 30);
-}
-
-// ── Mahsulotlar ro'yxati (tanlash uchun) ─────────
-function renderNarxnomaList() {
-  const el = document.getElementById("nm-list");
-  if (!el) return;
-
-  const q = (document.getElementById("nm-q")||{value:""}).value.toLowerCase();
-  const ps = db.products.filter(p =>
-    !q || p.name.toLowerCase().includes(q) || (p.sku||"").toLowerCase().includes(q)
-  );
-
-  el.innerHTML = ps.map(p => {
-    const st  = totalStock(p);
-    const sel = _narxnomaSelected.has(p.sku);
-    return `
-      <label class="nm-prod-item ${sel?"nm-sel":""}" onclick="toggleNmProd('${p.sku}')">
-        <div class="nm-check">${sel ? "✓" : ""}</div>
-        <div class="nm-prod-info">
-          <div class="nm-prod-name">${p.name}</div>
-          <div class="nm-prod-meta">${p.category} · ${st} ${p.unit||"dona"} · ${fmt(p.priceUzs)} so'm</div>
-        </div>
-        <div class="nm-prod-right">
-          ${p.variants.length} rang/o'lcham
-        </div>
-      </label>`;
-  }).join("") || `<div style="text-align:center;padding:20px;color:var(--mut)">Mahsulot yo'q</div>`;
-
-  updateNmCount();
-}
-
-function toggleNmProd(sku) {
-  if (_narxnomaSelected.has(sku)) _narxnomaSelected.delete(sku);
-  else _narxnomaSelected.add(sku);
-  renderNarxnomaList();
-}
-
-function nmSelectAll() {
-  const q = (document.getElementById("nm-q")||{value:""}).value.toLowerCase();
-  db.products.filter(p => !q || p.name.toLowerCase().includes(q))
-    .forEach(p => _narxnomaSelected.add(p.sku));
-  renderNarxnomaList();
-}
-
-function nmClearAll() {
-  _narxnomaSelected.clear();
-  renderNarxnomaList();
-}
-
-function updateNmCount() {
-  const el = document.getElementById("nm-count");
-  if (el) el.textContent = _narxnomaSelected.size + " ta tanlandi";
-}
-
-// ── Yorliq dizaynini oldindan ko'rish ────────────
-function renderNarxnomaPreview() {
-  const el = document.getElementById("nm-preview-area");
-  if (!el) return;
-
-  const style    = document.getElementById("nm-style")?.value || "standard";
-  const showLogo = document.getElementById("nm-logo")?.checked !== false;
-  const showBarc = document.getElementById("nm-barcode-chk")?.checked !== false;
-  const showSku  = document.getElementById("nm-sku")?.checked || false;
-  const showUlg  = document.getElementById("nm-ulg")?.checked || false;
-  const cols     = parseInt(document.getElementById("nm-cols")?.value) || 3;
-  const rate     = db.settings.rate || 12800;
-  const shopName = db.shop?.name || "MERX";
-
-  const prods = db.products.filter(p => _narxnomaSelected.has(p.sku));
-  if (!prods.length) {
-    el.innerHTML = `<div style="text-align:center;padding:30px;color:var(--mut)">
-      <i class="ti ti-arrow-left" style="font-size:20px;display:block;margin-bottom:8px"></i>
-      Chap tomondan mahsulot tanlang
-    </div>`;
-    return;
-  }
-
-  // Har variant uchun alohida yorliq
-  const labels = [];
-  prods.forEach(p => {
-    const costUzs = Math.round((p.costUsd||0) * rate);
-    p.variants.forEach(v => {
-      if (v.qty <= 0) return; // 0 ta bo'lganlarni o'tkazib yuborish
-      labels.push({ p, v, costUzs });
-    });
-  });
-
-  if (!labels.length) {
-    el.innerHTML = `<div style="text-align:center;padding:30px;color:#E05A5A">
-      Tanlangan mahsulotlarda qoldiq yo'q (0 ta)
-    </div>`;
-    return;
-  }
-
-  const labelHtml = labels.map(({ p, v }) => buildLabel(p, v, {
-    style, showLogo, showBarc, showSku, showUlg, shopName, rate
-  })).join("");
-
-  el.innerHTML = `
-    <div class="nm-label-grid" style="grid-template-columns:repeat(${cols},1fr)">
-      ${labelHtml}
-    </div>`;
-}
-
-function buildLabel(p, v, opts) {
-  const { style, showLogo, showBarc, showSku, showUlg, shopName, rate } = opts;
-  const hex      = v.hex || "#888";
-  const colorDot = `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${hex};border:1px solid rgba(0,0,0,.12);vertical-align:middle;margin-right:4px"></span>`;
-
-  const priceUzs = p.priceUzs || 0;
-  const ulgUzs   = p.ulgurjiNarx || 0;
-  const priceUsd = rate > 0 ? (priceUzs / rate).toFixed(2) : "0.00";
-
-  // Barcode SVG (oddiy chiziqlar — Code128 simulatsiya)
-  const barcodeHtml = showBarc && p.barcode
-    ? `<div class="nm-barcode">${genBarcodeSvg(p.barcode)}<div class="nm-barcode-num">${p.barcode}</div></div>`
-    : "";
-
-  if (style === "mini") {
-    return `
-      <div class="nm-label nm-mini">
-        ${showLogo ? `<div class="nm-shop">${shopName}</div>` : ""}
-        <div class="nm-name-sm">${p.name}</div>
-        <div class="nm-var-sm">${colorDot}${v.color||""} ${v.size ? "· "+v.size : ""}</div>
-        <div class="nm-price-main">${fmt(priceUzs)} so'm</div>
-        ${barcodeHtml}
-      </div>`;
-  }
-
-  if (style === "premium") {
-    return `
-      <div class="nm-label nm-premium">
-        <div class="nm-prem-top">
-          ${showLogo ? `<div class="nm-prem-shop">${shopName}</div>` : ""}
-          <div class="nm-prem-name">${p.name}</div>
-          <div class="nm-prem-cat">${p.category}</div>
-        </div>
-        <div class="nm-prem-mid">
-          <div class="nm-prem-color">${colorDot}${v.color||""}${v.size?" · "+v.size:""}</div>
-          ${showSku ? `<div class="nm-prem-sku">${p.sku}</div>` : ""}
-        </div>
-        <div class="nm-prem-bot">
-          <div class="nm-prem-price">${fmt(priceUzs)} <span>so'm</span></div>
-          ${showUlg && ulgUzs ? `<div class="nm-prem-ulg">Ulgurji: ${fmt(ulgUzs)} so'm</div>` : ""}
-          <div class="nm-prem-usd">≈ $${priceUsd}</div>
-        </div>
-        ${barcodeHtml}
-      </div>`;
-  }
-
-  // Standard (default)
-  return `
-    <div class="nm-label nm-standard">
-      ${showLogo ? `<div class="nm-shop">${shopName}</div>` : ""}
-      <div class="nm-name">${p.name}</div>
-      <div class="nm-var">${colorDot}${v.color||""} ${v.size ? "· "+v.size : ""}</div>
-      <div class="nm-prices">
-        <div class="nm-price-main">${fmt(priceUzs)} so'm</div>
-        ${showUlg && ulgUzs ? `<div class="nm-price-ulg">Ulgurji: ${fmt(ulgUzs)}</div>` : ""}
-        <div class="nm-price-usd">$${priceUsd}</div>
-      </div>
-      ${showSku ? `<div class="nm-sku">${p.sku}</div>` : ""}
-      ${barcodeHtml}
-    </div>`;
-}
-
-// Barcode SVG generator (EAN13 vizual)
-function genBarcodeSvg(code) {
-  const str = String(code).padStart(13, "0").slice(0, 13);
-  const W = 120, H = 36;
-  // Har raqam uchun 9px bar guruh
-  let bars = "";
-  for (let i = 0; i < str.length; i++) {
-    const d = parseInt(str[i]);
-    const x = 2 + i * 9;
-    // Juft raqam — qora bar, toq — oq (sodda vizualizatsiya)
-    if (d % 2 === 0) {
-      bars += `<rect x="${x}" y="0" width="${4 + (d > 5 ? 2 : 0)}" height="${H}" fill="#000"/>`;
-    } else {
-      bars += `<rect x="${x + 2}" y="0" width="${2 + (d > 5 ? 1 : 0)}" height="${H}" fill="#000"/>`;
-    }
-  }
-  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${bars}</svg>`;
-}
-
-// ── Chop etish ───────────────────────────────────
-function printNarxnoma() {
-  const style    = document.getElementById("nm-style")?.value || "standard";
-  const showLogo = document.getElementById("nm-logo")?.checked !== false;
-  const showBarc = document.getElementById("nm-barcode-chk")?.checked !== false;
-  const showSku  = document.getElementById("nm-sku")?.checked || false;
-  const showUlg  = document.getElementById("nm-ulg")?.checked || false;
-  const cols     = parseInt(document.getElementById("nm-cols")?.value) || 3;
-  const rate     = db.settings.rate || 12800;
-  const shopName = db.shop?.name || "MERX";
-
-  const prods  = db.products.filter(p => _narxnomaSelected.has(p.sku));
-  if (!prods.length) { toast("Mahsulot tanlang", "err"); return; }
-
-  const labels = [];
-  prods.forEach(p => {
-    p.variants.forEach(v => {
-      labels.push({ p, v });
-    });
-  });
-
-  const labelHtml = labels.map(({ p, v }) => buildLabel(p, v, {
-    style, showLogo, showBarc, showSku, showUlg, shopName, rate
-  })).join("");
-
-  const w = window.open("", "_blank", "width=900,height=700");
-  if (!w) { toast("Pop-up bloklangan — brauzer ruxsat bering", "err"); return; }
-
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Narxnoma — ${shopName}</title>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: Arial, sans-serif; background:#fff; }
-  .nm-label-grid { display:grid; grid-template-columns:repeat(${cols},1fr); gap:4px; padding:8px; }
-
-  /* Standard */
-  .nm-standard { border:1px solid #ddd; border-radius:6px; padding:8px; background:#fff; break-inside:avoid; }
-  .nm-shop { font-size:9px; color:#999; text-transform:uppercase; letter-spacing:1px; margin-bottom:3px; }
-  .nm-name { font-size:12px; font-weight:700; color:#111; margin-bottom:3px; line-height:1.3; }
-  .nm-var  { font-size:10px; color:#666; margin-bottom:5px; }
-  .nm-price-main { font-size:15px; font-weight:800; color:#0D1B2A; }
-  .nm-price-ulg  { font-size:10px; color:#888; margin-top:1px; }
-  .nm-price-usd  { font-size:10px; color:#666; }
-  .nm-prices { margin-bottom:4px; }
-  .nm-sku  { font-size:9px; color:#bbb; font-family:monospace; margin-top:3px; }
-
-  /* Mini */
-  .nm-mini { border:1px solid #eee; border-radius:4px; padding:6px; background:#fff; break-inside:avoid; }
-  .nm-name-sm { font-size:11px; font-weight:700; margin-bottom:2px; line-height:1.2; }
-  .nm-var-sm  { font-size:9px; color:#777; margin-bottom:3px; }
-
-  /* Premium */
-  .nm-premium { border:2px solid #0D1B2A; border-radius:8px; overflow:hidden; break-inside:avoid; }
-  .nm-prem-top { background:#0D1B2A; padding:8px 10px; }
-  .nm-prem-shop { font-size:8px; color:#E9A500; text-transform:uppercase; letter-spacing:2px; }
-  .nm-prem-name { font-size:13px; font-weight:700; color:#fff; line-height:1.3; }
-  .nm-prem-cat  { font-size:9px; color:#aaa; margin-top:1px; }
-  .nm-prem-mid  { padding:6px 10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; }
-  .nm-prem-color { font-size:10px; color:#444; }
-  .nm-prem-sku   { font-size:9px; color:#bbb; font-family:monospace; }
-  .nm-prem-bot   { padding:8px 10px; }
-  .nm-prem-price { font-size:18px; font-weight:800; color:#0D1B2A; }
-  .nm-prem-price span { font-size:11px; font-weight:400; }
-  .nm-prem-ulg  { font-size:10px; color:#666; margin-top:2px; }
-  .nm-prem-usd  { font-size:10px; color:#888; margin-top:1px; }
-
-  /* Barcode */
-  .nm-barcode { margin-top:5px; text-align:center; }
-  .nm-barcode-num { font-size:8px; font-family:monospace; color:#555; margin-top:2px; letter-spacing:1px; }
-
-  @media print {
-    body { margin:0; }
-    @page { margin:5mm; size:A4; }
-  }
-</style></head><body>
-<div class="nm-label-grid">${labelHtml}</div>
-<script>window.onload=()=>{ setTimeout(()=>window.print(),300); }<\/script>
-</body></html>`);
-  w.document.close();
-  toast("✅ Chop etish oynasi ochildi");
 }
