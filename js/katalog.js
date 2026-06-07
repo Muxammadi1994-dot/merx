@@ -125,9 +125,9 @@ function renderKatalog() {
         </span>
       </td>
       <td class="num" style="font-size:12.5px">
-        ${costUzs ? `<div style="font-weight:600">${fmt(costUzs)} so'm</div>` : "—"}
-        ${costUzs && inBox > 1 ? `<div style="font-size:11px;color:#856404;margin-top:2px">📦 ${fmt(costUzs * inBox)} so'm</div>` : ""}
-        ${p.costUsd ? `<div style="font-size:10.5px;color:#bbb">$${p.costUsd}</div>` : ""}
+        ${costUzs ? `<div style="font-weight:600">${priceDisplay(costUzs)}</div>` : "—"}
+        ${costUzs && inBox > 1 ? `<div style="font-size:11px;color:#856404;margin-top:2px">📦 ${priceDisplay(costUzs * inBox)}</div>` : ""}
+        ${p.costUsd && (db.settings?.priceCurrency||"uzs")==="uzs" ? `<div style="font-size:10.5px;color:#bbb">$${(+p.costUsd).toFixed(2)}</div>` : ""}
       </td>
       <td class="num" style="font-size:12.5px">
         ${p.ulgurjiNarx ? `<div style="font-weight:700;color:var(--acc)">${fmt(p.ulgurjiNarx)} so'm</div>` : '<span style="color:#ccc">—</span>'}
