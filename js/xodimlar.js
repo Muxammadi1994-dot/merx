@@ -166,28 +166,80 @@ function renderStaffTable(from, to) {
   }).join("");
 }
 
-// ── Xodim detail ──────────────────────────────────
+// ── Xodim detail modal ───────────────────────────
 function openStaffDetail(id) {
   const s = db.staff.find(x => x.id === id); if (!s) return;
-  const allStats = staffStats(id, "2000-01-01", today());
+  const allStats   = staffStats(id, "2000-01-01", today());
   const todayStats = staffStats(id, today(), today());
   const monthStats = staffStats(id, today().slice(0,7)+"-01", today());
+  const weekStats  = staffStats(id, addDays(today(),-6), today());
 
   const sales = db.sales.filter(x => x.staffId === id)
-    .sort((a,b) => b.date > a.date ? 1 : -1).slice(0, 10);
+    .sort((a,b) => b.date > a.date ? 1 : -1).slice(0, 8);
 
   const roleLabel = { kassir:"💼 Kassir", menejer:"📊 Menejer", omborchi:"📦 Omborchi" };
+  const roleColor = { kassir:"#4C9BE8", menejer:"#8B5CF6", omborchi:"#36B48C" };
+  const initials  = s.name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+  const color     = roleColor[s.role] || "#888";
 
-  const msg = `${s.name} — ${roleLabel[s.role]||s.role}\n\n` +
-    `Bugun: ${todayStats.cnt} sotuv, ${fmt(todayStats.total)} so'm\n` +
-    `Bu oy: ${monthStats.cnt} sotuv, ${fmt(monthStats.total)} so'm\n` +
-    `Jami: ${allStats.cnt} sotuv, ${fmt(allStats.total)} so'm\n\n` +
-    `Oxirgi sotuvlar:\n` +
-    sales.slice(0,5).map(s =>
-      `• ${s.date} — ${fmt(s.total)} so'm (${s.customerName||"—"})`
-    ).join("\n");
+  const modal = $("staff-detail-modal");
+  if (!modal) return;
 
-  alert(msg);
+  modal.innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+      <div style="width:52px;height:52px;border-radius:14px;background:${color}22;color:${color};
+        display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0">
+        ${initials}
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:17px">${s.name}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:3px">
+          <span class="bg" style="font-size:12px;background:${color}18;color:${color}">${roleLabel[s.role]||s.role||"—"}</span>
+          ${s.phone ? `<a href="tel:${s.phone}" style="font-size:12.5px;color:var(--mut)">${s.phone}</a>` : ""}
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="editStaff(${s.id});closeStaffDetail()"
+        style="margin-left:auto" title="Tahrirlash"><i class="ti ti-edit"></i></button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+      ${[
+        {lbl:"Bugun", cnt:todayStats.cnt, total:todayStats.total},
+        {lbl:"7 kun",  cnt:weekStats.cnt,  total:weekStats.total},
+        {lbl:"Bu oy",  cnt:monthStats.cnt, total:monthStats.total},
+        {lbl:"Jami",   cnt:allStats.cnt,   total:allStats.total},
+      ].map(d=>`
+        <div style="background:var(--bg);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--mut);font-weight:700;text-transform:uppercase;margin-bottom:4px">${d.lbl}</div>
+          <div style="font-size:16px;font-weight:800">${d.cnt}</div>
+          <div style="font-size:10.5px;color:var(--acc);font-weight:600">${fmtK(d.total)}</div>
+        </div>`).join("")}
+    </div>
+
+    <div style="font-size:11px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+      Oxirgi sotuvlar
+    </div>
+    ${sales.length ? sales.map(sale => {
+      const isDebt = sale.status === "qarz" && sale.remaining > 0;
+      return `<div style="display:flex;align-items:center;justify-content:space-between;
+        padding:8px 10px;border-radius:8px;margin-bottom:4px;
+        background:${isDebt?"#FEF2F2":"var(--bg)"};border:1px solid ${isDebt?"#FECACA":"var(--brd)"}">
+        <div>
+          <div style="font-weight:600;font-size:13px">${sale.customerName||"Noma'lum"}</div>
+          <div style="font-size:11px;color:var(--mut)">${sale.date} ${sale.time||""}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700;font-size:13px">${fmt(sale.total)} so'm</div>
+          ${isDebt ? `<div style="font-size:11px;color:var(--red)">Qarz: ${fmt(sale.remaining)} so'm</div>` : ""}
+        </div>
+      </div>`;
+    }).join("") : `<div style="text-align:center;color:var(--mut);padding:16px;font-size:13px">Sotuv yo'q</div>`}`;
+
+  openModal("staffdetail");
+}
+
+function closeStaffDetail() {
+  closeModal("staffdetail");
 }
 
 // ── Xodim qo'shish ────────────────────────────────

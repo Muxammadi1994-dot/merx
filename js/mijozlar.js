@@ -19,11 +19,12 @@ function custStats(custId) {
     s.customerId === custId ||
     (s.customerName && db.customers.find(c => c.id === custId && c.name === s.customerName))
   );
-  const totalBuy  = sales.reduce((a, s) => a + (s.total || 0), 0);
-  const debtSales = sales.filter(s => s.status === "qarz" && s.remaining > 0);
-  const totalDebt = debtSales.reduce((a, s) => a + s.remaining, 0);
-  const lastSale  = sales.sort((a, b) => b.date > a.date ? 1 : -1)[0];
-  return { count: sales.length, totalBuy, totalDebt, lastDate: lastSale?.date || null, sales };
+  const totalBuy   = sales.reduce((a, s) => a + (s.total || 0), 0);
+  const debtList   = sales.filter(s => s.status === "qarz" && s.remaining > 0);
+  const totalDebt  = debtList.filter(s => s.debtCurrency !== "usd").reduce((a,s) => a + s.remaining, 0);
+  const totalDebtUsd = debtList.filter(s => s.debtCurrency === "usd" && s.debtUsd).reduce((a,s) => a + s.debtUsd, 0);
+  const lastSale   = [...sales].sort((a, b) => b.date > a.date ? 1 : -1)[0];
+  return { count: sales.length, totalBuy, totalDebt, totalDebtUsd, lastDate: lastSale?.date || null, sales };
 }
 
 // ── Render jadval ─────────────────────────────────
@@ -81,8 +82,13 @@ function renderMijozlar() {
         ${st.lastDate || "—"}
       </td>
       <td class="num">
-        ${st.totalDebt > 0
-          ? `<span style="color:var(--red);font-weight:700;font-size:13px">${fmt(st.totalDebt)} so'm</span>`
+        ${(st.totalDebt > 0 || st.totalDebtUsd > 0)
+          ? `<span style="color:var(--red);font-weight:700;font-size:13px">${
+              st.totalDebtUsd > 0 && st.totalDebt > 0
+                ? "$"+st.totalDebtUsd.toFixed(2)+" + "+fmt(st.totalDebt)+" so'm"
+                : st.totalDebtUsd > 0 ? "$"+st.totalDebtUsd.toFixed(2)+" USD"
+                : fmt(st.totalDebt)+" so'm"
+            }</span>`
           : `<span style="color:var(--grn);font-size:12px">✅ Qarz yo'q</span>`}
       </td>
       <td onclick="event.stopPropagation()">
@@ -119,7 +125,19 @@ function openCustCard(id) {
 
   if ($("cc-sales-cnt"))  $("cc-sales-cnt").textContent  = st.count;
   if ($("cc-total-buy"))  $("cc-total-buy").textContent  = st.totalBuy ? fmt(st.totalBuy) + " so'm" : "0";
-  if ($("cc-debt"))       $("cc-debt").textContent       = st.totalDebt ? fmt(st.totalDebt) + " so'm" : "Qarz yo'q ✅";
+  const debtEl = $("cc-debt");
+  if (debtEl) {
+    if (!st.totalDebt && !st.totalDebtUsd) {
+      debtEl.textContent = "Qarz yo'q ✅";
+      debtEl.style.color = "var(--grn)";
+    } else {
+      const parts = [];
+      if (st.totalDebtUsd > 0) parts.push(`$${st.totalDebtUsd.toFixed(2)} USD`);
+      if (st.totalDebt > 0)    parts.push(`${fmt(st.totalDebt)} so'm`);
+      debtEl.textContent = parts.join(" + ");
+      debtEl.style.color = "var(--red)";
+    }
+  }
 
   // SMS tugmasi
   const smsBtn = $("cc-sms-btn");
@@ -145,7 +163,11 @@ function openCustCard(id) {
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <span class="bg" style="font-size:10.5px">${s.payType||"naqd"}</span>
               ${isDebt
-                ? `<span class="bg bg-r" style="font-size:10.5px">Qarz: ${fmt(s.remaining)} so'm</span>`
+                ? `<span class="bg bg-r" style="font-size:10.5px">Qarz: ${
+                    s.debtCurrency==="usd"&&s.debtUsd
+                      ? "$"+s.debtUsd.toFixed(2)+" USD"
+                      : fmt(s.remaining)+" so'm"
+                  }</span>`
                 : `<span class="bg bg-g" style="font-size:10.5px">To'langan</span>`}
               ${s.note ? `<span class="bg" style="font-size:10.5px;color:#856404">${s.note}</span>` : ""}
             </div>
@@ -164,8 +186,12 @@ async function custCardSms() {
   if (!c || !c.phone) return;
   const st = custStats(c.id);
   const shopName = db.shop?.name || "MERX";
-  const msg = st.totalDebt > 0
-    ? `${shopName}: Hurmatli ${c.name}, jami qarzingiz: ${fmt(st.totalDebt)} so'm. Iltimos to'lovni amalga oshiring.`
+  const debtTxt = st.totalDebtUsd > 0 && st.totalDebt > 0
+    ? `$${st.totalDebtUsd.toFixed(2)} USD + ${fmt(st.totalDebt)} so'm`
+    : st.totalDebtUsd > 0 ? `$${st.totalDebtUsd.toFixed(2)} USD`
+    : st.totalDebt > 0 ? `${fmt(st.totalDebt)} so'm` : "";
+  const msg = debtTxt
+    ? `${shopName}: Hurmatli ${c.name}, jami qarzingiz: ${debtTxt}. Iltimos to'lovni amalga oshiring.`
     : `${shopName}: Hurmatli ${c.name}, siz bilan hamkorlik qilishdan mamnunmiz! Yangi mahsulotlar keldi.`;
   await sendSms(c.phone, msg);
   toast(`📲 SMS yuborildi: ${c.name}`);
