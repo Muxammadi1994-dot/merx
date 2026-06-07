@@ -558,6 +558,9 @@
           <button class="btn btn-sm" onclick="openKatalogImport()" title="Excel import" style="color:#8B5CF6">
             <i class="ti ti-upload"></i> Import
           </button>
+          <button class="btn btn-sm" onclick="openNarxnoma()" style="color:#0D1B2A;border-color:#0D1B2A">
+            <i class="ti ti-printer"></i> Narxnoma
+          </button>
           <button class="btn btn-acc btn-sm" onclick="openModal('addprod')"><i class="ti ti-plus"></i>Yangi mahsulot</button>
         </div>
       </div>
@@ -1946,5 +1949,102 @@
     </div>
   </div>
 </div>
+<!-- ═══ NARXNOMA MODAL ═══ -->
+<div class="ov" id="ov-narxnoma" onclick="if(event.target===this)closeModal('narxnoma')">
+  <div class="modal" style="max-width:920px;width:96vw;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;padding:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--brd);flex-shrink:0">
+      <h2 style="margin:0;font-size:17px"><i class="ti ti-printer"></i> Narxnoma / Yorliq chop etish</h2>
+      <button class="m-close" onclick="closeModal('narxnoma')" style="position:static;margin:0"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:280px 1fr;flex:1;overflow:hidden">
+
+      <!-- Chap panel: mahsulot tanlash -->
+      <div style="border-right:1px solid var(--brd);display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:12px 14px;border-bottom:1px solid var(--brd);flex-shrink:0">
+          <input id="nm-q" placeholder="Mahsulot qidirish..."
+            oninput="renderNarxnomaList()"
+            style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px">
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button class="btn btn-sm" style="flex:1;font-size:11.5px" onclick="nmSelectAll()">Hammasini tanla</button>
+            <button class="btn btn-sm btn-ghost" style="flex:1;font-size:11.5px" onclick="nmClearAll()">Tozalash</button>
+          </div>
+          <div id="nm-count" style="font-size:12px;color:var(--acc);font-weight:600;margin-top:6px;text-align:center">0 ta tanlandi</div>
+        </div>
+        <div id="nm-list" style="overflow-y:auto;flex:1;padding:6px 8px"></div>
+      </div>
+
+      <!-- O'ng panel: sozlamalar + preview -->
+      <div style="display:flex;flex-direction:column;overflow:hidden">
+
+        <!-- Sozlamalar qatori -->
+        <div style="padding:12px 16px;border-bottom:1px solid var(--brd);flex-shrink:0;display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+
+          <div class="fld" style="margin:0;min-width:120px">
+            <label style="font-size:11px">Dizayn</label>
+            <select id="nm-style" onchange="renderNarxnomaPreview()"
+              style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:5px 8px">
+              <option value="standard">Standart</option>
+              <option value="mini">Mini (kichik)</option>
+              <option value="premium">Premium (qora)</option>
+            </select>
+          </div>
+
+          <div class="fld" style="margin:0;min-width:80px">
+            <label style="font-size:11px">Ustunlar</label>
+            <select id="nm-cols" onchange="renderNarxnomaPreview()"
+              style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:5px 8px">
+              <option value="2">2 ta</option>
+              <option value="3" selected>3 ta</option>
+              <option value="4">4 ta</option>
+              <option value="5">5 ta</option>
+            </select>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="nm-logo" checked onchange="renderNarxnomaPreview()"
+                style="width:15px;height:15px;accent-color:var(--acc)">
+              Do'kon nomi
+            </label>
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="nm-barcode-chk" checked onchange="renderNarxnomaPreview()"
+                style="width:15px;height:15px;accent-color:var(--acc)">
+              Barcode
+            </label>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="nm-sku" onchange="renderNarxnomaPreview()"
+                style="width:15px;height:15px;accent-color:var(--acc)">
+              SKU kodi
+            </label>
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="nm-ulg" onchange="renderNarxnomaPreview()"
+                style="width:15px;height:15px;accent-color:var(--acc)">
+              Ulgurji narx
+            </label>
+          </div>
+
+          <button class="btn btn-acc" onclick="printNarxnoma()" style="margin-left:auto;white-space:nowrap">
+            <i class="ti ti-printer"></i> Chop etish
+          </button>
+        </div>
+
+        <!-- Preview -->
+        <div id="nm-preview-area" style="flex:1;overflow-y:auto;padding:14px;background:var(--bg)">
+          <div style="text-align:center;padding:40px;color:var(--mut)">
+            <i class="ti ti-tag" style="font-size:32px;display:block;margin-bottom:10px;opacity:.4"></i>
+            Chap tomondan mahsulot tanlang
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
 </body>
 </html>
