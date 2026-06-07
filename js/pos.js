@@ -189,8 +189,8 @@ function openVariantModal(sku) {
     : (vmProd.priceUzs || 0);
   const inBox = vmProd.inBox || 1;
   if ($("vm-price-header")) {
-    let pTxt = fmt(narx) + " so'm";
-    if (inBox > 1) pTxt += `<div style="font-size:10px;font-weight:600;color:#856404">📦 ${fmt(narx*inBox)} so'm/karobka</div>`;
+    let pTxt = priceDisplay(narx);
+    if (inBox > 1) pTxt += `<div style="font-size:10px;font-weight:600;color:#856404">📦 ${priceDisplay(narx*inBox)}/karobka</div>`;
     $("vm-price-header").innerHTML = pTxt;
   }
 
@@ -385,8 +385,8 @@ function renderCart() {
          <span class="ci-pr" style="color:#E9A500">${fmt(c.price*c.qty)} so'm</span>`
       : `<span class="ci-pr">${priceDisplay(c.price * c.qty)}</span>`;
     const subLine = c.sellMode === "karobka"
-      ? `${c.qty} ${c.unit} · ${fmt(c.price)} so'm/${c.unit}${isOverride?` <span style="color:#E9A500;font-size:10px">(o'zgartirilgan)</span>`:""}`
-      : isOverride ? `<span style="color:#E9A500;font-size:10.5px">Narx o'zgartirilgan: ${fmt(c.basePrice)} → ${fmt(c.price)} so'm</span>` : "";
+      ? `${c.qty} ${c.unit} · ${priceDisplay(c.price)}/${c.unit}${isOverride?` <span style="color:#E9A500;font-size:10px">(o'zgartirilgan)</span>`:""}`
+      : isOverride ? `<span style="color:#E9A500;font-size:10.5px">Narx o'zgartirilgan: ${priceDisplay(c.basePrice)} → ${priceDisplay(c.price)}</span>` : "";
     return `<div class="ci">
       <div class="ci-inf">
         <div class="ci-nm">${c.name}</div>
@@ -636,7 +636,7 @@ function showCustDebt(custId) {
 
   // Qarzlar ro'yxatidan hisoblash
   const debt = db.sales
-    .filter(s => s.customerId === custId && s.status === "nasiya" && s.remaining > 0)
+    .filter(s => s.customerId === custId && s.status === "qarz" && s.remaining > 0)
     .reduce((a, s) => a + (s.remaining || 0), 0);
 
   if (debt > 0) {
@@ -670,7 +670,7 @@ function showReceiptModal(sale) {
           <div style="font-weight:600;color:#0D1B2A">${i.name}</div>
           <div style="font-size:11.5px;color:#aaa">${i.variant} · ${i.qty} ${i.unit||"dona"}</div>
         </div>
-        <div style="font-weight:700;color:#0D1B2A;margin-left:12px;white-space:nowrap">${fmt(i.price*i.qty)} so'm</div>
+        <div style="font-weight:700;color:#0D1B2A;margin-left:12px;white-space:nowrap">${priceDisplay(i.price*i.qty)}</div>
       </div>`
     ).join("");
   }
@@ -845,9 +845,19 @@ document.addEventListener("keydown", function(e) {
 
 // ── So'nggi mahsulotlar (qidiruv bo'sh bo'lganda) ──
 function posShowRecent() {
+  // Eng ko'p sotiladigan 8 ta (bugun yoki so'nggi 7 kunda)
+  const salesCount = {};
+  const weekAgo = addDays(today(), -7);
+  db.sales.filter(s => s.date >= weekAgo).forEach(s => {
+    s.items?.forEach(i => {
+      const p = db.products.find(x => x.name === i.name);
+      if (p) salesCount[p.sku] = (salesCount[p.sku]||0) + i.qty;
+    });
+  });
   const recent = [...db.products]
     .filter(p => totalStock(p) > 0)
-    .slice(-8).reverse();
+    .sort((a, b) => (salesCount[b.sku]||0) - (salesCount[a.sku]||0))
+    .slice(0, 8);
 
   if (!recent.length) {
     $("pos-results").innerHTML = `<div class="pos-empty">
