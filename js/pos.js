@@ -474,11 +474,17 @@ function custSearch(q) {
   if (!val) { dd.style.display = "none"; return; }
 
   const ql = val.toLowerCase();
-  const found = db.customers.filter(c =>
-    c.name.toLowerCase().includes(ql) ||
-    (c.phone||"").replace(/\D/g,"").includes(ql.replace(/\D/g,"")) ||
-    (c.note||"").toLowerCase().includes(ql)
-  ).slice(0, 8);
+  const qlDigits = ql.replace(/\D/g,""); // faqat raqamlar
+  const found = db.customers.filter(c => {
+    if (c.name.toLowerCase().includes(ql)) return true;
+    // Telefon bo'yicha: faqat raqamlar kiritilgan bo'lsa va kamida 2 ta raqam bo'lsa
+    if (qlDigits.length >= 2) {
+      const phoneDigits = (c.phone||"").replace(/\D/g,"");
+      if (phoneDigits && phoneDigits.includes(qlDigits)) return true;
+    }
+    if ((c.note||"").toLowerCase().includes(ql)) return true;
+    return false;
+  }).slice(0, 8);
 
   if (!found.length) {
     dd.style.display = "block";
