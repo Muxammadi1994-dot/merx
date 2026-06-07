@@ -371,13 +371,13 @@ function setLowStockLimit(val) {
   db.settings.lowStockLimit = val;
   saveDB();
   renderDashboard();
-  toast('Chegara ' + val + ' ta ga o'zgartirildi', 'info');
+  toast("Chegara " + val + " ta ga o\u02BCzgartirildi", "info");
 }
 
 // Excel eksport
 function exportLowStock() {
   const threshold = db.settings?.lowStockLimit || 5;
-  const rows = [['Mahsulot', 'Rang', 'O'lcham', 'Qoldiq', 'Birlik', 'Holat']];
+  const rows = [['Mahsulot', 'Rang', "O'lcham", 'Qoldiq', 'Birlik', 'Holat']];
   const lowStock = [];
   db.products.forEach(p => {
     const minQty = p.minStock || threshold;

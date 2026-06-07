@@ -349,9 +349,9 @@ function omRenderKamQoldiq() {
               </td>
               <td class="num" style="color:var(--mut);font-size:13px">${minQty} ta</td>
               <td>${status}</td>
-              <td class="num" style="font-size:12.5px">${costUzs ? fmt(costUzs)+' so'm' : '—'}</td>
+              <td class="num" style="font-size:12.5px">${costUzs ? fmt(costUzs)+" so'm" : "—"}</td>
               <td>
-                <button class="btn btn-sm btn-ghost" onclick="openModal('qabul');setTimeout(()=>{if($('qb-name'))$('qb-name').value='${p.name.replace(/'/g,"\'")}';},100)"
+                <button class="btn btn-sm btn-ghost" onclick="qabulFromAlert('${p.name.replace(/'/g,"&#39;")}')"
                   title="Tovar qabul">
                   <i class="ti ti-plus"></i> Qabul
                 </button>
@@ -370,7 +370,7 @@ function setLowStockLimit(val) {
   saveDB();
   omRenderKamQoldiq();
   if (typeof renderDashboard === 'function') renderDashboard();
-  toast('Chegara ' + val + ' ta ga o'zgartirildi', 'info');
+  toast("Chegara " + val + " ta ga o'zgartirildi", "info");
 }
 
 function exportLowStock() {
