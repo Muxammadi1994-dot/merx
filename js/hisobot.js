@@ -40,29 +40,58 @@ function renderHisobot() {
   const paid    = sales.reduce((a, s) => a + (s.paid||0), 0);
   const debt    = sales.reduce((a, s) => a + (s.remaining||0), 0);
 
-  // Foyda hisoblash: paid - tannarx (nasiya hisobga olinadi)
-  let profit = 0, costTotal = 0;
+  // Foyda hisoblash (to'g'ri mantiq)
+  // Hisoblangan foyda = sotuv narxi - tannarx (tovar chiqib ketgan)
+  // Kassaga tushgan foyda = to'langan qism - tannarx (real kassa)
+  let costTotal     = 0;  // jami tannarx (sotilgan tovarlar)
+  let grossProfit   = 0;  // hisoblangan foyda (nasiya ham kiradi)
+  let realProfit    = 0;  // kassaga tushgan foyda (faqat to'langan)
+
   sales.forEach(s => {
+    let saleCost = 0;
     s.items?.forEach(item => {
       const p = db.products.find(x => x.name === item.name);
       if (!p) return;
-      const costUzs = (p.costUsd || 0) * rate;
-      costTotal += costUzs * item.qty;
+      const costUzs = Math.round((p.costUsd || 0) * rate);
+      saleCost  += costUzs * (item.qty || 0);
     });
-    // Faqat to'langan qismini foydaga hisoblaymiz
-    profit += (s.paid || 0);
+    costTotal   += saleCost;
+    // Hisoblangan foyda: sotuv narxi - tannarx
+    grossProfit += (s.total || 0) - saleCost;
+    // Kassaga tushgan: to'langan qism - (tannarx × to'langan ulush)
+    const paidRatio = s.total > 0 ? (s.paid || 0) / s.total : 1;
+    realProfit  += ((s.total || 0) - saleCost) * paidRatio;
   });
-  profit -= costTotal;
-  const margin = rev > 0 ? Math.round(profit / rev * 100) : 0;
+
+  grossProfit = Math.round(grossProfit);
+  realProfit  = Math.round(realProfit);
+  const margin     = rev > 0 ? Math.round(grossProfit / rev * 100) : 0;
+  const realMargin = paid > 0 ? Math.round(realProfit / paid * 100) : 0;
 
   if ($("rep-cnt"))  $("rep-cnt").textContent  = cnt + " ta";
   if ($("rep-rev"))  $("rep-rev").textContent  = fmtK(rev)  + " so'm";
   if ($("rep-paid")) $("rep-paid").textContent = fmtK(paid) + " so'm";
   if ($("rep-debt")) $("rep-debt").textContent = fmtK(debt) + " so'm";
 
-  // Foyda KPI (agar element bor bo'lsa)
-  if ($("rep-profit")) $("rep-profit").textContent = fmtK(profit) + " so'm";
-  if ($("rep-margin")) $("rep-margin").textContent = margin + "%";
+  // Foyda KPI — hisoblangan (barcha sotuv asosida)
+  if ($("rep-profit")) {
+    $("rep-profit").textContent = fmtK(grossProfit) + " so'm";
+    $("rep-profit").style.color = grossProfit >= 0 ? "var(--grn)" : "var(--red)";
+  }
+  if ($("rep-margin")) {
+    $("rep-margin").textContent = margin + "%";
+    $("rep-margin").style.color = margin >= 20 ? "var(--grn)" : margin >= 10 ? "#E07B39" : "var(--red)";
+  }
+  // Kassaga tushgan foyda (agar element bor bo'lsa)
+  if ($("rep-real-profit")) {
+    $("rep-real-profit").textContent = fmtK(realProfit) + " so'm";
+    $("rep-real-profit").style.color = realProfit >= 0 ? "var(--grn)" : "var(--red)";
+  }
+  if ($("rep-real-margin")) {
+    $("rep-real-margin").textContent = realMargin + "%";
+  }
+  // Tannarx jami
+  if ($("rep-cost")) $("rep-cost").textContent = fmtK(costTotal) + " so'm";
 
   renderRepTrendChart(sales);
   renderRepPayChart(sales);
