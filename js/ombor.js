@@ -497,7 +497,16 @@ function qbAutofill(val) {
 
   // Narx placeholder
   if ($("qb-price"))   $("qb-price").placeholder   = fmt(p.priceUzs) + " (joriy)";
-  if ($("qb-ulgurji")) $("qb-ulgurji").placeholder = fmt(p.ulgurjiNarx||0) + " (joriy)";
+  if ($("qb-ulgurji")) {
+    $("qb-ulgurji").placeholder = fmt(p.ulgurjiNarx||0) + " (joriy)";
+    // Inputni tozalaymiz — eski qiymat data-raw ni noto'g'ri qilishi mumkin
+    $("qb-ulgurji").value = "";
+    $("qb-ulgurji").dataset.raw = "";
+  }
+  if ($("qb-cost")) {
+    $("qb-cost").value = "";
+    $("qb-cost").dataset.raw = "";
+  }
 
   // Info matni
   const st = p.variants.map(v => `${v.color}/${v.size}(${v.qty})`).join(", ");
@@ -694,36 +703,37 @@ function downloadCSVOmbor(rows, filename) {
 
 // ── Karobka narx hintlari ─────────────────────
 function qbUpdateBoxHints() {
-  const inBox  = parseInt(($("qb-inbox-edit")||{value:0}).value) || 0;
-  const rate   = db.settings?.rate || 12800;
-  const cur    = db.settings?.priceCurrency || "uzs";
-  const isUsd  = cur === "usd";
+  const inBox = parseInt(($("qb-inbox-edit")||{value:0}).value) || 0;
+  if (inBox < 2) {
+    const ch = $("qb-cost-hint"); if (ch) ch.style.display = "none";
+    const uh = $("qb-ulg-hint");  if (uh) uh.style.display = "none";
+    return;
+  }
 
-  function showHint(hintId, rawVal) {
+  // qb-cost har doim so'mda ko'rsatiladi (UZS yoki konvertatsiya qilingan)
+  // Inputdan faqat raqamlarni olamiz — data-raw yoki value dan
+  function getRawSom(id) {
+    const el = $(id); if (!el) return 0;
+    const raw = el.dataset.raw
+      ? parseInt(el.dataset.raw) || 0
+      : parseInt((el.value || "").replace(/\D/g, "")) || 0;
+    return raw;
+  }
+
+  const cost = getRawSom("qb-cost");
+  const ulg  = getRawSom("qb-ulgurji");
+
+  function showHint(hintId, donaUzs) {
     const el = $(hintId); if (!el) return;
-    if (!rawVal || rawVal <= 0 || inBox < 2) { el.style.display = "none"; return; }
-    // qb-cost: USD rejimida USD kiritiladi → so'mga o'giramiz; so'm rejimida to'g'ri
-    const donaUzs = isUsd ? Math.round(rawVal * rate) : rawVal;
-    const total   = donaUzs * inBox;
-    const span    = el.querySelector("span");
-    const unitLbl = isUsd ? `$${rawVal.toFixed(2)}` : fmt(rawVal) + " so'm";
-    const totLbl  = fmt(total) + " so'm";
-    if (span) span.textContent = `1 karobka = ${totLbl} (${inBox} × ${unitLbl})`;
+    if (!donaUzs || donaUzs <= 0) { el.style.display = "none"; return; }
+    const total = donaUzs * inBox;
+    const span  = el.querySelector("span");
+    if (span) span.textContent = `1 karobka = ${fmt(total)} so'm (${inBox} × ${fmt(donaUzs)})`;
     el.style.display = "inline-flex";
   }
 
-  const cost = getRawVal("qb-cost");
-  const ulg  = getRawVal("qb-ulgurji");
   showHint("qb-cost-hint", cost);
-  // Ulgurji har doim so'mda kiritiladi
-  const ulgEl = $("qb-ulg-hint"); if (ulgEl) {
-    if (!ulg || ulg <= 0 || inBox < 2) { ulgEl.style.display = "none"; }
-    else {
-      const span = ulgEl.querySelector("span");
-      if (span) span.textContent = `1 karobka = ${fmt(ulg * inBox)} so'm (${inBox} × ${fmt(ulg)})`;
-      ulgEl.style.display = "inline-flex";
-    }
-  }
+  showHint("qb-ulg-hint",  ulg);
 }
 
 // ================================================
