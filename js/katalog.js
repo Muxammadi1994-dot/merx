@@ -17,6 +17,38 @@ function setKatCat(c) {
   renderKatalog();
 }
 
+function katSortToggle(key) {
+  if (katSortBy === key) {
+    katSortAsc = !katSortAsc;
+  } else {
+    katSortBy  = key;
+    katSortAsc = key === "name"; // nom: A→Z, boshqalar: kattadan kichikka
+  }
+  // Tugma ko'rinishini yangilash
+  document.querySelectorAll(".kat-sort-btn").forEach(b => {
+    b.style.background  = "";
+    b.style.color       = "";
+    b.style.borderColor = "";
+  });
+  const ids = { name:"kat-sort-name", qty:"kat-sort-qty", price:"kat-sort-price" };
+  const btn = document.getElementById(ids[key]);
+  if (btn) {
+    btn.style.background  = "#0D1B2A";
+    btn.style.color       = "#fff";
+    btn.style.borderColor = "#0D1B2A";
+    // O'q ikonini yangilaymiz
+    const ico = btn.querySelector("i");
+    if (ico) {
+      if (key === "name") {
+        ico.className = katSortAsc ? "ti ti-sort-az" : "ti ti-sort-za";
+      } else {
+        ico.className = katSortAsc ? "ti ti-sort-ascending-2" : "ti ti-sort-descending-2";
+      }
+    }
+  }
+  renderKatalog();
+}
+
 // Dinamik kategoriya tugmalarini yangilash
 function updateKatCatBtns() {
   const cats = [...new Set(db.products.map(p => p.category))].slice(0, 6);
@@ -57,6 +89,20 @@ function renderKatalog() {
   if (katCatFilter === "oyoq")  ps = ps.filter(p => p.type === "oyoq");
   else if (katCatFilter === "kiyim") ps = ps.filter(p => p.type === "kiyim");
   else if (katCatFilter !== "all")   ps = ps.filter(p => p.category === katCatFilter);
+
+  // Saralash
+  if (katSortBy) {
+    const rate = db.settings.rate || 12800;
+    ps.sort((a, b) => {
+      let va, vb;
+      if (katSortBy === "name")  { va = a.name;         vb = b.name; }
+      if (katSortBy === "qty")   { va = totalStock(a);  vb = totalStock(b); }
+      if (katSortBy === "price") { va = a.ulgurjiNarx || (a.costUsd||0)*rate;
+                                   vb = b.ulgurjiNarx || (b.costUsd||0)*rate; }
+      if (typeof va === "string") return katSortAsc ? va.localeCompare(vb,"uz") : vb.localeCompare(va,"uz");
+      return katSortAsc ? va - vb : vb - va;
+    });
+  }
 
   // Dinamik kategoriya tugmalarini yangilash
   updateKatCatBtns();
