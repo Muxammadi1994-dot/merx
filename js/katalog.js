@@ -893,8 +893,13 @@ let _narxnomaMode = "list";        // "list" | "grid"
 
 function openNarxnoma() {
   _narxnomaSelected.clear();
-  renderNarxnomaList();
-  openModal("narxnoma");
+  // Avval modalni ochamiz, keyin render qilamiz (DOM tayyor bo'lsin)
+  const ovEl = document.getElementById("ov-narxnoma");
+  if (ovEl) ovEl.classList.add("on");
+  setTimeout(() => {
+    renderNarxnomaList();
+    renderNarxnomaPreview();
+  }, 30);
 }
 
 // ── Mahsulotlar ro'yxati (tanlash uchun) ─────────

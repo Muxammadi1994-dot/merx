@@ -193,6 +193,12 @@ window.openModal = function(id) {
   if (typeof _origOpenModal === "function") _origOpenModal(id);
   if (id === "addprod" || id === "editprod") setTimeout(window.applyKatalogFields, 30);
   if (id === "qabul")                        setTimeout(window.applyOmborFields,   30);
+  if (id === "narxnoma") {
+    setTimeout(() => {
+      if (typeof renderNarxnomaList    === "function") renderNarxnomaList();
+      if (typeof renderNarxnomaPreview === "function") renderNarxnomaPreview();
+    }, 30);
+  }
 };
 
 // renderPosGrid hook
