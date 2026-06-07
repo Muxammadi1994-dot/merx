@@ -192,6 +192,7 @@ function seedDB() {
       { id:2, name:"Malika Yusupova", phone:"+998 91 222 33 44", role:"menejer" }
     ],
     xarajatlar: [],
+    chiqimlar: [],   // [{id, date, time, productName, sku, color, size, qty, unit, reason, note, costUzs}]
     seq: 10
   };
 }

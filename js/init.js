@@ -9,6 +9,7 @@ function init() {
   if (!db.staff)      db.staff = [];
   if (!db.xarajatlar) db.xarajatlar = [];
   if (!db.ombor)      db.ombor = [];
+  if (!db.chiqimlar)  db.chiqimlar = [];
   updateRatePill();
   $("sb-shop").textContent    = db.shop.name;
   $("debt-count").textContent = debtSales().length;

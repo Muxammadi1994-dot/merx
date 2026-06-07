@@ -22,6 +22,7 @@ function renderOmbor() {
   else if (omActiveTab === "kirim")  omRenderKirim();
   else if (omActiveTab === "sup")    omRenderSuppliers();
   else if (omActiveTab === "kam")    omRenderKamQoldiq();
+  else if (omActiveTab === "chiqim") omRenderChiqim();
 }
 
 function omSetTab(tab) {
@@ -33,6 +34,8 @@ function omSetTab(tab) {
   $("om-tab-sup").style.display    = tab === "sup"    ? "" : "none";
   const kamEl = $("om-tab-kam");
   if (kamEl) kamEl.style.display   = tab === "kam"    ? "" : "none";
+  const chiqimEl = $("om-tab-chiqim");
+  if (chiqimEl) chiqimEl.style.display = tab === "chiqim" ? "" : "none";
   renderOmbor();
 }
 
@@ -1052,4 +1055,258 @@ function exportInventExcel() {
   ).join("\n");
     downloadCSV(rows, `merx_invent_${today()}.xls`);
   toast("Inventarizatsiya Excel yuklab olindi");
+}
+
+// ════════════════════════════════════════════════
+// HISOBDAN CHIQARISH (WRITE-OFF)
+// ════════════════════════════════════════════════
+
+const CHIQIM_SABABLAR = [
+  { key:"nuqson",   label:"🔧 Nuqsonli",    color:"#E07B39" },
+  { key:"ogirlik",  label:"🔓 O'g'irlik",   color:"#E05A5A" },
+  { key:"yoqolish", label:"❓ Yo'qolish",   color:"#8B5CF6" },
+  { key:"qaytarish",label:"↩️ Qaytarildi",  color:"#4C9BE8" },
+  { key:"eskirish", label:"📦 Eskirish",    color:"#888"    },
+  { key:"boshqa",   label:"📋 Boshqa",      color:"#aaa"    },
+];
+
+// ── Modal ochish ──────────────────────────────────
+function openChiqimModal() {
+  // Forma tozalash
+  const nameInp = $("ch-name"); if (nameInp) nameInp.value = "";
+  const colorInp = $("ch-color"); if (colorInp) colorInp.value = "";
+  const sizeInp = $("ch-size"); if (sizeInp) sizeInp.value = "";
+  const qtyInp = $("ch-qty"); if (qtyInp) qtyInp.value = "1";
+  const noteInp = $("ch-note"); if (noteInp) noteInp.value = "";
+  if ($("ch-reason")) $("ch-reason").value = "nuqson";
+
+  // Mahsulotlar ro'yxati
+  const list = $("ch-prod-list");
+  if (list) list.innerHTML = db.products.map(p =>
+    `<option value="${p.name}">`
+  ).join("");
+
+  renderChiqimColorSize();
+  openModal("chiqim");
+  setTimeout(() => { if ($("ch-name")) $("ch-name").focus(); }, 50);
+}
+
+// ── Mahsulot tanlaganda rang/o'lchamlarni yuklash ──
+function renderChiqimColorSize() {
+  const name = ($("ch-name")||{value:""}).value.trim();
+  const p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
+
+  const colorSel = $("ch-color");
+  const sizeSel  = $("ch-size");
+  const stockEl  = $("ch-stock-info");
+
+  if (!p) {
+    if (colorSel) colorSel.innerHTML = '<option value="">— avval mahsulot tanlang —</option>';
+    if (sizeSel)  sizeSel.innerHTML  = '<option value="">—</option>';
+    if (stockEl)  stockEl.textContent = "";
+    return;
+  }
+
+  // Ranglar
+  const colors = [...new Set(p.variants.map(v => v.color))];
+  if (colorSel) {
+    colorSel.innerHTML = '<option value="">— Rang tanlang —</option>' +
+      colors.map(c => {
+        const qty = p.variants.filter(v => v.color === c).reduce((a,v) => a+v.qty, 0);
+        return `<option value="${c}">${c} (${qty} ${p.unit||"dona"})</option>`;
+      }).join("");
+  }
+
+  renderChiqimSizes();
+}
+
+function renderChiqimSizes() {
+  const name  = ($("ch-name")||{value:""}).value.trim();
+  const color = ($("ch-color")||{value:""}).value;
+  const p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
+  const sizeSel = $("ch-size");
+  const stockEl = $("ch-stock-info");
+
+  if (!p || !color) {
+    if (sizeSel) sizeSel.innerHTML = '<option value="">— avval rang tanlang —</option>';
+    if (stockEl) stockEl.textContent = "";
+    return;
+  }
+
+  const variants = p.variants.filter(v => v.color === color);
+  if (sizeSel) {
+    sizeSel.innerHTML = '<option value="">— O\'lcham tanlang —</option>' +
+      variants.map(v =>
+        `<option value="${v.size}" ${v.qty<=0?"disabled":""}>
+          ${v.size} — ${v.qty} ${p.unit||"dona"}${v.qty<=0?" (tugagan)":""}
+        </option>`
+      ).join("");
+  }
+
+  // Jami qoldiq
+  const total = variants.reduce((a,v) => a+v.qty, 0);
+  if (stockEl) stockEl.textContent = `Qoldiq: ${total} ${p.unit||"dona"}`;
+  updateChiqimMax();
+}
+
+function updateChiqimMax() {
+  const name  = ($("ch-name")||{value:""}).value.trim();
+  const color = ($("ch-color")||{value:""}).value;
+  const size  = ($("ch-size")||{value:""}).value;
+  const qtyInp = $("ch-qty");
+  const stockEl = $("ch-stock-info");
+
+  const p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
+  if (!p || !color || !size) return;
+
+  const v = p.variants.find(x => x.color === color && x.size === size);
+  const maxQty = v ? v.qty : 0;
+  if (qtyInp) {
+    qtyInp.max = maxQty;
+    qtyInp.style.borderColor = maxQty <= 0 ? "var(--red)" : "";
+  }
+  if (stockEl) {
+    stockEl.textContent = `Qoldiq: ${maxQty} ${p.unit||"dona"}`;
+    stockEl.style.color = maxQty <= 0 ? "var(--red)" : "var(--mut)";
+  }
+}
+
+// ── Chiqimni saqlash ─────────────────────────────
+function saveChiqim() {
+  const name   = ($("ch-name")||{value:""}).value.trim();
+  const color  = ($("ch-color")||{value:""}).value;
+  const size   = ($("ch-size")||{value:""}).value;
+  const qty    = parseInt(($("ch-qty")||{value:0}).value) || 0;
+  const reason = ($("ch-reason")||{value:"boshqa"}).value;
+  const note   = ($("ch-note")||{value:""}).value.trim();
+
+  if (!name)  { toast("Mahsulot tanlang","err"); return; }
+  if (!color) { toast("Rang tanlang","err"); return; }
+  if (!size)  { toast("O'lcham tanlang","err"); return; }
+  if (qty <= 0) { toast("Miqdor kiriting","err"); return; }
+
+  const p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
+  if (!p) { toast("Mahsulot topilmadi","err"); return; }
+
+  const v = p.variants.find(x => x.color === color && x.size === size);
+  if (!v) { toast("Bu variant topilmadi","err"); return; }
+  if (v.qty < qty) { toast(`Faqat ${v.qty} ta mavjud`,"err"); return; }
+
+  const rate    = db.settings.rate || 12800;
+  const costUzs = Math.round((p.costUsd || 0) * rate);
+
+  // Ombordan ayirish
+  v.qty -= qty;
+
+  // Chiqim yozuvi
+  db.chiqimlar.push({
+    id:          db.seq++,
+    date:        today(),
+    time:        nowTime(),
+    productName: p.name,
+    sku:         p.sku,
+    color, size, qty,
+    unit:        p.unit || "dona",
+    reason,
+    note:        note || "",
+    costUzs:     costUzs * qty,
+    costUsdEach: p.costUsd || 0
+  });
+
+  saveDB();
+  closeModal("chiqim");
+  renderOmbor();
+
+  const sababLabel = CHIQIM_SABABLAR.find(s => s.key === reason)?.label || reason;
+  toast(`✅ ${name} (${color}/${size}) — ${qty} ta hisobdan chiqarildi (${sababLabel})`);
+}
+
+// ── Chiqimlar tarixini ko'rsatish ─────────────────
+function omRenderChiqim() {
+  const el = $("om-tab-chiqim"); if (!el) return;
+  const q  = ($("om-q")||{value:""}).value.toLowerCase();
+
+  let list = [...(db.chiqimlar||[])].reverse();
+  if (q) list = list.filter(c =>
+    c.productName.toLowerCase().includes(q) ||
+    (c.color||"").toLowerCase().includes(q) ||
+    (c.reason||"").toLowerCase().includes(q) ||
+    (c.note||"").toLowerCase().includes(q)
+  );
+
+  const totalQty  = list.reduce((a,c) => a+c.qty, 0);
+  const totalCost = list.reduce((a,c) => a+(c.costUzs||0), 0);
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--brd);flex-wrap:wrap">
+      <strong style="font-size:13.5px">${list.length} ta yozuv</strong>
+      <span style="font-size:12.5px;color:var(--mut)">Jami: <strong style="color:#0D1B2A">${totalQty} dona</strong></span>
+      <span style="font-size:12.5px;color:var(--mut)">Zarar: <strong style="color:var(--red)">${fmt(totalCost)} so'm</strong></span>
+      <button class="btn btn-sm btn-ghost" onclick="exportChiqimExcel()" style="margin-left:auto;color:#1D6A39">
+        <i class="ti ti-file-spreadsheet"></i> Excel
+      </button>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>Sana</th><th>Mahsulot</th><th>Rang/O'lcham</th>
+          <th class="num">Miqdor</th><th>Sabab</th><th>Izoh</th>
+          <th class="num">Zarar</th><th></th>
+        </tr></thead>
+        <tbody>
+          ${list.length ? list.map(c => {
+            const sabab = CHIQIM_SABABLAR.find(s => s.key === c.reason) || { label:c.reason, color:"#888" };
+            return `<tr>
+              <td style="font-size:12px;white-space:nowrap">
+                <div>${c.date}</div>
+                <div style="color:var(--mut);font-size:10.5px">${c.time||""}</div>
+              </td>
+              <td>
+                <div style="font-weight:600;font-size:13px">${c.productName}</div>
+                <div style="font-size:11px;color:var(--mut)">${c.sku}</div>
+              </td>
+              <td style="font-size:12.5px">${c.color||"—"} / ${c.size||"—"}</td>
+              <td class="num" style="font-weight:700;color:var(--red)">−${c.qty} ${c.unit||"ta"}</td>
+              <td>
+                <span class="bg" style="font-size:11.5px;background:${sabab.color}18;color:${sabab.color}">
+                  ${sabab.label}
+                </span>
+              </td>
+              <td style="font-size:12px;color:var(--mut);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                ${c.note||"—"}
+              </td>
+              <td class="num" style="color:var(--red);font-size:12.5px">
+                ${c.costUzs ? fmt(c.costUzs)+" so'm" : "—"}
+              </td>
+              <td>
+                <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteChiqim(${c.id})"
+                  title="O'chirish" style="color:var(--red)">
+                  <i class="ti ti-trash"></i>
+                </button>
+              </td>
+            </tr>`;
+          }).join("") : '<tr><td colspan="8" class="empty-td">Chiqimlar yo\'q</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function deleteChiqim(id) {
+  const c = db.chiqimlar.find(x => x.id === id); if (!c) return;
+  if (!confirm(`${c.productName} (${c.color}/${c.size}) — ${c.qty} ta chiqimni o'chirasizmi?\nOmbor qoldig'i TIKLANMAYDI.`)) return;
+  db.chiqimlar = db.chiqimlar.filter(x => x.id !== id);
+  saveDB(); omRenderChiqim();
+  toast("Chiqim o'chirildi", "info");
+}
+
+function exportChiqimExcel() {
+  const rows = [["Sana","Mahsulot","SKU","Rang","O'lcham","Miqdor","Birlik","Sabab","Izoh","Zarar (so'm)"]];
+  (db.chiqimlar||[]).slice().reverse().forEach(c => {
+    const sabab = CHIQIM_SABABLAR.find(s => s.key === c.reason)?.label || c.reason;
+    rows.push([c.date, c.productName, c.sku, c.color||"", c.size||"", c.qty, c.unit||"dona", sabab, c.note||"", c.costUzs||0]);
+  });
+  if (typeof downloadCSV === "function") {
+    downloadCSV(rows, "merx_chiqimlar_" + today() + ".csv");
+    toast("Excel yuklab olindi");
+  }
 }
