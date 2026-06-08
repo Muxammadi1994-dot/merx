@@ -290,23 +290,32 @@ tr:hover td{background:#FAFAF8}
 
 
 /* ══ MAYDONLAR BOSHQARUVI (egasi.js) ══════════════ */
-.ft-item{display:flex;align-items:center;justify-content:space-between;
+.ft-item{display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:8px 12px;border:1.5px solid var(--brd);border-radius:10px;
-  background:#fff;transition:border-color .15s}
-.ft-item:hover{border-color:#c8a84b}
-.ft-item.ft-off{opacity:.45}
-.ft-sw{position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0}
-.ft-sw input{opacity:0;width:0;height:0}
-.ft-sl{position:absolute;inset:0;background:#ddd;border-radius:24px;cursor:pointer;transition:.2s}
-.ft-sl:before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;
-  background:#fff;border-radius:50%;transition:.2s}
-.ft-sw input:checked + .ft-sl{background:#E9A500}
-.ft-sw input:checked + .ft-sl:before{transform:translateX(18px)}
+  background:#fff;cursor:pointer;transition:border-color .15s,background .15s;user-select:none}
+.ft-item:hover{border-color:#c8a84b;background:#fffbf0}
+.ft-item.ft-on{border-color:#E9A500;background:#fffbf0}
+.ft-left{display:flex;align-items:center;gap:7px;font-size:13px;flex:1;min-width:0}
+.ft-left i{font-size:14px;color:var(--mut);flex-shrink:0}
+
+/* Toggle switch */
+.ft-sw{position:relative;width:42px;height:24px;background:#ddd;border-radius:24px;
+  flex-shrink:0;transition:background .2s}
+.ft-sw-on{background:#E9A500}
+.ft-knob{position:absolute;top:3px;left:3px;width:18px;height:18px;
+  background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2);
+  transition:transform .2s}
+.ft-sw-on .ft-knob{transform:translateX(18px)}
+
+/* Grid va blok */
+.ft-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:10px}
 .fg-block{background:var(--bg);border:1px solid var(--brd);border-radius:12px;
   padding:14px 16px;margin-bottom:12px}
-.fg-title{font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;
-  letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;gap:6px}
-.fg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.fg-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.fg-title{display:flex;align-items:center;gap:8px;font-size:13px}
+.fg-title i{font-size:16px;color:var(--mut)}
+.fg-title strong{font-weight:700;color:var(--ink);display:block}
+.fg-desc{font-size:11px;color:var(--mut);font-weight:400}
 
 /* ══ NARXNOMA MODAL ══════════════════════════════ */
 .nm-prod-item{display:flex;align-items:center;gap:10px;padding:8px 10px;
