@@ -337,9 +337,9 @@ function renderSaShops() {
 
           return `<tr style="border-bottom:1px solid #0f2035;transition:background .15s"
             onmouseover="this.style.background='#0f2035'" onmouseout="this.style.background=''">
-            <td style="padding:12px 10px">
-              <div style="font-weight:700;color:#c8d8e8">${s.name}</div>
-              <div style="font-size:11px;color:#4a6070;margin-top:2px">ID: ${s.id}</div>
+            <td style="padding:12px 10px;cursor:pointer" onclick="saShowStats('${s.id}')">
+              <div style="font-weight:700;color:#E9A500;text-decoration:underline;text-underline-offset:3px">${s.name}</div>
+              <div style="font-size:11px;color:#4a6070;margin-top:2px">ID: ${s.id} · 📊 statistika</div>
             </td>
             <td style="padding:12px 10px;color:#6b8096">
               <div>${s.ownerName || "—"}</div>
@@ -667,9 +667,9 @@ window.renderSaShops = function() {
 
           return `<tr style="border-bottom:1px solid #0f2035;transition:background .15s"
             onmouseover="this.style.background='#0f2035'" onmouseout="this.style.background=''">
-            <td style="padding:12px 10px">
-              <div style="font-weight:700;color:#c8d8e8">${s.name}</div>
-              <div style="font-size:11px;color:#4a6070;margin-top:2px">ID: ${s.id}</div>
+            <td style="padding:12px 10px;cursor:pointer" onclick="saShowStats('${s.id}')">
+              <div style="font-weight:700;color:#E9A500;text-decoration:underline;text-underline-offset:3px">${s.name}</div>
+              <div style="font-size:11px;color:#4a6070;margin-top:2px">ID: ${s.id} · 📊 statistika</div>
             </td>
             <td style="padding:12px 10px;color:#6b8096">
               <div>${s.ownerName || "—"}</div>
@@ -2712,6 +2712,77 @@ if (document.readyState === "loading") {
 // ── Super admin ko'rish
 
 // ── Super admin ko'rish tugmasini jadvalga qo'shish ──
+// ── Do'kon statistikasini hisoblash ──────────────
+function saGetShopStats(shop) {
+  try {
+    const raw = localStorage.getItem(shop.dbKey);
+    if (!raw) return null;
+    const sdb = JSON.parse(raw);
+    const sales = sdb.sales || [], customers = sdb.customers || [], products = sdb.products || [];
+    const rate  = sdb.settings?.rate || 12800;
+    const totalRev  = sales.reduce((a,s)=>a+(s.paid||0),0);
+    const totalDebt = sales.filter(s=>s.status==="qarz").reduce((a,s)=>a+(s.remaining||0),0);
+    const totalStock= products.reduce((a,p)=>a+p.variants.reduce((b,v)=>b+(v.qty||0),0),0);
+    let costTotal = 0;
+    sales.forEach(s=>{ s.items?.forEach(i=>{ const p=products.find(x=>x.name===i.name); if(p) costTotal+=Math.round((p.costUsd||0)*rate)*(i.qty||0); }); });
+    const m = new Date().toISOString().slice(0,7);
+    const monthSales = sales.filter(s=>s.date?.startsWith(m));
+    return { salesCnt:sales.length, monthCnt:monthSales.length, totalRev, monthRev:monthSales.reduce((a,s)=>a+(s.paid||0),0), totalDebt, profit:totalRev-costTotal, custCnt:customers.length, prodCnt:products.length, stockCnt:totalStock };
+  } catch(e) { return null; }
+}
+
+function saShowStats(shopId) {
+  const shop = _saShops.find(s=>s.id===shopId); if (!shop) return;
+  const stats = saGetShopStats(shop);
+  document.getElementById("sa-stats-modal")?.remove();
+  const modal = document.createElement("div");
+  modal.id = "sa-stats-modal";
+  modal.style.cssText = `position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif`;
+  const fmtN = n => n>=1000000?(n/1000000).toFixed(1)+"M":n>=1000?(n/1000).toFixed(0)+"K":String(n||0);
+  const planL = {trial:"Sinov",monthly:"Oylik",yearly:"Yillik",lifetime:"Umrlik"};
+  modal.innerHTML = `
+    <div style="background:#0D1B2A;border:1px solid #1e3a5f;border-radius:16px;width:560px;max-width:95vw;overflow:hidden">
+      <div style="padding:18px 24px;border-bottom:1px solid #1e3a5f;display:flex;align-items:center;justify-content:space-between">
+        <div><div style="font-size:16px;font-weight:700;color:#E9A500">${shop.name}</div><div style="font-size:12px;color:#6b8096">${shop.ownerName||"—"} · ${shop.phone||"—"}</div></div>
+        <button onclick="document.getElementById('sa-stats-modal').remove()" style="background:#1a2d40;border:1px solid #2a4060;color:#6b8096;border-radius:8px;padding:6px 12px;font-family:inherit;cursor:pointer;font-size:16px">✕</button>
+      </div>
+      ${!stats ? `<div style="padding:40px;text-align:center;color:#6b8096">Hali ma'lumot yo'q</div>` : `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#1e3a5f">
+        ${[
+          {lbl:"Jami sotuv",   val:fmtN(stats.totalRev)+" so'm", clr:"#36B48C"},
+          {lbl:"Bu oy",        val:fmtN(stats.monthRev)+" so'm",  clr:"#4C9BE8"},
+          {lbl:"Foyda",        val:fmtN(stats.profit)+" so'm",    clr:stats.profit>=0?"#E9A500":"#E05A5A"},
+          {lbl:"Sotuvlar",     val:stats.salesCnt+" ta",           clr:"#c8d8e8"},
+          {lbl:"Mijozlar",     val:stats.custCnt+" ta",            clr:"#c8d8e8"},
+          {lbl:"Qarz",         val:fmtN(stats.totalDebt)+" so'm", clr:"#E05A5A"},
+          {lbl:"Mahsulotlar",  val:stats.prodCnt+" tur",           clr:"#c8d8e8"},
+          {lbl:"Qoldiq",       val:stats.stockCnt+" dona",         clr:"#c8d8e8"},
+          {lbl:"Bu oy sotuv",  val:stats.monthCnt+" ta",           clr:"#4C9BE8"},
+        ].map(k=>`<div style="background:#0a1824;padding:14px 16px"><div style="font-size:11px;color:#4a6070;margin-bottom:3px">${k.lbl}</div><div style="font-size:16px;font-weight:800;color:${k.clr}">${k.val}</div></div>`).join("")}
+      </div>
+      <div style="padding:14px 24px;border-top:1px solid #1e3a5f">
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          ${[{lbl:"Obuna",val:planL[shop.plan]||shop.plan},{lbl:"Muddat",val:shop.plan==="lifetime"?"♾️":(shop.expiresAt?.slice(0,10)||"—")},{lbl:"Holat",val:saIsActive(shop)?"✅ Faol":"❌ Nofaol"},{lbl:"Qo'shildi",val:shop.createdAt?.slice(0,10)||"—"}].map(k=>`<div style="background:#1a2d40;border-radius:8px;padding:8px 14px"><div style="font-size:10px;color:#4a6070;margin-bottom:2px">${k.lbl}</div><div style="font-size:13px;font-weight:600;color:#c8d8e8">${k.val}</div></div>`).join("")}
+        </div>
+      </div>
+      <div style="padding:12px 24px;border-top:1px solid #1e3a5f;display:flex;gap:8px">
+        <button onclick="saSwitchToShop('${shop.id}');document.getElementById('sa-stats-modal').remove()" style="background:#8B5CF622;border:1px solid #8B5CF6;color:#8B5CF6;border-radius:8px;padding:8px 16px;font-family:inherit;font-size:13px;cursor:pointer">👁️ Kirish</button>
+        <button onclick="saToggleShop('${shop.id}');document.getElementById('sa-stats-modal').remove()" style="background:#1a2d40;border:1px solid #2a4060;color:${saIsActive(shop)?"#E05A5A":"#36B48C"};border-radius:8px;padding:8px 16px;font-family:inherit;font-size:13px;cursor:pointer">${saIsActive(shop)?"🔒 Bloklash":"✅ Faollashtirish"}</button>
+        <button onclick="saExtendShop('${shop.id}');document.getElementById('sa-stats-modal').remove()" style="background:#36B48C22;border:1px solid #36B48C;color:#36B48C;border-radius:8px;padding:8px 16px;font-family:inherit;font-size:13px;cursor:pointer;margin-left:auto">➕ 30 kun uzaytirish</button>
+      </div>`}
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function saExtendShop(id) {
+  const s = _saShops.find(x=>x.id===id); if (!s) return;
+  const days = parseInt(prompt("Necha kun uzaytirish?","30"))||30;
+  const base = s.expiresAt && new Date(s.expiresAt)>new Date() ? new Date(s.expiresAt) : new Date();
+  s.expiresAt = addDaysToDate(base, days);
+  saSaveShops(); renderSaShops();
+  showSaToast(`✅ "${s.name}" — ${days} kun uzaytirildi (${s.expiresAt.slice(0,10)})`);
+}
+
 function saChangeSuperPass() {
   const newPass = document.getElementById("sa-superpass-inp")?.value.trim();
   if (!newPass || newPass.length < 6) {
