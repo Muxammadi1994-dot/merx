@@ -28,6 +28,15 @@ function custStats(custId) {
 }
 
 // ── Render jadval ─────────────────────────────────
+let _custSortKey = null;
+let _custSortAsc = true;
+
+function custSortToggle(key) {
+  if (_custSortKey === key) { _custSortAsc = !_custSortAsc; }
+  else { _custSortKey = key; _custSortAsc = key === "name"; }
+  renderMijozlar();
+}
+
 function renderMijozlar() {
   const q = ($("cust-q")||{value:""}).value.toLowerCase();
   let list = [...db.customers];
@@ -44,6 +53,25 @@ function renderMijozlar() {
     (c.note||"").toLowerCase().includes(q)
   );
 
+  // Saralash
+  if (_custSortKey) {
+    list.sort((a, b) => {
+      const sa = custStats(a.id);
+      const sb = custStats(b.id);
+      let va, vb;
+      if (_custSortKey === "name")    { va = a.name;       vb = b.name; }
+      if (_custSortKey === "count")   { va = sa.count;     vb = sb.count; }
+      if (_custSortKey === "totalBuy"){ va = sa.totalBuy;  vb = sb.totalBuy; }
+      if (_custSortKey === "debt")    {
+        va = (sa.totalDebt || 0) + (sa.totalDebtUsd || 0) * (db.settings?.rate || 12800);
+        vb = (sb.totalDebt || 0) + (sb.totalDebtUsd || 0) * (db.settings?.rate || 12800);
+      }
+      if (_custSortKey === "lastDate"){ va = sa.lastDate || ""; vb = sb.lastDate || ""; }
+      if (typeof va === "string") return _custSortAsc ? va.localeCompare(vb,"uz") : vb.localeCompare(va,"uz");
+      return _custSortAsc ? va - vb : vb - va;
+    });
+  }
+
   // KPI
   const all  = db.customers;
   const ulg  = all.filter(c => c.type === "ulgurji").length;
@@ -56,6 +84,27 @@ function renderMijozlar() {
 
   const typeLabel = { ulgurji:"📦 Ulgurji", chakana:"👤 Chakana", other:"Boshqa" };
   const typeColor = { ulgurji:"#0D1B2A", chakana:"#0891b2", other:"#888" };
+
+  // Thead saralash tugmalarini yangilash
+  const thead = document.getElementById("mijozlar-thead");
+  if (thead) {
+    const sortIcon = (key) => {
+      if (_custSortKey !== key) return '<i class="ti ti-selector" style="font-size:11px;opacity:.3"></i>';
+      return _custSortAsc
+        ? '<i class="ti ti-sort-ascending" style="font-size:11px;color:var(--acc)"></i>'
+        : '<i class="ti ti-sort-descending" style="font-size:11px;color:var(--acc)"></i>';
+    };
+    thead.innerHTML = `<tr>
+      <th style="cursor:pointer;user-select:none" onclick="custSortToggle('name')">ISM ${sortIcon('name')}</th>
+      <th>TELEFON</th>
+      <th>TURI</th>
+      <th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('count')">SOTUVLAR ${sortIcon('count')}</th>
+      <th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('totalBuy')">JAMI XARID ${sortIcon('totalBuy')}</th>
+      <th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('lastDate')">OXIRGI XARID ${sortIcon('lastDate')}</th>
+      <th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('debt')">JORIY QARZ ${sortIcon('debt')}</th>
+      <th></th>
+    </tr>`;
+  }
 
   $("mijozlar-body").innerHTML = list.length ? list.map(c => {
     const st = custStats(c.id);
