@@ -7,6 +7,8 @@
 //   staff      — kassir/xodim (ruxsat berilgan bo'limlar)
 
 const AUTH_KEY      = "merx_auth_v1";
+const AUTH_TS_KEY   = "merx_auth_ts";   // vaqt tamg'asi
+const AUTH_TIMEOUT  = 8 * 60 * 60 * 1000; // 8 soat (millisekund)
 const SUPERADMIN_HASH = "merx2024super"; // Oddiy hash — keyinroq bcrypt bilan almashtiriladi
 
 // Ruxsat matritsasi — har rol uchun bo'limlar
@@ -39,14 +41,25 @@ let _authSession = null;
 // ── Sessiyani yuklash ─────────────────────────────
 function authLoad() {
   try {
-    const raw = sessionStorage.getItem(AUTH_KEY);
-    if (raw) _authSession = JSON.parse(raw);
+    const raw = localStorage.getItem(AUTH_KEY);
+    const ts  = parseInt(localStorage.getItem(AUTH_TS_KEY) || "0");
+    const age = Date.now() - ts;
+    if (raw && age < AUTH_TIMEOUT) {
+      _authSession = JSON.parse(raw);
+    } else {
+      // Sessiya eskirgan yoki yo'q
+      _authSession = null;
+      localStorage.removeItem(AUTH_KEY);
+      localStorage.removeItem(AUTH_TS_KEY);
+    }
   } catch(e) { _authSession = null; }
 }
 
 function authSave() {
-  try { sessionStorage.setItem(AUTH_KEY, JSON.stringify(_authSession)); }
-  catch(e) {}
+  try {
+    localStorage.setItem(AUTH_KEY, JSON.stringify(_authSession));
+    localStorage.setItem(AUTH_TS_KEY, Date.now().toString());
+  } catch(e) {}
 }
 
 // ── Kirish tekshiruvi ─────────────────────────────
@@ -311,7 +324,10 @@ function doLogin() {
 function authLogout() {
   if (!confirm("Tizimdan chiqasizmi?")) return;
   _authSession = null;
-  try { sessionStorage.removeItem(AUTH_KEY); } catch(e) {}
+  try {
+    localStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem(AUTH_TS_KEY);
+  } catch(e) {}
   showLoginScreen();
 }
 
