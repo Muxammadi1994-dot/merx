@@ -251,6 +251,46 @@ function removeOwnerPassword() {
   toast("Parol o'chirildi");
 }
 
+// Super admin paroli o'rnatish (egasi bo'limida)
+function renderSuperAdminSection() {
+  const el = document.getElementById("sa-pass-section"); if (!el) return;
+  const hasSaPass = !!db.settings?.superAdminPin;
+  el.innerHTML = `
+    <div class="card" style="margin-top:16px;border-top:3px solid #8B5CF6">
+      <div class="ch">
+        <h3><i class="ti ti-shield-lock" style="color:#8B5CF6"></i> Super Admin Paroli</h3>
+        <span class="bg" style="font-size:12px;background:#8B5CF622;color:#8B5CF6">
+          ${hasSaPass ? "✅ O'rnatilgan" : "⚠️ O'rnatilmagan (default: merx2024)"}
+        </span>
+      </div>
+      <div style="padding:14px 18px;max-width:400px">
+        <div style="font-size:12.5px;color:var(--mut);margin-bottom:12px">
+          Bu parol bilan <strong>Ctrl+Shift+A</strong> kombinatsiyasi orqali super admin panelga kirasiz.
+          Barcha do'konlarni boshqarish imkoni beradi.
+        </div>
+        <div class="fld">
+          <label>Yangi super admin paroli (kamida 6 ta belgi)</label>
+          <input id="sa-new-superpass" type="password" placeholder="Parol...">
+        </div>
+        <button class="btn" onclick="saveSuperAdminPass()"
+          style="background:#8B5CF6;color:#fff;border-color:#8B5CF6;margin-top:4px">
+          <i class="ti ti-check"></i> Saqlash
+        </button>
+      </div>
+    </div>`;
+}
+
+function saveSuperAdminPass() {
+  const pass = ($("sa-new-superpass")||{value:""}).value.trim();
+  if (!pass || pass.length < 6) { toast("Kamida 6 ta belgi","err"); return; }
+  if (!db.settings) db.settings = {};
+  db.settings.superAdminPin = pass;
+  saveDB();
+  if ($("sa-new-superpass")) $("sa-new-superpass").value = "";
+  toast("✅ Super admin paroli saqlandi");
+  renderSuperAdminSection();
+}
+
 // openModal hook
 const _origOpenModal = window.openModal;
 window.openModal = function(id) {
@@ -314,6 +354,8 @@ function renderEgasi() {
 
   // Parol va PIN bo'limi
   if (typeof renderPasswordSettings === "function") renderPasswordSettings();
+  // Super admin bo'limi
+  if (typeof renderSuperAdminSection === "function") renderSuperAdminSection();
 
   const badge = $("cloud-status-badge");
   if (badge) {
