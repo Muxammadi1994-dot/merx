@@ -19,14 +19,20 @@ function init() {
     initSupabase().then(async ok => {
       if (ok) {
         updateCloudUI(true);
-        // Agar local data bo'sh bo'lsa — clouddan yukla
         if (!db.products?.length && !db.sales?.length) {
           await pullFromCloud();
         }
       }
     });
   }
-  // POS narx turi paneli — chakana yoqilmagan bo'lsa yashir
+
+  // Auth tekshiruvi
+  if (typeof authCheck === "function") {
+    if (!authCheck()) return; // Parol o'rnatilgan va sessiya yo'q — login ekran
+    if (typeof applyRoleUI === "function") applyRoleUI();
+    if (typeof updateAuthTopbar === "function") updateAuthTopbar();
+  }
+
   const ptw = $("price-type-wrap");
   if (ptw) ptw.style.display = db.settings?.showChakana ? "block" : "none";
   nav("dashboard");

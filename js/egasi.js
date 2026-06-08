@@ -187,6 +187,70 @@ function _applyPosFields() {
   }
 }
 
+// ── Parol sozlamalari renderiga qo'shamiz ─────────
+function renderPasswordSettings() {
+  const el = document.getElementById("owner-pass-section"); if (!el) return;
+  const hasPass = !!db.settings.ownerPin;
+  el.innerHTML = `
+    <div class="card" style="margin-top:16px">
+      <div class="ch"><h3><i class="ti ti-lock"></i> Kirish paroli</h3>
+        ${hasPass
+          ? '<span class="bg bg-g" style="font-size:12px">\u2705 Parol o\u02BBrnatilgan</span>'
+          : '<span class="bg bg-r" style="font-size:12px">\u26a0\ufe0f Parol o\u02BBrnatilmagan</span>'}
+      </div>
+      <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;max-width:400px">
+        ${hasPass ? `
+          <div class="fld"><label>Joriy parol</label>
+            <input id="owner-cur-pass" type="password" placeholder="••••••">
+          </div>` : ""}
+        <div class="fld"><label>Yangi parol</label>
+          <input id="owner-new-pass" type="password" placeholder="Kamida 4 ta belgi">
+        </div>
+        <div class="fld"><label>Takrorlang</label>
+          <input id="owner-rep-pass" type="password" placeholder="Takrorlang">
+        </div>
+        <button class="btn btn-acc" onclick="saveOwnerPassword()" style="align-self:flex-start">
+          <i class="ti ti-check"></i> Parolni saqlash
+        </button>
+        ${hasPass ? `
+          <button class="btn btn-ghost btn-sm" onclick="removeOwnerPassword()" style="color:var(--red);align-self:flex-start">
+            <i class="ti ti-lock-open"></i> Parolni o'chirish (himoyasiz ishlash)
+          </button>` : ""}
+      </div>
+
+      <!-- Xodimlar PIN -->
+      <div style="border-top:1px solid var(--brd);padding:16px 18px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:12px">
+          <i class="ti ti-users"></i> Xodimlar PIN kodi
+        </div>
+        ${(db.staff||[]).length === 0
+          ? `<div style="color:var(--mut);font-size:13px">Xodimlar yo'q — avval xodim qo'shing</div>`
+          : (db.staff||[]).map(s => `
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:10px 12px;
+              background:var(--bg);border-radius:10px">
+              <div style="flex:1">
+                <div style="font-weight:600;font-size:13px">${s.name}</div>
+                <div style="font-size:11.5px;color:var(--mut)">${s.role||"kassir"} · ${s.pin ? "✅ PIN o'rnatilgan" : "❌ PIN yo'q"}</div>
+              </div>
+              <input id="staff-pin-${s.id}" type="password" maxlength="4" placeholder="PIN (4 raqam)"
+                style="width:110px;font-family:inherit;font-size:14px;border:1.5px solid var(--brd);
+                border-radius:8px;padding:7px 10px;text-align:center;letter-spacing:4px">
+              <button class="btn btn-sm" onclick="saveStaffPin(${s.id})" style="white-space:nowrap">
+                <i class="ti ti-check"></i> Saqlash
+              </button>
+            </div>`).join("")}
+      </div>
+    </div>`;
+}
+
+function removeOwnerPassword() {
+  if (!confirm("Parolni o'chirasizmi? Tizim himoyasiz ishlaydi.")) return;
+  db.settings.ownerPin = null;
+  saveDB();
+  renderPasswordSettings();
+  toast("Parol o'chirildi");
+}
+
 // openModal hook
 const _origOpenModal = window.openModal;
 window.openModal = function(id) {
@@ -247,6 +311,9 @@ function renderEgasi() {
   const key = db.settings?.supabaseKey || "";
   if ($("s-sup-url")) $("s-sup-url").value = url;
   if ($("s-sup-key")) $("s-sup-key").value = key;
+
+  // Parol va PIN bo'limi
+  if (typeof renderPasswordSettings === "function") renderPasswordSettings();
 
   const badge = $("cloud-status-badge");
   if (badge) {
