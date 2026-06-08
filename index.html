@@ -878,8 +878,14 @@
             <button class="tx-status-btn" data-s="tolandan"    onclick="setTxStatus('tolandan')">✅ To'langan</button>
             <button class="tx-status-btn" data-s="qarz"        onclick="setTxStatus('qarz')">💳 Qarzli</button>
           </div>
+          <!-- Kassir filtri -->
+          <select id="tx-staff-sel" onchange="setTxStaff(this.value)"
+            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);
+            border-radius:var(--rs);padding:5px 10px;background:#fff;max-width:160px">
+            <option value="all">👤 Barcha kassirlar</option>
+          </select>
           <input id="tarix-q" placeholder="Mijoz, mahsulot..." oninput="renderTarix()"
-            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:160px">
+            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:150px">
           <button class="btn btn-sm" onclick="exportTarixExcel()" style="color:#1D6A39">
             <i class="ti ti-file-spreadsheet"></i> Excel
           </button>

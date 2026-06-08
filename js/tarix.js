@@ -6,7 +6,13 @@
 
 let txPeriod  = "all";
 let txStatus  = "all";
+let txStaffId = "all"; // kassir filtri
 let _sdSaleId = null;
+
+function setTxStaff(id) {
+  txStaffId = id;
+  renderTarix();
+}
 
 function setTxPeriod(p) {
   txPeriod = p;
@@ -38,12 +44,24 @@ function renderTarix() {
   let list = db.sales.slice().reverse().filter(s => {
     if (!txPeriodFilter(s)) return false;
     if (txStatus !== "all" && s.status !== txStatus) return false;
+    if (txStaffId !== "all" && String(s.staffId) !== String(txStaffId)) return false;
     if (!q) return true;
     return (s.customerName||"").toLowerCase().includes(q) ||
            s.items?.some(i => i.name.toLowerCase().includes(q)) ||
            (s.chekNum||"").toLowerCase().includes(q) ||
            (s.note||"").toLowerCase().includes(q);
   });
+
+  // Kassir select ni yangilaymiz
+  const staffSel = document.getElementById("tx-staff-sel");
+  if (staffSel && staffSel.options.length <= 1) {
+    (db.staff||[]).forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = s.name + " (" + (s.role||"kassir") + ")";
+      staffSel.appendChild(opt);
+    });
+  }
 
   // KPI
   const total = list.reduce((a, s) => a + (s.total||0), 0);
