@@ -981,6 +981,7 @@ function toggleNmProd(sku) {
   if (_narxnomaSelected.has(sku)) _narxnomaSelected.delete(sku);
   else _narxnomaSelected.add(sku);
   renderNarxnomaList();
+  renderNarxnomaPreview();
 }
 
 function nmSelectAll() {
@@ -988,11 +989,13 @@ function nmSelectAll() {
   db.products.filter(p => !q || p.name.toLowerCase().includes(q))
     .forEach(p => _narxnomaSelected.add(p.sku));
   renderNarxnomaList();
+  renderNarxnomaPreview();
 }
 
 function nmClearAll() {
   _narxnomaSelected.clear();
   renderNarxnomaList();
+  renderNarxnomaPreview();
 }
 
 function updateNmCount() {
