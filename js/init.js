@@ -38,6 +38,15 @@ function init() {
   // Rol UI — nav dan keyin
   if (typeof applyRoleUI === "function") applyRoleUI();
   if (typeof updateAuthTopbar === "function") updateAuthTopbar();
+
+  // Obuna tekshiruvi (SA do'konlari uchun)
+  if (typeof checkCurrentShopSubscription === "function") {
+    checkCurrentShopSubscription();
+  }
+  // Modullar cheklash
+  if (typeof applyShopModules === "function") {
+    applyShopModules();
+  }
 }
 
 // Nav event listeners

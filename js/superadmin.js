@@ -2748,16 +2748,170 @@ document.addEventListener("keydown", function(e) {
   }
 });
 
-// ── Joriy do'kon obuna tekshiruvi ──────────────
+// ── Joriy do'kon obuna va bloklash tekshiruvi ────
 function checkCurrentShopSubscription() {
-  // Agar joriy do'kon ro'yxatda bo'lsa va muddati o'tgan bo'lsa — ogohlantirish
   saLoadShops();
-  const currentShopName = db.shop?.name;
-  const shop = _saShops.find(s => s.name === currentShopName);
 
-  if (shop && saIsExpired(shop) && !shop.blocked) {
-    // Ogohlantirish — lekin to'smaymiz (sinov davri uchun)
-    console.warn("MERX: Obuna muddati o'tgan. Super admin bilan bog'laning.");
+  // SA ko'rinishida tekshirmaymiz
+  if (localStorage.getItem("merx_is_sa_view") === "1") return;
+
+  const activeKey = localStorage.getItem("merx_active_shop") || "merx_v5";
+  // Asosiy do'kon (merx_v5) uchun tekshirmaymiz
+  if (activeKey === "merx_v5") return;
+
+  const shop = _saShops.find(s => s.dbKey === activeKey);
+  if (!shop) return;
+
+  // Bloklangan do'kon
+  if (shop.blocked) {
+    showSubscriptionWall("blocked", shop);
+    return;
+  }
+
+  // Muddati o'tgan
+  if (saIsExpired(shop)) {
+    showSubscriptionWall("expired", shop);
+    return;
+  }
+
+  // Muddati yaqinlashayotgan (3 kun qolgan)
+  if (shop.expiresAt && shop.plan !== "lifetime") {
+    const daysLeft = Math.ceil((new Date(shop.expiresAt) - new Date()) / 86400000);
+    if (daysLeft <= 3) {
+      showSubscriptionWarning(daysLeft, shop);
+    }
+  }
+}
+
+function showSubscriptionWall(reason, shop) {
+  // Login ekranini yashiramiz, wall ko'rsatamiz
+  const app = document.getElementById("app");
+  if (app) app.style.display = "none";
+
+  let existing = document.getElementById("sub-wall");
+  if (existing) existing.remove();
+
+  const wall = document.createElement("div");
+  wall.id = "sub-wall";
+  wall.style.cssText = `
+    position:fixed;inset:0;z-index:99998;
+    background:linear-gradient(135deg,#0D1B2A 0%,#1a2f44 100%);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'DM Sans',sans-serif`;
+
+  const isBlocked = reason === "blocked";
+  wall.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:40px;width:100%;max-width:440px;
+      text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.3)">
+      <div style="font-size:48px;margin-bottom:16px">${isBlocked ? "🔒" : "⏰"}</div>
+      <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#0D1B2A">
+        ${isBlocked ? "Do'kon bloklangan" : "Obuna muddati tugadi"}
+      </h2>
+      <p style="color:#888;font-size:14px;margin:0 0 24px">
+        ${isBlocked
+          ? "Bu do'kon administrator tomonidan vaqtincha bloklangan."
+          : `"${shop.name}" obunasining muddati tugagan. Davom etish uchun obunani yangilang.`}
+      </p>
+      <div style="background:#f8f9fa;border-radius:12px;padding:16px;margin-bottom:24px;text-align:left">
+        <div style="font-size:13px;color:#555;margin-bottom:6px">
+          📞 <strong>Administrator bilan bog'laning:</strong>
+        </div>
+        <div style="font-size:14px;font-weight:600;color:#0D1B2A">MERX Savdo tizimi</div>
+        <div style="font-size:13px;color:#888">Obunani yangilash uchun qo'ng'iroq qiling</div>
+      </div>
+      <button onclick="saWallLogout()"
+        style="width:100%;background:#0D1B2A;border:none;border-radius:12px;
+        padding:14px;font-family:inherit;font-size:15px;font-weight:700;
+        cursor:pointer;color:#E9A500">
+        Boshqa hisobdan kirish
+      </button>
+    </div>`;
+  document.body.appendChild(wall);
+}
+
+function saWallLogout() {
+  // Subscription wall dan chiqish — asosiy do'konga qaytish
+  const prevKey = localStorage.getItem("merx_prev_shop");
+  if (prevKey) {
+    localStorage.setItem("merx_active_shop", prevKey);
+    localStorage.removeItem("merx_is_sa_view");
+    localStorage.removeItem("merx_prev_shop");
+  }
+  localStorage.removeItem("merx_auth_v1");
+  localStorage.removeItem("merx_auth_ts");
+  window.location.reload();
+}
+
+function showSubscriptionWarning(daysLeft, shop) {
+  // Yuqorida sariq ogohlantirish banner
+  if (document.getElementById("sub-warning")) return;
+  const el = document.createElement("div");
+  el.id = "sub-warning";
+  el.style.cssText = `
+    position:fixed;top:0;left:0;right:0;z-index:9998;
+    background:#92400E;color:#FDE68A;
+    padding:8px 20px;font-family:'DM Sans',sans-serif;
+    font-size:13px;font-weight:600;display:flex;align-items:center;
+    justify-content:center;gap:12px`;
+  el.innerHTML = `
+    ⚠️ Obuna muddati ${daysLeft} kun ichida tugaydi!
+    <button onclick="this.parentElement.remove()"
+      style="background:transparent;border:none;color:#FDE68A;cursor:pointer;font-size:16px">✕</button>`;
+  document.body.prepend(el);
+  const main = document.getElementById("main");
+  const sb = document.getElementById("sb");
+  if (main) main.style.paddingTop = (parseInt(main.style.paddingTop)||0) + 36 + "px";
+  if (sb) sb.style.paddingTop = (parseInt(sb.style.paddingTop)||0) + 36 + "px";
+}
+
+// ── Modullar cheklash ──────────────────────────────
+function applyShopModules() {
+  saLoadShops();
+
+  // SA ko'rinishida modules ni shop dan olamiz
+  const activeKey = localStorage.getItem("merx_active_shop");
+  if (!activeKey || activeKey === "merx_v5") return;
+
+  const shop = _saShops.find(s => s.dbKey === activeKey);
+  if (!shop || !shop.modules) return;
+
+  const modules = shop.modules || [];
+
+  // Modul → sahifa mapping
+  const modulePages = {
+    pos:     ["sotuv", "tarix", "qarzlar"],
+    ombor:   ["ombor"],
+    hisobot: ["hisobot", "moliya", "xodimlar"],
+    sms:     [], // faqat sozlama bo'limi
+    cloud:   []  // faqat cloud sozlama
+  };
+
+  // Yoqilmagan modullar uchun sahifalarni yashirish
+  const hiddenPages = [];
+  Object.entries(modulePages).forEach(([mod, pages]) => {
+    if (!modules.includes(mod)) {
+      hiddenPages.push(...pages);
+    }
+  });
+
+  // Sidebar elementlarini yashirish
+  document.querySelectorAll(".ni[data-page]").forEach(el => {
+    const page = el.dataset.page;
+    if (hiddenPages.includes(page)) {
+      el.style.display = "none";
+    }
+  });
+
+  // SMS va Cloud ni egasi sozlamalarida yashirish
+  if (!modules.includes("sms")) {
+    const smsEl = document.querySelector(".sms-section, #sms-wrap");
+    if (smsEl) smsEl.style.display = "none";
+  }
+  if (!modules.includes("cloud")) {
+    const cloudEl = document.getElementById("cloud-pill");
+    if (cloudEl) cloudEl.style.display = "none";
+    const cloudWrap = document.querySelector(".cloud-section, #cloud-wrap");
+    if (cloudWrap) cloudWrap.style.display = "none";
   }
 }
 
