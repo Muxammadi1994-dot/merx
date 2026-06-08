@@ -326,6 +326,25 @@ async function pullFromCloud() {
       if (sets.eskiz_sender) db.settings.eskizSender = sets.eskiz_sender;
     }
 
+    // Chiqimlar
+    const { data: chiqData } = await _sb.from("chiqimlar").select("*").eq("shop_id", sid).order("local_id");
+    if (chiqData && chiqData.length > 0) {
+      db.chiqimlar = chiqData.map(c => ({
+        id:          c.local_id || c.id,
+        date:        c.date,
+        time:        c.time || "",
+        productName: c.product_name,
+        sku:         c.sku || "",
+        color:       c.color,
+        size:        c.size,
+        qty:         c.qty,
+        unit:        c.unit || "dona",
+        reason:      c.reason,
+        note:        c.note || "",
+        costUzs:     c.cost_uzs || 0
+      }));
+    }
+
     // seq yangilash
     const maxId = Math.max(
       ...( db.products.map((_,i)=>i) ),
@@ -334,6 +353,7 @@ async function pullFromCloud() {
       ...(db.sales.map(s=>s.id||0)),
       ...(db.ombor.map(o=>o.id||0)),
       ...((db.xarajatlar||[]).map(x=>x.id||0)),
+      ...((db.chiqimlar||[]).map(c=>c.id||0)),
       db.seq || 0
     );
     db.seq = maxId + 1;
