@@ -34,33 +34,61 @@ function molDateRange() {
 // ── Asosiy render ─────────────────────────────────
 function renderMoliya() {
   const { from, to } = molDateRange();
+  const rate = db.settings?.rate || 12800;
   const q = ($("exp-q")||{value:""}).value.toLowerCase();
 
   const periodSales = db.sales.filter(s => s.date >= from && s.date <= to);
   const periodExps  = (db.xarajatlar||[]).filter(x => x.date >= from && x.date <= to);
 
-  const sotuv  = periodSales.reduce((a, s) => a + (s.paid||0), 0);
-  const chiqim = periodExps.reduce((a, x) => a + (x.amount||0), 0);
-  const profit = sotuv - chiqim;
+  // Kirim manbalari
+  const naqd    = periodSales.filter(s=>s.payType==="naqd").reduce((a,s)=>a+(s.paid||0),0);
+  const karta   = periodSales.filter(s=>s.payType==="karta").reduce((a,s)=>a+(s.paid||0),0);
+  const otkazma = periodSales.filter(s=>s.payType==="otkazma").reduce((a,s)=>a+(s.paid||0),0);
+  const sotuv   = periodSales.reduce((a, s) => a + (s.paid||0), 0);
+  const chiqim  = periodExps.reduce((a, x) => a + (x.amount||0), 0);
 
-  // Jami kassa balansi (barcha vaqt)
+  // Tannarx (sotilgan tovarlar)
+  let periodCost = 0;
+  periodSales.forEach(s => {
+    s.items?.forEach(i => {
+      const p = db.products.find(x => x.name === i.name);
+      if (p) periodCost += Math.round((p.costUsd||0) * rate) * (i.qty||0);
+    });
+  });
+
+  // Sof foyda = kassaga tushgan − tannarx − xarajatlar
+  const grossProfit = sotuv - periodCost;
+  const netProfit   = sotuv - periodCost - chiqim;
+
+  // Jami kassa balansi (barcha vaqt) = jami tushum − jami xarajat
   const allPaid = db.sales.reduce((a, s) => a + (s.paid||0), 0);
   const allExp  = (db.xarajatlar||[]).reduce((a, x) => a + (x.amount||0), 0);
   const balans  = allPaid - allExp;
 
+  // Yetkazuvchi qarzi (ombordagi to'lanmagan)
+  const supDebt = (db.ombor||[])
+    .filter(o => o.payStatus === "qarz")
+    .reduce((a, o) => a + (o.kirimNarxi||0) * (o.qty||0), 0);
+
   // KPI
-  if ($("mol-balans"))    $("mol-balans").textContent    = fmt(balans) + " so'm";
-  if ($("mol-kirim"))     $("mol-kirim").textContent     = fmt(sotuv);
-  if ($("mol-chiqim"))    $("mol-chiqim").textContent    = fmt(chiqim);
-  if ($("mol-month-rev")) $("mol-month-rev").textContent = fmt(sotuv)  + " so'm";
-  if ($("mol-month-exp")) $("mol-month-exp").textContent = fmt(chiqim) + " so'm";
-  if ($("mol-exp-cnt"))   $("mol-exp-cnt").textContent   = periodExps.length + " ta";
+  if ($("mol-balans"))    { $("mol-balans").textContent = fmt(balans) + " so'm"; }
+  if ($("mol-kirim"))     { $("mol-kirim").textContent = fmt(sotuv) + " so'm"; }
+  if ($("mol-chiqim"))    { $("mol-chiqim").textContent = fmt(chiqim) + " so'm"; }
+  if ($("mol-month-rev")) { $("mol-month-rev").textContent = fmt(sotuv) + " so'm"; }
+  if ($("mol-month-exp")) { $("mol-month-exp").textContent = fmt(chiqim) + " so'm"; }
+  if ($("mol-exp-cnt"))   { $("mol-exp-cnt").textContent = periodExps.length + " ta"; }
+  if ($("mol-sup-debt"))  { $("mol-sup-debt").textContent = fmt(supDebt) + " so'm"; }
+  if ($("mol-gross"))     { $("mol-gross").textContent = fmt(grossProfit) + " so'm";
+                            $("mol-gross").style.color = grossProfit>=0?"var(--grn)":"var(--red)"; }
 
   const profitEl = $("mol-profit");
   if (profitEl) {
-    profitEl.textContent = (profit < 0 ? "−" : "") + fmt(Math.abs(profit)) + " so'm";
-    profitEl.style.color = profit >= 0 ? "var(--grn)" : "var(--red)";
+    profitEl.textContent = (netProfit < 0 ? "−" : "+") + fmt(Math.abs(netProfit)) + " so'm";
+    profitEl.style.color = netProfit >= 0 ? "var(--grn)" : "var(--red)";
   }
+
+  // Kirim manbalar vizuali
+  renderKirimManbalar(naqd, karta, otkazma, sotuv);
 
   // Kategoriya bo'yicha umumiy
   const catTotals = {};
@@ -208,6 +236,29 @@ function renderFlowBars(kirim, chiqim) {
         ${profit>=0?"+":"−"}${fmt(Math.abs(profit))} so'm
       </span>
     </div>`;
+}
+
+// ── Kirim manbalar ────────────────────────────────
+function renderKirimManbalar(naqd, karta, otkazma, total) {
+  const el = $("mol-kirim-manbalar"); if (!el || !total) return;
+  const items = [
+    { lbl:"Naqd",    val:naqd,    color:"#36B48C", icon:"💵" },
+    { lbl:"Karta",   val:karta,   color:"#4C9BE8", icon:"💳" },
+    { lbl:"O'tkazma",val:otkazma, color:"#8B5CF6", icon:"📲" },
+  ].filter(i => i.val > 0);
+
+  el.innerHTML = items.map(i => `
+    <div style="margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span style="color:${i.color};font-weight:600">${i.icon} ${i.lbl}</span>
+        <span style="font-weight:700">${fmt(i.val)} so'm
+          <span style="color:#bbb;font-size:10.5px">(${Math.round(i.val/total*100)}%)</span>
+        </span>
+      </div>
+      <div style="height:6px;background:#f0ede7;border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${Math.round(i.val/total*100)}%;background:${i.color};border-radius:3px"></div>
+      </div>
+    </div>`).join("") || `<span style="color:var(--mut);font-size:12px">Ma'lumot yo'q</span>`;
 }
 
 // ── Kategoriya tanlaganda qo'shimcha maydon ───────

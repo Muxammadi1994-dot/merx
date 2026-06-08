@@ -1022,13 +1022,20 @@
     </div>
 
     <!-- KPI kartalar -->
-    <div class="stat-row" style="grid-template-columns:repeat(5,1fr)">
-      <div class="stb"><div class="sl">Sotuv kirim</div><div class="sv num" id="mol-month-rev">0</div></div>
-      <div class="stb"><div class="sl">Qarz yig'ildi</div><div class="sv num" id="mol-debt-coll" style="color:#4C9BE8">0</div></div>
+    <div class="stat-row" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+      <div class="stb"><div class="sl">Kassaga tushdi</div><div class="sv num" id="mol-month-rev">0</div></div>
       <div class="stb"><div class="sl">Xarajatlar</div><div class="sv num" id="mol-month-exp" style="color:var(--red)">0</div></div>
+      <div class="stb" style="border-top:3px solid #E9A500">
+        <div class="sl">Yalpi foyda <span style="font-size:10px;font-weight:400;color:#bbb">(tannarxsiz)</span></div>
+        <div class="sv num" id="mol-gross" style="color:#E9A500">0</div>
+      </div>
       <div class="stb" style="border-top:3px solid var(--grn)">
-        <div class="sl">Sof foyda</div>
+        <div class="sl">Sof foyda <span style="font-size:10px;font-weight:400;color:#bbb">(−xarajat)</span></div>
         <div class="sv num" id="mol-profit" style="color:var(--grn)">0</div>
+      </div>
+      <div class="stb" style="border-top:3px solid var(--red)">
+        <div class="sl">Yetkazuvchi qarzi</div>
+        <div class="sv num" id="mol-sup-debt" style="color:var(--red)">0</div>
       </div>
       <div class="stb"><div class="sl">Xarajatlar soni</div><div class="sv" id="mol-exp-cnt">0 ta</div></div>
     </div>
@@ -1059,6 +1066,11 @@
         <div style="padding:14px 18px">
           <div class="chart-sm"><canvas id="expChart"></canvas></div>
           <div id="exp-legend" style="display:flex;gap:10px;justify-content:center;font-size:12px;margin-top:10px;flex-wrap:wrap"></div>
+        </div>
+        <!-- Kirim manbalari -->
+        <div style="padding:0 18px 14px">
+          <div style="font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase;margin-bottom:8px">Kirim manbalari</div>
+          <div id="mol-kirim-manbalar"></div>
         </div>
         <!-- Kirim-chiqim taqqos -->
         <div style="padding:0 18px 16px">
