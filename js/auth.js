@@ -52,16 +52,17 @@ function authSave() {
 // ── Kirish tekshiruvi ─────────────────────────────
 function authCheck() {
   authLoad();
-  // Agar parol o'rnatilmagan bo'lsa — login shart emas (birinchi ishga tushirish)
+  // Agar parol o'rnatilmagan bo'lsa — login shart emas
   const ownerPin = db.settings?.ownerPin;
   if (!ownerPin) {
-    // Birinchi ishga tushirish — owner sifatida kirgan deb hisoblaymiz
-    _authSession = { role:"owner", name:"Ega", staffId: null };
+    _authSession = { role:"owner", name: db.shop?.name || "Ega", staffId: null };
     authSave();
     return true;
   }
   if (_authSession) return true;
-  // Login sahifasini ko'rsatish
+  // Login ekrani — appni yashiramiz
+  const app = document.getElementById("app");
+  if (app) app.style.display = "none";
   showLoginScreen();
   return false;
 }
@@ -318,7 +319,7 @@ function hideLoginScreen() {
   const loginEl = document.getElementById("login-screen");
   if (loginEl) loginEl.style.display = "none";
   const app = document.getElementById("app");
-  if (app) app.style.display = "";
+  if (app) app.style.display = "flex"; // sidebar + main flex layout
 }
 
 // ── Rol bo'yicha UI sozlash ───────────────────────
@@ -327,32 +328,14 @@ function applyRoleUI() {
   const perms = ROLE_PERMS[role] || ROLE_PERMS.kassir;
 
   // Sidebar havolalarni yashirish/ko'rsatish
-  document.querySelectorAll("[data-page]").forEach(el => {
+  // data-page atributi bilan .ni elementlarini boshqaramiz
+  document.querySelectorAll(".ni[data-page]").forEach(el => {
     const page = el.dataset.page;
     el.style.display = perms.pages.includes(page) ? "" : "none";
   });
 
-  // Tahrirlash, o'chirish tugmalarni yashirish
-  if (!perms.canDelete) {
-    document.querySelectorAll(".btn-delete, .ti-trash").forEach(el => {
-      el.closest("button")?.style && (el.closest("button").style.display = "none");
-    });
-  }
-
-  // Tannarx yashirish
-  document.querySelectorAll("[data-cost]").forEach(el => {
-    el.style.display = perms.canViewCost ? "" : "none";
-  });
-
   // Topbar da foydalanuvchi ko'rsatish
   updateAuthTopbar();
-
-  // Sidebar da qaysi sahifaga navigatsiya mumkinligini tekshirish
-  const currentPage = document.querySelector(".pg.show")?.id?.replace("p-","");
-  if (currentPage && !perms.pages.includes(currentPage)) {
-    // Birinchi ruxsat berilgan sahifaga o'tish
-    navTo(perms.pages[0]);
-  }
 }
 
 // ── Topbar da foydalanuvchi ────────────────────────

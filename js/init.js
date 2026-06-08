@@ -28,14 +28,16 @@ function init() {
 
   // Auth tekshiruvi
   if (typeof authCheck === "function") {
-    if (!authCheck()) return; // Parol o'rnatilgan va sessiya yo'q — login ekran
-    if (typeof applyRoleUI === "function") applyRoleUI();
-    if (typeof updateAuthTopbar === "function") updateAuthTopbar();
+    if (!authCheck()) return;
   }
 
   const ptw = $("price-type-wrap");
   if (ptw) ptw.style.display = db.settings?.showChakana ? "block" : "none";
   nav("dashboard");
+
+  // Rol UI — nav dan keyin
+  if (typeof applyRoleUI === "function") applyRoleUI();
+  if (typeof updateAuthTopbar === "function") updateAuthTopbar();
 }
 
 // Nav event listeners
