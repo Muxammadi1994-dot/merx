@@ -125,6 +125,94 @@ function hideSaPanel() {
   document.getElementById("sa-overlay")?.remove();
 }
 
+function buildSaDashboard() {
+  // Barcha do'konlar statistikasini yig'amiz
+  let totalRev = 0, totalSales = 0, totalCustomers = 0, totalProducts = 0;
+  const m = new Date().toISOString().slice(0,7);
+  let monthRev = 0, monthSales = 0;
+
+  _saShops.forEach(shop => {
+    const stats = saGetShopStats(shop);
+    if (!stats) return;
+    totalRev       += stats.totalRev;
+    totalSales     += stats.salesCnt;
+    totalCustomers += stats.custCnt;
+    totalProducts  += stats.prodCnt;
+    monthRev       += stats.monthRev;
+    monthSales     += stats.monthCnt;
+  });
+
+  const fmtN = n => n>=1000000?(n/1000000).toFixed(1)+"M so'm":n>=1000?(n/1000).toFixed(0)+"K so'm":n+" so'm";
+  const now = new Date().toISOString().slice(0,7);
+  const active   = _saShops.filter(s=>saIsActive(s)).length;
+  const expired  = _saShops.filter(s=>saIsExpired(s)).length;
+  const newShops = _saShops.filter(s=>s.createdAt?.startsWith(now)).length;
+  const plans    = { trial:0, monthly:0, yearly:0, lifetime:0 };
+  _saShops.forEach(s=>{ if(plans[s.plan]!==undefined) plans[s.plan]++; });
+
+  return `
+    <!-- KPI qator -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#1e3a5f">
+      ${[
+        {lbl:"Jami do'konlar",  val:_saShops.length+" ta",  clr:"#E9A500"},
+        {lbl:"Faol obunalar",   val:active+" ta",            clr:"#36B48C"},
+        {lbl:"Muddati o'tgan",  val:expired+" ta",           clr:expired?"#E05A5A":"#4a6070"},
+        {lbl:"Bu oy qo'shildi", val:newShops+" ta",          clr:"#4C9BE8"},
+      ].map(k=>`
+        <div style="background:#0a1824;padding:12px 18px">
+          <div style="font-size:10px;color:#4a6070;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em">${k.lbl}</div>
+          <div style="font-size:22px;font-weight:800;color:${k.clr}">${k.val}</div>
+        </div>`).join("")}
+    </div>
+
+    <!-- Yig'ma moliyaviy statistika -->
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:1px;background:#1e3a5f">
+      <!-- Jami sotuv -->
+      <div style="background:#071020;padding:14px 20px;display:flex;align-items:center;gap:16px">
+        <div style="flex:1">
+          <div style="font-size:10px;color:#4a6070;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">
+            Barcha do'konlar — Jami tushum
+          </div>
+          <div style="font-size:26px;font-weight:900;color:#36B48C">${fmtN(totalRev)}</div>
+          <div style="font-size:12px;color:#4a6070;margin-top:3px">
+            Bu oy: <span style="color:#4C9BE8;font-weight:600">${fmtN(monthRev)}</span>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:#4a6070;margin-bottom:4px">Sotuvlar</div>
+          <div style="font-size:20px;font-weight:800;color:#c8d8e8">${totalSales} ta</div>
+          <div style="font-size:12px;color:#4a6070">Bu oy: ${monthSales} ta</div>
+        </div>
+      </div>
+      <!-- Mijozlar -->
+      <div style="background:#071020;padding:14px 20px">
+        <div style="font-size:10px;color:#4a6070;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Mijozlar</div>
+        <div style="font-size:22px;font-weight:800;color:#c8d8e8">${totalCustomers} ta</div>
+        <div style="font-size:12px;color:#4a6070;margin-top:3px">Jami bazada</div>
+      </div>
+      <!-- Mahsulotlar -->
+      <div style="background:#071020;padding:14px 20px">
+        <div style="font-size:10px;color:#4a6070;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Mahsulotlar</div>
+        <div style="font-size:22px;font-weight:800;color:#c8d8e8">${totalProducts} tur</div>
+        <div style="font-size:12px;color:#4a6070;margin-top:3px">Kataloglarda</div>
+      </div>
+    </div>
+
+    <!-- Obuna taqsimoti -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#1e3a5f">
+      ${[
+        {lbl:"🧪 Sinov",  val:plans.trial,    clr:"#E9A500"},
+        {lbl:"📅 Oylik",  val:plans.monthly,  clr:"#4C9BE8"},
+        {lbl:"📆 Yillik", val:plans.yearly,   clr:"#36B48C"},
+        {lbl:"♾️ Umrlik", val:plans.lifetime, clr:"#8B5CF6"},
+      ].map(k=>`
+        <div style="background:#0a1824;padding:10px 18px;display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:12px;color:#6b8096">${k.lbl}</div>
+          <div style="font-size:18px;font-weight:800;color:${k.clr}">${k.val} ta</div>
+        </div>`).join("")}
+    </div>`;
+}
+
 function buildSaPanel() {
   return `
     <div style="background:#0D1B2A;border:1px solid #1e3a5f;border-radius:20px;
@@ -152,18 +240,9 @@ function buildSaPanel() {
         </div>
       </div>
 
-      <!-- Stats qatori -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#1e3a5f;border-bottom:1px solid #1e3a5f">
-        ${[
-          { lbl:"Jami do'konlar", val: _saShops.length + " ta", clr:"#E9A500" },
-          { lbl:"Faol obunalar", val: _saShops.filter(s=>saIsActive(s)).length + " ta", clr:"#36B48C" },
-          { lbl:"Muddati o'tgan", val: _saShops.filter(s=>saIsExpired(s)).length + " ta", clr:"#E05A5A" },
-          { lbl:"Bu oy qo'shildi", val: _saShops.filter(s=>s.createdAt?.startsWith(new Date().toISOString().slice(0,7))).length + " ta", clr:"#4C9BE8" },
-        ].map(k=>`
-          <div style="background:#0a1824;padding:14px 18px">
-            <div style="font-size:11px;color:#4a6070;margin-bottom:4px">${k.lbl}</div>
-            <div style="font-size:20px;font-weight:800;color:${k.clr}">${k.val}</div>
-          </div>`).join("")}
+      <!-- Stats dashboard -->
+      <div id="sa-dashboard" style="border-bottom:1px solid #1e3a5f">
+        ${buildSaDashboard()}
       </div>
 
       <!-- Toolbar -->
@@ -625,6 +704,10 @@ window.saveDB = function() {
 // ── Super admin ko'rish tugmasini jadvalga qo'shish ──
 const _origRenderSaShops = window.renderSaShops;
 window.renderSaShops = function() {
+  // Dashboard ni ham yangilaymiz
+  const dash = document.getElementById("sa-dashboard");
+  if (dash) dash.innerHTML = buildSaDashboard();
+
   const el = document.getElementById("sa-shops-list"); if (!el) return;
   const q = document.getElementById("sa-q")?.value.toLowerCase() || "";
 
