@@ -6,17 +6,31 @@
 let _sb = null; // Supabase client
 
 // ── Supabase clientini yaratish ───────────────────
+// ── Shop ID — multi-tenant izolyatsiya ───────────
+function getCloudShopId() {
+  // Do'kon ID si — Supabase da barcha jadvallar shu ID bilan filtrlanadi
+  // Avval settings da saqlangan shopId, aks holda URL hash dan olamiz
+  if (db.settings?.cloudShopId) return db.settings.cloudShopId;
+  // Yangi do'kon — URL dan olamiz (agar SA do'kon bo'lsa)
+  const activeKey = localStorage.getItem("merx_active_shop");
+  if (activeKey && activeKey !== "merx_v5") {
+    // SA tomonidan yaratilgan do'kon — shopId = dbKey
+    return activeKey;
+  }
+  // Asosiy do'kon — Supabase URL dan hash olamiz
+  const url = db.settings?.supabaseUrl || "";
+  const match = url.match(/https:\/\/([^.]+)\.supabase\.co/);
+  return match ? match[1] : "default";
+}
+
 async function initSupabase() {
   const url = db.settings?.supabaseUrl?.trim();
   const key = db.settings?.supabaseKey?.trim();
   if (!url || !key) return false;
 
   try {
-    // Yangi Supabase JS v2 sintaksisi
     const { createClient } = window.supabase || supabase;
-    _sb = createClient(url, key, {
-      auth: { persistSession: false }
-    });
+    _sb = createClient(url, key, { auth: { persistSession: false } });
     // Test ulanish
     const { data, error } = await _sb.from("settings").select("id").limit(1);
     if (error) throw error;
@@ -66,10 +80,13 @@ async function connectCloud() {
 async function pushToCloud() {
   if (!_sb) { toast("Avval ulaning","err"); return; }
 
+  const sid = getCloudShopId(); // shop_id — izolyatsiya kaliti
+
   try {
-    // Settings
+    // Settings — har do'kon uchun alohida qator
     await _sb.from("settings").upsert({
-      id: 1,
+      id:             sid,
+      shop_id:        sid,
       shop_name:      db.shop?.name || "MERX",
       rate:           db.settings?.rate || 12800,
       price_currency: db.settings?.priceCurrency || "uzs",
@@ -79,15 +96,22 @@ async function pushToCloud() {
       eskiz_sender:   db.settings?.eskizSender || null,
     });
 
-    // Products
+    // Products — shop_id bilan
     if (db.products?.length) {
       const rows = db.products.map(p => ({
-        id: p.id || p.sku,
-        id: p.sku, sku: p.sku, name: p.name, category: p.category,
-        type: p.type, unit: p.unit, in_box: p.inBox || 1,
-        barcode: p.barcode, cost_usd: p.costUsd || 0,
-        price_uzs: p.priceUzs || 0, ulgurji: p.ulgurjiNarx || 0,
-        variants: p.variants || []
+        id:        sid + "_" + p.sku,
+        shop_id:   sid,
+        sku:       p.sku,
+        name:      p.name,
+        category:  p.category,
+        type:      p.type,
+        unit:      p.unit,
+        in_box:    p.inBox || 1,
+        barcode:   p.barcode,
+        cost_usd:  p.costUsd || 0,
+        price_uzs: p.priceUzs || 0,
+        ulgurji:   p.ulgurjiNarx || 0,
+        variants:  p.variants || []
       }));
       await _sb.from("products").upsert(rows);
     }
@@ -95,56 +119,109 @@ async function pushToCloud() {
     // Customers
     if (db.customers?.length) {
       await _sb.from("customers").upsert(db.customers.map(c => ({
-        id: c.id, name: c.name, phone: c.phone || null,
-        type: c.type || "ulgurji", note: c.note || null
+        id:      sid + "_" + c.id,
+        shop_id: sid,
+        local_id: c.id,
+        name:    c.name,
+        phone:   c.phone || null,
+        type:    c.type || "ulgurji",
+        note:    c.note || null
       })));
     }
 
     // Staff
     if (db.staff?.length) {
       await _sb.from("staff").upsert(db.staff.map(s => ({
-        id: s.id, name: s.name, phone: s.phone || null, role: s.role || "kassir"
+        id:      sid + "_" + s.id,
+        shop_id: sid,
+        local_id: s.id,
+        name:    s.name,
+        phone:   s.phone || null,
+        role:    s.role || "kassir"
       })));
     }
 
     // Sales
     if (db.sales?.length) {
       await _sb.from("sales").upsert(db.sales.map(s => ({
-        id: s.id, chek_num: s.chekNum || null,
-        date: s.date, time: s.time || null,
-        price_type: s.priceType, pay_type: s.payType,
-        staff_id: s.staffId || null, customer_id: s.customerId || null,
-        items: s.items || [], subtotal: s.subtotal || s.total || 0,
-        discount: s.discount || 0, total: s.total || 0,
-        paid: s.paid || 0, remaining: s.remaining || 0,
-        due: s.due || null, customer_name: s.customerName || null,
+        id:             sid + "_" + s.id,
+        shop_id:        sid,
+        local_id:       s.id,
+        chek_num:       s.chekNum || null,
+        date:           s.date,
+        time:           s.time || null,
+        price_type:     s.priceType,
+        pay_type:       s.payType,
+        staff_id:       s.staffId || null,
+        customer_id:    s.customerId || null,
+        items:          s.items || [],
+        subtotal:       s.subtotal || s.total || 0,
+        discount:       s.discount || 0,
+        total:          s.total || 0,
+        paid:           s.paid || 0,
+        remaining:      s.remaining || 0,
+        due:            s.due || null,
+        customer_name:  s.customerName || null,
         customer_phone: s.customerPhone || null,
-        status: s.status || "tolandan",
-        debt_currency: s.debtCurrency || "uzs",
-        debt_usd: s.debtUsd || null, note: s.note || null
+        status:         s.status || "tolandan",
+        debt_currency:  s.debtCurrency || "uzs",
+        debt_usd:       s.debtUsd || null,
+        note:           s.note || null
       })));
     }
 
     // Ombor
     if (db.ombor?.length) {
       await _sb.from("ombor").upsert(db.ombor.map(o => ({
-        id: o.id, date: o.date, sku: o.sku || null,
-        product_name: o.productName, unit: o.unit,
-        color: o.color, size: o.size, qty: o.qty || 0,
-        boxes: o.boxes || null, pantone: o.pantone || null,
-        hex: o.hex || null, kirim_narxi: o.kirimNarxi || 0,
-        ulgurji: o.ulgurji || 0, supplier: o.supplier || null,
-        partiya: o.partiya || null, pay_status: o.payStatus || "tolandan",
-        barcode: o.barcode || null
+        id:           sid + "_" + o.id,
+        shop_id:      sid,
+        local_id:     o.id,
+        date:         o.date,
+        sku:          o.sku || null,
+        product_name: o.productName,
+        unit:         o.unit,
+        color:        o.color,
+        size:         o.size,
+        qty:          o.qty || 0,
+        boxes:        o.boxes || null,
+        kirim_narxi:  o.kirimNarxi || 0,
+        ulgurji:      o.ulgurji || 0,
+        supplier:     o.supplier || null,
+        partiya:      o.partiya || null,
+        pay_status:   o.payStatus || "tolandan"
       })));
     }
 
     // Xarajatlar
     if (db.xarajatlar?.length) {
       await _sb.from("xarajatlar").upsert((db.xarajatlar||[]).map(x => ({
-        id: x.id, date: x.date, category: x.category,
-        amount: x.amount || 0, recipient: x.recipient || null,
-        paid_by: x.paidBy || null, note: x.note || null
+        id:        sid + "_" + x.id,
+        shop_id:   sid,
+        local_id:  x.id,
+        date:      x.date,
+        category:  x.category,
+        amount:    x.amount || 0,
+        recipient: x.recipient || null,
+        paid_by:   x.paidBy || null,
+        note:      x.note || null
+      })));
+    }
+
+    // Chiqimlar
+    if (db.chiqimlar?.length) {
+      await _sb.from("chiqimlar").upsert((db.chiqimlar||[]).map(c => ({
+        id:           sid + "_" + c.id,
+        shop_id:      sid,
+        local_id:     c.id,
+        date:         c.date,
+        product_name: c.productName,
+        sku:          c.sku || null,
+        color:        c.color,
+        size:         c.size,
+        qty:          c.qty,
+        reason:       c.reason,
+        note:         c.note || null,
+        cost_uzs:     c.costUzs || 0
       })));
     }
 
@@ -166,8 +243,10 @@ async function pullFromCloud() {
   try {
     toast("Cloud dan yuklanmoqda...", "info");
 
-    // Products
-    const { data: prods } = await _sb.from("products").select("*");
+    const sid = getCloudShopId();
+
+    // Products — faqat bu do'kon
+    const { data: prods } = await _sb.from("products").select("*").eq("shop_id", sid);
     if (prods && prods.length > 0) {
       db.products = prods.map(p => ({
         sku: p.sku, name: p.name, category: p.category || "",
@@ -179,27 +258,27 @@ async function pullFromCloud() {
     }
 
     // Customers
-    const { data: custs } = await _sb.from("customers").select("*");
+    const { data: custs } = await _sb.from("customers").select("*").eq("shop_id", sid);
     if (custs && custs.length > 0) {
       db.customers = custs.map(c => ({
-        id: c.id, name: c.name, phone: c.phone || "",
+        id: c.local_id || c.id, name: c.name, phone: c.phone || "",
         type: c.type || "ulgurji", note: c.note || ""
       }));
     }
 
     // Staff
-    const { data: staffData } = await _sb.from("staff").select("*");
+    const { data: staffData } = await _sb.from("staff").select("*").eq("shop_id", sid);
     if (staffData && staffData.length > 0) {
       db.staff = staffData.map(s => ({
-        id: s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir"
+        id: s.local_id || s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir"
       }));
     }
 
     // Sales
-    const { data: salesData } = await _sb.from("sales").select("*").order("id");
+    const { data: salesData } = await _sb.from("sales").select("*").eq("shop_id", sid).order("local_id");
     if (salesData && salesData.length > 0) {
       db.sales = salesData.map(s => ({
-        id: s.id, chekNum: s.chek_num, date: s.date, time: s.time,
+        id: s.local_id || s.id, chekNum: s.chek_num, date: s.date, time: s.time,
         priceType: s.price_type, payType: s.pay_type,
         staffId: s.staff_id, customerId: s.customer_id,
         items: s.items || [], subtotal: s.subtotal, discount: s.discount,
@@ -212,10 +291,10 @@ async function pullFromCloud() {
     }
 
     // Ombor
-    const { data: omborData } = await _sb.from("ombor").select("*").order("id");
+    const { data: omborData } = await _sb.from("ombor").select("*").eq("shop_id", sid).order("local_id");
     if (omborData && omborData.length > 0) {
       db.ombor = omborData.map(o => ({
-        id: o.id, date: o.date, sku: o.sku,
+        id: o.local_id || o.id, date: o.date, sku: o.sku,
         productName: o.product_name, unit: o.unit,
         color: o.color, size: o.size, qty: o.qty,
         boxes: o.boxes, pantone: o.pantone, hex: o.hex,
@@ -226,17 +305,17 @@ async function pullFromCloud() {
     }
 
     // Xarajatlar
-    const { data: xarData } = await _sb.from("xarajatlar").select("*").order("id");
+    const { data: xarData } = await _sb.from("xarajatlar").select("*").eq("shop_id", sid).order("local_id");
     if (xarData) {
       db.xarajatlar = xarData.map(x => ({
-        id: x.id, date: x.date, category: x.category,
+        id: x.local_id || x.id, date: x.date, category: x.category,
         amount: x.amount, recipient: x.recipient,
         paidBy: x.paid_by, note: x.note
       }));
     }
 
     // Settings
-    const { data: sets } = await _sb.from("settings").select("*").eq("id",1).single();
+    const { data: sets } = await _sb.from("settings").select("*").eq("id", sid).single();
     if (sets) {
       db.shop = { name: sets.shop_name };
       db.settings.rate           = sets.rate || 12800;
