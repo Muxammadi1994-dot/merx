@@ -425,6 +425,10 @@ function confirmRefund() {
   saveDB();
   closeModal("refund");
   closeModal("saledetail");
+  // Filterni "Barchasi" ga qaytaramiz
+  txStatus = "all";
+  document.querySelectorAll(".tx-status-btn").forEach(b =>
+    b.classList.toggle("on", b.dataset.s === "all"));
   renderTarix();
   toast(isFullRefund
     ? `✅ To'liq qaytarildi: ${fmt(refundTotal)} so'm. ${returnedCount} ta tovar omborga qaytdi.`
