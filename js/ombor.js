@@ -179,7 +179,8 @@ function omRenderQoldiq() {
 
     Object.values(colorGroups).forEach(cg => {
       const inBox   = p.inBox || 1;
-      const boxes   = inBox > 1 ? (cg.qty / inBox) : null;
+      const boxes   = inBox > 1 ? Math.floor(cg.qty / inBox) : null;
+      const remainder = inBox > 1 ? (cg.qty % inBox) : 0;
       const costUzs = Math.round((p.costUsd || 0) * rate);
 
       rows.push({
@@ -192,6 +193,7 @@ function omRenderQoldiq() {
         sizes:   cg.sizes,
         inBox,
         boxes,
+        remainder,
         unit:    p.unit || "dona",
         costUzs,
         chakana: p.priceUzs,
@@ -244,9 +246,11 @@ function omRenderQoldiq() {
           ? `<span class="bg" style="background:#FFF8E7;color:#856404;font-weight:600">${r.qty} ${r.unit}</span>`
           : `<span class="bg bg-g">${r.qty} ${r.unit}</span>`;
 
+    const remainder = r.inBox > 1 && r.qty != null ? (r.qty % r.inBox) : 0;
     const boxCell = r.inBox > 1
-      ? `<span style="font-weight:700;font-size:14px">${r.boxes != null ? (Number.isInteger(r.boxes) ? r.boxes : r.boxes.toFixed(1)) : '—'}</span>
+      ? `<span style="font-weight:700;font-size:14px">${r.boxes != null ? r.boxes : '—'}</span>
          <span style="font-size:10.5px;color:#bbb;margin-left:3px">karobka</span>
+         ${remainder > 0 ? `<span style="font-size:10px;color:#E9A500;margin-left:3px">(+${remainder} ta)</span>` : ''}
          <div style="font-size:10px;color:#aaa">×${r.inBox} ${r.unit}</div>`
       : `<span style="font-size:12px;color:#bbb">donab</span>`;
 
@@ -324,7 +328,7 @@ function omRenderQoldiq() {
 
   const totalQty  = rows.reduce((a, r) => a + r.qty, 0);
   const totalVal  = rows.reduce((a, r) => a + r.qiymati, 0);
-  const totalBoxes = rows.filter(r => r.boxes != null).reduce((a, r) => a + (r.boxes || 0), 0);
+  const totalBoxes = rows.filter(r => r.boxes != null).reduce((a, r) => a + (r.boxes || 0), 0); // Math.floor allaqachon qo'llanilgan
   const foot = $("om-qoldiq-foot");
   if (foot) foot.innerHTML = rows.length ? `
     <div style="display:flex;gap:24px;font-size:13px;padding:10px 16px;color:var(--mut);border-top:1px solid var(--brd)">
@@ -722,7 +726,7 @@ function exportOmborQoldiq(rate) {
       colorGroups[v.color].qty += v.qty;
     });
     Object.entries(colorGroups).forEach(([color, info]) => {
-      const boxes  = inBox > 1 ? (info.qty / inBox).toFixed(1) : "";
+      const boxes  = inBox > 1 ? Math.floor(info.qty / inBox) : "";
       const margin = p.ulgurjiNarx > 0 && costUzs > 0
         ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : "";
       rows.push([p.name, p.sku, p.barcode||"", color, info.pantone,
