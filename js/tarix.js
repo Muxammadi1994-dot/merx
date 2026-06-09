@@ -87,7 +87,8 @@ function renderTarix() {
         }</span>`
       : `<span style="color:var(--grn);font-size:11px">—</span>`;
 
-    return `<tr style="cursor:pointer" onclick="openSaleDetail(${s.id})">
+    const isReturned = s.status === "qaytarilgan";
+    return `<tr style="cursor:pointer;${isReturned?"opacity:.6;background:#FEF2F2":""}" onclick="openSaleDetail(${s.id})">
       <td>
         <div style="font-family:monospace;font-size:11px;font-weight:700;color:#0D1B2A">${chekN}</div>
         ${s.note ? `<div style="font-size:10px;color:#856404;margin-top:1px">📝 ${s.note}</div>` : ""}
@@ -113,8 +114,8 @@ function renderTarix() {
       <td class="num" style="color:var(--grn);font-size:12.5px">${fmt(s.paid)} so'm</td>
       <td class="num">${debtCell}</td>
       <td>
-        <span class="bg ${isDebt?"bg-a":"bg-g"}" style="font-size:11px">
-          ${isDebt ? "💳 Qarzda" : "✅ To'langan"}
+        <span class="bg ${isReturned?"bg-r":isDebt?"bg-a":"bg-g"}" style="font-size:11px">
+          ${isReturned ? "↩ Qaytarilgan" : isDebt ? "💳 Qarzda" : "✅ To'langan"}
         </span>
       </td>
       <td onclick="event.stopPropagation()">
@@ -269,6 +270,132 @@ function acceptDebtPayment() {
   saveDB();
   openSaleDetail(_sdSaleId); // modalni yangilash
   renderTarix();
+}
+
+// ── Qaytarish tizimi ─────────────────────────────
+let _refundSaleId = null;
+
+function openRefundModal(saleId) {
+  const id = saleId || _sdSaleId;
+  const s = db.sales.find(x => x.id === id); if (!s) return;
+
+  if (s.status === "qaytarilgan") { toast("Bu sotuv allaqachon qaytarilgan","err"); return; }
+
+  _refundSaleId = id;
+
+  // Modal contentni to'ldirish
+  const el = document.getElementById("refund-items"); if (!el) return;
+
+  el.innerHTML = (s.items||[]).map((item, i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;
+      border-bottom:1px solid var(--brd)">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px">${item.name}</div>
+        <div style="font-size:12px;color:var(--mut)">${item.color||""} ${item.size?"· "+item.size:""} · ${fmt(item.price||0)} so'm</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--mut)">Sotilgan: ${item.qty}</span>
+        <input type="number" id="ref-qty-${i}" min="0" max="${item.qty}"
+          value="${item.qty}" style="width:64px;font-family:inherit;font-size:14px;
+          font-weight:700;text-align:center;border:1.5px solid var(--brd);
+          border-radius:8px;padding:5px 8px" oninput="updateRefundTotal()">
+      </div>
+      <div style="font-size:13px;font-weight:700;color:var(--red);min-width:90px;text-align:right"
+        id="ref-sum-${i}">${fmt((item.price||0)*item.qty)} so'm</div>
+    </div>`).join("");
+
+  // Umumiy summa
+  document.getElementById("refund-sale-info").innerHTML =
+    `${s.date} · ${s.customerName||"Noma'lum"} · ${fmt(s.total)} so'm`;
+
+  updateRefundTotal();
+  openModal("refund");
+}
+
+function updateRefundTotal() {
+  const s = db.sales.find(x => x.id === _refundSaleId); if (!s) return;
+  let total = 0;
+  (s.items||[]).forEach((item, i) => {
+    const qty = parseInt(document.getElementById(`ref-qty-${i}`)?.value) || 0;
+    const sum = qty * (item.price||0);
+    total += sum;
+    const sumEl = document.getElementById(`ref-sum-${i}`);
+    if (sumEl) sumEl.textContent = fmt(sum) + " so'm";
+  });
+  const el = document.getElementById("refund-total");
+  if (el) el.textContent = fmt(total) + " so'm";
+}
+
+function confirmRefund() {
+  const s = db.sales.find(x => x.id === _refundSaleId); if (!s) return;
+  const reason = document.getElementById("refund-reason")?.value.trim() || "Sabab ko'rsatilmagan";
+
+  // Qaytarilgan itemlarni yig'amiz
+  const refundItems = [];
+  let refundTotal = 0;
+
+  (s.items||[]).forEach((item, i) => {
+    const qty = parseInt(document.getElementById(`ref-qty-${i}`)?.value) || 0;
+    if (qty <= 0) return;
+    if (qty > item.qty) { toast(`${item.name}: ${item.qty} ta sotilgan, ${qty} ta qaytara olmaysiz`,"err"); return; }
+    refundItems.push({ ...item, qty });
+    refundTotal += qty * (item.price||0);
+  });
+
+  if (!refundItems.length) { toast("Kamida 1 ta tovar tanlang","err"); return; }
+  if (!confirm(`${fmt(refundTotal)} so'm qaytarilsinmi?
+${refundItems.length} ta tovar omborga qaytadi.`)) return;
+
+  // 1. Omborga qaytarish
+  refundItems.forEach(item => {
+    const prod = db.products.find(p => p.name === item.name);
+    if (!prod) return;
+    const variant = prod.variants.find(v =>
+      v.color === item.color && (v.size === item.size || (!v.size && !item.size))
+    );
+    if (variant) variant.qty += item.qty;
+  });
+
+  // 2. Sotuv statusini yangilash
+  const isFullRefund = refundTotal >= s.total;
+  if (isFullRefund) {
+    s.status = "qaytarilgan";
+    s.refundDate = today();
+    s.refundReason = reason;
+    s.refundTotal = refundTotal;
+  } else {
+    // Qisman qaytarish
+    s.total    -= refundTotal;
+    s.paid     = Math.max(0, s.paid - refundTotal);
+    s.refundDate = today();
+    s.refundNote = `Qisman qaytarish: ${fmt(refundTotal)} so'm`;
+    // Qaytarilgan itemlarni sotuvdan olib tashlaymiz
+    s.items = s.items.map((item, i) => {
+      const refItem = refundItems.find(r => r.name === item.name && r.color === item.color);
+      if (!refItem) return item;
+      const newQty = item.qty - refItem.qty;
+      return newQty > 0 ? { ...item, qty: newQty } : null;
+    }).filter(Boolean);
+  }
+
+  // 3. Qaytarilgan sotuv yozuvi (manfiy sotuv)
+  if (!db.returns) db.returns = [];
+  db.returns.push({
+    id:          db.seq++,
+    date:        today(),
+    origSaleId:  s.id,
+    items:       refundItems,
+    total:       refundTotal,
+    reason,
+    customerName: s.customerName,
+    staffId:     s.staffId
+  });
+
+  saveDB();
+  closeModal("refund");
+  closeModal("saledetail");
+  renderTarix();
+  toast(`✅ ${fmt(refundTotal)} so'm qaytarildi. ${refundItems.length} ta tovar omborga qaytdi.`);
 }
 
 // ── Chek print ────────────────────────────────────
