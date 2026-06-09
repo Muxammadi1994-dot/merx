@@ -98,6 +98,87 @@ function renderHisobot() {
   renderRepProducts(sales, rev);
   renderRepCustomers(sales);
   renderRepPriceType(sales);
+  renderRepStaff(sales);
+  renderRepGrowth(rev, cnt);
+}
+
+// ── O'sish taqqoslovi ─────────────────────────────
+function renderRepGrowth(curRev, curCnt) {
+  const el = document.getElementById("rep-growth"); if (!el) return;
+  const { from, to } = repDateRange();
+  const diff = new Date(to) - new Date(from);
+  const prevTo   = addDays(from, -1);
+  const prevFrom = addDays(prevTo, -Math.round(diff/86400000));
+  const prevSales = db.sales.filter(s => s.date >= prevFrom && s.date <= prevTo);
+  const prevRev   = prevSales.reduce((a,s)=>a+(s.total||0),0);
+  const prevCnt   = prevSales.length;
+
+  const revGrowth = prevRev > 0 ? Math.round((curRev - prevRev)/prevRev*100) : null;
+  const cntGrowth = prevCnt > 0 ? Math.round((curCnt - prevCnt)/prevCnt*100) : null;
+
+  el.innerHTML = `
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:120px">
+        <div style="font-size:11px;color:var(--mut);margin-bottom:3px">Avvalgi davr sotuv</div>
+        <div style="font-size:14px;font-weight:700">${fmtK(prevRev)} so'm</div>
+        ${revGrowth !== null ? `<div style="font-size:12px;font-weight:700;color:${revGrowth>=0?"var(--grn)":"var(--red)"}">
+          ${revGrowth>=0?"▲":"▼"} ${Math.abs(revGrowth)}% o'zgarish</div>` : ""}
+      </div>
+      <div style="flex:1;min-width:120px">
+        <div style="font-size:11px;color:var(--mut);margin-bottom:3px">Avvalgi davr sotuvlar</div>
+        <div style="font-size:14px;font-weight:700">${prevCnt} ta</div>
+        ${cntGrowth !== null ? `<div style="font-size:12px;font-weight:700;color:${cntGrowth>=0?"var(--grn)":"var(--red)"}">
+          ${cntGrowth>=0?"▲":"▼"} ${Math.abs(cntGrowth)}% o'zgarish</div>` : ""}
+      </div>
+    </div>`;
+}
+
+// ── Kassir tahlili ────────────────────────────────
+function renderRepStaff(sales) {
+  const el = document.getElementById("rep-staff"); if (!el) return;
+  if (!db.staff?.length) { el.innerHTML = `<tr><td colspan="5" class="empty-td">Xodimlar yo'q</td></tr>`; return; }
+
+  const staffMap = {};
+  sales.forEach(s => {
+    const sid = s.staffId;
+    if (!staffMap[sid]) staffMap[sid] = { cnt:0, total:0, paid:0, debt:0 };
+    staffMap[sid].cnt++;
+    staffMap[sid].total += s.total||0;
+    staffMap[sid].paid  += s.paid||0;
+    staffMap[sid].debt  += s.remaining||0;
+  });
+
+  const totalRev = Object.values(staffMap).reduce((a,x)=>a+x.total,0)||1;
+  const rows = db.staff.map(s => ({
+    ...s, ...(staffMap[s.id]||{cnt:0,total:0,paid:0,debt:0})
+  })).sort((a,b)=>b.total-a.total);
+
+  el.innerHTML = rows.map((s,i) => {
+    const pct = Math.round((s.total||0)/totalRev*100);
+    const avg = s.cnt ? Math.round(s.total/s.cnt) : 0;
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="font-size:11px;color:#bbb;width:16px">${i+1}</span>
+          <div>
+            <div style="font-weight:600;font-size:13px">${s.name}</div>
+            <div style="font-size:11px;color:var(--mut)">${s.role||"kassir"}</div>
+          </div>
+        </div>
+      </td>
+      <td class="num">${s.cnt} ta</td>
+      <td class="num" style="font-weight:700;color:var(--acc)">${s.total?fmtK(s.total)+" so'm":"—"}</td>
+      <td class="num" style="font-size:12px">${avg?fmtK(avg)+" so'm":"—"}</td>
+      <td class="num">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="flex:1;height:6px;background:#f0ede7;border-radius:3px;min-width:50px">
+            <div style="height:100%;width:${pct}%;background:var(--acc);border-radius:3px"></div>
+          </div>
+          <span style="font-size:11.5px;color:#888;width:28px;text-align:right">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
 }
 
 // ── Sotuv dinamikasi chart ─────────────────────────
@@ -362,4 +443,29 @@ function renderRepPriceType(sales) {
         </td>
       </tr>`;
     }).join("");
+}
+
+
+// ── Excel eksport ─────────────────────────────────
+function exportHisobotExcel() {
+  const { from, to } = repDateRange();
+  const sales = repSales();
+  const rate  = db.settings?.rate || 12800;
+
+  const rows = [["Sana","Vaqt","Kassir","Mijoz","Mahsulotlar","Jami","To'landi","Qarz","To'lov turi","Turi"]];
+  sales.forEach(s => {
+    const staffName = db.staff.find(x=>x.id===s.staffId)?.name || "—";
+    const items = (s.items||[]).map(i=>i.name+"×"+i.qty).join(", ");
+    rows.push([s.date, s.time||"", staffName, s.customerName||"—", items,
+      s.total||0, s.paid||0, s.remaining||0, s.payType, s.priceType]);
+  });
+
+  let csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const bom = "\uFEFF";
+  const blob = new Blob([bom + csv], { type:"text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement("a");
+  a.href = url; a.download = `hisobot_${from}_${to}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  toast("✅ Excel (CSV) yuklab olindi");
 }

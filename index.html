@@ -928,13 +928,27 @@
 
   <!-- HISOBOT -->
   <div class="pg" id="p-hisobot">
-    <div class="rep-filters" id="rep-filters">
-      <button class="rfbtn" data-r="today" onclick="setRepRange('today')">Bugun</button>
-      <button class="rfbtn on" data-r="week" onclick="setRepRange('week')">7 kun</button>
-      <button class="rfbtn" data-r="month" onclick="setRepRange('month')">Bu oy</button>
-      <button class="rfbtn" data-r="quarter" onclick="setRepRange('quarter')">3 oy</button>
-      <button class="rfbtn" data-r="year" onclick="setRepRange('year')">Bu yil</button>
+    <div class="rep-filters" id="rep-filters" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="rfbtn" data-r="today" onclick="setRepRange('today')">Bugun</button>
+        <button class="rfbtn on" data-r="week" onclick="setRepRange('week')">7 kun</button>
+        <button class="rfbtn" data-r="month" onclick="setRepRange('month')">Bu oy</button>
+        <button class="rfbtn" data-r="quarter" onclick="setRepRange('quarter')">3 oy</button>
+        <button class="rfbtn" data-r="year" onclick="setRepRange('year')">Bu yil</button>
+      </div>
+      <button class="btn btn-sm" onclick="exportHisobotExcel()" style="color:#1D6A39">
+        <i class="ti ti-file-spreadsheet"></i> Excel eksport
+      </button>
     </div>
+
+    <!-- O'sish taqqoslovi -->
+    <div class="card" style="padding:14px 18px;margin-bottom:0">
+      <div class="ch" style="margin-bottom:10px">
+        <h3><i class="ti ti-trending-up"></i> Avvalgi davr bilan taqqos</h3>
+      </div>
+      <div id="rep-growth"><span style="color:var(--mut);font-size:13px">Yuklanmoqda...</span></div>
+    </div>
+
     <div class="kpi-row" id="rep-kpis">
       <div class="kpi kpi-acc"><div class="kl">Sotuvlar soni</div><div class="kv num" id="rep-cnt">0</div></div>
       <div class="kpi kpi-teal"><div class="kl">Jami sotuv (nasiya bilan)</div><div class="kv num" id="rep-rev">0</div></div>
@@ -976,6 +990,12 @@
         <table><thead><tr><th>Mijoz</th><th>Sotuvlar</th><th>Jami</th><th>Qarz</th></tr></thead>
         <tbody id="rep-customers"></tbody></table></div>
     </div>
+
+    <!-- Kassir tahlili -->
+    <div class="card"><div class="ch"><h3><i class="ti ti-id-badge"></i>Kassirlar tahlili</h3></div>
+      <table><thead><tr><th>Kassir</th><th>Sotuvlar</th><th>Jami</th><th>O'rtacha chek</th><th>Ulush</th></tr></thead>
+      <tbody id="rep-staff"></tbody></table></div>
+
     <div class="card"><div class="ch"><h3><i class="ti ti-receipt-2"></i>Narx turi tahlili</h3></div>
       <div style="overflow-x:auto">
       <table><thead><tr><th>Narx turi</th><th>Sotuvlar</th><th>Jami sotuv</th><th>O'rtacha sotuv</th><th>Ulush</th></tr></thead>
