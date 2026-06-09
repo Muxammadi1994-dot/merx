@@ -297,6 +297,10 @@ function renderKatalog() {
       </td>
       ${showChakana ? `<td class="num" style="color:var(--teal);font-size:12.5px">${p.priceUzs ? fmt(p.priceUzs)+" so'm" : "—"}</td>` : ""}
       <td onclick="event.stopPropagation()">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="duplicateProduct('${p.sku}',event)"
+          title="Nusxalash" style="color:#8B5CF6">
+          <i class="ti ti-copy"></i>
+        </button>
         <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditProduct('${p.sku}')">
           <i class="ti ti-edit"></i>
         </button>
@@ -382,6 +386,32 @@ function ppReset(prefix) {
 }
 
 // ── Mahsulot tahrirlash ────────────────────────
+// ── Mahsulot nusxalash ───────────────────────────
+function duplicateProduct(sku, event) {
+  if (event) event.stopPropagation();
+  const p = db.products.find(x => x.sku === sku);
+  if (!p) return;
+
+  // Yangi SKU yaratamiz
+  const newSku = p.sku + "-copy-" + Date.now().toString().slice(-4);
+
+  const copy = JSON.parse(JSON.stringify(p)); // deep copy
+  copy.sku  = newSku;
+  copy.name = p.name + " (nusxa)";
+  copy.barcode = genEAN13 ? genEAN13(db.seq++) : "";
+  // Variantlar qoldig'ini 0 qilamiz
+  copy.variants = copy.variants.map(v => ({ ...v, qty: 0 }));
+
+  db.products.push(copy);
+  db.seq = (db.seq || 1) + 1;
+  saveDB();
+  renderKatalog();
+  toast(`✅ "${p.name}" nusxalandi — tahrirlashingiz mumkin`);
+
+  // Nusxani darhol ochib beramiz
+  setTimeout(() => openEditProduct(newSku), 300);
+}
+
 function openEditProduct(sku) {
   const p = db.products.find(x => x.sku === sku); if (!p) return;
   editSku = sku;
