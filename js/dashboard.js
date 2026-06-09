@@ -31,7 +31,20 @@ function dashDateStr() {
 
 // ── Asosiy render ──────────────────────────────
 function renderDashboard() {
-  const t = today();
+  const t    = today();
+  const rate = db.settings?.rate || 12800;
+  const isUsd = db.settings?.priceCurrency === "usd";
+
+  // Valyutaga qarab formatlash
+  function dashFmt(uzs) {
+    if (isUsd) {
+      const usd = uzs / rate;
+      return usd >= 1000 ? (usd/1000).toFixed(1)+"K $"
+           : usd >= 1    ? usd.toFixed(0)+" $"
+           : usd.toFixed(2)+" $";
+    }
+    return fmtK(uzs) + " so'm";
+  }
 
   // Hisob-kitoblar
   const todaySales  = db.sales.filter(s => s.date === t);
@@ -72,6 +85,7 @@ function renderDashboard() {
   renderDashAlerts(lowStock);
   renderDashSalesTable();
   renderDashDebtTable(debts);
+  updateDashCurrencyPill();
 }
 
 // ── Header (qoʻngʻiroq strip) ──────────────────
@@ -90,7 +104,7 @@ function renderDashHeader(todayTotal, todayCnt, growth) {
     </div>
     <div class="dh-center">
       <div class="dh-lbl">Bugungi sotuv</div>
-      <div class="dh-val">${fmtK(todayTotal)} <span style="font-size:15px;font-weight:500;opacity:.7">so'm</span></div>
+      <div class="dh-val">${(()=>{const r=db.settings?.rate||12800;const u=db.settings?.priceCurrency==="usd";return u?(todayTotal/r).toFixed(0)+" $":fmtK(todayTotal)+" so'm";})()} </div>
       <div style="font-size:12px;margin-top:3px;color:rgba(255,255,255,.45)">${todayCnt} ta tranzaksiya ${growHtml}</div>
     </div>
     <div class="dh-right">
@@ -118,12 +132,12 @@ function renderDashKpis(todayCnt, avgCheck, totalDebt, debtCnt, overdueCnt) {
     },
     {
       icon: 'ti-receipt', color: '#36B48C',
-      label: "O'rtacha check", val: todayCnt ? fmtK(avgCheck) + ' so\'m' : '—',
+      label: "O'rtacha check", val: todayCnt ? (()=>{const r=db.settings?.rate||12800;const u=db.settings?.priceCurrency==="usd";return u?(avgCheck/r).toFixed(0)+" $":fmtK(avgCheck)+" so'm"})() : '—',
       sub: 'bir sotuvga o\'rtacha', click: "nav('tarix')"
     },
     {
       icon: 'ti-credit-card', color: '#E07B39',
-      label: 'Jami qarz', val: fmtK(totalDebt) + ' so\'m',
+      label: 'Jami qarz', val: (()=>{const r=db.settings?.rate||12800;const u=db.settings?.priceCurrency==="usd";return u?(totalDebt/r).toFixed(0)+" $":fmtK(totalDebt)+" so'm"})(),
       sub: debtCnt + ' nafar qarzdor', click: "nav('qarzlar')"
     },
     {
