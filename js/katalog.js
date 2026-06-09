@@ -256,9 +256,19 @@ function renderKatalog() {
           style="width:16px;height:16px;accent-color:var(--acc);cursor:pointer">
       </td>
       <td onclick="event.stopPropagation()">
-        ${p.image
-          ? `<img src="${p.image}" class="kat-thumb" onclick="openEditProduct('${p.sku}')" style="cursor:pointer">`
-          : `<div class="kat-thumb-empty" onclick="openEditProduct('${p.sku}')" style="cursor:pointer"><i class="ti ti-photo"></i></div>`}
+        <div style="position:relative;display:inline-block">
+          ${p.image
+            ? `<img src="${p.image}" class="kat-thumb" style="cursor:pointer"
+                onclick="katImgClick('${p.sku}')"
+                title="Rasmni o'zgartirish">`
+            : `<div class="kat-thumb-empty" style="cursor:pointer"
+                onclick="katImgClick('${p.sku}')"
+                title="Rasm qo'shish">
+                <i class="ti ti-camera-plus" style="font-size:16px"></i>
+              </div>`}
+        </div>
+        <input type="file" id="kat-img-inp-${p.sku}" accept="image/*" style="display:none"
+          onchange="katImgSave('${p.sku}',this)">
       </td>
       <td style="font-family:monospace;font-size:11px;color:var(--mut)">${p.sku}</td>
       <td>
@@ -1300,4 +1310,44 @@ body{font-family:Arial,sans-serif;background:#fff}
 </body></html>`);
   w.document.close();
   toast("✅ Chop etish oynasi ochildi");
+}
+
+// ── Katalog jadvalidan rasm yuklash ──────────────
+function katImgClick(sku) {
+  const inp = document.getElementById("kat-img-inp-" + sku);
+  if (inp) inp.click();
+}
+
+function katImgSave(sku, input) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { toast("Rasm 2MB dan katta", "err"); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const raw = e.target.result;
+    // Siqish
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement("canvas");
+      let w = img.width, h = img.height;
+      const MAX = 600;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      let q = 0.85, dataUrl;
+      do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
+      while (dataUrl.length > 150000 && q > 0.3);
+
+      const p = db.products.find(x => x.sku === sku);
+      if (!p) return;
+      p.image = dataUrl;
+      saveDB();
+      renderKatalog();
+      toast("✅ Rasm saqlandi");
+    };
+    img.src = raw;
+  };
+  reader.readAsDataURL(file);
 }
