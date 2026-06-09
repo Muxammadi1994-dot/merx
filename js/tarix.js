@@ -1,12 +1,11 @@
-// MERX tarix.js | v2.3 | 2026-06-09 | qaytarish tizimi
+// MERX tarix.js | v2.4 | 2026-06-09 | qaytarish tuzatildi
 // ================================================
-// MERX — js/tarix.js  (v2 — To'liq sotuv tarixi)
+// MERX — js/tarix.js
 // ================================================
-
 
 let txPeriod  = "all";
 let txStatus  = "all";
-let txStaffId = "all"; // kassir filtri
+let txStaffId = "all";
 let _sdSaleId = null;
 
 function setTxStaff(id) {
@@ -28,7 +27,6 @@ function setTxStatus(s) {
   renderTarix();
 }
 
-// ── Davr filtri ───────────────────────────────────
 function txPeriodFilter(s) {
   const d = s.date || "";
   if (txPeriod === "today") return d === today();
@@ -37,14 +35,13 @@ function txPeriodFilter(s) {
   return true;
 }
 
-// ── Render ────────────────────────────────────────
 function renderTarix() {
   const q = ($("tarix-q")||{value:""}).value.toLowerCase();
 
   let list = db.sales.slice().reverse().filter(s => {
     if (!txPeriodFilter(s)) return false;
-    if (txStatus === "tolandan" && s.status !== "tolandan") return false;
-    if (txStatus === "qarz"     && s.status !== "qarz")     return false;
+    if (txStatus === "tolandan"    && s.status !== "tolandan")    return false;
+    if (txStatus === "qarz"        && s.status !== "qarz")        return false;
     if (txStatus === "qaytarilgan" && s.status !== "qaytarilgan") return false;
     if (txStaffId !== "all" && String(s.staffId) !== String(txStaffId)) return false;
     if (!q) return true;
@@ -54,7 +51,7 @@ function renderTarix() {
            (s.note||"").toLowerCase().includes(q);
   });
 
-  // Kassir select ni yangilaymiz
+  // Kassir select yangilash
   const staffSel = document.getElementById("tx-staff-sel");
   if (staffSel && staffSel.options.length <= 1) {
     (db.staff||[]).forEach(s => {
@@ -139,7 +136,6 @@ function openSaleDetail(id) {
   if ($("sd-cheknum")) $("sd-cheknum").textContent = s.chekNum || `#${s.id}`;
   if ($("sd-dt"))      $("sd-dt").textContent      = `${s.date||""} ${s.time||""}`;
 
-  // Mahsulotlar
   if ($("sd-items")) {
     $("sd-items").innerHTML = `
       <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;margin-bottom:8px">Mahsulotlar</div>
@@ -154,7 +150,6 @@ function openSaleDetail(id) {
       ).join("") || "<div style='color:#ccc'>—</div>"}`;
   }
 
-  // Totals
   if ($("sd-totals")) {
     const disc = s.discount || 0;
     $("sd-totals").innerHTML = `
@@ -181,7 +176,6 @@ function openSaleDetail(id) {
       ` : ""}`;
   }
 
-  // Info
   if ($("sd-info")) {
     const staff = db.staff.find(x => x.id === s.staffId);
     $("sd-info").innerHTML = `
@@ -191,11 +185,10 @@ function openSaleDetail(id) {
         <div><span style="color:#aaa">To'lov: </span><strong>${PAYTYPES[s.payType]||"—"}</strong></div>
         <div><span style="color:#aaa">Narx turi: </span><strong>${s.priceType==="ulgurji"?"Ulgurji":"Chakana"}</strong></div>
         <div><span style="color:#aaa">Kassir: </span><strong>${staff?.name||"—"}</strong></div>
-        <div><span style="color:#aaa">Holat: </span><strong>${s.status==="qarz"?"Qarzda":"To'langan"}</strong></div>
+        <div><span style="color:#aaa">Holat: </span><strong>${s.status==="qarz"?"Qarzda":s.status==="qaytarilgan"?"Qaytarilgan":"To'langan"}</strong></div>
       </div>`;
   }
 
-  // Izoh
   const noteWrap = $("sd-note-wrap");
   if (noteWrap) {
     if (s.note) {
@@ -206,11 +199,9 @@ function openSaleDetail(id) {
     }
   }
 
-  // WhatsApp tugmasi
   const waBtn = $("sd-wa-btn");
   if (waBtn) waBtn.style.display = s.customerPhone ? "inline-flex" : "none";
 
-  // Qaytarish tugmasi
   const refBtn = $("sd-refund-btn");
   if (refBtn) refBtn.style.display = s.status !== "qaytarilgan" ? "inline-flex" : "none";
 
@@ -234,7 +225,7 @@ function openSaleDetail(id) {
   openModal("saledetail");
 }
 
-// ── To'lov qabul qilish (sotuv tarixidan) ────────
+// ── To'lov qabul qilish ───────────────────────────
 function acceptDebtPayment() {
   const s = db.sales.find(x => x.id === _sdSaleId); if (!s) return;
   if (s.status !== "qarz" || s.remaining <= 0) return;
@@ -247,68 +238,141 @@ function acceptDebtPayment() {
 
   if (isUsd) {
     if (amount > s.debtUsd) { toast(`Qarz: $${s.debtUsd.toFixed(2)} USD dan ko'p kiritdingiz`,"err"); return; }
-    const rate    = db.settings.rate || 12800;
+    const rate     = db.settings.rate || 12800;
     const uzsEquiv = Math.round(amount * rate);
     s.debtUsd   -= amount;
     s.paid      += uzsEquiv;
     s.remaining -= uzsEquiv;
-    if (s.debtUsd <= 0.001) {
-      s.debtUsd   = 0;
-      s.remaining = 0;
-      s.status    = "tolangan";
-    }
+    if (s.debtUsd <= 0.001) { s.debtUsd = 0; s.remaining = 0; s.status = "tolandan"; }
     toast(`✅ $${amount.toFixed(2)} USD qabul qilindi`);
   } else {
     if (amount > s.remaining) { toast(`Qarz: ${fmt(s.remaining)} so'm dan ko'p kiritdingiz`,"err"); return; }
     s.paid      += amount;
     s.remaining -= amount;
-    if (s.remaining <= 0) {
-      s.remaining = 0;
-      s.status    = "tolangan";
-    }
+    if (s.remaining <= 0) { s.remaining = 0; s.status = "tolandan"; }
     toast(`✅ ${fmt(amount)} so'm qabul qilindi`);
   }
 
   saveDB();
-  openSaleDetail(_sdSaleId); // modalni yangilash
+  openSaleDetail(_sdSaleId);
   renderTarix();
 }
 
-// ── Qaytarish tizimi ─────────────────────────────
+// ════════════════════════════════════════════════
+// QAYTARISH TIZIMI — TO'LIQ TUZATILDI
+// ════════════════════════════════════════════════
+
 let _refundSaleId = null;
 
+// "Qora / 42" yoki "Qora (2 karobka)" formatidan rang va o'lcham ajratib olish
+function parseVariant(variantStr) {
+  if (!variantStr) return { color: null, size: null, isBox: false };
+  // Karobka formati: "Qora (2 karobka)"
+  if (variantStr.includes("karobka")) {
+    const color = variantStr.split("(")[0].trim();
+    return { color, size: null, isBox: true };
+  }
+  // Dona formati: "Qora / 42"
+  if (variantStr.includes("/")) {
+    const parts = variantStr.split("/").map(x => x.trim());
+    return { color: parts[0], size: parts[1], isBox: false };
+  }
+  // Faqat rang: "Qora"
+  return { color: variantStr.trim(), size: null, isBox: false };
+}
+
+// Omborga qaytarish — universal (variant formatini to'g'ri parse qiladi)
+function returnItemToStock(item) {
+  const prod = db.products.find(p => p.name === item.name);
+  if (!prod) {
+    console.warn("Mahsulot topilmadi:", item.name);
+    return false;
+  }
+
+  const parsed = parseVariant(item.variant);
+  const color  = parsed.color || item.color;
+  const size   = parsed.size  || item.size;
+
+  if (parsed.isBox || !size) {
+    // Karobka yoki faqat rang — rang bo'yicha teng taqsimlash
+    const colorVariants = prod.variants.filter(v => v.color === color);
+    if (colorVariants.length > 0) {
+      // Rang bo'yicha birinchi variantga qo'shamiz (yoki teng taqsimlaymiz)
+      let rem = item.qty;
+      colorVariants.forEach(v => {
+        if (rem <= 0) return;
+        v.qty += rem;
+        rem = 0;
+      });
+    } else if (prod.variants.length > 0) {
+      // Rang topilmasa — birinchi variantga
+      prod.variants[0].qty += item.qty;
+    } else {
+      prod.variants.push({ color: color || "Noma'lum", size: "", qty: item.qty });
+    }
+  } else {
+    // Dona rejimi — rang + o'lcham bo'yicha
+    const v = prod.variants.find(x =>
+      x.color === color && (x.size === size || String(x.size) === String(size))
+    );
+    if (v) {
+      v.qty += item.qty;
+    } else {
+      // Variant topilmasa — yangi qo'sh
+      prod.variants.push({ color: color || "Noma'lum", size: size || "", qty: item.qty });
+      console.warn("Yangi variant yaratildi:", { color, size, qty: item.qty });
+    }
+  }
+  return true;
+}
+
+// Qaytarish modal ochish
 function openRefundModal(saleId) {
   const id = saleId || _sdSaleId;
-  const s = db.sales.find(x => x.id === id); if (!s) return;
+  const s  = db.sales.find(x => x.id === id);
+  if (!s) return;
 
-  if (s.status === "qaytarilgan") { toast("Bu sotuv allaqachon qaytarilgan","err"); return; }
+  if (s.status === "qaytarilgan") {
+    toast("Bu sotuv allaqachon qaytarilgan", "err");
+    return;
+  }
 
   _refundSaleId = id;
 
-  // Modal contentni to'ldirish
-  const el = document.getElementById("refund-items"); if (!el) return;
+  const el = document.getElementById("refund-items");
+  if (!el) return;
 
-  el.innerHTML = (s.items||[]).map((item, i) => `
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;
-      border-bottom:1px solid var(--brd)">
+  el.innerHTML = (s.items||[]).map((item, i) => {
+    const parsed   = parseVariant(item.variant);
+    const colorTxt = parsed.color || "";
+    const sizeTxt  = parsed.size  ? " · " + parsed.size : "";
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;
+        border-bottom:1px solid var(--brd)">
       <div style="flex:1">
         <div style="font-weight:600;font-size:13px">${item.name}</div>
-        <div style="font-size:12px;color:var(--mut)">${item.color||""} ${item.size?"· "+item.size:""} · ${fmt(item.price||0)} so'm</div>
+        <div style="font-size:12px;color:var(--mut)">
+          ${colorTxt}${sizeTxt}
+          ${item.variant ? "· " + item.variant : ""}
+          · ${fmt(item.price||0)} so'm/dona
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:12px;color:var(--mut)">Sotilgan: ${item.qty}</span>
         <input type="number" id="ref-qty-${i}" min="0" max="${item.qty}"
-          value="${item.qty}" style="width:64px;font-family:inherit;font-size:14px;
-          font-weight:700;text-align:center;border:1.5px solid var(--brd);
-          border-radius:8px;padding:5px 8px" oninput="updateRefundTotal()">
+          value="${item.qty}"
+          style="width:64px;font-family:inherit;font-size:14px;font-weight:700;
+            text-align:center;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px"
+          oninput="updateRefundTotal()">
       </div>
       <div style="font-size:13px;font-weight:700;color:var(--red);min-width:90px;text-align:right"
         id="ref-sum-${i}">${fmt((item.price||0)*item.qty)} so'm</div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 
-  // Umumiy summa
-  document.getElementById("refund-sale-info").innerHTML =
-    `${s.date} · ${s.customerName||"Noma'lum"} · ${fmt(s.total)} so'm`;
+  const infoEl = document.getElementById("refund-sale-info");
+  if (infoEl) {
+    infoEl.innerHTML = `${s.date} · ${s.customerName||"Noma'lum"} · ${fmt(s.total)} so'm`;
+  }
 
   updateRefundTotal();
   openModal("refund");
@@ -332,75 +396,95 @@ function confirmRefund() {
   const s = db.sales.find(x => x.id === _refundSaleId); if (!s) return;
   const reason = document.getElementById("refund-reason")?.value.trim() || "Sabab ko'rsatilmagan";
 
-  // Qaytarilgan itemlarni yig'amiz
+  // Qaytariladigan itemlarni yig'amiz
   const refundItems = [];
-  let refundTotal = 0;
+  let refundTotal   = 0;
+  let hasError      = false;
 
   (s.items||[]).forEach((item, i) => {
     const qty = parseInt(document.getElementById(`ref-qty-${i}`)?.value) || 0;
     if (qty <= 0) return;
-    if (qty > item.qty) { toast(`${item.name}: ${item.qty} ta sotilgan, ${qty} ta qaytara olmaysiz`,"err"); return; }
+    if (qty > item.qty) {
+      toast(`${item.name}: ${item.qty} ta sotilgan, ${qty} ta qaytara olmaysiz`, "err");
+      hasError = true;
+      return;
+    }
     refundItems.push({ ...item, qty });
     refundTotal += qty * (item.price||0);
   });
 
-  if (!refundItems.length) { toast("Kamida 1 ta tovar tanlang","err"); return; }
-  if (!confirm(`${fmt(refundTotal)} so'm qaytarilsinmi?
-${refundItems.length} ta tovar omborga qaytadi.`)) return;
+  if (hasError) return;
+  if (!refundItems.length) { toast("Kamida 1 ta tovar tanlang", "err"); return; }
 
-  // 1. Omborga qaytarish
+  const confirmTxt = `${fmt(refundTotal)} so'm qaytarilsinmi?\n${refundItems.length} ta tovar omborga qaytadi.`;
+  if (!confirm(confirmTxt)) return;
+
+  // 1. Har bir item uchun ombor tiklanadi
+  let returnedCount = 0;
   refundItems.forEach(item => {
-    const prod = db.products.find(p => p.name === item.name);
-    if (!prod) return;
-    const variant = prod.variants.find(v =>
-      v.color === item.color && (v.size === item.size || (!v.size && !item.size))
-    );
-    if (variant) variant.qty += item.qty;
+    if (returnItemToStock(item)) returnedCount++;
   });
 
-  // 2. Sotuv statusini yangilash
+  // 2. Sotuv yangilanadi
   const isFullRefund = refundTotal >= s.total;
+
   if (isFullRefund) {
-    s.status = "qaytarilgan";
-    s.refundDate = today();
+    // To'liq qaytarish
+    s.status       = "qaytarilgan";
+    s.refundDate   = today();
     s.refundReason = reason;
-    s.refundTotal = refundTotal;
+    s.refundTotal  = refundTotal;
+    s.remaining    = 0; // qarz ham bekor
   } else {
-    // Qisman qaytarish
-    s.total    -= refundTotal;
-    s.paid     = Math.max(0, s.paid - refundTotal);
+    // Qisman qaytarish — sotuvni kichraytirish
+    s.total  -= refundTotal;
+    s.paid    = Math.max(0, s.paid - refundTotal);
+    s.remaining = Math.max(0, s.remaining - Math.min(refundTotal, s.remaining));
+    if (s.remaining <= 0) { s.remaining = 0; s.status = "tolandan"; }
     s.refundDate = today();
     s.refundNote = `Qisman qaytarish: ${fmt(refundTotal)} so'm`;
-    // Qaytarilgan itemlarni sotuvdan olib tashlaymiz
+
+    // Qaytarilgan miqdorni itemlardan ayiramiz
     s.items = s.items.map((item, i) => {
-      const refItem = refundItems.find(r => r.name === item.name && r.color === item.color);
+      const refItem = refundItems.find(r => r.name === item.name && r.variant === item.variant);
       if (!refItem) return item;
       const newQty = item.qty - refItem.qty;
       return newQty > 0 ? { ...item, qty: newQty } : null;
     }).filter(Boolean);
   }
 
-  // 3. Qaytarilgan sotuv yozuvi (manfiy sotuv)
+  // 3. Qaytarish tarixi (db.returns)
   if (!db.returns) db.returns = [];
   db.returns.push({
-    id:          db.seq++,
-    date:        today(),
-    origSaleId:  s.id,
-    items:       refundItems,
-    total:       refundTotal,
+    id:           db.seq++,
+    date:         today(),
+    time:         nowTime(),
+    origSaleId:   s.id,
+    origChekNum:  s.chekNum || "#" + s.id,
+    items:        refundItems,
+    total:        refundTotal,
     reason,
-    customerName: s.customerName,
-    staffId:     s.staffId
+    customerName: s.customerName || "",
+    staffId:      s.staffId
   });
 
   saveDB();
   closeModal("refund");
   closeModal("saledetail");
   renderTarix();
-  toast(`✅ ${fmt(refundTotal)} so'm qaytarildi. ${refundItems.length} ta tovar omborga qaytdi.`);
+
+  const msg = isFullRefund
+    ? `✅ To'liq qaytarildi: ${fmt(refundTotal)} so'm. ${returnedCount} ta tovar omborga qaytdi.`
+    : `✅ Qisman qaytarildi: ${fmt(refundTotal)} so'm. ${returnedCount} ta tovar omborga qaytdi.`;
+  toast(msg);
 }
 
-// ── Chek print ────────────────────────────────────
+// ── Eski refundSale() — sotuv detail tugmasi uchun moslik ──
+function refundSale() {
+  openRefundModal(_sdSaleId);
+}
+
+// ── To'lov qabul qilish (detail dan) ─────────────
 function printSaleDetail() {
   const s = db.sales.find(x => x.id === _sdSaleId); if (!s) return;
   if (typeof showReceiptModal === "function") {
@@ -411,7 +495,6 @@ function printSaleDetail() {
   }
 }
 
-// ── WhatsApp ulashish ─────────────────────────────
 function shareSaleWhatsApp() {
   const s = db.sales.find(x => x.id === _sdSaleId); if (!s) return;
   if (typeof shareWhatsApp === "function") {
@@ -420,55 +503,13 @@ function shareSaleWhatsApp() {
   }
 }
 
-// ── Qaytarish ─────────────────────────────────────
-function refundSale() {
-  const s = db.sales.find(x => x.id === _sdSaleId); if (!s) return;
-  if (!confirm(`#${s.id} sotuvni qaytarish? Ombor qoldig'i tiklanadi.`)) return;
-
-  // Ombor qoldig'ini tiklash
-  s.items?.forEach(item => {
-    const p = db.products.find(x => x.name === item.name);
-    if (!p) return;
-
-    if (item.sellMode === "karobka" || (item.variant && !item.variant.includes("/"))) {
-      // Karobka rejimi — rang bo'yicha tiklash
-      const color = (item.variant || "").split("(")[0].trim() || item.color;
-      let rem = item.qty;
-      p.variants.filter(v => v.color === color).forEach(v => {
-        if (rem <= 0) return;
-        v.qty += rem; rem = 0;
-      });
-      if (rem > 0) {
-        // Rang topilmasa birinchi variantga
-        if (p.variants.length) p.variants[0].qty += rem;
-      }
-    } else if (item.variant && item.variant.includes("/")) {
-      // Dona rejimi — rang/o'lcham bo'yicha tiklash
-      const [color, size] = item.variant.split("/").map(x => x.trim());
-      const v = p.variants.find(x => x.color === color && x.size === size);
-      if (v) v.qty += item.qty;
-      else {
-        // Variant topilmasa yangi qo'sh
-        p.variants.push({ color, size, qty: item.qty });
-      }
-    }
-  });
-
-  s.status = "qaytarilgan";
-  s.remaining = 0;
-  saveDB();
-  renderTarix();
-  closeModal("saledetail");
-  toast(`✅ Sotuv qaytarildi. Ombor tiklandi.`);
-}
-
 // ── Excel eksport ─────────────────────────────────
 function exportTarixExcel() {
   const q = ($("tarix-q")||{value:""}).value.toLowerCase();
   const list = db.sales.slice().reverse().filter(s => {
     if (!txPeriodFilter(s)) return false;
-    if (txStatus === "tolandan" && s.status !== "tolandan") return false;
-    if (txStatus === "qarz"     && s.status !== "qarz")     return false;
+    if (txStatus === "tolandan"    && s.status !== "tolandan")    return false;
+    if (txStatus === "qarz"        && s.status !== "qarz")        return false;
     if (txStatus === "qaytarilgan" && s.status !== "qaytarilgan") return false;
     if (!q) return true;
     return (s.customerName||"").toLowerCase().includes(q) ||
@@ -492,11 +533,10 @@ function exportTarixExcel() {
   toast("Sotuv tarixi yuklab olindi");
 }
 
-// Eski printReceipt uchun moslik
+// ── Chek print (fallback) ─────────────────────────
 function printReceipt(id) {
   const s = db.sales.find(x => x.id === id); if (!s) return;
   if (typeof showReceiptModal === "function") { showReceiptModal(s); return; }
-  // Fallback: eski print
   const w = window.open("","_blank","width=420,height=640");
   if (!w) { toast("Pop-up bloklangan","err"); return; }
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Chek</title>
