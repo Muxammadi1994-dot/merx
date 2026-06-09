@@ -179,8 +179,7 @@ function omRenderQoldiq() {
 
     Object.values(colorGroups).forEach(cg => {
       const inBox   = p.inBox || 1;
-      const boxes   = inBox > 1 ? Math.floor(cg.qty / inBox) : null;
-      const remainder = inBox > 1 ? (cg.qty % inBox) : 0;
+      const boxes   = inBox > 1 ? (cg.qty / inBox) : null;
       const costUzs = Math.round((p.costUsd || 0) * rate);
 
       rows.push({
@@ -193,7 +192,6 @@ function omRenderQoldiq() {
         sizes:   cg.sizes,
         inBox,
         boxes,
-        remainder,
         unit:    p.unit || "dona",
         costUzs,
         chakana: p.priceUzs,
@@ -246,11 +244,9 @@ function omRenderQoldiq() {
           ? `<span class="bg" style="background:#FFF8E7;color:#856404;font-weight:600">${r.qty} ${r.unit}</span>`
           : `<span class="bg bg-g">${r.qty} ${r.unit}</span>`;
 
-    const remainder = r.inBox > 1 && r.qty != null ? (r.qty % r.inBox) : 0;
     const boxCell = r.inBox > 1
-      ? `<span style="font-weight:700;font-size:14px">${r.boxes != null ? r.boxes : '—'}</span>
+      ? `<span style="font-weight:700;font-size:14px">${r.boxes != null ? (Number.isInteger(r.boxes) ? r.boxes : r.boxes.toFixed(1)) : '—'}</span>
          <span style="font-size:10.5px;color:#bbb;margin-left:3px">karobka</span>
-         ${remainder > 0 ? `<span style="font-size:10px;color:#E9A500;margin-left:3px">(+${remainder} ta)</span>` : ''}
          <div style="font-size:10px;color:#aaa">×${r.inBox} ${r.unit}</div>`
       : `<span style="font-size:12px;color:#bbb">donab</span>`;
 
@@ -328,7 +324,7 @@ function omRenderQoldiq() {
 
   const totalQty  = rows.reduce((a, r) => a + r.qty, 0);
   const totalVal  = rows.reduce((a, r) => a + r.qiymati, 0);
-  const totalBoxes = rows.filter(r => r.boxes != null).reduce((a, r) => a + (r.boxes || 0), 0); // Math.floor allaqachon qo'llanilgan
+  const totalBoxes = rows.filter(r => r.boxes != null).reduce((a, r) => a + (r.boxes || 0), 0);
   const foot = $("om-qoldiq-foot");
   if (foot) foot.innerHTML = rows.length ? `
     <div style="display:flex;gap:24px;font-size:13px;padding:10px 16px;color:var(--mut);border-top:1px solid var(--brd)">
@@ -658,6 +654,9 @@ function qabulOl() {
     if (qbBarcode)  p.barcode     = qbBarcode;
     if (kirimRaw > 0) p.costUsd   = costUsd_q;
     if (isBoxMode && inBoxEd > 1) p.inBox = inBoxEd;
+    // Rasm (agar yuklangan bo'lsa)
+    const imgData = ($("qb-img-data")||{value:""}).value;
+    if (imgData) p.image = imgData;
     p.unit = unit;
   } else {
     db.products.push({
@@ -689,6 +688,12 @@ function qabulOl() {
   if (typeof renderKatalog === "function") renderKatalog();
 
   ["qb-name","qb-size","qb-sup","qb-partiya","qb-barcode"].forEach(id => { if ($(id)) $(id).value = ""; });
+  // Rasm reset
+  if ($("qb-img-data"))   $("qb-img-data").value = "";
+  if ($("qb-img-remove")) $("qb-img-remove").style.display = "none";
+  const _qbPrev = $("qb-img-preview");
+  if (_qbPrev) _qbPrev.innerHTML = '<i class="ti ti-photo" id="qb-img-icon"></i>';
+  if ($("qb-img-inp"))    $("qb-img-inp").value = "";
   if ($("qb-qty"))  $("qb-qty").value  = "10";
   if ($("qb-cost")) $("qb-cost").value = "";
   if ($("qb-info")) $("qb-info").textContent = "";
@@ -726,7 +731,7 @@ function exportOmborQoldiq(rate) {
       colorGroups[v.color].qty += v.qty;
     });
     Object.entries(colorGroups).forEach(([color, info]) => {
-      const boxes  = inBox > 1 ? Math.floor(info.qty / inBox) : "";
+      const boxes  = inBox > 1 ? (info.qty / inBox).toFixed(1) : "";
       const margin = p.ulgurjiNarx > 0 && costUzs > 0
         ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : "";
       rows.push([p.name, p.sku, p.barcode||"", color, info.pantone,
@@ -1313,4 +1318,27 @@ function exportChiqimExcel() {
     downloadCSV(rows, "merx_chiqimlar_" + today() + ".csv");
     toast("Excel yuklab olindi");
   }
+}
+
+// ── Rasm yuklash (qabul modal) ───────────────────
+function qbImgLoad(input) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { toast("Rasm 2MB dan katta", "err"); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const data = e.target.result;
+    if ($("qb-img-data")) $("qb-img-data").value = data;
+    const prev = $("qb-img-preview");
+    if (prev) prev.innerHTML = `<img src="${data}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`;
+    if ($("qb-img-remove")) $("qb-img-remove").style.display = "inline-flex";
+  };
+  reader.readAsDataURL(file);
+}
+
+function qbImgRemove() {
+  if ($("qb-img-data")) $("qb-img-data").value = "";
+  if ($("qb-img-remove")) $("qb-img-remove").style.display = "none";
+  const prev = $("qb-img-preview");
+  if (prev) prev.innerHTML = '<i class="ti ti-photo" id="qb-img-icon"></i>';
+  if ($("qb-img-inp")) $("qb-img-inp").value = "";
 }
