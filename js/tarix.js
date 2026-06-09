@@ -43,7 +43,9 @@ function renderTarix() {
 
   let list = db.sales.slice().reverse().filter(s => {
     if (!txPeriodFilter(s)) return false;
-    if (txStatus !== "all" && s.status !== txStatus) return false;
+    if (txStatus === "tolandan" && s.status !== "tolandan") return false;
+    if (txStatus === "qarz"     && s.status !== "qarz")     return false;
+    if (txStatus === "qaytarilgan" && s.status !== "qaytarilgan") return false;
     if (txStaffId !== "all" && String(s.staffId) !== String(txStaffId)) return false;
     if (!q) return true;
     return (s.customerName||"").toLowerCase().includes(q) ||
@@ -465,7 +467,9 @@ function exportTarixExcel() {
   const q = ($("tarix-q")||{value:""}).value.toLowerCase();
   const list = db.sales.slice().reverse().filter(s => {
     if (!txPeriodFilter(s)) return false;
-    if (txStatus !== "all" && s.status !== txStatus) return false;
+    if (txStatus === "tolandan" && s.status !== "tolandan") return false;
+    if (txStatus === "qarz"     && s.status !== "qarz")     return false;
+    if (txStatus === "qaytarilgan" && s.status !== "qaytarilgan") return false;
     if (!q) return true;
     return (s.customerName||"").toLowerCase().includes(q) ||
            s.items?.some(i => i.name.toLowerCase().includes(q));
