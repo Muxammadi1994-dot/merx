@@ -6,8 +6,9 @@
 let editSku = null;
 let katLowFilter = false;
 let katCatFilter = "all"; // "all" | "oyoq" | "kiyim" | category name
-let katSortBy    = null;  // "name" | "qty" | "price"
-let katSortAsc   = true;
+let katSortBy      = null;
+let katSortAsc     = true;
+let _katSelected   = new Set(); // tanlangan SKU lar
 
 // ── Kategoriya filtri ──────────────────────────
 function setKatCat(c) {
@@ -15,6 +16,115 @@ function setKatCat(c) {
   document.querySelectorAll(".kat-cat-btn").forEach(b =>
     b.classList.toggle("on", b.dataset.c === c));
   renderKatalog();
+}
+
+// ── Ommaviy tanlash ──────────────────────────────
+function katToggleSel(sku, checked) {
+  if (checked) _katSelected.add(sku);
+  else _katSelected.delete(sku);
+  updateKatSelBar();
+  // Faqat qatorni rang o'zgartir (to'liq render emas)
+  const rows = document.querySelectorAll("#kat-body tr");
+  rows.forEach(row => {
+    const cb = row.querySelector("input[type=checkbox]");
+    if (cb) row.style.background = cb.checked ? "#fffbf0" : "";
+  });
+}
+
+function katSelectAll() {
+  const visible = document.querySelectorAll("#kat-body input[type=checkbox]");
+  visible.forEach(cb => {
+    cb.checked = true;
+    _katSelected.add(cb.getAttribute("onchange").match(/'([^']+)'/)[1]);
+    cb.closest("tr").style.background = "#fffbf0";
+  });
+  updateKatSelBar();
+}
+
+function katClearSel() {
+  _katSelected.clear();
+  document.querySelectorAll("#kat-body input[type=checkbox]").forEach(cb => {
+    cb.checked = false;
+    cb.closest("tr").style.background = "";
+  });
+  updateKatSelBar();
+}
+
+function updateKatSelBar() {
+  const bar = document.getElementById("kat-sel-bar");
+  const cnt = document.getElementById("kat-sel-cnt");
+  if (!bar) return;
+  if (_katSelected.size > 0) {
+    bar.style.display = "flex";
+    if (cnt) cnt.textContent = _katSelected.size + " ta tanlandi";
+  } else {
+    bar.style.display = "none";
+  }
+}
+
+function openBulkPrice() {
+  if (_katSelected.size === 0) { toast("Avval mahsulot tanlang","err"); return; }
+  const cntEl = document.getElementById("bulk-sel-cnt");
+  if (cntEl) cntEl.textContent = _katSelected.size;
+  if (document.getElementById("bulk-pct"))   document.getElementById("bulk-pct").value   = "10";
+  if (document.getElementById("bulk-type"))  document.getElementById("bulk-type").value  = "chegirma";
+  if (document.getElementById("bulk-field")) document.getElementById("bulk-field").value = "chakana";
+  openModal("bulkprice");
+  updateBulkPreview();
+}
+
+function updateBulkPreview() {
+  const pct  = parseFloat(document.getElementById("bulk-pct")?.value) || 0;
+  const type = document.getElementById("bulk-type")?.value || "chegirma";
+  const base = 400000;
+  const result = type === "chegirma"
+    ? Math.round(base * (1 - pct/100) / 1000) * 1000
+    : Math.round(base * (1 + pct/100) / 1000) * 1000;
+  const diff = result - base;
+  const valEl = document.getElementById("bulk-preview-val");
+  const pctEl = document.getElementById("bulk-preview-pct");
+  if (valEl) {
+    valEl.textContent = fmt(result) + " so'm";
+    valEl.style.color = type === "chegirma" ? "var(--grn)" : "#E9A500";
+  }
+  if (pctEl) pctEl.textContent = (diff > 0 ? "+" : "") + diff.toLocaleString() + " so'm";
+}
+
+function applyBulkPrice() {
+  const pct   = parseFloat(document.getElementById("bulk-pct")?.value) || 0;
+  const type  = document.getElementById("bulk-type")?.value  || "chegirma";
+  const field = document.getElementById("bulk-field")?.value || "chakana";
+
+  if (pct <= 0 || pct > 100) { toast("0 dan 100 gacha foiz kiriting","err"); return; }
+
+  const rate     = db.settings?.rate || 12800;
+  const isUsd    = db.settings?.priceCurrency === "usd";
+  let   changed  = 0;
+
+  _katSelected.forEach(sku => {
+    const p = db.products.find(x => x.sku === sku); if (!p) return;
+
+    const multiply = type === "chegirma"
+      ? (1 - pct / 100)
+      : (1 + pct / 100);
+
+    if (field === "chakana" || field === "ikkalasi") {
+      p.priceUzs = Math.round((p.priceUzs || 0) * multiply / 1000) * 1000;
+    }
+    if (field === "ulgurji" || field === "ikkalasi") {
+      p.ulgurjiNarx = Math.round((p.ulgurjiNarx || 0) * multiply / 1000) * 1000;
+    }
+    changed++;
+  });
+
+  saveDB();
+  closeModal("bulkprice");
+  katClearSel();
+  renderKatalog();
+
+  const typeText = type === "chegirma" ? `−${pct}% chegirma` : `+${pct}% oshirma`;
+  const fieldText = { chakana:"chakana", ulgurji:"ulgurji", ikkalasi:"ikkalasi" }[field];
+  toast(`✅ ${changed} ta mahsulot ${fieldText} narxi ${typeText} qilindi`);
 }
 
 function katSortToggle(key) {
@@ -139,7 +249,12 @@ function renderKatalog() {
     const mColor = margin == null ? "#ccc"
       : margin >= 30 ? "var(--grn)" : margin >= 15 ? "#E07B39" : "var(--red)";
 
-    return `<tr onclick="openEditProduct('${p.sku}')" style="cursor:pointer">
+    const isSel = _katSelected.has(p.sku);
+    return `<tr onclick="openEditProduct('${p.sku}')" style="cursor:pointer;background:${isSel?"#fffbf0":""}">
+      <td style="width:28px;padding:8px 4px" onclick="event.stopPropagation()">
+        <input type="checkbox" ${isSel?"checked":""} onchange="katToggleSel('${p.sku}',this.checked)"
+          style="width:16px;height:16px;accent-color:var(--acc);cursor:pointer">
+      </td>
       <td onclick="event.stopPropagation()">
         ${p.image
           ? `<img src="${p.image}" class="kat-thumb" onclick="openEditProduct('${p.sku}')" style="cursor:pointer">`
