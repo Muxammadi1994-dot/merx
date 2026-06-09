@@ -32,6 +32,10 @@ async function initSupabase() {
     const { createClient } = window.supabase || supabase;
     _sb = createClient(url, key, { auth: { persistSession: false } });
     // Test ulanish
+    // Shop ID ni Supabase session ga o'rnatamiz (RLS uchun)
+    const sid = getCloudShopId();
+    await _sb.rpc('set_config', { key: 'app.shop_id', value: sid, is_local: false }).catch(() => {});
+    
     const { data, error } = await _sb.from("settings").select("id").limit(1);
     if (error) throw error;
     updateCloudUI(true);
@@ -81,6 +85,8 @@ async function pushToCloud() {
   if (!_sb) { toast("Avval ulaning","err"); return; }
 
   const sid = getCloudShopId(); // shop_id — izolyatsiya kaliti
+  // RLS uchun shop_id ni session ga o'rnatamiz
+  await _sb.rpc('set_config', { key: 'app.shop_id', value: sid, is_local: false }).catch(() => {});
 
   try {
     // Settings — har do'kon uchun alohida qator
@@ -244,6 +250,8 @@ async function pullFromCloud() {
     toast("Cloud dan yuklanmoqda...", "info");
 
     const sid = getCloudShopId();
+    // RLS uchun shop_id ni session ga o'rnatamiz
+    await _sb.rpc('set_config', { key: 'app.shop_id', value: sid, is_local: false }).catch(() => {});
 
     // Products — faqat bu do'kon
     const { data: prods } = await _sb.from("products").select("*").eq("shop_id", sid);
