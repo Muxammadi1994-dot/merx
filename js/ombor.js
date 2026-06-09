@@ -259,9 +259,13 @@ function omRenderQoldiq() {
       return `<tr>
       <td>
         <div style="display:flex;align-items:center;gap:10px">
-          ${p?.image
-            ? `<img src="${p.image}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--brd);flex-shrink:0">`
-            : `<div style="width:36px;height:36px;border:1.5px dashed #e0ddd8;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:14px;flex-shrink:0"><i class="ti ti-photo"></i></div>`}
+          <div style="position:relative;flex-shrink:0" onclick="omImgClick('${r.sku}')" title="Rasm qo'shish/o'zgartirish">
+            ${p?.image
+              ? `<img src="${p.image}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--brd);cursor:pointer">`
+              : `<div style="width:36px;height:36px;border:1.5px dashed #e0ddd8;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:14px;cursor:pointer"><i class="ti ti-camera-plus"></i></div>`}
+          </div>
+          <input type="file" id="om-img-inp-${r.sku}" accept="image/*" style="display:none"
+            onchange="omImgSave('${r.sku}',this)">
           <div style="font-weight:600;font-size:13px">${r.name}</div>
         </div>
       </td>
@@ -1341,4 +1345,42 @@ function qbImgRemove() {
   const prev = $("qb-img-preview");
   if (prev) prev.innerHTML = '<i class="ti ti-photo" id="qb-img-icon"></i>';
   if ($("qb-img-inp")) $("qb-img-inp").value = "";
+}
+
+// ── Ombor jadvalidan rasm yuklash ────────────────
+function omImgClick(sku) {
+  const inp = document.getElementById("om-img-inp-" + sku);
+  if (inp) inp.click();
+}
+
+function omImgSave(sku, input) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { toast("Rasm 2MB dan katta", "err"); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement("canvas");
+      let w = img.width, h = img.height;
+      const MAX = 600;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      let q = 0.85, dataUrl;
+      do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
+      while (dataUrl.length > 150000 && q > 0.3);
+
+      const p = db.products.find(x => x.sku === sku);
+      if (!p) { toast("Mahsulot topilmadi", "err"); return; }
+      p.image = dataUrl;
+      saveDB();
+      renderOmbor();
+      toast("✅ Rasm saqlandi");
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
