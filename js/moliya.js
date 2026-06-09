@@ -78,6 +78,9 @@ function renderMoliya() {
   if ($("mol-month-exp")) { $("mol-month-exp").textContent = fmt(chiqim) + " so'm"; }
   if ($("mol-exp-cnt"))   { $("mol-exp-cnt").textContent = periodExps.length + " ta"; }
   if ($("mol-sup-debt"))  { $("mol-sup-debt").textContent = fmt(supDebt) + " so'm"; }
+
+  // Yetkazuvchi qarzlar ro'yxatini render qilish
+  renderSupDebtList();
   if ($("mol-gross"))     { $("mol-gross").textContent = fmt(grossProfit) + " so'm";
                             $("mol-gross").style.color = grossProfit>=0?"var(--grn)":"var(--red)"; }
 
@@ -403,4 +406,82 @@ function initExpModal() {
     initExpWhoSelect();
     renderExpExtraField($("exp-cat-val")?.value || "Ijara");
   }, 30);
+}
+
+
+// ── Yetkazuvchi qarzlar ro'yxati ──────────────────
+function renderSupDebtList() {
+  const el = document.getElementById("mol-sup-list"); if (!el) return;
+
+  // Yetkazuvchi bo'yicha guruhlaymiz
+  const supMap = {};
+  (db.ombor||[]).filter(o => o.payStatus === "qarz").forEach(o => {
+    const sup = o.supplier || "Noma'lum";
+    if (!supMap[sup]) supMap[sup] = { items:[], debt:0 };
+    const val = (o.kirimNarxi||0) * (o.qty||0);
+    supMap[sup].items.push(o);
+    supMap[sup].debt += val;
+  });
+
+  const sups = Object.entries(supMap).sort((a,b) => b[1].debt - a[1].debt);
+
+  if (!sups.length) {
+    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--mut);font-size:13px">
+      ✅ Barcha yetkazuvchi qarzlari to'langan</div>`;
+    return;
+  }
+
+  el.innerHTML = sups.map(([sup, data]) => `
+    <div style="border:1.5px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="font-weight:700;font-size:14px">${sup}</div>
+          <div style="font-size:12px;color:var(--mut)">${data.items.length} ta partiya qarz</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:16px;font-weight:800;color:var(--red)">${fmt(data.debt)} so'm</div>
+          <button class="btn btn-sm btn-acc" onclick="paySupplierDebt('${sup}', ${data.debt})"
+            style="margin-top:4px;font-size:12px">
+            <i class="ti ti-cash"></i> To'lash
+          </button>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${data.items.slice(0,3).map(o => `
+          <div style="background:var(--bg);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--mut)">
+            ${o.productName} · ${o.qty} ${o.unit||"dona"} · ${fmt((o.kirimNarxi||0)*o.qty)} so'm
+          </div>`).join("")}
+        ${data.items.length > 3 ? `<div style="background:var(--bg);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--mut)">
+          +${data.items.length-3} ta partiya</div>` : ""}
+      </div>
+    </div>`
+  ).join("");
+}
+
+// ── Yetkazuvchi qarzini to'lash ────────────────────
+function paySupplierDebt(supplier, totalDebt) {
+  const sups = (db.ombor||[]).filter(o => o.payStatus === "qarz" && (o.supplier||"Noma'lum") === supplier);
+  if (!sups.length) { toast("Qarz topilmadi","err"); return; }
+
+  const msg = `"${supplier}" ga ${fmt(totalDebt)} so'm to'lansinmi?\n(${sups.length} ta partiya to'langan deb belgilanadi)`;
+  if (!confirm(msg)) return;
+
+  // Xarajatlarga qo'shamiz
+  if (!db.xarajatlar) db.xarajatlar = [];
+  db.xarajatlar.push({
+    id:        db.seq++,
+    date:      today(),
+    category:  "Yetkazuvchi",
+    amount:    totalDebt,
+    recipient: supplier,
+    paidBy:    "kassa",
+    note:      `${supplier} — ${sups.length} ta partiya uchun qarz to'lovi`
+  });
+
+  // Ombordagi partiyalarni to'langan deb belgilaymiz
+  sups.forEach(o => { o.payStatus = "tolandan"; });
+
+  saveDB();
+  renderMoliya();
+  toast(`✅ "${supplier}" ga ${fmt(totalDebt)} so'm to'landi. ${sups.length} ta partiya to'langan deb belgilandi.`);
 }
