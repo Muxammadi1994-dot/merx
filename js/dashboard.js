@@ -455,3 +455,12 @@ function renderDashDebtTable(debts) {
         <i class="ti ti-circle-check" style="font-size:20px;display:block;margin-bottom:4px"></i>Qarz yo'q 🎉
        </td></tr>`;
 }
+
+function updateDashCurrencyPill() {
+  const isUsd = db.settings?.priceCurrency === "usd";
+  const rate  = db.settings?.rate || 12800;
+  const pillEl = document.getElementById("tb-cur");
+  const rateEl = document.getElementById("tb-rate");
+  if (pillEl) pillEl.textContent = isUsd ? "USD ($)" : "so'm";
+  if (rateEl) rateEl.textContent = fmt(rate);
+}
