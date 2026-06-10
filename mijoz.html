@@ -249,6 +249,8 @@ async function doLogin() {
 
   const shopId = getShopId();
   try {
+    // RLS uchun
+    try { await _sb.rpc('set_config', { key: 'app.shop_id', value: shopId, is_local: false }); } catch(e) {}
     const { data, error } = await _sb.from("portal_customers")
       .select("*")
       .eq("shop_id", shopId)
@@ -287,6 +289,8 @@ function doLogout() {
 async function showPortal() {
   $("login-screen").style.display = "none";
   $("portal-screen").style.display = "block";
+  // RLS session
+  try { await _sb.rpc('set_config', { key: 'app.shop_id', value: _session.shopId, is_local: false }); } catch(e) {}
   if ($("cust-name-bar")) $("cust-name-bar").textContent = _session.customerName;
 
   await loadPortalProducts();
@@ -297,6 +301,9 @@ async function showPortal() {
 // ── Mahsulotlar yuklanishi ────────────────────────
 async function loadPortalProducts() {
   const shopId = _session.shopId;
+
+  // RLS uchun shop_id ni set qilamiz
+  try { await _sb.rpc('set_config', { key: 'app.shop_id', value: shopId, is_local: false }); } catch(e) {}
 
   // Barcha mahsulotlar (ombor dan)
   const { data: prods } = await _sb.from("products").select("*").eq("shop_id", shopId);

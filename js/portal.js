@@ -23,11 +23,24 @@ function renderPortal() {
             Mijozlar onlayn ko'rishi mumkin bo'lgan sahifa
           </div>
         </div>
-        <a href="mijoz.html?shop=${sid}" target="_blank"
-          style="display:inline-flex;align-items:center;gap:6px;background:var(--acc);
-            color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;font-size:13px;text-decoration:none">
-          <i class="ti ti-external-link"></i> Portal ochish
-        </a>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <a href="mijoz.html?shop=${sid}" target="_blank"
+            style="display:inline-flex;align-items:center;gap:6px;background:var(--acc);
+              color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;font-size:13px;text-decoration:none">
+            <i class="ti ti-external-link"></i> Portal ochish
+          </a>
+          <div style="display:flex;align-items:center;gap:6px;background:#f5f2ec;
+            border-radius:8px;padding:6px 10px;max-width:340px">
+            <span style="font-size:11px;color:#888;white-space:nowrap;overflow:hidden;
+              text-overflow:ellipsis;flex:1" id="portal-link-txt">
+              ${location.origin}/mijoz.html?shop=${sid}
+            </span>
+            <button class="btn btn-sm" style="flex-shrink:0;padding:4px 8px"
+              onclick="copyPortalLink('${sid}')" title="Nusxa olish">
+              <i class="ti ti-copy"></i>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- 2 ustun -->
@@ -409,4 +422,14 @@ async function cancelBooking(id) {
   await _sb.from("portal_bookings").update({ status: "bekor" }).eq("id", id);
   toast("Bron bekor qilindi");
   loadPortalData();
+}
+
+// ── Portal linkini nusxa olish ───────────────────
+function copyPortalLink(sid) {
+  const link = location.origin + "/mijoz.html?shop=" + sid;
+  navigator.clipboard.writeText(link).then(() => {
+    toast("✅ Link nusxa olindi — mijozga yuboring");
+  }).catch(() => {
+    prompt("Linkni nusxa oling:", link);
+  });
 }
