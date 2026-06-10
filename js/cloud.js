@@ -83,9 +83,9 @@ async function pushToCloud() {
   const sid = getCloudShopId(); // shop_id — izolyatsiya kaliti
 
   try {
-    // Settings — har do'kon uchun alohida qator
+    // Settings — id=1 (integer), shop_id=text
     await _sb.from("settings").upsert({
-      id:             sid,
+      id:             1,
       shop_id:        sid,
       shop_name:      db.shop?.name || "MERX",
       rate:           db.settings?.rate || 12800,
@@ -99,7 +99,6 @@ async function pushToCloud() {
     // Products — shop_id bilan
     if (db.products?.length) {
       const rows = db.products.map(p => ({
-        id:        sid + "_" + p.sku,
         shop_id:   sid,
         sku:       p.sku,
         name:      p.name,
@@ -117,26 +116,24 @@ async function pushToCloud() {
         color_name: p.colorName || null,
         hex:        p.hex || null
       }));
-      await _sb.from("products").upsert(rows);
+      await _sb.from("products").upsert(rows, {onConflict:"shop_id,sku",ignoreDuplicates:false});
     }
 
     // Customers
     if (db.customers?.length) {
       await _sb.from("customers").upsert(db.customers.map(c => ({
-        id:      sid + "_" + c.id,
         shop_id: sid,
         local_id: c.id,
         name:    c.name,
         phone:   c.phone || null,
         type:    c.type || "ulgurji",
         note:    c.note || null
-      })));
+          }), {onConflict:"shop_id,local_id"});
     }
 
     // Staff
     if (db.staff?.length) {
       await _sb.from("staff").upsert(db.staff.map(s => ({
-        id:      sid + "_" + s.id,
         shop_id: sid,
         local_id: s.id,
         name:    s.name,
@@ -149,7 +146,6 @@ async function pushToCloud() {
     // Sales
     if (db.sales?.length) {
       await _sb.from("sales").upsert(db.sales.map(s => ({
-        id:             sid + "_" + s.id,
         shop_id:        sid,
         local_id:       s.id,
         chek_num:       s.chekNum || null,
@@ -178,7 +174,6 @@ async function pushToCloud() {
     // Ombor
     if (db.ombor?.length) {
       await _sb.from("ombor").upsert(db.ombor.map(o => ({
-        id:           sid + "_" + o.id,
         shop_id:      sid,
         local_id:     o.id,
         date:         o.date,
@@ -204,7 +199,6 @@ async function pushToCloud() {
     // Xarajatlar
     if (db.xarajatlar?.length) {
       await _sb.from("xarajatlar").upsert((db.xarajatlar||[]).map(x => ({
-        id:        sid + "_" + x.id,
         shop_id:   sid,
         local_id:  x.id,
         date:      x.date,
@@ -219,7 +213,6 @@ async function pushToCloud() {
     // Chiqimlar
     if (db.chiqimlar?.length) {
       await _sb.from("chiqimlar").upsert((db.chiqimlar||[]).map(c => ({
-        id:           sid + "_" + c.id,
         shop_id:      sid,
         local_id:     c.id,
         date:         c.date,
