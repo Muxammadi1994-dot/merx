@@ -701,6 +701,17 @@ async function checkout() {
   }
 
   const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
+  // Kassir majburiy — xodimlar ro'yxati bo'sh bo'lmasa
+  if (!staffId && db.staff && db.staff.length > 0) {
+    toast("Kassirni tanlang", "err");
+    const staffSel = $("pos-staff");
+    if (staffSel) {
+      staffSel.style.border = "2px solid var(--red)";
+      staffSel.focus();
+      setTimeout(() => { staffSel.style.border = ""; }, 2000);
+    }
+    return;
+  }
   const saleNote = ($("pos-note")||{value:""}).value.trim();
 
   // Qoldiqdan ayirish
