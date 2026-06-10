@@ -32,10 +32,6 @@ async function initSupabase() {
     const { createClient } = window.supabase || supabase;
     _sb = createClient(url, key, { auth: { persistSession: false } });
     // Test ulanish
-    // Shop ID ni Supabase session ga o'rnatamiz (RLS uchun)
-    const sid = getCloudShopId();
-    await _sb.rpc('set_config', { key: 'app.shop_id', value: sid, is_local: false }).catch(() => {});
-    
     const { data, error } = await _sb.from("settings").select("id").limit(1);
     if (error) throw error;
     updateCloudUI(true);
@@ -85,8 +81,6 @@ async function pushToCloud() {
   if (!_sb) { toast("Avval ulaning","err"); return; }
 
   const sid = getCloudShopId(); // shop_id — izolyatsiya kaliti
-  // RLS uchun shop_id ni session ga o'rnatamiz
-  await _sb.rpc('set_config', { key: 'app.shop_id', value: sid, is_local: false }).catch(() => {});
 
   try {
     // Settings — har do'kon uchun alohida qator
@@ -114,10 +108,14 @@ async function pushToCloud() {
         unit:      p.unit,
         in_box:    p.inBox || 1,
         barcode:   p.barcode,
-        cost_usd:  p.costUsd || 0,
-        price_uzs: p.priceUzs || 0,
-        ulgurji:   p.ulgurjiNarx || 0,
-        variants:  p.variants || []
+        cost_usd:   p.costUsd || 0,
+        price_uzs:  p.priceUzs || 0,
+        ulgurji:    p.ulgurjiNarx || 0,
+        variants:   p.variants || [],
+        image:      p.image || null,
+        pantone:    p.pantone || null,
+        color_name: p.colorName || null,
+        hex:        p.hex || null
       }));
       await _sb.from("products").upsert(rows);
     }
@@ -143,7 +141,8 @@ async function pushToCloud() {
         local_id: s.id,
         name:    s.name,
         phone:   s.phone || null,
-        role:    s.role || "kassir"
+        role:    s.role || "kassir",
+        pin:     s.pin || null
       })));
     }
 
@@ -194,7 +193,11 @@ async function pushToCloud() {
         ulgurji:      o.ulgurji || 0,
         supplier:     o.supplier || null,
         partiya:      o.partiya || null,
-        pay_status:   o.payStatus || "tolandan"
+        pay_status:   o.payStatus || "tolandan",
+        pantone:      o.pantone || null,
+        hex:          o.hex || null,
+        barcode:      o.barcode || null,
+        chakana:      o.chakana || 0
       })));
     }
 
@@ -250,8 +253,6 @@ async function pullFromCloud() {
     toast("Cloud dan yuklanmoqda...", "info");
 
     const sid = getCloudShopId();
-    // RLS uchun shop_id ni session ga o'rnatamiz
-    await _sb.rpc('set_config', { key: 'app.shop_id', value: sid, is_local: false }).catch(() => {});
 
     // Products — faqat bu do'kon
     const { data: prods } = await _sb.from("products").select("*").eq("shop_id", sid);
@@ -261,7 +262,9 @@ async function pullFromCloud() {
         type: p.type || "oyoq", unit: p.unit || "dona",
         inBox: p.in_box || 1, barcode: p.barcode,
         costUsd: p.cost_usd || 0, priceUzs: p.price_uzs || 0,
-        ulgurjiNarx: p.ulgurji || 0, variants: p.variants || []
+        ulgurjiNarx: p.ulgurji || 0, variants: p.variants || [],
+        image: p.image || null, pantone: p.pantone || null,
+        colorName: p.color_name || null, hex: p.hex || null
       }));
     }
 
@@ -278,7 +281,7 @@ async function pullFromCloud() {
     const { data: staffData } = await _sb.from("staff").select("*").eq("shop_id", sid);
     if (staffData && staffData.length > 0) {
       db.staff = staffData.map(s => ({
-        id: s.local_id || s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir"
+        id: s.local_id || s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir", pin: s.pin || null"
       }));
     }
 
@@ -308,7 +311,9 @@ async function pullFromCloud() {
         boxes: o.boxes, pantone: o.pantone, hex: o.hex,
         kirimNarxi: o.kirim_narxi, ulgurji: o.ulgurji,
         supplier: o.supplier, partiya: o.partiya,
-        payStatus: o.pay_status, barcode: o.barcode
+        payStatus: o.pay_status, barcode: o.barcode,
+        pantone: o.pantone || null, hex: o.hex || null,
+        chakana: o.chakana || 0
       }));
     }
 
