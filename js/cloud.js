@@ -281,7 +281,7 @@ async function pullFromCloud() {
     const { data: staffData } = await _sb.from("staff").select("*").eq("shop_id", sid);
     if (staffData && staffData.length > 0) {
       db.staff = staffData.map(s => ({
-        id: s.local_id || s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir", pin: s.pin || null"
+        id: s.local_id || s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir", pin: s.pin || null
       }));
     }
 
