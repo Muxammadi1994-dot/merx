@@ -24,7 +24,7 @@ function renderPortal() {
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-          <a href="mijoz.html?shop=${sid}" target="_blank"
+          <a href="javascript:void(0)" onclick="openPortalPage()" 
             style="display:inline-flex;align-items:center;gap:6px;background:var(--acc);
               color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;font-size:13px;text-decoration:none">
             <i class="ti ti-external-link"></i> Portal ochish
@@ -36,7 +36,7 @@ function renderPortal() {
               ${location.origin}/mijoz.html?shop=${sid}
             </span>
             <button class="btn btn-sm" style="flex-shrink:0;padding:4px 8px"
-              onclick="copyPortalLink('${sid}')" title="Nusxa olish">
+              onclick="copyPortalLink()" title="Nusxa olish">
               <i class="ti ti-copy"></i>
             </button>
           </div>
@@ -424,9 +424,22 @@ async function cancelBooking(id) {
   loadPortalData();
 }
 
-// ── Portal linkini nusxa olish ───────────────────
-function copyPortalLink(sid) {
-  const link = location.origin + "/mijoz.html?shop=" + sid;
+// ── Portal link yaratish ─────────────────────────
+function getPortalLink() {
+  const sid = getCloudShopId ? getCloudShopId() : "default";
+  const url = db?.settings?.supabaseUrl || "";
+  const key = db?.settings?.supabaseKey || "";
+  // URL va key ni base64 ga o'tkazamiz
+  const creds = btoa(url + "|||" + key);
+  return location.origin + "/mijoz.html?shop=" + sid + "&c=" + creds;
+}
+
+function openPortalPage() {
+  window.open(getPortalLink(), "_blank");
+}
+
+function copyPortalLink() {
+  const link = getPortalLink();
   navigator.clipboard.writeText(link).then(() => {
     toast("✅ Link nusxa olindi — mijozga yuboring");
   }).catch(() => {

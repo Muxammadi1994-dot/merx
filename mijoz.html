@@ -197,15 +197,39 @@ async function initPortal() {
     return;
   }
 
-  // Supabase credentials — asosiy tizimdan olamiz
-  // LocalStorage da merx_v5 dan o'qiymiz
   try {
-    const mainDb = JSON.parse(localStorage.getItem("merx_v5") || "{}");
-    const url = mainDb?.settings?.supabaseUrl;
-    const key = mainDb?.settings?.supabaseKey;
+    // Credentials: avval URL parametridan, keyin LocalStorage dan
+    const p = new URLSearchParams(location.search);
+    let url, key;
+
+    const cParam = p.get("c");
+    if (cParam) {
+      try {
+        const decoded = atob(cParam);
+        const parts = decoded.split("|||");
+        url = parts[0]; key = parts[1];
+        // Saqlap qo'yamiz
+        localStorage.setItem("merx_portal_creds", JSON.stringify({url, key, shop: shopId}));
+      } catch(e) {}
+    }
 
     if (!url || !key) {
-      // Boshqa tab yoki qurilmada — URL parametridan olamiz
+      // LocalStorage dan o'qiymiz
+      const saved = localStorage.getItem("merx_portal_creds");
+      if (saved) {
+        const sc = JSON.parse(saved);
+        if (sc.shop === shopId) { url = sc.url; key = sc.key; }
+      }
+    }
+
+    if (!url || !key) {
+      // Asosiy tizim bilan bir xil qurilmada
+      const mainDb = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+      url = mainDb?.settings?.supabaseUrl;
+      key = mainDb?.settings?.supabaseKey;
+    }
+
+    if (!url || !key) {
       toast("Tizimga ulaning", "err");
       return;
     }
