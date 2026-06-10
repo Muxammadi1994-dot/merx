@@ -43,11 +43,13 @@ function nav(p) {
   const el = $("p-" + p); if (el) el.classList.add("on");
   const T = { dashboard:"Dashboard", pos:"Sotuv (POS)", katalog:"Katalog", ombor:"Ombor",
     mijozlar:"Mijozlar", qarzlar:"Qarzlar", tarix:"Sotuv tarixi",
-    hisobot:"Hisobot va tahlil", xodimlar:"Xodimlar", moliya:"Moliya", egasi:"Egasi / Sozlamalar" };
+    hisobot:"Hisobot va tahlil", xodimlar:"Xodimlar", moliya:"Moliya",
+    portal:"Mijoz portali", egasi:"Egasi / Sozlamalar" };
   $("ptitle").textContent = T[p] || p;
   const fn = { dashboard:renderDashboard, katalog:renderKatalog, ombor:renderOmbor,
     mijozlar:renderMijozlar, qarzlar:renderDebts, tarix:renderTarix,
-    hisobot:renderHisobot, xodimlar:renderXodimlar, moliya:renderMoliya, egasi:renderEgasi };
+    hisobot:renderHisobot, xodimlar:renderXodimlar, moliya:renderMoliya,
+    portal:renderPortal, egasi:renderEgasi };
   if (fn[p]) fn[p]();
   if (p === "egasi") setTimeout(initChakanaToggle, 50);
   if (p === "pos") {

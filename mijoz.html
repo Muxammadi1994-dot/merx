@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MERX — Mijoz portali</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',sans-serif;background:#F2F0EB;color:#0D1B2A;min-height:100vh}
+  h1,h2,h3{font-family:'Sora',sans-serif}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:8px;
+    border:1.5px solid #ddd;background:#fff;font-family:inherit;font-size:13.5px;
+    font-weight:600;cursor:pointer;transition:.15s}
+  .btn:hover{background:#f5f5f5}
+  .btn-acc{background:#E9A500;border-color:#E9A500;color:#fff}
+  .btn-acc:hover{background:#d49500}
+  .btn-red{background:#EF4444;border-color:#EF4444;color:#fff}
+  input,select,textarea{font-family:inherit;font-size:13.5px;padding:9px 12px;
+    border:1.5px solid #e0ddd8;border-radius:8px;width:100%;outline:none;background:#fff}
+  input:focus,select:focus{border-color:#E9A500}
+  .card{background:#fff;border-radius:14px;border:1px solid #e8e5df;overflow:hidden}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+  .badge-green{background:#DCFCE7;color:#16A34A}
+  .badge-red{background:#FEE2E2;color:#DC2626}
+  .badge-yellow{background:#FEF9C3;color:#CA8A04}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:#0D1B2A;color:#fff;padding:10px 20px;border-radius:10px;
+    font-size:13px;z-index:9999;display:none}
+  .toast.on{display:block}
+  /* Login ekrani */
+  #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+  .login-card{background:#fff;border-radius:20px;padding:36px 32px;width:100%;max-width:380px;
+    box-shadow:0 8px 32px rgba(0,0,0,.08)}
+  /* Asosiy portal */
+  #portal-screen{display:none;max-width:900px;margin:0 auto;padding:20px}
+  .top-bar{display:flex;justify-content:space-between;align-items:center;
+    background:#0D1B2A;color:#fff;padding:14px 20px;border-radius:14px;margin-bottom:20px}
+  .tabs{display:flex;gap:4px;background:#f0ede8;border-radius:10px;padding:4px;margin-bottom:20px}
+  .tab{flex:1;text-align:center;padding:8px;border-radius:8px;font-size:13px;font-weight:600;
+    cursor:pointer;color:#888;transition:.15s}
+  .tab.on{background:#fff;color:#0D1B2A;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+  .prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+  .prod-card{background:#fff;border-radius:12px;border:1.5px solid #e8e5df;overflow:hidden;cursor:pointer;transition:.15s}
+  .prod-card:hover{border-color:#E9A500;box-shadow:0 4px 12px rgba(233,165,0,.1)}
+  .prod-img{width:100%;height:160px;object-fit:cover;background:#f5f5f5;
+    display:flex;align-items:center;justify-content:center;color:#ddd;font-size:40px}
+  .prod-img img{width:100%;height:100%;object-fit:cover}
+  /* Modal */
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;
+    display:none;align-items:center;justify-content:center;padding:20px}
+  .ov.on{display:flex}
+  .modal{background:#fff;border-radius:16px;padding:24px;width:100%;max-width:480px;
+    max-height:90vh;overflow-y:auto;position:relative}
+  .m-close{position:absolute;top:14px;right:14px;background:none;border:none;
+    font-size:20px;cursor:pointer;color:#aaa}
+</style>
+</head>
+<body>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- LOGIN EKRANI -->
+<div id="login-screen">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-family:'Sora',sans-serif;font-size:28px;font-weight:700;color:#0D1B2A">MX</div>
+      <div style="font-size:18px;font-weight:700;font-family:'Sora',sans-serif;margin-top:4px" id="shop-name-login">MERX</div>
+      <div style="font-size:13px;color:#aaa;margin-top:4px">Mijoz portali</div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12.5px;font-weight:600;color:#666;display:block;margin-bottom:5px">Telefon raqam</label>
+      <input id="l-phone" type="tel" placeholder="+998901234567">
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="font-size:12.5px;font-weight:600;color:#666;display:block;margin-bottom:5px">Parol</label>
+      <input id="l-pass" type="password" placeholder="Parol" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-acc" style="width:100%;justify-content:center;font-size:15px;padding:12px" onclick="doLogin()">
+      <i class="ti ti-login"></i> Kirish
+    </button>
+    <div id="l-err" style="color:#EF4444;font-size:12.5px;text-align:center;margin-top:10px;display:none"></div>
+  </div>
+</div>
+
+<!-- PORTAL EKRANI -->
+<div id="portal-screen">
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div>
+      <div style="font-family:'Sora',sans-serif;font-weight:700;font-size:16px" id="shop-name-portal">MERX</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.5)" id="cust-name-bar">Mijoz</div>
+    </div>
+    <button class="btn" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff;font-size:13px" onclick="doLogout()">
+      <i class="ti ti-logout"></i> Chiqish
+    </button>
+  </div>
+
+  <!-- Tablar -->
+  <div class="tabs">
+    <div class="tab on" onclick="switchTab('katalog')"><i class="ti ti-shirt"></i> Katalog</div>
+    <div class="tab" onclick="switchTab('buyurtmalar')"><i class="ti ti-list"></i> Buyurtmalar</div>
+    <div class="tab" onclick="switchTab('tarix')"><i class="ti ti-history"></i> Xarid tarixi</div>
+    <div class="tab" onclick="switchTab('qarz')"><i class="ti ti-credit-card"></i> Qarz</div>
+  </div>
+
+  <!-- KATALOG -->
+  <div id="tab-katalog">
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      <input id="prod-search" placeholder="Tovar qidirish..." oninput="renderCatalog()" style="flex:1">
+    </div>
+    <div class="prod-grid" id="prod-grid">
+      <div style="color:#ccc;text-align:center;padding:40px;grid-column:1/-1">Yuklanmoqda...</div>
+    </div>
+  </div>
+
+  <!-- BUYURTMALAR -->
+  <div id="tab-buyurtmalar" style="display:none">
+    <div class="card">
+      <div style="padding:16px 18px;border-bottom:1px solid #f0ede8;font-weight:700;font-size:15px">
+        <i class="ti ti-bookmark"></i> Mening bronlarim
+      </div>
+      <div id="bookings-list" style="padding:16px">
+        <div style="color:#ccc;text-align:center;padding:20px">Yuklanmoqda...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TARIX -->
+  <div id="tab-tarix" style="display:none">
+    <div class="card">
+      <div style="padding:16px 18px;border-bottom:1px solid #f0ede8;font-weight:700;font-size:15px">
+        <i class="ti ti-history"></i> Xarid tarixi
+      </div>
+      <div id="sales-list" style="padding:16px">
+        <div style="color:#ccc;text-align:center;padding:20px">Yuklanmoqda...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QARZ -->
+  <div id="tab-qarz" style="display:none">
+    <div class="card">
+      <div style="padding:16px 18px;border-bottom:1px solid #f0ede8;font-weight:700;font-size:15px">
+        <i class="ti ti-credit-card"></i> Joriy qarz
+      </div>
+      <div id="debt-list" style="padding:16px">
+        <div style="color:#ccc;text-align:center;padding:20px">Yuklanmoqda...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Tovar detail modal -->
+<div class="ov" id="ov-prod-detail" onclick="if(event.target===this)this.classList.remove('on')">
+  <div class="modal">
+    <button class="m-close" onclick="$('ov-prod-detail').classList.remove('on')"><i class="ti ti-x"></i></button>
+    <div id="prod-detail-content"></div>
+  </div>
+</div>
+
+<script>
+// ── Global o'zgaruvchilar ─────────────────────────
+let _sb = null;
+let _session = null; // {customerId, customerName, shopId}
+let _products = [];
+let _portalProds = [];
+
+const $ = id => document.getElementById(id);
+const fmt = n => Math.round(n).toLocaleString("ru-RU");
+
+function toast(msg, type="ok") {
+  const el = $("toast"); if (!el) return;
+  el.textContent = msg;
+  el.style.background = type === "err" ? "#EF4444" : "#0D1B2A";
+  el.classList.add("on");
+  setTimeout(() => el.classList.remove("on"), 3000);
+}
+
+// ── Shop ID URL dan ───────────────────────────────
+function getShopId() {
+  const p = new URLSearchParams(location.search);
+  return p.get("shop") || localStorage.getItem("merx_portal_shop") || "";
+}
+
+// ── Supabase URL ni shop dan olamiz ───────────────
+async function initPortal() {
+  const shopId = getShopId();
+  if (!shopId) {
+    toast("Do'kon topilmadi", "err");
+    return;
+  }
+
+  // Supabase credentials — asosiy tizimdan olamiz
+  // LocalStorage da merx_v5 dan o'qiymiz
+  try {
+    const mainDb = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+    const url = mainDb?.settings?.supabaseUrl;
+    const key = mainDb?.settings?.supabaseKey;
+
+    if (!url || !key) {
+      // Boshqa tab yoki qurilmada — URL parametridan olamiz
+      toast("Tizimga ulaning", "err");
+      return;
+    }
+
+    const { createClient } = window.supabase;
+    _sb = createClient(url, key, { auth: { persistSession: false } });
+
+    // Do'kon nomini olamiz
+    const { data: settings } = await _sb.from("settings").select("shop_name").eq("id", shopId).single();
+    if (settings?.shop_name) {
+      if ($("shop-name-login")) $("shop-name-login").textContent = settings.shop_name;
+      if ($("shop-name-portal")) $("shop-name-portal").textContent = settings.shop_name;
+    }
+
+    // Sessiyani tekshiramiz
+    const saved = localStorage.getItem("merx_portal_session");
+    if (saved) {
+      _session = JSON.parse(saved);
+      if (_session.shopId === shopId) {
+        showPortal();
+        return;
+      }
+    }
+
+    $("login-screen").style.display = "flex";
+  } catch(e) {
+    console.error("Portal init:", e);
+  }
+}
+
+// ── Login ─────────────────────────────────────────
+async function doLogin() {
+  const phone = ($("l-phone")||{value:""}).value.trim().replace(/\s/g,"");
+  const pass  = ($("l-pass")||{value:""}).value.trim();
+  const errEl = $("l-err");
+
+  if (!phone || !pass) {
+    if (errEl) { errEl.textContent = "Telefon va parol kiriting"; errEl.style.display = "block"; }
+    return;
+  }
+
+  const shopId = getShopId();
+  try {
+    const { data, error } = await _sb.from("portal_customers")
+      .select("*")
+      .eq("shop_id", shopId)
+      .eq("phone", phone)
+      .eq("password", pass)
+      .eq("is_active", true)
+      .single();
+
+    if (error || !data) {
+      if (errEl) { errEl.textContent = "Telefon yoki parol noto'g'ri"; errEl.style.display = "block"; }
+      return;
+    }
+
+    // Mijoz ma'lumotlarini olamiz
+    const { data: salesData } = await _sb.from("sales")
+      .select("customer_name").eq("shop_id", shopId).eq("customer_id", data.customer_id).limit(1);
+    const custName = salesData?.[0]?.customer_name || "Mijoz";
+
+    _session = { customerId: data.customer_id, customerName: custName, shopId };
+    localStorage.setItem("merx_portal_session", JSON.stringify(_session));
+    localStorage.setItem("merx_portal_shop", shopId);
+    showPortal();
+  } catch(e) {
+    if (errEl) { errEl.textContent = "Xatolik yuz berdi"; errEl.style.display = "block"; }
+  }
+}
+
+function doLogout() {
+  localStorage.removeItem("merx_portal_session");
+  _session = null;
+  $("portal-screen").style.display = "none";
+  $("login-screen").style.display = "flex";
+}
+
+// ── Portal ochish ─────────────────────────────────
+async function showPortal() {
+  $("login-screen").style.display = "none";
+  $("portal-screen").style.display = "block";
+  if ($("cust-name-bar")) $("cust-name-bar").textContent = _session.customerName;
+
+  await loadPortalProducts();
+  await loadSales();
+  await loadBookings();
+}
+
+// ── Mahsulotlar yuklanishi ────────────────────────
+async function loadPortalProducts() {
+  const shopId = _session.shopId;
+
+  // Barcha mahsulotlar (ombor dan)
+  const { data: prods } = await _sb.from("products").select("*").eq("shop_id", shopId);
+  _products = prods || [];
+
+  // Portal sozlamalari
+  const { data: pp } = await _sb.from("portal_products").select("*").eq("shop_id", shopId);
+  _portalProds = pp || [];
+
+  renderCatalog();
+}
+
+function renderCatalog() {
+  const q = ($("prod-search")||{value:""}).value.toLowerCase();
+  const grid = $("prod-grid"); if (!grid) return;
+  const today = new Date().toISOString().slice(0,10);
+
+  // Faqat ko'rinadigan tovarlar
+  const visible = _products.filter(p => {
+    const pp = _portalProds.find(x => x.sku === p.sku);
+    if (pp && pp.is_visible === false) return false;
+    if (q && !p.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  if (!visible.length) {
+    grid.innerHTML = `<div style="color:#ccc;text-align:center;padding:40px;grid-column:1/-1">
+      ${q ? "Tovar topilmadi" : "Tovarlar yo'q"}
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = visible.map(p => {
+    const pp = _portalProds.find(x => x.sku === p.sku);
+    const discount = pp?.discount || 0;
+    const discUntil = pp?.discount_until || "";
+    const isDiscActive = discount > 0 && (!discUntil || discUntil >= today);
+    const price = pp?.portal_price || p.price_uzs || 0;
+    const discPrice = isDiscActive ? Math.round(price * (1 - discount/100)) : price;
+    const totalQty = (p.variants||[]).reduce((a,v) => a+v.qty, 0);
+
+    return `<div class="prod-card" onclick="openProdDetail('${p.sku}')">
+      <div class="prod-img">
+        ${p.image
+          ? `<img src="${p.image}" alt="${p.name}">`
+          : `<i class="ti ti-shoe"></i>`}
+        ${isDiscActive ? `<div style="position:absolute;top:8px;right:8px;background:#EF4444;color:#fff;
+          font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px">−${discount}%</div>` : ""}
+      </div>
+      <div style="padding:12px;position:relative">
+        ${isDiscActive ? `<div style="position:absolute;top:-20px;right:8px;background:#EF4444;color:#fff;
+          font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px">−${discount}%</div>` : ""}
+        <div style="font-weight:700;font-size:13.5px;margin-bottom:4px;
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+        <div style="font-size:13px;font-weight:700;color:${isDiscActive?'#EF4444':'#E9A500'}">
+          ${fmt(discPrice)} so'm
+          ${isDiscActive ? `<span style="font-size:11px;color:#aaa;font-weight:400;text-decoration:line-through;margin-left:4px">${fmt(price)}</span>` : ""}
+        </div>
+        <div style="font-size:11.5px;color:#aaa;margin-top:3px">
+          ${totalQty > 0 ? `${totalQty} ta mavjud` : `<span style="color:#EF4444">Tugagan</span>`}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ── Tovar detail ──────────────────────────────────
+function openProdDetail(sku) {
+  const p = _products.find(x => x.sku === sku); if (!p) return;
+  const pp = _portalProds.find(x => x.sku === sku);
+  const today = new Date().toISOString().slice(0,10);
+  const discount = pp?.discount || 0;
+  const discUntil = pp?.discount_until || "";
+  const isDiscActive = discount > 0 && (!discUntil || discUntil >= today);
+  const price = pp?.portal_price || p.price_uzs || 0;
+  const discPrice = isDiscActive ? Math.round(price * (1 - discount/100)) : price;
+
+  // Rang va o'lchamlar
+  const colors = [...new Set((p.variants||[]).map(v => v.color))];
+  const sizes  = [...new Set((p.variants||[]).map(v => v.size))].sort();
+
+  const el = $("prod-detail-content"); if (!el) return;
+  el.innerHTML = `
+    <div style="display:flex;gap:16px;margin-bottom:16px">
+      <div style="width:100px;height:100px;border-radius:10px;overflow:hidden;flex-shrink:0;background:#f5f5f5;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:36px">
+        ${p.image ? `<img src="${p.image}" style="width:100%;height:100%;object-fit:cover">` : '<i class="ti ti-shoe"></i>'}
+      </div>
+      <div style="flex:1">
+        <div style="font-family:\'Sora\',sans-serif;font-size:17px;font-weight:700;margin-bottom:6px">${p.name}</div>
+        <div style="font-size:16px;font-weight:700;color:${isDiscActive?'#EF4444':'#E9A500'}">
+          ${fmt(discPrice)} so'm
+          ${isDiscActive ? `<div style="font-size:12px;color:#aaa;font-weight:400;text-decoration:line-through">${fmt(price)} so'm</div>` : ""}
+        </div>
+        ${isDiscActive && discUntil ? `<div style="font-size:11.5px;color:#EF4444;margin-top:4px">⏰ ${discUntil} gacha</div>` : ""}
+      </div>
+    </div>
+
+    ${colors.length ? `
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:600;color:#888;margin-bottom:6px">RANG</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="color-btns">
+        ${colors.map(c => `<button class="btn btn-sm" style="font-size:12px" onclick="selectColor('${sku}','${c}',this)">${c}</button>`).join("")}
+      </div>
+    </div>` : ""}
+
+    ${sizes.length ? `
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:600;color:#888;margin-bottom:6px">O'LCHAM</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="size-btns">
+        ${sizes.map(s => {
+          const totalForSize = (p.variants||[]).filter(v => v.size===s).reduce((a,v)=>a+v.qty,0);
+          return `<button class="btn btn-sm" style="font-size:13px;${totalForSize===0?'opacity:.4;cursor:not-allowed':''}"
+            ${totalForSize===0?'disabled':''} onclick="selectSize('${sku}','${s}',this)">${s}</button>`;
+        }).join("")}
+      </div>
+    </div>` : ""}
+
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:600;color:#888">MIQDOR</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-sm" onclick="changeQty(-1)" style="width:32px;padding:0;justify-content:center">−</button>
+        <span id="detail-qty" style="font-weight:700;font-size:16px;min-width:24px;text-align:center">1</span>
+        <button class="btn btn-sm" onclick="changeQty(1)" style="width:32px;padding:0;justify-content:center">+</button>
+      </div>
+    </div>
+
+    <textarea id="bron-note" placeholder="Izoh (ixtiyoriy)" rows="2"
+      style="width:100%;margin-bottom:12px;resize:none"></textarea>
+
+    <button class="btn btn-acc" style="width:100%;justify-content:center;padding:12px;font-size:14px"
+      onclick="submitBooking('${sku}')">
+      <i class="ti ti-bookmark"></i> Bron qilish
+    </button>
+  `;
+
+  // State
+  window._detailSku   = sku;
+  window._detailColor = colors[0] || "";
+  window._detailSize  = "";
+  window._detailQty   = 1;
+
+  $("ov-prod-detail").classList.add("on");
+}
+
+function selectColor(sku, color, btn) {
+  window._detailColor = color;
+  btn.closest("[id='color-btns']")?.querySelectorAll("button").forEach(b => {
+    b.style.background = ""; b.style.color = ""; b.style.borderColor = "";
+  });
+  btn.style.background = "#E9A500"; btn.style.color = "#fff"; btn.style.borderColor = "#E9A500";
+}
+
+function selectSize(sku, size, btn) {
+  window._detailSize = size;
+  btn.closest("[id='size-btns']")?.querySelectorAll("button:not(:disabled)").forEach(b => {
+    b.style.background = ""; b.style.color = ""; b.style.borderColor = "";
+  });
+  btn.style.background = "#0D1B2A"; btn.style.color = "#fff"; btn.style.borderColor = "#0D1B2A";
+}
+
+function changeQty(d) {
+  window._detailQty = Math.max(1, (window._detailQty||1) + d);
+  if ($("detail-qty")) $("detail-qty").textContent = window._detailQty;
+}
+
+async function submitBooking(sku) {
+  if (!_session) return;
+  const p = _products.find(x => x.sku === sku); if (!p) return;
+  const note = ($("bron-note")||{value:""}).value.trim();
+  const shopId = _session.shopId;
+
+  try {
+    const id = shopId + "_bron_" + Date.now();
+    await _sb.from("portal_bookings").insert({
+      id,
+      shop_id:      shopId,
+      customer_id:  _session.customerId,
+      sku,
+      product_name: p.name,
+      color:        window._detailColor || "",
+      size:         window._detailSize  || "",
+      qty:          window._detailQty   || 1,
+      note:         note || null,
+      status:       "kutilmoqda"
+    });
+    toast("✅ Bron qabul qilindi! Do'kon tasdiqlaydi.");
+    $("ov-prod-detail").classList.remove("on");
+    await loadBookings();
+    switchTab("buyurtmalar");
+  } catch(e) {
+    toast("Xato: " + e.message, "err");
+  }
+}
+
+// ── Xarid tarixi ─────────────────────────────────
+async function loadSales() {
+  if (!_session || !_sb) return;
+  const { data } = await _sb.from("sales")
+    .select("*")
+    .eq("shop_id", _session.shopId)
+    .eq("customer_id", _session.customerId)
+    .order("date", {ascending: false});
+
+  const el = $("sales-list"); if (!el) return;
+  const sales = data || [];
+
+  if (!sales.length) {
+    el.innerHTML = `<div style="color:#ccc;text-align:center;padding:20px">Xarid tarixi yo'q</div>`;
+    return;
+  }
+
+  el.innerHTML = sales.map(s => {
+    const items = (s.items||[]).filter(Boolean);
+    const isDebt = s.status === "qarz" && s.remaining > 0;
+    return `<div style="padding:14px 0;border-bottom:1px solid #f0ede8">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div>
+          <div style="font-weight:700;font-size:14px">${fmt(s.total)} so'm</div>
+          <div style="font-size:12px;color:#aaa">${s.date||""} ${s.time||""}</div>
+        </div>
+        <span class="badge ${isDebt?'badge-red':s.status==='qaytarilgan'?'badge-yellow':'badge-green'}">
+          ${isDebt ? "Qarzda" : s.status==="qaytarilgan" ? "Qaytarilgan" : "To'langan"}
+        </span>
+      </div>
+      <div style="font-size:12.5px;color:#666">
+        ${items.map(i => `${i.name} ×${i.qty}`).join(", ") || "—"}
+      </div>
+      ${isDebt ? `<div style="font-size:12.5px;color:#EF4444;margin-top:4px;font-weight:600">
+        Qarz: ${fmt(s.remaining)} so'm ${s.due ? "· Muddat: "+s.due : ""}
+      </div>` : ""}
+    </div>`;
+  }).join("");
+
+  // Qarz tab ni ham yangilaymiz
+  renderDebt(sales);
+}
+
+function renderDebt(sales) {
+  const el = $("debt-list"); if (!el) return;
+  const debts = (sales||[]).filter(s => s.status === "qarz" && s.remaining > 0);
+  if (!debts.length) {
+    el.innerHTML = `<div style="color:#16A34A;text-align:center;padding:20px;font-size:14px">
+      ✅ Qarz yo'q
+    </div>`;
+    return;
+  }
+  const total = debts.reduce((a,s) => a + s.remaining, 0);
+  el.innerHTML = `
+    <div style="background:#FEF2F2;border-radius:10px;padding:14px;margin-bottom:14px;text-align:center">
+      <div style="font-size:12px;color:#aaa;margin-bottom:4px">Jami qarz</div>
+      <div style="font-size:22px;font-weight:700;color:#EF4444">${fmt(total)} so'm</div>
+    </div>
+    ${debts.map(s => `
+      <div style="padding:12px 0;border-bottom:1px solid #f0ede8">
+        <div style="display:flex;justify-content:space-between">
+          <div style="font-size:13px">${s.date||""} · ${(s.items||[]).filter(Boolean).map(i=>i.name).join(", ")||"—"}</div>
+          <div style="font-weight:700;color:#EF4444">${fmt(s.remaining)} so'm</div>
+        </div>
+        ${s.due ? `<div style="font-size:12px;color:#D97706;margin-top:3px">Muddat: ${s.due}</div>` : ""}
+      </div>`).join("")}`;
+}
+
+// ── Bronlar ───────────────────────────────────────
+async function loadBookings() {
+  if (!_session || !_sb) return;
+  const { data } = await _sb.from("portal_bookings")
+    .select("*")
+    .eq("shop_id", _session.shopId)
+    .eq("customer_id", _session.customerId)
+    .order("created_at", {ascending: false})
+    .limit(20);
+
+  const el = $("bookings-list"); if (!el) return;
+  const bookings = data || [];
+
+  if (!bookings.length) {
+    el.innerHTML = `<div style="color:#ccc;text-align:center;padding:20px">Bron yo'q</div>`;
+    return;
+  }
+
+  const statusLabel = { kutilmoqda:"⏳ Kutilmoqda", tasdiqlandi:"✅ Tasdiqlandi", bekor:"❌ Bekor" };
+  const statusClass = { kutilmoqda:"badge-yellow", tasdiqlandi:"badge-green", bekor:"badge-red" };
+
+  el.innerHTML = bookings.map(b => `
+    <div style="padding:12px 0;border-bottom:1px solid #f0ede8">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-weight:700;font-size:13.5px">${b.product_name}</div>
+          <div style="font-size:12px;color:#aaa">
+            ${b.color||""} ${b.size||""} · ${b.qty} ta
+          </div>
+          ${b.note ? `<div style="font-size:12px;color:#856404;margin-top:2px">📝 ${b.note}</div>` : ""}
+          <div style="font-size:11px;color:#ccc;margin-top:3px">${(b.created_at||"").slice(0,16)}</div>
+        </div>
+        <span class="badge ${statusClass[b.status]||'badge-yellow'}" style="white-space:nowrap">
+          ${statusLabel[b.status]||b.status}
+        </span>
+      </div>
+    </div>
+  `).join("");
+}
+
+// ── Tab almashtirish ──────────────────────────────
+function switchTab(name) {
+  ["katalog","buyurtmalar","tarix","qarz"].forEach(t => {
+    const el = $("tab-"+t);
+    if (el) el.style.display = t===name ? "block" : "none";
+  });
+  document.querySelectorAll(".tab").forEach((t,i) => {
+    t.classList.toggle("on", ["katalog","buyurtmalar","tarix","qarz"][i]===name);
+  });
+}
+
+// ── Ishga tushirish ───────────────────────────────
+initPortal();
+</script>
+</body>
+</html>
