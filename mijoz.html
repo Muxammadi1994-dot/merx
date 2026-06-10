@@ -238,7 +238,18 @@ async function initPortal() {
     _sb = createClient(url, key, { auth: { persistSession: false } });
 
     // Do'kon nomini olamiz
-    const { data: settings } = await _sb.from("settings").select("shop_name").eq("id", shopId).single();
+    // Settings - id TEXT yoki INTEGER bo'lishi mumkin
+    let settings = null;
+    try {
+      const { data: s1 } = await _sb.from("settings").select("shop_name").eq("id", shopId).maybeSingle();
+      if (s1) settings = s1;
+    } catch(e) {}
+    if (!settings) {
+      try {
+        const { data: s2 } = await _sb.from("settings").select("shop_name").limit(1).maybeSingle();
+        if (s2) settings = s2;
+      } catch(e) {}
+    }
     if (settings?.shop_name) {
       if ($("shop-name-login")) $("shop-name-login").textContent = settings.shop_name;
       if ($("shop-name-portal")) $("shop-name-portal").textContent = settings.shop_name;
@@ -326,18 +337,23 @@ async function showPortal() {
 async function loadPortalProducts() {
   const shopId = _session.shopId;
 
-  // RLS uchun shop_id ni set qilamiz
-  try { await _sb.rpc('set_config', { key: 'app.shop_id', value: shopId, is_local: false }); } catch(e) {}
+  try {
+    // Barcha mahsulotlar
+    const { data: prods, error: pe } = await _sb.from("products").select("*").eq("shop_id", shopId);
+    if (pe) { console.error("Products xato:", pe.message); }
+    _products = prods || [];
 
-  // Barcha mahsulotlar (ombor dan)
-  const { data: prods } = await _sb.from("products").select("*").eq("shop_id", shopId);
-  _products = prods || [];
+    // Portal sozlamalari
+    const { data: pp, error: ppe } = await _sb.from("portal_products").select("*").eq("shop_id", shopId);
+    if (ppe) { console.error("Portal prods xato:", ppe.message); }
+    _portalProds = pp || [];
 
-  // Portal sozlamalari
-  const { data: pp } = await _sb.from("portal_products").select("*").eq("shop_id", shopId);
-  _portalProds = pp || [];
-
-  renderCatalog();
+    console.log("Products:", _products.length, "shopId:", shopId);
+    renderCatalog();
+  } catch(e) {
+    console.error("loadPortalProducts:", e.message);
+    renderCatalog();
+  }
 }
 
 function renderCatalog() {
