@@ -21,6 +21,9 @@ function init() {
         updateCloudUI(true);
         if (!db.products?.length && !db.sales?.length) {
           await pullFromCloud();
+        } else {
+          // Ma'lumotlar LocalStorage da bor — faqat dashboardni yangilaymiz
+          if (typeof renderDashboard === "function") renderDashboard();
         }
       }
     });
