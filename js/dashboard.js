@@ -31,6 +31,16 @@ function dashDateStr() {
 
 // ── Asosiy render ──────────────────────────────
 function renderDashboard() {
+  // Null tekshiruv
+  if (!db) return;
+  if (!db.sales)    db.sales    = [];
+  if (!db.products) db.products = [];
+  if (!db.staff)    db.staff    = [];
+  if (!db.customers) db.customers = [];
+  if (!db.xarajatlar) db.xarajatlar = [];
+  if (!db.shop)     db.shop = { name: "MERX Do'koni", type: "ikki" };
+  if (!db.settings) db.settings = { rate: 12800, priceCurrency: "uzs" };
+
   const t    = today();
   const rate = db.settings?.rate || 12800;
   const isUsd = db.settings?.priceCurrency === "usd";
@@ -463,4 +473,4 @@ function updateDashCurrencyPill() {
   const rateEl = document.getElementById("tb-rate");
   if (pillEl) pillEl.textContent = isUsd ? "USD ($)" : "so'm";
   if (rateEl) rateEl.textContent = fmt(rate);
-}
+}
