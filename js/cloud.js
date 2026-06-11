@@ -99,14 +99,15 @@ async function pushToCloud() {
     // Products — shop_id bilan
     if (db.products?.length) {
       const rows = db.products.map(p => ({
-        shop_id:   sid,
-        sku:       p.sku,
-        name:      p.name,
-        category:  p.category,
-        type:      p.type,
-        unit:      p.unit,
-        in_box:    p.inBox || 1,
-        barcode:   p.barcode,
+        id:         sid + "_" + p.sku,   // PRIMARY KEY: shop_id + "_" + sku
+        shop_id:    sid,
+        sku:        p.sku,
+        name:       p.name,
+        category:   p.category,
+        type:       p.type,
+        unit:       p.unit,
+        in_box:     p.inBox || 1,
+        barcode:    p.barcode,
         cost_usd:   p.costUsd || 0,
         price_uzs:  p.priceUzs || 0,
         ulgurji:    p.ulgurjiNarx || 0,
@@ -116,19 +117,20 @@ async function pushToCloud() {
         color_name: p.colorName || null,
         hex:        p.hex || null
       }));
-      await _sb.from("products").upsert(rows, {onConflict:"shop_id,sku",ignoreDuplicates:false});
+      await _sb.from("products").upsert(rows, {onConflict:"id", ignoreDuplicates:false});
     }
 
     // Customers
     if (db.customers?.length) {
       await _sb.from("customers").upsert(db.customers.map(c => ({
+        id:       sid + "_" + c.id,
         shop_id:  sid,
         local_id: c.id,
         name:     c.name,
         phone:    c.phone || null,
         type:     c.type || "ulgurji",
         note:     c.note || null
-      })), {onConflict:"shop_id,local_id"});
+      })), {onConflict:"id"});
     }
 
     // Staff
