@@ -226,9 +226,11 @@ function renderPortalBookings(bookings) {
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
           <div style="font-weight:600;font-size:13px">${b.product_name}</div>
-          <div style="font-size:12px;color:#aaa">
-            ${b.color || ''} ${b.size || ''} · ${b.qty} ta
-            · ${cust?.name || 'Noma\'lum'}
+          <div style="font-size:12px;color:#666;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            ${b.color ? `<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:13px;height:13px;border-radius:50%;background:${getColorHex(b.color)};border:1.5px solid rgba(0,0,0,.12);flex-shrink:0;display:inline-block"></span>${b.color}</span>` : ''}
+            ${b.size ? `<span>· ${b.size}</span>` : ''}
+            · ${b.qty} ta
+            · <span style="font-weight:600">${cust?.name || ''}</span>
           </div>
           ${b.note ? `<div style="font-size:11.5px;color:#856404;margin-top:2px">📝 ${b.note}</div>` : ''}
         </div>
@@ -271,7 +273,8 @@ function renderPortalProducts(portalProds) {
             : `<div style="width:44px;height:44px;background:#f0ede8;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#ccc"><i class="ti ti-photo"></i></div>`}
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
-            <div style="font-size:11.5px;color:#888;font-weight:600">${p.priceUzs>0?fmt(p.priceUzs)+" so'm":p.ulgurjiNarx>0?fmt(p.ulgurjiNarx)+" so'm":"Narx kiritilmagan"}</div>
+            <div style="font-size:11.5px;color:#888;font-weight:600;margin-bottom:4px">${p.priceUzs>0?fmt(p.priceUzs)+' so\'m':p.ulgurjiNarx>0?fmt(p.ulgurjiNarx)+' so\'m':'Narx kiritilmagan'}</div>
+            ${(()=>{const cols=[...new Set((p.variants||[]).map(v=>v.color).filter(Boolean))];return cols.length?'<div style="display:flex;gap:3px;margin-top:2px">'+cols.slice(0,6).map(col=>{const v=(p.variants||[]).find(x=>x.color===col);const h=v&&v.hex?v.hex:getColorHex(col);return'<span style="width:13px;height:13px;border-radius:50%;background:'+h+';border:1.5px solid rgba(0,0,0,.1);display:inline-block" title="'+col+'"></span>';}).join('')+'</div>':'';})()}
             ${discount > 0 && !isExpired
               ? `<span style="font-size:11px;background:#FEF2F2;color:var(--red);padding:1px 6px;border-radius:4px">−${discount}% chegirma${discUntil ? ' · '+discUntil+' gacha' : ''}</span>`
               : ''}
@@ -445,4 +448,19 @@ function copyPortalLink() {
   }).catch(() => {
     prompt("Linkni nusxa oling:", link);
   });
+}
+
+// ── Rang nomi → hex ───────────────────────────
+function getColorHex(name) {
+  if (!name) return "#888";
+  const m = {
+    "qora":"#1A1A1A","oq":"#F5F5F5","ko'k":"#154360","moviy":"#5DADE2",
+    "qizil":"#C0392B","yashil":"#1E8449","sariq":"#D4AC0D","jigarrang":"#784212",
+    "kulrang":"#95A5A6","to'q kulrang":"#2C3E50","binafsha":"#7D3C98",
+    "pushti":"#E91E8C","to'q sariq":"#CA6F1E","krem":"#F0E6D3",
+    "navy":"#0D1B2A","gray":"#95A5A6","black":"#1A1A1A","white":"#F5F5F5",
+    "blue":"#154360","red":"#C0392B","green":"#1E8449","brown":"#784212",
+    "purple":"#7D3C98","pink":"#E91E8C","orange":"#CA6F1E"
+  };
+  return m[(name||"").toLowerCase().trim()] || "#888";
 }
