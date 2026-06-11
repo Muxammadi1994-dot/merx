@@ -2,7 +2,7 @@
 <html lang="uz">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MERX — Mijoz portali</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -10,185 +10,224 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-:root{--acc:#E9A500;--dark:#0D1B2A;--bg:#F2F0EB;--red:#EF4444;--grn:#16A34A;--brd:#e8e5df;--white:#fff;--shadow:0 2px 12px rgba(0,0,0,.08)}
+:root{
+  --acc:#E9A500;--acc2:#F5C842;--dark:#0D1B2A;--dark2:#162336;
+  --bg:#F2F0EB;--red:#EF4444;--grn:#16A34A;--blue:#3B82F6;
+  --brd:#e8e5df;--white:#fff;
+  --shadow:0 2px 16px rgba(0,0,0,.07);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.12);
+}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--dark);min-height:100vh;overscroll-behavior:none}
 h1,h2,h3,h4{font-family:'Sora',sans-serif}
 
 /* BUTTONS */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;border-radius:12px;border:1.5px solid var(--brd);background:var(--white);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s all;text-decoration:none}
-.btn:active{transform:scale(.97)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 18px;border-radius:12px;border:1.5px solid var(--brd);background:var(--white);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s all;text-decoration:none;-webkit-user-select:none}
+.btn:active{transform:scale(.96);opacity:.9}
 .btn-acc{background:var(--acc);border-color:var(--acc);color:#fff}
 .btn-dark{background:var(--dark);border-color:var(--dark);color:#fff}
 .btn-red{background:var(--red);border-color:var(--red);color:#fff}
 .btn-grn{background:var(--grn);border-color:var(--grn);color:#fff}
 .btn-block{width:100%}
-.btn-sm{padding:7px 13px;font-size:13px}
+.btn-sm{padding:7px 13px;font-size:12.5px;border-radius:10px}
+.btn-ghost{background:transparent;border-color:transparent}
 
 /* INPUTS */
-input,select,textarea{font-family:inherit;font-size:14px;padding:11px 14px;border:1.5px solid var(--brd);border-radius:12px;width:100%;outline:none;background:var(--white);transition:.15s;-webkit-appearance:none}
+input,select,textarea{font-family:inherit;font-size:14px;padding:12px 14px;border:1.5px solid var(--brd);border-radius:12px;width:100%;outline:none;background:var(--white);transition:.15s;-webkit-appearance:none;color:var(--dark)}
 input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(233,165,0,.12)}
+input::placeholder{color:#bbb}
 
 /* CARD */
 .card{background:var(--white);border-radius:16px;border:1px solid var(--brd);overflow:hidden;box-shadow:var(--shadow)}
 
 /* BADGE */
-.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:700;white-space:nowrap;letter-spacing:.2px}
 .bg-green{background:#DCFCE7;color:#16A34A}
 .bg-red{background:#FEE2E2;color:#DC2626}
-.bg-yellow{background:#FEF9C3;color:#CA8A04}
+.bg-yellow{background:#FEF9C3;color:#B45309}
 .bg-blue{background:#DBEAFE;color:#1D4ED8}
 .bg-gray{background:#F3F4F6;color:#6B7280}
+.bg-orange{background:#FEF3C7;color:#D97706}
 
 /* TOAST */
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--dark);color:#fff;padding:13px 22px;border-radius:14px;font-size:13.5px;z-index:9999;opacity:0;transition:.3s all;pointer-events:none;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--dark);color:#fff;padding:13px 22px;border-radius:14px;font-size:13.5px;z-index:9999;opacity:0;transition:.3s all;pointer-events:none;white-space:nowrap;box-shadow:var(--shadow-lg);max-width:90vw;overflow:hidden;text-overflow:ellipsis}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* LOGIN SCREEN */
-#login-screen{display:none;position:fixed;inset:0;background:var(--dark);z-index:100;align-items:center;justify-content:center;padding:20px}
-.login-box{background:var(--white);border-radius:24px;padding:36px 28px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.3)}
-.login-logo{width:60px;height:60px;background:var(--dark);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:var(--acc);border:3px solid rgba(233,165,0,.3)}
+#login-screen{display:none;position:fixed;inset:0;background:linear-gradient(160deg,#0D1B2A 0%,#162336 60%,#1a2d40 100%);z-index:100;align-items:center;justify-content:center;padding:20px}
+.login-box{background:var(--white);border-radius:28px;padding:36px 28px;width:100%;max-width:380px;box-shadow:0 32px 80px rgba(0,0,0,.4)}
+.login-logo{width:64px;height:64px;background:linear-gradient(135deg,var(--dark),var(--dark2));border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-family:'Sora',sans-serif;font-size:22px;font-weight:800;color:var(--acc);box-shadow:0 8px 24px rgba(13,27,42,.3)}
 
 /* TOP BAR */
-.topbar{background:var(--dark);height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:50;box-shadow:0 2px 12px rgba(0,0,0,.2)}
+.topbar{background:var(--dark);height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:50;box-shadow:0 2px 16px rgba(0,0,0,.2)}
+.topbar-left{min-width:0;flex:1}
+.topbar-shop{font-family:'Sora',sans-serif;font-weight:700;font-size:15px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.topbar-user{font-size:11.5px;color:rgba(255,255,255,.45);display:flex;align-items:center;gap:4px;margin-top:1px}
 
 /* BOTTOM NAV */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--brd);display:flex;z-index:50;box-shadow:0 -4px 16px rgba(0,0,0,.06)}
-.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 12px;gap:3px;cursor:pointer;font-size:11px;font-weight:600;color:#aaa;transition:.15s;position:relative}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--brd);display:flex;z-index:50;box-shadow:0 -4px 20px rgba(0,0,0,.07);padding-bottom:env(safe-area-inset-bottom,0)}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 12px;gap:3px;cursor:pointer;font-size:10.5px;font-weight:700;color:#bbb;transition:.15s;position:relative;letter-spacing:.2px;text-transform:uppercase}
 .bnav-item.on{color:var(--acc)}
-.bnav-item i{font-size:22px}
-.bnav-badge{position:absolute;top:8px;right:calc(50% - 20px);background:var(--red);color:#fff;font-size:9px;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+.bnav-item.on i{color:var(--acc)}
+.bnav-item i{font-size:22px;color:#ccc;transition:.15s}
+.bnav-badge{position:absolute;top:7px;right:calc(50% - 22px);background:var(--red);color:#fff;font-size:9px;font-weight:800;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--white)}
 
 /* MAIN */
-.main{max-width:640px;margin:0 auto;padding:16px 14px 90px}
+.main{max-width:640px;margin:0 auto;padding:14px 14px 96px}
 
 /* SEARCH BAR */
 .search-wrap{position:relative;margin-bottom:14px}
-.search-wrap i{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#aaa;font-size:18px;pointer-events:none}
-.search-wrap input{padding-left:42px}
+.search-wrap i{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#bbb;font-size:18px;pointer-events:none}
+.search-wrap input{padding-left:42px;background:var(--white)}
 
 /* CATEGORY CHIPS */
-.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px;scrollbar-width:none}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
-.chip{padding:7px 14px;border-radius:20px;font-size:12.5px;font-weight:600;cursor:pointer;border:1.5px solid var(--brd);background:var(--white);white-space:nowrap;transition:.15s;flex-shrink:0}
+.chip{padding:8px 16px;border-radius:22px;font-size:12.5px;font-weight:700;cursor:pointer;border:1.5px solid var(--brd);background:var(--white);white-space:nowrap;transition:.15s;flex-shrink:0;letter-spacing:.2px}
 .chip.on{background:var(--dark);color:var(--white);border-color:var(--dark)}
+.chip:active{transform:scale(.95)}
 
 /* PRODUCT GRID */
 .prod-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-@media(min-width:480px){.prod-grid{grid-template-columns:repeat(3,1fr)}}
-.prod-card{background:var(--white);border-radius:16px;border:1.5px solid var(--brd);overflow:hidden;cursor:pointer;transition:.2s all;position:relative;box-shadow:var(--shadow)}
-.prod-card:active{transform:scale(.97)}
-.prod-img{width:100%;aspect-ratio:1;background:#f5f2ec;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
-.prod-img img{width:100%;height:100%;object-fit:cover}
-.disc-badge{position:absolute;top:8px;left:8px;background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:8px}
-.out-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px}
-.prod-info{padding:10px 12px 12px}
-.prod-name{font-weight:700;font-size:13px;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4}
-.prod-price{font-weight:800;font-size:15px;color:var(--acc)}
-.prod-old{font-size:11px;color:#bbb;text-decoration:line-through;margin-left:4px}
-.prod-stock{font-size:11px;color:#aaa;margin-top:3px}
+@media(min-width:460px){.prod-grid{grid-template-columns:repeat(3,1fr)}}
+.prod-card{background:var(--white);border-radius:18px;border:1.5px solid var(--brd);overflow:hidden;cursor:pointer;transition:.2s all;position:relative;box-shadow:var(--shadow)}
+.prod-card:active{transform:scale(.96)}
+.prod-img{width:100%;aspect-ratio:1;background:linear-gradient(135deg,#f5f2ec,#ede8e0);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.prod-img img{width:100%;height:100%;object-fit:cover;transition:.3s}
+.disc-badge{position:absolute;top:8px;left:8px;background:var(--red);color:#fff;font-size:11px;font-weight:800;padding:4px 9px;border-radius:8px;letter-spacing:.3px}
+.new-badge{position:absolute;top:8px;left:8px;background:var(--grn);color:#fff;font-size:11px;font-weight:800;padding:4px 9px;border-radius:8px}
+.out-overlay{position:absolute;inset:0;background:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center}
+.prod-info{padding:10px 12px 14px}
+.prod-name{font-weight:700;font-size:13px;margin-bottom:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;color:var(--dark)}
+.prod-price{font-weight:800;font-size:15px;color:var(--acc);font-family:'Sora',sans-serif}
+.prod-old{font-size:11px;color:#ccc;text-decoration:line-through;margin-left:4px}
+.prod-meta{display:flex;align-items:center;justify-content:space-between;margin-top:5px}
+.prod-stock{font-size:11px;color:#aaa;font-weight:600}
 .prod-stock.out{color:var(--red)}
 
-/* BOTTOM SHEET MODAL */
-.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
+/* BOTTOM SHEET */
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
 .sheet-bg.on{display:flex}
-.sheet{background:var(--white);border-radius:24px 24px 0 0;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,16px)}
-.sheet-handle{width:40px;height:4px;background:#ddd;border-radius:2px;margin:14px auto 0}
-.sheet-body{padding:16px 20px 24px}
+.sheet{background:var(--white);border-radius:28px 28px 0 0;width:100%;max-width:640px;max-height:94vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,16px);animation:slideUp .3s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-handle{width:44px;height:4px;background:#e0ddd8;border-radius:2px;margin:14px auto 0}
+.sheet-body{padding:16px 20px 28px}
 
-/* KPI ROW */
+/* KPI */
 .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
-.kpi{background:var(--white);border-radius:14px;padding:14px 10px;border:1px solid var(--brd);text-align:center;box-shadow:var(--shadow)}
-.kpi-val{font-family:'Sora',sans-serif;font-size:17px;font-weight:800;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.kpi-lbl{font-size:10.5px;color:#aaa}
+.kpi{background:var(--white);border-radius:16px;padding:14px 10px;border:1px solid var(--brd);text-align:center;box-shadow:var(--shadow)}
+.kpi-val{font-family:'Sora',sans-serif;font-size:16px;font-weight:800;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi-lbl{font-size:10.5px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
 
 /* SALE CARD */
-.sale-card{background:var(--white);border-radius:14px;border:1px solid var(--brd);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow)}
+.sale-card{background:var(--white);border-radius:16px;border:1px solid var(--brd);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow)}
 
-/* DEBT CARD */
-.debt-hero{background:linear-gradient(135deg,#EF4444,#DC2626);color:#fff;border-radius:18px;padding:22px;margin-bottom:14px;text-align:center}
+/* DEBT HERO */
+.debt-hero{background:linear-gradient(135deg,#EF4444,#DC2626);color:#fff;border-radius:20px;padding:24px;margin-bottom:16px;text-align:center;box-shadow:0 8px 24px rgba(239,68,68,.3)}
 
-/* EMPTY STATE */
-.empty{text-align:center;padding:48px 20px;color:#ccc}
-.empty i{font-size:52px;display:block;margin-bottom:12px}
-.empty-title{font-size:15px;font-weight:600;color:#bbb;margin-bottom:4px}
-.empty-sub{font-size:13px}
+/* EMPTY */
+.empty{text-align:center;padding:52px 20px;color:#ccc}
+.empty i{font-size:56px;display:block;margin-bottom:14px;opacity:.5}
+.empty-title{font-size:15px;font-weight:700;color:#bbb;margin-bottom:6px}
+.empty-sub{font-size:13px;color:#ccc}
 
 /* LOADER */
-.loader{text-align:center;padding:48px 20px;color:#ccc;font-size:14px}
-.loader i{font-size:32px;display:block;margin-bottom:8px;animation:spin 1s linear infinite}
+.loader{text-align:center;padding:52px 20px;color:#ccc;font-size:14px}
 @keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin .8s linear infinite;display:inline-block}
 
-/* COLOR DOTS */
-.color-dot{width:18px;height:18px;border-radius:50%;border:2px solid rgba(0,0,0,.1);flex-shrink:0}
+/* COLOR DOT */
+.cdot{width:18px;height:18px;border-radius:50%;border:2px solid rgba(0,0,0,.1);flex-shrink:0;transition:.15s}
 
 /* SIZE CHIP */
-.size-chip{min-width:44px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:2px solid var(--brd);font-weight:700;font-size:13px;cursor:pointer;transition:.15s}
-.size-chip.on{border-color:var(--dark);background:var(--dark);color:#fff}
-.size-chip.out{opacity:.3;cursor:default}
+.sch{min-width:46px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:11px;border:2px solid var(--brd);font-weight:700;font-size:13px;cursor:pointer;transition:.15s;background:var(--white)}
+.sch.on{border-color:var(--dark);background:var(--dark);color:#fff}
+.sch.out{opacity:.3;cursor:default;background:#f5f5f5}
 
-/* QTY CONTROL */
-.qty-ctrl{display:inline-flex;align-items:center;border:1.5px solid var(--brd);border-radius:12px;overflow:hidden}
-.qty-btn{width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;font-size:22px;color:#555;font-weight:300;transition:.1s}
+/* QTY */
+.qty-ctrl{display:inline-flex;align-items:center;border:1.5px solid var(--brd);border-radius:14px;overflow:hidden;background:var(--white)}
+.qty-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;font-size:24px;font-weight:300;color:#555;transition:.1s;line-height:1}
 .qty-btn:active{background:#f5f5f5}
-.qty-num{min-width:40px;text-align:center;font-weight:800;font-size:16px}
+.qty-num{min-width:40px;text-align:center;font-weight:800;font-size:17px;font-family:'Sora',sans-serif}
+
+/* SECTION HEADER */
+.sec-hdr{font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding:0 2px}
+
+/* DIVIDER */
+.divider{height:1px;background:var(--brd);margin:16px 0}
+
+/* DEBT PILL */
+.debt-pill{background:var(--red);color:#fff;border-radius:20px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;box-shadow:0 2px 8px rgba(239,68,68,.4)}
+
+/* SKELETON */
+.skel{background:linear-gradient(90deg,#f0ede8 25%,#e8e5e0 50%,#f0ede8 75%);background-size:200% 100%;animation:skel 1.5s infinite;border-radius:10px}
+@keyframes skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* SCROLL */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:#ddd;border-radius:2px}
+
+/* PULL TO REFRESH indicator */
+.ptr-indicator{text-align:center;padding:12px;color:#aaa;font-size:12px;font-weight:600;display:none}
 </style>
 </head>
 <body>
 
 <div id="toast" class="toast"></div>
 
-<!-- LOGIN SCREEN -->
+<!-- LOGIN -->
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">MX</div>
-    <div style="text-align:center;margin-bottom:24px">
-      <div id="login-shop-name" style="font-size:18px;font-weight:700;font-family:'Sora',sans-serif">MERX</div>
-      <div style="font-size:13px;color:#aaa;margin-top:3px">Mijoz portali</div>
+    <div style="text-align:center;margin-bottom:28px">
+      <div id="login-shop-name" style="font-size:19px;font-weight:800;font-family:'Sora',sans-serif;color:var(--dark)">MERX</div>
+      <div style="font-size:13px;color:#aaa;margin-top:4px">Mijoz portali</div>
     </div>
     <div style="margin-bottom:12px">
-      <label style="font-size:11.5px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Telefon raqam</label>
+      <label style="font-size:11px;font-weight:800;color:#888;display:block;margin-bottom:7px;text-transform:uppercase;letter-spacing:.6px">Telefon raqam</label>
       <input id="l-phone" type="tel" placeholder="+998 90 123 45 67" autocomplete="tel">
     </div>
     <div style="margin-bottom:20px">
-      <label style="font-size:11.5px;font-weight:700;color:#888;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Parol</label>
+      <label style="font-size:11px;font-weight:800;color:#888;display:block;margin-bottom:7px;text-transform:uppercase;letter-spacing:.6px">Parol</label>
       <div style="position:relative">
         <input id="l-pass" type="password" placeholder="••••" onkeydown="if(event.key==='Enter')doLogin()" autocomplete="current-password">
-        <button onclick="togglePass()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#aaa;font-size:18px;padding:4px">
+        <button onclick="togglePass()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#bbb;font-size:18px;padding:4px">
           <i class="ti ti-eye" id="pass-eye"></i>
         </button>
       </div>
     </div>
-    <button class="btn btn-acc btn-block" style="padding:14px;font-size:15px" onclick="doLogin()">
+    <button class="btn btn-acc btn-block" style="padding:14px;font-size:15px;border-radius:14px" onclick="doLogin()" id="login-btn">
       <i class="ti ti-login"></i> Kirish
     </button>
-    <div id="l-err" style="color:var(--red);font-size:13px;text-align:center;margin-top:12px;display:none;padding:10px;background:#FEF2F2;border-radius:10px"></div>
+    <div id="l-err" style="color:var(--red);font-size:13px;text-align:center;margin-top:12px;display:none;padding:10px 14px;background:#FEF2F2;border-radius:10px;font-weight:600"></div>
   </div>
 </div>
 
-<!-- PORTAL SCREEN -->
+<!-- PORTAL -->
 <div id="portal-screen" style="display:none">
 
   <!-- TOP BAR -->
   <div class="topbar">
-    <div style="min-width:0">
-      <div id="portal-shop-name" style="font-family:'Sora',sans-serif;font-weight:700;font-size:15px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px"></div>
-      <div id="portal-cust-name" style="font-size:11.5px;color:rgba(255,255,255,.5)"></div>
+    <div class="topbar-left">
+      <div class="topbar-shop" id="portal-shop-name"></div>
+      <div class="topbar-user"><i class="ti ti-user" style="font-size:11px"></i> <span id="portal-cust-name"></span></div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <div id="debt-pill" style="display:none;background:#EF4444;color:#fff;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="goTab('qarz')">
-        <i class="ti ti-credit-card"></i> <span id="debt-pill-txt"></span>
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+      <div id="debt-pill" class="debt-pill" style="display:none" onclick="goTab('qarz')">
+        <i class="ti ti-alert-circle" style="font-size:14px"></i>
+        <span id="debt-pill-txt"></span>
       </div>
-      <button onclick="doLogout()" style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center">
+      <button onclick="doLogout()" style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">
         <i class="ti ti-logout" style="font-size:17px"></i>
       </button>
     </div>
   </div>
 
-  <!-- MAIN CONTENT -->
+  <!-- CONTENT -->
   <div class="main">
 
-    <!-- KATALOG TAB -->
+    <!-- KATALOG -->
     <div id="tab-katalog">
+      <div class="ptr-indicator" id="ptr-ind"><i class="ti ti-refresh"></i> Yangilanmoqda...</div>
       <div class="chips" id="cat-chips">
         <div class="chip on" onclick="setCat('',this)">Barchasi</div>
         <div class="chip" onclick="setCat('chegirma',this)">🔥 Chegirmalar</div>
@@ -197,23 +236,51 @@ input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0
         <i class="ti ti-search"></i>
         <input id="prod-search" placeholder="Tovar qidirish..." oninput="renderCatalog()" autocomplete="off">
       </div>
+      <!-- Sort row -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:12px;color:#aaa;font-weight:600" id="prod-count"></div>
+        <select id="sort-select" onchange="renderCatalog()" style="width:auto;padding:6px 10px;font-size:12px;font-weight:600;border-radius:10px;cursor:pointer">
+          <option value="default">Standart</option>
+          <option value="price-asc">Narx ↑</option>
+          <option value="price-desc">Narx ↓</option>
+          <option value="name">Nomi A-Z</option>
+          <option value="stock">Zaxira ko'p</option>
+        </select>
+      </div>
       <div class="prod-grid" id="prod-grid">
-        <div class="loader" style="grid-column:1/-1"><i class="ti ti-loader"></i> Yuklanmoqda...</div>
+        <div style="grid-column:1/-1">
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+            ${[1,2,3,4].map(()=>`<div><div class="skel" style="aspect-ratio:1;border-radius:18px;margin-bottom:8px"></div><div class="skel" style="height:14px;border-radius:6px;margin-bottom:6px;width:70%"></div><div class="skel" style="height:16px;border-radius:6px;width:50%"></div></div>`).join('')}
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- TARIX TAB -->
+    <!-- TARIX -->
     <div id="tab-tarix" style="display:none">
       <div class="kpi-row" id="tarix-kpi"></div>
+      <!-- Filter -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px">
+        <div class="chip on" onclick="setTarixFilter('all',this)" id="tf-all">Barchasi</div>
+        <div class="chip" onclick="setTarixFilter('tolangan',this)">✅ To'langan</div>
+        <div class="chip" onclick="setTarixFilter('qarz',this)">⏳ Qarzda</div>
+      </div>
       <div id="tarix-list"></div>
     </div>
 
-    <!-- BRONLAR TAB -->
+    <!-- BRONLAR -->
     <div id="tab-bron" style="display:none">
+      <!-- Bron filtri -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px">
+        <div class="chip on" onclick="setBronFilter('all',this)">Barchasi</div>
+        <div class="chip" onclick="setBronFilter('kutilmoqda',this)">⏳ Kutilmoqda</div>
+        <div class="chip" onclick="setBronFilter('tasdiqlandi',this)">✅ Tasdiqlandi</div>
+        <div class="chip" onclick="setBronFilter('bekor',this)">❌ Bekor</div>
+      </div>
       <div id="bron-list"></div>
     </div>
 
-    <!-- QARZ TAB -->
+    <!-- QARZ -->
     <div id="tab-qarz" style="display:none">
       <div id="qarz-content"></div>
     </div>
@@ -223,28 +290,23 @@ input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0
   <!-- BOTTOM NAV -->
   <div class="bottom-nav">
     <div class="bnav-item on" id="nav-katalog" onclick="goTab('katalog')">
-      <i class="ti ti-shirt"></i>
-      <span>Katalog</span>
+      <i class="ti ti-shirt"></i><span>Katalog</span>
     </div>
     <div class="bnav-item" id="nav-tarix" onclick="goTab('tarix')">
-      <i class="ti ti-history"></i>
-      <span>Tarix</span>
+      <i class="ti ti-receipt"></i><span>Tarix</span>
     </div>
     <div class="bnav-item" id="nav-bron" onclick="goTab('bron')">
-      <i class="ti ti-bookmark"></i>
-      <span>Bronlar</span>
+      <i class="ti ti-bookmark"></i><span>Bronlar</span>
       <div class="bnav-badge" id="bron-badge" style="display:none">0</div>
     </div>
     <div class="bnav-item" id="nav-qarz" onclick="goTab('qarz')">
-      <i class="ti ti-credit-card"></i>
-      <span>Qarz</span>
+      <i class="ti ti-credit-card"></i><span>Qarz</span>
       <div class="bnav-badge" id="qarz-badge" style="display:none;background:var(--red)">!</div>
     </div>
   </div>
-
 </div>
 
-<!-- TOVAR DETAIL BOTTOM SHEET -->
+<!-- TOVAR DETAIL SHEET -->
 <div class="sheet-bg" id="prod-sheet" onclick="if(event.target===this)closeSheet()">
   <div class="sheet">
     <div class="sheet-handle"></div>
@@ -256,304 +318,255 @@ input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0
 // ════════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════════
-let _sb        = null;
-let _session   = null;
-let _products  = [];
-let _ppProds   = [];
-let _sales     = [];
-let _bookings  = [];
-let _catFilter = "";
-let _today     = new Date().toISOString().slice(0,10);
-let _detState  = {};
+let _sb=null,_session=null;
+let _products=[],_ppProds=[],_sales=[],_bookings=[];
+let _catFilter="",_tarixFilter="all",_bronFilter="all";
+let _today=new Date().toISOString().slice(0,10);
+let _detState={};
 
-const $   = id => document.getElementById(id);
-const fmt = n  => Math.round(n||0).toLocaleString("ru-RU");
+const $=id=>document.getElementById(id);
+const fmt=n=>Math.round(n||0).toLocaleString("ru-RU");
 
-function toast(msg, type) {
-  const el = $("toast");
-  el.textContent = msg;
-  el.style.background = type==="err" ? "#EF4444" : type==="warn" ? "#D97706" : "#0D1B2A";
+function toast(msg,type){
+  const el=$("toast");
+  el.textContent=msg;
+  el.style.background=type==="err"?"#EF4444":type==="warn"?"#D97706":type==="grn"?"#16A34A":"#0D1B2A";
   el.classList.add("on");
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => el.classList.remove("on"), 3200);
+  toast._t=setTimeout(()=>el.classList.remove("on"),3200);
 }
 
-function togglePass() {
-  const inp = $("l-pass");
-  const ico = $("pass-eye");
-  if (inp.type === "password") { inp.type = "text"; ico.className = "ti ti-eye-off"; }
-  else { inp.type = "password"; ico.className = "ti ti-eye"; }
+function togglePass(){
+  const inp=$("l-pass"),ico=$("pass-eye");
+  inp.type=inp.type==="password"?"text":"password";
+  ico.className=inp.type==="text"?"ti ti-eye-off":"ti ti-eye";
 }
 
 // ════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════
-async function init() {
-  const p      = new URLSearchParams(location.search);
-  const shopId = p.get("shop") || localStorage.getItem("mp_shop") || "";
-  if (!shopId) { showErr("Do'kon topilmadi. Link orqali kiring."); return; }
+async function init(){
+  const p=new URLSearchParams(location.search);
+  const shopId=p.get("shop")||localStorage.getItem("mp_shop")||"";
+  if(!shopId){showErr("Do'kon topilmadi. Link orqali kiring.");return;}
 
-  // Credentials
-  let url, key;
-  const cParam = p.get("c");
-  if (cParam) {
-    try {
-      const d = atob(cParam);
-      const parts = d.split("|||");
-      url = parts[0]; key = parts[1];
-      localStorage.setItem("mp_creds", JSON.stringify({url, key, shop: shopId}));
-      localStorage.setItem("mp_shop", shopId);
-    } catch(e) {}
+  let url,key;
+  const cParam=p.get("c");
+  if(cParam){
+    try{
+      const d=atob(cParam),parts=d.split("|||");
+      url=parts[0];key=parts[1];
+      localStorage.setItem("mp_creds",JSON.stringify({url,key,shop:shopId}));
+      localStorage.setItem("mp_shop",shopId);
+    }catch(e){}
   }
-  if (!url || !key) {
-    try {
-      const sc = JSON.parse(localStorage.getItem("mp_creds") || "{}");
-      if (sc.shop === shopId) { url = sc.url; key = sc.key; }
-    } catch(e) {}
+  if(!url||!key){
+    try{const sc=JSON.parse(localStorage.getItem("mp_creds")||"{}");if(sc.shop===shopId){url=sc.url;key=sc.key;}}catch(e){}
   }
-  if (!url || !key) {
-    try {
-      const db = JSON.parse(localStorage.getItem("merx_v5") || "{}");
-      url = db?.settings?.supabaseUrl;
-      key = db?.settings?.supabaseKey;
-    } catch(e) {}
+  if(!url||!key){
+    try{const db=JSON.parse(localStorage.getItem("merx_v5")||"{}");url=db?.settings?.supabaseUrl;key=db?.settings?.supabaseKey;}catch(e){}
   }
-  if (!url || !key) { showErr("Tizimga ulanib bo'lmadi. Do'kon egasidan yangi link so'rang."); return; }
+  if(!url||!key){showErr("Tizimga ulanib bo'lmadi. Do'kon egasidan yangi link so'rang.");return;}
 
-  // Supabase
-  try {
-    _sb = supabase.createClient(url, key, {auth:{persistSession:false}});
-  } catch(e) { showErr("Ulanish xatosi: " + e.message); return; }
+  try{_sb=supabase.createClient(url,key,{auth:{persistSession:false}});}
+  catch(e){showErr("Ulanish xatosi: "+e.message);return;}
 
-  // Shop nomi — settings jadvalida id=1
-  try {
-    const {data:s} = await _sb.from("settings").select("shop_name").eq("id", 1).single();
-    const name = s?.shop_name || "MERX";
-    if ($("login-shop-name"))  $("login-shop-name").textContent  = name;
-    if ($("portal-shop-name")) $("portal-shop-name").textContent = name;
-    document.title = name + " — Mijoz portali";
-  } catch(e) {}
+  // Shop nomi
+  try{
+    const{data:s}=await _sb.from("settings").select("shop_name").eq("id",1).single();
+    const name=s?.shop_name||"MERX";
+    if($("login-shop-name"))$("login-shop-name").textContent=name;
+    if($("portal-shop-name"))$("portal-shop-name").textContent=name;
+    document.title=name+" — Mijoz portali";
+  }catch(e){}
 
-  // Saqlangan session tekshirish
-  try {
-    const saved = JSON.parse(localStorage.getItem("mp_session") || "null");
-    if (saved && saved.shopId === shopId) {
-      _session = saved;
-      await startPortal();
-      return;
-    }
-  } catch(e) {}
+  // Saqlangan session
+  try{
+    const saved=JSON.parse(localStorage.getItem("mp_session")||"null");
+    if(saved&&saved.shopId===shopId){_session=saved;await startPortal();return;}
+  }catch(e){}
 
-  // Login ko'rsat
-  $("login-screen").style.display = "flex";
+  $("login-screen").style.display="flex";
 }
 
-function showErr(msg) {
-  document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'DM Sans',sans-serif;background:var(--bg);padding:20px">
-    <div style="text-align:center">
-      <div style="font-size:52px;margin-bottom:16px">⚠️</div>
-      <div style="font-size:16px;font-weight:700;color:#444;margin-bottom:8px">Xatolik yuz berdi</div>
-      <div style="font-size:14px;color:#aaa;max-width:280px;line-height:1.5">${msg}</div>
-    </div>
-  </div>`;
+function showErr(msg){
+  document.body.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'DM Sans',sans-serif;background:var(--bg);padding:20px"><div style="text-align:center"><div style="font-size:56px;margin-bottom:16px">⚠️</div><div style="font-size:16px;font-weight:700;color:#444;margin-bottom:8px">Xatolik yuz berdi</div><div style="font-size:14px;color:#aaa;max-width:280px;line-height:1.6;margin:0 auto">${msg}</div></div></div>`;
 }
 
 // ════════════════════════════════════════════════
 // LOGIN
 // ════════════════════════════════════════════════
-async function doLogin() {
-  const p      = new URLSearchParams(location.search);
-  const shopId = p.get("shop") || localStorage.getItem("mp_shop") || "";
-  const phone  = ($("l-phone")||{value:""}).value.trim().replace(/\s/g,"");
-  const pass   = ($("l-pass")||{value:""}).value.trim();
-  const errEl  = $("l-err");
-  const btn    = document.querySelector("#login-screen .btn-acc");
+async function doLogin(){
+  const p=new URLSearchParams(location.search);
+  const shopId=p.get("shop")||localStorage.getItem("mp_shop")||"";
+  const phone=($("l-phone")||{value:""}).value.trim().replace(/\s/g,"");
+  const pass=($("l-pass")||{value:""}).value.trim();
+  const errEl=$("l-err"),btn=$("login-btn");
 
-  if (!phone || !pass) {
-    errEl.textContent = "Telefon va parol kiriting"; errEl.style.display = "block"; return;
-  }
+  if(!phone||!pass){errEl.textContent="Telefon va parol kiriting";errEl.style.display="block";return;}
+  errEl.style.display="none";
+  if(btn){btn.innerHTML='<i class="ti ti-loader spin"></i> Tekshirilmoqda...';btn.disabled=true;}
 
-  if (btn) { btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Tekshirilmoqda...'; btn.disabled = true; }
+  try{
+    const{data,error}=await _sb.from("portal_customers").select("*")
+      .eq("shop_id",shopId).eq("phone",phone).eq("password",pass).eq("is_active",true).limit(1);
 
-  try {
-    const {data, error} = await _sb
-      .from("portal_customers")
-      .select("*")
-      .eq("shop_id", shopId)
-      .eq("phone", phone)
-      .eq("password", pass)
-      .eq("is_active", true)
-      .limit(1);
+    if(btn){btn.innerHTML='<i class="ti ti-login"></i> Kirish';btn.disabled=false;}
+    if(error||!data||!data.length){errEl.textContent="Telefon yoki parol noto'g'ri";errEl.style.display="block";return;}
 
-    if (btn) { btn.innerHTML = '<i class="ti ti-login"></i> Kirish'; btn.disabled = false; }
+    const row=data[0];
+    let custName=phone;
+    try{
+      const{data:sd}=await _sb.from("sales").select("customer_name")
+        .eq("shop_id",shopId).eq("customer_id",row.customer_id).limit(1);
+      if(sd?.[0]?.customer_name)custName=sd[0].customer_name;
+    }catch(e){}
 
-    if (error || !data || !data.length) {
-      errEl.textContent = "Telefon yoki parol noto'g'ri";
-      errEl.style.display = "block"; return;
-    }
-
-    errEl.style.display = "none";
-    const row = data[0];
-
-    // Mijoz ismini sotuvlardan olamiz
-    let custName = phone;
-    try {
-      const {data:sd} = await _sb.from("sales")
-        .select("customer_name")
-        .eq("shop_id", shopId)
-        .eq("customer_id", row.customer_id)
-        .limit(1);
-      if (sd?.[0]?.customer_name) custName = sd[0].customer_name;
-    } catch(e) {}
-
-    _session = {customerId: row.customer_id, customerName: custName, shopId};
-    localStorage.setItem("mp_session", JSON.stringify(_session));
-    $("login-screen").style.display = "none";
+    _session={customerId:row.customer_id,customerName:custName,shopId};
+    localStorage.setItem("mp_session",JSON.stringify(_session));
+    $("login-screen").style.display="none";
     await startPortal();
-  } catch(e) {
-    if (btn) { btn.innerHTML = '<i class="ti ti-login"></i> Kirish'; btn.disabled = false; }
-    errEl.textContent = "Xatolik: " + e.message;
-    errEl.style.display = "block";
+  }catch(e){
+    if(btn){btn.innerHTML='<i class="ti ti-login"></i> Kirish';btn.disabled=false;}
+    errEl.textContent="Xatolik: "+e.message;errEl.style.display="block";
   }
 }
 
-function doLogout() {
-  if (!confirm("Chiqishni xohlaysizmi?")) return;
+function doLogout(){
+  if(!confirm("Chiqishni xohlaysizmi?"))return;
   localStorage.removeItem("mp_session");
-  _session = null;
-  _products = []; _ppProds = []; _sales = []; _bookings = [];
-  $("portal-screen").style.display = "none";
-  $("login-screen").style.display = "flex";
+  _session=null;_products=[];_ppProds=[];_sales=[];_bookings=[];
+  $("portal-screen").style.display="none";
+  $("login-screen").style.display="flex";
 }
 
 // ════════════════════════════════════════════════
 // PORTAL START
 // ════════════════════════════════════════════════
-async function startPortal() {
-  $("login-screen").style.display = "none";
-  $("portal-screen").style.display = "block";
-  if ($("portal-cust-name")) $("portal-cust-name").textContent = "👤 " + _session.customerName;
-
-  await Promise.all([loadProducts(), loadSales(), loadBookings()]);
-  updateDebtPill();
+async function startPortal(){
+  $("login-screen").style.display="none";
+  $("portal-screen").style.display="block";
+  $("portal-cust-name").textContent=_session.customerName;
+  await Promise.all([loadProducts(),loadSales(),loadBookings()]);
+  updateBadges();
 }
 
-function updateDebtPill() {
-  const debts = _sales.filter(s => s.status === "qarz" && s.remaining > 0);
-  const total = debts.reduce((a,s) => a + (s.remaining||0), 0);
-  const pill  = $("debt-pill");
-  const badge = $("qarz-badge");
-  if (total > 0) {
-    if (pill) { pill.style.display = "flex"; $("debt-pill-txt").textContent = fmt(total) + " so'm qarz"; }
-    if (badge) badge.style.display = "flex";
-  } else {
-    if (pill) pill.style.display = "none";
-    if (badge) badge.style.display = "none";
+function updateBadges(){
+  const debts=_sales.filter(s=>s.status==="qarz"&&s.remaining>0);
+  const total=debts.reduce((a,s)=>a+(s.remaining||0),0);
+  const pill=$("debt-pill"),qBadge=$("qarz-badge");
+  if(total>0){
+    if(pill){pill.style.display="flex";$("debt-pill-txt").textContent=fmt(total)+" so'm";}
+    if(qBadge)qBadge.style.display="flex";
+  }else{
+    if(pill)pill.style.display="none";
+    if(qBadge)qBadge.style.display="none";
   }
+  const pendingBrons=_bookings.filter(b=>b.status==="kutilmoqda").length;
+  const bBadge=$("bron-badge");
+  if(bBadge){bBadge.textContent=pendingBrons;bBadge.style.display=pendingBrons>0?"flex":"none";}
 }
 
 // ════════════════════════════════════════════════
 // PRODUCTS
 // ════════════════════════════════════════════════
-async function loadProducts() {
-  try {
-    const {data: prods, error} = await _sb.from("products")
-      .select("*").eq("shop_id", _session.shopId);
-    if (error) throw error;
-    _products = prods || [];
-
-    const {data: pp} = await _sb.from("portal_products")
-      .select("*").eq("shop_id", _session.shopId);
-    _ppProds = pp || [];
-
+async function loadProducts(){
+  try{
+    const{data:prods,error}=await _sb.from("products").select("*").eq("shop_id",_session.shopId);
+    if(error)throw error;
+    _products=prods||[];
+    const{data:pp}=await _sb.from("portal_products").select("*").eq("shop_id",_session.shopId);
+    _ppProds=pp||[];
     renderCatalog();
     buildCatChips();
-  } catch(e) {
-    $("prod-grid").innerHTML = `<div class="empty" style="grid-column:1/-1">
-      <i class="ti ti-wifi-off"></i>
-      <div class="empty-title">Yuklashda xato</div>
-      <div class="empty-sub">${e.message}</div>
-    </div>`;
+  }catch(e){
+    $("prod-grid").innerHTML=`<div class="empty" style="grid-column:1/-1"><i class="ti ti-wifi-off"></i><div class="empty-title">Yuklab bo'lmadi</div><div class="empty-sub">${e.message}</div><button class="btn btn-sm btn-acc" style="margin-top:16px" onclick="loadProducts()">Qayta urinish</button></div>`;
   }
 }
 
-function getProdPrice(p) {
-  const pp       = _ppProds.find(x => x.sku === p.sku);
-  const base     = pp?.portal_price || p.price_uzs || 0;
-  const disc     = pp?.discount || 0;
-  const until    = pp?.discount_until || "";
-  const active   = disc > 0 && (!until || until >= _today);
-  const final    = active ? Math.round(base * (1 - disc/100)) : base;
-  return {base, disc, until, active, final};
+function getProdPrice(p){
+  const pp=_ppProds.find(x=>x.sku===p.sku);
+  const base=pp?.portal_price||p.price_uzs||0;
+  const disc=pp?.discount||0;
+  const until=pp?.discount_until||"";
+  const active=disc>0&&(!until||until>=_today);
+  const final=active?Math.round(base*(1-disc/100)):base;
+  return{base,disc,until,active,final};
 }
 
-function setCat(cat, el) {
-  _catFilter = cat;
-  document.querySelectorAll("#cat-chips .chip").forEach(c => c.classList.remove("on"));
-  if (el) el.classList.add("on");
+function setCat(cat,el){
+  _catFilter=cat;
+  document.querySelectorAll("#cat-chips .chip").forEach(c=>c.classList.remove("on"));
+  if(el)el.classList.add("on");
   renderCatalog();
 }
 
-function buildCatChips() {
-  const cats = [...new Set(_products.map(p => p.category).filter(Boolean))];
-  const container = $("cat-chips");
-  if (!container || !cats.length) return;
-  // Mavjud chip larni saqlaymiz (Barchasi, Chegirmalar)
-  cats.forEach(cat => {
-    const d = document.createElement("div");
-    d.className = "chip";
-    d.textContent = cat;
-    d.onclick = () => setCat(cat, d);
+function buildCatChips(){
+  const cats=[...new Set(_products.map(p=>p.category).filter(Boolean))];
+  const container=$("cat-chips");if(!container||!cats.length)return;
+  cats.forEach(cat=>{
+    const d=document.createElement("div");
+    d.className="chip";d.textContent=cat;
+    d.onclick=()=>setCat(cat,d);
     container.appendChild(d);
   });
 }
 
-function renderCatalog() {
-  const q    = ($("prod-search")||{value:""}).value.toLowerCase();
-  const grid = $("prod-grid"); if (!grid) return;
+function renderCatalog(){
+  const q=($("prod-search")||{value:""}).value.toLowerCase();
+  const sort=($("sort-select")||{value:"default"}).value;
+  const grid=$("prod-grid");if(!grid)return;
 
-  let list = _products.filter(p => {
-    const pp = _ppProds.find(x => x.sku === p.sku);
-    if (pp && pp.is_visible === false) return false;
-    if (_catFilter === "chegirma") { return getProdPrice(p).active; }
-    if (_catFilter && p.category !== _catFilter) return false;
-    if (q && !(p.name||"").toLowerCase().includes(q)) return false;
+  let list=_products.filter(p=>{
+    const pp=_ppProds.find(x=>x.sku===p.sku);
+    if(pp&&pp.is_visible===false)return false;
+    if(_catFilter==="chegirma")return getProdPrice(p).active;
+    if(_catFilter&&p.category!==_catFilter)return false;
+    if(q&&!(p.name||"").toLowerCase().includes(q))return false;
     return true;
   });
 
-  if (!list.length) {
-    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
-      <i class="ti ti-mood-empty"></i>
-      <div class="empty-title">${q ? '"'+q+'" topilmadi' : _catFilter==="chegirma" ? "Chegirmali tovar yo'q" : "Tovarlar yo'q"}</div>
-    </div>`;
+  // Saralash
+  if(sort==="price-asc")list.sort((a,b)=>getProdPrice(a).final-getProdPrice(b).final);
+  else if(sort==="price-desc")list.sort((a,b)=>getProdPrice(b).final-getProdPrice(a).final);
+  else if(sort==="name")list.sort((a,b)=>(a.name||"").localeCompare(b.name||"","uz"));
+  else if(sort==="stock")list.sort((a,b)=>(b.variants||[]).reduce((s,v)=>s+v.qty,0)-(a.variants||[]).reduce((s,v)=>s+v.qty,0));
+
+  const cnt=$("prod-count");
+  if(cnt)cnt.textContent=list.length+" ta tovar";
+
+  if(!list.length){
+    grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><i class="ti ti-mood-empty"></i><div class="empty-title">${q?'"'+q+'" topilmadi':_catFilter==="chegirma"?"Chegirmali tovar yo'q":"Tovarlar yo'q"}</div></div>`;
     return;
   }
 
-  grid.innerHTML = list.map(p => {
-    const {base, active, disc, final} = getProdPrice(p);
-    const qty = (p.variants||[]).reduce((a,v) => a+(v.qty||0), 0);
-    const colors = [...new Set((p.variants||[]).map(v=>v.color).filter(Boolean))];
+  grid.innerHTML=list.map(p=>{
+    const{base,active,disc,final}=getProdPrice(p);
+    const qty=(p.variants||[]).reduce((a,v)=>a+(v.qty||0),0);
+    const colors=[...new Set((p.variants||[]).map(v=>v.color).filter(Boolean))];
     return `<div class="prod-card" onclick="openProd('${p.sku}')">
-      ${active ? `<div class="disc-badge">−${disc}%</div>` : ""}
-      ${qty === 0 ? `<div class="out-badge">Tugagan</div>` : ""}
+      ${active?`<div class="disc-badge">−${disc}%</div>`:""}
       <div class="prod-img">
-        ${p.image ? `<img src="${p.image}" alt="${p.name}" loading="lazy">` : `<i class="ti ti-shoe" style="font-size:48px;color:#ddd"></i>`}
+        ${p.image?`<img src="${p.image}" alt="${p.name}" loading="lazy">`:`<i class="ti ti-shoe" style="font-size:44px;color:#ddd"></i>`}
+        ${qty===0?`<div class="out-overlay"><span style="background:rgba(0,0,0,.65);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">Tugagan</span></div>`:""}
       </div>
       <div class="prod-info">
         <div class="prod-name">${p.name}</div>
         <div style="display:flex;align-items:baseline;gap:4px;flex-wrap:wrap">
           <span class="prod-price">${fmt(final)}</span>
-          ${active ? `<span class="prod-old">${fmt(base)}</span>` : ""}
-          <span style="font-size:11px;color:#bbb">so'm</span>
+          ${active?`<span class="prod-old">${fmt(base)}</span>`:""}
+          <span style="font-size:11px;color:#ccc">so'm</span>
         </div>
-        ${colors.length ? `<div style="display:flex;gap:4px;margin-top:5px;align-items:center">
-          ${colors.slice(0,5).map(c => {
-            const v = (p.variants||[]).find(x=>x.color===c);
-            return `<div class="color-dot" style="background:${v?.hex||'#888'}" title="${c}"></div>`;
-          }).join("")}
-          ${colors.length > 5 ? `<span style="font-size:10px;color:#aaa">+${colors.length-5}</span>` : ""}
-        </div>` : ""}
-        <div class="prod-stock ${qty===0?'out':''}">${qty > 0 ? qty+" ta" : "Tugagan"}</div>
+        <div class="prod-meta">
+          <div style="display:flex;gap:3px">
+            ${colors.slice(0,4).map(c=>{
+              const v=(p.variants||[]).find(x=>x.color===c);
+              return `<div class="cdot" style="background:${v?.hex||'#888'}" title="${c}"></div>`;
+            }).join("")}
+            ${colors.length>4?`<span style="font-size:10px;color:#aaa;align-self:center">+${colors.length-4}</span>`:""}
+          </div>
+          <div class="prod-stock ${qty===0?'out':''}">${qty>0?qty+" ta":"0"}</div>
+        </div>
       </div>
     </div>`;
   }).join("");
@@ -562,75 +575,68 @@ function renderCatalog() {
 // ════════════════════════════════════════════════
 // PRODUCT DETAIL
 // ════════════════════════════════════════════════
-function openProd(sku) {
-  const p = _products.find(x => x.sku === sku); if (!p) return;
-  const {base, active, disc, until, final} = getProdPrice(p);
-  const totalQty = (p.variants||[]).reduce((a,v) => a+(v.qty||0), 0);
-  const colors = [...new Set((p.variants||[]).map(v=>v.color).filter(Boolean))];
-  const sizes  = [...new Set((p.variants||[]).map(v=>v.size).filter(Boolean))].sort((a,b) => {
-    const n = v => parseFloat(v);
-    return isNaN(n(a)) ? a.localeCompare(b) : n(a) - n(b);
+function openProd(sku){
+  const p=_products.find(x=>x.sku===sku);if(!p)return;
+  const{base,active,disc,until,final}=getProdPrice(p);
+  const totalQty=(p.variants||[]).reduce((a,v)=>a+(v.qty||0),0);
+  const colors=[...new Set((p.variants||[]).map(v=>v.color).filter(Boolean))];
+  const sizes=[...new Set((p.variants||[]).map(v=>v.size).filter(Boolean))].sort((a,b)=>{
+    const n=v=>parseFloat(v);return isNaN(n(a))?a.localeCompare(b):n(a)-n(b);
   });
 
-  _detState = {sku, color: colors[0]||"", size:"", qty:1};
+  _detState={sku,color:colors[0]||"",size:"",qty:1};
 
-  const el = $("prod-sheet-body"); if (!el) return;
-  el.innerHTML = `
-    <!-- Rasm -->
-    <div style="width:100%;aspect-ratio:1.4;border-radius:16px;overflow:hidden;background:#f5f2ec;display:flex;align-items:center;justify-content:center;margin-bottom:16px;position:relative">
-      ${p.image ? `<img src="${p.image}" style="width:100%;height:100%;object-fit:cover">` : `<i class="ti ti-shoe" style="font-size:64px;color:#ddd"></i>`}
-      ${active ? `<div style="position:absolute;top:12px;left:12px;background:var(--red);color:#fff;font-size:13px;font-weight:700;padding:5px 12px;border-radius:10px">−${disc}%</div>` : ""}
-      ${totalQty === 0 ? `<div style="position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center"><span style="background:rgba(0,0,0,.7);color:#fff;padding:8px 16px;border-radius:10px;font-weight:700">Tugagan</span></div>` : ""}
+  const el=$("prod-sheet-body");if(!el)return;
+  el.innerHTML=`
+    <div style="width:100%;aspect-ratio:1.3;border-radius:18px;overflow:hidden;background:linear-gradient(135deg,#f5f2ec,#ede8e0);display:flex;align-items:center;justify-content:center;margin-bottom:16px;position:relative">
+      ${p.image?`<img src="${p.image}" style="width:100%;height:100%;object-fit:cover">`:`<i class="ti ti-shoe" style="font-size:72px;color:#ddd"></i>`}
+      ${active?`<div style="position:absolute;top:12px;left:12px;background:var(--red);color:#fff;font-size:13px;font-weight:800;padding:5px 12px;border-radius:10px">−${disc}%</div>`:""}
+      ${totalQty===0?`<div style="position:absolute;inset:0;background:rgba(255,255,255,.75);display:flex;align-items:center;justify-content:center"><span style="background:rgba(0,0,0,.7);color:#fff;padding:10px 20px;border-radius:12px;font-weight:700;font-size:14px">Tugagan</span></div>`:""}
     </div>
 
-    <!-- Nom + narx -->
-    <h3 style="font-size:19px;margin-bottom:8px;line-height:1.3">${p.name}</h3>
-    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:${active&&until?'4px':'14px'}">
-      <span style="font-size:24px;font-weight:800;color:${active?'var(--red)':'var(--acc)'}">${fmt(final)} so'm</span>
-      ${active ? `<span style="font-size:15px;color:#bbb;text-decoration:line-through">${fmt(base)} so'm</span>` : ""}
-    </div>
-    ${active && until ? `<div style="font-size:12.5px;color:var(--red);margin-bottom:14px;display:flex;align-items:center;gap:5px"><i class="ti ti-clock"></i> Chegirma ${until} gacha</div>` : ""}
-
-    <!-- Zaxira -->
-    <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:${totalQty>0?'var(--grn)':'var(--red)'};margin-bottom:16px">
-      <i class="ti ti-${totalQty>0?'check':'x'}"></i>
-      ${totalQty > 0 ? `${totalQty} ta mavjud` : "Tugagan"}
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+      <h3 style="font-size:20px;line-height:1.3;flex:1;padding-right:12px">${p.name}</h3>
+      <button onclick="shareProd('${sku}')" style="width:40px;height:40px;border-radius:12px;background:var(--bg);border:1.5px solid var(--brd);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="ti ti-share" style="font-size:17px;color:#888"></i>
+      </button>
     </div>
 
-    ${colors.length ? `
-    <!-- Rang -->
-    <div style="margin-bottom:18px">
-      <div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Rang</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap" id="color-opts">
-        ${colors.map(c => {
-          const v = (p.variants||[]).find(x=>x.color===c);
-          const hex = v?.hex||"#888";
-          const cqty = (p.variants||[]).filter(x=>x.color===c).reduce((a,x)=>a+x.qty,0);
-          return `<div onclick="selColor('${c}',this)" class="btn btn-sm" style="gap:8px;border-width:2px;${c===_detState.color?'border-color:var(--dark);background:#f5f2ec':''}${cqty===0?';opacity:.4':''}">
-            <div class="color-dot" style="background:${hex}"></div>
-            ${c}
-          </div>`;
-        }).join("")}
-      </div>
-    </div>` : ""}
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:${active&&until?'6px':'14px'}">
+      <span style="font-size:26px;font-weight:800;color:${active?'var(--red)':'var(--acc)'};font-family:'Sora',sans-serif">${fmt(final)}</span>
+      <span style="font-size:14px;color:#bbb">so'm</span>
+      ${active?`<span style="font-size:14px;color:#ccc;text-decoration:line-through">${fmt(base)}</span>`:""}
+    </div>
+    ${active&&until?`<div style="font-size:12.5px;color:var(--red);margin-bottom:14px;display:flex;align-items:center;gap:5px;font-weight:600"><i class="ti ti-clock"></i> Chegirma ${until} gacha</div>`:""}
 
-    ${sizes.length ? `
-    <!-- O'lcham -->
-    <div style="margin-bottom:18px">
-      <div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">O'lcham</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap" id="size-opts">
-        ${sizes.map(s => {
-          const sqty = (p.variants||[]).filter(x=>x.size===s).reduce((a,x)=>a+x.qty,0);
-          return `<div onclick="${sqty>0?`selSize('${s}',this)`:''}" class="size-chip ${sqty===0?'out':''}">
-            ${s}
-          </div>`;
-        }).join("")}
-      </div>
-    </div>` : ""}
+    <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:${totalQty>0?'var(--grn)':'var(--red)'};margin-bottom:18px;font-weight:700">
+      <i class="ti ti-${totalQty>0?'circle-check':'circle-x'}"></i>
+      ${totalQty>0?totalQty+" ta mavjud":"Tugagan"}
+    </div>
 
-    <!-- Miqdor -->
+    ${colors.length?`
+    <div class="sec-hdr">Rang</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px" id="color-opts">
+      ${colors.map(c=>{
+        const v=(p.variants||[]).find(x=>x.color===c);
+        const hex=v?.hex||"#888";
+        const cqty=(p.variants||[]).filter(x=>x.color===c).reduce((a,x)=>a+x.qty,0);
+        return `<div onclick="selColor('${c}',this)" class="btn btn-sm" style="gap:8px;border-width:2px;${c===_detState.color?'border-color:var(--dark);background:#f0ede8':''}${cqty===0?';opacity:.35':''}">
+          <div class="cdot" style="background:${hex};width:16px;height:16px"></div>${c}
+        </div>`;
+      }).join("")}
+    </div>`:""}
+
+    ${sizes.length?`
+    <div class="sec-hdr">O'lcham</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px" id="size-opts">
+      ${sizes.map(s=>{
+        const sqty=(p.variants||[]).filter(x=>x.size===s).reduce((a,x)=>a+x.qty,0);
+        return `<div onclick="${sqty>0?`selSize('${s}',this)`:''}" class="sch ${sqty===0?'out':''}">${s}</div>`;
+      }).join("")}
+    </div>`:""}
+
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px">
-      <span style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px">Miqdor</span>
+      <span class="sec-hdr" style="margin:0">Miqdor</span>
       <div class="qty-ctrl">
         <button class="qty-btn" onclick="detQty(-1)">−</button>
         <span class="qty-num" id="det-qty">1</span>
@@ -638,137 +644,138 @@ function openProd(sku) {
       </div>
     </div>
 
-    <!-- Izoh -->
-    <textarea id="det-note" placeholder="💬 Izoh (ixtiyoriy)" rows="2" style="margin-bottom:16px;resize:none;font-size:13.5px"></textarea>
+    <div class="sec-hdr">Izoh (ixtiyoriy)</div>
+    <textarea id="det-note" placeholder="Masalan: o'ng oyoq keng, yoki maxsus o'lcham..." rows="2" style="margin-bottom:16px;resize:none;font-size:13.5px"></textarea>
 
-    <!-- Bron tugmasi -->
-    <button class="btn btn-acc btn-block" style="padding:15px;font-size:15px;border-radius:14px" onclick="submitBron('${sku}')" id="bron-btn" ${totalQty===0?'disabled style="opacity:.4"':''}>
-      <i class="ti ti-bookmark"></i>
-      ${totalQty > 0 ? "Bron qilish" : "Tugagan"}
+    <button class="btn btn-acc btn-block" style="padding:15px;font-size:15px;border-radius:16px" onclick="submitBron('${sku}')" id="bron-btn" ${totalQty===0?'disabled style="opacity:.4"':''}>
+      <i class="ti ti-bookmark-plus"></i>
+      ${totalQty>0?"Bron qilish":"Tugagan"}
     </button>
-
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn btn-sm" style="flex:1" onclick="shareProd('${sku}')">
-        <i class="ti ti-share"></i> Ulashish
-      </button>
-      <button class="btn btn-sm" style="flex:1" onclick="closeSheet()">
-        <i class="ti ti-x"></i> Yopish
-      </button>
-    </div>
+    <button class="btn btn-block" style="margin-top:8px;padding:12px;border-radius:16px" onclick="closeSheet()">
+      Yopish
+    </button>
   `;
 
   $("prod-sheet").classList.add("on");
-  document.body.style.overflow = "hidden";
+  document.body.style.overflow="hidden";
 }
 
-function selColor(color, el) {
-  _detState.color = color;
-  document.querySelectorAll("#color-opts .btn").forEach(d => {
-    d.style.borderColor = "var(--brd)"; d.style.background = "";
-  });
-  el.style.borderColor = "var(--dark)"; el.style.background = "#f5f2ec";
+function selColor(color,el){
+  _detState.color=color;
+  document.querySelectorAll("#color-opts .btn").forEach(d=>{d.style.borderColor="var(--brd)";d.style.background="";});
+  el.style.borderColor="var(--dark)";el.style.background="#f0ede8";
 }
 
-function selSize(size, el) {
-  _detState.size = size;
-  document.querySelectorAll("#size-opts .size-chip:not(.out)").forEach(d => d.classList.remove("on"));
+function selSize(size,el){
+  _detState.size=size;
+  document.querySelectorAll("#size-opts .sch:not(.out)").forEach(d=>d.classList.remove("on"));
   el.classList.add("on");
 }
 
-function detQty(d) {
-  _detState.qty = Math.max(1, (_detState.qty||1) + d);
-  if ($("det-qty")) $("det-qty").textContent = _detState.qty;
+function detQty(d){
+  _detState.qty=Math.max(1,(_detState.qty||1)+d);
+  if($("det-qty"))$("det-qty").textContent=_detState.qty;
 }
 
-function closeSheet() {
+function closeSheet(){
   $("prod-sheet").classList.remove("on");
-  document.body.style.overflow = "";
+  document.body.style.overflow="";
 }
 
-function shareProd(sku) {
-  const p = _products.find(x => x.sku===sku); if (!p) return;
-  const {final} = getProdPrice(p);
-  const txt = `${p.name} — ${fmt(final)} so'm`;
-  if (navigator.share) { navigator.share({title:p.name, text:txt, url:location.href}); }
-  else { navigator.clipboard?.writeText(txt + "\n" + location.href); toast("Nusxa olindi!"); }
+function shareProd(sku){
+  const p=_products.find(x=>x.sku===sku);if(!p)return;
+  const{final}=getProdPrice(p);
+  const txt=`${p.name} — ${fmt(final)} so'm`;
+  if(navigator.share)navigator.share({title:p.name,text:txt,url:location.href});
+  else{navigator.clipboard?.writeText(txt+"\n"+location.href);toast("Nusxa olindi!");}
 }
 
 // ════════════════════════════════════════════════
 // BRON
 // ════════════════════════════════════════════════
-async function submitBron(sku) {
-  if (!_session) return;
-  const p = _products.find(x => x.sku===sku); if (!p) return;
-  const note   = ($("det-note")||{value:""}).value.trim();
-  const shopId = _session.shopId;
-  const btn    = $("bron-btn");
+async function submitBron(sku){
+  if(!_session)return;
+  const p=_products.find(x=>x.sku===sku);if(!p)return;
+  const note=($("det-note")||{value:""}).value.trim();
+  const shopId=_session.shopId;
+  const btn=$("bron-btn");
 
-  if (btn) { btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Yuborilmoqda...'; btn.disabled = true; }
+  // O'lcham tanlash tekshiruvi
+  const sizes=[...new Set((p.variants||[]).map(v=>v.size).filter(Boolean))];
+  if(sizes.length>0&&!_detState.size){toast("O'lchamni tanlang","warn");return;}
 
-  try {
-    const {error} = await _sb.from("portal_bookings").insert({
-      id:           shopId + "_b_" + Date.now(),
-      shop_id:      shopId,
-      customer_id:  _session.customerId,
+  if(btn){btn.innerHTML='<i class="ti ti-loader spin"></i> Yuborilmoqda...';btn.disabled=true;}
+
+  try{
+    const{error}=await _sb.from("portal_bookings").insert({
+      id:shopId+"_b_"+Date.now(),
+      shop_id:shopId,
+      customer_id:_session.customerId,
       sku,
-      product_name: p.name,
-      color:        _detState.color || "",
-      size:         _detState.size  || "",
-      qty:          _detState.qty   || 1,
-      note:         note || null,
-      status:       "kutilmoqda"
+      product_name:p.name,
+      color:_detState.color||"",
+      size:_detState.size||"",
+      qty:_detState.qty||1,
+      note:note||null,
+      status:"kutilmoqda"
     });
-    if (error) throw error;
-    toast("✅ Bron qabul qilindi! Do'kon tasdiqlaydi.");
+    if(error)throw error;
+    toast("✅ Bron qabul qilindi!","grn");
     closeSheet();
     await loadBookings();
+    updateBadges();
     goTab("bron");
-  } catch(e) {
-    toast("Xato: " + e.message, "err");
-    if (btn) { btn.innerHTML = '<i class="ti ti-bookmark"></i> Bron qilish'; btn.disabled = false; }
+  }catch(e){
+    toast("Xato: "+e.message,"err");
+    if(btn){btn.innerHTML='<i class="ti ti-bookmark-plus"></i> Bron qilish';btn.disabled=false;}
   }
 }
 
-async function loadBookings() {
-  if (!_session || !_sb) return;
-  try {
-    const {data} = await _sb.from("portal_bookings")
-      .select("*")
-      .eq("shop_id", _session.shopId)
-      .eq("customer_id", _session.customerId)
-      .order("created_at", {ascending:false})
-      .limit(30);
-    _bookings = data || [];
+async function loadBookings(){
+  if(!_session||!_sb)return;
+  try{
+    const{data}=await _sb.from("portal_bookings").select("*")
+      .eq("shop_id",_session.shopId).eq("customer_id",_session.customerId)
+      .order("created_at",{ascending:false}).limit(50);
+    _bookings=data||[];
     renderBookings();
-    // Badge yangilash
-    const active = _bookings.filter(b => b.status === "kutilmoqda").length;
-    const badge  = $("bron-badge");
-    if (badge) { badge.textContent = active; badge.style.display = active > 0 ? "flex" : "none"; }
-  } catch(e) {}
+  }catch(e){}
 }
 
-function renderBookings() {
-  const el = $("bron-list"); if (!el) return;
-  if (!_bookings.length) {
-    el.innerHTML = `<div class="empty"><i class="ti ti-bookmark-off"></i><div class="empty-title">Bronlar yo'q</div><div class="empty-sub">Katalogdan tovar bronlang</div></div>`;
+function setBronFilter(f,el){
+  _bronFilter=f;
+  document.querySelectorAll("#tab-bron .chip").forEach(c=>c.classList.remove("on"));
+  if(el)el.classList.add("on");
+  renderBookings();
+}
+
+function renderBookings(){
+  const el=$("bron-list");if(!el)return;
+  let list=_bookings;
+  if(_bronFilter!=="all")list=list.filter(b=>b.status===_bronFilter);
+
+  if(!list.length){
+    el.innerHTML=`<div class="empty"><i class="ti ti-bookmark-off"></i><div class="empty-title">Bronlar yo'q</div><div class="empty-sub">Katalogdan tovar bronlang</div></div>`;
     return;
   }
-  const statusLabel = {kutilmoqda:"⏳ Kutilmoqda", tasdiqlandi:"✅ Tasdiqlandi", bekor:"❌ Bekor"};
-  const statusClass = {kutilmoqda:"bg-yellow", tasdiqlandi:"bg-green", bekor:"bg-red"};
 
-  el.innerHTML = _bookings.map(b => `
-    <div class="sale-card">
+  const statusLabel={kutilmoqda:"⏳ Kutilmoqda",tasdiqlandi:"✅ Tasdiqlandi",bekor:"❌ Bekor"};
+  const statusClass={kutilmoqda:"bg-yellow",tasdiqlandi:"bg-green",bekor:"bg-red"};
+  const statusBorder={kutilmoqda:"#FDE68A",tasdiqlandi:"#BBF7D0",bekor:"#FECACA"};
+
+  el.innerHTML=list.map(b=>`
+    <div class="sale-card" style="border-left:4px solid ${statusBorder[b.status]||'var(--brd)'}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-        <div style="font-weight:700;font-size:15px">${b.product_name}</div>
+        <div style="font-weight:700;font-size:15px;flex:1;padding-right:10px">${b.product_name}</div>
         <span class="badge ${statusClass[b.status]||'bg-yellow'}">${statusLabel[b.status]||b.status}</span>
       </div>
-      <div style="font-size:13px;color:#666;display:flex;gap:10px;flex-wrap:wrap">
-        ${b.color ? `<span>🎨 ${b.color}</span>` : ""}
-        ${b.size  ? `<span>📐 ${b.size}</span>`  : ""}
-        <span>×${b.qty} ta</span>
+      <div style="font-size:13px;color:#666;display:flex;gap:10px;flex-wrap:wrap;margin-bottom:${b.note?'8px':'4px'}">
+        ${b.color?`<span style="display:flex;align-items:center;gap:4px"><i class="ti ti-palette" style="font-size:13px;color:#aaa"></i>${b.color}</span>`:""}
+        ${b.size?`<span style="display:flex;align-items:center;gap:4px"><i class="ti ti-ruler-2" style="font-size:13px;color:#aaa"></i>${b.size}</span>`:""}
+        <span style="display:flex;align-items:center;gap:4px"><i class="ti ti-stack-2" style="font-size:13px;color:#aaa"></i>${b.qty} ta</span>
       </div>
-      ${b.note ? `<div style="font-size:12.5px;color:#D97706;margin-top:6px;padding:6px 10px;background:#FEF3C7;border-radius:8px">💬 ${b.note}</div>` : ""}
-      <div style="font-size:11.5px;color:#bbb;margin-top:8px">${(b.created_at||"").slice(0,16)}</div>
+      ${b.note?`<div style="font-size:12.5px;color:#D97706;padding:7px 10px;background:#FEF3C7;border-radius:9px;margin-bottom:4px">💬 ${b.note}</div>`:""}
+      <div style="font-size:11.5px;color:#ccc;margin-top:6px">${(b.created_at||"").slice(0,16)}</div>
     </div>
   `).join("");
 }
@@ -776,95 +783,112 @@ function renderBookings() {
 // ════════════════════════════════════════════════
 // TARIX & QARZ
 // ════════════════════════════════════════════════
-async function loadSales() {
-  if (!_session || !_sb) return;
-  try {
-    const {data} = await _sb.from("sales")
-      .select("*")
-      .eq("shop_id", _session.shopId)
-      .eq("customer_id", _session.customerId)
-      .order("date", {ascending:false});
-    _sales = data || [];
+async function loadSales(){
+  if(!_session||!_sb)return;
+  try{
+    const{data}=await _sb.from("sales").select("*")
+      .eq("shop_id",_session.shopId).eq("customer_id",_session.customerId)
+      .order("date",{ascending:false});
+    _sales=data||[];
     renderTarix();
     renderQarz();
-  } catch(e) {}
+  }catch(e){}
 }
 
-function renderTarix() {
-  const kpiEl  = $("tarix-kpi");
-  const listEl = $("tarix-list");
-  if (!kpiEl || !listEl) return;
+function setTarixFilter(f,el){
+  _tarixFilter=f;
+  document.querySelectorAll("#tab-tarix .chip").forEach(c=>c.classList.remove("on"));
+  if(el)el.classList.add("on");
+  renderTarix();
+}
 
-  const total = _sales.reduce((a,s) => a+(s.total||0), 0);
-  const debt  = _sales.filter(s=>s.remaining>0).reduce((a,s) => a+(s.remaining||0), 0);
+function renderTarix(){
+  const kpiEl=$("tarix-kpi"),listEl=$("tarix-list");
+  if(!kpiEl||!listEl)return;
 
-  kpiEl.innerHTML = `
+  const total=_sales.reduce((a,s)=>a+(s.total||0),0);
+  const paid=_sales.reduce((a,s)=>a+(s.paid||0),0);
+  const debt=_sales.filter(s=>s.remaining>0).reduce((a,s)=>a+(s.remaining||0),0);
+
+  kpiEl.innerHTML=`
     <div class="kpi"><div class="kpi-val">${_sales.length}</div><div class="kpi-lbl">Xaridlar</div></div>
-    <div class="kpi"><div class="kpi-val" style="font-size:14px">${fmt(total)}</div><div class="kpi-lbl">Jami so'm</div></div>
-    <div class="kpi"><div class="kpi-val" style="font-size:14px;color:${debt?'var(--red)':'var(--grn)'}">${debt?fmt(debt):"0"}</div><div class="kpi-lbl">Qarz</div></div>
+    <div class="kpi"><div class="kpi-val" style="font-size:13px">${fmt(total)}</div><div class="kpi-lbl">Jami so'm</div></div>
+    <div class="kpi"><div class="kpi-val" style="font-size:13px;color:${debt?'var(--red)':'var(--grn)'}">${debt?fmt(debt):"0"}</div><div class="kpi-lbl">Qarz</div></div>
   `;
 
-  if (!_sales.length) {
-    listEl.innerHTML = `<div class="empty"><i class="ti ti-receipt-off"></i><div class="empty-title">Xarid tarixi yo'q</div></div>`;
+  let list=_sales;
+  if(_tarixFilter==="tolandan")list=_sales.filter(s=>!s.remaining||s.remaining<=0);
+  else if(_tarixFilter==="qarz")list=_sales.filter(s=>s.remaining>0);
+
+  if(!list.length){
+    listEl.innerHTML=`<div class="empty"><i class="ti ti-receipt-off"></i><div class="empty-title">${_tarixFilter==="all"?"Xarid tarixi yo'q":"Bu filtrda xarid yo'q"}</div></div>`;
     return;
   }
 
-  listEl.innerHTML = _sales.map(s => {
-    const items  = (s.items||[]).filter(Boolean);
-    const isDebt = s.status === "qarz" && s.remaining > 0;
-    return `<div class="sale-card" style="${isDebt?'border-color:#FECACA;background:#FFF8F8':''}">
+  listEl.innerHTML=list.map(s=>{
+    const items=(s.items||[]).filter(Boolean);
+    const isDebt=s.status==="qarz"&&s.remaining>0;
+    const isReturn=s.status==="qaytarilgan";
+    return `<div class="sale-card" style="${isDebt?'border-left:4px solid var(--red)':isReturn?'border-left:4px solid #F59E0B':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div>
-          <div style="font-weight:800;font-size:16px">${fmt(s.total)} so'm</div>
-          <div style="font-size:12px;color:#aaa;margin-top:2px">${s.date||""} ${s.time||""}</div>
+          <div style="font-weight:800;font-size:17px;font-family:'Sora',sans-serif">${fmt(s.total)} so'm</div>
+          <div style="font-size:12px;color:#aaa;margin-top:2px;display:flex;align-items:center;gap:5px">
+            <i class="ti ti-calendar" style="font-size:12px"></i>${s.date||""} ${s.time||""}
+          </div>
         </div>
-        <span class="badge ${isDebt?'bg-red':s.status==='qaytarilgan'?'bg-yellow':'bg-green'}">
-          ${isDebt?"Qarzda":s.status==="qaytarilgan"?"Qaytarilgan":"✅ To'langan"}
+        <span class="badge ${isDebt?'bg-red':isReturn?'bg-orange':'bg-green'}">
+          ${isDebt?"Qarzda":isReturn?"Qaytarilgan":"✅ To'langan"}
         </span>
       </div>
-      <div style="font-size:13px;color:#555;margin-bottom:${isDebt?'8px':'0'}">
-        ${items.map(i=>`${i.name} ×${i.qty}`).join(" · ")||"—"}
-      </div>
-      ${isDebt ? `<div style="font-size:13.5px;color:var(--red);font-weight:700;display:flex;align-items:center;gap:5px">
-        <i class="ti ti-credit-card"></i> Qarz: ${fmt(s.remaining)} so'm
-        ${s.due ? `<span style="font-weight:500;color:#D97706;font-size:12.5px"> · ${s.due}</span>` : ""}
-      </div>` : ""}
+      ${items.length?`<div style="font-size:13px;color:#555;margin-bottom:${isDebt?'8px':'0'}">
+        ${items.map(i=>`<span style="display:inline-flex;align-items:center;gap:3px;margin-right:8px"><i class="ti ti-point" style="font-size:10px;color:#ccc"></i>${i.name} ×${i.qty}</span>`).join("")}
+      </div>`:""}
+      ${isDebt?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#FEF2F2;border-radius:10px;margin-top:8px">
+        <span style="font-size:13px;color:var(--red);font-weight:700;display:flex;align-items:center;gap:5px">
+          <i class="ti ti-credit-card"></i> Qarz: ${fmt(s.remaining)} so'm
+        </span>
+        ${s.due?`<span style="font-size:12px;color:#D97706;font-weight:600">${s.due}</span>`:""}
+      </div>`:""}
     </div>`;
   }).join("");
 }
 
-function renderQarz() {
-  const el = $("qarz-content"); if (!el) return;
-  const debts = _sales.filter(s => s.status === "qarz" && s.remaining > 0);
-  const total = debts.reduce((a,s) => a+(s.remaining||0), 0);
+function renderQarz(){
+  const el=$("qarz-content");if(!el)return;
+  const debts=_sales.filter(s=>s.status==="qarz"&&s.remaining>0);
+  const total=debts.reduce((a,s)=>a+(s.remaining||0),0);
 
-  if (!debts.length) {
-    el.innerHTML = `<div class="empty" style="padding-top:60px">
-      <div style="font-size:60px;margin-bottom:16px">✅</div>
-      <div class="empty-title" style="color:var(--grn);font-size:17px">Qarz yo'q!</div>
+  if(!debts.length){
+    el.innerHTML=`<div class="empty" style="padding-top:60px">
+      <div style="font-size:64px;margin-bottom:16px">🎉</div>
+      <div class="empty-title" style="color:var(--grn);font-size:18px">Qarz yo'q!</div>
       <div class="empty-sub">Barcha to'lovlar amalga oshirilgan</div>
     </div>`;
     return;
   }
 
-  el.innerHTML = `
+  el.innerHTML=`
     <div class="debt-hero">
-      <div style="font-size:13px;opacity:.8;margin-bottom:6px">Jami qarz</div>
-      <div style="font-size:32px;font-weight:800;font-family:'Sora',sans-serif">${fmt(total)} so'm</div>
-      <div style="font-size:12.5px;opacity:.7;margin-top:6px">${debts.length} ta to'lanmagan xarid</div>
+      <div style="font-size:13px;opacity:.8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Jami qarz</div>
+      <div style="font-size:34px;font-weight:800;font-family:'Sora',sans-serif;margin-bottom:4px">${fmt(total)} so'm</div>
+      <div style="font-size:12.5px;opacity:.7">${debts.length} ta to'lanmagan xarid</div>
     </div>
-    ${debts.map(s => `
+    <div class="sec-hdr">Qarz tafsiloti</div>
+    ${debts.map(s=>`
       <div class="sale-card" style="border-left:4px solid var(--red)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <div style="font-size:13px;color:#666">${s.date||""}</div>
-          <div style="font-weight:800;color:var(--red);font-size:16px">${fmt(s.remaining)} so'm</div>
+          <div style="font-size:13px;color:#666;display:flex;align-items:center;gap:5px">
+            <i class="ti ti-calendar" style="font-size:13px;color:#ccc"></i>${s.date||""}
+          </div>
+          <div style="font-weight:800;color:var(--red);font-size:16px;font-family:'Sora',sans-serif">${fmt(s.remaining)} so'm</div>
         </div>
-        <div style="font-size:13px;color:#555;margin-bottom:${s.due?'6px':'0'}">
+        <div style="font-size:13px;color:#555;margin-bottom:${s.due?'8px':'0'}">
           ${(s.items||[]).filter(Boolean).map(i=>i.name).join(", ")||"—"}
         </div>
-        ${s.due ? `<div style="font-size:12.5px;color:#D97706;display:flex;align-items:center;gap:4px">
-          <i class="ti ti-clock"></i> Muddat: ${s.due}
-        </div>` : ""}
+        ${s.due?`<div style="font-size:12.5px;color:#D97706;font-weight:600;display:flex;align-items:center;gap:4px;padding:7px 10px;background:#FEF3C7;border-radius:9px">
+          <i class="ti ti-clock"></i> To'lov muddati: ${s.due}
+        </div>`:""}
       </div>
     `).join("")}
   `;
@@ -873,16 +897,32 @@ function renderQarz() {
 // ════════════════════════════════════════════════
 // TABS
 // ════════════════════════════════════════════════
-function goTab(name) {
-  ["katalog","tarix","bron","qarz"].forEach(t => {
-    $("tab-"+t).style.display = t === name ? "block" : "none";
-    const nav = $("nav-"+t);
-    if (nav) nav.classList.toggle("on", t === name);
+function goTab(name){
+  ["katalog","tarix","bron","qarz"].forEach(t=>{
+    $("tab-"+t).style.display=t===name?"block":"none";
+    const nav=$("nav-"+t);
+    if(nav)nav.classList.toggle("on",t===name);
   });
-  // Tarix/Qarz ni yangilaymiz (lazy)
-  if (name === "tarix") renderTarix();
-  if (name === "qarz")  renderQarz();
+  if(name==="tarix")renderTarix();
+  if(name==="qarz")renderQarz();
 }
+
+// ════════════════════════════════════════════════
+// PULL TO REFRESH
+// ════════════════════════════════════════════════
+let _ptStart=0;
+document.addEventListener("touchstart",e=>{_ptStart=e.touches[0].clientY;},{ passive:true });
+document.addEventListener("touchend",async e=>{
+  const dy=e.changedTouches[0].clientY-_ptStart;
+  if(dy>80&&window.scrollY===0){
+    const ind=$("ptr-ind");
+    if(ind)ind.style.display="block";
+    await Promise.all([loadProducts(),loadSales(),loadBookings()]);
+    updateBadges();
+    if(ind)ind.style.display="none";
+    toast("Yangilandi","grn");
+  }
+},{ passive:true });
 
 // ════════════════════════════════════════════════
 // START
