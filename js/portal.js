@@ -271,7 +271,7 @@ function renderPortalProducts(portalProds) {
             : `<div style="width:44px;height:44px;background:#f0ede8;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#ccc"><i class="ti ti-photo"></i></div>`}
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
-            <div style="font-size:11.5px;color:#888;font-weight:600">${p.priceUzs>0?fmt(p.priceUzs)+' so'm':p.ulgurjiNarx>0?fmt(p.ulgurjiNarx)+' so'm (ulgurji)':'Narx kiritilmagan'}</div>
+            <div style="font-size:11.5px;color:#888;font-weight:600">${p.priceUzs>0?fmt(p.priceUzs)+" so'm":p.ulgurjiNarx>0?fmt(p.ulgurjiNarx)+" so'm":"Narx kiritilmagan"}</div>
             ${discount > 0 && !isExpired
               ? `<span style="font-size:11px;background:#FEF2F2;color:var(--red);padding:1px 6px;border-radius:4px">−${discount}% chegirma${discUntil ? ' · '+discUntil+' gacha' : ''}</span>`
               : ''}
