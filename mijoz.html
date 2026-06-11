@@ -280,16 +280,16 @@ async function init() {
     _sb = supabase.createClient(url, key, {auth:{persistSession:false}});
   } catch(e) { showErr("Ulanish xatosi"); return; }
 
-  // Shop nomi
+  // Shop nomi — settings jadvalida id=1 (bitta qator)
   try {
-    const {data:s} = await _sb.from("settings").select("shop_name,id").limit(5);
-    if (s && s.length) {
-      const found = s.find(x => String(x.id)===shopId || x.id===shopId) || s[0];
-      const name = found?.shop_name || "MERX";
-      if ($("login-shop-name"))  $("login-shop-name").textContent  = name;
-      if ($("portal-shop-name")) $("portal-shop-name").textContent = name;
-    }
-  } catch(e) {}
+    const {data:s} = await _sb.from("settings").select("shop_name").eq("id", 1).single();
+    const name = s?.shop_name || "MERX";
+    if ($("login-shop-name"))  $("login-shop-name").textContent  = name;
+    if ($("portal-shop-name")) $("portal-shop-name").textContent = name;
+  } catch(e) {
+    // Jadval topilmasa yoki xato bo'lsa — standart nom qoladi
+    console.warn("Settings yuklashda xato:", e.message);
+  }
 
   // Session tekshirish
   try {
