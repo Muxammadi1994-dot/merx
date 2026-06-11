@@ -122,13 +122,13 @@ async function pushToCloud() {
     // Customers
     if (db.customers?.length) {
       await _sb.from("customers").upsert(db.customers.map(c => ({
-        shop_id: sid,
+        shop_id:  sid,
         local_id: c.id,
-        name:    c.name,
-        phone:   c.phone || null,
-        type:    c.type || "ulgurji",
-        note:    c.note || null
-          }), {onConflict:"shop_id,local_id"});
+        name:     c.name,
+        phone:    c.phone || null,
+        type:     c.type || "ulgurji",
+        note:     c.note || null
+      })), {onConflict:"shop_id,local_id"});
     }
 
     // Staff
