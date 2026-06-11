@@ -1,15 +1,14 @@
-// MERX portal.js | v2.3 | 2026-06-11
+// MERX portal.js | v1.0 | 2026-06-10
 // ================================================
 // Mijoz portali — Admin boshqaruv qismi
-// BUG FIXES:
-//   1. _sb_portal → _sb (cloud.js bilan bir xil o'zgaruvchi)
-//   2. loadPortalData() — _sb yo'q bo'lsa xabar ko'rsatadi
-//   3. renderPortal() — Supabase ulanmagan holat ko'rsatiladi
 // ================================================
 
+// ── Portal sahifasini render qilish ──────────────
 function renderPortal() {
   const el = $("p-portal"); if (!el) return;
-  const sid = typeof getCloudShopId === "function" ? getCloudShopId() : "default";
+
+  const sb = window._sb_portal || null;
+  const sid = getCloudShopId ? getCloudShopId() : "default";
 
   el.innerHTML = `
     <div style="max-width:1100px">
@@ -25,7 +24,7 @@ function renderPortal() {
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-          <a href="javascript:void(0)" onclick="openPortalPage()"
+          <a href="javascript:void(0)" onclick="openPortalPage()" 
             style="display:inline-flex;align-items:center;gap:6px;background:var(--acc);
               color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;font-size:13px;text-decoration:none">
             <i class="ti ti-external-link"></i> Portal ochish
@@ -44,23 +43,6 @@ function renderPortal() {
         </div>
       </div>
 
-      <!-- Cloud ulanmagan ogohlantirish -->
-      ${!_sb ? `
-      <div style="background:#FEF3C7;border:1.5px solid #FDE68A;border-radius:12px;
-        padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px">
-        <i class="ti ti-alert-triangle" style="color:#D97706;font-size:20px;flex-shrink:0"></i>
-        <div>
-          <div style="font-weight:700;font-size:13.5px;color:#92400E">Supabase ulanmagan</div>
-          <div style="font-size:12.5px;color:#B45309;margin-top:2px">
-            Portal ishlashi uchun avval
-            <a href="javascript:nav('egasi')" style="color:#D97706;font-weight:600">
-              Egasi → Sozlamalar
-            </a>
-            bo'limida Supabase URL va API Key kiriting va ulaning.
-          </div>
-        </div>
-      </div>` : ""}
-
       <!-- 2 ustun -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
 
@@ -73,9 +55,7 @@ function renderPortal() {
             </button>
           </div>
           <div id="portal-logins-list" style="padding:0 16px 12px">
-            <div style="color:#ccc;text-align:center;padding:20px;font-size:13px">
-              ${_sb ? "Yuklanmoqda..." : "Supabase ulanishi kerak"}
-            </div>
+            <div style="color:#ccc;text-align:center;padding:20px;font-size:13px">Yuklanmoqda...</div>
           </div>
         </div>
 
@@ -86,9 +66,7 @@ function renderPortal() {
             <span id="portal-bookings-count" class="bg bg-a" style="font-size:12px">0</span>
           </div>
           <div id="portal-bookings-list" style="padding:0 16px 12px">
-            <div style="color:#ccc;text-align:center;padding:20px;font-size:13px">
-              ${_sb ? "Yuklanmoqda..." : "Supabase ulanishi kerak"}
-            </div>
+            <div style="color:#ccc;text-align:center;padding:20px;font-size:13px">Yuklanmoqda...</div>
           </div>
         </div>
       </div>
@@ -100,9 +78,7 @@ function renderPortal() {
           <div style="font-size:12px;color:#aaa">Mijozlar ko'radigan tovarlar</div>
         </div>
         <div id="portal-products-list" style="padding:0 16px 16px">
-          <div style="color:#ccc;text-align:center;padding:20px;font-size:13px">
-            ${_sb ? "Yuklanmoqda..." : "Supabase ulanishi kerak"}
-          </div>
+          <div style="color:#ccc;text-align:center;padding:20px;font-size:13px">Yuklanmoqda...</div>
         </div>
       </div>
 
@@ -117,7 +93,7 @@ function renderPortal() {
           <label>Mijoz tanlang</label>
           <select id="pl-cust" style="font-family:inherit;font-size:13px;padding:8px 10px;border:1.5px solid var(--brd);border-radius:8px;width:100%">
             <option value="">— Mijoz tanlang —</option>
-            ${(db.customers||[]).map(c => `<option value="${c.id}">${c.name}${c.phone?' · '+c.phone:''}</option>`).join('')}
+            ${(db.customers||[]).map(c => `<option value="${c.id}">${c.name} ${c.phone ? '· '+c.phone : ''}</option>`).join('')}
           </select>
         </div>
         <div class="fld">
@@ -171,53 +147,33 @@ function renderPortal() {
     </div>
   `;
 
-  // Ma'lumotlarni yuklaymiz (faqat _sb ulangan bo'lsa)
-  if (_sb) loadPortalData();
+  // Ma'lumotlarni yuklaymiz
+  loadPortalData();
 }
 
 // ── Ma'lumotlarni yuklash ─────────────────────────
 async function loadPortalData() {
-  // _sb — cloud.js da e'lon qilingan global o'zgaruvchi
-  if (!_sb) {
-    toast("Avval Supabase ga ulaning (Egasi → Sozlamalar)", "err");
-    return;
-  }
-  const sid = typeof getCloudShopId === "function" ? getCloudShopId() : "default";
+  if (!_sb) return;
+  const sid = getCloudShopId();
 
   try {
     // Loginlar
-    const { data: logins, error: le } = await _sb.from("portal_customers")
-      .select("*").eq("shop_id", sid).order("created_at", {ascending:false});
-    if (le) throw le;
+    const { data: logins } = await _sb.from("portal_customers")
+      .select("*").eq("shop_id", sid);
     renderPortalLogins(logins || []);
 
-    // Bronlar (kutilayotganlar)
-    const { data: bookings, error: be } = await _sb.from("portal_bookings")
-      .select("*").eq("shop_id", sid).eq("status", "kutilmoqda")
-      .order("created_at", {ascending: false});
-    if (be) throw be;
+    // Bronlar
+    const { data: bookings } = await _sb.from("portal_bookings")
+      .select("*").eq("shop_id", sid).eq("status", "kutilmoqda").order("created_at", {ascending: false});
     renderPortalBookings(bookings || []);
 
-    // Tovar sozlamalari
-    const { data: prods, error: pe } = await _sb.from("portal_products")
+    // Tovarlar
+    const { data: prods } = await _sb.from("portal_products")
       .select("*").eq("shop_id", sid);
-    if (pe) throw pe;
     renderPortalProducts(prods || []);
 
   } catch(e) {
     console.warn("Portal data xatosi:", e.message);
-    // Jadvallar yo'q bo'lsa — aniq xabar
-    if (e.message && e.message.includes("does not exist")) {
-      const listEls = ["portal-logins-list","portal-bookings-list","portal-products-list"];
-      listEls.forEach(id => {
-        const el = $(id); if (!el) return;
-        el.innerHTML = `<div style="color:var(--red);padding:14px;font-size:13px;text-align:center">
-          ⚠️ <b>schema_portal.sql</b> ni Supabase SQL Editor da ishga tushiring
-        </div>`;
-      });
-    } else {
-      toast("Portal xatosi: " + e.message, "err");
-    }
   }
 }
 
@@ -272,7 +228,7 @@ function renderPortalBookings(bookings) {
           <div style="font-weight:600;font-size:13px">${b.product_name}</div>
           <div style="font-size:12px;color:#aaa">
             ${b.color || ''} ${b.size || ''} · ${b.qty} ta
-            · ${cust?.name || b.customer_id}
+            · ${cust?.name || 'Noma\'lum'}
           </div>
           ${b.note ? `<div style="font-size:11.5px;color:#856404;margin-top:2px">📝 ${b.note}</div>` : ''}
         </div>
@@ -296,11 +252,6 @@ function renderPortalProducts(portalProds) {
   const el = $("portal-products-list"); if (!el) return;
   const prods = db.products || [];
 
-  if (!prods.length) {
-    el.innerHTML = `<div style="color:#ccc;text-align:center;padding:20px;font-size:13px">Katalogda mahsulot yo'q</div>`;
-    return;
-  }
-
   el.innerHTML = `
     <div style="margin-bottom:12px;font-size:12.5px;color:#aaa">
       Barcha tovarlar default ko'rinadi. Sozlash uchun tovar yonidagi tugmani bosing.
@@ -308,7 +259,7 @@ function renderPortalProducts(portalProds) {
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
       ${prods.map(p => {
         const pp = portalProds.find(x => x.sku === p.sku);
-        const isVisible = pp ? pp.is_visible !== false : true;
+        const isVisible = pp ? pp.is_visible : true;
         const discount = pp?.discount || 0;
         const discUntil = pp?.discount_until || '';
         const isExpired = discUntil && discUntil < today();
@@ -320,14 +271,14 @@ function renderPortalProducts(portalProds) {
             : `<div style="width:44px;height:44px;background:#f0ede8;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#ccc"><i class="ti ti-photo"></i></div>`}
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
-            <div style="font-size:11.5px;color:#aaa">${fmt(p.priceUzs||0)} so'm</div>
+            <div style="font-size:11.5px;color:#888;font-weight:600">${p.priceUzs>0?fmt(p.priceUzs)+' so'm':p.ulgurjiNarx>0?fmt(p.ulgurjiNarx)+' so'm (ulgurji)':'Narx kiritilmagan'}</div>
             ${discount > 0 && !isExpired
               ? `<span style="font-size:11px;background:#FEF2F2;color:var(--red);padding:1px 6px;border-radius:4px">−${discount}% chegirma${discUntil ? ' · '+discUntil+' gacha' : ''}</span>`
               : ''}
           </div>
           <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
             <span class="bg ${isVisible ? 'bg-g' : 'bg-r'}" style="font-size:10.5px">
-              ${isVisible ? "👁 Ko'rinadi" : '🚫 Yashirin'}
+              ${isVisible ? '👁 Ko\'rinadi' : '🚫 Yashirin'}
             </span>
             <button class="btn btn-ghost btn-icon btn-sm" onclick="openPortalProd('${p.sku}')" title="Sozlash">
               <i class="ti ti-settings"></i>
@@ -341,6 +292,7 @@ function renderPortalProducts(portalProds) {
 
 // ── Login berish ──────────────────────────────────
 function openPortalAddLogin() {
+  // Mijozlar selectini yangilaymiz
   const sel = $("pl-cust");
   if (sel) {
     sel.innerHTML = '<option value="">— Mijoz tanlang —</option>' +
@@ -352,7 +304,7 @@ function openPortalAddLogin() {
 
   // Mijoz tanlanganda telefoni avtomatik to'ladi
   if (sel) sel.onchange = () => {
-    const c = (db.customers||[]).find(x => x.id === parseInt(sel.value));
+    const c = db.customers.find(x => x.id === parseInt(sel.value));
     if (c?.phone && $("pl-phone")) $("pl-phone").value = c.phone;
   };
 }
@@ -365,24 +317,23 @@ function plGenPass() {
 async function savePortalLogin() {
   if (!_sb) { toast("Avval cloud ga ulaning", "err"); return; }
   const custId = parseInt(($("pl-cust")||{value:""}).value);
-  const phone  = ($("pl-phone")||{value:""}).value.trim().replace(/\s/g,"");
+  const phone  = ($("pl-phone")||{value:""}).value.trim();
   const pass   = ($("pl-pass")||{value:""}).value.trim();
 
   if (!custId) { toast("Mijoz tanlang", "err"); return; }
   if (!phone)  { toast("Telefon kiriting", "err"); return; }
   if (pass.length < 4) { toast("Parol kamida 4 ta belgi", "err"); return; }
 
-  const sid = typeof getCloudShopId === "function" ? getCloudShopId() : "default";
+  const sid = getCloudShopId();
   try {
-    const { error } = await _sb.from("portal_customers").upsert({
+    await _sb.from("portal_customers").upsert({
       id:          sid + "_" + custId,
       shop_id:     sid,
       customer_id: custId,
-      phone,
+      phone:       phone.replace(/\s/g,""),
       password:    pass,
       is_active:   true
     });
-    if (error) throw error;
     toast("✅ Login saqlandi");
     closeModal("portal-login");
     loadPortalData();
@@ -393,8 +344,7 @@ async function savePortalLogin() {
 
 async function togglePortalLogin(id, newStatus) {
   if (!_sb) return;
-  const { error } = await _sb.from("portal_customers").update({ is_active: newStatus }).eq("id", id);
-  if (error) { toast("Xato: " + error.message, "err"); return; }
+  await _sb.from("portal_customers").update({ is_active: newStatus }).eq("id", id);
   toast(newStatus ? "✅ Faollashtirildi" : "🔒 Bloklandi");
   loadPortalData();
 }
@@ -402,8 +352,7 @@ async function togglePortalLogin(id, newStatus) {
 async function deletePortalLogin(id) {
   if (!confirm("Bu loginni o'chirasizmi?")) return;
   if (!_sb) return;
-  const { error } = await _sb.from("portal_customers").delete().eq("id", id);
-  if (error) { toast("Xato: " + error.message, "err"); return; }
+  await _sb.from("portal_customers").delete().eq("id", id);
   toast("O'chirildi");
   loadPortalData();
 }
@@ -411,24 +360,24 @@ async function deletePortalLogin(id) {
 // ── Tovar sozlash ─────────────────────────────────
 function openPortalProd(sku) {
   const p = (db.products||[]).find(x => x.sku === sku); if (!p) return;
-  if ($("pp-title"))          $("pp-title").textContent = p.name;
-  if ($("pp-sku"))            $("pp-sku").value = sku;
-  if ($("pp-discount"))       $("pp-discount").value = 0;
+  if ($("pp-title"))   $("pp-title").textContent = p.name;
+  if ($("pp-sku"))     $("pp-sku").value = sku;
+  if ($("pp-discount")) $("pp-discount").value = 0;
   if ($("pp-discount-until")) $("pp-discount-until").value = "";
-  if ($("pp-price"))          $("pp-price").value = "";
-  if ($("pp-visible"))        $("pp-visible").value = "true";
+  if ($("pp-price"))   $("pp-price").value = "";
+  if ($("pp-visible")) $("pp-visible").value = "true";
 
   // Mavjud sozlamalarni yuklaymiz
   if (_sb) {
-    const sid = typeof getCloudShopId === "function" ? getCloudShopId() : "default";
-    _sb.from("portal_products").select("*").eq("id", sid + "_" + sku).maybeSingle()
+    const sid = getCloudShopId();
+    _sb.from("portal_products").select("*").eq("id", sid+"_"+sku).single()
       .then(({data}) => {
         if (!data) return;
-        if ($("pp-visible"))        $("pp-visible").value = String(data.is_visible !== false);
-        if ($("pp-discount"))       $("pp-discount").value = data.discount || 0;
+        if ($("pp-visible")) $("pp-visible").value = String(data.is_visible !== false);
+        if ($("pp-discount")) $("pp-discount").value = data.discount || 0;
         if ($("pp-discount-until")) $("pp-discount-until").value = data.discount_until || "";
-        if ($("pp-price"))          $("pp-price").value = data.portal_price || "";
-      }).catch(() => {});
+        if ($("pp-price")) $("pp-price").value = data.portal_price || "";
+      });
   }
   openModal("portal-prod");
 }
@@ -440,10 +389,10 @@ async function savePortalProduct() {
   const discount = parseInt(($("pp-discount")||{value:0}).value) || 0;
   const until    = ($("pp-discount-until")||{value:""}).value;
   const price    = parseInt(($("pp-price")||{value:""}).value) || null;
-  const sid      = typeof getCloudShopId === "function" ? getCloudShopId() : "default";
+  const sid      = getCloudShopId();
 
   try {
-    const { error } = await _sb.from("portal_products").upsert({
+    await _sb.from("portal_products").upsert({
       id:             sid + "_" + sku,
       shop_id:        sid,
       sku,
@@ -452,7 +401,6 @@ async function savePortalProduct() {
       discount_until: until || null,
       portal_price:   price
     });
-    if (error) throw error;
     toast("✅ Saqlandi");
     closeModal("portal-prod");
     loadPortalData();
@@ -464,40 +412,33 @@ async function savePortalProduct() {
 // ── Bron tasdiqlash/bekor qilish ──────────────────
 async function confirmBooking(id) {
   if (!_sb) return;
-  const { error } = await _sb.from("portal_bookings").update({ status: "tasdiqlandi" }).eq("id", id);
-  if (error) { toast("Xato: " + error.message, "err"); return; }
+  await _sb.from("portal_bookings").update({ status: "tasdiqlandi" }).eq("id", id);
   toast("✅ Bron tasdiqlandi");
   loadPortalData();
 }
 
 async function cancelBooking(id) {
   if (!_sb) return;
-  const { error } = await _sb.from("portal_bookings").update({ status: "bekor" }).eq("id", id);
-  if (error) { toast("Xato: " + error.message, "err"); return; }
+  await _sb.from("portal_bookings").update({ status: "bekor" }).eq("id", id);
   toast("Bron bekor qilindi");
   loadPortalData();
 }
 
-// ── Portal link ──────────────────────────────────
+// ── Portal link yaratish ─────────────────────────
 function getPortalLink() {
-  const sid = typeof getCloudShopId === "function" ? getCloudShopId() : "default";
+  const sid = getCloudShopId ? getCloudShopId() : "default";
   const url = db?.settings?.supabaseUrl || "";
   const key = db?.settings?.supabaseKey || "";
+  // URL va key ni base64 ga o'tkazamiz
   const creds = btoa(url + "|||" + key);
   return location.origin + "/mijoz.html?shop=" + sid + "&c=" + creds;
 }
 
 function openPortalPage() {
-  if (!db?.settings?.supabaseUrl) {
-    toast("Avval Supabase URL va Key kiriting", "err"); return;
-  }
   window.open(getPortalLink(), "_blank");
 }
 
 function copyPortalLink() {
-  if (!db?.settings?.supabaseUrl) {
-    toast("Avval Supabase URL va Key kiriting", "err"); return;
-  }
   const link = getPortalLink();
   navigator.clipboard.writeText(link).then(() => {
     toast("✅ Link nusxa olindi — mijozga yuboring");
