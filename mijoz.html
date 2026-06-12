@@ -5,392 +5,212 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MERX — Mijoz portali</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 <style>
-/* ══════════════════════════════════════════
-   MERX Mijoz Portali — v2.0
-   ══════════════════════════════════════════ */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
   --acc:#E9A500;--dark:#0D1B2A;--dark2:#162336;
   --bg:#F2F0EB;--red:#EF4444;--grn:#16A34A;
-  --brd:#E8E5DF;--white:#fff;
-  --shadow:0 1px 8px rgba(0,0,0,.06);
-  --shadow-md:0 4px 20px rgba(0,0,0,.09);
-  --shadow-lg:0 12px 40px rgba(0,0,0,.15);
-  --r:16px;--rs:12px;
+  --brd:#e8e5df;--white:#fff;
+  --shadow:0 2px 12px rgba(0,0,0,.07);
+  --shadow-md:0 4px 20px rgba(0,0,0,.1);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.14);
 }
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--dark);
-  min-height:100vh;overscroll-behavior:none}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--dark);min-height:100vh;overscroll-behavior:none}
 h1,h2,h3{font-family:'Sora',sans-serif}
 
-/* ── Buttons ── */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  padding:11px 18px;border-radius:var(--rs);border:1.5px solid var(--brd);
-  background:var(--white);font-family:inherit;font-size:14px;font-weight:600;
-  cursor:pointer;transition:all .15s;text-decoration:none;-webkit-user-select:none;
-  -webkit-appearance:none}
-.btn:active{transform:scale(.95)}
+/* BASE */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 18px;border-radius:12px;border:1.5px solid var(--brd);background:var(--white);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;text-decoration:none;-webkit-user-select:none}
+.btn:active{transform:scale(.96)}
 .btn-acc{background:var(--acc);border-color:var(--acc);color:#fff}
 .btn-dark{background:var(--dark);border-color:var(--dark);color:#fff}
 .btn-red{background:var(--red);border-color:var(--red);color:#fff}
 .btn-ghost{background:none;border-color:transparent}
 .btn-block{width:100%}
 .btn-sm{padding:7px 13px;font-size:12.5px;border-radius:10px}
-.btn:disabled{opacity:.45;cursor:default;transform:none}
 
-/* ── Inputs ── */
-input,select,textarea{
-  font-family:inherit;font-size:14px;padding:13px 14px;
-  border:1.5px solid var(--brd);border-radius:var(--rs);
-  width:100%;outline:none;background:var(--white);transition:all .15s;
-  -webkit-appearance:none;color:var(--dark)}
-input:focus,select:focus,textarea:focus{
-  border-color:var(--acc);box-shadow:0 0 0 3px rgba(233,165,0,.13)}
-input::placeholder{color:#C4B99A}
+input,select,textarea{font-family:inherit;font-size:14px;padding:12px 14px;border:1.5px solid var(--brd);border-radius:12px;width:100%;outline:none;background:var(--white);transition:.15s;-webkit-appearance:none;color:var(--dark)}
+input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(233,165,0,.12)}
+input::placeholder{color:#bbb}
 
-/* ── Badges ── */
-.badge{display:inline-flex;align-items:center;padding:4px 10px;
-  border-radius:20px;font-size:11.5px;font-weight:700;white-space:nowrap}
-.bg-green{background:#DCFCE7;color:#15803D}
+.badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.bg-green{background:#DCFCE7;color:#16A34A}
 .bg-red{background:#FEE2E2;color:#DC2626}
-.bg-yellow{background:#FEF9C3;color:#A16207}
+.bg-yellow{background:#FEF9C3;color:#B45309}
 .bg-orange{background:#FEF3C7;color:#D97706}
 .bg-gray{background:#F3F4F6;color:#6B7280}
 .bg-blue{background:#DBEAFE;color:#1D4ED8}
 
-/* ── Toast ── */
-.toast{position:fixed;bottom:96px;left:50%;
-  transform:translateX(-50%) translateY(20px);
-  background:var(--dark);color:#fff;padding:13px 22px;
-  border-radius:14px;font-size:13.5px;z-index:9999;
-  opacity:0;transition:.28s cubic-bezier(.34,1.56,.64,1);
-  pointer-events:none;box-shadow:var(--shadow-lg);
-  max-width:86vw;text-align:center;font-weight:500}
+/* TOAST */
+.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--dark);color:#fff;padding:13px 22px;border-radius:14px;font-size:13.5px;z-index:9999;opacity:0;transition:.3s;pointer-events:none;box-shadow:var(--shadow-lg);max-width:88vw;text-align:center}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
-/* ══ LOGIN SCREEN ══ */
-#login-screen{
-  display:none;position:fixed;inset:0;z-index:100;
-  align-items:center;justify-content:center;padding:20px;
-  background:linear-gradient(160deg,#060f1c 0%,#0D1B2A 45%,#0f2235 100%)}
-#login-screen::before{
-  content:'';position:absolute;inset:0;
-  background:radial-gradient(ellipse 60% 50% at 50% -10%,rgba(233,165,0,.12) 0%,transparent 70%);
-  pointer-events:none}
-.lbox{
-  background:var(--white);border-radius:26px;padding:36px 28px;
-  width:100%;max-width:380px;box-shadow:0 40px 100px rgba(0,0,0,.55);
-  position:relative;z-index:1}
-.llogo{
-  width:66px;height:66px;background:var(--dark);border-radius:20px;
-  display:flex;align-items:center;justify-content:center;
-  margin:0 auto 18px;font-family:'Sora',sans-serif;font-size:24px;
-  font-weight:800;color:var(--acc);box-shadow:0 8px 24px rgba(13,27,42,.35)}
-.lshop-name{
-  font-family:'Sora',sans-serif;font-size:20px;font-weight:800;
-  text-align:center;margin-bottom:4px;color:var(--dark)}
-.lshop-sub{
-  font-size:13px;color:#A0927A;text-align:center;margin-bottom:28px}
-.llabel{
-  font-size:11px;font-weight:700;color:#A0927A;display:block;
-  margin-bottom:6px;text-transform:uppercase;letter-spacing:.7px}
-.lerr-box{
-  display:none;color:var(--red);font-size:13px;text-align:center;
-  margin-top:12px;padding:11px 14px;background:#FEF2F2;
-  border-radius:10px;font-weight:600;line-height:1.4}
-.lhint{
-  text-align:center;margin-top:18px;font-size:12.5px;color:#B0A090;
-  line-height:1.5}
+/* LOGIN */
+#login-screen{display:none;position:fixed;inset:0;background:linear-gradient(160deg,#0a1628 0%,#0D1B2A 50%,#122034 100%);z-index:100;align-items:center;justify-content:center;padding:20px}
+.lbox{background:var(--white);border-radius:28px;padding:36px 28px;width:100%;max-width:380px;box-shadow:0 32px 80px rgba(0,0,0,.45)}
+.llogo{width:64px;height:64px;background:var(--dark);border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-family:'Sora',sans-serif;font-size:22px;font-weight:800;color:var(--acc)}
+.llabel{font-size:11px;font-weight:800;color:#999;display:block;margin-bottom:7px;text-transform:uppercase;letter-spacing:.6px}
 
-/* ══ TOPBAR ══ */
-.topbar{
-  background:var(--dark);height:58px;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 16px;position:sticky;top:0;z-index:50;
-  box-shadow:0 1px 0 rgba(255,255,255,.05),0 4px 20px rgba(0,0,0,.25)}
-.topbar-logo{
-  font-family:'Sora',sans-serif;font-weight:800;font-size:16px;
-  color:var(--acc);margin-right:10px;flex-shrink:0}
-.topbar-shop{
-  font-family:'Sora',sans-serif;font-weight:700;font-size:15px;
-  color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
-.topbar-user{
-  font-size:11.5px;color:rgba(255,255,255,.4);
-  display:flex;align-items:center;gap:3px;margin-top:1px}
-.debt-pill{
-  display:none;align-items:center;gap:5px;
-  background:var(--red);color:#fff;border-radius:20px;
-  padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;
-  box-shadow:0 3px 12px rgba(239,68,68,.45);transition:transform .15s}
-.debt-pill:active{transform:scale(.95)}
-.logout-btn{
-  width:38px;height:38px;border-radius:11px;
-  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
-  color:rgba(255,255,255,.7);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  transition:all .15s;flex-shrink:0}
-.logout-btn:active{background:rgba(255,255,255,.15)}
+/* TOPBAR */
+.topbar{background:var(--dark);height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:50;box-shadow:0 2px 16px rgba(0,0,0,.2)}
 
-/* ══ MAIN CONTENT ══ */
-.main{max-width:640px;margin:0 auto;padding:14px 14px 90px}
+/* BOTTOM NAV */
+.bnav{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--brd);display:flex;z-index:50;box-shadow:0 -4px 20px rgba(0,0,0,.07);padding-bottom:env(safe-area-inset-bottom,0)}
+.bi{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 12px;gap:3px;cursor:pointer;font-size:10px;font-weight:800;color:#ccc;transition:.15s;position:relative;text-transform:uppercase;letter-spacing:.3px}
+.bi.on{color:var(--acc)}
+.bi.on i{color:var(--acc)}
+.bi i{font-size:22px;color:#ccc;transition:.15s}
+.bbadge{position:absolute;top:7px;right:calc(50% - 22px);background:var(--red);color:#fff;font-size:9px;font-weight:800;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--white)}
 
-/* ══ CHIPS / FILTERS ══ */
-.chips{
-  display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;
-  margin-bottom:12px;scrollbar-width:none}
+/* MAIN */
+.main{max-width:640px;margin:0 auto;padding:14px 14px 96px}
+
+/* CHIPS */
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
-.chip{
-  padding:8px 16px;border-radius:22px;font-size:12.5px;font-weight:700;
-  cursor:pointer;border:1.5px solid var(--brd);background:var(--white);
-  white-space:nowrap;transition:all .15s;flex-shrink:0;color:#888}
+.chip{padding:8px 16px;border-radius:22px;font-size:12.5px;font-weight:700;cursor:pointer;border:1.5px solid var(--brd);background:var(--white);white-space:nowrap;transition:.15s;flex-shrink:0}
 .chip.on{background:var(--dark);color:#fff;border-color:var(--dark)}
-.chip:active{transform:scale(.94)}
+.chip:active{transform:scale(.95)}
 
-/* ══ SEARCH ══ */
+/* SEARCH */
 .sbox{position:relative;margin-bottom:12px}
-.sbox i{
-  position:absolute;left:14px;top:50%;transform:translateY(-50%);
-  color:#C4B99A;font-size:18px;pointer-events:none}
+.sbox i{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#bbb;font-size:18px;pointer-events:none}
 .sbox input{padding-left:44px}
 
-/* ══ TOOLBAR ROW ══ */
-.toolbar-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px}
-.toolbar-count{font-size:12px;color:#A0927A;font-weight:600}
-#psort{
-  width:auto;padding:7px 32px 7px 10px;font-size:12px;font-weight:600;
-  border-radius:10px;cursor:pointer;border-color:var(--brd);color:#666;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 10px center;
-  -webkit-appearance:none;appearance:none}
-.view-btn{
-  width:36px;height:36px;border-radius:10px;border:1.5px solid var(--brd);
-  background:var(--white);cursor:pointer;display:flex;align-items:center;
-  justify-content:center;flex-shrink:0;transition:all .15s}
-.view-btn:active{background:var(--bg)}
-
-/* ══ PRODUCT GRID ══ */
+/* PRODUCT GRID */
 .pg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 @media(min-width:460px){.pg{grid-template-columns:repeat(3,1fr)}}
-
-.pc{
-  background:var(--white);border-radius:var(--r);
-  border:1.5px solid var(--brd);overflow:hidden;cursor:pointer;
-  transition:transform .18s,box-shadow .18s;position:relative;
-  box-shadow:var(--shadow)}
-.pc:active{transform:scale(.95);box-shadow:none}
-.pimg{
-  width:100%;aspect-ratio:1;background:#EDE9E2;
-  display:flex;align-items:center;justify-content:center;
-  overflow:hidden;position:relative}
+.pc{background:var(--white);border-radius:18px;border:1.5px solid var(--brd);overflow:hidden;cursor:pointer;transition:.2s;position:relative;box-shadow:var(--shadow)}
+.pc:active{transform:scale(.96)}
+.pimg{width:100%;aspect-ratio:1;background:#f0ede8;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
 .pimg img{width:100%;height:100%;object-fit:cover}
-.out-overlay{
-  position:absolute;inset:0;background:rgba(255,255,255,.72);
-  display:flex;align-items:center;justify-content:center}
-.out-badge{
-  background:rgba(0,0,0,.68);color:#fff;padding:5px 11px;
-  border-radius:8px;font-size:11.5px;font-weight:700}
-.disc-badge{
-  position:absolute;top:8px;left:8px;background:var(--red);
-  color:#fff;font-size:11px;font-weight:800;padding:4px 9px;
-  border-radius:8px;z-index:1}
+.dbadge{position:absolute;top:8px;left:8px;background:var(--red);color:#fff;font-size:11px;font-weight:800;padding:4px 9px;border-radius:8px}
 .pinfo{padding:10px 12px 14px}
-.pname{
-  font-weight:700;font-size:13px;margin-bottom:5px;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-  overflow:hidden;line-height:1.4;color:var(--dark)}
+.pname{font-weight:700;font-size:13px;margin-bottom:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4}
 .pprice{font-weight:800;font-size:15px;color:var(--acc);font-family:'Sora',sans-serif}
-.pold{font-size:11px;color:#C4B99A;text-decoration:line-through;margin-left:4px}
+.pold{font-size:11px;color:#ccc;text-decoration:line-through;margin-left:4px}
 .pmeta{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
-.pstock{font-size:11px;color:#A0927A;font-weight:600}
+.pstock{font-size:11px;color:#aaa;font-weight:600}
 .pstock.out{color:var(--red)}
-.cdot{width:13px;height:13px;border-radius:50%;border:1.5px solid rgba(0,0,0,.1);flex-shrink:0}
 
-/* ══ PRODUCT LIST VIEW ══ */
+/* PRODUCT LIST VIEW */
 .pl{display:flex;flex-direction:column;gap:10px}
-.plc{
-  background:var(--white);border-radius:14px;border:1.5px solid var(--brd);
-  overflow:hidden;cursor:pointer;display:flex;
-  box-shadow:var(--shadow);transition:transform .15s}
-.plc:active{transform:scale(.98)}
-.plimg{width:88px;height:88px;flex-shrink:0;background:#EDE9E2;
-  display:flex;align-items:center;justify-content:center;overflow:hidden}
+.plc{background:var(--white);border-radius:14px;border:1.5px solid var(--brd);overflow:hidden;cursor:pointer;display:flex;box-shadow:var(--shadow)}
+.plc:active{transform:scale(.99)}
+.plimg{width:88px;height:88px;flex-shrink:0;background:#f0ede8;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .plimg img{width:100%;height:100%;object-fit:cover}
 .plinfo{flex:1;padding:12px 14px;min-width:0}
 
-/* ══ BOTTOM NAV ══ */
-.bnav{
-  position:fixed;bottom:0;left:0;right:0;background:var(--white);
-  border-top:1px solid var(--brd);display:flex;z-index:50;
-  box-shadow:0 -4px 24px rgba(0,0,0,.08);
-  padding-bottom:env(safe-area-inset-bottom,0)}
-.bi{
-  flex:1;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;padding:10px 4px 12px;gap:3px;cursor:pointer;
-  font-size:10px;font-weight:700;color:#C4B99A;transition:color .15s;
-  position:relative;text-transform:uppercase;letter-spacing:.3px}
-.bi::before{
-  content:'';position:absolute;top:0;left:20%;right:20%;height:2.5px;
-  background:var(--acc);border-radius:0 0 3px 3px;
-  transform:scaleX(0);transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
-.bi.on{color:var(--acc)}
-.bi.on::before{transform:scaleX(1)}
-.bi.on i{color:var(--acc)}
-.bi i{font-size:22px;color:#C4B99A;transition:color .15s}
-.bbadge{
-  position:absolute;top:7px;right:calc(50% - 22px);
-  background:var(--red);color:#fff;font-size:9px;font-weight:800;
-  min-width:17px;height:17px;border-radius:9px;
-  display:flex;align-items:center;justify-content:center;
-  padding:0 4px;border:2px solid var(--white)}
-
-/* ══ BOTTOM SHEET ══ */
-.sbg{
-  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;
-  display:none;align-items:flex-end;justify-content:center;
-  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+/* BOTTOM SHEET */
+.sbg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
 .sbg.on{display:flex}
-.sheet{
-  background:var(--white);border-radius:28px 28px 0 0;
-  width:100%;max-width:640px;max-height:94vh;overflow-y:auto;
-  padding-bottom:env(safe-area-inset-bottom,20px);
-  animation:slideUp .28s cubic-bezier(.34,1.2,.64,1)}
-@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.shandle{width:40px;height:4px;background:#E0DAD2;border-radius:2px;margin:14px auto 0}
+.sheet{background:var(--white);border-radius:28px 28px 0 0;width:100%;max-width:640px;max-height:94vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,16px)}
+.shandle{width:44px;height:4px;background:#e0ddd8;border-radius:2px;margin:14px auto 0}
 .sbody{padding:16px 20px 28px}
 
-/* ══ KPI ROW (tarix) ══ */
+/* KPI */
 .krow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
-.kpi{
-  background:var(--white);border-radius:14px;padding:14px 10px;
-  border:1.5px solid var(--brd);text-align:center;box-shadow:var(--shadow)}
-.kval{
-  font-family:'Sora',sans-serif;font-size:16px;font-weight:800;
-  margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
-.klbl{font-size:10px;color:#A0927A;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.kpi{background:var(--white);border-radius:16px;padding:14px 10px;border:1px solid var(--brd);text-align:center;box-shadow:var(--shadow)}
+.kval{font-family:'Sora',sans-serif;font-size:16px;font-weight:800;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.klbl{font-size:10px;color:#aaa;font-weight:800;text-transform:uppercase;letter-spacing:.4px}
 
-/* ══ SALE CARD ══ */
-.sc{
-  background:var(--white);border-radius:14px;border:1.5px solid var(--brd);
-  padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow)}
+/* SALE CARD */
+.sc{background:var(--white);border-radius:16px;border:1px solid var(--brd);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow)}
 
-/* ══ DEBT HERO ══ */
-.dhero{
-  background:linear-gradient(135deg,#DC2626,#EF4444);
-  color:#fff;border-radius:20px;padding:24px;
-  margin-bottom:16px;text-align:center;
-  box-shadow:0 8px 28px rgba(239,68,68,.28)}
+/* DEBT HERO */
+.dhero{background:linear-gradient(135deg,#EF4444,#DC2626);color:#fff;border-radius:20px;padding:24px;margin-bottom:16px;text-align:center;box-shadow:0 8px 24px rgba(239,68,68,.3)}
 
-/* ══ EMPTY STATE ══ */
+/* EMPTY */
 .empty{text-align:center;padding:52px 20px}
-.empty i{font-size:52px;display:block;margin-bottom:14px;color:#DDD8D0}
-.etitle{font-size:15px;font-weight:700;color:#BDB8B0;margin-bottom:6px}
-.esub{font-size:13px;color:#C8C3BB}
+.empty i{font-size:52px;display:block;margin-bottom:14px;color:#ddd}
+.etitle{font-size:15px;font-weight:700;color:#bbb;margin-bottom:6px}
+.esub{font-size:13px;color:#ccc}
 
-/* ══ SECTION LABEL ══ */
-.slbl{font-size:11px;font-weight:700;color:#A0927A;
-  text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+/* SECTION LABEL */
+.slbl{font-size:11px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
 
-/* ══ SIZE CHIP ══ */
-.sch{
-  min-width:46px;height:42px;display:flex;align-items:center;justify-content:center;
-  border-radius:11px;border:2px solid var(--brd);font-weight:700;font-size:13px;
-  cursor:pointer;transition:all .15s;background:var(--white)}
+/* COLOR DOT */
+.cdot{width:18px;height:18px;border-radius:50%;border:2px solid rgba(0,0,0,.1);flex-shrink:0}
+
+/* SIZE CHIP */
+.sch{min-width:46px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:11px;border:2px solid var(--brd);font-weight:700;font-size:13px;cursor:pointer;transition:.15s}
 .sch.on{border-color:var(--dark);background:var(--dark);color:#fff}
 .sch.out{opacity:.3;cursor:default;background:#f5f5f5}
 
-/* ══ QTY SELECTOR ══ */
-.qty{display:inline-flex;align-items:center;border:1.5px solid var(--brd);
-  border-radius:14px;overflow:hidden;background:var(--white)}
-.qbtn{
-  width:46px;height:46px;display:flex;align-items:center;justify-content:center;
-  background:none;border:none;cursor:pointer;font-size:24px;font-weight:300;
-  color:#666;line-height:1;transition:background .15s;-webkit-appearance:none}
-.qbtn:active{background:var(--bg)}
-.qnum{
-  min-width:42px;text-align:center;font-weight:800;font-size:18px;
-  font-family:'Sora',sans-serif;color:var(--dark)}
+/* QTY */
+.qty{display:inline-flex;align-items:center;border:1.5px solid var(--brd);border-radius:14px;overflow:hidden}
+.qbtn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;font-size:24px;font-weight:300;color:#555;line-height:1}
+.qbtn:active{background:#f5f2eb}
+.qnum{min-width:40px;text-align:center;font-weight:800;font-size:17px;font-family:'Sora',sans-serif}
 
-/* ══ VARIANT TABLE ══ */
+/* VARIANT TABLE */
 .vtable{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
-.vtable th{background:#F5F2EB;padding:7px 10px;text-align:left;
-  font-weight:700;color:#A0927A;font-size:11px;text-transform:uppercase}
-.vtable td{padding:7px 10px;border-top:1px solid var(--brd);color:#555}
+.vtable th{background:#f5f2eb;padding:7px 10px;text-align:left;font-weight:700;color:#888;font-size:11px;text-transform:uppercase}
+.vtable td{padding:7px 10px;border-top:1px solid var(--brd);color:#444}
 .vtable tr:last-child td{border-bottom:1px solid var(--brd)}
 
-/* ══ SKELETON ══ */
-.skel{
-  background:linear-gradient(90deg,#EDE9E2 25%,#E4E0D8 50%,#EDE9E2 75%);
-  background-size:200% 100%;animation:sk 1.5s infinite;border-radius:10px}
+/* SKELETON */
+.skel{background:linear-gradient(90deg,#f0ede8 25%,#e8e5e0 50%,#f0ede8 75%);background-size:200% 100%;animation:sk 1.5s infinite;border-radius:10px}
 @keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spin{animation:spin .8s linear infinite;display:inline-block}
 
-/* ══ SCROLLBAR ══ */
 ::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-thumb{background:#D8D4CC;border-radius:2px}
+::-webkit-scrollbar-thumb{background:#ddd;border-radius:2px}
 </style>
 </head>
 <body>
 <div id="toast" class="toast"></div>
 
-<!-- ══ LOGIN ══ -->
+<!-- LOGIN -->
 <div id="login-screen">
   <div class="lbox">
     <div class="llogo">MX</div>
-    <div id="lshop" class="lshop-name">MERX</div>
-    <div class="lshop-sub">Mijoz portali — Kirish</div>
-
-    <label class="llabel">Telefon raqam</label>
-    <input id="lphone" type="tel" placeholder="+998 90 123 45 67"
-      autocomplete="tel" style="margin-bottom:14px">
-
+    <div style="text-align:center;margin-bottom:28px">
+      <div id="lshop" style="font-size:19px;font-weight:800;font-family:'Sora',sans-serif">MERX</div>
+      <div style="font-size:13px;color:#aaa;margin-top:4px">Mijoz portali</div>
+    </div>
+    <label class="llabel">Telefon</label>
+    <input id="lphone" type="tel" placeholder="+998 90 123 45 67" autocomplete="tel" style="margin-bottom:12px">
     <label class="llabel">Parol</label>
-    <div style="position:relative;margin-bottom:22px">
-      <input id="lpass" type="password" placeholder="••••••"
-        onkeydown="if(event.key==='Enter')doLogin()">
-      <button onclick="togglePass()" class="btn btn-ghost"
-        style="position:absolute;right:8px;top:50%;transform:translateY(-50%);
-          padding:6px;color:#BDB8B0;background:none;border:none">
+    <div style="position:relative;margin-bottom:20px">
+      <input id="lpass" type="password" placeholder="••••" onkeydown="if(event.key==='Enter')doLogin()">
+      <button onclick="togglePass()" class="btn btn-ghost" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);padding:6px;color:#bbb">
         <i class="ti ti-eye" id="peye" style="font-size:18px"></i>
       </button>
     </div>
-
-    <button class="btn btn-acc btn-block" id="lbtn"
-      style="padding:15px;font-size:15px;border-radius:14px" onclick="doLogin()">
+    <button class="btn btn-acc btn-block" style="padding:14px;font-size:15px;border-radius:14px" onclick="doLogin()" id="lbtn">
       <i class="ti ti-login"></i> Kirish
     </button>
-    <div id="lerr" class="lerr-box"></div>
-    <div class="lhint">Muammo bo'lsa do'kon egasiga murojaat qiling</div>
+    <div id="lerr" style="display:none;color:var(--red);font-size:13px;text-align:center;margin-top:12px;padding:10px;background:#FEF2F2;border-radius:10px;font-weight:600"></div>
+    <div style="text-align:center;margin-top:16px;font-size:12.5px;color:#aaa">
+      Muammo bo'lsa do'kon egasiga murojaat qiling
+    </div>
   </div>
 </div>
 
-<!-- ══ PORTAL ══ -->
+<!-- PORTAL -->
 <div id="portal-screen" style="display:none">
-
-  <!-- Topbar -->
   <div class="topbar">
     <div style="min-width:0;flex:1">
-      <div id="tshop" class="topbar-shop"></div>
-      <div id="tuser" class="topbar-user">
+      <div id="tshop" style="font-family:'Sora',sans-serif;font-weight:700;font-size:15px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px"></div>
+      <div id="tuser" style="font-size:11.5px;color:rgba(255,255,255,.45);display:flex;align-items:center;gap:3px;margin-top:1px">
         <i class="ti ti-user" style="font-size:11px"></i><span></span>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-      <div id="dpill" class="debt-pill" onclick="goTab('qarz')">
-        <i class="ti ti-alert-circle" style="font-size:14px"></i>
-        <span id="dpilltxt"></span>
+      <div id="dpill" style="display:none;background:var(--red);color:#fff;border-radius:20px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;display:none;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(239,68,68,.35)" onclick="goTab('qarz')">
+        <i class="ti ti-alert-circle" style="font-size:14px"></i><span id="dpilltxt"></span>
       </div>
-      <button onclick="doLogout()" class="logout-btn">
+      <button onclick="doLogout()" style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center">
         <i class="ti ti-logout" style="font-size:17px"></i>
       </button>
     </div>
   </div>
 
   <div class="main">
-
     <!-- KATALOG -->
     <div id="tab-katalog">
       <div class="chips" id="cchips">
@@ -399,31 +219,25 @@ input::placeholder{color:#C4B99A}
       </div>
       <div class="sbox">
         <i class="ti ti-search"></i>
-        <input id="psearch" placeholder="Tovar qidirish..."
-          oninput="renderCatalog()" autocomplete="off">
+        <input id="psearch" placeholder="Tovar qidirish..." oninput="renderCatalog()" autocomplete="off">
       </div>
-      <div class="toolbar-row">
-        <div class="toolbar-count" id="pcnt"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:12px;color:#aaa;font-weight:600" id="pcnt"></div>
         <div style="display:flex;align-items:center;gap:8px">
-          <select id="psort" onchange="renderCatalog()">
+          <select id="psort" onchange="renderCatalog()" style="width:auto;padding:7px 10px;font-size:12px;font-weight:600;border-radius:10px;cursor:pointer;border-color:var(--brd)">
             <option value="">Standart</option>
             <option value="asc">Narx ↑</option>
             <option value="desc">Narx ↓</option>
             <option value="az">Nomi A-Z</option>
             <option value="stock">Ko'p zaxira</option>
           </select>
-          <button class="view-btn" id="vbtn" onclick="toggleView()">
+          <button id="vbtn" onclick="toggleView()" style="width:36px;height:36px;border-radius:10px;border:1.5px solid var(--brd);background:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center">
             <i class="ti ti-layout-list" id="vicon" style="font-size:18px;color:#888"></i>
           </button>
         </div>
       </div>
       <div id="pgrid">
-        <div class="pg">
-          <div><div class="skel" style="aspect-ratio:1;border-radius:var(--r);margin-bottom:8px"></div><div class="skel" style="height:12px;border-radius:6px;margin-bottom:5px;width:70%"></div><div class="skel" style="height:14px;border-radius:6px;width:50%"></div></div>
-          <div><div class="skel" style="aspect-ratio:1;border-radius:var(--r);margin-bottom:8px"></div><div class="skel" style="height:12px;border-radius:6px;margin-bottom:5px;width:70%"></div><div class="skel" style="height:14px;border-radius:6px;width:50%"></div></div>
-          <div><div class="skel" style="aspect-ratio:1;border-radius:var(--r);margin-bottom:8px"></div><div class="skel" style="height:12px;border-radius:6px;margin-bottom:5px;width:70%"></div><div class="skel" style="height:14px;border-radius:6px;width:50%"></div></div>
-          <div><div class="skel" style="aspect-ratio:1;border-radius:var(--r);margin-bottom:8px"></div><div class="skel" style="height:12px;border-radius:6px;margin-bottom:5px;width:70%"></div><div class="skel" style="height:14px;border-radius:6px;width:50%"></div></div>
-        </div>
+        <div class="pg">${[1,2,3,4].map(()=>`<div><div class="skel" style="aspect-ratio:1;border-radius:18px;margin-bottom:8px"></div><div class="skel" style="height:13px;border-radius:6px;margin-bottom:5px;width:75%"></div><div class="skel" style="height:15px;border-radius:6px;width:55%"></div></div>`).join('')}</div>
       </div>
     </div>
 
@@ -455,31 +269,17 @@ input::placeholder{color:#C4B99A}
     </div>
   </div>
 
-  <!-- Bottom Nav -->
   <div class="bnav">
-    <div class="bi on" id="nav-katalog" onclick="goTab('katalog')">
-      <i class="ti ti-shirt"></i><span>Katalog</span>
-    </div>
-    <div class="bi" id="nav-tarix" onclick="goTab('tarix')">
-      <i class="ti ti-receipt"></i><span>Tarix</span>
-    </div>
-    <div class="bi" id="nav-bron" onclick="goTab('bron')">
-      <i class="ti ti-bookmark"></i><span>Bronlar</span>
-      <div class="bbadge" id="bbadge" style="display:none">0</div>
-    </div>
-    <div class="bi" id="nav-qarz" onclick="goTab('qarz')">
-      <i class="ti ti-credit-card"></i><span>Qarz</span>
-      <div class="bbadge" id="qbadge" style="display:none">!</div>
-    </div>
+    <div class="bi on" id="nav-katalog" onclick="goTab('katalog')"><i class="ti ti-shirt"></i><span>Katalog</span></div>
+    <div class="bi" id="nav-tarix" onclick="goTab('tarix')"><i class="ti ti-receipt"></i><span>Tarix</span></div>
+    <div class="bi" id="nav-bron" onclick="goTab('bron')"><i class="ti ti-bookmark"></i><span>Bronlar</span><div class="bbadge" id="bbadge" style="display:none">0</div></div>
+    <div class="bi" id="nav-qarz" onclick="goTab('qarz')"><i class="ti ti-credit-card"></i><span>Qarz</span><div class="bbadge" id="qbadge" style="display:none">!</div></div>
   </div>
 </div>
 
-<!-- ══ DETAIL SHEET ══ -->
+<!-- DETAIL SHEET -->
 <div class="sbg" id="dsheet" onclick="if(event.target===this)closeSheet()">
-  <div class="sheet">
-    <div class="shandle"></div>
-    <div class="sbody" id="dsbody"></div>
-  </div>
+  <div class="sheet"><div class="shandle"></div><div class="sbody" id="dsbody"></div></div>
 </div>
 
 <script>
@@ -556,8 +356,7 @@ async function doLogin(){
     if(error||!data?.length){err.textContent="Telefon yoki parol noto'g'ri";err.style.display="block";return;}
     const row=data[0];
     let nm=ph;
-    try{const{data:cd}=await _sb.from("customers").select("name").eq("shop_id",sid).eq("local_id",row.customer_id).single();if(cd?.name)nm=cd.name;}catch(e){}
-    if(nm===ph){try{const{data:sd}=await _sb.from("sales").select("customer_name").eq("shop_id",sid).eq("customer_id",row.customer_id).limit(1);if(sd?.[0]?.customer_name)nm=sd[0].customer_name;}catch(e){}}
+    try{const{data:sd}=await _sb.from("sales").select("customer_name").eq("shop_id",sid).eq("customer_id",row.customer_id).limit(1);if(sd?.[0]?.customer_name)nm=sd[0].customer_name;}catch(e){}
     _sess={customerId:row.customer_id,customerName:nm,shopId:sid};
     localStorage.setItem("mp_session",JSON.stringify(_sess));
     $("login-screen").style.display="none";
@@ -578,7 +377,7 @@ function doLogout(){
 // ── PORTAL ────────────────────────────────────
 async function startPortal(){
   $("login-screen").style.display="none";$("portal-screen").style.display="block";
-  $("tshop")&&($("tshop").textContent=$("tshop").textContent||"MERX");
+  $("tshop") && ($("tshop").textContent = _sess.shopId ? $("tshop").textContent : "MERX");
   const tu=$("tuser");if(tu){const sp=tu.querySelector("span");if(sp)sp.textContent=_sess.customerName;}
   await Promise.all([loadProds(),loadSales(),loadBrons()]);
   updateBadges();
@@ -610,6 +409,7 @@ async function loadProds(){
 
 function getPrice(p){
   const pp=_pp.find(x=>x.sku===p.sku);
+  // portal_price ustunligi: maxsus narx → standart chakana narx
   const base=pp?.portal_price||p.price_uzs||0;
   const disc=pp?.discount||0;
   const until=pp?.discount_until||"";
@@ -670,15 +470,15 @@ function renderCatalog(){
       const{base,active,disc,final}=getPrice(p);
       const qty=(p.variants||[]).reduce((a,v)=>a+(v.qty||0),0);
       const colors=[...new Set((p.variants||[]).map(v=>v.color).filter(Boolean))];
-      return`<div class="plc" onclick="openProd('${p.sku}')">
+      return `<div class="plc" onclick="openProd('${p.sku}')">
         <div class="plimg">${p.image?`<img src="${p.image}" loading="lazy" alt="${p.name}">`:`<i class="ti ti-shoe" style="font-size:32px;color:#ddd"></i>`}</div>
         <div class="plinfo">
           <div style="font-weight:700;font-size:13.5px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
           <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:5px">
-            <span class="pprice" style="font-size:14px">${fmt(final)}</span><span style="font-size:11px;color:#C4B99A">so'm</span>
+            <span class="pprice" style="font-size:14px">${fmt(final)}</span><span style="font-size:11px;color:#ccc">so'm</span>
             ${active?`<span class="pold">${fmt(base)}</span><span style="font-size:10.5px;background:#FEE2E2;color:var(--red);padding:2px 6px;border-radius:5px;font-weight:700">−${disc}%</span>`:""}
           </div>
-          <div style="display:flex;align-items:center;gap:7px">
+          <div style="display:flex;align-items:center;gap:8px">
             ${colors.slice(0,5).map(c=>{const v=(p.variants||[]).find(x=>x.color===c);return`<div class="cdot" style="background:${v?.hex||'#888'}" title="${c}"></div>`;}).join("")}
             <span class="pstock ${qty===0?'out':''}" style="margin-left:auto">${qty>0?qty+" ta":"Tugagan"}</span>
           </div>
@@ -690,23 +490,23 @@ function renderCatalog(){
       const{base,active,disc,final}=getPrice(p);
       const qty=(p.variants||[]).reduce((a,v)=>a+(v.qty||0),0);
       const colors=[...new Set((p.variants||[]).map(v=>v.color).filter(Boolean))];
-      return`<div class="pc" onclick="openProd('${p.sku}')">
-        ${active?`<div class="disc-badge">−${disc}%</div>`:""}
+      return `<div class="pc" onclick="openProd('${p.sku}')">
+        ${active?`<div class="dbadge">−${disc}%</div>`:""}
         <div class="pimg">
           ${p.image?`<img src="${p.image}" alt="${p.name}" loading="lazy">`:`<i class="ti ti-shoe" style="font-size:44px;color:#ddd"></i>`}
-          ${qty===0?`<div class="out-overlay"><span class="out-badge">Tugagan</span></div>`:""}
+          ${qty===0?`<div style="position:absolute;inset:0;background:rgba(255,255,255,.75);display:flex;align-items:center;justify-content:center"><span style="background:rgba(0,0,0,.65);color:#fff;padding:5px 10px;border-radius:7px;font-size:11.5px;font-weight:700">Tugagan</span></div>`:""}
         </div>
         <div class="pinfo">
           <div class="pname">${p.name}</div>
           <div style="display:flex;align-items:baseline;gap:4px;flex-wrap:wrap;margin-bottom:6px">
             <span class="pprice">${fmt(final)}</span>
             ${active?`<span class="pold">${fmt(base)}</span>`:""}
-            <span style="font-size:11px;color:#C4B99A">so'm</span>
+            <span style="font-size:11px;color:#ccc">so'm</span>
           </div>
           <div class="pmeta">
             <div style="display:flex;gap:3px;align-items:center">
-              ${colors.slice(0,4).map(c=>{const v=(p.variants||[]).find(x=>x.color===c);return`<div class="cdot" title="${c}" style="background:${v?.hex||'#888'}"></div>`;}).join("")}
-              ${colors.length>4?`<span style="font-size:10px;color:#C4B99A;margin-left:2px">+${colors.length-4}</span>`:""}
+              ${colors.slice(0,4).map(c=>{const v=(p.variants||[]).find(x=>x.color===c);return`<div class="cdot" title="${c}" style="background:${v?.hex||'#888'};width:14px;height:14px"></div>`;}).join("")}
+              ${colors.length>4?`<span style="font-size:10px;color:#aaa">+${colors.length-4}</span>`:""}
             </div>
             <span class="pstock ${qty===0?'out':''}">${qty>0?qty+" ta":"0"}</span>
           </div>
@@ -728,118 +528,86 @@ function openProd(sku){
   _det={sku,color:colors[0]||"",size:"",qty:1};
   const el=$("dsbody");if(!el)return;
 
-  const varRows=colors.length&&sizes.length?colors.map(c=>{
+  // Variant jadval — rang×o'lcham zaxira
+  const varRows=colors.length&&sizes.length ? colors.map(c=>{
     return`<tr><td style="font-weight:600">${c}</td>${sizes.map(s=>{
       const v=(p.variants||[]).find(x=>x.color===c&&x.size===s);
       const q=v?.qty||0;
-      return`<td style="text-align:center;color:${q>0?"var(--dark)":"#ddd"};font-weight:${q>0?"700":"400"}">${q>0?q:"—"}</td>`;
+      return`<td style="text-align:center;color:${q>0?"var(--dark)":"#ccc"};font-weight:${q>0?"700":"400"}">${q>0?q:"—"}</td>`;
     }).join("")}</tr>`;
-  }).join(""):"";
+  }).join("") : "";
 
   el.innerHTML=`
-    <div style="position:relative;width:100%;aspect-ratio:1.4;border-radius:18px;
-      overflow:hidden;background:#EDE9E2;margin-bottom:18px">
-      ${p.image?`<img src="${p.image}" style="width:100%;height:100%;object-fit:cover">`
-        :`<div style="display:flex;align-items:center;justify-content:center;height:100%">
-          <i class="ti ti-shoe" style="font-size:72px;color:#ddd"></i></div>`}
-      ${active?`<div style="position:absolute;top:12px;left:12px;background:var(--red);
-        color:#fff;font-size:13px;font-weight:800;padding:5px 12px;border-radius:10px">−${disc}%</div>`:""}
-      ${totalQty===0?`<div style="position:absolute;inset:0;background:rgba(255,255,255,.72);
-        display:flex;align-items:center;justify-content:center">
-        <span style="background:rgba(0,0,0,.68);color:#fff;padding:10px 20px;border-radius:12px;font-weight:700">Tugagan</span>
-        </div>`:""}
-      <button onclick="shareProd('${sku}')" style="position:absolute;top:12px;right:12px;
-        width:40px;height:40px;border-radius:13px;background:rgba(255,255,255,.92);
-        border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
-        box-shadow:0 2px 10px rgba(0,0,0,.12)">
+    <div style="position:relative;width:100%;aspect-ratio:1.3;border-radius:18px;overflow:hidden;background:#f0ede8;margin-bottom:16px">
+      ${p.image?`<img src="${p.image}" style="width:100%;height:100%;object-fit:cover">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%"><i class="ti ti-shoe" style="font-size:72px;color:#ddd"></i></div>`}
+      ${active?`<div style="position:absolute;top:12px;left:12px;background:var(--red);color:#fff;font-size:13px;font-weight:800;padding:5px 12px;border-radius:10px">−${disc}%</div>`:""}
+      ${totalQty===0?`<div style="position:absolute;inset:0;background:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center"><span style="background:rgba(0,0,0,.7);color:#fff;padding:10px 20px;border-radius:12px;font-weight:700">Tugagan</span></div>`:""}
+      <button onclick="shareProd('${sku}')" style="position:absolute;top:12px;right:12px;width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.9);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.15)">
         <i class="ti ti-share" style="font-size:17px;color:#555"></i>
       </button>
     </div>
 
-    <div style="margin-bottom:8px">
+    <div style="margin-bottom:6px">
       ${p.category?`<span class="badge bg-gray" style="margin-bottom:8px;display:inline-flex">${p.category}</span>`:""}
-      <h3 style="font-size:21px;line-height:1.3;color:var(--dark)">${p.name}</h3>
+      <h3 style="font-size:21px;line-height:1.3">${p.name}</h3>
     </div>
 
-    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:${active?'6px':'18px'}">
-      <span style="font-size:30px;font-weight:800;
-        color:${active?'var(--red)':'var(--acc)'};font-family:'Sora',sans-serif">${fmt(final)}</span>
-      <span style="font-size:15px;color:#C4B99A">so'm</span>
-      ${active?`<span style="font-size:16px;color:#C4B99A;text-decoration:line-through">${fmt(base)} so'm</span>`:""}
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:${active?'6px':'16px'}">
+      <span style="font-size:28px;font-weight:800;color:${active?'var(--red)':'var(--acc)'};font-family:'Sora',sans-serif">${fmt(final)}</span>
+      <span style="font-size:14px;color:#bbb">so'm</span>
+      ${active?`<span style="font-size:15px;color:#ccc;text-decoration:line-through">${fmt(base)} so'm</span>`:""}
     </div>
-    ${active?`<div style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;
-      color:var(--red);font-weight:700;margin-bottom:18px;padding:6px 12px;
-      background:#FEF2F2;border-radius:9px">
-      <i class="ti ti-clock"></i>${until?" "+until+" gacha":"Chegirma"}
-    </div>`:""}
+    ${active?`<div style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--red);font-weight:700;margin-bottom:16px;padding:5px 10px;background:#FEF2F2;border-radius:8px"><i class="ti ti-clock"></i>${until?" "+until+" gacha":"Chegirma"}</div>`:""}
 
-    <div style="display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:700;
-      margin-bottom:20px;color:${totalQty>0?'var(--grn)':'var(--red)'}">
-      <i class="ti ti-${totalQty>0?'circle-check':'circle-x'}" style="font-size:16px"></i>
+    <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;margin-bottom:18px;color:${totalQty>0?'var(--grn)':'var(--red)'}">
+      <i class="ti ti-${totalQty>0?'circle-check':'circle-x'}"></i>
       ${totalQty>0?totalQty+" ta zaxirada":"Tugagan"}
     </div>
 
     ${colors.length?`
     <div class="slbl">Rang tanlang</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px" id="copts">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px" id="copts">
       ${colors.map(c=>{
         const v=(p.variants||[]).find(x=>x.color===c);
         const cqty=(p.variants||[]).filter(x=>x.color===c).reduce((a,x)=>a+x.qty,0);
-        return`<div onclick="selColor('${c}',this)" class="btn btn-sm"
-          style="gap:8px;border-width:2px;${c===_det.color?'border-color:var(--dark);background:#F5F2EB':''}${cqty===0?';opacity:.35':''}">
-          <div class="cdot" style="background:${v?.hex||'#888'};width:16px;height:16px"></div>${c}
-          ${cqty>0?`<span style="font-size:10px;color:#A0927A;margin-left:2px">${cqty}</span>`:""}
+        return`<div onclick="selColor('${c}',this)" class="btn btn-sm" style="gap:8px;border-width:2px;${c===_det.color?'border-color:var(--dark);background:#f0ede8':''}${cqty===0?';opacity:.35':''}">
+          <div class="cdot" style="background:${v?.hex||'#888'}"></div>${c}${cqty>0?`<span style="font-size:10px;color:#aaa;margin-left:2px">${cqty}</span>`:""}
         </div>`;
       }).join("")}
     </div>`:""}
 
     ${sizes.length?`
     <div class="slbl">O'lcham tanlang</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px" id="sopts">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px" id="sopts">
       ${sizes.map(s=>{
         const sqty=(p.variants||[]).filter(x=>x.size===s).reduce((a,x)=>a+x.qty,0);
         return`<div onclick="${sqty>0?`selSize('${s}',this)`:''}" class="sch ${sqty===0?'out':''}">
-          <div style="text-align:center">${s}${sqty>0?`<div style="font-size:9px;color:#A0927A;font-weight:600;margin-top:1px">${sqty}</div>`:""}</div>
+          <div style="text-align:center">${s}${sqty>0?`<div style="font-size:9px;color:#aaa;font-weight:600;margin-top:1px">${sqty}</div>`:""}</div>
         </div>`;
       }).join("")}
     </div>`:""}
 
     ${varRows?`
-    <div class="slbl" style="cursor:pointer" onclick="toggleVT()">
-      Zaxira jadvali <i class="ti ti-chevron-down" id="vtarrow"></i>
-    </div>
-    <div id="vtable" style="display:none;margin-bottom:18px;overflow-x:auto">
+    <div class="slbl" style="cursor:pointer" onclick="toggleVT()">Zaxira jadvali <i class="ti ti-chevron-down" id="vtarrow"></i></div>
+    <div id="vtable" style="display:none;margin-bottom:16px;overflow-x:auto">
       <table class="vtable">
         <thead><tr><th>Rang</th>${sizes.map(s=>`<th style="text-align:center">${s}</th>`).join("")}</tr></thead>
         <tbody>${varRows}</tbody>
       </table>
     </div>`:""}
 
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px">
       <span class="slbl" style="margin:0">Miqdor</span>
-      <div class="qty">
-        <button class="qbtn" onclick="detQty(-1)">−</button>
-        <span class="qnum" id="dqty">1</span>
-        <button class="qbtn" onclick="detQty(1)">+</button>
-      </div>
+      <div class="qty"><button class="qbtn" onclick="detQty(-1)">−</button><span class="qnum" id="dqty">1</span><button class="qbtn" onclick="detQty(1)">+</button></div>
     </div>
 
     <div class="slbl">Izoh (ixtiyoriy)</div>
-    <textarea id="dnote" rows="2"
-      placeholder="Masalan: to'q rang kerak, yoki 41.5 o'lcham..."
-      style="margin-bottom:18px;resize:none;font-size:13.5px;
-        border-radius:var(--rs);line-height:1.5"></textarea>
+    <textarea id="dnote" rows="2" placeholder="Masalan: to'q rang kerak, yoki 41.5 o'lcham..." style="margin-bottom:16px;resize:none;font-size:13.5px"></textarea>
 
-    <button class="btn btn-acc btn-block"
-      style="padding:16px;font-size:15px;border-radius:16px;font-weight:700"
-      onclick="submitBron('${sku}')" id="bbtn"
-      ${totalQty===0?'disabled':''}>
-      <i class="ti ti-bookmark-plus" style="font-size:17px"></i>
-      ${totalQty>0?"Bron qilish":"Tugagan"}
+    <button class="btn btn-acc btn-block" style="padding:15px;font-size:15px;border-radius:16px" onclick="submitBron('${sku}')" id="bbtn" ${totalQty===0?'disabled style="opacity:.4"':''}>
+      <i class="ti ti-bookmark-plus"></i> ${totalQty>0?"Bron qilish":"Tugagan"}
     </button>
-    <button class="btn btn-block"
-      style="margin-top:10px;padding:13px;border-radius:14px;color:#A0927A"
-      onclick="closeSheet()">Yopish</button>
+    <button class="btn btn-block" style="margin-top:8px;padding:12px;border-radius:14px" onclick="closeSheet()">Yopish</button>
   `;
 
   $("dsheet").classList.add("on");
@@ -857,7 +625,7 @@ function toggleVT(){
 function selColor(color,el){
   _det.color=color;
   document.querySelectorAll("#copts .btn").forEach(d=>{d.style.borderColor="var(--brd)";d.style.background="";});
-  el.style.borderColor="var(--dark)";el.style.background="#F5F2EB";
+  el.style.borderColor="var(--dark)";el.style.background="#f0ede8";
 }
 
 function selSize(size,el){
@@ -938,32 +706,22 @@ function renderBrons(){
   }
   const sLabel={kutilmoqda:"⏳ Kutilmoqda",tasdiqlandi:"✅ Tasdiqlandi",bekor:"❌ Bekor"};
   const sCls={kutilmoqda:"bg-yellow",tasdiqlandi:"bg-green",bekor:"bg-red"};
-  const sBord={kutilmoqda:"#FDE68A",tasdiqlandi:"#86EFAC",bekor:"#FECACA"};
+  const sBord={kutilmoqda:"#FDE68A",tasdiqlandi:"#BBF7D0",bekor:"#FECACA"};
   el.innerHTML=list.map(b=>`
-    <div class="sc" style="border-left:3.5px solid ${sBord[b.status]||'var(--brd)'}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px">
-        <div style="font-weight:700;font-size:15px;flex:1;padding-right:8px;line-height:1.3">${b.product_name}</div>
+    <div class="sc" style="border-left:4px solid ${sBord[b.status]||'var(--brd)'}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div style="font-weight:700;font-size:15px;flex:1;padding-right:8px">${b.product_name}</div>
         <span class="badge ${sCls[b.status]||'bg-yellow'}">${sLabel[b.status]||b.status}</span>
       </div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:#777;
-        margin-bottom:${b.note?'8px':'4px'}">
-        ${b.color?`<span style="display:flex;align-items:center;gap:4px">
-          <i class="ti ti-palette" style="font-size:12px;color:#C4B99A"></i>${b.color}</span>`:""}
-        ${b.size?`<span style="display:flex;align-items:center;gap:4px">
-          <i class="ti ti-ruler-2" style="font-size:12px;color:#C4B99A"></i>${b.size}</span>`:""}
-        <span style="display:flex;align-items:center;gap:4px">
-          <i class="ti ti-stack-2" style="font-size:12px;color:#C4B99A"></i>${b.qty} ta</span>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:#666;margin-bottom:${b.note?'8px':'4px'}">
+        ${b.color?`<span><i class="ti ti-palette" style="font-size:12px;color:#bbb"></i> ${b.color}</span>`:""}
+        ${b.size?`<span><i class="ti ti-ruler-2" style="font-size:12px;color:#bbb"></i> ${b.size}</span>`:""}
+        <span><i class="ti ti-stack-2" style="font-size:12px;color:#bbb"></i> ${b.qty} ta</span>
       </div>
-      ${b.note?`<div style="font-size:12.5px;color:#A16207;padding:7px 11px;
-        background:#FEFCE8;border-radius:9px;margin-bottom:8px;
-        border-left:3px solid #FDE047">💬 ${b.note}</div>`:""}
+      ${b.note?`<div style="font-size:12.5px;color:#D97706;padding:7px 10px;background:#FEF3C7;border-radius:9px;margin-bottom:8px">💬 ${b.note}</div>`:""}
       <div style="display:flex;align-items:center;justify-content:space-between">
-        <div style="font-size:11.5px;color:#C4B99A">${(b.created_at||"").slice(0,16).replace("T"," ")}</div>
-        ${b.status==="kutilmoqda"?`<button class="btn btn-sm btn-red"
-          onclick="cancelBron('${b.id}')"
-          style="padding:5px 11px;font-size:12px;border-radius:8px">
-          <i class="ti ti-x"></i> Bekor
-        </button>`:""}
+        <div style="font-size:11.5px;color:#ccc">${(b.created_at||"").slice(0,16)}</div>
+        ${b.status==="kutilmoqda"?`<button class="btn btn-sm btn-red" onclick="cancelBron('${b.id}')" style="padding:5px 10px;font-size:12px"><i class="ti ti-x"></i> Bekor</button>`:""}
       </div>
     </div>
   `).join("");
@@ -991,18 +749,9 @@ function renderTarix(){
   const tot=_sales.reduce((a,s)=>a+(s.total||0),0);
   const debt=_sales.filter(s=>s.remaining>0).reduce((a,s)=>a+(s.remaining||0),0);
   ke.innerHTML=`
-    <div class="kpi">
-      <div class="kval">${_sales.length}</div>
-      <div class="klbl">Xaridlar</div>
-    </div>
-    <div class="kpi">
-      <div class="kval" style="font-size:13px">${fmt(tot)}</div>
-      <div class="klbl">Jami so'm</div>
-    </div>
-    <div class="kpi">
-      <div class="kval" style="font-size:13px;color:${debt?'var(--red)':'var(--grn)'}">${fmt(debt)||"0"}</div>
-      <div class="klbl">Qarz</div>
-    </div>
+    <div class="kpi"><div class="kval">${_sales.length}</div><div class="klbl">Xaridlar</div></div>
+    <div class="kpi"><div class="kval" style="font-size:13px">${fmt(tot)}</div><div class="klbl">Jami so'm</div></div>
+    <div class="kpi"><div class="kval" style="font-size:13px;color:${debt?'var(--red)':'var(--grn)'}">${fmt(debt)||"0"}</div><div class="klbl">Qarz</div></div>
   `;
   let list=_sales;
   if(_tf==="tolandi")list=_sales.filter(s=>!(s.remaining>0));
@@ -1014,25 +763,22 @@ function renderTarix(){
   le.innerHTML=list.map(s=>{
     const items=(s.items||[]).filter(Boolean);
     const isDebt=s.status==="qarz"&&s.remaining>0;
-    return`<div class="sc" style="${isDebt?'border-left:3.5px solid var(--red)':''}">
+    return`<div class="sc" style="${isDebt?'border-left:4px solid var(--red)':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div>
-          <div style="font-weight:800;font-size:18px;font-family:'Sora',sans-serif;color:var(--dark)">${fmt(s.total)} <span style="font-size:13px;font-weight:500;color:#A0927A">so'm</span></div>
-          <div style="font-size:12px;color:#C4B99A;margin-top:2px">${s.date||""} ${s.time||""}</div>
+          <div style="font-weight:800;font-size:17px;font-family:'Sora',sans-serif">${fmt(s.total)} so'm</div>
+          <div style="font-size:12px;color:#aaa;margin-top:2px">${s.date||""} ${s.time||""}</div>
         </div>
         <span class="badge ${isDebt?'bg-red':s.status==='qaytarilgan'?'bg-orange':'bg-green'}">
           ${isDebt?"⏳ Qarzda":s.status==="qaytarilgan"?"↩ Qaytarilgan":"✅ To'langan"}
         </span>
       </div>
-      ${items.length?`<div style="font-size:13px;color:#666;margin-bottom:${isDebt?'8px':'0'};line-height:1.5">
+      ${items.length?`<div style="font-size:13px;color:#555;margin-bottom:${isDebt?'8px':'0'}">
         ${items.map(i=>`<span style="margin-right:8px">• ${i.name}${i.color?" ("+i.color+")":""} ×${i.qty}</span>`).join("")}
       </div>`:""}
-      ${isDebt?`<div style="display:flex;align-items:center;justify-content:space-between;
-        padding:9px 12px;background:#FEF2F2;border-radius:10px;margin-top:8px">
-        <span style="font-size:13.5px;color:var(--red);font-weight:700;display:flex;align-items:center;gap:5px">
-          <i class="ti ti-credit-card"></i> ${fmt(s.remaining)} so'm qarz
-        </span>
-        ${s.due?`<span style="font-size:12px;color:#D97706;font-weight:600">📅 ${s.due}</span>`:""}
+      ${isDebt?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#FEF2F2;border-radius:10px;margin-top:6px">
+        <span style="font-size:13.5px;color:var(--red);font-weight:700"><i class="ti ti-credit-card"></i> ${fmt(s.remaining)} so'm qarz</span>
+        ${s.due?`<span style="font-size:12px;color:#D97706;font-weight:600">${s.due}</span>`:""}
       </div>`:""}
     </div>`;
   }).join("");
@@ -1044,35 +790,25 @@ function renderQarz(){
   const debts=_sales.filter(s=>s.status==="qarz"&&s.remaining>0);
   const total=debts.reduce((a,s)=>a+(s.remaining||0),0);
   if(!debts.length){
-    el.innerHTML=`<div class="empty" style="padding-top:60px">
-      <div style="font-size:64px;margin-bottom:16px">🎉</div>
-      <div class="etitle" style="color:var(--grn);font-size:18px">Qarz yo'q!</div>
-      <div class="esub">Barcha to'lovlar amalga oshirilgan</div>
-    </div>`;return;
+    el.innerHTML=`<div class="empty" style="padding-top:60px"><div style="font-size:64px;margin-bottom:16px">🎉</div><div class="etitle" style="color:var(--grn);font-size:18px">Qarz yo'q!</div><div class="esub">Barcha to'lovlar amalga oshirilgan</div></div>`;return;
   }
   el.innerHTML=`
     <div class="dhero">
-      <div style="font-size:11px;font-weight:700;opacity:.75;margin-bottom:6px;
-        text-transform:uppercase;letter-spacing:.6px">Jami qarz</div>
-      <div style="font-size:38px;font-weight:800;font-family:'Sora',sans-serif;
-        margin-bottom:4px;line-height:1.1">${fmt(total)}</div>
-      <div style="font-size:15px;opacity:.8;font-weight:600">so'm</div>
-      <div style="font-size:13px;opacity:.65;margin-top:6px">${debts.length} ta to'lanmagan xarid</div>
+      <div style="font-size:11px;font-weight:800;opacity:.75;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Jami qarz</div>
+      <div style="font-size:36px;font-weight:800;font-family:'Sora',sans-serif;margin-bottom:4px">${fmt(total)} so'm</div>
+      <div style="font-size:13px;opacity:.7">${debts.length} ta to'lanmagan xarid</div>
     </div>
     <div class="slbl">Qarz tafsiloti</div>
     ${debts.map(s=>`
-      <div class="sc" style="border-left:3.5px solid var(--red)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
-          <div style="font-size:13px;color:#A0927A">📅 ${s.date||""}</div>
-          <div style="font-weight:800;color:var(--red);font-size:18px;
-            font-family:'Sora',sans-serif">${fmt(s.remaining)} <span style="font-size:12px;font-weight:500">so'm</span></div>
+      <div class="sc" style="border-left:4px solid var(--red)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-size:13px;color:#888">${s.date||""}</div>
+          <div style="font-weight:800;color:var(--red);font-size:17px;font-family:'Sora',sans-serif">${fmt(s.remaining)} so'm</div>
         </div>
-        <div style="font-size:13px;color:#666;margin-bottom:${s.due?'8px':'0'};line-height:1.5">
+        <div style="font-size:13px;color:#555;margin-bottom:${s.due?'8px':'0'}">
           ${(s.items||[]).filter(Boolean).map(i=>i.name).join(", ")||"—"}
         </div>
-        ${s.due?`<div style="display:flex;align-items:center;gap:5px;font-size:12.5px;
-          color:#D97706;font-weight:700;padding:7px 11px;background:#FFFBEB;
-          border-radius:9px;border-left:3px solid #FDE047">
+        ${s.due?`<div style="display:flex;align-items:center;gap:5px;font-size:12.5px;color:#D97706;font-weight:700;padding:7px 10px;background:#FEF3C7;border-radius:9px">
           <i class="ti ti-clock"></i> To'lov muddati: ${s.due}
         </div>`:""}
       </div>
@@ -1097,7 +833,7 @@ document.addEventListener("touchend",async e=>{
   if(e.changedTouches[0].clientY-_pst>80&&window.scrollY===0){
     toast("Yangilanmoqda...","");
     await Promise.all([loadProds(),loadSales(),loadBrons()]);
-    updateBadges();toast("Yangilandi ✓","grn");
+    updateBadges();toast("Yangilandi","grn");
   }
 },{passive:true});
 
