@@ -129,9 +129,19 @@ function renderPortal() {
             display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
             <i class="ti ti-bookmark" style="font-size:13px;color:#D97706"></i>
           </span>
-          Yangi bronlar
+          Bronlar
         </h3>
-        <span id="portal-bookings-count" class="bg bg-a" style="font-size:12px">0</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span id="portal-bookings-count" class="bg bg-a" style="font-size:12px">0</span>
+          <select id="pbron-filter" onchange="loadPortalData()"
+            style="font-size:12px;padding:4px 8px;border-radius:8px;border:1.5px solid var(--brd);
+              font-family:inherit;cursor:pointer;color:var(--ink);background:#fff">
+            <option value="kutilmoqda">⏳ Kutilmoqda</option>
+            <option value="tasdiqlandi">✅ Tasdiqlandi</option>
+            <option value="bekor">❌ Bekor</option>
+            <option value="all">Barchasi</option>
+          </select>
+        </div>
       </div>
       <div id="portal-bookings-list" style="padding:0 16px 4px">
         <div class="portal-empty">
@@ -258,14 +268,26 @@ function renderPortal() {
 
 /* ── Ma'lumotlarni yuklash ──────────────────────── */
 async function loadPortalData() {
-  if (!_sb) return;
+  if (!_sb) {
+    ["portal-logins-list","portal-bookings-list","portal-products-list"].forEach(id => {
+      const el = $(id); if (!el) return;
+      el.innerHTML = `<div class="portal-empty"><i class="ti ti-cloud-off"></i>
+        <div class="pe-t">Cloud ulanmagan</div>
+        <div class="pe-s">Egasi → Sozlamalar → Cloud (Supabase) ga ulaning</div></div>`;
+    });
+    return;
+  }
   const sid = getCloudShopId();
 
   try {
+    const bf = ($("pbron-filter")||{value:"kutilmoqda"}).value;
+    let bronQuery = _sb.from("portal_bookings").select("*").eq("shop_id", sid)
+      .order("created_at", { ascending: false });
+    if (bf !== "all") bronQuery = bronQuery.eq("status", bf);
+
     const [{ data: logins }, { data: bookings }, { data: prods }] = await Promise.all([
       _sb.from("portal_customers").select("*").eq("shop_id", sid),
-      _sb.from("portal_bookings").select("*").eq("shop_id", sid)
-        .eq("status", "kutilmoqda").order("created_at", { ascending: false }),
+      bronQuery,
       _sb.from("portal_products").select("*").eq("shop_id", sid)
     ]);
 
@@ -278,7 +300,9 @@ async function loadPortalData() {
     const visibleProds = (db.products||[]).length - (prods||[]).filter(p => p.is_visible === false).length;
     const psL = $("ps-logins"), psB = $("ps-bookings"), psP = $("ps-prods");
     if (psL) psL.textContent = activeLogins;
-    if (psB) psB.textContent = (bookings||[]).length;
+    if (psB) psB.textContent = bf === "kutilmoqda" || bf === "all"
+      ? (bookings||[]).filter(b => b.status === "kutilmoqda").length
+      : (bookings||[]).length;
     if (psP) psP.textContent = visibleProds;
 
   } catch(e) {
@@ -627,34 +651,4 @@ function getPortalLink() {
   const url  = db?.settings?.supabaseUrl || "";
   const key  = db?.settings?.supabaseKey || "";
   const creds = btoa(url + "|||" + key);
-  return location.origin + "/mijoz.html?shop=" + sid + "&c=" + creds;
-}
-
-function openPortalPage() {
-  window.open(getPortalLink(), "_blank");
-}
-
-function copyPortalLink() {
-  const link = getPortalLink();
-  navigator.clipboard.writeText(link).then(() => {
-    toast("✅ Link nusxa olindi — mijozga yuboring");
-  }).catch(() => {
-    prompt("Linkni nusxa oling:", link);
-  });
-}
-
-/* ── Rang nomi → hex ─────────────────────────── */
-function getColorHex(name) {
-  if (!name) return "#888";
-  const m = {
-    "qora":"#1A1A1A","oq":"#F5F5F5","ko'k":"#154360","moviy":"#5DADE2",
-    "qizil":"#C0392B","yashil":"#1E8449","sariq":"#D4AC0D","jigarrang":"#784212",
-    "kulrang":"#95A5A6","to'q kulrang":"#2C3E50","binafsha":"#7D3C98",
-    "pushti":"#E91E8C","to'q sariq":"#CA6F1E","krem":"#F0E6D3",
-    "navy":"#0D1B2A","gray":"#95A5A6","black":"#1A1A1A","white":"#F5F5F5",
-    "blue":"#154360","red":"#C0392B","green":"#1E8449","brown":"#784212",
-    "purple":"#7D3C98","pink":"#E91E8C","orange":"#CA6F1E","beige":"#F0E6D3",
-    "to'q yashil":"#145A32","to'q ko'k":"#1A5276","to'q qizil":"#922B21"
-  };
-  return m[(name||"").toLowerCase().trim()] || "#888";
-}
+  return location.origin + "/mijoz.h

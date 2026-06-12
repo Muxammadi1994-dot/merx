@@ -419,12 +419,10 @@ input::placeholder{color:#C4B99A}
       </div>
       <div id="pgrid">
         <div class="pg">
-          ${[1,2,3,4].map(()=>`
-            <div>
-              <div class="skel" style="aspect-ratio:1;border-radius:var(--r);margin-bottom:8px"></div>
-              <div class="skel" style="height:12px;border-radius:6px;margin-bottom:5px;width:70%"></div>
-              <div class="skel" style="height:14px;border-radius:6px;width:50%"></div>
-            </div>`).join('')}
+          <div><div class="skel" style="aspect-ratio:1;border-radius:var(--r);margin-bottom:8px"></div><div class="skel" style="height:12px;border-radius:6px;margin-bottom:5px;width:70%"></div><div class="skel" style="height:14px;border-radius:6px;width:50%"></div></div>
+          <div><div class="skel" style="aspect-ratio:1;border-radius:var(--r);margin-bottom:8px"></div><div class="skel" style="height:12px;border-radius:6px;margin-bottom:5px;width:70%"></div><div class="skel" style="height:14px;border-radius:6px;width:50%"></div></div>
+          <div><div class="skel" style="aspect-ratio:1;border-radius:var(--r);margin-bottom:8px"></div><div class="skel" style="height:12px;border-radius:6px;margin-bottom:5px;width:70%"></div><div class="skel" style="height:14px;border-radius:6px;width:50%"></div></div>
+          <div><div class="skel" style="aspect-ratio:1;border-radius:var(--r);margin-bottom:8px"></div><div class="skel" style="height:12px;border-radius:6px;margin-bottom:5px;width:70%"></div><div class="skel" style="height:14px;border-radius:6px;width:50%"></div></div>
         </div>
       </div>
     </div>
@@ -558,7 +556,8 @@ async function doLogin(){
     if(error||!data?.length){err.textContent="Telefon yoki parol noto'g'ri";err.style.display="block";return;}
     const row=data[0];
     let nm=ph;
-    try{const{data:sd}=await _sb.from("sales").select("customer_name").eq("shop_id",sid).eq("customer_id",row.customer_id).limit(1);if(sd?.[0]?.customer_name)nm=sd[0].customer_name;}catch(e){}
+    try{const{data:cd}=await _sb.from("customers").select("name").eq("shop_id",sid).eq("local_id",row.customer_id).single();if(cd?.name)nm=cd.name;}catch(e){}
+    if(nm===ph){try{const{data:sd}=await _sb.from("sales").select("customer_name").eq("shop_id",sid).eq("customer_id",row.customer_id).limit(1);if(sd?.[0]?.customer_name)nm=sd[0].customer_name;}catch(e){}}
     _sess={customerId:row.customer_id,customerName:nm,shopId:sid};
     localStorage.setItem("mp_session",JSON.stringify(_sess));
     $("login-screen").style.display="none";
@@ -1081,28 +1080,4 @@ function renderQarz(){
   `;
 }
 
-// ── TABS ──────────────────────────────────────
-function goTab(name){
-  ["katalog","tarix","bron","qarz"].forEach(t=>{
-    $("tab-"+t).style.display=t===name?"block":"none";
-    const n=$("nav-"+t);if(n)n.classList.toggle("on",t===name);
-  });
-  if(name==="tarix")renderTarix();
-  if(name==="qarz")renderQarz();
-}
-
-// ── PULL TO REFRESH ───────────────────────────
-let _pst=0;
-document.addEventListener("touchstart",e=>{_pst=e.touches[0].clientY;},{passive:true});
-document.addEventListener("touchend",async e=>{
-  if(e.changedTouches[0].clientY-_pst>80&&window.scrollY===0){
-    toast("Yangilanmoqda...","");
-    await Promise.all([loadProds(),loadSales(),loadBrons()]);
-    updateBadges();toast("Yangilandi ✓","grn");
-  }
-},{passive:true});
-
-init();
-</script>
-</body>
-</html>
+// ── TABS ───────
