@@ -1080,4 +1080,28 @@ function renderQarz(){
   `;
 }
 
-// ── TABS ───────
+// ── TABS ──────────────────────────────────────
+function goTab(name){
+  ["katalog","tarix","bron","qarz"].forEach(t=>{
+    $("tab-"+t).style.display=t===name?"block":"none";
+    const n=$("nav-"+t);if(n)n.classList.toggle("on",t===name);
+  });
+  if(name==="tarix")renderTarix();
+  if(name==="qarz")renderQarz();
+}
+
+// ── PULL TO REFRESH ───────────────────────────
+let _pst=0;
+document.addEventListener("touchstart",e=>{_pst=e.touches[0].clientY;},{passive:true});
+document.addEventListener("touchend",async e=>{
+  if(e.changedTouches[0].clientY-_pst>80&&window.scrollY===0){
+    toast("Yangilanmoqda...","");
+    await Promise.all([loadProds(),loadSales(),loadBrons()]);
+    updateBadges();toast("Yangilandi ✓","grn");
+  }
+},{passive:true});
+
+init();
+</script>
+</body>
+</html>

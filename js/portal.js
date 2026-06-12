@@ -651,4 +651,34 @@ function getPortalLink() {
   const url  = db?.settings?.supabaseUrl || "";
   const key  = db?.settings?.supabaseKey || "";
   const creds = btoa(url + "|||" + key);
-  return location.origin + "/mijoz.h
+  return location.origin + "/mijoz.html?shop=" + sid + "&c=" + creds;
+}
+
+function openPortalPage() {
+  window.open(getPortalLink(), "_blank");
+}
+
+function copyPortalLink() {
+  const link = getPortalLink();
+  navigator.clipboard.writeText(link).then(() => {
+    toast("✅ Link nusxa olindi — mijozga yuboring");
+  }).catch(() => {
+    prompt("Linkni nusxa oling:", link);
+  });
+}
+
+/* ── Rang nomi → hex ─────────────────────────── */
+function getColorHex(name) {
+  if (!name) return "#888";
+  const m = {
+    "qora":"#1A1A1A","oq":"#F5F5F5","ko'k":"#154360","moviy":"#5DADE2",
+    "qizil":"#C0392B","yashil":"#1E8449","sariq":"#D4AC0D","jigarrang":"#784212",
+    "kulrang":"#95A5A6","to'q kulrang":"#2C3E50","binafsha":"#7D3C98",
+    "pushti":"#E91E8C","to'q sariq":"#CA6F1E","krem":"#F0E6D3",
+    "navy":"#0D1B2A","gray":"#95A5A6","black":"#1A1A1A","white":"#F5F5F5",
+    "blue":"#154360","red":"#C0392B","green":"#1E8449","brown":"#784212",
+    "purple":"#7D3C98","pink":"#E91E8C","orange":"#CA6F1E","beige":"#F0E6D3",
+    "to'q yashil":"#145A32","to'q ko'k":"#1A5276","to'q qizil":"#922B21"
+  };
+  return m[(name||"").toLowerCase().trim()] || "#888";
+}
