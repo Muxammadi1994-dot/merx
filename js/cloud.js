@@ -79,148 +79,80 @@ async function connectCloud() {
 // ── LocalDB → Supabase ────────────────────────────
 async function pushToCloud() {
   if (!_sb) { toast("Avval ulaning","err"); return; }
-
-  const sid = getCloudShopId(); // shop_id — izolyatsiya kaliti
-
+  const sid = getCloudShopId();
   try {
-    // Settings — id=1 (integer), shop_id=text
+    // Settings
     await _sb.from("settings").upsert({
-      id:             1,
-      shop_id:        sid,
-      shop_name:      db.shop?.name || "MERX",
-      rate:           db.settings?.rate || 12800,
-      price_currency: db.settings?.priceCurrency || "uzs",
-      shop_type:      db.settings?.shopType || "ikki",
-      show_chakana:   db.settings?.showChakana || false,
-      eskiz_token:    db.settings?.eskizToken || null,
-      eskiz_sender:   db.settings?.eskizSender || null,
+      id: 1, shop_name: db.shop?.name || "MERX",
+      rate: db.settings?.rate || 12800,
+      price_currency: db.settings?.priceCurrency || "uzs"
     });
 
-    // Products — shop_id bilan
-    if (db.products?.length) {
-      const rows = db.products.map(p => ({
-        id:        p.id || undefined,
-        shop_id:   sid,
-        sku:       p.sku,
-        name:      p.name,
-        category:  p.category,
-        type:      p.type,
-        unit:      p.unit,
-        barcode:   p.barcode,
-        cost_usd:  p.costUsd || 0,
-        price_uzs: p.priceUzs || 0,
-        ulgurji:   p.ulgurjiNarx || 0,
-        variants:  p.variants || []
-      }));
-      await _sb.from("products").upsert(rows, {onConflict:"sku"});
-    }
-
-    // Customers
-    if (db.customers?.length) {
-      await _sb.from("customers").upsert(db.customers.map(c => ({
-        id:    c.id,
-        name:  c.name,
-        phone: c.phone || null,
-        type:  c.type || "ulgurji"
-      })), {onConflict:"id"});
-    }
-
-    // Staff
-    if (db.staff?.length) {
-      for (const s of db.staff) {
-        await _sb.from("staff").upsert({
-          id:   s.id,
-          name: s.name,
-          phone: s.phone || null,
-          role:  s.role || "kassir"
-        }, {onConflict:"id"}).select();
+    // Helper — delete+insert
+    async function sync(table, rows) {
+      if (!rows || !rows.length) return;
+      await _sb.from(table).delete().neq("id", 0);
+      const chunk = 50;
+      for (let i = 0; i < rows.length; i += chunk) {
+        const { error } = await _sb.from(table).insert(rows.slice(i, i+chunk));
+        if (error) throw error;
       }
     }
 
-    // Sales
-    if (db.sales?.length) {
-      await _sb.from("sales").upsert(db.sales.map(s => ({
-        id:             s.id,
-        shop_id:        sid,
-        local_id:       s.id,
-        chek_num:       s.chekNum || null,
-        date:           s.date,
-        time:           s.time || null,
-        price_type:     s.priceType,
-        pay_type:       s.payType,
-        staff_id:       s.staffId || null,
-        customer_id:    s.customerId || null,
-        items:          s.items || [],
-        subtotal:       s.subtotal || s.total || 0,
-        discount:       s.discount || 0,
-        total:          s.total || 0,
-        paid:           s.paid || 0,
-        remaining:      s.remaining || 0,
-        due:            s.due || null,
-        customer_name:  s.customerName || null,
-        customer_phone: s.customerPhone || null,
-        status:         s.status || "tolandan",
-        debt_currency:  s.debtCurrency || "uzs",
-        debt_usd:       s.debtUsd || null,
-        note:           s.note || null
-      })), {onConflict:"id"});
-    }
+    await sync("products", db.products?.map(p => ({
+      id: p.id || Date.now(),
+      sku: p.sku, name: p.name,
+      category: p.category, type: p.type,
+      unit: p.unit || "dona",
+      cost_usd: p.costUsd || 0,
+      price_uzs: p.priceUzs || 0,
+      ulgurji: p.ulgurjiNarx || 0,
+      variants: p.variants || []
+    })));
 
-    // Ombor
-    if (db.ombor?.length) {
-      await _sb.from("ombor").upsert(db.ombor.map(o => ({
-        id:           o.id,
-        shop_id:      sid,
-        local_id:     o.id,
-        date:         o.date,
-        sku:          o.sku || null,
-        product_name: o.productName,
-        unit:         o.unit,
-        color:        o.color,
-        size:         o.size,
-        qty:          o.qty || 0,
-        boxes:        o.boxes || null,
-        kirim_narxi:  o.kirimNarxi || 0,
-        ulgurji:      o.ulgurji || 0,
-        supplier:     o.supplier || null,
-        partiya:      o.partiya || null,
-        pay_status:   o.payStatus || "tolandan",
-        pay_status:   o.payStatus || "tolandan"
-      })), {onConflict:"id"});
-    }
+    await sync("customers", db.customers?.map(c => ({
+      id: c.id, name: c.name,
+      phone: c.phone || null,
+      type: c.type || "ulgurji"
+    })));
 
-    // Xarajatlar
-    if (db.xarajatlar?.length) {
-      await _sb.from("xarajatlar").upsert((db.xarajatlar||[]).map(x => ({
-        id:        x.id,
-        shop_id:   sid,
-        local_id:  x.id,
-        date:      x.date,
-        category:  x.category,
-        amount:    x.amount || 0,
-        recipient: x.recipient || null,
-        paid_by:   x.paidBy || null,
-        note:      x.note || null
-      })), {onConflict:"id"});
-    }
+    await sync("staff", db.staff?.map(s => ({
+      id: s.id, name: s.name,
+      phone: s.phone || null,
+      role: s.role || "kassir"
+    })));
 
-    // Chiqimlar
-    if (db.chiqimlar?.length) {
-      await _sb.from("chiqimlar").upsert((db.chiqimlar||[]).map(c => ({
-        id:           c.id,
-        shop_id:      sid,
-        local_id:     c.id,
-        date:         c.date,
-        product_name: c.productName,
-        sku:          c.sku || null,
-        color:        c.color,
-        size:         c.size,
-        qty:          c.qty,
-        reason:       c.reason,
-        note:         c.note || null,
-        cost_uzs:     c.costUzs || 0
-      })), {onConflict:"id"});
-    }
+    await sync("sales", db.sales?.map(s => ({
+      id: s.id,
+      chek_num: s.chekNum || null,
+      date: s.date, time: s.time || null,
+      price_type: s.priceType, pay_type: s.payType,
+      items: s.items || [],
+      total: s.total || 0, paid: s.paid || 0,
+      remaining: s.remaining || 0,
+      due: s.due || null,
+      customer_name: s.customerName || null,
+      customer_phone: s.customerPhone || null,
+      status: s.status || "tolandan"
+    })));
+
+    await sync("ombor", db.ombor?.map(o => ({
+      id: o.id, date: o.date,
+      product_name: o.productName,
+      unit: o.unit, color: o.color,
+      size: o.size, qty: o.qty || 0,
+      kirim_narxi: o.kirimNarxi || 0,
+      ulgurji: o.ulgurji || 0,
+      supplier: o.supplier || null,
+      pay_status: o.payStatus || "tolandan"
+    })));
+
+    await sync("xarajatlar", (db.xarajatlar||[]).map(x => ({
+      id: x.id, date: x.date,
+      category: x.category,
+      amount: x.amount || 0,
+      note: x.note || null
+    })));
 
     toast("✅ Barcha ma'lumotlar cloud ga saqlandi!");
     updateCloudUI(true);
