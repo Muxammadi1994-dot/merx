@@ -99,49 +99,42 @@ async function pushToCloud() {
     // Products — shop_id bilan
     if (db.products?.length) {
       const rows = db.products.map(p => ({
+        id:        p.id || undefined,
         shop_id:   sid,
         sku:       p.sku,
         name:      p.name,
         category:  p.category,
         type:      p.type,
         unit:      p.unit,
-        in_box:    p.inBox || 1,
         barcode:   p.barcode,
-        cost_usd:   p.costUsd || 0,
-        price_uzs:  p.priceUzs || 0,
-        ulgurji:    p.ulgurjiNarx || 0,
-        variants:   p.variants || [],
-        image:      p.image || null,
-        pantone:    p.pantone || null,
-        color_name: p.colorName || null,
-        hex:        p.hex || null
+        cost_usd:  p.costUsd || 0,
+        price_uzs: p.priceUzs || 0,
+        ulgurji:   p.ulgurjiNarx || 0,
+        variants:  p.variants || []
       }));
-      await _sb.from("products").upsert(rows, {onConflict:"id"});
+      await _sb.from("products").upsert(rows, {onConflict:"sku"});
     }
 
     // Customers
     if (db.customers?.length) {
       await _sb.from("customers").upsert(db.customers.map(c => ({
-        id:      c.id,
-        shop_id: sid,
-        local_id: c.id,
-        name:    c.name,
-        phone:   c.phone || null,
-        type:    c.type || "ulgurji",
-        note:    c.note || null
+        id:    c.id,
+        name:  c.name,
+        phone: c.phone || null,
+        type:  c.type || "ulgurji"
       })), {onConflict:"id"});
     }
 
     // Staff
     if (db.staff?.length) {
-      await _sb.from("staff").upsert(db.staff.map(s => ({
-        id:      s.id,
-        shop_id: sid,
-        local_id: s.id,
-        name:    s.name,
-        phone:   s.phone || null,
-        role:    s.role || "kassir"
-      })), {onConflict:"id"});
+      for (const s of db.staff) {
+        await _sb.from("staff").upsert({
+          id:   s.id,
+          name: s.name,
+          phone: s.phone || null,
+          role:  s.role || "kassir"
+        }, {onConflict:"id"}).select();
+      }
     }
 
     // Sales
@@ -192,10 +185,7 @@ async function pushToCloud() {
         supplier:     o.supplier || null,
         partiya:      o.partiya || null,
         pay_status:   o.payStatus || "tolandan",
-        pantone:      o.pantone || null,
-        hex:          o.hex || null,
-        barcode:      o.barcode || null,
-        chakana:      o.chakana || 0
+        pay_status:   o.payStatus || "tolandan"
       })), {onConflict:"id"});
     }
 
