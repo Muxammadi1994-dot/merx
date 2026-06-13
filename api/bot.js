@@ -300,7 +300,7 @@ async function cmdQarzlar(chatId, barcha = false) {
       return;
     }
 
-    const totalDebt = debts.reduce((a, s) => s + Number(s.remaining || 0), 0);
+    const totalDebt = debts.reduce((a, s) => a + Number(s.remaining || 0), 0);
 
     let txt = barcha
       ? `📋 *Barcha qarzlar* — ${debts.length} ta\n\n`
