@@ -19,6 +19,13 @@ const SB_KEY   = process.env.SUPABASE_KEY;
 const OWNER_ID = process.env.BOT_OWNER_CHAT_ID;
 const LOW_LIMIT = parseInt(process.env.LOW_STOCK_LIMIT || "5");
 
+// shop_id — Supabase URL dan avtomatik olinadi
+// masalan: https://abcdef.supabase.co → "abcdef"
+const SHOP_ID = (() => {
+  const m = (process.env.SUPABASE_URL || "").match(/https:\/\/([^.]+)\.supabase\.co/);
+  return m ? m[1] : "default";
+})();
+
 const TG = (method, body) =>
   fetch(`https://api.telegram.org/bot${TOKEN}/${method}`, {
     method: "POST",
@@ -99,7 +106,7 @@ async function cmdHisobot(chatId) {
     // Bugungi sotuvlar
     const sales = await sb(
       "sales",
-      `?date=eq.${t}&order=created_at.desc`
+      `?shop_id=eq.${SHOP_ID}&date=eq.${t}&order=created_at.desc`
     );
 
     if (!sales.length) {
@@ -137,7 +144,7 @@ async function cmdHisobot(chatId) {
       .sort((a, b) => b[1] - a[1])[0];
 
     // Xarajatlar
-    const xarajat = await sb("xarajatlar", `?date=eq.${t}`);
+    const xarajat = await sb("xarajatlar", `?shop_id=eq.${SHOP_ID}&date=eq.${t}`);
     const totalExp = xarajat.reduce((s, x) => s + Number(x.amount || 0), 0);
     const foyda    = totalPaid - totalExp;
 
@@ -179,9 +186,9 @@ async function cmdBalans(chatId) {
     const t = today();
 
     const [sales, xarajat, settings] = await Promise.all([
-      sb("sales",      `?date=eq.${t}`),
-      sb("xarajatlar", `?date=eq.${t}`),
-      sb("settings",   `?limit=1`),
+      sb("sales",      `?shop_id=eq.${SHOP_ID}&date=eq.${t}`),
+      sb("xarajatlar", `?shop_id=eq.${SHOP_ID}&date=eq.${t}`),
+      sb("settings",   `?shop_id=eq.${SHOP_ID}&limit=1`),
     ]);
 
     const rate = Number(settings[0]?.rate || 12800);
@@ -226,7 +233,7 @@ async function cmdBalans(chatId) {
 async function cmdOmbor(chatId) {
   try {
     // Barcha mahsulotlarni olish va variants ichidan tekshirish
-    const products = await sb("products", `?order=name`);
+    const products = await sb("products", `?shop_id=eq.${SHOP_ID}&order=name`);
 
     const low = [];
     for (const p of products) {
@@ -287,8 +294,8 @@ async function cmdQarzlar(chatId, barcha = false) {
   try {
     const t = today();
     const query = barcha
-      ? `?remaining=gt.0&order=due`
-      : `?remaining=gt.0&due=lt.${t}&order=due`;
+      ? `?shop_id=eq.${SHOP_ID}&remaining=gt.0&order=due`
+      : `?shop_id=eq.${SHOP_ID}&remaining=gt.0&due=lt.${t}&order=due`;
 
     const debts = await sb("sales", query);
 
@@ -396,8 +403,8 @@ async function cronMorning() {
   const yd = yesterday.toISOString().slice(0, 10);
 
   try {
-    const sales = await sb("sales", `?date=eq.${yd}`);
-    const xar   = await sb("xarajatlar", `?date=eq.${yd}`);
+    const sales = await sb("sales", `?shop_id=eq.${SHOP_ID}&date=eq.${yd}`);
+    const xar   = await sb("xarajatlar", `?shop_id=eq.${SHOP_ID}&date=eq.${yd}`);
 
     const kirim  = sales.reduce((a, s) => a + Number(s.paid || 0), 0);
     const chiqim = xar.reduce((a, x) => a + Number(x.amount || 0), 0);
@@ -430,7 +437,7 @@ async function cronEvening() {
 
   try {
     // Kam qolganlar
-    const products = await sb("products", `?order=name`);
+    const products = await sb("products", `?shop_id=eq.${SHOP_ID}&order=name`);
     const low = [];
     for (const p of products) {
       for (const v of (p.variants || [])) {
@@ -441,7 +448,7 @@ async function cronEvening() {
     }
 
     // Muddati o'tgan qarzlar
-    const debts = await sb("sales", `?remaining=gt.0&due=lt.${t}`);
+    const debts = await sb("sales", `?shop_id=eq.${SHOP_ID}&remaining=gt.0&due=lt.${t}`);
     const totalDebt = debts.reduce((a, s) => a + Number(s.remaining || 0), 0);
 
     let txt = `🌙 *Kechki xulosa \\(${t}\\)*\n\n`;
