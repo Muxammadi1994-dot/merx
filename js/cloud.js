@@ -88,13 +88,13 @@ async function pushToCloud() {
       price_currency: db.settings?.priceCurrency || "uzs"
     });
 
-    // Helper — delete+insert
+    // Helper — upsert id asosida
     async function sync(table, rows) {
       if (!rows || !rows.length) return;
-      await _sb.from(table).delete().neq("id", 0);
       const chunk = 50;
       for (let i = 0; i < rows.length; i += chunk) {
-        const { error } = await _sb.from(table).insert(rows.slice(i, i+chunk));
+        const { error } = await _sb.from(table)
+          .upsert(rows.slice(i, i+chunk), {onConflict:"id", ignoreDuplicates:false});
         if (error) throw error;
       }
     }
