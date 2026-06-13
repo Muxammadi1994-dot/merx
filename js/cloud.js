@@ -116,7 +116,7 @@ async function pushToCloud() {
         color_name: p.colorName || null,
         hex:        p.hex || null
       }));
-      await _sb.from("products").upsert(rows, {onConflict:"shop_id,sku"});
+      await _sb.from("products").upsert(rows, {onConflict:"id"});
     }
 
     // Customers
@@ -128,7 +128,7 @@ async function pushToCloud() {
         phone:   c.phone || null,
         type:    c.type || "ulgurji",
         note:    c.note || null
-      })), {onConflict:"shop_id,local_id"});
+      })), {onConflict:"id"});
     }
 
     // Staff
@@ -168,7 +168,7 @@ async function pushToCloud() {
         debt_currency:  s.debtCurrency || "uzs",
         debt_usd:       s.debtUsd || null,
         note:           s.note || null
-      })));
+      })), {onConflict:"id"});
     }
 
     // Ombor
