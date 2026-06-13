@@ -122,6 +122,7 @@ async function pushToCloud() {
     // Customers
     if (db.customers?.length) {
       await _sb.from("customers").upsert(db.customers.map(c => ({
+        id:      c.id,
         shop_id: sid,
         local_id: c.id,
         name:    c.name,
@@ -134,18 +135,19 @@ async function pushToCloud() {
     // Staff
     if (db.staff?.length) {
       await _sb.from("staff").upsert(db.staff.map(s => ({
+        id:      s.id,
         shop_id: sid,
         local_id: s.id,
         name:    s.name,
         phone:   s.phone || null,
-        role:    s.role || "kassir",
-        pin:     s.pin || null
-      })));
+        role:    s.role || "kassir"
+      })), {onConflict:"id"});
     }
 
     // Sales
     if (db.sales?.length) {
       await _sb.from("sales").upsert(db.sales.map(s => ({
+        id:             s.id,
         shop_id:        sid,
         local_id:       s.id,
         chek_num:       s.chekNum || null,
@@ -174,6 +176,7 @@ async function pushToCloud() {
     // Ombor
     if (db.ombor?.length) {
       await _sb.from("ombor").upsert(db.ombor.map(o => ({
+        id:           o.id,
         shop_id:      sid,
         local_id:     o.id,
         date:         o.date,
@@ -193,12 +196,13 @@ async function pushToCloud() {
         hex:          o.hex || null,
         barcode:      o.barcode || null,
         chakana:      o.chakana || 0
-      })));
+      })), {onConflict:"id"});
     }
 
     // Xarajatlar
     if (db.xarajatlar?.length) {
       await _sb.from("xarajatlar").upsert((db.xarajatlar||[]).map(x => ({
+        id:        x.id,
         shop_id:   sid,
         local_id:  x.id,
         date:      x.date,
@@ -207,12 +211,13 @@ async function pushToCloud() {
         recipient: x.recipient || null,
         paid_by:   x.paidBy || null,
         note:      x.note || null
-      })));
+      })), {onConflict:"id"});
     }
 
     // Chiqimlar
     if (db.chiqimlar?.length) {
       await _sb.from("chiqimlar").upsert((db.chiqimlar||[]).map(c => ({
+        id:           c.id,
         shop_id:      sid,
         local_id:     c.id,
         date:         c.date,
@@ -224,7 +229,7 @@ async function pushToCloud() {
         reason:       c.reason,
         note:         c.note || null,
         cost_uzs:     c.costUzs || 0
-      })));
+      })), {onConflict:"id"});
     }
 
     toast("✅ Barcha ma'lumotlar cloud ga saqlandi!");
