@@ -7,6 +7,7 @@ const SB_URL    = process.env.SUPABASE_URL;
 const SB_KEY    = process.env.SUPABASE_KEY;
 const OWNER_ID  = process.env.BOT_OWNER_CHAT_ID;
 const LOW_LIMIT = parseInt(process.env.LOW_STOCK_LIMIT || "5");
+const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || "merx_savdo_bot";
 
 // Telegram xabar yuborish
 async function tg(chatId, text, extra = {}) {
@@ -385,12 +386,152 @@ async function actionSendReceipt(body) {
   }
 
   const txt = formatReceiptText(sale, shopName || "MERX");
-  const r = await tg(cust.telegram_chat_id, txt);
+  const chekId = sale.chekNum || ("ID" + sale.id);
+  const receiptUrl = `https://${process.env.VERCEL_URL || "merx-rho.vercel.app"}/api/bot?action=receipt&id=${encodeURIComponent(chekId)}`;
+
+  const r = await tg(cust.telegram_chat_id, txt, {
+    reply_markup: {
+      inline_keyboard: [[{ text: "📄 Chekni ko'rish / PDF", url: receiptUrl }]],
+    },
+  });
 
   if (!r.ok) {
     return { ok: false, sent: false, reason: "telegram_error", detail: r.description };
   }
   return { ok: true, sent: true };
+}
+
+// ── Chek sahifasi (HTML, Print/PDF uchun) ──────────────────────
+function renderReceiptHtml(sale, shopName) {
+  const payLabels = { naqd: "Naqd pul", karta: "Karta", otkazma: "Bank o'tkazmasi" };
+  const items = sale.items || [];
+  const itemsSum = items.reduce((a, i) => a + Number(i.price || 0) * Number(i.qty || 0), 0);
+
+  const itemsHtml = items.map(i => `
+        <div class="it-row">
+          <div class="it-info">
+            <div class="it-name">${i.name || ""}</div>
+            <div class="it-meta">${i.variant || ""} ${i.variant ? "·" : ""} ${i.qty || 0} ${i.unit || "dona"} × ${fmt(i.price)} so'm</div>
+          </div>
+          <div class="it-sum">${fmt(Number(i.price || 0) * Number(i.qty || 0))}</div>
+        </div>`).join("");
+
+  const remaining = Number(sale.remaining || 0);
+  const debtUsd   = sale.debt_usd != null ? Number(sale.debt_usd) : null;
+  const debtRow = remaining > 0 ? `
+        <div class="sum-row debt"><span>Qarz</span><span>${sale.debt_currency === "usd" && debtUsd ? "$" + debtUsd.toFixed(2) : fmt(remaining) + " so'm"}</span></div>
+        ${sale.due ? `<div class="sum-row debt-due"><span>To'lov muddati</span><span>${sale.due}</span></div>` : ""}` : `
+        <div class="status-ok">✓ To'liq to'landi</div>`;
+
+  return `<!DOCTYPE html>
+    <html><head><meta charset="UTF-8"><title>Chek ${sale.chek_num || "#" + sale.id}</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-content:center;padding:24px 12px}
+      .receipt{background:#fff;width:380px;border-radius:18px;overflow:hidden;box-shadow:0 4px 24px rgba(13,27,42,.08)}
+      .head{background:#0D1B2A;color:#fff;padding:24px 22px 20px;text-align:center}
+      .head .logo{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;letter-spacing:.5px}
+      .head .sub{font-size:11px;color:#9aa7b5;margin-top:2px;letter-spacing:1px;text-transform:uppercase}
+      .head .check{display:inline-block;margin-top:14px;width:36px;height:36px;border-radius:50%;background:#E9A500;color:#0D1B2A;font-size:18px;line-height:36px;font-weight:800}
+      .body{padding:20px 22px}
+      .meta{display:flex;justify-content:space-between;font-size:11.5px;color:#8a8f98;margin-bottom:16px;padding-bottom:14px;border-bottom:1px dashed #E8E5E0}
+      .meta b{color:#0D1B2A;font-weight:700}
+      .items{margin-bottom:6px}
+      .it-row{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid #F6F4EF}
+      .it-row:last-child{border-bottom:none}
+      .it-info{flex:1;min-width:0;padding-right:10px}
+      .it-name{font-family:'Sora',sans-serif;font-weight:600;font-size:13.5px;color:#0D1B2A}
+      .it-meta{font-size:11px;color:#a3a8af;margin-top:2px}
+      .it-sum{font-family:'Sora',sans-serif;font-weight:700;font-size:13.5px;color:#0D1B2A;white-space:nowrap}
+      .summary{margin-top:14px;padding-top:14px;border-top:1px dashed #E8E5E0}
+      .sum-row{display:flex;justify-content:space-between;font-size:13px;color:#666;padding:3px 0}
+      .sum-row.debt span:last-child{color:#dc2626;font-weight:700}
+      .sum-row.debt-due span:last-child{color:#dc2626}
+      .total-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:12px;border-top:2px solid #0D1B2A}
+      .total-row .lbl{font-family:'Sora',sans-serif;font-weight:700;font-size:14px;color:#0D1B2A;letter-spacing:.5px}
+      .total-row .val{font-family:'Sora',sans-serif;font-weight:800;font-size:22px;color:#0D1B2A}
+      .pay-info{margin-top:14px;background:#F6F4EF;border-radius:12px;padding:12px 14px}
+      .pay-info .sum-row{font-size:12.5px}
+      .status-ok{margin-top:8px;text-align:center;background:#ECFDF5;color:#059669;font-weight:700;font-size:12.5px;border-radius:10px;padding:8px;letter-spacing:.3px}
+      .footer{padding:18px 22px 24px;text-align:center}
+      .footer .thanks{font-family:'Sora',sans-serif;font-weight:700;font-size:14px;color:#0D1B2A;margin-bottom:4px}
+      .footer .sub{font-size:11px;color:#a3a8af}
+      .badge-row{display:flex;justify-content:space-between;font-size:11px;color:#a3a8af;margin-top:12px;padding-top:12px;border-top:1px dashed #E8E5E0}
+      .actions{max-width:380px;margin:14px auto 0;display:flex;gap:10px}
+      .actions button{flex:1;border:none;border-radius:12px;padding:12px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer}
+      .btn-print{background:#0D1B2A;color:#fff}
+      @media print{
+        body{background:#fff;padding:0}
+        .receipt{box-shadow:none;border-radius:0;width:100%;max-width:380px}
+        .actions{display:none}
+      }
+    </style></head><body>
+    <div>
+      <div class="receipt">
+        <div class="head">
+          <div class="logo">${(shopName||"MERX").toUpperCase()}</div>
+          <div class="sub">Savdo cheki</div>
+          <div class="check">✓</div>
+        </div>
+        <div class="body">
+          <div class="meta">
+            <span>${sale.chek_num || "#" + sale.id}</span>
+            <b>${sale.date || ""} ${sale.time || ""}</b>
+          </div>
+          <div class="items">${itemsHtml}</div>
+          <div class="summary">
+            <div class="sum-row"><span>Mahsulotlar (${items.length} tur)</span><span>${fmt(itemsSum)} so'm</span></div>
+            <div class="total-row">
+              <span class="lbl">JAMI</span>
+              <span class="val">${fmt(sale.total)}<span style="font-size:13px;font-weight:600"> so'm</span></span>
+            </div>
+          </div>
+          <div class="pay-info">
+            <div class="sum-row"><span>To'lov turi</span><span><b style="color:#0D1B2A">${payLabels[sale.pay_type] || sale.pay_type || "—"}</b></span></div>
+            <div class="sum-row"><span>To'landi</span><span style="color:#059669;font-weight:700">${fmt(sale.paid)} so'm</span></div>
+            ${debtRow}
+          </div>
+          <div class="badge-row">
+            <span>Mijoz: <b style="color:#0D1B2A">${sale.customer_name || "—"}</b></span>
+            <span>${shopName || "MERX"}</span>
+          </div>
+        </div>
+        <div class="footer">
+          <div class="thanks">Rahmat! Yana kutamiz 🙏</div>
+          <div class="sub">${shopName || "MERX"} · ${sale.date || ""}</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn-print" onclick="window.print()">🖨 PDF sifatida saqlash</button>
+      </div>
+    </div>
+    </body></html>`;
+}
+
+async function actionRenderReceipt(chekId) {
+  const isNumericId = /^ID\d+$/.test(chekId);
+  const query = isNumericId
+    ? `?id=eq.${chekId.slice(2)}&select=*`
+    : `?chek_num=eq.${encodeURIComponent(chekId)}&select=*`;
+
+  const rows = await sb("sales", query);
+  const sale = rows?.[0];
+
+  const sets = await sb("settings", `?limit=1&select=shop_name`);
+  const shopName = sets?.[0]?.shop_name || "MERX";
+
+  if (!sale) {
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Chek topilmadi</title></head>
+      <body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#F2F0EB">
+        <div style="text-align:center;color:#888">
+          <div style="font-size:40px;margin-bottom:8px">⚠️</div>
+          <div>Chek topilmadi: ${chekId}</div>
+        </div>
+      </body></html>`;
+  }
+
+  return renderReceiptHtml(sale, shopName);
 }
 
 // ── /help ────────────────────────────────────────────────────
@@ -430,6 +571,22 @@ export default async function handler(req, res) {
       ok: r.ok,
       message: r.ok ? `✅ Webhook ulandi: ${webhookUrl}` : `❌ ${r.description}`,
     });
+  }
+
+  // Chek sahifasi (HTML, Print/PDF) — brauzerda ochiladi
+  if (req.method === "GET" && req.query?.action === "receipt") {
+    try {
+      const chekId = String(req.query.id || "");
+      if (!chekId) {
+        return res.status(400).send("Chek ID kerak: ?action=receipt&id=CHK-...");
+      }
+      const html = await actionRenderReceipt(chekId);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(200).send(html);
+    } catch (e) {
+      console.error("receipt xato:", e.message);
+      return res.status(500).send("Xato: " + e.message);
+    }
   }
 
   if (req.method !== "POST") {

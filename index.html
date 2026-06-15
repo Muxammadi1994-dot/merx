@@ -1256,11 +1256,12 @@
         <div class="ch"><h3><i class="ti ti-brand-telegram"></i>Telegram bot</h3><span class="bg bg-gr" id="tg-bot-status-badge">Sozlanmagan</span></div>
         <div style="padding:16px 18px">
           <div class="fld"><label>Bot API manzili (Vercel)</label><input id="s-tg-bot-url" placeholder="https://merx-rho.vercel.app/api/bot" oninput="saveSetting('telegramBotUrl',this.value)"></div>
+          <div class="fld"><label>Bot username</label><input id="s-tg-bot-username" placeholder="merx_savdo_bot (@ siz)" oninput="saveSetting('telegramBotUsername',this.value)"></div>
           <div style="display:flex;gap:8px;margin-bottom:10px">
             <button class="btn btn-teal btn-sm" onclick="testTelegramBot()"><i class="ti ti-send"></i>Ulanishni tekshirish</button>
           </div>
           <div style="background:var(--bg);border-radius:var(--rs);padding:10px 12px;font-size:12.5px;color:var(--mut);line-height:1.6">
-            <b style="color:var(--ink)">Qanday ishlaydi:</b> mijoz botga <code>/start</code> bosib telefon raqamini ulashgach, har bir sotuvda chek avtomatik shu mijozga Telegram orqali yuboriladi.
+            <b style="color:var(--ink)">Qanday ishlaydi:</b> mijoz botga <code>/start</code> bosib telefon raqamini ulashgach, har bir sotuvda chek avtomatik shu mijozga Telegram orqali yuboriladi. Chekda bot havolasi va PDF ko'rish tugmasi chiqadi.
           </div>
         </div>
       </div>
@@ -1861,23 +1862,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=7"></script>
-<script src="js/utils.js?v=7"></script>
-<script src="js/sms.js?v=7"></script>
-<script src="js/cloud.js?v=7"></script>
-<script src="js/dashboard.js?v=7"></script>
-<script src="js/pos.js?v=7"></script>
-<script src="js/katalog.js?v=7"></script>
-<script src="js/ombor.js?v=7"></script>
-<script src="js/mijozlar.js?v=7"></script>
-<script src="js/qarzlar.js?v=7"></script>
-<script src="js/tarix.js?v=7"></script>
-<script src="js/hisobot.js?v=7"></script>
-<script src="js/xodimlar.js?v=7"></script>
-<script src="js/moliya.js?v=7"></script>
-<script src="js/egasi.js?v=7"></script>
-<script src="js/portal.js?v=7"></script>
-<script src="js/init.js?v=7"></script>
+<script src="js/db.js?v=8"></script>
+<script src="js/utils.js?v=8"></script>
+<script src="js/sms.js?v=8"></script>
+<script src="js/cloud.js?v=8"></script>
+<script src="js/dashboard.js?v=8"></script>
+<script src="js/pos.js?v=8"></script>
+<script src="js/katalog.js?v=8"></script>
+<script src="js/ombor.js?v=8"></script>
+<script src="js/mijozlar.js?v=8"></script>
+<script src="js/qarzlar.js?v=8"></script>
+<script src="js/tarix.js?v=8"></script>
+<script src="js/hisobot.js?v=8"></script>
+<script src="js/xodimlar.js?v=8"></script>
+<script src="js/moliya.js?v=8"></script>
+<script src="js/egasi.js?v=8"></script>
+<script src="js/portal.js?v=8"></script>
+<script src="js/init.js?v=8"></script>
 
 <!-- MODAL: CHEK -->
 <div class="ov" id="ov-receipt" onclick="if(event.target===this)closeReceipt()">
@@ -2336,7 +2337,7 @@
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=7"></script>
-<script src="js/superadmin.js?v=7"></script>
+<script src="js/auth.js?v=8"></script>
+<script src="js/superadmin.js?v=8"></script>
 </body>
 </html>

@@ -981,6 +981,12 @@ function printReceiptPos() {
         ${sale.due ? `<div class="sum-row debt-due"><span>To'lov muddati</span><span>${sale.due}</span></div>` : ""}` : `
         <div class="status-ok">✓ To'liq to'landi</div>`;
 
+  const botUsername = (db.settings?.telegramBotUsername || "").replace(/^@/, "");
+  const botApiUrl   = db.settings?.telegramBotUrl || "";
+  const receiptUrl  = botApiUrl
+    ? `${botApiUrl}?action=receipt&id=${encodeURIComponent(sale.chekNum || ("ID"+sale.id))}`
+    : "";
+
   const html = `<!DOCTYPE html>
     <html><head><meta charset="UTF-8"><title>Chek ${sale.chekNum||"#"+sale.id}</title>
     <style>
@@ -1062,10 +1068,12 @@ function printReceiptPos() {
         <div class="footer">
           <div class="thanks">Rahmat! Yana kutamiz 🙏</div>
           <div class="sub">${shopName} · ${sale.date}</div>
+          ${botUsername ? `<div class="sub" style="margin-top:6px">🤖 Cheklarni Telegramda olish: <b style="color:#229ED9">@${botUsername}</b></div>` : ""}
         </div>
       </div>
       <div class="actions">
         <button class="btn-print" onclick="window.print()">🖨 Chop etish</button>
+        ${receiptUrl ? `<button class="btn-close" onclick="window.open('${receiptUrl}','_blank')">📄 PDF havolasi</button>` : ""}
         <button class="btn-close" onclick="window.close()">Yopish</button>
       </div>
     </div>
