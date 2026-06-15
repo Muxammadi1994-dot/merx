@@ -113,7 +113,8 @@ async function pushToCloud() {
     await sync("customers", db.customers?.map(c => ({
       id: c.id, name: c.name,
       phone: c.phone || null,
-      type: c.type || "ulgurji"
+      type: c.type || "ulgurji",
+      telegram_chat_id: c.telegramChatId || null
     })));
 
     await sync("staff", db.staff?.map(s => ({
@@ -206,7 +207,8 @@ async function pullFromCloud() {
     if (custs && custs.length > 0) {
       db.customers = custs.map(c => ({
         id: c.local_id || c.id, name: c.name, phone: c.phone || "",
-        type: c.type || "ulgurji", note: c.note || ""
+        type: c.type || "ulgurji", note: c.note || "",
+        telegramChatId: c.telegram_chat_id || null
       }));
     }
 

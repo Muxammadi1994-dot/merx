@@ -754,6 +754,11 @@ async function checkout() {
   };
   db.sales.push(newSale); saveDB();
 
+  // Telegram bot orqali avtomatik chek (mijoz botga ulangan bo'lsa)
+  if (customerId && typeof sendTelegramReceipt === "function") {
+    sendTelegramReceipt(customerId, newSale);
+  }
+
   // SMS (boyitilgan)
   if (cPhone && cPhone.replace(/\D/g,"").length >= 9) {
     const shopName = db.shop?.name || "MERX";
@@ -917,9 +922,9 @@ function showReceiptModal(sale) {
     }
   }
 
-  // WhatsApp tugmasi
+  // Telegram ulashish tugmasi — har doim ko'rsatiladi
   const waBtn = $("rcp-wa-btn");
-  if (waBtn) waBtn.style.display = sale.customerPhone ? "flex" : "none";
+  if (waBtn) waBtn.style.display = "flex";
 
   openModal("receipt");
 }
@@ -928,30 +933,28 @@ function closeReceipt() {
   closeModal("receipt");
 }
 
-function shareWhatsApp() {
+function shareTelegram() {
   if (!_lastSale) return;
   const sale     = _lastSale;
   const shopName = db.shop?.name || "MERX";
   const payLabels = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma" };
   const lines = [
-    `🧾 *${shopName}* — Chek`,
+    `🧾 ${shopName} — Chek`,
     `📌 ${sale.chekNum || "#"+sale.id} | ${sale.date} ${sale.time||""}`,
     ``,
-    ...sale.items.map(i => `▪ ${i.name} (${i.variant}) × ${i.qty} ${i.unit} = *${fmt(i.price*i.qty)} so'm*`),
+    ...sale.items.map(i => `▪ ${i.name} (${i.variant}) × ${i.qty} ${i.unit} = ${fmt(i.price*i.qty)} so'm`),
     ``,
     sale.discount > 0 ? `Chegirma: -${fmt(sale.discount)} so'm` : null,
-    `*Jami: ${fmt(sale.total)} so'm*`,
+    `Jami: ${fmt(sale.total)} so'm`,
     `To'lov: ${payLabels[sale.payType]||sale.payType}`,
     sale.remaining > 0 ? `Qarz: ${sale.debtCurrency==="usd"&&sale.debtUsd ? "$"+sale.debtUsd.toFixed(2) : fmt(sale.remaining)+" so'm"}` : `✅ To'liq to'landi`,
     sale.due ? `Muddat: ${sale.due}` : null,
     ``,
-    `_Rahmat! Yana kutamiz 🙏_`
+    `Rahmat! Yana kutamiz 🙏`
   ].filter(l => l !== null).join("\n");
 
-  const phone = sale.customerPhone?.replace(/\D/g,"");
-  const url   = phone
-    ? `https://wa.me/${phone.startsWith("998") ? phone : "998"+phone}?text=${encodeURIComponent(lines)}`
-    : `https://wa.me/?text=${encodeURIComponent(lines)}`;
+  // Telegram share dialog — istalgan chatga yuborish mumkin
+  const url = `https://t.me/share/url?url=&text=${encodeURIComponent(lines)}`;
   window.open(url, "_blank");
 }
 

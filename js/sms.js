@@ -28,3 +28,51 @@ async function testSms() {
   if (!phone) return;
   await sendSms(phone, "MERX test SMS. Tizim to'g'ri ishlayapti! " + new Date().toLocaleTimeString());
 }
+
+// ================================================
+// Telegram bot orqali chek yuborish
+// ================================================
+
+// Mijozga avtomatik chek yuborish (sotuv yakunlangach chaqiriladi)
+async function sendTelegramReceipt(customerId, sale) {
+  const botUrl = db.settings?.telegramBotUrl;
+  if (!botUrl || !customerId) return;
+
+  try {
+    const res = await fetch(botUrl + "?action=send_receipt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        customerId,
+        sale,
+        shopName: db.shop?.name || "MERX"
+      })
+    });
+    const data = await res.json();
+    if (data.sent) {
+      toast("📨 Chek mijozga Telegram orqali yuborildi");
+    }
+    // data.reason === "no_telegram" bo'lsa — mijoz botga ulanmagan, jim o'tamiz
+  } catch (e) {
+    // Tarmoq xatosi bo'lsa ham sotuvga ta'sir qilmasligi kerak
+    console.warn("Telegram chek yuborilmadi:", e.message);
+  }
+}
+
+// Sozlamalardan "Ulanishni tekshirish" tugmasi
+async function testTelegramBot() {
+  const botUrl = ($("s-tg-bot-url")||{value:""}).value.trim();
+  if (!botUrl) { toast("Bot manzilini kiriting","err"); return; }
+
+  try {
+    const res = await fetch(botUrl);
+    const data = await res.json();
+    if (data.ok) {
+      toast("✅ Bot bilan ulanish muvaffaqiyatli!");
+    } else {
+      toast("Bot javob berdi, lekin xato bor","err");
+    }
+  } catch (e) {
+    toast("❌ Bot manzilga ulanib bo'lmadi","err");
+  }
+}

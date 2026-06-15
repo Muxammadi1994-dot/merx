@@ -326,6 +326,14 @@ function saveSetting(key, val) {
   }
   if (key === "rate") { if (typeof updateRatePill === "function") updateRatePill(); }
   if (key === "name") { if (!db.shop) db.shop = {}; db.shop.name = val; saveDB(); }
+  if (key === "telegramBotUrl") {
+    const tgBadge = $("tg-bot-status-badge");
+    if (tgBadge) {
+      const has = !!val;
+      tgBadge.textContent = has ? "Sozlangan ✅" : "Sozlanmagan";
+      tgBadge.className   = has ? "bg bg-g" : "bg bg-gr";
+    }
+  }
 }
 
 function setShopType(t) {
@@ -368,6 +376,15 @@ function renderEgasi() {
   if (typeof updateSmsUI        === "function") updateSmsUI();
   if (typeof initChakanaToggle  === "function") initChakanaToggle();
   if (typeof updateCostCurrency === "function") updateCostCurrency();
+
+  // Telegram bot
+  if ($("s-tg-bot-url")) $("s-tg-bot-url").value = db.settings?.telegramBotUrl || "";
+  const tgBadge = $("tg-bot-status-badge");
+  if (tgBadge) {
+    const has = !!db.settings?.telegramBotUrl;
+    tgBadge.textContent = has ? "Sozlangan ✅" : "Sozlanmagan";
+    tgBadge.className   = has ? "bg bg-g" : "bg bg-gr";
+  }
 
   // Kam qoldiq chegara
   const lsInput = $("s-low-stock");

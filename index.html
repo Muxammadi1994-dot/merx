@@ -1252,6 +1252,19 @@
         </div>
       </div>
 
+      <div class="card">
+        <div class="ch"><h3><i class="ti ti-brand-telegram"></i>Telegram bot</h3><span class="bg bg-gr" id="tg-bot-status-badge">Sozlanmagan</span></div>
+        <div style="padding:16px 18px">
+          <div class="fld"><label>Bot API manzili (Vercel)</label><input id="s-tg-bot-url" placeholder="https://merx-rho.vercel.app/api/bot" oninput="saveSetting('telegramBotUrl',this.value)"></div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <button class="btn btn-teal btn-sm" onclick="testTelegramBot()"><i class="ti ti-send"></i>Ulanishni tekshirish</button>
+          </div>
+          <div style="background:var(--bg);border-radius:var(--rs);padding:10px 12px;font-size:12.5px;color:var(--mut);line-height:1.6">
+            <b style="color:var(--ink)">Qanday ishlaydi:</b> mijoz botga <code>/start</code> bosib telefon raqamini ulashgach, har bir sotuvda chek avtomatik shu mijozga Telegram orqali yuboriladi.
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ MAYDONLAR BOSHQARUVI ═══ -->
       <div class="card" style="grid-column:1/-1">
         <div class="ch">
@@ -1848,23 +1861,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=6"></script>
-<script src="js/utils.js?v=6"></script>
-<script src="js/sms.js?v=6"></script>
-<script src="js/cloud.js?v=6"></script>
-<script src="js/dashboard.js?v=6"></script>
-<script src="js/pos.js?v=6"></script>
-<script src="js/katalog.js?v=6"></script>
-<script src="js/ombor.js?v=6"></script>
-<script src="js/mijozlar.js?v=6"></script>
-<script src="js/qarzlar.js?v=6"></script>
-<script src="js/tarix.js?v=6"></script>
-<script src="js/hisobot.js?v=6"></script>
-<script src="js/xodimlar.js?v=6"></script>
-<script src="js/moliya.js?v=6"></script>
-<script src="js/egasi.js?v=6"></script>
-<script src="js/portal.js?v=6"></script>
-<script src="js/init.js?v=6"></script>
+<script src="js/db.js?v=7"></script>
+<script src="js/utils.js?v=7"></script>
+<script src="js/sms.js?v=7"></script>
+<script src="js/cloud.js?v=7"></script>
+<script src="js/dashboard.js?v=7"></script>
+<script src="js/pos.js?v=7"></script>
+<script src="js/katalog.js?v=7"></script>
+<script src="js/ombor.js?v=7"></script>
+<script src="js/mijozlar.js?v=7"></script>
+<script src="js/qarzlar.js?v=7"></script>
+<script src="js/tarix.js?v=7"></script>
+<script src="js/hisobot.js?v=7"></script>
+<script src="js/xodimlar.js?v=7"></script>
+<script src="js/moliya.js?v=7"></script>
+<script src="js/egasi.js?v=7"></script>
+<script src="js/portal.js?v=7"></script>
+<script src="js/init.js?v=7"></script>
 
 <!-- MODAL: CHEK -->
 <div class="ov" id="ov-receipt" onclick="if(event.target===this)closeReceipt()">
@@ -1951,8 +1964,8 @@
       <button onclick="printReceiptPos()" style="padding:10px;border-radius:10px;border:1.5px solid #E8E5E0;background:#fff;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;color:#444;transition:.15s" onmouseover="this.style.borderColor='#0D1B2A'" onmouseout="this.style.borderColor='#E8E5E0'">
         <i class="ti ti-printer"></i> Print
       </button>
-      <button id="rcp-wa-btn" onclick="shareWhatsApp()" style="padding:10px;border-radius:10px;border:1.5px solid #25D366;background:#fff;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;color:#25D366;transition:.15s" onmouseover="this.style.background='#25D366';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#25D366'">
-        <i class="ti ti-brand-whatsapp"></i> WhatsApp
+      <button id="rcp-wa-btn" onclick="shareTelegram()" style="padding:10px;border-radius:10px;border:1.5px solid #229ED9;background:#fff;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;color:#229ED9;transition:.15s" onmouseover="this.style.background='#229ED9';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#229ED9'">
+        <i class="ti ti-brand-telegram"></i> Telegram
       </button>
       <button onclick="closeReceipt()" style="padding:10px;border-radius:10px;border:none;background:#E9A500;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;color:#fff;transition:.15s" onmouseover="this.style.background='#d49400'" onmouseout="this.style.background='#E9A500'">
         Keyingi →
@@ -2323,7 +2336,7 @@
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=6"></script>
-<script src="js/superadmin.js?v=6"></script>
+<script src="js/auth.js?v=7"></script>
+<script src="js/superadmin.js?v=7"></script>
 </body>
 </html>
