@@ -1,128 +1,171 @@
 // ════════════════════════════════════════════════════════════════
-// MERX Telegram Bot  |  api/bot.js  |  v1.0  |  2026-06-13
-// Vercel Serverless Function — faqat shu fayl kerak
-//
-// SOZLASH (Vercel → Settings → Environment Variables):
-//   TELEGRAM_BOT_TOKEN   — BotFather dan olingan token
-//   SUPABASE_URL         — https://xxxx.supabase.co
-//   SUPABASE_KEY         — anon/service key
-//   BOT_OWNER_CHAT_ID    — Egasining Telegram chat ID si
-//   LOW_STOCK_LIMIT      — (ixtiyoriy) kam qoldiq chegarasi, default: 5
-//
-// WEBHOOK ULASH (bir marta brauzerda ochiladi):
-//   https://merx-rho.vercel.app/api/bot?setup=1
+// MERX Telegram Bot  |  api/bot.js  |  v1.2  |  2026-06-13
 // ════════════════════════════════════════════════════════════════
 
-const TOKEN    = process.env.TELEGRAM_BOT_TOKEN;
-const SB_URL   = process.env.SUPABASE_URL;
-const SB_KEY   = process.env.SUPABASE_KEY;
-const OWNER_ID = process.env.BOT_OWNER_CHAT_ID;
+const TOKEN     = process.env.TELEGRAM_BOT_TOKEN;
+const SB_URL    = process.env.SUPABASE_URL;
+const SB_KEY    = process.env.SUPABASE_KEY;
+const OWNER_ID  = process.env.BOT_OWNER_CHAT_ID;
 const LOW_LIMIT = parseInt(process.env.LOW_STOCK_LIMIT || "5");
 
-// shop_id — Supabase URL dan avtomatik olinadi
-// masalan: https://abcdef.supabase.co → "abcdef"
-const SHOP_ID = (() => {
-  const m = (process.env.SUPABASE_URL || "").match(/https:\/\/([^.]+)\.supabase\.co/);
-  return m ? m[1] : "default";
-})();
-
-const TG = (method, body) =>
-  fetch(`https://api.telegram.org/bot${TOKEN}/${method}`, {
+// Telegram xabar yuborish
+async function tg(chatId, text, extra = {}) {
+  const body = { chat_id: chatId, text, ...extra };
+  const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }).then(r => r.json());
-
-// ── Supabase so'rov yordamchi ─────────────────────────────────
-async function sb(table, query = "") {
-  const res = await fetch(`${SB_URL}/rest/v1/${table}${query}`, {
-    headers: {
-      apikey: SB_KEY,
-      Authorization: `Bearer ${SB_KEY}`,
-      "Content-Type": "application/json",
-    },
   });
-  if (!res.ok) throw new Error(`Supabase [${table}]: ${res.status}`);
   return res.json();
 }
 
-// ── Supabase PATCH (to'lov qabul qilish uchun) ───────────────
+// Telegram callback javob
+async function tgAnswer(callbackId) {
+  await fetch(`https://api.telegram.org/bot${TOKEN}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callback_query_id: callbackId }),
+  });
+}
+
+// Supabase GET
+async function sb(table, query = "") {
+  const url = `${SB_URL}/rest/v1/${table}${query}`;
+  const res = await fetch(url, {
+    headers: {
+      apikey: SB_KEY,
+      Authorization: `Bearer ${SB_KEY}`,
+    },
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Supabase ${table}: ${res.status} — ${err}`);
+  }
+  return res.json();
+}
+
+// Supabase PATCH (yozuvni yangilash)
 async function sbPatch(table, query, body) {
-  const res = await fetch(`${SB_URL}/rest/v1/${table}${query}`, {
+  const url = `${SB_URL}/rest/v1/${table}${query}`;
+  const res = await fetch(url, {
     method: "PATCH",
     headers: {
       apikey: SB_KEY,
       Authorization: `Bearer ${SB_KEY}`,
       "Content-Type": "application/json",
-      Prefer: "return=minimal",
+      Prefer: "return=representation",
     },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`PATCH [${table}]: ${res.status}`);
-  return true;
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Supabase PATCH ${table}: ${res.status} — ${err}`);
+  }
+  return res.json();
 }
 
-// ── Son formatlash ────────────────────────────────────────────
-const fmt = n => Math.round(n || 0).toLocaleString("ru-RU");
+// Telefon raqamini faqat raqamlarga keltirish (solishtirish uchun)
+function normPhone(p) {
+  return (p || "").replace(/\D/g, "");
+}
+
+const fmt   = n => Math.round(n || 0).toLocaleString("ru-RU");
 const today = () => new Date().toISOString().slice(0, 10);
 
-// ── Ruxsat tekshiruvi ────────────────────────────────────────
-// Hozircha faqat OWNER_ID — keyinroq xodim IDlarini
-// settings jadvaliga qo'shib kengaytirish mumkin
 function isAllowed(chatId) {
-  if (!OWNER_ID) return true; // Agar ID o'rnatilmagan — ochiq
+  if (!OWNER_ID) return true;
   return String(chatId) === String(OWNER_ID);
 }
 
-// ════════════════════════════════════════════════════════════════
-// KOMANDALAR
-// ════════════════════════════════════════════════════════════════
-
-// /start — boshlash xabari
+// ── /start ───────────────────────────────────────────────────
 async function cmdStart(chatId) {
-  const txt =
-    `🟡 *MERX Savdo Tizimi*\n\n` +
-    `Salom\\! Men sizning do'koningiz boshqaruvchisiman\\.\n\n` +
-    `*Komandalar:*\n` +
-    `📊 /hisobot — bugungi savdo hisoboti\n` +
-    `💰 /balans — kassa holati\n` +
-    `📦 /ombor — kam qolgan tovarlar\n` +
-    `🔴 /qarzlar — muddati o'tgan qarzlar\n` +
-    `📋 /barcha\\_qarzlar — barcha qarzlar\n` +
-    `❓ /help — yordam`;
+  // Agar bu do'kon egasi bo'lsa — to'liq menyu
+  if (OWNER_ID && String(chatId) === String(OWNER_ID)) {
+    const txt =
+      "🟡 MERX Savdo Tizimi\n\n" +
+      "Salom! Men sizning do'koningiz yordamchisiman.\n\n" +
+      "Komandalar:\n" +
+      "📊 /hisobot — bugungi savdo\n" +
+      "💰 /balans — kassa holati\n" +
+      "📦 /ombor — kam qolgan tovarlar\n" +
+      "🔴 /qarzlar — muddati o'tgan qarzlar\n" +
+      "📋 /barcha_qarzlar — barcha qarzlar\n" +
+      "❓ /help — yordam";
+    await tg(chatId, txt);
+    return;
+  }
 
-  await TG("sendMessage", {
-    chat_id: chatId,
-    text: txt,
-    parse_mode: "MarkdownV2",
+  // Mijoz uchun — telefon raqamini so'raymiz
+  const txt =
+    "🟡 MERX do'konimizga xush kelibsiz!\n\n" +
+    "Endi xaridlaringiz uchun cheklarni shu botda avtomatik olishingiz mumkin.\n\n" +
+    "Davom etish uchun telefon raqamingizni ulashing 👇";
+
+  await tg(chatId, txt, {
+    reply_markup: {
+      keyboard: [[{ text: "📱 Raqamni ulashish", request_contact: true }]],
+      resize_keyboard: true,
+      one_time_keyboard: true,
+    },
   });
 }
 
-// /hisobot — bugungi savdo hisoboti
-async function cmdHisobot(chatId) {
+// ── Kontakt qabul qilish (mijoz raqamini ulashganda) ──────────
+async function handleContact(chatId, contact) {
+  const phone = normPhone(contact.phone_number);
+
   try {
-    const t = today();
+    // customers jadvalida shu raqamga mos mijozni topamiz
+    const all = await sb("customers", `?select=id,phone,name,telegram_chat_id`);
+    const match = all.find(c => {
+      const cp = normPhone(c.phone);
+      // 998901234567 va 901234567 ikkalasini ham solishtiramiz
+      return cp && (cp === phone || cp === phone.replace(/^998/, "") || phone === cp.replace(/^998/, ""));
+    });
 
-    // Bugungi sotuvlar
-    const sales = await sb(
-      "sales",
-      `?date=eq.${t}&order=created_at.desc`
-    );
-
-    if (!sales.length) {
-      await TG("sendMessage", {
-        chat_id: chatId,
-        text: `📊 *Bugungi hisobot* — ${t}\n\n⚪ Bugun hali sotuv yo'q\\.`,
-        parse_mode: "MarkdownV2",
-      });
+    if (!match) {
+      await tg(chatId,
+        "⚠️ Raqamingiz bizning mijozlar bazasida topilmadi.\n\n" +
+        "Birinchi xaridingizdan so'ng avtomatik bog'lanadi. Iltimos, do'konda xarid qiling.",
+        { reply_markup: { remove_keyboard: true } }
+      );
       return;
     }
 
-    // Hisob-kitob
+    // telegram_chat_id ni yangilaymiz
+    await sbPatch("customers", `?id=eq.${match.id}`, { telegram_chat_id: String(chatId) });
+
+    await tg(chatId,
+      `✅ Rahmat, ${match.name}!\n\n` +
+      "Endi har bir xaridingiz uchun chek shu yerga avtomatik keladi. 🧾",
+      { reply_markup: { remove_keyboard: true } }
+    );
+  } catch (e) {
+    console.error("contact xato:", e.message);
+    await tg(chatId, `⚠️ Xato yuz berdi: ${e.message}`, { reply_markup: { remove_keyboard: true } });
+  }
+}
+
+// ── /hisobot ─────────────────────────────────────────────────
+async function cmdHisobot(chatId) {
+  try {
+    const t = today();
+    const [sales, xarajat] = await Promise.all([
+      sb("sales", `?date=eq.${t}&order=created_at.desc`),
+      sb("xarajatlar", `?date=eq.${t}`),
+    ]);
+
+    if (!sales.length) {
+      await tg(chatId, `📊 Bugungi hisobot — ${t}\n\n⚪ Bugun hali sotuv yo'q`);
+      return;
+    }
+
     const totalSales = sales.length;
     const totalSum   = sales.reduce((s, x) => s + Number(x.total || 0), 0);
     const totalPaid  = sales.reduce((s, x) => s + Number(x.paid || 0), 0);
     const totalDebt  = sales.reduce((s, x) => s + Number(x.remaining || 0), 0);
+    const totalExp   = xarajat.reduce((s, x) => s + Number(x.amount || 0), 0);
+    const foyda      = totalPaid - totalExp;
 
     // To'lov turi bo'yicha
     const byType = {};
@@ -132,7 +175,7 @@ async function cmdHisobot(chatId) {
     }
     const typeLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", nasiya: "Nasiya" };
 
-    // Eng ko'p sotilgan mahsulot
+    // Eng ko'p sotilgan
     const itemCounts = {};
     for (const s of sales) {
       for (const it of (s.items || [])) {
@@ -140,156 +183,115 @@ async function cmdHisobot(chatId) {
         itemCounts[it.name] = (itemCounts[it.name] || 0) + (it.qty || 1);
       }
     }
-    const topItem = Object.entries(itemCounts)
-      .sort((a, b) => b[1] - a[1])[0];
+    const topItem = Object.entries(itemCounts).sort((a, b) => b[1] - a[1])[0];
 
-    // Xarajatlar
-    const xarajat = await sb("xarajatlar", `?date=eq.${t}`);
-    const totalExp = xarajat.reduce((s, x) => s + Number(x.amount || 0), 0);
-    const foyda    = totalPaid - totalExp;
-
-    // Xabar matni
-    let txt =
-      `📊 *Bugungi savdo hisoboti*\n` +
-      `📅 ${t}\n\n` +
-      `🛍 Sotuvlar: *${totalSales} ta*\n` +
-      `💵 Jami summa: *${fmt(totalSum)} so'm*\n` +
-      `✅ To'langan: *${fmt(totalPaid)} so'm*\n` +
-      (totalDebt > 0 ? `🔴 Nasiya: *${fmt(totalDebt)} so'm*\n` : "") +
-      `\n📌 *To'lov turlari:*\n`;
-
+    let txt = `📊 Bugungi savdo hisoboti\n`;
+    txt += `📅 ${t}\n\n`;
+    txt += `🛍 Sotuvlar: ${totalSales} ta\n`;
+    txt += `💵 Jami summa: ${fmt(totalSum)} so'm\n`;
+    txt += `✅ To'langan: ${fmt(totalPaid)} so'm\n`;
+    if (totalDebt > 0) txt += `🔴 Nasiya: ${fmt(totalDebt)} so'm\n`;
+    txt += `\n📌 To'lov turlari:\n`;
     for (const [k, v] of Object.entries(byType)) {
       txt += `  ${typeLabels[k] || k}: ${fmt(v)} so'm\n`;
     }
+    if (topItem) txt += `\n🏆 Eng ko'p: ${topItem[0]} (${topItem[1]} dona)\n`;
+    txt += `\n💸 Xarajatlar: ${fmt(totalExp)} so'm\n`;
+    txt += `💰 Toza foyda: ${fmt(foyda)} so'm`;
 
-    if (topItem) {
-      txt += `\n🏆 Eng ko'p sotilgan: *${topItem[0]}* \\(${topItem[1]} dona\\)\n`;
-    }
-
-    txt +=
-      `\n💸 Xarajatlar: *${fmt(totalExp)} so'm*\n` +
-      `💰 Toza kirim: *${fmt(foyda)} so'm*`;
-
-    await TG("sendMessage", {
-      chat_id: chatId,
-      text: escapeMd(txt),
-      parse_mode: "MarkdownV2",
-    });
+    await tg(chatId, txt);
   } catch (e) {
-    await sendError(chatId, "hisobot", e);
+    console.error("hisobot xato:", e.message);
+    await tg(chatId, `⚠️ Xato: ${e.message}`);
   }
 }
 
-// /balans — kassa holati
+// ── /balans ──────────────────────────────────────────────────
 async function cmdBalans(chatId) {
   try {
     const t = today();
-
-    const [sales, xarajat, settings] = await Promise.all([
-      sb("sales",      `?date=eq.${t}`),
+    const [sales, xarajat, sets] = await Promise.all([
+      sb("sales", `?date=eq.${t}`),
       sb("xarajatlar", `?date=eq.${t}`),
-      sb("settings",   `?limit=1`),
+      sb("settings", `?limit=1`),
     ]);
 
-    const rate = Number(settings[0]?.rate || 12800);
-
-    const naqd    = sales.filter(s => s.pay_type === "naqd")
-                         .reduce((a, s) => a + Number(s.paid || 0), 0);
-    const karta   = sales.filter(s => s.pay_type === "karta")
-                         .reduce((a, s) => a + Number(s.paid || 0), 0);
-    const otkazma = sales.filter(s => s.pay_type === "otkazma")
-                         .reduce((a, s) => a + Number(s.paid || 0), 0);
+    const rate    = Number(sets[0]?.rate || 12800);
+    const naqd    = sales.filter(s => s.pay_type === "naqd").reduce((a, s) => a + Number(s.paid || 0), 0);
+    const karta   = sales.filter(s => s.pay_type === "karta").reduce((a, s) => a + Number(s.paid || 0), 0);
+    const otkazma = sales.filter(s => s.pay_type === "otkazma").reduce((a, s) => a + Number(s.paid || 0), 0);
     const nasiya  = sales.reduce((a, s) => a + Number(s.remaining || 0), 0);
     const kirim   = naqd + karta + otkazma;
-
     const xar     = xarajat.reduce((a, x) => a + Number(x.amount || 0), 0);
     const foyda   = kirim - xar;
-    const foydaUsd = (foyda / rate).toFixed(2);
 
-    const txt =
-      `💰 *Kassa holati* — ${t}\n\n` +
-      `💵 Naqd: ${fmt(naqd)} so'm\n` +
-      `💳 Karta: ${fmt(karta)} so'm\n` +
-      `🏦 O'tkazma: ${fmt(otkazma)} so'm\n` +
-      `━━━━━━━━━━━━━━━\n` +
-      `📥 Jami kirim: *${fmt(kirim)} so'm*\n` +
-      `📤 Xarajat: ${fmt(xar)} so'm\n` +
-      `━━━━━━━━━━━━━━━\n` +
-      `✨ Toza foyda: *${fmt(foyda)} so'm*\n` +
-      `    ≈ $${foydaUsd}\n\n` +
-      (nasiya > 0 ? `🔴 Bugun nasiyaga: ${fmt(nasiya)} so'm` : `✅ Barcha to'lovlar qabul qilindi`);
+    let txt = `💰 Kassa holati — ${t}\n\n`;
+    txt += `💵 Naqd: ${fmt(naqd)} so'm\n`;
+    txt += `💳 Karta: ${fmt(karta)} so'm\n`;
+    txt += `🏦 O'tkazma: ${fmt(otkazma)} so'm\n`;
+    txt += `─────────────────\n`;
+    txt += `📥 Jami kirim: ${fmt(kirim)} so'm\n`;
+    txt += `📤 Xarajat: ${fmt(xar)} so'm\n`;
+    txt += `─────────────────\n`;
+    txt += `✨ Toza foyda: ${fmt(foyda)} so'm\n`;
+    txt += `   ≈ $${(foyda / rate).toFixed(2)}\n`;
+    if (nasiya > 0) {
+      txt += `\n🔴 Bugun nasiyaga: ${fmt(nasiya)} so'm`;
+    } else {
+      txt += `\n✅ Barcha to'lovlar qabul qilindi`;
+    }
 
-    await TG("sendMessage", {
-      chat_id: chatId,
-      text: escapeMd(txt),
-      parse_mode: "MarkdownV2",
-    });
+    await tg(chatId, txt);
   } catch (e) {
-    await sendError(chatId, "balans", e);
+    console.error("balans xato:", e.message);
+    await tg(chatId, `⚠️ Xato: ${e.message}`);
   }
 }
 
-// /ombor — kam qolgan tovarlar
+// ── /ombor ───────────────────────────────────────────────────
 async function cmdOmbor(chatId) {
   try {
-    // Barcha mahsulotlarni olish va variants ichidan tekshirish
     const products = await sb("products", `?order=name`);
 
     const low = [];
     for (const p of products) {
-      const variants = p.variants || [];
-      for (const v of variants) {
-        if (Number(v.qty || 0) <= LOW_LIMIT && Number(v.qty || 0) > 0) {
+      for (const v of (p.variants || [])) {
+        if (Number(v.qty || 0) <= LOW_LIMIT) {
           low.push({
             name: p.name,
-            color: v.color || "—",
-            size: v.size || "—",
-            qty: v.qty,
+            color: v.color || "",
+            size: v.size || "",
+            qty: Number(v.qty || 0),
           });
         }
-      }
-      // Nol qolganlar
-      const zeroVars = variants.filter(v => Number(v.qty || 0) === 0);
-      if (zeroVars.length && zeroVars.length === variants.length) {
-        low.push({ name: p.name, color: "barcha", size: "ranglar", qty: 0 });
       }
     }
 
     if (!low.length) {
-      await TG("sendMessage", {
-        chat_id: chatId,
-        text: `📦 *Ombor holati*\n\n✅ Barcha tovarlar yetarli \\(>${LOW_LIMIT} dona\\)`,
-        parse_mode: "MarkdownV2",
-      });
+      await tg(chatId, `📦 Ombor holati\n\n✅ Barcha tovarlar yetarli (>${LOW_LIMIT} dona)`);
       return;
     }
 
-    // Maksimal 30 ta ko'rsatamiz
-    const shown = low.slice(0, 30);
-    let txt = `📦 *Kam qolgan tovarlar* \\(≤${LOW_LIMIT} dona\\)\n`;
+    let txt = `📦 Kam qolgan tovarlar (≤${LOW_LIMIT} dona)\n`;
     txt += `Jami: ${low.length} ta variant\n\n`;
 
-    for (const item of shown) {
+    for (const item of low.slice(0, 25)) {
       const emoji = item.qty === 0 ? "🔴" : item.qty <= 2 ? "🟠" : "🟡";
-      txt += `${emoji} ${item.name}\n`;
-      txt += `   ${item.color} / ${item.size} — *${item.qty} dona*\n`;
+      txt += `${emoji} ${item.name}`;
+      if (item.color) txt += ` / ${item.color}`;
+      if (item.size)  txt += ` / ${item.size}`;
+      txt += ` — ${item.qty} dona\n`;
     }
+    if (low.length > 25) txt += `\n...va yana ${low.length - 25} ta`;
 
-    if (low.length > 30) {
-      txt += `\n_...va yana ${low.length - 30} ta_`;
-    }
-
-    await TG("sendMessage", {
-      chat_id: chatId,
-      text: escapeMd(txt),
-      parse_mode: "MarkdownV2",
-    });
+    await tg(chatId, txt);
   } catch (e) {
-    await sendError(chatId, "ombor", e);
+    console.error("ombor xato:", e.message);
+    await tg(chatId, `⚠️ Xato: ${e.message}`);
   }
 }
 
-// /qarzlar — muddati o'tgan qarzlar
+// ── /qarzlar ─────────────────────────────────────────────────
 async function cmdQarzlar(chatId, barcha = false) {
   try {
     const t = today();
@@ -300,246 +302,155 @@ async function cmdQarzlar(chatId, barcha = false) {
     const debts = await sb("sales", query);
 
     if (!debts.length) {
-      const msg = barcha
-        ? `✅ Hozirda hech qanday qarz yo'q`
-        : `✅ Muddati o'tgan qarz yo'q`;
-      await TG("sendMessage", { chat_id: chatId, text: msg });
+      const msg = barcha ? "✅ Hozirda hech qanday qarz yo'q" : "✅ Muddati o'tgan qarz yo'q";
+      await tg(chatId, msg);
       return;
     }
 
     const totalDebt = debts.reduce((a, s) => a + Number(s.remaining || 0), 0);
-
     let txt = barcha
-      ? `📋 *Barcha qarzlar* — ${debts.length} ta\n\n`
-      : `🔴 *Muddati o'tgan qarzlar* — ${debts.length} ta\n\n`;
+      ? `📋 Barcha qarzlar — ${debts.length} ta\n\n`
+      : `🔴 Muddati o'tgan qarzlar — ${debts.length} ta\n\n`;
 
-    // Har bir qarz uchun
-    for (const d of debts.slice(0, 20)) {
+    for (const d of debts.slice(0, 15)) {
       const name  = d.customer_name || "Noma'lum";
       const phone = d.customer_phone || "—";
-      const sum   = fmt(d.remaining);
-      const due   = d.due || "—";
-
-      // Necha kun o'tgan?
-      let overdue = "";
-      if (d.due && d.due < t) {
-        const days = Math.floor(
-          (new Date(t) - new Date(d.due)) / 86400000
-        );
-        overdue = ` \\(${days} kun kechikkan\\)`;
-      }
-
-      txt += `👤 *${name}*\n`;
+      txt += `👤 ${name}\n`;
       txt += `   📞 ${phone}\n`;
-      txt += `   💸 ${sum} so'm\n`;
-      txt += `   📅 Muddat: ${due}${overdue}\n\n`;
+      txt += `   💸 ${fmt(d.remaining)} so'm\n`;
+      if (d.due) {
+        let overdue = "";
+        if (d.due < t) {
+          const days = Math.floor((new Date(t) - new Date(d.due)) / 86400000);
+          overdue = ` (${days} kun kechikkan)`;
+        }
+        txt += `   📅 Muddat: ${d.due}${overdue}\n`;
+      }
+      txt += "\n";
     }
 
-    if (debts.length > 20) {
-      txt += `_...va yana ${debts.length - 20} ta_\n\n`;
-    }
+    if (debts.length > 15) txt += `...va yana ${debts.length - 15} ta\n\n`;
+    txt += `─────────────────\n`;
+    txt += `💰 Jami qarz: ${fmt(totalDebt)} so'm`;
 
-    txt += `━━━━━━━━━━━━━━━\n`;
-    txt += `💰 Jami qarz: *${fmt(totalDebt)} so'm*`;
-
-    // Tugmalar
-    const buttons = [];
+    const opts = {};
     if (!barcha) {
-      buttons.push([{ text: "📋 Barcha qarzlarni ko'rish", callback_data: "barcha_qarzlar" }]);
+      opts.reply_markup = {
+        inline_keyboard: [[{ text: "📋 Barcha qarzlarni ko'rish", callback_data: "barcha_qarzlar" }]],
+      };
     }
 
-    const opts = {
-      chat_id: chatId,
-      text: escapeMd(txt),
-      parse_mode: "MarkdownV2",
-    };
-    if (buttons.length) {
-      opts.reply_markup = { inline_keyboard: buttons };
-    }
-
-    await TG("sendMessage", opts);
+    await tg(chatId, txt, opts);
   } catch (e) {
-    await sendError(chatId, "qarzlar", e);
+    console.error("qarzlar xato:", e.message);
+    await tg(chatId, `⚠️ Xato: ${e.message}`);
   }
 }
 
-// /help — yordam
+// ── Mijozga chek yuborish ──────────────────────────────────────
+function formatReceiptText(sale, shopName) {
+  const payLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma" };
+  const lines = [
+    `🧾 ${shopName} — Chek`,
+    `📌 ${sale.chekNum || "#" + sale.id} | ${sale.date} ${sale.time || ""}`,
+    "",
+    ...(sale.items || []).map(i =>
+      `▪ ${i.name} (${i.variant || ""}) × ${i.qty} ${i.unit || ""} = ${fmt((i.price || 0) * (i.qty || 0))} so'm`
+    ),
+    "",
+    sale.discount > 0 ? `Chegirma: -${fmt(sale.discount)} so'm` : null,
+    `Jami: ${fmt(sale.total)} so'm`,
+    `To'lov: ${payLabels[sale.payType] || sale.payType || "—"}`,
+    sale.remaining > 0
+      ? `Qarz: ${sale.debtCurrency === "usd" && sale.debtUsd ? "$" + Number(sale.debtUsd).toFixed(2) : fmt(sale.remaining) + " so'm"}`
+      : "✅ To'liq to'landi",
+    sale.due ? `Muddat: ${sale.due}` : null,
+    "",
+    "Rahmat! Yana kutamiz 🙏",
+  ];
+  return lines.filter(l => l !== null).join("\n");
+}
+
+async function actionSendReceipt(body) {
+  const { customerId, sale, shopName } = body || {};
+  if (!customerId || !sale) {
+    return { ok: false, error: "customerId va sale majburiy" };
+  }
+
+  const custs = await sb("customers", `?id=eq.${customerId}&select=id,name,telegram_chat_id`);
+  const cust  = custs?.[0];
+
+  if (!cust || !cust.telegram_chat_id) {
+    return { ok: false, sent: false, reason: "no_telegram" };
+  }
+
+  const txt = formatReceiptText(sale, shopName || "MERX");
+  const r = await tg(cust.telegram_chat_id, txt);
+
+  if (!r.ok) {
+    return { ok: false, sent: false, reason: "telegram_error", detail: r.description };
+  }
+  return { ok: true, sent: true };
+}
+
+// ── /help ────────────────────────────────────────────────────
 async function cmdHelp(chatId) {
   const txt =
-    `❓ *MERX Bot — Yordam*\n\n` +
-    `*Mavjud komandalar:*\n\n` +
-    `📊 /hisobot\n` +
-    `Bugungi savdo: sotuvlar soni, jami summa, to'lov turlari, eng ko'p sotilgan mahsulot, xarajatlar, toza foyda\n\n` +
-    `💰 /balans\n` +
-    `Kassa holati: naqd, karta, o'tkazma, xarajat, toza foyda \\(so'm va dollar\\)\n\n` +
-    `📦 /ombor\n` +
-    `Kam qolgan tovarlar — ${LOW_LIMIT} dona va undan kam bo'lganlar\n\n` +
-    `🔴 /qarzlar\n` +
-    `Muddati o'tgan qarzlar ro'yxati\n\n` +
-    `📋 /barcha\\_qarzlar\n` +
-    `Barcha ochiq qarzlar \\(muddatidan qat'i nazar\\)\n\n` +
-    `━━━━━━━━━━━━━━━\n` +
-    `Muammo bo'lsa: @merxsupport`;
-
-  await TG("sendMessage", {
-    chat_id: chatId,
-    text: escapeMd(txt),
-    parse_mode: "MarkdownV2",
-  });
+    "❓ MERX Bot — Yordam\n\n" +
+    "/hisobot — Bugungi savdo: sotuvlar, summa, foyda\n\n" +
+    "/balans — Kassa: naqd, karta, xarajat, foyda\n\n" +
+    `/ombor — Kam qolgan tovarlar (≤${LOW_LIMIT} dona)\n\n` +
+    "/qarzlar — Muddati o'tgan qarzlar\n\n" +
+    "/barcha_qarzlar — Barcha ochiq qarzlar";
+  await tg(chatId, txt);
 }
 
 // ════════════════════════════════════════════════════════════════
-// KUNLIK AVTOMATIK HISOBOTLAR (cron trigger uchun)
-// Vercel Cron yoki tashqaridan GET so'rov bilan chaqiriladi:
-//   GET /api/bot?cron=morning  — ertalab 9:00
-//   GET /api/bot?cron=evening  — kechqurun 20:00
+// VERCEL HANDLER
 // ════════════════════════════════════════════════════════════════
-
-async function cronMorning() {
-  if (!OWNER_ID) return;
-  // Kechagi hisobot
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yd = yesterday.toISOString().slice(0, 10);
-
-  try {
-    const sales = await sb("sales", `?date=eq.${yd}`);
-    const xar   = await sb("xarajatlar", `?date=eq.${yd}`);
-
-    const kirim  = sales.reduce((a, s) => a + Number(s.paid || 0), 0);
-    const chiqim = xar.reduce((a, x) => a + Number(x.amount || 0), 0);
-
-    const txt =
-      `☀️ *Xayrli tong\\!*\n\n` +
-      `📊 *Kechagi natija \\(${yd}\\):*\n` +
-      `🛍 Sotuvlar: ${sales.length} ta\n` +
-      `📥 Kirim: ${fmt(kirim)} so'm\n` +
-      `📤 Xarajat: ${fmt(chiqim)} so'm\n` +
-      `💰 Foyda: *${fmt(kirim - chiqim)} so'm*\n\n` +
-      `Bugun ham omad\\! 💪`;
-
-    await TG("sendMessage", {
-      chat_id: OWNER_ID,
-      text: escapeMd(txt),
-      parse_mode: "MarkdownV2",
-    });
-  } catch (e) {
-    await TG("sendMessage", {
-      chat_id: OWNER_ID,
-      text: `⚠️ Ertalabki hisobotda xato: ${e.message}`,
-    });
-  }
-}
-
-async function cronEvening() {
-  if (!OWNER_ID) return;
-  const t = today();
-
-  try {
-    // Kam qolganlar
-    const products = await sb("products", `?order=name`);
-    const low = [];
-    for (const p of products) {
-      for (const v of (p.variants || [])) {
-        if (Number(v.qty || 0) <= LOW_LIMIT) {
-          low.push(`${p.name} ${v.color || ""} ${v.size || ""} — ${v.qty} dona`);
-        }
-      }
-    }
-
-    // Muddati o'tgan qarzlar
-    const debts = await sb("sales", `?remaining=gt.0&due=lt.${t}`);
-    const totalDebt = debts.reduce((a, s) => a + Number(s.remaining || 0), 0);
-
-    let txt = `🌙 *Kechki xulosa \\(${t}\\)*\n\n`;
-
-    if (low.length) {
-      txt += `📦 *Kam qolgan tovarlar:* ${low.length} ta\n`;
-      txt += low.slice(0, 5).map(l => `  • ${l}`).join("\n");
-      if (low.length > 5) txt += `\n  _...va yana ${low.length - 5} ta_`;
-      txt += "\n\n";
-    } else {
-      txt += `📦 Ombor holati: ✅ yetarli\n\n`;
-    }
-
-    if (debts.length) {
-      txt +=
-        `🔴 *Muddati o'tgan qarzlar:* ${debts.length} ta\n` +
-        `💸 Jami: ${fmt(totalDebt)} so'm\n\n` +
-        `/qarzlar — ko'rish`;
-    } else {
-      txt += `💸 Qarzlar: ✅ muddati o'tgan yo'q`;
-    }
-
-    await TG("sendMessage", {
-      chat_id: OWNER_ID,
-      text: escapeMd(txt),
-      parse_mode: "MarkdownV2",
-    });
-  } catch (e) {
-    await TG("sendMessage", {
-      chat_id: OWNER_ID,
-      text: `⚠️ Kechki hisobotda xato: ${e.message}`,
-    });
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// YORDAMCHI FUNKSIYALAR
-// ════════════════════════════════════════════════════════════════
-
-// MarkdownV2 uchun maxsus belgilarni escape qilish
-function escapeMd(text) {
-  // Faqat * va _ ni saqlab, qolgan maxsus belgilarni escape qilamiz
-  // * va _ allaqachon formatlash uchun ishlatilgan
-  return text.replace(/([()[\]{}.!+\-=|<>#~`])/g, "\\$1");
-}
-
-async function sendError(chatId, cmd, err) {
-  console.error(`[${cmd}]`, err);
-  await TG("sendMessage", {
-    chat_id: chatId,
-    text: `⚠️ /${cmd} komandada xato yuz berdi.\nSupabase ulanishini tekshiring.`,
-  });
-}
-
-// ════════════════════════════════════════════════════════════════
-// VERCEL HANDLER — asosiy kirish nuqtasi
-// ════════════════════════════════════════════════════════════════
-
 export default async function handler(req, res) {
-  // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // ── Webhook o'rnatish (bir marta) ────────────────────────────
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  // Webhook o'rnatish
   if (req.method === "GET" && req.query?.setup === "1") {
     const host = req.headers.host || "merx-rho.vercel.app";
     const webhookUrl = `https://${host}/api/bot`;
-    const result = await TG("setWebhook", { url: webhookUrl });
+    const r = await fetch(`https://api.telegram.org/bot${TOKEN}/setWebhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: webhookUrl }),
+    }).then(x => x.json());
     return res.json({
-      ok: result.ok,
-      message: result.ok
-        ? `✅ Webhook ulandi: ${webhookUrl}`
-        : `❌ Xato: ${result.description}`,
+      ok: r.ok,
+      message: r.ok ? `✅ Webhook ulandi: ${webhookUrl}` : `❌ ${r.description}`,
     });
   }
 
-  // ── Cron hisobotlar ──────────────────────────────────────────
-  if (req.method === "GET" && req.query?.cron) {
-    const cron = req.query.cron;
-    // Xavfsizlik: oddiy token tekshiruvi
-    const cronToken = req.query.token;
-    if (cronToken !== process.env.CRON_SECRET && process.env.CRON_SECRET) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    if (cron === "morning") await cronMorning();
-    if (cron === "evening") await cronEvening();
-    return res.json({ ok: true, cron });
-  }
-
-  // ── Webhook xabari ───────────────────────────────────────────
   if (req.method !== "POST") {
     return res.status(200).json({ ok: true, info: "MERX Bot ishlamoqda" });
+  }
+
+  // MERX dan: mijozga chek yuborish
+  if (req.query?.action === "send_receipt") {
+    let body;
+    try {
+      body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    } catch {
+      return res.status(400).json({ ok: false, error: "invalid_json" });
+    }
+    try {
+      const result = await actionSendReceipt(body);
+      return res.status(200).json(result);
+    } catch (e) {
+      console.error("send_receipt xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
   }
 
   let update;
@@ -549,55 +460,53 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: false });
   }
 
-  // ── Callback tugmalar ────────────────────────────────────────
+  // Callback tugmalar
   if (update.callback_query) {
     const cb = update.callback_query;
     const chatId = cb.message?.chat?.id;
-    await TG("answerCallbackQuery", { callback_query_id: cb.id });
-
-    if (chatId && isAllowed(chatId)) {
-      if (cb.data === "barcha_qarzlar") {
-        await cmdQarzlar(chatId, true);
-      }
+    await tgAnswer(cb.id);
+    if (chatId && isAllowed(chatId) && cb.data === "barcha_qarzlar") {
+      await cmdQarzlar(chatId, true);
     }
     return res.status(200).json({ ok: true });
   }
 
-  // ── Oddiy xabar ──────────────────────────────────────────────
   const msg    = update.message;
   if (!msg) return res.status(200).json({ ok: true });
 
   const chatId = msg.chat?.id;
   const text   = (msg.text || "").trim();
-
   if (!chatId) return res.status(200).json({ ok: true });
 
-  // Ruxsat tekshiruvi
-  if (!isAllowed(chatId)) {
-    await TG("sendMessage", {
-      chat_id: chatId,
-      text: "⛔ Siz bu botdan foydalana olmaysiz.\n\nBot faqat do'kon egasi uchun.",
-    });
+  // Kontakt ulashish — mijoz raqamini bog'lash (egasi bo'lmasa ham ochiq)
+  if (msg.contact) {
+    await handleContact(chatId, msg.contact);
     return res.status(200).json({ ok: true });
   }
 
-  // Komanda yo'naltirish
-  const cmd = text.split(" ")[0].toLowerCase().replace("@", "").split("@")[0];
+  // /start — egasi yoki mijoz, ikkalasi ham ruxsatsiz ishlaydi
+  const cmd = text.split(" ")[0].toLowerCase().split("@")[0];
+  if (cmd === "/start") {
+    await cmdStart(chatId);
+    return res.status(200).json({ ok: true });
+  }
+
+  // Qolgan barcha komandalar — faqat do'kon egasi
+  if (!isAllowed(chatId)) {
+    await tg(chatId, "⛔ Bu komanda faqat do'kon egasi uchun.\n\n/start — qaytadan boshlash");
+    return res.status(200).json({ ok: true });
+  }
 
   switch (cmd) {
-    case "/start":             await cmdStart(chatId);         break;
-    case "/hisobot":           await cmdHisobot(chatId);       break;
-    case "/balans":            await cmdBalans(chatId);        break;
-    case "/ombor":             await cmdOmbor(chatId);         break;
-    case "/qarzlar":           await cmdQarzlar(chatId, false); break;
-    case "/barcha_qarzlar":    await cmdQarzlar(chatId, true);  break;
-    case "/help":              await cmdHelp(chatId);          break;
+    case "/hisobot":        await cmdHisobot(chatId);        break;
+    case "/balans":         await cmdBalans(chatId);         break;
+    case "/ombor":          await cmdOmbor(chatId);          break;
+    case "/qarzlar":        await cmdQarzlar(chatId, false); break;
+    case "/barcha_qarzlar": await cmdQarzlar(chatId, true);  break;
+    case "/help":           await cmdHelp(chatId);           break;
     default:
       if (text.startsWith("/")) {
-        await TG("sendMessage", {
-          chat_id: chatId,
-          text: `❓ Noma'lum komanda: ${cmd}\n\n/help — komandalar ro'yxati`,
-        });
+        await tg(chatId, `❓ Noma'lum komanda: ${cmd}\n\n/help — komandalar ro'yxati`);
       }
   }
 
