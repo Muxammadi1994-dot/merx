@@ -154,6 +154,19 @@ async function pushToCloud() {
       note: x.note || null
     })));
 
+    await sync("debt_payments", (db.debtPayments||[]).map(p => ({
+      id: p.id,
+      chek_num: p.chekNum,
+      date: p.date, time: p.time || null,
+      customer_id: p.customerId || null,
+      customer_name: p.customerName || null,
+      customer_phone: p.customerPhone || null,
+      amount: p.amount || 0,
+      currency: p.currency || "uzs",
+      allocations: p.allocations || [],
+      leftover: p.leftover || 0
+    })));
+
     toast("✅ Barcha ma'lumotlar cloud ga saqlandi!");
     updateCloudUI(true);
   } catch(e) {
@@ -278,6 +291,24 @@ async function pullFromCloud() {
       }));
     }
 
+    // Qarz to'lovlari
+    const { data: payData } = await _sb.from("debt_payments").select("*").order("id");
+    if (payData) {
+      db.debtPayments = payData.map(p => ({
+        id:            p.id,
+        chekNum:       p.chek_num,
+        date:          p.date,
+        time:          p.time || "",
+        customerId:    p.customer_id,
+        customerName:  p.customer_name,
+        customerPhone: p.customer_phone,
+        amount:        p.amount || 0,
+        currency:      p.currency || "uzs",
+        allocations:   p.allocations || [],
+        leftover:      p.leftover || 0
+      }));
+    }
+
     // seq yangilash
     const maxId = Math.max(
       ...( db.products.map((_,i)=>i) ),
@@ -287,6 +318,7 @@ async function pullFromCloud() {
       ...(db.ombor.map(o=>o.id||0)),
       ...((db.xarajatlar||[]).map(x=>x.id||0)),
       ...((db.chiqimlar||[]).map(c=>c.id||0)),
+      ...((db.debtPayments||[]).map(p=>p.id||0)),
       db.seq || 0
     );
     db.seq = maxId + 1;

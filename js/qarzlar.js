@@ -98,6 +98,7 @@ function renderDebts() {
     renderDebtsList(list, rate);
   }
   renderDebtCustCards();
+  renderDebtPaymentsHistory();
 }
 
 // ── Mijoz umumiy qarz kartalar paneli ─────────────
@@ -180,6 +181,51 @@ function debtCustFilter(name) {
   renderDebts();
 }
 
+// ── Tanlangan mijozning to'lovlar tarixi ──────────
+function renderDebtPaymentsHistory() {
+  const el = $("debt-payments-history"); if (!el) return;
+
+  if (!_debtCustFilter) { el.style.display = "none"; el.innerHTML = ""; return; }
+
+  const payments = (db.debtPayments || [])
+    .filter(p => p.customerName === _debtCustFilter)
+    .sort((a, b) => (a.date+a.time < b.date+b.time) ? 1 : -1);
+
+  if (!payments.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+
+  el.style.display = "block";
+  el.style.padding = "12px 18px";
+  el.style.borderBottom = "1px solid var(--brd)";
+  el.style.background = "#fafaf8";
+
+  el.innerHTML = `
+    <div style="font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">
+      <i class="ti ti-receipt"></i> ${_debtCustFilter} — to'lovlar tarixi (${payments.length} ta)
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${payments.map(p => {
+        const allocSummary = (p.allocations||[]).map(a =>
+          `${a.saleDate}: ${fmtMoney(a.amount, a.currency)}${a.fullyPaid?" (yopildi)":""}`
+        ).join(", ") || "—";
+        return `
+        <div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--brd);border-radius:var(--rs);padding:8px 12px">
+          <div style="min-width:0;flex:1">
+            <div style="font-size:12.5px;font-weight:700;color:#0D1B2A">
+              ${p.chekNum} <span style="color:#aaa;font-weight:400">· ${p.date} ${p.time||""}</span>
+            </div>
+            <div style="font-size:11px;color:#888;margin-top:2px">${allocSummary}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-left:12px">
+            <div style="font-weight:800;color:#0D1B2A;font-size:13.5px;white-space:nowrap">${fmtMoney(p.amount, p.currency)}</div>
+            <button class="btn btn-sm" onclick="reprintDebtPayment(${p.id})" title="Chekni ko'rish">
+              <i class="ti ti-printer"></i>
+            </button>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+}
+
 // ── Sotuv bo'yicha ro'yxat ────────────────────────
 function renderDebtsList(list, rate) {
   const thead = $("debt-head");
@@ -230,6 +276,12 @@ function renderDebtsList(list, rate) {
               style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:100px;flex:1;outline:none">
             <button class="btn btn-teal btn-sm" onclick="recordPayment(${s.id})">To'lov</button>
           </div>
+          ${(() => {
+            const others = findCustomerDebts(s).filter(x => x.id !== s.id);
+            return others.length
+              ? `<div style="font-size:10.5px;color:#aaa">+ ${others.length} ta boshqa qarz — avtomatik taqsimlanadi</div>`
+              : "";
+          })()}
           ${cu.phone && cu.phone !== "—"
             ? `<button class="btn btn-sm" onclick="sendDebtReminder(${s.id})" style="font-size:11px;color:#856404">
                 <i class="ti ti-message"></i> SMS eslatma
@@ -328,51 +380,150 @@ function expandDebtGroup(idsStr) {
   renderDebtsList(list, rate);
 }
 
-// ── To'lov qabul qilish ───────────────────────────
+// ── Mijozning barcha ochiq qarzlarini topish (sana bo'yicha) ──
+function findCustomerDebts(s) {
+  const cu = debtCust(s);
+  let list;
+  if (s.customerId) {
+    list = db.sales.filter(x => x.customerId === s.customerId && x.remaining > 0.5);
+  } else {
+    // customerId yo'q bo'lsa — ism+telefon bo'yicha
+    list = db.sales.filter(x =>
+      !x.customerId &&
+      (x.customerName||"") === (s.customerName||"") &&
+      (x.customerPhone||"") === (s.customerPhone||"") &&
+      x.remaining > 0.5
+    );
+  }
+  // Eng eski sana birinchi (sana bo'sh bo'lsa oxiriga)
+  return list.sort((a, b) => (a.date||"9999") < (b.date||"9999") ? -1 : 1);
+}
+
+// ── To'lov qabul qilish (ko'p qarzga avtomatik taqsimlash) ──
 async function recordPayment(id) {
-  const s = db.sales.find(x => x.id === id); if (!s) return;
+  const clicked = db.sales.find(x => x.id === id); if (!clicked) return;
   const amt = parseFloat(($("pay-"+id)||{value:0}).value) || 0;
   if (amt <= 0) { toast("Summani kiriting","err"); return; }
 
-  const rate  = db.settings.rate || 12800;
-  const isUsd = s.debtCurrency === "usd" && s.debtUsd != null;
-  let amtDisplay, debtLeft;
+  const rate    = db.settings.rate || 12800;
+  const payCur  = (clicked.debtCurrency === "usd" && clicked.debtUsd != null) ? "usd" : "uzs";
 
-  if (isUsd) {
-    // USD to'lov: debtUsd kamayadi, remaining ham mos yangilanadi
-    const newDebtUsd = Math.max(0, (s.debtUsd || 0) - amt);
-    const amtSom     = amt * rate;
-    s.paid      += amtSom;
-    s.debtUsd    = newDebtUsd;
-    // remaining ni debtUsd dan hisoblash (kurs o'zgarishida ham mos bo'lsin)
-    s.remaining  = Math.round(newDebtUsd * rate);
-    if (newDebtUsd < 0.005) {
-      s.debtUsd   = 0;
-      s.remaining = 0;
-      s.status    = "tolandan";
+  // Mijozning shu valyutadagi barcha ochiq qarzlari, sana bo'yicha (eng eski birinchi)
+  const allDebts = findCustomerDebts(clicked);
+  const sameCurDebts = allDebts.filter(s => {
+    const isUsd = s.debtCurrency === "usd" && s.debtUsd != null;
+    return payCur === "usd" ? isUsd : !isUsd;
+  });
+
+  // Bosilgan qarz ro'yxatning boshida bo'lishi shart emas — lekin
+  // taqsimlash har doim eng eskisidan boshlanadi (FIFO)
+  let remainingPay = amt;
+  const allocations = [];
+
+  for (const s of sameCurDebts) {
+    if (remainingPay <= 0) break;
+
+    if (payCur === "usd") {
+      const debtAmt = s.debtUsd || 0;
+      if (debtAmt <= 0) continue;
+      const applied = Math.min(remainingPay, debtAmt);
+
+      s.paid     += applied * rate;
+      s.debtUsd   = Math.max(0, debtAmt - applied);
+      s.remaining = Math.round(s.debtUsd * rate);
+      if (s.debtUsd < 0.005) { s.debtUsd = 0; s.remaining = 0; s.status = "tolandan"; }
+
+      allocations.push({
+        saleId: s.id, saleDate: s.date, chekNum: s.chekNum || ("#"+s.id),
+        amount: applied, currency: "usd",
+        fullyPaid: s.remaining === 0,
+        remainingAfter: s.debtUsd
+      });
+      remainingPay -= applied;
+    } else {
+      const debtAmt = s.remaining || 0;
+      if (debtAmt <= 0) continue;
+      const applied = Math.min(remainingPay, debtAmt);
+
+      s.paid     += applied;
+      s.remaining = Math.max(0, s.total - s.paid);
+      if (s.remaining < 100) { s.remaining = 0; s.status = "tolandan"; }
+
+      allocations.push({
+        saleId: s.id, saleDate: s.date, chekNum: s.chekNum || ("#"+s.id),
+        amount: applied, currency: "uzs",
+        fullyPaid: s.remaining === 0,
+        remainingAfter: s.remaining
+      });
+      remainingPay -= applied;
     }
-    amtDisplay = `$${amt.toFixed(2)} USD`;
-    debtLeft   = s.debtUsd > 0 ? `$${s.debtUsd.toFixed(2)} USD` : "To'liq to'landi ✅";
-  } else {
-    s.paid      += amt;
-    s.remaining  = Math.max(0, s.total - s.paid);
-    if (s.remaining < 100) { s.remaining = 0; s.status = "tolandan"; }
-    amtDisplay = fmt(amt) + " so'm";
-    debtLeft   = s.remaining > 0 ? fmt(s.remaining) + " so'm qoldi" : "To'liq to'landi ✅";
   }
+
+  // Agar haligacha ortiqcha qoldiq bo'lsa (boshqa qarzlar yo'q) — oxirgi
+  // taqsimotga "ortiqcha" sifatida qo'shamiz (mijozga qaytariladi deb hisoblanadi)
+  const leftover = Math.round(remainingPay * 100) / 100;
+
+  // ── To'lov yozuvini saqlash ────────────────────
+  const cu = debtCust(clicked);
+  const payment = {
+    id:            (db.seq = (db.seq||1) + 1),
+    chekNum:       genPayChekNum(),
+    date:          today(),
+    time:          nowTime(),
+    customerId:    clicked.customerId || null,
+    customerName:  cu.name,
+    customerPhone: cu.phone,
+    amount:        amt,
+    currency:      payCur,
+    allocations:   allocations,
+    leftover:      leftover > 0 ? leftover : 0
+  };
+  db.debtPayments = db.debtPayments || [];
+  db.debtPayments.push(payment);
 
   saveDB(); renderDebts();
-  toast(`✅ ${amtDisplay} qabul qilindi. ${debtLeft}`);
 
-  // SMS
-  const phone = debtCust(s).phone;
+  // ── Xabar matni ────────────────────────────────
+  const amtDisplay = fmtMoney(amt, payCur);
+  let summary;
+  if (allocations.length === 1) {
+    const a = allocations[0];
+    summary = a.fullyPaid
+      ? "To'liq to'landi ✅"
+      : `${fmtMoney(a.remainingAfter, a.currency)} qoldi`;
+  } else if (allocations.length > 1) {
+    summary = allocations.map(a =>
+      `${a.saleDate} (${a.chekNum}): ${a.fullyPaid ? "to'liq yopildi" : fmtMoney(a.amount, a.currency)+" o'tkazildi"}`
+    ).join("; ");
+  } else {
+    summary = "Taqsimlanmadi";
+  }
+  if (leftover > 0) summary += ` | Ortiqcha: ${fmtMoney(leftover, payCur)}`;
+
+  toast(`✅ ${amtDisplay} qabul qilindi. ${summary}`);
+
+  // ── Chek modalini ko'rsatish ────────────────────
+  if (typeof showDebtPaymentReceipt === "function") {
+    showDebtPaymentReceipt(payment);
+  }
+
+  // ── SMS ──────────────────────────────────────────
+  const phone = cu.phone;
   if (phone && phone.replace(/\D/g,"").length >= 9) {
     const shopName = db.shop?.name || "MERX";
-    await sendSms(phone,
-      `${shopName}: To'lov qabul qilindi: ${amtDisplay}. ${debtLeft}`
-    );
+    let smsTxt = `${shopName}: To'lov qabul qilindi: ${amtDisplay}.`;
+    if (allocations.length > 1) {
+      smsTxt += " " + allocations.map(a =>
+        `${a.saleDate}: ${a.fullyPaid ? "yopildi" : fmtMoney(a.amount,a.currency)+" hisobga o'tdi"}`
+      ).join(", ") + ".";
+    } else if (allocations.length === 1) {
+      const a = allocations[0];
+      smsTxt += a.fullyPaid ? " Qarz to'liq yopildi." : ` ${fmtMoney(a.remainingAfter,a.currency)} qoldi.`;
+    }
+    await sendSms(phone, smsTxt);
   }
 }
+
 
 // ── SMS eslatma (bitta) ───────────────────────────
 async function sendDebtReminder(id) {
@@ -433,4 +584,108 @@ async function sendOverdueReminders() {
     sent++;
   }
   toast(`✅ ${sent} ta mijozga SMS yuborildi`);
+}
+
+// ════════════════════════════════════════════════
+// QARZ TO'LOV CHEKI (modal)
+// ════════════════════════════════════════════════
+
+function showDebtPaymentReceipt(payment) {
+  const shopName = db.shop?.name || "MERX";
+  const allocHtml = (payment.allocations||[]).map(a => `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;font-size:13px;padding-bottom:8px;border-bottom:1px solid #F6F4EF">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;color:#0D1B2A">${a.saleDate} qarzi <span style="color:#aaa;font-weight:400">(${a.chekNum})</span></div>
+        <div style="font-size:11.5px;color:${a.fullyPaid?'#059669':'#d97706'};margin-top:2px">
+          ${a.fullyPaid ? "✓ To'liq yopildi" : `Qisman to'landi — ${fmtMoney(a.remainingAfter, a.currency)} qoldi`}
+        </div>
+      </div>
+      <div style="font-weight:700;color:#0D1B2A;margin-left:12px;white-space:nowrap">${fmtMoney(a.amount, a.currency)}</div>
+    </div>`).join("");
+
+  const leftoverHtml = payment.leftover > 0 ? `
+    <div style="margin-top:10px;background:#FFFBEB;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#92400E">
+      <i class="ti ti-info-circle"></i> Ortiqcha to'lov: <b>${fmtMoney(payment.leftover, payment.currency)}</b> — boshqa ochiq qarz topilmadi
+    </div>` : "";
+
+  const html = `<!DOCTYPE html>
+    <html><head><meta charset="UTF-8"><title>To'lov cheki ${payment.chekNum}</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-content:center;padding:24px 12px}
+      .receipt{background:#fff;width:380px;border-radius:18px;overflow:hidden;box-shadow:0 4px 24px rgba(13,27,42,.08)}
+      .head{background:#0D1B2A;color:#fff;padding:24px 22px 20px;text-align:center}
+      .head .logo{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;letter-spacing:.5px}
+      .head .sub{font-size:11px;color:#9aa7b5;margin-top:2px;letter-spacing:1px;text-transform:uppercase}
+      .head .check{display:inline-block;margin-top:14px;width:36px;height:36px;border-radius:50%;background:#E9A500;color:#0D1B2A;font-size:18px;line-height:36px;font-weight:800}
+      .body{padding:20px 22px}
+      .meta{display:flex;justify-content:space-between;font-size:11.5px;color:#8a8f98;margin-bottom:16px;padding-bottom:14px;border-bottom:1px dashed #E8E5E0}
+      .meta b{color:#0D1B2A;font-weight:700}
+      .total-row{display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:14px;border-top:2px solid #0D1B2A}
+      .total-row .lbl{font-family:'Sora',sans-serif;font-weight:700;font-size:14px;color:#0D1B2A;letter-spacing:.5px}
+      .total-row .val{font-family:'Sora',sans-serif;font-weight:800;font-size:22px;color:#0D1B2A}
+      .badge-row{display:flex;justify-content:space-between;font-size:11px;color:#a3a8af;margin-top:14px;padding-top:12px;border-top:1px dashed #E8E5E0}
+      .footer{padding:18px 22px 24px;text-align:center}
+      .footer .thanks{font-family:'Sora',sans-serif;font-weight:700;font-size:14px;color:#0D1B2A;margin-bottom:4px}
+      .footer .sub{font-size:11px;color:#a3a8af}
+      .section-lbl{font-size:11px;color:#a3a8af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600}
+      .actions{max-width:380px;margin:14px auto 0;display:flex;gap:10px}
+      .actions button{flex:1;border:none;border-radius:12px;padding:12px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer}
+      .btn-print{background:#0D1B2A;color:#fff}
+      .btn-close{background:#fff;color:#0D1B2A;border:1.5px solid #E8E5E0 !important}
+      @media print{
+        body{background:#fff;padding:0}
+        .receipt{box-shadow:none;border-radius:0;width:100%;max-width:380px}
+        .actions{display:none}
+      }
+    </style></head><body>
+    <div>
+      <div class="receipt">
+        <div class="head">
+          <div class="logo">${shopName.toUpperCase()}</div>
+          <div class="sub">Qarz to'lov cheki</div>
+          <div class="check">✓</div>
+        </div>
+        <div class="body">
+          <div class="meta">
+            <span>${payment.chekNum}</span>
+            <b>${payment.date} ${payment.time||""}</b>
+          </div>
+          <div class="section-lbl">Yopilgan / kamaytirilgan qarzlar</div>
+          ${allocHtml || `<div style="font-size:12.5px;color:#aaa">Mos qarz topilmadi</div>`}
+          <div class="total-row">
+            <span class="lbl">QABUL QILINDI</span>
+            <span class="val">${fmtMoney(payment.amount, payment.currency)}</span>
+          </div>
+          ${leftoverHtml}
+          <div class="badge-row">
+            <span>Mijoz: <b style="color:#0D1B2A">${payment.customerName||"—"}</b></span>
+            <span>${payment.customerPhone||""}</span>
+          </div>
+        </div>
+        <div class="footer">
+          <div class="thanks">Rahmat! Yana kutamiz 🙏</div>
+          <div class="sub">${shopName} · ${payment.date}</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn-print" onclick="window.print()">🖨 Chop etish</button>
+        <button class="btn-close" onclick="window.close()">Yopish</button>
+      </div>
+    </div>
+    </body></html>`;
+
+  const w = window.open("","_blank","width=440,height=720");
+  if (!w) { toast("Pop-up bloklangan","err"); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+}
+
+// ── Tarixdan to'lov chekini qayta ochish ──────────
+function reprintDebtPayment(id) {
+  const p = (db.debtPayments||[]).find(x => x.id === id);
+  if (!p) { toast("To'lov topilmadi","err"); return; }
+  showDebtPaymentReceipt(p);
 }

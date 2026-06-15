@@ -88,6 +88,7 @@ function seedDB() {
     xarajatlar: [],
     chiqimlar:  [],
     returns:    [],
+    debtPayments: [],
     seq: 1
   };
 }

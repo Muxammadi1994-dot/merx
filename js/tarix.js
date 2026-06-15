@@ -36,12 +36,29 @@ function txPeriodFilter(s) {
 function renderTarix() {
   const q = ($("tarix-q")||{value:""}).value.toLowerCase();
 
+  // Qarz to'lovlari — yagona "qarz_tolovi" tur sifatida belgilab,
+  // sotuvlar bilan bir ro'yxatga aralashtiramiz (sana/vaqt bo'yicha)
+  const payRows = (db.debtPayments || []).map(p => ({
+    __isPayment: true,
+    id: p.id,
+    chekNum: p.chekNum,
+    date: p.date,
+    time: p.time,
+    customerName: p.customerName,
+    customerPhone: p.customerPhone,
+    amount: p.amount,
+    currency: p.currency,
+    allocations: p.allocations,
+    staffId: null
+  }));
+
   let list = (db.sales || []).slice().reverse().filter(s => {
     if (!s) return false;
     if (!txPeriodFilter(s)) return false;
     if (txStatus === "tolandan"    && s.status !== "tolandan")    return false;
     if (txStatus === "qarz"        && s.status !== "qarz")        return false;
     if (txStatus === "qaytarilgan" && s.status !== "qaytarilgan") return false;
+    if (txStatus === "qarz_tolovi") return false; // sotuvlar bu filtrda chiqmaydi
     if (txStaffId !== "all" && String(s.staffId) !== String(txStaffId)) return false;
     if (!q) return true;
     return (s.customerName||"").toLowerCase().includes(q) ||
@@ -49,6 +66,34 @@ function renderTarix() {
            (s.chekNum||"").toLowerCase().includes(q) ||
            (s.note||"").toLowerCase().includes(q);
   });
+
+  // Qarz to'lov yozuvlarini filtrlash
+  let payList = payRows.filter(p => {
+    if (!txPeriodFilter(p)) return false;
+    if (!q) return true;
+    return (p.customerName||"").toLowerCase().includes(q) ||
+           (p.customerPhone||"").includes(q) ||
+           (p.chekNum||"").toLowerCase().includes(q);
+  });
+
+  // Status filtriga qarab birlashtirish
+  let combined;
+  if (txStatus === "qarz_tolovi") {
+    combined = payList.map(p => ({ row:p, isPayment:true }));
+  } else if (txStatus === "all") {
+    combined = [
+      ...list.map(s => ({ row:s, isPayment:false })),
+      ...payList.map(p => ({ row:p, isPayment:true }))
+    ];
+    // Sana+vaqt bo'yicha yangi → eski
+    combined.sort((a,b) => {
+      const ka = (a.row.date||"")+(a.row.time||"");
+      const kb = (b.row.date||"")+(b.row.time||"");
+      return ka < kb ? 1 : ka > kb ? -1 : 0;
+    });
+  } else {
+    combined = list.map(s => ({ row:s, isPayment:false }));
+  }
 
   // Kassir select yangilash
   const staffSel = $("tx-staff-sel");
@@ -61,7 +106,7 @@ function renderTarix() {
     });
   }
 
-  // KPI
+  // KPI (faqat sotuvlardan)
   const total = list.reduce((a, s) => a + (s.total||0), 0);
   const paid  = list.reduce((a, s) => a + (s.paid ||0), 0);
   const rem   = list.reduce((a, s) => a + (s.remaining||0), 0);
@@ -73,17 +118,21 @@ function renderTarix() {
   const tbody = $("tarix-body");
   if (!tbody) return;
 
-  if (!list.length) {
+  if (!combined.length) {
     tbody.innerHTML = `<tr><td colspan="10" class="empty-td">
       ${q || txPeriod !== "all" || txStatus !== "all" ? "Filtr bo'yicha sotuv topilmadi" : "Sotuv tarixi bo'sh"}
     </td></tr>`;
     return;
   }
 
-  // Har bir sotuvni alohida try/catch bilan render qilamiz
+  // Har bir qatorni alohida try/catch bilan render qilamiz
   let html = "";
-  list.forEach(s => {
+  combined.forEach(({row:s, isPayment}) => {
     try {
+      if (isPayment) {
+        html += renderDebtPaymentRow(s);
+        return;
+      }
       const isDebt     = s.status === "qarz" && (s.remaining||0) > 0;
       const isReturned = s.status === "qaytarilgan";
       const chekN      = s.chekNum || `#${s.id}`;
@@ -498,4 +547,37 @@ function printReceipt(id) {
   <hr><div style="text-align:center;font-size:11px">Rahmat!</div>
   <script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
+}
+
+// ── Qarz to'lovi qatori (tarix jadvalida) ─────────
+function renderDebtPaymentRow(p) {
+  const allocSummary = (p.allocations||[]).map(a =>
+    `<div style="font-size:11px">${a.saleDate} <span style="color:#aaa">qarzi</span> — ${fmtMoney(a.amount, a.currency)}${a.fullyPaid?` <span style="color:#059669">✓ yopildi</span>`:""}</div>`
+  ).join("") || `<span style="color:#bbb;font-size:11px">—</span>`;
+
+  return `<tr style="cursor:pointer;background:#F0F9FF" onclick="reprintDebtPayment(${p.id})">
+    <td>
+      <div style="font-family:monospace;font-size:11px;font-weight:700;color:#0E7490">${p.chekNum}</div>
+      <div style="font-size:10px;color:#0E7490;margin-top:1px">💰 Qarz to'lovi</div>
+    </td>
+    <td style="font-size:12px">
+      <div style="font-weight:600">${p.date||"—"}</div>
+      <div style="color:#aaa">${p.time||""}</div>
+    </td>
+    <td>${allocSummary}</td>
+    <td style="font-size:12.5px">
+      <div style="font-weight:600">${p.customerName||"—"}</div>
+      ${p.customerPhone ? `<div style="font-size:11px;color:#aaa">${p.customerPhone}</div>` : ""}
+    </td>
+    <td><span class="bg" style="font-size:11px">Qarz to'lovi</span></td>
+    <td class="num" style="font-weight:700;font-size:13px;color:#0E7490">${fmtMoney(p.amount, p.currency)}</td>
+    <td class="num" style="color:var(--grn);font-size:12.5px">${fmtMoney(p.amount, p.currency)}</td>
+    <td class="num"><span style="color:#ccc">—</span></td>
+    <td><span class="bg bg-g" style="font-size:11px">💰 To'lov qabul qilindi</span></td>
+    <td onclick="event.stopPropagation()">
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="reprintDebtPayment(${p.id})" title="Chekni ko'rish">
+        <i class="ti ti-printer"></i>
+      </button>
+    </td>
+  </tr>`;
 }

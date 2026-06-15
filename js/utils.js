@@ -19,6 +19,18 @@ const totalStock = p  => p.variants.reduce((a, v) => a + v.qty, 0);
 const debtSales  = () => db.sales.filter(s => s.remaining > 0.5);
 const isOverdue  = s  => s.due && s.due < today();
 
+// ── Qarz to'lov chek raqami ────────────────────
+function genPayChekNum() {
+  const datePart = today().replace(/-/g, "");
+  const seq = (db.debtPayments || []).filter(p => p.chekNum?.includes(datePart)).length + 1;
+  return `PAY-${datePart}-${String(seq).padStart(4, "0")}`;
+}
+
+// ── Valyuta formatlash (qarz to'lovlari uchun) ─
+function fmtMoney(amount, currency) {
+  return currency === "usd" ? `$${(+amount).toFixed(2)}` : `${fmt(amount)} so'm`;
+}
+
 function priceDisplay(priceUzs) {
   const c = db.settings.priceCurrency || "uzs";
   const r = db.settings.rate || 1;

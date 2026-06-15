@@ -864,6 +864,8 @@
       </div>
       <!-- Mijoz umumiy qarz kartalar paneli -->
       <div id="debt-cust-cards" style="display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--brd);background:var(--bg)"></div>
+      <!-- Tanlangan mijozning to'lovlar tarixi -->
+      <div id="debt-payments-history" style="display:none"></div>
       <div style="overflow-x:auto">
         <table id="debt-table">
           <thead id="debt-head"></thead>
@@ -899,6 +901,7 @@
             <button class="tx-status-btn" data-s="tolandan"    onclick="setTxStatus('tolandan')">✅ To'langan</button>
             <button class="tx-status-btn" data-s="qarz"        onclick="setTxStatus('qarz')">💳 Qarzli</button>
             <button class="tx-status-btn" data-s="qaytarilgan" onclick="setTxStatus('qaytarilgan')" style="color:var(--red)">↩ Qaytarilgan</button>
+            <button class="tx-status-btn" data-s="qarz_tolovi" onclick="setTxStatus('qarz_tolovi')" style="color:#0E7490">💰 Qarz to'lovlari</button>
           </div>
           <!-- Kassir filtri -->
           <select id="tx-staff-sel" onchange="setTxStaff(this.value)"
