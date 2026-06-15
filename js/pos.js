@@ -955,50 +955,123 @@ function shareWhatsApp() {
   window.open(url, "_blank");
 }
 
-function printReceipt() {
+function printReceiptPos() {
   if (!_lastSale) return;
   const sale     = _lastSale;
   const shopName = db.shop?.name || "MERX";
   const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi" };
-  const html = `
-    <html><head><title>Chek ${sale.chekNum||"#"+sale.id}</title>
+  const staffName = (db.staff.find(s=>s.id===sale.staffId)||{name:"—"}).name;
+  const itemsHtml = sale.items.map(i => `
+        <div class="it-row">
+          <div class="it-info">
+            <div class="it-name">${i.name}</div>
+            <div class="it-meta">${i.variant||""} ${i.variant?"·":""} ${i.qty} ${i.unit||"dona"} × ${fmt(i.price)} so'm</div>
+          </div>
+          <div class="it-sum">${fmt(i.price*i.qty)}</div>
+        </div>`).join("");
+
+  const discRow = sale.discount > 0 ? `
+        <div class="sum-row"><span>Chegirma</span><span class="neg">−${fmt(sale.discount)} so'm</span></div>` : "";
+
+  const debtRow = sale.remaining > 0 ? `
+        <div class="sum-row debt"><span>Qarz</span><span>${sale.debtCurrency==="usd"&&sale.debtUsd?"$"+sale.debtUsd.toFixed(2):fmt(sale.remaining)+" so'm"}</span></div>
+        ${sale.due ? `<div class="sum-row debt-due"><span>To'lov muddati</span><span>${sale.due}</span></div>` : ""}` : `
+        <div class="status-ok">✓ To'liq to'landi</div>`;
+
+  const html = `<!DOCTYPE html>
+    <html><head><meta charset="UTF-8"><title>Chek ${sale.chekNum||"#"+sale.id}</title>
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
       *{margin:0;padding:0;box-sizing:border-box}
-      body{font-family:'Courier New',monospace;font-size:12px;width:300px;margin:0 auto;padding:12px}
-      .center{text-align:center} .bold{font-weight:700} .line{border-top:1px dashed #000;margin:6px 0}
-      .row{display:flex;justify-content:space-between;margin:3px 0}
-      .shop{font-size:16px;font-weight:700;text-align:center;margin-bottom:4px}
-      .total{font-size:14px;font-weight:900}
-      @media print{body{width:80mm}}
+      body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-content:center;padding:24px 12px}
+      .receipt{background:#fff;width:380px;border-radius:18px;overflow:hidden;box-shadow:0 4px 24px rgba(13,27,42,.08)}
+      .head{background:#0D1B2A;color:#fff;padding:24px 22px 20px;text-align:center}
+      .head .logo{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;letter-spacing:.5px}
+      .head .sub{font-size:11px;color:#9aa7b5;margin-top:2px;letter-spacing:1px;text-transform:uppercase}
+      .head .check{display:inline-block;margin-top:14px;width:36px;height:36px;border-radius:50%;background:#E9A500;color:#0D1B2A;font-size:18px;line-height:36px;font-weight:800}
+      .body{padding:20px 22px}
+      .meta{display:flex;justify-content:space-between;font-size:11.5px;color:#8a8f98;margin-bottom:16px;padding-bottom:14px;border-bottom:1px dashed #E8E5E0}
+      .meta b{color:#0D1B2A;font-weight:700}
+      .items{margin-bottom:6px}
+      .it-row{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid #F6F4EF}
+      .it-row:last-child{border-bottom:none}
+      .it-info{flex:1;min-width:0;padding-right:10px}
+      .it-name{font-family:'Sora',sans-serif;font-weight:600;font-size:13.5px;color:#0D1B2A}
+      .it-meta{font-size:11px;color:#a3a8af;margin-top:2px}
+      .it-sum{font-family:'Sora',sans-serif;font-weight:700;font-size:13.5px;color:#0D1B2A;white-space:nowrap}
+      .summary{margin-top:14px;padding-top:14px;border-top:1px dashed #E8E5E0}
+      .sum-row{display:flex;justify-content:space-between;font-size:13px;color:#666;padding:3px 0}
+      .sum-row.neg{color:#d97706}
+      .sum-row .neg{color:#d97706;font-weight:600}
+      .sum-row.debt span:last-child{color:#dc2626;font-weight:700}
+      .sum-row.debt-due span:last-child{color:#dc2626}
+      .total-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:12px;border-top:2px solid #0D1B2A}
+      .total-row .lbl{font-family:'Sora',sans-serif;font-weight:700;font-size:14px;color:#0D1B2A;letter-spacing:.5px}
+      .total-row .val{font-family:'Sora',sans-serif;font-weight:800;font-size:22px;color:#0D1B2A}
+      .pay-info{margin-top:14px;background:#F6F4EF;border-radius:12px;padding:12px 14px}
+      .pay-info .sum-row{font-size:12.5px}
+      .status-ok{margin-top:8px;text-align:center;background:#ECFDF5;color:#059669;font-weight:700;font-size:12.5px;border-radius:10px;padding:8px;letter-spacing:.3px}
+      .footer{padding:18px 22px 24px;text-align:center}
+      .footer .thanks{font-family:'Sora',sans-serif;font-weight:700;font-size:14px;color:#0D1B2A;margin-bottom:4px}
+      .footer .sub{font-size:11px;color:#a3a8af}
+      .badge-row{display:flex;justify-content:space-between;font-size:11px;color:#a3a8af;margin-top:12px;padding-top:12px;border-top:1px dashed #E8E5E0}
+      .actions{max-width:380px;margin:14px auto 0;display:flex;gap:10px}
+      .actions button{flex:1;border:none;border-radius:12px;padding:12px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer}
+      .btn-print{background:#0D1B2A;color:#fff}
+      .btn-close{background:#fff;color:#0D1B2A;border:1.5px solid #E8E5E0 !important}
+      @media print{
+        body{background:#fff;padding:0}
+        .receipt{box-shadow:none;border-radius:0;width:100%;max-width:380px}
+        .actions{display:none}
+      }
     </style></head><body>
-    <div class="shop">${shopName}</div>
-    <div class="center" style="font-size:10px;color:#666;margin-bottom:8px">Ulgurji savdo</div>
-    <div class="line"></div>
-    <div class="row"><span>${sale.chekNum||"#"+sale.id}</span><span>${sale.date} ${sale.time||""}</span></div>
-    <div class="line"></div>
-    ${sale.items.map(i=>`
-      <div class="bold">${i.name}</div>
-      <div class="row" style="padding-left:8px"><span>${i.variant} × ${i.qty} ${i.unit}</span><span>${fmt(i.price*i.qty)} so'm</span></div>
-    `).join("")}
-    <div class="line"></div>
-    ${sale.discount>0?`<div class="row"><span>Chegirma</span><span>-${fmt(sale.discount)} so'm</span></div>`:""}
-    <div class="row total"><span>JAMI</span><span>${fmt(sale.total)} so'm</span></div>
-    <div class="line"></div>
-    <div class="row"><span>To'lov</span><span>${payLabels[sale.payType]||sale.payType}</span></div>
-    <div class="row"><span>To'landi</span><span>${fmt(sale.paid)} so'm</span></div>
-    ${sale.remaining>0?`<div class="row bold"><span>Qarz</span><span>${sale.debtCurrency==="usd"&&sale.debtUsd?"$"+sale.debtUsd.toFixed(2):fmt(sale.remaining)+" so'm"}</span></div>`:""}
-    ${sale.due?`<div class="row"><span>Muddat</span><span>${sale.due}</span></div>`:""}
-    <div class="line"></div>
-    <div class="row"><span>Mijoz</span><span>${sale.customerName||"—"}</span></div>
-    <div class="row"><span>Kassir</span><span>${(db.staff.find(s=>s.id===sale.staffId)||{name:"—"}).name}</span></div>
-    <div class="line"></div>
-    <div class="center" style="margin-top:8px;font-size:11px">Rahmat! Yana kutamiz 🙏</div>
+    <div>
+      <div class="receipt">
+        <div class="head">
+          <div class="logo">${shopName.toUpperCase()}</div>
+          <div class="sub">Savdo cheki</div>
+          <div class="check">✓</div>
+        </div>
+        <div class="body">
+          <div class="meta">
+            <span>${sale.chekNum||"#"+sale.id}</span>
+            <b>${sale.date} ${sale.time||""}</b>
+          </div>
+          <div class="items">${itemsHtml}</div>
+          <div class="summary">
+            <div class="sum-row"><span>Mahsulotlar (${sale.items.length} tur)</span><span>${fmt(sale.subtotal||sale.total)} so'm</span></div>
+            ${discRow}
+            <div class="total-row">
+              <span class="lbl">JAMI</span>
+              <span class="val">${fmt(sale.total)}<span style="font-size:13px;font-weight:600"> so'm</span></span>
+            </div>
+          </div>
+          <div class="pay-info">
+            <div class="sum-row"><span>To'lov turi</span><span><b style="color:#0D1B2A">${payLabels[sale.payType]||sale.payType}</b></span></div>
+            <div class="sum-row"><span>To'landi</span><span style="color:#059669;font-weight:700">${fmt(sale.paid)} so'm</span></div>
+            ${debtRow}
+          </div>
+          <div class="badge-row">
+            <span>Mijoz: <b style="color:#0D1B2A">${sale.customerName||"—"}</b></span>
+            <span>Kassir: <b style="color:#0D1B2A">${staffName}</b></span>
+          </div>
+        </div>
+        <div class="footer">
+          <div class="thanks">Rahmat! Yana kutamiz 🙏</div>
+          <div class="sub">${shopName} · ${sale.date}</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn-print" onclick="window.print()">🖨 Chop etish</button>
+        <button class="btn-close" onclick="window.close()">Yopish</button>
+      </div>
+    </div>
     </body></html>`;
-  const w = window.open("","_blank","width=320,height=600");
+  const w = window.open("","_blank","width=440,height=720");
+  if (!w) { toast("Pop-up bloklangan","err"); return; }
   w.document.write(html);
   w.document.close();
   w.focus();
-  setTimeout(() => w.print(), 300);
 }
 
 // ── Tezkor miqdor ─────────────────────────────
