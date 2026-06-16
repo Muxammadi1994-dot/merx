@@ -1933,8 +1933,10 @@
           <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase">To'landi</div>
           <div style="font-size:13px;font-weight:700;color:#059669;margin-top:2px" id="rcp-paid">—</div>
         </div>
-        <div id="rcp-debt-wrap" style="display:none">
-          <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase">Qolgan qarz</div>
+        <div id="rcp-debt-wrap" style="display:none;flex-direction:column;gap:2px">
+          <div id="rcp-debt-prev" style="display:none;font-size:11px;color:#bbb;display:flex;justify-content:space-between"><span>Oldingi qarz</span><span id="rcp-debt-prev-val"></span></div>
+          <div id="rcp-debt-new" style="display:none;font-size:11px;color:#bbb;display:flex;justify-content:space-between"><span>+ Yangi qarz</span><span id="rcp-debt-new-val"></span></div>
+          <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase" id="rcp-debt-lbl">Qolgan qarz</div>
           <div style="font-size:13px;font-weight:700;color:#DC2626;margin-top:2px" id="rcp-debt">—</div>
         </div>
         <div id="rcp-due-wrap" style="display:none">
