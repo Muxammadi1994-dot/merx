@@ -910,15 +910,44 @@ function showReceiptModal(sale) {
   const debtWrap = $("rcp-debt-wrap");
   const dueWrap  = $("rcp-due-wrap");
   if (sale.remaining > 0) {
-    if (debtWrap) debtWrap.style.display = "block";
-    if ($("rcp-debt")) {
-      $("rcp-debt").textContent = sale.debtCurrency === "usd" && sale.debtUsd
-        ? `$${sale.debtUsd.toFixed(2)} USD`
-        : fmt(sale.remaining) + " so'm";
+    if (debtWrap) {
+      debtWrap.style.display = "block";
+      const isUsd = sale.debtCurrency === "usd" && sale.debtUsd;
+      if (isUsd && sale.prevDebtUsd > 0) {
+        const totalUsd = sale.prevDebtUsd + Number(sale.debtUsd);
+        debtWrap.innerHTML = `
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#aaa;padding:2px 0">
+            <span>Oldingi qarz</span><span>$${sale.prevDebtUsd.toFixed(2)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#aaa;padding:2px 0">
+            <span>+ Yangi qarz</span><span>$${Number(sale.debtUsd).toFixed(2)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13.5px;font-weight:700;color:#dc2626;border-top:1px dashed #fca5a5;padding-top:6px;margin-top:4px">
+            <span>Umumiy qarz</span><span>$${totalUsd.toFixed(2)} USD</span>
+          </div>`;
+      } else if (!isUsd && sale.prevDebtUzs > 0) {
+        const totalUzs = sale.prevDebtUzs + sale.remaining;
+        debtWrap.innerHTML = `
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#aaa;padding:2px 0">
+            <span>Oldingi qarz</span><span>${fmt(sale.prevDebtUzs)} so'm</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#aaa;padding:2px 0">
+            <span>+ Yangi qarz</span><span>${fmt(sale.remaining)} so'm</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13.5px;font-weight:700;color:#dc2626;border-top:1px dashed #fca5a5;padding-top:6px;margin-top:4px">
+            <span>Umumiy qarz</span><span>${fmt(totalUzs)} so'm</span>
+          </div>`;
+      } else {
+        debtWrap.innerHTML = `
+          <div style="display:flex;justify-content:space-between;font-size:13.5px;font-weight:700;color:#dc2626">
+            <span>Qolgan qarz</span>
+            <span>${isUsd ? `$${Number(sale.debtUsd).toFixed(2)} USD` : fmt(sale.remaining) + " so'm"}</span>
+          </div>`;
+      }
     }
-    if (dueWrap && sale.due) { dueWrap.style.display = "block"; $("rcp-due").textContent = sale.due; }
+    if (dueWrap && sale.due) { dueWrap.style.display = "block"; if ($("rcp-due")) $("rcp-due").textContent = sale.due; }
   } else {
-    if (debtWrap) debtWrap.style.display = "none";
+    if (debtWrap) { debtWrap.style.display = "none"; debtWrap.innerHTML = ""; }
     if (dueWrap)  dueWrap.style.display  = "none";
   }
 
