@@ -515,11 +515,36 @@ function renderReceiptHtml(sale, shopName) {
         </div>`).join("");
 
   const remaining = Number(sale.remaining || 0);
-  const debtUsd   = sale.debt_usd != null ? Number(sale.debt_usd) : null;
-  const debtRow = remaining > 0 ? `
-        <div class="sum-row debt"><span>Qarz</span><span>${sale.debt_currency === "usd" && debtUsd ? "$" + debtUsd.toFixed(2) : fmt(remaining) + " so'm"}</span></div>
-        ${sale.due ? `<div class="sum-row debt-due"><span>To'lov muddati</span><span>${sale.due}</span></div>` : ""}` : `
-        <div class="status-ok">✓ To'liq to'landi</div>`;
+  const debtUsd   = sale.debt_usd != null ? Number(sale.debt_usd) : (sale.debtUsd != null ? Number(sale.debtUsd) : null);
+  const debtCur   = sale.debt_currency || sale.debtCurrency || "uzs";
+  const prevUsd   = sale.prevDebtUsd != null ? Number(sale.prevDebtUsd) : null;
+  const prevUzs   = sale.prevDebtUzs != null ? Number(sale.prevDebtUzs) : null;
+  const isUsd     = debtCur === "usd" && debtUsd;
+
+  let debtRow;
+  if (remaining > 0) {
+    if (isUsd && prevUsd > 0) {
+      const totalUsd = prevUsd + debtUsd;
+      debtRow = `
+        <div class="sum-row" style="font-size:11.5px;color:#aaa"><span>Oldingi qarz</span><span>$${prevUsd.toFixed(2)}</span></div>
+        <div class="sum-row" style="font-size:11.5px;color:#aaa"><span>+ Yangi qarz</span><span>$${debtUsd.toFixed(2)}</span></div>
+        <div class="sum-row debt" style="border-top:1px dashed #fca5a5;padding-top:5px;margin-top:3px"><span><b>Umumiy qarz</b></span><span>$${totalUsd.toFixed(2)} USD</span></div>
+        ${sale.due ? `<div class="sum-row debt-due"><span>To'lov muddati</span><span>${sale.due}</span></div>` : ""}`;
+    } else if (!isUsd && prevUzs > 0) {
+      const totalUzs = prevUzs + remaining;
+      debtRow = `
+        <div class="sum-row" style="font-size:11.5px;color:#aaa"><span>Oldingi qarz</span><span>${fmt(prevUzs)} so'm</span></div>
+        <div class="sum-row" style="font-size:11.5px;color:#aaa"><span>+ Yangi qarz</span><span>${fmt(remaining)} so'm</span></div>
+        <div class="sum-row debt" style="border-top:1px dashed #fca5a5;padding-top:5px;margin-top:3px"><span><b>Umumiy qarz</b></span><span>${fmt(totalUzs)} so'm</span></div>
+        ${sale.due ? `<div class="sum-row debt-due"><span>To'lov muddati</span><span>${sale.due}</span></div>` : ""}`;
+    } else {
+      debtRow = `
+        <div class="sum-row debt"><span>Qarz</span><span>${isUsd ? "$" + debtUsd.toFixed(2) : fmt(remaining) + " so'm"}</span></div>
+        ${sale.due ? `<div class="sum-row debt-due"><span>To'lov muddati</span><span>${sale.due}</span></div>` : ""}`;
+    }
+  } else {
+    debtRow = `<div class="status-ok">✓ To'liq to'landi</div>`;
+  }
 
   return `<!DOCTYPE html>
     <html><head><meta charset="UTF-8"><title>Chek ${sale.chek_num || "#" + sale.id}</title>
