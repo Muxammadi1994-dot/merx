@@ -365,9 +365,11 @@ function formatReceiptText(sale, shopName) {
       `▪ ${i.name} (${i.variant || ""}) × ${i.qty} ${i.unit || ""} = ${fmt((i.price || 0) * (i.qty || 0))} so'm`
     ),
     "",
-    sale.discount > 0 ? `Chegirma: -${fmt(sale.discount)} so'm` : null,
     `Jami: ${fmt(sale.total)} so'm`,
     `To'lov: ${payLabels[sale.payType] || sale.payType || "—"}`,
+    sale.paid < sale.total
+      ? `To'landi: ${fmt(sale.paid)} so'm`
+      : null,
     sale.remaining > 0
       ? `Qarz: ${sale.debtCurrency === "usd" && sale.debtUsd ? "$" + Number(sale.debtUsd).toFixed(2) : fmt(sale.remaining) + " so'm"}`
       : "✅ To'liq to'landi",
@@ -416,7 +418,11 @@ async function actionSendReceipt(body) {
 
   const txt = formatReceiptText(sale, shopName || "MERX");
   const chekId = sale.chekNum || ("ID" + sale.id);
-  const receiptUrl = `https://merx-rho.vercel.app/api/bot?action=receipt&id=${encodeURIComponent(chekId)}`;
+
+  // Sale ma'lumotlarini base64 ga o'tkazib URL ga qo'shamiz
+  // (Supabase da hali sync bo'lmagan bo'lishi mumkin)
+  const saleB64 = Buffer.from(JSON.stringify(sale)).toString("base64");
+  const receiptUrl = `https://merx-rho.vercel.app/api/bot?action=receipt&id=${encodeURIComponent(chekId)}&d=${encodeURIComponent(saleB64)}`;
 
   const r = await tg(chatId, txt, {
     reply_markup: {
@@ -538,17 +544,32 @@ function renderReceiptHtml(sale, shopName) {
     </body></html>`;
 }
 
-async function actionRenderReceipt(chekId) {
-  const isNumericId = /^ID\d+$/.test(chekId);
-  const query = isNumericId
-    ? `?id=eq.${chekId.slice(2)}&select=*`
-    : `?chek_num=eq.${encodeURIComponent(chekId)}&select=*`;
+async function actionRenderReceipt(chekId, saleData) {
+  let sale = null;
+  let shopName = "MERX";
 
-  const rows = await sb("sales", query);
-  const sale = rows?.[0];
+  // Agar sale ma'lumotlari URL da kelgan bo'lsa — to'g'ridan-to'g'ri ishlatamiz
+  if (saleData) {
+    try {
+      sale = JSON.parse(Buffer.from(saleData, "base64").toString("utf8"));
+    } catch {}
+  }
 
-  const sets = await sb("settings", `?limit=1&select=shop_name`);
-  const shopName = sets?.[0]?.shop_name || "MERX";
+  // Supabase dan qidirish
+  if (!sale) {
+    const isNumericId = /^ID\d+$/.test(chekId);
+    const query = isNumericId
+      ? `?id=eq.${chekId.slice(2)}&select=*`
+      : `?chek_num=eq.${encodeURIComponent(chekId)}&select=*`;
+    const rows = await sb("sales", query);
+    sale = rows?.[0] || null;
+  }
+
+  // Shop nomi
+  try {
+    const sets = await sb("settings", `?limit=1&select=shop_name`);
+    shopName = sets?.[0]?.shop_name || "MERX";
+  } catch {}
 
   if (!sale) {
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Chek topilmadi</title></head>
@@ -558,6 +579,18 @@ async function actionRenderReceipt(chekId) {
           <div>Chek topilmadi: ${chekId}</div>
         </div>
       </body></html>`;
+  }
+
+  // sale localDB formatida kelsa — Supabase formatiga moslashtirish
+  if (!sale.chek_num && sale.chekNum) {
+    sale = {
+      ...sale,
+      chek_num:      sale.chekNum,
+      pay_type:      sale.payType,
+      customer_name: sale.customerName,
+      debt_currency: sale.debtCurrency,
+      debt_usd:      sale.debtUsd,
+    };
   }
 
   return renderReceiptHtml(sale, shopName);
@@ -605,11 +638,10 @@ export default async function handler(req, res) {
   // Chek sahifasi (HTML, Print/PDF) — brauzerda ochiladi
   if (req.method === "GET" && req.query?.action === "receipt") {
     try {
-      const chekId = String(req.query.id || "");
-      if (!chekId) {
-        return res.status(400).send("Chek ID kerak: ?action=receipt&id=CHK-...");
-      }
-      const html = await actionRenderReceipt(chekId);
+      const chekId   = String(req.query.id || "");
+      const saleData = req.query.d || null;
+      if (!chekId) return res.status(400).send("Chek ID kerak");
+      const html = await actionRenderReceipt(chekId, saleData);
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       return res.status(200).send(html);
     } catch (e) {
