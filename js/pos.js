@@ -970,6 +970,21 @@ function showReceiptModal(sale) {
     }
   }
 
+  // Bot va PDF havola
+  const botUser = (db.settings?.telegramBotUsername || "").replace(/^@/,"");
+  const botUrl  = db.settings?.telegramBotUrl || "";
+  const chekId  = sale.chekNum || ("ID" + sale.id);
+  const rcpUrl  = botUrl ? `${botUrl}?action=receipt&id=${encodeURIComponent(chekId)}` : "";
+
+  const rcpBotEl = $("rcp-bot-info");
+  if (rcpBotEl) {
+    rcpBotEl.style.display = (botUser || rcpUrl) ? "block" : "none";
+    rcpBotEl.innerHTML = [
+      botUser ? `<div style="font-size:11px;color:#229ED9;text-align:center;padding:4px 0">🤖 Cheklarni Telegramda olish: <b>@${botUser}</b></div>` : "",
+      rcpUrl  ? `<div style="text-align:center;padding:4px 0"><a href="${rcpUrl}" target="_blank" style="font-size:11.5px;color:#0D1B2A;font-weight:600;text-decoration:none;background:#F0EDE8;padding:4px 14px;border-radius:20px;display:inline-block">📄 PDF havolasi</a></div>` : ""
+    ].join("");
+  }
+
   openModal("receipt");
 }
 
