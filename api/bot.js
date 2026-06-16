@@ -116,15 +116,23 @@ async function handleContact(chatId, contact) {
   const phone = normPhone(contact.phone_number);
 
   try {
-    // customers jadvalida shu raqamga mos mijozni topamiz
-    const all = await sb("customers", `?select=id,phone,name,telegram_chat_id`);
+    // Barcha customers ni olamiz
+    const all = await sb("customers", `?select=*`);
+    console.log(`[handleContact] phone=${phone}, customers count=${all?.length}`);
+
     const match = all.find(c => {
-      const cp = normPhone(c.phone);
-      // 998901234567 va 901234567 ikkalasini ham solishtiramiz
-      return cp && (cp === phone || cp === phone.replace(/^998/, "") || phone === cp.replace(/^998/, ""));
+      const cp = normPhone(c.phone || "");
+      return cp && (
+        cp === phone ||
+        cp === phone.replace(/^998/, "") ||
+        phone === cp.replace(/^998/, "") ||
+        ("998" + cp) === phone ||
+        cp === ("998" + phone)
+      );
     });
 
     if (!match) {
+      console.log(`[handleContact] topilmadi: phone=${phone}`);
       await tg(chatId,
         "⚠️ Raqamingiz bizning mijozlar bazasida topilmadi.\n\n" +
         "Birinchi xaridingizdan so'ng avtomatik bog'lanadi. Iltimos, do'konda xarid qiling.",
@@ -133,14 +141,26 @@ async function handleContact(chatId, contact) {
       return;
     }
 
-    // telegram_chat_id ni yangilaymiz (local_id yoki id bo'yicha)
-    // Supabase da customers jadvalida primary key har xil bo'lishi mumkin
-    // Shuning uchun ikkala variantni ham sinab ko'ramiz
-    try {
-      await sbPatch("customers", `?local_id=eq.${match.id}`, { telegram_chat_id: String(chatId) });
-    } catch {
-      await sbPatch("customers", `?id=eq.${match.id}`, { telegram_chat_id: String(chatId) });
+    console.log(`[handleContact] topildi: id=${match.id}, local_id=${match.local_id}, name=${match.name}`);
+
+    // Supabase primary key ni aniqlaymiz — local_id yoki id
+    // PostgREST da WHERE shart 0 ta row yangilasa ham xato bermaydi
+    // Shuning uchun natijani tekshiramiz
+    let updated = false;
+
+    if (match.local_id != null) {
+      const r = await sbPatch("customers", `?local_id=eq.${match.local_id}`, { telegram_chat_id: String(chatId) });
+      if (Array.isArray(r) && r.length > 0) updated = true;
+      console.log(`[handleContact] local_id patch result:`, JSON.stringify(r));
     }
+
+    if (!updated && match.id != null) {
+      const r2 = await sbPatch("customers", `?id=eq.${match.id}`, { telegram_chat_id: String(chatId) });
+      if (Array.isArray(r2) && r2.length > 0) updated = true;
+      console.log(`[handleContact] id patch result:`, JSON.stringify(r2));
+    }
+
+    console.log(`[handleContact] updated=${updated}`);
 
     await tg(chatId,
       `✅ Rahmat, ${match.name}!\n\n` +
@@ -148,7 +168,7 @@ async function handleContact(chatId, contact) {
       { reply_markup: { remove_keyboard: true } }
     );
   } catch (e) {
-    console.error("contact xato:", e.message);
+    console.error("[handleContact] xato:", e.message);
     await tg(chatId, `⚠️ Xato yuz berdi: ${e.message}`, { reply_markup: { remove_keyboard: true } });
   }
 }
@@ -387,30 +407,41 @@ async function actionSendReceipt(body) {
   }
 
   let chatId = null;
+  console.log(`[sendReceipt] customerId=${customerId}, phone=${customerPhone}`);
 
   // 1. Avval telefondan qidiramiz (eng ishonchli)
   if (customerPhone) {
     const phone = normPhone(customerPhone);
-    const all = await sb("customers", `?select=id,phone,telegram_chat_id`);
+    const all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id`);
+    console.log(`[sendReceipt] customers count=${all?.length}`);
     const match = all.find(c => {
       const cp = normPhone(c.phone || "");
-      return cp && (cp === phone || cp === phone.replace(/^998/, "") || phone === cp.replace(/^998/, ""));
+      return cp && (
+        cp === phone ||
+        cp === phone.replace(/^998/, "") ||
+        phone === cp.replace(/^998/, "") ||
+        ("998" + cp) === phone ||
+        cp === ("998" + phone)
+      );
     });
+    console.log(`[sendReceipt] phone match:`, match ? `id=${match.id} local_id=${match.local_id} chat_id=${match.telegram_chat_id}` : "topilmadi");
     if (match?.telegram_chat_id) chatId = match.telegram_chat_id;
   }
 
-  // 2. Telefon orqali topilmasa customerId bo'yicha urinamiz
+  // 2. customerId bo'yicha urinamiz
   if (!chatId && customerId) {
-    // local_id bo'yicha qidirish
     const byLocalId = await sb("customers", `?local_id=eq.${customerId}&select=id,telegram_chat_id`);
+    console.log(`[sendReceipt] local_id=${customerId}:`, byLocalId?.[0]);
     if (byLocalId?.[0]?.telegram_chat_id) {
       chatId = byLocalId[0].telegram_chat_id;
     } else {
-      // to'g'ridan id bo'yicha
       const byId = await sb("customers", `?id=eq.${customerId}&select=id,telegram_chat_id`);
+      console.log(`[sendReceipt] id=${customerId}:`, byId?.[0]);
       if (byId?.[0]?.telegram_chat_id) chatId = byId[0].telegram_chat_id;
     }
   }
+
+  console.log(`[sendReceipt] chatId=${chatId}`);
 
   if (!chatId) {
     return { ok: false, sent: false, reason: "no_telegram" };
