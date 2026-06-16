@@ -423,22 +423,19 @@ async function actionSendReceipt(body) {
   let chatId = null;
   console.log(`[sendReceipt] customerId=${customerId}, phone=${customerPhone}`);
 
-  // 1. Avval telefondan qidiramiz (eng ishonchli)
+  // 1. Avval telefondan qidiramiz — barcha customers ni olib, telefon bo'yicha moslaymiz
   if (customerPhone) {
-    const phone = normPhone(customerPhone);
+    const rawPhone = normPhone(customerPhone);
+    const normalize = p => p.startsWith("998") ? p.slice(3) : p;
     const all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id`);
-    console.log(`[sendReceipt] customers count=${all?.length}`);
+    console.log(`[sendReceipt] customers count=${all?.length}, searching phone=${rawPhone}`);
     const match = all.find(c => {
       const cp = normPhone(c.phone || "");
-      return cp && (
-        cp === phone ||
-        cp === phone.replace(/^998/, "") ||
-        phone === cp.replace(/^998/, "") ||
-        ("998" + cp) === phone ||
-        cp === ("998" + phone)
-      );
+      return cp && normalize(cp) === normalize(rawPhone);
     });
-    console.log(`[sendReceipt] phone match:`, match ? `id=${match.id} local_id=${match.local_id} chat_id=${match.telegram_chat_id}` : "topilmadi");
+    console.log(`[sendReceipt] phone match:`, match
+      ? `id=${match.id} local_id=${match.local_id} chat_id=${match.telegram_chat_id}`
+      : "topilmadi");
     if (match?.telegram_chat_id) chatId = match.telegram_chat_id;
   }
 

@@ -99,6 +99,24 @@ async function pushToCloud() {
       }
     }
 
+    // Customers uchun alohida sync — telegram_chat_id ni HECH QACHON o'zgartirmaymiz
+    // Bu ustunni faqat bot yozadi (handleContact orqali)
+    async function syncCustomers(customers) {
+      if (!customers || !customers.length) return;
+      const chunk = 50;
+      for (let i = 0; i < customers.length; i += chunk) {
+        const batch = customers.slice(i, i+chunk).map(c => ({
+          id: c.id, name: c.name,
+          phone: c.phone || null,
+          type: c.type || "ulgurji"
+          // telegram_chat_id — BU YERDA YO'Q, bot yozadi, biz o'zgartirmaymiz
+        }));
+        const { error } = await _sb.from("customers")
+          .upsert(batch, {onConflict:"id", ignoreDuplicates:false});
+        if (error) throw error;
+      }
+    }
+
     await sync("products", db.products?.map(p => ({
       id: p.id || Date.now(),
       sku: p.sku, name: p.name,
@@ -110,17 +128,7 @@ async function pushToCloud() {
       variants: p.variants || []
     })));
 
-    await sync("customers", db.customers?.map(c => {
-      const row = {
-        id: c.id, name: c.name,
-        phone: c.phone || null,
-        type: c.type || "ulgurji"
-      };
-      // telegram_chat_id ni faqat localda mavjud bo'lsa yuboramiz —
-      // aks holda Supabase dagi qiymatni nullga aylantirib qo'yamiz
-      if (c.telegramChatId) row.telegram_chat_id = c.telegramChatId;
-      return row;
-    }));
+    await syncCustomers(db.customers);
 
     await sync("staff", db.staff?.map(s => ({
       id: s.id, name: s.name,
