@@ -113,26 +113,24 @@ async function cmdStart(chatId) {
 
 // ── Kontakt qabul qilish (mijoz raqamini ulashganda) ──────────
 async function handleContact(chatId, contact) {
-  const phone = normPhone(contact.phone_number);
+  const rawPhone = normPhone(contact.phone_number);
 
   try {
     // Barcha customers ni olamiz
     const all = await sb("customers", `?select=*`);
-    console.log(`[handleContact] phone=${phone}, customers count=${all?.length}`);
+    console.log(`[handleContact] phone=${rawPhone}, customers=${all?.length}`);
 
+    // Telefon formatlarini solishtirish (998 prefix bilan va siz)
     const match = all.find(c => {
       const cp = normPhone(c.phone || "");
-      return cp && (
-        cp === phone ||
-        cp === phone.replace(/^998/, "") ||
-        phone === cp.replace(/^998/, "") ||
-        ("998" + cp) === phone ||
-        cp === ("998" + phone)
-      );
+      if (!cp) return false;
+      // Har ikki tomonni 9 xonali formatga keltirib solishtirish
+      const normalize = p => p.startsWith("998") ? p.slice(3) : p;
+      return normalize(cp) === normalize(rawPhone);
     });
 
     if (!match) {
-      console.log(`[handleContact] topilmadi: phone=${phone}`);
+      console.log(`[handleContact] topilmadi: ${rawPhone}`);
       await tg(chatId,
         "⚠️ Raqamingiz bizning mijozlar bazasida topilmadi.\n\n" +
         "Birinchi xaridingizdan so'ng avtomatik bog'lanadi. Iltimos, do'konda xarid qiling.",
@@ -141,26 +139,42 @@ async function handleContact(chatId, contact) {
       return;
     }
 
-    console.log(`[handleContact] topildi: id=${match.id}, local_id=${match.local_id}, name=${match.name}`);
+    console.log(`[handleContact] topildi: id=${match.id}, local_id=${match.local_id}, phone=${match.phone}, existing_chat_id=${match.telegram_chat_id}`);
 
-    // Supabase primary key ni aniqlaymiz — local_id yoki id
-    // PostgREST da WHERE shart 0 ta row yangilasa ham xato bermaydi
-    // Shuning uchun natijani tekshiramiz
-    let updated = false;
+    // Telefon raqami bo'yicha PATCH — eng ishonchli usul
+    // Supabase da phone ustuni index bilan bor
+    const phoneForPatch = normPhone(match.phone || "");
+    let patchResult = null;
 
-    if (match.local_id != null) {
-      const r = await sbPatch("customers", `?local_id=eq.${match.local_id}`, { telegram_chat_id: String(chatId) });
-      if (Array.isArray(r) && r.length > 0) updated = true;
-      console.log(`[handleContact] local_id patch result:`, JSON.stringify(r));
+    // 1. Telefon bo'yicha yangilash
+    try {
+      patchResult = await sbPatch("customers", `?phone=eq.${encodeURIComponent(match.phone)}`, { telegram_chat_id: String(chatId) });
+      console.log(`[handleContact] phone patch result: ${JSON.stringify(patchResult)}`);
+    } catch(e) {
+      console.log(`[handleContact] phone patch xato: ${e.message}`);
     }
 
-    if (!updated && match.id != null) {
-      const r2 = await sbPatch("customers", `?id=eq.${match.id}`, { telegram_chat_id: String(chatId) });
-      if (Array.isArray(r2) && r2.length > 0) updated = true;
-      console.log(`[handleContact] id patch result:`, JSON.stringify(r2));
+    // 2. Agar phone patch ishlamasa, local_id bo'yicha
+    if (!patchResult?.length && match.local_id != null) {
+      try {
+        patchResult = await sbPatch("customers", `?local_id=eq.${match.local_id}`, { telegram_chat_id: String(chatId) });
+        console.log(`[handleContact] local_id patch: ${JSON.stringify(patchResult)}`);
+      } catch(e) {
+        console.log(`[handleContact] local_id patch xato: ${e.message}`);
+      }
     }
 
-    console.log(`[handleContact] updated=${updated}`);
+    // 3. id bo'yicha (Supabase auto id)
+    if (!patchResult?.length && match.id != null) {
+      try {
+        patchResult = await sbPatch("customers", `?id=eq.${match.id}`, { telegram_chat_id: String(chatId) });
+        console.log(`[handleContact] id patch: ${JSON.stringify(patchResult)}`);
+      } catch(e) {
+        console.log(`[handleContact] id patch xato: ${e.message}`);
+      }
+    }
+
+    console.log(`[handleContact] yakuniy natija: ${patchResult?.length ? "✅ yangilandi" : "❌ yangilanmadi"}`);
 
     await tg(chatId,
       `✅ Rahmat, ${match.name}!\n\n` +
