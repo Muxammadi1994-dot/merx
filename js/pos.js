@@ -151,8 +151,10 @@ function posClear() {
 // ── renderPosGrid — utils.js bilan moslik ────────
 function renderPosGrid() {
   posSearch();
-  // Brauzer avtofill dan himoya — POS sahifasi ochilganda izoh maydonini tozalaymiz
-  setTimeout(() => { if ($("pos-note")) $("pos-note").value = ""; }, 100);
+  setTimeout(() => {
+    const n = $("pos-note");
+    if (n) { n.value = ""; n.setAttribute("readonly", true); }
+  }, 150);
 }
 
 // ── Narx turi ─────────────────────────────────────
@@ -807,7 +809,7 @@ async function checkout() {
   if ($("cust-dropdown"))    $("cust-dropdown").style.display = "none";
   if ($("discount-val"))   $("discount-val").value  = "0";
   if ($("discount-result")) $("discount-result").style.display = "none";
-  if ($("pos-note"))       $("pos-note").value       = "";
+  const pn1=$("pos-note"); if(pn1){pn1.value="";pn1.setAttribute("readonly",true);}
   if ($("vm-price-input")) $("vm-price-input").value = "";
   $("debt-count").textContent = debtSales().length;
   refreshCustList();
@@ -994,7 +996,7 @@ function showReceiptModal(sale) {
 
 function closeReceipt() {
   closeModal("receipt");
-  if ($("pos-note")) $("pos-note").value = "";
+  const pn2=$("pos-note"); if(pn2){pn2.value="";pn2.setAttribute("readonly",true);}
 }
 
 function shareTelegram() {
