@@ -735,6 +735,20 @@ async function checkout() {
   const chekNum = `CHK-${today().replace(/-/g,"")}` +
     `-${String(db.seq).padStart(4,"0")}`;
 
+  // Mijozning oldingi qarzlarini hisoblaymiz
+  let prevDebtUsd = 0, prevDebtUzs = 0;
+  if (customerId) {
+    const prevDebts = db.sales.filter(s =>
+      s.customerId === customerId && s.status === "qarz" && s.remaining > 0
+    );
+    prevDebtUsd = prevDebts
+      .filter(s => s.debtCurrency === "usd" && s.debtUsd)
+      .reduce((a, s) => a + s.debtUsd, 0);
+    prevDebtUzs = prevDebts
+      .filter(s => s.debtCurrency !== "usd")
+      .reduce((a, s) => a + s.remaining, 0);
+  }
+
   const newSale = {
     id:db.seq++, chekNum, date:today(), time:nowTime(),
     priceType: posPriceType,
@@ -750,7 +764,10 @@ async function checkout() {
     subtotal, total, paid, remaining:rem, due,
     customerName:cName, customerPhone:cPhone, status,
     debtCurrency: posPayMode==="part" ? posDebtCurrency : "uzs",
-    debtUsd, note: saleNote || null
+    debtUsd, note: saleNote || null,
+    // Oldingi qarz ma'lumotlari (chekda ko'rsatish uchun)
+    prevDebtUsd: prevDebtUsd > 0 ? prevDebtUsd : null,
+    prevDebtUzs: prevDebtUzs > 0 ? prevDebtUzs : null,
   };
   db.sales.push(newSale); saveDB();
 
@@ -977,10 +994,49 @@ function printReceiptPos() {
   const discRow = sale.discount > 0 ? `
         <div class="sum-row"><span>Chegirma</span><span class="neg">−${fmt(sale.discount)} so'm</span></div>` : "";
 
-  const debtRow = sale.remaining > 0 ? `
-        <div class="sum-row debt"><span>Qarz</span><span>${sale.debtCurrency==="usd"&&sale.debtUsd?"$"+sale.debtUsd.toFixed(2):fmt(sale.remaining)+" so'm"}</span></div>
-        ${sale.due ? `<div class="sum-row debt-due"><span>To'lov muddati</span><span>${sale.due}</span></div>` : ""}` : `
-        <div class="status-ok">✓ To'liq to'landi</div>`;
+  const debtRow = sale.remaining > 0 ? (() => {
+    const isUsd = sale.debtCurrency === "usd" && sale.debtUsd;
+    const newDebt = isUsd ? `$${sale.debtUsd.toFixed(2)}` : `${fmt(sale.remaining)} so'm`;
+
+    // Oldingi qarz + yangi qarz = umumiy
+    const hasPrevUsd = isUsd && sale.prevDebtUsd > 0;
+    const hasPrevUzs = !isUsd && sale.prevDebtUzs > 0;
+
+    let totalDebtHtml = "";
+    if (hasPrevUsd) {
+      const totalUsd = sale.prevDebtUsd + sale.debtUsd;
+      totalDebtHtml = `
+        <div class="sum-row" style="font-size:11.5px;color:#aaa">
+          <span>Oldingi qarz</span><span>$${sale.prevDebtUsd.toFixed(2)}</span>
+        </div>
+        <div class="sum-row" style="font-size:11.5px;color:#aaa">
+          <span>+ Yangi qarz</span><span>$${sale.debtUsd.toFixed(2)}</span>
+        </div>
+        <div class="sum-row debt" style="border-top:1px dashed #fca5a5;padding-top:4px;margin-top:2px">
+          <span><b>Umumiy qarz</b></span><span>$${totalUsd.toFixed(2)}</span>
+        </div>`;
+    } else if (hasPrevUzs) {
+      const totalUzs = sale.prevDebtUzs + sale.remaining;
+      totalDebtHtml = `
+        <div class="sum-row" style="font-size:11.5px;color:#aaa">
+          <span>Oldingi qarz</span><span>${fmt(sale.prevDebtUzs)} so'm</span>
+        </div>
+        <div class="sum-row" style="font-size:11.5px;color:#aaa">
+          <span>+ Yangi qarz</span><span>${fmt(sale.remaining)} so'm</span>
+        </div>
+        <div class="sum-row debt" style="border-top:1px dashed #fca5a5;padding-top:4px;margin-top:2px">
+          <span><b>Umumiy qarz</b></span><span>${fmt(totalUzs)} so'm</span>
+        </div>`;
+    } else {
+      totalDebtHtml = `
+        <div class="sum-row debt">
+          <span>Qarz</span><span>${newDebt}</span>
+        </div>`;
+    }
+
+    return totalDebtHtml + (sale.due ? `
+        <div class="sum-row debt-due"><span>To'lov muddati</span><span>${sale.due}</span></div>` : "");
+  })() : `<div class="status-ok">✓ To'liq to'landi</div>`;
 
   const botUsername = (db.settings?.telegramBotUsername || "").replace(/^@/, "");
   const botApiUrl   = db.settings?.telegramBotUrl || "";

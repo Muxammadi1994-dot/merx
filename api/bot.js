@@ -391,6 +391,32 @@ async function cmdQarzlar(chatId, barcha = false) {
 // ── Mijozga chek yuborish ──────────────────────────────────────
 function formatReceiptText(sale, shopName) {
   const payLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma" };
+  const isUsd = sale.debtCurrency === "usd" && sale.debtUsd;
+
+  // Qarz satrlari
+  let debtLines = [];
+  if (sale.remaining > 0) {
+    const newDebt = isUsd ? `$${Number(sale.debtUsd).toFixed(2)}` : `${fmt(sale.remaining)} so'm`;
+    if (isUsd && sale.prevDebtUsd > 0) {
+      const total = sale.prevDebtUsd + Number(sale.debtUsd);
+      debtLines = [
+        `Oldingi qarz: $${sale.prevDebtUsd.toFixed(2)}`,
+        `+ Yangi qarz: $${Number(sale.debtUsd).toFixed(2)}`,
+        `💳 Umumiy qarz: $${total.toFixed(2)}`,
+      ];
+    } else if (!isUsd && sale.prevDebtUzs > 0) {
+      const total = sale.prevDebtUzs + sale.remaining;
+      debtLines = [
+        `Oldingi qarz: ${fmt(sale.prevDebtUzs)} so'm`,
+        `+ Yangi qarz: ${fmt(sale.remaining)} so'm`,
+        `💳 Umumiy qarz: ${fmt(total)} so'm`,
+      ];
+    } else {
+      debtLines = [`💳 Qarz: ${newDebt}`];
+    }
+    if (sale.due) debtLines.push(`Muddat: ${sale.due}`);
+  }
+
   const lines = [
     `🧾 ${shopName} — Chek`,
     `📌 ${sale.chekNum || "#" + sale.id} | ${sale.date} ${sale.time || ""}`,
@@ -401,13 +427,8 @@ function formatReceiptText(sale, shopName) {
     "",
     `Jami: ${fmt(sale.total)} so'm`,
     `To'lov: ${payLabels[sale.payType] || sale.payType || "—"}`,
-    sale.paid < sale.total
-      ? `To'landi: ${fmt(sale.paid)} so'm`
-      : null,
-    sale.remaining > 0
-      ? `Qarz: ${sale.debtCurrency === "usd" && sale.debtUsd ? "$" + Number(sale.debtUsd).toFixed(2) : fmt(sale.remaining) + " so'm"}`
-      : "✅ To'liq to'landi",
-    sale.due ? `Muddat: ${sale.due}` : null,
+    sale.paid < sale.total ? `To'landi: ${fmt(sale.paid)} so'm` : null,
+    ...(debtLines.length ? debtLines : ["✅ To'liq to'landi"]),
     "",
     "Rahmat! Yana kutamiz 🙏",
   ];
