@@ -110,12 +110,17 @@ async function pushToCloud() {
       variants: p.variants || []
     })));
 
-    await sync("customers", db.customers?.map(c => ({
-      id: c.id, name: c.name,
-      phone: c.phone || null,
-      type: c.type || "ulgurji",
-      telegram_chat_id: c.telegramChatId || null
-    })));
+    await sync("customers", db.customers?.map(c => {
+      const row = {
+        id: c.id, name: c.name,
+        phone: c.phone || null,
+        type: c.type || "ulgurji"
+      };
+      // telegram_chat_id ni faqat localda mavjud bo'lsa yuboramiz —
+      // aks holda Supabase dagi qiymatni nullga aylantirib qo'yamiz
+      if (c.telegramChatId) row.telegram_chat_id = c.telegramChatId;
+      return row;
+    }));
 
     await sync("staff", db.staff?.map(s => ({
       id: s.id, name: s.name,

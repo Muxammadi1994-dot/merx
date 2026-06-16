@@ -34,16 +34,18 @@ async function testSms() {
 // ================================================
 
 // Mijozga avtomatik chek yuborish (sotuv yakunlangach chaqiriladi)
-async function sendTelegramReceipt(customerId, sale) {
+async function sendTelegramReceipt(customerId, sale, customerPhone) {
   const botUrl = db.settings?.telegramBotUrl;
-  if (!botUrl || !customerId) return;
+  // telefon yoki customerId dan biri bo'lsa yubora olamiz
+  if (!botUrl || (!customerId && !customerPhone)) return;
 
   try {
     const res = await fetch(botUrl + "?action=send_receipt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        customerId,
+        customerId: customerId || null,
+        customerPhone: customerPhone || null,
         sale,
         shopName: db.shop?.name || "MERX"
       })
@@ -52,9 +54,7 @@ async function sendTelegramReceipt(customerId, sale) {
     if (data.sent) {
       toast("📨 Chek mijozga Telegram orqali yuborildi");
     }
-    // data.reason === "no_telegram" bo'lsa — mijoz botga ulanmagan, jim o'tamiz
   } catch (e) {
-    // Tarmoq xatosi bo'lsa ham sotuvga ta'sir qilmasligi kerak
     console.warn("Telegram chek yuborilmadi:", e.message);
   }
 }

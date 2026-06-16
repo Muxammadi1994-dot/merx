@@ -755,8 +755,8 @@ async function checkout() {
   db.sales.push(newSale); saveDB();
 
   // Telegram bot orqali avtomatik chek (mijoz botga ulangan bo'lsa)
-  if (customerId && typeof sendTelegramReceipt === "function") {
-    sendTelegramReceipt(customerId, newSale);
+  if (typeof sendTelegramReceipt === "function") {
+    sendTelegramReceipt(customerId, newSale, cPhone);
   }
 
   // SMS (boyitilgan)

@@ -133,8 +133,14 @@ async function handleContact(chatId, contact) {
       return;
     }
 
-    // telegram_chat_id ni yangilaymiz
-    await sbPatch("customers", `?id=eq.${match.id}`, { telegram_chat_id: String(chatId) });
+    // telegram_chat_id ni yangilaymiz (local_id yoki id bo'yicha)
+    // Supabase da customers jadvalida primary key har xil bo'lishi mumkin
+    // Shuning uchun ikkala variantni ham sinab ko'ramiz
+    try {
+      await sbPatch("customers", `?local_id=eq.${match.id}`, { telegram_chat_id: String(chatId) });
+    } catch {
+      await sbPatch("customers", `?id=eq.${match.id}`, { telegram_chat_id: String(chatId) });
+    }
 
     await tg(chatId,
       `✅ Rahmat, ${match.name}!\n\n` +
@@ -373,23 +379,46 @@ function formatReceiptText(sale, shopName) {
 }
 
 async function actionSendReceipt(body) {
-  const { customerId, sale, shopName } = body || {};
-  if (!customerId || !sale) {
-    return { ok: false, error: "customerId va sale majburiy" };
+  const { customerId, customerPhone, sale, shopName } = body || {};
+  if (!sale) {
+    return { ok: false, error: "sale majburiy" };
   }
 
-  const custs = await sb("customers", `?id=eq.${customerId}&select=id,name,telegram_chat_id`);
-  const cust  = custs?.[0];
+  let chatId = null;
 
-  if (!cust || !cust.telegram_chat_id) {
+  // 1. Avval telefondan qidiramiz (eng ishonchli)
+  if (customerPhone) {
+    const phone = normPhone(customerPhone);
+    const all = await sb("customers", `?select=id,phone,telegram_chat_id`);
+    const match = all.find(c => {
+      const cp = normPhone(c.phone || "");
+      return cp && (cp === phone || cp === phone.replace(/^998/, "") || phone === cp.replace(/^998/, ""));
+    });
+    if (match?.telegram_chat_id) chatId = match.telegram_chat_id;
+  }
+
+  // 2. Telefon orqali topilmasa customerId bo'yicha urinamiz
+  if (!chatId && customerId) {
+    // local_id bo'yicha qidirish
+    const byLocalId = await sb("customers", `?local_id=eq.${customerId}&select=id,telegram_chat_id`);
+    if (byLocalId?.[0]?.telegram_chat_id) {
+      chatId = byLocalId[0].telegram_chat_id;
+    } else {
+      // to'g'ridan id bo'yicha
+      const byId = await sb("customers", `?id=eq.${customerId}&select=id,telegram_chat_id`);
+      if (byId?.[0]?.telegram_chat_id) chatId = byId[0].telegram_chat_id;
+    }
+  }
+
+  if (!chatId) {
     return { ok: false, sent: false, reason: "no_telegram" };
   }
 
   const txt = formatReceiptText(sale, shopName || "MERX");
   const chekId = sale.chekNum || ("ID" + sale.id);
-  const receiptUrl = `https://${process.env.VERCEL_URL || "merx-rho.vercel.app"}/api/bot?action=receipt&id=${encodeURIComponent(chekId)}`;
+  const receiptUrl = `https://merx-rho.vercel.app/api/bot?action=receipt&id=${encodeURIComponent(chekId)}`;
 
-  const r = await tg(cust.telegram_chat_id, txt, {
+  const r = await tg(chatId, txt, {
     reply_markup: {
       inline_keyboard: [[{ text: "📄 Chekni ko'rish / PDF", url: receiptUrl }]],
     },
