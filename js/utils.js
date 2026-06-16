@@ -238,7 +238,10 @@ function buildReceiptHtml(sale, opts) {
 
   // ── Maydonlar normalizatsiyasi ─────────────────
   const chekNum   = sale.chekNum    || sale.chek_num    || ("#" + sale.id);
-  const date      = sale.date       || "";
+  const rawDate   = sale.date || "";
+  const date      = rawDate.includes("-") && rawDate.length === 10
+    ? rawDate.split("-").reverse().join(".")   // 2026-06-16 → 16.06.2026
+    : rawDate;
   const time      = sale.time       || "";
   const payType   = sale.payType    || sale.pay_type    || "";
   const custName  = sale.customerName || sale.customer_name || "";
@@ -387,6 +390,34 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
   body{background:#fff;padding:0}
   .wrap,.rc{border-radius:0;box-shadow:none;width:72mm;max-width:72mm}
   .acts{display:none}
+  /* Barcha xira ranglarni print uchun qoraroq qilish */
+  .mr{color:#000}
+  .mr b{color:#000}
+  .it-num{color:#444}
+  .it-sku{color:#444}
+  .it-det{color:#333}
+  .it-box{color:#333}
+  .it-name{color:#000}
+  .it-sum{color:#000}
+  .tot-cnt{color:#333}
+  .tot-lbl{color:#000}
+  .tot-val{color:#000}
+  .pay-lbl{color:#333}
+  .pr{color:#000}
+  .pr.pr-sm{color:#333}
+  .pr.pr-sm span{color:#333 !important}
+  .pr.pr-debt{color:#000;font-weight:800;border-top:1px solid #000}
+  .c-red{color:#000 !important}
+  .paid-ok{color:#000;background:#f0f0f0;border:1px solid #ccc}
+  .it-lbl{color:#333}
+  .ft-thanks{color:#000}
+  .ft-date{color:#333}
+  .ft-bot{color:#000}
+  .ft-pdf a{color:#000;background:#eee}
+  .hd{background:#000 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sep-dash{border-top:1px dashed #999}
+  .note-wrap{background:#f5f5f5;border-bottom:1px solid #ccc;color:#000}
+  .note-lbl{color:#000}
 }
 </style></head><body>
 <div class="wrap">
