@@ -88,7 +88,7 @@ async function pushToCloud() {
       price_currency: db.settings?.priceCurrency || "uzs"
     });
 
-    // Helper — upsert id asosida
+    // Helper — upsert id asosida, xato bo'lsa warning, davom etadi
     async function sync(table, rows) {
       if (!rows || !rows.length) return;
       const chunk = 50;
@@ -100,7 +100,6 @@ async function pushToCloud() {
     }
 
     // Customers uchun alohida sync — telegram_chat_id ni HECH QACHON o'zgartirmaymiz
-    // Bu ustunni faqat bot yozadi (handleContact orqali)
     async function syncCustomers(customers) {
       if (!customers || !customers.length) return;
       const chunk = 50;
@@ -109,7 +108,6 @@ async function pushToCloud() {
           id: c.id, name: c.name,
           phone: c.phone || null,
           type: c.type || "ulgurji"
-          // telegram_chat_id — BU YERDA YO'Q, bot yozadi, biz o'zgartirmaymiz
         }));
         const { error } = await _sb.from("customers")
           .upsert(batch, {onConflict:"id", ignoreDuplicates:false});
@@ -117,71 +115,93 @@ async function pushToCloud() {
       }
     }
 
-    await sync("products", db.products?.map(p => ({
-      id: p.id || Date.now(),
-      sku: p.sku, name: p.name,
-      category: p.category, type: p.type,
-      unit: p.unit || "dona",
-      cost_usd: p.costUsd || 0,
-      price_uzs: p.priceUzs || 0,
-      ulgurji: p.ulgurjiNarx || 0,
-      variants: p.variants || []
-    })));
+    // Har bir jadvalni mustaqil sinxronlaymiz
+    // Biri xato bersada, qolganlar davom etadi
+    const syncErrors = [];
 
-    await syncCustomers(db.customers);
+    try {
+      await sync("products", db.products?.map(p => ({
+        id: p.id || Date.now(),
+        sku: p.sku, name: p.name,
+        category: p.category, type: p.type,
+        unit: p.unit || "dona",
+        cost_usd: p.costUsd || 0,
+        price_uzs: p.priceUzs || 0,
+        ulgurji: p.ulgurjiNarx || 0,
+        variants: p.variants || []
+      })));
+    } catch(e) { syncErrors.push("products: " + e.message); console.warn("sync products xato:", e.message); }
 
-    await sync("staff", db.staff?.map(s => ({
-      id: s.id, name: s.name,
-      phone: s.phone || null,
-      role: s.role || "kassir"
-    })));
+    try {
+      await syncCustomers(db.customers);
+    } catch(e) { syncErrors.push("customers: " + e.message); console.warn("sync customers xato:", e.message); }
 
-    await sync("sales", db.sales?.map(s => ({
-      id: s.id,
-      chek_num: s.chekNum || null,
-      date: s.date, time: s.time || null,
-      price_type: s.priceType, pay_type: s.payType,
-      items: s.items || [],
-      total: s.total || 0, paid: s.paid || 0,
-      remaining: s.remaining || 0,
-      due: s.due || null,
-      customer_name: s.customerName || null,
-      customer_phone: s.customerPhone || null,
-      status: s.status || "tolandan"
-    })));
+    try {
+      await sync("staff", db.staff?.map(s => ({
+        id: s.id, name: s.name,
+        phone: s.phone || null,
+        role: s.role || "kassir"
+      })));
+    } catch(e) { syncErrors.push("staff: " + e.message); console.warn("sync staff xato:", e.message); }
 
-    await sync("ombor", db.ombor?.map(o => ({
-      id: o.id, date: o.date,
-      product_name: o.productName,
-      unit: o.unit, color: o.color,
-      size: o.size, qty: o.qty || 0,
-      kirim_narxi: o.kirimNarxi || 0,
-      ulgurji: o.ulgurji || 0,
-      supplier: o.supplier || null,
-      pay_status: o.payStatus || "tolandan"
-    })));
+    try {
+      await sync("sales", db.sales?.map(s => ({
+        id: s.id,
+        chek_num: s.chekNum || null,
+        date: s.date, time: s.time || null,
+        price_type: s.priceType, pay_type: s.payType,
+        items: s.items || [],
+        total: s.total || 0, paid: s.paid || 0,
+        remaining: s.remaining || 0,
+        due: s.due || null,
+        customer_name: s.customerName || null,
+        customer_phone: s.customerPhone || null,
+        status: s.status || "tolandan"
+      })));
+    } catch(e) { syncErrors.push("sales: " + e.message); console.warn("sync sales xato:", e.message); }
 
-    await sync("xarajatlar", (db.xarajatlar||[]).map(x => ({
-      id: x.id, date: x.date,
-      category: x.category,
-      amount: x.amount || 0,
-      note: x.note || null
-    })));
+    try {
+      await sync("ombor", db.ombor?.map(o => ({
+        id: o.id, date: o.date,
+        product_name: o.productName,
+        unit: o.unit, color: o.color,
+        size: o.size, qty: o.qty || 0,
+        kirim_narxi: o.kirimNarxi || 0,
+        ulgurji: o.ulgurji || 0,
+        supplier: o.supplier || null,
+        pay_status: o.payStatus || "tolandan"
+      })));
+    } catch(e) { syncErrors.push("ombor: " + e.message); console.warn("sync ombor xato:", e.message); }
 
-    await sync("debt_payments", (db.debtPayments||[]).map(p => ({
-      id: p.id,
-      chek_num: p.chekNum,
-      date: p.date, time: p.time || null,
-      customer_id: p.customerId || null,
-      customer_name: p.customerName || null,
-      customer_phone: p.customerPhone || null,
-      amount: p.amount || 0,
-      currency: p.currency || "uzs",
-      allocations: p.allocations || [],
-      leftover: p.leftover || 0
-    })));
+    try {
+      await sync("xarajatlar", (db.xarajatlar||[]).map(x => ({
+        id: x.id, date: x.date,
+        category: x.category,
+        amount: x.amount || 0,
+        note: x.note || null
+      })));
+    } catch(e) { syncErrors.push("xarajatlar: " + e.message); console.warn("sync xarajatlar xato:", e.message); }
 
-    toast("✅ Barcha ma'lumotlar cloud ga saqlandi!");
+    try {
+      await sync("debt_payments", (db.debtPayments||[]).map(p => ({
+        id: p.id,
+        chek_num: p.chekNum,
+        date: p.date, time: p.time || null,
+        customer_id: p.customerId || null,
+        customer_name: p.customerName || null,
+        customer_phone: p.customerPhone || null,
+        amount: p.amount || 0,
+        currency: p.currency || "uzs",
+        allocations: p.allocations || [],
+        leftover: p.leftover || 0
+      })));
+    } catch(e) { syncErrors.push("debt_payments: " + e.message); console.warn("sync debt_payments xato:", e.message); }
+
+    if (syncErrors.length > 0) {
+      toast(`⚠️ Saqlandi, lekin xatolar: ${syncErrors.join("; ")}`, "err");
+    } else {
+      toast("✅ Barcha ma'lumotlar cloud ga saqlandi!");
+    }
     updateCloudUI(true);
   } catch(e) {
     toast("Xato: " + e.message, "err");
