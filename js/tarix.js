@@ -533,20 +533,22 @@ function exportTarixExcel() {
 function printReceipt(id) {
   const s = db.sales.find(x => x.id === id); if (!s) return;
   if (typeof showReceiptModal === "function") { showReceiptModal(s); return; }
-  const w = window.open("","_blank","width=420,height=640");
+  const shopName = db.shop?.name || "MERX";
+  const staffObj = db.staff?.find(st => st.id === s.staffId);
+  const botUser  = (db.settings?.telegramBotUsername || "").replace(/^@/,"");
+  const botUrl   = db.settings?.telegramBotUrl || "";
+  const receiptUrl = botUrl
+    ? `${botUrl}?action=receipt&id=${encodeURIComponent(s.chekNum||("ID"+s.id))}`
+    : "";
+  const html = buildReceiptHtml(s, {
+    shopName, staffName: staffObj?.name || "—",
+    botUsername: botUser, receiptUrl
+  });
+  const w = window.open("","_blank","width=420,height=700");
   if (!w) { toast("Pop-up bloklangan","err"); return; }
-  const safeItems = (s.items||[]).filter(Boolean);
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Chek</title>
-  <style>body{font-family:monospace;font-size:13px;padding:16px;max-width:300px;margin:0 auto}hr{border:none;border-top:1px dashed #ccc;margin:8px 0}.row{display:flex;justify-content:space-between;margin:3px 0}</style></head><body>
-  <div style="text-align:center;font-size:16px;font-weight:700">${db.shop?.name||"MERX"}</div><hr>
-  <div class="row"><span>${s.chekNum||"#"+s.id}</span><span>${s.date} ${s.time||""}</span></div><hr>
-  ${safeItems.map(i=>`<div>${i.name} ×${i.qty} ${i.unit||""} = ${fmt((i.price||0)*(i.qty||0))} so'm</div>`).join("")}
-  <hr><div class="row" style="font-weight:700"><span>JAMI</span><span>${fmt(s.total||0)} so'm</span></div>
-  <div class="row"><span>To'landi</span><span>${fmt(s.paid||0)} so'm</span></div>
-  ${(s.remaining||0)>0?`<div class="row"><span>Qarz</span><span>${fmt(s.remaining)} so'm</span></div>`:""}
-  <hr><div style="text-align:center;font-size:11px">Rahmat!</div>
-  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.write(html);
   w.document.close();
+  w.focus();
 }
 
 // ── Qarz to'lovi qatori (tarix jadvalida) ─────────
