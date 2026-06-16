@@ -542,7 +542,7 @@
         <!-- Izoh -->
         <div style="margin-bottom:12px">
           <div style="font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Izoh <span style="font-weight:400;text-transform:none;color:#ccc">(ixtiyoriy)</span></div>
-          <input id="pos-note" autocomplete="off" value="" placeholder="Masalan: Toshkent buyurtma, Namangan partiyasi..." style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:9px;padding:8px 11px;width:100%;background:#fff;outline:none">
+          <input id="pos-note" autocomplete="new-password" value="" placeholder="Masalan: Toshkent buyurtma, Namangan partiyasi..." style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:9px;padding:8px 11px;width:100%;background:#fff;outline:none">
         </div>
 
         <!-- Kassir -->
@@ -1882,13 +1882,15 @@
 
 <!-- MODAL: CHEK -->
 <div class="ov" id="ov-receipt" onclick="if(event.target===this)closeReceipt()">
-  <div class="modal" style="max-width:420px;padding:0;overflow:hidden">
-    <!-- Header -->
-    <div style="background:#0D1B2A;padding:20px 24px 16px;text-align:center">
+  <div class="modal" style="max-width:420px;padding:0;overflow:hidden;max-height:90vh;display:flex;flex-direction:column">
+    <!-- Header (sticky) -->
+    <div style="background:#0D1B2A;padding:20px 24px 16px;text-align:center;flex-shrink:0">
       <div style="font-size:18px;font-weight:800;color:#fff;letter-spacing:.02em" id="rcp-shop">MERX</div>
       <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">Ulgurji savdo tizimi</div>
     </div>
 
+    <!-- Scroll qism -->
+    <div style="overflow-y:auto;flex:1">
     <!-- Chek raqami va sana -->
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:#F8F7F4;border-bottom:1px solid #E8E5E0">
       <div>
@@ -1962,13 +1964,11 @@
       </div>
     </div>
 
-    <!-- Tugmalar -->
-    <div style="padding:14px 24px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+    </div><!-- /scroll qism -->
+    <!-- Tugmalar sticky pastda -->
+    <div style="padding:12px 24px;display:grid;grid-template-columns:1fr 1fr;gap:8px;border-top:1px solid #E8E5E0;flex-shrink:0;background:#fff">
       <button onclick="printReceiptPos()" style="padding:10px;border-radius:10px;border:1.5px solid #E8E5E0;background:#fff;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;color:#444;transition:.15s" onmouseover="this.style.borderColor='#0D1B2A'" onmouseout="this.style.borderColor='#E8E5E0'">
         <i class="ti ti-printer"></i> Print
-      </button>
-      <button id="rcp-wa-btn" onclick="shareTelegram()" style="padding:10px;border-radius:10px;border:1.5px solid #229ED9;background:#fff;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;color:#229ED9;transition:.15s" onmouseover="this.style.background='#229ED9';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#229ED9'">
-        <i class="ti ti-brand-telegram"></i> Telegram
       </button>
       <button onclick="closeReceipt()" style="padding:10px;border-radius:10px;border:none;background:#E9A500;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;color:#fff;transition:.15s" onmouseover="this.style.background='#d49400'" onmouseout="this.style.background='#E9A500'">
         Keyingi →
@@ -2342,4 +2342,4 @@
 <script src="js/auth.js?v=8"></script>
 <script src="js/superadmin.js?v=8"></script>
 </body>
-</html>
+</html>

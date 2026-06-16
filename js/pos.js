@@ -970,10 +970,6 @@ function showReceiptModal(sale) {
     }
   }
 
-  // Telegram ulashish tugmasi — har doim ko'rsatiladi
-  const waBtn = $("rcp-wa-btn");
-  if (waBtn) waBtn.style.display = "flex";
-
   openModal("receipt");
 }
 
