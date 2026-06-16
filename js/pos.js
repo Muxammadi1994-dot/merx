@@ -149,7 +149,11 @@ function posClear() {
 }
 
 // ── renderPosGrid — utils.js bilan moslik ────────
-function renderPosGrid() { posSearch(); }
+function renderPosGrid() {
+  posSearch();
+  // Brauzer avtofill dan himoya — POS sahifasi ochilganda izoh maydonini tozalaymiz
+  setTimeout(() => { if ($("pos-note")) $("pos-note").value = ""; }, 100);
+}
 
 // ── Narx turi ─────────────────────────────────────
 function setPriceType(t) {

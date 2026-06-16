@@ -334,41 +334,41 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
 
 /* META */
 .meta{padding:10px 16px;font-size:11.5px;border-bottom:1px dashed #E8E5E0}
-.mr{display:flex;justify-content:space-between;padding:2px 0;color:#555}
+.mr{display:flex;justify-content:space-between;padding:2px 0;color:#333}
 .mr b{color:#0D1B2A;font-weight:600;text-align:right;max-width:60%}
-.sep{border-top:1px solid #F0EDE8;margin:5px 0}
+.sep{border-top:1px solid #ddd;margin:5px 0}
 
 /* NOTE */
 .note-wrap{padding:7px 16px;background:#FFFBEB;border-bottom:1px dashed #FDE68A;font-size:11.5px;color:#92400E;display:flex;gap:8px}
 .note-lbl{font-weight:700;white-space:nowrap}
 
 /* ITEMS */
-.it-lbl{padding:8px 16px 4px;font-size:9.5px;font-weight:700;color:#bbb;letter-spacing:1.5px;text-transform:uppercase}
+.it-lbl{padding:8px 16px 4px;font-size:9.5px;font-weight:700;color:#555;letter-spacing:1.5px;text-transform:uppercase}
 .items{padding:0 16px}
 .it{display:flex;gap:8px;padding:9px 0;align-items:flex-start}
-.it-num{font-size:10px;color:#ccc;font-weight:700;min-width:13px;padding-top:3px}
+.it-num{font-size:10px;color:#666;font-weight:700;min-width:13px;padding-top:3px}
 .it-body{flex:1;min-width:0}
 .it-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
 .it-name{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#0D1B2A;flex:1}
-.it-sku{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;color:#bbb;display:block;margin-top:1px}
+.it-sku{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:600;color:#555;display:block;margin-top:1px}
 .it-sum{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#0D1B2A;white-space:nowrap}
-.it-det{font-size:11px;color:#bbb;margin-top:2px}
-.it-box{font-size:10.5px;color:#C4943A;margin-top:2px}
-.sep-dash{border-top:1px dashed #F0EDE8}
+.it-det{font-size:11px;color:#555;margin-top:2px}
+.it-box{font-size:10.5px;color:#9A6E1A;margin-top:2px;font-weight:600}
+.sep-dash{border-top:1px dashed #ccc}
 
 /* JAMI */
-.tot{margin:0 16px;padding:9px 0;border-top:2px solid #0D1B2A;border-bottom:1px dashed #E8E5E0;display:flex;justify-content:space-between;align-items:center}
+.tot{margin:0 16px;padding:9px 0;border-top:2px solid #0D1B2A;border-bottom:1px dashed #ccc;display:flex;justify-content:space-between;align-items:center}
 .tot-lbl{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#0D1B2A;letter-spacing:.5px}
-.tot-cnt{font-size:9.5px;color:#bbb;margin-top:2px;font-weight:400}
+.tot-cnt{font-size:9.5px;color:#555;margin-top:2px;font-weight:500}
 .tot-val{font-family:'Sora',sans-serif;font-weight:800;font-size:20px;color:#0D1B2A}
 .tot-uzs{font-size:12px;font-weight:600}
 
 /* TO'LOV */
-.pay{padding:9px 16px 10px;border-bottom:1px dashed #E8E5E0}
-.pay-lbl{font-size:9.5px;font-weight:700;color:#bbb;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
-.pr{display:flex;justify-content:space-between;font-size:12.5px;color:#555;padding:2.5px 0}
-.pr.pr-sm{font-size:11px;color:#aaa}
-.pr.pr-sm span:last-child{color:#aaa}
+.pay{padding:9px 16px 10px;border-bottom:1px dashed #ccc}
+.pay-lbl{font-size:9.5px;font-weight:700;color:#555;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+.pr{display:flex;justify-content:space-between;font-size:12.5px;color:#333;padding:2.5px 0}
+.pr.pr-sm{font-size:11px;color:#555}
+.pr.pr-sm span:last-child{color:#555}
 .pr.pr-debt{border-top:1px dashed #fca5a5;margin-top:3px;padding-top:5px;font-weight:700;color:#dc2626;font-size:13px}
 .c-red{color:#dc2626!important;font-weight:600}
 .paid-ok{text-align:center;background:#ECFDF5;color:#059669;font-weight:700;font-size:12px;border-radius:8px;padding:6px;margin-top:4px}
@@ -376,7 +376,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
 /* FOOTER */
 .ft{padding:12px 16px 16px;text-align:center}
 .ft-thanks{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#0D1B2A}
-.ft-date{font-size:10px;color:#bbb;margin-top:2px}
+.ft-date{font-size:10px;color:#555;margin-top:2px}
 .ft-bot{font-size:11px;color:#229ED9;margin-top:8px;line-height:1.4}
 .ft-pdf{margin-top:5px}
 .ft-pdf a{font-size:11.5px;color:#0D1B2A;font-weight:600;text-decoration:none;background:#F0EDE8;padding:5px 14px;border-radius:20px;display:inline-block}
@@ -390,34 +390,10 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
   body{background:#fff;padding:0}
   .wrap,.rc{border-radius:0;box-shadow:none;width:72mm;max-width:72mm}
   .acts{display:none}
-  /* Barcha xira ranglarni print uchun qoraroq qilish */
-  .mr{color:#000}
-  .mr b{color:#000}
-  .it-num{color:#444}
-  .it-sku{color:#444}
-  .it-det{color:#333}
-  .it-box{color:#333}
-  .it-name{color:#000}
-  .it-sum{color:#000}
-  .tot-cnt{color:#333}
-  .tot-lbl{color:#000}
-  .tot-val{color:#000}
-  .pay-lbl{color:#333}
-  .pr{color:#000}
-  .pr.pr-sm{color:#333}
-  .pr.pr-sm span{color:#333 !important}
-  .pr.pr-debt{color:#000;font-weight:800;border-top:1px solid #000}
+  .hd{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pr.pr-debt{color:#000 !important;border-top:1px solid #999}
+  .paid-ok{color:#000 !important;background:#eee !important}
   .c-red{color:#000 !important}
-  .paid-ok{color:#000;background:#f0f0f0;border:1px solid #ccc}
-  .it-lbl{color:#333}
-  .ft-thanks{color:#000}
-  .ft-date{color:#333}
-  .ft-bot{color:#000}
-  .ft-pdf a{color:#000;background:#eee}
-  .hd{background:#000 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .sep-dash{border-top:1px dashed #999}
-  .note-wrap{background:#f5f5f5;border-bottom:1px solid #ccc;color:#000}
-  .note-lbl{color:#000}
 }
 </style></head><body>
 <div class="wrap">
