@@ -931,6 +931,7 @@ function showReceiptModal(sale) {
 
 function closeReceipt() {
   closeModal("receipt");
+  if ($("pos-note")) $("pos-note").value = "";
 }
 
 function shareTelegram() {
