@@ -192,6 +192,7 @@ function renderKatalog() {
     !q ||
     p.name.toLowerCase().includes(q) ||
     p.sku.toLowerCase().includes(q) ||
+    (p.art && p.art.toLowerCase().includes(q)) ||
     (p.barcode && p.barcode.toLowerCase().includes(q)) ||
     p.category.toLowerCase().includes(q)
   );
@@ -271,6 +272,7 @@ function renderKatalog() {
           onchange="katImgSave('${p.sku}',this)">
       </td>
       <td style="font-family:monospace;font-size:11px;color:var(--mut)">${p.sku}</td>
+      <td style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${p.art || '<span style="color:#ddd">—</span>'}</td>
       <td>
         <div style="font-weight:700;font-size:13.5px;color:#0D1B2A">${p.name}</div>
         <div style="font-size:11.5px;color:#bbb;margin-top:2px">
@@ -432,6 +434,7 @@ function openEditProduct(sku) {
   $("ep-price").value           = p.priceUzs;
   $("ep-ulgurji").value         = p.ulgurjiNarx || 0;
   if ($("ep-unit"))    $("ep-unit").value    = p.unit    || "dona";
+  if ($("ep-art"))     $("ep-art").value     = p.art     || "";
   if ($("ep-barcode")) $("ep-barcode").value = p.barcode || "";
   if ($("ep-inbox"))   $("ep-inbox").value   = p.inBox   || 1;
 
@@ -490,6 +493,7 @@ function saveEditProduct() {
   p.priceUzs    = parseFloat($("ep-price").value)   || p.priceUzs;
   p.ulgurjiNarx = parseFloat($("ep-ulgurji").value) || 0;
   if ($("ep-unit"))    p.unit    = $("ep-unit").value    || p.unit;
+  if ($("ep-art"))     p.art     = $("ep-art").value.trim();
   if ($("ep-barcode")) p.barcode = $("ep-barcode").value.trim();
   if ($("ep-inbox"))   p.inBox   = parseInt($("ep-inbox").value) || p.inBox || 1;
   if ($("ep-image") && $("ep-image").value) p.image = $("ep-image").value;
@@ -562,6 +566,7 @@ function addProduct() {
   const unit    = ($("ap-unit")||{value:"dona"}).value;
   const pantone = ($("ap-pantone")||{value:""}).value.trim();
   const hex     = ($("ap-hex")||{value:"#888888"}).value;
+  const art     = ($("ap-art")||{value:""}).value.trim();
   const barcode = ($("ap-barcode")||{value:""}).value.trim();
 
   let inBox, newVariants;
@@ -588,6 +593,7 @@ function addProduct() {
       if (ex) { ex.qty += nv.qty; if (pantone) { ex.pantone = pantone; ex.hex = hex; } }
       else p.variants.push(nv);
     });
+    if (art) p.art = art;
     if (barcode && !p.barcode) p.barcode = barcode;
   } else {
     const autoBarcode = barcode || genEAN13(db.seq);
@@ -595,6 +601,7 @@ function addProduct() {
       sku: `${t==="oyoq"?"SHOE":"CLTH"}-${String(db.seq++).padStart(3,"0")}`,
       name, category: ($("ap-cat")||{value:""}).value,
       type:t, unit, inBox,
+      art: art || "",
       costUsd:cost, priceUzs:price, ulgurjiNarx:ulg,
       barcode: autoBarcode,
       variants: newVariants
@@ -610,6 +617,7 @@ function addProduct() {
   if ($("ap-boxes"))      $("ap-boxes").value       = "1";
   if ($("ap-inbox-calc")) $("ap-inbox-calc").value  = "";
   if ($("ap-calc-total")) $("ap-calc-total").textContent = "— dona";
+  if ($("ap-art"))        $("ap-art").value         = "";
   if ($("ap-barcode"))    $("ap-barcode").value     = "";
   if ($("ap-cost-note"))  $("ap-cost-note").innerHTML = "";
   if ($("ap-size-range-preview")) $("ap-size-range-preview").textContent = "";
@@ -733,7 +741,7 @@ function exportKatalogExcel() {
       });
     } else {
       rows.push([p.sku, p.name, p.category, "", p.unit||"dona", p.inBox||1,
-        p.barcode||"", "", "", "", 0, p.costUsd||0, costUzs, p.ulgurjiNarx||0, ""]);
+        p.art||"", p.barcode||"", "", "", "", 0, p.costUsd||0, costUzs, p.ulgurjiNarx||0, ""]);
     }
   });
 
@@ -956,7 +964,8 @@ function parseImportCSV(text) {
       type: ["turi","type","tur"],
       unit: ["birlik","unit","o'lchov"],
       inbox: ["karobkada nechta","inbox","karobka","qutida nechta"],
-      barcode: ["barcode","ean","barkod"],
+      art:     ["art","artikul","article","kod"],
+    barcode: ["barcode","ean","barkod"],
       color: ["rang","color","rang nomi"],
       pantone: ["pantone","pantone kodi"],
       size: ["o'lcham","size","olcham","razmer"],
@@ -1000,6 +1009,7 @@ function parseImportCSV(text) {
       type:    cols.type >= 0    ? vals[cols.type]?.trim()         : "oyoq",
       unit:    cols.unit >= 0    ? vals[cols.unit]?.trim()         : "dona",
       inbox:   cols.inbox >= 0   ? (parseInt(vals[cols.inbox])||1) : 1,
+      art:     cols.art     >= 0 ? vals[cols.art]?.trim()     : "",
       barcode: cols.barcode >= 0 ? vals[cols.barcode]?.trim().replace(/^'/,"") : "",
       color:   cols.color >= 0   ? vals[cols.color]?.trim()        : "Standart",
       pantone: cols.pantone >= 0 ? vals[cols.pantone]?.trim()      : "",
@@ -1077,6 +1087,7 @@ function confirmImport() {
         type:        r.type === "kiyim" ? "kiyim" : "oyoq",
         unit:        r.unit || "dona",
         inBox:       r.inbox || 1,
+        art:         r.art || "",
         barcode:     r.barcode || genEAN13(db.seq),
         costUsd:     r.cost,
         priceUzs:    0,

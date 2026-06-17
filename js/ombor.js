@@ -543,6 +543,7 @@ function qbAutofill(val) {
   }
 
   if ($("qb-unit")) $("qb-unit").value = p.unit || "dona";
+  if ($("qb-art"))  $("qb-art").value  = p.art  || "";
 
   // O'lchamlar
   const sizes = [...new Set(p.variants.map(v => v.size))];
@@ -642,6 +643,7 @@ function qabulOl() {
   const newChk    = getRawVal("qb-price");
   const newUlg    = getRawVal("qb-ulgurji");
   const unit      = ($("qb-unit")||{value:"dona"}).value;
+  const qbArt     = ($("qb-art")||{value:""}).value.trim();
   const qbBarcode = ($("qb-barcode")||{value:""}).value.trim();
 
   let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
@@ -655,6 +657,7 @@ function qabulOl() {
     }
     if (newChk > 0) p.priceUzs    = newChk;
     if (newUlg > 0) p.ulgurjiNarx = newUlg;
+    if (qbArt)      p.art         = qbArt;
     if (qbBarcode)  p.barcode     = qbBarcode;
     if (kirimRaw > 0) p.costUsd   = costUsd_q;
     if (isBoxMode && inBoxEd > 1) p.inBox = inBoxEd;
@@ -667,6 +670,7 @@ function qabulOl() {
       sku:`RECV-${String(db.seq++).padStart(3,"0")}`,
       name, category:"Qabul qilingan", type:"oyoq",
       unit, inBox: inBoxEd > 1 ? inBoxEd : 1,
+      art: qbArt || "",
       costUsd: costUsd_q,
       priceUzs:newChk||0, ulgurjiNarx:newUlg||0,
       barcode: qbBarcode || genEAN13(db.seq),
@@ -691,7 +695,7 @@ function qabulOl() {
   saveDB(); closeModal("qabul"); renderOmbor();
   if (typeof renderKatalog === "function") renderKatalog();
 
-  ["qb-name","qb-size","qb-sup","qb-partiya","qb-barcode"].forEach(id => { if ($(id)) $(id).value = ""; });
+  ["qb-name","qb-size","qb-sup","qb-partiya","qb-art","qb-barcode"].forEach(id => { if ($(id)) $(id).value = ""; });
   // Rasm reset
   if ($("qb-img-data"))   $("qb-img-data").value = "";
   if ($("qb-img-remove")) $("qb-img-remove").style.display = "none";

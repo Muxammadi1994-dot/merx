@@ -606,7 +606,7 @@ function buildStaffOrderHtml(sale, shopName) {
       : `<div class="item-img item-img-ph">${(it.name||"?")[0].toUpperCase()}</div>`;
 
     const codeTags = [
-      it.sku     ? `<span class="tag tag-sku">ART ${it.sku}</span>`     : "",
+      it.art     ? `<span class="tag tag-sku">ART ${it.art}</span>`     : "",
       it.barcode ? `<span class="tag tag-bar">BAR ${it.barcode}</span>` : "",
     ].filter(Boolean).join("");
 

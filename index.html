@@ -641,7 +641,7 @@
       <table style="table-layout:auto"><thead><tr>
         <th style="width:28px"><input type="checkbox" onchange="this.checked?katSelectAll():katClearSel()"
           style="width:15px;height:15px;accent-color:var(--acc);cursor:pointer"></th>
-        <th style="width:56px">Rasm</th><th style="width:70px">SKU</th><th>Nomi</th><th>Barcode</th><th>Ranglar</th><th class="num">Karobka</th><th class="num">Dona soni</th><th class="num">Tannarx</th><th class="num">Ulgurji narx</th><th style="width:44px"></th>
+        <th style="width:56px">Rasm</th><th style="width:60px">SKU</th><th style="width:80px">ART</th><th>Nomi</th><th>Barcode</th><th>Ranglar</th><th class="num">Karobka</th><th class="num">Dona soni</th><th class="num">Tannarx</th><th class="num">Ulgurji narx</th><th style="width:44px"></th>
       </tr></thead>
       <tbody id="katalog-body"></tbody></table></div>
     </div>
@@ -1308,9 +1308,15 @@
         <option value="kg">kg</option><option value="metr">metr</option>
       </select></div>
     </div>
-    <div class="fld" style="margin-bottom:10px">
-      <label>Barcode / EAN <span style="font-size:11px;font-weight:400;color:var(--mut)">(USB skaner bilan to'ldirishingiz mumkin)</span></label>
-      <input id="ep-barcode" placeholder="8600000000000" style="font-family:monospace;letter-spacing:.05em">
+    <div class="r2" style="margin-bottom:10px">
+      <div class="fld">
+        <label>Artikul (ART) <span style="font-size:11px;font-weight:400;color:var(--mut)">karobkadagi kod</span></label>
+        <input id="ep-art" placeholder="1006-1, BFD01..." style="font-family:monospace;letter-spacing:.05em">
+      </div>
+      <div class="fld">
+        <label>Barcode / EAN <span style="font-size:11px;font-weight:400;color:var(--mut)">(USB skaner)</span></label>
+        <input id="ep-barcode" placeholder="8600000000000" style="font-family:monospace;letter-spacing:.05em">
+      </div>
     </div>
     <div class="fld" style="margin-bottom:12px">
       <label>Tovar rasmi</label>
@@ -1575,9 +1581,15 @@
         <select id="qb-pay"><option value="tolangan">To'langan</option><option value="qarz">Qarzga (to'lanmagan)</option></select>
       </div>
     </div>
-    <div class="fld" style="margin-bottom:10px">
-      <label>Barcode / EAN <span style="font-size:11px;font-weight:400;color:var(--mut)">(USB skaner bilan to'ldirishingiz mumkin)</span></label>
-      <input id="qb-barcode" placeholder="8600000000000" style="font-family:monospace;letter-spacing:.05em">
+    <div class="r2" style="margin-bottom:10px">
+      <div class="fld">
+        <label>Artikul (ART) <span style="font-size:11px;font-weight:400;color:var(--mut)">karobkadagi kod</span></label>
+        <input id="qb-art" placeholder="1006-1, BFD01..." style="font-family:monospace;letter-spacing:.05em">
+      </div>
+      <div class="fld">
+        <label>Barcode / EAN <span style="font-size:11px;font-weight:400;color:var(--mut)">(USB skaner)</span></label>
+        <input id="qb-barcode" placeholder="8600000000000" style="font-family:monospace;letter-spacing:.05em">
+      </div>
     </div>
     <!-- Rasm yuklash -->
     <div class="fld" style="margin-bottom:12px">

@@ -125,6 +125,7 @@ async function pushToCloud() {
         sku: p.sku, name: p.name,
         category: p.category, type: p.type,
         unit: p.unit || "dona",
+        art: p.art || "",
         cost_usd: p.costUsd || 0,
         price_uzs: p.priceUzs || 0,
         ulgurji: p.ulgurjiNarx || 0,
@@ -227,7 +228,7 @@ async function pullFromCloud() {
       db.products = prods.map(p => ({
         sku: p.sku, name: p.name, category: p.category || "",
         type: p.type || "oyoq", unit: p.unit || "dona",
-        inBox: p.in_box || 1, barcode: p.barcode,
+        inBox: p.in_box || 1, art: p.art || "", barcode: p.barcode,
         costUsd: p.cost_usd || 0, priceUzs: p.price_uzs || 0,
         ulgurjiNarx: p.ulgurji || 0, variants: p.variants || [],
         image: p.image || null, pantone: p.pantone || null,
