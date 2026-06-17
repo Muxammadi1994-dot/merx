@@ -730,7 +730,7 @@ function exportOmborExcel() {
 }
 
 function exportOmborQoldiq(rate) {
-  const rows = [["Mahsulot nomi","SKU","Barcode","Rang","Pantone","Karobka soni","Dona soni","Tannarx (so'm)","Ulgurji narx (so'm)","Margin (%)"]];
+  const rows = [["Mahsulot nomi","SKU","ART","Barcode","Rang","Pantone","Karobka soni","Dona soni","Tannarx (so'm)","Ulgurji narx (so'm)","Margin (%)"]];
   db.products.forEach(p => {
     const costUzs = Math.round((p.costUsd||0)*rate);
     const inBox   = p.inBox || 1;
@@ -743,7 +743,7 @@ function exportOmborQoldiq(rate) {
       const boxes  = inBox > 1 ? (info.qty / inBox).toFixed(1) : "";
       const margin = p.ulgurjiNarx > 0 && costUzs > 0
         ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : "";
-      rows.push([p.name, p.sku, p.barcode||"", color, info.pantone,
+      rows.push([p.name, p.sku, p.art||"", p.barcode||"", color, info.pantone,
         boxes, info.qty, costUzs, p.ulgurjiNarx||0, margin]);
     });
   });
@@ -751,9 +751,9 @@ function exportOmborQoldiq(rate) {
 }
 
 function exportOmborKirim() {
-  const rows = [["Sana","Mahsulot","SKU","Rang","Pantone","O'lcham","Miqdor","Karobka soni","Tannarx","Jami","Yetkazuvchi","Partiya","To'lov holati"]];
+  const rows = [["Sana","Mahsulot","SKU","ART","Rang","Pantone","O'lcham","Miqdor","Karobka soni","Tannarx","Jami","Yetkazuvchi","Partiya","To'lov holati"]];
   db.ombor.slice().reverse().forEach(o => {
-    rows.push([o.date, o.productName, o.sku||"", o.color||"", o.pantone||"",
+    rows.push([o.date, o.productName, o.sku||"", o.art||"", o.color||"", o.pantone||"",
       o.size||"", o.qty, o.boxes||"", o.kirimNarxi||0,
       (o.kirimNarxi||0)*o.qty, o.supplier||"", o.partiya||"",
       o.payStatus === "qarz" ? "To'lanmagan" : "To'langan"]);
