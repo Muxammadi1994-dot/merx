@@ -184,6 +184,7 @@ function omRenderQoldiq() {
 
       rows.push({
         sku:     p.sku,
+        art:     p.art || "",
         name:    p.name,
         color:   cg.color,
         hex:     cg.hex,
@@ -206,6 +207,7 @@ function omRenderQoldiq() {
   if (q) rows = rows.filter(r =>
     r.name.toLowerCase().includes(q)    ||
     r.sku.toLowerCase().includes(q)     ||
+    (r.art && r.art.toLowerCase().includes(q)) ||
     r.color.toLowerCase().includes(q)   ||
     r.pantone.toLowerCase().includes(q)
   );
@@ -224,8 +226,9 @@ function omRenderQoldiq() {
 
   const thead = `<tr>
     <th>Mahsulot nomi</th>
-    <th>Kod (SKU)</th>
-    <th>Barcode</th>
+    <th style="width:60px">Kod (SKU)</th>
+    <th style="width:80px">ART</th>
+    <th style="width:130px">Barcode</th>
     <th>Rang</th>
     <th class="num">Karobka</th>
     <th class="num">Dona soni</th>
@@ -270,6 +273,7 @@ function omRenderQoldiq() {
         </div>
       </td>
       <td style="font-family:monospace;font-size:11.5px;color:var(--mut)">${r.sku}</td>
+      <td style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${r.art || '<span style="color:#ddd">—</span>'}</td>
       <td style="font-family:monospace;font-size:12px">
         ${barcode
           ? `<span style="background:var(--bg);padding:2px 7px;border-radius:5px;border:1px solid var(--brd)">${barcode}</span>`
@@ -318,7 +322,7 @@ function omRenderQoldiq() {
         </button>
       </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="8" class="empty-td">
+  }).join("") : `<tr><td colspan="9" class="empty-td">
     ${omStockFilter !== "all" ? "Bu filtrda mahsulot yo'q" : q ? `"${q}" topilmadi` : "Mahsulot yo'q"}
   </td></tr>`;
 
@@ -1303,7 +1307,7 @@ function omRenderChiqim() {
                 </button>
               </td>
             </tr>`;
-          }).join("") : '<tr><td colspan="8" class="empty-td">Chiqimlar yo\'q</td></tr>'}
+          }).join("") : '<tr><td colspan="9" class="empty-td">Chiqimlar yo\'q</td></tr>'}
         </tbody>
       </table>
     </div>`;
