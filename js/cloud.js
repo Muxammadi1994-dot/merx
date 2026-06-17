@@ -136,7 +136,7 @@ async function pushToCloud() {
         const chunk = 20; // image katta bo'lgani uchun kichik chunk
         for (let i = 0; i < prodRows.length; i += chunk) {
           const { error } = await _sb.from("products")
-            .upsert(prodRows.slice(i, i+chunk), { onConflict: "sku", ignoreDuplicates: false });
+            .upsert(prodRows.slice(i, i+chunk), { onConflict: "sku,shop_id", ignoreDuplicates: false });
           if (error) throw error;
         }
       }
