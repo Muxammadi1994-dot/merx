@@ -120,8 +120,8 @@ async function pushToCloud() {
     const syncErrors = [];
 
     try {
-      await sync("products", db.products?.map(p => ({
-        id: p.id || Date.now(),
+      // products: sku bo'yicha upsert (id emas) — ikki marta conflict bo'lmasligi uchun
+      const prodRows = db.products?.map(p => ({
         sku: p.sku, name: p.name,
         category: p.category, type: p.type,
         unit: p.unit || "dona",
@@ -130,8 +130,16 @@ async function pushToCloud() {
         price_uzs: p.priceUzs || 0,
         ulgurji: p.ulgurjiNarx || 0,
         variants: p.variants || [],
-        image: p.image || null   // base64 — Supabase TEXT ustuni kerak
-      })));
+        image: p.image || null
+      }));
+      if (prodRows?.length) {
+        const chunk = 20; // image katta bo'lgani uchun kichik chunk
+        for (let i = 0; i < prodRows.length; i += chunk) {
+          const { error } = await _sb.from("products")
+            .upsert(prodRows.slice(i, i+chunk), { onConflict: "sku", ignoreDuplicates: false });
+          if (error) throw error;
+        }
+      }
     } catch(e) { syncErrors.push("products: " + e.message); console.warn("sync products xato:", e.message); }
 
     try {
