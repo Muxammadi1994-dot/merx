@@ -888,15 +888,25 @@ function openKatalogImport() {
 
 // ── Shablon yuklash ───────────────────────────────
 function downloadImportTemplate() {
-  const headers = ["Nom","Kategoriya","Turi (oyoq/kiyim)","Birlik",
-    "Karobkada nechta","ART","Barcode","Rang","Pantone kodi","O'lcham",
-    "Qoldiq","Tannarx (USD)","Ulgurji narx (so'm)"];
-  const rows = [
-    ["Nike Air Max","Krossovka","oyoq","juft","8","AM-001","'8600000000001","Qora","PMS Black C","39-44","48","25","380000"],
-    ["Nike Air Max","Krossovka","oyoq","juft","8","AM-001","'8600000000001","Oq","PMS White","39-44","24","25","380000"],
-    ["Erkaklar ko'ylagi","Ko'ylak","kiyim","dona","12","EK-2025","","Ko'k","PMS 286 C","S-XL","60","8","150000"],
+  // Faqat zarur ustunlar — sodda va qulay
+  const headers = [
+    "Nom",           // mahsulot nomi (majburiy)
+    "Rang",          // rang nomi: Qora, Oq, Ko'k...
+    "O'lcham",       // 39-44, S-XL, yoki aniq: 42
+    "Qoldiq",        // dona soni
+    "ART",           // karobkadagi artikul kodi (ixtiyoriy)
+    "Barcode",       // skaner kodi, bo'sh qolsa avtomatik
+    "Karobkada",     // 1 karobkada nechta dona (default: 1)
+    "Tannarx so'm",  // tannarx so'mda (yoki USD da yozsangiz "$" bilan boshlang)
+    "Ulgurji narx",  // ulgurji sotuv narxi so'mda
+    "Birlik",        // juft, dona, quti... (default: dona)
+    "Turi",          // oyoq yoki kiyim (default: oyoq)
   ];
-  // sep=; — Excel ga delimiter bildiradi, BOM kerak emas
+  const rows = [
+    ["Adidas Ultra","Qora","39-44","48","ADI-001","","6","450000","550000","juft","oyoq"],
+    ["Adidas Ultra","Oq",  "39-44","36","ADI-001","","6","450000","550000","juft","oyoq"],
+    ["Ko'ylak slim", "Ko'k","S-XL", "60","SLM-05","","12","80000","150000","dona","kiyim"],
+  ];
   const csv = "sep=;\r\n" + [headers, ...rows].map(r =>
     r.map(c => { const s=String(c); return s.includes(";")||s.includes(",") ? `"${s}"` : s; }).join(";")
   ).join("\r\n");
@@ -956,26 +966,43 @@ function parseImportCSV(text) {
   const headers = parseLine(lines[0]).map(h => h.toLowerCase().replace(/['"]/g,"").trim());
   _importRows = [];
 
-  // Ustun mapping
+  // Pantone rangdan hex olish
+  function pantoneToHex(pantone, color) {
+    if (!pantone && !color) return "#888888";
+    const name = (color || "").toLowerCase();
+    const map = {
+      "qora":"#1A1A1A","black":"#1A1A1A","oq":"#F5F5F5","white":"#F5F5F5",
+      "ko'k":"#154360","blue":"#154360","ko\u2019k":"#154360",
+      "qizil":"#C0392B","red":"#C0392B","yashil":"#1E8449","green":"#1E8449",
+      "sariq":"#D4AC0D","yellow":"#D4AC0D","kulrang":"#95A5A6","gray":"#95A5A6","grey":"#95A5A6",
+      "pushti":"#E91E8C","pink":"#E91E8C","binafsha":"#7D3C98","purple":"#7D3C98",
+      "jigarrang":"#784212","brown":"#784212","moviy":"#5DADE2","light blue":"#5DADE2",
+      "krem":"#F0E6D3","cream":"#F0E6D3","to'q kulrang":"#2C3E50","dark gray":"#2C3E50",
+      "to'q sariq":"#CA6F1E","orange":"#CA6F1E","to'q ko'k":"#154360",
+    };
+    return map[name] || map[name.replace(/[^a-z]/g,"")] || "#888888";
+  }
+
+  // Ustun mapping — sodda nomlar bilan
   const col = (name) => {
     const variants = {
-      nom: ["nom","name","nomi","mahsulot"],
-      cat: ["kategoriya","category","kat"],
-      type: ["turi","type","tur"],
-      unit: ["birlik","unit","o'lchov"],
-      inbox: ["karobkada nechta","inbox","karobka","qutida nechta"],
+      nom:     ["nom","name","nomi","mahsulot"],
+      cat:     ["kategoriya","category","kat"],
+      type:    ["turi","type","tur"],
+      unit:    ["birlik","unit","o'lchov"],
+      inbox:   ["karobkada","karobkada nechta","inbox","karobka","qutida nechta"],
       art:     ["art","artikul","article","kod"],
-    barcode: ["barcode","ean","barkod"],
-      color: ["rang","color","rang nomi"],
+      barcode: ["barcode","ean","barkod","shtrix"],
+      color:   ["rang","color","rang nomi"],
       pantone: ["pantone","pantone kodi"],
-      size: ["o'lcham","size","olcham","razmer"],
-      qty: ["qoldiq","qty","miqdor","soni"],
-      cost: ["tannarx","cost","tannarx (usd)","narx usd"],
-      ulg: ["ulgurji","ulgurji narx","ulgurji narx (so'm)","sotuv narxi"],
+      size:    ["o'lcham","size","olcham","razmer"],
+      qty:     ["qoldiq","qty","miqdor","soni"],
+      cost:    ["tannarx","cost","tannarx so'm","tannarx usd","narx usd","tannarx (usd)","tannarx (so'm)"],
+      ulg:     ["ulgurji","ulgurji narx","ulgurji narx (so'm)","sotuv narxi"],
     };
     const keys = variants[name] || [];
     for (const k of keys) {
-      const idx = headers.findIndex(h => h.includes(k));
+      const idx = headers.findIndex(h => h.replace(/[()]/g,"").trim().includes(k));
       if (idx >= 0) return idx;
     }
     return -1;
@@ -987,6 +1014,7 @@ function parseImportCSV(text) {
     type:    col("type"),
     unit:    col("unit"),
     inbox:   col("inbox"),
+    art:     col("art"),
     barcode: col("barcode"),
     color:   col("color"),
     pantone: col("pantone"),
@@ -998,25 +1026,55 @@ function parseImportCSV(text) {
 
   if (cols.nom < 0) { toast("'Nom' ustuni topilmadi","err"); return; }
 
+  // Barcode: bir xil nomli tovarlar bir xil barcode olmasligi uchun
+  // Har bir noyob nom+art kombinatsiyasiga bitta barcode
+  const barcodeMap = {};
+
   for (let i = 1; i < lines.length; i++) {
     const vals = parseLine(lines[i]);
     const nom  = vals[cols.nom]?.trim();
     if (!nom) continue;
 
+    const art     = cols.art     >= 0 ? (vals[cols.art]?.trim()  || "") : "";
+    const colorRaw= cols.color   >= 0 ? (vals[cols.color]?.trim()|| "Standart") : "Standart";
+    const pantone = cols.pantone >= 0 ? (vals[cols.pantone]?.trim() || "") : "";
+    const hex     = pantoneToHex(pantone, colorRaw);
+
+    // Barcode: shablondan olish, yo'q bo'lsa nom+art bo'yicha bir xil barcode
+    let barcode = cols.barcode >= 0 ? vals[cols.barcode]?.trim().replace(/^'/,"") : "";
+    if (!barcode) {
+      const bKey = (nom + "|" + art).toLowerCase();
+      if (!barcodeMap[bKey]) barcodeMap[bKey] = genEAN13(db.seq + Object.keys(barcodeMap).length);
+      barcode = barcodeMap[bKey];
+    }
+
+    // Tannarx: "$" bilan boshlansa USD, aks holda so'm → USD konversiya
+    const rate = db.settings?.rate || 12800;
+    let costRaw = cols.cost >= 0 ? (vals[cols.cost]?.trim() || "0") : "0";
+    let costUsd = 0;
+    if (costRaw.startsWith("$")) {
+      costUsd = parseFloat(costRaw.slice(1).replace(/[\s,]/g,"")) || 0;
+    } else {
+      const costNum = parseFloat(costRaw.replace(/[\s,]/g,"")) || 0;
+      // 1000 dan katta bo'lsa so'm deb qabul qilamiz
+      costUsd = costNum > 1000 ? costNum / rate : costNum;
+    }
+
     _importRows.push({
       nom,
-      cat:     cols.cat >= 0     ? vals[cols.cat]?.trim()          : "Qabul qilingan",
-      type:    cols.type >= 0    ? vals[cols.type]?.trim()         : "oyoq",
-      unit:    cols.unit >= 0    ? vals[cols.unit]?.trim()         : "dona",
-      inbox:   cols.inbox >= 0   ? (parseInt(vals[cols.inbox])||1) : 1,
-      art:     cols.art     >= 0 ? vals[cols.art]?.trim()     : "",
-      barcode: cols.barcode >= 0 ? vals[cols.barcode]?.trim().replace(/^'/,"") : "",
-      color:   cols.color >= 0   ? vals[cols.color]?.trim()        : "Standart",
-      pantone: cols.pantone >= 0 ? vals[cols.pantone]?.trim()      : "",
-      size:    cols.size >= 0    ? vals[cols.size]?.trim()         : "Aralash",
-      qty:     cols.qty >= 0     ? (parseInt(vals[cols.qty])||0)   : 0,
-      cost:    cols.cost >= 0    ? (parseFloat(vals[cols.cost])||0): 0,
-      ulg:     cols.ulg >= 0     ? (parseFloat((vals[cols.ulg]||"0").replace(/\s/g,"").replace(/,/g,""))||0) : 0,
+      cat:     cols.cat  >= 0 ? (vals[cols.cat]?.trim()  || "Qabul qilingan") : "Qabul qilingan",
+      type:    cols.type >= 0 ? (vals[cols.type]?.trim()  || "oyoq") : "oyoq",
+      unit:    cols.unit >= 0 ? (vals[cols.unit]?.trim()  || "dona") : "dona",
+      inbox:   cols.inbox >= 0 ? (parseInt(vals[cols.inbox]) || 1) : 1,
+      art,
+      barcode,
+      color:   colorRaw,
+      pantone,
+      hex,
+      size:    cols.size >= 0 ? (vals[cols.size]?.trim()  || "Aralash") : "Aralash",
+      qty:     cols.qty  >= 0 ? (parseInt(vals[cols.qty]) || 0) : 0,
+      costUsd,
+      ulg:     cols.ulg  >= 0 ? (parseFloat((vals[cols.ulg]||"0").replace(/[\s,]/g,"")) || 0) : 0,
     });
   }
 
@@ -1032,16 +1090,22 @@ function showImportPreview() {
   if (lbl) lbl.textContent = `${_importRows.length} ta qator topildi — birinchi 5 tasi:`;
 
   const head = $("import-preview-head");
-  if (head) head.innerHTML = `<tr>${["Nom","Rang","O'lcham","Qoldiq","Tannarx","Ulgurji"].map(h =>
+  if (head) head.innerHTML = `<tr>${["Nom","ART","Rang","O'lcham","Qoldiq","Tannarx (USD)","Ulgurji"].map(h =>
     `<th style="padding:6px 10px;font-weight:700;text-align:left;white-space:nowrap">${h}</th>`).join("")}</tr>`;
 
   const body = $("import-preview-body");
   if (body) body.innerHTML = _importRows.slice(0,5).map(r => `<tr>
-    <td style="padding:5px 10px;border-top:1px solid var(--brd)">${r.nom}</td>
-    <td style="padding:5px 10px;border-top:1px solid var(--brd)">${r.color}</td>
+    <td style="padding:5px 10px;border-top:1px solid var(--brd);font-weight:600">${r.nom}</td>
+    <td style="padding:5px 10px;border-top:1px solid var(--brd);font-family:monospace;color:#666">${r.art||"—"}</td>
+    <td style="padding:5px 10px;border-top:1px solid var(--brd)">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:14px;height:14px;border-radius:3px;background:${r.hex};border:1px solid rgba(0,0,0,.15);flex-shrink:0"></div>
+        ${r.color}
+      </div>
+    </td>
     <td style="padding:5px 10px;border-top:1px solid var(--brd)">${r.size}</td>
-    <td style="padding:5px 10px;border-top:1px solid var(--brd)">${r.qty}</td>
-    <td style="padding:5px 10px;border-top:1px solid var(--brd)">$${r.cost}</td>
+    <td style="padding:5px 10px;border-top:1px solid var(--brd);font-weight:700">${r.qty}</td>
+    <td style="padding:5px 10px;border-top:1px solid var(--brd)">$${r.costUsd.toFixed(2)}</td>
     <td style="padding:5px 10px;border-top:1px solid var(--brd)">${fmt(r.ulg)} so'm</td>
   </tr>`).join("");
 
@@ -1058,8 +1122,13 @@ function confirmImport() {
   let added = 0, updated = 0, skipped = 0;
 
   _importRows.forEach(r => {
-    // Mavjud mahsulotni topish
-    let p = db.products.find(x => x.name.toLowerCase() === r.nom.toLowerCase());
+    // Mavjud mahsulotni topish (nom + art bo'yicha)
+    let p = db.products.find(x =>
+      x.name.toLowerCase() === r.nom.toLowerCase() &&
+      (r.art ? (x.art||"").toLowerCase() === r.art.toLowerCase() : true)
+    ) || db.products.find(x => x.name.toLowerCase() === r.nom.toLowerCase());
+
+    const variant = { color: r.color, size: r.size, qty: r.qty, pantone: r.pantone, hex: r.hex || "#888888" };
 
     if (p) {
       // Mavjud mahsulotga variant qo'shish
@@ -1071,34 +1140,60 @@ function confirmImport() {
         if (!skipDup) { ex.qty += r.qty; updated++; }
         else skipped++;
       } else {
-        p.variants.push({ color: r.color, size: r.size, qty: r.qty, pantone: r.pantone, hex: "#888888" });
-        // Narxlarni yangilash
-        if (r.cost > 0) p.costUsd     = r.cost;
-        if (r.ulg  > 0) p.ulgurjiNarx = r.ulg;
+        p.variants.push(variant);
+        if (r.art && !p.art)   p.art         = r.art;
+        if (r.costUsd > 0)     p.costUsd     = r.costUsd;
+        if (r.ulg  > 0)        p.ulgurjiNarx = r.ulg;
         updated++;
       }
     } else {
       // Yangi mahsulot
       const sku = `IMP-${String(db.seq++).padStart(4,"0")}`;
-      db.products.push({
+      const newProd = {
         sku,
         name:        r.nom,
-        category:    r.cat,
+        category:    r.cat || "Qabul qilingan",
         type:        r.type === "kiyim" ? "kiyim" : "oyoq",
         unit:        r.unit || "dona",
         inBox:       r.inbox || 1,
         art:         r.art || "",
         barcode:     r.barcode || genEAN13(db.seq),
-        costUsd:     r.cost,
+        costUsd:     r.costUsd || 0,
         priceUzs:    0,
-        ulgurjiNarx: r.ulg,
-        variants:    [{ color: r.color, size: r.size, qty: r.qty, pantone: r.pantone, hex: "#888888" }]
-      });
+        ulgurjiNarx: r.ulg || 0,
+        variants:    [variant]
+      };
+      db.products.push(newProd);
+      p = newProd;
       added++;
+    }
+
+    // Ombor kirim yozuvi (har bir qator uchun)
+    if (r.qty > 0) {
+      db.ombor.push({
+        id:          db.seq++,
+        date:        today(),
+        sku:         p.sku,
+        art:         p.art || "",
+        productName: p.name,
+        unit:        p.unit || "dona",
+        color:       r.color,
+        size:        r.size,
+        qty:         r.qty,
+        pantone:     r.pantone || "",
+        hex:         r.hex || "#888888",
+        boxes:       p.inBox > 1 ? Math.round(r.qty / p.inBox) : null,
+        kirimNarxi:  Math.round((r.costUsd || 0) * rate),
+        chakana:     p.priceUzs    || 0,
+        ulgurji:     p.ulgurjiNarx || r.ulg || 0,
+        supplier:    "",
+        partiya:     "Excel import",
+        payStatus:   "tolandan"
+      });
     }
   });
 
-  saveDB(); renderKatalog(); closeModal("import");
+  saveDB(); renderKatalog(); if (typeof renderOmbor === "function") renderOmbor(); closeModal("import");
 
   const res = $("import-result");
   if (res) { res.style.display = "block"; }
