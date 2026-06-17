@@ -888,24 +888,26 @@ function openKatalogImport() {
 
 // ── Shablon yuklash ───────────────────────────────
 function downloadImportTemplate() {
-  // Faqat zarur ustunlar — sodda va qulay
+  // Eng zarur ustunlar — sodda va qulay
+  // Qoldiq: DONA soni kiriting. Agar karobka kelsa: karobka × karobkada = dona
+  // Tannarx: so'mda yozing (450000) yoki USD da ($35)
   const headers = [
     "Nom",           // mahsulot nomi (majburiy)
-    "Rang",          // rang nomi: Qora, Oq, Ko'k...
-    "O'lcham",       // 39-44, S-XL, yoki aniq: 42
-    "Qoldiq",        // dona soni
+    "Rang",          // Qora, Oq, Ko'k, Yashil, Sariq, Pushti...
+    "O'lcham",       // 39-44, S-XL, 42...
+    "Qoldiq (dona)", // jami dona soni. Karobkada kelsa: karobka × karobkada
     "ART",           // karobkadagi artikul kodi (ixtiyoriy)
-    "Barcode",       // skaner kodi, bo'sh qolsa avtomatik
-    "Karobkada",     // 1 karobkada nechta dona (default: 1)
-    "Tannarx so'm",  // tannarx so'mda (yoki USD da yozsangiz "$" bilan boshlang)
+    "Karobkada",     // 1 karobkada nechta dona (default: 6)
+    "Tannarx",       // tannarx so'mda yoki $USD
     "Ulgurji narx",  // ulgurji sotuv narxi so'mda
-    "Birlik",        // juft, dona, quti... (default: dona)
+    "Birlik",        // juft, dona (default: dona)
     "Turi",          // oyoq yoki kiyim (default: oyoq)
   ];
   const rows = [
-    ["Adidas Ultra","Qora","39-44","48","ADI-001","","6","450000","550000","juft","oyoq"],
-    ["Adidas Ultra","Oq",  "39-44","36","ADI-001","","6","450000","550000","juft","oyoq"],
-    ["Ko'ylak slim", "Ko'k","S-XL", "60","SLM-05","","12","80000","150000","dona","kiyim"],
+    // Misol: Adidas 2 rang, 8 karobkadan (8×6=48 va 6×6=36 dona)
+    ["Adidas Ultra","Qora","39-44","48","ADI-001","6","450000","550000","juft","oyoq"],
+    ["Adidas Ultra","Oq",  "39-44","36","ADI-001","6","450000","550000","juft","oyoq"],
+    ["Ko'ylak slim", "Ko'k","S-XL", "60","SLM-05","12","80000","150000","dona","kiyim"],
   ];
   const csv = "sep=;\r\n" + [headers, ...rows].map(r =>
     r.map(c => { const s=String(c); return s.includes(";")||s.includes(",") ? `"${s}"` : s; }).join(";")

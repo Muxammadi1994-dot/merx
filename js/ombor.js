@@ -224,17 +224,22 @@ function omRenderQoldiq() {
     });
   }
 
+  const cols     = omGetCols();
+  const showSku  = cols.sku     ?? false;
+  const showBarc = cols.barcode ?? false;
+
   const thead = `<tr>
     <th>Mahsulot nomi</th>
-    <th style="width:60px">Kod (SKU)</th>
+    ${showSku  ? '<th style="width:60px">Kod (SKU)</th>' : ""}
     <th style="width:80px">ART</th>
-    <th style="width:130px">Barcode</th>
+    ${showBarc ? '<th style="width:130px">Barcode</th>' : ""}
     <th>Rang</th>
     <th class="num">Karobka</th>
     <th class="num">Dona soni</th>
-    <th class="num">Tannarx</th>
-    <th class="num">Ulgurji narx</th>
-    ${showChakana ? "<th class='num'>Chakana narx</th>" : ""}
+    ${cols.tannarx ? "<th class=\'num\'>Tannarx</th>" : ""}
+    ${cols.ulgurji ? "<th class=\'num\'>Ulgurji narx</th>" : ""}
+    ${showChakana  ? "<th class=\'num\'>Chakana narx</th>" : ""}
+    ${cols.qiymati ? "<th class=\'num\'>Qoldiq qiymati</th>" : ""}
     <th></th>
   </tr>`;
 
@@ -272,13 +277,13 @@ function omRenderQoldiq() {
           <div style="font-weight:600;font-size:13px">${r.name}</div>
         </div>
       </td>
-      <td style="font-family:monospace;font-size:11.5px;color:var(--mut)">${r.sku}</td>
+      ${showSku ? `<td style="font-family:monospace;font-size:11.5px;color:var(--mut)">${r.sku}</td>` : ""}
       <td style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${r.art || '<span style="color:#ddd">—</span>'}</td>
-      <td style="font-family:monospace;font-size:12px">
+      ${showBarc ? `<td style="font-family:monospace;font-size:12px">
         ${barcode
           ? `<span style="background:var(--bg);padding:2px 7px;border-radius:5px;border:1px solid var(--brd)">${barcode}</span>`
           : `<span style="color:#ccc">—</span>`}
-      </td>
+      </td>` : ""}
       <td>
         <div style="display:flex;align-items:flex-start;gap:7px">
           <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;margin-top:2px;
@@ -305,16 +310,17 @@ function omRenderQoldiq() {
       </td>
       <td class="num">${boxCell}</td>
       <td class="num">${qBadge}</td>
-      <td class="num" style="font-size:12.5px">
+      ${cols.tannarx ? `<td class="num" style="font-size:12.5px">
         ${r.costUzs ? `<div style="font-weight:600">${priceDisplay(r.costUzs)}</div>` : "—"}
         ${r.costUzs && r.inBox > 1 ? `<div style="font-size:11px;color:#856404;margin-top:2px">📦 ${priceDisplay(r.costUzs * r.inBox)}</div>` : ""}
-      </td>
-      <td class="num" style="font-size:12.5px">
+      </td>` : ""}
+      ${cols.ulgurji ? `<td class="num" style="font-size:12.5px">
         ${r.ulgurji ? `<div style="font-weight:700;color:var(--acc)">${priceDisplay(r.ulgurji)}</div>` : '<span style="color:#ccc">—</span>'}
         ${r.ulgurji && r.inBox > 1 ? `<div style="font-size:11px;color:#e9a500;margin-top:2px">📦 ${priceDisplay(r.ulgurji * r.inBox)}</div>` : ""}
         ${margin != null ? `<div style="font-size:10px;color:${margin>=30?"var(--grn)":margin>=15?"#E07B39":"var(--red)"}">margin ${margin}%</div>` : ""}
-      </td>
+      </td>` : ""}
       ${showChakana ? `<td class="num" style="color:var(--teal);font-size:12.5px">${r.chakana ? fmt(r.chakana) + " so'm" : "—"}</td>` : ""}
+      ${cols.qiymati ? `<td class="num" style="font-size:12.5px;color:var(--mut)">${r.qiymati ? fmt(r.qiymati) + " so'm" : "—"}</td>` : ""}
       <td>
         <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditProduct('${r.sku}')"
           title="Katalogda tahrirlash">
