@@ -1,5 +1,5 @@
 // ================================================
-// MERX — js/sms.js
+// MERX — js/sms.js  |  v1.1
 // Eskiz SMS + Telegram integratsiyasi
 // ================================================
 
@@ -30,7 +30,7 @@ async function testSms() {
 }
 
 // ================================================
-// Telegram bot orqali mijozga chek yuborish
+// Telegram: mijozga chek yuborish
 // ================================================
 
 async function sendTelegramReceipt(customerId, sale, customerPhone) {
@@ -42,31 +42,39 @@ async function sendTelegramReceipt(customerId, sale, customerPhone) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        customerId: customerId || null,
+        customerId:    customerId    || null,
         customerPhone: customerPhone || null,
         sale,
         shopName: db.shop?.name || db.settings?.name || "MERX"
       })
     });
     const data = await res.json();
-    if (data.sent) {
-      toast("📨 Chek mijozga Telegram orqali yuborildi");
-    }
+    if (data.sent) toast("📨 Chek mijozga Telegram orqali yuborildi");
   } catch (e) {
     console.warn("Telegram chek yuborilmadi:", e.message);
   }
 }
 
 // ================================================
-// Telegram bot orqali ishchilar guruhiga bildirishnoma
+// Telegram: ishchilar guruhiga sotuv bildirishnomasi
 // ================================================
 
 async function sendStaffNotification(sale) {
-  const botUrl      = db.settings?.telegramBotUrl;
+  const botUrl       = db.settings?.telegramBotUrl;
   const staffGroupId = db.settings?.staffGroupId;
 
-  // Guruh ID yo'q bo'lsa — jimgina o'tamiz (xato ko'rsatmaymiz)
-  if (!botUrl || !staffGroupId) return;
+  // Debug: nima bo'layotganini console da ko'rish
+  console.log("[staffNotif] botUrl:", botUrl || "YO'Q");
+  console.log("[staffNotif] staffGroupId:", staffGroupId || "YO'Q");
+
+  if (!botUrl) {
+    console.warn("[staffNotif] botUrl sozlanmagan — o'tkazib yuborildi");
+    return;
+  }
+  if (!staffGroupId) {
+    console.warn("[staffNotif] staffGroupId sozlanmagan — o'tkazib yuborildi");
+    return;
+  }
 
   try {
     const res = await fetch(botUrl + "?action=send_staff_notif", {
@@ -79,24 +87,27 @@ async function sendStaffNotification(sale) {
       })
     });
     const data = await res.json();
+    console.log("[staffNotif] server javobi:", data);
     if (data.sent) {
       toast("📢 Ishchilar guruhiga bildirishnoma yuborildi");
+    } else {
+      console.warn("[staffNotif] yuborilmadi:", data);
     }
   } catch (e) {
-    console.warn("Ishchilar guruhi bildirishnomasi yuborilmadi:", e.message);
+    console.error("[staffNotif] xato:", e.message);
   }
 }
 
 // ================================================
-// Ulanishni tekshirish (Sozlamalar sahifasi)
+// Sozlamalar: Bot ulanishini tekshirish
 // ================================================
 
 async function testTelegramBot() {
-  const botUrl = ($("#s-tg-bot-url")||{value:""}).value.trim();
+  const botUrl = ($("s-tg-bot-url")||{value:""}).value.trim();
   if (!botUrl) { toast("Bot manzilini kiriting","err"); return; }
 
   try {
-    const res = await fetch(botUrl);
+    const res  = await fetch(botUrl);
     const data = await res.json();
     if (data.ok) {
       toast("✅ Bot bilan ulanish muvaffaqiyatli!");
