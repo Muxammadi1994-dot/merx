@@ -178,7 +178,7 @@ function openVariantModal(sku) {
 
   // Meta
   if ($("vm-meta")) $("vm-meta").textContent =
-    `${vmProd.category} · ${vmProd.unit||"dona"} · SKU: ${vmProd.sku}`;
+    `${vmProd.category} · ${vmProd.unit||"dona"}${vmProd.art ? " · " + vmProd.art : ""}`;
 
   // Rasm
   const imgWrap = $("vm-img-wrap");

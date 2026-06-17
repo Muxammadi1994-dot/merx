@@ -265,7 +265,7 @@ function buildReceiptHtml(sale, opts) {
   // ── Mahsulotlar ───────────────────────────────
   const itemsHtml = items.map((i, idx) => {
     const sum    = (i.price || 0) * (i.qty || 0);
-    const sku    = i.sku ? `<span class="it-sku">SKU: ${i.sku}</span>` : "";
+    const sku    = i.art ? `<span class="it-sku">ART: ${i.art}</span>` : (i.sku ? `<span class="it-sku" style="color:#bbb">SKU: ${i.sku}</span>` : "");
     const boxRow = i.qtyBox && i.inBox
       ? `<div class="it-box">${i.qtyBox} karobka × ${F((i.price||0)*(i.inBox||1))} so'm/karobka</div>` : "";
     return `
