@@ -540,19 +540,23 @@ async function actionSendStaffNotification(body) {
   }
 
   // Jami
+  const debtCur = sale.debtCurrency || sale.debt_currency || "uzs";
+  const debtUsd = sale.debtUsd != null ? Number(sale.debtUsd) : (sale.debt_usd != null ? Number(sale.debt_usd) : null);
+  const isUsd   = debtCur === "usd" && debtUsd != null && rem > 0;
+
   txt += `\n💰 <b>Jami: ${fmt(total)} so'm</b>\n`;
   if (rem > 0) {
     txt += `✅ To'landi: ${fmt(paid)} so'm\n`;
-    txt += `🔴 Qarz: ${fmt(rem)} so'm`;
+    const debtStr = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${fmt(rem)} so'm`;
+    txt += `🔴 Qarz: <b>${debtStr}</b>`;
     if (sale.due) txt += ` (muddat: ${sale.due})`;
     txt += "\n";
   } else {
     txt += `✅ To'liq to'landi\n`;
   }
 
-  // Catalog URL — ishchilar batafsil ko'rishi uchun
-  const saleB64    = Buffer.from(JSON.stringify(sale)).toString("base64");
-  const catalogUrl = `https://merx-rho.vercel.app/api/bot?action=staff_order&id=${encodeURIComponent(chekId)}&d=${encodeURIComponent(saleB64)}`;
+  // Catalog URL — faqat chekId (URL qisqa bo'lishi uchun)
+  const catalogUrl = `https://merx-rho.vercel.app/api/bot?action=staff_order&id=${encodeURIComponent(chekId)}`;
 
   const r = await tg(groupId, txt, {
     reply_markup: {
@@ -611,10 +615,15 @@ function buildStaffOrderHtml(sale, shopName) {
     </div>`;
   }).join("");
 
-  // To'lov bloki
+  // To'lov bloki — dollar yoki so'm qarz
+  const debtCurH = sale.debtCurrency || sale.debt_currency || "uzs";
+  const debtUsdH = sale.debtUsd != null ? Number(sale.debtUsd) : (sale.debt_usd != null ? Number(sale.debt_usd) : null);
+  const isUsdH   = debtCurH === "usd" && debtUsdH != null && rem > 0;
+  const debtDisp = isUsdH ? `$${debtUsdH.toFixed(2)} USD` : `${fmtN(rem)} so'm`;
+
   const payHtml = rem > 0
     ? `<div class="pay-row"><span>To'landi</span><b>${fmtN(paid)} so'm</b></div>
-       <div class="pay-row debt"><span>Qarz</span><b>${fmtN(rem)} so'm</b></div>
+       <div class="pay-row debt"><span>Qarz</span><b>${debtDisp}</b></div>
        ${sale.due ? `<div class="pay-row muted"><span>Muddat</span><span>${sale.due}</span></div>` : ""}`
     : `<div class="paid-badge">✅ To'liq to'landi</div>`;
 
@@ -680,6 +689,20 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;min-height:100vh;paddin
 
 /* FOOTER */
 .footer{text-align:center;margin-top:20px;font-size:11px;color:#bbb;padding:0 12px}
+
+/* DESKTOP */
+@media(min-width:640px){
+  body{padding:24px 16px 48px}
+  .hdr{border-radius:16px 16px 0 0;max-width:900px;margin:0 auto}
+  .status-bar{max-width:900px;margin:0 auto}
+  .page-inner{max-width:900px;margin:0 auto}
+  .info-card{margin:12px 0 0}
+  .sec-title{padding:14px 0 6px}
+  .items-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0}
+  .card-item{margin:0}
+  .total-card,.pay-card{margin:10px 0 0}
+  .footer{max-width:900px;margin:20px auto 0}
+}
 </style></head>
 <body>
 
@@ -700,8 +723,11 @@ ${custName ? `<div class="info-card">
   ${sale.customerPhone || sale.customer_phone ? `<div class="info-f"><div class="info-lbl">Telefon</div><div class="info-val">📞 ${sale.customerPhone || sale.customer_phone}</div></div>` : ""}
 </div>` : ""}
 
+<div class="page-inner">
 <div class="sec-title">Mahsulotlar (${items.length} tur)</div>
+<div class="items-grid">
 ${cardsHtml}
+</div>
 
 <div class="total-card">
   <div class="total-row">
@@ -718,6 +744,7 @@ ${cardsHtml}
 </div>
 
 <div class="footer">@${BOT_USERNAME} · ${shopName}</div>
+</div>
 
 </body></html>`;
 }
