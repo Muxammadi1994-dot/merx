@@ -770,9 +770,14 @@ async function checkout() {
     discountPct: discType === "pct" ? (getRawVal("discount-val") || 0) : null,
     items: cart.map(c => ({
       name: c.name, sku: c.sku || null,
+      art: c.art || null,
       variant: c.sellMode==="karobka" ? `${c.color} (${c.qtyBox} karobka)` : `${c.color} / ${c.size}`,
+      color: c.color || null,
+      size: c.size || null,
       qty: c.qty, qtyBox: c.qtyBox||null, inBox: c.inBox||null,
-      price: c.price, unit: c.unit
+      price: c.price, unit: c.unit,
+      image: c.image || null,
+      barcode: c.barcode || null
     })),
     subtotal, total, paid, remaining:rem, due,
     customerName:cName, customerPhone:cPhone, status,

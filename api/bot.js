@@ -789,18 +789,25 @@ async function actionRenderStaffOrder(chekId, saleData) {
     shopName = sets?.[0]?.shop_name || "MERX";
   } catch {}
 
-  // items dagi sku lar bo'yicha products dan rasmlarni olish
+  // items dagi sku lar bo'yicha products dan art va rasm olish
   if (sale?.items?.length) {
     try {
       const skus = [...new Set(sale.items.map(i => i.sku).filter(Boolean))];
       if (skus.length) {
         const skuFilter = skus.map(s => `sku.eq.${encodeURIComponent(s)}`).join(",");
-        const prods = await sb("products", `?or=(${skuFilter})&select=sku,image`);
-        const imgMap = {};
-        for (const p of (prods || [])) { if (p.sku && p.image) imgMap[p.sku] = p.image; }
-        sale.items = sale.items.map(i => ({ ...i, image: i.image || imgMap[i.sku] || null }));
+        // image va art ni olamiz (image Supabase da bo'lmasa null qaytadi)
+        const prods = await sb("products", `?or=(${skuFilter})&select=sku,art,image`);
+        const prodMap = {};
+        for (const p of (prods || [])) {
+          if (p.sku) prodMap[p.sku] = { art: p.art || "", image: p.image || null };
+        }
+        sale.items = sale.items.map(i => ({
+          ...i,
+          art:   i.art   || prodMap[i.sku]?.art   || null,
+          image: i.image || prodMap[i.sku]?.image  || null,
+        }));
       }
-    } catch(e) { console.warn("[staffOrder] rasm olishda xato:", e.message); }
+    } catch(e) { console.warn("[staffOrder] products ma'lumot olishda xato:", e.message); }
   }
 
   if (!sale) {

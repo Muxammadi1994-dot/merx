@@ -129,7 +129,8 @@ async function pushToCloud() {
         cost_usd: p.costUsd || 0,
         price_uzs: p.priceUzs || 0,
         ulgurji: p.ulgurjiNarx || 0,
-        variants: p.variants || []
+        variants: p.variants || [],
+        image: p.image || null   // base64 — Supabase TEXT ustuni kerak
       })));
     } catch(e) { syncErrors.push("products: " + e.message); console.warn("sync products xato:", e.message); }
 
@@ -228,7 +229,7 @@ async function pullFromCloud() {
       db.products = prods.map(p => ({
         sku: p.sku, name: p.name, category: p.category || "",
         type: p.type || "oyoq", unit: p.unit || "dona",
-        inBox: p.in_box || 1, art: p.art || "", barcode: p.barcode,
+        inBox: p.in_box || 1, art: p.art || "", barcode: p.barcode, image: p.image || null,
         costUsd: p.cost_usd || 0, priceUzs: p.price_uzs || 0,
         ulgurjiNarx: p.ulgurji || 0, variants: p.variants || [],
         image: p.image || null, pantone: p.pantone || null,
