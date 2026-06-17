@@ -183,10 +183,55 @@ function toggleKatLow() {
 }
 
 // ── Katalog jadvali ────────────────────────────
+// ── Katalog ustunlar boshqaruvi ─────────────────────────────
+const KAT_DEFAULT_COLS = { sku: false, barcode: true };
+
+function katGetCols() {
+  return Object.assign({}, KAT_DEFAULT_COLS, db.settings.katCols || {});
+}
+
+let katColsOpen = false;
+function katToggleCols() {
+  katColsOpen = !katColsOpen;
+  const panel = $("kat-cols-panel");
+  if (!panel) return;
+  panel.style.display = katColsOpen ? "block" : "none";
+  if (katColsOpen) katRenderColsPanel();
+}
+
+function katRenderColsPanel() {
+  const cols = katGetCols();
+  const defs = [
+    { key:"sku",     lbl:"SKU kodi" },
+    { key:"barcode", lbl:"Barcode" },
+  ];
+  $("kat-cols-panel").innerHTML = `
+    <div style="padding:10px 16px 12px;background:#fff;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em">Ko'rinadigan ustunlar:</span>
+      ${defs.map(d => `
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;
+          background:${cols[d.key]?"#E9A50018":"var(--bg)"};
+          border:1.5px solid ${cols[d.key]?"#E9A500":"var(--brd)"};
+          padding:4px 11px;border-radius:8px;transition:.15s">
+          <input type="checkbox" ${cols[d.key]?"checked":""} onchange="katToggleCol('${d.key}',this.checked)"
+            style="accent-color:var(--acc)">
+          ${d.lbl}
+        </label>`).join("")}
+    </div>`;
+}
+
+function katToggleCol(key, val) {
+  if (!db.settings.katCols) db.settings.katCols = {};
+  db.settings.katCols[key] = val;
+  saveDB(); katRenderColsPanel(); renderKatalog();
+}
+
+// ─────────────────────────────────────────────────────────────
 function renderKatalog() {
   const q    = ($("kat-q")||{value:""}).value.toLowerCase();
   const rate = db.settings.rate || 12800;
   const showChakana = db.settings.showChakana || false;
+  const katCols = katGetCols();
 
   let ps = db.products.filter(p =>
     !q ||
@@ -214,6 +259,12 @@ function renderKatalog() {
       return katSortAsc ? va - vb : vb - va;
     });
   }
+
+  // SKU/barcode ustunlar ko'rinishini yangilash
+  const thSku  = $("kat-th-sku");
+  const thBarc = $("kat-th-barcode");
+  if (thSku)  thSku.style.display  = katCols.sku     ? "" : "none";
+  if (thBarc) thBarc.style.display = katCols.barcode ? "" : "none";
 
   // Dinamik kategoriya tugmalarini yangilash
   updateKatCatBtns();
@@ -271,7 +322,7 @@ function renderKatalog() {
         <input type="file" id="kat-img-inp-${p.sku}" accept="image/*" style="display:none"
           onchange="katImgSave('${p.sku}',this)">
       </td>
-      <td style="font-family:monospace;font-size:11px;color:var(--mut)">${p.sku}</td>
+      ${katCols.sku ? `<td style="font-family:monospace;font-size:11px;color:var(--mut)">${p.sku}</td>` : ""}
       <td style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${p.art || '<span style="color:#ddd">—</span>'}</td>
       <td>
         <div style="font-weight:700;font-size:13.5px;color:#0D1B2A">${p.name}</div>
@@ -280,11 +331,11 @@ function renderKatalog() {
           ${inBox > 1 ? `· <span style="color:#856404">📦 ${inBox}/karobka</span>` : ""}
         </div>
       </td>
-      <td style="font-family:monospace;font-size:11.5px">
+      ${katCols.barcode ? `<td style="font-family:monospace;font-size:11.5px">
         ${p.barcode
           ? `<span style="background:var(--bg);padding:2px 8px;border-radius:5px;border:1px solid var(--brd)">${p.barcode}</span>`
           : `<span style="color:#ccc">—</span>`}
-      </td>
+      </td>` : ""}
       <td>${colorChips}</td>
       <td class="num">
         ${totalBoxes != null
@@ -888,26 +939,26 @@ function openKatalogImport() {
 
 // ── Shablon yuklash ───────────────────────────────
 function downloadImportTemplate() {
-  // Eng zarur ustunlar — sodda va qulay
-  // Qoldiq: DONA soni kiriting. Agar karobka kelsa: karobka × karobkada = dona
-  // Tannarx: so'mda yozing (450000) yoki USD da ($35)
+  // Ustunlar: Nom, Rang, O'lcham, Karobka soni, Karobkada nechta, ART, Tannarx, Ulgurji narx
+  // Qoldiq (dona) = Karobka soni × Karobkada nechta — avtomatik hisoblanadi
+  // Tannarx: so'mda (450000) yoki USD da ($35)
   const headers = [
-    "Nom",           // mahsulot nomi (majburiy)
-    "Rang",          // Qora, Oq, Ko'k, Yashil, Sariq, Pushti...
-    "O'lcham",       // 39-44, S-XL, 42...
-    "Qoldiq (dona)", // jami dona soni. Karobkada kelsa: karobka × karobkada
-    "ART",           // karobkadagi artikul kodi (ixtiyoriy)
-    "Karobkada",     // 1 karobkada nechta dona (default: 6)
-    "Tannarx",       // tannarx so'mda yoki $USD
-    "Ulgurji narx",  // ulgurji sotuv narxi so'mda
-    "Birlik",        // juft, dona (default: dona)
-    "Turi",          // oyoq yoki kiyim (default: oyoq)
+    "Nom",              // mahsulot nomi (majburiy)
+    "Rang",             // Qora, Oq, Ko'k, Yashil, Sariq, Pushti, Jigarrang...
+    "O'lcham",          // 39-44, S-XL, 42...
+    "Karobka soni",     // nechta karobka keldi (majburiy)
+    "Karobkada nechta", // 1 karobkada nechta dona/juft (majburiy)
+    "ART",              // karobkadagi artikul kodi (ixtiyoriy)
+    "Tannarx",          // tannarx so'mda (450000) yoki USD ($35)
+    "Ulgurji narx",     // ulgurji sotuv narxi so'mda
+    "Birlik",           // juft, dona (default: dona)
+    "Turi",             // oyoq yoki kiyim (default: oyoq)
   ];
   const rows = [
-    // Misol: Adidas 2 rang, 8 karobkadan (8×6=48 va 6×6=36 dona)
-    ["Adidas Ultra","Qora","39-44","48","ADI-001","6","450000","550000","juft","oyoq"],
-    ["Adidas Ultra","Oq",  "39-44","36","ADI-001","6","450000","550000","juft","oyoq"],
-    ["Ko'ylak slim", "Ko'k","S-XL", "60","SLM-05","12","80000","150000","dona","kiyim"],
+    // 8 karobka × 6 juft = 48 dona; 6 karobka × 6 juft = 36 dona
+    ["Adidas Ultra","Qora","39-44","8","6","ADI-001","450000","550000","juft","oyoq"],
+    ["Adidas Ultra","Oq",  "39-44","6","6","ADI-001","450000","550000","juft","oyoq"],
+    ["Ko'ylak slim", "Ko'k","S-XL","5","12","SLM-05","80000","150000","dona","kiyim"],
   ];
   const csv = "sep=;\r\n" + [headers, ...rows].map(r =>
     r.map(c => { const s=String(c); return s.includes(";")||s.includes(",") ? `"${s}"` : s; }).join(";")
@@ -992,13 +1043,14 @@ function parseImportCSV(text) {
       cat:     ["kategoriya","category","kat"],
       type:    ["turi","type","tur"],
       unit:    ["birlik","unit","o'lchov"],
-      inbox:   ["karobkada","karobkada nechta","inbox","karobka","qutida nechta"],
+      inbox:   ["karobkada nechta","karobkada","inbox","qutida nechta"],
+      boxes:   ["karobka soni","karobkalar","boxes","nechta karobka"],
       art:     ["art","artikul","article","kod"],
       barcode: ["barcode","ean","barkod","shtrix"],
       color:   ["rang","color","rang nomi"],
       pantone: ["pantone","pantone kodi"],
       size:    ["o'lcham","size","olcham","razmer"],
-      qty:     ["qoldiq","qty","miqdor","soni"],
+      qty:     ["qoldiq","qoldiq (dona)","qty","miqdor","soni","dona"],
       cost:    ["tannarx","cost","tannarx so'm","tannarx usd","narx usd","tannarx (usd)","tannarx (so'm)"],
       ulg:     ["ulgurji","ulgurji narx","ulgurji narx (so'm)","sotuv narxi"],
     };
@@ -1016,6 +1068,7 @@ function parseImportCSV(text) {
     type:    col("type"),
     unit:    col("unit"),
     inbox:   col("inbox"),
+    boxes:   col("boxes"),
     art:     col("art"),
     barcode: col("barcode"),
     color:   col("color"),
@@ -1050,6 +1103,19 @@ function parseImportCSV(text) {
       barcode = barcodeMap[bKey];
     }
 
+    // Karobka soni va karobkadagi dona
+    const inboxVal = cols.inbox >= 0 ? (parseInt(vals[cols.inbox]) || 1) : 1;
+    const boxesVal = cols.boxes >= 0 ? (parseInt(vals[cols.boxes]) || 0) : 0;
+
+    // Qoldiq: agar karobka soni kiritilgan bo'lsa — karobka × karobkada
+    // aks holda qoldiq ustunidan olish
+    let qtyVal = 0;
+    if (boxesVal > 0 && inboxVal > 1) {
+      qtyVal = boxesVal * inboxVal;         // karobka × karobkada = dona
+    } else if (cols.qty >= 0) {
+      qtyVal = parseInt(vals[cols.qty]) || 0;
+    }
+
     // Tannarx: "$" bilan boshlansa USD, aks holda so'm → USD konversiya
     const rate = db.settings?.rate || 12800;
     let costRaw = cols.cost >= 0 ? (vals[cols.cost]?.trim() || "0") : "0";
@@ -1058,7 +1124,6 @@ function parseImportCSV(text) {
       costUsd = parseFloat(costRaw.slice(1).replace(/[\s,]/g,"")) || 0;
     } else {
       const costNum = parseFloat(costRaw.replace(/[\s,]/g,"")) || 0;
-      // 1000 dan katta bo'lsa so'm deb qabul qilamiz
       costUsd = costNum > 1000 ? costNum / rate : costNum;
     }
 
@@ -1067,14 +1132,15 @@ function parseImportCSV(text) {
       cat:     cols.cat  >= 0 ? (vals[cols.cat]?.trim()  || "Qabul qilingan") : "Qabul qilingan",
       type:    cols.type >= 0 ? (vals[cols.type]?.trim()  || "oyoq") : "oyoq",
       unit:    cols.unit >= 0 ? (vals[cols.unit]?.trim()  || "dona") : "dona",
-      inbox:   cols.inbox >= 0 ? (parseInt(vals[cols.inbox]) || 1) : 1,
+      inbox:   inboxVal,
+      boxes:   boxesVal || null,
       art,
       barcode,
       color:   colorRaw,
       pantone,
       hex,
       size:    cols.size >= 0 ? (vals[cols.size]?.trim()  || "Aralash") : "Aralash",
-      qty:     cols.qty  >= 0 ? (parseInt(vals[cols.qty]) || 0) : 0,
+      qty:     qtyVal,
       costUsd,
       ulg:     cols.ulg  >= 0 ? (parseFloat((vals[cols.ulg]||"0").replace(/[\s,]/g,"")) || 0) : 0,
     });
@@ -1106,7 +1172,9 @@ function showImportPreview() {
       </div>
     </td>
     <td style="padding:5px 10px;border-top:1px solid var(--brd)">${r.size}</td>
-    <td style="padding:5px 10px;border-top:1px solid var(--brd);font-weight:700">${r.qty}</td>
+    <td style="padding:5px 10px;border-top:1px solid var(--brd);font-weight:700">
+      ${r.boxes ? `${r.boxes} karobka × ${r.inbox} = ` : ""}${r.qty} dona
+    </td>
     <td style="padding:5px 10px;border-top:1px solid var(--brd)">$${r.costUsd.toFixed(2)}</td>
     <td style="padding:5px 10px;border-top:1px solid var(--brd)">${fmt(r.ulg)} so'm</td>
   </tr>`).join("");
@@ -1184,7 +1252,7 @@ function confirmImport() {
         qty:         r.qty,
         pantone:     r.pantone || "",
         hex:         r.hex || "#888888",
-        boxes:       p.inBox > 1 ? Math.round(r.qty / p.inBox) : null,
+        boxes:       r.boxes || (p.inBox > 1 ? Math.round(r.qty / p.inBox) : null),
         kirimNarxi:  Math.round((r.costUsd || 0) * rate),
         chakana:     p.priceUzs    || 0,
         ulgurji:     p.ulgurjiNarx || r.ulg || 0,

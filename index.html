@@ -592,12 +592,16 @@
             <i class="ti ti-file-spreadsheet"></i> Excel
           </button>
 
+          <button class="btn btn-sm btn-ghost" onclick="katToggleCols()" title="Ustunlarni boshqarish">
+            <i class="ti ti-settings-2"></i>
+          </button>
           <button class="btn btn-sm" onclick="openNarxnoma()" style="color:#0D1B2A;border-color:#0D1B2A">
             <i class="ti ti-printer"></i> Narxnoma
           </button>
 
         </div>
       </div>
+      <div id="kat-cols-panel" style="display:none"></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid var(--brd);align-items:center">
         <button class="kat-cat-btn on" data-c="all"   onclick="setKatCat('all')">Barchasi</button>
         <button class="kat-cat-btn" data-c="oyoq"  onclick="setKatCat('oyoq')">👟 Oyoq kiyim</button>
@@ -639,7 +643,7 @@
       <table style="table-layout:auto"><thead><tr>
         <th style="width:28px"><input type="checkbox" onchange="this.checked?katSelectAll():katClearSel()"
           style="width:15px;height:15px;accent-color:var(--acc);cursor:pointer"></th>
-        <th style="width:56px">Rasm</th><th style="width:60px">SKU</th><th style="width:80px">ART</th><th>Nomi</th><th style="width:140px">Barcode</th><th>Ranglar</th><th class="num">Karobka</th><th class="num">Dona soni</th><th class="num">Tannarx</th><th class="num">Ulgurji narx</th><th style="width:44px"></th>
+        <th style="width:56px">Rasm</th><th id="kat-th-sku" style="width:60px">SKU</th><th style="width:80px">ART</th><th>Nomi</th><th id="kat-th-barcode" style="width:140px">Barcode</th><th>Ranglar</th><th class="num">Karobka</th><th class="num">Dona soni</th><th class="num">Tannarx</th><th class="num">Ulgurji narx</th><th style="width:44px"></th>
       </tr></thead>
       <tbody id="katalog-body"></tbody></table></div>
     </div>
