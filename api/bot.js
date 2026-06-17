@@ -1,17 +1,18 @@
 // ════════════════════════════════════════════════════════════════
-// MERX Telegram Bot  |  api/bot.js  |  v1.2  |  2026-06-13
+// MERX Telegram Bot  |  api/bot.js  |  v1.3  |  2026-06-17
 // ════════════════════════════════════════════════════════════════
 
-const TOKEN     = process.env.TELEGRAM_BOT_TOKEN;
-const SB_URL    = process.env.SUPABASE_URL;
-const SB_KEY    = process.env.SUPABASE_KEY;
-const OWNER_ID  = process.env.BOT_OWNER_CHAT_ID;
-const LOW_LIMIT = parseInt(process.env.LOW_STOCK_LIMIT || "5");
+const TOKEN        = process.env.TELEGRAM_BOT_TOKEN;
+const SB_URL       = process.env.SUPABASE_URL;
+const SB_KEY       = process.env.SUPABASE_KEY;
+const OWNER_ID     = process.env.BOT_OWNER_CHAT_ID;
+const STAFF_GROUP  = process.env.STAFF_GROUP_ID;   // ← YANGI: ishchilar guruh ID
+const LOW_LIMIT    = parseInt(process.env.LOW_STOCK_LIMIT || "5");
 const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || "merx_savdo_bot";
 
 // Telegram xabar yuborish
 async function tg(chatId, text, extra = {}) {
-  const body = { chat_id: chatId, text, ...extra };
+  const body = { chat_id: chatId, text, parse_mode: "HTML", ...extra };
   const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -142,8 +143,6 @@ async function handleContact(chatId, contact) {
     console.log(`[handleContact] topildi: id=${match.id}, local_id=${match.local_id}, phone=${match.phone}, existing_chat_id=${match.telegram_chat_id}`);
 
     // Telefon raqami bo'yicha PATCH — eng ishonchli usul
-    // Supabase da phone ustuni index bilan bor
-    const phoneForPatch = normPhone(match.phone || "");
     let patchResult = null;
 
     // 1. Telefon bo'yicha yangilash
@@ -444,7 +443,7 @@ async function actionSendReceipt(body) {
   let chatId = null;
   console.log(`[sendReceipt] customerId=${customerId}, phone=${customerPhone}`);
 
-  // 1. Avval telefondan qidiramiz — barcha customers ni olib, telefon bo'yicha moslaymiz
+  // 1. Avval telefondan qidiramiz
   if (customerPhone) {
     const rawPhone = normPhone(customerPhone);
     const normalize = p => p.startsWith("998") ? p.slice(3) : p;
@@ -463,12 +462,10 @@ async function actionSendReceipt(body) {
   // 2. customerId bo'yicha urinamiz
   if (!chatId && customerId) {
     const byLocalId = await sb("customers", `?local_id=eq.${customerId}&select=id,telegram_chat_id`);
-    console.log(`[sendReceipt] local_id=${customerId}:`, byLocalId?.[0]);
     if (byLocalId?.[0]?.telegram_chat_id) {
       chatId = byLocalId[0].telegram_chat_id;
     } else {
       const byId = await sb("customers", `?id=eq.${customerId}&select=id,telegram_chat_id`);
-      console.log(`[sendReceipt] id=${customerId}:`, byId?.[0]);
       if (byId?.[0]?.telegram_chat_id) chatId = byId[0].telegram_chat_id;
     }
   }
@@ -482,8 +479,6 @@ async function actionSendReceipt(body) {
   const txt = formatReceiptText(sale, shopName || "MERX");
   const chekId = sale.chekNum || ("ID" + sale.id);
 
-  // Sale ma'lumotlarini base64 ga o'tkazib URL ga qo'shamiz
-  // (Supabase da hali sync bo'lmagan bo'lishi mumkin)
   const saleB64 = Buffer.from(JSON.stringify(sale)).toString("base64");
   const receiptUrl = `https://merx-rho.vercel.app/api/bot?action=receipt&id=${encodeURIComponent(chekId)}&d=${encodeURIComponent(saleB64)}`;
 
@@ -499,12 +494,269 @@ async function actionSendReceipt(body) {
   return { ok: true, sent: true };
 }
 
-// ── Chek sahifasi (HTML, Print/PDF uchun) ──────────────────────
-// ════════════════════════════════════════════════
-// MERX — Universal chek HTML builder
-// Barcha joylarda (POS, tarix, Telegram PDF) ishlatiladi
-// ════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+// YANGI: Ishchilar guruhiga sotuv bildirishnomasi yuborish
+// ════════════════════════════════════════════════════════════════
 
+async function actionSendStaffNotification(body) {
+  const { sale, shopName, staffGroupId } = body || {};
+  if (!sale) return { ok: false, error: "sale majburiy" };
+
+  // staffGroupId: frontend'dan keladi (settings dan), yoki env dan
+  const groupId = staffGroupId || STAFF_GROUP;
+  if (!groupId) return { ok: false, reason: "no_group_id" };
+
+  const payLabels = { naqd: "💵 Naqd", karta: "💳 Karta", otkazma: "🏦 O'tkazma", nasiya: "📋 Nasiya" };
+  const chekId   = sale.chekNum || ("ID" + sale.id);
+  const shopN    = shopName || "MERX";
+  const items    = sale.items || [];
+  const total    = Number(sale.total || 0);
+  const paid     = Number(sale.paid  || 0);
+  const rem      = Number(sale.remaining || 0);
+  const payType  = sale.payType || sale.pay_type || "";
+
+  // ── Xabar matni ────────────────────────────────────────────
+  // Sarlavha
+  let txt = `🆕 <b>Yangi buyurtma</b>\n`;
+  txt += `🏷 Buyurtma ID: <b>${chekId}</b>\n`;
+  txt += `📅 Vaqt: ${sale.date || ""} ${sale.time || ""}\n`;
+
+  // Mijoz
+  const custName  = sale.customerName  || sale.customer_name  || "";
+  const custPhone = sale.customerPhone || sale.customer_phone || "";
+  if (custName)  txt += `👤 Mijoz: <b>${custName}</b>\n`;
+  if (custPhone) txt += `📞 Tel: ${custPhone}\n`;
+
+  // To'lov
+  txt += `💳 Mijoz: <b>${payLabels[payType] || payType || "—"}</b>\n`;
+
+  // Mahsulotlar ro'yxati
+  txt += `\n📦 <b>Mahsulotlar (${items.length} tur):</b>\n`;
+  for (const it of items) {
+    const variant = it.variant ? ` <i>${it.variant}</i>` : "";
+    const lineSum = fmt((it.price || 0) * (it.qty || 0));
+    txt += `▪ ${it.name}${variant} × <b>${it.qty}</b> ${it.unit || "dona"}\n`;
+    txt += `   = ${lineSum} so'm\n`;
+  }
+
+  // Jami
+  txt += `\n💰 <b>Jami: ${fmt(total)} so'm</b>\n`;
+  if (rem > 0) {
+    txt += `✅ To'landi: ${fmt(paid)} so'm\n`;
+    txt += `🔴 Qarz: ${fmt(rem)} so'm`;
+    if (sale.due) txt += ` (muddat: ${sale.due})`;
+    txt += "\n";
+  } else {
+    txt += `✅ To'liq to'landi\n`;
+  }
+
+  // Catalog URL — ishchilar batafsil ko'rishi uchun
+  const saleB64    = Buffer.from(JSON.stringify(sale)).toString("base64");
+  const catalogUrl = `https://merx-rho.vercel.app/api/bot?action=staff_order&id=${encodeURIComponent(chekId)}&d=${encodeURIComponent(saleB64)}`;
+
+  const r = await tg(groupId, txt, {
+    reply_markup: {
+      inline_keyboard: [[
+        { text: "📋 Batafsil ko'rish", url: catalogUrl }
+      ]],
+    },
+  });
+
+  if (!r.ok) {
+    console.error("[staffNotif] tg error:", r.description);
+    return { ok: false, reason: "telegram_error", detail: r.description };
+  }
+  return { ok: true, sent: true };
+}
+
+// ── Ishchilar uchun buyurtma katalogi (HTML sahifa) ─────────────
+function buildStaffOrderHtml(sale, shopName) {
+  const chekId   = sale.chekNum || sale.chek_num || ("#" + sale.id);
+  const date     = sale.date || "";
+  const time     = sale.time || "";
+  const items    = (sale.items || []).filter(Boolean);
+  const total    = Number(sale.total    || 0);
+  const paid     = Number(sale.paid     || 0);
+  const rem      = Number(sale.remaining || 0);
+  const payType  = sale.payType || sale.pay_type || "";
+  const custName  = sale.customerName  || sale.customer_name  || "";
+  const fmtN = n => Math.round(n || 0).toLocaleString("ru-RU");
+
+  const payLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", nasiya: "Nasiya" };
+
+  // Mahsulot kartochkalari
+  const cardsHtml = items.map(it => {
+    const variant = it.variant || "";
+    const color   = it.color   || "";
+    const size    = it.size    || "";
+    // rang teglari
+    const tags = [
+      color ? `<span class="tag tag-color">${color}</span>` : "",
+      size  ? `<span class="tag tag-size">${size}</span>`   : "",
+      variant && variant !== color && variant !== size
+            ? `<span class="tag tag-var">${variant}</span>` : "",
+    ].filter(Boolean).join("");
+
+    return `
+    <div class="card-item">
+      <div class="item-qty-badge">×${it.qty}</div>
+      <div class="item-body">
+        <div class="item-name">${it.name}</div>
+        ${tags ? `<div class="item-tags">${tags}</div>` : ""}
+        <div class="item-meta">
+          <span>${it.qty} ${it.unit || "dona"} × ${fmtN(it.price)} so'm</span>
+          <span class="item-sum">${fmtN((it.price || 0) * (it.qty || 0))} so'm</span>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // To'lov bloki
+  const payHtml = rem > 0
+    ? `<div class="pay-row"><span>To'landi</span><b>${fmtN(paid)} so'm</b></div>
+       <div class="pay-row debt"><span>Qarz</span><b>${fmtN(rem)} so'm</b></div>
+       ${sale.due ? `<div class="pay-row muted"><span>Muddat</span><span>${sale.due}</span></div>` : ""}`
+    : `<div class="paid-badge">✅ To'liq to'landi</div>`;
+
+  return `<!DOCTYPE html>
+<html lang="uz"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Buyurtma ${chekId}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F2F0EB;min-height:100vh;padding:0 0 32px}
+
+/* HEADER */
+.hdr{background:#0D1B2A;color:#fff;padding:18px 16px 14px;text-align:center;position:sticky;top:0;z-index:10}
+.hdr-logo{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;color:#E9A500;text-transform:uppercase}
+.hdr-title{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;margin-top:4px}
+.hdr-sub{font-size:12px;color:#9aa7b5;margin-top:3px}
+
+/* STATUS CHIP */
+.status-bar{background:#1a2d42;display:flex;justify-content:center;gap:16px;padding:10px 16px}
+.chip{display:flex;align-items:center;gap:5px;font-size:12px;color:#cdd5de}
+.chip b{color:#fff;font-size:13px}
+.chip-pay{background:#E9A50022;border-radius:20px;padding:4px 12px;color:#E9A500;font-weight:700;font-size:12.5px}
+
+/* INFO CARD */
+.info-card{margin:12px 12px 0;background:#fff;border-radius:12px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:8px}
+.info-f{flex:1;min-width:120px}
+.info-lbl{font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.8px;font-weight:700}
+.info-val{font-size:14px;font-weight:700;color:#0D1B2A;margin-top:2px}
+
+/* SECTION TITLE */
+.sec-title{padding:14px 14px 6px;font-size:11px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:1px}
+
+/* CARDS */
+.card-item{background:#fff;border-radius:12px;margin:6px 12px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px;position:relative;overflow:hidden}
+.card-item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#E9A500}
+.item-qty-badge{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:13px;border-radius:8px;min-width:36px;height:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.item-body{flex:1;min-width:0}
+.item-name{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;color:#0D1B2A;line-height:1.3}
+.item-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.tag{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.tag-color{background:#EEF2FF;color:#4F46E5}
+.tag-size{background:#F0FDF4;color:#16A34A}
+.tag-var{background:#FFF7ED;color:#C2410C}
+.item-meta{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:12px;color:#999}
+.item-sum{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#0D1B2A}
+
+/* TOTAL */
+.total-card{background:#0D1B2A;margin:10px 12px 0;border-radius:12px;padding:14px 16px}
+.total-row{display:flex;justify-content:space-between;align-items:center}
+.total-lbl{font-family:'Sora',sans-serif;font-size:12px;color:#9aa7b5;font-weight:700;letter-spacing:.5px}
+.total-cnt{font-size:11px;color:#6b7a8d;margin-top:2px}
+.total-val{font-family:'Sora',sans-serif;font-weight:800;font-size:24px;color:#fff}
+.total-val span{font-size:13px;font-weight:600;color:#9aa7b5}
+
+/* PAYMENT */
+.pay-card{background:#fff;margin:8px 12px 0;border-radius:12px;padding:12px 14px}
+.pay-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px;color:#555}
+.pay-row.debt{color:#DC2626;border-top:1px dashed #fca5a5;margin-top:4px;padding-top:8px;font-weight:700}
+.pay-row.muted{color:#aaa;font-size:12px}
+.paid-badge{text-align:center;background:#ECFDF5;color:#059669;font-weight:700;font-size:13px;padding:8px;border-radius:8px}
+
+/* FOOTER */
+.footer{text-align:center;margin-top:20px;font-size:11px;color:#bbb;padding:0 12px}
+</style></head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-logo">${shopName.toUpperCase()} · BUYURTMA</div>
+  <div class="hdr-title">${chekId}</div>
+  <div class="hdr-sub">📅 ${date} ${time}</div>
+</div>
+
+<div class="status-bar">
+  <div class="chip">🏬 <b>${items.reduce((a,i)=>a+(i.qty||0),0)}</b> dona</div>
+  <div class="chip">📦 <b>${items.length}</b> tur</div>
+  <div class="chip-pay">${payLabels[payType] || payType || "—"}</div>
+</div>
+
+${custName ? `<div class="info-card">
+  <div class="info-f"><div class="info-lbl">Mijoz</div><div class="info-val">👤 ${custName}</div></div>
+  ${sale.customerPhone || sale.customer_phone ? `<div class="info-f"><div class="info-lbl">Telefon</div><div class="info-val">📞 ${sale.customerPhone || sale.customer_phone}</div></div>` : ""}
+</div>` : ""}
+
+<div class="sec-title">Mahsulotlar (${items.length} tur)</div>
+${cardsHtml}
+
+<div class="total-card">
+  <div class="total-row">
+    <div>
+      <div class="total-lbl">JAMI SUMMA</div>
+      <div class="total-cnt">${items.length} tur · ${items.reduce((a,i)=>a+(i.qty||0),0)} dona</div>
+    </div>
+    <div class="total-val">${fmtN(total)}<span> so'm</span></div>
+  </div>
+</div>
+
+<div class="pay-card">
+  ${payHtml}
+</div>
+
+<div class="footer">@${BOT_USERNAME} · ${shopName}</div>
+
+</body></html>`;
+}
+
+async function actionRenderStaffOrder(chekId, saleData) {
+  let sale = null;
+  let shopName = "MERX";
+
+  if (saleData) {
+    try {
+      sale = JSON.parse(Buffer.from(saleData, "base64").toString("utf8"));
+    } catch {}
+  }
+
+  if (!sale) {
+    const isNumericId = /^ID\d+$/.test(chekId);
+    const query = isNumericId
+      ? `?id=eq.${chekId.slice(2)}&select=*`
+      : `?chek_num=eq.${encodeURIComponent(chekId)}&select=*`;
+    const rows = await sb("sales", query);
+    sale = rows?.[0] || null;
+  }
+
+  try {
+    const sets = await sb("settings", `?limit=1&select=shop_name`);
+    shopName = sets?.[0]?.shop_name || "MERX";
+  } catch {}
+
+  if (!sale) {
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Topilmadi</title></head>
+      <body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#F2F0EB">
+        <div style="text-align:center;color:#888"><div style="font-size:40px">⚠️</div><div>Buyurtma topilmadi: ${chekId}</div></div>
+      </body></html>`;
+  }
+
+  return buildStaffOrderHtml(sale, shopName);
+}
+
+// ── Chek sahifasi (HTML, Print/PDF uchun) ──────────────────────
 function buildReceiptHtml(sale, opts) {
   opts = opts || {};
   const shopName   = opts.shopName   || "MERX";
@@ -512,7 +764,6 @@ function buildReceiptHtml(sale, opts) {
   const botUser    = (opts.botUsername || "").replace(/^@/, "");
   const receiptUrl = opts.receiptUrl || "";
 
-  // Maydon normalizatsiyasi (localDB + Supabase ikkalasini qo'llab)
   const chekNum   = sale.chekNum || sale.chek_num || ("#" + sale.id);
   const date      = sale.date || "";
   const time      = sale.time || "";
@@ -536,7 +787,6 @@ function buildReceiptHtml(sale, opts) {
   const payLabels = { naqd: "Naqd pul", karta: "Karta", otkazma: "Bank o'tkazmasi" };
   const fmtN      = n => Math.round(n || 0).toLocaleString("ru-RU");
 
-  // ── Mahsulotlar ──────────────────────────────
   const itemsHtml = items.map((i, idx) => {
     const iTotal  = (i.price || 0) * (i.qty || 0);
     const boxLine = i.qtyBox && i.inBox
@@ -553,11 +803,9 @@ function buildReceiptHtml(sale, opts) {
     </div>`;
   }).join('<div class="rc-sep"></div>');
 
-  // ── Chegirma ─────────────────────────────────
   const discHtml = discount > 0
     ? `<div class="rc-pr"><span>Chegirma</span><span class="rc-red">−${fmtN(discount)} so'm</span></div>` : "";
 
-  // ── Qarz ─────────────────────────────────────
   let debtHtml = "";
   if (remaining > 0) {
     if (isUsd && prevUsd > 0) {
@@ -600,19 +848,13 @@ function buildReceiptHtml(sale, opts) {
 body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-content:center;padding:20px 8px}
 .rc-wrap{width:360px;max-width:100%}
 .rc{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(13,27,42,.1)}
-
-/* HEAD */
 .rc-head{background:#0D1B2A;color:#fff;padding:18px 18px 14px;text-align:center}
 .rc-logo{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;letter-spacing:1px}
 .rc-sub{font-size:10px;color:#9aa7b5;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px}
-
-/* META */
 .rc-meta{padding:11px 16px;border-bottom:1px dashed #E8E5E0;font-size:11.5px;color:#666}
 .rc-meta-row{display:flex;justify-content:space-between;padding:2px 0}
 .rc-meta-row b{color:#0D1B2A;font-weight:600}
 .rc-div{border-top:1px solid #F0EDE8;margin:6px 0}
-
-/* ITEMS */
 .rc-items-lbl{padding:9px 16px 5px;font-size:10px;font-weight:700;color:#bbb;letter-spacing:1px;text-transform:uppercase}
 .rc-items{padding:0 16px}
 .rc-it{display:flex;align-items:flex-start;padding:9px 0;gap:8px}
@@ -624,30 +866,22 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
 .rc-it-calc{font-size:11px;color:#bbb;margin-top:1px}
 .rc-it-box{font-size:10px;color:#c4a35a;margin-top:1px}
 .rc-it-sum{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#0D1B2A;white-space:nowrap;padding-top:2px}
-
-/* TOTAL */
 .rc-total{margin:0 16px;padding:9px 0;border-top:2px solid #0D1B2A;border-bottom:1px dashed #E8E5E0;display:flex;justify-content:space-between;align-items:center}
 .rc-total-lbl{font-family:'Sora',sans-serif;font-weight:700;font-size:12.5px;color:#0D1B2A;letter-spacing:.5px}
 .rc-total-cnt{font-size:10px;color:#bbb;margin-top:1px}
 .rc-total-val{font-family:'Sora',sans-serif;font-weight:800;font-size:19px;color:#0D1B2A}
-
-/* PAYMENT */
 .rc-pay{padding:9px 16px;background:#F9F8F6;border-bottom:1px dashed #E8E5E0}
 .rc-pr{display:flex;justify-content:space-between;font-size:12.5px;color:#555;padding:2.5px 0}
 .rc-pr.rc-muted span{color:#bbb!important}
 .rc-pr.rc-debt{border-top:1px dashed #fca5a5;margin-top:4px;padding-top:5px;font-weight:700;color:#dc2626}
 .rc-red{color:#dc2626!important}
 .rc-paid{font-size:12px;font-weight:700;color:#059669;text-align:center;padding:5px 0;background:#ECFDF5;border-radius:8px;margin-top:4px}
-
-/* FOOTER */
 .rc-foot{padding:12px 16px 16px;text-align:center}
 .rc-thanks{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#0D1B2A}
 .rc-date{font-size:10px;color:#bbb;margin-top:2px}
 .rc-bot{font-size:11px;color:#229ED9;margin-top:8px}
 .rc-pdf{margin-top:6px}
 .rc-pdf a{font-size:11.5px;color:#0D1B2A;font-weight:600;text-decoration:none;background:#F0EDE8;padding:5px 14px;border-radius:20px;display:inline-block}
-
-/* ACTIONS */
 .rc-actions{max-width:360px;margin:10px auto 0;display:flex;gap:8px}
 .rc-actions button{flex:1;border:none;border-radius:10px;padding:11px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer}
 .btn-p{background:#0D1B2A;color:#fff}
@@ -706,19 +940,16 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
 </body></html>`;
 }
 
-
 async function actionRenderReceipt(chekId, saleData) {
   let sale = null;
   let shopName = "MERX";
 
-  // Agar sale ma'lumotlari URL da kelgan bo'lsa — to'g'ridan-to'g'ri ishlatamiz
   if (saleData) {
     try {
       sale = JSON.parse(Buffer.from(saleData, "base64").toString("utf8"));
     } catch {}
   }
 
-  // Supabase dan qidirish
   if (!sale) {
     const isNumericId = /^ID\d+$/.test(chekId);
     const query = isNumericId
@@ -728,7 +959,6 @@ async function actionRenderReceipt(chekId, saleData) {
     sale = rows?.[0] || null;
   }
 
-  // Shop nomi
   try {
     const sets = await sb("settings", `?limit=1&select=shop_name`);
     shopName = sets?.[0]?.shop_name || "MERX";
@@ -744,7 +974,6 @@ async function actionRenderReceipt(chekId, saleData) {
       </body></html>`;
   }
 
-  // sale localDB formatida kelsa — Supabase formatiga moslashtirish
   if (!sale.chek_num && sale.chekNum) {
     sale = {
       ...sale,
@@ -798,7 +1027,7 @@ export default async function handler(req, res) {
     });
   }
 
-  // Chek sahifasi (HTML, Print/PDF) — brauzerda ochiladi
+  // Chek sahifasi (HTML) — mijoz uchun
   if (req.method === "GET" && req.query?.action === "receipt") {
     try {
       const chekId   = String(req.query.id || "");
@@ -809,6 +1038,21 @@ export default async function handler(req, res) {
       return res.status(200).send(html);
     } catch (e) {
       console.error("receipt xato:", e.message);
+      return res.status(500).send("Xato: " + e.message);
+    }
+  }
+
+  // Ishchilar buyurtma katalogi (HTML) — YANGI
+  if (req.method === "GET" && req.query?.action === "staff_order") {
+    try {
+      const chekId   = String(req.query.id || "");
+      const saleData = req.query.d || null;
+      if (!chekId) return res.status(400).send("Chek ID kerak");
+      const html = await actionRenderStaffOrder(chekId, saleData);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(200).send(html);
+    } catch (e) {
+      console.error("staff_order xato:", e.message);
       return res.status(500).send("Xato: " + e.message);
     }
   }
@@ -830,6 +1074,23 @@ export default async function handler(req, res) {
       return res.status(200).json(result);
     } catch (e) {
       console.error("send_receipt xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
+  // MERX dan: ishchilar guruhiga bildirishnoma — YANGI
+  if (req.query?.action === "send_staff_notif") {
+    let body;
+    try {
+      body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    } catch {
+      return res.status(400).json({ ok: false, error: "invalid_json" });
+    }
+    try {
+      const result = await actionSendStaffNotification(body);
+      return res.status(200).json(result);
+    } catch (e) {
+      console.error("send_staff_notif xato:", e.message);
       return res.status(500).json({ ok: false, error: e.message });
     }
   }
@@ -859,20 +1120,17 @@ export default async function handler(req, res) {
   const text   = (msg.text || "").trim();
   if (!chatId) return res.status(200).json({ ok: true });
 
-  // Kontakt ulashish — mijoz raqamini bog'lash (egasi bo'lmasa ham ochiq)
   if (msg.contact) {
     await handleContact(chatId, msg.contact);
     return res.status(200).json({ ok: true });
   }
 
-  // /start — egasi yoki mijoz, ikkalasi ham ruxsatsiz ishlaydi
   const cmd = text.split(" ")[0].toLowerCase().split("@")[0];
   if (cmd === "/start") {
     await cmdStart(chatId);
     return res.status(200).json({ ok: true });
   }
 
-  // Qolgan barcha komandalar — faqat do'kon egasi
   if (!isAllowed(chatId)) {
     await tg(chatId, "⛔ Bu komanda faqat do'kon egasi uchun.\n\n/start — qaytadan boshlash");
     return res.status(200).json({ ok: true });

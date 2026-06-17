@@ -782,6 +782,11 @@ async function checkout() {
     sendTelegramReceipt(customerId, newSale, cPhone);
   }
 
+  // Ishchilar guruhiga sotuv bildirishnomasi
+  if (typeof sendStaffNotification === "function") {
+    sendStaffNotification(newSale);
+  }
+
   // SMS (boyitilgan)
   if (cPhone && cPhone.replace(/\D/g,"").length >= 9) {
     const shopName = db.shop?.name || "MERX";

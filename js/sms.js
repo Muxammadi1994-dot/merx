@@ -1,12 +1,12 @@
 // ================================================
 // MERX — js/sms.js
-// Eskiz SMS API integratsiyasi
+// Eskiz SMS + Telegram integratsiyasi
 // ================================================
 
 async function sendSms(phone, text) {
   const token = db.settings.eskizToken;
   if (!token) {
-    toast("\u{1F4E9} SMS (test) \u2192 " + (phone||"mijoz") + " | " + text.slice(0,60) + (text.length>60?"...":""));
+    toast("📩 SMS (test) → " + (phone||"mijoz") + " | " + text.slice(0,60) + (text.length>60?"...":""));
     return;
   }
   try {
@@ -18,7 +18,7 @@ async function sendSms(phone, text) {
       body: JSON.stringify({ mobile_phone:clean, message:text, from:db.settings.eskizSender||"MERX", callback_url:"" })
     });
     const res = await resp.json();
-    if (res.status === "waiting") toast("\u2705 SMS yuborildi: " + phone);
+    if (res.status === "waiting") toast("✅ SMS yuborildi: " + phone);
     else toast("SMS yuborilmadi: " + (res.message||"xato"), "err");
   } catch(e) { toast("SMS xatosi — internet bor?","err"); }
 }
@@ -30,13 +30,11 @@ async function testSms() {
 }
 
 // ================================================
-// Telegram bot orqali chek yuborish
+// Telegram bot orqali mijozga chek yuborish
 // ================================================
 
-// Mijozga avtomatik chek yuborish (sotuv yakunlangach chaqiriladi)
 async function sendTelegramReceipt(customerId, sale, customerPhone) {
   const botUrl = db.settings?.telegramBotUrl;
-  // telefon yoki customerId dan biri bo'lsa yubora olamiz
   if (!botUrl || (!customerId && !customerPhone)) return;
 
   try {
@@ -47,7 +45,7 @@ async function sendTelegramReceipt(customerId, sale, customerPhone) {
         customerId: customerId || null,
         customerPhone: customerPhone || null,
         sale,
-        shopName: db.shop?.name || "MERX"
+        shopName: db.shop?.name || db.settings?.name || "MERX"
       })
     });
     const data = await res.json();
@@ -59,9 +57,42 @@ async function sendTelegramReceipt(customerId, sale, customerPhone) {
   }
 }
 
-// Sozlamalardan "Ulanishni tekshirish" tugmasi
+// ================================================
+// Telegram bot orqali ishchilar guruhiga bildirishnoma
+// ================================================
+
+async function sendStaffNotification(sale) {
+  const botUrl      = db.settings?.telegramBotUrl;
+  const staffGroupId = db.settings?.staffGroupId;
+
+  // Guruh ID yo'q bo'lsa — jimgina o'tamiz (xato ko'rsatmaymiz)
+  if (!botUrl || !staffGroupId) return;
+
+  try {
+    const res = await fetch(botUrl + "?action=send_staff_notif", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sale,
+        shopName:     db.shop?.name || db.settings?.name || "MERX",
+        staffGroupId: staffGroupId
+      })
+    });
+    const data = await res.json();
+    if (data.sent) {
+      toast("📢 Ishchilar guruhiga bildirishnoma yuborildi");
+    }
+  } catch (e) {
+    console.warn("Ishchilar guruhi bildirishnomasi yuborilmadi:", e.message);
+  }
+}
+
+// ================================================
+// Ulanishni tekshirish (Sozlamalar sahifasi)
+// ================================================
+
 async function testTelegramBot() {
-  const botUrl = ($("s-tg-bot-url")||{value:""}).value.trim();
+  const botUrl = ($("#s-tg-bot-url")||{value:""}).value.trim();
   if (!botUrl) { toast("Bot manzilini kiriting","err"); return; }
 
   try {

@@ -380,6 +380,7 @@ function renderEgasi() {
   // Telegram bot
   if ($("s-tg-bot-url")) $("s-tg-bot-url").value = db.settings?.telegramBotUrl || "";
   if ($("s-tg-bot-username")) $("s-tg-bot-username").value = db.settings?.telegramBotUsername || "";
+  if ($("s-staff-group-id")) $("s-staff-group-id").value = db.settings?.staffGroupId || "";
   const tgBadge = $("tg-bot-status-badge");
   if (tgBadge) {
     const has = !!db.settings?.telegramBotUrl;
