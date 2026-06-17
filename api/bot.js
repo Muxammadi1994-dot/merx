@@ -601,8 +601,13 @@ function buildStaffOrderHtml(sale, shopName) {
             ? `<span class="tag tag-var">${variant}</span>` : "",
     ].filter(Boolean).join("");
 
+    const imgHtml = it.image
+      ? `<img src="${it.image}" class="item-img" onerror="this.style.display='none'">`
+      : `<div class="item-img item-img-ph">${(it.name||"?")[0].toUpperCase()}</div>`;
+
     return `
     <div class="card-item">
+      ${imgHtml}
       <div class="item-qty-badge">×${it.qty}</div>
       <div class="item-body">
         <div class="item-name">${it.name}</div>
@@ -671,6 +676,8 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;min-height:100vh;paddin
 .tag-var{background:#FFF7ED;color:#C2410C}
 .item-meta{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:12px;color:#999}
 .item-sum{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#0D1B2A}
+.item-img{width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid #f0ede8}
+.item-img-ph{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:22px;display:flex;align-items:center;justify-content:center}
 
 /* TOTAL */
 .total-card{background:#0D1B2A;margin:10px 12px 0;border-radius:12px;padding:14px 16px}
