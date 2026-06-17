@@ -603,7 +603,7 @@ function buildStaffOrderHtml(sale, shopName) {
     ].filter(Boolean).join("");
 
     const imgHtml = it.image
-      ? `<img src="${it.image}" class="item-img" onerror="this.style.display='none'">`
+      ? `<img src="${it.image}" class="item-img" style="cursor:zoom-in" onclick="openLb(this.src)" onerror="this.style.display='none'">`
       : `<div class="item-img item-img-ph">${(it.name||"?")[0].toUpperCase()}</div>`;
 
     const codeTags = [
@@ -706,6 +706,12 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;min-height:100vh;paddin
 /* FOOTER */
 .footer{text-align:center;margin-top:20px;font-size:11px;color:#bbb;padding:0 12px}
 
+/* LIGHTBOX */
+.lb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:999;align-items:center;justify-content:center;cursor:zoom-out}
+.lb-overlay.open{display:flex}
+.lb-img{max-width:95vw;max-height:90vh;object-fit:contain;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.5)}
+.lb-close{position:absolute;top:16px;right:16px;color:#fff;font-size:28px;cursor:pointer;line-height:1;background:rgba(255,255,255,.15);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center}
+
 /* DESKTOP */
 @media(min-width:640px){
   body{padding:24px 16px 48px}
@@ -761,6 +767,25 @@ ${cardsHtml}
 
 <div class="footer">@${BOT_USERNAME} · ${shopName}</div>
 </div>
+
+<!-- Lightbox -->
+<div class="lb-overlay" id="lb" onclick="closeLb()">
+  <div class="lb-close" onclick="closeLb()">✕</div>
+  <img class="lb-img" id="lb-img" src="">
+</div>
+
+<script>
+function openLb(src){
+  document.getElementById('lb-img').src = src;
+  document.getElementById('lb').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLb(){
+  document.getElementById('lb').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeLb(); });
+</script>
 
 </body></html>`;
 }
