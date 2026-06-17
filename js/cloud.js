@@ -150,7 +150,7 @@ async function pushToCloud() {
         chek_num: s.chekNum || null,
         date: s.date, time: s.time || null,
         price_type: s.priceType, pay_type: s.payType,
-        items: s.items || [],
+        items: (s.items || []).map(({ image, ...rest }) => rest), // image base64 ni Supabase ga yubormaymiz (juda katta)
         total: s.total || 0, paid: s.paid || 0,
         remaining: s.remaining || 0,
         due: s.due || null,

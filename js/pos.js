@@ -324,7 +324,8 @@ function confirmVariant() {
       sku:vmProd.sku, name:vmProd.name, color:selColor, size:null,
       unit:vmProd.unit||"dona", price:narx, basePrice:baseNarx, priceType:posPriceType,
       qty:totalDona, qtyBox:qtyInput, inBox, sellMode:"karobka",
-      image: vmProd.image || null
+      image: vmProd.image || null,
+      barcode: vmProd.barcode || null
     });
     toast(`${vmProd.name} (${selColor}) × ${qtyInput} karobka (${totalDona} ${vmProd.unit||"dona"}) savatchaga qo'shildi`);
   } else {
@@ -341,7 +342,8 @@ function confirmVariant() {
       sku:vmProd.sku, name:vmProd.name, color:selColor, size:selSize,
       unit:vmProd.unit||"dona", price:narx, basePrice:baseNarx, priceType:posPriceType,
       qty:totalDona, qtyBox:null, inBox:null, sellMode:"dona",
-      image: vmProd.image || null
+      image: vmProd.image || null,
+      barcode: vmProd.barcode || null
     });
     toast(`${vmProd.name} (${selColor}/${selSize}) × ${totalDona} savatchaga qo'shildi`);
   }

@@ -605,6 +605,11 @@ function buildStaffOrderHtml(sale, shopName) {
       ? `<img src="${it.image}" class="item-img" onerror="this.style.display='none'">`
       : `<div class="item-img item-img-ph">${(it.name||"?")[0].toUpperCase()}</div>`;
 
+    const codeTags = [
+      it.sku     ? `<span class="tag tag-sku">ART ${it.sku}</span>`     : "",
+      it.barcode ? `<span class="tag tag-bar">BAR ${it.barcode}</span>` : "",
+    ].filter(Boolean).join("");
+
     return `
     <div class="card-item">
       ${imgHtml}
@@ -612,6 +617,7 @@ function buildStaffOrderHtml(sale, shopName) {
       <div class="item-body">
         <div class="item-name">${it.name}</div>
         ${tags ? `<div class="item-tags">${tags}</div>` : ""}
+        ${codeTags ? `<div class="item-tags">${codeTags}</div>` : ""}
         <div class="item-meta">
           <span>${it.qty} ${it.unit || "dona"} × ${fmtN(it.price)} so'm</span>
           <span class="item-sum">${fmtN((it.price || 0) * (it.qty || 0))} so'm</span>
@@ -678,6 +684,8 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;min-height:100vh;paddin
 .item-sum{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#0D1B2A}
 .item-img{width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid #f0ede8}
 .item-img-ph{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:22px;display:flex;align-items:center;justify-content:center}
+.tag-sku{background:#F0F9FF;color:#0369A1}
+.tag-bar{background:#FDF4FF;color:#7E22CE}
 
 /* TOTAL */
 .total-card{background:#0D1B2A;margin:10px 12px 0;border-radius:12px;padding:14px 16px}
@@ -779,6 +787,20 @@ async function actionRenderStaffOrder(chekId, saleData) {
     const sets = await sb("settings", `?limit=1&select=shop_name`);
     shopName = sets?.[0]?.shop_name || "MERX";
   } catch {}
+
+  // items dagi sku lar bo'yicha products dan rasmlarni olish
+  if (sale?.items?.length) {
+    try {
+      const skus = [...new Set(sale.items.map(i => i.sku).filter(Boolean))];
+      if (skus.length) {
+        const skuFilter = skus.map(s => `sku.eq.${encodeURIComponent(s)}`).join(",");
+        const prods = await sb("products", `?or=(${skuFilter})&select=sku,image`);
+        const imgMap = {};
+        for (const p of (prods || [])) { if (p.sku && p.image) imgMap[p.sku] = p.image; }
+        sale.items = sale.items.map(i => ({ ...i, image: i.image || imgMap[i.sku] || null }));
+      }
+    } catch(e) { console.warn("[staffOrder] rasm olishda xato:", e.message); }
+  }
 
   if (!sale) {
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Topilmadi</title></head>
