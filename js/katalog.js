@@ -719,7 +719,7 @@ function addProduct() {
 function exportKatalogExcel() {
   const rate = db.settings.rate || 12800;
   const rows = [
-    ["SKU", "Nomi", "Kategoriya", "Turi", "Birlik", "Karobka (inBox)",
+    ["SKU", "ART", "Nomi", "Kategoriya", "Turi", "Birlik", "Karobka (inBox)",
      "Barcode", "Rang", "Pantone", "O'lcham", "Qoldiq (dona)",
      "Tannarx (USD)", "Tannarx (so'm)", "Ulgurji narx (so'm)", "Margin (%)"]
   ];
@@ -731,7 +731,7 @@ function exportKatalogExcel() {
         const margin = p.ulgurjiNarx > 0 && costUzs > 0
           ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : "";
         rows.push([
-          p.sku, p.name, p.category, p.type === "oyoq" ? "Oyoq kiyim" : "Kiyim",
+          p.sku, p.art || "", p.name, p.category, p.type === "oyoq" ? "Oyoq kiyim" : "Kiyim",
           p.unit || "dona", p.inBox || 1,
           p.barcode || "",
           v.color, v.pantone || "", v.size, v.qty,
@@ -889,12 +889,12 @@ function openKatalogImport() {
 // ── Shablon yuklash ───────────────────────────────
 function downloadImportTemplate() {
   const headers = ["Nom","Kategoriya","Turi (oyoq/kiyim)","Birlik",
-    "Karobkada nechta","Barcode","Rang","Pantone kodi","O'lcham",
+    "Karobkada nechta","ART","Barcode","Rang","Pantone kodi","O'lcham",
     "Qoldiq","Tannarx (USD)","Ulgurji narx (so'm)"];
   const rows = [
-    ["Nike Air Max","Krossovka","oyoq","juft","8","'8600000000001","Qora","PMS Black C","39-44","48","25","380000"],
-    ["Nike Air Max","Krossovka","oyoq","juft","8","'8600000000001","Oq","PMS White","39-44","24","25","380000"],
-    ["Erkaklar ko'ylagi","Ko'ylak","kiyim","dona","12","","Ko'k","PMS 286 C","S-XL","60","8","150000"],
+    ["Nike Air Max","Krossovka","oyoq","juft","8","AM-001","'8600000000001","Qora","PMS Black C","39-44","48","25","380000"],
+    ["Nike Air Max","Krossovka","oyoq","juft","8","AM-001","'8600000000001","Oq","PMS White","39-44","24","25","380000"],
+    ["Erkaklar ko'ylagi","Ko'ylak","kiyim","dona","12","EK-2025","","Ko'k","PMS 286 C","S-XL","60","8","150000"],
   ];
   // sep=; — Excel ga delimiter bildiradi, BOM kerak emas
   const csv = "sep=;\r\n" + [headers, ...rows].map(r =>

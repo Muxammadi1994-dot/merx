@@ -91,6 +91,7 @@ function posSearch() {
   const found = visProds().filter(p =>
     p.name.toLowerCase().includes(ql) ||
     p.sku.toLowerCase().includes(ql) ||
+    (p.art && p.art.toLowerCase().includes(ql)) ||
     p.category.toLowerCase().includes(ql) ||
     (p.barcode && p.barcode.toLowerCase().includes(ql))
   );
@@ -126,7 +127,7 @@ function posSearch() {
       ${imgHtml}
       <div class="pri-body">
         <div class="pri-name">${p.name}</div>
-        <div class="pri-meta">${p.category} · SKU: ${p.sku}${boxBadge}</div>
+        <div class="pri-meta">${p.category}${p.art ? ' · ' + p.art : ' · ' + p.sku}${boxBadge}</div>
         <div class="pri-colors">${colorDots}</div>
       </div>
       <div class="pri-right">
@@ -1133,7 +1134,7 @@ function posShowRecent() {
         ${imgHtml}
         <div class="pri-body">
           <div class="pri-name">${p.name}</div>
-          <div class="pri-meta">${p.category} · SKU: ${p.sku}</div>
+          <div class="pri-meta">${p.category}${p.art ? ' · ' + p.art : ' · ' + p.sku}</div>
           <div class="pri-colors">${colorDots}</div>
         </div>
         <div class="pri-right">

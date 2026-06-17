@@ -535,7 +535,8 @@ async function actionSendStaffNotification(body) {
   for (const it of items) {
     const variant = it.variant ? ` <i>${it.variant}</i>` : "";
     const lineSum = fmt((it.price || 0) * (it.qty || 0));
-    txt += `▪ ${it.name}${variant} × <b>${it.qty}</b> ${it.unit || "dona"}\n`;
+    const artTag  = it.art ? ` <code>${it.art}</code>` : "";
+    txt += `▪ ${it.name}${artTag}${variant} × <b>${it.qty}</b> ${it.unit || "dona"}\n`;
     txt += `   = ${lineSum} so'm\n`;
   }
 

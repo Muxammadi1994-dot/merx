@@ -471,6 +471,7 @@ function omRenderKirim() {
     return `<tr>
       <td style="font-size:12px;color:var(--mut)">${o.date}</td>
       <td><div style="font-weight:600;font-size:13px">${o.productName}</div></td>
+      <td style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${o.art || '<span style="color:#ddd">—</span>'}</td>
       <td><span class="bg bg-t" style="font-size:11px">${o.unit||"dona"}</span></td>
       <td>
         <div style="display:flex;align-items:center;gap:6px">
@@ -487,7 +488,7 @@ function omRenderKirim() {
       <td style="font-size:12px;color:var(--mut)">${o.partiya||"—"}</td>
       <td><span class="bg ${o.payStatus==="qarz"?"bg-r":"bg-g"}">${o.payStatus==="qarz"?"To'lanmagan":"To'langan"}</span></td>
     </tr>`;
-  }).join("") : `<tr><td colspan="11" class="empty-td">Kirim yo'q</td></tr>`;
+  }).join("") : `<tr><td colspan="12" class="empty-td">Kirim yo'q</td></tr>`;
 }
 
 function omRenderSuppliers() {
@@ -681,7 +682,7 @@ function qabulOl() {
 
   db.ombor.push({
     id:db.seq++, date:today(), sku:p.sku,
-    productName:name, unit, color, size, qty,
+    productName:name, art: p.art || "", unit, color, size, qty,
     pantone, hex,
     boxes: boxes || null,
     kirimNarxi:  kirimN,
