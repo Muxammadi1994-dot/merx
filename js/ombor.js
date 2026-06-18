@@ -45,15 +45,16 @@ function omRenderKpis() {
   const todayIn  = db.ombor.filter(o => o.date === t).reduce((a,o) => a + o.qty, 0);
   const monthVal = db.ombor.filter(o => o.date.startsWith(m)).reduce((a,o) => a + (o.kirimNarxi||0)*o.qty, 0);
   const supDebt  = db.ombor.filter(o => o.payStatus === "qarz").reduce((a,o) => a + (o.kirimNarxi||0)*o.qty, 0);
-  const totalVal = db.products.reduce((a,p) =>
+  const vProds = typeof visProds === "function" ? visProds() : db.products;
+  const totalVal = vProds.reduce((a,p) =>
     a + p.variants.reduce((b,v) => b + (p.costUsd*rate)*v.qty, 0), 0);
-  const totalUnits = db.products.reduce((a,p) =>
+  const totalUnits = vProds.reduce((a,p) =>
     a + p.variants.reduce((b,v) => b + v.qty, 0), 0);
 
   const el = $("om-kpi-row"); if (!el) return;
   el.innerHTML = [
     { icon:"ti-arrow-down-circle", color:"#4C9BE8", lbl:"Bugungi kirim",    val:todayIn+" dona",       sub:"bugun qabul qilindi" },
-    { icon:"ti-box",               color:"#36B48C", lbl:"Jami qoldiq",      val:totalUnits+" dona",    sub:db.products.length+" turdagi tovar" },
+    { icon:"ti-box",               color:"#36B48C", lbl:"Jami qoldiq",      val:totalUnits+" dona",    sub:vProds.length+" turdagi tovar" },
     { icon:"ti-currency-dollar",   color:"#E9A500", lbl:"Bu oy kirim",      val:fmt(monthVal)+" so'm", sub:"tannarxda" },
     { icon:"ti-wallet",            color:"#8B5CF6", lbl:"Ombor qiymati",    val:fmt(totalVal)+" so'm", sub:"tannarxda" },
     { icon:"ti-alert-circle",      color:supDebt>0?"#E05A5A":"#36B48C",
@@ -155,8 +156,9 @@ function omRenderQoldiq() {
   const q    = ($("om-q")||{value:""}).value.toLowerCase();
   const showChakana = db.settings.showChakana || false;
 
+  const vp = typeof visProds === "function" ? visProds() : db.products;
   let rows = [];
-  db.products.forEach(p => {
+  vp.forEach(p => {
     // Rang bo'yicha guruhlash — o'lchamlar ham saqlanadi
     const colorGroups = {};
     p.variants.forEach(v => {
@@ -355,8 +357,9 @@ function omRenderKamQoldiq() {
   if (!el) return;
 
   const threshold = db.settings?.lowStockLimit || 5;
+  const vp2 = typeof visProds === "function" ? visProds() : db.products;
   const rows = [];
-  db.products.forEach(p => {
+  vp2.forEach(p => {
     const minQty = p.minStock || threshold;
     p.variants.forEach(v => {
       if (v.qty <= minQty)

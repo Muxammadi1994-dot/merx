@@ -339,9 +339,16 @@ function saveSetting(key, val) {
 function setShopType(t) {
   if (!db.settings) db.settings = {};
   db.settings.shopType = t;
+  // db.shop.type ham sinxron saqlansin (visProds() to'g'ri ishlashi uchun)
+  if (!db.shop) db.shop = {};
+  db.shop.type = t;
   document.querySelectorAll("[data-t]").forEach(b => b.classList.toggle("on", b.dataset.t === t));
   saveDB();
-  toast("Do'kon turi saqlandi");
+  // Barcha sahifalarni yangilash
+  if (typeof renderKatalog === "function") renderKatalog();
+  if (typeof renderOmbor   === "function") renderOmbor();
+  const label = t === "oyoq" ? "Oyoq kiyim" : t === "kiyim" ? "Kiyim-kechak" : "Ikkalasi";
+  toast("Do'kon turi: " + label);
 }
 
 // ── Egasi sahifasini render qilish ───────────────

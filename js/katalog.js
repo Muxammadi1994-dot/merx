@@ -232,8 +232,16 @@ function renderKatalog() {
   const rate = db.settings.rate || 12800;
   const showChakana = db.settings.showChakana || false;
   const katCols = katGetCols();
+  const shopType = typeof getShopType === "function" ? getShopType() : (db.settings?.shopType || "ikki");
 
-  let ps = db.products.filter(p =>
+  // shopType ga mos tab tugmalarini ko'rsatish/yashirish
+  const btnOyoq  = document.querySelector(".kat-cat-btn[data-c='oyoq']");
+  const btnKiyim = document.querySelector(".kat-cat-btn[data-c='kiyim']");
+  if (btnOyoq)  btnOyoq.style.display  = shopType === "kiyim" ? "none" : "";
+  if (btnKiyim) btnKiyim.style.display = shopType === "oyoq"  ? "none" : "";
+
+  // visProds() shopType ga qarab filtrlaydi
+  let ps = visProds().filter(p =>
     !q ||
     p.name.toLowerCase().includes(q) ||
     p.sku.toLowerCase().includes(q) ||
@@ -242,6 +250,7 @@ function renderKatalog() {
     p.category.toLowerCase().includes(q)
   );
   if (katLowFilter) ps = ps.filter(p => totalStock(p) <= 5);
+  // katCatFilter endi faqat kategoriya bo'yicha — tur esa visProds() orqali
   if (katCatFilter === "oyoq")  ps = ps.filter(p => p.type === "oyoq");
   else if (katCatFilter === "kiyim") ps = ps.filter(p => p.type === "kiyim");
   else if (katCatFilter !== "all")   ps = ps.filter(p => p.category === katCatFilter);

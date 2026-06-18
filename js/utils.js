@@ -14,7 +14,8 @@ function addDays(d, n) {
   const r = new Date(d); r.setDate(r.getDate() + n); return r.toISOString().slice(0, 10);
 }
 
-const visProds   = () => db.shop.type === "ikki" ? db.products : db.products.filter(p => p.type === db.shop.type);
+const getShopType = () => db.settings?.shopType || db.shop?.type || "ikki";
+const visProds    = () => { const t = getShopType(); return t === "ikki" ? db.products : db.products.filter(p => p.type === t); };
 const totalStock = p  => p.variants.reduce((a, v) => a + v.qty, 0);
 const debtSales  = () => db.sales.filter(s => s.remaining > 0.5);
 const isOverdue  = s  => s.due && s.due < today();
