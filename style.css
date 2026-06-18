@@ -391,3 +391,32 @@ tr:hover td{background:#FAFAF8}
 /* Ko'rinish tugmasi */
 .kat-view-btn.on { background: var(--acc) !important; color: #0D1B2A !important; }
 .kat-view-btn:not(.on) { background: transparent !important; color: var(--mut) !important; }
+
+/* Katalog ustunlar modal */
+.kat-col-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--brd);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13.5px;
+  transition: all .13s;
+  background: var(--bg);
+  user-select: none;
+}
+.kat-col-item:hover { border-color: var(--acc); background: #fffbf0; }
+.kat-col-item.active { border-color: var(--acc); background: rgba(233,165,0,.08); }
+.kat-col-check {
+  width: 20px; height: 20px;
+  border: 1.5px solid var(--brd);
+  border-radius: 5px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .13s;
+}
+.kat-col-item.active .kat-col-check {
+  background: var(--acc);
+  border-color: var(--acc);
+}

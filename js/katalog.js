@@ -210,46 +210,58 @@ function toggleKatLow() {
 
 // ── Katalog jadvali ────────────────────────────
 // ── Katalog ustunlar boshqaruvi ─────────────────────────────
-const KAT_DEFAULT_COLS = { sku: false, barcode: true };
+// ── Ustunlar sozlash ──────────────────────────────
+// Barcha mumkin ustunlar va default ko'rinishlari
+const KAT_ALL_COLS = [
+  { key:"image",    lbl:"Rasm",             def:true  },
+  { key:"art",      lbl:"ART (artikul)",    def:true  },
+  { key:"name",     lbl:"Nomi",             def:true  },
+  { key:"category", lbl:"Toifa",            def:false },
+  { key:"barcode",  lbl:"Barcode",          def:true  },
+  { key:"supplier", lbl:"Yetkazuvchi",      def:false },
+  { key:"colors",   lbl:"Ranglar",          def:true  },
+  { key:"boxes",    lbl:"Karobka soni",     def:true  },
+  { key:"qty",      lbl:"Miqdor (dona)",    def:true  },
+  { key:"cost",     lbl:"Tannarx",          def:true  },
+  { key:"ulgurji",  lbl:"Ulgurji narx",     def:true  },
+  { key:"chakana",  lbl:"Chakana narx",     def:false },
+  { key:"margin",   lbl:"Margin %",         def:false },
+  { key:"sku",      lbl:"SKU kodi",         def:false },
+];
+
+const KAT_DEFAULT_COLS = Object.fromEntries(KAT_ALL_COLS.map(c => [c.key, c.def]));
 
 function katGetCols() {
   return Object.assign({}, KAT_DEFAULT_COLS, db.settings.katCols || {});
 }
 
-let katColsOpen = false;
 function katToggleCols() {
-  katColsOpen = !katColsOpen;
-  const panel = $("kat-cols-panel");
-  if (!panel) return;
-  panel.style.display = katColsOpen ? "block" : "none";
-  if (katColsOpen) katRenderColsPanel();
+  openModal("katcols");
+  katRenderColsPanel();
 }
 
 function katRenderColsPanel() {
   const cols = katGetCols();
-  const defs = [
-    { key:"sku",     lbl:"SKU kodi" },
-    { key:"barcode", lbl:"Barcode" },
-  ];
-  $("kat-cols-panel").innerHTML = `
-    <div style="padding:10px 16px 12px;background:#fff;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em">Ko'rinadigan ustunlar:</span>
-      ${defs.map(d => `
-        <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;
-          background:${cols[d.key]?"#E9A50018":"var(--bg)"};
-          border:1.5px solid ${cols[d.key]?"#E9A500":"var(--brd)"};
-          padding:4px 11px;border-radius:8px;transition:.15s">
-          <input type="checkbox" ${cols[d.key]?"checked":""} onchange="katToggleCol('${d.key}',this.checked)"
-            style="accent-color:var(--acc)">
-          ${d.lbl}
-        </label>`).join("")}
-    </div>`;
+  const el = $("kat-cols-list"); if (!el) return;
+  el.innerHTML = KAT_ALL_COLS.map(d => `
+    <label class="kat-col-item ${cols[d.key]?"active":""}" onclick="katToggleCol('${d.key}',${!cols[d.key]}); return false;">
+      <div class="kat-col-check">${cols[d.key]
+        ? `<i class="ti ti-check" style="font-size:13px;color:#fff"></i>`
+        : ``}</div>
+      <span>${d.lbl}</span>
+    </label>`).join("");
 }
 
 function katToggleCol(key, val) {
   if (!db.settings.katCols) db.settings.katCols = {};
   db.settings.katCols[key] = val;
   saveDB(); katRenderColsPanel(); renderKatalog();
+}
+
+function katColsReset() {
+  db.settings.katCols = {};
+  saveDB(); katRenderColsPanel(); renderKatalog();
+  toast("Ustunlar asl holiga qaytarildi");
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -346,11 +358,12 @@ function renderKatalog() {
     }
   }
 
-  // SKU/barcode ustunlar ko'rinishini yangilash
-  const thSku  = $("kat-th-sku");
-  const thBarc = $("kat-th-barcode");
-  if (thSku)  thSku.style.display  = katCols.sku     ? "" : "none";
-  if (thBarc) thBarc.style.display = katCols.barcode ? "" : "none";
+  // Barcha ustunlarni ko'rinishini yangilash
+  KAT_ALL_COLS.forEach(c => {
+    document.querySelectorAll(`.kat-col-${c.key}`).forEach(el => {
+      el.style.display = katCols[c.key] ? "" : "none";
+    });
+  });
 
   // Dinamik kategoriya tugmalarini yangilash
   updateKatCatBtns();
@@ -404,58 +417,59 @@ function renderKatalog() {
         <input type="checkbox" ${isSel?"checked":""} onchange="katToggleSel('${p.sku}',this.checked)"
           style="width:16px;height:16px;accent-color:var(--acc);cursor:pointer">
       </td>
-      <td onclick="event.stopPropagation()">
+      <td class="kat-col-image" onclick="event.stopPropagation()">
         <div style="position:relative;display:inline-block">
           ${p.image
             ? `<img src="${p.image}" class="kat-thumb" style="cursor:pointer"
-                onclick="katImgClick('${p.sku}')"
-                title="Rasmni o'zgartirish">`
+                onclick="katImgClick('${p.sku}')" title="Rasmni o'zgartirish">`
             : `<div class="kat-thumb-empty" style="cursor:pointer"
-                onclick="katImgClick('${p.sku}')"
-                title="Rasm qo'shish">
+                onclick="katImgClick('${p.sku}')" title="Rasm qo'shish">
                 <i class="ti ti-camera-plus" style="font-size:16px"></i>
               </div>`}
         </div>
         <input type="file" id="kat-img-inp-${p.sku}" accept="image/*" style="display:none"
           onchange="katImgSave('${p.sku}',this)">
       </td>
-      ${katCols.sku ? `<td style="font-family:monospace;font-size:11px;color:var(--mut)">${p.sku}</td>` : ""}
-      <td style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${p.art || '<span style="color:#ddd">—</span>'}</td>
-      <td>
+      <td class="kat-col-sku" style="font-family:monospace;font-size:11px;color:var(--mut)">${p.sku}</td>
+      <td class="kat-col-art" style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${p.art || '<span style="color:#ddd">—</span>'}</td>
+      <td class="kat-col-name">
         <div style="font-weight:700;font-size:13.5px;color:#0D1B2A">${p.name}</div>
         <div style="font-size:11.5px;color:#bbb;margin-top:2px">
-          ${p.unit||"dona"} · ${p.category}
-          ${inBox > 1 ? `· <span style="color:#856404">📦 ${inBox}/karobka</span>` : ""}
+          ${inBox > 1 ? `<span style="color:#856404">📦 ${inBox}/karobka</span>` : ""}
         </div>
       </td>
-      ${katCols.barcode ? `<td style="font-family:monospace;font-size:11.5px">
+      <td class="kat-col-category" style="font-size:12px;color:var(--mut)">${p.category}</td>
+      <td class="kat-col-barcode" style="font-family:monospace;font-size:11.5px">
         ${p.barcode
           ? `<span style="background:var(--bg);padding:2px 8px;border-radius:5px;border:1px solid var(--brd)">${p.barcode}</span>`
           : `<span style="color:#ccc">—</span>`}
-      </td>` : ""}
-      <td>${colorChips}</td>
-      <td class="num">
+      </td>
+      <td class="kat-col-supplier" style="font-size:12px;color:var(--mut)">${p.supplier||'<span style="color:#ddd">—</span>'}</td>
+      <td class="kat-col-colors">${colorChips}</td>
+      <td class="kat-col-boxes num">
         ${totalBoxes != null
           ? `<span style="font-weight:700;font-size:14px">${totalBoxes}</span>
              <span style="font-size:10.5px;color:#bbb;margin-left:3px">karobka</span>`
-          : `<span style="color:#bbb;font-size:12px">donab</span>`}
+          : `<span style="color:#bbb;font-size:12px">—</span>`}
       </td>
-      <td class="num">
+      <td class="kat-col-qty num">
         <span class="bg ${st<=0?"bg-r":st<=5?"bg-a":"bg-g"}" style="font-weight:700">
           ${st} ${p.unit||"dona"}
         </span>
       </td>
-      <td class="num" style="font-size:12.5px">
+      <td class="kat-col-cost num" style="font-size:12.5px">
         ${costUzs ? `<div style="font-weight:600">${priceDisplay(costUzs)}</div>` : "—"}
         ${costUzs && inBox > 1 ? `<div style="font-size:11px;color:#856404;margin-top:2px">📦 ${priceDisplay(costUzs * inBox)}</div>` : ""}
         ${p.costUsd && (db.settings?.priceCurrency||"uzs")==="uzs" ? `<div style="font-size:10.5px;color:#bbb">$${(+p.costUsd).toFixed(2)}</div>` : ""}
       </td>
-      <td class="num" style="font-size:12.5px">
+      <td class="kat-col-ulgurji num" style="font-size:12.5px">
         ${p.ulgurjiNarx ? `<div style="font-weight:700;color:var(--acc)">${priceDisplay(p.ulgurjiNarx)}</div>` : '<span style="color:#ccc">—</span>'}
         ${p.ulgurjiNarx && inBox > 1 ? `<div style="font-size:11px;color:#e9a500;margin-top:2px">📦 ${priceDisplay(p.ulgurjiNarx * inBox)}</div>` : ""}
-        ${margin != null ? `<div style="font-size:10px;color:${mColor}">margin ${margin}%</div>` : ""}
       </td>
-      ${showChakana ? `<td class="num" style="color:var(--teal);font-size:12.5px">${p.priceUzs ? fmt(p.priceUzs)+" so'm" : "—"}</td>` : ""}
+      <td class="kat-col-chakana num" style="color:var(--teal);font-size:12.5px">${p.priceUzs ? priceDisplay(p.priceUzs) : "—"}</td>
+      <td class="kat-col-margin num" style="font-size:12px">
+        ${margin != null ? `<span style="color:${mColor};font-weight:700">${margin}%</span>` : '<span style="color:#ddd">—</span>'}
+      </td>
       <td onclick="event.stopPropagation()">
         <button class="btn btn-ghost btn-icon btn-sm" onclick="duplicateProduct('${p.sku}',event)"
           title="Nusxalash" style="color:#8B5CF6">

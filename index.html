@@ -748,17 +748,21 @@
         <table style="table-layout:auto"><thead><tr>
           <th style="width:28px"><input type="checkbox" onchange="this.checked?katSelectAll():katClearSel()"
             style="width:15px;height:15px;accent-color:var(--acc);cursor:pointer"></th>
-          <th style="width:56px">Rasm</th>
-          <th id="kat-th-sku" style="display:none;width:70px">SKU</th>
-          <th style="width:80px">ART</th>
-          <th>Nomi</th>
-          <th id="kat-th-barcode">Barcode</th>
-          <th>Ranglar</th>
-          <th class="num">Karobka</th>
-          <th class="num">Dona</th>
-          <th class="num">Tannarx</th>
-          <th class="num">Ulgurji narx</th>
-          <th style="width:44px"></th>
+          <th class="kat-col-image" style="width:56px">Rasm</th>
+          <th class="kat-col-sku" style="width:70px">SKU</th>
+          <th class="kat-col-art" style="width:80px">ART</th>
+          <th class="kat-col-name">Nomi</th>
+          <th class="kat-col-category">Toifa</th>
+          <th class="kat-col-barcode">Barcode</th>
+          <th class="kat-col-supplier">Yetkazuvchi</th>
+          <th class="kat-col-colors">Ranglar</th>
+          <th class="kat-col-boxes num">Karobka</th>
+          <th class="kat-col-qty num">Dona</th>
+          <th class="kat-col-cost num">Tannarx</th>
+          <th class="kat-col-ulgurji num">Ulgurji narx</th>
+          <th class="kat-col-chakana num">Chakana</th>
+          <th class="kat-col-margin num">Margin</th>
+          <th style="width:60px"></th>
         </tr></thead>
         <tbody id="katalog-body"></tbody>
         </table>
@@ -1415,6 +1419,24 @@
     </div>
   </div>
 
+  </div>
+</div>
+
+<!-- MODAL: KATALOG USTUNLAR -->
+<div class="ov" id="ov-katcols" onclick="if(event.target===this)closeModal('katcols')">
+  <div class="modal" style="max-width:420px">
+    <button class="m-close" onclick="closeModal('katcols')"><i class="ti ti-x"></i></button>
+    <h2 style="margin-bottom:4px"><i class="ti ti-layout-columns" style="margin-right:8px"></i>Jadval ustunlari</h2>
+    <p style="font-size:12.5px;color:var(--mut);margin-bottom:16px">Ko'rsatmoqchi bo'lgan ustunlarni tanlang</p>
+    <div id="kat-cols-list" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div style="display:flex;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--brd)">
+      <button class="btn btn-ghost btn-sm" onclick="katColsReset()">
+        <i class="ti ti-refresh"></i> Asl holiga qaytarish
+      </button>
+      <button class="btn btn-acc btn-sm" style="margin-left:auto" onclick="closeModal('katcols')">
+        <i class="ti ti-check"></i> Qo'llash
+      </button>
+    </div>
   </div>
 </div>
 
