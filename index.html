@@ -306,14 +306,53 @@
   <!-- DASHBOARD v2 -->
   <div class="pg on" id="p-dashboard">
     <div class="dash-header" id="dash-header"></div>
-    <div class="dash-kpis" id="dash-kpis"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 6px">
+      <div id="dash-kpis" style="flex:1"></div>
+      <button onclick="dashToggleKpis()" title="Kartochkalarni sozlash"
+        style="flex-shrink:0;background:none;border:1px solid var(--brd);border-radius:8px;
+               padding:6px 10px;cursor:pointer;color:var(--mut);font-size:13px;margin-left:8px;
+               display:flex;align-items:center;gap:4px">
+        <i class="ti ti-layout-dashboard"></i>
+      </button>
+    </div>
+    <div id="dash-kpi-panel" style="display:none"></div>
     <div class="dash-mid">
       <div class="card dash-chart-wrap">
-        <div class="card-hdr">
+        <div class="card-hdr" style="flex-wrap:wrap;gap:6px">
           <span>Sotuv dinamikasi</span>
-          <div style="display:flex;gap:4px">
-            <button class="dash-ptab on" data-p="7"  onclick="dashSetPeriod(7)">7 kun</button>
-            <button class="dash-ptab"    data-p="30" onclick="dashSetPeriod(30)">Bu oy</button>
+          <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+            <button class="dash-ptab on" data-p="1"    onclick="dashSetPeriod(1)">Kecha</button>
+            <button class="dash-ptab"    data-p="0"    onclick="dashSetPeriod(0)">Bugun</button>
+            <button class="dash-ptab"    data-p="7"    onclick="dashSetPeriod(7)">Hafta</button>
+            <button class="dash-ptab"    data-p="30"   onclick="dashSetPeriod(30)">Oy</button>
+            <button class="dash-ptab"    data-p="365"  onclick="dashSetPeriod(365)">Yil</button>
+            <button class="dash-ptab"    data-p="-1"   onclick="dashSetPeriod(-1)">Barchasi</button>
+            <button class="dash-ptab" id="dash-custom-btn" onclick="dashToggleCalendar()" title="Custom oraliq">
+              <i class="ti ti-calendar" style="font-size:13px"></i>
+              <span id="dash-custom-lbl" style="display:none;margin-left:4px;font-size:11px"></span>
+            </button>
+          </div>
+        </div>
+        <!-- Calendar picker -->
+        <div id="dash-calendar" style="display:none;padding:12px 16px 8px;border-top:1px solid var(--brd)">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:6px;font-size:13px">
+              <span style="color:var(--mut);font-size:12px">Dan:</span>
+              <input type="date" id="dash-from" style="border:1px solid var(--brd);border-radius:6px;padding:4px 8px;font-size:13px;font-family:inherit">
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:13px">
+              <span style="color:var(--mut);font-size:12px">Gacha:</span>
+              <input type="date" id="dash-to" style="border:1px solid var(--brd);border-radius:6px;padding:4px 8px;font-size:13px;font-family:inherit">
+            </div>
+            <button class="btn btn-acc btn-sm" onclick="dashApplyCustom()">Qo'llash</button>
+            <button class="btn btn-sm" onclick="dashClearCustom()">Tozalash</button>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn btn-sm" style="font-size:11px" onclick="dashQuick('today')">Bugun</button>
+            <button class="btn btn-sm" style="font-size:11px" onclick="dashQuick('yesterday')">Kecha</button>
+            <button class="btn btn-sm" style="font-size:11px" onclick="dashQuick('week')">Shu hafta</button>
+            <button class="btn btn-sm" style="font-size:11px" onclick="dashQuick('month')">Shu oy</button>
+            <button class="btn btn-sm" style="font-size:11px" onclick="dashQuick('year')">Shu yil</button>
           </div>
         </div>
         <div id="dash-chart" style="padding:0 4px 8px"></div>
@@ -330,6 +369,7 @@
       </div>
     </div>
     <div id="dash-alerts"></div>
+    <div class="dash-tops" id="dash-tops" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px"></div>
     <div class="dash-tables">
       <div class="card">
         <div class="card-hdr">
@@ -591,9 +631,8 @@
           <button class="btn btn-sm" onclick="exportKatalogExcel()" title="Excel eksport" style="color:#1D6A39">
             <i class="ti ti-file-spreadsheet"></i> Excel
           </button>
-
-          <button class="btn btn-sm btn-ghost" onclick="katToggleCols()" title="Ustunlarni boshqarish">
-            <i class="ti ti-settings-2"></i>
+          <button class="btn btn-sm" onclick="openKatalogImport()" title="Excel import" style="color:#8B5CF6">
+            <i class="ti ti-upload"></i> Import
           </button>
           <button class="btn btn-sm" onclick="openNarxnoma()" style="color:#0D1B2A;border-color:#0D1B2A">
             <i class="ti ti-printer"></i> Narxnoma
@@ -601,7 +640,6 @@
 
         </div>
       </div>
-      <div id="kat-cols-panel" style="display:none"></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid var(--brd);align-items:center">
         <button class="kat-cat-btn on" data-c="all"   onclick="setKatCat('all')">Barchasi</button>
         <button class="kat-cat-btn" data-c="oyoq"  onclick="setKatCat('oyoq')">👟 Oyoq kiyim</button>
@@ -643,7 +681,7 @@
       <table style="table-layout:auto"><thead><tr>
         <th style="width:28px"><input type="checkbox" onchange="this.checked?katSelectAll():katClearSel()"
           style="width:15px;height:15px;accent-color:var(--acc);cursor:pointer"></th>
-        <th style="width:56px">Rasm</th><th id="kat-th-sku" style="width:60px">SKU</th><th style="width:80px">ART</th><th>Nomi</th><th id="kat-th-barcode" style="width:140px">Barcode</th><th>Ranglar</th><th class="num">Karobka</th><th class="num">Dona soni</th><th class="num">Tannarx</th><th class="num">Ulgurji narx</th><th style="width:44px"></th>
+        <th style="width:56px">Rasm</th><th style="width:70px">SKU</th><th>Nomi</th><th>Barcode</th><th>Ranglar</th><th class="num">Karobka</th><th class="num">Dona soni</th><th class="num">Tannarx</th><th class="num">Ulgurji narx</th><th style="width:44px"></th>
       </tr></thead>
       <tbody id="katalog-body"></tbody></table></div>
     </div>
@@ -687,9 +725,6 @@
         </button>
         <button class="btn btn-sm" onclick="openInvent()" style="color:#8B5CF6">
           <i class="ti ti-clipboard-check"></i> Inventarizatsiya
-        </button>
-        <button class="btn btn-sm" onclick="openKatalogImport()" style="color:#8B5CF6">
-          <i class="ti ti-upload"></i> Excel import
         </button>
         <button class="btn btn-acc btn-sm" onclick="openModal('qabul')">
           <i class="ti ti-plus"></i> Tovar qabul
@@ -744,7 +779,7 @@
       <table>
         <thead id="ombor-head">
           <tr>
-            <th>Sana</th><th>Mahsulot</th><th>ART</th><th>Birlik</th><th>Rang/O'lcham</th>
+            <th>Sana</th><th>Mahsulot</th><th>Birlik</th><th>Rang/O'lcham</th>
             <th>Miqdor</th><th>Tannarx</th><th>Jami</th>
             <th>Yetkazuvchi</th><th>Partiya</th><th>To'lov</th>
           </tr>
@@ -1313,15 +1348,9 @@
         <option value="kg">kg</option><option value="metr">metr</option>
       </select></div>
     </div>
-    <div class="r2" style="margin-bottom:10px">
-      <div class="fld">
-        <label>Artikul (ART) <span style="font-size:11px;font-weight:400;color:var(--mut)">karobkadagi kod</span></label>
-        <input id="ep-art" placeholder="1006-1, BFD01..." style="font-family:monospace;letter-spacing:.05em">
-      </div>
-      <div class="fld">
-        <label>Barcode / EAN <span style="font-size:11px;font-weight:400;color:var(--mut)">(USB skaner)</span></label>
-        <input id="ep-barcode" placeholder="8600000000000" style="font-family:monospace;letter-spacing:.05em">
-      </div>
+    <div class="fld" style="margin-bottom:10px">
+      <label>Barcode / EAN <span style="font-size:11px;font-weight:400;color:var(--mut)">(USB skaner bilan to'ldirishingiz mumkin)</span></label>
+      <input id="ep-barcode" placeholder="8600000000000" style="font-family:monospace;letter-spacing:.05em">
     </div>
     <div class="fld" style="margin-bottom:12px">
       <label>Tovar rasmi</label>
@@ -1586,15 +1615,9 @@
         <select id="qb-pay"><option value="tolangan">To'langan</option><option value="qarz">Qarzga (to'lanmagan)</option></select>
       </div>
     </div>
-    <div class="r2" style="margin-bottom:10px">
-      <div class="fld">
-        <label>Artikul (ART) <span style="font-size:11px;font-weight:400;color:var(--mut)">karobkadagi kod</span></label>
-        <input id="qb-art" placeholder="1006-1, BFD01..." style="font-family:monospace;letter-spacing:.05em">
-      </div>
-      <div class="fld">
-        <label>Barcode / EAN <span style="font-size:11px;font-weight:400;color:var(--mut)">(USB skaner)</span></label>
-        <input id="qb-barcode" placeholder="8600000000000" style="font-family:monospace;letter-spacing:.05em">
-      </div>
+    <div class="fld" style="margin-bottom:10px">
+      <label>Barcode / EAN <span style="font-size:11px;font-weight:400;color:var(--mut)">(USB skaner bilan to'ldirishingiz mumkin)</span></label>
+      <input id="qb-barcode" placeholder="8600000000000" style="font-family:monospace;letter-spacing:.05em">
     </div>
     <!-- Rasm yuklash -->
     <div class="fld" style="margin-bottom:12px">

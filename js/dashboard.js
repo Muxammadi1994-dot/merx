@@ -1,9 +1,10 @@
-// MERX dashboard.js | v2.2 | 2026-06-06 06:00
-// ================================================
-// MERX — js/dashboard.js  (v2 — To'liq qayta yozildi)
+// MERX dashboard.js | v3.0 | 2026-06-18
 // ================================================
 
-let dashPeriod = 7;
+let dashPeriod     = 0;    // 0=bugun, 1=kecha, 7=hafta, 30=oy, 365=yil, -1=barchasi, -2=custom
+let dashCustomFrom = null;
+let dashCustomTo   = null;
+let dashCalOpen    = false;
 
 // ── Yordamchi funksiyalar ──────────────────────
 function fmtK(n) {
@@ -29,84 +30,83 @@ function dashDateStr() {
   return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+function priceFmt(uzs) {
+  const r = db.settings?.rate || 12800;
+  const u = db.settings?.priceCurrency === 'usd';
+  return u ? (uzs/r).toFixed(0) + ' $' : fmtK(uzs) + " so'm";
+}
+
+// ── Davr bo'yicha sales filtrlash ──────────────
+function dashGetSales() {
+  const t = today();
+  if (dashPeriod === -2 && dashCustomFrom && dashCustomTo) {
+    return db.sales.filter(s => s.date >= dashCustomFrom && s.date <= dashCustomTo);
+  }
+  if (dashPeriod === -1) return db.sales; // barchasi
+  if (dashPeriod === 0)  return db.sales.filter(s => s.date === t);
+  if (dashPeriod === 1)  return db.sales.filter(s => s.date === addDays(t, -1));
+  const start = addDays(t, -(dashPeriod - 1));
+  return db.sales.filter(s => s.date >= start);
+}
+
+function dashGetDateRange() {
+  const t = today();
+  if (dashPeriod === -2 && dashCustomFrom) return { from: dashCustomFrom, to: dashCustomTo || t };
+  if (dashPeriod === -1) {
+    const all = db.sales.map(s => s.date).sort();
+    return { from: all[0] || t, to: t };
+  }
+  if (dashPeriod === 0) return { from: t, to: t };
+  if (dashPeriod === 1) return { from: addDays(t,-1), to: addDays(t,-1) };
+  return { from: addDays(t, -(dashPeriod-1)), to: t };
+}
+
 // ── Asosiy render ──────────────────────────────
 function renderDashboard() {
-  // Null tekshiruv
-  if (!db) return;
-  if (!db.sales)    db.sales    = [];
-  if (!db.products) db.products = [];
-  if (!db.staff)    db.staff    = [];
-  if (!db.customers) db.customers = [];
-  if (!db.xarajatlar) db.xarajatlar = [];
-  if (!db.shop)     db.shop = { name: "MERX Do'koni", type: "ikki" };
-  if (!db.settings) db.settings = { rate: 12800, priceCurrency: "uzs" };
+  if (!db?.sales) return;
+  const t = today();
 
-  const t    = today();
-  const rate = db.settings?.rate || 12800;
-  const isUsd = db.settings?.priceCurrency === "usd";
+  const todaySales = db.sales.filter(s => s.date === t);
+  const ystSales   = db.sales.filter(s => s.date === addDays(t, -1));
+  const todayTotal = todaySales.reduce((a, s) => a + s.total, 0);
+  const ystTotal   = ystSales.reduce((a, s) => a + s.total, 0);
+  const todayCnt   = todaySales.length;
+  const growth     = ystTotal > 0 ? Math.round((todayTotal - ystTotal) / ystTotal * 100) : null;
 
-  // Valyutaga qarab formatlash
-  function dashFmt(uzs) {
-    if (isUsd) {
-      const usd = uzs / rate;
-      return usd >= 1000 ? (usd/1000).toFixed(1)+"K $"
-           : usd >= 1    ? usd.toFixed(0)+" $"
-           : usd.toFixed(2)+" $";
-    }
-    return fmtK(uzs) + " so'm";
-  }
-
-  // Hisob-kitoblar
-  const todaySales  = db.sales.filter(s => s.date === t);
-  const ystSales    = db.sales.filter(s => s.date === addDays(t, -1));
-  const todayTotal  = todaySales.reduce((a, s) => a + s.total, 0);
-  const ystTotal    = ystSales.reduce((a, s)   => a + s.total, 0);
-  const todayCnt    = todaySales.length;
-  const avgCheck    = todayCnt ? Math.round(todayTotal / todayCnt) : 0;
   const debts       = debtSales();
   const totalDebt   = debts.reduce((a, s) => a + s.remaining, 0);
   const overdueList = debts.filter(isOverdue);
-  const growth      = ystTotal > 0 ? Math.round((todayTotal - ystTotal) / ystTotal * 100) : null;
 
-  // Kam qoldiq — chegara settings dan yoki default 5
   const lowThreshold = db.settings?.lowStockLimit || 5;
   const lowStock = [];
   db.products.forEach(p => {
     const minQty = p.minStock || lowThreshold;
     p.variants.forEach(v => {
       if (v.qty >= 0 && v.qty <= minQty)
-        lowStock.push({
-          name: p.name, sku: p.sku,
-          color: v.color, size: v.size,
-          qty: v.qty, unit: p.unit || 'dona',
-          min: minQty,
-          zero: v.qty === 0
-        });
+        lowStock.push({ name: p.name, sku: p.sku, color: v.color, size: v.size, qty: v.qty, unit: p.unit || 'dona', min: minQty, zero: v.qty === 0 });
     });
   });
-  // 0 ta bo'lganlar tepaga
   lowStock.sort((a, b) => a.qty - b.qty);
 
   renderDashHeader(todayTotal, todayCnt, growth);
-  renderDashKpis(todayCnt, avgCheck, totalDebt, debts.length, overdueList.length);
-  renderDashChart(dashPeriod);
-  renderDashDonut(dashPeriod);
-  renderDashPriceType(dashPeriod);
+  renderDashKpis(todayCnt, todayTotal, totalDebt, debts.length, overdueList.length);
+  renderDashChart();
+  renderDashDonut();
+  renderDashPriceType();
+  renderDashTops();
   renderDashAlerts(lowStock);
   renderDashSalesTable();
   renderDashDebtTable(debts);
   updateDashCurrencyPill();
 }
 
-// ── Header (qoʻngʻiroq strip) ──────────────────
+// ── Header ─────────────────────────────────────
 function renderDashHeader(todayTotal, todayCnt, growth) {
   const el = $('dash-header');
   if (!el) return;
-
   const growHtml = growth !== null
     ? `<span class="dash-growth ${growth >= 0 ? 'up' : 'dn'}">${growth >= 0 ? '▲' : '▼'} ${Math.abs(growth)}%</span>`
     : `<span class="dash-growth" style="color:rgba(255,255,255,.35);font-weight:400">— birinchi kun</span>`;
-
   el.innerHTML = `
     <div class="dh-left">
       <div class="dh-greet">${dashGreeting()}, <strong>${db.shop?.name || 'MERX Do\'koni'}</strong></div>
@@ -114,7 +114,7 @@ function renderDashHeader(todayTotal, todayCnt, growth) {
     </div>
     <div class="dh-center">
       <div class="dh-lbl">Bugungi sotuv</div>
-      <div class="dh-val">${(()=>{const r=db.settings?.rate||12800;const u=db.settings?.priceCurrency==="usd";return u?(todayTotal/r).toFixed(0)+" $":fmtK(todayTotal)+" so'm";})()} </div>
+      <div class="dh-val">${priceFmt(todayTotal)}</div>
       <div style="font-size:12px;margin-top:3px;color:rgba(255,255,255,.45)">${todayCnt} ta tranzaksiya ${growHtml}</div>
     </div>
     <div class="dh-right">
@@ -129,28 +129,94 @@ function renderDashHeader(todayTotal, todayCnt, growth) {
   `;
 }
 
-// ── KPI kartochkalari ──────────────────────────
-function renderDashKpis(todayCnt, avgCheck, totalDebt, debtCnt, overdueCnt) {
-  const el = $('dash-kpis');
-  if (!el) return;
+// ── KPI kartochkalar ───────────────────────────
+const KPI_DEFAULTS = {
+  sotuvlar: true, ortacha: true, qarz: true, muddati: true, ombor: true
+};
 
-  const cards = [
+function dashGetKpiCols() {
+  return Object.assign({}, KPI_DEFAULTS, db.settings?.dashKpiCols || {});
+}
+
+function dashToggleKpis() {
+  const panel = $('dash-kpi-panel');
+  if (!panel) return;
+  const open = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  if (open) dashRenderKpiPanel();
+}
+
+function dashRenderKpiPanel() {
+  const cols = dashGetKpiCols();
+  const defs = [
+    { key:'sotuvlar', lbl:'Sotuvlar soni' },
+    { key:'ortacha',  lbl:"O'rtacha chek" },
+    { key:'qarz',     lbl:'Jami qarz' },
+    { key:'muddati',  lbl:"Muddati o'tgan" },
+    { key:'ombor',    lbl:'Kam qoldiq' },
+  ];
+  $('dash-kpi-panel').innerHTML = `
+    <div style="padding:10px 4px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em">Ko'rinadigan kartochkalar:</span>
+      ${defs.map(d => `
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;
+          background:${cols[d.key]?"#E9A50018":"var(--bg)"};
+          border:1.5px solid ${cols[d.key]?"#E9A500":"var(--brd)"};
+          padding:4px 11px;border-radius:8px;transition:.15s">
+          <input type="checkbox" ${cols[d.key]?"checked":""} onchange="dashToggleKpi('${d.key}',this.checked)"
+            style="accent-color:var(--acc)">
+          ${d.lbl}
+        </label>`).join('')}
+    </div>`;
+}
+
+function dashToggleKpi(key, val) {
+  if (!db.settings.dashKpiCols) db.settings.dashKpiCols = {};
+  db.settings.dashKpiCols[key] = val;
+  saveDB(); dashRenderKpiPanel(); renderDashKpis();
+}
+
+function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
+  // Agar argumentsiz chaqirilsa — hisoblash
+  if (todayCnt === undefined) {
+    const t = today();
+    const td = db.sales.filter(s => s.date === t);
+    todayCnt   = td.length;
+    todayTotal = td.reduce((a,s) => a+s.total, 0);
+    const dts  = debtSales();
+    totalDebt  = dts.reduce((a,s) => a+s.remaining, 0);
+    debtCnt    = dts.length;
+    overdueCnt = dts.filter(isOverdue).length;
+  }
+
+  const cols    = dashGetKpiCols();
+  const avgCheck = todayCnt ? Math.round(todayTotal / todayCnt) : 0;
+
+  const lowThreshold = db.settings?.lowStockLimit || 5;
+  const lowCnt = db.products.reduce((a, p) =>
+    a + p.variants.filter(v => v.qty >= 0 && v.qty <= lowThreshold).length, 0);
+
+  const allCards = [
     {
+      key: 'sotuvlar',
       icon: 'ti-shopping-bag', color: '#4C9BE8',
       label: 'Sotuvlar soni', val: todayCnt + ' ta',
       sub: 'bugungi tranzaksiya', click: "nav('tarix')"
     },
     {
+      key: 'ortacha',
       icon: 'ti-receipt', color: '#36B48C',
-      label: "O'rtacha check", val: todayCnt ? (()=>{const r=db.settings?.rate||12800;const u=db.settings?.priceCurrency==="usd";return u?(avgCheck/r).toFixed(0)+" $":fmtK(avgCheck)+" so'm"})() : '—',
-      sub: 'bir sotuvga o\'rtacha', click: "nav('tarix')"
+      label: "O'rtacha chek", val: todayCnt ? priceFmt(avgCheck) : '—',
+      sub: "bir sotuvga o'rtacha", click: "nav('tarix')"
     },
     {
+      key: 'qarz',
       icon: 'ti-credit-card', color: '#E07B39',
-      label: 'Jami qarz', val: (()=>{const r=db.settings?.rate||12800;const u=db.settings?.priceCurrency==="usd";return u?(totalDebt/r).toFixed(0)+" $":fmtK(totalDebt)+" so'm"})(),
+      label: 'Jami qarz', val: priceFmt(totalDebt),
       sub: debtCnt + ' nafar qarzdor', click: "nav('qarzlar')"
     },
     {
+      key: 'muddati',
       icon: 'ti-clock-exclamation',
       color: overdueCnt > 0 ? '#E05A5A' : '#36B48C',
       label: "Muddati o'tgan", val: overdueCnt + ' ta',
@@ -158,15 +224,21 @@ function renderDashKpis(todayCnt, avgCheck, totalDebt, debtCnt, overdueCnt) {
       click: "nav('qarzlar')"
     },
     {
-      icon: 'ti-box', color: '#8B5CF6',
-      label: 'Katalogdagi tovar', val: db.products.length + ' tur',
-      sub: db.products.reduce((a, p) => a + p.variants.reduce((b, v) => b + v.qty, 0), 0) + ' dona omborda',
-      click: "nav('katalog')"
-    }
+      key: 'ombor',
+      icon: 'ti-alert-triangle',
+      color: lowCnt > 0 ? '#E9A500' : '#36B48C',
+      label: 'Kam qoldiq', val: lowCnt + ' ta variant',
+      sub: lowCnt > 0 ? 'zaxirani to\'ldirish kerak' : 'ombor yetarli',
+      click: "nav('ombor')"
+    },
   ];
 
-  el.innerHTML = cards.map(c => `
-    <div class="dash-kpi" onclick="${c.click}">
+  const el = $('dash-kpis');
+  if (!el) return;
+  el.innerHTML = allCards
+    .filter(c => cols[c.key] !== false)
+    .map(c => `
+    <div class="dkpi-card" onclick="${c.click}" style="cursor:pointer">
       <div class="dkpi-top">
         <div class="dkpi-ico" style="background:${c.color}18;color:${c.color}">
           <i class="ti ${c.icon}"></i>
@@ -182,295 +254,369 @@ function renderDashKpis(todayCnt, avgCheck, totalDebt, debtCnt, overdueCnt) {
 // ── Davr tugmalari ─────────────────────────────
 function dashSetPeriod(p) {
   dashPeriod = p;
-  document.querySelectorAll('.dash-ptab').forEach(b => b.classList.toggle('on', +b.dataset.p === p));
-  renderDashChart(p);
-  renderDashDonut(p);
-  renderDashPriceType(p);
+  dashCustomFrom = null;
+  dashCustomTo   = null;
+  dashCalOpen = false;
+  const cal = $('dash-calendar');
+  if (cal) cal.style.display = 'none';
+  const lbl = $('dash-custom-lbl');
+  if (lbl) lbl.style.display = 'none';
+  document.querySelectorAll('.dash-ptab').forEach(b => {
+    const bp = b.dataset.p !== undefined ? +b.dataset.p : null;
+    b.classList.toggle('on', bp === p && p !== -2);
+  });
+  renderDashChart();
+  renderDashDonut();
+  renderDashPriceType();
+  renderDashTops();
+  renderDashSalesTable();
+}
+
+function dashToggleCalendar() {
+  dashCalOpen = !dashCalOpen;
+  const cal = $('dash-calendar');
+  if (cal) cal.style.display = dashCalOpen ? 'block' : 'none';
+  if (dashCalOpen) {
+    const t = today();
+    const from = $('dash-from');
+    const to   = $('dash-to');
+    if (from && !from.value) from.value = addDays(t, -30);
+    if (to   && !to.value)   to.value   = t;
+  }
+}
+
+function dashQuick(type) {
+  const t = today();
+  const from = $('dash-from');
+  const to   = $('dash-to');
+  if (!from || !to) return;
+  const map = {
+    today:     { f: t,                   t: t },
+    yesterday: { f: addDays(t,-1),       t: addDays(t,-1) },
+    week:      { f: addDays(t,-6),       t: t },
+    month:     { f: t.slice(0,7)+'-01',  t: t },
+    year:      { f: t.slice(0,4)+'-01-01', t: t },
+  };
+  if (map[type]) { from.value = map[type].f; to.value = map[type].t; }
+}
+
+function dashApplyCustom() {
+  const from = ($('dash-from')||{value:''}).value;
+  const to   = ($('dash-to')||{value:''}).value;
+  if (!from || !to) { toast("Sana oraliq tanlang","err"); return; }
+  if (from > to)    { toast("'Dan' sanasi 'Gacha' dan kichik bo'lishi kerak","err"); return; }
+  dashCustomFrom = from;
+  dashCustomTo   = to;
+  dashPeriod     = -2;
+  document.querySelectorAll('.dash-ptab').forEach(b => b.classList.remove('on'));
+  const btn = $('dash-custom-btn');
+  if (btn) btn.classList.add('on');
+  const lbl = $('dash-custom-lbl');
+  if (lbl) {
+    lbl.style.display = 'inline';
+    lbl.textContent   = from.slice(5) + ' – ' + to.slice(5);
+  }
+  renderDashChart();
+  renderDashDonut();
+  renderDashPriceType();
+  renderDashTops();
+  renderDashSalesTable();
+  toast(`${from} — ${to} oraliq qo'llandi`);
+}
+
+function dashClearCustom() {
+  dashCustomFrom = null;
+  dashCustomTo   = null;
+  const lbl = $('dash-custom-lbl');
+  if (lbl) lbl.style.display = 'none';
+  dashSetPeriod(0);
 }
 
 // ── Ustun diagramma ────────────────────────────
-function renderDashChart(days) {
+function renderDashChart() {
   const el = $('dash-chart');
   if (!el) return;
 
-  const t = today();
+  const { from, to } = dashGetDateRange();
+
+  // Kun soni
+  const msDay = 86400000;
+  const diffDays = Math.round((new Date(to) - new Date(from)) / msDay) + 1;
+
   const data = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = addDays(t, -i);
+  for (let i = 0; i < diffDays; i++) {
+    const d = addDays(from, i);
     const total = db.sales.filter(s => s.date === d).reduce((a, s) => a + s.total, 0);
     const dObj = new Date(d);
     const wdays = ['Ya','Du','Se','Ch','Pa','Ju','Sh'];
-    const lbl = days <= 7
-      ? wdays[dObj.getDay()]
-      : (i === 0 ? 'Bugun' : d.slice(8) + '/' + String(dObj.getMonth() + 1).padStart(2, '0'));
-    data.push({ d, label: lbl, total, isToday: d === t });
+    let lbl;
+    if (diffDays <= 7)  lbl = wdays[dObj.getDay()];
+    else if (diffDays <= 31) lbl = String(dObj.getDate());
+    else lbl = String(dObj.getMonth() + 1) + '/' + String(dObj.getFullYear()).slice(2);
+    data.push({ d, label: lbl, total, isToday: d === today() });
   }
+
+  if (!data.length) { el.innerHTML = '<div style="text-align:center;padding:40px;color:#bbb">Ma\'lumot yo\'q</div>'; return; }
 
   const maxVal = Math.max(...data.map(d => d.total), 1);
   const W = 580, H = 180, pL = 52, pB = 28, pT = 24, pR = 16;
   const cW = W - pL - pR, cH = H - pB - pT;
-  const barW = Math.max(10, Math.floor(cW / data.length * 0.55));
-  const gap = cW / data.length;
+  const barW = Math.max(4, Math.floor(cW / data.length * 0.6));
+  const gap  = cW / data.length;
 
-  // Y gridlines
   const gridLines = [0, 0.25, 0.5, 0.75, 1].map(pct => {
     const y = pT + cH - pct * cH;
     return `
       <line x1="${pL}" y1="${y}" x2="${W - pR}" y2="${y}"
             stroke="#e8e5df" stroke-width="1" ${pct > 0 ? 'stroke-dasharray="4 4"' : ''}/>
-      <text x="${pL - 7}" y="${y + 4}" text-anchor="end" font-size="9" fill="#bbb">
-        ${pct > 0 ? fmtK(Math.round(pct * maxVal)) : '0'}
-      </text>`;
+      <text x="${pL - 6}" y="${y + 4}" text-anchor="end"
+            fill="#bbb" font-size="10">${fmtK(maxVal * pct)}</text>`;
   }).join('');
 
   const bars = data.map((d, i) => {
-    const bh  = Math.max(4, Math.round(d.total / maxVal * cH));
-    const x   = pL + i * gap + gap / 2 - barW / 2;
-    const y   = pT + cH - bh;
-    const gid = `dg${i}`;
-    const clr = d.isToday ? '#E9A500' : '#4C9BE8';
+    const x  = pL + gap * i + gap / 2;
+    const bh = Math.max(2, (d.total / maxVal) * cH);
+    const by = pT + cH - bh;
+    const fill = d.isToday ? '#0D1B2A' : '#4C9BE8';
+    const tip  = `${d.d}: ${fmtK(d.total)} so'm`;
     return `
-      <defs>
-        <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stop-color="${clr}" stop-opacity="${d.isToday ? '1' : '0.8'}"/>
-          <stop offset="100%" stop-color="${clr}" stop-opacity="${d.isToday ? '0.5' : '0.15'}"/>
-        </linearGradient>
-      </defs>
-      <rect x="${x}" y="${y}" width="${barW}" height="${bh}" rx="5" fill="url(#${gid})"/>
-      ${d.total > 0 ? `<text x="${x + barW/2}" y="${y - 5}" text-anchor="middle" font-size="8.5"
-            fill="${d.isToday ? '#b07d00' : '#999'}" font-weight="${d.isToday ? '700' : '400'}">${fmtK(d.total)}</text>` : ''}
-      <text x="${x + barW/2}" y="${H - 8}" text-anchor="middle"
-            font-size="${days > 14 ? '8' : '10'}"
-            fill="${d.isToday ? '#E9A500' : '#bbb'}"
-            font-weight="${d.isToday ? '700' : '400'}">${d.label}</text>`;
+      <rect x="${x - barW/2}" y="${by}" width="${barW}" height="${bh}"
+            fill="${fill}" rx="3" opacity="${d.total ? 1 : 0.15}">
+        <title>${tip}</title>
+      </rect>
+      <text x="${x}" y="${H - 6}" text-anchor="middle" fill="#aaa" font-size="${data.length > 30 ? 8 : 10}">
+        ${data.length <= 60 ? d.label : ''}
+      </text>`;
   }).join('');
 
-  el.innerHTML = `
-    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
-      ${gridLines}
-      <line x1="${pL}" y1="${pT}" x2="${pL}" y2="${pT + cH}" stroke="#e0ddd8" stroke-width="1"/>
-      ${bars}
-    </svg>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;overflow:visible">
+    ${gridLines}${bars}
+  </svg>`;
 }
 
-// ── Donut diagramma ─────────────────────────────
-function renderDashDonut(days) {
+// ── Donut: to'lov usullari ─────────────────────
+function renderDashDonut() {
   const el = $('dash-donut');
   if (!el) return;
-  const start = addDays(today(), -(days - 1));
-  const ps = db.sales.filter(s => s.date >= start);
-  const types = { naqd: 0, karta: 0, otkazma: 0 };
-  ps.forEach(s => { if (s.payType in types) types[s.payType] += s.total; });
-  const total = Object.values(types).reduce((a, b) => a + b, 0);
+  const sales = dashGetSales();
 
+  const payLabels = { naqd:'Naqd', karta:'Karta', otkazma:"O'tkazma", nasiya:'Nasiya' };
+  const payColors = { naqd:'#36B48C', karta:'#4C9BE8', otkazma:'#8B5CF6', nasiya:'#E07B39' };
+
+  const types = {};
+  for (const s of sales) {
+    const k = s.payType || s.pay_type || 'boshqa';
+    types[k] = (types[k] || 0) + (s.total || 0);
+  }
+
+  const total = Object.values(types).reduce((a, b) => a + b, 0);
   if (!total) {
-    el.innerHTML = `<div style="text-align:center;padding:18px 0;color:#ccc;font-size:12.5px">
+    el.innerHTML = `<div style="text-align:center;padding:20px;color:#bbb;font-size:13px">
       <i class="ti ti-chart-donut" style="font-size:24px;display:block;margin-bottom:6px"></i>Ma'lumot yo'q</div>`;
     return;
   }
 
-  const colors = { naqd: '#E9A500', karta: '#4C9BE8', otkazma: '#36B48C' };
-  const labels = { naqd: 'Naqd', karta: 'Karta', otkazma: "O'tkazma" };
-  const cx = 56, cy = 56, R = 48, r = 30;
-  let ang = -90;
+  const entries = Object.entries(types).filter(([,v]) => v > 0);
+  const R = 52, cx = 62, cy = 62, gap = 0.03;
+  let angle = -Math.PI / 2;
 
-  const paths = Object.entries(types).filter(([, v]) => v > 0).map(([key, val]) => {
-    const sweep = val / total * 360;
-    const a1 = ang * Math.PI / 180;
-    const a2 = (ang + sweep) * Math.PI / 180;
-    ang += sweep;
-    const lg = sweep > 180 ? 1 : 0;
-    return `<path d="M${cx+R*Math.cos(a1)},${cy+R*Math.sin(a1)} A${R},${R},0,${lg},1,${cx+R*Math.cos(a2)},${cy+R*Math.sin(a2)} L${cx+r*Math.cos(a2)},${cy+r*Math.sin(a2)} A${r},${r},0,${lg},0,${cx+r*Math.cos(a1)},${cy+r*Math.sin(a1)}Z" fill="${colors[key]}"/>`;
+  const paths = entries.map(([key, val]) => {
+    const pct  = val / total;
+    const a1   = angle + gap;
+    const a2   = angle + pct * Math.PI * 2 - gap;
+    const x1   = cx + R * Math.cos(a1), y1 = cy + R * Math.sin(a1);
+    const x2   = cx + R * Math.cos(a2), y2 = cy + R * Math.sin(a2);
+    const large = pct > 0.5 ? 1 : 0;
+    const color = payColors[key] || '#aaa';
+    const path  = `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} Z" fill="${color}" opacity=".9"/>`;
+    angle += pct * Math.PI * 2;
+    return { key, val, pct, color, path };
+  });
+
+  const legend = entries.map(([key, val]) => {
+    const c = payColors[key] || '#aaa';
+    const lbl = payLabels[key] || key;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0">
+      <div style="display:flex;align-items:center;gap:7px">
+        <div style="width:10px;height:10px;border-radius:50%;background:${c};flex-shrink:0"></div>
+        <span style="font-size:12.5px;color:#555">${lbl}</span>
+      </div>
+      <span style="font-size:12px;font-weight:700;color:#0D1B2A">${fmtK(val)} so'm</span>
+    </div>`;
   }).join('');
 
-  const legend = Object.entries(types).map(([key, val]) => val > 0 ? `
-    <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
-      <div style="width:9px;height:9px;border-radius:2px;background:${colors[key]};flex-shrink:0"></div>
-      <span style="font-size:12px;color:#666">${labels[key]}</span>
-      <span style="margin-left:auto;font-size:12px;font-weight:700;color:#333">${Math.round(val / total * 100)}%</span>
-    </div>` : '').join('');
-
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:14px">
-      <svg viewBox="0 0 112 112" style="width:82px;flex-shrink:0">
-        ${paths}
-        <text x="56" y="53" text-anchor="middle" font-size="9" fill="#bbb">Jami</text>
-        <text x="56" y="65" text-anchor="middle" font-size="10.5" font-weight="800" fill="#333">${fmtK(total)}</text>
-      </svg>
-      <div style="flex:1">${legend}</div>
-    </div>`;
+  el.innerHTML = `<div style="display:flex;align-items:center;gap:16px;padding:4px 0 8px">
+    <svg viewBox="0 0 124 124" style="width:90px;flex-shrink:0">
+      ${paths.map(p => p.path).join('')}
+      <circle cx="${cx}" cy="${cy}" r="${R*0.52}" fill="white"/>
+      <text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="10" fill="#888">Jami</text>
+      <text x="${cx}" y="${cy+9}" text-anchor="middle" font-size="11" font-weight="700" fill="#0D1B2A">${fmtK(total)}</text>
+    </svg>
+    <div style="flex:1;min-width:0">${legend}</div>
+  </div>`;
 }
 
-// ── Chakana/Ulgurji nisbati ─────────────────────
-function renderDashPriceType(days) {
+// ── Chakana / Ulgurji ──────────────────────────
+function renderDashPriceType() {
   const el = $('dash-pricetype');
   if (!el) return;
-  const start = addDays(today(), -(days - 1));
-  const ps  = db.sales.filter(s => s.date >= start);
-  const ch  = ps.filter(s => s.priceType === 'chakana').reduce((a, s) => a + s.total, 0);
-  const ul  = ps.filter(s => s.priceType === 'ulgurji').reduce((a, s) => a + s.total, 0);
-  const tot = ch + ul || 1;
-  const chP = Math.round(ch / tot * 100);
+  const sales = dashGetSales();
+  const ch = sales.filter(s => s.priceType === 'chakana').reduce((a, s) => a + s.total, 0);
+  const ul = sales.filter(s => s.priceType === 'ulgurji').reduce((a, s) => a + s.total, 0);
+  const total = ch + ul || 1;
+  const chPct = Math.round(ch / total * 100);
+  const ulPct = 100 - chPct;
 
   el.innerHTML = `
-    <div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
-        <span style="color:#E9A500;font-weight:700">Chakana ${chP}%</span>
-        <span style="color:#4C9BE8;font-weight:700">Ulgurji ${100 - chP}%</span>
+    <div style="padding:4px 0 8px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <div style="text-align:center;flex:1">
+          <div style="font-size:18px;font-weight:800;color:#4C9BE8">${fmtK(ch)}</div>
+          <div style="font-size:11px;color:#888">Chakana (${chPct}%)</div>
+        </div>
+        <div style="width:1px;background:var(--brd)"></div>
+        <div style="text-align:center;flex:1">
+          <div style="font-size:18px;font-weight:800;color:#8B5CF6">${fmtK(ul)}</div>
+          <div style="font-size:11px;color:#888">Ulgurji (${ulPct}%)</div>
+        </div>
       </div>
-      <div style="height:9px;border-radius:5px;background:#eae7e0;overflow:hidden">
-        <div style="height:100%;width:${chP}%;background:linear-gradient(90deg,#E9A500,#f5c842);border-radius:5px;transition:width .5s ease"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:#bbb;margin-top:5px">
-        <span>${fmtK(ch)} so'm</span>
-        <span>${fmtK(ul)} so'm</span>
+      <div style="height:8px;border-radius:4px;background:#f0ede8;overflow:hidden">
+        <div style="height:100%;width:${chPct}%;background:linear-gradient(90deg,#4C9BE8,#8B5CF6);border-radius:4px;transition:.4s"></div>
       </div>
     </div>`;
 }
 
-// ── Kam qoldiq ogohlantirishlari ────────────────
+// ── Top sotuvchilar + Top mahsulotlar ──────────
+function renderDashTops() {
+  const el = $('dash-tops');
+  if (!el) return;
+  const sales = dashGetSales();
+
+  // Top sotuvchilar
+  const staffMap = {};
+  for (const s of sales) {
+    const name = s.staffName || s.staff_name || 'Noma\'lum';
+    staffMap[name] = (staffMap[name] || 0) + (s.total || 0);
+  }
+  const topStaff = Object.entries(staffMap).sort((a,b) => b[1]-a[1]).slice(0,5);
+
+  // Top mahsulotlar
+  const prodMap = {};
+  for (const s of sales) {
+    for (const it of (s.items || [])) {
+      if (!it?.name) continue;
+      prodMap[it.name] = (prodMap[it.name] || 0) + ((it.price||0) * (it.qty||0));
+    }
+  }
+  const topProds = Object.entries(prodMap).sort((a,b) => b[1]-a[1]).slice(0,5);
+
+  const staffColors = ['#4C9BE8','#36B48C','#8B5CF6','#E07B39','#E05A5A'];
+
+  const staffHtml = topStaff.length ? topStaff.map(([name, sum], i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;
+      border-bottom:1px solid var(--brd);last-child:border:none">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="width:28px;height:28px;border-radius:50%;background:${staffColors[i]||'#ccc'}22;
+          color:${staffColors[i]||'#ccc'};font-weight:800;font-size:12px;
+          display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          ${name[0]?.toUpperCase()}
+        </div>
+        <span style="font-size:13px;font-weight:600">${name}</span>
+      </div>
+      <span style="font-size:13px;font-weight:700;color:#0D1B2A">${fmtK(sum)} so'm</span>
+    </div>`).join('')
+    : '<div style="padding:20px;text-align:center;color:#bbb;font-size:13px">Ma\'lumot yo\'q</div>';
+
+  const prodHtml = topProds.length ? topProds.map(([name, sum], i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;
+      border-bottom:1px solid var(--brd)">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="width:22px;height:22px;border-radius:5px;background:#E9A50022;
+          color:#E9A500;font-weight:800;font-size:11px;
+          display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          ${i+1}
+        </div>
+        <span style="font-size:13px;font-weight:600;color:#0D1B2A">${name}</span>
+      </div>
+      <span style="font-size:13px;font-weight:700;color:#E9A500">${fmtK(sum)} so'm</span>
+    </div>`).join('')
+    : '<div style="padding:20px;text-align:center;color:#bbb;font-size:13px">Ma\'lumot yo\'q</div>';
+
+  el.innerHTML = `
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="card-hdr" style="padding:12px 16px">
+        <span style="font-weight:700">🏆 Top sotuvchilar</span>
+      </div>
+      <div style="padding:0 16px 8px">${staffHtml}</div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="card-hdr" style="padding:12px 16px">
+        <span style="font-weight:700">📦 Top mahsulotlar</span>
+      </div>
+      <div style="padding:0 16px 8px">${prodHtml}</div>
+    </div>`;
+}
+
+// ── Ogohlantirishlar ───────────────────────────
 function renderDashAlerts(lowStock) {
   const el = $('dash-alerts');
   if (!el) return;
-
-  if (!lowStock.length) {
-    el.innerHTML = `
-      <div class="dash-alert" style="border-color:#d1fae5;background:#f0fdf4">
-        <div class="da-hdr" style="color:#166534">
-          <i class="ti ti-circle-check" style="font-size:18px;color:#22c55e"></i>
-          <strong>Barcha tovarlar yetarli</strong>
-          <span style="font-size:12px;color:#16a34a;margin-left:8px">Chegara: ${db.settings?.lowStockLimit||5} ta</span>
-        </div>
-      </div>`;
-    return;
-  }
-
+  if (!lowStock.length) { el.innerHTML = ''; return; }
   const zeros    = lowStock.filter(i => i.qty === 0);
   const criticals = lowStock.filter(i => i.qty > 0 && i.qty <= 2);
   const warnings  = lowStock.filter(i => i.qty > 2);
-  const threshold = db.settings?.lowStockLimit || 5;
 
-  el.innerHTML = `
-    <div class="dash-alert">
-      <div class="da-hdr">
-        <i class="ti ti-alert-triangle" style="font-size:17px"></i>
-        <strong>Kam qolgan tovarlar</strong>
-        ${zeros.length     ? `<span class="da-badge crit" style="background:#fee2e2;color:#991b1b">🚫 ${zeros.length} ta tugagan</span>` : ''}
-        ${criticals.length ? `<span class="da-badge crit">⚠️ ${criticals.length} ta kritik</span>` : ''}
-        ${warnings.length  ? `<span class="da-badge warn">${warnings.length} ta kam</span>` : ''}
-        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-          <span style="font-size:11px;color:#aaa">Chegara:
-            <input type="number" value="${threshold}" min="1" max="99"
-              style="width:38px;font-size:12px;font-family:inherit;border:1px solid #ddd;border-radius:5px;padding:1px 4px;text-align:center"
-              onchange="setLowStockLimit(+this.value)" title="Kam qoldiq chegarasi">
-            ta</span>
-          <button class="btn btn-sm" onclick="exportLowStock()" title="Excel yuklab olish">
-            <i class="ti ti-download"></i>
-          </button>
-          <button class="btn btn-sm" onclick="nav('ombor')" style="white-space:nowrap">Omborga →</button>
-        </div>
-      </div>
-      <div class="da-items">
-        ${lowStock.slice(0, 20).map(i => `
-          <div class="da-item ${i.qty === 0 ? 'crit' : i.qty <= 2 ? 'crit' : 'warn'}"
-               style="${i.qty===0?'border-color:#fca5a5;background:#fff5f5':''}"
-               title="${i.name} — min: ${i.min} ta">
-            <span class="da-nm">${i.name}</span>
-            <span class="da-var">${i.color||''} ${i.color&&i.size?' · ':''} ${i.size||''}</span>
-            <span class="da-q" style="${i.qty===0?'color:#dc2626;font-weight:800':''}">
-              ${i.qty === 0 ? '🚫 Tugagan' : i.qty + ' ' + i.unit}
-            </span>
-          </div>`).join('')}
-        ${lowStock.length > 20
-          ? `<div class="da-item more" onclick="nav('ombor')">+${lowStock.length - 20} ta ko'proq →</div>`
-          : ''}
-      </div>
-    </div>`;
+  let html = '<div class="dash-alerts-wrap">';
+  if (zeros.length)
+    html += `<div class="dal dal-r" onclick="nav('ombor')">🔴 <b>${zeros.length} ta variant tugagan</b> — zudlik bilan to'ldiring</div>`;
+  if (criticals.length)
+    html += `<div class="dal dal-o" onclick="nav('ombor')">🟠 <b>${criticals.length} ta variant kritik kam</b> (≤2 dona)</div>`;
+  if (warnings.length)
+    html += `<div class="dal dal-y" onclick="nav('ombor')">🟡 <b>${warnings.length} ta variant kam</b> — zaxirani kuzatib boring</div>`;
+  html += '</div>';
+  el.innerHTML = html;
 }
 
-// Chegara sozlamasi
-function setLowStockLimit(val) {
-  if (!val || val < 1) return;
-  if (!db.settings) db.settings = {};
-  db.settings.lowStockLimit = val;
-  saveDB();
-  renderDashboard();
-  toast("Chegara " + val + " ta ga o\u02BCzgartirildi", "info");
-}
-
-// Excel eksport
-function exportLowStock() {
-  const threshold = db.settings?.lowStockLimit || 5;
-  const rows = [['Mahsulot', 'Rang', "O'lcham", 'Qoldiq', 'Birlik', 'Holat']];
-  const lowStock = [];
-  db.products.forEach(p => {
-    const minQty = p.minStock || threshold;
-    p.variants.forEach(v => {
-      if (v.qty <= minQty)
-        lowStock.push([p.name, v.color||'', v.size||'', v.qty, p.unit||'dona',
-          v.qty===0 ? 'Tugagan' : v.qty<=2 ? 'Kritik' : 'Kam']);
-    });
-  });
-  lowStock.sort((a,b) => a[3]-b[3]);
-  if (typeof downloadCSV === 'function') {
-    downloadCSV([rows[0], ...lowStock], 'merx_kam_qoldiq_' + today() + '.csv');
-    toast('Excel yuklab olindi');
-  }
-}
-
-// ── So'nggi sotuvlar ───────────────────────────
+// ── So'nggi sotuvlar jadval ─────────────────────
 function renderDashSalesTable() {
-  const el = $('dash-sales-body');
+  const el = $('dash-sales-tbody');
   if (!el) return;
-  const rows = [...db.sales].reverse().slice(0, 6);
-
-  el.innerHTML = rows.length ? rows.map(s => `
+  const sales = dashGetSales();
+  const last  = [...sales].sort((a,b) => (b.date+b.chekNum||'').localeCompare(a.date+a.chekNum||'')).slice(0,8);
+  if (!last.length) { el.innerHTML = '<tr><td colspan="5" class="empty-td">Sotuvlar yo\'q</td></tr>'; return; }
+  const payLabels = { naqd:'Naqd', karta:'Karta', otkazma:"O'tkazma", nasiya:'Nasiya' };
+  el.innerHTML = last.map(s => `
     <tr>
-      <td>
-        <div style="font-weight:600;font-size:13px">${s.customerName || "Noma'lum"}</div>
-        <div style="font-size:11px;color:#bbb">${s.date}${s.time ? ' · ' + s.time : ''}</div>
-      </td>
-      <td><span class="bg ${s.priceType === 'ulgurji' ? 'bg-t' : 'bg-g'}" style="font-size:10.5px">${s.priceType === 'ulgurji' ? 'Ulgurji' : 'Chakana'}</span></td>
-      <td><span class="bg" style="font-size:10.5px;background:#f0ede7;color:#555">${PAYTYPES[s.payType] || s.payType}</span></td>
-      <td class="num" style="font-weight:700;font-size:13px">${fmt(s.total)}</td>
-      <td><span class="bg ${s.status === 'qarz' ? 'bg-r' : 'bg-g'}" style="font-size:10.5px">${s.status === 'qarz' ? 'Qarz' : "To'langan"}</span></td>
-    </tr>`) .join('')
-    : `<tr><td colspan="5" class="empty-td">Sotuvlar yo'q</td></tr>`;
+      <td>${s.customerName||s.customer_name||'<span style="color:#ccc">—</span>'}</td>
+      <td><span class="bg bg-t" style="font-size:11px">${s.priceType==='ulgurji'?'Ulgurji':'Chakana'}</span></td>
+      <td style="font-size:12px">${payLabels[s.payType||s.pay_type]||s.payType||'—'}</td>
+      <td class="num" style="font-weight:700">${fmtK(s.total)} so'm</td>
+      <td><span class="bg ${s.remaining>0?'bg-r':'bg-g'}" style="font-size:11px">${s.remaining>0?'Nasiya':'To\'langan'}</span></td>
+    </tr>`).join('');
 }
 
-// ── Shoshilinch qarzlar ────────────────────────
+// ── Qarzlar jadval ─────────────────────────────
 function renderDashDebtTable(debts) {
-  const el = $('dash-debt-body');
+  const el = $('dash-debt-tbody');
   if (!el) return;
-  const sorted = [...debts].sort((a, b) => {
-    if (!a.due && !b.due) return 0;
-    if (!a.due) return 1;
-    if (!b.due) return -1;
-    return a.due.localeCompare(b.due);
-  }).slice(0, 6);
-
-  el.innerHTML = sorted.length ? sorted.map(s => {
-    const cu  = typeof debtCust === 'function' ? debtCust(s) : { name: s.customerName || '—', phone: s.customerPhone || '' };
-    const ov  = isOverdue(s);
-    return `<tr>
-      <td>
-        <div style="font-weight:600;font-size:13px">${cu.name}</div>
-        <div style="font-size:11px;color:#bbb">${cu.phone}</div>
-      </td>
-      <td class="num" style="color:#E05A5A;font-weight:800;font-size:13px">${fmt(s.remaining)} <span style="font-size:10px;font-weight:400;color:#bbb">so'm</span></td>
-      <td><span class="bg ${ov ? 'bg-r' : 'bg-a'}" style="font-size:10.5px">${ov ? "Muddati o'tgan" : (s.due || '—')}</span></td>
-    </tr>`;
-  }).join('')
-    : `<tr><td colspan="3" class="empty-td" style="color:#36B48C">
-        <i class="ti ti-circle-check" style="font-size:20px;display:block;margin-bottom:4px"></i>Qarz yo'q 🎉
-       </td></tr>`;
+  if (!debts.length) { el.innerHTML = '<tr><td colspan="3" class="empty-td">Qarz yo\'q</td></tr>'; return; }
+  el.innerHTML = debts.slice(0,6).map(s => `
+    <tr>
+      <td style="font-weight:600">${s.customerName||s.customer_name||'—'}</td>
+      <td class="num" style="color:#E07B39;font-weight:700">${fmtK(s.remaining)} so'm</td>
+      <td style="font-size:12px;color:${isOverdue(s)?'#E05A5A':'#888'}">${s.due||'—'}</td>
+    </tr>`).join('');
 }
 
+// ── Valyuta pill ────────────────────────────────
 function updateDashCurrencyPill() {
-  const isUsd = db.settings?.priceCurrency === "usd";
-  const rate  = db.settings?.rate || 12800;
-  const pillEl = document.getElementById("tb-cur");
-  const rateEl = document.getElementById("tb-rate");
-  if (pillEl) pillEl.textContent = isUsd ? "USD ($)" : "so'm";
-  if (rateEl) rateEl.textContent = fmt(rate);
-}
+  const el = $('tb-rate');
+  if (el) el.textContent = (db.settings?.rate || 12800).toLocaleString('ru-RU');
+  const cur = $('tb-cur');
+  if (cur) cur.textContent = db.settings?.priceCurrency === 'usd' ? 'USD' : "so'm";
+}
+
+function toggleCurrency() {
+  db.settings.priceCurrency = db.settings.priceCurrency === 'usd' ? 'uzs' : 'usd';
+  saveDB(); renderDashboard();
+}
