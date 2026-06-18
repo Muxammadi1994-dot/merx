@@ -268,34 +268,46 @@
   </div>
   <nav>
     <!-- ASOSIY -->
-    <div class="ns">Asosiy</div>
-    <div class="ni on" data-p="dashboard" data-page="dashboard"><i class="ti ti-layout-dashboard"></i>Dashboard</div>
-    <div class="ni" data-p="pos" data-page="sotuv"><i class="ti ti-device-desktop"></i>Sotuv</div>
+    <div class="ns ns-toggle open" onclick="toggleNav(this)">Asosiy<i class="ti ti-chevron-down ns-arr"></i></div>
+    <div class="ns-group">
+      <div class="ni on" data-p="dashboard" data-page="dashboard"><i class="ti ti-layout-dashboard"></i>Dashboard</div>
+      <div class="ni" data-p="pos" data-page="sotuv"><i class="ti ti-device-desktop"></i>Sotuv</div>
+    </div>
 
     <!-- MAHSULOTLAR -->
-    <div class="ns">Mahsulotlar</div>
-    <div class="ni" data-p="katalog" data-page="katalog"><i class="ti ti-box"></i>Katalog</div>
-    <div class="ni" data-p="ombor" data-page="ombor"><i class="ti ti-package"></i>Ombor</div>
+    <div class="ns ns-toggle open" onclick="toggleNav(this)">Mahsulotlar<i class="ti ti-chevron-down ns-arr"></i></div>
+    <div class="ns-group">
+      <div class="ni" data-p="katalog" data-page="katalog"><i class="ti ti-box"></i>Katalog</div>
+      <div class="ni" data-p="ombor" data-page="ombor"><i class="ti ti-package"></i>Ombor</div>
+    </div>
 
     <!-- SAVDO -->
-    <div class="ns">Savdo</div>
-    <div class="ni" data-p="tarix" data-page="tarix"><i class="ti ti-history"></i>Sotuv tarixi</div>
-    <div class="ni" data-p="qarzlar" data-page="qarzlar"><i class="ti ti-credit-card"></i>Qarzlar <span class="nb" id="debt-count">0</span></div>
+    <div class="ns ns-toggle open" onclick="toggleNav(this)">Savdo<i class="ti ti-chevron-down ns-arr"></i></div>
+    <div class="ns-group">
+      <div class="ni" data-p="tarix" data-page="tarix"><i class="ti ti-history"></i>Sotuv tarixi</div>
+      <div class="ni" data-p="qarzlar" data-page="qarzlar"><i class="ti ti-credit-card"></i>Qarzlar <span class="nb" id="debt-count">0</span></div>
+    </div>
 
     <!-- MIJOZLAR -->
-    <div class="ns">Mijozlar</div>
-    <div class="ni" data-p="mijozlar" data-page="mijozlar"><i class="ti ti-users"></i>Mijozlar</div>
-    <div class="ni" data-p="portal" data-page="portal"><i class="ti ti-user-circle"></i>Mijoz portali</div>
+    <div class="ns ns-toggle open" onclick="toggleNav(this)">Mijozlar<i class="ti ti-chevron-down ns-arr"></i></div>
+    <div class="ns-group">
+      <div class="ni" data-p="mijozlar" data-page="mijozlar"><i class="ti ti-users"></i>Mijozlar</div>
+      <div class="ni" data-p="portal" data-page="portal"><i class="ti ti-user-circle"></i>Mijoz portali</div>
+    </div>
 
     <!-- TAHLIL -->
-    <div class="ns">Tahlil</div>
-    <div class="ni" data-p="hisobot" data-page="hisobot"><i class="ti ti-chart-dots"></i>Hisobot</div>
-    <div class="ni" data-p="moliya" data-page="moliya"><i class="ti ti-cash"></i>Moliya</div>
+    <div class="ns ns-toggle open" onclick="toggleNav(this)">Tahlil<i class="ti ti-chevron-down ns-arr"></i></div>
+    <div class="ns-group">
+      <div class="ni" data-p="hisobot" data-page="hisobot"><i class="ti ti-chart-dots"></i>Hisobot</div>
+      <div class="ni" data-p="moliya" data-page="moliya"><i class="ti ti-cash"></i>Moliya</div>
+    </div>
 
     <!-- SOZLAMALAR -->
-    <div class="ns">Sozlamalar</div>
-    <div class="ni" data-p="xodimlar" data-page="xodimlar"><i class="ti ti-id-badge"></i>Xodimlar</div>
-    <div class="ni" data-p="egasi" data-page="egasi"><i class="ti ti-settings"></i>Egasi / Sozlamalar</div>
+    <div class="ns ns-toggle open" onclick="toggleNav(this)">Sozlamalar<i class="ti ti-chevron-down ns-arr"></i></div>
+    <div class="ns-group">
+      <div class="ni" data-p="xodimlar" data-page="xodimlar"><i class="ti ti-id-badge"></i>Xodimlar</div>
+      <div class="ni" data-p="egasi" data-page="egasi"><i class="ti ti-settings"></i>Egasi / Sozlamalar</div>
+    </div>
   </nav>
   <div class="sb-bot" id="sb-shop">—</div>
 </aside>
@@ -1940,6 +1952,29 @@
 <script src="js/egasi.js?v=8"></script>
 <script src="js/portal.js?v=8"></script>
 <script src="js/init.js?v=8"></script>
+<script>
+// Sidebar guruhlarni yashirish/ochish
+function toggleNav(el) {
+  const group = el.nextElementSibling;
+  const isOpen = el.classList.contains('open');
+  el.classList.toggle('open', !isOpen);
+  group.classList.toggle('ns-closed', isOpen);
+  // Holat saqlash
+  const key = 'nav_' + el.textContent.trim().replace(/\s/g,'');
+  localStorage.setItem(key, isOpen ? '0' : '1');
+}
+// Sahifa yuklananda holatni tiklash
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.ns-toggle').forEach(el => {
+    const key = 'nav_' + el.textContent.trim().replace(/\s/g,'');
+    const saved = localStorage.getItem(key);
+    if (saved === '0') {
+      el.classList.remove('open');
+      el.nextElementSibling.classList.add('ns-closed');
+    }
+  });
+});
+</script>
 
 <!-- MODAL: CHEK -->
 <div class="ov" id="ov-receipt" onclick="if(event.target===this)closeReceipt()">

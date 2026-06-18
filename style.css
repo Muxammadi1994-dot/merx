@@ -17,6 +17,13 @@ h1,h2,h3,.num{font-family:"Sora",sans-serif}
 .logo-s{font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.1em;text-transform:uppercase;display:block;margin-top:1px}
 nav{padding:12px 10px;flex:1}
 .ns{font-size:10px;color:rgba(255,255,255,.28);letter-spacing:.09em;text-transform:uppercase;font-weight:600;padding:10px 10px 5px}
+.ns-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
+.ns-toggle:hover{color:rgba(255,255,255,.5)}
+.ns-arr{font-size:12px;transition:transform .2s;transform:rotate(0deg)}
+.ns-toggle.open .ns-arr{transform:rotate(0deg)}
+.ns-toggle:not(.open) .ns-arr{transform:rotate(-90deg)}
+.ns-group{overflow:hidden;max-height:500px;transition:max-height .22s ease,opacity .18s ease;opacity:1}
+.ns-group.ns-closed{max-height:0;opacity:0;pointer-events:none}
 .ni{display:flex;align-items:center;gap:9px;color:rgba(255,255,255,.55);padding:10px 10px;border-radius:8px;cursor:pointer;transition:.13s;font-weight:500;font-size:13.5px;margin-bottom:1px}
 .ni i{font-size:18px;width:20px;flex-shrink:0}
 .ni:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.88)}
