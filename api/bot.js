@@ -479,7 +479,12 @@ async function actionSendReceipt(body) {
   const txt = formatReceiptText(sale, shopName || "MERX");
   const chekId = sale.chekNum || ("ID" + sale.id);
 
-  const saleB64 = Buffer.from(JSON.stringify(sale)).toString("base64");
+  // URL da image (base64) bo'lmasligi kerak — juda katta bo'ladi
+  const saleLight = {
+    ...sale,
+    items: (sale.items || []).map(({ image, ...rest }) => rest)
+  };
+  const saleB64 = Buffer.from(JSON.stringify(saleLight)).toString("base64");
   const receiptUrl = `https://merx-rho.vercel.app/api/bot?action=receipt&id=${encodeURIComponent(chekId)}&d=${encodeURIComponent(saleB64)}`;
 
   const r = await tg(chatId, txt, {
