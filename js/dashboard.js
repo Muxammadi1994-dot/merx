@@ -427,14 +427,21 @@ function renderDashDonut() {
   if (!el) return;
   const sales = dashGetSales();
 
-  const payLabels = { naqd:'Naqd', karta:'Karta', otkazma:"O'tkazma", nasiya:'Nasiya' };
-  const payColors = { naqd:'#36B48C', karta:'#4C9BE8', otkazma:'#8B5CF6', nasiya:'#E07B39' };
+  const payLabels = { naqd:'Naqd', karta:'Karta', otkazma:"O'tkazma", nasiya:'Nasiya', qarz:'Qarz (nasiya)' };
+  const payColors = { naqd:'#36B48C', karta:'#4C9BE8', otkazma:'#8B5CF6', nasiya:'#E07B39', qarz:'#E05A5A' };
 
   const types = {};
+  let totalQarz = 0;
   for (const s of sales) {
     const k = s.payType || s.pay_type || 'boshqa';
-    types[k] = (types[k] || 0) + (s.total || 0);
+    // To'langan summa (nasiya chiqiriladi)
+    const paid = s.paid || s.total || 0;
+    const rem  = s.remaining || 0;
+    if (paid > 0) types[k] = (types[k] || 0) + paid;
+    if (rem  > 0) totalQarz += rem;
   }
+  // Nasiya alohida ko'rsatamiz
+  if (totalQarz > 0) types['qarz'] = totalQarz;
 
   const total = Object.values(types).reduce((a, b) => a + b, 0);
   if (!total) {
@@ -443,7 +450,10 @@ function renderDashDonut() {
     return;
   }
 
-  const entries = Object.entries(types).filter(([,v]) => v > 0);
+  // Qarzni oxirga chiqaramiz
+  const entries = Object.entries(types)
+    .filter(([,v]) => v > 0)
+    .sort(([a],[b]) => (a==='qarz'?1:0) - (b==='qarz'?1:0));
   const R = 52, cx = 62, cy = 62, gap = 0.03;
   let angle = -Math.PI / 2;
 
@@ -463,12 +473,14 @@ function renderDashDonut() {
   const legend = entries.map(([key, val]) => {
     const c = payColors[key] || '#aaa';
     const lbl = payLabels[key] || key;
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0">
+    const isQarz = key === 'qarz';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;
+      ${isQarz ? 'border-top:1px dashed #fca5a5;margin-top:4px;padding-top:6px' : ''}">
       <div style="display:flex;align-items:center;gap:7px">
-        <div style="width:10px;height:10px;border-radius:50%;background:${c};flex-shrink:0"></div>
-        <span style="font-size:12.5px;color:#555">${lbl}</span>
+        <div style="width:10px;height:10px;border-radius:${isQarz?'3px':'50%'};background:${c};flex-shrink:0"></div>
+        <span style="font-size:12.5px;color:${isQarz?'#E05A5A':'#555'};font-weight:${isQarz?'700':'400'}">${lbl}</span>
       </div>
-      <span style="font-size:12px;font-weight:700;color:#0D1B2A">${fmtK(val)} so'm</span>
+      <span style="font-size:12px;font-weight:700;color:${isQarz?'#E05A5A':'#0D1B2A'}">${fmtK(val)} so'm</span>
     </div>`;
   }).join('');
 
