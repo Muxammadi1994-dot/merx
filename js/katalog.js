@@ -480,9 +480,17 @@ function renderKatalog() {
         </button>
       </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="9" class="empty-td">
+  }).join("") : `<tr><td colspan="15" class="empty-td">
     ${katLowFilter ? "Kam qoldiqli mahsulot yo'q 🎉" : q ? `"${q}" topilmadi` : "Mahsulot yo'q"}
   </td></tr>`;
+
+  // tbody render bo'lganidan KEYIN th va td larni sinxron yangilash
+  KAT_ALL_COLS.forEach(c => {
+    const disp = katCols[c.key] ? "" : "none";
+    document.querySelectorAll(`.kat-col-${c.key}`).forEach(el => {
+      el.style.display = disp;
+    });
+  });
 }
 
 // ══════════════════════════════════════════════
