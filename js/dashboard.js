@@ -89,6 +89,7 @@ function renderDashboard() {
   lowStock.sort((a, b) => a.qty - b.qty);
 
   renderDashHeader(todayTotal, todayCnt, growth);
+  applyDashBanner();
   renderDashKpis(todayCnt, todayTotal, totalDebt, debts.length, overdueList.length);
   renderDashChart();
   renderDashDonut();
@@ -127,6 +128,28 @@ function renderDashHeader(todayTotal, todayCnt, growth) {
       </button>
     </div>
   `;
+}
+
+// ── Banner yashirish/ko'rsatish ────────────────
+function dashToggleBanner() {
+  const hidden = db.settings?.dashHideBanner;
+  db.settings.dashHideBanner = !hidden;
+  saveDB();
+  applyDashBanner();
+}
+
+function applyDashBanner() {
+  const hidden = db.settings?.dashHideBanner;
+  const hdr = $('dash-header');
+  if (hdr) hdr.style.display = hidden ? 'none' : '';
+  const lbl = $('dash-banner-btn-lbl');
+  if (lbl) lbl.textContent = hidden ? 'bannerni ko'rsatish' : 'bannerni yashirish';
+  const btn = lbl?.parentElement;
+  if (btn) {
+    const icon = btn.querySelector('i');
+    if (icon) icon.className = hidden ? 'ti ti-eye' : 'ti ti-eye-off';
+    icon.style.fontSize = '12px';
+  }
 }
 
 // ── KPI kartochkalar ───────────────────────────
@@ -361,8 +384,10 @@ function renderDashChart() {
   const maxVal = Math.max(...data.map(d => d.total), 1);
   const W = 580, H = 180, pL = 52, pB = 28, pT = 24, pR = 16;
   const cW = W - pL - pR, cH = H - pB - pT;
-  const barW = Math.max(4, Math.floor(cW / data.length * 0.6));
-  const gap  = cW / data.length;
+  // Minimal 7 slot ko'rsatamiz (1-2 kun bo'lsa ham chiroyli ko'rinadi)
+  const slots = Math.max(data.length, 7);
+  const barW  = Math.min(40, Math.max(4, Math.floor(cW / slots * 0.6)));
+  const gap   = cW / slots;
 
   const gridLines = [0, 0.25, 0.5, 0.75, 1].map(pct => {
     const y = pT + cH - pct * cH;
@@ -374,7 +399,9 @@ function renderDashChart() {
   }).join('');
 
   const bars = data.map((d, i) => {
-    const x  = pL + gap * i + gap / 2;
+    // data.length < slots bo'lsa — o'rtaga hizalaymiz
+    const offset = (slots - data.length) / 2;
+    const x  = pL + gap * (i + offset) + gap / 2;
     const bh = Math.max(2, (d.total / maxVal) * cH);
     const by = pT + cH - bh;
     const fill = '#4C9BE8';
@@ -384,8 +411,8 @@ function renderDashChart() {
             fill="${fill}" rx="3" opacity="${d.total ? 1 : 0.15}">
         <title>${tip}</title>
       </rect>
-      <text x="${x}" y="${H - 6}" text-anchor="middle" fill="#aaa" font-size="${data.length > 30 ? 8 : 10}">
-        ${data.length <= 60 ? d.label : ''}
+      <text x="${x}" y="${H - 6}" text-anchor="middle" fill="#aaa" font-size="${slots > 30 ? 8 : 10}">
+        ${slots <= 60 ? d.label : ''}
       </text>`;
   }).join('');
 

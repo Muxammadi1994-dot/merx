@@ -306,12 +306,19 @@
   <!-- DASHBOARD v2 -->
   <div class="pg on" id="p-dashboard">
     <div class="dash-header" id="dash-header"></div>
-    <div id="dash-kpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:6px"></div>
-    <div style="text-align:right;margin:-12px 0 8px">
-      <button onclick="dashToggleKpis()" title="Kartochkalarni sozlash"
-        style="background:none;border:none;cursor:pointer;color:var(--mut);font-size:12px;
-               display:inline-flex;align-items:center;gap:4px;padding:2px 4px">
-        <i class="ti ti-settings-2" style="font-size:13px"></i> Sozlash
+    <div id="dash-kpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:4px"></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;gap:8px">
+      <button onclick="dashToggleBanner()"
+        style="background:none;border:none;cursor:pointer;color:#bbb;font-size:11px;
+               display:inline-flex;align-items:center;gap:3px;padding:2px 0">
+        <i class="ti ti-eye-off" style="font-size:12px"></i>
+        <span id="dash-banner-btn-lbl">bannerni yashirish</span>
+      </button>
+      <span style="color:#ddd">·</span>
+      <button onclick="dashToggleKpis()"
+        style="background:none;border:none;cursor:pointer;color:#bbb;font-size:11px;
+               display:inline-flex;align-items:center;gap:3px;padding:2px 0">
+        <i class="ti ti-layout-dashboard" style="font-size:12px"></i> kartochkalarni sozlash
       </button>
     </div>
     <div id="dash-kpi-panel" style="display:none"></div>
