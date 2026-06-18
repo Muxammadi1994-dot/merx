@@ -143,7 +143,7 @@ function applyDashBanner() {
   const hdr = $('dash-header');
   if (hdr) hdr.style.display = hidden ? 'none' : '';
   const lbl = $('dash-banner-btn-lbl');
-  if (lbl) lbl.textContent = hidden ? 'bannerni ko'rsatish' : 'bannerni yashirish';
+  if (lbl) lbl.textContent = hidden ? "bannerni ko'rsatish" : "bannerni yashirish";
   const btn = lbl?.parentElement;
   if (btn) {
     const icon = btn.querySelector('i');
