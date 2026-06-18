@@ -382,3 +382,12 @@ tr:hover td{background:#FAFAF8}
 .debt-filter-btn{padding:5px 12px;border-radius:8px;border:1.5px solid var(--brd);
   background:#fff;font-family:inherit;font-size:12.5px;cursor:pointer;transition:.15s}
 .debt-filter-btn.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
+
+/* Katalog status tab filtrlari */
+.kat-status-btn { transition: color .15s, border-color .15s; }
+.kat-status-btn.on { color: var(--acc) !important; border-bottom-color: var(--acc) !important; font-weight: 600; }
+.kat-status-btn:not(.on):hover { color: var(--fg) !important; border-bottom-color: var(--brd) !important; }
+
+/* Ko'rinish tugmasi */
+.kat-view-btn.on { background: var(--acc) !important; color: #0D1B2A !important; }
+.kat-view-btn:not(.on) { background: transparent !important; color: var(--mut) !important; }

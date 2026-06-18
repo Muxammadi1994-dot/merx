@@ -653,25 +653,62 @@
   <!-- KATALOG -->
   <div class="pg" id="p-katalog">
     <div class="card">
+
+      <!-- Sarlavha + tugmalar -->
       <div class="ch">
         <h3><i class="ti ti-box"></i>Mahsulotlar</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input id="kat-q" placeholder="Qidirish, SKU yoki barcode..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:200px" oninput="renderKatalog()">
-          <button class="btn btn-sm" id="kat-low-btn" onclick="toggleKatLow()">
-            <i class="ti ti-alert-triangle"></i> Kam qoldiq
+          <input id="kat-q" placeholder="Qidirish, ART, SKU, barcode..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:220px" oninput="renderKatalog()">
+          <!-- Ko'rinish: jadval / karta -->
+          <div style="display:flex;border:1.5px solid var(--brd);border-radius:var(--rs);overflow:hidden">
+            <button class="kat-view-btn btn-ghost" data-v="table" onclick="setKatView('table')"
+              style="border:none;padding:5px 9px;cursor:pointer;background:var(--acc);color:#0D1B2A" title="Jadval">
+              <i class="ti ti-layout-rows"></i>
+            </button>
+            <button class="kat-view-btn btn-ghost" data-v="grid" onclick="setKatView('grid')"
+              style="border:none;padding:5px 9px;cursor:pointer;background:transparent" title="Karta">
+              <i class="ti ti-layout-grid"></i>
+            </button>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="katToggleCols()" title="Ustunlarni sozlash">
+            <i class="ti ti-settings"></i>
           </button>
-          <button class="btn btn-sm" onclick="exportKatalogExcel()" title="Excel eksport" style="color:#1D6A39">
+          <button class="btn btn-sm" onclick="exportKatalogExcel()" style="color:#1D6A39">
             <i class="ti ti-file-spreadsheet"></i> Excel
           </button>
-          <button class="btn btn-sm" onclick="openKatalogImport()" title="Excel import" style="color:#8B5CF6">
+          <button class="btn btn-sm" onclick="openKatalogImport()" style="color:#8B5CF6">
             <i class="ti ti-upload"></i> Import
           </button>
           <button class="btn btn-sm" onclick="openNarxnoma()" style="color:#0D1B2A;border-color:#0D1B2A">
             <i class="ti ti-printer"></i> Narxnoma
           </button>
-
+          <button class="btn btn-acc btn-sm" onclick="openModal('addprod')">
+            <i class="ti ti-plus"></i> Yangi tovar
+          </button>
         </div>
       </div>
+
+      <!-- Status tab filtrlari (Billz uslubida) -->
+      <div style="display:flex;gap:0;padding:0 18px;border-bottom:1px solid var(--brd);overflow-x:auto">
+        <button class="kat-status-btn on" data-s="all" onclick="setKatStatus('all')"
+          style="padding:10px 14px;font-size:13px;border:none;border-bottom:2.5px solid var(--acc);background:transparent;cursor:pointer;color:var(--acc);font-weight:600;white-space:nowrap">
+          Barchasi <span id="kat-stat-all" style="font-size:11px;background:var(--bg2);border-radius:10px;padding:1px 7px;margin-left:4px">0</span>
+        </button>
+        <button class="kat-status-btn" data-s="faol" onclick="setKatStatus('faol')"
+          style="padding:10px 14px;font-size:13px;border:none;border-bottom:2.5px solid transparent;background:transparent;cursor:pointer;color:var(--mut);white-space:nowrap">
+          Faollar <span id="kat-stat-faol" style="font-size:11px;background:var(--bg2);border-radius:10px;padding:1px 7px;margin-left:4px">0</span>
+        </button>
+        <button class="kat-status-btn" data-s="kam" onclick="setKatStatus('kam')"
+          style="padding:10px 14px;font-size:13px;border:none;border-bottom:2.5px solid transparent;background:transparent;cursor:pointer;color:#d97706;white-space:nowrap">
+          Kam qoldiq <span id="kat-stat-kam" style="font-size:11px;background:#fef3c7;border-radius:10px;padding:1px 7px;margin-left:4px;color:#92400e">0</span>
+        </button>
+        <button class="kat-status-btn" data-s="nol" onclick="setKatStatus('nol')"
+          style="padding:10px 14px;font-size:13px;border:none;border-bottom:2.5px solid transparent;background:transparent;cursor:pointer;color:#dc2626;white-space:nowrap">
+          Nol qoldiq <span id="kat-stat-nol" style="font-size:11px;background:#fee2e2;border-radius:10px;padding:1px 7px;margin-left:4px;color:#991b1b">0</span>
+        </button>
+      </div>
+
+      <!-- Tur + kategoriya filtrlari -->
       <div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid var(--brd);align-items:center">
         <button class="kat-cat-btn on" data-c="all"   onclick="setKatCat('all')">Barchasi</button>
         <button class="kat-cat-btn" data-c="oyoq"  onclick="setKatCat('oyoq')">👟 Oyoq kiyim</button>
@@ -679,16 +716,13 @@
         <div id="kat-cat-dynamic" style="display:flex;gap:6px"></div>
         <div style="margin-left:auto;display:flex;gap:5px;align-items:center">
           <span style="font-size:11px;color:var(--mut)">Saralash:</span>
-          <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-name"
-            onclick="katSortToggle('name')" title="Nom bo'yicha">
+          <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-name" onclick="katSortToggle('name')">
             <i class="ti ti-sort-az"></i> Nom
           </button>
-          <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-qty"
-            onclick="katSortToggle('qty')" title="Qoldiq bo'yicha">
+          <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-qty" onclick="katSortToggle('qty')">
             <i class="ti ti-sort-descending-2"></i> Qoldiq
           </button>
-          <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-price"
-            onclick="katSortToggle('price')" title="Narx bo'yicha">
+          <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-price" onclick="katSortToggle('price')">
             <i class="ti ti-sort-descending-2"></i> Narx
           </button>
         </div>
@@ -709,13 +743,33 @@
         </button>
       </div>
 
-      <div style="overflow-x:auto">
-      <table style="table-layout:auto"><thead><tr>
-        <th style="width:28px"><input type="checkbox" onchange="this.checked?katSelectAll():katClearSel()"
-          style="width:15px;height:15px;accent-color:var(--acc);cursor:pointer"></th>
-        <th style="width:56px">Rasm</th><th style="width:70px">SKU</th><th>Nomi</th><th>Barcode</th><th>Ranglar</th><th class="num">Karobka</th><th class="num">Dona soni</th><th class="num">Tannarx</th><th class="num">Ulgurji narx</th><th style="width:44px"></th>
-      </tr></thead>
-      <tbody id="katalog-body"></tbody></table></div>
+      <!-- Jadval ko'rinishi -->
+      <div id="kat-table-wrap" style="overflow-x:auto">
+        <table style="table-layout:auto"><thead><tr>
+          <th style="width:28px"><input type="checkbox" onchange="this.checked?katSelectAll():katClearSel()"
+            style="width:15px;height:15px;accent-color:var(--acc);cursor:pointer"></th>
+          <th style="width:56px">Rasm</th>
+          <th id="kat-th-sku" style="display:none;width:70px">SKU</th>
+          <th style="width:80px">ART</th>
+          <th>Nomi</th>
+          <th id="kat-th-barcode">Barcode</th>
+          <th>Ranglar</th>
+          <th class="num">Karobka</th>
+          <th class="num">Dona</th>
+          <th class="num">Tannarx</th>
+          <th class="num">Ulgurji narx</th>
+          <th style="width:44px"></th>
+        </tr></thead>
+        <tbody id="katalog-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Karta ko'rinishi -->
+      <div id="kat-grid-wrap" style="display:none"></div>
+
+      <!-- Pagination -->
+      <div id="kat-pagination"></div>
+
     </div>
   </div>
 

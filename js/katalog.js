@@ -9,10 +9,36 @@ let katCatFilter = "all"; // "all" | "oyoq" | "kiyim" | category name
 let katSortBy      = null;
 let katSortAsc     = true;
 let _katSelected   = new Set(); // tanlangan SKU lar
+let katStatusFilter = "all"; // "all" | "faol" | "nol" | "kam"
+let katViewMode    = "table"; // "table" | "grid"
+let katPage        = 1;
+const KAT_PER_PAGE = 50;
 
 // ── Kategoriya filtri ──────────────────────────
+function setKatStatus(s) {
+  katStatusFilter = s;
+  katPage = 1;
+  document.querySelectorAll(".kat-status-btn").forEach(b =>
+    b.classList.toggle("on", b.dataset.s === s));
+  renderKatalog();
+}
+
+function setKatView(v) {
+  katViewMode = v;
+  document.querySelectorAll(".kat-view-btn").forEach(b =>
+    b.classList.toggle("on", b.dataset.v === v));
+  renderKatalog();
+}
+
+function katGoPage(p) {
+  katPage = p;
+  renderKatalog();
+  document.getElementById("p-katalog")?.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
 function setKatCat(c) {
   katCatFilter = c;
+  katPage = 1;
   document.querySelectorAll(".kat-cat-btn").forEach(b =>
     b.classList.toggle("on", b.dataset.c === c));
   renderKatalog();
@@ -255,6 +281,11 @@ function renderKatalog() {
   else if (katCatFilter === "kiyim") ps = ps.filter(p => p.type === "kiyim");
   else if (katCatFilter !== "all")   ps = ps.filter(p => p.category === katCatFilter);
 
+  // Status filtri
+  if (katStatusFilter === "faol")  ps = ps.filter(p => totalStock(p) > 0);
+  if (katStatusFilter === "nol")   ps = ps.filter(p => totalStock(p) === 0);
+  if (katStatusFilter === "kam")   ps = ps.filter(p => { const s = totalStock(p); return s > 0 && s <= 5; });
+
   // Saralash
   if (katSortBy) {
     const rate = db.settings.rate || 12800;
@@ -269,6 +300,52 @@ function renderKatalog() {
     });
   }
 
+  // Statistika
+  const totalAll   = ps.length;
+  const totalFaol  = ps.filter(p => totalStock(p) > 0).length;
+  const totalNol   = ps.filter(p => totalStock(p) === 0).length;
+  const totalKam   = ps.filter(p => { const s=totalStock(p); return s>0&&s<=5; }).length;
+
+  // Status tab badge larini yangilash
+  const statEl = $("kat-stat-all");
+  if (statEl) {
+    const badge = (id, n) => { const el=$(id); if(el) el.textContent=n; };
+    badge("kat-stat-all",   totalAll);
+    badge("kat-stat-faol",  totalFaol);
+    badge("kat-stat-nol",   totalNol);
+    badge("kat-stat-kam",   totalKam);
+  }
+
+  // Pagination
+  const totalPages = Math.ceil(ps.length / KAT_PER_PAGE) || 1;
+  if (katPage > totalPages) katPage = 1;
+  const pagePs = ps.slice((katPage-1)*KAT_PER_PAGE, katPage*KAT_PER_PAGE);
+
+  // Pagination UI
+  const pgEl = $("kat-pagination");
+  if (pgEl) {
+    if (totalPages <= 1) {
+      pgEl.innerHTML = "";
+    } else {
+      let pages = [];
+      for (let i=1; i<=totalPages; i++) {
+        if (i===1||i===totalPages||Math.abs(i-katPage)<=2) pages.push(i);
+        else if (pages[pages.length-1]!=="...") pages.push("...");
+      }
+      pgEl.innerHTML = `
+        <div style="display:flex;align-items:center;gap:4px;padding:10px 18px;border-top:1px solid var(--brd);flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--mut);margin-right:8px">${ps.length} ta mahsulot</span>
+          ${katPage>1?`<button class="btn btn-ghost btn-sm" onclick="katGoPage(${katPage-1})">‹</button>`:""}
+          ${pages.map(p => p==="..."
+            ? `<span style="padding:0 4px;color:var(--mut)">...</span>`
+            : `<button class="btn btn-sm ${p===katPage?"btn-acc":("btn-ghost")}" onclick="katGoPage(${p})">${p}</button>`
+          ).join("")}
+          ${katPage<totalPages?`<button class="btn btn-ghost btn-sm" onclick="katGoPage(${katPage+1})">›</button>`:""}
+          <span style="font-size:12px;color:var(--mut);margin-left:8px">${katPage}/${totalPages} sahifa</span>
+        </div>`;
+    }
+  }
+
   // SKU/barcode ustunlar ko'rinishini yangilash
   const thSku  = $("kat-th-sku");
   const thBarc = $("kat-th-barcode");
@@ -278,7 +355,18 @@ function renderKatalog() {
   // Dinamik kategoriya tugmalarini yangilash
   updateKatCatBtns();
 
-  $("katalog-body").innerHTML = ps.length ? ps.map(p => {
+  // Ko'rinish rejimi
+  const tableWrap = $("kat-table-wrap");
+  const gridWrap  = $("kat-grid-wrap");
+  if (tableWrap) tableWrap.style.display = katViewMode==="grid" ? "none" : "";
+  if (gridWrap)  gridWrap.style.display  = katViewMode==="table"? "none" : "";
+
+  if (katViewMode === "grid") {
+    _renderKatGrid(pagePs, rate, showChakana);
+    return;
+  }
+
+  $("katalog-body").innerHTML = pagePs.length ? pagePs.map(p => {
     const st      = totalStock(p);
     const inBox   = p.inBox || 1;
     const costUzs = (p.costUsd || 0) * rate;
@@ -1535,4 +1623,38 @@ function katImgSave(sku, input) {
     img.src = raw;
   };
   reader.readAsDataURL(file);
+}
+
+// ── Karta ko'rinish ─────────────────────────────
+function _renderKatGrid(ps, rate, showChakana) {
+  const el = $("kat-grid-wrap");
+  if (!el) return;
+  if (!ps.length) {
+    el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--mut)">Mahsulot topilmadi</div>`;
+    return;
+  }
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;padding:18px">` +
+    ps.map(p => {
+      const st = totalStock(p);
+      const badge = st <= 0
+        ? `<span class="bg bg-r" style="font-size:10px">Tugagan</span>`
+        : st <= 5
+          ? `<span class="bg bg-a" style="font-size:10px">${st} dona</span>`
+          : `<span class="bg bg-g" style="font-size:10px">${st} dona</span>`;
+      const imgHtml = p.image
+        ? `<img src="${p.image}" style="width:100%;height:130px;object-fit:cover;border-radius:8px 8px 0 0">`
+        : `<div style="width:100%;height:130px;background:var(--bg2);border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;color:#ddd"><i class="ti ti-photo" style="font-size:32px"></i></div>`;
+      return `<div onclick="openEditProduct('${p.sku}')" style="border:1.5px solid var(--brd);border-radius:10px;cursor:pointer;transition:.13s;overflow:hidden" onmouseover="this.style.borderColor='var(--acc)'" onmouseout="this.style.borderColor='var(--brd)'">
+        ${imgHtml}
+        <div style="padding:10px 12px">
+          <div style="font-size:11px;color:var(--mut);font-family:monospace">${p.art || p.sku}</div>
+          <div style="font-weight:700;font-size:13px;margin:3px 0;line-height:1.3">${p.name}</div>
+          <div style="font-size:11.5px;color:var(--mut)">${p.category}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <span style="font-weight:700;color:var(--acc);font-size:13px">${p.ulgurjiNarx ? fmt(p.ulgurjiNarx)+' so\'m' : '—'}</span>
+            ${badge}
+          </div>
+        </div>
+      </div>`;
+    }).join("") + `</div>`;
 }
