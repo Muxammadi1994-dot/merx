@@ -1441,6 +1441,156 @@
 </div>
 
 <!-- MODAL: ADD PRODUCT -->
+<div class="ov" id="ov-addprod" onclick="if(event.target===this)closeModal('addprod')">
+  <div class="modal modal-lg">
+    <button class="m-close" onclick="closeModal('addprod')"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-plus" style="margin-right:8px"></i>Yangi tovar qo'shish</h2>
+
+    <!-- Tur tanlash -->
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="btn btn-sm on" data-ap-t="oyoq" onclick="apTypeChange('oyoq',this)"
+        style="flex:1;background:var(--sb);color:#fff;border-color:var(--sb)">👟 Oyoq kiyim</button>
+      <button class="btn btn-sm btn-ghost" data-ap-t="kiyim" onclick="apTypeChange('kiyim',this)"
+        style="flex:1">👕 Kiyim-kechak</button>
+    </div>
+
+    <div class="r3">
+      <div class="fld" style="grid-column:span 2">
+        <label>Mahsulot nomi <span style="color:var(--red)">*</span></label>
+        <input id="ap-name" placeholder="Masalan: Adidas Ultra Boost" autocomplete="off">
+      </div>
+      <div class="fld">
+        <label>ART (artikul)</label>
+        <input id="ap-art" placeholder="D3300" style="font-family:monospace">
+      </div>
+    </div>
+
+    <div class="r3">
+      <div class="fld">
+        <label>Kategoriya</label>
+        <select id="ap-cat"></select>
+      </div>
+      <div class="fld">
+        <label>O'lchov birligi</label>
+        <select id="ap-unit">
+          <option value="juft">juft</option>
+          <option value="dona">dona</option>
+          <option value="quti">quti</option>
+          <option value="paket">paket</option>
+        </select>
+      </div>
+      <div class="fld">
+        <label>Barcode</label>
+        <input id="ap-barcode" placeholder="Avtomatik" style="font-family:monospace">
+      </div>
+    </div>
+
+    <div class="sep"></div>
+    <p style="font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Narxlar</p>
+
+    <div class="r3">
+      <div class="fld">
+        <label>Tannarx</label>
+        <input id="ap-cost" type="number" step="0.5" placeholder="0" oninput="apCostNote()">
+        <div id="ap-cost-note" style="font-size:11px;color:var(--mut);margin-top:4px"></div>
+      </div>
+      <div class="fld">
+        <label>Ulgurji narx (so'm)</label>
+        <input id="ap-ulgurji" type="text" data-price placeholder="0" oninput="fmtInput(this);apCostNote()">
+      </div>
+      <div class="fld">
+        <label>Karobkada nechta</label>
+        <input id="ap-inbox" type="number" min="1" placeholder="1" value="1">
+      </div>
+    </div>
+
+    <div class="sep"></div>
+    <p style="font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Rang va o'lcham</p>
+
+    <!-- Rang -->
+    <div class="r3" style="margin-bottom:12px">
+      <div class="fld">
+        <label>Rang nomi <span style="color:var(--red)">*</span></label>
+        <input id="ap-color" placeholder="Qora, Ko'k, Sariq...">
+      </div>
+      <div class="fld">
+        <label>Pantone kodi</label>
+        <input id="ap-pantone" placeholder="Black C" style="font-family:monospace">
+      </div>
+      <div class="fld">
+        <label>Rang (hex)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="color" id="ap-hex" value="#1A1A1A" style="width:40px;height:34px;border:1.5px solid var(--brd);border-radius:6px;padding:2px;cursor:pointer">
+          <input id="ap-hex-txt" placeholder="#1A1A1A" style="flex:1;font-family:monospace"
+            oninput="if(this.value.match(/^#[0-9A-Fa-f]{6}$/))document.getElementById('ap-hex').value=this.value">
+        </div>
+      </div>
+    </div>
+
+    <!-- O'lcham rejimi -->
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="pmode-btn on" data-m="single" onclick="apSetSizeMode('single')">
+        <i class="ti ti-tag"></i> Bitta o'lcham
+      </button>
+      <button class="pmode-btn" data-m="range" onclick="apSetSizeMode('range')">
+        <i class="ti ti-tags"></i> Oraliq (masalan 36–40)
+      </button>
+    </div>
+
+    <!-- Bitta o'lcham -->
+    <div id="ap-size-single">
+      <div class="r3">
+        <div class="fld">
+          <label>O'lcham</label>
+          <select id="ap-size"></select>
+        </div>
+        <div class="fld">
+          <label>Soni (dona)</label>
+          <input id="ap-qty" type="number" min="0" placeholder="0" value="10">
+        </div>
+      </div>
+    </div>
+
+    <!-- Oraliq o'lcham -->
+    <div id="ap-size-range" style="display:none">
+      <div class="r3">
+        <div class="fld">
+          <label>Dan</label>
+          <select id="ap-size-from" onchange="apCalcBoxes()"></select>
+        </div>
+        <div class="fld">
+          <label>Gacha</label>
+          <select id="ap-size-to" onchange="apCalcBoxes()"></select>
+        </div>
+        <div class="fld">
+          <label>Karobka soni</label>
+          <input id="ap-boxes" type="number" min="1" value="1" oninput="apCalcBoxes()">
+        </div>
+      </div>
+      <div class="r3">
+        <div class="fld">
+          <label>Karobkada nechta</label>
+          <input id="ap-inbox-calc" type="number" min="1" placeholder="6" oninput="apCalcBoxes()">
+        </div>
+        <div class="fld">
+          <label>Jami dona (avtomatik)</label>
+          <input id="ap-qty-range" type="number" readonly style="background:var(--bg2)">
+        </div>
+        <div class="fld">
+          <label>Razmerlar ko'rinishi</label>
+          <div id="ap-size-range-preview" style="font-size:12px;color:var(--mut);padding:6px 0"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn btn-acc" style="flex:1" onclick="addProduct()">
+        <i class="ti ti-plus"></i> Qo'shish
+      </button>
+      <button class="btn btn-ghost" onclick="closeModal('addprod')">Bekor</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL: EDIT PRODUCT -->
 <div class="ov" id="ov-editprod" onclick="if(event.target===this)closeModal('editprod')">

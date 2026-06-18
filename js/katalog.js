@@ -795,10 +795,23 @@ function addProduct() {
   apSetSizeMode("single");
 }
 
-function apTypeChange() {
-  const t = ($("ap-type")||{value:"oyoq"}).value;
-  if ($("ap-cat"))  $("ap-cat").innerHTML  = (CATS[t]||[]).map(c => `<option>${c}</option>`).join("");
-  if ($("ap-size")) $("ap-size").innerHTML = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
+function apTypeChange(t, btn) {
+  // Agar argument berilmasa, mavjud turni o'qi
+  if (!t) t = document.querySelector('[data-ap-t].on')?.dataset?.apT || "oyoq";
+  // Tugmalarni yangilash
+  document.querySelectorAll('[data-ap-t]').forEach(b =>
+    b.classList.toggle('on', b.dataset.apT === t));
+  document.querySelectorAll('[data-ap-t].on').forEach(b => {
+    b.style.background = 'var(--sb)'; b.style.color = '#fff'; b.style.borderColor = 'var(--sb)';
+  });
+  document.querySelectorAll('[data-ap-t]:not(.on)').forEach(b => {
+    b.style.background = ''; b.style.color = ''; b.style.borderColor = '';
+  });
+  // Kategoriya va o'lchamlarni yangilash
+  if ($("ap-cat"))       $("ap-cat").innerHTML       = (CATS[t]||[]).map(c => `<option>${c}</option>`).join("");
+  if ($("ap-size"))      $("ap-size").innerHTML      = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
+  if ($("ap-size-from")) $("ap-size-from").innerHTML = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
+  if ($("ap-size-to"))   $("ap-size-to").innerHTML   = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
   apCostNote();
 }
 
