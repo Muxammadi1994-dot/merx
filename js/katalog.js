@@ -819,23 +819,35 @@ function apApplyFields() {
 }
 
 function openApFieldSettings() {
+  const panel = $("ap-fields-panel"); if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  if (isOpen) { panel.style.display = 'none'; return; }
+  apRenderFieldList();
+  panel.style.display = 'block';
+}
+
+function closeApFieldSettings() {
+  const panel = $("ap-fields-panel"); if (panel) panel.style.display = 'none';
+}
+
+function apRenderFieldList() {
   const fields = apGetFields();
   const el = $("ap-field-list"); if (!el) return;
   el.innerHTML = AP_FIELDS.map(f => `
     <label class="kat-col-item ${fields[f.key]!==false?'active':''}"
-      onclick="apToggleField('${f.key}',${fields[f.key]===false}); return false;">
+      onclick="apToggleField('${f.key}',${fields[f.key]===false}); return false;"
+      style="padding:7px 12px">
       <div class="kat-col-check">${fields[f.key]!==false
         ? '<i class="ti ti-check" style="font-size:13px;color:#fff"></i>' : ''}</div>
-      <span>${f.lbl}</span>
+      <span style="font-size:13px">${f.lbl}</span>
     </label>`).join('');
-  openModal('apfields');
 }
 
 function apToggleField(key, val) {
   if (!db.settings.apFields) db.settings.apFields = {};
   db.settings.apFields[key] = val;
   saveDB();
-  openApFieldSettings();
+  apRenderFieldList();
   apApplyFields();
 }
 
