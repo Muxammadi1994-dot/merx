@@ -795,23 +795,93 @@ function addProduct() {
   apSetSizeMode("single");
 }
 
-function apTypeChange(t, btn) {
-  // Agar argument berilmasa, mavjud turni o'qi
-  if (!t) t = document.querySelector('[data-ap-t].on')?.dataset?.apT || "oyoq";
-  // Tugmalarni yangilash
-  document.querySelectorAll('[data-ap-t]').forEach(b =>
-    b.classList.toggle('on', b.dataset.apT === t));
-  document.querySelectorAll('[data-ap-t].on').forEach(b => {
-    b.style.background = 'var(--sb)'; b.style.color = '#fff'; b.style.borderColor = 'var(--sb)';
+// Tovar qo'shish fieldlari sozlamalari
+const AP_FIELDS = [
+  { key:"art",      lbl:"ART (artikul)",    def:true  },
+  { key:"category", lbl:"Kategoriya",        def:true  },
+  { key:"unit",     lbl:"O'lchov birligi",  def:true  },
+  { key:"barcode",  lbl:"Barcode",           def:false },
+  { key:"cost",     lbl:"Tannarx",           def:true  },
+  { key:"inbox",    lbl:"Karobkada nechta",  def:true  },
+  { key:"pantone",  lbl:"Pantone kodi",      def:false },
+  { key:"hex",      lbl:"Rang (hex)",        def:true  },
+];
+
+function apGetFields() {
+  return Object.assign({}, Object.fromEntries(AP_FIELDS.map(f=>[f.key,f.def])), db.settings.apFields||{});
+}
+
+function apApplyFields() {
+  const fields = apGetFields();
+  document.querySelectorAll('.ap-field[data-apf]').forEach(el => {
+    el.style.display = fields[el.dataset.apf] !== false ? '' : 'none';
   });
-  document.querySelectorAll('[data-ap-t]:not(.on)').forEach(b => {
-    b.style.background = ''; b.style.color = ''; b.style.borderColor = '';
-  });
+}
+
+function openApFieldSettings() {
+  const fields = apGetFields();
+  const el = $("ap-field-list"); if (!el) return;
+  el.innerHTML = AP_FIELDS.map(f => `
+    <label class="kat-col-item ${fields[f.key]!==false?'active':''}"
+      onclick="apToggleField('${f.key}',${fields[f.key]===false}); return false;">
+      <div class="kat-col-check">${fields[f.key]!==false
+        ? '<i class="ti ti-check" style="font-size:13px;color:#fff"></i>' : ''}</div>
+      <span>${f.lbl}</span>
+    </label>`).join('');
+  openModal('apfields');
+}
+
+function apToggleField(key, val) {
+  if (!db.settings.apFields) db.settings.apFields = {};
+  db.settings.apFields[key] = val;
+  saveDB();
+  openApFieldSettings();
+  apApplyFields();
+}
+
+function apTypeChange(t) {
+  // shopType dan tur olish - foydalanuvchi o'zgartira olmaydi
+  const shopType = typeof getShopType === 'function' ? getShopType() : 'ikki';
+  // Agar shopType bitta bo'lsa — shuni ishlatamiz
+  if (shopType !== 'ikki') t = shopType;
+  // Agar t berilmasa
+  if (!t) t = shopType === 'ikki' ? 'oyoq' : shopType;
+
+  // Tur ko'rsatkichi
+  const display = $("ap-type-display");
+  if (display) {
+    if (shopType === 'ikki') {
+      // Ikkalasi bo'lsa — tanlov ko'rsatamiz (info ko'rinishda, bosilmaydi)
+      display.innerHTML = `
+        <div style="display:flex;gap:8px;width:100%">
+          <div style="flex:1;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;
+            background:${t==='oyoq'?'var(--sb)':'var(--bg2)'};color:${t==='oyoq'?'#fff':'var(--mut)'};
+            border:1.5px solid ${t==='oyoq'?'var(--sb)':'var(--brd)'};cursor:pointer"
+            onclick="apTypeChange('oyoq')">👟 Oyoq kiyim</div>
+          <div style="flex:1;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;
+            background:${t==='kiyim'?'var(--sb)':'var(--bg2)'};color:${t==='kiyim'?'#fff':'var(--mut)'};
+            border:1.5px solid ${t==='kiyim'?'var(--sb)':'var(--brd)'};cursor:pointer"
+            onclick="apTypeChange('kiyim')">👕 Kiyim-kechak</div>
+        </div>`;
+    } else {
+      // Faqat bitta tur — info band
+      const icon = shopType==='oyoq' ? '👟' : '👕';
+      const lbl  = shopType==='oyoq' ? 'Oyoq kiyim' : 'Kiyim-kechak';
+      display.innerHTML = `
+        <div style="flex:1;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;
+          background:var(--sb);color:#fff;border:1.5px solid var(--sb);text-align:center">
+          ${icon} ${lbl}
+          <span style="font-size:10px;opacity:.7;margin-left:8px">(egasi tomonidan belgilangan)</span>
+        </div>`;
+    }
+  }
+
   // Kategoriya va o'lchamlarni yangilash
   if ($("ap-cat"))       $("ap-cat").innerHTML       = (CATS[t]||[]).map(c => `<option>${c}</option>`).join("");
   if ($("ap-size"))      $("ap-size").innerHTML      = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
   if ($("ap-size-from")) $("ap-size-from").innerHTML = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
   if ($("ap-size-to"))   $("ap-size-to").innerHTML   = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
+  apApplyFields();
   apCostNote();
 }
 
