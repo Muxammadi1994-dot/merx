@@ -377,7 +377,7 @@ function renderDashChart() {
     const x  = pL + gap * i + gap / 2;
     const bh = Math.max(2, (d.total / maxVal) * cH);
     const by = pT + cH - bh;
-    const fill = d.isToday ? '#0D1B2A' : '#4C9BE8';
+    const fill = '#4C9BE8';
     const tip  = `${d.d}: ${fmtK(d.total)} so'm`;
     return `
       <rect x="${x - barW/2}" y="${by}" width="${barW}" height="${bh}"

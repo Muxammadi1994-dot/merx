@@ -306,13 +306,12 @@
   <!-- DASHBOARD v2 -->
   <div class="pg on" id="p-dashboard">
     <div class="dash-header" id="dash-header"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 6px">
-      <div id="dash-kpis" style="flex:1"></div>
+    <div id="dash-kpis"></div>
+    <div style="text-align:right;margin:-12px 0 8px">
       <button onclick="dashToggleKpis()" title="Kartochkalarni sozlash"
-        style="flex-shrink:0;background:none;border:1px solid var(--brd);border-radius:8px;
-               padding:6px 10px;cursor:pointer;color:var(--mut);font-size:13px;margin-left:8px;
-               display:flex;align-items:center;gap:4px">
-        <i class="ti ti-layout-dashboard"></i>
+        style="background:none;border:none;cursor:pointer;color:var(--mut);font-size:12px;
+               display:inline-flex;align-items:center;gap:4px;padding:2px 4px">
+        <i class="ti ti-settings-2" style="font-size:13px"></i> Sozlash
       </button>
     </div>
     <div id="dash-kpi-panel" style="display:none"></div>
