@@ -168,7 +168,7 @@ function katSortToggle(key) {
     b.style.color       = "";
     b.style.borderColor = "";
   });
-  const ids = { name:"kat-sort-name", qty:"kat-sort-qty", price:"kat-sort-price" };
+  const ids = { name:"kat-sort-name", qty:"kat-sort-qty", price:"kat-sort-price", date:"kat-sort-date" };
   const btn = document.getElementById(ids[key]);
   if (btn) {
     btn.style.background  = "#0D1B2A";
@@ -188,15 +188,8 @@ function katSortToggle(key) {
 }
 
 // Dinamik kategoriya tugmalarini yangilash
-function updateKatCatBtns() {
-  const cats = [...new Set(db.products.map(p => p.category))].slice(0, 6);
-  const el = $("kat-cat-dynamic"); if (!el) return;
-  el.innerHTML = cats.map(c =>
-    `<button class="kat-cat-btn ${katCatFilter===c?"on":""}" data-c="${c}" onclick="setKatCat('${c.replace(/'/g,"\\'")}')">
-      ${c}
-    </button>`
-  ).join("");
-}
+// updateKatCatBtns olib tashlandi — kategoriya tugmalari endi mahsulot kartasi ichida ko'rinadi,
+// alohida filtr tugmasi sifatida shart emas edi
 
 // ── Kam qoldiq filtri ──────────────────────────
 function toggleKatLow() {
@@ -309,6 +302,7 @@ function renderKatalog() {
       if (katSortBy === "qty")   { va = totalStock(a);  vb = totalStock(b); }
       if (katSortBy === "price") { va = a.ulgurjiNarx || (a.costUsd||0)*rate;
                                    vb = b.ulgurjiNarx || (b.costUsd||0)*rate; }
+      if (katSortBy === "date")  { va = a.createdAt || "";  vb = b.createdAt || ""; }
       if (typeof va === "string") return katSortAsc ? va.localeCompare(vb,"uz") : vb.localeCompare(va,"uz");
       return katSortAsc ? va - vb : vb - va;
     });
@@ -379,7 +373,7 @@ function renderKatalog() {
   });
 
   // Dinamik kategoriya tugmalarini yangilash
-  updateKatCatBtns();
+  // (kategoriya tugmalari olib tashlandi)
 
   // Ko'rinish rejimi
   const tableWrap = $("kat-table-wrap");
@@ -1051,6 +1045,7 @@ function addProduct() {
       costUsd:cost, priceUzs:price, ulgurjiNarx:ulg,
       barcode: autoBarcode,
       image: apPendingImage || "",
+      createdAt: new Date().toISOString(),
       variants: newVariants
     });
   }
@@ -1760,6 +1755,7 @@ function confirmImport() {
         costUsd:     r.costUsd || 0,
         priceUzs:    0,
         ulgurjiNarx: r.ulg || 0,
+        createdAt:   new Date().toISOString(),
         variants:    [variant]
       };
       db.products.push(newProd);

@@ -470,13 +470,26 @@ function exportLowStock() {
   }
 }
 
+let omKirimFilter = "all"; // "all" | "excel" | "manual"
+
+function omSetKirimFilter(f) {
+  omKirimFilter = f;
+  document.querySelectorAll("[data-kf]").forEach(b => b.classList.toggle("on", b.dataset.kf === f));
+  omRenderKirim();
+}
+
 function omRenderKirim() {
   const q    = ($("om-q")||{value:""}).value.toLowerCase();
-  const list = db.ombor.filter(o =>
+  let list = db.ombor.filter(o =>
     !q || o.productName.toLowerCase().includes(q) ||
     (o.supplier||"").toLowerCase().includes(q) ||
     (o.color||"").toLowerCase().includes(q)
-  ).slice().reverse();
+  );
+  // Manba bo'yicha filtr: Excel import partiya="Excel import" deb belgilanadi
+  if (omKirimFilter === "excel")  list = list.filter(o => o.partiya === "Excel import");
+  if (omKirimFilter === "manual") list = list.filter(o => o.partiya !== "Excel import");
+
+  list = list.slice().reverse();
 
   const el = $("ombor-body"); if (!el) return;
   el.innerHTML = list.length ? list.map(o => {
@@ -498,7 +511,11 @@ function omRenderKirim() {
       <td class="num" style="font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi)+" so'm" : "—"}</td>
       <td class="num" style="font-weight:600;font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi*o.qty)+" so'm" : "—"}</td>
       <td style="font-size:12.5px">${o.supplier||"—"}</td>
-      <td style="font-size:12px;color:var(--mut)">${o.partiya||"—"}</td>
+      <td style="font-size:12px;color:var(--mut)">
+        ${o.partiya === "Excel import"
+          ? `<span class="bg" style="background:#EEE9FF;color:#6B4FBB;font-size:10.5px"><i class="ti ti-file-spreadsheet" style="font-size:11px"></i> Excel</span>`
+          : (o.partiya||"—")}
+      </td>
       <td><span class="bg ${o.payStatus==="qarz"?"bg-r":"bg-g"}">${o.payStatus==="qarz"?"To'lanmagan":"To'langan"}</span></td>
     </tr>`;
   }).join("") : `<tr><td colspan="12" class="empty-td">Kirim yo'q</td></tr>`;
