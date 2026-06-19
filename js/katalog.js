@@ -302,7 +302,16 @@ function renderKatalog() {
       if (katSortBy === "qty")   { va = totalStock(a);  vb = totalStock(b); }
       if (katSortBy === "price") { va = a.ulgurjiNarx || (a.costUsd||0)*rate;
                                    vb = b.ulgurjiNarx || (b.costUsd||0)*rate; }
-      if (katSortBy === "date")  { va = a.createdAt || "";  vb = b.createdAt || ""; }
+      if (katSortBy === "date") {
+        // createdAt mavjud bo'lsa shu bo'yicha, bo'lmasa (eski tovarlar) SKU ichidagi
+        // ketma-ket raqam bo'yicha (SKU har doim oshib boruvchi tartibda yaratiladi)
+        if (a.createdAt && b.createdAt) { va = a.createdAt; vb = b.createdAt; }
+        else {
+          const numA = parseInt((a.sku||"").match(/\d+/g)?.pop()) || 0;
+          const numB = parseInt((b.sku||"").match(/\d+/g)?.pop()) || 0;
+          va = numA; vb = numB;
+        }
+      }
       if (typeof va === "string") return katSortAsc ? va.localeCompare(vb,"uz") : vb.localeCompare(va,"uz");
       return katSortAsc ? va - vb : vb - va;
     });

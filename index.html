@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=22">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -708,26 +708,21 @@
         </button>
       </div>
 
-      <!-- Tur filtrlari -->
-      <div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid var(--brd);align-items:center">
-        <button class="kat-cat-btn on" data-c="all"   onclick="setKatCat('all')">Barchasi</button>
-        <button class="kat-cat-btn" data-c="oyoq"  onclick="setKatCat('oyoq')">👟 Oyoq kiyim</button>
-        <button class="kat-cat-btn" data-c="kiyim" onclick="setKatCat('kiyim')">👕 Kiyim</button>
-        <div style="margin-left:auto;display:flex;gap:5px;align-items:center">
-          <span style="font-size:11px;color:var(--mut)">Saralash:</span>
-          <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-date" onclick="katSortToggle('date')">
-            <i class="ti ti-clock"></i> Kiritilgan sana
-          </button>
-          <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-name" onclick="katSortToggle('name')">
-            <i class="ti ti-sort-az"></i> Nom
-          </button>
-          <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-qty" onclick="katSortToggle('qty')">
-            <i class="ti ti-sort-descending-2"></i> Qoldiq
-          </button>
-          <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-price" onclick="katSortToggle('price')">
-            <i class="ti ti-sort-descending-2"></i> Narx
-          </button>
-        </div>
+      <!-- Saralash -->
+      <div style="display:flex;gap:5px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid var(--brd);align-items:center">
+        <span style="font-size:11px;color:var(--mut)">Saralash:</span>
+        <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-date" onclick="katSortToggle('date')">
+          <i class="ti ti-clock"></i> Kiritilgan sana
+        </button>
+        <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-name" onclick="katSortToggle('name')">
+          <i class="ti ti-sort-az"></i> Nom
+        </button>
+        <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-qty" onclick="katSortToggle('qty')">
+          <i class="ti ti-sort-descending-2"></i> Qoldiq
+        </button>
+        <button class="btn btn-sm btn-ghost kat-sort-btn" id="kat-sort-price" onclick="katSortToggle('price')">
+          <i class="ti ti-sort-descending-2"></i> Narx
+        </button>
       </div>
 
       <!-- Tanlash paneli (ommaviy narx) -->
@@ -2299,23 +2294,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=21"></script>
-<script src="js/utils.js?v=21"></script>
-<script src="js/sms.js?v=21"></script>
-<script src="js/cloud.js?v=21"></script>
-<script src="js/dashboard.js?v=21"></script>
-<script src="js/pos.js?v=21"></script>
-<script src="js/katalog.js?v=21"></script>
-<script src="js/ombor.js?v=21"></script>
-<script src="js/mijozlar.js?v=21"></script>
-<script src="js/qarzlar.js?v=21"></script>
-<script src="js/tarix.js?v=21"></script>
-<script src="js/hisobot.js?v=21"></script>
-<script src="js/xodimlar.js?v=21"></script>
-<script src="js/moliya.js?v=21"></script>
-<script src="js/egasi.js?v=21"></script>
-<script src="js/portal.js?v=21"></script>
-<script src="js/init.js?v=21"></script>
+<script src="js/db.js?v=22"></script>
+<script src="js/utils.js?v=22"></script>
+<script src="js/sms.js?v=22"></script>
+<script src="js/cloud.js?v=22"></script>
+<script src="js/dashboard.js?v=22"></script>
+<script src="js/pos.js?v=22"></script>
+<script src="js/katalog.js?v=22"></script>
+<script src="js/ombor.js?v=22"></script>
+<script src="js/mijozlar.js?v=22"></script>
+<script src="js/qarzlar.js?v=22"></script>
+<script src="js/tarix.js?v=22"></script>
+<script src="js/hisobot.js?v=22"></script>
+<script src="js/xodimlar.js?v=22"></script>
+<script src="js/moliya.js?v=22"></script>
+<script src="js/egasi.js?v=22"></script>
+<script src="js/portal.js?v=22"></script>
+<script src="js/init.js?v=22"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2803,7 +2798,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=21"></script>
-<script src="js/superadmin.js?v=21"></script>
+<script src="js/auth.js?v=22"></script>
+<script src="js/superadmin.js?v=22"></script>
 </body>
 </html>
