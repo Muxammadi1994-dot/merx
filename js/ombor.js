@@ -930,7 +930,8 @@ function openInvent() {
   updateInvStats();
 
   // Boshqa ochiq modallarni yopamiz
-  document.querySelectorAll(".ov.on").forEach(ov => ov.classList.remove("on"));
+  try { document.querySelectorAll(".ov.on").forEach(ov => ov.classList.remove("on")); }
+  catch (e) { /* zararsiz */ }
 
   // Modalni ochish
   const ov = $("ov-invent");
