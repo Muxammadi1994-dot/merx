@@ -726,6 +726,7 @@ function epOpenAddColor() {
   $("epa-size-from").innerHTML = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
   $("epa-size-to").innerHTML   = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
   epaResetSizeToStandard(); // standartga o'rnatish
+  apApplyFields();
   $("ep-addcolor-panel").style.display = "block";
 }
 
@@ -1073,15 +1074,16 @@ function addProduct() {
 
 // Tovar qo'shish fieldlari sozlamalari
 const AP_FIELDS = [
-  { key:"image",    lbl:"Rasm yuklash",     def:true  },
-  { key:"art",      lbl:"ART (artikul)",     def:true  },
-  { key:"category", lbl:"Kategoriya",        def:true  },
-  { key:"unit",     lbl:"O'lchov birligi",   def:true  },
-  { key:"barcode",  lbl:"Barcode",           def:false },
-  { key:"cost",     lbl:"Tannarx",           def:true  },
-  { key:"packunit", lbl:"To'plam birligi",   def:true  },
-  { key:"pantone",  lbl:"Pantone kodi",      def:false },
-  { key:"hex",      lbl:"Rang (hex)",        def:true  },
+  { key:"image",     lbl:"Rasm yuklash",            def:true  },
+  { key:"art",       lbl:"ART (artikul)",           def:true  },
+  { key:"category",  lbl:"Kategoriya",              def:true  },
+  { key:"unit",      lbl:"O'lchov birligi",         def:true  },
+  { key:"barcode",   lbl:"Barcode",                 def:false },
+  { key:"cost",      lbl:"Tannarx",                 def:true  },
+  { key:"packunit",  lbl:"To'plam birligi",         def:true  },
+  { key:"pantone",   lbl:"Pantone kodi",            def:false },
+  { key:"hex",       lbl:"Rang (hex)",              def:true  },
+  { key:"sizerange", lbl:"O'lchamni o'zgartirish",  def:false },
 ];
 
 function apGetFields() {
@@ -1420,16 +1422,9 @@ function downloadImportTemplate() {
   const sampleBase2 = ["Adidas Ultra", "ADI-001", "Oq"];
   const sampleBase3 = ["Ko'ylak slim", "SLM-05", "Ko'k"];
 
-  // "O'lcham" ustuni faqat haqiqatan standartdan tashqari o'lcham ishlatilgan bo'lsa chiqadi
-  const hasCustomSizes = db.products.some(p => {
-    const def = SIZES_DEFAULT_RANGE[p.type] || {};
-    const allSizes = SIZES[p.type] || [];
-    const iF = allSizes.indexOf(def.from), iT = allSizes.indexOf(def.to);
-    const standardSet = (iF !== -1 && iT !== -1) ? new Set(allSizes.slice(iF, iT+1)) : new Set();
-    return p.variants.some(v => !standardSet.has(v.size));
-  });
-
-  if (hasCustomSizes) {
+  // "O'lcham" ustuni faqat "O'lchamni o'zgartirish" imkoni yoqilgan bo'lsa chiqadi
+  const fields0 = apGetFields();
+  if (fields0.sizerange) {
     headers.push("O'lcham");
     sampleBase.push("39-44"); sampleBase2.push("39-44"); sampleBase3.push("S-XL");
   }
