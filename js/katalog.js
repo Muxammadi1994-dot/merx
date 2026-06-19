@@ -690,6 +690,7 @@ function deleteProduct() {
 
 // ── O'lcham rejimi (bitta / oralig'i) ──────────
 let apSizeMode = "single";
+let currentApType = "oyoq"; // joriy tanlangan tur
 
 function apSetSizeMode(m) {
   apSizeMode = m;
@@ -725,7 +726,7 @@ function addProduct() {
   const color   = ($("ap-color")||{value:""}).value.trim();
   if (!color) { toast("Rang tanlang","err"); return; }
 
-  const t       = ($("ap-type")||{value:"oyoq"}).value;
+  const t       = currentApType || "oyoq";
   const costRaw = parseFloat(($("ap-cost")||{value:0}).value.replace(/\s/g,"")) || 0;
   const cur1    = db.settings?.priceCurrency || "uzs";
   const rate1   = db.settings?.rate || 12800;
@@ -814,7 +815,10 @@ function apGetFields() {
 function apApplyFields() {
   const fields = apGetFields();
   document.querySelectorAll('.ap-field[data-apf]').forEach(el => {
-    el.style.display = fields[el.dataset.apf] !== false ? '' : 'none';
+    const key = el.dataset.apf;
+    // ap-inbox har doim ko'rinadi (qiymat har doim kerak)
+    if (key === 'inbox') return;
+    el.style.display = fields[key] !== false ? '' : 'none';
   });
 }
 
@@ -888,6 +892,8 @@ function apTypeChange(t) {
     }
   }
 
+  // Joriy turni saqlash
+  currentApType = t;
   // Kategoriya va o'lchamlarni yangilash
   if ($("ap-cat"))       $("ap-cat").innerHTML       = (CATS[t]||[]).map(c => `<option>${c}</option>`).join("");
   if ($("ap-size"))      $("ap-size").innerHTML      = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
@@ -924,60 +930,6 @@ function apCostNote() {
     el.innerHTML = "";
   }
   apUpdateBoxHints();
-}
-
-function addProduct() {
-  const name = ($("ap-name")||{value:""}).value.trim();
-  if (!name) { toast("Nom kiriting","err"); return; }
-
-  const color   = ($("ap-color")||{value:""}).value.trim();
-  if (!color) { toast("Rang tanlang","err"); return; }
-
-  const t       = ($("ap-type")||{value:"oyoq"}).value;
-  const size    = ($("ap-size")||{value:""}).value;
-  const qty     = parseInt(($("ap-qty")||{value:0}).value)    || 0;
-  const cur     = db.settings?.priceCurrency || "uzs";
-  const rate    = db.settings?.rate || 12800;
-  const costRaw = parseFloat(($("ap-cost")||{value:0}).value) || 0;
-  const cost    = (cur === "usd" || cur === "both") ? costRaw : (costRaw / rate);
-  const price   = getRawVal("ap-price") || 0;
-  const ulg     = getRawVal("ap-ulgurji");
-  const unit    = ($("ap-unit")||{value:"dona"}).value;
-  const inBox   = parseInt(($("ap-inbox")||{value:1}).value) || 1;
-  const pantone = ($("ap-pantone")||{value:""}).value.trim();
-  const hex     = ($("ap-hex")||{value:"#888888"}).value;
-  const barcode = ($("ap-barcode")||{value:""}).value.trim();
-
-  let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
-  if (p) {
-    // Mavjud mahsulotga variant qo'shish
-    const ex = p.variants.find(v => v.color===color && v.size===size);
-    if (ex) { ex.qty += qty; } 
-    else { p.variants.push({ color, size, qty, pantone, hex }); }
-    if (barcode && !p.barcode) p.barcode = barcode;
-  } else {
-    // Yangi mahsulot
-    const autoBarcode = barcode || genEAN13(db.seq);
-    db.products.push({
-      sku: `${t==="oyoq"?"SHOE":"CLTH"}-${String(db.seq++).padStart(3,"0")}`,
-      name,
-      category: ($("ap-cat")||{value:""}).value,
-      type: t, unit, inBox,
-      costUsd: cost, priceUzs: price, ulgurjiNarx: ulg,
-      barcode: autoBarcode,
-      variants: [{ color, size, qty, pantone, hex }]
-    });
-  }
-
-  saveDB(); closeModal("addprod"); renderKatalog();
-  toast(`"${name}" qo'shildi`);
-
-  // Formani tozalash
-  if ($("ap-name"))    $("ap-name").value    = "";
-  if ($("ap-qty"))     $("ap-qty").value     = "10";
-  if ($("ap-barcode")) $("ap-barcode").value = "";
-  if ($("ap-cost-note")) $("ap-cost-note").innerHTML = "";
-  ppReset("ap");
 }
 
 // ── Excel eksport ──────────────────────────────
