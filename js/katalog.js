@@ -1202,8 +1202,7 @@ function exportKatalogExcel() {
   const fields = apGetFields();
   const shopType = typeof getShopType === "function" ? getShopType() : "ikki";
 
-  const headers = ["Nomi"];
-  if (fields.art) headers.push("ART");
+  const headers = ["Nomi", "ART"];
   if (fields.category) headers.push("Kategoriya");
   if (shopType === "ikki") headers.push("Turi");
   if (fields.unit) headers.push("Birlik");
@@ -1225,8 +1224,7 @@ function exportKatalogExcel() {
 
     const variantList = (p.variants && p.variants.length) ? p.variants : [{color:"",size:"",qty:0,pantone:""}];
     variantList.forEach(v => {
-      const row = [p.name];
-      if (fields.art) row.push(p.art || "");
+      const row = [p.name, p.art || ""];
       if (fields.category) row.push(p.category);
       if (shopType === "ikki") row.push(p.type === "oyoq" ? "Oyoq kiyim" : "Kiyim");
       if (fields.unit) row.push(p.unit || "dona");
@@ -1391,10 +1389,10 @@ function downloadImportTemplate() {
   // Har doim majburiy bo'lgan ustunlar (Nom, Rang, O'lcham, Karobka soni, Karobkada nechta, Ulgurji narx)
   // Boshqalari faqat sotuvchi tovar qo'shish oynasida yoqqan bo'lsa qo'shiladi.
   // Barcode hech qachon shablonga qo'yilmaydi — u avtomatik generatsiya qilinadi.
-  const headers = ["Nom", "Rang"];
-  const sampleBase = ["Adidas Ultra", "Qora"];
-  const sampleBase2 = ["Adidas Ultra", "Oq"];
-  const sampleBase3 = ["Ko'ylak slim", "Ko'k"];
+  const headers = ["Nom", "ART", "Rang"];
+  const sampleBase = ["Adidas Ultra", "ADI-001", "Qora"];
+  const sampleBase2 = ["Adidas Ultra", "ADI-001", "Oq"];
+  const sampleBase3 = ["Ko'ylak slim", "SLM-05", "Ko'k"];
 
   if (db.settings?.usesCustomSizeRange) {
     headers.push("O'lcham");
@@ -1407,10 +1405,6 @@ function downloadImportTemplate() {
   headers.push("Karobkada nechta");
   sampleBase.push("6"); sampleBase2.push("6"); sampleBase3.push("12");
 
-  if (fields.art) {
-    headers.push("ART");
-    sampleBase.push("ADI-001"); sampleBase2.push("ADI-001"); sampleBase3.push("SLM-05");
-  }
   if (fields.category) {
     headers.push("Kategoriya");
     sampleBase.push("Krossovka"); sampleBase2.push("Krossovka"); sampleBase3.push("Ko'ylak");
