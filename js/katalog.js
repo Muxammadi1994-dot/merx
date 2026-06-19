@@ -725,7 +725,7 @@ function epOpenAddColor() {
   const t = p.type || "oyoq";
   $("epa-size-from").innerHTML = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
   $("epa-size-to").innerHTML   = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
-  epaSizeEditing = true; epaToggleSizeEdit(); // standartga o'rnatish
+  epaResetSizeToStandard(); // standartga o'rnatish
   $("ep-addcolor-panel").style.display = "block";
 }
 
@@ -750,6 +750,23 @@ function epaToggleSizeEdit() {
     if (fromEl) fromEl.value = def.from;
     if (toEl)   toEl.value   = def.to;
   }
+  epaCalc();
+}
+
+// epOpenAddColor chaqirganda ishlatiladi — faqat UI ni standart holatga tiklaydi,
+// "usesCustomSizeRange" belgisiga tegmaydi
+function epaResetSizeToStandard() {
+  epaSizeEditing = false;
+  const p = db.products.find(x => x.sku === editSku);
+  const t = p?.type || "oyoq";
+  const fromEl = $("epa-size-from"), toEl = $("epa-size-to");
+  if (fromEl) fromEl.disabled = true;
+  if (toEl)   toEl.disabled   = true;
+  const btn = $("epa-size-edit-btn");
+  if (btn) btn.innerHTML = `<i class="ti ti-edit"></i> O'zgartirish`;
+  const def = SIZES_DEFAULT_RANGE[t] || { from:(SIZES[t]||[])[0], to:(SIZES[t]||[])[0] };
+  if (fromEl) fromEl.value = def.from;
+  if (toEl)   toEl.value   = def.to;
   epaCalc();
 }
 
@@ -916,6 +933,20 @@ function apToggleSizeEdit() {
   }
 }
 
+// Modal ochilganda chaqiriladi — faqat UI ni standart holatga tiklaydi,
+// "usesCustomSizeRange" belgisiga tegmaydi
+function apResetSizeToStandard() {
+  apSizeEditing = false;
+  const fromEl = $("ap-size-from"), toEl = $("ap-size-to");
+  if (fromEl) fromEl.disabled = true;
+  if (toEl)   toEl.disabled   = true;
+  const btn = $("ap-size-edit-btn");
+  const lbl = $("ap-size-standard-lbl");
+  if (btn) btn.innerHTML = `<i class="ti ti-edit"></i> O'lchamni o'zgartirish`;
+  if (lbl) lbl.style.display = "";
+  apSetStandardSizeRange();
+}
+
 function apSetStandardSizeRange() {
   const t = currentApType || "oyoq";
   const def = (typeof SIZES_DEFAULT_RANGE !== "undefined" && SIZES_DEFAULT_RANGE[t])
@@ -1041,8 +1072,7 @@ function addProduct() {
   if ($("ap-color"))      $("ap-color").value       = "";
   apResetImage();
   ppReset("ap");
-  apSizeEditing = true; // majburan true qilib, keyin toggle false ga qaytaradi → standartga reset
-  apToggleSizeEdit();
+  apResetSizeToStandard();
 }
 
 // Tovar qo'shish fieldlari sozlamalari
@@ -1147,7 +1177,7 @@ function apTypeChange(t) {
   if ($("ap-size-from")) $("ap-size-from").innerHTML = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
   if ($("ap-size-to"))   $("ap-size-to").innerHTML   = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
   if ($("ap-packunit"))  $("ap-packunit").innerHTML  = (PACK_UNITS[t]||["karobka"]).map(u => `<option>${u}</option>`).join("");
-  apSizeEditing = true; apToggleSizeEdit(); // standart oraliqqa o'rnatish (39-44 yoki S-XL)
+  apResetSizeToStandard(); // standart oraliqqa o'rnatish (39-44 yoki S-XL)
   apApplyFields();
   apCostNote();
 }
