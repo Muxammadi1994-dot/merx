@@ -5,12 +5,24 @@
 
 let omActiveTab   = "qoldiq";
 let omStockFilter = "all";
-let omColsOpen    = false;
 
-const OM_DEFAULT_COLS = {
-  sku:false, kategoriya:false, tannarx:true,
-  qiymati:true, barcode:false, ulgurji:true, chakana:true
-};
+// ── Ustunlar sozlash (Katalogdagi kabi to'liq) ────
+const OM_ALL_COLS = [
+  { key:"image",      lbl:"Rasm",             def:true  },
+  { key:"art",        lbl:"ART (artikul)",    def:true  },
+  { key:"sku",        lbl:"SKU kodi",         def:false },
+  { key:"kategoriya", lbl:"Kategoriya",       def:false },
+  { key:"barcode",    lbl:"Barcode",          def:false },
+  { key:"sizes",      lbl:"O'lchamlar",       def:true  },
+  { key:"boxes",      lbl:"Karobka soni",     def:true  },
+  { key:"tannarx",    lbl:"Tannarx",          def:true  },
+  { key:"ulgurji",    lbl:"Ulgurji narx",     def:true  },
+  { key:"chakana",    lbl:"Chakana narx",     def:false },
+  { key:"qiymati",    lbl:"Qoldiq qiymati",   def:true  },
+  { key:"margin",     lbl:"Margin %",         def:false },
+];
+
+const OM_DEFAULT_COLS = Object.fromEntries(OM_ALL_COLS.map(c => [c.key, c.def]));
 
 function omGetCols() {
   return Object.assign({}, OM_DEFAULT_COLS, db.settings.omborCols || {});
@@ -74,47 +86,32 @@ function omRenderKpis() {
 }
 
 function omToggleCols() {
-  omColsOpen = !omColsOpen;
-  const panel = $("om-cols-panel");
-  if (!panel) return;
-  panel.style.display = omColsOpen ? "block" : "none";
-  if (omColsOpen) omRenderColsPanel();
+  openModal("omcols");
+  omRenderColsPanel();
 }
 
 function omRenderColsPanel() {
   const cols = omGetCols();
-  const defs = [
-    { key:"sku",        lbl:"SKU kodi" },
-    { key:"kategoriya", lbl:"Kategoriya" },
-    { key:"tannarx",    lbl:"Tannarx" },
-    { key:"chakana",    lbl:"Chakana narx" },
-    { key:"ulgurji",    lbl:"Ulgurji narx" },
-    { key:"qiymati",    lbl:"Qoldiq qiymati" },
-    { key:"barcode",    lbl:"Barcode" }
-  ];
-  $("om-cols-panel").innerHTML = `
-    <div style="padding:12px 16px;background:#fff;border:1px solid var(--brd);border-radius:10px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
-        ⚙️ Ko'rinadigan ustunlar
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${defs.map(d => `
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;
-            background:${cols[d.key]?"#E9A50018":"var(--bg)"};
-            border:1.5px solid ${cols[d.key]?"#E9A500":"var(--brd)"};
-            padding:5px 12px;border-radius:8px;transition:.15s">
-            <input type="checkbox" ${cols[d.key]?"checked":""} onchange="omToggleCol('${d.key}',this.checked)"
-              style="accent-color:var(--acc)">
-            ${d.lbl}
-          </label>`).join("")}
-      </div>
-    </div>`;
+  const el = $("om-cols-list"); if (!el) return;
+  el.innerHTML = OM_ALL_COLS.map(d => `
+    <label class="kat-col-item ${cols[d.key]?"active":""}" onclick="omToggleCol('${d.key}',${!cols[d.key]}); return false;">
+      <div class="kat-col-check">${cols[d.key]
+        ? `<i class="ti ti-check" style="font-size:13px;color:#fff"></i>`
+        : ``}</div>
+      <span>${d.lbl}</span>
+    </label>`).join("");
 }
 
 function omToggleCol(key, val) {
   if (!db.settings.omborCols) db.settings.omborCols = {};
   db.settings.omborCols[key] = val;
   saveDB(); omRenderColsPanel(); omRenderQoldiq();
+}
+
+function omColsReset() {
+  db.settings.omborCols = {};
+  saveDB(); omRenderColsPanel(); omRenderQoldiq();
+  toast("Ustunlar asl holiga qaytarildi");
 }
 
 function omSetFilter(f) {
@@ -155,6 +152,7 @@ function omRenderQoldiq() {
   const rate = db.settings.rate || 1;
   const q    = ($("om-q")||{value:""}).value.toLowerCase();
   const showChakana = db.settings.showChakana || false;
+  const cols = omGetCols();
 
   const vp = typeof visProds === "function" ? visProds() : db.products;
   let rows = [];
@@ -165,7 +163,6 @@ function omRenderQoldiq() {
       if (!colorGroups[v.color]) {
         colorGroups[v.color] = {
           color:   v.color,
-          hex:     v.hex    || "#888",
           pantone: v.pantone || "",
           qty:     0,
           sizes:   []   // [{size, qty}]
@@ -183,22 +180,28 @@ function omRenderQoldiq() {
       const inBox   = p.inBox || 1;
       const boxes   = inBox > 1 ? (cg.qty / inBox) : null;
       const costUzs = Math.round((p.costUsd || 0) * rate);
+      const margin  = p.ulgurjiNarx > 0 && costUzs > 0
+        ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : null;
 
       rows.push({
         sku:     p.sku,
         art:     p.art || "",
         name:    p.name,
+        category:p.category || "",
+        image:   p.image || "",
         color:   cg.color,
-        hex:     cg.hex,
         pantone: cg.pantone,
         qty:     cg.qty,
         sizes:   cg.sizes,
         inBox,
         boxes,
+        packUnit: p.packUnit || "karobka",
         unit:    p.unit || "dona",
+        barcode: p.barcode || "",
         costUzs,
         chakana: p.priceUzs,
         ulgurji: p.ulgurjiNarx || 0,
+        margin,
         qiymati: Math.round(cg.qty * (p.costUsd || 0) * rate)
       });
     });
@@ -226,22 +229,22 @@ function omRenderQoldiq() {
     });
   }
 
-  const cols     = omGetCols();
-  const showSku  = cols.sku     ?? false;
-  const showBarc = cols.barcode ?? false;
-
   const thead = `<tr>
+    ${cols.image      ? '<th style="width:50px">Rasm</th>' : ""}
+    ${cols.sku        ? '<th style="width:70px">SKU</th>' : ""}
+    ${cols.art        ? '<th style="width:80px">ART</th>' : ""}
     <th>Mahsulot nomi</th>
-    ${showSku  ? '<th style="width:60px">Kod (SKU)</th>' : ""}
-    <th style="width:80px">ART</th>
-    ${showBarc ? '<th style="width:130px">Barcode</th>' : ""}
+    ${cols.kategoriya ? '<th>Kategoriya</th>' : ""}
+    ${cols.barcode    ? '<th style="width:130px">Barcode</th>' : ""}
     <th>Rang</th>
-    <th class="num">Karobka</th>
+    ${cols.sizes      ? "<th>O'lchamlar</th>" : ""}
+    ${cols.boxes      ? '<th class="num">Karobka</th>' : ""}
     <th class="num">Dona soni</th>
-    ${cols.tannarx ? "<th class=\'num\'>Tannarx</th>" : ""}
-    ${cols.ulgurji ? "<th class=\'num\'>Ulgurji narx</th>" : ""}
-    ${showChakana  ? "<th class=\'num\'>Chakana narx</th>" : ""}
-    ${cols.qiymati ? "<th class=\'num\'>Qoldiq qiymati</th>" : ""}
+    ${cols.tannarx    ? "<th class='num'>Tannarx</th>" : ""}
+    ${cols.ulgurji    ? "<th class='num'>Ulgurji narx</th>" : ""}
+    ${(showChakana && cols.chakana) ? "<th class='num'>Chakana narx</th>" : ""}
+    ${cols.margin     ? "<th class='num'>Margin</th>" : ""}
+    ${cols.qiymati    ? "<th class='num'>Qoldiq qiymati</th>" : ""}
     <th></th>
   </tr>`;
 
@@ -256,61 +259,53 @@ function omRenderQoldiq() {
 
     const boxCell = r.inBox > 1
       ? `<span style="font-weight:700;font-size:14px">${r.boxes != null ? (Number.isInteger(r.boxes) ? r.boxes : r.boxes.toFixed(1)) : '—'}</span>
-         <span style="font-size:10.5px;color:#bbb;margin-left:3px">karobka</span>
+         <span style="font-size:10.5px;color:#bbb;margin-left:3px">${r.packUnit}</span>
          <div style="font-size:10px;color:#aaa">×${r.inBox} ${r.unit}</div>`
       : `<span style="font-size:12px;color:#bbb">donab</span>`;
 
-    const margin = r.ulgurji > 0 && r.costUzs > 0
-      ? Math.round((r.ulgurji - r.costUzs) / r.ulgurji * 100) : null;
+    const sortedSizes = (r.sizes||[]).slice().sort((a,b) => {
+      const na = parseFloat(a.size), nb = parseFloat(b.size);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      return a.size.localeCompare(b.size);
+    });
 
-      const p = db.products.find(x => x.sku === r.sku);
-      const barcode = p?.barcode || "";
+    const mColor = r.margin == null ? "#ccc"
+      : r.margin >= 30 ? "var(--grn)" : r.margin >= 15 ? "#E07B39" : "var(--red)";
 
-      return `<tr>
-      <td>
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="position:relative;flex-shrink:0" onclick="omImgClick('${r.sku}')" title="Rasm qo'shish/o'zgartirish">
-            ${p?.image
-              ? `<img src="${p.image}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--brd);cursor:pointer">`
-              : `<div style="width:36px;height:36px;border:1.5px dashed #e0ddd8;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:14px;cursor:pointer"><i class="ti ti-camera-plus"></i></div>`}
-          </div>
-          <input type="file" id="om-img-inp-${r.sku}" accept="image/*" style="display:none"
-            onchange="omImgSave('${r.sku}',this)">
-          <div style="font-weight:600;font-size:13px">${r.name}</div>
+    return `<tr>
+      ${cols.image ? `<td onclick="event.stopPropagation()">
+        <div style="position:relative;flex-shrink:0" onclick="omImgClick('${r.sku}')" title="Rasm qo'shish/o'zgartirish">
+          ${r.image
+            ? `<img src="${r.image}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--brd);cursor:pointer">`
+            : `<div style="width:36px;height:36px;border:1.5px dashed #e0ddd8;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:14px;cursor:pointer"><i class="ti ti-camera-plus"></i></div>`}
         </div>
-      </td>
-      ${showSku ? `<td style="font-family:monospace;font-size:11.5px;color:var(--mut)">${r.sku}</td>` : ""}
-      <td style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${r.art || '<span style="color:#ddd">—</span>'}</td>
-      ${showBarc ? `<td style="font-family:monospace;font-size:12px">
-        ${barcode
-          ? `<span style="background:var(--bg);padding:2px 7px;border-radius:5px;border:1px solid var(--brd)">${barcode}</span>`
+        <input type="file" id="om-img-inp-${r.sku}" accept="image/*" style="display:none"
+          onchange="omImgSave('${r.sku}',this)">
+      </td>` : ""}
+      ${cols.sku ? `<td style="font-family:monospace;font-size:11.5px;color:var(--mut)">${r.sku}</td>` : ""}
+      ${cols.art ? `<td style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${r.art || '<span style="color:#ddd">—</span>'}</td>` : ""}
+      <td><div style="font-weight:600;font-size:13px">${r.name}</div></td>
+      ${cols.kategoriya ? `<td style="font-size:12px;color:var(--mut)">${r.category}</td>` : ""}
+      ${cols.barcode ? `<td style="font-family:monospace;font-size:12px">
+        ${r.barcode
+          ? `<span style="background:var(--bg);padding:2px 7px;border-radius:5px;border:1px solid var(--brd)">${r.barcode}</span>`
           : `<span style="color:#ccc">—</span>`}
       </td>` : ""}
       <td>
-        <div style="display:flex;align-items:flex-start;gap:7px">
-          <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;margin-top:2px;
-            background:${r.hex};border:1px solid rgba(0,0,0,.12)"
-            title="${r.pantone}"></div>
-          <div style="min-width:0">
-            <div style="font-weight:500;font-size:13px">${r.color}</div>
-            ${r.pantone ? `<div style="font-size:10px;color:#aaa;margin-bottom:4px">${r.pantone}</div>` : ""}
-            ${r.sizes && r.sizes.length > 0 ? `
-              <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px">
-                ${r.sizes.sort((a,b) => {
-                  // Raqamli o'lchamlarni soniga qarab sort
-                  const na = parseFloat(a.size), nb = parseFloat(b.size);
-                  if (!isNaN(na) && !isNaN(nb)) return na - nb;
-                  return a.size.localeCompare(b.size);
-                }).map(s => {
-                  const lvl = s.qty <= 0 ? "bg-r" : s.qty <= 3 ? "bg-a" : "";
-                  return `<span class="bg ${lvl}" style="font-size:10.5px;padding:1px 6px;font-weight:${s.qty<=3?"700":"400"}"
-                    title="${s.size}: ${s.qty} ${r.unit}">${s.size}<span style="color:${s.qty<=0?"#dc2626":s.qty<=3?"#92400e":"#888"};margin-left:2px;font-size:9.5px">${s.qty}</span></span>`;
-                }).join("")}
-              </div>` : ""}
-          </div>
-        </div>
+        <div style="font-weight:500;font-size:13px">${r.color}</div>
+        ${r.pantone ? `<div style="font-size:10px;color:#aaa">${r.pantone}</div>` : ""}
       </td>
-      <td class="num">${boxCell}</td>
+      ${cols.sizes ? `<td>
+        ${sortedSizes.length > 0 ? `
+          <div style="display:flex;flex-wrap:wrap;gap:3px">
+            ${sortedSizes.map(s => {
+              const lvl = s.qty <= 0 ? "bg-r" : s.qty <= 3 ? "bg-a" : "";
+              return `<span class="bg ${lvl}" style="font-size:10.5px;padding:1px 6px;font-weight:${s.qty<=3?"700":"400"}"
+                title="${s.size}: ${s.qty} ${r.unit}">${s.size}<span style="color:${s.qty<=0?"#dc2626":s.qty<=3?"#92400e":"#888"};margin-left:2px;font-size:9.5px">${s.qty}</span></span>`;
+            }).join("")}
+          </div>` : '<span style="color:#ddd;font-size:12px">—</span>'}
+      </td>` : ""}
+      ${cols.boxes ? `<td class="num">${boxCell}</td>` : ""}
       <td class="num">${qBadge}</td>
       ${cols.tannarx ? `<td class="num" style="font-size:12.5px">
         ${r.costUzs ? `<div style="font-weight:600">${priceDisplay(r.costUzs)}</div>` : "—"}
@@ -319,9 +314,11 @@ function omRenderQoldiq() {
       ${cols.ulgurji ? `<td class="num" style="font-size:12.5px">
         ${r.ulgurji ? `<div style="font-weight:700;color:var(--acc)">${priceDisplay(r.ulgurji)}</div>` : '<span style="color:#ccc">—</span>'}
         ${r.ulgurji && r.inBox > 1 ? `<div style="font-size:11px;color:#e9a500;margin-top:2px">📦 ${priceDisplay(r.ulgurji * r.inBox)}</div>` : ""}
-        ${margin != null ? `<div style="font-size:10px;color:${margin>=30?"var(--grn)":margin>=15?"#E07B39":"var(--red)"}">margin ${margin}%</div>` : ""}
       </td>` : ""}
-      ${showChakana ? `<td class="num" style="color:var(--teal);font-size:12.5px">${r.chakana ? fmt(r.chakana) + " so'm" : "—"}</td>` : ""}
+      ${(showChakana && cols.chakana) ? `<td class="num" style="color:var(--teal);font-size:12.5px">${r.chakana ? fmt(r.chakana) + " so'm" : "—"}</td>` : ""}
+      ${cols.margin ? `<td class="num" style="font-size:12px">
+        ${r.margin != null ? `<span style="color:${mColor};font-weight:700">${r.margin}%</span>` : '<span style="color:#ddd">—</span>'}
+      </td>` : ""}
       ${cols.qiymati ? `<td class="num" style="font-size:12.5px;color:var(--mut)">${r.qiymati ? fmt(r.qiymati) + " so'm" : "—"}</td>` : ""}
       <td>
         <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditProduct('${r.sku}')"
@@ -330,7 +327,7 @@ function omRenderQoldiq() {
         </button>
       </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="9" class="empty-td">
+  }).join("") : `<tr><td colspan="14" class="empty-td">
     ${omStockFilter !== "all" ? "Bu filtrda mahsulot yo'q" : q ? `"${q}" topilmadi` : "Mahsulot yo'q"}
   </td></tr>`;
 
@@ -414,8 +411,7 @@ function omRenderKamQoldiq() {
                 <div style="font-size:11px;color:var(--mut)">${p.sku}</div>
               </td>
               <td>
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:${v.size?'3px':'0'}">
-                  <div style="width:12px;height:12px;border-radius:3px;background:${v.hex||'#888'};border:1px solid rgba(0,0,0,.1);flex-shrink:0"></div>
+                <div style="margin-bottom:${v.size?'3px':'0'}">
                   <span style="font-weight:500">${v.color||'—'}</span>
                 </div>
               </td>
@@ -493,15 +489,13 @@ function omRenderKirim() {
 
   const el = $("ombor-body"); if (!el) return;
   el.innerHTML = list.length ? list.map(o => {
-    const hex = o.hex || "#888";
     return `<tr>
       <td style="font-size:12px;color:var(--mut)">${o.date}</td>
       <td><div style="font-weight:600;font-size:13px">${o.productName}</div></td>
       <td style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${o.art || '<span style="color:#ddd">—</span>'}</td>
       <td><span class="bg bg-t" style="font-size:11px">${o.unit||"dona"}</span></td>
       <td>
-        <div style="display:flex;align-items:center;gap:6px">
-          <div style="width:14px;height:14px;border-radius:3px;background:${hex};border:1px solid rgba(0,0,0,.12);flex-shrink:0"></div>
+        <div>
           ${o.color} <span style="color:#bbb">/</span> ${o.size}
         </div>
         ${o.pantone ? `<div style="font-size:10px;color:#aaa">${o.pantone}</div>` : ""}
@@ -987,8 +981,7 @@ function invRowHtml(r) {
       <div style="font-size:11px;color:#aaa">${r.sku} ${r.barcode ? "· " + r.barcode : ""}</div>
     </td>
     <td style="padding:10px">
-      <div style="display:flex;align-items:center;gap:6px">
-        <div style="width:14px;height:14px;border-radius:4px;background:${r.hex};border:1px solid rgba(0,0,0,.1)"></div>
+      <div>
         <span style="font-size:13px">${r.color}</span>
         ${r.size && r.size!=="—" ? `<span style="color:#bbb;font-size:11px">/ ${r.size}</span>` : ""}
       </div>

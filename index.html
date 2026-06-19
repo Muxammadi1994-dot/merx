@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=23">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -807,14 +807,11 @@
         <button class="btn btn-ghost btn-sm" onclick="omToggleCols()" title="Ustunlarni sozlash">
           <i class="ti ti-settings"></i>
         </button>
-        <button class="btn btn-sm" onclick="exportOmborExcel()" title="Excel yuklash" style="color:#1D6A39">
-          <i class="ti ti-file-spreadsheet"></i> Excel
-        </button>
         <button class="btn btn-sm" onclick="openInvent()" style="color:#8B5CF6">
           <i class="ti ti-clipboard-check"></i> Inventarizatsiya
         </button>
         <button class="btn btn-acc btn-sm" onclick="openModal('qabul')">
-          <i class="ti ti-plus"></i> Tovar qabul
+          <i class="ti ti-plus"></i> Kirim qo'shish
         </button>
         <button class="btn btn-sm" onclick="openChiqimModal()" style="color:#E05A5A;border-color:#fca5a5">
           <i class="ti ti-minus-circle"></i> Hisobdan chiqarish
@@ -822,8 +819,9 @@
       </div>
     </div>
 
-    <!-- Ustunlarni sozlash paneli -->
+    <!-- Ustunlarni sozlash paneli (modal, Katalogga o'xshash) -->
     <div id="om-cols-panel" style="display:none"></div>
+
 
     <!-- TAB 1: Joriy qoldiq -->
     <div id="om-tab-qoldiq" class="card" style="overflow:hidden">
@@ -1429,6 +1427,23 @@
   </div>
 </div>
 
+<!-- MODAL: OMBOR USTUNLAR -->
+<div class="ov" id="ov-omcols" onclick="if(event.target===this)closeModal('omcols')">
+  <div class="modal" style="max-width:420px">
+    <button class="m-close" onclick="closeModal('omcols')"><i class="ti ti-x"></i></button>
+    <h2 style="margin-bottom:4px"><i class="ti ti-layout-columns" style="margin-right:8px"></i>Jadval ustunlari</h2>
+    <p style="font-size:12.5px;color:var(--mut);margin-bottom:16px">Ko'rsatmoqchi bo'lgan ustunlarni tanlang</p>
+    <div id="om-cols-list" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div style="display:flex;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--brd)">
+      <button class="btn btn-ghost btn-sm" onclick="omColsReset()">
+        <i class="ti ti-refresh"></i> Asl holiga qaytarish
+      </button>
+      <button class="btn btn-acc btn-sm" style="margin-left:auto" onclick="closeModal('omcols')">
+        <i class="ti ti-check"></i> Qo'llash
+      </button>
+    </div>
+  </div>
+
 <!-- MODAL: KATALOG USTUNLAR -->
 <div class="ov" id="ov-katcols" onclick="if(event.target===this)closeModal('katcols')">
   <div class="modal" style="max-width:420px">
@@ -1445,6 +1460,7 @@
       </button>
     </div>
   </div>
+
 </div>
 
 <!-- MODAL: ADD PRODUCT -->
@@ -2294,23 +2310,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=22"></script>
-<script src="js/utils.js?v=22"></script>
-<script src="js/sms.js?v=22"></script>
-<script src="js/cloud.js?v=22"></script>
-<script src="js/dashboard.js?v=22"></script>
-<script src="js/pos.js?v=22"></script>
-<script src="js/katalog.js?v=22"></script>
-<script src="js/ombor.js?v=22"></script>
-<script src="js/mijozlar.js?v=22"></script>
-<script src="js/qarzlar.js?v=22"></script>
-<script src="js/tarix.js?v=22"></script>
-<script src="js/hisobot.js?v=22"></script>
-<script src="js/xodimlar.js?v=22"></script>
-<script src="js/moliya.js?v=22"></script>
-<script src="js/egasi.js?v=22"></script>
-<script src="js/portal.js?v=22"></script>
-<script src="js/init.js?v=22"></script>
+<script src="js/db.js?v=23"></script>
+<script src="js/utils.js?v=23"></script>
+<script src="js/sms.js?v=23"></script>
+<script src="js/cloud.js?v=23"></script>
+<script src="js/dashboard.js?v=23"></script>
+<script src="js/pos.js?v=23"></script>
+<script src="js/katalog.js?v=23"></script>
+<script src="js/ombor.js?v=23"></script>
+<script src="js/mijozlar.js?v=23"></script>
+<script src="js/qarzlar.js?v=23"></script>
+<script src="js/tarix.js?v=23"></script>
+<script src="js/hisobot.js?v=23"></script>
+<script src="js/xodimlar.js?v=23"></script>
+<script src="js/moliya.js?v=23"></script>
+<script src="js/egasi.js?v=23"></script>
+<script src="js/portal.js?v=23"></script>
+<script src="js/init.js?v=23"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2798,7 +2814,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=22"></script>
-<script src="js/superadmin.js?v=22"></script>
+<script src="js/auth.js?v=23"></script>
+<script src="js/superadmin.js?v=23"></script>
 </body>
 </html>
