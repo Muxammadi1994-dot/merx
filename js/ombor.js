@@ -929,6 +929,9 @@ function openInvent() {
   renderInvTable();
   updateInvStats();
 
+  // Boshqa ochiq modallarni yopamiz
+  document.querySelectorAll(".ov.on").forEach(ov => ov.classList.remove("on"));
+
   // Modalni ochish
   const ov = $("ov-invent");
   if (ov) ov.style.display = "flex";

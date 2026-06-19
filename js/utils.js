@@ -135,6 +135,13 @@ function updateRatePill() {
   $("tb-cur").textContent = lbl[db.settings.priceCurrency || "uzs"] || "so'm";
 }
 function openModal(id) {
+  // Avval ochiq turgan boshqa modallarni yopamiz — bir nechta modal
+  // bir vaqtda "kutib qolmasligi" uchun
+  document.querySelectorAll(".ov.on").forEach(ov => {
+    if (ov.id !== "ov-" + id) ov.classList.remove("on");
+  });
+  // ov-invent kabi style.display orqali ishlovchi modallarni ham yopamiz
+  if (typeof closeInvent === "function") closeInvent();
   $("ov-" + id).classList.add("on");
   if (id === "addprod") { apResetImage(); apTypeChange(); setTimeout(() => { if ($("ap-name")) $("ap-name").focus(); }, 50); }
   if (id === "addcust") { setTimeout(() => { if ($("ac-name")) $("ac-name").focus(); }, 50); }
