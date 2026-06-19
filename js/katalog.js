@@ -1195,31 +1195,47 @@ function apCostNote() {
 // ── Excel eksport ──────────────────────────────
 function exportKatalogExcel() {
   const rate = db.settings.rate || 12800;
-  const rows = [
-    ["SKU", "ART", "Nomi", "Kategoriya", "Turi", "Birlik", "Karobka (inBox)",
-     "Barcode", "Rang", "Pantone", "O'lcham", "Qoldiq (dona)",
-     "Tannarx (USD)", "Tannarx (so'm)", "Ulgurji narx (so'm)", "Margin (%)"]
-  ];
+  const fields = apGetFields();
+  const shopType = typeof getShopType === "function" ? getShopType() : "ikki";
+
+  const headers = ["Nomi"];
+  if (fields.art) headers.push("ART");
+  if (fields.category) headers.push("Kategoriya");
+  if (shopType === "ikki") headers.push("Turi");
+  if (fields.unit) headers.push("Birlik");
+  if (fields.packunit) headers.push("To'plam birligi");
+  headers.push("To'plamda nechta");
+  if (fields.barcode) headers.push("Barcode");
+  headers.push("Rang");
+  if (fields.pantone) headers.push("Pantone");
+  headers.push("O'lcham", "Qoldiq (dona)");
+  if (fields.cost) headers.push("Tannarx (USD)", "Tannarx (so'm)");
+  headers.push("Ulgurji narx (so'm)", "Margin (%)");
+
+  const rows = [headers];
 
   db.products.forEach(p => {
     const costUzs = Math.round((p.costUsd || 0) * rate);
-    if (p.variants && p.variants.length) {
-      p.variants.forEach(v => {
-        const margin = p.ulgurjiNarx > 0 && costUzs > 0
-          ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : "";
-        rows.push([
-          p.sku, p.art || "", p.name, p.category, p.type === "oyoq" ? "Oyoq kiyim" : "Kiyim",
-          p.unit || "dona", p.inBox || 1,
-          p.barcode || "",
-          v.color, v.pantone || "", v.size, v.qty,
-          p.costUsd || 0, costUzs,
-          p.ulgurjiNarx || 0, margin
-        ]);
-      });
-    } else {
-      rows.push([p.sku, p.name, p.category, "", p.unit||"dona", p.inBox||1,
-        p.art||"", p.barcode||"", "", "", "", 0, p.costUsd||0, costUzs, p.ulgurjiNarx||0, ""]);
-    }
+    const margin = p.ulgurjiNarx > 0 && costUzs > 0
+      ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : "";
+
+    const variantList = (p.variants && p.variants.length) ? p.variants : [{color:"",size:"",qty:0,pantone:""}];
+    variantList.forEach(v => {
+      const row = [p.name];
+      if (fields.art) row.push(p.art || "");
+      if (fields.category) row.push(p.category);
+      if (shopType === "ikki") row.push(p.type === "oyoq" ? "Oyoq kiyim" : "Kiyim");
+      if (fields.unit) row.push(p.unit || "dona");
+      if (fields.packunit) row.push(p.packUnit || "karobka");
+      row.push(p.inBox || 1);
+      if (fields.barcode) row.push(p.barcode || "");
+      row.push(v.color);
+      if (fields.pantone) row.push(v.pantone || "");
+      row.push(v.size, v.qty);
+      if (fields.cost) row.push(p.costUsd || 0, costUzs);
+      row.push(p.ulgurjiNarx || 0, margin);
+      rows.push(row);
+    });
   });
 
   downloadCSV(rows, `merx_katalog_${today()}.csv`);
@@ -1366,27 +1382,62 @@ function openKatalogImport() {
 
 // ── Shablon yuklash ───────────────────────────────
 function downloadImportTemplate() {
-  // Ustunlar: Nom, Rang, O'lcham, Karobka soni, Karobkada nechta, ART, Tannarx, Ulgurji narx
-  // Qoldiq (dona) = Karobka soni × Karobkada nechta — avtomatik hisoblanadi
-  // Tannarx: so'mda (450000) yoki USD da ($35)
-  const headers = [
-    "Nom",              // mahsulot nomi (majburiy)
-    "Rang",             // Qora, Oq, Ko'k, Yashil, Sariq, Pushti, Jigarrang...
-    "O'lcham",          // 39-44, S-XL, 42...
-    "Karobka soni",     // nechta karobka keldi (majburiy)
-    "Karobkada nechta", // 1 karobkada nechta dona/juft (majburiy)
-    "ART",              // karobkadagi artikul kodi (ixtiyoriy)
-    "Tannarx",          // tannarx so'mda (450000) yoki USD ($35)
-    "Ulgurji narx",     // ulgurji sotuv narxi so'mda
-    "Birlik",           // juft, dona (default: dona)
-    "Turi",             // oyoq yoki kiyim (default: oyoq)
-  ];
-  const rows = [
-    // 8 karobka × 6 juft = 48 dona; 6 karobka × 6 juft = 36 dona
-    ["Adidas Ultra","Qora","39-44","8","6","ADI-001","450000","550000","juft","oyoq"],
-    ["Adidas Ultra","Oq",  "39-44","6","6","ADI-001","450000","550000","juft","oyoq"],
-    ["Ko'ylak slim", "Ko'k","S-XL","5","12","SLM-05","80000","150000","dona","kiyim"],
-  ];
+  const fields = apGetFields();
+
+  // Har doim majburiy bo'lgan ustunlar (Nom, Rang, O'lcham, Karobka soni, Karobkada nechta, Ulgurji narx)
+  // Boshqalari faqat sotuvchi tovar qo'shish oynasida yoqqan bo'lsa qo'shiladi.
+  // Barcode hech qachon shablonga qo'yilmaydi — u avtomatik generatsiya qilinadi.
+  const headers = ["Nom", "Rang"];
+  const sampleBase = ["Adidas Ultra", "Qora"];
+  const sampleBase2 = ["Adidas Ultra", "Oq"];
+  const sampleBase3 = ["Ko'ylak slim", "Ko'k"];
+
+  headers.push("O'lcham");
+  sampleBase.push("39-44"); sampleBase2.push("39-44"); sampleBase3.push("S-XL");
+
+  headers.push("Karobka soni");
+  sampleBase.push("8"); sampleBase2.push("6"); sampleBase3.push("5");
+
+  headers.push("Karobkada nechta");
+  sampleBase.push("6"); sampleBase2.push("6"); sampleBase3.push("12");
+
+  if (fields.art) {
+    headers.push("ART");
+    sampleBase.push("ADI-001"); sampleBase2.push("ADI-001"); sampleBase3.push("SLM-05");
+  }
+  if (fields.category) {
+    headers.push("Kategoriya");
+    sampleBase.push("Krossovka"); sampleBase2.push("Krossovka"); sampleBase3.push("Ko'ylak");
+  }
+  if (fields.cost) {
+    headers.push("Tannarx");
+    sampleBase.push("450000"); sampleBase2.push("450000"); sampleBase3.push("80000");
+  }
+
+  headers.push("Ulgurji narx");
+  sampleBase.push("550000"); sampleBase2.push("550000"); sampleBase3.push("150000");
+
+  if (fields.unit) {
+    headers.push("Birlik");
+    sampleBase.push("juft"); sampleBase2.push("juft"); sampleBase3.push("dona");
+  }
+  if (fields.packunit) {
+    headers.push("To'plam birligi");
+    sampleBase.push("karobka"); sampleBase2.push("karobka"); sampleBase3.push("karobka");
+  }
+  if (fields.pantone) {
+    headers.push("Pantone");
+    sampleBase.push(""); sampleBase2.push(""); sampleBase3.push("");
+  }
+
+  // Tur — agar do'kon "ikkalasi" rejimida bo'lsa kerak, aks holda shart emas
+  const shopType = typeof getShopType === "function" ? getShopType() : "ikki";
+  if (shopType === "ikki") {
+    headers.push("Turi");
+    sampleBase.push("oyoq"); sampleBase2.push("oyoq"); sampleBase3.push("kiyim");
+  }
+
+  const rows = [sampleBase, sampleBase2, sampleBase3];
   const csv = "sep=;\r\n" + [headers, ...rows].map(r =>
     r.map(c => { const s=String(c); return s.includes(";")||s.includes(",") ? `"${s}"` : s; }).join(";")
   ).join("\r\n");
