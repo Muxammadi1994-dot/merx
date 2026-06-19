@@ -11,6 +11,16 @@ const SIZES = {
   oyoq:  ["35","36","37","38","39","40","41","42","43","44","45","46"],
   kiyim: ["XS","S","M","L","XL","XXL","3XL"]
 };
+// Standart oraliq — tovar qo'shishda avtomatik tanlanadi
+const SIZES_DEFAULT_RANGE = {
+  oyoq:  { from:"39", to:"44" },
+  kiyim: { from:"S",  to:"XL" }
+};
+// To'plam birligi (karobka, pochka va h.k.) — tur bo'yicha
+const PACK_UNITS = {
+  oyoq:  ["karobka","pochka","quti"],
+  kiyim: ["karobka","bog'lam","quti","paket"]
+};
 const PAYTYPES = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma" };
 const EXP_CATS = ["Ijara","Maosh","Transport","Kommunal","Reklama","Yetkazuvchi","Boshqa"];
 

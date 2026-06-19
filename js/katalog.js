@@ -688,15 +688,36 @@ function deleteProduct() {
   toast(`"${p.name}" o'chirildi`, "info");
 }
 
-// ── O'lcham rejimi (bitta / oralig'i) ──────────
-let apSizeMode = "single";
+// ── O'lcham oralig'i: standart yopiq, kerak bo'lsa o'zgartiriladi ──
+let apSizeEditing = false; // false = standart oraliq ishlatiladi, true = qo'lda tahrirlash
 let currentApType = "oyoq"; // joriy tanlangan tur
 
-function apSetSizeMode(m) {
-  apSizeMode = m;
-  document.querySelectorAll(".ap-smode").forEach(b => b.classList.toggle("on", b.dataset.m === m));
-  $("ap-size-single").style.display = m === "single" ? "" : "none";
-  $("ap-size-range").style.display  = m === "range"  ? "" : "none";
+function apToggleSizeEdit() {
+  apSizeEditing = !apSizeEditing;
+  const fromEl = $("ap-size-from"), toEl = $("ap-size-to");
+  if (fromEl) fromEl.disabled = !apSizeEditing;
+  if (toEl)   toEl.disabled   = !apSizeEditing;
+  const btn = $("ap-size-edit-btn");
+  const lbl = $("ap-size-standard-lbl");
+  if (apSizeEditing) {
+    if (btn) btn.innerHTML = `<i class="ti ti-lock"></i> Standartga qaytarish`;
+    if (lbl) lbl.style.display = "none";
+  } else {
+    if (btn) btn.innerHTML = `<i class="ti ti-edit"></i> O'lchamni o'zgartirish`;
+    if (lbl) lbl.style.display = "";
+    apSetStandardSizeRange();
+  }
+}
+
+function apSetStandardSizeRange() {
+  const t = currentApType || "oyoq";
+  const def = (typeof SIZES_DEFAULT_RANGE !== "undefined" && SIZES_DEFAULT_RANGE[t])
+    ? SIZES_DEFAULT_RANGE[t] : { from: (SIZES[t]||[])[0], to: (SIZES[t]||[])[0] };
+  if ($("ap-size-from")) $("ap-size-from").value = def.from;
+  if ($("ap-size-to"))   $("ap-size-to").value   = def.to;
+  const lbl = $("ap-size-standard-lbl");
+  if (lbl) lbl.textContent = def.from === def.to ? def.from : `${def.from}–${def.to}`;
+  apCalcBoxes();
 }
 
 function apCalcBoxes() {
@@ -706,17 +727,19 @@ function apCalcBoxes() {
   const to     = ($("ap-size-to")||{value:""}).value;
   const total  = inBoxC > 0 ? boxes * inBoxC : 0;
 
-  if ($("ap-calc-total")) $("ap-calc-total").textContent = total > 0 ? total + " dona" : "— dona";
   if ($("ap-qty-range"))  $("ap-qty-range").value = total;
 
   const prev = $("ap-size-range-preview");
-  if (prev && from && to) prev.textContent = `→ ${from}–${to}`;
+  if (prev && from && to) prev.textContent = from === to ? `→ faqat ${from}` : `→ ${from}–${to}`;
   else if (prev) prev.textContent = "";
 
-  // inBox ni asosiy maydondan ham yangilaymiz
-  const inBoxMain = $("ap-inbox");
-  if (inBoxMain && inBoxC > 0) inBoxMain.value = inBoxC;
-  apUpdateBoxHints();
+  // Standart yorliqni ham yangilaymiz (agar tahrirlanmasa)
+  if (!apSizeEditing) {
+    const lbl = $("ap-size-standard-lbl");
+    if (lbl && from && to) lbl.textContent = from === to ? from : `${from}–${to}`;
+  }
+
+  apCostNote();
 }
 
 function addProduct() {
@@ -735,27 +758,42 @@ function addProduct() {
   const price   = parseFloat(($("ap-price")||{value:0}).value)   || 0;
   const ulg     = getRawVal("ap-ulgurji");
   const unit    = ($("ap-unit")||{value:"dona"}).value;
+  const packUnit = ($("ap-packunit")||{value:"karobka"}).value;
   const pantone = ($("ap-pantone")||{value:""}).value.trim();
   const hex     = ($("ap-hex")||{value:"#888888"}).value;
   const art     = ($("ap-art")||{value:""}).value.trim();
   const barcode = ($("ap-barcode")||{value:""}).value.trim();
 
-  let inBox, newVariants;
+  // O'lcham oralig'i — har doim from/to dan o'qiladi (standart yoki tahrirlangan)
+  const from = ($("ap-size-from")||{value:""}).value;
+  const to   = ($("ap-size-to")||{value:""}).value;
+  if (!from || !to) { toast("O'lchamni tanlang","err"); return; }
 
-  if (apSizeMode === "range") {
-    const from = ($("ap-size-from")||{value:""}).value;
-    const to   = ($("ap-size-to")||{value:""}).value;
-    if (!from || !to) { toast("Razmer oralig'ini tanlang","err"); return; }
-    const qty = parseInt(($("ap-qty-range")||{value:0}).value) || 0;
-    if (qty <= 0) { toast("Karobka soni va karobkadagi miqdorni kiriting","err"); return; }
-    inBox = parseInt(($("ap-inbox-calc")||{value:1}).value) || 1;
-    newVariants = [{ color, size:`${from}–${to}`, qty, pantone, hex }];
+  const boxes  = parseInt(($("ap-boxes")||{value:1}).value)      || 1;
+  const inBox  = parseInt(($("ap-inbox-calc")||{value:1}).value) || 1;
+  const totalQty = boxes * inBox;
+  if (totalQty <= 0) { toast("To'plam soni va to'plamdagi miqdorni kiriting","err"); return; }
+
+  // SIZES ro'yxatidan from..to oralig'ini olish
+  const allSizes = SIZES[t] || [];
+  const iFrom = allSizes.indexOf(from), iTo = allSizes.indexOf(to);
+  let sizeRange;
+  if (from === to) {
+    sizeRange = [from];
+  } else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) {
+    sizeRange = allSizes.slice(iFrom, iTo + 1);
   } else {
-    const size = ($("ap-size")||{value:""}).value;
-    const qty  = parseInt(($("ap-qty")||{value:0}).value) || 0;
-    inBox = parseInt(($("ap-inbox")||{value:1}).value) || 1;
-    newVariants = [{ color, size, qty, pantone, hex }];
+    sizeRange = [from, to]; // fallback
   }
+
+  // Jami miqdorni o'lchamlar orasida teng taqsimlash
+  const perSize = Math.floor(totalQty / sizeRange.length);
+  let remainder = totalQty - perSize * sizeRange.length;
+  const newVariants = sizeRange.map(sz => {
+    const q = perSize + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder--;
+    return { color, size: sz, qty: q, pantone, hex };
+  });
 
   let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (p) {
@@ -766,15 +804,17 @@ function addProduct() {
     });
     if (art) p.art = art;
     if (barcode && !p.barcode) p.barcode = barcode;
+    if (packUnit) p.packUnit = packUnit;
   } else {
     const autoBarcode = barcode || genEAN13(db.seq);
     db.products.push({
       sku: `${t==="oyoq"?"SHOE":"CLTH"}-${String(db.seq++).padStart(3,"0")}`,
       name, category: ($("ap-cat")||{value:""}).value,
-      type:t, unit, inBox,
+      type:t, unit, inBox, packUnit,
       art: art || "",
       costUsd:cost, priceUzs:price, ulgurjiNarx:ulg,
       barcode: autoBarcode,
+
       variants: newVariants
     });
   }
@@ -784,26 +824,26 @@ function addProduct() {
 
   // Formani tozalash
   if ($("ap-name"))       $("ap-name").value       = "";
-  if ($("ap-qty"))        $("ap-qty").value         = "10";
   if ($("ap-boxes"))      $("ap-boxes").value       = "1";
-  if ($("ap-inbox-calc")) $("ap-inbox-calc").value  = "";
-  if ($("ap-calc-total")) $("ap-calc-total").textContent = "— dona";
+  if ($("ap-inbox-calc")) $("ap-inbox-calc").value  = "6";
   if ($("ap-art"))        $("ap-art").value         = "";
   if ($("ap-barcode"))    $("ap-barcode").value     = "";
   if ($("ap-cost-note"))  $("ap-cost-note").innerHTML = "";
-  if ($("ap-size-range-preview")) $("ap-size-range-preview").textContent = "";
+  if ($("ap-ulgurji-note")) $("ap-ulgurji-note").innerHTML = "";
+  if ($("ap-color"))      $("ap-color").value       = "";
   ppReset("ap");
-  apSetSizeMode("single");
+  apSizeEditing = true; // majburan true qilib, keyin toggle false ga qaytaradi → standartga reset
+  apToggleSizeEdit();
 }
 
 // Tovar qo'shish fieldlari sozlamalari
 const AP_FIELDS = [
-  { key:"art",      lbl:"ART (artikul)",    def:true  },
+  { key:"art",      lbl:"ART (artikul)",     def:true  },
   { key:"category", lbl:"Kategoriya",        def:true  },
-  { key:"unit",     lbl:"O'lchov birligi",  def:true  },
+  { key:"unit",     lbl:"O'lchov birligi",   def:true  },
   { key:"barcode",  lbl:"Barcode",           def:false },
   { key:"cost",     lbl:"Tannarx",           def:true  },
-  { key:"inbox",    lbl:"Karobkada nechta",  def:true  },
+  { key:"packunit", lbl:"To'plam birligi",   def:true  },
   { key:"pantone",  lbl:"Pantone kodi",      def:false },
   { key:"hex",      lbl:"Rang (hex)",        def:true  },
 ];
@@ -816,8 +856,6 @@ function apApplyFields() {
   const fields = apGetFields();
   document.querySelectorAll('.ap-field[data-apf]').forEach(el => {
     const key = el.dataset.apf;
-    // ap-inbox har doim ko'rinadi (qiymat har doim kerak)
-    if (key === 'inbox') return;
     el.style.display = fields[key] !== false ? '' : 'none';
   });
 }
@@ -896,9 +934,10 @@ function apTypeChange(t) {
   currentApType = t;
   // Kategoriya va o'lchamlarni yangilash
   if ($("ap-cat"))       $("ap-cat").innerHTML       = (CATS[t]||[]).map(c => `<option>${c}</option>`).join("");
-  if ($("ap-size"))      $("ap-size").innerHTML      = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
   if ($("ap-size-from")) $("ap-size-from").innerHTML = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
   if ($("ap-size-to"))   $("ap-size-to").innerHTML   = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
+  if ($("ap-packunit"))  $("ap-packunit").innerHTML  = (PACK_UNITS[t]||["karobka"]).map(u => `<option>${u}</option>`).join("");
+  apSizeEditing = true; apToggleSizeEdit(); // standart oraliqqa o'rnatish (39-44 yoki S-XL)
   apApplyFields();
   apCostNote();
 }
@@ -908,10 +947,14 @@ function apCostNote() {
   const rate = db.settings?.rate || 1;
   const c    = parseFloat(($("ap-cost")||{value:0}).value) || 0;
   const u    = getRawVal("ap-ulgurji") || 0;
+  const inBoxC = parseInt(($("ap-inbox-calc")||{value:1}).value) || 1;
+  const packUnit = ($("ap-packunit")||{value:"karobka"}).value;
   const el   = $("ap-cost-note"); if (!el) return;
+  const elU  = $("ap-ulgurji-note");
 
+  let costUzs = 0;
   if (c > 0) {
-    let costUzs, txt;
+    let txt;
     if (cur === "usd" || cur === "both") {
       costUzs = c * rate;
       const margin = u > 0 ? Math.round((u - costUzs) / u * 100) : null;
@@ -925,9 +968,20 @@ function apCostNote() {
       txt = `Tannarx: ${fmt(costUzs)} so'm`;
       if (margin != null) txt += ` → <strong style="color:${mCol}">${margin}% foyda</strong>`;
     }
+    // To'plam narxini qo'shamiz (masalan: 1 karobka = 1 800 000 so'm)
+    if (inBoxC > 1) txt += `<br>1 ${packUnit} (${inBoxC} dona) = ${fmt(costUzs * inBoxC)} so'm`;
     el.innerHTML = txt;
   } else {
     el.innerHTML = "";
+  }
+
+  // Ulgurji narx ostida ham to'plam narxi
+  if (elU) {
+    if (u > 0 && inBoxC > 1) {
+      elU.innerHTML = `1 ${packUnit} (${inBoxC} dona) = ${fmt(u * inBoxC)} so'm`;
+    } else {
+      elU.innerHTML = "";
+    }
   }
   apUpdateBoxHints();
 }

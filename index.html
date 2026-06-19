@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1503,10 +1503,11 @@
       <div class="fld">
         <label>Ulgurji narx (so'm)</label>
         <input id="ap-ulgurji" type="text" data-price placeholder="0" oninput="fmtInput(this);apCostNote()">
+        <div id="ap-ulgurji-note" style="font-size:11px;color:var(--mut);margin-top:4px"></div>
       </div>
-      <div class="fld ap-field" data-apf="inbox">
-        <label>Karobkada nechta</label>
-        <input id="ap-inbox" type="number" min="1" placeholder="1" value="1">
+      <div class="fld ap-field" data-apf="packunit">
+        <label>To'plam birligi</label>
+        <select id="ap-packunit" onchange="apCostNote()"></select>
       </div>
     </div>
 
@@ -1533,50 +1534,36 @@
       </div>
     </div>
 
-    <!-- O'lcham rejimi -->
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      <button class="pmode-btn on" data-m="single" onclick="apSetSizeMode('single')">
-        <i class="ti ti-tag"></i> Bitta o'lcham
-      </button>
-      <button class="pmode-btn" data-m="range" onclick="apSetSizeMode('range')">
-        <i class="ti ti-tags"></i> Oraliq (masalan 36–40)
+    <!-- O'lcham oraliq: standart yoki o'zgartirish -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="font-size:12px;color:var(--mut)">O'lcham oralig'i:</span>
+      <span id="ap-size-standard-lbl" style="font-size:13px;font-weight:700;color:#0D1B2A;
+        background:var(--bg2);padding:4px 12px;border-radius:7px"></span>
+      <button class="btn btn-ghost btn-sm" onclick="apToggleSizeEdit()" id="ap-size-edit-btn">
+        <i class="ti ti-edit"></i> O'lchamni o'zgartirish
       </button>
     </div>
 
-    <!-- Bitta o'lcham -->
-    <div id="ap-size-single">
-      <div class="r3">
-        <div class="fld">
-          <label>O'lcham</label>
-          <select id="ap-size"></select>
-        </div>
-        <div class="fld">
-          <label>Soni (dona)</label>
-          <input id="ap-qty" type="number" min="0" placeholder="0" value="10">
-        </div>
-      </div>
-    </div>
-
-    <!-- Oraliq o'lcham -->
-    <div id="ap-size-range" style="display:none">
+    <!-- O'lcham tanlash (har doim oraliq, standart yopiq) -->
+    <div id="ap-size-range">
       <div class="r3">
         <div class="fld">
           <label>Dan</label>
-          <select id="ap-size-from" onchange="apCalcBoxes()"></select>
+          <select id="ap-size-from" onchange="apCalcBoxes()" disabled></select>
         </div>
         <div class="fld">
           <label>Gacha</label>
-          <select id="ap-size-to" onchange="apCalcBoxes()"></select>
+          <select id="ap-size-to" onchange="apCalcBoxes()" disabled></select>
         </div>
         <div class="fld">
-          <label>Karobka soni</label>
+          <label>To'plam soni</label>
           <input id="ap-boxes" type="number" min="1" value="1" oninput="apCalcBoxes()">
         </div>
       </div>
       <div class="r3">
         <div class="fld">
-          <label>Karobkada nechta</label>
-          <input id="ap-inbox-calc" type="number" min="1" placeholder="6" oninput="apCalcBoxes()">
+          <label>To'plamda nechta</label>
+          <input id="ap-inbox-calc" type="number" min="1" placeholder="6" value="6" oninput="apCalcBoxes()">
         </div>
         <div class="fld">
           <label>Jami dona (avtomatik)</label>
@@ -2181,23 +2168,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=9"></script>
-<script src="js/utils.js?v=9"></script>
-<script src="js/sms.js?v=9"></script>
-<script src="js/cloud.js?v=9"></script>
-<script src="js/dashboard.js?v=9"></script>
-<script src="js/pos.js?v=9"></script>
-<script src="js/katalog.js?v=9"></script>
-<script src="js/ombor.js?v=9"></script>
-<script src="js/mijozlar.js?v=9"></script>
-<script src="js/qarzlar.js?v=9"></script>
-<script src="js/tarix.js?v=9"></script>
-<script src="js/hisobot.js?v=9"></script>
-<script src="js/xodimlar.js?v=9"></script>
-<script src="js/moliya.js?v=9"></script>
-<script src="js/egasi.js?v=9"></script>
-<script src="js/portal.js?v=9"></script>
-<script src="js/init.js?v=9"></script>
+<script src="js/db.js?v=10"></script>
+<script src="js/utils.js?v=10"></script>
+<script src="js/sms.js?v=10"></script>
+<script src="js/cloud.js?v=10"></script>
+<script src="js/dashboard.js?v=10"></script>
+<script src="js/pos.js?v=10"></script>
+<script src="js/katalog.js?v=10"></script>
+<script src="js/ombor.js?v=10"></script>
+<script src="js/mijozlar.js?v=10"></script>
+<script src="js/qarzlar.js?v=10"></script>
+<script src="js/tarix.js?v=10"></script>
+<script src="js/hisobot.js?v=10"></script>
+<script src="js/xodimlar.js?v=10"></script>
+<script src="js/moliya.js?v=10"></script>
+<script src="js/egasi.js?v=10"></script>
+<script src="js/portal.js?v=10"></script>
+<script src="js/init.js?v=10"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2685,7 +2672,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=9"></script>
-<script src="js/superadmin.js?v=9"></script>
+<script src="js/auth.js?v=10"></script>
+<script src="js/superadmin.js?v=10"></script>
 </body>
 </html>
