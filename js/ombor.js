@@ -550,190 +550,237 @@ function omRenderSuppliers() {
 function omSearch() { renderOmbor(); }
 
 // ── Qabul formasi logikasi ─────────────────────
+let qbSelectedProduct = null;
+
 function qbAutofill(val) {
   $("qb-list").innerHTML = db.products
     .filter(p => p.name.toLowerCase().includes(val.toLowerCase()))
+    .slice(0, 30)
     .map(p => `<option value="${p.name}">`).join("");
 
   const p = db.products.find(x => x.name.toLowerCase() === val.toLowerCase().trim());
+  const infoBox  = $("qb-info-box");
+  const cardsBox = $("qb-color-cards");
+
   if (!p) {
-    // Yangi mahsulot — karobka panelini ko'rsatamiz, foydalanuvchi o'zi to'ldiradi
-    const boxPanel    = $("qb-box-panel");
-    const normalPanel = $("qb-normal-panel");
-    if (boxPanel)    boxPanel.style.display    = "block";
-    if (normalPanel) normalPanel.style.display = "none";
-    if ($("qb-inbox-edit")) $("qb-inbox-edit").value = "";
-    if ($("qb-info")) $("qb-info").textContent = "Yangi mahsulot — karobka ma'lumotlarini kiriting";
+    qbSelectedProduct = null;
+    if (infoBox)  infoBox.style.display  = "none";
+    if (cardsBox) cardsBox.style.display = "none";
+    qbCloseNewColor();
     return;
   }
 
-  if ($("qb-unit")) $("qb-unit").value = p.unit || "dona";
-  if ($("qb-art"))  $("qb-art").value  = p.art  || "";
+  qbSelectedProduct = p;
+  const totalQty = p.variants.reduce((a,v) => a + v.qty, 0);
 
-  // O'lchamlar
-  const sizes = [...new Set(p.variants.map(v => v.size))];
-  $("qb-sizes").innerHTML = sizes.map(s => `<option value="${s}">`).join("");
-  if ($("qb-size-hint")) $("qb-size-hint").textContent = sizes.length
-    ? `(${sizes[0]}–${sizes[sizes.length-1]})` : "";
-
-  // Ranglar — Pantone picker orqali tanlanadi (qb-colors datalist olib tashlangan)
-
-  // Karobka panel — DOIM ko'rsatamiz
-  const inBox = p.inBox || 1;
-  const boxPanel    = $("qb-box-panel");
-  const normalPanel = $("qb-normal-panel");
-  if (boxPanel)    boxPanel.style.display    = "block";
-  if (normalPanel) normalPanel.style.display = "none";
-  if ($("qb-inbox-edit")) $("qb-inbox-edit").value = inBox > 1 ? inBox : "";
-  qbCalcBoxes();
-
-  // Narx placeholder
-  if ($("qb-price"))   $("qb-price").placeholder   = fmt(p.priceUzs) + " (joriy)";
-  if ($("qb-ulgurji")) {
-    $("qb-ulgurji").placeholder = fmt(p.ulgurjiNarx||0) + " (joriy)";
-    // Inputni tozalaymiz — eski qiymat data-raw ni noto'g'ri qilishi mumkin
-    $("qb-ulgurji").value = "";
-    $("qb-ulgurji").dataset.raw = "";
-  }
-  if ($("qb-cost")) {
-    $("qb-cost").value = "";
-    $("qb-cost").dataset.raw = "";
+  if (infoBox) {
+    infoBox.style.display = "block";
+    infoBox.innerHTML = `
+      <strong style="color:#0D1B2A">${p.name}</strong> ${p.art ? `· ART: ${p.art}` : ""}
+      <br>Joriy qoldiq: <strong>${totalQty} ${p.unit||"dona"}</strong>
+      · Ulgurji narx: <strong style="color:var(--acc)">${fmt(p.ulgurjiNarx||0)} so'm</strong>`;
   }
 
-  // Info matni
-  const st = p.variants.map(v => `${v.color}/${v.size}(${v.qty})`).join(", ");
-  if ($("qb-info")) $("qb-info").textContent =
-    `Joriy: chakana ${fmt(p.priceUzs)} · ulgurji ${fmt(p.ulgurjiNarx||0)} · qoldiq: ${st}`;
+  qbRenderColorCards(p);
+  if (cardsBox) cardsBox.style.display = "block";
+  qbCloseNewColor();
 }
 
-function qbCalcBoxes() {
-  const boxes   = parseInt(($("qb-boxes")||{value:1}).value)      || 1;
-  const inBoxEd = parseInt(($("qb-inbox-edit")||{value:8}).value) || 8;
-  const total   = boxes * inBoxEd;
-
-  if ($("qb-total-show")) $("qb-total-show").textContent = total + " dona";
-  if ($("qb-qty-box"))    $("qb-qty-box").value = total;
-
-  // Razmer preview
-  const from = ($("qb-size-from")||{value:""}).value;
-  const to   = ($("qb-size-to")||{value:""}).value;
-  const prev = $("qb-size-preview");
-  if (prev && from && to) {
-    prev.textContent = `→ ${from}–${to} razmerlar`;
-  } else if (prev) {
-    prev.textContent = "";
-  }
+// ── Rang kartalar — har biriga to'g'ridan-to'g'ri miqdor qo'shish ──
+function qbRenderColorCards(p) {
+  const colors = [...new Set(p.variants.map(v => v.color))];
+  const el = $("qb-colors-list");
+  el.innerHTML = colors.map(color => {
+    const variants = p.variants.filter(v => v.color === color);
+    const totalQty = variants.reduce((a,v) => a + v.qty, 0);
+    const pantone  = variants[0]?.pantone || "";
+    return `<div style="border:1.5px solid var(--brd);border-radius:10px;padding:10px 14px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-weight:700;font-size:13.5px">${color}</span>
+        ${pantone ? `<span style="font-size:11px;color:#bbb">${pantone}</span>` : ""}
+        <span style="font-size:12px;color:var(--mut);margin-left:auto">${totalQty} dona</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px">
+        ${variants.map(v => `
+          <div style="display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--brd);border-radius:7px;padding:5px 8px">
+            <span style="font-size:11.5px;color:var(--mut);min-width:24px">${v.size}</span>
+            <span style="font-size:11px;color:#bbb">qoldiq ${v.qty}</span>
+            <span style="font-size:13px;color:#bbb;margin-left:auto">+</span>
+            <input type="number" min="0" placeholder="0" data-qbqty="${color}::${v.size}"
+              style="width:48px;border:none;background:transparent;font-size:13px;font-weight:700;text-align:right;padding:2px;color:var(--acc)">
+          </div>`).join("")}
+      </div>
+    </div>`;
+  }).join("") + `
+    <button class="btn btn-acc" style="width:100%;margin-top:6px" onclick="qbSaveColorQty()">
+      <i class="ti ti-check"></i> Kirim qilish
+    </button>`;
 }
 
-function qabulOl() {
-  const name = ($("qb-name")||{value:""}).value.trim();
-  if (!name)  { toast("Mahsulot nomini kiriting","err"); return; }
+function qbSaveColorQty() {
+  const p = qbSelectedProduct; if (!p) return;
+  const inputs = document.querySelectorAll("[data-qbqty]");
+  let totalAdded = 0;
+  const addedList = [];
 
-  const isBoxMode = ($("qb-box-panel")?.style.display !== "none");
-  const pantone = ($("qb-pantone")||{value:""}).value.trim();
-  const hex     = ($("qb-hex")||{value:"#888888"}).value;
-  const boxes   = parseInt(($("qb-boxes")||{value:0}).value) || null;
-  const inBoxEd = parseInt(($("qb-inbox-edit")||{value:8}).value) || 8;
-
-  let color, size, qty;
-
-  if (isBoxMode) {
-    color = ($("qb-color")||{value:""}).value.trim();
-    if (!color) { toast("Rang tanlang","err"); return; }
-
-    const sizeFrom = ($("qb-size-from")||{value:""}).value;
-    const sizeTo   = ($("qb-size-to")||{value:""}).value;
-    if (!sizeFrom || !sizeTo) { toast("Razmer oralig'ini tanlang","err"); return; }
-
-    qty  = (boxes || 1) * inBoxEd;
-    size = `${sizeFrom}–${sizeTo}`;
-  } else {
-    color = ($("qb-color")||{value:""}).value.trim();
-    size  = ($("qb-size")||{value:""}).value.trim();
-    qty   = parseInt(($("qb-qty")||{value:0}).value) || 0;
-
-    if (!color) { toast("Rang tanlang","err"); return; }
-    if (!size)  { toast("O'lcham kiriting","err"); return; }
-    if (qty <= 0) { toast("Miqdor kiriting","err"); return; }
-  }
-
-  const cur_q   = db.settings?.priceCurrency || "uzs";
-  const rate_q  = db.settings?.rate || 12800;
-  const isUsd_q = cur_q === "usd" || cur_q === "both";
-  const kirimRaw  = getRawVal("qb-cost");
-  // kirimNarxi omborda har doim so'mda saqlanadi
-  const kirimN    = isUsd_q ? Math.round(kirimRaw * rate_q) : kirimRaw;
-  // costUsd mahsulotda har doim USD da saqlanadi
-  const costUsd_q = isUsd_q ? kirimRaw : (kirimRaw > 0 ? kirimRaw / rate_q : 0);
-  const newChk    = getRawVal("qb-price");
-  const newUlg    = getRawVal("qb-ulgurji");
-  const unit      = ($("qb-unit")||{value:"dona"}).value;
-  const qbArt     = ($("qb-art")||{value:""}).value.trim();
-  const qbBarcode = ($("qb-barcode")||{value:""}).value.trim();
-
-  let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
-  if (p) {
+  inputs.forEach(inp => {
+    const val = parseInt(inp.value) || 0;
+    if (val <= 0) return;
+    const [color, size] = inp.dataset.qbqty.split("::");
     const v = p.variants.find(x => x.color === color && x.size === size);
     if (v) {
-      v.qty += qty;
-      if (pantone) { v.pantone = pantone; v.hex = hex; }
-    } else {
-      p.variants.push({ color, size, qty, pantone, hex });
+      v.qty += val;
+      totalAdded += val;
+      addedList.push(`${color}/${size} +${val}`);
     }
-    if (newChk > 0) p.priceUzs    = newChk;
-    if (newUlg > 0) p.ulgurjiNarx = newUlg;
-    if (qbArt)      p.art         = qbArt;
-    if (qbBarcode)  p.barcode     = qbBarcode;
-    if (kirimRaw > 0) p.costUsd   = costUsd_q;
-    if (isBoxMode && inBoxEd > 1) p.inBox = inBoxEd;
-    // Rasm (agar yuklangan bo'lsa)
-    const imgData = ($("qb-img-data")||{value:""}).value;
-    if (imgData) p.image = imgData;
-    p.unit = unit;
-  } else {
-    db.products.push({
-      sku:`RECV-${String(db.seq++).padStart(3,"0")}`,
-      name, category:"Qabul qilingan", type:"oyoq",
-      unit, inBox: inBoxEd > 1 ? inBoxEd : 1,
-      art: qbArt || "",
-      costUsd: costUsd_q,
-      priceUzs:newChk||0, ulgurjiNarx:newUlg||0,
-      barcode: qbBarcode || genEAN13(db.seq),
-      variants:[{color, size, qty, pantone, hex}]
-    });
-    p = db.products[db.products.length - 1];
-  }
+  });
 
+  if (totalAdded === 0) { toast("Miqdor kiriting", "err"); return; }
+
+  // Ombor kirim tarixiga yozamiz (bitta yozuv, jamlangan)
   db.ombor.push({
-    id:db.seq++, date:today(), sku:p.sku,
-    productName:name, art: p.art || "", unit, color, size, qty,
-    pantone, hex,
-    boxes: boxes || null,
-    kirimNarxi:  kirimN,
-    chakana:     newChk || p.priceUzs    || 0,
-    ulgurji:     newUlg || p.ulgurjiNarx || 0,
-    supplier:    ($("qb-sup")||{value:""}).value,
-    partiya:     ($("qb-partiya")||{value:""}).value,
-    payStatus:   ($("qb-pay")||{value:"tolandan"}).value
+    id: db.seq++, date: today(), sku: p.sku,
+    productName: p.name, art: p.art || "", unit: p.unit || "dona",
+    color: addedList.length === 1 ? addedList[0].split(" ")[0].split("/")[0] : "Aralash",
+    size: addedList.length === 1 ? addedList[0].split(" ")[0].split("/")[1] : "—",
+    qty: totalAdded,
+    kirimNarxi: Math.round((p.costUsd||0) * (db.settings?.rate||12800)),
+    chakana: p.priceUzs || 0,
+    ulgurji: p.ulgurjiNarx || 0,
+    supplier:  ($("qb-sup")||{value:""}).value,
+    partiya:   ($("qb-partiya")||{value:""}).value,
+    payStatus: ($("qb-pay")||{value:"tolangan"}).value
   });
 
   saveDB(); closeModal("qabul"); renderOmbor();
   if (typeof renderKatalog === "function") renderKatalog();
 
-  ["qb-name","qb-size","qb-sup","qb-partiya","qb-art","qb-barcode"].forEach(id => { if ($(id)) $(id).value = ""; });
-  // Rasm reset
-  if ($("qb-img-data"))   $("qb-img-data").value = "";
-  if ($("qb-img-remove")) $("qb-img-remove").style.display = "none";
-  const _qbPrev = $("qb-img-preview");
-  if (_qbPrev) _qbPrev.innerHTML = '<i class="ti ti-photo" id="qb-img-icon"></i>';
-  if ($("qb-img-inp"))    $("qb-img-inp").value = "";
-  if ($("qb-qty"))  $("qb-qty").value  = "10";
-  if ($("qb-cost")) $("qb-cost").value = "";
-  if ($("qb-info")) $("qb-info").textContent = "";
-  if ($("qb-box-panel")) $("qb-box-panel").style.display = "none";
-  if (typeof ppReset === "function") ppReset("qb");
+  toast(`✅ ${p.name} — ${totalAdded} ${p.unit||"dona"} kirim qilindi`);
+  qbResetModal();
+}
 
-  toast(`✅ ${name} (${color}/${size}) — ${qty} ${unit} qabul qilindi`);
+function qbResetModal() {
+  qbSelectedProduct = null;
+  if ($("qb-name"))     $("qb-name").value = "";
+  if ($("qb-sup"))      $("qb-sup").value = "";
+  if ($("qb-partiya"))  $("qb-partiya").value = "";
+  if ($("qb-info-box")) $("qb-info-box").style.display = "none";
+  if ($("qb-color-cards")) $("qb-color-cards").style.display = "none";
+  qbCloseNewColor();
+}
+
+// ── Yangi rang qo'shish (mavjud tovarga) ──────────
+let qbnSizeEditing = false;
+
+function qbOpenNewColor() {
+  const p = qbSelectedProduct; if (!p) return;
+  $("qbn-color").value = "";
+  $("qbn-pantone").value = "";
+  $("qbn-boxes").value = "1";
+  $("qbn-inbox").value = p.inBox || 6;
+  const t = p.type || "oyoq";
+  $("qbn-size-from").innerHTML = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
+  $("qbn-size-to").innerHTML   = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
+  qbnResetSizeToStandard();
+  $("qb-newcolor-panel").style.display = "block";
+}
+
+function qbCloseNewColor() {
+  const panel = $("qb-newcolor-panel");
+  if (panel) panel.style.display = "none";
+}
+
+function qbnToggleSizeEdit() {
+  qbnSizeEditing = !qbnSizeEditing;
+  const p = qbSelectedProduct;
+  const t = p?.type || "oyoq";
+  const fromEl = $("qbn-size-from"), toEl = $("qbn-size-to");
+  if (fromEl) fromEl.disabled = !qbnSizeEditing;
+  if (toEl)   toEl.disabled   = !qbnSizeEditing;
+  const btn = $("qbn-size-edit-btn");
+  if (qbnSizeEditing) {
+    if (btn) btn.innerHTML = `<i class="ti ti-lock"></i> Standartga qaytarish`;
+  } else {
+    if (btn) btn.innerHTML = `<i class="ti ti-edit"></i> O'zgartirish`;
+    const def = SIZES_DEFAULT_RANGE[t] || { from:(SIZES[t]||[])[0], to:(SIZES[t]||[])[0] };
+    if (fromEl) fromEl.value = def.from;
+    if (toEl)   toEl.value   = def.to;
+  }
+  qbnCalc();
+}
+
+function qbnResetSizeToStandard() {
+  qbnSizeEditing = false;
+  const p = qbSelectedProduct;
+  const t = p?.type || "oyoq";
+  const fromEl = $("qbn-size-from"), toEl = $("qbn-size-to");
+  if (fromEl) fromEl.disabled = true;
+  if (toEl)   toEl.disabled   = true;
+  const btn = $("qbn-size-edit-btn");
+  if (btn) btn.innerHTML = `<i class="ti ti-edit"></i> O'zgartirish`;
+  const def = SIZES_DEFAULT_RANGE[t] || { from:(SIZES[t]||[])[0], to:(SIZES[t]||[])[0] };
+  if (fromEl) fromEl.value = def.from;
+  if (toEl)   toEl.value   = def.to;
+  qbnCalc();
+}
+
+function qbnCalc() {
+  const from = ($("qbn-size-from")||{value:""}).value;
+  const to   = ($("qbn-size-to")||{value:""}).value;
+  const boxes  = parseInt(($("qbn-boxes")||{value:1}).value)  || 1;
+  const inBoxC = parseInt(($("qbn-inbox")||{value:1}).value)  || 1;
+  if ($("qbn-qty")) $("qbn-qty").value = boxes * inBoxC;
+  const lbl = $("qbn-size-lbl");
+  if (lbl) lbl.textContent = from && to ? (from===to?from:`${from}–${to}`) : "";
+}
+
+function qbConfirmNewColor() {
+  const p = qbSelectedProduct; if (!p) return;
+  const color = ($("qbn-color")||{value:""}).value.trim();
+  if (!color) { toast("Rang nomini kiriting","err"); return; }
+  if (p.variants.some(v => v.color.toLowerCase() === color.toLowerCase())) {
+    toast("Bu rang allaqachon mavjud — quyidagi ro'yxatdan miqdor qo'shing","err"); return;
+  }
+  const pantone = ($("qbn-pantone")||{value:""}).value.trim();
+  const from    = ($("qbn-size-from")||{value:""}).value;
+  const to      = ($("qbn-size-to")||{value:""}).value;
+  if (!from || !to) { toast("O'lchamni tanlang","err"); return; }
+
+  const totalQty = parseInt(($("qbn-qty")||{value:0}).value) || 0;
+  if (totalQty <= 0) { toast("To'plam soni va miqdorni kiriting","err"); return; }
+
+  const allSizes = SIZES[p.type] || [];
+  const iFrom = allSizes.indexOf(from), iTo = allSizes.indexOf(to);
+  let sizeRange;
+  if (from === to) sizeRange = [from];
+  else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) sizeRange = allSizes.slice(iFrom, iTo+1);
+  else sizeRange = [from, to];
+
+  const perSize = Math.floor(totalQty / sizeRange.length);
+  let remainder = totalQty - perSize * sizeRange.length;
+  sizeRange.forEach(sz => {
+    const q = perSize + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder--;
+    p.variants.push({ color, size: sz, qty: q, pantone, hex: "#888888" });
+  });
+
+  // Kirim tarixiga yozamiz
+  db.ombor.push({
+    id: db.seq++, date: today(), sku: p.sku,
+    productName: p.name, art: p.art || "", unit: p.unit || "dona",
+    color, size: sizeRange.length===1 ? sizeRange[0] : `${from}–${to}`, qty: totalQty,
+    pantone, boxes: parseInt(($("qbn-boxes")||{value:1}).value) || 1,
+    kirimNarxi: Math.round((p.costUsd||0) * (db.settings?.rate||12800)),
+    chakana: p.priceUzs || 0, ulgurji: p.ulgurjiNarx || 0,
+    supplier:  ($("qb-sup")||{value:""}).value,
+    partiya:   ($("qb-partiya")||{value:""}).value,
+    payStatus: ($("qb-pay")||{value:"tolangan"}).value
+  });
+
+  saveDB();
+  qbRenderColorCards(p);
+  qbCloseNewColor();
+  toast(`"${color}" qo'shildi — ${totalQty} dona`);
 }
 
 // ── Excel eksport ──────────────────────────────

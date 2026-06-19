@@ -144,7 +144,7 @@ function openModal(id) {
     setTimeout(() => { if ($("ax-sum")) $("ax-sum").focus(); }, 50);
   }
   if (id === "qabul") {
-    $("qb-list").innerHTML = db.products.map(p => `<option value="${p.name}">`).join("");
+    if (typeof qbResetModal === "function") qbResetModal();
     setTimeout(() => { if ($("qb-name")) $("qb-name").focus(); }, 50);
   }
 }

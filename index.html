@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=23">
+<link rel="stylesheet" href="style.css?v=24">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1893,165 +1893,88 @@
 <div class="ov" id="ov-qabul" onclick="if(event.target===this)closeModal('qabul')">
   <div class="modal modal-lg">
     <button class="m-close" onclick="closeModal('qabul')"><i class="ti ti-x"></i></button>
-    <h2>Tovar qabul qilish</h2>
-    <div class="r2">
-      <div class="fld"><label>Mahsulot nomi</label>
-        <input id="qb-name" placeholder="Nomini yozing..." oninput="qbAutofill(this.value)" list="qb-list">
-        <datalist id="qb-list"></datalist>
-      </div>
-      <div class="fld"><label>O'lchov birligi</label><select id="qb-unit">
-        <option value="juft">juft</option><option value="dona">dona</option>
-        <option value="quti">quti</option><option value="paket">paket</option>
-        <option value="kg">kg</option><option value="metr">metr</option>
-      </select></div>
-    </div>
-    <!-- Rang: Pantone picker -->
-    <div class="fld" style="margin-bottom:10px">
-      <label>Rang <span style="font-size:11px;font-weight:400;color:var(--mut)">— Pantone</span></label>
-      <div class="pantone-picker" id="qb-pp-wrap">
-        <div class="pp-sel" onclick="ppToggle('qb')">
-          <div class="pp-swatch" id="qb-pp-swatch" style="background:#e0ddd8"></div>
-          <div class="pp-text">
-            <div class="pp-code" id="qb-pp-code">Rang tanlang</div>
-            <div class="pp-name" id="qb-pp-name">Pantone kodi</div>
-          </div>
-          <i class="ti ti-chevron-down" style="color:#bbb;font-size:14px"></i>
-        </div>
-        <div class="pp-dd" id="qb-pp-dd">
-          <div class="pp-grid" id="qb-pp-grid"></div>
-          <div class="pp-custom-row">
-            <input type="text" id="qb-pp-custom" placeholder="Boshqa rang nomi..." oninput="ppCustomInput('qb')">
-            <input type="color" id="qb-pp-hex-custom" value="#888888" onchange="ppCustomHex('qb')">
-          </div>
-        </div>
-      </div>
-      <input type="hidden" id="qb-color"   value="">
-      <input type="hidden" id="qb-pantone" value="">
-      <input type="hidden" id="qb-hex"     value="#888888">
+    <h2><i class="ti ti-arrow-down-circle" style="margin-right:8px"></i>Kirim qo'shish</h2>
+    <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Mavjud tovarga qo'shimcha miqdor kiriting. Yangi tovar qo'shish uchun Katalog sahifasidan foydalaning.</p>
+
+    <div class="fld" style="margin-bottom:14px">
+      <label>Mahsulot tanlang <span style="color:var(--red)">*</span></label>
+      <input id="qb-name" placeholder="Nomini yozing yoki tanlang..." oninput="qbAutofill(this.value)" list="qb-list" autocomplete="off">
+      <datalist id="qb-list"></datalist>
     </div>
 
-    <!-- Karobka kalkulyator (inBox>1 da ko'rsatiladi) -->
-    <div id="qb-box-panel" style="display:none;background:#FFF8E7;border:1px solid #f0d882;border-radius:var(--rs);padding:14px;margin-bottom:10px">
-      <div style="font-size:12px;color:#856404;font-weight:600;margin-bottom:10px">
-        <i class="ti ti-package" style="margin-right:4px"></i>Karobka hisobi
+    <!-- Tanlangan tovar haqida ma'lumot -->
+    <div id="qb-info-box" style="display:none;background:var(--bg);border-radius:var(--rs);padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:var(--mut)"></div>
+
+    <!-- Rang kartalar (tovar tanlangach ko'rinadi) -->
+    <div id="qb-color-cards" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-weight:700;font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em">Qaysi rangga qo'shamiz?</span>
+        <button class="btn btn-ghost btn-sm" onclick="qbOpenNewColor()">
+          <i class="ti ti-plus"></i> Yangi rang
+        </button>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-        <div class="fld" style="margin:0;min-width:110px">
-          <label style="font-size:11px">Karobka soni</label>
-          <input id="qb-boxes" type="number" value="1" min="1" oninput="qbCalcBoxes();qbUpdateBoxHints()"
-            style="font-size:18px;font-weight:800;text-align:center;border:2px solid #f0d882;border-radius:8px;padding:8px">
+      <div id="qb-colors-list"></div>
+    </div>
+
+    <!-- Yangi rang qo'shish (tovar bor, lekin rang yangi) -->
+    <div id="qb-newcolor-panel" style="display:none;border:1.5px solid var(--acc);border-radius:10px;padding:14px 16px;margin-top:10px;background:#fffbf0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-weight:700;font-size:13px;color:#856404">Yangi rang qo'shish</span>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="qbCloseNewColor()" style="color:#856404">
+          <i class="ti ti-x"></i>
+        </button>
+      </div>
+      <div class="r2" style="margin-bottom:10px">
+        <div class="fld">
+          <label>Rang nomi <span style="color:var(--red)">*</span></label>
+          <input id="qbn-color" placeholder="Qora, Ko'k, Sariq...">
         </div>
-        <div style="font-size:20px;color:#bbb;padding-top:16px">×</div>
-        <div class="fld" style="margin:0;min-width:100px">
-          <label style="font-size:11px">Karobkada nechta</label>
-          <input id="qb-inbox-edit" type="number" value="8" min="1" oninput="qbCalcBoxes()"
-            style="font-size:18px;font-weight:800;text-align:center;border:2px solid #f0d882;border-radius:8px;padding:8px;color:#856404">
-        </div>
-        <div style="font-size:20px;color:#bbb;padding-top:16px">=</div>
-        <div style="text-align:center;padding-top:14px">
-          <div style="font-size:11px;color:#bbb;margin-bottom:2px">Jami</div>
-          <div style="font-size:20px;font-weight:800;color:#0D1B2A" id="qb-total-show">— dona</div>
+        <div class="fld">
+          <label>Pantone kodi</label>
+          <input id="qbn-pantone" placeholder="Black C" style="font-family:monospace">
         </div>
       </div>
-      <!-- Razmer oralig'i -->
-      <div style="border-top:1px solid #f0d882;padding-top:10px">
-        <div style="font-size:11px;color:#856404;font-weight:600;margin-bottom:6px">Razmer oralig'i</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <select id="qb-size-from" onchange="qbCalcBoxes()"
-            style="font-family:inherit;font-size:14px;font-weight:600;border:1.5px solid #f0d882;border-radius:8px;padding:6px 10px;background:#fff;color:#856404">
-            <option value="">Dan...</option>
-            <option>35</option><option>36</option><option>37</option><option>38</option>
-            <option>39</option><option>40</option><option>41</option><option>42</option>
-            <option>43</option><option>44</option><option>45</option><option>46</option>
-            <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option>
-          </select>
-          <span style="color:#856404;font-weight:600">dan</span>
-          <select id="qb-size-to" onchange="qbCalcBoxes()"
-            style="font-family:inherit;font-size:14px;font-weight:600;border:1.5px solid #f0d882;border-radius:8px;padding:6px 10px;background:#fff;color:#856404">
-            <option value="">Gacha...</option>
-            <option>35</option><option>36</option><option>37</option><option>38</option>
-            <option>39</option><option>40</option><option>41</option><option>42</option>
-            <option>43</option><option>44</option><option>45</option><option>46</option>
-            <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option>
-          </select>
-          <span style="color:#bbb;font-size:12px" id="qb-size-preview"></span>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-size:12px;color:var(--mut)">O'lcham:</span>
+        <span id="qbn-size-lbl" style="font-size:13px;font-weight:700;color:#0D1B2A;background:var(--bg2);padding:4px 12px;border-radius:7px"></span>
+        <button class="btn btn-ghost btn-sm" onclick="qbnToggleSizeEdit()" id="qbn-size-edit-btn">
+          <i class="ti ti-edit"></i> O'zgartirish
+        </button>
+      </div>
+      <div class="r3">
+        <div class="fld"><label>Dan</label><select id="qbn-size-from" disabled onchange="qbnCalc()"></select></div>
+        <div class="fld"><label>Gacha</label><select id="qbn-size-to" disabled onchange="qbnCalc()"></select></div>
+        <div class="fld"><label>To'plam soni</label><input id="qbn-boxes" type="number" min="1" value="1" oninput="qbnCalc()"></div>
+      </div>
+      <div class="r3">
+        <div class="fld"><label>To'plamda nechta</label><input id="qbn-inbox" type="number" min="1" value="6" oninput="qbnCalc()"></div>
+        <div class="fld"><label>Jami dona</label><input id="qbn-qty" type="number" readonly style="background:var(--bg2)"></div>
+        <div class="fld" style="display:flex;align-items:flex-end">
+          <button class="btn btn-acc" style="width:100%" onclick="qbConfirmNewColor()">
+            <i class="ti ti-check"></i> Qo'shish
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Oddiy o'lcham + Miqdor (inBox=1 uchun) -->
-    <div id="qb-normal-panel">
-      <div class="r2">
-        <div class="fld">
-          <label>O'lcham <span style="font-size:11px;font-weight:400;color:var(--mut)" id="qb-size-hint"></span></label>
-          <input id="qb-size" placeholder="42" list="qb-sizes">
-          <datalist id="qb-sizes"></datalist>
-        </div>
-        <div class="fld">
-          <label>Miqdor (dona/juft)</label>
-          <input id="qb-qty" type="number" value="10" min="1">
-        </div>
-      </div>
-    </div>
-    <!-- Karobka rejimida miqdor hidden (qbCalcBoxes to'ldiradi) -->
-    <input type="hidden" id="qb-qty-box">
-    <div class="r2">
-      <div class="fld" id="qb-cost-wrap">
-        <label id="qb-cost-lbl">Tannarx</label>
-        <div style="display:flex;gap:6px;align-items:center">
-          <input id="qb-cost" type="text" placeholder="0" data-price oninput="fmtInput(this);qbUpdateBoxHints()" style="flex:1">
-          <span id="qb-cost-unit" style="font-size:12px;color:#888;white-space:nowrap;font-weight:600">so'm</span>
-        </div>
-        <div class="box-narx-hint" id="qb-cost-hint" style="display:none">
-          <i class="ti ti-package"></i><span></span>
-        </div>
+    <div class="sep"></div>
+    <div class="r3">
+      <div class="fld">
+        <label>Yetkazuvchi</label>
+        <input id="qb-sup" placeholder="Yetkazuvchi nomi">
       </div>
       <div class="fld">
-        <label>Ulgurji narxni yangilash</label>
-        <input id="qb-ulgurji" type="text" placeholder="0 = o'zgartirmaslik" data-price oninput="fmtInput(this);qbUpdateBoxHints()">
-        <div class="box-narx-hint" id="qb-ulg-hint" style="display:none">
-          <i class="ti ti-package"></i><span></span>
-        </div>
+        <label>Partiya</label>
+        <input id="qb-partiya" placeholder="Masalan: 2026-06-19">
+      </div>
+      <div class="fld">
+        <label>To'lov holati</label>
+        <select id="qb-pay"><option value="tolangan">To'langan</option><option value="qarz">Qarzga</option></select>
       </div>
     </div>
-    <input type="hidden" id="qb-price" value="0">
-    <div class="r3">
-      <div class="fld"><label>Yetkazuvchi</label><input id="qb-sup" placeholder="Yetkazuvchi nomi"></div>
-      <div class="fld"><label>Partiya raqami</label><input id="qb-partiya" placeholder="Masalan: 2025-06-01"></div>
-      <div class="fld"><label>To'lov holati</label>
-        <select id="qb-pay"><option value="tolangan">To'langan</option><option value="qarz">Qarzga (to'lanmagan)</option></select>
-      </div>
-    </div>
-    <div class="fld" style="margin-bottom:10px">
-      <label>Barcode / EAN <span style="font-size:11px;font-weight:400;color:var(--mut)">(USB skaner bilan to'ldirishingiz mumkin)</span></label>
-      <input id="qb-barcode" placeholder="8600000000000" style="font-family:monospace;letter-spacing:.05em">
-    </div>
-    <!-- Rasm yuklash -->
-    <div class="fld" style="margin-bottom:12px">
-      <label>Mahsulot rasmi <span style="font-size:11px;font-weight:400;color:var(--mut)">(ixtiyoriy)</span></label>
-      <div style="display:flex;gap:10px;align-items:center">
-        <div id="qb-img-preview" style="width:72px;height:72px;border:2px dashed var(--brd);border-radius:10px;
-          display:flex;align-items:center;justify-content:center;color:#ccc;font-size:24px;
-          overflow:hidden;flex-shrink:0;cursor:pointer" onclick="document.getElementById('qb-img-inp').click()">
-          <i class="ti ti-photo" id="qb-img-icon"></i>
-        </div>
-        <div style="flex:1">
-          <input type="file" id="qb-img-inp" accept="image/*" style="display:none" onchange="qbImgLoad(this)">
-          <button class="btn btn-sm" onclick="document.getElementById('qb-img-inp').click()" style="margin-bottom:6px">
-            <i class="ti ti-upload"></i> Rasm tanlang
-          </button>
-          <div style="font-size:11.5px;color:var(--mut)">JPG, PNG · Max 2MB</div>
-          <button class="btn btn-sm btn-ghost" id="qb-img-remove" style="display:none;color:var(--red);margin-top:4px" onclick="qbImgRemove()">
-            <i class="ti ti-trash"></i> O'chirish
-          </button>
-        </div>
-      </div>
-      <input type="hidden" id="qb-img-data" value="">
-    </div>
-    <div style="background:var(--bg);border-radius:var(--rs);padding:9px 11px;font-size:12.5px;color:var(--mut);margin-bottom:12px" id="qb-info"></div>
-    <button class="btn btn-teal" style="width:100%" onclick="qabulOl()"><i class="ti ti-package"></i>Qabul qilish</button>
   </div>
 </div>
+
 
 <!-- MODAL: ADD CUSTOMER -->
 <div class="ov" id="ov-addcust" onclick="if(event.target===this)closeModal('addcust')">
@@ -2310,23 +2233,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=23"></script>
-<script src="js/utils.js?v=23"></script>
-<script src="js/sms.js?v=23"></script>
-<script src="js/cloud.js?v=23"></script>
-<script src="js/dashboard.js?v=23"></script>
-<script src="js/pos.js?v=23"></script>
-<script src="js/katalog.js?v=23"></script>
-<script src="js/ombor.js?v=23"></script>
-<script src="js/mijozlar.js?v=23"></script>
-<script src="js/qarzlar.js?v=23"></script>
-<script src="js/tarix.js?v=23"></script>
-<script src="js/hisobot.js?v=23"></script>
-<script src="js/xodimlar.js?v=23"></script>
-<script src="js/moliya.js?v=23"></script>
-<script src="js/egasi.js?v=23"></script>
-<script src="js/portal.js?v=23"></script>
-<script src="js/init.js?v=23"></script>
+<script src="js/db.js?v=24"></script>
+<script src="js/utils.js?v=24"></script>
+<script src="js/sms.js?v=24"></script>
+<script src="js/cloud.js?v=24"></script>
+<script src="js/dashboard.js?v=24"></script>
+<script src="js/pos.js?v=24"></script>
+<script src="js/katalog.js?v=24"></script>
+<script src="js/ombor.js?v=24"></script>
+<script src="js/mijozlar.js?v=24"></script>
+<script src="js/qarzlar.js?v=24"></script>
+<script src="js/tarix.js?v=24"></script>
+<script src="js/hisobot.js?v=24"></script>
+<script src="js/xodimlar.js?v=24"></script>
+<script src="js/moliya.js?v=24"></script>
+<script src="js/egasi.js?v=24"></script>
+<script src="js/portal.js?v=24"></script>
+<script src="js/init.js?v=24"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2814,7 +2737,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=23"></script>
-<script src="js/superadmin.js?v=23"></script>
+<script src="js/auth.js?v=24"></script>
+<script src="js/superadmin.js?v=24"></script>
 </body>
 </html>
