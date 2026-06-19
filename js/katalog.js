@@ -743,7 +743,6 @@ function epaToggleSizeEdit() {
   const btn = $("epa-size-edit-btn");
   if (epaSizeEditing) {
     if (btn) btn.innerHTML = `<i class="ti ti-lock"></i> Standartga qaytarish`;
-    if (db.settings) { db.settings.usesCustomSizeRange = true; saveDB(); }
   } else {
     if (btn) btn.innerHTML = `<i class="ti ti-edit"></i> O'zgartirish`;
     const def = SIZES_DEFAULT_RANGE[t] || { from:(SIZES[t]||[])[0], to:(SIZES[t]||[])[0] };
@@ -923,9 +922,6 @@ function apToggleSizeEdit() {
   if (apSizeEditing) {
     if (btn) btn.innerHTML = `<i class="ti ti-lock"></i> Standartga qaytarish`;
     if (lbl) lbl.style.display = "none";
-    // Sotuvchi standartdan tashqari o'lcham ishlatadigan bo'ldi — buni eslab qolamiz,
-    // shunda import shablonida "O'lcham" ustuni ham chiqadi
-    if (db.settings) { db.settings.usesCustomSizeRange = true; saveDB(); }
   } else {
     if (btn) btn.innerHTML = `<i class="ti ti-edit"></i> O'lchamni o'zgartirish`;
     if (lbl) lbl.style.display = "";
@@ -1424,7 +1420,16 @@ function downloadImportTemplate() {
   const sampleBase2 = ["Adidas Ultra", "ADI-001", "Oq"];
   const sampleBase3 = ["Ko'ylak slim", "SLM-05", "Ko'k"];
 
-  if (db.settings?.usesCustomSizeRange) {
+  // "O'lcham" ustuni faqat haqiqatan standartdan tashqari o'lcham ishlatilgan bo'lsa chiqadi
+  const hasCustomSizes = db.products.some(p => {
+    const def = SIZES_DEFAULT_RANGE[p.type] || {};
+    const allSizes = SIZES[p.type] || [];
+    const iF = allSizes.indexOf(def.from), iT = allSizes.indexOf(def.to);
+    const standardSet = (iF !== -1 && iT !== -1) ? new Set(allSizes.slice(iF, iT+1)) : new Set();
+    return p.variants.some(v => !standardSet.has(v.size));
+  });
+
+  if (hasCustomSizes) {
     headers.push("O'lcham");
     sampleBase.push("39-44"); sampleBase2.push("39-44"); sampleBase3.push("S-XL");
   }
