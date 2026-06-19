@@ -604,7 +604,16 @@ function openEditProduct(sku) {
   $("ep-title").textContent     = p.name + " — tahrirlash";
   $("ep-name").value            = p.name;
   $("ep-cat").value             = p.category;
-  $("ep-cost").value            = p.costUsd;
+  // Tannarx: bazada har doim USD da saqlanadi (costUsd). Valyuta rejimiga qarab ko'rsatamiz.
+  {
+    const cur1  = db.settings?.priceCurrency || "uzs";
+    const rate1 = db.settings?.rate || 12800;
+    if (cur1 === "usd" || cur1 === "both") {
+      $("ep-cost").value = p.costUsd;
+    } else {
+      $("ep-cost").value = Math.round((p.costUsd || 0) * rate1);
+    }
+  }
   $("ep-price").value           = p.priceUzs;
   $("ep-ulgurji").value         = p.ulgurjiNarx || 0;
   if ($("ep-unit"))    $("ep-unit").value    = p.unit    || "dona";
@@ -793,7 +802,13 @@ function saveEditProduct() {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   p.name        = $("ep-name").value.trim()     || p.name;
   p.category    = $("ep-cat").value.trim()      || p.category;
-  p.costUsd     = parseFloat($("ep-cost").value)    || p.costUsd;
+  // Tannarx: input qiymati joriy valyuta rejimida, bazaga har doim USD saqlanadi
+  {
+    const cur1  = db.settings?.priceCurrency || "uzs";
+    const rate1 = db.settings?.rate || 12800;
+    const raw   = parseFloat($("ep-cost").value) || 0;
+    p.costUsd = (cur1 === "usd" || cur1 === "both") ? raw : (raw / rate1);
+  }
   p.priceUzs    = parseFloat($("ep-price").value)   || p.priceUzs;
   p.ulgurjiNarx = parseFloat($("ep-ulgurji").value) || 0;
   if ($("ep-unit"))     p.unit     = $("ep-unit").value     || p.unit;
@@ -1288,6 +1303,7 @@ function epUpdateBoxHints() {
   const cur     = db.settings?.priceCurrency || "uzs";
   const inBox   = parseInt(($("ep-inbox")||{value:0}).value) || 0;
   const costRaw = parseFloat(($("ep-cost")||{value:0}).value.replace(/\s/g,"").replace(/,/g,"")) || 0;
+  // ep-cost input qiymati endi joriy valyuta rejimida (UZS bo'lsa to'g'ridan-to'g'ri so'm)
   const costUzs = (cur === "usd" || cur === "both") ? Math.round(costRaw * rate) : costRaw;
   const ulg     = getRawVal("ep-ulgurji");
   _showBoxHint("ep-cost-hint", costUzs, inBox);
