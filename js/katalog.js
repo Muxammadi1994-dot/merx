@@ -743,6 +743,7 @@ function epaToggleSizeEdit() {
   const btn = $("epa-size-edit-btn");
   if (epaSizeEditing) {
     if (btn) btn.innerHTML = `<i class="ti ti-lock"></i> Standartga qaytarish`;
+    if (db.settings) { db.settings.usesCustomSizeRange = true; saveDB(); }
   } else {
     if (btn) btn.innerHTML = `<i class="ti ti-edit"></i> O'zgartirish`;
     const def = SIZES_DEFAULT_RANGE[t] || { from:(SIZES[t]||[])[0], to:(SIZES[t]||[])[0] };
@@ -905,6 +906,9 @@ function apToggleSizeEdit() {
   if (apSizeEditing) {
     if (btn) btn.innerHTML = `<i class="ti ti-lock"></i> Standartga qaytarish`;
     if (lbl) lbl.style.display = "none";
+    // Sotuvchi standartdan tashqari o'lcham ishlatadigan bo'ldi — buni eslab qolamiz,
+    // shunda import shablonida "O'lcham" ustuni ham chiqadi
+    if (db.settings) { db.settings.usesCustomSizeRange = true; saveDB(); }
   } else {
     if (btn) btn.innerHTML = `<i class="ti ti-edit"></i> O'lchamni o'zgartirish`;
     if (lbl) lbl.style.display = "";
@@ -1392,8 +1396,10 @@ function downloadImportTemplate() {
   const sampleBase2 = ["Adidas Ultra", "Oq"];
   const sampleBase3 = ["Ko'ylak slim", "Ko'k"];
 
-  headers.push("O'lcham");
-  sampleBase.push("39-44"); sampleBase2.push("39-44"); sampleBase3.push("S-XL");
+  if (db.settings?.usesCustomSizeRange) {
+    headers.push("O'lcham");
+    sampleBase.push("39-44"); sampleBase2.push("39-44"); sampleBase3.push("S-XL");
+  }
 
   headers.push("Karobka soni");
   sampleBase.push("8"); sampleBase2.push("6"); sampleBase3.push("5");
@@ -1605,22 +1611,43 @@ function parseImportCSV(text) {
       costUsd = costNum > 1000 ? costNum / rate : costNum;
     }
 
-    _importRows.push({
-      nom,
-      cat:     cols.cat  >= 0 ? (vals[cols.cat]?.trim()  || "Qabul qilingan") : "Qabul qilingan",
-      type:    cols.type >= 0 ? (vals[cols.type]?.trim()  || "oyoq") : "oyoq",
-      unit:    cols.unit >= 0 ? (vals[cols.unit]?.trim()  || "dona") : "dona",
-      inbox:   inboxVal,
-      boxes:   boxesVal || null,
-      art,
-      barcode,
-      color:   colorRaw,
-      pantone,
-      hex,
-      size:    cols.size >= 0 ? (vals[cols.size]?.trim()  || "Aralash") : "Aralash",
-      qty:     qtyVal,
-      costUsd,
-      ulg:     cols.ulg  >= 0 ? (parseFloat((vals[cols.ulg]||"0").replace(/[\s,]/g,"")) || 0) : 0,
+    const ulgVal = cols.ulg >= 0 ? (parseFloat((vals[cols.ulg]||"0").replace(/[\s,]/g,"")) || 0) : 0;
+    const typeVal = cols.type >= 0 ? (vals[cols.type]?.trim() || "oyoq") : "oyoq";
+    const catVal  = cols.cat  >= 0 ? (vals[cols.cat]?.trim()  || "Qabul qilingan") : "Qabul qilingan";
+    const unitVal = cols.unit >= 0 ? (vals[cols.unit]?.trim()  || "dona") : "dona";
+
+    // O'lcham: ustun bo'sh/yo'q bo'lsa — standart oraliqqa (39-44 yoki S-XL) teng taqsimlanadi
+    const sizeRaw = cols.size >= 0 ? (vals[cols.size]?.trim() || "") : "";
+    let sizeList;
+    if (sizeRaw) {
+      // "39-44" yoki "S-XL" formatini oraliqqa yoyish, yoki "42" bitta o'lcham
+      const rangeMatch = sizeRaw.match(/^(.+?)\s*[-–]\s*(.+)$/);
+      if (rangeMatch) {
+        const allSizes = SIZES[typeVal] || [];
+        const iF = allSizes.indexOf(rangeMatch[1].trim()), iT = allSizes.indexOf(rangeMatch[2].trim());
+        sizeList = (iF !== -1 && iT !== -1 && iF <= iT) ? allSizes.slice(iF, iT+1) : [rangeMatch[1].trim(), rangeMatch[2].trim()];
+      } else {
+        sizeList = [sizeRaw];
+      }
+    } else {
+      const def = SIZES_DEFAULT_RANGE[typeVal] || { from:(SIZES[typeVal]||["Aralash"])[0], to:(SIZES[typeVal]||["Aralash"])[0] };
+      const allSizes = SIZES[typeVal] || [];
+      const iF = allSizes.indexOf(def.from), iT = allSizes.indexOf(def.to);
+      sizeList = (iF !== -1 && iT !== -1) ? allSizes.slice(iF, iT+1) : [def.from];
+    }
+
+    // Miqdorni o'lchamlar orasida teng taqsimlash
+    const perSize = Math.floor(qtyVal / sizeList.length);
+    let remainder = qtyVal - perSize * sizeList.length;
+    sizeList.forEach(sz => {
+      const q = perSize + (remainder > 0 ? 1 : 0);
+      if (remainder > 0) remainder--;
+      _importRows.push({
+        nom, cat: catVal, type: typeVal, unit: unitVal,
+        inbox: inboxVal, boxes: boxesVal || null,
+        art, barcode, color: colorRaw, pantone, hex,
+        size: sz, qty: q, costUsd, ulg: ulgVal,
+      });
     });
   }
 
