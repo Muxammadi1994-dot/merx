@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1471,6 +1471,28 @@
       </div>
     </div>
 
+    <!-- Rasm yuklash (ixtiyoriy) -->
+    <div class="fld ap-field" data-apf="image" style="margin-bottom:14px">
+      <label>Rasm <span style="font-weight:400;color:var(--mut)">(ixtiyoriy)</span></label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="ap-img-preview" onclick="apImgClick()" style="width:64px;height:64px;border-radius:9px;
+          border:1.5px dashed var(--brd);cursor:pointer;display:flex;align-items:center;justify-content:center;
+          background:var(--bg);flex-shrink:0;overflow:hidden">
+          <i class="ti ti-camera-plus" style="font-size:20px;color:#bbb"></i>
+        </div>
+        <div style="flex:1">
+          <button class="btn btn-ghost btn-sm" onclick="apImgClick()" type="button">
+            <i class="ti ti-upload"></i> Rasm tanlash
+          </button>
+          <button class="btn btn-ghost btn-sm" id="ap-img-remove-btn" onclick="apImgRemove()"
+            type="button" style="display:none;color:var(--red)">
+            <i class="ti ti-trash"></i> O'chirish
+          </button>
+        </div>
+        <input type="file" id="ap-img-inp" accept="image/*" style="display:none" onchange="apImgSave(this)">
+      </div>
+    </div>
+
     <div class="r3">
       <div class="fld ap-field" data-apf="category">
         <label>Kategoriya</label>
@@ -2168,23 +2190,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=10"></script>
-<script src="js/utils.js?v=10"></script>
-<script src="js/sms.js?v=10"></script>
-<script src="js/cloud.js?v=10"></script>
-<script src="js/dashboard.js?v=10"></script>
-<script src="js/pos.js?v=10"></script>
-<script src="js/katalog.js?v=10"></script>
-<script src="js/ombor.js?v=10"></script>
-<script src="js/mijozlar.js?v=10"></script>
-<script src="js/qarzlar.js?v=10"></script>
-<script src="js/tarix.js?v=10"></script>
-<script src="js/hisobot.js?v=10"></script>
-<script src="js/xodimlar.js?v=10"></script>
-<script src="js/moliya.js?v=10"></script>
-<script src="js/egasi.js?v=10"></script>
-<script src="js/portal.js?v=10"></script>
-<script src="js/init.js?v=10"></script>
+<script src="js/db.js?v=11"></script>
+<script src="js/utils.js?v=11"></script>
+<script src="js/sms.js?v=11"></script>
+<script src="js/cloud.js?v=11"></script>
+<script src="js/dashboard.js?v=11"></script>
+<script src="js/pos.js?v=11"></script>
+<script src="js/katalog.js?v=11"></script>
+<script src="js/ombor.js?v=11"></script>
+<script src="js/mijozlar.js?v=11"></script>
+<script src="js/qarzlar.js?v=11"></script>
+<script src="js/tarix.js?v=11"></script>
+<script src="js/hisobot.js?v=11"></script>
+<script src="js/xodimlar.js?v=11"></script>
+<script src="js/moliya.js?v=11"></script>
+<script src="js/egasi.js?v=11"></script>
+<script src="js/portal.js?v=11"></script>
+<script src="js/init.js?v=11"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2672,7 +2694,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=10"></script>
-<script src="js/superadmin.js?v=10"></script>
+<script src="js/auth.js?v=11"></script>
+<script src="js/superadmin.js?v=11"></script>
 </body>
 </html>

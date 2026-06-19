@@ -136,7 +136,7 @@ function updateRatePill() {
 }
 function openModal(id) {
   $("ov-" + id).classList.add("on");
-  if (id === "addprod") { apTypeChange(); setTimeout(() => { if ($("ap-name")) $("ap-name").focus(); }, 50); }
+  if (id === "addprod") { apResetImage(); apTypeChange(); setTimeout(() => { if ($("ap-name")) $("ap-name").focus(); }, 50); }
   if (id === "addcust") { setTimeout(() => { if ($("ac-name")) $("ac-name").focus(); }, 50); }
   if (id === "addstaff") { setTimeout(() => { if ($("as-name")) $("as-name").focus(); }, 50); }
   if (id === "addxarajat") {

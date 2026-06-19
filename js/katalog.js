@@ -691,6 +691,63 @@ function deleteProduct() {
 // ── O'lcham oralig'i: standart yopiq, kerak bo'lsa o'zgartiriladi ──
 let apSizeEditing = false; // false = standart oraliq ishlatiladi, true = qo'lda tahrirlash
 let currentApType = "oyoq"; // joriy tanlangan tur
+let apPendingImage = ""; // tovar qo'shishda tanlangan rasm (base64)
+
+function apImgClick() {
+  const inp = $("ap-img-inp");
+  if (inp) inp.click();
+}
+
+function apImgRemove() {
+  apPendingImage = "";
+  const prev = $("ap-img-preview");
+  if (prev) prev.innerHTML = `<i class="ti ti-camera-plus" style="font-size:20px;color:#bbb"></i>`;
+  const btn = $("ap-img-remove-btn");
+  if (btn) btn.style.display = "none";
+  const inp = $("ap-img-inp");
+  if (inp) inp.value = "";
+}
+
+function apImgSave(input) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast("Rasm 5MB dan katta", "err"); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement("canvas");
+      let w = img.width, h = img.height;
+      const MAX = 600;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      let q = 0.85, dataUrl;
+      do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
+      while (dataUrl.length > 150000 && q > 0.3);
+
+      apPendingImage = dataUrl;
+      const prev = $("ap-img-preview");
+      if (prev) prev.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover">`;
+      const btn = $("ap-img-remove-btn");
+      if (btn) btn.style.display = "";
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function apResetImage() {
+  apPendingImage = "";
+  const prev = $("ap-img-preview");
+  if (prev) prev.innerHTML = `<i class="ti ti-camera-plus" style="font-size:20px;color:#bbb"></i>`;
+  const btn = $("ap-img-remove-btn");
+  if (btn) btn.style.display = "none";
+  const inp = $("ap-img-inp");
+  if (inp) inp.value = "";
+}
 
 function apToggleSizeEdit() {
   apSizeEditing = !apSizeEditing;
@@ -805,6 +862,7 @@ function addProduct() {
     if (art) p.art = art;
     if (barcode && !p.barcode) p.barcode = barcode;
     if (packUnit) p.packUnit = packUnit;
+    if (apPendingImage) p.image = apPendingImage;
   } else {
     const autoBarcode = barcode || genEAN13(db.seq);
     db.products.push({
@@ -814,7 +872,7 @@ function addProduct() {
       art: art || "",
       costUsd:cost, priceUzs:price, ulgurjiNarx:ulg,
       barcode: autoBarcode,
-
+      image: apPendingImage || "",
       variants: newVariants
     });
   }
@@ -831,6 +889,7 @@ function addProduct() {
   if ($("ap-cost-note"))  $("ap-cost-note").innerHTML = "";
   if ($("ap-ulgurji-note")) $("ap-ulgurji-note").innerHTML = "";
   if ($("ap-color"))      $("ap-color").value       = "";
+  apResetImage();
   ppReset("ap");
   apSizeEditing = true; // majburan true qilib, keyin toggle false ga qaytaradi → standartga reset
   apToggleSizeEdit();
@@ -838,6 +897,7 @@ function addProduct() {
 
 // Tovar qo'shish fieldlari sozlamalari
 const AP_FIELDS = [
+  { key:"image",    lbl:"Rasm yuklash",     def:true  },
   { key:"art",      lbl:"ART (artikul)",     def:true  },
   { key:"category", lbl:"Kategoriya",        def:true  },
   { key:"unit",     lbl:"O'lchov birligi",   def:true  },
