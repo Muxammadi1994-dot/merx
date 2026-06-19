@@ -127,7 +127,9 @@ function applyBulkPrice() {
   const isUsd    = db.settings?.priceCurrency === "usd";
   let   changed  = 0;
 
-  _katSelected.forEach(sku => {
+  // rowKey lardan unique sku to'plamini olamiz (bir mahsulotning bir necha rang qatori tanlangan bo'lishi mumkin)
+  const uniqueSkus = new Set([..._katSelected].map(k => k.split("::")[0]));
+  uniqueSkus.forEach(sku => {
     const p = db.products.find(x => x.sku === sku); if (!p) return;
 
     const multiply = type === "chegirma"
@@ -312,7 +314,17 @@ function renderKatalog() {
     });
   }
 
-  // Statistika
+  // Billz uslubida: har bir mahsulot+rang juftligi alohida qator
+  // (Ombor sahifasida bir xil mahsulot guruhlangan holatda qoladi — bu yerga tegmaydi)
+  let rows = [];
+  ps.forEach(p => {
+    const colorsInProduct = [...new Set(p.variants.map(v => v.color))];
+    colorsInProduct.forEach(color => {
+      rows.push({ product: p, color });
+    });
+  });
+
+  // Statistika (mahsulot darajasida — nechta turdagi tovar bor)
   const totalAll   = ps.length;
   const totalFaol  = ps.filter(p => totalStock(p) > 0).length;
   const totalNol   = ps.filter(p => totalStock(p) === 0).length;
@@ -328,10 +340,10 @@ function renderKatalog() {
     badge("kat-stat-kam",   totalKam);
   }
 
-  // Pagination
-  const totalPages = Math.ceil(ps.length / KAT_PER_PAGE) || 1;
+  // Pagination — endi rang-qatorlar bo'yicha
+  const totalPages = Math.ceil(rows.length / KAT_PER_PAGE) || 1;
   if (katPage > totalPages) katPage = 1;
-  const pagePs = ps.slice((katPage-1)*KAT_PER_PAGE, katPage*KAT_PER_PAGE);
+  const pageRows = rows.slice((katPage-1)*KAT_PER_PAGE, katPage*KAT_PER_PAGE);
 
   // Pagination UI
   const pgEl = $("kat-pagination");
@@ -346,7 +358,7 @@ function renderKatalog() {
       }
       pgEl.innerHTML = `
         <div style="display:flex;align-items:center;gap:4px;padding:10px 18px;border-top:1px solid var(--brd);flex-wrap:wrap">
-          <span style="font-size:12px;color:var(--mut);margin-right:8px">${ps.length} ta mahsulot</span>
+          <span style="font-size:12px;color:var(--mut);margin-right:8px">${rows.length} ta qator · ${ps.length} ta mahsulot</span>
           ${katPage>1?`<button class="btn btn-ghost btn-sm" onclick="katGoPage(${katPage-1})">‹</button>`:""}
           ${pages.map(p => p==="..."
             ? `<span style="padding:0 4px;color:var(--mut)">...</span>`
@@ -363,6 +375,7 @@ function renderKatalog() {
     document.querySelectorAll(`.kat-col-${c.key}`).forEach(el => {
       el.style.display = katCols[c.key] ? "" : "none";
     });
+
   });
 
   // Dinamik kategoriya tugmalarini yangilash
@@ -375,35 +388,22 @@ function renderKatalog() {
   if (gridWrap)  gridWrap.style.display  = katViewMode==="table"? "none" : "";
 
   if (katViewMode === "grid") {
-    _renderKatGrid(pagePs, rate, showChakana);
+    _renderKatGrid(pageRows, rate, showChakana);
     return;
   }
 
-  $("katalog-body").innerHTML = pagePs.length ? pagePs.map(p => {
-    const st      = totalStock(p);
+  $("katalog-body").innerHTML = pageRows.length ? pageRows.map(({product:p, color}) => {
+    // Shu rangga oid variantlar (turli o'lchamlar)
+    const colorVariants = p.variants.filter(v => v.color === color);
+    const colorQty = colorVariants.reduce((a,v) => a + v.qty, 0);
+    const pantone  = colorVariants[0]?.pantone || "";
+    const sizesStr = colorVariants.map(v => v.size).filter(Boolean).join(", ");
+
     const inBox   = p.inBox || 1;
     const costUzs = (p.costUsd || 0) * rate;
 
-    // Rang guruhlash
-    const colorGroups = {};
-    p.variants.forEach(v => {
-      if (!colorGroups[v.color]) colorGroups[v.color] = { hex: v.hex||"#888", pantone: v.pantone||"", qty: 0 };
-      colorGroups[v.color].qty += v.qty;
-    });
-
-    // Ranglar ko'rinishi
-    const colorChips = Object.entries(colorGroups).map(([color, info]) =>
-      `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-        <div style="width:14px;height:14px;border-radius:4px;flex-shrink:0;
-          background:${info.hex};border:1px solid rgba(0,0,0,.12)"
-          title="${info.pantone}"></div>
-        <span style="font-size:12.5px;font-weight:500">${color}</span>
-        ${info.pantone ? `<span style="font-size:10px;color:#bbb">${info.pantone}</span>` : ""}
-      </div>`
-    ).join("");
-
-    // Karobka jami
-    const totalBoxes = inBox > 1 ? Math.floor(st / inBox) : null;
+    // Karobka jami (shu rang uchun)
+    const totalBoxes = inBox > 1 ? Math.floor(colorQty / inBox) : null;
 
     // Margin (ulgurji asosida)
     const margin = p.ulgurjiNarx > 0 && costUzs > 0
@@ -411,10 +411,11 @@ function renderKatalog() {
     const mColor = margin == null ? "#ccc"
       : margin >= 30 ? "var(--grn)" : margin >= 15 ? "#E07B39" : "var(--red)";
 
-    const isSel = _katSelected.has(p.sku);
+    const rowKey = p.sku + "::" + color;
+    const isSel = _katSelected.has(rowKey);
     return `<tr onclick="openEditProduct('${p.sku}')" style="cursor:pointer;background:${isSel?"#fffbf0":""}">
       <td style="width:28px;padding:8px 4px" onclick="event.stopPropagation()">
-        <input type="checkbox" ${isSel?"checked":""} onchange="katToggleSel('${p.sku}',this.checked)"
+        <input type="checkbox" ${isSel?"checked":""} onchange="katToggleSel('${rowKey}',this.checked)"
           style="width:16px;height:16px;accent-color:var(--acc);cursor:pointer">
       </td>
       <td class="kat-col-image" onclick="event.stopPropagation()">
@@ -435,7 +436,7 @@ function renderKatalog() {
       <td class="kat-col-name">
         <div style="font-weight:700;font-size:13.5px;color:#0D1B2A">${p.name}</div>
         <div style="font-size:11.5px;color:#bbb;margin-top:2px">
-          ${inBox > 1 ? `<span style="color:#856404">📦 ${inBox}/karobka</span>` : ""}
+          ${color}${sizesStr ? ` · ${sizesStr}` : ""}
         </div>
       </td>
       <td class="kat-col-category" style="font-size:12px;color:var(--mut)">${p.category}</td>
@@ -445,16 +446,19 @@ function renderKatalog() {
           : `<span style="color:#ccc">—</span>`}
       </td>
       <td class="kat-col-supplier" style="font-size:12px;color:var(--mut)">${p.supplier||'<span style="color:#ddd">—</span>'}</td>
-      <td class="kat-col-colors">${colorChips}</td>
+      <td class="kat-col-colors">
+        <div style="font-size:12.5px;font-weight:500">${color}</div>
+        ${pantone ? `<div style="font-size:10px;color:#bbb">${pantone}</div>` : ""}
+      </td>
       <td class="kat-col-boxes num">
         ${totalBoxes != null
           ? `<span style="font-weight:700;font-size:14px">${totalBoxes}</span>
-             <span style="font-size:10.5px;color:#bbb;margin-left:3px">karobka</span>`
+             <span style="font-size:10.5px;color:#bbb;margin-left:3px">${p.packUnit||"karobka"}</span>`
           : `<span style="color:#bbb;font-size:12px">—</span>`}
       </td>
       <td class="kat-col-qty num">
-        <span class="bg ${st<=0?"bg-r":st<=5?"bg-a":"bg-g"}" style="font-weight:700">
-          ${st} ${p.unit||"dona"}
+        <span class="bg ${colorQty<=0?"bg-r":colorQty<=5?"bg-a":"bg-g"}" style="font-weight:700">
+          ${colorQty} ${p.unit||"dona"}
         </span>
       </td>
       <td class="kat-col-cost num" style="font-size:12.5px">
@@ -1809,16 +1813,17 @@ function katImgSave(sku, input) {
 }
 
 // ── Karta ko'rinish ─────────────────────────────
-function _renderKatGrid(ps, rate, showChakana) {
+function _renderKatGrid(rows, rate, showChakana) {
   const el = $("kat-grid-wrap");
   if (!el) return;
-  if (!ps.length) {
+  if (!rows.length) {
     el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--mut)">Mahsulot topilmadi</div>`;
     return;
   }
   el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;padding:18px">` +
-    ps.map(p => {
-      const st = totalStock(p);
+    rows.map(({product:p, color}) => {
+      const colorVariants = p.variants.filter(v => v.color === color);
+      const st = colorVariants.reduce((a,v) => a + v.qty, 0);
       const badge = st <= 0
         ? `<span class="bg bg-r" style="font-size:10px">Tugagan</span>`
         : st <= 5
@@ -1832,7 +1837,7 @@ function _renderKatGrid(ps, rate, showChakana) {
         <div style="padding:10px 12px">
           <div style="font-size:11px;color:var(--mut);font-family:monospace">${p.art || p.sku}</div>
           <div style="font-weight:700;font-size:13px;margin:3px 0;line-height:1.3">${p.name}</div>
-          <div style="font-size:11.5px;color:var(--mut)">${p.category}</div>
+          <div style="font-size:11.5px;color:var(--mut)">${color} · ${p.category}</div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
             <span style="font-weight:700;color:var(--acc);font-size:13px">${p.ulgurjiNarx ? fmt(p.ulgurjiNarx)+' so\'m' : '—'}</span>
             ${badge}
