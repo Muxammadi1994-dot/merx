@@ -611,6 +611,10 @@ function openEditProduct(sku) {
   if ($("ep-art"))     $("ep-art").value     = p.art     || "";
   if ($("ep-barcode")) $("ep-barcode").value = p.barcode || "";
   if ($("ep-inbox"))   $("ep-inbox").value   = p.inBox   || 1;
+  if ($("ep-packunit")) {
+    $("ep-packunit").innerHTML = (PACK_UNITS[p.type]||["karobka"]).map(u =>
+      `<option ${u===p.packUnit?"selected":""}>${u}</option>`).join("");
+  }
 
   // Rasm
   if (p.image) {
@@ -622,41 +626,167 @@ function openEditProduct(sku) {
     epRemoveImage();
   }
   setTimeout(epUpdateBoxHints, 50);
-  renderEpVariants(p);
+  epRenderColorCards(p);
+  epCloseAddColor();
   openModal("editprod");
 }
 
-function renderEpVariants(p) {
-  $("ep-variants").innerHTML = p.variants.map((v, i) => `<tr>
-    <td>
-      <div style="display:flex;align-items:center;gap:7px">
-        <div style="width:20px;height:20px;border-radius:5px;flex-shrink:0;
-          background:${v.hex||"#888"};border:1px solid rgba(0,0,0,.12)"
-          title="${v.pantone||v.color}"></div>
-        <input value="${v.color}" id="epv-c-${i}" style="flex:1;min-width:60px">
+// ── Ranglar bo'yicha karta ko'rinish ──────────────
+function epRenderColorCards(p) {
+  const colors = [...new Set(p.variants.map(v => v.color))];
+  const el = $("ep-color-cards");
+  el.innerHTML = colors.map(color => {
+    const variants = p.variants.filter(v => v.color === color);
+    const totalQty = variants.reduce((a,v) => a + v.qty, 0);
+    const pantone  = variants[0]?.pantone || "";
+    const hex      = variants[0]?.hex || "#888";
+    return `<div class="ep-color-card" style="border:1.5px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;background:${hex};border:1px solid rgba(0,0,0,.12)"></div>
+        <input value="${color}" data-epcolor="${color}" data-field="color"
+          oninput="epUpdateColorField('${color}',this)"
+          style="font-weight:700;font-size:13.5px;border:none;background:transparent;flex:1;padding:2px 0">
+        <span style="font-size:11px;color:#bbb">${pantone}</span>
+        <span style="font-size:12px;font-weight:700;color:var(--mut);margin-left:auto">${totalQty} dona</span>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="epDeleteColor('${color}')" title="Bu rangni butunlay o'chirish">
+          <i class="ti ti-trash" style="color:var(--red)"></i>
+        </button>
       </div>
-      <div style="font-size:10px;color:#aaa;margin-top:2px;padding-left:27px">
-        ${v.pantone||""}
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px">
+        ${variants.map(v => `
+          <div style="display:flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--brd);border-radius:7px;padding:4px 6px">
+            <span style="font-size:11px;color:var(--mut);min-width:24px">${v.size}</span>
+            <input type="number" value="${v.qty}" min="0" data-epqty="${color}::${v.size}"
+              oninput="epUpdateQty('${color}','${v.size}',this.value)"
+              style="width:100%;border:none;background:transparent;font-size:12px;font-weight:600;text-align:right;padding:2px">
+          </div>`).join("")}
+        <button class="btn btn-ghost btn-sm" onclick="epAddSizeToColor('${color}')"
+          style="border:1.5px dashed var(--brd);border-radius:7px;padding:4px 6px;font-size:11px;color:var(--mut)">
+          <i class="ti ti-plus" style="font-size:13px"></i> o'lcham
+        </button>
       </div>
-    </td>
-    <td><input value="${v.size}" id="epv-s-${i}" style="width:64px"></td>
-    <td><input type="number" value="${v.qty}" id="epv-q-${i}" min="0" style="width:72px"></td>
-    <td><button class="btn btn-ghost btn-icon btn-sm" onclick="epDelVariant(${i})">
-      <i class="ti ti-trash" style="color:var(--red)"></i>
-    </button></td>
-  </tr>`).join("");
+    </div>`;
+  }).join("");
 }
 
-function epAddVariantRow() {
+function epUpdateQty(color, size, val) {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
-  p.variants.push({ color:"", size:"", qty:0 }); renderEpVariants(p);
+  const v = p.variants.find(x => x.color === color && x.size === size);
+  if (v) v.qty = parseInt(val) || 0;
 }
 
-function epDelVariant(i) {
+function epUpdateColorField(oldColor, input) {
+  const p = db.products.find(x => x.sku === editSku); if (!p) return;
+  const newColor = input.value.trim();
+  if (!newColor || newColor === oldColor) return;
+  p.variants.forEach(v => { if (v.color === oldColor) v.color = newColor; });
+}
+
+function epDeleteColor(color) {
+  const p = db.products.find(x => x.sku === editSku); if (!p) return;
+  const colorCount = [...new Set(p.variants.map(v=>v.color))].length;
+  if (colorCount <= 1) { toast("Kamida 1 ta rang qolishi kerak","err"); return; }
+  if (!confirm(`"${color}" rangini butunlay o'chirasizmi?`)) return;
+  p.variants = p.variants.filter(v => v.color !== color);
+  epRenderColorCards(p);
+  toast(`"${color}" o'chirildi`, "info");
+}
+
+function epAddSizeToColor(color) {
+  const p = db.products.find(x => x.sku === editSku); if (!p) return;
+  const size = prompt("Qaysi o'lchamni qo'shmoqchisiz?");
+  if (!size) return;
+  const ex = p.variants.find(v => v.color === color && v.size === size.trim());
+  if (ex) { toast("Bu o'lcham allaqachon mavjud","err"); return; }
+  const ref = p.variants.find(v => v.color === color);
+  p.variants.push({ color, size: size.trim(), qty: 0, pantone: ref?.pantone||"", hex: ref?.hex||"#888" });
+  epRenderColorCards(p);
+}
+
+// ── Yangi rang qo'shish paneli ──────────────────────
+let epaSizeEditing = false;
+
+function epOpenAddColor() {
+  const p = db.products.find(x => x.sku === editSku); if (!p) return;
+  $("epa-color").value = "";
+  $("epa-pantone").value = "";
+  $("epa-hex").value = "#1A1A1A";
+  $("epa-boxes").value = "1";
+  $("epa-inbox").value = p.inBox || 6;
+  const t = p.type || "oyoq";
+  $("epa-size-from").innerHTML = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
+  $("epa-size-to").innerHTML   = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
+  epaSizeEditing = true; epaToggleSizeEdit(); // standartga o'rnatish
+  $("ep-addcolor-panel").style.display = "block";
+}
+
+function epCloseAddColor() {
+  $("ep-addcolor-panel").style.display = "none";
+}
+
+function epaToggleSizeEdit() {
+  epaSizeEditing = !epaSizeEditing;
   const p = db.products.find(x => x.sku === editSku);
-  if (!p || p.variants.length <= 1) { toast("Kamida 1 ta variant kerak","err"); return; }
-  if (!confirm("Bu variantni o'chirasizmi?")) return;
-  p.variants.splice(i, 1); renderEpVariants(p);
+  const t = p?.type || "oyoq";
+  const fromEl = $("epa-size-from"), toEl = $("epa-size-to");
+  if (fromEl) fromEl.disabled = !epaSizeEditing;
+  if (toEl)   toEl.disabled   = !epaSizeEditing;
+  const btn = $("epa-size-edit-btn");
+  if (epaSizeEditing) {
+    if (btn) btn.innerHTML = `<i class="ti ti-lock"></i> Standartga qaytarish`;
+  } else {
+    if (btn) btn.innerHTML = `<i class="ti ti-edit"></i> O'zgartirish`;
+    const def = SIZES_DEFAULT_RANGE[t] || { from:(SIZES[t]||[])[0], to:(SIZES[t]||[])[0] };
+    if (fromEl) fromEl.value = def.from;
+    if (toEl)   toEl.value   = def.to;
+  }
+  epaCalc();
+}
+
+function epaCalc() {
+  const from = ($("epa-size-from")||{value:""}).value;
+  const to   = ($("epa-size-to")||{value:""}).value;
+  const boxes  = parseInt(($("epa-boxes")||{value:1}).value)  || 1;
+  const inBoxC = parseInt(($("epa-inbox")||{value:1}).value)  || 1;
+  if ($("epa-qty")) $("epa-qty").value = boxes * inBoxC;
+  const lbl = $("epa-size-lbl");
+  if (lbl) lbl.textContent = from && to ? (from===to?from:`${from}–${to}`) : "";
+}
+
+function epConfirmAddColor() {
+  const p = db.products.find(x => x.sku === editSku); if (!p) return;
+  const color = ($("epa-color")||{value:""}).value.trim();
+  if (!color) { toast("Rang nomini kiriting","err"); return; }
+  if (p.variants.some(v => v.color.toLowerCase() === color.toLowerCase())) {
+    toast("Bu rang allaqachon mavjud","err"); return;
+  }
+  const pantone = ($("epa-pantone")||{value:""}).value.trim();
+  const hex     = ($("epa-hex")||{value:"#888"}).value;
+  const from    = ($("epa-size-from")||{value:""}).value;
+  const to      = ($("epa-size-to")||{value:""}).value;
+  if (!from || !to) { toast("O'lchamni tanlang","err"); return; }
+
+  const totalQty = parseInt(($("epa-qty")||{value:0}).value) || 0;
+  if (totalQty <= 0) { toast("To'plam soni va miqdorni kiriting","err"); return; }
+
+  const allSizes = SIZES[p.type] || [];
+  const iFrom = allSizes.indexOf(from), iTo = allSizes.indexOf(to);
+  let sizeRange;
+  if (from === to) sizeRange = [from];
+  else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) sizeRange = allSizes.slice(iFrom, iTo+1);
+  else sizeRange = [from, to];
+
+  const perSize = Math.floor(totalQty / sizeRange.length);
+  let remainder = totalQty - perSize * sizeRange.length;
+  sizeRange.forEach(sz => {
+    const q = perSize + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder--;
+    p.variants.push({ color, size: sz, qty: q, pantone, hex });
+  });
+
+  epRenderColorCards(p);
+  epCloseAddColor();
+  toast(`"${color}" qo'shildi`);
 }
 
 function saveEditProduct() {
@@ -666,18 +796,15 @@ function saveEditProduct() {
   p.costUsd     = parseFloat($("ep-cost").value)    || p.costUsd;
   p.priceUzs    = parseFloat($("ep-price").value)   || p.priceUzs;
   p.ulgurjiNarx = parseFloat($("ep-ulgurji").value) || 0;
-  if ($("ep-unit"))    p.unit    = $("ep-unit").value    || p.unit;
-  if ($("ep-art"))     p.art     = $("ep-art").value.trim();
-  if ($("ep-barcode")) p.barcode = $("ep-barcode").value.trim();
-  if ($("ep-inbox"))   p.inBox   = parseInt($("ep-inbox").value) || p.inBox || 1;
+  if ($("ep-unit"))     p.unit     = $("ep-unit").value     || p.unit;
+  if ($("ep-art"))      p.art      = $("ep-art").value.trim();
+  if ($("ep-barcode"))  p.barcode  = $("ep-barcode").value.trim();
+  if ($("ep-inbox"))    p.inBox    = parseInt($("ep-inbox").value) || p.inBox || 1;
+  if ($("ep-packunit")) p.packUnit = $("ep-packunit").value || p.packUnit;
   if ($("ep-image") && $("ep-image").value) p.image = $("ep-image").value;
   else if ($("ep-image") && $("ep-image").value === "") p.image = "";
 
-  p.variants.forEach((v, i) => {
-    v.color = ($("epv-c-"+i)||{value:v.color}).value.trim() || v.color;
-    v.size  = ($("epv-s-"+i)||{value:v.size}).value.trim()  || v.size;
-    v.qty   = parseInt(($("epv-q-"+i)||{value:v.qty}).value) || 0;
-  });
+  // Variant qiymatlari allaqachon epUpdateQty/epUpdateColorField orqali to'g'ridan-to'g'ri saqlangan
   p.variants = p.variants.filter(v => v.color && v.size);
 
   saveDB(); closeModal("editprod"); renderKatalog();
