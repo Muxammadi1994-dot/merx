@@ -117,7 +117,7 @@ tr:hover td{background:#FAFAF8}
 .pmodes{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px}
 .pmode-btn{font-family:inherit;font-size:12.5px;font-weight:600;padding:8px;border:1.5px solid var(--brd);background:#fff;border-radius:var(--rs);cursor:pointer;transition:.13s;color:var(--mut);display:flex;align-items:center;justify-content:center;gap:5px}
 .pmode-btn.on{border-color:var(--acc);color:#92400E;background:var(--acc2)}
-.ov{display:none;position:fixed;inset:0;background:rgba(13,27,42,.5);z-index:100;align-items:center;justify-content:center}
+.ov{display:none;position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;background:rgba(13,27,42,.5);z-index:100;align-items:center;justify-content:center}
 .ov.on{display:flex}
 .modal{background:#fff;border-radius:var(--r);padding:22px;width:520px;max-width:94vw;max-height:90vh;overflow-y:auto;position:relative}
 .modal-lg{width:700px}
