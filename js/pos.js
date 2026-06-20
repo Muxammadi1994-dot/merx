@@ -133,31 +133,95 @@ function posSearch() {
       ? `<img src="${p.image}" style="width:44px;height:44px;object-fit:cover;border-radius:7px;border:1px solid var(--brd);flex-shrink:0">`
       : `<div style="width:44px;height:44px;border:1.5px dashed #e0ddd8;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:16px;flex-shrink:0"><i class="ti ti-photo"></i></div>`;
 
-    return `<div class="pos-ri" style="align-items:center">
-      ${imgHtml}
-      <div class="pri-body" style="min-width:0">
-        <div class="pri-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
-        <div class="pri-meta">${color} · ${sizesStr || "—"}${p.art ? " · "+p.art : ""}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-        <div style="text-align:right">
-          <div class="pri-price" style="font-size:13px">${priceDisplay(narx)}</div>
-          <div style="font-size:10.5px;color:${maxPochka<=0?'var(--red)':maxPochka<=5?'#d97706':'var(--mut)'}">
-            ${maxPochka} pochka
-          </div>
+    return `<div class="pos-ri" style="align-items:center;flex-direction:column;align-items:stretch" data-rowkey="${rowKey}">
+      <div style="display:flex;align-items:center;gap:14px">
+        ${imgHtml}
+        <div class="pri-body" style="min-width:0">
+          <div class="pri-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+          <div class="pri-meta">${color} · ${sizesStr || "—"}${p.art ? " · "+p.art : ""}</div>
         </div>
-        <input type="number" min="1" max="${maxPochka}" placeholder="1" value="1"
-          id="posq-${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}"
-          style="width:48px;text-align:center;border:1.5px solid var(--brd);border-radius:7px;padding:6px 4px;font-weight:700;font-size:13px"
-          onclick="event.stopPropagation()">
-        <button class="btn btn-acc btn-sm" style="padding:8px 10px"
-          onclick="event.stopPropagation();posQuickAdd('${p.sku}','${color.replace(/'/g,"\\'")}')"
-          ${maxPochka<=0?"disabled":""}>
-          <i class="ti ti-plus"></i>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <div style="text-align:right">
+            <div class="pri-price" style="font-size:13px">${priceDisplay(narx)}</div>
+            <div style="font-size:10.5px;color:${maxPochka<=0?'var(--red)':maxPochka<=5?'#d97706':'var(--mut)'}">
+              ${maxPochka} pochka
+            </div>
+          </div>
+          <input type="number" min="1" max="${maxPochka}" placeholder="1" value="1"
+            id="posq-${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}"
+            style="width:48px;text-align:center;border:1.5px solid var(--brd);border-radius:7px;padding:6px 4px;font-weight:700;font-size:13px"
+            onclick="event.stopPropagation()">
+          <button class="btn btn-ghost btn-sm" style="padding:8px 7px;font-size:10.5px"
+            onclick="event.stopPropagation();posToggleDonaMode('${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}')"
+            title="Dona bo'yicha sotish" id="posdona-btn-${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}">
+            <i class="ti ti-grid-dots"></i>
+          </button>
+          <button class="btn btn-acc btn-sm" style="padding:8px 10px"
+            onclick="event.stopPropagation();posQuickAdd('${p.sku}','${color.replace(/'/g,"\\'")}')"
+            ${maxPochka<=0?"disabled":""}>
+            <i class="ti ti-plus"></i>
+          </button>
+        </div>
+      </div>
+      <div id="posdona-panel-${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--brd)">
+        <div style="font-size:10.5px;color:var(--mut);margin-bottom:5px">O'lcham bo'yicha dona sotish:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          ${colorVariants.map(v => `
+            <div style="display:flex;align-items:center;gap:3px;background:var(--bg);border:1.5px solid var(--brd);border-radius:7px;padding:3px 5px">
+              <span style="font-size:11px;font-weight:600;min-width:20px;text-align:center;color:${v.qty<=0?'#ccc':'inherit'}">${v.size}</span>
+              <input type="number" min="0" max="${v.qty}" placeholder="0" value="0" ${v.qty<=0?'disabled':''}
+                id="posdq-${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}-${v.size}"
+                style="width:36px;text-align:center;border:none;background:transparent;font-size:11px;font-weight:700">
+            </div>`).join("")}
+        </div>
+        <button class="btn btn-acc btn-sm" style="margin-top:6px;width:100%"
+          onclick="posDonaAdd('${p.sku}','${color.replace(/'/g,"\\'")}','${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}')">
+          <i class="ti ti-plus"></i> Donalab qo'shish
         </button>
       </div>
     </div>`;
   }).join("");
+}
+
+// Dona rejimi panelini ochish/yopish
+function posToggleDonaMode(rowId) {
+  const panel = $(`posdona-panel-${rowId}`);
+  if (!panel) return;
+  const isOpen = panel.style.display !== "none";
+  panel.style.display = isOpen ? "none" : "block";
+}
+
+// O'lcham bo'yicha donalab savatga qo'shish
+function posDonaAdd(sku, color, rowId) {
+  const p = db.products.find(x => x.sku === sku); if (!p) return;
+  const colorVariants = p.variants.filter(v => v.color === color);
+  const narx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+
+  let addedTotal = 0;
+  colorVariants.forEach(v => {
+    const inputId = `posdq-${rowId}-${v.size}`;
+    const qtyWanted = parseInt(($(inputId)||{value:0}).value) || 0;
+    if (qtyWanted <= 0) return;
+    if (qtyWanted > v.qty) { toast(`${v.size}: faqat ${v.qty} ta bor`, "err"); return; }
+
+    const ex = cart.find(c => c.sku===sku && c.color===color && c.size===v.size && c.sellMode==="dona");
+    if (ex) ex.qty += qtyWanted;
+    else cart.push({
+      sku, name: p.name, color, size: v.size,
+      unit: p.unit||"dona", price: narx, basePrice: narx, priceType: posPriceType,
+      qty: qtyWanted, qtyBox: null, inBox: null, sellMode: "dona",
+      image: p.image || null, art: p.art || null, barcode: p.barcode || null
+    });
+    addedTotal += qtyWanted;
+    if ($(inputId)) $(inputId).value = 0;
+  });
+
+  if (addedTotal > 0) {
+    toast(`${p.name} (${color}) — ${addedTotal} dona savatchaga qo'shildi`);
+    renderCart();
+  } else {
+    toast("O'lcham va son kiriting", "err");
+  }
 }
 
 // Qidiruv natijasidan to'g'ridan-to'g'ri savatga qo'shish (pochka rejimida)
