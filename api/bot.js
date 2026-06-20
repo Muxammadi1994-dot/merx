@@ -389,7 +389,7 @@ async function cmdQarzlar(chatId, barcha = false) {
 
 // ── Mijozga chek yuborish ──────────────────────────────────────
 function formatReceiptText(sale, shopName) {
-  const payLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma" };
+  const payLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", aralash: "Aralash" };
   const isUsd = sale.debtCurrency === "usd" && sale.debtUsd;
 
   // Qarz satrlari
@@ -511,7 +511,7 @@ async function actionSendStaffNotification(body) {
   const groupId = staffGroupId || STAFF_GROUP;
   if (!groupId) return { ok: false, reason: "no_group_id" };
 
-  const payLabels = { naqd: "💵 Naqd", karta: "💳 Karta", otkazma: "🏦 O'tkazma", nasiya: "📋 Nasiya" };
+  const payLabels = { naqd: "💵 Naqd", karta: "💳 Karta", otkazma: "🏦 O'tkazma", nasiya: "📋 Nasiya", aralash: "🔀 Aralash" };
   const chekId   = sale.chekNum || ("ID" + sale.id);
   const shopN    = shopName || "MERX";
   const items    = sale.items || [];
@@ -592,7 +592,7 @@ function buildStaffOrderHtml(sale, shopName) {
   const custName  = sale.customerName  || sale.customer_name  || "";
   const fmtN = n => Math.round(n || 0).toLocaleString("ru-RU");
 
-  const payLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", nasiya: "Nasiya" };
+  const payLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", nasiya: "Nasiya", aralash: "Aralash" };
 
   // Mahsulot kartochkalari
   const cardsHtml = items.map(it => {
@@ -637,12 +637,18 @@ function buildStaffOrderHtml(sale, shopName) {
   const debtUsdH = sale.debtUsd != null ? Number(sale.debtUsd) : (sale.debt_usd != null ? Number(sale.debt_usd) : null);
   const isUsdH   = debtCurH === "usd" && debtUsdH != null && rem > 0;
   const debtDisp = isUsdH ? `$${debtUsdH.toFixed(2)} USD` : `${fmtN(rem)} so'm`;
+  const payBreakdownH = sale.payBreakdown || sale.pay_breakdown || null;
+  const mixedHtml = payType === "aralash" && payBreakdownH
+    ? Object.entries(payBreakdownH).map(([m,v]) =>
+        `<div class="pay-row muted"><span>${payLabels[m]||m}</span><span>${fmtN(v)} so'm</span></div>`
+      ).join("")
+    : "";
 
   const payHtml = rem > 0
-    ? `<div class="pay-row"><span>To'landi</span><b>${fmtN(paid)} so'm</b></div>
+    ? `${mixedHtml}<div class="pay-row"><span>To'landi</span><b>${fmtN(paid)} so'm</b></div>
        <div class="pay-row debt"><span>Qarz</span><b>${debtDisp}</b></div>
        ${sale.due ? `<div class="pay-row muted"><span>Muddat</span><span>${sale.due}</span></div>` : ""}`
-    : `<div class="paid-badge">✅ To'liq to'landi</div>`;
+    : `${mixedHtml}<div class="paid-badge">✅ To'liq to'landi</div>`;
 
   return `<!DOCTYPE html>
 <html lang="uz"><head>
@@ -862,6 +868,7 @@ function buildReceiptHtml(sale, opts) {
   const date      = sale.date || "";
   const time      = sale.time || "";
   const payType   = sale.payType || sale.pay_type || "";
+  const payBreakdown = sale.payBreakdown || sale.pay_breakdown || null;
   const custName  = sale.customerName || sale.customer_name || "";
   const custPhone = sale.customerPhone || sale.customer_phone || "";
   const total     = Number(sale.total || 0);
@@ -878,7 +885,7 @@ function buildReceiptHtml(sale, opts) {
   const isUsd     = debtCur === "usd" && debtUsd != null;
   const items     = (sale.items || []).filter(Boolean);
 
-  const payLabels = { naqd: "Naqd pul", karta: "Karta", otkazma: "Bank o'tkazmasi" };
+  const payLabels = { naqd: "Naqd pul", karta: "Karta", otkazma: "Bank o'tkazmasi", aralash: "Aralash" };
   const fmtN      = n => Math.round(n || 0).toLocaleString("ru-RU");
 
   const itemsHtml = items.map((i, idx) => {
@@ -1014,6 +1021,9 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
 
     <div class="rc-pay">
       <div class="rc-pr"><span>To'lov turi</span><b style="color:#0D1B2A">${payLabels[payType] || payType || "—"}</b></div>
+      ${payType === "aralash" && payBreakdown ? Object.entries(payBreakdown).map(([m,v]) =>
+        `<div class="rc-pr" style="padding-left:12px"><span style="color:#999">${payLabels[m]||m}</span><span style="color:#666">${fmtN(v)} so'm</span></div>`
+      ).join("") : ""}
       ${discHtml}
       <div class="rc-pr"><span>To'landi</span><span style="color:#059669;font-weight:700">${fmtN(paid)} so'm</span></div>
       ${debtHtml}

@@ -110,34 +110,44 @@ function posSearch() {
     return;
   }
 
-  // Har bir mahsulot + rang = alohida qator (Billz uslubida)
+  // Har bir mahsulot + rang + pochka-guruhi = alohida qator (Billz uslubida)
   const rows = [];
   found.forEach(p => {
     const colors = [...new Set(p.variants.map(v => v.color))];
-    colors.forEach(color => rows.push({ p, color }));
+    colors.forEach(color => {
+      const groups = typeof regroupPackages === "function"
+        ? regroupPackages(p.variants, color)
+        : [{ packGroup:0, isBroken:false,
+             qty: Math.min(...p.variants.filter(v=>v.color===color).map(v=>v.qty)),
+             variants: p.variants.filter(v=>v.color===color) }];
+      groups.forEach(g => rows.push({ p, color, packGroup: g.packGroup, isBroken: g.isBroken, groupQty: g.qty, groupVariants: g.variants }));
+    });
   });
 
-  $("pos-results").innerHTML = rows.map(({p, color}) => {
+  $("pos-results").innerHTML = rows.map(({p, color, packGroup, isBroken, groupQty, groupVariants}) => {
     const narx  = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
-    const inBox = p.inBox || 1;
-    const colorVariants = p.variants.filter(v => v.color === color);
-    const maxPochka = colorVariants.length > 0 ? Math.min(...colorVariants.map(v => v.qty)) : 0;
-    const totalDona = colorVariants.reduce((a,v) => a+v.qty, 0);
+    const inBox = groupVariants.length || 1;
+    const colorVariants = groupVariants;
+    const maxPochka = groupQty;
     const sizesStr  = typeof sizesToRange === "function"
       ? sizesToRange(colorVariants.map(v => v.size).filter(Boolean), p.type)
       : colorVariants.map(v => v.size).join(", ");
     const hex = colorVariants[0]?.hex || "#888";
-    const rowKey = `${p.sku}::${color}`;
+    const rowKey = `${p.sku}::${color}::${packGroup}`;
+    const rowId = rowKey.replace(/[^a-zA-Z0-9]/g,'_');
 
     const imgHtml = p.image
       ? `<img src="${p.image}" style="width:44px;height:44px;object-fit:cover;border-radius:7px;border:1px solid var(--brd);flex-shrink:0">`
       : `<div style="width:44px;height:44px;border:1.5px dashed #e0ddd8;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:16px;flex-shrink:0"><i class="ti ti-photo"></i></div>`;
 
-    return `<div class="pos-ri" style="align-items:center;flex-direction:column;align-items:stretch" data-rowkey="${rowKey}">
+    return `<div class="pos-ri" style="align-items:center;flex-direction:column;align-items:stretch;${isBroken?'background:#FFFBF0;border-color:#f0d882':''}" data-rowkey="${rowKey}">
       <div style="display:flex;align-items:center;gap:14px">
         ${imgHtml}
         <div class="pri-body" style="min-width:0">
-          <div class="pri-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+          <div class="pri-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${p.name}
+            ${isBroken ? `<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:700;padding:1px 6px;border-radius:7px;margin-left:5px">ochilgan</span>` : ""}
+          </div>
           <div class="pri-meta">${color} · ${sizesStr || "—"}${p.art ? " · "+p.art : ""}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
@@ -148,34 +158,34 @@ function posSearch() {
             </div>
           </div>
           <input type="number" min="1" max="${maxPochka}" placeholder="1" value="1"
-            id="posq-${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}"
+            id="posq-${rowId}"
             style="width:48px;text-align:center;border:1.5px solid var(--brd);border-radius:7px;padding:6px 4px;font-weight:700;font-size:13px"
             onclick="event.stopPropagation()">
           <button class="btn btn-ghost btn-sm" style="padding:8px 7px;font-size:10.5px"
-            onclick="event.stopPropagation();posToggleDonaMode('${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}')"
-            title="Dona bo'yicha sotish" id="posdona-btn-${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}">
+            onclick="event.stopPropagation();posToggleDonaMode('${rowId}')"
+            title="Dona bo'yicha sotish" id="posdona-btn-${rowId}">
             <i class="ti ti-grid-dots"></i>
           </button>
           <button class="btn btn-acc btn-sm" style="padding:8px 10px"
-            onclick="event.stopPropagation();posQuickAdd('${p.sku}','${color.replace(/'/g,"\\'")}')"
+            onclick="event.stopPropagation();posQuickAdd('${p.sku}','${color.replace(/'/g,"\\'")}','${packGroup}')"
             ${maxPochka<=0?"disabled":""}>
             <i class="ti ti-plus"></i>
           </button>
         </div>
       </div>
-      <div id="posdona-panel-${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--brd)">
+      <div id="posdona-panel-${rowId}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--brd)">
         <div style="font-size:10.5px;color:var(--mut);margin-bottom:5px">O'lcham bo'yicha dona sotish:</div>
         <div style="display:flex;flex-wrap:wrap;gap:5px">
           ${colorVariants.map(v => `
             <div style="display:flex;align-items:center;gap:3px;background:var(--bg);border:1.5px solid var(--brd);border-radius:7px;padding:3px 5px">
               <span style="font-size:11px;font-weight:600;min-width:20px;text-align:center;color:${v.qty<=0?'#ccc':'inherit'}">${v.size}</span>
               <input type="number" min="0" max="${v.qty}" placeholder="0" value="0" ${v.qty<=0?'disabled':''}
-                id="posdq-${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}-${v.size}"
+                id="posdq-${rowId}-${v.size}"
                 style="width:36px;text-align:center;border:none;background:transparent;font-size:11px;font-weight:700">
             </div>`).join("")}
         </div>
         <button class="btn btn-acc btn-sm" style="margin-top:6px;width:100%"
-          onclick="posDonaAdd('${p.sku}','${color.replace(/'/g,"\\'")}','${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}')">
+          onclick="posDonaAdd('${p.sku}','${color.replace(/'/g,"\\'")}','${rowId}')">
           <i class="ti ti-plus"></i> Donalab qo'shish
         </button>
       </div>
@@ -225,17 +235,23 @@ function posDonaAdd(sku, color, rowId) {
 }
 
 // Qidiruv natijasidan to'g'ridan-to'g'ri savatga qo'shish (pochka rejimida)
-function posQuickAdd(sku, color) {
+function posQuickAdd(sku, color, packGroup) {
   const p = db.products.find(x => x.sku === sku); if (!p) return;
-  const rowKey = `${sku}::${color}`;
+  packGroup = packGroup !== undefined ? parseInt(packGroup) : 0;
+  const rowKey = `${sku}::${color}::${packGroup}`;
   const inputId = `posq-${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}`;
   const qtyInput = parseInt(($(inputId)||{value:1}).value) || 1;
 
-  const colorVariants = p.variants.filter(v => v.color === color);
-  const maxPochka = colorVariants.length > 0 ? Math.min(...colorVariants.map(v => v.qty)) : 0;
-  const inBox = p.inBox || 1;
+  // Shu pochka guruhiga tegishli variantlarni topamiz
+  const groups = typeof regroupPackages === "function" ? regroupPackages(p.variants, color) : [];
+  const g = groups[packGroup];
+  if (!g) { toast("Guruh topilmadi", "err"); return; }
 
-  const alreadyInCart = cart.find(c => c.sku===sku && c.color===color && c.sellMode==="karobka");
+  const groupSizes = g.variants.map(v => v.size);
+  const maxPochka = g.qty;
+  const inBox = g.variants.length || 1;
+
+  const alreadyInCart = cart.find(c => c.sku===sku && c.color===color && c.sellMode==="karobka" && c.packGroup===packGroup);
   const alreadyBoxes  = alreadyInCart ? (alreadyInCart.qtyBox||0) : 0;
 
   if (alreadyBoxes + qtyInput > maxPochka) {
@@ -254,6 +270,7 @@ function posQuickAdd(sku, color) {
       sku, name: p.name, color, size: null,
       unit: p.unit||"dona", price: narx, basePrice: narx, priceType: posPriceType,
       qty: totalDona, qtyBox: qtyInput, inBox, sellMode: "karobka",
+      packGroup, groupSizes,
       image: p.image || null, art: p.art || null, barcode: p.barcode || null
     });
   }
@@ -659,7 +676,9 @@ function setPayMode(m) {
   if (m === "full") setDebtCurrency("uzs");
   if (m === "part") {
     if ($("c-due") && !$("c-due").value) $("c-due").value = addDays(today(), 30);
-    updateRem();
+    // Agar Aralash to'lov tanlangan bo'lsa, c-paid ni darhol sinxronlaymiz
+    if (posPayType === "aralash") updateMixedTotal();
+    else updateRem();
   }
 }
 
@@ -970,10 +989,11 @@ async function checkout() {
   cart.forEach(c => {
     const p = db.products.find(x => x.sku === c.sku); if (!p) return;
     if (c.sellMode === "karobka") {
-      // Pochka mantig'i: har bir pochka = barcha o'lchamlardan 1 tadan.
-      // qtyBox = nechta pochka sotildi — shuncha son har bir o'lchamdan ayiriladi.
+      // Pochka mantig'i: har bir pochka = shu guruh o'lchamlaridan 1 tadan.
+      // qtyBox = nechta pochka sotildi — shuncha son shu guruhdagi har bir o'lchamdan ayiriladi.
       const boxesSold = c.qtyBox || 0;
-      p.variants.filter(v => v.color === c.color).forEach(v => {
+      const targetSizes = c.groupSizes || null; // agar yo'q bo'lsa (eski format) — barcha o'lchamlar
+      p.variants.filter(v => v.color === c.color && (!targetSizes || targetSizes.includes(v.size))).forEach(v => {
         v.qty = Math.max(0, v.qty - boxesSold);
       });
     } else {
