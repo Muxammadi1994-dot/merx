@@ -517,9 +517,17 @@ function omRenderKirim() {
 
 function omRenderSuppliers() {
   const supMap = {};
+
+  // 1) Qo'lda qo'shilgan yetkazuvchilar (hali kirim bo'lmagan bo'lsa ham ko'rinadi)
+  (db.suppliers||[]).forEach(s => {
+    supMap[s.name] = { name:s.name, phone:s.phone||"", note:s.note||"", id:s.id,
+      items:0, value:0, paid:0, debt:0, lastDate:"" };
+  });
+
+  // 2) Kirim tarixidan avtomatik hisoblanadigan statistikalar
   db.ombor.forEach(o => {
     const sup = o.supplier || "Noma'lum yetkazuvchi";
-    if (!supMap[sup]) supMap[sup] = { name:sup, items:0, value:0, paid:0, debt:0, lastDate:"" };
+    if (!supMap[sup]) supMap[sup] = { name:sup, phone:"", note:"", items:0, value:0, paid:0, debt:0, lastDate:"" };
     supMap[sup].items += o.qty;
     const val = (o.kirimNarxi||0) * o.qty;
     supMap[sup].value += val;
@@ -533,6 +541,7 @@ function omRenderSuppliers() {
   el.innerHTML = list.length ? list.map(s => `<tr>
     <td>
       <div style="font-weight:600;font-size:13px">${s.name}</div>
+      ${s.phone ? `<div style="font-size:11px;color:var(--mut)"><i class="ti ti-phone" style="font-size:10px"></i> ${s.phone}</div>` : ""}
       <div style="font-size:11px;color:#bbb">Oxirgi: ${s.lastDate||"—"}</div>
     </td>
     <td class="num">${s.items} dona</td>
@@ -543,8 +552,73 @@ function omRenderSuppliers() {
         ? `<span style="font-weight:700;color:var(--red)">${fmt(s.debt)} so'm</span>`
         : `<span style="color:var(--grn)">✓ To'liq</span>`}
     </td>
+    <td onclick="event.stopPropagation()">
+      ${s.id ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="openEditSupplier(${s.id})" title="Tahrirlash">
+        <i class="ti ti-edit"></i>
+      </button>` : ""}
+    </td>
   </tr>`).join("")
-  : `<tr><td colspan="5" class="empty-td">Yetkazuvchi yo'q</td></tr>`;
+  : `<tr><td colspan="6" class="empty-td">Yetkazuvchi yo'q</td></tr>`;
+}
+
+// ── Yetkazuvchi qo'shish/tahrirlash ───────────────
+let editingSupplierId = null;
+
+function openAddSupplier() {
+  editingSupplierId = null;
+  if ($("sup-name"))  $("sup-name").value = "";
+  if ($("sup-phone")) $("sup-phone").value = "";
+  if ($("sup-note"))  $("sup-note").value = "";
+  if ($("sup-modal-title")) $("sup-modal-title").textContent = "Yangi yetkazuvchi";
+  if ($("sup-delete-btn")) $("sup-delete-btn").style.display = "none";
+  openModal("supplier");
+  setTimeout(() => { if ($("sup-name")) $("sup-name").focus(); }, 50);
+}
+
+function openEditSupplier(id) {
+  const s = (db.suppliers||[]).find(x => x.id === id); if (!s) return;
+  editingSupplierId = id;
+  if ($("sup-name"))  $("sup-name").value  = s.name;
+  if ($("sup-phone")) $("sup-phone").value = s.phone || "";
+  if ($("sup-note"))  $("sup-note").value  = s.note || "";
+  if ($("sup-modal-title")) $("sup-modal-title").textContent = "Yetkazuvchini tahrirlash";
+  if ($("sup-delete-btn")) $("sup-delete-btn").style.display = "";
+  openModal("supplier");
+}
+
+function saveSupplier() {
+  const name  = ($("sup-name")||{value:""}).value.trim();
+  const phone = ($("sup-phone")||{value:""}).value.trim();
+  const note  = ($("sup-note")||{value:""}).value.trim();
+
+  if (!name) { toast("Yetkazuvchi nomini kiriting", "err"); return; }
+  if (!db.suppliers) db.suppliers = [];
+
+  if (editingSupplierId) {
+    const s = db.suppliers.find(x => x.id === editingSupplierId);
+    if (s) { s.name = name; s.phone = phone; s.note = note; }
+  } else {
+    if (db.suppliers.some(x => x.name.toLowerCase() === name.toLowerCase())) {
+      toast("Bu nomdagi yetkazuvchi allaqachon mavjud", "err"); return;
+    }
+    db.suppliers.push({ id: db.seq++, name, phone, note });
+  }
+
+  saveDB();
+  closeModal("supplier");
+  omRenderSuppliers();
+  toast(`"${name}" saqlandi`);
+}
+
+function deleteSupplier() {
+  if (!editingSupplierId) return;
+  const s = db.suppliers.find(x => x.id === editingSupplierId); if (!s) return;
+  if (!confirm(`"${s.name}" yetkazuvchisini ro'yxatdan o'chirasizmi?\nKirim tarixi saqlanib qoladi.`)) return;
+  db.suppliers = db.suppliers.filter(x => x.id !== editingSupplierId);
+  saveDB();
+  closeModal("supplier");
+  omRenderSuppliers();
+  toast("Yetkazuvchi o'chirildi", "info");
 }
 
 function omSearch() { renderOmbor(); }

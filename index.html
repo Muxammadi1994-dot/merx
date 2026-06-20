@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=29">
+<link rel="stylesheet" href="style.css?v=30">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -882,6 +882,11 @@
 
     <!-- TAB 3: Yetkazuvchilar -->
     <div id="om-tab-sup" class="card" style="display:none;overflow-x:auto">
+      <div style="display:flex;justify-content:flex-end;padding:12px 16px;border-bottom:1px solid var(--brd)">
+        <button class="btn btn-acc btn-sm" onclick="openAddSupplier()">
+          <i class="ti ti-plus"></i> Yangi yetkazuvchi
+        </button>
+      </div>
       <table>
         <thead>
           <tr>
@@ -890,6 +895,7 @@
             <th class="num">Jami qiymat</th>
             <th class="num">To'langan</th>
             <th class="num">Qarz</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="om-sup-body"></tbody>
@@ -1981,6 +1987,36 @@
   </div>
 </div>
 
+<!-- MODAL: YETKAZUVCHI -->
+<div class="ov" id="ov-supplier" onclick="if(event.target===this)closeModal('supplier')">
+  <div class="modal">
+    <button class="m-close" onclick="closeModal('supplier')"><i class="ti ti-x"></i></button>
+    <h2 id="sup-modal-title">Yangi yetkazuvchi</h2>
+
+    <div class="fld" style="margin-bottom:12px">
+      <label>Nomi <span style="color:var(--red)">*</span></label>
+      <input id="sup-name" placeholder="Yetkazuvchi nomi yoki firma">
+    </div>
+    <div class="fld" style="margin-bottom:12px">
+      <label>Telefon</label>
+      <input id="sup-phone" placeholder="+998 90 123 45 67">
+    </div>
+    <div class="fld" style="margin-bottom:14px">
+      <label>Eslatma (ixtiyoriy)</label>
+      <input id="sup-note" placeholder="Qo'shimcha ma'lumot...">
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-acc" style="flex:1" onclick="saveSupplier()">
+        <i class="ti ti-check"></i> Saqlash
+      </button>
+      <button class="btn btn-red btn-sm" id="sup-delete-btn" onclick="deleteSupplier()" style="display:none">
+        <i class="ti ti-trash"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: ADD CUSTOMER -->
 
 <div class="ov" id="ov-addcust" onclick="if(event.target===this)closeModal('addcust')">
@@ -2239,23 +2275,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=29"></script>
-<script src="js/utils.js?v=29"></script>
-<script src="js/sms.js?v=29"></script>
-<script src="js/cloud.js?v=29"></script>
-<script src="js/dashboard.js?v=29"></script>
-<script src="js/pos.js?v=29"></script>
-<script src="js/katalog.js?v=29"></script>
-<script src="js/ombor.js?v=29"></script>
-<script src="js/mijozlar.js?v=29"></script>
-<script src="js/qarzlar.js?v=29"></script>
-<script src="js/tarix.js?v=29"></script>
-<script src="js/hisobot.js?v=29"></script>
-<script src="js/xodimlar.js?v=29"></script>
-<script src="js/moliya.js?v=29"></script>
-<script src="js/egasi.js?v=29"></script>
-<script src="js/portal.js?v=29"></script>
-<script src="js/init.js?v=29"></script>
+<script src="js/db.js?v=30"></script>
+<script src="js/utils.js?v=30"></script>
+<script src="js/sms.js?v=30"></script>
+<script src="js/cloud.js?v=30"></script>
+<script src="js/dashboard.js?v=30"></script>
+<script src="js/pos.js?v=30"></script>
+<script src="js/katalog.js?v=30"></script>
+<script src="js/ombor.js?v=30"></script>
+<script src="js/mijozlar.js?v=30"></script>
+<script src="js/qarzlar.js?v=30"></script>
+<script src="js/tarix.js?v=30"></script>
+<script src="js/hisobot.js?v=30"></script>
+<script src="js/xodimlar.js?v=30"></script>
+<script src="js/moliya.js?v=30"></script>
+<script src="js/egasi.js?v=30"></script>
+<script src="js/portal.js?v=30"></script>
+<script src="js/init.js?v=30"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2601,7 +2637,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=29"></script>
-<script src="js/superadmin.js?v=29"></script>
+<script src="js/auth.js?v=30"></script>
+<script src="js/superadmin.js?v=30"></script>
 </body>
 </html>

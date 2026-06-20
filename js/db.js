@@ -91,6 +91,7 @@ function seedDB() {
       omborCols:     {}
     },
     customers:  [],
+    suppliers:  [],
     products:   [],
     sales:      [],
     ombor:      [],
