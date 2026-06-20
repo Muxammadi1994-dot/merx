@@ -719,17 +719,29 @@ function renderQarzlarTarixi() {
   const el = $("qt-list"); if (!el) return;
   const q = ($("qt-q")||{value:""}).value.toLowerCase();
 
-  // Qarzga sotilgan barcha cheklar (origRemaining > 0 bo'lganlar — birinchi marta qarz bilan boshlangan)
-  const debtSalesAll = (db.sales||[]).filter(s => (s.origRemaining||0) > 0 && s.status !== "qaytarilgan");
+  // Qarzga sotilgan barcha cheklar. Yangi sotuvlarda origRemaining bor,
+  // eski (oldin yaratilgan) sotuvlarda bu maydon yo'q — fallback sifatida
+  // joriy total/paid asosida "boshlang'ich qarz bor edimi" deb tekshiramiz.
+  const getOrigDebt = s => {
+    if (s.origRemaining != null) return s.origRemaining;
+    const payments = getSalePayments(s.id);
+    const paidViaPayments = payments.reduce((a,p) => a + (p.currency==="usd" ? p.amount*(db.settings?.rate||12800) : p.amount), 0);
+    const origPaidGuess = Math.max(0, (s.paid||0) - paidViaPayments);
+    return Math.max(0, (s.total||0) - origPaidGuess);
+  };
+  const getOrigPaid = s => s.origPaid != null ? s.origPaid : Math.max(0, (s.total||0) - getOrigDebt(s));
+
+  const debtSalesAll = (db.sales||[]).filter(s => getOrigDebt(s) > 0 && s.status !== "qaytarilgan");
 
   const rows = debtSalesAll.map(s => {
     const st = calcSaleState(s);
-    const totalPaidSinceDebt = (s.origPaid||0) + getSalePayments(s.id).reduce((a,p) => a + (p.currency==="usd" ? p.amount*(db.settings?.rate||12800) : p.amount), 0);
+    const origPaid = getOrigPaid(s);
+    const payments = getSalePayments(s.id);
     let status;
     if (st.remaining <= 0.5) status = "paid";
-    else if (totalPaidSinceDebt > (s.origPaid||0) || (s.origPaid||0) > 0) status = "partial";
+    else if (payments.length > 0 || origPaid > 0) status = "partial";
     else status = "unpaid";
-    return { sale: s, state: st, status };
+    return { sale: s, state: st, status, origDebt: getOrigDebt(s), origPaid };
   });
 
   let filtered = rows;
@@ -740,7 +752,6 @@ function renderQarzlarTarixi() {
     (r.sale.customerPhone||"").includes(q)
   );
 
-  // Statistika badge larini yangilash
   const cntAll = rows.length;
   const cntPaid = rows.filter(r => r.status === "paid").length;
   const cntPartial = rows.filter(r => r.status === "partial").length;
@@ -750,7 +761,6 @@ function renderQarzlarTarixi() {
   if ($("qt-cnt-partial")) $("qt-cnt-partial").textContent = cntPartial;
   if ($("qt-cnt-unpaid")) $("qt-cnt-unpaid").textContent = cntUnpaid;
 
-  // Eng yangi sotuv birinchi
   filtered.sort((a,b) => (a.sale.date+ (a.sale.time||"") < b.sale.date+(b.sale.time||"")) ? 1 : -1);
 
   if (!filtered.length) {
@@ -766,10 +776,10 @@ function renderQarzlarTarixi() {
     unpaid:  { color: "var(--red)", bg: "#FEF2F2", border: "#FECACA", label: "To'lanmagan",        dot: "🔴" },
   };
 
-  el.innerHTML = filtered.map(({sale: s, state: st, status}) => {
+  el.innerHTML = filtered.map(({sale: s, state: st, status, origDebt}) => {
     const meta = statusMeta[status];
     const payments = getSalePayments(s.id);
-    const origTotal = s.origRemaining || 0;
+    const origTotal = origDebt || 0;
     const payPct = origTotal > 0 ? Math.min(100, Math.round((origTotal - st.remaining) / origTotal * 100)) : 100;
     const rowId = `qt-row-${s.id}`;
 
