@@ -335,15 +335,7 @@ function posClear() {
 }
 
 // ── renderPosGrid — utils.js bilan moslik ────────
-function renderPosGrid() {
-  posSearch();
-  renderCartTabs();
-  renderCart();
-  setTimeout(() => {
-    const n = $("pos-note");
-    if (n) { n.value = ""; n.setAttribute("readonly", true); }
-  }, 150);
-}
+
 
 // ── Narx turi ─────────────────────────────────────
 function setPriceType(t) {
