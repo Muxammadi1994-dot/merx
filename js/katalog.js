@@ -620,7 +620,7 @@ function openEditProduct(sku) {
   if ($("ep-unit"))    $("ep-unit").value    = p.unit    || "dona";
   if ($("ep-art"))     $("ep-art").value     = p.art     || "";
   if ($("ep-barcode")) $("ep-barcode").value = p.barcode || "";
-  if ($("ep-inbox"))   $("ep-inbox").value   = p.inBox   || 1;
+  epUpdateInboxDisplay(p);
   if ($("ep-packunit")) {
     $("ep-packunit").innerHTML = (PACK_UNITS[p.type]||["karobka"]).map(u =>
       `<option ${u===p.packUnit?"selected":""}>${u}</option>`).join("");
@@ -642,6 +642,21 @@ function openEditProduct(sku) {
 }
 
 // ── Ranglar bo'yicha karta ko'rinish ──────────────
+
+// 1 pochkada nechta o'lcham borligini avtomatik hisoblab ko'rsatish
+// (mahsulotdagi eng ko'p o'lchamga ega rang guruhi asosida)
+function epUpdateInboxDisplay(p) {
+  const colors = [...new Set(p.variants.map(v => v.color))];
+  let maxSizes = 1;
+  colors.forEach(c => {
+    const cnt = p.variants.filter(v => v.color === c).length;
+    if (cnt > maxSizes) maxSizes = cnt;
+  });
+  p.inBox = maxSizes;
+  if ($("ep-inbox")) $("ep-inbox").value = maxSizes;
+  epUpdateBoxHints();
+}
+
 function epRenderColorCards(p) {
   const colors = [...new Set(p.variants.map(v => v.color))];
   const el = $("ep-color-cards");
@@ -705,6 +720,7 @@ function epDeleteColor(color) {
   if (!confirm(`"${color}" rangini butunlay o'chirasizmi?`)) return;
   p.variants = p.variants.filter(v => v.color !== color);
   epRenderColorCards(p);
+  epUpdateInboxDisplay(p);
   toast(`"${color}" o'chirildi`, "info");
 }
 
@@ -717,6 +733,7 @@ function epAddSizeToColor(color) {
   const ref = p.variants.find(v => v.color === color);
   p.variants.push({ color, size: size.trim(), qty: 0, pantone: ref?.pantone||"", hex: ref?.hex||"#888" });
   epRenderColorCards(p);
+  epUpdateInboxDisplay(p);
 }
 
 // ── Yangi rang qo'shish paneli ──────────────────────
@@ -827,6 +844,7 @@ function epConfirmAddColor() {
   });
 
   epRenderColorCards(p);
+  epUpdateInboxDisplay(p);
   epCloseAddColor();
   toast(`"${color}" qo'shildi`);
 }
