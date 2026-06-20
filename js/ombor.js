@@ -180,6 +180,7 @@ function omRenderQoldiq() {
           name:    p.name,
           category:p.category || "",
           image:   p.image || "",
+          type:    p.type,
           color:   color,
           pantone: pantone,
           qty:     groupTotalQty,
@@ -286,14 +287,17 @@ function omRenderQoldiq() {
         ${r.pantone ? `<div style="font-size:10px;color:#aaa">${r.pantone}</div>` : ""}
       </td>
       ${cols.sizes ? `<td>
-        ${sortedSizes.length > 0 ? `
-          <div style="display:flex;flex-wrap:wrap;gap:3px">
-            ${sortedSizes.map(s => {
-              const lvl = s.qty <= 0 ? "bg-r" : s.qty <= 3 ? "bg-a" : "";
-              return `<span class="bg ${lvl}" style="font-size:10.5px;padding:1px 6px;font-weight:${s.qty<=3?"700":"400"}"
-                title="${s.size}: ${s.qty} ${r.unit}">${s.size}<span style="color:${s.qty<=0?"#dc2626":s.qty<=3?"#92400e":"#888"};margin-left:2px;font-size:9.5px">${s.qty}</span></span>`;
-            }).join("")}
-          </div>` : '<span style="color:#ddd;font-size:12px">—</span>'}
+        ${r.isBroken
+          ? `<div style="display:flex;flex-wrap:wrap;gap:3px">
+              ${sortedSizes.map(s => {
+                const lvl = s.qty <= 0 ? "bg-r" : s.qty <= 3 ? "bg-a" : "";
+                return `<span class="bg ${lvl}" style="font-size:10.5px;padding:1px 6px;font-weight:${s.qty<=3?"700":"400"}"
+                  title="${s.size}: ${s.qty} ${r.unit}">${s.size}<span style="color:${s.qty<=0?"#dc2626":s.qty<=3?"#92400e":"#888"};margin-left:2px;font-size:9.5px">${s.qty}</span></span>`;
+              }).join("")}
+            </div>`
+          : (sortedSizes.length > 0
+              ? `<span style="font-size:12.5px;font-weight:600;color:#0D1B2A">${typeof sizesToRange==="function" ? sizesToRange(sortedSizes.map(s=>s.size), r.type) : sortedSizes.map(s=>s.size).join(", ")}</span>`
+              : '<span style="color:#ddd;font-size:12px">—</span>')}
       </td>` : ""}
       ${cols.boxes ? `<td class="num">${boxCell}</td>` : ""}
       <td class="num">${qBadge}</td>

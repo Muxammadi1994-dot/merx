@@ -454,11 +454,11 @@ function renderKatalog() {
       <td class="kat-col-sku" style="font-family:monospace;font-size:11px;color:var(--mut)">${p.sku}</td>
       <td class="kat-col-art" style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${p.art || '<span style="color:#ddd">—</span>'}</td>
       <td class="kat-col-name">
-        <div style="font-weight:700;font-size:13.5px;color:#0D1B2A">
-          ${p.name}
-          ${isBroken ? `<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;margin-left:6px;white-space:nowrap">ochilgan pochka</span>` : ""}
+        <div style="font-weight:700;font-size:13.5px;color:#0D1B2A">${p.name}</div>
+        <div style="display:flex;align-items:center;gap:5px;margin-top:2px">
+          ${sizesStr ? `<span style="font-size:11.5px;color:#bbb">${sizesStr}</span>` : ""}
+          ${isBroken ? `<span style="background:#FEF3C7;color:#92400E;font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:8px;white-space:nowrap">ochilgan</span>` : ""}
         </div>
-        ${sizesStr ? `<div style="font-size:11.5px;color:#bbb;margin-top:2px">${sizesStr}</div>` : ""}
       </td>
       <td class="kat-col-category" style="font-size:12px;color:var(--mut)">${p.category}</td>
       <td class="kat-col-barcode" style="font-family:monospace;font-size:11.5px">
@@ -682,60 +682,76 @@ function epRenderColorCards(p) {
     const totalQty = variants.reduce((a,v) => a + v.qty, 0);
     const pantone  = variants[0]?.pantone || "";
     const hex      = variants[0]?.hex || "#888";
-    const sizesStr = sizesToRange(variants.map(v => v.size).filter(Boolean), p.type);
-    // Pochka soni: barcha o'lchamlardagi eng kam miqdor (to'liq pochka)
-    const minQty   = variants.length > 0 ? Math.min(...variants.map(v => v.qty)) : 0;
-    const allEqual = variants.every(v => v.qty === minQty);
-    const cardId   = `epcard_${color.replace(/[^a-zA-Z0-9]/g,"_")}`;
+    const groups   = typeof regroupPackages === "function" ? regroupPackages(p.variants, color) : [];
 
     return `<div class="ep-color-card" style="border:1.5px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;background:${hex};border:1px solid rgba(0,0,0,.12)"></div>
         <input value="${color}" data-epcolor="${color}" data-field="color"
           oninput="epUpdateColorField('${color}',this)"
           style="font-weight:700;font-size:13.5px;border:none;background:transparent;flex:1;padding:2px 0">
         <span style="font-size:11px;color:#bbb">${pantone}</span>
+        <span style="font-size:10.5px;color:#bbb">Jami: ${totalQty} dona</span>
         <button class="btn btn-ghost btn-icon btn-sm" onclick="epDeleteColor('${color}')" title="Bu rangni butunlay o'chirish">
           <i class="ti ti-trash" style="color:var(--red)"></i>
         </button>
       </div>
 
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div style="font-size:12px;color:var(--mut)">
-          O'lcham: <strong style="color:#0D1B2A">${sizesStr || "—"}</strong>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:12px;color:var(--mut)">Pochka:</span>
-          ${allEqual
-            ? `<input type="number" value="${minQty}" min="0" data-epbulk="${color}"
-                onchange="epUpdateAllQty('${color}',this.value)"
-                style="width:64px;border:1px solid var(--brd);border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700;text-align:center">`
-            : `<span style="font-size:13px;font-weight:700;color:var(--acc)">turlicha</span>`}
-          <span style="font-size:11px;color:#bbb">${p.packUnit||"pochka"}</span>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="epToggleDetail('${cardId}')" style="font-size:11px;color:var(--mut)">
-          <i class="ti ti-list-details" style="font-size:13px"></i> Tafsilot
-        </button>
-      </div>
-
-      <div id="${cardId}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--brd)">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px">
-          ${variants.map(v => `
-            <div style="display:flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--brd);border-radius:7px;padding:4px 6px">
-              <span style="font-size:11px;color:var(--mut);min-width:24px">${v.size}</span>
-              <input type="number" value="${v.qty}" min="0" data-epqty="${color}::${v.size}"
-                oninput="epUpdateQty('${color}','${v.size}',this.value)"
-                style="width:100%;border:none;background:transparent;font-size:12px;font-weight:600;text-align:right;padding:2px">
-            </div>`).join("")}
-          <button class="btn btn-ghost btn-sm" onclick="epAddSizeToColor('${color}')"
-            style="border:1.5px dashed var(--brd);border-radius:7px;padding:4px 6px;font-size:11px;color:var(--mut)">
-            <i class="ti ti-plus" style="font-size:13px"></i> o'lcham
+      ${groups.map((g, gi) => {
+        const sizesStr = sizesToRange(g.variants.map(v => v.size).filter(Boolean), p.type);
+        const cardId = `epcard_${color.replace(/[^a-zA-Z0-9]/g,"_")}_${gi}`;
+        return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;${gi>0?'border-top:1px dashed var(--brd)':''}">
+          <div style="font-size:12px;color:var(--mut);min-width:90px">
+            O'lcham: <strong style="color:#0D1B2A">${sizesStr || "—"}</strong>
+            ${g.isBroken ? `<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:700;padding:1px 6px;border-radius:7px;margin-left:4px">ochilgan</span>` : ""}
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;color:var(--mut)">Pochka:</span>
+            <input type="number" value="${g.qty}" min="0" data-epgroupqty="${color}::${gi}"
+              onchange="epUpdateGroupQty('${color}',${gi},this.value)"
+              style="width:60px;border:1px solid var(--brd);border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700;text-align:center">
+            <span style="font-size:11px;color:#bbb">${p.packUnit||"pochka"}</span>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="epToggleDetail('${cardId}')" style="font-size:11px;color:var(--mut)">
+            <i class="ti ti-list-details" style="font-size:13px"></i> Tafsilot
           </button>
-        </div>
-        <div style="font-size:10.5px;color:#bbb;margin-top:6px">Jami: ${totalQty} dona</div>
+          <div id="${cardId}" style="display:none;width:100%;margin-top:6px">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:5px">
+              ${g.variants.map(v => `
+                <div style="display:flex;align-items:center;gap:3px;background:var(--bg);border:1px solid var(--brd);border-radius:7px;padding:3px 5px">
+                  <span style="font-size:10.5px;color:var(--mut);min-width:22px">${v.size}</span>
+                  <input type="number" value="${v.qty}" min="0" data-epqty="${color}::${v.size}"
+                    oninput="epUpdateQty('${color}','${v.size}',this.value)"
+                    style="width:100%;border:none;background:transparent;font-size:11px;font-weight:600;text-align:right;padding:1px">
+                </div>`).join("")}
+            </div>
+          </div>
+        </div>`;
+      }).join("")}
+
+      <div style="padding-top:8px">
+        <button class="btn btn-ghost btn-sm" onclick="epAddSizeToColor('${color}')"
+          style="border:1.5px dashed var(--brd);border-radius:7px;padding:4px 10px;font-size:11px;color:var(--mut)">
+          <i class="ti ti-plus" style="font-size:13px"></i> o'lcham qo'shish
+        </button>
       </div>
     </div>`;
   }).join("");
+}
+
+// Pochka guruhidagi barcha o'lchamlarga teng qiymat o'rnatish
+function epUpdateGroupQty(color, groupIdx, val) {
+  const p = db.products.find(x => x.sku === editSku); if (!p) return;
+  const newQty = parseInt(val) || 0;
+  const groups = regroupPackages(p.variants, color);
+  const g = groups[groupIdx]; if (!g) return;
+  // Shu guruhdagi har bir o'lchamning farqini hisoblab, asl variantga qo'shamiz
+  g.variants.forEach(gv => {
+    const v = p.variants.find(x => x.color === color && x.size === gv.size);
+    if (v) v.qty = v.qty - g.qty + newQty;
+  });
+  epRenderColorCards(p);
+  epUpdateInboxDisplay(p);
 }
 
 // Tafsilot panelini ochish/yopish
