@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=30">
+<link rel="stylesheet" href="style.css?v=31">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -753,8 +753,8 @@
           <th class="kat-col-barcode">Barcode</th>
           <th class="kat-col-supplier">Yetkazuvchi</th>
           <th class="kat-col-colors">Ranglar</th>
-          <th class="kat-col-boxes num">Karobka</th>
-          <th class="kat-col-qty num">Dona</th>
+          <th class="kat-col-boxes num">Pochka</th>
+          <th class="kat-col-qty num">Jami dona</th>
           <th class="kat-col-cost num">Tannarx</th>
           <th class="kat-col-ulgurji num">Ulgurji narx</th>
           <th class="kat-col-chakana num">Chakana</th>
@@ -1604,14 +1604,14 @@
           <select id="ap-size-to" onchange="apCalcBoxes()" disabled></select>
         </div>
         <div class="fld">
-          <label>To'plam soni</label>
+          <label>Pochka soni <span style="font-weight:400;color:var(--mut)">(har bir o'lchamdan shuncha)</span></label>
           <input id="ap-boxes" type="number" min="1" value="1" oninput="apCalcBoxes()">
         </div>
       </div>
       <div class="r3">
         <div class="fld">
-          <label>To'plamda nechta</label>
-          <input id="ap-inbox-calc" type="number" min="1" placeholder="6" value="6" oninput="apCalcBoxes()">
+          <label>1 pochkada nechta o'lcham</label>
+          <input id="ap-inbox-calc" type="number" readonly style="background:var(--bg2)">
         </div>
         <div class="fld">
           <label>Jami dona (avtomatik)</label>
@@ -1793,14 +1793,14 @@
           <select id="epa-size-to" disabled onchange="epaCalc()"></select>
         </div>
         <div class="fld">
-          <label>To'plam soni</label>
+          <label>Pochka soni</label>
           <input id="epa-boxes" type="number" min="1" value="1" oninput="epaCalc()">
         </div>
       </div>
       <div class="r3">
         <div class="fld">
-          <label>To'plamda nechta</label>
-          <input id="epa-inbox" type="number" min="1" value="6" oninput="epaCalc()">
+          <label>1 pochkada nechta o'lcham</label>
+          <input id="epa-inbox" type="number" readonly style="background:var(--bg2)">
         </div>
         <div class="fld">
           <label>Jami dona</label>
@@ -2275,23 +2275,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=30"></script>
-<script src="js/utils.js?v=30"></script>
-<script src="js/sms.js?v=30"></script>
-<script src="js/cloud.js?v=30"></script>
-<script src="js/dashboard.js?v=30"></script>
-<script src="js/pos.js?v=30"></script>
-<script src="js/katalog.js?v=30"></script>
-<script src="js/ombor.js?v=30"></script>
-<script src="js/mijozlar.js?v=30"></script>
-<script src="js/qarzlar.js?v=30"></script>
-<script src="js/tarix.js?v=30"></script>
-<script src="js/hisobot.js?v=30"></script>
-<script src="js/xodimlar.js?v=30"></script>
-<script src="js/moliya.js?v=30"></script>
-<script src="js/egasi.js?v=30"></script>
-<script src="js/portal.js?v=30"></script>
-<script src="js/init.js?v=30"></script>
+<script src="js/db.js?v=31"></script>
+<script src="js/utils.js?v=31"></script>
+<script src="js/sms.js?v=31"></script>
+<script src="js/cloud.js?v=31"></script>
+<script src="js/dashboard.js?v=31"></script>
+<script src="js/pos.js?v=31"></script>
+<script src="js/katalog.js?v=31"></script>
+<script src="js/ombor.js?v=31"></script>
+<script src="js/mijozlar.js?v=31"></script>
+<script src="js/qarzlar.js?v=31"></script>
+<script src="js/tarix.js?v=31"></script>
+<script src="js/hisobot.js?v=31"></script>
+<script src="js/xodimlar.js?v=31"></script>
+<script src="js/moliya.js?v=31"></script>
+<script src="js/egasi.js?v=31"></script>
+<script src="js/portal.js?v=31"></script>
+<script src="js/init.js?v=31"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2637,7 +2637,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=30"></script>
-<script src="js/superadmin.js?v=30"></script>
+<script src="js/auth.js?v=31"></script>
+<script src="js/superadmin.js?v=31"></script>
 </body>
 </html>

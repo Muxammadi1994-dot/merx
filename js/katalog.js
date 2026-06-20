@@ -215,8 +215,8 @@ const KAT_ALL_COLS = [
   { key:"barcode",  lbl:"Barcode",          def:true  },
   { key:"supplier", lbl:"Yetkazuvchi",      def:false },
   { key:"colors",   lbl:"Ranglar",          def:true  },
-  { key:"boxes",    lbl:"Karobka soni",     def:true  },
-  { key:"qty",      lbl:"Miqdor (dona)",    def:true  },
+  { key:"boxes",    lbl:"Pochka soni",       def:true  },
+  { key:"qty",      lbl:"Jami dona",         def:true  },
   { key:"cost",     lbl:"Tannarx",          def:true  },
   { key:"ulgurji",  lbl:"Ulgurji narx",     def:true  },
   { key:"chakana",  lbl:"Chakana narx",     def:false },
@@ -398,15 +398,18 @@ function renderKatalog() {
   $("katalog-body").innerHTML = pageRows.length ? pageRows.map(({product:p, color}) => {
     // Shu rangga oid variantlar (turli o'lchamlar)
     const colorVariants = p.variants.filter(v => v.color === color);
-    const colorQty = colorVariants.reduce((a,v) => a + v.qty, 0);
-    const pantone  = colorVariants[0]?.pantone || "";
     const sizesStr = colorVariants.map(v => v.size).filter(Boolean).join(", ");
 
     const inBox   = p.inBox || 1;
     const costUzs = (p.costUsd || 0) * rate;
 
-    // Karobka jami (shu rang uchun)
-    const totalBoxes = inBox > 1 ? Math.floor(colorQty / inBox) : null;
+    // Pochka soni: barcha o'lchamlarda bir xil bo'lishi kerak (masalan har birida 100 ta)
+    const pochkaSoni = colorVariants.length > 0
+      ? Math.min(...colorVariants.map(v => v.qty))
+      : 0;
+    // Jami dona (haqiqiy umumiy miqdor — barcha o'lchamlar yig'indisi)
+    const colorQty = colorVariants.reduce((a,v) => a + v.qty, 0);
+    const pantone  = colorVariants[0]?.pantone || "";
 
     // Margin (ulgurji asosida)
     const margin = p.ulgurjiNarx > 0 && costUzs > 0
@@ -454,15 +457,13 @@ function renderKatalog() {
         ${pantone ? `<div style="font-size:10px;color:#bbb">${pantone}</div>` : ""}
       </td>
       <td class="kat-col-boxes num">
-        ${totalBoxes != null
-          ? `<span style="font-weight:700;font-size:14px">${totalBoxes}</span>
-             <span style="font-size:10.5px;color:#bbb;margin-left:3px">${p.packUnit||"karobka"}</span>`
-          : `<span style="color:#bbb;font-size:12px">—</span>`}
+        <span class="bg ${pochkaSoni<=0?"bg-r":pochkaSoni<=5?"bg-a":"bg-g"}" style="font-weight:700">
+          ${pochkaSoni} ${p.packUnit||"pochka"}
+        </span>
+        ${sizesStr ? `<div style="font-size:10px;color:#bbb;margin-top:2px">har birida: ${sizesStr}</div>` : ""}
       </td>
       <td class="kat-col-qty num">
-        <span class="bg ${colorQty<=0?"bg-r":colorQty<=5?"bg-a":"bg-g"}" style="font-weight:700">
-          ${colorQty} ${p.unit||"dona"}
-        </span>
+        <span style="font-size:12.5px;color:var(--mut)">${colorQty} ${p.unit||"dona"}</span>
       </td>
       <td class="kat-col-cost num" style="font-size:12.5px">
         ${costUzs ? `<div style="font-weight:600">${priceDisplay(costUzs)}</div>` : "—"}
@@ -652,6 +653,9 @@ function epRenderColorCards(p) {
     const totalQty = variants.reduce((a,v) => a + v.qty, 0);
     const pantone  = variants[0]?.pantone || "";
     const hex      = variants[0]?.hex || "#888";
+    // Pochka soni: barcha o'lchamlardagi eng kam miqdor (to'liq pochka)
+    const minQty   = variants.length > 0 ? Math.min(...variants.map(v => v.qty)) : 0;
+    const allEqual = variants.every(v => v.qty === minQty);
     return `<div class="ep-color-card" style="border:1.5px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;background:${hex};border:1px solid rgba(0,0,0,.12)"></div>
@@ -659,7 +663,9 @@ function epRenderColorCards(p) {
           oninput="epUpdateColorField('${color}',this)"
           style="font-weight:700;font-size:13.5px;border:none;background:transparent;flex:1;padding:2px 0">
         <span style="font-size:11px;color:#bbb">${pantone}</span>
-        <span style="font-size:12px;font-weight:700;color:var(--mut);margin-left:auto">${totalQty} dona</span>
+        <span style="font-size:12px;font-weight:700;color:var(--mut);margin-left:auto">
+          ${minQty} ${p.packUnit||"pochka"}${!allEqual ? ` <span style="color:var(--acc);font-weight:400">(teng emas)</span>` : ""}
+        </span>
         <button class="btn btn-ghost btn-icon btn-sm" onclick="epDeleteColor('${color}')" title="Bu rangni butunlay o'chirish">
           <i class="ti ti-trash" style="color:var(--red)"></i>
         </button>
@@ -677,6 +683,7 @@ function epRenderColorCards(p) {
           <i class="ti ti-plus" style="font-size:13px"></i> o'lcham
         </button>
       </div>
+      <div style="font-size:10.5px;color:#bbb;margin-top:6px">Jami: ${totalQty} dona</div>
     </div>`;
   }).join("");
 }
@@ -776,9 +783,20 @@ function epaResetSizeToStandard() {
 function epaCalc() {
   const from = ($("epa-size-from")||{value:""}).value;
   const to   = ($("epa-size-to")||{value:""}).value;
-  const boxes  = parseInt(($("epa-boxes")||{value:1}).value)  || 1;
-  const inBoxC = parseInt(($("epa-inbox")||{value:1}).value)  || 1;
-  if ($("epa-qty")) $("epa-qty").value = boxes * inBoxC;
+  const boxes = parseInt(($("epa-boxes")||{value:1}).value) || 1;
+
+  const p = db.products.find(x => x.sku === editSku);
+  const t = p?.type || "oyoq";
+  const allSizes = SIZES[t] || [];
+  const iFrom = allSizes.indexOf(from), iTo = allSizes.indexOf(to);
+  let sizeCount = 1;
+  if (from && to) {
+    if (from === to) sizeCount = 1;
+    else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) sizeCount = iTo - iFrom + 1;
+  }
+
+  if ($("epa-inbox")) $("epa-inbox").value = sizeCount;
+  if ($("epa-qty"))   $("epa-qty").value   = boxes * sizeCount;
   const lbl = $("epa-size-lbl");
   if (lbl) lbl.textContent = from && to ? (from===to?from:`${from}–${to}`) : "";
 }
@@ -796,8 +814,8 @@ function epConfirmAddColor() {
   const to      = ($("epa-size-to")||{value:""}).value;
   if (!from || !to) { toast("O'lchamni tanlang","err"); return; }
 
-  const totalQty = parseInt(($("epa-qty")||{value:0}).value) || 0;
-  if (totalQty <= 0) { toast("To'plam soni va miqdorni kiriting","err"); return; }
+  const boxes = parseInt(($("epa-boxes")||{value:0}).value) || 0;
+  if (boxes <= 0) { toast("Pochka sonini kiriting","err"); return; }
 
   const allSizes = SIZES[p.type] || [];
   const iFrom = allSizes.indexOf(from), iTo = allSizes.indexOf(to);
@@ -806,12 +824,9 @@ function epConfirmAddColor() {
   else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) sizeRange = allSizes.slice(iFrom, iTo+1);
   else sizeRange = [from, to];
 
-  const perSize = Math.floor(totalQty / sizeRange.length);
-  let remainder = totalQty - perSize * sizeRange.length;
+  // Pochka mantig'i: har bir o'lchamga bir xil son (boxes)
   sizeRange.forEach(sz => {
-    const q = perSize + (remainder > 0 ? 1 : 0);
-    if (remainder > 0) remainder--;
-    p.variants.push({ color, size: sz, qty: q, pantone, hex });
+    p.variants.push({ color, size: sz, qty: boxes, pantone, hex });
   });
 
   epRenderColorCards(p);
@@ -960,12 +975,23 @@ function apSetStandardSizeRange() {
 
 function apCalcBoxes() {
   const boxes  = parseInt(($("ap-boxes")||{value:1}).value)          || 1;
-  const inBoxC = parseInt(($("ap-inbox-calc")||{value:0}).value)     || 0;
   const from   = ($("ap-size-from")||{value:""}).value;
   const to     = ($("ap-size-to")||{value:""}).value;
-  const total  = inBoxC > 0 ? boxes * inBoxC : 0;
 
-  if ($("ap-qty-range"))  $("ap-qty-range").value = total;
+  // O'lchamlar sonini hisoblash (39-44 = 6 ta o'lcham)
+  const t = currentApType || "oyoq";
+  const allSizes = SIZES[t] || [];
+  const iFrom = allSizes.indexOf(from), iTo = allSizes.indexOf(to);
+  let sizeCount = 1;
+  if (from && to) {
+    if (from === to) sizeCount = 1;
+    else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) sizeCount = iTo - iFrom + 1;
+  }
+
+  const total = boxes * sizeCount;
+
+  if ($("ap-inbox-calc")) $("ap-inbox-calc").value = sizeCount;
+  if ($("ap-qty-range"))  $("ap-qty-range").value  = total;
 
   const prev = $("ap-size-range-preview");
   if (prev && from && to) prev.textContent = from === to ? `→ faqat ${from}` : `→ ${from}–${to}`;
@@ -1009,8 +1035,7 @@ function addProduct() {
 
   const boxes  = parseInt(($("ap-boxes")||{value:1}).value)      || 1;
   const inBox  = parseInt(($("ap-inbox-calc")||{value:1}).value) || 1;
-  const totalQty = boxes * inBox;
-  if (totalQty <= 0) { toast("To'plam soni va to'plamdagi miqdorni kiriting","err"); return; }
+  if (boxes <= 0) { toast("Pochka sonini kiriting","err"); return; }
 
   // SIZES ro'yxatidan from..to oralig'ini olish
   const allSizes = SIZES[t] || [];
@@ -1024,14 +1049,12 @@ function addProduct() {
     sizeRange = [from, to]; // fallback
   }
 
-  // Jami miqdorni o'lchamlar orasida teng taqsimlash
-  const perSize = Math.floor(totalQty / sizeRange.length);
-  let remainder = totalQty - perSize * sizeRange.length;
-  const newVariants = sizeRange.map(sz => {
-    const q = perSize + (remainder > 0 ? 1 : 0);
-    if (remainder > 0) remainder--;
-    return { color, size: sz, qty: q, pantone, hex };
-  });
+  // Pochka mantig'i: har bir pochkada har o'lchamdan 1 tadan bo'ladi.
+  // "boxes" soni = nechta pochka keldi. Har bir o'lcham shu songa teng dona oladi
+  // (masalan 100 pochka × har birida 39-44 dan 1 tadan = har o'lchamda 100 dona).
+  const newVariants = sizeRange.map(sz => ({ color, size: sz, qty: boxes, pantone, hex }));
+  // 1 pochkada nechta dona bor — bu o'lchamlar soniga teng (39-44 = 6 ta o'lcham = 6 dona)
+  const effectiveInBox = sizeRange.length;
 
   let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (p) {
@@ -1049,7 +1072,7 @@ function addProduct() {
     db.products.push({
       sku: `${t==="oyoq"?"SHOE":"CLTH"}-${String(db.seq++).padStart(3,"0")}`,
       name, category: ($("ap-cat")||{value:""}).value,
-      type:t, unit, inBox, packUnit,
+      type:t, unit, inBox: effectiveInBox, packUnit,
       art: art || "",
       costUsd:cost, priceUzs:price, ulgurjiNarx:ulg,
       barcode: autoBarcode,
@@ -1239,11 +1262,10 @@ function exportKatalogExcel() {
   if (shopType === "ikki") headers.push("Turi");
   if (fields.unit) headers.push("Birlik");
   if (fields.packunit) headers.push("To'plam birligi");
-  headers.push("To'plamda nechta");
   if (fields.barcode) headers.push("Barcode");
   headers.push("Rang");
   if (fields.pantone) headers.push("Pantone");
-  headers.push("O'lcham", "Qoldiq (dona)");
+  headers.push("O'lchamlar", "Pochka soni", "1 pochkada", "Jami dona");
   if (fields.cost) headers.push("Tannarx (USD)", "Tannarx (so'm)");
   headers.push("Ulgurji narx (so'm)", "Margin (%)");
 
@@ -1254,18 +1276,25 @@ function exportKatalogExcel() {
     const margin = p.ulgurjiNarx > 0 && costUzs > 0
       ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : "";
 
-    const variantList = (p.variants && p.variants.length) ? p.variants : [{color:"",size:"",qty:0,pantone:""}];
-    variantList.forEach(v => {
+    const colors = [...new Set((p.variants||[]).map(v => v.color))];
+    const colorList = colors.length ? colors : [""];
+
+    colorList.forEach(color => {
+      const variants = p.variants.filter(v => v.color === color);
+      const sizesStr = variants.map(v => v.size).filter(Boolean).join(", ");
+      const pochkaSoni = variants.length > 0 ? Math.min(...variants.map(v => v.qty)) : 0;
+      const jamiDona = variants.reduce((a,v) => a + v.qty, 0);
+      const pantone = variants[0]?.pantone || "";
+
       const row = [p.name, p.art || ""];
       if (fields.category) row.push(p.category);
       if (shopType === "ikki") row.push(p.type === "oyoq" ? "Oyoq kiyim" : "Kiyim");
       if (fields.unit) row.push(p.unit || "dona");
-      if (fields.packunit) row.push(p.packUnit || "karobka");
-      row.push(p.inBox || 1);
+      if (fields.packunit) row.push(p.packUnit || "pochka");
       if (fields.barcode) row.push(p.barcode || "");
-      row.push(v.color);
-      if (fields.pantone) row.push(v.pantone || "");
-      row.push(v.size, v.qty);
+      row.push(color);
+      if (fields.pantone) row.push(pantone);
+      row.push(sizesStr, pochkaSoni, p.inBox || 1, jamiDona);
       if (fields.cost) row.push(p.costUsd || 0, costUzs);
       row.push(p.ulgurjiNarx || 0, margin);
       rows.push(row);

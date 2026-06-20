@@ -178,7 +178,8 @@ function omRenderQoldiq() {
 
     Object.values(colorGroups).forEach(cg => {
       const inBox   = p.inBox || 1;
-      const boxes   = inBox > 1 ? (cg.qty / inBox) : null;
+      // Pochka soni: barcha o'lchamlarda bir xil bo'lishi kerak (eng kam qiymat = to'liq pochka)
+      const boxes   = cg.sizes.length > 0 ? Math.min(...cg.sizes.map(s => s.qty)) : null;
       const costUzs = Math.round((p.costUsd || 0) * rate);
       const margin  = p.ulgurjiNarx > 0 && costUzs > 0
         ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : null;
@@ -238,8 +239,8 @@ function omRenderQoldiq() {
     ${cols.barcode    ? '<th style="width:130px">Barcode</th>' : ""}
     <th>Rang</th>
     ${cols.sizes      ? "<th>O'lchamlar</th>" : ""}
-    ${cols.boxes      ? '<th class="num">Karobka</th>' : ""}
-    <th class="num">Dona soni</th>
+    ${cols.boxes      ? '<th class="num">Pochka</th>' : ""}
+    <th class="num">Jami dona</th>
     ${cols.tannarx    ? "<th class='num'>Tannarx</th>" : ""}
     ${cols.ulgurji    ? "<th class='num'>Ulgurji narx</th>" : ""}
     ${(showChakana && cols.chakana) ? "<th class='num'>Chakana narx</th>" : ""}
@@ -249,19 +250,14 @@ function omRenderQoldiq() {
   </tr>`;
 
   const tbody = rows.length ? rows.map(r => {
-    const qBadge = r.qty <= 0
-      ? `<span class="bg bg-r">Tugagan</span>`
-      : r.qty <= 3
-        ? `<span class="bg bg-a" style="font-weight:700">${r.qty} ${r.unit}</span>`
-        : r.qty <= 10
-          ? `<span class="bg" style="background:#FFF8E7;color:#856404;font-weight:600">${r.qty} ${r.unit}</span>`
-          : `<span class="bg bg-g">${r.qty} ${r.unit}</span>`;
+    const qBadge = `<span style="font-size:12.5px;color:var(--mut)">${r.qty} ${r.unit}</span>`;
 
-    const boxCell = r.inBox > 1
-      ? `<span style="font-weight:700;font-size:14px">${r.boxes != null ? (Number.isInteger(r.boxes) ? r.boxes : r.boxes.toFixed(1)) : '—'}</span>
-         <span style="font-size:10.5px;color:#bbb;margin-left:3px">${r.packUnit}</span>
-         <div style="font-size:10px;color:#aaa">×${r.inBox} ${r.unit}</div>`
-      : `<span style="font-size:12px;color:#bbb">donab</span>`;
+    const boxCell = r.boxes != null
+      ? `<span class="bg ${r.boxes<=0?"bg-r":r.boxes<=3?"bg-a":"bg-g"}" style="font-weight:700">
+           ${r.boxes} ${r.packUnit||"pochka"}
+         </span>
+         <div style="font-size:10px;color:#aaa;margin-top:2px">×${r.inBox} ${r.unit}</div>`
+      : `<span style="font-size:12px;color:#bbb">—</span>`;
 
     const sortedSizes = (r.sizes||[]).slice().sort((a,b) => {
       const na = parseFloat(a.size), nb = parseFloat(b.size);
