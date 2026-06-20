@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=37">
+<link rel="stylesheet" href="style.css?v=38">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -73,12 +73,11 @@
 .pos-results{flex:1;overflow-y:auto;padding:14px}
 .pos-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;text-align:center}
 
-/* ─ Mahsulot kartasi ─ */
-.pos-ri{display:flex;align-items:center;gap:14px;padding:13px 16px;border-radius:14px;border:1.5px solid #EDEAE4;background:#fff;margin-bottom:10px;cursor:pointer;transition:all .18s;box-shadow:0 1px 4px rgba(0,0,0,.04)}
-.pos-ri:hover{border-color:#E9A500;box-shadow:0 4px 18px rgba(233,165,0,.18);transform:translateY(-2px)}
-.pos-ri:active{transform:none;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+/* ─ Mahsulot kartasi (rang darajasida qator) ─ */
+.pos-ri{display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:12px;border:1.5px solid #EDEAE4;background:#fff;margin-bottom:8px;transition:all .15s;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.pos-ri:hover{border-color:#E9A500}
 .pri-body{flex:1;min-width:0}
-.pri-name{font-weight:700;font-size:14px;color:#0D1B2A;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pri-name{font-weight:700;font-size:13.5px;color:#0D1B2A;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pri-meta{font-size:11.5px;color:#B8B2A8;margin-bottom:5px}
 .pri-colors{display:flex;flex-wrap:wrap;gap:5px}
 .pri-clr{font-size:11px;background:#F4F2EE;border:1px solid #E8E5E0;border-radius:5px;padding:2px 8px;color:#666;display:inline-flex;align-items:center;gap:4px}
@@ -2277,23 +2276,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=37"></script>
-<script src="js/utils.js?v=37"></script>
-<script src="js/sms.js?v=37"></script>
-<script src="js/cloud.js?v=37"></script>
-<script src="js/dashboard.js?v=37"></script>
-<script src="js/pos.js?v=37"></script>
-<script src="js/katalog.js?v=37"></script>
-<script src="js/ombor.js?v=37"></script>
-<script src="js/mijozlar.js?v=37"></script>
-<script src="js/qarzlar.js?v=37"></script>
-<script src="js/tarix.js?v=37"></script>
-<script src="js/hisobot.js?v=37"></script>
-<script src="js/xodimlar.js?v=37"></script>
-<script src="js/moliya.js?v=37"></script>
-<script src="js/egasi.js?v=37"></script>
-<script src="js/portal.js?v=37"></script>
-<script src="js/init.js?v=37"></script>
+<script src="js/db.js?v=38"></script>
+<script src="js/utils.js?v=38"></script>
+<script src="js/sms.js?v=38"></script>
+<script src="js/cloud.js?v=38"></script>
+<script src="js/dashboard.js?v=38"></script>
+<script src="js/pos.js?v=38"></script>
+<script src="js/katalog.js?v=38"></script>
+<script src="js/ombor.js?v=38"></script>
+<script src="js/mijozlar.js?v=38"></script>
+<script src="js/qarzlar.js?v=38"></script>
+<script src="js/tarix.js?v=38"></script>
+<script src="js/hisobot.js?v=38"></script>
+<script src="js/xodimlar.js?v=38"></script>
+<script src="js/moliya.js?v=38"></script>
+<script src="js/egasi.js?v=38"></script>
+<script src="js/portal.js?v=38"></script>
+<script src="js/init.js?v=38"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2639,7 +2638,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=37"></script>
-<script src="js/superadmin.js?v=37"></script>
+<script src="js/auth.js?v=38"></script>
+<script src="js/superadmin.js?v=38"></script>
 </body>
 </html>

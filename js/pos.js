@@ -84,7 +84,12 @@ function posSearch() {
   if (clrBtn) clrBtn.style.display = q ? "flex" : "none";
 
   if (!q) {
-    posShowRecent();
+    // Bo'sh qidiruvda hech narsa ko'rsatilmaydi (Billz uslubi)
+    $("pos-results").innerHTML = `
+      <div class="pos-empty">
+        <i class="ti ti-search"></i>
+        <div>Mahsulot qidiring...</div>
+      </div>`;
     return;
   }
   const ql = q.toLowerCase();
@@ -105,42 +110,94 @@ function posSearch() {
     return;
   }
 
-  $("pos-results").innerHTML = found.map(p => {
+  // Har bir mahsulot + rang = alohida qator (Billz uslubida)
+  const rows = [];
+  found.forEach(p => {
+    const colors = [...new Set(p.variants.map(v => v.color))];
+    colors.forEach(color => rows.push({ p, color }));
+  });
+
+  $("pos-results").innerHTML = rows.map(({p, color}) => {
     const narx  = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
-    const st    = totalStock(p);
     const inBox = p.inBox || 1;
-    const boxBadge = posPriceType === "ulgurji" && inBox > 1
-      ? `<span class="pri-box-badge">📦 ${inBox} ${p.unit||"dona"}/pochka</span>` : "";
-    const colorDots = [...new Set(p.variants.map(v => v.color))].map(c => {
-      const v   = p.variants.find(x => x.color === c);
-      const hex = v?.hex || "#888";
-      const qty = p.variants.filter(x => x.color===c).reduce((a,v)=>a+v.qty,0);
-      return `<span class="pri-clr">
-        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;
-          background:${hex};border:1px solid rgba(0,0,0,.15);vertical-align:middle;margin-right:3px"></span>
-        ${c} (${qty})</span>`;
-    }).join("");
+    const colorVariants = p.variants.filter(v => v.color === color);
+    const maxPochka = colorVariants.length > 0 ? Math.min(...colorVariants.map(v => v.qty)) : 0;
+    const totalDona = colorVariants.reduce((a,v) => a+v.qty, 0);
+    const sizesStr  = typeof sizesToRange === "function"
+      ? sizesToRange(colorVariants.map(v => v.size).filter(Boolean), p.type)
+      : colorVariants.map(v => v.size).join(", ");
+    const hex = colorVariants[0]?.hex || "#888";
+    const rowKey = `${p.sku}::${color}`;
+
     const imgHtml = p.image
-      ? `<img src="${p.image}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--brd);flex-shrink:0">`
-      : `<div style="width:52px;height:52px;border:1.5px dashed #e0ddd8;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:20px;flex-shrink:0"><i class="ti ti-photo"></i></div>`;
-    return `<div class="pos-ri" onclick="openVariantModal('${p.sku}')">
+      ? `<img src="${p.image}" style="width:44px;height:44px;object-fit:cover;border-radius:7px;border:1px solid var(--brd);flex-shrink:0">`
+      : `<div style="width:44px;height:44px;border:1.5px dashed #e0ddd8;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:16px;flex-shrink:0"><i class="ti ti-photo"></i></div>`;
+
+    return `<div class="pos-ri" style="align-items:center">
       ${imgHtml}
-      <div class="pri-body">
-        <div class="pri-name">${p.name}</div>
-        <div class="pri-meta">${p.category}${p.art ? ' · ' + p.art : ' · ' + p.sku}${boxBadge}</div>
-        <div class="pri-colors">${colorDots}</div>
+      <div class="pri-body" style="min-width:0">
+        <div class="pri-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+        <div class="pri-meta">${color} · ${sizesStr || "—"}${p.art ? " · "+p.art : ""}</div>
       </div>
-      <div class="pri-right">
-        <div class="pri-price">${priceDisplay(narx)}</div>
-        <div class="pri-stock ${st<=5?"low":""}">
-          ${st} ${p.unit||"dona"}
-          ${inBox>1?`<span style="font-size:10px;color:#bbb">(${Math.floor(st/inBox)} pochka)</span>`:""}
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <div style="text-align:right">
+          <div class="pri-price" style="font-size:13px">${priceDisplay(narx)}</div>
+          <div style="font-size:10.5px;color:${maxPochka<=0?'var(--red)':maxPochka<=5?'#d97706':'var(--mut)'}">
+            ${maxPochka} pochka
+          </div>
         </div>
-        ${p.ulgurjiNarx && posPriceType==="chakana"
-          ? `<div style="font-size:10px;color:#aaa">Ulgurji: ${priceDisplay(p.ulgurjiNarx)}</div>` : ""}
+        <input type="number" min="1" max="${maxPochka}" placeholder="1" value="1"
+          id="posq-${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}"
+          style="width:48px;text-align:center;border:1.5px solid var(--brd);border-radius:7px;padding:6px 4px;font-weight:700;font-size:13px"
+          onclick="event.stopPropagation()">
+        <button class="btn btn-acc btn-sm" style="padding:8px 10px"
+          onclick="event.stopPropagation();posQuickAdd('${p.sku}','${color.replace(/'/g,"\\'")}')"
+          ${maxPochka<=0?"disabled":""}>
+          <i class="ti ti-plus"></i>
+        </button>
       </div>
     </div>`;
   }).join("");
+}
+
+// Qidiruv natijasidan to'g'ridan-to'g'ri savatga qo'shish (pochka rejimida)
+function posQuickAdd(sku, color) {
+  const p = db.products.find(x => x.sku === sku); if (!p) return;
+  const rowKey = `${sku}::${color}`;
+  const inputId = `posq-${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}`;
+  const qtyInput = parseInt(($(inputId)||{value:1}).value) || 1;
+
+  const colorVariants = p.variants.filter(v => v.color === color);
+  const maxPochka = colorVariants.length > 0 ? Math.min(...colorVariants.map(v => v.qty)) : 0;
+  const inBox = p.inBox || 1;
+
+  const alreadyInCart = cart.find(c => c.sku===sku && c.color===color && c.sellMode==="karobka");
+  const alreadyBoxes  = alreadyInCart ? (alreadyInCart.qtyBox||0) : 0;
+
+  if (alreadyBoxes + qtyInput > maxPochka) {
+    toast(`Faqat ${maxPochka - alreadyBoxes} pochka bor`, "err");
+    return;
+  }
+
+  const narx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+  const totalDona = qtyInput * inBox;
+
+  if (alreadyInCart) {
+    alreadyInCart.qty += totalDona;
+    alreadyInCart.qtyBox = (alreadyInCart.qtyBox||0) + qtyInput;
+  } else {
+    cart.push({
+      sku, name: p.name, color, size: null,
+      unit: p.unit||"dona", price: narx, basePrice: narx, priceType: posPriceType,
+      qty: totalDona, qtyBox: qtyInput, inBox, sellMode: "karobka",
+      image: p.image || null, art: p.art || null, barcode: p.barcode || null
+    });
+  }
+
+  toast(`${p.name} (${color}) × ${qtyInput} pochka savatchaga qo'shildi`);
+  renderCart();
+  // Inputni 1 ga qaytaramiz
+  if ($(inputId)) $(inputId).value = 1;
 }
 
 function posClear() {
