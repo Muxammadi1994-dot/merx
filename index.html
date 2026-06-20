@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=41">
+<link rel="stylesheet" href="style.css?v=42">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -581,10 +581,48 @@
         <!-- To'lov usuli -->
         <div style="margin-bottom:12px">
           <div style="font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">To'lov usuli</div>
-          <div class="paytypes">
+          <div class="paytypes" style="grid-template-columns:repeat(4,1fr)">
             <div class="ptbtn on" data-pt="naqd" onclick="setPayType('naqd')"><i class="ti ti-cash" style="font-size:16px;display:block;margin:0 auto 4px"></i>Naqd</div>
             <div class="ptbtn" data-pt="karta" onclick="setPayType('karta')"><i class="ti ti-credit-card" style="font-size:16px;display:block;margin:0 auto 4px"></i>Karta</div>
             <div class="ptbtn" data-pt="otkazma" onclick="setPayType('otkazma')"><i class="ti ti-building-bank" style="font-size:16px;display:block;margin:0 auto 4px"></i>O'tkazma</div>
+            <div class="ptbtn" data-pt="aralash" onclick="setPayType('aralash')"><i class="ti ti-arrows-shuffle" style="font-size:16px;display:block;margin:0 auto 4px"></i>Aralash</div>
+          </div>
+        </div>
+
+        <!-- Aralash to'lov paneli -->
+        <div id="mixed-pay-box" style="display:none;margin-bottom:12px;background:#FFF8E7;border:1px solid #f0d882;border-radius:var(--rs);padding:10px 12px">
+          <div style="font-size:11px;color:#856404;font-weight:700;margin-bottom:8px">
+            <i class="ti ti-info-circle"></i> Har bir usul bo'yicha summani kiriting
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="display:flex;align-items:center;gap:5px;width:90px;font-size:12.5px;cursor:pointer">
+                <input type="checkbox" id="mix-naqd-chk" onchange="toggleMixMethod('naqd')" style="accent-color:var(--acc)">
+                <i class="ti ti-cash"></i> Naqd
+              </label>
+              <input type="text" id="mix-naqd-sum" data-price placeholder="0" disabled
+                oninput="fmtInput(this);updateMixedTotal()" style="flex:1;background:#fff;font-size:13px">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="display:flex;align-items:center;gap:5px;width:90px;font-size:12.5px;cursor:pointer">
+                <input type="checkbox" id="mix-karta-chk" onchange="toggleMixMethod('karta')" style="accent-color:var(--acc)">
+                <i class="ti ti-credit-card"></i> Karta
+              </label>
+              <input type="text" id="mix-karta-sum" data-price placeholder="0" disabled
+                oninput="fmtInput(this);updateMixedTotal()" style="flex:1;background:#fff;font-size:13px">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="display:flex;align-items:center;gap:5px;width:90px;font-size:12.5px;cursor:pointer">
+                <input type="checkbox" id="mix-otkazma-chk" onchange="toggleMixMethod('otkazma')" style="accent-color:var(--acc)">
+                <i class="ti ti-building-bank"></i> O'tkazma
+              </label>
+              <input type="text" id="mix-otkazma-sum" data-price placeholder="0" disabled
+                oninput="fmtInput(this);updateMixedTotal()" style="flex:1;background:#fff;font-size:13px">
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px dashed #f0d882;font-size:12.5px">
+            <span style="color:#856404">Jami kiritildi:</span>
+            <strong id="mix-total-view" style="color:#0D1B2A">0 so'm</strong>
           </div>
         </div>
 
@@ -2280,23 +2318,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=41"></script>
-<script src="js/utils.js?v=41"></script>
-<script src="js/sms.js?v=41"></script>
-<script src="js/cloud.js?v=41"></script>
-<script src="js/dashboard.js?v=41"></script>
-<script src="js/pos.js?v=41"></script>
-<script src="js/katalog.js?v=41"></script>
-<script src="js/ombor.js?v=41"></script>
-<script src="js/mijozlar.js?v=41"></script>
-<script src="js/qarzlar.js?v=41"></script>
-<script src="js/tarix.js?v=41"></script>
-<script src="js/hisobot.js?v=41"></script>
-<script src="js/xodimlar.js?v=41"></script>
-<script src="js/moliya.js?v=41"></script>
-<script src="js/egasi.js?v=41"></script>
-<script src="js/portal.js?v=41"></script>
-<script src="js/init.js?v=41"></script>
+<script src="js/db.js?v=42"></script>
+<script src="js/utils.js?v=42"></script>
+<script src="js/sms.js?v=42"></script>
+<script src="js/cloud.js?v=42"></script>
+<script src="js/dashboard.js?v=42"></script>
+<script src="js/pos.js?v=42"></script>
+<script src="js/katalog.js?v=42"></script>
+<script src="js/ombor.js?v=42"></script>
+<script src="js/mijozlar.js?v=42"></script>
+<script src="js/qarzlar.js?v=42"></script>
+<script src="js/tarix.js?v=42"></script>
+<script src="js/hisobot.js?v=42"></script>
+<script src="js/xodimlar.js?v=42"></script>
+<script src="js/moliya.js?v=42"></script>
+<script src="js/egasi.js?v=42"></script>
+<script src="js/portal.js?v=42"></script>
+<script src="js/init.js?v=42"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2642,7 +2680,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=41"></script>
-<script src="js/superadmin.js?v=41"></script>
+<script src="js/auth.js?v=42"></script>
+<script src="js/superadmin.js?v=42"></script>
 </body>
 </html>

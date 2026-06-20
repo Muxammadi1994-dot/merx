@@ -582,6 +582,40 @@ function clearCart()        { cart = []; renderCart(); }
 function setPayType(t) {
   posPayType = t;
   document.querySelectorAll(".ptbtn").forEach(b => b.classList.toggle("on", b.dataset.pt === t));
+  const mixBox = $("mixed-pay-box");
+  if (mixBox) mixBox.style.display = t === "aralash" ? "block" : "none";
+  if (t === "aralash") updateMixedTotal();
+}
+
+// Aralash to'lovda usul checkbox bosilganda — input ni yoqish/o'chirish
+function toggleMixMethod(method) {
+  const chk = $(`mix-${method}-chk`);
+  const inp = $(`mix-${method}-sum`);
+  if (!chk || !inp) return;
+  inp.disabled = !chk.checked;
+  if (!chk.checked) inp.value = "";
+  updateMixedTotal();
+}
+
+// Aralash to'lovdagi barcha usullar yig'indisini hisoblash
+function getMixedTotal() {
+  let total = 0;
+  ["naqd","karta","otkazma"].forEach(m => {
+    const chk = $(`mix-${m}-chk`);
+    if (chk && chk.checked) total += getRawVal(`mix-${m}-sum`);
+  });
+  return total;
+}
+
+function updateMixedTotal() {
+  const total = getMixedTotal();
+  if ($("mix-total-view")) $("mix-total-view").textContent = fmt(total) + " so'm";
+  // Aralash to'lov natijasini "Hozir to'landi" maydoniga ham sinxron qilamiz
+  // (agar Nasiya rejimida bo'lsa, qarz avtomatik hisoblanishi uchun)
+  if (posPayMode === "part" && $("c-paid")) {
+    $("c-paid").value = total > 0 ? fmt(total) : "";
+    updateRem();
+  }
 }
 
 function setPayMode(m) {
@@ -844,15 +878,40 @@ async function checkout() {
     }
   }
 
+  // Aralash to'lov bo'yicha breakdown (har bir usul bo'yicha summa)
+  let payBreakdown = null;
+  if (posPayType === "aralash") {
+    payBreakdown = {};
+    ["naqd","karta","otkazma"].forEach(m => {
+      const chk = $(`mix-${m}-chk`);
+      if (chk && chk.checked) {
+        const v = getRawVal(`mix-${m}-sum`);
+        if (v > 0) payBreakdown[m] = v;
+      }
+    });
+    if (Object.keys(payBreakdown).length === 0) {
+      toast("Aralash to'lovda kamida bitta usul tanlang", "err");
+      return;
+    }
+  }
+
   if (posPayMode === "part") {
     if (!cName) { toast("Qisman to'lovda mijoz ismi shart","err"); return; }
-    paid    = getRawVal("c-paid");
+    paid    = posPayType === "aralash" ? getMixedTotal() : getRawVal("c-paid");
     due     = ($("c-due")||{value:""}).value;
     rem     = Math.max(0, total - paid);
     status  = rem > 0 ? "qarz" : "tolandan";
     if (posDebtCurrency === "usd" && rem > 0) {
       debtUsd = parseFloat((rem / (db.settings.rate||12800)).toFixed(2));
     }
+  } else if (posPayType === "aralash") {
+    // To'liq to'lov rejimida ham aralash bo'lsa, kiritilgan summa = jami bo'lishi kerak
+    const mixedPaid = getMixedTotal();
+    if (Math.abs(mixedPaid - total) > 1) {
+      toast(`Aralash to'lov yig'indisi (${fmt(mixedPaid)}) jami summaga (${fmt(total)}) teng emas`, "err");
+      return;
+    }
+    paid = mixedPaid;
   }
 
   const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
@@ -906,7 +965,7 @@ async function checkout() {
   const newSale = {
     id:db.seq++, chekNum, date:today(), time:nowTime(),
     priceType: posPriceType,
-    payType: posPayType, staffId, customerId,
+    payType: posPayType, payBreakdown, staffId, customerId,
     discount, discountType: discType,
     discountPct: discType === "pct" ? (getRawVal("discount-val") || 0) : null,
     items: cart.map(c => ({
@@ -1026,7 +1085,7 @@ let _lastSale = null;
 function showReceiptModal(sale) {
   _lastSale = sale;
   const shopName = db.shop?.name || "MERX";
-  const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi" };
+  const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi", aralash:"Aralash" };
 
   // Shop nomi
   if ($("rcp-shop")) $("rcp-shop").textContent = shopName;
@@ -1068,7 +1127,15 @@ function showReceiptModal(sale) {
   if ($("rcp-total")) $("rcp-total").textContent = fmt(sale.total) + " so'm";
 
   // To'lov
-  if ($("rcp-paytype")) $("rcp-paytype").textContent = payLabels[sale.payType] || sale.payType;
+  if ($("rcp-paytype")) {
+    if (sale.payType === "aralash" && sale.payBreakdown) {
+      const parts = Object.entries(sale.payBreakdown)
+        .map(([m, v]) => `${payLabels[m]||m}: ${fmt(v)}`).join(" + ");
+      $("rcp-paytype").textContent = `Aralash (${parts})`;
+    } else {
+      $("rcp-paytype").textContent = payLabels[sale.payType] || sale.payType;
+    }
+  }
   if ($("rcp-paid"))    $("rcp-paid").textContent    = fmt(sale.paid) + " so'm";
 
   const debtWrap = $("rcp-debt-wrap");
@@ -1161,7 +1228,7 @@ function shareTelegram() {
   if (!_lastSale) return;
   const sale     = _lastSale;
   const shopName = db.shop?.name || "MERX";
-  const payLabels = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma" };
+  const payLabels = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash" };
   const lines = [
     `🧾 ${shopName} — Chek`,
     `📌 ${sale.chekNum || "#"+sale.id} | ${sale.date} ${sale.time||""}`,
