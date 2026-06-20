@@ -2091,7 +2091,9 @@ function buildLabel(p, v, opts) {
   const {style, showLogo, showBarc, showSku, showUlg, shopName, rate} = opts;
   const hex       = v.hex || "#888";
   const colorDot  = `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${hex};border:1px solid rgba(0,0,0,.12);vertical-align:middle;margin-right:4px"></span>`;
-  const priceUzs  = p.priceUzs || 0;
+  // Chakana narx bo'lmasa (ulgurji do'kon), ulgurji narxni asosiy sifatida ko'rsatamiz
+  const hasChakana = p.priceUzs > 0;
+  const priceUzs  = hasChakana ? p.priceUzs : (p.ulgurjiNarx || 0);
   const ulgUzs    = p.ulgurjiNarx || 0;
   const priceUsd  = rate > 0 ? (priceUzs / rate).toFixed(2) : "0.00";
   const barcodeId = `bc-${p.sku}-${(v.color||"")}-${(v.size||"")}`.replace(/[^a-zA-Z0-9-]/g,"_");
@@ -2120,7 +2122,7 @@ function buildLabel(p, v, opts) {
       </div>
       <div class="nm-prem-bot">
         <div class="nm-prem-price">${fmt(priceUzs)} <span>so'm</span></div>
-        ${showUlg&&ulgUzs?`<div class="nm-prem-ulg">Ulgurji: ${fmt(ulgUzs)} so'm</div>`:""}
+        ${showUlg&&ulgUzs&&hasChakana?`<div class="nm-prem-ulg">Ulgurji: ${fmt(ulgUzs)} so'm</div>`:""}
         <div class="nm-prem-usd">≈ $${priceUsd}</div>
       </div>
       ${barcodeHtml}
@@ -2133,7 +2135,7 @@ function buildLabel(p, v, opts) {
       <div class="nm-var">${colorDot}${v.color||""} ${v.size?"· "+v.size:""}</div>
       <div class="nm-prices">
         <div class="nm-price-main">${fmt(priceUzs)} so'm</div>
-        ${showUlg&&ulgUzs?`<div class="nm-price-ulg">Ulgurji: ${fmt(ulgUzs)}</div>`:""}
+        ${showUlg&&ulgUzs&&hasChakana?`<div class="nm-price-ulg">Ulgurji: ${fmt(ulgUzs)}</div>`:""}
         <div class="nm-price-usd">$${priceUsd}</div>
       </div>
       ${showSku?`<div class="nm-sku">${p.sku}</div>`:""}
