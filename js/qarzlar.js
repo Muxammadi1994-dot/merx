@@ -274,7 +274,13 @@ function renderDebtsList(list, rate) {
             <input type="number" id="pay-${s.id}"
               placeholder="${isUsd?"$ summa":"so'm"}"
               step="${isUsd?"0.01":"10000"}"
-              style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:100px;flex:1;outline:none">
+              style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:90px;flex:1;outline:none">
+            <select id="pay-method-${s.id}"
+              style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:78px">
+              <option value="naqd">💵 Naqd</option>
+              <option value="karta">💳 Karta</option>
+              <option value="otkazma">🏦 O'tkazma</option>
+            </select>
             <button class="btn btn-teal btn-sm" onclick="recordPayment(${s.id})">To'lov</button>
           </div>
           ${(() => {
@@ -663,6 +669,7 @@ function showDebtPaymentReceipt(payment) {
             <span class="lbl">QABUL QILINDI</span>
             <span class="val">${fmtMoney(payment.amount, payment.currency)}</span>
           </div>
+          <div style="text-align:right;font-size:11.5px;color:#a3a8af;margin-top:4px">${payMethodLabel(payment.method)} orqali</div>
           ${leftoverHtml}
           <div class="badge-row">
             <span>Mijoz: <b style="color:#0D1B2A">${payment.customerName||"—"}</b></span>
