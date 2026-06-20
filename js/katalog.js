@@ -398,7 +398,7 @@ function renderKatalog() {
   $("katalog-body").innerHTML = pageRows.length ? pageRows.map(({product:p, color}) => {
     // Shu rangga oid variantlar (turli o'lchamlar)
     const colorVariants = p.variants.filter(v => v.color === color);
-    const sizesStr = colorVariants.map(v => v.size).filter(Boolean).join(", ");
+    const sizesStr = sizesToRange(colorVariants.map(v => v.size).filter(Boolean), p.type);
 
     const inBox   = p.inBox || 1;
     const costUzs = (p.costUsd || 0) * rate;
@@ -441,9 +441,7 @@ function renderKatalog() {
       <td class="kat-col-art" style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${p.art || '<span style="color:#ddd">—</span>'}</td>
       <td class="kat-col-name">
         <div style="font-weight:700;font-size:13.5px;color:#0D1B2A">${p.name}</div>
-        <div style="font-size:11.5px;color:#bbb;margin-top:2px">
-          ${color}${sizesStr ? ` · ${sizesStr}` : ""}
-        </div>
+        ${sizesStr ? `<div style="font-size:11.5px;color:#bbb;margin-top:2px">${sizesStr}</div>` : ""}
       </td>
       <td class="kat-col-category" style="font-size:12px;color:var(--mut)">${p.category}</td>
       <td class="kat-col-barcode" style="font-family:monospace;font-size:11.5px">
@@ -460,7 +458,6 @@ function renderKatalog() {
         <span class="bg ${pochkaSoni<=0?"bg-r":pochkaSoni<=5?"bg-a":"bg-g"}" style="font-weight:700">
           ${pochkaSoni} ${p.packUnit||"pochka"}
         </span>
-        ${sizesStr ? `<div style="font-size:10px;color:#bbb;margin-top:2px">har birida: ${sizesStr}</div>` : ""}
       </td>
       <td class="kat-col-qty num">
         <span style="font-size:12.5px;color:var(--mut)">${colorQty} ${p.unit||"dona"}</span>
@@ -1447,26 +1444,25 @@ function openKatalogImport() {
 function downloadImportTemplate() {
   const fields = apGetFields();
 
-  // Har doim majburiy bo'lgan ustunlar (Nom, Rang, O'lcham, Karobka soni, Karobkada nechta, Ulgurji narx)
-  // Boshqalari faqat sotuvchi tovar qo'shish oynasida yoqqan bo'lsa qo'shiladi.
-  // Barcode hech qachon shablonga qo'yilmaydi — u avtomatik generatsiya qilinadi.
+  // Har doim majburiy bo'lgan ustunlar: Nom, ART, Rang, Pochka soni, Ulgurji narx
+  // "O'lcham" va "1 pochkada nechta" faqat sizerange yoqilgan bo'lsa qo'shiladi
+  // (chunki standart holatda ular avtomatik aniqlanadi: standart oraliq va shu oraliq uzunligi)
   const headers = ["Nom", "ART", "Rang"];
-  const sampleBase = ["Adidas Ultra", "ADI-001", "Qora"];
+  const sampleBase  = ["Adidas Ultra", "ADI-001", "Qora"];
   const sampleBase2 = ["Adidas Ultra", "ADI-001", "Oq"];
   const sampleBase3 = ["Ko'ylak slim", "SLM-05", "Ko'k"];
 
-  // "O'lcham" ustuni faqat "O'lchamni o'zgartirish" imkoni yoqilgan bo'lsa chiqadi
-  const fields0 = apGetFields();
-  if (fields0.sizerange) {
+  // "O'lcham" va "1 pochkada nechta" faqat "O'lchamni o'zgartirish" yoqilgan bo'lsa chiqadi
+  if (fields.sizerange) {
     headers.push("O'lcham");
     sampleBase.push("39-44"); sampleBase2.push("39-44"); sampleBase3.push("S-XL");
+
+    headers.push("1 pochkada nechta");
+    sampleBase.push("6"); sampleBase2.push("6"); sampleBase3.push("4");
   }
 
-  headers.push("Karobka soni");
-  sampleBase.push("8"); sampleBase2.push("6"); sampleBase3.push("5");
-
-  headers.push("Karobkada nechta");
-  sampleBase.push("6"); sampleBase2.push("6"); sampleBase3.push("12");
+  headers.push("Pochka soni");
+  sampleBase.push("100"); sampleBase2.push("80"); sampleBase3.push("50");
 
   if (fields.category) {
     headers.push("Kategoriya");
@@ -1486,7 +1482,7 @@ function downloadImportTemplate() {
   }
   if (fields.packunit) {
     headers.push("To'plam birligi");
-    sampleBase.push("karobka"); sampleBase2.push("karobka"); sampleBase3.push("karobka");
+    sampleBase.push("pochka"); sampleBase2.push("pochka"); sampleBase3.push("pochka");
   }
   if (fields.pantone) {
     headers.push("Pantone");
@@ -1584,8 +1580,8 @@ function parseImportCSV(text) {
       cat:     ["kategoriya","category","kat"],
       type:    ["turi","type","tur"],
       unit:    ["birlik","unit","o'lchov"],
-      inbox:   ["karobkada nechta","karobkada","inbox","qutida nechta"],
-      boxes:   ["karobka soni","karobkalar","boxes","nechta karobka"],
+      inbox:   ["1 pochkada nechta","karobkada nechta","karobkada","inbox","qutida nechta","pochkada"],
+      boxes:   ["pochka soni","karobka soni","karobkalar","boxes","nechta karobka","nechta pochka"],
       art:     ["art","artikul","article","kod"],
       barcode: ["barcode","ean","barkod","shtrix"],
       color:   ["rang","color","rang nomi"],
@@ -1644,18 +1640,9 @@ function parseImportCSV(text) {
       barcode = barcodeMap[bKey];
     }
 
-    // Karobka soni va karobkadagi dona
-    const inboxVal = cols.inbox >= 0 ? (parseInt(vals[cols.inbox]) || 1) : 1;
+    // Pochka soni (har bir o'lchamga bir xil son beriladi)
     const boxesVal = cols.boxes >= 0 ? (parseInt(vals[cols.boxes]) || 0) : 0;
-
-    // Qoldiq: agar karobka soni kiritilgan bo'lsa — karobka × karobkada
-    // aks holda qoldiq ustunidan olish
-    let qtyVal = 0;
-    if (boxesVal > 0 && inboxVal > 1) {
-      qtyVal = boxesVal * inboxVal;         // karobka × karobkada = dona
-    } else if (cols.qty >= 0) {
-      qtyVal = parseInt(vals[cols.qty]) || 0;
-    }
+    if (boxesVal <= 0) { return; } // pochka soni bo'lmasa qatorni o'tkazib yuboramiz
 
     // Tannarx: "$" bilan boshlansa USD, aks holda so'm → USD konversiya
     const rate = db.settings?.rate || 12800;
@@ -1673,7 +1660,7 @@ function parseImportCSV(text) {
     const catVal  = cols.cat  >= 0 ? (vals[cols.cat]?.trim()  || "Qabul qilingan") : "Qabul qilingan";
     const unitVal = cols.unit >= 0 ? (vals[cols.unit]?.trim()  || "dona") : "dona";
 
-    // O'lcham: ustun bo'sh/yo'q bo'lsa — standart oraliqqa (39-44 yoki S-XL) teng taqsimlanadi
+    // O'lcham: ustun bo'sh/yo'q bo'lsa — standart oraliq ishlatiladi (39-44 yoki S-XL)
     const sizeRaw = cols.size >= 0 ? (vals[cols.size]?.trim() || "") : "";
     let sizeList;
     if (sizeRaw) {
@@ -1693,17 +1680,16 @@ function parseImportCSV(text) {
       sizeList = (iF !== -1 && iT !== -1) ? allSizes.slice(iF, iT+1) : [def.from];
     }
 
-    // Miqdorni o'lchamlar orasida teng taqsimlash
-    const perSize = Math.floor(qtyVal / sizeList.length);
-    let remainder = qtyVal - perSize * sizeList.length;
+    // 1 pochkada nechta — agar ustun bo'lmasa, o'lchamlar soniga teng (avtomatik)
+    const inboxVal = cols.inbox >= 0 ? (parseInt(vals[cols.inbox]) || sizeList.length) : sizeList.length;
+
+    // Pochka mantig'i: har bir o'lchamga bir xil son (boxesVal)
     sizeList.forEach(sz => {
-      const q = perSize + (remainder > 0 ? 1 : 0);
-      if (remainder > 0) remainder--;
       _importRows.push({
         nom, cat: catVal, type: typeVal, unit: unitVal,
         inbox: inboxVal, boxes: boxesVal || null,
         art, barcode, color: colorRaw, pantone, hex,
-        size: sz, qty: q, costUsd, ulg: ulgVal,
+        size: sz, qty: boxesVal, costUsd, ulg: ulgVal,
       });
     });
   }
@@ -1735,7 +1721,7 @@ function showImportPreview() {
     </td>
     <td style="padding:5px 10px;border-top:1px solid var(--brd)">${r.size}</td>
     <td style="padding:5px 10px;border-top:1px solid var(--brd);font-weight:700">
-      ${r.boxes ? `${r.boxes} karobka × ${r.inbox} = ` : ""}${r.qty} dona
+      ${r.boxes ? `${r.boxes} pochka` : ""}${r.qty} ${r.unit||"dona"}
     </td>
     <td style="padding:5px 10px;border-top:1px solid var(--brd)">$${r.costUsd.toFixed(2)}</td>
     <td style="padding:5px 10px;border-top:1px solid var(--brd)">${fmt(r.ulg)} so'm</td>

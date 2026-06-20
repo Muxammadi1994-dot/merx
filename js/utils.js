@@ -17,6 +17,27 @@ function addDays(d, n) {
 const getShopType = () => db.settings?.shopType || db.shop?.type || "ikki";
 const visProds    = () => { const t = getShopType(); return t === "ikki" ? db.products : db.products.filter(p => p.type === t); };
 const totalStock = p  => p.variants.reduce((a, v) => a + v.qty, 0);
+
+// O'lchamlar ro'yxatini ixcham formatga aylantirish: ["39","40","41","42","43","44"] → "39-44"
+// Ketma-ket bo'lmasa: ["39","42"] → "39, 42". Bitta bo'lsa: ["39"] → "39"
+function sizesToRange(sizeList, type) {
+  if (!sizeList || sizeList.length === 0) return "";
+  if (sizeList.length === 1) return sizeList[0];
+  const allSizes = (typeof SIZES !== "undefined" && SIZES[type]) ? SIZES[type] : null;
+  if (allSizes) {
+    const indices = sizeList.map(s => allSizes.indexOf(s)).filter(i => i !== -1).sort((a,b)=>a-b);
+    if (indices.length === sizeList.length) {
+      const isConsecutive = indices.every((idx, i) => i === 0 || idx === indices[i-1] + 1);
+      if (isConsecutive) {
+        const first = allSizes[indices[0]], last = allSizes[indices[indices.length-1]];
+        return `${first}-${last}`;
+      }
+    }
+  }
+  // Ketma-ket emas yoki SIZES topilmadi — vergul bilan
+  return sizeList.join(", ");
+}
+
 const debtSales  = () => db.sales.filter(s => s.remaining > 0.5);
 const isOverdue  = s  => s.due && s.due < today();
 
