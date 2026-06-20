@@ -494,11 +494,11 @@ async function recordPayment(id) {
   if (allocations.length === 1) {
     const a = allocations[0];
     summary = a.fullyPaid
-      ? `To'liq to'landi ✅ (${a.chekNum} T${a.partNum})`
+      ? `To'liq to'landi ✅ (${a.chekNum} ${String(a.partNum).padStart(3,"0")})`
       : `${fmtMoney(a.remainingAfter, a.currency)} qoldi`;
   } else if (allocations.length > 1) {
     summary = allocations.map(a =>
-      `${a.saleDate} (${a.chekNum} T${a.partNum}): ${a.fullyPaid ? "to'liq yopildi" : fmtMoney(a.amount, a.currency)+" o'tkazildi"}`
+      `${a.saleDate} (${a.chekNum} ${String(a.partNum).padStart(3,"0")}): ${a.fullyPaid ? "to'liq yopildi" : fmtMoney(a.amount, a.currency)+" o'tkazildi"}`
     ).join("; ");
   } else {
     summary = "Taqsimlanmadi";
@@ -693,4 +693,146 @@ function reprintDebtPayment(id) {
   const p = (db.debtPayments||[]).find(x => x.id === id);
   if (!p) { toast("To'lov topilmadi","err"); return; }
   showDebtPaymentReceipt(p);
+}
+
+// ════════════════════════════════════════════════
+// QARZLAR TARIXI — yangi sahifa
+// ════════════════════════════════════════════════
+// Har bir QARZGA SOTILGAN chekni 3 holatga ajratadi:
+//   🟢 paid    — to'liq to'langan (lekin qarz sifatida boshlangan edi)
+//   🟡 partial — qisman to'langan, hali qoldiq bor
+//   🔴 unpaid  — umuman to'lov qilinmagan
+let qtStatus = "all";
+
+function setQtStatus(s) {
+  qtStatus = s;
+  document.querySelectorAll(".qt-status-btn").forEach(b => {
+    const on = b.dataset.s === s;
+    b.classList.toggle("on", on);
+    b.style.background = on ? "#0D1B2A" : "#fff";
+    b.style.color = on ? "#fff" : (b.dataset.s === "paid" ? "var(--grn)" : b.dataset.s === "partial" ? "#D97706" : b.dataset.s === "unpaid" ? "var(--red)" : "inherit");
+  });
+  renderQarzlarTarixi();
+}
+
+function renderQarzlarTarixi() {
+  const el = $("qt-list"); if (!el) return;
+  const q = ($("qt-q")||{value:""}).value.toLowerCase();
+
+  // Qarzga sotilgan barcha cheklar (origRemaining > 0 bo'lganlar — birinchi marta qarz bilan boshlangan)
+  const debtSalesAll = (db.sales||[]).filter(s => (s.origRemaining||0) > 0 && s.status !== "qaytarilgan");
+
+  const rows = debtSalesAll.map(s => {
+    const st = calcSaleState(s);
+    const totalPaidSinceDebt = (s.origPaid||0) + getSalePayments(s.id).reduce((a,p) => a + (p.currency==="usd" ? p.amount*(db.settings?.rate||12800) : p.amount), 0);
+    let status;
+    if (st.remaining <= 0.5) status = "paid";
+    else if (totalPaidSinceDebt > (s.origPaid||0) || (s.origPaid||0) > 0) status = "partial";
+    else status = "unpaid";
+    return { sale: s, state: st, status };
+  });
+
+  let filtered = rows;
+  if (qtStatus !== "all") filtered = filtered.filter(r => r.status === qtStatus);
+  if (q) filtered = filtered.filter(r =>
+    (r.sale.customerName||"").toLowerCase().includes(q) ||
+    (r.sale.chekNum||"").toLowerCase().includes(q) ||
+    (r.sale.customerPhone||"").includes(q)
+  );
+
+  // Statistika badge larini yangilash
+  const cntAll = rows.length;
+  const cntPaid = rows.filter(r => r.status === "paid").length;
+  const cntPartial = rows.filter(r => r.status === "partial").length;
+  const cntUnpaid = rows.filter(r => r.status === "unpaid").length;
+  if ($("qt-cnt-all")) $("qt-cnt-all").textContent = cntAll;
+  if ($("qt-cnt-paid")) $("qt-cnt-paid").textContent = cntPaid;
+  if ($("qt-cnt-partial")) $("qt-cnt-partial").textContent = cntPartial;
+  if ($("qt-cnt-unpaid")) $("qt-cnt-unpaid").textContent = cntUnpaid;
+
+  // Eng yangi sotuv birinchi
+  filtered.sort((a,b) => (a.sale.date+ (a.sale.time||"") < b.sale.date+(b.sale.time||"")) ? 1 : -1);
+
+  if (!filtered.length) {
+    el.innerHTML = `<div style="padding:50px;text-align:center;color:var(--mut)">
+      <i class="ti ti-receipt-2" style="font-size:36px;display:block;margin-bottom:10px;opacity:.4"></i>
+      Hech narsa topilmadi</div>`;
+    return;
+  }
+
+  const statusMeta = {
+    paid:    { color: "var(--grn)", bg: "#F0FDF4", border: "#86EFAC", label: "To'liq to'langan", dot: "🟢" },
+    partial: { color: "#D97706",    bg: "#FFFBEB", border: "#FCD34D", label: "Qisman to'langan",  dot: "🟡" },
+    unpaid:  { color: "var(--red)", bg: "#FEF2F2", border: "#FECACA", label: "To'lanmagan",        dot: "🔴" },
+  };
+
+  el.innerHTML = filtered.map(({sale: s, state: st, status}) => {
+    const meta = statusMeta[status];
+    const payments = getSalePayments(s.id);
+    const origTotal = s.origRemaining || 0;
+    const payPct = origTotal > 0 ? Math.min(100, Math.round((origTotal - st.remaining) / origTotal * 100)) : 100;
+    const rowId = `qt-row-${s.id}`;
+
+    return `<div style="border-bottom:1px solid var(--brd)">
+      <div onclick="qtToggleExpand(${s.id})" style="display:flex;align-items:center;gap:14px;padding:14px 18px;cursor:pointer;background:${meta.bg}">
+        <div style="width:10px;height:10px;border-radius:50%;background:${meta.color};flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <strong style="font-size:13.5px;color:#0D1B2A">${s.customerName||"Noma'lum mijoz"}</strong>
+            <span style="font-size:11.5px;color:#aaa">${s.chekNum||"#"+s.id} · ${s.date}</span>
+          </div>
+          <div style="font-size:11.5px;color:${meta.color};font-weight:600;margin-top:2px">${meta.dot} ${meta.label}${payments.length ? ` · ${payments.length} ta to'lov` : ""}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:13px;font-weight:700;color:#0D1B2A">${fmt(s.total||0)} so'm</div>
+          <div style="font-size:11px;color:var(--mut)">
+            ${status==="paid" ? "To'liq yopildi" : `Qoldiq: ${st.debtUsd>0?`$${st.debtUsd.toFixed(2)}`:fmt(st.remaining)+" so'm"}`}
+          </div>
+        </div>
+        <i class="ti ti-chevron-down" id="${rowId}-icon" style="color:var(--mut);transition:.2s;flex-shrink:0"></i>
+      </div>
+      <div id="${rowId}-detail" style="display:none;padding:0 18px 16px 42px;background:${meta.bg}">
+        <div style="background:#fff;border-radius:10px;padding:4px;margin-bottom:8px">
+          <div style="height:6px;background:#F0EEE8;border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${payPct}%;background:${meta.color};border-radius:3px"></div>
+          </div>
+        </div>
+        <div style="font-size:11.5px;color:var(--mut);margin-bottom:10px">
+          Boshlang'ich qarz: <strong>${fmt(origTotal)} so'm</strong> ·
+          To'langan: <strong style="color:var(--grn)">${fmt(origTotal - st.remaining)} so'm</strong> (${payPct}%)
+        </div>
+        ${payments.length ? `
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${payments.map(p => `
+              <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--brd);border-radius:8px;padding:8px 12px">
+                <div>
+                  <span style="font-size:11.5px;font-weight:700;color:#0D1B2A">№${String(p.partNum).padStart(3,"0")}</span>
+                  <span style="font-size:11px;color:#aaa;margin-left:6px">${p.payDate} ${p.payTime||""}</span>
+                  <span style="font-size:11px;color:var(--mut);margin-left:6px">· ${payMethodLabel(p.payMethod)}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <strong style="font-size:12.5px;color:var(--grn)">${fmtMoney(p.amount, p.currency)}</strong>
+                  <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();reprintDebtPayment(${p.paymentId})" title="Chekni ko'rish">
+                    <i class="ti ti-printer" style="font-size:13px"></i>
+                  </button>
+                </div>
+              </div>`).join("")}
+          </div>` : `<div style="font-size:12px;color:#bbb;padding:8px 0">Hali to'lov qilinmagan</div>`}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function qtToggleExpand(saleId) {
+  const detail = $(`qt-row-${saleId}-detail`);
+  const icon = $(`qt-row-${saleId}-icon`);
+  if (!detail) return;
+  const isOpen = detail.style.display !== "none";
+  detail.style.display = isOpen ? "none" : "block";
+  if (icon) icon.style.transform = isOpen ? "" : "rotate(180deg)";
+}
+
+function payMethodLabel(m) {
+  const labels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma" };
+  return labels[m] || "Naqd";
 }

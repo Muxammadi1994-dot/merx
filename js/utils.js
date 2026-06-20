@@ -171,54 +171,19 @@ function nav(p) {
   document.querySelectorAll("[id^='p-']").forEach(el => el.classList.remove("on"));
   const el = $("p-" + p); if (el) el.classList.add("on");
   const T = { dashboard:"Dashboard", pos:"Sotuv (POS)", katalog:"Katalog", ombor:"Ombor",
-    mijozlar:"Mijozlar", qarzlar:"Qarzlar", tarix:"Sotuv tarixi",
+    mijozlar:"Mijozlar", qarzlar:"Qarzlar", qarztarix:"Qarzlar tarixi", tarix:"Sotuv tarixi",
     hisobot:"Hisobot va tahlil", xodimlar:"Xodimlar", moliya:"Moliya",
     portal:"Mijoz portali", egasi:"Egasi / Sozlamalar" };
   $("ptitle").textContent = T[p] || p;
   const fn = { dashboard:renderDashboard, katalog:renderKatalog, ombor:renderOmbor,
-    mijozlar:renderMijozlar, qarzlar:renderDebts, tarix:renderTarix,
+    mijozlar:renderMijozlar, qarzlar:renderDebts, qarztarix:renderQarzlarTarixi, tarix:renderTarix,
     hisobot:renderHisobot, xodimlar:renderXodimlar, moliya:renderMoliya,
     portal:renderPortal, egasi:renderEgasi };
   if (fn[p]) fn[p]();
-  if (p === "egasi") setTimeout(initChakanaToggle, 50);
   if (p === "pos") {
     refreshCustList(); refreshStaffList(); renderPosGrid();
-    const ptw = $("price-type-wrap");
-    if (ptw) ptw.style.display = db.settings?.showChakana ? "block" : "none";
-    if (!db.settings?.showChakana && typeof setPriceType === "function") setPriceType("ulgurji");
     if (typeof checkDebtAlerts === "function") checkDebtAlerts();
   }
-}
-
-// ── Chakana rejim toggle ───────────────────────
-function toggleChakanaMode(val) {
-  if (!db.settings) db.settings = {};
-  db.settings.showChakana = val;
-  saveDB();
-  const lbl = $("s-chakana-lbl");
-  if (lbl) lbl.textContent = val
-    ? "✅ Chakana narx ko'rinyapti"
-    : "Chakana narx ko'rinmayapti (ulgurji rejim)";
-  // POS narx turi paneli
-  const ptw = $("price-type-wrap");
-  if (ptw) ptw.style.display = val ? "block" : "none";
-  // Agar chakana o'chirilsa — ulgurjiga qaytamiz
-  if (!val && typeof setPriceType === "function") setPriceType("ulgurji");
-  if (typeof renderKatalog === "function") renderKatalog();
-  if (typeof renderOmbor   === "function") renderOmbor();
-  toast(val ? "Chakana rejim yoqildi" : "Ulgurji rejimga o'tildi", "info");
-}
-
-function initChakanaToggle() {
-  const cb  = $("s-chakana"); if (!cb) return;
-  const val = db.settings?.showChakana || false;
-  cb.checked = val;
-  const lbl = $("s-chakana-lbl");
-  if (lbl) lbl.textContent = val
-    ? "✅ Chakana narx ko'rinyapti"
-    : "Chakana narx ko'rinmayapti (ulgurji rejim)";
-  const ptw = $("price-type-wrap");
-  if (ptw) ptw.style.display = val ? "block" : "none";
 }
 
 function toggleCurrency() {

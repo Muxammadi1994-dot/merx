@@ -334,7 +334,27 @@ function posClear() {
   $("pos-q")?.focus();
 }
 
-// ── renderPosGrid — utils.js bilan moslik ────────
+function renderPosGrid() {
+  posUpdatePriceTypeVisibility();
+  posSearch();
+  renderCartTabs();
+  renderCart();
+  setTimeout(() => {
+    const n = $("pos-note");
+    if (n) { n.value = ""; n.setAttribute("readonly", true); }
+  }, 150);
+}
+
+// Agar hech bir mahsulotda chakana narx (priceUzs) kiritilmagan bo'lsa,
+// "Ulgurji/Chakana" tanlash panelini butunlay yashiramiz — kerak emas.
+function posUpdatePriceTypeVisibility() {
+  const hasChakana = db.products.some(p => p.priceUzs > 0);
+  const wrap = $("price-type-wrap");
+  if (wrap) wrap.style.display = hasChakana ? "block" : "none";
+  if (!hasChakana && posPriceType !== "ulgurji") {
+    posPriceType = "ulgurji";
+  }
+}
 
 
 // ── Narx turi ─────────────────────────────────────
