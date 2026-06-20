@@ -321,6 +321,7 @@ function buildReceiptHtml(sale, opts) {
     : rawDate;
   const time      = sale.time       || "";
   const payType   = sale.payType    || sale.pay_type    || "";
+  const payBreakdown = sale.payBreakdown || sale.pay_breakdown || null;
   const custName  = sale.customerName || sale.customer_name || "";
   const custPhone = sale.customerPhone || sale.customer_phone || "";
   const total     = Number(sale.total     || 0);
@@ -336,7 +337,7 @@ function buildReceiptHtml(sale, opts) {
   const isUsd     = debtCur === "usd" && debtUsd != null;
   const items     = (sale.items || []).filter(Boolean);
 
-  const payLabels = { naqd: "Naqd pul", karta: "Karta", otkazma: "Bank o'tkazmasi" };
+  const payLabels = { naqd: "Naqd pul", karta: "Karta", otkazma: "Bank o'tkazmasi", aralash: "Aralash" };
   const F = n => Math.round(n || 0).toLocaleString("ru-RU");
 
   // ── Mahsulotlar ───────────────────────────────
@@ -508,6 +509,9 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
     <div class="pay">
       <div class="pay-lbl">To'lov</div>
       <div class="pr"><span>To'lov turi</span><b style="color:#0D1B2A">${payLabels[payType]||payType||"—"}</b></div>
+      ${payType === "aralash" && payBreakdown ? Object.entries(payBreakdown).map(([m,v]) =>
+        `<div class="pr" style="padding-left:10px"><span style="color:#999">${payLabels[m]||m}</span><span style="color:#666">${F(v)} so'm</span></div>`
+      ).join("") : ""}
       ${discHtml}
       <div class="pr"><span>To'landi</span><span style="color:#059669;font-weight:700">${F(paid)} so'm</span></div>
       ${debtHtml}

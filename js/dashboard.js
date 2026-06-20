@@ -434,11 +434,20 @@ function renderDashDonut() {
   let totalQarz = 0;
   for (const s of sales) {
     const k = s.payType || s.pay_type || 'boshqa';
-    // To'langan summa (nasiya chiqiriladi)
-    const paid = s.paid || s.total || 0;
-    const rem  = s.remaining || 0;
-    if (paid > 0) types[k] = (types[k] || 0) + paid;
-    if (rem  > 0) totalQarz += rem;
+    const rem = s.remaining || 0;
+    if (rem > 0) totalQarz += rem;
+
+    if (k === 'aralash' && (s.payBreakdown || s.pay_breakdown)) {
+      // Aralash to'lov — har bir usul summasi o'z turkumiga qo'shiladi
+      const breakdown = s.payBreakdown || s.pay_breakdown;
+      Object.entries(breakdown).forEach(([method, amount]) => {
+        if (amount > 0) types[method] = (types[method] || 0) + amount;
+      });
+    } else {
+      // To'langan summa (nasiya chiqiriladi)
+      const paid = s.paid || s.total || 0;
+      if (paid > 0) types[k] = (types[k] || 0) + paid;
+    }
   }
   // Nasiya alohida ko'rsatamiz
   if (totalQarz > 0) types['qarz'] = totalQarz;
@@ -623,7 +632,7 @@ function renderDashSalesTable() {
   const sales = dashGetSales();
   const last  = [...sales].sort((a,b) => (b.date+b.chekNum||'').localeCompare(a.date+a.chekNum||'')).slice(0,8);
   if (!last.length) { el.innerHTML = '<tr><td colspan="5" class="empty-td">Sotuvlar yo\'q</td></tr>'; return; }
-  const payLabels = { naqd:'Naqd', karta:'Karta', otkazma:"O'tkazma", nasiya:'Nasiya' };
+  const payLabels = { naqd:'Naqd', karta:'Karta', otkazma:"O'tkazma", nasiya:'Nasiya', aralash:'Aralash' };
   el.innerHTML = last.map(s => `
     <tr>
       <td>${s.customerName||s.customer_name||'<span style="color:#ccc">—</span>'}</td>

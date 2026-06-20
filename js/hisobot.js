@@ -270,7 +270,16 @@ function renderRepPayChart(sales) {
   if (_repCharts.pay) { _repCharts.pay.destroy(); delete _repCharts.pay; }
 
   const types  = { naqd: 0, karta: 0, otkazma: 0 };
-  sales.forEach(s => { if (s.payType in types) types[s.payType] += s.total; });
+  sales.forEach(s => {
+    if (s.payType === "aralash" && (s.payBreakdown || s.pay_breakdown)) {
+      const breakdown = s.payBreakdown || s.pay_breakdown;
+      Object.entries(breakdown).forEach(([m, v]) => {
+        if (m in types) types[m] += v;
+      });
+    } else if (s.payType in types) {
+      types[s.payType] += s.total;
+    }
+  });
   const total  = Object.values(types).reduce((a, b) => a + b, 0);
   const labels = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma" };
   const colors = { naqd:"#E9A500", karta:"#4C9BE8", otkazma:"#36B48C" };

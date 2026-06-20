@@ -160,6 +160,7 @@ async function pushToCloud() {
         chek_num: s.chekNum || null,
         date: s.date, time: s.time || null,
         price_type: s.priceType, pay_type: s.payType,
+        pay_breakdown: s.payBreakdown || null,
         items: (s.items || []).map(({ image, ...rest }) => rest), // image base64 ni Supabase ga yubormaymiz (juda katta)
         total: s.total || 0, paid: s.paid || 0,
         remaining: s.remaining || 0,
@@ -269,6 +270,7 @@ async function pullFromCloud() {
       db.sales = salesData.map(s => ({
         id: s.local_id || s.id, chekNum: s.chek_num, date: s.date, time: s.time,
         priceType: s.price_type, payType: s.pay_type,
+        payBreakdown: s.pay_breakdown || null,
         staffId: s.staff_id, customerId: s.customer_id,
         items: s.items || [], subtotal: s.subtotal, discount: s.discount,
         total: s.total, paid: s.paid, remaining: s.remaining,
