@@ -2072,6 +2072,20 @@ function renderNarxnomaPreview() {
   el.innerHTML = `<div class="nm-label-grid" style="grid-template-columns:repeat(${cols},1fr)">
     ${labels.map(({p,v}) => buildLabel(p, v, {style,showLogo,showBarc,showSku,showUlg,shopName,rate})).join("")}
   </div>`;
+
+  // Har bir yorliqdagi shtrix-kodni chizamiz (skanerlanadigan, raqam emas)
+  if (showBarc && typeof JsBarcode !== "undefined") {
+    el.querySelectorAll(".nm-barcode-svg").forEach(svg => {
+      const code = svg.dataset.code;
+      if (!code) return;
+      try {
+        JsBarcode(svg, code, {
+          format: "CODE128", width: 1.3, height: 28,
+          displayValue: true, fontSize: 9, margin: 0, textMargin: 2
+        });
+      } catch (e) { /* noto'g'ri format bo'lsa shtrix chizilmaydi, raqam ko'rinmaydi */ }
+    });
+  }
 }
 
 function buildLabel(p, v, opts) {
@@ -2081,8 +2095,9 @@ function buildLabel(p, v, opts) {
   const priceUzs  = p.priceUzs || 0;
   const ulgUzs    = p.ulgurjiNarx || 0;
   const priceUsd  = rate > 0 ? (priceUzs / rate).toFixed(2) : "0.00";
+  const barcodeId = `bc-${p.sku}-${(v.color||"")}-${(v.size||"")}`.replace(/[^a-zA-Z0-9-]/g,"_");
   const barcodeHtml = showBarc && p.barcode
-    ? `<div class="nm-barcode"><div class="nm-barcode-num">${p.barcode}</div></div>` : "";
+    ? `<div class="nm-barcode"><svg class="nm-barcode-svg" id="${barcodeId}" data-code="${p.barcode}"></svg></div>` : "";
 
   if (style === "mini") return `
     <div class="nm-label nm-mini">
@@ -2166,7 +2181,8 @@ body{font-family:Arial,sans-serif;background:#fff}
 .nm-price-ulg{font-size:10px;color:#888}
 .nm-price-usd{font-size:10px;color:#666}
 .nm-sku{font-size:9px;color:#bbb;font-family:monospace}
-.nm-barcode-num{font-size:8px;font-family:monospace;color:#555;letter-spacing:1px;text-align:center;margin-top:4px}
+.nm-barcode{text-align:center;margin-top:4px}
+.nm-barcode-svg{max-width:100%}
 .nm-name-sm{font-size:11px;font-weight:700;margin-bottom:2px}
 .nm-var-sm{font-size:9px;color:#777;margin-bottom:3px}
 .nm-prem-top{background:#0D1B2A;padding:8px 10px}
@@ -2184,7 +2200,21 @@ body{font-family:Arial,sans-serif;background:#fff}
 @media print{body{margin:0}@page{margin:5mm;size:A4}}
 </style></head><body>
 <div class="nm-label-grid">${labelHtml}</div>
-<script>window.onload=()=>{setTimeout(()=>window.print(),300)}<\/script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+<script>
+window.onload = () => {
+  if (typeof JsBarcode !== "undefined") {
+    document.querySelectorAll(".nm-barcode-svg").forEach(svg => {
+      const code = svg.dataset.code;
+      if (!code) return;
+      try {
+        JsBarcode(svg, code, { format:"CODE128", width:1.3, height:28, displayValue:true, fontSize:9, margin:0, textMargin:2 });
+      } catch(e) {}
+    });
+  }
+  setTimeout(() => window.print(), 400);
+};
+<\/script>
 </body></html>`);
   w.document.close();
   toast("✅ Chop etish oynasi ochildi");

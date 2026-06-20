@@ -34,7 +34,9 @@ function processBarcode(code) {
   );
   if (p) {
     toast(`📦 Topildi: ${p.name}`, "info");
-    openVariantModal(p.sku);
+    // Yangi, izchil qidiruv tizimi orqali ko'rsatamiz — eski modal o'rniga.
+    // Shunda pochka guruhlash, "ochilgan pochka" va boshqa barcha funksiyalar bir xil ishlaydi.
+    if ($("pos-q")) { $("pos-q").value = p.art || p.sku; posSearch(); }
   } else {
     if ($("pos-q")) { $("pos-q").value = code; posSearch(); }
     toast(`Barcode: "${code}" — qo'lda tanlang`, "info");
@@ -1408,62 +1410,6 @@ document.addEventListener("keydown", function(e) {
 });
 
 // ── So'nggi mahsulotlar (qidiruv bo'sh bo'lganda) ──
-function posShowRecent() {
-  // Eng ko'p sotiladigan 8 ta (bugun yoki so'nggi 7 kunda)
-  const salesCount = {};
-  const weekAgo = addDays(today(), -7);
-  db.sales.filter(s => s.date >= weekAgo).forEach(s => {
-    s.items?.forEach(i => {
-      const p = db.products.find(x => x.name === i.name);
-      if (p) salesCount[p.sku] = (salesCount[p.sku]||0) + i.qty;
-    });
-  });
-  const recent = [...db.products]
-    .filter(p => totalStock(p) > 0)
-    .sort((a, b) => (salesCount[b.sku]||0) - (salesCount[a.sku]||0))
-    .slice(0, 8);
-
-  if (!recent.length) {
-    $("pos-results").innerHTML = `<div class="pos-empty">
-      <i class="ti ti-search" style="font-size:42px;color:#e0ddd8;display:block;margin-bottom:14px"></i>
-      <div style="font-size:14px;color:#bbb;margin-bottom:6px;font-weight:500">Mahsulot qidiring</div>
-      <div style="font-size:12px;color:#ccc">Nom, SKU yoki barcode skanerlang</div>
-    </div>`;
-    return;
-  }
-
-  const rate = db.settings.rate || 12800;
-  $("pos-results").innerHTML = `
-    <div style="font-size:11px;color:#bbb;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;padding:0 2px">
-      So'nggi qo'shilgan mahsulotlar
-    </div>` +
-    recent.map(p => {
-      const narx  = posPriceType === "ulgurji" ? (p.ulgurjiNarx||p.priceUzs) : p.priceUzs;
-      const st    = totalStock(p);
-      const inBox = p.inBox || 1;
-      const imgHtml = p.image
-        ? `<img src="${p.image}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--brd);flex-shrink:0">`
-        : `<div style="width:52px;height:52px;border:1.5px dashed #e0ddd8;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:20px;flex-shrink:0"><i class="ti ti-photo"></i></div>`;
-      const colorDots = [...new Set(p.variants.map(v => v.color))].slice(0,4).map(c => {
-        const v = p.variants.find(x => x.color===c);
-        return `<span class="pri-clr">
-          <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${v?.hex||"#888"};border:1px solid rgba(0,0,0,.15);vertical-align:middle;margin-right:3px"></span>${c}</span>`;
-      }).join("");
-      return `<div class="pos-ri" onclick="openVariantModal('${p.sku}')">
-        ${imgHtml}
-        <div class="pri-body">
-          <div class="pri-name">${p.name}</div>
-          <div class="pri-meta">${p.category}${p.art ? ' · ' + p.art : ' · ' + p.sku}</div>
-          <div class="pri-colors">${colorDots}</div>
-        </div>
-        <div class="pri-right">
-          <div class="pri-price">${priceDisplay(narx)}</div>
-          <div class="pri-stock ${st<=5?"low":""}">${st} ${p.unit||"dona"}${inBox>1?` (${Math.floor(st/inBox)} pochka)`:""}</div>
-        </div>
-      </div>`;
-    }).join("");
-}
-
 // ── Oxirgi sotuv ──────────────────────────────
 function showLastSale() {
   if (!db.sales.length) { toast("Hali sotuv yo'q","err"); return; }
