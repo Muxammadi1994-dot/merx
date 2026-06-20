@@ -1980,8 +1980,7 @@ let _narxnomaSelected = new Set();
 
 function openNarxnoma() {
   _narxnomaSelected.clear();
-  const ovEl = document.getElementById("ov-narxnoma");
-  if (ovEl) ovEl.classList.add("on");
+  openModal("narxnoma");
   setTimeout(() => {
     renderNarxnomaList();
     renderNarxnomaPreview();
