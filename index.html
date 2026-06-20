@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=50">
+<link rel="stylesheet" href="style.css?v=51">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -462,6 +462,9 @@
           <span id="cart-cnt" class="cart-hd-cnt">bo'sh</span>
         </div>
         <div style="display:flex;gap:6px">
+          <button onclick="openPosLogs()" title="Operatsiyalar tarixi" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;transition:.15s" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">
+            <i class="ti ti-history"></i>
+          </button>
           <button onclick="showLastSale()" title="Oxirgi sotuv" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;transition:.15s" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">
             <i class="ti ti-clock-hour-3"></i>
           </button>
@@ -470,6 +473,8 @@
           </button>
         </div>
       </div>
+      <!-- Parallel savatchalar (tablar) -->
+      <div id="cart-tabs" style="display:flex;align-items:center;gap:5px;padding:8px 12px;background:#13243A;overflow-x:auto"></div>
       <!-- Muddati o'tgan qarz eslatmasi -->
       <div id="debt-alert-banner" style="display:none;background:#FEF2F2;border-bottom:1px solid #FECACA;padding:8px 14px;font-size:12.5px;color:#991B1B;cursor:pointer" onclick="nav('qarzlar')">
         <i class="ti ti-alert-triangle" style="margin-right:5px"></i>
@@ -687,6 +692,16 @@
         <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:220px;height:80px;border:2.5px solid #E9A500;border-radius:8px;pointer-events:none;box-shadow:0 0 0 2000px rgba(0,0,0,.3)"></div>
       </div>
       <p style="text-align:center;font-size:12px;color:var(--mut);margin-top:10px">Barcode ramkaga to'g'rilang</p>
+    </div>
+  </div>
+
+  <!-- Operatsiyalar tarixi modal -->
+  <div class="ov" id="ov-poslogs" onclick="if(event.target===this)closeModal('poslogs')">
+    <div class="modal modal-lg" style="max-height:85vh;display:flex;flex-direction:column">
+      <button class="m-close" onclick="closeModal('poslogs')"><i class="ti ti-x"></i></button>
+      <h2 style="margin-bottom:4px"><i class="ti ti-history" style="margin-right:8px"></i>Operatsiyalar tarixi</h2>
+      <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Bugungi kassa amallari — kim, qachon, nima qildi</p>
+      <div id="poslogs-body" style="flex:1;overflow-y:auto;border:1px solid var(--brd);border-radius:var(--rs)"></div>
     </div>
   </div>
 
@@ -2323,23 +2338,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=50"></script>
-<script src="js/utils.js?v=50"></script>
-<script src="js/sms.js?v=50"></script>
-<script src="js/cloud.js?v=50"></script>
-<script src="js/dashboard.js?v=50"></script>
-<script src="js/pos.js?v=50"></script>
-<script src="js/katalog.js?v=50"></script>
-<script src="js/ombor.js?v=50"></script>
-<script src="js/mijozlar.js?v=50"></script>
-<script src="js/qarzlar.js?v=50"></script>
-<script src="js/tarix.js?v=50"></script>
-<script src="js/hisobot.js?v=50"></script>
-<script src="js/xodimlar.js?v=50"></script>
-<script src="js/moliya.js?v=50"></script>
-<script src="js/egasi.js?v=50"></script>
-<script src="js/portal.js?v=50"></script>
-<script src="js/init.js?v=50"></script>
+<script src="js/db.js?v=51"></script>
+<script src="js/utils.js?v=51"></script>
+<script src="js/sms.js?v=51"></script>
+<script src="js/cloud.js?v=51"></script>
+<script src="js/dashboard.js?v=51"></script>
+<script src="js/pos.js?v=51"></script>
+<script src="js/katalog.js?v=51"></script>
+<script src="js/ombor.js?v=51"></script>
+<script src="js/mijozlar.js?v=51"></script>
+<script src="js/qarzlar.js?v=51"></script>
+<script src="js/tarix.js?v=51"></script>
+<script src="js/hisobot.js?v=51"></script>
+<script src="js/xodimlar.js?v=51"></script>
+<script src="js/moliya.js?v=51"></script>
+<script src="js/egasi.js?v=51"></script>
+<script src="js/portal.js?v=51"></script>
+<script src="js/init.js?v=51"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2688,7 +2703,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=50"></script>
-<script src="js/superadmin.js?v=50"></script>
+<script src="js/auth.js?v=51"></script>
+<script src="js/superadmin.js?v=51"></script>
 </body>
 </html>

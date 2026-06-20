@@ -3,9 +3,52 @@
 // MERX — js/pos.js  (v4 — To'liq qayta yozildi)
 // ================================================
 
-let cart = [], posPayMode = "full", posPayType = "naqd", posPriceType = "chakana";
-let vmProd = null, selColor = null, selSize = null, vmSellMode = "dona";
+// ── Parallel savatchalar tizimi ──────────────────
+// Bir nechta mijozni navbat bilan xizmat qilish uchun: har biri alohida
+// savatcha, to'lov holati va mijoz ma'lumoti bilan, localStorage orqali saqlanadi.
+const POS_CARTS_KEY = "merx_pos_carts_v1";
+
+function posLoadCarts() {
+  try {
+    const raw = localStorage.getItem(POS_CARTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.carts) && parsed.carts.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return { activeIdx: 0, carts: [{ id: 1, name: "Savatcha 1", items: [] }] };
+}
+
+function posSaveCarts() {
+  try {
+    posCartsState.carts[posCartsState.activeIdx].items = cart;
+    localStorage.setItem(POS_CARTS_KEY, JSON.stringify(posCartsState));
+  } catch (e) {}
+}
+
+let posCartsState = posLoadCarts();
+let cart = posCartsState.carts[posCartsState.activeIdx].items;
+let posPayMode = "full", posPayType = "naqd", posPriceType = "chakana";
 let posDebtCurrency = "uzs";
+
+// ── Operatsiyalar tarixi (POS log) ────────────────
+// Har bir muhim amal (qo'shish, o'chirish, chegirma, sotuv) shu yerga yoziladi.
+function posLog(action, details) {
+  if (!db.posLogs) db.posLogs = [];
+  const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
+  const staff = staffId ? (db.staff||[]).find(s => s.id === staffId) : null;
+  db.posLogs.push({
+    id: db.seq++,
+    date: today(), time: nowTime(),
+    action, details,
+    staffId, staffName: staff ? staff.name : "—",
+    cartName: posCartsState.carts[posCartsState.activeIdx]?.name || "—"
+  });
+  // Faqat oxirgi 500 ta yozuvni saqlaymiz (xotira tejash uchun)
+  if (db.posLogs.length > 500) db.posLogs = db.posLogs.slice(-500);
+  saveDB();
+}
+let vmProd = null, selColor = null, selSize = null, vmSellMode = "dona";
 
 // ── USB Barcode scanner (global listener) ───────
 let _usbBuf = "", _usbTimer = null;
@@ -230,6 +273,7 @@ function posDonaAdd(sku, color, rowId) {
 
   if (addedTotal > 0) {
     toast(`${p.name} (${color}) — ${addedTotal} dona savatchaga qo'shildi`);
+    posLog("Savatga qo'shildi", `${p.name} (${color}) — ${addedTotal} dona`);
     renderCart();
   } else {
     toast("O'lcham va son kiriting", "err");
@@ -278,6 +322,7 @@ function posQuickAdd(sku, color, packGroup) {
   }
 
   toast(`${p.name} (${color}) × ${qtyInput} pochka savatchaga qo'shildi`);
+  posLog("Savatga qo'shildi", `${p.name} (${color}) — ${qtyInput} pochka`);
   renderCart();
   // Inputni 1 ga qaytaramiz
   if ($(inputId)) $(inputId).value = 1;
@@ -292,6 +337,8 @@ function posClear() {
 // ── renderPosGrid — utils.js bilan moslik ────────
 function renderPosGrid() {
   posSearch();
+  renderCartTabs();
+  renderCart();
   setTimeout(() => {
     const n = $("pos-note");
     if (n) { n.value = ""; n.setAttribute("readonly", true); }
@@ -523,6 +570,8 @@ function confirmVariant() {
 
 // ── Savatcha ──────────────────────────────────────
 function renderCart() {
+  posSaveCarts(); // savatcha holatini har render da localStorage ga saqlaymiz
+  renderCartTabs();
   const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
   const discount = calcDiscount(subtotal);
   const total    = subtotal - discount;
@@ -637,8 +686,79 @@ function ciQtySet(i, v) {
   }
   renderCart();
 }
-function removeFromCart(i) { cart.splice(i, 1); renderCart(); }
-function clearCart()        { cart = []; renderCart(); }
+function removeFromCart(i) {
+  const c = cart[i];
+  if (c) posLog("Savatdan o'chirildi", `${c.name} (${c.color||""}) — ${c.qty} ${c.unit||"dona"}`);
+  cart.splice(i, 1); posSaveCarts(); renderCart();
+}
+function clearCart() {
+  if (cart.length > 0) posLog("Savatcha tozalandi", `${cart.length} ta tovar olib tashlandi`);
+  cart.length = 0; posSaveCarts(); renderCart();
+}
+
+// ── Savatchalar orasida almashish ─────────────────
+function renderCartTabs() {
+  const el = $("cart-tabs"); if (!el) return;
+  el.innerHTML = posCartsState.carts.map((c, i) => {
+    const isActive = i === posCartsState.activeIdx;
+    const count = c.items.reduce((a, it) => a + it.qty, 0);
+    return `<div onclick="posSwitchCart(${i})" style="display:flex;align-items:center;gap:5px;
+      padding:6px 10px;border-radius:9px;cursor:pointer;white-space:nowrap;font-size:12.5px;font-weight:600;
+      background:${isActive?"var(--acc)":"rgba(255,255,255,.08)"};
+      color:${isActive?"#0D1B2A":"rgba(255,255,255,.65)"};transition:.15s">
+      <i class="ti ti-shopping-cart" style="font-size:13px"></i>
+      ${c.name}
+      ${count > 0 ? `<span style="background:${isActive?"rgba(13,27,42,.2)":"rgba(255,255,255,.15)"};
+        border-radius:8px;padding:1px 6px;font-size:10.5px">${count}</span>` : ""}
+      ${posCartsState.carts.length > 1 ? `<i class="ti ti-x" style="font-size:12px;margin-left:2px;opacity:.6"
+        onclick="event.stopPropagation();posCloseCart(${i})"></i>` : ""}
+    </div>`;
+  }).join("") + `
+    <button onclick="posAddCart()" title="Yangi savatcha" style="background:rgba(255,255,255,.08);
+      border:1px dashed rgba(255,255,255,.3);color:rgba(255,255,255,.7);border-radius:9px;
+      padding:6px 10px;cursor:pointer;font-size:12.5px;white-space:nowrap">
+      <i class="ti ti-plus"></i>
+    </button>`;
+}
+
+function posSwitchCart(idx) {
+  if (idx === posCartsState.activeIdx) return;
+  posSaveCarts(); // joriy savatchani saqlab qo'yamiz
+  posCartsState.activeIdx = idx;
+  cart = posCartsState.carts[idx].items;
+  posSaveCarts();
+  renderCartTabs();
+  renderCart();
+}
+
+function posAddCart() {
+  posSaveCarts();
+  const newId = Math.max(0, ...posCartsState.carts.map(c => c.id)) + 1;
+  posCartsState.carts.push({ id: newId, name: `Savatcha ${newId}`, items: [] });
+  posCartsState.activeIdx = posCartsState.carts.length - 1;
+  cart = posCartsState.carts[posCartsState.activeIdx].items;
+  posSaveCarts();
+  renderCartTabs();
+  renderCart();
+  toast(`Yangi savatcha ochildi`);
+}
+
+function posCloseCart(idx) {
+  if (posCartsState.carts.length <= 1) { toast("Kamida 1 ta savatcha qolishi kerak", "err"); return; }
+  const c = posCartsState.carts[idx];
+  if (c.items.length > 0 && !confirm(`"${c.name}" da ${c.items.length} ta tovar bor. Yopilsinmi?`)) return;
+
+  posCartsState.carts.splice(idx, 1);
+  if (posCartsState.activeIdx >= posCartsState.carts.length) {
+    posCartsState.activeIdx = posCartsState.carts.length - 1;
+  } else if (idx < posCartsState.activeIdx) {
+    posCartsState.activeIdx--;
+  }
+  cart = posCartsState.carts[posCartsState.activeIdx].items;
+  posSaveCarts();
+  renderCartTabs();
+  renderCart();
+}
 
 // ── To'lov ────────────────────────────────────────
 function setPayType(t) {
@@ -1115,8 +1235,11 @@ async function checkout() {
     await sendSms(cPhone, sms);
   }
 
+  // Sotuv yakunlanganini loglaymiz
+  posLog("Sotuv yakunlandi", `${chekNum} — ${fmt(total)} so'm (${newSale.items.length} tur, ${posPayType})`);
+
   // Reset
-  cart = []; renderCart(); setPayMode("full"); setDebtCurrency("uzs");
+  cart.length = 0; renderCart(); setPayMode("full"); setDebtCurrency("uzs");
   if ($("c-name"))       $("c-name").value       = "";
   if ($("c-phone"))      $("c-phone").value       = "";
   if ($("c-paid"))       $("c-paid").value        = "0";
@@ -1411,6 +1534,55 @@ document.addEventListener("keydown", function(e) {
 
 // ── So'nggi mahsulotlar (qidiruv bo'sh bo'lganda) ──
 // ── Oxirgi sotuv ──────────────────────────────
+// ── Operatsiyalar tarixi (POS log) ko'rsatish ──────
+function openPosLogs() {
+  openModal("poslogs");
+  renderPosLogs();
+}
+
+function renderPosLogs() {
+  const el = $("poslogs-body"); if (!el) return;
+  const logs = (db.posLogs || []).filter(l => l.date === today()).slice().reverse();
+
+  if (!logs.length) {
+    el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--mut)">
+      <i class="ti ti-history" style="font-size:32px;display:block;margin-bottom:10px;opacity:.4"></i>
+      Bugun hali operatsiya bo'lmagan</div>`;
+    return;
+  }
+
+  const actionIcons = {
+    "Savatga qo'shildi": { icon: "ti-plus", color: "var(--grn)" },
+    "Savatdan o'chirildi": { icon: "ti-minus", color: "var(--red)" },
+    "Savatcha tozalandi": { icon: "ti-trash", color: "var(--red)" },
+    "Sotuv yakunlandi": { icon: "ti-check", color: "var(--acc)" },
+  };
+
+  el.innerHTML = `<table style="width:100%">
+    <thead><tr>
+      <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mut)">VAQT</th>
+      <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mut)">AMAL</th>
+      <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mut)">TAFSILOT</th>
+      <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mut)">KASSIR</th>
+      <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mut)">SAVATCHA</th>
+    </tr></thead>
+    <tbody>
+      ${logs.map(l => {
+        const ai = actionIcons[l.action] || { icon: "ti-point", color: "var(--mut)" };
+        return `<tr style="border-top:1px solid var(--brd)">
+          <td style="padding:8px 12px;font-size:12px;color:var(--mut);white-space:nowrap">${l.time}</td>
+          <td style="padding:8px 12px;font-size:12.5px">
+            <i class="ti ${ai.icon}" style="color:${ai.color};margin-right:5px"></i>${l.action}
+          </td>
+          <td style="padding:8px 12px;font-size:12px;color:var(--mut)">${l.details||"—"}</td>
+          <td style="padding:8px 12px;font-size:12px">${l.staffName||"—"}</td>
+          <td style="padding:8px 12px;font-size:11.5px;color:#bbb">${l.cartName||"—"}</td>
+        </tr>`;
+      }).join("")}
+    </tbody>
+  </table>`;
+}
+
 function showLastSale() {
   if (!db.sales.length) { toast("Hali sotuv yo'q","err"); return; }
   const last = db.sales[db.sales.length - 1];
