@@ -665,39 +665,75 @@ function epRenderColorCards(p) {
     const totalQty = variants.reduce((a,v) => a + v.qty, 0);
     const pantone  = variants[0]?.pantone || "";
     const hex      = variants[0]?.hex || "#888";
+    const sizesStr = sizesToRange(variants.map(v => v.size).filter(Boolean), p.type);
     // Pochka soni: barcha o'lchamlardagi eng kam miqdor (to'liq pochka)
     const minQty   = variants.length > 0 ? Math.min(...variants.map(v => v.qty)) : 0;
     const allEqual = variants.every(v => v.qty === minQty);
+    const cardId   = `epcard_${color.replace(/[^a-zA-Z0-9]/g,"_")}`;
+
     return `<div class="ep-color-card" style="border:1.5px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
         <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;background:${hex};border:1px solid rgba(0,0,0,.12)"></div>
         <input value="${color}" data-epcolor="${color}" data-field="color"
           oninput="epUpdateColorField('${color}',this)"
           style="font-weight:700;font-size:13.5px;border:none;background:transparent;flex:1;padding:2px 0">
         <span style="font-size:11px;color:#bbb">${pantone}</span>
-        <span style="font-size:12px;font-weight:700;color:var(--mut);margin-left:auto">
-          ${minQty} ${p.packUnit||"pochka"}${!allEqual ? ` <span style="color:var(--acc);font-weight:400">(teng emas)</span>` : ""}
-        </span>
         <button class="btn btn-ghost btn-icon btn-sm" onclick="epDeleteColor('${color}')" title="Bu rangni butunlay o'chirish">
           <i class="ti ti-trash" style="color:var(--red)"></i>
         </button>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px">
-        ${variants.map(v => `
-          <div style="display:flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--brd);border-radius:7px;padding:4px 6px">
-            <span style="font-size:11px;color:var(--mut);min-width:24px">${v.size}</span>
-            <input type="number" value="${v.qty}" min="0" data-epqty="${color}::${v.size}"
-              oninput="epUpdateQty('${color}','${v.size}',this.value)"
-              style="width:100%;border:none;background:transparent;font-size:12px;font-weight:600;text-align:right;padding:2px">
-          </div>`).join("")}
-        <button class="btn btn-ghost btn-sm" onclick="epAddSizeToColor('${color}')"
-          style="border:1.5px dashed var(--brd);border-radius:7px;padding:4px 6px;font-size:11px;color:var(--mut)">
-          <i class="ti ti-plus" style="font-size:13px"></i> o'lcham
+
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="font-size:12px;color:var(--mut)">
+          O'lcham: <strong style="color:#0D1B2A">${sizesStr || "—"}</strong>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;color:var(--mut)">Pochka:</span>
+          ${allEqual
+            ? `<input type="number" value="${minQty}" min="0" data-epbulk="${color}"
+                onchange="epUpdateAllQty('${color}',this.value)"
+                style="width:64px;border:1px solid var(--brd);border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700;text-align:center">`
+            : `<span style="font-size:13px;font-weight:700;color:var(--acc)">turlicha</span>`}
+          <span style="font-size:11px;color:#bbb">${p.packUnit||"pochka"}</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="epToggleDetail('${cardId}')" style="font-size:11px;color:var(--mut)">
+          <i class="ti ti-list-details" style="font-size:13px"></i> Tafsilot
         </button>
       </div>
-      <div style="font-size:10.5px;color:#bbb;margin-top:6px">Jami: ${totalQty} dona</div>
+
+      <div id="${cardId}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--brd)">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px">
+          ${variants.map(v => `
+            <div style="display:flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--brd);border-radius:7px;padding:4px 6px">
+              <span style="font-size:11px;color:var(--mut);min-width:24px">${v.size}</span>
+              <input type="number" value="${v.qty}" min="0" data-epqty="${color}::${v.size}"
+                oninput="epUpdateQty('${color}','${v.size}',this.value)"
+                style="width:100%;border:none;background:transparent;font-size:12px;font-weight:600;text-align:right;padding:2px">
+            </div>`).join("")}
+          <button class="btn btn-ghost btn-sm" onclick="epAddSizeToColor('${color}')"
+            style="border:1.5px dashed var(--brd);border-radius:7px;padding:4px 6px;font-size:11px;color:var(--mut)">
+            <i class="ti ti-plus" style="font-size:13px"></i> o'lcham
+          </button>
+        </div>
+        <div style="font-size:10.5px;color:#bbb;margin-top:6px">Jami: ${totalQty} dona</div>
+      </div>
     </div>`;
   }).join("");
+}
+
+// Tafsilot panelini ochish/yopish
+function epToggleDetail(cardId) {
+  const el = $(cardId); if (!el) return;
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
+// Pochka sonini bitta input orqali barcha o'lchamlarga teng qilib o'rnatish
+function epUpdateAllQty(color, val) {
+  const p = db.products.find(x => x.sku === editSku); if (!p) return;
+  const newQty = parseInt(val) || 0;
+  p.variants.forEach(v => { if (v.color === color) v.qty = newQty; });
+  epRenderColorCards(p);
+  epUpdateInboxDisplay(p);
 }
 
 function epUpdateQty(color, size, val) {
