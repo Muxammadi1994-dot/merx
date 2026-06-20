@@ -83,6 +83,66 @@ function genPayChekNum() {
   return `PAY-${datePart}-${String(seq).padStart(4, "0")}`;
 }
 
+// ── Bitta sotuv bo'yicha barcha to'lovlarni topish ─
+function getSalePayments(saleId) {
+  return (db.debtPayments || [])
+    .flatMap(p => (p.allocations || []).map(a => ({ ...a, paymentId: p.id, paymentChekNum: p.chekNum, payDate: p.date, payTime: p.time, payMethod: p.method || "naqd" })))
+    .filter(a => a.saleId === saleId)
+    .sort((a, b) => (a.payDate+a.payTime < b.payDate+b.payTime) ? -1 : 1);
+}
+
+// ── Shu sotuv uchun keyingi T-raqamini hosil qilish (T1, T2, T3...) ─
+function nextPartNum(saleId) {
+  const existing = getSalePayments(saleId);
+  return existing.length + 1;
+}
+
+// ── Barcha sotuvlarni joriy holatga sinxronlash ────
+// db.sales dagi har bir elementning paid/remaining/debtUsd/status maydonlarini
+// calcSaleState() natijasi bilan yangilaydi. orig* maydonlar (asl, o'zgarmas
+// qiymatlar) saqlanib qoladi — chek har doim "qanday sotilgan edi"ni biladi,
+// faqat hisobot/ro'yxat ko'rinishidagi joriy holat yangilanadi.
+function syncSaleStatesFromPayments() {
+  if (!db.sales) return;
+  db.sales.forEach(s => {
+    if (s.status === "qaytarilgan") return; // qaytarilgan sotuvlarga tegmaymiz
+    const st = calcSaleState(s);
+    s.paid = st.paid;
+    s.remaining = st.remaining;
+    if (s.debtCurrency === "usd") s.debtUsd = st.debtUsd;
+    s.status = st.status;
+  });
+}
+
+// ── Sotuvning JORIY holatini hisoblash (asl sale o'zgarmaydi) ─
+// Sale yaratilgandagi asl paid/remaining + barcha keyingi to'lovlar yig'indisi.
+function calcSaleState(sale) {
+  const payments = getSalePayments(sale.id);
+  const extraPaidUzs = payments.filter(p => p.currency !== "usd").reduce((a,p) => a+(p.amount||0), 0);
+  const extraPaidUsd = payments.filter(p => p.currency === "usd").reduce((a,p) => a+(p.amount||0), 0);
+  const rate = db.settings?.rate || 12800;
+
+  const isUsdDebt = sale.debtCurrency === "usd" && sale.origDebtUsd != null;
+  let currentPaid, currentRemaining, currentDebtUsd, currentStatus;
+
+  if (isUsdDebt) {
+    currentDebtUsd   = Math.max(0, (sale.origDebtUsd||0) - extraPaidUsd);
+    currentRemaining = Math.round(currentDebtUsd * rate);
+    currentPaid      = (sale.origPaid||sale.paid||0) + extraPaidUzs + extraPaidUsd*rate;
+  } else {
+    currentRemaining = Math.max(0, (sale.origRemaining != null ? sale.origRemaining : sale.remaining||0) - extraPaidUzs);
+    currentDebtUsd   = 0;
+    currentPaid      = (sale.origPaid||sale.paid||0) + extraPaidUzs;
+  }
+  currentStatus = currentRemaining < 100 ? "tolandan" : "qarz";
+
+  return {
+    paid: currentPaid, remaining: currentRemaining,
+    debtUsd: currentDebtUsd, status: currentStatus,
+    paymentsCount: payments.length, payments
+  };
+}
+
 // ── Valyuta formatlash (qarz to'lovlari uchun) ─
 function fmtMoney(amount, currency) {
   return currency === "usd" ? `$${(+amount).toFixed(2)}` : `${fmt(amount)} so'm`;

@@ -1199,6 +1199,9 @@ async function checkout() {
     customerName:cName, customerPhone:cPhone, status,
     debtCurrency: posPayMode==="part" ? posDebtCurrency : "uzs",
     debtUsd, note: saleNote || null,
+    // Asl (o'zgarmas) qiymatlar — keyingi qarz to'lovlari bularga tegmaydi.
+    // Joriy holat har doim calcSaleState() orqali hisoblanadi.
+    origPaid: paid, origRemaining: rem, origDebtUsd: debtUsd,
     // Oldingi qarz ma'lumotlari (chekda ko'rsatish uchun)
     prevDebtUsd: prevDebtUsd > 0 ? prevDebtUsd : null,
     prevDebtUzs: prevDebtUzs > 0 ? prevDebtUzs : null,

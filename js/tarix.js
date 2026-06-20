@@ -271,53 +271,18 @@ function openSaleDetail(id) {
   const refBtn = $("sd-refund-btn");
   if (refBtn) refBtn.style.display = s.status !== "qaytarilgan" ? "inline-flex" : "none";
 
+  // Qarz to'lash endi faqat Qarzlar sahifasidan amalga oshiriladi —
+  // sotuv chekining o'zi (sd-pay-block) bu yerda o'zgartirilmaydi.
+  // Faqat shu sotuvda hali yopilmagan qarz bor-yo'qligini ko'rsatamiz.
   const payBlock = $("sd-pay-block");
   if (payBlock) {
-    if (s.status === "qarz" && (s.remaining||0) > 0) {
-      payBlock.style.display = "block";
-      const isUsd  = s.debtCurrency === "usd" && s.debtUsd;
-      const remTxt = isUsd ? `$${(+s.debtUsd).toFixed(2)} USD` : fmt(s.remaining) + " so'm";
-      if ($("sd-pay-rem"))  $("sd-pay-rem").textContent  = remTxt;
-      if ($("sd-pay-inp"))  { $("sd-pay-inp").value = ""; $("sd-pay-inp").placeholder = isUsd ? "$ summa" : "summa"; }
-      if ($("sd-pay-unit")) $("sd-pay-unit").textContent = isUsd ? "USD" : "so'm";
-    } else {
-      payBlock.style.display = "none";
-    }
+    const hasOpenDebt = s.status === "qarz" && typeof calcSaleState === "function"
+      ? calcSaleState(s).remaining > 0.5
+      : (s.remaining||0) > 0.5;
+    payBlock.style.display = hasOpenDebt ? "block" : "none";
   }
 
   openModal("saledetail");
-}
-
-// ── To'lov qabul qilish ───────────────────────────
-function acceptDebtPayment() {
-  const s = db.sales.find(x => x.id === _sdSaleId); if (!s) return;
-  if (s.status !== "qarz" || (s.remaining||0) <= 0) return;
-
-  const inp    = $("sd-pay-inp"); if (!inp) return;
-  const isUsd  = s.debtCurrency === "usd" && s.debtUsd;
-  const amount = parseFloat(inp.value) || 0;
-
-  if (amount <= 0) { toast("Summa kiriting","err"); return; }
-
-  if (isUsd) {
-    if (amount > s.debtUsd) { toast(`Qarz: $${s.debtUsd.toFixed(2)} USD dan ko'p`,"err"); return; }
-    const rate = db.settings.rate || 12800;
-    s.debtUsd   -= amount;
-    s.paid      += Math.round(amount * rate);
-    s.remaining -= Math.round(amount * rate);
-    if (s.debtUsd <= 0.001) { s.debtUsd = 0; s.remaining = 0; s.status = "tolandan"; }
-    toast(`✅ $${amount.toFixed(2)} USD qabul qilindi`);
-  } else {
-    if (amount > s.remaining) { toast(`Qarz: ${fmt(s.remaining)} so'm dan ko'p`,"err"); return; }
-    s.paid      += amount;
-    s.remaining -= amount;
-    if (s.remaining <= 0) { s.remaining = 0; s.status = "tolandan"; }
-    toast(`✅ ${fmt(amount)} so'm qabul qilindi`);
-  }
-
-  saveDB();
-  openSaleDetail(_sdSaleId);
-  renderTarix();
 }
 
 // ════════════════════════════════════════════════

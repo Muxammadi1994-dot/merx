@@ -43,6 +43,7 @@ function debtRemDisplay(s) {
 
 // ── Render ────────────────────────────────────────
 function renderDebts() {
+  syncSaleStatesFromPayments();
   const q    = ($("debt-q")||{value:""}).value.toLowerCase();
   const rate = db.settings.rate || 12800;
   const thisMonth = today().slice(0, 7);
@@ -383,18 +384,20 @@ function expandDebtGroup(idsStr) {
 // ── Mijozning barcha ochiq qarzlarini topish (sana bo'yicha) ──
 function findCustomerDebts(s) {
   const cu = debtCust(s);
-  let list;
+  let candidates;
   if (s.customerId) {
-    list = db.sales.filter(x => x.customerId === s.customerId && x.remaining > 0.5);
+    candidates = db.sales.filter(x => x.customerId === s.customerId && x.status !== "qaytarilgan");
   } else {
     // customerId yo'q bo'lsa — ism+telefon bo'yicha
-    list = db.sales.filter(x =>
+    candidates = db.sales.filter(x =>
       !x.customerId &&
       (x.customerName||"") === (s.customerName||"") &&
       (x.customerPhone||"") === (s.customerPhone||"") &&
-      x.remaining > 0.5
+      x.status !== "qaytarilgan"
     );
   }
+  // Joriy holatni (calcSaleState orqali) tekshirib, hali ham qarzi bor bo'lganlarni qoldiramiz
+  const list = candidates.filter(x => calcSaleState(x).remaining > 0.5);
   // Eng eski sana birinchi (sana bo'sh bo'lsa oxiriga)
   return list.sort((a, b) => (a.date||"9999") < (b.date||"9999") ? -1 : 1);
 }
@@ -405,55 +408,55 @@ async function recordPayment(id) {
   const amt = parseFloat(($("pay-"+id)||{value:0}).value) || 0;
   if (amt <= 0) { toast("Summani kiriting","err"); return; }
 
-  const rate    = db.settings.rate || 12800;
-  const payCur  = (clicked.debtCurrency === "usd" && clicked.debtUsd != null) ? "usd" : "uzs";
+  const method = ($("pay-method-"+id)||{value:"naqd"}).value || "naqd";
 
-  // Mijozning shu valyutadagi barcha ochiq qarzlari, sana bo'yicha (eng eski birinchi)
+  const rate    = db.settings.rate || 12800;
+  const clickedState = calcSaleState(clicked);
+  const payCur  = (clicked.debtCurrency === "usd" && clickedState.debtUsd > 0) ? "usd" : "uzs";
+
+  // Mijozning shu valyutadagi barcha ochiq qarzlari, sotuv sanasi bo'yicha (eng eski birinchi)
   const allDebts = findCustomerDebts(clicked);
   const sameCurDebts = allDebts.filter(s => {
-    const isUsd = s.debtCurrency === "usd" && s.debtUsd != null;
+    const st = calcSaleState(s);
+    const isUsd = s.debtCurrency === "usd" && st.debtUsd > 0;
     return payCur === "usd" ? isUsd : !isUsd;
   });
 
   // Bosilgan qarz ro'yxatning boshida bo'lishi shart emas — lekin
-  // taqsimlash har doim eng eskisidan boshlanadi (FIFO)
+  // taqsimlash har doim eng eski SOTUVDAN boshlanadi (FIFO, muddat emas)
   let remainingPay = amt;
   const allocations = [];
 
   for (const s of sameCurDebts) {
     if (remainingPay <= 0) break;
+    const st = calcSaleState(s);
 
     if (payCur === "usd") {
-      const debtAmt = s.debtUsd || 0;
+      const debtAmt = st.debtUsd || 0;
       if (debtAmt <= 0) continue;
       const applied = Math.min(remainingPay, debtAmt);
-
-      s.paid     += applied * rate;
-      s.debtUsd   = Math.max(0, debtAmt - applied);
-      s.remaining = Math.round(s.debtUsd * rate);
-      if (s.debtUsd < 0.005) { s.debtUsd = 0; s.remaining = 0; s.status = "tolandan"; }
+      const remainingAfter = Math.max(0, debtAmt - applied);
 
       allocations.push({
         saleId: s.id, saleDate: s.date, chekNum: s.chekNum || ("#"+s.id),
+        partNum: nextPartNum(s.id),
         amount: applied, currency: "usd",
-        fullyPaid: s.remaining === 0,
-        remainingAfter: s.debtUsd
+        fullyPaid: remainingAfter < 0.005,
+        remainingAfter
       });
       remainingPay -= applied;
     } else {
-      const debtAmt = s.remaining || 0;
+      const debtAmt = st.remaining || 0;
       if (debtAmt <= 0) continue;
       const applied = Math.min(remainingPay, debtAmt);
-
-      s.paid     += applied;
-      s.remaining = Math.max(0, s.total - s.paid);
-      if (s.remaining < 100) { s.remaining = 0; s.status = "tolandan"; }
+      const remainingAfter = Math.max(0, debtAmt - applied);
 
       allocations.push({
         saleId: s.id, saleDate: s.date, chekNum: s.chekNum || ("#"+s.id),
+        partNum: nextPartNum(s.id),
         amount: applied, currency: "uzs",
-        fullyPaid: s.remaining === 0,
-        remainingAfter: s.remaining
+        fullyPaid: remainingAfter < 100,
+        remainingAfter
       });
       remainingPay -= applied;
     }
@@ -463,7 +466,7 @@ async function recordPayment(id) {
   // taqsimotga "ortiqcha" sifatida qo'shamiz (mijozga qaytariladi deb hisoblanadi)
   const leftover = Math.round(remainingPay * 100) / 100;
 
-  // ── To'lov yozuvini saqlash ────────────────────
+  // ── To'lov yozuvini saqlash (sale o'zi o'zgarmaydi!) ──
   const cu = debtCust(clicked);
   const payment = {
     id:            (db.seq = (db.seq||1) + 1),
@@ -475,6 +478,7 @@ async function recordPayment(id) {
     customerPhone: cu.phone,
     amount:        amt,
     currency:      payCur,
+    method:        method,
     allocations:   allocations,
     leftover:      leftover > 0 ? leftover : 0
   };
@@ -482,6 +486,7 @@ async function recordPayment(id) {
   db.debtPayments.push(payment);
 
   saveDB(); renderDebts();
+  if (typeof renderQarzlarTarixi === "function") renderQarzlarTarixi();
 
   // ── Xabar matni ────────────────────────────────
   const amtDisplay = fmtMoney(amt, payCur);
@@ -489,11 +494,11 @@ async function recordPayment(id) {
   if (allocations.length === 1) {
     const a = allocations[0];
     summary = a.fullyPaid
-      ? "To'liq to'landi ✅"
+      ? `To'liq to'landi ✅ (${a.chekNum} T${a.partNum})`
       : `${fmtMoney(a.remainingAfter, a.currency)} qoldi`;
   } else if (allocations.length > 1) {
     summary = allocations.map(a =>
-      `${a.saleDate} (${a.chekNum}): ${a.fullyPaid ? "to'liq yopildi" : fmtMoney(a.amount, a.currency)+" o'tkazildi"}`
+      `${a.saleDate} (${a.chekNum} T${a.partNum}): ${a.fullyPaid ? "to'liq yopildi" : fmtMoney(a.amount, a.currency)+" o'tkazildi"}`
     ).join("; ");
   } else {
     summary = "Taqsimlanmadi";
