@@ -1188,6 +1188,9 @@ async function checkout() {
       color: c.color || null,
       size: c.size || null,
       qty: c.qty, qtyBox: c.qtyBox||null, inBox: c.inBox||null,
+      sellMode: c.sellMode || "dona",
+      packGroup: c.packGroup != null ? c.packGroup : null,
+      groupSizes: c.groupSizes || null,
       price: c.price, unit: c.unit,
       image: c.image || null,
       barcode: c.barcode || null

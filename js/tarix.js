@@ -339,24 +339,43 @@ function parseVariant(variantStr) {
 }
 
 function returnItemToStock(item) {
-  const prod = (db.products||[]).find(p => p.name === item.name);
+  const prod = (db.products||[]).find(p => p.sku === item.sku) ||
+               (db.products||[]).find(p => p.name === item.name);
   if (!prod) { console.warn("Mahsulot topilmadi:", item.name); return false; }
 
   const parsed = parseVariant(item.variant);
-  const color  = parsed.color || item.color;
-  const size   = parsed.size  || item.size;
+  const color  = item.color || parsed.color;
+  const size   = item.size  || parsed.size;
+  const sellMode = item.sellMode || (parsed.isBox ? "karobka" : (size ? "dona" : "karobka"));
 
-  if (parsed.isBox || !size) {
-    const colorVariants = prod.variants.filter(v => v.color === color);
-    if (colorVariants.length > 0) {
-      let rem = item.qty;
-      colorVariants.forEach(v => { if (rem <= 0) return; v.qty += rem; rem = 0; });
+  if (sellMode === "karobka") {
+    // Pochka rejimi: har bir pochka = qaysi o'lchamlardan 1 tadan olingan bo'lsa,
+    // o'sha aynan o'lchamlarga qaytariladi (qtyBox soni bilan, teng miqdorda).
+    const boxesReturned = item.qtyBox || Math.round((item.qty||0) / (item.inBox||1)) || 0;
+    if (boxesReturned <= 0) return false;
+
+    // Qaysi o'lchamlarga qaytarish kerakligini aniqlaymiz:
+    // 1) Agar item.groupSizes saqlangan bo'lsa — aynan o'sha o'lchamlar (eng ishonchli)
+    // 2) Bo'lmasa — shu rangdagi BARCHA o'lchamlar (eski format, fallback)
+    let targetSizes = item.groupSizes;
+    if (!targetSizes || !targetSizes.length) {
+      targetSizes = prod.variants.filter(v => v.color === color).map(v => v.size);
+    }
+
+    if (targetSizes.length > 0) {
+      targetSizes.forEach(sz => {
+        const v = prod.variants.find(x => x.color === color && x.size === sz);
+        if (v) v.qty += boxesReturned;
+        else prod.variants.push({ color: color||"Noma'lum", size: sz, qty: boxesReturned });
+      });
     } else if (prod.variants.length > 0) {
+      // O'lcham umuman aniqlanmasa — birinchi variantga to'liq qaytaramiz (oxirgi chora)
       prod.variants[0].qty += item.qty;
     } else {
       prod.variants.push({ color: color||"Noma'lum", size: "", qty: item.qty });
     }
   } else {
+    // Dona rejimi: aniq bitta o'lchamga qaytariladi
     const v = prod.variants.find(x =>
       x.color === color && (x.size === size || String(x.size) === String(size))
     );
@@ -377,16 +396,18 @@ function openRefundModal(saleId) {
 
   const safeItems = (s.items||[]).filter(Boolean);
   el.innerHTML = safeItems.map((item, i) => {
-    const parsed  = parseVariant(item.variant);
+    const isBox = item.sellMode === "karobka" && item.inBox > 0;
+    const unitLabel = isBox ? "pochka" : (item.unit || "dona");
+    const displayMax = isBox ? (item.qtyBox || Math.round(item.qty/item.inBox)) : item.qty;
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
       <div style="flex:1">
         <div style="font-weight:600;font-size:13px">${item.name||"?"}</div>
         <div style="font-size:12px;color:var(--mut)">${item.variant||""} · ${fmt(item.price||0)} so'm/dona</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:12px;color:var(--mut)">Sotilgan: ${item.qty||0}</span>
-        <input type="number" id="ref-qty-${i}" min="0" max="${item.qty||0}"
-          value="${item.qty||0}"
+        <span style="font-size:12px;color:var(--mut)">Sotilgan: ${displayMax} ${unitLabel}</span>
+        <input type="number" id="ref-qty-${i}" min="0" max="${displayMax}"
+          value="${displayMax}" data-isbox="${isBox?1:0}" data-inbox="${item.inBox||1}"
           style="width:64px;font-family:inherit;font-size:14px;font-weight:700;
             text-align:center;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px"
           oninput="updateRefundTotal()">
@@ -408,8 +429,12 @@ function updateRefundTotal() {
   const safeItems = (s.items||[]).filter(Boolean);
   let total = 0;
   safeItems.forEach((item, i) => {
-    const qty = parseInt($(`ref-qty-${i}`)?.value) || 0;
-    const sum = qty * (item.price||0);
+    const inp = $(`ref-qty-${i}`); if (!inp) return;
+    const rawVal = parseInt(inp.value) || 0;
+    const isBox  = inp.dataset.isbox === "1";
+    const inBox  = parseInt(inp.dataset.inbox) || 1;
+    const qtyDona = isBox ? rawVal * inBox : rawVal;
+    const sum = qtyDona * (item.price||0);
     total += sum;
     const sumEl = $(`ref-sum-${i}`);
     if (sumEl) sumEl.textContent = fmt(sum) + " so'm";
@@ -427,13 +452,21 @@ function confirmRefund() {
   let   hasError    = false;
 
   safeItems.forEach((item, i) => {
-    const qty = parseInt($(`ref-qty-${i}`)?.value) || 0;
-    if (qty <= 0) return;
-    if (qty > (item.qty||0)) {
-      toast(`${item.name}: ${item.qty} ta sotilgan, ${qty} ta qaytara olmaysiz`,"err");
+    const inp = $(`ref-qty-${i}`); if (!inp) return;
+    const rawVal = parseInt(inp.value) || 0;
+    if (rawVal <= 0) return;
+    const isBox  = inp.dataset.isbox === "1";
+    const inBox  = parseInt(inp.dataset.inbox) || 1;
+    const qty    = isBox ? rawVal * inBox : rawVal; // dona ko'rinishida
+    const maxQty = item.qty || 0;
+
+    if (qty > maxQty) {
+      toast(`${item.name}: ${maxQty} ta sotilgan, ${qty} ta qaytara olmaysiz`,"err");
       hasError = true; return;
     }
-    refundItems.push({ ...item, qty });
+    // Pochka rejimida qtyBox — foydalanuvchi to'g'ridan-to'g'ri pochka sonini kiritgan
+    const adjustedQtyBox = isBox ? rawVal : item.qtyBox;
+    refundItems.push({ ...item, qty, qtyBox: adjustedQtyBox });
     refundTotal += qty * (item.price||0);
   });
 
@@ -459,7 +492,9 @@ function confirmRefund() {
       const refItem = refundItems.find(r => r.name===item.name && r.variant===item.variant);
       if (!refItem) return item;
       const newQty = (item.qty||0) - refItem.qty;
-      return newQty > 0 ? { ...item, qty: newQty } : null;
+      if (newQty <= 0) return null;
+      const newQtyBox = item.qtyBox != null ? (item.qtyBox - (refItem.qtyBox||0)) : null;
+      return { ...item, qty: newQty, qtyBox: newQtyBox };
     }).filter(Boolean);
   }
 
