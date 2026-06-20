@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=53">
+<link rel="stylesheet" href="style.css?v=54">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -509,7 +509,7 @@
       <div class="checkout-panel">
 
         <!-- Narx turi — faqat chakana rejim yoqilganda ko'rinadi -->
-        <div id="price-type-wrap" style="display:none;margin-bottom:14px">
+        <div id="price-type-wrap" style="margin-bottom:14px">
           <div style="font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Narx turi</div>
           <div class="seg" id="price-type-seg" style="display:flex;gap:0;border-radius:10px;overflow:hidden;border:1.5px solid #E8E5E0">
             <button data-pt="ulgurji" class="on" onclick="setPriceType('ulgurji')"
@@ -1378,18 +1378,6 @@
                 <button data-t="oyoq" onclick="setShopType('oyoq')">👟 Oyoq kiyim</button>
                 <button data-t="kiyim" onclick="setShopType('kiyim')">👕 Kiyim-kechak</button>
                 <button data-t="ikki" onclick="setShopType('ikki')">🧩 Ikkalasi</button>
-              </div>
-            </div>
-            <div class="fld">
-              <label>Chakana narx rejimi
-                <span style="font-size:11px;font-weight:400;color:var(--mut)">— Katalog va Omborda chakana narxni ko'rsatish</span>
-              </label>
-              <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px">
-                  <input type="checkbox" id="s-chakana" onchange="toggleChakanaMode(this.checked)"
-                    style="width:18px;height:18px;accent-color:var(--acc);cursor:pointer">
-                  <span id="s-chakana-lbl">Chakana narx ko'rinmayapti (ulgurji rejim)</span>
-                </label>
               </div>
             </div>
             <div class="fld">
@@ -2338,23 +2326,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=53"></script>
-<script src="js/utils.js?v=53"></script>
-<script src="js/sms.js?v=53"></script>
-<script src="js/cloud.js?v=53"></script>
-<script src="js/dashboard.js?v=53"></script>
-<script src="js/pos.js?v=53"></script>
-<script src="js/katalog.js?v=53"></script>
-<script src="js/ombor.js?v=53"></script>
-<script src="js/mijozlar.js?v=53"></script>
-<script src="js/qarzlar.js?v=53"></script>
-<script src="js/tarix.js?v=53"></script>
-<script src="js/hisobot.js?v=53"></script>
-<script src="js/xodimlar.js?v=53"></script>
-<script src="js/moliya.js?v=53"></script>
-<script src="js/egasi.js?v=53"></script>
-<script src="js/portal.js?v=53"></script>
-<script src="js/init.js?v=53"></script>
+<script src="js/db.js?v=54"></script>
+<script src="js/utils.js?v=54"></script>
+<script src="js/sms.js?v=54"></script>
+<script src="js/cloud.js?v=54"></script>
+<script src="js/dashboard.js?v=54"></script>
+<script src="js/pos.js?v=54"></script>
+<script src="js/katalog.js?v=54"></script>
+<script src="js/ombor.js?v=54"></script>
+<script src="js/mijozlar.js?v=54"></script>
+<script src="js/qarzlar.js?v=54"></script>
+<script src="js/tarix.js?v=54"></script>
+<script src="js/hisobot.js?v=54"></script>
+<script src="js/xodimlar.js?v=54"></script>
+<script src="js/moliya.js?v=54"></script>
+<script src="js/egasi.js?v=54"></script>
+<script src="js/portal.js?v=54"></script>
+<script src="js/init.js?v=54"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2703,7 +2691,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=53"></script>
-<script src="js/superadmin.js?v=53"></script>
+<script src="js/auth.js?v=54"></script>
+<script src="js/superadmin.js?v=54"></script>
 </body>
 </html>

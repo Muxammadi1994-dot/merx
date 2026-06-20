@@ -25,61 +25,6 @@ function saveSetting(key, val) {
   }
 }
 
-// Chakana narx rejimi — POS da Ulgurji/Chakana tanlash tugmasini ko'rsatish/yashirish
-function toggleChakanaMode(checked) {
-  if (!db.settings) db.settings = {};
-  db.settings.showChakana = checked;
-  saveDB();
-
-  const wrap = $("price-type-wrap");
-  if (wrap) wrap.style.display = checked ? "block" : "none";
-
-  const lbl = $("s-chakana-lbl");
-  if (lbl) lbl.textContent = checked
-    ? "Chakana narx ko'rinmoqda (ikkalasi ham tanlanadi)"
-    : "Chakana narx ko'rinmayapti (ulgurji rejim)";
-
-  // Agar o'chirilsa, POS har doim ulgurji rejimda qoladi
-  if (!checked && typeof posPriceType !== "undefined") {
-    posPriceType = "ulgurji";
-    if (typeof setPriceType === "function") setPriceType("ulgurji");
-  }
-
-  if (typeof renderOmbor === "function") renderOmbor();
-  toast(checked ? "✅ Chakana narx yoqildi" : "⛔ Chakana narx o'chirildi");
-}
-
-function setShopType(t) {
-  if (!db.settings) db.settings = {};
-  db.settings.shopType = t;
-  // db.shop.type ham sinxron saqlansin (visProds() to'g'ri ishlashi uchun)
-  if (!db.shop) db.shop = {};
-  db.shop.type = t;
-  document.querySelectorAll("[data-t]").forEach(b => b.classList.toggle("on", b.dataset.t === t));
-  saveDB();
-  // Barcha sahifalarni yangilash
-  if (typeof renderKatalog === "function") renderKatalog();
-  if (typeof renderOmbor   === "function") renderOmbor();
-  const label = t === "oyoq" ? "Oyoq kiyim" : t === "kiyim" ? "Kiyim-kechak" : "Ikkalasi";
-  toast("Do'kon turi: " + label);
-}
-
-// ── Egasi sahifasini render qilish ───────────────
-// Sahifa ochilganda checkbox va narx turi panelini to'g'ri holatga keltirish
-function initChakanaToggle() {
-  const checked = db.settings?.showChakana || false;
-  const chk = $("s-chakana");
-  if (chk) chk.checked = checked;
-
-  const lbl = $("s-chakana-lbl");
-  if (lbl) lbl.textContent = checked
-    ? "Chakana narx ko'rinmoqda (ikkalasi ham tanlanadi)"
-    : "Chakana narx ko'rinmayapti (ulgurji rejim)";
-
-  const wrap = $("price-type-wrap");
-  if (wrap) wrap.style.display = checked ? "block" : "none";
-}
-
 function renderEgasi() {
   if ($("s-name")) $("s-name").value = db.shop?.name || db.settings?.name || "";
   if ($("s-rate")) $("s-rate").value = db.settings?.rate || 12800;
@@ -109,7 +54,6 @@ function renderEgasi() {
   if ($("s-eskiz-token"))  $("s-eskiz-token").value  = db.settings?.eskizToken  || "";
   if ($("s-eskiz-sender")) $("s-eskiz-sender").value = db.settings?.eskizSender || "";
   if (typeof updateSmsUI        === "function") updateSmsUI();
-  if (typeof initChakanaToggle  === "function") initChakanaToggle();
   if (typeof updateCostCurrency === "function") updateCostCurrency();
 
   // Telegram bot

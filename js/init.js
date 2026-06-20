@@ -35,8 +35,6 @@ function init() {
     if (!authCheck()) return;
   }
 
-  const ptw = $("price-type-wrap");
-  if (ptw) ptw.style.display = db.settings?.showChakana ? "block" : "none";
   nav("dashboard");
 
   // Rol UI — nav dan keyin
