@@ -1118,6 +1118,21 @@ function addProduct() {
     if (barcode && !p.barcode) p.barcode = barcode;
     if (packUnit) p.packUnit = packUnit;
     if (apPendingImage) p.image = apPendingImage;
+    // Narxlarni ham yangilaymiz — foydalanuvchi modalda kiritgan narx ustuvor
+    if (cost > 0)  p.costUsd     = cost;
+    if (price > 0) p.priceUzs    = price;
+    if (ulg > 0)   p.ulgurjiNarx = ulg;
+    // inBox ni real holatdan yangilaymiz — yangi rang boshqa sonli o'lchamga
+    // ega bo'lishi mumkin (masalan eski rang 39-44, yangisi faqat 40-42)
+    {
+      const colors = [...new Set(p.variants.map(v => v.color))];
+      let maxSizes = 1;
+      colors.forEach(c => {
+        const cnt = p.variants.filter(v => v.color === c).length;
+        if (cnt > maxSizes) maxSizes = cnt;
+      });
+      p.inBox = maxSizes;
+    }
   } else {
     const autoBarcode = barcode || genEAN13(db.seq);
     db.products.push({
@@ -1145,6 +1160,7 @@ function addProduct() {
   if ($("ap-cost-note"))  $("ap-cost-note").innerHTML = "";
   if ($("ap-ulgurji-note")) $("ap-ulgurji-note").innerHTML = "";
   if ($("ap-color"))      $("ap-color").value       = "";
+  if ($("ap-existing-note")) $("ap-existing-note").style.display = "none";
   apResetImage();
   ppReset("ap");
   apResetSizeToStandard();
@@ -1207,6 +1223,39 @@ function apToggleField(key, val) {
   saveDB();
   apRenderFieldList();
   apApplyFields();
+}
+
+// Mahsulot nomi yozilganda — agar mavjud tovar bo'lsa, narxlarni ko'rsatish
+function apNameAutofill(val) {
+  const listEl = $("ap-name-list");
+  if (listEl) {
+    listEl.innerHTML = db.products
+      .filter(p => p.name.toLowerCase().includes(val.toLowerCase()))
+      .slice(0, 20)
+      .map(p => `<option value="${p.name}">`).join("");
+  }
+
+  const note = $("ap-existing-note");
+  const p = db.products.find(x => x.name.toLowerCase() === val.toLowerCase().trim());
+
+  if (!p) {
+    if (note) note.style.display = "none";
+    return;
+  }
+
+  // Mavjud tovar topildi — narxlarni avtomatik to'ldiramiz va ogohlantiramiz
+  const rate = db.settings?.rate || 12800;
+  const cur1 = db.settings?.priceCurrency || "uzs";
+  if ($("ap-cost")) $("ap-cost").value = (cur1 === "usd" || cur1 === "both") ? p.costUsd : Math.round((p.costUsd||0)*rate);
+  if ($("ap-ulgurji")) { $("ap-ulgurji").value = p.ulgurjiNarx || 0; if (typeof fmtInput === "function") fmtInput($("ap-ulgurji")); }
+  if ($("ap-art") && p.art) $("ap-art").value = p.art;
+
+  const totalQty = p.variants.reduce((a,v) => a+v.qty, 0);
+  if (note) {
+    note.style.display = "block";
+    note.innerHTML = `<i class="ti ti-info-circle"></i> Bu tovar allaqachon mavjud (joriy qoldiq: ${totalQty} ${p.unit||"dona"}). Yangi rang shu tovarga qo'shiladi, narxlar yangilanadi.`;
+  }
+  apCostNote();
 }
 
 function apTypeChange(t) {
@@ -1864,6 +1913,23 @@ function confirmImport() {
         payStatus:   "tolandan"
       });
     }
+  });
+
+  // Ta'sirlangan barcha mahsulotlarning inBox ini real holatdan yangilaymiz
+  // (yangi rang qo'shilgan bo'lsa, o'lchamlar soni o'zgargan bo'lishi mumkin)
+  const touchedSkus = new Set(_importRows.map(r => {
+    const pp = db.products.find(x => x.name.toLowerCase() === r.nom.toLowerCase());
+    return pp ? pp.sku : null;
+  }).filter(Boolean));
+  touchedSkus.forEach(sku => {
+    const pp = db.products.find(x => x.sku === sku); if (!pp) return;
+    const colors = [...new Set(pp.variants.map(v => v.color))];
+    let maxSizes = 1;
+    colors.forEach(c => {
+      const cnt = pp.variants.filter(v => v.color === c).length;
+      if (cnt > maxSizes) maxSizes = cnt;
+    });
+    pp.inBox = maxSizes;
   });
 
   saveDB(); renderKatalog(); if (typeof renderOmbor === "function") renderOmbor(); closeModal("import");

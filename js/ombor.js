@@ -495,10 +495,14 @@ function omRenderKirim() {
           ${o.color} <span style="color:#bbb">/</span> ${o.size}
         </div>
         ${o.pantone ? `<div style="font-size:10px;color:#aaa">${o.pantone}</div>` : ""}
-        ${o.boxes ? `<div style="font-size:10.5px;color:#856404">📦 ${o.boxes} karobka</div>` : ""}
       </td>
-      <td><span class="bg bg-g" style="font-weight:700">+${o.qty}</span></td>
-      <td class="num" style="font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi)+" so'm" : "—"}</td>
+      <td>
+        ${o.boxes ? `<span class="bg bg-g" style="font-weight:700">${o.boxes} pochka</span>` : `<span class="bg bg-g" style="font-weight:700">+${o.qty}</span>`}
+      </td>
+      <td class="num" style="font-size:12.5px">
+        ${o.kirimNarxi ? `<div>${fmt(o.kirimNarxi)} so'm</div>` : "—"}
+        ${o.kirimNarxi && o.boxes && o.boxes !== o.qty ? `<div style="font-size:10.5px;color:#856404;margin-top:1px">📦 ${fmt(Math.round(o.kirimNarxi * (o.qty/o.boxes)))} so'm/pochka</div>` : ""}
+      </td>
       <td class="num" style="font-weight:600;font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi*o.qty)+" so'm" : "—"}</td>
       <td style="font-size:12.5px">${o.supplier||"—"}</td>
       <td style="font-size:12px;color:var(--mut)">
