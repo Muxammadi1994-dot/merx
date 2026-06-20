@@ -311,12 +311,13 @@ function confirmVariant() {
   const narx      = overrideVal > 0 ? overrideVal : baseNarx;
 
   if (vmSellMode === "karobka") {
-    // Rang bo'yicha umumiy qoldiq tekshiruv
-    const cStock = vmProd.variants.filter(v => v.color===selColor).reduce((a,v) => a+v.qty, 0);
+    // Pochka soni = eng kam o'lchamdagi qoldiq (chunki 1 pochka = barcha o'lchamlardan 1 tadan)
+    const colorVariants = vmProd.variants.filter(v => v.color===selColor);
+    const maxPochka = colorVariants.length > 0 ? Math.min(...colorVariants.map(v => v.qty)) : 0;
     const alreadyInCart = cart.find(c => c.sku===vmProd.sku && c.color===selColor && !c.size);
-    const alreadyQty    = alreadyInCart ? alreadyInCart.qty : 0;
-    if (alreadyQty + totalDona > cStock) {
-      toast(`Faqat ${cStock - alreadyQty} ${vmProd.unit||"dona"} bor (${Math.floor((cStock-alreadyQty)/inBox)} karobka)`,"err");
+    const alreadyBoxes   = alreadyInCart ? (alreadyInCart.qtyBox||0) : 0;
+    if (alreadyBoxes + qtyInput > maxPochka) {
+      toast(`Faqat ${maxPochka - alreadyBoxes} pochka bor`,"err");
       return;
     }
     const ex = cart.find(c => c.sku===vmProd.sku && c.color===selColor && c.sellMode==="karobka");
@@ -329,7 +330,7 @@ function confirmVariant() {
       art: vmProd.art || null,
       barcode: vmProd.barcode || null
     });
-    toast(`${vmProd.name} (${selColor}) × ${qtyInput} karobka (${totalDona} ${vmProd.unit||"dona"}) savatchaga qo'shildi`);
+    toast(`${vmProd.name} (${selColor}) × ${qtyInput} pochka (${totalDona} ${vmProd.unit||"dona"}) savatchaga qo'shildi`);
   } else {
     // Dona rejimi
     const v = vmProd.variants.find(x => x.color===selColor && x.size===selSize);
@@ -408,10 +409,11 @@ function renderCart() {
         <div class="ci-row">
           <div class="qty-ctrl">
             <button onclick="ciQty(${i},-1)">−</button>
-            <input type="number" value="${c.qty}" min="1"
+            <input type="number" value="${c.sellMode==='karobka' ? c.qtyBox : c.qty}" min="1"
               oninput="ciQtySet(${i},+this.value)"
               style="width:38px;text-align:center;border:none;outline:none;font-weight:600">
             <button onclick="ciQty(${i},1)">+</button>
+            ${c.sellMode==='karobka' ? `<span style="font-size:10px;color:#bbb;margin-left:3px">${c.unit==='dona'?'pochka':'pochka'}</span>` : ""}
           </div>
           ${priceTag}
           <button class="ci-rm" onclick="removeFromCart(${i})"><i class="ti ti-x"></i></button>
@@ -424,13 +426,24 @@ function renderCart() {
 }
 
 function ciQty(i, d) {
-  cart[i].qty = Math.max(1, cart[i].qty + d);
-  if (cart[i].inBox) cart[i].qtyBox = Math.ceil(cart[i].qty / cart[i].inBox);
+  const c = cart[i];
+  if (c.sellMode === "karobka" && c.inBox) {
+    // Pochka rejimi: avval pochka sonini o'zgartiramiz, keyin jami donani hisoblaymiz
+    c.qtyBox = Math.max(1, (c.qtyBox || 1) + d);
+    c.qty = c.qtyBox * c.inBox;
+  } else {
+    c.qty = Math.max(1, c.qty + d);
+  }
   renderCart();
 }
 function ciQtySet(i, v) {
-  cart[i].qty = Math.max(1, v || 1);
-  if (cart[i].inBox) cart[i].qtyBox = Math.ceil(cart[i].qty / cart[i].inBox);
+  const c = cart[i];
+  if (c.sellMode === "karobka" && c.inBox) {
+    c.qtyBox = Math.max(1, v || 1);
+    c.qty = c.qtyBox * c.inBox;
+  } else {
+    c.qty = Math.max(1, v || 1);
+  }
   renderCart();
 }
 function removeFromCart(i) { cart.splice(i, 1); renderCart(); }
@@ -731,12 +744,11 @@ async function checkout() {
   cart.forEach(c => {
     const p = db.products.find(x => x.sku === c.sku); if (!p) return;
     if (c.sellMode === "karobka") {
-      // Karobkada razmer yo'q — rang bo'yicha tartibda ayiramiz
-      let rem = c.qty;
+      // Pochka mantig'i: har bir pochka = barcha o'lchamlardan 1 tadan.
+      // qtyBox = nechta pochka sotildi — shuncha son har bir o'lchamdan ayiriladi.
+      const boxesSold = c.qtyBox || 0;
       p.variants.filter(v => v.color === c.color).forEach(v => {
-        if (rem <= 0) return;
-        const take = Math.min(v.qty, rem);
-        v.qty -= take; rem -= take;
+        v.qty = Math.max(0, v.qty - boxesSold);
       });
     } else {
       const v = p.variants.find(x => x.color===c.color && x.size===c.size);
