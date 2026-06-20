@@ -38,6 +38,41 @@ function sizesToRange(sizeList, type) {
   return sizeList.join(", ");
 }
 
+// ── Pochka guruhlash ──────────────────────────────
+// Dona sotuvi natijasida o'lchamlar nomutanosib bo'lib qolsa,
+// variantlarni "to'liq pochka" va "ochilgan pochka" guruhlariga ajratadi.
+function regroupPackages(variants, color) {
+  const colorVariants = variants.filter(v => v.color === color);
+  if (colorVariants.length === 0) return [];
+
+  const qtys = colorVariants.map(v => v.qty);
+  const minQty = Math.min(...qtys);
+  const allEqual = qtys.every(q => q === minQty);
+
+  if (allEqual) {
+    return [{ packGroup: 0, qty: minQty, isBroken: false, variants: colorVariants }];
+  }
+
+  const groups = [{ packGroup: 0, qty: minQty, isBroken: false, variants: colorVariants.map(v => ({...v, qty: minQty})) }];
+
+  let groupIdx = 1;
+  let rem = colorVariants.map(v => ({ ...v, qty: v.qty - minQty })).filter(v => v.qty > 0);
+  while (rem.length > 0) {
+    const rQtys = rem.map(v => v.qty);
+    const rMin = Math.min(...rQtys);
+    groups.push({
+      packGroup: groupIdx,
+      qty: rMin,
+      isBroken: true,
+      variants: rem.map(v => ({...v, qty: rMin}))
+    });
+    rem = rem.map(v => ({ ...v, qty: v.qty - rMin })).filter(v => v.qty > 0);
+    groupIdx++;
+  }
+
+  return groups;
+}
+
 const debtSales  = () => db.sales.filter(s => s.remaining > 0.5);
 const isOverdue  = s  => s.due && s.due < today();
 

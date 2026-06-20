@@ -157,59 +157,53 @@ function omRenderQoldiq() {
   const vp = typeof visProds === "function" ? visProds() : db.products;
   let rows = [];
   vp.forEach(p => {
-    // Rang bo'yicha guruhlash — o'lchamlar ham saqlanadi
-    const colorGroups = {};
-    p.variants.forEach(v => {
-      if (!colorGroups[v.color]) {
-        colorGroups[v.color] = {
-          color:   v.color,
-          pantone: v.pantone || "",
-          qty:     0,
-          sizes:   []   // [{size, qty}]
-        };
-      }
-      colorGroups[v.color].qty += v.qty;
-      if (v.size) {
-        const existing = colorGroups[v.color].sizes.find(s => s.size === v.size);
-        if (existing) existing.qty += v.qty;
-        else colorGroups[v.color].sizes.push({ size: v.size, qty: v.qty });
-      }
-    });
+    const colors = [...new Set(p.variants.map(v => v.color))];
+    colors.forEach(color => {
+      const groups = typeof regroupPackages === "function"
+        ? regroupPackages(p.variants, color)
+        : [{ packGroup:0, isBroken:false, qty: Math.min(...p.variants.filter(v=>v.color===color).map(v=>v.qty)),
+             variants: p.variants.filter(v=>v.color===color) }];
 
-    Object.values(colorGroups).forEach(cg => {
-      const inBox   = p.inBox || 1;
-      // Pochka soni: barcha o'lchamlarda bir xil bo'lishi kerak (eng kam qiymat = to'liq pochka)
-      const boxes   = cg.sizes.length > 0 ? Math.min(...cg.sizes.map(s => s.qty)) : null;
-      const costUzs = Math.round((p.costUsd || 0) * rate);
-      const margin  = p.ulgurjiNarx > 0 && costUzs > 0
-        ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : null;
+      groups.forEach(g => {
+        const pantone = g.variants[0]?.pantone || "";
+        const sizes = g.variants.map(v => ({ size: v.size, qty: v.qty }));
+        const groupTotalQty = g.variants.reduce((a,v)=>a+v.qty, 0);
+        const inBox = g.variants.length || 1;
+        const boxes = g.qty;
+        const costUzs = Math.round((p.costUsd || 0) * rate);
+        const margin  = p.ulgurjiNarx > 0 && costUzs > 0
+          ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : null;
 
-      rows.push({
-        sku:     p.sku,
-        art:     p.art || "",
-        name:    p.name,
-        category:p.category || "",
-        image:   p.image || "",
-        color:   cg.color,
-        pantone: cg.pantone,
-        qty:     cg.qty,
-        sizes:   cg.sizes,
-        inBox,
-        boxes,
-        packUnit: p.packUnit || "karobka",
-        unit:    p.unit || "dona",
-        barcode: p.barcode || "",
-        costUzs,
-        chakana: p.priceUzs,
-        ulgurji: p.ulgurjiNarx || 0,
-        margin,
-        qiymati: Math.round(cg.qty * (p.costUsd || 0) * rate)
+        rows.push({
+          sku:     p.sku,
+          art:     p.art || "",
+          name:    p.name,
+          category:p.category || "",
+          image:   p.image || "",
+          color:   color,
+          pantone: pantone,
+          qty:     groupTotalQty,
+          sizes:   sizes,
+          isBroken: g.isBroken,
+          packGroup: g.packGroup,
+          inBox,
+          boxes,
+          packUnit: p.packUnit || "pochka",
+          unit:    p.unit || "dona",
+          barcode: p.barcode || "",
+          costUzs,
+          chakana: p.priceUzs,
+          ulgurji: p.ulgurjiNarx || 0,
+          margin,
+          qiymati: Math.round(groupTotalQty * (p.costUsd || 0) * rate)
+        });
       });
     });
   });
 
   if (omStockFilter === "low") rows = rows.filter(r => r.qty > 0 && r.qty <= 5);
   if (omStockFilter === "out") rows = rows.filter(r => r.qty <= 0);
+  if (omStockFilter === "broken") rows = rows.filter(r => r.isBroken);
   if (q) rows = rows.filter(r =>
     r.name.toLowerCase().includes(q)    ||
     r.sku.toLowerCase().includes(q)     ||
@@ -280,7 +274,7 @@ function omRenderQoldiq() {
       </td>` : ""}
       ${cols.sku ? `<td style="font-family:monospace;font-size:11.5px;color:var(--mut)">${r.sku}</td>` : ""}
       ${cols.art ? `<td style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${r.art || '<span style="color:#ddd">—</span>'}</td>` : ""}
-      <td><div style="font-weight:600;font-size:13px">${r.name}</div></td>
+      <td><div style="font-weight:600;font-size:13px">${r.name}${r.isBroken?` <span style="background:#FEF3C7;color:#92400E;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:7px;margin-left:5px;white-space:nowrap">ochilgan</span>`:""}</div></td>
       ${cols.kategoriya ? `<td style="font-size:12px;color:var(--mut)">${r.category}</td>` : ""}
       ${cols.barcode ? `<td style="font-family:monospace;font-size:12px">
         ${r.barcode

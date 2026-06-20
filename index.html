@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=39">
+<link rel="stylesheet" href="style.css?v=40">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -704,6 +704,10 @@
         <button class="kat-status-btn" data-s="nol" onclick="setKatStatus('nol')"
           style="padding:10px 14px;font-size:13px;border:none;border-bottom:2.5px solid transparent;background:transparent;cursor:pointer;color:#dc2626;white-space:nowrap">
           Nol qoldiq <span id="kat-stat-nol" style="font-size:11px;background:#fee2e2;border-radius:10px;padding:1px 7px;margin-left:4px;color:#991b1b">0</span>
+        </button>
+        <button class="kat-status-btn" data-s="broken" onclick="setKatStatus('broken')"
+          style="padding:10px 14px;font-size:13px;border:none;border-bottom:2.5px solid transparent;background:transparent;cursor:pointer;color:#92400e;white-space:nowrap">
+          📦 Ochilgan pochkalar <span id="kat-stat-broken" style="font-size:11px;background:#fef3c7;border-radius:10px;padding:1px 7px;margin-left:4px;color:#92400e">0</span>
         </button>
       </div>
 
@@ -2276,23 +2280,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=39"></script>
-<script src="js/utils.js?v=39"></script>
-<script src="js/sms.js?v=39"></script>
-<script src="js/cloud.js?v=39"></script>
-<script src="js/dashboard.js?v=39"></script>
-<script src="js/pos.js?v=39"></script>
-<script src="js/katalog.js?v=39"></script>
-<script src="js/ombor.js?v=39"></script>
-<script src="js/mijozlar.js?v=39"></script>
-<script src="js/qarzlar.js?v=39"></script>
-<script src="js/tarix.js?v=39"></script>
-<script src="js/hisobot.js?v=39"></script>
-<script src="js/xodimlar.js?v=39"></script>
-<script src="js/moliya.js?v=39"></script>
-<script src="js/egasi.js?v=39"></script>
-<script src="js/portal.js?v=39"></script>
-<script src="js/init.js?v=39"></script>
+<script src="js/db.js?v=40"></script>
+<script src="js/utils.js?v=40"></script>
+<script src="js/sms.js?v=40"></script>
+<script src="js/cloud.js?v=40"></script>
+<script src="js/dashboard.js?v=40"></script>
+<script src="js/pos.js?v=40"></script>
+<script src="js/katalog.js?v=40"></script>
+<script src="js/ombor.js?v=40"></script>
+<script src="js/mijozlar.js?v=40"></script>
+<script src="js/qarzlar.js?v=40"></script>
+<script src="js/tarix.js?v=40"></script>
+<script src="js/hisobot.js?v=40"></script>
+<script src="js/xodimlar.js?v=40"></script>
+<script src="js/moliya.js?v=40"></script>
+<script src="js/egasi.js?v=40"></script>
+<script src="js/portal.js?v=40"></script>
+<script src="js/init.js?v=40"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2638,7 +2642,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=39"></script>
-<script src="js/superadmin.js?v=39"></script>
+<script src="js/auth.js?v=40"></script>
+<script src="js/superadmin.js?v=40"></script>
 </body>
 </html>

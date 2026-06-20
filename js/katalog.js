@@ -317,19 +317,34 @@ function renderKatalog() {
     });
   }
 
-  // Billz uslubida: har bir mahsulot+rang juftligi alohida qator
+  // Billz uslubida: har bir mahsulot+rang+pochka-guruhi alohida qator
   // (Ombor sahifasida bir xil mahsulot guruhlangan holatda qoladi — bu yerga tegmaydi)
   let rows = [];
   ps.forEach(p => {
     const colorsInProduct = [...new Set(p.variants.map(v => v.color))];
     colorsInProduct.forEach(color => {
-      rows.push({ product: p, color });
+      const groups = regroupPackages(p.variants, color);
+      groups.forEach(g => {
+        rows.push({ product: p, color, packGroup: g.packGroup, isBroken: g.isBroken, groupQty: g.qty, groupVariants: g.variants });
+      });
     });
   });
+
+  // "Ochilgan pochka" filtri — faqat shu maxsus tab tanlanganda
+  if (katStatusFilter === "broken") rows = rows.filter(r => r.isBroken);
 
   // Statistika (mahsulot darajasida — nechta turdagi tovar bor)
   const totalAll   = ps.length;
   const totalFaol  = ps.filter(p => totalStock(p) > 0).length;
+  const totalBroken = (() => {
+    let cnt = 0;
+    ps.forEach(p => {
+      [...new Set(p.variants.map(v=>v.color))].forEach(c => {
+        cnt += regroupPackages(p.variants, c).filter(g => g.isBroken).length;
+      });
+    });
+    return cnt;
+  })();
   const totalNol   = ps.filter(p => totalStock(p) === 0).length;
   const totalKam   = ps.filter(p => { const s=totalStock(p); return s>0&&s<=5; }).length;
 
@@ -341,6 +356,7 @@ function renderKatalog() {
     badge("kat-stat-faol",  totalFaol);
     badge("kat-stat-nol",   totalNol);
     badge("kat-stat-kam",   totalKam);
+    badge("kat-stat-broken", totalBroken);
   }
 
   // Pagination — endi rang-qatorlar bo'yicha
@@ -395,19 +411,17 @@ function renderKatalog() {
     return;
   }
 
-  $("katalog-body").innerHTML = pageRows.length ? pageRows.map(({product:p, color}) => {
-    // Shu rangga oid variantlar (turli o'lchamlar)
-    const colorVariants = p.variants.filter(v => v.color === color);
+  $("katalog-body").innerHTML = pageRows.length ? pageRows.map(({product:p, color, packGroup, isBroken, groupQty, groupVariants}) => {
+    // Shu guruhga oid variantlar (turli o'lchamlar, lekin bir xil miqdorda)
+    const colorVariants = groupVariants;
     const sizesStr = sizesToRange(colorVariants.map(v => v.size).filter(Boolean), p.type);
 
-    const inBox   = p.inBox || 1;
+    const inBox   = colorVariants.length || 1;
     const costUzs = (p.costUsd || 0) * rate;
 
-    // Pochka soni: barcha o'lchamlarda bir xil bo'lishi kerak (masalan har birida 100 ta)
-    const pochkaSoni = colorVariants.length > 0
-      ? Math.min(...colorVariants.map(v => v.qty))
-      : 0;
-    // Jami dona (haqiqiy umumiy miqdor — barcha o'lchamlar yig'indisi)
+    // Pochka soni: bu guruhdagi barcha o'lchamlar uchun bir xil (groupQty)
+    const pochkaSoni = groupQty;
+    // Jami dona (shu guruh uchun)
     const colorQty = colorVariants.reduce((a,v) => a + v.qty, 0);
     const pantone  = colorVariants[0]?.pantone || "";
 
@@ -417,9 +431,9 @@ function renderKatalog() {
     const mColor = margin == null ? "#ccc"
       : margin >= 30 ? "var(--grn)" : margin >= 15 ? "#E07B39" : "var(--red)";
 
-    const rowKey = p.sku + "::" + color;
+    const rowKey = p.sku + "::" + color + "::" + packGroup;
     const isSel = _katSelected.has(rowKey);
-    return `<tr onclick="openEditProduct('${p.sku}')" style="cursor:pointer;background:${isSel?"#fffbf0":""}">
+    return `<tr onclick="openEditProduct('${p.sku}')" style="cursor:pointer;background:${isSel?"#fffbf0":(isBroken?"#FFFBF0":"")}">
       <td style="width:28px;padding:8px 4px" onclick="event.stopPropagation()">
         <input type="checkbox" ${isSel?"checked":""} onchange="katToggleSel('${rowKey}',this.checked)"
           style="width:16px;height:16px;accent-color:var(--acc);cursor:pointer">
@@ -440,7 +454,10 @@ function renderKatalog() {
       <td class="kat-col-sku" style="font-family:monospace;font-size:11px;color:var(--mut)">${p.sku}</td>
       <td class="kat-col-art" style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${p.art || '<span style="color:#ddd">—</span>'}</td>
       <td class="kat-col-name">
-        <div style="font-weight:700;font-size:13.5px;color:#0D1B2A">${p.name}</div>
+        <div style="font-weight:700;font-size:13.5px;color:#0D1B2A">
+          ${p.name}
+          ${isBroken ? `<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;margin-left:6px;white-space:nowrap">ochilgan pochka</span>` : ""}
+        </div>
         ${sizesStr ? `<div style="font-size:11.5px;color:#bbb;margin-top:2px">${sizesStr}</div>` : ""}
       </td>
       <td class="kat-col-category" style="font-size:12px;color:var(--mut)">${p.category}</td>
@@ -455,7 +472,7 @@ function renderKatalog() {
         ${pantone ? `<div style="font-size:10px;color:#bbb">${pantone}</div>` : ""}
       </td>
       <td class="kat-col-boxes num">
-        <span class="bg ${pochkaSoni<=0?"bg-r":pochkaSoni<=5?"bg-a":"bg-g"}" style="font-weight:700">
+        <span class="bg ${isBroken?"bg-a":pochkaSoni<=0?"bg-r":pochkaSoni<=5?"bg-a":"bg-g"}" style="font-weight:700">
           ${pochkaSoni} ${p.packUnit||"pochka"}
         </span>
       </td>
