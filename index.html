@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=27">
+<link rel="stylesheet" href="style.css?v=28">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -807,13 +807,10 @@
         <button class="btn btn-ghost btn-sm" onclick="omToggleCols()" title="Ustunlarni sozlash">
           <i class="ti ti-settings"></i>
         </button>
-        <button class="btn btn-sm" onclick="openInvent()" style="color:#8B5CF6">
+        <button class="btn btn-sm" onclick="openInvent2()" style="color:#8B5CF6">
           <i class="ti ti-clipboard-check"></i> Inventarizatsiya
         </button>
-        <button class="btn btn-acc btn-sm" onclick="openModal('qabul')">
-          <i class="ti ti-plus"></i> Kirim qo'shish
-        </button>
-        <button class="btn btn-sm" onclick="openChiqimModal()" style="color:#E05A5A;border-color:#fca5a5">
+        <button class="btn btn-sm" onclick="openChiqim2()" style="color:#E05A5A;border-color:#fca5a5">
           <i class="ti ti-minus-circle"></i> Hisobdan chiqarish
         </button>
       </div>
@@ -1889,94 +1886,103 @@
   </div>
 </div>
 
-<!-- MODAL: OMBOR QABUL -->
-<div class="ov" id="ov-qabul" onclick="if(event.target===this)closeModal('qabul')">
+<!-- MODAL: INVENTARIZATSIYA v2 -->
+<div class="ov" id="ov-invent2" onclick="if(event.target===this)closeModal('invent2')">
   <div class="modal modal-lg">
-    <button class="m-close" onclick="closeModal('qabul')"><i class="ti ti-x"></i></button>
-    <h2><i class="ti ti-arrow-down-circle" style="margin-right:8px"></i>Kirim qo'shish</h2>
-    <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Mavjud tovarga qo'shimcha miqdor kiriting. Yangi tovar qo'shish uchun Katalog sahifasidan foydalaning.</p>
+    <button class="m-close" onclick="closeModal('invent2')"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-clipboard-check" style="margin-right:8px"></i>Inventarizatsiya</h2>
+    <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">
+      Har bir mahsulot qoldig'ini real hisobga solishtiring. Farq bo'lsa, tizim avtomatik tuzatadi.
+    </p>
 
-    <div class="fld" style="margin-bottom:14px">
-      <label>Mahsulot tanlang <span style="color:var(--red)">*</span></label>
-      <input id="qb-name" placeholder="Nomini yozing yoki tanlang..." oninput="qbAutofill(this.value)" list="qb-list" autocomplete="off">
-      <datalist id="qb-list"></datalist>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input id="inv2-q" placeholder="Mahsulot qidirish..." oninput="renderInvent2()"
+        style="flex:1;font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:7px 12px">
     </div>
 
-    <!-- Tanlangan tovar haqida ma'lumot -->
-    <div id="qb-info-box" style="display:none;background:var(--bg);border-radius:var(--rs);padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:var(--mut)"></div>
-
-    <!-- Rang kartalar (tovar tanlangach ko'rinadi) -->
-    <div id="qb-color-cards" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <span style="font-weight:700;font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em">Qaysi rangga qo'shamiz?</span>
-        <button class="btn btn-ghost btn-sm" onclick="qbOpenNewColor()">
-          <i class="ti ti-plus"></i> Yangi rang
-        </button>
-      </div>
-      <div id="qb-colors-list"></div>
+    <div style="max-height:50vh;overflow-y:auto;border:1px solid var(--brd);border-radius:var(--rs)">
+      <table style="width:100%"><thead>
+        <tr style="position:sticky;top:0;background:#fff;z-index:1">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--mut)">MAHSULOT</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--mut)">RANG/O'LCHAM</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:var(--mut)">TIZIMDA</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:var(--mut)">HAQIQIY</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:var(--mut)">FARQ</th>
+        </tr>
+      </thead>
+      <tbody id="inv2-body"></tbody></table>
     </div>
 
-    <!-- Yangi rang qo'shish (tovar bor, lekin rang yangi) -->
-    <div id="qb-newcolor-panel" style="display:none;border:1.5px solid var(--acc);border-radius:10px;padding:14px 16px;margin-top:10px;background:#fffbf0">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <span style="font-weight:700;font-size:13px;color:#856404">Yangi rang qo'shish</span>
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="qbCloseNewColor()" style="color:#856404">
-          <i class="ti ti-x"></i>
-        </button>
-      </div>
-      <div class="r2" style="margin-bottom:10px">
-        <div class="fld">
-          <label>Rang nomi <span style="color:var(--red)">*</span></label>
-          <input id="qbn-color" placeholder="Qora, Ko'k, Sariq...">
-        </div>
-        <div class="fld">
-          <label>Pantone kodi</label>
-          <input id="qbn-pantone" placeholder="Black C" style="font-family:monospace">
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <span style="font-size:12px;color:var(--mut)">O'lcham:</span>
-        <span id="qbn-size-lbl" style="font-size:13px;font-weight:700;color:#0D1B2A;background:var(--bg2);padding:4px 12px;border-radius:7px"></span>
-        <button class="btn btn-ghost btn-sm" onclick="qbnToggleSizeEdit()" id="qbn-size-edit-btn">
-          <i class="ti ti-edit"></i> O'zgartirish
-        </button>
-      </div>
-      <div class="r3">
-        <div class="fld"><label>Dan</label><select id="qbn-size-from" disabled onchange="qbnCalc()"></select></div>
-        <div class="fld"><label>Gacha</label><select id="qbn-size-to" disabled onchange="qbnCalc()"></select></div>
-        <div class="fld"><label>To'plam soni</label><input id="qbn-boxes" type="number" min="1" value="1" oninput="qbnCalc()"></div>
-      </div>
-      <div class="r3">
-        <div class="fld"><label>To'plamda nechta</label><input id="qbn-inbox" type="number" min="1" value="6" oninput="qbnCalc()"></div>
-        <div class="fld"><label>Jami dona</label><input id="qbn-qty" type="number" readonly style="background:var(--bg2)"></div>
-        <div class="fld" style="display:flex;align-items:flex-end">
-          <button class="btn btn-acc" style="width:100%" onclick="qbConfirmNewColor()">
-            <i class="ti ti-check"></i> Qo'shish
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div class="sep"></div>
-    <div class="r3">
-      <div class="fld">
-        <label>Yetkazuvchi</label>
-        <input id="qb-sup" placeholder="Yetkazuvchi nomi">
-      </div>
-      <div class="fld">
-        <label>Partiya</label>
-        <input id="qb-partiya" placeholder="Masalan: 2026-06-19">
-      </div>
-      <div class="fld">
-        <label>To'lov holati</label>
-        <select id="qb-pay"><option value="tolangan">To'langan</option><option value="qarz">Qarzga</option></select>
-      </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-acc" style="flex:1" onclick="saveInvent2()">
+        <i class="ti ti-check"></i> Saqlash va tuzatish
+      </button>
+      <button class="btn btn-ghost" onclick="closeModal('invent2')">Bekor</button>
     </div>
   </div>
 </div>
 
+<!-- MODAL: HISOBDAN CHIQARISH v2 -->
+<div class="ov" id="ov-chiqim2" onclick="if(event.target===this)closeModal('chiqim2')">
+  <div class="modal">
+    <button class="m-close" onclick="closeModal('chiqim2')"><i class="ti ti-x"></i></button>
+    <h2 style="color:#E05A5A"><i class="ti ti-minus-circle" style="margin-right:8px"></i>Hisobdan chiqarish</h2>
+    <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">
+      Brak, yo'qotish yoki boshqa sabab bilan ombordan tovar ayiriladi. Bu amalni qaytarib bo'lmaydi.
+    </p>
+
+    <div class="fld" style="margin-bottom:12px">
+      <label>Mahsulot tanlang <span style="color:var(--red)">*</span></label>
+      <input id="ch2-name" placeholder="Nomini yozing..." list="ch2-list" oninput="ch2Autofill(this.value)" autocomplete="off">
+      <datalist id="ch2-list"></datalist>
+    </div>
+
+    <div id="ch2-color-section" style="display:none">
+      <div class="r2" style="margin-bottom:12px">
+        <div class="fld">
+          <label>Rang</label>
+          <select id="ch2-color" onchange="ch2UpdateSizes()"></select>
+        </div>
+        <div class="fld">
+          <label>O'lcham</label>
+          <select id="ch2-size"></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="r2" style="margin-bottom:12px">
+      <div class="fld">
+        <label>Miqdor</label>
+        <input id="ch2-qty" type="number" min="1" value="1">
+      </div>
+      <div class="fld">
+        <label>Sabab</label>
+        <select id="ch2-reason">
+          <option value="nuqsonli">Nuqsonli</option>
+          <option value="yoqotilgan">Yo'qolgan</option>
+          <option value="muddati">Muddati o'tgan</option>
+          <option value="boshqa">Boshqa</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="fld" style="margin-bottom:14px">
+      <label>Izoh (ixtiyoriy)</label>
+      <input id="ch2-note" placeholder="Qo'shimcha ma'lumot...">
+    </div>
+
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:var(--rs);padding:10px 12px;font-size:12px;color:#991b1b;margin-bottom:14px">
+      <i class="ti ti-alert-triangle"></i> Chiqarilgan tovar ombor qoldig'idan ayiriladi. Bu amalni qaytarib bo'lmaydi.
+    </div>
+
+    <button class="btn" style="width:100%;background:#E05A5A;color:#fff" onclick="confirmChiqim2()">
+      <i class="ti ti-minus-circle"></i> Hisobdan chiqarish
+    </button>
+  </div>
+</div>
 
 <!-- MODAL: ADD CUSTOMER -->
+
 <div class="ov" id="ov-addcust" onclick="if(event.target===this)closeModal('addcust')">
   <div class="modal">
     <button class="m-close" onclick="closeModal('addcust')"><i class="ti ti-x"></i></button>
@@ -2233,23 +2239,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=27"></script>
-<script src="js/utils.js?v=27"></script>
-<script src="js/sms.js?v=27"></script>
-<script src="js/cloud.js?v=27"></script>
-<script src="js/dashboard.js?v=27"></script>
-<script src="js/pos.js?v=27"></script>
-<script src="js/katalog.js?v=27"></script>
-<script src="js/ombor.js?v=27"></script>
-<script src="js/mijozlar.js?v=27"></script>
-<script src="js/qarzlar.js?v=27"></script>
-<script src="js/tarix.js?v=27"></script>
-<script src="js/hisobot.js?v=27"></script>
-<script src="js/xodimlar.js?v=27"></script>
-<script src="js/moliya.js?v=27"></script>
-<script src="js/egasi.js?v=27"></script>
-<script src="js/portal.js?v=27"></script>
-<script src="js/init.js?v=27"></script>
+<script src="js/db.js?v=28"></script>
+<script src="js/utils.js?v=28"></script>
+<script src="js/sms.js?v=28"></script>
+<script src="js/cloud.js?v=28"></script>
+<script src="js/dashboard.js?v=28"></script>
+<script src="js/pos.js?v=28"></script>
+<script src="js/katalog.js?v=28"></script>
+<script src="js/ombor.js?v=28"></script>
+<script src="js/mijozlar.js?v=28"></script>
+<script src="js/qarzlar.js?v=28"></script>
+<script src="js/tarix.js?v=28"></script>
+<script src="js/hisobot.js?v=28"></script>
+<script src="js/xodimlar.js?v=28"></script>
+<script src="js/moliya.js?v=28"></script>
+<script src="js/egasi.js?v=28"></script>
+<script src="js/portal.js?v=28"></script>
+<script src="js/init.js?v=28"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2375,78 +2381,6 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
-<!-- MODAL: INVENTARIZATSIYA -->
-<div class="ov" id="ov-invent" onclick="if(event.target===this)closeInvent()">
-  <div class="modal modal-lg" style="max-width:780px;padding:0;overflow:hidden;max-height:90vh;display:flex;flex-direction:column">
-
-    <!-- Header -->
-    <div style="background:#0D1B2A;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-      <div>
-        <div style="font-size:16px;font-weight:800;color:#fff">📋 Inventarizatsiya</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.45);margin-top:2px" id="inv-date-lbl"></div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <span id="inv-progress" style="font-size:12px;color:rgba(255,255,255,.6)"></span>
-        <button onclick="closeInvent()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px">✕ Yopish</button>
-      </div>
-    </div>
-
-    <!-- Skaner + qidiruv -->
-    <div style="padding:14px 22px;background:#F8F7F4;border-bottom:1px solid #E8E5E0;flex-shrink:0">
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <div style="position:relative;flex:1;min-width:220px">
-          <i class="ti ti-barcode" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#aaa;font-size:16px"></i>
-          <input id="inv-scan" placeholder="Barcode skanerlang yoki mahsulot nomi..."
-            oninput="invSearch()"
-            style="width:100%;padding:10px 12px 10px 38px;font-family:inherit;font-size:14px;border:2px solid #E8E5E0;border-radius:10px;outline:none"
-            onkeydown="if(event.key==='Enter')invScanEnter()">
-        </div>
-        <div style="display:flex;gap:6px">
-          <button class="inv-filter-btn on" data-f="all"     onclick="setInvFilter('all')">Barchasi</button>
-          <button class="inv-filter-btn"    data-f="diff"    onclick="setInvFilter('diff')">⚠️ Farq bor</button>
-          <button class="inv-filter-btn"    data-f="done"    onclick="setInvFilter('done')">✅ Sanalgan</button>
-          <button class="inv-filter-btn"    data-f="notdone" onclick="setInvFilter('notdone')">🔲 Sanalma</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Jadval -->
-    <div style="flex:1;overflow-y:auto">
-      <table style="width:100%;border-collapse:collapse">
-        <thead style="position:sticky;top:0;background:#fff;z-index:1">
-          <tr style="font-size:11px;text-transform:uppercase;color:#aaa;border-bottom:2px solid #E8E5E0">
-            <th style="padding:10px 16px;text-align:left;font-weight:700">Mahsulot</th>
-            <th style="padding:10px;text-align:left;font-weight:700">Rang</th>
-            <th style="padding:10px;text-align:center;font-weight:700">Tizim</th>
-            <th style="padding:10px;text-align:center;font-weight:700">Haqiqiy</th>
-            <th style="padding:10px;text-align:center;font-weight:700">Farq</th>
-            <th style="padding:10px;text-align:center;font-weight:700">Holat</th>
-          </tr>
-        </thead>
-        <tbody id="inv-body"></tbody>
-      </table>
-    </div>
-
-    <!-- Footer -->
-    <div style="padding:14px 22px;background:#fff;border-top:2px solid #E8E5E0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-      <div style="display:flex;gap:20px;font-size:13px">
-        <span>Jami: <strong id="inv-total-cnt">0</strong> ta</span>
-        <span style="color:var(--grn)">✅ Sanalgan: <strong id="inv-done-cnt">0</strong></span>
-        <span style="color:var(--red)">⚠️ Farq: <strong id="inv-diff-cnt">0</strong></span>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-sm" onclick="exportInventExcel()" style="color:#1D6A39">
-          <i class="ti ti-file-spreadsheet"></i> Excel
-        </button>
-        <button class="btn btn-acc" onclick="confirmInvent()" id="inv-confirm-btn">
-          <i class="ti ti-check"></i> Tasdiqlash va saqlash
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: KATALOG IMPORT -->
 <div class="ov" id="ov-import" onclick="if(event.target===this)closeModal('import')">
   <div class="modal" style="max-width:560px">
     <button class="m-close" onclick="closeModal('import')"><i class="ti ti-x"></i></button>
@@ -2508,76 +2442,6 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
   </div>
 </div>
-<!-- ═══ HISOBDAN CHIQARISH MODAL ═══ -->
-<div class="ov" id="ov-chiqim" onclick="if(event.target===this)closeModal('chiqim')">
-  <div class="modal" style="max-width:460px">
-    <button class="m-close" onclick="closeModal('chiqim')"><i class="ti ti-x"></i></button>
-    <h2 style="color:#E05A5A"><i class="ti ti-minus-circle"></i> Hisobdan chiqarish</h2>
-
-    <div class="fld">
-      <label>Mahsulot nomi</label>
-      <input id="ch-name" placeholder="Mahsulot nomini yozing..."
-        oninput="renderChiqimColorSize()" list="ch-prod-list" autocomplete="off">
-      <datalist id="ch-prod-list"></datalist>
-    </div>
-
-    <div class="r2">
-      <div class="fld">
-        <label>Rang</label>
-        <select id="ch-color" onchange="renderChiqimSizes()"
-          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff;width:100%">
-          <option value="">— avval mahsulot tanlang —</option>
-        </select>
-      </div>
-      <div class="fld">
-        <label>O'lcham</label>
-        <select id="ch-size" onchange="updateChiqimMax()"
-          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff;width:100%">
-          <option value="">—</option>
-        </select>
-      </div>
-    </div>
-
-    <div style="font-size:12px;color:var(--mut);margin:-8px 0 10px;font-weight:500" id="ch-stock-info"></div>
-
-    <div class="r2">
-      <div class="fld">
-        <label>Miqdor</label>
-        <input id="ch-qty" type="number" value="1" min="1"
-          style="font-size:18px;font-weight:700;text-align:center">
-      </div>
-      <div class="fld">
-        <label>Sabab</label>
-        <select id="ch-reason"
-          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff;width:100%">
-          <option value="nuqson">🔧 Nuqsonli</option>
-          <option value="ogirlik">🔓 O'g'irlik</option>
-          <option value="yoqolish">❓ Yo'qolish</option>
-          <option value="qaytarish">↩️ Qaytarildi</option>
-          <option value="eskirish">📦 Eskirish</option>
-          <option value="boshqa">📋 Boshqa</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="fld">
-      <label>Izoh <span style="font-size:11px;font-weight:400;color:var(--mut)">(ixtiyoriy)</span></label>
-      <input id="ch-note" placeholder="Qo'shimcha ma'lumot...">
-    </div>
-
-    <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:var(--rs);padding:10px 14px;font-size:12.5px;color:#991B1B;margin-bottom:14px">
-      <i class="ti ti-alert-triangle"></i>
-      Chiqarilgan tovar ombor qoldiqdan <strong>ayiriladi</strong>. Bu amalni qaytarib bo'lmaydi.
-    </div>
-
-    <button class="btn" onclick="saveChiqim()"
-      style="width:100%;background:#E05A5A;color:#fff;border-color:#E05A5A;font-weight:700">
-      <i class="ti ti-minus-circle"></i> Hisobdan chiqarish
-    </button>
-  </div>
-</div>
-
-<!-- ═══ OMMAVIY NARX MODAL ═══ -->
 <div class="ov" id="ov-bulkprice" onclick="if(event.target===this)closeModal('bulkprice')">
   <div class="modal" style="max-width:400px">
     <button class="m-close" onclick="closeModal('bulkprice')"><i class="ti ti-x"></i></button>
@@ -2737,7 +2601,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=27"></script>
-<script src="js/superadmin.js?v=27"></script>
+<script src="js/auth.js?v=28"></script>
+<script src="js/superadmin.js?v=28"></script>
 </body>
 </html>
