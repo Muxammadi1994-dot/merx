@@ -725,39 +725,39 @@ function setQtStatus(s) {
 function renderQarzlarTarixi() {
   const el = $("qt-list"); if (!el) return;
   const q = ($("qt-q")||{value:""}).value.toLowerCase();
+  const rate = db.settings?.rate || 12800;
 
-  // Qarzga sotilgan barcha cheklar. Yangi sotuvlarda origRemaining bor,
-  // eski (oldin yaratilgan) sotuvlarda bu maydon yo'q — fallback sifatida
-  // joriy total/paid asosida "boshlang'ich qarz bor edimi" deb tekshiramiz.
+  // Faqat qarzga sotilgan cheklar (debtCurrency/debtUsd yoki remaining > 0 bo'lgan tarix)
   const isUsdSale = s => s.debtCurrency === "usd";
+
+  // Boshlang'ich qarz miqdorini (sotilgan paytdagi, valyutasiga mos) aniqlaymiz
   const getOrigDebt = s => {
-    // USD qarz bo'lsa, dollar asosida qaytaramiz
     if (isUsdSale(s)) {
       if (s.origDebtUsd != null) return s.origDebtUsd;
-      // Eski format: debtUsd dan kamida hozirgi qiymat, ortiqcha to'lov yo'q deb hisoblaymiz
-      const payments = getSalePayments(s.id);
-      const paidUsd = payments.filter(p=>p.currency==="usd").reduce((a,p)=>a+(p.amount||0),0);
+      const paidUsd = getSalePayments(s.id).filter(p=>p.currency==="usd").reduce((a,p)=>a+(p.amount||0),0);
       return Math.max(0, (s.debtUsd||0) + paidUsd);
     }
     if (s.origRemaining != null) return s.origRemaining;
-    const payments = getSalePayments(s.id);
-    const paidViaPayments = payments.reduce((a,p) => a + (p.currency==="usd" ? p.amount*(db.settings?.rate||12800) : p.amount), 0);
+    const paidViaPayments = getSalePayments(s.id).reduce((a,p) => a + (p.currency==="usd" ? p.amount*rate : p.amount), 0);
     const origPaidGuess = Math.max(0, (s.paid||0) - paidViaPayments);
     return Math.max(0, (s.total||0) - origPaidGuess);
   };
-  const getOrigPaid = s => s.origPaid != null ? s.origPaid : Math.max(0, (s.total||0) - getOrigDebt(s));
 
-  const debtSalesAll = (db.sales||[]).filter(s => getOrigDebt(s) > 0 && s.status !== "qaytarilgan");
+  const debtSalesAll = (db.sales||[]).filter(s => getOrigDebt(s) > 0.005 && s.status !== "qaytarilgan");
 
   const rows = debtSalesAll.map(s => {
     const st = calcSaleState(s);
-    const origPaid = getOrigPaid(s);
+    const isUsd = isUsdSale(s);
+    const origDebt = getOrigDebt(s);
+    const currentDebt = isUsd ? st.debtUsd : st.remaining;
     const payments = getSalePayments(s.id);
+
     let status;
-    if (st.remaining <= 0.5) status = "paid";
+    if (currentDebt <= (isUsd ? 0.005 : 0.5)) status = "paid";
     else if (payments.length > 0) status = "partial";
     else status = "unpaid";
-    return { sale: s, state: st, status, origDebt: getOrigDebt(s), origPaid };
+
+    return { sale: s, isUsd, origDebt, currentDebt, payments, status };
   });
 
   let filtered = rows;
@@ -777,7 +777,7 @@ function renderQarzlarTarixi() {
   if ($("qt-cnt-partial")) $("qt-cnt-partial").textContent = cntPartial;
   if ($("qt-cnt-unpaid")) $("qt-cnt-unpaid").textContent = cntUnpaid;
 
-  filtered.sort((a,b) => (a.sale.date+ (a.sale.time||"") < b.sale.date+(b.sale.time||"")) ? 1 : -1);
+  filtered.sort((a,b) => (a.sale.date+(a.sale.time||"") < b.sale.date+(b.sale.time||"")) ? 1 : -1);
 
   if (!filtered.length) {
     el.innerHTML = `<div style="padding:50px;text-align:center;color:var(--mut)">
@@ -787,23 +787,18 @@ function renderQarzlarTarixi() {
   }
 
   const statusMeta = {
-    paid:    { color: "var(--grn)", bg: "#F0FDF4", border: "#86EFAC", label: "To'liq to'langan", dot: "🟢" },
-    partial: { color: "#D97706",    bg: "#FFFBEB", border: "#FCD34D", label: "Qisman to'langan",  dot: "🟡" },
-    unpaid:  { color: "var(--red)", bg: "#FEF2F2", border: "#FECACA", label: "To'lanmagan",        dot: "🔴" },
+    paid:    { color: "var(--grn)", bg: "#F0FDF4", label: "To'liq to'langan", dot: "🟢" },
+    partial: { color: "#D97706",    bg: "#FFFBEB", label: "Qisman to'langan",  dot: "🟡" },
+    unpaid:  { color: "var(--red)", bg: "#FEF2F2", label: "To'lanmagan",        dot: "🔴" },
   };
 
-  el.innerHTML = filtered.map(({sale: s, state: st, status, origDebt}) => {
+  el.innerHTML = filtered.map(({sale: s, isUsd, origDebt, currentDebt, payments, status}) => {
     const meta = statusMeta[status];
-    const payments = getSalePayments(s.id);
-    const isUsd = s.debtCurrency === "usd";
-    const origTotal = origDebt || 0;
-    // Foiz hisoblash uchun har doim so'm ekvivalentida solishtiramiz
-    const rate = db.settings?.rate || 12800;
-    const origTotalUzs = isUsd ? origTotal * rate : origTotal;
-    const remainingUzs = isUsd ? st.debtUsd * rate : st.remaining;
-    const payPct = origTotalUzs > 0 ? Math.min(100, Math.round((origTotalUzs - remainingUzs) / origTotalUzs * 100)) : 100;
     const fmtCur = v => isUsd ? `$${(+v).toFixed(2)}` : `${fmt(v)} so'm`;
+    const paidAmount = origDebt - currentDebt;
+    const payPct = origDebt > 0 ? Math.min(100, Math.round(paidAmount / origDebt * 100)) : 100;
     const rowId = `qt-row-${s.id}`;
+    const baseChekNum = s.chekNum || ("#"+s.id);
 
     return `<div style="border-bottom:1px solid var(--brd)">
       <div onclick="qtToggleExpand(${s.id})" style="display:flex;align-items:center;gap:14px;padding:14px 18px;cursor:pointer;background:${meta.bg}">
@@ -811,14 +806,14 @@ function renderQarzlarTarixi() {
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <strong style="font-size:13.5px;color:#0D1B2A">${s.customerName||"Noma'lum mijoz"}</strong>
-            <span style="font-size:11.5px;color:#aaa">${s.chekNum||"#"+s.id} · ${s.date}</span>
+            <span style="font-size:11.5px;color:#aaa;font-family:monospace">${baseChekNum}-000</span>
           </div>
-          <div style="font-size:11.5px;color:${meta.color};font-weight:600;margin-top:2px">${meta.dot} ${meta.label}${payments.length ? ` · ${payments.length} ta to'lov` : ""}</div>
+          <div style="font-size:11.5px;color:${meta.color};font-weight:600;margin-top:2px">${meta.dot} ${meta.label}${payments.length ? ` · ${payments.length} ta to'lov` : ""} · ${s.date}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:13px;font-weight:700;color:#0D1B2A">${fmt(s.total||0)} so'm</div>
+          <div style="font-size:13px;font-weight:700;color:#0D1B2A">${fmtCur(origDebt)}</div>
           <div style="font-size:11px;color:var(--mut)">
-            ${status==="paid" ? "To'liq yopildi" : `Qoldiq: ${fmtCur(isUsd ? st.debtUsd : st.remaining)}`}
+            ${status==="paid" ? "Qarz yopildi" : `Qoldiq: ${fmtCur(currentDebt)}`}
           </div>
         </div>
         <i class="ti ti-chevron-down" id="${rowId}-icon" style="color:var(--mut);transition:.2s;flex-shrink:0"></i>
@@ -830,15 +825,15 @@ function renderQarzlarTarixi() {
           </div>
         </div>
         <div style="font-size:11.5px;color:var(--mut);margin-bottom:10px">
-          Boshlang'ich qarz: <strong>${fmtCur(origTotal)}</strong> ·
-          To'langan: <strong style="color:var(--grn)">${fmtCur(origTotal - (isUsd ? st.debtUsd : st.remaining))}</strong> (${payPct}%)
+          Qarz: <strong>${fmtCur(origDebt)}</strong> ·
+          To'langan: <strong style="color:var(--grn)">${fmtCur(paidAmount)}</strong> (${payPct}%)
         </div>
         ${payments.length ? `
           <div style="display:flex;flex-direction:column;gap:6px">
-            ${payments.map(p => `
+            ${payments.map((p, idx) => `
               <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--brd);border-radius:8px;padding:8px 12px">
                 <div>
-                  <span style="font-size:11.5px;font-weight:700;color:#0D1B2A">№${String(p.partNum).padStart(3,"0")}</span>
+                  <span style="font-size:11.5px;font-weight:700;color:#0D1B2A;font-family:monospace">${baseChekNum}-${String(idx+1).padStart(3,"0")}</span>
                   <span style="font-size:11px;color:#aaa;margin-left:6px">${p.payDate} ${p.payTime||""}</span>
                   <span style="font-size:11px;color:var(--mut);margin-left:6px">· ${payMethodLabel(p.payMethod)}</span>
                 </div>
