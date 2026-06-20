@@ -552,6 +552,8 @@ function renderCart() {
   }).join("");
 
   $("cart-total").textContent = priceDisplay(total); updateRem();
+  // Agar aralash to'lov paneli ochiq bo'lsa, qolgan/ortiqcha hisobini yangilaymiz
+  if (posPayType === "aralash") updateMixedTotal();
 }
 
 function ciQty(i, d) {
@@ -608,12 +610,44 @@ function getMixedTotal() {
 }
 
 function updateMixedTotal() {
-  const total = getMixedTotal();
-  if ($("mix-total-view")) $("mix-total-view").textContent = fmt(total) + " so'm";
+  const mixedTotal = getMixedTotal();
+  if ($("mix-total-view")) $("mix-total-view").textContent = fmt(mixedTotal) + " so'm";
+
+  // Savatcha jami summasi bilan solishtirib, qolgan/ortiqcha ko'rsatamiz
+  const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
+  const discount = calcDiscount(subtotal);
+  const cartTotal = subtotal - discount;
+
+  const diffLbl = $("mix-diff-label");
+  const diffView = $("mix-diff-view");
+  if (diffLbl && diffView) {
+    if (posPayMode === "part") {
+      // Nasiya rejimida — "Jami summa" ko'rsatiladi, qarz pastda alohida hisoblanadi
+      diffLbl.textContent = "Jami summa:";
+      diffView.textContent = fmt(cartTotal) + " so'm";
+      diffView.style.color = "#0D1B2A";
+    } else {
+      const diff = cartTotal - mixedTotal;
+      if (diff > 0) {
+        diffLbl.textContent = "Yetishmaydi:";
+        diffView.textContent = fmt(diff) + " so'm";
+        diffView.style.color = "var(--red)";
+      } else if (diff < 0) {
+        diffLbl.textContent = "Ortiqcha:";
+        diffView.textContent = fmt(-diff) + " so'm";
+        diffView.style.color = "#E07B39";
+      } else {
+        diffLbl.textContent = "Mos keldi:";
+        diffView.textContent = "✓ " + fmt(cartTotal) + " so'm";
+        diffView.style.color = "var(--grn)";
+      }
+    }
+  }
+
   // Aralash to'lov natijasini "Hozir to'landi" maydoniga ham sinxron qilamiz
   // (agar Nasiya rejimida bo'lsa, qarz avtomatik hisoblanishi uchun)
   if (posPayMode === "part" && $("c-paid")) {
-    $("c-paid").value = total > 0 ? fmt(total) : "";
+    $("c-paid").value = mixedTotal > 0 ? fmt(mixedTotal) : "";
     updateRem();
   }
 }
@@ -743,9 +777,11 @@ function custSelect(id) {
     if ($("cust-sel-phone")) $("cust-sel-phone").textContent = c.phone || "Telefon yo'q";
   }
 
-  // Ism va tel to'ldirish
+  // Ism va tel to'ldirish (yashirin maydonda, checkout uchun)
   if ($("c-name"))  $("c-name").value  = c.name;
   if ($("c-phone")) $("c-phone").value = c.phone || "";
+  // Mijoz tanlangach ism/telefon qatorini yashiramiz — kerak emas
+  if ($("c-name-row")) $("c-name-row").style.display = "none";
 
   showCustDebt(id);
 }
@@ -813,6 +849,8 @@ function custClear() {
   if ($("cust-clear-btn"))   $("cust-clear-btn").style.display = "none";
   const card = $("cust-selected-card");
   if (card) card.style.display = "none";
+  // Ism/telefon qatorini qaytadan ko'rsatamiz
+  if ($("c-name-row")) $("c-name-row").style.display = "flex";
   showCustDebt(null);
 }
 
@@ -1127,14 +1165,21 @@ function showReceiptModal(sale) {
   if ($("rcp-total")) $("rcp-total").textContent = fmt(sale.total) + " so'm";
 
   // To'lov
-  if ($("rcp-paytype")) {
-    if (sale.payType === "aralash" && sale.payBreakdown) {
-      const parts = Object.entries(sale.payBreakdown)
-        .map(([m, v]) => `${payLabels[m]||m}: ${fmt(v)}`).join(" + ");
-      $("rcp-paytype").textContent = `Aralash (${parts})`;
-    } else {
-      $("rcp-paytype").textContent = payLabels[sale.payType] || sale.payType;
+  const mixedWrap = $("rcp-mixed-wrap");
+  if (sale.payType === "aralash" && sale.payBreakdown) {
+    if ($("rcp-paytype")) $("rcp-paytype").textContent = "Aralash";
+    if (mixedWrap) {
+      mixedWrap.style.display = "block";
+      const icons = { naqd:"💵", karta:"💳", otkazma:"🏦" };
+      $("rcp-mixed-rows").innerHTML = Object.entries(sale.payBreakdown).map(([m, v]) => `
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span style="color:#888">${icons[m]||""} ${payLabels[m]||m}</span>
+          <strong style="color:#0D1B2A">${fmt(v)} so'm</strong>
+        </div>`).join("");
     }
+  } else {
+    if ($("rcp-paytype")) $("rcp-paytype").textContent = payLabels[sale.payType] || sale.payType;
+    if (mixedWrap) mixedWrap.style.display = "none";
   }
   if ($("rcp-paid"))    $("rcp-paid").textContent    = fmt(sale.paid) + " so'm";
 
