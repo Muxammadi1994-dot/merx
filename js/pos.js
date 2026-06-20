@@ -305,6 +305,24 @@ function setPriceType(t) {
     b.style.background = on ? "#0D1B2A" : "#fff";
     b.style.color      = on ? "#fff"    : "#666";
   });
+
+  // Savatchadagi mavjud mahsulotlar narxini ham yangilaymiz —
+  // faqat qo'lda o'zgartirilmagan (override qilinmagan) narxlarni
+  let updatedCount = 0;
+  cart.forEach(c => {
+    const isOverride = c.basePrice && c.basePrice !== c.price;
+    if (isOverride) return; // sotuvchi qasddan boshqa narx qo'ygan — tegmaymiz
+    const p = db.products.find(x => x.sku === c.sku); if (!p) return;
+    const newBase = t === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+    if (newBase !== c.price) updatedCount++;
+    c.price = newBase;
+    c.basePrice = newBase;
+    c.priceType = t;
+  });
+  if (updatedCount > 0) {
+    toast(`${updatedCount} ta tovar narxi ${t === "ulgurji" ? "ulgurji" : "chakana"}ga yangilandi`, "info");
+  }
+
   posSearch(); renderCart();
 }
 
