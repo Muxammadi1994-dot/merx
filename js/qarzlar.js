@@ -722,7 +722,16 @@ function renderQarzlarTarixi() {
   // Qarzga sotilgan barcha cheklar. Yangi sotuvlarda origRemaining bor,
   // eski (oldin yaratilgan) sotuvlarda bu maydon yo'q — fallback sifatida
   // joriy total/paid asosida "boshlang'ich qarz bor edimi" deb tekshiramiz.
+  const isUsdSale = s => s.debtCurrency === "usd";
   const getOrigDebt = s => {
+    // USD qarz bo'lsa, dollar asosida qaytaramiz
+    if (isUsdSale(s)) {
+      if (s.origDebtUsd != null) return s.origDebtUsd;
+      // Eski format: debtUsd dan kamida hozirgi qiymat, ortiqcha to'lov yo'q deb hisoblaymiz
+      const payments = getSalePayments(s.id);
+      const paidUsd = payments.filter(p=>p.currency==="usd").reduce((a,p)=>a+(p.amount||0),0);
+      return Math.max(0, (s.debtUsd||0) + paidUsd);
+    }
     if (s.origRemaining != null) return s.origRemaining;
     const payments = getSalePayments(s.id);
     const paidViaPayments = payments.reduce((a,p) => a + (p.currency==="usd" ? p.amount*(db.settings?.rate||12800) : p.amount), 0);
@@ -739,7 +748,7 @@ function renderQarzlarTarixi() {
     const payments = getSalePayments(s.id);
     let status;
     if (st.remaining <= 0.5) status = "paid";
-    else if (payments.length > 0 || origPaid > 0) status = "partial";
+    else if (payments.length > 0) status = "partial";
     else status = "unpaid";
     return { sale: s, state: st, status, origDebt: getOrigDebt(s), origPaid };
   });
@@ -779,8 +788,14 @@ function renderQarzlarTarixi() {
   el.innerHTML = filtered.map(({sale: s, state: st, status, origDebt}) => {
     const meta = statusMeta[status];
     const payments = getSalePayments(s.id);
+    const isUsd = s.debtCurrency === "usd";
     const origTotal = origDebt || 0;
-    const payPct = origTotal > 0 ? Math.min(100, Math.round((origTotal - st.remaining) / origTotal * 100)) : 100;
+    // Foiz hisoblash uchun har doim so'm ekvivalentida solishtiramiz
+    const rate = db.settings?.rate || 12800;
+    const origTotalUzs = isUsd ? origTotal * rate : origTotal;
+    const remainingUzs = isUsd ? st.debtUsd * rate : st.remaining;
+    const payPct = origTotalUzs > 0 ? Math.min(100, Math.round((origTotalUzs - remainingUzs) / origTotalUzs * 100)) : 100;
+    const fmtCur = v => isUsd ? `$${(+v).toFixed(2)}` : `${fmt(v)} so'm`;
     const rowId = `qt-row-${s.id}`;
 
     return `<div style="border-bottom:1px solid var(--brd)">
@@ -796,7 +811,7 @@ function renderQarzlarTarixi() {
         <div style="text-align:right;flex-shrink:0">
           <div style="font-size:13px;font-weight:700;color:#0D1B2A">${fmt(s.total||0)} so'm</div>
           <div style="font-size:11px;color:var(--mut)">
-            ${status==="paid" ? "To'liq yopildi" : `Qoldiq: ${st.debtUsd>0?`$${st.debtUsd.toFixed(2)}`:fmt(st.remaining)+" so'm"}`}
+            ${status==="paid" ? "To'liq yopildi" : `Qoldiq: ${fmtCur(isUsd ? st.debtUsd : st.remaining)}`}
           </div>
         </div>
         <i class="ti ti-chevron-down" id="${rowId}-icon" style="color:var(--mut);transition:.2s;flex-shrink:0"></i>
@@ -808,8 +823,8 @@ function renderQarzlarTarixi() {
           </div>
         </div>
         <div style="font-size:11.5px;color:var(--mut);margin-bottom:10px">
-          Boshlang'ich qarz: <strong>${fmt(origTotal)} so'm</strong> ·
-          To'langan: <strong style="color:var(--grn)">${fmt(origTotal - st.remaining)} so'm</strong> (${payPct}%)
+          Boshlang'ich qarz: <strong>${fmtCur(origTotal)}</strong> ·
+          To'langan: <strong style="color:var(--grn)">${fmtCur(origTotal - (isUsd ? st.debtUsd : st.remaining))}</strong> (${payPct}%)
         </div>
         ${payments.length ? `
           <div style="display:flex;flex-direction:column;gap:6px">
