@@ -426,6 +426,9 @@ function formatReceiptText(sale, shopName) {
     "",
     `Jami: ${fmt(sale.total)} so'm`,
     `To'lov: ${payLabels[sale.payType] || sale.payType || "—"}`,
+    ...(sale.payType === "aralash" && (sale.payBreakdown || sale.pay_breakdown)
+      ? Object.entries(sale.payBreakdown || sale.pay_breakdown).map(([m,v]) => `  • ${payLabels[m]||m}: ${fmt(v)} so'm`)
+      : []),
     sale.paid < sale.total ? `To'landi: ${fmt(sale.paid)} so'm` : null,
     ...(debtLines.length ? debtLines : ["✅ To'liq to'landi"]),
     "",

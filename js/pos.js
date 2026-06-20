@@ -573,24 +573,47 @@ function renderCart() {
   if (posPayType === "aralash") updateMixedTotal();
 }
 
+// Savatchadagi mahsulot uchun maksimal mumkin bo'lgan miqdorni hisoblash
+function ciGetMax(c) {
+  const p = db.products.find(x => x.sku === c.sku); if (!p) return Infinity;
+  if (c.sellMode === "karobka") {
+    const groups = typeof regroupPackages === "function" ? regroupPackages(p.variants, c.color) : [];
+    const g = groups[c.packGroup || 0];
+    return g ? g.qty : 0;
+  } else {
+    const v = p.variants.find(x => x.color === c.color && x.size === c.size);
+    return v ? v.qty : 0;
+  }
+}
+
 function ciQty(i, d) {
   const c = cart[i];
+  const max = ciGetMax(c);
   if (c.sellMode === "karobka" && c.inBox) {
     // Pochka rejimi: avval pochka sonini o'zgartiramiz, keyin jami donani hisoblaymiz
-    c.qtyBox = Math.max(1, (c.qtyBox || 1) + d);
+    const newBoxes = Math.max(1, (c.qtyBox || 1) + d);
+    if (newBoxes > max) { toast(`Faqat ${max} pochka bor`, "err"); return; }
+    c.qtyBox = newBoxes;
     c.qty = c.qtyBox * c.inBox;
   } else {
-    c.qty = Math.max(1, c.qty + d);
+    const newQty = Math.max(1, c.qty + d);
+    if (newQty > max) { toast(`Faqat ${max} ${c.unit||"dona"} bor`, "err"); return; }
+    c.qty = newQty;
   }
   renderCart();
 }
 function ciQtySet(i, v) {
   const c = cart[i];
+  const max = ciGetMax(c);
   if (c.sellMode === "karobka" && c.inBox) {
-    c.qtyBox = Math.max(1, v || 1);
+    let newBoxes = Math.max(1, v || 1);
+    if (newBoxes > max) { toast(`Faqat ${max} pochka bor`, "err"); newBoxes = max; }
+    c.qtyBox = newBoxes;
     c.qty = c.qtyBox * c.inBox;
   } else {
-    c.qty = Math.max(1, v || 1);
+    let newQty = Math.max(1, v || 1);
+    if (newQty > max) { toast(`Faqat ${max} ${c.unit||"dona"} bor`, "err"); newQty = max; }
+    c.qty = newQty;
   }
   renderCart();
 }
