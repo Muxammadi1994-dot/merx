@@ -145,7 +145,17 @@ function openModal(id) {
     if (invEl) invEl.style.display = "none";
   } catch (e) { /* zararsiz, davom etamiz */ }
 
-  $("ov-" + id).classList.add("on");
+  const modalEl = document.getElementById("ov-" + id);
+  if (modalEl) {
+    // Modalni #app konteyneridan tashqariga, to'g'ridan-to'g'ri <body> ga ko'chiramiz.
+    // Bu CSS "containing block" muammolarini (flex/transform ota-onalar) chetlab o'tadi —
+    // position:fixed har doim butun ekranga nisbatan to'g'ri ishlashini kafolatlaydi.
+    if (modalEl.parentElement !== document.body) {
+      document.body.appendChild(modalEl);
+    }
+    modalEl.classList.add("on");
+  }
+
   if (id === "addprod") { apResetImage(); apTypeChange(); setTimeout(() => { if ($("ap-name")) $("ap-name").focus(); }, 50); }
   if (id === "addcust") { setTimeout(() => { if ($("ac-name")) $("ac-name").focus(); }, 50); }
   if (id === "addstaff") { setTimeout(() => { if ($("as-name")) $("as-name").focus(); }, 50); }
