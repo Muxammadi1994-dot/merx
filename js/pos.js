@@ -110,7 +110,7 @@ function posSearch() {
     const st    = totalStock(p);
     const inBox = p.inBox || 1;
     const boxBadge = posPriceType === "ulgurji" && inBox > 1
-      ? `<span class="pri-box-badge">📦 ${inBox} ${p.unit||"dona"}/karobka</span>` : "";
+      ? `<span class="pri-box-badge">📦 ${inBox} ${p.unit||"dona"}/pochka</span>` : "";
     const colorDots = [...new Set(p.variants.map(v => v.color))].map(c => {
       const v   = p.variants.find(x => x.color === c);
       const hex = v?.hex || "#888";
@@ -134,7 +134,7 @@ function posSearch() {
         <div class="pri-price">${priceDisplay(narx)}</div>
         <div class="pri-stock ${st<=5?"low":""}">
           ${st} ${p.unit||"dona"}
-          ${inBox>1?`<span style="font-size:10px;color:#bbb">(${Math.floor(st/inBox)} karobka)</span>`:""}
+          ${inBox>1?`<span style="font-size:10px;color:#bbb">(${Math.floor(st/inBox)} pochka)</span>`:""}
         </div>
         ${p.ulgurjiNarx && posPriceType==="chakana"
           ? `<div style="font-size:10px;color:#aaa">Ulgurji: ${priceDisplay(p.ulgurjiNarx)}</div>` : ""}
@@ -197,14 +197,14 @@ function openVariantModal(sku) {
   const inBox = vmProd.inBox || 1;
   if ($("vm-price-header")) {
     let pTxt = priceDisplay(narx);
-    if (inBox > 1) pTxt += `<div style="font-size:10px;font-weight:600;color:#856404">📦 ${priceDisplay(narx*inBox)}/karobka</div>`;
+    if (inBox > 1) pTxt += `<div style="font-size:10px;font-weight:600;color:#856404">📦 ${priceDisplay(narx*inBox)}/pochka</div>`;
     $("vm-price-header").innerHTML = pTxt;
   }
 
   // Qoldiq header
   const totalQty = (vmProd.variants||[]).reduce((a,v) => a+v.qty, 0);
   if ($("vm-stock-header")) {
-    const boxes = inBox > 1 ? `<div style="font-size:10px">${Math.floor(totalQty/inBox)} karobka</div>` : "";
+    const boxes = inBox > 1 ? `<div style="font-size:10px">${Math.floor(totalQty/inBox)} pochka</div>` : "";
     $("vm-stock-header").innerHTML = `${totalQty} ${vmProd.unit||"dona"}${boxes}`;
     const tag = $("vm-stock-tag");
     if (tag) {
@@ -220,7 +220,7 @@ function openVariantModal(sku) {
   if ($("vm-unit-toggle")) $("vm-unit-toggle").style.display = isBox ? "block" : "none";
   if ($("vm-box-info"))    $("vm-box-info").style.display    = "none";
   if ($("vm-sizes-row"))   $("vm-sizes-row").style.display   = isBox ? "none" : "block";
-  if ($("vm-qty-lbl"))     $("vm-qty-lbl").textContent       = isBox ? "Karobka soni" : "Miqdor";
+  if ($("vm-qty-lbl"))     $("vm-qty-lbl").textContent       = isBox ? "Pochka soni" : "Miqdor";
   document.querySelectorAll(".vmut-btn").forEach(b => b.classList.toggle("on", b.dataset.m === vmSellMode));
 
   renderVmChips(); openModal("variant");
@@ -230,7 +230,7 @@ function vmSetMode(m) {
   vmSellMode = m;
   document.querySelectorAll(".vmut-btn").forEach(b => b.classList.toggle("on", b.dataset.m === m));
   if ($("vm-sizes-row"))  $("vm-sizes-row").style.display  = m === "karobka" ? "none" : "block";
-  if ($("vm-qty-lbl"))    $("vm-qty-lbl").textContent      = m === "karobka" ? "Karobka soni" : "Miqdor";
+  if ($("vm-qty-lbl"))    $("vm-qty-lbl").textContent      = m === "karobka" ? "Pochka soni" : "Miqdor";
   if ($("vm-box-info"))   $("vm-box-info").style.display   = "none";
   selSize = null;
   $("vm-qty").value = 1;
@@ -248,10 +248,15 @@ function renderVmChips() {
 
   // Ranglar
   $("vm-colors").innerHTML = colors.map(c => {
-    const cStock = vmProd.variants.filter(v => v.color===c).reduce((a,v) => a+v.qty, 0);
+    const cVariants = vmProd.variants.filter(v => v.color===c);
+    const cStock = cVariants.reduce((a,v) => a+v.qty, 0);
+    const displayStock = vmSellMode === "karobka"
+      ? (cVariants.length > 0 ? Math.min(...cVariants.map(v => v.qty)) : 0)
+      : cStock;
+    const stockLabel = vmSellMode === "karobka" ? `${displayStock} pochka` : `${displayStock}`;
     return `<div class="vchip${cStock>0?"":" out"}${c===selColor?" on":""}"
       onclick="vmSel('c','${c.replace(/'/g,"\\'")}')"> ${c}
-      <span style="font-size:10px;opacity:.7">(${cStock})</span></div>`;
+      <span style="font-size:10px;opacity:.7">(${stockLabel})</span></div>`;
   }).join("");
 
   // O'lchamlar — faqat dona rejimida
@@ -264,9 +269,12 @@ function renderVmChips() {
 
   // Info matni
   if (vmSellMode === "karobka" && selColor) {
-    const cStock   = vmProd.variants.filter(v => v.color===selColor).reduce((a,v) => a+v.qty, 0);
-    const maxBoxes = Math.floor(cStock / inBox);
-    $("vm-info").textContent = `Qoldiq: ${cStock} ${vmProd.unit||"dona"} = ${maxBoxes} karobka`;
+    const colorVariants = vmProd.variants.filter(v => v.color===selColor);
+    const maxPochka = colorVariants.length > 0 ? Math.min(...colorVariants.map(v => v.qty)) : 0;
+    const sizesStr  = typeof sizesToRange === "function"
+      ? sizesToRange(colorVariants.map(v => v.size).filter(Boolean), vmProd.type)
+      : colorVariants.map(v => v.size).join(", ");
+    $("vm-info").innerHTML = `O'lcham: <strong>${sizesStr}</strong> &middot; Qoldiq: <strong>${maxPochka} pochka</strong>`;
   } else if (vmSellMode === "dona") {
     const v = selColor && selSize ? vmProd.variants.find(x => x.color===selColor && x.size===selSize) : null;
     $("vm-info").textContent = v
@@ -282,7 +290,7 @@ function renderVmChips() {
     if (vmSellMode === "karobka" && inBox > 1 && selColor) {
       bi.style.display = "block";
       $("vm-box-detail").textContent =
-        `${qty} karobka × ${inBox} ${vmProd.unit||"dona"} = ${totalDona} ${vmProd.unit||"dona"}`;
+        `${qty} pochka × ${inBox} ${vmProd.unit||"dona"} = ${totalDona} ${vmProd.unit||"dona"}`;
     } else {
       bi.style.display = "none";
     }
@@ -391,7 +399,7 @@ function renderCart() {
 
   $("cart-items").innerHTML = cart.map((c, i) => {
     const variantLine = c.sellMode === "karobka"
-      ? `${c.color} <span class="ci-box-badge">📦 ${c.qtyBox} karobka</span>`
+      ? `${c.color} <span class="ci-box-badge">📦 ${c.qtyBox} pochka</span>`
       : `${c.color} / ${c.size}`;
     const isOverride = c.basePrice && c.basePrice !== c.price;
     const priceTag = isOverride
@@ -783,7 +791,7 @@ async function checkout() {
     items: cart.map(c => ({
       name: c.name, sku: c.sku || null,
       art: c.art || null,
-      variant: c.sellMode==="karobka" ? `${c.color} (${c.qtyBox} karobka)` : `${c.color} / ${c.size}`,
+      variant: c.sellMode==="karobka" ? `${c.color} (${c.qtyBox} pochka)` : `${c.color} / ${c.size}`,
       color: c.color || null,
       size: c.size || null,
       qty: c.qty, qtyBox: c.qtyBox||null, inBox: c.inBox||null,
@@ -1156,7 +1164,7 @@ function posShowRecent() {
         </div>
         <div class="pri-right">
           <div class="pri-price">${priceDisplay(narx)}</div>
-          <div class="pri-stock ${st<=5?"low":""}">${st} ${p.unit||"dona"}${inBox>1?` (${Math.floor(st/inBox)} karobka)`:""}</div>
+          <div class="pri-stock ${st<=5?"low":""}">${st} ${p.unit||"dona"}${inBox>1?` (${Math.floor(st/inBox)} pochka)`:""}</div>
         </div>
       </div>`;
     }).join("");
