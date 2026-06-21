@@ -107,7 +107,9 @@ async function pushToCloud() {
         const batch = customers.slice(i, i+chunk).map(c => ({
           id: c.id, name: c.name,
           phone: c.phone || null,
-          type: c.type || "ulgurji"
+          type: c.type || "ulgurji",
+          balance_uzs: c.balanceUzs || 0,
+          balance_usd: c.balanceUsd || 0
         }));
         const { error } = await _sb.from("customers")
           .upsert(batch, {onConflict:"id", ignoreDuplicates:false});
@@ -165,9 +167,18 @@ async function pushToCloud() {
         total: s.total || 0, paid: s.paid || 0,
         remaining: s.remaining || 0,
         due: s.due || null,
+        customer_id: s.customerId || null,
         customer_name: s.customerName || null,
         customer_phone: s.customerPhone || null,
-        status: s.status || "tolandan"
+        staff_id: s.staffId || null,
+        status: s.status || "tolandan",
+        debt_currency: s.debtCurrency || "uzs",
+        debt_usd: s.debtUsd != null ? s.debtUsd : null,
+        // Asl (o'zgarmas) qiymatlar — qarz to'lovlari bularga tegmaydi.
+        // Bularsiz calcSaleState() boshqa qurilmada noto'g'ri ishlaydi.
+        orig_paid: s.origPaid != null ? s.origPaid : (s.paid || 0),
+        orig_remaining: s.origRemaining != null ? s.origRemaining : (s.remaining || 0),
+        orig_debt_usd: s.origDebtUsd != null ? s.origDebtUsd : null
       })));
     } catch(e) { syncErrors.push("sales: " + e.message); console.warn("sync sales xato:", e.message); }
 
@@ -203,6 +214,7 @@ async function pushToCloud() {
         customer_phone: p.customerPhone || null,
         amount: p.amount || 0,
         currency: p.currency || "uzs",
+        method: p.method || "naqd",
         allocations: p.allocations || [],
         leftover: p.leftover || 0
       })));
@@ -252,7 +264,8 @@ async function pullFromCloud() {
       db.customers = custs.map(c => ({
         id: c.local_id || c.id, name: c.name, phone: c.phone || "",
         type: c.type || "ulgurji", note: c.note || "",
-        telegramChatId: c.telegram_chat_id || null
+        telegramChatId: c.telegram_chat_id || null,
+        balanceUzs: c.balance_uzs || 0, balanceUsd: c.balance_usd || 0
       }));
     }
 
@@ -277,7 +290,10 @@ async function pullFromCloud() {
         due: s.due, customerName: s.customer_name,
         customerPhone: s.customer_phone, status: s.status,
         debtCurrency: s.debt_currency, debtUsd: s.debt_usd,
-        note: s.note
+        note: s.note,
+        origPaid: s.orig_paid != null ? s.orig_paid : s.paid,
+        origRemaining: s.orig_remaining != null ? s.orig_remaining : s.remaining,
+        origDebtUsd: s.orig_debt_usd != null ? s.orig_debt_usd : null
       }));
     }
 
@@ -351,6 +367,7 @@ async function pullFromCloud() {
         customerPhone: p.customer_phone,
         amount:        p.amount || 0,
         currency:      p.currency || "uzs",
+        method:        p.method || "naqd",
         allocations:   p.allocations || [],
         leftover:      p.leftover || 0
       }));
