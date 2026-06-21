@@ -764,10 +764,27 @@ function renderQarzlarTarixi() {
 
   let filtered = rows;
   if (qtStatus !== "all") filtered = filtered.filter(r => r.status === qtStatus);
+
+  // Sana oralig'i filtri (to'lov sanasi bo'yicha)
+  const dateFrom = ($("qt-date-from")||{value:""}).value;
+  const dateTo   = ($("qt-date-to")||{value:""}).value;
+  if (dateFrom || dateTo) {
+    filtered = filtered.filter(r => {
+      // Shu chekka tegishli to'lovlardan kamida bittasi sana oralig'iga to'g'ri kelsa
+      return r.payments.some(p => {
+        if (dateFrom && p.payDate < dateFrom) return false;
+        if (dateTo   && p.payDate > dateTo)   return false;
+        return true;
+      });
+    });
+  }
+
   if (q) filtered = filtered.filter(r =>
     (r.sale.customerName||"").toLowerCase().includes(q) ||
     (r.sale.chekNum||"").toLowerCase().includes(q) ||
-    (r.sale.customerPhone||"").includes(q)
+    (r.sale.customerPhone||"").includes(q) ||
+    // To'lov sanasi yoki to'lov cheki raqami bo'yicha ham qidirish
+    r.payments.some(p => p.payDate.includes(q) || `${r.sale.chekNum}-${String(r.payments.indexOf(p)+1).padStart(3,"0")}`.toLowerCase().includes(q))
   );
 
   const cntAll = rows.length;
@@ -807,7 +824,9 @@ function renderQarzlarTarixi() {
         <div style="width:10px;height:10px;border-radius:50%;background:${meta.color};flex-shrink:0"></div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <strong style="font-size:13.5px;color:#0D1B2A">${s.customerName||"Noma'lum mijoz"}</strong>
+            <strong style="font-size:13.5px;color:#0D1B2A;cursor:pointer;text-decoration:underline;text-decoration-style:dotted"
+              onclick="event.stopPropagation();openCustPayHistory('${(s.customerName||"").replace(/'/g,"\\'")}','${(s.customerPhone||"").replace(/'/g,"\\'")}')"
+              title="Bu mijozning barcha to'lovlari">${s.customerName||"Noma'lum mijoz"}</strong>
             <span style="font-size:11.5px;color:#aaa;font-family:monospace">${baseChekNum}-000</span>
           </div>
           <div style="font-size:11.5px;color:${meta.color};font-weight:600;margin-top:2px">${meta.dot} ${meta.label}${payments.length ? ` · ${payments.length} ta to'lov` : ""} · ${s.date}</div>
@@ -850,6 +869,55 @@ function renderQarzlarTarixi() {
       </div>
     </div>`;
   }).join("");
+}
+
+// ── Mijozning barcha to'lovlari (barcha cheklar bo'yicha) ────
+// Mijoz "men XX.YY.ZZZZ sanada $250 to'lagandim" desa, shu funksiya
+// orqali uning BARCHA to'lovlarini (qaysi chekka tegishli bo'lishidan
+// qat'iy nazar) bitta ro'yxatda, sana bo'yicha ko'rsatish mumkin.
+function openCustPayHistory(customerName, customerPhone) {
+  const allPayments = [];
+  (db.sales||[]).forEach(s => {
+    const cu = debtCust(s);
+    if (cu.name !== customerName || cu.phone !== customerPhone) return;
+    getSalePayments(s.id).forEach((p, idx) => {
+      allPayments.push({ ...p, saleChekNum: s.chekNum || ("#"+s.id), partLabel: String(idx+1).padStart(3,"0") });
+    });
+  });
+  allPayments.sort((a,b) => (a.payDate+a.payTime < b.payDate+b.payTime) ? 1 : -1);
+
+  const modal = $("ov-custpayhist");
+  if (!modal) return;
+  if ($("cph-name")) $("cph-name").textContent = customerName || "Noma'lum mijoz";
+  if ($("cph-phone")) $("cph-phone").textContent = customerPhone || "";
+
+  const totalUzs = allPayments.filter(p=>p.currency!=="usd").reduce((a,p)=>a+p.amount,0);
+  const totalUsd = allPayments.filter(p=>p.currency==="usd").reduce((a,p)=>a+p.amount,0);
+  if ($("cph-total")) {
+    const parts = [];
+    if (totalUzs > 0) parts.push(fmt(totalUzs)+" so'm");
+    if (totalUsd > 0) parts.push("$"+totalUsd.toFixed(2));
+    $("cph-total").textContent = parts.join(" + ") || "0";
+  }
+
+  const body = $("cph-body");
+  if (body) {
+    body.innerHTML = allPayments.length ? allPayments.map(p => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--brd)">
+        <div>
+          <div style="font-size:12.5px;font-weight:700;color:#0D1B2A;font-family:monospace">${p.saleChekNum}-${p.partLabel}</div>
+          <div style="font-size:11px;color:#aaa;margin-top:1px">${p.payDate} ${p.payTime||""} · ${payMethodLabel(p.payMethod)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <strong style="font-size:13px;color:var(--grn)">${fmtMoney(p.amount, p.currency)}</strong>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="reprintDebtPayment(${p.paymentId})" title="Chekni ko'rish">
+            <i class="ti ti-printer" style="font-size:13px"></i>
+          </button>
+        </div>
+      </div>`).join("") : `<div style="padding:30px;text-align:center;color:#bbb">Hali to'lov qilinmagan</div>`;
+  }
+
+  openModal("custpayhist");
 }
 
 function qtToggleExpand(saleId) {
