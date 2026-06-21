@@ -190,6 +190,21 @@ function openCustCard(id) {
     }
   }
 
+  // Mijoz balansi (ortiqcha to'lovlardan yig'ilgan depozit)
+  const balBlock = $("cc-balance-block");
+  if (balBlock) {
+    const bUzs = c.balanceUzs || 0, bUsd = c.balanceUsd || 0;
+    if (bUzs > 0 || bUsd > 0) {
+      const parts = [];
+      if (bUsd > 0) parts.push(`$${bUsd.toFixed(2)}`);
+      if (bUzs > 0) parts.push(`${fmt(bUzs)} so'm`);
+      if ($("cc-balance")) $("cc-balance").textContent = parts.join(" + ");
+      balBlock.style.display = "flex";
+    } else {
+      balBlock.style.display = "none";
+    }
+  }
+
   // SMS tugmasi
   const smsBtn = $("cc-sms-btn");
   if (smsBtn) smsBtn.style.display = c.phone ? "inline-flex" : "none";

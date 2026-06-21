@@ -316,23 +316,39 @@ function renderDebtsGrouped(list, rate) {
         </span>
       </td>
       <td>
-        <div style="display:flex;flex-direction:column;gap:5px;min-width:170px">
-          <div style="display:flex;gap:5px">
-            <input type="number" id="gpay-${gKey}"
-              placeholder="${isUsdPrimary?"$ summa":"so'm"}"
-              step="${isUsdPrimary?"0.01":"10000"}"
-              style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:85px;flex:1;outline:none">
-            <select id="gpay-method-${gKey}"
-              style="font-family:inherit;font-size:11.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 3px;width:72px">
-              <option value="naqd">💵 Naqd</option>
-              <option value="karta">💳 Karta</option>
-              <option value="otkazma">🏦 O'tkazma</option>
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:170px">
+          ${g.totalUzs > 0 ? `
+          <div style="display:flex;gap:5px;align-items:center">
+            <input type="number" id="gpay-${gKey}-uzs"
+              placeholder="so'm" step="10000"
+              style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:80px;flex:1;outline:none">
+            <select id="gpay-method-${gKey}-uzs"
+              style="font-family:inherit;font-size:11.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 3px;width:68px">
+              <option value="naqd">💵</option>
+              <option value="karta">💳</option>
+              <option value="otkazma">🏦</option>
             </select>
-          </div>
-          <button class="btn btn-teal btn-sm" style="font-size:11px"
-            onclick="recordGroupPayment('${ids}','${isUsdPrimary?"usd":"uzs"}','${gKey}')">
-            <i class="ti ti-check"></i> Eng eski qarzdan to'lash
-          </button>
+            <button class="btn btn-teal btn-sm" style="font-size:10.5px;padding:5px 7px"
+              onclick="recordGroupPayment('${ids}','uzs','${gKey}')" title="So'm to'lovi">
+              <i class="ti ti-check"></i>
+            </button>
+          </div>` : ""}
+          ${g.totalUsd > 0 ? `
+          <div style="display:flex;gap:5px;align-items:center">
+            <input type="number" id="gpay-${gKey}-usd"
+              placeholder="$ summa" step="0.01"
+              style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:80px;flex:1;outline:none">
+            <select id="gpay-method-${gKey}-usd"
+              style="font-family:inherit;font-size:11.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 3px;width:68px">
+              <option value="naqd">💵</option>
+              <option value="karta">💳</option>
+              <option value="otkazma">🏦</option>
+            </select>
+            <button class="btn btn-teal btn-sm" style="font-size:10.5px;padding:5px 7px"
+              onclick="recordGroupPayment('${ids}','usd','${gKey}')" title="USD to'lovi">
+              <i class="ti ti-check"></i>
+            </button>
+          </div>` : ""}
         </div>
       </td>
       <td>
@@ -357,13 +373,21 @@ async function recordGroupPayment(idsStr, currency, gKey) {
   const sales = ids.map(id => db.sales.find(s => s.id === id)).filter(Boolean);
   if (!sales.length) return;
 
-  const amt = parseFloat(($("gpay-"+gKey)||{value:0}).value) || 0;
+  const inputId  = `gpay-${gKey}-${currency}`;
+  const methodId = `gpay-method-${gKey}-${currency}`;
+  const amt = parseFloat(($(inputId)||{value:0}).value) || 0;
   if (amt <= 0) { toast("Summani kiriting","err"); return; }
-  const method = ($("gpay-method-"+gKey)||{value:"naqd"}).value || "naqd";
+  const method = ($(methodId)||{value:"naqd"}).value || "naqd";
 
-  // Eng eski sotuv ID sini topib, shu orqali recordPayment chaqiramiz —
-  // u allaqachon FIFO mantig'ini to'liq amalga oshiradi.
-  const sortedByDate = sales.slice().sort((a,b) => (a.date||"") < (b.date||"") ? -1 : 1);
+  // Shu valyutadagi qarzlar orasidan eng eski sotuvni topamiz (FIFO boshlanish nuqtasi)
+  const sameCurSales = sales.filter(s => {
+    const st = calcSaleState(s);
+    const isUsd = s.debtCurrency === "usd" && st.debtUsd > 0;
+    return currency === "usd" ? isUsd : !isUsd;
+  });
+  if (!sameCurSales.length) { toast(`${currency==="usd"?"USD":"So'm"} qarz topilmadi`,"err"); return; }
+
+  const sortedByDate = sameCurSales.slice().sort((a,b) => (a.date||"") < (b.date||"") ? -1 : 1);
   const oldest = sortedByDate[0];
 
   // recordPayment ichidagi inputlarni vaqtinchalik shu yerdan o'qitamiz
@@ -383,7 +407,9 @@ async function recordGroupPayment(idsStr, currency, gKey) {
     document.body.appendChild(sel); createdMethodTemp = true;
   } else { $(tempMethodId).value = method; }
 
-  await recordPayment(oldest.id);
+  // Valyutani aniq belgilab uzatamiz — mijozda ikkala valyutada qarz
+  // bo'lganda ham to'g'ri taqsimlanishi uchun.
+  await recordPayment(oldest.id, currency);
 
   if (createdTemp) $(tempInputId)?.remove();
   if (createdMethodTemp) $(tempMethodId)?.remove();
@@ -472,7 +498,7 @@ async function useBalanceForDebt(saleId) {
   if (typeof renderQarzlarTarixi === "function") renderQarzlarTarixi();
 }
 
-async function recordPayment(id) {
+async function recordPayment(id, forcedCurrency) {
   const clicked = db.sales.find(x => x.id === id); if (!clicked) return;
   const amt = parseFloat(($("pay-"+id)||{value:0}).value) || 0;
   if (amt <= 0) { toast("Summani kiriting","err"); return; }
@@ -481,7 +507,10 @@ async function recordPayment(id) {
 
   const rate    = db.settings.rate || 12800;
   const clickedState = calcSaleState(clicked);
-  const payCur  = (clicked.debtCurrency === "usd" && clickedState.debtUsd > 0) ? "usd" : "uzs";
+  // forcedCurrency berilgan bo'lsa (masalan guruhlangan ko'rinishdan, mijozda
+  // ikkala valyutada qarz bo'lganda) — shuni ishlatamiz, aks holda bosilgan
+  // chekning o'z valyutasidan avtomatik aniqlaymiz.
+  const payCur  = forcedCurrency || ((clicked.debtCurrency === "usd" && clickedState.debtUsd > 0) ? "usd" : "uzs");
 
   // Mijozning shu valyutadagi barcha ochiq qarzlari, sotuv sanasi bo'yicha (eng eski birinchi)
   const allDebts = findCustomerDebts(clicked);

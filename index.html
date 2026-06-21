@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=74">
+<link rel="stylesheet" href="style.css?v=75">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -2285,6 +2285,15 @@
       </div>
     </div>
 
+    <!-- Mijoz balansi (depozit) — faqat balans bo'lsa ko'rinadi -->
+    <div id="cc-balance-block" style="display:none;align-items:center;gap:8px;background:#E0F2FE;border:1px solid #7DD3FC;border-radius:10px;padding:10px 14px;margin-bottom:18px">
+      <i class="ti ti-wallet" style="color:#0E7490;font-size:18px"></i>
+      <div>
+        <div style="font-size:10px;color:#0E7490;font-weight:600;text-transform:uppercase">Mijoz balansi (depozit)</div>
+        <div style="font-size:14px;font-weight:800;color:#0E7490" id="cc-balance">0</div>
+      </div>
+    </div>
+
     <!-- Xarid tarixi -->
     <div>
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#aaa;letter-spacing:.05em;margin-bottom:10px">Xarid tarixi (oxirgi 10 ta)</div>
@@ -2430,23 +2439,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=74"></script>
-<script src="js/utils.js?v=74"></script>
-<script src="js/sms.js?v=74"></script>
-<script src="js/cloud.js?v=74"></script>
-<script src="js/dashboard.js?v=74"></script>
-<script src="js/pos.js?v=74"></script>
-<script src="js/katalog.js?v=74"></script>
-<script src="js/ombor.js?v=74"></script>
-<script src="js/mijozlar.js?v=74"></script>
-<script src="js/qarzlar.js?v=74"></script>
-<script src="js/tarix.js?v=74"></script>
-<script src="js/hisobot.js?v=74"></script>
-<script src="js/xodimlar.js?v=74"></script>
-<script src="js/moliya.js?v=74"></script>
-<script src="js/egasi.js?v=74"></script>
-<script src="js/portal.js?v=74"></script>
-<script src="js/init.js?v=74"></script>
+<script src="js/db.js?v=75"></script>
+<script src="js/utils.js?v=75"></script>
+<script src="js/sms.js?v=75"></script>
+<script src="js/cloud.js?v=75"></script>
+<script src="js/dashboard.js?v=75"></script>
+<script src="js/pos.js?v=75"></script>
+<script src="js/katalog.js?v=75"></script>
+<script src="js/ombor.js?v=75"></script>
+<script src="js/mijozlar.js?v=75"></script>
+<script src="js/qarzlar.js?v=75"></script>
+<script src="js/tarix.js?v=75"></script>
+<script src="js/hisobot.js?v=75"></script>
+<script src="js/xodimlar.js?v=75"></script>
+<script src="js/moliya.js?v=75"></script>
+<script src="js/egasi.js?v=75"></script>
+<script src="js/portal.js?v=75"></script>
+<script src="js/init.js?v=75"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2795,7 +2804,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=74"></script>
-<script src="js/superadmin.js?v=74"></script>
+<script src="js/auth.js?v=75"></script>
+<script src="js/superadmin.js?v=75"></script>
 </body>
 </html>
