@@ -100,11 +100,13 @@ function renderDebts() {
 }
 
 // ── Mijoz umumiy qarz kartalar paneli ─────────────
-let _debtCustFilter = null; // null = hammasi
-
 function renderDebtCustCards() {
   const el = $("debt-cust-cards"); if (!el) return;
   const allDebt = debtSales();
+
+  // Tepadagi qidiruv (debt-q) bilan sinxron — _debtCustFilter endi
+  // dropdown emas, shu qidiruv natijasidan keladi.
+  const q = ($("debt-q")||{value:""}).value.trim().toLowerCase();
 
   // Mijoz bo'yicha guruhlash
   const groups = {};
@@ -122,72 +124,51 @@ function renderDebtCustCards() {
     if (isOverdue(s)) groups[key].anyOverdue = true;
   });
 
-  const gList = Object.values(groups).sort((a, b) => {
+  let gList = Object.values(groups).sort((a, b) => {
     if (a.anyOverdue && !b.anyOverdue) return -1;
     if (!a.anyOverdue && b.anyOverdue)  return 1;
     return (b.totalUzs + b.totalUsd*(db.settings?.rate||12800)) -
            (a.totalUzs + a.totalUsd*(db.settings?.rate||12800));
   });
 
-  if (!gList.length) { el.style.display = "none"; return; }
-  el.style.display = "flex";
-  el.style.alignItems = "center";
-  el.style.gap = "10px";
+  // Qidiruv mos kelganda mijoz ro'yxatini filtrlaymiz (faqat ko'rsatish uchun,
+  // jami statistika hali ham barcha qarzlardan hisoblanadi)
+  if (q) gList = gList.filter(g =>
+    g.name.toLowerCase().includes(q) || (g.phone||"").includes(q)
+  );
 
-  // Dropdown select — istalgancha mijoz sig'adi
-  const selVal = _debtCustFilter || "";
-  const opts = gList.map(g => {
-    const overMark = g.anyOverdue ? "⚠️ " : "";
-    const amtTxt   = g.totalUsd > 0 && g.totalUzs > 0
-      ? `$${g.totalUsd.toFixed(2)} + ${fmtK(g.totalUzs)} so'm`
-      : g.totalUsd > 0 ? `$${g.totalUsd.toFixed(2)}`
-      : fmtK(g.totalUzs) + " so'm";
-    return `<option value="${g.name.replace(/"/g,"&quot;")}" ${selVal===g.name?"selected":""}>
-      ${overMark}${g.name} — ${amtTxt} (${g.cnt} ta)
-    </option>`;
-  }).join("");
-
-  el.innerHTML = `
-    <span style="font-size:12px;color:var(--mut);white-space:nowrap;font-weight:600">Mijoz:</span>
-    <select onchange="debtCustFilter(this.value||null)"
-      style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);
-      padding:6px 10px;background:#fff;min-width:220px;max-width:340px">
-      <option value="">— Barchasi (${allDebt.length} ta sotuv) —</option>
-      ${opts}
-    </select>
-    ${_debtCustFilter ? `
-      <div style="padding:6px 12px;background:#fffbf0;border:1.5px solid #c8a84b;border-radius:var(--rs);font-size:12.5px;font-weight:600">
-        ${(() => {
-          const g = gList.find(x => x.name === _debtCustFilter);
-          if (!g) return "";
-          const amtTxt = g.totalUsd > 0 && g.totalUzs > 0
-            ? `$${g.totalUsd.toFixed(2)} + ${fmtK(g.totalUzs)} so'm`
-            : g.totalUsd > 0 ? `$${g.totalUsd.toFixed(2)} USD`
-            : fmtK(g.totalUzs) + " so'm";
-          return `<span style="color:var(--mut)">Jami qarz:</span> <span style="color:var(--acc)">${amtTxt}</span>
-                  <span style="color:var(--mut);margin-left:6px">${g.cnt} ta sotuv</span>`;
-        })()}
-      </div>
-      <button onclick="debtCustFilter(null)" class="btn btn-ghost btn-sm btn-icon" title="Filtrni tozalash">
-        <i class="ti ti-x"></i>
-      </button>` : ""}`;
-}
-
-function debtCustFilter(name) {
-  _debtCustFilter = name;
-  const qEl = $("debt-q");
-  if (qEl) qEl.value = name || "";
-  renderDebts();
+  if (!debtGrouped) { el.style.display = "none"; return; }
+  if (!gList.length) {
+    el.style.display = "block";
+    el.innerHTML = `<div style="padding:16px;text-align:center;color:#bbb;font-size:13px">Mijoz topilmadi</div>`;
+    return;
+  }
+  el.style.display = "block";
 }
 
 // ── Tanlangan mijozning to'lovlar tarixi ──────────
+// Qidiruv qatoriga mijoz nomi aniq mos kelganda (yoki faqat 1 ta natija
+// qolganda) shu mijozning to'lovlar tarixini pastda ko'rsatamiz.
 function renderDebtPaymentsHistory() {
   const el = $("debt-payments-history"); if (!el) return;
+  const q = ($("debt-q")||{value:""}).value.trim().toLowerCase();
 
-  if (!_debtCustFilter) { el.style.display = "none"; el.innerHTML = ""; return; }
+  if (!q) { el.style.display = "none"; el.innerHTML = ""; return; }
+
+  // Qidiruvga mos keluvchi yagona mijozni topamiz
+  const allDebt = debtSales();
+  const matchingNames = [...new Set(
+    allDebt.filter(s => {
+      const cu = debtCust(s);
+      return cu.name.toLowerCase().includes(q) || (cu.phone||"").includes(q);
+    }).map(s => debtCust(s).name)
+  )];
+
+  if (matchingNames.length !== 1) { el.style.display = "none"; el.innerHTML = ""; return; }
+  const custName = matchingNames[0];
 
   const payments = (db.debtPayments || [])
-    .filter(p => p.customerName === _debtCustFilter)
+    .filter(p => p.customerName === custName)
     .sort((a, b) => (a.date+a.time < b.date+b.time) ? 1 : -1);
 
   if (!payments.length) { el.style.display = "none"; el.innerHTML = ""; return; }
@@ -199,7 +180,7 @@ function renderDebtPaymentsHistory() {
 
   el.innerHTML = `
     <div style="font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">
-      <i class="ti ti-receipt"></i> ${_debtCustFilter} — to'lovlar tarixi (${payments.length} ta)
+      <i class="ti ti-receipt"></i> ${custName} — to'lovlar tarixi (${payments.length} ta)
     </div>
     <div style="display:flex;flex-direction:column;gap:6px">
       ${payments.map(p => {
@@ -300,9 +281,14 @@ function renderDebtsList(list, rate) {
             </button>`;
           })()}
           ${cu.phone && cu.phone !== "—"
-            ? `<button class="btn btn-sm" onclick="sendDebtReminder(${s.id})" style="font-size:11px;color:#856404">
-                <i class="ti ti-message"></i> SMS eslatma
-               </button>`
+            ? `<div style="display:flex;gap:5px">
+                <button class="btn btn-sm" onclick="sendDebtReminder(${s.id})" style="font-size:11px;color:#856404">
+                  <i class="ti ti-message"></i> SMS
+                </button>
+                <button class="btn btn-sm" onclick="sendDebtReminderBot(${s.id})" style="font-size:11px;color:#0E7490">
+                  <i class="ti ti-brand-telegram"></i> Bot
+                </button>
+               </div>`
             : ""}
         </div>
       </td>
@@ -321,7 +307,7 @@ function renderDebtsGrouped(list, rate) {
     <th class="num">Sotuvlar</th>
     <th class="num">Umumiy qarz</th>
     <th>Eng yaqin muddat</th>
-    <th>Holat</th><th>Amallar</th>
+    <th>Holat</th><th>To'lov qabul qilish</th><th>Eslatma</th>
   </tr>`;
   if (!tbody) return;
 
@@ -330,7 +316,7 @@ function renderDebtsGrouped(list, rate) {
   list.forEach(s => {
     const cu  = debtCust(s);
     const key = cu.name + "|" + cu.phone;
-    if (!groups[key]) groups[key] = { name:cu.name, phone:cu.phone, sales:[], totalRem:0, totalUzs:0, totalUsd:0 };
+    if (!groups[key]) groups[key] = { name:cu.name, phone:cu.phone, customerId:s.customerId||null, sales:[], totalRem:0, totalUzs:0, totalUsd:0 };
     const st = calcSaleState(s);
     groups[key].sales.push(s);
     groups[key].totalRem += st.remaining;
@@ -342,17 +328,21 @@ function renderDebtsGrouped(list, rate) {
   });
 
   if (!Object.keys(groups).length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-td">Qarz yo'q 🎉</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-td">Qarz yo'q 🎉</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = Object.values(groups).map(g => {
+  tbody.innerHTML = Object.values(groups).map((g, gi) => {
     const anyOverdue  = g.sales.some(isOverdue);
     const nearestDue  = g.sales.map(s => s.due).filter(Boolean).sort()[0] || "—";
     const ids         = g.sales.map(s => s.id).join(",");
+    const gKey        = `gp-${gi}`;
+    const isUsdPrimary = g.totalUsd > 0;
     return `<tr class="${anyOverdue?"debt-row-overdue":""}">
       <td>
-        <div style="font-weight:700;font-size:13.5px">${g.name}</div>
+        <div style="font-weight:700;font-size:13.5px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted"
+          onclick="openCustPayHistory('${g.name.replace(/'/g,"\\'")}','${(g.phone||"").replace(/'/g,"\\'")}')"
+          title="Bu mijozning barcha to'lovlari">${g.name}</div>
         <div style="font-size:10.5px;color:#aaa">${g.sales.length} ta sotuv</div>
       </td>
       <td style="font-size:12.5px">
@@ -374,16 +364,78 @@ function renderDebtsGrouped(list, rate) {
         </span>
       </td>
       <td>
+        <div style="display:flex;flex-direction:column;gap:5px;min-width:170px">
+          <div style="display:flex;gap:5px">
+            <input type="number" id="gpay-${gKey}"
+              placeholder="${isUsdPrimary?"$ summa":"so'm"}"
+              step="${isUsdPrimary?"0.01":"10000"}"
+              style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:85px;flex:1;outline:none">
+            <select id="gpay-method-${gKey}"
+              style="font-family:inherit;font-size:11.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 3px;width:72px">
+              <option value="naqd">💵 Naqd</option>
+              <option value="karta">💳 Karta</option>
+              <option value="otkazma">🏦 O'tkazma</option>
+            </select>
+          </div>
+          <button class="btn btn-teal btn-sm" style="font-size:11px"
+            onclick="recordGroupPayment('${ids}','${isUsdPrimary?"usd":"uzs"}','${gKey}')">
+            <i class="ti ti-check"></i> Eng eski qarzdan to'lash
+          </button>
+          <div style="font-size:10px;color:#aaa">Avtomatik eng eski sotuvdan boshlab yopiladi</div>
+        </div>
+      </td>
+      <td>
         <div style="display:flex;gap:5px">
           <button class="btn btn-sm" onclick="expandDebtGroup('${ids}')"
-            style="font-size:11.5px"><i class="ti ti-eye"></i> Ko'rish</button>
-          ${g.phone && g.phone !== "—"
-            ? `<button class="btn btn-sm" onclick="sendGroupReminder('${g.phone}','${g.name}',${g.totalRem},${g.totalUsd})"
-                style="font-size:11px;color:#856404"><i class="ti ti-message"></i> SMS</button>` : ""}
+            style="font-size:11.5px"><i class="ti ti-eye"></i></button>
+          ${g.phone && g.phone !== "—" ? `
+            <button class="btn btn-sm" onclick="sendGroupReminder('${g.phone}','${g.name}',${g.totalUzs},${g.totalUsd})"
+              style="font-size:11px;color:#856404" title="SMS"><i class="ti ti-message"></i></button>
+            <button class="btn btn-sm" onclick="sendGroupReminderBot(${g.customerId||"null"},'${g.phone}','${g.name.replace(/'/g,"\\'")}',${g.totalUzs},${g.totalUsd})"
+              style="font-size:11px;color:#0E7490" title="Telegram bot"><i class="ti ti-brand-telegram"></i></button>
+          ` : ""}
         </div>
       </td>
     </tr>`;
   }).join("");
+}
+
+// ── Guruhda to'lov qabul qilish (eng eski qarzdan FIFO) ────
+async function recordGroupPayment(idsStr, currency, gKey) {
+  const ids = idsStr.split(",").map(Number);
+  const sales = ids.map(id => db.sales.find(s => s.id === id)).filter(Boolean);
+  if (!sales.length) return;
+
+  const amt = parseFloat(($("gpay-"+gKey)||{value:0}).value) || 0;
+  if (amt <= 0) { toast("Summani kiriting","err"); return; }
+  const method = ($("gpay-method-"+gKey)||{value:"naqd"}).value || "naqd";
+
+  // Eng eski sotuv ID sini topib, shu orqali recordPayment chaqiramiz —
+  // u allaqachon FIFO mantig'ini to'liq amalga oshiradi.
+  const sortedByDate = sales.slice().sort((a,b) => (a.date||"") < (b.date||"") ? -1 : 1);
+  const oldest = sortedByDate[0];
+
+  // recordPayment ichidagi inputlarni vaqtinchalik shu yerdan o'qitamiz
+  const tempInputId = "pay-" + oldest.id;
+  const tempMethodId = "pay-method-" + oldest.id;
+  let createdTemp = false, createdMethodTemp = false;
+
+  if (!$(tempInputId)) {
+    const inp = document.createElement("input");
+    inp.type = "hidden"; inp.id = tempInputId; inp.value = amt;
+    document.body.appendChild(inp); createdTemp = true;
+  } else { $(tempInputId).value = amt; }
+
+  if (!$(tempMethodId)) {
+    const sel = document.createElement("input");
+    sel.type = "hidden"; sel.id = tempMethodId; sel.value = method;
+    document.body.appendChild(sel); createdMethodTemp = true;
+  } else { $(tempMethodId).value = method; }
+
+  await recordPayment(oldest.id);
+
+  if (createdTemp) $(tempInputId)?.remove();
+  if (createdMethodTemp) $(tempMethodId)?.remove();
 }
 
 // ── Ko'rish (expand) ──────────────────────────────
@@ -617,25 +669,56 @@ async function sendDebtReminder(id) {
   const phone = cu.phone;
   if (!phone || phone === "—") { toast("Telefon raqam yo'q","err"); return; }
 
-  const shopName = db.shop?.name || "MERX";
-  const st       = calcSaleState(s);
-  const isUsd    = s.debtCurrency === "usd" && st.debtUsd;
-  const debtTxt  = isUsd ? `$${st.debtUsd.toFixed(2)} USD` : `${fmt(st.remaining)} so'm`;
-  const msg      = `${shopName}: Hurmatli ${cu.name}, sizda ${debtTxt} qarz bor. Muddat: ${s.due||"belgilanmagan"}. Iltimos to'lovni amalga oshiring.`;
+  // Mijozning UMUMIY qarzini hisoblaymiz (faqat shu chek emas) — SMS va
+  // Bot xabar matni har doim bir xil, umumiy qarz asosida bo'lishi kerak.
+  const allDebts = findCustomerDebts(s);
+  let totalUzs = 0, totalUsd = 0;
+  allDebts.forEach(x => {
+    const st = calcSaleState(x);
+    if (x.debtCurrency === "usd" && st.debtUsd) totalUsd += st.debtUsd;
+    else totalUzs += st.remaining;
+  });
 
+  const msg = buildDebtReminderText(cu.name, totalUzs, totalUsd);
   await sendSms(phone, msg);
   toast(`📲 SMS eslatma yuborildi: ${cu.name}`);
 }
 
+async function sendDebtReminderBot(id) {
+  const s     = db.sales.find(x => x.id === id); if (!s) return;
+  const cu    = debtCust(s);
+
+  const allDebts = findCustomerDebts(s);
+  let totalUzs = 0, totalUsd = 0;
+  allDebts.forEach(x => {
+    const st = calcSaleState(x);
+    if (x.debtCurrency === "usd" && st.debtUsd) totalUsd += st.debtUsd;
+    else totalUzs += st.remaining;
+  });
+
+  const msg = buildDebtReminderText(cu.name, totalUzs, totalUsd);
+  await sendTelegramText(s.customerId, cu.phone, msg);
+}
+
 // ── SMS eslatma (guruhlangan) ─────────────────────
-async function sendGroupReminder(phone, name, totalUzs, totalUsd) {
+// Qarz eslatma matnini hosil qilish (SMS va Bot uchun bir xil)
+function buildDebtReminderText(name, totalUzs, totalUsd) {
   const shopName = db.shop?.name || "MERX";
   const debtTxt  = totalUsd > 0
-    ? `$${totalUsd.toFixed(2)} USD (${fmt(totalUzs)} so'm)`
+    ? `$${totalUsd.toFixed(2)} USD${totalUzs>0?` + ${fmt(totalUzs)} so'm`:""}`
     : `${fmt(totalUzs)} so'm`;
-  const msg = `${shopName}: Hurmatli ${name}, umumiy qarzingiz: ${debtTxt}. Iltimos to'lovni amalga oshiring.`;
+  return `${shopName}: Hurmatli ${name}, umumiy qarzingiz: ${debtTxt}. Iltimos to'lovni amalga oshiring.`;
+}
+
+async function sendGroupReminder(phone, name, totalUzs, totalUsd) {
+  const msg = buildDebtReminderText(name, totalUzs, totalUsd);
   await sendSms(phone, msg);
   toast(`📲 SMS eslatma yuborildi: ${name}`);
+}
+
+async function sendGroupReminderBot(customerId, phone, name, totalUzs, totalUsd) {
+  const msg = buildDebtReminderText(name, totalUzs, totalUsd);
+  await sendTelegramText(customerId, phone, msg);
 }
 
 // ── Barcha muddati o'tganlarga SMS ────────────────
@@ -648,7 +731,7 @@ async function sendOverdueReminders() {
   overdue.forEach(s => {
     const cu = debtCust(s);
     if (!cu.phone || cu.phone === "—") return;
-    if (!byPhone[cu.phone]) byPhone[cu.phone] = { name:cu.name, phone:cu.phone, total:0, totalUsd:0 };
+    if (!byPhone[cu.phone]) byPhone[cu.phone] = { name:cu.name, phone:cu.phone, customerId:s.customerId||null, total:0, totalUsd:0 };
     const st = calcSaleState(s);
     byPhone[cu.phone].total    += st.remaining;
     byPhone[cu.phone].totalUsd += st.debtUsd || 0;
@@ -661,16 +744,47 @@ async function sendOverdueReminders() {
 
   let sent = 0;
   for (const p of phones) {
-    const shopName = db.shop?.name || "MERX";
-    const debtTxt  = p.totalUsd > 0
-      ? `$${p.totalUsd.toFixed(2)} USD`
-      : `${fmt(p.total)} so'm`;
-    await sendSms(p.phone,
-      `${shopName}: Hurmatli ${p.name}, qarz muddati o'tdi. Qarz: ${debtTxt}. Tezroq to'lang.`
-    );
+    const msg = buildOverdueText(p.name, p.total, p.totalUsd);
+    await sendSms(p.phone, msg);
     sent++;
   }
   toast(`✅ ${sent} ta mijozga SMS yuborildi`);
+}
+
+function buildOverdueText(name, totalUzs, totalUsd) {
+  const shopName = db.shop?.name || "MERX";
+  const debtTxt  = totalUsd > 0
+    ? `$${totalUsd.toFixed(2)} USD${totalUzs>0?` + ${fmt(totalUzs)} so'm`:""}`
+    : `${fmt(totalUzs)} so'm`;
+  return `${shopName}: Hurmatli ${name}, qarz muddati o'tdi. Qarz: ${debtTxt}. Tezroq to'lang.`;
+}
+
+async function sendOverdueRemindersBot() {
+  const overdue = debtSales().filter(isOverdue);
+  if (!overdue.length) { toast("Muddati o'tgan qarz yo'q","info"); return; }
+
+  const byPhone = {};
+  overdue.forEach(s => {
+    const cu = debtCust(s);
+    if (!cu.phone || cu.phone === "—") return;
+    if (!byPhone[cu.phone]) byPhone[cu.phone] = { name:cu.name, phone:cu.phone, customerId:s.customerId||null, total:0, totalUsd:0 };
+    const st = calcSaleState(s);
+    byPhone[cu.phone].total    += st.remaining;
+    byPhone[cu.phone].totalUsd += st.debtUsd || 0;
+  });
+
+  const phones = Object.values(byPhone);
+  if (!phones.length) { toast("Telefon raqamlari yo'q","err"); return; }
+
+  if (!confirm(`${phones.length} ta mijozga Telegram orqali eslatma yuborilsinmi?`)) return;
+
+  let sent = 0;
+  for (const p of phones) {
+    const msg = buildOverdueText(p.name, p.total, p.totalUsd);
+    const r = await sendTelegramText(p.customerId, p.phone, msg);
+    if (r?.sent) sent++;
+  }
+  toast(`✅ ${sent}/${phones.length} ta mijozga Telegram orqali yuborildi`);
 }
 
 // ════════════════════════════════════════════════

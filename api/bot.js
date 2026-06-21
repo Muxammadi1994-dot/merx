@@ -506,6 +506,40 @@ async function actionSendReceipt(body) {
 // YANGI: Ishchilar guruhiga sotuv bildirishnomasi yuborish
 // ════════════════════════════════════════════════════════════════
 
+// MERX dan: oddiy matn xabar yuborish (qarz eslatmalari uchun)
+async function actionSendTextMessage(body) {
+  const { customerId, customerPhone, text } = body || {};
+  if (!text) return { ok: false, error: "text majburiy" };
+
+  let chatId = null;
+
+  if (customerPhone) {
+    const rawPhone = normPhone(customerPhone);
+    const normalize = p => p.startsWith("998") ? p.slice(3) : p;
+    const all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id`);
+    const match = all.find(c => {
+      const cp = normPhone(c.phone || "");
+      return cp && normalize(cp) === normalize(rawPhone);
+    });
+    if (match?.telegram_chat_id) chatId = match.telegram_chat_id;
+  }
+
+  if (!chatId && customerId) {
+    const byLocalId = await sb("customers", `?local_id=eq.${customerId}&select=id,telegram_chat_id`);
+    if (byLocalId?.[0]?.telegram_chat_id) {
+      chatId = byLocalId[0].telegram_chat_id;
+    } else {
+      const byId = await sb("customers", `?id=eq.${customerId}&select=id,telegram_chat_id`);
+      if (byId?.[0]?.telegram_chat_id) chatId = byId[0].telegram_chat_id;
+    }
+  }
+
+  if (!chatId) return { ok: false, sent: false, reason: "no_telegram" };
+
+  const r = await tg(chatId, text);
+  return { ok: true, sent: true, result: r };
+}
+
 async function actionSendStaffNotification(body) {
   const { sale, shopName, staffGroupId } = body || {};
   if (!sale) return { ok: false, error: "sale majburiy" };
@@ -1181,6 +1215,23 @@ export default async function handler(req, res) {
       return res.status(200).json(result);
     } catch (e) {
       console.error("send_receipt xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
+  // MERX dan: oddiy matn xabar (qarz eslatmalari) — YANGI
+  if (req.query?.action === "send_text") {
+    let body;
+    try {
+      body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    } catch {
+      return res.status(400).json({ ok: false, error: "invalid_json" });
+    }
+    try {
+      const result = await actionSendTextMessage(body);
+      return res.status(200).json(result);
+    } catch (e) {
+      console.error("send_text xato:", e.message);
       return res.status(500).json({ ok: false, error: e.message });
     }
   }

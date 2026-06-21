@@ -58,6 +58,35 @@ async function sendTelegramReceipt(customerId, sale, customerPhone) {
 }
 
 // ================================================
+// Telegram bot orqali oddiy matn xabar yuborish (qarz eslatmalari)
+// ================================================
+
+async function sendTelegramText(customerId, customerPhone, text) {
+  const botUrl = db.settings?.telegramBotUrl;
+  if (!botUrl || (!customerId && !customerPhone)) {
+    return { ok: false, reason: "no_bot_or_customer" };
+  }
+  try {
+    const res = await fetch(botUrl + "?action=send_text", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        customerId: customerId || null,
+        customerPhone: customerPhone || null,
+        text
+      })
+    });
+    const data = await res.json();
+    if (data.sent) toast("📨 Telegram orqali yuborildi");
+    else toast("Telegram: mijoz botga ulanmagan", "info");
+    return data;
+  } catch (e) {
+    console.warn("Telegram xabar yuborilmadi:", e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ================================================
 // Telegram bot orqali ishchilar guruhiga bildirishnoma
 // ================================================
 
