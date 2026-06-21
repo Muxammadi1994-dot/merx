@@ -875,7 +875,31 @@ function renderQarzlarTarixi() {
 // Mijoz "men XX.YY.ZZZZ sanada $250 to'lagandim" desa, shu funksiya
 // orqali uning BARCHA to'lovlarini (qaysi chekka tegishli bo'lishidan
 // qat'iy nazar) bitta ro'yxatda, sana bo'yicha ko'rsatish mumkin.
+let _cphViewMode = "split"; // "split" = chek bo'yicha, "total" = umumiy to'lov bo'yicha
+let _cphCustomer = { name: "", phone: "" };
+
 function openCustPayHistory(customerName, customerPhone) {
+  _cphCustomer = { name: customerName, phone: customerPhone };
+  _cphViewMode = "split";
+  renderCustPayHistory();
+  openModal("custpayhist");
+}
+
+function cphSetMode(mode) {
+  _cphViewMode = mode;
+  document.querySelectorAll(".cph-mode-btn").forEach(b => {
+    const on = b.dataset.m === mode;
+    b.classList.toggle("on", on);
+    b.style.background = on ? "#0D1B2A" : "#fff";
+    b.style.color = on ? "#fff" : "#666";
+  });
+  renderCustPayHistory();
+}
+
+function renderCustPayHistory() {
+  const { name: customerName, phone: customerPhone } = _cphCustomer;
+
+  // Mijozga tegishli sotuvlar (chek bo'yicha taqsimot uchun)
   const allPayments = [];
   (db.sales||[]).forEach(s => {
     const cu = debtCust(s);
@@ -886,8 +910,12 @@ function openCustPayHistory(customerName, customerPhone) {
   });
   allPayments.sort((a,b) => (a.payDate+a.payTime < b.payDate+b.payTime) ? 1 : -1);
 
-  const modal = $("ov-custpayhist");
-  if (!modal) return;
+  // Mijozga tegishli UMUMIY to'lovlar (taqsimlanmagan, asl harakat)
+  const totalPayments = (db.debtPayments||[])
+    .filter(p => p.customerName === customerName && p.customerPhone === customerPhone)
+    .slice()
+    .sort((a,b) => (a.date+a.time < b.date+b.time) ? 1 : -1);
+
   if ($("cph-name")) $("cph-name").textContent = customerName || "Noma'lum mijoz";
   if ($("cph-phone")) $("cph-phone").textContent = customerPhone || "";
 
@@ -901,7 +929,40 @@ function openCustPayHistory(customerName, customerPhone) {
   }
 
   const body = $("cph-body");
-  if (body) {
+  if (!body) return;
+
+  if (_cphViewMode === "total") {
+    // Umumiy to'lov bo'yicha — har bir to'lov HARAKATI bitta qator,
+    // ichida qaysi cheklarga qanday bo'linganini ko'rsatadi.
+    body.innerHTML = totalPayments.length ? totalPayments.map(p => {
+      const allocs = p.allocations || [];
+      const allocHtml = allocs.length > 1 ? `
+        <div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--brd);display:flex;flex-direction:column;gap:3px">
+          ${allocs.map(a => `
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mut)">
+              <span>${a.chekNum}-${String(a.partNum).padStart(3,"0")} ${a.fullyPaid?"✓ yopildi":""}</span>
+              <span>${fmtMoney(a.amount, a.currency)}</span>
+            </div>`).join("")}
+        </div>` : "";
+      return `
+        <div style="padding:10px 14px;border-bottom:1px solid var(--brd)">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-size:12.5px;font-weight:700;color:#0D1B2A;font-family:monospace">${p.chekNum}</div>
+              <div style="font-size:11px;color:#aaa;margin-top:1px">${p.date} ${p.time||""} · ${payMethodLabel(p.method)}${allocs.length>1?` · ${allocs.length} ta chekka bo'lindi`:""}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <strong style="font-size:14px;color:var(--grn)">${fmtMoney(p.amount, p.currency)}</strong>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="reprintDebtPayment(${p.id})" title="Chekni ko'rish">
+                <i class="ti ti-printer" style="font-size:13px"></i>
+              </button>
+            </div>
+          </div>
+          ${allocHtml}
+        </div>`;
+    }).join("") : `<div style="padding:30px;text-align:center;color:#bbb">Hali to'lov qilinmagan</div>`;
+  } else {
+    // Chek bo'yicha taqsimot — har bir chekka tushgan qism alohida qator
     body.innerHTML = allPayments.length ? allPayments.map(p => `
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--brd)">
         <div>
@@ -917,7 +978,6 @@ function openCustPayHistory(customerName, customerPhone) {
       </div>`).join("") : `<div style="padding:30px;text-align:center;color:#bbb">Hali to'lov qilinmagan</div>`;
   }
 
-  openModal("custpayhist");
 }
 
 function qtToggleExpand(saleId) {

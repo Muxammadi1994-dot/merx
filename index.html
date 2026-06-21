@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=66">
+<link rel="stylesheet" href="style.css?v=67">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1127,8 +1127,18 @@
       <button class="m-close" onclick="closeModal('custpayhist')"><i class="ti ti-x"></i></button>
       <h2 id="cph-name" style="margin-bottom:2px">—</h2>
       <p id="cph-phone" style="font-size:12.5px;color:var(--mut);margin-bottom:6px">—</p>
-      <div style="font-size:12.5px;color:var(--mut);margin-bottom:14px">
+      <div style="font-size:12.5px;color:var(--mut);margin-bottom:10px">
         Jami to'lagan: <strong id="cph-total" style="color:var(--grn)">0</strong>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:12px">
+        <button class="cph-mode-btn on" data-m="split" onclick="cphSetMode('split')"
+          style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#0D1B2A;color:#fff;font-size:12px;font-weight:600;cursor:pointer">
+          Chek bo'yicha taqsimot
+        </button>
+        <button class="cph-mode-btn" data-m="total" onclick="cphSetMode('total')"
+          style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;color:#666;font-size:12px;font-weight:600;cursor:pointer">
+          Umumiy to'lov bo'yicha
+        </button>
       </div>
       <div id="cph-body" style="flex:1;overflow-y:auto;border:1px solid var(--brd);border-radius:var(--rs)"></div>
     </div>
@@ -2376,23 +2386,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=66"></script>
-<script src="js/utils.js?v=66"></script>
-<script src="js/sms.js?v=66"></script>
-<script src="js/cloud.js?v=66"></script>
-<script src="js/dashboard.js?v=66"></script>
-<script src="js/pos.js?v=66"></script>
-<script src="js/katalog.js?v=66"></script>
-<script src="js/ombor.js?v=66"></script>
-<script src="js/mijozlar.js?v=66"></script>
-<script src="js/qarzlar.js?v=66"></script>
-<script src="js/tarix.js?v=66"></script>
-<script src="js/hisobot.js?v=66"></script>
-<script src="js/xodimlar.js?v=66"></script>
-<script src="js/moliya.js?v=66"></script>
-<script src="js/egasi.js?v=66"></script>
-<script src="js/portal.js?v=66"></script>
-<script src="js/init.js?v=66"></script>
+<script src="js/db.js?v=67"></script>
+<script src="js/utils.js?v=67"></script>
+<script src="js/sms.js?v=67"></script>
+<script src="js/cloud.js?v=67"></script>
+<script src="js/dashboard.js?v=67"></script>
+<script src="js/pos.js?v=67"></script>
+<script src="js/katalog.js?v=67"></script>
+<script src="js/ombor.js?v=67"></script>
+<script src="js/mijozlar.js?v=67"></script>
+<script src="js/qarzlar.js?v=67"></script>
+<script src="js/tarix.js?v=67"></script>
+<script src="js/hisobot.js?v=67"></script>
+<script src="js/xodimlar.js?v=67"></script>
+<script src="js/moliya.js?v=67"></script>
+<script src="js/egasi.js?v=67"></script>
+<script src="js/portal.js?v=67"></script>
+<script src="js/init.js?v=67"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2741,7 +2751,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=66"></script>
-<script src="js/superadmin.js?v=66"></script>
+<script src="js/auth.js?v=67"></script>
+<script src="js/superadmin.js?v=67"></script>
 </body>
 </html>
