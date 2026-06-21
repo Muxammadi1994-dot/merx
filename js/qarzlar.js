@@ -54,6 +54,44 @@ function applyDebtKpiVisibility() {
   if (wrap) wrap.style.gridTemplateColumns = hidden.has("chart") ? "1fr" : "1fr 1.15fr";
 }
 
+// ── Qarz jadvali ustunlari boshqaruvi ──────────────
+const DEBT_COL_DEFS = [
+  { key:"phone",    lbl:"Telefon",      def:true },
+  { key:"items",    lbl:"Mahsulotlar",  def:true },
+  { key:"paid",     lbl:"To'langan",    def:true },
+  { key:"due",      lbl:"Muddat",       def:true },
+  { key:"status",   lbl:"Holat",        def:true },
+];
+
+function getDebtCols() {
+  const saved = db.settings?.debtCols;
+  const cols = {};
+  DEBT_COL_DEFS.forEach(c => { cols[c.key] = saved && c.key in saved ? saved[c.key] : c.def; });
+  return cols;
+}
+
+function openDebtColsSettings() {
+  const cols = getDebtCols();
+  const list = $("debt-cols-settings-list");
+  if (list) {
+    list.innerHTML = DEBT_COL_DEFS.map(c => `
+      <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--brd);border-radius:9px;cursor:pointer">
+        <input type="checkbox" ${cols[c.key]?"checked":""} onchange="toggleDebtCol('${c.key}',this.checked)"
+          style="width:17px;height:17px;accent-color:var(--acc);cursor:pointer">
+        <span style="font-size:13px;font-weight:600">${c.lbl}</span>
+      </label>`).join("");
+  }
+  openModal("debtcols");
+}
+
+function toggleDebtCol(key, val) {
+  if (!db.settings) db.settings = {};
+  if (!db.settings.debtCols) db.settings.debtCols = {};
+  db.settings.debtCols[key] = val;
+  saveDB();
+  renderDebts();
+}
+
 function openDebtKpiSettings() {
   const list = $("debt-kpi-settings-list");
   if (list) {
@@ -877,6 +915,49 @@ async function sendGroupReminder(phone, name, totalUzs, totalUsd) {
 async function sendGroupReminderBot(customerId, phone, name, totalUzs, totalUsd) {
   const msg = buildDebtReminderText(name, totalUzs, totalUsd);
   await sendTelegramText(customerId, phone, msg);
+}
+
+// ── BARCHA qarzdorlarga (muddatidan qat'iy nazar) eslatma ─
+function getAllDebtorsGrouped() {
+  const allDebt = debtSales();
+  const byPhone = {};
+  allDebt.forEach(s => {
+    const cu = debtCust(s);
+    if (!cu.phone || cu.phone === "—") return;
+    if (!byPhone[cu.phone]) byPhone[cu.phone] = { name:cu.name, phone:cu.phone, customerId:s.customerId||null, total:0, totalUsd:0 };
+    const st = calcSaleState(s);
+    byPhone[cu.phone].total    += st.remaining;
+    byPhone[cu.phone].totalUsd += st.debtUsd || 0;
+  });
+  return Object.values(byPhone);
+}
+
+async function sendAllDebtorsReminders() {
+  const debtors = getAllDebtorsGrouped();
+  if (!debtors.length) { toast("Qarzdorlar yo'q","info"); return; }
+  if (!confirm(`${debtors.length} ta mijozga (barcha qarzdorlarga) SMS yuborilsinmi?`)) return;
+
+  let sent = 0;
+  for (const p of debtors) {
+    const msg = buildDebtReminderText(p.name, p.total, p.totalUsd);
+    await sendSms(p.phone, msg);
+    sent++;
+  }
+  toast(`✅ ${sent} ta mijozga SMS yuborildi`);
+}
+
+async function sendAllDebtorsRemindersBot() {
+  const debtors = getAllDebtorsGrouped();
+  if (!debtors.length) { toast("Qarzdorlar yo'q","info"); return; }
+  if (!confirm(`${debtors.length} ta mijozga (barcha qarzdorlarga) Telegram orqali yuborilsinmi?`)) return;
+
+  let sent = 0;
+  for (const p of debtors) {
+    const msg = buildDebtReminderText(p.name, p.total, p.totalUsd);
+    const r = await sendTelegramText(p.customerId, p.phone, msg);
+    if (r?.sent) sent++;
+  }
+  toast(`✅ ${sent}/${debtors.length} ta mijozga Telegram orqali yuborildi`);
 }
 
 // ── Barcha muddati o'tganlarga SMS ────────────────
