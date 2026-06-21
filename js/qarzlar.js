@@ -32,18 +32,18 @@ function debtCust(s) {
   };
 }
 
-function debtRemDisplay(s) {
-  if (s.debtCurrency === "usd" && s.debtUsd != null) {
-    return `<span style="font-weight:800;color:#1B4F72;font-size:14px">$${(+s.debtUsd).toFixed(2)}</span>
+function debtRemDisplay(s, st) {
+  st = st || calcSaleState(s);
+  if (s.debtCurrency === "usd" && st.debtUsd != null) {
+    return `<span style="font-weight:800;color:#1B4F72;font-size:14px">$${(+st.debtUsd).toFixed(2)}</span>
             <span style="font-size:10px;color:#aaa;display:block">USD</span>`;
   }
-  return `<span style="font-weight:800;color:var(--red);font-size:14px">${fmt(s.remaining)}</span>
+  return `<span style="font-weight:800;color:var(--red);font-size:14px">${fmt(st.remaining)}</span>
           <span style="font-size:10px;color:#aaa;display:block">so'm</span>`;
 }
 
 // ── Render ────────────────────────────────────────
 function renderDebts() {
-  syncSaleStatesFromPayments();
   const q    = ($("debt-q")||{value:""}).value.toLowerCase();
   const rate = db.settings.rate || 12800;
   const thisMonth = today().slice(0, 7);
@@ -70,17 +70,14 @@ function renderDebts() {
     return (a.due||"") < (b.due||"") ? -1 : 1;
   });
 
-  // KPI
+  // KPI — har doim calcSaleState() orqali joriy holatni hisoblaymiz (mutatsiyasiz)
   const allDebt    = debtSales();
-  const totalUzs   = allDebt.reduce((a, s) => a + s.remaining, 0);
-  const totalUsd   = allDebt.filter(s => s.debtCurrency === "usd" && s.debtUsd)
-                            .reduce((a, s) => a + s.debtUsd, 0);
+  const totalUzs   = allDebt.reduce((a, s) => a + calcSaleState(s).remaining, 0);
+  const totalUsd   = allDebt.filter(s => s.debtCurrency === "usd")
+                            .reduce((a, s) => a + calcSaleState(s).debtUsd, 0);
   const overCount  = allDebt.filter(isOverdue).length;
-  // Qarz to'lovlari: status "qarz" bo'lgan yoki "tolandan" lekin originally qarz edi
-  const debtPaid = db.sales
-    .filter(s => s.remaining === 0 && s.paid < s.total && (s.total - s.paid) === 0)
-    .reduce((a, s) => a + 0, 0);
-  // Oddiy hisob: bu oy qilingan sotuvlardagi paid (nasiya + to'liq)
+  // Oddiy hisob: bu oy qilingan sotuvlardagi paid (nasiya + to'liq) — bu checkout
+  // paytidagi asl to'lov, keyingi qarz to'lovlari bu yerga kirmaydi (chunki sale o'zgarmaydi)
   const collected = db.sales
     .filter(s => s.date?.startsWith(thisMonth))
     .reduce((a, s) => a + (s.paid || 0), 0);
@@ -118,8 +115,9 @@ function renderDebtCustCards() {
       name: cu.name, phone: cu.phone,
       totalUzs: 0, totalUsd: 0, cnt: 0, anyOverdue: false
     };
-    groups[key].totalUzs += (s.debtCurrency !== "usd") ? s.remaining : 0;
-    groups[key].totalUsd += (s.debtCurrency === "usd" && s.debtUsd) ? s.debtUsd : 0;
+    const st = calcSaleState(s);
+    groups[key].totalUzs += (s.debtCurrency !== "usd") ? st.remaining : 0;
+    groups[key].totalUsd += (s.debtCurrency === "usd" && st.debtUsd) ? st.debtUsd : 0;
     groups[key].cnt++;
     if (isOverdue(s)) groups[key].anyOverdue = true;
   });
@@ -243,7 +241,8 @@ function renderDebtsList(list, rate) {
   tbody.innerHTML = list.length ? list.map(s => {
     const cu    = debtCust(s);
     const over  = isOverdue(s);
-    const isUsd = s.debtCurrency === "usd" && s.debtUsd != null;
+    const st    = calcSaleState(s);
+    const isUsd = s.debtCurrency === "usd" && st.debtUsd != null;
     return `<tr class="${over?"debt-row-overdue":""}">
       <td>
         <div style="font-weight:600;font-size:13px">${cu.name||"—"}</div>
@@ -256,8 +255,8 @@ function renderDebtsList(list, rate) {
       <td style="font-size:12px;max-width:160px">
         ${s.items?.map(i => `<div>${i.name} <span style="color:#aaa">×${i.qty}</span></div>`).join("") || "—"}
       </td>
-      <td class="num" style="font-size:12.5px;color:var(--grn)">${fmt(s.paid)} so'm</td>
-      <td class="num">${debtRemDisplay(s)}</td>
+      <td class="num" style="font-size:12.5px;color:var(--grn)">${fmt(st.paid)} so'm</td>
+      <td class="num">${debtRemDisplay(s, st)}</td>
       <td>
         <span class="bg ${over?"bg-r":"bg-a"}" style="font-size:11.5px">
           ${s.due||"—"}
@@ -321,12 +320,13 @@ function renderDebtsGrouped(list, rate) {
     const cu  = debtCust(s);
     const key = cu.name + "|" + cu.phone;
     if (!groups[key]) groups[key] = { name:cu.name, phone:cu.phone, sales:[], totalRem:0, totalUzs:0, totalUsd:0 };
+    const st = calcSaleState(s);
     groups[key].sales.push(s);
-    groups[key].totalRem += s.remaining;
-    if (s.debtCurrency === "usd" && s.debtUsd) {
-      groups[key].totalUsd += s.debtUsd;
+    groups[key].totalRem += st.remaining;
+    if (s.debtCurrency === "usd" && st.debtUsd) {
+      groups[key].totalUsd += st.debtUsd;
     } else {
-      groups[key].totalUzs += s.remaining;
+      groups[key].totalUzs += st.remaining;
     }
   });
 
@@ -544,8 +544,9 @@ async function sendDebtReminder(id) {
   if (!phone || phone === "—") { toast("Telefon raqam yo'q","err"); return; }
 
   const shopName = db.shop?.name || "MERX";
-  const isUsd    = s.debtCurrency === "usd" && s.debtUsd;
-  const debtTxt  = isUsd ? `$${s.debtUsd.toFixed(2)} USD` : `${fmt(s.remaining)} so'm`;
+  const st       = calcSaleState(s);
+  const isUsd    = s.debtCurrency === "usd" && st.debtUsd;
+  const debtTxt  = isUsd ? `$${st.debtUsd.toFixed(2)} USD` : `${fmt(st.remaining)} so'm`;
   const msg      = `${shopName}: Hurmatli ${cu.name}, sizda ${debtTxt} qarz bor. Muddat: ${s.due||"belgilanmagan"}. Iltimos to'lovni amalga oshiring.`;
 
   await sendSms(phone, msg);
@@ -574,8 +575,9 @@ async function sendOverdueReminders() {
     const cu = debtCust(s);
     if (!cu.phone || cu.phone === "—") return;
     if (!byPhone[cu.phone]) byPhone[cu.phone] = { name:cu.name, phone:cu.phone, total:0, totalUsd:0 };
-    byPhone[cu.phone].total    += s.remaining;
-    byPhone[cu.phone].totalUsd += s.debtUsd || 0;
+    const st = calcSaleState(s);
+    byPhone[cu.phone].total    += st.remaining;
+    byPhone[cu.phone].totalUsd += st.debtUsd || 0;
   });
 
   const phones = Object.values(byPhone);

@@ -73,7 +73,9 @@ function regroupPackages(variants, color) {
   return groups;
 }
 
-const debtSales  = () => db.sales.filter(s => s.remaining > 0.5);
+// debtSales: joriy (hisoblangan) qoldig'i bor sotuvlar — db.sales ning o'zi
+// o'zgartirilmaydi, faqat calcSaleState() orqali tekshiriladi.
+const debtSales  = () => db.sales.filter(s => calcSaleState(s).remaining > 0.5);
 const isOverdue  = s  => s.due && s.due < today();
 
 // ── Qarz to'lov chek raqami ────────────────────
@@ -102,18 +104,6 @@ function nextPartNum(saleId) {
 // calcSaleState() natijasi bilan yangilaydi. orig* maydonlar (asl, o'zgarmas
 // qiymatlar) saqlanib qoladi — chek har doim "qanday sotilgan edi"ni biladi,
 // faqat hisobot/ro'yxat ko'rinishidagi joriy holat yangilanadi.
-function syncSaleStatesFromPayments() {
-  if (!db.sales) return;
-  db.sales.forEach(s => {
-    if (s.status === "qaytarilgan") return; // qaytarilgan sotuvlarga tegmaymiz
-    const st = calcSaleState(s);
-    s.paid = st.paid;
-    s.remaining = st.remaining;
-    if (s.debtCurrency === "usd") s.debtUsd = st.debtUsd;
-    s.status = st.status;
-  });
-}
-
 // ── Sotuvning JORIY holatini hisoblash (asl sale o'zgarmaydi) ─
 // Sale yaratilgandagi asl paid/remaining + barcha keyingi to'lovlar yig'indisi.
 function calcSaleState(sale) {

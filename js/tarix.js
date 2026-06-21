@@ -36,29 +36,12 @@ function txPeriodFilter(s) {
 function renderTarix() {
   const q = ($("tarix-q")||{value:""}).value.toLowerCase();
 
-  // Qarz to'lovlari — yagona "qarz_tolovi" tur sifatida belgilab,
-  // sotuvlar bilan bir ro'yxatga aralashtiramiz (sana/vaqt bo'yicha)
-  const payRows = (db.debtPayments || []).map(p => ({
-    __isPayment: true,
-    id: p.id,
-    chekNum: p.chekNum,
-    date: p.date,
-    time: p.time,
-    customerName: p.customerName,
-    customerPhone: p.customerPhone,
-    amount: p.amount,
-    currency: p.currency,
-    allocations: p.allocations,
-    staffId: null
-  }));
-
   let list = (db.sales || []).slice().reverse().filter(s => {
     if (!s) return false;
     if (!txPeriodFilter(s)) return false;
     if (txStatus === "tolandan"    && s.status !== "tolandan")    return false;
     if (txStatus === "qarz"        && s.status !== "qarz")        return false;
     if (txStatus === "qaytarilgan" && s.status !== "qaytarilgan") return false;
-    if (txStatus === "qarz_tolovi") return false; // sotuvlar bu filtrda chiqmaydi
     if (txStaffId !== "all" && String(s.staffId) !== String(txStaffId)) return false;
     if (!q) return true;
     return (s.customerName||"").toLowerCase().includes(q) ||
@@ -66,34 +49,6 @@ function renderTarix() {
            (s.chekNum||"").toLowerCase().includes(q) ||
            (s.note||"").toLowerCase().includes(q);
   });
-
-  // Qarz to'lov yozuvlarini filtrlash
-  let payList = payRows.filter(p => {
-    if (!txPeriodFilter(p)) return false;
-    if (!q) return true;
-    return (p.customerName||"").toLowerCase().includes(q) ||
-           (p.customerPhone||"").includes(q) ||
-           (p.chekNum||"").toLowerCase().includes(q);
-  });
-
-  // Status filtriga qarab birlashtirish
-  let combined;
-  if (txStatus === "qarz_tolovi") {
-    combined = payList.map(p => ({ row:p, isPayment:true }));
-  } else if (txStatus === "all") {
-    combined = [
-      ...list.map(s => ({ row:s, isPayment:false })),
-      ...payList.map(p => ({ row:p, isPayment:true }))
-    ];
-    // Sana+vaqt bo'yicha yangi → eski
-    combined.sort((a,b) => {
-      const ka = (a.row.date||"")+(a.row.time||"");
-      const kb = (b.row.date||"")+(b.row.time||"");
-      return ka < kb ? 1 : ka > kb ? -1 : 0;
-    });
-  } else {
-    combined = list.map(s => ({ row:s, isPayment:false }));
-  }
 
   // Kassir select yangilash
   const staffSel = $("tx-staff-sel");
@@ -106,7 +61,7 @@ function renderTarix() {
     });
   }
 
-  // KPI (faqat sotuvlardan)
+  // KPI
   const total = list.reduce((a, s) => a + (s.total||0), 0);
   const paid  = list.reduce((a, s) => a + (s.paid ||0), 0);
   const rem   = list.reduce((a, s) => a + (s.remaining||0), 0);
@@ -118,7 +73,7 @@ function renderTarix() {
   const tbody = $("tarix-body");
   if (!tbody) return;
 
-  if (!combined.length) {
+  if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="10" class="empty-td">
       ${q || txPeriod !== "all" || txStatus !== "all" ? "Filtr bo'yicha sotuv topilmadi" : "Sotuv tarixi bo'sh"}
     </td></tr>`;
@@ -127,12 +82,8 @@ function renderTarix() {
 
   // Har bir qatorni alohida try/catch bilan render qilamiz
   let html = "";
-  combined.forEach(({row:s, isPayment}) => {
+  list.forEach(s => {
     try {
-      if (isPayment) {
-        html += renderDebtPaymentRow(s);
-        return;
-      }
       const isDebt     = s.status === "qarz" && (s.remaining||0) > 0;
       const isReturned = s.status === "qaytarilgan";
       const chekN      = s.chekNum || `#${s.id}`;
