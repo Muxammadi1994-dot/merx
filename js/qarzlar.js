@@ -333,7 +333,6 @@ function renderDebtsGrouped(list, rate) {
             onclick="recordGroupPayment('${ids}','${isUsdPrimary?"usd":"uzs"}','${gKey}')">
             <i class="ti ti-check"></i> Eng eski qarzdan to'lash
           </button>
-          <div style="font-size:10px;color:#aaa">Avtomatik eng eski sotuvdan boshlab yopiladi</div>
         </div>
       </td>
       <td>
