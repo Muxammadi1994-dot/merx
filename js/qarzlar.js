@@ -281,7 +281,12 @@ function renderDebts() {
 
   // KPI — har doim calcSaleState() orqali joriy holatni hisoblaymiz (mutatsiyasiz)
   const allDebt    = debtSales();
-  const totalUzs   = allDebt.reduce((a, s) => a + calcSaleState(s).remaining, 0);
+  // Muhim: totalUzs faqat SO'M qarzlardan, USD qarzning so'm ekvivalenti
+  // (calcSaleState().remaining) bu yerga aralashtirilmasligi kerak — aks holda
+  // bitta qarz ikki marta (USD da ham, so'mda ham) hisoblanib ketadi.
+  const totalUzs   = allDebt
+    .filter(s => !(s.debtCurrency === "usd" && calcSaleState(s).debtUsd > 0))
+    .reduce((a, s) => a + calcSaleState(s).remaining, 0);
   const totalUsd   = allDebt.filter(s => s.debtCurrency === "usd")
                             .reduce((a, s) => a + calcSaleState(s).debtUsd, 0);
   const overCount  = allDebt.filter(isOverdue).length;
@@ -926,8 +931,12 @@ function getAllDebtorsGrouped() {
     if (!cu.phone || cu.phone === "—") return;
     if (!byPhone[cu.phone]) byPhone[cu.phone] = { name:cu.name, phone:cu.phone, customerId:s.customerId||null, total:0, totalUsd:0 };
     const st = calcSaleState(s);
-    byPhone[cu.phone].total    += st.remaining;
-    byPhone[cu.phone].totalUsd += st.debtUsd || 0;
+    const isUsd = s.debtCurrency === "usd" && st.debtUsd > 0;
+    if (isUsd) {
+      byPhone[cu.phone].totalUsd += st.debtUsd;
+    } else {
+      byPhone[cu.phone].total += st.remaining;
+    }
   });
   return Object.values(byPhone);
 }
@@ -972,8 +981,9 @@ async function sendOverdueReminders() {
     if (!cu.phone || cu.phone === "—") return;
     if (!byPhone[cu.phone]) byPhone[cu.phone] = { name:cu.name, phone:cu.phone, customerId:s.customerId||null, total:0, totalUsd:0 };
     const st = calcSaleState(s);
-    byPhone[cu.phone].total    += st.remaining;
-    byPhone[cu.phone].totalUsd += st.debtUsd || 0;
+    const isUsd = s.debtCurrency === "usd" && st.debtUsd > 0;
+    if (isUsd) byPhone[cu.phone].totalUsd += st.debtUsd;
+    else byPhone[cu.phone].total += st.remaining;
   });
 
   const phones = Object.values(byPhone);
@@ -1008,8 +1018,9 @@ async function sendOverdueRemindersBot() {
     if (!cu.phone || cu.phone === "—") return;
     if (!byPhone[cu.phone]) byPhone[cu.phone] = { name:cu.name, phone:cu.phone, customerId:s.customerId||null, total:0, totalUsd:0 };
     const st = calcSaleState(s);
-    byPhone[cu.phone].total    += st.remaining;
-    byPhone[cu.phone].totalUsd += st.debtUsd || 0;
+    const isUsd = s.debtCurrency === "usd" && st.debtUsd > 0;
+    if (isUsd) byPhone[cu.phone].totalUsd += st.debtUsd;
+    else byPhone[cu.phone].total += st.remaining;
   });
 
   const phones = Object.values(byPhone);
