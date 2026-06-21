@@ -61,47 +61,82 @@ function openDebtKpiSettings() {
   openModal("debtkpi");
 }
 
-// ── Qarz trend grafigi (so'nggi 6 oy) ──────────────
 let _debtTrendChart = null;
+let debtTrendPeriod = "month"; // "week" | "month" | "year"
+
+function setDebtTrendPeriod(p) {
+  debtTrendPeriod = p;
+  document.querySelectorAll(".dt-period-btn").forEach(b => {
+    b.classList.toggle("on", b.dataset.p === p);
+  });
+  renderDebtTrendChart();
+}
 
 function renderDebtTrendChart() {
   const canvas = $("debt-trend-chart");
   if (!canvas || typeof Chart === "undefined") return;
 
   const rate = db.settings?.rate || 12800;
-  const months = [];
   const now = new Date();
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push(d.toISOString().slice(0, 7));
-  }
-  const monthLabels = months.map(m => {
-    const [y, mo] = m.split("-");
-    const names = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
-    return names[parseInt(mo)-1] + " " + y.slice(2);
-  });
 
-  // Har oy oxiridagi UMUMIY ochiq qarz (shu oygacha yaratilgan, hali yopilmagan sotuvlar)
-  const dataPoints = months.map(m => {
-    const monthEnd = m + "-31";
+  // Davrga qarab nuqtalar ro'yxatini hosil qilamiz — har doim JORIY davrni
+  // ham qamrab oladi (oxirgi nuqta = bugun).
+  let points = []; // [{label, endDate}]
+  if (debtTrendPeriod === "week") {
+    // So'nggi 7 kun, kunma-kun
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now); d.setDate(d.getDate() - i);
+      const ds = d.toISOString().slice(0,10);
+      points.push({ label: `${d.getDate()}.${d.getMonth()+1}`, endDate: ds });
+    }
+  } else if (debtTrendPeriod === "year") {
+    // So'nggi 12 oy
+    const names = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const lastDay = new Date(d.getFullYear(), d.getMonth()+1, 0);
+      points.push({ label: names[d.getMonth()] + " " + String(d.getFullYear()).slice(2), endDate: lastDay.toISOString().slice(0,10) });
+    }
+  } else {
+    // "month" — joriy oyning har bir kuni (yoki so'nggi 30 kun agar oy boshida bo'lsa)
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+    const today_ = now.getDate();
+    // Juda zich bo'lib ketmasligi uchun, agar 15+ kun bo'lsa har 2 kunda bitta nuqta
+    const step = today_ > 15 ? 2 : 1;
+    for (let d = 1; d <= today_; d += step) {
+      const dt = new Date(now.getFullYear(), now.getMonth(), d);
+      points.push({ label: String(d), endDate: dt.toISOString().slice(0,10) });
+    }
+    // Oxirgi nuqta har doim BUGUN bo'lishi kerak
+    const todayStr = now.toISOString().slice(0,10);
+    if (points[points.length-1]?.endDate !== todayStr) {
+      points.push({ label: String(today_), endDate: todayStr });
+    }
+  }
+
+  const labels = points.map(p => p.label);
+
+  // Har nuqtadagi UMUMIY ochiq qarzni hisoblaymiz (shu sanagacha yaratilgan,
+  // shu sanagacha to'lov qilingan hisobga olinadi)
+  const dataPoints = points.map(p => {
+    const endDate = p.endDate;
     let total = 0;
     (db.sales||[]).forEach(s => {
-      if (!s.date || s.date > monthEnd) return; // shu oygacha yaratilgan bo'lishi kerak
-      if ((s.origRemaining||0) <= 0 && s.debtCurrency !== "usd") return;
-      const st = calcSaleState(s);
-      // Shu oy oxirida hali ochiq bo'lganini taxminiy hisoblaymiz —
-      // to'lovlar shu sanadan keyin bo'lganini hisobga olmaymiz (soddalashtirilgan)
-      const payments = getSalePayments(s.id).filter(p => p.date <= monthEnd);
-      const paidUzs = payments.filter(p=>p.currency!=="usd").reduce((a,p)=>a+p.amount,0);
-      const paidUsd = payments.filter(p=>p.currency==="usd").reduce((a,p)=>a+p.amount,0);
+      if (!s.date || s.date > endDate) return;
+      const origDebtCheck = s.debtCurrency === "usd"
+        ? (s.origDebtUsd != null ? s.origDebtUsd : (s.debtUsd||0))
+        : (s.origRemaining != null ? s.origRemaining : (s.remaining||0));
+      if (origDebtCheck <= 0) return;
+
+      const payments = getSalePayments(s.id).filter(pay => pay.date <= endDate);
+      const paidUzs = payments.filter(pay=>pay.currency!=="usd").reduce((a,pay)=>a+pay.amount,0);
+      const paidUsd = payments.filter(pay=>pay.currency==="usd").reduce((a,pay)=>a+pay.amount,0);
 
       if (s.debtCurrency === "usd") {
-        const base = s.origDebtUsd != null ? s.origDebtUsd : (s.debtUsd||0);
-        const rem = Math.max(0, base - paidUsd);
+        const rem = Math.max(0, origDebtCheck - paidUsd);
         total += rem * rate;
       } else {
-        const base = s.origRemaining != null ? s.origRemaining : (s.remaining||0);
-        const rem = Math.max(0, base - paidUzs);
+        const rem = Math.max(0, origDebtCheck - paidUzs);
         total += rem;
       }
     });
@@ -113,12 +148,12 @@ function renderDebtTrendChart() {
   _debtTrendChart = new Chart(canvas, {
     type: "line",
     data: {
-      labels: monthLabels,
+      labels,
       datasets: [{
         data: dataPoints,
         borderColor: "#E9A500",
         backgroundColor: "rgba(233,165,0,.1)",
-        fill: true, tension: .3, pointRadius: 3, pointBackgroundColor: "#E9A500"
+        fill: true, tension: .3, pointRadius: 2.5, pointBackgroundColor: "#E9A500"
       }]
     },
     options: {
@@ -126,8 +161,8 @@ function renderDebtTrendChart() {
       plugins: { legend: { display: false },
         tooltip: { callbacks: { label: ctx => fmt(ctx.parsed.y) + " so'm" } } },
       scales: {
-        y: { ticks: { callback: v => fmtK(v) }, grid: { color: "#F0EEE8" } },
-        x: { grid: { display: false } }
+        y: { beginAtZero: true, ticks: { callback: v => fmtK(v) }, grid: { color: "#F0EEE8" } },
+        x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } }
       }
     }
   });
@@ -291,15 +326,20 @@ function renderDebtPaymentsHistory() {
 function renderDebtsList(list, rate) {
   const thead = $("debt-head");
   const tbody = $("debt-body");
+  const cols = getDebtCols();
   if (thead) thead.innerHTML = `<tr>
-    <th>Mijoz</th><th>Telefon</th><th>Mahsulotlar</th>
-    <th class="num">To'langan</th>
+    <th>Mijoz</th>
+    ${cols.phone  ? "<th>Telefon</th>" : ""}
+    ${cols.items  ? "<th>Mahsulotlar</th>" : ""}
+    ${cols.paid   ? '<th class="num">To\'langan</th>' : ""}
     <th class="num">Qolgan qarz</th>
-    <th>Muddat</th><th>Holat</th>
+    ${cols.due    ? "<th>Muddat</th>" : ""}
+    ${cols.status ? "<th>Holat</th>" : ""}
     <th>To'lov</th>
   </tr>`;
 
   if (!tbody) return;
+  const colCount = 3 + [cols.phone,cols.items,cols.paid,cols.due,cols.status].filter(Boolean).length;
   tbody.innerHTML = list.length ? list.map(s => {
     const cu    = debtCust(s);
     const over  = isOverdue(s);
@@ -310,25 +350,25 @@ function renderDebtsList(list, rate) {
         <div style="font-weight:600;font-size:13px">${cu.name||"—"}</div>
         <div style="font-size:10.5px;color:#aaa">${s.date||""}</div>
       </td>
-      <td style="font-size:12.5px">
+      ${cols.phone ? `<td style="font-size:12.5px">
         ${cu.phone && cu.phone !== "—"
           ? `<a href="tel:${cu.phone}" style="color:inherit;text-decoration:none">${cu.phone}</a>` : "—"}
-      </td>
-      <td style="font-size:12px;max-width:160px">
+      </td>` : ""}
+      ${cols.items ? `<td style="font-size:12px;max-width:160px">
         ${s.items?.map(i => `<div>${i.name} <span style="color:#aaa">×${i.qty}</span></div>`).join("") || "—"}
-      </td>
-      <td class="num" style="font-size:12.5px;color:var(--grn)">${fmt(st.paid)} so'm</td>
+      </td>` : ""}
+      ${cols.paid ? `<td class="num" style="font-size:12.5px;color:var(--grn)">${fmt(st.paid)} so'm</td>` : ""}
       <td class="num">${debtRemDisplay(s, st)}</td>
-      <td>
+      ${cols.due ? `<td>
         <span class="bg ${over?"bg-r":"bg-a"}" style="font-size:11.5px">
           ${s.due||"—"}
         </span>
-      </td>
-      <td>
+      </td>` : ""}
+      ${cols.status ? `<td>
         <span class="bg ${over?"bg-r":"bg-g"}" style="font-size:11px">
           ${over?"⚠️ Muddati o'tgan":"⏳ Kutilmoqda"}
         </span>
-      </td>
+      </td>` : ""}
       <td>
         <div style="display:flex;flex-direction:column;gap:5px;min-width:180px">
           <div style="display:flex;gap:5px">
@@ -374,7 +414,7 @@ function renderDebtsList(list, rate) {
         </div>
       </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="8" class="empty-td">
+  }).join("") : `<tr><td colspan="${colCount}" class="empty-td">
     ${debtFilter !== "all" ? "Bu filtrda qarz yo'q" : "Qarz yo'q 🎉"}
   </td></tr>`;
 }

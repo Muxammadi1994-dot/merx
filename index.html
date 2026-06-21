@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=76">
+<link rel="stylesheet" href="style.css?v=77">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1026,14 +1026,15 @@
   <!-- QARZLAR -->
   <div class="pg" id="p-qarzlar">
     <!-- KPI kartalar (2 ustun) + Trend grafigi -->
-    <div style="display:grid;grid-template-columns:1fr 1.1fr;gap:14px;margin-bottom:16px;align-items:start">
-      <div>
-        <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+    <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:16px;margin-bottom:16px;align-items:stretch">
+      <div style="display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;height:28px">
+          <span style="font-size:11.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px">Ko'rsatkichlar</span>
           <button class="btn btn-ghost btn-sm" onclick="openDebtKpiSettings()" title="Panellarni sozlash">
             <i class="ti ti-settings"></i>
           </button>
         </div>
-        <div id="debt-kpi-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div id="debt-kpi-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1">
           <div class="stb" data-kpi="total" style="position:relative">
             <button class="kpi-hide-btn" onclick="hideDebtKpi('total')" title="Yashirish"><i class="ti ti-eye-off"></i></button>
             <div class="sl">Umumiy qarz (so'm)</div>
@@ -1054,7 +1055,7 @@
             <div class="sl">Qarzdorlar soni</div>
             <div class="sv" id="st-cnt">0</div>
           </div>
-          <div class="stb" data-kpi="month" style="position:relative">
+          <div class="stb" data-kpi="month" style="position:relative;grid-column:span 2">
             <button class="kpi-hide-btn" onclick="hideDebtKpi('month')" title="Yashirish"><i class="ti ti-eye-off"></i></button>
             <div class="sl">Bu oylik yig'im</div>
             <div class="sv num" id="st-month">0</div>
@@ -1062,11 +1063,21 @@
         </div>
       </div>
 
-      <div class="card" style="padding:14px 16px">
-        <div style="font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">
-          <i class="ti ti-chart-line"></i> Qarz dinamikasi (so'nggi 6 oy)
+      <div class="card" style="padding:14px 16px;display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;height:28px">
+          <span style="font-size:11.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px">
+            <i class="ti ti-chart-line"></i> Qarz dinamikasi
+          </span>
+          <div style="display:flex;gap:4px">
+            <button class="dt-period-btn" data-p="week" onclick="setDebtTrendPeriod('week')"
+              style="padding:4px 10px;font-size:11px;font-weight:600;border:1px solid var(--brd);border-radius:6px;background:#fff;cursor:pointer">Hafta</button>
+            <button class="dt-period-btn on" data-p="month" onclick="setDebtTrendPeriod('month')"
+              style="padding:4px 10px;font-size:11px;font-weight:600;border:1px solid var(--brd);border-radius:6px;background:#0D1B2A;color:#fff;cursor:pointer">Oy</button>
+            <button class="dt-period-btn" data-p="year" onclick="setDebtTrendPeriod('year')"
+              style="padding:4px 10px;font-size:11px;font-weight:600;border:1px solid var(--brd);border-radius:6px;background:#fff;cursor:pointer">Yil</button>
+          </div>
         </div>
-        <div style="position:relative;height:180px">
+        <div style="position:relative;flex:1;min-height:180px">
           <canvas id="debt-trend-chart"></canvas>
         </div>
       </div>
@@ -1079,6 +1090,16 @@
         <h2 style="margin-bottom:4px">Panellarni sozlash</h2>
         <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Qaysi ko'rsatkichlar ko'rinishini tanlang</p>
         <div id="debt-kpi-settings-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </div>
+
+    <!-- MODAL: Jadval ustunlarini sozlash -->
+    <div class="ov" id="ov-debtcols" onclick="if(event.target===this)closeModal('debtcols')">
+      <div class="modal" style="max-width:380px">
+        <button class="m-close" onclick="closeModal('debtcols')"><i class="ti ti-x"></i></button>
+        <h2 style="margin-bottom:4px">Jadval ustunlarini sozlash</h2>
+        <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Qaysi ustunlar ko'rinishini tanlang</p>
+        <div id="debt-cols-settings-list" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
     </div>
 
@@ -1101,6 +1122,9 @@
           </button>
           <button class="btn btn-sm" onclick="sendOverdueRemindersBot()" style="color:#0E7490">
             <i class="ti ti-brand-telegram"></i> Bot
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="openDebtColsSettings()" title="Jadval ustunlarini sozlash">
+            <i class="ti ti-settings"></i>
           </button>
         </div>
       </div>
@@ -2472,23 +2496,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=76"></script>
-<script src="js/utils.js?v=76"></script>
-<script src="js/sms.js?v=76"></script>
-<script src="js/cloud.js?v=76"></script>
-<script src="js/dashboard.js?v=76"></script>
-<script src="js/pos.js?v=76"></script>
-<script src="js/katalog.js?v=76"></script>
-<script src="js/ombor.js?v=76"></script>
-<script src="js/mijozlar.js?v=76"></script>
-<script src="js/qarzlar.js?v=76"></script>
-<script src="js/tarix.js?v=76"></script>
-<script src="js/hisobot.js?v=76"></script>
-<script src="js/xodimlar.js?v=76"></script>
-<script src="js/moliya.js?v=76"></script>
-<script src="js/egasi.js?v=76"></script>
-<script src="js/portal.js?v=76"></script>
-<script src="js/init.js?v=76"></script>
+<script src="js/db.js?v=77"></script>
+<script src="js/utils.js?v=77"></script>
+<script src="js/sms.js?v=77"></script>
+<script src="js/cloud.js?v=77"></script>
+<script src="js/dashboard.js?v=77"></script>
+<script src="js/pos.js?v=77"></script>
+<script src="js/katalog.js?v=77"></script>
+<script src="js/ombor.js?v=77"></script>
+<script src="js/mijozlar.js?v=77"></script>
+<script src="js/qarzlar.js?v=77"></script>
+<script src="js/tarix.js?v=77"></script>
+<script src="js/hisobot.js?v=77"></script>
+<script src="js/xodimlar.js?v=77"></script>
+<script src="js/moliya.js?v=77"></script>
+<script src="js/egasi.js?v=77"></script>
+<script src="js/portal.js?v=77"></script>
+<script src="js/init.js?v=77"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2837,7 +2861,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=76"></script>
-<script src="js/superadmin.js?v=76"></script>
+<script src="js/auth.js?v=77"></script>
+<script src="js/superadmin.js?v=77"></script>
 </body>
 </html>
