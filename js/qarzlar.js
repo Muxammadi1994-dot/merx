@@ -144,6 +144,7 @@ function renderDebtRevenue() {
   if ($("dr-karta"))   $("dr-karta").textContent   = fmt(Math.round(byMethod.karta))   + " so'm";
   if ($("dr-otkazma")) $("dr-otkazma").textContent = fmt(Math.round(byMethod.otkazma)) + " so'm";
   if ($("dr-balans"))  $("dr-balans").textContent  = fmt(Math.round(byMethod.balans))  + " so'm";
+  if ($("dr-toggle-cnt")) $("dr-toggle-cnt").textContent = payments.length;
 
   const list = $("dr-list");
   if (!list) return;
@@ -161,6 +162,15 @@ function renderDebtRevenue() {
       </div>
       <strong style="font-size:13px;color:var(--grn)">${fmtMoney(p.amount, p.currency)}</strong>
     </div>`).join("");
+}
+
+function toggleDrList() {
+  const list = $("dr-list");
+  const icon = $("dr-toggle-icon");
+  if (!list) return;
+  const isOpen = list.style.display !== "none";
+  list.style.display = isOpen ? "none" : "block";
+  if (icon) icon.style.transform = isOpen ? "" : "rotate(180deg)";
 }
 
 function openDebtKpiSettings() {
