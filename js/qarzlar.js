@@ -786,6 +786,7 @@ function reprintDebtPayment(id) {
 //   🟡 partial — qisman to'langan, hali qoldiq bor
 //   🔴 unpaid  — umuman to'lov qilinmagan
 let qtStatus = "all";
+let qtViewMode = "split"; // "split" = chek bo'yicha taqsimot, "total" = umumiy to'lov harakati
 
 function setQtStatus(s) {
   qtStatus = s;
@@ -798,7 +799,27 @@ function setQtStatus(s) {
   renderQarzlarTarixi();
 }
 
+function setQtViewMode(mode) {
+  qtViewMode = mode;
+  document.querySelectorAll(".qt-view-btn").forEach(b => {
+    const on = b.dataset.v === mode;
+    b.classList.toggle("on", on);
+    b.style.background = on ? "#0D1B2A" : "#fff";
+    b.style.color = on ? "#fff" : "#666";
+  });
+  // "total" rejimida status filtri (paid/partial/unpaid) mantiqsiz —
+  // chunki bu yerda CHEKLAR emas, TO'LOVLAR ro'yxati. Shu sababli yashiramiz.
+  const statusBar = $("qt-status-bar");
+  if (statusBar) statusBar.style.display = mode === "split" ? "flex" : "none";
+  renderQarzlarTarixi();
+}
+
 function renderQarzlarTarixi() {
+  if (qtViewMode === "total") { renderQarzlarTarixiTotal(); return; }
+  renderQarzlarTarixiSplit();
+}
+
+function renderQarzlarTarixiSplit() {
   const el = $("qt-list"); if (!el) return;
   const q = ($("qt-q")||{value:""}).value.toLowerCase();
   const rate = db.settings?.rate || 12800;
@@ -869,6 +890,24 @@ function renderQarzlarTarixi() {
   if ($("qt-cnt-paid")) $("qt-cnt-paid").textContent = cntPaid;
   if ($("qt-cnt-partial")) $("qt-cnt-partial").textContent = cntPartial;
   if ($("qt-cnt-unpaid")) $("qt-cnt-unpaid").textContent = cntUnpaid;
+
+  // Statistik xulosa paneli (jami qarz / jami to'langan / jami qoldiq)
+  const origUzs = rows.filter(r=>!r.isUsd).reduce((a,r)=>a+r.origDebt,0);
+  const origUsdSum = rows.filter(r=>r.isUsd).reduce((a,r)=>a+r.origDebt,0);
+  const remUzs = rows.filter(r=>!r.isUsd).reduce((a,r)=>a+r.currentDebt,0);
+  const remUsdSum = rows.filter(r=>r.isUsd).reduce((a,r)=>a+r.currentDebt,0);
+  const paidUzs = origUzs - remUzs;
+  const paidUsdSum = origUsdSum - remUsdSum;
+
+  const fmtPair = (uzs, usd) => {
+    const parts = [];
+    if (usd > 0.005) parts.push("$"+usd.toFixed(2));
+    if (uzs > 0.5) parts.push(fmt(Math.round(uzs))+" so'm");
+    return parts.join(" + ") || "0";
+  };
+  if ($("qt-sum-orig"))  $("qt-sum-orig").textContent  = fmtPair(origUzs, origUsdSum);
+  if ($("qt-sum-paid"))  $("qt-sum-paid").textContent  = fmtPair(paidUzs, paidUsdSum);
+  if ($("qt-sum-rem"))   $("qt-sum-rem").textContent   = fmtPair(remUzs, remUsdSum);
 
   filtered.sort((a,b) => (a.sale.date+(a.sale.time||"") < b.sale.date+(b.sale.time||"")) ? 1 : -1);
 
@@ -1054,6 +1093,83 @@ function renderCustPayHistory() {
 
 }
 
+// ── Umumiy to'lov rejimi ───────────────────────────
+// Har bir TO'LOV HARAKATI (db.debtPayments yozuvi) bitta qator —
+// taqsimlanmagan, asl summa. Mijoz "300 to'laganman" desa, shu yerda
+// bitta qatorda topiladi, ichida qaysi cheklarga bo'lingani ko'rinadi.
+function renderQarzlarTarixiTotal() {
+  const el = $("qt-list"); if (!el) return;
+  const q = ($("qt-q")||{value:""}).value.toLowerCase();
+
+  let payments = (db.debtPayments||[]).slice();
+
+  const dateFrom = ($("qt-date-from")||{value:""}).value;
+  const dateTo   = ($("qt-date-to")||{value:""}).value;
+  if (dateFrom) payments = payments.filter(p => p.date >= dateFrom);
+  if (dateTo)   payments = payments.filter(p => p.date <= dateTo);
+
+  if (q) payments = payments.filter(p =>
+    (p.customerName||"").toLowerCase().includes(q) ||
+    (p.customerPhone||"").includes(q) ||
+    (p.chekNum||"").toLowerCase().includes(q) ||
+    (p.allocations||[]).some(a => (a.chekNum||"").toLowerCase().includes(q))
+  );
+
+  payments.sort((a,b) => (a.date+a.time < b.date+b.time) ? 1 : -1);
+
+  // Statistika
+  const cntAll = payments.length;
+  const sumUzs = payments.filter(p=>p.currency!=="usd").reduce((a,p)=>a+p.amount,0);
+  const sumUsd = payments.filter(p=>p.currency==="usd").reduce((a,p)=>a+p.amount,0);
+  if ($("qt-stat-count")) $("qt-stat-count").textContent = cntAll;
+  if ($("qt-stat-sum")) {
+    const parts = [];
+    if (sumUzs > 0) parts.push(fmt(sumUzs)+" so'm");
+    if (sumUsd > 0) parts.push("$"+sumUsd.toFixed(2));
+    $("qt-stat-sum").textContent = parts.join(" + ") || "0";
+  }
+
+  if (!payments.length) {
+    el.innerHTML = `<div style="padding:50px;text-align:center;color:var(--mut)">
+      <i class="ti ti-receipt-2" style="font-size:36px;display:block;margin-bottom:10px;opacity:.4"></i>
+      Hech narsa topilmadi</div>`;
+    return;
+  }
+
+  el.innerHTML = payments.map(p => {
+    const allocs = p.allocations || [];
+    const allocHtml = allocs.length ? `
+      <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--brd);display:flex;flex-direction:column;gap:4px">
+        ${allocs.map(a => `
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--mut)">
+            <span>${a.chekNum}-${String(a.partNum).padStart(3,"0")} ${a.fullyPaid?'<span style="color:var(--grn)">✓ yopildi</span>':""}</span>
+            <span>${fmtMoney(a.amount, a.currency)}</span>
+          </div>`).join("")}
+      </div>` : "";
+
+    return `<div style="padding:14px 18px;border-bottom:1px solid var(--brd)">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <strong style="font-size:13.5px;color:#0D1B2A;cursor:pointer;text-decoration:underline;text-decoration-style:dotted"
+              onclick="openCustPayHistory('${(p.customerName||"").replace(/'/g,"\\'")}','${(p.customerPhone||"").replace(/'/g,"\\'")}')"
+              title="Bu mijozning barcha to'lovlari">${p.customerName||"Noma'lum mijoz"}</strong>
+            <span style="font-size:11.5px;color:#aaa;font-family:monospace">${p.chekNum}</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--mut);margin-top:2px">${p.date} ${p.time||""} · ${payMethodLabel(p.method)}${allocs.length>1?` · ${allocs.length} ta chekka bo'lindi`:""}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <strong style="font-size:15px;color:var(--grn)">${fmtMoney(p.amount, p.currency)}</strong>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="reprintDebtPayment(${p.id})" title="Chekni ko'rish">
+            <i class="ti ti-printer" style="font-size:14px"></i>
+          </button>
+        </div>
+      </div>
+      ${allocHtml}
+    </div>`;
+  }).join("");
+}
+
 function qtToggleExpand(saleId) {
   const detail = $(`qt-row-${saleId}-detail`);
   const icon = $(`qt-row-${saleId}-icon`);
@@ -1067,3 +1183,73 @@ function payMethodLabel(m) {
   const labels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", balans: "💰 Balans" };
   return labels[m] || "Naqd";
 }
+
+// ── Excel eksport ──────────────────────────────────
+function exportQarzTarixiExcel() {
+  if (qtViewMode === "total") {
+    // Umumiy to'lov rejimi — har bir to'lov harakati bitta qator
+    const rows = [["To'lov chek raqami","Sana","Vaqt","Mijoz","Telefon","Summa","Valyuta","Usul","Nechta chekka bo'lindi","Tafsilot"]];
+    let payments = (db.debtPayments||[]).slice();
+    const dateFrom = ($("qt-date-from")||{value:""}).value;
+    const dateTo   = ($("qt-date-to")||{value:""}).value;
+    if (dateFrom) payments = payments.filter(p => p.date >= dateFrom);
+    if (dateTo)   payments = payments.filter(p => p.date <= dateTo);
+    payments.sort((a,b) => (a.date+a.time < b.date+b.time) ? -1 : 1);
+
+    payments.forEach(p => {
+      const allocs = p.allocations || [];
+      const detail = allocs.map(a => `${a.chekNum}-${String(a.partNum).padStart(3,"0")}: ${fmtMoney(a.amount,a.currency)}`).join("; ");
+      rows.push([
+        p.chekNum, p.date, p.time||"", p.customerName||"", p.customerPhone||"",
+        p.amount, p.currency==="usd"?"USD":"UZS", payMethodLabel(p.method),
+        allocs.length, detail
+      ]);
+    });
+    downloadCSV(rows, `merx_qarz_tolovlari_${today()}.csv`);
+    toast("Excel yuklab olindi");
+    return;
+  }
+
+  // Split rejimi — har bir chek bitta qator, boshlang'ich/joriy qarz bilan
+  const rate = db.settings?.rate || 12800;
+  const isUsdSale = s => s.debtCurrency === "usd";
+  const getOrigDebt = s => {
+    if (isUsdSale(s)) {
+      if (s.origDebtUsd != null) return s.origDebtUsd;
+      const paidUsd = getSalePayments(s.id).filter(p=>p.currency==="usd").reduce((a,p)=>a+(p.amount||0),0);
+      return Math.max(0, (s.debtUsd||0) + paidUsd);
+    }
+    if (s.origRemaining != null) return s.origRemaining;
+    const paidViaPayments = getSalePayments(s.id).reduce((a,p) => a + (p.currency==="usd" ? p.amount*rate : p.amount), 0);
+    const origPaidGuess = Math.max(0, (s.paid||0) - paidViaPayments);
+    return Math.max(0, (s.total||0) - origPaidGuess);
+  };
+
+  const rows = [["Chek raqami","Sana","Mijoz","Telefon","Valyuta","Boshlang'ich qarz","Joriy qoldiq","To'langan","Holat","To'lovlar soni"]];
+  const statusLabels = { paid:"To'liq to'langan", partial:"Qisman to'langan", unpaid:"To'lanmagan" };
+
+  (db.sales||[]).forEach(s => {
+    const origDebt = getOrigDebt(s);
+    if (origDebt <= 0.005 || s.status === "qaytarilgan") return;
+    const st = calcSaleState(s);
+    const isUsd = isUsdSale(s);
+    const currentDebt = isUsd ? st.debtUsd : st.remaining;
+    const payments = getSalePayments(s.id);
+    let status;
+    if (currentDebt <= (isUsd?0.005:0.5)) status = "paid";
+    else if (payments.length > 0) status = "partial";
+    else status = "unpaid";
+
+    if (qtStatus !== "all" && status !== qtStatus) return;
+
+    rows.push([
+      s.chekNum||("#"+s.id), s.date, s.customerName||"", s.customerPhone||"",
+      isUsd?"USD":"UZS", origDebt, currentDebt, origDebt-currentDebt,
+      statusLabels[status], payments.length
+    ]);
+  });
+
+  downloadCSV(rows, `merx_qarzlar_tarixi_${today()}.csv`);
+  toast("Excel yuklab olindi");
+}
+

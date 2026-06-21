@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=69">
+<link rel="stylesheet" href="style.css?v=70">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1083,9 +1083,34 @@
 
   <!-- QARZLAR TARIXI -->
   <div class="pg" id="p-qarztarix">
-    <div class="ph">
-      <h2><i class="ti ti-receipt-2"></i>Qarzlar tarixi</h2>
-      <p>Har bir chek bo'yicha to'lov holati va to'liq tarix</p>
+    <div class="ph" style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <h2><i class="ti ti-receipt-2"></i>Qarzlar tarixi</h2>
+        <p>Har bir chek bo'yicha to'lov holati va to'liq tarix</p>
+      </div>
+      <button class="btn btn-sm" onclick="exportQarzTarixiExcel()" style="color:#1D6A39;border-color:#1D6A39">
+        <i class="ti ti-file-spreadsheet"></i> Excel
+      </button>
+    </div>
+
+    <!-- Statistik xulosa -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px">
+      <div class="card" style="padding:14px 16px">
+        <div style="font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase">Jami qarz berilgan</div>
+        <div id="qt-sum-orig" style="font-size:16px;font-weight:700;color:#0D1B2A;margin-top:4px">0</div>
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <div style="font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase">Jami to'langan</div>
+        <div id="qt-sum-paid" style="font-size:16px;font-weight:700;color:var(--grn);margin-top:4px">0</div>
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <div style="font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase">Jami qoldiq</div>
+        <div id="qt-sum-rem" style="font-size:16px;font-weight:700;color:var(--red);margin-top:4px">0</div>
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <div style="font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase">To'lovlar soni</div>
+        <div id="qt-stat-count" style="font-size:16px;font-weight:700;color:#0D1B2A;margin-top:4px">0</div>
+      </div>
     </div>
 
     <div class="card" style="margin-bottom:16px">
@@ -1093,23 +1118,33 @@
         <input id="qt-q" placeholder="Mijoz, chek raqami qidirish..." oninput="renderQarzlarTarixi()"
           style="flex:1;min-width:200px;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px">
         <div style="display:flex;gap:6px">
-          <button class="qt-status-btn on" data-s="all" onclick="setQtStatus('all')"
-            style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;font-size:12.5px;font-weight:600;cursor:pointer">
-            Barchasi <span id="qt-cnt-all">0</span>
+          <button class="qt-view-btn on" data-v="split" onclick="setQtViewMode('split')"
+            style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#0D1B2A;color:#fff;font-size:12px;font-weight:600;cursor:pointer">
+            Chek bo'yicha
           </button>
-          <button class="qt-status-btn" data-s="paid" onclick="setQtStatus('paid')"
-            style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;color:var(--grn);font-size:12.5px;font-weight:600;cursor:pointer">
-            🟢 To'liq to'langan <span id="qt-cnt-paid">0</span>
-          </button>
-          <button class="qt-status-btn" data-s="partial" onclick="setQtStatus('partial')"
-            style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;color:#D97706;font-size:12.5px;font-weight:600;cursor:pointer">
-            🟡 Qisman to'langan <span id="qt-cnt-partial">0</span>
-          </button>
-          <button class="qt-status-btn" data-s="unpaid" onclick="setQtStatus('unpaid')"
-            style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;color:var(--red);font-size:12.5px;font-weight:600;cursor:pointer">
-            🔴 To'lanmagan <span id="qt-cnt-unpaid">0</span>
+          <button class="qt-view-btn" data-v="total" onclick="setQtViewMode('total')"
+            style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;color:#666;font-size:12px;font-weight:600;cursor:pointer">
+            Umumiy to'lov bo'yicha
           </button>
         </div>
+      </div>
+      <div id="qt-status-bar" style="display:flex;gap:6px;padding:0 18px 14px;flex-wrap:wrap">
+        <button class="qt-status-btn on" data-s="all" onclick="setQtStatus('all')"
+          style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;font-size:12.5px;font-weight:600;cursor:pointer">
+          Barchasi <span id="qt-cnt-all">0</span>
+        </button>
+        <button class="qt-status-btn" data-s="paid" onclick="setQtStatus('paid')"
+          style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;color:var(--grn);font-size:12.5px;font-weight:600;cursor:pointer">
+          🟢 To'liq to'langan <span id="qt-cnt-paid">0</span>
+        </button>
+        <button class="qt-status-btn" data-s="partial" onclick="setQtStatus('partial')"
+          style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;color:#D97706;font-size:12.5px;font-weight:600;cursor:pointer">
+          🟡 Qisman to'langan <span id="qt-cnt-partial">0</span>
+        </button>
+        <button class="qt-status-btn" data-s="unpaid" onclick="setQtStatus('unpaid')"
+          style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;color:var(--red);font-size:12.5px;font-weight:600;cursor:pointer">
+          🔴 To'lanmagan <span id="qt-cnt-unpaid">0</span>
+        </button>
       </div>
       <div style="display:flex;gap:8px;padding:0 18px 14px;align-items:center;flex-wrap:wrap">
         <span style="font-size:12px;color:var(--mut);font-weight:600">To'lov sanasi bo'yicha:</span>
@@ -2392,23 +2427,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=69"></script>
-<script src="js/utils.js?v=69"></script>
-<script src="js/sms.js?v=69"></script>
-<script src="js/cloud.js?v=69"></script>
-<script src="js/dashboard.js?v=69"></script>
-<script src="js/pos.js?v=69"></script>
-<script src="js/katalog.js?v=69"></script>
-<script src="js/ombor.js?v=69"></script>
-<script src="js/mijozlar.js?v=69"></script>
-<script src="js/qarzlar.js?v=69"></script>
-<script src="js/tarix.js?v=69"></script>
-<script src="js/hisobot.js?v=69"></script>
-<script src="js/xodimlar.js?v=69"></script>
-<script src="js/moliya.js?v=69"></script>
-<script src="js/egasi.js?v=69"></script>
-<script src="js/portal.js?v=69"></script>
-<script src="js/init.js?v=69"></script>
+<script src="js/db.js?v=70"></script>
+<script src="js/utils.js?v=70"></script>
+<script src="js/sms.js?v=70"></script>
+<script src="js/cloud.js?v=70"></script>
+<script src="js/dashboard.js?v=70"></script>
+<script src="js/pos.js?v=70"></script>
+<script src="js/katalog.js?v=70"></script>
+<script src="js/ombor.js?v=70"></script>
+<script src="js/mijozlar.js?v=70"></script>
+<script src="js/qarzlar.js?v=70"></script>
+<script src="js/tarix.js?v=70"></script>
+<script src="js/hisobot.js?v=70"></script>
+<script src="js/xodimlar.js?v=70"></script>
+<script src="js/moliya.js?v=70"></script>
+<script src="js/egasi.js?v=70"></script>
+<script src="js/portal.js?v=70"></script>
+<script src="js/init.js?v=70"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2757,7 +2792,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=69"></script>
-<script src="js/superadmin.js?v=69"></script>
+<script src="js/auth.js?v=70"></script>
+<script src="js/superadmin.js?v=70"></script>
 </body>
 </html>
