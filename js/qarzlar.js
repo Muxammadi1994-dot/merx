@@ -149,61 +149,13 @@ function renderDebtCustCards() {
 // ── Tanlangan mijozning to'lovlar tarixi ──────────
 // Qidiruv qatoriga mijoz nomi aniq mos kelganda (yoki faqat 1 ta natija
 // qolganda) shu mijozning to'lovlar tarixini pastda ko'rsatamiz.
+// Qidiruv ostidagi "To'lovlar tarixi" bloki olib tashlandi — bu ma'lumot
+// endi Qarzlar tarixi sahifasida (openCustPayHistory orqali) ko'rsatiladi,
+// shu yerda takror chiqarish ortiqcha edi.
 function renderDebtPaymentsHistory() {
   const el = $("debt-payments-history"); if (!el) return;
-  const q = ($("debt-q")||{value:""}).value.trim().toLowerCase();
-
-  if (!q) { el.style.display = "none"; el.innerHTML = ""; return; }
-
-  // Qidiruvga mos keluvchi yagona mijozni topamiz
-  const allDebt = debtSales();
-  const matchingNames = [...new Set(
-    allDebt.filter(s => {
-      const cu = debtCust(s);
-      return cu.name.toLowerCase().includes(q) || (cu.phone||"").includes(q);
-    }).map(s => debtCust(s).name)
-  )];
-
-  if (matchingNames.length !== 1) { el.style.display = "none"; el.innerHTML = ""; return; }
-  const custName = matchingNames[0];
-
-  const payments = (db.debtPayments || [])
-    .filter(p => p.customerName === custName)
-    .sort((a, b) => (a.date+a.time < b.date+b.time) ? 1 : -1);
-
-  if (!payments.length) { el.style.display = "none"; el.innerHTML = ""; return; }
-
-  el.style.display = "block";
-  el.style.padding = "12px 18px";
-  el.style.borderBottom = "1px solid var(--brd)";
-  el.style.background = "#fafaf8";
-
-  el.innerHTML = `
-    <div style="font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">
-      <i class="ti ti-receipt"></i> ${custName} — to'lovlar tarixi (${payments.length} ta)
-    </div>
-    <div style="display:flex;flex-direction:column;gap:6px">
-      ${payments.map(p => {
-        const allocSummary = (p.allocations||[]).map(a =>
-          `${a.saleDate}: ${fmtMoney(a.amount, a.currency)}${a.fullyPaid?" (yopildi)":""}`
-        ).join(", ") || "—";
-        return `
-        <div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--brd);border-radius:var(--rs);padding:8px 12px">
-          <div style="min-width:0;flex:1">
-            <div style="font-size:12.5px;font-weight:700;color:#0D1B2A">
-              ${p.chekNum} <span style="color:#aaa;font-weight:400">· ${p.date} ${p.time||""}</span>
-            </div>
-            <div style="font-size:11px;color:#888;margin-top:2px">${allocSummary}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;margin-left:12px">
-            <div style="font-weight:800;color:#0D1B2A;font-size:13.5px;white-space:nowrap">${fmtMoney(p.amount, p.currency)}</div>
-            <button class="btn btn-sm" onclick="reprintDebtPayment(${p.id})" title="Chekni ko'rish">
-              <i class="ti ti-printer"></i>
-            </button>
-          </div>
-        </div>`;
-      }).join("")}
-    </div>`;
+  el.style.display = "none";
+  el.innerHTML = "";
 }
 
 // ── Sotuv bo'yicha ro'yxat ────────────────────────
