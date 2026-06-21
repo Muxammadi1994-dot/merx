@@ -227,9 +227,8 @@ function openSaleDetail(id) {
   // Faqat shu sotuvda hali yopilmagan qarz bor-yo'qligini ko'rsatamiz.
   const payBlock = $("sd-pay-block");
   if (payBlock) {
-    const hasOpenDebt = s.status === "qarz" && typeof calcSaleState === "function"
-      ? calcSaleState(s).remaining > 0.5
-      : (s.remaining||0) > 0.5;
+    const hasOpenDebt = s.status !== "qaytarilgan" && typeof calcSaleState === "function"
+      && calcSaleState(s).remaining > 0.5;
     payBlock.style.display = hasOpenDebt ? "block" : "none";
   }
 

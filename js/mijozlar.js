@@ -20,9 +20,11 @@ function custStats(custId) {
     (s.customerName && db.customers.find(c => c.id === custId && c.name === s.customerName))
   );
   const totalBuy   = sales.reduce((a, s) => a + (s.total || 0), 0);
-  const debtList   = sales.filter(s => s.status === "qarz" && s.remaining > 0);
-  const totalDebt  = debtList.filter(s => s.debtCurrency !== "usd").reduce((a,s) => a + s.remaining, 0);
-  const totalDebtUsd = debtList.filter(s => s.debtCurrency === "usd" && s.debtUsd).reduce((a,s) => a + s.debtUsd, 0);
+  const debtList   = sales.filter(s => s.status !== "qaytarilgan")
+    .map(s => ({ sale: s, state: calcSaleState(s) }))
+    .filter(x => x.state.remaining > 0.5);
+  const totalDebt  = debtList.filter(x => x.sale.debtCurrency !== "usd").reduce((a,x) => a + x.state.remaining, 0);
+  const totalDebtUsd = debtList.filter(x => x.sale.debtCurrency === "usd" && x.state.debtUsd).reduce((a,x) => a + x.state.debtUsd, 0);
   const lastSale   = [...sales].sort((a, b) => b.date > a.date ? 1 : -1)[0];
   return { count: sales.length, totalBuy, totalDebt, totalDebtUsd, lastDate: lastSale?.date || null, sales };
 }
@@ -199,7 +201,7 @@ function openCustCard(id) {
       $("cc-history").innerHTML = `<div style="text-align:center;color:#ccc;padding:20px;font-size:13px">Xarid tarixi yo'q</div>`;
     } else {
       $("cc-history").innerHTML = history.map(s => {
-        const isDebt = s.status === "qarz" && s.remaining > 0;
+        const isDebt = s.status !== "qaytarilgan" && calcSaleState(s).remaining > 0.5;
         return `<div style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border-radius:10px;margin-bottom:6px;background:${isDebt?"#FEF2F2":"var(--bg)"};border:1px solid ${isDebt?"#FECACA":"var(--brd)"}">
           <div style="flex:1;min-width:0">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">

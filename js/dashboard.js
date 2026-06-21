@@ -633,14 +633,17 @@ function renderDashSalesTable() {
   const last  = [...sales].sort((a,b) => (b.date+b.chekNum||'').localeCompare(a.date+a.chekNum||'')).slice(0,8);
   if (!last.length) { el.innerHTML = '<tr><td colspan="5" class="empty-td">Sotuvlar yo\'q</td></tr>'; return; }
   const payLabels = { naqd:'Naqd', karta:'Karta', otkazma:"O'tkazma", nasiya:'Nasiya', aralash:'Aralash' };
-  el.innerHTML = last.map(s => `
+  el.innerHTML = last.map(s => {
+    const curRem = s.status !== 'qaytarilgan' ? calcSaleState(s).remaining : 0;
+    return `
     <tr>
       <td>${s.customerName||s.customer_name||'<span style="color:#ccc">—</span>'}</td>
       <td><span class="bg bg-t" style="font-size:11px">${s.priceType==='ulgurji'?'Ulgurji':'Chakana'}</span></td>
       <td style="font-size:12px">${payLabels[s.payType||s.pay_type]||s.payType||'—'}</td>
       <td class="num" style="font-weight:700">${fmtK(s.total)} so'm</td>
-      <td><span class="bg ${s.remaining>0?'bg-r':'bg-g'}" style="font-size:11px">${s.remaining>0?'Nasiya':'To\'langan'}</span></td>
-    </tr>`).join('');
+      <td><span class="bg ${curRem>0.5?'bg-r':'bg-g'}" style="font-size:11px">${curRem>0.5?'Nasiya':'To\'langan'}</span></td>
+    </tr>`;
+  }).join('');
 }
 
 // ── Qarzlar jadval ─────────────────────────────

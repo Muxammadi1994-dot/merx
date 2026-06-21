@@ -929,9 +929,10 @@ function custSearch(q) {
 
   dd.style.display = "block";
   dd.innerHTML = found.map(c => {
-    const debts = db.sales.filter(s => s.customerId===c.id && s.status==="qarz" && s.remaining>0);
-    const totalUzs = debts.reduce((a,s)=>a+s.remaining,0);
-    const totalUsd = debts.filter(s=>s.debtCurrency==="usd"&&s.debtUsd).reduce((a,s)=>a+s.debtUsd,0);
+    const debts = db.sales.filter(s => s.customerId===c.id && s.status!=="qaytarilgan")
+      .map(s => calcSaleState(s)).filter(st => st.remaining > 0.5);
+    const totalUzs = debts.reduce((a,st)=>a+st.remaining,0);
+    const totalUsd = debts.filter(st=>st.debtUsd>0).reduce((a,st)=>a+st.debtUsd,0);
     const debtHtml = totalUzs > 0 || totalUsd > 0
       ? `<span style="font-size:10.5px;color:#E05A5A;font-weight:600;margin-left:6px">
           ⚠️ ${totalUsd>0?"$"+totalUsd.toFixed(2)+" USD":fmt(totalUzs)+" so'm"} qarz
@@ -1184,15 +1185,15 @@ async function checkout() {
   // Mijozning oldingi qarzlarini hisoblaymiz
   let prevDebtUsd = 0, prevDebtUzs = 0;
   if (customerId) {
-    const prevDebts = db.sales.filter(s =>
-      s.customerId === customerId && s.status === "qarz" && s.remaining > 0
-    );
+    const prevDebts = db.sales.filter(s => s.customerId === customerId && s.status !== "qaytarilgan")
+      .map(s => ({ sale: s, state: calcSaleState(s) }))
+      .filter(x => x.state.remaining > 0.5);
     prevDebtUsd = prevDebts
-      .filter(s => s.debtCurrency === "usd" && s.debtUsd)
-      .reduce((a, s) => a + s.debtUsd, 0);
+      .filter(x => x.sale.debtCurrency === "usd" && x.state.debtUsd)
+      .reduce((a, x) => a + x.state.debtUsd, 0);
     prevDebtUzs = prevDebts
-      .filter(s => s.debtCurrency !== "usd")
-      .reduce((a, s) => a + s.remaining, 0);
+      .filter(x => x.sale.debtCurrency !== "usd")
+      .reduce((a, x) => a + x.state.remaining, 0);
   }
 
   const newSale = {
@@ -1305,9 +1306,14 @@ function showCustDebt(custId) {
   if (badge && val) {
     if (!custId) { badge.style.display = "none"; }
     else {
-      const debts   = db.sales.filter(s => s.customerId === custId && s.status === "qarz" && s.remaining > 0);
-      const totalUzs = debts.filter(s => s.debtCurrency !== "usd").reduce((a,s) => a + s.remaining, 0);
-      const totalUsd = debts.filter(s => s.debtCurrency === "usd" && s.debtUsd).reduce((a,s) => a + s.debtUsd, 0);
+      // Joriy holatni calcSaleState() orqali hisoblaymiz — s.status/s.remaining
+      // asl (o'zgarmas) qiymat, qarz to'langan-to'lanmaganini bilmaydi.
+      const candidates = db.sales.filter(s => s.customerId === custId && s.status !== "qaytarilgan");
+      const debts = candidates
+        .map(s => ({ sale: s, state: calcSaleState(s) }))
+        .filter(x => x.state.remaining > 0.5);
+      const totalUzs = debts.filter(x => x.sale.debtCurrency !== "usd").reduce((a,x) => a + x.state.remaining, 0);
+      const totalUsd = debts.filter(x => x.sale.debtCurrency === "usd" && x.state.debtUsd).reduce((a,x) => a + x.state.debtUsd, 0);
       const cntAll   = debts.length;
 
       if (cntAll === 0) { badge.style.display = "none"; }
@@ -1627,15 +1633,15 @@ function showLastSale() {
 // ── Muddati o'tgan qarz eslatmasi ────────────
 function checkDebtAlerts() {
   const today_ = today();
-  const overdue = db.sales.filter(s =>
-    s.status === "qarz" && s.remaining > 0 && s.due && s.due < today_
-  );
+  const overdue = db.sales.filter(s => s.status !== "qaytarilgan" && s.due && s.due < today_)
+    .map(s => ({ sale: s, state: calcSaleState(s) }))
+    .filter(x => x.state.remaining > 0.5);
   const banner = $("debt-alert-banner");
   const text   = $("debt-alert-text");
   if (!banner || !text) return;
 
   if (overdue.length > 0) {
-    const totalDebt = overdue.reduce((a, s) => a + (s.remaining||0), 0);
+    const totalDebt = overdue.reduce((a, x) => a + (x.state.remaining||0), 0);
     text.textContent = `${overdue.length} ta muddati o'tgan qarz: ${fmt(totalDebt)} so'm`;
     banner.style.display = "block";
   } else {
