@@ -286,90 +286,6 @@ function renderDebtTrendChart() {
   });
 }
 
-// ── Qarz tushumi tahlili (qanday usulda, qachon to'langan) ─
-let debtIncomePeriod = "today"; // today|yesterday|week|month|year|custom
-let debtIncomeFrom = null, debtIncomeTo = null;
-
-function setDebtIncomePeriod(p) {
-  debtIncomePeriod = p;
-  document.querySelectorAll(".di-period-btn").forEach(b => b.classList.toggle("on", b.dataset.p === p));
-  const customBox = $("di-custom-range");
-  if (customBox) customBox.style.display = p === "custom" ? "flex" : "none";
-  renderDebtIncomeStats();
-}
-
-function applyDebtIncomeCustomRange() {
-  debtIncomeFrom = ($("di-from")||{value:""}).value;
-  debtIncomeTo   = ($("di-to")||{value:""}).value;
-  renderDebtIncomeStats();
-}
-
-function getDebtIncomeRange() {
-  const now = new Date();
-  const todayStr = now.toISOString().slice(0,10);
-  if (debtIncomePeriod === "today") return { from: todayStr, to: todayStr };
-  if (debtIncomePeriod === "yesterday") {
-    const y = new Date(now); y.setDate(y.getDate()-1);
-    const ys = y.toISOString().slice(0,10);
-    return { from: ys, to: ys };
-  }
-  if (debtIncomePeriod === "week") {
-    const w = new Date(now); w.setDate(w.getDate()-6);
-    return { from: w.toISOString().slice(0,10), to: todayStr };
-  }
-  if (debtIncomePeriod === "month") {
-    const m = new Date(now.getFullYear(), now.getMonth(), 1);
-    return { from: m.toISOString().slice(0,10), to: todayStr };
-  }
-  if (debtIncomePeriod === "year") {
-    const y = new Date(now.getFullYear(), 0, 1);
-    return { from: y.toISOString().slice(0,10), to: todayStr };
-  }
-  if (debtIncomePeriod === "custom") {
-    return { from: debtIncomeFrom || todayStr, to: debtIncomeTo || todayStr };
-  }
-  return { from: todayStr, to: todayStr };
-}
-
-function renderDebtIncomeStats() {
-  const el = $("debt-income-body"); if (!el) return;
-  const { from, to } = getDebtIncomeRange();
-
-  const payments = (db.debtPayments||[]).filter(p => p.date >= from && p.date <= to);
-
-  const sumByMethod = { naqd:0, karta:0, otkazma:0, balans:0 };
-  const sumByMethodUsd = { naqd:0, karta:0, otkazma:0, balans:0 };
-  let totalUzs = 0, totalUsd = 0;
-
-  payments.forEach(p => {
-    const m = p.method || "naqd";
-    if (p.currency === "usd") {
-      sumByMethodUsd[m] = (sumByMethodUsd[m]||0) + p.amount;
-      totalUsd += p.amount;
-    } else {
-      sumByMethod[m] = (sumByMethod[m]||0) + p.amount;
-      totalUzs += p.amount;
-    }
-  });
-
-  if ($("di-total-uzs")) $("di-total-uzs").textContent = fmt(totalUzs) + " so'm";
-  if ($("di-total-usd")) $("di-total-usd").textContent = "$" + totalUsd.toFixed(2);
-  if ($("di-cnt")) $("di-cnt").textContent = payments.length + " ta to'lov";
-  if ($("di-range-label")) $("di-range-label").textContent = from === to ? from : `${from} — ${to}`;
-
-  const methodLabels = { naqd:"💵 Naqd", karta:"💳 Karta", otkazma:"🏦 O'tkazma", balans:"💰 Balansdan" };
-  el.innerHTML = Object.keys(methodLabels).map(m => {
-    const uzs = sumByMethod[m]||0, usd = sumByMethodUsd[m]||0;
-    if (uzs === 0 && usd === 0) return "";
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border:1px solid var(--brd);border-radius:9px">
-      <span style="font-size:13px;font-weight:600">${methodLabels[m]}</span>
-      <span style="font-size:13.5px;font-weight:700;color:var(--grn)">
-        ${uzs>0?fmt(uzs)+" so'm":""}${uzs>0&&usd>0?" + ":""}${usd>0?"$"+usd.toFixed(2):""}
-      </span>
-    </div>`;
-  }).join("") || `<div style="padding:20px;text-align:center;color:#bbb;font-size:12.5px">Bu davrda to'lov bo'lmagan</div>`;
-}
-
 function setDebtFilter(f) {
   debtFilter = f;
   document.querySelectorAll(".debt-filter-btn").forEach(b =>
@@ -452,7 +368,7 @@ function renderDebts() {
   $("st-over").textContent      = overCount + " ta";
   $("st-cnt").textContent       = custCount + " kishi";
   $("debt-count").textContent   = allDebt.length;
-  renderDebtIncomeStats();
+  renderDebtRevenue();
 
   if (debtGrouped) {
     renderDebtsGrouped(list, rate);

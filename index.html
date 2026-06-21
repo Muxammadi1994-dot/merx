@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=81">
+<link rel="stylesheet" href="style.css?v=82">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1076,72 +1076,6 @@
         <div style="position:relative;flex:1;min-height:180px">
           <canvas id="debt-trend-chart"></canvas>
         </div>
-      </div>
-    </div>
-
-    <!-- Qarz tushumi tahlili (qachon, qanday usulda to'langan) -->
-    <div class="card" style="margin-bottom:16px">
-      <div style="padding:14px 18px;border-bottom:1px solid var(--brd)">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-          <span style="font-size:12.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px">
-            <i class="ti ti-cash-banknote"></i> Qarz tushumi
-          </span>
-          <div style="display:flex;gap:4px;flex-wrap:wrap">
-            <button class="di-period-btn on" data-p="today" onclick="setDebtIncomePeriod('today')" style="padding:5px 11px;font-size:11.5px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#0D1B2A;color:#fff;cursor:pointer">Bugun</button>
-            <button class="di-period-btn" data-p="yesterday" onclick="setDebtIncomePeriod('yesterday')" style="padding:5px 11px;font-size:11.5px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">Kecha</button>
-            <button class="di-period-btn" data-p="week" onclick="setDebtIncomePeriod('week')" style="padding:5px 11px;font-size:11.5px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">Hafta</button>
-            <button class="di-period-btn" data-p="month" onclick="setDebtIncomePeriod('month')" style="padding:5px 11px;font-size:11.5px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">Oy</button>
-            <button class="di-period-btn" data-p="year" onclick="setDebtIncomePeriod('year')" style="padding:5px 11px;font-size:11.5px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">Yil</button>
-            <button class="di-period-btn" data-p="custom" onclick="setDebtIncomePeriod('custom')" style="padding:5px 11px;font-size:11.5px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer"><i class="ti ti-calendar"></i> Kalendar</button>
-          </div>
-        </div>
-        <div id="di-custom-range" style="display:none;gap:8px;align-items:center;margin-top:10px">
-          <input type="date" id="di-from" style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:7px;padding:5px 9px">
-          <span style="font-size:12px;color:#bbb">—</span>
-          <input type="date" id="di-to" style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:7px;padding:5px 9px">
-          <button class="btn btn-sm" onclick="applyDebtIncomeCustomRange()">Qo'llash</button>
-        </div>
-      </div>
-      <div style="padding:14px 18px">
-        <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:14px;flex-wrap:wrap">
-          <div>
-            <div style="font-size:10px;color:var(--mut);font-weight:600;text-transform:uppercase">Davr</div>
-            <div id="di-range-label" style="font-size:12.5px;font-weight:600">—</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:var(--mut);font-weight:600;text-transform:uppercase">Jami (so'm)</div>
-            <div id="di-total-uzs" style="font-size:17px;font-weight:800;color:var(--grn)">0</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:var(--mut);font-weight:600;text-transform:uppercase">Jami (USD)</div>
-            <div id="di-total-usd" style="font-size:17px;font-weight:800;color:#1B4F72">$0</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:var(--mut);font-weight:600;text-transform:uppercase">To'lovlar</div>
-            <div id="di-cnt" style="font-size:13px;font-weight:600;color:var(--mut)">0 ta</div>
-          </div>
-        </div>
-        <div id="debt-income-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px"></div>
-      </div>
-    </div>
-
-    <!-- MODAL: KPI panellarni sozlash -->
-    <div class="ov" id="ov-debtkpi" onclick="if(event.target===this)closeModal('debtkpi')">
-      <div class="modal" style="max-width:380px">
-        <button class="m-close" onclick="closeModal('debtkpi')"><i class="ti ti-x"></i></button>
-        <h2 style="margin-bottom:4px">Panellarni sozlash</h2>
-        <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Qaysi ko'rsatkichlar ko'rinishini tanlang</p>
-        <div id="debt-kpi-settings-list" style="display:flex;flex-direction:column;gap:8px"></div>
-      </div>
-    </div>
-
-    <!-- MODAL: Jadval ustunlarini sozlash -->
-    <div class="ov" id="ov-debtcols" onclick="if(event.target===this)closeModal('debtcols')">
-      <div class="modal" style="max-width:380px">
-        <button class="m-close" onclick="closeModal('debtcols')"><i class="ti ti-x"></i></button>
-        <h2 style="margin-bottom:4px">Jadval ustunlarini sozlash</h2>
-        <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Qaysi ustunlar ko'rinishini tanlang</p>
-        <div id="debt-cols-settings-list" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
     </div>
 
@@ -2594,23 +2528,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=81"></script>
-<script src="js/utils.js?v=81"></script>
-<script src="js/sms.js?v=81"></script>
-<script src="js/cloud.js?v=81"></script>
-<script src="js/dashboard.js?v=81"></script>
-<script src="js/pos.js?v=81"></script>
-<script src="js/katalog.js?v=81"></script>
-<script src="js/ombor.js?v=81"></script>
-<script src="js/mijozlar.js?v=81"></script>
-<script src="js/qarzlar.js?v=81"></script>
-<script src="js/tarix.js?v=81"></script>
-<script src="js/hisobot.js?v=81"></script>
-<script src="js/xodimlar.js?v=81"></script>
-<script src="js/moliya.js?v=81"></script>
-<script src="js/egasi.js?v=81"></script>
-<script src="js/portal.js?v=81"></script>
-<script src="js/init.js?v=81"></script>
+<script src="js/db.js?v=82"></script>
+<script src="js/utils.js?v=82"></script>
+<script src="js/sms.js?v=82"></script>
+<script src="js/cloud.js?v=82"></script>
+<script src="js/dashboard.js?v=82"></script>
+<script src="js/pos.js?v=82"></script>
+<script src="js/katalog.js?v=82"></script>
+<script src="js/ombor.js?v=82"></script>
+<script src="js/mijozlar.js?v=82"></script>
+<script src="js/qarzlar.js?v=82"></script>
+<script src="js/tarix.js?v=82"></script>
+<script src="js/hisobot.js?v=82"></script>
+<script src="js/xodimlar.js?v=82"></script>
+<script src="js/moliya.js?v=82"></script>
+<script src="js/egasi.js?v=82"></script>
+<script src="js/portal.js?v=82"></script>
+<script src="js/init.js?v=82"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2959,7 +2893,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=81"></script>
-<script src="js/superadmin.js?v=81"></script>
+<script src="js/auth.js?v=82"></script>
+<script src="js/superadmin.js?v=82"></script>
 </body>
 </html>
