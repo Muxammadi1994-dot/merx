@@ -1299,26 +1299,43 @@ function calcDiscount(total) {
 function showCustDebt(custId) {
   const badge = $("cust-debt-badge");
   const val   = $("cust-debt-val");
-  if (!badge || !val) return;
-  if (!custId) { badge.style.display = "none"; return; }
+  const balBadge = $("cust-balance-badge");
+  const balVal   = $("cust-balance-val");
 
-  const debts   = db.sales.filter(s => s.customerId === custId && s.status === "qarz" && s.remaining > 0);
-  const totalUzs = debts.filter(s => s.debtCurrency !== "usd").reduce((a,s) => a + s.remaining, 0);
-  const totalUsd = debts.filter(s => s.debtCurrency === "usd" && s.debtUsd).reduce((a,s) => a + s.debtUsd, 0);
-  const cntAll   = debts.length;
+  if (badge && val) {
+    if (!custId) { badge.style.display = "none"; }
+    else {
+      const debts   = db.sales.filter(s => s.customerId === custId && s.status === "qarz" && s.remaining > 0);
+      const totalUzs = debts.filter(s => s.debtCurrency !== "usd").reduce((a,s) => a + s.remaining, 0);
+      const totalUsd = debts.filter(s => s.debtCurrency === "usd" && s.debtUsd).reduce((a,s) => a + s.debtUsd, 0);
+      const cntAll   = debts.length;
 
-  if (cntAll === 0) { badge.style.display = "none"; return; }
-
-  let txt = "";
-  if (totalUsd > 0 && totalUzs > 0) {
-    txt = `$${totalUsd.toFixed(2)} USD + ${fmt(totalUzs)} so'm`;
-  } else if (totalUsd > 0) {
-    txt = `$${totalUsd.toFixed(2)} USD`;
-  } else {
-    txt = `${fmt(totalUzs)} so'm`;
+      if (cntAll === 0) { badge.style.display = "none"; }
+      else {
+        let txt = "";
+        if (totalUsd > 0 && totalUzs > 0) txt = `$${totalUsd.toFixed(2)} USD + ${fmt(totalUzs)} so'm`;
+        else if (totalUsd > 0) txt = `$${totalUsd.toFixed(2)} USD`;
+        else txt = `${fmt(totalUzs)} so'm`;
+        val.innerHTML = `${txt} <span style="font-size:10.5px;font-weight:400;color:#a16207">(${cntAll} ta sotuv)</span>`;
+        badge.style.display = "block";
+      }
+    }
   }
-  val.innerHTML = `${txt} <span style="font-size:10.5px;font-weight:400;color:#a16207">(${cntAll} ta sotuv)</span>`;
-  badge.style.display = "block";
+
+  // Mijoz balansi (ortiqcha to'lovlardan yig'ilgan depozit)
+  if (balBadge && balVal) {
+    if (!custId) { balBadge.style.display = "none"; return; }
+    const cust = (db.customers||[]).find(c => c.id === custId);
+    const bUzs = cust?.balanceUzs || 0;
+    const bUsd = cust?.balanceUsd || 0;
+    if (!cust || (bUzs <= 0 && bUsd <= 0)) { balBadge.style.display = "none"; return; }
+
+    const parts = [];
+    if (bUsd > 0) parts.push(`$${bUsd.toFixed(2)}`);
+    if (bUzs > 0) parts.push(`${fmt(bUzs)} so'm`);
+    balVal.textContent = parts.join(" + ");
+    balBadge.style.display = "block";
+  }
 }
 
 // ── Chek modal ────────────────────────────────

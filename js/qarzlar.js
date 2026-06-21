@@ -288,6 +288,17 @@ function renderDebtsList(list, rate) {
               ? `<div style="font-size:10.5px;color:#aaa">+ ${others.length} ta boshqa qarz — avtomatik taqsimlanadi</div>`
               : "";
           })()}
+          ${(() => {
+            if (!s.customerId) return "";
+            const cust = (db.customers||[]).find(c => c.id === s.customerId);
+            if (!cust) return "";
+            const bal = isUsd ? (cust.balanceUsd||0) : (cust.balanceUzs||0);
+            if (bal <= 0) return "";
+            return `<button class="btn btn-sm" onclick="useBalanceForDebt(${s.id})"
+              style="font-size:11px;color:#0E7490;border-color:#0E7490;text-align:left">
+              <i class="ti ti-wallet"></i> Balansdan yech (${fmtMoney(bal, isUsd?"usd":"uzs")} bor)
+            </button>`;
+          })()}
           ${cu.phone && cu.phone !== "—"
             ? `<button class="btn btn-sm" onclick="sendDebtReminder(${s.id})" style="font-size:11px;color:#856404">
                 <i class="ti ti-message"></i> SMS eslatma
@@ -409,6 +420,55 @@ function findCustomerDebts(s) {
 }
 
 // ── To'lov qabul qilish (ko'p qarzga avtomatik taqsimlash) ──
+// ── Mijoz balansidan qarzga o'tkazish (qo'lda, sotuvchi tanlaganda) ─
+async function useBalanceForDebt(saleId) {
+  const sale = db.sales.find(x => x.id === saleId); if (!sale) return;
+  if (!sale.customerId) { toast("Bu sotuvda mijoz ro'yxatdan tanlanmagan","err"); return; }
+  const cust = (db.customers||[]).find(c => c.id === sale.customerId);
+  if (!cust) { toast("Mijoz topilmadi","err"); return; }
+
+  const st = calcSaleState(sale);
+  const isUsd = sale.debtCurrency === "usd" && st.debtUsd > 0;
+  const balance = isUsd ? (cust.balanceUsd||0) : (cust.balanceUzs||0);
+
+  if (balance <= 0) { toast(`Mijozning ${isUsd?"USD":"so'm"} balansi bo'sh`,"err"); return; }
+
+  const debtAmt = isUsd ? st.debtUsd : st.remaining;
+  const useAmt = Math.min(balance, debtAmt);
+
+  if (!confirm(`Mijoz balansidan ${fmtMoney(useAmt, isUsd?"usd":"uzs")} shu chekka (${sale.chekNum||"#"+sale.id}) o'tkazilsinmi?`)) return;
+
+  // Balansdan ayiramiz
+  if (isUsd) cust.balanceUsd = Math.round(((cust.balanceUsd||0) - useAmt) * 100) / 100;
+  else cust.balanceUzs = (cust.balanceUzs||0) - useAmt;
+
+  // To'lov sifatida yozamiz (manba: balans)
+  const payment = {
+    id: (db.seq = (db.seq||1) + 1),
+    chekNum: genPayChekNum(),
+    date: today(), time: nowTime(),
+    customerId: sale.customerId,
+    customerName: cust.name, customerPhone: cust.phone,
+    amount: useAmt, currency: isUsd ? "usd" : "uzs",
+    method: "balans",
+    allocations: [{
+      saleId: sale.id, saleDate: sale.date, chekNum: sale.chekNum || ("#"+sale.id),
+      partNum: nextPartNum(sale.id),
+      amount: useAmt, currency: isUsd ? "usd" : "uzs",
+      fullyPaid: (debtAmt - useAmt) < (isUsd ? 0.005 : 100),
+      remainingAfter: Math.max(0, debtAmt - useAmt)
+    }],
+    leftover: 0, leftoverToBalance: false
+  };
+  db.debtPayments = db.debtPayments || [];
+  db.debtPayments.push(payment);
+
+  saveDB();
+  toast(`✅ Balansdan ${fmtMoney(useAmt, isUsd?"usd":"uzs")} o'tkazildi`);
+  renderDebts();
+  if (typeof renderQarzlarTarixi === "function") renderQarzlarTarixi();
+}
+
 async function recordPayment(id) {
   const clicked = db.sales.find(x => x.id === id); if (!clicked) return;
   const amt = parseFloat(($("pay-"+id)||{value:0}).value) || 0;
@@ -468,9 +528,18 @@ async function recordPayment(id) {
     }
   }
 
-  // Agar haligacha ortiqcha qoldiq bo'lsa (boshqa qarzlar yo'q) — oxirgi
-  // taqsimotga "ortiqcha" sifatida qo'shamiz (mijozga qaytariladi deb hisoblanadi)
+  // Agar haligacha ortiqcha qoldiq bo'lsa (boshqa qarzlar yo'q) — mijoz
+  // balansiga (depozit sifatida) qo'shamiz. Avtomatik ishlatilmaydi —
+  // sotuvchi keyinroq "Balansdan yech" tugmasi orqali qo'lda foydalanadi.
   const leftover = Math.round(remainingPay * 100) / 100;
+
+  if (leftover > 0 && clicked.customerId) {
+    const cust = (db.customers||[]).find(c => c.id === clicked.customerId);
+    if (cust) {
+      if (payCur === "usd") cust.balanceUsd = Math.round(((cust.balanceUsd||0) + leftover) * 100) / 100;
+      else cust.balanceUzs = (cust.balanceUzs||0) + leftover;
+    }
+  }
 
   // ── To'lov yozuvini saqlash (sale o'zi o'zgarmaydi!) ──
   const cu = debtCust(clicked);
@@ -486,7 +555,8 @@ async function recordPayment(id) {
     currency:      payCur,
     method:        method,
     allocations:   allocations,
-    leftover:      leftover > 0 ? leftover : 0
+    leftover:      leftover > 0 ? leftover : 0,
+    leftoverToBalance: leftover > 0 && clicked.customerId ? true : false
   };
   db.debtPayments = db.debtPayments || [];
   db.debtPayments.push(payment);
@@ -509,7 +579,11 @@ async function recordPayment(id) {
   } else {
     summary = "Taqsimlanmadi";
   }
-  if (leftover > 0) summary += ` | Ortiqcha: ${fmtMoney(leftover, payCur)}`;
+  if (leftover > 0) {
+    summary += clicked.customerId
+      ? ` | Ortiqcha: ${fmtMoney(leftover, payCur)} — mijoz balansiga qo'shildi`
+      : ` | Ortiqcha: ${fmtMoney(leftover, payCur)} (mijoz ro'yxatda emas, balansga qo'shilmadi)`;
+  }
 
   toast(`✅ ${amtDisplay} qabul qilindi. ${summary}`);
 
@@ -990,6 +1064,6 @@ function qtToggleExpand(saleId) {
 }
 
 function payMethodLabel(m) {
-  const labels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma" };
+  const labels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", balans: "💰 Balans" };
   return labels[m] || "Naqd";
 }

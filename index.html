@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=67">
+<link rel="stylesheet" href="style.css?v=68">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -564,6 +564,12 @@
           <div id="cust-debt-badge" style="display:none;padding:7px 12px;background:#FEF3C7;border:1px solid #FDE68A;border-radius:9px;font-size:12.5px;margin-bottom:6px">
             <span style="color:#92400E">⚠️ Joriy qarz:</span>
             <strong id="cust-debt-val" style="color:#92400E;margin-left:4px"></strong>
+          </div>
+          <!-- Mijoz balansi (depozit) -->
+          <div id="cust-balance-badge" style="display:none;padding:7px 12px;background:#E0F2FE;border:1px solid #7DD3FC;border-radius:9px;font-size:12.5px;margin-bottom:6px">
+            <span style="color:#0E7490"><i class="ti ti-wallet"></i> Balans:</span>
+            <strong id="cust-balance-val" style="color:#0E7490;margin-left:4px"></strong>
+            <span style="color:#0E7490;font-size:11px;font-weight:400">— Qarzlar bo'limidan ishlatish mumkin</span>
           </div>
           <div id="c-name-row" style="display:flex;gap:6px">
             <input id="c-name" placeholder="Ism" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff">
@@ -2386,23 +2392,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=67"></script>
-<script src="js/utils.js?v=67"></script>
-<script src="js/sms.js?v=67"></script>
-<script src="js/cloud.js?v=67"></script>
-<script src="js/dashboard.js?v=67"></script>
-<script src="js/pos.js?v=67"></script>
-<script src="js/katalog.js?v=67"></script>
-<script src="js/ombor.js?v=67"></script>
-<script src="js/mijozlar.js?v=67"></script>
-<script src="js/qarzlar.js?v=67"></script>
-<script src="js/tarix.js?v=67"></script>
-<script src="js/hisobot.js?v=67"></script>
-<script src="js/xodimlar.js?v=67"></script>
-<script src="js/moliya.js?v=67"></script>
-<script src="js/egasi.js?v=67"></script>
-<script src="js/portal.js?v=67"></script>
-<script src="js/init.js?v=67"></script>
+<script src="js/db.js?v=68"></script>
+<script src="js/utils.js?v=68"></script>
+<script src="js/sms.js?v=68"></script>
+<script src="js/cloud.js?v=68"></script>
+<script src="js/dashboard.js?v=68"></script>
+<script src="js/pos.js?v=68"></script>
+<script src="js/katalog.js?v=68"></script>
+<script src="js/ombor.js?v=68"></script>
+<script src="js/mijozlar.js?v=68"></script>
+<script src="js/qarzlar.js?v=68"></script>
+<script src="js/tarix.js?v=68"></script>
+<script src="js/hisobot.js?v=68"></script>
+<script src="js/xodimlar.js?v=68"></script>
+<script src="js/moliya.js?v=68"></script>
+<script src="js/egasi.js?v=68"></script>
+<script src="js/portal.js?v=68"></script>
+<script src="js/init.js?v=68"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2751,7 +2757,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=67"></script>
-<script src="js/superadmin.js?v=67"></script>
+<script src="js/auth.js?v=68"></script>
+<script src="js/superadmin.js?v=68"></script>
 </body>
 </html>
