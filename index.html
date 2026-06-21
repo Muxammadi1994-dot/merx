@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=77">
+<link rel="stylesheet" href="style.css?v=78">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1026,7 +1026,7 @@
   <!-- QARZLAR -->
   <div class="pg" id="p-qarzlar">
     <!-- KPI kartalar (2 ustun) + Trend grafigi -->
-    <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:16px;margin-bottom:16px;align-items:stretch">
+    <div id="debt-kpi-trend-wrap" style="display:grid;grid-template-columns:1fr 1.15fr;gap:16px;margin-bottom:16px;align-items:stretch">
       <div style="display:flex;flex-direction:column">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;height:28px">
           <span style="font-size:11.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px">Ko'rsatkichlar</span>
@@ -1063,12 +1063,13 @@
         </div>
       </div>
 
-      <div class="card" style="padding:14px 16px;display:flex;flex-direction:column">
+      <div class="card" id="debt-chart-card" style="padding:14px 16px;display:flex;flex-direction:column;position:relative">
+        <button class="kpi-hide-btn" onclick="hideDebtKpi('chart')" title="Yashirish" style="top:10px;right:10px"><i class="ti ti-eye-off"></i></button>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;height:28px">
           <span style="font-size:11.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px">
             <i class="ti ti-chart-line"></i> Qarz dinamikasi
           </span>
-          <div style="display:flex;gap:4px">
+          <div style="display:flex;gap:4px;margin-right:28px">
             <button class="dt-period-btn" data-p="week" onclick="setDebtTrendPeriod('week')"
               style="padding:4px 10px;font-size:11px;font-weight:600;border:1px solid var(--brd);border-radius:6px;background:#fff;cursor:pointer">Hafta</button>
             <button class="dt-period-btn on" data-p="month" onclick="setDebtTrendPeriod('month')"
@@ -2496,23 +2497,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=77"></script>
-<script src="js/utils.js?v=77"></script>
-<script src="js/sms.js?v=77"></script>
-<script src="js/cloud.js?v=77"></script>
-<script src="js/dashboard.js?v=77"></script>
-<script src="js/pos.js?v=77"></script>
-<script src="js/katalog.js?v=77"></script>
-<script src="js/ombor.js?v=77"></script>
-<script src="js/mijozlar.js?v=77"></script>
-<script src="js/qarzlar.js?v=77"></script>
-<script src="js/tarix.js?v=77"></script>
-<script src="js/hisobot.js?v=77"></script>
-<script src="js/xodimlar.js?v=77"></script>
-<script src="js/moliya.js?v=77"></script>
-<script src="js/egasi.js?v=77"></script>
-<script src="js/portal.js?v=77"></script>
-<script src="js/init.js?v=77"></script>
+<script src="js/db.js?v=78"></script>
+<script src="js/utils.js?v=78"></script>
+<script src="js/sms.js?v=78"></script>
+<script src="js/cloud.js?v=78"></script>
+<script src="js/dashboard.js?v=78"></script>
+<script src="js/pos.js?v=78"></script>
+<script src="js/katalog.js?v=78"></script>
+<script src="js/ombor.js?v=78"></script>
+<script src="js/mijozlar.js?v=78"></script>
+<script src="js/qarzlar.js?v=78"></script>
+<script src="js/tarix.js?v=78"></script>
+<script src="js/hisobot.js?v=78"></script>
+<script src="js/xodimlar.js?v=78"></script>
+<script src="js/moliya.js?v=78"></script>
+<script src="js/egasi.js?v=78"></script>
+<script src="js/portal.js?v=78"></script>
+<script src="js/init.js?v=78"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2861,7 +2862,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=77"></script>
-<script src="js/superadmin.js?v=77"></script>
+<script src="js/auth.js?v=78"></script>
+<script src="js/superadmin.js?v=78"></script>
 </body>
 </html>

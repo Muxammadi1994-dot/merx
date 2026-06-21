@@ -12,7 +12,8 @@ const DEBT_KPI_LABELS = {
   totalUsd: "Umumiy qarz (USD)",
   over:     "Muddati o'tgan",
   cnt:      "Qarzdorlar soni",
-  month:    "Bu oylik yig'im"
+  month:    "Bu oylik yig'im",
+  chart:    "Qarz dinamikasi grafigi"
 };
 
 function getHiddenDebtKpis() {
@@ -35,6 +36,8 @@ function showDebtKpi(key) {
   db.settings.hiddenDebtKpis = [...hidden];
   saveDB();
   applyDebtKpiVisibility();
+  // Grafik qaytadan ko'rsatilganda Chart.js uni qaytadan chizishi kerak
+  if (key === "chart") renderDebtTrendChart();
 }
 
 function applyDebtKpiVisibility() {
@@ -43,6 +46,12 @@ function applyDebtKpiVisibility() {
     const key = el.dataset.kpi;
     el.style.display = hidden.has(key) ? "none" : "block";
   });
+  // Grafik kartasi alohida joyda (debt-kpi-grid tashqarisida)
+  const chartCard = $("debt-chart-card");
+  if (chartCard) chartCard.style.display = hidden.has("chart") ? "none" : "flex";
+  // Agar grafik yashirilgan/ko'rsatilgan bo'lsa, KPI ustunlari kengligini moslashtiramiz
+  const wrap = $("debt-kpi-trend-wrap");
+  if (wrap) wrap.style.gridTemplateColumns = hidden.has("chart") ? "1fr" : "1fr 1.15fr";
 }
 
 function openDebtKpiSettings() {
