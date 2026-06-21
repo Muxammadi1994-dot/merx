@@ -6,6 +6,133 @@
 let debtFilter  = "all";   // "all" | "overdue" | "usd" | "month"
 let debtGrouped = false;   // mijoz bo'yicha guruhlash
 
+// ── KPI panellarni ko'rsatish/yashirish boshqaruvi ─
+const DEBT_KPI_LABELS = {
+  total:    "Umumiy qarz (so'm)",
+  totalUsd: "Umumiy qarz (USD)",
+  over:     "Muddati o'tgan",
+  cnt:      "Qarzdorlar soni",
+  month:    "Bu oylik yig'im"
+};
+
+function getHiddenDebtKpis() {
+  return db.settings?.hiddenDebtKpis || [];
+}
+
+function hideDebtKpi(key) {
+  if (!db.settings) db.settings = {};
+  const hidden = new Set(db.settings.hiddenDebtKpis || []);
+  hidden.add(key);
+  db.settings.hiddenDebtKpis = [...hidden];
+  saveDB();
+  applyDebtKpiVisibility();
+}
+
+function showDebtKpi(key) {
+  if (!db.settings) db.settings = {};
+  const hidden = new Set(db.settings.hiddenDebtKpis || []);
+  hidden.delete(key);
+  db.settings.hiddenDebtKpis = [...hidden];
+  saveDB();
+  applyDebtKpiVisibility();
+}
+
+function applyDebtKpiVisibility() {
+  const hidden = new Set(getHiddenDebtKpis());
+  document.querySelectorAll("#debt-kpi-grid .stb").forEach(el => {
+    const key = el.dataset.kpi;
+    el.style.display = hidden.has(key) ? "none" : "block";
+  });
+}
+
+function openDebtKpiSettings() {
+  const list = $("debt-kpi-settings-list");
+  if (list) {
+    const hidden = new Set(getHiddenDebtKpis());
+    list.innerHTML = Object.entries(DEBT_KPI_LABELS).map(([key, label]) => {
+      const isShown = !hidden.has(key);
+      return `<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--brd);border-radius:9px;cursor:pointer">
+        <input type="checkbox" ${isShown?"checked":""} onchange="this.checked?showDebtKpi('${key}'):hideDebtKpi('${key}')"
+          style="width:17px;height:17px;accent-color:var(--acc);cursor:pointer">
+        <span style="font-size:13px;font-weight:600">${label}</span>
+      </label>`;
+    }).join("");
+  }
+  openModal("debtkpi");
+}
+
+// ── Qarz trend grafigi (so'nggi 6 oy) ──────────────
+let _debtTrendChart = null;
+
+function renderDebtTrendChart() {
+  const canvas = $("debt-trend-chart");
+  if (!canvas || typeof Chart === "undefined") return;
+
+  const rate = db.settings?.rate || 12800;
+  const months = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(d.toISOString().slice(0, 7));
+  }
+  const monthLabels = months.map(m => {
+    const [y, mo] = m.split("-");
+    const names = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
+    return names[parseInt(mo)-1] + " " + y.slice(2);
+  });
+
+  // Har oy oxiridagi UMUMIY ochiq qarz (shu oygacha yaratilgan, hali yopilmagan sotuvlar)
+  const dataPoints = months.map(m => {
+    const monthEnd = m + "-31";
+    let total = 0;
+    (db.sales||[]).forEach(s => {
+      if (!s.date || s.date > monthEnd) return; // shu oygacha yaratilgan bo'lishi kerak
+      if ((s.origRemaining||0) <= 0 && s.debtCurrency !== "usd") return;
+      const st = calcSaleState(s);
+      // Shu oy oxirida hali ochiq bo'lganini taxminiy hisoblaymiz —
+      // to'lovlar shu sanadan keyin bo'lganini hisobga olmaymiz (soddalashtirilgan)
+      const payments = getSalePayments(s.id).filter(p => p.date <= monthEnd);
+      const paidUzs = payments.filter(p=>p.currency!=="usd").reduce((a,p)=>a+p.amount,0);
+      const paidUsd = payments.filter(p=>p.currency==="usd").reduce((a,p)=>a+p.amount,0);
+
+      if (s.debtCurrency === "usd") {
+        const base = s.origDebtUsd != null ? s.origDebtUsd : (s.debtUsd||0);
+        const rem = Math.max(0, base - paidUsd);
+        total += rem * rate;
+      } else {
+        const base = s.origRemaining != null ? s.origRemaining : (s.remaining||0);
+        const rem = Math.max(0, base - paidUzs);
+        total += rem;
+      }
+    });
+    return Math.round(total);
+  });
+
+  if (_debtTrendChart) { _debtTrendChart.destroy(); _debtTrendChart = null; }
+
+  _debtTrendChart = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels: monthLabels,
+      datasets: [{
+        data: dataPoints,
+        borderColor: "#E9A500",
+        backgroundColor: "rgba(233,165,0,.1)",
+        fill: true, tension: .3, pointRadius: 3, pointBackgroundColor: "#E9A500"
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => fmt(ctx.parsed.y) + " so'm" } } },
+      scales: {
+        y: { ticks: { callback: v => fmtK(v) }, grid: { color: "#F0EEE8" } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
 function setDebtFilter(f) {
   debtFilter = f;
   document.querySelectorAll(".debt-filter-btn").forEach(b =>
@@ -97,6 +224,8 @@ function renderDebts() {
   }
   renderDebtCustCards();
   renderDebtPaymentsHistory();
+  applyDebtKpiVisibility();
+  renderDebtTrendChart();
 }
 
 // ── Mijoz umumiy qarz kartalar paneli ─────────────
