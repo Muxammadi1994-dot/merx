@@ -12,7 +12,6 @@ const DEBT_KPI_LABELS = {
   totalUsd: "Umumiy qarz (USD)",
   over:     "Muddati o'tgan",
   cnt:      "Qarzdorlar soni",
-  month:    "Bu oylik yig'im",
   chart:    "Qarz dinamikasi grafigi"
 };
 
@@ -90,6 +89,78 @@ function toggleDebtCol(key, val) {
   db.settings.debtCols[key] = val;
   saveDB();
   renderDebts();
+}
+
+// ── Qarz tushumi tahlili ────────────────────────────
+let debtRevenuePeriod = "today";
+
+function setDebtRevenuePeriod(p) {
+  debtRevenuePeriod = p;
+  document.querySelectorAll(".dr-period-btn").forEach(b => b.classList.toggle("on", b.dataset.p === p));
+  renderDebtRevenue();
+}
+
+function getDebtRevenueRange() {
+  const todayStr = today();
+  const now = new Date();
+  if (debtRevenuePeriod === "custom") {
+    const from = ($("dr-date-from")||{value:""}).value;
+    const to   = ($("dr-date-to")||{value:""}).value;
+    return { from: from || "0000-00-00", to: to || todayStr };
+  }
+  if (debtRevenuePeriod === "yesterday") {
+    const y = new Date(now); y.setDate(y.getDate()-1);
+    const ys = y.toISOString().slice(0,10);
+    return { from: ys, to: ys };
+  }
+  if (debtRevenuePeriod === "week") {
+    const w = new Date(now); w.setDate(w.getDate()-6);
+    return { from: w.toISOString().slice(0,10), to: todayStr };
+  }
+  if (debtRevenuePeriod === "month") {
+    return { from: todayStr.slice(0,7) + "-01", to: todayStr };
+  }
+  if (debtRevenuePeriod === "year") {
+    return { from: todayStr.slice(0,4) + "-01-01", to: todayStr };
+  }
+  // "today"
+  return { from: todayStr, to: todayStr };
+}
+
+function renderDebtRevenue() {
+  const { from, to } = getDebtRevenueRange();
+  const payments = (db.debtPayments||[]).filter(p => p.date >= from && p.date <= to);
+
+  const rate = db.settings?.rate || 12800;
+  const toUzs = p => p.currency === "usd" ? p.amount * rate : p.amount;
+
+  const total = payments.reduce((a,p) => a + toUzs(p), 0);
+  const byMethod = { naqd:0, karta:0, otkazma:0, balans:0 };
+  payments.forEach(p => { byMethod[p.method||"naqd"] = (byMethod[p.method||"naqd"]||0) + toUzs(p); });
+
+  if ($("dr-total"))   $("dr-total").textContent   = fmt(Math.round(total)) + " so'm";
+  if ($("dr-count"))   $("dr-count").textContent   = payments.length;
+  if ($("dr-naqd"))    $("dr-naqd").textContent    = fmt(Math.round(byMethod.naqd))    + " so'm";
+  if ($("dr-karta"))   $("dr-karta").textContent   = fmt(Math.round(byMethod.karta))   + " so'm";
+  if ($("dr-otkazma")) $("dr-otkazma").textContent = fmt(Math.round(byMethod.otkazma)) + " so'm";
+  if ($("dr-balans"))  $("dr-balans").textContent  = fmt(Math.round(byMethod.balans))  + " so'm";
+
+  const list = $("dr-list");
+  if (!list) return;
+  if (!payments.length) {
+    list.innerHTML = `<div style="padding:30px;text-align:center;color:#bbb;font-size:13px">Shu davrda to'lov bo'lmagan</div>`;
+    return;
+  }
+  const sorted = payments.slice().sort((a,b) => (a.date+a.time < b.date+b.time) ? 1 : -1);
+  list.innerHTML = sorted.map(p => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--brd)">
+      <div>
+        <span style="font-size:12.5px;font-weight:700;color:#0D1B2A">${p.customerName||"Noma'lum"}</span>
+        <span style="font-size:11px;color:#aaa;margin-left:6px">${p.chekNum} · ${p.date} ${p.time||""}</span>
+        <span style="font-size:11px;color:var(--mut);margin-left:6px">· ${payMethodLabel(p.method)}</span>
+      </div>
+      <strong style="font-size:13px;color:var(--grn)">${fmtMoney(p.amount, p.currency)}</strong>
+    </div>`).join("");
 }
 
 function openDebtKpiSettings() {
@@ -215,6 +286,90 @@ function renderDebtTrendChart() {
   });
 }
 
+// ── Qarz tushumi tahlili (qanday usulda, qachon to'langan) ─
+let debtIncomePeriod = "today"; // today|yesterday|week|month|year|custom
+let debtIncomeFrom = null, debtIncomeTo = null;
+
+function setDebtIncomePeriod(p) {
+  debtIncomePeriod = p;
+  document.querySelectorAll(".di-period-btn").forEach(b => b.classList.toggle("on", b.dataset.p === p));
+  const customBox = $("di-custom-range");
+  if (customBox) customBox.style.display = p === "custom" ? "flex" : "none";
+  renderDebtIncomeStats();
+}
+
+function applyDebtIncomeCustomRange() {
+  debtIncomeFrom = ($("di-from")||{value:""}).value;
+  debtIncomeTo   = ($("di-to")||{value:""}).value;
+  renderDebtIncomeStats();
+}
+
+function getDebtIncomeRange() {
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0,10);
+  if (debtIncomePeriod === "today") return { from: todayStr, to: todayStr };
+  if (debtIncomePeriod === "yesterday") {
+    const y = new Date(now); y.setDate(y.getDate()-1);
+    const ys = y.toISOString().slice(0,10);
+    return { from: ys, to: ys };
+  }
+  if (debtIncomePeriod === "week") {
+    const w = new Date(now); w.setDate(w.getDate()-6);
+    return { from: w.toISOString().slice(0,10), to: todayStr };
+  }
+  if (debtIncomePeriod === "month") {
+    const m = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { from: m.toISOString().slice(0,10), to: todayStr };
+  }
+  if (debtIncomePeriod === "year") {
+    const y = new Date(now.getFullYear(), 0, 1);
+    return { from: y.toISOString().slice(0,10), to: todayStr };
+  }
+  if (debtIncomePeriod === "custom") {
+    return { from: debtIncomeFrom || todayStr, to: debtIncomeTo || todayStr };
+  }
+  return { from: todayStr, to: todayStr };
+}
+
+function renderDebtIncomeStats() {
+  const el = $("debt-income-body"); if (!el) return;
+  const { from, to } = getDebtIncomeRange();
+
+  const payments = (db.debtPayments||[]).filter(p => p.date >= from && p.date <= to);
+
+  const sumByMethod = { naqd:0, karta:0, otkazma:0, balans:0 };
+  const sumByMethodUsd = { naqd:0, karta:0, otkazma:0, balans:0 };
+  let totalUzs = 0, totalUsd = 0;
+
+  payments.forEach(p => {
+    const m = p.method || "naqd";
+    if (p.currency === "usd") {
+      sumByMethodUsd[m] = (sumByMethodUsd[m]||0) + p.amount;
+      totalUsd += p.amount;
+    } else {
+      sumByMethod[m] = (sumByMethod[m]||0) + p.amount;
+      totalUzs += p.amount;
+    }
+  });
+
+  if ($("di-total-uzs")) $("di-total-uzs").textContent = fmt(totalUzs) + " so'm";
+  if ($("di-total-usd")) $("di-total-usd").textContent = "$" + totalUsd.toFixed(2);
+  if ($("di-cnt")) $("di-cnt").textContent = payments.length + " ta to'lov";
+  if ($("di-range-label")) $("di-range-label").textContent = from === to ? from : `${from} — ${to}`;
+
+  const methodLabels = { naqd:"💵 Naqd", karta:"💳 Karta", otkazma:"🏦 O'tkazma", balans:"💰 Balansdan" };
+  el.innerHTML = Object.keys(methodLabels).map(m => {
+    const uzs = sumByMethod[m]||0, usd = sumByMethodUsd[m]||0;
+    if (uzs === 0 && usd === 0) return "";
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border:1px solid var(--brd);border-radius:9px">
+      <span style="font-size:13px;font-weight:600">${methodLabels[m]}</span>
+      <span style="font-size:13.5px;font-weight:700;color:var(--grn)">
+        ${uzs>0?fmt(uzs)+" so'm":""}${uzs>0&&usd>0?" + ":""}${usd>0?"$"+usd.toFixed(2):""}
+      </span>
+    </div>`;
+  }).join("") || `<div style="padding:20px;text-align:center;color:#bbb;font-size:12.5px">Bu davrda to'lov bo'lmagan</div>`;
+}
+
 function setDebtFilter(f) {
   debtFilter = f;
   document.querySelectorAll(".debt-filter-btn").forEach(b =>
@@ -290,19 +445,14 @@ function renderDebts() {
   const totalUsd   = allDebt.filter(s => s.debtCurrency === "usd")
                             .reduce((a, s) => a + calcSaleState(s).debtUsd, 0);
   const overCount  = allDebt.filter(isOverdue).length;
-  // Oddiy hisob: bu oy qilingan sotuvlardagi paid (nasiya + to'liq) — bu checkout
-  // paytidagi asl to'lov, keyingi qarz to'lovlari bu yerga kirmaydi (chunki sale o'zgarmaydi)
-  const collected = db.sales
-    .filter(s => s.date?.startsWith(thisMonth))
-    .reduce((a, s) => a + (s.paid || 0), 0);
   const custCount  = new Set(allDebt.map(s => debtCust(s).name)).size;
 
   $("st-total").textContent     = fmt(totalUzs) + " so'm";
   if ($("st-total-usd")) $("st-total-usd").textContent = totalUsd > 0 ? `$${totalUsd.toFixed(2)}` : "$0";
   $("st-over").textContent      = overCount + " ta";
   $("st-cnt").textContent       = custCount + " kishi";
-  $("st-month").textContent     = fmt(collected) + " so'm";
   $("debt-count").textContent   = allDebt.length;
+  renderDebtIncomeStats();
 
   if (debtGrouped) {
     renderDebtsGrouped(list, rate);
