@@ -33,6 +33,45 @@ function txPeriodFilter(s) {
   return true;
 }
 
+// ── Sotuv tarixi ustunlari boshqaruvi ─────────────
+const TARIX_COL_DEFS = [
+  { key:"items",   lbl:"Mahsulotlar",  def:true },
+  { key:"mijoz",   lbl:"Mijoz",        def:true },
+  { key:"tolov",   lbl:"To'lov usuli", def:true },
+  { key:"tolandi", lbl:"To'landi",     def:true },
+  { key:"qoldi",   lbl:"Qoldi",        def:true },
+  { key:"holat",   lbl:"Holat",        def:true },
+];
+
+function getTarixCols() {
+  const saved = db.settings?.tarixCols;
+  const cols = {};
+  TARIX_COL_DEFS.forEach(c => { cols[c.key] = saved && c.key in saved ? saved[c.key] : c.def; });
+  return cols;
+}
+
+function openTarixColsSettings() {
+  const cols = getTarixCols();
+  const list = $("tarix-cols-settings-list");
+  if (list) {
+    list.innerHTML = TARIX_COL_DEFS.map(c => `
+      <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--brd);border-radius:9px;cursor:pointer">
+        <input type="checkbox" ${cols[c.key]?"checked":""} onchange="toggleTarixCol('${c.key}',this.checked)"
+          style="width:17px;height:17px;accent-color:var(--acc);cursor:pointer">
+        <span style="font-size:13px;font-weight:600">${c.lbl}</span>
+      </label>`).join("");
+  }
+  openModal("tarixcols");
+}
+
+function toggleTarixCol(key, val) {
+  if (!db.settings) db.settings = {};
+  if (!db.settings.tarixCols) db.settings.tarixCols = {};
+  db.settings.tarixCols[key] = val;
+  saveDB();
+  renderTarix();
+}
+
 function renderTarix() {
   const q = ($("tarix-q")||{value:""}).value.toLowerCase();
 
@@ -69,6 +108,24 @@ function renderTarix() {
   if ($("tx-total")) $("tx-total").textContent = fmt(total) + " so'm";
   if ($("tx-paid"))  $("tx-paid").textContent  = fmt(paid)  + " so'm";
   if ($("tx-rem"))   $("tx-rem").textContent   = fmt(rem)   + " so'm";
+
+  const cols = getTarixCols();
+
+  // Jadval header ni cols ga qarab yangilaymiz
+  const thead = document.querySelector("#p-tarix thead tr");
+  if (thead) {
+    const colCount = 4 + Object.values(cols).filter(Boolean).length;
+    thead.innerHTML = `
+      <th>Chek</th><th>Sana / Vaqt</th>
+      ${cols.items   ? "<th>Mahsulotlar</th>" : ""}
+      ${cols.mijoz   ? "<th>Mijoz</th>" : ""}
+      ${cols.tolov   ? "<th>To'lov</th>" : ""}
+      <th class="num">Jami</th>
+      ${cols.tolandi ? '<th class="num">To\'landi</th>' : ""}
+      ${cols.qoldi   ? '<th class="num">Qoldi</th>' : ""}
+      ${cols.holat   ? "<th>Holat</th>" : ""}
+      <th></th>`;
+  }
 
   const tbody = $("tarix-body");
   if (!tbody) return;
@@ -113,27 +170,27 @@ function renderTarix() {
           <div style="font-weight:600">${s.date||"—"}</div>
           <div style="color:#aaa">${s.time||""}</div>
         </td>
-        <td>${itemsHtml}</td>
-        <td style="font-size:12.5px">
+        ${cols.items ? `<td>${itemsHtml}</td>` : ""}
+        ${cols.mijoz ? `<td style="font-size:12.5px">
           <div style="font-weight:600">${s.customerName||"—"}</div>
           ${s.customerPhone ? `<div style="font-size:11px;color:#aaa">${s.customerPhone}</div>` : ""}
-        </td>
-        <td>
+        </td>` : ""}
+        ${cols.tolov ? `<td>
           <span class="bg" style="font-size:11px">${PAYTYPES[s.payType]||"—"}</span>
           <div style="margin-top:3px">
             <span class="bg ${s.priceType==="ulgurji"?"bg-a":""}" style="font-size:10.5px">
               ${s.priceType==="ulgurji"?"📦 Ulgurji":"👤 Chakana"}
             </span>
           </div>
-        </td>
+        </td>` : ""}
         <td class="num" style="font-weight:700;font-size:13px">${fmt(s.total||0)} so'm</td>
-        <td class="num" style="color:var(--grn);font-size:12.5px">${fmt(s.paid||0)} so'm</td>
-        <td class="num">${debtCell}</td>
-        <td>
+        ${cols.tolandi ? `<td class="num" style="color:var(--grn);font-size:12.5px">${fmt(s.paid||0)} so'm</td>` : ""}
+        ${cols.qoldi  ? `<td class="num">${debtCell}</td>` : ""}
+        ${cols.holat  ? `<td>
           <span class="bg ${isReturned?"bg-r":isDebt?"bg-a":"bg-g"}" style="font-size:11px">
             ${isReturned ? "↩ Qaytarilgan" : isDebt ? "💳 Qarzda" : "✅ To'langan"}
           </span>
-        </td>
+        </td>` : ""}
         <td onclick="event.stopPropagation()">
           <button class="btn btn-ghost btn-icon btn-sm" onclick="openSaleDetail(${s.id})" title="Ko'rish">
             <i class="ti ti-eye"></i>
