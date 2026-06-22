@@ -169,6 +169,186 @@ function renderHisobot() {
   renderRepCustomerSegment(sales);
 }
 
+// ── Sotuv dinamikasi grafigi ──────────────────────
+let _repTrendChart = null;
+function renderRepTrendChart(sales) {
+  const el = $("repTrendChart"); if (!el || typeof Chart === "undefined") return;
+  if (_repTrendChart) { _repTrendChart.destroy(); _repTrendChart = null; }
+
+  const { from, to } = repDateRange();
+  const days = Math.round((new Date(to) - new Date(from)) / 86400000) + 1;
+
+  // Kunlik guruhlash
+  const byDate = {};
+  sales.forEach(s => { byDate[s.date] = (byDate[s.date]||0) + (s.total||0); });
+
+  let labels = [], data = [];
+  for (let i = 0; i < Math.min(days, 90); i++) {
+    const d = addDays(from, i);
+    if (d > to) break;
+    labels.push(d.slice(5)); // MM-DD
+    data.push(byDate[d] || 0);
+  }
+
+  _repTrendChart = new Chart(el, {
+    type: days <= 31 ? "bar" : "line",
+    data: {
+      labels,
+      datasets: [{ data, borderColor:"#E9A500", backgroundColor: days<=31 ? "#E9A50060":"rgba(233,165,0,.15)",
+        fill: true, tension: .3, borderRadius: 4, borderWidth: days<=31?0:2, pointRadius: days<=31?0:2 }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>fmtK(c.parsed.y)+" so'm"}}},
+      scales:{y:{ticks:{callback:v=>fmtK(v)},grid:{color:"#F0EEE8"}},x:{grid:{display:false},ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:10}}}
+    }
+  });
+}
+
+// ── To'lov usullari diagrammasi ───────────────────
+let _repPayChart = null;
+function renderRepPayChart(sales) {
+  const el = $("repPayChart"); if (!el || typeof Chart === "undefined") return;
+  if (_repPayChart) { _repPayChart.destroy(); _repPayChart = null; }
+  const legEl = $("rep-pay-legend");
+
+  const rate = db.settings?.rate || 12800;
+  const methods = { naqd:0, karta:0, nasiya:0 };
+  sales.forEach(s => {
+    const amt = s.total || 0;
+    const pay = s.payType || "naqd";
+    if (pay === "nasiya" || s.status === "qarz") methods.nasiya += amt;
+    else if (pay === "karta") methods.karta += amt;
+    else methods.naqd += amt;
+  });
+
+  const labels  = ["Naqd","Karta","Nasiya"];
+  const data    = [methods.naqd, methods.karta, methods.nasiya];
+  const colors  = ["#36B48C","#4C9BE8","#E05A5A"];
+  const total   = data.reduce((a,b)=>a+b,0)||1;
+
+  if (legEl) legEl.innerHTML = labels.map((l,i)=>
+    `<span style="display:flex;align-items:center;gap:5px">
+      <span style="width:10px;height:10px;border-radius:50%;background:${colors[i]};flex-shrink:0"></span>
+      <span style="font-size:12px;color:#555">${l}</span>
+      <strong style="font-size:12px">${Math.round(data[i]/total*100)}%</strong>
+    </span>`).join("");
+
+  _repPayChart = new Chart(el, {
+    type:"doughnut",
+    data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:"#fff" }]},
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:"60%",
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.label}: ${fmtK(c.parsed)}  (${Math.round(c.parsed/total*100)}%)`}}}
+    }
+  });
+}
+
+// ── Top mahsulotlar ───────────────────────────────
+function renderRepProducts(sales, totalRev) {
+  const el = $("rep-products"); if (!el) return;
+  const prods = {};
+  sales.forEach(s => s.items?.forEach(i => {
+    if (!prods[i.name]) prods[i.name] = { qty:0, total:0 };
+    prods[i.name].qty   += i.qty || 0;
+    prods[i.name].total += (i.price||0) * (i.qty||0);
+  }));
+
+  const sorted = Object.entries(prods).sort((a,b)=>b[1].total-a[1].total).slice(0,10);
+  if (!sorted.length) { el.innerHTML=`<tr><td colspan="4" class="empty-td">Ma'lumot yo'q</td></tr>`; return; }
+
+  el.innerHTML = sorted.map(([name,d],i) => {
+    const pct = totalRev>0 ? Math.round(d.total/totalRev*100) : 0;
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:#bbb;font-weight:700;width:16px">${i+1}</span>
+          <span style="font-weight:600;font-size:13px">${name}</span>
+        </div>
+      </td>
+      <td class="num">${d.qty} ta</td>
+      <td class="num" style="font-weight:700;color:var(--acc)">${fmtK(d.total)} so'm</td>
+      <td class="num">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="flex:1;height:6px;background:#f0ede7;border-radius:3px;min-width:50px">
+            <div style="height:100%;width:${pct}%;background:var(--acc);border-radius:3px"></div>
+          </div>
+          <span style="font-size:11.5px;color:#888;width:28px;text-align:right">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+// ── Top mijozlar ──────────────────────────────────
+function renderRepCustomers(sales) {
+  const el = $("rep-customers"); if (!el) return;
+  const custs = {};
+  sales.forEach(s => {
+    const name = s.customerName || "Noma'lum";
+    if (!custs[name]) custs[name] = { cnt:0, total:0, debt:0 };
+    custs[name].cnt++;
+    custs[name].total += s.total || 0;
+    custs[name].debt  += calcSaleState(s).remaining;
+  });
+
+  const sorted = Object.entries(custs).sort((a,b)=>b[1].total-a[1].total).slice(0,10);
+  if (!sorted.length) { el.innerHTML=`<tr><td colspan="4" class="empty-td">Ma'lumot yo'q</td></tr>`; return; }
+
+  el.innerHTML = sorted.map(([name,d],i) => `<tr>
+    <td>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;color:#bbb;font-weight:700;width:16px">${i+1}</span>
+        <span style="font-weight:600">${name}</span>
+      </div>
+    </td>
+    <td class="num">${d.cnt} ta</td>
+    <td class="num" style="font-weight:700">${fmtK(d.total)} so'm</td>
+    <td class="num" style="color:${d.debt>0?"var(--red)":"var(--grn)"};font-weight:${d.debt>0?"700":"400"}">
+      ${d.debt>0?fmtK(d.debt)+" so'm":"✅"}
+    </td>
+  </tr>`).join("");
+}
+
+// ── Qarz tushumi (to'lov usuli) ───────────────────
+function renderRepPriceType(sales) {
+  const el = $("rep-pricetype"); if (!el) return;
+  const { from, to } = repDateRange();
+  const rate = db.settings?.rate || 12800;
+
+  const payments = (db.debtPayments||[]).filter(p => p.date >= from && p.date <= to);
+  const toUzs = p => p.currency==="usd" ? p.amount*rate : p.amount;
+  const methodColors = { naqd:"#36B48C", karta:"#4C9BE8", otkazma:"#8B5CF6", balans:"#E9A500" };
+  const methodLabels = { naqd:"💵 Naqd", karta:"💳 Karta", otkazma:"🏦 O'tkazma", balans:"💰 Balansdan" };
+
+  const byMethod = {};
+  payments.forEach(p => { const m=p.method||"naqd"; byMethod[m]=(byMethod[m]||0)+toUzs(p); });
+  const total = Object.values(byMethod).reduce((a,b)=>a+b,0);
+
+  if (!total) { el.innerHTML=`<tr><td colspan="3" class="empty-td">Shu davrda to'lov bo'lmagan</td></tr>`; return; }
+
+  el.innerHTML = Object.entries(byMethod).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1])
+    .map(([key,val]) => {
+      const pct = Math.round(val/total*100);
+      const color = methodColors[key]||"#aaa";
+      return `<tr>
+        <td><span style="display:flex;align-items:center;gap:6px">
+          <span style="width:10px;height:10px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0"></span>
+          ${methodLabels[key]||key}
+        </span></td>
+        <td class="num" style="font-weight:700">${fmtK(val)} so'm</td>
+        <td class="num">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="flex:1;height:7px;background:#f0ede7;border-radius:4px;min-width:60px">
+              <div style="height:100%;width:${pct}%;background:${color};border-radius:4px"></div>
+            </div>
+            <span style="font-size:12px;font-weight:700;width:32px;text-align:right">${pct}%</span>
+          </div>
+        </td>
+      </tr>`;
+    }).join("");
+}
+
 // ── O'sish taqqoslovi ─────────────────────────────
 function renderRepGrowth(curRev, curCnt) {
   const el = document.getElementById("rep-growth"); if (!el) return;
@@ -500,24 +680,153 @@ function renderRepStaff(sales) {
 }
 
 // ── Excel eksport ─────────────────────────────────
+// Har bir tahlil uchun alohida CSV yuklab olinadi
+
 function exportHisobotExcel() {
+  // 1. Asosiy sotuv tarixi
   const { from, to } = repDateRange();
   const sales = repSales();
+  const rate  = db.settings?.rate || 12800;
 
   const rows = [["Sana","Vaqt","Kassir","Mijoz","Telefon","Mahsulotlar","Jami","To'landi","Qarz","To'lov turi","Narx turi","Holat"]];
   sales.forEach(s => {
     const staffName = (db.staff||[]).find(x=>x.id===s.staffId)?.name || "—";
     const items = (s.items||[]).map(i=>i.name+"×"+i.qty).join(", ");
     const st = calcSaleState(s);
-    rows.push([
-      s.date||"", s.time||"", staffName,
-      s.customerName||"—", s.customerPhone||"",
-      items, s.total||0, s.paid||0,
-      st.remaining||0, s.payType||"", s.priceType||"",
-      s.status==="qarz"?"Qarzda":s.status==="qaytarilgan"?"Qaytarilgan":"To'langan"
-    ]);
+    rows.push([s.date||"", s.time||"", staffName, s.customerName||"—", s.customerPhone||"",
+      items, s.total||0, s.paid||0, st.remaining||0, s.payType||"", s.priceType||"",
+      s.status==="qarz"?"Qarzda":s.status==="qaytarilgan"?"Qaytarilgan":"To'langan"]);
+  });
+  downloadCSV(rows, `merx_sotuv_${from}_${to}.xls`);
+  toast("✅ Sotuv hisoboti yuklab olindi");
+}
+
+function exportHisobotProductsExcel() {
+  // 2. Top mahsulotlar (ABC tahlil bilan)
+  const { from, to } = repDateRange();
+  const sales = repSales();
+
+  const prods = {};
+  sales.forEach(s => s.items?.forEach(i => {
+    if (!prods[i.name]) prods[i.name] = { qty:0, total:0 };
+    prods[i.name].qty   += i.qty||0;
+    prods[i.name].total += (i.price||0)*(i.qty||0);
+  }));
+  const totalRev = Object.values(prods).reduce((a,p)=>a+p.total,0)||1;
+  let cum = 0;
+  const rows = [["Mahsulot","Soni","Sotuv summasi","Ulush %","Kumulativ %","ABC sinf"]];
+  Object.entries(prods).sort((a,b)=>b[1].total-a[1].total).forEach(([name,d]) => {
+    const pct = Math.round(d.total/totalRev*100*10)/10;
+    cum += pct;
+    const cls = cum<=80?"A":cum<=95?"B":"C";
+    rows.push([name, d.qty, d.total, pct, Math.round(cum*10)/10, cls]);
+  });
+  downloadCSV(rows, `merx_mahsulotlar_${from}_${to}.xls`);
+  toast("✅ Mahsulotlar hisoboti yuklab olindi");
+}
+
+function exportHisobotStaffExcel() {
+  // 3. Kassirlar tahlili
+  const { from, to } = repDateRange();
+  const sales = repSales();
+  const rate  = db.settings?.rate || 12800;
+
+  const staffMap = {};
+  sales.forEach(s => {
+    const name = (db.staff||[]).find(x=>x.id===s.staffId)?.name||"Noma'lum";
+    if (!staffMap[name]) staffMap[name]={cnt:0,total:0,paid:0,debt:0,cost:0};
+    staffMap[name].cnt++;
+    staffMap[name].total += s.total||0;
+    staffMap[name].paid  += s.paid||0;
+    staffMap[name].debt  += calcSaleState(s).remaining;
+    s.items?.forEach(i=>{
+      const p=(db.products||[]).find(x=>x.name===i.name);
+      staffMap[name].cost += Math.round((p?.costUsd||0)*rate)*(i.qty||0);
+    });
   });
 
-  downloadCSV(rows, `merx_hisobot_${from}_${to}.xls`);
-  toast("✅ Hisobot yuklab olindi");
+  const rows = [["Kassir","Sotuvlar","Jami sotuv","O'rtacha chek","Kassaga tushgan foyda","Nasiya %","Ulush %"]];
+  const totalRev = Object.values(staffMap).reduce((a,d)=>a+d.total,0)||1;
+  Object.entries(staffMap).sort((a,b)=>b[1].total-a[1].total).forEach(([name,d]) => {
+    const avg = d.cnt?Math.round(d.total/d.cnt):0;
+    const profit = d.paid-d.cost;
+    const debtPct = d.total>0?Math.round(d.debt/d.total*100):0;
+    rows.push([name, d.cnt, d.total, avg, profit, debtPct, Math.round(d.total/totalRev*100)]);
+  });
+  downloadCSV(rows, `merx_kassirlar_${from}_${to}.xls`);
+  toast("✅ Kassirlar hisoboti yuklab olindi");
+}
+
+function exportHisobotExpensesExcel() {
+  // 4. Xarajatlar tahlili
+  const { from, to } = repDateRange();
+  const exps = (db.xarajatlar||[]).filter(x=>x.date>=from&&x.date<=to)
+    .sort((a,b)=>a.date>b.date?1:-1);
+
+  const rows = [["Sana","Kategoriya","Summa","Izoh","Kim to'ladi"]];
+  exps.forEach(x => rows.push([x.date, x.category||"—", x.amount||0, x.note||"", x.paidBy||"—"]));
+
+  // Kategoriya bo'yicha yig'indi
+  rows.push([]);
+  rows.push(["--- Kategoriya bo'yicha yig'indi ---"]);
+  rows.push(["Kategoriya","Jami"]);
+  const byCat={};
+  exps.forEach(x=>{const c=x.category||"Boshqa";byCat[c]=(byCat[c]||0)+(x.amount||0);});
+  Object.entries(byCat).sort((a,b)=>b[1]-a[1]).forEach(([c,a])=>rows.push([c,a]));
+  rows.push(["JAMI", exps.reduce((a,x)=>a+(x.amount||0),0)]);
+
+  downloadCSV(rows, `merx_xarajatlar_${from}_${to}.xls`);
+  toast("✅ Xarajatlar hisoboti yuklab olindi");
+}
+
+function exportHisobotTurnoverExcel() {
+  // 5. Tovar aylanmasi + ombor qiymati
+  const { from, to } = repDateRange();
+  const sales = repSales();
+  const rate  = db.settings?.rate || 12800;
+  const days  = Math.max(1, Math.round((new Date(to)-new Date(from))/86400000)+1);
+
+  const soldQty={};
+  sales.forEach(s=>s.items?.forEach(i=>{soldQty[i.name]=(soldQty[i.name]||0)+(i.qty||0);}));
+
+  const rows = [["Mahsulot","Joriy zaxira","Sotildi","Kunlik tezlik","Necha kun yetadi","Tannarxi (so'm)","Sotuv narxi (so'm)","Ombor tannarxi","Ombor sotuv qiymati"]];
+  (db.products||[]).forEach(p=>{
+    const totalQty=(p.variants||[]).reduce((a,v)=>a+(v.qty||0),0);
+    const sold=soldQty[p.name]||0;
+    const dailyRate=sold/days;
+    const daysLeft=dailyRate>0?Math.round(totalQty/dailyRate):null;
+    const costUzs=Math.round((p.costUsd||0)*rate);
+    rows.push([p.name,totalQty,sold,Math.round(dailyRate*10)/10,daysLeft||"Sotilmayapti",
+      costUzs, p.priceUzs||0, costUzs*totalQty, (p.priceUzs||0)*totalQty]);
+  });
+  rows.push([]);
+  const omborCost=(db.products||[]).reduce((a,p)=>a+Math.round((p.costUsd||0)*rate)*(p.variants||[]).reduce((b,v)=>b+(v.qty||0),0),0);
+  const omborSell=(db.products||[]).reduce((a,p)=>a+(p.priceUzs||0)*(p.variants||[]).reduce((b,v)=>b+(v.qty||0),0),0);
+  rows.push(["JAMI OMBOR TANNARXI", omborCost]);
+  rows.push(["JAMI OMBOR SOTUV QIYMATI", omborSell]);
+  rows.push(["POTENSIAL FOYDA", omborSell-omborCost]);
+
+  downloadCSV(rows, `merx_ombor_${from}_${to}.xls`);
+  toast("✅ Ombor hisoboti yuklab olindi");
+}
+
+function exportHisobotCustomersExcel() {
+  // 6. Mijozlar tahlili
+  const { from, to } = repDateRange();
+  const sales = repSales();
+
+  const custs={};
+  sales.forEach(s=>{
+    const name=s.customerName||"Noma'lum";
+    if(!custs[name])custs[name]={cnt:0,total:0,debt:0,phone:s.customerPhone||""};
+    custs[name].cnt++;custs[name].total+=s.total||0;
+    custs[name].debt+=calcSaleState(s).remaining;
+  });
+
+  const rows=[["Mijoz","Telefon","Sotuvlar soni","Jami sotuv","Joriy qarz","O'rtacha chek"]];
+  Object.entries(custs).sort((a,b)=>b[1].total-a[1].total).forEach(([name,d])=>{
+    rows.push([name,d.phone,d.cnt,d.total,d.debt,d.cnt?Math.round(d.total/d.cnt):0]);
+  });
+  downloadCSV(rows, `merx_mijozlar_${from}_${to}.xls`);
+  toast("✅ Mijozlar hisoboti yuklab olindi");
 }

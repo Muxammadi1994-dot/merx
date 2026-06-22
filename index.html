@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=98">
+<link rel="stylesheet" href="style.css?v=99">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1426,9 +1426,26 @@
             style="font-family:inherit;font-size:12px;border:1px solid var(--brd);border-radius:7px;padding:5px 8px">
         </div>
       </div>
-      <button class="btn btn-sm" onclick="exportHisobotExcel()" style="color:#1D6A39">
-        <i class="ti ti-file-spreadsheet"></i> Excel eksport
-      </button>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="exportHisobotExcel()" style="color:#1D6A39">
+          <i class="ti ti-file-spreadsheet"></i> Sotuvlar
+        </button>
+        <button class="btn btn-sm" onclick="exportHisobotProductsExcel()" style="color:#1D6A39">
+          <i class="ti ti-file-spreadsheet"></i> Mahsulotlar
+        </button>
+        <button class="btn btn-sm" onclick="exportHisobotCustomersExcel()" style="color:#1D6A39">
+          <i class="ti ti-file-spreadsheet"></i> Mijozlar
+        </button>
+        <button class="btn btn-sm" onclick="exportHisobotStaffExcel()" style="color:#1D6A39">
+          <i class="ti ti-file-spreadsheet"></i> Kassirlar
+        </button>
+        <button class="btn btn-sm" onclick="exportHisobotExpensesExcel()" style="color:#1D6A39">
+          <i class="ti ti-file-spreadsheet"></i> Xarajatlar
+        </button>
+        <button class="btn btn-sm" onclick="exportHisobotTurnoverExcel()" style="color:#1D6A39">
+          <i class="ti ti-file-spreadsheet"></i> Ombor
+        </button>
+      </div>
     </div>
 
     <!-- O'sish taqqoslovi -->
@@ -2691,23 +2708,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=98"></script>
-<script src="js/utils.js?v=98"></script>
-<script src="js/sms.js?v=98"></script>
-<script src="js/cloud.js?v=98"></script>
-<script src="js/dashboard.js?v=98"></script>
-<script src="js/pos.js?v=98"></script>
-<script src="js/katalog.js?v=98"></script>
-<script src="js/ombor.js?v=98"></script>
-<script src="js/mijozlar.js?v=98"></script>
-<script src="js/qarzlar.js?v=98"></script>
-<script src="js/tarix.js?v=98"></script>
-<script src="js/hisobot.js?v=98"></script>
-<script src="js/xodimlar.js?v=98"></script>
-<script src="js/moliya.js?v=98"></script>
-<script src="js/egasi.js?v=98"></script>
-<script src="js/portal.js?v=98"></script>
-<script src="js/init.js?v=98"></script>
+<script src="js/db.js?v=99"></script>
+<script src="js/utils.js?v=99"></script>
+<script src="js/sms.js?v=99"></script>
+<script src="js/cloud.js?v=99"></script>
+<script src="js/dashboard.js?v=99"></script>
+<script src="js/pos.js?v=99"></script>
+<script src="js/katalog.js?v=99"></script>
+<script src="js/ombor.js?v=99"></script>
+<script src="js/mijozlar.js?v=99"></script>
+<script src="js/qarzlar.js?v=99"></script>
+<script src="js/tarix.js?v=99"></script>
+<script src="js/hisobot.js?v=99"></script>
+<script src="js/xodimlar.js?v=99"></script>
+<script src="js/moliya.js?v=99"></script>
+<script src="js/egasi.js?v=99"></script>
+<script src="js/portal.js?v=99"></script>
+<script src="js/init.js?v=99"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3056,7 +3073,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=98"></script>
-<script src="js/superadmin.js?v=98"></script>
+<script src="js/auth.js?v=99"></script>
+<script src="js/superadmin.js?v=99"></script>
 </body>
 </html>
