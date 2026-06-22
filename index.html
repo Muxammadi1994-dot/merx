@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=93">
+<link rel="stylesheet" href="style.css?v=94">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1025,6 +1025,27 @@
 
   <!-- QARZLAR -->
   <div class="pg" id="p-qarzlar">
+
+    <!-- MODAL: KPI panellarni sozlash -->
+    <div class="ov" id="ov-debtkpi" onclick="if(event.target===this)closeModal('debtkpi')">
+      <div class="modal" style="max-width:380px">
+        <button class="m-close" onclick="closeModal('debtkpi')"><i class="ti ti-x"></i></button>
+        <h2 style="margin-bottom:4px">Panellarni sozlash</h2>
+        <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Qaysi ko'rsatkichlar ko'rinishini tanlang</p>
+        <div id="debt-kpi-settings-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </div>
+
+    <!-- MODAL: Jadval ustunlarini sozlash -->
+    <div class="ov" id="ov-debtcols" onclick="if(event.target===this)closeModal('debtcols')">
+      <div class="modal" style="max-width:380px">
+        <button class="m-close" onclick="closeModal('debtcols')"><i class="ti ti-x"></i></button>
+        <h2 style="margin-bottom:4px">Jadval ustunlarini sozlash</h2>
+        <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Qaysi ustunlar ko'rinishini tanlang</p>
+        <div id="debt-cols-settings-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </div>
+
     <!-- KPI kartalar (2 ustun) + Trend grafigi -->
     <div id="debt-kpi-trend-wrap" style="display:grid;grid-template-columns:1fr 1.15fr;gap:16px;margin-bottom:16px;align-items:stretch">
       <div style="display:flex;flex-direction:column">
@@ -2580,23 +2601,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=93"></script>
-<script src="js/utils.js?v=93"></script>
-<script src="js/sms.js?v=93"></script>
-<script src="js/cloud.js?v=93"></script>
-<script src="js/dashboard.js?v=93"></script>
-<script src="js/pos.js?v=93"></script>
-<script src="js/katalog.js?v=93"></script>
-<script src="js/ombor.js?v=93"></script>
-<script src="js/mijozlar.js?v=93"></script>
-<script src="js/qarzlar.js?v=93"></script>
-<script src="js/tarix.js?v=93"></script>
-<script src="js/hisobot.js?v=93"></script>
-<script src="js/xodimlar.js?v=93"></script>
-<script src="js/moliya.js?v=93"></script>
-<script src="js/egasi.js?v=93"></script>
-<script src="js/portal.js?v=93"></script>
-<script src="js/init.js?v=93"></script>
+<script src="js/db.js?v=94"></script>
+<script src="js/utils.js?v=94"></script>
+<script src="js/sms.js?v=94"></script>
+<script src="js/cloud.js?v=94"></script>
+<script src="js/dashboard.js?v=94"></script>
+<script src="js/pos.js?v=94"></script>
+<script src="js/katalog.js?v=94"></script>
+<script src="js/ombor.js?v=94"></script>
+<script src="js/mijozlar.js?v=94"></script>
+<script src="js/qarzlar.js?v=94"></script>
+<script src="js/tarix.js?v=94"></script>
+<script src="js/hisobot.js?v=94"></script>
+<script src="js/xodimlar.js?v=94"></script>
+<script src="js/moliya.js?v=94"></script>
+<script src="js/egasi.js?v=94"></script>
+<script src="js/portal.js?v=94"></script>
+<script src="js/init.js?v=94"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2945,7 +2966,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=93"></script>
-<script src="js/superadmin.js?v=93"></script>
+<script src="js/auth.js?v=94"></script>
+<script src="js/superadmin.js?v=94"></script>
 </body>
 </html>
