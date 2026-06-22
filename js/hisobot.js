@@ -121,6 +121,41 @@ function renderHisobot() {
   // Tannarx jami
   if ($("rep-cost")) $("rep-cost").textContent = fmtK(costTotal) + " so'm";
 
+  // ── Xarajatlar (shu davrdagi) → sof foyda ──────
+  const { from, to } = repDateRange();
+  const periodExp = (db.xarajatlar||[])
+    .filter(x => x.date >= from && x.date <= to)
+    .reduce((a, x) => a + (x.amount||0), 0);
+  const netProfit = realProfit - periodExp;
+  const netMargin = paid > 0 ? Math.round(netProfit / paid * 100) : 0;
+
+  if ($("rep-expenses")) $("rep-expenses").textContent = fmtK(periodExp) + " so'm";
+  if ($("rep-net-profit")) {
+    $("rep-net-profit").textContent = fmtK(netProfit) + " so'm";
+    $("rep-net-profit").style.color = netProfit >= 0 ? "var(--grn)" : "var(--red)";
+  }
+  if ($("rep-net-margin")) {
+    $("rep-net-margin").textContent = netMargin + "%";
+    $("rep-net-margin").style.color = netMargin >= 15 ? "var(--grn)" : netMargin >= 5 ? "#E07B39" : "var(--red)";
+  }
+
+  // ── Ombor qiymati ───────────────────────────────
+  const omborCost = (db.products||[]).reduce((a, p) => {
+    const costUzs = Math.round((p.costUsd||0) * rate);
+    return a + costUzs * (p.variants||[]).reduce((b,v)=>b+(v.qty||0),0);
+  }, 0);
+  const omborSellVal = (db.products||[]).reduce((a, p) => {
+    return a + (p.priceUzs||0) * (p.variants||[]).reduce((b,v)=>b+(v.qty||0),0);
+  }, 0);
+  if ($("rep-ombor-cost"))   $("rep-ombor-cost").textContent   = fmtK(omborCost) + " so'm";
+  if ($("rep-ombor-sell"))   $("rep-ombor-sell").textContent   = fmtK(omborSellVal) + " so'm";
+  if ($("rep-ombor-profit")) {
+    const op = omborSellVal - omborCost;
+    $("rep-ombor-profit").textContent = fmtK(op) + " so'm";
+    $("rep-ombor-profit").style.color = op >= 0 ? "var(--grn)" : "var(--red)";
+  }
+
+  renderRepExpenseChart(periodExp, costTotal, realProfit);
   renderRepTrendChart(sales);
   renderRepPayChart(sales);
   renderRepProducts(sales, rev);
@@ -166,336 +201,53 @@ function renderRepGrowth(curRev, curCnt) {
 }
 
 // ── Kassir tahlili ────────────────────────────────
-function renderRepStaff(sales) {
-  const el = document.getElementById("rep-staff"); if (!el) return;
-  if (!db.staff?.length) { el.innerHTML = `<tr><td colspan="5" class="empty-td">Xodimlar yo'q</td></tr>`; return; }
-
-  const staffMap = {};
-  sales.forEach(s => {
-    const sid = s.staffId;
-    if (!staffMap[sid]) staffMap[sid] = { cnt:0, total:0, paid:0, debt:0 };
-    staffMap[sid].cnt++;
-    staffMap[sid].total += s.total||0;
-    staffMap[sid].paid  += s.paid||0;
-    staffMap[sid].debt  += s.remaining||0;
-  });
-
-  const totalRev = Object.values(staffMap).reduce((a,x)=>a+x.total,0)||1;
-  const rows = db.staff.map(s => ({
-    ...s, ...(staffMap[s.id]||{cnt:0,total:0,paid:0,debt:0})
-  })).sort((a,b)=>b.total-a.total);
-
-  el.innerHTML = rows.map((s,i) => {
-    const pct = Math.round((s.total||0)/totalRev*100);
-    const avg = s.cnt ? Math.round(s.total/s.cnt) : 0;
-    return `<tr>
-      <td>
-        <div style="display:flex;align-items:center;gap:7px">
-          <span style="font-size:11px;color:#bbb;width:16px">${i+1}</span>
-          <div>
-            <div style="font-weight:600;font-size:13px">${s.name}</div>
-            <div style="font-size:11px;color:var(--mut)">${s.role||"kassir"}</div>
-          </div>
-        </div>
-      </td>
-      <td class="num">${s.cnt} ta</td>
-      <td class="num" style="font-weight:700;color:var(--acc)">${s.total?fmtK(s.total)+" so'm":"—"}</td>
-      <td class="num" style="font-size:12px">${avg?fmtK(avg)+" so'm":"—"}</td>
-      <td class="num">
-        <div style="display:flex;align-items:center;gap:6px">
-          <div style="flex:1;height:6px;background:#f0ede7;border-radius:3px;min-width:50px">
-            <div style="height:100%;width:${pct}%;background:var(--acc);border-radius:3px"></div>
-          </div>
-          <span style="font-size:11.5px;color:#888;width:28px;text-align:right">${pct}%</span>
-        </div>
-      </td>
-    </tr>`;
-  }).join("");
-}
-
-// ── Sotuv dinamikasi chart ─────────────────────────
-function renderRepTrendChart(sales) {
-  const canvas = document.getElementById("repTrendChart");
-  if (!canvas) return;
-
-  // Eski chart ni yo'q qilish
-  if (_repCharts.trend) { _repCharts.trend.destroy(); delete _repCharts.trend; }
+// ══════════════════════════════════════════════════
+// ── Pul oqimi grafigi va xarajat kategoriyalari ───
+let _repExpChart = null;
+function renderRepExpenseChart(periodExp, costTotal, realProfit) {
+  const el = $("rep-expense-chart"); if (!el || typeof Chart === "undefined") return;
+  if (_repExpChart) { _repExpChart.destroy(); _repExpChart = null; }
 
   const { from, to } = repDateRange();
-  const days = [];
-  let cur = from;
-  while (cur <= to && days.length < 60) {
-    days.push(cur);
-    cur = addDays(cur, 1);
-  }
+  const exps = (db.xarajatlar||[]).filter(x => x.date >= from && x.date <= to);
+  const byCat = {};
+  exps.forEach(x => { const c = x.category||"Boshqa"; byCat[c]=(byCat[c]||0)+(x.amount||0); });
 
-  // Haftalik/oylik guruhlanish
-  let labels = [], data = [];
-  if (days.length <= 14) {
-    // Kunlik
-    const wdays = ["Ya","Du","Se","Ch","Pa","Ju","Sh"];
-    labels = days.map(d => {
-      const dObj = new Date(d);
-      return d === today() ? "Bugun" : wdays[dObj.getDay()] + " " + d.slice(8);
-    });
-    data = days.map(d => sales.filter(s => s.date === d).reduce((a, s) => a + s.total, 0));
-  } else if (days.length <= 60) {
-    // Haftalik
-    const weeks = {};
-    days.forEach(d => {
-      const dObj = new Date(d);
-      const wStart = addDays(d, -dObj.getDay());
-      const key = wStart;
-      if (!weeks[key]) weeks[key] = { label: d.slice(5), total: 0 };
-      const daySales = sales.filter(s => s.date === d).reduce((a, s) => a + s.total, 0);
-      weeks[key].total += daySales;
-    });
-    labels = Object.values(weeks).map(w => w.label);
-    data   = Object.values(weeks).map(w => w.total);
-  } else {
-    // Oylik
-    const months = {};
-    sales.forEach(s => {
-      const m = (s.date||"").slice(0, 7);
-      if (!months[m]) months[m] = 0;
-      months[m] += s.total;
-    });
-    const sorted = Object.keys(months).sort();
-    labels = sorted.map(m => m.slice(5) + " oy");
-    data   = sorted.map(m => months[m]);
-  }
-
-  _repCharts.trend = new Chart(canvas, {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [{
-        label: "Sotuv (so'm)",
-        data,
-        backgroundColor: data.map((_, i) => i === data.length - 1 ? "#E9A500" : "#4C9BE888"),
-        borderColor:     data.map((_, i) => i === data.length - 1 ? "#d49400" : "#4C9BE8"),
-        borderWidth: 1.5,
-        borderRadius: 5,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: {
-          grid: { color: "#f0ede7" },
-          ticks: {
-            font: { size: 11 },
-            callback: v => fmtK(v)
-          }
-        },
-        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
-      }
-    }
-  });
-}
-
-// ── To'lov usullari chart ─────────────────────────
-function renderRepPayChart(sales) {
-  const canvas = document.getElementById("repPayChart");
-  if (!canvas) return;
-  if (_repCharts.pay) { _repCharts.pay.destroy(); delete _repCharts.pay; }
-
-  const types  = { naqd: 0, karta: 0, otkazma: 0 };
-  sales.forEach(s => {
-    if (s.payType === "aralash" && (s.payBreakdown || s.pay_breakdown)) {
-      const breakdown = s.payBreakdown || s.pay_breakdown;
-      Object.entries(breakdown).forEach(([m, v]) => {
-        if (m in types) types[m] += v;
-      });
-    } else if (s.payType in types) {
-      types[s.payType] += s.total;
-    }
-  });
-  const total  = Object.values(types).reduce((a, b) => a + b, 0);
-  const labels = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma" };
-  const colors = { naqd:"#E9A500", karta:"#4C9BE8", otkazma:"#36B48C" };
-
-  if (!total) {
-    const legend = $("rep-pay-legend");
-    if (legend) legend.innerHTML = `<span style="color:#ccc;font-size:12px">Ma'lumot yo'q</span>`;
-    return;
-  }
-
-  _repCharts.pay = new Chart(canvas, {
-    type: "doughnut",
-    data: {
-      labels: Object.keys(types).map(k => labels[k]),
-      datasets: [{
-        data:            Object.values(types),
-        backgroundColor: Object.keys(types).map(k => colors[k]),
-        borderWidth: 2,
-        borderColor: "#fff"
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` ${fmtK(ctx.raw)} so'm (${Math.round(ctx.raw/total*100)}%)` } }
-      },
-      cutout: "65%"
-    }
-  });
-
-  // Legend
-  const legend = $("rep-pay-legend");
-  if (legend) {
-    legend.innerHTML = Object.entries(types).filter(([,v]) => v > 0).map(([k, v]) =>
-      `<div style="display:flex;align-items:center;gap:5px">
-        <div style="width:10px;height:10px;border-radius:3px;background:${colors[k]}"></div>
-        <span style="color:#666">${labels[k]}</span>
-        <strong>${Math.round(v/total*100)}%</strong>
-      </div>`
-    ).join("");
-  }
-}
-
-// ── Top mahsulotlar ───────────────────────────────
-function renderRepProducts(sales, totalRev) {
-  const el = $("rep-products"); if (!el) return;
-
-  const prods = {};
-  sales.forEach(s => {
-    s.items?.forEach(item => {
-      if (!prods[item.name]) prods[item.name] = { qty: 0, total: 0 };
-      prods[item.name].qty   += item.qty;
-      prods[item.name].total += (item.price||0) * item.qty;
-    });
-  });
-
-  const sorted = Object.entries(prods)
-    .sort((a, b) => b[1].total - a[1].total)
-    .slice(0, 10);
-
-  if (!sorted.length) {
-    el.innerHTML = `<tr><td colspan="4" class="empty-td">Ma'lumot yo'q</td></tr>`;
-    return;
-  }
-
-  el.innerHTML = sorted.map(([name, d], i) => {
-    const pct  = totalRev > 0 ? Math.round(d.total / totalRev * 100) : 0;
-    return `<tr>
-      <td>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:11px;color:#bbb;font-weight:700;width:16px">${i+1}</span>
-          <div>
-            <div style="font-weight:600;font-size:13px">${name}</div>
-          </div>
-        </div>
-      </td>
-      <td class="num" style="font-weight:600">${d.qty} ta</td>
-      <td class="num" style="font-weight:700;color:var(--acc)">${fmtK(d.total)} so'm</td>
-      <td class="num">
-        <div style="display:flex;align-items:center;gap:6px">
-          <div style="flex:1;height:6px;background:#f0ede7;border-radius:3px;min-width:50px">
-            <div style="height:100%;width:${pct}%;background:var(--acc);border-radius:3px"></div>
-          </div>
-          <span style="font-size:11.5px;color:#888;width:28px;text-align:right">${pct}%</span>
-        </div>
-      </td>
-    </tr>`;
-  }).join("");
-}
-
-// ── Top mijozlar ──────────────────────────────────
-function renderRepCustomers(sales) {
-  const el = $("rep-customers"); if (!el) return;
-
-  const custs = {};
-  sales.forEach(s => {
-    const name = s.customerName || "Noma'lum";
-    if (!custs[name]) custs[name] = { cnt: 0, total: 0, debt: 0 };
-    custs[name].cnt++;
-    custs[name].total += s.total || 0;
-    custs[name].debt  += s.remaining || 0;
-  });
-
-  const sorted = Object.entries(custs)
-    .sort((a, b) => b[1].total - a[1].total)
-    .slice(0, 10);
-
-  if (!sorted.length) {
-    el.innerHTML = `<tr><td colspan="4" class="empty-td">Ma'lumot yo'q</td></tr>`;
-    return;
-  }
-
-  el.innerHTML = sorted.map(([name, d], i) =>
-    `<tr>
-      <td>
-        <div style="display:flex;align-items:center;gap:7px">
-          <span style="font-size:11px;color:#bbb;font-weight:700;width:16px">${i+1}</span>
-          <div style="font-weight:600;font-size:13px">${name}</div>
-        </div>
-      </td>
-      <td class="num">${d.cnt} ta</td>
-      <td class="num" style="font-weight:700">${fmtK(d.total)} so'm</td>
-      <td class="num">
-        ${d.debt > 0
-          ? `<span style="color:var(--red);font-weight:700">${fmtK(d.debt)} so'm</span>`
-          : `<span class="bg bg-g" style="font-size:11px">✅</span>`}
-      </td>
-    </tr>`
-  ).join("");
-}
-
-// ── Narx turi tahlili ─────────────────────────────
-function renderRepPriceType(sales) {
-  const el = $("rep-pricetype"); if (!el) return;
-  const { from, to } = repDateRange();
-  const rate = db.settings?.rate || 12800;
-
-  // Davr ichidagi qarz to'lovlari
-  const payments = (db.debtPayments||[]).filter(p => p.date >= from && p.date <= to);
-  const toUzs = p => p.currency === "usd" ? p.amount * rate : p.amount;
-
-  const methodColors = { naqd:"#36B48C", karta:"#4C9BE8", otkazma:"#8B5CF6", balans:"#E9A500" };
-  const methodLabels = { naqd:"💵 Naqd", karta:"💳 Karta", otkazma:"🏦 O'tkazma", balans:"💰 Balansdan" };
-
-  const byMethod = {};
-  payments.forEach(p => {
-    const m = p.method || "naqd";
-    byMethod[m] = (byMethod[m]||0) + toUzs(p);
-  });
-
-  const total = Object.values(byMethod).reduce((a,b)=>a+b,0);
-
-  if (!total) {
-    el.innerHTML = `<tr><td colspan="3" class="empty-td">Shu davrda qarz to'lovi bo'lmagan</td></tr>`;
-    return;
-  }
-
-  el.innerHTML = Object.entries(byMethod)
-    .filter(([,v]) => v > 0)
-    .sort((a,b) => b[1]-a[1])
-    .map(([key, val]) => {
-      const pct = Math.round(val/total*100);
-      const color = methodColors[key]||"#aaa";
-      return `<tr>
-        <td><span style="display:flex;align-items:center;gap:6px">
-          <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block"></span>
-          ${methodLabels[key]||key}
-        </span></td>
-        <td class="num" style="font-weight:700">${fmtK(val)} so'm</td>
+  const catEl = $("rep-expense-cats");
+  if (catEl) {
+    const total = Object.values(byCat).reduce((a,b)=>a+b,0)||1;
+    catEl.innerHTML = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([cat,amt]) => `
+      <tr>
+        <td style="font-weight:600">${cat}</td>
+        <td class="num" style="font-weight:700;color:var(--red)">${fmtK(amt)} so'm</td>
         <td class="num">
           <div style="display:flex;align-items:center;gap:6px">
-            <div style="flex:1;height:7px;background:#f0ede7;border-radius:4px;min-width:60px">
-              <div style="height:100%;width:${pct}%;background:${color};border-radius:4px"></div>
+            <div style="flex:1;height:6px;background:#f0ede7;border-radius:4px;min-width:60px">
+              <div style="height:100%;width:${Math.round(amt/total*100)}%;background:var(--red);border-radius:4px"></div>
             </div>
-            <span style="font-size:12px;font-weight:700;width:32px;text-align:right">${pct}%</span>
+            <span style="font-size:11.5px;font-weight:700;width:30px">${Math.round(amt/total*100)}%</span>
           </div>
         </td>
-      </tr>`;
-    }).join("");
+      </tr>`).join("") || `<tr><td colspan="3" class="empty-td">Shu davrda xarajat yo'q</td></tr>`;
+  }
+
+  const kassaTushdi = Math.max(0, realProfit + periodExp);
+  _repExpChart = new Chart(el, {
+    type: "bar",
+    data: {
+      labels: ["Kassaga tushdi", "Xarajatlar", "Tovar tannarxi"],
+      datasets: [{ data: [kassaTushdi, periodExp, costTotal],
+        backgroundColor: ["#36B48C", "#E05A5A", "#8B5CF6"],
+        borderRadius: 6, borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{ label: c=>fmtK(c.parsed.y)+" so'm" }}},
+      scales: { y:{ ticks:{callback:v=>fmtK(v)}, grid:{color:"#F0EEE8"}}, x:{grid:{display:false}}}
+    }
+  });
 }
 
-
-// ══════════════════════════════════════════════════
 // 1. SOAT BO'YICHA TAHLIL
 // ══════════════════════════════════════════════════
 let _repHourChart = null;
