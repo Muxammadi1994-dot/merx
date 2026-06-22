@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=96">
+<link rel="stylesheet" href="style.css?v=97">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1534,15 +1534,57 @@
         <tbody id="rep-customers"></tbody></table></div>
     </div>
 
-    <!-- Kassir tahlili -->
+    <!-- Kassir chuqur tahlili -->
     <div class="card"><div class="ch"><h3><i class="ti ti-id-badge"></i>Kassirlar tahlili</h3></div>
-      <table><thead><tr><th>Kassir</th><th>Sotuvlar</th><th>Jami</th><th>O'rtacha chek</th><th>Ulush</th></tr></thead>
+      <table><thead><tr><th>Kassir</th><th>Sotuvlar</th><th>Jami</th><th>O'rtacha chek</th><th>Foyda (kassa)</th><th>Nasiya %</th><th>Ulush</th></tr></thead>
       <tbody id="rep-staff"></tbody></table></div>
 
     <div class="card"><div class="ch"><h3><i class="ti ti-cash-banknote"></i>Qarz tushumi (to'lov usuli)</h3></div>
       <div style="overflow-x:auto">
       <table><thead><tr><th>Usul</th><th>Jami tushum</th><th>Ulush</th></tr></thead>
       <tbody id="rep-pricetype"></tbody></table></div></div>
+
+    <!-- Soat bo'yicha tahlil -->
+    <div class="card">
+      <div class="ch"><h3><i class="ti ti-clock"></i>Soat bo'yicha savdo tahlili</h3></div>
+      <div style="padding:0 18px 8px;display:flex;gap:16px;flex-wrap:wrap">
+        <div style="font-size:12px;color:var(--mut)">
+          Eng faol soat: <strong id="rep-peak-hour" style="color:var(--acc)">—</strong>
+          &nbsp;·&nbsp; <span id="rep-peak-cnt" style="color:var(--mut)"></span>
+        </div>
+      </div>
+      <div style="padding:0 18px 14px;height:180px">
+        <canvas id="rep-hourly-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- ABC tahlil + Tovar aylanmasi -->
+    <div class="g2">
+      <div class="card">
+        <div class="ch"><h3><i class="ti ti-award"></i>ABC tahlil</h3>
+          <span style="font-size:11px;color:var(--mut);font-weight:400">A=80% daromad · B=15% · C=5%</span>
+        </div>
+        <table><thead><tr><th>Mahsulot</th><th>Soni</th><th>Sotuv</th><th>Ulush</th><th>Kumulativ</th></tr></thead>
+        <tbody id="rep-abc"></tbody></table>
+      </div>
+      <div class="card">
+        <div class="ch"><h3><i class="ti ti-refresh"></i>Tovar aylanmasi</h3>
+          <span style="font-size:11px;color:var(--mut);font-weight:400">Zaxira qancha kun yetadi</span>
+        </div>
+        <table><thead><tr><th>Mahsulot</th><th>Zaxira</th><th>Sotildi</th><th>Tezlik</th><th>Holat</th></tr></thead>
+        <tbody id="rep-turnover"></tbody></table>
+      </div>
+    </div>
+
+    <!-- Mijoz segmentatsiyasi -->
+    <div class="card">
+      <div class="ch"><h3><i class="ti ti-users-group"></i>Mijoz segmentatsiyasi</h3>
+        <span style="font-size:11px;color:var(--mut);font-weight:400">Yangi vs qaytuvchi mijozlar</span>
+      </div>
+      <table><thead><tr><th>Segment</th><th>Soni</th><th>Jami sotuv</th><th>Ulush</th></tr></thead>
+      <tbody id="rep-cust-segment"></tbody></table>
+    </div>
+
   </div>
   <!-- XODIMLAR -->
   <div class="pg" id="p-xodimlar">
@@ -2649,23 +2691,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=96"></script>
-<script src="js/utils.js?v=96"></script>
-<script src="js/sms.js?v=96"></script>
-<script src="js/cloud.js?v=96"></script>
-<script src="js/dashboard.js?v=96"></script>
-<script src="js/pos.js?v=96"></script>
-<script src="js/katalog.js?v=96"></script>
-<script src="js/ombor.js?v=96"></script>
-<script src="js/mijozlar.js?v=96"></script>
-<script src="js/qarzlar.js?v=96"></script>
-<script src="js/tarix.js?v=96"></script>
-<script src="js/hisobot.js?v=96"></script>
-<script src="js/xodimlar.js?v=96"></script>
-<script src="js/moliya.js?v=96"></script>
-<script src="js/egasi.js?v=96"></script>
-<script src="js/portal.js?v=96"></script>
-<script src="js/init.js?v=96"></script>
+<script src="js/db.js?v=97"></script>
+<script src="js/utils.js?v=97"></script>
+<script src="js/sms.js?v=97"></script>
+<script src="js/cloud.js?v=97"></script>
+<script src="js/dashboard.js?v=97"></script>
+<script src="js/pos.js?v=97"></script>
+<script src="js/katalog.js?v=97"></script>
+<script src="js/ombor.js?v=97"></script>
+<script src="js/mijozlar.js?v=97"></script>
+<script src="js/qarzlar.js?v=97"></script>
+<script src="js/tarix.js?v=97"></script>
+<script src="js/hisobot.js?v=97"></script>
+<script src="js/xodimlar.js?v=97"></script>
+<script src="js/moliya.js?v=97"></script>
+<script src="js/egasi.js?v=97"></script>
+<script src="js/portal.js?v=97"></script>
+<script src="js/init.js?v=97"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3014,7 +3056,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=96"></script>
-<script src="js/superadmin.js?v=96"></script>
+<script src="js/auth.js?v=97"></script>
+<script src="js/superadmin.js?v=97"></script>
 </body>
 </html>

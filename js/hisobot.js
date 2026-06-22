@@ -121,45 +121,6 @@ function renderHisobot() {
   // Tannarx jami
   if ($("rep-cost")) $("rep-cost").textContent = fmtK(costTotal) + " so'm";
 
-  // ── Xarajatlar (shu davrdagi) → sof foyda ──────
-  const { from, to } = repDateRange();
-  const periodExp = (db.xarajatlar||[])
-    .filter(x => x.date >= from && x.date <= to)
-    .reduce((a, x) => a + (x.amount||0), 0);
-  const netProfit = realProfit - periodExp; // Sof foyda = kassaga tushgan − xarajatlar
-  const netMargin = paid > 0 ? Math.round(netProfit / paid * 100) : 0;
-
-  if ($("rep-expenses")) $("rep-expenses").textContent = fmtK(periodExp) + " so'm";
-  if ($("rep-net-profit")) {
-    $("rep-net-profit").textContent = fmtK(netProfit) + " so'm";
-    $("rep-net-profit").style.color = netProfit >= 0 ? "var(--grn)" : "var(--red)";
-  }
-  if ($("rep-net-margin")) {
-    $("rep-net-margin").textContent = netMargin + "%";
-    $("rep-net-margin").style.color = netMargin >= 15 ? "var(--grn)" : netMargin >= 5 ? "#E07B39" : "var(--red)";
-  }
-
-  // ── Ombor qiymati (joriy, davrsiz) ─────────────
-  const omborCost = (db.products||[]).reduce((a, p) => {
-    const costUzs = Math.round((p.costUsd||0) * rate);
-    const totalQty = (p.variants||[]).reduce((b, v) => b + (v.qty||0), 0);
-    return a + costUzs * totalQty;
-  }, 0);
-  const omborSellVal = (db.products||[]).reduce((a, p) => {
-    const sellUzs = p.priceUzs || 0;
-    const totalQty = (p.variants||[]).reduce((b, v) => b + (v.qty||0), 0);
-    return a + sellUzs * totalQty;
-  }, 0);
-  const omborProfit = omborSellVal - omborCost;
-
-  if ($("rep-ombor-cost")) $("rep-ombor-cost").textContent = fmtK(omborCost) + " so'm";
-  if ($("rep-ombor-sell")) $("rep-ombor-sell").textContent = fmtK(omborSellVal) + " so'm";
-  if ($("rep-ombor-profit")) {
-    $("rep-ombor-profit").textContent = fmtK(omborProfit) + " so'm";
-    $("rep-ombor-profit").style.color = omborProfit >= 0 ? "var(--grn)" : "var(--red)";
-  }
-
-  renderRepExpenseChart(periodExp, costTotal, realProfit);
   renderRepTrendChart(sales);
   renderRepPayChart(sales);
   renderRepProducts(sales, rev);
@@ -167,6 +128,10 @@ function renderHisobot() {
   renderRepPriceType(sales);
   renderRepStaff(sales);
   renderRepGrowth(rev, cnt);
+  renderRepHourly(sales);
+  renderRepTurnover(sales);
+  renderRepABC(sales);
+  renderRepCustomerSegment(sales);
 }
 
 // ── O'sish taqqoslovi ─────────────────────────────
@@ -530,62 +495,256 @@ function renderRepPriceType(sales) {
 }
 
 
-// ── Xarajatlar tahlili — pul oqimi grafigi ─────────
-let _repExpChart = null;
-function renderRepExpenseChart(expenses, costTotal, realProfit) {
-  const el = $("rep-expense-chart"); if (!el || typeof Chart === "undefined") return;
-  if (_repExpChart) { _repExpChart.destroy(); _repExpChart = null; }
+// ══════════════════════════════════════════════════
+// 1. SOAT BO'YICHA TAHLIL
+// ══════════════════════════════════════════════════
+let _repHourChart = null;
+function renderRepHourly(sales) {
+  const el = $("rep-hourly-chart"); if (!el || typeof Chart === "undefined") return;
+  if (_repHourChart) { _repHourChart.destroy(); _repHourChart = null; }
 
-  const { from, to } = repDateRange();
-  const periodExp = (db.xarajatlar||[]).filter(x => x.date >= from && x.date <= to);
-
-  // Kategoriya bo'yicha guruhlash
-  const byCat = {};
-  periodExp.forEach(x => {
-    const cat = x.category || "Boshqa";
-    byCat[cat] = (byCat[cat]||0) + (x.amount||0);
+  const hours = Array(24).fill(0);
+  const counts = Array(24).fill(0);
+  sales.forEach(s => {
+    if (!s.time) return;
+    const h = parseInt(s.time.split(":")[0]);
+    if (h >= 0 && h < 24) { hours[h] += s.total || 0; counts[h]++; }
   });
 
-  // Xarajat kategoriyalar jadvali
-  const catEl = $("rep-expense-cats");
-  if (catEl) {
-    const sorted = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
-    const total = Object.values(byCat).reduce((a,b)=>a+b,0)||1;
-    catEl.innerHTML = sorted.map(([cat,amt]) => `
-      <tr>
-        <td style="font-weight:600">${cat}</td>
-        <td class="num" style="font-weight:700;color:var(--red)">${fmtK(amt)} so'm</td>
-        <td class="num">
-          <div style="display:flex;align-items:center;gap:6px">
-            <div style="flex:1;height:6px;background:#f0ede7;border-radius:4px;min-width:60px">
-              <div style="height:100%;width:${Math.round(amt/total*100)}%;background:var(--red);border-radius:4px"></div>
-            </div>
-            <span style="font-size:11.5px;font-weight:700;width:30px">${Math.round(amt/total*100)}%</span>
-          </div>
-        </td>
-      </tr>`).join("") || `<tr><td colspan="3" class="empty-td">Shu davrda xarajat yo'q</td></tr>`;
-  }
+  const labels = hours.map((_, i) => `${String(i).padStart(2,"0")}:00`);
+  const peakHour = hours.indexOf(Math.max(...hours));
+  if ($("rep-peak-hour")) $("rep-peak-hour").textContent =
+    `${String(peakHour).padStart(2,"0")}:00–${String(peakHour+1).padStart(2,"0")}:00`;
+  if ($("rep-peak-cnt")) $("rep-peak-cnt").textContent = counts[peakHour] + " ta sotuv";
 
-  // Pul oqimi: Kassaga tushdi vs Xarajatlar vs Sof foyda
-  if (!Object.keys(byCat).length && realProfit === 0) return;
-  const data = [
-    { label: "Kassaga tushdi", val: Math.max(0, realProfit + expenses), color: "#36B48C" },
-    { label: "Xarajatlar", val: expenses, color: "#E05A5A" },
-    { label: "Tovar tannarxi", val: costTotal, color: "#8B5CF6" },
-  ];
-
-  _repExpChart = new Chart(el, {
+  _repHourChart = new Chart(el, {
     type: "bar",
     data: {
-      labels: data.map(d => d.label),
-      datasets: [{ data: data.map(d => d.val), backgroundColor: data.map(d=>d.color), borderRadius: 6, borderWidth: 0 }]
+      labels,
+      datasets: [{
+        data: hours,
+        backgroundColor: hours.map((_,i) => i === peakHour ? "#E9A500" : "#4C9BE840"),
+        borderRadius: 4, borderWidth: 0
+      }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmtK(c.parsed.y) + " so'm" }}},
-      scales: { y: { ticks: { callback: v => fmtK(v) }, grid: { color: "#F0EEE8" }}, x: { grid: { display: false }}}
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: c => fmtK(c.parsed.y) + " so'm | " + counts[c.dataIndex] + " ta" }}},
+      scales: {
+        y: { ticks: { callback: v => fmtK(v) }, grid: { color: "#F0EEE8" }},
+        x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }}
+      }
     }
   });
+}
+
+// ══════════════════════════════════════════════════
+// 2. TOVAR AYLANMASI — eng sekin/tez ketuvchilar
+// ══════════════════════════════════════════════════
+function renderRepTurnover(sales) {
+  const el = $("rep-turnover"); if (!el) return;
+  const { from, to } = repDateRange();
+  const days = Math.max(1, Math.round((new Date(to) - new Date(from)) / 86400000) + 1);
+  const rate = db.settings?.rate || 12800;
+
+  // Sotilgan miqdor (davr ichida)
+  const soldQty = {};
+  sales.forEach(s => s.items?.forEach(i => {
+    soldQty[i.name] = (soldQty[i.name]||0) + (i.qty||0);
+  }));
+
+  // Joriy zaxira + aylanma hisobi
+  const rows = (db.products||[]).map(p => {
+    const totalQty = (p.variants||[]).reduce((a,v) => a + (v.qty||0), 0);
+    const sold = soldQty[p.name] || 0;
+    // Kunlik sotish tezligi
+    const dailyRate = sold / days;
+    // Necha kunda tugaydi (0 = tez tugaydi, null = umuman sotilmadi)
+    const daysLeft = dailyRate > 0 ? Math.round(totalQty / dailyRate) : null;
+    const costUzs = Math.round((p.costUsd||0) * rate);
+    return { name: p.name, qty: totalQty, sold, dailyRate, daysLeft, stockVal: costUzs * totalQty };
+  }).filter(r => r.qty > 0 || r.sold > 0);
+
+  if (!rows.length) {
+    el.innerHTML = `<tr><td colspan="5" class="empty-td">Ma'lumot yo'q</td></tr>`; return;
+  }
+
+  // Eng sekin aylanadigan (zaxirada ko'p, kam sotiladi)
+  const sorted = rows.sort((a,b) => {
+    if (a.daysLeft === null && b.daysLeft === null) return b.qty - a.qty;
+    if (a.daysLeft === null) return 1;
+    if (b.daysLeft === null) return -1;
+    return b.daysLeft - a.daysLeft;
+  });
+
+  el.innerHTML = sorted.slice(0, 15).map(r => {
+    const badge = r.daysLeft === null
+      ? `<span class="bg bg-r" style="font-size:11px">Sotilmayapti</span>`
+      : r.daysLeft <= 7
+        ? `<span class="bg bg-g" style="font-size:11px">Tez ketmoqda</span>`
+        : r.daysLeft <= 30
+          ? `<span class="bg bg-a" style="font-size:11px">${r.daysLeft} kun</span>`
+          : `<span class="bg" style="font-size:11px;color:#888">${r.daysLeft} kun</span>`;
+    return `<tr>
+      <td style="font-weight:600">${r.name}</td>
+      <td class="num">${r.qty} ta</td>
+      <td class="num" style="color:var(--grn)">${r.sold > 0 ? r.sold + " ta" : "—"}</td>
+      <td class="num">${r.dailyRate > 0 ? r.dailyRate.toFixed(1) + "/kun" : "—"}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ══════════════════════════════════════════════════
+// 3. ABC TAHLIL — 80/15/5 qoida
+// ══════════════════════════════════════════════════
+function renderRepABC(sales) {
+  const el = $("rep-abc"); if (!el) return;
+
+  const prods = {};
+  sales.forEach(s => s.items?.forEach(i => {
+    if (!prods[i.name]) prods[i.name] = { qty: 0, total: 0 };
+    prods[i.name].qty   += i.qty || 0;
+    prods[i.name].total += (i.price||0) * (i.qty||0);
+  }));
+
+  const totalRev = Object.values(prods).reduce((a,p) => a + p.total, 0);
+  if (!totalRev) { el.innerHTML = `<tr><td colspan="5" class="empty-td">Ma'lumot yo'q</td></tr>`; return; }
+
+  let cumulative = 0;
+  const sorted = Object.entries(prods)
+    .sort((a,b) => b[1].total - a[1].total)
+    .map(([name, d]) => {
+      const pct = d.total / totalRev * 100;
+      cumulative += pct;
+      const cls = cumulative <= 80 ? "A" : cumulative <= 95 ? "B" : "C";
+      return { name, qty: d.qty, total: d.total, pct, cumulative, cls };
+    });
+
+  const clsColor = { A: "var(--grn)", B: "#E9A500", C: "var(--red)" };
+  el.innerHTML = sorted.map(r => `<tr>
+    <td>
+      <span style="display:inline-block;width:22px;height:22px;border-radius:50%;
+        background:${clsColor[r.cls]};color:#fff;font-size:11px;font-weight:800;
+        text-align:center;line-height:22px;margin-right:6px">${r.cls}</span>
+      <span style="font-weight:600">${r.name}</span>
+    </td>
+    <td class="num">${r.qty} ta</td>
+    <td class="num" style="font-weight:700">${fmtK(r.total)} so'm</td>
+    <td class="num">${r.pct.toFixed(1)}%</td>
+    <td class="num" style="color:#aaa">${r.cumulative.toFixed(1)}%</td>
+  </tr>`).join("");
+}
+
+// ══════════════════════════════════════════════════
+// 4. MIJOZ SEGMENTATSIYASI — yangi vs qaytuvchi
+// ══════════════════════════════════════════════════
+function renderRepCustomerSegment(sales) {
+  const el = $("rep-cust-segment"); if (!el) return;
+  const { from } = repDateRange();
+
+  // Barcha vaqtdagi sotuvlardan shu davrdan OLDINGI xarid qilgan mijozlar
+  const prevBuyers = new Set(
+    (db.sales||[]).filter(s => s.date < from && s.customerName)
+      .map(s => s.customerName)
+  );
+
+  let newCnt = 0, retCnt = 0, newRev = 0, retRev = 0;
+  const custMap = {};
+  sales.forEach(s => {
+    const name = s.customerName || "Noma'lum";
+    if (!custMap[name]) custMap[name] = { total: 0, cnt: 0, isNew: !prevBuyers.has(name) };
+    custMap[name].total += s.total || 0;
+    custMap[name].cnt++;
+  });
+
+  Object.values(custMap).forEach(c => {
+    if (c.isNew) { newCnt++; newRev += c.total; }
+    else { retCnt++; retRev += c.total; }
+  });
+
+  const total = newRev + retRev || 1;
+  el.innerHTML = `
+    <tr>
+      <td><span class="bg bg-g" style="font-size:12px">🆕 Yangi mijoz</span></td>
+      <td class="num" style="font-weight:700">${newCnt} ta</td>
+      <td class="num" style="font-weight:700;color:var(--grn)">${fmtK(newRev)} so'm</td>
+      <td class="num">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="flex:1;height:7px;background:#f0ede7;border-radius:4px">
+            <div style="height:100%;width:${Math.round(newRev/total*100)}%;background:var(--grn);border-radius:4px"></div>
+          </div>
+          <span style="font-size:12px;font-weight:700;width:32px">${Math.round(newRev/total*100)}%</span>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td><span class="bg bg-a" style="font-size:12px">🔄 Qaytuvchi mijoz</span></td>
+      <td class="num" style="font-weight:700">${retCnt} ta</td>
+      <td class="num" style="font-weight:700;color:var(--acc)">${fmtK(retRev)} so'm</td>
+      <td class="num">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="flex:1;height:7px;background:#f0ede7;border-radius:4px">
+            <div style="height:100%;width:${Math.round(retRev/total*100)}%;background:var(--acc);border-radius:4px"></div>
+          </div>
+          <span style="font-size:12px;font-weight:700;width:32px">${Math.round(retRev/total*100)}%</span>
+        </div>
+      </td>
+    </tr>`;
+}
+
+// ══════════════════════════════════════════════════
+// 5. XODIM CHUQUR TAHLILI — foyda va nasiya ulushi
+// ══════════════════════════════════════════════════
+function renderRepStaff(sales) {
+  const el = $("rep-staff"); if (!el) return;
+  const rate = db.settings?.rate || 12800;
+
+  const staffMap = {};
+  sales.forEach(s => {
+    const name = (db.staff||[]).find(x => x.id === s.staffId)?.name || "Noma'lum";
+    if (!staffMap[name]) staffMap[name] = { cnt: 0, total: 0, paid: 0, debt: 0, cost: 0 };
+    staffMap[name].cnt++;
+    staffMap[name].total += s.total || 0;
+    staffMap[name].paid  += s.paid || 0;
+    staffMap[name].debt  += calcSaleState(s).remaining;
+    s.items?.forEach(i => {
+      const p = (db.products||[]).find(x => x.name === i.name);
+      staffMap[name].cost += Math.round((p?.costUsd||0) * rate) * (i.qty||0);
+    });
+  });
+
+  const sorted = Object.entries(staffMap).sort((a,b) => b[1].total - a[1].total);
+  if (!sorted.length) {
+    el.innerHTML = `<tr><td colspan="7" class="empty-td">Ma'lumot yo'q</td></tr>`; return;
+  }
+  const totalRev = sorted.reduce((a,[,d]) => a + d.total, 0) || 1;
+
+  el.innerHTML = sorted.map(([name, d]) => {
+    const avg = d.cnt ? Math.round(d.total / d.cnt) : 0;
+    const profit = d.paid - d.cost;
+    const debtPct = d.total > 0 ? Math.round(d.debt / d.total * 100) : 0;
+    const pct = Math.round(d.total / totalRev * 100);
+    return `<tr>
+      <td style="font-weight:700">${name}</td>
+      <td class="num">${d.cnt} ta</td>
+      <td class="num" style="font-weight:700">${fmtK(d.total)} so'm</td>
+      <td class="num">${fmtK(avg)} so'm</td>
+      <td class="num" style="color:${profit>=0?"var(--grn)":"var(--red)"};font-weight:700">${fmtK(profit)} so'm</td>
+      <td class="num" style="color:${debtPct>30?"var(--red)":debtPct>10?"#E9A500":"var(--grn)"}">
+        ${debtPct}%
+      </td>
+      <td class="num">
+        <div style="display:flex;align-items:center;gap:5px">
+          <div style="flex:1;height:6px;background:#f0ede7;border-radius:3px;min-width:50px">
+            <div style="height:100%;width:${pct}%;background:var(--acc);border-radius:3px"></div>
+          </div>
+          <span style="font-size:11px;color:#888;width:26px">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
 }
 
 // ── Excel eksport ─────────────────────────────────
