@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=89">
+<link rel="stylesheet" href="style.css?v=90">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1316,37 +1316,54 @@
       </div>
     </div>
     <div class="card">
-      <div class="ch" style="flex-wrap:wrap;gap:8px">
+      <div class="ch" style="flex-wrap:wrap;gap:6px">
         <h3><i class="ti ti-history"></i>Sotuv tarixi</h3>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <!-- Davr filtri -->
-          <div style="display:flex;gap:4px" id="tarix-period-btns">
-            <button class="tx-period-btn on" data-p="all"   onclick="setTxPeriod('all')">Hammasi</button>
-            <button class="tx-period-btn" data-p="today"    onclick="setTxPeriod('today')">Bugun</button>
-            <button class="tx-period-btn" data-p="week"     onclick="setTxPeriod('week')">7 kun</button>
-            <button class="tx-period-btn" data-p="month"    onclick="setTxPeriod('month')">Bu oy</button>
-          </div>
-          <!-- Status filtri -->
-          <div style="display:flex;gap:4px">
-            <button class="tx-status-btn on" data-s="all"      onclick="setTxStatus('all')">Barchasi</button>
-            <button class="tx-status-btn" data-s="tolandan"    onclick="setTxStatus('tolandan')">✅ To'langan</button>
-            <button class="tx-status-btn" data-s="qarz"        onclick="setTxStatus('qarz')">💳 Qarzli</button>
-            <button class="tx-status-btn" data-s="qaytarilgan" onclick="setTxStatus('qaytarilgan')" style="color:var(--red)">↩ Qaytarilgan</button>
-          </div>
-          <!-- Kassir filtri -->
-          <select id="tx-staff-sel" onchange="setTxStaff(this.value)"
-            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);
-            border-radius:var(--rs);padding:5px 10px;background:#fff;max-width:160px">
-            <option value="all">👤 Barcha kassirlar</option>
-          </select>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
           <input id="tarix-q" placeholder="Mijoz, mahsulot..." oninput="renderTarix()"
-            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:150px">
+            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:160px">
           <button class="btn btn-sm" onclick="exportTarixExcel()" style="color:#1D6A39">
             <i class="ti ti-file-spreadsheet"></i> Excel
           </button>
           <button class="btn btn-ghost btn-sm" onclick="openTarixColsSettings()" title="Ustunlarni sozlash">
             <i class="ti ti-settings"></i>
           </button>
+        </div>
+      </div>
+
+      <!-- Davr filtri — Dashboard uslubida -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:0 18px 14px;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--brd)">
+        <div style="display:flex;background:var(--bg);border:1px solid var(--brd);border-radius:9px;padding:3px;gap:2px">
+          <button class="tx-period-btn on" data-p="all" onclick="setTxPeriod('all')"
+            style="padding:5px 13px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:#0D1B2A;color:#fff;cursor:pointer">Barchasi</button>
+          <button class="tx-period-btn" data-p="today" onclick="setTxPeriod('today')"
+            style="padding:5px 13px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Bugun</button>
+          <button class="tx-period-btn" data-p="yesterday" onclick="setTxPeriod('yesterday')"
+            style="padding:5px 13px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Kecha</button>
+          <button class="tx-period-btn" data-p="week" onclick="setTxPeriod('week')"
+            style="padding:5px 13px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Hafta</button>
+          <button class="tx-period-btn" data-p="month" onclick="setTxPeriod('month')"
+            style="padding:5px 13px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Oy</button>
+          <button class="tx-period-btn" data-p="year" onclick="setTxPeriod('year')"
+            style="padding:5px 13px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Yil</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <!-- Status filtri -->
+          <div style="display:flex;gap:4px">
+            <button class="tx-status-btn on" data-s="all" onclick="setTxStatus('all')"
+              style="padding:5px 11px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">Barchasi</button>
+            <button class="tx-status-btn" data-s="tolandan" onclick="setTxStatus('tolandan')"
+              style="padding:5px 11px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;color:var(--grn);cursor:pointer">✅ To'langan</button>
+            <button class="tx-status-btn" data-s="qarz" onclick="setTxStatus('qarz')"
+              style="padding:5px 11px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">💳 Nasiya</button>
+            <button class="tx-status-btn" data-s="qaytarilgan" onclick="setTxStatus('qaytarilgan')"
+              style="padding:5px 11px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;color:var(--red);cursor:pointer">↩ Qaytarilgan</button>
+          </div>
+          <!-- Kassir filtri -->
+          <select id="tx-staff-sel" onchange="setTxStaff(this.value)"
+            style="font-family:inherit;font-size:12px;border:1px solid var(--brd);
+            border-radius:var(--rs);padding:5px 10px;background:#fff;max-width:160px">
+            <option value="all">👤 Barcha kassirlar</option>
+          </select>
         </div>
       </div>
 
@@ -2571,23 +2588,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=89"></script>
-<script src="js/utils.js?v=89"></script>
-<script src="js/sms.js?v=89"></script>
-<script src="js/cloud.js?v=89"></script>
-<script src="js/dashboard.js?v=89"></script>
-<script src="js/pos.js?v=89"></script>
-<script src="js/katalog.js?v=89"></script>
-<script src="js/ombor.js?v=89"></script>
-<script src="js/mijozlar.js?v=89"></script>
-<script src="js/qarzlar.js?v=89"></script>
-<script src="js/tarix.js?v=89"></script>
-<script src="js/hisobot.js?v=89"></script>
-<script src="js/xodimlar.js?v=89"></script>
-<script src="js/moliya.js?v=89"></script>
-<script src="js/egasi.js?v=89"></script>
-<script src="js/portal.js?v=89"></script>
-<script src="js/init.js?v=89"></script>
+<script src="js/db.js?v=90"></script>
+<script src="js/utils.js?v=90"></script>
+<script src="js/sms.js?v=90"></script>
+<script src="js/cloud.js?v=90"></script>
+<script src="js/dashboard.js?v=90"></script>
+<script src="js/pos.js?v=90"></script>
+<script src="js/katalog.js?v=90"></script>
+<script src="js/ombor.js?v=90"></script>
+<script src="js/mijozlar.js?v=90"></script>
+<script src="js/qarzlar.js?v=90"></script>
+<script src="js/tarix.js?v=90"></script>
+<script src="js/hisobot.js?v=90"></script>
+<script src="js/xodimlar.js?v=90"></script>
+<script src="js/moliya.js?v=90"></script>
+<script src="js/egasi.js?v=90"></script>
+<script src="js/portal.js?v=90"></script>
+<script src="js/init.js?v=90"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2936,7 +2953,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=89"></script>
-<script src="js/superadmin.js?v=89"></script>
+<script src="js/auth.js?v=90"></script>
+<script src="js/superadmin.js?v=90"></script>
 </body>
 </html>

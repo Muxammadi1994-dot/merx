@@ -13,24 +13,34 @@ function setTxStaff(id) {
 
 function setTxPeriod(p) {
   txPeriod = p;
-  document.querySelectorAll(".tx-period-btn").forEach(b =>
-    b.classList.toggle("on", b.dataset.p === p));
+  document.querySelectorAll(".tx-period-btn").forEach(b => {
+    const on = b.dataset.p === p;
+    b.classList.toggle("on", on);
+    b.style.background = on ? "#0D1B2A" : "transparent";
+    b.style.color = on ? "#fff" : "var(--mut)";
+  });
   renderTarix();
 }
 
 function setTxStatus(s) {
   txStatus = s;
-  document.querySelectorAll(".tx-status-btn").forEach(b =>
-    b.classList.toggle("on", b.dataset.s === s));
+  document.querySelectorAll(".tx-status-btn").forEach(b => {
+    const on = b.dataset.s === s;
+    b.classList.toggle("on", on);
+    b.style.background = on ? "#0D1B2A" : "#fff";
+    b.style.color = on ? "#fff" : "";
+  });
   renderTarix();
 }
 
 function txPeriodFilter(s) {
   const d = s.date || "";
-  if (txPeriod === "today") return d === today();
-  if (txPeriod === "week")  return d >= addDays(today(), -7);
-  if (txPeriod === "month") return d.startsWith(today().slice(0, 7));
-  return true;
+  if (txPeriod === "today")     return d === today();
+  if (txPeriod === "yesterday") return d === addDays(today(), -1);
+  if (txPeriod === "week")      return d >= addDays(today(), -6);
+  if (txPeriod === "month")     return d.startsWith(today().slice(0, 7));
+  if (txPeriod === "year")      return d.startsWith(today().slice(0, 4));
+  return true; // "all"
 }
 
 // ── Sotuv tarixi ustunlari boshqaruvi ─────────────
@@ -106,7 +116,7 @@ function renderTarix() {
   const rem   = list.reduce((a, s) => a + (s.remaining||0), 0);
 
   // Faol davr belgisini aniqlaymiz
-  const periodNames = { all:"(barchasi)", today:"(bugun)", week:"(7 kun)", month:"(bu oy)" };
+  const periodNames = { all:"(barchasi)", today:"(bugun)", yesterday:"(kecha)", week:"(hafta)", month:"(oy)", year:"(yil)" };
   const statusNames = { all:"", tolandan:" · to'langan", qarz:" · nasiya", qaytarilgan:" · qaytarilgan" };
   const periodLabel = (periodNames[txPeriod]||"") + (statusNames[txStatus]||"");
   if ($("tx-period-label")) $("tx-period-label").textContent = periodLabel;
