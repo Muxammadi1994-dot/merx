@@ -60,99 +60,102 @@ function repSales() {
 function renderHisobot() {
   const sales   = repSales();
   const rate    = db.settings.rate || 12800;
+  const { from, to } = repDateRange();
 
   // KPI
-  const cnt     = sales.length;
-  const rev     = sales.reduce((a, s) => a + (s.total||0), 0);
-  const paid    = sales.reduce((a, s) => a + (s.paid||0), 0);
-  // Joriy qoldiq qarz — calcSaleState orqali (to'lovlar hisobga olinadi)
-  const debt    = sales.reduce((a, s) => a + calcSaleState(s).remaining, 0);
+  const cnt = sales.length;
+  const rev = sales.reduce((a, s) => a + (s.total||0), 0);
+  const debt = sales.reduce((a, s) => a + calcSaleState(s).remaining, 0);
 
-  // Foyda hisoblash (to'g'ri mantiq)
-  // Hisoblangan foyda = sotuv narxi - tannarx (tovar chiqib ketgan)
-  // Kassaga tushgan foyda = to'langan qism - tannarx (real kassa)
-  let costTotal     = 0;  // jami tannarx (sotilgan tovarlar)
-  let grossProfit   = 0;  // hisoblangan foyda (nasiya ham kiradi)
-  let realProfit    = 0;  // kassaga tushgan foyda (faqat to'langan)
+  // Moliya bilan bir xil mantiq: payBreakdown + debtPayments
+  let paid = 0;
+  sales.forEach(s => {
+    const pb = s.payBreakdown;
+    if (pb && (pb.naqd||pb.karta||pb.otkazma)) {
+      paid += (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
+    } else {
+      paid += s.payType==="nasiya" ? 0 : (s.paid||0);
+    }
+  });
+  // Qarz to'lovlari ham kassaga tushim
+  const debtPaid = (db.debtPayments||[]).filter(p=>p.date>=from&&p.date<=to)
+    .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
+  paid += debtPaid;
 
+  // Foyda hisoblash
+  let costTotal = 0, grossProfit = 0, realProfit = 0;
   sales.forEach(s => {
     let saleCost = 0;
     s.items?.forEach(item => {
       const p = db.products.find(x => x.name === item.name);
       if (!p) return;
-      const costUzs = Math.round((p.costUsd || 0) * rate);
-      saleCost  += costUzs * (item.qty || 0);
+      const costUzs = Math.round((p.costUsd||0) * rate);
+      saleCost += costUzs * (item.qty||0);
     });
     costTotal   += saleCost;
-    // Hisoblangan foyda: sotuv narxi - tannarx
-    grossProfit += (s.total || 0) - saleCost;
-    // Kassaga tushgan: to'langan qism - (tannarx × to'langan ulush)
-    const paidRatio = s.total > 0 ? (s.paid || 0) / s.total : 1;
-    realProfit  += ((s.total || 0) - saleCost) * paidRatio;
+    grossProfit += (s.total||0) - saleCost;
+    // Kassaga tushgan foyda: to'langan qism - tannarx
+    const sPaid = (() => {
+      const pb = s.payBreakdown;
+      if (pb && (pb.naqd||pb.karta||pb.otkazma)) return (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
+      return s.payType==="nasiya"?0:(s.paid||0);
+    })();
+    const paidRatio = s.total>0 ? sPaid/s.total : 1;
+    realProfit += ((s.total||0)-saleCost)*paidRatio;
   });
+  // Qarz to'lovlaridan foyda (tannarx checkout da hisoblab bo'lingan)
+  realProfit += debtPaid * (grossProfit/(rev||1));
 
   grossProfit = Math.round(grossProfit);
   realProfit  = Math.round(realProfit);
-  const margin     = rev > 0 ? Math.round(grossProfit / rev * 100) : 0;
-  const realMargin = paid > 0 ? Math.round(realProfit / paid * 100) : 0;
+  const margin     = rev  > 0 ? Math.round(grossProfit/rev*100)  : 0;
+  const realMargin = paid > 0 ? Math.round(realProfit/paid*100)  : 0;
 
   if ($("rep-cnt"))  $("rep-cnt").textContent  = cnt + " ta";
   if ($("rep-rev"))  $("rep-rev").textContent  = fmtK(rev)  + " so'm";
   if ($("rep-paid")) $("rep-paid").textContent = fmtK(paid) + " so'm";
   if ($("rep-debt")) $("rep-debt").textContent = fmtK(debt) + " so'm";
 
-  // Foyda KPI — hisoblangan (barcha sotuv asosida)
   if ($("rep-profit")) {
     $("rep-profit").textContent = fmtK(grossProfit) + " so'm";
-    $("rep-profit").style.color = grossProfit >= 0 ? "var(--grn)" : "var(--red)";
+    $("rep-profit").style.color = grossProfit>=0?"var(--grn)":"var(--red)";
   }
   if ($("rep-margin")) {
     $("rep-margin").textContent = margin + "%";
-    $("rep-margin").style.color = margin >= 20 ? "var(--grn)" : margin >= 10 ? "#E07B39" : "var(--red)";
+    $("rep-margin").style.color = margin>=20?"var(--grn)":margin>=10?"#E07B39":"var(--red)";
   }
-  // Kassaga tushgan foyda (agar element bor bo'lsa)
   if ($("rep-real-profit")) {
     $("rep-real-profit").textContent = fmtK(realProfit) + " so'm";
-    $("rep-real-profit").style.color = realProfit >= 0 ? "var(--grn)" : "var(--red)";
+    $("rep-real-profit").style.color = realProfit>=0?"var(--grn)":"var(--red)";
   }
-  if ($("rep-real-margin")) {
-    $("rep-real-margin").textContent = realMargin + "%";
-  }
-  // Tannarx jami
+  if ($("rep-real-margin")) $("rep-real-margin").textContent = realMargin + "%";
   if ($("rep-cost")) $("rep-cost").textContent = fmtK(costTotal) + " so'm";
 
-  // ── Xarajatlar (shu davrdagi) → sof foyda ──────
-  const { from, to } = repDateRange();
-  const periodExp = (db.xarajatlar||[])
-    .filter(x => x.date >= from && x.date <= to)
-    .reduce((a, x) => a + (x.amount||0), 0);
+  // Xarajatlar → sof foyda
+  const periodExp = (db.xarajatlar||[]).filter(x=>x.date>=from&&x.date<=to)
+    .reduce((a,x)=>a+(x.amount||0),0);
   const netProfit = realProfit - periodExp;
-  const netMargin = paid > 0 ? Math.round(netProfit / paid * 100) : 0;
+  const netMargin = paid>0 ? Math.round(netProfit/paid*100) : 0;
 
   if ($("rep-expenses")) $("rep-expenses").textContent = fmtK(periodExp) + " so'm";
   if ($("rep-net-profit")) {
     $("rep-net-profit").textContent = fmtK(netProfit) + " so'm";
-    $("rep-net-profit").style.color = netProfit >= 0 ? "var(--grn)" : "var(--red)";
+    $("rep-net-profit").style.color = netProfit>=0?"var(--grn)":"var(--red)";
   }
   if ($("rep-net-margin")) {
     $("rep-net-margin").textContent = netMargin + "%";
-    $("rep-net-margin").style.color = netMargin >= 15 ? "var(--grn)" : netMargin >= 5 ? "#E07B39" : "var(--red)";
+    $("rep-net-margin").style.color = netMargin>=15?"var(--grn)":netMargin>=5?"#E07B39":"var(--red)";
   }
 
-  // ── Ombor qiymati ───────────────────────────────
-  const omborCost = (db.products||[]).reduce((a, p) => {
-    const costUzs = Math.round((p.costUsd||0) * rate);
-    return a + costUzs * (p.variants||[]).reduce((b,v)=>b+(v.qty||0),0);
-  }, 0);
-  const omborSellVal = (db.products||[]).reduce((a, p) => {
-    return a + (p.priceUzs||0) * (p.variants||[]).reduce((b,v)=>b+(v.qty||0),0);
-  }, 0);
-  if ($("rep-ombor-cost"))   $("rep-ombor-cost").textContent   = fmtK(omborCost) + " so'm";
-  if ($("rep-ombor-sell"))   $("rep-ombor-sell").textContent   = fmtK(omborSellVal) + " so'm";
+  // Ombor qiymati
+  const omborCost = (db.products||[]).reduce((a,p)=>a+Math.round((p.costUsd||0)*rate)*(p.variants||[]).reduce((b,v)=>b+(v.qty||0),0),0);
+  const omborSellVal = (db.products||[]).reduce((a,p)=>a+(p.priceUzs||0)*(p.variants||[]).reduce((b,v)=>b+(v.qty||0),0),0);
+  if ($("rep-ombor-cost")) $("rep-ombor-cost").textContent = fmtK(omborCost)+" so'm";
+  if ($("rep-ombor-sell")) $("rep-ombor-sell").textContent = fmtK(omborSellVal)+" so'm";
   if ($("rep-ombor-profit")) {
-    const op = omborSellVal - omborCost;
-    $("rep-ombor-profit").textContent = fmtK(op) + " so'm";
-    $("rep-ombor-profit").style.color = op >= 0 ? "var(--grn)" : "var(--red)";
+    const op=omborSellVal-omborCost;
+    $("rep-ombor-profit").textContent=fmtK(op)+" so'm";
+    $("rep-ombor-profit").style.color=op>=0?"var(--grn)":"var(--red)";
   }
 
   renderRepExpenseChart(periodExp, costTotal, realProfit);
