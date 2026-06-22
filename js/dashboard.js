@@ -509,65 +509,54 @@ function renderDashPriceType() {
   const el = $('dash-pricetype');
   if (!el) return;
 
-  // Davr oralig'ini dashGetRange() dan olamiz — "To'lov usullari" bilan bir xil filtr
-  const { from, to } = dashGetRange();
+  const { from, to } = dashGetDateRange();
   const payments = (db.debtPayments||[]).filter(p => p.date >= from && p.date <= to);
 
   const rate = db.settings?.rate || 12800;
   const toUzs = p => p.currency === 'usd' ? p.amount * rate : p.amount;
-
-  const byMethod = {};
   const methodColors = { naqd:'#36B48C', karta:'#4C9BE8', otkazma:'#8B5CF6', balans:'#E9A500' };
   const methodLabels = { naqd:'Naqd', karta:'Karta', otkazma:"O'tkazma", balans:'Balansdan' };
 
+  const byMethod = {};
   payments.forEach(p => {
     const m = p.method || 'naqd';
     byMethod[m] = (byMethod[m] || 0) + toUzs(p);
   });
 
   const total = Object.values(byMethod).reduce((a, b) => a + b, 0);
-
   if (!total) {
     el.innerHTML = `<div style="text-align:center;padding:20px;color:#bbb;font-size:13px">
       <i class="ti ti-chart-donut" style="font-size:24px;display:block;margin-bottom:6px"></i>Shu davrda to'lov bo'lmagan</div>`;
     return;
   }
 
-  const entries = Object.entries(byMethod).filter(([,v]) => v > 0)
-    .sort((a,b) => b[1] - a[1]);
-
+  const entries = Object.entries(byMethod).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]);
   const R = 52, cx = 62, cy = 62, gap = 0.03;
   let angle = -Math.PI / 2;
-
   const paths = entries.map(([key, val]) => {
     const pct = val / total;
-    const a1  = angle + gap;
-    const a2  = angle + pct * Math.PI * 2 - gap;
-    const x1  = cx + R * Math.cos(a1), y1 = cy + R * Math.sin(a1);
-    const x2  = cx + R * Math.cos(a2), y2 = cy + R * Math.sin(a2);
-    const large = pct > 0.5 ? 1 : 0;
+    const a1 = angle + gap, a2 = angle + pct * Math.PI * 2 - gap;
+    const x1 = cx + R * Math.cos(a1), y1 = cy + R * Math.sin(a1);
+    const x2 = cx + R * Math.cos(a2), y2 = cy + R * Math.sin(a2);
     const color = methodColors[key] || '#aaa';
-    const path = `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} Z" fill="${color}" opacity=".9"/>`;
+    const path = `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${R} ${R} 0 ${pct>.5?1:0} 1 ${x2} ${y2} Z" fill="${color}" opacity=".9"/>`;
     angle += pct * Math.PI * 2;
     return { key, val, color, path };
   });
 
-  const legend = entries.map(([key, val]) => {
-    const c = methodColors[key] || '#aaa';
-    const lbl = methodLabels[key] || key;
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0">
+  const legend = entries.map(([key, val]) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0">
       <div style="display:flex;align-items:center;gap:7px">
-        <div style="width:10px;height:10px;border-radius:50%;background:${c};flex-shrink:0"></div>
-        <span style="font-size:12.5px;color:#555">${lbl}</span>
+        <div style="width:10px;height:10px;border-radius:50%;background:${methodColors[key]||'#aaa'};flex-shrink:0"></div>
+        <span style="font-size:12.5px;color:#555">${methodLabels[key]||key}</span>
       </div>
       <span style="font-size:12px;font-weight:700;color:#0D1B2A">${fmtK(val)} so'm</span>
-    </div>`;
-  }).join('');
+    </div>`).join('');
 
   el.innerHTML = `<div style="display:flex;align-items:center;gap:16px;padding:4px 0 8px">
     <svg viewBox="0 0 124 124" style="width:90px;flex-shrink:0">
       ${paths.map(p => p.path).join('')}
-      <circle cx="${cx}" cy="${cy}" r="${R*0.52}" fill="white"/>
+      <circle cx="${cx}" cy="${cy}" r="${R*.52}" fill="white"/>
       <text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="10" fill="#888">Jami</text>
       <text x="${cx}" y="${cy+9}" text-anchor="middle" font-size="11" font-weight="700" fill="#0D1B2A">${fmtK(total)}</text>
     </svg>
