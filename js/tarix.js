@@ -13,11 +13,30 @@ function setTxStaff(id) {
 
 function setTxPeriod(p) {
   txPeriod = p;
+  // Kalendar inputlarni tozalaymiz (custom davr bekor bo'ladi)
+  if (p !== "custom") {
+    const f = $("tx-date-from"), t = $("tx-date-to");
+    if (f) f.value = ""; if (t) t.value = "";
+  }
   document.querySelectorAll(".tx-period-btn").forEach(b => {
     const on = b.dataset.p === p;
     b.classList.toggle("on", on);
     b.style.background = on ? "#0D1B2A" : "transparent";
     b.style.color = on ? "#fff" : "var(--mut)";
+  });
+  renderTarix();
+}
+
+function setTxCustomRange() {
+  const from = ($("tx-date-from")||{value:""}).value;
+  const to   = ($("tx-date-to")||{value:""}).value;
+  if (!from && !to) return;
+  txPeriod = "custom";
+  // Barcha period tugmalarini o'chiramiz
+  document.querySelectorAll(".tx-period-btn").forEach(b => {
+    b.classList.remove("on");
+    b.style.background = "transparent";
+    b.style.color = "var(--mut)";
   });
   renderTarix();
 }
@@ -28,18 +47,26 @@ function setTxStatus(s) {
     const on = b.dataset.s === s;
     b.classList.toggle("on", on);
     b.style.background = on ? "#0D1B2A" : "#fff";
-    b.style.color = on ? "#fff" : "";
+    b.style.color = on ? "#fff" : (b.dataset.s === "qaytarilgan" ? "var(--red)" : "");
   });
   renderTarix();
 }
 
 function txPeriodFilter(s) {
   const d = s.date || "";
-  if (txPeriod === "today")     return d === today();
-  if (txPeriod === "yesterday") return d === addDays(today(), -1);
-  if (txPeriod === "week")      return d >= addDays(today(), -6);
-  if (txPeriod === "month")     return d.startsWith(today().slice(0, 7));
-  if (txPeriod === "year")      return d.startsWith(today().slice(0, 4));
+  const t = today();
+  if (txPeriod === "today")     return d === t;
+  if (txPeriod === "yesterday") return d === addDays(t, -1);
+  if (txPeriod === "week")      return d >= addDays(t, -6);
+  if (txPeriod === "month")     return d.startsWith(t.slice(0, 7));
+  if (txPeriod === "year")      return d.startsWith(t.slice(0, 4));
+  if (txPeriod === "custom") {
+    const from = ($("tx-date-from")||{value:""}).value;
+    const to   = ($("tx-date-to")||{value:""}).value;
+    if (from && d < from) return false;
+    if (to   && d > to)   return false;
+    return true;
+  }
   return true; // "all"
 }
 
@@ -116,7 +143,7 @@ function renderTarix() {
   const rem   = list.reduce((a, s) => a + (s.remaining||0), 0);
 
   // Faol davr belgisini aniqlaymiz
-  const periodNames = { all:"(barchasi)", today:"(bugun)", yesterday:"(kecha)", week:"(hafta)", month:"(oy)", year:"(yil)" };
+  const periodNames = { all:"(barchasi)", today:"(bugun)", yesterday:"(kecha)", week:"(hafta)", month:"(oy)", year:"(yil)", custom:"(tanlangan davr)" };
   const statusNames = { all:"", tolandan:" · to'langan", qarz:" · nasiya", qaytarilgan:" · qaytarilgan" };
   const periodLabel = (periodNames[txPeriod]||"") + (statusNames[txStatus]||"");
   if ($("tx-period-label")) $("tx-period-label").textContent = periodLabel;
