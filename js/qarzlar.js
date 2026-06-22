@@ -96,7 +96,12 @@ let debtRevenuePeriod = "today";
 
 function setDebtRevenuePeriod(p) {
   debtRevenuePeriod = p;
-  document.querySelectorAll(".dr-period-btn").forEach(b => b.classList.toggle("on", b.dataset.p === p));
+  document.querySelectorAll(".dr-period-btn").forEach(b => {
+    const on = b.dataset.p === p;
+    b.classList.toggle("on", on);
+    b.style.background = on ? "#0D1B2A" : "transparent";
+    b.style.color = on ? "#fff" : "var(--mut)";
+  });
   renderDebtRevenue();
 }
 
@@ -613,22 +618,20 @@ function renderDebtsGrouped(list, rate) {
         </span>
       </td>
       <td>
-        <div style="display:flex;flex-direction:column;gap:6px;min-width:170px">
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:200px">
           ${g.totalUzs > 0 ? `
           <div style="display:flex;gap:5px;align-items:center">
             <input type="number" id="gpay-${gKey}-uzs"
               placeholder="so'm" step="10000"
               style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:80px;flex:1;outline:none">
             <select id="gpay-method-${gKey}-uzs"
-              style="font-family:inherit;font-size:11.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 3px;width:68px">
-              <option value="naqd">💵</option>
-              <option value="karta">💳</option>
-              <option value="otkazma">🏦</option>
+              style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 6px;width:110px">
+              <option value="naqd">💵 Naqd</option>
+              <option value="karta">💳 Karta</option>
+              <option value="otkazma">🏦 O'tkazma</option>
             </select>
-            <button class="btn btn-teal btn-sm" style="font-size:10.5px;padding:5px 7px"
-              onclick="recordGroupPayment('${ids}','uzs','${gKey}')" title="So'm to'lovi">
-              <i class="ti ti-check"></i>
-            </button>
+            <button class="btn btn-teal btn-sm" style="font-size:11px;white-space:nowrap"
+              onclick="recordGroupPayment('${ids}','uzs','${gKey}')">To'lov</button>
           </div>` : ""}
           ${g.totalUsd > 0 ? `
           <div style="display:flex;gap:5px;align-items:center">
@@ -636,15 +639,13 @@ function renderDebtsGrouped(list, rate) {
               placeholder="$ summa" step="0.01"
               style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:80px;flex:1;outline:none">
             <select id="gpay-method-${gKey}-usd"
-              style="font-family:inherit;font-size:11.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 3px;width:68px">
-              <option value="naqd">💵</option>
-              <option value="karta">💳</option>
-              <option value="otkazma">🏦</option>
+              style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 6px;width:110px">
+              <option value="naqd">💵 Naqd</option>
+              <option value="karta">💳 Karta</option>
+              <option value="otkazma">🏦 O'tkazma</option>
             </select>
-            <button class="btn btn-teal btn-sm" style="font-size:10.5px;padding:5px 7px"
-              onclick="recordGroupPayment('${ids}','usd','${gKey}')" title="USD to'lovi">
-              <i class="ti ti-check"></i>
-            </button>
+            <button class="btn btn-teal btn-sm" style="font-size:11px;white-space:nowrap"
+              onclick="recordGroupPayment('${ids}','usd','${gKey}')">To'lov</button>
           </div>` : ""}
         </div>
       </td>

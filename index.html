@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=83">
+<link rel="stylesheet" href="style.css?v=84">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1081,21 +1081,29 @@
 
     <!-- Qarz tushumi tahlili -->
     <div class="card" style="margin-bottom:16px">
-      <div class="ch" style="flex-wrap:wrap;gap:8px">
+      <div class="ch" style="flex-wrap:wrap;gap:10px">
         <h3><i class="ti ti-cash-banknote"></i>Qarz tushumi</h3>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          <div style="display:flex;gap:4px">
-            <button class="dr-period-btn" data-p="yesterday" onclick="setDebtRevenuePeriod('yesterday')">Kecha</button>
-            <button class="dr-period-btn on" data-p="today" onclick="setDebtRevenuePeriod('today')">Bugun</button>
-            <button class="dr-period-btn" data-p="week" onclick="setDebtRevenuePeriod('week')">Hafta</button>
-            <button class="dr-period-btn" data-p="month" onclick="setDebtRevenuePeriod('month')">Oy</button>
-            <button class="dr-period-btn" data-p="year" onclick="setDebtRevenuePeriod('year')">Yil</button>
+          <div style="display:flex;background:var(--bg);border:1px solid var(--brd);border-radius:9px;padding:3px;gap:2px">
+            <button class="dr-period-btn" data-p="yesterday" onclick="setDebtRevenuePeriod('yesterday')"
+              style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;cursor:pointer;color:var(--mut)">Kecha</button>
+            <button class="dr-period-btn on" data-p="today" onclick="setDebtRevenuePeriod('today')"
+              style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:#0D1B2A;color:#fff;cursor:pointer">Bugun</button>
+            <button class="dr-period-btn" data-p="week" onclick="setDebtRevenuePeriod('week')"
+              style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;cursor:pointer;color:var(--mut)">Hafta</button>
+            <button class="dr-period-btn" data-p="month" onclick="setDebtRevenuePeriod('month')"
+              style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;cursor:pointer;color:var(--mut)">Oy</button>
+            <button class="dr-period-btn" data-p="year" onclick="setDebtRevenuePeriod('year')"
+              style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;cursor:pointer;color:var(--mut)">Yil</button>
           </div>
-          <input id="dr-date-from" type="date" onchange="setDebtRevenuePeriod('custom')"
-            style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:7px;padding:5px 8px">
-          <span style="font-size:12px;color:#bbb">—</span>
-          <input id="dr-date-to" type="date" onchange="setDebtRevenuePeriod('custom')"
-            style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:7px;padding:5px 8px">
+          <div style="display:flex;align-items:center;gap:5px">
+            <i class="ti ti-calendar" style="font-size:14px;color:var(--mut)"></i>
+            <input id="dr-date-from" type="date" onchange="setDebtRevenuePeriod('custom')"
+              style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:7px;padding:5px 8px">
+            <span style="font-size:12px;color:#bbb">—</span>
+            <input id="dr-date-to" type="date" onchange="setDebtRevenuePeriod('custom')"
+              style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:7px;padding:5px 8px">
+          </div>
         </div>
       </div>
       <div style="padding:6px 18px 18px">
@@ -2537,23 +2545,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=83"></script>
-<script src="js/utils.js?v=83"></script>
-<script src="js/sms.js?v=83"></script>
-<script src="js/cloud.js?v=83"></script>
-<script src="js/dashboard.js?v=83"></script>
-<script src="js/pos.js?v=83"></script>
-<script src="js/katalog.js?v=83"></script>
-<script src="js/ombor.js?v=83"></script>
-<script src="js/mijozlar.js?v=83"></script>
-<script src="js/qarzlar.js?v=83"></script>
-<script src="js/tarix.js?v=83"></script>
-<script src="js/hisobot.js?v=83"></script>
-<script src="js/xodimlar.js?v=83"></script>
-<script src="js/moliya.js?v=83"></script>
-<script src="js/egasi.js?v=83"></script>
-<script src="js/portal.js?v=83"></script>
-<script src="js/init.js?v=83"></script>
+<script src="js/db.js?v=84"></script>
+<script src="js/utils.js?v=84"></script>
+<script src="js/sms.js?v=84"></script>
+<script src="js/cloud.js?v=84"></script>
+<script src="js/dashboard.js?v=84"></script>
+<script src="js/pos.js?v=84"></script>
+<script src="js/katalog.js?v=84"></script>
+<script src="js/ombor.js?v=84"></script>
+<script src="js/mijozlar.js?v=84"></script>
+<script src="js/qarzlar.js?v=84"></script>
+<script src="js/tarix.js?v=84"></script>
+<script src="js/hisobot.js?v=84"></script>
+<script src="js/xodimlar.js?v=84"></script>
+<script src="js/moliya.js?v=84"></script>
+<script src="js/egasi.js?v=84"></script>
+<script src="js/portal.js?v=84"></script>
+<script src="js/init.js?v=84"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2902,7 +2910,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=83"></script>
-<script src="js/superadmin.js?v=83"></script>
+<script src="js/auth.js?v=84"></script>
+<script src="js/superadmin.js?v=84"></script>
 </body>
 </html>
