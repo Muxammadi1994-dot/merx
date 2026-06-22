@@ -17,17 +17,46 @@ const MOL_COLORS = window.EXP_COLORS;
 // ── Davr ─────────────────────────────────────────
 function setMolPeriod(p) {
   molPeriod = p;
-  document.querySelectorAll(".mol-period-btn").forEach(b =>
-    b.classList.toggle("on", b.dataset.p === p));
+  if (p !== "custom") {
+    const f = $("mol-date-from"), t = $("mol-date-to");
+    if (f) f.value = ""; if (t) t.value = "";
+  }
+  document.querySelectorAll(".mol-period-btn").forEach(b => {
+    const on = b.dataset.p === p;
+    b.classList.toggle("on", on);
+    b.style.background = on ? "#E9A500" : "rgba(255,255,255,.1)";
+    b.style.color = on ? "#fff" : "rgba(255,255,255,.7)";
+    b.style.borderColor = on ? "#E9A500" : "rgba(255,255,255,.2)";
+  });
+  renderMoliya();
+}
+
+function setMolCustomRange() {
+  const from = ($("mol-date-from")||{value:""}).value;
+  const to   = ($("mol-date-to")||{value:""}).value;
+  if (!from && !to) return;
+  molPeriod = "custom";
+  document.querySelectorAll(".mol-period-btn").forEach(b => {
+    b.classList.remove("on");
+    b.style.background = "rgba(255,255,255,.1)";
+    b.style.color = "rgba(255,255,255,.7)";
+    b.style.borderColor = "rgba(255,255,255,.2)";
+  });
   renderMoliya();
 }
 
 function molDateRange() {
   const t = today();
-  if (molPeriod === "today") return { from: t, to: t };
-  if (molPeriod === "week")  return { from: addDays(t, -6), to: t };
-  if (molPeriod === "month") return { from: t.slice(0,7)+"-01", to: t };
-  if (molPeriod === "year")  return { from: t.slice(0,4)+"-01-01", to: t };
+  if (molPeriod === "yesterday") return { from: addDays(t,-1), to: addDays(t,-1) };
+  if (molPeriod === "today")     return { from: t, to: t };
+  if (molPeriod === "week")      return { from: addDays(t,-6), to: t };
+  if (molPeriod === "month")     return { from: t.slice(0,7)+"-01", to: t };
+  if (molPeriod === "year")      return { from: t.slice(0,4)+"-01-01", to: t };
+  if (molPeriod === "custom") {
+    const from = ($("mol-date-from")||{value:""}).value;
+    const to   = ($("mol-date-to")||{value:""}).value;
+    return { from: from||t, to: to||t };
+  }
   return { from: t, to: t };
 }
 
@@ -40,68 +69,93 @@ function renderMoliya() {
   const periodSales = db.sales.filter(s => s.date >= from && s.date <= to);
   const periodExps  = (db.xarajatlar||[]).filter(x => x.date >= from && x.date <= to);
 
-  // Kirim manbalari
-  const naqd    = periodSales.filter(s=>s.payType==="naqd").reduce((a,s)=>a+(s.paid||0),0);
-  const karta   = periodSales.filter(s=>s.payType==="karta").reduce((a,s)=>a+(s.paid||0),0);
-  const otkazma = periodSales.filter(s=>s.payType==="otkazma").reduce((a,s)=>a+(s.paid||0),0);
-  const sotuv   = periodSales.reduce((a, s) => a + (s.paid||0), 0);
-  const chiqim  = periodExps.reduce((a, x) => a + (x.amount||0), 0);
+  // 2: payBreakdown orqali aralash tolov togri hisoblanadi
+  let naqd = 0, karta = 0, otkazma = 0;
+  periodSales.forEach(s => {
+    const pb = s.payBreakdown;
+    if (pb && (pb.naqd || pb.karta || pb.otkazma)) {
+      naqd    += (pb.naqd    || 0);
+      karta   += (pb.karta   || 0);
+      otkazma += (pb.otkazma || 0);
+    } else {
+      const paid = s.payType === "nasiya" ? 0 : (s.paid || 0);
+      if      (s.payType === "karta")   karta   += paid;
+      else if (s.payType === "otkazma") otkazma += paid;
+      else                              naqd    += paid;
+    }
+  });
 
-  // Tannarx (sotilgan tovarlar)
+  // 3: Qarz tushumi - db.debtPayments dan
+  const periodDebtPays = (db.debtPayments||[]).filter(p => p.date >= from && p.date <= to);
+  let debtNaqd = 0, debtKarta = 0, debtOtkazma = 0, debtBalans = 0;
+  periodDebtPays.forEach(p => {
+    const amt = p.currency === "usd" ? Math.round(p.amount * rate) : (p.amount || 0);
+    if      (p.method === "karta")   debtKarta   += amt;
+    else if (p.method === "otkazma") debtOtkazma += amt;
+    else if (p.method === "balans")  debtBalans  += amt;
+    else                             debtNaqd    += amt;
+  });
+
+  const sotuvTushum = naqd + karta + otkazma;
+  const qarzTushum  = debtNaqd + debtKarta + debtOtkazma + debtBalans;
+  const sotuv       = sotuvTushum + qarzTushum;
+  const chiqim      = periodExps.reduce((a, x) => a + (x.amount||0), 0);
+
+  // Tannarx
   let periodCost = 0;
   periodSales.forEach(s => {
-    s.items?.forEach(i => {
-      const p = db.products.find(x => x.name === i.name);
+    (s.items||[]).forEach(i => {
+      const p = (db.products||[]).find(x => x.name === i.name);
       if (p) periodCost += Math.round((p.costUsd||0) * rate) * (i.qty||0);
     });
   });
 
-  // Sof foyda = kassaga tushgan − tannarx − xarajatlar
+  // Yetkazuvchi qarzi
+  const supDebt = (db.ombor||[]).filter(o=>o.payStatus==="qarz")
+    .reduce((a,o)=>a+(o.kirimNarxi||0)*(o.qty||0),0);
+
+  // 4: Kassa balansi - barcha vaqt, qarz tolovi ham kiritilgan
+  const allSotuvPaid = (db.sales||[]).reduce((a, s) => {
+    const pb = s.payBreakdown;
+    if (pb && (pb.naqd||pb.karta||pb.otkazma))
+      return a + (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
+    return a + (s.payType==="nasiya"?0:(s.paid||0));
+  }, 0);
+  const allDebtPaid = (db.debtPayments||[]).reduce((a,p) =>
+    a + (p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)), 0);
+  const allExp  = (db.xarajatlar||[]).reduce((a,x)=>a+(x.amount||0),0);
+  const balans  = allSotuvPaid + allDebtPaid - allExp;
+
   const grossProfit = sotuv - periodCost;
   const netProfit   = sotuv - periodCost - chiqim;
 
-  // Jami kassa balansi (barcha vaqt) = jami tushum − jami xarajat
-  const allPaid = db.sales.reduce((a, s) => a + (s.paid||0), 0);
-  const allExp  = (db.xarajatlar||[]).reduce((a, x) => a + (x.amount||0), 0);
-  const balans  = allPaid - allExp;
-
-  // Yetkazuvchi qarzi (ombordagi to'lanmagan)
-  const supDebt = (db.ombor||[])
-    .filter(o => o.payStatus === "qarz")
-    .reduce((a, o) => a + (o.kirimNarxi||0) * (o.qty||0), 0);
-
   // KPI
-  if ($("mol-balans"))    { $("mol-balans").textContent = fmt(balans) + " so'm"; }
-  if ($("mol-kirim"))     { $("mol-kirim").textContent = fmt(sotuv) + " so'm"; }
-  if ($("mol-chiqim"))    { $("mol-chiqim").textContent = fmt(chiqim) + " so'm"; }
-  if ($("mol-month-rev")) { $("mol-month-rev").textContent = fmt(sotuv) + " so'm"; }
-  if ($("mol-month-exp")) { $("mol-month-exp").textContent = fmt(chiqim) + " so'm"; }
-  if ($("mol-exp-cnt"))   { $("mol-exp-cnt").textContent = periodExps.length + " ta"; }
-  if ($("mol-sup-debt"))  { $("mol-sup-debt").textContent = fmt(supDebt) + " so'm"; }
-
-  // Yetkazuvchi qarzlar ro'yxatini render qilish
-  renderSupDebtList();
-  if ($("mol-gross"))     { $("mol-gross").textContent = fmt(grossProfit) + " so'm";
-                            $("mol-gross").style.color = grossProfit>=0?"var(--grn)":"var(--red)"; }
-
+  if ($("mol-balans"))       $("mol-balans").textContent       = fmt(balans)+" so'm";
+  if ($("mol-kirim"))        $("mol-kirim").textContent        = fmt(sotuv)+" so'm";
+  if ($("mol-chiqim"))       $("mol-chiqim").textContent       = fmt(chiqim)+" so'm";
+  if ($("mol-month-rev"))    $("mol-month-rev").textContent    = fmt(sotuv)+" so'm";
+  if ($("mol-month-exp"))    $("mol-month-exp").textContent    = fmt(chiqim)+" so'm";
+  if ($("mol-exp-cnt"))      $("mol-exp-cnt").textContent      = periodExps.length+" ta";
+  if ($("mol-sup-debt"))     $("mol-sup-debt").textContent     = fmt(supDebt)+" so'm";
+  if ($("mol-sotuv-tushum")) $("mol-sotuv-tushum").textContent = fmt(sotuvTushum)+" so'm";
+  if ($("mol-qarz-tushum"))  $("mol-qarz-tushum").textContent  = fmt(qarzTushum)+" so'm";
+  if ($("mol-gross")) {
+    $("mol-gross").textContent = fmt(grossProfit)+" so'm";
+    $("mol-gross").style.color = grossProfit>=0?"var(--grn)":"var(--red)";
+  }
   const profitEl = $("mol-profit");
   if (profitEl) {
-    profitEl.textContent = (netProfit < 0 ? "−" : "+") + fmt(Math.abs(netProfit)) + " so'm";
-    profitEl.style.color = netProfit >= 0 ? "var(--grn)" : "var(--red)";
+    profitEl.textContent = (netProfit<0?"−":"+")+fmt(Math.abs(netProfit))+" so'm";
+    profitEl.style.color = netProfit>=0?"var(--grn)":"var(--red)";
   }
 
-  // Kirim manbalar vizuali
-  renderKirimManbalar(naqd, karta, otkazma, sotuv);
+  renderSupDebtList();
+  renderKirimManbalar(naqd+debtNaqd, karta+debtKarta, otkazma+debtOtkazma, debtBalans, sotuv);
 
-  // Kategoriya bo'yicha umumiy
   const catTotals = {};
-  periodExps.forEach(x => {
-    const c = x.category || "Boshqa";
-    catTotals[c] = (catTotals[c]||0) + (x.amount||0);
-  });
+  periodExps.forEach(x => { const c=x.category||"Boshqa"; catTotals[c]=(catTotals[c]||0)+(x.amount||0); });
 
-  // Jadval
-  let exps = [...periodExps].sort((a,b) => (b.date||"") > (a.date||"") ? 1 : -1);
+  let exps = [...periodExps].sort((a,b)=>((b.date||"")>(a.date||""))?1:-1);
   if (q) exps = exps.filter(x =>
     (x.category||"").toLowerCase().includes(q) ||
     (x.note||"").toLowerCase().includes(q) ||
@@ -113,44 +167,24 @@ function renderMoliya() {
   if (tbody) {
     tbody.innerHTML = exps.length ? exps.map(x => {
       const catIdx = MOL_CATS.indexOf(x.category);
-      const color  = MOL_COLORS[catIdx >= 0 ? catIdx : MOL_COLORS.length-1];
-      const icon   = ["🏠","👤","🚗","💡","📢","📦","📋"][catIdx >= 0 ? catIdx : 6];
+      const color  = MOL_COLORS[catIdx>=0?catIdx:MOL_COLORS.length-1];
+      const icon   = ["\uD83C\uDFE0","\uD83D\uDC64","\uD83D\uDE97","\uD83D\uDCA1","\uD83D\uDCE2","\uD83D\uDCE6","\uD83D\uDCCB"][catIdx>=0?catIdx:6];
       return `<tr>
         <td style="font-size:12.5px;white-space:nowrap;font-weight:600">${x.date||"—"}</td>
-        <td>
-          <span class="bg" style="font-size:12px;background:${color}18;color:${color}">
-            ${icon} ${x.category||"—"}
-          </span>
-        </td>
+        <td><span class="bg" style="font-size:12px;background:${color}18;color:${color}">${icon} ${x.category||"—"}</span></td>
         <td style="font-size:12px;color:#666">
-          ${x.recipient ? `<div style="font-weight:600">${x.recipient}</div>` : ""}
-          ${x.paidBy    ? `<div style="font-size:11px;color:#aaa">To'ladi: ${x.paidBy}</div>` : ""}
+          ${x.recipient?`<div style="font-weight:600">${x.recipient}</div>`:""}
+          ${x.paidBy?`<div style="font-size:11px;color:#aaa">To'ladi: ${x.paidBy}</div>`:""}
         </td>
-        <td class="num" style="font-weight:800;color:var(--red);font-size:13px">
-          ${fmt(x.amount||0)} so'm
-        </td>
-        <td style="font-size:12px;color:#aaa;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-          ${x.note||""}
-        </td>
-        <td>
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteExp(${x.id})" style="color:var(--red)">
-            <i class="ti ti-trash"></i>
-          </button>
-        </td>
+        <td class="num" style="font-weight:800;color:var(--red);font-size:13px">${fmt(x.amount||0)} so'm</td>
+        <td style="font-size:12px;color:#aaa;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.note||""}</td>
+        <td><button class="btn btn-ghost btn-icon btn-sm" onclick="deleteExp(${x.id})" style="color:var(--red)"><i class="ti ti-trash"></i></button></td>
       </tr>`;
-    }).join("") : `<tr><td colspan="6" class="empty-td">
-      ${q ? `"${q}" topilmadi` : "Bu davrda xarajat yo'q"}
-    </td></tr>`;
+    }).join("") : `<tr><td colspan="6" class="empty-td">${q?`"${q}" topilmadi`:"Bu davrda xarajat yo'q"}</td></tr>`;
   }
 
-  // Jadval sarlavhasini yangilaymiz (recipient ustuni qo'shildi)
   const thead = tbody?.closest("table")?.querySelector("thead");
-  if (thead) {
-    thead.innerHTML = `<tr>
-      <th>Sana</th><th>Kategoriya</th><th>Kim/Kimga</th>
-      <th class="num">Summa</th><th>Izoh</th><th></th>
-    </tr>`;
-  }
+  if (thead) thead.innerHTML = `<tr><th>Sana</th><th>Kategoriya</th><th>Kim/Kimga</th><th class="num">Summa</th><th>Izoh</th><th></th></tr>`;
 
   renderExpChart(catTotals, chiqim);
   renderFlowBars(sotuv, chiqim);
@@ -242,18 +276,19 @@ function renderFlowBars(kirim, chiqim) {
 }
 
 // ── Kirim manbalar ────────────────────────────────
-function renderKirimManbalar(naqd, karta, otkazma, total) {
+function renderKirimManbalar(naqd, karta, otkazma, balans, total) {
   const el = $("mol-kirim-manbalar"); if (!el || !total) return;
   const items = [
-    { lbl:"Naqd",    val:naqd,    color:"#36B48C", icon:"💵" },
-    { lbl:"Karta",   val:karta,   color:"#4C9BE8", icon:"💳" },
-    { lbl:"O'tkazma",val:otkazma, color:"#8B5CF6", icon:"📲" },
+    { lbl:"💵 Naqd",          val:naqd,    color:"#36B48C" },
+    { lbl:"💳 Karta",         val:karta,   color:"#4C9BE8" },
+    { lbl:"🏦 O'tkazma",      val:otkazma, color:"#8B5CF6" },
+    { lbl:"💰 Balansdan",     val:balans,  color:"#E9A500" },
   ].filter(i => i.val > 0);
 
   el.innerHTML = items.map(i => `
     <div style="margin-bottom:6px">
       <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-        <span style="color:${i.color};font-weight:600">${i.icon} ${i.lbl}</span>
+        <span style="color:${i.color};font-weight:600">${i.lbl}</span>
         <span style="font-weight:700">${fmt(i.val)} so'm
           <span style="color:#bbb;font-size:10.5px">(${Math.round(i.val/total*100)}%)</span>
         </span>
