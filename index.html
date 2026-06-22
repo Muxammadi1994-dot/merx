@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=92">
+<link rel="stylesheet" href="style.css?v=93">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1363,7 +1363,7 @@
           <button class="tx-status-btn" data-s="tolandan" onclick="setTxStatus('tolandan')"
             style="padding:5px 12px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">✅ To'liq to'langan</button>
           <button class="tx-status-btn" data-s="qarz" onclick="setTxStatus('qarz')"
-            style="padding:5px 12px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">💳 Nasiya</button>
+            style="padding:5px 12px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">💳 Qisman to'langan</button>
           <button class="tx-status-btn" data-s="qaytarilgan" onclick="setTxStatus('qaytarilgan')"
             style="padding:5px 12px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;color:var(--red);cursor:pointer">↩ Qaytarilgan</button>
         </div>
@@ -2374,24 +2374,9 @@
         <div style="font-size:10px;color:#92400E;font-weight:700;text-transform:uppercase;margin-bottom:3px">Izoh</div>
         <div style="font-size:13px;color:#78350F" id="sd-note"></div>
       </div>
-      <!-- Qarz bo'lsa — Qarzlar sahifasiga yo'naltirish -->
-      <div id="sd-pay-block" style="display:none;margin-top:14px;padding:14px;background:#FEF3C7;border:1.5px solid #FCD34D;border-radius:12px">
-        <div style="font-size:11px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
-          <i class="ti ti-info-circle"></i> Bu sotuvda qarz bor
-        </div>
-        <div style="font-size:12.5px;color:#78350F;margin-bottom:10px">
-          To'lov qabul qilish uchun <strong>Qarzlar</strong> sahifasiga o'ting — sotuv cheki shu yerda o'zgarmaydi.
-        </div>
-        <button onclick="closeModal('saledetail');nav('qarzlar')"
-          style="background:#D97706;color:#fff;border:none;border-radius:8px;
-          padding:9px 16px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;width:100%">
-          <i class="ti ti-arrow-right"></i> Qarzlar sahifasiga o'tish
-        </button>
-      </div>
     </div>
     <div style="padding:12px 20px;border-top:1px solid var(--brd);display:flex;gap:8px">
       <button onclick="printSaleDetail()" class="btn btn-sm" style="flex:1"><i class="ti ti-printer"></i> Chek</button>
-      <button id="sd-wa-btn" onclick="shareSaleWhatsApp()" class="btn btn-sm" style="flex:1;color:#25D366;border-color:#25D366"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>
       <button id="sd-refund-btn" onclick="openRefundModal()" class="btn btn-sm" style="flex:1;color:var(--red)"><i class="ti ti-arrow-back"></i> Qaytarish</button>
     </div>
   </div>
@@ -2595,23 +2580,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=92"></script>
-<script src="js/utils.js?v=92"></script>
-<script src="js/sms.js?v=92"></script>
-<script src="js/cloud.js?v=92"></script>
-<script src="js/dashboard.js?v=92"></script>
-<script src="js/pos.js?v=92"></script>
-<script src="js/katalog.js?v=92"></script>
-<script src="js/ombor.js?v=92"></script>
-<script src="js/mijozlar.js?v=92"></script>
-<script src="js/qarzlar.js?v=92"></script>
-<script src="js/tarix.js?v=92"></script>
-<script src="js/hisobot.js?v=92"></script>
-<script src="js/xodimlar.js?v=92"></script>
-<script src="js/moliya.js?v=92"></script>
-<script src="js/egasi.js?v=92"></script>
-<script src="js/portal.js?v=92"></script>
-<script src="js/init.js?v=92"></script>
+<script src="js/db.js?v=93"></script>
+<script src="js/utils.js?v=93"></script>
+<script src="js/sms.js?v=93"></script>
+<script src="js/cloud.js?v=93"></script>
+<script src="js/dashboard.js?v=93"></script>
+<script src="js/pos.js?v=93"></script>
+<script src="js/katalog.js?v=93"></script>
+<script src="js/ombor.js?v=93"></script>
+<script src="js/mijozlar.js?v=93"></script>
+<script src="js/qarzlar.js?v=93"></script>
+<script src="js/tarix.js?v=93"></script>
+<script src="js/hisobot.js?v=93"></script>
+<script src="js/xodimlar.js?v=93"></script>
+<script src="js/moliya.js?v=93"></script>
+<script src="js/egasi.js?v=93"></script>
+<script src="js/portal.js?v=93"></script>
+<script src="js/init.js?v=93"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2960,7 +2945,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=92"></script>
-<script src="js/superadmin.js?v=92"></script>
+<script src="js/auth.js?v=93"></script>
+<script src="js/superadmin.js?v=93"></script>
 </body>
 </html>
