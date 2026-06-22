@@ -104,6 +104,13 @@ function renderTarix() {
   const total = list.reduce((a, s) => a + (s.total||0), 0);
   const paid  = list.reduce((a, s) => a + (s.paid ||0), 0);
   const rem   = list.reduce((a, s) => a + (s.remaining||0), 0);
+
+  // Faol davr belgisini aniqlaymiz
+  const periodNames = { all:"(barchasi)", today:"(bugun)", week:"(7 kun)", month:"(bu oy)" };
+  const statusNames = { all:"", tolandan:" · to'langan", qarz:" · nasiya", qaytarilgan:" · qaytarilgan" };
+  const periodLabel = (periodNames[txPeriod]||"") + (statusNames[txStatus]||"");
+  if ($("tx-period-label")) $("tx-period-label").textContent = periodLabel;
+
   if ($("tx-cnt"))   $("tx-cnt").textContent   = list.length + " ta";
   if ($("tx-total")) $("tx-total").textContent = fmt(total) + " so'm";
   if ($("tx-paid"))  $("tx-paid").textContent  = fmt(paid)  + " so'm";
