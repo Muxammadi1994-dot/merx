@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=94">
+<link rel="stylesheet" href="style.css?v=95">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1025,27 +1025,6 @@
 
   <!-- QARZLAR -->
   <div class="pg" id="p-qarzlar">
-
-    <!-- MODAL: KPI panellarni sozlash -->
-    <div class="ov" id="ov-debtkpi" onclick="if(event.target===this)closeModal('debtkpi')">
-      <div class="modal" style="max-width:380px">
-        <button class="m-close" onclick="closeModal('debtkpi')"><i class="ti ti-x"></i></button>
-        <h2 style="margin-bottom:4px">Panellarni sozlash</h2>
-        <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Qaysi ko'rsatkichlar ko'rinishini tanlang</p>
-        <div id="debt-kpi-settings-list" style="display:flex;flex-direction:column;gap:8px"></div>
-      </div>
-    </div>
-
-    <!-- MODAL: Jadval ustunlarini sozlash -->
-    <div class="ov" id="ov-debtcols" onclick="if(event.target===this)closeModal('debtcols')">
-      <div class="modal" style="max-width:380px">
-        <button class="m-close" onclick="closeModal('debtcols')"><i class="ti ti-x"></i></button>
-        <h2 style="margin-bottom:4px">Jadval ustunlarini sozlash</h2>
-        <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Qaysi ustunlar ko'rinishini tanlang</p>
-        <div id="debt-cols-settings-list" style="display:flex;flex-direction:column;gap:8px"></div>
-      </div>
-    </div>
-
     <!-- KPI kartalar (2 ustun) + Trend grafigi -->
     <div id="debt-kpi-trend-wrap" style="display:grid;grid-template-columns:1fr 1.15fr;gap:16px;margin-bottom:16px;align-items:stretch">
       <div style="display:flex;flex-direction:column">
@@ -1423,12 +1402,29 @@
   <!-- HISOBOT -->
   <div class="pg" id="p-hisobot">
     <div class="rep-filters" id="rep-filters" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="rfbtn" data-r="today" onclick="setRepRange('today')">Bugun</button>
-        <button class="rfbtn on" data-r="week" onclick="setRepRange('week')">7 kun</button>
-        <button class="rfbtn" data-r="month" onclick="setRepRange('month')">Bu oy</button>
-        <button class="rfbtn" data-r="quarter" onclick="setRepRange('quarter')">3 oy</button>
-        <button class="rfbtn" data-r="year" onclick="setRepRange('year')">Bu yil</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;background:var(--bg);border:1px solid var(--brd);border-radius:9px;padding:3px;gap:2px">
+          <button class="rfbtn" data-r="yesterday" onclick="setRepRange('yesterday')"
+            style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Kecha</button>
+          <button class="rfbtn" data-r="today" onclick="setRepRange('today')"
+            style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Bugun</button>
+          <button class="rfbtn on" data-r="week" onclick="setRepRange('week')"
+            style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:#0D1B2A;color:#fff;cursor:pointer">Hafta</button>
+          <button class="rfbtn" data-r="month" onclick="setRepRange('month')"
+            style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Oy</button>
+          <button class="rfbtn" data-r="quarter" onclick="setRepRange('quarter')"
+            style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">3 oy</button>
+          <button class="rfbtn" data-r="year" onclick="setRepRange('year')"
+            style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Yil</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px">
+          <i class="ti ti-calendar" style="font-size:14px;color:var(--mut)"></i>
+          <input type="date" id="rep-date-from" onchange="setRepCustomRange()"
+            style="font-family:inherit;font-size:12px;border:1px solid var(--brd);border-radius:7px;padding:5px 8px">
+          <span style="font-size:11px;color:#bbb">—</span>
+          <input type="date" id="rep-date-to" onchange="setRepCustomRange()"
+            style="font-family:inherit;font-size:12px;border:1px solid var(--brd);border-radius:7px;padding:5px 8px">
+        </div>
       </div>
       <button class="btn btn-sm" onclick="exportHisobotExcel()" style="color:#1D6A39">
         <i class="ti ti-file-spreadsheet"></i> Excel eksport
@@ -1490,12 +1486,11 @@
       <table><thead><tr><th>Kassir</th><th>Sotuvlar</th><th>Jami</th><th>O'rtacha chek</th><th>Ulush</th></tr></thead>
       <tbody id="rep-staff"></tbody></table></div>
 
-    <div class="card"><div class="ch"><h3><i class="ti ti-receipt-2"></i>Narx turi tahlili</h3></div>
+    <div class="card"><div class="ch"><h3><i class="ti ti-cash-banknote"></i>Qarz tushumi (to'lov usuli)</h3></div>
       <div style="overflow-x:auto">
-      <table><thead><tr><th>Narx turi</th><th>Sotuvlar</th><th>Jami sotuv</th><th>O'rtacha sotuv</th><th>Ulush</th></tr></thead>
+      <table><thead><tr><th>Usul</th><th>Jami tushum</th><th>Ulush</th></tr></thead>
       <tbody id="rep-pricetype"></tbody></table></div></div>
   </div>
-
   <!-- XODIMLAR -->
   <div class="pg" id="p-xodimlar">
     <!-- KPI -->
@@ -2601,23 +2596,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=94"></script>
-<script src="js/utils.js?v=94"></script>
-<script src="js/sms.js?v=94"></script>
-<script src="js/cloud.js?v=94"></script>
-<script src="js/dashboard.js?v=94"></script>
-<script src="js/pos.js?v=94"></script>
-<script src="js/katalog.js?v=94"></script>
-<script src="js/ombor.js?v=94"></script>
-<script src="js/mijozlar.js?v=94"></script>
-<script src="js/qarzlar.js?v=94"></script>
-<script src="js/tarix.js?v=94"></script>
-<script src="js/hisobot.js?v=94"></script>
-<script src="js/xodimlar.js?v=94"></script>
-<script src="js/moliya.js?v=94"></script>
-<script src="js/egasi.js?v=94"></script>
-<script src="js/portal.js?v=94"></script>
-<script src="js/init.js?v=94"></script>
+<script src="js/db.js?v=95"></script>
+<script src="js/utils.js?v=95"></script>
+<script src="js/sms.js?v=95"></script>
+<script src="js/cloud.js?v=95"></script>
+<script src="js/dashboard.js?v=95"></script>
+<script src="js/pos.js?v=95"></script>
+<script src="js/katalog.js?v=95"></script>
+<script src="js/ombor.js?v=95"></script>
+<script src="js/mijozlar.js?v=95"></script>
+<script src="js/qarzlar.js?v=95"></script>
+<script src="js/tarix.js?v=95"></script>
+<script src="js/hisobot.js?v=95"></script>
+<script src="js/xodimlar.js?v=95"></script>
+<script src="js/moliya.js?v=95"></script>
+<script src="js/egasi.js?v=95"></script>
+<script src="js/portal.js?v=95"></script>
+<script src="js/init.js?v=95"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2966,7 +2961,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=94"></script>
-<script src="js/superadmin.js?v=94"></script>
+<script src="js/auth.js?v=95"></script>
+<script src="js/superadmin.js?v=95"></script>
 </body>
 </html>

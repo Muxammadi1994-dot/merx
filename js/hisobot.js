@@ -8,19 +8,46 @@ let _repCharts = {};
 
 function setRepRange(r) {
   repRange = r;
-  document.querySelectorAll(".rfbtn").forEach(b =>
-    b.classList.toggle("on", b.dataset.r === r));
+  if (r !== "custom") {
+    const f = $("rep-date-from"), t = $("rep-date-to");
+    if (f) f.value = ""; if (t) t.value = "";
+  }
+  document.querySelectorAll(".rfbtn").forEach(b => {
+    const on = b.dataset.r === r;
+    b.classList.toggle("on", on);
+    b.style.background = on ? "#0D1B2A" : "transparent";
+    b.style.color = on ? "#fff" : "var(--mut)";
+  });
+  renderHisobot();
+}
+
+function setRepCustomRange() {
+  const from = ($("rep-date-from")||{value:""}).value;
+  const to   = ($("rep-date-to")||{value:""}).value;
+  if (!from && !to) return;
+  repRange = "custom";
+  document.querySelectorAll(".rfbtn").forEach(b => {
+    b.classList.remove("on");
+    b.style.background = "transparent";
+    b.style.color = "var(--mut)";
+  });
   renderHisobot();
 }
 
 // ── Davr oralig'ini hisoblash ─────────────────────
 function repDateRange() {
   const t = today();
-  if (repRange === "today")   return { from: t, to: t };
-  if (repRange === "week")    return { from: addDays(t, -6), to: t };
-  if (repRange === "month")   return { from: t.slice(0,7) + "-01", to: t };
-  if (repRange === "quarter") return { from: addDays(t, -89), to: t };
-  if (repRange === "year")    return { from: t.slice(0,4) + "-01-01", to: t };
+  if (repRange === "yesterday") return { from: addDays(t,-1), to: addDays(t,-1) };
+  if (repRange === "today")     return { from: t, to: t };
+  if (repRange === "week")      return { from: addDays(t,-6), to: t };
+  if (repRange === "month")     return { from: t.slice(0,7)+"-01", to: t };
+  if (repRange === "quarter")   return { from: addDays(t,-89), to: t };
+  if (repRange === "year")      return { from: t.slice(0,4)+"-01-01", to: t };
+  if (repRange === "custom") {
+    const from = ($("rep-date-from")||{value:""}).value;
+    const to   = ($("rep-date-to")||{value:""}).value;
+    return { from: from||t, to: to||t };
+  }
   return { from: "2000-01-01", to: t };
 }
 
@@ -38,7 +65,8 @@ function renderHisobot() {
   const cnt     = sales.length;
   const rev     = sales.reduce((a, s) => a + (s.total||0), 0);
   const paid    = sales.reduce((a, s) => a + (s.paid||0), 0);
-  const debt    = sales.reduce((a, s) => a + (s.remaining||0), 0);
+  // Joriy qoldiq qarz — calcSaleState orqali (to'lovlar hisobga olinadi)
+  const debt    = sales.reduce((a, s) => a + calcSaleState(s).remaining, 0);
 
   // Foyda hisoblash (to'g'ri mantiq)
   // Hisoblangan foyda = sotuv narxi - tannarx (tovar chiqib ketgan)
@@ -415,37 +443,45 @@ function renderRepCustomers(sales) {
 // ── Narx turi tahlili ─────────────────────────────
 function renderRepPriceType(sales) {
   const el = $("rep-pricetype"); if (!el) return;
-  const total = sales.reduce((a, s) => a + s.total, 0) || 1;
+  const { from, to } = repDateRange();
+  const rate = db.settings?.rate || 12800;
 
-  const types = {};
-  sales.forEach(s => {
-    const k = s.priceType || "chakana";
-    if (!types[k]) types[k] = { cnt: 0, total: 0 };
-    types[k].cnt++;
-    types[k].total += s.total || 0;
+  // Davr ichidagi qarz to'lovlari
+  const payments = (db.debtPayments||[]).filter(p => p.date >= from && p.date <= to);
+  const toUzs = p => p.currency === "usd" ? p.amount * rate : p.amount;
+
+  const methodColors = { naqd:"#36B48C", karta:"#4C9BE8", otkazma:"#8B5CF6", balans:"#E9A500" };
+  const methodLabels = { naqd:"💵 Naqd", karta:"💳 Karta", otkazma:"🏦 O'tkazma", balans:"💰 Balansdan" };
+
+  const byMethod = {};
+  payments.forEach(p => {
+    const m = p.method || "naqd";
+    byMethod[m] = (byMethod[m]||0) + toUzs(p);
   });
 
-  const labels = { ulgurji: "📦 Ulgurji", chakana: "👤 Chakana" };
+  const total = Object.values(byMethod).reduce((a,b)=>a+b,0);
 
-  if (!Object.keys(types).length) {
-    el.innerHTML = `<tr><td colspan="5" class="empty-td">Ma'lumot yo'q</td></tr>`;
+  if (!total) {
+    el.innerHTML = `<tr><td colspan="3" class="empty-td">Shu davrda qarz to'lovi bo'lmagan</td></tr>`;
     return;
   }
 
-  el.innerHTML = Object.entries(types)
-    .sort((a, b) => b[1].total - a[1].total)
-    .map(([k, d]) => {
-      const avg = d.cnt ? Math.round(d.total / d.cnt) : 0;
-      const pct = Math.round(d.total / total * 100);
+  el.innerHTML = Object.entries(byMethod)
+    .filter(([,v]) => v > 0)
+    .sort((a,b) => b[1]-a[1])
+    .map(([key, val]) => {
+      const pct = Math.round(val/total*100);
+      const color = methodColors[key]||"#aaa";
       return `<tr>
-        <td><span class="bg ${k==="ulgurji"?"bg-a":""}" style="font-size:12px">${labels[k]||k}</span></td>
-        <td class="num">${d.cnt} ta</td>
-        <td class="num" style="font-weight:700">${fmtK(d.total)} so'm</td>
-        <td class="num">${fmtK(avg)} so'm</td>
+        <td><span style="display:flex;align-items:center;gap:6px">
+          <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block"></span>
+          ${methodLabels[key]||key}
+        </span></td>
+        <td class="num" style="font-weight:700">${fmtK(val)} so'm</td>
         <td class="num">
           <div style="display:flex;align-items:center;gap:6px">
             <div style="flex:1;height:7px;background:#f0ede7;border-radius:4px;min-width:60px">
-              <div style="height:100%;width:${pct}%;background:${k==="ulgurji"?"var(--acc)":"var(--teal)"};border-radius:4px"></div>
+              <div style="height:100%;width:${pct}%;background:${color};border-radius:4px"></div>
             </div>
             <span style="font-size:12px;font-weight:700;width:32px;text-align:right">${pct}%</span>
           </div>
