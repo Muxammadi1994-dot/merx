@@ -121,6 +121,45 @@ function renderHisobot() {
   // Tannarx jami
   if ($("rep-cost")) $("rep-cost").textContent = fmtK(costTotal) + " so'm";
 
+  // ── Xarajatlar (shu davrdagi) → sof foyda ──────
+  const { from, to } = repDateRange();
+  const periodExp = (db.xarajatlar||[])
+    .filter(x => x.date >= from && x.date <= to)
+    .reduce((a, x) => a + (x.amount||0), 0);
+  const netProfit = realProfit - periodExp; // Sof foyda = kassaga tushgan − xarajatlar
+  const netMargin = paid > 0 ? Math.round(netProfit / paid * 100) : 0;
+
+  if ($("rep-expenses")) $("rep-expenses").textContent = fmtK(periodExp) + " so'm";
+  if ($("rep-net-profit")) {
+    $("rep-net-profit").textContent = fmtK(netProfit) + " so'm";
+    $("rep-net-profit").style.color = netProfit >= 0 ? "var(--grn)" : "var(--red)";
+  }
+  if ($("rep-net-margin")) {
+    $("rep-net-margin").textContent = netMargin + "%";
+    $("rep-net-margin").style.color = netMargin >= 15 ? "var(--grn)" : netMargin >= 5 ? "#E07B39" : "var(--red)";
+  }
+
+  // ── Ombor qiymati (joriy, davrsiz) ─────────────
+  const omborCost = (db.products||[]).reduce((a, p) => {
+    const costUzs = Math.round((p.costUsd||0) * rate);
+    const totalQty = (p.variants||[]).reduce((b, v) => b + (v.qty||0), 0);
+    return a + costUzs * totalQty;
+  }, 0);
+  const omborSellVal = (db.products||[]).reduce((a, p) => {
+    const sellUzs = p.priceUzs || 0;
+    const totalQty = (p.variants||[]).reduce((b, v) => b + (v.qty||0), 0);
+    return a + sellUzs * totalQty;
+  }, 0);
+  const omborProfit = omborSellVal - omborCost;
+
+  if ($("rep-ombor-cost")) $("rep-ombor-cost").textContent = fmtK(omborCost) + " so'm";
+  if ($("rep-ombor-sell")) $("rep-ombor-sell").textContent = fmtK(omborSellVal) + " so'm";
+  if ($("rep-ombor-profit")) {
+    $("rep-ombor-profit").textContent = fmtK(omborProfit) + " so'm";
+    $("rep-ombor-profit").style.color = omborProfit >= 0 ? "var(--grn)" : "var(--red)";
+  }
+
+  renderRepExpenseChart(periodExp, costTotal, realProfit);
   renderRepTrendChart(sales);
   renderRepPayChart(sales);
   renderRepProducts(sales, rev);
@@ -490,6 +529,64 @@ function renderRepPriceType(sales) {
     }).join("");
 }
 
+
+// ── Xarajatlar tahlili — pul oqimi grafigi ─────────
+let _repExpChart = null;
+function renderRepExpenseChart(expenses, costTotal, realProfit) {
+  const el = $("rep-expense-chart"); if (!el || typeof Chart === "undefined") return;
+  if (_repExpChart) { _repExpChart.destroy(); _repExpChart = null; }
+
+  const { from, to } = repDateRange();
+  const periodExp = (db.xarajatlar||[]).filter(x => x.date >= from && x.date <= to);
+
+  // Kategoriya bo'yicha guruhlash
+  const byCat = {};
+  periodExp.forEach(x => {
+    const cat = x.category || "Boshqa";
+    byCat[cat] = (byCat[cat]||0) + (x.amount||0);
+  });
+
+  // Xarajat kategoriyalar jadvali
+  const catEl = $("rep-expense-cats");
+  if (catEl) {
+    const sorted = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+    const total = Object.values(byCat).reduce((a,b)=>a+b,0)||1;
+    catEl.innerHTML = sorted.map(([cat,amt]) => `
+      <tr>
+        <td style="font-weight:600">${cat}</td>
+        <td class="num" style="font-weight:700;color:var(--red)">${fmtK(amt)} so'm</td>
+        <td class="num">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="flex:1;height:6px;background:#f0ede7;border-radius:4px;min-width:60px">
+              <div style="height:100%;width:${Math.round(amt/total*100)}%;background:var(--red);border-radius:4px"></div>
+            </div>
+            <span style="font-size:11.5px;font-weight:700;width:30px">${Math.round(amt/total*100)}%</span>
+          </div>
+        </td>
+      </tr>`).join("") || `<tr><td colspan="3" class="empty-td">Shu davrda xarajat yo'q</td></tr>`;
+  }
+
+  // Pul oqimi: Kassaga tushdi vs Xarajatlar vs Sof foyda
+  if (!Object.keys(byCat).length && realProfit === 0) return;
+  const data = [
+    { label: "Kassaga tushdi", val: Math.max(0, realProfit + expenses), color: "#36B48C" },
+    { label: "Xarajatlar", val: expenses, color: "#E05A5A" },
+    { label: "Tovar tannarxi", val: costTotal, color: "#8B5CF6" },
+  ];
+
+  _repExpChart = new Chart(el, {
+    type: "bar",
+    data: {
+      labels: data.map(d => d.label),
+      datasets: [{ data: data.map(d => d.val), backgroundColor: data.map(d=>d.color), borderRadius: 6, borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmtK(c.parsed.y) + " so'm" }}},
+      scales: { y: { ticks: { callback: v => fmtK(v) }, grid: { color: "#F0EEE8" }}, x: { grid: { display: false }}}
+    }
+  });
+}
 
 // ── Excel eksport ─────────────────────────────────
 function exportHisobotExcel() {

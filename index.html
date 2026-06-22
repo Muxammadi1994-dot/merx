@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=95">
+<link rel="stylesheet" href="style.css?v=96">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1464,10 +1464,63 @@
         <div class="kl">Jami tannarx</div>
         <div class="kv num" id="rep-cost" style="color:#888">0</div>
       </div>
+      <div class="kpi" style="border-top:3px solid var(--red)">
+        <div class="kl">Xarajatlar
+          <span style="font-size:10px;color:#aaa;display:block;font-weight:400">shu davr uchun</span>
+        </div>
+        <div class="kv num" id="rep-expenses" style="color:var(--red)">0</div>
+      </div>
+      <div class="kpi" style="border-top:3px solid #0D1B2A">
+        <div class="kl">Sof foyda
+          <span style="font-size:10px;color:#aaa;display:block;font-weight:400">kassa − xarajatlar</span>
+        </div>
+        <div class="kv num" id="rep-net-profit" style="color:#0D1B2A">0</div>
+      </div>
+      <div class="kpi" style="border-top:3px solid #0D1B2A">
+        <div class="kl">Sof margin</div>
+        <div class="kv num" id="rep-net-margin">0%</div>
+      </div>
     </div>
+
+    <!-- Ombor qiymati kartasi -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+      <div class="card" style="padding:14px 18px">
+        <div style="font-size:10.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
+          <i class="ti ti-box"></i> Ombor tannarxi
+        </div>
+        <div id="rep-ombor-cost" style="font-size:18px;font-weight:800;color:#0D1B2A">0</div>
+        <div style="font-size:11px;color:#aaa;margin-top:2px">joriy zaxira × tannarx</div>
+      </div>
+      <div class="card" style="padding:14px 18px">
+        <div style="font-size:10.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
+          <i class="ti ti-tag"></i> Ombor sotuv qiymati
+        </div>
+        <div id="rep-ombor-sell" style="font-size:18px;font-weight:800;color:#0D1B2A">0</div>
+        <div style="font-size:11px;color:#aaa;margin-top:2px">joriy zaxira × sotuv narxi</div>
+      </div>
+      <div class="card" style="padding:14px 18px">
+        <div style="font-size:10.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
+          <i class="ti ti-trending-up"></i> Ombordagi potensial foyda
+        </div>
+        <div id="rep-ombor-profit" style="font-size:18px;font-weight:800;color:var(--grn)">0</div>
+        <div style="font-size:11px;color:#aaa;margin-top:2px">sotuv − tannarx</div>
+      </div>
+    </div>
+
     <div class="rep-grid">
       <div class="card"><div class="ch"><h3><i class="ti ti-trending-up"></i>Sotuv dinamikasi</h3></div>
         <div style="padding:14px 18px"><div class="chart-lg"><canvas id="repTrendChart"></canvas></div></div></div>
+      <!-- Pul oqimi grafigi (yangi) -->
+      <div class="card">
+        <div class="ch"><h3><i class="ti ti-cash"></i>Pul oqimi tahlili</h3></div>
+        <div style="padding:14px 18px">
+          <div style="height:180px"><canvas id="rep-expense-chart"></canvas></div>
+        </div>
+        <div style="padding:0 18px 14px">
+          <table><thead><tr><th>Xarajat kategoriyasi</th><th>Summa</th><th>Ulush</th></tr></thead>
+          <tbody id="rep-expense-cats"></tbody></table>
+        </div>
+      </div>
       <div class="card"><div class="ch"><h3><i class="ti ti-chart-donut"></i>To'lov usullari</h3></div>
         <div style="padding:14px 18px"><div class="chart-sm"><canvas id="repPayChart"></canvas></div>
         <div id="rep-pay-legend" style="display:flex;gap:12px;justify-content:center;font-size:12.5px;margin-top:8px;flex-wrap:wrap"></div></div></div>
@@ -2596,23 +2649,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=95"></script>
-<script src="js/utils.js?v=95"></script>
-<script src="js/sms.js?v=95"></script>
-<script src="js/cloud.js?v=95"></script>
-<script src="js/dashboard.js?v=95"></script>
-<script src="js/pos.js?v=95"></script>
-<script src="js/katalog.js?v=95"></script>
-<script src="js/ombor.js?v=95"></script>
-<script src="js/mijozlar.js?v=95"></script>
-<script src="js/qarzlar.js?v=95"></script>
-<script src="js/tarix.js?v=95"></script>
-<script src="js/hisobot.js?v=95"></script>
-<script src="js/xodimlar.js?v=95"></script>
-<script src="js/moliya.js?v=95"></script>
-<script src="js/egasi.js?v=95"></script>
-<script src="js/portal.js?v=95"></script>
-<script src="js/init.js?v=95"></script>
+<script src="js/db.js?v=96"></script>
+<script src="js/utils.js?v=96"></script>
+<script src="js/sms.js?v=96"></script>
+<script src="js/cloud.js?v=96"></script>
+<script src="js/dashboard.js?v=96"></script>
+<script src="js/pos.js?v=96"></script>
+<script src="js/katalog.js?v=96"></script>
+<script src="js/ombor.js?v=96"></script>
+<script src="js/mijozlar.js?v=96"></script>
+<script src="js/qarzlar.js?v=96"></script>
+<script src="js/tarix.js?v=96"></script>
+<script src="js/hisobot.js?v=96"></script>
+<script src="js/xodimlar.js?v=96"></script>
+<script src="js/moliya.js?v=96"></script>
+<script src="js/egasi.js?v=96"></script>
+<script src="js/portal.js?v=96"></script>
+<script src="js/init.js?v=96"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -2961,7 +3014,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=95"></script>
-<script src="js/superadmin.js?v=95"></script>
+<script src="js/auth.js?v=96"></script>
+<script src="js/superadmin.js?v=96"></script>
 </body>
 </html>
