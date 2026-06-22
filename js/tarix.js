@@ -570,7 +570,7 @@ function exportTarixExcel() {
       (s.items||[]).filter(Boolean).map(i=>`${i.name}×${i.qty}`).join(", ")||"",
       s.customerName||"", s.customerPhone||"",
       PAYTYPES[s.payType]||"", s.priceType==="ulgurji"?"Ulgurji":"Chakana",
-      s.total||0, s.paid||0, s.remaining||0,
+      s.total||0, s.paid||0, calcSaleState(s).remaining||0,
       s.status==="qarz"?"Qarzda":s.status==="qaytarilgan"?"Qaytarilgan":"To'langan",
       s.note||""
     ]);

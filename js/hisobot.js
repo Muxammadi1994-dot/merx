@@ -495,22 +495,21 @@ function renderRepPriceType(sales) {
 function exportHisobotExcel() {
   const { from, to } = repDateRange();
   const sales = repSales();
-  const rate  = db.settings?.rate || 12800;
 
-  const rows = [["Sana","Vaqt","Kassir","Mijoz","Mahsulotlar","Jami","To'landi","Qarz","To'lov turi","Turi"]];
+  const rows = [["Sana","Vaqt","Kassir","Mijoz","Telefon","Mahsulotlar","Jami","To'landi","Qarz","To'lov turi","Narx turi","Holat"]];
   sales.forEach(s => {
-    const staffName = db.staff.find(x=>x.id===s.staffId)?.name || "—";
+    const staffName = (db.staff||[]).find(x=>x.id===s.staffId)?.name || "—";
     const items = (s.items||[]).map(i=>i.name+"×"+i.qty).join(", ");
-    rows.push([s.date, s.time||"", staffName, s.customerName||"—", items,
-      s.total||0, s.paid||0, s.remaining||0, s.payType, s.priceType]);
+    const st = calcSaleState(s);
+    rows.push([
+      s.date||"", s.time||"", staffName,
+      s.customerName||"—", s.customerPhone||"",
+      items, s.total||0, s.paid||0,
+      st.remaining||0, s.payType||"", s.priceType||"",
+      s.status==="qarz"?"Qarzda":s.status==="qaytarilgan"?"Qaytarilgan":"To'langan"
+    ]);
   });
 
-  let csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
-  const bom = "\uFEFF";
-  const blob = new Blob([bom + csv], { type:"text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a   = document.createElement("a");
-  a.href = url; a.download = `hisobot_${from}_${to}.csv`; a.click();
-  URL.revokeObjectURL(url);
-  toast("✅ Excel (CSV) yuklab olindi");
+  downloadCSV(rows, `merx_hisobot_${from}_${to}.xls`);
+  toast("✅ Hisobot yuklab olindi");
 }
