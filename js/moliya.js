@@ -101,20 +101,40 @@ function renderMoliya() {
   const sotuv       = sotuvTushum + qarzTushum;
   const chiqim      = periodExps.reduce((a, x) => a + (x.amount||0), 0);
 
-  // Tannarx
-  let periodCost = 0;
+  // Tannarx va foyda — hisobot bilan bir xil mantiq
+  // grossProfit = barcha sotuv (nasiya ham) − tannarx (to'g'ri iqtisodiy ko'rsatkich)
+  // realProfit  = kassaga tushgan foyda (checkout to'lovi + qarz to'lovidan ulush)
+  let periodCost = 0, grossProfit = 0, realProfit = 0;
   periodSales.forEach(s => {
+    let saleCost = 0;
     (s.items||[]).forEach(i => {
       const p = (db.products||[]).find(x => x.name === i.name);
-      if (p) periodCost += Math.round((p.costUsd||0) * rate) * (i.qty||0);
+      if (p) saleCost += Math.round((p.costUsd||0) * rate) * (i.qty||0);
     });
+    periodCost  += saleCost;
+    grossProfit += (s.total||0) - saleCost;
+    // Checkout paytida to'langan qism foydasi
+    const sPaid = (() => {
+      const pb = s.payBreakdown;
+      if (pb && (pb.naqd||pb.karta||pb.otkazma)) return (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
+      return s.payType==="nasiya" ? 0 : (s.paid||0);
+    })();
+    const paidRatio = s.total>0 ? sPaid/s.total : 0;
+    realProfit += ((s.total||0) - saleCost) * paidRatio;
   });
+  // Qarz to'lovlaridan kelgan foyda ulushi (tannarx allaqachon checkout da hisoblangan)
+  const grossMargin = grossProfit / (periodSales.reduce((a,s)=>a+(s.total||0),0)||1);
+  realProfit += qarzTushum * grossMargin;
+  realProfit = Math.round(realProfit);
+  grossProfit = Math.round(grossProfit);
+
+  const netProfit = realProfit - chiqim;
 
   // Yetkazuvchi qarzi
   const supDebt = (db.ombor||[]).filter(o=>o.payStatus==="qarz")
     .reduce((a,o)=>a+(o.kirimNarxi||0)*(o.qty||0),0);
 
-  // 4: Kassa balansi - barcha vaqt, qarz tolovi ham kiritilgan
+  // Kassa balansi — barcha vaqt
   const allSotuvPaid = (db.sales||[]).reduce((a, s) => {
     const pb = s.payBreakdown;
     if (pb && (pb.naqd||pb.karta||pb.otkazma))
@@ -125,9 +145,6 @@ function renderMoliya() {
     a + (p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)), 0);
   const allExp  = (db.xarajatlar||[]).reduce((a,x)=>a+(x.amount||0),0);
   const balans  = allSotuvPaid + allDebtPaid - allExp;
-
-  const grossProfit = sotuv - periodCost;
-  const netProfit   = sotuv - periodCost - chiqim;
 
   // KPI
   if ($("mol-balans"))       $("mol-balans").textContent       = fmt(balans)+" so'm";
