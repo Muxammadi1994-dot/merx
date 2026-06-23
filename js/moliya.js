@@ -6,16 +6,9 @@
 let molPeriod = "month"; // default: bu oy
 let _expChart = null;
 
-let expCatFilterVal = ""; // Kategoriya filtri
-
-function setExpCatFilter(cat) {
-  expCatFilterVal = cat;
-  document.querySelectorAll(".exp-cat-filter").forEach(b => {
-    const on = b.dataset.c === cat;
-    b.style.background  = on ? "#0D1B2A" : "#fff";
-    b.style.color       = on ? "#fff" : "";
-    b.style.borderColor = on ? "#0D1B2A" : "var(--brd)";
-  });
+function clearExpDateFilter() {
+  const f=$("exp-date-from"), t=$("exp-date-to");
+  if(f) f.value=""; if(t) t.value="";
   renderMoliya();
 }
 
@@ -275,17 +268,24 @@ function renderMoliya() {
   periodExps.forEach(x => { const c=x.category||"Boshqa"; catTotals[c]=(catTotals[c]||0)+(x.amount||0); });
 
   let exps = [...periodExps].sort((a,b)=>((b.date||"")>(a.date||""))?1:-1);
+  // Tekst qidiruv
   if (q) exps = exps.filter(x =>
     (x.category||"").toLowerCase().includes(q) ||
     (x.note||"").toLowerCase().includes(q) ||
     (x.recipient||"").toLowerCase().includes(q) ||
     (x.paidBy||"").toLowerCase().includes(q)
   );
-  // Kategoriya filtri
-  if (expCatFilterVal) exps = exps.filter(x => (x.category||"") === expCatFilterVal);
+  // Kategoriya filtri (select)
+  const catFilter = ($("exp-cat-filter")||{value:""}).value;
+  if (catFilter) exps = exps.filter(x => (x.category||"") === catFilter);
   // To'lov usuli filtri
   const methodFilter = ($("exp-method-filter")||{value:""}).value;
   if (methodFilter) exps = exps.filter(x => (x.method||"naqd") === methodFilter);
+  // Sana oralig'i filtri (davr filtriga qo'shimcha)
+  const dateFrom = ($("exp-date-from")||{value:""}).value;
+  const dateTo   = ($("exp-date-to")||{value:""}).value;
+  if (dateFrom) exps = exps.filter(x => (x.date||"") >= dateFrom);
+  if (dateTo)   exps = exps.filter(x => (x.date||"") <= dateTo);
 
   const cols = getExpCols();
   const colCount = Object.values(cols).filter(Boolean).length + 1; // +1 amallar ustuni

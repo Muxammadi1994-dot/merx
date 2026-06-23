@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=108">
+<link rel="stylesheet" href="style.css?v=109">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1804,31 +1804,38 @@
 
       <!-- Filtr qatori -->
       <div style="display:flex;gap:8px;padding:0 18px 12px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--brd)">
-        <div style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="exp-cat-filter on" data-c="" onclick="setExpCatFilter('')"
-            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#0D1B2A;color:#fff;cursor:pointer">Barchasi</button>
-          <button class="exp-cat-filter" data-c="Ijara" onclick="setExpCatFilter('Ijara')"
-            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">🏠 Ijara</button>
-          <button class="exp-cat-filter" data-c="Maosh" onclick="setExpCatFilter('Maosh')"
-            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">👤 Maosh</button>
-          <button class="exp-cat-filter" data-c="Transport" onclick="setExpCatFilter('Transport')"
-            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">🚗 Transport</button>
-          <button class="exp-cat-filter" data-c="Kommunal" onclick="setExpCatFilter('Kommunal')"
-            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">💡 Kommunal</button>
-          <button class="exp-cat-filter" data-c="Reklama" onclick="setExpCatFilter('Reklama')"
-            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">📢 Reklama</button>
-          <button class="exp-cat-filter" data-c="Yetkazuvchi" onclick="setExpCatFilter('Yetkazuvchi')"
-            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">📦 Yetkazuvchi</button>
-          <button class="exp-cat-filter" data-c="Soliq" onclick="setExpCatFilter('Soliq')"
-            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">🏛️ Soliq</button>
-        </div>
+        <select id="exp-cat-filter" onchange="renderMoliya()"
+          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:6px 10px;background:#fff;min-width:160px">
+          <option value="">📂 Barcha kategoriyalar</option>
+          <option value="Ijara">🏠 Ijara</option>
+          <option value="Maosh">👤 Maosh</option>
+          <option value="Transport">🚗 Transport</option>
+          <option value="Kommunal">💡 Kommunal</option>
+          <option value="Reklama">📢 Reklama</option>
+          <option value="Yetkazuvchi">📦 Yetkazuvchi</option>
+          <option value="Soliq">🏛️ Soliq</option>
+          <option value="Jihozlar">🔧 Jihozlar</option>
+          <option value="Boshqa">📋 Boshqa</option>
+        </select>
         <select id="exp-method-filter" onchange="renderMoliya()"
-          style="font-family:inherit;font-size:12px;border:1px solid var(--brd);border-radius:7px;padding:5px 8px;background:#fff">
-          <option value="">Barcha usul</option>
+          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:6px 10px;background:#fff">
+          <option value="">💳 Barcha usullar</option>
           <option value="naqd">💵 Naqd</option>
           <option value="karta">💳 Karta</option>
           <option value="otkazma">🏦 O'tkazma</option>
         </select>
+        <div style="display:flex;align-items:center;gap:6px">
+          <i class="ti ti-calendar" style="font-size:14px;color:var(--mut)"></i>
+          <input type="date" id="exp-date-from" onchange="renderMoliya()"
+            style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px">
+          <span style="font-size:12px;color:#bbb">—</span>
+          <input type="date" id="exp-date-to" onchange="renderMoliya()"
+            style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px">
+          <button onclick="clearExpDateFilter()" title="Tozalash"
+            style="padding:5px 8px;border:1.5px solid var(--brd);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;color:var(--mut)">
+            <i class="ti ti-x"></i>
+          </button>
+        </div>
       </div>
 
       <div style="overflow-x:auto">
@@ -2882,23 +2889,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=108"></script>
-<script src="js/utils.js?v=108"></script>
-<script src="js/sms.js?v=108"></script>
-<script src="js/cloud.js?v=108"></script>
-<script src="js/dashboard.js?v=108"></script>
-<script src="js/pos.js?v=108"></script>
-<script src="js/katalog.js?v=108"></script>
-<script src="js/ombor.js?v=108"></script>
-<script src="js/mijozlar.js?v=108"></script>
-<script src="js/qarzlar.js?v=108"></script>
-<script src="js/tarix.js?v=108"></script>
-<script src="js/hisobot.js?v=108"></script>
-<script src="js/xodimlar.js?v=108"></script>
-<script src="js/moliya.js?v=108"></script>
-<script src="js/egasi.js?v=108"></script>
-<script src="js/portal.js?v=108"></script>
-<script src="js/init.js?v=108"></script>
+<script src="js/db.js?v=109"></script>
+<script src="js/utils.js?v=109"></script>
+<script src="js/sms.js?v=109"></script>
+<script src="js/cloud.js?v=109"></script>
+<script src="js/dashboard.js?v=109"></script>
+<script src="js/pos.js?v=109"></script>
+<script src="js/katalog.js?v=109"></script>
+<script src="js/ombor.js?v=109"></script>
+<script src="js/mijozlar.js?v=109"></script>
+<script src="js/qarzlar.js?v=109"></script>
+<script src="js/tarix.js?v=109"></script>
+<script src="js/hisobot.js?v=109"></script>
+<script src="js/xodimlar.js?v=109"></script>
+<script src="js/moliya.js?v=109"></script>
+<script src="js/egasi.js?v=109"></script>
+<script src="js/portal.js?v=109"></script>
+<script src="js/init.js?v=109"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3247,7 +3254,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=108"></script>
-<script src="js/superadmin.js?v=108"></script>
+<script src="js/auth.js?v=109"></script>
+<script src="js/superadmin.js?v=109"></script>
 </body>
 </html>
