@@ -126,19 +126,28 @@ function custSegment(st, c) {
 }
 
 function custStats(custId) {
-  const sales = db.sales.filter(s =>
+  const allSales = db.sales.filter(s =>
     s.customerId === custId ||
     (s.customerName && db.customers.find(c => c.id === custId && c.name === s.customerName))
   );
+  // Qaytarilmaganlar — xarid statistikasi uchun
+  const sales    = allSales.filter(s => s.status !== "qaytarilgan");
+  const returned = allSales.filter(s => s.status === "qaytarilgan");
+
   const totalBuy   = sales.reduce((a, s) => a + (s.total || 0), 0);
   const avgCheck   = sales.length ? Math.round(totalBuy / sales.length) : 0;
-  const debtList   = sales.filter(s => s.status !== "qaytarilgan")
+
+  // Qarz holati — calcSaleState orqali (to'g'ri, to'lovlar hisobga olingan)
+  const debtList = sales
     .map(s => ({ sale: s, state: calcSaleState(s) }))
     .filter(x => x.state.remaining > 0.5);
-  const totalDebt    = debtList.filter(x => x.sale.debtCurrency !== "usd").reduce((a,x) => a + x.state.remaining, 0);
-  const totalDebtUsd = debtList.filter(x => x.sale.debtCurrency === "usd" && x.state.debtUsd).reduce((a,x) => a + x.state.debtUsd, 0);
-  const lastSale   = [...sales].sort((a, b) => b.date > a.date ? 1 : -1)[0];
-  const firstSale  = [...sales].sort((a, b) => a.date > b.date ? 1 : -1)[0];
+  const totalDebt    = debtList.filter(x => x.sale.debtCurrency !== "usd")
+    .reduce((a,x) => a + x.state.remaining, 0);
+  const totalDebtUsd = debtList.filter(x => x.sale.debtCurrency === "usd" && x.state.debtUsd)
+    .reduce((a,x) => a + x.state.debtUsd, 0);
+
+  const lastSale  = [...allSales].sort((a, b) => b.date > a.date ? 1 : -1)[0];
+  const firstSale = [...allSales].sort((a, b) => a.date > b.date ? 1 : -1)[0];
 
   // Top tovar
   const itemMap = {};
@@ -147,19 +156,26 @@ function custStats(custId) {
   }));
   const topItem = Object.entries(itemMap).sort((a,b)=>b[1]-a[1])[0]?.[0] || null;
 
-  // Qarz to'lovlari soni
-  const debtPayCount = (db.debtPayments||[]).filter(p =>
-    sales.some(s => s.id === p.saleId)
-  ).length;
+  // Qarz to'lovlari
+  const debtPayments = (db.debtPayments||[]).filter(p => allSales.some(s => s.id === p.saleId));
+  const debtPayCount = debtPayments.length;
+  const debtPaidSum  = debtPayments.reduce((a,p)=>a+(p.currency==="usd"
+    ?Math.round(p.amount*(db.settings?.rate||12800)):(p.amount||0)),0);
 
-  // Oxirgi faollikdan necha kun
   const daysSinceLastBuy = lastSale?.date
     ? Math.round((new Date() - new Date(lastSale.date)) / 86400000)
     : null;
 
-  return { count: sales.length, totalBuy, avgCheck, totalDebt, totalDebtUsd,
-    lastDate: lastSale?.date || null, firstDate: firstSale?.date || null,
-    topItem, debtPayCount, daysSinceLastBuy, sales };
+  return {
+    count: sales.length,          // qaytarilganlar chiqarilgan
+    returnCount: returned.length, // qaytarilganlar soni
+    totalBuy, avgCheck,
+    totalDebt, totalDebtUsd,
+    lastDate:  lastSale?.date  || null,
+    firstDate: firstSale?.date || null,
+    topItem, debtPayCount, debtPaidSum, daysSinceLastBuy,
+    sales, allSales, debtPayments
+  };
 }
 
 // ── Render jadval ─────────────────────────────────
@@ -338,19 +354,18 @@ function openCustCard(id) {
     badge.style.color      = seg.color;
   }
 
-  if ($("cc-sales-cnt"))  $("cc-sales-cnt").textContent  = st.count+" ta sotuv";
+  if ($("cc-sales-cnt"))  $("cc-sales-cnt").textContent  = st.count+" ta sotuv"+(st.returnCount?` (${st.returnCount} ta qaytarilgan)`:"");
   if ($("cc-total-buy"))  $("cc-total-buy").textContent  = st.totalBuy ? fmtK(st.totalBuy)+" so'm" : "0";
   if ($("cc-avg-check"))  $("cc-avg-check").textContent  = st.avgCheck ? fmtK(st.avgCheck)+" so'm" : "—";
   if ($("cc-top-item"))   $("cc-top-item").textContent   = st.topItem || "—";
   if ($("cc-first-date")) $("cc-first-date").textContent = st.firstDate || "—";
   if ($("cc-last-date"))  $("cc-last-date").textContent  = st.daysSinceLastBuy !== null
-    ? (st.daysSinceLastBuy === 0 ? "Bugun" : st.daysSinceLastBuy+" kun oldin")
-    : "—";
+    ? (st.daysSinceLastBuy === 0 ? "Bugun" : st.daysSinceLastBuy+" kun oldin") : "—";
 
   const debtEl = $("cc-debt");
   if (debtEl) {
     if (!st.totalDebt && !st.totalDebtUsd) {
-      debtEl.textContent = "Qarz yo'q \u2705"; debtEl.style.color = "var(--grn)";
+      debtEl.textContent = "Qarz yo'q ✅"; debtEl.style.color = "var(--grn)";
     } else {
       const parts = [];
       if (st.totalDebtUsd > 0) parts.push("$"+st.totalDebtUsd.toFixed(2)+" USD");
@@ -359,7 +374,6 @@ function openCustCard(id) {
     }
   }
 
-  // Qarz limiti progress bar
   const limitBlock = $("cc-limit-block");
   if (limitBlock) {
     if (c.debtLimit) {
@@ -383,9 +397,7 @@ function openCustCard(id) {
   if (balBlock) {
     const bUzs=c.balanceUzs||0, bUsd=c.balanceUsd||0;
     if (bUzs>0||bUsd>0) {
-      const parts=[];
-      if (bUsd>0) parts.push("$"+bUsd.toFixed(2));
-      if (bUzs>0) parts.push(fmt(bUzs)+" so'm");
+      const parts=[]; if(bUsd>0) parts.push("$"+bUsd.toFixed(2)); if(bUzs>0) parts.push(fmt(bUzs)+" so'm");
       if ($("cc-balance")) $("cc-balance").textContent = parts.join(" + ");
       balBlock.style.display = "flex";
     } else { balBlock.style.display = "none"; }
@@ -393,26 +405,38 @@ function openCustCard(id) {
 
   if ($("cc-sms-btn")) $("cc-sms-btn").style.display = c.phone ? "inline-flex" : "none";
 
-  const history = st.sales.sort((a,b)=>b.date>a.date?1:-1).slice(0,10);
+  // Xarid tarixi — sotuvlar + qarz to'lovlari birlashtirilgan, to'g'ri holat
+  const history = st.allSales.sort((a,b)=>b.date>a.date?1:-1).slice(0,15);
   if ($("cc-history")) {
     if (!history.length) {
       $("cc-history").innerHTML = `<div style="text-align:center;color:#ccc;padding:20px;font-size:13px">Xarid tarixi yo'q</div>`;
     } else {
       $("cc-history").innerHTML = history.map(s => {
-        const isDebt = s.status !== "qaytarilgan" && calcSaleState(s).remaining > 0.5;
+        const state  = calcSaleState(s);
+        const isDebt = state.remaining > 0.5 && s.status !== "qaytarilgan";
+        const isRet  = s.status === "qaytarilgan";
+        const pays   = st.debtPayments.filter(p => p.saleId === s.id);
+        const paid   = state.paid;
         return `<div style="padding:10px 12px;border-radius:10px;margin-bottom:6px;
-          background:${isDebt?"#FEF2F2":"var(--bg)"};border:1px solid ${isDebt?"#FECACA":"var(--brd)"}">
+          background:${isRet?"#F8F8F8":isDebt?"#FEF2F2":"var(--bg)"};
+          border:1px solid ${isRet?"#e0e0e0":isDebt?"#FECACA":"var(--brd)"}">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-            <span style="font-weight:700;font-size:13px">${fmt(s.total)} so'm</span>
+            <span style="font-weight:700;font-size:13px${isRet?";text-decoration:line-through;color:#aaa":""}">${fmt(s.total)} so'm</span>
             <span style="font-size:11px;color:#aaa">${s.date} ${s.time||""}</span>
           </div>
-          <div style="font-size:12px;color:#666;margin-bottom:4px">${s.items?.map(i=>i.name+" \xd7"+i.qty).join(", ")||"—"}</div>
-          <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <div style="font-size:12px;color:#666;margin-bottom:4px">${s.items?.map(i=>i.name+" ×"+i.qty).join(", ")||"—"}</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:${pays.length?"5px":"0"}">
             <span class="bg" style="font-size:10.5px">${s.payType||"naqd"}</span>
-            ${isDebt
-              ? `<span class="bg bg-r" style="font-size:10.5px">Qarz: ${s.debtCurrency==="usd"&&s.debtUsd?"$"+s.debtUsd.toFixed(2)+" USD":fmt(s.remaining)+" so'm"}</span>`
-              : `<span class="bg bg-g" style="font-size:10.5px">To'langan</span>`}
+            ${isRet?`<span class="bg" style="font-size:10.5px;background:#f0f0f0;color:#888">Qaytarilgan</span>`
+              :isDebt?`<span class="bg bg-r" style="font-size:10.5px">Qarz qoldi: ${state.debtUsd>0?"$"+state.debtUsd.toFixed(2)+" USD":fmt(state.remaining)+" so'm"}</span>`
+              :`<span class="bg bg-g" style="font-size:10.5px">✅ To'langan</span>`}
           </div>
+          ${pays.length?`<div style="border-top:1px dashed #eee;padding-top:5px">
+            ${pays.map(p=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:#555;margin-bottom:2px">
+              <span>💰 To'lov${p.method?` · ${p.method}`:""}${p.date?" · "+p.date:""}:</span>
+              <span style="font-weight:700;color:var(--grn)">+${p.currency==="usd"?"$"+p.amount.toFixed(2)+" USD":fmt(p.amount)+" so'm"}</span>
+            </div>`).join("")}
+          </div>`:""}
         </div>`;
       }).join("");
     }
