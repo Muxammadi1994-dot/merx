@@ -53,17 +53,47 @@ const BOX_PRESETS = {
   "S-XXL (12 dona)": {"S":2,"M":3,"L":4,"XL":2,"XXL":1}
 };
 
-const DBKEY = "merx_v5";
+// ── ShopId asosida DB key ─────────────────────────
+function getShopId() {
+  // 1. Auth session dan
+  try {
+    const auth = JSON.parse(localStorage.getItem("merx_auth_v1") || "null");
+    if (auth?.shopId) return auth.shopId;
+  } catch(e) {}
+  // 2. URL parametrdan
+  const urlShop = new URLSearchParams(location.search).get("shop");
+  if (urlShop) return urlShop;
+  // 3. Default (bitta do'kon rejimi)
+  return "local";
+}
+
+function getDBKEY() {
+  const shopId = getShopId();
+  return shopId === "local" ? "merx_v5" : `merx_v5_${shopId}`;
+}
+
+const DBKEY = "merx_v5"; // eski moslik uchun
 let mem = null;
 let db;
 
 function loadDB() {
-  try { const r = localStorage.getItem(DBKEY); return r ? JSON.parse(r) : null; }
-  catch(e) { return mem; }
+  const key = getDBKEY();
+  try {
+    // Yangi key da qidir
+    const r = localStorage.getItem(key);
+    if (r) return JSON.parse(r);
+    // Eski merx_v5 da qidir (migration)
+    if (key !== "merx_v5") {
+      const old = localStorage.getItem("merx_v5");
+      if (old) return JSON.parse(old);
+    }
+    return null;
+  } catch(e) { return mem; }
 }
 
 function saveDB() {
-  try { localStorage.setItem(DBKEY, JSON.stringify(db)); }
+  const key = getDBKEY();
+  try { localStorage.setItem(key, JSON.stringify(db)); }
   catch(e) { mem = db; }
   if (typeof scheduleCloudSync === "function") scheduleCloudSync();
 }

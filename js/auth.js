@@ -35,7 +35,11 @@ function isLoggedIn()  { return !!_authUser; }
 async function authLogin(email, password) {
   // AVVAL local login tekshiramiz (adminEmail/adminPass localStorage da)
   const localRes = authLocalLogin(email, password);
-  if (localRes.ok) return localRes;
+  if (localRes.ok) {
+    // ShopId ni auth ga yozgandan keyin DB ni qayta yuklaymiz
+    _reloadDBForShop();
+    return localRes;
+  }
 
   // Local hisob bo'lmasa yoki email mos kelmasa — Supabase ga urinamiz
   const url = (db?.settings?.supabaseUrl || "").trim();
@@ -64,10 +68,21 @@ async function authLogin(email, password) {
       token:    data.session?.access_token
     };
     authSave(user);
+    _reloadDBForShop();
     return { ok: true, user };
   } catch(e) {
-    // Supabase da ham topilmadi — localning xatosini qaytaramiz
     return localRes;
+  }
+}
+
+// Login dan keyin to'g'ri shopId bilan DB qayta yuklanadi
+function _reloadDBForShop() {
+  if (typeof loadDB === "function" && typeof seedDB === "function") {
+    const loaded = loadDB();
+    if (typeof db !== "undefined") {
+      // eslint-disable-next-line no-global-assign
+      db = loaded || seedDB();
+    }
   }
 }
 
