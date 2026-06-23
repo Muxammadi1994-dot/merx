@@ -373,18 +373,77 @@ function openCustCard(id) {
 // ── Kartochkadan SMS ──────────────────────────────
 async function custCardSms() {
   const c = db.customers.find(x => x.id === _custCardId);
-  if (!c || !c.phone) return;
+  if (!c) return;
   const st = custStats(c.id);
-  const shopName = db.shop?.name || "MERX";
-  const debtTxt = st.totalDebtUsd > 0 && st.totalDebt > 0
+  const shopName = db.settings?.shopName || db.shop?.name || "MERX";
+  const debtTxt = st.totalDebtUsd>0&&st.totalDebt>0
     ? `$${st.totalDebtUsd.toFixed(2)} USD + ${fmt(st.totalDebt)} so'm`
-    : st.totalDebtUsd > 0 ? `$${st.totalDebtUsd.toFixed(2)} USD`
-    : st.totalDebt > 0 ? `${fmt(st.totalDebt)} so'm` : "";
-  const msg = debtTxt
+    : st.totalDebtUsd>0 ? `$${st.totalDebtUsd.toFixed(2)} USD`
+    : st.totalDebt>0 ? `${fmt(st.totalDebt)} so'm` : "";
+  const defMsg = debtTxt
     ? `${shopName}: Hurmatli ${c.name}, jami qarzingiz: ${debtTxt}. Iltimos to'lovni amalga oshiring.`
-    : `${shopName}: Hurmatli ${c.name}, siz bilan hamkorlik qilishdan mamnunmiz! Yangi mahsulotlar keldi.`;
-  await sendSms(c.phone, msg);
-  toast(`📲 SMS yuborildi: ${c.name}`);
+    : `${shopName}: Hurmatli ${c.name}, siz bilan hamkorlik qilishdan mamnunmiz!`;
+
+  const hasSms = !!c.phone;
+  const hasBot = !!(db.settings?.telegramBotUrl);
+
+  // Modal ochib kanal tanlaymiz
+  const modal = document.createElement("div");
+  modal.className = "ov"; modal.id = "cust-msg-modal";
+  modal.style.cssText = "display:flex";
+  modal.innerHTML = `
+    <div class="modal" style="max-width:420px">
+      <button class="m-close" onclick="$('cust-msg-modal').remove()"><i class="ti ti-x"></i></button>
+      <h2 style="margin-bottom:4px"><i class="ti ti-message"></i> Xabar yuborish</h2>
+      <p style="font-size:13px;color:var(--mut);margin-bottom:14px">Mijoz: <b>${c.name}</b></p>
+      <div class="fld">
+        <label>Xabar matni</label>
+        <textarea id="cust-msg-text" rows="4"
+          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);
+          padding:8px 12px;width:100%;resize:vertical;box-sizing:border-box">${defMsg}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        ${hasSms ? `<button class="btn btn-acc" style="flex:1" onclick="sendCustMsg('sms')">
+          <i class="ti ti-message"></i> SMS<br>
+          <span style="font-size:11px;font-weight:400">${c.phone}</span>
+        </button>` : `<button class="btn btn-ghost" style="flex:1;opacity:.4" disabled>
+          <i class="ti ti-message"></i> SMS<br><span style="font-size:11px">Telefon yo'q</span>
+        </button>`}
+        ${c.phone2 ? `<button class="btn" style="flex:1;background:#E0F2FE;color:#0E7490;border:1.5px solid #7DD3FC" onclick="sendCustMsg('sms2')">
+          <i class="ti ti-message"></i> SMS 2<br>
+          <span style="font-size:11px;font-weight:400">${c.phone2}</span>
+        </button>` : ""}
+        ${hasBot ? `<button class="btn" style="flex:1;background:#EFF6FF;color:#3B82F6;border:1.5px solid #93C5FD" onclick="sendCustMsg('bot')">
+          <i class="ti ti-brand-telegram"></i> Bot<br>
+          <span style="font-size:11px;font-weight:400">Telegram</span>
+        </button>` : `<button class="btn btn-ghost" style="flex:1;opacity:.4" disabled title="Sozlamalarda bot URL kiriting">
+          <i class="ti ti-brand-telegram"></i> Bot<br><span style="font-size:11px">Ulanmagan</span>
+        </button>`}
+      </div>
+    </div>`;
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+  document.body.appendChild(modal);
+  // textarea ga focus
+  setTimeout(()=>{ const t=$("cust-msg-text"); if(t){t.focus();t.select();} },50);
+}
+
+async function sendCustMsg(channel) {
+  const c = db.customers.find(x => x.id === _custCardId); if(!c) return;
+  const text = ($("cust-msg-text")||{value:""}).value.trim();
+  if (!text) { toast("Xabar matnini kiriting","err"); return; }
+
+  $("cust-msg-modal")?.remove();
+
+  if (channel === "sms") {
+    await sendSms(c.phone, text);
+    toast(`📲 SMS yuborildi: ${c.name}`);
+  } else if (channel === "sms2") {
+    await sendSms(c.phone2, text);
+    toast(`📲 SMS (qo'shimcha) yuborildi: ${c.name}`);
+  } else if (channel === "bot") {
+    const res = await sendTelegramText(c.id, c.phone, text);
+    if (!res?.sent) toast("Bot: mijoz botga ulanmagan yoki xato","err");
+  }
 }
 
 // ── Kartochkadan tahrirlash ───────────────────────
@@ -410,22 +469,38 @@ function custCardEdit() {
 function editCustomer(id) {
   const c = db.customers.find(x => x.id === id);
   if (!c) return;
-  c.name      = ($("ac-name")||{value:""}).value.trim()  || c.name;
+  const newName = ($("ac-name")||{value:""}).value.trim();
+  if (!newName) { toast("Ism bo'sh bo'lmasin","err"); return; }
+  c.name      = newName;
   c.phone     = ($("ac-phone")||{value:""}).value.trim();
   c.phone2    = ($("ac-phone2")||{value:""}).value.trim();
-  c.type      = ($("ac-type")||{value:""}).value         || c.type;
+  c.type      = ($("ac-type")||{value:""}).value || c.type;
   c.note      = ($("ac-note")||{value:""}).value.trim();
   c.company   = ($("ac-company")||{value:""}).value.trim();
   const limitRaw = getRawVal("ac-debt-limit");
   c.debtLimit = limitRaw > 0 ? limitRaw : null;
   saveDB(); renderMijozlar(); closeModal("addcust");
-  toast("Mijoz ma'lumotlari yangilandi");
+  toast("✅ Mijoz ma'lumotlari yangilandi");
   const h2 = document.querySelector("#ov-addcust h2"); if(h2) h2.textContent = "Yangi mijoz";
   const btn = document.querySelector("#ov-addcust .btn-acc");
   if (btn) { btn.innerHTML = '<i class="ti ti-check"></i> Saqlash'; btn.onclick = addCustomer; }
 }
 
 // ── Yangi mijoz qo'shish ──────────────────────────
+// ── Mijoz o'chirish ───────────────────────────────
+function deleteCust(id) {
+  const c = db.customers.find(x => x.id === id); if (!c) return;
+  const st = custStats(id);
+  if (st.count > 0) {
+    if (!confirm(`"${c.name}" mijozida ${st.count} ta sotuv tarixi bor.\nO'chirilsa faqat kontakt ma'lumotlari o'chadi, sotuv tarixi saqlanadi.\nDavom etilsinmi?`)) return;
+  } else {
+    if (!confirm(`"${c.name}" o'chirilsinmi?`)) return;
+  }
+  db.customers = db.customers.filter(x => x.id !== id);
+  saveDB(); closeModal("custcard"); renderMijozlar();
+  toast(`"${c.name}" o'chirildi`);
+}
+
 // ── Guruhli SMS ──────────────────────────────────
 let _selectedCusts = new Set(); // tanlangan mijozlar ID lari
 
@@ -495,9 +570,16 @@ function openBulkSmsModal() {
         ${custs.slice(0,5).map(c=>`<div>• ${c.name} — ${c.phone}</div>`).join("")}
         ${custs.length>5?`<div style="color:#aaa">+${custs.length-5} ta...</div>`:""}
       </div>
-      <button class="btn btn-acc" style="width:100%" onclick="confirmBulkSms()">
-        <i class="ti ti-send"></i> ${custs.length} ta mijozga yuborish
-      </button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-acc" style="flex:1" onclick="confirmBulkSms('sms')">
+          <i class="ti ti-message"></i> SMS yuborish (${custs.length} ta)
+        </button>
+        ${db.settings?.telegramBotUrl ? `<button class="btn" style="background:#EFF6FF;color:#3B82F6;border:1.5px solid #93C5FD;flex:1" onclick="confirmBulkSms('bot')">
+          <i class="ti ti-brand-telegram"></i> Bot yuborish
+        </button>` : `<button class="btn btn-ghost" style="flex:1;opacity:.4" disabled title="Sozlamalarda bot URL kiriting">
+          <i class="ti ti-brand-telegram"></i> Bot (ulanmagan)
+        </button>`}
+      </div>
     </div>`;
   modal.onclick = e => { if(e.target===modal) modal.remove(); };
   document.body.appendChild(modal);
@@ -513,32 +595,38 @@ function setBulkTemplate(type) {
   const el = $("bulk-sms-text"); if(el) el.value = templates[type]||"";
 }
 
-async function confirmBulkSms() {
+async function confirmBulkSms(channel = "sms") {
   const text = ($("bulk-sms-text")||{value:""}).value.trim();
   if (!text) { toast("Xabar matnini kiriting","err"); return; }
 
   const custs = db.customers.filter(c => _selectedCusts.has(c.id) && c.phone);
+  if (!custs.length) { toast("Telefonli mijoz yo'q","err"); return; }
   let sent = 0, failed = 0;
 
   $("bulk-sms-modal")?.remove();
-  toast(`📲 ${custs.length} ta mijozga SMS yuborilmoqda...`);
+  toast(`📲 ${custs.length} ta mijozga xabar yuborilmoqda...`);
 
   for (const c of custs) {
     const st  = custStats(c.id);
-    const debtTxt = st.totalDebtUsd>0 ? `$${st.totalDebtUsd.toFixed(2)} USD`
-      : st.totalDebt>0 ? `${fmt(st.totalDebt)} so'm` : "0";
+    const debtTxt = st.totalDebtUsd>0?`$${st.totalDebtUsd.toFixed(2)} USD`:st.totalDebt>0?`${fmt(st.totalDebt)} so'm`:"0";
     const msg = text.replace(/{ism}/g, c.name).replace(/{qarz}/g, debtTxt);
     try {
-      await sendSms(c.phone, msg);
-      sent++;
+      if (channel === "bot") {
+        const res = await sendTelegramText(c.id, c.phone, msg);
+        if (res?.sent) sent++; else failed++;
+      } else {
+        await sendSms(c.phone, msg);
+        sent++;
+      }
     } catch(e) { failed++; }
-    await new Promise(r=>setTimeout(r,300)); // rate limit
+    await new Promise(r=>setTimeout(r,300));
   }
 
   _selectedCusts.clear();
   updateBulkSmsBar();
   renderMijozlar();
-  toast(`✅ ${sent} ta SMS yuborildi${failed?` (${failed} ta xato)`:""}`, sent>0?"":"err");
+  const ch = channel === "bot" ? "Bot" : "SMS";
+  toast(`✅ ${ch}: ${sent} ta yuborildi${failed?` (${failed} ta xato)`:""}`);
 }
 
 // ── Excel eksport ────────────────────────────────

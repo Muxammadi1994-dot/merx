@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=118">
+<link rel="stylesheet" href="style.css?v=119">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -2781,12 +2781,15 @@
           <span style="font-size:12px;color:#aaa" id="cc-note"></span>
         </div>
       </div>
-      <div style="text-align:right;flex-shrink:0">
-        <button id="cc-sms-btn" onclick="custCardSms()" class="btn btn-sm" style="margin-bottom:6px">
-          <i class="ti ti-message"></i> SMS
-        </button><br>
+      <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <button id="cc-sms-btn" onclick="custCardSms()" class="btn btn-sm btn-acc">
+          <i class="ti ti-message"></i> Xabar
+        </button>
         <button onclick="custCardEdit()" class="btn btn-sm">
           <i class="ti ti-edit"></i> Tahrirlash
+        </button>
+        <button onclick="deleteCust(_custCardId)" class="btn btn-sm" style="color:var(--red)">
+          <i class="ti ti-trash"></i> O'chirish
         </button>
       </div>
     </div>
@@ -3012,23 +3015,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=118"></script>
-<script src="js/utils.js?v=118"></script>
-<script src="js/sms.js?v=118"></script>
-<script src="js/cloud.js?v=118"></script>
-<script src="js/dashboard.js?v=118"></script>
-<script src="js/pos.js?v=118"></script>
-<script src="js/katalog.js?v=118"></script>
-<script src="js/ombor.js?v=118"></script>
-<script src="js/mijozlar.js?v=118"></script>
-<script src="js/qarzlar.js?v=118"></script>
-<script src="js/tarix.js?v=118"></script>
-<script src="js/hisobot.js?v=118"></script>
-<script src="js/xodimlar.js?v=118"></script>
-<script src="js/moliya.js?v=118"></script>
-<script src="js/egasi.js?v=118"></script>
-<script src="js/portal.js?v=118"></script>
-<script src="js/init.js?v=118"></script>
+<script src="js/db.js?v=119"></script>
+<script src="js/utils.js?v=119"></script>
+<script src="js/sms.js?v=119"></script>
+<script src="js/cloud.js?v=119"></script>
+<script src="js/dashboard.js?v=119"></script>
+<script src="js/pos.js?v=119"></script>
+<script src="js/katalog.js?v=119"></script>
+<script src="js/ombor.js?v=119"></script>
+<script src="js/mijozlar.js?v=119"></script>
+<script src="js/qarzlar.js?v=119"></script>
+<script src="js/tarix.js?v=119"></script>
+<script src="js/hisobot.js?v=119"></script>
+<script src="js/xodimlar.js?v=119"></script>
+<script src="js/moliya.js?v=119"></script>
+<script src="js/egasi.js?v=119"></script>
+<script src="js/portal.js?v=119"></script>
+<script src="js/init.js?v=119"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3377,7 +3380,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=118"></script>
-<script src="js/superadmin.js?v=118"></script>
+<script src="js/auth.js?v=119"></script>
+<script src="js/superadmin.js?v=119"></script>
 </body>
 </html>
