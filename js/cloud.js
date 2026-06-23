@@ -8,16 +8,11 @@ let _sb = null; // Supabase client
 // ── Supabase clientini yaratish ───────────────────
 // ── Shop ID — multi-tenant izolyatsiya ───────────
 function getCloudShopId() {
-  // Do'kon ID si — Supabase da barcha jadvallar shu ID bilan filtrlanadi
-  // Avval settings da saqlangan shopId, aks holda URL hash dan olamiz
+  // 1. Auth session dan (eng ishonchli manba)
+  if (typeof getShopId === "function") return getShopId();
+  // 2. db.settings da saqlangan
   if (db.settings?.cloudShopId) return db.settings.cloudShopId;
-  // Yangi do'kon — URL dan olamiz (agar SA do'kon bo'lsa)
-  const activeKey = localStorage.getItem("merx_active_shop");
-  if (activeKey && activeKey !== "merx_v5") {
-    // SA tomonidan yaratilgan do'kon — shopId = dbKey
-    return activeKey;
-  }
-  // Asosiy do'kon — Supabase URL dan hash olamiz
+  // 3. Supabase URL dan hash (eski usul)
   const url = db.settings?.supabaseUrl || "";
   const match = url.match(/https:\/\/([^.]+)\.supabase\.co/);
   return match ? match[1] : "default";
@@ -32,8 +27,22 @@ async function initSupabase() {
     const { createClient } = window.supabase || supabase;
     _sb = createClient(url, key, { auth: { persistSession: false } });
     // Test ulanish
-    const { data, error } = await _sb.from("settings").select("id").limit(1);
+    const { data, error } = await _sb.from("settings").select("shop_id").limit(1);
     if (error) throw error;
+
+    // Yangi do'kon — shops jadvaliga ro'yxatdan o'tkazish
+    const sid = getCloudShopId();
+    const { data: shop } = await _sb.from("shops").select("id").eq("id", sid).single();
+    if (!shop) {
+      const auth = typeof getAuthUser === "function" ? getAuthUser() : null;
+      await _sb.from("shops").upsert({
+        id:          sid,
+        name:        db.shop?.name || "MERX Do'koni",
+        owner_email: auth?.email || "",
+        active:      true
+      });
+    }
+
     updateCloudUI(true);
     return true;
   } catch(e) {
@@ -83,9 +92,15 @@ async function pushToCloud() {
   try {
     // Settings
     await _sb.from("settings").upsert({
-      id: 1, shop_name: db.shop?.name || "MERX",
+      shop_id: sid,
+      shop_name: db.shop?.name || "MERX",
       rate: db.settings?.rate || 12800,
-      price_currency: db.settings?.priceCurrency || "uzs"
+      price_currency: db.settings?.priceCurrency || "uzs",
+      eskiz_token: db.settings?.eskizToken || null,
+      eskiz_sender: db.settings?.eskizSender || null,
+      telegram_bot: db.settings?.telegramBotUrl || null,
+      loyalty_rate: db.settings?.loyaltyRate || 0,
+      loyalty_value: db.settings?.loyaltyValue || 100
     });
 
     // Helper — upsert id asosida, xato bo'lsa warning, davom etadi
@@ -105,7 +120,7 @@ async function pushToCloud() {
       const chunk = 50;
       for (let i = 0; i < customers.length; i += chunk) {
         const batch = customers.slice(i, i+chunk).map(c => ({
-          id: c.id, name: c.name,
+          shop_id: sid, id: c.id, name: c.name,
           phone: c.phone || null,
           type: c.type || "ulgurji",
           balance_uzs: c.balanceUzs || 0,
@@ -124,7 +139,7 @@ async function pushToCloud() {
     try {
       // products: sku bo'yicha upsert (id emas) — ikki marta conflict bo'lmasligi uchun
       const prodRows = db.products?.map(p => ({
-        sku: p.sku, name: p.name,
+        shop_id: sid, sku: p.sku, name: p.name,
         category: p.category, type: p.type,
         unit: p.unit || "dona",
         art: p.art || "",
@@ -150,15 +165,24 @@ async function pushToCloud() {
 
     try {
       await sync("staff", db.staff?.map(s => ({
-        id: s.id, name: s.name,
+        shop_id: sid, id: s.id, name: s.name,
         phone: s.phone || null,
-        role: s.role || "kassir"
+        pin: s.pin || null,
+        role: s.role || "kassir",
+        salary: s.salary || 0,
+        bonus_pct: s.bonusPct || 0,
+        perm_discount: !!s.permDiscount,
+        max_discount: s.maxDiscount || 0,
+        perm_nasiya: !!s.permNasiya,
+        perm_return: !!s.permReturn,
+        paid_months: s.paidMonths || [],
+        salary_history: s.salaryHistory || []
       })));
     } catch(e) { syncErrors.push("staff: " + e.message); console.warn("sync staff xato:", e.message); }
 
     try {
       await sync("sales", db.sales?.map(s => ({
-        id: s.id,
+        shop_id: sid, id: s.id,
         chek_num: s.chekNum || null,
         date: s.date, time: s.time || null,
         price_type: s.priceType, pay_type: s.payType,
@@ -184,7 +208,7 @@ async function pushToCloud() {
 
     try {
       await sync("ombor", db.ombor?.map(o => ({
-        id: o.id, date: o.date,
+        shop_id: sid, id: o.id, date: o.date,
         product_name: o.productName,
         unit: o.unit, color: o.color,
         size: o.size, qty: o.qty || 0,
@@ -197,7 +221,7 @@ async function pushToCloud() {
 
     try {
       await sync("xarajatlar", (db.xarajatlar||[]).map(x => ({
-        id: x.id, date: x.date,
+        shop_id: sid, id: x.id, date: x.date,
         category: x.category,
         amount: x.amount || 0,
         note: x.note || null
@@ -206,17 +230,15 @@ async function pushToCloud() {
 
     try {
       await sync("debt_payments", (db.debtPayments||[]).map(p => ({
+        shop_id: sid,
         id: p.id,
-        chek_num: p.chekNum,
-        date: p.date, time: p.time || null,
-        customer_id: p.customerId || null,
-        customer_name: p.customerName || null,
-        customer_phone: p.customerPhone || null,
+        sale_id: p.saleId || null,
+        date: p.date,
         amount: p.amount || 0,
         currency: p.currency || "uzs",
         method: p.method || "naqd",
-        allocations: p.allocations || [],
-        leftover: p.leftover || 0
+        staff_id: p.staffId || null,
+        note: p.note || null
       })));
     } catch(e) { syncErrors.push("debt_payments: " + e.message); console.warn("sync debt_payments xato:", e.message); }
 
@@ -248,7 +270,7 @@ async function pullFromCloud() {
     const { data: prods } = await _sb.from("products").select("*").eq("shop_id", sid);
     if (prods && prods.length > 0) {
       db.products = prods.map(p => ({
-        sku: p.sku, name: p.name, category: p.category || "",
+        shop_id: sid, sku: p.sku, name: p.name, category: p.category || "",
         type: p.type || "oyoq", unit: p.unit || "dona",
         inBox: p.in_box || 1, art: p.art || "", barcode: p.barcode, image: p.image || null,
         costUsd: p.cost_usd || 0, priceUzs: p.price_uzs || 0,
@@ -262,9 +284,11 @@ async function pullFromCloud() {
     const { data: custs } = await _sb.from("customers").select("*").eq("shop_id", sid);
     if (custs && custs.length > 0) {
       db.customers = custs.map(c => ({
-        id: c.local_id || c.id, name: c.name, phone: c.phone || "",
-        type: c.type || "ulgurji", note: c.note || "",
-        telegramChatId: c.telegram_chat_id || null,
+        id: c.id, name: c.name, phone: c.phone || "", phone2: c.phone2 || "",
+        type: c.type || "ulgurji", note: c.note || "", company: c.company || "",
+        importantNote: c.important_note || "", birthday: c.birthday || "",
+        source: c.source || "", debtLimit: c.debt_limit || null,
+        loyaltyPoints: c.loyalty_points || 0,
         balanceUzs: c.balance_uzs || 0, balanceUsd: c.balance_usd || 0
       }));
     }
@@ -273,7 +297,12 @@ async function pullFromCloud() {
     const { data: staffData } = await _sb.from("staff").select("*").eq("shop_id", sid);
     if (staffData && staffData.length > 0) {
       db.staff = staffData.map(s => ({
-        id: s.local_id || s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir", pin: s.pin || null
+        id: s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir",
+        pin: s.pin || null, salary: s.salary || 0, bonusPct: s.bonus_pct || 0,
+        monthTarget: s.month_target || 0,
+        permDiscount: s.perm_discount || false, maxDiscount: s.max_discount || 0,
+        permNasiya: s.perm_nasiya || false, permReturn: s.perm_return || false,
+        paidMonths: s.paid_months || [], salaryHistory: s.salary_history || []
       }));
     }
 
@@ -281,7 +310,7 @@ async function pullFromCloud() {
     const { data: salesData } = await _sb.from("sales").select("*").eq("shop_id", sid).order("local_id");
     if (salesData && salesData.length > 0) {
       db.sales = salesData.map(s => ({
-        id: s.local_id || s.id, chekNum: s.chek_num, date: s.date, time: s.time,
+        id: s.id, chekNum: s.chek_num, date: s.date, time: s.time,
         priceType: s.price_type, payType: s.pay_type,
         payBreakdown: s.pay_breakdown || null,
         staffId: s.staff_id, customerId: s.customer_id,
@@ -301,7 +330,7 @@ async function pullFromCloud() {
     const { data: omborData } = await _sb.from("ombor").select("*").eq("shop_id", sid).order("local_id");
     if (omborData && omborData.length > 0) {
       db.ombor = omborData.map(o => ({
-        id: o.local_id || o.id, date: o.date, sku: o.sku,
+        id: o.id, date: o.date, sku: o.sku,
         productName: o.product_name, unit: o.unit,
         color: o.color, size: o.size, qty: o.qty,
         boxes: o.boxes, pantone: o.pantone, hex: o.hex,
@@ -317,14 +346,16 @@ async function pullFromCloud() {
     const { data: xarData } = await _sb.from("xarajatlar").select("*").eq("shop_id", sid).order("local_id");
     if (xarData) {
       db.xarajatlar = xarData.map(x => ({
-        id: x.local_id || x.id, date: x.date, category: x.category,
-        amount: x.amount, recipient: x.recipient,
-        paidBy: x.paid_by, note: x.note
+        id: x.id, date: x.date, category: x.category,
+        amount: x.amount, amountUsd: x.amount_usd || null,
+        recipient: x.recipient, paidBy: x.paid_by,
+        method: x.method || "naqd", note: x.note,
+        recurring: x.recurring || false
       }));
     }
 
     // Settings
-    const { data: sets } = await _sb.from("settings").select("*").eq("id", sid).single();
+    const { data: sets } = await _sb.from("settings").select("*").eq("shop_id", sid).single();
     if (sets) {
       db.shop = { name: sets.shop_name };
       db.settings.rate           = sets.rate || 12800;
@@ -355,21 +386,17 @@ async function pullFromCloud() {
     }
 
     // Qarz to'lovlari
-    const { data: payData } = await _sb.from("debt_payments").select("*").order("id");
+    const { data: payData } = await _sb.from("debt_payments").select("*").eq("shop_id", sid).order("created_at");
     if (payData) {
       db.debtPayments = payData.map(p => ({
-        id:            p.id,
-        chekNum:       p.chek_num,
-        date:          p.date,
-        time:          p.time || "",
-        customerId:    p.customer_id,
-        customerName:  p.customer_name,
-        customerPhone: p.customer_phone,
-        amount:        p.amount || 0,
-        currency:      p.currency || "uzs",
-        method:        p.method || "naqd",
-        allocations:   p.allocations || [],
-        leftover:      p.leftover || 0
+        id:       p.id,
+        saleId:   p.sale_id || null,
+        date:     p.date,
+        amount:   p.amount || 0,
+        currency: p.currency || "uzs",
+        method:   p.method || "naqd",
+        staffId:  p.staff_id || null,
+        note:     p.note || null
       }));
     }
 
