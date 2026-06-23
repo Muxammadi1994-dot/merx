@@ -415,8 +415,61 @@ async function savePortalProduct() {
 // ── Bron tasdiqlash/bekor qilish ──────────────────
 async function confirmBooking(id) {
   if (!_sb) return;
+  const sid = getCloudShopId();
+
+  // Bron ma'lumotlarini olish
+  const { data: brons } = await _sb.from("portal_bookings").select("*").eq("id", id);
+  const bron = brons?.[0];
+  if (!bron) { toast("Bron topilmadi","err"); return; }
+
+  // Supabase da tasdiqlash
   await _sb.from("portal_bookings").update({ status: "tasdiqlandi" }).eq("id", id);
-  toast("✅ Bron tasdiqlandi");
+
+  // POS savatiga qo'shish (localStorage orqali)
+  try {
+    const p = (db.products||[]).find(x => x.sku === bron.sku);
+    if (p) {
+      const priceType = db.settings?.priceCurrency || "uzs";
+      const rate = db.settings?.rate || 12800;
+      const narx = bron.color && p.ulgurjiNarx ? p.ulgurjiNarx : (p.priceUzs || 0);
+
+      // Yangi savat yaratish yoki mavjudiga qo'shish
+      const cartsRaw = localStorage.getItem("merx_pos_carts_v1");
+      const cartsState = cartsRaw ? JSON.parse(cartsRaw) : { activeIdx:0, carts:[{name:"Savat",items:[]}] };
+      const activeCart = cartsState.carts[cartsState.activeIdx];
+
+      const ex = activeCart.items.find(c => c.sku===bron.sku && c.color===bron.color && c.size===bron.size);
+      if (ex) {
+        ex.qty += (bron.qty||1);
+      } else {
+        activeCart.items.push({
+          sku: bron.sku,
+          name: bron.product_name || p.name,
+          color: bron.color || "",
+          size: bron.size || "",
+          unit: p.unit || "dona",
+          price: narx, basePrice: narx,
+          priceType, qty: bron.qty||1,
+          qtyBox: null, inBox: null,
+          sellMode: "dona",
+          fromBron: id,         // brondan kelganini belgilash
+          customerId: bron.customer_id
+        });
+      }
+      localStorage.setItem("merx_pos_carts_v1", JSON.stringify(cartsState));
+
+      // POS tab ochiq bo'lsa yangilash
+      if (typeof renderPos === "function") renderPos();
+      if (typeof renderCart === "function") renderCart();
+
+      toast(`✅ "${bron.product_name}" POS savatiga qo'shildi — ${bron.qty||1} ta`);
+    } else {
+      toast("✅ Bron tasdiqlandi (tovar topilmadi)");
+    }
+  } catch(e) {
+    toast("✅ Bron tasdiqlandi");
+  }
+
   loadPortalData();
 }
 

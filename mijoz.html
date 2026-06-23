@@ -267,6 +267,11 @@ input::placeholder{color:#bbb}
     <div id="tab-qarz" style="display:none">
       <div id="qcont"></div>
     </div>
+
+    <!-- PROFIL -->
+    <div id="tab-profil" style="display:none">
+      <div id="profcont" style="padding:16px"></div>
+    </div>
   </div>
 
   <div class="bnav">
@@ -274,6 +279,7 @@ input::placeholder{color:#bbb}
     <div class="bi" id="nav-tarix" onclick="goTab('tarix')"><i class="ti ti-receipt"></i><span>Tarix</span></div>
     <div class="bi" id="nav-bron" onclick="goTab('bron')"><i class="ti ti-bookmark"></i><span>Bronlar</span><div class="bbadge" id="bbadge" style="display:none">0</div></div>
     <div class="bi" id="nav-qarz" onclick="goTab('qarz')"><i class="ti ti-credit-card"></i><span>Qarz</span><div class="bbadge" id="qbadge" style="display:none">!</div></div>
+    <div class="bi" id="nav-profil" onclick="goTab('profil')"><i class="ti ti-user"></i><span>Profil</span></div>
   </div>
 </div>
 
@@ -357,7 +363,10 @@ async function doLogin(){
     const row=data[0];
     let nm=ph;
     try{const{data:sd}=await _sb.from("sales").select("customer_name").eq("shop_id",sid).eq("customer_id",row.customer_id).limit(1);if(sd?.[0]?.customer_name)nm=sd[0].customer_name;}catch(e){}
-    _sess={customerId:row.customer_id,customerName:nm,shopId:sid};
+    _sess={customerId:row.customer_id,customerName:nm,shopId:sid,phone:ph,
+      loyaltyPoints:row.loyalty_points||0,
+      birthday:row.birthday||"",
+      loyaltyRate:row.loyalty_rate||0};
     localStorage.setItem("mp_session",JSON.stringify(_sess));
     $("login-screen").style.display="none";
     await startPortal();
@@ -367,6 +376,7 @@ async function doLogin(){
   }
 }
 
+function logout(){ doLogout(); }
 function doLogout(){
   if(!confirm("Chiqishni xohlaysizmi?"))return;
   localStorage.removeItem("mp_session");
@@ -818,12 +828,84 @@ function renderQarz(){
 
 // ── TABS ──────────────────────────────────────
 function goTab(name){
-  ["katalog","tarix","bron","qarz"].forEach(t=>{
-    $("tab-"+t).style.display=t===name?"block":"none";
-    const n=$("nav-"+t);if(n)n.classList.toggle("on",t===name);
+  ["katalog","tarix","bron","qarz","profil"].forEach(t=>{
+    const tab=$(("tab-"+t));
+    if(tab) tab.style.display=t===name?"block":"none";
+    const n=$(("nav-"+t));if(n)n.classList.toggle("on",t===name);
   });
   if(name==="tarix")renderTarix();
   if(name==="qarz")renderQarz();
+  if(name==="profil")renderProfil();
+}
+
+function renderProfil(){
+  const el=$("profcont");if(!el||!_sess)return;
+  const c=_sess;
+  const tots=_sales.reduce((a,s)=>a+(s.total||0),0);
+  const cnt=_sales.length;
+  const pts=c.loyaltyPoints||0;
+  const loyRate=c.loyaltyRate||0; // do'kon sozlamasidan
+
+  // Tug'ilgan kun
+  let bdayHtml="";
+  if(c.birthday){
+    const[,m,d]=c.birthday.split("-");
+    const months=["","Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
+    const today=new Date();
+    const diff=Math.round((new Date(today.getFullYear(),+m-1,+d)-today)/86400000);
+    const soon=diff>=0&&diff<=7;
+    bdayHtml=`<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;
+      background:${soon?"#FEF3C7":"var(--bg)"};border-radius:12px;border:1.5px solid ${soon?"#FCD34D":"var(--brd)"};margin-bottom:12px">
+      <span style="font-size:24px">🎂</span>
+      <div>
+        <div style="font-size:12px;color:#888;font-weight:600">Tug'ilgan kun</div>
+        <div style="font-size:15px;font-weight:700">${d} ${months[+m]}${soon?` <span style="color:#D97706">(${diff===0?"Bugun!":diff+" kun qoldi"})</span>`:""}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Sodiqlik ballari
+  let balsHtml="";
+  if(pts>0||loyRate>0){
+    balsHtml=`<div style="padding:16px;background:linear-gradient(135deg,#0D1B2A,#1a3050);border-radius:16px;color:#fff;margin-bottom:16px;text-align:center">
+      <div style="font-size:28px;margin-bottom:4px">⭐</div>
+      <div style="font-size:36px;font-weight:800;font-family:'Sora',sans-serif">${pts}</div>
+      <div style="font-size:13px;opacity:.7;margin-top:4px">sodiqlik balli</div>
+      ${loyRate>0?`<div style="margin-top:8px;font-size:12px;opacity:.6">Har ${fmt(loyRate)} so'm xaridda 1 ball</div>`:""}
+    </div>`;
+  }
+
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--brd)">
+      <div style="width:56px;height:56px;border-radius:16px;background:#0D1B2A;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="ti ti-user" style="color:#E9A500;font-size:26px"></i>
+      </div>
+      <div>
+        <div style="font-size:20px;font-weight:800">${c.customerName||"Mijoz"}</div>
+        <div style="font-size:13px;color:#888;margin-top:2px">${c.phone||""}</div>
+      </div>
+    </div>
+
+    ${balsHtml}
+    ${bdayHtml}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+      <div style="padding:14px;background:var(--bg);border-radius:12px;text-align:center;border:1px solid var(--brd)">
+        <div style="font-size:26px;font-weight:800;font-family:'Sora',sans-serif">${cnt}</div>
+        <div style="font-size:12px;color:#888;margin-top:3px">Jami xarid</div>
+      </div>
+      <div style="padding:14px;background:var(--bg);border-radius:12px;text-align:center;border:1px solid var(--brd)">
+        <div style="font-size:16px;font-weight:800;font-family:'Sora',sans-serif">${fmt(tots)}</div>
+        <div style="font-size:11px;color:#888;margin-top:3px">Jami summa (so'm)</div>
+      </div>
+    </div>
+
+    <button onclick="logout()" style="width:100%;padding:13px;border-radius:12px;border:1.5px solid var(--brd);background:#fff;
+      color:#888;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+      <i class="ti ti-logout"></i> Chiqish
+    </button>
+  `;
 }
 
 // ── PULL TO REFRESH ───────────────────────────
