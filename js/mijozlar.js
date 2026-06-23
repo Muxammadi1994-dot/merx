@@ -323,7 +323,7 @@ function renderMijozlar() {
       </td>` : ""}
       ${cols.company ? `<td style="font-size:12px;color:#666">${c.company||"—"}</td>` : ""}
       <td onclick="event.stopPropagation()">
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="openCustCard(${c.id})" title="Tahrirlash"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="_custCardId=${c.id};custCardEdit()" title="Tahrirlash"><i class="ti ti-edit"></i></button>
       </td>
     </tr>`;
   }).join("") : `<tr><td colspan="${colCount}" class="empty-td">
