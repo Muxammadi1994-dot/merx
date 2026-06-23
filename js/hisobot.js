@@ -59,42 +59,58 @@ function repSales() {
 // ── Asosiy render ─────────────────────────────────
 function renderHisobot() {
   const sales   = repSales();
-  const rate    = db.settings.rate || 12800;
+  const rate    = db.settings?.rate || 12800;
+  const { from, to } = repDateRange();
 
   // KPI
-  const cnt     = sales.length;
-  const rev     = sales.reduce((a, s) => a + (s.total||0), 0);
-  const paid    = sales.reduce((a, s) => a + (s.paid||0), 0);
-  // Joriy qoldiq qarz — calcSaleState orqali (to'lovlar hisobga olinadi)
-  const debt    = sales.reduce((a, s) => a + calcSaleState(s).remaining, 0);
+  const cnt  = sales.length;
+  const rev  = sales.reduce((a, s) => a + (s.total||0), 0);
+  const debt = sales.reduce((a, s) => a + calcSaleState(s).remaining, 0);
 
-  // Foyda hisoblash (to'g'ri mantiq)
-  // Hisoblangan foyda = sotuv narxi - tannarx (tovar chiqib ketgan)
-  // Kassaga tushgan foyda = to'langan qism - tannarx (real kassa)
-  let costTotal     = 0;  // jami tannarx (sotilgan tovarlar)
-  let grossProfit   = 0;  // hisoblangan foyda (nasiya ham kiradi)
-  let realProfit    = 0;  // kassaga tushgan foyda (faqat to'langan)
+  // Kassaga tushdi — moliya bilan BIR XIL mantiq:
+  // payBreakdown + debtPayments (qarz to'lovlari ham)
+  let paid = 0;
+  sales.forEach(s => {
+    const pb = s.payBreakdown;
+    if (pb && (pb.naqd||pb.karta||pb.otkazma)) {
+      paid += (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
+    } else {
+      paid += s.payType==="nasiya" ? 0 : (s.paid||0);
+    }
+  });
+  const debtPaid = (db.debtPayments||[]).filter(p=>p.date>=from&&p.date<=to)
+    .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
+  paid += debtPaid;
+
+  // Foyda hisoblash
+  let costTotal = 0, grossProfit = 0, realProfit = 0;
 
   sales.forEach(s => {
     let saleCost = 0;
     s.items?.forEach(item => {
-      const p = db.products.find(x => x.name === item.name);
+      const p = (db.products||[]).find(x => x.name === item.name);
       if (!p) return;
-      const costUzs = Math.round((p.costUsd || 0) * rate);
-      saleCost  += costUzs * (item.qty || 0);
+      const costUzs = Math.round((p.costUsd||0) * rate);
+      saleCost += costUzs * (item.qty||0);
     });
     costTotal   += saleCost;
-    // Hisoblangan foyda: sotuv narxi - tannarx
-    grossProfit += (s.total || 0) - saleCost;
-    // Kassaga tushgan: to'langan qism - (tannarx × to'langan ulush)
-    const paidRatio = s.total > 0 ? (s.paid || 0) / s.total : 1;
-    realProfit  += ((s.total || 0) - saleCost) * paidRatio;
+    grossProfit += (s.total||0) - saleCost;
+    // Checkout to'lovi — payBreakdown orqali (aralash to'lov to'g'ri)
+    const sPaid = (() => {
+      const pb = s.payBreakdown;
+      if (pb && (pb.naqd||pb.karta||pb.otkazma)) return (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
+      return s.payType==="nasiya" ? 0 : (s.paid||0);
+    })();
+    const paidRatio = s.total>0 ? sPaid/s.total : 0;
+    realProfit += ((s.total||0) - saleCost) * paidRatio;
   });
-
+  // Qarz to'lovlaridan foyda ulushi
+  const grossMargin = (rev > 0) ? grossProfit/rev : 0;
+  realProfit += debtPaid * grossMargin;
   grossProfit = Math.round(grossProfit);
   realProfit  = Math.round(realProfit);
-  const margin     = rev > 0 ? Math.round(grossProfit / rev * 100) : 0;
-  const realMargin = paid > 0 ? Math.round(realProfit / paid * 100) : 0;
+  const margin     = rev  > 0 ? Math.round(grossProfit/rev*100)  : 0;
+  const realMargin = paid > 0 ? Math.round(realProfit/paid*100) : 0;
 
   if ($("rep-cnt"))  $("rep-cnt").textContent  = cnt + " ta";
   if ($("rep-rev"))  $("rep-rev").textContent  = fmtK(rev)  + " so'm";
@@ -122,7 +138,6 @@ function renderHisobot() {
   if ($("rep-cost")) $("rep-cost").textContent = fmtK(costTotal) + " so'm";
 
   // ── Xarajatlar (shu davrdagi) → sof foyda ──────
-  const { from, to } = repDateRange();
   const periodExp = (db.xarajatlar||[])
     .filter(x => x.date >= from && x.date <= to)
     .reduce((a, x) => a + (x.amount||0), 0);
