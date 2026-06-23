@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=100">
+<link rel="stylesheet" href="style.css?v=101">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1719,9 +1719,21 @@
         <div class="sl">Yetkazuvchi qarzi</div>
         <div class="sv num" id="mol-sup-debt" style="color:var(--red)">0</div>
       </div>
+      <div class="stb" style="border-top:3px solid #1B4F72">
+        <div class="sl">USD tushum <span style="font-size:10px;color:#aaa;font-weight:400">(sotuv+qarz)</span></div>
+        <div class="sv" id="mol-usd-tushum" style="color:#1B4F72;font-size:14px">—</div>
+      </div>
       <div class="stb">
         <div class="sl">Xarajatlar soni</div>
         <div class="sv" id="mol-exp-cnt">0 ta</div>
+      </div>
+    </div>
+
+    <!-- Moliyaviy trend (6 oy) -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="ch"><h3><i class="ti ti-chart-bar"></i>Moliyaviy dinamika (so'nggi 6 oy)</h3></div>
+      <div style="padding:0 18px 16px;height:220px">
+        <canvas id="mol-trend-chart"></canvas>
       </div>
     </div>
 
@@ -2696,6 +2708,8 @@
         <span class="mcat"    data-c="Reklama"       onclick="expCatPick(this)">📢 Reklama</span>
         <span class="mcat"    data-c="Yetkazuvchi"   onclick="expCatPick(this)">📦 Yetkazuvchi</span>
         <span class="mcat"    data-c="Boshqa"        onclick="expCatPick(this)">📋 Boshqa</span>
+        <span class="mcat"    data-c="__custom__"    onclick="expCatPick(this)"
+          style="border-style:dashed;color:var(--mut)">✏️ Boshqa (o'zim)</span>
       </div>
     </div>
     <input id="exp-cat-val" type="hidden" value="Ijara">
@@ -2739,23 +2753,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=100"></script>
-<script src="js/utils.js?v=100"></script>
-<script src="js/sms.js?v=100"></script>
-<script src="js/cloud.js?v=100"></script>
-<script src="js/dashboard.js?v=100"></script>
-<script src="js/pos.js?v=100"></script>
-<script src="js/katalog.js?v=100"></script>
-<script src="js/ombor.js?v=100"></script>
-<script src="js/mijozlar.js?v=100"></script>
-<script src="js/qarzlar.js?v=100"></script>
-<script src="js/tarix.js?v=100"></script>
-<script src="js/hisobot.js?v=100"></script>
-<script src="js/xodimlar.js?v=100"></script>
-<script src="js/moliya.js?v=100"></script>
-<script src="js/egasi.js?v=100"></script>
-<script src="js/portal.js?v=100"></script>
-<script src="js/init.js?v=100"></script>
+<script src="js/db.js?v=101"></script>
+<script src="js/utils.js?v=101"></script>
+<script src="js/sms.js?v=101"></script>
+<script src="js/cloud.js?v=101"></script>
+<script src="js/dashboard.js?v=101"></script>
+<script src="js/pos.js?v=101"></script>
+<script src="js/katalog.js?v=101"></script>
+<script src="js/ombor.js?v=101"></script>
+<script src="js/mijozlar.js?v=101"></script>
+<script src="js/qarzlar.js?v=101"></script>
+<script src="js/tarix.js?v=101"></script>
+<script src="js/hisobot.js?v=101"></script>
+<script src="js/xodimlar.js?v=101"></script>
+<script src="js/moliya.js?v=101"></script>
+<script src="js/egasi.js?v=101"></script>
+<script src="js/portal.js?v=101"></script>
+<script src="js/init.js?v=101"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3104,7 +3118,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=100"></script>
-<script src="js/superadmin.js?v=100"></script>
+<script src="js/auth.js?v=101"></script>
+<script src="js/superadmin.js?v=101"></script>
 </body>
 </html>

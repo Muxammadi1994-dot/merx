@@ -88,13 +88,33 @@ function renderMoliya() {
   // 3: Qarz tushumi - db.debtPayments dan
   const periodDebtPays = (db.debtPayments||[]).filter(p => p.date >= from && p.date <= to);
   let debtNaqd = 0, debtKarta = 0, debtOtkazma = 0, debtBalans = 0;
+  let usdQarzTushum = 0; // USD qarz to'lovlari (dollar hisobida)
   periodDebtPays.forEach(p => {
     const amt = p.currency === "usd" ? Math.round(p.amount * rate) : (p.amount || 0);
+    if (p.currency === "usd") usdQarzTushum += p.amount;
     if      (p.method === "karta")   debtKarta   += amt;
     else if (p.method === "otkazma") debtOtkazma += amt;
     else if (p.method === "balans")  debtBalans  += amt;
     else                             debtNaqd    += amt;
   });
+
+  // 5: USD sotuv tushumi (dollar hisobida, alohida ko'rsatish uchun)
+  let usdSotuvSom = 0, usdSotuvDollar = 0;
+  periodSales.forEach(s => {
+    if (s.debtCurrency === "usd" || s.payType === "usd") {
+      // USD qilib sotilgan tovar
+      const origUsd = s.origDebtUsd || s.debtUsd || 0;
+      const paidUsd = origUsd > 0 && s.total > 0 ? (s.paid/s.total)*origUsd : 0;
+      usdSotuvDollar += paidUsd;
+      usdSotuvSom += Math.round(paidUsd * rate);
+    }
+  });
+  const totalUsdDollar = usdSotuvDollar + usdQarzTushum;
+  if ($("mol-usd-tushum")) {
+    $("mol-usd-tushum").textContent = totalUsdDollar > 0
+      ? `$${totalUsdDollar.toFixed(2)} (${fmt(Math.round(totalUsdDollar*rate))} so'm)`
+      : "—";
+  }
 
   const sotuvTushum = naqd + karta + otkazma;
   const qarzTushum  = debtNaqd + debtKarta + debtOtkazma + debtBalans;
@@ -205,6 +225,7 @@ function renderMoliya() {
 
   renderExpChart(catTotals, chiqim);
   renderFlowBars(sotuv, chiqim);
+  renderMolTrendChart();
 }
 
 // ── Donut chart ───────────────────────────────────
@@ -316,11 +337,89 @@ function renderKirimManbalar(naqd, karta, otkazma, balans, total) {
     </div>`).join("") || `<span style="color:var(--mut);font-size:12px">Ma'lumot yo'q</span>`;
 }
 
+// ── Moliyaviy trend grafigi (6 oy kirim/chiqim) ──
+let _molTrendChart = null;
+function renderMolTrendChart() {
+  const el = $("mol-trend-chart"); if (!el || typeof Chart === "undefined") return;
+  if (_molTrendChart) { _molTrendChart.destroy(); _molTrendChart = null; }
+
+  const rate = db.settings?.rate || 12800;
+  const now  = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    months.push(d.toISOString().slice(0,7));
+  }
+  const labels = months.map(m => {
+    const [y,mo] = m.split("-");
+    const names = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
+    return names[parseInt(mo)-1]+" "+y.slice(2);
+  });
+
+  const kirimData = months.map(m => {
+    const from = m+"-01", to = m+"-31";
+    // Sotuv tushumi
+    let sotuv = 0;
+    (db.sales||[]).filter(s=>s.date>=from&&s.date<=to).forEach(s=>{
+      const pb=s.payBreakdown;
+      if(pb&&(pb.naqd||pb.karta||pb.otkazma)) sotuv+=(pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
+      else sotuv+=s.payType==="nasiya"?0:(s.paid||0);
+    });
+    // Qarz tushumi
+    const qarz = (db.debtPayments||[]).filter(p=>p.date>=from&&p.date<=to)
+      .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
+    return Math.round((sotuv+qarz)/1000000*10)/10;
+  });
+
+  const chiqimData = months.map(m => {
+    const from=m+"-01", to=m+"-31";
+    return Math.round((db.xarajatlar||[]).filter(x=>x.date>=from&&x.date<=to)
+      .reduce((a,x)=>a+(x.amount||0),0)/1000000*10)/10;
+  });
+
+  const foydaData = kirimData.map((k,i)=>Math.round((k-chiqimData[i])*10)/10);
+
+  _molTrendChart = new Chart(el, {
+    type:"bar",
+    data:{
+      labels,
+      datasets:[
+        { label:"Kirim", data:kirimData, backgroundColor:"#36B48C80", borderColor:"#36B48C", borderWidth:1.5, borderRadius:4 },
+        { label:"Chiqim", data:chiqimData, backgroundColor:"#E05A5A80", borderColor:"#E05A5A", borderWidth:1.5, borderRadius:4 },
+        { label:"Sof foyda", data:foydaData, type:"line", borderColor:"#E9A500",
+          backgroundColor:"transparent", borderWidth:2, pointRadius:3, pointBackgroundColor:"#E9A500" }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:"top",labels:{font:{size:11},boxWidth:12}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y} mln so'm`}}},
+      scales:{
+        y:{ticks:{callback:v=>v+" mln"},grid:{color:"#F0EEE8"}},
+        x:{grid:{display:false}}
+      }
+    }
+  });
+}
+
 // ── Kategoriya tanlaganda qo'shimcha maydon ───────
 function expCatPick(el) {
   document.querySelectorAll(".mcat").forEach(b => b.classList.remove("on"));
   el.classList.add("on");
   const cat = el.dataset.c;
+  if (cat === "__custom__") {
+    // Custom kategoriya inputini ko'rsatish
+    const wrap = $("ax-extra-wrap");
+    if (wrap) wrap.innerHTML = `
+      <div class="fld">
+        <label>Yangi kategoriya nomi</label>
+        <input id="ax-custom-cat" placeholder="Kategoriya nomini kiriting..."
+          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%"
+          oninput="if(this.value.trim()){$('exp-cat-val').value=this.value.trim()}">
+      </div>`;
+    if ($("exp-cat-val")) $("exp-cat-val").value = "";
+    return;
+  }
   if ($("exp-cat-val")) $("exp-cat-val").value = cat;
   renderExpExtraField(cat);
 }
