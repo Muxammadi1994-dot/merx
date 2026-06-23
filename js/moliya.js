@@ -270,16 +270,18 @@ function renderMoliya() {
   );
 
   const cols = getExpCols();
+  const colCount = Object.values(cols).filter(Boolean).length + 1; // +1 amallar ustuni
+
   const thead = $("exp-thead");
   if (thead) {
     thead.innerHTML =
-      (cols.date      ? "<th>Sana</th>"                : "") +
-      (cols.cat       ? "<th>Kategoriya</th>"           : "") +
-      (cols.recipient ? "<th>Kimga / Nima uchun</th>"  : "") +
-      (cols.method    ? "<th>Usul</th>"                 : "") +
-      (cols.amount    ? '<th class="num">Summa</th>'  : "") +
-      (cols.note      ? "<th>Izoh</th>"                 : "") +
-      "<th></th>";
+      (cols.date      ? "<th>Sana</th>"               : "") +
+      (cols.cat       ? "<th>Kategoriya</th>"          : "") +
+      (cols.recipient ? "<th>Kimga / Nima uchun</th>" : "") +
+      (cols.method    ? "<th>Usul</th>"                : "") +
+      (cols.amount    ? '<th class="num">Summa</th>'   : "") +
+      (cols.note      ? "<th>Izoh</th>"                : "") +
+      '<th style="width:72px"></th>';
   }
 
   const tbody = $("exp-body");
@@ -292,16 +294,16 @@ function renderMoliya() {
       return `<tr>
         ${cols.date      ? `<td style="font-size:12.5px;white-space:nowrap;font-weight:600">${x.date||"—"}</td>` : ""}
         ${cols.cat       ? `<td><span class="bg" style="font-size:12px;background:${color}18;color:${color}">${icon} ${x.category||"—"}</span></td>` : ""}
-        ${cols.recipient ? `<td style="font-size:12px;color:#666">${x.recipient?`<div style="font-weight:600">${x.recipient}</div>`:""} ${x.paidBy?`<div style="font-size:11px;color:#aaa">To'ladi: ${x.paidBy}</div>`:""}</td>` : ""}
+        ${cols.recipient ? `<td style="font-size:12px;color:#666">${x.recipient?`<div style="font-weight:600">${x.recipient}</div>`:""}${x.paidBy?`<div style="font-size:11px;color:#aaa">To'ladi: ${x.paidBy}</div>`:""}</td>` : ""}
         ${cols.method    ? `<td style="font-size:11.5px;color:var(--mut);white-space:nowrap">${methodIcon}</td>` : ""}
-        ${cols.amount    ? `<td class="num" style="font-weight:800;color:var(--red);font-size:13px">${fmt(x.amount||0)} so'm${x.amountUsd?`<div style="font-size:10.5px;color:#aaa;font-weight:400">$${x.amountUsd.toFixed(2)}</div>`:""}</td>` : ""}
-        ${cols.note      ? `<td style="font-size:12px;color:#aaa;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.note||""}</td>` : ""}
-        <td><div style="display:flex;gap:3px">
+        ${cols.amount    ? `<td class="num" style="font-weight:800;color:var(--red);font-size:13px;white-space:nowrap">${fmt(x.amount||0)} so'm${x.amountUsd?`<div style="font-size:10.5px;color:#aaa;font-weight:400">$${x.amountUsd.toFixed(2)}</div>`:""}</td>` : ""}
+        ${cols.note      ? `<td style="font-size:12px;color:#aaa;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.note||""}</td>` : ""}
+        <td style="white-space:nowrap">
           <button class="btn btn-ghost btn-icon btn-sm" onclick="editExp(${x.id})" title="Tahrirlash"><i class="ti ti-pencil"></i></button>
           <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteExp(${x.id})" style="color:var(--red)" title="O'chirish"><i class="ti ti-trash"></i></button>
-        </div></td>
+        </td>
       </tr>`;
-    }).join("") : `<tr><td colspan="7" class="empty-td">${q?`"${q}" topilmadi`:"Bu davrda xarajat yo'q"}</td></tr>`;
+    }).join("") : `<tr><td colspan="${colCount}" class="empty-td">${q?`"${q}" topilmadi`:"Bu davrda xarajat yo'q"}</td></tr>`;
   }
 
   renderExpChart(catTotals, chiqim);
