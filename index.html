@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=115">
+<link rel="stylesheet" href="style.css?v=116">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -987,33 +987,58 @@
     <!-- KPI -->
     <div class="stat-row">
       <div class="stb"><div class="sl">Jami mijozlar</div><div class="sv" id="mc-total">0</div></div>
-      <div class="stb"><div class="sl">Ulgurji xaridorlar</div><div class="sv" id="mc-ulg">0</div></div>
+      <div class="stb"><div class="sl">Ulgurji</div><div class="sv" id="mc-ulg">0</div></div>
       <div class="stb"><div class="sl">Chakana</div><div class="sv" id="mc-chak">0</div></div>
       <div class="stb" style="border-top:3px solid var(--red)">
         <div class="sl" style="color:var(--red)">Qarzli mijozlar</div>
         <div class="sv" id="mc-debt" style="color:var(--red)">0</div>
       </div>
+      <div class="stb" style="border-top:3px solid var(--red)">
+        <div class="sl">Jami qarz summasi</div>
+        <div class="sv" id="mc-debt-sum" style="color:var(--red)">0</div>
+      </div>
+      <div class="stb" style="border-top:3px solid #E9A500">
+        <div class="sl">⭐ VIP mijozlar</div>
+        <div class="sv" id="mc-vip" style="color:#E9A500">0</div>
+      </div>
     </div>
+
     <div class="card">
       <div class="ch" style="flex-wrap:wrap;gap:8px">
         <h3><i class="ti ti-users"></i>Mijozlar</h3>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <div style="display:flex;gap:4px">
-            <button class="cust-filter-btn on" data-f="all"     onclick="setCustFilter('all')">Barchasi</button>
-            <button class="cust-filter-btn" data-f="ulgurji"    onclick="setCustFilter('ulgurji')">📦 Ulgurji</button>
-            <button class="cust-filter-btn" data-f="chakana"    onclick="setCustFilter('chakana')">👤 Chakana</button>
-            <button class="cust-filter-btn" data-f="debt"       onclick="setCustFilter('debt')">💳 Qarzli</button>
-          </div>
-          <input id="cust-q" placeholder="Ism yoki telefon..." oninput="renderMijozlar()"
-            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:180px">
-          <button class="btn btn-acc btn-sm" onclick="openModal('addcust')"><i class="ti ti-plus"></i>Yangi mijoz</button>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto">
+          <button class="btn btn-acc btn-sm" onclick="openModal('addcust')">
+            <i class="ti ti-plus"></i> Yangi mijoz
+          </button>
+          <input id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="renderMijozlar()"
+            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:190px">
+        </div>
+      </div>
+      <!-- Filtr qatori -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 18px 12px;border-bottom:1px solid var(--brd)">
+        <div style="display:flex;background:var(--bg);border:1px solid var(--brd);border-radius:9px;padding:3px;gap:2px">
+          <button class="cust-filter-btn on" data-f="all" onclick="setCustFilter('all')"
+            style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:#0D1B2A;color:#fff;cursor:pointer">Barchasi</button>
+          <button class="cust-filter-btn" data-f="ulgurji" onclick="setCustFilter('ulgurji')"
+            style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">📦 Ulgurji</button>
+          <button class="cust-filter-btn" data-f="chakana" onclick="setCustFilter('chakana')"
+            style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">👤 Chakana</button>
+          <button class="cust-filter-btn" data-f="debt" onclick="setCustFilter('debt')"
+            style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">💳 Qarzli</button>
+          <button class="cust-filter-btn" data-f="vip" onclick="setCustFilter('vip')"
+            style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">⭐ VIP</button>
+          <button class="cust-filter-btn" data-f="new" onclick="setCustFilter('new')"
+            style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">🆕 Yangi</button>
+          <button class="cust-filter-btn" data-f="inactive" onclick="setCustFilter('inactive')"
+            style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">💤 Faolsiz</button>
         </div>
       </div>
       <div style="overflow-x:auto">
-        <table>
+        <table style="min-width:800px">
           <thead id="mijozlar-thead"><tr>
-            <th>Ism</th><th>Telefon</th><th>Turi</th>
+            <th>Ism</th><th>Telefon</th><th>Segment</th>
             <th class="num">Sotuvlar</th><th class="num">Jami xarid</th>
+            <th class="num">O'rtacha chek</th>
             <th class="num">Oxirgi xarid</th><th class="num">Joriy qarz</th>
             <th></th>
           </tr></thead>
@@ -2648,16 +2673,35 @@
 <!-- MODAL: ADD CUSTOMER -->
 
 <div class="ov" id="ov-addcust" onclick="if(event.target===this)closeModal('addcust')">
-  <div class="modal">
+  <div class="modal" style="max-width:460px">
     <button class="m-close" onclick="closeModal('addcust')"><i class="ti ti-x"></i></button>
     <h2>Yangi mijoz</h2>
-    <div class="fld"><label>Ism familiya</label><input id="ac-name" placeholder="Alisher Karimov"></div>
+    <div class="fld"><label>Ism familiya <span style="color:var(--red)">*</span></label>
+      <input id="ac-name" placeholder="Alisher Karimov"></div>
     <div class="r2">
-      <div class="fld"><label>Telefon</label><input id="ac-phone" placeholder="+998 90 000 00 00"></div>
-      <div class="fld"><label>Mijoz turi</label><select id="ac-type"><option value="chakana">Chakana (do'kon egasi)</option><option value="ulgurji">Ulgurji xaridor</option><option value="other">Boshqa</option></select></div>
+      <div class="fld"><label>Telefon</label>
+        <input id="ac-phone" placeholder="+998 90 000 00 00"></div>
+      <div class="fld"><label>Mijoz turi</label>
+        <select id="ac-type" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;background:#fff">
+          <option value="chakana">👤 Chakana</option>
+          <option value="ulgurji">📦 Ulgurji</option>
+          <option value="other">Boshqa</option>
+        </select>
+      </div>
     </div>
-    <div class="fld"><label>Manzil / Izoh</label><input id="ac-note" placeholder="ixtiyoriy"></div>
-    <button class="btn btn-acc" style="width:100%;margin-top:4px" onclick="addCustomer()"><i class="ti ti-check"></i>Saqlash</button>
+    <div class="fld"><label>Kompaniya / Do'kon nomi</label>
+      <input id="ac-company" placeholder="Masalan: Baraka Market (ixtiyoriy)"></div>
+    <div class="r2">
+      <div class="fld"><label>Izoh / Manzil</label>
+        <input id="ac-note" placeholder="ixtiyoriy"></div>
+      <div class="fld"><label>Qarz limiti (so'm)</label>
+        <input id="ac-debt-limit" type="text" data-price placeholder="Cheksiz" oninput="fmtInput(this)"
+          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%">
+      </div>
+    </div>
+    <button class="btn btn-acc" style="width:100%;margin-top:4px" onclick="addCustomer()">
+      <i class="ti ti-check"></i> Saqlash
+    </button>
   </div>
 </div>
 
@@ -2719,23 +2763,45 @@
     </div>
 
     <!-- Stats -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px">
-      <div style="background:var(--bg);border-radius:10px;padding:12px 14px;text-align:center;border:1px solid var(--brd)">
-        <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;margin-bottom:4px">Sotuvlar</div>
-        <div style="font-size:20px;font-weight:800;color:#0D1B2A" id="cc-sales-cnt">0</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+      <div style="background:var(--bg);border-radius:10px;padding:10px 12px;text-align:center;border:1px solid var(--brd)">
+        <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;margin-bottom:3px">Sotuvlar</div>
+        <div style="font-size:18px;font-weight:800;color:#0D1B2A" id="cc-sales-cnt">0</div>
       </div>
-      <div style="background:var(--bg);border-radius:10px;padding:12px 14px;text-align:center;border:1px solid var(--brd)">
-        <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;margin-bottom:4px">Jami xarid</div>
-        <div style="font-size:15px;font-weight:800;color:#0D1B2A" id="cc-total-buy">0</div>
+      <div style="background:var(--bg);border-radius:10px;padding:10px 12px;text-align:center;border:1px solid var(--brd)">
+        <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;margin-bottom:3px">Jami xarid</div>
+        <div style="font-size:14px;font-weight:800;color:#0D1B2A" id="cc-total-buy">0</div>
       </div>
-      <div style="background:#FEF2F2;border-radius:10px;padding:12px 14px;text-align:center;border:1px solid #FECACA">
-        <div style="font-size:10px;color:#991B1B;font-weight:600;text-transform:uppercase;margin-bottom:4px">Joriy qarz</div>
-        <div style="font-size:15px;font-weight:800;color:#DC2626" id="cc-debt">0</div>
+      <div style="background:#FEF2F2;border-radius:10px;padding:10px 12px;text-align:center;border:1px solid #FECACA">
+        <div style="font-size:10px;color:#991B1B;font-weight:600;text-transform:uppercase;margin-bottom:3px">Joriy qarz</div>
+        <div style="font-size:14px;font-weight:800;color:#DC2626" id="cc-debt">0</div>
+      </div>
+      <div style="background:var(--bg);border-radius:10px;padding:10px 12px;text-align:center;border:1px solid var(--brd)">
+        <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;margin-bottom:3px">O'rtacha chek</div>
+        <div style="font-size:14px;font-weight:700;color:#0D1B2A" id="cc-avg-check">—</div>
+      </div>
+      <div style="background:var(--bg);border-radius:10px;padding:10px 12px;text-align:center;border:1px solid var(--brd)">
+        <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;margin-bottom:3px">Birinchi xarid</div>
+        <div style="font-size:13px;font-weight:700;color:#0D1B2A" id="cc-first-date">—</div>
+      </div>
+      <div style="background:var(--bg);border-radius:10px;padding:10px 12px;text-align:center;border:1px solid var(--brd)">
+        <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;margin-bottom:3px">Oxirgi xarid</div>
+        <div style="font-size:13px;font-weight:700;color:#0D1B2A" id="cc-last-date">—</div>
       </div>
     </div>
 
-    <!-- Mijoz balansi (depozit) — faqat balans bo'lsa ko'rinadi -->
-    <div id="cc-balance-block" style="display:none;align-items:center;gap:8px;background:#E0F2FE;border:1px solid #7DD3FC;border-radius:10px;padding:10px 14px;margin-bottom:18px">
+    <!-- Top tovar -->
+    <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--brd);border-radius:9px;padding:8px 12px;margin-bottom:12px;font-size:12.5px">
+      <i class="ti ti-star" style="color:#E9A500"></i>
+      <span style="color:var(--mut)">Eng ko'p xarid:</span>
+      <strong id="cc-top-item">—</strong>
+    </div>
+
+    <!-- Qarz limiti progress -->
+    <div id="cc-limit-block" style="display:none;padding:10px 14px;background:#FFF7ED;border:1.5px solid #FED7AA;border-radius:10px;margin-bottom:12px"></div>
+
+    <!-- Mijoz balansi -->
+    <div id="cc-balance-block" style="display:none;align-items:center;gap:8px;background:#E0F2FE;border:1px solid #7DD3FC;border-radius:10px;padding:10px 14px;margin-bottom:12px">
       <i class="ti ti-wallet" style="color:#0E7490;font-size:18px"></i>
       <div>
         <div style="font-size:10px;color:#0E7490;font-weight:600;text-transform:uppercase">Mijoz balansi (depozit)</div>
@@ -2917,23 +2983,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=115"></script>
-<script src="js/utils.js?v=115"></script>
-<script src="js/sms.js?v=115"></script>
-<script src="js/cloud.js?v=115"></script>
-<script src="js/dashboard.js?v=115"></script>
-<script src="js/pos.js?v=115"></script>
-<script src="js/katalog.js?v=115"></script>
-<script src="js/ombor.js?v=115"></script>
-<script src="js/mijozlar.js?v=115"></script>
-<script src="js/qarzlar.js?v=115"></script>
-<script src="js/tarix.js?v=115"></script>
-<script src="js/hisobot.js?v=115"></script>
-<script src="js/xodimlar.js?v=115"></script>
-<script src="js/moliya.js?v=115"></script>
-<script src="js/egasi.js?v=115"></script>
-<script src="js/portal.js?v=115"></script>
-<script src="js/init.js?v=115"></script>
+<script src="js/db.js?v=116"></script>
+<script src="js/utils.js?v=116"></script>
+<script src="js/sms.js?v=116"></script>
+<script src="js/cloud.js?v=116"></script>
+<script src="js/dashboard.js?v=116"></script>
+<script src="js/pos.js?v=116"></script>
+<script src="js/katalog.js?v=116"></script>
+<script src="js/ombor.js?v=116"></script>
+<script src="js/mijozlar.js?v=116"></script>
+<script src="js/qarzlar.js?v=116"></script>
+<script src="js/tarix.js?v=116"></script>
+<script src="js/hisobot.js?v=116"></script>
+<script src="js/xodimlar.js?v=116"></script>
+<script src="js/moliya.js?v=116"></script>
+<script src="js/egasi.js?v=116"></script>
+<script src="js/portal.js?v=116"></script>
+<script src="js/init.js?v=116"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3282,7 +3348,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=115"></script>
-<script src="js/superadmin.js?v=115"></script>
+<script src="js/auth.js?v=116"></script>
+<script src="js/superadmin.js?v=116"></script>
 </body>
 </html>
