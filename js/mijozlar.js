@@ -164,6 +164,7 @@ function renderMijozlar() {
         : '<i class="ti ti-sort-descending" style="font-size:11px;color:var(--acc)"></i>';
     };
     thead.innerHTML = `<tr>
+      <th style="width:36px"><input type="checkbox" onclick="selectAllCusts()" style="width:15px;height:15px;cursor:pointer" title="Hammasini tanlash"></th>
       <th style="cursor:pointer;user-select:none" onclick="custSortToggle('name')">ISM ${si('name')}</th>
       <th>TELEFON</th>
       <th>SEGMENT</th>
@@ -181,6 +182,11 @@ function renderMijozlar() {
     const seg = custSegment(st, c);
     const limitWarn = c.debtLimit && (st.totalDebt+(st.totalDebtUsd||0)*(db.settings?.rate||12800)) >= c.debtLimit * 0.8;
     return `<tr style="cursor:pointer${limitWarn?' background:#FFF7F7':''}" onclick="openCustCard(${c.id})">
+      <td onclick="event.stopPropagation()" style="width:36px">
+        <input type="checkbox" data-cust-check="${c.id}" ${_selectedCusts.has(c.id)?"checked":""}
+          onclick="toggleCustSelect(${c.id})"
+          style="width:15px;height:15px;accent-color:var(--acc);cursor:pointer">
+      </td>
       <td>
         <div style="font-weight:600;font-size:13.5px">${c.name}</div>
         ${c.company ? `<div style="font-size:11px;color:#aaa">${c.company}</div>` : ""}
@@ -226,7 +232,7 @@ function renderMijozlar() {
         </button>
       </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="9" class="empty-td">
+  }).join("") : `<tr><td colspan="10" class="empty-td">
     ${custFilter !== "all" ? "Bu filtrda mijoz yo'q" : q ? `"${q}" topilmadi` : "Mijoz yo'q"}
   </td></tr>`;
 }
@@ -389,6 +395,149 @@ function editCustomer(id) {
 }
 
 // ── Yangi mijoz qo'shish ──────────────────────────
+// ── Guruhli SMS ──────────────────────────────────
+let _selectedCusts = new Set(); // tanlangan mijozlar ID lari
+
+function toggleCustSelect(id) {
+  if (_selectedCusts.has(id)) _selectedCusts.delete(id);
+  else _selectedCusts.add(id);
+  const el = document.querySelector(`[data-cust-check="${id}"]`);
+  if (el) el.checked = _selectedCusts.has(id);
+  updateBulkSmsBar();
+}
+
+function selectAllCusts() {
+  const visible = [...document.querySelectorAll("[data-cust-check]")].map(el=>+el.dataset.custCheck);
+  const allSelected = visible.every(id => _selectedCusts.has(id));
+  if (allSelected) visible.forEach(id => _selectedCusts.delete(id));
+  else visible.forEach(id => _selectedCusts.add(id));
+  visible.forEach(id => {
+    const el=document.querySelector(`[data-cust-check="${id}"]`);
+    if(el) el.checked=_selectedCusts.has(id);
+  });
+  updateBulkSmsBar();
+}
+
+function updateBulkSmsBar() {
+  const bar = $("bulk-sms-bar");
+  if (!bar) return;
+  const cnt = _selectedCusts.size;
+  if (cnt > 0) {
+    bar.style.display = "flex";
+    const el = $("bulk-sms-cnt"); if(el) el.textContent = cnt+" ta mijoz tanlandi";
+  } else {
+    bar.style.display = "none";
+  }
+}
+
+function openBulkSmsModal() {
+  if (_selectedCusts.size === 0) { toast("Avval mijozlarni tanlang","err"); return; }
+  const custs = db.customers.filter(c => _selectedCusts.has(c.id) && c.phone);
+  if (!custs.length) { toast("Tanlangan mijozlarda telefon raqami yo'q","err"); return; }
+
+  const modal = document.createElement("div");
+  modal.className = "ov"; modal.id = "bulk-sms-modal";
+  modal.style.cssText = "display:flex";
+  modal.innerHTML = `
+    <div class="modal" style="max-width:440px">
+      <button class="m-close" onclick="$('bulk-sms-modal').remove()"><i class="ti ti-x"></i></button>
+      <h2 style="margin-bottom:4px"><i class="ti ti-send"></i> Guruhli SMS</h2>
+      <p style="font-size:13px;color:var(--mut);margin-bottom:14px">
+        ${custs.length} ta mijozga yuboriladi
+        ${_selectedCusts.size > custs.length ? ` (${_selectedCusts.size-custs.length} ta telefonsiz o'tkazib yuborildi)` : ""}
+      </p>
+      <div class="fld">
+        <label>Xabar matni</label>
+        <textarea id="bulk-sms-text" rows="4" placeholder="Xabar matnini kiriting..."
+          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);
+          padding:8px 12px;width:100%;resize:vertical;box-sizing:border-box"></textarea>
+        <div style="font-size:11.5px;color:var(--mut);margin-top:4px">
+          💡 <b>{ism}</b> — mijoz ismi, <b>{qarz}</b> — joriy qarz summasi
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="setBulkTemplate('debt')">💳 Qarz eslatma</button>
+        <button class="btn btn-ghost btn-sm" onclick="setBulkTemplate('promo')">🎁 Aksiya</button>
+        <button class="btn btn-ghost btn-sm" onclick="setBulkTemplate('greet')">👋 Salom</button>
+      </div>
+      <div style="background:var(--bg);border-radius:9px;padding:10px 12px;font-size:12px;color:var(--mut);margin-bottom:14px;max-height:120px;overflow-y:auto">
+        ${custs.slice(0,5).map(c=>`<div>• ${c.name} — ${c.phone}</div>`).join("")}
+        ${custs.length>5?`<div style="color:#aaa">+${custs.length-5} ta...</div>`:""}
+      </div>
+      <button class="btn btn-acc" style="width:100%" onclick="confirmBulkSms()">
+        <i class="ti ti-send"></i> ${custs.length} ta mijozga yuborish
+      </button>
+    </div>`;
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+  document.body.appendChild(modal);
+}
+
+function setBulkTemplate(type) {
+  const shop = db.settings?.shopName || "Do'kon";
+  const templates = {
+    debt:  `${shop}: Hurmatli {ism}, joriy qarzingiz: {qarz}. Iltimos to'lovni amalga oshiring. Rahmat!`,
+    promo: `${shop}: Hurmatli {ism}, yangi mahsulotlar va maxsus chegirmalar mavjud! Siz bilan hamkorlik qilishdan mamnunmiz.`,
+    greet: `${shop}: Hurmatli {ism}, siz bilan hamkorlik qilishdan mamnunmiz! Yangi mahsulotlarimiz bilan tanishib chiqishingizni taklif etamiz.`
+  };
+  const el = $("bulk-sms-text"); if(el) el.value = templates[type]||"";
+}
+
+async function confirmBulkSms() {
+  const text = ($("bulk-sms-text")||{value:""}).value.trim();
+  if (!text) { toast("Xabar matnini kiriting","err"); return; }
+
+  const custs = db.customers.filter(c => _selectedCusts.has(c.id) && c.phone);
+  let sent = 0, failed = 0;
+
+  $("bulk-sms-modal")?.remove();
+  toast(`📲 ${custs.length} ta mijozga SMS yuborilmoqda...`);
+
+  for (const c of custs) {
+    const st  = custStats(c.id);
+    const debtTxt = st.totalDebtUsd>0 ? `$${st.totalDebtUsd.toFixed(2)} USD`
+      : st.totalDebt>0 ? `${fmt(st.totalDebt)} so'm` : "0";
+    const msg = text.replace(/{ism}/g, c.name).replace(/{qarz}/g, debtTxt);
+    try {
+      await sendSms(c.phone, msg);
+      sent++;
+    } catch(e) { failed++; }
+    await new Promise(r=>setTimeout(r,300)); // rate limit
+  }
+
+  _selectedCusts.clear();
+  updateBulkSmsBar();
+  renderMijozlar();
+  toast(`✅ ${sent} ta SMS yuborildi${failed?` (${failed} ta xato)`:""}`, sent>0?"":"err");
+}
+
+// ── Excel eksport ────────────────────────────────
+function exportMijozlarExcel() {
+  const rate = db.settings?.rate || 12800;
+  const rows = [["Ism","Telefon","Turi","Kompaniya","Izoh","Sotuvlar","Jami xarid","O'rtacha chek","Oxirgi xarid","Joriy qarz (so'm)","Joriy qarz (USD)","Segment","Qarz limiti"]];
+
+  db.customers.forEach(c => {
+    const st  = custStats(c.id);
+    const seg = custSegment(st, c);
+    const typeLabel = { ulgurji:"Ulgurji", chakana:"Chakana", other:"Boshqa" };
+    rows.push([
+      c.name, c.phone||"", typeLabel[c.type]||c.type||"", c.company||"", c.note||"",
+      st.count, st.totalBuy, st.avgCheck,
+      st.lastDate||"",
+      Math.round(st.totalDebt), +(st.totalDebtUsd||0).toFixed(2),
+      seg.label.replace(/[⭐🆕💳💤⛔👤]/gu,"").trim(),
+      c.debtLimit||""
+    ]);
+  });
+
+  const total = db.customers.reduce((a,c)=>a+custStats(c.id).totalBuy,0);
+  const totalDebt = db.customers.reduce((a,c)=>a+custStats(c.id).totalDebt,0);
+  rows.push([]);
+  rows.push(["JAMI", "", "", "", "", db.customers.length+" ta", total, "", "", totalDebt, "", "", ""]);
+
+  downloadCSV(rows, `merx_mijozlar_${today()}.xls`);
+  toast(`✅ ${db.customers.length} ta mijoz yuklab olindi`);
+}
+
 function addCustomer() {
   const name  = ($("ac-name")||{value:""}).value.trim();
   const phone = ($("ac-phone")||{value:""}).value.trim();

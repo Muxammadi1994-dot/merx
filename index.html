@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=116">
+<link rel="stylesheet" href="style.css?v=117">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1010,6 +1010,9 @@
           <button class="btn btn-acc btn-sm" onclick="openModal('addcust')">
             <i class="ti ti-plus"></i> Yangi mijoz
           </button>
+          <button class="btn btn-sm" onclick="exportMijozlarExcel()" style="color:#1D6A39">
+            <i class="ti ti-file-spreadsheet"></i> Excel
+          </button>
           <input id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="renderMijozlar()"
             style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:190px">
         </div>
@@ -1032,6 +1035,17 @@
           <button class="cust-filter-btn" data-f="inactive" onclick="setCustFilter('inactive')"
             style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">💤 Faolsiz</button>
         </div>
+      </div>
+      <!-- Guruhli SMS bar (tanlanganda ko'rinadi) -->
+      <div id="bulk-sms-bar" style="display:none;align-items:center;gap:10px;padding:10px 18px;background:#EFF6FF;border-bottom:1px solid #BFDBFE">
+        <i class="ti ti-users" style="color:#3B82F6"></i>
+        <span id="bulk-sms-cnt" style="font-size:13px;font-weight:600;color:#1E40AF;flex:1"></span>
+        <button class="btn btn-sm" style="color:#3B82F6;border-color:#93C5FD" onclick="openBulkSmsModal()">
+          <i class="ti ti-send"></i> SMS yuborish
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="_selectedCusts.clear();updateBulkSmsBar();renderMijozlar()">
+          <i class="ti ti-x"></i> Bekor qilish
+        </button>
       </div>
       <div style="overflow-x:auto">
         <table style="min-width:800px">
@@ -2983,23 +2997,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=116"></script>
-<script src="js/utils.js?v=116"></script>
-<script src="js/sms.js?v=116"></script>
-<script src="js/cloud.js?v=116"></script>
-<script src="js/dashboard.js?v=116"></script>
-<script src="js/pos.js?v=116"></script>
-<script src="js/katalog.js?v=116"></script>
-<script src="js/ombor.js?v=116"></script>
-<script src="js/mijozlar.js?v=116"></script>
-<script src="js/qarzlar.js?v=116"></script>
-<script src="js/tarix.js?v=116"></script>
-<script src="js/hisobot.js?v=116"></script>
-<script src="js/xodimlar.js?v=116"></script>
-<script src="js/moliya.js?v=116"></script>
-<script src="js/egasi.js?v=116"></script>
-<script src="js/portal.js?v=116"></script>
-<script src="js/init.js?v=116"></script>
+<script src="js/db.js?v=117"></script>
+<script src="js/utils.js?v=117"></script>
+<script src="js/sms.js?v=117"></script>
+<script src="js/cloud.js?v=117"></script>
+<script src="js/dashboard.js?v=117"></script>
+<script src="js/pos.js?v=117"></script>
+<script src="js/katalog.js?v=117"></script>
+<script src="js/ombor.js?v=117"></script>
+<script src="js/mijozlar.js?v=117"></script>
+<script src="js/qarzlar.js?v=117"></script>
+<script src="js/tarix.js?v=117"></script>
+<script src="js/hisobot.js?v=117"></script>
+<script src="js/xodimlar.js?v=117"></script>
+<script src="js/moliya.js?v=117"></script>
+<script src="js/egasi.js?v=117"></script>
+<script src="js/portal.js?v=117"></script>
+<script src="js/init.js?v=117"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3348,7 +3362,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=116"></script>
-<script src="js/superadmin.js?v=116"></script>
+<script src="js/auth.js?v=117"></script>
+<script src="js/superadmin.js?v=117"></script>
 </body>
 </html>
