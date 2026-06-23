@@ -405,6 +405,43 @@ function openCustCard(id) {
 
   if ($("cc-sms-btn")) $("cc-sms-btn").style.display = c.phone ? "inline-flex" : "none";
 
+  // Muhim qayд
+  const impBlock = $("cc-important-note-block");
+  const impEl    = $("cc-important-note");
+  if (impBlock && impEl) {
+    if (c.importantNote) {
+      impEl.textContent       = c.importantNote;
+      impBlock.style.display  = "flex";
+    } else { impBlock.style.display = "none"; }
+  }
+
+  // Qo'shimcha info: tug'ilgan kun, manba, sodiqlik ballari
+  const extraEl = $("cc-extra-info");
+  if (extraEl) {
+    const chips = [];
+    if (c.birthday) {
+      const [, m, d] = c.birthday.split("-");
+      const months = ["","Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
+      const today = new Date(); const bDay = new Date(today.getFullYear(), +m-1, +d);
+      const diff = Math.round((bDay - today) / 86400000);
+      const soon = diff >= 0 && diff <= 7;
+      const bdayLabel = soon ? ` (${diff===0?"Bugun!":diff+" kun qoldi"})` : "";
+      const bdayStyle = soon ? "background:#FEF3C7;color:#D97706;font-weight:700" : "";
+      chips.push(`<span class="bg" style="font-size:11.5px;${bdayStyle}">🎂 ${d} ${months[+m]}${bdayLabel}</span>`);
+    }
+    if (c.source) {
+      const src = {"do'kon":"🏪 Do'konga kelib", telegram:"📱 Telegram", instagram:"📸 Instagram", tavsiya:"🤝 Tavsiya", boshqa:"Boshqa"};
+      chips.push(`<span class="bg" style="font-size:11.5px">Manba: ${src[c.source]||c.source}</span>`);
+    }
+    const pts = c.loyaltyPoints || 0;
+    if (pts > 0) {
+      chips.push(`<span class="bg" style="font-size:11.5px;background:#F0FDF4;color:var(--grn);font-weight:700">
+        ⭐ ${pts} ball
+      </span>`);
+    }
+    extraEl.innerHTML = chips.join("") || "";
+  }
+
   // Xarid tarixi — sotuvlar + qarz to'lovlari birlashtirilgan, to'g'ri holat
   const history = st.allSales.sort((a,b)=>b.date>a.date?1:-1).slice(0,15);
   if ($("cc-history")) {
@@ -542,12 +579,15 @@ function custCardEdit() {
   const c = db.customers.find(x => x.id === _custCardId);
   if (!c) return;
   closeModal("custcard");
-  if ($("ac-name"))    $("ac-name").value    = c.name;
-  if ($("ac-phone"))   $("ac-phone").value   = c.phone  || "";
-  if ($("ac-phone2"))  $("ac-phone2").value  = c.phone2 || "";
-  if ($("ac-type"))    $("ac-type").value    = c.type   || "ulgurji";
-  if ($("ac-company")) $("ac-company").value = c.company|| "";
-  if ($("ac-note"))    $("ac-note").value    = c.note   || "";
+  if ($("ac-name"))           $("ac-name").value           = c.name;
+  if ($("ac-phone"))          $("ac-phone").value          = c.phone         || "";
+  if ($("ac-phone2"))         $("ac-phone2").value         = c.phone2        || "";
+  if ($("ac-type"))           $("ac-type").value           = c.type          || "ulgurji";
+  if ($("ac-company"))        $("ac-company").value        = c.company       || "";
+  if ($("ac-note"))           $("ac-note").value           = c.note          || "";
+  if ($("ac-birthday"))       $("ac-birthday").value       = c.birthday      || "";
+  if ($("ac-important-note")) $("ac-important-note").value = c.importantNote || "";
+  if ($("ac-source"))         $("ac-source").value         = c.source        || "";
   const limitEl = $("ac-debt-limit");
   if (limitEl) { limitEl.dataset.raw = c.debtLimit||0; limitEl.value = c.debtLimit ? fmt(c.debtLimit) : ""; }
   const h2 = document.querySelector("#ov-addcust h2");
@@ -566,8 +606,11 @@ function editCustomer(id) {
   c.phone     = ($("ac-phone")||{value:""}).value.trim();
   c.phone2    = ($("ac-phone2")||{value:""}).value.trim();
   c.type      = ($("ac-type")||{value:""}).value || c.type;
-  c.note      = ($("ac-note")||{value:""}).value.trim();
-  c.company   = ($("ac-company")||{value:""}).value.trim();
+  c.note         = ($("ac-note")||{value:""}).value.trim();
+  c.company      = ($("ac-company")||{value:""}).value.trim();
+  c.birthday     = ($("ac-birthday")||{value:""}).value;
+  c.importantNote= ($("ac-important-note")||{value:""}).value.trim();
+  c.source       = ($("ac-source")||{value:""}).value;
   const limitRaw = getRawVal("ac-debt-limit");
   c.debtLimit = limitRaw > 0 ? limitRaw : null;
   saveDB(); renderMijozlar(); closeModal("addcust");
@@ -748,6 +791,36 @@ function exportMijozlarExcel() {
   toast(`✅ ${db.customers.length} ta mijoz yuklab olindi`);
 }
 
+// ── Sodiqlik ballari ─────────────────────────────
+// Ixtiyoriy: db.settings.loyaltyRate = har necha so'm uchun 1 ball (masalan: 10000)
+// POS sotuv yakunida chaqiriladi
+function addLoyaltyPoints(customerId, saleTotal) {
+  const rate = db.settings?.loyaltyRate; // 0 yoki undefined = o'chirilgan
+  if (!rate || rate <= 0 || !customerId) return 0;
+  const pts = Math.floor(saleTotal / rate);
+  if (pts <= 0) return 0;
+  const c = (db.customers||[]).find(x => x.id === customerId);
+  if (!c) return 0;
+  c.loyaltyPoints = (c.loyaltyPoints || 0) + pts;
+  saveDB();
+  return pts;
+}
+
+// Ball sarflash (POS da chegirma sifatida)
+function spendLoyaltyPoints(customerId, pointsToSpend) {
+  const c = (db.customers||[]).find(x => x.id === customerId);
+  if (!c || !pointsToSpend) return false;
+  if ((c.loyaltyPoints||0) < pointsToSpend) { toast("Ball yetarli emas","err"); return false; }
+  c.loyaltyPoints -= pointsToSpend;
+  saveDB();
+  return true;
+}
+
+// Ballni so'mga aylantirish (1 ball = 100 so'm, sozlashda o'zgartiriladi)
+function pointsToSom(pts) {
+  return pts * (db.settings?.loyaltyValue || 100);
+}
+
 function addCustomer() {
   const name  = ($("ac-name")||{value:""}).value.trim();
   const phone = ($("ac-phone")||{value:""}).value.trim();
@@ -768,11 +841,17 @@ function addCustomer() {
     type:      ($("ac-type")||{value:"ulgurji"}).value,
     company:   ($("ac-company")||{value:""}).value.trim(),
     note:      ($("ac-note")||{value:""}).value.trim(),
-    debtLimit: limitRaw > 0 ? limitRaw : null
+    debtLimit:     limitRaw > 0 ? limitRaw : null,
+    birthday:      ($("ac-birthday")||{value:""}).value,
+    importantNote: ($("ac-important-note")||{value:""}).value.trim(),
+    source:        ($("ac-source")||{value:""}).value,
+    loyaltyPoints: 0
   };
   db.customers.push(nc);
   saveDB(); renderMijozlar(); closeModal("addcust");
   toast(`✅ "${name}" qo'shildi`);
-  ["ac-name","ac-phone","ac-phone2","ac-note","ac-company","ac-debt-limit"].forEach(id => { if ($(id)) $(id).value = ""; });
-  if ($("ac-type")) $("ac-type").value = "ulgurji";
+  ["ac-name","ac-phone","ac-phone2","ac-note","ac-company","ac-debt-limit",
+    "ac-birthday","ac-important-note"].forEach(id => { if ($(id)) $(id).value = ""; });
+  if ($("ac-type"))   $("ac-type").value   = "ulgurji";
+  if ($("ac-source")) $("ac-source").value = "";
 }

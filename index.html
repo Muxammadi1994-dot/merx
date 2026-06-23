@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=122">
+<link rel="stylesheet" href="style.css?v=123">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -2068,6 +2068,27 @@
           </div>
           <div style="background:var(--bg);border-radius:var(--rs);padding:10px 12px;font-size:12.5px;color:var(--mut);line-height:1.6">
             <b style="color:var(--ink)">Token olish:</b> notify.eskiz.uz → Kirish → API → Token olish<br>
+
+          <!-- Sodiqlik ballari — ixtiyoriy -->
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--brd)">
+            <div style="font-size:13px;font-weight:700;margin-bottom:10px">⭐ Sodiqlik ballari <span style="font-size:11px;color:var(--mut);font-weight:400">(ixtiyoriy)</span></div>
+            <div class="r2">
+              <div class="fld">
+                <label>Har necha so'mga 1 ball</label>
+                <input id="s-loyalty-rate" type="number" placeholder="O'chiq (0)" min="0"
+                  oninput="saveSetting('loyaltyRate',+this.value||0)"
+                  style="font-family:inherit">
+                <div style="font-size:11px;color:var(--mut);margin-top:3px">0 = o'chirilgan. Masalan: 10000</div>
+              </div>
+              <div class="fld">
+                <label>1 ball = necha so'm</label>
+                <input id="s-loyalty-value" type="number" placeholder="100" min="0"
+                  oninput="saveSetting('loyaltyValue',+this.value||100)"
+                  style="font-family:inherit">
+                <div style="font-size:11px;color:var(--mut);margin-top:3px">Chegirma sifatida</div>
+              </div>
+            </div>
+          </div>
             Token yo'q bo'lsa SMS ekranda ko'rsatiladi (test rejimi).
           </div>
         </div>
@@ -2716,29 +2737,54 @@
       <div class="fld"><label>Qo'shimcha telefon</label>
         <input id="ac-phone2" placeholder="+998 90 000 00 00"></div>
     </div>
-    <div class="fld"><label>Mijoz turi</label>
-      <select id="ac-type" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;background:#fff">
-        <option value="ulgurji">📦 Ulgurji</option>
-        <option value="chakana">👤 Chakana</option>
-        <option value="other">Boshqa</option>
-      </select>
+    <div class="r2">
+      <div class="fld"><label>Mijoz turi</label>
+        <select id="ac-type" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;background:#fff">
+          <option value="ulgurji">📦 Ulgurji</option>
+          <option value="chakana">👤 Chakana</option>
+          <option value="other">Boshqa</option>
+        </select>
+      </div>
+      <div class="fld"><label>Tug'ilgan kun <span style="font-size:11px;color:var(--mut)">(ixtiyoriy)</span></label>
+        <input id="ac-birthday" type="date"
+          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%">
+      </div>
     </div>
     <div class="fld"><label>Kompaniya / Do'kon nomi</label>
-      <input id="ac-company" placeholder="Masalan: Baraka Market (ixtiyoriy)"></div>
+      <input id="ac-company" placeholder="ixtiyoriy"></div>
     <div class="r2">
-      <div class="fld"><label>Izoh / Manzil</label>
+      <div class="fld"><label>Manzil / Izoh</label>
         <input id="ac-note" placeholder="ixtiyoriy"></div>
       <div class="fld"><label>Qarz limiti (so'm)</label>
         <input id="ac-debt-limit" type="text" data-price placeholder="Cheksiz" oninput="fmtInput(this)"
           style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%">
       </div>
     </div>
+    <!-- Qo'shimcha qaydlar — ixtiyoriy, yashirin -->
+    <details style="margin-bottom:12px">
+      <summary style="font-size:12.5px;color:var(--mut);cursor:pointer;user-select:none;padding:4px 0">
+        <i class="ti ti-chevron-right" style="font-size:11px"></i> Qo'shimcha ma'lumotlar
+      </summary>
+      <div style="margin-top:10px">
+        <div class="fld"><label>Muhim qayд <span style="font-size:11px;color:var(--mut)">(doim ko'rinadi)</span></label>
+          <input id="ac-important-note" placeholder="Masalan: Har doim 10% chegirma, VIP mijoz..."></div>
+        <div class="fld"><label>Manba <span style="font-size:11px;color:var(--mut)">(qayerdan bildi)</span></label>
+          <select id="ac-source" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;background:#fff">
+            <option value="">— Tanlang —</option>
+            <option value="do'kon">🏪 Do'konga kelib</option>
+            <option value="telegram">📱 Telegram</option>
+            <option value="instagram">📸 Instagram</option>
+            <option value="tavsiya">🤝 Tanish tavsiyasi</option>
+            <option value="boshqa">Boshqa</option>
+          </select>
+        </div>
+      </div>
+    </details>
     <button class="btn btn-acc" style="width:100%;margin-top:4px" onclick="addCustomer()">
       <i class="ti ti-check"></i> Saqlash
     </button>
   </div>
 </div>
-
 
 
 
@@ -2844,6 +2890,15 @@
       <span style="color:var(--mut)">Eng ko'p xarid:</span>
       <strong id="cc-top-item">—</strong>
     </div>
+
+    <!-- Muhim qayд — faqat to'lgan bo'lsa ko'rinadi -->
+    <div id="cc-important-note-block" style="display:none;align-items:flex-start;gap:8px;background:#FFFBEB;border:1.5px solid #FCD34D;border-radius:9px;padding:9px 13px;margin-bottom:12px">
+      <i class="ti ti-alert-triangle" style="color:#D97706;font-size:16px;margin-top:1px;flex-shrink:0"></i>
+      <span id="cc-important-note" style="font-size:13px;font-weight:600;color:#92400E"></span>
+    </div>
+
+    <!-- Qo'shimcha info — tug'ilgan kun, manba, sodiqlik ballari -->
+    <div id="cc-extra-info" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
 
     <!-- Qarz limiti progress -->
     <div id="cc-limit-block" style="display:none;padding:10px 14px;background:#FFF7ED;border:1.5px solid #FED7AA;border-radius:10px;margin-bottom:12px"></div>
@@ -3031,23 +3086,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=122"></script>
-<script src="js/utils.js?v=122"></script>
-<script src="js/sms.js?v=122"></script>
-<script src="js/cloud.js?v=122"></script>
-<script src="js/dashboard.js?v=122"></script>
-<script src="js/pos.js?v=122"></script>
-<script src="js/katalog.js?v=122"></script>
-<script src="js/ombor.js?v=122"></script>
-<script src="js/mijozlar.js?v=122"></script>
-<script src="js/qarzlar.js?v=122"></script>
-<script src="js/tarix.js?v=122"></script>
-<script src="js/hisobot.js?v=122"></script>
-<script src="js/xodimlar.js?v=122"></script>
-<script src="js/moliya.js?v=122"></script>
-<script src="js/egasi.js?v=122"></script>
-<script src="js/portal.js?v=122"></script>
-<script src="js/init.js?v=122"></script>
+<script src="js/db.js?v=123"></script>
+<script src="js/utils.js?v=123"></script>
+<script src="js/sms.js?v=123"></script>
+<script src="js/cloud.js?v=123"></script>
+<script src="js/dashboard.js?v=123"></script>
+<script src="js/pos.js?v=123"></script>
+<script src="js/katalog.js?v=123"></script>
+<script src="js/ombor.js?v=123"></script>
+<script src="js/mijozlar.js?v=123"></script>
+<script src="js/qarzlar.js?v=123"></script>
+<script src="js/tarix.js?v=123"></script>
+<script src="js/hisobot.js?v=123"></script>
+<script src="js/xodimlar.js?v=123"></script>
+<script src="js/moliya.js?v=123"></script>
+<script src="js/egasi.js?v=123"></script>
+<script src="js/portal.js?v=123"></script>
+<script src="js/init.js?v=123"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3396,7 +3451,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=122"></script>
-<script src="js/superadmin.js?v=122"></script>
+<script src="js/auth.js?v=123"></script>
+<script src="js/superadmin.js?v=123"></script>
 </body>
 </html>
