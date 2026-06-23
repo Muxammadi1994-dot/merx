@@ -6,9 +6,38 @@
 let molPeriod = "month"; // default: bu oy
 let _expChart = null;
 
-function clearExpDateFilter() {
-  const f=$("exp-date-from"), t=$("exp-date-to");
-  if(f) f.value=""; if(t) t.value="";
+let expDatePeriod = "all";
+
+function setExpDatePeriod(p) {
+  expDatePeriod = p;
+  const t = today();
+  // Segment tugmalar uslubi
+  document.querySelectorAll(".exp-date-btn").forEach(b => {
+    const on = b.dataset.p === p;
+    b.style.background = on ? "#0D1B2A" : "transparent";
+    b.style.color      = on ? "#fff"    : "var(--mut)";
+  });
+  // Kalendar inputlarni period ga qarab to'ldirish
+  const fromEl = $("exp-date-from"), toEl = $("exp-date-to");
+  if (p === "all") {
+    if (fromEl) fromEl.value = ""; if (toEl) toEl.value = "";
+  } else if (p === "yesterday") {
+    const y = addDays(t,-1);
+    if (fromEl) fromEl.value = y; if (toEl) toEl.value = y;
+  } else if (p === "today") {
+    if (fromEl) fromEl.value = t; if (toEl) toEl.value = t;
+  } else if (p === "week") {
+    if (fromEl) fromEl.value = addDays(t,-6); if (toEl) toEl.value = t;
+  } else if (p === "month") {
+    if (fromEl) fromEl.value = t.slice(0,7)+"-01"; if (toEl) toEl.value = t;
+  } else if (p === "year") {
+    if (fromEl) fromEl.value = t.slice(0,4)+"-01-01"; if (toEl) toEl.value = t;
+  } else if (p === "custom") {
+    // Kalendardan o'zgartirilganda — tugmalarni bekor qil
+    document.querySelectorAll(".exp-date-btn").forEach(b => {
+      b.style.background = "transparent"; b.style.color = "var(--mut)";
+    });
+  }
   renderMoliya();
 }
 
@@ -281,7 +310,7 @@ function renderMoliya() {
   // To'lov usuli filtri
   const methodFilter = ($("exp-method-filter")||{value:""}).value;
   if (methodFilter) exps = exps.filter(x => (x.method||"naqd") === methodFilter);
-  // Sana oralig'i filtri (davr filtriga qo'shimcha)
+  // Sana oralig'i filtri
   const dateFrom = ($("exp-date-from")||{value:""}).value;
   const dateTo   = ($("exp-date-to")||{value:""}).value;
   if (dateFrom) exps = exps.filter(x => (x.date||"") >= dateFrom);
