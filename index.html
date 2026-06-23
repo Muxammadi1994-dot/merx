@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=110">
+<link rel="stylesheet" href="style.css?v=111">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1877,7 +1877,13 @@
         <div class="ch"><h3><i class="ti ti-chart-donut-3"></i>Xarajat tarkibi</h3></div>
         <div style="padding:14px 18px">
           <div class="chart-sm"><canvas id="expChart"></canvas></div>
-          <div id="exp-legend" style="display:flex;gap:10px;justify-content:center;font-size:12px;margin-top:10px;flex-wrap:wrap"></div>
+          <div id="exp-legend" style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;margin-top:10px;justify-content:center"></div>
+        </div>
+        <div style="padding:0 18px 14px;border-top:1px solid var(--brd);margin-top:4px">
+          <div style="font-size:11px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin:12px 0 8px">
+            To'lov usuli bo'yicha
+          </div>
+          <div id="exp-method-breakdown"></div>
         </div>
       </div>
       <!-- Kirim vs Chiqim (boyitilgan) -->
@@ -2900,23 +2906,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=110"></script>
-<script src="js/utils.js?v=110"></script>
-<script src="js/sms.js?v=110"></script>
-<script src="js/cloud.js?v=110"></script>
-<script src="js/dashboard.js?v=110"></script>
-<script src="js/pos.js?v=110"></script>
-<script src="js/katalog.js?v=110"></script>
-<script src="js/ombor.js?v=110"></script>
-<script src="js/mijozlar.js?v=110"></script>
-<script src="js/qarzlar.js?v=110"></script>
-<script src="js/tarix.js?v=110"></script>
-<script src="js/hisobot.js?v=110"></script>
-<script src="js/xodimlar.js?v=110"></script>
-<script src="js/moliya.js?v=110"></script>
-<script src="js/egasi.js?v=110"></script>
-<script src="js/portal.js?v=110"></script>
-<script src="js/init.js?v=110"></script>
+<script src="js/db.js?v=111"></script>
+<script src="js/utils.js?v=111"></script>
+<script src="js/sms.js?v=111"></script>
+<script src="js/cloud.js?v=111"></script>
+<script src="js/dashboard.js?v=111"></script>
+<script src="js/pos.js?v=111"></script>
+<script src="js/katalog.js?v=111"></script>
+<script src="js/ombor.js?v=111"></script>
+<script src="js/mijozlar.js?v=111"></script>
+<script src="js/qarzlar.js?v=111"></script>
+<script src="js/tarix.js?v=111"></script>
+<script src="js/hisobot.js?v=111"></script>
+<script src="js/xodimlar.js?v=111"></script>
+<script src="js/moliya.js?v=111"></script>
+<script src="js/egasi.js?v=111"></script>
+<script src="js/portal.js?v=111"></script>
+<script src="js/init.js?v=111"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3265,7 +3271,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=110"></script>
-<script src="js/superadmin.js?v=110"></script>
+<script src="js/auth.js?v=111"></script>
+<script src="js/superadmin.js?v=111"></script>
 </body>
 </html>

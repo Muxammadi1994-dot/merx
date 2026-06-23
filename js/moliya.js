@@ -353,15 +353,15 @@ function renderMoliya() {
     }).join("") : `<tr><td colspan="${colCount}" class="empty-td">${q?`"${q}" topilmadi`:"Bu davrda xarajat yo'q"}</td></tr>`;
   }
 
-  renderExpChart(catTotals, chiqim);
-  renderFlowBars(sotuv, chiqim);
+  renderExpChart(catTotals, chiqim, periodExps);
+  renderFlowBars(sotuv, chiqim, realProfit, netProfit, periodCost);
   // Grafik faqat birinchi marta yoki period o'zgarganda chiziladi
   if (!_molTrendChart) renderMolTrendChart();
   applyMolKpiVisibility();
 }
 
 // ── Donut chart ───────────────────────────────────
-function renderExpChart(catTotals, total) {
+function renderExpChart(catTotals, total, exps) {
   const canvas = document.getElementById("expChart");
   if (!canvas) return;
   if (_expChart) { _expChart.destroy(); _expChart = null; }
@@ -369,6 +369,8 @@ function renderExpChart(catTotals, total) {
   const legend = $("exp-legend");
   if (!total || total === 0) {
     if (legend) legend.innerHTML = `<span style="color:#ccc;font-size:12px">Xarajat yo'q</span>`;
+    // To'lov usuli blokini ham tozalaymiz
+    const mel = $("exp-method-breakdown"); if (mel) mel.innerHTML = "";
     return;
   }
 
@@ -405,20 +407,40 @@ function renderExpChart(catTotals, total) {
       </div>`;
     }).join("");
   }
+
+  // To'lov usuli bo'yicha taqsimot
+  const mel = $("exp-method-breakdown"); if (!mel || !exps) return;
+  const byMethod = { naqd:0, karta:0, otkazma:0 };
+  (exps||[]).forEach(x => {
+    const m = x.method||"naqd";
+    byMethod[m] = (byMethod[m]||0) + (x.amount||0);
+  });
+  const mLabels = { naqd:"💵 Naqd", karta:"💳 Karta", otkazma:"🏦 O'tkazma" };
+  const mColors = { naqd:"#36B48C", karta:"#4C9BE8", otkazma:"#8B5CF6" };
+  mel.innerHTML = Object.entries(byMethod).filter(([,v])=>v>0)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([m,v])=>`
+      <div style="margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+          <span style="font-weight:600;color:${mColors[m]}">${mLabels[m]}</span>
+          <span style="font-weight:700">${fmt(v)} so'm
+            <span style="color:#bbb;font-weight:400">(${Math.round(v/total*100)}%)</span>
+          </span>
+        </div>
+        <div style="height:6px;background:#f0ede7;border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${Math.round(v/total*100)}%;background:${mColors[m]};border-radius:3px"></div>
+        </div>
+      </div>`).join("") || `<span style="font-size:12px;color:#bbb">Ma'lumot yo'q</span>`;
 }
 
 // ── Kirim/Chiqim bars ─────────────────────────────
-function renderFlowBars(kirim, chiqim) {
+function renderFlowBars(kirim, chiqim, realProfit, netProfit, periodCost) {
   const el = $("mol-flow-bars"); if (!el) return;
-  const max    = Math.max(kirim, chiqim, 1);
-  const profit = kirim - chiqim;
-  const expPct = kirim > 0 ? Math.round(chiqim/kirim*100) : 0;
-  const profitPct = kirim > 0 ? Math.round(profit/kirim*100) : 0;
 
-  // O'tgan davr hisoblash (taqqos uchun)
+  // O'tgan davr bilan taqqos
   const { from, to } = molDateRange();
   const rate = db.settings?.rate || 12800;
-  const daysDiff = Math.round((new Date(to)-new Date(from))/86400000)+1;
+  const daysDiff = Math.max(1, Math.round((new Date(to)-new Date(from))/86400000)+1);
   const prevTo   = new Date(from); prevTo.setDate(prevTo.getDate()-1);
   const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate()-daysDiff+1);
   const pf = prevFrom.toISOString().slice(0,10);
@@ -435,51 +457,68 @@ function renderFlowBars(kirim, chiqim) {
   const prevChiqim = (db.xarajatlar||[]).filter(x=>x.date>=pf&&x.date<=pt)
     .reduce((a,x)=>a+(x.amount||0),0);
 
-  const kirimChange  = prevKirim > 0  ? Math.round((kirim-prevKirim)/prevKirim*100)   : null;
-  const chiqimChange = prevChiqim > 0 ? Math.round((chiqim-prevChiqim)/prevChiqim*100) : null;
+  const kirimChange  = prevKirim>0  ? Math.round((kirim-prevKirim)/prevKirim*100)   : null;
+  const chiqimChange = prevChiqim>0 ? Math.round((chiqim-prevChiqim)/prevChiqim*100) : null;
 
-  const changeBadge = (v) => v===null ? "" :
-    `<span style="font-size:11px;padding:2px 7px;border-radius:5px;font-weight:700;margin-left:6px;
+  const badge = v => v===null ? "" :
+    `<span style="font-size:11px;padding:2px 7px;border-radius:5px;font-weight:700;margin-left:5px;
       background:${v>=0?"#DCFCE7":"#FEE2E2"};color:${v>=0?"var(--grn)":"var(--red)"}">
-      ${v>=0?"+":""}${v}%
-    </span>`;
+      ${v>=0?"+":""}${v}%</span>`;
+
+  const bar = (val, max, color) =>
+    `<div style="height:10px;background:#f0ede7;border-radius:5px;overflow:hidden;margin-top:5px">
+      <div style="height:100%;width:${Math.min(100,Math.round(val/Math.max(max,1)*100))}%;
+        background:${color};border-radius:5px;transition:.4s"></div></div>`;
+
+  const maxVal = Math.max(kirim, periodCost, chiqim, 1);
 
   el.innerHTML = `
-    <div style="margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;margin-bottom:6px">
-        <span style="color:var(--grn);font-weight:700">📈 Kassaga tushdi${changeBadge(kirimChange)}</span>
-        <span style="font-weight:800;font-size:14px">${fmtK(kirim)} so'm</span>
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px">
+        <span style="color:var(--grn);font-weight:700">📈 Kassaga tushdi${badge(kirimChange)}</span>
+        <span style="font-weight:800">${fmtK(kirim)} so'm</span>
       </div>
-      <div style="height:12px;background:#f0ede7;border-radius:6px;overflow:hidden">
-        <div style="height:100%;width:100%;background:var(--grn);border-radius:6px;transition:.4s"></div>
+      ${bar(kirim, maxVal, "var(--grn)")}
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px">
+        <span style="color:#8B5CF6;font-weight:700">📦 Tovar tannarxi
+          <span style="font-size:11px;color:#bbb;font-weight:400"> — kirimning ${kirim>0?Math.round(periodCost/kirim*100):0}%</span>
+        </span>
+        <span style="font-weight:800">${fmtK(periodCost)} so'm</span>
       </div>
+      ${bar(periodCost, maxVal, "#8B5CF6")}
     </div>
     <div style="margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;margin-bottom:6px">
-        <span style="color:var(--red);font-weight:700">📉 Xarajatlar${changeBadge(chiqimChange)}
-          <span style="font-size:11px;color:#bbb;font-weight:400"> — kirimning ${expPct}%</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px">
+        <span style="color:var(--red);font-weight:700">📉 Xarajatlar${badge(chiqimChange)}
+          <span style="font-size:11px;color:#bbb;font-weight:400"> — kirimning ${kirim>0?Math.round(chiqim/kirim*100):0}%</span>
         </span>
-        <span style="font-weight:800;font-size:14px">${fmtK(chiqim)} so'm</span>
+        <span style="font-weight:800">${fmtK(chiqim)} so'm</span>
       </div>
-      <div style="height:12px;background:#f0ede7;border-radius:6px;overflow:hidden">
-        <div style="height:100%;width:${Math.min(100,Math.round(chiqim/Math.max(kirim,1)*100))}%;background:var(--red);border-radius:6px;transition:.4s"></div>
-      </div>
+      ${bar(chiqim, maxVal, "var(--red)")}
     </div>
-    <div style="padding:14px 16px;border-radius:12px;
-      background:${profit>=0?"#F0FDF4":"#FEF2F2"};
-      border:1.5px solid ${profit>=0?"#BBF7D0":"#FECACA"}">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-size:13px;font-weight:700;color:${profit>=0?"var(--grn)":"var(--red)"}">
-            ${profit >= 0 ? "✅ Sof foyda" : "⚠️ Zarar"}
-          </div>
-          <div style="font-size:11px;color:#aaa;margin-top:2px">
-            Kirimning <b style="color:${profit>=0?"var(--grn)":"var(--red)"}">${profitPct}%</b>i
-          </div>
+    <div style="display:flex;gap:8px">
+      <div style="flex:1;padding:12px 14px;border-radius:10px;
+        background:${realProfit>=0?"#F3F0FF":"#FEF2F2"};
+        border:1.5px solid ${realProfit>=0?"#C4B5FD":"#FECACA"}">
+        <div style="font-size:11px;color:#8B5CF6;font-weight:700;margin-bottom:3px">Kassaga tushgan foyda
+          <span style="font-weight:400;color:#aaa"> (tannarx ayirilgan)</span>
         </div>
-        <span style="font-size:18px;font-weight:900;color:${profit>=0?"var(--grn)":"var(--red)"}">
-          ${profit>=0?"+":"−"}${fmtK(Math.abs(profit))} so'm
-        </span>
+        <div style="font-size:15px;font-weight:900;color:#8B5CF6">
+          ${realProfit>=0?"+":"−"}${fmtK(Math.abs(realProfit))} so'm
+        </div>
+      </div>
+      <div style="flex:1;padding:12px 14px;border-radius:10px;
+        background:${netProfit>=0?"#F0FDF4":"#FEF2F2"};
+        border:1.5px solid ${netProfit>=0?"#BBF7D0":"#FECACA"}">
+        <div style="font-size:11px;color:${netProfit>=0?"var(--grn)":"var(--red)"};font-weight:700;margin-bottom:3px">
+          ${netProfit>=0?"✅":"⚠️"} Sof foyda
+          <span style="font-weight:400;color:#aaa"> (xarajat ham ayirilgan)</span>
+        </div>
+        <div style="font-size:15px;font-weight:900;color:${netProfit>=0?"var(--grn)":"var(--red)"}">
+          ${netProfit>=0?"+":"−"}${fmtK(Math.abs(netProfit))} so'm
+        </div>
       </div>
     </div>`;
 }
