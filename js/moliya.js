@@ -40,6 +40,41 @@ function openMolKpiSettings() {
   openModal("molkpi");
 }
 
+const EXP_COL_DEFS = [
+  { key:"date",      lbl:"Sana",          def:true },
+  { key:"cat",       lbl:"Kategoriya",    def:true },
+  { key:"recipient", lbl:"Kimga/Nima",    def:true },
+  { key:"method",    lbl:"To'lov usuli",  def:true },
+  { key:"amount",    lbl:"Summa",         def:true },
+  { key:"note",      lbl:"Izoh",          def:true },
+];
+
+function getExpCols() {
+  const saved = db.settings?.expCols || {};
+  const cols = {};
+  EXP_COL_DEFS.forEach(c => { cols[c.key] = c.key in saved ? saved[c.key] : c.def; });
+  return cols;
+}
+
+function openExpColsSettings() {
+  const cols = getExpCols();
+  const list = $("exp-cols-list"); if (!list) return;
+  list.innerHTML = EXP_COL_DEFS.map(c => `
+    <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--brd);border-radius:9px;cursor:pointer">
+      <input type="checkbox" ${cols[c.key]?"checked":""} onchange="toggleExpCol('${c.key}',this.checked)"
+        style="width:17px;height:17px;accent-color:var(--acc);cursor:pointer">
+      <span style="font-size:13px;font-weight:600">${c.lbl}</span>
+    </label>`).join("");
+  openModal("expcols");
+}
+
+function toggleExpCol(key, val) {
+  if (!db.settings) db.settings={};
+  if (!db.settings.expCols) db.settings.expCols={};
+  db.settings.expCols[key] = val;
+  saveDB(); renderMoliya();
+}
+
 // EXP_CATS allaqachon db.js da bo'lishi mumkin — xavfsiz e'lon
 if (typeof window.EXP_CATS === "undefined") {
   window.EXP_CATS   = ["Ijara","Maosh","Transport","Kommunal","Reklama","Yetkazuvchi","Boshqa"];
@@ -234,32 +269,45 @@ function renderMoliya() {
     (x.paidBy||"").toLowerCase().includes(q)
   );
 
+  const cols = getExpCols();
+  const thead = $("exp-thead");
+  if (thead) {
+    thead.innerHTML =
+      (cols.date      ? "<th>Sana</th>"                : "") +
+      (cols.cat       ? "<th>Kategoriya</th>"           : "") +
+      (cols.recipient ? "<th>Kimga / Nima uchun</th>"  : "") +
+      (cols.method    ? "<th>Usul</th>"                 : "") +
+      (cols.amount    ? '<th class="num">Summa</th>'  : "") +
+      (cols.note      ? "<th>Izoh</th>"                 : "") +
+      "<th></th>";
+  }
+
   const tbody = $("exp-body");
   if (tbody) {
     tbody.innerHTML = exps.length ? exps.map(x => {
       const catIdx = MOL_CATS.indexOf(x.category);
       const color  = MOL_COLORS[catIdx>=0?catIdx:MOL_COLORS.length-1];
-      const icon   = ["\uD83C\uDFE0","\uD83D\uDC64","\uD83D\uDE97","\uD83D\uDCA1","\uD83D\uDCE2","\uD83D\uDCE6","\uD83D\uDCCB"][catIdx>=0?catIdx:6];
+      const icon   = ["🏠","👤","🚗","💡","📢","📦","📋"][catIdx>=0?catIdx:6];
+      const methodIcon = x.method==="karta"?"💳 Karta":x.method==="otkazma"?"🏦 O'tkazma":"💵 Naqd";
       return `<tr>
-        <td style="font-size:12.5px;white-space:nowrap;font-weight:600">${x.date||"—"}</td>
-        <td><span class="bg" style="font-size:12px;background:${color}18;color:${color}">${icon} ${x.category||"—"}</span></td>
-        <td style="font-size:12px;color:#666">
-          ${x.recipient?`<div style="font-weight:600">${x.recipient}</div>`:""}
-          ${x.paidBy?`<div style="font-size:11px;color:#aaa">To'ladi: ${x.paidBy}</div>`:""}
-        </td>
-        <td class="num" style="font-weight:800;color:var(--red);font-size:13px">${fmt(x.amount||0)} so'm</td>
-        <td style="font-size:12px;color:#aaa;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.note||""}</td>
-        <td><button class="btn btn-ghost btn-icon btn-sm" onclick="deleteExp(${x.id})" style="color:var(--red)"><i class="ti ti-trash"></i></button></td>
+        ${cols.date      ? `<td style="font-size:12.5px;white-space:nowrap;font-weight:600">${x.date||"—"}</td>` : ""}
+        ${cols.cat       ? `<td><span class="bg" style="font-size:12px;background:${color}18;color:${color}">${icon} ${x.category||"—"}</span></td>` : ""}
+        ${cols.recipient ? `<td style="font-size:12px;color:#666">${x.recipient?`<div style="font-weight:600">${x.recipient}</div>`:""} ${x.paidBy?`<div style="font-size:11px;color:#aaa">To'ladi: ${x.paidBy}</div>`:""}</td>` : ""}
+        ${cols.method    ? `<td style="font-size:11.5px;color:var(--mut);white-space:nowrap">${methodIcon}</td>` : ""}
+        ${cols.amount    ? `<td class="num" style="font-weight:800;color:var(--red);font-size:13px">${fmt(x.amount||0)} so'm${x.amountUsd?`<div style="font-size:10.5px;color:#aaa;font-weight:400">$${x.amountUsd.toFixed(2)}</div>`:""}</td>` : ""}
+        ${cols.note      ? `<td style="font-size:12px;color:#aaa;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.note||""}</td>` : ""}
+        <td><div style="display:flex;gap:3px">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="editExp(${x.id})" title="Tahrirlash"><i class="ti ti-pencil"></i></button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteExp(${x.id})" style="color:var(--red)" title="O'chirish"><i class="ti ti-trash"></i></button>
+        </div></td>
       </tr>`;
-    }).join("") : `<tr><td colspan="6" class="empty-td">${q?`"${q}" topilmadi`:"Bu davrda xarajat yo'q"}</td></tr>`;
+    }).join("") : `<tr><td colspan="7" class="empty-td">${q?`"${q}" topilmadi`:"Bu davrda xarajat yo'q"}</td></tr>`;
   }
-
-  const thead = tbody?.closest("table")?.querySelector("thead");
-  if (thead) thead.innerHTML = `<tr><th>Sana</th><th>Kategoriya</th><th>Kim/Kimga</th><th class="num">Summa</th><th>Izoh</th><th></th></tr>`;
 
   renderExpChart(catTotals, chiqim);
   renderFlowBars(sotuv, chiqim);
-  renderMolTrendChart();
+  // Grafik faqat birinchi marta yoki period o'zgarganda chiziladi
+  if (!_molTrendChart) renderMolTrendChart();
   applyMolKpiVisibility();
 }
 
@@ -641,6 +689,67 @@ function deleteExp(id) {
   db.xarajatlar = db.xarajatlar.filter(e => e.id !== id);
   saveDB(); renderMoliya();
   toast("Xarajat o'chirildi");
+}
+
+function editExp(id) {
+  const x = (db.xarajatlar||[]).find(e => e.id === id); if (!x) return;
+  // Modalni ochib, maydonlarni to'ldirish
+  openModal("addxarajat"); initExpModal();
+  setTimeout(() => {
+    // Kategoriya
+    if ($("exp-cat-val")) $("exp-cat-val").value = x.category || "Boshqa";
+    document.querySelectorAll(".mcat").forEach(b => b.classList.toggle("on", b.dataset.c === (x.category||"Boshqa")));
+    renderExpExtraField(x.category);
+    // Maydonlar
+    if ($("ax-date")) $("ax-date").value = x.date || today();
+    if ($("ax-note")) $("ax-note").value = x.note || "";
+    if ($("ax-currency")) $("ax-currency").value = x.amountUsd ? "usd" : "uzs";
+    if ($("ax-pay-method")) $("ax-pay-method").value = x.method || "naqd";
+    if ($("ax-recurring")) $("ax-recurring").checked = !!x.recurring;
+    // Summa
+    const sumEl = $("ax-sum");
+    if (sumEl) { sumEl.value = fmt(x.amountUsd || x.amount || 0); sumEl.dataset.raw = x.amountUsd || x.amount || 0; }
+    // Kim to'ladi
+    setTimeout(() => { if ($("ax-who")) $("ax-who").value = x.paidBy || ""; }, 50);
+    // Sarlavhani o'zgartirish + saqlash tugmasi
+    const h2 = document.querySelector("#ov-addxarajat h2");
+    if (h2) h2.textContent = "Xarajatni tahrirlash";
+    const btn = document.querySelector("#ov-addxarajat .btn-red");
+    if (btn) { btn.textContent = ""; btn.innerHTML = '<i class="ti ti-check"></i> Saqlash'; btn.onclick = () => saveEditExp(id); }
+  }, 50);
+}
+
+function saveEditExp(id) {
+  const idx = (db.xarajatlar||[]).findIndex(e => e.id === id); if (idx < 0) return;
+  const cat      = ($("exp-cat-val")||{value:"Boshqa"}).value;
+  const currency = ($("ax-currency")||{value:"uzs"}).value;
+  const method   = ($("ax-pay-method")||{value:"naqd"}).value;
+  const date     = ($("ax-date")||{value:""}).value || today();
+  const note     = ($("ax-note")||{value:""}).value.trim();
+  const paidBy   = ($("ax-who")||{value:""}).value;
+  const recurring= ($("ax-recurring")||{checked:false}).checked;
+  const rate     = db.settings?.rate || 12800;
+  const rawSum   = getRawVal("ax-sum");
+  const sum      = currency === "usd" ? Math.round(rawSum * rate) : rawSum;
+  const sumUsd   = currency === "usd" ? rawSum : null;
+
+  let recipient = "";
+  const recSel = $("ax-recipient"), recMan = $("ax-recipient-manual");
+  if (recMan && recMan.style.display !== "none") recipient = recMan.value.trim();
+  else if (recSel) recipient = recSel.value !== "__manual__" ? recSel.value : "";
+
+  if (rawSum <= 0) { toast("Summani kiriting","err"); return; }
+
+  db.xarajatlar[idx] = { ...db.xarajatlar[idx], date, category:cat, amount:sum, recipient, paidBy, note, method, recurring };
+  if (sumUsd) db.xarajatlar[idx].amountUsd = sumUsd; else delete db.xarajatlar[idx].amountUsd;
+  saveDB(); renderMoliya(); closeModal("addxarajat");
+  toast(`✅ Xarajat yangilandi: ${fmt(sum)} so'm`);
+  // Modal sarlavhasini tiklash
+  setTimeout(() => {
+    const h2 = document.querySelector("#ov-addxarajat h2"); if (h2) h2.textContent = "Xarajat qo'shish";
+    const btn = document.querySelector("#ov-addxarajat .btn-red");
+    if (btn) { btn.innerHTML = '<i class="ti ti-check"></i> Xarajatni saqlash'; btn.onclick = () => addXarajat(); }
+  }, 100);
 }
 
 // ── Excel eksport ─────────────────────────────────
