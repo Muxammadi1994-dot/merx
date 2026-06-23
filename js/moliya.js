@@ -42,9 +42,27 @@ function setExpDatePeriod(p) {
 }
 
 const MOL_KPI_LABELS = {
-  rev:"Kassaga tushdi (jami)", sotuv:"Sotuv tushumi", qarz:"Qarz tushumi",
-  exp:"Xarajatlar", gross:"Yalpi foyda", net:"Sof foyda",
-  supdebt:"Yetkazuvchi qarzi", usd:"USD tushum", cnt:"Xarajatlar soni"
+  // Banner (qora fon)
+  banner_balans: "🏦 Banner: Kassa balansi",
+  banner_kirim:  "📈 Banner: Kassaga tushdi",
+  banner_chiqim: "📉 Banner: Xarajatlar",
+  // KPI kartalar
+  rev:     "Kassaga tushdi (jami)",
+  sotuv:   "Sotuv tushumi",
+  qarz:    "Qarz tushumi",
+  exp:     "Xarajatlar (davr)",
+  gross:   "Brutto foyda (nasiya bilan)",
+  net:     "Sof foyda",
+  supdebt: "Yetkazuvchi qarzi",
+  usd:     "USD tushum",
+  cnt:     "Xarajatlar soni"
+};
+
+// Banner + KPI wrapper map
+const MOL_BANNER_MAP = {
+  banner_balans: "banner-balans-wrap",
+  banner_kirim:  ["banner-kirim-wrap","banner-kirim2-wrap"],
+  banner_chiqim: "banner-chiqim-wrap",
 };
 
 function hideMolKpi(key) {
@@ -59,18 +77,40 @@ function showMolKpi(key) {
 }
 function applyMolKpiVisibility() {
   const hidden=new Set(db.settings?.hiddenMolKpis||[]);
+  // KPI kartalar
   document.querySelectorAll("#mol-kpi-row .stb").forEach(el=>{
     el.style.display=hidden.has(el.dataset.mkpi)?"none":"block";
+  });
+  // Banner elementlari
+  Object.entries(MOL_BANNER_MAP).forEach(([key, ids]) => {
+    const show = !hidden.has(key);
+    (Array.isArray(ids)?ids:[ids]).forEach(id => {
+      const el=$(id); if(el) el.style.display=show?"":"none";
+    });
   });
 }
 function openMolKpiSettings() {
   const hidden=new Set(db.settings?.hiddenMolKpis||[]);
   const list=$("mol-kpi-settings-list"); if(!list) return;
-  list.innerHTML=Object.entries(MOL_KPI_LABELS).map(([k,l])=>`
+  // Banner va KPI larni ajratib ko'rsatamiz
+  const bannerKeys = ["banner_balans","banner_kirim","banner_chiqim"];
+  const kpiKeys    = Object.keys(MOL_KPI_LABELS).filter(k=>!bannerKeys.includes(k));
+  list.innerHTML =
+    `<div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;
+      letter-spacing:.5px;margin-bottom:6px;padding:0 4px">Banner</div>` +
+    bannerKeys.map(k=>`
     <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--brd);border-radius:9px;cursor:pointer">
       <input type="checkbox" ${!hidden.has(k)?"checked":""} onchange="this.checked?showMolKpi('${k}'):hideMolKpi('${k}')"
         style="width:17px;height:17px;accent-color:var(--acc);cursor:pointer">
-      <span style="font-size:13px;font-weight:600">${l}</span>
+      <span style="font-size:13px;font-weight:600">${MOL_KPI_LABELS[k]}</span>
+    </label>`).join("") +
+    `<div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;
+      letter-spacing:.5px;margin:12px 0 6px;padding:0 4px">KPI kartalar</div>` +
+    kpiKeys.map(k=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--brd);border-radius:9px;cursor:pointer">
+      <input type="checkbox" ${!hidden.has(k)?"checked":""} onchange="this.checked?showMolKpi('${k}'):hideMolKpi('${k}')"
+        style="width:17px;height:17px;accent-color:var(--acc);cursor:pointer">
+      <span style="font-size:13px;font-weight:600">${MOL_KPI_LABELS[k]}</span>
     </label>`).join("");
   openModal("molkpi");
 }
