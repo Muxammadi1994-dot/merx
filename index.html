@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=124">
+<link rel="stylesheet" href="style.css?v=125">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1695,9 +1695,14 @@
             <button class="xod-period-btn" data-p="week"  onclick="setXodPeriod('week')">7 kun</button>
             <button class="xod-period-btn" data-p="month" onclick="setXodPeriod('month')">Bu oy</button>
           </div>
-          <button class="btn btn-acc btn-sm" onclick="openModal('addstaff')">
-            <i class="ti ti-plus"></i>Xodim qo'shish
-          </button>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm" onclick="exportStaffExcel()" style="color:#1D6A39">
+              <i class="ti ti-file-spreadsheet"></i>
+            </button>
+            <button class="btn btn-acc btn-sm" onclick="openModal('addstaff')">
+              <i class="ti ti-plus"></i> Xodim qo'shish
+            </button>
+          </div>
         </div>
       </div>
       <div style="overflow-x:auto">
@@ -2961,29 +2966,78 @@
 </div>
 
 <div class="ov" id="ov-addstaff" onclick="if(event.target===this)closeModal('addstaff')">
-  <div class="modal">
+  <div class="modal" style="max-width:480px">
     <button class="m-close" onclick="closeModal('addstaff')"><i class="ti ti-x"></i></button>
     <h2>Xodim qo'shish</h2>
-    <div class="fld"><label>Ism familiya</label><input id="as-name" placeholder="Alisher Karimov"></div>
+
+    <div class="fld"><label>Ism familiya <span style="color:var(--red)">*</span></label>
+      <input id="as-name" placeholder="Alisher Karimov"></div>
+
     <div class="r2">
-      <div class="fld"><label>Telefon</label><input id="as-phone" placeholder="+998 90 ..."></div>
-      <div class="fld"><label>Lavozim</label><select id="as-role">
-        <option value="kassir">Kassir</option>
-        <option value="menejer">Menejer</option>
-        <option value="omborchi">Omborchi</option>
-      </select></div>
-    </div>
-    <div class="r2">
-      <div class="fld">
-        <label>Oylik maosh (so'm)</label>
-        <input id="as-salary" type="number" placeholder="0" step="100000">
-      </div>
-      <div class="fld">
-        <label>Sotuv bonusi (%)</label>
-        <input id="as-bonus" type="number" placeholder="0" min="0" max="20" step="0.5">
+      <div class="fld"><label>Telefon</label>
+        <input id="as-phone" placeholder="+998 90 ..."></div>
+      <div class="fld"><label>Lavozim</label>
+        <select id="as-role" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;background:#fff">
+          <option value="kassir">💼 Kassir</option>
+          <option value="menejer">📊 Menejer</option>
+          <option value="omborchi">📦 Omborchi</option>
+        </select>
       </div>
     </div>
-    <button class="btn btn-acc" style="width:100%;margin-top:4px" onclick="addStaff()"><i class="ti ti-check"></i>Saqlash</button>
+
+    <div class="r2">
+      <div class="fld"><label>Oylik maosh (so'm)</label>
+        <input id="as-salary" type="number" placeholder="0" step="100000"></div>
+      <div class="fld"><label>Sotuv bonusi (%)</label>
+        <input id="as-bonus" type="number" placeholder="0" min="0" max="20" step="0.5"></div>
+    </div>
+
+    <div class="r2">
+      <div class="fld"><label>Ishga kirgan sana</label>
+        <input id="as-startdate" type="date"
+          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%"></div>
+      <div class="fld"><label>Tug'ilgan kun</label>
+        <input id="as-birthday" type="date"
+          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%"></div>
+    </div>
+
+    <!-- Ruxsatlar -->
+    <div style="border:1.5px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--mut);margin-bottom:10px;text-transform:uppercase">Ruxsatlar</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="as-perm-discount" style="width:16px;height:16px;accent-color:var(--acc)"
+          onchange="const w=$('as-discount-wrap');if(w)w.style.display=this.checked?'block':'none'">
+          Chegirma berish huquqi</label>
+        <div id="as-discount-wrap" style="display:none;margin-left:26px">
+          <label style="font-size:11.5px;color:var(--mut);display:block;margin-bottom:3px">Maksimal chegirma %</label>
+          <input id="as-max-discount" type="number" min="0" max="50" placeholder="10"
+            style="width:120px;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:6px 10px">
+        </div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="as-perm-nasiya" style="width:16px;height:16px;accent-color:var(--acc)">
+          Nasiya berish huquqi</label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="as-perm-return" style="width:16px;height:16px;accent-color:var(--acc)">
+          Qaytarish qabul qilish huquqi</label>
+      </div>
+    </div>
+
+    <details style="margin-bottom:12px">
+      <summary style="font-size:12.5px;color:var(--mut);cursor:pointer;user-select:none;padding:4px 0">
+        <i class="ti ti-chevron-right" style="font-size:11px"></i> Qo'shimcha ma'lumotlar
+      </summary>
+      <div style="margin-top:10px">
+        <div class="fld"><label>Manzil</label>
+          <input id="as-address" placeholder="ixtiyoriy"></div>
+        <div class="fld"><label>Muhim qayд</label>
+          <input id="as-note" placeholder="Masalan: Qiyinchilik soatlarida ishlay oladi..."></div>
+      </div>
+    </details>
+
+    <button class="btn btn-acc" style="width:100%;margin-top:4px" onclick="addStaff()">
+      <i class="ti ti-check"></i> Saqlash
+    </button>
   </div>
 </div>
 
@@ -3086,23 +3140,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=124"></script>
-<script src="js/utils.js?v=124"></script>
-<script src="js/sms.js?v=124"></script>
-<script src="js/cloud.js?v=124"></script>
-<script src="js/dashboard.js?v=124"></script>
-<script src="js/pos.js?v=124"></script>
-<script src="js/katalog.js?v=124"></script>
-<script src="js/ombor.js?v=124"></script>
-<script src="js/mijozlar.js?v=124"></script>
-<script src="js/qarzlar.js?v=124"></script>
-<script src="js/tarix.js?v=124"></script>
-<script src="js/hisobot.js?v=124"></script>
-<script src="js/xodimlar.js?v=124"></script>
-<script src="js/moliya.js?v=124"></script>
-<script src="js/egasi.js?v=124"></script>
-<script src="js/portal.js?v=124"></script>
-<script src="js/init.js?v=124"></script>
+<script src="js/db.js?v=125"></script>
+<script src="js/utils.js?v=125"></script>
+<script src="js/sms.js?v=125"></script>
+<script src="js/cloud.js?v=125"></script>
+<script src="js/dashboard.js?v=125"></script>
+<script src="js/pos.js?v=125"></script>
+<script src="js/katalog.js?v=125"></script>
+<script src="js/ombor.js?v=125"></script>
+<script src="js/mijozlar.js?v=125"></script>
+<script src="js/qarzlar.js?v=125"></script>
+<script src="js/tarix.js?v=125"></script>
+<script src="js/hisobot.js?v=125"></script>
+<script src="js/xodimlar.js?v=125"></script>
+<script src="js/moliya.js?v=125"></script>
+<script src="js/egasi.js?v=125"></script>
+<script src="js/portal.js?v=125"></script>
+<script src="js/init.js?v=125"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3451,7 +3505,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=124"></script>
-<script src="js/superadmin.js?v=124"></script>
+<script src="js/auth.js?v=125"></script>
+<script src="js/superadmin.js?v=125"></script>
 </body>
 </html>

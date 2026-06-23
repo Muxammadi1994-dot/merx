@@ -25,52 +25,119 @@ function staffStats(staffId, from, to) {
   const sales = db.sales.filter(s =>
     s.staffId === staffId && s.date >= from && s.date <= to
   );
-  const total = sales.reduce((a, s) => a + (s.total||0), 0);
-  const staff = db.staff.find(s => s.id === staffId);
+  const staff    = db.staff.find(s => s.id === staffId);
   const bonusPct = staff?.bonusPct || 0;
   const salary   = staff?.salary   || 0;
+  const rate     = db.settings?.rate || 12800;
+
+  const total    = sales.reduce((a, s) => a + (s.total||0), 0);
+  const returned = sales.filter(s => s.status === "qaytarilgan").length;
+
+  // Kassaga tushdi — payBreakdown + debtPayments (hisobot/moliya bilan bir xil)
+  let kassaTushdi = 0;
+  sales.forEach(s => {
+    const pb = s.payBreakdown;
+    if (pb && (pb.naqd||pb.karta||pb.otkazma)) kassaTushdi += (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
+    else kassaTushdi += s.payType==="nasiya" ? 0 : (s.paid||0);
+  });
+  const debtPaid = (db.debtPayments||[]).filter(p =>
+    sales.some(s => s.id === p.saleId) && p.date >= from && p.date <= to
+  ).reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
+  kassaTushdi += debtPaid;
+
+  // Qarz ulushi
+  const nasiyaCnt = sales.filter(s => s.payType === "nasiya").length;
+  const nasiyaPct = sales.length ? Math.round(nasiyaCnt/sales.length*100) : 0;
+
+  // O'rtacha chek (qaytarilganlar chiqarilgan)
+  const validSales = sales.filter(s => s.status !== "qaytarilgan");
+  const avgCheck   = validSales.length ? Math.round(total/validSales.length) : 0;
+
+  const bonus    = Math.round(kassaTushdi * bonusPct / 100);
+  const totalPay = salary + bonus;
+
   return {
-    cnt:      sales.length,
-    total,
-    paid:     sales.reduce((a, s) => a + (s.paid||0),  0),
-    debt:     sales.reduce((a, s) => a + (s.remaining||0), 0),
-    avgCheck: sales.length ? Math.round(total/sales.length) : 0,
-    bonus:    Math.round(total * bonusPct / 100),
-    salary,
-    bonusPct,
-    totalPay: salary + Math.round(total * bonusPct / 100)
+    cnt: sales.length, validCnt: validSales.length, returned,
+    total, kassaTushdi, debtPaid,
+    nasiyaCnt, nasiyaPct, avgCheck,
+    bonus, salary, bonusPct, totalPay
   };
 }
 
 // ── Maosh to'lash ─────────────────────────────────
 function payStaffSalary(staffId) {
-  const s = db.staff.find(x => x.id === staffId); if (!s) return;
-  const m = today().slice(0,7);
+  const s  = db.staff.find(x => x.id === staffId); if (!s) return;
+  const m  = today().slice(0,7);
   const ms = staffStats(staffId, m+"-01", today());
 
-  if (ms.totalPay <= 0) { toast("Maosh 0 so'm — avval oylik yoki bonus % o'rnating", "err"); return; }
-  if (!confirm(`${s.name} uchun ${fmt(ms.totalPay)} so'm to'lansinmi?
-(Oylik: ${fmt(ms.salary)} + Bonus: ${fmt(ms.bonus)})`)) return;
+  const modal = document.createElement("div");
+  modal.className = "ov"; modal.id = "salary-modal";
+  modal.style.cssText = "display:flex";
+  modal.innerHTML = `
+    <div class="modal" style="max-width:420px">
+      <button class="m-close" onclick="$(\'salary-modal\').remove()"><i class="ti ti-x"></i></button>
+      <h2 style="margin-bottom:4px">💰 Maosh to\'lash</h2>
+      <p style="font-size:13px;color:var(--mut);margin-bottom:16px"><b>${s.name}</b> · ${m} oyi</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+        <div style="padding:10px;background:var(--bg);border-radius:10px;text-align:center">
+          <div style="font-size:10px;color:var(--mut);font-weight:700;margin-bottom:3px">OYLIK</div>
+          <div style="font-size:14px;font-weight:800">${fmt(ms.salary)}</div>
+        </div>
+        <div style="padding:10px;background:#FFFBEB;border-radius:10px;text-align:center">
+          <div style="font-size:10px;color:#D97706;font-weight:700;margin-bottom:3px">BONUS (${ms.bonusPct}%)</div>
+          <div style="font-size:14px;font-weight:800;color:#D97706">${fmt(ms.bonus)}</div>
+        </div>
+        <div style="padding:10px;background:#0D1B2A;border-radius:10px;text-align:center">
+          <div style="font-size:10px;color:#aaa;font-weight:700;margin-bottom:3px">JAMI</div>
+          <div style="font-size:15px;font-weight:800;color:#E9A500">${fmt(ms.totalPay)}</div>
+        </div>
+      </div>
+      <div class="fld">
+        <label>To\'lov summasi</label>
+        <input id="sal-sum" type="text" data-price value="${fmt(ms.totalPay)}" oninput="fmtInput(this)"
+          style="font-size:16px;font-weight:700;font-family:inherit;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;width:100%">
+        <div style="font-size:11.5px;color:var(--mut);margin-top:3px">Qisman to\'lash mumkin</div>
+      </div>
+      <div class="r2">
+        <div class="fld"><label>To\'lov usuli</label>
+          <select id="sal-method" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;background:#fff">
+            <option value="naqd">💵 Naqd</option>
+            <option value="karta">💳 Karta</option>
+            <option value="otkazma">🏦 O\'tkazma</option>
+          </select>
+        </div>
+        <div class="fld"><label>Izoh</label>
+          <input id="sal-note" placeholder="${m} oyi maoshi"
+            style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%">
+        </div>
+      </div>
+      <button class="btn btn-acc" style="width:100%;margin-top:4px" onclick="confirmPaySalary(${staffId},\'${m}\',${ms.totalPay})">
+        <i class="ti ti-check"></i> To\'lashni tasdiqlash
+      </button>
+    </div>`;
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+  document.body.appendChild(modal);
+  setTimeout(()=>{ const el=$("sal-sum"); if(el){el.dataset.raw=ms.totalPay; el.select();} },50);
+}
 
-  // Xarajatlar ga qo'shamiz
+function confirmPaySalary(staffId, month, fullPay) {
+  const s      = db.staff.find(x => x.id === staffId); if (!s) return;
+  const rawSum = getRawVal("sal-sum");
+  const method = ($("sal-method")||{value:"naqd"}).value;
+  const note   = ($("sal-note")||{value:""}).value || `${month} oyi maoshi`;
+  if (!rawSum || rawSum <= 0) { toast("Summani kiriting","err"); return; }
   if (!db.xarajatlar) db.xarajatlar = [];
   db.xarajatlar.push({
-    id:        db.seq++,
-    date:      today(),
-    category:  "maosh",
-    amount:    ms.totalPay,
-    recipient: s.name,
-    paidBy:    "kassa",
-    note:      `${m} oyi maoshi. Oylik: ${fmt(ms.salary)}, Bonus: ${fmt(ms.bonus)}`
+    id: db.seq++, date: today(), category: "Maosh",
+    amount: rawSum, recipient: s.name, paidBy: "kassa", method, note
   });
-
-  // To'langan oyni belgilaymiz
   if (!s.paidMonths) s.paidMonths = [];
-  s.paidMonths.push(m);
-
+  if (!s.paidMonths.includes(month)) s.paidMonths.push(month);
   saveDB();
+  $("salary-modal")?.remove();
+  closeModal("staffdetail");
   renderXodimlar();
-  toast(`✅ ${s.name} maoshi to'landi: ${fmt(ms.totalPay)} so'm`);
+  toast(`\u2705 ${s.name}: ${fmt(rawSum)} so\'m maosh to\'landi`);
 }
 
 function isSalaryPaid(staffId, month) {
@@ -78,7 +145,7 @@ function isSalaryPaid(staffId, month) {
   return (s?.paidMonths || []).includes(month);
 }
 
-// ── Asosiy render ─────────────────────────────────
+
 function renderXodimlar() {
   const { from, to } = xodDateRange();
   const t = today();
@@ -251,16 +318,32 @@ function openStaffDetail(id) {
 
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
       ${[
-        {lbl:"Bugun", cnt:todayStats.cnt, total:todayStats.total},
-        {lbl:"7 kun",  cnt:weekStats.cnt,  total:weekStats.total},
-        {lbl:"Bu oy",  cnt:monthStats.cnt, total:monthStats.total},
-        {lbl:"Jami",   cnt:allStats.cnt,   total:allStats.total},
+        {lbl:"Bugun",  cnt:todayStats.cnt,  total:todayStats.kassaTushdi},
+        {lbl:"7 kun",  cnt:weekStats.cnt,   total:weekStats.kassaTushdi},
+        {lbl:"Bu oy",  cnt:monthStats.cnt,  total:monthStats.kassaTushdi},
+        {lbl:"Jami",   cnt:allStats.cnt,    total:allStats.kassaTushdi},
       ].map(d=>`
         <div style="background:var(--bg);border-radius:10px;padding:10px;text-align:center">
           <div style="font-size:10px;color:var(--mut);font-weight:700;text-transform:uppercase;margin-bottom:4px">${d.lbl}</div>
           <div style="font-size:16px;font-weight:800">${d.cnt}</div>
           <div style="font-size:10.5px;color:var(--acc);font-weight:600">${fmtK(d.total)}</div>
         </div>`).join("")}
+    </div>
+
+    <!-- Qo'shimcha ko'rsatkichlar -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <span class="bg" style="font-size:12px">
+        O'rtacha chek: <b>${fmtK(monthStats.avgCheck)} so'm</b>
+      </span>
+      <span class="bg" style="font-size:12px;${monthStats.nasiyaPct>30?"background:#FEF2F2;color:var(--red)":""}">
+        Nasiya ulushi: <b>${monthStats.nasiyaPct}%</b>
+      </span>
+      ${monthStats.returned>0?`<span class="bg bg-r" style="font-size:12px">
+        Qaytarilgan: <b>${monthStats.returned} ta</b>
+      </span>`:""}
+      ${s.startDate?`<span class="bg" style="font-size:12px">
+        Ishga kirgan: <b>${s.startDate}</b>
+      </span>`:""}
     </div>
 
     <!-- Maosh paneli -->
@@ -324,7 +407,38 @@ function openStaffDetail(id) {
           ${isDebt ? `<div style="font-size:11px;color:var(--red)">Qarz: ${fmt(sale.remaining)} so'm</div>` : ""}
         </div>
       </div>`;
-    }).join("") : `<div style="text-align:center;color:var(--mut);padding:16px;font-size:13px">Sotuv yo'q</div>`}`;
+    }).join("") : `<div style="text-align:center;color:var(--mut);padding:16px;font-size:13px">Sotuv yo'q</div>`}
+
+    <!-- Ruxsatlar -->
+    ${s.permDiscount||s.permNasiya||s.permReturn ? `
+    <div style="font-size:11px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px">
+      Ruxsatlar
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${s.permDiscount?`<span class="bg" style="font-size:11.5px;background:#EFF6FF;color:#3B82F6">✂️ Chegirma ${s.maxDiscount?s.maxDiscount+"%":""}max</span>`:""}
+      ${s.permNasiya  ?`<span class="bg" style="font-size:11.5px;background:#FEF3C7;color:#D97706">💳 Nasiya</span>`:""}
+      ${s.permReturn  ?`<span class="bg" style="font-size:11.5px;background:#F0FDF4;color:var(--grn)">↩ Qaytarish</span>`:""}
+    </div>` : ""}
+
+    <!-- Smena tarixi -->
+    ${(() => {
+      const shifts = (db.shifts||[]).filter(sh=>sh.staffId===s.id).slice(-5).reverse();
+      if (!shifts.length) return "";
+      return `<div style="font-size:11px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px">
+        So'nggi smenalar
+      </div>
+      ${shifts.map(sh=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;
+          padding:8px 10px;border-radius:8px;margin-bottom:4px;background:var(--bg);border:1px solid var(--brd)">
+          <div>
+            <div style="font-size:12.5px;font-weight:600">${sh.openTime||""} → ${sh.closeTime||"<span style='color:var(--grn)'>Faol</span>"}</div>
+            ${sh.diff!==null&&sh.diff!==undefined?`<div style="font-size:11px;color:${sh.diff<0?"var(--red)":sh.diff>0?"var(--grn)":"var(--mut)"}">
+              Farq: ${sh.diff>=0?"+":""}${fmt(sh.diff||0)} so'm
+            </div>`:""}
+          </div>
+          <div style="font-size:12px;font-weight:700;color:#0D1B2A">${fmt(sh.openCash||0)} so'm</div>
+        </div>`).join("")}`;
+    })()}`;
 
   openModal("staffdetail");
 }
@@ -347,28 +461,62 @@ function updateStaffPay(id, field, val) {
 }
 
 // ── Xodim qo'shish ────────────────────────────────
-function addStaff() {
-  const name     = ($("as-name")||{value:""}).value.trim();
-  const phone    = ($("as-phone")||{value:""}).value.trim();
-  const role     = ($("as-role")||{value:"kassir"}).value;
-  const salary   = parseFloat(($("as-salary")||{value:"0"}).value) || 0;
-  const bonusPct = parseFloat(($("as-bonus")||{value:"0"}).value)  || 0;
-  if (!name) { toast("Ism kiriting","err"); return; }
-
-  db.staff.push({ id: db.seq++, name, phone, role, salary, bonusPct });
-  saveDB(); renderXodimlar(); closeModal("addstaff");
-  toast(`✅ ${name} qo'shildi`);
-  ["as-name","as-phone","as-salary","as-bonus"].forEach(id => { if ($(id)) $(id).value = ""; });
+function _getStaffFormData() {
+  const permDiscount = ($("as-perm-discount")||{checked:false}).checked;
+  return {
+    name:        ($("as-name")    ||{value:""}).value.trim(),
+    phone:       ($("as-phone")   ||{value:""}).value.trim(),
+    role:        ($("as-role")    ||{value:"kassir"}).value,
+    salary:      parseFloat(($("as-salary")||{value:"0"}).value) || 0,
+    bonusPct:    parseFloat(($("as-bonus") ||{value:"0"}).value) || 0,
+    startDate:   ($("as-startdate")||{value:""}).value,
+    birthday:    ($("as-birthday") ||{value:""}).value,
+    address:     ($("as-address")  ||{value:""}).value.trim(),
+    note:        ($("as-note")     ||{value:""}).value.trim(),
+    permDiscount,
+    maxDiscount: permDiscount ? (parseFloat(($("as-max-discount")||{value:"0"}).value)||0) : 0,
+    permNasiya:  ($("as-perm-nasiya")||{checked:false}).checked,
+    permReturn:  ($("as-perm-return")||{checked:false}).checked,
+  };
 }
 
-// ── Xodimni tahrirlash ────────────────────────────
+function _resetStaffForm() {
+  ["as-name","as-phone","as-salary","as-bonus","as-startdate","as-birthday","as-address","as-note","as-max-discount"]
+    .forEach(id => { if ($(id)) $(id).value = ""; });
+  if ($("as-role")) $("as-role").value = "kassir";
+  ["as-perm-discount","as-perm-nasiya","as-perm-return"].forEach(id => { if($(id)) $(id).checked=false; });
+  if ($("as-discount-wrap")) $("as-discount-wrap").style.display = "none";
+  const h2 = document.querySelector("#ov-addstaff h2"); if(h2) h2.textContent = "Xodim qo\'shish";
+  const btn = document.querySelector("#ov-addstaff .btn-acc");
+  if (btn) { btn.innerHTML = '<i class="ti ti-check"></i> Saqlash'; btn.onclick = addStaff; }
+}
+
+function addStaff() {
+  const d = _getStaffFormData();
+  if (!d.name) { toast("Ism kiriting","err"); return; }
+  db.staff.push({ id: db.seq++, ...d, paidMonths:[], monthTarget:0 });
+  saveDB(); renderXodimlar(); closeModal("addstaff");
+  toast(`\u2705 ${d.name} qo\'shildi`);
+  _resetStaffForm();
+}
+
 function editStaff(id) {
   const s = db.staff.find(x => x.id === id); if (!s) return;
-  if ($("as-name"))   $("as-name").value   = s.name;
-  if ($("as-phone"))  $("as-phone").value  = s.phone || "";
-  if ($("as-role"))   $("as-role").value   = s.role  || "kassir";
-  if ($("as-salary")) $("as-salary").value = s.salary   || 0;
-  if ($("as-bonus"))  $("as-bonus").value  = s.bonusPct || 0;
+  if ($("as-name"))         $("as-name").value         = s.name;
+  if ($("as-phone"))        $("as-phone").value        = s.phone       || "";
+  if ($("as-role"))         $("as-role").value         = s.role        || "kassir";
+  if ($("as-salary"))       $("as-salary").value       = s.salary      || 0;
+  if ($("as-bonus"))        $("as-bonus").value        = s.bonusPct    || 0;
+  if ($("as-startdate"))    $("as-startdate").value    = s.startDate   || "";
+  if ($("as-birthday"))     $("as-birthday").value     = s.birthday    || "";
+  if ($("as-address"))      $("as-address").value      = s.address     || "";
+  if ($("as-note"))         $("as-note").value         = s.note        || "";
+  if ($("as-perm-discount"))$("as-perm-discount").checked = !!s.permDiscount;
+  if ($("as-max-discount")) $("as-max-discount").value = s.maxDiscount || "";
+  if ($("as-discount-wrap"))$("as-discount-wrap").style.display = s.permDiscount?"block":"none";
+  if ($("as-perm-nasiya"))  $("as-perm-nasiya").checked = !!s.permNasiya;
+  if ($("as-perm-return"))  $("as-perm-return").checked = !!s.permReturn;
+  const h2 = document.querySelector("#ov-addstaff h2"); if(h2) h2.textContent = "Xodimni tahrirlash";
   const btn = document.querySelector("#ov-addstaff .btn-acc");
   if (btn) { btn.innerHTML = '<i class="ti ti-check"></i> Saqlash'; btn.onclick = () => saveStaff(id); }
   openModal("addstaff");
@@ -376,18 +524,15 @@ function editStaff(id) {
 
 function saveStaff(id) {
   const s = db.staff.find(x => x.id === id); if (!s) return;
-  s.name     = ($("as-name")||{value:""}).value.trim()  || s.name;
-  s.phone    = ($("as-phone")||{value:""}).value.trim();
-  s.role     = ($("as-role")||{value:"kassir"}).value;
-  s.salary   = parseFloat(($("as-salary")||{value:"0"}).value) || 0;
-  s.bonusPct = parseFloat(($("as-bonus")||{value:"0"}).value)  || 0;
+  const d = _getStaffFormData();
+  if (!d.name) { toast("Ism kiriting","err"); return; }
+  Object.assign(s, d);
   saveDB(); renderXodimlar(); closeModal("addstaff");
-  toast("Xodim ma'lumotlari yangilandi");
-  const btn = document.querySelector("#ov-addstaff .btn-acc");
-  if (btn) { btn.innerHTML = '<i class="ti ti-check"></i>Saqlash'; btn.onclick = addStaff; }
+  toast("Xodim ma\'lumotlari yangilandi");
+  _resetStaffForm();
 }
 
-// ── Xodimni o'chirish ─────────────────────────────
+
 function deleteStaff(id) {
   const s = db.staff.find(x => x.id === id); if (!s) return;
   const cnt = db.sales.filter(x => x.staffId === id).length;
@@ -398,4 +543,31 @@ function deleteStaff(id) {
   db.staff = db.staff.filter(x => x.id !== id);
   saveDB(); renderXodimlar();
   toast(`"${s.name}" o'chirildi`);
+}
+
+// ── Excel eksport ─────────────────────────────────
+function exportStaffExcel() {
+  const m    = today().slice(0,7);
+  const from = m+"-01", to = today();
+  const rows = [["Ism","Telefon","Lavozim","Oylik","Bonus%","Ishga kirgan","Tug'ilgan kun",
+    "Bu oy sotuv","Bu oy kassaga tushdi","Bu oy bonus","Jami to'lov","Nasiya%","O'rtacha chek",
+    "Chegirma huquqi","Nasiya huquqi","Qaytarish huquqi"]];
+
+  (db.staff||[]).forEach(s => {
+    const st = staffStats(s.id, from, to);
+    const roleLabel = { kassir:"Kassir", menejer:"Menejer", omborchi:"Omborchi" };
+    rows.push([
+      s.name, s.phone||"", roleLabel[s.role]||s.role||"",
+      s.salary||0, s.bonusPct||0,
+      s.startDate||"", s.birthday||"",
+      st.cnt, st.kassaTushdi, st.bonus, st.totalPay,
+      st.nasiyaPct+"%", st.avgCheck,
+      s.permDiscount?(s.maxDiscount?s.maxDiscount+"% max":"Ha"):"Yo'q",
+      s.permNasiya?"Ha":"Yo'q",
+      s.permReturn?"Ha":"Yo'q"
+    ]);
+  });
+
+  downloadCSV(rows, `merx_xodimlar_${today()}.xls`);
+  toast(`✅ ${db.staff.length} ta xodim yuklab olindi`);
 }
