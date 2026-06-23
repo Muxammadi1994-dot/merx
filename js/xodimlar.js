@@ -144,13 +144,13 @@ function confirmPaySalary(staffId, month, fullPay) {
 
 function isSalaryPaid(staffId, month) {
   const s = db.staff.find(x => x.id === staffId);
-  return (s?.paidMonths || []).includes(month) ||
-    (s?.salaryHistory || []).some(h => h.month === month);
+  return (s?.paidMonths||[]).includes(month) ||
+    (s?.salaryHistory||[]).some(h => h.month === month);
 }
 
 function getSalaryHistory(staffId) {
   const s = db.staff.find(x => x.id === staffId);
-  return (s?.salaryHistory || []).slice().reverse().slice(0, 12); // oxirgi 12 ta
+  return [...(s?.salaryHistory||[])].reverse().slice(0,12);
 }
 
 
@@ -159,10 +159,13 @@ function renderXodimlar() {
   const t = today();
   const thisMonth = t.slice(0,7) + "-01";
 
-  // KPI — kassaTushdi asosida (avvalgi hisoblash bloki qayta ishlatiladi)
+  // KPI
+  const todaySales = db.sales.filter(s => s.date === t);
+  const monthSales = db.sales.filter(s => s.date >= thisMonth && s.date <= t);
+
   if ($("xod-cnt"))   $("xod-cnt").textContent   = db.staff.length + " ta";
-  if ($("xod-today")) $("xod-today").textContent = fmtK(todayKassa) + " so'm";
-  if ($("xod-month")) $("xod-month").textContent = fmtK(monthKassa) + " so'm";
+  if ($("xod-today")) $("xod-today").textContent = fmt(todaySales.reduce((a,s)=>a+s.total,0)) + " so'm";
+  if ($("xod-month")) $("xod-month").textContent = fmt(monthSales.reduce((a,s)=>a+s.total,0)) + " so'm";
 
   // Top kassir (bu oy)
   let topStaff = null, topTotal = 0;
@@ -325,8 +328,6 @@ function openStaffDetail(id) {
       </div>
       <button class="btn btn-ghost btn-icon btn-sm" onclick="editStaff(${s.id});closeStaffDetail()"
         style="margin-left:auto" title="Tahrirlash"><i class="ti ti-edit"></i></button>
-      ${s.phone ? `<a href="tel:${s.phone}" class="btn btn-ghost btn-icon btn-sm" title="Qo'ng'iroq">
-        <i class="ti ti-phone"></i></a>` : ""}
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
@@ -396,7 +397,7 @@ function openStaffDetail(id) {
         </div>
         ${isSalaryPaid(s.id, today().slice(0,7))
           ? `<div style="padding:6px 14px;background:#dcfce7;color:#16a34a;border-radius:8px;font-size:12px;font-weight:600;margin-top:16px">✅ To'landi</div>`
-          : `<button class="btn btn-acc btn-sm" onclick="payStaffSalary(${s.id})"
+          : `<button class="btn btn-acc btn-sm" onclick="payStaffSalary(${s.id});closeStaffDetail()"
               style="margin-top:16px;white-space:nowrap">
               💰 To'lash
             </button>`}
@@ -457,6 +458,7 @@ function openStaffDetail(id) {
     ${(() => {
       const hist = getSalaryHistory(s.id);
       if (!hist.length) return "";
+      const micons = {naqd:"💵",karta:"💳",otkazma:"🏦"};
       return `<div style="font-size:11px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px">
         Maosh tarixi
       </div>
@@ -465,7 +467,7 @@ function openStaffDetail(id) {
           padding:8px 10px;border-radius:8px;margin-bottom:4px;background:#F0FDF4;border:1px solid #BBF7D0">
           <div>
             <div style="font-size:12.5px;font-weight:700;color:var(--grn)">${h.month} oyi</div>
-            <div style="font-size:11px;color:#aaa">${h.date||""} · ${h.method==="karta"?"💳 Karta":h.method==="otkazma"?"🏦 O'tkazma":"💵 Naqd"}</div>
+            <div style="font-size:11px;color:#aaa">${h.date||""} · ${micons[h.method]||"💵"} ${h.method||"naqd"}</div>
           </div>
           <div style="font-size:14px;font-weight:800;color:var(--grn)">+${fmt(h.amount)} so'm</div>
         </div>`).join("")}`;
@@ -566,28 +568,23 @@ function saveStaff(id) {
 
 function deleteStaff(id) {
   const s = db.staff.find(x => x.id === id); if (!s) return;
-  const cnt    = db.sales.filter(x => x.staffId === id).length;
-  const shifts = (db.shifts||[]).filter(x => x.staffId === id).length;
-  const parts  = [];
-  if (cnt)    parts.push(`${cnt} ta sotuv tarixi`);
-  if (shifts) parts.push(`${shifts} ta smena yozuvi`);
-  const warn = parts.length ? `\n(${parts.join(", ")} o'chirilmaydi, bog'liqlik saqlanadi)` : "";
-  if (!confirm(`"${s.name}" o'chirilsinmi?${warn}`)) return;
+  const cnt = db.sales.filter(x => x.staffId === id).length;
+  const msg = cnt > 0
+    ? `"${s.name}" — ${cnt} ta sotuv bor. O'chirilsa sotuvlarda "kassir: —" bo'ladi. O'chirishni tasdiqlaysizmi?`
+    : `"${s.name}" o'chirilsinmi?`;
+  if (!confirm(msg)) return;
   db.staff = db.staff.filter(x => x.id !== id);
-  // Smena tarixi va kassaBalances ni ham tozalaymiz
-  if (db.shifts) db.shifts = db.shifts.filter(x => x.staffId !== id);
-  if (db.kassaBalances) delete db.kassaBalances[id];
   saveDB(); renderXodimlar();
   toast(`"${s.name}" o'chirildi`);
 }
 
 // ── Excel eksport ─────────────────────────────────
 function exportStaffExcel() {
-  const { from, to } = xodDateRange();
-  const m = today().slice(0,7);
+  const m    = today().slice(0,7);
+  const from = m+"-01", to = today();
   const rows = [["Ism","Telefon","Lavozim","Oylik","Bonus%","Ishga kirgan","Tug'ilgan kun",
-    `Sotuvlar (${from}—${to})`,`Kassaga tushdi`,`Bonus`,`Jami to'lov`,
-    "Nasiya%","O'rtacha chek","Chegirma huquqi","Nasiya huquqi","Qaytarish huquqi"]];
+    "Bu oy sotuv","Bu oy kassaga tushdi","Bu oy bonus","Jami to'lov","Nasiya%","O'rtacha chek",
+    "Chegirma huquqi","Nasiya huquqi","Qaytarish huquqi"]];
 
   (db.staff||[]).forEach(s => {
     const st = staffStats(s.id, from, to);

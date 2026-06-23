@@ -682,40 +682,54 @@ function renderRepCustomerSegment(sales) {
 function renderRepStaff(sales) {
   const el = $("rep-staff"); if (!el) return;
   const rate = db.settings?.rate || 12800;
+  const { from, to } = repDateRange();
 
   const staffMap = {};
   sales.forEach(s => {
     const name = (db.staff||[]).find(x => x.id === s.staffId)?.name || "Noma'lum";
-    if (!staffMap[name]) staffMap[name] = { cnt: 0, total: 0, paid: 0, debt: 0, cost: 0 };
+    if (!staffMap[name]) staffMap[name] = { cnt:0, total:0, kassaTushdi:0, debt:0, cost:0, nasiyaCnt:0 };
     staffMap[name].cnt++;
     staffMap[name].total += s.total || 0;
-    staffMap[name].paid  += s.paid || 0;
-    staffMap[name].debt  += calcSaleState(s).remaining;
+    // kassaTushdi — payBreakdown asosida
+    const pb = s.payBreakdown;
+    if (pb&&(pb.naqd||pb.karta||pb.otkazma))
+      staffMap[name].kassaTushdi += (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
+    else staffMap[name].kassaTushdi += s.payType==="nasiya"?0:(s.paid||0);
+    if (s.payType==="nasiya") staffMap[name].nasiyaCnt++;
+    staffMap[name].debt += calcSaleState(s).remaining;
     s.items?.forEach(i => {
       const p = (db.products||[]).find(x => x.name === i.name);
-      staffMap[name].cost += Math.round((p?.costUsd||0) * rate) * (i.qty||0);
+      staffMap[name].cost += Math.round((p?.costUsd||0)*rate)*(i.qty||0);
     });
   });
+  // debtPayments ham qo'shamiz
+  const debtPays = (db.debtPayments||[]).filter(p=>p.date>=from&&p.date<=to);
+  debtPays.forEach(p => {
+    const sale = (db.sales||[]).find(s=>s.id===p.saleId); if(!sale) return;
+    const name = (db.staff||[]).find(x=>x.id===sale.staffId)?.name||"Noma'lum";
+    if (staffMap[name]) staffMap[name].kassaTushdi +=
+      p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0);
+  });
 
-  const sorted = Object.entries(staffMap).sort((a,b) => b[1].total - a[1].total);
+  const sorted = Object.entries(staffMap).sort((a,b)=>b[1].kassaTushdi-a[1].kassaTushdi);
   if (!sorted.length) {
-    el.innerHTML = `<tr><td colspan="7" class="empty-td">Ma'lumot yo'q</td></tr>`; return;
+    el.innerHTML=`<tr><td colspan="7" class="empty-td">Ma'lumot yo'q</td></tr>`; return;
   }
-  const totalRev = sorted.reduce((a,[,d]) => a + d.total, 0) || 1;
+  const totalKassa = sorted.reduce((a,[,d])=>a+d.kassaTushdi,0)||1;
 
-  el.innerHTML = sorted.map(([name, d]) => {
-    const avg = d.cnt ? Math.round(d.total / d.cnt) : 0;
-    const profit = d.paid - d.cost;
-    const debtPct = d.total > 0 ? Math.round(d.debt / d.total * 100) : 0;
-    const pct = Math.round(d.total / totalRev * 100);
+  el.innerHTML = sorted.map(([name,d]) => {
+    const avg      = d.cnt ? Math.round(d.total/d.cnt) : 0;
+    const grossPro = d.kassaTushdi - d.cost;
+    const nasiyaPct= d.cnt ? Math.round(d.nasiyaCnt/d.cnt*100) : 0;
+    const pct      = Math.round(d.kassaTushdi/totalKassa*100);
     return `<tr>
       <td style="font-weight:700">${name}</td>
       <td class="num">${d.cnt} ta</td>
-      <td class="num" style="font-weight:700">${fmtK(d.total)} so'm</td>
-      <td class="num">${fmtK(avg)} so'm</td>
-      <td class="num" style="color:${profit>=0?"var(--grn)":"var(--red)"};font-weight:700">${fmtK(profit)} so'm</td>
-      <td class="num" style="color:${debtPct>30?"var(--red)":debtPct>10?"#E9A500":"var(--grn)"}">
-        ${debtPct}%
+      <td class="num" style="font-weight:700;color:var(--acc)">${fmtK(d.kassaTushdi)} so'm</td>
+      <td class="num" style="color:var(--mut)">${fmtK(avg)} so'm</td>
+      <td class="num" style="color:${grossPro>=0?"var(--grn)":"var(--red)"};font-weight:700">${fmtK(grossPro)} so'm</td>
+      <td class="num" style="color:${nasiyaPct>30?"var(--red)":nasiyaPct>10?"#E9A500":"var(--grn)"}">
+        ${nasiyaPct}%
       </td>
       <td class="num">
         <div style="display:flex;align-items:center;gap:5px">
