@@ -7,16 +7,54 @@ let custFilter = "all";
 let _custCardId = null;
 
 // ── Ustunlar boshqaruvi ───────────────────────────
+const CUST_KPI_LABELS = {
+  total:    "Jami mijozlar",
+  ulg:      "Ulgurji",
+  chak:     "Chakana",
+  debt:     "Qarzli mijozlar",
+  debtSum:  "Jami qarz summasi",
+  vip:      "⭐ VIP mijozlar",
+};
+
+function hideCustKpi(key) {
+  if (!db.settings) db.settings={};
+  const h=new Set(db.settings.hiddenCustKpis||[]);
+  h.add(key); db.settings.hiddenCustKpis=[...h]; saveDB(); applyCustKpiVisibility();
+}
+function showCustKpi(key) {
+  if (!db.settings) db.settings={};
+  const h=new Set(db.settings.hiddenCustKpis||[]);
+  h.delete(key); db.settings.hiddenCustKpis=[...h]; saveDB(); applyCustKpiVisibility();
+}
+function applyCustKpiVisibility() {
+  const hidden=new Set(db.settings?.hiddenCustKpis||[]);
+  document.querySelectorAll("#cust-kpi-row .stb").forEach(el=>{
+    el.style.display=hidden.has(el.dataset.ckpi)?"none":"block";
+  });
+}
+function openCustKpiSettings() {
+  const hidden=new Set(db.settings?.hiddenCustKpis||[]);
+  const list=$("cust-kpi-list"); if(!list) return;
+  list.innerHTML=Object.entries(CUST_KPI_LABELS).map(([k,l])=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--brd);border-radius:9px;cursor:pointer">
+      <input type="checkbox" ${!hidden.has(k)?"checked":""} onchange="this.checked?showCustKpi('${k}'):hideCustKpi('${k}')"
+        style="width:17px;height:17px;accent-color:var(--acc);cursor:pointer">
+      <span style="font-size:13px;font-weight:600">${l}</span>
+    </label>`).join("");
+  openModal("custkpi");
+}
+
 const CUST_COL_DEFS = [
-  { key:"name",     lbl:"Ism",            def:true  },
-  { key:"phone",    lbl:"Telefon",        def:true  },
-  { key:"segment",  lbl:"Segment",        def:true  },
-  { key:"count",    lbl:"Sotuvlar soni",  def:true  },
-  { key:"totalBuy", lbl:"Jami xarid",     def:true  },
-  { key:"avgCheck", lbl:"O'rtacha chek",  def:true  },
-  { key:"lastDate", lbl:"Oxirgi xarid",   def:true  },
-  { key:"debt",     lbl:"Joriy qarz",     def:true  },
-  { key:"company",  lbl:"Kompaniya",      def:false },
+  { key:"name",      lbl:"Ism",            def:true  },
+  { key:"phone",     lbl:"Telefon",        def:true  },
+  { key:"segment",   lbl:"Segment",        def:true  },
+  { key:"count",     lbl:"Sotuvlar soni",  def:true  },
+  { key:"totalBuy",  lbl:"Jami xarid",     def:true  },
+  { key:"avgCheck",  lbl:"O'rtacha chek",  def:true  },
+  { key:"lastDate",  lbl:"Oxirgi xarid",   def:true  },
+  { key:"debt",      lbl:"Joriy qarz",     def:true  },
+  { key:"debtLimit", lbl:"Qarz limiti",    def:false },
+  { key:"company",   lbl:"Kompaniya",      def:false },
 ];
 
 function getCustCols() {
@@ -190,6 +228,7 @@ function renderMijozlar() {
   if ($("mc-debt"))      $("mc-debt").textContent      = debtCount;
   if ($("mc-debt-sum"))  $("mc-debt-sum").textContent  = fmtK(totalDebtSum)+" so'm";
   if ($("mc-vip"))       $("mc-vip").textContent       = vipCount;
+  applyCustKpiVisibility();
 
   const cols = getCustCols();
 
@@ -211,8 +250,9 @@ function renderMijozlar() {
       ${cols.totalBuy ? `<th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('totalBuy')">JAMI XARID ${si('totalBuy')}</th>` : ""}
       ${cols.avgCheck ? `<th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('avgCheck')">O'RTACHA CHEK ${si('avgCheck')}</th>` : ""}
       ${cols.lastDate ? `<th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('lastDate')">OXIRGI XARID ${si('lastDate')}</th>` : ""}
-      ${cols.debt     ? `<th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('debt')">JORIY QARZ ${si('debt')}</th>` : ""}
-      ${cols.company  ? `<th>KOMPANIYA</th>` : ""}
+      ${cols.debt      ? `<th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('debt')">JORIY QARZ ${si('debt')}</th>` : ""}
+      ${cols.debtLimit ? `<th class="num">QARZ LIMITI</th>` : ""}
+      ${cols.company   ? `<th>KOMPANIYA</th>` : ""}
       <th></th>
     </tr>`;
   }
@@ -255,6 +295,15 @@ function renderMijozlar() {
               :st.totalDebtUsd>0?"$"+st.totalDebtUsd.toFixed(2)+" USD"
               :fmt(st.totalDebt)+" so'm"}</span>`
           : `<span style="color:var(--grn);font-size:12px">✅</span>`}
+      </td>` : ""}
+      ${cols.debtLimit ? `<td class="num" style="font-size:12px">
+        ${c.debtLimit ? (() => {
+          const cur = st.totalDebt+(st.totalDebtUsd||0)*(db.settings?.rate||12800);
+          const pct = Math.min(100,Math.round(cur/c.debtLimit*100));
+          const color = pct>=100?"var(--red)":pct>=80?"#E9A500":"var(--mut)";
+          return `<div style="color:${color};font-weight:600">${fmtK(c.debtLimit)} so'm</div>
+            <div style="font-size:10px;color:${color}">${pct}% ishlatilgan</div>`;
+        })() : `<span style="color:#ccc">—</span>`}
       </td>` : ""}
       ${cols.company ? `<td style="font-size:12px;color:#666">${c.company||"—"}</td>` : ""}
       <td onclick="event.stopPropagation()">
@@ -392,15 +441,21 @@ async function custCardSms() {
   modal.className = "ov"; modal.id = "cust-msg-modal";
   modal.style.cssText = "display:flex";
   modal.innerHTML = `
-    <div class="modal" style="max-width:420px">
+    <div class="modal" style="max-width:440px">
       <button class="m-close" onclick="$('cust-msg-modal').remove()"><i class="ti ti-x"></i></button>
       <h2 style="margin-bottom:4px"><i class="ti ti-message"></i> Xabar yuborish</h2>
-      <p style="font-size:13px;color:var(--mut);margin-bottom:14px">Mijoz: <b>${c.name}</b></p>
+      <p style="font-size:13px;color:var(--mut);margin-bottom:10px">Mijoz: <b>${c.name}</b></p>
+      <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="setCustMsgTemplate('debt','${c.id}')">💳 Qarz eslatma</button>
+        <button class="btn btn-ghost btn-sm" onclick="setCustMsgTemplate('promo','${c.id}')">🎁 Aksiya</button>
+        <button class="btn btn-ghost btn-sm" onclick="setCustMsgTemplate('greet','${c.id}')">👋 Salom</button>
+      </div>
       <div class="fld">
         <label>Xabar matni</label>
         <textarea id="cust-msg-text" rows="4"
           style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);
           padding:8px 12px;width:100%;resize:vertical;box-sizing:border-box">${defMsg}</textarea>
+        <div style="font-size:11.5px;color:var(--mut);margin-top:4px">💡 <b>{ism}</b> — ism, <b>{qarz}</b> — qarz summasi</div>
       </div>
       <div style="display:flex;gap:8px;margin-top:4px">
         ${hasSms ? `<button class="btn btn-acc" style="flex:1" onclick="sendCustMsg('sms')">
@@ -423,8 +478,20 @@ async function custCardSms() {
     </div>`;
   modal.onclick = e => { if(e.target===modal) modal.remove(); };
   document.body.appendChild(modal);
-  // textarea ga focus
   setTimeout(()=>{ const t=$("cust-msg-text"); if(t){t.focus();t.select();} },50);
+}
+
+function setCustMsgTemplate(type, custId) {
+  const c = db.customers.find(x=>x.id==custId); if(!c) return;
+  const shop = db.settings?.shopName || db.shop?.name || "Do'kon";
+  const st = custStats(c.id);
+  const debtTxt = st.totalDebtUsd>0?`$${st.totalDebtUsd.toFixed(2)} USD`:st.totalDebt>0?`${fmt(st.totalDebt)} so'm`:"0";
+  const templates = {
+    debt:  `${shop}: Hurmatli ${c.name}, joriy qarzingiz ${debtTxt}. Iltimos to'lovni amalga oshiring. Rahmat!`,
+    promo: `${shop}: Hurmatli ${c.name}, yangi mahsulotlar va maxsus chegirmalar mavjud! Siz bilan hamkorlik qilishdan mamnunmiz.`,
+    greet: `${shop}: Hurmatli ${c.name}, siz bilan hamkorlik qilishdan mamnunmiz! Yangi kolleksiyamiz bilan tanishib chiqishingizni taklif etamiz.`
+  };
+  const el = $("cust-msg-text"); if(el) el.value = templates[type]||"";
 }
 
 async function sendCustMsg(channel) {

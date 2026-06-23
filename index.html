@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=119">
+<link rel="stylesheet" href="style.css?v=120">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -985,21 +985,36 @@
   <!-- MIJOZLAR -->
   <div class="pg" id="p-mijozlar">
     <!-- KPI -->
-    <div class="stat-row">
-      <div class="stb"><div class="sl">Jami mijozlar</div><div class="sv" id="mc-total">0</div></div>
-      <div class="stb"><div class="sl">Ulgurji</div><div class="sv" id="mc-ulg">0</div></div>
-      <div class="stb"><div class="sl">Chakana</div><div class="sv" id="mc-chak">0</div></div>
-      <div class="stb" style="border-top:3px solid var(--red)">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+      <button class="btn btn-ghost btn-sm" onclick="openCustKpiSettings()" title="KPI kartalarni sozlash">
+        <i class="ti ti-settings"></i> Kartalarni sozlash
+      </button>
+    </div>
+    <div class="stat-row" id="cust-kpi-row">
+      <div class="stb" data-ckpi="total"><div class="sl">Jami mijozlar</div><div class="sv" id="mc-total">0</div></div>
+      <div class="stb" data-ckpi="ulg"><div class="sl">Ulgurji</div><div class="sv" id="mc-ulg">0</div></div>
+      <div class="stb" data-ckpi="chak"><div class="sl">Chakana</div><div class="sv" id="mc-chak">0</div></div>
+      <div class="stb" data-ckpi="debt" style="border-top:3px solid var(--red)">
         <div class="sl" style="color:var(--red)">Qarzli mijozlar</div>
         <div class="sv" id="mc-debt" style="color:var(--red)">0</div>
       </div>
-      <div class="stb" style="border-top:3px solid var(--red)">
+      <div class="stb" data-ckpi="debtSum" style="border-top:3px solid var(--red)">
         <div class="sl">Jami qarz summasi</div>
         <div class="sv" id="mc-debt-sum" style="color:var(--red)">0</div>
       </div>
-      <div class="stb" style="border-top:3px solid #E9A500">
+      <div class="stb" data-ckpi="vip" style="border-top:3px solid #E9A500">
         <div class="sl">⭐ VIP mijozlar</div>
         <div class="sv" id="mc-vip" style="color:#E9A500">0</div>
+      </div>
+    </div>
+
+    <!-- MODAL: KPI sozlash -->
+    <div class="ov" id="ov-custkpi" onclick="if(event.target===this)closeModal('custkpi')">
+      <div class="modal" style="max-width:360px">
+        <button class="m-close" onclick="closeModal('custkpi')"><i class="ti ti-x"></i></button>
+        <h2 style="margin-bottom:4px">KPI kartalarni sozlash</h2>
+        <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Qaysi ko'rsatkichlar ko'rinishini tanlang</p>
+        <div id="cust-kpi-list" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
     </div>
 
@@ -3015,23 +3030,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=119"></script>
-<script src="js/utils.js?v=119"></script>
-<script src="js/sms.js?v=119"></script>
-<script src="js/cloud.js?v=119"></script>
-<script src="js/dashboard.js?v=119"></script>
-<script src="js/pos.js?v=119"></script>
-<script src="js/katalog.js?v=119"></script>
-<script src="js/ombor.js?v=119"></script>
-<script src="js/mijozlar.js?v=119"></script>
-<script src="js/qarzlar.js?v=119"></script>
-<script src="js/tarix.js?v=119"></script>
-<script src="js/hisobot.js?v=119"></script>
-<script src="js/xodimlar.js?v=119"></script>
-<script src="js/moliya.js?v=119"></script>
-<script src="js/egasi.js?v=119"></script>
-<script src="js/portal.js?v=119"></script>
-<script src="js/init.js?v=119"></script>
+<script src="js/db.js?v=120"></script>
+<script src="js/utils.js?v=120"></script>
+<script src="js/sms.js?v=120"></script>
+<script src="js/cloud.js?v=120"></script>
+<script src="js/dashboard.js?v=120"></script>
+<script src="js/pos.js?v=120"></script>
+<script src="js/katalog.js?v=120"></script>
+<script src="js/ombor.js?v=120"></script>
+<script src="js/mijozlar.js?v=120"></script>
+<script src="js/qarzlar.js?v=120"></script>
+<script src="js/tarix.js?v=120"></script>
+<script src="js/hisobot.js?v=120"></script>
+<script src="js/xodimlar.js?v=120"></script>
+<script src="js/moliya.js?v=120"></script>
+<script src="js/egasi.js?v=120"></script>
+<script src="js/portal.js?v=120"></script>
+<script src="js/init.js?v=120"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3380,7 +3395,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=119"></script>
-<script src="js/superadmin.js?v=119"></script>
+<script src="js/auth.js?v=120"></script>
+<script src="js/superadmin.js?v=120"></script>
 </body>
 </html>
