@@ -6,6 +6,19 @@
 let molPeriod = "month"; // default: bu oy
 let _expChart = null;
 
+let expCatFilterVal = ""; // Kategoriya filtri
+
+function setExpCatFilter(cat) {
+  expCatFilterVal = cat;
+  document.querySelectorAll(".exp-cat-filter").forEach(b => {
+    const on = b.dataset.c === cat;
+    b.style.background  = on ? "#0D1B2A" : "#fff";
+    b.style.color       = on ? "#fff" : "";
+    b.style.borderColor = on ? "#0D1B2A" : "var(--brd)";
+  });
+  renderMoliya();
+}
+
 const MOL_KPI_LABELS = {
   rev:"Kassaga tushdi (jami)", sotuv:"Sotuv tushumi", qarz:"Qarz tushumi",
   exp:"Xarajatlar", gross:"Yalpi foyda", net:"Sof foyda",
@@ -268,6 +281,11 @@ function renderMoliya() {
     (x.recipient||"").toLowerCase().includes(q) ||
     (x.paidBy||"").toLowerCase().includes(q)
   );
+  // Kategoriya filtri
+  if (expCatFilterVal) exps = exps.filter(x => (x.category||"") === expCatFilterVal);
+  // To'lov usuli filtri
+  const methodFilter = ($("exp-method-filter")||{value:""}).value;
+  if (methodFilter) exps = exps.filter(x => (x.method||"naqd") === methodFilter);
 
   const cols = getExpCols();
   const colCount = Object.values(cols).filter(Boolean).length + 1; // +1 amallar ustuni
@@ -365,36 +383,75 @@ function renderFlowBars(kirim, chiqim) {
   const el = $("mol-flow-bars"); if (!el) return;
   const max    = Math.max(kirim, chiqim, 1);
   const profit = kirim - chiqim;
+  const expPct = kirim > 0 ? Math.round(chiqim/kirim*100) : 0;
+  const profitPct = kirim > 0 ? Math.round(profit/kirim*100) : 0;
+
+  // O'tgan davr hisoblash (taqqos uchun)
+  const { from, to } = molDateRange();
+  const rate = db.settings?.rate || 12800;
+  const daysDiff = Math.round((new Date(to)-new Date(from))/86400000)+1;
+  const prevTo   = new Date(from); prevTo.setDate(prevTo.getDate()-1);
+  const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate()-daysDiff+1);
+  const pf = prevFrom.toISOString().slice(0,10);
+  const pt = prevTo.toISOString().slice(0,10);
+
+  let prevKirim = 0;
+  (db.sales||[]).filter(s=>s.date>=pf&&s.date<=pt).forEach(s=>{
+    const pb=s.payBreakdown;
+    if(pb&&(pb.naqd||pb.karta||pb.otkazma)) prevKirim+=(pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
+    else prevKirim+=s.payType==="nasiya"?0:(s.paid||0);
+  });
+  prevKirim += (db.debtPayments||[]).filter(p=>p.date>=pf&&p.date<=pt)
+    .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
+  const prevChiqim = (db.xarajatlar||[]).filter(x=>x.date>=pf&&x.date<=pt)
+    .reduce((a,x)=>a+(x.amount||0),0);
+
+  const kirimChange  = prevKirim > 0  ? Math.round((kirim-prevKirim)/prevKirim*100)   : null;
+  const chiqimChange = prevChiqim > 0 ? Math.round((chiqim-prevChiqim)/prevChiqim*100) : null;
+
+  const changeBadge = (v) => v===null ? "" :
+    `<span style="font-size:11px;padding:2px 7px;border-radius:5px;font-weight:700;margin-left:6px;
+      background:${v>=0?"#DCFCE7":"#FEE2E2"};color:${v>=0?"var(--grn)":"var(--red)"}">
+      ${v>=0?"+":""}${v}%
+    </span>`;
 
   el.innerHTML = `
-    <div style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
-        <span style="color:var(--grn);font-weight:700">📈 Kirim (sotuvlar)</span>
-        <span style="font-weight:700">${fmt(kirim)} so'm</span>
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;margin-bottom:6px">
+        <span style="color:var(--grn);font-weight:700">📈 Kassaga tushdi${changeBadge(kirimChange)}</span>
+        <span style="font-weight:800;font-size:14px">${fmtK(kirim)} so'm</span>
       </div>
-      <div style="height:10px;background:#f0ede7;border-radius:5px;overflow:hidden">
-        <div style="height:100%;width:${Math.round(kirim/max*100)}%;background:var(--grn);border-radius:5px"></div>
+      <div style="height:12px;background:#f0ede7;border-radius:6px;overflow:hidden">
+        <div style="height:100%;width:100%;background:var(--grn);border-radius:6px;transition:.4s"></div>
       </div>
     </div>
     <div style="margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
-        <span style="color:var(--red);font-weight:700">📉 Chiqim (xarajatlar)</span>
-        <span style="font-weight:700">${fmt(chiqim)} so'm</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;margin-bottom:6px">
+        <span style="color:var(--red);font-weight:700">📉 Xarajatlar${changeBadge(chiqimChange)}
+          <span style="font-size:11px;color:#bbb;font-weight:400"> — kirimning ${expPct}%</span>
+        </span>
+        <span style="font-weight:800;font-size:14px">${fmtK(chiqim)} so'm</span>
       </div>
-      <div style="height:10px;background:#f0ede7;border-radius:5px;overflow:hidden">
-        <div style="height:100%;width:${Math.round(chiqim/max*100)}%;background:var(--red);border-radius:5px"></div>
+      <div style="height:12px;background:#f0ede7;border-radius:6px;overflow:hidden">
+        <div style="height:100%;width:${Math.min(100,Math.round(chiqim/Math.max(kirim,1)*100))}%;background:var(--red);border-radius:6px;transition:.4s"></div>
       </div>
     </div>
-    <div style="padding:12px 14px;border-radius:10px;
+    <div style="padding:14px 16px;border-radius:12px;
       background:${profit>=0?"#F0FDF4":"#FEF2F2"};
-      border:1.5px solid ${profit>=0?"#BBF7D0":"#FECACA"};
-      display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:13px;font-weight:700;color:${profit>=0?"var(--grn)":"var(--red)"}">
-        ${profit >= 0 ? "✅ Sof foyda" : "⚠️ Zarar"}
-      </span>
-      <span style="font-size:16px;font-weight:900;color:${profit>=0?"var(--grn)":"var(--red)"}">
-        ${profit>=0?"+":"−"}${fmt(Math.abs(profit))} so'm
-      </span>
+      border:1.5px solid ${profit>=0?"#BBF7D0":"#FECACA"}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:${profit>=0?"var(--grn)":"var(--red)"}">
+            ${profit >= 0 ? "✅ Sof foyda" : "⚠️ Zarar"}
+          </div>
+          <div style="font-size:11px;color:#aaa;margin-top:2px">
+            Kirimning <b style="color:${profit>=0?"var(--grn)":"var(--red)"}">${profitPct}%</b>i
+          </div>
+        </div>
+        <span style="font-size:18px;font-weight:900;color:${profit>=0?"var(--grn)":"var(--red)"}">
+          ${profit>=0?"+":"−"}${fmtK(Math.abs(profit))} so'm
+        </span>
+      </div>
     </div>`;
 }
 

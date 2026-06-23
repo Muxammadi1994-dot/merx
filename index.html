@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=107">
+<link rel="stylesheet" href="style.css?v=108">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1686,10 +1686,6 @@
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
-        <button class="btn btn-acc" style="font-size:14px;padding:10px 20px;font-weight:700"
-          onclick="openModal('addxarajat');initExpModal()">
-          <i class="ti ti-plus"></i> Xarajat qo'shish
-        </button>
         <div style="display:flex;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:3px;gap:2px">
           <button class="mol-period-btn" data-p="yesterday" onclick="setMolPeriod('yesterday')"
             style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer">Kecha</button>
@@ -1791,17 +1787,50 @@
     <div class="card" style="margin-bottom:16px">
       <div class="ch" style="flex-wrap:wrap;gap:8px">
         <h3><i class="ti ti-list"></i>Xarajatlar ro'yxati</h3>
-        <div style="display:flex;gap:6px;align-items:center">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto">
+          <button class="btn btn-acc btn-sm" onclick="openModal('addxarajat');initExpModal()">
+            <i class="ti ti-plus"></i> Xarajat qo'shish
+          </button>
           <input id="exp-q" placeholder="Qidirish..." oninput="renderMoliya()"
-            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 10px;width:160px">
+            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 10px;width:140px">
           <button class="btn btn-sm" onclick="exportExpExcel()" style="color:#1D6A39">
-            <i class="ti ti-file-spreadsheet"></i> Excel
+            <i class="ti ti-file-spreadsheet"></i>
           </button>
           <button class="btn btn-ghost btn-sm" onclick="openExpColsSettings()" title="Ustunlarni sozlash">
             <i class="ti ti-settings"></i>
           </button>
         </div>
       </div>
+
+      <!-- Filtr qatori -->
+      <div style="display:flex;gap:8px;padding:0 18px 12px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--brd)">
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="exp-cat-filter on" data-c="" onclick="setExpCatFilter('')"
+            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#0D1B2A;color:#fff;cursor:pointer">Barchasi</button>
+          <button class="exp-cat-filter" data-c="Ijara" onclick="setExpCatFilter('Ijara')"
+            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">🏠 Ijara</button>
+          <button class="exp-cat-filter" data-c="Maosh" onclick="setExpCatFilter('Maosh')"
+            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">👤 Maosh</button>
+          <button class="exp-cat-filter" data-c="Transport" onclick="setExpCatFilter('Transport')"
+            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">🚗 Transport</button>
+          <button class="exp-cat-filter" data-c="Kommunal" onclick="setExpCatFilter('Kommunal')"
+            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">💡 Kommunal</button>
+          <button class="exp-cat-filter" data-c="Reklama" onclick="setExpCatFilter('Reklama')"
+            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">📢 Reklama</button>
+          <button class="exp-cat-filter" data-c="Yetkazuvchi" onclick="setExpCatFilter('Yetkazuvchi')"
+            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">📦 Yetkazuvchi</button>
+          <button class="exp-cat-filter" data-c="Soliq" onclick="setExpCatFilter('Soliq')"
+            style="padding:4px 10px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:#fff;cursor:pointer">🏛️ Soliq</button>
+        </div>
+        <select id="exp-method-filter" onchange="renderMoliya()"
+          style="font-family:inherit;font-size:12px;border:1px solid var(--brd);border-radius:7px;padding:5px 8px;background:#fff">
+          <option value="">Barcha usul</option>
+          <option value="naqd">💵 Naqd</option>
+          <option value="karta">💳 Karta</option>
+          <option value="otkazma">🏦 O'tkazma</option>
+        </select>
+      </div>
+
       <div style="overflow-x:auto">
         <table style="min-width:600px">
           <thead><tr id="exp-thead">
@@ -1823,24 +1852,30 @@
       </div>
     </div>
 
-    <!-- Grafiklar + kirim manbalari — g2 -->
+    <!-- Grafiklar: Xarajat tarkibi + Kirim vs Chiqim -->
     <div class="g2" style="margin-bottom:16px">
+      <!-- Xarajat tarkibi (faqat xarajat kategoriyalari) -->
       <div class="card">
         <div class="ch"><h3><i class="ti ti-chart-donut-3"></i>Xarajat tarkibi</h3></div>
         <div style="padding:14px 18px">
           <div class="chart-sm"><canvas id="expChart"></canvas></div>
           <div id="exp-legend" style="display:flex;gap:10px;justify-content:center;font-size:12px;margin-top:10px;flex-wrap:wrap"></div>
         </div>
-        <div style="padding:0 18px 14px">
-          <div style="font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase;margin-bottom:8px">Kirim manbalari</div>
-          <div id="mol-kirim-manbalar"></div>
-        </div>
       </div>
+      <!-- Kirim vs Chiqim (boyitilgan) -->
       <div class="card">
         <div class="ch"><h3><i class="ti ti-arrows-exchange"></i>Kirim vs Chiqim</h3></div>
         <div style="padding:14px 18px">
           <div id="mol-flow-bars"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- Kirim manbalari — alohida karta -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="ch"><h3><i class="ti ti-wallet"></i>Kirim manbalari (to'lov usuli bo'yicha)</h3></div>
+      <div style="padding:0 18px 16px">
+        <div id="mol-kirim-manbalar"></div>
       </div>
     </div>
 
@@ -2847,23 +2882,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=107"></script>
-<script src="js/utils.js?v=107"></script>
-<script src="js/sms.js?v=107"></script>
-<script src="js/cloud.js?v=107"></script>
-<script src="js/dashboard.js?v=107"></script>
-<script src="js/pos.js?v=107"></script>
-<script src="js/katalog.js?v=107"></script>
-<script src="js/ombor.js?v=107"></script>
-<script src="js/mijozlar.js?v=107"></script>
-<script src="js/qarzlar.js?v=107"></script>
-<script src="js/tarix.js?v=107"></script>
-<script src="js/hisobot.js?v=107"></script>
-<script src="js/xodimlar.js?v=107"></script>
-<script src="js/moliya.js?v=107"></script>
-<script src="js/egasi.js?v=107"></script>
-<script src="js/portal.js?v=107"></script>
-<script src="js/init.js?v=107"></script>
+<script src="js/db.js?v=108"></script>
+<script src="js/utils.js?v=108"></script>
+<script src="js/sms.js?v=108"></script>
+<script src="js/cloud.js?v=108"></script>
+<script src="js/dashboard.js?v=108"></script>
+<script src="js/pos.js?v=108"></script>
+<script src="js/katalog.js?v=108"></script>
+<script src="js/ombor.js?v=108"></script>
+<script src="js/mijozlar.js?v=108"></script>
+<script src="js/qarzlar.js?v=108"></script>
+<script src="js/tarix.js?v=108"></script>
+<script src="js/hisobot.js?v=108"></script>
+<script src="js/xodimlar.js?v=108"></script>
+<script src="js/moliya.js?v=108"></script>
+<script src="js/egasi.js?v=108"></script>
+<script src="js/portal.js?v=108"></script>
+<script src="js/init.js?v=108"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3212,7 +3247,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=107"></script>
-<script src="js/superadmin.js?v=107"></script>
+<script src="js/auth.js?v=108"></script>
+<script src="js/superadmin.js?v=108"></script>
 </body>
 </html>
