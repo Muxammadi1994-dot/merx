@@ -374,76 +374,114 @@ function renderKirimManbalar(naqd, karta, otkazma, balans, total) {
 
 // ── Moliyaviy trend grafigi (6 oy kirim/chiqim) ──
 let _molTrendChart = null;
+let molTrendPeriod = "6month"; // "week"|"month"|"6month"|"year"
+
+function setMolTrendPeriod(p) {
+  molTrendPeriod = p;
+  document.querySelectorAll(".mol-trend-btn").forEach(b => {
+    const on = b.dataset.p === p;
+    b.style.background = on ? "#0D1B2A" : "transparent";
+    b.style.color      = on ? "#fff" : "var(--mut)";
+    b.style.borderColor= on ? "#0D1B2A" : "var(--brd)";
+  });
+  renderMolTrendChart();
+}
+
 function renderMolTrendChart() {
   const el = $("mol-trend-chart"); if (!el || typeof Chart === "undefined") return;
   if (_molTrendChart) { _molTrendChart.destroy(); _molTrendChart = null; }
 
   const rate = db.settings?.rate || 12800;
   const now  = new Date();
-  const months = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    months.push(d.toISOString().slice(0,7));
-  }
-  const labels = months.map(m => {
-    const [y,mo] = m.split("-");
-    const names = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
-    return names[parseInt(mo)-1]+" "+y.slice(2);
-  });
+  const t    = now.toISOString().slice(0,10);
 
-  const kirimData = months.map(m => {
-    const [y,mo] = m.split("-");
-    const from = m+"-01";
-    const lastDay = new Date(+y, +mo, 0).getDate();
-    const to = m+"-"+String(lastDay).padStart(2,"0");
-    // Kassaga tushgan (to'langan) + qarz tushumi
-    let sotuv = 0;
+  let points = []; // [{label, from, to}]
+
+  if (molTrendPeriod === "week") {
+    // So'nggi 7 kun — kunlik
+    for (let i = 6; i >= 0; i--) {
+      const d  = new Date(now); d.setDate(d.getDate()-i);
+      const ds = d.toISOString().slice(0,10);
+      const dd = d.getDate(), mo = d.getMonth();
+      const names = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
+      points.push({ label: `${dd} ${names[mo]}`, from: ds, to: ds });
+    }
+  } else if (molTrendPeriod === "month") {
+    // So'nggi 30 kun — kunlik (har 2 kunda bitta label)
+    for (let i = 29; i >= 0; i--) {
+      const d  = new Date(now); d.setDate(d.getDate()-i);
+      const ds = d.toISOString().slice(0,10);
+      const dd = d.getDate();
+      const names = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
+      points.push({ label: i%3===0 ? `${dd} ${names[d.getMonth()]}` : "", from: ds, to: ds });
+    }
+  } else if (molTrendPeriod === "6month") {
+    // So'nggi 6 oy — oylik
+    for (let i = 5; i >= 0; i--) {
+      const d  = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      const m  = d.toISOString().slice(0,7);
+      const [y,mo] = m.split("-");
+      const names  = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
+      const lastDay = new Date(+y, +mo, 0).getDate();
+      points.push({ label: names[+mo-1]+" "+y.slice(2), from: m+"-01", to: m+"-"+String(lastDay).padStart(2,"0") });
+    }
+  } else { // year
+    // So'nggi 12 oy — oylik
+    for (let i = 11; i >= 0; i--) {
+      const d  = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      const m  = d.toISOString().slice(0,7);
+      const [y,mo] = m.split("-");
+      const names  = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
+      const lastDay = new Date(+y, +mo, 0).getDate();
+      points.push({ label: names[+mo-1]+" "+y.slice(2), from: m+"-01", to: m+"-"+String(lastDay).padStart(2,"0") });
+    }
+  }
+
+  const calcKirim = ({from,to}) => {
+    let sotuv=0, jami=0;
     (db.sales||[]).filter(s=>s.date>=from&&s.date<=to).forEach(s=>{
       const pb=s.payBreakdown;
       if(pb&&(pb.naqd||pb.karta||pb.otkazma)) sotuv+=(pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
-      else sotuv+=(s.paid||0); // nasiya uchun s.paid=0, bu to'g'ri (kassaga tushmagan)
+      else sotuv+=(s.paid||0);
+      jami+=(s.total||0);
     });
-    // Qarz tushumi (avvalgi nasiyalardan kelgan)
-    const qarz = (db.debtPayments||[]).filter(p=>p.date>=from&&p.date<=to)
+    const qarz=(db.debtPayments||[]).filter(p=>p.date>=from&&p.date<=to)
       .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
-    // Jami sotuv (nasiya ham) — moliya dinamikasi uchun to'g'riroq ko'rsatkich
-    const jami = (db.sales||[]).filter(s=>s.date>=from&&s.date<=to)
-      .reduce((a,s)=>a+(s.total||0),0);
-    return { kassa: Math.round((sotuv+qarz)/1000000*10)/10, jami: Math.round(jami/1000000*10)/10 };
-  });
+    return { kassa:Math.round((sotuv+qarz)/1000000*10)/10, jami:Math.round(jami/1000000*10)/10 };
+  };
 
-  const chiqimData = months.map(m => {
-    const [y,mo] = m.split("-");
-    const from = m+"-01";
-    const lastDay = new Date(+y, +mo, 0).getDate();
-    const to = m+"-"+String(lastDay).padStart(2,"0");
-    return Math.round((db.xarajatlar||[]).filter(x=>x.date>=from&&x.date<=to)
+  const calcChiqim = ({from,to}) =>
+    Math.round((db.xarajatlar||[]).filter(x=>x.date>=from&&x.date<=to)
       .reduce((a,x)=>a+(x.amount||0),0)/1000000*10)/10;
-  });
 
-  const jamiData  = kirimData.map(d => d.jami);
-  const kassaData = kirimData.map(d => d.kassa);
-  const foydaData = kassaData.map((k,i)=>Math.round((k-chiqimData[i])*10)/10);
+  const labels     = points.map(p=>p.label);
+  const kirimData  = points.map(calcKirim);
+  const chiqimData = points.map(calcChiqim);
+  const jamiData   = kirimData.map(d=>d.jami);
+  const kassaData  = kirimData.map(d=>d.kassa);
+  const foydaData  = kassaData.map((k,i)=>Math.round((k-chiqimData[i])*10)/10);
 
   _molTrendChart = new Chart(el, {
     type:"bar",
     data:{
       labels,
       datasets:[
-        { label:"Jami sotuv", data:jamiData, backgroundColor:"#4C9BE840", borderColor:"#4C9BE8", borderWidth:1.5, borderRadius:4 },
-        { label:"Kassaga tushdi", data:kassaData, backgroundColor:"#36B48C80", borderColor:"#36B48C", borderWidth:1.5, borderRadius:4 },
-        { label:"Xarajatlar", data:chiqimData, backgroundColor:"#E05A5A80", borderColor:"#E05A5A", borderWidth:1.5, borderRadius:4 },
+        { label:"Jami sotuv",    data:jamiData,   backgroundColor:"#4C9BE840", borderColor:"#4C9BE8", borderWidth:1.5, borderRadius:3 },
+        { label:"Kassaga tushdi",data:kassaData,  backgroundColor:"#36B48C80", borderColor:"#36B48C", borderWidth:1.5, borderRadius:3 },
+        { label:"Xarajatlar",    data:chiqimData, backgroundColor:"#E05A5A80", borderColor:"#E05A5A", borderWidth:1.5, borderRadius:3 },
         { label:"Sof foyda", data:foydaData, type:"line", borderColor:"#E9A500",
-          backgroundColor:"transparent", borderWidth:2, pointRadius:4, pointBackgroundColor:"#E9A500" }
+          backgroundColor:"transparent", borderWidth:2, pointRadius:3, pointBackgroundColor:"#E9A500" }
       ]
     },
     options:{
       responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{position:"top",labels:{font:{size:11},boxWidth:12}},
-        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y} mln so'm`}}},
+      plugins:{
+        legend:{position:"top",labels:{font:{size:11},boxWidth:12}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y} mln so'm`}}
+      },
       scales:{
-        y:{ticks:{callback:v=>v+" mln"},grid:{color:"#F0EEE8"}},
-        x:{grid:{display:false}}
+        y:{beginAtZero:true, ticks:{callback:v=>v+" mln"}, grid:{color:"#F0EEE8"}},
+        x:{grid:{display:false}, ticks:{maxRotation:0, autoSkip:true, maxTicksLimit:12}}
       }
     }
   });

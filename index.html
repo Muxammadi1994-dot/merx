@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=104">
+<link rel="stylesheet" href="style.css?v=105">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1767,9 +1767,21 @@
       </div>
     </div>
 
-    <!-- Moliyaviy trend (6 oy) -->
+    <!-- Moliyaviy trend -->
     <div class="card" style="margin-bottom:16px">
-      <div class="ch"><h3><i class="ti ti-chart-bar"></i>Moliyaviy dinamika (so'nggi 6 oy)</h3></div>
+      <div class="ch" style="flex-wrap:wrap;gap:8px">
+        <h3><i class="ti ti-chart-bar"></i>Moliyaviy dinamika</h3>
+        <div style="display:flex;background:var(--bg);border:1px solid var(--brd);border-radius:9px;padding:3px;gap:2px">
+          <button class="mol-trend-btn" data-p="week" onclick="setMolTrendPeriod('week')"
+            style="padding:5px 12px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Hafta</button>
+          <button class="mol-trend-btn" data-p="month" onclick="setMolTrendPeriod('month')"
+            style="padding:5px 12px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Oy</button>
+          <button class="mol-trend-btn" data-p="6month" onclick="setMolTrendPeriod('6month')"
+            style="padding:5px 12px;font-size:12px;font-weight:600;border:1px solid #0D1B2A;border-radius:7px;background:#0D1B2A;color:#fff;cursor:pointer">6 oy</button>
+          <button class="mol-trend-btn" data-p="year" onclick="setMolTrendPeriod('year')"
+            style="padding:5px 12px;font-size:12px;font-weight:600;border:1px solid var(--brd);border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Yil</button>
+        </div>
+      </div>
       <div style="padding:0 18px 16px;position:relative;height:230px">
         <canvas id="mol-trend-chart"></canvas>
       </div>
@@ -2818,23 +2830,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=104"></script>
-<script src="js/utils.js?v=104"></script>
-<script src="js/sms.js?v=104"></script>
-<script src="js/cloud.js?v=104"></script>
-<script src="js/dashboard.js?v=104"></script>
-<script src="js/pos.js?v=104"></script>
-<script src="js/katalog.js?v=104"></script>
-<script src="js/ombor.js?v=104"></script>
-<script src="js/mijozlar.js?v=104"></script>
-<script src="js/qarzlar.js?v=104"></script>
-<script src="js/tarix.js?v=104"></script>
-<script src="js/hisobot.js?v=104"></script>
-<script src="js/xodimlar.js?v=104"></script>
-<script src="js/moliya.js?v=104"></script>
-<script src="js/egasi.js?v=104"></script>
-<script src="js/portal.js?v=104"></script>
-<script src="js/init.js?v=104"></script>
+<script src="js/db.js?v=105"></script>
+<script src="js/utils.js?v=105"></script>
+<script src="js/sms.js?v=105"></script>
+<script src="js/cloud.js?v=105"></script>
+<script src="js/dashboard.js?v=105"></script>
+<script src="js/pos.js?v=105"></script>
+<script src="js/katalog.js?v=105"></script>
+<script src="js/ombor.js?v=105"></script>
+<script src="js/mijozlar.js?v=105"></script>
+<script src="js/qarzlar.js?v=105"></script>
+<script src="js/tarix.js?v=105"></script>
+<script src="js/hisobot.js?v=105"></script>
+<script src="js/xodimlar.js?v=105"></script>
+<script src="js/moliya.js?v=105"></script>
+<script src="js/egasi.js?v=105"></script>
+<script src="js/portal.js?v=105"></script>
+<script src="js/init.js?v=105"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3183,7 +3195,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=104"></script>
-<script src="js/superadmin.js?v=104"></script>
+<script src="js/auth.js?v=105"></script>
+<script src="js/superadmin.js?v=105"></script>
 </body>
 </html>
