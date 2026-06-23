@@ -357,22 +357,26 @@ function renderMolTrendChart() {
   });
 
   const kirimData = months.map(m => {
-    const from = m+"-01", to = m+"-31";
-    // Sotuv tushumi
+    const [y,mo] = m.split("-");
+    const from = m+"-01";
+    const lastDay = new Date(+y, +mo, 0).getDate();
+    const to = m+"-"+String(lastDay).padStart(2,"0");
     let sotuv = 0;
     (db.sales||[]).filter(s=>s.date>=from&&s.date<=to).forEach(s=>{
       const pb=s.payBreakdown;
       if(pb&&(pb.naqd||pb.karta||pb.otkazma)) sotuv+=(pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
       else sotuv+=s.payType==="nasiya"?0:(s.paid||0);
     });
-    // Qarz tushumi
     const qarz = (db.debtPayments||[]).filter(p=>p.date>=from&&p.date<=to)
       .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
     return Math.round((sotuv+qarz)/1000000*10)/10;
   });
 
   const chiqimData = months.map(m => {
-    const from=m+"-01", to=m+"-31";
+    const [y,mo] = m.split("-");
+    const from = m+"-01";
+    const lastDay = new Date(+y, +mo, 0).getDate();
+    const to = m+"-"+String(lastDay).padStart(2,"0");
     return Math.round((db.xarajatlar||[]).filter(x=>x.date>=from&&x.date<=to)
       .reduce((a,x)=>a+(x.amount||0),0)/1000000*10)/10;
   });
