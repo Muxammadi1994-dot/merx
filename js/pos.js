@@ -774,6 +774,14 @@ function posCloseCart(idx) {
 
 // ── To'lov ────────────────────────────────────────
 function setPayType(t) {
+  // Nasiya ruxsatini tekshirish
+  if (t === "nasiya") {
+    const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
+    const staff   = staffId ? (db.staff||[]).find(s=>s.id===staffId) : null;
+    if (staff && !staff.permNasiya) {
+      toast("Bu kassirda nasiya berish huquqi yo'q","err"); return;
+    }
+  }
   posPayType = t;
   document.querySelectorAll(".ptbtn").forEach(b => b.classList.toggle("on", b.dataset.pt === t));
   const mixBox = $("mixed-pay-box");
@@ -1286,6 +1294,21 @@ function setDiscType(t) {
 }
 
 function applyDiscount() {
+  // Kassir ruxsatini tekshirish
+  const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
+  const staff   = staffId ? (db.staff||[]).find(s=>s.id===staffId) : null;
+
+  if (staff && !staff.permDiscount) {
+    toast("Bu kassirda chegirma berish huquqi yo'q","err"); return;
+  }
+  if (staff && staff.permDiscount && staff.maxDiscount > 0 && discType === "pct") {
+    const val = getRawVal("discount-val") || 0;
+    if (val > staff.maxDiscount) {
+      toast(`Maksimal chegirma: ${staff.maxDiscount}%`,"err");
+      if ($("discount-val")) { $("discount-val").value = staff.maxDiscount; $("discount-val").dataset.raw = staff.maxDiscount; }
+      return;
+    }
+  }
   renderCart();
 }
 

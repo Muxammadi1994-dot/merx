@@ -375,11 +375,11 @@ function openStaffDetail(id) {
         </div>
         <div style="background:#fff;border-radius:8px;padding:8px 10px;text-align:center">
           <div style="font-size:10px;color:var(--mut);margin-bottom:2px">Bonus (${monthStats.bonusPct}%)</div>
-          <div style="font-size:14px;font-weight:800;color:var(--acc)">${fmt(monthStats.bonus)} so'm</div>
+          <div id="staff-bonus-disp-${s.id}" style="font-size:14px;font-weight:800;color:var(--acc)">${fmt(monthStats.bonus)} so'm</div>
         </div>
         <div style="background:#0D1B2A;border-radius:8px;padding:8px 10px;text-align:center">
           <div style="font-size:10px;color:#aaa;margin-bottom:2px">Jami to'lov</div>
-          <div style="font-size:15px;font-weight:800;color:#E9A500">${fmt(monthStats.totalPay)} so'm</div>
+          <div id="staff-total-disp-${s.id}" style="font-size:15px;font-weight:800;color:#E9A500">${fmt(monthStats.totalPay)} so'm</div>
         </div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
@@ -485,12 +485,13 @@ function updateStaffPay(id, field, val) {
   const s = db.staff.find(x => x.id === id); if (!s) return;
   s[field] = parseFloat(val) || 0;
   saveDB();
-  // Maosh panelini yangilaymiz
-  const m = today().slice(0,7);
+  // Maosh panelini real-time yangilaymiz
+  const m  = today().slice(0,7);
   const ms = staffStats(id, m+"-01", today());
-  // Jami to'lov ni yangilaymiz
-  const totEl = document.querySelector(`[data-staff-total="${id}"]`);
-  if (totEl) totEl.textContent = fmt(ms.totalPay) + " so'm";
+  const bonusEl  = document.getElementById(`staff-bonus-disp-${id}`);
+  const totalEl  = document.getElementById(`staff-total-disp-${id}`);
+  if (bonusEl) bonusEl.textContent = fmt(ms.bonus) + " so'm";
+  if (totalEl) totalEl.textContent = fmt(ms.totalPay) + " so'm";
 }
 
 // ── Xodim qo'shish ────────────────────────────────
@@ -580,10 +581,10 @@ function deleteStaff(id) {
 
 // ── Excel eksport ─────────────────────────────────
 function exportStaffExcel() {
-  const m    = today().slice(0,7);
-  const from = m+"-01", to = today();
+  const { from, to } = xodDateRange();
   const rows = [["Ism","Telefon","Lavozim","Oylik","Bonus%","Ishga kirgan","Tug'ilgan kun",
-    "Bu oy sotuv","Bu oy kassaga tushdi","Bu oy bonus","Jami to'lov","Nasiya%","O'rtacha chek",
+    `Sotuvlar (${from}—${to})`, "Kassaga tushdi", "Bonus", "Jami to'lov",
+    "Nasiya%", "O'rtacha chek",
     "Chegirma huquqi","Nasiya huquqi","Qaytarish huquqi"]];
 
   (db.staff||[]).forEach(s => {
