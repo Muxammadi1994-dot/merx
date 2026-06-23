@@ -311,11 +311,11 @@ function renderMoliya() {
   const balans  = allSotuvPaid + allDebtPaid - allExp;
 
   // KPI
-  if ($("mol-balans"))       $("mol-balans").textContent       = fmt(balans)+" so'm";
-  if ($("mol-kirim"))        $("mol-kirim").textContent        = fmt(sotuv)+" so'm";
-  if ($("mol-chiqim"))       $("mol-chiqim").textContent       = fmt(chiqim)+" so'm";
-  if ($("mol-month-rev"))    $("mol-month-rev").textContent    = fmt(sotuv)+" so'm";
-  if ($("mol-month-exp"))    $("mol-month-exp").textContent    = fmt(chiqim)+" so'm";
+  if ($("mol-balans"))       $("mol-balans").textContent       = fmtK(balans)+" so'm";
+  if ($("mol-kirim"))        $("mol-kirim").textContent        = fmtK(sotuv)+" so'm";
+  if ($("mol-chiqim"))       $("mol-chiqim").textContent       = fmtK(chiqim)+" so'm";
+  if ($("mol-month-rev"))    $("mol-month-rev").textContent    = fmtK(sotuv)+" so'm";
+  if ($("mol-month-exp"))    $("mol-month-exp").textContent    = fmtK(chiqim)+" so'm";
   if ($("mol-exp-cnt"))      $("mol-exp-cnt").textContent      = periodExps.length+" ta";
   if ($("mol-sup-debt"))     $("mol-sup-debt").textContent     = fmt(supDebt)+" so'm";
   if ($("mol-sotuv-tushum")) $("mol-sotuv-tushum").textContent = fmt(sotuvTushum)+" so'm";
@@ -726,7 +726,13 @@ function expCatPick(el) {
 function renderExpExtraField(cat) {
   const wrap = $("ax-extra-wrap"); if (!wrap) return;
 
-  if (cat === "Maosh") {
+  if (cat === "Ijara") {
+    wrap.innerHTML = `
+      <div class="fld">
+        <label>Uy egasi / Ijara beruvchi <span style="font-size:11px;color:var(--mut)">(ixtiyoriy)</span></label>
+        <input id="ax-recipient" placeholder="Masalan: Abdullayev Jasur..." style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%">
+      </div>`;
+  } else if (cat === "Maosh") {
     // Xodim tanlash
     const staffOpts = (db.staff||[]).map(s =>
       `<option value="${s.name}">${s.name} (${s.role||"xodim"})</option>`
@@ -1017,25 +1023,88 @@ function paySupplierDebt(supplier, totalDebt) {
   const sups = (db.ombor||[]).filter(o => o.payStatus === "qarz" && (o.supplier||"Noma'lum") === supplier);
   if (!sups.length) { toast("Qarz topilmadi","err"); return; }
 
-  const msg = `"${supplier}" ga ${fmt(totalDebt)} so'm to'lansinmi?\n(${sups.length} ta partiya to'langan deb belgilanadi)`;
-  if (!confirm(msg)) return;
+  // Modal orqali to'lash
+  const modalId = "sup-pay-modal";
+  let existing = $(modalId);
+  if (existing) existing.remove();
+
+  const modal = document.createElement("div");
+  modal.className = "ov";
+  modal.id = modalId;
+  modal.style.cssText = "display:flex";
+  modal.innerHTML = `
+    <div class="modal" style="max-width:400px">
+      <button class="m-close" onclick="$(\'${modalId}\').remove()"><i class="ti ti-x"></i></button>
+      <h2 style="margin-bottom:4px">Yetkazuvchiga to'lash</h2>
+      <p style="font-size:13px;color:var(--mut);margin-bottom:14px">
+        <b>${supplier}</b> · Jami qarz: <b style="color:var(--red)">${fmt(totalDebt)} so'm</b>
+      </p>
+      <div class="fld">
+        <label>To'lov summasi</label>
+        <input id="sup-pay-sum" type="text" data-price placeholder="${fmt(totalDebt)}"
+          value="${fmt(totalDebt)}" oninput="fmtInput(this)"
+          style="font-size:15px;font-weight:700;font-family:inherit;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;width:100%">
+        <div style="font-size:11.5px;color:var(--mut);margin-top:4px">Qisman to'lash mumkin</div>
+      </div>
+      <div class="fld">
+        <label>To'lov usuli</label>
+        <select id="sup-pay-method" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;background:#fff">
+          <option value="naqd">💵 Naqd</option>
+          <option value="karta">💳 Karta</option>
+          <option value="otkazma">🏦 O'tkazma</option>
+        </select>
+      </div>
+      <div class="fld">
+        <label>Izoh</label>
+        <input id="sup-pay-note" placeholder="${supplier} — qarz to'lovi"
+          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%">
+      </div>
+      <button class="btn btn-acc" style="width:100%;margin-top:4px"
+        onclick="confirmSupPay('${supplier.replace(/'/g,"\\'")}', ${totalDebt})">
+        <i class="ti ti-check"></i> To'lashni tasdiqlash
+      </button>
+    </div>`;
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+  document.body.appendChild(modal);
+
+  // Summa inputi focus
+  setTimeout(()=>{ const s=$(("sup-pay-sum")); if(s){s.dataset.raw=totalDebt; s.select();}}, 50);
+}
+
+function confirmSupPay(supplier, totalDebt) {
+  const rawSum = getRawVal("sup-pay-sum");
+  const method = ($("sup-pay-method")||{value:"naqd"}).value;
+  const note   = ($("sup-pay-note")||{value:""}).value || `${supplier} — qarz to'lovi`;
+
+  if (!rawSum || rawSum <= 0) { toast("Summani kiriting","err"); return; }
+  if (rawSum > totalDebt) { toast("To'lov summasi qarzdan ko'p","err"); return; }
+
+  const sups = (db.ombor||[]).filter(o => o.payStatus === "qarz" && (o.supplier||"Noma'lum") === supplier);
 
   // Xarajatlarga qo'shamiz
   if (!db.xarajatlar) db.xarajatlar = [];
   db.xarajatlar.push({
-    id:        db.seq++,
-    date:      today(),
-    category:  "Yetkazuvchi",
-    amount:    totalDebt,
-    recipient: supplier,
-    paidBy:    "kassa",
-    note:      `${supplier} — ${sups.length} ta partiya uchun qarz to'lovi`
+    id: db.seq++, date: today(), category: "Yetkazuvchi",
+    amount: rawSum, recipient: supplier, paidBy: "kassa",
+    method, note
   });
 
-  // Ombordagi partiyalarni to'langan deb belgilaymiz
-  sups.forEach(o => { o.payStatus = "tolandan"; });
+  // Agar to'liq to'lansa — partiyalarni to'langan deb belgilaymiz
+  if (rawSum >= totalDebt) {
+    sups.forEach(o => { o.payStatus = "tolandan"; });
+    toast(`✅ "${supplier}" ga ${fmt(rawSum)} so'm to'landi. ${sups.length} ta partiya yopildi.`);
+  } else {
+    // Qisman to'lov — birinchi partiyalardan boshlab yopiladi
+    let remaining = rawSum;
+    for (const o of sups) {
+      const val = (o.kirimNarxi||0) * (o.qty||0);
+      if (remaining >= val) { o.payStatus = "tolandan"; remaining -= val; }
+      else break;
+    }
+    toast(`✅ "${supplier}" ga ${fmt(rawSum)} so'm to'landi (qisman).`);
+  }
 
   saveDB();
+  $("sup-pay-modal")?.remove();
   renderMoliya();
-  toast(`✅ "${supplier}" ga ${fmt(totalDebt)} so'm to'landi. ${sups.length} ta partiya to'langan deb belgilandi.`);
 }
