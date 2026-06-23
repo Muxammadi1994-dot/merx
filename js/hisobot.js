@@ -182,6 +182,7 @@ function renderHisobot() {
   renderRepTurnover(sales);
   renderRepABC(sales);
   renderRepCustomerSegment(sales);
+  applyRepKpiVisibility();
 }
 
 // ── Sotuv dinamikasi grafigi ──────────────────────
@@ -362,6 +363,40 @@ function renderRepPriceType(sales) {
         </td>
       </tr>`;
     }).join("");
+}
+
+const REP_KPI_LABELS = {
+  cnt:"Sotuvlar soni", rev:"Jami sotuv", paid:"Kassaga tushdi", debt:"Qolgan qarz",
+  profit:"Hisoblangan foyda", realprofit:"Kassaga tushgan foyda", margin:"Margin",
+  cost:"Jami tannarx", expenses:"Xarajatlar", netprofit:"Sof foyda", netmargin:"Sof margin"
+};
+
+function hideRepKpi(key) {
+  if (!db.settings) db.settings={};
+  const h=new Set(db.settings.hiddenRepKpis||[]);
+  h.add(key); db.settings.hiddenRepKpis=[...h]; saveDB(); applyRepKpiVisibility();
+}
+function showRepKpi(key) {
+  if (!db.settings) db.settings={};
+  const h=new Set(db.settings.hiddenRepKpis||[]);
+  h.delete(key); db.settings.hiddenRepKpis=[...h]; saveDB(); applyRepKpiVisibility();
+}
+function applyRepKpiVisibility() {
+  const hidden=new Set(db.settings?.hiddenRepKpis||[]);
+  document.querySelectorAll("#rep-kpis .kpi").forEach(el=>{
+    el.style.display=hidden.has(el.dataset.kpi)?"none":"block";
+  });
+}
+function openRepKpiSettings() {
+  const hidden=new Set(db.settings?.hiddenRepKpis||[]);
+  const list=$("rep-kpi-settings-list"); if(!list) return;
+  list.innerHTML=Object.entries(REP_KPI_LABELS).map(([k,l])=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--brd);border-radius:9px;cursor:pointer">
+      <input type="checkbox" ${!hidden.has(k)?"checked":""} onchange="this.checked?showRepKpi('${k}'):hideRepKpi('${k}')"
+        style="width:17px;height:17px;accent-color:var(--acc);cursor:pointer">
+      <span style="font-size:13px;font-weight:600">${l}</span>
+    </label>`).join("");
+  openModal("repkpi");
 }
 
 // ── O'sish taqqoslovi ─────────────────────────────

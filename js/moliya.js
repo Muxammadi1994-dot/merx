@@ -6,6 +6,40 @@
 let molPeriod = "month"; // default: bu oy
 let _expChart = null;
 
+const MOL_KPI_LABELS = {
+  rev:"Kassaga tushdi (jami)", sotuv:"Sotuv tushumi", qarz:"Qarz tushumi",
+  exp:"Xarajatlar", gross:"Yalpi foyda", net:"Sof foyda",
+  supdebt:"Yetkazuvchi qarzi", usd:"USD tushum", cnt:"Xarajatlar soni"
+};
+
+function hideMolKpi(key) {
+  if (!db.settings) db.settings={};
+  const h=new Set(db.settings.hiddenMolKpis||[]);
+  h.add(key); db.settings.hiddenMolKpis=[...h]; saveDB(); applyMolKpiVisibility();
+}
+function showMolKpi(key) {
+  if (!db.settings) db.settings={};
+  const h=new Set(db.settings.hiddenMolKpis||[]);
+  h.delete(key); db.settings.hiddenMolKpis=[...h]; saveDB(); applyMolKpiVisibility();
+}
+function applyMolKpiVisibility() {
+  const hidden=new Set(db.settings?.hiddenMolKpis||[]);
+  document.querySelectorAll("#mol-kpi-row .stb").forEach(el=>{
+    el.style.display=hidden.has(el.dataset.mkpi)?"none":"block";
+  });
+}
+function openMolKpiSettings() {
+  const hidden=new Set(db.settings?.hiddenMolKpis||[]);
+  const list=$("mol-kpi-settings-list"); if(!list) return;
+  list.innerHTML=Object.entries(MOL_KPI_LABELS).map(([k,l])=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--brd);border-radius:9px;cursor:pointer">
+      <input type="checkbox" ${!hidden.has(k)?"checked":""} onchange="this.checked?showMolKpi('${k}'):hideMolKpi('${k}')"
+        style="width:17px;height:17px;accent-color:var(--acc);cursor:pointer">
+      <span style="font-size:13px;font-weight:600">${l}</span>
+    </label>`).join("");
+  openModal("molkpi");
+}
+
 // EXP_CATS allaqachon db.js da bo'lishi mumkin — xavfsiz e'lon
 if (typeof window.EXP_CATS === "undefined") {
   window.EXP_CATS   = ["Ijara","Maosh","Transport","Kommunal","Reklama","Yetkazuvchi","Boshqa"];
@@ -226,6 +260,7 @@ function renderMoliya() {
   renderExpChart(catTotals, chiqim);
   renderFlowBars(sotuv, chiqim);
   renderMolTrendChart();
+  applyMolKpiVisibility();
 }
 
 // ── Donut chart ───────────────────────────────────
@@ -361,15 +396,20 @@ function renderMolTrendChart() {
     const from = m+"-01";
     const lastDay = new Date(+y, +mo, 0).getDate();
     const to = m+"-"+String(lastDay).padStart(2,"0");
+    // Kassaga tushgan (to'langan) + qarz tushumi
     let sotuv = 0;
     (db.sales||[]).filter(s=>s.date>=from&&s.date<=to).forEach(s=>{
       const pb=s.payBreakdown;
       if(pb&&(pb.naqd||pb.karta||pb.otkazma)) sotuv+=(pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
-      else sotuv+=s.payType==="nasiya"?0:(s.paid||0);
+      else sotuv+=(s.paid||0); // nasiya uchun s.paid=0, bu to'g'ri (kassaga tushmagan)
     });
+    // Qarz tushumi (avvalgi nasiyalardan kelgan)
     const qarz = (db.debtPayments||[]).filter(p=>p.date>=from&&p.date<=to)
       .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
-    return Math.round((sotuv+qarz)/1000000*10)/10;
+    // Jami sotuv (nasiya ham) — moliya dinamikasi uchun to'g'riroq ko'rsatkich
+    const jami = (db.sales||[]).filter(s=>s.date>=from&&s.date<=to)
+      .reduce((a,s)=>a+(s.total||0),0);
+    return { kassa: Math.round((sotuv+qarz)/1000000*10)/10, jami: Math.round(jami/1000000*10)/10 };
   });
 
   const chiqimData = months.map(m => {
@@ -381,17 +421,20 @@ function renderMolTrendChart() {
       .reduce((a,x)=>a+(x.amount||0),0)/1000000*10)/10;
   });
 
-  const foydaData = kirimData.map((k,i)=>Math.round((k-chiqimData[i])*10)/10);
+  const jamiData  = kirimData.map(d => d.jami);
+  const kassaData = kirimData.map(d => d.kassa);
+  const foydaData = kassaData.map((k,i)=>Math.round((k-chiqimData[i])*10)/10);
 
   _molTrendChart = new Chart(el, {
     type:"bar",
     data:{
       labels,
       datasets:[
-        { label:"Kirim", data:kirimData, backgroundColor:"#36B48C80", borderColor:"#36B48C", borderWidth:1.5, borderRadius:4 },
-        { label:"Chiqim", data:chiqimData, backgroundColor:"#E05A5A80", borderColor:"#E05A5A", borderWidth:1.5, borderRadius:4 },
+        { label:"Jami sotuv", data:jamiData, backgroundColor:"#4C9BE840", borderColor:"#4C9BE8", borderWidth:1.5, borderRadius:4 },
+        { label:"Kassaga tushdi", data:kassaData, backgroundColor:"#36B48C80", borderColor:"#36B48C", borderWidth:1.5, borderRadius:4 },
+        { label:"Xarajatlar", data:chiqimData, backgroundColor:"#E05A5A80", borderColor:"#E05A5A", borderWidth:1.5, borderRadius:4 },
         { label:"Sof foyda", data:foydaData, type:"line", borderColor:"#E9A500",
-          backgroundColor:"transparent", borderWidth:2, pointRadius:3, pointBackgroundColor:"#E9A500" }
+          backgroundColor:"transparent", borderWidth:2, pointRadius:4, pointBackgroundColor:"#E9A500" }
       ]
     },
     options:{

@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=103">
+<link rel="stylesheet" href="style.css?v=104">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1456,46 +1456,58 @@
       <div id="rep-growth"><span style="color:var(--mut);font-size:13px">Yuklanmoqda...</span></div>
     </div>
 
+    <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+      <button class="btn btn-ghost btn-sm" onclick="openRepKpiSettings()" title="KPI kartalarni sozlash">
+        <i class="ti ti-settings"></i> Kartalarni sozlash
+      </button>
+    </div>
     <div class="kpi-row" id="rep-kpis">
-      <div class="kpi kpi-acc"><div class="kl">Sotuvlar soni</div><div class="kv num" id="rep-cnt">0</div></div>
-      <div class="kpi kpi-teal"><div class="kl">Jami sotuv (nasiya bilan)</div><div class="kv num" id="rep-rev">0</div></div>
-      <div class="kpi kpi-grn"><div class="kl">Kassaga tushdi</div><div class="kv num" id="rep-paid">0</div></div>
-      <div class="kpi kpi-red"><div class="kl">Qolgan qarz</div><div class="kv num" id="rep-debt">0</div></div>
-      <div class="kpi" style="border-top:3px solid #36B48C">
-        <div class="kl">Hisoblangan foyda
-          <span style="font-size:10px;color:#aaa;display:block;font-weight:400">sotuv - tannarx (nasiya ham)</span>
-        </div>
-        <div class="kv num" id="rep-profit" style="color:#36B48C">0</div>
-      </div>
-      <div class="kpi" style="border-top:3px solid #8B5CF6">
-        <div class="kl">Kassaga tushgan foyda
-          <span style="font-size:10px;color:#aaa;display:block;font-weight:400">faqat to'langan summadan</span>
-        </div>
-        <div class="kv num" id="rep-real-profit" style="color:#8B5CF6">0</div>
-      </div>
-      <div class="kpi" style="border-top:3px solid #E9A500">
-        <div class="kl">Margin</div>
-        <div class="kv num" id="rep-margin" style="color:#E9A500">0%</div>
-      </div>
-      <div class="kpi" style="border-top:3px solid #aaa">
-        <div class="kl">Jami tannarx</div>
-        <div class="kv num" id="rep-cost" style="color:#888">0</div>
-      </div>
-      <div class="kpi" style="border-top:3px solid var(--red)">
-        <div class="kl">Xarajatlar
-          <span style="font-size:10px;color:#aaa;display:block;font-weight:400">shu davr uchun</span>
-        </div>
-        <div class="kv num" id="rep-expenses" style="color:var(--red)">0</div>
-      </div>
-      <div class="kpi" style="border-top:3px solid #0D1B2A">
-        <div class="kl">Sof foyda
-          <span style="font-size:10px;color:#aaa;display:block;font-weight:400">kassa − xarajatlar</span>
-        </div>
-        <div class="kv num" id="rep-net-profit" style="color:#0D1B2A">0</div>
-      </div>
-      <div class="kpi" style="border-top:3px solid #0D1B2A">
-        <div class="kl">Sof margin</div>
-        <div class="kv num" id="rep-net-margin">0%</div>
+      <div class="kpi kpi-acc" data-kpi="cnt" style="position:relative">
+        <button class="kpi-hide-btn" onclick="hideRepKpi('cnt')"><i class="ti ti-eye-off"></i></button>
+        <div class="kl">Sotuvlar soni</div><div class="kv num" id="rep-cnt">0</div></div>
+      <div class="kpi kpi-teal" data-kpi="rev" style="position:relative">
+        <button class="kpi-hide-btn" onclick="hideRepKpi('rev')"><i class="ti ti-eye-off"></i></button>
+        <div class="kl">Jami sotuv (nasiya bilan)</div><div class="kv num" id="rep-rev">0</div></div>
+      <div class="kpi kpi-grn" data-kpi="paid" style="position:relative">
+        <button class="kpi-hide-btn" onclick="hideRepKpi('paid')"><i class="ti ti-eye-off"></i></button>
+        <div class="kl">Kassaga tushdi</div><div class="kv num" id="rep-paid">0</div></div>
+      <div class="kpi kpi-red" data-kpi="debt" style="position:relative">
+        <button class="kpi-hide-btn" onclick="hideRepKpi('debt')"><i class="ti ti-eye-off"></i></button>
+        <div class="kl">Qolgan qarz</div><div class="kv num" id="rep-debt">0</div></div>
+      <div class="kpi" data-kpi="profit" style="position:relative;border-top:3px solid #36B48C">
+        <button class="kpi-hide-btn" onclick="hideRepKpi('profit')"><i class="ti ti-eye-off"></i></button>
+        <div class="kl">Hisoblangan foyda<span style="font-size:10px;color:#aaa;display:block;font-weight:400">sotuv - tannarx</span></div>
+        <div class="kv num" id="rep-profit" style="color:#36B48C">0</div></div>
+      <div class="kpi" data-kpi="realprofit" style="position:relative;border-top:3px solid #8B5CF6">
+        <button class="kpi-hide-btn" onclick="hideRepKpi('realprofit')"><i class="ti ti-eye-off"></i></button>
+        <div class="kl">Kassaga tushgan foyda<span style="font-size:10px;color:#aaa;display:block;font-weight:400">to'langan summadan</span></div>
+        <div class="kv num" id="rep-real-profit" style="color:#8B5CF6">0</div></div>
+      <div class="kpi" data-kpi="margin" style="position:relative;border-top:3px solid #E9A500">
+        <button class="kpi-hide-btn" onclick="hideRepKpi('margin')"><i class="ti ti-eye-off"></i></button>
+        <div class="kl">Margin</div><div class="kv num" id="rep-margin" style="color:#E9A500">0%</div></div>
+      <div class="kpi" data-kpi="cost" style="position:relative;border-top:3px solid #aaa">
+        <button class="kpi-hide-btn" onclick="hideRepKpi('cost')"><i class="ti ti-eye-off"></i></button>
+        <div class="kl">Jami tannarx</div><div class="kv num" id="rep-cost" style="color:#888">0</div></div>
+      <div class="kpi" data-kpi="expenses" style="position:relative;border-top:3px solid var(--red)">
+        <button class="kpi-hide-btn" onclick="hideRepKpi('expenses')"><i class="ti ti-eye-off"></i></button>
+        <div class="kl">Xarajatlar<span style="font-size:10px;color:#aaa;display:block;font-weight:400">shu davr uchun</span></div>
+        <div class="kv num" id="rep-expenses" style="color:var(--red)">0</div></div>
+      <div class="kpi" data-kpi="netprofit" style="position:relative;border-top:3px solid #0D1B2A">
+        <button class="kpi-hide-btn" onclick="hideRepKpi('netprofit')"><i class="ti ti-eye-off"></i></button>
+        <div class="kl">Sof foyda<span style="font-size:10px;color:#aaa;display:block;font-weight:400">kassa − xarajatlar</span></div>
+        <div class="kv num" id="rep-net-profit" style="color:#0D1B2A">0</div></div>
+      <div class="kpi" data-kpi="netmargin" style="position:relative;border-top:3px solid #0D1B2A">
+        <button class="kpi-hide-btn" onclick="hideRepKpi('netmargin')"><i class="ti ti-eye-off"></i></button>
+        <div class="kl">Sof margin</div><div class="kv num" id="rep-net-margin">0%</div></div>
+    </div>
+
+    <!-- MODAL: Hisobot KPI sozlash -->
+    <div class="ov" id="ov-repkpi" onclick="if(event.target===this)closeModal('repkpi')">
+      <div class="modal" style="max-width:380px">
+        <button class="m-close" onclick="closeModal('repkpi')"><i class="ti ti-x"></i></button>
+        <h2 style="margin-bottom:4px">KPI kartalarni sozlash</h2>
+        <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Qaysi ko'rsatkichlar ko'rinishini tanlang</p>
+        <div id="rep-kpi-settings-list" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
     </div>
 
@@ -1701,42 +1713,57 @@
     </div>
 
     <!-- KPI kartalar -->
-    <div class="stat-row" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
-      <div class="stb">
-        <div class="sl">Kassaga tushdi <span style="font-size:10px;color:#aaa;font-weight:400">(jami)</span></div>
-        <div class="sv num" id="mol-month-rev">0</div>
-      </div>
-      <div class="stb" style="border-top:3px solid #36B48C">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+      <button class="btn btn-ghost btn-sm" onclick="openMolKpiSettings()" title="KPI kartalarni sozlash">
+        <i class="ti ti-settings"></i> Kartalarni sozlash
+      </button>
+    </div>
+    <div class="stat-row" id="mol-kpi-row" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+      <div class="stb" data-mkpi="rev" style="position:relative">
+        <button class="kpi-hide-btn" onclick="hideMolKpi('rev')"><i class="ti ti-eye-off"></i></button>
+        <div class="sl">Kassaga tushdi<span style="font-size:10px;color:#aaa;display:block;font-weight:400">(jami)</span></div>
+        <div class="sv num" id="mol-month-rev">0</div></div>
+      <div class="stb" data-mkpi="sotuv" style="position:relative;border-top:3px solid #36B48C">
+        <button class="kpi-hide-btn" onclick="hideMolKpi('sotuv')"><i class="ti ti-eye-off"></i></button>
         <div class="sl">Sotuv tushumi</div>
-        <div class="sv num" id="mol-sotuv-tushum" style="color:#36B48C">0</div>
-      </div>
-      <div class="stb" style="border-top:3px solid #4C9BE8">
-        <div class="sl">Qarz tushumi <span style="font-size:10px;color:#aaa;font-weight:400">(to'langan)</span></div>
-        <div class="sv num" id="mol-qarz-tushum" style="color:#4C9BE8">0</div>
-      </div>
-      <div class="stb" style="border-top:3px solid var(--red)">
+        <div class="sv num" id="mol-sotuv-tushum" style="color:#36B48C">0</div></div>
+      <div class="stb" data-mkpi="qarz" style="position:relative;border-top:3px solid #4C9BE8">
+        <button class="kpi-hide-btn" onclick="hideMolKpi('qarz')"><i class="ti ti-eye-off"></i></button>
+        <div class="sl">Qarz tushumi<span style="font-size:10px;color:#aaa;display:block;font-weight:400">(to'langan)</span></div>
+        <div class="sv num" id="mol-qarz-tushum" style="color:#4C9BE8">0</div></div>
+      <div class="stb" data-mkpi="exp" style="position:relative;border-top:3px solid var(--red)">
+        <button class="kpi-hide-btn" onclick="hideMolKpi('exp')"><i class="ti ti-eye-off"></i></button>
         <div class="sl">Xarajatlar</div>
-        <div class="sv num" id="mol-month-exp" style="color:var(--red)">0</div>
-      </div>
-      <div class="stb" style="border-top:3px solid #E9A500">
-        <div class="sl">Yalpi foyda <span style="font-size:10px;font-weight:400;color:#bbb">(tannarxsiz)</span></div>
-        <div class="sv num" id="mol-gross" style="color:#E9A500">0</div>
-      </div>
-      <div class="stb" style="border-top:3px solid var(--grn)">
-        <div class="sl">Sof foyda <span style="font-size:10px;font-weight:400;color:#bbb">(−xarajat)</span></div>
-        <div class="sv num" id="mol-profit" style="color:var(--grn)">0</div>
-      </div>
-      <div class="stb" style="border-top:3px solid var(--red)">
+        <div class="sv num" id="mol-month-exp" style="color:var(--red)">0</div></div>
+      <div class="stb" data-mkpi="gross" style="position:relative;border-top:3px solid #E9A500">
+        <button class="kpi-hide-btn" onclick="hideMolKpi('gross')"><i class="ti ti-eye-off"></i></button>
+        <div class="sl">Yalpi foyda<span style="font-size:10px;font-weight:400;color:#bbb;display:block">(tannarxsiz)</span></div>
+        <div class="sv num" id="mol-gross" style="color:#E9A500">0</div></div>
+      <div class="stb" data-mkpi="net" style="position:relative;border-top:3px solid var(--grn)">
+        <button class="kpi-hide-btn" onclick="hideMolKpi('net')"><i class="ti ti-eye-off"></i></button>
+        <div class="sl">Sof foyda<span style="font-size:10px;font-weight:400;color:#bbb;display:block">(−xarajat)</span></div>
+        <div class="sv num" id="mol-profit" style="color:var(--grn)">0</div></div>
+      <div class="stb" data-mkpi="supdebt" style="position:relative;border-top:3px solid var(--red)">
+        <button class="kpi-hide-btn" onclick="hideMolKpi('supdebt')"><i class="ti ti-eye-off"></i></button>
         <div class="sl">Yetkazuvchi qarzi</div>
-        <div class="sv num" id="mol-sup-debt" style="color:var(--red)">0</div>
-      </div>
-      <div class="stb" style="border-top:3px solid #1B4F72">
-        <div class="sl">USD tushum <span style="font-size:10px;color:#aaa;font-weight:400">(sotuv+qarz)</span></div>
-        <div class="sv" id="mol-usd-tushum" style="color:#1B4F72;font-size:14px">—</div>
-      </div>
-      <div class="stb">
+        <div class="sv num" id="mol-sup-debt" style="color:var(--red)">0</div></div>
+      <div class="stb" data-mkpi="usd" style="position:relative;border-top:3px solid #1B4F72">
+        <button class="kpi-hide-btn" onclick="hideMolKpi('usd')"><i class="ti ti-eye-off"></i></button>
+        <div class="sl">USD tushum<span style="font-size:10px;color:#aaa;display:block;font-weight:400">(sotuv+qarz)</span></div>
+        <div class="sv" id="mol-usd-tushum" style="color:#1B4F72;font-size:14px">—</div></div>
+      <div class="stb" data-mkpi="cnt" style="position:relative">
+        <button class="kpi-hide-btn" onclick="hideMolKpi('cnt')"><i class="ti ti-eye-off"></i></button>
         <div class="sl">Xarajatlar soni</div>
-        <div class="sv" id="mol-exp-cnt">0 ta</div>
+        <div class="sv" id="mol-exp-cnt">0 ta</div></div>
+    </div>
+
+    <!-- MODAL: Moliya KPI sozlash -->
+    <div class="ov" id="ov-molkpi" onclick="if(event.target===this)closeModal('molkpi')">
+      <div class="modal" style="max-width:380px">
+        <button class="m-close" onclick="closeModal('molkpi')"><i class="ti ti-x"></i></button>
+        <h2 style="margin-bottom:4px">KPI kartalarni sozlash</h2>
+        <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Qaysi ko'rsatkichlar ko'rinishini tanlang</p>
+        <div id="mol-kpi-settings-list" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
     </div>
 
@@ -2791,23 +2818,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=103"></script>
-<script src="js/utils.js?v=103"></script>
-<script src="js/sms.js?v=103"></script>
-<script src="js/cloud.js?v=103"></script>
-<script src="js/dashboard.js?v=103"></script>
-<script src="js/pos.js?v=103"></script>
-<script src="js/katalog.js?v=103"></script>
-<script src="js/ombor.js?v=103"></script>
-<script src="js/mijozlar.js?v=103"></script>
-<script src="js/qarzlar.js?v=103"></script>
-<script src="js/tarix.js?v=103"></script>
-<script src="js/hisobot.js?v=103"></script>
-<script src="js/xodimlar.js?v=103"></script>
-<script src="js/moliya.js?v=103"></script>
-<script src="js/egasi.js?v=103"></script>
-<script src="js/portal.js?v=103"></script>
-<script src="js/init.js?v=103"></script>
+<script src="js/db.js?v=104"></script>
+<script src="js/utils.js?v=104"></script>
+<script src="js/sms.js?v=104"></script>
+<script src="js/cloud.js?v=104"></script>
+<script src="js/dashboard.js?v=104"></script>
+<script src="js/pos.js?v=104"></script>
+<script src="js/katalog.js?v=104"></script>
+<script src="js/ombor.js?v=104"></script>
+<script src="js/mijozlar.js?v=104"></script>
+<script src="js/qarzlar.js?v=104"></script>
+<script src="js/tarix.js?v=104"></script>
+<script src="js/hisobot.js?v=104"></script>
+<script src="js/xodimlar.js?v=104"></script>
+<script src="js/moliya.js?v=104"></script>
+<script src="js/egasi.js?v=104"></script>
+<script src="js/portal.js?v=104"></script>
+<script src="js/init.js?v=104"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3156,7 +3183,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=103"></script>
-<script src="js/superadmin.js?v=103"></script>
+<script src="js/auth.js?v=104"></script>
+<script src="js/superadmin.js?v=104"></script>
 </body>
 </html>
