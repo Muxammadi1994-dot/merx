@@ -515,7 +515,7 @@ function _getStaffFormData() {
 }
 
 function _resetStaffForm() {
-  ["as-name","as-phone","as-salary","as-bonus","as-startdate","as-birthday","as-address","as-note","as-max-discount"]
+  ["as-name","as-phone","as-pin","as-salary","as-bonus","as-startdate","as-birthday","as-address","as-note","as-max-discount"]
     .forEach(id => { if ($(id)) $(id).value = ""; });
   if ($("as-role")) $("as-role").value = "kassir";
   ["as-perm-discount","as-perm-nasiya","as-perm-return"].forEach(id => { if($(id)) $(id).checked=false; });

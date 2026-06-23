@@ -12,8 +12,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=130">
+<link rel="stylesheet" href="style.css?v=131">
 <style>
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { display:inline-block; animation: spin .8s linear infinite; }
+
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
 .dh-left{flex:1;min-width:160px}.dh-greet{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:3px}
@@ -265,6 +268,20 @@
   <div class="logo">
     <div class="logo-m">MX</div>
     <div><span class="logo-t">MERX</span><span class="logo-s">Ulgurji savdo</span></div>
+  </div>
+  <!-- Foydalanuvchi info -->
+  <div style="margin:0 12px 8px;padding:10px 12px;background:rgba(255,255,255,.07);border-radius:10px;display:flex;align-items:center;gap:10px">
+    <div style="width:32px;height:32px;border-radius:8px;background:#E9A500;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <i class="ti ti-user" style="color:#0D1B2A;font-size:16px"></i>
+    </div>
+    <div style="flex:1;min-width:0">
+      <div id="auth-user-name" style="font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+      <div id="auth-user-role" style="font-size:10.5px;color:rgba(255,255,255,.4);margin-top:1px">—</div>
+    </div>
+    <button onclick="logoutConfirm()" title="Chiqish"
+      style="background:rgba(255,255,255,.1);border:none;border-radius:7px;width:28px;height:28px;cursor:pointer;color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <i class="ti ti-logout" style="font-size:14px"></i>
+    </button>
   </div>
   <nav>
     <!-- ASOSIY -->
@@ -2974,8 +2991,14 @@
       <input id="as-name" placeholder="Alisher Karimov"></div>
 
     <div class="r2">
-      <div class="fld"><label>Telefon</label>
+      <div class="fld"><label>Asosiy telefon</label>
         <input id="as-phone" placeholder="+998 90 ..."></div>
+      <div class="fld">
+        <label>PIN kod <span style="font-size:11px;color:var(--mut)">(kirish uchun)</span></label>
+        <input id="as-pin" type="password" maxlength="6" inputmode="numeric" placeholder="4-6 raqam"
+          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;letter-spacing:4px">
+      </div>
+    </div>
       <div class="fld"><label>Lavozim</label>
         <select id="as-role" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;background:#fff">
           <option value="kassir">💼 Kassir</option>
@@ -3140,23 +3163,24 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=130"></script>
-<script src="js/utils.js?v=130"></script>
-<script src="js/sms.js?v=130"></script>
-<script src="js/cloud.js?v=130"></script>
-<script src="js/dashboard.js?v=130"></script>
-<script src="js/pos.js?v=130"></script>
-<script src="js/katalog.js?v=130"></script>
-<script src="js/ombor.js?v=130"></script>
-<script src="js/mijozlar.js?v=130"></script>
-<script src="js/qarzlar.js?v=130"></script>
-<script src="js/tarix.js?v=130"></script>
-<script src="js/hisobot.js?v=130"></script>
-<script src="js/xodimlar.js?v=130"></script>
-<script src="js/moliya.js?v=130"></script>
-<script src="js/egasi.js?v=130"></script>
-<script src="js/portal.js?v=130"></script>
-<script src="js/init.js?v=130"></script>
+<script src="js/db.js?v=131"></script>
+<script src="js/utils.js?v=131"></script>
+<script src="js/auth.js?v=131"></script>
+<script src="js/sms.js?v=131"></script>
+<script src="js/cloud.js?v=131"></script>
+<script src="js/dashboard.js?v=131"></script>
+<script src="js/pos.js?v=131"></script>
+<script src="js/katalog.js?v=131"></script>
+<script src="js/ombor.js?v=131"></script>
+<script src="js/mijozlar.js?v=131"></script>
+<script src="js/qarzlar.js?v=131"></script>
+<script src="js/tarix.js?v=131"></script>
+<script src="js/hisobot.js?v=131"></script>
+<script src="js/xodimlar.js?v=131"></script>
+<script src="js/moliya.js?v=131"></script>
+<script src="js/egasi.js?v=131"></script>
+<script src="js/portal.js?v=131"></script>
+<script src="js/init.js?v=131"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3178,6 +3202,11 @@ document.addEventListener('DOMContentLoaded', () => {
       el.nextElementSibling.classList.add('ns-closed');
     }
   });
+
+  // Auth tekshirish — login kerakmi?
+  if (typeof initAuth === "function") {
+    initAuth();
+  }
 });
 </script>
 
@@ -3505,7 +3534,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=130"></script>
-<script src="js/superadmin.js?v=130"></script>
+<script src="js/auth.js?v=131"></script>
+<script src="js/superadmin.js?v=131"></script>
 </body>
 </html>
