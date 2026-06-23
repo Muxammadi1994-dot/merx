@@ -33,13 +33,14 @@ function isLoggedIn()  { return !!_authUser; }
 
 // ── Supabase Auth orqali kirish ──────────────────
 async function authLogin(email, password) {
+  // AVVAL local login tekshiramiz (adminEmail/adminPass localStorage da)
+  const localRes = authLocalLogin(email, password);
+  if (localRes.ok) return localRes;
+
+  // Local hisob bo'lmasa yoki email mos kelmasa — Supabase ga urinamiz
   const url = (db?.settings?.supabaseUrl || "").trim();
   const key = (db?.settings?.supabaseKey || "").trim();
-
-  if (!url || !key) {
-    // Demo rejim — Supabase ulangan bo'lmasa local login
-    return authLocalLogin(email, password);
-  }
+  if (!url || !key) return localRes; // Supabase yo'q — local xatoni qaytaramiz
 
   try {
     const { createClient } = window.supabase || supabase;
@@ -48,7 +49,6 @@ async function authLogin(email, password) {
     if (error) throw error;
 
     const userId = data.user.id;
-    // shops jadvali dan foydalanuvchi shopini olish
     const { data: shops } = await sb.from("shops")
       .select("id,name,role")
       .eq("owner_id", userId)
@@ -66,7 +66,8 @@ async function authLogin(email, password) {
     authSave(user);
     return { ok: true, user };
   } catch(e) {
-    return { ok: false, error: e.message };
+    // Supabase da ham topilmadi — localning xatosini qaytaramiz
+    return localRes;
   }
 }
 
