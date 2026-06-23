@@ -64,31 +64,7 @@ function staffStats(staffId, from, to) {
   };
 }
 
-// ── Tug'ilgan kun eslatma ─────────────────────────
-let _staffBdayShown = false;
-function checkStaffBirthdays() {
-  if (_staffBdayShown) return;
-  const today_md = today().slice(5); // MM-DD
-  const bday = (db.staff||[]).filter(s => s.birthday && s.birthday.slice(5) === today_md);
-  if (!bday.length) return;
-  _staffBdayShown = true;
-  const names = bday.map(s=>s.name).join(", ");
-  const bar = document.createElement("div");
-  bar.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9000;"+
-    "background:#0D1B2A;color:#fff;padding:12px 20px;border-radius:12px;"+
-    "display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);max-width:400px";
-  bar.innerHTML = `<span style="font-size:22px">🎂</span>
-    <div>
-      <div style="font-weight:700;font-size:13.5px">Xodimning tug'ilgan kuni!</div>
-      <div style="font-size:12px;color:#9CA3AF;margin-top:2px">${names}</div>
-    </div>
-    <button onclick="this.parentElement.remove()" style="margin-left:auto;background:rgba(255,255,255,.15);
-      border:none;color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px">✕</button>`;
-  document.body.appendChild(bar);
-  setTimeout(()=>bar?.remove(), 8000);
-}
-
-
+// ── Maosh to'lash ─────────────────────────────────
 function payStaffSalary(staffId) {
   const s  = db.staff.find(x => x.id === staffId); if (!s) return;
   const m  = today().slice(0,7);
@@ -175,25 +151,15 @@ function renderXodimlar() {
   const t = today();
   const thisMonth = t.slice(0,7) + "-01";
 
-  // KPI — kassaTushdi asosida
-  const rate = db.settings?.rate || 12800;
-  let todayKassa = 0, monthKassa = 0;
-  db.sales.filter(s => s.date === t).forEach(s => {
-    const pb = s.payBreakdown;
-    if (pb&&(pb.naqd||pb.karta||pb.otkazma)) todayKassa+=(pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
-    else todayKassa += s.payType==="nasiya"?0:(s.paid||0);
-  });
-  db.sales.filter(s => s.date>=thisMonth&&s.date<=t).forEach(s => {
-    const pb = s.payBreakdown;
-    if (pb&&(pb.naqd||pb.karta||pb.otkazma)) monthKassa+=(pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
-    else monthKassa += s.payType==="nasiya"?0:(s.paid||0);
-  });
+  // KPI
+  const todaySales = db.sales.filter(s => s.date === t);
+  const monthSales = db.sales.filter(s => s.date >= thisMonth && s.date <= t);
 
   if ($("xod-cnt"))   $("xod-cnt").textContent   = db.staff.length + " ta";
-  if ($("xod-today")) $("xod-today").textContent = fmtK(todayKassa) + " so'm";
-  if ($("xod-month")) $("xod-month").textContent = fmtK(monthKassa) + " so'm";
+  if ($("xod-today")) $("xod-today").textContent = fmt(todaySales.reduce((a,s)=>a+s.total,0)) + " so'm";
+  if ($("xod-month")) $("xod-month").textContent = fmt(monthSales.reduce((a,s)=>a+s.total,0)) + " so'm";
 
-  // Top kassir — kassaTushdi bo'yicha
+  // Top kassir (bu oy)
   let topStaff = null, topTotal = 0;
   db.staff.forEach(s => {
     const st = staffStats(s.id, thisMonth, t);
@@ -201,9 +167,6 @@ function renderXodimlar() {
   });
   if ($("xod-top")) $("xod-top").textContent = topStaff
     ? `${topStaff.name} (${fmtK(topTotal)} so'm)` : "—";
-
-  // Tug'ilgan kun eslatma
-  checkStaffBirthdays();
 
   renderStaffCards(from, to, topStaff?.id);
   renderStaffTable(from, to);
@@ -228,9 +191,6 @@ function renderStaffCards(from, to, topId) {
     const isTop   = s.id === topId;
     const initials = s.name.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase();
     const color   = roleColor[s.role] || "#888";
-    const target  = s.monthTarget || 0;
-    const targetPct = target > 0 ? Math.min(100, Math.round(st.kassaTushdi/target*100)) : 0;
-    const targetColor = targetPct>=100?"var(--grn)":targetPct>=70?"#E9A500":"#4C9BE8";
 
     return `<div class="staff-card ${isTop?"top-performer":""}" onclick="openStaffDetail(${s.id})">
       ${isTop ? `<div style="position:absolute;top:12px;right:12px;font-size:18px" title="Top kassir">🏆</div>` : ""}
@@ -239,38 +199,24 @@ function renderStaffCards(from, to, topId) {
           display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;flex-shrink:0">
           ${initials}
         </div>
-        <div style="min-width:0">
+        <div>
           <div style="font-weight:700;font-size:14px;color:#0D1B2A">${s.name}</div>
-          <div style="display:flex;align-items:center;gap:5px;margin-top:2px;flex-wrap:wrap">
-            <span style="font-size:11.5px;background:${color}18;color:${color};padding:2px 8px;border-radius:5px;font-weight:600">
-              ${roleLabel[s.role]||s.role||"—"}
-            </span>
-            ${s.permNasiya?`<span style="font-size:10px;background:#FEF3C7;color:#D97706;padding:2px 6px;border-radius:4px">💳</span>`:""}
-            ${s.permDiscount?`<span style="font-size:10px;background:#EFF6FF;color:#3B82F6;padding:2px 6px;border-radius:4px">✂️${s.maxDiscount?s.maxDiscount+"%":""}</span>`:""}
-          </div>
+          <span style="font-size:11.5px;background:${color}18;color:${color};padding:2px 8px;border-radius:5px;font-weight:600">
+            ${roleLabel[s.role]||s.role||"—"}
+          </span>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:${target>0?'10px':'0'}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div style="background:var(--bg);border-radius:8px;padding:8px 10px;text-align:center">
           <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;margin-bottom:2px">Sotuvlar</div>
           <div style="font-size:18px;font-weight:800;color:#0D1B2A">${st.cnt}</div>
         </div>
         <div style="background:var(--bg);border-radius:8px;padding:8px 10px;text-align:center">
-          <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;margin-bottom:2px">Kassaga tushdi</div>
+          <div style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;margin-bottom:2px">Jami</div>
           <div style="font-size:13px;font-weight:800;color:var(--acc)">${fmtK(st.kassaTushdi)}</div>
         </div>
       </div>
-      ${target>0 ? `
-      <div style="margin-bottom:4px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
-          <span style="color:${targetColor};font-weight:700">Maqsad ${targetPct}%</span>
-          <span style="color:#aaa">${fmtK(target)} so'm</span>
-        </div>
-        <div style="height:6px;background:#f0ede7;border-radius:3px;overflow:hidden">
-          <div style="height:100%;width:${targetPct}%;background:${targetColor};border-radius:3px;transition:.4s"></div>
-        </div>
-      </div>` : ""}
-      ${s.phone ? `<div style="margin-top:8px;font-size:12px;color:#aaa;text-align:center">${s.phone}</div>` : ""}
+      ${s.phone ? `<div style="margin-top:10px;font-size:12px;color:#aaa;text-align:center">${s.phone}</div>` : ""}
     </div>`;
   }).join("");
 }
@@ -288,14 +234,16 @@ function renderStaffTable(from, to) {
   const rows = db.staff.map(s => ({
     staff: s,
     ...staffStats(s.id, from, to)
-  })).sort((a, b) => b.total - a.total);
+  })).sort((a, b) => b.kassaTushdi - a.kassaTushdi);
 
   el.innerHTML = rows.map((r, i) => {
     const s = r.staff;
+    const m = today().slice(0,7);
+    const paid = isSalaryPaid(s.id, m);
     return `<tr>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
-          ${i === 0 && r.total > 0 ? `<span title="Top kassir">🏆</span>` : `<span style="color:#bbb;font-size:11px;width:16px">${i+1}</span>`}
+          ${i === 0 && r.kassaTushdi > 0 ? `<span title="Top kassir">🏆</span>` : `<span style="color:#bbb;font-size:11px;width:16px">${i+1}</span>`}
           <div>
             <div style="font-weight:600;font-size:13.5px">${s.name}</div>
             ${s.phone ? `<div style="font-size:11px;color:#aaa">${s.phone}</div>` : ""}
@@ -306,16 +254,20 @@ function renderStaffTable(from, to) {
         <span class="bg" style="font-size:11.5px">${roleLabel[s.role]||s.role||"—"}</span>
       </td>
       <td class="num" style="font-weight:700;font-size:14px">${r.cnt}</td>
-      <td class="num" style="font-weight:700;color:var(--acc)">${r.total ? fmt(r.total)+" so'm" : "—"}</td>
-      <td class="num" style="font-size:12.5px">${r.avgCheck ? fmt(r.avgCheck)+" so'm" : "—"}</td>
-      <td class="num" style="color:var(--grn);font-size:12.5px">${r.paid ? fmt(r.paid)+" so'm" : "—"}</td>
+      <td class="num" style="font-weight:700;color:var(--acc)">${r.kassaTushdi ? fmtK(r.kassaTushdi)+" so'm" : "—"}</td>
+      <td class="num" style="font-size:12.5px;color:var(--mut)">${r.avgCheck ? fmtK(r.avgCheck)+" so'm" : "—"}</td>
+      <td class="num" style="font-size:12px">
+        ${r.nasiyaPct > 0 ? `<span style="color:${r.nasiyaPct>30?"var(--red)":"var(--mut)"}">${r.nasiyaPct}%</span>` : "—"}
+      </td>
       <td class="num" style="color:#8B5CF6;font-size:12.5px;font-weight:600">
-        ${r.totalPay > 0 ? fmt(r.totalPay)+" so'm" : "—"}
+        ${r.totalPay > 0 ? fmtK(r.totalPay)+" so'm" : "—"}
       </td>
       <td class="num">
-        ${r.debt > 0
-          ? `<span style="color:var(--red);font-weight:700;font-size:12.5px">${fmt(r.debt)} so'm</span>`
-          : r.cnt > 0 ? `<span class="bg bg-g" style="font-size:11px">✅</span>` : "—"}
+        ${paid
+          ? `<span class="bg bg-g" style="font-size:11px">✅ To'landi</span>`
+          : r.totalPay > 0
+            ? `<button class="btn btn-sm" style="font-size:11px;color:var(--acc);padding:3px 8px" onclick="payStaffSalary(${s.id})">💰 To'lash</button>`
+            : "—"}
       </td>
       <td>
         <div style="display:flex;gap:4px">
@@ -343,7 +295,7 @@ function openStaffDetail(id) {
   const weekStats  = staffStats(id, addDays(today(),-6), today());
 
   const sales = db.sales.filter(x => x.staffId === id)
-    .sort((a,b) => b.date > a.date ? 1 : -1).slice(0, 15);
+    .sort((a,b) => b.date > a.date ? 1 : -1).slice(0, 8);
 
   const roleLabel = { kassir:"💼 Kassir", menejer:"📊 Menejer", omborchi:"📦 Omborchi" };
   const roleColor = { kassir:"#4C9BE8", menejer:"#8B5CF6", omborchi:"#36B48C" };
@@ -430,15 +382,9 @@ function openStaffDetail(id) {
             style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:6px 10px">
         </div>
         <div style="flex:1">
-          <label style="font-size:11px;color:var(--mut);display:block;margin-bottom:3px">Bonus % (kassadan)</label>
+          <label style="font-size:11px;color:var(--mut);display:block;margin-bottom:3px">Bonus % (sotuvdan)</label>
           <input type="number" id="staff-bonus-${s.id}" value="${s.bonusPct||0}" min="0" max="20" placeholder="0"
             onchange="updateStaffPay(${s.id},'bonusPct',this.value)"
-            style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:6px 10px">
-        </div>
-        <div style="flex:1">
-          <label style="font-size:11px;color:var(--mut);display:block;margin-bottom:3px">Oylik maqsad (so'm)</label>
-          <input type="number" id="staff-target-${s.id}" value="${s.monthTarget||0}" placeholder="0" step="1000000"
-            onchange="updateStaffPay(${s.id},'monthTarget',this.value)"
             style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:6px 10px">
         </div>
         ${isSalaryPaid(s.id, today().slice(0,7))
