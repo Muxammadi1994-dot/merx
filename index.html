@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=101">
+<link rel="stylesheet" href="style.css?v=102">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1732,7 +1732,7 @@
     <!-- Moliyaviy trend (6 oy) -->
     <div class="card" style="margin-bottom:16px">
       <div class="ch"><h3><i class="ti ti-chart-bar"></i>Moliyaviy dinamika (so'nggi 6 oy)</h3></div>
-      <div style="padding:0 18px 16px;height:220px">
+      <div style="padding:0 18px 16px;position:relative;height:230px">
         <canvas id="mol-trend-chart"></canvas>
       </div>
     </div>
@@ -2693,59 +2693,86 @@
 
 <!-- MODAL: ADD XARAJAT -->
 <div class="ov" id="ov-addxarajat" onclick="if(event.target===this)closeModal('addxarajat')">
-  <div class="modal" style="max-width:480px">
+  <div class="modal" style="max-width:520px">
     <button class="m-close" onclick="closeModal('addxarajat')"><i class="ti ti-x"></i></button>
-    <h2>Xarajat qo'shish</h2>
+    <h2 style="margin-bottom:2px">Xarajat qo'shish</h2>
+    <p style="font-size:12.5px;color:var(--mut);margin-bottom:16px">Barcha maydonlar saqlanganda hisobda ko'rinadi</p>
 
     <!-- Kategoriya -->
     <div class="fld">
-      <label>Kategoriya</label>
-      <div class="mol-cats" id="exp-cats">
-        <span class="mcat on" data-c="Ijara"         onclick="expCatPick(this)">🏠 Ijara</span>
-        <span class="mcat"    data-c="Maosh"         onclick="expCatPick(this)">👤 Maosh</span>
-        <span class="mcat"    data-c="Transport"     onclick="expCatPick(this)">🚗 Transport</span>
-        <span class="mcat"    data-c="Kommunal"      onclick="expCatPick(this)">💡 Kommunal</span>
-        <span class="mcat"    data-c="Reklama"       onclick="expCatPick(this)">📢 Reklama</span>
-        <span class="mcat"    data-c="Yetkazuvchi"   onclick="expCatPick(this)">📦 Yetkazuvchi</span>
-        <span class="mcat"    data-c="Boshqa"        onclick="expCatPick(this)">📋 Boshqa</span>
-        <span class="mcat"    data-c="__custom__"    onclick="expCatPick(this)"
-          style="border-style:dashed;color:var(--mut)">✏️ Boshqa (o'zim)</span>
+      <label>Xarajat turi <span style="color:var(--red)">*</span></label>
+      <div class="mol-cats" id="exp-cats" style="gap:6px">
+        <span class="mcat on" data-c="Ijara"       onclick="expCatPick(this)">🏠 Ijara</span>
+        <span class="mcat"    data-c="Maosh"        onclick="expCatPick(this)">👤 Maosh</span>
+        <span class="mcat"    data-c="Transport"    onclick="expCatPick(this)">🚗 Transport</span>
+        <span class="mcat"    data-c="Kommunal"     onclick="expCatPick(this)">💡 Kommunal</span>
+        <span class="mcat"    data-c="Reklama"      onclick="expCatPick(this)">📢 Reklama</span>
+        <span class="mcat"    data-c="Yetkazuvchi"  onclick="expCatPick(this)">📦 Yetkazuvchi</span>
+        <span class="mcat"    data-c="Soliq"        onclick="expCatPick(this)">🏛️ Soliq</span>
+        <span class="mcat"    data-c="Jihozlar"     onclick="expCatPick(this)">🔧 Jihozlar</span>
+        <span class="mcat"    data-c="Boshqa"       onclick="expCatPick(this)">📋 Boshqa</span>
+        <span class="mcat"    data-c="__custom__"   onclick="expCatPick(this)"
+          style="border-style:dashed;color:var(--mut)">✏️ O'zim yozaman</span>
       </div>
+      <input id="exp-cat-val" type="hidden" value="Ijara">
     </div>
-    <input id="exp-cat-val" type="hidden" value="Ijara">
 
-    <!-- Dinamik qo'shimcha maydon -->
-    <div id="ax-extra-wrap" style="margin-bottom:10px"></div>
+    <!-- Dinamik qo'shimcha maydon (Maosh → xodim, Yetkazuvchi → tanlash) -->
+    <div id="ax-extra-wrap" style="margin-bottom:4px"></div>
 
-    <!-- Summa + Sana -->
+    <!-- Summa + Valyuta -->
     <div class="r2">
       <div class="fld">
-        <label>Summa (so'm)</label>
-        <input id="ax-sum" type="text" data-price placeholder="0" oninput="fmtInput(this)"
-          style="font-size:16px;font-weight:700">
+        <label>Summa <span style="color:var(--red)">*</span></label>
+        <div style="display:flex;gap:6px">
+          <input id="ax-sum" type="text" data-price placeholder="0" oninput="fmtInput(this)"
+            style="font-size:16px;font-weight:700;flex:1">
+          <select id="ax-currency" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;background:#fff;width:90px">
+            <option value="uzs">So'm</option>
+            <option value="usd">USD $</option>
+          </select>
+        </div>
       </div>
       <div class="fld">
-        <label>Sana</label>
+        <label>Sana <span style="color:var(--red)">*</span></label>
         <input id="ax-date" type="date">
       </div>
     </div>
 
-    <!-- Kim to'ladi (kassir) -->
+    <!-- Kim to'ladi + Kimga -->
     <div class="r2">
       <div class="fld">
-        <label>Kim to'ladi <span style="font-weight:400;color:var(--mut)">(ixtiyoriy)</span></label>
+        <label>Kim to'ladi</label>
         <select id="ax-who" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;background:#fff">
-          <option value="">— Tanlang —</option>
+          <option value="">— Kassir/Egasi —</option>
         </select>
       </div>
       <div class="fld">
-        <label>Izoh</label>
-        <input id="ax-note" placeholder="ixtiyoriy">
+        <label>To'lov usuli</label>
+        <select id="ax-pay-method" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;background:#fff">
+          <option value="naqd">💵 Naqd</option>
+          <option value="karta">💳 Karta</option>
+          <option value="otkazma">🏦 O'tkazma</option>
+        </select>
       </div>
     </div>
 
-    <button class="btn btn-red" style="width:100%;margin-top:4px" onclick="addXarajat()">
-      <i class="ti ti-check"></i> Saqlash
+    <!-- Izoh -->
+    <div class="fld">
+      <label>Izoh / Tavsif</label>
+      <textarea id="ax-note" placeholder="Masalan: Oktyabr oylik ijara, Samarqand ko'chasi 12..."
+        style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);
+        padding:8px 12px;width:100%;resize:vertical;min-height:60px;box-sizing:border-box"></textarea>
+    </div>
+
+    <!-- Takroriy xarajat -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg);border-radius:10px;margin-bottom:14px">
+      <input type="checkbox" id="ax-recurring" style="width:17px;height:17px;accent-color:var(--acc)">
+      <label for="ax-recurring" style="font-size:13px;font-weight:600;cursor:pointer">Har oylik takroriy xarajat sifatida belgilash</label>
+    </div>
+
+    <button class="btn btn-red" style="width:100%" onclick="addXarajat()">
+      <i class="ti ti-check"></i> Xarajatni saqlash
     </button>
   </div>
 </div>
@@ -2753,23 +2780,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=101"></script>
-<script src="js/utils.js?v=101"></script>
-<script src="js/sms.js?v=101"></script>
-<script src="js/cloud.js?v=101"></script>
-<script src="js/dashboard.js?v=101"></script>
-<script src="js/pos.js?v=101"></script>
-<script src="js/katalog.js?v=101"></script>
-<script src="js/ombor.js?v=101"></script>
-<script src="js/mijozlar.js?v=101"></script>
-<script src="js/qarzlar.js?v=101"></script>
-<script src="js/tarix.js?v=101"></script>
-<script src="js/hisobot.js?v=101"></script>
-<script src="js/xodimlar.js?v=101"></script>
-<script src="js/moliya.js?v=101"></script>
-<script src="js/egasi.js?v=101"></script>
-<script src="js/portal.js?v=101"></script>
-<script src="js/init.js?v=101"></script>
+<script src="js/db.js?v=102"></script>
+<script src="js/utils.js?v=102"></script>
+<script src="js/sms.js?v=102"></script>
+<script src="js/cloud.js?v=102"></script>
+<script src="js/dashboard.js?v=102"></script>
+<script src="js/pos.js?v=102"></script>
+<script src="js/katalog.js?v=102"></script>
+<script src="js/ombor.js?v=102"></script>
+<script src="js/mijozlar.js?v=102"></script>
+<script src="js/qarzlar.js?v=102"></script>
+<script src="js/tarix.js?v=102"></script>
+<script src="js/hisobot.js?v=102"></script>
+<script src="js/xodimlar.js?v=102"></script>
+<script src="js/moliya.js?v=102"></script>
+<script src="js/egasi.js?v=102"></script>
+<script src="js/portal.js?v=102"></script>
+<script src="js/init.js?v=102"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3118,7 +3145,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=101"></script>
-<script src="js/superadmin.js?v=101"></script>
+<script src="js/auth.js?v=102"></script>
+<script src="js/superadmin.js?v=102"></script>
 </body>
 </html>

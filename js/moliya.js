@@ -488,13 +488,21 @@ function initExpWhoSelect() {
 
 // ── Xarajat qo'shish ──────────────────────────────
 function addXarajat() {
-  const cat    = ($("exp-cat-val")||{value:"Boshqa"}).value;
-  const sum    = getRawVal("ax-sum");
-  const date   = ($("ax-date")||{value:""}).value || today();
-  const note   = ($("ax-note")||{value:""}).value.trim();
-  const paidBy = ($("ax-who")||{value:""}).value;
+  const cat      = ($("exp-cat-val")||{value:"Boshqa"}).value;
+  const currency = ($("ax-currency")||{value:"uzs"}).value;
+  const method   = ($("ax-pay-method")||{value:"naqd"}).value;
+  const date     = ($("ax-date")||{value:""}).value || today();
+  const note     = ($("ax-note")||{value:""}).value.trim();
+  const paidBy   = ($("ax-who")||{value:""}).value;
+  const recurring= ($("ax-recurring")||{checked:false}).checked;
+  const rate     = db.settings?.rate || 12800;
 
-  // Recipient
+  // Summa — agar USD bo'lsa, so'mga ham aylantiramiz
+  const rawSum = getRawVal("ax-sum");
+  const sum    = currency === "usd" ? Math.round(rawSum * rate) : rawSum;
+  const sumUsd = currency === "usd" ? rawSum : null;
+
+  // Recipient (kimga)
   let recipient = "";
   const recSel = $("ax-recipient");
   const recMan = $("ax-recipient-manual");
@@ -504,21 +512,36 @@ function addXarajat() {
     recipient = recSel.value !== "__manual__" ? recSel.value : "";
   }
 
-  if (sum <= 0) { toast("Summani kiriting","err"); return; }
+  if (rawSum <= 0) { toast("Summani kiriting","err"); return; }
   if ((cat === "Maosh" || cat === "Yetkazuvchi") && !recipient) {
     toast("Kimga ekanligini tanlang","err"); return;
   }
 
   if (!db.xarajatlar) db.xarajatlar = [];
-  db.xarajatlar.push({ id: db.seq++, date, category: cat, amount: sum, recipient, paidBy, note });
+  const entry = { id: db.seq++, date, category: cat, amount: sum, recipient, paidBy, note, method };
+  if (sumUsd) entry.amountUsd = sumUsd;
+  if (recurring) entry.recurring = true;
+  db.xarajatlar.push(entry);
+
+  // Takroriy xarajat — keyingi oyga ham qo'shish
+  if (recurring) {
+    const nextMonth = new Date(date);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    // Faqat eslatma — avtomatik qo'shmaymiz, toast da aytamiz
+  }
+
   saveDB(); renderMoliya(); closeModal("addxarajat");
 
   const recTxt = recipient ? ` → ${recipient}` : "";
-  toast(`✅ ${cat}${recTxt}: ${fmt(sum)} so'm`);
+  const amtTxt = sumUsd ? `$${sumUsd.toFixed(2)} (${fmt(sum)} so'm)` : `${fmt(sum)} so'm`;
+  toast(`✅ ${cat}${recTxt}: ${amtTxt}${recurring?" | Takroriy belgilandi":""}`);
 
   // Formani tozalash
-  ["ax-sum","ax-note"].forEach(id => { if ($(id)) $(id).value = ""; });
+  ["ax-sum","ax-note"].forEach(id => { const el=$(id); if(el)el.value=""; });
   if ($("ax-who")) $("ax-who").value = "";
+  if ($("ax-currency")) $("ax-currency").value = "uzs";
+  if ($("ax-pay-method")) $("ax-pay-method").value = "naqd";
+  if ($("ax-recurring")) $("ax-recurring").checked = false;
   const wrap = $("ax-extra-wrap"); if (wrap) wrap.innerHTML = "";
   document.querySelectorAll(".mcat").forEach((b,i) => b.classList.toggle("on", i===0));
   if ($("exp-cat-val")) $("exp-cat-val").value = "Ijara";
