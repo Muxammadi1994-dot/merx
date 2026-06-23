@@ -189,6 +189,8 @@ function custSortToggle(key) {
 }
 
 function renderMijozlar() {
+  // Tug'ilgan kun eslatmasi — bugun va yaqin 3 kun
+  checkBirthdayAlerts();
   const q = ($("cust-q")||{value:""}).value.toLowerCase();
   let list = [...db.customers];
 
@@ -766,32 +768,70 @@ async function confirmBulkSms(channel = "sms") {
 // ── Excel eksport ────────────────────────────────
 function exportMijozlarExcel() {
   const rate = db.settings?.rate || 12800;
-  const rows = [["Ism","Telefon","Turi","Kompaniya","Izoh","Sotuvlar","Jami xarid","O'rtacha chek","Oxirgi xarid","Joriy qarz (so'm)","Joriy qarz (USD)","Segment","Qarz limiti"]];
+  const rows = [["Ism","Telefon","Qo'shimcha tel","Turi","Kompaniya","Manzil/Izoh",
+    "Muhim qayд","Manba","Tug'ilgan kun","Sotuvlar","Jami xarid","O'rtacha chek",
+    "Oxirgi xarid","Joriy qarz (so'm)","Joriy qarz (USD)","Segment","Qarz limiti","Sodiqlik ballari"]];
 
   db.customers.forEach(c => {
     const st  = custStats(c.id);
     const seg = custSegment(st, c);
     const typeLabel = { ulgurji:"Ulgurji", chakana:"Chakana", other:"Boshqa" };
     rows.push([
-      c.name, c.phone||"", typeLabel[c.type]||c.type||"", c.company||"", c.note||"",
+      c.name, c.phone||"", c.phone2||"",
+      typeLabel[c.type]||c.type||"", c.company||"", c.note||"",
+      c.importantNote||"", c.source||"", c.birthday||"",
       st.count, st.totalBuy, st.avgCheck,
       st.lastDate||"",
       Math.round(st.totalDebt), +(st.totalDebtUsd||0).toFixed(2),
       seg.label.replace(/[⭐🆕💳💤⛔👤]/gu,"").trim(),
-      c.debtLimit||""
+      c.debtLimit||"", c.loyaltyPoints||0
     ]);
   });
 
-  const total = db.customers.reduce((a,c)=>a+custStats(c.id).totalBuy,0);
+  const total     = db.customers.reduce((a,c)=>a+custStats(c.id).totalBuy,0);
   const totalDebt = db.customers.reduce((a,c)=>a+custStats(c.id).totalDebt,0);
   rows.push([]);
-  rows.push(["JAMI", "", "", "", "", db.customers.length+" ta", total, "", "", totalDebt, "", "", ""]);
+  rows.push(["JAMI","","","","","","","","",
+    db.customers.length+" ta", total, "","", totalDebt,"","","",""]);
 
   downloadCSV(rows, `merx_mijozlar_${today()}.xls`);
   toast(`✅ ${db.customers.length} ta mijoz yuklab olindi`);
 }
 
-// ── Sodiqlik ballari ─────────────────────────────
+// ── Tug'ilgan kun eslatma ─────────────────────────
+let _birthdayAlertShown = false;
+function checkBirthdayAlerts() {
+  if (_birthdayAlertShown) return;
+  const today = new Date();
+  const todayMD = String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
+
+  const todayBirthdays = (db.customers||[]).filter(c => {
+    if (!c.birthday) return false;
+    const [,m,d] = c.birthday.split("-");
+    return m && d && (m.padStart(2,"0")+"-"+d.padStart(2,"0")) === todayMD;
+  });
+
+  if (!todayBirthdays.length) return;
+  _birthdayAlertShown = true;
+
+  const names = todayBirthdays.map(c=>c.name).join(", ");
+  const bar = document.createElement("div");
+  bar.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9000;"+
+    "background:#0D1B2A;color:#fff;padding:12px 20px;border-radius:12px;"+
+    "display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);max-width:420px;";
+  bar.innerHTML = `
+    <span style="font-size:22px">🎂</span>
+    <div>
+      <div style="font-weight:700;font-size:13.5px">Bugun tug'ilgan kun!</div>
+      <div style="font-size:12px;color:#9CA3AF;margin-top:2px">${names}</div>
+    </div>
+    <button onclick="this.parentElement.remove()" style="margin-left:auto;background:rgba(255,255,255,.15);
+      border:none;color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px">✕</button>`;
+  document.body.appendChild(bar);
+  setTimeout(()=>bar.remove(), 8000);
+}
+
+
 // Ixtiyoriy: db.settings.loyaltyRate = har necha so'm uchun 1 ball (masalan: 10000)
 // POS sotuv yakunida chaqiriladi
 function addLoyaltyPoints(customerId, saleTotal) {

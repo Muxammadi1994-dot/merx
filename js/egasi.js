@@ -53,6 +53,8 @@ function renderEgasi() {
 
   if ($("s-eskiz-token"))  $("s-eskiz-token").value  = db.settings?.eskizToken  || "";
   if ($("s-eskiz-sender")) $("s-eskiz-sender").value = db.settings?.eskizSender || "";
+  if ($("s-loyalty-rate"))  $("s-loyalty-rate").value  = db.settings?.loyaltyRate  || "";
+  if ($("s-loyalty-value")) $("s-loyalty-value").value = db.settings?.loyaltyValue || "";
   if (typeof updateSmsUI        === "function") updateSmsUI();
   if (typeof updateCostCurrency === "function") updateCostCurrency();
 
