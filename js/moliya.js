@@ -152,8 +152,8 @@ function toggleExpCol(key, val) {
 
 // EXP_CATS allaqachon db.js da bo'lishi mumkin — xavfsiz e'lon
 if (typeof window.EXP_CATS === "undefined") {
-  window.EXP_CATS   = ["Ijara","Maosh","Transport","Kommunal","Reklama","Yetkazuvchi","Boshqa"];
-  window.EXP_COLORS = ["#E9A500","#4C9BE8","#36B48C","#8B5CF6","#E07B39","#E05A5A","#aaa"];
+  window.EXP_CATS   = ["Ijara","Maosh","Transport","Kommunal","Reklama","Yetkazuvchi","Soliq","Jihozlar","Boshqa"];
+  window.EXP_COLORS = ["#E9A500","#4C9BE8","#36B48C","#F59E0B","#EC4899","#8B5CF6","#EF4444","#06B6D4","#94A3B8"];
 }
 const MOL_CATS   = window.EXP_CATS;
 const MOL_COLORS = window.EXP_COLORS;
@@ -376,7 +376,7 @@ function renderMoliya() {
     tbody.innerHTML = exps.length ? exps.map(x => {
       const catIdx = MOL_CATS.indexOf(x.category);
       const color  = MOL_COLORS[catIdx>=0?catIdx:MOL_COLORS.length-1];
-      const icon   = ["🏠","👤","🚗","💡","📢","📦","📋"][catIdx>=0?catIdx:6];
+      const icon   = ["🏠","👤","🚗","💡","📢","📦","🏛️","🔧","📋"][catIdx>=0?catIdx:8];
       const methodIcon = x.method==="karta"?"💳 Karta":x.method==="otkazma"?"🏦 O'tkazma":"💵 Naqd";
       return `<tr>
         ${cols.date      ? `<td style="font-size:12.5px;white-space:nowrap;font-weight:600">${x.date||"—"}</td>` : ""}
@@ -395,8 +395,7 @@ function renderMoliya() {
 
   renderExpChart(catTotals, chiqim, periodExps);
   renderFlowBars(sotuv, chiqim, realProfit, netProfit, periodCost);
-  // Grafik faqat birinchi marta yoki period o'zgarganda chiziladi
-  if (!_molTrendChart) renderMolTrendChart();
+  renderMolTrendChart();
   applyMolKpiVisibility();
 }
 
@@ -850,7 +849,7 @@ function addXarajat() {
 // ── Xarajatni o'chirish ───────────────────────────
 function deleteExp(id) {
   const x = (db.xarajatlar||[]).find(e => e.id === id); if (!x) return;
-  const catIcon = ["🏠","👤","🚗","💡","📢","📦","📋"][MOL_CATS.indexOf(x.category)] || "📋";
+  const catIcon = ["🏠","👤","🚗","💡","📢","📦","🏛️","🔧","📋"][MOL_CATS.indexOf(x.category)] || "📋";
   const info = x.recipient ? ` (${x.recipient})` : "";
   if (!confirm(`${catIcon} ${x.category}${info}\n${fmt(x.amount)} so'm — o'chirilsinmi?`)) return;
   db.xarajatlar = db.xarajatlar.filter(e => e.id !== id);
@@ -875,7 +874,11 @@ function editExp(id) {
     if ($("ax-recurring")) $("ax-recurring").checked = !!x.recurring;
     // Summa
     const sumEl = $("ax-sum");
-    if (sumEl) { sumEl.value = fmt(x.amountUsd || x.amount || 0); sumEl.dataset.raw = x.amountUsd || x.amount || 0; }
+    if (sumEl) {
+      const rawVal = x.amountUsd || x.amount || 0;
+      sumEl.dataset.raw = rawVal;
+      sumEl.value = fmt(rawVal);
+    }
     // Kim to'ladi
     setTimeout(() => { if ($("ax-who")) $("ax-who").value = x.paidBy || ""; }, 50);
     // Sarlavhani o'zgartirish + saqlash tugmasi
@@ -922,18 +925,34 @@ function saveEditExp(id) {
 // ── Excel eksport ─────────────────────────────────
 function exportExpExcel() {
   const { from, to } = molDateRange();
-  const exps = (db.xarajatlar||[]).filter(x => x.date >= from && x.date <= to);
-  const rows = [["Sana","Kategoriya","Kimga/Nima uchun","Kim to'ladi","Summa (so'm)","Izoh"]];
+  const q = ($("exp-q")||{value:""}).value.toLowerCase();
+  const catFilter    = ($("exp-cat-filter")||{value:""}).value;
+  const methodFilter = ($("exp-method-filter")||{value:""}).value;
+  const dateFrom     = ($("exp-date-from")||{value:""}).value;
+  const dateTo       = ($("exp-date-to")||{value:""}).value;
+
+  let exps = (db.xarajatlar||[]).filter(x => x.date >= from && x.date <= to);
+  if (q)            exps = exps.filter(x =>
+    (x.category||"").toLowerCase().includes(q) ||
+    (x.note||"").toLowerCase().includes(q) ||
+    (x.recipient||"").toLowerCase().includes(q));
+  if (catFilter)    exps = exps.filter(x => (x.category||"") === catFilter);
+  if (methodFilter) exps = exps.filter(x => (x.method||"naqd") === methodFilter);
+  if (dateFrom)     exps = exps.filter(x => (x.date||"") >= dateFrom);
+  if (dateTo)       exps = exps.filter(x => (x.date||"") <= dateTo);
+
+  const rows = [["Sana","Kategoriya","Kimga/Nima uchun","Kim to'ladi","To'lov usuli","Summa (so'm)","USD","Izoh"]];
   exps.forEach(x => rows.push([
-    x.date||"", x.category||"", x.recipient||"", x.paidBy||"", x.amount||0, x.note||""
+    x.date||"", x.category||"", x.recipient||"", x.paidBy||"",
+    x.method||"naqd", x.amount||0, x.amountUsd||"", x.note||""
   ]));
   const total = exps.reduce((a,x)=>a+(x.amount||0),0);
-  rows.push(["","","","","JAMI:", total]);
+  rows.push(["","","","","","JAMI:", total, ""]);
 
-  downloadCSV(rows, `merx_xarajatlar_${today()}.csv`);
-  toast("Excel yuklab olindi");
+  const label = catFilter ? `_${catFilter}` : "";
+  downloadCSV(rows, `merx_xarajatlar${label}_${today()}.xls`);
+  toast(`✅ ${exps.length} ta xarajat yuklab olindi`);
 }
-
 // ── Modal ochilganda initializ ────────────────────
 function initExpModal() {
   setTimeout(() => {

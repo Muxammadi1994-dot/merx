@@ -22,7 +22,7 @@ const PACK_UNITS = {
   kiyim: ["karobka","bog'lam","quti","paket"]
 };
 const PAYTYPES = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma" };
-const EXP_CATS = ["Ijara","Maosh","Transport","Kommunal","Reklama","Yetkazuvchi","Boshqa"];
+const EXP_CATS = ["Ijara","Maosh","Transport","Kommunal","Reklama","Yetkazuvchi","Soliq","Jihozlar","Boshqa"];
 
 // Pantone rang ro'yxati (UI uchun)
 const PANTONE_COLORS = [
