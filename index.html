@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=117">
+<link rel="stylesheet" href="style.css?v=118">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1012,6 +1012,9 @@
           </button>
           <button class="btn btn-sm" onclick="exportMijozlarExcel()" style="color:#1D6A39">
             <i class="ti ti-file-spreadsheet"></i> Excel
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="openCustColsSettings()" title="Ustunlarni sozlash">
+            <i class="ti ti-settings"></i>
           </button>
           <input id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="renderMijozlar()"
             style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:190px">
@@ -2693,15 +2696,17 @@
     <div class="fld"><label>Ism familiya <span style="color:var(--red)">*</span></label>
       <input id="ac-name" placeholder="Alisher Karimov"></div>
     <div class="r2">
-      <div class="fld"><label>Telefon</label>
+      <div class="fld"><label>Asosiy telefon</label>
         <input id="ac-phone" placeholder="+998 90 000 00 00"></div>
-      <div class="fld"><label>Mijoz turi</label>
-        <select id="ac-type" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;background:#fff">
-          <option value="chakana">👤 Chakana</option>
-          <option value="ulgurji">📦 Ulgurji</option>
-          <option value="other">Boshqa</option>
-        </select>
-      </div>
+      <div class="fld"><label>Qo'shimcha telefon</label>
+        <input id="ac-phone2" placeholder="+998 90 000 00 00"></div>
+    </div>
+    <div class="fld"><label>Mijoz turi</label>
+      <select id="ac-type" style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%;background:#fff">
+        <option value="ulgurji">📦 Ulgurji</option>
+        <option value="chakana">👤 Chakana</option>
+        <option value="other">Boshqa</option>
+      </select>
     </div>
     <div class="fld"><label>Kompaniya / Do'kon nomi</label>
       <input id="ac-company" placeholder="Masalan: Baraka Market (ixtiyoriy)"></div>
@@ -2721,6 +2726,16 @@
 
 
 
+
+<!-- MODAL: Mijozlar ustunlari -->
+<div class="ov" id="ov-custcols" onclick="if(event.target===this)closeModal('custcols')">
+  <div class="modal" style="max-width:360px">
+    <button class="m-close" onclick="closeModal('custcols')"><i class="ti ti-x"></i></button>
+    <h2 style="margin-bottom:4px">Ustunlarni sozlash</h2>
+    <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Qaysi ustunlar ko'rinishini tanlang</p>
+    <div id="cust-cols-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
 
 <!-- MODAL: SOTUV DETAIL -->
 <div class="ov" id="ov-saledetail" onclick="if(event.target===this)closeModal('saledetail')">
@@ -2997,23 +3012,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=117"></script>
-<script src="js/utils.js?v=117"></script>
-<script src="js/sms.js?v=117"></script>
-<script src="js/cloud.js?v=117"></script>
-<script src="js/dashboard.js?v=117"></script>
-<script src="js/pos.js?v=117"></script>
-<script src="js/katalog.js?v=117"></script>
-<script src="js/ombor.js?v=117"></script>
-<script src="js/mijozlar.js?v=117"></script>
-<script src="js/qarzlar.js?v=117"></script>
-<script src="js/tarix.js?v=117"></script>
-<script src="js/hisobot.js?v=117"></script>
-<script src="js/xodimlar.js?v=117"></script>
-<script src="js/moliya.js?v=117"></script>
-<script src="js/egasi.js?v=117"></script>
-<script src="js/portal.js?v=117"></script>
-<script src="js/init.js?v=117"></script>
+<script src="js/db.js?v=118"></script>
+<script src="js/utils.js?v=118"></script>
+<script src="js/sms.js?v=118"></script>
+<script src="js/cloud.js?v=118"></script>
+<script src="js/dashboard.js?v=118"></script>
+<script src="js/pos.js?v=118"></script>
+<script src="js/katalog.js?v=118"></script>
+<script src="js/ombor.js?v=118"></script>
+<script src="js/mijozlar.js?v=118"></script>
+<script src="js/qarzlar.js?v=118"></script>
+<script src="js/tarix.js?v=118"></script>
+<script src="js/hisobot.js?v=118"></script>
+<script src="js/xodimlar.js?v=118"></script>
+<script src="js/moliya.js?v=118"></script>
+<script src="js/egasi.js?v=118"></script>
+<script src="js/portal.js?v=118"></script>
+<script src="js/init.js?v=118"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3362,7 +3377,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=117"></script>
-<script src="js/superadmin.js?v=117"></script>
+<script src="js/auth.js?v=118"></script>
+<script src="js/superadmin.js?v=118"></script>
 </body>
 </html>

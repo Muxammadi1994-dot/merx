@@ -6,6 +6,46 @@
 let custFilter = "all";
 let _custCardId = null;
 
+// ── Ustunlar boshqaruvi ───────────────────────────
+const CUST_COL_DEFS = [
+  { key:"name",     lbl:"Ism",            def:true  },
+  { key:"phone",    lbl:"Telefon",        def:true  },
+  { key:"segment",  lbl:"Segment",        def:true  },
+  { key:"count",    lbl:"Sotuvlar soni",  def:true  },
+  { key:"totalBuy", lbl:"Jami xarid",     def:true  },
+  { key:"avgCheck", lbl:"O'rtacha chek",  def:true  },
+  { key:"lastDate", lbl:"Oxirgi xarid",   def:true  },
+  { key:"debt",     lbl:"Joriy qarz",     def:true  },
+  { key:"company",  lbl:"Kompaniya",      def:false },
+];
+
+function getCustCols() {
+  const saved = db.settings?.custCols || {};
+  const cols = {};
+  CUST_COL_DEFS.forEach(c => { cols[c.key] = c.key in saved ? saved[c.key] : c.def; });
+  return cols;
+}
+
+function openCustColsSettings() {
+  const cols = getCustCols();
+  const list = $("cust-cols-list"); if (!list) return;
+  list.innerHTML = CUST_COL_DEFS.map(c => `
+    <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--brd);border-radius:9px;cursor:pointer">
+      <input type="checkbox" ${cols[c.key]?"checked":""} onchange="toggleCustCol('${c.key}',this.checked)"
+        style="width:17px;height:17px;accent-color:var(--acc);cursor:pointer">
+      <span style="font-size:13px;font-weight:600">${c.lbl}</span>
+    </label>`).join("");
+  openModal("custcols");
+}
+
+function toggleCustCol(key, val) {
+  if (!db.settings) db.settings = {};
+  if (!db.settings.custCols) db.settings.custCols = {};
+  db.settings.custCols[key] = val;
+  saveDB(); renderMijozlar();
+}
+
+
 function setCustFilter(f) {
   custFilter = f;
   document.querySelectorAll(".cust-filter-btn").forEach(b => {
@@ -151,8 +191,7 @@ function renderMijozlar() {
   if ($("mc-debt-sum"))  $("mc-debt-sum").textContent  = fmtK(totalDebtSum)+" so'm";
   if ($("mc-vip"))       $("mc-vip").textContent       = vipCount;
 
-  const typeLabel = { ulgurji:"📦 Ulgurji", chakana:"👤 Chakana", other:"Boshqa" };
-  const typeColor = { ulgurji:"#0D1B2A", chakana:"#0891b2", other:"#888" };
+  const cols = getCustCols();
 
   // Thead
   const thead = document.getElementById("mijozlar-thead");
@@ -164,19 +203,21 @@ function renderMijozlar() {
         : '<i class="ti ti-sort-descending" style="font-size:11px;color:var(--acc)"></i>';
     };
     thead.innerHTML = `<tr>
-      <th style="width:36px"><input type="checkbox" onclick="selectAllCusts()" style="width:15px;height:15px;cursor:pointer" title="Hammasini tanlash"></th>
-      <th style="cursor:pointer;user-select:none" onclick="custSortToggle('name')">ISM ${si('name')}</th>
-      <th>TELEFON</th>
-      <th>SEGMENT</th>
-      <th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('count')">SOTUVLAR ${si('count')}</th>
-      <th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('totalBuy')">JAMI XARID ${si('totalBuy')}</th>
-      <th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('avgCheck')">O'RTACHA CHEK ${si('avgCheck')}</th>
-      <th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('lastDate')">OXIRGI XARID ${si('lastDate')}</th>
-      <th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('debt')">JORIY QARZ ${si('debt')}</th>
+      <th style="width:36px"><input type="checkbox" onclick="selectAllCusts()" style="width:15px;height:15px;cursor:pointer"></th>
+      ${cols.name     ? `<th style="cursor:pointer;user-select:none" onclick="custSortToggle('name')">ISM ${si('name')}</th>` : ""}
+      ${cols.phone    ? `<th>TELEFON</th>` : ""}
+      ${cols.segment  ? `<th>SEGMENT</th>` : ""}
+      ${cols.count    ? `<th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('count')">SOTUVLAR ${si('count')}</th>` : ""}
+      ${cols.totalBuy ? `<th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('totalBuy')">JAMI XARID ${si('totalBuy')}</th>` : ""}
+      ${cols.avgCheck ? `<th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('avgCheck')">O'RTACHA CHEK ${si('avgCheck')}</th>` : ""}
+      ${cols.lastDate ? `<th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('lastDate')">OXIRGI XARID ${si('lastDate')}</th>` : ""}
+      ${cols.debt     ? `<th class="num" style="cursor:pointer;user-select:none" onclick="custSortToggle('debt')">JORIY QARZ ${si('debt')}</th>` : ""}
+      ${cols.company  ? `<th>KOMPANIYA</th>` : ""}
       <th></th>
     </tr>`;
   }
 
+  const colCount = Object.values(cols).filter(Boolean).length + 2;
   $("mijozlar-body").innerHTML = list.length ? list.map(c => {
     const st  = custStats(c.id);
     const seg = custSegment(st, c);
@@ -187,53 +228,41 @@ function renderMijozlar() {
           onclick="toggleCustSelect(${c.id})"
           style="width:15px;height:15px;accent-color:var(--acc);cursor:pointer">
       </td>
-      <td>
-        <div style="font-weight:600;font-size:13.5px">${c.name}</div>
-        ${c.company ? `<div style="font-size:11px;color:#aaa">${c.company}</div>` : ""}
-        ${c.note && !c.company ? `<div style="font-size:11px;color:#aaa">${c.note}</div>` : ""}
-      </td>
-      <td style="font-size:12.5px">
-        ${c.phone
-          ? `<a href="tel:${c.phone}" onclick="event.stopPropagation()" style="color:inherit">${c.phone}</a>`
-          : `<span style="color:#ccc">—</span>`}
-      </td>
-      <td>
-        <span class="bg" style="font-size:11px;background:${seg.bg};color:${seg.color};font-weight:600">
-          ${seg.label}
-        </span>
-        ${c.debtLimit ? `<div style="font-size:10px;color:${limitWarn?"var(--red)":"#bbb"};margin-top:2px">
-          Limit: ${fmtK(c.debtLimit)} so'm${limitWarn?" ⚠️":""}
-        </div>` : ""}
-      </td>
-      <td class="num" style="font-weight:600">${st.count}</td>
-      <td class="num" style="font-size:12.5px">${st.totalBuy ? fmtK(st.totalBuy)+" so'm" : "—"}</td>
-      <td class="num" style="font-size:12.5px;color:var(--mut)">${st.avgCheck ? fmtK(st.avgCheck)+" so'm" : "—"}</td>
-      <td class="num" style="font-size:12px;color:#aaa">
-        ${st.daysSinceLastBuy !== null
-          ? st.daysSinceLastBuy === 0 ? "<span style='color:var(--grn)'>Bugun</span>"
-          : st.daysSinceLastBuy <= 7 ? `<span style='color:var(--grn)'>${st.daysSinceLastBuy} kun oldin</span>`
-          : st.daysSinceLastBuy <= 30 ? `${st.daysSinceLastBuy} kun oldin`
+      ${cols.name    ? `<td><div style="font-weight:600;font-size:13.5px">${c.name}</div>${c.company&&!cols.company?`<div style="font-size:11px;color:#aaa">${c.company}</div>`:""}</td>` : ""}
+      ${cols.phone   ? `<td style="font-size:12.5px">
+        ${c.phone?`<a href="tel:${c.phone}" onclick="event.stopPropagation()" style="color:inherit">${c.phone}</a>`:`<span style="color:#ccc">—</span>`}
+        ${c.phone2?`<div style="font-size:11px;color:#4C9BE8"><a href="tel:${c.phone2}" onclick="event.stopPropagation()" style="color:#4C9BE8">${c.phone2}</a></div>`:""}
+      </td>` : ""}
+      ${cols.segment ? `<td>
+        <span class="bg" style="font-size:11px;background:${seg.bg};color:${seg.color};font-weight:600">${seg.label}</span>
+        ${c.debtLimit?`<div style="font-size:10px;color:${limitWarn?"var(--red)":"#bbb"};margin-top:2px">Limit: ${fmtK(c.debtLimit)}${limitWarn?" ⚠️":""}</div>`:""}
+      </td>` : ""}
+      ${cols.count    ? `<td class="num" style="font-weight:600">${st.count}</td>` : ""}
+      ${cols.totalBuy ? `<td class="num" style="font-size:12.5px">${st.totalBuy?fmtK(st.totalBuy)+" so'm":"—"}</td>` : ""}
+      ${cols.avgCheck ? `<td class="num" style="font-size:12.5px;color:var(--mut)">${st.avgCheck?fmtK(st.avgCheck)+" so'm":"—"}</td>` : ""}
+      ${cols.lastDate ? `<td class="num" style="font-size:12px;color:#aaa">
+        ${st.daysSinceLastBuy!==null
+          ? st.daysSinceLastBuy===0?"<span style='color:var(--grn)'>Bugun</span>"
+          : st.daysSinceLastBuy<=7?`<span style='color:var(--grn)'>${st.daysSinceLastBuy} kun</span>`
+          : st.daysSinceLastBuy<=30?`${st.daysSinceLastBuy} kun`
           : `<span style='color:#E9A500'>${st.lastDate}</span>`
           : "—"}
-      </td>
-      <td class="num">
-        ${(st.totalDebt > 0 || st.totalDebtUsd > 0)
+      </td>` : ""}
+      ${cols.debt ? `<td class="num">
+        ${(st.totalDebt>0||st.totalDebtUsd>0)
           ? `<span style="color:var(--red);font-weight:700;font-size:13px">${
-              st.totalDebtUsd>0&&st.totalDebt>0
-                ? "$"+st.totalDebtUsd.toFixed(2)+" + "+fmt(st.totalDebt)+" so'm"
-                : st.totalDebtUsd>0 ? "$"+st.totalDebtUsd.toFixed(2)+" USD"
-                : fmt(st.totalDebt)+" so'm"
-            }</span>`
+              st.totalDebtUsd>0&&st.totalDebt>0?"$"+st.totalDebtUsd.toFixed(2)+" + "+fmt(st.totalDebt)+" so'm"
+              :st.totalDebtUsd>0?"$"+st.totalDebtUsd.toFixed(2)+" USD"
+              :fmt(st.totalDebt)+" so'm"}</span>`
           : `<span style="color:var(--grn);font-size:12px">✅</span>`}
-      </td>
+      </td>` : ""}
+      ${cols.company ? `<td style="font-size:12px;color:#666">${c.company||"—"}</td>` : ""}
       <td onclick="event.stopPropagation()">
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="openCustCard(${c.id})">
-          <i class="ti ti-eye"></i>
-        </button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="openCustCard(${c.id})"><i class="ti ti-eye"></i></button>
       </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="10" class="empty-td">
-    ${custFilter !== "all" ? "Bu filtrda mijoz yo'q" : q ? `"${q}" topilmadi` : "Mijoz yo'q"}
+  }).join("") : `<tr><td colspan="${colCount}" class="empty-td">
+    ${custFilter!=="all"?"Bu filtrda mijoz yo'q":q?`"${q}" topilmadi`:"Mijoz yo'q"}
   </td></tr>`;
 }
 
@@ -248,7 +277,9 @@ function openCustCard(id) {
   const rate = db.settings?.rate || 12800;
 
   if ($("cc-name"))  $("cc-name").textContent  = c.name;
-  if ($("cc-phone")) $("cc-phone").textContent = c.phone || "Telefon yo'q";
+  if ($("cc-phone")) $("cc-phone").innerHTML   = c.phone
+    ? `<a href="tel:${c.phone}" style="color:inherit">${c.phone}</a>${c.phone2?` · <a href="tel:${c.phone2}" style="color:#4C9BE8">${c.phone2}</a>`:""}`
+    : "Telefon yo'q";
   if ($("cc-note"))  $("cc-note").textContent  = c.note  || "";
 
   const badge = $("cc-type-badge");
@@ -361,16 +392,14 @@ function custCardEdit() {
   const c = db.customers.find(x => x.id === _custCardId);
   if (!c) return;
   closeModal("custcard");
-  if ($("ac-name"))       $("ac-name").value       = c.name;
-  if ($("ac-phone"))      $("ac-phone").value      = c.phone || "";
-  if ($("ac-type"))       $("ac-type").value       = c.type  || "ulgurji";
-  if ($("ac-company"))    $("ac-company").value    = c.company || "";
-  if ($("ac-note"))       $("ac-note").value       = c.note  || "";
+  if ($("ac-name"))    $("ac-name").value    = c.name;
+  if ($("ac-phone"))   $("ac-phone").value   = c.phone  || "";
+  if ($("ac-phone2"))  $("ac-phone2").value  = c.phone2 || "";
+  if ($("ac-type"))    $("ac-type").value    = c.type   || "ulgurji";
+  if ($("ac-company")) $("ac-company").value = c.company|| "";
+  if ($("ac-note"))    $("ac-note").value    = c.note   || "";
   const limitEl = $("ac-debt-limit");
-  if (limitEl) {
-    limitEl.dataset.raw = c.debtLimit || 0;
-    limitEl.value = c.debtLimit ? fmt(c.debtLimit) : "";
-  }
+  if (limitEl) { limitEl.dataset.raw = c.debtLimit||0; limitEl.value = c.debtLimit ? fmt(c.debtLimit) : ""; }
   const h2 = document.querySelector("#ov-addcust h2");
   if (h2) h2.textContent = "Mijozni tahrirlash";
   const btn = document.querySelector("#ov-addcust .btn-acc");
@@ -382,7 +411,8 @@ function editCustomer(id) {
   const c = db.customers.find(x => x.id === id);
   if (!c) return;
   c.name      = ($("ac-name")||{value:""}).value.trim()  || c.name;
-  c.phone     = ($("ac-phone")||{value:""}).value.trim() || c.phone;
+  c.phone     = ($("ac-phone")||{value:""}).value.trim();
+  c.phone2    = ($("ac-phone2")||{value:""}).value.trim();
   c.type      = ($("ac-type")||{value:""}).value         || c.type;
   c.note      = ($("ac-note")||{value:""}).value.trim();
   c.company   = ($("ac-company")||{value:""}).value.trim();
@@ -390,8 +420,9 @@ function editCustomer(id) {
   c.debtLimit = limitRaw > 0 ? limitRaw : null;
   saveDB(); renderMijozlar(); closeModal("addcust");
   toast("Mijoz ma'lumotlari yangilandi");
+  const h2 = document.querySelector("#ov-addcust h2"); if(h2) h2.textContent = "Yangi mijoz";
   const btn = document.querySelector("#ov-addcust .btn-acc");
-  if (btn) { btn.textContent = "Saqlash"; btn.onclick = addCustomer; }
+  if (btn) { btn.innerHTML = '<i class="ti ti-check"></i> Saqlash'; btn.onclick = addCustomer; }
 }
 
 // ── Yangi mijoz qo'shish ──────────────────────────
@@ -554,6 +585,7 @@ function addCustomer() {
     id:        db.seq++,
     name,
     phone:     phone || "",
+    phone2:    ($("ac-phone2")||{value:""}).value.trim(),
     type:      ($("ac-type")||{value:"ulgurji"}).value,
     company:   ($("ac-company")||{value:""}).value.trim(),
     note:      ($("ac-note")||{value:""}).value.trim(),
@@ -562,5 +594,6 @@ function addCustomer() {
   db.customers.push(nc);
   saveDB(); renderMijozlar(); closeModal("addcust");
   toast(`✅ "${name}" qo'shildi`);
-  ["ac-name","ac-phone","ac-note","ac-company","ac-debt-limit"].forEach(id => { if ($(id)) $(id).value = ""; });
+  ["ac-name","ac-phone","ac-phone2","ac-note","ac-company","ac-debt-limit"].forEach(id => { if ($(id)) $(id).value = ""; });
+  if ($("ac-type")) $("ac-type").value = "ulgurji";
 }
