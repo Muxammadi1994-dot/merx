@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=114">
+<link rel="stylesheet" href="style.css?v=115">
 <style>
 /* ═══ Dashboard v2 ═══ */
 .dash-header{display:flex;align-items:center;gap:20px;background:#0D1B2A;border-radius:14px;padding:22px 28px;margin-bottom:20px;color:#fff;flex-wrap:wrap}
@@ -1903,6 +1903,17 @@
       </div>
     </div>
 
+    <!-- Kassir balanslari va smena boshqaruvi -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="ch">
+        <h3><i class="ti ti-users"></i> Kassir balanslari</h3>
+        <span style="font-size:12px;color:var(--mut)">Smena ochish/yopish va naqd balans</span>
+      </div>
+      <div style="padding:0 18px 14px" id="mol-kassa-balances">
+        <div style="text-align:center;color:var(--mut);font-size:13px;padding:12px">Yuklanmoqda...</div>
+      </div>
+    </div>
+
     <!-- Yetkazuvchi qarzlar ro'yxati -->
     <div class="card">
       <div class="ch">
@@ -2906,23 +2917,23 @@
 <div id="toast"><i class="ti ti-check" id="toast-ico"></i><span id="toast-msg"></span></div>
 <!-- JS Modules — loading order matters -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="js/db.js?v=114"></script>
-<script src="js/utils.js?v=114"></script>
-<script src="js/sms.js?v=114"></script>
-<script src="js/cloud.js?v=114"></script>
-<script src="js/dashboard.js?v=114"></script>
-<script src="js/pos.js?v=114"></script>
-<script src="js/katalog.js?v=114"></script>
-<script src="js/ombor.js?v=114"></script>
-<script src="js/mijozlar.js?v=114"></script>
-<script src="js/qarzlar.js?v=114"></script>
-<script src="js/tarix.js?v=114"></script>
-<script src="js/hisobot.js?v=114"></script>
-<script src="js/xodimlar.js?v=114"></script>
-<script src="js/moliya.js?v=114"></script>
-<script src="js/egasi.js?v=114"></script>
-<script src="js/portal.js?v=114"></script>
-<script src="js/init.js?v=114"></script>
+<script src="js/db.js?v=115"></script>
+<script src="js/utils.js?v=115"></script>
+<script src="js/sms.js?v=115"></script>
+<script src="js/cloud.js?v=115"></script>
+<script src="js/dashboard.js?v=115"></script>
+<script src="js/pos.js?v=115"></script>
+<script src="js/katalog.js?v=115"></script>
+<script src="js/ombor.js?v=115"></script>
+<script src="js/mijozlar.js?v=115"></script>
+<script src="js/qarzlar.js?v=115"></script>
+<script src="js/tarix.js?v=115"></script>
+<script src="js/hisobot.js?v=115"></script>
+<script src="js/xodimlar.js?v=115"></script>
+<script src="js/moliya.js?v=115"></script>
+<script src="js/egasi.js?v=115"></script>
+<script src="js/portal.js?v=115"></script>
+<script src="js/init.js?v=115"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -3271,7 +3282,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/auth.js?v=114"></script>
-<script src="js/superadmin.js?v=114"></script>
+<script src="js/auth.js?v=115"></script>
+<script src="js/superadmin.js?v=115"></script>
 </body>
 </html>

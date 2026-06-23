@@ -331,6 +331,7 @@ function renderMoliya() {
   }
 
   renderSupDebtList();
+  renderKassaBalances();
   renderKirimManbalar(naqd+debtNaqd, karta+debtKarta, otkazma+debtOtkazma, debtBalans, sotuv);
 
   const catTotals = {};
@@ -968,6 +969,286 @@ function initExpModal() {
   }, 30);
 }
 
+
+// ══════════════════════════════════════════════════
+// KASSA SMENASI BOSHQARUVI
+// ══════════════════════════════════════════════════
+
+function renderKassaBalances() {
+  const el = $("mol-kassa-balances"); if (!el) return;
+  const rate = db.settings?.rate || 12800;
+
+  if (!(db.staff||[]).length) {
+    el.innerHTML = `<div style="color:var(--mut);font-size:13px;text-align:center;padding:12px">Xodimlar yo'q</div>`;
+    return;
+  }
+
+  const kassirlar = (db.staff||[]).filter(s => s.role === "kassir" || !s.role);
+
+  el.innerHTML = kassirlar.map(s => {
+    const bal = (db.kassaBalances||{})[s.id] || 0;
+    // Shu kassirning faol smenasi bormi?
+    const activeShift = (db.shifts||[]).find(sh => sh.staffId === s.id && !sh.closeTime);
+
+    return `<div style="display:flex;align-items:center;justify-content:space-between;
+      padding:12px 14px;border:1.5px solid var(--brd);border-radius:10px;margin-bottom:8px">
+      <div>
+        <div style="font-weight:700;font-size:13px">${s.name}</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:2px">
+          ${activeShift
+            ? `<span style="color:var(--grn);font-weight:600">● Smena ochiq</span> · ${activeShift.openTime||""}`
+            : `<span style="color:#bbb">○ Smena yopiq</span>`}
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:16px;font-weight:800;color:${bal>0?"#0D1B2A":"#bbb"}">${fmt(bal)} so'm</div>
+        <div style="display:flex;gap:5px;margin-top:5px;justify-content:flex-end">
+          ${activeShift
+            ? `<button class="btn btn-sm" style="color:var(--red);font-size:11.5px" onclick="openCloseShift('${s.id}')">
+                <i class="ti ti-lock"></i> Kassani yopish
+              </button>`
+            : `<button class="btn btn-sm btn-acc" style="font-size:11.5px" onclick="openStartShift('${s.id}')">
+                <i class="ti ti-lock-open"></i> Smena ochish
+              </button>`}
+          <button class="btn btn-ghost btn-sm" style="font-size:11.5px" onclick="showShiftHistory('${s.id}')">
+            <i class="ti ti-history"></i>
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join("") || `<div style="color:var(--mut);font-size:13px;text-align:center;padding:12px">Kassirlar yo'q</div>`;
+}
+
+function openStartShift(staffId) {
+  const s = (db.staff||[]).find(x => x.id == staffId); if (!s) return;
+  const bal = (db.kassaBalances||{})[staffId] || 0;
+
+  const modal = document.createElement("div");
+  modal.className = "ov"; modal.id = "shift-modal";
+  modal.style.cssText = "display:flex";
+  modal.innerHTML = `
+    <div class="modal" style="max-width:400px">
+      <button class="m-close" onclick="$('shift-modal').remove()"><i class="ti ti-x"></i></button>
+      <h2 style="margin-bottom:4px"><i class="ti ti-lock-open"></i> Smena ochish</h2>
+      <p style="font-size:13px;color:var(--mut);margin-bottom:16px">Kassir: <b>${s.name}</b></p>
+      <div class="fld">
+        <label>Kassadagi naqd pul (boshlang'ich)</label>
+        <input id="shift-open-cash" type="text" data-price placeholder="0" oninput="fmtInput(this)"
+          style="font-size:16px;font-weight:700;font-family:inherit;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;width:100%">
+        ${bal > 0 ? `<div style="font-size:11.5px;color:var(--mut);margin-top:4px">Joriy balans: ${fmt(bal)} so'm</div>` : ""}
+      </div>
+      <div class="fld">
+        <label>Izoh <span style="color:var(--mut);font-weight:400">(ixtiyoriy)</span></label>
+        <input id="shift-open-note" placeholder="Masalan: Ertalabki smena..."
+          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%">
+      </div>
+      <button class="btn btn-acc" style="width:100%" onclick="confirmStartShift('${staffId}')">
+        <i class="ti ti-check"></i> Smenani boshlash
+      </button>
+    </div>`;
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+  document.body.appendChild(modal);
+  setTimeout(()=>{ const el=$("shift-open-cash"); if(el){el.dataset.raw=0; el.focus();} },50);
+}
+
+function confirmStartShift(staffId) {
+  const openCash = getRawVal("shift-open-cash") || 0;
+  const note     = ($("shift-open-note")||{value:""}).value;
+  const now      = new Date();
+
+  if (!db.shifts) db.shifts = [];
+  db.shifts.push({
+    id: db.seq++, staffId,
+    openTime: now.toISOString().slice(0,16).replace("T"," "),
+    openDate: now.toISOString().slice(0,10),
+    openCash, note, closeTime: null, closeCash: null, diff: null
+  });
+
+  // Kassir balansini boshlang'ich pul bilan o'rnatamiz
+  if (!db.kassaBalances) db.kassaBalances = {};
+  db.kassaBalances[staffId] = openCash;
+
+  saveDB();
+  $("shift-modal")?.remove();
+  renderKassaBalances();
+  toast(`✅ ${(db.staff||[]).find(x=>x.id==staffId)?.name} smenasi boshlandi`);
+}
+
+function openCloseShift(staffId) {
+  const s = (db.staff||[]).find(x => x.id == staffId); if (!s) return;
+  const shift = (db.shifts||[]).find(sh => sh.staffId == staffId && !sh.closeTime); if (!shift) return;
+  const rate = db.settings?.rate || 12800;
+
+  // Smena davomidagi sotuv hisoblash
+  const shiftSales = (db.sales||[]).filter(s => s.staffId == staffId && s.date >= shift.openDate);
+  let cashIn = 0;
+  shiftSales.forEach(s => {
+    const pb = s.payBreakdown;
+    if (pb && pb.naqd) cashIn += pb.naqd;
+    else if (s.payType === "naqd") cashIn += s.paid||0;
+  });
+  // Qarz to'lovlari (naqd)
+  const debtCash = (db.debtPayments||[])
+    .filter(p => p.staffId == staffId && p.date >= shift.openDate && (p.method||"naqd")==="naqd")
+    .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
+  // Xarajatlar (naqd, shu kassir)
+  const expCash = (db.xarajatlar||[])
+    .filter(x => x.paidBy === s.name && x.date >= shift.openDate && (x.method||"naqd")==="naqd")
+    .reduce((a,x)=>a+(x.amount||0),0);
+
+  const expectedCash = (shift.openCash||0) + cashIn + debtCash - expCash;
+  const curBal = (db.kassaBalances||{})[staffId] || 0;
+
+  const modal = document.createElement("div");
+  modal.className = "ov"; modal.id = "shift-modal";
+  modal.style.cssText = "display:flex";
+  modal.innerHTML = `
+    <div class="modal" style="max-width:430px">
+      <button class="m-close" onclick="$('shift-modal').remove()"><i class="ti ti-x"></i></button>
+      <h2 style="margin-bottom:4px"><i class="ti ti-lock"></i> Kassani yopish</h2>
+      <p style="font-size:13px;color:var(--mut);margin-bottom:14px">Kassir: <b>${s.name}</b> · Boshlangan: ${shift.openTime}</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+        <div style="padding:10px 12px;background:var(--bg);border-radius:9px">
+          <div style="font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase">Boshlang'ich</div>
+          <div style="font-size:15px;font-weight:800;margin-top:3px">${fmt(shift.openCash||0)} so'm</div>
+        </div>
+        <div style="padding:10px 12px;background:#F0FDF4;border-radius:9px">
+          <div style="font-size:10.5px;color:var(--grn);font-weight:700;text-transform:uppercase">Naqd tushum</div>
+          <div style="font-size:15px;font-weight:800;margin-top:3px;color:var(--grn)">+${fmt(cashIn+debtCash)} so'm</div>
+        </div>
+        <div style="padding:10px 12px;background:#FEF2F2;border-radius:9px">
+          <div style="font-size:10.5px;color:var(--red);font-weight:700;text-transform:uppercase">Xarajatlar</div>
+          <div style="font-size:15px;font-weight:800;margin-top:3px;color:var(--red)">−${fmt(expCash)} so'm</div>
+        </div>
+        <div style="padding:10px 12px;background:#EEF2FF;border-radius:9px">
+          <div style="font-size:10.5px;color:#4C9BE8;font-weight:700;text-transform:uppercase">Kutilgan</div>
+          <div style="font-size:15px;font-weight:800;margin-top:3px;color:#4C9BE8">${fmt(expectedCash)} so'm</div>
+        </div>
+      </div>
+
+      <div class="fld">
+        <label>Faktik naqd pul (sanab ko'ring)</label>
+        <input id="shift-close-cash" type="text" data-price oninput="fmtInput(this);updateShiftDiff(${expectedCash})"
+          placeholder="${fmt(expectedCash)}"
+          style="font-size:16px;font-weight:700;font-family:inherit;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;width:100%">
+      </div>
+
+      <div id="shift-diff-block" style="display:none;padding:10px 14px;border-radius:9px;margin-bottom:12px;text-align:center">
+        <div id="shift-diff-text" style="font-size:14px;font-weight:700"></div>
+      </div>
+
+      <div class="fld">
+        <label>Izoh</label>
+        <input id="shift-close-note" placeholder="Kun yopish, inkassatsiya..."
+          style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%">
+      </div>
+      <button class="btn btn-red" style="width:100%" onclick="confirmCloseShift('${staffId}', ${expectedCash})">
+        <i class="ti ti-lock"></i> Kassani yopish
+      </button>
+    </div>`;
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+  document.body.appendChild(modal);
+  setTimeout(()=>{ const el=$("shift-close-cash"); if(el){el.dataset.raw=expectedCash; el.value=fmt(expectedCash); el.focus(); el.select();} updateShiftDiff(expectedCash);},80);
+}
+
+function updateShiftDiff(expectedCash) {
+  const actual = getRawVal("shift-close-cash") || 0;
+  const diff   = actual - expectedCash;
+  const block  = $("shift-diff-block");
+  const text   = $("shift-diff-text");
+  if (!block || !text) return;
+  if (diff === 0) {
+    block.style.display = "block"; block.style.background = "#F0FDF4"; block.style.border = "1.5px solid #BBF7D0";
+    text.innerHTML = `✅ Farq yo'q — kassa to'g'ri`;  text.style.color = "var(--grn)";
+  } else {
+    block.style.display = "block";
+    block.style.background = diff > 0 ? "#F0FDF4" : "#FEF2F2";
+    block.style.border = `1.5px solid ${diff>0?"#BBF7D0":"#FECACA"}`;
+    text.innerHTML = diff > 0
+      ? `📈 Ortiqcha: +${fmt(diff)} so'm`
+      : `⚠️ Kamomad: −${fmt(Math.abs(diff))} so'm`;
+    text.style.color = diff > 0 ? "var(--grn)" : "var(--red)";
+  }
+}
+
+function confirmCloseShift(staffId, expectedCash) {
+  const closeCash = getRawVal("shift-close-cash");
+  const note      = ($("shift-close-note")||{value:""}).value;
+  const diff      = closeCash - expectedCash;
+  const now       = new Date();
+
+  const shift = (db.shifts||[]).find(sh => sh.staffId == staffId && !sh.closeTime);
+  if (!shift) return;
+
+  shift.closeTime  = now.toISOString().slice(0,16).replace("T"," ");
+  shift.closeCash  = closeCash;
+  shift.expectedCash = expectedCash;
+  shift.diff       = diff;
+  shift.closeNote  = note;
+
+  // Kassir balansini yangilaymiz
+  if (!db.kassaBalances) db.kassaBalances = {};
+  db.kassaBalances[staffId] = closeCash;
+
+  // Agar kamomad bo'lsa — xarajat sifatida yozamiz
+  if (diff < 0) {
+    if (!db.xarajatlar) db.xarajatlar = [];
+    db.xarajatlar.push({
+      id: db.seq++, date: now.toISOString().slice(0,10),
+      category: "Boshqa", amount: Math.abs(diff),
+      recipient: (db.staff||[]).find(x=>x.id==staffId)?.name || "Kassir",
+      note: `Kassa kamomadi (${shift.openTime} — ${shift.closeTime})`,
+      method: "naqd", paidBy: "kassa"
+    });
+  }
+
+  saveDB();
+  $("shift-modal")?.remove();
+  renderMoliya();
+  toast(diff === 0
+    ? `✅ Kassa yopildi. Farq yo'q.`
+    : diff > 0
+      ? `✅ Kassa yopildi. Ortiqcha: +${fmt(diff)} so'm`
+      : `⚠️ Kassa yopildi. Kamomad: ${fmt(Math.abs(diff))} so'm`);
+}
+
+function showShiftHistory(staffId) {
+  const s = (db.staff||[]).find(x => x.id == staffId);
+  const shifts = (db.shifts||[]).filter(sh => sh.staffId == staffId).slice(-10).reverse();
+
+  const modal = document.createElement("div");
+  modal.className = "ov"; modal.id = "shift-modal";
+  modal.style.cssText = "display:flex";
+  modal.innerHTML = `
+    <div class="modal" style="max-width:480px">
+      <button class="m-close" onclick="$('shift-modal').remove()"><i class="ti ti-x"></i></button>
+      <h2 style="margin-bottom:14px"><i class="ti ti-history"></i> ${s?.name||"Kassir"} — smena tarixi</h2>
+      ${!shifts.length ? `<div style="text-align:center;color:var(--mut);padding:20px">Smena tarixi yo'q</div>` :
+        shifts.map(sh => `
+          <div style="border:1.5px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <div style="font-size:12.5px;font-weight:700">${sh.openTime}</div>
+              <span class="bg ${sh.closeTime?"bg-g":"bg-a"}" style="font-size:11px">
+                ${sh.closeTime ? "Yopilgan" : "Faol"}
+              </span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:12px">
+              <div><span style="color:var(--mut)">Boshlandi:</span><br><b>${fmt(sh.openCash||0)}</b></div>
+              ${sh.closeTime ? `
+                <div><span style="color:var(--mut)">Kutilgan:</span><br><b>${fmt(sh.expectedCash||0)}</b></div>
+                <div><span style="color:var(--mut)">Farq:</span><br>
+                  <b style="color:${sh.diff>0?"var(--grn)":sh.diff<0?"var(--red)":"#aaa"}">
+                    ${sh.diff>0?"+":""}${fmt(sh.diff||0)}
+                  </b>
+                </div>` : "<div></div><div></div>"}
+            </div>
+            ${sh.note||sh.closeNote ? `<div style="font-size:11px;color:#aaa;margin-top:6px">${sh.note||""} ${sh.closeNote||""}</div>` : ""}
+          </div>`).join("")}
+    </div>`;
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+  document.body.appendChild(modal);
+}
 
 // ── Yetkazuvchi qarzlar ro'yxati ──────────────────
 function renderSupDebtList() {

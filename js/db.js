@@ -90,16 +90,18 @@ function seedDB() {
       priceCurrency: "uzs",
       omborCols:     {}
     },
-    customers:  [],
-    suppliers:  [],
-    products:   [],
-    sales:      [],
-    ombor:      [],
-    staff:      [],
-    xarajatlar: [],
-    chiqimlar:  [],
-    returns:    [],
+    customers:    [],
+    suppliers:    [],
+    products:     [],
+    sales:        [],
+    ombor:        [],
+    staff:        [],
+    xarajatlar:   [],
+    chiqimlar:    [],
+    returns:      [],
     debtPayments: [],
+    shifts:       [],   // Kassir smenalari
+    kassaBalances:{},   // {staffId: naqd_balans}
     seq: 1
   };
 }
