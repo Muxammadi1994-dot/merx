@@ -1,14 +1,12 @@
-// MERX auth.js | v3.1 | 2026-06-24
+// MERX auth.js | v3.2 | 2026-06-24
 // ================================================
-// Sodda, toza arxitektura:
-// - Session: merx_auth_v1 = {shopId, dbKey, email, role, ...}
-// - Login → session → loadDB(dbKey) → cloud sync
+// Session: merx_auth_v1 = {shopId, dbKey, email, role, ...}
+// Login oqimi: Supabase BIRINCHI → local fallback
 // ================================================
 
 const AUTH_KEY = "merx_auth_v1";
 let _authUser = null;
 
-// ── Session ──────────────────────────────────────
 function authLoad() {
   try {
     const raw = localStorage.getItem(AUTH_KEY);
@@ -30,12 +28,27 @@ function authClear() {
 function getAuthUser() { return _authUser; }
 function isLoggedIn()  { return !!_authUser; }
 
-// ── Login ─────────────────────────────────────────
-async function authLogin(email, password, shopId) {
+// ── _buildUser — shopId MAJBURIY ─────────────────
+function _buildUser(email, shopId, role) {
+  const sid   = shopId || "local";
+  const dbKey = sid === "local" ? "merx_v5" : "merx_v5_" + sid;
+  return {
+    id:       sid === "local" ? "local_admin" : "admin_" + sid,
+    email,
+    shopId:   sid,
+    dbKey,
+    shopName: db?.shop?.name || "MERX Do'koni",
+    role:     role || "admin"
+  };
+}
+
+// ── authLogin — faqat db ichida tekshiradi ────────
+function authLogin(email, password, shopId) {
   const stored = db?.settings?.adminEmail;
   const pass   = db?.settings?.adminPass;
 
   if (!stored) {
+    // Birinchi kirish — hisob yaratish
     if (!email || !password || password.length < 4) {
       return { ok: false, error: "Email va kamida 4 ta belgili parol kiriting" };
     }
@@ -57,20 +70,6 @@ async function authLogin(email, password, shopId) {
   return { ok: true, user };
 }
 
-function _buildUser(email, shopId) {
-  // shopId parametri MAJBURIY — getShopId() ga suyanmaymiz (session hali yo'q bo'lishi mumkin)
-  const sid   = shopId || "local";
-  const dbKey = sid === "local" ? "merx_v5" : "merx_v5_" + sid;
-  return {
-    id:       sid === "local" ? "local_admin" : "admin_" + sid,
-    email,
-    shopId:   sid,
-    dbKey,
-    shopName: db?.shop?.name || "MERX Do'koni",
-    role:     "admin"
-  };
-}
-
 // ── Xodim login ──────────────────────────────────
 function authStaffLogin(phone, password) {
   const staff = (db.staff||[]).find(s => s.phone === phone && s.pin === password);
@@ -90,6 +89,11 @@ function authStaffLogin(phone, password) {
 // ── Chiqish ──────────────────────────────────────
 function authLogout() {
   authClear();
+  // db ni asosiy do'konga qaytaramiz
+  try {
+    const main = localStorage.getItem("merx_v5");
+    if (main) db = JSON.parse(main);
+  } catch(e) {}
   showLoginScreen();
 }
 
@@ -195,22 +199,137 @@ function _initCloudAfterLogin() {
   initSupabase().then(async ok => {
     if (!ok) return;
     if (typeof updateCloudUI === "function") updateCloudUI(true);
-
-    // MUHIM: faqat local ma'lumotlar bo'lmasa pull qilamiz
-    // "bo'sh" = products ham, sales ham yo'q
+    // Faqat bo'sh bo'lsa pull — push hech qachon avtomatik emas
     const hasLocalData = (db.products?.length > 0) || (db.sales?.length > 0);
-
     if (!hasLocalData) {
-      // Yangi qurilma yoki yangi do'kon — cloud dan yuklaymiz
       if (typeof pullFromCloud === "function") {
         await pullFromCloud();
         saveDB();
         if (typeof renderDashboard === "function") renderDashboard();
       }
     }
-    // Agar local data bor bo'lsa — push qilmaymiz (foydalanuvchi o'zi bossin)
-    // Bu asosiy do'kon ma'lumotlarini yangi do'konga ko'chishini oldini oladi
   });
+}
+
+// ── doLogin — SUPABASE BIRINCHI ───────────────────
+async function doLogin() {
+  const email = (document.getElementById("auth-email")||{value:""}).value.trim().toLowerCase();
+  const pass  = (document.getElementById("auth-pass") ||{value:""}).value;
+  const btn   = document.getElementById("auth-btn");
+
+  if (!email || !pass) { showAuthErr("Email va parol kiriting"); return; }
+  if (btn) { btn.innerHTML = '<i class="ti ti-loader spin"></i> Tekshirilmoqda...'; btn.disabled = true; }
+
+  let res = { ok: false };
+
+  // ── 1. SUPABASE DAN SHOP TOPAMIZ (ASOSIY YO'L) ──
+  if (typeof MERX_SUPABASE_URL !== "undefined" && MERX_SUPABASE_URL) {
+    try {
+      const { createClient } = window.supabase || supabase;
+      const sb = createClient(MERX_SUPABASE_URL, MERX_SUPABASE_KEY,
+        { auth: { persistSession: false } });
+
+      const { data: shops } = await sb.from("shops")
+        .select("id,name")
+        .eq("owner_email", email)
+        .limit(1);
+
+      if (shops?.length) {
+        const shop   = shops[0];
+        const shopId = shop.id;
+        const dbKey  = "merx_v5_" + shopId;
+
+        // Local DB ni yuklaymiz yoki yaratamiz
+        let shopDB = null;
+        try { shopDB = JSON.parse(localStorage.getItem(dbKey)); } catch(e) {}
+
+        if (!shopDB) {
+          // Supabase dan settings olamiz
+          const { data: sets } = await sb.from("settings")
+            .select("*").eq("shop_id", shopId).single();
+          shopDB = {
+            shop: { name: shop.name, type: "ikki" },
+            settings: {
+              rate: sets?.rate || 12800,
+              priceCurrency: sets?.price_currency || "uzs",
+              supabaseUrl: MERX_SUPABASE_URL,
+              supabaseKey: MERX_SUPABASE_KEY
+            },
+            customers:[], products:[], sales:[], staff:[],
+            ombor:[], xarajatlar:[], debtPayments:[], shifts:[],
+            kassaBalances:{}, seq: 1
+          };
+        }
+
+        // Supabase URL/Key ni har doim yangilaymiz
+        if (!shopDB.settings) shopDB.settings = {};
+        shopDB.settings.supabaseUrl = MERX_SUPABASE_URL;
+        shopDB.settings.supabaseKey = MERX_SUPABASE_KEY;
+
+        // db ni bu do'kon bilan almashtiramiz
+        db = shopDB;
+
+        // Parol tekshiruv / yaratish
+        res = authLogin(email, pass, shopId);
+
+        // Saqlash
+        localStorage.setItem(dbKey, JSON.stringify(db));
+
+      } else {
+        // Supabase da bu email yo'q — local tekshiramiz
+        res = authLogin(email, pass);
+      }
+    } catch(e) {
+      console.warn("Supabase login xato:", e.message);
+      // Supabase ishlamadi — local bilan davom
+      res = authLogin(email, pass);
+    }
+  } else {
+    // ── 2. SUPABASE YO'Q — LOCAL ──
+    res = authLogin(email, pass);
+  }
+
+  if (btn) { btn.innerHTML = '<i class="ti ti-login"></i> Kirish'; btn.disabled = false; }
+
+  if (res.ok) {
+    hideLoginScreen();
+    toast(res.firstTime ? "✅ Hisob yaratildi!" : `✅ Xush kelibsiz!`);
+    applyRoleUI();
+    _initCloudAfterLogin();
+  } else {
+    showAuthErr(res.error || "Kirish xatoligi");
+  }
+}
+
+function doStaffLogin() {
+  const phone = (document.getElementById("auth-phone")||{value:""}).value.trim();
+  const pin   = (document.getElementById("auth-pin") ||{value:""}).value;
+  if (!phone || !pin) { showAuthErr("Telefon va PIN kiriting", true); return; }
+
+  const res = authStaffLogin(phone, pin);
+  if (res.ok) {
+    hideLoginScreen();
+    toast(`✅ Xush kelibsiz, ${res.user.name}!`);
+    applyRoleUI();
+    _initCloudAfterLogin();
+  } else {
+    showAuthErr(res.error, true);
+  }
+}
+
+function showAuthErr(msg, isStaff = false) {
+  const id = isStaff ? "auth-staff-err" : "auth-err";
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.style.display = "block"; }
+}
+
+function hideLoginScreen() {
+  const screen = document.getElementById("auth-screen");
+  if (screen) {
+    screen.style.opacity = "0";
+    screen.style.transition = "opacity .3s";
+    setTimeout(() => screen.remove(), 300);
+  }
 }
 
 // ── Login ekrani ─────────────────────────────────
@@ -223,8 +342,8 @@ function showLoginScreen() {
     document.body.appendChild(screen);
   }
 
-  const hasAdmin  = !!(db?.settings?.adminEmail);
-  const shopName  = db?.shop?.name || "MERX Savdo tizimi";
+  const hasAdmin = !!(db?.settings?.adminEmail);
+  const shopName = db?.shop?.name || "MERX Savdo tizimi";
 
   screen.innerHTML = `
     <div style="width:100%;max-width:400px">
@@ -334,119 +453,4 @@ function toggleAuthPass() {
   if (!inp) return;
   inp.type = inp.type === "password" ? "text" : "password";
   if (ico) ico.className = inp.type === "password" ? "ti ti-eye" : "ti ti-eye-off";
-}
-
-async function doLogin() {
-  const email = (document.getElementById("auth-email")||{value:""}).value.trim();
-  const pass  = (document.getElementById("auth-pass") ||{value:""}).value;
-  const btn   = document.getElementById("auth-btn");
-
-  if (!email || !pass) { showAuthErr("Email va parol kiriting"); return; }
-  if (btn) { btn.innerHTML = '<i class="ti ti-loader spin"></i> Tekshirilmoqda...'; btn.disabled = true; }
-
-  // 1. Avval local DB da tekshirish (joriy do'kon uchun)
-  let res = await authLogin(email, pass);
-
-  // 2. Local da topilmadi — Supabase dan do'konni topamiz
-  if (!res.ok && (typeof MERX_SUPABASE_URL !== "undefined")) {
-    try {
-      const { createClient } = window.supabase || supabase;
-      const sb = createClient(MERX_SUPABASE_URL, MERX_SUPABASE_KEY,
-        { auth: { persistSession: false } });
-
-      // shops jadvalidan email bo'yicha topamiz
-      const { data: shops } = await sb.from("shops")
-        .select("id,name")
-        .eq("owner_email", email.toLowerCase())
-        .limit(1);
-
-      if (shops?.length) {
-        const shop   = shops[0];
-        const shopId = shop.id;
-        const dbKey  = "merx_v5_" + shopId;
-
-        // settings jadvalidan ma'lumot olamiz
-        const { data: sets } = await sb.from("settings")
-          .select("*").eq("shop_id", shopId).single();
-
-        // dbKey bo'yicha local DB yaratamiz (bo'lmasa)
-        if (!localStorage.getItem(dbKey)) {
-          const shopDB = {
-            shop: { name: shop.name, type: "ikki" },
-            settings: {
-              rate: sets?.rate || 12800,
-              priceCurrency: sets?.price_currency || "uzs",
-              adminEmail: email.toLowerCase(),
-              adminPass: pass,
-              supabaseUrl: MERX_SUPABASE_URL,
-              supabaseKey: MERX_SUPABASE_KEY
-            },
-            customers:[], products:[], sales:[], staff:[],
-            ombor:[], xarajatlar:[], debtPayments:[], shifts:[],
-            kassaBalances:{}, seq: 1
-          };
-          localStorage.setItem(dbKey, JSON.stringify(shopDB));
-        }
-
-        // DB ni yangi do'kon bilan yuklaymiz
-        try { db = JSON.parse(localStorage.getItem(dbKey)); } catch(e) {}
-
-        // Login — shopId MAJBURIY beriladi
-        res = await authLogin(email, pass, shopId);
-
-        if (!res.ok) {
-          // Parol DB da yo'q — birinchi kirish
-          if (!db.settings) db.settings = {};
-          db.settings.adminEmail = email.toLowerCase();
-          db.settings.adminPass  = pass;
-          localStorage.setItem(dbKey, JSON.stringify(db));
-          res = await authLogin(email, pass, shopId);
-        }
-      }
-    } catch(e) {
-      console.warn("Supabase login xato:", e.message);
-    }
-  }
-
-  if (btn) { btn.innerHTML = '<i class="ti ti-login"></i> Kirish'; btn.disabled = false; }
-
-  if (res.ok) {
-    hideLoginScreen();
-    toast(res.firstTime ? "✅ Hisob yaratildi!" : `✅ Xush kelibsiz!`);
-    applyRoleUI();
-    _initCloudAfterLogin();
-  } else {
-    showAuthErr(res.error || "Kirish xatoligi");
-  }
-}
-
-function doStaffLogin() {
-  const phone = (document.getElementById("auth-phone")||{value:""}).value.trim();
-  const pin   = (document.getElementById("auth-pin") ||{value:""}).value;
-  if (!phone || !pin) { showAuthErr("Telefon va PIN kiriting", true); return; }
-
-  const res = authStaffLogin(phone, pin);
-  if (res.ok) {
-    hideLoginScreen();
-    toast(`✅ Xush kelibsiz, ${res.user.name}!`);
-    applyRoleUI();
-    _initCloudAfterLogin();
-  } else {
-    showAuthErr(res.error, true);
-  }
-}
-
-function showAuthErr(msg, isStaff = false) {
-  const id = isStaff ? "auth-staff-err" : "auth-err";
-  const el = document.getElementById(id);
-  if (el) { el.textContent = msg; el.style.display = "block"; }
-}
-
-function hideLoginScreen() {
-  const screen = document.getElementById("auth-screen");
-  if (screen) {
-    screen.style.opacity = "0";
-    screen.style.transition = "opacity .3s";
-    setTimeout(() => screen.remove(), 300);
-  }
 }
