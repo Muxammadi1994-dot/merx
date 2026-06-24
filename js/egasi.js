@@ -127,6 +127,9 @@ function renderEgasi() {
   if ($("s-staff-group-id"))  $("s-staff-group-id").value  = db.settings?.staffGroupId        || "";
   _updateTgBadge(!!db.settings?.telegramBotUrl);
 
+  // Mijoz Telegram havolasini ko'rsatamiz
+  _updateTgMijozLink();
+
   // Chek sozlamalari
   const chekCfg = db.settings?.chekConfig || {};
   const ceContact = document.getElementById("chek-contact");
@@ -527,4 +530,47 @@ function previewChek(style) {
   if (!w) { toast("Pop-up bloklangan", "err"); return; }
   w.document.write(html);
   w.document.close();
+}
+
+
+// ── Telegram mijoz havolasi ───────────────────────
+function _updateTgMijozLink() {
+  const el = document.getElementById("tg-mijoz-link");
+  if (!el) return;
+
+  const botUsername = (db.settings?.telegramBotUsername || "").replace(/^@/, "");
+  const shopId = typeof getShopId === "function" ? getShopId() : null;
+
+  if (!botUsername) {
+    el.textContent = "Bot username kiriting ↑";
+    el.style.color = "#9CA3AF";
+    return;
+  }
+  if (!shopId || shopId === "local") {
+    el.textContent = "Do'kon Cloud ga ulanmagan";
+    el.style.color = "#9CA3AF";
+    return;
+  }
+
+  const link = `https://t.me/${botUsername}?start=${shopId}`;
+  el.textContent = link;
+  el.style.color = "#065F46";
+}
+
+function copyTgLink() {
+  const el = document.getElementById("tg-mijoz-link");
+  if (!el || el.textContent === "—" || el.style.color === "rgb(156, 163, 175)") {
+    toast("Havola yaratilmagan — Bot username va Cloud ulanish kerak", "err");
+    return;
+  }
+  const link = el.textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(link).then(() => toast("✅ Havola nusxa olindi!"));
+  } else {
+    const t = document.createElement("textarea");
+    t.value = link; document.body.appendChild(t);
+    t.select(); document.execCommand("copy");
+    document.body.removeChild(t);
+    toast("✅ Havola nusxa olindi!");
+  }
 }

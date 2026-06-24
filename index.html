@@ -2414,8 +2414,28 @@
             <div class="fld"><label>Bot username</label><input id="s-tg-bot-username" placeholder="merx_savdo_bot (@ siz)" oninput="saveSetting('telegramBotUsername',this.value)"></div>
             <div class="fld"><label>Xodimlar guruhi ID</label><input id="s-staff-group-id" placeholder="-100xxxxxxxxxx" oninput="saveSetting('staffGroupId',this.value)"></div>
             <button class="btn btn-teal btn-sm" onclick="testTelegramBot()" style="width:fit-content"><i class="ti ti-send"></i> Ulanishni tekshirish</button>
+
+            <!-- Mijoz havolasi -->
+            <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:14px 16px">
+              <div style="font-size:12px;font-weight:700;color:#065F46;margin-bottom:8px">
+                <i class="ti ti-link"></i> Mijozlarga beriladigan havola
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div id="tg-mijoz-link" style="flex:1;background:#fff;border:1px solid #BBF7D0;border-radius:7px;padding:8px 12px;font-size:12px;font-family:monospace;color:#065F46;word-break:break-all">
+                  —
+                </div>
+                <button onclick="copyTgLink()" style="background:#059669;border:none;border-radius:7px;padding:8px 12px;color:#fff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0">
+                  <i class="ti ti-copy"></i> Nusxa
+                </button>
+              </div>
+              <div style="font-size:11px;color:#059669;margin-top:6px">
+                Bu havolani mijozlarga yuboring — bosganida bot avtomatik do'koningizga bog'lanadi
+              </div>
+            </div>
+
             <div style="background:var(--bg);border-radius:var(--rs);padding:12px 14px;font-size:12.5px;color:var(--mut);line-height:1.7">
-              <strong style="color:var(--ink)">Qanday ishlaydi:</strong> Mijoz botga <code>/start</code> bosib telefon raqamini ulashgach, har bir sotuvda chek avtomatik shu mijozga yuboriladi.
+              <strong style="color:var(--ink)">Qanday ishlaydi:</strong> Mijoz havola orqali botga kiradi → telefon raqamini ulashadi → har bir sotuvda chek avtomatik yuboriladi.<br>
+              <strong style="color:var(--ink)">Bitta bot — barcha do'konlar:</strong> Har bir do'konning o'z havolasi bo'ladi, bot avtomatik qaysi do'kon ekanini biladi.
             </div>
           </div>
         </div>
