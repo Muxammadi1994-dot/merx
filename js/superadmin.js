@@ -216,7 +216,7 @@ function buildSaDashboard() {
 function buildSaPanel() {
   return `
     <div style="background:#0D1B2A;border:1px solid #1e3a5f;border-radius:20px;
-      width:820px;max-width:95vw;max-height:88vh;overflow:hidden;display:flex;flex-direction:column">
+      width:1100px;max-width:98vw;max-height:92vh;overflow:hidden;display:flex;flex-direction:column">
 
       <!-- Header -->
       <div style="padding:20px 28px;border-bottom:1px solid #1e3a5f;
@@ -280,7 +280,7 @@ function buildSaPanel() {
       </div>
 
       <!-- Do'konlar jadvali -->
-      <div id="sa-shops-list" style="overflow-y:auto;flex:1;padding:16px 24px"></div>
+      <div id="sa-shops-list" style="overflow-y:auto;overflow-x:auto;flex:1;padding:16px 24px"></div>
 
       <!-- Yangi do'kon modal (yashirin) -->
       <div id="sa-add-modal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.7);
