@@ -24,6 +24,18 @@ function init() {
   }
 
   // 2. Auth muvaffaqiyatli — Supabase ulanish (session bor, refresh holatida)
+  // Yangi do'konda URL/Key yo'q bo'lsa asosiy do'kondan olamiz
+  if (!db.settings?.supabaseUrl || !db.settings?.supabaseKey) {
+    try {
+      const mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+      if (mainDB?.settings?.supabaseUrl) {
+        if (!db.settings) db.settings = {};
+        db.settings.supabaseUrl = mainDB.settings.supabaseUrl;
+        db.settings.supabaseKey = mainDB.settings.supabaseKey;
+        saveDB();
+      }
+    } catch(e) {}
+  }
   if (db.settings?.supabaseUrl && db.settings?.supabaseKey) {
     initSupabase().then(async ok => {
       if (ok) {

@@ -148,14 +148,35 @@ function authStaffLogin(phone, password) {
 
 // Login dan keyin Supabase ulanish
 function _initCloudAfterLogin() {
-  if (!db?.settings?.supabaseUrl || !db?.settings?.supabaseKey) return;
+  // Joriy do'kon sozlamalaridan URL/Key olish
+  let url = db?.settings?.supabaseUrl;
+  let key = db?.settings?.supabaseKey;
+
+  // Yangi do'konda sozlamalar bo'lmasa — asosiy do'kondan olamiz
+  if (!url || !key) {
+    try {
+      const mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+      url = mainDB?.settings?.supabaseUrl;
+      key = mainDB?.settings?.supabaseKey;
+      // Yangi do'kon DB ga ham saqlaymiz
+      if (url && key && db?.settings) {
+        db.settings.supabaseUrl = url;
+        db.settings.supabaseKey = key;
+        if (typeof saveDB === "function") saveDB();
+      }
+    } catch(e) {}
+  }
+
+  if (!url || !key) return;
   if (typeof initSupabase !== "function") return;
+
   initSupabase().then(async ok => {
     if (ok) {
       if (typeof updateCloudUI === "function") updateCloudUI(true);
-      // Ma'lumot yo'q bo'lsa cloud dan yukla
       if (!db.products?.length && !db.sales?.length) {
         if (typeof pullFromCloud === "function") await pullFromCloud();
+      } else {
+        if (typeof pushToCloud === "function") pushToCloud();
       }
     }
   });
