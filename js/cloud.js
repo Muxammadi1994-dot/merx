@@ -26,21 +26,33 @@ async function initSupabase() {
   try {
     const { createClient } = window.supabase || supabase;
     _sb = createClient(url, key, { auth: { persistSession: false } });
-    // Test ulanish
-    const { data, error } = await _sb.from("settings").select("shop_id").limit(1);
-    if (error) throw error;
 
-    // Yangi do'kon — shops jadvaliga ro'yxatdan o'tkazish
+    // Test ulanish — shops jadvalini tekshiramiz (har doim mavjud)
+    const { error } = await _sb.from("shops").select("id").limit(1);
+    if (error) {
+      // shops yo'q bo'lsa — eski schema, settings dan tekshiramiz
+      const { error: e2 } = await _sb.from("settings").select("id").limit(1);
+      if (e2) throw e2;
+    }
+
+    // Do'konni shops jadvaliga ro'yxatdan o'tkazish
     const sid = getCloudShopId();
-    const { data: shop } = await _sb.from("shops").select("id").eq("id", sid).single();
-    if (!shop) {
-      const auth = typeof getAuthUser === "function" ? getAuthUser() : null;
-      await _sb.from("shops").upsert({
-        id:          sid,
-        name:        db.shop?.name || "MERX Do'koni",
-        owner_email: auth?.email || "",
-        active:      true
-      });
+    if (sid && sid !== "local") {
+      try {
+        const { data: shop } = await _sb.from("shops").select("id").eq("id", sid).single();
+        if (!shop) {
+          const auth = typeof getAuthUser === "function" ? getAuthUser() : null;
+          await _sb.from("shops").upsert({
+            id:          sid,
+            name:        db.shop?.name || "MERX Do'koni",
+            owner_email: auth?.email || "",
+            active:      true
+          });
+        }
+      } catch(e) {
+        // shops jadvali yo'q (eski schema) — davom etamiz
+        console.warn("shops jadvali topilmadi, eski schema bo'lishi mumkin");
+      }
     }
 
     updateCloudUI(true);
@@ -72,6 +84,8 @@ async function connectCloud() {
   const url = ($("s-sup-url")||{value:""}).value.trim();
   const key = ($("s-sup-key")||{value:""}).value.trim();
   if (!url || !key) { toast("URL va Key kiriting","err"); return; }
+  if (!url.includes("supabase.co")) { toast("URL noto'g'ri — https://xxxx.supabase.co bo'lishi kerak","err"); return; }
+  if (!key.startsWith("eyJ")) { toast("Key noto'g'ri — eyJ... bilan boshlanishi kerak","err"); return; }
 
   db.settings.supabaseUrl = url;
   db.settings.supabaseKey = key;
@@ -79,9 +93,12 @@ async function connectCloud() {
 
   toast("Ulanmoqda...", "info");
   const ok = await initSupabase();
-  if (!ok) { toast("Ulanmadi — URL/Key ni tekshiring","err"); return; }
+  if (!ok) {
+    toast("Ulanmadi — URL va Key ni tekshiring. Console da batafsil xato bor.", "err");
+    return;
+  }
 
-  toast("Sinxronlash boshlandi...", "info");
+  toast("✅ Ulandi! Sinxronlash boshlandi...", "info");
   await pushToCloud();
 }
 
