@@ -301,9 +301,13 @@ function buildSaPanel() {
             </div>
             <div>
               <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Login (email) *</label>
-              <input id="sa-new-login" placeholder="alisher@gmail.com yoki tel" style="${saInputStyle()}"
+              <input id="sa-new-login" placeholder="alisher@gmail.com" style="${saInputStyle()}"
                 oninput="saPreviewLogin()">
               <div id="sa-login-preview" style="font-size:11px;color:#9CA3AF;margin-top:4px"></div>
+            </div>
+            <div>
+              <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Telefon raqam</label>
+              <input id="sa-new-phone" placeholder="+998 90 123 45 67" style="${saInputStyle()}">
             </div>
             <div>
               <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon paroli *</label>
@@ -315,6 +319,15 @@ function buildSaPanel() {
                   <i class="ti ti-eye" style="font-size:15px"></i>
                 </button>
               </div>
+            </div>
+            <div>
+              <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon turi *</label>
+              <select id="sa-new-shoptype" style="${saInputStyle()}">
+                <option value="ikki">🧩 Oyoq kiyim + Kiyim</option>
+                <option value="oyoq">👟 Faqat Oyoq kiyim</option>
+                <option value="kiyim">👕 Faqat Kiyim-kechak</option>
+                <option value="aralash">🔀 Aralash (boshqa)</option>
+              </select>
             </div>
             <div>
               <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna turi</label>
@@ -540,6 +553,9 @@ function saAddShop() {
     showSaToast("Barcha maydonlarni to'ldiring", "err"); return;
   }
 
+  const phone    = document.getElementById("sa-new-phone")?.value.trim() || "";
+  const shopType = document.getElementById("sa-new-shoptype")?.value || "ikki";
+
   // Login aniqlash — raqam bo'lsa @merx.uz qo'shamiz
   let loginEmail = rawLogin;
   if (/^\d+$/.test(rawLogin.replace(/[\s+\-()]/g, ""))) {
@@ -554,8 +570,8 @@ function saAddShop() {
   const newShop = {
     id: shopId, name, ownerName: owner,
     ownerEmail: loginEmail,
-    phone: rawLogin.replace(/\D/g,"").length >= 9 ? rawLogin : "",
-    ownerPass: pass, plan, modules,
+    phone: phone,
+    ownerPass: pass, plan, modules, shopType,
     expiresAt: expires, createdAt: now.toISOString(),
     blocked: false, dbKey
   };
@@ -575,9 +591,10 @@ function saAddShop() {
 
   // Bo'sh DB yaratish
   const shopDB = {
-    shop: { name, type: "ikki" },
+    shop: { name, type: shopType },
     settings: {
       rate: 12800, priceCurrency: "uzs",
+      shopType: shopType,
       adminEmail: loginEmail, adminPass: pass, modules,
       supabaseUrl: _url, supabaseKey: _key
     },
@@ -591,9 +608,11 @@ function saAddShop() {
   _saAddShopToSupabase(newShop).catch(e => console.warn("Supabase shops sync xato:", e.message));
 
   document.getElementById("sa-add-modal").style.display = "none";
-  ["sa-new-name","sa-new-owner","sa-new-login","sa-new-pass"].forEach(id => {
+  ["sa-new-name","sa-new-owner","sa-new-login","sa-new-phone","sa-new-pass"].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = "";
   });
+  const stEl = document.getElementById("sa-new-shoptype");
+  if (stEl) stEl.value = "ikki";
   const prev = document.getElementById("sa-login-preview");
   const pe   = document.getElementById("sa-preview-email");
   if (prev) prev.textContent = "";
@@ -633,9 +652,10 @@ function saOpenShop(id) {
     if (!url && typeof MERX_SUPABASE_URL !== "undefined") url  = MERX_SUPABASE_URL;
     if (!key2 && typeof MERX_SUPABASE_KEY !== "undefined") key2 = MERX_SUPABASE_KEY;
     const shopDB = {
-      shop: { name: s.name, type: "ikki" },
+      shop: { name: s.name, type: s.shopType || "ikki" },
       settings: { rate:12800, priceCurrency:"uzs",
-        adminEmail: s.ownerEmail || (s.phone.replace(/\D/g,"")+"@merx.uz"),
+        shopType: s.shopType || "ikki",
+        adminEmail: s.ownerEmail || (s.phone ? s.phone.replace(/\D/g,"")+"@merx.uz" : s.id+"@merx.uz"),
         adminPass: s.ownerPass || "merx123",
         supabaseUrl: url, supabaseKey: key2 },
       customers:[],products:[],sales:[],staff:[],
