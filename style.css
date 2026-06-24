@@ -398,7 +398,18 @@ tr:hover td{background:#FAFAF8}
 }
 
 /* ── Admin Sozlamalar Tab tizimi ─────────────────── */
+.adm-tab-bar {
+  display: flex;
+  gap: 4px;
+  background: #F3F2EF;
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
 .adm-tab-btn {
+  flex: 1;
+  min-width: 90px;
   background: transparent;
   color: var(--mut);
   border: none;
@@ -418,6 +429,7 @@ tr:hover td{background:#FAFAF8}
 .adm-tab-btn.adm-tab-on {
   background: var(--surf);
   color: var(--ink);
+  font-weight: 700;
   box-shadow: 0 1px 4px rgba(0,0,0,.1);
 }
 .adm-tab-pane {
@@ -427,3 +439,10 @@ tr:hover td{background:#FAFAF8}
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Spin animatsiyasi ───────────────────────────── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.spin { animation: spin .8s linear infinite; display: inline-block; }

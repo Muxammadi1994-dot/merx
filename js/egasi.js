@@ -167,29 +167,45 @@ function setShopType(t) {
 }
 
 // ── Sync statistikasi ─────────────────────────────
-function adminRefreshSyncStats() {
-  const prod  = (db.products||[]).length;
-  const sales = (db.sales||[]).length;
-  const custs = (db.customers||[]).length;
+async function adminRefreshSyncStats() {
   const sc = id => document.getElementById(id);
-  if (sc("sc-prod"))  sc("sc-prod").textContent  = prod;
-  if (sc("sc-sales")) sc("sc-sales").textContent = sales;
-  if (sc("sc-custs")) sc("sc-custs").textContent = custs;
+
+  // Avval local ma'lumotlarni ko'rsatamiz (tez)
+  if (sc("sc-prod"))  sc("sc-prod").textContent  = (db.products||[]).length + " (local)";
+  if (sc("sc-sales")) sc("sc-sales").textContent = (db.sales||[]).length    + " (local)";
+  if (sc("sc-custs")) sc("sc-custs").textContent = (db.customers||[]).length+ " (local)";
+
   // Oxirgi sync vaqti
   const lastSync = db.settings?.lastSyncAt;
   const el = sc("sc-last-sync");
   if (el) {
     if (lastSync) {
-      const d = new Date(lastSync);
-      const now = new Date();
-      const diff = Math.round((now - d) / 60000);
-      if (diff < 1)       el.textContent = "Hozirgina";
-      else if (diff < 60) el.textContent = diff + " daqiqa oldin";
-      else if (diff < 1440) el.textContent = Math.round(diff/60) + " soat oldin";
-      else                el.textContent = d.toLocaleDateString("uz-UZ");
+      const d    = new Date(lastSync);
+      const diff = Math.round((new Date() - d) / 60000);
+      el.textContent = diff < 1 ? "Hozirgina"
+        : diff < 60   ? diff + " daqiqa oldin"
+        : diff < 1440 ? Math.round(diff/60) + " soat oldin"
+        : d.toLocaleDateString("uz-UZ");
     } else {
       el.textContent = "Hali sinxronlanmagan";
     }
+  }
+
+  // Supabase dan real raqamlarni olamiz
+  if (typeof _sb === "undefined" || !_sb) return;
+  try {
+    const sid = typeof getCloudShopId === "function" ? getCloudShopId() : null;
+    if (!sid) return;
+    const [rProd, rSales, rCusts] = await Promise.all([
+      _sb.from("products").select("id", { count:"exact", head:true }).eq("shop_id", sid),
+      _sb.from("sales").select("id",    { count:"exact", head:true }).eq("shop_id", sid),
+      _sb.from("customers").select("id",{ count:"exact", head:true }).eq("shop_id", sid),
+    ]);
+    if (sc("sc-prod"))  sc("sc-prod").textContent  = (rProd.count  ?? "—") + " (cloud)";
+    if (sc("sc-sales")) sc("sc-sales").textContent = (rSales.count ?? "—") + " (cloud)";
+    if (sc("sc-custs")) sc("sc-custs").textContent = (rCusts.count ?? "—") + " (cloud)";
+  } catch(e) {
+    console.warn("Cloud statistika xato:", e.message);
   }
 }
 

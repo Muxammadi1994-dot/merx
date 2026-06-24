@@ -2023,29 +2023,23 @@
     </div>
 
     <!-- TAB BAR -->
-    <div style="display:flex;gap:4px;background:#F3F2EF;border-radius:12px;padding:4px;margin-bottom:24px;overflow-x:auto">
-      <button class="adm-tab-btn adm-tab-on" data-tab="dokon" onclick="adminTabSwitch('dokon')"
-        style="flex:1;min-width:90px;padding:9px 12px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+    <div class="adm-tab-bar">
+      <button class="adm-tab-btn adm-tab-on" data-tab="dokon" onclick="adminTabSwitch('dokon')">
         🏪 Do'kon
       </button>
-      <button class="adm-tab-btn" data-tab="narx" onclick="adminTabSwitch('narx')"
-        style="flex:1;min-width:90px;padding:9px 12px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+      <button class="adm-tab-btn" data-tab="narx" onclick="adminTabSwitch('narx')">
         💰 Narx
       </button>
-      <button class="adm-tab-btn" data-tab="xodimlar" onclick="adminTabSwitch('xodimlar')"
-        style="flex:1;min-width:90px;padding:9px 12px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+      <button class="adm-tab-btn" data-tab="xodimlar" onclick="adminTabSwitch('xodimlar')">
         👥 Xodimlar
       </button>
-      <button class="adm-tab-btn" data-tab="cloud" onclick="adminTabSwitch('cloud')"
-        style="flex:1;min-width:90px;padding:9px 12px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+      <button class="adm-tab-btn" data-tab="cloud" onclick="adminTabSwitch('cloud')">
         ☁️ Cloud
       </button>
-      <button class="adm-tab-btn" data-tab="sms" onclick="adminTabSwitch('sms')"
-        style="flex:1;min-width:90px;padding:9px 12px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+      <button class="adm-tab-btn" data-tab="sms" onclick="adminTabSwitch('sms')">
         📱 SMS & Bot
       </button>
-      <button class="adm-tab-btn" data-tab="tizim" onclick="adminTabSwitch('tizim')"
-        style="flex:1;min-width:90px;padding:9px 12px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+      <button class="adm-tab-btn" data-tab="tizim" onclick="adminTabSwitch('tizim')">
         🔧 Tizim
       </button>
     </div>
@@ -2204,7 +2198,7 @@
               </div>
               <i class="ti ti-clock-check" style="font-size:24px;color:#059669"></i>
             </div>
-            <button class="btn btn-ghost" onclick="adminRefreshSyncStats()" style="width:100%"><i class="ti ti-refresh"></i> Yangilash</button>
+            <button class="btn btn-ghost" onclick="this.innerHTML='<i class=\"ti ti-loader-2 spin\"></i> Yuklanmoqda...';adminRefreshSyncStats().finally(()=>this.innerHTML='<i class=\"ti ti-refresh\"></i> Yangilash')" style="width:100%"><i class="ti ti-refresh"></i> Yangilash</button>
           </div>
         </div>
       </div>
@@ -2237,7 +2231,7 @@
               </button>
             </div>
           </div>
-          <div style="padding:16px 20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+          <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px">
 
             <div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
