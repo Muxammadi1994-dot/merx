@@ -43,6 +43,17 @@ function saveSetting(key, val) {
   if (key === "telegramBotUrl") {
     _updateTgBadge(!!val);
   }
+  if (key === "telegramBotUsername") {
+    // Email bo'lsa saqlamaymiz
+    if (val.includes("@") || val.includes(".com")) {
+      if (db.settings) db.settings.telegramBotUsername = "";
+      toast("Bot username email emas — @merx_savdo_bot kabi kiriting", "err");
+      const inp = document.getElementById("s-tg-bot-username");
+      if (inp) inp.value = "";
+      return;
+    }
+    _updateTgMijozLink();
+  }
 }
 
 function _updateTgBadge(has) {
@@ -538,16 +549,26 @@ function _updateTgMijozLink() {
   const el = document.getElementById("tg-mijoz-link");
   if (!el) return;
 
-  const botUsername = (db.settings?.telegramBotUsername || "").replace(/^@/, "");
-  const shopId = typeof getShopId === "function" ? getShopId() : null;
+  // Bot username — @merx_savdo_bot shaklida, emailni filtrlaymiz
+  let botUsername = (db.settings?.telegramBotUsername || "").replace(/^@/, "").trim();
+  // Email bo'lsa — bo'sh qilamiz (noto'g'ri kiritilgan)
+  if (botUsername.includes("@") || botUsername.includes(".com") || botUsername.includes(".uz")) {
+    botUsername = "";
+  }
+
+  // ShopId — session, cloudShopId yoki local dan
+  let shopId = typeof getShopId === "function" ? getShopId() : null;
+  if (!shopId || shopId === "local") {
+    shopId = db.settings?.cloudShopId || null;
+  }
 
   if (!botUsername) {
-    el.textContent = "Bot username kiriting ↑";
+    el.textContent = "Bot username kiriting (masalan: merx_savdo_bot)";
     el.style.color = "#9CA3AF";
     return;
   }
-  if (!shopId || shopId === "local") {
-    el.textContent = "Do'kon Cloud ga ulanmagan";
+  if (!shopId) {
+    el.textContent = "Do'kon ID kiriting (Cloud tab → Do'kon ID)";
     el.style.color = "#9CA3AF";
     return;
   }
