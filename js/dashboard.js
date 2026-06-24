@@ -234,10 +234,21 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
     overdueCnt = dts.filter(isOverdue).length;
   }
 
-  const cols    = dashGetKpiCols();
+  const cols     = dashGetKpiCols();
   const avgCheck = todayCnt ? Math.round(todayTotal / todayCnt) : 0;
 
-  const lowThreshold = db.settings?.lowStockLimit || 5;
+  // Kassaga tushdi hisoblash
+  const _rate = db.settings?.rate || 12800;
+  const _t    = today();
+  let kassaTushdiKpi = 0;
+  db.sales.filter(s => s.date === _t).forEach(s => {
+    const pb = s.payBreakdown;
+    if (pb && (pb.naqd||pb.karta||pb.otkazma)) kassaTushdiKpi += (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
+    else kassaTushdiKpi += s.payType === "nasiya" ? 0 : (s.paid||0);
+  });
+  (db.debtPayments||[]).filter(p => p.date === _t).forEach(p => {
+    kassaTushdiKpi += p.currency === "usd" ? Math.round(p.amount*_rate) : (p.amount||0);
+  });
   const lowCnt = db.products.reduce((a, p) =>
     a + p.variants.filter(v => v.qty >= 0 && v.qty <= lowThreshold).length, 0);
 

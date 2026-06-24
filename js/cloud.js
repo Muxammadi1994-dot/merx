@@ -137,13 +137,25 @@ async function pushToCloud() {
       if (!customers || !customers.length) return;
       const chunk = 50;
       for (let i = 0; i < customers.length; i += chunk) {
-        const batch = customers.slice(i, i+chunk).map(c => ({
-          shop_id: sid, id: c.id, name: c.name,
-          phone: c.phone || null,
-          type: c.type || "ulgurji",
-          balance_uzs: c.balanceUzs || 0,
-          balance_usd: c.balanceUsd || 0
-        }));
+        const batch = customers.slice(i, i+chunk).map(c => {
+          const row = {
+            shop_id: sid, id: c.id, name: c.name,
+            phone: c.phone || null,
+            type: c.type || "ulgurji",
+            balance_uzs: c.balanceUzs || 0,
+            balance_usd: c.balanceUsd || 0
+          };
+          // Yangi schema ustunlari — mavjud bo'lsa
+          if (c.phone2 !== undefined)        row.phone2         = c.phone2 || null;
+          if (c.company !== undefined)       row.company        = c.company || null;
+          if (c.note !== undefined)          row.note           = c.note || null;
+          if (c.importantNote !== undefined) row.important_note = c.importantNote || null;
+          if (c.birthday !== undefined)      row.birthday       = c.birthday || null;
+          if (c.source !== undefined)        row.source         = c.source || null;
+          if (c.debtLimit !== undefined)     row.debt_limit     = c.debtLimit || null;
+          if (c.loyaltyPoints !== undefined) row.loyalty_points = c.loyaltyPoints || 0;
+          return row;
+        });
         const { error } = await _sb.from("customers")
           .upsert(batch, {onConflict:"id", ignoreDuplicates:false});
         if (error) throw error;
@@ -182,20 +194,26 @@ async function pushToCloud() {
     } catch(e) { syncErrors.push("customers: " + e.message); console.warn("sync customers xato:", e.message); }
 
     try {
-      await sync("staff", db.staff?.map(s => ({
-        shop_id: sid, id: s.id, name: s.name,
-        phone: s.phone || null,
-        pin: s.pin || null,
-        role: s.role || "kassir",
-        salary: s.salary || 0,
-        bonus_pct: s.bonusPct || 0,
-        perm_discount: !!s.permDiscount,
-        max_discount: s.maxDiscount || 0,
-        perm_nasiya: !!s.permNasiya,
-        perm_return: !!s.permReturn,
-        paid_months: s.paidMonths || [],
-        salary_history: s.salaryHistory || []
-      })));
+      // Avval asosiy ustunlar (eski schema bilan mos)
+      const staffRows = db.staff?.map(s => {
+        const row = {
+          shop_id: sid, id: s.id, name: s.name,
+          phone: s.phone || null,
+          role: s.role || "kassir"
+        };
+        // Yangi schema ustunlari — mavjud bo'lsa qo'shamiz
+        if (s.pin !== undefined)         row.pin           = s.pin || null;
+        if (s.salary !== undefined)      row.salary        = s.salary || 0;
+        if (s.bonusPct !== undefined)    row.bonus_pct     = s.bonusPct || 0;
+        if (s.permDiscount !== undefined) row.perm_discount = !!s.permDiscount;
+        if (s.maxDiscount !== undefined)  row.max_discount  = s.maxDiscount || 0;
+        if (s.permNasiya !== undefined)   row.perm_nasiya   = !!s.permNasiya;
+        if (s.permReturn !== undefined)   row.perm_return   = !!s.permReturn;
+        if (s.paidMonths !== undefined)   row.paid_months   = s.paidMonths || [];
+        if (s.salaryHistory !== undefined) row.salary_history = s.salaryHistory || [];
+        return row;
+      });
+      await sync("staff", staffRows);
     } catch(e) { syncErrors.push("staff: " + e.message); console.warn("sync staff xato:", e.message); }
 
     try {
@@ -247,17 +265,20 @@ async function pushToCloud() {
     } catch(e) { syncErrors.push("xarajatlar: " + e.message); console.warn("sync xarajatlar xato:", e.message); }
 
     try {
-      await sync("debt_payments", (db.debtPayments||[]).map(p => ({
-        shop_id: sid,
-        id: p.id,
-        sale_id: p.saleId || null,
-        date: p.date,
-        amount: p.amount || 0,
-        currency: p.currency || "uzs",
-        method: p.method || "naqd",
-        staff_id: p.staffId || null,
-        note: p.note || null
-      })));
+      await sync("debt_payments", (db.debtPayments||[]).map(p => {
+        const row = {
+          shop_id: sid,
+          id: p.id,
+          sale_id: p.saleId || null,
+          date: p.date,
+          amount: p.amount || 0,
+          currency: p.currency || "uzs",
+          method: p.method || "naqd",
+          staff_id: p.staffId || null
+        };
+        if (p.note !== undefined) row.note = p.note || null;
+        return row;
+      }));
     } catch(e) { syncErrors.push("debt_payments: " + e.message); console.warn("sync debt_payments xato:", e.message); }
 
     if (syncErrors.length > 0) {
