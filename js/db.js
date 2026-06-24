@@ -77,13 +77,20 @@ let mem = null;
 let db;
 
 function loadDB() {
-  const key     = getDBKEY();
-  const shopId  = getShopId();
   try {
+    // Auth session dan dbKey ni olamiz (eng aniq manba)
+    const auth = JSON.parse(localStorage.getItem("merx_auth_v1") || "null");
+    if (auth?.dbKey) {
+      const r = localStorage.getItem(auth.dbKey);
+      if (r) return JSON.parse(r);
+    }
+    // Standart key
+    const key = getDBKEY();
     const r = localStorage.getItem(key);
     if (r) return JSON.parse(r);
-    // Migration: faqat asosiy do'kon (local/default) uchun eski merx_v5 dan o'qiymiz
-    if (key !== "merx_v5" && (shopId === "local" || !shopId)) {
+    // Migration: faqat asosiy do'kon uchun
+    const shopId = getShopId();
+    if (shopId === "local" || !shopId) {
       const old = localStorage.getItem("merx_v5");
       if (old) return JSON.parse(old);
     }
