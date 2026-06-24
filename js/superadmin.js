@@ -464,19 +464,35 @@ function renderSaShops() {
 
 function saOpenShop(id) {
   const s = _saShops.find(x => x.id === id); if (!s) return;
-  // Do'kon auth session yaratamiz
+
+  // To'g'ri dbKey ni aniqlaymiz
+  const dbKey = s.dbKey || ("merx_v5_" + s.id);
+
+  // Do'kon DB yo'q bo'lsa bo'sh yaratamiz
+  if (!localStorage.getItem(dbKey)) {
+    const shopDB = {
+      shop:     { name: s.name, type: "ikki" },
+      settings: {
+        rate: 12800, priceCurrency: "uzs",
+        adminEmail: s.ownerEmail || (s.phone + "@merx.uz"),
+        adminPass: s.ownerPass || s.ownerPass || "merx123"
+      },
+      customers:[], products:[], sales:[], staff:[],
+      ombor:[], xarajatlar:[], debtPayments:[], shifts:[], seq:1
+    };
+    localStorage.setItem(dbKey, JSON.stringify(shopDB));
+  }
+
+  // Auth session — shopId bilan
   const user = {
     id:       "sa_" + id,
     email:    s.ownerEmail || s.phone + "@merx.uz",
     shopId:   s.id,
     shopName: s.name,
     role:     "admin",
-    saAccess: true   // superadmin kirganini belgilash
+    saAccess: true
   };
   if (typeof authSave === "function") authSave(user);
-
-  // DB kalitini o'zgartirish
-  if (s.dbKey) localStorage.setItem("merx_active_shop", s.dbKey);
 
   // Panelni yopish va qayta yuklash
   hideSaPanel();
@@ -531,7 +547,7 @@ function saAddShop() {
     expiresAt: expires,
     createdAt: now.toISOString(),
     blocked:   false,
-    dbKey:     "merx_" + shopId
+    dbKey:     "merx_v5_" + shopId
   };
 
   _saShops.push(newShop);

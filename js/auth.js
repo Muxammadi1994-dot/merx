@@ -111,8 +111,15 @@ function authLocalLogin(email, password) {
   if (email.toLowerCase() !== stored || password !== pass) {
     return { ok: false, error: "Email yoki parol noto'g'ri" };
   }
+  // Mavjud session da shopId saqlangan bo'lsa — uni saqlaymiz
+  const existingAuth = (() => {
+    try { return JSON.parse(localStorage.getItem("merx_auth_v1") || "null"); } catch(e) { return null; }
+  })();
+  const shopId = existingAuth?.shopId && existingAuth.shopId !== "local"
+    ? existingAuth.shopId : "local";
   const user = {
-    id: "local_admin", email, shopId: "local",
+    id: "local_admin", email,
+    shopId,
     shopName: db.shop?.name || "MERX Do'koni", role: "admin"
   };
   authSave(user);
@@ -446,6 +453,15 @@ function initAuth() {
   }
   // Session bor — UI sozlash
   applyRoleUI();
+
+  // ShopId asosida to'g'ri DB yuklash
+  if (user.shopId && user.shopId !== "local") {
+    const key = "merx_v5_" + user.shopId;
+    const raw = localStorage.getItem(key);
+    if (raw && typeof db !== "undefined") {
+      try { db = JSON.parse(raw); } catch(e) {}
+    }
+  }
   return true;
 }
 
