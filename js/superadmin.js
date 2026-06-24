@@ -465,7 +465,7 @@ function renderSaShops() {
 function saOpenShop(id) {
   const s = _saShops.find(x => x.id === id); if (!s) return;
 
-  // dbKey — mavjud bo'lsa ishlatamiz, yo'q bo'lsa yangi format
+  // To'g'ri dbKey ni aniqlaymiz
   const dbKey = s.dbKey || ("merx_v5_" + s.id);
 
   // Do'kon DB yo'q bo'lsa bo'sh yaratamiz
@@ -475,7 +475,7 @@ function saOpenShop(id) {
       settings: {
         rate: 12800, priceCurrency: "uzs",
         adminEmail: s.ownerEmail || (s.phone + "@merx.uz"),
-        adminPass:  s.ownerPass || "merx123"
+        adminPass: s.ownerPass || s.ownerPass || "merx123"
       },
       customers:[], products:[], sales:[], staff:[],
       ombor:[], xarajatlar:[], debtPayments:[], shifts:[], seq:1
@@ -483,18 +483,19 @@ function saOpenShop(id) {
     localStorage.setItem(dbKey, JSON.stringify(shopDB));
   }
 
-  // Auth session — shopId va dbKey bilan
+  // Auth session — shopId bilan
   const user = {
     id:       "sa_" + id,
-    email:    s.ownerEmail || (s.phone + "@merx.uz"),
-    shopId:   id,          // getShopId() shu ni oladi
-    dbKey:    dbKey,       // to'g'ri kalit
+    email:    s.ownerEmail || s.phone + "@merx.uz",
+    shopId:   s.id,
     shopName: s.name,
     role:     "admin",
     saAccess: true
   };
-  if (typeof authSave === "function") authSave(user);
+  // To'g'ridan localStorage ga yozamiz (authSave bo'lmasa ham ishlaydi)
+  localStorage.setItem("merx_auth_v1", JSON.stringify(user));
 
+  // Panelni yopish va qayta yuklash
   hideSaPanel();
   showSaToast(`"${s.name}" ga kirildi — sahifa yangilanadi...`);
   setTimeout(() => location.reload(), 800);
