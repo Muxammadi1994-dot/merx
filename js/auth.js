@@ -32,9 +32,9 @@ function getAuthUser() { return _authUser; }
 function isLoggedIn()  { return !!_authUser; }
 
 // ── Supabase Auth orqali kirish ──────────────────
-async function authLogin(email, password) {
+async function authLogin(email, password, forceShopId) {
   // AVVAL local login tekshiramiz (adminEmail/adminPass localStorage da)
-  const localRes = authLocalLogin(email, password);
+  const localRes = authLocalLogin(email, password, forceShopId);
   if (localRes.ok) {
     // ShopId ni auth ga yozgandan keyin DB ni qayta yuklaymiz
     _reloadDBForShop();
@@ -87,7 +87,7 @@ function _reloadDBForShop() {
 }
 
 // ── Local login (Supabase yo'q bo'lganda) ────────
-function authLocalLogin(email, password) {
+function authLocalLogin(email, password, forceShopId) {
   const stored = db?.settings?.adminEmail;
   const pass   = db?.settings?.adminPass;
 
@@ -111,15 +111,20 @@ function authLocalLogin(email, password) {
   if (email.toLowerCase() !== stored || password !== pass) {
     return { ok: false, error: "Email yoki parol noto'g'ri" };
   }
-  // Mavjud session da shopId saqlangan bo'lsa — uni saqlaymiz
-  const existingAuth = (() => {
-    try { return JSON.parse(localStorage.getItem("merx_auth_v1") || "null"); } catch(e) { return null; }
-  })();
-  const shopId = existingAuth?.shopId && existingAuth.shopId !== "local"
-    ? existingAuth.shopId : "local";
+  // ShopId manbalari: 1) majburiy, 2) mavjud session, 3) default
+  let shopId = forceShopId || null;
+  if (!shopId) {
+    const existingAuth = (() => {
+      try { return JSON.parse(localStorage.getItem("merx_auth_v1") || "null"); } catch(e) { return null; }
+    })();
+    shopId = existingAuth?.shopId && existingAuth.shopId !== "local"
+      ? existingAuth.shopId : "local";
+  }
+  const dbKey = shopId !== "local" ? ("merx_v5_" + shopId) : null;
   const user = {
     id: "local_admin", email,
     shopId,
+    dbKey: dbKey || undefined,
     shopName: db.shop?.name || "MERX Do'koni", role: "admin"
   };
   authSave(user);
@@ -411,7 +416,7 @@ async function doLogin() {
     }
   }
 
-  const res = await authLogin(email, pass);
+  const res = await authLogin(email, pass, shopId || null);
 
   if (btn) { btn.innerHTML = `<i class="ti ti-login"></i> Kirish`; btn.disabled = false; }
 
@@ -524,12 +529,16 @@ function initAuth() {
   // Session bor — UI sozlash
   applyRoleUI();
 
-  // ShopId asosida to'g'ri DB yuklash
-  if (user.shopId && user.shopId !== "local") {
-    const key = "merx_v5_" + user.shopId;
+  // ShopId/dbKey asosida to'g'ri DB yuklash
+  if (user.dbKey || (user.shopId && user.shopId !== "local")) {
+    const key = user.dbKey || ("merx_v5_" + user.shopId);
     const raw = localStorage.getItem(key);
     if (raw && typeof db !== "undefined") {
-      try { db = JSON.parse(raw); } catch(e) {}
+      try {
+        const parsed = JSON.parse(raw);
+        // eslint-disable-next-line no-global-assign
+        db = parsed;
+      } catch(e) {}
     }
   }
   return true;
