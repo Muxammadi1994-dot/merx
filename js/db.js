@@ -1,6 +1,4 @@
-// MERX db.js | v2.2 | 2026-06-06 06:00
-// ================================================
-// MERX — js/db.js  (v3 — Barqaror, ishlaydigan)
+// MERX db.js | v3.0 | Multi-tenant
 // ================================================
 
 const CATS = {
@@ -11,12 +9,10 @@ const SIZES = {
   oyoq:  ["35","36","37","38","39","40","41","42","43","44","45","46"],
   kiyim: ["XS","S","M","L","XL","XXL","3XL"]
 };
-// Standart oraliq — tovar qo'shishda avtomatik tanlanadi
 const SIZES_DEFAULT_RANGE = {
   oyoq:  { from:"39", to:"44" },
   kiyim: { from:"S",  to:"XL" }
 };
-// To'plam birligi (karobka, pochka va h.k.) — tur bo'yicha
 const PACK_UNITS = {
   oyoq:  ["karobka","pochka","quti"],
   kiyim: ["karobka","bog'lam","quti","paket"]
@@ -24,7 +20,6 @@ const PACK_UNITS = {
 const PAYTYPES = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma" };
 const EXP_CATS = ["Ijara","Maosh","Transport","Kommunal","Reklama","Yetkazuvchi","Soliq","Jihozlar","Boshqa"];
 
-// Pantone rang ro'yxati (UI uchun)
 const PANTONE_COLORS = [
   { code:"PMS Black C",  name:"Qora",        hex:"#1A1A1A" },
   { code:"PMS White",    name:"Oq",          hex:"#F5F5F5" },
@@ -43,7 +38,6 @@ const PANTONE_COLORS = [
   { code:"Custom",       name:"Boshqa",      hex:"#888888" }
 ];
 
-// Karobka tarkibi presetlari
 const BOX_PRESETS = {
   "39-44 (8 juft)":  {"39":1,"40":1,"41":2,"42":2,"43":1,"44":1},
   "40-46 (9 juft)":  {"40":1,"41":1,"42":2,"43":2,"44":1,"45":1,"46":1},
@@ -53,23 +47,26 @@ const BOX_PRESETS = {
   "S-XXL (12 dona)": {"S":2,"M":3,"L":4,"XL":2,"XXL":1}
 };
 
-// ── ShopId asosida DB key ─────────────────────────
+// ── Session dan shopId va dbKey ───────────────────
+function getSession() {
+  try { return JSON.parse(localStorage.getItem("merx_auth_v1") || "null"); }
+  catch(e) { return null; }
+}
+
 function getShopId() {
-  // 1. Auth session dan
-  try {
-    const auth = JSON.parse(localStorage.getItem("merx_auth_v1") || "null");
-    if (auth?.shopId) return auth.shopId;
-  } catch(e) {}
-  // 2. URL parametrdan
+  const s = getSession();
+  if (s?.shopId && s.shopId !== "local") return s.shopId;
   const urlShop = new URLSearchParams(location.search).get("shop");
   if (urlShop) return urlShop;
-  // 3. Default (bitta do'kon rejimi)
   return "local";
 }
 
 function getDBKEY() {
+  const s = getSession();
+  // dbKey session da saqlangan bo'lsa — to'g'ridan ishlatamiz
+  if (s?.dbKey) return s.dbKey;
   const shopId = getShopId();
-  return shopId === "local" ? "merx_v5" : `merx_v5_${shopId}`;
+  return shopId === "local" ? "merx_v5" : "merx_v5_" + shopId;
 }
 
 const DBKEY = "merx_v5"; // eski moslik uchun
@@ -78,22 +75,13 @@ let db;
 
 function loadDB() {
   try {
-    // Auth session dan dbKey ni olamiz (eng aniq manba)
-    const auth = JSON.parse(localStorage.getItem("merx_auth_v1") || "null");
-    if (auth?.dbKey) {
-      const r = localStorage.getItem(auth.dbKey);
-      if (r) return JSON.parse(r);
-    }
-    // Standart key
     const key = getDBKEY();
     const r = localStorage.getItem(key);
     if (r) return JSON.parse(r);
-    // Migration: faqat asosiy do'kon uchun
-    const shopId = getShopId();
-    if (shopId === "local" || !shopId) {
-      const old = localStorage.getItem("merx_v5");
-      if (old) return JSON.parse(old);
-    }
+    // Migration: faqat asosiy do'kon (local) uchun
+    if (key !== "merx_v5") return null; // Yangi do'kon — bo'sh
+    const old = localStorage.getItem("merx_v5");
+    if (old) return JSON.parse(old);
     return null;
   } catch(e) { return mem; }
 }
@@ -105,10 +93,7 @@ function saveDB() {
   if (typeof scheduleCloudSync === "function") scheduleCloudSync();
 }
 
-// ── Yordamchi funksiyalar (utils.js da aniqlangan) ─
-// totalStock, debtSales, isOverdue, visProds — utils.js da
-
-// ── EAN-13 ichki barcode generatsiya ──────────
+// ── EAN-13 ────────────────────────────────────────
 function genEAN13(seq) {
   const body   = "200" + String(seq).padStart(9, "0");
   const digits = body.split("").map(Number);
@@ -118,27 +103,21 @@ function genEAN13(seq) {
   return body + check;
 }
 
-// ── Seed ma'lumotlar ───────────────────────────
+// ── Seed ──────────────────────────────────────────
 function seedDB() {
   return {
-    shop:     { name:"MERX Do'koni #1", type:"ikki" },
+    shop:     { name:"MERX Do'koni", type:"ikki" },
     settings: {
-      rate:          12800,
-      priceCurrency: "uzs",
-      omborCols:     {}
+      rate: 12800, priceCurrency: "uzs",
+      supabaseUrl: typeof MERX_SUPABASE_URL !== "undefined" ? MERX_SUPABASE_URL : "",
+      supabaseKey: typeof MERX_SUPABASE_KEY !== "undefined" ? MERX_SUPABASE_KEY : "",
+      omborCols: {}
     },
-    customers:    [],
-    suppliers:    [],
-    products:     [],
-    sales:        [],
-    ombor:        [],
-    staff:        [],
-    xarajatlar:   [],
-    chiqimlar:    [],
-    returns:      [],
-    debtPayments: [],
-    shifts:       [],   // Kassir smenalari
-    kassaBalances:{},   // {staffId: naqd_balans}
-    seq: 1
+    customers:[], suppliers:[], products:[], sales:[],
+    ombor:[], staff:[], xarajatlar:[], chiqimlar:[],
+    returns:[], debtPayments:[], shifts:[], kassaBalances:{}, seq:1
   };
 }
+
+// Global db yuklanishi
+db = loadDB() || seedDB();

@@ -469,50 +469,54 @@ function renderSaShops() {
 function saOpenShop(id) {
   const s = _saShops.find(x => x.id === id); if (!s) return;
 
-  // To'g'ri dbKey ni aniqlaymiz
-  const dbKey = s.dbKey || ("merx_v5_" + s.id);
+  // dbKey — do'kon uchun localStorage kaliti
+  const dbKey = "merx_v5_" + id;
 
   // Do'kon DB yo'q bo'lsa bo'sh yaratamiz
   if (!localStorage.getItem(dbKey)) {
+    // Asosiy do'kondan URL/Key olamiz
+    let url = "", key2 = "";
+    try {
+      const main = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+      url  = main?.settings?.supabaseUrl || "";
+      key2 = main?.settings?.supabaseKey || "";
+    } catch(e) {}
+    // Global config
+    if (!url && typeof MERX_SUPABASE_URL !== "undefined") url  = MERX_SUPABASE_URL;
+    if (!key2 && typeof MERX_SUPABASE_KEY !== "undefined") key2 = MERX_SUPABASE_KEY;
 
-  // Asosiy do'kondan Supabase sozlamalarini olamiz
-  let _mainUrl = "", _mainKey = "";
-  try {
-    const _mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
-    _mainUrl = _mainDB?.settings?.supabaseUrl || "";
-    _mainKey = _mainDB?.settings?.supabaseKey || "";
-  } catch(e) {}
     const shopDB = {
-      shop:     { name: s.name, type: "ikki" },
+      shop: { name: s.name, type: "ikki" },
       settings: {
         rate: 12800, priceCurrency: "uzs",
         adminEmail: s.ownerEmail || (s.phone + "@merx.uz"),
         adminPass:  s.ownerPass || "merx123",
-        supabaseUrl: _mainUrl, supabaseKey: _mainKey
+        supabaseUrl: url, supabaseKey: key2
       },
       customers:[], products:[], sales:[], staff:[],
-      ombor:[], xarajatlar:[], debtPayments:[], shifts:[], seq:1
+      ombor:[], xarajatlar:[], debtPayments:[], shifts:[],
+      kassaBalances:{}, seq: 1
     };
     localStorage.setItem(dbKey, JSON.stringify(shopDB));
   }
 
-  // Auth session — shopId bilan
+  // Session — shopId va dbKey bilan
   const user = {
-    id:       "sa_" + id,
-    email:    s.ownerEmail || s.phone + "@merx.uz",
-    shopId:   s.id,
+    id: "admin_" + id,
+    email: s.ownerEmail || (s.phone + "@merx.uz"),
+    shopId: id,
+    dbKey,
     shopName: s.name,
-    role:     "admin",
+    role: "admin",
     saAccess: true
   };
-  // To'g'ridan localStorage ga yozamiz (authSave bo'lmasa ham ishlaydi)
   localStorage.setItem("merx_auth_v1", JSON.stringify(user));
 
-  // Panelni yopish va qayta yuklash
   hideSaPanel();
-  showSaToast(`"${s.name}" ga kirildi — sahifa yangilanadi...`);
-  setTimeout(() => location.reload(), 800);
+  showSaToast(`"${s.name}" ga kirildi...`);
+  setTimeout(() => location.reload(), 600);
 }
+
 
 function saDeleteShop(id) {
   const s = _saShops.find(x => x.id === id); if (!s) return;
