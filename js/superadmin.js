@@ -418,7 +418,11 @@ function renderSaShops() {
             onmouseover="this.style.background='#0f2035'" onmouseout="this.style.background=''">
             <td style="padding:12px 10px;cursor:pointer" onclick="saShowStats('${s.id}')">
               <div style="font-weight:700;color:#E9A500;text-decoration:underline;text-underline-offset:3px">${s.name}</div>
-              <div style="font-size:11px;color:#4a6070;margin-top:2px">ID: ${s.id} · 📊 statistika</div>
+              <div style="font-size:11px;color:#4a6070;margin-top:2px">
+                ID: <span style="font-family:monospace;cursor:pointer;color:#4C9BE8" 
+                  onclick="navigator.clipboard.writeText('${s.id}');showSaToast('ID nusxalandi')" 
+                  title="Nusxalash">📋 ${s.id.slice(0,20)}...</span>
+              </div>
             </td>
             <td style="padding:12px 10px;color:#6b8096">
               <div>${s.ownerName || "—"}</div>

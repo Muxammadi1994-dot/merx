@@ -170,11 +170,19 @@ function _initCloudAfterLogin() {
   if (!url || !key) return;
   if (typeof initSupabase !== "function") return;
 
+  // Vaqtinchalik URL/Key ni settings ga yozamiz
+  if (!db.settings) db.settings = {};
+  db.settings.supabaseUrl = url;
+  db.settings.supabaseKey = key;
+
   initSupabase().then(async ok => {
     if (ok) {
       if (typeof updateCloudUI === "function") updateCloudUI(true);
-      if (!db.products?.length && !db.sales?.length) {
+      // Ma'lumot yo'q yoki pending shopId bo'lsa cloud dan yuklaymiz
+      const needsPull = !db.products?.length && !db.sales?.length;
+      if (needsPull) {
         if (typeof pullFromCloud === "function") await pullFromCloud();
+        if (typeof saveDB === "function") saveDB();
       } else {
         if (typeof pushToCloud === "function") pushToCloud();
       }
@@ -267,7 +275,21 @@ function showLoginScreen() {
 
         <!-- Admin login -->
         <div id="auth-admin-form">
-          <div style="margin-bottom:12px">
+          <!-- Shop ID — faqat boshqa qurilmadan kirganda kerak -->
+        <div id="auth-shop-wrap" style="margin-bottom:12px;display:none">
+          <label style="font-size:12px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;font-weight:600">DO'KON ID <span style="color:rgba(255,255,255,.3);font-weight:400">(ixtiyoriy)</span></label>
+          <input id="auth-shop-id" placeholder="shop_XXXXX (boshqa qurilmadan kirganda)"
+            style="width:100%;padding:11px 14px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.15);
+            border-radius:10px;color:#fff;font-family:inherit;font-size:13px;box-sizing:border-box;outline:none"
+            onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='rgba(255,255,255,.15)'">
+        </div>
+        <div style="text-align:right;margin-bottom:10px;margin-top:-6px">
+          <button onclick="document.getElementById('auth-shop-wrap').style.display=document.getElementById('auth-shop-wrap').style.display==='none'?'block':'none'"
+            style="background:none;border:none;color:rgba(255,255,255,.3);font-size:11.5px;cursor:pointer;font-family:inherit">
+            Boshqa qurilmadan kiryapsizmi? →
+          </button>
+        </div>
+        <div style="margin-bottom:12px">
             <label style="font-size:12px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;font-weight:600">EMAIL</label>
             <input id="auth-email" type="email" placeholder="admin@example.com" autocomplete="email"
               style="width:100%;padding:11px 14px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.15);
@@ -358,26 +380,49 @@ function toggleAuthPass() {
 }
 
 async function doLogin() {
-  const email = (document.getElementById("auth-email")||{value:""}).value.trim();
-  const pass  = (document.getElementById("auth-pass") ||{value:""}).value;
-  const errEl = document.getElementById("auth-err");
-  const btn   = document.getElementById("auth-btn");
+  const email  = (document.getElementById("auth-email")||{value:""}).value.trim();
+  const pass   = (document.getElementById("auth-pass") ||{value:""}).value;
+  const shopId = (document.getElementById("auth-shop-id")||{value:""}).value.trim();
+  const btn    = document.getElementById("auth-btn");
 
   if (!email || !pass) { showAuthErr("Email va parol kiriting"); return; }
 
   if (btn) { btn.innerHTML = '<i class="ti ti-loader spin"></i> Tekshirilmoqda...'; btn.disabled = true; }
+
+  // ShopId kiritilgan bo'lsa — o'sha do'konning DB ini yuklaymiz
+  if (shopId) {
+    const dbKey = shopId.startsWith("merx_") ? shopId : ("merx_v5_" + shopId);
+    const raw = localStorage.getItem(dbKey);
+    if (raw) {
+      try { db = JSON.parse(raw); } catch(e) {}
+    } else {
+      // DB yo'q — Supabase dan yuklaymiz (URL/Key keyinroq kerak)
+      db = {
+        shop: { name: "Do'kon" }, 
+        settings: { rate:12800, priceCurrency:"uzs", _pendingShopId: shopId },
+        customers:[], products:[], sales:[], staff:[],
+        ombor:[], xarajatlar:[], debtPayments:[], shifts:[], seq:1
+      };
+      localStorage.setItem(dbKey, JSON.stringify(db));
+    }
+  }
 
   const res = await authLogin(email, pass);
 
   if (btn) { btn.innerHTML = `<i class="ti ti-login"></i> Kirish`; btn.disabled = false; }
 
   if (res.ok) {
+    // ShopId kiritilgan bo'lsa session ga qo'shamiz
+    if (shopId) {
+      const dbKey = shopId.startsWith("merx_") ? shopId : ("merx_v5_" + shopId);
+      res.user.shopId = shopId;
+      res.user.dbKey  = dbKey;
+      localStorage.setItem("merx_auth_v1", JSON.stringify(res.user));
+    }
     hideLoginScreen();
     if (res.firstTime) toast("✅ Administrator hisob yaratildi. Xush kelibsiz!");
     else toast(`✅ Xush kelibsiz, ${res.user.email}!`);
-    // Menyu va sahifalarni roleга qarab sozlash
     applyRoleUI();
-    // Login dan keyin Supabase ulanish
     _initCloudAfterLogin();
   } else {
     showAuthErr(res.error || "Kirish xatoligi");
