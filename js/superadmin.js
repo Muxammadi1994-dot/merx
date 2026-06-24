@@ -605,11 +605,10 @@ function saAddShop() {
 }
 
 async function _saAddShopToSupabase(shop) {
-  if (!_sb && typeof initSupabase === "function") {
-    await initSupabase();
-  }
+  if (!_sb && typeof initSupabase === "function") await initSupabase();
   if (!_sb) return;
   try {
+    // shops jadvaliga
     await _sb.from("shops").upsert({
       id:          shop.id,
       name:        shop.name,
@@ -618,6 +617,24 @@ async function _saAddShopToSupabase(shop) {
       active:      !shop.blocked,
       trial_ends:  shop.expiresAt ? shop.expiresAt.slice(0,10) : null
     });
+    // settings jadvaliga — login uchun kerak
+    try {
+      await _sb.from("settings").upsert({
+        shop_id:     shop.id,
+        shop_name:   shop.name,
+        rate:        12800,
+        price_currency: "uzs",
+        admin_email: shop.ownerEmail,
+        admin_pass:  shop.ownerPass
+      });
+    } catch(e2) {
+      // eski schema — admin_email ustuni yo'q bo'lishi mumkin
+      await _sb.from("settings").upsert({
+        shop_id:    shop.id,
+        shop_name:  shop.name,
+        rate:       12800
+      });
+    }
   } catch(e) {
     console.warn("shops upsert xato:", e.message);
   }

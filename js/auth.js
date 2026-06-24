@@ -351,7 +351,70 @@ async function doLogin() {
   if (!email || !pass) { showAuthErr("Email va parol kiriting"); return; }
   if (btn) { btn.innerHTML = '<i class="ti ti-loader spin"></i> Tekshirilmoqda...'; btn.disabled = true; }
 
-  const res = await authLogin(email, pass);
+  // 1. Avval local DB da tekshirish
+  let res = await authLogin(email, pass);
+
+  // 2. Local da topilmadi — Supabase dan do'konni topamiz
+  if (!res.ok && (typeof MERX_SUPABASE_URL !== "undefined")) {
+    try {
+      const { createClient } = window.supabase || supabase;
+      const sb = createClient(MERX_SUPABASE_URL, MERX_SUPABASE_KEY,
+        { auth: { persistSession: false } });
+
+      // shops jadvalidan email bo'yicha topamiz
+      const { data: shops } = await sb.from("shops")
+        .select("id,name")
+        .eq("owner_email", email.toLowerCase())
+        .limit(1);
+
+      if (shops?.length) {
+        const shop    = shops[0];
+        const shopId  = shop.id;
+        const dbKey   = "merx_v5_" + shopId;
+
+        // settings jadvalidan parol tekshiramiz
+        const { data: sets } = await sb.from("settings")
+          .select("*").eq("shop_id", shopId).single();
+
+        if (sets) {
+          // Local DB ga settings ni yozamiz
+          if (!localStorage.getItem(dbKey)) {
+            const shopDB = {
+              shop: { name: shop.name, type: "ikki" },
+              settings: {
+                rate: sets.rate || 12800,
+                priceCurrency: sets.price_currency || "uzs",
+                adminEmail: email.toLowerCase(),
+                adminPass: pass,
+                supabaseUrl: MERX_SUPABASE_URL,
+                supabaseKey: MERX_SUPABASE_KEY
+              },
+              customers:[], products:[], sales:[], staff:[],
+              ombor:[], xarajatlar:[], debtPayments:[], shifts:[],
+              kassaBalances:{}, seq: 1
+            };
+            localStorage.setItem(dbKey, JSON.stringify(shopDB));
+          }
+
+          // DB ni yuklaymiz
+          try { db = JSON.parse(localStorage.getItem(dbKey)); } catch(e) {}
+
+          // Login tekshirish
+          res = await authLogin(email, pass, shopId);
+
+          if (!res.ok) {
+            // Parol DB da yo'q — birinchi kirish sifatida qabul qilamiz
+            db.settings.adminEmail = email.toLowerCase();
+            db.settings.adminPass  = pass;
+            localStorage.setItem(dbKey, JSON.stringify(db));
+            res = await authLogin(email, pass, shopId);
+          }
+        }
+      }
+    } catch(e) {
+      console.warn("Supabase login xato:", e.message);
+    }
+  }
 
   if (btn) { btn.innerHTML = '<i class="ti ti-login"></i> Kirish'; btn.disabled = false; }
 
