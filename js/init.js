@@ -32,16 +32,27 @@ function init() {
     });
   }
 
-  // Auth tekshiruvi
-  if (typeof authCheck === "function") {
-    if (!authCheck()) return;
+  // Auth tekshiruvi — login kerakmi?
+  if (typeof initAuth === "function") {
+    const authed = initAuth();
+    if (!authed) return; // login ekrani ko'rsatildi
   }
 
-  nav("dashboard");
+  // Kassir/omborchi uchun avtomatik sahifaga o'tish initAuth da amalga oshiriladi
+  // Admin/menejer uchun dashboard
+  const user = typeof getAuthUser === "function" ? getAuthUser() : null;
+  if (!user || user.role === "admin" || user.role === "menejer" || user.role === "superadmin") {
+    nav("dashboard");
+  } else if (user.role === "kassir") {
+    nav("pos");
+  } else if (user.role === "omborchi") {
+    nav("ombor");
+  } else {
+    nav("dashboard");
+  }
 
   // Rol UI — nav dan keyin
   if (typeof applyRoleUI === "function") applyRoleUI();
-  if (typeof updateAuthTopbar === "function") updateAuthTopbar();
 
   // Obuna tekshiruvi (SA do'konlari uchun)
   if (typeof checkCurrentShopSubscription === "function") {
