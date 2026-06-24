@@ -2180,14 +2180,8 @@
         <div class="card">
           <div class="ch"><h3><i class="ti ti-cloud"></i> Supabase ulanish</h3><span class="bg bg-gr" id="cloud-status-badge">Ulanmagan</span></div>
           <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
-            <div class="fld">
-              <label>Supabase Project URL</label>
-              <input id="s-sup-url" placeholder="https://xxxx.supabase.co" oninput="saveSetting('supabaseUrl',this.value)" style="font-size:12px;font-family:monospace">
-            </div>
-            <div class="fld">
-              <label>Anon / Public Key</label>
-              <input id="s-sup-key" type="password" placeholder="eyJhbGci..." autocomplete="off" oninput="saveSetting('supabaseKey',this.value)" style="font-size:11px;font-family:monospace">
-            </div>
+            <div class="fld"><label>Supabase Project URL</label><input id="s-sup-url" placeholder="https://xxxx.supabase.co" oninput="saveSetting('supabaseUrl',this.value)" style="font-size:12px;font-family:monospace"></div>
+            <div class="fld"><label>Anon / Public Key</label><input id="s-sup-key" type="password" placeholder="eyJhbGci..." autocomplete="off" oninput="saveSetting('supabaseKey',this.value)" style="font-size:11px;font-family:monospace"></div>
             <div style="display:flex;gap:8px">
               <button class="btn btn-teal" onclick="connectCloud()" style="flex:1"><i class="ti ti-cloud-upload"></i> Ulash + Sinxronlash</button>
               <button class="btn btn-ghost" onclick="pullFromCloud()" style="flex:1"><i class="ti ti-cloud-download"></i> Clouddan yuklash</button>
@@ -3110,7 +3104,7 @@
   </div>
 </div>
 
-<!-- addstaff modal: xodimlar.js openStaffModal() -->
+<!-- addstaff modal xodimlar.js da openStaffModal() orqali render qilinadi -->
 <!-- MODAL: XODIM DETAIL -->
 <div class="ov" id="ov-staffdetail" onclick="if(event.target===this)closeStaffDetail()">
   <div class="modal" style="max-width:480px">
