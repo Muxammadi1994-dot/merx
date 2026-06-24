@@ -19,9 +19,17 @@ function getCloudShopId() {
 }
 
 async function initSupabase() {
-  const url = db.settings?.supabaseUrl?.trim();
-  const key = db.settings?.supabaseKey?.trim();
+  // 1. settings dan, 2. global config dan
+  const url = (db.settings?.supabaseUrl?.trim()) || 
+              (typeof MERX_SUPABASE_URL !== "undefined" ? MERX_SUPABASE_URL : "");
+  const key = (db.settings?.supabaseKey?.trim()) || 
+              (typeof MERX_SUPABASE_KEY !== "undefined" ? MERX_SUPABASE_KEY : "");
   if (!url || !key) return false;
+  // Settings ga ham yozamiz (bo'lmasa)
+  if (db.settings && !db.settings.supabaseUrl) {
+    db.settings.supabaseUrl = url;
+    db.settings.supabaseKey = key;
+  }
 
   try {
     const { createClient } = window.supabase || supabase;

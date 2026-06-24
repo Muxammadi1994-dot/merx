@@ -148,23 +148,27 @@ function authStaffLogin(phone, password) {
 
 // Login dan keyin Supabase ulanish
 function _initCloudAfterLogin() {
-  // Joriy do'kon sozlamalaridan URL/Key olish
+  // URL/Key manbalari: 1) settings, 2) asosiy do'kon, 3) global config
   let url = db?.settings?.supabaseUrl;
   let key = db?.settings?.supabaseKey;
 
-  // Yangi do'konda sozlamalar bo'lmasa — asosiy do'kondan olamiz
   if (!url || !key) {
     try {
       const mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
       url = mainDB?.settings?.supabaseUrl;
       key = mainDB?.settings?.supabaseKey;
-      // Yangi do'kon DB ga ham saqlaymiz
-      if (url && key && db?.settings) {
-        db.settings.supabaseUrl = url;
-        db.settings.supabaseKey = key;
-        if (typeof saveDB === "function") saveDB();
-      }
     } catch(e) {}
+  }
+
+  // Global config (index.html da qattiq yozilgan)
+  if (!url && typeof MERX_SUPABASE_URL !== "undefined") url = MERX_SUPABASE_URL;
+  if (!key && typeof MERX_SUPABASE_KEY !== "undefined") key = MERX_SUPABASE_KEY;
+
+  // Settings ga yozib saqlaymiz
+  if (url && key && db?.settings) {
+    db.settings.supabaseUrl = url;
+    db.settings.supabaseKey = key;
+    if (typeof saveDB === "function") saveDB();
   }
 
   if (!url || !key) return;
