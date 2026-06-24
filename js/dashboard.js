@@ -103,12 +103,16 @@ function renderDashboard() {
 }
 
 // ── Header ─────────────────────────────────────
-function renderDashHeader(todayTotal, todayCnt, growth) {
+function renderDashHeader(todayTotal, todayCnt, growth, kassaTushdi) {
   const el = $('dash-header');
   if (!el) return;
   const growHtml = growth !== null
     ? `<span class="dash-growth ${growth >= 0 ? 'up' : 'dn'}">${growth >= 0 ? '▲' : '▼'} ${Math.abs(growth)}%</span>`
     : `<span class="dash-growth" style="color:rgba(255,255,255,.35);font-weight:400">— birinchi kun</span>`;
+  const kassaHtml = (kassaTushdi !== undefined && kassaTushdi !== todayTotal)
+    ? `<div style="font-size:12px;margin-top:4px;color:rgba(255,255,255,.6)">
+        Kassaga tushdi: <span style="color:#4ade80;font-weight:700">${priceFmt(kassaTushdi, true)}</span>
+       </div>` : "";
   el.innerHTML = `
     <div class="dh-left">
       <div class="dh-greet">${dashGreeting()}, <strong>${db.shop?.name || 'MERX Do\'koni'}</strong></div>
@@ -116,8 +120,9 @@ function renderDashHeader(todayTotal, todayCnt, growth) {
     </div>
     <div class="dh-center">
       <div class="dh-lbl">Bugungi sotuv</div>
-      <div class="dh-val">${priceFmt(todayTotal)}</div>
+      <div class="dh-val">${priceFmt(todayTotal, true)}</div>
       <div style="font-size:12px;margin-top:3px;color:rgba(255,255,255,.45)">${todayCnt} ta tranzaksiya ${growHtml}</div>
+      ${kassaHtml}
     </div>
     <div class="dh-right">
       <button class="btn btn-acc" onclick="nav('pos')" style="font-weight:600">
@@ -222,6 +227,12 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
     a + p.variants.filter(v => v.qty >= 0 && v.qty <= lowThreshold).length, 0);
 
   const allCards = [
+    {
+      key: 'kassa',
+      icon: 'ti-cash', color: '#36B48C',
+      label: 'Kassaga tushdi', val: priceFmt(kassaTushdiKpi, true),
+      sub: 'bugun (nasiyasiz)', click: "nav('moliya')"
+    },
     {
       key: 'sotuvlar',
       icon: 'ti-shopping-bag', color: '#4C9BE8',

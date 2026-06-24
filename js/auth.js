@@ -410,7 +410,9 @@ function applyRoleUI() {
   const topBtn  = document.getElementById("auth-topbar-btn");
   const topName = document.getElementById("auth-topbar-name");
   if (topBtn)  topBtn.style.display  = "flex";
-  if (topName) topName.textContent   = user.name || user.email?.split("@")[0] || "Foydalanuvchi";
+  // Email dan @ belgisigacha, max 12 ta belgi
+  const displayName = user.name || (user.email ? user.email.split("@")[0].slice(0,12) : "Foydalanuvchi");
+  if (topName) topName.textContent = displayName;
 
   // Sidebar menyu elementlarini yashirish/ko'rsatish
   document.querySelectorAll("[data-page]").forEach(el => {
