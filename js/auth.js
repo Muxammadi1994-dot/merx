@@ -1,4 +1,4 @@
-// MERX auth.js | v3.0 | Multi-tenant
+// MERX auth.js | v3.1 | 2026-06-24
 // ================================================
 // Sodda, toza arxitektura:
 // - Session: merx_auth_v1 = {shopId, dbKey, email, role, ...}
@@ -31,15 +31,11 @@ function getAuthUser() { return _authUser; }
 function isLoggedIn()  { return !!_authUser; }
 
 // ── Login ─────────────────────────────────────────
-// shopId: agar boshqa do'konga kirmoqchi bo'lsa kiritiladi
 async function authLogin(email, password, shopId) {
-  // db dan admin email/pass tekshiramiz
-  // (db allaqachon dbKey asosida yuklangan)
   const stored = db?.settings?.adminEmail;
   const pass   = db?.settings?.adminPass;
 
   if (!stored) {
-    // Birinchi kirish — hisob yaratish
     if (!email || !password || password.length < 4) {
       return { ok: false, error: "Email va kamida 4 ta belgili parol kiriting" };
     }
@@ -62,7 +58,8 @@ async function authLogin(email, password, shopId) {
 }
 
 function _buildUser(email, shopId) {
-  const sid   = shopId || getShopId();
+  // shopId parametri MAJBURIY — getShopId() ga suyanmaymiz (session hali yo'q bo'lishi mumkin)
+  const sid   = shopId || "local";
   const dbKey = sid === "local" ? "merx_v5" : "merx_v5_" + sid;
   return {
     id:       sid === "local" ? "local_admin" : "admin_" + sid,
@@ -126,7 +123,6 @@ function applyRoleUI() {
   const user = _authUser;
   if (!user) return;
 
-  // Sidebar foydalanuvchi
   const userEl = document.getElementById("auth-user-name");
   if (userEl) userEl.textContent = user.name || user.email || "Foydalanuvchi";
 
@@ -136,18 +132,15 @@ function applyRoleUI() {
     roleEl.textContent = labels[user.role] || user.role;
   }
 
-  // Topbar
   const topBtn  = document.getElementById("auth-topbar-btn");
   const topName = document.getElementById("auth-topbar-name");
   if (topBtn)  topBtn.style.display = "flex";
   if (topName) topName.textContent  = user.name || (user.email?.split("@")[0] || "").slice(0, 14);
 
-  // Menyu
   document.querySelectorAll("[data-page]").forEach(el => {
     el.style.display = canAccessPage(el.dataset.page) ? "" : "none";
   });
 
-  // Bo'sh group larni yashirish
   document.querySelectorAll(".ns-group").forEach(group => {
     const visible = [...group.querySelectorAll(".ni")].some(ni => ni.style.display !== "none");
     if (group.previousElementSibling) group.previousElementSibling.style.display = visible ? "" : "none";
@@ -182,9 +175,8 @@ function initAuth() {
   return true;
 }
 
-// ── Cloud sync ────────────────────────────────────
+// ── Cloud sync (login dan keyin) ──────────────────
 function _initCloudAfterLogin() {
-  // URL/Key: 1) db.settings, 2) global config
   let url = db?.settings?.supabaseUrl;
   let key = db?.settings?.supabaseKey;
 
@@ -193,7 +185,6 @@ function _initCloudAfterLogin() {
 
   if (!url || !key) return;
 
-  // Settings ga yozamiz
   if (db?.settings) {
     if (!db.settings.supabaseUrl) db.settings.supabaseUrl = url;
     if (!db.settings.supabaseKey) db.settings.supabaseKey = key;
@@ -204,16 +195,21 @@ function _initCloudAfterLogin() {
   initSupabase().then(async ok => {
     if (!ok) return;
     if (typeof updateCloudUI === "function") updateCloudUI(true);
-    const isEmpty = !db.products?.length && !db.sales?.length;
-    if (isEmpty) {
+
+    // MUHIM: faqat local ma'lumotlar bo'lmasa pull qilamiz
+    // "bo'sh" = products ham, sales ham yo'q
+    const hasLocalData = (db.products?.length > 0) || (db.sales?.length > 0);
+
+    if (!hasLocalData) {
+      // Yangi qurilma yoki yangi do'kon — cloud dan yuklaymiz
       if (typeof pullFromCloud === "function") {
         await pullFromCloud();
         saveDB();
         if (typeof renderDashboard === "function") renderDashboard();
       }
-    } else {
-      if (typeof pushToCloud === "function") pushToCloud();
     }
+    // Agar local data bor bo'lsa — push qilmaymiz (foydalanuvchi o'zi bossin)
+    // Bu asosiy do'kon ma'lumotlarini yangi do'konga ko'chishini oldini oladi
   });
 }
 
@@ -250,7 +246,6 @@ function showLoginScreen() {
           ${!hasAdmin ? "Administrator hisob yarating" : "Hisobingizga kiring"}
         </p>
 
-        <!-- Tab -->
         <div style="display:flex;background:rgba(255,255,255,.08);border-radius:10px;padding:3px;gap:3px;margin-bottom:20px">
           <button onclick="switchAuthTab('admin')" id="tab-admin"
             style="flex:1;padding:8px;border:none;border-radius:8px;background:#E9A500;color:#0D1B2A;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">
@@ -262,7 +257,6 @@ function showLoginScreen() {
           </button>
         </div>
 
-        <!-- Admin forma -->
         <div id="auth-admin-form">
           <div style="margin-bottom:12px">
             <label style="font-size:12px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;font-weight:600">EMAIL</label>
@@ -290,7 +284,6 @@ function showLoginScreen() {
           </button>
         </div>
 
-        <!-- Xodim forma -->
         <div id="auth-staff-form" style="display:none">
           <div style="margin-bottom:12px">
             <label style="font-size:12px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;font-weight:600">TELEFON</label>
@@ -351,7 +344,7 @@ async function doLogin() {
   if (!email || !pass) { showAuthErr("Email va parol kiriting"); return; }
   if (btn) { btn.innerHTML = '<i class="ti ti-loader spin"></i> Tekshirilmoqda...'; btn.disabled = true; }
 
-  // 1. Avval local DB da tekshirish
+  // 1. Avval local DB da tekshirish (joriy do'kon uchun)
   let res = await authLogin(email, pass);
 
   // 2. Local da topilmadi — Supabase dan do'konni topamiz
@@ -368,47 +361,46 @@ async function doLogin() {
         .limit(1);
 
       if (shops?.length) {
-        const shop    = shops[0];
-        const shopId  = shop.id;
-        const dbKey   = "merx_v5_" + shopId;
+        const shop   = shops[0];
+        const shopId = shop.id;
+        const dbKey  = "merx_v5_" + shopId;
 
-        // settings jadvalidan parol tekshiramiz
+        // settings jadvalidan ma'lumot olamiz
         const { data: sets } = await sb.from("settings")
           .select("*").eq("shop_id", shopId).single();
 
-        if (sets) {
-          // Local DB ga settings ni yozamiz
-          if (!localStorage.getItem(dbKey)) {
-            const shopDB = {
-              shop: { name: shop.name, type: "ikki" },
-              settings: {
-                rate: sets.rate || 12800,
-                priceCurrency: sets.price_currency || "uzs",
-                adminEmail: email.toLowerCase(),
-                adminPass: pass,
-                supabaseUrl: MERX_SUPABASE_URL,
-                supabaseKey: MERX_SUPABASE_KEY
-              },
-              customers:[], products:[], sales:[], staff:[],
-              ombor:[], xarajatlar:[], debtPayments:[], shifts:[],
-              kassaBalances:{}, seq: 1
-            };
-            localStorage.setItem(dbKey, JSON.stringify(shopDB));
-          }
+        // dbKey bo'yicha local DB yaratamiz (bo'lmasa)
+        if (!localStorage.getItem(dbKey)) {
+          const shopDB = {
+            shop: { name: shop.name, type: "ikki" },
+            settings: {
+              rate: sets?.rate || 12800,
+              priceCurrency: sets?.price_currency || "uzs",
+              adminEmail: email.toLowerCase(),
+              adminPass: pass,
+              supabaseUrl: MERX_SUPABASE_URL,
+              supabaseKey: MERX_SUPABASE_KEY
+            },
+            customers:[], products:[], sales:[], staff:[],
+            ombor:[], xarajatlar:[], debtPayments:[], shifts:[],
+            kassaBalances:{}, seq: 1
+          };
+          localStorage.setItem(dbKey, JSON.stringify(shopDB));
+        }
 
-          // DB ni yuklaymiz
-          try { db = JSON.parse(localStorage.getItem(dbKey)); } catch(e) {}
+        // DB ni yangi do'kon bilan yuklaymiz
+        try { db = JSON.parse(localStorage.getItem(dbKey)); } catch(e) {}
 
-          // Login tekshirish
+        // Login — shopId MAJBURIY beriladi
+        res = await authLogin(email, pass, shopId);
+
+        if (!res.ok) {
+          // Parol DB da yo'q — birinchi kirish
+          if (!db.settings) db.settings = {};
+          db.settings.adminEmail = email.toLowerCase();
+          db.settings.adminPass  = pass;
+          localStorage.setItem(dbKey, JSON.stringify(db));
           res = await authLogin(email, pass, shopId);
-
-          if (!res.ok) {
-            // Parol DB da yo'q — birinchi kirish sifatida qabul qilamiz
-            db.settings.adminEmail = email.toLowerCase();
-            db.settings.adminPass  = pass;
-            localStorage.setItem(dbKey, JSON.stringify(db));
-            res = await authLogin(email, pass, shopId);
-          }
         }
       }
     } catch(e) {
