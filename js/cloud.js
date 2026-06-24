@@ -84,8 +84,9 @@ async function connectCloud() {
   const url = ($("s-sup-url")||{value:""}).value.trim();
   const key = ($("s-sup-key")||{value:""}).value.trim();
   if (!url || !key) { toast("URL va Key kiriting","err"); return; }
-  if (!url.includes("supabase.co")) { toast("URL noto'g'ri — https://xxxx.supabase.co bo'lishi kerak","err"); return; }
-  if (!key.startsWith("eyJ")) { toast("Key noto'g'ri — eyJ... bilan boshlanishi kerak","err"); return; }
+  if (!url.includes("supabase.co") && !url.includes("localhost")) {
+    toast("URL noto'g'ri — https://xxxx.supabase.co bo'lishi kerak","err"); return;
+  }
 
   db.settings.supabaseUrl = url;
   db.settings.supabaseKey = key;
