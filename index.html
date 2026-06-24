@@ -2083,19 +2083,6 @@
             </div>
           </div>
         </div>
-        <div class="card">
-          <div class="ch"><h3><i class="ti ti-database-export"></i> Ma'lumotlar zaxirasi</h3></div>
-          <div style="padding:18px 20px">
-            <p style="font-size:13px;color:var(--mut);margin:0 0 14px;line-height:1.6">
-              Barcha ma'lumotlarni JSON formatda yuklab oling yoki avvalgi zaxiradan tiklang.
-            </p>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-ghost" onclick="exportDB()" style="flex:1"><i class="ti ti-download"></i> Yuklab olish</button>
-              <button class="btn btn-ghost" onclick="document.getElementById('imp-file').click()" style="flex:1"><i class="ti ti-upload"></i> Tiklash</button>
-              <input id="imp-file" type="file" accept=".json" style="display:none" onchange="importDB(this)">
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -2183,7 +2170,8 @@
             <div class="fld"><label>Supabase Project URL</label><input id="s-sup-url" placeholder="https://xxxx.supabase.co" oninput="saveSetting('supabaseUrl',this.value)" style="font-size:12px;font-family:monospace"></div>
             <div class="fld"><label>Anon / Public Key</label><input id="s-sup-key" type="password" placeholder="eyJhbGci..." autocomplete="off" oninput="saveSetting('supabaseKey',this.value)" style="font-size:11px;font-family:monospace"></div>
             <div style="display:flex;gap:8px">
-              <button class="btn btn-teal" onclick="connectCloud()" style="flex:1"><i class="ti ti-cloud-upload"></i> Ulash + Sinxronlash</button>
+              <button class="btn btn-teal" onclick="connectCloud()" style="flex:1"><i class="ti ti-cloud-upload"></i> Ulash + Sinx</button>
+              <button class="btn btn-ghost" onclick="pushToCloud()" style="flex:1"><i class="ti ti-cloud-upload"></i> Cloudga yuklash</button>
               <button class="btn btn-ghost" onclick="pullFromCloud()" style="flex:1"><i class="ti ti-cloud-download"></i> Clouddan yuklash</button>
             </div>
             <div style="background:var(--bg);border-radius:var(--rs);padding:12px 14px;font-size:12.5px;color:var(--mut);line-height:1.7">
@@ -2208,6 +2196,13 @@
             <div style="display:flex;align-items:center;justify-content:space-between;background:#F9FAFB;border-radius:9px;padding:12px 14px">
               <div><div style="font-size:13px;font-weight:700">Mijozlar</div><div style="font-size:12px;color:var(--mut)"><span id="sc-custs">—</span> ta</div></div>
               <i class="ti ti-users" style="font-size:24px;color:#2563EB"></i>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:9px;padding:12px 14px">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#065F46">Oxirgi sinxronlash</div>
+                <div style="font-size:12px;color:#059669" id="sc-last-sync">Hali sinxronlanmagan</div>
+              </div>
+              <i class="ti ti-clock-check" style="font-size:24px;color:#059669"></i>
             </div>
             <button class="btn btn-ghost" onclick="adminRefreshSyncStats()" style="width:100%"><i class="ti ti-refresh"></i> Yangilash</button>
           </div>
@@ -2252,8 +2247,25 @@
           <div class="ch"><h3><i class="ti ti-lock"></i> Login ma'lumotlari</h3></div>
           <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
             <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;padding:12px 14px">
-              <div style="font-size:11px;color:#2563EB;font-weight:700;margin-bottom:4px">JORIY LOGIN</div>
-              <div style="font-size:15px;font-weight:700;color:#1E3A5F" id="s-login-info-card">—</div>
+              <div style="font-size:11px;color:#2563EB;font-weight:700;margin-bottom:6px">JORIY LOGIN MA'LUMOTLARI</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                <div>
+                  <div style="font-size:12px;color:#6B7280;margin-bottom:2px">Login (email)</div>
+                  <div style="font-size:15px;font-weight:700;color:#1E3A5F" id="s-login-info-card">—</div>
+                </div>
+                <button onclick="adminCopyLogin()"
+                  style="background:#2563EB;border:none;border-radius:8px;padding:8px 14px;
+                  color:#fff;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">
+                  <i class="ti ti-copy"></i> Nusxa
+                </button>
+              </div>
+              <div style="margin-top:10px;padding-top:10px;border-top:1px solid #BFDBFE">
+                <div style="font-size:12px;color:#6B7280;margin-bottom:4px">Do'kon login ma'lumotlarini mijozga bering:</div>
+                <div style="background:#fff;border-radius:6px;padding:8px 10px;font-size:12px;font-family:monospace;color:#1E40AF;line-height:1.6">
+                  Sayt: <strong>merx-rho.vercel.app</strong><br>
+                  Login: <strong id="tiz-login-display">—</strong>
+                </div>
+              </div>
             </div>
             <div class="r2">
               <div class="fld"><label>Email (login)</label><input id="s-admin-email" type="email" placeholder="admin@example.com"></div>
@@ -2269,8 +2281,33 @@
             <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--mut)">Sotuvlar</span><strong id="tiz-sales">—</strong></div>
             <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--mut)">Mijozlar</span><strong id="tiz-custs">—</strong></div>
             <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--mut)">Xodimlar</span><strong id="tiz-staff">—</strong></div>
-            <div style="display:flex;justify-content:space-between;padding:10px 0"><span style="font-size:13px;color:var(--mut)">Versiya</span><strong>v140</strong></div>
-            <button class="btn btn-ghost" onclick="adminRefreshStats()" style="width:100%;margin-top:6px"><i class="ti ti-refresh"></i> Yangilash</button>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--mut)">Versiya</span><strong>v140</strong></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+              <span style="font-size:13px;color:var(--mut)">Ma'lumotlar hajmi</span>
+              <strong id="tiz-ls-size" style="font-size:13px">—</strong>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:6px">
+              <button class="btn btn-ghost" onclick="adminRefreshStats()" style="flex:1"><i class="ti ti-refresh"></i> Yangilash</button>
+              <button class="btn btn-ghost" onclick="adminClearCache()" style="flex:1;color:#DC2626;border-color:#FECACA"><i class="ti ti-trash"></i> Kesh tozalash</button>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:0">
+          <div class="ch"><h3><i class="ti ti-database-export"></i> Ma'lumotlar zaxirasi</h3></div>
+          <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+            <p style="font-size:13px;color:var(--mut);margin:0;line-height:1.6">
+              Barcha ma'lumotlarni JSON formatda yuklab oling yoki avvalgi zaxiradan tiklang.
+              <strong style="color:var(--ink)">Tiklash mavjud ma'lumotlarni o'chirmaydi</strong> — ustiga qo'shiladi.
+            </p>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-ghost" onclick="exportDB()" style="flex:1">
+                <i class="ti ti-download"></i> Yuklab olish
+              </button>
+              <button class="btn btn-ghost" onclick="document.getElementById('imp-file').click()" style="flex:1">
+                <i class="ti ti-upload"></i> Tiklash
+              </button>
+              <input id="imp-file" type="file" accept=".json" style="display:none" onchange="importDB(this)">
+            </div>
           </div>
         </div>
       </div>

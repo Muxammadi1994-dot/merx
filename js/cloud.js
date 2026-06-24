@@ -286,6 +286,11 @@ async function pushToCloud() {
       toast("✅ Barcha ma'lumotlar cloud ga saqlandi!");
     }
     updateCloudUI(true);
+    // Oxirgi sync vaqtini saqlaymiz
+    if (!db.settings) db.settings = {};
+    db.settings.lastSyncAt = new Date().toISOString();
+    saveDB();
+    if (typeof adminRefreshSyncStats === "function") adminRefreshSyncStats();
   } catch(e) {
     toast("Xato: " + e.message, "err");
     console.error("Cloud push error:", e);

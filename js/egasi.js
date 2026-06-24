@@ -164,6 +164,22 @@ function adminRefreshSyncStats() {
   if (sc("sc-prod"))  sc("sc-prod").textContent  = prod;
   if (sc("sc-sales")) sc("sc-sales").textContent = sales;
   if (sc("sc-custs")) sc("sc-custs").textContent = custs;
+  // Oxirgi sync vaqti
+  const lastSync = db.settings?.lastSyncAt;
+  const el = sc("sc-last-sync");
+  if (el) {
+    if (lastSync) {
+      const d = new Date(lastSync);
+      const now = new Date();
+      const diff = Math.round((now - d) / 60000);
+      if (diff < 1)       el.textContent = "Hozirgina";
+      else if (diff < 60) el.textContent = diff + " daqiqa oldin";
+      else if (diff < 1440) el.textContent = Math.round(diff/60) + " soat oldin";
+      else                el.textContent = d.toLocaleDateString("uz-UZ");
+    } else {
+      el.textContent = "Hali sinxronlanmagan";
+    }
+  }
 }
 
 // ── Tizim statistikasi ────────────────────────────
@@ -174,11 +190,28 @@ function adminRefreshStats() {
   if (sc("tiz-custs")) sc("tiz-custs").textContent = (db.customers||[]).length + " ta";
   if (sc("tiz-staff")) sc("tiz-staff").textContent = (db.staff||[]).length     + " ta";
 
-  // Login card
+  // localStorage hajmi
+  const lsEl = sc("tiz-ls-size");
+  if (lsEl) {
+    try {
+      const key  = typeof getDBKEY === "function" ? getDBKEY() : "merx_v5";
+      const size = (localStorage.getItem(key) || "").length;
+      const kb   = (size / 1024).toFixed(0);
+      const pct  = Math.round(size / 51200); // ~5MB max
+      lsEl.textContent = kb + " KB (" + pct + "% ishlatilgan)";
+      lsEl.style.color = pct > 80 ? "#DC2626" : pct > 60 ? "#D97706" : "#059669";
+    } catch(e) { lsEl.textContent = "—"; }
+  }
+
+  // Login ma'lumotlari
   const loginCard = sc("s-login-info-card");
   if (loginCard) loginCard.textContent = db.settings?.adminEmail || "—";
   const loginWrap = sc("s-login-info");
   if (loginWrap) loginWrap.textContent = db.settings?.adminEmail || "—";
+
+  // Do'kon login ma'lumoti (nusxa olish uchun)
+  const loginDisplay = sc("tiz-login-display");
+  if (loginDisplay) loginDisplay.textContent = db.settings?.adminEmail || "—";
 }
 
 // renderEgasi chaqirilganda statistikani ham yangilash
@@ -281,4 +314,54 @@ function renderAdminXodimlar() {
         </button>
       </div>`;
   }).join("");
+}
+
+// ── SMS UI badge yangilash ────────────────────────
+function updateSmsUI() {
+  const token  = db.settings?.eskizToken || "";
+  const badge  = document.getElementById("sms-status-badge");
+  if (!badge) return;
+  if (token) {
+    badge.textContent = "Ulangan ✅";
+    badge.className   = "bg bg-g";
+  } else {
+    badge.textContent = "Test rejimi";
+    badge.className   = "bg bg-gr";
+  }
+}
+
+// ── Login nusxalash ───────────────────────────────
+function adminCopyLogin() {
+  const email = db.settings?.adminEmail || "";
+  if (!email) { toast("Login ma'lumoti yo'q", "err"); return; }
+  const text = `Sayt: merx-rho.vercel.app\nLogin: ${email}`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => toast("✅ Nusxa olindi!"));
+  } else {
+    const t = document.createElement("textarea");
+    t.value = text; document.body.appendChild(t);
+    t.select(); document.execCommand("copy");
+    document.body.removeChild(t);
+    toast("✅ Nusxa olindi!");
+  }
+}
+
+// ── Kesh tozalash ─────────────────────────────────
+function adminClearCache() {
+  if (!confirm("Faqat vaqtinchalik kesh tozalanadi. Asosiy ma'lumotlar saqlanib qoladi. Davom etasizmi?")) return;
+  try {
+    // Faqat merx bo'lmagan kalitlarni o'chirish
+    const keys = Object.keys(localStorage);
+    let removed = 0;
+    keys.forEach(k => {
+      if (!k.startsWith("merx_") && !k.startsWith("supabase")) {
+        localStorage.removeItem(k);
+        removed++;
+      }
+    });
+    adminRefreshStats();
+    toast(`✅ Kesh tozalandi (${removed} ta element)`);
+  } catch(e) {
+    toast("Kesh tozalashda xato", "err");
+  }
 }
