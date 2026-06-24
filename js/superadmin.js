@@ -807,6 +807,16 @@ function saEditSave(id) {
   renderSaShops();
   document.getElementById("sa-edit-modal")?.remove();
   showSaToast(`✅ "${name}" yangilandi`);
+  // Supabase da ham yangilaymiz
+  _saUpdateShopInSupabase(id, { name, owner_email: s.ownerEmail, plan: s.plan,
+    trial_ends: s.expiresAt ? s.expiresAt.slice(0,10) : null,
+    active: !s.blocked }).catch(e => console.warn("Supabase update xato:", e.message));
+}
+
+async function _saUpdateShopInSupabase(shopId, data) {
+  if (!_sb && typeof initSupabase === "function") await initSupabase();
+  if (!_sb) return;
+  await _sb.from("shops").update(data).eq("id", shopId);
 }
 
 // ── Eski saEditShop → saEditShopFull ──────────────
@@ -819,6 +829,9 @@ function saToggleShop(id) {
   if (!s.blocked && s.plan !== "lifetime") s.expiresAt = addDaysToDate(new Date(), 30);
   saSaveShops(); renderSaShops();
   showSaToast(s.blocked ? `"${s.name}" bloklandi` : `"${s.name}" faollashtirildi`);
+  // Supabase da ham yangilaymiz
+  _saUpdateShopInSupabase(s.id, { active: !s.blocked })
+    .catch(e => console.warn("Supabase toggle xato:", e.message));
 }
 
 // ── O'chirish ─────────────────────────────────────
@@ -829,6 +842,15 @@ function saDeleteShop(id) {
   _saShops = _saShops.filter(x => x.id !== id);
   saSaveShops(); renderSaShops();
   showSaToast(`"${s.name}" o'chirildi`);
+  // Supabase dan ham o'chiramiz
+  _saDeleteShopFromSupabase(id).catch(e => console.warn("Supabase delete xato:", e.message));
+}
+
+async function _saDeleteShopFromSupabase(shopId) {
+  if (!_sb && typeof initSupabase === "function") await initSupabase();
+  if (!_sb) return;
+  // active = false qilamiz (to'liq o'chirish xavfli)
+  await _sb.from("shops").update({ active: false }).eq("id", shopId);
 }
 
 // ── Statistika modal ──────────────────────────────
