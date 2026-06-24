@@ -77,13 +77,13 @@ let mem = null;
 let db;
 
 function loadDB() {
-  const key = getDBKEY();
+  const key     = getDBKEY();
+  const shopId  = getShopId();
   try {
-    // Yangi key da qidir
     const r = localStorage.getItem(key);
     if (r) return JSON.parse(r);
-    // Eski merx_v5 da qidir (migration)
-    if (key !== "merx_v5") {
+    // Migration: faqat asosiy do'kon (local/default) uchun eski merx_v5 dan o'qiymiz
+    if (key !== "merx_v5" && (shopId === "local" || !shopId)) {
       const old = localStorage.getItem("merx_v5");
       if (old) return JSON.parse(old);
     }

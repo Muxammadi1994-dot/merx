@@ -476,7 +476,8 @@ function saOpenShop(id) {
   if (typeof authSave === "function") authSave(user);
 
   // DB kalitini o'zgartirish
-  if (s.dbKey) localStorage.setItem("merx_active_shop", s.dbKey);
+  // DB kalitini auth ga yozamiz — getDBKEY() auth.shopId dan oladi
+  // shopId auth session da bor, getDBKEY() "merx_v5_"+shopId qaytaradi
 
   // Panelni yopish va qayta yuklash
   hideSaPanel();
@@ -505,6 +506,7 @@ function saAddShop() {
   const now     = new Date();
   const expires = plan === "lifetime" ? null : addDaysToDate(now, plan === "yearly" ? 365 : 30);
   const shopId  = "shop_" + Date.now();
+  const dbKey    = "merx_v5_" + shopId; // getDBKEY() bilan mos
 
   const newShop = {
     id:        shopId,
@@ -518,7 +520,7 @@ function saAddShop() {
     expiresAt: expires,
     createdAt: now.toISOString(),
     blocked:   false,
-    dbKey:     "merx_" + shopId
+    dbKey:     dbKey
   };
 
   _saShops.push(newShop);
@@ -531,7 +533,7 @@ function saAddShop() {
     customers:[], products:[], sales:[], staff:[], ombor:[],
     xarajatlar:[], debtPayments:[], shifts:[], seq:1
   };
-  localStorage.setItem(newShop.dbKey, JSON.stringify(shopDB));
+  localStorage.setItem(dbKey, JSON.stringify(shopDB));
 
   // Supabase shops jadvaliga ham yozish
   _saAddShopToSupabase(newShop).catch(e => console.warn("Supabase shops sync xato:", e.message));
