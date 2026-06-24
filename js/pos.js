@@ -1574,9 +1574,11 @@ function printReceiptPos() {
     ? `${botUrl}?action=receipt&id=${encodeURIComponent(sale.chekNum||("ID"+sale.id))}`
     : "";
 
+  const chekCfg = (typeof db !== "undefined" && db.settings?.chekConfig) || {};
   const html = buildReceiptHtml(sale, {
     shopName, staffName: staffObj?.name || "—",
-    botUsername: botUser, receiptUrl
+    botUsername: botUser, receiptUrl,
+    style: chekCfg.posStyle || "full"
   });
 
   const w = window.open("","_blank","width=420,height=700");

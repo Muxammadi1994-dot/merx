@@ -333,6 +333,20 @@ function buildReceiptHtml(sale, opts) {
   const botUser    = (opts.botUsername || "").replace(/^@/, "");
   const receiptUrl = opts.receiptUrl || "";
 
+  // Chek sozlamalari — settings dan olamiz
+  const chekCfg = (typeof db !== "undefined" && db.settings?.chekConfig) || {};
+  const style   = opts.style || chekCfg.style || "full"; // full | compact | table
+  const logo    = chekCfg.logo    || "";   // base64 yoki bo'sh
+  const contact = chekCfg.contact || "";   // do'kon telefoni
+  const footer  = chekCfg.footer  || "Rahmat! Yana kutamiz 🙏";
+  const showStaff   = chekCfg.showStaff   !== false;
+  const showContact = chekCfg.showContact !== false;
+  const showDebtHistory = chekCfg.showDebtHistory !== false;
+
+  // Ixcham uslub uchun — faqat asosiylarni ko'rsatish
+  if (style === "compact") return buildReceiptCompact(sale, opts, {shopName,staffName,botUser,receiptUrl,logo,contact,footer,showStaff,showContact,F:n=>Math.round(n||0).toLocaleString("ru-RU")});
+  if (style === "table")   return buildReceiptTable(sale, opts, {shopName,staffName,botUser,receiptUrl,logo,contact,footer,showStaff,showContact,F:n=>Math.round(n||0).toLocaleString("ru-RU")});
+
   // ── Maydonlar normalizatsiyasi ─────────────────
   const chekNum   = sale.chekNum    || sale.chek_num    || ("#" + sale.id);
   const rawDate   = sale.date || "";
@@ -386,14 +400,14 @@ function buildReceiptHtml(sale, opts) {
 
   let debtHtml = "";
   if (remaining > 0) {
-    if (isUsd && prevUsd > 0) {
+    if (showDebtHistory && isUsd && prevUsd > 0) {
       const tot = prevUsd + debtUsd;
       debtHtml = `
         <div class="sep-dash" style="margin:6px 0"></div>
         <div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>$${prevUsd.toFixed(2)}</span></div>
         <div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>$${debtUsd.toFixed(2)}</span></div>
         <div class="pr pr-debt"><span>Xariddan keyingi qarz</span><span>$${tot.toFixed(2)} USD</span></div>`;
-    } else if (!isUsd && prevUzs > 0) {
+    } else if (showDebtHistory && !isUsd && prevUzs > 0) {
       const tot = prevUzs + remaining;
       debtHtml = `
         <div class="sep-dash" style="margin:6px 0"></div>
@@ -412,6 +426,11 @@ function buildReceiptHtml(sale, opts) {
   const botHtml  = botUser    ? `<div class="ft-bot">Cheklarni Telegramda olish: <b>@${botUser}</b></div>` : "";
   const pdfHtml  = receiptUrl ? `<div class="ft-pdf"><a href="${receiptUrl}" target="_blank">📄 Chekni yuklab olishingiz mumkin</a></div>` : "";
   const noteHtml = note       ? `<div class="note-wrap"><span class="note-lbl">Izoh</span><span>${note}</span></div>` : "";
+
+  // Logo HTML
+  const logoHtml = logo
+    ? `<div style="text-align:center;padding:10px 0 4px"><img src="${logo}" style="max-height:60px;max-width:180px;object-fit:contain"></div>`
+    : ``;
 
   return `<!DOCTYPE html>
 <html><head>
@@ -497,15 +516,17 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
 <div class="wrap">
   <div class="rc">
 
+    ${logoHtml}
     <div class="hd">
       <div class="hd-logo">${shopName.toUpperCase()}</div>
       <div class="hd-sub">Savdo cheki</div>
+      ${showContact && contact ? `<div style="font-size:11px;color:#9aa7b5;margin-top:4px">${contact}</div>` : ""}
     </div>
 
     <div class="meta">
       <div class="mr"><span>Chek raqami</span><b>${chekNum}</b></div>
       <div class="mr"><span>Sana / Vaqt</span><b>${date} ${time}</b></div>
-      ${staffName && staffName !== "—" ? `<div class="mr"><span>Kassir</span><b>${staffName}</b></div>` : ""}
+      ${showStaff && staffName && staffName !== "—" ? `<div class="mr"><span>Kassir</span><b>${staffName}</b></div>` : ""}
       ${custName ? `<div class="sep"></div>
       <div class="mr"><span>Mijoz</span><b>${custName}</b></div>
       ${custPhone ? `<div class="mr"><span>Telefon</span><b>${custPhone}</b></div>` : ""}` : ""}
@@ -538,7 +559,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
     </div>
 
     <div class="ft">
-      <div class="ft-thanks">Rahmat! Yana kutamiz 🙏</div>
+      <div class="ft-thanks">${footer}</div>
       <div class="ft-date">${shopName} · ${date}</div>
       ${botHtml}
       ${pdfHtml}
@@ -549,6 +570,214 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
     <button class="btn-p" onclick="window.print()">🖨 Chop etish</button>
     <button class="btn-c" onclick="window.close?window.close():history.back()">Yopish</button>
   </div>
+</div>
+</body></html>`;
+}
+
+// ════════════════════════════════════════════════
+// COMPACT CHEK — ixcham, qisqa
+// ════════════════════════════════════════════════
+function buildReceiptCompact(sale, opts, cfg) {
+  const {shopName, staffName, botUser, receiptUrl, logo, contact, footer, showStaff, showContact, F} = cfg;
+  const chekNum  = sale.chekNum || ("#" + sale.id);
+  const date     = (sale.date||"").split("-").reverse().join(".");
+  const time     = sale.time || "";
+  const total    = Number(sale.total || 0);
+  const paid     = Number(sale.paid  || 0);
+  const remaining= Number(sale.remaining || 0);
+  const discount = Number(sale.discount  || 0);
+  const items    = (sale.items||[]).filter(Boolean);
+  const payLabels= {naqd:"Naqd",karta:"Karta",otkazma:"O'tkazma",aralash:"Aralash"};
+  const isUsd    = sale.debtCurrency === "usd" && sale.debtUsd;
+  const debtAmt  = isUsd ? `$${Number(sale.debtUsd).toFixed(2)}` : `${F(remaining)} so'm`;
+  const logoHtml = logo ? `<div style="text-align:center;padding:8px 0 2px"><img src="${logo}" style="max-height:50px;max-width:160px;object-fit:contain"></div>` : "";
+
+  const itemRows = items.map((i,idx) =>
+    `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #eee">
+      <span style="flex:1;min-width:0;overflow:hidden">${idx+1}. ${i.name} <span style="color:#aaa">${i.variant||""}</span></span>
+      <span style="white-space:nowrap;margin-left:8px;font-weight:700">${i.qty}×${F(i.price)} = ${F(i.price*i.qty)}</span>
+    </div>`
+  ).join("");
+
+  return `<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chek ${chekNum}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-content:center;padding:16px 8px}
+.w{width:300px;max-width:100%;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)}
+.hd{background:#0D1B2A;padding:12px 14px;text-align:center;color:#fff}
+.hd-n{font-size:17px;font-weight:800;letter-spacing:1px}
+.hd-s{font-size:9px;color:#9aa7b5;letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+.info{padding:8px 12px;font-size:11px;border-bottom:1px dashed #ddd;color:#555;display:flex;flex-wrap:wrap;gap:2px 16px}
+.items{padding:6px 12px}
+.tot{margin:0 12px;padding:7px 0;border-top:2px solid #0D1B2A;display:flex;justify-content:space-between;font-size:14px;font-weight:800;color:#0D1B2A}
+.pay{padding:6px 12px;font-size:11.5px;border-top:1px dashed #ddd}
+.pr{display:flex;justify-content:space-between;padding:2px 0}
+.ok{background:#ECFDF5;color:#059669;font-weight:700;font-size:11px;text-align:center;padding:5px;border-radius:6px;margin-top:4px}
+.debt{color:#dc2626;font-weight:700}
+.ft{padding:8px 12px;text-align:center;font-size:11px;color:#555;border-top:1px dashed #ddd}
+.acts{max-width:300px;margin:8px auto 0;display:flex;gap:6px}
+.acts button{flex:1;border:none;border-radius:8px;padding:9px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
+.btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #ddd}
+@media print{body{background:#fff;padding:0}.w{border-radius:0;box-shadow:none;width:72mm}.acts{display:none}}
+</style></head><body>
+<div class="w">
+  ${logoHtml}
+  <div class="hd">
+    <div class="hd-n">${shopName.toUpperCase()}</div>
+    <div class="hd-s">Savdo cheki</div>
+    ${showContact && contact ? `<div style="font-size:10px;color:#9aa7b5;margin-top:2px">${contact}</div>` : ""}
+  </div>
+  <div class="info">
+    <span><b>${chekNum}</b></span>
+    <span>${date} ${time}</span>
+    ${showStaff && staffName && staffName!=="—" ? `<span>Kassir: ${staffName}</span>` : ""}
+    ${sale.customerName ? `<span>Mijoz: ${sale.customerName}</span>` : ""}
+  </div>
+  <div class="items">${itemRows}</div>
+  <div class="tot">
+    <span>JAMI <span style="font-size:10px;font-weight:500;color:#888">(${items.length} tur)</span></span>
+    <span>${F(total)} so'm</span>
+  </div>
+  <div class="pay">
+    ${discount > 0 ? `<div class="pr"><span>Chegirma</span><span style="color:#dc2626">−${F(discount)} so'm</span></div>` : ""}
+    <div class="pr"><span>${payLabels[sale.payType]||sale.payType||"—"}</span><span style="color:#059669;font-weight:700">${F(paid)} so'm</span></div>
+    ${remaining > 0
+      ? `<div class="pr debt"><span>Qarz</span><span>${debtAmt}</span></div>
+         ${sale.due ? `<div class="pr" style="font-size:10px;color:#aaa"><span>Muddat</span><span>${sale.due}</span></div>` : ""}`
+      : `<div class="ok">✓ To'liq to'landi</div>`}
+  </div>
+  <div class="ft">${footer}<br><span style="font-size:10px">${shopName} · ${date}</span></div>
+</div>
+<div class="acts">
+  <button class="btn-p" onclick="window.print()">🖨 Chop etish</button>
+  <button class="btn-c" onclick="window.close?window.close():history.back()">Yopish</button>
+</div>
+</body></html>`;
+}
+
+// ════════════════════════════════════════════════
+// TABLE CHEK — jadval ko'rinishida (USD+UZS)
+// ════════════════════════════════════════════════
+function buildReceiptTable(sale, opts, cfg) {
+  const {shopName, staffName, botUser, receiptUrl, logo, contact, footer, showStaff, showContact, F} = cfg;
+  const chekNum  = sale.chekNum || ("#" + sale.id);
+  const date     = (sale.date||"").split("-").reverse().join(".");
+  const time     = sale.time || "";
+  const total    = Number(sale.total || 0);
+  const paid     = Number(sale.paid  || 0);
+  const remaining= Number(sale.remaining || 0);
+  const discount = Number(sale.discount  || 0);
+  const items    = (sale.items||[]).filter(Boolean);
+  const rate     = (typeof db !== "undefined" && db.settings?.rate) || 12800;
+  const payLabels= {naqd:"Naqd",karta:"Karta",otkazma:"O'tkazma",aralash:"Aralash"};
+  const isUsd    = sale.debtCurrency === "usd" && sale.debtUsd;
+  const debtAmt  = isUsd ? `$${Number(sale.debtUsd).toFixed(2)}` : `${F(remaining)} so'm`;
+  const logoHtml = logo ? `<div style="text-align:center;padding:8px 0 0"><img src="${logo}" style="max-height:55px;max-width:170px;object-fit:contain"></div>` : "";
+
+  const itemRows = items.map((i,idx) => {
+    const sumUzs = (i.price||0) * (i.qty||0);
+    const sumUsd = sumUzs / rate;
+    return `<tr>
+      <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px">${idx+1}</td>
+      <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px">
+        <div style="font-weight:700">${i.name}</div>
+        <div style="font-size:10px;color:#888">${i.variant||""}</div>
+      </td>
+      <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px;text-align:center">${i.qty}</td>
+      <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px;text-align:right">
+        <div>${(i.price/rate).toFixed(2)}</div>
+        <div style="color:#888">${F(i.price)}</div>
+      </td>
+      <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px;text-align:right;font-weight:700">
+        <div>${sumUsd.toFixed(2)}</div>
+        <div style="color:#888">${F(sumUzs)}</div>
+      </td>
+    </tr>`;
+  }).join("");
+
+  const totalUsd = total / rate;
+  const paidUsd  = paid  / rate;
+  const debtUsd2 = remaining / rate;
+
+  return `<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chek ${chekNum}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-content:center;padding:16px 8px}
+.w{width:380px;max-width:100%;background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 12px rgba(0,0,0,.1)}
+.shop{font-size:20px;font-weight:800;text-align:center;letter-spacing:1px;color:#0D1B2A;margin-bottom:2px}
+.sub{font-size:10px;color:#aaa;text-align:center;margin-bottom:8px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;margin-bottom:10px;padding:8px;background:#f9f9f9;border-radius:6px}
+.info-grid span{color:#888}.info-grid b{color:#0D1B2A}
+table{width:100%;border-collapse:collapse;margin-bottom:8px}
+th{background:#0D1B2A;color:#fff;padding:6px;font-size:10px;text-align:center}
+th:first-child,th:nth-child(3){width:30px}
+.col-cur{font-size:9px;color:#ccc;font-weight:400}
+.tot-row td{background:#f0f0f0;font-weight:800;font-size:12px;padding:6px}
+.pay-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #eee}
+.debt{color:#dc2626;font-weight:700}
+.ok{background:#ECFDF5;color:#059669;font-weight:700;font-size:11px;text-align:center;padding:5px;border-radius:6px;margin-top:4px}
+.ft{text-align:center;font-size:11px;color:#888;margin-top:10px;padding-top:8px;border-top:1px dashed #ddd}
+.acts{max-width:380px;margin:8px auto 0;display:flex;gap:6px}
+.acts button{flex:1;border:none;border-radius:8px;padding:9px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
+.btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #ddd}
+@media print{body{background:#fff;padding:0}.w{border-radius:0;box-shadow:none;width:100%}.acts{display:none}}
+</style></head><body>
+<div class="w">
+  ${logoHtml}
+  <div class="shop">${shopName.toUpperCase()}</div>
+  <div class="sub">Savdo cheki ${showContact && contact ? "· " + contact : ""}</div>
+  <div class="info-grid">
+    <span>Chek №</span><b>${chekNum}</b>
+    <span>Sana</span><b>${date} ${time}</b>
+    ${showStaff && staffName && staffName!=="—" ? `<span>Kassir</span><b>${staffName}</b>` : ""}
+    ${sale.customerName ? `<span>Mijoz</span><b>${sale.customerName}</b>` : ""}
+    ${sale.customerPhone ? `<span>Telefon</span><b>${sale.customerPhone}</b>` : ""}
+    <span>Kurs</span><b>1$ = ${F(rate)} so'm</b>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>№</th>
+        <th>Mahsulot</th>
+        <th>Qty</th>
+        <th>Narx<br><span class="col-cur">$ / so'm</span></th>
+        <th>Summa<br><span class="col-cur">$ / so'm</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemRows}
+      <tr class="tot-row">
+        <td colspan="3" style="padding:6px;border:1px solid #ddd;text-align:right">JAMI</td>
+        <td style="border:1px solid #ddd"></td>
+        <td style="padding:6px;border:1px solid #ddd;text-align:right">
+          <div>${totalUsd.toFixed(2)}</div>
+          <div style="color:#888">${F(total)}</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div>
+    ${discount > 0 ? `<div class="pay-row"><span>Chegirma</span><span style="color:#dc2626">−${F(discount)} so'm</span></div>` : ""}
+    <div class="pay-row">
+      <span>${payLabels[sale.payType]||sale.payType||"—"}</span>
+      <span style="color:#059669;font-weight:700">${paidUsd.toFixed(2)} $ / ${F(paid)} so'm</span>
+    </div>
+    ${remaining > 0
+      ? `<div class="pay-row debt"><span>Qarz</span><span>${isUsd ? "$"+Number(sale.debtUsd).toFixed(2) : debtUsd2.toFixed(2)+" $ / "+F(remaining)+" so'm"}</span></div>
+         ${sale.due ? `<div class="pay-row" style="font-size:10px;color:#aaa"><span>Muddat</span><span>${sale.due}</span></div>` : ""}`
+      : `<div class="ok">✓ To'liq to'landi</div>`}
+  </div>
+  <div class="ft">${footer}<br>${shopName} · ${date}</div>
+</div>
+<div class="acts">
+  <button class="btn-p" onclick="window.print()">🖨 Chop etish</button>
+  <button class="btn-c" onclick="window.close?window.close():history.back()">Yopish</button>
 </div>
 </body></html>`;
 }

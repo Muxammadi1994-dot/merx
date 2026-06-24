@@ -127,6 +127,31 @@ function renderEgasi() {
   if ($("s-staff-group-id"))  $("s-staff-group-id").value  = db.settings?.staffGroupId        || "";
   _updateTgBadge(!!db.settings?.telegramBotUrl);
 
+  // Chek sozlamalari
+  const chekCfg = db.settings?.chekConfig || {};
+  const ceContact = document.getElementById("chek-contact");
+  const ceFooter  = document.getElementById("chek-footer");
+  const ceStaff   = document.getElementById("chek-show-staff");
+  const ceContact2= document.getElementById("chek-show-contact");
+  const ceDebtH   = document.getElementById("chek-show-debt-history");
+  const cePosStyle   = document.getElementById("chek-pos-style");
+  const ceTarixStyle = document.getElementById("chek-tarix-style");
+  const ceQarzStyle  = document.getElementById("chek-qarz-style");
+  if (ceContact) ceContact.value = chekCfg.contact  || "";
+  if (ceFooter)  ceFooter.value  = chekCfg.footer   || "Rahmat! Yana kutamiz 🙏";
+  if (ceStaff)   ceStaff.checked   = chekCfg.showStaff   !== false;
+  if (ceContact2) ceContact2.checked = chekCfg.showContact !== false;
+  if (ceDebtH)   ceDebtH.checked  = chekCfg.showDebtHistory !== false;
+  if (cePosStyle)   cePosStyle.value   = chekCfg.posStyle   || "full";
+  if (ceTarixStyle) ceTarixStyle.value = chekCfg.tarixStyle || "full";
+  if (ceQarzStyle)  ceQarzStyle.value  = chekCfg.qarzStyle  || "compact";
+  // Logo preview
+  const logoPreview = document.getElementById("chek-logo-preview");
+  if (logoPreview) {
+    logoPreview.src   = chekCfg.logo || "";
+    logoPreview.style.display = chekCfg.logo ? "block" : "none";
+  }
+
   // SMS shablonlar
   const tplDebt = document.getElementById("s-sms-tpl-debt");
   const tplSale = document.getElementById("s-sms-tpl-sale");
@@ -424,4 +449,82 @@ function resetSmsTemplate(type) {
   };
   const el = document.getElementById("s-sms-tpl-" + type);
   if (el) { el.value = defaults[type]; el.style.borderColor = "#E9A500"; }
+}
+
+// ── Chek sozlamalarini saqlash ────────────────────
+function saveChekConfig() {
+  if (!db.settings) db.settings = {};
+  const cfg = db.settings.chekConfig || {};
+
+  cfg.contact = document.getElementById("chek-contact")?.value || "";
+  cfg.footer  = document.getElementById("chek-footer")?.value  || "Rahmat! Yana kutamiz 🙏";
+  cfg.showStaff        = document.getElementById("chek-show-staff")?.checked !== false;
+  cfg.showContact      = document.getElementById("chek-show-contact")?.checked !== false;
+  cfg.showDebtHistory  = document.getElementById("chek-show-debt-history")?.checked !== false;
+  cfg.posStyle   = document.getElementById("chek-pos-style")?.value   || "full";
+  cfg.tarixStyle = document.getElementById("chek-tarix-style")?.value || "full";
+  cfg.qarzStyle  = document.getElementById("chek-qarz-style")?.value  || "compact";
+
+  db.settings.chekConfig = cfg;
+  saveDB();
+  toast("✅ Chek sozlamalari saqlandi");
+}
+
+// ── Logo yuklash ──────────────────────────────────
+function uploadChekLogo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 200 * 1024) { toast("Logo 200KB dan kichik bo'lishi kerak", "err"); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    if (!db.settings) db.settings = {};
+    if (!db.settings.chekConfig) db.settings.chekConfig = {};
+    db.settings.chekConfig.logo = e.target.result;
+    saveDB();
+    const prev = document.getElementById("chek-logo-preview");
+    if (prev) { prev.src = e.target.result; prev.style.display = "block"; }
+    toast("✅ Logo saqlandi");
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Logo o'chirish ────────────────────────────────
+function removeChekLogo() {
+  if (!db.settings?.chekConfig) return;
+  db.settings.chekConfig.logo = "";
+  saveDB();
+  const prev = document.getElementById("chek-logo-preview");
+  if (prev) { prev.src = ""; prev.style.display = "none"; }
+  const inp = document.getElementById("chek-logo-input");
+  if (inp) inp.value = "";
+  toast("Logo o'chirildi");
+}
+
+// ── Chek preview ──────────────────────────────────
+function previewChek(style) {
+  // Test sotuv ma'lumotlari bilan preview
+  const testSale = {
+    id: 999, chekNum: "CHK-TEST-001",
+    date: new Date().toISOString().slice(0,10),
+    time: new Date().toLocaleTimeString("uz-UZ").slice(0,5),
+    payType: "naqd",
+    items: [
+      { name: "Krossovka", variant: "Ko'k / 42", qty: 2, price: 850000, unit: "juft" },
+      { name: "Futbolka",  variant: "Oq / L",    qty: 3, price: 120000, unit: "dona" },
+    ],
+    total: 2060000, paid: 1000000, remaining: 1060000,
+    discount: 0, debtCurrency: "uzs",
+    customerName: "Alisher Karimov", customerPhone: "+998 90 123 45 67",
+    prevDebtUzs: 500000, due: "2026-07-15"
+  };
+  const staffObj = db.staff?.[0];
+  const html = buildReceiptHtml(testSale, {
+    shopName: db.shop?.name || "MERX",
+    staffName: staffObj?.name || "Kassir",
+    style
+  });
+  const w = window.open("", "_blank", "width=440,height=700");
+  if (!w) { toast("Pop-up bloklangan", "err"); return; }
+  w.document.write(html);
+  w.document.close();
 }

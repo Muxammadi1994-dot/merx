@@ -2155,6 +2155,138 @@
       </div>
     </div>
 
+        <!-- Chek sozlamalari -->
+        <div class="card" style="grid-column:1/-1">
+          <div class="ch">
+            <h3><i class="ti ti-receipt"></i> Chek sozlamalari</h3>
+            <button class="btn btn-acc btn-sm" onclick="saveChekConfig()">
+              <i class="ti ti-check"></i> Saqlash
+            </button>
+          </div>
+          <div style="padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+            <!-- Chap ustun: ko'rinish -->
+            <div style="display:flex;flex-direction:column;gap:14px">
+
+              <div class="fld">
+                <label>Do'kon logosi</label>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                  <img id="chek-logo-preview" style="display:none;max-height:50px;max-width:140px;object-fit:contain;border:1px solid var(--brd);border-radius:6px;padding:4px">
+                  <div>
+                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('chek-logo-input').click()">
+                      <i class="ti ti-upload"></i> Logo yuklash
+                    </button>
+                    <button class="btn btn-ghost btn-sm" onclick="removeChekLogo()" style="margin-left:4px;color:#DC2626">
+                      <i class="ti ti-trash"></i>
+                    </button>
+                    <input id="chek-logo-input" type="file" accept="image/*" style="display:none" onchange="uploadChekLogo(this)">
+                    <div style="font-size:11px;color:var(--mut);margin-top:4px">PNG/JPG, max 200KB</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="fld">
+                <label>Do'kon telefoni (chekda)</label>
+                <input id="chek-contact" placeholder="+998 90 123 45 67, +998 91 ..." style="font-family:inherit">
+              </div>
+
+              <div class="fld">
+                <label>Altbilgi matni (pastki qism)</label>
+                <input id="chek-footer" placeholder="Rahmat! Yana kutamiz 🙏" style="font-family:inherit">
+              </div>
+
+              <div class="fld">
+                <label style="margin-bottom:8px">Chekda ko'rsatish</label>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:500">
+                    <input type="checkbox" id="chek-show-staff" checked style="width:16px;height:16px;accent-color:var(--acc)">
+                    Kassir ismi
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:500">
+                    <input type="checkbox" id="chek-show-contact" checked style="width:16px;height:16px;accent-color:var(--acc)">
+                    Do'kon telefoni
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:500">
+                    <input type="checkbox" id="chek-show-debt-history" checked style="width:16px;height:16px;accent-color:var(--acc)">
+                    Qarz tarixi (oldingi qarz, yangi qarz)
+                  </label>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- O'ng ustun: uslublar -->
+            <div style="display:flex;flex-direction:column;gap:14px">
+
+              <div>
+                <label style="display:block;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Chek uslublari</label>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+
+                  <div style="border:2px solid var(--acc);border-radius:10px;padding:10px;cursor:pointer;text-align:center" onclick="previewChek('full')">
+                    <i class="ti ti-file-text" style="font-size:22px;color:var(--acc);display:block;margin-bottom:4px"></i>
+                    <div style="font-size:12px;font-weight:700">To'liq</div>
+                    <div style="font-size:10px;color:var(--mut)">Qarz tarixi bilan</div>
+                    <button onclick="event.stopPropagation();previewChek('full')" style="margin-top:6px;background:#0D1B2A;border:none;color:#E9A500;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit">Ko'rish</button>
+                  </div>
+
+                  <div style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;cursor:pointer;text-align:center" onclick="previewChek('compact')">
+                    <i class="ti ti-file-minus" style="font-size:22px;color:#6B7280;display:block;margin-bottom:4px"></i>
+                    <div style="font-size:12px;font-weight:700">Ixcham</div>
+                    <div style="font-size:10px;color:var(--mut)">Qisqa, tez</div>
+                    <button onclick="event.stopPropagation();previewChek('compact')" style="margin-top:6px;background:#F3F4F6;border:none;color:#374151;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit">Ko'rish</button>
+                  </div>
+
+                  <div style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;cursor:pointer;text-align:center" onclick="previewChek('table')">
+                    <i class="ti ti-table" style="font-size:22px;color:#6B7280;display:block;margin-bottom:4px"></i>
+                    <div style="font-size:12px;font-weight:700">Jadval</div>
+                    <div style="font-size:10px;color:var(--mut)">USD + so'm</div>
+                    <button onclick="event.stopPropagation();previewChek('table')" style="margin-top:6px;background:#F3F4F6;border:none;color:#374151;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit">Ko'rish</button>
+                  </div>
+
+                </div>
+              </div>
+
+              <div class="fld">
+                <label>POS (yangi sotuv cheki)</label>
+                <select id="chek-pos-style" style="font-family:inherit">
+                  <option value="full">To'liq</option>
+                  <option value="compact">Ixcham</option>
+                  <option value="table">Jadval (USD+so'm)</option>
+                </select>
+              </div>
+
+              <div class="fld">
+                <label>Sotuv tarixi cheki</label>
+                <select id="chek-tarix-style" style="font-family:inherit">
+                  <option value="full">To'liq</option>
+                  <option value="compact">Ixcham</option>
+                  <option value="table">Jadval (USD+so'm)</option>
+                </select>
+              </div>
+
+              <div class="fld">
+                <label>Qarzlar bo'limi cheki</label>
+                <select id="chek-qarz-style" style="font-family:inherit">
+                  <option value="compact">Ixcham</option>
+                  <option value="full">To'liq</option>
+                  <option value="table">Jadval (USD+so'm)</option>
+                </select>
+              </div>
+
+              <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;padding:12px 14px;font-size:12px;color:#1E40AF;line-height:1.6">
+                <strong>Qaysi bo'limga qaysi uslub:</strong><br>
+                • <b>POS</b> — sotuv tugagach chiqadigan chek<br>
+                • <b>Sotuv tarixi</b> — avvalgi sotuvni qayta chop etish<br>
+                • <b>Qarzlar</b> — qarz to'lovi chitigi
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- TAB 4: CLOUD -->
     <div class="adm-tab-pane" data-tab="cloud" style="display:none">
       <div class="g2">

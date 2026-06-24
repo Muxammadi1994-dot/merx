@@ -591,9 +591,11 @@ function printReceipt(id) {
   const receiptUrl = botUrl
     ? `${botUrl}?action=receipt&id=${encodeURIComponent(s.chekNum||("ID"+s.id))}`
     : "";
+  const chekCfg2 = (typeof db !== "undefined" && db.settings?.chekConfig) || {};
   const html = buildReceiptHtml(s, {
     shopName, staffName: staffObj?.name || "—",
-    botUsername: botUser, receiptUrl
+    botUsername: botUser, receiptUrl,
+    style: chekCfg2.tarixStyle || "full"
   });
   const w = window.open("","_blank","width=420,height=700");
   if (!w) { toast("Pop-up bloklangan","err"); return; }

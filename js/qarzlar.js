@@ -1126,6 +1126,30 @@ async function sendOverdueRemindersBot() {
 
 function showDebtPaymentReceipt(payment) {
   const shopName = db.shop?.name || "MERX";
+  // Ixcham uslub tanlangan bo'lsa — buildReceiptHtml ishlatamiz
+  const chekCfg3 = (typeof db !== "undefined" && db.settings?.chekConfig) || {};
+  if (chekCfg3.qarzStyle && chekCfg3.qarzStyle !== "full") {
+    const staffObj3 = db.staff?.find(s => s.id === payment.staffId);
+    const fakeSale = {
+      id: payment.id, chekNum: payment.chekNum,
+      date: payment.date, time: payment.time || "",
+      payType: payment.method || "naqd",
+      items: (payment.allocations||[]).map(a => ({
+        name: `Qarz to'lovi (${a.chekNum||a.saleDate})`,
+        variant: a.fullyPaid ? "✓ Yopildi" : `Qoldi: ${fmtMoney(a.remainingAfter, a.currency)}`,
+        qty: 1, price: a.amount, unit: "to'lov"
+      })),
+      total: payment.amount, paid: payment.amount, remaining: 0,
+      customerName: payment.customerName || "",
+      customerPhone: payment.customerPhone || "",
+    };
+    const html3 = buildReceiptHtml(fakeSale, {
+      shopName, staffName: staffObj3?.name || "—",
+      style: chekCfg3.qarzStyle || "compact"
+    });
+    const w3 = window.open("","_blank","width=420,height=600");
+    if (w3) { w3.document.write(html3); w3.document.close(); return; }
+  }
   const allocHtml = (payment.allocations||[]).map(a => `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;font-size:13px;padding-bottom:8px;border-bottom:1px solid #F6F4EF">
       <div style="flex:1;min-width:0">
