@@ -72,6 +72,16 @@ function renderDashboard() {
   const ystTotal   = ystSales.reduce((a, s) => a + s.total, 0);
   const todayCnt   = todaySales.length;
   const growth     = ystTotal > 0 ? Math.round((todayTotal - ystTotal) / ystTotal * 100) : null;
+  // Kassaga tushdi (nasiya chiqarilgan + qarz to'lovlari)
+  const rate = db.settings?.rate || 12800;
+  let todayKassa = 0;
+  todaySales.forEach(s => {
+    const pb = s.payBreakdown;
+    if (pb&&(pb.naqd||pb.karta||pb.otkazma)) todayKassa+=(pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
+    else todayKassa += s.payType==="nasiya"?0:(s.paid||0);
+  });
+  const debtPaysToday = (db.debtPayments||[]).filter(p=>p.date===t);
+  debtPaysToday.forEach(p=>{ todayKassa+=p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0); });
 
   const debts       = debtSales();
   const totalDebt   = debts.reduce((a, s) => a + s.remaining, 0);
@@ -88,7 +98,7 @@ function renderDashboard() {
   });
   lowStock.sort((a, b) => a.qty - b.qty);
 
-  renderDashHeader(todayTotal, todayCnt, growth);
+  renderDashHeader(todayTotal, todayCnt, growth, todayKassa);
   applyDashBanner();
   renderDashKpis(todayCnt, todayTotal, totalDebt, debts.length, overdueList.length);
   renderDashChart();
@@ -102,7 +112,7 @@ function renderDashboard() {
 }
 
 // ── Header ─────────────────────────────────────
-function renderDashHeader(todayTotal, todayCnt, growth) {
+function renderDashHeader(todayTotal, todayCnt, growth, kassaTushdi) {
   const el = $('dash-header');
   if (!el) return;
   const growHtml = growth !== null
@@ -117,6 +127,10 @@ function renderDashHeader(todayTotal, todayCnt, growth) {
       <div class="dh-lbl">Bugungi sotuv</div>
       <div class="dh-val">${priceFmt(todayTotal)}</div>
       <div style="font-size:12px;margin-top:3px;color:rgba(255,255,255,.45)">${todayCnt} ta tranzaksiya ${growHtml}</div>
+      ${kassaTushdi !== undefined && kassaTushdi !== todayTotal
+        ? `<div style="font-size:12px;margin-top:4px;color:rgba(255,255,255,.6)">
+            Kassaga tushdi: <span style="color:#4ade80;font-weight:700">${priceFmt(kassaTushdi)}</span>
+           </div>` : ""}
     </div>
     <div class="dh-right">
       <button class="btn btn-acc" onclick="nav('pos')" style="font-weight:600">
@@ -154,7 +168,7 @@ function applyDashBanner() {
 
 // ── KPI kartochkalar ───────────────────────────
 const KPI_DEFAULTS = {
-  sotuvlar: true, ortacha: true, qarz: true, muddati: true, ombor: true
+  kassa: true, sotuvlar: true, ortacha: true, qarz: true, muddati: true, ombor: true
 };
 
 function dashGetKpiCols() {
@@ -215,11 +229,30 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
   const cols    = dashGetKpiCols();
   const avgCheck = todayCnt ? Math.round(todayTotal / todayCnt) : 0;
 
+  // Kassaga tushdi
+  const rate2 = db.settings?.rate || 12800;
+  let kassaTushdiKpi = 0;
+  const todaySalesKpi = db.sales.filter(s => s.date === today());
+  todaySalesKpi.forEach(s => {
+    const pb = s.payBreakdown;
+    if (pb&&(pb.naqd||pb.karta||pb.otkazma)) kassaTushdiKpi+=(pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
+    else kassaTushdiKpi += s.payType==="nasiya"?0:(s.paid||0);
+  });
+  (db.debtPayments||[]).filter(p=>p.date===today()).forEach(p=>{
+    kassaTushdiKpi+=p.currency==="usd"?Math.round(p.amount*rate2):(p.amount||0);
+  });
+
   const lowThreshold = db.settings?.lowStockLimit || 5;
   const lowCnt = db.products.reduce((a, p) =>
     a + p.variants.filter(v => v.qty >= 0 && v.qty <= lowThreshold).length, 0);
 
   const allCards = [
+    {
+      key: 'kassa',
+      icon: 'ti-cash', color: '#36B48C',
+      label: 'Kassaga tushdi', val: priceFmt(kassaTushdiKpi),
+      sub: 'bugun (nasiyasiz)', click: "nav('moliya')"
+    },
     {
       key: 'sotuvlar',
       icon: 'ti-shopping-bag', color: '#4C9BE8',
@@ -228,7 +261,7 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
     },
     {
       key: 'ortacha',
-      icon: 'ti-receipt', color: '#36B48C',
+      icon: 'ti-receipt', color: '#8B5CF6',
       label: "O'rtacha chek", val: todayCnt ? priceFmt(avgCheck) : '—',
       sub: "bir sotuvga o'rtacha", click: "nav('tarix')"
     },
@@ -573,7 +606,8 @@ function renderDashTops() {
   // Top sotuvchilar
   const staffMap = {};
   for (const s of sales) {
-    const name = s.staffName || s.staff_name || 'Noma\'lum';
+    const staffObj = (db.staff||[]).find(x=>x.id===s.staffId);
+    const name = staffObj?.name || s.staffName || s.staff_name || 'Noma\'lum';
     staffMap[name] = (staffMap[name] || 0) + (s.total || 0);
   }
   const topStaff = Object.entries(staffMap).sort((a,b) => b[1]-a[1]).slice(0,5);
@@ -697,7 +731,4 @@ function updateDashCurrencyPill() {
   if (cur) cur.textContent = db.settings?.priceCurrency === 'usd' ? 'USD' : "so'm";
 }
 
-function toggleCurrency() {
-  db.settings.priceCurrency = db.settings.priceCurrency === 'usd' ? 'uzs' : 'usd';
-  saveDB(); renderDashboard();
-}
+// toggleCurrency — utils.js da aniqlangan
