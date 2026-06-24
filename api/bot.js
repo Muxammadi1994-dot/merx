@@ -32,11 +32,11 @@ async function getShopCtx(chatId) {
 
   // 2. customers jadvalidan topamiz (mijoz login qilgan)
   try {
-    const custs = await sb("customers", \`?telegram_chat_id=eq.\${cid}&select=id,shop_id&limit=1\`);
+    const custs = await sb("customers", `?telegram_chat_id=eq.${cid}&select=id,shop_id&limit=1`);
     if (custs?.[0]?.shop_id) {
       const shopId = custs[0].shop_id;
       // Shop nomini olamiz
-      const shops = await sb("shops", \`?id=eq.\${shopId}&select=name&limit=1\`);
+      const shops = await sb("shops", `?id=eq.${shopId}&select=name&limit=1`);
       const shopName = shops?.[0]?.name || "MERX";
       const ctx = { shopId, shopName, isOwner: false, isSuperAdmin: false, ts: Date.now() };
       _shopCache.set(cid, ctx);
@@ -46,11 +46,11 @@ async function getShopCtx(chatId) {
 
   // 3. shops jadvalidan owner tekshiruv
   try {
-    const shops = await sb("shops", \`?select=id,name\`);
+    const shops = await sb("shops", `?select=id,name`);
     for (const shop of (shops || [])) {
       // settings jadvalidan owner chatId ni topamiz
       try {
-        const sets = await sb("settings", \`?shop_id=eq.\${shop.id}&select=telegram_owner_chat_id&limit=1\`);
+        const sets = await sb("settings", `?shop_id=eq.${shop.id}&select=telegram_owner_chat_id&limit=1`);
         if (sets?.[0]?.telegram_owner_chat_id === cid) {
           const ctx = { shopId: shop.id, shopName: shop.name, isOwner: true, isSuperAdmin: false, ts: Date.now() };
           _shopCache.set(cid, ctx);
@@ -68,7 +68,7 @@ async function getShopCtx(chatId) {
 async function setShopForUser(chatId, shopId) {
   const cid = String(chatId);
   try {
-    const shops = await sb("shops", \`?id=eq.\${shopId}&select=id,name&limit=1\`);
+    const shops = await sb("shops", `?id=eq.${shopId}&select=id,name&limit=1`);
     if (!shops?.[0]) return null;
     const shopName = shops[0].name;
     const ctx = { shopId, shopName, isOwner: false, isSuperAdmin: false, ts: Date.now() };
@@ -84,7 +84,7 @@ async function setShopForUser(chatId, shopId) {
 function sbShop(table, shopId, query = "") {
   const sep = query.includes("?") ? "&" : "?";
   if (!shopId) return sb(table, query); // superadmin — filtr yo'q
-  return sb(table, \`\${query}\${query ? "&" : "?"}shop_id=eq.\${shopId}\`);
+  return sb(table, `${query}${query ? "&" : "?"}shop_id=eq.${shopId}`);
 }
 
 // Telegram xabar yuborish
