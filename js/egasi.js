@@ -42,6 +42,20 @@ function renderEgasi() {
 
   // Parol va PIN bo'limi
   if (typeof renderPasswordSettings === "function") renderPasswordSettings();
+
+  // Super Admin tugmasi
+  const saSection = $("sa-pass-section");
+  if (saSection) {
+    saSection.innerHTML = `
+      <div style="margin-bottom:16px">
+        <button onclick="openSaPanel()"
+          style="width:100%;padding:13px;background:#0D1B2A;border:1.5px solid #E9A500;
+          border-radius:10px;color:#E9A500;font-weight:700;font-size:14px;cursor:pointer;
+          font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px">
+          <i class="ti ti-shield-bolt"></i> Super Admin Panel
+        </button>
+      </div>`;
+  }
   // Super admin bo'limi
   if (typeof renderSuperAdminSection === "function") renderSuperAdminSection();
 
