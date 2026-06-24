@@ -249,6 +249,8 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
   (db.debtPayments||[]).filter(p => p.date === _t).forEach(p => {
     kassaTushdiKpi += p.currency === "usd" ? Math.round(p.amount*_rate) : (p.amount||0);
   });
+
+  const lowThreshold = db.settings?.lowStockLimit || 5;
   const lowCnt = db.products.reduce((a, p) =>
     a + p.variants.filter(v => v.qty >= 0 && v.qty <= lowThreshold).length, 0);
 

@@ -109,17 +109,25 @@ async function pushToCloud() {
   const sid = getCloudShopId();
   try {
     // Settings
-    await _sb.from("settings").upsert({
-      shop_id: sid,
-      shop_name: db.shop?.name || "MERX",
-      rate: db.settings?.rate || 12800,
-      price_currency: db.settings?.priceCurrency || "uzs",
-      eskiz_token: db.settings?.eskizToken || null,
-      eskiz_sender: db.settings?.eskizSender || null,
-      telegram_bot: db.settings?.telegramBotUrl || null,
-      loyalty_rate: db.settings?.loyaltyRate || 0,
-      loyalty_value: db.settings?.loyaltyValue || 100
-    });
+    // Settings — eski schema id=1, yangi schema shop_id
+    try {
+      await _sb.from("settings").upsert({
+        shop_id: sid,
+        shop_name: db.shop?.name || "MERX",
+        rate: db.settings?.rate || 12800,
+        price_currency: db.settings?.priceCurrency || "uzs"
+      });
+    } catch(e) {
+      // Eski schema — id bilan urinib ko'ramiz
+      try {
+        await _sb.from("settings").upsert({
+          id: 1,
+          shop_name: db.shop?.name || "MERX",
+          rate: db.settings?.rate || 12800,
+          price_currency: db.settings?.priceCurrency || "uzs"
+        });
+      } catch(e2) { console.warn("settings sync xato:", e2.message); }
+    }
 
     // Helper — upsert id asosida, xato bo'lsa warning, davom etadi
     async function sync(table, rows) {
@@ -196,22 +204,11 @@ async function pushToCloud() {
     try {
       // Avval asosiy ustunlar (eski schema bilan mos)
       const staffRows = db.staff?.map(s => {
-        const row = {
+        return {
           shop_id: sid, id: s.id, name: s.name,
           phone: s.phone || null,
           role: s.role || "kassir"
         };
-        // Yangi schema ustunlari — mavjud bo'lsa qo'shamiz
-        if (s.pin !== undefined)         row.pin           = s.pin || null;
-        if (s.salary !== undefined)      row.salary        = s.salary || 0;
-        if (s.bonusPct !== undefined)    row.bonus_pct     = s.bonusPct || 0;
-        if (s.permDiscount !== undefined) row.perm_discount = !!s.permDiscount;
-        if (s.maxDiscount !== undefined)  row.max_discount  = s.maxDiscount || 0;
-        if (s.permNasiya !== undefined)   row.perm_nasiya   = !!s.permNasiya;
-        if (s.permReturn !== undefined)   row.perm_return   = !!s.permReturn;
-        if (s.paidMonths !== undefined)   row.paid_months   = s.paidMonths || [];
-        if (s.salaryHistory !== undefined) row.salary_history = s.salaryHistory || [];
-        return row;
       });
       await sync("staff", staffRows);
     } catch(e) { syncErrors.push("staff: " + e.message); console.warn("sync staff xato:", e.message); }
@@ -265,20 +262,14 @@ async function pushToCloud() {
     } catch(e) { syncErrors.push("xarajatlar: " + e.message); console.warn("sync xarajatlar xato:", e.message); }
 
     try {
-      await sync("debt_payments", (db.debtPayments||[]).map(p => {
-        const row = {
-          shop_id: sid,
-          id: p.id,
-          sale_id: p.saleId || null,
-          date: p.date,
-          amount: p.amount || 0,
-          currency: p.currency || "uzs",
-          method: p.method || "naqd",
-          staff_id: p.staffId || null
-        };
-        if (p.note !== undefined) row.note = p.note || null;
-        return row;
-      }));
+      await sync("debt_payments", (db.debtPayments||[]).map(p => ({
+        shop_id: sid,
+        id: p.id,
+        date: p.date,
+        amount: p.amount || 0,
+        currency: p.currency || "uzs",
+        method: p.method || "naqd"
+      })));
     } catch(e) { syncErrors.push("debt_payments: " + e.message); console.warn("sync debt_payments xato:", e.message); }
 
     if (syncErrors.length > 0) {
