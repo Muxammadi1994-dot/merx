@@ -440,15 +440,20 @@ function renderSaShops() {
               </span>
             </td>
             <td style="padding:12px 10px;white-space:nowrap">
+              <button onclick="saOpenShop('${s.id}')"
+                style="background:#E9A500;border:none;color:#0D1B2A;
+                border-radius:6px;padding:5px 12px;font-family:inherit;font-size:12px;cursor:pointer;margin-right:4px;font-weight:700">
+                🔑 Kirish
+              </button>
               <button onclick="saEditShop('${s.id}')"
                 style="background:#1a2d40;border:1px solid #2a4060;color:#4C9BE8;
-                border-radius:6px;padding:5px 12px;font-family:inherit;font-size:12px;cursor:pointer;margin-right:6px">
-                ✏️ Tahrir
+                border-radius:6px;padding:5px 12px;font-family:inherit;font-size:12px;cursor:pointer;margin-right:4px">
+                ✏️
               </button>
               <button onclick="saToggleShop('${s.id}')"
                 style="background:#1a2d40;border:1px solid #2a4060;color:${active?"#E05A5A":"#36B48C"};
                 border-radius:6px;padding:5px 12px;font-family:inherit;font-size:12px;cursor:pointer">
-                ${active ? "🔒 Bloklash" : "✅ Faollashtirish"}
+                ${active ? "🔒" : "✅"}
               </button>
             </td>
           </tr>`;
@@ -457,7 +462,28 @@ function renderSaShops() {
     </table>`;
 }
 
-// ── Yangi do'kon qo'shish ──────────────────────
+function saOpenShop(id) {
+  const s = _saShops.find(x => x.id === id); if (!s) return;
+  // Do'kon auth session yaratamiz
+  const user = {
+    id:       "sa_" + id,
+    email:    s.ownerEmail || s.phone + "@merx.uz",
+    shopId:   s.id,
+    shopName: s.name,
+    role:     "admin",
+    saAccess: true   // superadmin kirganini belgilash
+  };
+  if (typeof authSave === "function") authSave(user);
+
+  // DB kalitini o'zgartirish
+  if (s.dbKey) localStorage.setItem("merx_active_shop", s.dbKey);
+
+  // Panelni yopish va qayta yuklash
+  hideSaPanel();
+  showSaToast(`"${s.name}" ga kirildi — sahifa yangilanadi...`);
+  setTimeout(() => location.reload(), 800);
+}
+
 function saOpenAddShop() {
   const modal = document.getElementById("sa-add-modal");
   if (modal) modal.style.display = "flex";
@@ -477,16 +503,14 @@ function saAddShop() {
   }
 
   const now     = new Date();
-  const expires = plan === "trial" ? addDaysToDate(now, 30)
-    : plan === "monthly" ? addDaysToDate(now, 30)
-    : plan === "yearly"  ? addDaysToDate(now, 365)
-    : null;
+  const expires = plan === "lifetime" ? null : addDaysToDate(now, plan === "yearly" ? 365 : 30);
+  const shopId  = "shop_" + Date.now();
 
-  const shopId = "shop_" + Date.now();
   const newShop = {
     id:        shopId,
     name,
     ownerName: owner,
+    ownerEmail: phone + "@merx.uz", // login uchun
     phone,
     ownerPass: pass,
     plan,
@@ -500,25 +524,44 @@ function saAddShop() {
   _saShops.push(newShop);
   saSaveShops();
 
-  // Do'kon uchun bo'sh DB yaratish
+  // LocalStorage da bo'sh DB
   const shopDB = {
     shop:     { name, type:"ikki" },
-    settings: { rate:12800, priceCurrency:"uzs", ownerPin:pass, modules },
+    settings: { rate:12800, priceCurrency:"uzs", adminEmail: phone + "@merx.uz", adminPass: pass, modules },
     customers:[], products:[], sales:[], staff:[], ombor:[],
-    xarajatlar:[], chiqimlar:[], seq:1
+    xarajatlar:[], debtPayments:[], shifts:[], seq:1
   };
   localStorage.setItem(newShop.dbKey, JSON.stringify(shopDB));
 
-  // Modalni yopish
-  document.getElementById("sa-add-modal").style.display = "none";
+  // Supabase shops jadvaliga ham yozish
+  _saAddShopToSupabase(newShop).catch(e => console.warn("Supabase shops sync xato:", e.message));
 
-  // Tozalash
+  document.getElementById("sa-add-modal").style.display = "none";
   ["sa-new-name","sa-new-owner","sa-new-phone","sa-new-pass"].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = "";
   });
 
   renderSaShops();
-  showSaToast(`✅ "${name}" do'koni qo'shildi! Parol: ${pass}`);
+  showSaToast(`✅ "${name}" qo'shildi! Login: ${phone}@merx.uz | Parol: ${pass}`);
+}
+
+async function _saAddShopToSupabase(shop) {
+  if (!_sb && typeof initSupabase === "function") {
+    await initSupabase();
+  }
+  if (!_sb) return;
+  try {
+    await _sb.from("shops").upsert({
+      id:          shop.id,
+      name:        shop.name,
+      owner_email: shop.ownerEmail,
+      plan:        shop.plan,
+      active:      !shop.blocked,
+      trial_ends:  shop.expiresAt ? shop.expiresAt.slice(0,10) : null
+    });
+  } catch(e) {
+    console.warn("shops upsert xato:", e.message);
+  }
 }
 
 function addDaysToDate(date, days) {
