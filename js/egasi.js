@@ -55,6 +55,33 @@ function renderEgasi() {
   if ($("s-eskiz-sender")) $("s-eskiz-sender").value = db.settings?.eskizSender || "";
   if ($("s-loyalty-rate"))  $("s-loyalty-rate").value  = db.settings?.loyaltyRate  || "";
   if ($("s-loyalty-value")) $("s-loyalty-value").value = db.settings?.loyaltyValue || "";
+  // Admin hisob
+  if ($("s-admin-email")) $("s-admin-email").value = db.settings?.adminEmail || "";
+  if ($("s-admin-pass"))  $("s-admin-pass").value  = "";
+  // SMS, narx, telegram kabi UI yangilashlar
+  if (typeof _renderEgasiExtra === "function") _renderEgasiExtra();
+}
+
+function saveAdminCreds() {
+  const email = ($("s-admin-email")||{value:""}).value.trim().toLowerCase();
+  const pass  = ($("s-admin-pass") ||{value:""}).value;
+  if (!email) { toast("Email kiriting","err"); return; }
+  if (pass && pass.length < 4) { toast("Parol kamida 4 ta belgi","err"); return; }
+  if (!db.settings) db.settings = {};
+  db.settings.adminEmail = email;
+  if (pass) db.settings.adminPass = pass;
+  // Auth session ni ham yangilaymiz
+  if (typeof getAuthUser === "function") {
+    const u = getAuthUser();
+    if (u) { u.email = email; if (typeof authSave === "function") authSave(u); }
+  }
+  saveDB();
+  if ($("s-admin-pass")) $("s-admin-pass").value = "";
+  toast("✅ Administrator ma'lumotlari saqlandi");
+}
+
+// renderEgasi qolgan qismi (SMS va boshqa UI)
+function _renderEgasiExtra() {
   if (typeof updateSmsUI        === "function") updateSmsUI();
   if (typeof updateCostCurrency === "function") updateCostCurrency();
 

@@ -157,6 +157,11 @@ function toast(msg, type = "ok") {
 }
 
 function nav(p) {
+  // Rol tekshiruvi — ruxsati yo'q sahifaga o'tmaslik
+  if (typeof canAccessPage === "function" && !canAccessPage(p)) {
+    toast("Bu sahifaga kirishga ruxsatingiz yo'q", "err");
+    return;
+  }
   document.querySelectorAll(".ni").forEach(n => n.classList.toggle("on", n.dataset.p === p));
   document.querySelectorAll("[id^='p-']").forEach(el => el.classList.remove("on"));
   const el = $("p-" + p); if (el) el.classList.add("on");

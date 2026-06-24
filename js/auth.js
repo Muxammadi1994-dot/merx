@@ -380,40 +380,59 @@ function applyRoleUI() {
 
   // Header da foydalanuvchi nomi
   const userEl = document.getElementById("auth-user-name");
-  if (userEl) userEl.textContent = user.name || user.email || user.role;
+  if (userEl) userEl.textContent = user.name || user.email || "Foydalanuvchi";
 
   const roleEl = document.getElementById("auth-user-role");
   if (roleEl) {
-    const labels = { admin:"Admin", menejer:"Menejer", kassir:"Kassir", omborchi:"Omborchi", superadmin:"Super" };
+    const labels = { admin:"Admin", menejer:"Menejer", kassir:"Kassir", omborchi:"Omborchi", superadmin:"Super Admin" };
     roleEl.textContent = labels[user.role] || user.role;
   }
 
-  // Menyu elementlarini yashirish/ko'rsatish
+  // Sidebar menyu elementlarini yashirish/ko'rsatish
   document.querySelectorAll("[data-page]").forEach(el => {
     const page = el.dataset.page;
-    if (page && !canAccessPage(page)) {
-      el.style.display = "none";
-    } else {
-      el.style.display = "";
-    }
+    el.style.display = (page && !canAccessPage(page)) ? "none" : "";
   });
 
-  // Egasi sahifasi — faqat admin
-  if (!hasRole("admin")) {
-    document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
-  }
+  // Bo'sh sidebar group larni ham yashirish
+  document.querySelectorAll(".ns-group").forEach(group => {
+    const visibleItems = [...group.querySelectorAll(".ni")].filter(
+      ni => ni.style.display !== "none"
+    );
+    const toggle = group.previousElementSibling;
+    if (toggle) toggle.style.display = visibleItems.length ? "" : "none";
+    group.style.display = visibleItems.length ? "" : "none";
+  });
+
+  // Admin only elementlar
+  document.querySelectorAll(".admin-only").forEach(el => {
+    el.style.display = hasRole("admin") ? "" : "none";
+  });
+
+  // Menejer only elementlar
+  document.querySelectorAll(".menejer-only").forEach(el => {
+    el.style.display = hasRole("menejer") ? "" : "none";
+  });
 }
 
 // ── App init — sahifa ochilganda ─────────────────
 function initAuth() {
   const user = authLoad();
   if (!user) {
-    // Login ekranini ko'rsat
     showLoginScreen();
     return false;
   }
-  // Session bor — UI ga qo'y
+  // Session bor — UI sozlash
   applyRoleUI();
+
+  // Kassir uchun avtomatik POS
+  if (user.role === "kassir") {
+    setTimeout(() => { if (typeof nav === "function") nav("pos"); }, 100);
+  }
+  // Omborchi uchun ombor
+  if (user.role === "omborchi") {
+    setTimeout(() => { if (typeof nav === "function") nav("ombor"); }, 100);
+  }
   return true;
 }
 
