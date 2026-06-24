@@ -75,8 +75,23 @@ function renderDashboard() {
   const growth     = ystTotal > 0 ? Math.round((todayTotal - ystTotal) / ystTotal * 100) : null;
 
   const debts       = debtSales();
-  const totalDebt   = debts.reduce((a, s) => a + s.remaining, 0);
+  const totalDebt   = debts.reduce((a, s) => a + calcSaleState(s).remaining, 0);
   const overdueList = debts.filter(isOverdue);
+
+  // Kassaga tushdi — payBreakdown + debtPayments (nasiyasiz)
+  const rate = db.settings?.rate || 12800;
+  let todayKassa = 0;
+  todaySales.forEach(s => {
+    const pb = s.payBreakdown;
+    if (pb && (pb.naqd||pb.karta||pb.otkazma)) {
+      todayKassa += (pb.naqd||0) + (pb.karta||0) + (pb.otkazma||0);
+    } else {
+      todayKassa += s.payType === "nasiya" ? 0 : (s.paid||0);
+    }
+  });
+  (db.debtPayments||[]).filter(p => p.date === t).forEach(p => {
+    todayKassa += p.currency === "usd" ? Math.round(p.amount * rate) : (p.amount||0);
+  });
 
   const lowThreshold = db.settings?.lowStockLimit || 5;
   const lowStock = [];
