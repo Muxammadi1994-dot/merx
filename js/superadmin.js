@@ -628,160 +628,30 @@ function saEditShop(id) {
 }
 
 // ── Do'kon almashtirish ───────────────────────────
-function saSwitchToShop(shopId) {
-  const shop = _saShops.find(s => s.id === shopId);
-  if (!shop) return;
-
-  if (!confirm(`"${shop.name}" do'koniga o'tasizmi?
-Joriy do'kon ma'lumotlari saqlanib qoladi.`)) return;
-
-  // Joriy do'kon DB kalitini saqlaymiz
-  const prevKey = db._currentKey || "merx_v5";
-  localStorage.setItem("merx_prev_shop", prevKey);
-  localStorage.setItem("merx_is_sa_view", "1");
-
-  // Yangi do'kon DB sini yuklaymiz
-  try {
-    const shopData = localStorage.getItem(shop.dbKey);
-    if (!shopData) {
-      showSaToast(`"${shop.name}" uchun ma'lumot topilmadi`, "err");
-      return;
-    }
-    const shopDB = JSON.parse(shopData);
-    shopDB._currentKey = shop.dbKey;
-    shopDB._shopId     = shop.id;
-    shopDB._isSaView   = true;
-
-    db = shopDB;
-    localStorage.setItem("merx_active_shop", shop.dbKey);
-
-    // Super admin sessiyasini yangilaymiz
-    _authSession = {
-      role:    "owner",
-      name:    shop.ownerName || shop.name,
-      staffId: null,
-      isSaView: true,
-      shopId:  shop.id,
-      shopName: shop.name
-    };
-    authSave();
-
-    hideSaPanel();
-
-    // Sahifani yangilaymiz
-    window.location.reload();
-
-  } catch(e) {
-    showSaToast("Do'konni yuklashda xatolik: " + e.message, "err");
-  }
+function saSwitchToShop(id) {
+  saOpenShop(id);
 }
-
 function saReturnToMainShop() {
-  // Avvalgi do'konga qaytish
-  const prevKey = localStorage.getItem("merx_prev_shop") || "merx_v5";
-  localStorage.setItem("merx_active_shop", prevKey);
-  localStorage.removeItem("merx_is_sa_view");
-  localStorage.removeItem("merx_prev_shop");
-
-  // Sessiyani tozalaymiz — asosiy do'konga qaytamiz
   localStorage.removeItem("merx_auth_v1");
-  localStorage.removeItem("merx_auth_ts");
-
   window.location.reload();
 }
 
 // ── Super admin ko'rish paneli (topbar da) ────────
-function renderSaViewBanner() {
-  const isSaView = localStorage.getItem("merx_is_sa_view") === "1";
-  if (!isSaView) return;
+// renderSaViewBanner olib tashlandi
 
-  const existing = document.getElementById("sa-view-banner");
-  if (existing) return;
+// saLoadActiveShop olib tashlandi
 
-  const banner = document.createElement("div");
-  banner.id = "sa-view-banner";
-  const shopName = db.shop?.name || "Do'kon";
-  banner.style.cssText = `
-    position:fixed;top:0;left:0;right:0;z-index:9999;
-    background:linear-gradient(90deg,#4c1d95,#7c3aed);
-    color:#fff;padding:8px 20px;font-family:'DM Sans',sans-serif;
-    font-size:13px;font-weight:600;display:flex;align-items:center;gap:12px;
-    box-shadow:0 2px 12px rgba(0,0,0,.3)`;
-  banner.innerHTML = `
-    <span style="opacity:.7">⚡ Super Admin ko'rinishi:</span>
-    <strong>${shopName}</strong>
-    <span style="background:rgba(255,255,255,.2);border-radius:4px;padding:2px 8px;font-size:11px">
-      Faqat ko'rish
-    </span>
-    <button onclick="saReturnToMainShop()"
-      style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
-      color:#fff;border-radius:6px;padding:4px 14px;font-family:inherit;font-size:12px;cursor:pointer">
-      ← Asosiy do'konga qaytish
-    </button>`;
-  document.body.prepend(banner);
-
-  // Main va sidebar ni pastga suramiz
-  const main = document.getElementById("main");
-  const sb   = document.getElementById("sb");
-  if (main) main.style.paddingTop = "36px";
-  if (sb)   sb.style.paddingTop   = "36px";
-}
-
-// ── Super admin ko'rinishida DB ni to'g'ri yuklash ─
-function saLoadActiveShop() {
-  const activeKey = localStorage.getItem("merx_active_shop");
-  if (!activeKey || activeKey === "merx_v5") return false;
-
-  try {
-    const raw = localStorage.getItem(activeKey);
-    if (!raw) return false;
-    const shopDB = JSON.parse(raw);
-    shopDB._currentKey = activeKey;
-    db = shopDB;
-    return true;
-  } catch(e) { return false; }
-}
-
-// ── Super admin ko'rish saveDB override ────────────
-const _origSaveDB = window.saveDB;
-window.saveDB = function() {
-  // SA ko'rinishida — yangi do'kon DB siga saqlaymiz
-  const activeKey = db._currentKey || localStorage.getItem("merx_active_shop");
-  if (activeKey && activeKey !== "merx_v5") {
-    try { localStorage.setItem(activeKey, JSON.stringify(db)); }
-    catch(e) {}
-    if (typeof scheduleCloudSync === "function") scheduleCloudSync();
-    return;
-  }
-  if (typeof _origSaveDB === "function") _origSaveDB();
-};
-
-// ── Super admin ko'rishida Super Admin panelidagi tugma ─
 // renderSaShops ga "Ko'rish" tugmasini qo'shamiz
 
 // ── Super admin ko'rish panelini ishga tushirish ──
-(function() {
-  const isSaView = localStorage.getItem("merx_is_sa_view") === "1";
-  if (isSaView) {
-    const loaded = saLoadActiveShop();
-    if (!loaded) {
-      // Faol do'kon topilmadi — asosiy do'konga qaytish
-      localStorage.removeItem("merx_is_sa_view");
-      localStorage.removeItem("merx_active_shop");
-    }
-  }
-})();
+// isSaView IIFE olib tashlandi
 
 
 // renderSaShops override olib tashlandi
 
 // ── Super admin ko'rish bannerini ishga tushirish ─
 // DOMContentLoaded dan keyin
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", renderSaViewBanner);
-} else {
-  setTimeout(renderSaViewBanner, 100);
-}
+// renderSaViewBanner DOMContentLoaded olib tashlandi
 
 // ── Super admin ko'rish tugmalari renderSaShops da ──
 
