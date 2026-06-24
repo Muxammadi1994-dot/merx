@@ -419,7 +419,7 @@ function renderSaShops() {
   const el = document.getElementById("sa-shops-list"); if (!el) return;
   const q  = document.getElementById("sa-q")?.value.toLowerCase() || "";
 
-  let list = [..._saShops].reverse(); // eng yangisi tepada
+  let list = [..._saShops].sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0));
   if (q) list = list.filter(s =>
     s.name.toLowerCase().includes(q) ||
     (s.ownerName||"").toLowerCase().includes(q) ||
@@ -514,7 +514,7 @@ function renderSaShops() {
                   style="background:#E9A500;border:none;color:#0D1B2A;border-radius:7px;
                   padding:6px 12px;font-size:13px;cursor:pointer;font-weight:700">
                   🔑 Kirish</button>
-                <button onclick="saEditShop('${s.id}')" title="Tahrirlash"
+                <button onclick="saEditShopFull('${s.id}')" title="Tahrirlash"
                   style="background:#EFF6FF;border:1px solid #BFDBFE;color:#2563EB;
                   border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer">✏️</button>
                 <button onclick="saToggleShop('${s.id}')" title="${active?'Bloklash':'Faollashtirish'}"
@@ -678,16 +678,139 @@ function saOpenShop(id) {
 }
 
 // ── Tahrirlash ────────────────────────────────────
-function saEditShop(id) {
+// ── Tahrirlash (to'liq modal) ────────────────────────
+function saEditShopFull(id) {
   const s = _saShops.find(x => x.id === id); if (!s) return;
-  const newPlan = prompt(`"${s.name}" obuna turini tanlang:\ntrial / monthly / yearly / lifetime`, s.plan);
-  if (!newPlan || !["trial","monthly","yearly","lifetime"].includes(newPlan)) return;
-  const daysMap = {trial:30,monthly:30,yearly:365,lifetime:null};
-  s.plan = newPlan;
-  s.expiresAt = daysMap[newPlan] ? addDaysToDate(new Date(), daysMap[newPlan]) : null;
-  saSaveShops(); renderSaShops();
-  showSaToast(`✅ "${s.name}" obuna yangilandi: ${newPlan}`);
+  document.getElementById("sa-edit-modal")?.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "sa-edit-modal";
+  modal.style.cssText = "position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;backdrop-filter:blur(2px)";
+
+  const iStyle = "background:#F9FAFB;border:1.5px solid #E5E7EB;color:#111;border-radius:8px;padding:9px 12px;font-family:inherit;font-size:13px;outline:none;width:100%;box-sizing:border-box";
+
+  const shopTypeOpts = [
+    {val:"ikki",    lbl:"🧩 Oyoq kiyim + Kiyim"},
+    {val:"oyoq",    lbl:"👟 Faqat Oyoq kiyim"},
+    {val:"kiyim",   lbl:"👕 Faqat Kiyim-kechak"},
+    {val:"aralash", lbl:"🔀 Aralash (boshqa)"},
+  ].map(o => `<option value="${o.val}" ${(s.shopType||"ikki")===o.val?"selected":""}>${o.lbl}</option>`).join("");
+
+  const planOpts = [
+    {val:"trial",    lbl:"🧪 Sinov (30 kun)"},
+    {val:"monthly",  lbl:"📅 Oylik"},
+    {val:"yearly",   lbl:"📆 Yillik"},
+    {val:"lifetime", lbl:"♾️ Umrlik"},
+  ].map(o => `<option value="${o.val}" ${s.plan===o.val?"selected":""}>${o.lbl}</option>`).join("");
+
+  const expVal = s.plan === "lifetime" ? "" : (s.expiresAt ? s.expiresAt.slice(0,10) : "");
+
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px;width:500px;
+      max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.2)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div style="font-size:16px;font-weight:800;color:#0D1B2A">✏️ Do'konni tahrirlash</div>
+        <button onclick="document.getElementById('sa-edit-modal').remove()"
+          style="background:#F3F4F6;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;color:#6B7280;font-size:16px">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="grid-column:1/-1">
+          <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon nomi *</label>
+          <input id="se-name" value="${s.name||""}" style="${iStyle}">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Egasi ismi</label>
+          <input id="se-owner" value="${s.ownerName||""}" style="${iStyle}">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Telefon raqam</label>
+          <input id="se-phone" value="${s.phone||""}" placeholder="+998 90 123 45 67" style="${iStyle}">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Login (email)</label>
+          <input id="se-login" value="${s.ownerEmail||""}" style="${iStyle}">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Yangi parol (bo'sh = o'zgarmaydi)</label>
+          <input id="se-pass" type="password" placeholder="••••••••" style="${iStyle}">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon turi</label>
+          <select id="se-shoptype" style="${iStyle}">${shopTypeOpts}</select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna turi</label>
+          <select id="se-plan" style="${iStyle}" onchange="var d=document.getElementById('se-expires');if(this.value==='lifetime'){d.value='';d.disabled=true;}else{d.disabled=false;}">${planOpts}</select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Muddat tugashi</label>
+          <input id="se-expires" type="date" value="${expVal}" ${s.plan==="lifetime"?"disabled":""} style="${iStyle}">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button onclick="saEditSave('${id}')"
+          style="flex:1;background:#0D1B2A;border:none;border-radius:10px;
+          padding:13px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;color:#E9A500">
+          ✓ Saqlash
+        </button>
+        <button onclick="document.getElementById('sa-edit-modal').remove()"
+          style="background:#F3F4F6;border:none;border-radius:10px;padding:13px 20px;
+          font-family:inherit;font-size:13px;cursor:pointer;color:#6B7280;font-weight:600">
+          Bekor
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
 }
+
+function saEditSave(id) {
+  const s = _saShops.find(x => x.id === id); if (!s) return;
+  const name     = document.getElementById("se-name")?.value.trim();
+  const owner    = document.getElementById("se-owner")?.value.trim();
+  const phone    = document.getElementById("se-phone")?.value.trim();
+  const login    = document.getElementById("se-login")?.value.trim();
+  const pass     = document.getElementById("se-pass")?.value.trim();
+  const shopType = document.getElementById("se-shoptype")?.value || "ikki";
+  const plan     = document.getElementById("se-plan")?.value || s.plan;
+  const expires  = document.getElementById("se-expires")?.value;
+
+  if (!name) { showSaToast("Do'kon nomini kiriting", "err"); return; }
+
+  s.name      = name;
+  s.ownerName = owner || s.ownerName;
+  s.phone     = phone;
+  s.shopType  = shopType;
+  s.plan      = plan;
+  if (login)                  s.ownerEmail = login;
+  if (pass && pass.length>=4) s.ownerPass  = pass;
+  if (plan === "lifetime")    s.expiresAt  = null;
+  else if (expires)           s.expiresAt  = new Date(expires).toISOString();
+
+  // LocalStorage DB ni ham yangilaymiz
+  try {
+    const dbKey = "merx_v5_" + id;
+    const raw   = localStorage.getItem(dbKey);
+    if (raw) {
+      const shopDB = JSON.parse(raw);
+      if (!shopDB.shop)     shopDB.shop     = {};
+      if (!shopDB.settings) shopDB.settings = {};
+      shopDB.shop.name        = name;
+      shopDB.shop.type        = shopType;
+      shopDB.settings.shopType = shopType;
+      if (login)                  shopDB.settings.adminEmail = login;
+      if (pass && pass.length>=4) shopDB.settings.adminPass  = pass;
+      localStorage.setItem(dbKey, JSON.stringify(shopDB));
+    }
+  } catch(e) {}
+
+  saSaveShops();
+  renderSaShops();
+  document.getElementById("sa-edit-modal")?.remove();
+  showSaToast(`✅ "${name}" yangilandi`);
+}
+
+// ── Eski saEditShop → saEditShopFull ──────────────
+function saEditShop(id) { saEditShopFull(id); }
 
 // ── Bloklash / faollashtirish ─────────────────────
 function saToggleShop(id) {

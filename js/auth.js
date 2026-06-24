@@ -207,7 +207,7 @@ function showLoginScreen() {
         <div style="display:flex;background:rgba(255,255,255,.08);border-radius:10px;padding:3px;gap:3px;margin-bottom:20px">
           <button onclick="switchAuthTab('admin')" id="tab-admin"
             style="flex:1;padding:8px;border:none;border-radius:8px;background:#E9A500;color:#0D1B2A;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">
-            👤 Egasi
+            👤 Admin
           </button>
           <button onclick="switchAuthTab('staff')" id="tab-staff"
             style="flex:1;padding:8px;border:none;border-radius:8px;background:transparent;color:rgba(255,255,255,.5);font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">
@@ -215,7 +215,7 @@ function showLoginScreen() {
           </button>
           <button onclick="switchAuthTab('super')" id="tab-super"
             style="flex:1;padding:8px;border:none;border-radius:8px;background:transparent;color:rgba(255,255,255,.5);font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">
-            ⚡ Admin
+            ⚡ Super Admin
           </button>
         </div>
 
