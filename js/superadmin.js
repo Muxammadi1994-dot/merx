@@ -440,26 +440,21 @@ function renderSaShops() {
               </span>
             </td>
             <td style="padding:12px 10px;white-space:nowrap">
-              <button onclick="saOpenShop('${s.id}')"
-                style="background:#E9A500;border:none;color:#0D1B2A;
-                border-radius:6px;padding:5px 12px;font-family:inherit;font-size:12px;cursor:pointer;margin-right:4px;font-weight:700">
-                🔑 Kirish
-              </button>
-              <button onclick="saEditShop('${s.id}')"
-                style="background:#1a2d40;border:1px solid #2a4060;color:#4C9BE8;
-                border-radius:6px;padding:5px 12px;font-family:inherit;font-size:12px;cursor:pointer;margin-right:4px">
-                ✏️
-              </button>
-              <button onclick="saToggleShop('${s.id}')"
-                style="background:#1a2d40;border:1px solid #2a4060;color:${active?"#E05A5A":"#36B48C"};
-                border-radius:6px;padding:5px 12px;font-family:inherit;font-size:12px;cursor:pointer">
-                ${active ? "🔒" : "✅"}
-              </button>
-              <button onclick="saDeleteShop('${s.id}')"
-                style="background:#1a2d40;border:1px solid #E05A5A;color:#E05A5A;
-                border-radius:6px;padding:5px 12px;font-family:inherit;font-size:12px;cursor:pointer;margin-left:4px">
-                🗑️
-              </button>
+              <div style="display:flex;gap:4px">
+                <button onclick="saOpenShop('${s.id}')" title="Kirish"
+                  style="background:#E9A500;border:none;color:#0D1B2A;border-radius:6px;
+                  padding:6px 10px;font-size:13px;cursor:pointer;font-weight:700">🔑</button>
+                <button onclick="saEditShop('${s.id}')" title="Tahrirlash"
+                  style="background:#1a2d40;border:1px solid #2a4060;color:#4C9BE8;
+                  border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer">✏️</button>
+                <button onclick="saToggleShop('${s.id}')" title="${active?'Bloklash':'Faollashtirish'}"
+                  style="background:#1a2d40;border:1px solid #2a4060;color:${active?"#E05A5A":"#36B48C"};
+                  border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer">
+                  ${active ? "🔒" : "✅"}</button>
+                <button onclick="saDeleteShop('${s.id}')" title="O'chirish"
+                  style="background:#1a2d40;border:1px solid #E05A5A;color:#E05A5A;
+                  border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer">🗑️</button>
+              </div>
             </td>
           </tr>`;
         }).join("")}
