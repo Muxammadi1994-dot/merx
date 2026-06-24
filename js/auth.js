@@ -139,6 +139,21 @@ function authStaffLogin(phone, password) {
   return { ok: true, user };
 }
 
+// Login dan keyin Supabase ulanish
+function _initCloudAfterLogin() {
+  if (!db?.settings?.supabaseUrl || !db?.settings?.supabaseKey) return;
+  if (typeof initSupabase !== "function") return;
+  initSupabase().then(async ok => {
+    if (ok) {
+      if (typeof updateCloudUI === "function") updateCloudUI(true);
+      // Ma'lumot yo'q bo'lsa cloud dan yukla
+      if (!db.products?.length && !db.sales?.length) {
+        if (typeof pullFromCloud === "function") await pullFromCloud();
+      }
+    }
+  });
+}
+
 // ── Chiqish ──────────────────────────────────────
 function authLogout() {
   authClear();
@@ -334,6 +349,8 @@ async function doLogin() {
     else toast(`✅ Xush kelibsiz, ${res.user.email}!`);
     // Menyu va sahifalarni roleга qarab sozlash
     applyRoleUI();
+    // Login dan keyin Supabase ulanish
+    _initCloudAfterLogin();
   } else {
     showAuthErr(res.error || "Kirish xatoligi");
   }
@@ -349,6 +366,7 @@ function doStaffLogin() {
     hideLoginScreen();
     toast(`✅ Xush kelibsiz, ${res.user.name}!`);
     applyRoleUI();
+    _initCloudAfterLogin();
     // Kassir uchun avtomatik POS ga o'tish
     if (res.user.role === "kassir") {
       setTimeout(() => { if (typeof nav === "function") nav("pos"); }, 300);

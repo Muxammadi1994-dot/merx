@@ -6,24 +6,26 @@
 
 function init() {
   if (!db) db = seedDB();
-  if (!db.staff)      db.staff = [];
-  if (!db.xarajatlar) db.xarajatlar = [];
-  if (!db.ombor)      db.ombor = [];
-  if (!db.chiqimlar)  db.chiqimlar = [];
+  if (!db.staff)        db.staff = [];
+  if (!db.xarajatlar)   db.xarajatlar = [];
+  if (!db.ombor)        db.ombor = [];
+  if (!db.chiqimlar)    db.chiqimlar = [];
   if (!db.debtPayments) db.debtPayments = [];
   updateRatePill();
   $("sb-shop").textContent    = db.shop.name;
   $("debt-count").textContent = debtSales().length;
   refreshStaffList();
   if (typeof updateSmsUI === "function") updateSmsUI();
-  if (db.settings?.supabaseUrl && db.settings?.supabaseKey) {
+
+  // Supabase — faqat foydalanuvchi login qilgandan keyin
+  const isAuthed = typeof isLoggedIn === "function" ? isLoggedIn() : false;
+  if (isAuthed && db.settings?.supabaseUrl && db.settings?.supabaseKey) {
     initSupabase().then(async ok => {
       if (ok) {
         updateCloudUI(true);
         if (!db.products?.length && !db.sales?.length) {
           await pullFromCloud();
         } else {
-          // Ma'lumotlar LocalStorage da bor — faqat dashboardni yangilaymiz
           if (typeof renderDashboard === "function") renderDashboard();
         }
       }
