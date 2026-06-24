@@ -529,7 +529,7 @@ function addStaff() {
   const d = _getStaffFormData();
   if (!d.name) { toast("Ism kiriting","err"); return; }
   db.staff.push({ id: db.seq++, ...d, paidMonths:[], salaryHistory:[], monthTarget:0 });
-  saveDB(); renderXodimlar(); closeModal("addstaff");
+  saveDB(); renderXodimlar(); closeStaffModal();
   toast(`\u2705 ${d.name} qo\'shildi`);
   _resetStaffForm();
 }
@@ -550,10 +550,7 @@ function editStaff(id) {
   if ($("as-discount-wrap"))$("as-discount-wrap").style.display = s.permDiscount?"block":"none";
   if ($("as-perm-nasiya"))  $("as-perm-nasiya").checked = !!s.permNasiya;
   if ($("as-perm-return"))  $("as-perm-return").checked = !!s.permReturn;
-  const h2 = document.querySelector("#ov-addstaff h2"); if(h2) h2.textContent = "Xodimni tahrirlash";
-  const btn = document.querySelector("#ov-addstaff .btn-acc");
-  if (btn) { btn.innerHTML = '<i class="ti ti-check"></i> Saqlash'; btn.onclick = () => saveStaff(id); }
-  openModal("addstaff");
+  openStaffModal(id);
 }
 
 function saveStaff(id) {
@@ -561,7 +558,7 @@ function saveStaff(id) {
   const d = _getStaffFormData();
   if (!d.name) { toast("Ism kiriting","err"); return; }
   Object.assign(s, d);
-  saveDB(); renderXodimlar(); closeModal("addstaff");
+  saveDB(); renderXodimlar(); closeStaffModal();
   toast("Xodim ma\'lumotlari yangilandi");
   _resetStaffForm();
 }
@@ -604,4 +601,220 @@ function exportStaffExcel() {
 
   downloadCSV(rows, `merx_xodimlar_${today()}.xls`);
   toast(`✅ ${db.staff.length} ta xodim yuklab olindi`);
+}
+
+// ── Xodim modal (JS dan render) ───────────────────
+// index.html ga tegmaymiz — modal to'liq JS da
+function openStaffModal(editId = null) {
+  document.getElementById("xodim-modal")?.remove();
+
+  const isEdit = editId !== null;
+  const s      = isEdit ? db.staff.find(x => x.id === editId) : null;
+  const title  = isEdit ? "Xodimni tahrirlash" : "Xodim qo'shish";
+
+  const iStyle = "font-family:inherit;font-size:13px;color:var(--ink);background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:8px;padding:9px 11px;width:100%;box-sizing:border-box;outline:none";
+  const lStyle = "display:block;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px";
+
+  const modal = document.createElement("div");
+  modal.id    = "xodim-modal";
+  modal.className = "ov";
+  modal.onclick = e => { if (e.target === modal) closeStaffModal(); };
+  modal.style.cssText = "display:flex";
+
+  modal.innerHTML = `
+    <div class="modal" style="max-width:520px;padding:0;overflow:hidden">
+
+      <!-- Header -->
+      <div style="padding:18px 20px;background:#0D1B2A;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:16px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px">
+          <i class="ti ti-user-plus" style="color:#E9A500"></i> ${title}
+        </div>
+        <button onclick="closeStaffModal()"
+          style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+          color:#fff;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:16px">✕</button>
+      </div>
+
+      <!-- Tab bar -->
+      <div style="display:flex;background:#F3F2EF;padding:4px;gap:3px;border-bottom:1px solid #E5E7EB">
+        <button id="sm-tab-asosiy" onclick="smTab('asosiy')"
+          style="flex:1;padding:8px;border:none;border-radius:7px;background:#fff;
+          font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;
+          box-shadow:0 1px 3px rgba(0,0,0,.1);color:var(--ink)">
+          👤 Asosiy
+        </button>
+        <button id="sm-tab-ruxsat" onclick="smTab('ruxsat')"
+          style="flex:1;padding:8px;border:none;border-radius:7px;background:transparent;
+          font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;color:#9CA3AF">
+          🔐 Ruxsatlar
+        </button>
+        <button id="sm-tab-moliya" onclick="smTab('moliya')"
+          style="flex:1;padding:8px;border:none;border-radius:7px;background:transparent;
+          font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;color:#9CA3AF">
+          💰 Moliya
+        </button>
+      </div>
+
+      <!-- Tab: Asosiy -->
+      <div id="sm-pane-asosiy" style="padding:20px;display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="${lStyle}">Ism familiya <span style="color:var(--red)">*</span></label>
+          <input id="as-name" placeholder="Alisher Karimov" value="${s?.name||''}" style="${iStyle}"
+            onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='#E5E7EB'">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="${lStyle}">Telefon</label>
+            <input id="as-phone" placeholder="+998 90 ..." value="${s?.phone||''}" style="${iStyle}"
+              onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='#E5E7EB'">
+          </div>
+          <div>
+            <label style="${lStyle}">PIN kod <span style="font-size:10px;font-weight:400;text-transform:none">(kirish uchun)</span></label>
+            <input id="as-pin" type="password" maxlength="6" inputmode="numeric"
+              placeholder="4-6 raqam" value="${s?.pin||''}"
+              style="${iStyle};letter-spacing:4px"
+              onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='#E5E7EB'">
+          </div>
+        </div>
+        <div>
+          <label style="${lStyle}">Lavozim</label>
+          <select id="as-role" style="${iStyle}">
+            <option value="kassir"   ${(s?.role||'kassir')==='kassir'   ?'selected':''}>💼 Kassir</option>
+            <option value="menejer"  ${s?.role==='menejer'  ?'selected':''}>📊 Menejer</option>
+            <option value="omborchi" ${s?.role==='omborchi' ?'selected':''}>📦 Omborchi</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="${lStyle}">Ishga kirgan sana</label>
+            <input id="as-startdate" type="date" value="${s?.startDate||''}" style="${iStyle}"
+              onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='#E5E7EB'">
+          </div>
+          <div>
+            <label style="${lStyle}">Tug'ilgan kun</label>
+            <input id="as-birthday" type="date" value="${s?.birthday||''}" style="${iStyle}"
+              onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='#E5E7EB'">
+          </div>
+        </div>
+        <div>
+          <label style="${lStyle}">Manzil</label>
+          <input id="as-address" placeholder="ixtiyoriy" value="${s?.address||''}" style="${iStyle}"
+            onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='#E5E7EB'">
+        </div>
+      </div>
+
+      <!-- Tab: Ruxsatlar -->
+      <div id="sm-pane-ruxsat" style="padding:20px;display:none">
+        <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;
+          padding:12px 14px;margin-bottom:16px;font-size:13px;color:#1E40AF;line-height:1.5">
+          <strong>Rol asosida ruxsatlar:</strong><br>
+          💼 Kassir — faqat sotuv | 📊 Menejer — barcha operatsiyalar | 📦 Omborchi — ombor
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <label style="display:flex;align-items:center;gap-12px;padding:12px 14px;
+            background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:9px;cursor:pointer;gap:12px">
+            <input type="checkbox" id="as-perm-discount"
+              ${s?.permDiscount?'checked':''}
+              style="width:18px;height:18px;accent-color:var(--acc);flex-shrink:0"
+              onchange="document.getElementById('as-discount-wrap').style.display=this.checked?'block':'none'">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--ink)">✂️ Chegirma berish</div>
+              <div style="font-size:11px;color:#9CA3AF">Kassir uchun qo'shimcha ruxsat</div>
+            </div>
+          </label>
+          <div id="as-discount-wrap" style="display:${s?.permDiscount?'block':'none'};
+            margin-left:12px;padding:10px 14px;background:#FFFBEB;border-radius:8px;border:1px solid #FDE68A">
+            <label style="${lStyle}">Maksimal chegirma (%)</label>
+            <input id="as-max-discount" type="number" min="0" max="50" placeholder="10"
+              value="${s?.maxDiscount||''}"
+              style="width:120px;font-family:inherit;font-size:14px;font-weight:700;
+              border:1.5px solid #E5E7EB;border-radius:7px;padding:7px 10px;text-align:center">
+          </div>
+          <label style="display:flex;align-items:center;padding:12px 14px;
+            background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:9px;cursor:pointer;gap:12px">
+            <input type="checkbox" id="as-perm-nasiya"
+              ${s?.permNasiya?'checked':''}
+              style="width:18px;height:18px;accent-color:var(--acc);flex-shrink:0">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--ink)">💳 Nasiya berish</div>
+              <div style="font-size:11px;color:#9CA3AF">Qarzga sotuv qilish huquqi</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;padding:12px 14px;
+            background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:9px;cursor:pointer;gap:12px">
+            <input type="checkbox" id="as-perm-return"
+              ${s?.permReturn?'checked':''}
+              style="width:18px;height:18px;accent-color:var(--acc);flex-shrink:0">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--ink)">↩ Qaytarish qabul</div>
+              <div style="font-size:11px;color:#9CA3AF">Tovar qaytarishni rasmiylashtirish</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Tab: Moliya -->
+      <div id="sm-pane-moliya" style="padding:20px;display:none;flex-direction:column;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="${lStyle}">Oylik maosh (so'm)</label>
+            <input id="as-salary" type="number" placeholder="0" step="100000"
+              value="${s?.salary||''}" style="${iStyle}"
+              onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='#E5E7EB'">
+          </div>
+          <div>
+            <label style="${lStyle}">Sotuv bonusi (%)</label>
+            <input id="as-bonus" type="number" placeholder="0" min="0" max="20" step="0.5"
+              value="${s?.bonusPct||''}" style="${iStyle}"
+              onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='#E5E7EB'">
+          </div>
+        </div>
+        <div>
+          <label style="${lStyle}">Qo'shimcha eslatma</label>
+          <input id="as-note" placeholder="Masalan: Qiyinchilik soatlarida ishlay oladi..."
+            value="${s?.note||''}" style="${iStyle}"
+            onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='#E5E7EB'">
+        </div>
+        <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:9px;
+          padding:12px 14px;font-size:12.5px;color:#065F46;line-height:1.6">
+          <strong>Bonus hisob:</strong> Kassaga tushgan summaning belgilangan foizi xodimga bonus sifatida qo'shiladi.
+          Masalan: 5% bonus → 10 000 000 so'm sotuvdan 500 000 so'm bonus.
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="padding:14px 20px;border-top:1px solid #E5E7EB;background:#F9FAFB;
+        display:flex;gap:8px">
+        <button id="sm-save-btn" onclick="${isEdit ? `saveStaff(${editId})` : 'addStaff()'}"
+          style="flex:1;background:#0D1B2A;border:none;border-radius:10px;padding:12px;
+          font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;color:#E9A500">
+          <i class="ti ti-check"></i> ${isEdit ? "Saqlash" : "Xodim qo'shish"}
+        </button>
+        <button onclick="closeStaffModal()"
+          style="background:#F3F4F6;border:none;border-radius:10px;padding:12px 18px;
+          font-family:inherit;font-size:13px;cursor:pointer;color:#6B7280;font-weight:600">
+          Bekor
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+  setTimeout(() => document.getElementById("as-name")?.focus(), 50);
+}
+
+function smTab(tab) {
+  ["asosiy","ruxsat","moliya"].forEach(t => {
+    const pane = document.getElementById("sm-pane-" + t);
+    const btn  = document.getElementById("sm-tab-" + t);
+    if (!pane || !btn) return;
+    const on = t === tab;
+    pane.style.display     = on ? (t === "moliya" ? "flex" : "block") : "none";
+    btn.style.background   = on ? "#fff" : "transparent";
+    btn.style.color        = on ? "var(--ink)" : "#9CA3AF";
+    btn.style.fontWeight   = on ? "700" : "600";
+    btn.style.boxShadow    = on ? "0 1px 3px rgba(0,0,0,.1)" : "none";
+  });
+}
+
+function closeStaffModal() {
+  document.getElementById("xodim-modal")?.remove();
 }
