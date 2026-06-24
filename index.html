@@ -324,7 +324,7 @@
     <div class="ns ns-toggle open" onclick="toggleNav(this)">Sozlamalar<i class="ti ti-chevron-down ns-arr"></i></div>
     <div class="ns-group">
       <div class="ni" data-p="xodimlar" data-page="xodimlar"><i class="ti ti-id-badge"></i>Xodimlar</div>
-      <div class="ni" data-p="egasi" data-page="egasi"><i class="ti ti-settings"></i>Egasi / Sozlamalar</div>
+      <div class="ni" data-p="egasi" data-page="egasi"><i class="ti ti-settings"></i>Sozlamalar</div>
     </div>
   </nav>
   <div class="sb-bot" id="sb-shop">—</div>
@@ -2009,171 +2009,466 @@
   <!-- PORTAL -->
   <div class="pg" id="p-portal"></div>
 
-  <!-- EGASI -->
+  <!-- EGASI / ADMIN SOZLAMALAR -->
   <div class="pg" id="p-egasi">
-    <!-- Parol sozlamalari -->
-    <div id="owner-pass-section"></div>
-    <!-- Super Admin paroli -->
-    <div id="sa-pass-section"></div>
-    <div class="g2">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div>
-        <div class="card"><div class="ch"><h3><i class="ti ti-building-store"></i>Do'kon sozlamalari</h3></div>
-          <div style="padding:16px 18px">
-            <div class="fld"><label>Do'kon nomi</label><input id="s-name" oninput="saveSetting('name',this.value)"></div>
-            <div class="r2">
-              <div class="fld"><label>Kurs (1 USD = ? so'm)</label><input id="s-rate" type="number" step="50" oninput="saveSetting('rate',+this.value)"></div>
-              <div class="fld"><label>Narx ko'rinishi</label>
-                <div class="seg" id="cur-seg">
-                  <button data-c="uzs" onclick="saveSetting('priceCurrency','uzs')">So'm</button>
-                  <button data-c="usd" onclick="saveSetting('priceCurrency','usd')">USD ($)</button>
-                  <button data-c="both" onclick="saveSetting('priceCurrency','both')">Ikkalasi</button>
-                </div>
-              </div>
-            </div>
-            <div class="fld"><label>Do'kon turi</label>
-              <div class="seg" id="type-seg">
-                <button data-t="oyoq" onclick="setShopType('oyoq')">👟 Oyoq kiyim</button>
-                <button data-t="kiyim" onclick="setShopType('kiyim')">👕 Kiyim-kechak</button>
-                <button data-t="ikki" onclick="setShopType('ikki')">🧩 Ikkalasi</button>
-              </div>
-            </div>
+        <h2 style="margin:0;font-size:20px;font-weight:800;color:var(--ink)">
+          <i class="ti ti-settings" style="color:var(--acc)"></i> Admin Sozlamalar
+        </h2>
+        <div style="font-size:13px;color:var(--mut);margin-top:2px" id="s-login-info-wrap">
+          Login: <strong id="s-login-info">—</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB BAR -->
+    <div style="display:flex;gap:4px;background:#F3F2EF;border-radius:12px;padding:4px;margin-bottom:24px;overflow-x:auto">
+      <button class="adm-tab-btn adm-tab-on" data-tab="dokon"  onclick="adminTabSwitch('dokon')"
+        style="flex:1;min-width:100px;padding:9px 12px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s">
+        🏪 Do'kon
+      </button>
+      <button class="adm-tab-btn" data-tab="narx" onclick="adminTabSwitch('narx')"
+        style="flex:1;min-width:100px;padding:9px 12px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s">
+        💰 Narx
+      </button>
+      <button class="adm-tab-btn" data-tab="cloud" onclick="adminTabSwitch('cloud')"
+        style="flex:1;min-width:100px;padding:9px 12px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s">
+        ☁️ Cloud
+      </button>
+      <button class="adm-tab-btn" data-tab="sms" onclick="adminTabSwitch('sms')"
+        style="flex:1;min-width:100px;padding:9px 12px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s">
+        📱 SMS & Bot
+      </button>
+      <button class="adm-tab-btn" data-tab="tizim" onclick="adminTabSwitch('tizim')"
+        style="flex:1;min-width:100px;padding:9px 12px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s">
+        🔧 Tizim
+      </button>
+    </div>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- TAB 1: DO'KON                             -->
+    <!-- ══════════════════════════════════════════ -->
+    <div class="adm-tab-pane" data-tab="dokon">
+      <div class="g2">
+
+        <!-- Do'kon asosiy ma'lumotlari -->
+        <div class="card">
+          <div class="ch">
+            <h3><i class="ti ti-building-store"></i> Do'kon ma'lumotlari</h3>
+          </div>
+          <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+
             <div class="fld">
-              <label>Kam qoldiq ogohlantirish chegarasi
-                <span style="font-size:11px;font-weight:400;color:var(--mut)">— bu miqdordan kam bo'lsa ogohlantirish chiqadi</span>
+              <label>Do'kon nomi</label>
+              <input id="s-name" placeholder="MERX Do'koni"
+                oninput="saveSetting('name',this.value)"
+                style="font-size:15px;font-weight:600">
+            </div>
+
+            <div class="fld">
+              <label style="display:flex;align-items:center;gap:6px">
+                Do'kon turi
+                <span style="font-size:11px;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-weight:600">
+                  🔒 Superadmin belgilaydi
+                </span>
               </label>
-              <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+              <div style="background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:9px;
+                padding:11px 14px;font-size:14px;font-weight:600;color:#374151"
+                id="s-shop-type-display">—</div>
+            </div>
+
+            <div class="fld">
+              <label>Kam qoldiq ogohlantirish
+                <span style="font-size:11px;font-weight:400;color:var(--mut)">— bu miqdordan kam bo'lsa signal</span>
+              </label>
+              <div style="display:flex;align-items:center;gap:10px">
                 <input type="number" id="s-low-stock" value="5" min="1" max="999"
-                  style="width:80px;font-family:inherit;font-size:16px;font-weight:700;border:2px solid var(--brd);border-radius:var(--rs);padding:6px 10px;text-align:center"
+                  style="width:80px;font-family:inherit;font-size:16px;font-weight:700;
+                  border:2px solid var(--brd);border-radius:var(--rs);padding:6px 10px;text-align:center"
                   onchange="saveSetting('lowStockLimit',+this.value);toast('Chegara saqlandi','info')">
-                <span style="font-size:14px;color:var(--mut)">ta (dona/juft)</span>
-                <span style="font-size:12px;background:#fff3cd;color:#856404;padding:3px 8px;border-radius:5px">
+                <span style="font-size:14px;color:var(--mut)">ta variant</span>
+                <span style="font-size:12px;background:#FEF3C7;color:#92400E;padding:4px 10px;border-radius:6px;font-weight:600">
                   <i class="ti ti-alert-triangle" style="font-size:12px"></i>
-                  Hozir: <strong id="s-low-stock-count">0</strong> ta variant kam
+                  Hozir: <strong id="s-low-stock-count">0</strong> ta kam
                 </span>
               </div>
             </div>
-          </div>
-        </div>
-        <div class="card"><div class="ch"><h3><i class="ti ti-database"></i>Zaxira</h3></div>
-          <div style="padding:16px 18px;display:flex;gap:8px">
-            <button class="btn btn-ghost" onclick="exportDB()"><i class="ti ti-download"></i>Yuklab olish</button>
-            <button class="btn btn-ghost" onclick="document.getElementById('imp-file').click()"><i class="ti ti-upload"></i>Tiklash</button>
-            <input id="imp-file" type="file" accept=".json" style="display:none" onchange="importDB(this)">
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="ch"><h3><i class="ti ti-cloud"></i>Cloud (Supabase)</h3><span class="bg bg-gr" id="cloud-status-badge">Ulanmagan</span></div>
 
-        <!-- Admin hisob -->
-        <div style="padding:16px 18px;border-bottom:1px solid var(--brd)">
-          <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--mut)">🔐 ADMINISTRATOR HISOB</div>
-          <div class="r2">
-            <div class="fld"><label>Email</label>
-              <input id="s-admin-email" type="email" placeholder="admin@example.com"
-                style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%">
-            </div>
-            <div class="fld"><label>Yangi parol</label>
-              <input id="s-admin-pass" type="password" placeholder="••••••••"
-                style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 10px;width:100%">
+          </div>
+        </div>
+
+        <!-- Zaxira -->
+        <div class="card">
+          <div class="ch">
+            <h3><i class="ti ti-database-export"></i> Ma'lumotlar zaxirasi</h3>
+          </div>
+          <div style="padding:18px 20px">
+            <p style="font-size:13px;color:var(--mut);margin:0 0 14px;line-height:1.6">
+              Barcha ma'lumotlarni JSON formatda yuklab oling yoki avvalgi zaxiradan tiklang.
+              <strong style="color:var(--ink)">Tiklash mavjud ma'lumotlarni o'chirmaydi</strong> — ustiga qo'shiladi.
+            </p>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-ghost" onclick="exportDB()" style="flex:1">
+                <i class="ti ti-download"></i> Yuklab olish
+              </button>
+              <button class="btn btn-ghost" onclick="document.getElementById('imp-file').click()" style="flex:1">
+                <i class="ti ti-upload"></i> Tiklash
+              </button>
+              <input id="imp-file" type="file" accept=".json" style="display:none" onchange="importDB(this)">
             </div>
           </div>
-          <button class="btn btn-sm btn-acc" onclick="saveAdminCreds()" style="margin-top:4px">
-            <i class="ti ti-check"></i> Saqlash
-          </button>
         </div>
-        <div style="padding:16px 18px">
-          <div class="fld"><label>Supabase Project URL</label><input id="s-sup-url" placeholder="https://xxxx.supabase.co" oninput="saveSetting('supabaseUrl',this.value)"></div>
-          <div class="fld"><label>Anon / Public Key</label><input id="s-sup-key" type="text" placeholder="eyJhbGci..." autocomplete="off" spellcheck="false" style="font-size:11px" oninput="saveSetting('supabaseKey',this.value)"></div>
-          <div style="display:flex;gap:8px;margin-bottom:10px">
-            <button class="btn btn-teal" onclick="connectCloud()"><i class="ti ti-cloud-upload"></i>Ulash + Sinxronlash</button>
-            <button class="btn btn-ghost" onclick="pullFromCloud()"><i class="ti ti-cloud-download"></i>Clouddan yuklash</button>
-          </div>
-          <div style="background:var(--bg);border-radius:var(--rs);padding:10px 12px;font-size:12.5px;color:var(--mut);line-height:1.6">
-            <b style="color:var(--ink)">Qanday olish:</b><br>
-            1. supabase.com → bepul akkaunt → yangi project<br>
-            2. Project Settings → API → Project URL + anon/public key<br>
-            3. SQL Editor → schema.sql faylini ishlating (alohida yuklab oling)
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="ch"><h3><i class="ti ti-message"></i>SMS (Eskiz)</h3><span class="bg bg-gr" id="sms-status-badge">Test rejimi</span></div>
-        <div style="padding:16px 18px">
-          <div class="r2">
-            <div class="fld"><label>Eskiz API Token</label><input id="s-eskiz-token" type="password" placeholder="Token..." oninput="saveSetting('eskizToken',this.value)"></div>
-            <div class="fld"><label>SMS jo'natuvchi nomi</label><input id="s-eskiz-sender" placeholder="MERX (4-11 belgi)" oninput="saveSetting('eskizSender',this.value)"></div>
-          </div>
-          <div style="display:flex;gap:8px;margin-bottom:10px">
-            <button class="btn btn-teal btn-sm" onclick="testSms()"><i class="ti ti-send"></i>Test SMS</button>
-          </div>
-          <div style="background:var(--bg);border-radius:var(--rs);padding:10px 12px;font-size:12.5px;color:var(--mut);line-height:1.6">
-            <b style="color:var(--ink)">Token olish:</b> notify.eskiz.uz → Kirish → API → Token olish<br>
 
-          <!-- Sodiqlik ballari — ixtiyoriy -->
-          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--brd)">
-            <div style="font-size:13px;font-weight:700;margin-bottom:10px">⭐ Sodiqlik ballari <span style="font-size:11px;color:var(--mut);font-weight:400">(ixtiyoriy)</span></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- TAB 2: NARX & VALYUTA                     -->
+    <!-- ══════════════════════════════════════════ -->
+    <div class="adm-tab-pane" data-tab="narx" style="display:none">
+      <div class="g2">
+
+        <!-- Dollar kursi -->
+        <div class="card">
+          <div class="ch">
+            <h3><i class="ti ti-currency-dollar"></i> Valyuta kursi</h3>
+          </div>
+          <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+
+            <div class="fld">
+              <label>1 USD = ? so'm</label>
+              <div style="display:flex;align-items:center;gap:10px">
+                <input id="s-rate" type="number" step="50" placeholder="12800"
+                  oninput="saveSetting('rate',+this.value)"
+                  style="flex:1;font-size:20px;font-weight:800;text-align:center">
+                <span style="font-size:14px;color:var(--mut);white-space:nowrap">so'm / $</span>
+              </div>
+            </div>
+
+            <div class="fld">
+              <label>Narx ko'rinishi (mahsulot kartalarida)</label>
+              <div class="seg" id="cur-seg" style="margin-top:6px">
+                <button data-c="uzs"  onclick="saveSetting('priceCurrency','uzs')">🇺🇿 So'm</button>
+                <button data-c="usd"  onclick="saveSetting('priceCurrency','usd')">💵 USD</button>
+                <button data-c="both" onclick="saveSetting('priceCurrency','both')">Ikkalasi</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Sodiqlik ballari -->
+        <div class="card">
+          <div class="ch">
+            <h3><i class="ti ti-star"></i> Sodiqlik ballari
+              <span style="font-size:11px;font-weight:500;color:var(--mut);margin-left:4px">(ixtiyoriy)</span>
+            </h3>
+          </div>
+          <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+
+            <div style="background:#FEF3C7;border-radius:9px;padding:12px 14px;font-size:13px;color:#92400E;line-height:1.5">
+              <strong>Qanday ishlaydi:</strong> Mijoz xarid qilganda ball to'playdi.
+              Keyingi xaridda ballarini chegirma sifatida ishlatishi mumkin.
+            </div>
+
             <div class="r2">
               <div class="fld">
                 <label>Har necha so'mga 1 ball</label>
-                <input id="s-loyalty-rate" type="number" placeholder="O'chiq (0)" min="0"
+                <input id="s-loyalty-rate" type="number" placeholder="0 = o'chirilgan" min="0"
                   oninput="saveSetting('loyaltyRate',+this.value||0)"
                   style="font-family:inherit">
-                <div style="font-size:11px;color:var(--mut);margin-top:3px">0 = o'chirilgan. Masalan: 10000</div>
+                <div style="font-size:11px;color:var(--mut);margin-top:3px">
+                  Masalan: 10000 → har 10 000 so'mga 1 ball
+                </div>
               </div>
               <div class="fld">
-                <label>1 ball = necha so'm</label>
+                <label>1 ball = necha so'm chegirma</label>
                 <input id="s-loyalty-value" type="number" placeholder="100" min="0"
                   oninput="saveSetting('loyaltyValue',+this.value||100)"
                   style="font-family:inherit">
-                <div style="font-size:11px;color:var(--mut);margin-top:3px">Chegirma sifatida</div>
+                <div style="font-size:11px;color:var(--mut);margin-top:3px">
+                  Masalan: 100 → 1 ball = 100 so'm chegirma
+                </div>
               </div>
             </div>
-          </div>
-            Token yo'q bo'lsa SMS ekranda ko'rsatiladi (test rejimi).
-          </div>
-        </div>
-      </div>
 
-      <div class="card">
-        <div class="ch"><h3><i class="ti ti-brand-telegram"></i>Telegram bot</h3><span class="bg bg-gr" id="tg-bot-status-badge">Sozlanmagan</span></div>
-        <div style="padding:16px 18px">
-          <div class="fld"><label>Bot API manzili (Vercel)</label><input id="s-tg-bot-url" placeholder="https://merx-rho.vercel.app/api/bot" oninput="saveSetting('telegramBotUrl',this.value)"></div>
-          <div class="fld"><label>Bot username</label><input id="s-tg-bot-username" placeholder="merx_savdo_bot (@ siz)" oninput="saveSetting('telegramBotUsername',this.value)"></div>
-          <div class="fld"><label>Ishchilar guruhi ID <span style="font-size:11px;color:var(--mut);font-weight:400">(sotuv bildirishnomasi uchun)</span></label><input id="s-staff-group-id" placeholder="-100xxxxxxxxxx" oninput="saveSetting('staffGroupId',this.value)"></div>
-          <div style="display:flex;gap:8px;margin-bottom:10px">
-            <button class="btn btn-teal btn-sm" onclick="testTelegramBot()"><i class="ti ti-send"></i>Ulanishni tekshirish</button>
-          </div>
-          <div style="background:var(--bg);border-radius:var(--rs);padding:10px 12px;font-size:12.5px;color:var(--mut);line-height:1.6">
-            <b style="color:var(--ink)">Qanday ishlaydi:</b> mijoz botga <code>/start</code> bosib telefon raqamini ulashgach, har bir sotuvda chek avtomatik shu mijozga Telegram orqali yuboriladi. Chekda bot havolasi va PDF ko'rish tugmasi chiqadi.
           </div>
         </div>
-      </div>
 
-      <!-- ═══ MAYDONLAR BOSHQARUVI ═══ -->
-      <div class="card" style="grid-column:1/-1">
-        <div class="ch">
-          <h3><i class="ti ti-adjustments-horizontal"></i>Maydonlar boshqaruvi</h3>
-          <span class="bg" style="font-size:11px;background:#E9A50018;color:#856404">
-            <i class="ti ti-info-circle"></i> Do'koningizga mos maydonlarni yoqing
-          </span>
-        </div>
-        <div style="padding:6px 18px 18px">
-          <div style="font-size:13px;color:var(--mut);margin-bottom:14px;line-height:1.5">
-            Qaysi bo'limlarda qaysi maydonlar ko'rinishini sozlang. 
-            <strong style="color:var(--ink)">Yashirilgan maydon ma'lumot yo'qotmaydi</strong> — faqat ko'rinmaydi.
-          </div>
-          <div id="field-panel">
-            <!-- egasi.js tomonidan to'ldiriladi -->
-          </div>
-        </div>
       </div>
-
     </div>
-  </div>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- TAB 3: CLOUD & SYNC                       -->
+    <!-- ══════════════════════════════════════════ -->
+    <div class="adm-tab-pane" data-tab="cloud" style="display:none">
+      <div class="g2">
+
+        <div class="card">
+          <div class="ch">
+            <h3><i class="ti ti-cloud"></i> Supabase ulanish</h3>
+            <span class="bg bg-gr" id="cloud-status-badge">Ulanmagan</span>
+          </div>
+          <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+
+            <div class="fld">
+              <label>Supabase Project URL</label>
+              <input id="s-sup-url" placeholder="https://xxxx.supabase.co"
+                oninput="saveSetting('supabaseUrl',this.value)"
+                style="font-size:12px;font-family:monospace">
+            </div>
+            <div class="fld">
+              <label>Anon / Public Key</label>
+              <input id="s-sup-key" type="password" placeholder="eyJhbGci..."
+                autocomplete="off" spellcheck="false"
+                oninput="saveSetting('supabaseKey',this.value)"
+                style="font-size:11px;font-family:monospace">
+            </div>
+
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-teal" onclick="connectCloud()" style="flex:1">
+                <i class="ti ti-cloud-upload"></i> Ulash + Sinxronlash
+              </button>
+              <button class="btn btn-ghost" onclick="pullFromCloud()" style="flex:1">
+                <i class="ti ti-cloud-download"></i> Clouddan yuklash
+              </button>
+            </div>
+
+            <div style="background:var(--bg);border-radius:var(--rs);padding:12px 14px;
+              font-size:12.5px;color:var(--mut);line-height:1.7">
+              <strong style="color:var(--ink)">Qanday olish:</strong><br>
+              1. supabase.com → bepul akkaunt → yangi project<br>
+              2. Project Settings → API → Project URL + anon key<br>
+              3. SQL Editor → <code>schema_multitenant.sql</code> faylini ishga tushiring
+            </div>
+
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="ch">
+            <h3><i class="ti ti-refresh"></i> Sinxronlash holati</h3>
+          </div>
+          <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+
+            <div style="display:flex;align-items:center;justify-content:space-between;
+              background:#F9FAFB;border-radius:9px;padding:12px 14px">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--ink)">Mahsulotlar</div>
+                <div style="font-size:12px;color:var(--mut)" id="sync-products-count">
+                  <span id="sc-prod">—</span> ta mahsulot
+                </div>
+              </div>
+              <i class="ti ti-package" style="font-size:24px;color:#E9A500"></i>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;
+              background:#F9FAFB;border-radius:9px;padding:12px 14px">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--ink)">Sotuvlar</div>
+                <div style="font-size:12px;color:var(--mut)">
+                  <span id="sc-sales">—</span> ta sotuv
+                </div>
+              </div>
+              <i class="ti ti-receipt" style="font-size:24px;color:#059669"></i>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;
+              background:#F9FAFB;border-radius:9px;padding:12px 14px">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--ink)">Mijozlar</div>
+                <div style="font-size:12px;color:var(--mut)">
+                  <span id="sc-custs">—</span> ta mijoz
+                </div>
+              </div>
+              <i class="ti ti-users" style="font-size:24px;color:#2563EB"></i>
+            </div>
+
+            <button class="btn btn-ghost" onclick="adminRefreshSyncStats()" style="width:100%">
+              <i class="ti ti-refresh"></i> Statistikani yangilash
+            </button>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- TAB 4: SMS & TELEGRAM BOT                 -->
+    <!-- ══════════════════════════════════════════ -->
+    <div class="adm-tab-pane" data-tab="sms" style="display:none">
+      <div class="g2">
+
+        <!-- SMS Eskiz -->
+        <div class="card">
+          <div class="ch">
+            <h3><i class="ti ti-message"></i> SMS (Eskiz)</h3>
+            <span class="bg bg-gr" id="sms-status-badge">Test rejimi</span>
+          </div>
+          <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+
+            <div class="fld">
+              <label>Eskiz API Token</label>
+              <input id="s-eskiz-token" type="password" placeholder="Token..."
+                oninput="saveSetting('eskizToken',this.value)">
+            </div>
+            <div class="fld">
+              <label>SMS jo'natuvchi nomi</label>
+              <input id="s-eskiz-sender" placeholder="MERX (4-11 belgi)"
+                oninput="saveSetting('eskizSender',this.value)">
+            </div>
+
+            <button class="btn btn-teal btn-sm" onclick="testSms()" style="width:fit-content">
+              <i class="ti ti-send"></i> Test SMS yuborish
+            </button>
+
+            <div style="background:var(--bg);border-radius:var(--rs);padding:12px 14px;
+              font-size:12.5px;color:var(--mut);line-height:1.7">
+              <strong style="color:var(--ink)">Token olish:</strong>
+              notify.eskiz.uz → Kirish → API → Token olish<br>
+              Token yo'q bo'lsa SMS ekranda ko'rsatiladi (test rejimi).
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Telegram Bot -->
+        <div class="card">
+          <div class="ch">
+            <h3><i class="ti ti-brand-telegram"></i> Telegram bot</h3>
+            <span class="bg bg-gr" id="tg-bot-status-badge">Sozlanmagan</span>
+          </div>
+          <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+
+            <div class="fld">
+              <label>Bot API manzili (Vercel)</label>
+              <input id="s-tg-bot-url"
+                placeholder="https://merx-rho.vercel.app/api/bot"
+                oninput="saveSetting('telegramBotUrl',this.value)"
+                style="font-size:12px">
+            </div>
+            <div class="fld">
+              <label>Bot username</label>
+              <input id="s-tg-bot-username"
+                placeholder="merx_savdo_bot (@ siz)"
+                oninput="saveSetting('telegramBotUsername',this.value)">
+            </div>
+            <div class="fld">
+              <label>Xodimlar guruhi ID
+                <span style="font-size:11px;color:var(--mut);font-weight:400">— sotuv bildirishnomalari</span>
+              </label>
+              <input id="s-staff-group-id"
+                placeholder="-100xxxxxxxxxx"
+                oninput="saveSetting('staffGroupId',this.value)">
+            </div>
+
+            <button class="btn btn-teal btn-sm" onclick="testTelegramBot()" style="width:fit-content">
+              <i class="ti ti-send"></i> Ulanishni tekshirish
+            </button>
+
+            <div style="background:var(--bg);border-radius:var(--rs);padding:12px 14px;
+              font-size:12.5px;color:var(--mut);line-height:1.7">
+              <strong style="color:var(--ink)">Qanday ishlaydi:</strong>
+              Mijoz botga <code>/start</code> bosib telefon raqamini ulashgach,
+              har bir sotuvda chek avtomatik shu mijozga Telegram orqali yuboriladi.
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- TAB 5: TIZIM                              -->
+    <!-- ══════════════════════════════════════════ -->
+    <div class="adm-tab-pane" data-tab="tizim" style="display:none">
+      <div class="g2">
+
+        <!-- Login ma'lumotlari -->
+        <div class="card">
+          <div class="ch">
+            <h3><i class="ti ti-lock"></i> Login ma'lumotlari</h3>
+          </div>
+          <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+
+            <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;padding:12px 14px">
+              <div style="font-size:11px;color:#2563EB;font-weight:700;margin-bottom:4px">JORIY LOGIN</div>
+              <div style="font-size:15px;font-weight:700;color:#1E3A5F" id="s-login-info-card">—</div>
+            </div>
+
+            <div class="r2">
+              <div class="fld">
+                <label>Email (login)</label>
+                <input id="s-admin-email" type="email" placeholder="admin@example.com">
+              </div>
+              <div class="fld">
+                <label>Yangi parol</label>
+                <div style="position:relative">
+                  <input id="s-admin-pass" type="password" placeholder="••••••••"
+                    style="padding-right:40px">
+                  <button onclick="var i=$(`s-admin-pass`);i.type=i.type===`password`?`text`:`password`"
+                    style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                    background:none;border:none;cursor:pointer;color:var(--mut)">
+                    <i class="ti ti-eye" style="font-size:15px"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button class="btn btn-acc btn-sm" onclick="saveAdminCreds()" style="width:fit-content">
+              <i class="ti ti-check"></i> Saqlash
+            </button>
+
+          </div>
+        </div>
+
+        <!-- Tizim ma'lumotlari -->
+        <div class="card">
+          <div class="ch">
+            <h3><i class="ti ti-info-circle"></i> Tizim ma'lumotlari</h3>
+          </div>
+          <div style="padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+
+            <div style="display:flex;justify-content:space-between;align-items:center;
+              padding:10px 0;border-bottom:1px solid var(--brd)">
+              <span style="font-size:13px;color:var(--mut)">Mahsulotlar</span>
+              <strong id="tiz-prod">—</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;
+              padding:10px 0;border-bottom:1px solid var(--brd)">
+              <span style="font-size:13px;color:var(--mut)">Sotuvlar</span>
+              <strong id="tiz-sales">—</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;
+              padding:10px 0;border-bottom:1px solid var(--brd)">
+              <span style="font-size:13px;color:var(--mut)">Mijozlar</span>
+              <strong id="tiz-custs">—</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;
+              padding:10px 0;border-bottom:1px solid var(--brd)">
+              <span style="font-size:13px;color:var(--mut)">Xodimlar</span>
+              <strong id="tiz-staff">—</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;
+              padding:10px 0">
+              <span style="font-size:13px;color:var(--mut)">Versiya</span>
+              <strong>v140</strong>
+            </div>
+
+            <button class="btn btn-ghost" onclick="adminRefreshStats()" style="width:100%;margin-top:6px">
+              <i class="ti ti-refresh"></i> Yangilash
+            </button>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
 
   </div>
-</div>
 
 <!-- MODAL: OMBOR USTUNLAR -->
 <div class="ov" id="ov-omcols" onclick="if(event.target===this)closeModal('omcols')">

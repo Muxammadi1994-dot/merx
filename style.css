@@ -396,3 +396,34 @@ tr:hover td{background:#FAFAF8}
   background: var(--acc);
   border-color: var(--acc);
 }
+
+/* ── Admin Sozlamalar Tab tizimi ─────────────────── */
+.adm-tab-btn {
+  background: transparent;
+  color: var(--mut);
+  border: none;
+  border-radius: 9px;
+  padding: 9px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+}
+.adm-tab-btn:hover {
+  background: rgba(255,255,255,.7);
+  color: var(--ink);
+}
+.adm-tab-btn.adm-tab-on {
+  background: var(--surf);
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(0,0,0,.1);
+}
+.adm-tab-pane {
+  animation: fadeInTab .18s ease;
+}
+@keyframes fadeInTab {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
