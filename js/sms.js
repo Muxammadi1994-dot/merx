@@ -45,7 +45,8 @@ async function sendTelegramReceipt(customerId, sale, customerPhone) {
         customerId: customerId || null,
         customerPhone: customerPhone || null,
         sale,
-        shopName: db.shop?.name || db.settings?.name || "MERX"
+        shopName: db.shop?.name || db.settings?.name || "MERX",
+        shopId: typeof getShopId === "function" ? getShopId() : null
       })
     });
     const data = await res.json();
@@ -73,7 +74,8 @@ async function sendTelegramText(customerId, customerPhone, text) {
       body: JSON.stringify({
         customerId: customerId || null,
         customerPhone: customerPhone || null,
-        text
+        text,
+        shopId: typeof getShopId === "function" ? getShopId() : null
       })
     });
     const data = await res.json();

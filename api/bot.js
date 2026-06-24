@@ -5,10 +5,87 @@
 const TOKEN        = process.env.TELEGRAM_BOT_TOKEN;
 const SB_URL       = process.env.SUPABASE_URL;
 const SB_KEY       = process.env.SUPABASE_KEY;
-const OWNER_ID     = process.env.BOT_OWNER_CHAT_ID;
-const STAFF_GROUP  = process.env.STAFF_GROUP_ID;   // ← YANGI: ishchilar guruh ID
+const OWNER_ID     = process.env.BOT_OWNER_CHAT_ID;  // Superadmin chat ID
+const STAFF_GROUP  = process.env.STAFF_GROUP_ID;
 const LOW_LIMIT    = parseInt(process.env.LOW_STOCK_LIMIT || "5");
 const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || "merx_savdo_bot";
+
+// ── Multi-tenant: chatId → shopId xaritasi (RAM cache) ──────
+// Har so'rovda Supabase ga bormayslik uchun vaqtinchalik cache
+const _shopCache = new Map(); // chatId → { shopId, shopName, isOwner, ts }
+const CACHE_TTL  = 10 * 60 * 1000; // 10 daqiqa
+
+// chatId uchun shopId ni topamiz
+async function getShopCtx(chatId) {
+  const cid = String(chatId);
+
+  // Cache tekshiruv
+  const cached = _shopCache.get(cid);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached;
+
+  // 1. Superadmin — alohida holat
+  if (OWNER_ID && cid === String(OWNER_ID)) {
+    const ctx = { shopId: null, shopName: "MERX", isOwner: true, isSuperAdmin: true, ts: Date.now() };
+    _shopCache.set(cid, ctx);
+    return ctx;
+  }
+
+  // 2. customers jadvalidan topamiz (mijoz login qilgan)
+  try {
+    const custs = await sb("customers", \`?telegram_chat_id=eq.\${cid}&select=id,shop_id&limit=1\`);
+    if (custs?.[0]?.shop_id) {
+      const shopId = custs[0].shop_id;
+      // Shop nomini olamiz
+      const shops = await sb("shops", \`?id=eq.\${shopId}&select=name&limit=1\`);
+      const shopName = shops?.[0]?.name || "MERX";
+      const ctx = { shopId, shopName, isOwner: false, isSuperAdmin: false, ts: Date.now() };
+      _shopCache.set(cid, ctx);
+      return ctx;
+    }
+  } catch(e) { console.warn("getShopCtx customers xato:", e.message); }
+
+  // 3. shops jadvalidan owner tekshiruv
+  try {
+    const shops = await sb("shops", \`?select=id,name\`);
+    for (const shop of (shops || [])) {
+      // settings jadvalidan owner chatId ni topamiz
+      try {
+        const sets = await sb("settings", \`?shop_id=eq.\${shop.id}&select=telegram_owner_chat_id&limit=1\`);
+        if (sets?.[0]?.telegram_owner_chat_id === cid) {
+          const ctx = { shopId: shop.id, shopName: shop.name, isOwner: true, isSuperAdmin: false, ts: Date.now() };
+          _shopCache.set(cid, ctx);
+          return ctx;
+        }
+      } catch(e) {}
+    }
+  } catch(e) { console.warn("getShopCtx shops xato:", e.message); }
+
+  // Topilmadi
+  return { shopId: null, shopName: "MERX", isOwner: false, isSuperAdmin: false, ts: Date.now() };
+}
+
+// chatId uchun deep link shop tanlash (start parametridan)
+async function setShopForUser(chatId, shopId) {
+  const cid = String(chatId);
+  try {
+    const shops = await sb("shops", \`?id=eq.\${shopId}&select=id,name&limit=1\`);
+    if (!shops?.[0]) return null;
+    const shopName = shops[0].name;
+    const ctx = { shopId, shopName, isOwner: false, isSuperAdmin: false, ts: Date.now() };
+    _shopCache.set(cid, ctx);
+    return ctx;
+  } catch(e) {
+    console.warn("setShopForUser xato:", e.message);
+    return null;
+  }
+}
+
+// sb() ga shop_id filter qo'shuvchi yordamchi
+function sbShop(table, shopId, query = "") {
+  const sep = query.includes("?") ? "&" : "?";
+  if (!shopId) return sb(table, query); // superadmin — filtr yo'q
+  return sb(table, \`\${query}\${query ? "&" : "?"}shop_id=eq.\${shopId}\`);
+}
 
 // Telegram xabar yuborish
 async function tg(chatId, text, extra = {}) {
@@ -75,41 +152,103 @@ const fmt   = n => Math.round(n || 0).toLocaleString("ru-RU");
 const today = () => new Date().toISOString().slice(0, 10);
 
 function isAllowed(chatId) {
-  if (!OWNER_ID) return true;
-  return String(chatId) === String(OWNER_ID);
+  // Superadmin har doim ruxsat
+  if (OWNER_ID && String(chatId) === String(OWNER_ID)) return true;
+  // Boshqa foydalanuvchilar — /hisobot kabi komandalarga ruxsatsiz
+  // (shopCtx da isOwner bo'lsa ruxsat beriladi — quyida tekshiriladi)
+  return false;
+}
+
+async function isShopOwner(chatId) {
+  if (OWNER_ID && String(chatId) === String(OWNER_ID)) return true;
+  const ctx = await getShopCtx(chatId);
+  return ctx.isOwner === true;
 }
 
 // ── /start ───────────────────────────────────────────────────
-async function cmdStart(chatId) {
-  // Agar bu do'kon egasi bo'lsa — to'liq menyu
-  if (OWNER_ID && String(chatId) === String(OWNER_ID)) {
-    const txt =
-      "🟡 MERX Savdo Tizimi\n\n" +
-      "Salom! Men sizning do'koningiz yordamchisiman.\n\n" +
-      "Komandalar:\n" +
+async function cmdStart(chatId, param) {
+  const cid = String(chatId);
+
+  // ── Superadmin ──
+  if (OWNER_ID && cid === String(OWNER_ID)) {
+    await tg(chatId,
+      "🛡 MERX Super Admin\n\n" +
+      "Barcha do'konlarni boshqarish uchun:\n" +
       "📊 /hisobot — bugungi savdo\n" +
       "💰 /balans — kassa holati\n" +
       "📦 /ombor — kam qolgan tovarlar\n" +
       "🔴 /qarzlar — muddati o'tgan qarzlar\n" +
-      "📋 /barcha_qarzlar — barcha qarzlar\n" +
-      "❓ /help — yordam";
-    await tg(chatId, txt);
+      "❓ /help — yordam"
+    );
     return;
   }
 
-  // Mijoz uchun — telefon raqamini so'raymiz
-  const txt =
-    "🟡 MERX do'konimizga xush kelibsiz!\n\n" +
-    "Endi xaridlaringiz uchun cheklarni shu botda avtomatik olishingiz mumkin.\n\n" +
-    "Davom etish uchun telefon raqamingizni ulashing 👇";
+  // ── Deep link: /start shop_XXXXX ──
+  // Do'kon egasi yoki mijoz havoladan kirgan
+  if (param && param.startsWith("shop_")) {
+    const shopId = param;
+    const ctx = await setShopForUser(chatId, shopId);
+    if (ctx) {
+      // Do'kon egasimi tekshiramiz
+      const isOwner = await isShopOwner(chatId);
+      if (isOwner) {
+        await tg(chatId,
+          "🏪 " + ctx.shopName + "\n\n" +
+          "Do'kon egasi sifatida kirildi.\n\n" +
+          "📊 /hisobot — bugungi savdo\n" +
+          "💰 /balans — kassa holati\n" +
+          "📦 /ombor — kam qolgan tovarlar\n" +
+          "🔴 /qarzlar — muddati o'tgan qarzlar\n" +
+          "❓ /help — yordam"
+        );
+      } else {
+        // Mijoz — telefon so'raymiz
+        await tg(chatId,
+          "🟡 " + ctx.shopName + "\n\n" +
+          "Xush kelibsiz! Xaridlaringiz uchun cheklarni shu botda avtomatik olishingiz mumkin.\n\n" +
+          "Davom etish uchun telefon raqamingizni ulashing 👇",
+          {
+            reply_markup: {
+              keyboard: [[{ text: "📱 Raqamni ulashish", request_contact: true }]],
+              resize_keyboard: true, one_time_keyboard: true,
+            },
+          }
+        );
+      }
+      return;
+    }
+  }
 
-  await tg(chatId, txt, {
-    reply_markup: {
-      keyboard: [[{ text: "📱 Raqamni ulashish", request_contact: true }]],
-      resize_keyboard: true,
-      one_time_keyboard: true,
-    },
-  });
+  // ── Oddiy /start — do'kon tanlanmagan ──
+  // Barcha faol do'konlar ro'yxatini ko'rsatamiz
+  try {
+    const shops = await sb("shops", "?active=eq.true&select=id,name&order=name");
+    if (shops?.length === 1) {
+      // Bitta do'kon — avtomatik tanlash
+      await cmdStart(chatId, shops[0].id);
+      return;
+    }
+    if (shops?.length > 1) {
+      const btns = shops.map(s => [{ text: "🏪 " + s.name, callback_data: "shop:" + s.id }]);
+      await tg(chatId,
+        "🟡 MERX Savdo tizimi\n\nQaysi do'kondan xarid qildingiz?",
+        { reply_markup: { inline_keyboard: btns } }
+      );
+      return;
+    }
+  } catch(e) { console.warn("shops list xato:", e.message); }
+
+  // Fallback
+  await tg(chatId,
+    "🟡 MERX do'koniga xush kelibsiz!\n\n" +
+    "Davom etish uchun telefon raqamingizni ulashing 👇",
+    {
+      reply_markup: {
+        keyboard: [[{ text: "📱 Raqamni ulashish", request_contact: true }]],
+        resize_keyboard: true, one_time_keyboard: true,
+      },
+    }
+  );
 }
 
 // ── Kontakt qabul qilish (mijoz raqamini ulashganda) ──────────
@@ -144,10 +283,21 @@ async function handleContact(chatId, contact) {
 
     // Telefon raqami bo'yicha PATCH — eng ishonchli usul
     let patchResult = null;
+    const shopId = match.shop_id || null;
+
+    // Cache ga shopId ni saqlaymiz
+    if (shopId) {
+      const shops = await sb("shops", `?id=eq.${shopId}&select=name&limit=1`).catch(() => []);
+      const shopName = shops?.[0]?.name || "MERX";
+      _shopCache.set(String(chatId), { shopId, shopName, isOwner: false, isSuperAdmin: false, ts: Date.now() });
+    }
 
     // 1. Telefon bo'yicha yangilash
     try {
-      patchResult = await sbPatch("customers", `?phone=eq.${encodeURIComponent(match.phone)}`, { telegram_chat_id: String(chatId) });
+      patchResult = await sbPatch("customers",
+        `?phone=eq.${encodeURIComponent(match.phone)}${shopId ? "&shop_id=eq."+shopId : ""}`,
+        { telegram_chat_id: String(chatId) }
+      );
       console.log(`[handleContact] phone patch result: ${JSON.stringify(patchResult)}`);
     } catch(e) {
       console.log(`[handleContact] phone patch xato: ${e.message}`);
@@ -190,9 +340,12 @@ async function handleContact(chatId, contact) {
 async function cmdHisobot(chatId) {
   try {
     const t = today();
+    const ctx = await getShopCtx(chatId);
+    const sid = ctx.shopId;
+    const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
     const [sales, xarajat] = await Promise.all([
-      sb("sales", `?date=eq.${t}&order=created_at.desc`),
-      sb("xarajatlar", `?date=eq.${t}`),
+      sb("sales", `?date=eq.${t}&order=created_at.desc${sidFilter}`),
+      sb("xarajatlar", `?date=eq.${t}${sidFilter}`),
     ]);
 
     if (!sales.length) {
@@ -225,7 +378,8 @@ async function cmdHisobot(chatId) {
     }
     const topItem = Object.entries(itemCounts).sort((a, b) => b[1] - a[1])[0];
 
-    let txt = `📊 Bugungi savdo hisoboti\n`;
+    const shopName = ctx.shopName || "MERX";
+    let txt = `📊 ${shopName} — Bugungi savdo\n`;
     txt += `📅 ${t}\n\n`;
     txt += `🛍 Sotuvlar: ${totalSales} ta\n`;
     txt += `💵 Jami summa: ${fmt(totalSum)} so'm\n`;
@@ -250,10 +404,13 @@ async function cmdHisobot(chatId) {
 async function cmdBalans(chatId) {
   try {
     const t = today();
+    const ctx = await getShopCtx(chatId);
+    const sid = ctx.shopId;
+    const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
     const [sales, xarajat, sets] = await Promise.all([
-      sb("sales", `?date=eq.${t}`),
-      sb("xarajatlar", `?date=eq.${t}`),
-      sb("settings", `?limit=1`),
+      sb("sales", `?date=eq.${t}${sidFilter}`),
+      sb("xarajatlar", `?date=eq.${t}${sidFilter}`),
+      sid ? sb("settings", `?shop_id=eq.${sid}&limit=1`) : sb("settings", `?limit=1`),
     ]);
 
     const rate    = Number(sets[0]?.rate || 12800);
@@ -291,7 +448,10 @@ async function cmdBalans(chatId) {
 // ── /ombor ───────────────────────────────────────────────────
 async function cmdOmbor(chatId) {
   try {
-    const products = await sb("products", `?order=name`);
+    const ctx = await getShopCtx(chatId);
+    const sid = ctx.shopId;
+    const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
+    const products = await sb("products", `?order=name${sidFilter}`);
 
     const low = [];
     for (const p of products) {
@@ -335,9 +495,12 @@ async function cmdOmbor(chatId) {
 async function cmdQarzlar(chatId, barcha = false) {
   try {
     const t = today();
+    const ctx = await getShopCtx(chatId);
+    const sid = ctx.shopId;
+    const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
     const query = barcha
-      ? `?remaining=gt.0&order=due`
-      : `?remaining=gt.0&due=lt.${t}&order=due`;
+      ? `?remaining=gt.0&order=due${sidFilter}`
+      : `?remaining=gt.0&due=lt.${t}&order=due${sidFilter}`;
 
     const debts = await sb("sales", query);
 
@@ -348,9 +511,10 @@ async function cmdQarzlar(chatId, barcha = false) {
     }
 
     const totalDebt = debts.reduce((a, s) => a + Number(s.remaining || 0), 0);
+    const shopName2 = ctx.shopName || "MERX";
     let txt = barcha
-      ? `📋 Barcha qarzlar — ${debts.length} ta\n\n`
-      : `🔴 Muddati o'tgan qarzlar — ${debts.length} ta\n\n`;
+      ? `📋 ${shopName2} — Barcha qarzlar (${debts.length} ta)\n\n`
+      : `🔴 ${shopName2} — Muddati o'tgan (${debts.length} ta)\n\n`;
 
     for (const d of debts.slice(0, 15)) {
       const name  = d.customer_name || "Noma'lum";
@@ -446,11 +610,15 @@ async function actionSendReceipt(body) {
   let chatId = null;
   console.log(`[sendReceipt] customerId=${customerId}, phone=${customerPhone}`);
 
+  // shop_id ni body dan olamiz
+  const shopId = body.shopId || body.shop_id || null;
+  const shopFilter = shopId ? `&shop_id=eq.${shopId}` : "";
+
   // 1. Avval telefondan qidiramiz
   if (customerPhone) {
     const rawPhone = normPhone(customerPhone);
     const normalize = p => p.startsWith("998") ? p.slice(3) : p;
-    const all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id`);
+    const all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id${shopFilter}`);
     console.log(`[sendReceipt] customers count=${all?.length}, searching phone=${rawPhone}`);
     const match = all.find(c => {
       const cp = normPhone(c.phone || "");
@@ -464,11 +632,11 @@ async function actionSendReceipt(body) {
 
   // 2. customerId bo'yicha urinamiz
   if (!chatId && customerId) {
-    const byLocalId = await sb("customers", `?local_id=eq.${customerId}&select=id,telegram_chat_id`);
+    const byLocalId = await sb("customers", `?local_id=eq.${customerId}&select=id,telegram_chat_id${shopFilter}`);
     if (byLocalId?.[0]?.telegram_chat_id) {
       chatId = byLocalId[0].telegram_chat_id;
     } else {
-      const byId = await sb("customers", `?id=eq.${customerId}&select=id,telegram_chat_id`);
+      const byId = await sb("customers", `?id=eq.${customerId}&select=id,telegram_chat_id${shopFilter}`);
       if (byId?.[0]?.telegram_chat_id) chatId = byId[0].telegram_chat_id;
     }
   }
@@ -513,10 +681,13 @@ async function actionSendTextMessage(body) {
 
   let chatId = null;
 
+  const shopId2 = body.shopId || body.shop_id || null;
+  const shopFilter2 = shopId2 ? `&shop_id=eq.${shopId2}` : "";
+
   if (customerPhone) {
     const rawPhone = normPhone(customerPhone);
     const normalize = p => p.startsWith("998") ? p.slice(3) : p;
-    const all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id`);
+    const all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id${shopFilter2}`);
     const match = all.find(c => {
       const cp = normPhone(c.phone || "");
       return cp && normalize(cp) === normalize(rawPhone);
@@ -525,11 +696,11 @@ async function actionSendTextMessage(body) {
   }
 
   if (!chatId && customerId) {
-    const byLocalId = await sb("customers", `?local_id=eq.${customerId}&select=id,telegram_chat_id`);
+    const byLocalId = await sb("customers", `?local_id=eq.${customerId}&select=id,telegram_chat_id${shopFilter2}`);
     if (byLocalId?.[0]?.telegram_chat_id) {
       chatId = byLocalId[0].telegram_chat_id;
     } else {
-      const byId = await sb("customers", `?id=eq.${customerId}&select=id,telegram_chat_id`);
+      const byId = await sb("customers", `?id=eq.${customerId}&select=id,telegram_chat_id${shopFilter2}`);
       if (byId?.[0]?.telegram_chat_id) chatId = byId[0].telegram_chat_id;
     }
   }
@@ -1265,8 +1436,31 @@ export default async function handler(req, res) {
     const cb = update.callback_query;
     const chatId = cb.message?.chat?.id;
     await tgAnswer(cb.id);
-    if (chatId && isAllowed(chatId) && cb.data === "barcha_qarzlar") {
-      await cmdQarzlar(chatId, true);
+
+    if (chatId) {
+      // Do'kon tanlash callback: "shop:shop_XXXXX"
+      if (cb.data?.startsWith("shop:")) {
+        const shopId = cb.data.slice(5);
+        const ctx = await setShopForUser(chatId, shopId);
+        if (ctx) {
+          await tg(chatId,
+            "✅ " + ctx.shopName + " tanlandi!\n\n" +
+            "Telefon raqamingizni ulashing 👇",
+            {
+              reply_markup: {
+                keyboard: [[{ text: "📱 Raqamni ulashish", request_contact: true }]],
+                resize_keyboard: true, one_time_keyboard: true,
+              },
+            }
+          );
+        }
+      }
+
+      // Barcha qarzlar
+      if (cb.data === "barcha_qarzlar") {
+        const allowed2 = await isShopOwner(chatId);
+        if (allowed2) await cmdQarzlar(chatId, true);
+      }
     }
     return res.status(200).json({ ok: true });
   }
@@ -1285,11 +1479,15 @@ export default async function handler(req, res) {
 
   const cmd = text.split(" ")[0].toLowerCase().split("@")[0];
   if (cmd === "/start") {
-    await cmdStart(chatId);
+    // Deep link parametrini olamiz: /start shop_XXXXX
+    const param = text.split(" ")[1] || "";
+    await cmdStart(chatId, param);
     return res.status(200).json({ ok: true });
   }
 
-  if (!isAllowed(chatId)) {
+  // Shop egasi tekshiruvi
+  const allowed = await isShopOwner(chatId);
+  if (!allowed) {
     await tg(chatId, "⛔ Bu komanda faqat do'kon egasi uchun.\n\n/start — qaytadan boshlash");
     return res.status(200).json({ ok: true });
   }
