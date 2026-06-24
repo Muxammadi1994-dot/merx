@@ -455,6 +455,11 @@ function renderSaShops() {
                 border-radius:6px;padding:5px 12px;font-family:inherit;font-size:12px;cursor:pointer">
                 ${active ? "🔒" : "✅"}
               </button>
+              <button onclick="saDeleteShop('${s.id}')"
+                style="background:#1a2d40;border:1px solid #E05A5A;color:#E05A5A;
+                border-radius:6px;padding:5px 12px;font-family:inherit;font-size:12px;cursor:pointer;margin-left:4px">
+                🗑️
+              </button>
             </td>
           </tr>`;
         }).join("")}
@@ -476,13 +481,25 @@ function saOpenShop(id) {
   if (typeof authSave === "function") authSave(user);
 
   // DB kalitini o'zgartirish
-  // DB kalitini auth ga yozamiz — getDBKEY() auth.shopId dan oladi
-  // shopId auth session da bor, getDBKEY() "merx_v5_"+shopId qaytaradi
+  if (s.dbKey) localStorage.setItem("merx_active_shop", s.dbKey);
 
   // Panelni yopish va qayta yuklash
   hideSaPanel();
   showSaToast(`"${s.name}" ga kirildi — sahifa yangilanadi...`);
   setTimeout(() => location.reload(), 800);
+}
+
+function saDeleteShop(id) {
+  const s = _saShops.find(x => x.id === id); if (!s) return;
+  if (!confirm(`"${s.name}" o'chirilsinmi?`)) return;
+  // localStorage dan DB ni ham o'chirish
+  const dbKey = "merx_v5_" + id;
+  localStorage.removeItem(dbKey);
+  localStorage.removeItem("merx_" + id); // eski format
+  _saShops = _saShops.filter(x => x.id !== id);
+  saSaveShops();
+  renderSaShops();
+  showSaToast(`"${s.name}" o'chirildi`);
 }
 
 function saOpenAddShop() {
@@ -506,7 +523,6 @@ function saAddShop() {
   const now     = new Date();
   const expires = plan === "lifetime" ? null : addDaysToDate(now, plan === "yearly" ? 365 : 30);
   const shopId  = "shop_" + Date.now();
-  const dbKey    = "merx_v5_" + shopId; // getDBKEY() bilan mos
 
   const newShop = {
     id:        shopId,
@@ -520,7 +536,7 @@ function saAddShop() {
     expiresAt: expires,
     createdAt: now.toISOString(),
     blocked:   false,
-    dbKey:     dbKey
+    dbKey:     "merx_" + shopId
   };
 
   _saShops.push(newShop);
@@ -533,7 +549,7 @@ function saAddShop() {
     customers:[], products:[], sales:[], staff:[], ombor:[],
     xarajatlar:[], debtPayments:[], shifts:[], seq:1
   };
-  localStorage.setItem(dbKey, JSON.stringify(shopDB));
+  localStorage.setItem(newShop.dbKey, JSON.stringify(shopDB));
 
   // Supabase shops jadvaliga ham yozish
   _saAddShopToSupabase(newShop).catch(e => console.warn("Supabase shops sync xato:", e.message));
