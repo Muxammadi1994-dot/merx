@@ -17,9 +17,14 @@ function init() {
   refreshStaffList();
   if (typeof updateSmsUI === "function") updateSmsUI();
 
-  // Supabase — faqat foydalanuvchi login qilgandan keyin
-  const isAuthed = typeof isLoggedIn === "function" ? isLoggedIn() : false;
-  if (isAuthed && db.settings?.supabaseUrl && db.settings?.supabaseKey) {
+  // 1. Avval auth tekshirish
+  if (typeof initAuth === "function") {
+    const authed = initAuth();
+    if (!authed) return; // login ekrani ko'rsatildi, init to'xtatiladi
+  }
+
+  // 2. Auth muvaffaqiyatli — Supabase ulanish (session bor, refresh holatida)
+  if (db.settings?.supabaseUrl && db.settings?.supabaseKey) {
     initSupabase().then(async ok => {
       if (ok) {
         updateCloudUI(true);
@@ -32,14 +37,7 @@ function init() {
     });
   }
 
-  // Auth tekshiruvi — login kerakmi?
-  if (typeof initAuth === "function") {
-    const authed = initAuth();
-    if (!authed) return; // login ekrani ko'rsatildi
-  }
-
-  // Kassir/omborchi uchun avtomatik sahifaga o'tish initAuth da amalga oshiriladi
-  // Admin/menejer uchun dashboard
+  // 3. Rolga qarab sahifaga o'tish
   const user = typeof getAuthUser === "function" ? getAuthUser() : null;
   if (!user || user.role === "admin" || user.role === "menejer" || user.role === "superadmin") {
     nav("dashboard");
@@ -51,7 +49,7 @@ function init() {
     nav("dashboard");
   }
 
-  // Rol UI — nav dan keyin
+  // 4. Rol UI — nav dan keyin
   if (typeof applyRoleUI === "function") applyRoleUI();
 
   // Obuna tekshiruvi (SA do'konlari uchun)
