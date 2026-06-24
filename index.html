@@ -2225,6 +2225,62 @@
             </div>
           </div>
         </div>
+
+        <!-- SMS Shablonlar -->
+        <div class="card" style="grid-column:1/-1">
+          <div class="ch">
+            <h3><i class="ti ti-file-text"></i> SMS Shablonlar</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="font-size:12px;color:var(--mut)">O'zgaruvchilar: <code>{dokon}</code> <code>{ism}</code> <code>{qarz}</code> <code>{chek}</code> <code>{jami}</code> <code>{tolandi}</code></span>
+              <button class="btn btn-acc btn-sm" onclick="saveSmsTemplates()">
+                <i class="ti ti-check"></i> Saqlash
+              </button>
+            </div>
+          </div>
+          <div style="padding:16px 20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase">💳 Qarz eslatmasi</label>
+                <button onclick="resetSmsTemplate('debt')" style="background:none;border:none;font-size:11px;color:#9CA3AF;cursor:pointer;padding:0">↺ Standart</button>
+              </div>
+              <textarea id="s-sms-tpl-debt" rows="4"
+                style="width:100%;box-sizing:border-box;font-family:inherit;font-size:12px;
+                border:1.5px solid var(--brd);border-radius:8px;padding:8px 10px;
+                resize:vertical;color:var(--ink);background:#F9FAFB;line-height:1.5"
+                onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--brd)'"></textarea>
+              <div style="font-size:11px;color:#9CA3AF;margin-top:3px">Qarz to'lov eslatmasi yuborilganda ishlatiladi</div>
+            </div>
+
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase">🧾 Sotuv cheki (qarzli)</label>
+                <button onclick="resetSmsTemplate('sale')" style="background:none;border:none;font-size:11px;color:#9CA3AF;cursor:pointer;padding:0">↺ Standart</button>
+              </div>
+              <textarea id="s-sms-tpl-sale" rows="4"
+                style="width:100%;box-sizing:border-box;font-family:inherit;font-size:12px;
+                border:1.5px solid var(--brd);border-radius:8px;padding:8px 10px;
+                resize:vertical;color:var(--ink);background:#F9FAFB;line-height:1.5"
+                onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--brd)'"></textarea>
+              <div style="font-size:11px;color:#9CA3AF;margin-top:3px">Nasiyaga sotuv yakunida yuboriladi</div>
+            </div>
+
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase">✅ Sotuv cheki (to'liq)</label>
+                <button onclick="resetSmsTemplate('paid')" style="background:none;border:none;font-size:11px;color:#9CA3AF;cursor:pointer;padding:0">↺ Standart</button>
+              </div>
+              <textarea id="s-sms-tpl-paid" rows="4"
+                style="width:100%;box-sizing:border-box;font-family:inherit;font-size:12px;
+                border:1.5px solid var(--brd);border-radius:8px;padding:8px 10px;
+                resize:vertical;color:var(--ink);background:#F9FAFB;line-height:1.5"
+                onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--brd)'"></textarea>
+              <div style="font-size:11px;color:#9CA3AF;margin-top:3px">To'liq to'langan sotuvda yuboriladi</div>
+            </div>
+
+          </div>
+        </div>
+
         <div class="card">
           <div class="ch"><h3><i class="ti ti-brand-telegram"></i> Telegram bot</h3><span class="bg bg-gr" id="tg-bot-status-badge">Sozlanmagan</span></div>
           <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">

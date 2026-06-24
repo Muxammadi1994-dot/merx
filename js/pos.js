@@ -1256,9 +1256,28 @@ async function checkout() {
     const itemsTxt = newSale.items.map(i =>
       `${i.name} x${i.qty}${i.unit} = ${fmt(i.price*i.qty)} so'm`
     ).join(", ");
-    const sms = rem > 0
-      ? `${shopName} | ${chekNum}\n${itemsTxt}\nJami: ${fmt(total)} so'm\nTo'landi: ${fmt(paid)} so'm\nQarz: ${debtTxt} (${due||"muddatsiz"})`
-      : `${shopName} | ${chekNum}\n${itemsTxt}\nJami: ${fmt(total)} so'm - To'liq qabul qilindi. Rahmat!`;
+    // Shablon: settings dan olinadi yoki standart
+    let sms;
+    if (rem > 0) {
+      const tpl = db.settings?.smsTemplateSale ||
+        "{dokon} | {chek}\n{tovarlar}\nJami: {jami}\nTo'landi: {tolandi}\nQarz: {qarz} ({muddat})";
+      sms = tpl
+        .replace("{dokon}",   shopName)
+        .replace("{chek}",    chekNum)
+        .replace("{tovarlar}",itemsTxt)
+        .replace("{jami}",    fmt(total)+" so'm")
+        .replace("{tolandi}", fmt(paid)+" so'm")
+        .replace("{qarz}",    debtTxt)
+        .replace("{muddat}",  due||"muddatsiz");
+    } else {
+      const tpl = db.settings?.smsTemplatePaid ||
+        "{dokon} | {chek}\n{tovarlar}\nJami: {jami} - To'liq qabul qilindi. Rahmat!";
+      sms = tpl
+        .replace("{dokon}",   shopName)
+        .replace("{chek}",    chekNum)
+        .replace("{tovarlar}",itemsTxt)
+        .replace("{jami}",    fmt(total)+" so'm");
+    }
     await sendSms(cPhone, sms);
   }
 

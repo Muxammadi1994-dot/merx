@@ -983,9 +983,15 @@ async function sendDebtReminderBot(id) {
 function buildDebtReminderText(name, totalUzs, totalUsd) {
   const shopName = db.shop?.name || "MERX";
   const debtTxt  = totalUsd > 0
-    ? `$${totalUsd.toFixed(2)} USD${totalUzs>0?` + ${fmt(totalUzs)} so'm`:""}`
+    ? `$${totalUsd.toFixed(2)} USD${totalUzs>0?" + "+fmt(totalUzs)+" so'm":""}`
     : `${fmt(totalUzs)} so'm`;
-  return `${shopName}: Hurmatli ${name}, umumiy qarzingiz: ${debtTxt}. Iltimos to'lovni amalga oshiring.`;
+  // Shablon settings da saqlangan bo'lsa shu ishlaydi
+  const tpl = db.settings?.smsTemplateDebt ||
+    "{dokon}: Hurmatli {ism}, umumiy qarzingiz: {qarz}. Iltimos to'lovni amalga oshiring.";
+  return tpl
+    .replace("{dokon}", shopName)
+    .replace("{ism}",   name)
+    .replace("{qarz}",  debtTxt);
 }
 
 async function sendGroupReminder(phone, name, totalUzs, totalUsd) {

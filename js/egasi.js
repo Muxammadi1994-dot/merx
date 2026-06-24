@@ -127,6 +127,17 @@ function renderEgasi() {
   if ($("s-staff-group-id"))  $("s-staff-group-id").value  = db.settings?.staffGroupId        || "";
   _updateTgBadge(!!db.settings?.telegramBotUrl);
 
+  // SMS shablonlar
+  const tplDebt = document.getElementById("s-sms-tpl-debt");
+  const tplSale = document.getElementById("s-sms-tpl-sale");
+  const tplPaid = document.getElementById("s-sms-tpl-paid");
+  if (tplDebt) tplDebt.value = db.settings?.smsTemplateDebt ||
+    "{dokon}: Hurmatli {ism}, umumiy qarzingiz: {qarz}. Iltimos to'lovni amalga oshiring.";
+  if (tplSale) tplSale.value = db.settings?.smsTemplateSale ||
+    "{dokon} | {chek}\n{tovarlar}\nJami: {jami}\nTo'landi: {tolandi}\nQarz: {qarz} ({muddat})";
+  if (tplPaid) tplPaid.value = db.settings?.smsTemplatePaid ||
+    "{dokon} | {chek}\n{tovarlar}\nJami: {jami} - To'liq qabul qilindi. Rahmat!";
+
   // ── TIZIM TAB ──
   if ($("s-admin-email")) $("s-admin-email").value = db.settings?.adminEmail || "";
   if ($("s-admin-pass"))  $("s-admin-pass").value  = "";
@@ -307,7 +318,7 @@ function renderAdminXodimlar() {
             }
           </div>
         </div>
-        <button onclick="nav('xodimlar')" title="Tahrirlash"
+        <button onclick="adminEditStaff(${s.id})" title="Tahrirlash"
           style="background:#F3F4F6;border:none;border-radius:8px;padding:7px 10px;
           cursor:pointer;color:#6B7280;flex-shrink:0">
           <i class="ti ti-edit" style="font-size:14px"></i>
@@ -364,4 +375,37 @@ function adminClearCache() {
   } catch(e) {
     toast("Kesh tozalashda xato", "err");
   }
+}
+
+// ── Sozlamalardan xodimni tahrirlash ─────────────
+function adminEditStaff(id) {
+  // Xodimlar bo'limiga o'tib, o'sha xodimni ochamiz
+  nav("xodimlar");
+  setTimeout(() => {
+    if (typeof openStaffModal === "function") openStaffModal(id);
+  }, 150);
+}
+
+// ── SMS shablonlarni saqlash ──────────────────────
+function saveSmsTemplates() {
+  if (!db.settings) db.settings = {};
+  const tplDebt = document.getElementById("s-sms-tpl-debt");
+  const tplSale = document.getElementById("s-sms-tpl-sale");
+  const tplPaid = document.getElementById("s-sms-tpl-paid");
+  if (tplDebt) db.settings.smsTemplateDebt = tplDebt.value;
+  if (tplSale) db.settings.smsTemplateSale = tplSale.value;
+  if (tplPaid) db.settings.smsTemplatePaid = tplPaid.value;
+  saveDB();
+  toast("✅ SMS shablonlar saqlandi");
+}
+
+// ── SMS shablonni standartga qaytarish ────────────
+function resetSmsTemplate(type) {
+  const defaults = {
+    debt: "{dokon}: Hurmatli {ism}, umumiy qarzingiz: {qarz}. Iltimos to'lovni amalga oshiring.",
+    sale: "{dokon} | {chek}\n{tovarlar}\nJami: {jami}\nTo'landi: {tolandi}\nQarz: {qarz} ({muddat})",
+    paid: "{dokon} | {chek}\n{tovarlar}\nJami: {jami} - To'liq qabul qilindi. Rahmat!"
+  };
+  const el = document.getElementById("s-sms-tpl-" + type);
+  if (el) { el.value = defaults[type]; el.style.borderColor = "#E9A500"; }
 }
