@@ -574,3 +574,23 @@ function copyTgLink() {
     toast("✅ Havola nusxa olindi!");
   }
 }
+// ── Cloud Shop ID qo'lda saqlash ──────────────────
+function saveCloudShopId() {
+  const inp = document.getElementById("s-cloud-shop-id");
+  const val = inp?.value.trim();
+  if (!val || !val.startsWith("shop_")) {
+    toast("Shop ID noto'g'ri — shop_XXXXX ko'rinishida bo'lishi kerak", "err");
+    return;
+  }
+  if (!db.settings) db.settings = {};
+  db.settings.cloudShopId = val;
+  saveDB();
+  const cur = document.getElementById("s-cloud-shop-id-current");
+  if (cur) cur.textContent = val;
+  if (inp) inp.value = "";
+  toast("✅ Shop ID saqlandi: " + val);
+  // Havola yangilash
+  if (typeof _updateTgMijozLink === "function") _updateTgMijozLink();
+}
+
+// renderEgasi da cloud shop id ko'rsatish

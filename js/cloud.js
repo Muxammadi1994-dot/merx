@@ -108,6 +108,45 @@ async function connectCloud() {
   }
 
   toast("✅ Ulandi! Sinxronlash boshlandi...", "info");
+
+  // Supabase dan bu do'konning shop_id ni topamiz
+  // shops jadvalidan owner_email bo'yicha
+  try {
+    const adminEmail = db.settings?.adminEmail || "";
+    if (adminEmail) {
+      const { data: shops } = await _sb.from("shops")
+        .select("id,name")
+        .eq("owner_email", adminEmail)
+        .limit(1);
+
+      if (shops?.length) {
+        db.settings.cloudShopId = shops[0].id;
+        if (!db.shop) db.shop = {};
+        if (!db.shop.name) db.shop.name = shops[0].name;
+        saveDB();
+        toast(`✅ Do'kon topildi: ${shops[0].name} (${shops[0].id})`, "info");
+        // Havola UI yangilash
+        if (typeof _updateTgMijozLink === "function") _updateTgMijozLink();
+      } else {
+        // Shops jadvalida yo'q — yangi shop yaratamiz
+        const shopId = "shop_" + Date.now();
+        await _sb.from("shops").insert({
+          id: shopId,
+          name: db.shop?.name || "MERX Do'koni",
+          owner_email: adminEmail,
+          plan: "trial",
+          active: true
+        });
+        db.settings.cloudShopId = shopId;
+        saveDB();
+        toast(`✅ Yangi do'kon yaratildi: ${shopId}`, "info");
+        if (typeof _updateTgMijozLink === "function") _updateTgMijozLink();
+      }
+    }
+  } catch(e) {
+    console.warn("shop_id aniqlashda xato:", e.message);
+  }
+
   await pushToCloud();
 }
 
