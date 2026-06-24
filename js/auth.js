@@ -396,7 +396,7 @@ function applyRoleUI() {
   const user = _authUser;
   if (!user) return;
 
-  // Header da foydalanuvchi nomi
+  // Sidebar foydalanuvchi info
   const userEl = document.getElementById("auth-user-name");
   if (userEl) userEl.textContent = user.name || user.email || "Foydalanuvchi";
 
@@ -405,6 +405,12 @@ function applyRoleUI() {
     const labels = { admin:"Admin", menejer:"Menejer", kassir:"Kassir", omborchi:"Omborchi", superadmin:"Super Admin" };
     roleEl.textContent = labels[user.role] || user.role;
   }
+
+  // Topbar foydalanuvchi
+  const topBtn  = document.getElementById("auth-topbar-btn");
+  const topName = document.getElementById("auth-topbar-name");
+  if (topBtn)  topBtn.style.display  = "flex";
+  if (topName) topName.textContent   = user.name || user.email?.split("@")[0] || "Foydalanuvchi";
 
   // Sidebar menyu elementlarini yashirish/ko'rsatish
   document.querySelectorAll("[data-page]").forEach(el => {
@@ -422,12 +428,10 @@ function applyRoleUI() {
     group.style.display = visibleItems.length ? "" : "none";
   });
 
-  // Admin only elementlar
+  // Admin / menejer only
   document.querySelectorAll(".admin-only").forEach(el => {
     el.style.display = hasRole("admin") ? "" : "none";
   });
-
-  // Menejer only elementlar
   document.querySelectorAll(".menejer-only").forEach(el => {
     el.style.display = hasRole("menejer") ? "" : "none";
   });
