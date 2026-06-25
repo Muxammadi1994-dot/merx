@@ -155,6 +155,10 @@ function buildSaDashboard() {
   }).length;
   const newShops = _saShops.filter(s=>s.createdAt?.startsWith(m)).length;
   const plans    = {trial:0,monthly:0,yearly:0,lifetime:0};
+  _saShops.forEach(s=>{ if(plans[s.plan]!==undefined) plans[s.plan]++; });
+  const savedPrices  = (()=>{ try{return JSON.parse(localStorage.getItem("merx_sa_prices")||"{}");}catch(e){return {};} })();
+  const planPrices   = {trial:0, monthly:savedPrices.monthly||50000, yearly:savedPrices.yearly||500000, lifetime:0};
+  const monthlyIncome= _saShops.filter(s=>saIsActive(s)).reduce((a,s)=>a+(planPrices[s.plan]||0),0);
   return `
     <!-- 1-qator: Asosiy raqamlar -->
     <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0;background:#F8FAFC;border-bottom:1px solid #E5E7EB">
@@ -184,16 +188,6 @@ function buildSaDashboard() {
       </div>
       <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
         <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Bugungi</div>
-        <div style="font-size:18px;font-weight:800;color:#0D1B2A">${fmt(todayRev)} so'm</div>
-        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${todaySales} ta sotuv</div>
-      </div>
-      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
-        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">🔴 Jami qarz</div>
-        <div style="font-size:18px;font-weight:800;color:${totalDebt>0?"#DC2626":"#9CA3AF"}">${fmt(totalDebt)} so'm</div>
-        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">barcha do'konlar</div>
-      </div>
-      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
-        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Bugungi tushum</div>
         <div style="font-size:18px;font-weight:800;color:#0D1B2A">${fmt(todayRev)} so'm</div>
         <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${todaySales} ta sotuv</div>
       </div>
@@ -301,6 +295,12 @@ function buildSaPanel() {
             border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
             font-weight:600;cursor:pointer" title="Faolsiz do'konlar">
             😴 Faolsiz
+          </button>
+          <button onclick="saOpenPriceSettings()"
+            style="background:#F0FDF4;border:1.5px solid #BBF7D0;color:#059669;
+            border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
+            font-weight:600;cursor:pointer" title="Obuna narxlarini sozlash">
+            💳 Narxlar
           </button>
           <input id="sa-superpass-inp" type="password" placeholder="Yangi super admin paroli"
             style="background:#fff;border:1.5px solid #E5E7EB;color:#111;
@@ -617,7 +617,18 @@ function saAddShop() {
   const modules = modSel ? Array.from(modSel.selectedOptions).map(o=>o.value) : ["pos","ombor","hisobot"];
 
   if (!name || !owner || !rawLogin || !pass) {
-    showSaToast("Barcha maydonlarni to'ldiring", "err"); return;
+    showSaToast("Barcha maydonlarni to\'ldiring", "err"); return;
+  }
+
+  // Email/login takrorlanishini tekshiramiz
+  let checkLogin = rawLogin;
+  if (/^\d+$/.test(rawLogin.replace(/[\s+\-()]/g, ""))) {
+    checkLogin = rawLogin.replace(/\D/g, "") + "@merx.uz";
+  }
+  const dupShop = _saShops.find(s => s.ownerEmail && s.ownerEmail.toLowerCase() === checkLogin.toLowerCase());
+  if (dupShop) {
+    showSaToast(`"${checkLogin}" login allaqachon "${dupShop.name}" do\'konida ishlatilgan!`, "err");
+    return;
   }
 
   const phone    = document.getElementById("sa-new-phone")?.value.trim() || "";
@@ -1278,6 +1289,61 @@ function showSaToast(msg, type="ok") {
 document.addEventListener("keydown", e => {
   if (e.ctrlKey && e.shiftKey && e.key === "A") { e.preventDefault(); openSaPanel(); }
 });
+
+// ── Obuna narxlarini sozlash ─────────────────────
+function saOpenPriceSettings() {
+  document.getElementById("sa-price-modal")?.remove();
+  const prices = (() => {
+    try { return JSON.parse(localStorage.getItem("merx_sa_prices")||"{}"); } catch(e){ return {}; }
+  })();
+  const monthly  = prices.monthly  || 50000;
+  const yearly   = prices.yearly   || 500000;
+
+  const modal = document.createElement("div");
+  modal.id = "sa-price-modal";
+  modal.style.cssText = "position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif";
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px;width:400px;max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.25)">
+      <div style="font-size:16px;font-weight:800;color:#0D1B2A;margin-bottom:20px">💳 Obuna narxlari</div>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;display:block;margin-bottom:5px">📅 Oylik narx (so'm)</label>
+          <input id="sa-price-monthly" type="number" value="${monthly}" step="10000"
+            style="width:100%;box-sizing:border-box;border:1.5px solid #E5E7EB;border-radius:8px;padding:10px 12px;font-family:inherit;font-size:15px;font-weight:700">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;display:block;margin-bottom:5px">📆 Yillik narx (so'm)</label>
+          <input id="sa-price-yearly" type="number" value="${yearly}" step="50000"
+            style="width:100%;box-sizing:border-box;border:1.5px solid #E5E7EB;border-radius:8px;padding:10px 12px;font-family:inherit;font-size:15px;font-weight:700">
+        </div>
+        <div style="background:#F0FDF4;border-radius:8px;padding:10px 14px;font-size:12px;color:#065F46">
+          Ushbu narxlar dashboard da ko\'rsatiladigan taxminiy daromad hisoblash uchun
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="saSavePriceSettings()"
+          style="flex:1;background:#0D1B2A;border:none;border-radius:10px;padding:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;color:#E9A500">
+          ✓ Saqlash
+        </button>
+        <button onclick="document.getElementById('sa-price-modal').remove()"
+          style="background:#F3F4F6;border:none;border-radius:10px;padding:12px 18px;font-family:inherit;font-size:13px;cursor:pointer;color:#6B7280">
+          Bekor
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function saSavePriceSettings() {
+  const monthly = parseInt(document.getElementById("sa-price-monthly")?.value)||50000;
+  const yearly  = parseInt(document.getElementById("sa-price-yearly")?.value)||500000;
+  localStorage.setItem("merx_sa_prices", JSON.stringify({monthly,yearly}));
+  document.getElementById("sa-price-modal")?.remove();
+  showSaToast("✅ Narxlar saqlandi");
+  // Dashboard yangilaymiz
+  const dash = document.getElementById("sa-dashboard");
+  if (dash) dash.innerHTML = buildSaDashboard();
+}
 
 // ── Obuna tekshiruvi ──────────────────────────────
 function checkCurrentShopSubscription() {
