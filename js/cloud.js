@@ -159,10 +159,17 @@ async function pushToCloud() {
     // Settings — eski schema id=1, yangi schema shop_id
     try {
       await _sb.from("settings").upsert({
-        shop_id: sid,
-        shop_name: db.shop?.name || "MERX",
-        rate: db.settings?.rate || 12800,
-        price_currency: db.settings?.priceCurrency || "uzs"
+        shop_id:        sid,
+        shop_name:      db.shop?.name || "MERX",
+        rate:           db.settings?.rate || 12800,
+        price_currency: db.settings?.priceCurrency || "uzs",
+        eskiz_token:    db.settings?.eskizToken    || null,
+        eskiz_sender:   db.settings?.eskizSender   || null,
+        telegram_bot:   db.settings?.telegramBotUrl || null,
+        telegram_bot_username: db.settings?.telegramBotUsername || null,
+        staff_group_id: db.settings?.staffGroupId  || null,
+        loyalty_rate:   db.settings?.loyaltyRate   || 0,
+        loyalty_value:  db.settings?.loyaltyValue  || 100,
       });
     } catch(e) {
       // Eski schema — id bilan urinib ko'ramiz
@@ -444,8 +451,13 @@ async function pullFromCloud() {
       db.settings.priceCurrency  = sets.price_currency || "uzs";
       db.settings.shopType       = sets.shop_type;
       db.settings.showChakana    = sets.show_chakana || false;
-      if (sets.eskiz_token)  db.settings.eskizToken  = sets.eskiz_token;
-      if (sets.eskiz_sender) db.settings.eskizSender = sets.eskiz_sender;
+      if (sets.eskiz_token)    db.settings.eskizToken         = sets.eskiz_token;
+      if (sets.eskiz_sender)   db.settings.eskizSender        = sets.eskiz_sender;
+      if (sets.telegram_bot)   db.settings.telegramBotUrl     = sets.telegram_bot;
+      if (sets.telegram_bot_username) db.settings.telegramBotUsername = sets.telegram_bot_username;
+      if (sets.staff_group_id) db.settings.staffGroupId       = sets.staff_group_id;
+      if (sets.loyalty_rate)   db.settings.loyaltyRate        = sets.loyalty_rate;
+      if (sets.loyalty_value)  db.settings.loyaltyValue       = sets.loyalty_value;
     }
 
     // Chiqimlar

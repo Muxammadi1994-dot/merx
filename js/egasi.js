@@ -44,10 +44,10 @@ function saveSetting(key, val) {
     _updateTgBadge(!!val);
   }
   if (key === "telegramBotUsername") {
-    // Email bo'lsa saqlamaymiz
-    if (val.includes("@") || val.includes(".com")) {
+    // Faqat @ belgisi bo'lsa email deb hisoblaymiz (merx_savdo_bot.uz emas)
+    if (val.includes("@")) {
       if (db.settings) db.settings.telegramBotUsername = "";
-      toast("Bot username email emas — @merx_savdo_bot kabi kiriting", "err");
+      toast("Bot username email emas — merx_savdo_bot kabi kiriting (@ siz)", "err");
       const inp = document.getElementById("s-tg-bot-username");
       if (inp) inp.value = "";
       return;
