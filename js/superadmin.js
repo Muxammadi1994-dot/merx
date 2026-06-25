@@ -133,61 +133,79 @@ function saDoLogin() {
 // ── Dashboard statistika ─────────────────────────
 function buildSaDashboard() {
   let totalRev = 0, totalSales = 0, totalCust = 0, totalProd = 0, monthRev = 0, monthSales = 0;
+  let todayRev = 0, todaySales = 0, totalDebt = 0;
   const m = new Date().toISOString().slice(0,7);
   _saShops.forEach(shop => {
     const s = saGetShopStats(shop); if (!s) return;
-    totalRev += s.totalRev; totalSales += s.salesCnt;
-    totalCust += s.custCnt; totalProd += s.prodCnt;
-    monthRev += s.monthRev; monthSales += s.monthCnt;
+    totalRev   += s.totalRev;   totalSales += s.salesCnt;
+    totalCust  += s.custCnt;    totalProd  += s.prodCnt;
+    monthRev   += s.monthRev;   monthSales += s.monthCnt;
+    todayRev   += s.todayRev||0; todaySales += s.todayCnt||0;
+    totalDebt  += s.totalDebt||0;
   });
   const fmt = n => n>=1000000?(n/1000000).toFixed(1)+"M":n>=1000?(n/1000).toFixed(0)+"K":String(n||0);
   const active   = _saShops.filter(s=>saIsActive(s)).length;
   const expired  = _saShops.filter(s=>saIsExpired(s)).length;
-  const newShops = _saShops.filter(s=>s.createdAt?.startsWith(new Date().toISOString().slice(0,7))).length;
+  const inactive = _saShops.filter(s=>{ const st=saGetShopStats(s); return st && !st.isActive7; }).length;
+  // 3 kun ichida muddati tugaydiganlar
+  const soon3 = _saShops.filter(s=>{
+    if (!s.expiresAt || s.plan==="lifetime") return false;
+    const d = Math.ceil((new Date(s.expiresAt)-new Date())/86400000);
+    return d>=0 && d<=3;
+  }).length;
+  const newShops = _saShops.filter(s=>s.createdAt?.startsWith(m)).length;
   const plans    = {trial:0,monthly:0,yearly:0,lifetime:0};
   _saShops.forEach(s=>{ if(plans[s.plan]!==undefined) plans[s.plan]++; });
 
   return `
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 24px;
-      background:#F8FAFC;border-bottom:1px solid #E5E7EB">
+    <!-- 1-qator: Asosiy raqamlar -->
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0;background:#F8FAFC;border-bottom:1px solid #E5E7EB">
       ${[
-        {lbl:"Jami do'konlar", val:_saShops.length+" ta", clr:"#0D1B2A", ico:"ti-building-store"},
-        {lbl:"Faol obunalar",  val:active+" ta",           clr:"#059669", ico:"ti-circle-check"},
-        {lbl:"Muddati o'tgan", val:expired+" ta",          clr:expired?"#DC2626":"#9CA3AF", ico:"ti-clock-x"},
-        {lbl:"Bu oy qo'shildi",val:newShops+" ta",         clr:"#2563EB", ico:"ti-plus"},
+        {lbl:"Jami do'konlar",  val:_saShops.length+" ta",  clr:"#0D1B2A", ico:"ti-building-store", sub:""},
+        {lbl:"Faol",            val:active+" ta",            clr:"#059669", ico:"ti-circle-check",   sub:"obunalar"},
+        {lbl:"Muddati o'tgan",  val:expired+" ta",           clr:expired?"#DC2626":"#9CA3AF", ico:"ti-clock-x", sub:""},
+        {lbl:"3 kunda tugaydi", val:soon3+" ta",             clr:soon3?"#D97706":"#9CA3AF",   ico:"ti-alert-triangle", sub:"diqqat!"},
+        {lbl:"Faolsiz (7 kun)", val:inactive+" ta",          clr:inactive?"#9333EA":"#9CA3AF",ico:"ti-zzz",            sub:"sotuvsiz"},
+        {lbl:"Bu oy qo'shildi", val:newShops+" ta",          clr:"#2563EB", ico:"ti-plus",           sub:"yangi"},
       ].map(k=>`
-        <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:14px 16px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <i class="ti ${k.ico}" style="font-size:16px;color:${k.clr}"></i>
-            <div style="font-size:11px;color:#6B7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">${k.lbl}</div>
+        <div style="padding:12px 14px;border-right:1px solid #E5E7EB;background:#fff">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+            <i class="ti ${k.ico}" style="font-size:14px;color:${k.clr}"></i>
+            <div style="font-size:10px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em">${k.lbl}</div>
           </div>
-          <div style="font-size:24px;font-weight:800;color:${k.clr}">${k.val}</div>
+          <div style="font-size:20px;font-weight:800;color:${k.clr}">${k.val}</div>
+          ${k.sub?`<div style="font-size:10px;color:#9CA3AF;margin-top:2px">${k.sub}</div>`:""}
         </div>`).join("")}
     </div>
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:0;
-      background:#fff;border-bottom:1px solid #E5E7EB">
-      <div style="padding:14px 24px;border-right:1px solid #F3F4F6">
-        <div style="font-size:11px;color:#9CA3AF;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Jami tushum</div>
-        <div style="font-size:22px;font-weight:800;color:#059669">${fmt(totalRev)} so'm</div>
-        <div style="font-size:12px;color:#9CA3AF;margin-top:2px">Bu oy: <span style="color:#2563EB;font-weight:600">${fmt(monthRev)} so'm</span></div>
+    <!-- 2-qator: Moliyaviy -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;background:#fff;border-bottom:1px solid #E5E7EB">
+      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
+        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">💰 Jami tushum</div>
+        <div style="font-size:18px;font-weight:800;color:#059669">${fmt(totalRev)} so'm</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">Bu oy: <span style="color:#2563EB;font-weight:600">${fmt(monthRev)} so'm</span></div>
       </div>
-      ${[
-        {lbl:"Sotuvlar", val:totalSales+" ta", sub:"Bu oy: "+monthSales+" ta"},
-        {lbl:"Mijozlar", val:totalCust+" ta",  sub:"Jami bazada"},
-        {lbl:"Mahsulotlar",val:totalProd+" tur",sub:"Kataloglarda"},
-      ].map(k=>`
-        <div style="padding:14px 20px;border-right:1px solid #F3F4F6">
-          <div style="font-size:11px;color:#9CA3AF;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">${k.lbl}</div>
-          <div style="font-size:20px;font-weight:800;color:#111827">${k.val}</div>
-          <div style="font-size:12px;color:#9CA3AF;margin-top:2px">${k.sub}</div>
-        </div>`).join("")}
-      <div style="padding:14px 20px">
-        <div style="font-size:11px;color:#9CA3AF;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Obuna turlari</div>
-        ${[["🧪 Sinov",plans.trial,"#D97706"],["📅 Oylik",plans.monthly,"#2563EB"],
-           ["📆 Yillik",plans.yearly,"#059669"],["♾️ Umrlik",plans.lifetime,"#7C3AED"]]
-          .map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;margin-bottom:3px">
-            <span style="font-size:12px;color:#6B7280">${l}</span>
-            <span style="font-size:12px;font-weight:700;color:${c}">${v}</span>
+      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
+        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Bugungi tushum</div>
+        <div style="font-size:18px;font-weight:800;color:#0D1B2A">${fmt(todayRev)} so'm</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${todaySales} ta sotuv</div>
+      </div>
+      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
+        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">🔴 Jami qarz</div>
+        <div style="font-size:18px;font-weight:800;color:${totalDebt>0?"#DC2626":"#9CA3AF"}">${fmt(totalDebt)} so'm</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">barcha do'konlar</div>
+      </div>
+      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
+        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📊 Sotuvlar</div>
+        <div style="font-size:18px;font-weight:800;color:#374151">${totalSales} ta</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">Bu oy: ${monthSales} ta</div>
+      </div>
+      <div style="padding:12px 16px">
+        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Obuna turlari</div>
+        ${[["🧪",plans.trial,"#D97706","Sinov"],["📅",plans.monthly,"#2563EB","Oylik"],
+           ["📆",plans.yearly,"#059669","Yillik"],["♾️",plans.lifetime,"#7C3AED","Umrlik"]]
+          .map(([e,v,c,l])=>`<div style="display:flex;justify-content:space-between;margin-bottom:2px">
+            <span style="font-size:11px;color:#6B7280">${e} ${l}</span>
+            <span style="font-size:11px;font-weight:700;color:${c}">${v}</span>
           </div>`).join("")}
       </div>
     </div>`;
@@ -258,16 +276,28 @@ function buildSaPanel() {
               font-size:12px;font-weight:600;cursor:pointer;transition:all .15s">${f}</button>`).join("")}
         </div>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <button onclick="saCheckExpiringSoon()"
+            style="background:#FFFBEB;border:1.5px solid #FDE68A;color:#D97706;
+            border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
+            font-weight:600;cursor:pointer" title="Muddati yaqin do'konlar">
+            ⏰ Muddatlar
+          </button>
+          <button onclick="saShowInactiveShops()"
+            style="background:#F5F3FF;border:1.5px solid #DDD6FE;color:#7C3AED;
+            border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
+            font-weight:600;cursor:pointer" title="Faolsiz do'konlar">
+            😴 Faolsiz
+          </button>
           <input id="sa-superpass-inp" type="password" placeholder="Yangi super admin paroli"
             style="background:#fff;border:1.5px solid #E5E7EB;color:#111;
             border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
-            outline:none;width:180px" onfocus="this.style.borderColor='#E9A500'"
+            outline:none;width:160px" onfocus="this.style.borderColor='#E9A500'"
             onblur="this.style.borderColor='#E5E7EB'">
           <button onclick="saChangeSuperPass()"
             style="background:#fff;border:1.5px solid #7C3AED;color:#7C3AED;
-            border-radius:8px;padding:7px 14px;font-family:inherit;font-size:12px;
+            border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
             font-weight:600;cursor:pointer">
-            <i class="ti ti-key"></i> Parol o'zgartir
+            <i class="ti ti-key"></i> Parol
           </button>
         </div>
       </div>
@@ -453,6 +483,8 @@ function renderSaShops() {
           <th style="text-align:left;padding:10px 16px;color:#6B7280;font-size:11px;
             text-transform:uppercase;letter-spacing:.05em;font-weight:700">Muddat</th>
           <th style="text-align:left;padding:10px 16px;color:#6B7280;font-size:11px;
+            text-transform:uppercase;letter-spacing:.05em;font-weight:700">Faollik</th>
+          <th style="text-align:left;padding:10px 16px;color:#6B7280;font-size:11px;
             text-transform:uppercase;letter-spacing:.05em;font-weight:700">Holat</th>
           <th style="padding:10px 16px;color:#6B7280;font-size:11px;
             text-transform:uppercase;letter-spacing:.05em;font-weight:700;text-align:center">Amallar</th>
@@ -503,29 +535,50 @@ function renderSaShops() {
               ${s.plan==="lifetime" ? "<span style='color:#7C3AED;font-weight:700'>♾️ Cheksiz</span>" : expDate}
             </td>
             <td style="padding:13px 16px">
+              ${(()=>{
+                const st = saGetShopStats(s);
+                if (!st) return '<span style="font-size:12px;color:#9CA3AF">Ma'lumot yo'q</span>';
+                const lastD = st.lastSale;
+                const today2 = new Date().toISOString().slice(0,10);
+                const diffDays = lastD ? Math.floor((new Date(today2)-new Date(lastD))/86400000) : null;
+                let actClr = "#059669", actTxt = "🟢 Faol";
+                if (diffDays===null)       { actClr="#9CA3AF"; actTxt="⚪ Sotuvсиз"; }
+                else if (diffDays===0)     { actClr="#059669"; actTxt="🟢 Bugun"; }
+                else if (diffDays<=7)      { actClr="#D97706"; actTxt="🟡 "+diffDays+"k oldin"; }
+                else if (diffDays<=30)     { actClr="#F97316"; actTxt="🟠 "+diffDays+"k oldin"; }
+                else                       { actClr="#DC2626"; actTxt="🔴 "+diffDays+"k oldin"; }
+                return '<div style="font-size:12px;font-weight:600;color:'+actClr+'">'+actTxt+'</div>'
+                  +(st.todayCnt>0?'<div style="font-size:11px;color:#9CA3AF">Bugun: '+st.todayCnt+' sotuv</div>':'');
+              })()}
+            </td>
+            <td style="padding:13px 16px">
               <span style="background:${statusBg};color:${statusClr};
                 border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600">
                 ${statusText}
               </span>
             </td>
             <td style="padding:13px 16px">
-              <div style="display:flex;gap:4px;justify-content:center">
+              <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">
                 <button onclick="saOpenShop('${s.id}')" title="Do'konga kirish"
                   style="background:#E9A500;border:none;color:#0D1B2A;border-radius:7px;
-                  padding:6px 12px;font-size:13px;cursor:pointer;font-weight:700">
-                  🔑 Kirish</button>
+                  padding:6px 10px;font-size:12px;cursor:pointer;font-weight:700">
+                  🔑</button>
+                <button onclick="saCopyBotLink('${s.id}')" title="Bot havolasini nusxalash"
+                  style="background:#ECFDF5;border:1px solid #BBF7D0;color:#059669;
+                  border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer"
+                  title="Bot havola">🔗</button>
                 <button onclick="saEditShopFull('${s.id}')" title="Tahrirlash"
                   style="background:#EFF6FF;border:1px solid #BFDBFE;color:#2563EB;
-                  border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer">✏️</button>
+                  border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer">✏️</button>
                 <button onclick="saToggleShop('${s.id}')" title="${active?'Bloklash':'Faollashtirish'}"
                   style="background:${active?"#FEF2F2":"#ECFDF5"};
                   border:1px solid ${active?"#FECACA":"#BBF7D0"};
                   color:${active?"#DC2626":"#059669"};
-                  border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer">
+                  border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer">
                   ${active ? "🔒" : "✅"}</button>
                 <button onclick="saDeleteShop('${s.id}')" title="O'chirish"
                   style="background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;
-                  border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer">🗑️</button>
+                  border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer">🗑️</button>
               </div>
             </td>
           </tr>`;
@@ -861,16 +914,27 @@ function saGetShopStats(shop) {
     const sales=sdb.sales||[], custs=sdb.customers||[], prods=sdb.products||[];
     const rate = sdb.settings?.rate || 12800;
     const totalRev  = sales.reduce((a,s)=>a+(s.paid||0),0);
-    const totalDebt = sales.filter(s=>s.status==="qarz").reduce((a,s)=>a+(s.remaining||0),0);
+    const totalDebt = sales.filter(s=>s.remaining>0).reduce((a,s)=>a+(s.remaining||0),0);
     const totalStock= prods.reduce((a,p)=>a+p.variants.reduce((b,v)=>b+(v.qty||0),0),0);
     let costTotal = 0;
     sales.forEach(s=>{ s.items?.forEach(i=>{ const p=prods.find(x=>x.name===i.name); if(p) costTotal+=Math.round((p.costUsd||0)*rate)*(i.qty||0); }); });
-    const m = new Date().toISOString().slice(0,7);
+    const today = new Date().toISOString().slice(0,10);
+    const m = today.slice(0,7);
     const monthSales = sales.filter(s=>s.date?.startsWith(m));
-    return { salesCnt:sales.length, monthCnt:monthSales.length, totalRev,
-      monthRev:monthSales.reduce((a,s)=>a+(s.paid||0),0),
+    const todaySales = sales.filter(s=>s.date===today);
+    // Oxirgi sotuv sanasi
+    const lastSale = sales.length ? sales[sales.length-1].date : null;
+    // Faollik: so'nggi 7 kunda sotuv bo'ldimi?
+    const week = new Date(); week.setDate(week.getDate()-7);
+    const weekStr = week.toISOString().slice(0,10);
+    const isActive7 = sales.some(s=>s.date>=weekStr);
+    const isActive30 = sales.some(s=>s.date>=(()=>{const d=new Date();d.setDate(d.getDate()-30);return d.toISOString().slice(0,10);})());
+    return { salesCnt:sales.length, monthCnt:monthSales.length, todayCnt:todaySales.length,
+      totalRev, monthRev:monthSales.reduce((a,s)=>a+(s.paid||0),0),
+      todayRev:todaySales.reduce((a,s)=>a+(s.paid||0),0),
       totalDebt, profit:totalRev-costTotal,
-      custCnt:custs.length, prodCnt:prods.length, stockCnt:totalStock };
+      custCnt:custs.length, prodCnt:prods.length, stockCnt:totalStock,
+      lastSale, isActive7, isActive30 };
   } catch(e) { return null; }
 }
 
@@ -930,20 +994,24 @@ function saShowStats(shopId) {
           <div style="font-size:13px;font-weight:700;color:#111827">${k.val}</div>
         </div>`).join("")}
       </div>
-      <div style="padding:14px 20px;border-top:1px solid #E5E7EB;display:flex;gap:8px">
+      <div style="padding:14px 20px;border-top:1px solid #E5E7EB;display:flex;gap:8px;flex-wrap:wrap">
         <button onclick="saOpenShop('${shop.id}');document.getElementById('sa-stats-modal').remove()"
-          style="background:#0D1B2A;border:none;color:#E9A500;border-radius:8px;padding:9px 18px;
+          style="background:#0D1B2A;border:none;color:#E9A500;border-radius:8px;padding:9px 16px;
           font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
-          🔑 Do'konga kirish</button>
+          🔑 Kirish</button>
+        <button onclick="saCopyBotLink('${shop.id}')"
+          style="background:#ECFDF5;border:1px solid #BBF7D0;color:#059669;
+          border-radius:8px;padding:9px 16px;font-family:inherit;font-size:13px;cursor:pointer;font-weight:600">
+          🔗 Bot havolasi</button>
         <button onclick="saToggleShop('${shop.id}');document.getElementById('sa-stats-modal').remove()"
           style="background:${saIsActive(shop)?"#FEF2F2":"#ECFDF5"};
           border:1px solid ${saIsActive(shop)?"#FECACA":"#BBF7D0"};
           color:${saIsActive(shop)?"#DC2626":"#059669"};
-          border-radius:8px;padding:9px 18px;font-family:inherit;font-size:13px;cursor:pointer;font-weight:600">
+          border-radius:8px;padding:9px 16px;font-family:inherit;font-size:13px;cursor:pointer;font-weight:600">
           ${saIsActive(shop)?"🔒 Bloklash":"✅ Faollashtirish"}</button>
         <button onclick="saExtendShop('${shop.id}');document.getElementById('sa-stats-modal').remove()"
           style="margin-left:auto;background:#EFF6FF;border:1px solid #BFDBFE;color:#2563EB;
-          border-radius:8px;padding:9px 18px;font-family:inherit;font-size:13px;cursor:pointer;font-weight:600">
+          border-radius:8px;padding:9px 16px;font-family:inherit;font-size:13px;cursor:pointer;font-weight:600">
           ➕ Uzaytirish</button>
       </div>`}
     </div>`;
@@ -957,6 +1025,73 @@ function saExtendShop(id) {
   s.expiresAt = addDaysToDate(base, days);
   saSaveShops(); renderSaShops();
   showSaToast(`✅ "${s.name}" — ${days} kun uzaytirildi (${s.expiresAt.slice(0,10)})`);
+}
+
+// ── Bot havolasini nusxalash ─────────────────────
+function saCopyBotLink(shopId) {
+  // Bot username — asosiy do'kon settings dan olamiz
+  let botUsername = "";
+  try {
+    const mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+    botUsername = (mainDB?.settings?.telegramBotUsername || "").replace(/^@/,"").trim();
+    // Email bo'lsa tozalaymiz
+    if (botUsername.includes("@") || botUsername.includes(".")) botUsername = "";
+  } catch(e) {}
+
+  if (!botUsername) {
+    showSaToast("Bot username sozlanmagan — Asosiy do'kon Sozlamalar → SMS & Bot", "err");
+    return;
+  }
+
+  const link = `https://t.me/${botUsername}?start=${shopId}`;
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(link).then(() => {
+      showSaToast("✅ Havola nusxa olindi: " + link);
+    });
+  } else {
+    const t = document.createElement("textarea");
+    t.value = link; document.body.appendChild(t);
+    t.select(); document.execCommand("copy");
+    document.body.removeChild(t);
+    showSaToast("✅ Havola nusxa olindi!");
+  }
+}
+
+// ── Muddati yaqin do'konlarga eslatma ────────────
+function saCheckExpiringSoon() {
+  const soon = _saShops.filter(s => {
+    if (!s.expiresAt || s.plan === "lifetime" || s.blocked) return false;
+    const d = Math.ceil((new Date(s.expiresAt) - new Date()) / 86400000);
+    return d >= 0 && d <= 7;
+  });
+
+  if (!soon.length) { showSaToast("Muddati yaqin do'konlar yo'q ✅"); return; }
+
+  const list = soon.map(s => {
+    const d = Math.ceil((new Date(s.expiresAt) - new Date()) / 86400000);
+    return `• ${s.name} — ${d} kun qoldi (${s.expiresAt.slice(0,10)})`;
+  }).join("\n");
+
+  alert(`⚠️ Muddati yaqin do'konlar (${soon.length} ta):\n\n${list}\n\nUzaytirish uchun do'konni tanlang.`);
+}
+
+// ── Faolsiz do'konlar hisoboti ────────────────────
+function saShowInactiveShops() {
+  const inactive = _saShops.filter(s => {
+    const st = saGetShopStats(s); if (!st) return false;
+    return !st.isActive30;
+  });
+
+  if (!inactive.length) { showSaToast("Barcha do'konlar faol ✅"); return; }
+
+  const list = inactive.map(s => {
+    const st = saGetShopStats(s);
+    const last = st?.lastSale || "hech qachon";
+    return `• ${s.name} — oxirgi sotuv: ${last}`;
+  }).join("\n");
+
+  alert(`😴 Faolsiz do'konlar (30 kunda sotuvsiz, ${inactive.length} ta):\n\n${list}`);
 }
 
 // ── Super admin paroli o'zgartirish ───────────────
