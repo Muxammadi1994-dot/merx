@@ -2162,7 +2162,7 @@
           <div class="ch"><h3><i class="ti ti-cloud"></i> Supabase ulanish</h3><span class="bg bg-gr" id="cloud-status-badge">Ulanmagan</span></div>
           <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
             <div class="fld"><label>Supabase Project URL</label><input id="s-sup-url" placeholder="https://xxxx.supabase.co" oninput="saveSetting('supabaseUrl',this.value)" style="font-size:12px;font-family:monospace"></div>
-            <div class="fld"><label>Anon / Public Key</label><input id="s-sup-key" type="password" placeholder="eyJhbGci..." autocomplete="off" oninput="saveSetting('supabaseKey',this.value)" style="font-size:11px;font-family:monospace"></div>
+            <div class="fld"><label>Anon / Public Key</label><input id="s-sup-key" type="text" placeholder="eyJhbGci..." autocomplete="new-password" oninput="saveSetting('supabaseKey',this.value)" style="font-size:11px;font-family:monospace;color:#374151"></div>
             <div style="display:flex;gap:8px">
               <button class="btn btn-teal" onclick="connectCloud()" style="flex:1"><i class="ti ti-cloud-upload"></i> Ulash + Sinx</button>
               <button class="btn btn-ghost" onclick="pushToCloud()" style="flex:1"><i class="ti ti-cloud-upload"></i> Cloudga yuklash</button>
@@ -2394,7 +2394,7 @@
             </div>
             <div class="r2">
               <div class="fld"><label>Email (login)</label><input id="s-admin-email" type="email" placeholder="admin@example.com"></div>
-              <div class="fld"><label>Yangi parol</label><input id="s-admin-pass" type="password" placeholder="••••••••"></div>
+              <div class="fld"><label>Yangi parol</label><input id="s-admin-pass" type="password" placeholder="••••••••" autocomplete="new-password"></div>
             </div>
             <button class="btn btn-acc btn-sm" onclick="saveAdminCreds()" style="width:fit-content"><i class="ti ti-check"></i> Saqlash</button>
           </div>
