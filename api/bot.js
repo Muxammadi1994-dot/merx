@@ -71,8 +71,21 @@ async function setShopForUser(chatId, shopId) {
     const shops = await sb("shops", `?id=eq.${shopId}&select=id,name&limit=1`);
     if (!shops?.[0]) return null;
     const shopName = shops[0].name;
+    // Cache ni yangi do'kon bilan yangilaymiz (eski do'konni almashtiramiz)
     const ctx = { shopId, shopName, isOwner: false, isSuperAdmin: false, ts: Date.now() };
     _shopCache.set(cid, ctx);
+
+    // Agar customers jadvalida bu chatId bilan boshqa shop_id saqlangan bo'lsa
+    // yangi do'kon uchun ham telefon so'raymiz (alohida profil)
+    try {
+      const existing = await sb("customers",
+        `?telegram_chat_id=eq.${cid}&shop_id=eq.${shopId}&select=id&limit=1`);
+      if (!existing?.[0]) {
+        // Bu do'konda hali ulanmagan — telefon so'raymiz
+        ctx.needsContact = true;
+      }
+    } catch(e) {}
+
     return ctx;
   } catch(e) {
     console.warn("setShopForUser xato:", e.message);
