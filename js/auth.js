@@ -414,7 +414,8 @@ async function doLogin() {
         let shopDB   = null;
         try { shopDB = JSON.parse(localStorage.getItem(dbKey)); } catch(e) {}
         if (!shopDB) {
-          const { data: sets } = await sb.from("settings").select("*").eq("shop_id", shopId).single();
+          const { data: setsArr2 } = await sb.from("settings").select("*").eq("shop_id", shopId).limit(1);
+          const sets = setsArr2?.[0] || null;
           shopDB = {
             shop: { name: shop.name, type: "ikki" },
             settings: {

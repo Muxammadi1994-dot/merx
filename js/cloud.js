@@ -444,7 +444,8 @@ async function pullFromCloud() {
     }
 
     // Settings
-    const { data: sets } = await _sb.from("settings").select("*").eq("shop_id", sid).single();
+    const { data: setsArr } = await _sb.from("settings").select("*").eq("shop_id", sid).limit(1);
+    const sets = setsArr?.[0] || null;
     if (sets) {
       db.shop = { name: sets.shop_name };
       db.settings.rate           = sets.rate || 12800;
