@@ -537,7 +537,7 @@ function renderSaShops() {
             <td style="padding:13px 16px">
               ${(()=>{
                 const st = saGetShopStats(s);
-                if (!st) return '<span style="font-size:12px;color:#9CA3AF">Ma'lumot yo'q</span>';
+                if (!st) return '<span style="font-size:12px;color:#9CA3AF">Ma\u02BClumo\u02BC yo\u02BCq</span>';
                 const lastD = st.lastSale;
                 const today2 = new Date().toISOString().slice(0,10);
                 const diffDays = lastD ? Math.floor((new Date(today2)-new Date(lastD))/86400000) : null;
