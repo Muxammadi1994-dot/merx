@@ -167,10 +167,37 @@ function _initCloudAfterLogin() {
   initSupabase().then(async ok => {
     if (!ok) return;
     if (typeof updateCloudUI === "function") updateCloudUI(true);
-    const hasLocalData = (db.products?.length > 0) || (db.sales?.length > 0);
-    if (!hasLocalData && typeof pullFromCloud === "function") {
-      await pullFromCloud(); saveDB();
-      if (typeof renderDashboard === "function") renderDashboard();
+    // Settings ni HAR DOIM cloud dan yuklaymiz (bot, telegram sozlamalari uchun)
+    if (typeof pullFromCloud === "function") {
+      const hasLocalData = (db.products?.length > 0) || (db.sales?.length > 0);
+      if (!hasLocalData) {
+        // Bo'sh do'kon — to'liq pull
+        await pullFromCloud(); saveDB();
+        if (typeof renderDashboard === "function") renderDashboard();
+      } else {
+        // Ma'lumotlar bor — faqat settings ni yangilaymiz
+        try {
+          if (typeof _sb !== "undefined" && _sb) {
+            const sid = typeof getShopId === "function" ? getShopId() : null;
+            if (sid && sid !== "local") {
+              const { data: sets } = await _sb.from("settings")
+                .select("eskiz_token,eskiz_sender,telegram_bot,telegram_bot_username,staff_group_id,loyalty_rate,loyalty_value")
+                .eq("shop_id", sid).single();
+              if (sets) {
+                if (!db.settings) db.settings = {};
+                if (sets.eskiz_token)         db.settings.eskizToken         = sets.eskiz_token;
+                if (sets.eskiz_sender)        db.settings.eskizSender        = sets.eskiz_sender;
+                if (sets.telegram_bot)        db.settings.telegramBotUrl     = sets.telegram_bot;
+                if (sets.telegram_bot_username) db.settings.telegramBotUsername = sets.telegram_bot_username;
+                if (sets.staff_group_id)      db.settings.staffGroupId       = sets.staff_group_id;
+                if (sets.loyalty_rate)        db.settings.loyaltyRate        = sets.loyalty_rate;
+                if (sets.loyalty_value)       db.settings.loyaltyValue       = sets.loyalty_value;
+                saveDB();
+              }
+            }
+          }
+        } catch(e) { console.warn("Settings pull xato:", e.message); }
+      }
     }
   });
 }
