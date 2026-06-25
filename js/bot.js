@@ -724,38 +724,23 @@ async function actionSendTextMessage(body) {
   return { ok: true, sent: true, result: r };
 }
 
-// ── Do'kon egasiga xabar ─────────────────────────
 async function actionSendOwnerNotif(body) {
   const { shopId, ownerEmail, ownerPhone, text } = body;
   if (!text) return { ok: false, reason: "no_text" };
-
-  // 1. shopId bo'yicha customers jadvalidan egani topamiz
-  // Egasi — customers jadvalida emas, shops da
-  // Bot orqali ulanish: shops egasining telegram_chat_id
-  // Hozircha phone orqali qidiramiz
   let chatId = null;
-
   if (ownerPhone) {
     const rawPhone = normPhone(ownerPhone);
     const normalize = p => p.startsWith("998") ? p.slice(3) : p;
     try {
-      const custs = await sb("customers", `?select=telegram_chat_id,phone${shopId?"&shop_id=eq."+shopId:""}`);
+      const custs = await sb("customers", `?select=telegram_chat_id,phone${shopId?"&shop_id=eq."+shopId:""}&limit=100`);
       const match = (custs||[]).find(c => {
         const cp = normPhone(c.phone||"");
         return cp && normalize(cp) === normalize(rawPhone);
       });
       if (match?.telegram_chat_id) chatId = match.telegram_chat_id;
-    } catch(e) { console.warn("owner notif phone search:", e.message); }
+    } catch(e) { console.warn("owner notif search:", e.message); }
   }
-
-  // 2. Email bo'yicha — telegram_chat_id shops jadvalida saqlanishi mumkin (keyingi versiyada)
-  if (!chatId && ownerEmail) {
-    // Hozircha topilmasa — xato qaytaramiz
-    return { ok: false, sent: false, reason: "owner_not_found_in_telegram" };
-  }
-
-  if (!chatId) return { ok: false, sent: false, reason: "no_chat_id" };
-
+  if (!chatId) return { ok: false, sent: false, reason: "owner_not_in_telegram" };
   await tg(chatId, text);
   return { ok: true, sent: true };
 }
@@ -1459,15 +1444,12 @@ export default async function handler(req, res) {
   // MERX dan: ishchilar guruhiga bildirishnoma — YANGI
   if (req.query?.action === "send_owner_notif") {
     let body;
-    try {
-      body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-    } catch {
-      return res.status(400).json({ ok: false, error: "invalid_json" });
-    }
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; }
+    catch { return res.status(400).json({ ok: false, error: "invalid_json" }); }
     try {
       const result = await actionSendOwnerNotif(body);
       return res.status(200).json(result);
-    } catch (e) {
+    } catch(e) {
       console.error("send_owner_notif xato:", e.message);
       return res.status(500).json({ ok: false, error: e.message });
     }

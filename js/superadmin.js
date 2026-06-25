@@ -155,13 +155,6 @@ function buildSaDashboard() {
   }).length;
   const newShops = _saShops.filter(s=>s.createdAt?.startsWith(m)).length;
   const plans    = {trial:0,monthly:0,yearly:0,lifetime:0};
-  _saShops.forEach(s=>{ if(plans[s.plan]!==undefined) plans[s.plan]++; });
-
-  // Obuna daromadi (taxminiy narxlar)
-  const planPrices = { trial:0, monthly:50000, yearly:500000, lifetime:0 };
-  const monthlyIncome = _saShops.filter(s=>saIsActive(s)).reduce((a,s)=>a+(planPrices[s.plan]||0),0);
-  const yearlyIncome  = monthlyIncome * 12;
-
   return `
     <!-- 1-qator: Asosiy raqamlar -->
     <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0;background:#F8FAFC;border-bottom:1px solid #E5E7EB">
@@ -187,7 +180,17 @@ function buildSaDashboard() {
       <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
         <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">💰 Jami tushum</div>
         <div style="font-size:18px;font-weight:800;color:#059669">${fmt(totalRev)} so'm</div>
-        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">Bu oy: <span style="color:#2563EB;font-weight:600">${fmt(monthRev)} so'm</span></div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">Bu oy: <span style="color:#2563EB;font-weight:600">${fmt(monthRev)}</span></div>
+      </div>
+      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
+        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Bugungi</div>
+        <div style="font-size:18px;font-weight:800;color:#0D1B2A">${fmt(todayRev)} so'm</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${todaySales} ta sotuv</div>
+      </div>
+      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
+        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">🔴 Jami qarz</div>
+        <div style="font-size:18px;font-weight:800;color:${totalDebt>0?"#DC2626":"#9CA3AF"}">${fmt(totalDebt)} so'm</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">barcha do'konlar</div>
       </div>
       <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
         <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Bugungi tushum</div>
@@ -200,14 +203,9 @@ function buildSaDashboard() {
         <div style="font-size:11px;color:#9CA3AF;margin-top:2px">barcha do'konlar</div>
       </div>
       <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
-        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📊 Sotuvlar</div>
-        <div style="font-size:18px;font-weight:800;color:#374151">${totalSales} ta</div>
-        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">Bu oy: ${monthSales} ta</div>
-      </div>
-      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
-        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">💳 Obuna daromadi</div>
+        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">💳 Obuna daromad</div>
         <div style="font-size:18px;font-weight:800;color:#7C3AED">${fmt(monthlyIncome)} so'm</div>
-        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">Oylik · Yillik: <span style="color:#7C3AED;font-weight:600">${fmt(yearlyIncome)}</span></div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${active} faol do'kon</div>
       </div>
       <div style="padding:12px 16px">
         <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Obuna turlari</div>
@@ -295,7 +293,7 @@ function buildSaPanel() {
           <button onclick="saSendExpiryReminders()"
             style="background:#FFF7ED;border:1.5px solid #FED7AA;color:#EA580C;
             border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
-            font-weight:600;cursor:pointer" title="Muddati yaqin do'konlarga Telegram eslatma">
+            font-weight:600;cursor:pointer" title="Telegram eslatma yuborish">
             📨 Eslatma
           </button>
           <button onclick="saShowInactiveShops()"
@@ -688,59 +686,42 @@ function saAddShop() {
   if (pe)   pe.textContent   = "—";
 
   renderSaShops();
-  showSaToast(`✅ "${name}" yaratildi! Login: ${loginEmail} | Parol: ${pass}`);
 
-  // Bot havolasini ko'rsatamiz
+  // Yangi do'kon ma'lumotlari va bot havolasini ko'rsatish
   setTimeout(() => {
-    let botUsername = "";
+    let botUsername="";
     try {
-      const mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
-      botUsername = (mainDB?.settings?.telegramBotUsername || "").replace(/^@/,"").trim();
-      if (botUsername.includes("@") || botUsername.includes(".")) botUsername = "";
-    } catch(e) {}
-
-    const link = botUsername ? `https://t.me/${botUsername}?start=${shopId}` : "";
-    const linkTxt = link ? `\n\n🔗 Bot havolasi:\n${link}` : "\n\n⚠️ Bot havolasi: Sozlamalar → SMS & Bot → Bot username kiriting";
-
-    const msg = `✅ "${name}" yaratildi!\n\nLogin: ${loginEmail}\nParol: ${pass}${linkTxt}`;
-
-    // Modal ko'rsatamiz
-    const infoModal = document.createElement("div");
-    infoModal.style.cssText = "position:fixed;inset:0;z-index:9999999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif";
-    infoModal.innerHTML = `
-      <div style="background:#fff;border-radius:16px;padding:28px;width:440px;max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.3)">
-        <div style="font-size:16px;font-weight:800;color:#0D1B2A;margin-bottom:16px">
-          ✅ Do'kon yaratildi
+      const m=JSON.parse(localStorage.getItem("merx_v5")||"{}");
+      botUsername=(m?.settings?.telegramBotUsername||"").replace(/^@/,"").trim();
+      if (botUsername.includes("@")||botUsername.includes(".")) botUsername="";
+    } catch(e){}
+    const link=botUsername?`https://t.me/${botUsername}?start=${shopId}`:"";
+    const d=document.createElement("div");
+    d.style.cssText="position:fixed;inset:0;z-index:9999999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif";
+    d.innerHTML=`<div style="background:#fff;border-radius:16px;padding:28px;width:440px;max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.3)">
+      <div style="font-size:16px;font-weight:800;color:#0D1B2A;margin-bottom:16px">✅ Do'kon yaratildi</div>
+      <div style="background:#F9FAFB;border-radius:10px;padding:14px;font-size:13px;line-height:2;margin-bottom:16px">
+        <div><span style="color:#6B7280">Do'kon:</span> <strong>${name}</strong></div>
+        <div><span style="color:#6B7280">Login:</span> <strong style="font-family:monospace">${loginEmail}</strong></div>
+        <div><span style="color:#6B7280">Parol:</span> <strong style="font-family:monospace">${pass}</strong></div>
+        <div><span style="color:#6B7280">Obuna:</span> <strong>${plan}</strong></div>
+      </div>
+      ${link?`<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:12px 14px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:#065F46;margin-bottom:6px">🔗 Bot havolasi (mijozlarga yuboring)</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;font-family:monospace;font-size:11px;color:#065F46;word-break:break-all">${link}</div>
+          <button onclick="navigator.clipboard?.writeText('${link}').then(()=>this.textContent='✓ Nusxa')"
+            style="background:#059669;border:none;border-radius:6px;padding:6px 10px;color:#fff;cursor:pointer;font-family:inherit;font-size:11px;font-weight:700;white-space:nowrap;flex-shrink:0">📋 Nusxa</button>
         </div>
-        <div style="background:#F9FAFB;border-radius:10px;padding:14px;font-size:13px;line-height:2;margin-bottom:16px">
-          <div><span style="color:#6B7280">Do'kon:</span> <strong>${name}</strong></div>
-          <div><span style="color:#6B7280">Login:</span> <strong style="font-family:monospace">${loginEmail}</strong></div>
-          <div><span style="color:#6B7280">Parol:</span> <strong style="font-family:monospace">${pass}</strong></div>
-          <div><span style="color:#6B7280">Obuna:</span> <strong>${plan}</strong></div>
-        </div>
-        ${link ? `
-        <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:12px 14px;margin-bottom:16px">
-          <div style="font-size:11px;font-weight:700;color:#065F46;margin-bottom:6px">🔗 Bot havolasi (mijozlarga yuboring)</div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="flex:1;font-family:monospace;font-size:11px;color:#065F46;word-break:break-all">${link}</div>
-            <button onclick="navigator.clipboard?.writeText('${link}').then(()=>this.textContent='✓ Nusxa')"
-              style="background:#059669;border:none;border-radius:6px;padding:6px 10px;color:#fff;cursor:pointer;font-family:inherit;font-size:11px;font-weight:700;white-space:nowrap;flex-shrink:0">
-              📋 Nusxa
-            </button>
-          </div>
-        </div>` : `
-        <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#92400E">
-          ⚠️ Bot havolasi: Sozlamalar → SMS & Bot → Bot username kiriting
-        </div>`}
-        <div style="display:flex;gap:8px">
-          <button onclick="this.closest('[style]').remove()"
-            style="flex:1;background:#0D1B2A;border:none;border-radius:10px;padding:12px;
-            font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;color:#E9A500">
-            Tushunarli
-          </button>
-        </div>
-      </div>`;
-    document.body.appendChild(infoModal);
+      </div>`:`<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#92400E">
+        ⚠️ Bot havolasi: Sozlamalar → SMS & Bot → Bot username kiriting
+      </div>`}
+      <button onclick="this.closest('div[style*=fixed]').remove()"
+        style="width:100%;background:#0D1B2A;border:none;border-radius:10px;padding:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;color:#E9A500">
+        Tushunarli
+      </button>
+    </div>`;
+    document.body.appendChild(d);
   }, 300);
 }
 
@@ -1094,53 +1075,34 @@ function saExtendShop(id) {
   s.expiresAt = addDaysToDate(base, days);
   saSaveShops(); renderSaShops();
   showSaToast(`✅ "${s.name}" — ${days} kun uzaytirildi (${s.expiresAt.slice(0,10)})`);
-  // Egasiga Telegram orqali xabar
-  _saSendOwnerNotif(s, `✅ ${s.name} obunangiz ${days} kun uzaytirildi! Yangi muddat: ${s.expiresAt.slice(0,10)}`);
+  _saUpdateShopInSupabase(id, { trial_ends: s.expiresAt.slice(0,10) })
+    .catch(e=>console.warn("Supabase extend:", e.message));
 }
 
-// ── Egasiga Telegram xabar yuborish ──────────────
 async function _saSendOwnerNotif(shop, text) {
-  const botUrl = (() => {
-    try {
-      const m = JSON.parse(localStorage.getItem("merx_v5") || "{}");
-      return m?.settings?.telegramBotUrl || "";
-    } catch(e) { return ""; }
-  })();
+  const botUrl = (()=>{ try { return JSON.parse(localStorage.getItem("merx_v5")||"{}").settings?.telegramBotUrl||""; } catch(e){return "";} })();
   if (!botUrl) return;
-
   try {
-    const res = await fetch(botUrl + "?action=send_owner_notif", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        shopId: shop.id,
-        ownerEmail: shop.ownerEmail,
-        ownerPhone: shop.phone,
-        text
-      })
+    const res = await fetch(botUrl+"?action=send_owner_notif", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ shopId:shop.id, ownerEmail:shop.ownerEmail, ownerPhone:shop.phone, text })
     });
     const data = await res.json();
-    if (data.sent) showSaToast("📨 Egasiga Telegram xabar yuborildi");
-  } catch(e) {
-    console.warn("Owner notif xato:", e.message);
-  }
+    if (data.sent) showSaToast("📨 Egasiga xabar yuborildi");
+  } catch(e) { console.warn("owner notif:", e.message); }
 }
 
-// ── Barcha muddati yaqin do'konlarga eslatma ─────
 async function saSendExpiryReminders() {
-  const soon = _saShops.filter(s => {
-    if (!s.expiresAt || s.plan === "lifetime" || s.blocked) return false;
-    const d = Math.ceil((new Date(s.expiresAt) - new Date()) / 86400000);
-    return d >= 0 && d <= 7;
+  const soon = _saShops.filter(s=>{
+    if (!s.expiresAt||s.plan==="lifetime"||s.blocked) return false;
+    const d=Math.ceil((new Date(s.expiresAt)-new Date())/86400000);
+    return d>=0&&d<=7;
   });
-
   if (!soon.length) { showSaToast("Eslatma yuborish kerak bo\'lgan do\'kon yo\'q"); return; }
-
-  let sent = 0;
+  let sent=0;
   for (const s of soon) {
-    const d = Math.ceil((new Date(s.expiresAt) - new Date()) / 86400000);
-    const msg = `⚠️ ${s.name}, obunangiz ${d} kun ichida tugaydi (${s.expiresAt.slice(0,10)}). Uzaytirish uchun murojaat qiling.`;
-    await _saSendOwnerNotif(s, msg);
+    const d=Math.ceil((new Date(s.expiresAt)-new Date())/86400000);
+    await _saSendOwnerNotif(s, `⚠️ ${s.name}, obunangiz ${d} kun ichida tugaydi (${s.expiresAt.slice(0,10)}). Uzaytirish uchun murojaat qiling.`);
     sent++;
   }
   showSaToast(`✅ ${sent} ta do\'kon egasiga eslatma yuborildi`);
