@@ -93,11 +93,13 @@ async function sendTelegramText(customerId, customerPhone, text) {
 // ================================================
 
 async function sendStaffNotification(sale) {
-  const botUrl      = db.settings?.telegramBotUrl;
+  const botUrl       = db.settings?.telegramBotUrl;
   const staffGroupId = db.settings?.staffGroupId;
 
-  // Guruh ID yo'q bo'lsa — jimgina o'tamiz (xato ko'rsatmaymiz)
+  // Guruh ID yo'q bo'lsa — jimgina o'tamiz
   if (!botUrl || !staffGroupId) return;
+
+  const shopId = typeof getShopId === "function" ? getShopId() : null;
 
   try {
     const res = await fetch(botUrl + "?action=send_staff_notif", {
@@ -106,7 +108,8 @@ async function sendStaffNotification(sale) {
       body: JSON.stringify({
         sale,
         shopName:     db.shop?.name || db.settings?.name || "MERX",
-        staffGroupId: staffGroupId
+        staffGroupId: staffGroupId,
+        shopId:       shopId
       })
     });
     const data = await res.json();

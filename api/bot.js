@@ -725,12 +725,13 @@ async function actionSendTextMessage(body) {
 }
 
 async function actionSendStaffNotification(body) {
-  const { sale, shopName, staffGroupId } = body || {};
+  const { sale, shopName, staffGroupId, shopId } = body || {};
   if (!sale) return { ok: false, error: "sale majburiy" };
 
-  // staffGroupId: frontend'dan keladi (settings dan), yoki env dan
+  // staffGroupId: frontend dan keladi (settings dan), yoki env dan
   const groupId = staffGroupId || STAFF_GROUP;
   if (!groupId) return { ok: false, reason: "no_group_id" };
+  const sid = shopId || null;
 
   const payLabels = { naqd: "💵 Naqd", karta: "💳 Karta", otkazma: "🏦 O'tkazma", nasiya: "📋 Nasiya", aralash: "🔀 Aralash" };
   const chekId   = sale.chekNum || ("ID" + sale.id);
@@ -782,8 +783,9 @@ async function actionSendStaffNotification(body) {
     txt += `✅ To'liq to'landi\n`;
   }
 
-  // Catalog URL — faqat chekId (URL qisqa bo'lishi uchun)
-  const catalogUrl = `https://merx-rho.vercel.app/api/bot?action=staff_order&id=${encodeURIComponent(chekId)}`;
+  // Catalog URL — shopId bilan (multi-tenant)
+  const shopParam  = sid ? `&shop=${encodeURIComponent(sid)}` : "";
+  const catalogUrl = `https://merx-rho.vercel.app/api/bot?action=staff_order&id=${encodeURIComponent(chekId)}${shopParam}`;
 
   const r = await tg(groupId, txt, {
     reply_markup: {
@@ -896,27 +898,27 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;min-height:100vh;paddin
 /* INFO CARD */
 .info-card{margin:12px 12px 0;background:#fff;border-radius:12px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:8px}
 .info-f{flex:1;min-width:120px}
-.info-lbl{font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.8px;font-weight:700}
-.info-val{font-size:14px;font-weight:700;color:#0D1B2A;margin-top:2px}
+.info-lbl{font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.8px;font-weight:700}
+.info-val{font-size:16px;font-weight:800;color:#0D1B2A;margin-top:3px}
 
 /* SECTION TITLE */
 .sec-title{padding:14px 14px 6px;font-size:11px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:1px}
 
 /* CARDS */
-.card-item{background:#fff;border-radius:12px;margin:6px 12px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px;position:relative;overflow:hidden}
-.card-item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#E9A500}
-.item-qty-badge{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:13px;border-radius:8px;min-width:36px;height:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.card-item{background:#fff;border-radius:14px;margin:8px 12px;padding:16px;display:flex;align-items:flex-start;gap:14px;position:relative;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.card-item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#E9A500}
+.item-qty-badge{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:18px;border-radius:10px;min-width:48px;height:48px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .item-body{flex:1;min-width:0}
-.item-name{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;color:#0D1B2A;line-height:1.3}
-.item-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
-.tag{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.item-name{font-family:'Sora',sans-serif;font-size:16px;font-weight:800;color:#0D1B2A;line-height:1.3}
+.item-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.tag{padding:4px 10px;border-radius:10px;font-size:12px;font-weight:700}
 .tag-color{background:#EEF2FF;color:#4F46E5}
 .tag-size{background:#F0FDF4;color:#16A34A}
 .tag-var{background:#FFF7ED;color:#C2410C}
-.item-meta{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:12px;color:#999}
-.item-sum{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#0D1B2A}
-.item-img{width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid #f0ede8}
-.item-img-ph{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:22px;display:flex;align-items:center;justify-content:center}
+.item-meta{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:13px;color:#888}
+.item-sum{font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#0D1B2A}
+.item-img{width:80px;height:80px;border-radius:12px;object-fit:cover;flex-shrink:0;border:1px solid #f0ede8}
+.item-img-ph{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:28px;display:flex;align-items:center;justify-content:center}
 .tag-sku{background:#F0F9FF;color:#0369A1}
 .tag-bar{background:#FDF4FF;color:#7E22CE}
 
@@ -1022,9 +1024,10 @@ document.addEventListener('keydown', e => { if(e.key==='Escape') closeLb(); });
 </body></html>`;
 }
 
-async function actionRenderStaffOrder(chekId, saleData) {
+async function actionRenderStaffOrder(chekId, saleData, shopId) {
   let sale = null;
   let shopName = "MERX";
+  const sid = shopId || null;
 
   if (saleData) {
     try {
@@ -1034,15 +1037,19 @@ async function actionRenderStaffOrder(chekId, saleData) {
 
   if (!sale) {
     const isNumericId = /^ID\d+$/.test(chekId);
+    const shopFilter  = sid ? `&shop_id=eq.${encodeURIComponent(sid)}` : "";
     const query = isNumericId
-      ? `?id=eq.${chekId.slice(2)}&select=*`
-      : `?chek_num=eq.${encodeURIComponent(chekId)}&select=*`;
+      ? `?id=eq.${chekId.slice(2)}&select=*${shopFilter}`
+      : `?chek_num=eq.${encodeURIComponent(chekId)}&select=*${shopFilter}`;
     const rows = await sb("sales", query);
     sale = rows?.[0] || null;
   }
 
   try {
-    const sets = await sb("settings", `?limit=1&select=shop_name`);
+    const setsQ = sid
+      ? `?shop_id=eq.${sid}&select=shop_name&limit=1`
+      : `?limit=1&select=shop_name`;
+    const sets = await sb("settings", setsQ);
     shopName = sets?.[0]?.shop_name || "MERX";
   } catch {}
 
@@ -1052,8 +1059,8 @@ async function actionRenderStaffOrder(chekId, saleData) {
       const skus = [...new Set(sale.items.map(i => i.sku).filter(Boolean))];
       if (skus.length) {
         const skuFilter = skus.map(s => `sku.eq.${encodeURIComponent(s)}`).join(",");
-        // image va art ni olamiz (image Supabase da bo'lmasa null qaytadi)
-        const prods = await sb("products", `?or=(${skuFilter})&select=sku,art,image`);
+        const prodShopF = sid ? `&shop_id=eq.${sid}` : "";
+        const prods = await sb("products", `?or=(${skuFilter})&select=sku,art,image${prodShopF}`);
         const prodMap = {};
         for (const p of (prods || [])) {
           if (p.sku) prodMap[p.sku] = { art: p.art || "", image: p.image || null };
@@ -1371,9 +1378,10 @@ export default async function handler(req, res) {
   if (req.method === "GET" && req.query?.action === "staff_order") {
     try {
       const chekId   = String(req.query.id || "");
-      const saleData = req.query.d || null;
+      const saleData = req.query.d    || null;
+      const shopId   = req.query.shop || null;
       if (!chekId) return res.status(400).send("Chek ID kerak");
-      const html = await actionRenderStaffOrder(chekId, saleData);
+      const html = await actionRenderStaffOrder(chekId, saleData, shopId);
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       return res.status(200).send(html);
     } catch (e) {
