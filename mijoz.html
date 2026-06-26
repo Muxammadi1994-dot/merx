@@ -328,8 +328,8 @@ async function init(){
   catch(e){showErr("Ulanish xatosi");return;}
 
   try{
-    const{data:s}=await _sb.from("settings").select("shop_name").eq("id",1).single();
-    const nm=s?.shop_name||"MERX";
+    const{data:sa}=await _sb.from("settings").select("shop_name").eq("shop_id",sid).limit(1);
+    const nm=sa?.[0]?.shop_name||"MERX";
     $("lshop").textContent=nm;$("tshop").textContent=nm;document.title=nm+" — Mijoz portali";
   }catch(e){}
 

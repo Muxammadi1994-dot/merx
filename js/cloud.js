@@ -213,7 +213,8 @@ async function pushToCloud() {
           if (c.birthday !== undefined)      row.birthday       = c.birthday || null;
           if (c.source !== undefined)        row.source         = c.source || null;
           if (c.debtLimit !== undefined)     row.debt_limit     = c.debtLimit || null;
-          if (c.loyaltyPoints !== undefined) row.loyalty_points = c.loyaltyPoints || 0;
+          if (c.loyaltyPoints !== undefined)   row.loyalty_points   = c.loyaltyPoints || 0;
+          if (c.telegramChatId !== undefined)  row.telegram_chat_id = c.telegramChatId || null;
           return row;
         });
         const { error } = await _sb.from("customers")
@@ -373,6 +374,7 @@ async function pullFromCloud() {
       db.customers = custs.map(c => ({
         id: c.id, name: c.name, phone: c.phone || "", phone2: c.phone2 || "",
         type: c.type || "ulgurji", note: c.note || "", company: c.company || "",
+        telegramChatId: c.telegram_chat_id || null,
         importantNote: c.important_note || "", birthday: c.birthday || "",
         source: c.source || "", debtLimit: c.debt_limit || null,
         loyaltyPoints: c.loyalty_points || 0,
