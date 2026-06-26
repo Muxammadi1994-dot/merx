@@ -45,10 +45,13 @@ function init() {
     initSupabase().then(async ok => {
       if (ok) {
         updateCloudUI(true);
-        if (!db.products?.length && !db.sales?.length) {
+        const isEmpty = !db.products?.length && !db.sales?.length;
+        const cloudId = db.settings?.cloudShopId;
+        if (isEmpty && cloudId && cloudId !== "local") {
+          // Yangi qurilma yoki yangi do'kon — Supabase dan yuklaymiz
           await pullFromCloud();
-        } else {
-          if (typeof renderDashboard === "function") renderDashboard();
+        } else if (typeof renderDashboard === "function") {
+          renderDashboard();
         }
       }
     });

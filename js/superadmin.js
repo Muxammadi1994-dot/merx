@@ -673,6 +673,7 @@ function saAddShop() {
     settings: {
       rate: 12800, priceCurrency: "uzs",
       shopType: shopType,
+      cloudShopId: shopId,
       adminEmail: loginEmail, adminPass: pass, modules,
       supabaseUrl: _url, supabaseKey: _key
     },
@@ -760,23 +761,38 @@ function saOpenShop(id) {
   const s = _saShops.find(x => x.id === id); if (!s) return;
   const dbKey = "merx_v5_" + id;
 
+  let url = "", key2 = "";
+  try { const m = JSON.parse(localStorage.getItem("merx_v5")||"{}"); url=m?.settings?.supabaseUrl||""; key2=m?.settings?.supabaseKey||""; } catch(e) {}
+  if (!url && typeof MERX_SUPABASE_URL !== "undefined") url  = MERX_SUPABASE_URL;
+  if (!key2 && typeof MERX_SUPABASE_KEY !== "undefined") key2 = MERX_SUPABASE_KEY;
+
   if (!localStorage.getItem(dbKey)) {
-    let url = "", key2 = "";
-    try { const m = JSON.parse(localStorage.getItem("merx_v5")||"{}"); url=m?.settings?.supabaseUrl||""; key2=m?.settings?.supabaseKey||""; } catch(e) {}
-    if (!url && typeof MERX_SUPABASE_URL !== "undefined") url  = MERX_SUPABASE_URL;
-    if (!key2 && typeof MERX_SUPABASE_KEY !== "undefined") key2 = MERX_SUPABASE_KEY;
+    // Yangi do'kon — bo'sh DB yaratamiz
     const shopDB = {
       shop: { name: s.name, type: s.shopType || "ikki" },
-      settings: { rate:12800, priceCurrency:"uzs",
+      settings: {
+        rate: 12800, priceCurrency: "uzs",
         shopType: s.shopType || "ikki",
-        adminEmail: s.ownerEmail || (s.phone ? s.phone.replace(/\D/g,"")+"@merx.uz" : s.id+"@merx.uz"),
+        cloudShopId: id,
+        adminEmail: s.ownerEmail || (s.phone ? s.phone.replace(/\D/g,"")+"@merx.uz" : id+"@merx.uz"),
         adminPass: s.ownerPass || "merx123",
-        supabaseUrl: url, supabaseKey: key2 },
+        supabaseUrl: url, supabaseKey: key2
+      },
       customers:[],products:[],sales:[],staff:[],
       ombor:[],xarajatlar:[],debtPayments:[],shifts:[],
       kassaBalances:{}, seq:1
     };
     localStorage.setItem(dbKey, JSON.stringify(shopDB));
+  } else {
+    // Mavjud do'kon — cloudShopId va supabase key ni yangilaymiz
+    try {
+      const existing = JSON.parse(localStorage.getItem(dbKey));
+      if (!existing.settings) existing.settings = {};
+      existing.settings.cloudShopId = id;
+      existing.settings.supabaseUrl = url;
+      existing.settings.supabaseKey = key2;
+      localStorage.setItem(dbKey, JSON.stringify(existing));
+    } catch(e) {}
   }
 
   const user = {

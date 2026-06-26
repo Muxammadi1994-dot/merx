@@ -433,8 +433,22 @@ async function doLogin() {
           };
         }
         if (!shopDB.settings) shopDB.settings = {};
-        shopDB.settings.supabaseUrl = MERX_SUPABASE_URL;
-        shopDB.settings.supabaseKey = MERX_SUPABASE_KEY;
+        shopDB.settings.supabaseUrl  = MERX_SUPABASE_URL;
+        shopDB.settings.supabaseKey  = MERX_SUPABASE_KEY;
+        shopDB.settings.cloudShopId  = shopId;
+        // Settings dan bot/eskiz ma'lumotlarini ham olamiz
+        if (sets) {
+          if (sets.eskiz_token)           shopDB.settings.eskizToken         = sets.eskiz_token;
+          if (sets.eskiz_sender)          shopDB.settings.eskizSender        = sets.eskiz_sender;
+          if (sets.telegram_bot)          shopDB.settings.telegramBotUrl     = sets.telegram_bot;
+          if (sets.telegram_bot_username) shopDB.settings.telegramBotUsername = sets.telegram_bot_username;
+          if (sets.staff_group_id)        shopDB.settings.staffGroupId       = sets.staff_group_id;
+          if (sets.loyalty_rate)          shopDB.settings.loyaltyRate        = sets.loyalty_rate;
+          if (sets.loyalty_value)         shopDB.settings.loyaltyValue       = sets.loyalty_value;
+          if (sets.shop_type)             shopDB.settings.shopType           = sets.shop_type;
+          if (sets.shop_name)             shopDB.shop.name                   = sets.shop_name;
+          if (sets.rate)                  shopDB.settings.rate               = sets.rate;
+        }
         db = shopDB;
         res = authLogin(email, pass, shopId);
         localStorage.setItem(dbKey, JSON.stringify(db));
