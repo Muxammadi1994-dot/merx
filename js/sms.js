@@ -37,6 +37,17 @@ async function sendTelegramReceipt(customerId, sale, customerPhone) {
   const botUrl = db.settings?.telegramBotUrl;
   if (!botUrl || (!customerId && !customerPhone)) return;
 
+  // shopId: cloudShopId yoki session dan — "local" bo'lmasligi kerak
+  const _sid = (() => {
+    if (db.settings?.cloudShopId && db.settings.cloudShopId !== "local")
+      return db.settings.cloudShopId;
+    if (typeof getShopId === "function") {
+      const s = getShopId();
+      if (s && s !== "local") return s;
+    }
+    return null;
+  })();
+
   try {
     const res = await fetch(botUrl + "?action=send_receipt", {
       method: "POST",
@@ -46,7 +57,7 @@ async function sendTelegramReceipt(customerId, sale, customerPhone) {
         customerPhone: customerPhone || null,
         sale,
         shopName: db.shop?.name || db.settings?.name || "MERX",
-        shopId: typeof getShopId === "function" ? getShopId() : null
+        shopId: _sid
       })
     });
     const data = await res.json();
@@ -75,7 +86,7 @@ async function sendTelegramText(customerId, customerPhone, text) {
         customerId: customerId || null,
         customerPhone: customerPhone || null,
         text,
-        shopId: typeof getShopId === "function" ? getShopId() : null
+        shopId: _sid || null
       })
     });
     const data = await res.json();
@@ -99,7 +110,14 @@ async function sendStaffNotification(sale) {
   // Guruh ID yo'q bo'lsa — jimgina o'tamiz
   if (!botUrl || !staffGroupId) return;
 
-  const shopId = typeof getShopId === "function" ? getShopId() : null;
+  const shopId = (() => {
+    if (db.settings?.cloudShopId && db.settings.cloudShopId !== "local")
+      return db.settings.cloudShopId;
+    if (typeof getShopId === "function") {
+      const s = getShopId(); if (s && s !== "local") return s;
+    }
+    return null;
+  })();
 
   try {
     const res = await fetch(botUrl + "?action=send_staff_notif", {

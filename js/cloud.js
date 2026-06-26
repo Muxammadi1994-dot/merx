@@ -8,10 +8,15 @@ let _sb = null; // Supabase client
 // ── Supabase clientini yaratish ───────────────────
 // ── Shop ID — multi-tenant izolyatsiya ───────────
 function getCloudShopId() {
-  // 1. Auth session dan (eng ishonchli manba)
-  if (typeof getShopId === "function") return getShopId();
-  // 2. db.settings da saqlangan
-  if (db.settings?.cloudShopId) return db.settings.cloudShopId;
+  // 1. db.settings da saqlangan cloudShopId — eng ishonchli
+  if (db.settings?.cloudShopId && db.settings.cloudShopId !== "local") {
+    return db.settings.cloudShopId;
+  }
+  // 2. Auth session dan
+  if (typeof getShopId === "function") {
+    const sid = getShopId();
+    if (sid && sid !== "local") return sid;
+  }
   // 3. Supabase URL dan hash (eski usul)
   const url = db.settings?.supabaseUrl || "";
   const match = url.match(/https:\/\/([^.]+)\.supabase\.co/);
@@ -157,30 +162,23 @@ async function pushToCloud() {
   try {
     // Settings
     // Settings — eski schema id=1, yangi schema shop_id
-    try {
-      await _sb.from("settings").upsert({
-        shop_id:        sid,
-        shop_name:      db.shop?.name || "MERX",
-        rate:           db.settings?.rate || 12800,
-        price_currency: db.settings?.priceCurrency || "uzs",
-        eskiz_token:    db.settings?.eskizToken    || null,
-        eskiz_sender:   db.settings?.eskizSender   || null,
-        telegram_bot:   db.settings?.telegramBotUrl || null,
-        telegram_bot_username: db.settings?.telegramBotUsername || null,
-        staff_group_id: db.settings?.staffGroupId  || null,
-        loyalty_rate:   db.settings?.loyaltyRate   || 0,
-        loyalty_value:  db.settings?.loyaltyValue  || 100,
-      });
-    } catch(e) {
-      // Eski schema — id bilan urinib ko'ramiz
+    // Settings — shop_id asosida upsert
+    if (sid && sid !== "local" && sid !== "default") {
       try {
         await _sb.from("settings").upsert({
-          id: 1,
-          shop_name: db.shop?.name || "MERX",
-          rate: db.settings?.rate || 12800,
-          price_currency: db.settings?.priceCurrency || "uzs"
-        });
-      } catch(e2) { console.warn("settings sync xato:", e2.message); }
+          shop_id:        sid,
+          shop_name:      db.shop?.name || "MERX",
+          rate:           db.settings?.rate || 12800,
+          price_currency: db.settings?.priceCurrency || "uzs",
+          eskiz_token:    db.settings?.eskizToken    || null,
+          eskiz_sender:   db.settings?.eskizSender   || null,
+          telegram_bot:   db.settings?.telegramBotUrl || null,
+          telegram_bot_username: db.settings?.telegramBotUsername || null,
+          staff_group_id: db.settings?.staffGroupId  || null,
+          loyalty_rate:   db.settings?.loyaltyRate   || 0,
+          loyalty_value:  db.settings?.loyaltyValue  || 100,
+        }, { onConflict: "shop_id" });
+      } catch(e) { console.warn("settings upsert xato:", e.message); }
     }
 
     // Helper — upsert id asosida, xato bo'lsa warning, davom etadi
