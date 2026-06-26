@@ -566,10 +566,16 @@ function saveStaff(id) {
 
 function deleteStaff(id) {
   const s = db.staff.find(x => x.id === id); if (!s) return;
-  const cnt = db.sales.filter(x => x.staffId === id).length;
-  const msg = cnt > 0
-    ? `"${s.name}" — ${cnt} ta sotuv bor. O'chirilsa sotuvlarda "kassir: —" bo'ladi. O'chirishni tasdiqlaysizmi?`
-    : `"${s.name}" o'chirilsinmi?`;
+  const cnt      = (db.sales||[]).filter(x => x.staffId === id).length;
+  const debtCnt  = (db.sales||[]).filter(x => x.staffId === id && x.status === "qarz").length;
+  const payCnt   = (db.debtPayments||[]).filter(x => x.staffId === id).length;
+
+  let msg = `"${s.name}" ni o'chirasizmi?`;
+  if (cnt > 0)    msg += `\n• ${cnt} ta sotuv mavjud`;
+  if (debtCnt > 0) msg += ` (${debtCnt} tasi qarzda!)`;
+  if (payCnt > 0) msg += `\n• ${payCnt} ta to'lov qabul qilgan`;
+  if (cnt > 0 || payCnt > 0) msg += "\nO'chirilsa bu yozuvlarda kassir ko'rsatilmaydi.";
+
   if (!confirm(msg)) return;
   db.staff = db.staff.filter(x => x.id !== id);
   saveDB(); renderXodimlar();

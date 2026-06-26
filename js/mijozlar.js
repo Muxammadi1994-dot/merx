@@ -627,11 +627,23 @@ function editCustomer(id) {
 function deleteCust(id) {
   const c = db.customers.find(x => x.id === id); if (!c) return;
   const st = custStats(id);
-  if (st.count > 0) {
+
+  // Qarzlarini tekshiramiz
+  const openDebts = (db.sales||[]).filter(s =>
+    s.customerId === id && s.status === "qarz" &&
+    (typeof calcSaleState === "function" ? calcSaleState(s).remaining > 0 : s.remaining > 0)
+  );
+
+  if (openDebts.length > 0) {
+    const totalDebt = openDebts.reduce((a, s) =>
+      a + (typeof calcSaleState === "function" ? calcSaleState(s).remaining : s.remaining||0), 0);
+    if (!confirm(`"${c.name}" mijozida ${openDebts.length} ta yopilmagan qarz bor!\nJami qarz: ${Math.round(totalDebt).toLocaleString("ru-RU")} so'm\n\nQarzlari to'lanmagan mijozni o'chirasizmi?`)) return;
+  } else if (st.count > 0) {
     if (!confirm(`"${c.name}" mijozida ${st.count} ta sotuv tarixi bor.\nO'chirilsa faqat kontakt ma'lumotlari o'chadi, sotuv tarixi saqlanadi.\nDavom etilsinmi?`)) return;
   } else {
     if (!confirm(`"${c.name}" o'chirilsinmi?`)) return;
   }
+
   db.customers = db.customers.filter(x => x.id !== id);
   saveDB(); closeModal("custcard"); renderMijozlar();
   toast(`"${c.name}" o'chirildi`);

@@ -920,6 +920,9 @@ function epConfirmAddColor() {
 
 function saveEditProduct() {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
+  // Narx 0 ogohlantirish
+  const _newPrice = parseFloat($("ep-price")?.value || "0") || 0;
+  if (_newPrice === 0 && !confirm("Chakana narx 0 so'm qilib saqlansin?")) return;
   p.name        = $("ep-name").value.trim()     || p.name;
   p.category    = $("ep-cat").value.trim()      || p.category;
   // Tannarx: input qiymati joriy valyuta rejimida, bazaga har doim USD saqlanadi
@@ -948,7 +951,22 @@ function saveEditProduct() {
 
 function deleteProduct() {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
-  if (!confirm(`"${p.name}" ni o'chirasizmi? Bu amalni qaytarib bo'lmaydi.`)) return;
+
+  // Aktiv sotuvlarda bormi?
+  const activeSales = (db.sales||[]).filter(s =>
+    s.status !== "qaytarilgan" &&
+    (s.items||[]).some(i => i.sku === p.sku || i.name === p.name)
+  );
+  if (activeSales.length > 0) {
+    const inDebt = activeSales.filter(s => s.status === "qarz").length;
+    const msg = inDebt > 0
+      ? `"${p.name}" ${activeSales.length} ta sotuvda mavjud, shundan ${inDebt} tasi qarzda!\nBaribir o'chirasizmi?`
+      : `"${p.name}" ${activeSales.length} ta sotuvda mavjud.\nBaribir o'chirasizmi?`;
+    if (!confirm(msg)) return;
+  } else {
+    if (!confirm(`"${p.name}" ni o'chirasizmi? Bu amalni qaytarib bo'lmaydi.`)) return;
+  }
+
   db.products = db.products.filter(x => x.sku !== editSku);
   saveDB(); closeModal("editprod"); renderKatalog();
   toast(`"${p.name}" o'chirildi`, "info");
