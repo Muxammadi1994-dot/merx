@@ -1138,10 +1138,16 @@ async function checkout() {
 
   if (posPayMode === "part") {
     if (!cName) { toast("Qisman to'lovda mijoz ismi shart","err"); return; }
-    paid    = posPayType === "aralash" ? getMixedTotal() : getRawVal("c-paid");
-    due     = ($("c-due")||{value:""}).value;
-    rem     = Math.max(0, total - paid);
-    status  = rem > 0 ? "qarz" : "tolandan";
+    paid = posPayType === "aralash" ? getMixedTotal() : getRawVal("c-paid");
+    due  = ($("c-due")||{value:""}).value;
+
+    // Validate: to'langan summa manfiy bo'lmasligi kerak
+    if (paid < 0) { toast("To'langan summa manfiy bo'lishi mumkin emas","err"); return; }
+    // Validate: to'langan summa jami dan ko'p bo'lmasligi kerak
+    if (paid > total + 1) { toast(`To'langan summa (${fmt(paid)}) jami summadan (${fmt(total)}) ko'p`,"err"); return; }
+
+    rem    = Math.max(0, total - paid);
+    status = rem > 0 ? "qarz" : "tolandan";
     if (posDebtCurrency === "usd" && rem > 0) {
       debtUsd = parseFloat((rem / (db.settings.rate||12800)).toFixed(2));
     }

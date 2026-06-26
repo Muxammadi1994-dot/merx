@@ -78,6 +78,15 @@ async function sendTelegramText(customerId, customerPhone, text) {
   if (!botUrl || (!customerId && !customerPhone)) {
     return { ok: false, reason: "no_bot_or_customer" };
   }
+  // shopId: cloudShopId yoki session dan
+  const _txtSid = (() => {
+    if (db.settings?.cloudShopId && db.settings.cloudShopId !== "local")
+      return db.settings.cloudShopId;
+    if (typeof getShopId === "function") {
+      const s = getShopId(); if (s && s !== "local") return s;
+    }
+    return null;
+  })();
   try {
     const res = await fetch(botUrl + "?action=send_text", {
       method: "POST",
@@ -86,7 +95,7 @@ async function sendTelegramText(customerId, customerPhone, text) {
         customerId: customerId || null,
         customerPhone: customerPhone || null,
         text,
-        shopId: _sid || null
+        shopId: _txtSid
       })
     });
     const data = await res.json();

@@ -257,11 +257,22 @@ async function pushToCloud() {
     try {
       // Avval asosiy ustunlar (eski schema bilan mos)
       const staffRows = db.staff?.map(s => {
-        return {
+        const row = {
           shop_id: sid, id: s.id, name: s.name,
           phone: s.phone || null,
           role: s.role || "kassir"
         };
+        // Ruxsatlar va modullarni JSON ga o'tkazamiz
+        if (s.permissions) {
+          try { row.permissions = typeof s.permissions === "string"
+            ? s.permissions : JSON.stringify(s.permissions); } catch(e) {}
+        }
+        if (s.modules) {
+          try { row.modules = typeof s.modules === "string"
+            ? s.modules : JSON.stringify(s.modules); } catch(e) {}
+        }
+        if (s.pin !== undefined) row.pin = s.pin || null;
+        return row;
       });
       await sync("staff", staffRows);
     } catch(e) { syncErrors.push("staff: " + e.message); console.warn("sync staff xato:", e.message); }
@@ -385,14 +396,25 @@ async function pullFromCloud() {
     // Staff
     const { data: staffData } = await _sb.from("staff").select("*").eq("shop_id", sid);
     if (staffData && staffData.length > 0) {
-      db.staff = staffData.map(s => ({
-        id: s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir",
-        pin: s.pin || null, salary: s.salary || 0, bonusPct: s.bonus_pct || 0,
-        monthTarget: s.month_target || 0,
-        permDiscount: s.perm_discount || false, maxDiscount: s.max_discount || 0,
-        permNasiya: s.perm_nasiya || false, permReturn: s.perm_return || false,
-        paidMonths: s.paid_months || [], salaryHistory: s.salary_history || []
-      }));
+      db.staff = staffData.map(s => {
+        const st = {
+          id: s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir",
+          pin: s.pin || null, salary: s.salary || 0, bonusPct: s.bonus_pct || 0,
+          monthTarget: s.month_target || 0,
+          permDiscount: s.perm_discount || false, maxDiscount: s.max_discount || 0,
+          permNasiya: s.perm_nasiya || false, permReturn: s.perm_return || false,
+          paidMonths: s.paid_months || [], salaryHistory: s.salary_history || []
+        };
+        if (s.permissions) {
+          try { st.permissions = typeof s.permissions === "string"
+            ? JSON.parse(s.permissions) : s.permissions; } catch(e) {}
+        }
+        if (s.modules) {
+          try { st.modules = typeof s.modules === "string"
+            ? JSON.parse(s.modules) : s.modules; } catch(e) {}
+        }
+        return st;
+      });
     }
 
     // Sales
