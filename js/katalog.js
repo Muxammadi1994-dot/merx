@@ -1768,11 +1768,16 @@ function parseImportCSV(text) {
     const pantone = cols.pantone >= 0 ? (vals[cols.pantone]?.trim() || "") : "";
     const hex     = pantoneToHex(pantone, colorRaw);
 
-    // Barcode: shablondan olish, yo'q bo'lsa nom+art bo'yicha bir xil barcode
+    // Barcode: shablondan olish, yo'q bo'lsa nom+art+rang bo'yicha barcode
+    // Har xil rangli tovar o'z barcodeiga ega bo'ladi
     let barcode = cols.barcode >= 0 ? vals[cols.barcode]?.trim().replace(/^'/,"") : "";
     if (!barcode) {
+      // nom+art bo'yicha asosiy barcode (bitta mahsulot — bitta barcode)
+      // Bu POS da skanerlash uchun: bir barcode → mahsulot topiladi → rang tanlash
       const bKey = (nom + "|" + art).toLowerCase();
-      if (!barcodeMap[bKey]) barcodeMap[bKey] = genEAN13(db.seq + Object.keys(barcodeMap).length);
+      if (!barcodeMap[bKey]) {
+        barcodeMap[bKey] = genEAN13(db.seq++);
+      }
       barcode = barcodeMap[bKey];
     }
 
@@ -1911,7 +1916,7 @@ function confirmImport() {
         unit:        r.unit || "dona",
         inBox:       r.inbox || 1,
         art:         r.art || "",
-        barcode:     r.barcode || genEAN13(db.seq),
+        barcode:     r.barcode || genEAN13(db.seq++),
         costUsd:     r.costUsd || 0,
         priceUzs:    0,
         ulgurjiNarx: r.ulg || 0,
