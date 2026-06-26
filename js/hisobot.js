@@ -746,6 +746,9 @@ function renderRepStaff(sales) {
 // ── Excel eksport ─────────────────────────────────
 // Har bir tahlil uchun alohida CSV yuklab olinadi
 
+// ── Hisobotni chop etish ─────────────────────────
+function printHisobot() { window.print(); }
+
 function exportHisobotExcel() {
   // 1. Asosiy sotuv tarixi
   const { from, to } = repDateRange();

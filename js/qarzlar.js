@@ -515,6 +515,11 @@ function renderDebtsList(list, rate) {
               <option value="karta">💳 Karta</option>
               <option value="otkazma">🏦 O'tkazma</option>
             </select>
+            <select id="pay-staff-${s.id}"
+              style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:90px">
+              <option value="">Kassir</option>
+              ${(db.staff||[]).map(st=>`<option value="${st.id}">${st.name}</option>`).join("")}
+            </select>
             <button class="btn btn-teal btn-sm" onclick="recordPayment(${s.id})">To'lov</button>
           </div>
           ${(() => {
@@ -770,12 +775,14 @@ async function useBalanceForDebt(saleId) {
   else cust.balanceUzs = (cust.balanceUzs||0) - useAmt;
 
   // To'lov sifatida yozamiz (manba: balans)
+  const staffId1 = parseInt((typeof $==="function"&&$("qarz-staff")?.value)||0)||null;
   const payment = {
     id: (db.seq = (db.seq||1) + 1),
     chekNum: genPayChekNum(),
     date: today(), time: nowTime(),
     customerId: sale.customerId,
     customerName: cust.name, customerPhone: cust.phone,
+    staffId: staffId1,
     amount: useAmt, currency: isUsd ? "usd" : "uzs",
     method: "balans",
     allocations: [{
@@ -801,7 +808,8 @@ async function recordPayment(id, forcedCurrency) {
   const amt = parseFloat(($("pay-"+id)||{value:0}).value) || 0;
   if (amt <= 0) { toast("Summani kiriting","err"); return; }
 
-  const method = ($("pay-method-"+id)||{value:"naqd"}).value || "naqd";
+  const method  = ($("pay-method-"+id)||{value:"naqd"}).value || "naqd";
+  const _staffId = parseInt(($("pay-staff-"+id)||{value:""}).value)||null;
 
   const rate    = db.settings.rate || 12800;
   const clickedState = calcSaleState(clicked);
@@ -873,6 +881,11 @@ async function recordPayment(id, forcedCurrency) {
 
   // ── To'lov yozuvini saqlash (sale o'zi o'zgarmaydi!) ──
   const cu = debtCust(clicked);
+  // Kassir ID — qarz to'lov modalidagi selector dan
+  const _payStaffId = (() => {
+    const el = typeof $ === "function" ? $("qarz-pay-staff") : null;
+    return el ? (parseInt(el.value)||null) : null;
+  })();
   const payment = {
     id:            (db.seq = (db.seq||1) + 1),
     chekNum:       genPayChekNum(),
@@ -881,6 +894,7 @@ async function recordPayment(id, forcedCurrency) {
     customerId:    clicked.customerId || null,
     customerName:  cu.name,
     customerPhone: cu.phone,
+    staffId:       _payStaffId || _staffId || null,
     amount:        amt,
     currency:      payCur,
     method:        method,
