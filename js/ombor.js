@@ -487,14 +487,19 @@ function omRenderKirim() {
   if (byPochka) {
     const groups = {};
     list.forEach(o => {
+      // Partiya: sana + mahsulot + rang + yetkazuvchi + partiya nomi
       const key = (o.date||"") + "|" + (o.productName||"") + "|" + (o.art||"") + "|" + (o.color||"") + "|" + (o.supplier||"") + "|" + (o.partiya||"");
       if (!groups[key]) {
-        groups[key] = { ...o, sizes: [], totalQty: 0, totalBoxes: 0 };
+        groups[key] = { ...o, sizes: [], totalQty: 0, totalBoxes: 0, maxBoxes: 0 };
       }
-      groups[key].sizes.push(o.size);
-      groups[key].totalQty   += o.qty || 0;
-      groups[key].totalBoxes += o.boxes || 0;
+      if (o.size) groups[key].sizes.push(o.size);
+      groups[key].totalQty += o.qty || 0;
+      // Pochka soni: bir rangda barcha o'lchamlar uchun bir xil boxes
+      // Shuning uchun MAX qiymatni olamiz (yoki birinchi non-zero)
+      if ((o.boxes||0) > groups[key].maxBoxes) groups[key].maxBoxes = o.boxes||0;
     });
+    // maxBoxes ni totalBoxes sifatida ishlatamiz
+    Object.values(groups).forEach(g => { g.totalBoxes = g.maxBoxes || 0; });
     rows = Object.values(groups);
   } else {
     rows = list;
@@ -508,7 +513,8 @@ function omRenderKirim() {
       : o.size;
     const qtyDisplay = isPochka
       ? (o.totalBoxes > 0
-          ? `<span class="bg bg-g" style="font-weight:700">${o.totalBoxes} pochka</span><div style="font-size:11px;color:#6B7280;margin-top:2px">${o.totalQty} dona</div>`
+          ? `<span class="bg bg-g" style="font-weight:700">${o.totalBoxes} pochka</span>
+             <div style="font-size:11px;color:#6B7280;margin-top:2px">${[...new Set(o.sizes||[])].filter(Boolean).join(", ")} · ${o.totalQty} dona</div>`
           : `<span class="bg bg-g" style="font-weight:700">+${o.totalQty} dona</span>`)
       : (o.boxes
           ? `<span class="bg bg-g" style="font-weight:700">${o.boxes} pochka</span>`
@@ -536,7 +542,7 @@ function omRenderKirim() {
       <td style="font-size:12.5px">${o.supplier||"—"}</td>
       <td style="font-size:12px;color:var(--mut)">
         ${o.partiya === "Excel import"
-          ? `<span class="bg" style="background:#EEE9FF;color:#6B4FBB;font-size:10.5px"><i class="ti ti-file-spreadsheet" style="font-size:11px"></i> Excel</span>`
+          ? `<span style="font-size:11px;color:#6B4FBB">Excel</span>`
           : (o.partiya||"—")}
       </td>
       <td><span class="bg ${o.payStatus==="qarz"?"bg-r":"bg-g"}">${o.payStatus==="qarz"?"To'lanmagan":"To'langan"}</span></td>
