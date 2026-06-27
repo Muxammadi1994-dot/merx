@@ -1790,9 +1790,9 @@ function parseImportCSV(text) {
     // Har xil rangli tovar o'z barcodeiga ega bo'ladi
     let barcode = cols.barcode >= 0 ? vals[cols.barcode]?.trim().replace(/^'/,"") : "";
     if (!barcode) {
-      // nom+art bo'yicha asosiy barcode (bitta mahsulot — bitta barcode)
-      // Bu POS da skanerlash uchun: bir barcode → mahsulot topiladi → rang tanlash
-      const bKey = (nom + "|" + art).toLowerCase();
+      // nom+art+RANG bo'yicha barcode — har xil rang alohida barcode oladi
+      // o'lcham hisobga olinmaydi (bir rangning barcha o'lchamlari bir barcode)
+      const bKey = (nom + "|" + art + "|" + colorRaw).toLowerCase();
       if (!barcodeMap[bKey]) {
         barcodeMap[bKey] = genEAN13(db.seq++);
       }

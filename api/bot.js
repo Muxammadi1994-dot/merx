@@ -269,9 +269,14 @@ async function handleContact(chatId, contact) {
   const rawPhone = normPhone(contact.phone_number);
 
   try {
-    // Barcha customers ni olamiz
-    const all = await sb("customers", `?select=*`);
-    console.log(`[handleContact] phone=${rawPhone}, customers=${all?.length}`);
+    // shopId — cache dan olamiz (start bosganida saqlangan)
+    const ctx = await getShopCtx(chatId);
+    const shopId = ctx.shopId;
+    const shopFilter = shopId ? `&shop_id=eq.${shopId}` : "";
+
+    // Shu do'kon customers ni olamiz (yoki shop_id yo'q bo'lsa barchani)
+    const all = await sb("customers", `?select=*${shopFilter}`);
+    console.log(`[handleContact] phone=${rawPhone}, shopId=${shopId}, customers=${all?.length}`);
 
     // Telefon formatlarini solishtirish (998 prefix bilan va siz)
     const match = all.find(c => {
@@ -284,6 +289,26 @@ async function handleContact(chatId, contact) {
 
     if (!match) {
       console.log(`[handleContact] topilmadi: ${rawPhone}`);
+      // Agar shop_id bilan topilmasa — barchada qidiramiz
+      if (shopFilter) {
+        const allGlobal = await sb("customers", `?select=*`);
+        const globalMatch = allGlobal?.find(c => {
+          const cp = normPhone(c.phone || "");
+          if (!cp) return false;
+          const normalize = p => p.startsWith("998") ? p.slice(3) : p;
+          return normalize(cp) === normalize(rawPhone);
+        });
+        if (globalMatch) {
+          // Topildi, lekin boshqa do'konda — bildiramiz
+          await tg(chatId,
+            "⚠️ Raqamingiz boshqa do'konda topildi.\n\n" +
+            "Siz hozir tanlagan do'konda hali xarid qilmagansiz.\n" +
+            "Do'konda birinchi xaridingizdan so'ng avtomatik bog'lanadi.",
+            { reply_markup: { remove_keyboard: true } }
+          );
+          return;
+        }
+      }
       await tg(chatId,
         "⚠️ Raqamingiz bizning mijozlar bazasida topilmadi.\n\n" +
         "Birinchi xaridingizdan so'ng avtomatik bog'lanadi. Iltimos, do'konda xarid qiling.",
@@ -296,19 +321,19 @@ async function handleContact(chatId, contact) {
 
     // Telefon raqami bo'yicha PATCH — eng ishonchli usul
     let patchResult = null;
-    const shopId = match.shop_id || null;
+    const matchShopId = match.shop_id || shopId || null;
 
     // Cache ga shopId ni saqlaymiz
-    if (shopId) {
-      const shops = await sb("shops", `?id=eq.${shopId}&select=name&limit=1`).catch(() => []);
+    if (matchShopId) {
+      const shops = await sb("shops", `?id=eq.${matchShopId}&select=name&limit=1`).catch(() => []);
       const shopName = shops?.[0]?.name || "MERX";
-      _shopCache.set(String(chatId), { shopId, shopName, isOwner: false, isSuperAdmin: false, ts: Date.now() });
+      _shopCache.set(String(chatId), { shopId: matchShopId, shopName, isOwner: false, isSuperAdmin: false, ts: Date.now() });
     }
 
     // 1. Telefon bo'yicha yangilash
     try {
       patchResult = await sbPatch("customers",
-        `?phone=eq.${encodeURIComponent(match.phone)}${shopId ? "&shop_id=eq."+shopId : ""}`,
+        `?phone=eq.${encodeURIComponent(match.phone)}${matchShopId ? "&shop_id=eq."+matchShopId : ""}`,
         { telegram_chat_id: String(chatId) }
       );
       console.log(`[handleContact] phone patch result: ${JSON.stringify(patchResult)}`);
@@ -319,7 +344,7 @@ async function handleContact(chatId, contact) {
     // 2. Agar phone patch ishlamasa, local_id bo'yicha
     if (!patchResult?.length && match.local_id != null) {
       try {
-        patchResult = await sbPatch("customers", `?local_id=eq.${match.local_id}`, { telegram_chat_id: String(chatId) });
+        patchResult = await sbPatch("customers", `?local_id=eq.${match.local_id}${matchShopId?"&shop_id=eq."+matchShopId:""}`, { telegram_chat_id: String(chatId) });
         console.log(`[handleContact] local_id patch: ${JSON.stringify(patchResult)}`);
       } catch(e) {
         console.log(`[handleContact] local_id patch xato: ${e.message}`);

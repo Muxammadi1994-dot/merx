@@ -950,6 +950,11 @@ async function recordPayment(id, forcedCurrency) {
       smsTxt += a.fullyPaid ? " Qarz to'liq yopildi." : ` ${fmtMoney(a.remainingAfter,a.currency)} qoldi.`;
     }
     await sendSms(phone, smsTxt);
+
+    // Telegram orqali ham xabar yuboramiz
+    if (typeof sendTelegramText === "function") {
+      await sendTelegramText(clicked.customerId || null, phone, smsTxt);
+    }
   }
 }
 

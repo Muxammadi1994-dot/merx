@@ -418,11 +418,17 @@ async function doLogin() {
         const dbKey  = "merx_v5_" + shopId;
         let shopDB   = null;
         try { shopDB = JSON.parse(localStorage.getItem(dbKey)); } catch(e) {}
-        if (!shopDB) {
+
+        // Settings ni HAR DOIM Supabase dan olamiz (yangi qurilma uchun ham)
+        let sets = null;
+        try {
           const { data: setsArr2 } = await sb.from("settings").select("*").eq("shop_id", shopId).limit(1);
-          const sets = setsArr2?.[0] || null;
+          sets = setsArr2?.[0] || null;
+        } catch(e) { console.warn("Settings yuklash xato:", e.message); }
+
+        if (!shopDB) {
           shopDB = {
-            shop: { name: shop.name, type: "ikki" },
+            shop: { name: shop.name, type: sets?.shop_type || "ikki" },
             settings: {
               rate: sets?.rate || 12800, priceCurrency: sets?.price_currency || "uzs",
               supabaseUrl: MERX_SUPABASE_URL, supabaseKey: MERX_SUPABASE_KEY
@@ -436,7 +442,7 @@ async function doLogin() {
         shopDB.settings.supabaseUrl  = MERX_SUPABASE_URL;
         shopDB.settings.supabaseKey  = MERX_SUPABASE_KEY;
         shopDB.settings.cloudShopId  = shopId;
-        // Settings dan bot/eskiz ma'lumotlarini ham olamiz
+        // Settings dan bot/eskiz ma'lumotlarini har doim yangilaymiz
         if (sets) {
           if (sets.eskiz_token)           shopDB.settings.eskizToken         = sets.eskiz_token;
           if (sets.eskiz_sender)          shopDB.settings.eskizSender        = sets.eskiz_sender;

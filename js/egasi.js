@@ -45,9 +45,17 @@ function saveSetting(key, val) {
   }
   if (key === "telegramBotUsername") {
     // Faqat @ belgisi bo'lsa email deb hisoblaymiz (merx_savdo_bot.uz emas)
-    if (val.includes("@")) {
+    // Faqat harf va _ belgisi bo'lishi kerak (telefon, email, URL emas)
+    const cleanVal = val.replace(/^@/, "").trim();
+    const isPhone = /^[+\d\s\-()]{6,}$/.test(cleanVal);
+    const isEmail = cleanVal.includes("@");
+    const isUrl   = cleanVal.includes(".");
+    if (isPhone || isEmail || isUrl) {
       if (db.settings) db.settings.telegramBotUsername = "";
-      toast("Bot username email emas — merx_savdo_bot kabi kiriting (@ siz)", "err");
+      const msg = isPhone
+        ? "Bu telefon raqam! Bot username kiriting: merx_savdo_bot"
+        : "Bot username noto'g'ri — merx_savdo_bot kabi kiriting (@ siz)";
+      toast(msg, "err");
       const inp = document.getElementById("s-tg-bot-username");
       if (inp) inp.value = "";
       return;
@@ -552,7 +560,9 @@ function _updateTgMijozLink() {
   // Bot username — @merx_savdo_bot shaklida, emailni filtrlaymiz
   let botUsername = (db.settings?.telegramBotUsername || "").replace(/^@/, "").trim();
   // Email bo'lsa — bo'sh qilamiz (noto'g'ri kiritilgan)
-  if (botUsername.includes("@") || botUsername.includes(".com") || botUsername.includes(".uz")) {
+  // Telefon, email, URL bo'lsa tozalaymiz
+  if (botUsername.includes("@") || botUsername.includes(".") ||
+      /^[+\d\s\-()]{6,}$/.test(botUsername)) {
     botUsername = "";
   }
 
