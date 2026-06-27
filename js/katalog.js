@@ -1917,6 +1917,22 @@ function confirmImport() {
 
   let added = 0, updated = 0, skipped = 0;
 
+  // Avtomatik partiya raqami: P-YYYY-NNN
+  const _genPartiyaNum = () => {
+    const year = new Date().getFullYear();
+    const prefix = "P-" + year + "-";
+    // Mavjud partiyalar orasidan eng katta raqamni topamiz
+    let maxNum = 0;
+    (db.ombor||[]).forEach(o => {
+      if (o.partiya && o.partiya.startsWith(prefix)) {
+        const n = parseInt(o.partiya.slice(prefix.length)) || 0;
+        if (n > maxNum) maxNum = n;
+      }
+    });
+    return prefix + String(maxNum + 1).padStart(3, "0");
+  };
+  const importPartiya = _genPartiyaNum();
+
   _importRows.forEach(r => {
     // Mavjud mahsulotni topish (nom + art bo'yicha)
     let p = db.products.find(x =>
@@ -2012,7 +2028,7 @@ function confirmImport() {
         chakana:     p.priceUzs    || 0,
         ulgurji:     p.ulgurjiNarx || r.ulg || 0,
         supplier:    "",
-        partiya:     "Excel import",
+        partiya:     importPartiya,
         payStatus:   "tolandan"
       });
     }

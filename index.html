@@ -956,11 +956,15 @@
         <button class="om-filter-btn" data-kf="manual" onclick="omSetKirimFilter('manual')">
           <i class="ti ti-edit" style="font-size:12px"></i> Qo'lda kiritilgan
         </button>
-        <div style="margin-left:auto">
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+          <select id="om-partiya-filter" onchange="omSetPartiyaFilter(this.value)"
+            style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:7px;padding:5px 10px;color:var(--ink);background:#fff;cursor:pointer">
+            <option value="">Barcha partiyalar</option>
+          </select>
           <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;background:#FFF7ED;padding:5px 10px;border-radius:7px;border:1px solid #FED7AA">
             <input type="checkbox" id="om-by-pochka" checked onchange="omRenderKirim()"
               style="width:14px;height:14px;accent-color:#E9A500">
-            📦 Pochka ko'rinish
+            📦 Pochka
           </label>
         </div>
       </div>

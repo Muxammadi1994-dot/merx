@@ -462,6 +462,29 @@ function exportLowStock() {
 
 let omKirimFilter = "all"; // "all" | "excel" | "manual"
 
+// Partiya raqamlari ro'yxati
+function getPartiyaList() {
+  const parts = new Set();
+  (db.ombor||[]).forEach(o => { if (o.partiya) parts.add(o.partiya); });
+  return [...parts].sort().reverse();
+}
+
+// Partiya filter render
+function renderPartiyaFilter() {
+  const el = document.getElementById("om-partiya-filter");
+  if (!el) return;
+  const parts = getPartiyaList();
+  el.innerHTML = `<option value="">Barcha partiyalar</option>` +
+    parts.map(p => `<option value="${p}">${p}</option>`).join("");
+}
+
+let _omPartiyaFilter = "";
+
+function omSetPartiyaFilter(val) {
+  _omPartiyaFilter = val;
+  omRenderKirim();
+}
+
 function omSetKirimFilter(f) {
   omKirimFilter = f;
   document.querySelectorAll("[data-kf]").forEach(b => b.classList.toggle("on", b.dataset.kf === f));
@@ -469,6 +492,7 @@ function omSetKirimFilter(f) {
 }
 
 function omRenderKirim() {
+  renderPartiyaFilter();
   const q = ($("om-q")||{value:""}).value.toLowerCase();
   const byPochka = $("om-by-pochka")?.checked !== false;
 
@@ -477,8 +501,9 @@ function omRenderKirim() {
     (o.supplier||"").toLowerCase().includes(q) ||
     (o.color||"").toLowerCase().includes(q)
   );
-  if (omKirimFilter === "excel")  list = list.filter(o => o.partiya === "Excel import");
-  if (omKirimFilter === "manual") list = list.filter(o => o.partiya !== "Excel import");
+  if (omKirimFilter === "excel")  list = list.filter(o => o.partiya && o.partiya.startsWith("Excel"));
+  if (omKirimFilter === "manual") list = list.filter(o => !o.partiya || !o.partiya.startsWith("Excel"));
+  if (_omPartiyaFilter) list = list.filter(o => o.partiya === _omPartiyaFilter);
 
   list = list.slice().reverse();
 
