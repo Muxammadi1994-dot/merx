@@ -1956,6 +1956,11 @@ function confirmImport() {
       if (ex) {
         if (!skipDup) { ex.qty += r.qty; updated++; }
         else skipped++;
+        // Mavjud variant uchun ham colorBarcodes to'ldiramiz
+        if (!p.colorBarcodes) p.colorBarcodes = {};
+        if (colorBarcode && !p.colorBarcodes[colorRaw]) {
+          p.colorBarcodes[colorRaw] = colorBarcode;
+        }
       } else {
         p.variants.push(variant);
         if (r.art && !p.art)   p.art         = r.art;
@@ -2382,4 +2387,30 @@ function updateColorBarcode(sku, color, newBarcode) {
   if (first) p.barcode = first;
   saveDB();
   toast("✅ Barcode yangilandi");
+}
+
+
+// ── Mavjud mahsulotlar uchun colorBarcodes migratsiyasi ──────
+// Eski mahsulotlarda colorBarcodes yo'q — ranglar bo'yicha barcode yaratib to'ldiramiz
+function migrateColorBarcodes() {
+  let fixed = 0;
+  db.products.forEach(p => {
+    if (p.colorBarcodes && Object.keys(p.colorBarcodes).length > 0) return; // allaqachon bor
+    const colors = [...new Set((p.variants||[]).map(v => v.color).filter(Boolean))];
+    if (!colors.length) return;
+    p.colorBarcodes = {};
+    colors.forEach((clr, i) => {
+      // Birinchi rang uchun p.barcode ni ishlat, qolganlariga yangi barcode
+      const bc = i === 0 && p.barcode ? p.barcode : genEAN13(db.seq++);
+      p.colorBarcodes[clr] = bc;
+    });
+    fixed++;
+  });
+  if (fixed > 0) {
+    saveDB();
+    toast("✅ " + fixed + " ta mahsulotga rang barcodelari qo'shildi");
+    renderKatalog();
+  } else {
+    toast("Barcha mahsulotlarda barcode mavjud");
+  }
 }
