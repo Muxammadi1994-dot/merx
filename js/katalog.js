@@ -461,14 +461,9 @@ function renderKatalog() {
         </div>
       </td>
       <td class="kat-col-category" style="font-size:12px;color:var(--mut)">${p.category}</td>
-      <td class="kat-col-barcode" style="font-family:monospace;font-size:11px">
-        ${p.colorBarcodes && Object.keys(p.colorBarcodes).length > 0
-          ? Object.entries(p.colorBarcodes).map(([clr, bc]) =>
-              `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
-                <span style="font-size:10px;color:var(--mut);min-width:40px">${clr}:</span>
-                <span style="background:var(--bg);padding:1px 6px;border-radius:4px;border:1px solid var(--brd);font-size:11px">${bc}</span>
-              </div>`
-            ).join("")
+      <td class="kat-col-barcode" style="font-family:monospace;font-size:12px">
+        ${p.colorBarcodes && p.colorBarcodes[color]
+          ? `<span style="background:var(--bg);padding:2px 8px;border-radius:5px;border:1px solid var(--brd)">${p.colorBarcodes[color]}</span>`
           : p.barcode
             ? `<span style="background:var(--bg);padding:2px 8px;border-radius:5px;border:1px solid var(--brd)">${p.barcode}</span>`
             : `<span style="color:#ccc">—</span>`}
