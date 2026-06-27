@@ -461,10 +461,17 @@ function renderKatalog() {
         </div>
       </td>
       <td class="kat-col-category" style="font-size:12px;color:var(--mut)">${p.category}</td>
-      <td class="kat-col-barcode" style="font-family:monospace;font-size:11.5px">
-        ${p.barcode
-          ? `<span style="background:var(--bg);padding:2px 8px;border-radius:5px;border:1px solid var(--brd)">${p.barcode}</span>`
-          : `<span style="color:#ccc">—</span>`}
+      <td class="kat-col-barcode" style="font-family:monospace;font-size:11px">
+        ${p.colorBarcodes && Object.keys(p.colorBarcodes).length > 0
+          ? Object.entries(p.colorBarcodes).map(([clr, bc]) =>
+              `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+                <span style="font-size:10px;color:var(--mut);min-width:40px">${clr}:</span>
+                <span style="background:var(--bg);padding:1px 6px;border-radius:4px;border:1px solid var(--brd);font-size:11px">${bc}</span>
+              </div>`
+            ).join("")
+          : p.barcode
+            ? `<span style="background:var(--bg);padding:2px 8px;border-radius:5px;border:1px solid var(--brd)">${p.barcode}</span>`
+            : `<span style="color:#ccc">—</span>`}
       </td>
       <td class="kat-col-supplier" style="font-size:12px;color:var(--mut)">${p.supplier||'<span style="color:#ddd">—</span>'}</td>
       <td class="kat-col-colors">
@@ -637,6 +644,22 @@ function openEditProduct(sku) {
   if ($("ep-unit"))    $("ep-unit").value    = p.unit    || "dona";
   if ($("ep-art"))     $("ep-art").value     = p.art     || "";
   if ($("ep-barcode")) $("ep-barcode").value = p.barcode || "";
+  // colorBarcodes ko'rsatish
+  const cbEl = document.getElementById("ep-color-barcodes");
+  if (cbEl) {
+    if (p.colorBarcodes && Object.keys(p.colorBarcodes).length > 0) {
+      cbEl.innerHTML = Object.entries(p.colorBarcodes).map(([clr, bc]) =>
+        `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span style="min-width:60px;font-size:12px;color:var(--mut)">${clr}</span>
+          <input value="${bc}" onchange="updateColorBarcode('${p.sku}','${clr}',this.value)"
+            style="font-family:monospace;font-size:12px;border:1px solid var(--brd);border-radius:6px;padding:3px 7px;width:140px">
+        </div>`
+      ).join("");
+      cbEl.style.display = "block";
+    } else {
+      cbEl.style.display = "none";
+    }
+  }
   epUpdateInboxDisplay(p);
   if ($("ep-packunit")) {
     $("ep-packunit").innerHTML = (PACK_UNITS[p.type]||["karobka"]).map(u =>
@@ -1787,17 +1810,18 @@ function parseImportCSV(text) {
     const hex     = pantoneToHex(pantone, colorRaw);
 
     // Barcode: shablondan olish, yo'q bo'lsa nom+art+rang bo'yicha barcode
-    // Har xil rangli tovar o'z barcodeiga ega bo'ladi
+    // Har xil rangli tovar o'z barcodeiga ega bo'ladi (rang darajasida)
     let barcode = cols.barcode >= 0 ? vals[cols.barcode]?.trim().replace(/^'/,"") : "";
     if (!barcode) {
       // nom+art+RANG bo'yicha barcode — har xil rang alohida barcode oladi
-      // o'lcham hisobga olinmaydi (bir rangning barcha o'lchamlari bir barcode)
       const bKey = (nom + "|" + art + "|" + colorRaw).toLowerCase();
       if (!barcodeMap[bKey]) {
         barcodeMap[bKey] = genEAN13(db.seq++);
       }
       barcode = barcodeMap[bKey];
     }
+    // colorBarcode — bu rang uchun barcode (keyinroq ishlatiladi)
+    const colorBarcode = barcode;
 
     // Pochka soni (har bir o'lchamga bir xil son beriladi)
     const boxesVal = cols.boxes >= 0 ? (parseInt(vals[cols.boxes]) || 0) : 0;
@@ -1921,11 +1945,17 @@ function confirmImport() {
         if (r.art && !p.art)   p.art         = r.art;
         if (r.costUsd > 0)     p.costUsd     = r.costUsd;
         if (r.ulg  > 0)        p.ulgurjiNarx = r.ulg;
+        // colorBarcodes yangilash
+        if (!p.colorBarcodes) p.colorBarcodes = {};
+        if (colorBarcode && !p.colorBarcodes[colorRaw]) {
+          p.colorBarcodes[colorRaw] = colorBarcode;
+        }
         updated++;
       }
     } else {
       // Yangi mahsulot
       const sku = `IMP-${String(db.seq++).padStart(4,"0")}`;
+      const _bc = colorBarcode || r.barcode || genEAN13(db.seq++);
       const newProd = {
         sku,
         name:        r.nom,
@@ -1934,7 +1964,8 @@ function confirmImport() {
         unit:        r.unit || "dona",
         inBox:       r.inbox || 1,
         art:         r.art || "",
-        barcode:     r.barcode || genEAN13(db.seq++),
+        barcode:     _bc,
+        colorBarcodes: { [colorRaw]: _bc },
         costUsd:     r.costUsd || 0,
         priceUzs:    0,
         ulgurjiNarx: r.ulg || 0,
@@ -2317,4 +2348,22 @@ function _renderKatGrid(rows, rate, showChakana) {
         </div>
       </div>`;
     }).join("") + `</div>`;
+}
+
+
+// ── Rang barcodeini yangilash ─────────────────────
+function updateColorBarcode(sku, color, newBarcode) {
+  const p = db.products.find(x => x.sku === sku); if (!p) return;
+  if (!p.colorBarcodes) p.colorBarcodes = {};
+  newBarcode = newBarcode.trim();
+  if (newBarcode) {
+    p.colorBarcodes[color] = newBarcode;
+  } else {
+    delete p.colorBarcodes[color];
+  }
+  // Birinchi rang barcodeini asosiy barcode sifatida saqlaymiz
+  const first = Object.values(p.colorBarcodes)[0];
+  if (first) p.barcode = first;
+  saveDB();
+  toast("✅ Barcode yangilandi");
 }
