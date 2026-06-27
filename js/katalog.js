@@ -2125,12 +2125,29 @@ function renderNarxnomaPreview() {
     return;
   }
 
+  const byPochka = document.getElementById("nm-by-pochka")?.checked || false;
   const labels = [];
+
   prods.forEach(p => {
-    p.variants.forEach(v => {
-      if ((v.qty||0) <= 0) return;
-      labels.push({p, v});
-    });
+    if (byPochka) {
+      // Pochka rejimi: har rang uchun bitta yorliq
+      const colors = [...new Set(p.variants.map(v => v.color))];
+      colors.forEach(color => {
+        const colorVars = p.variants.filter(v => v.color === color);
+        const totalQty  = colorVars.reduce((a, v) => a + (v.qty||0), 0);
+        if (totalQty <= 0) return;
+        // Ushbu rang uchun birinchi variantni asos sifatida olamiz
+        const v0 = colorVars[0];
+        const barcode = (p.colorBarcodes && p.colorBarcodes[color]) || p.barcode;
+        labels.push({ p, v: {...v0, color}, pochkaMode: true, barcode });
+      });
+    } else {
+      // Standart: har variant uchun yorliq
+      p.variants.forEach(v => {
+        if ((v.qty||0) <= 0) return;
+        labels.push({ p, v, pochkaMode: false, barcode: p.barcode });
+      });
+    }
   });
 
   if (!labels.length) {
@@ -2139,7 +2156,7 @@ function renderNarxnomaPreview() {
   }
 
   el.innerHTML = `<div class="nm-label-grid" style="grid-template-columns:repeat(${cols},1fr)">
-    ${labels.map(({p,v}) => buildLabel(p, v, {style,showLogo,showBarc,showSku,showUlg,shopName,rate})).join("")}
+    ${labels.map(({p, v, pochkaMode, barcode}) => buildLabel(p, v, {style,showLogo,showBarc,showSku,showUlg,shopName,rate,pochkaMode,barcode})).join("")}
   </div>`;
 
   // Har bir yorliqdagi shtrix-kodni chizamiz (skanerlanadigan, raqam emas)
@@ -2167,8 +2184,10 @@ function buildLabel(p, v, opts) {
   const ulgUzs    = p.ulgurjiNarx || 0;
   const priceUsd  = rate > 0 ? (priceUzs / rate).toFixed(2) : "0.00";
   const barcodeId = `bc-${p.sku}-${(v.color||"")}-${(v.size||"")}`.replace(/[^a-zA-Z0-9-]/g,"_");
-  const barcodeHtml = showBarc && p.barcode
-    ? `<div class="nm-barcode"><svg class="nm-barcode-svg" id="${barcodeId}" data-code="${p.barcode}"></svg></div>` : "";
+  // Pochka rejimda rang barcodeini, standart rejimda asosiy barcodeini ishlatamiz
+  const useBarcode = opts.barcode || p.barcode || "";
+  const barcodeHtml = showBarc && useBarcode
+    ? `<div class="nm-barcode"><svg class="nm-barcode-svg" id="${barcodeId}" data-code="${useBarcode}"></svg></div>` : "";
 
   if (style === "mini") return `
     <div class="nm-label nm-mini">

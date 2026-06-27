@@ -469,39 +469,70 @@ function omSetKirimFilter(f) {
 }
 
 function omRenderKirim() {
-  const q    = ($("om-q")||{value:""}).value.toLowerCase();
+  const q = ($("om-q")||{value:""}).value.toLowerCase();
+  const byPochka = $("om-by-pochka")?.checked !== false;
+
   let list = db.ombor.filter(o =>
     !q || o.productName.toLowerCase().includes(q) ||
     (o.supplier||"").toLowerCase().includes(q) ||
     (o.color||"").toLowerCase().includes(q)
   );
-  // Manba bo'yicha filtr: Excel import partiya="Excel import" deb belgilanadi
   if (omKirimFilter === "excel")  list = list.filter(o => o.partiya === "Excel import");
   if (omKirimFilter === "manual") list = list.filter(o => o.partiya !== "Excel import");
 
   list = list.slice().reverse();
 
+  // Pochka rejimi: partiya+mahsulot+rang bo'yicha guruhlash
+  let rows = [];
+  if (byPochka) {
+    const groups = {};
+    list.forEach(o => {
+      const key = (o.date||"") + "|" + (o.productName||"") + "|" + (o.art||"") + "|" + (o.color||"") + "|" + (o.supplier||"") + "|" + (o.partiya||"");
+      if (!groups[key]) {
+        groups[key] = { ...o, sizes: [], totalQty: 0, totalBoxes: 0 };
+      }
+      groups[key].sizes.push(o.size);
+      groups[key].totalQty   += o.qty || 0;
+      groups[key].totalBoxes += o.boxes || 0;
+    });
+    rows = Object.values(groups);
+  } else {
+    rows = list;
+  }
+
   const el = $("ombor-body"); if (!el) return;
-  el.innerHTML = list.length ? list.map(o => {
+  el.innerHTML = rows.length ? rows.map(o => {
+    const isPochka = byPochka;
+    const sizesStr = isPochka && o.sizes?.length
+      ? [...new Set(o.sizes)].filter(Boolean).join(", ")
+      : o.size;
+    const qtyDisplay = isPochka
+      ? (o.totalBoxes > 0
+          ? `<span class="bg bg-g" style="font-weight:700">${o.totalBoxes} pochka</span><div style="font-size:11px;color:#6B7280;margin-top:2px">${o.totalQty} dona</div>`
+          : `<span class="bg bg-g" style="font-weight:700">+${o.totalQty} dona</span>`)
+      : (o.boxes
+          ? `<span class="bg bg-g" style="font-weight:700">${o.boxes} pochka</span>`
+          : `<span class="bg bg-g" style="font-weight:700">+${o.qty}</span>`);
+
+    const qty    = isPochka ? o.totalQty   : o.qty;
+    const boxes  = isPochka ? o.totalBoxes : o.boxes;
+
     return `<tr>
       <td style="font-size:12px;color:var(--mut)">${o.date}</td>
       <td><div style="font-weight:600;font-size:13px">${o.productName}</div></td>
       <td style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${o.art || '<span style="color:#ddd">—</span>'}</td>
       <td><span class="bg bg-t" style="font-size:11px">${o.unit||"dona"}</span></td>
       <td>
-        <div>
-          ${o.color} <span style="color:#bbb">/</span> ${o.size}
-        </div>
+        <div style="font-weight:600">${o.color||"—"}</div>
+        <div style="font-size:11px;color:var(--mut)">${sizesStr||""}</div>
         ${o.pantone ? `<div style="font-size:10px;color:#aaa">${o.pantone}</div>` : ""}
       </td>
-      <td>
-        ${o.boxes ? `<span class="bg bg-g" style="font-weight:700">${o.boxes} pochka</span>` : `<span class="bg bg-g" style="font-weight:700">+${o.qty}</span>`}
-      </td>
+      <td>${qtyDisplay}</td>
       <td class="num" style="font-size:12.5px">
         ${o.kirimNarxi ? `<div>${fmt(o.kirimNarxi)} so'm</div>` : "—"}
-        ${o.kirimNarxi && o.boxes && o.boxes !== o.qty ? `<div style="font-size:10.5px;color:#856404;margin-top:1px">📦 ${fmt(Math.round(o.kirimNarxi * (o.qty/o.boxes)))} so'm/pochka</div>` : ""}
+        ${o.kirimNarxi && boxes && boxes !== qty ? `<div style="font-size:10.5px;color:#856404;margin-top:1px">📦 ${fmt(Math.round(o.kirimNarxi*(qty/boxes)))} so'm/pochka</div>` : ""}
       </td>
-      <td class="num" style="font-weight:600;font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi*o.qty)+" so'm" : "—"}</td>
+      <td class="num" style="font-weight:600;font-size:12.5px">${o.kirimNarxi ? fmt(o.kirimNarxi*qty)+" so'm" : "—"}</td>
       <td style="font-size:12.5px">${o.supplier||"—"}</td>
       <td style="font-size:12px;color:var(--mut)">
         ${o.partiya === "Excel import"

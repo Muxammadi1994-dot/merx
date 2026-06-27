@@ -956,6 +956,13 @@
         <button class="om-filter-btn" data-kf="manual" onclick="omSetKirimFilter('manual')">
           <i class="ti ti-edit" style="font-size:12px"></i> Qo'lda kiritilgan
         </button>
+        <div style="margin-left:auto">
+          <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;background:#FFF7ED;padding:5px 10px;border-radius:7px;border:1px solid #FED7AA">
+            <input type="checkbox" id="om-by-pochka" checked onchange="omRenderKirim()"
+              style="width:14px;height:14px;accent-color:#E9A500">
+            📦 Pochka ko'rinish
+          </label>
+        </div>
       </div>
       <table>
         <thead id="ombor-head">
@@ -3696,6 +3703,11 @@ document.addEventListener('DOMContentLoaded', () => {
               <input type="checkbox" id="nm-barcode-chk" checked onchange="renderNarxnomaPreview()"
                 style="width:15px;height:15px;accent-color:var(--acc)">
               Barcode
+            </label>
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;background:#FFF7ED;padding:4px 8px;border-radius:6px;border:1px solid #FED7AA">
+              <input type="checkbox" id="nm-by-pochka" onchange="renderNarxnomaPreview()"
+                style="width:15px;height:15px;accent-color:#E9A500">
+              📦 Pochka barcode
             </label>
           </div>
 
