@@ -55,8 +55,15 @@ function authLogin(email, password, shopId) {
     authSave(user);
     return { ok: true, user, firstTime: true };
   }
-  if (email.toLowerCase() !== stored || password !== pass)
-    return { ok: false, error: "Email yoki parol noto'g'ri" };
+  // adminPass yo'q bo'lsa (Supabase orqali kelgan do'kon) — parol tekshirmaymiz
+  if (!pass) {
+    // Parol yo'q — Supabase orqali autentifikatsiya qilingan, to'g'ridan login
+    if (email.toLowerCase() !== stored)
+      return { ok: false, error: "Email noto'g'ri" };
+  } else {
+    if (email.toLowerCase() !== stored || password !== pass)
+      return { ok: false, error: "Email yoki parol noto'g'ri" };
+  }
   const user = _buildUser(email, shopId);
   authSave(user);
   return { ok: true, user };
