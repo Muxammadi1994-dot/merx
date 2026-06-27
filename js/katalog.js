@@ -1931,6 +1931,22 @@ function confirmImport() {
 
     const variant = { color: r.color, size: r.size, qty: r.qty, pantone: r.pantone, hex: r.hex || "#888888" };
 
+    // Rang barcode — nom+art+rang bo'yicha
+    const colorRaw = r.color || "Standart";
+    const nom = r.nom || "";
+    const art = r.art || "";
+    const bKey = (nom + "|" + art + "|" + colorRaw).toLowerCase();
+    let colorBarcode = r.barcode || "";
+    if (!colorBarcode) {
+      // barcodeMap confirmImport da mavjud emas — seq++ bilan yaratamiz
+      // Mavjud mahsulotda bu rang uchun barcode bormi?
+      if (p && p.colorBarcodes && p.colorBarcodes[colorRaw]) {
+        colorBarcode = p.colorBarcodes[colorRaw];
+      } else {
+        colorBarcode = genEAN13(db.seq++);
+      }
+    }
+
     if (p) {
       // Mavjud mahsulotga variant qo'shish
       const ex = p.variants.find(v =>
