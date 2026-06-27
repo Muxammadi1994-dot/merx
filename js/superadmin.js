@@ -668,6 +668,14 @@ function saAddShop() {
   if (!_key && typeof MERX_SUPABASE_KEY !== "undefined") _key = MERX_SUPABASE_KEY;
 
   // Bo'sh DB yaratish
+  // Asosiy do'kon bot sozlamalarini olamiz
+  let _mainBotUrl = "", _mainBotUser = "";
+  try {
+    const _mdb = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+    _mainBotUrl  = _mdb?.settings?.telegramBotUrl || "";
+    _mainBotUser = _mdb?.settings?.telegramBotUsername || "";
+  } catch(e) {}
+
   const shopDB = {
     shop: { name, type: shopType },
     settings: {
@@ -675,7 +683,9 @@ function saAddShop() {
       shopType: shopType,
       cloudShopId: shopId,
       adminEmail: loginEmail, adminPass: pass, modules,
-      supabaseUrl: _url, supabaseKey: _key
+      supabaseUrl: _url, supabaseKey: _key,
+      telegramBotUrl: _mainBotUrl,
+      telegramBotUsername: _mainBotUser,
     },
     customers:[], products:[], sales:[], staff:[],
     ombor:[], xarajatlar:[], debtPayments:[], shifts:[],
@@ -791,6 +801,14 @@ function saOpenShop(id) {
       existing.settings.cloudShopId = id;
       existing.settings.supabaseUrl = url;
       existing.settings.supabaseKey = key2;
+      // Asosiy do'kon bot sozlamalarini ko'chiramiz (agar yangi do'konda yo'q bo'lsa)
+      try {
+        const mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+        if (!existing.settings.telegramBotUrl && mainDB?.settings?.telegramBotUrl)
+          existing.settings.telegramBotUrl = mainDB.settings.telegramBotUrl;
+        if (!existing.settings.telegramBotUsername && mainDB?.settings?.telegramBotUsername)
+          existing.settings.telegramBotUsername = mainDB.settings.telegramBotUsername;
+      } catch(e) {}
       localStorage.setItem(dbKey, JSON.stringify(existing));
     } catch(e) {}
   }
