@@ -1320,15 +1320,86 @@ async function actionRenderReceipt(chekId, saleData) {
   return buildReceiptHtml(sale, { shopName });
 }
 
+// ── /stat (oylik statistika) ─────────────────────────────────
+async function cmdOylikStat(chatId) {
+  try {
+    const ctx = await getShopCtx(chatId);
+    const sid = ctx.shopId;
+    const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
+    const m = new Date().toISOString().slice(0, 7); // 2026-06
+
+    const [sales, xarajat] = await Promise.all([
+      sb("sales", `?date=gte.${m}-01&order=date.asc${sidFilter}`),
+      sb("xarajatlar", `?date=gte.${m}-01${sidFilter}`),
+    ]);
+
+    const shopName = ctx.shopName || "MERX";
+    const totalSum  = sales.reduce((a, s) => a + Number(s.total || 0), 0);
+    const totalPaid = sales.reduce((a, s) => a + Number(s.paid || 0), 0);
+    const totalDebt = sales.reduce((a, s) => a + Number(s.remaining || 0), 0);
+    const totalExp  = xarajat.reduce((a, x) => a + Number(x.amount || 0), 0);
+    const foyda     = totalPaid - totalExp;
+
+    // Kunlik o'rtacha
+    const days = new Date().getDate();
+    const avgDay = Math.round(totalPaid / days);
+
+    // Top 3 mahsulot
+    const itemCounts = {};
+    for (const s of sales) {
+      for (const it of (s.items || [])) {
+        if (!it?.name) continue;
+        itemCounts[it.name] = (itemCounts[it.name] || 0) + (it.qty || 1);
+      }
+    }
+    const top3 = Object.entries(itemCounts)
+      .sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+    let txt = `📈 ${shopName} — ${m} oylik statistika\n\n`;
+    txt += `🛍 Jami sotuvlar: ${sales.length} ta\n`;
+    txt += `💵 Jami summa: ${fmt(totalSum)} so'm\n`;
+    txt += `✅ To'langan: ${fmt(totalPaid)} so'm\n`;
+    if (totalDebt > 0) txt += `🔴 Nasiya: ${fmt(totalDebt)} so'm\n`;
+    txt += `💸 Xarajatlar: ${fmt(totalExp)} so'm\n`;
+    txt += `💰 Toza foyda: ${fmt(foyda)} so'm\n`;
+    txt += `📊 Kunlik o'rtacha: ${fmt(avgDay)} so'm\n`;
+    if (top3.length) {
+      txt += `\n🏆 Top mahsulotlar:\n`;
+      top3.forEach(([name, qty], i) => {
+        txt += `  ${i+1}. ${name} — ${qty} dona\n`;
+      });
+    }
+    await tg(chatId, txt);
+  } catch(e) {
+    console.error("oylik stat xato:", e.message);
+    await tg(chatId, `⚠️ Xato: ${e.message}`);
+  }
+}
+
 // ── /help ────────────────────────────────────────────────────
 async function cmdHelp(chatId) {
-  const txt =
-    "❓ MERX Bot — Yordam\n\n" +
-    "/hisobot — Bugungi savdo: sotuvlar, summa, foyda\n\n" +
-    "/balans — Kassa: naqd, karta, xarajat, foyda\n\n" +
-    `/ombor — Kam qolgan tovarlar (≤${LOW_LIMIT} dona)\n\n` +
-    "/qarzlar — Muddati o'tgan qarzlar\n\n" +
-    "/barcha_qarzlar — Barcha ochiq qarzlar";
+  const ctx = await getShopCtx(chatId);
+  const isOwner = ctx.isOwner || ctx.isSuperAdmin;
+  const shopName = ctx.shopName || "MERX";
+
+  let txt = `❓ ${shopName} — Bot komandalar\n\n`;
+
+  if (isOwner) {
+    txt += "👤 Do'kon egasi uchun:\n";
+    txt += "/hisobot — Bugungi savdo hisoboti\n";
+    txt += "/balans — Kassa holati (naqd, karta, foyda)\n";
+    txt += "/ombor — Kam qolgan tovarlar\n";
+    txt += "/qarzlar — Muddati o'tgan qarzlar\n";
+    txt += "/barcha_qarzlar — Barcha ochiq qarzlar\n";
+    txt += "/stat — Bu oylik statistika\n";
+    txt += "\n📱 Mijoz havolasi:\n";
+    txt += `t.me/merx_savdo_bot?start=${ctx.shopId || ""}`;
+  } else {
+    txt += "🛍 Xaridlar va cheklaringiz:\n";
+    txt += "Har bir xaridingizda chek avtomatik yuboriladi.\n\n";
+    txt += "Qarz va balans holatini do'kondan so'rang.";
+  }
+
   await tg(chatId, txt);
 }
 
@@ -1514,11 +1585,14 @@ export default async function handler(req, res) {
   }
 
   switch (cmd) {
-    case "/hisobot":        await cmdHisobot(chatId);        break;
+    case "/hisobot":
+    case "/bugun":          await cmdHisobot(chatId);        break;
     case "/balans":         await cmdBalans(chatId);         break;
     case "/ombor":          await cmdOmbor(chatId);          break;
     case "/qarzlar":        await cmdQarzlar(chatId, false); break;
     case "/barcha_qarzlar": await cmdQarzlar(chatId, true);  break;
+    case "/stat":
+    case "/oylik":          await cmdOylikStat(chatId);      break;
     case "/help":           await cmdHelp(chatId);           break;
     default:
       if (text.startsWith("/")) {
