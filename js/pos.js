@@ -159,30 +159,35 @@ function closeBarcodeCamera() {
 // ── Mahsulot qidirish ────────────────────────────
 
 // ── Qidiruvda narxni tahrirlash ──────────────────
+// Vaqtinchalik narxlar (faqat shu session, db ga saqlanmaydi)
+const _priceOverrides = {};
+
 function posEditPrice(rowId, sku, color) {
   const p = db.products.find(x => x.sku === sku);
   if (!p) return;
-  const curNarx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+  const baseNarx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+  const oKey = sku + "|" + color;
+  const curNarx = _priceOverrides[oKey] || baseNarx;
   const el = document.getElementById("pripr-" + rowId);
   if (!el) return;
 
   const inp = document.createElement("input");
   inp.type = "text";
   inp.value = curNarx;
-  inp.dataset.price = "1";
-  inp.style.cssText = "width:90px;font-size:13px;font-weight:700;border:1.5px solid #E9A500;border-radius:7px;padding:3px 7px;text-align:right;font-family:inherit;color:#0D1B2A;background:#fff";
+  inp.style.cssText = "width:90px;font-size:13px;font-weight:700;border:1.5px solid #E9A500;border-radius:7px;padding:3px 7px;text-align:right;font-family:inherit;color:#0D1B2A;background:#fff;outline:none";
   el.innerHTML = "";
   el.appendChild(inp);
-  inp.focus();
-  inp.select();
+  inp.focus(); inp.select();
 
   const save = () => {
-    const newVal = parseFloat((inp.value||"").replace(/\s/g,"")) || curNarx;
-    if (posPriceType === "ulgurji") p.ulgurjiNarx = newVal;
-    else p.priceUzs = newVal;
-    saveDB();
+    const newVal = parseFloat((inp.value||"").replace(/[\s]/g,"")) || curNarx;
+    if (newVal !== baseNarx) {
+      _priceOverrides[oKey] = newVal;
+    } else {
+      delete _priceOverrides[oKey];
+    }
     posSearch();
-    toast("Narx yangilandi: " + fmt(newVal) + " so'm");
+    toast("Narx: " + fmt(newVal) + " so'm (faqat shu sotuv uchun)");
   };
   inp.addEventListener("blur", save);
   inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } });
@@ -235,7 +240,10 @@ function posSearch() {
   });
 
   $("pos-results").innerHTML = rows.map(({p, color, packGroup, isBroken, groupQty, groupVariants}) => {
-    const narx  = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+    const _oKey  = p.sku + "|" + color;
+    const _baseNarx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+    const narx  = (typeof _priceOverrides !== "undefined" && _priceOverrides[_oKey]) || _baseNarx;
+    const _hasOverride = narx !== _baseNarx;
     const inBox = groupVariants.length || 1;
     const colorVariants = groupVariants;
     const maxPochka = groupQty;
@@ -271,7 +279,11 @@ function posSearch() {
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           <div style="text-align:right">
             <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end;margin-bottom:2px">
-              <div class="pri-price" style="font-size:14px;font-weight:800;color:#E9A500" id="pripr-${rowId}">${fmt(narx)} <span style="font-size:11px;font-weight:600;color:#9CA3AF">so'm</span></div>
+              <div class="pri-price" id="pripr-${rowId}">
+                ${_hasOverride ? `<span style="text-decoration:line-through;font-size:11px;color:#ccc;margin-right:3px">${fmt(_baseNarx)}</span>` : ""}
+                <span style="font-size:14px;font-weight:800;color:${_hasOverride?'#E9A500':'#E9A500'}">${fmt(narx)}</span>
+                <span style="font-size:11px;font-weight:600;color:#9CA3AF"> so'm</span>
+              </div>
               <button onclick="event.stopPropagation();posEditPrice('${rowId}','${p.sku}','${color.replace(/'/g,String.fromCharCode(39))}')" title="Narxni tahrirlash"
                 style="width:22px;height:22px;border:1px solid #E8E5E0;border-radius:6px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
                 <i class="ti ti-edit" style="font-size:11px;color:#94A3B8"></i>
@@ -384,7 +396,8 @@ function posQuickAdd(sku, color, packGroup) {
     return;
   }
 
-  const narx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+  const _bNarx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+  const narx = (typeof _priceOverrides !== "undefined" && _priceOverrides[sku+"|"+color]) || _bNarx;
   const totalDona = qtyInput * inBox;
 
   if (alreadyInCart) {
@@ -393,7 +406,7 @@ function posQuickAdd(sku, color, packGroup) {
   } else {
     cart.push({
       sku, name: p.name, color, size: null,
-      unit: p.unit||"dona", price: narx, basePrice: narx, priceType: posPriceType,
+      unit: p.unit||"dona", price: narx, basePrice: _bNarx, priceType: posPriceType,
       qty: totalDona, qtyBox: qtyInput, inBox, sellMode: "karobka",
       packGroup, groupSizes,
       image: p.image || null, art: p.art || null, barcode: p.barcode || null
@@ -703,7 +716,7 @@ function renderCart() {
     const priceTag = `<span style="display:flex;align-items:center;gap:4px;justify-content:flex-end">
       ${isOverride ? `<span style="text-decoration:line-through;color:#ccc;font-size:10.5px">${fmt(c.basePrice*c.qty)} so'm</span>` : ""}
       <span class="ci-pr" style="color:${isOverride?'#E9A500':'inherit'}">${fmt(c.price*c.qty)} so'm</span>
-      <button onclick="event.stopPropagation();ciEditPrice(${idx})" title="Narxni o'zgartirish"
+      <button onclick="event.stopPropagation();ciEditPrice(${i})" title="Narxni o'zgartirish"
         style="width:20px;height:20px;border:1px solid #E8E5E0;border-radius:5px;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;flex-shrink:0">
         <i class="ti ti-edit" style="font-size:10px;color:#94A3B8"></i>
       </button>
