@@ -3,10 +3,9 @@
 let _sidebarHidden = false;
 function togglePosSidebar() {
   _sidebarHidden = !_sidebarHidden;
-  // aside#sb — asosiy sidebar
-  const sb  = document.getElementById("sb");
+  // document.body ga class qo'shamiz — CSS bilan sidebar va pos kengayadi
+  document.body.classList.toggle("sb-hidden", _sidebarHidden);
   const btn = document.getElementById("pos-sidebar-btn");
-  if (sb)  sb.style.display  = _sidebarHidden ? "none" : "";
   if (btn) btn.innerHTML = _sidebarHidden
     ? '<i class="ti ti-layout-sidebar-left-expand"></i>'
     : '<i class="ti ti-layout-sidebar-left-collapse"></i>';
