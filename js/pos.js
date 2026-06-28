@@ -1389,15 +1389,22 @@ function _applyPayBlocked() {
     var btn = $("pay-lock-" + m);
     var inp = $("pay-" + m);
     var row = $("pay-row-" + m);
+
+    // Tugma belgisi
     if (btn) btn.innerHTML = blocked
       ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
       : '<i class="ti ti-lock-open" style="color:#CBD5E1"></i>';
-    if (blocked) {
-      if (inp) { inp.disabled = true; inp.value = ""; }
-      if (row) { row.style.cssText += ";opacity:.4;pointer-events:none"; }
-    } else {
-      if (inp) { inp.disabled = false; }
-      if (row) { row.style.opacity = "1"; row.style.pointerEvents = "auto"; }
+
+    // Input
+    if (inp) {
+      inp.disabled = blocked;
+      if (blocked) inp.value = "";
+    }
+
+    // Qator ko'rinishi — style ni to'liq almashtirish
+    if (row) {
+      row.style.opacity        = blocked ? "0.4" : "1";
+      row.style.pointerEvents  = blocked ? "none" : "auto";
     }
   });
 }
