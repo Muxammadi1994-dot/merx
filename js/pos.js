@@ -1,707 +1,1871 @@
-// ════════════════════════════════════════════════
-// MERX POS v3.0
-// ════════════════════════════════════════════════
-let _carts=[{id:1,name:"Savatcha 1",items:[]}],_cartIdx=0,_lastSale=null,_posInited=false;
-let _custId=null,_debtCur="usd",_discType="pct",_discVal=0;
-let _payBlocked={},_staffLocked=false,_sidebarHidden=false;
-function getCart(){return _carts[_cartIdx]||_carts[0];}
-function getItems(){return getCart().items;}
-function getRawVal(id){const el=$(id);if(!el)return 0;return parseFloat((el.value||"").replace(/[\s,]/g,""))||0;}
 
-// ── Init ──
-function initPos(){
-  if(_posInited){refreshPosStaff();checkDebtAlerts();return;}
-  _posInited=true;
-  renderCartTabs();renderCart();refreshPosStaff();checkDebtAlerts();updatePayTotal();
-  renderRecentProducts();
+// ── Sidebar toggle ────────────────────────────────
+let _sidebarHidden = false;
+function togglePosSidebar() {
+  _sidebarHidden = !_sidebarHidden;
+  const nav = document.getElementById("main-nav");
+  const btn = document.getElementById("pos-sidebar-btn");
+  if (nav) nav.style.display = _sidebarHidden ? "none" : "";
+  if (btn) btn.innerHTML = _sidebarHidden
+    ? '<i class="ti ti-layout-sidebar-left-expand"></i>'
+    : '<i class="ti ti-layout-sidebar-left-collapse"></i>';
 }
 
-// ── Sidebar toggle ──
-function togglePosSidebar(){
-  _sidebarHidden=!_sidebarHidden;
-  const nav=document.getElementById("main-nav");
-  const btn=document.getElementById("pos-sidebar-btn");
-  if(nav)nav.style.display=_sidebarHidden?"none":"";
-  if(btn)btn.innerHTML=_sidebarHidden
-    ?'<i class="ti ti-layout-sidebar-left-expand"></i>'
-    :'<i class="ti ti-layout-sidebar-left-collapse"></i>';
+// MERX pos.js | v2.2 | 2026-06-06 06:00
+// ================================================
+// MERX — js/pos.js  (v4 — To'liq qayta yozildi)
+// ================================================
+
+// ── Parallel savatchalar tizimi ──────────────────
+// Bir nechta mijozni navbat bilan xizmat qilish uchun: har biri alohida
+// savatcha, to'lov holati va mijoz ma'lumoti bilan, localStorage orqali saqlanadi.
+const POS_CARTS_KEY = "merx_pos_carts_v1";
+
+function posLoadCarts() {
+  try {
+    const raw = localStorage.getItem(POS_CARTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.carts) && parsed.carts.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return { activeIdx: 0, carts: [{ id: 1, name: "Savatcha 1", items: [] }] };
 }
 
-// ── Qidiruv ──
-function posSearch(){
-  const inp=$("pos-q");if(!inp)return;
-  const clr=$("pos-q-clr");
-  const q=inp.value.trim();
-  if(clr)clr.style.display=q?"block":"none";
-  if(!q){renderRecentProducts();return;}
-  const ql=q.toLowerCase();
-  const rate=db.settings?.rate||12800;
-  const matches=db.products.filter(p=>{
-    if(!totalStock(p))return false;
-    return p.name.toLowerCase().includes(ql)||
-      (p.art&&p.art.toLowerCase().includes(ql))||
-      (p.sku&&p.sku.toLowerCase().includes(ql))||
-      (p.barcode&&p.barcode.toLowerCase()===ql)||
-      (p.colorBarcodes&&Object.values(p.colorBarcodes).some(bc=>bc&&bc.toLowerCase()===ql));
+function posSaveCarts() {
+  try {
+    posCartsState.carts[posCartsState.activeIdx].items = cart;
+    localStorage.setItem(POS_CARTS_KEY, JSON.stringify(posCartsState));
+  } catch (e) {}
+}
+
+let posCartsState = posLoadCarts();
+let cart = posCartsState.carts[posCartsState.activeIdx].items;
+let posPayMode = "full", posPayType = "naqd", posPriceType = "chakana";
+let posDebtCurrency = "usd";  // Asosiy: USD
+
+// ── Operatsiyalar tarixi (POS log) ────────────────
+// Har bir muhim amal (qo'shish, o'chirish, chegirma, sotuv) shu yerga yoziladi.
+function posLog(action, details) {
+  if (!db.posLogs) db.posLogs = [];
+  const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
+  const staff = staffId ? (db.staff||[]).find(s => s.id === staffId) : null;
+  db.posLogs.push({
+    id: db.seq++,
+    date: today(), time: nowTime(),
+    action, details,
+    staffId, staffName: staff ? staff.name : "—",
+    cartName: posCartsState.carts[posCartsState.activeIdx]?.name || "—"
   });
-  const el=$("pos-results");if(!el)return;
-  if(!matches.length){el.innerHTML=`<div class="pos-empty"><i class="ti ti-search-off" style="font-size:36px;color:#e0ddd8;display:block;margin-bottom:10px"></i><div style="font-size:13px;color:#bbb">"${q}" topilmadi</div></div>`;return;}
-  el.innerHTML=matches.map(p=>_buildPosCard(p,rate)).join("");
+  // Faqat oxirgi 500 ta yozuvni saqlaymiz (xotira tejash uchun)
+  if (db.posLogs.length > 500) db.posLogs = db.posLogs.slice(-500);
+  saveDB();
 }
+let vmProd = null, selColor = null, selSize = null, vmSellMode = "dona";
 
-function _buildPosCard(p,rate){
-  rate=rate||db.settings?.rate||12800;
-  const stock=totalStock(p);
-  const price=p.priceUzs||0;
-  const ulg=p.ulgurjiNarx||0;
-  const colors=[...new Set(p.variants.map(v=>v.color))];
-  const dots=colors.slice(0,6).map(c=>{
-    const v=p.variants.find(x=>x.color===c);
-    return`<span title="${c}" style="display:inline-block;width:11px;height:11px;border-radius:3px;background:${v?.hex||"#888"};border:1px solid rgba(0,0,0,.15);vertical-align:middle"></span>`;
-  }).join("")+(colors.length>6?`<span style="font-size:10px;color:#bbb">+${colors.length-6}</span>`:"");
-  return`<div class="pos-ri" onclick="openVariantModal('${p.sku}')">
-    <div style="width:46px;height:46px;border-radius:10px;background:#F0EDE8;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center">
-      ${p.image?`<img src="${p.image}" style="width:100%;height:100%;object-fit:cover">`:`<i class="ti ti-hanger" style="font-size:20px;color:#C0BBB4"></i>`}
-    </div>
-    <div style="flex:1;min-width:0">
-      <div style="font-weight:700;font-size:13.5px;color:#0D1B2A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:3px">
-        ${p.art?`<span style="font-size:11.5px;font-weight:700;color:#0D1B2A;font-family:monospace;background:#EEE9FF;padding:1px 7px;border-radius:5px">${p.art}</span>`:""}
-        <span style="font-size:11px;color:#64748B;font-family:monospace">${p.sku}</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:5px;margin-top:4px">${dots}<span style="font-size:11px;color:#94A3B8;margin-left:2px">${stock} dona</span></div>
-    </div>
-    <div style="text-align:right;flex-shrink:0">
-      <div style="font-weight:800;font-size:14px;color:#E9A500">${fmt(price)}<span style="font-size:11px;font-weight:600"> so'm</span></div>
-      ${ulg?`<div style="font-size:11px;color:#64748B">Ulg: ${fmt(ulg)}</div>`:""}
-    </div>
-  </div>`;
-}
+// ── USB Barcode scanner (global listener) ───────
+let _usbBuf = "", _usbTimer = null;
+document.addEventListener("keydown", function(e) {
+  if (!$("p-pos")?.classList.contains("on")) return;
+  const tag = document.activeElement?.tagName;
+  const id  = document.activeElement?.id;
+  // Faqat pos-q bo'lmagan inputlarda to'xtatamiz
+  if (["INPUT","TEXTAREA","SELECT"].includes(tag) && id !== "pos-q") return;
 
-function renderRecentProducts(){
-  const el=$("pos-results");if(!el)return;
-  const rate=db.settings?.rate||12800;
-  const recent=db.products.filter(p=>totalStock(p)>0).slice(-12).reverse();
-  if(!recent.length){el.innerHTML=`<div class="pos-empty"><i class="ti ti-shopping-bag" style="font-size:42px;color:#e0ddd8;display:block;margin-bottom:12px"></i><div style="font-size:14px;color:#bbb;font-weight:500">Mahsulot qidiring</div><div style="font-size:12px;color:#ccc;margin-top:4px">Nom, SKU yoki barcode</div></div>`;return;}
-  el.innerHTML=`<div style="font-size:10.5px;color:#94A3B8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:4px 2px 8px">Oxirgi mahsulotlar</div>`+recent.map(p=>_buildPosCard(p,rate)).join("");
-}
-
-function posClear(){
-  const inp=$("pos-q");if(inp)inp.value="";
-  const clr=$("pos-q-clr");if(clr)clr.style.display="none";
-  renderRecentProducts();
-}
-
-// ── Barcode ──
-let _usbBuf="",_usbTimer=null;
-document.addEventListener("keydown",function(e){
-  if(e.key==="Enter"&&_usbBuf.length>=3){e.preventDefault();processBarcode(_usbBuf.trim());_usbBuf="";return;}
-  if(e.key.length===1&&!e.ctrlKey&&!e.altKey){_usbBuf+=e.key;clearTimeout(_usbTimer);_usbTimer=setTimeout(()=>{_usbBuf="";},120);}
-  const tag=document.activeElement?.tagName;
-  if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT"){if(e.key==="F9"){e.preventDefault();checkout();}return;}
-  if(!document.getElementById("p-pos")?.classList.contains("active"))return;
-  if(e.key==="/"||e.key==="F2"){e.preventDefault();$("pos-q")?.focus();}
-  if(e.key==="Escape"){["variant","receipt","barcode"].forEach(m=>closeModal(m));if($("pos-q")){$("pos-q").value="";posClear();}}
-  if(e.key==="Enter"&&document.getElementById("ov-variant")?.style.display!=="none"){e.preventDefault();confirmVariant();}
-  if(e.key==="F9")checkout();
+  if (e.key === "Enter") {
+    if (_usbBuf.length >= 3) { e.preventDefault(); processBarcode(_usbBuf.trim()); }
+    _usbBuf = ""; clearTimeout(_usbTimer);
+  } else if (e.key.length === 1) {
+    _usbBuf += e.key;
+    clearTimeout(_usbTimer);
+    _usbTimer = setTimeout(() => { _usbBuf = ""; }, 80);
+  }
 });
 
-function processBarcode(code){
-  const q=code.toLowerCase();
-  let p=db.products.find(x=>x.sku.toLowerCase()===q||(x.barcode&&x.barcode.toLowerCase()===q));
-  let foundColor=null;
-  if(!p){for(const prod of db.products){if(!prod.colorBarcodes)continue;for(const[clr,bc]of Object.entries(prod.colorBarcodes)){if(bc&&bc.toLowerCase()===q){p=prod;foundColor=clr;break;}}if(p)break;}}
-  if(p){
-    toast("Topildi: "+p.name+(foundColor?" -- "+foundColor:""),"info");
-    if($("pos-q")){$("pos-q").value=p.art||p.sku;posSearch();}
-    if(foundColor){setTimeout(()=>{document.querySelectorAll(".vm-color-btn").forEach(btn=>{if(btn.textContent.trim().toLowerCase()===foundColor.toLowerCase())btn.click();});},300);}
-  }else{
-    if($("pos-q")){$("pos-q").value=code;posSearch();}
-    toast('Barcode: "'+code+'" -- qolda tanlang',"info");
+// ── Barcode ishlov berish ────────────────────────
+function processBarcode(code) {
+  const q = code.toLowerCase();
+  let foundColor = null;
+  let p = db.products.find(x =>
+    x.sku.toLowerCase() === q || (x.barcode && x.barcode.toLowerCase() === q)
+  );
+  // colorBarcodes dan ham qidirish
+  if (!p) {
+    for (const prod of db.products) {
+      if (!prod.colorBarcodes) continue;
+      for (const [clr, bc] of Object.entries(prod.colorBarcodes)) {
+        if (bc && bc.toLowerCase() === q) { p = prod; foundColor = clr; break; }
+      }
+      if (p) break;
+    }
+  }
+  if (p) {
+    toast("Topildi: " + p.name + (foundColor ? " — " + foundColor : ""), "info");
+    if ($("pos-q")) { $("pos-q").value = p.art || p.sku; posSearch(); }
+    // Rang aniqlangan bo'lsa avtomatik highlight
+    if (foundColor) {
+      setTimeout(() => {
+        const rows = document.querySelectorAll("[data-rowkey]");
+        rows.forEach(row => {
+          if (row.dataset.rowkey && row.dataset.rowkey.includes("|" + foundColor + "|")) {
+            row.style.outline = "2px solid #E9A500";
+            setTimeout(() => { row.style.outline = ""; }, 2000);
+          }
+        });
+      }, 300);
+    }
+  } else {
+    if ($("pos-q")) { $("pos-q").value = code; posSearch(); }
+    toast('Barcode: "' + code + '" — qolda tanlang', "info");
   }
 }
 
-// ── Kamera ──
-let _camStream=null,_camInterval=null,_barcodeDetector=null;
-async function openBarcodeCamera(){
-  try{
-    if(!("BarcodeDetector"in window)){toast("Brauzer barcode skanerini qo'llab-quvvatlamaydi","err");return;}
-    _barcodeDetector=new BarcodeDetector({formats:["ean_13","ean_8","code_128","code_39","qr_code","upc_a","upc_e"]});
-    const vid=$("barcode-video");
-    _camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
-    vid.srcObject=_camStream;vid.play();openModal("barcode-cam");
-    const canvas=document.createElement("canvas");
-    _camInterval=setInterval(async()=>{
-      if(!vid.videoWidth)return;
-      canvas.width=vid.videoWidth;canvas.height=vid.videoHeight;
-      canvas.getContext("2d").drawImage(vid,0,0);
-      const codes=await _barcodeDetector.detect(canvas).catch(()=>[]);
-      if(codes.length>0){closeBarcodeCamera();processBarcode(codes[0].rawValue);}
-    },300);
-  }catch(e){toast("Kamera xato: "+e.message,"err");}
+// ── Kamera barcode scanner ───────────────────────
+let _camStream = null, _camInterval = null, _barcodeDetector = null;
+
+async function openBarcodeCamera() {
+  if (!("BarcodeDetector" in window)) {
+    toast("Chrome 83+ kerak yoki USB skaner ishlating","err"); return;
+  }
+  try {
+    _barcodeDetector = new BarcodeDetector({
+      formats: ["ean_13","ean_8","code_128","code_39","qr_code","upc_a","upc_e","itf"]
+    });
+    _camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:"environment" } });
+    const vid = $("barcode-video");
+    vid.srcObject = _camStream; vid.play();
+    openModal("barcode-cam");
+    const canvas = document.createElement("canvas");
+    _camInterval = setInterval(async () => {
+      if (!vid.videoWidth) return;
+      canvas.width = vid.videoWidth; canvas.height = vid.videoHeight;
+      canvas.getContext("2d").drawImage(vid, 0, 0);
+      try {
+        const codes = await _barcodeDetector.detect(canvas);
+        if (codes.length > 0) { closeBarcodeCamera(); processBarcode(codes[0].rawValue); }
+      } catch(e) {}
+    }, 300);
+  } catch(e) {
+    toast("Kamera ochib bo'lmadi: " + e.message, "err");
+  }
 }
-function closeBarcodeCamera(){
+
+function closeBarcodeCamera() {
   clearInterval(_camInterval);
-  if(_camStream){_camStream.getTracks().forEach(t=>t.stop());_camStream=null;}
+  if (_camStream) { _camStream.getTracks().forEach(t => t.stop()); _camStream = null; }
   closeModal("barcode-cam");
 }
 
-// ── Variant modal ──
-let _vmSku=null,_vmColor=null,_vmSize=null;
-function openVariantModal(sku){
-  const p=db.products.find(x=>x.sku===sku);if(!p)return;
-  _vmSku=sku;_vmColor=null;_vmSize=null;
-  const el=$("vm-body");if(!el)return;
-  const rate=db.settings?.rate||12800;
-  const price=p.priceUzs||0;
-  const ulg=p.ulgurjiNarx||0;
-  const colors=[...new Set(p.variants.map(v=>v.color))];
+// ── Mahsulot qidirish ────────────────────────────
+function posSearch() {
+  const q = ($("pos-q")||{value:""}).value.trim();
+  const clrBtn = $("pos-q-clr");
+  if (clrBtn) clrBtn.style.display = q ? "flex" : "none";
 
-  el.innerHTML=`
-    <div style="display:flex;align-items:center;gap:14px;padding:16px;background:#0D1B2A;border-radius:12px;margin-bottom:16px">
-      <div style="width:56px;height:56px;border-radius:10px;background:#1a2d42;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center">
-        ${p.image?`<img src="${p.image}" style="width:100%;height:100%;object-fit:cover">`:`<i class="ti ti-hanger" style="font-size:24px;color:#64748B"></i>`}
-      </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:15px;color:#fff">${p.name}</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-          ${p.art?`<span style="font-size:12px;font-family:monospace;background:#E9A500;color:#0D1B2A;padding:2px 8px;border-radius:5px;font-weight:700">${p.art}</span>`:""}
-          <span style="font-size:12px;color:#64748B;font-family:monospace">${p.sku}</span>
+  if (!q) {
+    // Bo'sh qidiruvda hech narsa ko'rsatilmaydi (Billz uslubi)
+    $("pos-results").innerHTML = `
+      <div class="pos-empty">
+        <i class="ti ti-search"></i>
+        <div>Mahsulot qidiring...</div>
+      </div>`;
+    return;
+  }
+  const ql = q.toLowerCase();
+  const found = visProds().filter(p =>
+    p.name.toLowerCase().includes(ql) ||
+    p.sku.toLowerCase().includes(ql) ||
+    (p.art && p.art.toLowerCase().includes(ql)) ||
+    p.category.toLowerCase().includes(ql) ||
+    (p.barcode && p.barcode.toLowerCase().includes(ql))
+  );
+
+  if (!found.length) {
+    $("pos-results").innerHTML = `
+      <div class="pos-empty">
+        <i class="ti ti-search-off"></i>
+        <div>"${q}" topilmadi</div>
+      </div>`;
+    return;
+  }
+
+  // Har bir mahsulot + rang + pochka-guruhi = alohida qator (Billz uslubida)
+  const rows = [];
+  found.forEach(p => {
+    const colors = [...new Set(p.variants.map(v => v.color))];
+    colors.forEach(color => {
+      const groups = typeof regroupPackages === "function"
+        ? regroupPackages(p.variants, color)
+        : [{ packGroup:0, isBroken:false,
+             qty: Math.min(...p.variants.filter(v=>v.color===color).map(v=>v.qty)),
+             variants: p.variants.filter(v=>v.color===color) }];
+      groups.forEach(g => rows.push({ p, color, packGroup: g.packGroup, isBroken: g.isBroken, groupQty: g.qty, groupVariants: g.variants }));
+    });
+  });
+
+  $("pos-results").innerHTML = rows.map(({p, color, packGroup, isBroken, groupQty, groupVariants}) => {
+    const narx  = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+    const inBox = groupVariants.length || 1;
+    const colorVariants = groupVariants;
+    const maxPochka = groupQty;
+    const sizesStr  = typeof sizesToRange === "function"
+      ? sizesToRange(colorVariants.map(v => v.size).filter(Boolean), p.type)
+      : colorVariants.map(v => v.size).join(", ");
+    const hex = colorVariants[0]?.hex || "#888";
+    const rowKey = `${p.sku}::${color}::${packGroup}`;
+    const rowId = rowKey.replace(/[^a-zA-Z0-9]/g,'_');
+
+    const imgHtml = p.image
+      ? `<img src="${p.image}" style="width:44px;height:44px;object-fit:cover;border-radius:7px;border:1px solid var(--brd);flex-shrink:0">`
+      : `<div style="width:44px;height:44px;border:1.5px dashed #e0ddd8;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:16px;flex-shrink:0"><i class="ti ti-photo"></i></div>`;
+
+    return `<div class="pos-ri" style="align-items:center;flex-direction:column;align-items:stretch;${isBroken?'background:#FFFBF0;border-color:#f0d882':''}" data-rowkey="${rowKey}">
+      <div style="display:flex;align-items:center;gap:14px">
+        ${imgHtml}
+        <div class="pri-body" style="min-width:0">
+          <div class="pri-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${p.name}
+            ${isBroken ? `<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:700;padding:1px 6px;border-radius:7px;margin-left:5px">ochilgan</span>` : ""}
+          </div>
+          <div class="pri-meta">${color} · ${sizesStr || "—"}${p.art ? " · "+p.art : ""}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <div style="text-align:right">
+            <div class="pri-price" style="font-size:13px">${priceDisplay(narx)}</div>
+            <div style="font-size:10.5px;color:${maxPochka<=0?'var(--red)':maxPochka<=5?'#d97706':'var(--mut)'}">
+              ${maxPochka} pochka
+            </div>
+          </div>
+          <input type="number" min="1" max="${maxPochka}" placeholder="1" value="1"
+            id="posq-${rowId}"
+            style="width:48px;text-align:center;border:1.5px solid var(--brd);border-radius:7px;padding:6px 4px;font-weight:700;font-size:13px"
+            onclick="event.stopPropagation()">
+          <button class="btn btn-ghost btn-sm" style="padding:8px 7px;font-size:10.5px"
+            onclick="event.stopPropagation();posToggleDonaMode('${rowId}')"
+            title="Dona bo'yicha sotish" id="posdona-btn-${rowId}">
+            <i class="ti ti-grid-dots"></i>
+          </button>
+          <button class="btn btn-acc btn-sm" style="padding:8px 10px"
+            onclick="event.stopPropagation();posQuickAdd('${p.sku}','${color.replace(/'/g,"\\'")}','${packGroup}')"
+            ${maxPochka<=0?"disabled":""}>
+            <i class="ti ti-plus"></i>
+          </button>
         </div>
       </div>
-      <div style="text-align:right">
-        <div style="font-size:18px;font-weight:800;color:#E9A500">${fmt(price)}</div>
-        <div style="font-size:11px;color:#64748B">so'm</div>
-        ${ulg?`<div style="font-size:11px;color:#94A3B8;margin-top:2px">Ulg: ${fmt(ulg)}</div>`:""}
+      <div id="posdona-panel-${rowId}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--brd)">
+        <div style="font-size:10.5px;color:var(--mut);margin-bottom:5px">O'lcham bo'yicha dona sotish:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          ${colorVariants.map(v => `
+            <div style="display:flex;align-items:center;gap:3px;background:var(--bg);border:1.5px solid var(--brd);border-radius:7px;padding:3px 5px">
+              <span style="font-size:11px;font-weight:600;min-width:20px;text-align:center;color:${v.qty<=0?'#ccc':'inherit'}">${v.size}</span>
+              <input type="number" min="0" max="${v.qty}" placeholder="0" value="0" ${v.qty<=0?'disabled':''}
+                id="posdq-${rowId}-${v.size}"
+                style="width:36px;text-align:center;border:none;background:transparent;font-size:11px;font-weight:700">
+            </div>`).join("")}
+        </div>
+        <button class="btn btn-acc btn-sm" style="margin-top:6px;width:100%"
+          onclick="posDonaAdd('${p.sku}','${color.replace(/'/g,"\\'")}','${rowId}')">
+          <i class="ti ti-plus"></i> Donalab qo'shish
+        </button>
       </div>
-    </div>
-    <div style="margin-bottom:14px">
-      <div style="font-size:10.5px;color:#94A3B8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Rang</div>
-      <div id="vm-colors" style="display:flex;flex-wrap:wrap;gap:8px">
-        ${colors.map(c=>{
-          const v0=p.variants.find(x=>x.color===c);
-          const hex=v0?.hex||"#888";
-          const qty=p.variants.filter(x=>x.color===c).reduce((a,x)=>a+(x.qty||0),0);
-          const bc=p.colorBarcodes?.[c]||"";
-          return`<button class="vm-color-btn" data-color="${c}" onclick="vmSelectColor('${c.replace(/'/g,"\\'")}')"\n            style="display:flex;align-items:center;gap:6px;padding:7px 12px;border:2px solid #E8E5E0;border-radius:10px;background:#fff;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;transition:all .15s">\n            <span style="width:14px;height:14px;border-radius:4px;background:${hex};border:1px solid rgba(0,0,0,.12);flex-shrink:0"></span>\n            <span style="color:#0D1B2A">${c}</span>\n            <span style="font-size:11px;color:#94A3B8;font-weight:400">${qty}</span>\n            ${bc?`<span style="font-size:10px;color:#C0BBB4;font-family:monospace">${bc}</span>`:""}\n          </button>`;
-        }).join("")}
-      </div>
-    </div>
-    <div id="vm-sizes-wrap" style="display:none;margin-bottom:14px">
-      <div style="font-size:10.5px;color:#94A3B8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">O'lcham</div>
-      <div id="vm-sizes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
-    </div>
-    <div style="margin-bottom:14px">
-      <div style="font-size:10.5px;color:#94A3B8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Miqdor (pochka)</div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <button onclick="vmQtyChange(-1)" style="width:38px;height:38px;border-radius:10px;border:2px solid #E8E5E0;background:#fff;font-size:18px;font-weight:700;cursor:pointer;color:#0D1B2A">-</button>
-        <input id="vm-qty" type="number" min="1" value="1" oninput="renderVmChips()" style="width:70px;text-align:center;font-size:18px;font-weight:700;border:2px solid #E8E5E0;border-radius:10px;padding:7px;font-family:inherit;color:#0D1B2A">
-        <button onclick="vmQtyChange(1)"  style="width:38px;height:38px;border-radius:10px;border:2px solid #E8E5E0;background:#fff;font-size:18px;font-weight:700;cursor:pointer;color:#0D1B2A">+</button>
-        <div id="vm-qty-chips" style="display:flex;gap:5px;flex-wrap:wrap"></div>
-      </div>
-    </div>
-    <button onclick="confirmVariant()" id="vm-add-btn" disabled
-      style="width:100%;padding:13px;background:#E9A500;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s;opacity:.4">
-      <i class="ti ti-shopping-cart-plus" style="font-size:17px"></i> Savatga qo'shish
-    </button>`;
-  openModal("variant");
-  renderVmChips();
+    </div>`;
+  }).join("");
 }
 
-function vmSelectColor(color){
-  _vmColor=color;_vmSize=null;
-  document.querySelectorAll(".vm-color-btn").forEach(btn=>{
-    const on=btn.dataset.color===color;
-    btn.style.borderColor=on?"#E9A500":"#E8E5E0";
-    btn.style.background=on?"#FFF8E7":"#fff";
+// Dona rejimi panelini ochish/yopish
+function posToggleDonaMode(rowId) {
+  const panel = $(`posdona-panel-${rowId}`);
+  if (!panel) return;
+  const isOpen = panel.style.display !== "none";
+  panel.style.display = isOpen ? "none" : "block";
+}
+
+// O'lcham bo'yicha donalab savatga qo'shish
+function posDonaAdd(sku, color, rowId) {
+  const p = db.products.find(x => x.sku === sku); if (!p) return;
+  const colorVariants = p.variants.filter(v => v.color === color);
+  const narx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+
+  let addedTotal = 0;
+  colorVariants.forEach(v => {
+    const inputId = `posdq-${rowId}-${v.size}`;
+    const qtyWanted = parseInt(($(inputId)||{value:0}).value) || 0;
+    if (qtyWanted <= 0) return;
+    if (qtyWanted > v.qty) { toast(`${v.size}: faqat ${v.qty} ta bor`, "err"); return; }
+
+    const ex = cart.find(c => c.sku===sku && c.color===color && c.size===v.size && c.sellMode==="dona");
+    if (ex) ex.qty += qtyWanted;
+    else cart.push({
+      sku, name: p.name, color, size: v.size,
+      unit: p.unit||"dona", price: narx, basePrice: narx, priceType: posPriceType,
+      qty: qtyWanted, qtyBox: null, inBox: null, sellMode: "dona",
+      image: p.image || null, art: p.art || null, barcode: p.barcode || null
+    });
+    addedTotal += qtyWanted;
+    if ($(inputId)) $(inputId).value = 0;
   });
-  const p=db.products.find(x=>x.sku===_vmSku);if(!p)return;
-  const variants=p.variants.filter(v=>v.color===color&&(v.qty||0)>0);
-  const sw=$("vm-sizes-wrap"),sz=$("vm-sizes");
-  if(!sz)return;
-  if(!variants.length){if(sw)sw.style.display="none";const b=$("vm-add-btn");if(b){b.disabled=true;b.style.opacity=".4";}toast("Bu rangda stok yo'q","err");return;}
-  if(variants.every(v=>!v.size)){
-    _vmSize="";if(sw)sw.style.display="none";
-    const b=$("vm-add-btn");if(b){b.disabled=false;b.style.opacity="1";}
-  }else{
-    if(sw)sw.style.display="block";
-    sz.innerHTML=variants.map(v=>`<button class="vm-size-btn" data-size="${v.size}" onclick="vmSelectSize('${v.size.replace(/'/g,"\\'")}')"\n      style="padding:7px 14px;border:2px solid #E8E5E0;border-radius:9px;background:#fff;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;color:#0D1B2A;transition:all .15s">\n      ${v.size} <span style="font-size:10.5px;color:#94A3B8;font-weight:400">(${v.qty})</span>\n    </button>`).join("");
-    const b=$("vm-add-btn");if(b){b.disabled=true;b.style.opacity=".4";}
+
+  if (addedTotal > 0) {
+    toast(`${p.name} (${color}) — ${addedTotal} dona savatchaga qo'shildi`);
+    posLog("Savatga qo'shildi", `${p.name} (${color}) — ${addedTotal} dona`);
+    renderCart();
+  } else {
+    toast("O'lcham va son kiriting", "err");
   }
-  renderVmChips();
 }
 
-function vmSelectSize(size){
-  _vmSize=size;
-  document.querySelectorAll(".vm-size-btn").forEach(btn=>{
-    const on=btn.dataset.size===size;
-    btn.style.borderColor=on?"#E9A500":"#E8E5E0";
-    btn.style.background=on?"#FFF8E7":"#fff";
-  });
-  const b=$("vm-add-btn");if(b){b.disabled=false;b.style.opacity="1";}
-}
+// Qidiruv natijasidan to'g'ridan-to'g'ri savatga qo'shish (pochka rejimida)
+function posQuickAdd(sku, color, packGroup) {
+  const p = db.products.find(x => x.sku === sku); if (!p) return;
+  packGroup = packGroup !== undefined ? parseInt(packGroup) : 0;
+  const rowKey = `${sku}::${color}::${packGroup}`;
+  const inputId = `posq-${rowKey.replace(/[^a-zA-Z0-9]/g,'_')}`;
+  const qtyInput = parseInt(($(inputId)||{value:1}).value) || 1;
 
-function vmQtyChange(d){const inp=$("vm-qty");if(!inp)return;inp.value=Math.max(1,(parseInt(inp.value)||1)+d);renderVmChips();}
-function vmSetQty(n){if($("vm-qty")){$("vm-qty").value=n;renderVmChips();}}
-function renderVmChips(){
-  const el=$("vm-qty-chips");if(!el)return;
-  const cur=parseInt($("vm-qty")?.value)||1;
-  el.innerHTML=[1,2,3,5,10].map(n=>`<button onclick="vmSetQty(${n})" style="padding:5px 11px;border:none;border-radius:8px;background:${cur===n?"#E9A500":"#F0EDE8"};cursor:pointer;font-size:12.5px;font-weight:600;font-family:inherit;color:${cur===n?"#fff":"#0D1B2A"};transition:.15s">${n}</button>`).join("");
-}
+  // Shu pochka guruhiga tegishli variantlarni topamiz
+  const groups = typeof regroupPackages === "function" ? regroupPackages(p.variants, color) : [];
+  const g = groups[packGroup];
+  if (!g) { toast("Guruh topilmadi", "err"); return; }
 
-function confirmVariant(){
-  const p=db.products.find(x=>x.sku===_vmSku);if(!p)return;
-  if(_vmColor===null){toast("Rangni tanlang","err");return;}
-  if(_vmSize===null){toast("O'lchamni tanlang","err");return;}
-  const qtyBox=parseInt($("vm-qty")?.value)||1;
-  const colorVars=p.variants.filter(v=>v.color===_vmColor);
-  const inBox=colorVars.length||p.inBox||1;
-  const totalDona=qtyBox*inBox;
-  const cart=getCart();
-  const key=p.sku+"|"+_vmColor+"|"+_vmSize;
-  const ex=cart.items.find(i=>i._key===key);
-  if(ex){ex.qty+=totalDona;ex.qtyBox=(ex.qtyBox||0)+qtyBox;}
-  else{
-    cart.items.push({
-      _key:key,sku:p.sku,name:p.name,art:p.art||"",color:_vmColor,size:_vmSize,
-      qty:totalDona,qtyBox,price:p.priceUzs||0,ulgurji:p.ulgurjiNarx||0,
-      image:p.image||null,barcode:(p.colorBarcodes?.[_vmColor])||p.barcode||null,
-      discount:0,discType:"pct"
+  const groupSizes = g.variants.map(v => v.size);
+  const maxPochka = g.qty;
+  const inBox = g.variants.length || 1;
+
+  const alreadyInCart = cart.find(c => c.sku===sku && c.color===color && c.sellMode==="karobka" && c.packGroup===packGroup);
+  const alreadyBoxes  = alreadyInCart ? (alreadyInCart.qtyBox||0) : 0;
+
+  if (alreadyBoxes + qtyInput > maxPochka) {
+    toast(`Faqat ${maxPochka - alreadyBoxes} pochka bor`, "err");
+    return;
+  }
+
+  const narx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+  const totalDona = qtyInput * inBox;
+
+  if (alreadyInCart) {
+    alreadyInCart.qty += totalDona;
+    alreadyInCart.qtyBox = (alreadyInCart.qtyBox||0) + qtyInput;
+  } else {
+    cart.push({
+      sku, name: p.name, color, size: null,
+      unit: p.unit||"dona", price: narx, basePrice: narx, priceType: posPriceType,
+      qty: totalDona, qtyBox: qtyInput, inBox, sellMode: "karobka",
+      packGroup, groupSizes,
+      image: p.image || null, art: p.art || null, barcode: p.barcode || null
     });
   }
-  logPosAction("Savatga qo'shildi",`${p.name} ${_vmColor} x${qtyBox} pochka`);
-  closeModal("variant");renderCart();
-  toast(`${p.name} - ${_vmColor} (${qtyBox} pochka)`);
+
+  toast(`${p.name} (${color}) × ${qtyInput} pochka savatchaga qo'shildi`);
+  posLog("Savatga qo'shildi", `${p.name} (${color}) — ${qtyInput} pochka`);
+  renderCart();
+  // Inputni 1 ga qaytaramiz
+  if ($(inputId)) $(inputId).value = 1;
 }
 
-// ── Savatcha ──
-function _itemDiscAmt(it){
-  const base=it.price||0;
-  const d=parseFloat((it.discount||"0").toString().replace(/\s/g,""))||0;
-  if((it.discType||"pct")==="pct")return Math.round(base*d/100);
-  return Math.min(d,base);
+function posClear() {
+  if ($("pos-q")) $("pos-q").value = "";
+  posSearch();
+  $("pos-q")?.focus();
 }
 
-function renderCart(){
-  const el=$("cart-items");if(!el)return;
-  const items=getItems();
-  if(!items.length){
-    el.innerHTML=`<div class="cart-mt"><i class="ti ti-shopping-cart"></i><p style="font-size:13px">Mahsulot tanlang</p></div>`;
-    updateCartTotal();return;
+function renderPosGrid() {
+  posUpdatePriceTypeVisibility();
+  posSearch();
+  renderCartTabs();
+  renderCart();
+  setTimeout(() => {
+    const n = $("pos-note");
+    if (n) { n.value = ""; n.setAttribute("readonly", true); }
+  }, 150);
+}
+
+// Agar hech bir mahsulotda chakana narx (priceUzs) kiritilmagan bo'lsa,
+// "Ulgurji/Chakana" tanlash panelini butunlay yashiramiz — kerak emas.
+function posUpdatePriceTypeVisibility() {
+  const hasChakana = db.products.some(p => p.priceUzs > 0);
+  const wrap = $("price-type-wrap");
+  if (wrap) wrap.style.display = hasChakana ? "block" : "none";
+  if (!hasChakana && posPriceType !== "ulgurji") {
+    posPriceType = "ulgurji";
   }
-  el.innerHTML=items.map((it,idx)=>{
-    const base=it.price||0;
-    const disc=_itemDiscAmt(it);
-    const final=Math.max(0,base-disc);
-    const total=final*it.qty;
-    const hex=db.products.find(p=>p.sku===it.sku)?.variants.find(v=>v.color===it.color)?.hex||"#888";
-    return`<div style="padding:11px 14px;border-bottom:1px solid #F0EDE8;display:flex;align-items:flex-start;gap:10px">
-      <div style="width:42px;height:42px;border-radius:9px;background:#F0EDE8;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center">
-        ${it.image?`<img src="${it.image}" style="width:100%;height:100%;object-fit:cover">`:`<span style="width:14px;height:14px;border-radius:4px;background:${hex};border:1px solid rgba(0,0,0,.1)"></span>`}
-      </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:13px;color:#0D1B2A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.name}</div>
-        <div style="display:flex;align-items:center;gap:5px;margin-top:2px">
-          ${it.art?`<span style="font-size:11px;font-weight:700;color:#6B4FBB;font-family:monospace">${it.art}</span>`:""}
-          <span style="width:10px;height:10px;border-radius:3px;background:${hex};border:1px solid rgba(0,0,0,.12);display:inline-block"></span>
-          <span style="font-size:11.5px;color:#64748B;font-weight:600">${it.color}</span>
-          ${it.size?`<span style="font-size:11px;color:#94A3B8">· ${it.size}</span>`:""}
-          <span style="font-size:11px;color:#94A3B8">· ${it.qtyBox||1} pochka</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:5px;margin-top:5px">
-          <input type="text" data-price placeholder="Chegirma" value="${it.discount||""}"
-            oninput="fmtInput(this);_setItemDisc(${idx},this.value,'${it.discType||"pct"}')"
-            style="width:80px;font-size:12px;border:1px solid #E8E5E0;border-radius:7px;padding:3px 7px;font-family:inherit">
-          <button onclick="_toggleDiscType(${idx},'pct')" style="padding:3px 7px;border:1px solid #E8E5E0;border-radius:6px;font-size:11.5px;cursor:pointer;font-family:inherit;background:${(it.discType||"pct")==="pct"?"#E9A500":"#fff"};color:${(it.discType||"pct")==="pct"?"#fff":"#64748B"}">%</button>
-          <button onclick="_toggleDiscType(${idx},'sum')" style="padding:3px 7px;border:1px solid #E8E5E0;border-radius:6px;font-size:11.5px;cursor:pointer;font-family:inherit;background:${it.discType==="sum"?"#E9A500":"#fff"};color:${it.discType==="sum"?"#fff":"#64748B"}">So'm</button>
-          ${disc>0?`<span style="font-size:11px;color:#E05A5A;font-weight:600">-${fmt(disc)}</span>`:""}
-        </div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-weight:800;font-size:14px;color:#0D1B2A">${fmt(total)}</div>
-        <div style="font-size:10.5px;color:#94A3B8">so'm</div>
-        ${disc>0?`<div style="font-size:11px;color:#94A3B8;text-decoration:line-through">${fmt(base*it.qty)}</div>`:""}
-        <div style="display:flex;gap:4px;margin-top:5px;justify-content:flex-end">
-          <button onclick="cartQtyChange(${idx},-1)" style="width:26px;height:26px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;font-size:14px;font-weight:700;color:#64748B">-</button>
-          <button onclick="cartQtyChange(${idx},1)"  style="width:26px;height:26px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;font-size:14px;font-weight:700;color:#64748B">+</button>
-          <button onclick="cartRemove(${idx})" style="width:26px;height:26px;border:1px solid #FEE2E2;border-radius:7px;background:#FFF5F5;cursor:pointer;font-size:12px;color:#E05A5A"><i class="ti ti-x"></i></button>
+}
+
+
+// ── Narx turi ─────────────────────────────────────
+function setPriceType(t) {
+  posPriceType = t;
+  document.querySelectorAll("#price-type-seg button").forEach(b => {
+    const on = b.dataset.pt === t;
+    b.classList.toggle("on", on);
+    b.style.background = on ? "#0D1B2A" : "#fff";
+    b.style.color      = on ? "#fff"    : "#666";
+  });
+
+  // Savatchadagi mavjud mahsulotlar narxini ham yangilaymiz —
+  // faqat qo'lda o'zgartirilmagan (override qilinmagan) narxlarni
+  let updatedCount = 0;
+  cart.forEach(c => {
+    const isOverride = c.basePrice && c.basePrice !== c.price;
+    if (isOverride) return; // sotuvchi qasddan boshqa narx qo'ygan — tegmaymiz
+    const p = db.products.find(x => x.sku === c.sku); if (!p) return;
+    const newBase = t === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+    if (newBase !== c.price) updatedCount++;
+    c.price = newBase;
+    c.basePrice = newBase;
+    c.priceType = t;
+  });
+  if (updatedCount > 0) {
+    toast(`${updatedCount} ta tovar narxi ${t === "ulgurji" ? "ulgurji" : "chakana"}ga yangilandi`, "info");
+  }
+
+  posSearch(); renderCart();
+}
+
+// ── Variant modal ─────────────────────────────────
+function openVariantModal(sku) {
+  vmProd = db.products.find(p => p.sku === sku); if (!vmProd) return;
+  selColor = null; selSize = null;
+  $("vm-title").textContent = vmProd.name;
+
+  // Meta
+  if ($("vm-meta")) $("vm-meta").textContent =
+    `${vmProd.category} · ${vmProd.unit||"dona"}${vmProd.art ? " · " + vmProd.art : ""}`;
+
+  // Rasm
+  const imgWrap = $("vm-img-wrap");
+  if (imgWrap) {
+    if (vmProd.image) {
+      imgWrap.innerHTML = `<img src="${vmProd.image}" style="width:100%;height:100%;object-fit:cover">`;
+    } else {
+      imgWrap.innerHTML = `<i class="ti ti-photo"></i>`;
+    }
+  }
+
+  // Narx header
+  const narx = posPriceType === "ulgurji"
+    ? (vmProd.ulgurjiNarx || vmProd.priceUzs || 0)
+    : (vmProd.priceUzs || 0);
+  const inBox = vmProd.inBox || 1;
+  if ($("vm-price-header")) {
+    let pTxt = priceDisplay(narx);
+    if (inBox > 1) pTxt += `<div style="font-size:10px;font-weight:600;color:#856404">📦 ${priceDisplay(narx*inBox)}/pochka</div>`;
+    $("vm-price-header").innerHTML = pTxt;
+  }
+
+  // Qoldiq header
+  const totalQty = (vmProd.variants||[]).reduce((a,v) => a+v.qty, 0);
+  if ($("vm-stock-header")) {
+    const boxes = inBox > 1 ? `<div style="font-size:10px">${Math.floor(totalQty/inBox)} pochka</div>` : "";
+    $("vm-stock-header").innerHTML = `${totalQty} ${vmProd.unit||"dona"}${boxes}`;
+    const tag = $("vm-stock-tag");
+    if (tag) {
+      if (totalQty <= 0) { tag.style.background="#FEF2F2"; tag.style.borderColor="#FECACA"; tag.querySelector("div").style.color="#991B1B"; $("vm-stock-header").style.color="#991B1B"; }
+      else if (totalQty <= 5) { tag.style.background="#FFF8E7"; tag.style.borderColor="#f0d882"; }
+    }
+  }
+
+  const isBox   = posPriceType === "ulgurji" && inBox > 1;
+  vmSellMode    = isBox ? "karobka" : "dona";
+
+  // Toggle ko'rsatish
+  if ($("vm-unit-toggle")) $("vm-unit-toggle").style.display = isBox ? "block" : "none";
+  if ($("vm-box-info"))    $("vm-box-info").style.display    = "none";
+  if ($("vm-sizes-row"))   $("vm-sizes-row").style.display   = isBox ? "none" : "block";
+  if ($("vm-qty-lbl"))     $("vm-qty-lbl").textContent       = isBox ? "Pochka soni" : "Miqdor";
+  document.querySelectorAll(".vmut-btn").forEach(b => b.classList.toggle("on", b.dataset.m === vmSellMode));
+
+  renderVmChips(); openModal("variant");
+}
+
+function vmSetMode(m) {
+  vmSellMode = m;
+  document.querySelectorAll(".vmut-btn").forEach(b => b.classList.toggle("on", b.dataset.m === m));
+  if ($("vm-sizes-row"))  $("vm-sizes-row").style.display  = m === "karobka" ? "none" : "block";
+  if ($("vm-qty-lbl"))    $("vm-qty-lbl").textContent      = m === "karobka" ? "Pochka soni" : "Miqdor";
+  if ($("vm-box-info"))   $("vm-box-info").style.display   = "none";
+  selSize = null;
+  $("vm-qty").value = 1;
+  renderVmChips();
+}
+
+function renderVmChips() {
+  if (!vmProd) return;
+  const colors = [...new Set(vmProd.variants.map(v => v.color))];
+  const sizes  = [...new Set(vmProd.variants.map(v => v.size))];
+  const narx   = posPriceType === "ulgurji" ? (vmProd.ulgurjiNarx||vmProd.priceUzs) : vmProd.priceUzs;
+  const qty    = parseInt(($("vm-qty")||{value:1}).value) || 1;
+  const inBox  = (vmSellMode === "karobka" && (vmProd.inBox||1) > 1) ? (vmProd.inBox||1) : 1;
+  const totalDona = qty * inBox;
+
+  // Ranglar
+  $("vm-colors").innerHTML = colors.map(c => {
+    const cVariants = vmProd.variants.filter(v => v.color===c);
+    const cStock = cVariants.reduce((a,v) => a+v.qty, 0);
+    const displayStock = vmSellMode === "karobka"
+      ? (cVariants.length > 0 ? Math.min(...cVariants.map(v => v.qty)) : 0)
+      : cStock;
+    const stockLabel = vmSellMode === "karobka" ? `${displayStock} pochka` : `${displayStock}`;
+    return `<div class="vchip${cStock>0?"":" out"}${c===selColor?" on":""}"
+      onclick="vmSel('c','${c.replace(/'/g,"\\'")}')"> ${c}
+      <span style="font-size:10px;opacity:.7">(${stockLabel})</span></div>`;
+  }).join("");
+
+  // O'lchamlar — faqat dona rejimida
+  if ($("vm-sizes")) {
+    $("vm-sizes").innerHTML = sizes.map(s =>
+      `<div class="vchip${(!selColor || vmProd.variants.some(v => v.size===s && v.color===selColor && v.qty>0))?"":" out"}${s===selSize?" on":""}"
+        onclick="vmSel('s','${s.replace(/'/g,"\\'")}')"> ${s}</div>`
+    ).join("");
+  }
+
+  // Info matni
+  if (vmSellMode === "karobka" && selColor) {
+    const colorVariants = vmProd.variants.filter(v => v.color===selColor);
+    const maxPochka = colorVariants.length > 0 ? Math.min(...colorVariants.map(v => v.qty)) : 0;
+    const sizesStr  = typeof sizesToRange === "function"
+      ? sizesToRange(colorVariants.map(v => v.size).filter(Boolean), vmProd.type)
+      : colorVariants.map(v => v.size).join(", ");
+    $("vm-info").innerHTML = `O'lcham: <strong>${sizesStr}</strong> &middot; Qoldiq: <strong>${maxPochka} pochka</strong>`;
+  } else if (vmSellMode === "dona") {
+    const v = selColor && selSize ? vmProd.variants.find(x => x.color===selColor && x.size===selSize) : null;
+    $("vm-info").textContent = v
+      ? `Qoldiq: ${v.qty} ${vmProd.unit||"dona"}`
+      : selColor ? "O'lcham tanlang" : "Rang tanlang";
+  } else {
+    $("vm-info").textContent = "Rang tanlang";
+  }
+
+  // Karobka hisob bloki
+  const bi = $("vm-box-info");
+  if (bi) {
+    if (vmSellMode === "karobka" && inBox > 1 && selColor) {
+      bi.style.display = "block";
+      $("vm-box-detail").textContent =
+        `${qty} pochka × ${inBox} ${vmProd.unit||"dona"} = ${totalDona} ${vmProd.unit||"dona"}`;
+    } else {
+      bi.style.display = "none";
+    }
+  }
+
+  // Narx
+  if ($("vm-price-lbl")) $("vm-price-lbl").textContent =
+    `${posPriceType==="ulgurji"?"Ulgurji":"Chakana"} narx × ${totalDona} ${vmProd.unit||"dona"}:`;
+  if ($("vm-price-val")) $("vm-price-val").textContent = priceDisplay(narx * totalDona);
+}
+
+function vmSel(t, v) {
+  if (t === "c") { selColor = v; selSize = null; } else selSize = v;
+  renderVmChips();
+}
+
+function confirmVariant() {
+  if (!selColor) { toast("Rang tanlang","err"); return; }
+  if (vmSellMode === "dona" && !selSize) { toast("O'lcham tanlang","err"); return; }
+
+  const inBox     = (vmSellMode === "karobka" && (vmProd.inBox||1) > 1) ? (vmProd.inBox||1) : 1;
+  const qtyInput  = Math.max(1, parseInt(($("vm-qty")||{value:1}).value) || 1);
+  const totalDona = qtyInput * inBox;
+  const baseNarx  = posPriceType === "ulgurji" ? (vmProd.ulgurjiNarx||vmProd.priceUzs) : vmProd.priceUzs;
+  const overrideVal = getRawVal("vm-price-input");
+  const narx      = overrideVal > 0 ? overrideVal : baseNarx;
+
+  if (vmSellMode === "karobka") {
+    // Pochka soni = eng kam o'lchamdagi qoldiq (chunki 1 pochka = barcha o'lchamlardan 1 tadan)
+    const colorVariants = vmProd.variants.filter(v => v.color===selColor);
+    const maxPochka = colorVariants.length > 0 ? Math.min(...colorVariants.map(v => v.qty)) : 0;
+    const alreadyInCart = cart.find(c => c.sku===vmProd.sku && c.color===selColor && !c.size);
+    const alreadyBoxes   = alreadyInCart ? (alreadyInCart.qtyBox||0) : 0;
+    if (alreadyBoxes + qtyInput > maxPochka) {
+      toast(`Faqat ${maxPochka - alreadyBoxes} pochka bor`,"err");
+      return;
+    }
+    const ex = cart.find(c => c.sku===vmProd.sku && c.color===selColor && c.sellMode==="karobka");
+    if (ex) { ex.qty += totalDona; ex.qtyBox = (ex.qtyBox||0) + qtyInput; }
+    else cart.push({
+      sku:vmProd.sku, name:vmProd.name, color:selColor, size:null,
+      unit:vmProd.unit||"dona", price:narx, basePrice:baseNarx, priceType:posPriceType,
+      qty:totalDona, qtyBox:qtyInput, inBox, sellMode:"karobka",
+      image: vmProd.image || null,
+      art: vmProd.art || null,
+      barcode: vmProd.barcode || null
+    });
+    toast(`${vmProd.name} (${selColor}) × ${qtyInput} pochka (${totalDona} ${vmProd.unit||"dona"}) savatchaga qo'shildi`);
+  } else {
+    // Dona rejimi
+    const v = vmProd.variants.find(x => x.color===selColor && x.size===selSize);
+    if (!v || v.qty <= 0) { toast("Bu variant tugagan","err"); return; }
+    const ex      = cart.find(c => c.sku===vmProd.sku && c.color===selColor && c.size===selSize);
+    const already = ex ? ex.qty : 0;
+    if (already + totalDona > v.qty) {
+      toast(`Faqat ${v.qty - already} ${vmProd.unit||"dona"} bor`,"err"); return;
+    }
+    if (ex) ex.qty += totalDona;
+    else cart.push({
+      sku:vmProd.sku, name:vmProd.name, color:selColor, size:selSize,
+      unit:vmProd.unit||"dona", price:narx, basePrice:baseNarx, priceType:posPriceType,
+      qty:totalDona, qtyBox:null, inBox:null, sellMode:"dona",
+      image: vmProd.image || null,
+      art: vmProd.art || null,
+      barcode: vmProd.barcode || null
+    });
+    toast(`${vmProd.name} (${selColor}/${selSize}) × ${totalDona} savatchaga qo'shildi`);
+  }
+
+  closeModal("variant"); renderCart();
+}
+
+// ── Savatcha ──────────────────────────────────────
+function renderCart() {
+  posSaveCarts(); // savatcha holatini har render da localStorage ga saqlaymiz
+  renderCartTabs();
+  const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
+  const discount = calcDiscount(subtotal);
+  const total    = subtotal - discount;
+  const count    = cart.reduce((a, c) => a + c.qty, 0);
+  const rate     = db.settings.rate || 12800;
+
+  $("cart-cnt").textContent = cart.length ? count + " ta" : "bo'sh";
+  if ($("cart-items-count")) $("cart-items-count").textContent = cart.length ? count + " ta" : "0 ta";
+  if ($("pos-pay-total")) $("pos-pay-total").textContent = priceDisplay(total);
+
+  // Chegirma natija
+  const discEl = $("discount-result");
+  if (discEl) {
+    if (discount > 0) {
+      discEl.style.display = "block";
+      discEl.innerHTML = `−${priceDisplay(discount)} → Jami: <strong style="color:#0D1B2A">${priceDisplay(total)}</strong>`;
+    } else {
+      discEl.style.display = "none";
+    }
+  }
+
+  // USD ekvivalent
+  const usdEl = $("cart-total-usd");
+  if (usdEl) {
+    usdEl.textContent = total > 0 ? `≈ $${(total/rate).toFixed(0)}` : "";
+  }
+
+  if (!cart.length) {
+    $("cart-items").innerHTML = `<div class="cart-mt"><i class="ti ti-shopping-cart"></i><p style="font-size:13px">Mahsulot tanlang</p></div>`;
+    $("cart-total").textContent = "0 so'm"; updateRem(); return;
+  }
+
+  $("cart-items").innerHTML = cart.map((c, i) => {
+    const variantLine = c.sellMode === "karobka"
+      ? `${c.color} <span class="ci-box-badge">📦 ${c.qtyBox} pochka</span>`
+      : `${c.color} / ${c.size}`;
+    const isOverride = c.basePrice && c.basePrice !== c.price;
+    const priceTag = isOverride
+      ? `<span style="text-decoration:line-through;color:#bbb;font-size:11px;margin-right:4px">${fmt(c.basePrice*c.qty)} so'm</span>
+         <span class="ci-pr" style="color:#E9A500">${fmt(c.price*c.qty)} so'm</span>`
+      : `<span class="ci-pr">${priceDisplay(c.price * c.qty)}</span>`;
+    const subLine = c.sellMode === "karobka"
+      ? `${c.qty} ${c.unit} · ${priceDisplay(c.price)}/${c.unit}${isOverride?` <span style="color:#E9A500;font-size:10px">(o'zgartirilgan)</span>`:""}`
+      : isOverride ? `<span style="color:#E9A500;font-size:10.5px">Narx o'zgartirilgan: ${priceDisplay(c.basePrice)} → ${priceDisplay(c.price)}</span>` : "";
+    return `<div class="ci">
+      <div class="ci-inf">
+        <div class="ci-nm">${c.name}</div>
+        <div class="ci-vr">${variantLine}</div>
+        ${subLine ? `<div style="font-size:11px;color:#bbb;margin-top:1px">${subLine}</div>` : ""}
+        <div class="ci-row">
+          <div class="qty-ctrl">
+            <button onclick="ciQty(${i},-1)">−</button>
+            <input type="number" value="${c.sellMode==='karobka' ? c.qtyBox : c.qty}" min="1"
+              oninput="ciQtySet(${i},+this.value)"
+              style="width:38px;text-align:center;border:none;outline:none;font-weight:600">
+            <button onclick="ciQty(${i},1)">+</button>
+            ${c.sellMode==='karobka' ? `<span style="font-size:10px;color:#bbb;margin-left:3px">${c.unit==='dona'?'pochka':'pochka'}</span>` : ""}
+          </div>
+          ${priceTag}
+          <button class="ci-rm" onclick="removeFromCart(${i})"><i class="ti ti-x"></i></button>
         </div>
       </div>
     </div>`;
   }).join("");
-  updateCartTotal();
+
+  $("cart-total").textContent = priceDisplay(total); updateRem();
+  // Agar aralash to'lov paneli ochiq bo'lsa, qolgan/ortiqcha hisobini yangilaymiz
+  if (posPayType === "aralash") updateMixedTotal();
 }
 
-function _setItemDisc(idx,val,type){
-  const it=getItems()[idx];if(!it)return;
-  it.discount=parseFloat((val||"").replace(/\s/g,""))||0;
-  it.discType=type;updateCartTotal();
+// Savatchadagi mahsulot uchun maksimal mumkin bo'lgan miqdorni hisoblash
+function ciGetMax(c) {
+  const p = db.products.find(x => x.sku === c.sku); if (!p) return Infinity;
+  if (c.sellMode === "karobka") {
+    const groups = typeof regroupPackages === "function" ? regroupPackages(p.variants, c.color) : [];
+    const g = groups[c.packGroup || 0];
+    return g ? g.qty : 0;
+  } else {
+    const v = p.variants.find(x => x.color === c.color && x.size === c.size);
+    return v ? v.qty : 0;
+  }
 }
-function _toggleDiscType(idx,type){
-  const it=getItems()[idx];if(!it)return;
-  it.discType=type;renderCart();
-}
-function cartQtyChange(idx,d){
-  const it=getItems()[idx];if(!it)return;
-  const p=db.products.find(x=>x.sku===it.sku);
-  const inBox=p?(p.variants.filter(v=>v.color===it.color).length||p.inBox||1):1;
-  it.qty=Math.max(inBox,it.qty+d*inBox);it.qtyBox=Math.round(it.qty/inBox);
+
+function ciQty(i, d) {
+  const c = cart[i];
+  const max = ciGetMax(c);
+  if (c.sellMode === "karobka" && c.inBox) {
+    // Pochka rejimi: avval pochka sonini o'zgartiramiz, keyin jami donani hisoblaymiz
+    const newBoxes = Math.max(1, (c.qtyBox || 1) + d);
+    if (newBoxes > max) { toast(`Faqat ${max} pochka bor`, "err"); return; }
+    c.qtyBox = newBoxes;
+    c.qty = c.qtyBox * c.inBox;
+  } else {
+    const newQty = Math.max(1, c.qty + d);
+    if (newQty > max) { toast(`Faqat ${max} ${c.unit||"dona"} bor`, "err"); return; }
+    c.qty = newQty;
+  }
   renderCart();
 }
-function cartRemove(idx){
-  const items=getCart().items;
-  const name=items[idx]?.name||"";
-  items.splice(idx,1);logPosAction("Savatdan o'chirildi",name);renderCart();
-}
-function clearCart(){
-  if(!getItems().length)return;
-  if(!confirm("Savatchani tozalaysizmi?"))return;
-  getCart().items=[];logPosAction("Savatcha tozalandi","");renderCart();toast("Savatcha tozalandi");
-}
-function getCartTotal(){
-  return getItems().reduce((a,it)=>a+Math.max(0,(it.price||0)-_itemDiscAmt(it))*it.qty,0);
-}
-function updateCartTotal(){
-  const total=getCartTotal();
-  const rate=db.settings?.rate||12800;
-  const items=getItems();
-  const cnt=$("cart-cnt");if(cnt)cnt.textContent=items.length?items.length+" ta":"bo'sh";
-  const tot=$("cart-total");if(tot)tot.textContent=fmt(total)+" so'm";
-  const usd=$("cart-total-usd");if(usd)usd.textContent=total>0?"≈ $"+(total/rate).toFixed(0):"";
-  const cntEl=$("cart-items-count");if(cntEl)cntEl.textContent=items.reduce((a,i)=>a+i.qty,0)+" dona";
-  updatePayTotal();updatePayRemaining();
-}
-
-// ── Parallel savatchalar ──
-function renderCartTabs(){
-  const el=$("cart-tabs");if(!el)return;
-  el.innerHTML=_carts.map((c,i)=>`<button onclick="switchCart(${i})" style="padding:5px 12px;border-radius:7px;border:1.5px solid ${i===_cartIdx?"#E9A500":"rgba(255,255,255,.2)"};background:${i===_cartIdx?"#E9A500":"transparent"};color:${i===_cartIdx?"#0D1B2A":"rgba(255,255,255,.7)"};font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s">${c.name}${c.items.length?" ("+c.items.length+")":""}</button>`).join("")+
-  `<button onclick="addCart()" style="padding:5px 10px;border-radius:7px;border:1.5px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.5);font-family:inherit;font-size:14px;cursor:pointer;line-height:1">+</button>`;
-}
-function switchCart(i){_cartIdx=i;renderCartTabs();renderCart();}
-function addCart(){
-  if(_carts.length>=5){toast("Maksimal 5 ta savatcha","err");return;}
-  _carts.push({id:Date.now(),name:"Savatcha "+(_carts.length+1),items:[]});
-  _cartIdx=_carts.length-1;renderCartTabs();renderCart();
-}
-
-// ── To'lov paneli ──
-function refreshPosStaff(){
-  const el=$("pos-staff");if(!el)return;
-  const cur=el.value;
-  el.innerHTML=`<option value="">- Kassirni tanlang -</option>`+(db.staff||[]).map(s=>`<option value="${s.id}" ${String(s.id)===String(cur)?"selected":""}>${s.name}</option>`).join("");
-  if(_staffLocked){el.disabled=true;el.style.opacity=".6";}else{el.disabled=false;el.style.opacity="1";}
-  const sess=typeof getSession==="function"?getSession():null;
-  if(!el.value&&sess?.staffId)el.value=sess.staffId;
-}
-
-function updatePayTotal(){
-  const total=getCartTotal();
-  const el=$("pos-pay-total");if(el)el.textContent=fmt(total)+" so'm";
-}
-
-function updatePayRemaining(){
-  const total=getCartTotal();
-  const naqd=getRawVal("pay-naqd");
-  const karta=getRawVal("pay-karta");
-  const otkazma=getRawVal("pay-otkazma");
-  const qarz=getRawVal("pay-qarz");
-  const paid=naqd+karta+otkazma;
-  const total_entered=paid+qarz;
-  const rem=Math.max(0,total-total_entered);
-
-  const remEl=$("pay-remaining");
-  if(remEl){remEl.textContent=rem>0?fmt(rem)+" so'm":"0";remEl.style.color=rem>0?"#E05A5A":"#22C55E";}
-
-  const badge=$("pay-mode-badge");
-  if(badge){
-    if(qarz>0){badge.innerHTML=`<span style="background:#FEF3C7;color:#92400E;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">Nasiya</span>`;}
-    else if(total_entered>=total&&total>0){badge.innerHTML=`<span style="background:#D1FAE5;color:#065F46;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">To'liq</span>`;}
-    else{badge.innerHTML="";}
+function ciQtySet(i, v) {
+  const c = cart[i];
+  const max = ciGetMax(c);
+  if (c.sellMode === "karobka" && c.inBox) {
+    let newBoxes = Math.max(1, v || 1);
+    if (newBoxes > max) { toast(`Faqat ${max} pochka bor`, "err"); newBoxes = max; }
+    c.qtyBox = newBoxes;
+    c.qty = c.qtyBox * c.inBox;
+  } else {
+    let newQty = Math.max(1, v || 1);
+    if (newQty > max) { toast(`Faqat ${max} ${c.unit||"dona"} bor`, "err"); newQty = max; }
+    c.qty = newQty;
   }
-
-  const nastBox=$("nasiya-box");
-  if(nastBox)nastBox.style.display=qarz>0?"block":"none";
+  renderCart();
+}
+function removeFromCart(i) {
+  const c = cart[i];
+  if (c) posLog("Savatdan o'chirildi", `${c.name} (${c.color||""}) — ${c.qty} ${c.unit||"dona"}`);
+  cart.splice(i, 1); posSaveCarts(); renderCart();
+}
+function clearCart() {
+  if (cart.length > 0) posLog("Savatcha tozalandi", `${cart.length} ta tovar olib tashlandi`);
+  cart.length = 0; posSaveCarts(); renderCart();
 }
 
-function onPayInput(method){
-  const total=getCartTotal();
-  const naqd=getRawVal("pay-naqd");
-  const karta=getRawVal("pay-karta");
-  const otkazma=getRawVal("pay-otkazma");
-  const qarz=getRawVal("pay-qarz");
-  const sum=naqd+karta+otkazma+qarz;
-
-  if(sum>=total&&total>0){
-    ["naqd","karta","otkazma","qarz"].forEach(m=>{
-      if(_payBlocked[m])return;
-      const v=getRawVal("pay-"+m);
-      const inp=$("pay-"+m);const row=$("pay-row-"+m);
-      if(v===0&&inp&&!inp.disabled){inp.disabled=true;if(row)row.style.opacity=".5";}
-    });
-  }else{
-    ["naqd","karta","otkazma","qarz"].forEach(m=>{
-      if(_payBlocked[m])return;
-      const inp=$("pay-"+m);const row=$("pay-row-"+m);
-      if(inp)inp.disabled=false;if(row)row.style.opacity="1";
-    });
-  }
-  updatePayRemaining();
-}
-
-function getMixedTotal(){
-  return getRawVal("pay-naqd")+getRawVal("pay-karta")+getRawVal("pay-otkazma")+getRawVal("pay-qarz");
-}
-
-function toggleStaffLock(){
-  _staffLocked=!_staffLocked;
-  const btn=$("pos-staff-lock-btn");
-  if(btn){btn.innerHTML=_staffLocked?'<i class="ti ti-lock" style="color:#E9A500"></i>':'<i class="ti ti-lock-open" style="color:#94A3B8"></i>';btn.title=_staffLocked?"Kassir bloklangan":"Kassirni bloklash";}
-  refreshPosStaff();toast(_staffLocked?"Kassir bloklandi":"Kassir bloki ochildi");
-}
-
-function togglePayMethodBlock(method){
-  _payBlocked[method]=!_payBlocked[method];
-  const btn=$("pay-lock-"+method);
-  if(btn)btn.innerHTML=_payBlocked[method]?'<i class="ti ti-lock" style="color:#E9A500"></i>':'<i class="ti ti-lock-open" style="color:#CBD5E1"></i>';
-  const inp=$("pay-"+method);const row=$("pay-row-"+method);
-  if(_payBlocked[method]){
-    if(inp){inp.disabled=true;inp.value="";}
-    if(row){row.style.opacity=".4";row.style.pointerEvents="none";}
-  }else{
-    if(inp)inp.disabled=false;
-    if(row){row.style.opacity="1";row.style.pointerEvents="auto";}
-  }
-  updatePayRemaining();
-  toast((_payBlocked[method]?"Bloklandi: ":"Ochildi: ")+method);
-}
-
-function setDebtCurrency(cur){
-  _debtCur=cur;
-  document.querySelectorAll(".dcur-btn").forEach(b=>{
-    const on=b.dataset.c===cur;
-    b.style.background=on?"#0D1B2A":"#F0EDE8";
-    b.style.color=on?"#fff":"#64748B";
-    b.style.borderColor=on?"#0D1B2A":"#E8E5E0";
-  });
-}
-
-// ── Mijoz ──
-function custSearch(q){
-  const dd=$("cust-dropdown");if(!dd)return;
-  if(!q||q.length<1){dd.style.display="none";return;}
-  const matches=(db.customers||[]).filter(c=>c.name.toLowerCase().includes(q.toLowerCase())||(c.phone||"").includes(q)).slice(0,8);
-  if(!matches.length){dd.style.display="none";return;}
-  dd.style.display="block";
-  dd.innerHTML=matches.map(c=>{
-    const debt=_custTotalDebt(c.id);
-    return`<div onclick="custSelect(${c.id})" style="padding:9px 14px;cursor:pointer;border-bottom:1px solid #F0EDE8;display:flex;align-items:center;gap:10px" onmouseover="this.style.background='#FFF8E7'" onmouseout="this.style.background=''">
-      <div style="width:34px;height:34px;border-radius:50%;background:#E9A500;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;flex-shrink:0">${(c.name[0]||"?").toUpperCase()}</div>
-      <div style="flex:1"><div style="font-weight:600;font-size:13px;color:#0D1B2A">${c.name}</div><div style="font-size:11.5px;color:#64748B">${c.phone||""}</div></div>
-      ${debt>0?`<div style="font-size:11px;color:#E05A5A;font-weight:700">-${fmt(debt)}</div>`:""}
+// ── Savatchalar orasida almashish ─────────────────
+function renderCartTabs() {
+  const el = $("cart-tabs"); if (!el) return;
+  el.innerHTML = posCartsState.carts.map((c, i) => {
+    const isActive = i === posCartsState.activeIdx;
+    const count = c.items.reduce((a, it) => a + it.qty, 0);
+    return `<div onclick="posSwitchCart(${i})" style="display:flex;align-items:center;gap:5px;
+      padding:6px 10px;border-radius:9px;cursor:pointer;white-space:nowrap;font-size:12.5px;font-weight:600;
+      background:${isActive?"var(--acc)":"rgba(255,255,255,.08)"};
+      color:${isActive?"#0D1B2A":"rgba(255,255,255,.65)"};transition:.15s">
+      <i class="ti ti-shopping-cart" style="font-size:13px"></i>
+      ${c.name}
+      ${count > 0 ? `<span style="background:${isActive?"rgba(13,27,42,.2)":"rgba(255,255,255,.15)"};
+        border-radius:8px;padding:1px 6px;font-size:10.5px">${count}</span>` : ""}
+      ${posCartsState.carts.length > 1 ? `<i class="ti ti-x" style="font-size:12px;margin-left:2px;opacity:.6"
+        onclick="event.stopPropagation();posCloseCart(${i})"></i>` : ""}
     </div>`;
-  }).join("")+
-  `<div onclick="custCreateNew()" style="padding:9px 14px;cursor:pointer;color:#E9A500;font-size:12.5px;font-weight:600;border-top:1px solid #F0EDE8;display:flex;align-items:center;gap:6px" onmouseover="this.style.background='#FFF8E7'" onmouseout="this.style.background=''">
-    <i class="ti ti-user-plus"></i> Yangi mijoz qo'shish
-  </div>`;
+  }).join("") + `
+    <button onclick="posAddCart()" title="Yangi savatcha" style="background:rgba(255,255,255,.08);
+      border:1px dashed rgba(255,255,255,.3);color:rgba(255,255,255,.7);border-radius:9px;
+      padding:6px 10px;cursor:pointer;font-size:12.5px;white-space:nowrap">
+      <i class="ti ti-plus"></i>
+    </button>`;
 }
 
-function _custTotalDebt(custId){
-  return(db.sales||[]).filter(s=>s.customerId===custId&&s.status==="qarz").reduce((a,s)=>{
-    const st=typeof calcSaleState==="function"?calcSaleState(s):{remaining:s.remaining||0};
-    return a+(st.remaining||0);
-  },0);
+function posSwitchCart(idx) {
+  if (idx === posCartsState.activeIdx) return;
+  posSaveCarts(); // joriy savatchani saqlab qo'yamiz
+  posCartsState.activeIdx = idx;
+  cart = posCartsState.carts[idx].items;
+  posSaveCarts();
+  renderCartTabs();
+  renderCart();
 }
 
-function custSelect(id){
-  const c=(db.customers||[]).find(x=>x.id===id);if(!c)return;
-  _custId=id;
-  const inp=$("cust-search-inp");if(inp)inp.value="";
-  const dd=$("cust-dropdown");if(dd)dd.style.display="none";
-  const card=$("cust-selected-card");if(card)card.style.display="block";
-  const nm=$("cust-sel-name");if(nm)nm.textContent=c.name;
-  const ph=$("cust-sel-phone");if(ph)ph.textContent=c.phone||"";
-  const cn=$("c-name");if(cn)cn.value=c.name;
-  const cp=$("c-phone");if(cp)cp.value=c.phone||"";
-  const cc=$("c-cust");if(cc)cc.value=id;
-  const clr=$("cust-clear-btn");if(clr)clr.style.display="inline-flex";
-  const debt=_custTotalDebt(id);
-  const db2=$("cust-debt-badge");if(db2)db2.style.display=debt>0?"block":"none";
-  const dv=$("cust-debt-val");if(dv)dv.textContent=fmt(debt)+" so'm";
+function posAddCart() {
+  posSaveCarts();
+  const newId = Math.max(0, ...posCartsState.carts.map(c => c.id)) + 1;
+  posCartsState.carts.push({ id: newId, name: `Savatcha ${newId}`, items: [] });
+  posCartsState.activeIdx = posCartsState.carts.length - 1;
+  cart = posCartsState.carts[posCartsState.activeIdx].items;
+  posSaveCarts();
+  renderCartTabs();
+  renderCart();
+  toast(`Yangi savatcha ochildi`);
 }
 
-function custClear(){
-  _custId=null;
-  ["cust-search-inp","c-name","c-phone","c-cust"].forEach(id=>{const el=$(id);if(el)el.value="";});
-  const card=$("cust-selected-card");if(card)card.style.display="none";
-  const dd=$("cust-dropdown");if(dd)dd.style.display="none";
-  const clr=$("cust-clear-btn");if(clr)clr.style.display="none";
-  const db2=$("cust-debt-badge");if(db2)db2.style.display="none";
+function posCloseCart(idx) {
+  if (posCartsState.carts.length <= 1) { toast("Kamida 1 ta savatcha qolishi kerak", "err"); return; }
+  const c = posCartsState.carts[idx];
+  if (c.items.length > 0 && !confirm(`"${c.name}" da ${c.items.length} ta tovar bor. Yopilsinmi?`)) return;
+
+  posCartsState.carts.splice(idx, 1);
+  if (posCartsState.activeIdx >= posCartsState.carts.length) {
+    posCartsState.activeIdx = posCartsState.carts.length - 1;
+  } else if (idx < posCartsState.activeIdx) {
+    posCartsState.activeIdx--;
+  }
+  cart = posCartsState.carts[posCartsState.activeIdx].items;
+  posSaveCarts();
+  renderCartTabs();
+  renderCart();
 }
 
-function custCreateNew(){
-  const q=$("cust-search-inp")?.value?.trim()||"";
-  const cn=$("c-name");if(cn)cn.value=q;
-  const dd=$("cust-dropdown");if(dd)dd.style.display="none";
+// ── To'lov ────────────────────────────────────────
+function setPayType(t) {
+  // Nasiya ruxsatini tekshirish
+  if (t === "nasiya") {
+    const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
+    const staff   = staffId ? (db.staff||[]).find(s=>s.id===staffId) : null;
+    if (staff && !staff.permNasiya) {
+      toast("Bu kassirda nasiya berish huquqi yo'q","err"); return;
+    }
+  }
+  posPayType = t;
+  document.querySelectorAll(".ptbtn").forEach(b => b.classList.toggle("on", b.dataset.pt === t));
+  const mixBox = $("mixed-pay-box");
+  if (mixBox) mixBox.style.display = t === "aralash" ? "block" : "none";
+  if (t === "aralash") updateMixedTotal();
 }
 
-// ── Checkout ──
-async function checkout(){
-  const items=getItems();
-  if(!items.length){toast("Savatcha bo'sh","err");return;}
-  const total=getCartTotal();if(total<=0){toast("Jami summa 0","err");return;}
+// Aralash to'lovda usul checkbox bosilganda — input ni yoqish/o'chirish
+function toggleMixMethod(method) {
+  const chk = $(`mix-${method}-chk`);
+  const inp = $(`mix-${method}-sum`);
+  if (!chk || !inp) return;
+  inp.disabled = !chk.checked;
+  if (!chk.checked) inp.value = "";
+  updateMixedTotal();
+}
 
-  const naqd=getRawVal("pay-naqd");
-  const karta=getRawVal("pay-karta");
-  const otkazma=getRawVal("pay-otkazma");
-  const qarzInp=getRawVal("pay-qarz");
-  const paid=naqd+karta+otkazma;
-  const allPaid=paid+qarzInp;
-  const isNasiya=qarzInp>0;
-  const rem=Math.max(0,total-paid);
+// Aralash to'lovdagi barcha usullar yig'indisini hisoblash
+function getMixedTotal() {
+  let total = 0;
+  ["naqd","karta","otkazma"].forEach(m => {
+    const chk = $(`mix-${m}-chk`);
+    if (chk && chk.checked) total += getRawVal(`mix-${m}-sum`);
+  });
+  return total;
+}
 
-  if(paid<0||qarzInp<0){toast("Manfiy summa bo'lishi mumkin emas","err");return;}
-  if(allPaid>total+100){toast("To'lov summasi jami dan oshib ketdi","err");return;}
+function updateMixedTotal() {
+  const mixedTotal = getMixedTotal();
+  if ($("mix-total-view")) $("mix-total-view").textContent = fmt(mixedTotal) + " so'm";
 
-  if(isNasiya){
-    const cName=$("c-name")?.value?.trim();
-    if(!cName){toast("Nasiyada mijoz ismi majburiy","err");return;}
-    const due=$("pos-due")?.value;
-    if(!due){toast("Nasiyada muddat majburiy","err");$("pos-due")?.focus();return;}
+  // Savatcha jami summasi bilan solishtirib, qolgan/ortiqcha ko'rsatamiz
+  const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
+  const discount = calcDiscount(subtotal);
+  const cartTotal = subtotal - discount;
+
+  const diffLbl = $("mix-diff-label");
+  const diffView = $("mix-diff-view");
+  if (diffLbl && diffView) {
+    if (posPayMode === "part") {
+      // Nasiya rejimida — "Jami summa" ko'rsatiladi, qarz pastda alohida hisoblanadi
+      diffLbl.textContent = "Jami summa:";
+      diffView.textContent = fmt(cartTotal) + " so'm";
+      diffView.style.color = "#0D1B2A";
+    } else {
+      const diff = cartTotal - mixedTotal;
+      if (diff > 0) {
+        diffLbl.textContent = "Yetishmaydi:";
+        diffView.textContent = fmt(diff) + " so'm";
+        diffView.style.color = "var(--red)";
+      } else if (diff < 0) {
+        diffLbl.textContent = "Ortiqcha:";
+        diffView.textContent = fmt(-diff) + " so'm";
+        diffView.style.color = "#E07B39";
+      } else {
+        diffLbl.textContent = "Mos keldi:";
+        diffView.textContent = "✓ " + fmt(cartTotal) + " so'm";
+        diffView.style.color = "var(--grn)";
+      }
+    }
   }
 
-  const rate=db.settings?.rate||12800;
-  const shopName=db.shop?.name||"MERX";
-  const staffId=parseInt($("pos-staff")?.value)||null;
-  const staffObj=db.staff?.find(s=>s.id===staffId);
-  const due=$("pos-due")?.value||"";
-  const note=$("pos-note")?.value?.trim()||"";
-  const cName=$("c-name")?.value?.trim()||"";
-  const cPhone=$("c-phone")?.value?.trim()||"";
-  const custVal=$("c-cust")?.value;
-  const custId=custVal?parseInt(custVal):(_custId||null);
-
-  let customerId=custId;
-  if(cName&&!custId){
-    const nc={id:db.seq++,name:cName,phone:cPhone,type:"ulgurji",note:"",createdAt:new Date().toISOString()};
-    db.customers.push(nc);customerId=nc.id;
+  // Aralash to'lov natijasini "Hozir to'landi" maydoniga ham sinxron qilamiz
+  // (agar Nasiya rejimida bo'lsa, qarz avtomatik hisoblanishi uchun)
+  if (posPayMode === "part" && $("c-paid")) {
+    $("c-paid").value = mixedTotal > 0 ? fmt(mixedTotal) : "";
+    updateRem();
   }
+}
 
-  let debtUsd=0;
-  if(isNasiya&&rem>0&&_debtCur==="usd"){debtUsd=parseFloat((rem/rate).toFixed(2));}
+// ── YANGI TO'LOV PANELI ─────────────────────────
+// 4 ustun: naqd/karta/otkazma/qarz
+// Har biri input — yozilsa qolgan avtomatik hisoblanadi
+let _payBlocked = {};    // bloklangan usullar
+let _staffLocked = false; // kassir bloklangan
 
-  const chekNum=typeof genChekNum==="function"?genChekNum():("CHK-"+Date.now());
-  const methods=[];
-  if(naqd>0)methods.push("naqd");
-  if(karta>0)methods.push("karta");
-  if(otkazma>0)methods.push("otkazma");
-  if(isNasiya)methods.push("qarz");
-  const payType=methods.length===0?"naqd":methods.length===1?methods[0]:"aralash";
+function onPayInput(method) {
+  const total = _cartTotal();
+  const vals  = _getPayVals();
+  const sum   = vals.naqd + vals.karta + vals.otkazma + vals.qarz;
 
-  const newSale={
-    id:db.seq++,date:today(),time:nowTime(),chekNum,
-    priceType:"ulgurji",payType,staffId,staffName:staffObj?.name||"",
-    items:items.map(it=>({
-      sku:it.sku,name:it.name,art:it.art,color:it.color,size:it.size,
-      qty:it.qty,qtyBox:it.qtyBox,price:it.price,
-      discount:it.discount||0,discType:it.discType||"pct",
-      barcode:it.barcode||null,image:it.image||null,
-    })),
-    total,paid:isNasiya?paid:total,
-    payBreakdown:{naqd,karta,otkazma,qarz:qarzInp},
-    remaining:isNasiya?rem:0,debtUzs:isNasiya&&_debtCur==="uzs"?rem:0,debtUsd,
-    due:isNasiya?due:"",status:isNasiya?"qarz":"tolandan",
-    customerName:cName,customerPhone:cPhone,customerId,note,
-  };
-
-  items.forEach(it=>{
-    const p=db.products.find(x=>x.sku===it.sku);if(!p)return;
-    p.variants.forEach(v=>{
-      if(v.color===it.color&&(v.size===it.size||!it.size))v.qty=Math.max(0,(v.qty||0)-it.qty);
+  // To'liq to'langan bo'lsa — bo'sh inputlarni bloklash
+  if (sum >= total && total > 0) {
+    ["naqd","karta","otkazma","qarz"].forEach(m => {
+      if (_payBlocked[m]) return;
+      const v = vals[m]; const inp = $("pay-" + m);
+      if (v === 0 && inp && !inp.disabled) { inp.disabled = true; const row = $("pay-row-" + m); if(row) row.style.opacity=".5"; }
     });
-  });
-
-  db.sales.push(newSale);_lastSale=newSale;
-  logPosAction("Sotuv yakunlandi",`${chekNum} - ${fmt(total)} so'm`);
-  saveDB();
-  getCart().items=[];renderCartTabs();renderCart();custClear();
-
-  ["pay-naqd","pay-karta","pay-otkazma","pay-qarz"].forEach(id=>{const el=$(id);if(el)el.value="";});
-  const due2=$("pos-due");if(due2)due2.value="";
-  const note2=$("pos-note");if(note2)note2.value="";
-  ["naqd","karta","otkazma","qarz"].forEach(m=>{
-    if(_payBlocked[m])return;
-    const inp=$("pay-"+m);const row=$("pay-row-"+m);
-    if(inp)inp.disabled=false;if(row){row.style.opacity="1";row.style.pointerEvents="auto";}
-  });
-  updatePayRemaining();updatePayTotal();
-
-  try{
-    if(typeof sendTelegramReceipt==="function"&&customerId)sendTelegramReceipt(customerId,newSale,cPhone);
-    if(typeof sendStaffNotification==="function")sendStaffNotification(newSale);
-  }catch(e){console.warn("Xabar xato:",e.message);}
-
-  showReceiptModal(newSale);toast("Sotuv yakunlandi!");
+  } else {
+    ["naqd","karta","otkazma","qarz"].forEach(m => {
+      if (_payBlocked[m]) return;
+      const inp = $("pay-" + m); const row = $("pay-row-" + m);
+      if(inp) inp.disabled = false; if(row) row.style.opacity = "1";
+    });
+  }
+  updatePayRemaining();
 }
 
-// ── Chek ──
-function showReceiptModal(sale){
-  _lastSale=sale;
-  const el=$("receipt-body");if(!el)return;
-  const shopName=db.shop?.name||"MERX";
-  const staffObj=db.staff?.find(s=>s.id===sale.staffId);
-  const botUser=(db.settings?.telegramBotUsername||"").replace(/^@/,"");
-  const botUrl=db.settings?.telegramBotUrl||"";
-  const chekCfg=db.settings?.chekConfig||{};
-  const posStyle=chekCfg.posStyle||"full";
-  const receiptUrl=botUrl?`${botUrl}?action=receipt&id=${encodeURIComponent(sale.chekNum||("ID"+sale.id))}`:"";
-  let html="";
-  if(typeof buildReceiptHtml==="function"){html=buildReceiptHtml(sale,{shopName,staffName:staffObj?.name||"--",botUsername:botUser,receiptUrl,style:posStyle});}
-  el.innerHTML=`<div style="background:#fff;border-radius:12px;overflow:hidden">${html}</div>`;
+function _getPayVals() {
+  return {
+    naqd:    getRawVal("pay-naqd"),
+    karta:   getRawVal("pay-karta"),
+    otkazma: getRawVal("pay-otkazma"),
+    qarz:    getRawVal("pay-qarz"),
+  };
+}
+
+function _cartTotal() {
+  const subtotal = cart.reduce((a,c) => a + c.price * c.qty, 0);
+  return subtotal - calcDiscount(subtotal);
+}
+
+function updatePayRemaining() {
+  const total = _cartTotal();
+  const vals  = _getPayVals();
+  const paid  = vals.naqd + vals.karta + vals.otkazma;
+  const qarz  = vals.qarz;
+  const sum   = paid + qarz;
+  const rem   = Math.max(0, total - sum);
+
+  const remEl  = $("pay-remaining");
+  const modeBg = $("pay-mode-badge");
+
+  if (remEl) { remEl.textContent = rem > 0 ? fmt(rem) + " so'm" : "0"; remEl.style.color = rem > 0 ? "#E05A5A" : "#22C55E"; }
+
+  if (modeBg) {
+    if (qarz > 0) {
+      modeBg.innerHTML = `<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:12px;font-size:11.5px;font-weight:700">Nasiya</span>`;
+    } else if (sum >= total && total > 0) {
+      modeBg.innerHTML = `<span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:12px;font-size:11.5px;font-weight:700">To'liq</span>`;
+    } else {
+      modeBg.innerHTML = "";
+    }
+  }
+
+  // Nasiya bloki
+  const nastBox = $("nasiya-box");
+  if (nastBox) nastBox.style.display = qarz > 0 ? "block" : "none";
+
+  // Eski updateRem ham chaqiramiz (qarz to'lov uchun)
+  updateRem();
+}
+
+function updatePayTotal() {
+  const total = _cartTotal();
+  const el = $("pos-pay-total");
+  if (el) el.textContent = fmt(total) + " so'm";
+}
+
+function toggleStaffLock() {
+  _staffLocked = !_staffLocked;
+  const btn = $("pos-staff-lock-btn");
+  if (btn) btn.innerHTML = _staffLocked
+    ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
+    : '<i class="ti ti-lock-open" style="color:#94A3B8"></i>';
+  const sel = $("pos-staff");
+  if (sel) { sel.disabled = _staffLocked; sel.style.opacity = _staffLocked ? ".6" : "1"; }
+  toast(_staffLocked ? "Kassir bloklandi" : "Kassir bloki ochildi");
+}
+
+function togglePayMethodBlock(method) {
+  _payBlocked[method] = !_payBlocked[method];
+  const btn = $("pay-lock-" + method);
+  if (btn) btn.innerHTML = _payBlocked[method]
+    ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
+    : '<i class="ti ti-lock-open" style="color:#CBD5E1"></i>';
+  const inp = $("pay-" + method); const row = $("pay-row-" + method);
+  if (_payBlocked[method]) {
+    if (inp) { inp.disabled = true; inp.value = ""; }
+    if (row) { row.style.opacity = ".4"; row.style.pointerEvents = "none"; }
+  } else {
+    if (inp) inp.disabled = false;
+    if (row) { row.style.opacity = "1"; row.style.pointerEvents = "auto"; }
+  }
+  updatePayRemaining();
+  toast((_payBlocked[method] ? "Bloklandi: " : "Ochildi: ") + method);
+}
+
+// Eski setPayMode — ichida nasiya uchun qarz inputini ishlatamiz
+function setPayMode(m) {
+  posPayMode = m;
+  document.querySelectorAll(".pmode-btn").forEach(b => b.classList.toggle("on", b.dataset.m === m));
+  $("part-box").style.display = m === "part" ? "block" : "none";
+  if (m === "full") setDebtCurrency("uzs");
+  if (m === "part") {
+    if ($("c-due") && !$("c-due").value) $("c-due").value = addDays(today(), 30);
+    if (posPayType === "aralash") updateMixedTotal();
+    else updateRem();
+  }
+}
+
+function setDebtCurrency(c) {
+  posDebtCurrency = c;
+  document.querySelectorAll(".dcur-btn").forEach(b => b.classList.toggle("on", b.dataset.c === c));
+  const box = $("rem-box"); const lbl = $("rem-lbl");
+  if (box) box.className = "rem-box " + c;
+  if (lbl) { lbl.className = "rem-lbl-" + c; lbl.textContent = c === "usd" ? "Qolgan qarz (USD):" : "Qolgan qarz:"; }
+  updateRem();
+}
+
+function updateRem() {
+  const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
+  const discount = calcDiscount(subtotal);
+  const total    = subtotal - discount;
+  const paid     = getRawVal("c-paid");
+  const remUzs   = Math.max(0, total - paid);
+  const rate     = db.settings.rate || 12800;
+  if ($("rem-view")) $("rem-view").textContent = posDebtCurrency === "usd"
+    ? "$" + (remUzs / rate).toFixed(2)
+    : fmt(remUzs) + " so'm";
+}
+
+// ── Mijoz qidiruv (yangi) ────────────────────────
+let _custSearchTimer = null;
+
+function custSearch(q) {
+  const dd = $("cust-dropdown"); if (!dd) return;
+  const clearBtn = $("cust-clear-btn");
+  const val = q.trim();
+
+  if (clearBtn) clearBtn.style.display = val ? "flex" : "none";
+
+  if (!val) { dd.style.display = "none"; return; }
+
+  const ql = val.toLowerCase();
+  const qlDigits = ql.replace(/\D/g,""); // faqat raqamlar
+  const found = db.customers.filter(c => {
+    if (c.name.toLowerCase().includes(ql)) return true;
+    // Telefon bo'yicha: faqat raqamlar kiritilgan bo'lsa va kamida 2 ta raqam bo'lsa
+    if (qlDigits.length >= 2) {
+      const phoneDigits = (c.phone||"").replace(/\D/g,"");
+      if (phoneDigits && phoneDigits.includes(qlDigits)) return true;
+    }
+    if ((c.note||"").toLowerCase().includes(ql)) return true;
+    return false;
+  }).slice(0, 8);
+
+  if (!found.length) {
+    dd.style.display = "block";
+    dd.innerHTML = `
+      <div style="padding:10px 14px;font-size:12.5px;color:var(--mut);text-align:center;border-bottom:1px solid var(--brd)">
+        "${val}" topilmadi
+      </div>
+      <div onclick="custQuickAdd('${val.replace(/'/g,"&#39;")}')"
+        style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#0D1B2A;font-weight:600;font-size:13px"
+        onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background=''">
+        <i class="ti ti-user-plus" style="font-size:16px;color:#36B48C"></i>
+        + Yangi mijoz qo'shish: "<strong>${val}</strong>"
+      </div>`;
+    return;
+  }
+
+  // Natijalar oxiriga "Yangi qo'shish" ham qo'shamiz
+  const addNewHtml = `
+    <div onclick="custQuickAdd('${val.replace(/'/g,"&#39;")}')"
+      style="padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;border-top:1px solid var(--brd);color:#36B48C;font-size:12.5px;font-weight:600"
+      onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background=''">
+      <i class="ti ti-user-plus" style="font-size:14px"></i>
+      + Yangi mijoz sifatida qo'shish
+    </div>`;
+
+  dd.style.display = "block";
+  dd.innerHTML = found.map(c => {
+    const debts = db.sales.filter(s => s.customerId===c.id && s.status!=="qaytarilgan")
+      .map(s => calcSaleState(s)).filter(st => st.remaining > 0.5);
+    const totalUzs = debts.reduce((a,st)=>a+st.remaining,0);
+    const totalUsd = debts.filter(st=>st.debtUsd>0).reduce((a,st)=>a+st.debtUsd,0);
+    const debtHtml = totalUzs > 0 || totalUsd > 0
+      ? `<span style="font-size:10.5px;color:#E05A5A;font-weight:600;margin-left:6px">
+          ⚠️ ${totalUsd>0?"$"+totalUsd.toFixed(2)+" USD":fmt(totalUzs)+" so'm"} qarz
+         </span>`
+      : `<span style="font-size:10px;color:#36B48C;margin-left:6px">✓</span>`;
+    return `<div onclick="custSelect(${c.id})"
+      style="padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between"
+      onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+      <div>
+        <div style="font-weight:600;font-size:13px">${c.name}${debtHtml}</div>
+        <div style="font-size:11.5px;color:var(--mut)">${c.phone||"Telefon yo'q"} · ${c.type==="ulgurji"?"Ulgurji":"Chakana"}</div>
+      </div>
+      <i class="ti ti-chevron-right" style="font-size:14px;color:#bbb"></i>
+    </div>`;
+  }).join("") + addNewHtml;
+}
+
+function custSelect(id) {
+  const c = db.customers.find(x => x.id === id); if (!c) return;
+
+  // Hidden input
+  if ($("c-cust")) $("c-cust").value = id;
+
+  // Search input tozalash + yopish
+  const inp = $("cust-search-inp");
+  if (inp) inp.value = "";
+  const dd = $("cust-dropdown");
+  if (dd) dd.style.display = "none";
+  const clearBtn = $("cust-clear-btn");
+  if (clearBtn) clearBtn.style.display = "none";
+
+  // Tanlangan karta ko'rsatish
+  const card = $("cust-selected-card");
+  if (card) {
+    card.style.display = "block";
+    if ($("cust-sel-name"))  $("cust-sel-name").textContent  = c.name;
+    if ($("cust-sel-phone")) $("cust-sel-phone").textContent = c.phone || "Telefon yo'q";
+  }
+
+  // Ism va tel to'ldirish (yashirin maydonda, checkout uchun)
+  if ($("c-name"))  $("c-name").value  = c.name;
+  if ($("c-phone")) $("c-phone").value = c.phone || "";
+  // Mijoz tanlangach ism/telefon qatorini yashiramiz — kerak emas
+  if ($("c-name-row")) $("c-name-row").style.display = "none";
+
+  showCustDebt(id);
+}
+
+function custQuickAdd(val) {
+  // Dropdown yopamiz
+  const dd = $("cust-dropdown");
+  if (dd) dd.style.display = "none";
+
+  // val ni ism yoki telefon deb aniqlaymiz
+  const isPhone = /^[+\d\s\-()]{6,}$/.test(val.trim());
+  const newName  = isPhone ? "" : val.trim();
+  const newPhone = isPhone ? val.trim() : "";
+
+  // Mini modal ochish — mavjud addcust modal ishlatamiz
+  if ($("ac-name"))  $("ac-name").value  = newName;
+  if ($("ac-phone")) $("ac-phone").value = newPhone;
+  if ($("ac-type"))  $("ac-type").value  = posPriceType === "ulgurji" ? "ulgurji" : "chakana";
+  if ($("ac-note"))  $("ac-note").value  = "";
+
+  // Saqlash tugmasini POS ga qaytadigan qilamiz
+  const btn = document.querySelector("#ov-addcust .btn-acc");
+  if (btn) {
+    btn.textContent = "Saqlash va tanlash";
+    btn.onclick = custQuickSave;
+  }
+  openModal("addcust");
+  setTimeout(() => {
+    const focus = newName ? $("ac-phone") : $("ac-name");
+    if (focus) focus.focus();
+  }, 80);
+}
+
+function custQuickSave() {
+  const name  = ($("ac-name")||{value:""}).value.trim();
+  const phone = ($("ac-phone")||{value:""}).value.trim();
+  if (!name) { toast("Ism kiriting","err"); return; }
+
+  const nc = {
+    id:    db.seq++,
+    name,
+    phone: phone || "",
+    type:  ($("ac-type")||{value:"ulgurji"}).value,
+    note:  ($("ac-note")||{value:""}).value.trim()
+  };
+  db.customers.push(nc);
+  saveDB();
+  closeModal("addcust");
+
+  // Tugmani qaytaramiz
+  const btn = document.querySelector("#ov-addcust .btn-acc");
+  if (btn) { btn.textContent = "Saqlash"; btn.onclick = addCustomer; }
+
+  // POS da tanlash
+  custSelect(nc.id);
+  toast(`✅ "${name}" qo'shildi va tanlandi`, "ok");
+}
+
+function custClear() {
+  if ($("c-cust"))           $("c-cust").value           = "";
+  if ($("c-name"))           $("c-name").value           = "";
+  if ($("c-phone"))          $("c-phone").value          = "";
+  if ($("cust-search-inp"))  $("cust-search-inp").value  = "";
+  if ($("cust-dropdown"))    $("cust-dropdown").style.display = "none";
+  if ($("cust-clear-btn"))   $("cust-clear-btn").style.display = "none";
+  const card = $("cust-selected-card");
+  if (card) card.style.display = "none";
+  // Ism/telefon qatorini qaytadan ko'rsatamiz
+  if ($("c-name-row")) $("c-name-row").style.display = "flex";
+  showCustDebt(null);
+}
+
+// Tashqarini bosganda dropdown yopilsin
+document.addEventListener("click", function(e) {
+  if (!e.target.closest("#cust-search-wrap")) {
+    const dd = $("cust-dropdown");
+    if (dd) dd.style.display = "none";
+  }
+});
+
+function custPick() {
+  // Eski select bilan moslik — endi ishlatilmaydi
+  const id = parseInt(($("c-cust")||{value:""}).value) || null;
+  if (!id) { showCustDebt(null); return; }
+  custSelect(id);
+}
+
+function refreshCustList() {
+  // Select yo'q endi — saqlaymiz moslik uchun
+}
+
+function refreshStaffList() {
+  const sel = $("pos-staff"); if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">-- Kassirni tanlang --</option>' +
+    (db.staff||[]).map(s => `<option value="${s.id}"${String(s.id)===String(cur)?" selected":""}>${s.name}</option>`).join("");
+  if (_staffLocked) { sel.disabled = true; sel.style.opacity = ".6"; }
+  else              { sel.disabled = false; sel.style.opacity = "1"; }
+}
+
+// ── Savdo yakunlash ───────────────────────────────
+async function checkout() {
+  if (!cart.length) { toast("Savatcha bo'sh","err"); return; }
+  const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
+  const discount = calcDiscount(subtotal);
+  const total    = subtotal - discount;
+  let paid = total, rem = 0, due = "", cName = "", cPhone = "", status = "tolandan";
+  let customerId = null, debtUsd = null;
+
+  // Mijoz — ikkala rejimda ham o'qiymiz
+  const selId      = parseInt(($("c-cust")||{value:""}).value) || null;
+  const nameTyped  = ($("c-name")||{value:""}).value.trim();
+  const phoneTyped = ($("c-phone")||{value:""}).value.trim();
+  const norm       = s => (s||"").toLowerCase().replace(/\s/g,"");
+
+  if (selId) {
+    const c = db.customers.find(x => x.id === selId);
+    if (c) {
+      customerId = c.id; cName = c.name; cPhone = c.phone || "";
+      if (!c.phone && phoneTyped) { c.phone = phoneTyped; cPhone = phoneTyped; }
+    }
+  }
+  if (!customerId && nameTyped) {
+    const ex = db.customers.find(x =>
+      norm(x.name) === norm(nameTyped) && (!phoneTyped || norm(x.phone) === norm(phoneTyped))
+    );
+    if (ex) {
+      customerId = ex.id; cName = ex.name; cPhone = ex.phone || phoneTyped;
+      if (!ex.phone && phoneTyped) ex.phone = phoneTyped;
+    } else {
+      const nc = { id:db.seq++, name:nameTyped, phone:phoneTyped,
+        type: posPriceType==="ulgurji"?"ulgurji":"chakana", note:"POS orqali qo'shildi" };
+      db.customers.push(nc);
+      customerId = nc.id; cName = nc.name; cPhone = nc.phone;
+    }
+  }
+
+  // Aralash to'lov bo'yicha breakdown (har bir usul bo'yicha summa)
+  let payBreakdown = null;
+  if (posPayType === "aralash") {
+    payBreakdown = {};
+    ["naqd","karta","otkazma"].forEach(m => {
+      const chk = $(`mix-${m}-chk`);
+      if (chk && chk.checked) {
+        const v = getRawVal(`mix-${m}-sum`);
+        if (v > 0) payBreakdown[m] = v;
+      }
+    });
+    if (Object.keys(payBreakdown).length === 0) {
+      toast("Aralash to'lovda kamida bitta usul tanlang", "err");
+      return;
+    }
+  }
+
+  // YANGI: 4-ustunli to'lov panelidan o'qiymiz
+  const _payN = getRawVal("pay-naqd");
+  const _payK = getRawVal("pay-karta");
+  const _payO = getRawVal("pay-otkazma");
+  const _payQ = getRawVal("pay-qarz");
+  const _anyNew = _payN + _payK + _payO + _payQ;
+
+  if (_anyNew > 0) {
+    paid = _payN + _payK + _payO;
+    if (_payQ > 0) {
+      if (!cName) { toast("Nasiyada mijoz ismi shart","err"); return; }
+      due = ($("pos-due")||{value:""}).value;
+      if (!due) { toast("Nasiyada muddat majburiy","err"); $("pos-due")?.focus(); return; }
+      rem    = Math.max(0, total - paid);
+      status = rem > 0 ? "qarz" : "tolandan";
+      if (posDebtCurrency === "usd" && rem > 0) debtUsd = parseFloat((rem/(db.settings.rate||12800)).toFixed(2));
+      posPayMode = "part";
+    }
+    const _pb = {};
+    if (_payN>0) _pb.naqd=_payN; if (_payK>0) _pb.karta=_payK;
+    if (_payO>0) _pb.otkazma=_payO; if (_payQ>0) _pb.qarz=_payQ;
+    if (Object.keys(_pb).length>1){payBreakdown=_pb;posPayType="aralash";}
+    else if (Object.keys(_pb).length===1) posPayType=Object.keys(_pb)[0];
+  } else if (posPayMode === "part") {
+    if (!cName) { toast("Qisman to'lovda mijoz ismi shart","err"); return; }
+    paid    = posPayType === "aralash" ? getMixedTotal() : getRawVal("c-paid");
+    due     = ($("c-due")||{value:""}).value;
+    rem     = Math.max(0, total - paid);
+    status  = rem > 0 ? "qarz" : "tolandan";
+    if (posDebtCurrency === "usd" && rem > 0) {
+      debtUsd = parseFloat((rem / (db.settings.rate||12800)).toFixed(2));
+    }
+
+  } else if (posPayType === "aralash") {
+    // To'liq to'lov rejimida ham aralash bo'lsa, kiritilgan summa = jami bo'lishi kerak
+    const mixedPaid = getMixedTotal();
+    if (Math.abs(mixedPaid - total) > 1) {
+      toast(`Aralash to'lov yig'indisi (${fmt(mixedPaid)}) jami summaga (${fmt(total)}) teng emas`, "err");
+      return;
+    }
+    paid = mixedPaid;
+  }
+
+  const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
+  // Kassir majburiy — xodimlar ro'yxati bo'sh bo'lmasa
+  if (!staffId && db.staff && db.staff.length > 0) {
+    toast("Kassirni tanlang", "err");
+    const staffSel = $("pos-staff");
+    if (staffSel) {
+      staffSel.style.border = "2px solid var(--red)";
+      staffSel.focus();
+      setTimeout(() => { staffSel.style.border = ""; }, 2000);
+    }
+    return;
+  }
+  const saleNote = ($("pos-note")||{value:""}).value.trim();
+
+  // Qoldiqdan ayirish
+  cart.forEach(c => {
+    const p = db.products.find(x => x.sku === c.sku); if (!p) return;
+    if (c.sellMode === "karobka") {
+      // Pochka mantig'i: har bir pochka = shu guruh o'lchamlaridan 1 tadan.
+      // qtyBox = nechta pochka sotildi — shuncha son shu guruhdagi har bir o'lchamdan ayiriladi.
+      const boxesSold = c.qtyBox || 0;
+      const targetSizes = c.groupSizes || null; // agar yo'q bo'lsa (eski format) — barcha o'lchamlar
+      p.variants.filter(v => v.color === c.color && (!targetSizes || targetSizes.includes(v.size))).forEach(v => {
+        v.qty = Math.max(0, v.qty - boxesSold);
+      });
+    } else {
+      const v = p.variants.find(x => x.color===c.color && x.size===c.size);
+      if (v) v.qty = Math.max(0, v.qty - c.qty);
+    }
+  });
+
+  // Chek raqami
+  const chekNum = `CHK-${today().replace(/-/g,"")}` +
+    `-${String(db.seq).padStart(4,"0")}`;
+
+  // Mijozning oldingi qarzlarini hisoblaymiz
+  let prevDebtUsd = 0, prevDebtUzs = 0;
+  if (customerId) {
+    const prevDebts = db.sales.filter(s => s.customerId === customerId && s.status !== "qaytarilgan")
+      .map(s => ({ sale: s, state: calcSaleState(s) }))
+      .filter(x => x.state.remaining > 0.5);
+    prevDebtUsd = prevDebts
+      .filter(x => x.sale.debtCurrency === "usd" && x.state.debtUsd)
+      .reduce((a, x) => a + x.state.debtUsd, 0);
+    prevDebtUzs = prevDebts
+      .filter(x => x.sale.debtCurrency !== "usd")
+      .reduce((a, x) => a + x.state.remaining, 0);
+  }
+
+  const newSale = {
+    id:db.seq++, chekNum, date:today(), time:nowTime(),
+    priceType: posPriceType,
+    payType: posPayType, payBreakdown, staffId, customerId,
+    discount, discountType: discType,
+    discountPct: discType === "pct" ? (getRawVal("discount-val") || 0) : null,
+    items: cart.map(c => ({
+      name: c.name, sku: c.sku || null,
+      art: c.art || null,
+      variant: c.sellMode==="karobka" ? `${c.color} (${c.qtyBox} pochka)` : `${c.color} / ${c.size}`,
+      color: c.color || null,
+      size: c.size || null,
+      qty: c.qty, qtyBox: c.qtyBox||null, inBox: c.inBox||null,
+      sellMode: c.sellMode || "dona",
+      packGroup: c.packGroup != null ? c.packGroup : null,
+      groupSizes: c.groupSizes || null,
+      price: c.price, unit: c.unit,
+      image: c.image || null,
+      barcode: c.barcode || null
+    })),
+    subtotal, total, paid, remaining:rem, due,
+    customerName:cName, customerPhone:cPhone, status,
+    debtCurrency: posPayMode==="part" ? posDebtCurrency : "uzs",
+    debtUsd, note: saleNote || null,
+    // Asl (o'zgarmas) qiymatlar — keyingi qarz to'lovlari bularga tegmaydi.
+    // Joriy holat har doim calcSaleState() orqali hisoblanadi.
+    origPaid: paid, origRemaining: rem, origDebtUsd: debtUsd,
+    // Oldingi qarz ma'lumotlari (chekda ko'rsatish uchun)
+    prevDebtUsd: prevDebtUsd > 0 ? prevDebtUsd : null,
+    prevDebtUzs: prevDebtUzs > 0 ? prevDebtUzs : null,
+  };
+  db.sales.push(newSale); saveDB();
+
+  // Telegram bot orqali avtomatik chek (mijoz botga ulangan bo'lsa)
+  if (typeof sendTelegramReceipt === "function") {
+    sendTelegramReceipt(customerId, newSale, cPhone);
+  }
+
+  // Ishchilar guruhiga sotuv bildirishnomasi
+  if (typeof sendStaffNotification === "function") {
+    sendStaffNotification(newSale);
+  }
+
+  // SMS (boyitilgan)
+  if (cPhone && cPhone.replace(/\D/g,"").length >= 9) {
+    const shopName = db.shop?.name || "MERX";
+    const debtTxt  = debtUsd != null
+      ? `$${debtUsd.toFixed(2)} USD`
+      : rem > 0 ? `${fmt(rem)} so'm` : "";
+    const itemsTxt = newSale.items.map(i =>
+      `${i.name} x${i.qty}${i.unit} = ${fmt(i.price*i.qty)} so'm`
+    ).join(", ");
+    // Shablon: settings dan olinadi yoki standart
+    let sms;
+    if (rem > 0) {
+      const tpl = db.settings?.smsTemplateSale ||
+        "{dokon} | {chek}\n{tovarlar}\nJami: {jami}\nTo'landi: {tolandi}\nQarz: {qarz} ({muddat})";
+      sms = tpl
+        .replace("{dokon}",   shopName)
+        .replace("{chek}",    chekNum)
+        .replace("{tovarlar}",itemsTxt)
+        .replace("{jami}",    fmt(total)+" so'm")
+        .replace("{tolandi}", fmt(paid)+" so'm")
+        .replace("{qarz}",    debtTxt)
+        .replace("{muddat}",  due||"muddatsiz");
+    } else {
+      const tpl = db.settings?.smsTemplatePaid ||
+        "{dokon} | {chek}\n{tovarlar}\nJami: {jami} - To'liq qabul qilindi. Rahmat!";
+      sms = tpl
+        .replace("{dokon}",   shopName)
+        .replace("{chek}",    chekNum)
+        .replace("{tovarlar}",itemsTxt)
+        .replace("{jami}",    fmt(total)+" so'm");
+    }
+    await sendSms(cPhone, sms);
+  }
+
+  // Sotuv yakunlanganini loglaymiz
+  posLog("Sotuv yakunlandi", `${chekNum} — ${fmt(total)} so'm (${newSale.items.length} tur, ${posPayType})`);
+
+  // Reset
+  cart.length = 0; renderCart(); setPayMode("full"); setDebtCurrency("uzs");
+  if ($("c-name"))       $("c-name").value       = "";
+  if ($("c-phone"))      $("c-phone").value       = "";
+  if ($("c-paid"))       $("c-paid").value        = "0";
+  if ($("c-due"))        $("c-due").value         = "";
+  if ($("c-cust"))       $("c-cust").value        = "";
+  if ($("cust-search-inp"))  $("cust-search-inp").value  = "";
+  if ($("cust-selected-card")) $("cust-selected-card").style.display = "none";
+  if ($("cust-dropdown"))    $("cust-dropdown").style.display = "none";
+  if ($("discount-val"))   $("discount-val").value  = "0";
+  if ($("discount-result")) $("discount-result").style.display = "none";
+  const pn1=$("pos-note"); if(pn1){pn1.value="";pn1.setAttribute("readonly",true);}
+  if ($("vm-price-input")) $("vm-price-input").value = "";
+  // Yangi to'lov panelini tozalash
+  ["pay-naqd","pay-karta","pay-otkazma","pay-qarz"].forEach(id => { const el=$(id); if(el){el.value="";el.disabled=false;} });
+  ["naqd","karta","otkazma","qarz"].forEach(m => { if(_payBlocked[m])return; const row=$("pay-row-"+m); if(row){row.style.opacity="1";row.style.pointerEvents="auto";} });
+  const nb=$("nasiya-box"); if(nb)nb.style.display="none";
+  const mb=$("pay-mode-badge"); if(mb)mb.innerHTML="";
+  const pr=$("pay-remaining"); if(pr){pr.textContent="0";pr.style.color="#22C55E";}
+  // Muddat reset
+  const posdue=$("pos-due"); if(posdue)posdue.value="";
+  if ($("debt-count")) $("debt-count").textContent = debtSales().length;
+  refreshCustList();
+  showReceiptModal(newSale);
+}
+
+// ── Chegirma ──────────────────────────────────
+let discType = "pct"; // "pct" | "sum"
+
+function setDiscType(t) {
+  discType = t;
+  document.querySelectorAll(".disc-type-btn").forEach(b => b.classList.toggle("on", b.dataset.d === t));
+  applyDiscount();
+}
+
+function applyDiscount() {
+  // Kassir ruxsatini tekshirish
+  const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
+  const staff   = staffId ? (db.staff||[]).find(s=>s.id===staffId) : null;
+
+  if (staff && !staff.permDiscount) {
+    toast("Bu kassirda chegirma berish huquqi yo'q","err"); return;
+  }
+  if (staff && staff.permDiscount && staff.maxDiscount > 0 && discType === "pct") {
+    const val = getRawVal("discount-val") || 0;
+    if (val > staff.maxDiscount) {
+      toast(`Maksimal chegirma: ${staff.maxDiscount}%`,"err");
+      if ($("discount-val")) { $("discount-val").value = staff.maxDiscount; $("discount-val").dataset.raw = staff.maxDiscount; }
+      return;
+    }
+  }
+  renderCart();
+}
+
+function calcDiscount(total) {
+  const val = getRawVal("discount-val");
+  if (!val || val <= 0) return 0;
+  if (discType === "pct") return Math.round(total * val / 100);
+  return Math.min(val, total);
+}
+
+// ── Mijoz qarzi ko'rinishi ────────────────────
+function showCustDebt(custId) {
+  const badge = $("cust-debt-badge");
+  const val   = $("cust-debt-val");
+  const balBadge = $("cust-balance-badge");
+  const balVal   = $("cust-balance-val");
+
+  if (badge && val) {
+    if (!custId) { badge.style.display = "none"; }
+    else {
+      // Joriy holatni calcSaleState() orqali hisoblaymiz — s.status/s.remaining
+      // asl (o'zgarmas) qiymat, qarz to'langan-to'lanmaganini bilmaydi.
+      const candidates = db.sales.filter(s => s.customerId === custId && s.status !== "qaytarilgan");
+      const debts = candidates
+        .map(s => ({ sale: s, state: calcSaleState(s) }))
+        .filter(x => x.state.remaining > 0.5);
+      const totalUzs = debts.filter(x => x.sale.debtCurrency !== "usd").reduce((a,x) => a + x.state.remaining, 0);
+      const totalUsd = debts.filter(x => x.sale.debtCurrency === "usd" && x.state.debtUsd).reduce((a,x) => a + x.state.debtUsd, 0);
+      const cntAll   = debts.length;
+
+      if (cntAll === 0) { badge.style.display = "none"; }
+      else {
+        let txt = "";
+        if (totalUsd > 0 && totalUzs > 0) txt = `$${totalUsd.toFixed(2)} USD + ${fmt(totalUzs)} so'm`;
+        else if (totalUsd > 0) txt = `$${totalUsd.toFixed(2)} USD`;
+        else txt = `${fmt(totalUzs)} so'm`;
+        val.innerHTML = `${txt} <span style="font-size:10.5px;font-weight:400;color:#a16207">(${cntAll} ta sotuv)</span>`;
+        badge.style.display = "block";
+      }
+    }
+  }
+
+  // Mijoz balansi (ortiqcha to'lovlardan yig'ilgan depozit)
+  if (balBadge && balVal) {
+    if (!custId) { balBadge.style.display = "none"; return; }
+    const cust = (db.customers||[]).find(c => c.id === custId);
+    const bUzs = cust?.balanceUzs || 0;
+    const bUsd = cust?.balanceUsd || 0;
+    if (!cust || (bUzs <= 0 && bUsd <= 0)) { balBadge.style.display = "none"; return; }
+
+    const parts = [];
+    if (bUsd > 0) parts.push(`$${bUsd.toFixed(2)}`);
+    if (bUzs > 0) parts.push(`${fmt(bUzs)} so'm`);
+    balVal.textContent = parts.join(" + ");
+    balBadge.style.display = "block";
+  }
+}
+
+// ── Chek modal ────────────────────────────────
+let _lastSale = null;
+
+function showReceiptModal(sale) {
+  _lastSale = sale;
+  const shopName = db.shop?.name || "MERX";
+  const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi", aralash:"Aralash" };
+
+  // Shop nomi
+  if ($("rcp-shop")) $("rcp-shop").textContent = shopName;
+
+  // Chek raqami va sana
+  if ($("rcp-num")) $("rcp-num").textContent = sale.chekNum || `#${sale.id}`;
+  if ($("rcp-dt"))  $("rcp-dt").textContent  = `${sale.date} / ${sale.time||""}`;
+
+  // Mahsulotlar
+  if ($("rcp-items")) {
+    $("rcp-items").innerHTML = sale.items.map(i => `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;font-size:13px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;color:#0D1B2A">${i.name}</div>
+          <div style="font-size:11.5px;color:#aaa">${i.variant} · ${i.qty} ${i.unit||"dona"}</div>
+        </div>
+        <div style="font-weight:700;color:#0D1B2A;margin-left:12px;white-space:nowrap">${priceDisplay(i.price*i.qty)}</div>
+      </div>`
+    ).join("");
+  }
+
+  // Subtotal va chegirma
+  const subtotal = sale.subtotal || sale.total;
+  const disc     = sale.discount || 0;
+  if ($("rcp-subtotal")) $("rcp-subtotal").textContent = fmt(subtotal) + " so'm";
+  const discRow = $("rcp-disc-row");
+  if (discRow) {
+    if (disc > 0) {
+      discRow.style.display = "flex";
+      const lbl = sale.discountType === "pct" && sale.discountPct
+        ? `Chegirma (${sale.discountPct}%)`
+        : sale.discountType === "pct" ? "Chegirma (%)" : "Chegirma";
+      if ($("rcp-disc-lbl")) $("rcp-disc-lbl").textContent = lbl;
+      if ($("rcp-disc-val")) $("rcp-disc-val").textContent = "−" + fmt(disc) + " so'm";
+    } else {
+      discRow.style.display = "none";
+    }
+  }
+  if ($("rcp-total")) $("rcp-total").textContent = fmt(sale.total) + " so'm";
+
+  // To'lov
+  const mixedWrap = $("rcp-mixed-wrap");
+  if (sale.payType === "aralash" && sale.payBreakdown) {
+    if ($("rcp-paytype")) $("rcp-paytype").textContent = "Aralash";
+    if (mixedWrap) {
+      mixedWrap.style.display = "block";
+      const icons = { naqd:"💵", karta:"💳", otkazma:"🏦" };
+      $("rcp-mixed-rows").innerHTML = Object.entries(sale.payBreakdown).map(([m, v]) => `
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span style="color:#888">${icons[m]||""} ${payLabels[m]||m}</span>
+          <strong style="color:#0D1B2A">${fmt(v)} so'm</strong>
+        </div>`).join("");
+    }
+  } else {
+    if ($("rcp-paytype")) $("rcp-paytype").textContent = payLabels[sale.payType] || sale.payType;
+    if (mixedWrap) mixedWrap.style.display = "none";
+  }
+  if ($("rcp-paid"))    $("rcp-paid").textContent    = fmt(sale.paid) + " so'm";
+
+  const debtWrap = $("rcp-debt-wrap");
+  const dueWrap  = $("rcp-due-wrap");
+  if (sale.remaining > 0) {
+    if (debtWrap) debtWrap.style.display = "flex";
+    const isUsd = sale.debtCurrency === "usd" && sale.debtUsd;
+
+    // Oldingi qarz satrlari
+    const prevEl    = $("rcp-debt-prev");
+    const prevValEl = $("rcp-debt-prev-val");
+    const newEl     = $("rcp-debt-new");
+    const newValEl  = $("rcp-debt-new-val");
+    const lblEl     = $("rcp-debt-lbl");
+    const debtEl    = $("rcp-debt");
+
+    if (isUsd && sale.prevDebtUsd > 0) {
+      if (prevEl)    { prevEl.style.display = "flex"; }
+      if (prevValEl) prevValEl.textContent = `$${sale.prevDebtUsd.toFixed(2)}`;
+      if (newEl)     { newEl.style.display = "flex"; }
+      if (newValEl)  newValEl.textContent = `$${sale.debtUsd.toFixed(2)}`;
+      if (lblEl)     lblEl.textContent = "Umumiy qarz";
+      if (debtEl)    debtEl.textContent = `$${(sale.prevDebtUsd + sale.debtUsd).toFixed(2)} USD`;
+    } else if (!isUsd && sale.prevDebtUzs > 0) {
+      if (prevEl)    { prevEl.style.display = "flex"; }
+      if (prevValEl) prevValEl.textContent = fmt(sale.prevDebtUzs) + " so'm";
+      if (newEl)     { newEl.style.display = "flex"; }
+      if (newValEl)  newValEl.textContent = fmt(sale.remaining) + " so'm";
+      if (lblEl)     lblEl.textContent = "Umumiy qarz";
+      if (debtEl)    debtEl.textContent = fmt(sale.prevDebtUzs + sale.remaining) + " so'm";
+    } else {
+      if (prevEl) prevEl.style.display = "none";
+      if (newEl)  newEl.style.display  = "none";
+      if (lblEl)  lblEl.textContent    = "Qolgan qarz";
+      if (debtEl) debtEl.textContent   = isUsd
+        ? `$${sale.debtUsd.toFixed(2)} USD`
+        : fmt(sale.remaining) + " so'm";
+    }
+    if (dueWrap && sale.due) { dueWrap.style.display = "block"; if ($("rcp-due")) $("rcp-due").textContent = sale.due; }
+    else if (dueWrap) dueWrap.style.display = "none";
+  } else {
+    if (debtWrap) debtWrap.style.display = "none";
+    if (dueWrap)  dueWrap.style.display  = "none";
+    // Oldingi qarz elementlarini ham yashirish
+    const prevEl = $("rcp-debt-prev"); if (prevEl) prevEl.style.display = "none";
+    const newEl  = $("rcp-debt-new");  if (newEl)  newEl.style.display  = "none";
+  }
+
+  // Mijoz va kassir
+  if ($("rcp-cust")) $("rcp-cust").textContent =
+    sale.customerName ? `${sale.customerName}${sale.customerPhone?" · "+sale.customerPhone:""}` : "Noma'lum";
+  const staff = db.staff.find(s => s.id === sale.staffId);
+  if ($("rcp-staff")) $("rcp-staff").textContent = staff ? staff.name : "—";
+
+  // Izoh
+  const noteWrap = $("rcp-note-wrap");
+  if (noteWrap) {
+    if (sale.note) {
+      noteWrap.style.display = "block";
+      if ($("rcp-note")) $("rcp-note").textContent = sale.note;
+    } else {
+      noteWrap.style.display = "none";
+    }
+  }
+
+  // Bot va PDF havola
+  const botUser = (db.settings?.telegramBotUsername || "").replace(/^@/,"");
+  const botUrl  = db.settings?.telegramBotUrl || "";
+  const chekId  = sale.chekNum || ("ID" + sale.id);
+  const rcpUrl  = botUrl ? `${botUrl}?action=receipt&id=${encodeURIComponent(chekId)}` : "";
+
+  const rcpBotEl = $("rcp-bot-info");
+  if (rcpBotEl) {
+    rcpBotEl.style.display = (botUser || rcpUrl) ? "block" : "none";
+    rcpBotEl.innerHTML = [
+      botUser ? `<div style="font-size:11px;color:#229ED9;text-align:center;padding:4px 0">🤖 Cheklarni Telegramda olish: <b>@${botUser}</b></div>` : "",
+      rcpUrl  ? `<div style="text-align:center;padding:4px 0"><a href="${rcpUrl}" target="_blank" style="font-size:11.5px;color:#0D1B2A;font-weight:600;text-decoration:none;background:#F0EDE8;padding:4px 14px;border-radius:20px;display:inline-block">📄 PDF havolasi</a></div>` : ""
+    ].join("");
+  }
+
   openModal("receipt");
 }
-function closeReceipt(){closeModal("receipt");}
-function printReceiptPos(){
-  if(!_lastSale)return;
-  const sale=_lastSale;const shopName=db.shop?.name||"MERX";
-  const staffObj=db.staff?.find(s=>s.id===sale.staffId);
-  const botUser=(db.settings?.telegramBotUsername||"").replace(/^@/,"");
-  const botUrl=db.settings?.telegramBotUrl||"";
-  const receiptUrl=botUrl?`${botUrl}?action=receipt&id=${encodeURIComponent(sale.chekNum||("ID"+sale.id))}`:"";
-  const html=typeof buildReceiptHtml==="function"?buildReceiptHtml(sale,{shopName,staffName:staffObj?.name||"--",botUsername:botUser,receiptUrl}):"<p>Chek yo'q</p>";
-  const w=window.open("","_blank","width=420,height=700");
-  if(!w){toast("Pop-up bloklangan","err");return;}
-  w.document.write(html);w.document.close();w.focus();
+
+function closeReceipt() {
+  closeModal("receipt");
+  const pn2=$("pos-note"); if(pn2){pn2.value="";pn2.setAttribute("readonly",true);}
 }
 
-// ── Qarz eslatmasi ──
-function checkDebtAlerts(){
-  const t=today();
-  const overdue=(db.sales||[]).filter(s=>s.status==="qarz"&&s.due&&s.due<t&&(s.remaining||0)>0);
-  const banner=$("debt-alert-banner");const text=$("debt-alert-text");
-  if(!banner)return;
-  if(overdue.length){banner.style.display="block";if(text)text.textContent=overdue.length+" ta muddati o'tgan qarz";}
-  else banner.style.display="none";
+function shareTelegram() {
+  if (!_lastSale) return;
+  const sale     = _lastSale;
+  const shopName = db.shop?.name || "MERX";
+  const payLabels = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash" };
+  const lines = [
+    `🧾 ${shopName} — Chek`,
+    `📌 ${sale.chekNum || "#"+sale.id} | ${sale.date} ${sale.time||""}`,
+    ``,
+    ...sale.items.map(i => `▪ ${i.name} (${i.variant}) × ${i.qty} ${i.unit} = ${fmt(i.price*i.qty)} so'm`),
+    ``,
+    sale.discount > 0 ? `Chegirma: -${fmt(sale.discount)} so'm` : null,
+    `Jami: ${fmt(sale.total)} so'm`,
+    `To'lov: ${payLabels[sale.payType]||sale.payType}`,
+    sale.remaining > 0 ? `Qarz: ${sale.debtCurrency==="usd"&&sale.debtUsd ? "$"+sale.debtUsd.toFixed(2) : fmt(sale.remaining)+" so'm"}` : `✅ To'liq to'landi`,
+    sale.due ? `Muddat: ${sale.due}` : null,
+    ``,
+    `Rahmat! Yana kutamiz 🙏`
+  ].filter(l => l !== null).join("\n");
+
+  // Telegram share dialog — istalgan chatga yuborish mumkin
+  const url = `https://t.me/share/url?url=&text=${encodeURIComponent(lines)}`;
+  window.open(url, "_blank");
 }
 
-// ── Log ──
-function logPosAction(action,details){
-  if(!db.posLogs)db.posLogs=[];
-  const staffId=parseInt($("pos-staff")?.value)||null;
-  const staffObj=db.staff?.find(s=>s.id===staffId);
-  db.posLogs.push({date:today(),time:nowTime(),action,details,staffId,staffName:staffObj?.name||"--",cartName:getCart().name});
-  if(db.posLogs.length>500)db.posLogs=db.posLogs.slice(-500);
+function printReceiptPos() {
+  if (!_lastSale) return;
+  const sale     = _lastSale;
+  const shopName = db.shop?.name || "MERX";
+  const staffObj = db.staff.find(s => s.id === sale.staffId);
+  const botUser  = (db.settings?.telegramBotUsername || "").replace(/^@/,"");
+  const botUrl   = db.settings?.telegramBotUrl || "";
+  const receiptUrl = botUrl
+    ? `${botUrl}?action=receipt&id=${encodeURIComponent(sale.chekNum||("ID"+sale.id))}`
+    : "";
+
+  const chekCfg = (typeof db !== "undefined" && db.settings?.chekConfig) || {};
+  const html = buildReceiptHtml(sale, {
+    shopName, staffName: staffObj?.name || "—",
+    botUsername: botUser, receiptUrl,
+    style: chekCfg.posStyle || "full"
+  });
+
+  const w = window.open("","_blank","width=420,height=700");
+  if (!w) { toast("Pop-up bloklangan","err"); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
 }
-function openPosLogs(){openModal("poslogs");renderPosLogs();}
-function renderPosLogs(){
-  const el=$("poslogs-body");if(!el)return;
-  const logs=(db.posLogs||[]).filter(l=>l.date===today()).slice().reverse();
-  if(!logs.length){el.innerHTML=`<div style="padding:40px;text-align:center;color:var(--mut)"><i class="ti ti-history" style="font-size:32px;display:block;margin-bottom:10px;opacity:.4"></i>Bugun hali operatsiya bo'lmagan</div>`;return;}
-  const icons={"Savatga qo'shildi":{i:"ti-plus",c:"var(--grn)"},"Savatdan o'chirildi":{i:"ti-minus",c:"var(--red)"},"Savatcha tozalandi":{i:"ti-trash",c:"var(--red)"},"Sotuv yakunlandi":{i:"ti-check",c:"var(--acc)"}};
-  el.innerHTML=`<table style="width:100%"><thead><tr><th style="padding:8px 12px;font-size:11px;color:var(--mut);text-align:left">VAQT</th><th style="padding:8px 12px;font-size:11px;color:var(--mut);text-align:left">AMAL</th><th style="padding:8px 12px;font-size:11px;color:var(--mut);text-align:left">TAFSILOT</th><th style="padding:8px 12px;font-size:11px;color:var(--mut);text-align:left">KASSIR</th></tr></thead><tbody>${logs.map(l=>{const ai=icons[l.action]||{i:"ti-point",c:"var(--mut)"};return`<tr style="border-top:1px solid var(--brd)"><td style="padding:8px 12px;font-size:12px;color:var(--mut)">${l.time}</td><td style="padding:8px 12px;font-size:12.5px"><i class="ti ${ai.i}" style="color:${ai.c};margin-right:5px"></i>${l.action}</td><td style="padding:8px 12px;font-size:12px;color:var(--mut)">${l.details||"--"}</td><td style="padding:8px 12px;font-size:12px">${l.staffName||"--"}</td></tr>`;}).join("")}</tbody></table>`;
+
+// ── Tezkor miqdor ─────────────────────────────
+function vmSetQty(n) {
+  if ($("vm-qty")) { $("vm-qty").value = n; renderVmChips(); }
 }
-function showLastSale(){
-  if(!db.sales?.length){toast("Hali sotuv yo'q","err");return;}
-  showReceiptModal(db.sales[db.sales.length-1]);
+
+// ── Klaviatura shortcuts ──────────────────────
+document.addEventListener("keydown", function(e) {
+  // Agar input/textarea fokusda bo'lsa — qo'shmaymiz
+  const tag = document.activeElement?.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+  // Faqat POS sahifasi ochiq bo'lganda
+  if (!document.getElementById("p-pos")?.classList.contains("active")) return;
+
+  if (e.key === "/" || e.key === "F2") {
+    e.preventDefault();
+    $("pos-q")?.focus();
+  }
+  if (e.key === "Escape") {
+    ["variant","receipt","barcode"].forEach(m => closeModal(m));
+    if ($("pos-q")) { $("pos-q").value = ""; posClear(); }
+  }
+  if (e.key === "Enter" && document.getElementById("ov-variant")?.style.display !== "none") {
+    e.preventDefault();
+    confirmVariant();
+  }
+  if (e.key === "F9") checkout();
+});
+
+// ── So'nggi mahsulotlar (qidiruv bo'sh bo'lganda) ──
+// ── Oxirgi sotuv ──────────────────────────────
+// ── Operatsiyalar tarixi (POS log) ko'rsatish ──────
+function openPosLogs() {
+  openModal("poslogs");
+  renderPosLogs();
 }
-function totalStock(p){return(p.variants||[]).reduce((a,v)=>a+(v.qty||0),0);}
+
+function renderPosLogs() {
+  const el = $("poslogs-body"); if (!el) return;
+  const logs = (db.posLogs || []).filter(l => l.date === today()).slice().reverse();
+
+  if (!logs.length) {
+    el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--mut)">
+      <i class="ti ti-history" style="font-size:32px;display:block;margin-bottom:10px;opacity:.4"></i>
+      Bugun hali operatsiya bo'lmagan</div>`;
+    return;
+  }
+
+  const actionIcons = {
+    "Savatga qo'shildi": { icon: "ti-plus", color: "var(--grn)" },
+    "Savatdan o'chirildi": { icon: "ti-minus", color: "var(--red)" },
+    "Savatcha tozalandi": { icon: "ti-trash", color: "var(--red)" },
+    "Sotuv yakunlandi": { icon: "ti-check", color: "var(--acc)" },
+  };
+
+  el.innerHTML = `<table style="width:100%">
+    <thead><tr>
+      <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mut)">VAQT</th>
+      <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mut)">AMAL</th>
+      <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mut)">TAFSILOT</th>
+      <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mut)">KASSIR</th>
+      <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mut)">SAVATCHA</th>
+    </tr></thead>
+    <tbody>
+      ${logs.map(l => {
+        const ai = actionIcons[l.action] || { icon: "ti-point", color: "var(--mut)" };
+        return `<tr style="border-top:1px solid var(--brd)">
+          <td style="padding:8px 12px;font-size:12px;color:var(--mut);white-space:nowrap">${l.time}</td>
+          <td style="padding:8px 12px;font-size:12.5px">
+            <i class="ti ${ai.icon}" style="color:${ai.color};margin-right:5px"></i>${l.action}
+          </td>
+          <td style="padding:8px 12px;font-size:12px;color:var(--mut)">${l.details||"—"}</td>
+          <td style="padding:8px 12px;font-size:12px">${l.staffName||"—"}</td>
+          <td style="padding:8px 12px;font-size:11.5px;color:#bbb">${l.cartName||"—"}</td>
+        </tr>`;
+      }).join("")}
+    </tbody>
+  </table>`;
+}
+
+function showLastSale() {
+  if (!db.sales.length) { toast("Hali sotuv yo'q","err"); return; }
+  const last = db.sales[db.sales.length - 1];
+  showReceiptModal(last);
+}
+
+// ── Muddati o'tgan qarz eslatmasi ────────────
+function checkDebtAlerts() {
+  const today_ = today();
+  const overdue = db.sales.filter(s => s.status !== "qaytarilgan" && s.due && s.due < today_)
+    .map(s => ({ sale: s, state: calcSaleState(s) }))
+    .filter(x => x.state.remaining > 0.5);
+  const banner = $("debt-alert-banner");
+  const text   = $("debt-alert-text");
+  if (!banner || !text) return;
+
+  if (overdue.length > 0) {
+    const totalDebt = overdue.reduce((a, x) => a + (x.state.remaining||0), 0);
+    text.textContent = `${overdue.length} ta muddati o'tgan qarz: ${fmt(totalDebt)} so'm`;
+    banner.style.display = "block";
+  } else {
+    banner.style.display = "none";
+  }
+}
