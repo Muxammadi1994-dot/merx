@@ -1126,11 +1126,11 @@ function togglePayMethodBlock(method) {
     if (inp) { inp.disabled = true; inp.value = ""; }
     if (row) { row.style.opacity = ".4"; row.style.pointerEvents = "none"; }
   } else {
-    if (inp) inp.disabled = false;
+    if (inp) { inp.disabled = false; inp.style.pointerEvents = "auto"; }
     if (row) { row.style.opacity = "1"; row.style.pointerEvents = "auto"; }
   }
   updatePayRemaining();
-  toast((_payBlocked[method] ? "Bloklandi: " : "Ochildi: ") + method);
+  toast((_payBlocked[method] ? "🔒 Bloklandi: " : "🔓 Ochildi: ") + method);
 }
 
 // Eski setPayMode — ichida nasiya uchun qarz inputini ishlatamiz
@@ -1469,6 +1469,8 @@ async function checkout() {
   const _payO = getRawVal("pay-otkazma");
   const _payQ = getRawVal("pay-qarz");
   const _anyNew = _payN + _payK + _payO + _payQ;
+  // Agar hech narsa yozilmagan bo'lsa — to'liq naqd to'lov deb hisoblaymiz
+  // (kassir kassa belgisi bosdi, summa ko'rinib turibdi)
 
   if (_anyNew > 0) {
     paid = _payN + _payK + _payO;
@@ -1679,7 +1681,13 @@ async function checkout() {
   const posdue=$("pos-due"); if(posdue)posdue.value="";
   if ($("debt-count")) $("debt-count").textContent = debtSales().length;
   refreshCustList();
-  showReceiptModal(newSale);
+  // Chek modali — try-catch ichida xavfsiz
+  try {
+    showReceiptModal(newSale);
+  } catch(e) {
+    console.error("Chek xato:", e);
+    toast("Sotuv saqlandi! Chek: " + (newSale.chekNum||""), "info");
+  }
 }
 
 // ── Chegirma ──────────────────────────────────
@@ -1786,15 +1794,21 @@ function showReceiptModal(sale) {
 
   // Mahsulotlar
   if ($("rcp-items")) {
-    $("rcp-items").innerHTML = sale.items.map(i => `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;font-size:13px">
+    const _rate = db.settings?.rate || 12800;
+    const _cur  = db.settings?.priceCurrency || "uzs";
+    const _fmtP = v => _cur==="usd" ? "$"+(v/_rate).toFixed(2) : fmt(v)+" so'm";
+    $("rcp-items").innerHTML = sale.items.map(i => {
+      const lineTotal = (i.price||0) * (i.qty||1);
+      const unitPrice = i.price||0;
+      const variantStr = i.variant || ((i.color||"") + (i.size?" / "+i.size:""));
+      return `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;font-size:13px">
         <div style="flex:1;min-width:0">
-          <div style="font-weight:600;color:#0D1B2A">${i.name}</div>
-          <div style="font-size:11.5px;color:#aaa">${i.variant} · ${i.qty} ${i.unit||"dona"}</div>
+          <div style="font-weight:700;color:#0D1B2A">${i.name}</div>
+          <div style="font-size:11.5px;color:#888;margin-top:1px">${variantStr} · ${i.qty} ${i.unit||"dona"} · ${_fmtP(unitPrice)}/dona</div>
         </div>
-        <div style="font-weight:700;color:#0D1B2A;margin-left:12px;white-space:nowrap">${priceDisplay(i.price*i.qty)}</div>
-      </div>`
-    ).join("");
+        <div style="font-weight:800;color:#0D1B2A;margin-left:12px;white-space:nowrap">${_fmtP(lineTotal)}</div>
+      </div>`;
+    }).join("");
   }
 
   // Subtotal va chegirma
