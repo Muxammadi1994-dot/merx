@@ -982,7 +982,7 @@ function updateMixedTotal() {
 // 4 ustun: naqd/karta/otkazma/qarz
 // Har biri input — yozilsa qolgan avtomatik hisoblanadi
 // Bloklash holatlari — db.settings da saqlanadi (har sessiyada saqlanib qoladi)
-let _payBlocked  = (typeof db !== "undefined" && db.settings?.posPayBlocked)  || {};
+let _payBlocked  = Object.assign({}, (typeof db !== "undefined" && db.settings?.posPayBlocked) || {});
 let _staffLocked = (typeof db !== "undefined" && db.settings?.posStaffLocked) || false;
 
 function onPayInput(method) {
@@ -1115,7 +1115,7 @@ function togglePayMethodBlock(method) {
   // db.settings ga saqlaymiz
   if (typeof db !== "undefined") {
     if (!db.settings) db.settings = {};
-    db.settings.posPayBlocked = _payBlocked;
+    db.settings.posPayBlocked = Object.assign({}, _payBlocked);
     saveDB();
   }
   const btn = $("pay-lock-" + method);
@@ -1397,7 +1397,7 @@ function _applyPayBlocked() {
 function refreshStaffList() {
   // Bloklash holatini settings dan yuklaymiz
   if (typeof db !== "undefined" && db.settings) {
-    _payBlocked  = db.settings.posPayBlocked  || {};
+    _payBlocked  = Object.assign({}, db.settings.posPayBlocked || {});
     _staffLocked = db.settings.posStaffLocked || false;
   }
   const sel = $("pos-staff"); if (!sel) return;
