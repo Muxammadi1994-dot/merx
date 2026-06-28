@@ -711,9 +711,15 @@ function renderCart() {
   }
 
   $("cart-items").innerHTML = cart.map((c, i) => {
+    // Rang hex
+    const _vHex = (() => {
+      const p2 = db.products.find(x => x.sku === c.sku);
+      const v2 = p2?.variants.find(v => v.color === c.color);
+      return v2?.hex || "#888";
+    })();
     const variantLine = c.sellMode === "karobka"
-      ? `${c.color} <span class="ci-box-badge">📦 ${c.qtyBox} pochka</span>`
-      : `${c.color} / ${c.size}`;
+      ? `<span style="width:9px;height:9px;border-radius:2px;background:${_vHex};border:1px solid rgba(0,0,0,.12);display:inline-block;vertical-align:middle;margin-right:3px"></span><span style="font-weight:700;color:#111">${c.color}</span> <span style="color:#9CA3AF">·</span> <span style="font-weight:700;color:#E9A500">📦 ${c.qtyBox} pochka</span>${c.art ? ' <span style="color:#9CA3AF">·</span> <span style="font-family:monospace;font-weight:700;color:#6B4FBB;font-size:11px">' + c.art + '</span>' : ''}`
+      : `<span style="width:9px;height:9px;border-radius:2px;background:${_vHex};border:1px solid rgba(0,0,0,.12);display:inline-block;vertical-align:middle;margin-right:3px"></span><span style="font-weight:700;color:#111">${c.color}</span>${c.size ? ' <span style="color:#9CA3AF">·</span> ' + c.size : ''}${c.art ? ' <span style="color:#9CA3AF">·</span> <span style="font-family:monospace;font-weight:700;color:#6B4FBB;font-size:11px">' + c.art + '</span>' : ''}`;
     const isOverride = c.basePrice && c.basePrice !== c.price;
     const priceTag = `<span style="display:flex;align-items:center;gap:4px;justify-content:flex-end">
       ${isOverride ? `<span style="text-decoration:line-through;color:#ccc;font-size:10.5px">${fmt(c.basePrice*c.qty)} so'm</span>` : ""}
@@ -728,9 +734,11 @@ function renderCart() {
       : isOverride ? `<span style="color:#E9A500;font-size:10.5px">Narx o'zgartirilgan: ${priceDisplay(c.basePrice)} → ${priceDisplay(c.price)}</span>` : "";
     return `<div class="ci">
       <div class="ci-inf">
-        <div class="ci-nm">${c.name}</div>
-        <div class="ci-vr">${variantLine}</div>
-        ${subLine ? `<div style="font-size:11px;color:#bbb;margin-top:1px">${subLine}</div>` : ""}
+        <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+          <span class="ci-nm">${c.name}</span>
+          <span style="font-size:11.5px">${variantLine}</span>
+        </div>
+        ${subLine ? `<div style="font-size:11px;color:#9CA3AF;margin-bottom:2px">${subLine}</div>` : ""}
         <div class="ci-row">
           <div class="qty-ctrl">
             <button onclick="ciQty(${i},-1)">−</button>
@@ -980,8 +988,8 @@ function updateMixedTotal() {
 // 4 ustun: naqd/karta/otkazma/qarz
 // Har biri input — yozilsa qolgan avtomatik hisoblanadi
 // Bloklash holatlari — db.settings da saqlanadi (har sessiyada saqlanib qoladi)
-let _payBlocked  = Object.assign({}, (typeof db !== "undefined" && db.settings?.posPayBlocked) || {});
-let _staffLocked = (typeof db !== "undefined" && db.settings?.posStaffLocked) || false;
+var _payBlocked  = {};
+var _staffLocked = false;
 
 function onPayInput(method) {
   const total = _cartTotal();
@@ -1109,22 +1117,28 @@ function _applyStaffLock() {
 }
 
 function togglePayMethodBlock(method) {
-  // Toggle
-  if (_payBlocked[method]) {
-    delete _payBlocked[method];
+  // Toggle — true bo'lsa o'chir, yo'q bo'lsa qo'y
+  if (_payBlocked[method] === true) {
+    _payBlocked[method] = false;
   } else {
     _payBlocked[method] = true;
   }
-  // Saqlash
-  if (typeof db !== "undefined") {
+  // db.settings ga yangi object sifatida saqlash
+  try {
     if (!db.settings) db.settings = {};
-    db.settings.posPayBlocked = Object.assign({}, _payBlocked);
+    db.settings.posPayBlocked = {
+      naqd:    _payBlocked.naqd    === true,
+      karta:   _payBlocked.karta   === true,
+      otkazma: _payBlocked.otkazma === true,
+      qarz:    _payBlocked.qarz    === true,
+    };
     saveDB();
-  }
-  // UI yangilash
+  } catch(e) { console.warn("Blok saqlash xato:", e); }
+  // UI
   _applyPayBlocked();
   updatePayRemaining();
-  toast((_payBlocked[method] ? "🔒 Bloklandi: " : "🔓 Ochildi: ") + method);
+  var msg = _payBlocked[method] === true ? "Bloklandi: " : "Ochildi: ";
+  toast(msg + method);
 }
 
 // Eski setPayMode — ichida nasiya uchun qarz inputini ishlatamiz
@@ -1370,28 +1384,33 @@ function refreshCustList() {
 
 
 function _applyPayBlocked() {
-  ["naqd","karta","otkazma","qarz"].forEach(m => {
-    const btn = $("pay-lock-" + m);
-    const inp = $("pay-" + m);
-    const row = $("pay-row-" + m);
-    if (btn) btn.innerHTML = _payBlocked[m]
+  ["naqd","karta","otkazma","qarz"].forEach(function(m) {
+    var blocked = _payBlocked[m] === true;
+    var btn = $("pay-lock-" + m);
+    var inp = $("pay-" + m);
+    var row = $("pay-row-" + m);
+    if (btn) btn.innerHTML = blocked
       ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
       : '<i class="ti ti-lock-open" style="color:#CBD5E1"></i>';
-    if (_payBlocked[m]) {
+    if (blocked) {
       if (inp) { inp.disabled = true; inp.value = ""; }
-      if (row) { row.style.opacity = ".4"; row.style.pointerEvents = "none"; }
+      if (row) { row.style.cssText += ";opacity:.4;pointer-events:none"; }
     } else {
-      if (inp) inp.disabled = false;
+      if (inp) { inp.disabled = false; }
       if (row) { row.style.opacity = "1"; row.style.pointerEvents = "auto"; }
     }
   });
 }
 
 function refreshStaffList() {
-  // Bloklash holatini settings dan yuklaymiz
+  // Bloklash holatini settings dan yuklaymiz (har POS ochilganda)
   if (typeof db !== "undefined" && db.settings) {
-    _payBlocked  = Object.assign({}, db.settings.posPayBlocked || {});
-    _staffLocked = db.settings.posStaffLocked || false;
+    var _pb = db.settings.posPayBlocked;
+    _payBlocked  = (_pb && typeof _pb === "object") ? Object.assign({}, _pb) : {};
+    _staffLocked = db.settings.posStaffLocked === true;
+  } else {
+    _payBlocked  = {};
+    _staffLocked = false;
   }
   const sel = $("pos-staff"); if (!sel) return;
   // Kassirlar ro'yxatini to'ldiramiz
