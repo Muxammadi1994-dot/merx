@@ -1117,28 +1117,13 @@ function _applyStaffLock() {
 }
 
 function togglePayMethodBlock(method) {
-  // Toggle — true bo'lsa o'chir, yo'q bo'lsa qo'y
-  if (_payBlocked[method] === true) {
-    _payBlocked[method] = false;
-  } else {
-    _payBlocked[method] = true;
-  }
-  // db.settings ga yangi object sifatida saqlash
-  try {
-    if (!db.settings) db.settings = {};
-    db.settings.posPayBlocked = {
-      naqd:    _payBlocked.naqd    === true,
-      karta:   _payBlocked.karta   === true,
-      otkazma: _payBlocked.otkazma === true,
-      qarz:    _payBlocked.qarz    === true,
-    };
-    saveDB();
-  } catch(e) { console.warn("Blok saqlash xato:", e); }
-  // UI
+  _payBlocked[method] = !_payBlocked[method];
+  if (!db.settings) db.settings = {};
+  db.settings.posPayBlocked = JSON.parse(JSON.stringify(_payBlocked));
+  saveDB();
   _applyPayBlocked();
   updatePayRemaining();
-  var msg = _payBlocked[method] === true ? "Bloklandi: " : "Ochildi: ";
-  toast(msg + method);
+  toast((_payBlocked[method] ? "Bloklandi: " : "Ochildi: ") + method);
 }
 
 // Eski setPayMode — ichida nasiya uchun qarz inputini ishlatamiz
