@@ -48,7 +48,11 @@ let posDebtCurrency = "usd";  // Asosiy: USD
 // Har bir muhim amal (qo'shish, o'chirish, chegirma, sotuv) shu yerga yoziladi.
 function posLog(action, details) {
   if (!db.posLogs) db.posLogs = [];
-  const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
+  // Kassir — bloklangan bo'lsa settings dan olamiz
+  const staffId = (() => {
+    if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
+    return parseInt(($("pos-staff")||{value:0}).value) || null;
+  })();
   const staff = staffId ? (db.staff||[]).find(s => s.id === staffId) : null;
   db.posLogs.push({
     id: db.seq++,
@@ -893,7 +897,11 @@ function posCloseCart(idx) {
 function setPayType(t) {
   // Nasiya ruxsatini tekshirish
   if (t === "nasiya") {
-    const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
+    // Kassir — bloklangan bo'lsa settings dan olamiz
+  const staffId = (() => {
+    if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
+    return parseInt(($("pos-staff")||{value:0}).value) || null;
+  })();
     const staff   = staffId ? (db.staff||[]).find(s=>s.id===staffId) : null;
     if (staff && !staff.permNasiya) {
       toast("Bu kassirda nasiya berish huquqi yo'q","err"); return;
@@ -978,8 +986,26 @@ let _staffLocked = (typeof db !== "undefined" && db.settings?.posStaffLocked) ||
 
 function onPayInput(method) {
   const total = _cartTotal();
+  if (total <= 0) return;
   const vals  = _getPayVals();
-  const sum   = vals.naqd + vals.karta + vals.otkazma + vals.qarz;
+  const paid  = vals.naqd + vals.karta + vals.otkazma;
+  const sum   = paid + vals.qarz;
+
+  // Avtomat qarz to'ldirish: naqd/karta/otkazma o'zgarganda
+  // Agar to'liq to'lanmagan bo'lsa va qarz bloklanmagan bo'lsa
+  if (method !== "qarz" && !_payBlocked["qarz"]) {
+    const rem = Math.max(0, total - paid);
+    const qarzInp = $("pay-qarz");
+    if (qarzInp && !qarzInp.disabled) {
+      if (rem > 0 && paid > 0 && paid < total) {
+        // Qolgan summa qarzga avtomat yoziladi
+        qarzInp.value = fmt(rem);
+      } else if (paid >= total) {
+        // To'liq to'langan — qarzni tozalaymiz
+        qarzInp.value = "";
+      }
+    }
+  }
 
   // To'liq to'langan bo'lsa — bo'sh inputlarni bloklash
   if (sum >= total && total > 0) {
@@ -1051,10 +1077,17 @@ function updatePayTotal() {
 
 function toggleStaffLock() {
   _staffLocked = !_staffLocked;
-  // db.settings ga saqlaymiz
   if (typeof db !== "undefined") {
     if (!db.settings) db.settings = {};
     db.settings.posStaffLocked = _staffLocked;
+    // Bloklanganda hozirgi kassir ID ni ham saqlaymiz
+    if (_staffLocked) {
+      const sel = $("pos-staff");
+      const sid = sel ? parseInt(sel.value)||null : null;
+      db.settings.posLockedStaffId = sid;
+    } else {
+      db.settings.posLockedStaffId = null;
+    }
     saveDB();
   }
   _applyStaffLock();
@@ -1067,7 +1100,13 @@ function _applyStaffLock() {
     ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
     : '<i class="ti ti-lock-open" style="color:#94A3B8"></i>';
   const sel = $("pos-staff");
-  if (sel) { sel.disabled = _staffLocked; sel.style.opacity = _staffLocked ? ".6" : "1"; }
+  if (!sel) return;
+  // Bloklangan kassirni tanlaymiz
+  if (_staffLocked && db?.settings?.posLockedStaffId) {
+    sel.value = db.settings.posLockedStaffId;
+  }
+  sel.disabled = _staffLocked;
+  sel.style.opacity = _staffLocked ? ".6" : "1";
 }
 
 function togglePayMethodBlock(method) {
@@ -1360,14 +1399,14 @@ function refreshStaffList() {
     _payBlocked  = db.settings.posPayBlocked  || {};
     _staffLocked = db.settings.posStaffLocked || false;
   }
-  _applyPayBlocked();
-  _applyStaffLock();
   const sel = $("pos-staff"); if (!sel) return;
-  const cur = sel.value;
+  // Kassirlar ro'yxatini to'ldiramiz
+  const lockedId = db?.settings?.posLockedStaffId;
+  const cur = _staffLocked && lockedId ? lockedId : sel.value;
   sel.innerHTML = '<option value="">-- Kassirni tanlang --</option>' +
     (db.staff||[]).map(s => `<option value="${s.id}"${String(s.id)===String(cur)?" selected":""}>${s.name}</option>`).join("");
-  if (_staffLocked) { sel.disabled = true; sel.style.opacity = ".6"; }
-  else              { sel.disabled = false; sel.style.opacity = "1"; }
+  _applyPayBlocked();
+  _applyStaffLock();
 }
 
 // ── Savdo yakunlash ───────────────────────────────
@@ -1467,7 +1506,11 @@ async function checkout() {
     paid = mixedPaid;
   }
 
-  const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
+  // Kassir — bloklangan bo'lsa settings dan olamiz
+  const staffId = (() => {
+    if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
+    return parseInt(($("pos-staff")||{value:0}).value) || null;
+  })();
   // Kassir majburiy — xodimlar ro'yxati bo'sh bo'lmasa
   if (!staffId && db.staff && db.staff.length > 0) {
     toast("Kassirni tanlang", "err");
@@ -1650,7 +1693,11 @@ function setDiscType(t) {
 
 function applyDiscount() {
   // Kassir ruxsatini tekshirish
-  const staffId = parseInt(($("pos-staff")||{value:0}).value) || null;
+  // Kassir — bloklangan bo'lsa settings dan olamiz
+  const staffId = (() => {
+    if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
+    return parseInt(($("pos-staff")||{value:0}).value) || null;
+  })();
   const staff   = staffId ? (db.staff||[]).find(s=>s.id===staffId) : null;
 
   if (staff && !staff.permDiscount) {
