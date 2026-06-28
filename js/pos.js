@@ -730,9 +730,11 @@ function renderCart() {
       : isOverride ? `<span style="color:#E9A500;font-size:10.5px">Narx o'zgartirilgan: ${priceDisplay(c.basePrice)} → ${priceDisplay(c.price)}</span>` : "";
     return `<div class="ci">
       <div class="ci-inf">
-        <div class="ci-nm">${c.name}</div>
-        <div class="ci-vr">${variantLine}</div>
-        ${subLine ? `<div style="font-size:11px;color:#bbb;margin-top:1px">${subLine}</div>` : ""}
+        <div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin-bottom:3px">
+          <span class="ci-nm">${c.name}</span>
+          <span class="ci-vr" style="margin-bottom:0">${variantLine}</span>
+        </div>
+        ${subLine ? `<div style="font-size:11px;color:#888;margin-top:1px;margin-bottom:3px">${subLine}</div>` : ""}
         <div class="ci-row">
           <div class="qty-ctrl">
             <button onclick="ciQty(${i},-1)">−</button>
@@ -982,8 +984,8 @@ function updateMixedTotal() {
 // 4 ustun: naqd/karta/otkazma/qarz
 // Har biri input — yozilsa qolgan avtomatik hisoblanadi
 // Bloklash holatlari — db.settings da saqlanadi (har sessiyada saqlanib qoladi)
-let _payBlocked  = Object.assign({}, (typeof db !== "undefined" && db.settings?.posPayBlocked) || {});
-let _staffLocked = (typeof db !== "undefined" && db.settings?.posStaffLocked) || false;
+var _payBlocked  = Object.assign({}, (typeof db !== "undefined" && db.settings?.posPayBlocked) || {});
+var _staffLocked = (typeof db !== "undefined" && db.settings?.posStaffLocked) || false;
 
 function onPayInput(method) {
   const total = _cartTotal();
