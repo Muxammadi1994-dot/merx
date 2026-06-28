@@ -945,6 +945,7 @@ function updateMixedTotal() {
 
   const diffLbl = $("mix-diff-label");
   const diffView = $("mix-diff-view");
+  if (!diffLbl || !diffView) return;
   if (diffLbl && diffView) {
     if (posPayMode === "part") {
       // Nasiya rejimida — "Jami summa" ko'rsatiladi, qarz pastda alohida hisoblanadi
@@ -1137,7 +1138,7 @@ function togglePayMethodBlock(method) {
 function setPayMode(m) {
   posPayMode = m;
   document.querySelectorAll(".pmode-btn").forEach(b => b.classList.toggle("on", b.dataset.m === m));
-  $("part-box").style.display = m === "part" ? "block" : "none";
+  const _pb = $("part-box"); if(_pb) _pb.style.display = m === "part" ? "block" : "none";
   if (m === "full") setDebtCurrency("uzs");
   if (m === "part") {
     if ($("c-due") && !$("c-due").value) $("c-due").value = addDays(today(), 30);
