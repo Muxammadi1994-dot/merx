@@ -259,8 +259,8 @@ function posSearch() {
     const rowId = rowKey.replace(/[^a-zA-Z0-9]/g,'_');
 
     const imgHtml = p.image
-      ? `<img src="${p.image}" style="width:44px;height:44px;object-fit:cover;border-radius:7px;border:1px solid var(--brd);flex-shrink:0">`
-      : `<div style="width:44px;height:44px;border:1.5px dashed #e0ddd8;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:16px;flex-shrink:0"><i class="ti ti-photo"></i></div>`;
+      ? `<img src="${p.image}" style="width:36px;height:36px;object-fit:cover;border-radius:7px;border:1px solid var(--brd);flex-shrink:0">`
+      : "";
 
     return `<div class="pos-ri" style="align-items:center;flex-direction:column;align-items:stretch;${isBroken?'background:#FFFBF0;border-color:#f0d882':''}" data-rowkey="${rowKey}">
       <div style="display:flex;align-items:center;gap:14px">
@@ -270,14 +270,14 @@ function posSearch() {
             ${p.name}
             ${isBroken ? `<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:700;padding:1px 6px;border-radius:7px;margin-left:5px">ochilgan</span>` : ""}
           </div>
-          <div class="pri-meta" style="font-size:12px;color:#374151;font-weight:500">
-            <span style="display:inline-flex;align-items:center;gap:4px">
-              <span style="width:9px;height:9px;border-radius:3px;background:${hex};border:1px solid rgba(0,0,0,.12);display:inline-block;vertical-align:middle"></span>
-              <span style="font-weight:700;color:#1F2937">${color}</span>
-            </span>
-            <span style="color:#9CA3AF;margin:0 3px">·</span>
-            <span style="color:#374151">${sizesStr || "—"}</span>
-            ${p.art ? '<span style="color:#9CA3AF"> · </span><span style="font-family:monospace;font-weight:700;color:#6B4FBB;font-size:11.5px">' + p.art + '</span>' : ""}
+          <div class="pri-meta">
+            <span style="width:8px;height:8px;border-radius:2px;background:${hex};border:1px solid rgba(0,0,0,.12);display:inline-block;flex-shrink:0"></span>
+            <span style="font-weight:700;color:#1F2937">${color}</span>
+            <span style="color:#CBD5E1">·</span>
+            <span>${sizesStr || "—"}</span>
+            ${p.art ? '<span style="color:#CBD5E1">·</span><span style="font-family:monospace;font-weight:700;color:#6B4FBB">' + p.art + '</span>' : ""}
+            <span style="color:#CBD5E1">·</span>
+            <span style="color:${maxPochka<=0?'#EF4444':maxPochka<=5?'#F59E0B':'#9CA3AF'}">${maxPochka} pochka</span>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
@@ -293,9 +293,7 @@ function posSearch() {
                 <i class="ti ti-edit" style="font-size:11px;color:#94A3B8"></i>
               </button>
             </div>
-            <div style="font-size:10.5px;color:${maxPochka<=0?'var(--red)':maxPochka<=5?'#d97706':'var(--mut)'}">
-              ${maxPochka} pochka
-            </div>
+
           </div>
           <input type="number" min="1" max="${maxPochka}" placeholder="1" value="1"
             id="posq-${rowId}"
@@ -730,11 +728,9 @@ function renderCart() {
       : isOverride ? `<span style="color:#E9A500;font-size:10.5px">Narx o'zgartirilgan: ${priceDisplay(c.basePrice)} → ${priceDisplay(c.price)}</span>` : "";
     return `<div class="ci">
       <div class="ci-inf">
-        <div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin-bottom:3px">
-          <span class="ci-nm">${c.name}</span>
-          <span class="ci-vr" style="margin-bottom:0">${variantLine}</span>
-        </div>
-        ${subLine ? `<div style="font-size:11px;color:#888;margin-top:1px;margin-bottom:3px">${subLine}</div>` : ""}
+        <div class="ci-nm">${c.name}</div>
+        <div class="ci-vr">${variantLine}</div>
+        ${subLine ? `<div style="font-size:11px;color:#bbb;margin-top:1px">${subLine}</div>` : ""}
         <div class="ci-row">
           <div class="qty-ctrl">
             <button onclick="ciQty(${i},-1)">−</button>
@@ -984,8 +980,8 @@ function updateMixedTotal() {
 // 4 ustun: naqd/karta/otkazma/qarz
 // Har biri input — yozilsa qolgan avtomatik hisoblanadi
 // Bloklash holatlari — db.settings da saqlanadi (har sessiyada saqlanib qoladi)
-var _payBlocked  = Object.assign({}, (typeof db !== "undefined" && db.settings?.posPayBlocked) || {});
-var _staffLocked = (typeof db !== "undefined" && db.settings?.posStaffLocked) || false;
+let _payBlocked  = Object.assign({}, (typeof db !== "undefined" && db.settings?.posPayBlocked) || {});
+let _staffLocked = (typeof db !== "undefined" && db.settings?.posStaffLocked) || false;
 
 function onPayInput(method) {
   const total = _cartTotal();
@@ -1113,25 +1109,20 @@ function _applyStaffLock() {
 }
 
 function togglePayMethodBlock(method) {
-  _payBlocked[method] = !_payBlocked[method];
-  // db.settings ga saqlaymiz
+  // Toggle
+  if (_payBlocked[method]) {
+    delete _payBlocked[method];
+  } else {
+    _payBlocked[method] = true;
+  }
+  // Saqlash
   if (typeof db !== "undefined") {
     if (!db.settings) db.settings = {};
     db.settings.posPayBlocked = Object.assign({}, _payBlocked);
     saveDB();
   }
-  const btn = $("pay-lock-" + method);
-  if (btn) btn.innerHTML = _payBlocked[method]
-    ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
-    : '<i class="ti ti-lock-open" style="color:#CBD5E1"></i>';
-  const inp = $("pay-" + method); const row = $("pay-row-" + method);
-  if (_payBlocked[method]) {
-    if (inp) { inp.disabled = true; inp.value = ""; }
-    if (row) { row.style.opacity = ".4"; row.style.pointerEvents = "none"; }
-  } else {
-    if (inp) { inp.disabled = false; inp.style.pointerEvents = "auto"; }
-    if (row) { row.style.opacity = "1"; row.style.pointerEvents = "auto"; }
-  }
+  // UI yangilash
+  _applyPayBlocked();
   updatePayRemaining();
   toast((_payBlocked[method] ? "🔒 Bloklandi: " : "🔓 Ochildi: ") + method);
 }
