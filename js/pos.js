@@ -3,9 +3,10 @@
 let _sidebarHidden = false;
 function togglePosSidebar() {
   _sidebarHidden = !_sidebarHidden;
-  const nav = document.getElementById("main-nav");
+  // aside#sb — asosiy sidebar
+  const sb  = document.getElementById("sb");
   const btn = document.getElementById("pos-sidebar-btn");
-  if (nav) nav.style.display = _sidebarHidden ? "none" : "";
+  if (sb)  sb.style.display  = _sidebarHidden ? "none" : "";
   if (btn) btn.innerHTML = _sidebarHidden
     ? '<i class="ti ti-layout-sidebar-left-expand"></i>'
     : '<i class="ti ti-layout-sidebar-left-collapse"></i>';
@@ -1020,9 +1021,26 @@ function updateRem() {
   const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
   const discount = calcDiscount(subtotal);
   const total    = subtotal - discount;
-  const paid     = getRawVal("c-paid");
-  const remUzs   = Math.max(0, total - paid);
-  const rate     = db.settings.rate || 12800;
+  const rate     = db.settings?.rate || 12800;
+
+  // Yangi panel: naqd+karta+otkazma to'langan, qarz = qolgan
+  const _pN = getRawVal("pay-naqd");
+  const _pK = getRawVal("pay-karta");
+  const _pO = getRawVal("pay-otkazma");
+  const _pQ = getRawVal("pay-qarz");
+  const _anyNew = _pN + _pK + _pO + _pQ;
+
+  let remUzs;
+  if (_anyNew > 0) {
+    // Yangi panel: qolgan qarz = jami - (naqd+karta+otkazma)
+    const paid = _pN + _pK + _pO;
+    remUzs = Math.max(0, total - paid);
+  } else {
+    // Eski panel
+    const paid = getRawVal("c-paid");
+    remUzs = Math.max(0, total - paid);
+  }
+
   if ($("rem-view")) $("rem-view").textContent = posDebtCurrency === "usd"
     ? "$" + (remUzs / rate).toFixed(2)
     : fmt(remUzs) + " so'm";
@@ -1454,7 +1472,21 @@ async function checkout() {
   posLog("Sotuv yakunlandi", `${chekNum} — ${fmt(total)} so'm (${newSale.items.length} tur, ${posPayType})`);
 
   // Reset
-  cart.length = 0; renderCart(); setPayMode("full"); setDebtCurrency("uzs");
+  cart.length = 0; renderCart();
+  // Yangi to'lov panelini tozalash
+  ["pay-naqd","pay-karta","pay-otkazma","pay-qarz"].forEach(id => {
+    const el=$(id); if(el){el.value="";el.disabled=false;}
+  });
+  ["naqd","karta","otkazma","qarz"].forEach(m => {
+    if(_payBlocked[m])return;
+    const row=$("pay-row-"+m);
+    if(row){row.style.opacity="1";row.style.pointerEvents="auto";}
+  });
+  const _nb=$("nasiya-box"); if(_nb)_nb.style.display="none";
+  const _mb=$("pay-mode-badge"); if(_mb)_mb.innerHTML="";
+  const _pr=$("pay-remaining"); if(_pr){_pr.textContent="0";_pr.style.color="#22C55E";}
+  const _posdue=$("pos-due"); if(_posdue)_posdue.value="";
+  setPayMode("full"); setDebtCurrency("uzs");
   if ($("c-name"))       $("c-name").value       = "";
   if ($("c-phone"))      $("c-phone").value       = "";
   if ($("c-paid"))       $("c-paid").value        = "0";
