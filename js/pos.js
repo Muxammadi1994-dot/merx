@@ -1014,20 +1014,17 @@ function onPayInput(method) {
     }
   }
 
-  // To'liq to'langan bo'lsa — bo'sh inputlarni bloklash
-  if (sum >= total && total > 0) {
-    ["naqd","karta","otkazma","qarz"].forEach(m => {
-      if (_payBlocked[m]) return;
-      const v = vals[m]; const inp = $("pay-" + m);
-      if (v === 0 && inp && !inp.disabled) { inp.disabled = true; const row = $("pay-row-" + m); if(row) row.style.opacity=".5"; }
-    });
-  } else {
-    ["naqd","karta","otkazma","qarz"].forEach(m => {
-      if (_payBlocked[m]) return;
-      const inp = $("pay-" + m); const row = $("pay-row-" + m);
-      if(inp) inp.disabled = false; if(row) row.style.opacity = "1";
-    });
-  }
+  // To'liq to'langan bo'lsa — bo'sh inputlarni vizual o'chirish (disabled EMAS)
+  ["naqd","karta","otkazma","qarz"].forEach(m => {
+    if (_payBlocked[m]) return;
+    const v = vals[m]; const inp = $("pay-" + m); const row = $("pay-row-" + m);
+    if (sum >= total && total > 0 && v === 0) {
+      if (row) row.style.opacity = ".5";
+    } else {
+      if (inp) inp.disabled = false;
+      if (row) row.style.opacity = "1";
+    }
+  });
   updatePayRemaining();
 }
 
