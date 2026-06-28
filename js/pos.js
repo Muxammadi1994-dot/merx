@@ -157,6 +157,37 @@ function closeBarcodeCamera() {
 }
 
 // ── Mahsulot qidirish ────────────────────────────
+
+// ── Qidiruvda narxni tahrirlash ──────────────────
+function posEditPrice(rowId, sku, color) {
+  const p = db.products.find(x => x.sku === sku);
+  if (!p) return;
+  const curNarx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
+  const el = document.getElementById("pripr-" + rowId);
+  if (!el) return;
+
+  const inp = document.createElement("input");
+  inp.type = "text";
+  inp.value = curNarx;
+  inp.dataset.price = "1";
+  inp.style.cssText = "width:90px;font-size:13px;font-weight:700;border:1.5px solid #E9A500;border-radius:7px;padding:3px 7px;text-align:right;font-family:inherit;color:#0D1B2A;background:#fff";
+  el.innerHTML = "";
+  el.appendChild(inp);
+  inp.focus();
+  inp.select();
+
+  const save = () => {
+    const newVal = parseFloat((inp.value||"").replace(/\s/g,"")) || curNarx;
+    if (posPriceType === "ulgurji") p.ulgurjiNarx = newVal;
+    else p.priceUzs = newVal;
+    saveDB();
+    posSearch();
+    toast("Narx yangilandi: " + fmt(newVal) + " so'm");
+  };
+  inp.addEventListener("blur", save);
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } });
+}
+
 function posSearch() {
   const q = ($("pos-q")||{value:""}).value.trim();
   const clrBtn = $("pos-q-clr");
@@ -227,11 +258,25 @@ function posSearch() {
             ${p.name}
             ${isBroken ? `<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:700;padding:1px 6px;border-radius:7px;margin-left:5px">ochilgan</span>` : ""}
           </div>
-          <div class="pri-meta">${color} · ${sizesStr || "—"}${p.art ? " · "+p.art : ""}</div>
+          <div class="pri-meta" style="font-size:12px;color:#374151;font-weight:500">
+            <span style="display:inline-flex;align-items:center;gap:4px">
+              <span style="width:9px;height:9px;border-radius:3px;background:${hex};border:1px solid rgba(0,0,0,.12);display:inline-block;vertical-align:middle"></span>
+              <span style="font-weight:700;color:#1F2937">${color}</span>
+            </span>
+            <span style="color:#9CA3AF;margin:0 3px">·</span>
+            <span style="color:#374151">${sizesStr || "—"}</span>
+            ${p.art ? '<span style="color:#9CA3AF"> · </span><span style="font-family:monospace;font-weight:700;color:#6B4FBB;font-size:11.5px">' + p.art + '</span>' : ""}
+          </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           <div style="text-align:right">
-            <div class="pri-price" style="font-size:13px">${priceDisplay(narx)}</div>
+            <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end;margin-bottom:2px">
+              <div class="pri-price" style="font-size:14px;font-weight:800;color:#E9A500" id="pripr-${rowId}">${fmt(narx)} <span style="font-size:11px;font-weight:600;color:#9CA3AF">so'm</span></div>
+              <button onclick="event.stopPropagation();posEditPrice('${rowId}','${p.sku}','${color.replace(/'/g,String.fromCharCode(39))}')" title="Narxni tahrirlash"
+                style="width:22px;height:22px;border:1px solid #E8E5E0;border-radius:6px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
+                <i class="ti ti-edit" style="font-size:11px;color:#94A3B8"></i>
+              </button>
+            </div>
             <div style="font-size:10.5px;color:${maxPochka<=0?'var(--red)':maxPochka<=5?'#d97706':'var(--mut)'}">
               ${maxPochka} pochka
             </div>
@@ -655,10 +700,14 @@ function renderCart() {
       ? `${c.color} <span class="ci-box-badge">📦 ${c.qtyBox} pochka</span>`
       : `${c.color} / ${c.size}`;
     const isOverride = c.basePrice && c.basePrice !== c.price;
-    const priceTag = isOverride
-      ? `<span style="text-decoration:line-through;color:#bbb;font-size:11px;margin-right:4px">${fmt(c.basePrice*c.qty)} so'm</span>
-         <span class="ci-pr" style="color:#E9A500">${fmt(c.price*c.qty)} so'm</span>`
-      : `<span class="ci-pr">${priceDisplay(c.price * c.qty)}</span>`;
+    const priceTag = `<span style="display:flex;align-items:center;gap:4px;justify-content:flex-end">
+      ${isOverride ? `<span style="text-decoration:line-through;color:#ccc;font-size:10.5px">${fmt(c.basePrice*c.qty)} so'm</span>` : ""}
+      <span class="ci-pr" style="color:${isOverride?'#E9A500':'inherit'}">${fmt(c.price*c.qty)} so'm</span>
+      <button onclick="event.stopPropagation();ciEditPrice(${idx})" title="Narxni o'zgartirish"
+        style="width:20px;height:20px;border:1px solid #E8E5E0;border-radius:5px;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;flex-shrink:0">
+        <i class="ti ti-edit" style="font-size:10px;color:#94A3B8"></i>
+      </button>
+    </span>`;
     const subLine = c.sellMode === "karobka"
       ? `${c.qty} ${c.unit} · ${priceDisplay(c.price)}/${c.unit}${isOverride?` <span style="color:#E9A500;font-size:10px">(o'zgartirilgan)</span>`:""}`
       : isOverride ? `<span style="color:#E9A500;font-size:10.5px">Narx o'zgartirilgan: ${priceDisplay(c.basePrice)} → ${priceDisplay(c.price)}</span>` : "";
@@ -699,6 +748,27 @@ function ciGetMax(c) {
     const v = p.variants.find(x => x.color === c.color && x.size === c.size);
     return v ? v.qty : 0;
   }
+}
+
+
+// ── Savatda narxni tahrirlash ─────────────────────
+function ciEditPrice(idx) {
+  const c = cart[idx]; if (!c) return;
+  if (!c.basePrice) c.basePrice = c.price;
+  const oldPrice = c.price;
+  const newPriceStr = prompt(
+    c.name + " narxini o'zgartiring\n" +
+    "Hozirgi: " + fmt(oldPrice) + " so'm\n" +
+    "Yangi narxni kiriting:",
+    oldPrice
+  );
+  if (newPriceStr === null) return;
+  const newPrice = parseFloat((newPriceStr||"").replace(/\s/g,"")) || oldPrice;
+  if (newPrice <= 0) { toast("Narx 0 bo'lishi mumkin emas","err"); return; }
+  c.price = newPrice;
+  if (!c.basePrice || c.basePrice === newPrice) c.basePrice = null;
+  renderCart();
+  toast("Narx o'zgartirildi: " + fmt(newPrice) + " so'm");
 }
 
 function ciQty(i, d) {
@@ -889,8 +959,9 @@ function updateMixedTotal() {
 // ── YANGI TO'LOV PANELI ─────────────────────────
 // 4 ustun: naqd/karta/otkazma/qarz
 // Har biri input — yozilsa qolgan avtomatik hisoblanadi
-let _payBlocked = {};    // bloklangan usullar
-let _staffLocked = false; // kassir bloklangan
+// Bloklash holatlari — db.settings da saqlanadi (har sessiyada saqlanib qoladi)
+let _payBlocked  = (typeof db !== "undefined" && db.settings?.posPayBlocked)  || {};
+let _staffLocked = (typeof db !== "undefined" && db.settings?.posStaffLocked) || false;
 
 function onPayInput(method) {
   const total = _cartTotal();
@@ -967,17 +1038,33 @@ function updatePayTotal() {
 
 function toggleStaffLock() {
   _staffLocked = !_staffLocked;
+  // db.settings ga saqlaymiz
+  if (typeof db !== "undefined") {
+    if (!db.settings) db.settings = {};
+    db.settings.posStaffLocked = _staffLocked;
+    saveDB();
+  }
+  _applyStaffLock();
+  toast(_staffLocked ? "Kassir bloklandi" : "Kassir bloki ochildi");
+}
+
+function _applyStaffLock() {
   const btn = $("pos-staff-lock-btn");
   if (btn) btn.innerHTML = _staffLocked
     ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
     : '<i class="ti ti-lock-open" style="color:#94A3B8"></i>';
   const sel = $("pos-staff");
   if (sel) { sel.disabled = _staffLocked; sel.style.opacity = _staffLocked ? ".6" : "1"; }
-  toast(_staffLocked ? "Kassir bloklandi" : "Kassir bloki ochildi");
 }
 
 function togglePayMethodBlock(method) {
   _payBlocked[method] = !_payBlocked[method];
+  // db.settings ga saqlaymiz
+  if (typeof db !== "undefined") {
+    if (!db.settings) db.settings = {};
+    db.settings.posPayBlocked = _payBlocked;
+    saveDB();
+  }
   const btn = $("pay-lock-" + method);
   if (btn) btn.innerHTML = _payBlocked[method]
     ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
@@ -1235,7 +1322,33 @@ function refreshCustList() {
   // Select yo'q endi — saqlaymiz moslik uchun
 }
 
+
+function _applyPayBlocked() {
+  ["naqd","karta","otkazma","qarz"].forEach(m => {
+    const btn = $("pay-lock-" + m);
+    const inp = $("pay-" + m);
+    const row = $("pay-row-" + m);
+    if (btn) btn.innerHTML = _payBlocked[m]
+      ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
+      : '<i class="ti ti-lock-open" style="color:#CBD5E1"></i>';
+    if (_payBlocked[m]) {
+      if (inp) { inp.disabled = true; inp.value = ""; }
+      if (row) { row.style.opacity = ".4"; row.style.pointerEvents = "none"; }
+    } else {
+      if (inp) inp.disabled = false;
+      if (row) { row.style.opacity = "1"; row.style.pointerEvents = "auto"; }
+    }
+  });
+}
+
 function refreshStaffList() {
+  // Bloklash holatini settings dan yuklaymiz
+  if (typeof db !== "undefined" && db.settings) {
+    _payBlocked  = db.settings.posPayBlocked  || {};
+    _staffLocked = db.settings.posStaffLocked || false;
+  }
+  _applyPayBlocked();
+  _applyStaffLock();
   const sel = $("pos-staff"); if (!sel) return;
   const cur = sel.value;
   sel.innerHTML = '<option value="">-- Kassirni tanlang --</option>' +
@@ -1433,7 +1546,8 @@ async function checkout() {
     sendStaffNotification(newSale);
   }
 
-  // SMS (boyitilgan)
+  // SMS (boyitilgan) — try-catch ichida, xato chekni bloklamasin
+  try {
   if (cPhone && cPhone.replace(/\D/g,"").length >= 9) {
     const shopName = db.shop?.name || "MERX";
     const debtTxt  = debtUsd != null
@@ -1466,6 +1580,7 @@ async function checkout() {
     }
     await sendSms(cPhone, sms);
   }
+  } catch(smsErr) { console.warn("SMS xato:", smsErr.message); }
 
   // Sotuv yakunlanganini loglaymiz
   posLog("Sotuv yakunlandi", `${chekNum} — ${fmt(total)} so'm (${newSale.items.length} tur, ${posPayType})`);
