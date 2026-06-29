@@ -270,8 +270,19 @@ async function handleContact(chatId, contact) {
 
   try {
     // shopId — cache dan olamiz (start bosganida saqlangan)
-    const ctx = await getShopCtx(chatId);
-    const shopId = ctx.shopId;
+    let ctx = await getShopCtx(chatId);
+    let shopId = ctx.shopId;
+
+    // shopId cache da yo'q bo'lsa — shops dan olamiz
+    if (!shopId) {
+      try {
+        const shops = await sb("shops", "?active=eq.true&select=id&limit=2");
+        if (shops?.length === 1) {
+          shopId = shops[0].id;
+          console.log(`[handleContact] shopId cache yo'q, shops dan olindi: ${shopId}`);
+        }
+      } catch(e) {}
+    }
     const shopFilter = shopId ? `&shop_id=eq.${shopId}` : "";
 
     // Shu do'kon customers ni olamiz (yoki shop_id yo'q bo'lsa barchani)
