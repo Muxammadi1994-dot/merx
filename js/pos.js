@@ -429,6 +429,11 @@ function posClear() {
 }
 
 function renderPosGrid() {
+  // Bloklash holatini settings dan yuklaymiz (faqat bir marta)
+  if (db && db.settings && db.settings.posPayBlocked) {
+    _payBlocked = JSON.parse(JSON.stringify(db.settings.posPayBlocked));
+  }
+  _applyPayBlocked();
   posUpdatePriceTypeVisibility();
   posSearch();
   renderCartTabs();
@@ -1388,12 +1393,7 @@ function _applyPayBlocked() {
 function refreshStaffList() {
   // Bloklash holatini settings dan yuklaymiz (har POS ochilganda)
   if (typeof db !== "undefined" && db.settings) {
-    var _pb = db.settings.posPayBlocked;
-    _payBlocked  = (_pb && typeof _pb === "object") ? Object.assign({}, _pb) : {};
     _staffLocked = db.settings.posStaffLocked === true;
-  } else {
-    _payBlocked  = {};
-    _staffLocked = false;
   }
   const sel = $("pos-staff"); if (!sel) return;
   // Kassirlar ro'yxatini to'ldiramiz
@@ -1401,7 +1401,6 @@ function refreshStaffList() {
   const cur = _staffLocked && lockedId ? lockedId : sel.value;
   sel.innerHTML = '<option value="">-- Kassirni tanlang --</option>' +
     (db.staff||[]).map(s => `<option value="${s.id}"${String(s.id)===String(cur)?" selected":""}>${s.name}</option>`).join("");
-  _applyPayBlocked();
   _applyStaffLock();
 }
 
