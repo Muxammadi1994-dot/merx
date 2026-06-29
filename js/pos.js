@@ -1487,11 +1487,15 @@ async function checkout() {
       if (posDebtCurrency === "usd" && rem > 0) debtUsd = parseFloat((rem/(db.settings.rate||12800)).toFixed(2));
       posPayMode = "part";
     }
+    // payBreakdown faqat naqd to'lovlar (qarz alohida saqlanadi)
     const _pb = {};
-    if (_payN>0) _pb.naqd=_payN; if (_payK>0) _pb.karta=_payK;
-    if (_payO>0) _pb.otkazma=_payO; if (_payQ>0) _pb.qarz=_payQ;
+    if (_payN>0) _pb.naqd=_payN;
+    if (_payK>0) _pb.karta=_payK;
+    if (_payO>0) _pb.otkazma=_payO;
+    // qarz payBreakdown ga kirmaydi — u alohida "remaining" sifatida saqlanadi
     if (Object.keys(_pb).length>1){payBreakdown=_pb;posPayType="aralash";}
     else if (Object.keys(_pb).length===1) posPayType=Object.keys(_pb)[0];
+    else if (_payQ>0) posPayType="qarz"; // faqat qarz bo'lsa
   } else if (posPayMode === "part") {
     if (!cName) { toast("Qisman to'lovda mijoz ismi shart","err"); return; }
     paid    = posPayType === "aralash" ? getMixedTotal() : getRawVal("c-paid");
@@ -1787,7 +1791,7 @@ let _lastSale = null;
 function showReceiptModal(sale) {
   _lastSale = sale;
   const shopName = db.shop?.name || "MERX";
-  const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi", aralash:"Aralash" };
+  const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi", aralash:"Aralash", qarz:"Nasiya" };
 
   // Shop nomi
   if ($("rcp-shop")) $("rcp-shop").textContent = shopName;
@@ -1841,7 +1845,10 @@ function showReceiptModal(sale) {
     if (mixedWrap) {
       mixedWrap.style.display = "block";
       const icons = { naqd:"💵", karta:"💳", otkazma:"🏦" };
-      $("rcp-mixed-rows").innerHTML = Object.entries(sale.payBreakdown).map(([m, v]) => `
+      // qarzni to'lov usullaridan olib tashlaymiz — u pastda alohida ko'rsatiladi
+      $("rcp-mixed-rows").innerHTML = Object.entries(sale.payBreakdown)
+        .filter(([m]) => m !== "qarz")
+        .map(([m, v]) => `
         <div style="display:flex;justify-content:space-between;font-size:12px">
           <span style="color:#888">${icons[m]||""} ${payLabels[m]||m}</span>
           <strong style="color:#0D1B2A">${fmt(v)} so'm</strong>
@@ -1952,7 +1959,17 @@ function shareTelegram() {
     ``,
     sale.discount > 0 ? `Chegirma: -${fmt(sale.discount)} so'm` : null,
     `Jami: ${fmt(sale.total)} so'm`,
-    `To'lov: ${payLabels[sale.payType]||sale.payType}`,
+    (() => {
+      if (sale.payType === "aralash" && sale.payBreakdown) {
+        const lbls = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma" };
+        const parts = Object.entries(sale.payBreakdown)
+          .filter(([m,v]) => m !== "qarz" && v > 0)
+          .map(([m,v]) => `${lbls[m]||m}: ${fmt(v)} so'm`);
+        return parts.length ? `To'lov: ${parts.join(", ")}` : null;
+      }
+      if (sale.payType === "qarz") return null; // faqat qarz — pastda ko'rsatiladi
+      return `To'lov: ${payLabels[sale.payType]||sale.payType}`;
+    })(),
     sale.remaining > 0 ? `Qarz: ${sale.debtCurrency==="usd"&&sale.debtUsd ? "$"+sale.debtUsd.toFixed(2) : fmt(sale.remaining)+" so'm"}` : `✅ To'liq to'landi`,
     sale.due ? `Muddat: ${sale.due}` : null,
     ``,

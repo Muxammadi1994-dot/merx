@@ -220,7 +220,14 @@ function renderTarix() {
           ${s.customerPhone ? `<div style="font-size:11px;color:#aaa">${s.customerPhone}</div>` : ""}
         </td>` : ""}
         ${cols.tolov ? `<td>
-          <span class="bg" style="font-size:11px">${PAYTYPES[s.payType]||"—"}</span>
+          <span class="bg" style="font-size:11px">${(() => {
+            if (s.payType === "aralash" && s.payBreakdown) {
+              const lbls = {naqd:"Naqd",karta:"Karta",otkazma:"O'tkazma"};
+              return Object.entries(s.payBreakdown).filter(([m,v])=>m!=="qarz"&&v>0).map(([m])=>lbls[m]||m).join("+") || "Aralash";
+            }
+            if (s.payType === "qarz") return "Nasiya";
+            return PAYTYPES[s.payType]||s.payType||"—";
+          })()}</span>
           <div style="margin-top:3px">
             <span class="bg ${s.priceType==="ulgurji"?"bg-a":""}" style="font-size:10.5px">
               ${s.priceType==="ulgurji"?"📦 Ulgurji":"👤 Chakana"}
@@ -304,7 +311,15 @@ function openSaleDetail(id) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12.5px">
         <div><span style="color:#aaa">Mijoz: </span><strong>${s.customerName||"—"}</strong></div>
         <div><span style="color:#aaa">Tel: </span><strong>${s.customerPhone||"—"}</strong></div>
-        <div><span style="color:#aaa">To'lov: </span><strong>${PAYTYPES[s.payType]||"—"}</strong></div>
+        <div><span style="color:#aaa">To'lov: </span><strong>${(() => {
+            if (s.payType === "aralash" && s.payBreakdown) {
+              const lbls = {naqd:"Naqd",karta:"Karta",otkazma:"O'tkazma"};
+              const parts = Object.entries(s.payBreakdown).filter(([m,v])=>m!=="qarz"&&v>0).map(([m,v])=>`${lbls[m]||m}: ${fmt(v)} so'm`);
+              return parts.join(", ") || "Aralash";
+            }
+            if (s.payType === "qarz") return "Nasiya";
+            return PAYTYPES[s.payType]||s.payType||"—";
+          })()}</strong></div>
         <div><span style="color:#aaa">Narx turi: </span><strong>${s.priceType==="ulgurji"?"Ulgurji":"Chakana"}</strong></div>
         <div><span style="color:#aaa">Kassir: </span><strong>${staff?.name||"—"}</strong></div>
         <div><span style="color:#aaa">Holat: </span><strong>${s.status==="qarz"?"Qarzda":s.status==="qaytarilgan"?"Qaytarilgan":"To'langan"}</strong></div>

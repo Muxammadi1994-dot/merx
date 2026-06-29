@@ -17,7 +17,7 @@ const PACK_UNITS = {
   oyoq:  ["karobka","pochka","quti"],
   kiyim: ["karobka","bog'lam","quti","paket"]
 };
-const PAYTYPES = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma" };
+const PAYTYPES = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash", qarz:"Nasiya" };
 const EXP_CATS = ["Ijara","Maosh","Transport","Kommunal","Reklama","Yetkazuvchi","Soliq","Jihozlar","Boshqa"];
 
 const PANTONE_COLORS = [
