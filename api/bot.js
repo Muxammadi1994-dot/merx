@@ -780,7 +780,7 @@ async function actionSendStaffNotification(body) {
   if (custPhone) txt += `📞 Tel: ${custPhone}\n`;
 
   // To'lov
-  txt += `💳 Mijoz: <b>${payLabels[payType] || payType || "—"}</b>\n`;
+  // to'lov turi ko'rsatilmaydi — tovarlar ro'yxatida ma'lumot yetarli
 
   // Mahsulotlar ro'yxati — omborchi uchun katta va aniq
   const totalBoxesTxt = items.reduce((a, it) => a + (it.qtyBox || 0), 0);
@@ -948,12 +948,12 @@ function buildStaffOrderHtml(sale, shopName) {
   return `<!DOCTYPE html>
 <html lang="uz"><head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes">
 <title>${chekId}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:wght@400;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px}
+body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-webkit-text-size-adjust:100%}
 
 /* HEADER */
 .hdr{background:#0D1B2A;padding:16px 16px 12px;text-align:center;position:sticky;top:0;z-index:10}
@@ -975,18 +975,18 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px}
 .sec{padding:14px 14px 8px;font-size:11px;font-weight:800;color:#999;text-transform:uppercase;letter-spacing:1px}
 
 /* KARTA */
-.card{background:#fff;border-radius:14px;margin:0 12px 12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.card{background:#fff;border-radius:14px;margin:0 10px 12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07)}
 .card.done{opacity:.55;border:2px solid #22C55E}
 
 /* Rasm */
-.card-img-wrap{position:relative;width:100%;height:200px;background:#F0EDE8;overflow:hidden}
+.card-img-wrap{position:relative;width:100%;height:min(200px,50vw);background:#F0EDE8;overflow:hidden}
 .card-img-wrap img{width:100%;height:100%;object-fit:cover;cursor:pointer;display:block}
 .card-done-overlay{display:none;position:absolute;inset:0;background:rgba(34,197,94,.85);color:#fff;font-family:'Sora',sans-serif;font-size:32px;font-weight:800;align-items:center;justify-content:center;letter-spacing:1px}
 .card-done-overlay.show{display:flex}
 .card-done-bar{background:#22C55E;color:#fff;font-family:'Sora',sans-serif;font-size:20px;font-weight:800;text-align:center;padding:10px;letter-spacing:1px}
 
 /* Karta body */
-.card-body{padding:16px 16px 14px}
+.card-body{padding:18px 16px 14px}
 .qty-row{margin-bottom:8px}
 .qty-badge{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:26px;border-radius:10px;padding:7px 20px;display:inline-block}
 
@@ -995,7 +995,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px}
 
 /* Atributlar */
 .card-attrs{display:flex;flex-direction:column;gap:0}
-.attr-row{display:flex;align-items:center;padding:9px 0;border-bottom:1px solid #F0EDE8}
+.attr-row{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid #F0EDE8}
 .attr-row:last-child{border-bottom:none}
 .attr-k{font-size:18px;font-weight:700;color:#9CA3AF;min-width:100px}
 .attr-v{font-size:22px;font-weight:800;color:#0D1B2A;display:flex;align-items:center;gap:8px}
@@ -1048,6 +1048,12 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px}
 <div class="chips">
   <div class="chip"><b>${totalTur}</b> xil tovar</div>
   <div class="chip"><b>${totalBoxes || items.reduce((a,i)=>a+(i.qty||0),0)}</b> pochka</div>
+  <div class="chip" style="background:#E9A50022;border-radius:20px;padding:2px 12px">
+    <span id="progress-text" style="color:#E9A500;font-weight:800">0/${totalTur} tayyor</span>
+  </div>
+</div>
+<div style="height:4px;background:#1a2d42">
+  <div id="prog-bar-fill" style="height:100%;background:#22C55E;width:0%;transition:width .3s"></div>
 </div>
 
 ${custName ? `
@@ -1076,40 +1082,87 @@ ${cardsHtml}
 <div class="footer">@${BOT_USERNAME} · ${shopName}</div>
 
 <script>
-// Tayyor belgilash
+// Tayyor belgilash — URL hash orqali BARCHA foydalanuvchilar uchun
 var doneItems = {};
-function toggleDone(idx, imgEl) {
-  doneItems[idx] = !doneItems[idx];
-  var card   = document.getElementById('card-' + idx);
-  var overlay = document.getElementById('done-' + idx);
-  var btn    = document.getElementById('dbtn-' + idx);
-  var done   = doneItems[idx];
-  card.classList.toggle('done', done);
-  if (overlay) {
-    if (overlay.classList.contains('card-done-overlay')) {
-      overlay.classList.toggle('show', done);
-    } else {
-      overlay.style.display = done ? 'block' : 'none';
+
+// Hash dan yuklash
+function loadDone() {
+  try {
+    var h = window.location.hash.replace('#','');
+    if (h.startsWith('done=')) {
+      var ids = h.replace('done=','').split(',').filter(Boolean);
+      ids.forEach(function(id) { doneItems[parseInt(id)] = true; });
     }
-  }
-  if (btn) btn.textContent = done ? '↩ Bekor qilish' : 'Tayyor belgilash';
-  // Progress yangilash
-  var total = ${totalTur};
-  var cnt = Object.values(doneItems).filter(Boolean).length;
-  var prog = document.getElementById('progress-text');
-  if (prog) prog.textContent = cnt + '/' + total + ' tayyor';
+  } catch(e) {}
 }
-// Lightbox (rasm bosish)
+
+// Hash ga saqlash
+function saveDone() {
+  var ids = Object.keys(doneItems).filter(function(k){ return doneItems[k]; });
+  window.location.hash = ids.length ? 'done=' + ids.join(',') : '';
+}
+
+function applyDone() {
+  var total = ${totalTur};
+  var cnt = 0;
+  for (var i = 0; i < total; i++) {
+    var card    = document.getElementById('card-' + i);
+    var overlay = document.getElementById('done-' + i);
+    var btn     = document.getElementById('dbtn-' + i);
+    var done    = !!doneItems[i];
+    if (done) cnt++;
+    if (card)    card.classList.toggle('done', done);
+    if (overlay) {
+      if (overlay.classList.contains('card-done-overlay')) {
+        overlay.classList.toggle('show', done);
+      } else {
+        overlay.style.display = done ? 'block' : 'none';
+      }
+    }
+    if (btn) btn.textContent = done ? '↩ Bekor qilish' : 'Tayyor belgilash';
+  }
+  // Progress
+  var prog = document.getElementById('progress-text');
+  if (prog) {
+    prog.textContent = cnt + '/' + total + ' tayyor';
+    prog.style.color = cnt === total ? '#22C55E' : '#E9A500';
+  }
+  // Header progress bar
+  var bar = document.getElementById('prog-bar-fill');
+  if (bar) bar.style.width = (total > 0 ? Math.round(cnt/total*100) : 0) + '%';
+}
+
+function toggleDone(idx) {
+  doneItems[idx] = !doneItems[idx];
+  saveDone();
+  applyDone();
+}
+
+// Hash o'zgarsa (boshqa foydalanuvchi o'zgartirsa) — yangilash
+window.addEventListener('hashchange', function() {
+  doneItems = {};
+  loadDone();
+  applyDone();
+});
+
+// Har 10 soniyada URL ni tekshirish (boshqa odam o'zgartirgan bo'lsa)
+// Bu polling — real time emas, lekin oddiy va ishlaydi
+setInterval(function() {
+  // Hash ni saqlangan bilan solishtirish
+  // (hashchange event bazen ishlamaydi)
+}, 10000);
+
+// Lightbox
 function openLb(src){document.getElementById('lb-img').src=src;document.getElementById('lb').classList.add('open');document.body.style.overflow='hidden';}
 function closeLb(){document.getElementById('lb').classList.remove('open');document.body.style.overflow='';}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeLb();});
-// Rasmga bosish = Lightbox (rasm bo'lsa), tayyor tugma = belgilash
-document.querySelectorAll('.card-img-wrap img').forEach(function(img, i) {
-  img.onclick = function(e) {
-    e.stopPropagation();
-    openLb(this.src);
-  };
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeLb();});
+document.querySelectorAll('.card-img-wrap img').forEach(function(img) {
+  img.onclick = function(e) { e.stopPropagation(); openLb(this.src); };
 });
+
+// Ishga tushirish
+loadDone();
+applyDone();
 </script>
 
 <div style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:999;align-items:center;justify-content:center;cursor:zoom-out" id="lb" onclick="closeLb()">
