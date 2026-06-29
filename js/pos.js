@@ -300,8 +300,10 @@ function posSearch() {
           </div>
           <input type="number" min="1" max="${maxPochka}" placeholder="1" value="1"
             id="posq-${rowId}"
-            style="width:48px;text-align:center;border:1.5px solid var(--brd);border-radius:7px;padding:6px 4px;font-weight:700;font-size:13px"
-            onclick="event.stopPropagation()">
+            style="width:52px;text-align:center;border:1.5px solid var(--brd);border-radius:7px;padding:6px 4px;font-weight:700;font-size:13px"
+            onclick="event.stopPropagation();this.select()"
+            onfocus="this.select()"
+            oninput="event.stopPropagation();var v=parseInt(this.value)||1;if(v>${maxPochka}){this.value=${maxPochka};v=${maxPochka};}">
           <button class="btn btn-ghost btn-sm" style="padding:8px 7px;font-size:10.5px"
             onclick="event.stopPropagation();posToggleDonaMode('${rowId}')"
             title="Dona bo'yicha sotish" id="posdona-btn-${rowId}">
@@ -771,7 +773,7 @@ function renderCart() {
     const isOverride = c.basePrice && c.basePrice !== c.price;
     const priceTag = `<span style="display:flex;align-items:center;gap:4px;justify-content:flex-end">
       ${isOverride ? `<span style="text-decoration:line-through;color:#ccc;font-size:10.5px">${fmt(c.basePrice*c.qty)} so'm</span>` : ""}
-      <span class="ci-pr" style="color:${isOverride?'#E9A500':'inherit'}">${fmt(c.price*c.qty)} so'm</span>
+      <span class="ci-pr" style="color:${isOverride?'#E9A500':'inherit'};cursor:pointer" onclick="event.stopPropagation();ciEditPrice(${i})" title="Narxni o'zgartirish">${fmt(c.price*c.qty)} so'm</span>
       <button onclick="event.stopPropagation();ciEditPrice(${i})" title="Narxni o'zgartirish"
         style="width:20px;height:20px;border:1px solid #E8E5E0;border-radius:5px;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;flex-shrink:0">
         <i class="ti ti-edit" style="font-size:10px;color:#94A3B8"></i>
@@ -792,7 +794,9 @@ function renderCart() {
             <button onclick="ciQty(${i},-1)">−</button>
             <input type="number" value="${c.sellMode==='karobka' ? c.qtyBox : c.qty}" min="1"
               oninput="ciQtySet(${i},+this.value)"
-              style="width:38px;text-align:center;border:none;outline:none;font-weight:600">
+              onfocus="this.select()"
+              onclick="this.select()"
+              style="width:44px;text-align:center;border:none;outline:none;font-weight:600">
             <button onclick="ciQty(${i},1)">+</button>
             ${c.sellMode==='karobka' ? `<span style="font-size:10px;color:#bbb;margin-left:3px">${c.unit==='dona'?'pochka':'pochka'}</span>` : ""}
           </div>
