@@ -2262,10 +2262,37 @@ function printNarxnoma() {
   if (!prods.length) { toast("Mahsulot tanlang","err"); return; }
 
   const labels = [];
-  prods.forEach(p => { p.variants.forEach(v => labels.push({p,v})); });
+  const byPochkaP = document.getElementById("nm-by-pochka")?.checked || false;
 
-  const labelHtml = labels.map(({p,v}) =>
-    buildLabel(p, v, {style,showLogo,showBarc,showSku,showUlg,shopName,rate})
+  prods.forEach(p => {
+    if (byPochkaP) {
+      // Pochka rejimi: har rang uchun bitta yorliq (o'lchamlar birlashtirilgan)
+      const colors = [...new Set(p.variants.map(v => v.color))];
+      colors.forEach(color => {
+        const colorVars = p.variants.filter(v => v.color === color);
+        const totalQty  = colorVars.reduce((a, v) => a + (v.qty||0), 0);
+        if (totalQty <= 0) return;
+        const v0      = colorVars[0];
+        const barcode = (p.colorBarcodes && p.colorBarcodes[color]) || p.barcode;
+        labels.push({ p, v: {...v0, color}, pochkaMode: true, barcode });
+      });
+    } else {
+      // Standart: har rang uchun bitta yorliq (dona, lekin ranglar alohida)
+      const colors = [...new Set(p.variants.map(v => v.color))];
+      colors.forEach(color => {
+        const colorVars = p.variants.filter(v => v.color === color);
+        const totalQty  = colorVars.reduce((a, v) => a + (v.qty||0), 0);
+        if (totalQty <= 0) return;
+        const v0      = colorVars[0];
+        const sizes   = colorVars.map(v => v.size).filter(Boolean);
+        const barcode = (p.colorBarcodes && p.colorBarcodes[color]) || p.barcode;
+        labels.push({ p, v: {...v0, color, size: sizes.join("-")}, pochkaMode: false, barcode });
+      });
+    }
+  });
+
+  const labelHtml = labels.map(({p,v,pochkaMode,barcode}) =>
+    buildLabel(p, v, {style,showLogo,showBarc,showSku,showUlg,shopName,rate,pochkaMode,barcode})
   ).join("");
 
   const w = window.open("","_blank","width=900,height=700");
