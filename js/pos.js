@@ -429,6 +429,11 @@ function posClear() {
 }
 
 function renderPosGrid() {
+  // Bloklash holatini settings dan yuklaymiz
+  if (db && db.settings) {
+    _payBlocked = JSON.parse(JSON.stringify(db.settings.posPayBlocked || {}));
+  }
+  _applyPayBlocked();
   posUpdatePriceTypeVisibility();
   posSearch();
   renderCartTabs();

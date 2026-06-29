@@ -612,68 +612,68 @@
 
           <!-- Naqd -->
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px">
-          <div id="pay-row-naqd" style="display:flex;align-items:center;gap:7px;flex:1">
-            <div style="display:flex;align-items:center;gap:4px;width:82px;flex-shrink:0">
-              <i class="ti ti-cash" style="font-size:14px;color:#22C55E"></i>
-              <span style="font-size:12px;font-weight:600;color:#0D1B2A">Naqd</span>
+            <div id="pay-row-naqd" style="display:flex;align-items:center;gap:7px;flex:1">
+              <div style="display:flex;align-items:center;gap:4px;width:82px;flex-shrink:0">
+                <i class="ti ti-cash" style="font-size:14px;color:#22C55E"></i>
+                <span style="font-size:12px;font-weight:600;color:#0D1B2A">Naqd</span>
+              </div>
+              <input id="pay-naqd" type="text" data-price placeholder="0"
+                oninput="fmtInput(this);onPayInput('naqd')"
+                style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
             </div>
-            <input id="pay-naqd" type="text" data-price placeholder="0"
-              oninput="fmtInput(this);onPayInput('naqd')"
-              style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
-          </div>
             <button id="pay-lock-naqd" onclick="togglePayMethodBlock('naqd', this)" title="Bloklash"
-              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;position:relative;z-index:2">
+              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;pointer-events:auto">
               <i class="ti ti-lock-open" style="color:#CBD5E1;font-size:13px"></i>
             </button>
           </div>
 
           <!-- Karta -->
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px">
-          <div id="pay-row-karta" style="display:flex;align-items:center;gap:7px;flex:1">
-            <div style="display:flex;align-items:center;gap:4px;width:82px;flex-shrink:0">
-              <i class="ti ti-credit-card" style="font-size:14px;color:#3B82F6"></i>
-              <span style="font-size:12px;font-weight:600;color:#0D1B2A">Karta</span>
+            <div id="pay-row-karta" style="display:flex;align-items:center;gap:7px;flex:1">
+              <div style="display:flex;align-items:center;gap:4px;width:82px;flex-shrink:0">
+                <i class="ti ti-credit-card" style="font-size:14px;color:#3B82F6"></i>
+                <span style="font-size:12px;font-weight:600;color:#0D1B2A">Karta</span>
+              </div>
+              <input id="pay-karta" type="text" data-price placeholder="0"
+                oninput="fmtInput(this);onPayInput('karta')"
+                style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
             </div>
-            <input id="pay-karta" type="text" data-price placeholder="0"
-              oninput="fmtInput(this);onPayInput('karta')"
-              style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
-          </div>
             <button id="pay-lock-karta" onclick="togglePayMethodBlock('karta', this)" title="Bloklash"
-              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;position:relative;z-index:2">
+              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;pointer-events:auto">
               <i class="ti ti-lock-open" style="color:#CBD5E1;font-size:13px"></i>
             </button>
           </div>
 
           <!-- O'tkazma -->
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px">
-          <div id="pay-row-otkazma" style="display:flex;align-items:center;gap:7px;flex:1">
-            <div style="display:flex;align-items:center;gap:4px;width:82px;flex-shrink:0">
-              <i class="ti ti-building-bank" style="font-size:14px;color:#8B5CF6"></i>
-              <span style="font-size:12px;font-weight:600;color:#0D1B2A">O'tkazma</span>
+            <div id="pay-row-otkazma" style="display:flex;align-items:center;gap:7px;flex:1">
+              <div style="display:flex;align-items:center;gap:4px;width:82px;flex-shrink:0">
+                <i class="ti ti-building-bank" style="font-size:14px;color:#8B5CF6"></i>
+                <span style="font-size:12px;font-weight:600;color:#0D1B2A">O'tkazma</span>
+              </div>
+              <input id="pay-otkazma" type="text" data-price placeholder="0"
+                oninput="fmtInput(this);onPayInput('otkazma')"
+                style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
             </div>
-            <input id="pay-otkazma" type="text" data-price placeholder="0"
-              oninput="fmtInput(this);onPayInput('otkazma')"
-              style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
-          </div>
             <button id="pay-lock-otkazma" onclick="togglePayMethodBlock('otkazma', this)" title="Bloklash"
-              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;position:relative;z-index:2">
+              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;pointer-events:auto">
               <i class="ti ti-lock-open" style="color:#CBD5E1;font-size:13px"></i>
             </button>
           </div>
 
           <!-- Qarz (nasiya) -->
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px">
-          <div id="pay-row-qarz" style="display:flex;align-items:center;gap:7px;flex:1">
-            <div style="display:flex;align-items:center;gap:4px;width:82px;flex-shrink:0">
-              <i class="ti ti-clock" style="font-size:14px;color:#F59E0B"></i>
-              <span style="font-size:12px;font-weight:600;color:#0D1B2A">Qarz</span>
+            <div id="pay-row-qarz" style="display:flex;align-items:center;gap:7px;flex:1">
+              <div style="display:flex;align-items:center;gap:4px;width:82px;flex-shrink:0">
+                <i class="ti ti-clock" style="font-size:14px;color:#F59E0B"></i>
+                <span style="font-size:12px;font-weight:600;color:#0D1B2A">Qarz</span>
+              </div>
+              <input id="pay-qarz" type="text" data-price placeholder="0"
+                oninput="fmtInput(this);onPayInput('qarz')"
+                style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
             </div>
-            <input id="pay-qarz" type="text" data-price placeholder="0"
-              oninput="fmtInput(this);onPayInput('qarz')"
-              style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
-          </div>
             <button id="pay-lock-qarz" onclick="togglePayMethodBlock('qarz', this)" title="Bloklash"
-              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;position:relative;z-index:2">
+              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;pointer-events:auto">
               <i class="ti ti-lock-open" style="color:#CBD5E1;font-size:13px"></i>
             </button>
           </div>
@@ -3441,7 +3441,7 @@ const MERX_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=141"></script>
 <script src="js/dashboard.js?v=141"></script>
-<script src="js/pos.js?v=147"></script>
+<script src="js/pos.js?v=148"></script>
 <script src="js/katalog.js?v=141"></script>
 <script src="js/ombor.js?v=141"></script>
 <script src="js/mijozlar.js?v=141"></script>
