@@ -782,15 +782,26 @@ async function actionSendStaffNotification(body) {
   // To'lov
   txt += `💳 Mijoz: <b>${payLabels[payType] || payType || "—"}</b>\n`;
 
-  // Mahsulotlar ro'yxati
-  txt += `\n📦 <b>Mahsulotlar (${items.length} tur):</b>\n`;
+  // Mahsulotlar ro'yxati — omborchi uchun katta va aniq
+  const totalBoxesTxt = items.reduce((a, it) => a + (it.qtyBox || 0), 0);
+  txt += `\n📦 <b>${items.length} xil tovar · ${totalBoxesTxt || items.reduce((a,it)=>a+(it.qty||0),0)} pochka</b>\n`;
+  txt += `${"─".repeat(28)}\n`;
   for (const it of items) {
-    const variant = it.variant ? ` <i>${it.variant}</i>` : "";
+    const qtyBox  = it.qtyBox || 0;
+    const color   = it.color   || "";
+    const size    = it.size    || "";
+    const art     = it.art     || "";
     const lineSum = fmt((it.price || 0) * (it.qty || 0));
-    const artTag  = it.art ? ` <code>${it.art}</code>` : "";
-    txt += `▪ ${it.name}${artTag}${variant} × <b>${it.qty}</b> ${it.unit || "dona"}\n`;
-    txt += `   = ${lineSum} so'm\n`;
+    txt += `\n📌 <b>${it.name}</b>`;
+    if (art) txt += ` <code>${art}</code>`;
+    txt += `\n`;
+    if (qtyBox) txt += `   📦 <b>${qtyBox} pochka</b> (${it.qty} ${it.unit || "dona"})\n`;
+    else        txt += `   🔢 <b>${it.qty} ${it.unit || "dona"}</b>\n`;
+    if (color)  txt += `   🎨 Rang: <b>${color}</b>\n`;
+    if (size)   txt += `   📏 O'lcham: <b>${size}</b>\n`;
+    txt += `   💵 ${fmt(it.price)} × ${it.qty} = <b>${lineSum} so'm</b>\n`;
   }
+  txt += `${"─".repeat(28)}\n`;
 
   // Jami
   const debtCur = sale.debtCurrency || sale.debt_currency || "uzs";
@@ -977,27 +988,27 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px}
 /* Karta body */
 .card-body{padding:16px 16px 14px}
 .qty-row{margin-bottom:8px}
-.qty-badge{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:22px;border-radius:8px;padding:5px 16px;display:inline-block}
+.qty-badge{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:26px;border-radius:10px;padding:7px 20px;display:inline-block}
 
 /* Nom */
-.card-name{font-family:'Sora',sans-serif;font-size:26px;font-weight:800;color:#0D1B2A;line-height:1.2;margin:10px 0 14px}
+.card-name{font-family:'Sora',sans-serif;font-size:30px;font-weight:800;color:#0D1B2A;line-height:1.2;margin:10px 0 16px}
 
 /* Atributlar */
 .card-attrs{display:flex;flex-direction:column;gap:0}
 .attr-row{display:flex;align-items:center;padding:9px 0;border-bottom:1px solid #F0EDE8}
 .attr-row:last-child{border-bottom:none}
-.attr-k{font-size:15px;font-weight:700;color:#9CA3AF;min-width:90px}
-.attr-v{font-size:18px;font-weight:800;color:#0D1B2A;display:flex;align-items:center;gap:8px}
-.color-dot{width:22px;height:22px;border-radius:6px;flex-shrink:0;border:2px solid rgba(0,0,0,.12);display:inline-block}
-.code{font-family:monospace;background:#EEF2FF;color:#4F46E5;padding:3px 12px;border-radius:6px;font-size:17px}
+.attr-k{font-size:18px;font-weight:700;color:#9CA3AF;min-width:100px}
+.attr-v{font-size:22px;font-weight:800;color:#0D1B2A;display:flex;align-items:center;gap:8px}
+.color-dot{width:26px;height:26px;border-radius:7px;flex-shrink:0;border:2px solid rgba(0,0,0,.12);display:inline-block}
+.code{font-family:monospace;background:#EEF2FF;color:#4F46E5;padding:4px 14px;border-radius:7px;font-size:20px;font-weight:700}
 
 /* Narx */
 .price-row{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:2px dashed #E8E5E0}
-.price-per{font-size:13px;color:#9CA3AF;font-weight:600}
-.price-sum{font-family:'Sora',sans-serif;font-weight:800;font-size:22px;color:#0D1B2A}
+.price-per{font-size:15px;color:#9CA3AF;font-weight:600}
+.price-sum{font-family:'Sora',sans-serif;font-weight:800;font-size:26px;color:#0D1B2A}
 
 /* Tayyor tugma */
-.done-btn{width:100%;padding:13px;border:none;background:#F0FDF4;color:#16A34A;font-family:'Sora',sans-serif;font-size:16px;font-weight:700;cursor:pointer;border-top:1px solid #BBF7D0;transition:background .2s}
+.done-btn{width:100%;padding:16px;border:none;background:#F0FDF4;color:#16A34A;font-family:'Sora',sans-serif;font-size:18px;font-weight:800;cursor:pointer;border-top:1px solid #BBF7D0;transition:background .2s;letter-spacing:.5px}
 .done-btn:active{background:#DCFCE7}
 .card.done .done-btn{background:#DCFCE7;color:#15803D}
 
