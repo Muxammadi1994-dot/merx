@@ -794,14 +794,19 @@ function saOpenShop(id) {
     };
     localStorage.setItem(dbKey, JSON.stringify(shopDB));
   } else {
-    // Mavjud do'kon — cloudShopId va supabase key ni yangilaymiz
+    // Mavjud do'kon — faqat texnik sozlamalarni yangilaymiz
     try {
       const existing = JSON.parse(localStorage.getItem(dbKey));
       if (!existing.settings) existing.settings = {};
       existing.settings.cloudShopId = id;
       existing.settings.supabaseUrl = url;
       existing.settings.supabaseKey = key2;
-      // Asosiy do'kon bot sozlamalarini ko'chiramiz (agar yangi do'konda yo'q bo'lsa)
+      // adminEmail/adminPass — do'kon egasidan olamiz, asosiy do'kondan emas
+      if (!existing.settings.adminEmail)
+        existing.settings.adminEmail = s.ownerEmail || (s.phone ? s.phone.replace(/\D/g,"")+"@merx.uz" : id+"@merx.uz");
+      if (!existing.settings.adminPass)
+        existing.settings.adminPass = s.ownerPass || "merx123";
+      // Bot sozlamalari — faqat yangi do'konda yo'q bo'lsa
       try {
         const mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
         if (!existing.settings.telegramBotUrl && mainDB?.settings?.telegramBotUrl)
