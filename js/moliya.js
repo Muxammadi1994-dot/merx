@@ -389,6 +389,7 @@ function renderMoliya() {
         ${cols.date      ? `<td style="font-size:12.5px;white-space:nowrap;font-weight:600">${x.date||"—"}</td>` : ""}
         ${cols.cat ? `<td>
           <span class="bg" style="font-size:12px;background:${color}18;color:${color}">${icon} ${x.category||"—"}</span>
+          ${x.subCategory?`<span style="font-size:11px;color:#6B7280;margin-left:4px">→ ${x.subCategory}</span>`:""}
           ${x.xarajatType==="oylik"?`<span style="font-size:10px;color:#8B5CF6;background:#EEF2FF;padding:2px 6px;border-radius:10px;margin-left:4px;font-weight:700">oylik</span>`:""}
           ${x.forMonth?`<div style="font-size:11px;color:#9CA3AF;margin-top:2px">${x.forMonth} oy uchun</div>`:""}
         </td>` : ""}
@@ -732,6 +733,10 @@ function expCatPick(el) {
   }
   if ($("exp-cat-val")) $("exp-cat-val").value = cat;
   renderExpExtraField(cat);
+  renderExpSubCats(_expType, cat);
+  // Sub-cat reset
+  const scv = document.getElementById("exp-subcat-val");
+  if (scv) scv.value = "";
   // Maosh + oylik bo'lsa oy tanlash ko'rsatish
   const fmw = document.getElementById("ax-formonth-wrap");
   if (fmw) fmw.style.display = (_expType==="oylik" && cat==="Maosh") ? "block" : "none";
@@ -837,8 +842,10 @@ function addXarajat() {
   }
 
   if (!db.xarajatlar) db.xarajatlar = [];
+  const subCat = ($("exp-subcat-val")||{value:""}).value.trim();
   const entry = {
     id: db.seq++, date, category: cat, amount: sum,
+    subCategory: subCat || null,
     recipient, paidBy, note, method,
     xarajatType: _expType || "kunlik",
     forMonth: (_expType === "oylik" && cat === "Maosh")
@@ -1016,26 +1023,26 @@ function setExpType(type) {
 // Kategoriya teglarini render qilish
 function renderExpCatTags(type) {
   const el = document.getElementById("exp-cats"); if (!el) return;
-  const tags = getExpTags(type);
-  const catVal = document.getElementById("exp-cat-val");
-  const curVal = catVal?.value || tags[0];
+  const tags    = getExpTags(type);
+  const catVal  = document.getElementById("exp-cat-val");
+  const subVal  = document.getElementById("exp-subcat-val");
+  const curVal  = catVal?.value || tags[0];
 
   el.innerHTML = tags.map(t => {
     const on = t === curVal;
     return `<span class="mcat ${on?"on":""}" data-c="${t}" onclick="expCatPick(this)">${t}</span>`;
-  }).join("") + `<span class="mcat" data-c="__custom__" onclick="expCatPick(this)"
-    style="border-style:dashed;color:var(--mut)">✏️ O'zim yozaman</span>
-    <button onclick="openAddExpTag('${type}')" title="Yangi teg qo'shish"
-      style="padding:4px 10px;border:1.5px dashed var(--acc);border-radius:20px;background:transparent;color:var(--acc);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">
-      + Teg
-    </button>`;
+  }).join("") +
+  `<button onclick="openExpTagSettings('${type}')" title="Teglarni boshqarish"
+    style="padding:4px 10px;border:1.5px solid var(--brd);border-radius:20px;background:#fff;color:var(--mut);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">
+    ⚙️ Teglar
+  </button>`;
 
   // Birinchi tegni tanlash
   if (!tags.includes(curVal) && catVal) catVal.value = tags[0] || "Boshqa";
 
-  // Maosh teglanganmi — kimga fieldni ko'rsatish
   const curCat = catVal?.value || "";
   renderExpExtraField(curCat);
+  renderExpSubCats(type, curCat);
 
   // Maosh uchun oy tanlash
   const forMonthWrap = document.getElementById("ax-formonth-wrap");
@@ -1044,7 +1051,200 @@ function renderExpCatTags(type) {
   }
 }
 
+// Sub-kategoriyalarni render qilish
+function renderExpSubCats(type, parentTag) {
+  const el = document.getElementById("ax-subcat-wrap"); if (!el) return;
+  const subTags = getSubTags(type, parentTag);
+  if (!subTags.length) { el.style.display = "none"; return; }
+
+  el.style.display = "block";
+  const subVal = document.getElementById("exp-subcat-val");
+  const curSub = subVal?.value || "";
+
+  el.innerHTML = `<div class="fld" style="margin-bottom:8px">
+    <label style="font-size:11.5px;color:var(--mut);font-weight:700">${parentTag} — tur tanlang</label>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+      ${subTags.map(st => `<span class="mcat ${st===curSub?"on":""}" data-sub="${st}"
+        onclick="pickSubCat(this)">${st}</span>`).join("")}
+    </div>
+    <input id="exp-subcat-val" type="hidden" value="${curSub}">
+  </div>`;
+}
+
+function pickSubCat(el) {
+  document.querySelectorAll("[data-sub]").forEach(b => b.classList.remove("on"));
+  el.classList.add("on");
+  const subVal = document.getElementById("exp-subcat-val");
+  if (subVal) subVal.value = el.dataset.sub;
+}
+
 // Yangi teg qo'shish
+// ── Teglar boshqaruvi ─────────────────────────────
+
+// Teg sozlamalari modali — tahrirlash, o'chirish, qayta tartib
+function openExpTagSettings(type) {
+  const title    = type === "kunlik" ? "⚡ Kunlik xarajat teglari" : "📅 Oylik xarajat teglari";
+  const tags     = getExpTags(type);
+  const defaults = type === "kunlik" ? EXP_TAGS_KUNLIK_DEFAULT : EXP_TAGS_OYLIK_DEFAULT;
+
+  const rows = tags.map((tag, i) => {
+    const isDefault  = defaults.includes(tag);
+    const subTags    = getSubTags(type, tag);
+    const hasSubTags = subTags.length > 0;
+    return `<div class="exp-tag-row" id="etr-${i}" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1.5px solid #E8E5E0;border-radius:10px;margin-bottom:6px;background:#fff">
+      <span style="flex:1;font-size:14px;font-weight:600;color:#0D1B2A">${tag}
+        ${hasSubTags ? `<span style="font-size:11px;color:#9CA3AF;font-weight:400;margin-left:6px">${subTags.length} sub-teg</span>` : ""}
+      </span>
+      <button onclick="editExpTag('${type}',${i})"
+        style="padding:5px 10px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;font-size:12px;font-weight:600;color:#374151">
+        ✏️ Tahrir
+      </button>
+      <button onclick="openSubTagSettings('${type}','${tag}')"
+        style="padding:5px 10px;border:1px solid #E8E5E0;border-radius:7px;background:#EEF2FF;cursor:pointer;font-size:12px;font-weight:600;color:#4F46E5">
+        + Sub
+      </button>
+      ${!isDefault ? `<button onclick="deleteExpTag('${type}',${i})"
+        style="padding:5px 8px;border:1px solid #FEE2E2;border-radius:7px;background:#FFF5F5;cursor:pointer;font-size:12px;color:#E05A5A">
+        🗑
+      </button>` : `<span style="font-size:11px;color:#CBD5E1;padding:0 8px">asosiy</span>`}
+    </div>`;
+  }).join("");
+
+  const modal = document.createElement("div");
+  modal.className = "ov"; modal.id = "ov-exp-tags";
+  modal.style.cssText = "display:flex";
+  modal.onclick = e => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div class="modal" style="max-width:480px">
+      <button class="m-close" onclick="document.getElementById('ov-exp-tags').remove()"><i class="ti ti-x"></i></button>
+      <h2 style="margin-bottom:4px">${title}</h2>
+      <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Tahrirlash, o'chirish yoki sub-teg qo'shish</p>
+      <div id="exp-tags-list">${rows}</div>
+      <button onclick="openAddExpTag('${type}')"
+        style="width:100%;padding:11px;border:2px dashed #E9A500;border-radius:10px;background:transparent;color:#E9A500;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px">
+        + Yangi teg qo'shish
+      </button>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function editExpTag(type, idx) {
+  const tags = getExpTags(type);
+  const old  = tags[idx];
+  const name = prompt("Teg nomini o'zgartiring:", old);
+  if (!name || !name.trim() || name.trim() === old) return;
+  const key  = type === "kunlik" ? "expTagsKunlik" : "expTagsOylik";
+  const cur  = [...getExpTags(type)];
+  cur[idx] = name.trim();
+  if (!db.settings) db.settings = {};
+  db.settings[key] = cur;
+  // Sub-teglarni ham yangilaymiz
+  const subKey = "expSubTags_" + type + "_" + old;
+  if (db.settings[subKey]) {
+    db.settings["expSubTags_" + type + "_" + name.trim()] = db.settings[subKey];
+    delete db.settings[subKey];
+  }
+  saveDB();
+  document.getElementById("ov-exp-tags")?.remove();
+  openExpTagSettings(type);
+  toast(`"${old}" → "${name.trim()}" o'zgartirildi`);
+}
+
+function deleteExpTag(type, idx) {
+  const tags = getExpTags(type);
+  const tag  = tags[idx];
+  if (!confirm(`"${tag}" tegini o'chirasizmi?`)) return;
+  const key  = type === "kunlik" ? "expTagsKunlik" : "expTagsOylik";
+  const cur  = [...getExpTags(type)];
+  cur.splice(idx, 1);
+  if (!db.settings) db.settings = {};
+  db.settings[key] = cur;
+  // Sub-teglarni ham o'chiramiz
+  delete db.settings["expSubTags_" + type + "_" + tag];
+  saveDB();
+  document.getElementById("ov-exp-tags")?.remove();
+  openExpTagSettings(type);
+  toast(`"${tag}" tegi o'chirildi`);
+}
+
+// ── Sub-teglar ─────────────────────────────────────
+function getSubTags(type, parentTag) {
+  const key = "expSubTags_" + type + "_" + parentTag;
+  return db.settings?.[key] || [];
+}
+
+function openSubTagSettings(type, parentTag) {
+  const subTags = getSubTags(type, parentTag);
+  const key     = "expSubTags_" + type + "_" + parentTag;
+
+  const rows = subTags.map((st, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #E8E5E0;border-radius:9px;margin-bottom:5px;background:#fff">
+      <span style="flex:1;font-size:13.5px;font-weight:600;color:#374151">${st}</span>
+      <button onclick="editSubTag('${type}','${parentTag}',${i})"
+        style="padding:4px 9px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;font-size:12px;font-weight:600">✏️</button>
+      <button onclick="deleteSubTag('${type}','${parentTag}',${i})"
+        style="padding:4px 8px;border:1px solid #FEE2E2;border-radius:7px;background:#FFF5F5;cursor:pointer;font-size:12px;color:#E05A5A">🗑</button>
+    </div>`).join("") || `<div style="color:var(--mut);font-size:13px;text-align:center;padding:12px">Sub-teglar yo'q</div>`;
+
+  const modal = document.createElement("div");
+  modal.className = "ov"; modal.id = "ov-subtags";
+  modal.style.cssText = "display:flex";
+  modal.onclick = e => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div class="modal" style="max-width:420px">
+      <button class="m-close" onclick="document.getElementById('ov-subtags').remove()"><i class="ti ti-x"></i></button>
+      <h2 style="margin-bottom:4px">${parentTag} — sub-teglar</h2>
+      <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">Masalan: Kommunal → Gaz, Suv, Elektr</p>
+      <div id="subtags-list">${rows}</div>
+      <button onclick="addSubTag('${type}','${parentTag}')"
+        style="width:100%;padding:11px;border:2px dashed #8B5CF6;border-radius:10px;background:transparent;color:#8B5CF6;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px">
+        + Sub-teg qo'shish
+      </button>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function addSubTag(type, parentTag) {
+  const name = prompt(`"${parentTag}" uchun sub-teg:`);
+  if (!name || !name.trim()) return;
+  const key  = "expSubTags_" + type + "_" + parentTag;
+  if (!db.settings) db.settings = {};
+  const cur  = [...(db.settings[key] || [])];
+  if (!cur.includes(name.trim())) { cur.push(name.trim()); db.settings[key] = cur; saveDB(); }
+  document.getElementById("ov-subtags")?.remove();
+  openSubTagSettings(type, parentTag);
+  toast(`Sub-teg "${name.trim()}" qo'shildi`);
+}
+
+function editSubTag(type, parentTag, idx) {
+  const key  = "expSubTags_" + type + "_" + parentTag;
+  const cur  = [...(db.settings?.[key] || [])];
+  const old  = cur[idx];
+  const name = prompt("Sub-teg nomini o'zgartiring:", old);
+  if (!name || !name.trim() || name.trim() === old) return;
+  cur[idx] = name.trim();
+  if (!db.settings) db.settings = {};
+  db.settings[key] = cur;
+  saveDB();
+  document.getElementById("ov-subtags")?.remove();
+  openSubTagSettings(type, parentTag);
+  toast(`"${old}" → "${name.trim()}" o'zgartirildi`);
+}
+
+function deleteSubTag(type, parentTag, idx) {
+  const key  = "expSubTags_" + type + "_" + parentTag;
+  const cur  = [...(db.settings?.[key] || [])];
+  const tag  = cur[idx];
+  if (!confirm(`"${tag}" sub-tegini o'chirasizmi?`)) return;
+  cur.splice(idx, 1);
+  if (!db.settings) db.settings = {};
+  db.settings[key] = cur;
+  saveDB();
+  document.getElementById("ov-subtags")?.remove();
+  openSubTagSettings(type, parentTag);
+  toast(`"${tag}" o'chirildi`);
+}
+
 function openAddExpTag(type) {
   const name = prompt(`Yangi ${type} xarajat tegi:`);
   if (!name || !name.trim()) return;
