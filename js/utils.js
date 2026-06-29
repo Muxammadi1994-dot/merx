@@ -487,7 +487,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
 /* TO'LOV */
 .pay{padding:9px 16px 10px;border-bottom:1px dashed #ccc}
 .pay-lbl{font-size:9.5px;font-weight:700;color:#555;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
-.pr{display:flex;justify-content:space-between;font-size:12.5px;color:#333;padding:2.5px 0}
+.pr{display:flex;justify-content:space-between;font-size:13px;color:#111;padding:3px 0;font-weight:500}
 .pr.pr-sm{font-size:11px;color:#555}
 .pr.pr-sm span:last-child{color:#555}
 .pr.pr-debt{border-top:1px dashed #fca5a5;margin-top:3px;padding-top:5px;font-weight:700;color:#dc2626;font-size:13px}
@@ -787,7 +787,8 @@ th:first-child,th:nth-child(3){width:30px}
 }
 
 // ════════════════════════════════════════════════
-// THERMAL CHEK — Termal printer (72-80mm)
+// THERMAL CHEK — 80mm termal printer, oq-qora
+// Korzinka/Karvon uslubi, Courier font
 // ════════════════════════════════════════════════
 function buildReceiptThermal(sale, opts, cfg) {
   const {shopName, staffName, botUser, contact, footer, showStaff, showContact, F} = cfg;
@@ -809,85 +810,102 @@ function buildReceiptThermal(sale, opts, cfg) {
   const note     = sale.note || "";
   const due      = sale.due  || "";
   const priceType= sale.priceType || "";
-  const payLabels= {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash", qarz:"Nasiya"};
+  const payLabels= {naqd:"Naqd", karta:"Karta", otkazma:"Otkazma", aralash:"Aralash"};
 
-  const LINE32 = "================================";
-  const DASH32 = "--------------------------------";
+  // 42 belgili qatorlar (80mm = ~42 char Courier 12pt)
+  const W = 42;
+  const line  = (c) => c.repeat(W);
+  const pad   = (s, n) => String(s).padEnd(n);
+  const rpad  = (s, n) => String(s).padStart(n);
+  const split2= (l, r, w) => {
+    const lStr = String(l); const rStr = String(r);
+    const gap  = Math.max(1, w - lStr.length - rStr.length);
+    return lStr + " ".repeat(gap) + rStr;
+  };
+  const center= (s, w) => {
+    const sp = Math.max(0, w - s.length);
+    return " ".repeat(Math.floor(sp/2)) + s + " ".repeat(Math.ceil(sp/2));
+  };
 
-  // Tovarlar
   const totalBoxes = items.reduce((a,i) => a + (i.qtyBox||0), 0);
   const totalDona  = items.reduce((a,i) => a + (i.qty||0), 0);
 
+  // Tovarlar — 2 qator: nom + narx×miqdor=summa
   const itemLines = items.map((it, idx) => {
-    const art    = it.art ? ` [${it.art}]` : "";
-    const isBox  = it.sellMode === "karobka" && it.qtyBox;
-    const varStr = isBox
-      ? `${it.color||""}${it.groupSizes ? " · " + it.groupSizes : ""} · ${it.qtyBox} pochka/${it.qty} ${it.unit||"juft"}`
-      : `${it.color||""}${it.size ? " / " + it.size : ""} · ${it.qty} ${it.unit||"dona"}`;
-    const pricePer = isBox
-      ? (it.price * (it.inBox||1))
-      : it.price;
-    const qtyShow  = isBox ? it.qtyBox : it.qty;
-    const sum      = (it.price||0) * (it.qty||0);
-    return `${idx+1}. ${it.name}${art}\n   ${varStr}\n   ${qtyShow} × ${F(pricePer)} = ${F(sum)}`;
-  }).join("\n" + DASH32 + "\n");
+    const isBox   = it.sellMode === "karobka" && it.qtyBox;
+    const pricePer= isBox ? (it.price||0)*(it.inBox||1) : (it.price||0);
+    const qtyShow = isBox ? it.qtyBox : it.qty;
+    const unitShow= isBox ? "pchk" : (it.unit||"dona");
+    const sum     = (it.price||0)*(it.qty||0);
+    const art     = it.art ? ` [${it.art}]` : "";
+    const colorStr= it.color||"";
+    const sizeStr = isBox ? (it.groupSizes||"") : (it.size||"");
+    const meta    = [colorStr, sizeStr].filter(Boolean).join(" ");
 
-  // To'lov bo'limi
-  let payLines = "";
-  if (payType === "aralash" && payBreakdown) {
-    const lblMap = {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma"};
-    Object.entries(payBreakdown).forEach(([m,v]) => {
-      if (m !== "qarz" && v > 0) payLines += `${(lblMap[m]||m).padEnd(16)}${F(v).padStart(16)}\n`;
-    });
-  } else if (payType !== "qarz") {
-    payLines = `${(payLabels[payType]||payType).padEnd(16)}${F(paid).padStart(16)}\n`;
-  }
+    const nameLine = `${idx+1}. ${it.name}${art}`;
+    const calcLine = `   ${F(pricePer)}x${qtyShow}${unitShow}=${F(sum)}`;
+    const metaLine = meta ? `   ${meta}` : "";
+    return [nameLine, metaLine, calcLine].filter(Boolean).join("\n");
+  }).join("\n" + "-".repeat(W) + "\n");
 
-  // Qarz bo'limi
-  let debtLines = "";
-  if (remaining > 0) {
-    const debtAmt = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${F(remaining)} so'm`;
-    debtLines = `Qarzga:${" ".repeat(9)}${debtAmt.padStart(16)}\n`;
-    if (isUsd && prevUsd > 0) {
-      debtLines += `  Oldingi qarz:     $${prevUsd.toFixed(2)}\n`;
-      debtLines += `  Ushbu xarid:      $${debtUsd.toFixed(2)}\n`;
-      debtLines += `  JAMI QARZ:        $${(prevUsd + debtUsd).toFixed(2)}\n`;
-    } else if (!isUsd && prevUzs > 0) {
-      debtLines += `  Oldingi qarz: ${F(prevUzs).padStart(12)}\n`;
-      debtLines += `  Ushbu xarid:  ${F(remaining).padStart(12)}\n`;
-      debtLines += `  JAMI QARZ:    ${F(prevUzs + remaining).padStart(12)}\n`;
+  // To'lov
+  const buildPayLines = () => {
+    let lines = [];
+    if (payType === "aralash" && payBreakdown) {
+      const lblMap = {naqd:"Naqd", karta:"Karta", otkazma:"Otkazma"};
+      Object.entries(payBreakdown).forEach(([m,v]) => {
+        if (m !== "qarz" && v > 0)
+          lines.push(split2(lblMap[m]||m, F(v)+" som", W));
+      });
+    } else if (payType !== "qarz") {
+      lines.push(split2(payLabels[payType]||payType, F(paid)+" som", W));
     }
-    if (due) debtLines += `  Muddat: ${due}\n`;
-  } else {
-    debtLines = "*** TO'LIQ TO'LANDI ***\n";
-  }
+    return lines.join("\n");
+  };
 
-  const discLine = discount > 0
-    ? `Chegirma${sale.discountPct ? " (-"+sale.discountPct+"%)" : ""}:${F(-discount).padStart(discount > 0 ? 14 : 16)}\n` : "";
+  // Qarz
+  const buildDebtLines = () => {
+    if (remaining <= 0) return split2("TO'LIQ TO'LANDI", "✓", W);
+    const debtAmt = isUsd ? `$${debtUsd.toFixed(2)}USD` : `${F(remaining)}som`;
+    let lines = [split2("QARZ:", debtAmt, W)];
+    if (isUsd && prevUsd > 0) {
+      lines.push(split2("  Oldingi:", `$${prevUsd.toFixed(2)}`, W));
+      lines.push(split2("  Yangi:", `$${debtUsd.toFixed(2)}`, W));
+      lines.push(split2("  JAMI QARZ:", `$${(prevUsd+debtUsd).toFixed(2)}USD`, W));
+    } else if (!isUsd && prevUzs > 0) {
+      lines.push(split2("  Oldingi:", `${F(prevUzs)}som`, W));
+      lines.push(split2("  Yangi:", `${F(remaining)}som`, W));
+      lines.push(split2("  JAMI QARZ:", `${F(prevUzs+remaining)}som`, W));
+    }
+    if (due) lines.push(split2("  Muddat:", due, W));
+    return lines.join("\n");
+  };
 
-  const text = [
-    LINE32,
-    shopName.toUpperCase().padStart(Math.ceil((32 + shopName.length) / 2)).padEnd(32),
-    showContact && contact ? contact.padStart(Math.ceil((32 + contact.length) / 2)).padEnd(32) : null,
-    LINE32,
-    `Chek: ${chekNum}   ${date} ${time}`,
-    showStaff && staffName && staffName !== "—" ? `Kassir: ${staffName}` : null,
-    sale.customerName ? `Mijoz: ${sale.customerName}  ${sale.customerPhone||""}` : null,
-    priceType === "ulgurji" ? `Narx turi: ULGURJI` : null,
-    DASH32,
+  const rows = [
+    "=".repeat(W),
+    center(shopName.toUpperCase(), W),
+    showContact && contact ? center(contact, W) : null,
+    "=".repeat(W),
+    split2("Chek: " + chekNum, date + " " + time, W),
+    showStaff && staffName && staffName !== "—" ? ("Kassir: " + staffName) : null,
+    priceType === "ulgurji" ? "Narx turi: ULGURJI" : null,
+    sale.customerName ? ("Mijoz: " + sale.customerName) : null,
+    sale.customerPhone ? ("Tel:   " + sale.customerPhone) : null,
+    "-".repeat(W),
     itemLines,
-    DASH32,
-    `Jami (${totalBoxes||totalDona} ${totalBoxes?"pochka":"dona"}):${F(subtotal).padStart(32-7-(totalBoxes||totalDona).toString().length-8)}`,
-    discLine ? discLine.trim() : null,
-    `TO'LOV:${" ".repeat(9)}${F(total).padStart(16)}`,
-    LINE32,
-    payLines.trim() || null,
-    debtLines.trim(),
-    note ? (DASH32 + "\nIzoh: " + note) : null,
-    LINE32,
-    footer || "Rahmat! Yana kutamiz",
-    botUser ? `@${botUser}` : null,
-    LINE32,
+    "=".repeat(W),
+    split2(`JAMI (${totalBoxes||totalDona} ${totalBoxes?"pchk":"dona"}):`, F(subtotal)+" som", W),
+    discount > 0 ? split2(`Chegirma${sale.discountPct ? " -"+sale.discountPct+"%" : ""}:`, `-${F(discount)} som`, W) : null,
+    discount > 0 ? split2("TO'LOV:", F(total)+" som", W) : null,
+    "=".repeat(W),
+    buildPayLines(),
+    "-".repeat(W),
+    buildDebtLines(),
+    note ? ("-".repeat(W) + "\nIzoh: " + note) : null,
+    "=".repeat(W),
+    center(footer || "Rahmat! Yana kutamiz", W),
+    botUser ? center("@"+botUser, W) : null,
+    "=".repeat(W),
   ].filter(l => l !== null).join("\n");
 
   return `<!DOCTYPE html><html><head>
@@ -895,21 +913,18 @@ function buildReceiptThermal(sale, opts, cfg) {
 <title>Chek ${chekNum}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Courier New',Courier,monospace;background:#f5f5f5;display:flex;flex-direction:column;align-items:center;padding:16px 8px;min-height:100vh}
-.wrap{width:300px;max-width:100%}
-.rc{background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1);padding:14px;white-space:pre;font-size:12px;line-height:1.6;color:#111}
-.acts{width:300px;max-width:100%;margin:10px 0 0;display:flex;gap:8px}
+body{font-family:'Courier New',Courier,monospace;background:#f5f5f5;display:flex;flex-direction:column;align-items:center;padding:16px 8px}
+.rc{background:#fff;padding:16px;white-space:pre;font-size:13px;line-height:1.55;color:#000;width:340px;max-width:100%;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.acts{width:340px;max-width:100%;margin:10px 0 0;display:flex;gap:8px}
 .acts button{flex:1;border:none;border-radius:8px;padding:10px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
-.btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #ddd}
+.btn-p{background:#111;color:#fff}.btn-c{background:#fff;color:#111;border:1.5px solid #ccc}
 @media print{
   body{background:#fff;padding:0}
-  .wrap,.rc{width:72mm;max-width:72mm;border-radius:0;box-shadow:none;font-size:11px}
+  .rc{width:72mm;max-width:72mm;border-radius:0;box-shadow:none;font-size:11.5px;padding:4px}
   .acts{display:none}
 }
 </style></head><body>
-<div class="wrap">
-  <div class="rc">${text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
-</div>
+<div class="rc">${rows.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
 <div class="acts">
   <button class="btn-p" onclick="window.print()">🖨 Chop etish</button>
   <button class="btn-c" onclick="window.close?window.close():history.back()">Yopish</button>
@@ -917,8 +932,10 @@ body{font-family:'Courier New',Courier,monospace;background:#f5f5f5;display:flex
 </body></html>`;
 }
 
+
 // ════════════════════════════════════════════════
-// WHOLESALE CHEK — Ulgurji savdo hujjati (A4/A5)
+// WHOLESALE CHEK — Compact ulgurji hujjat
+// B5 format, jadval, imzo joyi
 // ════════════════════════════════════════════════
 function buildReceiptWholesale(sale, opts, cfg) {
   const {shopName, staffName, botUser, logo, contact, footer, showStaff, showContact, F} = cfg;
@@ -947,22 +964,21 @@ function buildReceiptWholesale(sale, opts, cfg) {
   const totalDona  = items.reduce((a,i) => a + (i.qty||0), 0);
 
   const itemRows = items.map((it, idx) => {
-    const isBox  = it.sellMode === "karobka" && it.qtyBox;
-    const rangStr= it.color || "—";
-    const olcham = it.groupSizes || it.size || "—";
-    const pochka = isBox ? it.qtyBox : "—";
-    const donaStr= isBox ? `${it.qty} ${it.unit||"juft"}` : `${it.qty} ${it.unit||"dona"}`;
-    const narxPer= isBox ? F((it.price||0)*(it.inBox||1)) : F(it.price||0);
-    const sum    = (it.price||0)*(it.qty||0);
-    const artRow = it.art ? `<div style="font-size:10px;color:#666">ART: ${it.art}</div>` : "";
+    const isBox   = it.sellMode === "karobka" && it.qtyBox;
+    const colorStr= it.color || "—";
+    const sizeStr = isBox ? (it.groupSizes||"—") : (it.size||"—");
+    const qtyShow = isBox ? `${it.qtyBox} pchk` : `${it.qty} ${it.unit||"dona"}`;
+    const pricePer= isBox ? F((it.price||0)*(it.inBox||1)) : F(it.price||0);
+    const sum     = (it.price||0)*(it.qty||0);
+    const art     = it.art ? `<div style="font-size:10px;color:#555;margin-top:1px">${it.art}</div>` : "";
     return `<tr>
-      <td class="c">${idx+1}</td>
-      <td><div style="font-weight:700;color:#0D1B2A">${it.name}</div>${artRow}</td>
-      <td class="c">${rangStr}</td>
-      <td class="c">${olcham}</td>
-      <td class="c">${pochka !== "—" ? pochka + " pchk" : donaStr}</td>
-      <td class="r">${narxPer}</td>
-      <td class="r" style="font-weight:700">${F(sum)}</td>
+      <td class="c n">${idx+1}</td>
+      <td class="l"><b>${it.name}</b>${art}</td>
+      <td class="c">${colorStr}</td>
+      <td class="c">${sizeStr}</td>
+      <td class="c"><b>${qtyShow}</b></td>
+      <td class="r">${pricePer}</td>
+      <td class="r b">${F(sum)}</td>
     </tr>`;
   }).join("");
 
@@ -972,31 +988,31 @@ function buildReceiptWholesale(sale, opts, cfg) {
     const lblMap = {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma"};
     payHtml = Object.entries(payBreakdown)
       .filter(([m,v]) => m !== "qarz" && v > 0)
-      .map(([m,v]) => `<div class="pi"><span>${lblMap[m]||m}:</span><span>${F(v)} so'm</span></div>`).join("");
+      .map(([m,v]) => `<div class="prow"><span>${lblMap[m]||m}</span><b>${F(v)} so'm</b></div>`).join("");
   } else {
-    payHtml = `<div class="pi"><span>${payLabels[payType]||payType}:</span><span style="color:#059669;font-weight:700">${F(paid)} so'm</span></div>`;
+    payHtml = `<div class="prow"><span>${payLabels[payType]||payType}</span><b style="color:#059669">${F(paid)} so'm</b></div>`;
   }
 
   // Qarz
   let debtHtml = "";
   if (remaining > 0) {
-    const debtAmt = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${F(remaining)} so'm`;
-    debtHtml += `<div class="pi debt"><span>QARZ:</span><span>${debtAmt}</span></div>`;
+    const newDebt = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${F(remaining)} so'm`;
+    debtHtml = `<div class="prow dr"><span>QARZ</span><b>${newDebt}</b></div>`;
     if (isUsd && prevUsd > 0) {
-      debtHtml += `<div class="pi sm"><span>Oldingi qarz:</span><span>$${prevUsd.toFixed(2)}</span></div>`;
-      debtHtml += `<div class="pi sm"><span>Ushbu xarid:</span><span>$${debtUsd.toFixed(2)}</span></div>`;
-      debtHtml += `<div class="pi debt"><span>JAMI QARZ:</span><span>$${(prevUsd+debtUsd).toFixed(2)} USD</span></div>`;
+      debtHtml += `<div class="prow sm"><span>Oldingi qarz</span><span>$${prevUsd.toFixed(2)}</span></div>`;
+      debtHtml += `<div class="prow sm"><span>Yangi qarz</span><span>$${debtUsd.toFixed(2)}</span></div>`;
+      debtHtml += `<div class="prow dt"><span>JAMI QARZ</span><b>$${(prevUsd+debtUsd).toFixed(2)} USD</b></div>`;
     } else if (!isUsd && prevUzs > 0) {
-      debtHtml += `<div class="pi sm"><span>Oldingi qarz:</span><span>${F(prevUzs)} so'm</span></div>`;
-      debtHtml += `<div class="pi sm"><span>Ushbu xarid:</span><span>${F(remaining)} so'm</span></div>`;
-      debtHtml += `<div class="pi debt"><span>JAMI QARZ:</span><span>${F(prevUzs+remaining)} so'm</span></div>`;
+      debtHtml += `<div class="prow sm"><span>Oldingi qarz</span><span>${F(prevUzs)} so'm</span></div>`;
+      debtHtml += `<div class="prow sm"><span>Yangi qarz</span><span>${F(remaining)} so'm</span></div>`;
+      debtHtml += `<div class="prow dt"><span>JAMI QARZ</span><b>${F(prevUzs+remaining)} so'm</b></div>`;
     }
-    if (due) debtHtml += `<div class="pi sm"><span>Muddat:</span><span style="color:#dc2626">${due}</span></div>`;
+    if (due) debtHtml += `<div class="prow sm"><span>Muddat</span><span style="color:#dc2626;font-weight:700">${due}</span></div>`;
   } else {
-    debtHtml = `<div class="paid-ok">✓ To'liq to'landi</div>`;
+    debtHtml = `<div class="paid">✓ To'liq to'landi</div>`;
   }
 
-  const logoHtml = logo ? `<img src="${logo}" style="max-height:55px;max-width:150px;object-fit:contain;margin-bottom:4px">` : "";
+  const logoHtml = logo ? `<img src="${logo}" style="max-height:40px;max-width:120px;object-fit:contain">` : "";
 
   return `<!DOCTYPE html><html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1004,109 +1020,115 @@ function buildReceiptWholesale(sale, opts, cfg) {
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'DM Sans',sans-serif;background:#f5f5f5;padding:20px 12px;color:#111}
-.doc{background:#fff;max-width:800px;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.1)}
-.hdr{background:#0D1B2A;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center}
-.hdr-l{display:flex;flex-direction:column;gap:2px}
-.shop-name{font-size:22px;font-weight:800;letter-spacing:1px}
-.hdr-sub{font-size:11px;color:#9aa7b5}
-.hdr-r{text-align:right;font-size:12px;color:#cdd5de}
-.hdr-chek{font-size:16px;font-weight:700;color:#E9A500;margin-bottom:2px}
-.info{padding:12px 24px;display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;border-bottom:1px solid #eee;background:#FAFAF8}
-.info-row{display:flex;gap:6px}<span class="info-lbl">{color:#888}</span>.info-lbl{color:#888}.info-val{font-weight:700;color:#0D1B2A}
-.badge{display:inline-block;background:#0D1B2A;color:#E9A500;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.5px}
-table{width:100%;border-collapse:collapse;font-size:12px}
-th{background:#0D1B2A;color:#fff;padding:8px 10px;font-weight:700;font-size:11px}
-td{padding:7px 10px;border-bottom:1px solid #eee;vertical-align:middle}
-.c{text-align:center}.r{text-align:right}
-.tot-row{background:#F0EDE8;font-weight:800}
-.tot-row td{border-top:2px solid #0D1B2A;font-size:13px}
-.bottom{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid #eee}
-.pay-box{padding:14px 24px;border-right:1px solid #eee}
-.pay-title{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-.pi{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #eee}
-.pi.debt{font-weight:800;color:#dc2626;border-top:2px solid #fca5a5;margin-top:4px;padding-top:6px;font-size:14px}
-.pi.sm{font-size:11px;color:#888}
-.paid-ok{background:#ECFDF5;color:#059669;font-weight:700;font-size:13px;text-align:center;padding:10px;border-radius:6px}
-.sign-box{padding:14px 24px}
-.sign-line{border-top:1px solid #999;width:140px;margin-top:32px;font-size:10px;color:#888;padding-top:4px}
-.note-box{padding:8px 24px;background:#FFFBEB;border-top:1px dashed #FDE68A;font-size:12px;color:#92400E}
-.foot{padding:10px 24px;text-align:center;font-size:11px;color:#888;border-top:1px dashed #eee}
-.acts{max-width:800px;margin:10px auto 0;display:flex;gap:8px}
+body{font-family:'DM Sans',sans-serif;background:#eee;padding:16px 8px;color:#111}
+.doc{background:#fff;max-width:520px;margin:0 auto;border-radius:6px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.15)}
+/* HEADER */
+.hdr{background:#0D1B2A;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+.shop{font-size:17px;font-weight:800;color:#fff;letter-spacing:.5px}
+.hdr-sub{font-size:10px;color:#9aa7b5;margin-top:2px}
+.hdr-r{text-align:right}
+.chek-num{font-size:14px;font-weight:800;color:#E9A500}
+.chek-dt{font-size:11px;color:#cdd5de;margin-top:2px}
+/* META */
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:8px 14px;font-size:11.5px;border-bottom:1px solid #E8E5E0;background:#FAFAF8}
+.ml{color:#555}.mv{font-weight:700;color:#111}
+.badge-u{display:inline-block;background:#E9A500;color:#0D1B2A;font-size:9px;font-weight:800;padding:1px 7px;border-radius:8px}
+/* JADVAL */
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+th{background:#0D1B2A;color:#fff;padding:6px 8px;font-size:10px;font-weight:700}
+td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:middle}
+.c{text-align:center}.r{text-align:right}.l{text-align:left}.n{width:24px}.b{font-weight:700}
+.tot-row td{background:#F0EDE8;font-weight:800;border-top:2px solid #0D1B2A}
+.disc-row td{color:#dc2626;font-size:11px}
+/* PASTKI QISM */
+.bottom{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #ddd}
+.pay-box{padding:10px 14px;border-right:1px solid #eee}
+.pay-ttl{font-size:9px;font-weight:800;color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.prow{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #eee;color:#111}
+.prow.dr{color:#dc2626;font-weight:800;font-size:13px;border-top:1px solid #fca5a5;padding-top:5px;margin-top:3px;border-bottom:none}
+.prow.dt{color:#dc2626;font-weight:800;font-size:14px;border-top:2px solid #dc2626;padding-top:6px;margin-top:2px;border-bottom:none}
+.prow.sm{font-size:11px;color:#666}
+.paid{background:#ECFDF5;color:#059669;font-weight:700;font-size:12px;text-align:center;padding:8px;border-radius:5px}
+/* IMZO */
+.sign-box{padding:10px 14px}
+.sign-ttl{font-size:9px;font-weight:800;color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.sign-line{width:110px;border-top:1px solid #999;margin-top:28px;font-size:9px;color:#888;padding-top:3px}
+/* FOOTER */
+.note-row{padding:6px 14px;background:#FFFBEB;border-top:1px dashed #FDE68A;font-size:11px;color:#92400E}
+.foot{padding:7px 14px;text-align:center;font-size:10px;color:#888;border-top:1px dashed #ddd}
+/* PRINT */
+.acts{max-width:520px;margin:10px auto 0;display:flex;gap:8px}
 .acts button{flex:1;border:none;border-radius:8px;padding:10px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
-.btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #ddd}
+.btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #ccc}
 @media print{
   body{background:#fff;padding:0}
   .doc{border-radius:0;box-shadow:none;max-width:100%}
   .acts{display:none}
-  .hdr{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .pi.debt{color:#000!important}
+  .hdr,.tot-row{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 </style></head><body>
 <div class="doc">
   <div class="hdr">
-    <div class="hdr-l">
+    <div>
       ${logoHtml}
-      <div class="shop-name">${shopName.toUpperCase()}</div>
-      <div class="hdr-sub">Savdo hujjati${showContact && contact ? " · " + contact : ""}</div>
-      ${priceType === "ulgurji" ? `<div style="margin-top:4px"><span class="badge">ULGURJI</span></div>` : ""}
+      <div class="shop">${shopName.toUpperCase()}</div>
+      <div class="hdr-sub">Savdo hujjati${showContact && contact ? " · " + contact : ""}
+        ${priceType==="ulgurji" ? ` · <span class="badge-u">ULGURJI</span>` : ""}
+      </div>
     </div>
     <div class="hdr-r">
-      <div class="hdr-chek">${chekNum}</div>
-      <div>${date} ${time}</div>
-      ${showStaff && staffName && staffName !== "—" ? `<div>Kassir: ${staffName}</div>` : ""}
+      <div class="chek-num">${chekNum}</div>
+      <div class="chek-dt">${date} ${time}</div>
+      ${showStaff && staffName && staffName!=="—" ? `<div class="chek-dt">Kassir: ${staffName}</div>` : ""}
     </div>
   </div>
 
-  <div class="info">
-    ${sale.customerName ? `<div class="info-row"><span class="info-lbl">Mijoz:</span><span class="info-val">${sale.customerName}</span></div>` : ""}
-    ${sale.customerPhone ? `<div class="info-row"><span class="info-lbl">Telefon:</span><span class="info-val">${sale.customerPhone}</span></div>` : ""}
-    ${isUsd ? `<div class="info-row"><span class="info-lbl">Kurs:</span><span class="info-val">1$ = ${F(rate)} so'm</span></div>` : ""}
-    <div class="info-row"><span class="info-lbl">Tovarlar:</span><span class="info-val">${items.length} xil · ${totalBoxes||totalDona} ${totalBoxes?"pochka":"dona"}</span></div>
+  <div class="meta">
+    ${sale.customerName ? `<span class="ml">Mijoz</span><span class="mv">${sale.customerName}</span>` : ""}
+    ${sale.customerPhone ? `<span class="ml">Telefon</span><span class="mv">${sale.customerPhone}</span>` : ""}
+    <span class="ml">Tovarlar</span><span class="mv">${items.length} xil · ${totalBoxes||totalDona} ${totalBoxes?"pochka":"dona"}</span>
+    ${isUsd ? `<span class="ml">Kurs</span><span class="mv">1$=${F(rate)} so'm</span>` : ""}
   </div>
 
   <table>
     <thead><tr>
-      <th style="width:30px">№</th>
-      <th style="text-align:left">Mahsulot</th>
-      <th>Rang</th>
-      <th>O'lcham</th>
-      <th>Miqdor</th>
+      <th>№</th><th style="text-align:left">Mahsulot</th>
+      <th>Rang</th><th>O'lcham</th><th>Miqdor</th>
       <th style="text-align:right">Narx</th>
-      <th style="text-align:right">Summa (so'm)</th>
+      <th style="text-align:right">Summa</th>
     </tr></thead>
     <tbody>
       ${itemRows}
-      ${discount > 0 ? `<tr class="tot-row">
-        <td colspan="6" style="text-align:right">Jami (${totalBoxes?"pochka":"dona"}):</td>
-        <td class="r">${F(subtotal)}</td>
+      ${discount > 0 ? `
+      <tr class="tot-row">
+        <td colspan="6" class="r">Jami:</td><td class="r">${F(subtotal)} so'm</td>
       </tr>
-      <tr style="background:#FEF3C7">
-        <td colspan="6" style="text-align:right;color:#92400E">Chegirma${sale.discountPct ? " (-"+sale.discountPct+"%)" : ""}:</td>
-        <td class="r" style="color:#dc2626;font-weight:700">−${F(discount)}</td>
+      <tr class="disc-row">
+        <td colspan="6" class="r">Chegirma${sale.discountPct ? " -"+sale.discountPct+"%" : ""}:</td>
+        <td class="r">-${F(discount)} so'm</td>
       </tr>` : ""}
       <tr class="tot-row">
-        <td colspan="6" style="text-align:right">TO'LOV:</td>
-        <td class="r" style="font-size:16px">${F(total)}</td>
+        <td colspan="6" class="r" style="font-size:13px">TO'LOV:</td>
+        <td class="r" style="font-size:15px">${F(total)} so'm</td>
       </tr>
     </tbody>
   </table>
 
   <div class="bottom">
     <div class="pay-box">
-      <div class="pay-title">To'lov</div>
+      <div class="pay-ttl">To'lov</div>
       ${payHtml}
       ${debtHtml}
     </div>
     <div class="sign-box">
-      <div class="pay-title">Imzolar</div>
+      <div class="sign-ttl">Imzolar</div>
       <div class="sign-line">Sotuvchi</div>
-      <div class="sign-line" style="margin-top:20px">Xaridor</div>
+      <div class="sign-line" style="margin-top:18px">Xaridor</div>
     </div>
   </div>
 
-  ${note ? `<div class="note-box">Izoh: ${note}</div>` : ""}
-  <div class="foot">${footer || "Rahmat!"} · ${shopName} · ${date}</div>
+  ${note ? `<div class="note-row">📝 Izoh: ${note}</div>` : ""}
+  <div class="foot">${footer||"Rahmat!"} · ${shopName} · ${date}</div>
 </div>
 <div class="acts">
   <button class="btn-p" onclick="window.print()">🖨 Chop etish</button>
@@ -1114,6 +1136,7 @@ td{padding:7px 10px;border-bottom:1px solid #eee;vertical-align:middle}
 </div>
 </body></html>`;
 }
+
 
 // ════════════════════════════════════════════════
 // MERX BREND CHEK — Zamonaviy, optimallashgan
@@ -1147,17 +1170,26 @@ function buildReceiptMerx(sale, opts, cfg) {
   const itemsHtml = items.map((it, idx) => {
     const isBox  = it.sellMode === "karobka" && it.qtyBox;
     const art    = it.art ? `<span class="it-art">${it.art}</span>` : "";
-    const info   = isBox
-      ? `${it.color||""}${it.groupSizes ? " · " + it.groupSizes : ""} · <b>${it.qtyBox} pchk</b>/${it.qty} ${it.unit||"juft"}`
-      : `${it.color||""}${it.size ? " / " + it.size : ""} · ${it.qty} ${it.unit||"dona"}`;
-    const sum    = (it.price||0)*(it.qty||0);
+    const sum     = (it.price||0)*(it.qty||0);
+    const pricePer= isBox ? (it.price||0)*(it.inBox||1) : (it.price||0);
+    const qtyShow = isBox ? it.qtyBox : it.qty;
+    const unitShow= isBox ? "pochka" : (it.unit||"dona");
+    const colorStr= it.color || "";
+    const sizeStr = isBox
+      ? (it.groupSizes ? it.groupSizes : "")
+      : (it.size ? it.size : "");
+    // info: rang · o'lcham (agar dona) yoki rang (pochkada o'lcham yo'q)
+    const metaStr = [colorStr, sizeStr].filter(Boolean).join(" · ");
     return `<div class="it">
       <div class="it-top">
         <div class="it-num">${idx+1}</div>
         <div class="it-name">${it.name} ${art}</div>
         <div class="it-sum">${F(sum)}</div>
       </div>
-      <div class="it-info">${info}</div>
+      <div class="it-info">
+        ${metaStr ? `<span class="it-meta">${metaStr}</span> · ` : ""}
+        <span class="it-calc">${F(pricePer)} × ${qtyShow} ${unitShow}</span>
+      </div>
     </div>`;
   }).join("");
 
@@ -1210,12 +1242,12 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
 .rc{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(13,27,42,.12)}
 .hd{background:#0D1B2A;padding:14px 18px;text-align:center;color:#fff}
 .hd-name{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;letter-spacing:1.5px}
-.hd-meta{font-size:11px;color:#9aa7b5;margin-top:4px;line-height:1.5}
+.hd-meta{font-size:12px;color:#b8c5d0;margin-top:4px;line-height:1.6;font-weight:500}
 .hd-meta b{color:#E9A500}
 .badge-ulgurji{display:inline-block;background:#E9A500;color:#0D1B2A;font-size:9px;font-weight:800;padding:1px 7px;border-radius:8px;letter-spacing:.5px;margin-top:3px}
 .cust{padding:7px 16px;background:#F0F8FF;border-bottom:1px dashed #C7E3F5;font-size:12px;color:#0D1B2A;display:flex;justify-content:space-between}
 .note-w{padding:6px 16px;background:#FFFBEB;border-bottom:1px dashed #FDE68A;font-size:11.5px;color:#92400E}
-.items-lbl{padding:7px 16px 3px;font-size:9.5px;font-weight:700;color:#888;letter-spacing:1.5px;text-transform:uppercase}
+.items-lbl{padding:8px 16px 4px;font-size:10px;font-weight:800;color:#555;letter-spacing:1.5px;text-transform:uppercase}
 .items{padding:0 16px}
 .it{padding:7px 0;border-bottom:1px dashed #E8E5E0}
 .it:last-child{border-bottom:none}
@@ -1224,23 +1256,23 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
 .it-name{flex:1;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#0D1B2A}
 .it-art{font-family:'DM Sans',sans-serif;font-size:10px;color:#6366F1;background:#EEF2FF;padding:1px 6px;border-radius:4px;font-weight:600;margin-left:4px;vertical-align:middle}
 .it-sum{font-family:'Sora',sans-serif;font-size:13px;font-weight:800;color:#0D1B2A;white-space:nowrap}
-.it-info{font-size:11px;color:#6B7280;margin-top:3px;padding-left:20px}
-.it-info b{color:#374151}
+.it-info{font-size:12px;color:#374151;margin-top:3px;padding-left:20px;font-weight:500}
+.it-meta{color:#374151;font-weight:600}.it-calc{color:#374151;font-weight:700}
 .tot{margin:0 16px;padding:8px 0;border-top:2px solid #0D1B2A;display:flex;justify-content:space-between;align-items:center}
 .tot-l{font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#0D1B2A}
-.tot-cnt{font-size:10px;color:#888;font-weight:500;margin-top:1px}
+.tot-cnt{font-size:11px;color:#555;font-weight:600;margin-top:1px}
 .tot-v{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:#0D1B2A}
 .pay{padding:8px 16px 10px;border-top:1px dashed #ddd}
-.pay-lbl{font-size:9.5px;font-weight:700;color:#888;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
-.pr{display:flex;justify-content:space-between;font-size:12.5px;color:#333;padding:2.5px 0}
-.pr.pr-sm{font-size:11px;color:#888}
+.pay-lbl{font-size:10px;font-weight:800;color:#374151;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+.pr{display:flex;justify-content:space-between;font-size:13px;color:#111;padding:3px 0;font-weight:500}
+.pr.pr-sm{font-size:12px;color:#555;font-weight:600}
 .pr.pr-debt{color:#dc2626;font-weight:800;font-size:14px;border-top:1px solid #fca5a5;padding-top:6px;margin-top:2px}
 .pr.pr-debt-total{color:#dc2626;font-weight:800;font-size:16px;border-top:2px solid #dc2626;padding-top:8px;margin-top:4px}
 .sep-dash{border-top:1px dashed #ddd}
 .paid-ok{background:#ECFDF5;color:#059669;font-weight:700;font-size:12px;text-align:center;padding:7px;border-radius:8px;margin-top:4px}
 .ft{padding:10px 16px 14px;text-align:center;border-top:1px dashed #ddd}
 .ft-txt{font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#0D1B2A}
-.ft-sub{font-size:10px;color:#999;margin-top:3px}
+.ft-sub{font-size:11px;color:#666;margin-top:3px}
 .ft-bot{font-size:11px;color:#229ED9;margin-top:6px}
 .acts{width:340px;max-width:100%;margin:10px 0 0;display:flex;gap:8px}
 .acts button{flex:1;border:none;border-radius:10px;padding:11px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
