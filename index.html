@@ -619,7 +619,7 @@
             <input id="pay-naqd" type="text" data-price placeholder="0"
               oninput="fmtInput(this);onPayInput('naqd')"
               style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
-            <button id="pay-lock-naqd" onclick="togglePayMethodBlock('naqd')" title="Bloklash"
+            <button id="pay-lock-naqd" onclick="togglePayMethodBlock('naqd', this)" title="Bloklash"
               style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
               <i class="ti ti-lock-open" style="color:#CBD5E1;font-size:13px"></i>
             </button>
@@ -634,7 +634,7 @@
             <input id="pay-karta" type="text" data-price placeholder="0"
               oninput="fmtInput(this);onPayInput('karta')"
               style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
-            <button id="pay-lock-karta" onclick="togglePayMethodBlock('karta')" title="Bloklash"
+            <button id="pay-lock-karta" onclick="togglePayMethodBlock('karta', this)" title="Bloklash"
               style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
               <i class="ti ti-lock-open" style="color:#CBD5E1;font-size:13px"></i>
             </button>
@@ -649,7 +649,7 @@
             <input id="pay-otkazma" type="text" data-price placeholder="0"
               oninput="fmtInput(this);onPayInput('otkazma')"
               style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
-            <button id="pay-lock-otkazma" onclick="togglePayMethodBlock('otkazma')" title="Bloklash"
+            <button id="pay-lock-otkazma" onclick="togglePayMethodBlock('otkazma', this)" title="Bloklash"
               style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
               <i class="ti ti-lock-open" style="color:#CBD5E1;font-size:13px"></i>
             </button>
@@ -664,7 +664,7 @@
             <input id="pay-qarz" type="text" data-price placeholder="0"
               oninput="fmtInput(this);onPayInput('qarz')"
               style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
-            <button id="pay-lock-qarz" onclick="togglePayMethodBlock('qarz')" title="Bloklash"
+            <button id="pay-lock-qarz" onclick="togglePayMethodBlock('qarz', this)" title="Bloklash"
               style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
               <i class="ti ti-lock-open" style="color:#CBD5E1;font-size:13px"></i>
             </button>
@@ -3433,7 +3433,7 @@ const MERX_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=141"></script>
 <script src="js/dashboard.js?v=141"></script>
-<script src="js/pos.js?v=143"></script>
+<script src="js/pos.js?v=144"></script>
 <script src="js/katalog.js?v=141"></script>
 <script src="js/ombor.js?v=141"></script>
 <script src="js/mijozlar.js?v=141"></script>

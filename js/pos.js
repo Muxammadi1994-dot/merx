@@ -1092,35 +1092,27 @@ function _applyStaffLock() {
   sel.style.opacity = _staffLocked ? ".6" : "1";
 }
 
-function togglePayMethodBlock(method) {
-  // Oddiy toggle
+function togglePayMethodBlock(method, btnEl) {
   _payBlocked[method] = !_payBlocked[method];
-  
-  // Settings ga saqlash
+  var blocked = !!_payBlocked[method];
   if (!db.settings) db.settings = {};
   db.settings.posPayBlocked = JSON.parse(JSON.stringify(_payBlocked));
   saveDB();
-  
-  // Faqat shu method uchun UI yangilash
-  var blocked = !!_payBlocked[method];
-  var btn = document.getElementById("pay-lock-" + method);
-  var inp = document.getElementById("pay-" + method);
-  var row = document.getElementById("pay-row-" + method);
-  
+
+  // btn — to'g'ridan uzatilgan element yoki getElementById
+  var btn = btnEl || document.getElementById("pay-lock-" + method);
   if (btn) btn.innerHTML = blocked
     ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
     : '<i class="ti ti-lock-open" style="color:#CBD5E1"></i>';
-  
-  if (inp) {
-    inp.disabled = blocked;
-    if (blocked) inp.value = "";
-  }
-  
-  if (row) {
-    row.style.opacity = blocked ? "0.4" : "1";
-    row.style.pointerEvents = blocked ? "none" : "auto";
-  }
-  
+
+  // row va inp — btn dan yoki getElementById
+  var row = (btn && btn.closest) ? btn.closest("[id]") : null;
+  if (!row || !row.id.startsWith("pay-row-")) row = document.getElementById("pay-row-" + method);
+  var inp = document.getElementById("pay-" + method);
+
+  if (inp) { inp.disabled = blocked; if (blocked) inp.value = ""; }
+  if (row) { row.style.opacity = blocked ? "0.4" : "1"; row.style.pointerEvents = blocked ? "none" : "auto"; }
+
   updatePayRemaining();
   toast((blocked ? "Bloklandi: " : "Ochildi: ") + method);
 }
@@ -1369,23 +1361,26 @@ function refreshCustList() {
 
 function _applyPayBlocked() {
   ["naqd","karta","otkazma","qarz"].forEach(function(m) {
-    var blocked = !!_payBlocked[m];
-    var btn = document.getElementById("pay-lock-" + m);
-    var inp = document.getElementById("pay-" + m);
-    var row = document.getElementById("pay-row-" + m);
-    
+    var blocked = _payBlocked[m] === true;
+    var btn = $("pay-lock-" + m);
+    var inp = $("pay-" + m);
+    var row = $("pay-row-" + m);
+
+    // Tugma belgisi
     if (btn) btn.innerHTML = blocked
       ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
       : '<i class="ti ti-lock-open" style="color:#CBD5E1"></i>';
-    
+
+    // Input
     if (inp) {
       inp.disabled = blocked;
       if (blocked) inp.value = "";
     }
-    
+
+    // Qator ko'rinishi — style ni to'liq almashtirish
     if (row) {
-      row.style.opacity = blocked ? "0.4" : "1";
-      row.style.pointerEvents = blocked ? "none" : "auto";
+      row.style.opacity        = blocked ? "0.4" : "1";
+      row.style.pointerEvents  = blocked ? "none" : "auto";
     }
   });
 }
