@@ -164,9 +164,49 @@ function renderEgasi() {
   if (ceStaff)   ceStaff.checked   = chekCfg.showStaff   !== false;
   if (ceContact2) ceContact2.checked = chekCfg.showContact !== false;
   if (ceDebtH)   ceDebtH.checked  = chekCfg.showDebtHistory !== false;
-  if (cePosStyle)   cePosStyle.value   = chekCfg.posStyle   || "full";
-  if (ceTarixStyle) ceTarixStyle.value = chekCfg.tarixStyle || "full";
-  if (ceQarzStyle)  ceQarzStyle.value  = chekCfg.qarzStyle  || "compact";
+  if (cePosStyle) {
+    // Yangi uslublar qo'shamiz (agar yo'q bo'lsa)
+    const posStyleOpts = [
+      {v:"merx",       l:"MERX brend (zamonaviy)"},
+      {v:"thermal",    l:"Termal printer (72mm)"},
+      {v:"wholesale",  l:"Ulgurji hujjat (A4)"},
+      {v:"full",       l:"To'liq (eski)"},
+      {v:"compact",    l:"Ixcham"},
+      {v:"table",      l:"Jadval (USD+UZS)"},
+    ];
+    if (cePosStyle.options.length < 4) {
+      cePosStyle.innerHTML = posStyleOpts.map(o =>
+        `<option value="${o.v}">${o.l}</option>`).join("");
+    }
+    cePosStyle.value = chekCfg.posStyle || "merx";
+  }
+  if (ceTarixStyle) {
+    const tarixStyleOpts = [
+      {v:"merx",      l:"MERX brend (zamonaviy)"},
+      {v:"thermal",   l:"Termal printer (72mm)"},
+      {v:"wholesale", l:"Ulgurji hujjat (A4)"},
+      {v:"full",      l:"To'liq (eski)"},
+      {v:"compact",   l:"Ixcham"},
+    ];
+    if (ceTarixStyle.options.length < 3) {
+      ceTarixStyle.innerHTML = tarixStyleOpts.map(o =>
+        `<option value="${o.v}">${o.l}</option>`).join("");
+    }
+    ceTarixStyle.value = chekCfg.tarixStyle || "merx";
+  }
+  if (ceQarzStyle) {
+    const qarzStyleOpts = [
+      {v:"merx",      l:"MERX brend (zamonaviy)"},
+      {v:"thermal",   l:"Termal printer (72mm)"},
+      {v:"wholesale", l:"Ulgurji hujjat (A4)"},
+      {v:"compact",   l:"Ixcham (eski)"},
+    ];
+    if (ceQarzStyle.options.length < 3) {
+      ceQarzStyle.innerHTML = qarzStyleOpts.map(o =>
+        `<option value="${o.v}">${o.l}</option>`).join("");
+    }
+    ceQarzStyle.value = chekCfg.qarzStyle || "merx";
+  }
   // Logo preview
   const logoPreview = document.getElementById("chek-logo-preview");
   if (logoPreview) {
@@ -483,9 +523,9 @@ function saveChekConfig() {
   cfg.showStaff        = document.getElementById("chek-show-staff")?.checked !== false;
   cfg.showContact      = document.getElementById("chek-show-contact")?.checked !== false;
   cfg.showDebtHistory  = document.getElementById("chek-show-debt-history")?.checked !== false;
-  cfg.posStyle   = document.getElementById("chek-pos-style")?.value   || "full";
-  cfg.tarixStyle = document.getElementById("chek-tarix-style")?.value || "full";
-  cfg.qarzStyle  = document.getElementById("chek-qarz-style")?.value  || "compact";
+  cfg.posStyle   = document.getElementById("chek-pos-style")?.value   || "merx";
+  cfg.tarixStyle = document.getElementById("chek-tarix-style")?.value || "merx";
+  cfg.qarzStyle  = document.getElementById("chek-qarz-style")?.value  || "merx";
 
   db.settings.chekConfig = cfg;
   saveDB();
