@@ -4,6 +4,9 @@
 // ================================================
 
 let molPeriod = "month"; // default: bu oy
+let _expType   = "kunlik"; // "kunlik" | "oylik"
+let _expForMonth = ""; // "2026-06" kabi
+let _expForMonthSel = "cur"; // "prev"|"cur"|"next"
 let _expChart = null;
 
 let expDatePeriod = "all";
@@ -345,6 +348,9 @@ function renderMoliya() {
     (x.recipient||"").toLowerCase().includes(q) ||
     (x.paidBy||"").toLowerCase().includes(q)
   );
+  // Xarajat turi filtri (kunlik/oylik)
+  const typeFilter = ($("exp-type-filter")||{value:""}).value;
+  if (typeFilter) exps = exps.filter(x => (x.xarajatType || "kunlik") === typeFilter);
   // Kategoriya filtri (select)
   const catFilter = ($("exp-cat-filter")||{value:""}).value;
   if (catFilter) exps = exps.filter(x => (x.category||"") === catFilter);
@@ -381,7 +387,11 @@ function renderMoliya() {
       const methodIcon = x.method==="karta"?"💳 Karta":x.method==="otkazma"?"🏦 O'tkazma":"💵 Naqd";
       return `<tr>
         ${cols.date      ? `<td style="font-size:12.5px;white-space:nowrap;font-weight:600">${x.date||"—"}</td>` : ""}
-        ${cols.cat       ? `<td><span class="bg" style="font-size:12px;background:${color}18;color:${color}">${icon} ${x.category||"—"}</span></td>` : ""}
+        ${cols.cat ? `<td>
+          <span class="bg" style="font-size:12px;background:${color}18;color:${color}">${icon} ${x.category||"—"}</span>
+          ${x.xarajatType==="oylik"?`<span style="font-size:10px;color:#8B5CF6;background:#EEF2FF;padding:2px 6px;border-radius:10px;margin-left:4px;font-weight:700">oylik</span>`:""}
+          ${x.forMonth?`<div style="font-size:11px;color:#9CA3AF;margin-top:2px">${x.forMonth} oy uchun</div>`:""}
+        </td>` : ""}
         ${cols.recipient ? `<td style="font-size:12px;color:#666">${x.recipient?`<div style="font-weight:600">${x.recipient}</div>`:""}${x.paidBy?`<div style="font-size:11px;color:#aaa">To'ladi: ${x.paidBy}</div>`:""}</td>` : ""}
         ${cols.method    ? `<td style="font-size:11.5px;color:var(--mut);white-space:nowrap">${methodIcon}</td>` : ""}
         ${cols.amount    ? `<td class="num" style="font-weight:800;color:var(--red);font-size:13px;white-space:nowrap">${fmt(x.amount||0)} so'm${x.amountUsd?`<div style="font-size:10.5px;color:#aaa;font-weight:400">$${x.amountUsd.toFixed(2)}</div>`:""}</td>` : ""}
@@ -722,6 +732,9 @@ function expCatPick(el) {
   }
   if ($("exp-cat-val")) $("exp-cat-val").value = cat;
   renderExpExtraField(cat);
+  // Maosh + oylik bo'lsa oy tanlash ko'rsatish
+  const fmw = document.getElementById("ax-formonth-wrap");
+  if (fmw) fmw.style.display = (_expType==="oylik" && cat==="Maosh") ? "block" : "none";
 }
 
 function renderExpExtraField(cat) {
@@ -824,7 +837,14 @@ function addXarajat() {
   }
 
   if (!db.xarajatlar) db.xarajatlar = [];
-  const entry = { id: db.seq++, date, category: cat, amount: sum, recipient, paidBy, note, method };
+  const entry = {
+    id: db.seq++, date, category: cat, amount: sum,
+    recipient, paidBy, note, method,
+    xarajatType: _expType || "kunlik",
+    forMonth: (_expType === "oylik" && cat === "Maosh")
+      ? (_expForMonth || today().slice(0,7))
+      : null
+  };
   if (sumUsd) entry.amountUsd = sumUsd;
   if (recurring) entry.recurring = true;
   db.xarajatlar.push(entry);
@@ -961,11 +981,121 @@ function exportExpExcel() {
   toast(`✅ ${exps.length} ta xarajat yuklab olindi`);
 }
 // ── Modal ochilganda initializ ────────────────────
+// ── Xarajat teg yordamchilari ─────────────────────
+const EXP_TAGS_KUNLIK_DEFAULT = ["Abed","Taksi","Arava","Ovqat","Kanselyariya","Boshqa"];
+const EXP_TAGS_OYLIK_DEFAULT  = ["Maosh","Ijara","Kommunal","Soliq","Reklama","Yetkazuvchi","Jihozlar","Boshqa"];
+
+function getExpTags(type) {
+  if (type === "kunlik") return [...(db.settings?.expTagsKunlik || EXP_TAGS_KUNLIK_DEFAULT)];
+  return [...(db.settings?.expTagsOylik || EXP_TAGS_OYLIK_DEFAULT)];
+}
+
+// Xarajat turini o'rnatish
+function setExpType(type) {
+  _expType = type;
+  // Tugmalar
+  const kb = document.getElementById("ax-type-kunlik");
+  const ob = document.getElementById("ax-type-oylik");
+  if (kb) {
+    kb.style.background   = type==="kunlik" ? "#0D1B2A" : "#fff";
+    kb.style.color        = type==="kunlik" ? "#fff"    : "var(--mut)";
+    kb.style.borderColor  = type==="kunlik" ? "#0D1B2A" : "var(--brd)";
+  }
+  if (ob) {
+    ob.style.background   = type==="oylik" ? "#0D1B2A" : "#fff";
+    ob.style.color        = type==="oylik" ? "#fff"    : "var(--mut)";
+    ob.style.borderColor  = type==="oylik" ? "#0D1B2A" : "var(--brd)";
+  }
+  // Teglarni render qilish
+  renderExpCatTags(type);
+  // Oylik bo'lsa — oy tanlash ko'rsatish
+  const forMonthWrap = document.getElementById("ax-formonth-wrap");
+  if (forMonthWrap) forMonthWrap.style.display = type==="oylik" ? "block" : "none";
+}
+
+// Kategoriya teglarini render qilish
+function renderExpCatTags(type) {
+  const el = document.getElementById("exp-cats"); if (!el) return;
+  const tags = getExpTags(type);
+  const catVal = document.getElementById("exp-cat-val");
+  const curVal = catVal?.value || tags[0];
+
+  el.innerHTML = tags.map(t => {
+    const on = t === curVal;
+    return `<span class="mcat ${on?"on":""}" data-c="${t}" onclick="expCatPick(this)">${t}</span>`;
+  }).join("") + `<span class="mcat" data-c="__custom__" onclick="expCatPick(this)"
+    style="border-style:dashed;color:var(--mut)">✏️ O'zim yozaman</span>
+    <button onclick="openAddExpTag('${type}')" title="Yangi teg qo'shish"
+      style="padding:4px 10px;border:1.5px dashed var(--acc);border-radius:20px;background:transparent;color:var(--acc);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">
+      + Teg
+    </button>`;
+
+  // Birinchi tegni tanlash
+  if (!tags.includes(curVal) && catVal) catVal.value = tags[0] || "Boshqa";
+
+  // Maosh teglanganmi — kimga fieldni ko'rsatish
+  const curCat = catVal?.value || "";
+  renderExpExtraField(curCat);
+
+  // Maosh uchun oy tanlash
+  const forMonthWrap = document.getElementById("ax-formonth-wrap");
+  if (forMonthWrap) {
+    forMonthWrap.style.display = (type==="oylik" && curCat==="Maosh") ? "block" : "none";
+  }
+}
+
+// Yangi teg qo'shish
+function openAddExpTag(type) {
+  const name = prompt(`Yangi ${type} xarajat tegi:`);
+  if (!name || !name.trim()) return;
+  const tag = name.trim();
+  if (!db.settings) db.settings = {};
+  const key = type === "kunlik" ? "expTagsKunlik" : "expTagsOylik";
+  const cur = db.settings[key] || (type==="kunlik" ? [...EXP_TAGS_KUNLIK_DEFAULT] : [...EXP_TAGS_OYLIK_DEFAULT]);
+  if (!cur.includes(tag)) { cur.push(tag); db.settings[key] = cur; saveDB(); }
+  renderExpCatTags(type);
+  // Yangi tegni tanlash
+  const catVal = document.getElementById("exp-cat-val");
+  if (catVal) catVal.value = tag;
+  document.querySelectorAll(".mcat").forEach(b => b.classList.toggle("on", b.dataset.c === tag));
+  toast(`"${tag}" tegi qo'shildi`);
+}
+
+// Oylik — qaysi oy
+function setForMonth(sel) {
+  _expForMonthSel = sel;
+  const t = today();
+  const d = new Date(t);
+  if (sel === "prev") d.setMonth(d.getMonth()-1);
+  if (sel === "next") d.setMonth(d.getMonth()+1);
+  _expForMonth = d.toISOString().slice(0,7); // "2026-06"
+  const el = document.getElementById("ax-formonth");
+  if (el) el.value = _expForMonth;
+  // Label
+  const lbl = document.getElementById("ax-formonth-lbl");
+  if (lbl) {
+    const months = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
+    lbl.textContent = months[d.getMonth()] + " " + d.getFullYear();
+  }
+  // Tugmalar
+  ["prev","cur","next"].forEach(s => {
+    const b = document.getElementById("ax-fm-" + s);
+    if (!b) return;
+    const on = s === sel;
+    b.style.background  = on ? "#0D1B2A" : "#fff";
+    b.style.color       = on ? "#fff"    : "var(--mut)";
+    b.style.borderColor = on ? "#0D1B2A" : "var(--brd)";
+  });
+}
+
 function initExpModal() {
   setTimeout(() => {
     if ($("ax-date") && !$("ax-date").value) $("ax-date").value = today();
     initExpWhoSelect();
-    renderExpExtraField($("exp-cat-val")?.value || "Ijara");
+    // Xarajat turi va teglarni yuklash
+    setExpType(_expType || "kunlik");
+    // Maosh uchun oy — default bu oy
+    setForMonth(_expForMonthSel || "cur");
   }, 30);
 }
 
