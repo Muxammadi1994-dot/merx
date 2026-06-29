@@ -1573,15 +1573,23 @@ async function checkout() {
   let payBreakdown = null;
   if (posPayType === "aralash") {
     payBreakdown = {};
+    // Yangi 4-ustunli to'lov panelidan o'qiymiz
+    const _n = getRawVal("pay-naqd");
+    const _k = getRawVal("pay-karta");
+    const _o = getRawVal("pay-otkazma");
+    if (_n > 0) payBreakdown["naqd"]    = _n;
+    if (_k > 0) payBreakdown["karta"]   = _k;
+    if (_o > 0) payBreakdown["otkazma"] = _o;
+    // Eski mix-checkbox elementlar ham tekshiramiz (moslik uchun)
     ["naqd","karta","otkazma"].forEach(m => {
       const chk = $(`mix-${m}-chk`);
       if (chk && chk.checked) {
         const v = getRawVal(`mix-${m}-sum`);
-        if (v > 0) payBreakdown[m] = v;
+        if (v > 0 && !payBreakdown[m]) payBreakdown[m] = v;
       }
     });
     if (Object.keys(payBreakdown).length === 0) {
-      toast("Aralash to'lovda kamida bitta usul tanlang", "err");
+      toast("Kamida bitta to'lov usulini kiriting", "err");
       return;
     }
   }
