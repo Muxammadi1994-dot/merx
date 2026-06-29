@@ -1,7 +1,16 @@
 // ════════════════════════════════════════════════
-// MERX — js/superadmin.js | v4.0 | 2026-06-24
+// MERX — js/superadmin.js | v4.1 | 2026-06-30
 // Super Admin paneli — faqat sayt egasi uchun
 // ════════════════════════════════════════════════
+
+// SHA-256 hash (auth.js dagi bilan bir xil)
+async function saSha256(text) {
+  const buf = await crypto.subtle.digest(
+    "SHA-256", new TextEncoder().encode(text)
+  );
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2,"0")).join("");
+}
 
 const SA_KEY     = "merx_superadmin_v1";
 const SA_TS_KEY  = "merx_sa_ts";
@@ -607,7 +616,7 @@ function saOpenAddShop() {
   if (modal) { modal.style.display = "flex"; saPreviewLogin(); }
 }
 
-function saAddShop() {
+async function saAddShop() {
   const name    = document.getElementById("sa-new-name")?.value.trim();
   const owner   = document.getElementById("sa-new-owner")?.value.trim();
   const rawLogin= document.getElementById("sa-new-login")?.value.trim();
@@ -649,7 +658,7 @@ function saAddShop() {
     id: shopId, name, ownerName: owner,
     ownerEmail: loginEmail,
     phone: phone,
-    ownerPass: pass, plan, modules, shopType,
+    ownerPass: pass, plan, modules, shopType, // ownerPass plain text (login uchun kerak)
     expiresAt: expires, createdAt: now.toISOString(),
     blocked: false, dbKey
   };
@@ -682,7 +691,7 @@ function saAddShop() {
       rate: 12800, priceCurrency: "uzs",
       shopType: shopType,
       cloudShopId: shopId,
-      adminEmail: loginEmail, adminPass: pass, modules,
+      adminEmail: loginEmail, adminPass: await saSha256(pass), modules,
       supabaseUrl: _url, supabaseKey: _key,
       telegramBotUrl: _mainBotUrl,
       telegramBotUsername: _mainBotUser,
@@ -767,7 +776,7 @@ async function _saAddShopToSupabase(shop) {
 }
 
 // ── Do'konga kirish ───────────────────────────────
-function saOpenShop(id) {
+async function saOpenShop(id) {
   const s = _saShops.find(x => x.id === id); if (!s) return;
   const dbKey = "merx_v5_" + id;
 
@@ -785,7 +794,7 @@ function saOpenShop(id) {
         shopType: s.shopType || "ikki",
         cloudShopId: id,
         adminEmail: s.ownerEmail || (s.phone ? s.phone.replace(/\D/g,"")+"@merx.uz" : id+"@merx.uz"),
-        adminPass: s.ownerPass || "merx123",
+        adminPass: await saSha256(s.ownerPass || "merx123"),
         supabaseUrl: url, supabaseKey: key2
       },
       customers:[],products:[],sales:[],staff:[],
@@ -805,7 +814,7 @@ function saOpenShop(id) {
       if (!existing.settings.adminEmail)
         existing.settings.adminEmail = s.ownerEmail || (s.phone ? s.phone.replace(/\D/g,"")+"@merx.uz" : id+"@merx.uz");
       if (!existing.settings.adminPass)
-        existing.settings.adminPass = s.ownerPass || "merx123";
+        existing.settings.adminPass = await saSha256(s.ownerPass || "merx123");
       // Bot sozlamalari — faqat yangi do'konda yo'q bo'lsa
       try {
         const mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
