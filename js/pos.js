@@ -1792,25 +1792,22 @@ function setDiscType(t) {
 }
 
 function applyDiscount() {
-  // Kassir ruxsatini tekshirish
-  // Kassir — bloklangan bo'lsa settings dan olamiz
+  // Kassir ruxsatini tekshirish — faqat maxDiscount chegarasi qo'yilgan bo'lsa
   const staffId = (() => {
     if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
     return parseInt(($("pos-staff")||{value:0}).value) || null;
   })();
-  const staff   = staffId ? (db.staff||[]).find(s=>s.id===staffId) : null;
+  const staff = staffId ? (db.staff||[]).find(s=>s.id===staffId) : null;
 
-  if (staff && !staff.permDiscount) {
-    toast("Bu kassirda chegirma berish huquqi yo'q","err"); return;
-  }
-  if (staff && staff.permDiscount && staff.maxDiscount > 0 && discType === "pct") {
+  // maxDiscount chegarasi bo'lsa va foiz rejimida bo'lsa tekshiramiz
+  if (staff && staff.maxDiscount > 0 && discType === "pct") {
     const val = getRawVal("discount-val") || 0;
     if (val > staff.maxDiscount) {
-      toast(`Maksimal chegirma: ${staff.maxDiscount}%`,"err");
-      if ($("discount-val")) { $("discount-val").value = staff.maxDiscount; $("discount-val").dataset.raw = staff.maxDiscount; }
-      return;
+      toast(`Maksimal chegirma: ${staff.maxDiscount}%`, "err");
+      if ($("discount-val")) { $("discount-val").value = staff.maxDiscount; $("discount-val").dataset.raw = String(staff.maxDiscount); }
     }
   }
+  // Har doim renderCart chaqiramiz
   renderCart();
 }
 
