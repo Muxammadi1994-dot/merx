@@ -242,22 +242,25 @@ async function pushToCloud() {
 
     try {
       // products: sku bo'yicha upsert (id emas) — ikki marta conflict bo'lmasligi uchun
-      const prodRows = db.products?.map(p => ({
-        shop_id: sid, sku: p.sku, name: p.name,
-        category: p.category, type: p.type,
-        unit: p.unit || "dona",
-        art: p.art || "",
-        cost_usd: p.costUsd || 0,
-        price_uzs: p.priceUzs || 0,
-        ulgurji: p.ulgurjiNarx || 0,
-        variants: p.variants || [],
-        image: p.image || null
-      }));
+      const prodRows = (db.products||[])
+        .filter(p => p.id != null)
+        .map(p => ({
+          shop_id: sid, id: p.id,
+          sku: p.sku, name: p.name,
+          category: p.category, type: p.type,
+          unit: p.unit || "dona",
+          art: p.art || "",
+          cost_usd: p.costUsd || 0,
+          price_uzs: p.priceUzs || 0,
+          ulgurji: p.ulgurjiNarx || 0,
+          variants: p.variants || [],
+          image: p.image || null
+        }));
       if (prodRows?.length) {
         const chunk = 20; // image katta bo'lgani uchun kichik chunk
         for (let i = 0; i < prodRows.length; i += chunk) {
           const { error } = await _sb.from("products")
-            .upsert(prodRows.slice(i, i+chunk), { onConflict: "sku,shop_id", ignoreDuplicates: false });
+            .upsert(prodRows.slice(i, i+chunk), { onConflict: "id", ignoreDuplicates: false });
           if (error) throw error;
         }
       }
