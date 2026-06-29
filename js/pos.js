@@ -994,37 +994,16 @@ var _staffLocked = false;
 function onPayInput(method) {
   const total = _cartTotal();
   if (total <= 0) return;
-  const vals  = _getPayVals();
-  const paid  = vals.naqd + vals.karta + vals.otkazma;
-  const sum   = paid + vals.qarz;
+  const vals = _getPayVals();
+  const paid = vals.naqd + vals.karta + vals.otkazma;
 
-  // Avtomat qarz to'ldirish: naqd/karta/otkazma o'zgarganda
-  // Agar to'liq to'lanmagan bo'lsa va qarz bloklanmagan bo'lsa
+  // Avtomat qarz: qolgan summa qarz inputga
   if (method !== "qarz" && !_payBlocked["qarz"]) {
     const rem = Math.max(0, total - paid);
-    const qarzInp = $("pay-qarz");
-    if (qarzInp && !qarzInp.disabled) {
-      if (rem > 0 && paid > 0 && paid < total) {
-        // Qolgan summa qarzga avtomat yoziladi
-        qarzInp.value = fmt(rem);
-      } else if (paid >= total) {
-        // To'liq to'langan — qarzni tozalaymiz
-        qarzInp.value = "";
-      }
-    }
+    const qi = $("pay-qarz");
+    if (qi) qi.value = rem > 0 && paid > 0 ? fmt(rem) : "";
   }
 
-  // To'liq to'langan bo'lsa — bo'sh inputlarni vizual o'chirish (disabled EMAS)
-  ["naqd","karta","otkazma","qarz"].forEach(m => {
-    if (_payBlocked[m]) return;
-    const v = vals[m]; const inp = $("pay-" + m); const row = $("pay-row-" + m);
-    if (sum >= total && total > 0 && v === 0) {
-      if (row) row.style.opacity = ".5";
-    } else {
-      if (inp) inp.disabled = false;
-      if (row) row.style.opacity = "1";
-    }
-  });
   updatePayRemaining();
 }
 
