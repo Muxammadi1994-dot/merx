@@ -796,11 +796,26 @@ function renderCart() {
     </div>`;
   }).join("");
 
-  $("cart-total").textContent = fmt(total) + " so'm"; updatePayTotal(); updatePayRemaining();
-  // Savat qiymati badge (mijoz tanlanmagan bo'lsa ham ko'rinadi)
+  // cart-total: chegirmadan keyingi narx
+  const cartTotalEl = $("cart-total");
+  if (cartTotalEl) {
+    if (discount > 0) {
+      cartTotalEl.innerHTML = `<span style="text-decoration:line-through;font-size:12px;color:#bbb;margin-right:4px">${fmt(subtotal)}</span><span style="color:#E9A500">${fmt(total)} so'm</span>`;
+    } else {
+      cartTotalEl.textContent = fmt(total) + " so'm";
+    }
+  }
+  // Savat qiymati badge
   const cvv = $("cart-value-val");
-  if (cvv) cvv.textContent = fmt(total) + " so'm";
-  // Agar aralash to'lov paneli ochiq bo'lsa, qolgan/ortiqcha hisobini yangilaymiz
+  if (cvv) {
+    if (discount > 0) {
+      cvv.innerHTML = `<span style="text-decoration:line-through;font-size:11px;color:#aaa;margin-right:3px">${fmt(subtotal)}</span>${fmt(total)} so'm`;
+    } else {
+      cvv.textContent = fmt(total) + " so'm";
+    }
+  }
+  updatePayTotal();
+  updatePayRemaining();
   if (posPayType === "aralash") updateMixedTotal();
 }
 
@@ -1089,7 +1104,18 @@ function updatePayRemaining() {
   const remEl  = $("pay-remaining");
   const modeBg = $("pay-mode-badge");
 
-  if (remEl) { remEl.textContent = rem > 0 ? fmt(rem) + " so'm" : "0"; remEl.style.color = rem > 0 ? "#E05A5A" : "#22C55E"; }
+  if (remEl) {
+    if (total <= 0) {
+      remEl.textContent = "0"; remEl.style.color = "#22C55E";
+    } else if (sum <= 0) {
+      // Hech narsa yozilmagan — jami summani ko'rsatamiz
+      remEl.textContent = fmt(total) + " so'm"; remEl.style.color = "#64748B";
+    } else if (rem > 0) {
+      remEl.textContent = fmt(rem) + " so'm"; remEl.style.color = "#E05A5A";
+    } else {
+      remEl.textContent = "0"; remEl.style.color = "#22C55E";
+    }
+  }
 
   if (modeBg) {
     if (qarz > 0) {
@@ -1704,7 +1730,13 @@ async function checkout() {
   posLog("Sotuv yakunlandi", `${chekNum} — ${fmt(total)} so'm (${newSale.items.length} tur, ${posPayType})`);
 
   // Reset
-  cart.length = 0; renderCart();
+  cart.length = 0;
+  // Mijoz ma'lumotlarini tozalaymiz (qarz badge ham yashiriladi)
+  custClear();
+  // Chegirmani tozalaymiz
+  if ($("discount-val")) { $("discount-val").value = ""; $("discount-val").dataset.raw = ""; }
+  const _dres = $("discount-result"); if (_dres) _dres.style.display = "none";
+  renderCart();
   // Yangi to'lov panelini tozalash
   ["pay-naqd","pay-karta","pay-otkazma","pay-qarz"].forEach(id => {
     const el=$(id); if(el){el.value="";el.disabled=false;}
