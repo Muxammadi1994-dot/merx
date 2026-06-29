@@ -727,14 +727,14 @@ function renderCart() {
 
   $("cart-cnt").textContent = cart.length ? count + " ta" : "bo'sh";
   if ($("cart-items-count")) $("cart-items-count").textContent = cart.length ? count + " ta" : "0 ta";
-  if ($("pos-pay-total")) $("pos-pay-total").textContent = priceDisplay(total);
+  if ($("pos-pay-total")) $("pos-pay-total").textContent = fmt(total) + " so'm";
 
   // Chegirma natija
   const discEl = $("discount-result");
   if (discEl) {
     if (discount > 0) {
       discEl.style.display = "block";
-      discEl.innerHTML = `−${priceDisplay(discount)} → Jami: <strong style="color:#0D1B2A">${priceDisplay(total)}</strong>`;
+      discEl.innerHTML = `−${fmt(discount)} so'm → Jami: <strong style="color:#0D1B2A">${fmt(total)} so'm</strong>`;
     } else {
       discEl.style.display = "none";
     }
@@ -748,7 +748,7 @@ function renderCart() {
 
   if (!cart.length) {
     $("cart-items").innerHTML = `<div class="cart-mt"><i class="ti ti-shopping-cart"></i><p style="font-size:13px">Mahsulot tanlang</p></div>`;
-    $("cart-total").textContent = "0 so'm"; updateRem(); return;
+    $("cart-total").textContent = "0 so'm"; updatePayTotal(); updatePayRemaining(); return;
   }
 
   $("cart-items").innerHTML = cart.map((c, i) => {
@@ -796,7 +796,10 @@ function renderCart() {
     </div>`;
   }).join("");
 
-  $("cart-total").textContent = priceDisplay(total); updateRem();
+  $("cart-total").textContent = fmt(total) + " so'm"; updatePayTotal(); updatePayRemaining();
+  // Savat qiymati badge (mijoz tanlanmagan bo'lsa ham ko'rinadi)
+  const cvv = $("cart-value-val");
+  if (cvv) cvv.textContent = fmt(total) + " so'm";
   // Agar aralash to'lov paneli ochiq bo'lsa, qolgan/ortiqcha hisobini yangilaymiz
   if (posPayType === "aralash") updateMixedTotal();
 }
@@ -1107,7 +1110,7 @@ function updatePayRemaining() {
 }
 
 function updatePayTotal() {
-  const total = _cartTotal();
+  const total = cart.reduce((a,c)=>a+c.price*c.qty,0)-calcDiscount(cart.reduce((a,c)=>a+c.price*c.qty,0));
   const el = $("pos-pay-total");
   if (el) el.textContent = fmt(total) + " so'm";
 }
@@ -1748,7 +1751,7 @@ async function checkout() {
 }
 
 // ── Chegirma ──────────────────────────────────
-let discType = "pct"; // "pct" | "sum"
+let discType = "sum"; // "pct" | "sum" — asosiy: so'm
 
 function setDiscType(t) {
   discType = t;

@@ -575,6 +575,10 @@
             </div>
           </div>
           <input type="hidden" id="c-cust" value="">
+          <div id="cart-value-badge" style="padding:7px 12px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:9px;font-size:12.5px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+            <span style="color:#166534;font-weight:600">Savat qiymati:</span>
+            <strong id="cart-value-val" style="color:#166534">0 so'm</strong>
+          </div>
           <div id="cust-debt-badge" style="display:none;padding:7px 12px;background:#FEF3C7;border:1px solid #FDE68A;border-radius:9px;font-size:12.5px;margin-bottom:6px">
             <span style="color:#92400E">Joriy qarz:</span>
             <strong id="cust-debt-val" style="color:#92400E;margin-left:4px"></strong>
@@ -596,8 +600,8 @@
             <input id="discount-val" type="text" data-price placeholder="0" oninput="fmtInput(this);applyDiscount()"
               style="flex:1;font-family:inherit;font-size:14px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;outline:none">
             <div style="display:flex;gap:4px">
-              <button class="disc-type-btn on" data-d="pct" onclick="setDiscType('pct')">%</button>
-              <button class="disc-type-btn" data-d="sum" onclick="setDiscType('sum')">So'm</button>
+              <button class="disc-type-btn on" data-d="sum" onclick="setDiscType('sum')">So'm</button>
+              <button class="disc-type-btn" data-d="pct" onclick="setDiscType('pct')">%</button>
             </div>
           </div>
           <div id="discount-result" style="display:none;font-size:12px;color:#856404;margin-top:5px;font-weight:600"></div>
@@ -3453,7 +3457,7 @@ const MERX_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=141"></script>
 <script src="js/dashboard.js?v=141"></script>
-<script src="js/pos.js?v=150"></script>
+<script src="js/pos.js?v=151"></script>
 <script src="js/katalog.js?v=141"></script>
 <script src="js/ombor.js?v=141"></script>
 <script src="js/mijozlar.js?v=141"></script>
