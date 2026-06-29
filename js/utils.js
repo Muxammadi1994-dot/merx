@@ -787,8 +787,8 @@ th:first-child,th:nth-child(3){width:30px}
 }
 
 // ════════════════════════════════════════════════
-// THERMAL CHEK — 80mm termal printer, oq-qora
-// Korzinka/Karvon uslubi, Courier font
+// THERMAL CHEK — Korzinka uslubi, oq-qora
+// 80mm termal printer, Courier font
 // ════════════════════════════════════════════════
 function buildReceiptThermal(sale, opts, cfg) {
   const {shopName, staffName, botUser, contact, footer, showStaff, showContact, F} = cfg;
@@ -811,116 +811,120 @@ function buildReceiptThermal(sale, opts, cfg) {
   const due      = sale.due  || "";
   const priceType= sale.priceType || "";
   const payLabels= {naqd:"Naqd", karta:"Karta", otkazma:"Otkazma", aralash:"Aralash"};
+  const W = 40;
+  const EQ = "=".repeat(W);
+  const DA = "-".repeat(W);
 
-  // 42 belgili qatorlar (80mm = ~42 char Courier 12pt)
-  const W = 42;
-  const line  = (c) => c.repeat(W);
-  const pad   = (s, n) => String(s).padEnd(n);
-  const rpad  = (s, n) => String(s).padStart(n);
-  const split2= (l, r, w) => {
-    const lStr = String(l); const rStr = String(r);
-    const gap  = Math.max(1, w - lStr.length - rStr.length);
+  const totalBoxes = items.reduce((a,i) => a+(i.qtyBox||0), 0);
+  const totalDona  = items.reduce((a,i) => a+(i.qty||0), 0);
+
+  // Chiziqni markazga
+  const center = (s) => {
+    const sp = Math.max(0, W - s.length);
+    return " ".repeat(Math.floor(sp/2)) + s;
+  };
+  // Ikki ustun
+  const lr = (l, r) => {
+    const lStr = String(l), rStr = String(r);
+    const gap = Math.max(1, W - lStr.length - rStr.length);
     return lStr + " ".repeat(gap) + rStr;
   };
-  const center= (s, w) => {
-    const sp = Math.max(0, w - s.length);
-    return " ".repeat(Math.floor(sp/2)) + s + " ".repeat(Math.ceil(sp/2));
-  };
 
-  const totalBoxes = items.reduce((a,i) => a + (i.qtyBox||0), 0);
-  const totalDona  = items.reduce((a,i) => a + (i.qty||0), 0);
-
-  // Tovarlar — 2 qator: nom + narx×miqdor=summa
-  const itemLines = items.map((it, idx) => {
+  // TOVARLAR — 2 qator
+  // Qator 1: N. Nom [ART]
+  // Qator 2:   Rang  Qty x Narx = Summa
+  const itemLines = items.map((it, i) => {
     const isBox   = it.sellMode === "karobka" && it.qtyBox;
-    const pricePer= isBox ? (it.price||0)*(it.inBox||1) : (it.price||0);
-    const qtyShow = isBox ? it.qtyBox : it.qty;
-    const unitShow= isBox ? "pchk" : (it.unit||"dona");
+    const qty     = isBox ? it.qtyBox : it.qty;
+    const unit    = isBox ? "pchk" : (it.unit || "dona");
+    const price   = isBox ? (it.price||0)*(it.inBox||1) : (it.price||0);
     const sum     = (it.price||0)*(it.qty||0);
     const art     = it.art ? ` [${it.art}]` : "";
-    const colorStr= it.color||"";
-    const sizeStr = isBox ? (it.groupSizes||"") : (it.size||"");
-    const meta    = [colorStr, sizeStr].filter(Boolean).join(" ");
+    const color   = it.color || "";
 
-    const nameLine = `${idx+1}. ${it.name}${art}`;
-    const calcLine = `   ${F(pricePer)}x${qtyShow}${unitShow}=${F(sum)}`;
-    const metaLine = meta ? `   ${meta}` : "";
-    return [nameLine, metaLine, calcLine].filter(Boolean).join("\n");
-  }).join("\n" + "-".repeat(W) + "\n");
+    const row1 = `${i+1}. ${it.name}${art}`;
+    const calc  = `${color ? color+"  " : ""}${F(qty)}${unit} x ${F(price)} = ${F(sum)}`;
+    return row1 + "\n   " + calc;
+  }).join("\n" + DA + "\n");
 
-  // To'lov
-  const buildPayLines = () => {
-    let lines = [];
+  // TO'LOV
+  const payLines = () => {
+    const lbls = {naqd:"Naqd", karta:"Karta", otkazma:"Otkazma"};
     if (payType === "aralash" && payBreakdown) {
-      const lblMap = {naqd:"Naqd", karta:"Karta", otkazma:"Otkazma"};
-      Object.entries(payBreakdown).forEach(([m,v]) => {
-        if (m !== "qarz" && v > 0)
-          lines.push(split2(lblMap[m]||m, F(v)+" som", W));
-      });
-    } else if (payType !== "qarz") {
-      lines.push(split2(payLabels[payType]||payType, F(paid)+" som", W));
+      return Object.entries(payBreakdown)
+        .filter(([m,v]) => m !== "qarz" && v > 0)
+        .map(([m,v]) => lr(lbls[m]||m+":", F(v)+" som"))
+        .join("\n");
     }
-    return lines.join("\n");
+    if (payType !== "qarz") return lr((payLabels[payType]||payType)+":", F(paid)+" som");
+    return "";
   };
 
-  // Qarz
-  const buildDebtLines = () => {
-    if (remaining <= 0) return split2("TO'LIQ TO'LANDI", "✓", W);
-    const debtAmt = isUsd ? `$${debtUsd.toFixed(2)}USD` : `${F(remaining)}som`;
-    let lines = [split2("QARZ:", debtAmt, W)];
+  // QARZ
+  const debtLines = () => {
+    if (remaining <= 0) return lr("TO'LIQ TO'LANDI", "✓");
+    const dAmt = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${F(remaining)} som`;
+    const lines = [lr("QARZ:", dAmt)];
     if (isUsd && prevUsd > 0) {
-      lines.push(split2("  Oldingi:", `$${prevUsd.toFixed(2)}`, W));
-      lines.push(split2("  Yangi:", `$${debtUsd.toFixed(2)}`, W));
-      lines.push(split2("  JAMI QARZ:", `$${(prevUsd+debtUsd).toFixed(2)}USD`, W));
+      lines.push(lr("  Oldingi qarz:", `$${prevUsd.toFixed(2)}`));
+      lines.push(lr("  Yangi qarz:", `$${debtUsd.toFixed(2)}`));
+      lines.push(lr("  JAMI QARZ:", `$${(prevUsd+debtUsd).toFixed(2)} USD`));
     } else if (!isUsd && prevUzs > 0) {
-      lines.push(split2("  Oldingi:", `${F(prevUzs)}som`, W));
-      lines.push(split2("  Yangi:", `${F(remaining)}som`, W));
-      lines.push(split2("  JAMI QARZ:", `${F(prevUzs+remaining)}som`, W));
+      lines.push(lr("  Oldingi qarz:", F(prevUzs)+" som"));
+      lines.push(lr("  Yangi qarz:", F(remaining)+" som"));
+      lines.push(lr("  JAMI QARZ:", F(prevUzs+remaining)+" som"));
     }
-    if (due) lines.push(split2("  Muddat:", due, W));
+    if (due) lines.push(lr("  Muddat:", due));
     return lines.join("\n");
   };
 
   const rows = [
-    "=".repeat(W),
-    center(shopName.toUpperCase(), W),
-    showContact && contact ? center(contact, W) : null,
-    "=".repeat(W),
-    split2("Chek: " + chekNum, date + " " + time, W),
+    EQ,
+    center(shopName.toUpperCase()),
+    showContact && contact ? center(contact) : null,
+    priceType === "ulgurji" ? center("[ ULGURJI SAVDO ]") : null,
+    EQ,
+    lr("Chek: " + chekNum, date + " " + time),
     showStaff && staffName && staffName !== "—" ? ("Kassir: " + staffName) : null,
-    priceType === "ulgurji" ? "Narx turi: ULGURJI" : null,
     sale.customerName ? ("Mijoz: " + sale.customerName) : null,
     sale.customerPhone ? ("Tel:   " + sale.customerPhone) : null,
-    "-".repeat(W),
+    DA,
     itemLines,
-    "=".repeat(W),
-    split2(`JAMI (${totalBoxes||totalDona} ${totalBoxes?"pchk":"dona"}):`, F(subtotal)+" som", W),
-    discount > 0 ? split2(`Chegirma${sale.discountPct ? " -"+sale.discountPct+"%" : ""}:`, `-${F(discount)} som`, W) : null,
-    discount > 0 ? split2("TO'LOV:", F(total)+" som", W) : null,
-    "=".repeat(W),
-    buildPayLines(),
-    "-".repeat(W),
-    buildDebtLines(),
-    note ? ("-".repeat(W) + "\nIzoh: " + note) : null,
-    "=".repeat(W),
-    center(footer || "Rahmat! Yana kutamiz", W),
-    botUser ? center("@"+botUser, W) : null,
-    "=".repeat(W),
-  ].filter(l => l !== null).join("\n");
+    EQ,
+    lr("Jami (" + (totalBoxes ? totalBoxes+" pchk" : totalDona+" dona") + "):", F(subtotal)+" som"),
+    discount > 0 ? lr("Chegirma" + (sale.discountPct ? " -"+sale.discountPct+"%" : "") + ":", "-"+F(discount)+" som") : null,
+    discount > 0 ? lr("TO'LOV:", F(total)+" som") : null,
+    EQ,
+    payLines(),
+    DA,
+    debtLines(),
+    note ? (DA + "\nIzoh: " + note) : null,
+    EQ,
+    center(footer || "Rahmat! Yana kutamiz"),
+    botUser ? center("@" + botUser) : null,
+    EQ,
+  ].filter(l => l !== null && l !== "").join("\n");
 
   return `<!DOCTYPE html><html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Chek ${chekNum}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Courier New',Courier,monospace;background:#f5f5f5;display:flex;flex-direction:column;align-items:center;padding:16px 8px}
-.rc{background:#fff;padding:16px;white-space:pre;font-size:13px;line-height:1.55;color:#000;width:340px;max-width:100%;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
+     display:flex;flex-direction:column;align-items:center;padding:16px 8px}
+.rc{background:#fff;padding:16px 14px;white-space:pre;
+    font-size:13.5px;line-height:1.6;color:#000;
+    width:340px;max-width:100%;
+    border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .acts{width:340px;max-width:100%;margin:10px 0 0;display:flex;gap:8px}
-.acts button{flex:1;border:none;border-radius:8px;padding:10px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
-.btn-p{background:#111;color:#fff}.btn-c{background:#fff;color:#111;border:1.5px solid #ccc}
+.acts button{flex:1;border:none;border-radius:7px;padding:11px;
+             font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
+.btn-p{background:#000;color:#fff}
+.btn-c{background:#fff;color:#000;border:1.5px solid #ccc}
 @media print{
   body{background:#fff;padding:0}
-  .rc{width:72mm;max-width:72mm;border-radius:0;box-shadow:none;font-size:11.5px;padding:4px}
+  .rc{width:72mm;max-width:72mm;border-radius:0;box-shadow:none;
+      font-size:11px;line-height:1.5;padding:4px 6px}
   .acts{display:none}
 }
 </style></head><body>
@@ -931,7 +935,6 @@ body{font-family:'Courier New',Courier,monospace;background:#f5f5f5;display:flex
 </div>
 </body></html>`;
 }
-
 
 // ════════════════════════════════════════════════
 // WHOLESALE CHEK — Compact ulgurji hujjat
@@ -1179,7 +1182,9 @@ function buildReceiptMerx(sale, opts, cfg) {
       ? (it.groupSizes ? it.groupSizes : "")
       : (it.size ? it.size : "");
     // info: rang · o'lcham (agar dona) yoki rang (pochkada o'lcham yo'q)
-    const metaStr = [colorStr, sizeStr].filter(Boolean).join(" · ");
+    const colorStr2 = it.color || "";
+    // Tovar qatori: Rang  Qty dona/pchk × Narx = Summa
+    const calcStr = `${F(qtyShow)} ${unitShow} × ${F(pricePer)} = ${F(sum)}`;
     return `<div class="it">
       <div class="it-top">
         <div class="it-num">${idx+1}</div>
@@ -1187,8 +1192,8 @@ function buildReceiptMerx(sale, opts, cfg) {
         <div class="it-sum">${F(sum)}</div>
       </div>
       <div class="it-info">
-        ${metaStr ? `<span class="it-meta">${metaStr}</span> · ` : ""}
-        <span class="it-calc">${F(pricePer)} × ${qtyShow} ${unitShow}</span>
+        ${colorStr2 ? `<span class="it-color">${colorStr2}</span>` : ""}
+        <span class="it-calc">${calcStr}</span>
       </div>
     </div>`;
   }).join("");
@@ -1257,7 +1262,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
 .it-art{font-family:'DM Sans',sans-serif;font-size:10px;color:#6366F1;background:#EEF2FF;padding:1px 6px;border-radius:4px;font-weight:600;margin-left:4px;vertical-align:middle}
 .it-sum{font-family:'Sora',sans-serif;font-size:13px;font-weight:800;color:#0D1B2A;white-space:nowrap}
 .it-info{font-size:12px;color:#374151;margin-top:3px;padding-left:20px;font-weight:500}
-.it-meta{color:#374151;font-weight:600}.it-calc{color:#374151;font-weight:700}
+.it-color{color:#374151;font-weight:600;margin-right:8px}.it-calc{color:#111;font-weight:700}
 .tot{margin:0 16px;padding:8px 0;border-top:2px solid #0D1B2A;display:flex;justify-content:space-between;align-items:center}
 .tot-l{font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#0D1B2A}
 .tot-cnt{font-size:11px;color:#555;font-weight:600;margin-top:1px}
