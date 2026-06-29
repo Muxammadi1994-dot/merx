@@ -1487,7 +1487,19 @@
         </div>
       </div>
 
-      <!-- 3-qator: Holat + Kassir (davr filtriga bog'liq) -->
+      <!-- 3-qator: Qidiruv -->
+      <div style="padding:0 18px 10px">
+        <div style="position:relative">
+          <i class="ti ti-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:#bbb;pointer-events:none"></i>
+          <input id="tarix-q" type="text" placeholder="Mijoz ismi, chek raqami, tovar nomi, telefon..."
+            oninput="renderTarix()"
+            style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:9px;padding:8px 36px 8px 34px;background:#fff;outline:none;box-sizing:border-box">
+          <button id="tarix-q-clr" onclick="$('tarix-q').value='';renderTarix();this.style.display='none'"
+            style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#bbb;font-size:16px;line-height:1;padding:0">×</button>
+        </div>
+      </div>
+
+      <!-- 4-qator: Holat + Kassir -->
       <div style="display:flex;align-items:center;gap:8px;padding:0 18px 14px;flex-wrap:wrap;border-bottom:1px solid var(--brd)">
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="tx-status-btn on" data-s="all" onclick="setTxStatus('all')"
@@ -3446,7 +3458,7 @@ const MERX_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 <script src="js/ombor.js?v=141"></script>
 <script src="js/mijozlar.js?v=141"></script>
 <script src="js/qarzlar.js?v=141"></script>
-<script src="js/tarix.js?v=149"></script>
+<script src="js/tarix.js?v=150"></script>
 <script src="js/hisobot.js?v=141"></script>
 <script src="js/xodimlar.js?v=141"></script>
 <script src="js/moliya.js?v=141"></script>

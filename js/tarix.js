@@ -110,7 +110,10 @@ function toggleTarixCol(key, val) {
 }
 
 function renderTarix() {
-  const q = ($("tarix-q")||{value:""}).value.toLowerCase();
+  const q = ($("tarix-q")||{value:""}).value.toLowerCase().trim();
+  // Tozalash tugmasini ko'rsatish/yashirish
+  const clrBtn = $("tarix-q-clr");
+  if (clrBtn) clrBtn.style.display = q ? "block" : "none";
 
   let list = (db.sales || []).slice().reverse().filter(s => {
     if (!s) return false;
@@ -120,10 +123,19 @@ function renderTarix() {
     if (txStatus === "qaytarilgan" && s.status !== "qaytarilgan") return false;
     if (txStaffId !== "all" && String(s.staffId) !== String(txStaffId)) return false;
     if (!q) return true;
-    return (s.customerName||"").toLowerCase().includes(q) ||
-           (s.items||[]).filter(Boolean).some(i => (i.name||"").toLowerCase().includes(q)) ||
-           (s.chekNum||"").toLowerCase().includes(q) ||
-           (s.note||"").toLowerCase().includes(q);
+    return (
+      (s.customerName||"").toLowerCase().includes(q) ||
+      (s.customerPhone||"").replace(/\D/g,"").includes(q.replace(/\D/g,"")) ||
+      (s.chekNum||"").toLowerCase().includes(q) ||
+      (s.note||"").toLowerCase().includes(q) ||
+      String(s.id).includes(q) ||
+      (s.items||[]).filter(Boolean).some(i =>
+        (i.name||"").toLowerCase().includes(q) ||
+        (i.art||"").toLowerCase().includes(q) ||
+        (i.sku||"").toLowerCase().includes(q) ||
+        (i.color||"").toLowerCase().includes(q)
+      )
+    );
   });
 
   // Kassir select yangilash
