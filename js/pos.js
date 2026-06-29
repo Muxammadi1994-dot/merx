@@ -250,7 +250,8 @@ function posSearch() {
     const _hasOverride = narx !== _baseNarx;
     const inBox = groupVariants.length || 1;
     const colorVariants = groupVariants;
-    const maxPochka = groupQty;
+    const _reservedInOtherCarts = getReservedQty(p.sku, color);
+    const maxPochka = Math.max(0, groupQty - _reservedInOtherCarts);
     const sizesStr  = typeof sizesToRange === "function"
       ? sizesToRange(colorVariants.map(v => v.size).filter(Boolean), p.type)
       : colorVariants.map(v => v.size).join(", ");
@@ -277,7 +278,9 @@ function posSearch() {
             <span>${sizesStr || "—"}</span>
             ${p.art ? '<span style="color:#CBD5E1">·</span><span style="font-family:monospace;font-weight:700;color:#6B4FBB">' + p.art + '</span>' : ""}
             <span style="color:#CBD5E1">·</span>
-            <span style="color:${maxPochka<=0?'#EF4444':maxPochka<=5?'#F59E0B':'#9CA3AF'}">${maxPochka} pochka</span>
+            <span style="color:${maxPochka<=0?'#EF4444':maxPochka<=5?'#F59E0B':'#9CA3AF'}">
+              ${maxPochka} pochka${_reservedInOtherCarts > 0 ? ' <span style="color:#E9A500;font-size:10px">('+_reservedInOtherCarts+' band)</span>' : ''}
+            </span>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
@@ -393,8 +396,14 @@ function posQuickAdd(sku, color, packGroup) {
   const alreadyInCart = cart.find(c => c.sku===sku && c.color===color && c.sellMode==="karobka" && c.packGroup===packGroup);
   const alreadyBoxes  = alreadyInCart ? (alreadyInCart.qtyBox||0) : 0;
 
-  if (alreadyBoxes + qtyInput > maxPochka) {
-    toast(`Faqat ${maxPochka - alreadyBoxes} pochka bor`, "err");
+  // Boshqa savatlarda band qilingan stokni hisobga olamiz
+  const _otherReserved = getReservedQty(sku, color) - alreadyBoxes;
+  const _freeQty = Math.max(0, maxPochka - alreadyBoxes - _otherReserved);
+  if (alreadyBoxes + qtyInput > maxPochka - _otherReserved) {
+    const msg = _otherReserved > 0
+      ? `Boshqa savatlarda ${_otherReserved} pochka band. Mavjud: ${_freeQty} pochka`
+      : `Faqat ${_freeQty} pochka bor`;
+    toast(msg, "err");
     return;
   }
 
@@ -426,6 +435,33 @@ function posClear() {
   if ($("pos-q")) $("pos-q").value = "";
   posSearch();
   $("pos-q")?.focus();
+}
+
+
+// ── Barcha savatlardagi band stok ────────────────
+// Boshqa savatlarda band qilingan tovar miqdorini qaytaradi
+function getReservedQty(sku, color, packGroup) {
+  var total = 0;
+  posCartsState.carts.forEach(function(cart, ci) {
+    cart.items.forEach(function(it) {
+      if (it.sku === sku && it.color === color) {
+        total += it.qtyBox || 0;
+      }
+    });
+  });
+  return total;
+}
+
+// Hozirgi aktiv savatdagi miqdor (boshqalardan tashqari)
+function getCurrentCartQty(sku, color) {
+  var total = 0;
+  var cart = posCartsState.carts[posCartsState.activeIdx] || {items:[]};
+  cart.items.forEach(function(it) {
+    if (it.sku === sku && it.color === color) {
+      total += it.qtyBox || 0;
+    }
+  });
+  return total;
 }
 
 function renderPosGrid() {
@@ -851,7 +887,7 @@ function renderCartTabs() {
       background:${isActive?"var(--acc)":"rgba(255,255,255,.08)"};
       color:${isActive?"#0D1B2A":"rgba(255,255,255,.65)"};transition:.15s">
       <i class="ti ti-shopping-cart" style="font-size:13px"></i>
-      ${c.name}
+      <span ondblclick="event.stopPropagation();posRenameCart(${i})" title="Ikki marta bosib nomini o'zgartiring">${c.name}</span>
       ${count > 0 ? `<span style="background:${isActive?"rgba(13,27,42,.2)":"rgba(255,255,255,.15)"};
         border-radius:8px;padding:1px 6px;font-size:10.5px">${count}</span>` : ""}
       ${posCartsState.carts.length > 1 ? `<i class="ti ti-x" style="font-size:12px;margin-left:2px;opacity:.6"
@@ -873,6 +909,19 @@ function posSwitchCart(idx) {
   posSaveCarts();
   renderCartTabs();
   renderCart();
+}
+
+
+// ── Savat nomini tahrirlash ───────────────────────
+function posRenameCart(idx) {
+  const cart = posCartsState.carts[idx];
+  if (!cart) return;
+  const newName = prompt("Savatcha nomi:", cart.name);
+  if (newName && newName.trim()) {
+    cart.name = newName.trim();
+    renderCartTabs();
+    toast("Savatcha nomi o'zgartirildi");
+  }
 }
 
 function posAddCart() {
