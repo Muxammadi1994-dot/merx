@@ -838,62 +838,93 @@ function buildStaffOrderHtml(sale, shopName) {
   const rem      = Number(sale.remaining || 0);
   const payType  = sale.payType || sale.pay_type || "";
   const custName  = sale.customerName  || sale.customer_name  || "";
+  const custPhone = sale.customerPhone || sale.customer_phone || "";
   const fmtN = n => Math.round(n || 0).toLocaleString("ru-RU");
 
-  const payLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", nasiya: "Nasiya", aralash: "Aralash" };
+  const payLabels = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", nasiya:"Nasiya", aralash:"Aralash" };
 
-  // Mahsulot kartochkalari
-  const cardsHtml = items.map(it => {
-    const variant = it.variant || "";
-    const color   = it.color   || "";
-    const size    = it.size    || "";
-    // rang teglari
-    const tags = [
-      color ? `<span class="tag tag-color">${color}</span>` : "",
-      size  ? `<span class="tag tag-size">${size}</span>`   : "",
-      variant && variant !== color && variant !== size
-            ? `<span class="tag tag-var">${variant}</span>` : "",
-    ].filter(Boolean).join("");
+  // Mahsulot kartochkalari — vertikal, bitta ustun
+  const cardsHtml = items.map((it, idx) => {
+    const color  = it.color  || "";
+    const size   = it.size   || "";
+    const art    = it.art    || "";
+    const barcode = it.barcode || "";
+    const qtyBox = it.qtyBox || "";
+    const unit   = it.unit   || "dona";
 
     const imgHtml = it.image
-      ? `<img src="${it.image}" class="item-img" style="cursor:zoom-in" onclick="openLb(this.src)" onerror="this.style.display='none'">`
-      : `<div class="item-img item-img-ph">${(it.name||"?")[0].toUpperCase()}</div>`;
+      ? `<img src="${it.image}" class="item-img" onclick="openLb(this.src)" onerror="this.style.display='none'">`
+      : "";
 
-    const codeTags = [
-      it.art     ? `<span class="tag tag-sku">ART ${it.art}</span>`     : "",
-      it.barcode ? `<span class="tag tag-bar">BAR ${it.barcode}</span>` : "",
-    ].filter(Boolean).join("");
+    // Rang badge — rangli nuqta bilan
+    const colorBg = (() => {
+      const colorMap = {
+        "qora":"#1A1A1A","oq":"#F5F5F5","ko'k":"#1E40AF","yashil":"#16A34A",
+        "qizil":"#DC2626","sariq":"#EAB308","to'q sariq":"#D97706","kulrang":"#6B7280",
+        "jigarrang":"#92400E","binafsha":"#7C3AED","pushti":"#EC4899","to'q ko'k":"#1E3A8A"
+      };
+      const cl = color.toLowerCase();
+      for (const [k,v] of Object.entries(colorMap)) {
+        if (cl.includes(k)) return v;
+      }
+      return "#888";
+    })();
+
+    const lineTotal = (it.price || 0) * (it.qty || 0);
+    const pricePer  = qtyBox ? `${qtyBox} pochka × ${fmtN(it.price)} so'm` : `${it.qty} ${unit} × ${fmtN(it.price)} so'm`;
 
     return `
-    <div class="card-item">
-      ${imgHtml}
-      <div class="item-qty-badge">×${it.qty}</div>
-      <div class="item-body">
+    <div class="card-item" id="item-${idx}">
+      ${imgHtml ? `<div class="item-img-wrap">${imgHtml}</div>` : ""}
+      <div class="item-content">
+        <div class="item-qty-row">
+          <span class="item-qty-badge">×${it.qty} ${unit}</span>
+          ${qtyBox ? `<span class="item-box-badge">📦 ${qtyBox} pochka</span>` : ""}
+        </div>
         <div class="item-name">${it.name}</div>
-        ${tags ? `<div class="item-tags">${tags}</div>` : ""}
-        ${codeTags ? `<div class="item-tags">${codeTags}</div>` : ""}
-        <div class="item-meta">
-          <span>${it.qty} ${it.unit || "dona"} × ${fmtN(it.price)} so'm</span>
-          <span class="item-sum">${fmtN((it.price || 0) * (it.qty || 0))} so'm</span>
+        <div class="item-attrs">
+          ${color ? `<div class="item-attr">
+            <span class="attr-dot" style="background:${colorBg}"></span>
+            <span class="attr-label">Rang:</span>
+            <span class="attr-val">${color}</span>
+          </div>` : ""}
+          ${size ? `<div class="item-attr">
+            <span class="attr-label">O'lcham:</span>
+            <span class="attr-val">${size}</span>
+          </div>` : ""}
+          ${art ? `<div class="item-attr">
+            <span class="attr-label">Artikul:</span>
+            <span class="attr-val attr-code">${art}</span>
+          </div>` : ""}
+          ${barcode ? `<div class="item-attr">
+            <span class="attr-label">Barcode:</span>
+            <span class="attr-val attr-code">${barcode}</span>
+          </div>` : ""}
+        </div>
+        <div class="item-price-row">
+          <span class="item-price-per">${pricePer}</span>
+          <span class="item-total">${fmtN(lineTotal)} so'm</span>
         </div>
       </div>
     </div>`;
   }).join("");
 
-  // To'lov bloki — dollar yoki so'm qarz
+  // To'lov
   const debtCurH = sale.debtCurrency || sale.debt_currency || "uzs";
   const debtUsdH = sale.debtUsd != null ? Number(sale.debtUsd) : (sale.debt_usd != null ? Number(sale.debt_usd) : null);
   const isUsdH   = debtCurH === "usd" && debtUsdH != null && rem > 0;
   const debtDisp = isUsdH ? `$${debtUsdH.toFixed(2)} USD` : `${fmtN(rem)} so'm`;
   const payBreakdownH = sale.payBreakdown || sale.pay_breakdown || null;
   const mixedHtml = payType === "aralash" && payBreakdownH
-    ? Object.entries(payBreakdownH).map(([m,v]) =>
-        `<div class="pay-row muted"><span>${payLabels[m]||m}</span><span>${fmtN(v)} so'm</span></div>`
-      ).join("")
+    ? Object.entries(payBreakdownH)
+        .filter(([m, v]) => m !== "qarz" && v > 0)
+        .map(([m, v]) => `<div class="pay-row muted"><span>${payLabels[m]||m}</span><span>${fmtN(v)} so'm</span></div>`)
+        .join("")
     : "";
 
   const payHtml = rem > 0
-    ? `${mixedHtml}<div class="pay-row"><span>To'landi</span><b>${fmtN(paid)} so'm</b></div>
+    ? `${mixedHtml}
+       <div class="pay-row"><span>To'landi</span><b>${fmtN(paid)} so'm</b></div>
        <div class="pay-row debt"><span>Qarz</span><b>${debtDisp}</b></div>
        ${sale.due ? `<div class="pay-row muted"><span>Muddat</span><span>${sale.due}</span></div>` : ""}`
     : `${mixedHtml}<div class="paid-badge">✅ To'liq to'landi</div>`;
@@ -906,107 +937,112 @@ function buildStaffOrderHtml(sale, shopName) {
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'DM Sans',sans-serif;background:#F2F0EB;min-height:100vh;padding:0 0 32px}
+body{font-family:'DM Sans',sans-serif;background:#F2F0EB;min-height:100vh;padding:0 0 40px}
 
 /* HEADER */
 .hdr{background:#0D1B2A;color:#fff;padding:18px 16px 14px;text-align:center;position:sticky;top:0;z-index:10}
-.hdr-logo{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;color:#E9A500;text-transform:uppercase}
-.hdr-title{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;margin-top:4px}
+.hdr-logo{font-family:'Sora',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;color:#E9A500;text-transform:uppercase}
+.hdr-title{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;margin-top:4px}
 .hdr-sub{font-size:12px;color:#9aa7b5;margin-top:3px}
 
-/* STATUS CHIP */
-.status-bar{background:#1a2d42;display:flex;justify-content:center;gap:16px;padding:10px 16px}
-.chip{display:flex;align-items:center;gap:5px;font-size:12px;color:#cdd5de}
-.chip b{color:#fff;font-size:13px}
-.chip-pay{background:#E9A50022;border-radius:20px;padding:4px 12px;color:#E9A500;font-weight:700;font-size:12.5px}
+/* STATUS */
+.status-bar{background:#1a2d42;display:flex;justify-content:center;gap:16px;padding:10px 16px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:5px;font-size:13px;color:#cdd5de}
+.chip b{color:#fff;font-size:14px}
+.chip-pay{background:#E9A50022;border-radius:20px;padding:4px 14px;color:#E9A500;font-weight:700;font-size:13px}
 
-/* INFO CARD */
-.info-card{margin:12px 12px 0;background:#fff;border-radius:12px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:8px}
-.info-f{flex:1;min-width:120px}
+/* MIJOZ */
+.info-card{margin:10px 12px 0;background:#fff;border-radius:12px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:8px}
+.info-f{flex:1;min-width:140px}
 .info-lbl{font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.8px;font-weight:700}
-.info-val{font-size:16px;font-weight:800;color:#0D1B2A;margin-top:3px}
+.info-val{font-size:16px;font-weight:700;color:#0D1B2A;margin-top:3px}
 
-/* SECTION TITLE */
+/* SECTION */
 .sec-title{padding:14px 14px 6px;font-size:11px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:1px}
 
-/* CARDS */
-.card-item{background:#fff;border-radius:14px;margin:8px 12px;padding:16px;display:flex;align-items:flex-start;gap:14px;position:relative;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.card-item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#E9A500}
-.item-qty-badge{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:18px;border-radius:10px;min-width:48px;height:48px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.item-body{flex:1;min-width:0}
-.item-name{font-family:'Sora',sans-serif;font-size:16px;font-weight:800;color:#0D1B2A;line-height:1.3}
-.item-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
-.tag{padding:4px 10px;border-radius:10px;font-size:12px;font-weight:700}
-.tag-color{background:#EEF2FF;color:#4F46E5}
-.tag-size{background:#F0FDF4;color:#16A34A}
-.tag-var{background:#FFF7ED;color:#C2410C}
-.item-meta{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:13px;color:#888}
-.item-sum{font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#0D1B2A}
-.item-img{width:80px;height:80px;border-radius:12px;object-fit:cover;flex-shrink:0;border:1px solid #f0ede8}
-.item-img-ph{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:28px;display:flex;align-items:center;justify-content:center}
-.tag-sku{background:#F0F9FF;color:#0369A1}
-.tag-bar{background:#FDF4FF;color:#7E22CE}
+/* KARTA — vertikal bitta ustun */
+.items-list{padding:0 12px}
+.card-item{background:#fff;border-radius:14px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07);border-left:5px solid #E9A500}
+.item-img-wrap{width:100%;height:180px;overflow:hidden;background:#F0EDE8}
+.item-img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block}
+.item-content{padding:14px 16px 16px}
 
-/* TOTAL */
-.total-card{background:#0D1B2A;margin:10px 12px 0;border-radius:12px;padding:14px 16px}
+/* Miqdor */
+.item-qty-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.item-qty-badge{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:20px;border-radius:8px;padding:4px 14px;display:inline-flex;align-items:center}
+.item-box-badge{background:#FEF3C7;color:#92400E;font-size:14px;font-weight:700;border-radius:8px;padding:4px 10px}
+
+/* Nom */
+.item-name{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;color:#0D1B2A;line-height:1.2;margin-bottom:12px}
+
+/* Atributlar */
+.item-attrs{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
+.item-attr{display:flex;align-items:center;gap:8px}
+.attr-dot{width:20px;height:20px;border-radius:5px;flex-shrink:0;border:1.5px solid rgba(0,0,0,.12)}
+.attr-label{font-size:13px;color:#9CA3AF;font-weight:600;min-width:70px}
+.attr-val{font-size:16px;font-weight:700;color:#0D1B2A}
+.attr-code{font-family:monospace;background:#F0F0FF;color:#4F46E5;padding:2px 10px;border-radius:6px;font-size:15px}
+
+/* Narx */
+.item-price-row{display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px dashed #E8E5E0}
+.item-price-per{font-size:13px;color:#9CA3AF}
+.item-total{font-family:'Sora',sans-serif;font-weight:800;font-size:20px;color:#0D1B2A}
+
+/* JAMI */
+.total-card{background:#0D1B2A;margin:4px 12px 0;border-radius:12px;padding:16px}
 .total-row{display:flex;justify-content:space-between;align-items:center}
 .total-lbl{font-family:'Sora',sans-serif;font-size:12px;color:#9aa7b5;font-weight:700;letter-spacing:.5px}
 .total-cnt{font-size:11px;color:#6b7a8d;margin-top:2px}
-.total-val{font-family:'Sora',sans-serif;font-weight:800;font-size:24px;color:#fff}
-.total-val span{font-size:13px;font-weight:600;color:#9aa7b5}
+.total-val{font-family:'Sora',sans-serif;font-weight:800;font-size:28px;color:#fff}
+.total-val span{font-size:14px;font-weight:600;color:#9aa7b5}
 
-/* PAYMENT */
-.pay-card{background:#fff;margin:8px 12px 0;border-radius:12px;padding:12px 14px}
-.pay-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px;color:#555}
-.pay-row.debt{color:#DC2626;border-top:1px dashed #fca5a5;margin-top:4px;padding-top:8px;font-weight:700}
+/* TO'LOV */
+.pay-card{background:#fff;margin:8px 12px 0;border-radius:12px;padding:14px}
+.pay-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:14px;color:#555}
+.pay-row.debt{color:#DC2626;border-top:1px dashed #fca5a5;margin-top:6px;padding-top:10px;font-weight:700;font-size:16px}
 .pay-row.muted{color:#aaa;font-size:12px}
-.paid-badge{text-align:center;background:#ECFDF5;color:#059669;font-weight:700;font-size:13px;padding:8px;border-radius:8px}
+.paid-badge{text-align:center;background:#ECFDF5;color:#059669;font-weight:700;font-size:14px;padding:10px;border-radius:8px}
 
 /* FOOTER */
 .footer{text-align:center;margin-top:20px;font-size:11px;color:#bbb;padding:0 12px}
 
-/* LIGHTBOX */
+/* Lightbox */
 .lb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:999;align-items:center;justify-content:center;cursor:zoom-out}
 .lb-overlay.open{display:flex}
-.lb-img{max-width:95vw;max-height:90vh;object-fit:contain;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.5)}
-.lb-close{position:absolute;top:16px;right:16px;color:#fff;font-size:28px;cursor:pointer;line-height:1;background:rgba(255,255,255,.15);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center}
+.lb-img{max-width:95vw;max-height:90vh;object-fit:contain;border-radius:10px}
+.lb-close{position:absolute;top:16px;right:16px;color:#fff;font-size:28px;cursor:pointer;background:rgba(255,255,255,.15);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center}
 
-/* DESKTOP */
+/* Desktop — 2 ustun lekin karta vertikal */
 @media(min-width:640px){
   body{padding:24px 16px 48px}
-  .hdr{border-radius:16px 16px 0 0;max-width:900px;margin:0 auto}
-  .status-bar{max-width:900px;margin:0 auto}
-  .page-inner{max-width:900px;margin:0 auto}
-  .info-card{margin:12px 0 0}
-  .sec-title{padding:14px 0 6px}
-  .items-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0}
-  .card-item{margin:0}
-  .total-card,.pay-card{margin:10px 0 0}
-  .footer{max-width:900px;margin:20px auto 0}
+  .hdr,.status-bar,.page-inner{max-width:700px;margin-left:auto;margin-right:auto}
+  .hdr{border-radius:16px 16px 0 0}
+  .items-list{padding:0;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .total-card,.pay-card,.info-card,.sec-title{margin-left:0;margin-right:0}
 }
 </style></head>
 <body>
 
 <div class="hdr">
-  <div class="hdr-logo">${shopName.toUpperCase()} · BUYURTMA</div>
+  <div class="hdr-logo">${shopName.toUpperCase()} · OMBORCHI</div>
   <div class="hdr-title">${chekId}</div>
   <div class="hdr-sub">📅 ${date} ${time}</div>
 </div>
 
 <div class="status-bar">
-  <div class="chip">🏬 <b>${items.reduce((a,i)=>a+(i.qty||0),0)}</b> dona</div>
   <div class="chip">📦 <b>${items.length}</b> tur</div>
+  <div class="chip">🔢 <b>${items.reduce((a,i)=>a+(i.qty||0),0)}</b> dona</div>
   <div class="chip-pay">${payLabels[payType] || payType || "—"}</div>
 </div>
 
-${custName ? `<div class="info-card">
+${custName ? `<div class="info-card" style="margin:10px 12px 0">
   <div class="info-f"><div class="info-lbl">Mijoz</div><div class="info-val">👤 ${custName}</div></div>
-  ${sale.customerPhone || sale.customer_phone ? `<div class="info-f"><div class="info-lbl">Telefon</div><div class="info-val">📞 ${sale.customerPhone || sale.customer_phone}</div></div>` : ""}
+  ${custPhone ? `<div class="info-f"><div class="info-lbl">Telefon</div><div class="info-val">📞 ${custPhone}</div></div>` : ""}
 </div>` : ""}
 
 <div class="page-inner">
 <div class="sec-title">Mahsulotlar (${items.length} tur)</div>
-<div class="items-grid">
+<div class="items-list">
 ${cardsHtml}
 </div>
 
@@ -1027,27 +1063,20 @@ ${cardsHtml}
 <div class="footer">@${BOT_USERNAME} · ${shopName}</div>
 </div>
 
-<!-- Lightbox -->
 <div class="lb-overlay" id="lb" onclick="closeLb()">
   <div class="lb-close" onclick="closeLb()">✕</div>
   <img class="lb-img" id="lb-img" src="">
 </div>
 
 <script>
-function openLb(src){
-  document.getElementById('lb-img').src = src;
-  document.getElementById('lb').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-function closeLb(){
-  document.getElementById('lb').classList.remove('open');
-  document.body.style.overflow = '';
-}
-document.addEventListener('keydown', e => { if(e.key==='Escape') closeLb(); });
+function openLb(src){document.getElementById('lb-img').src=src;document.getElementById('lb').classList.add('open');document.body.style.overflow='hidden';}
+function closeLb(){document.getElementById('lb').classList.remove('open');document.body.style.overflow='';}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeLb();});
 </script>
-
 </body></html>`;
 }
+
+
 
 async function actionRenderStaffOrder(chekId, saleData, shopId) {
   let sale = null;
