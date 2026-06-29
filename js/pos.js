@@ -793,9 +793,11 @@ function renderCart() {
           <div class="qty-ctrl">
             <button onclick="ciQty(${i},-1)">−</button>
             <input type="number" value="${c.sellMode==='karobka' ? c.qtyBox : c.qty}" min="1"
-              oninput="ciQtySet(${i},+this.value)"
               onfocus="this.select()"
               onclick="this.select()"
+              oninput="ciQtyLimit(${i},this)"
+              onblur="ciQtySet(${i},+this.value)"
+              onkeydown="if(event.key==='Enter'){this.blur();}"
               style="width:44px;text-align:center;border:none;outline:none;font-weight:600">
             <button onclick="ciQty(${i},1)">+</button>
             ${c.sellMode==='karobka' ? `<span style="font-size:10px;color:#bbb;margin-left:3px">${c.unit==='dona'?'pochka':'pochka'}</span>` : ""}
@@ -893,6 +895,21 @@ function ciQty(i, d) {
   }
   renderCart();
 }
+
+// Savatda qty input — yozish paytida faqat limit tekshiradi
+function ciQtyLimit(i, inp) {
+  const c = cart[i]; if (!c) return;
+  const v = parseInt(inp.value) || 1;
+  const max = ciGetMax(c);
+  if (v > max && max > 0) {
+    inp.value = max;
+    inp.style.color = "#E9A500";
+    setTimeout(() => { inp.style.color = ""; }, 800);
+  } else {
+    inp.style.color = "";
+  }
+}
+
 function ciQtySet(i, v) {
   const c = cart[i];
   const max = ciGetMax(c);
