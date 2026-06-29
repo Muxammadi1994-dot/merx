@@ -398,22 +398,29 @@ function posQuickAdd(sku, color, packGroup) {
 
   // Boshqa savatlarda band qilingan stokni hisobga olamiz
   const _otherReserved = getReservedQty(sku, color) - alreadyBoxes;
-  const _freeQty = Math.max(0, maxPochka - alreadyBoxes - _otherReserved);
-  if (alreadyBoxes + qtyInput > maxPochka - _otherReserved) {
+  const _limit = Math.max(0, maxPochka - _otherReserved); // aktiv savatga mumkin maksimal
+  const _freeAdd = Math.max(0, _limit - alreadyBoxes);    // yana qo'shish mumkin
+
+  if (_freeAdd <= 0 && qtyInput > 0) {
     const msg = _otherReserved > 0
-      ? `Boshqa savatlarda ${_otherReserved} pochka band. Mavjud: ${_freeQty} pochka`
-      : `Faqat ${_freeQty} pochka bor`;
-    toast(msg, "err");
-    return;
+      ? `Boshqa savatlarda ${_otherReserved} pochka band. Stok tugagan`
+      : `Stok tugagan`;
+    toast(msg, "err"); return;
+  }
+  // qtyInput limitdan oshsa — avtomat kesib olamiz
+  const _actualAdd = Math.min(qtyInput, _freeAdd);
+  if (_actualAdd < qtyInput) {
+    toast(`${_actualAdd} pochka qo'shildi (limit: ${_limit} pochka${_otherReserved>0?', '+_otherReserved+' boshqa savatda band':''})`, "info");
   }
 
   const _bNarx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
   const narx = (typeof _priceOverrides !== "undefined" && _priceOverrides[sku+"|"+color]) || _bNarx;
-  const totalDona = qtyInput * inBox;
+  const _safeAdd  = _actualAdd; // avtomat kesib olingan qiymat
+  const totalDona = _safeAdd * inBox;
 
   if (alreadyInCart) {
     alreadyInCart.qty += totalDona;
-    alreadyInCart.qtyBox = (alreadyInCart.qtyBox||0) + qtyInput;
+    alreadyInCart.qtyBox = (alreadyInCart.qtyBox||0) + _safeAdd;
   } else {
     cart.push({
       sku, name: p.name, color, size: null,
@@ -822,13 +829,26 @@ function renderCart() {
 // Savatchadagi mahsulot uchun maksimal mumkin bo'lgan miqdorni hisoblash
 function ciGetMax(c) {
   const p = db.products.find(x => x.sku === c.sku); if (!p) return Infinity;
+  // Boshqa savatlarda band qilingan miqdor (aktiv savatdagi bu item ni chiqarib)
+  var otherReserved = 0;
+  posCartsState.carts.forEach(function(ct, ci) {
+    if (ci === posCartsState.activeIdx) return; // aktiv savatni o'tkazib yuboramiz
+    ct.items.forEach(function(it) {
+      if (it.sku === c.sku && it.color === c.color) {
+        otherReserved += it.qtyBox || 0;
+      }
+    });
+  });
+
   if (c.sellMode === "karobka") {
     const groups = typeof regroupPackages === "function" ? regroupPackages(p.variants, c.color) : [];
     const g = groups[c.packGroup || 0];
-    return g ? g.qty : 0;
+    const totalQty = g ? g.qty : 0;
+    return Math.max(0, totalQty - otherReserved);
   } else {
     const v = p.variants.find(x => x.color === c.color && x.size === c.size);
-    return v ? v.qty : 0;
+    const totalQty = v ? v.qty : 0;
+    return Math.max(0, totalQty - otherReserved);
   }
 }
 
