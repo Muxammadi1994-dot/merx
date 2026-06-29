@@ -3,9 +3,6 @@
 // ════════════════════════════════════════════════════════════════
 
 const TOKEN        = process.env.TELEGRAM_BOT_TOKEN;
-
-// Done state store — server memory da saqlanadi (restart da tozalanadi)
-const doneStateStore = new Map();
 const SB_URL       = process.env.SUPABASE_URL;
 const SB_KEY       = process.env.SUPABASE_KEY;
 const OWNER_ID     = process.env.BOT_OWNER_CHAT_ID;  // Superadmin chat ID
@@ -972,7 +969,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
 /* MIJOZ */
 .cust-card{margin:10px 12px 0;background:#fff;border-radius:12px;padding:12px 14px}
 .cust-lbl{font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.8px}
-.cust-val{font-size:26px;font-weight:800;color:#0D1B2A;margin-top:4px}
+.cust-val{font-size:18px;font-weight:700;color:#0D1B2A;margin-top:2px}
 
 /* SECTION */
 .sec{padding:14px 14px 8px;font-size:11px;font-weight:800;color:#999;text-transform:uppercase;letter-spacing:1px}
@@ -982,7 +979,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
 .card.done{opacity:.55;border:2px solid #22C55E}
 
 /* Rasm */
-.card-img-wrap{position:relative;width:100%;height:min(260px,60vw);background:#F0EDE8;overflow:hidden}
+.card-img-wrap{position:relative;width:100%;height:min(200px,50vw);background:#F0EDE8;overflow:hidden}
 .card-img-wrap img{width:100%;height:100%;object-fit:cover;cursor:pointer;display:block}
 .card-done-overlay{display:none;position:absolute;inset:0;background:rgba(34,197,94,.85);color:#fff;font-family:'Sora',sans-serif;font-size:32px;font-weight:800;align-items:center;justify-content:center;letter-spacing:1px}
 .card-done-overlay.show{display:flex}
@@ -991,27 +988,27 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
 /* Karta body */
 .card-body{padding:18px 16px 14px}
 .qty-row{margin-bottom:8px}
-.qty-badge{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:32px;border-radius:12px;padding:10px 24px;display:inline-block}
+.qty-badge{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:26px;border-radius:10px;padding:7px 20px;display:inline-block}
 
 /* Nom */
-.card-name{font-family:'Sora',sans-serif;font-size:38px;font-weight:800;color:#0D1B2A;line-height:1.2;margin:12px 0 18px}
+.card-name{font-family:'Sora',sans-serif;font-size:30px;font-weight:800;color:#0D1B2A;line-height:1.2;margin:10px 0 16px}
 
 /* Atributlar */
 .card-attrs{display:flex;flex-direction:column;gap:0}
-.attr-row{display:flex;align-items:center;padding:14px 0;border-bottom:1px solid #F0EDE8}
+.attr-row{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid #F0EDE8}
 .attr-row:last-child{border-bottom:none}
-.attr-k{font-size:22px;font-weight:700;color:#9CA3AF;min-width:120px}
-.attr-v{font-size:28px;font-weight:800;color:#0D1B2A;display:flex;align-items:center;gap:10px}
-.color-dot{width:34px;height:34px;border-radius:8px;flex-shrink:0;border:2px solid rgba(0,0,0,.12);display:inline-block}
-.code{font-family:monospace;background:#EEF2FF;color:#4F46E5;padding:5px 16px;border-radius:8px;font-size:26px;font-weight:700}
+.attr-k{font-size:18px;font-weight:700;color:#9CA3AF;min-width:100px}
+.attr-v{font-size:22px;font-weight:800;color:#0D1B2A;display:flex;align-items:center;gap:8px}
+.color-dot{width:26px;height:26px;border-radius:7px;flex-shrink:0;border:2px solid rgba(0,0,0,.12);display:inline-block}
+.code{font-family:monospace;background:#EEF2FF;color:#4F46E5;padding:4px 14px;border-radius:7px;font-size:20px;font-weight:700}
 
 /* Narx */
-.price-row{display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:14px;border-top:2px dashed #E8E5E0}
-.price-per{font-size:18px;color:#9CA3AF;font-weight:600}
-.price-sum{font-family:'Sora',sans-serif;font-weight:800;font-size:32px;color:#0D1B2A}
+.price-row{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:2px dashed #E8E5E0}
+.price-per{font-size:15px;color:#9CA3AF;font-weight:600}
+.price-sum{font-family:'Sora',sans-serif;font-weight:800;font-size:26px;color:#0D1B2A}
 
 /* Tayyor tugma */
-.done-btn{width:100%;padding:20px;border:none;background:#F0FDF4;color:#16A34A;font-family:'Sora',sans-serif;font-size:22px;font-weight:800;cursor:pointer;border-top:2px solid #BBF7D0;transition:background .2s;letter-spacing:.5px}
+.done-btn{width:100%;padding:16px;border:none;background:#F0FDF4;color:#16A34A;font-family:'Sora',sans-serif;font-size:18px;font-weight:800;cursor:pointer;border-top:1px solid #BBF7D0;transition:background .2s;letter-spacing:.5px}
 .done-btn:active{background:#DCFCE7}
 .card.done .done-btn{background:#DCFCE7;color:#15803D}
 
@@ -1085,15 +1082,16 @@ ${cardsHtml}
 <div class="footer">@${BOT_USERNAME} · ${shopName}</div>
 
 <script>
+// Tayyor belgilash — server orqali REAL-TIME
 var doneItems = {};
 var CHEK_ID   = "${chekId}";
-var TOTAL_TUR = ${totalTur};
-// Bot API URL — sahifa shu serverdan keladi
+var TOTAL_TUR2 = ${totalTur};
 var API_BASE  = window.location.origin + "/api/bot";
 
 function applyDone() {
+  var total = ${totalTur};
   var cnt = 0;
-  for (var i = 0; i < TOTAL_TUR; i++) {
+  for (var i = 0; i < total; i++) {
     var card    = document.getElementById('card-' + i);
     var overlay = document.getElementById('done-' + i);
     var btn     = document.getElementById('dbtn-' + i);
@@ -1109,30 +1107,17 @@ function applyDone() {
     }
     if (btn) btn.textContent = done ? '↩ Bekor qilish' : 'Tayyor belgilash';
   }
+  // Progress
   var prog = document.getElementById('progress-text');
   if (prog) {
-    prog.textContent = cnt + '/' + TOTAL_TUR + ' tayyor';
-    prog.style.color = cnt === TOTAL_TUR ? '#22C55E' : '#E9A500';
+    prog.textContent = cnt + '/' + total + ' tayyor';
+    prog.style.color = cnt === total ? '#22C55E' : '#E9A500';
   }
+  // Header progress bar
   var bar = document.getElementById('prog-bar-fill');
-  if (bar) bar.style.width = (TOTAL_TUR > 0 ? Math.round(cnt/TOTAL_TUR*100) : 0) + '%';
+  if (bar) bar.style.width = (total > 0 ? Math.round(cnt/total*100) : 0) + '%';
 }
 
-// Serverdan yuklash
-function fetchDone() {
-  fetch(API_BASE + '?action=get_done&id=' + encodeURIComponent(CHEK_ID))
-    .then(function(r){ return r.json(); })
-    .then(function(data) {
-      if (data.ok && Array.isArray(data.done)) {
-        var newDone = {};
-        data.done.forEach(function(i){ newDone[i] = true; });
-        doneItems = newDone;
-        applyDone();
-      }
-    }).catch(function(){});
-}
-
-// Serverga saqlash
 function toggleDone(idx) {
   doneItems[idx] = !doneItems[idx];
   applyDone();
@@ -1143,15 +1128,27 @@ function toggleDone(idx) {
   }).catch(function(){});
 }
 
-// Har 4 soniyada yangilash
+// Har 4 soniyada serverdan yangilash
+function fetchDone() {
+  fetch(API_BASE + '?action=get_done&id=' + encodeURIComponent(CHEK_ID))
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (data.ok && Array.isArray(data.done)) {
+        var nd = {};
+        data.done.forEach(function(i){ nd[i] = true; });
+        doneItems = nd;
+        applyDone();
+      }
+    }).catch(function(){});
+}
 setInterval(fetchDone, 4000);
 
 // Lightbox
 function openLb(src){document.getElementById('lb-img').src=src;document.getElementById('lb').classList.add('open');document.body.style.overflow='hidden';}
 function closeLb(){document.getElementById('lb').classList.remove('open');document.body.style.overflow='';}
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeLb();});
-document.querySelectorAll('.card-img-wrap img').forEach(function(img){
-  img.onclick = function(e){ e.stopPropagation(); openLb(this.src); };
+document.querySelectorAll('.card-img-wrap img').forEach(function(img) {
+  img.onclick = function(e) { e.stopPropagation(); openLb(this.src); };
 });
 
 // Ishga tushirish
@@ -1642,30 +1639,30 @@ export default async function handler(req, res) {
     }
   }
 
-  // MERX dan: ishchilar guruhiga bildirishnoma — YANGI
   // Done state — GET
-  if (req.query?.action === "get_done") {
-    const chekId = req.query?.id || "";
-    const done = doneStateStore.get(chekId) ? Array.from(doneStateStore.get(chekId)) : [];
+  if (req.method === "GET" && req.query?.action === "get_done") {
+    const chekId = String(req.query?.id || "");
+    const done = doneStateStore.has(chekId) ? Array.from(doneStateStore.get(chekId)) : [];
     return res.status(200).json({ ok: true, done });
   }
 
   // Done state — SET
-  if (req.query?.action === "set_done") {
+  if (req.method === "POST" && req.query?.action === "set_done") {
     let body;
     try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; } catch { body = {}; }
-    const chekId = req.query?.id || body?.id || "";
-    const idx    = parseInt(body?.idx);
+    const chekId = String(req.query?.id || body?.id || "");
+    const idx2   = parseInt(body?.idx);
     const val    = body?.val === true || body?.val === "true";
-    if (chekId && !isNaN(idx)) {
+    if (chekId && !isNaN(idx2)) {
       if (!doneStateStore.has(chekId)) doneStateStore.set(chekId, new Set());
-      if (val) doneStateStore.get(chekId).add(idx);
-      else     doneStateStore.get(chekId).delete(idx);
+      if (val) doneStateStore.get(chekId).add(idx2);
+      else     doneStateStore.get(chekId).delete(idx2);
     }
-    const done = doneStateStore.get(chekId) ? Array.from(doneStateStore.get(chekId)) : [];
+    const done = doneStateStore.has(chekId) ? Array.from(doneStateStore.get(chekId)) : [];
     return res.status(200).json({ ok: true, done });
   }
 
+  // MERX dan: ishchilar guruhiga bildirishnoma — YANGI
   if (req.query?.action === "send_staff_notif") {
     let body;
     try {
@@ -1767,7 +1764,4 @@ export default async function handler(req, res) {
   }
 
   return res.status(200).json({ ok: true });
-}// Done state store (in-memory)
-const doneStateStore = new Map();
-
-
+}
