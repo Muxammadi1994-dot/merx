@@ -429,11 +429,6 @@ function posClear() {
 }
 
 function renderPosGrid() {
-  // Bloklash holatini settings dan yuklaymiz (faqat bir marta)
-  if (db && db.settings && db.settings.posPayBlocked) {
-    _payBlocked = JSON.parse(JSON.stringify(db.settings.posPayBlocked));
-  }
-  _applyPayBlocked();
   posUpdatePriceTypeVisibility();
   posSearch();
   renderCartTabs();
@@ -1098,23 +1093,26 @@ function _applyStaffLock() {
 }
 
 function togglePayMethodBlock(method, btnEl) {
+  // Toggle
   _payBlocked[method] = !_payBlocked[method];
   var blocked = !!_payBlocked[method];
+
+  // DB ga saqlash (scheduleCloudSync chaqirmasdan)
   if (!db.settings) db.settings = {};
   db.settings.posPayBlocked = JSON.parse(JSON.stringify(_payBlocked));
-  saveDB();
+  try {
+    var key = typeof getDBKEY === "function" ? getDBKEY() : "merx_db";
+    localStorage.setItem(key, JSON.stringify(db));
+  } catch(e) {}
 
-  // btn — to'g'ridan uzatilgan element yoki getElementById
+  // UI yangilash
   var btn = btnEl || document.getElementById("pay-lock-" + method);
+  var inp = document.getElementById("pay-" + method);
+  var row = document.getElementById("pay-row-" + method);
+
   if (btn) btn.innerHTML = blocked
     ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
     : '<i class="ti ti-lock-open" style="color:#CBD5E1"></i>';
-
-  // row va inp — btn dan yoki getElementById
-  var row = (btn && btn.closest) ? btn.closest("[id]") : null;
-  if (!row || !row.id.startsWith("pay-row-")) row = document.getElementById("pay-row-" + method);
-  var inp = document.getElementById("pay-" + method);
-
   if (inp) { inp.disabled = blocked; if (blocked) inp.value = ""; }
   if (row) { row.style.opacity = blocked ? "0.4" : "1"; row.style.pointerEvents = blocked ? "none" : "auto"; }
 
@@ -1393,7 +1391,12 @@ function _applyPayBlocked() {
 function refreshStaffList() {
   // Bloklash holatini settings dan yuklaymiz (har POS ochilganda)
   if (typeof db !== "undefined" && db.settings) {
+    var _pb = db.settings.posPayBlocked;
+    _payBlocked  = (_pb && typeof _pb === "object") ? Object.assign({}, _pb) : {};
     _staffLocked = db.settings.posStaffLocked === true;
+  } else {
+    _payBlocked  = {};
+    _staffLocked = false;
   }
   const sel = $("pos-staff"); if (!sel) return;
   // Kassirlar ro'yxatini to'ldiramiz
@@ -1401,6 +1404,7 @@ function refreshStaffList() {
   const cur = _staffLocked && lockedId ? lockedId : sel.value;
   sel.innerHTML = '<option value="">-- Kassirni tanlang --</option>' +
     (db.staff||[]).map(s => `<option value="${s.id}"${String(s.id)===String(cur)?" selected":""}>${s.name}</option>`).join("");
+  _applyPayBlocked();
   _applyStaffLock();
 }
 
