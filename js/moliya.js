@@ -208,6 +208,29 @@ function molDateRange() {
 }
 
 // ── Asosiy render ─────────────────────────────────
+
+// Kategoriya filter options ni xarajat turiga qarab yangilash
+function _updateCatFilterOptions(typeFilter) {
+  const sel = $("exp-cat-filter"); if (!sel) return;
+  const curVal = sel.value;
+  
+  // Qaysi teglar ko'rsatilsin
+  let tags = [];
+  if (typeFilter === "kunlik") {
+    tags = getExpTags("kunlik");
+  } else if (typeFilter === "oylik") {
+    tags = getExpTags("oylik");
+  } else {
+    // Barcha teglar
+    tags = [...getExpTags("kunlik"), ...getExpTags("oylik")];
+    // Dublikatlarni olib tashlaymiz
+    tags = [...new Set(tags)];
+  }
+
+  sel.innerHTML = '<option value="">📂 Barcha kategoriyalar</option>' +
+    tags.map(t => `<option value="${t}" ${t===curVal?"selected":""}>${t}</option>`).join("");
+}
+
 function renderMoliya() {
   const { from, to } = molDateRange();
   const rate = db.settings?.rate || 12800;
@@ -351,6 +374,8 @@ function renderMoliya() {
   // Xarajat turi filtri (kunlik/oylik)
   const typeFilter = ($("exp-type-filter")||{value:""}).value;
   if (typeFilter) exps = exps.filter(x => (x.xarajatType || "kunlik") === typeFilter);
+  // Kategoriya filter options ni yangilaymiz (tanga qarab)
+  _updateCatFilterOptions(typeFilter);
   // Kategoriya filtri (select)
   const catFilter = ($("exp-cat-filter")||{value:""}).value;
   if (catFilter) exps = exps.filter(x => (x.category||"") === catFilter);
