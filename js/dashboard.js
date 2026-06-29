@@ -8,11 +8,8 @@ let dashCalOpen    = false;
 
 // ── Yordamchi funksiyalar ──────────────────────
 function fmtK(n) {
-  if (!n) return '0';
-  if (n >= 1000000000) return (n / 1000000000).toFixed(1).replace(/\.0$/, '') + ' mlrd';
-  if (n >= 1000000)    return (n / 1000000).toFixed(1).replace(/\.0$/, '') + ' mln';
-  if (n >= 1000)       return Math.round(n / 1000) + 'K';
-  return fmt(n);
+  if (!n || isNaN(n)) return "0";
+  return Math.round(n).toLocaleString("ru-RU");
 }
 
 function dashGreeting() {
