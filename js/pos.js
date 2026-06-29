@@ -1942,7 +1942,7 @@ function showReceiptModal(sale) {
       return `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;font-size:13px">
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;color:#0D1B2A">${i.name}</div>
-          <div style="font-size:11.5px;color:#888;margin-top:1px">${variantStr} · ${i.qty} ${i.unit||"dona"} · ${_fmtP(unitPrice)}/dona</div>
+          <div style="font-size:12px;color:#374151;font-weight:600;margin-top:2px">${variantStr} · ${i.qty} ${i.unit||"dona"} · ${_fmtP(unitPrice)}/dona</div>
         </div>
         <div style="font-weight:800;color:#0D1B2A;margin-left:12px;white-space:nowrap">${_fmtP(lineTotal)}</div>
       </div>`;
@@ -1980,7 +1980,7 @@ function showReceiptModal(sale) {
         .filter(([m]) => m !== "qarz")
         .map(([m, v]) => `
         <div style="display:flex;justify-content:space-between;font-size:12px">
-          <span style="color:#888">${icons[m]||""} ${payLabels[m]||m}</span>
+          <span style="color:#374151;font-weight:600">${icons[m]||""} ${payLabels[m]||m}</span>
           <strong style="color:#0D1B2A">${fmt(v)} so'm</strong>
         </div>`).join("");
     }
