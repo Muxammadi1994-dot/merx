@@ -622,7 +622,7 @@ function printReceipt(id) {
   const html = buildReceiptHtml(s, {
     shopName, staffName: staffObj?.name || "—",
     botUsername: botUser, receiptUrl,
-    style: chekCfg2.tarixStyle || "full"
+    style: chekCfg2.tarixStyle || "merx"
   });
   const w = window.open("","_blank","width=420,height=700");
   if (!w) { toast("Pop-up bloklangan","err"); return; }

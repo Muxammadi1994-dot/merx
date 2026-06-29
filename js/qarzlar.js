@@ -1147,7 +1147,7 @@ function showDebtPaymentReceipt(payment) {
   const shopName = db.shop?.name || "MERX";
   // Ixcham uslub tanlangan bo'lsa — buildReceiptHtml ishlatamiz
   const chekCfg3 = (typeof db !== "undefined" && db.settings?.chekConfig) || {};
-  if (chekCfg3.qarzStyle && chekCfg3.qarzStyle !== "full") {
+  if (chekCfg3.qarzStyle && !["full","compact"].includes(chekCfg3.qarzStyle)) {
     const staffObj3 = db.staff?.find(s => s.id === payment.staffId);
     const fakeSale = {
       id: payment.id, chekNum: payment.chekNum,
@@ -1164,7 +1164,7 @@ function showDebtPaymentReceipt(payment) {
     };
     const html3 = buildReceiptHtml(fakeSale, {
       shopName, staffName: staffObj3?.name || "—",
-      style: chekCfg3.qarzStyle || "compact"
+      style: chekCfg3.qarzStyle || "merx"
     });
     const w3 = window.open("","_blank","width=420,height=600");
     if (w3) { w3.document.write(html3); w3.document.close(); return; }

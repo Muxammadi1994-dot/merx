@@ -335,7 +335,7 @@ function buildReceiptHtml(sale, opts) {
 
   // Chek sozlamalari — settings dan olamiz
   const chekCfg = (typeof db !== "undefined" && db.settings?.chekConfig) || {};
-  const style   = opts.style || chekCfg.style || "full"; // full | compact | table
+  const style   = opts.style || chekCfg.posStyle || chekCfg.style || "merx";
   const logo    = chekCfg.logo    || "";   // base64 yoki bo'sh
   const contact = chekCfg.contact || "";   // do'kon telefoni
   const footer  = chekCfg.footer  || "Rahmat! Yana kutamiz 🙏";

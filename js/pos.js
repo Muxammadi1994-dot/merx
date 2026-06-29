@@ -2118,7 +2118,7 @@ function printReceiptPos() {
   const html = buildReceiptHtml(sale, {
     shopName, staffName: staffObj?.name || "—",
     botUsername: botUser, receiptUrl,
-    style: chekCfg.posStyle || "full"
+    style: chekCfg.posStyle || "merx"
   });
 
   const w = window.open("","_blank","width=420,height=700");
