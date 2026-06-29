@@ -40,30 +40,62 @@ function _buildUser(email, shopId, role) {
 }
 
 // ── authLogin — db ichida tekshiradi ─────────────
-function authLogin(email, password, shopId) {
+// ── SHA-256 hash (Web Crypto API) ────────────────
+async function sha256(text) {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text)
+  );
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// Parolni hash ga aylantirish + DB ga saqlash
+async function migratePassToHash() {
+  const s = db?.settings;
+  if (!s || !s.adminPass || s.adminPass.length === 64) return; // allaqachon hash
+  const hashed = await sha256(s.adminPass);
+  s.adminPass = hashed;
+  saveDB();
+}
+
+async function authLogin(email, password, shopId) {
   const stored = db?.settings?.adminEmail;
   const pass   = db?.settings?.adminPass;
 
+  // Birinchi kirish — parol yo'q
   if (!stored) {
     if (!email || !password || password.length < 4)
       return { ok: false, error: "Email va kamida 4 ta belgili parol kiriting" };
     if (!db.settings) db.settings = {};
     db.settings.adminEmail = email.toLowerCase();
-    db.settings.adminPass  = password;
+    db.settings.adminPass  = await sha256(password); // hash bilan saqlaymiz
     saveDB();
     const user = _buildUser(email, shopId);
     authSave(user);
     return { ok: true, user, firstTime: true };
   }
-  // adminPass yo'q bo'lsa (Supabase orqali kelgan do'kon) — parol tekshirmaymiz
+
+  if (email.toLowerCase() !== stored)
+    return { ok: false, error: "Email yoki parol noto'g'ri" };
+
   if (!pass) {
-    // Parol yo'q — Supabase orqali autentifikatsiya qilingan, to'g'ridan login
-    if (email.toLowerCase() !== stored)
-      return { ok: false, error: "Email noto'g'ri" };
-  } else {
-    if (email.toLowerCase() !== stored || password !== pass)
+    // Parol yo'q (eski do'kon) — to'g'ridan kirish
+  } else if (pass.length === 64) {
+    // Hash bilan solishtiramiz
+    const inputHash = await sha256(password);
+    if (inputHash !== pass)
       return { ok: false, error: "Email yoki parol noto'g'ri" };
+  } else {
+    // Plain text (eski) — tekshirib, hashga o'giramiz
+    if (password !== pass)
+      return { ok: false, error: "Email yoki parol noto'g'ri" };
+    // Hashga migratsiya
+    db.settings.adminPass = await sha256(password);
+    saveDB();
   }
+
   const user = _buildUser(email, shopId);
   authSave(user);
   return { ok: true, user };
@@ -154,6 +186,8 @@ function initAuth() {
       if (raw) db = JSON.parse(raw);
     } catch(e) {}
   }
+  // Plain text parolni hashga o'tkazamiz (bir martalik)
+  migratePassToHash();
   applyRoleUI();
   return true;
 }
@@ -463,17 +497,17 @@ async function doLogin() {
           if (sets.rate)                  shopDB.settings.rate               = sets.rate;
         }
         db = shopDB;
-        res = authLogin(email, pass, shopId);
+        res = await authLogin(email, pass, shopId);
         localStorage.setItem(dbKey, JSON.stringify(db));
       } else {
-        res = authLogin(email, pass);
+        res = await authLogin(email, pass);
       }
     } catch(e) {
       console.warn("Supabase login xato:", e.message);
-      res = authLogin(email, pass);
+      res = await authLogin(email, pass);
     }
   } else {
-    res = authLogin(email, pass);
+    res = await authLogin(email, pass);
   }
 
   if (btn) { btn.innerHTML = '<i class="ti ti-login"></i> Kirish'; btn.disabled = false; }
