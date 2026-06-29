@@ -156,8 +156,21 @@ async function connectCloud() {
 }
 
 // ── LocalDB → Supabase ────────────────────────────
+
+// ── RLS: har so'rovdan oldin shop_id o'rnatish ───────────────────
+async function _setShopContext(sid) {
+  if (!sid || !_sb) return;
+  try {
+    await _sb.rpc('set_current_shop_id', { p_shop_id: sid });
+  } catch(e) {
+    console.warn('set_current_shop_id xato:', e.message);
+  }
+}
+
 async function pushToCloud() {
   if (!_sb) { toast("Avval ulaning","err"); return; }
+  const _sid = getCloudShopId();
+  await _setShopContext(_sid);
   const sid = getCloudShopId();
   try {
     // Settings
@@ -359,6 +372,8 @@ async function pullFromCloud() {
     const ok = await initSupabase();
     if (!ok) { toast("Avval ulaning","err"); return; }
   }
+  // RLS: do'kon kontekstini o'rnatamiz
+  await _setShopContext(getCloudShopId());
 
   try {
     toast("Cloud dan yuklanmoqda...", "info");
