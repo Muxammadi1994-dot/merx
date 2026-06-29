@@ -289,26 +289,7 @@ async function handleContact(chatId, contact) {
 
     if (!match) {
       console.log(`[handleContact] topilmadi: ${rawPhone}`);
-      // Agar shop_id bilan topilmasa — barchada qidiramiz
-      if (shopFilter) {
-        const allGlobal = await sb("customers", `?select=*`);
-        const globalMatch = allGlobal?.find(c => {
-          const cp = normPhone(c.phone || "");
-          if (!cp) return false;
-          const normalize = p => p.startsWith("998") ? p.slice(3) : p;
-          return normalize(cp) === normalize(rawPhone);
-        });
-        if (globalMatch) {
-          // Topildi, lekin boshqa do'konda — bildiramiz
-          await tg(chatId,
-            "⚠️ Raqamingiz boshqa do'konda topildi.\n\n" +
-            "Siz hozir tanlagan do'konda hali xarid qilmagansiz.\n" +
-            "Do'konda birinchi xaridingizdan so'ng avtomatik bog'lanadi.",
-            { reply_markup: { remove_keyboard: true } }
-          );
-          return;
-        }
-      }
+      // Global qidiruv o'chirildi — har do'kon faqat o'z mijozlarini ko'radi
       await tg(chatId,
         "⚠️ Raqamingiz bizning mijozlar bazasida topilmadi.\n\n" +
         "Birinchi xaridingizdan so'ng avtomatik bog'lanadi. Iltimos, do'konda xarid qiling.",
