@@ -835,14 +835,16 @@ function buildReceiptThermal(sale, opts, cfg) {
   // Qator 2:   Rang  Qty x Narx = Summa
   const itemLines = items.map((it, i) => {
     const isBox   = it.sellMode === "karobka" && it.qtyBox;
-    const qty     = isBox ? it.qtyBox : it.qty;
-    const unit    = isBox ? "pchk" : (it.unit || "dona");
-    const price   = isBox ? (it.price||0)*(it.inBox||1) : (it.price||0);
-    const sum     = (it.price||0)*(it.qty||0);
+    const qty     = it.qty || 0;  // jami dona soni
+    const unit    = it.unit || "dona";
+    const price   = it.price || 0;  // 1 dona narxi
+    const sum     = price * qty;
     const art     = it.art ? ` [${it.art}]` : "";
     const color   = it.color || "";
+    // Pochka bo'lsa: "(3 pchk)" ko'rsatamiz
+    const pchkStr = isBox && it.qtyBox ? ` (${it.qtyBox} pchk)` : "";
 
-    const row1 = `${i+1}. ${it.name}${art}`;
+    const row1 = `${i+1}. ${it.name}${art}${pchkStr}`;
     const calc  = `${color ? color+"  " : ""}${F(qty)}${unit} x ${F(price)} = ${F(sum)}`;
     return row1 + "\n   " + calc;
   }).join("\n" + DA + "\n");
@@ -1174,17 +1176,17 @@ function buildReceiptMerx(sale, opts, cfg) {
     const isBox  = it.sellMode === "karobka" && it.qtyBox;
     const art    = it.art ? `<span class="it-art">${it.art}</span>` : "";
     const sum     = (it.price||0)*(it.qty||0);
-    const pricePer= isBox ? (it.price||0)*(it.inBox||1) : (it.price||0);
-    const qtyShow = isBox ? it.qtyBox : it.qty;
-    const unitShow= isBox ? "pochka" : (it.unit||"dona");
+    // Har doim: dona soni × dona narxi = summa
+    const qtyShow = it.qty || 0;       // jami dona
+    const unitShow= it.unit || "dona"; // birlik
+    const pricePer= it.price || 0;     // 1 dona narxi
     const colorStr= it.color || "";
-    const sizeStr = isBox
-      ? (it.groupSizes ? it.groupSizes : "")
-      : (it.size ? it.size : "");
+    // Pochka bo'lsa qavs ichida pochka soni
+    const pchkNote= isBox && it.qtyBox ? ` (${it.qtyBox} pchk)` : "";
     // info: rang · o'lcham (agar dona) yoki rang (pochkada o'lcham yo'q)
     const colorStr2 = it.color || "";
     // Tovar qatori: Rang  Qty dona/pchk × Narx = Summa
-    const calcStr = `${F(qtyShow)} ${unitShow} × ${F(pricePer)} = ${F(sum)}`;
+    const calcStr = `${F(qtyShow)} ${unitShow} × ${F(pricePer)} = ${F(sum)}${pchkNote}`;
     return `<div class="it">
       <div class="it-top">
         <div class="it-num">${idx+1}</div>
