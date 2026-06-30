@@ -1062,8 +1062,8 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
 .card.done{opacity:.55;border:2px solid #22C55E}
 
 /* Rasm */
-.card-img-wrap{position:relative;width:100%;height:min(200px,50vw);background:#F0EDE8;overflow:hidden}
-.card-img-wrap img{width:100%;height:100%;object-fit:cover;cursor:pointer;display:block}
+.card-img-wrap{position:relative;width:100%;height:min(320px,80vw);background:#F0EDE8;overflow:hidden}
+.card-img-wrap img{width:100%;height:100%;object-fit:contain;cursor:pointer;display:block}
 .card-done-overlay{display:none;position:absolute;inset:0;background:rgba(34,197,94,.85);color:#fff;font-family:'Sora',sans-serif;font-size:32px;font-weight:800;align-items:center;justify-content:center;letter-spacing:1px}
 .card-done-overlay.show{display:flex}
 .card-done-bar{background:#22C55E;color:#fff;font-family:'Sora',sans-serif;font-size:20px;font-weight:800;text-align:center;padding:10px;letter-spacing:1px}
@@ -1291,15 +1291,6 @@ async function actionRenderStaffOrder(chekId, saleData, shopId) {
           // Ustuvorlik: 1) sotuv vaqtidagi rasm (i.image) 2) shu rangning rasmi
           // 3) mahsulotning umumiy rasmi (zaxira)
           const colorImg = pm?.colorImages && i.color ? pm.colorImages[i.color] : null;
-          console.log("[staffOrder DEBUG]", JSON.stringify({
-            sku: i.sku, color: i.color,
-            prodFound: !!pm,
-            hasColorImages: !!pm?.colorImages,
-            colorImagesKeys: pm?.colorImages ? Object.keys(pm.colorImages) : [],
-            colorImgFound: !!colorImg,
-            hasProdImage: !!pm?.image,
-            hasOrigItemImage: !!i.image
-          }));
           return {
             ...i,
             art:   i.art   || pm?.art || null,
