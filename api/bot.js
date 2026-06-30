@@ -872,9 +872,9 @@ async function actionSendStaffNotification(body) {
   const custName  = sale.customerName  || sale.customer_name  || "";
   const custPhone = sale.customerPhone || sale.customer_phone || "";
 
-  // Kattaroq, tiniqroq matn — bold va emoji bilan ajratilgan, yaxshi o'qiladigan
-  let txt = `🆕 <b>YANGI BUYURTMA</b>\n`;
-  txt += `🏷 <b>${chekId}</b>\n`;
+  // SODDALASHTIRILGAN: omborchiga pul/qarz ma'lumoti kerak emas —
+  // faqat mijoz va tovar tafsilotlari (nima yig'ish kerakligi) muhim.
+  let txt = `🆕 <b>YANGI BUYURTMA</b>  <code>${chekId}</code>\n`;
   txt += `📅 ${sale.date || ""} ${sale.time || ""}\n`;
   if (custName)  txt += `\n👤 <b>${custName}</b>`;
   if (custPhone) txt += `  📞 ${custPhone}`;
@@ -890,7 +890,6 @@ async function actionSendStaffNotification(body) {
     const color   = it.color   || "";
     const size    = it.size    || "";
     const art     = it.art     || "";
-    const lineSum = fmt((it.price || 0) * (it.qty || 0));
     txt += `\n🔸 <b>${it.name}</b>`;
     if (art) txt += `  <code>${art}</code>`;
     txt += `\n`;
@@ -899,24 +898,8 @@ async function actionSendStaffNotification(body) {
     if (color)  txt += `🎨 Rang: <b>${color}</b>`;
     if (size)   txt += `   📏 O'lcham: <b>${size}</b>`;
     if (color || size) txt += `\n`;
-    txt += `💵 ${fmt(it.price)} × ${it.qty} = <b>${lineSum} so'm</b>\n`;
   }
-  txt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-
-  const debtCur = sale.debtCurrency || sale.debt_currency || "uzs";
-  const debtUsd = sale.debtUsd != null ? Number(sale.debtUsd) : (sale.debt_usd != null ? Number(sale.debt_usd) : null);
-  const isUsd   = debtCur === "usd" && debtUsd != null && rem > 0;
-
-  txt += `\n💰 <b>JAMI: ${fmt(total)} so'm</b>\n`;
-  if (rem > 0) {
-    txt += `✅ To'landi: ${fmt(paid)} so'm\n`;
-    const debtStr = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${fmt(rem)} so'm`;
-    txt += `🔴 <b>Qarz: ${debtStr}</b>`;
-    if (sale.due) txt += `  (muddat: ${sale.due})`;
-    txt += "\n";
-  } else {
-    txt += `✅ <b>To'liq to'landi</b>\n`;
-  }
+  txt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
   // "Batafsil ko'rish" — Telegram Web App orqali (BotFather: /newapp, short_name=ombor)
   // startapp parametri orqali chekId+shopId uzatiladi (Telegram faqat
@@ -1038,35 +1021,12 @@ function buildStaffOrderHtml(sale, shopName) {
         <span class="attr-v code">${barcode}</span>
       </div>` : ""}
     </div>
-    <div class="price-row">
-      <span class="price-per">${qtyLabel} × ${fmtN(it.price)} so'm</span>
-      <span class="price-sum">${fmtN(lineTotal)} so'm</span>
-    </div>
   </div>
   <button class="done-btn" onclick="toggleDone(${idx},null)" id="dbtn-${idx}">
     Tayyor belgilash
   </button>
 </div>`;
   }).join("");
-
-  // To'lov
-  const debtCurH = sale.debtCurrency || sale.debt_currency || "uzs";
-  const debtUsdH = sale.debtUsd != null ? Number(sale.debtUsd) : (sale.debt_usd != null ? Number(sale.debt_usd) : null);
-  const isUsdH   = debtCurH === "usd" && debtUsdH != null && rem > 0;
-  const debtDisp = isUsdH ? `$${debtUsdH.toFixed(2)} USD` : `${fmtN(rem)} so'm`;
-  const payBreakdownH = sale.payBreakdown || sale.pay_breakdown || null;
-  const mixedHtml = payType === "aralash" && payBreakdownH
-    ? Object.entries(payBreakdownH)
-        .filter(([m,v]) => m !== "qarz" && v > 0)
-        .map(([m,v]) => `<div class="pay-row muted"><span>${payLabels[m]||m}</span><span>${fmtN(v)} so'm</span></div>`)
-        .join("")
-    : "";
-  const payHtml = rem > 0
-    ? `${mixedHtml}
-       <div class="pay-row"><span>To'landi</span><b>${fmtN(paid)} so'm</b></div>
-       <div class="pay-row debt"><span>Qarz</span><b>${debtDisp}</b></div>
-       ${sale.due ? `<div class="pay-row muted"><span>Muddat</span><span>${sale.due}</span></div>` : ""}`
-    : `${mixedHtml}<div class="paid-badge">✅ To'liq to'landi</div>`;
 
   return `<!DOCTYPE html>
 <html lang="uz"><head>
@@ -1193,14 +1153,12 @@ ${cardsHtml}
 <div class="total-card">
   <div class="total-row">
     <div>
-      <div class="total-lbl">JAMI SUMMA</div>
-      <div class="total-cnt">${totalTur} xil · ${totalBoxes || items.reduce((a,i)=>a+(i.qty||0),0)} pochka</div>
+      <div class="total-lbl">JAMI YIG'ISH KERAK</div>
+      <div class="total-cnt">${totalTur} xil mahsulot</div>
     </div>
-    <div class="total-val">${fmtN(total)}<span> so'm</span></div>
+    <div class="total-val">${totalBoxes || items.reduce((a,i)=>a+(i.qty||0),0)}<span> ${totalBoxes ? "pochka" : "dona"}</span></div>
   </div>
 </div>
-
-<div class="pay-card">${payHtml}</div>
 
 <div class="footer">@${BOT_USERNAME} · ${shopName}</div>
 
