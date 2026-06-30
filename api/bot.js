@@ -1561,6 +1561,9 @@ export default async function handler(req, res) {
       // sahifa qaytaramiz, u tg.initDataUnsafe.start_param ni o'qib,
       // shu sahifaga ?id=... bilan qayta yo'naltiradi.
       if (!chekId) {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0, private");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Surrogate-Control", "no-store");
         return res.status(200).send(`<!DOCTYPE html><html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -1588,9 +1591,12 @@ export default async function handler(req, res) {
 
       const html = await actionRenderStaffOrder(chekId, saleData, shopId);
       res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0, private");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
+      res.setHeader("ETag", ""); // ETag asosidagi 304 javoblarni oldini olish
+      res.removeHeader("ETag");
+      res.setHeader("Surrogate-Control", "no-store"); // Vercel CDN/Edge kesh oldini olish
       return res.status(200).send(html);
     } catch (e) {
       console.error("staff_order xato:", e.message);
