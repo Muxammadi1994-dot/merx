@@ -179,7 +179,112 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true, message: "✅ Sinov hisobi o'chirildi" });
     }
 
-    return res.status(400).json({ ok: false, error: "Noma'lum action. Mavjud: signup_test, login_test, delete_test_user" });
+    // ── 4. Yangi do'kon uchun Supabase Auth hisobi yaratish ────────
+    // SuperAdmin yangi do'kon yaratganda shu endpoint chaqiriladi.
+    // Bu orqali yangi do'kon egasi Supabase Auth'da haqiqiy hisob oladi
+    // va RLS to'g'ri ishlaydi (boshqa do'kon ma'lumotini ko'ra olmaydi).
+    if (action === "create_shop") {
+      const { email, password, shopId, shopName } = body;
+      if (!email || !password || password.length < 4) {
+        return res.status(400).json({ ok: false, error: "Email va kamida 4 belgili parol kerak" });
+      }
+      if (!shopId) {
+        return res.status(400).json({ ok: false, error: "shopId kerak" });
+      }
+
+      // Avval bu email bilan hisob borligini tekshiramiz
+      const checkRes = await fetch(`${SB_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+      });
+      const checkData = await checkRes.json();
+      if (checkData?.users?.length > 0) {
+        // Hisob allaqachon bor — shop_id ni yangilaymiz
+        const existingUserId = checkData.users[0].id;
+        await fetch(`${SB_URL}/auth/v1/admin/users/${existingUserId}`, {
+          method: "PUT",
+          headers: {
+            apikey: SERVICE_KEY,
+            Authorization: `Bearer ${SERVICE_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            user_metadata: { shop_id: shopId, shop_name: shopName || "MERX Do'koni" }
+          })
+        });
+        return res.status(200).json({
+          ok: true,
+          message: "✅ Mavjud hisob yangi do'kon bilan bog'landi",
+          shopId, userId: existingUserId, email, existing: true
+        });
+      }
+
+      // Yangi hisob yaratish
+      const createRes = await fetch(`${SB_URL}/auth/v1/admin/users`, {
+        method: "POST",
+        headers: {
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { shop_id: shopId, shop_name: shopName || "MERX Do'koni" }
+        })
+      });
+
+      const createData = await createRes.json();
+      if (!createRes.ok) {
+        return res.status(createRes.status).json({
+          ok: false,
+          error: createData.msg || createData.message || "Hisob yaratilmadi"
+        });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        message: "✅ Yangi do'kon uchun Supabase Auth hisobi yaratildi",
+        shopId, userId: createData.id, email, existing: false
+      });
+    }
+
+    // ── 5. Do'kon paroli o'zgartirish ──────────────────────────────
+    if (action === "update_shop_password") {
+      const { email, newPassword } = body;
+      if (!email || !newPassword || newPassword.length < 4) {
+        return res.status(400).json({ ok: false, error: "Email va yangi parol kerak" });
+      }
+
+      // Email bo'yicha userId topamiz
+      const findRes = await fetch(`${SB_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+      });
+      const findData = await findRes.json();
+      if (!findData?.users?.length) {
+        return res.status(404).json({ ok: false, error: "Bu email bilan hisob topilmadi" });
+      }
+
+      const userId = findData.users[0].id;
+      const updRes = await fetch(`${SB_URL}/auth/v1/admin/users/${userId}`, {
+        method: "PUT",
+        headers: {
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ password: newPassword })
+      });
+
+      if (!updRes.ok) {
+        const updData = await updRes.json().catch(() => ({}));
+        return res.status(updRes.status).json({ ok: false, error: updData.msg || "Parol o'zgartirilmadi" });
+      }
+
+      return res.status(200).json({ ok: true, message: "✅ Parol muvaffaqiyatli o'zgartirildi", email });
+    }
+
+    return res.status(400).json({ ok: false, error: "Noma'lum action. Mavjud: signup_test, login_test, create_shop, update_shop_password, delete_test_user" });
   } catch (e) {
     return res.status(500).json({ ok: false, error: "Server xatosi: " + e.message });
   }

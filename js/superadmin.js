@@ -651,7 +651,9 @@ async function saAddShop() {
 
   const now    = new Date();
   const expires= plan === "lifetime" ? null : addDaysToDate(now, plan === "yearly" ? 365 : 30);
-  const shopId = "shop_" + Date.now();
+  // Xavfsiz shop_id: eski "shop_"+Date.now() o'rniga kriptografik tasodifiy
+  const shopId = "shop_" + Array.from(crypto.getRandomValues(new Uint8Array(12)))
+    .map(b => b.toString(16).padStart(2,"0")).join("");
   const dbKey  = "merx_v5_" + shopId;
 
   const newShop = {
@@ -704,6 +706,30 @@ async function saAddShop() {
 
   // Supabase ga yozish
   _saAddShopToSupabase(newShop).catch(e => console.warn("Supabase shops sync xato:", e.message));
+
+  // ── Supabase Auth hisobi yaratish ────────────────────────────
+  // Bu qilmasa RLS ishlamaydi — yangi do'kon egasi boshqa do'kon
+  // ma'lumotini ham ko'ra olishi mumkin edi.
+  fetch("/api/auth-v2?action=create_shop", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: loginEmail,
+      password: pass,
+      shopId: shopId,
+      shopName: name
+    })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      console.log("✅ Supabase Auth hisobi yaratildi:", d.message);
+    } else {
+      console.warn("⚠️ Supabase Auth hisobi yaratilmadi:", d.error);
+    }
+  })
+  .catch(e => console.warn("Supabase Auth xato:", e.message));
+  // ── ────────────────────────────────────────────────────────────
 
   document.getElementById("sa-add-modal").style.display = "none";
   ["sa-new-name","sa-new-owner","sa-new-login","sa-new-phone","sa-new-pass"].forEach(id => {
