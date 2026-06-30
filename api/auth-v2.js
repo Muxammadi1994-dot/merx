@@ -180,9 +180,6 @@ module.exports = async function handler(req, res) {
     }
 
     // ── 4. Yangi do'kon uchun Supabase Auth hisobi yaratish ────────
-    // SuperAdmin yangi do'kon yaratganda shu endpoint chaqiriladi.
-    // Bu orqali yangi do'kon egasi Supabase Auth'da haqiqiy hisob oladi
-    // va RLS to'g'ri ishlaydi (boshqa do'kon ma'lumotini ko'ra olmaydi).
     if (action === "create_shop") {
       const { email, password, shopId, shopName } = body;
       if (!email || !password || password.length < 4) {
@@ -192,15 +189,19 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ ok: false, error: "shopId kerak" });
       }
 
-      // Avval bu email bilan hisob borligini tekshiramiz
-      const checkRes = await fetch(`${SB_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
-        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
-      });
+      // Avval bu email bilan hisob borligini tekshiramiz (to'g'ri endpoint)
+      const checkRes = await fetch(
+        `${SB_URL}/auth/v1/admin/users?page=1&per_page=1000`,
+        { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
+      );
       const checkData = await checkRes.json();
-      if (checkData?.users?.length > 0) {
-        // Hisob allaqachon bor — shop_id ni yangilaymiz
-        const existingUserId = checkData.users[0].id;
-        await fetch(`${SB_URL}/auth/v1/admin/users/${existingUserId}`, {
+      const existingUser = (checkData?.users || []).find(
+        u => u.email?.toLowerCase() === email.toLowerCase()
+      );
+
+      if (existingUser) {
+        // Hisob bor — shop_id VA parolni yangilaymiz
+        await fetch(`${SB_URL}/auth/v1/admin/users/${existingUser.id}`, {
           method: "PUT",
           headers: {
             apikey: SERVICE_KEY,
@@ -208,13 +209,14 @@ module.exports = async function handler(req, res) {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
+            password,
             user_metadata: { shop_id: shopId, shop_name: shopName || "MERX Do'koni" }
           })
         });
         return res.status(200).json({
           ok: true,
-          message: "✅ Mavjud hisob yangi do'kon bilan bog'landi",
-          shopId, userId: existingUserId, email, existing: true
+          message: "✅ Mavjud hisob yangilandi (parol + shop_id)",
+          shopId, userId: existingUser.id, email, existing: true
         });
       }
 
@@ -256,17 +258,21 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ ok: false, error: "Email va yangi parol kerak" });
       }
 
-      // Email bo'yicha userId topamiz
-      const findRes = await fetch(`${SB_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
-        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
-      });
+      // Barcha foydalanuvchilar orasidan email bo'yicha topamiz
+      const findRes = await fetch(
+        `${SB_URL}/auth/v1/admin/users?page=1&per_page=1000`,
+        { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
+      );
       const findData = await findRes.json();
-      if (!findData?.users?.length) {
-        return res.status(404).json({ ok: false, error: "Bu email bilan hisob topilmadi" });
+      const foundUser = (findData?.users || []).find(
+        u => u.email?.toLowerCase() === email.toLowerCase()
+      );
+
+      if (!foundUser) {
+        return res.status(404).json({ ok: false, error: `"${email}" emailli hisob topilmadi` });
       }
 
-      const userId = findData.users[0].id;
-      const updRes = await fetch(`${SB_URL}/auth/v1/admin/users/${userId}`, {
+      const updRes = await fetch(`${SB_URL}/auth/v1/admin/users/${foundUser.id}`, {
         method: "PUT",
         headers: {
           apikey: SERVICE_KEY,
