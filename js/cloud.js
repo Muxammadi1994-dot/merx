@@ -333,13 +333,20 @@ async function pushToCloud() {
     try {
       await sync("ombor", db.ombor?.map(o => ({
         shop_id: sid, id: o.id, date: o.date,
+        sku: o.sku || null,
         product_name: o.productName,
         unit: o.unit, color: o.color,
         size: o.size, qty: o.qty || 0,
+        boxes: o.boxes || null,
+        pantone: o.pantone || null,
+        hex: o.hex || null,
         kirim_narxi: o.kirimNarxi || 0,
+        chakana: o.chakana || 0,
         ulgurji: o.ulgurji || 0,
         supplier: o.supplier || null,
-        pay_status: o.payStatus || "tolandan"
+        partiya: o.partiya || null,
+        pay_status: o.payStatus || "tolandan",
+        barcode: o.barcode || null
       })));
     } catch(e) { syncErrors.push("ombor: " + e.message); console.warn("sync ombor xato:", e.message); }
 
