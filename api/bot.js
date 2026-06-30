@@ -922,21 +922,12 @@ async function actionSendStaffNotification(body) {
   const shopParam  = sid ? `&shop=${encodeURIComponent(sid)}` : "";
   const catalogUrl = `https://merx-rho.vercel.app/api/bot?action=staff_order&id=${encodeURIComponent(chekId)}${shopParam}`;
 
-  // Eslatma: web_app tugmasi GURUHLARDA Telegram tomonidan bloklanadi
-  // (faqat shaxsiy chatlarda ishlaydi). Guruh uchun oddiy URL ishlatamiz —
-  // bu Telegram'ning o'z ichki brauzerida ochiladi (default sozlamada).
-  //
-  // MUHIM: sahifa har safar har xil bo'lishi mumkin (tayyor holatlar
-  // o'zgaradi), shuning uchun Telegram/brauzer keshlamasligi uchun
-  // har safar BOSILGANDA yangi vaqt belgisi (_t) qo'shilmaydi — chunki
-  // havola guruh xabarida BIR MARTA yaratiladi va statik qoladi.
-  // Sahifaning o'zi server-side har so'rovda yangi render qilinadi
-  // (cache emas), shuning uchun aslida muammo BO'LMASLIGI kerak.
-  // Agar baribir eski ma'lumot ko'rinsa — bu Telegram ilovasining
-  // o'z ichki keshidir (no-cache header bilan oldini olamiz).
+  // SINOV: web_app tugmasi inline_keyboard orqali guruhlarda ishlashi
+  // mumkin (Telegram hujjatlariga ko'ra). Agar bu ishlamasa yoki tugma
+  // ko'rinmasa — pastdagi qatorni "url: catalogUrl" ga qaytaring.
   const replyMarkup = {
     inline_keyboard: [[
-      { text: "📋 Batafsil ko'rish — tovarlarni belgilash", url: catalogUrl }
+      { text: "📋 Batafsil ko'rish — tovarlarni belgilash", web_app: { url: catalogUrl } }
     ]],
   };
 
