@@ -549,9 +549,11 @@ async function doLogin() {
         // ── YANGI: Supabase Auth token olish ──────────────────────
         // Bu token cloud sync'da RLS'ni to'g'ri tekshirish uchun kerak.
         // Muvaffaqiyatsiz bo'lsa — eski usulda davom etamiz (xavfsiz zaxira).
+        let sbTokenOk = false;
         try {
           const sbAuthRes = await authLoginSupabaseTest(email, pass);
           if (sbAuthRes.ok) {
+            sbTokenOk = true;
             console.log("✅ Supabase Auth token olindi — RLS xavfsizligi faol");
           } else {
             console.warn("ℹ️ Supabase Auth token olinmadi — eski usulda davom etamiz:", sbAuthRes.error);
@@ -563,6 +565,12 @@ async function doLogin() {
 
         res = await authLogin(email, pass, shopId);
         localStorage.setItem(dbKey, JSON.stringify(db));
+
+        // Token muvaffaqiyatli olindi — initSupabase'ni qayta ishga tushiramiz
+        // (bu safar token mavjud bo'lgani uchun yangi xavfsiz yo'ldan ulanadi)
+        if (sbTokenOk && typeof initSupabase === "function") {
+          try { await initSupabase(); } catch(e) {}
+        }
       } else {
         res = await authLogin(email, pass);
       }
