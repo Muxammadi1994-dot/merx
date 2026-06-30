@@ -495,10 +495,17 @@ async function doLogin() {
   let res = { ok: false };
 
   // 1. Supabase dan shop topamiz
-  if (typeof MERX_SUPABASE_URL !== "undefined" && MERX_SUPABASE_URL) {
+  const _sbUrl = (typeof MERX_SUPABASE_URL !== "undefined" && MERX_SUPABASE_URL)
+    ? MERX_SUPABASE_URL
+    : (db?.settings?.supabaseUrl || "");
+  const _sbKey = (typeof MERX_SUPABASE_KEY !== "undefined" && MERX_SUPABASE_KEY)
+    ? MERX_SUPABASE_KEY
+    : (db?.settings?.supabaseKey || "");
+
+  if (_sbUrl && _sbKey) {
     try {
       const { createClient } = window.supabase || supabase;
-      const sb = createClient(MERX_SUPABASE_URL, MERX_SUPABASE_KEY, { auth:{ persistSession:false } });
+      const sb = createClient(_sbUrl, _sbKey, { auth:{ persistSession:false } });
       const { data: shops } = await sb.from("shops").select("id,name").eq("owner_email", email).limit(1);
 
       if (shops?.length) {
@@ -520,7 +527,7 @@ async function doLogin() {
             shop: { name: shop.name, type: sets?.shop_type || "ikki" },
             settings: {
               rate: sets?.rate || 12800, priceCurrency: sets?.price_currency || "uzs",
-              supabaseUrl: MERX_SUPABASE_URL, supabaseKey: MERX_SUPABASE_KEY
+              supabaseUrl: _sbUrl, supabaseKey: _sbKey
             },
             customers:[],products:[],sales:[],staff:[],
             ombor:[],xarajatlar:[],debtPayments:[],shifts:[],
@@ -528,8 +535,8 @@ async function doLogin() {
           };
         }
         if (!shopDB.settings) shopDB.settings = {};
-        shopDB.settings.supabaseUrl  = MERX_SUPABASE_URL;
-        shopDB.settings.supabaseKey  = MERX_SUPABASE_KEY;
+        shopDB.settings.supabaseUrl  = _sbUrl;
+        shopDB.settings.supabaseKey  = _sbKey;
         shopDB.settings.cloudShopId  = shopId;
         // Settings dan bot/eskiz ma'lumotlarini har doim yangilaymiz
         if (sets) {
