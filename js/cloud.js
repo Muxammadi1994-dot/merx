@@ -254,7 +254,8 @@ async function pushToCloud() {
           price_uzs: p.priceUzs || 0,
           ulgurji: p.ulgurjiNarx || 0,
           variants: p.variants || [],
-          image: p.image || null
+          image: p.image || null,
+          color_images: p.colorImages || null
         }));
       if (prodRows?.length) {
         const chunk = 20; // image katta bo'lgani uchun kichik chunk
@@ -393,7 +394,8 @@ async function pullFromCloud() {
         costUsd: p.cost_usd || 0, priceUzs: p.price_uzs || 0,
         ulgurjiNarx: p.ulgurji || 0, variants: p.variants || [],
         image: p.image || null, pantone: p.pantone || null,
-        colorName: p.color_name || null, hex: p.hex || null
+        colorName: p.color_name || null, hex: p.hex || null,
+        colorImages: p.color_images || null
       }));
     }
 

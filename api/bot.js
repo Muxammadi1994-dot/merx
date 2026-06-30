@@ -1332,16 +1332,22 @@ async function actionRenderStaffOrder(chekId, saleData, shopId) {
       if (skus.length) {
         const skuFilter = skus.map(s => `sku.eq.${encodeURIComponent(s)}`).join(",");
         const prodShopF = sid ? `&shop_id=eq.${sid}` : "";
-        const prods = await sb("products", `?or=(${skuFilter})&select=sku,art,image${prodShopF}`);
+        const prods = await sb("products", `?or=(${skuFilter})&select=sku,art,image,color_images${prodShopF}`);
         const prodMap = {};
         for (const p of (prods || [])) {
-          if (p.sku) prodMap[p.sku] = { art: p.art || "", image: p.image || null };
+          if (p.sku) prodMap[p.sku] = { art: p.art || "", image: p.image || null, colorImages: p.color_images || null };
         }
-        sale.items = sale.items.map(i => ({
-          ...i,
-          art:   i.art   || prodMap[i.sku]?.art   || null,
-          image: i.image || prodMap[i.sku]?.image  || null,
-        }));
+        sale.items = sale.items.map(i => {
+          const pm = prodMap[i.sku];
+          // Ustuvorlik: 1) sotuv vaqtidagi rasm (i.image) 2) shu rangning rasmi
+          // 3) mahsulotning umumiy rasmi (zaxira)
+          const colorImg = pm?.colorImages && i.color ? pm.colorImages[i.color] : null;
+          return {
+            ...i,
+            art:   i.art   || pm?.art || null,
+            image: i.image || colorImg || pm?.image || null,
+          };
+        });
       }
     } catch(e) { console.warn("[staffOrder] products ma'lumot olishda xato:", e.message); }
   }
