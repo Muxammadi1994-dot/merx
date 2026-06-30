@@ -1031,9 +1031,22 @@ function saEditSave(id) {
 }
 
 async function _saUpdateShopInSupabase(shopId, data) {
-  if (!_sb && typeof initSupabase === "function") await initSupabase();
-  if (!_sb) return;
-  await _sb.from("shops").update(data).eq("id", shopId);
+  // shops jadvali RLS bilan himoyalangan — service_role endpoint orqali yangilaymiz
+  try {
+    const sbUrl = (typeof MERX_SUPABASE_URL !== "undefined" && MERX_SUPABASE_URL)
+      ? MERX_SUPABASE_URL : (db?.settings?.supabaseUrl || "");
+    if (!sbUrl) return;
+
+    const res = await fetch("/api/auth-v2?action=update_shop", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shopId, data })
+    });
+    const d = await res.json();
+    if (!d.ok) console.warn("shops yangilash xato:", d.error);
+  } catch(e) {
+    console.warn("_saUpdateShopInSupabase xato:", e.message);
+  }
 }
 
 // ── Eski saEditShop → saEditShopFull ──────────────

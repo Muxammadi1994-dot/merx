@@ -363,6 +363,35 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true, message: "✅ Parol muvaffaqiyatli o'zgartirildi", email });
     }
 
+    // ── 6. Do'kon ma'lumotlarini yangilash ─────────────────────────
+    if (action === "update_shop") {
+      const { shopId, data } = body;
+      if (!shopId || !data) {
+        return res.status(400).json({ ok: false, error: "shopId va data kerak" });
+      }
+
+      const updRes = await fetch(
+        `${SB_URL}/rest/v1/shops?id=eq.${encodeURIComponent(shopId)}`,
+        {
+          method: "PATCH",
+          headers: {
+            apikey: SERVICE_KEY,
+            Authorization: `Bearer ${SERVICE_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+          },
+          body: JSON.stringify(data)
+        }
+      );
+
+      if (!updRes.ok) {
+        const errData = await updRes.json().catch(() => ({}));
+        return res.status(updRes.status).json({ ok: false, error: errData.message || "Yangilash muvaffaqiyatsiz" });
+      }
+
+      return res.status(200).json({ ok: true, message: "✅ Do'kon yangilandi", shopId });
+    }
+
     return res.status(400).json({ ok: false, error: "Noma'lum action. Mavjud: signup_test, login_test, create_shop, update_shop_password, delete_test_user" });
   } catch (e) {
     return res.status(500).json({ ok: false, error: "Server xatosi: " + e.message });
