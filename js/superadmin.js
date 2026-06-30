@@ -784,21 +784,19 @@ async function saAddShop() {
 
 // ── Supabase ga yozish ────────────────────────────
 async function _saAddShopToSupabase(shop) {
+  // shops jadvalida RLS bor — anon key bilan yozib bo'lmaydi.
+  // create_shop endpoint service_role kaliti bilan ishlaydi va
+  // shops jadvaliga ham yozadi. Shuning uchun bu yerda faqat
+  // settings jadvalini yangilaymiz (u ham token bilan yoziladi).
   if (!_sb && typeof initSupabase === "function") await initSupabase();
   if (!_sb) return;
   try {
-    await _sb.from("shops").upsert({
-      id: shop.id, name: shop.name, owner_email: shop.ownerEmail,
-      plan: shop.plan, active: !shop.blocked,
-      trial_ends: shop.expiresAt ? shop.expiresAt.slice(0,10) : null
-    });
-    try {
-      await _sb.from("settings").upsert({
-        shop_id: shop.id, shop_name: shop.name,
-        rate: 12800, price_currency: "uzs"
-      });
-    } catch(e2) { console.warn("settings upsert:", e2.message); }
-  } catch(e) { console.warn("shops upsert xato:", e.message); }
+    // settings jadvaliga yozamiz (token bilan, RLS mos keladi)
+    await _sb.from("settings").upsert({
+      shop_id: shop.id, shop_name: shop.name,
+      rate: 12800, price_currency: "uzs"
+    }, { onConflict: "shop_id" });
+  } catch(e) { console.warn("settings upsert xato:", e.message); }
 }
 
 // ── Do'konga kirish ───────────────────────────────

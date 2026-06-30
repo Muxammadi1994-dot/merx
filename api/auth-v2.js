@@ -244,6 +244,25 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      // Supabase shops jadvaliga ham yozamiz (service_role bilan, RLS chetlab o'tadi)
+      await fetch(`${SB_URL}/rest/v1/shops`, {
+        method: "POST",
+        headers: {
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({
+          id: shopId,
+          name: shopName || "MERX Do'koni",
+          owner_email: email,
+          plan: body.plan || "trial",
+          active: true,
+          trial_ends: new Date(Date.now() + 30*24*60*60*1000).toISOString().slice(0,10)
+        })
+      }).catch(e => console.error("shops yozish xato:", e.message));
+
       return res.status(200).json({
         ok: true,
         message: "✅ Yangi do'kon uchun Supabase Auth hisobi yaratildi",
