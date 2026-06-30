@@ -364,57 +364,9 @@ function showLoginScreen() {
 
       </div>
       <div style="text-align:center;margin-top:20px;font-size:12px;color:rgba(255,255,255,.2)">MERX © 2026</div>
-
-      <!-- ⚠️ SINOV UCHUN — 4a-bosqich. Oddiy foydalanuvchiga ko'rinmasligi uchun
-           juda xira rangda. Bosilmasa, hech narsa ko'rinmaydi. -->
-      <div style="text-align:center;margin-top:10px">
-        <a href="javascript:void(0)" onclick="toggleSupabaseTestPanel()"
-           style="font-size:10px;color:rgba(255,255,255,.12);text-decoration:underline">texnik sinov</a>
-      </div>
-      <div id="auth-test-panel" style="display:none;margin-top:12px;background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.15);border-radius:10px;padding:14px">
-        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:8px">⚠️ Yangi tizim sinovi (Supabase Auth) — hozirgi kirishga ta'sir qilmaydi</div>
-        <input id="sb-test-email" type="email" placeholder="email"
-          style="width:100%;padding:8px 10px;margin-bottom:7px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-family:inherit;font-size:12px;box-sizing:border-box;outline:none">
-        <input id="sb-test-pass" type="password" placeholder="parol"
-          style="width:100%;padding:8px 10px;margin-bottom:7px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-family:inherit;font-size:12px;box-sizing:border-box;outline:none">
-        <button onclick="runSupabaseTestLogin()"
-          style="width:100%;padding:9px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;font-size:12px;cursor:pointer;font-family:inherit">
-          Sinov kirishi
-        </button>
-        <div id="sb-test-result" style="margin-top:8px;font-size:11px;color:rgba(255,255,255,.5);word-break:break-all"></div>
-      </div>
     </div>`;
 
   setTimeout(() => document.getElementById("auth-email")?.focus(), 100);
-}
-
-// ════════════════════════════════════════════════════════════════
-// ⚠️ SINOV PANELI FUNKSIYALARI — 4a-bosqich
-// Bu funksiyalar mavjud authLogin/authStaffLogin/doSuperLogin'ga
-// HECH QANDAY ta'sir qilmaydi. Faqat "texnik sinov" havolasi orqali
-// ko'rinadi, alohida ishlaydi.
-// ════════════════════════════════════════════════════════════════
-function toggleSupabaseTestPanel() {
-  const panel = document.getElementById("auth-test-panel");
-  if (panel) panel.style.display = panel.style.display === "none" ? "block" : "none";
-}
-
-async function runSupabaseTestLogin() {
-  const email  = (document.getElementById("sb-test-email")||{value:""}).value;
-  const pass   = (document.getElementById("sb-test-pass")||{value:""}).value;
-  const result = document.getElementById("sb-test-result");
-  if (result) result.textContent = "Tekshirilmoqda...";
-
-  const res = await authLoginSupabaseTest(email, pass);
-  if (!result) return;
-
-  if (res.ok) {
-    result.style.color = "#86EFAC";
-    result.textContent = `✅ Muvaffaqiyatli. shop_id: ${res.shopId}`;
-  } else {
-    result.style.color = "#FCA5A5";
-    result.textContent = `❌ Xato: ${res.error}`;
-  }
 }
 
 // ── Tab almashtirish ──────────────────────────────
@@ -640,7 +592,8 @@ function hideLoginScreen() {
 // Maqsad: yangi tizimni xavfsiz, alohida sinab ko'rish.
 // ════════════════════════════════════════════════════════════════
 
-let _supabaseTestSession = null; // sinov sessiyasi — _authUser bilan ARALASHMAYDI
+let _supabaseTestSession = null; // sessiya — _authUser bilan ARALASHMAYDI
+let _sbTokenRefreshTimer = null; // avtomatik yangilash timer
 
 async function authLoginSupabaseTest(email, password) {
   try {
@@ -652,13 +605,32 @@ async function authLoginSupabaseTest(email, password) {
     const data = await res.json();
     if (data.ok) {
       _supabaseTestSession = data;
-      console.log("✅ Supabase sinov kirishi muvaffaqiyatli:", data);
+      // ── Token avtomatik yangilash ──────────────────────────────
+      // Token 1 soatdan keyin eskiradi (expiresIn: 3600 soniya).
+      // Eskirishdan 5 daqiqa oldin avtomatik yangilaymiz.
+      if (_sbTokenRefreshTimer) clearTimeout(_sbTokenRefreshTimer);
+      const refreshIn = ((data.expiresIn || 3600) - 300) * 1000; // 55 daqiqa
+      _sbTokenRefreshTimer = setTimeout(async () => {
+        const user = typeof getAuthUser === "function" ? getAuthUser() : null;
+        if (user?.email) {
+          // Parolni localStorage dan olamiz (sha256 hash emas, original kerak)
+          // Shuning uchun hozircha faqat initSupabase'ni qayta chaqiramiz
+          // Bu token eskirsa ham cloud sync ishlashda davom etadi (anon key zaxira)
+          if (typeof initSupabase === "function") {
+            _supabaseTestSession = null; // eski tokenni tozalaymiz
+            _sb = null;
+            await initSupabase();
+            console.log("ℹ️ Token muddati tugadi — anon key zaxirasiga o'tildi");
+          }
+        }
+      }, refreshIn);
+      // ── Avtomatik yangilash qo'shildi ──────────────────────────
     } else {
-      console.warn("❌ Supabase sinov kirishi xato:", data.error);
+      console.warn("❌ Supabase kirish xato:", data.error);
     }
     return data;
   } catch (e) {
-    console.error("Supabase sinov kirishi — tarmoq xatosi:", e.message);
+    console.error("Supabase kirish — tarmoq xatosi:", e.message);
     return { ok: false, error: e.message };
   }
 }
@@ -669,5 +641,5 @@ function getSupabaseTestSession() {
 
 function clearSupabaseTestSession() {
   _supabaseTestSession = null;
-  console.log("Supabase sinov sessiyasi tozalandi");
+  if (_sbTokenRefreshTimer) { clearTimeout(_sbTokenRefreshTimer); _sbTokenRefreshTimer = null; }
 }

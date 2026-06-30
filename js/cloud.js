@@ -4,6 +4,7 @@
 // ================================================
 
 let _sb = null; // Supabase client
+let _sbUsedAnon = true; // oxirgi ulanish anon key bilan bo'ldimi
 
 // ── Supabase clientini yaratish ───────────────────
 // ── Shop ID — multi-tenant izolyatsiya ───────────
@@ -39,29 +40,31 @@ async function initSupabase() {
   try {
     const { createClient } = window.supabase || supabase;
 
-    // ── 4c-bosqich: Supabase Auth token bilan ulanish ──────────────
-    // Agar yangi tizim orqali kirish sessiyasi mavjud bo'lsa —
-    // shu tokenni ishlatamiz (bu RLS'ni to'g'ri tekshiradi).
-    // Aks holda eski anon key bilan ishlashda davom etamiz (zaxira).
+    // Auth token holati
     const sbSession = typeof getSupabaseTestSession === "function"
       ? getSupabaseTestSession()
       : null;
 
-    if (sbSession?.accessToken) {
-      // Yangi yo'l: Supabase Auth token bilan
-      _sb = createClient(url, key, {
-        auth: { persistSession: false },
-        global: {
-          headers: { Authorization: `Bearer ${sbSession.accessToken}` }
-        }
-      });
-      console.log("✅ Cloud: Supabase Auth token bilan ulandi (yangi, xavfsiz yo'l)");
-    } else {
-      // Eski zaxira yo'l: anon key bilan (hozirgiday ishlaydi)
-      _sb = createClient(url, key, { auth: { persistSession: false } });
-      console.log("ℹ️ Cloud: anon key bilan ulandi (eski yo'l, hali ham ishlaydi)");
+    // Agar allaqachon token bilan ulangan bo'lsa — qaytadan yaratmaymiz
+    // (bu "Multiple GoTrueClient" ogohlantirishini oldini oladi)
+    const needNewClient = !_sb || (sbSession?.accessToken && _sbUsedAnon) || (!sbSession?.accessToken && !_sbUsedAnon);
+
+    if (needNewClient) {
+      if (sbSession?.accessToken) {
+        // Yangi yo'l: Supabase Auth token bilan
+        _sb = createClient(url, key, {
+          auth: { persistSession: false },
+          global: { headers: { Authorization: `Bearer ${sbSession.accessToken}` } }
+        });
+        _sbUsedAnon = false;
+        console.log("✅ Cloud: Supabase Auth token bilan ulandi (yangi, xavfsiz yo'l)");
+      } else {
+        // Eski zaxira yo'l: anon key bilan
+        _sb = createClient(url, key, { auth: { persistSession: false } });
+        _sbUsedAnon = true;
+        console.log("ℹ️ Cloud: anon key bilan ulandi (eski yo'l, hali ham ishlaydi)");
+      }
     }
-    // ── 4c-bosqich tugadi ───────────────────────────────────────────
 
     // Test ulanish — shops jadvalini tekshiramiz (har doim mavjud)
     const { error } = await _sb.from("shops").select("id").limit(1);
