@@ -1730,6 +1730,11 @@ async function checkout() {
   };
   db.sales.push(newSale); saveDB();
 
+  // Sodiqlik balli — avtomatik hisoblanadi (Sozlamalar > Narx bo'limida yoqilsa)
+  if (typeof addLoyaltyPoints === "function" && customerId) {
+    addLoyaltyPoints(customerId, total);
+  }
+
   // Telegram bot orqali avtomatik chek (mijoz botga ulangan bo'lsa)
   if (typeof sendTelegramReceipt === "function") {
     sendTelegramReceipt(customerId, newSale, cPhone);
