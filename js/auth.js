@@ -456,8 +456,29 @@ async function doLogin() {
 
   if (_sbUrl && _sbKey) {
     try {
+      // ── YANGI TARTIB: avval token olamiz, keyin shops'dan o'qiymiz ──
+      // Sabab: shops jadvali endi RLS bilan himoyalangan —
+      // token bo'lmasdan o'qib bo'lmaydi.
+      let sbTokenOk = false;
+      try {
+        const sbAuthRes = await authLoginSupabaseTest(email, pass);
+        if (sbAuthRes.ok) {
+          sbTokenOk = true;
+          console.log("✅ Supabase Auth token olindi — RLS xavfsizligi faol");
+        } else {
+          console.warn("ℹ️ Supabase Auth token olinmadi:", sbAuthRes.error);
+        }
+      } catch(e) {
+        console.warn("ℹ️ Supabase Auth token xatosi:", e.message);
+      }
+
+      // Token bilan yoki tokensiz Supabase client yaratamiz
       const { createClient } = window.supabase || supabase;
-      const sb = createClient(_sbUrl, _sbKey, { auth:{ persistSession:false } });
+      const sbSession = getSupabaseTestSession();
+      const sbOpts = sbSession?.accessToken
+        ? { auth:{ persistSession:false }, global:{ headers:{ Authorization:`Bearer ${sbSession.accessToken}` } } }
+        : { auth:{ persistSession:false } };
+      const sb = createClient(_sbUrl, _sbKey, sbOpts);
       const { data: shops } = await sb.from("shops").select("id,name").eq("owner_email", email).limit(1);
 
       if (shops?.length) {
@@ -505,28 +526,10 @@ async function doLogin() {
         }
         db = shopDB;
 
-        // ── YANGI: Supabase Auth token olish ──────────────────────
-        // Bu token cloud sync'da RLS'ni to'g'ri tekshirish uchun kerak.
-        // Muvaffaqiyatsiz bo'lsa — eski usulda davom etamiz (xavfsiz zaxira).
-        let sbTokenOk = false;
-        try {
-          const sbAuthRes = await authLoginSupabaseTest(email, pass);
-          if (sbAuthRes.ok) {
-            sbTokenOk = true;
-            console.log("✅ Supabase Auth token olindi — RLS xavfsizligi faol");
-          } else {
-            console.warn("ℹ️ Supabase Auth token olinmadi — eski usulda davom etamiz:", sbAuthRes.error);
-          }
-        } catch(e) {
-          console.warn("ℹ️ Supabase Auth token xatosi — eski usulda davom etamiz:", e.message);
-        }
-        // ── YANGI qism tugadi ──────────────────────────────────────
-
         res = await authLogin(email, pass, shopId);
         localStorage.setItem(dbKey, JSON.stringify(db));
 
         // Token muvaffaqiyatli olindi — initSupabase'ni qayta ishga tushiramiz
-        // (bu safar token mavjud bo'lgani uchun yangi xavfsiz yo'ldan ulanadi)
         if (sbTokenOk && typeof initSupabase === "function") {
           try { await initSupabase(); } catch(e) {}
         }
