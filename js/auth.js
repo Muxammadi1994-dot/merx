@@ -472,22 +472,22 @@ async function doLogin() {
         console.warn("ℹ️ Supabase Auth token xatosi:", e.message);
       }
 
-      // Token bilan yoki tokensiz Supabase client yaratamiz
-      const { createClient } = window.supabase || supabase;
-      const sbSession = getSupabaseTestSession();
-      const sbOpts = sbSession?.accessToken
-        ? { auth:{ persistSession:false }, global:{ headers:{ Authorization:`Bearer ${sbSession.accessToken}` } } }
-        : { auth:{ persistSession:false } };
-      const sb = createClient(_sbUrl, _sbKey, sbOpts);
+      // initSupabase orqali ulanamiz — bu "Multiple GoTrueClient" ogohlantirishini oldini oladi
+      // (avval token olingan, shuning uchun initSupabase token bilan ulanadi)
+      if (typeof initSupabase === "function") {
+        try { await initSupabase(); } catch(e) {}
+      }
+      const sb = _sb; // global _sb ni ishlatamiz — yangi instance yaratmaymiz
 
       // Token ichidagi shop_id bo'yicha qidiramiz (RLS bilan mos)
       // Agar token yo'q bo'lsa — owner_email bo'yicha (eski usul, zaxira)
+      const sbSession = getSupabaseTestSession();
       let shops = null;
-      if (sbSession?.shopId) {
+      if (sbSession?.shopId && sb) {
         const { data } = await sb.from("shops").select("id,name").eq("id", sbSession.shopId).limit(1);
         shops = data;
       }
-      if (!shops?.length) {
+      if (!shops?.length && sb) {
         const { data } = await sb.from("shops").select("id,name").eq("owner_email", email).limit(1);
         shops = data;
       }
@@ -544,11 +544,6 @@ async function doLogin() {
 
         res = await authLogin(email, pass, shopId);
         localStorage.setItem(dbKey, JSON.stringify(db));
-
-        // Token muvaffaqiyatli olindi — initSupabase'ni qayta ishga tushiramiz
-        if (sbTokenOk && typeof initSupabase === "function") {
-          try { await initSupabase(); } catch(e) {}
-        }
       } else {
         res = await authLogin(email, pass);
       }
