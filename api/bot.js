@@ -1432,8 +1432,10 @@ async function cmdOylikStat(chatId) {
 
 // ── /mendokonlarim — egasi/mijoz bo'lgan barcha do'konlar ──────
 async function cmdMenDokonlarim(chatId) {
+  console.log(`[mendokonlarim] chatId=${chatId} (type=${typeof chatId})`);
   const ownerShops = await getOwnerShops(chatId);
   const custShops   = await getCustomerShops(chatId);
+  console.log(`[mendokonlarim] ownerShops=${JSON.stringify(ownerShops)}, custShops=${JSON.stringify(custShops)}`);
 
   if (!ownerShops.length && !custShops.length) {
     await tg(chatId, "Siz hali hech qaysi do'konga ulanmagansiz.\n\n/start orqali do'kon tanlang.");
