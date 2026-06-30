@@ -545,6 +545,22 @@ async function doLogin() {
           if (sets.rate)                  shopDB.settings.rate               = sets.rate;
         }
         db = shopDB;
+
+        // ── YANGI: Supabase Auth token olish ──────────────────────
+        // Bu token cloud sync'da RLS'ni to'g'ri tekshirish uchun kerak.
+        // Muvaffaqiyatsiz bo'lsa — eski usulda davom etamiz (xavfsiz zaxira).
+        try {
+          const sbAuthRes = await authLoginSupabaseTest(email, pass);
+          if (sbAuthRes.ok) {
+            console.log("✅ Supabase Auth token olindi — RLS xavfsizligi faol");
+          } else {
+            console.warn("ℹ️ Supabase Auth token olinmadi — eski usulda davom etamiz:", sbAuthRes.error);
+          }
+        } catch(e) {
+          console.warn("ℹ️ Supabase Auth token xatosi — eski usulda davom etamiz:", e.message);
+        }
+        // ── YANGI qism tugadi ──────────────────────────────────────
+
         res = await authLogin(email, pass, shopId);
         localStorage.setItem(dbKey, JSON.stringify(db));
       } else {
