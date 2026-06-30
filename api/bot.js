@@ -200,7 +200,35 @@ function isAllowed(chatId) {
 async function isShopOwner(chatId) {
   if (OWNER_ID && String(chatId) === String(OWNER_ID)) return true;
   const ctx = await getShopCtx(chatId);
-  return ctx.isOwner === true;
+  if (ctx.isOwner === true) return true;
+  // shop_owners jadvalidan ham tekshiramiz (ko'p do'konli egalar uchun)
+  if (ctx.shopId) {
+    try {
+      const rows = await sb("shop_owners", `?chat_id=eq.${chatId}&shop_id=eq.${ctx.shopId}&select=shop_id&limit=1`);
+      if (rows?.length) return true;
+    } catch(e) {}
+  }
+  return false;
+}
+
+// Egasi bo'lgan barcha do'konlar ro'yxati
+async function getOwnerShops(chatId) {
+  try {
+    return await sb("shop_owners", `?chat_id=eq.${chatId}&select=shop_id,shop_name&order=shop_name`);
+  } catch(e) { return []; }
+}
+
+// Mijoz sifatida bog'langan barcha do'konlar ro'yxati
+async function getCustomerShops(chatId) {
+  try {
+    const rows = await sb("customers", `?telegram_chat_id=eq.${chatId}&select=shop_id&limit=50`);
+    if (!rows?.length) return [];
+    const shopIds = [...new Set(rows.map(r => r.shop_id).filter(Boolean))];
+    if (!shopIds.length) return [];
+    const inList = shopIds.map(id => `"${id}"`).join(",");
+    const shops = await sb("shops", `?id=in.(${inList})&select=id,name`);
+    return shops || [];
+  } catch(e) { return []; }
 }
 
 // ── /start ───────────────────────────────────────────────────
@@ -230,6 +258,18 @@ async function cmdStart(chatId, param) {
       // Do'kon egasimi tekshiramiz
       const isOwner = await isShopOwner(chatId);
       if (isOwner) {
+        // shop_owners jadvaliga doimiy yozamiz (ko'p do'konli egalar uchun)
+        try {
+          await fetch(`${SB_URL}/rest/v1/shop_owners?on_conflict=chat_id,shop_id`, {
+            method: "POST",
+            headers: {
+              apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+              "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+            },
+            body: JSON.stringify({ chat_id: String(chatId), shop_id: shopId, shop_name: ctx.shopName })
+          });
+        } catch(e) { console.warn("shop_owners saqlash xato:", e.message); }
+
         await tg(chatId,
           "🏪 " + ctx.shopName + "\n\n" +
           "Do'kon egasi sifatida kirildi.\n\n" +
@@ -1390,6 +1430,35 @@ async function cmdOylikStat(chatId) {
   }
 }
 
+// ── /mendokonlarim — egasi/mijoz bo'lgan barcha do'konlar ──────
+async function cmdMenDokonlarim(chatId) {
+  const ownerShops = await getOwnerShops(chatId);
+  const custShops   = await getCustomerShops(chatId);
+
+  if (!ownerShops.length && !custShops.length) {
+    await tg(chatId, "Siz hali hech qaysi do'konga ulanmagansiz.\n\n/start orqali do'kon tanlang.");
+    return;
+  }
+
+  let txt = "🏪 Sizning do'konlaringiz:\n\n";
+  const btns = [];
+
+  if (ownerShops.length) {
+    txt += "👤 Egasi bo'lgan do'konlar:\n";
+    ownerShops.forEach(s => { txt += `  • ${s.shop_name}\n`; });
+    ownerShops.forEach(s => btns.push([{ text: "📊 " + s.shop_name + " (egasi)", callback_data: "switch_owner:" + s.shop_id }]));
+    txt += "\n";
+  }
+
+  if (custShops.length) {
+    txt += "🛍 Mijoz bo'lgan do'konlar:\n";
+    custShops.forEach(s => { txt += `  • ${s.name}\n`; });
+    custShops.forEach(s => btns.push([{ text: "🧾 " + s.name + " cheklari", callback_data: "switch_cust:" + s.id }]));
+  }
+
+  await tg(chatId, txt, { reply_markup: { inline_keyboard: btns } });
+}
+
 // ── /help ────────────────────────────────────────────────────
 async function cmdHelp(chatId) {
   const ctx = await getShopCtx(chatId);
@@ -1585,6 +1654,62 @@ export default async function handler(req, res) {
         }
       }
 
+      // Egasi sifatida do'kon almashtirish (/mendokonlarim dan)
+      if (cb.data?.startsWith("switch_owner:")) {
+        const shopId = cb.data.slice(13);
+        const ctx = await setShopForUser(chatId, shopId);
+        if (ctx) {
+          // shop_owners ga ham yozamiz (allaqachon bo'lishi kerak, lekin tasdiqlaymiz)
+          try {
+            await fetch(`${SB_URL}/rest/v1/shop_owners?on_conflict=chat_id,shop_id`, {
+              method: "POST",
+              headers: {
+                apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+                "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+              },
+              body: JSON.stringify({ chat_id: String(chatId), shop_id: shopId, shop_name: ctx.shopName })
+            });
+          } catch(e) {}
+          // isOwner=true qilib cache yangilaymiz
+          _shopCache.set(String(chatId), { ...ctx, isOwner: true, ts: Date.now() });
+          await tg(chatId,
+            "📊 " + ctx.shopName + " tanlandi (egasi sifatida).\n\n" +
+            "Endi /hisobot, /balans, /qarzlar kabi komandalar shu do'kon uchun ishlaydi."
+          );
+        }
+      }
+
+      // Mijoz sifatida do'kon tanlash — shu do'kondan kelgan cheklarni ko'rsatish
+      if (cb.data?.startsWith("switch_cust:")) {
+        const shopId = cb.data.slice(12);
+        try {
+          const shops = await sb("shops", `?id=eq.${shopId}&select=name&limit=1`);
+          const shopName = shops?.[0]?.name || "Do'kon";
+          const sales = await sb("sales",
+            `?shop_id=eq.${shopId}&select=chek_num,date,total,customer_phone&order=date.desc&limit=10`);
+          // Faqat shu mijozga tegishli (telefon orqali)
+          const custRows = await sb("customers",
+            `?telegram_chat_id=eq.${chatId}&shop_id=eq.${shopId}&select=phone&limit=1`);
+          const myPhone = custRows?.[0]?.phone ? normPhone(custRows[0].phone) : null;
+          const mySales = myPhone
+            ? (sales || []).filter(s => s.customer_phone && normPhone(s.customer_phone) === myPhone)
+            : [];
+
+          if (!mySales.length) {
+            await tg(chatId, `🧾 ${shopName}\n\nHali xaridlar topilmadi.`);
+          } else {
+            let txt = `🧾 ${shopName} — so'ngi xaridlaringiz:\n\n`;
+            mySales.slice(0, 10).forEach(s => {
+              txt += `${s.chek_num || "—"} · ${s.date} · ${fmt(s.total||0)} so'm\n`;
+            });
+            await tg(chatId, txt);
+          }
+        } catch(e) {
+          console.warn("switch_cust xato:", e.message);
+          await tg(chatId, "⚠️ Cheklar topilmadi.");
+        }
+      }
+
       // Barcha qarzlar
       if (cb.data === "barcha_qarzlar") {
         const allowed2 = await isShopOwner(chatId);
@@ -1614,10 +1739,16 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  // /mendokonlarim — egasi tekshiruvisiz, hamma uchun ochiq
+  if (cmd === "/mendokonlarim") {
+    await cmdMenDokonlarim(chatId);
+    return res.status(200).json({ ok: true });
+  }
+
   // Shop egasi tekshiruvi
   const allowed = await isShopOwner(chatId);
   if (!allowed) {
-    await tg(chatId, "⛔ Bu komanda faqat do'kon egasi uchun.\n\n/start — qaytadan boshlash");
+    await tg(chatId, "⛔ Bu komanda faqat do'kon egasi uchun.\n\n/start — qaytadan boshlash\n/mendokonlarim — do'konlaringiz ro'yxati");
     return res.status(200).json({ ok: true });
   }
 
