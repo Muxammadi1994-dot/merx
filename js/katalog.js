@@ -646,7 +646,7 @@ function openEditProduct(sku) {
       cbEl.innerHTML = Object.entries(p.colorBarcodes).map(([clr, bc]) =>
         `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
           <span style="min-width:60px;font-size:12px;color:var(--mut)">${clr}</span>
-          <input value="${bc}" onchange="updateColorBarcode('${p.sku}','${clr}',this.value)"
+          <input value="${bc}" onchange="updateColorBarcode('${jsEsc(p.sku)}','${jsEsc(clr)}',this.value)"
             style="font-family:monospace;font-size:12px;border:1px solid var(--brd);border-radius:6px;padding:3px 7px;width:140px">
         </div>`
       ).join("");
@@ -734,6 +734,15 @@ function epRemoveColorImage(color) {
   toast(`"${color}" rasmi o'chirildi`);
 }
 
+// HTML onclick/onchange ichida xavfsiz ishlatish uchun — apostrof va
+// boshqa maxsus belgilarni escape qiladi (masalan "Ko'k" rangidagi apostrof)
+function jsEsc(s) {
+  return String(s)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/"/g, "&quot;");
+}
+
 function epRenderColorCards(p) {
   const colors = [...new Set(p.variants.map(v => v.color))];
   const el = $("ep-color-cards");
@@ -755,16 +764,16 @@ function epRenderColorCards(p) {
             <i class="ti ti-camera" style="font-size:10px"></i>
           </div>
         </div>
-        <input type="file" id="${colorImgId}" accept="image/*" style="display:none" onchange="epLoadColorImage(this,'${color}')">
+        <input type="file" id="${colorImgId}" accept="image/*" style="display:none" onchange="epLoadColorImage(this,'${jsEsc(color)}')">
         <input value="${color}" data-epcolor="${color}" data-field="color"
-          oninput="epUpdateColorField('${color}',this)"
+          oninput="epUpdateColorField('${jsEsc(color)}',this)"
           style="font-weight:700;font-size:13.5px;border:none;background:transparent;flex:1;padding:2px 0">
         <span style="font-size:11px;color:#555">${pantone}</span>
         <span style="font-size:10.5px;color:#555">Jami: ${totalQty} dona</span>
-        ${colorImg ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="epRemoveColorImage('${color}')" title="Rasmni o'chirish">
+        ${colorImg ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="epRemoveColorImage('${jsEsc(color)}')" title="Rasmni o'chirish">
           <i class="ti ti-photo-off" style="font-size:13px;color:var(--mut)"></i>
         </button>` : ""}
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="epDeleteColor('${color}')" title="Bu rangni butunlay o'chirish">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="epDeleteColor('${jsEsc(color)}')" title="Bu rangni butunlay o'chirish">
           <i class="ti ti-trash" style="color:var(--red)"></i>
         </button>
       </div>
@@ -780,7 +789,7 @@ function epRenderColorCards(p) {
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:12px;color:var(--mut)">Pochka:</span>
             <input type="number" value="${g.qty}" min="0" data-epgroupqty="${color}::${gi}"
-              onchange="epUpdateGroupQty('${color}',${gi},this.value)"
+              onchange="epUpdateGroupQty('${jsEsc(color)}',${gi},this.value)"
               style="width:60px;border:1px solid var(--brd);border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700;text-align:center">
             <span style="font-size:11px;color:#bbb">${p.packUnit||"pochka"}</span>
           </div>
@@ -793,7 +802,7 @@ function epRenderColorCards(p) {
                 <div style="display:flex;align-items:center;gap:3px;background:var(--bg);border:1px solid var(--brd);border-radius:7px;padding:3px 5px">
                   <span style="font-size:10.5px;color:var(--mut);min-width:22px">${v.size}</span>
                   <input type="number" value="${v.qty}" min="0" data-epqty="${color}::${v.size}"
-                    oninput="epUpdateQty('${color}','${v.size}',this.value)"
+                    oninput="epUpdateQty('${jsEsc(color)}','${v.size}',this.value)"
                     style="width:100%;border:none;background:transparent;font-size:11px;font-weight:600;text-align:right;padding:1px">
                 </div>`).join("")}
             </div>
@@ -802,7 +811,7 @@ function epRenderColorCards(p) {
       }).join("")}
 
       <div style="padding-top:8px">
-        <button class="btn btn-ghost btn-sm" onclick="epAddSizeToColor('${color}')"
+        <button class="btn btn-ghost btn-sm" onclick="epAddSizeToColor('${jsEsc(color)}')"
           style="border:1.5px dashed var(--brd);border-radius:7px;padding:4px 10px;font-size:11px;color:var(--mut)">
           <i class="ti ti-plus" style="font-size:13px"></i> o'lcham qo'shish
         </button>
