@@ -440,16 +440,19 @@ function renderKatalog() {
       </td>
       <td class="kat-col-image" onclick="event.stopPropagation()">
         <div style="position:relative;display:inline-block">
-          ${p.image
-            ? `<img src="${p.image}" class="kat-thumb" style="cursor:pointer"
-                onclick="katImgClick('${p.sku}')" title="Rasmni o'zgartirish">`
-            : `<div class="kat-thumb-empty" style="cursor:pointer"
-                onclick="katImgClick('${p.sku}')" title="Rasm qo'shish">
-                <i class="ti ti-camera-plus" style="font-size:16px"></i>
-              </div>`}
+          ${(() => {
+            // Rang bo'yicha rasm — agar shu rangga alohida rasm yuklangan bo'lsa
+            // shuni ko'rsatamiz, aks holda mahsulotning umumiy rasmi
+            const rowImg = (p.colorImages && p.colorImages[color]) || p.image || "";
+            return rowImg
+              ? `<img src="${rowImg}" class="kat-thumb" style="cursor:pointer"
+                  onclick="katImgClick('${p.sku}','${jsEsc(color)}')" title="Rasmni o'zgartirish">`
+              : `<div class="kat-thumb-empty" style="cursor:pointer"
+                  onclick="katImgClick('${p.sku}','${jsEsc(color)}')" title="Rasm qo'shish">
+                  <i class="ti ti-camera-plus" style="font-size:16px"></i>
+                </div>`;
+          })()}
         </div>
-        <input type="file" id="kat-img-inp-${p.sku}" accept="image/*" style="display:none"
-          onchange="katImgSave('${p.sku}',this)">
       </td>
       <td class="kat-col-sku" style="font-family:monospace;font-size:11px;color:var(--mut)">${p.sku}</td>
       <td class="kat-col-art" style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${p.art || '<span style="color:#ddd">—</span>'}</td>
@@ -2417,12 +2420,22 @@ window.onload = () => {
 }
 
 // ── Katalog jadvalidan rasm yuklash ──────────────
-function katImgClick(sku) {
-  const inp = document.getElementById("kat-img-inp-" + sku);
-  if (inp) inp.click();
+function katImgClick(sku, color) {
+  // Inputni dinamik yaratamiz (sku+color uchun noyob bo'lishi shart)
+  let inp = document.getElementById("kat-img-inp-" + sku + "-" + (color||"_"));
+  if (!inp) {
+    inp = document.createElement("input");
+    inp.type = "file";
+    inp.accept = "image/*";
+    inp.style.display = "none";
+    inp.id = "kat-img-inp-" + sku + "-" + (color||"_");
+    inp.onchange = function() { katImgSave(sku, color, this); };
+    document.body.appendChild(inp);
+  }
+  inp.click();
 }
 
-function katImgSave(sku, input) {
+function katImgSave(sku, color, input) {
   const file = input.files[0]; if (!file) return;
   if (file.size > 2 * 1024 * 1024) { toast("Rasm 2MB dan katta", "err"); return; }
   const reader = new FileReader();
@@ -2446,10 +2459,16 @@ function katImgSave(sku, input) {
 
       const p = db.products.find(x => x.sku === sku);
       if (!p) return;
-      p.image = dataUrl;
+      // Rang ko'rsatilgan bo'lsa — shu rangga, aks holda umumiy rasmga saqlaymiz
+      if (color) {
+        if (!p.colorImages) p.colorImages = {};
+        p.colorImages[color] = dataUrl;
+      } else {
+        p.image = dataUrl;
+      }
       saveDB();
       renderKatalog();
-      toast("✅ Rasm saqlandi");
+      toast("✅ Rasm saqlandi" + (color ? ` ("${color}" rangiga)` : ""));
     };
     img.src = raw;
   };
