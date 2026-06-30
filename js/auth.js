@@ -551,3 +551,44 @@ function hideLoginScreen() {
     setTimeout(() => screen.remove(), 300);
   }
 }
+
+// ════════════════════════════════════════════════════════════════
+// ⚠️ SINOV UCHUN — Supabase Auth (yangi tizim, 2-bosqich)
+// ════════════════════════════════════════════════════════════════
+// Bu funksiyalar HOZIRCHA login ekraniga ULANMAGAN — faqat brauzer
+// konsolida qo'lda chaqirish uchun (masalan: await authLoginSupabaseTest(...)).
+// Mavjud authLogin/authLogout funksiyalariga HECH QANDAY ta'sir qilmaydi.
+// Maqsad: yangi tizimni xavfsiz, alohida sinab ko'rish.
+// ════════════════════════════════════════════════════════════════
+
+let _supabaseTestSession = null; // sinov sessiyasi — _authUser bilan ARALASHMAYDI
+
+async function authLoginSupabaseTest(email, password) {
+  try {
+    const res = await fetch("/api/auth-v2?action=login_test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      _supabaseTestSession = data;
+      console.log("✅ Supabase sinov kirishi muvaffaqiyatli:", data);
+    } else {
+      console.warn("❌ Supabase sinov kirishi xato:", data.error);
+    }
+    return data;
+  } catch (e) {
+    console.error("Supabase sinov kirishi — tarmoq xatosi:", e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+function getSupabaseTestSession() {
+  return _supabaseTestSession;
+}
+
+function clearSupabaseTestSession() {
+  _supabaseTestSession = null;
+  console.log("Supabase sinov sessiyasi tozalandi");
+}
