@@ -259,8 +259,9 @@ function posSearch() {
     const rowKey = `${p.sku}::${color}::${packGroup}`;
     const rowId = rowKey.replace(/[^a-zA-Z0-9]/g,'_');
 
-    const imgHtml = p.image
-      ? `<img src="${p.image}" style="width:36px;height:36px;object-fit:cover;border-radius:7px;border:1px solid var(--brd);flex-shrink:0">`
+    const rowImg = (p.colorImages && p.colorImages[color]) || p.image || "";
+    const imgHtml = rowImg
+      ? `<img src="${rowImg}" style="width:36px;height:36px;object-fit:cover;border-radius:7px;border:1px solid var(--brd);flex-shrink:0">`
       : "";
 
     return `<div class="pos-ri" style="align-items:center;flex-direction:column;align-items:stretch;${isBroken?'background:#FFFBF0;border-color:#f0d882':''}" data-rowkey="${rowKey}">

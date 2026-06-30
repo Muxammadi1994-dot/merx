@@ -179,7 +179,7 @@ function omRenderQoldiq() {
           art:     p.art || "",
           name:    p.name,
           category:p.category || "",
-          image:   p.image || "",
+          image:   (p.colorImages && p.colorImages[color]) || p.image || "",
           type:    p.type,
           color:   color,
           pantone: pantone,
@@ -265,13 +265,11 @@ function omRenderQoldiq() {
 
     return `<tr>
       ${cols.image ? `<td onclick="event.stopPropagation()">
-        <div style="position:relative;flex-shrink:0" onclick="omImgClick('${r.sku}')" title="Rasm qo'shish/o'zgartirish">
+        <div style="position:relative;flex-shrink:0" onclick="omImgClick('${r.sku}','${typeof jsEsc==='function' ? jsEsc(r.color) : r.color}')" title="Rasm qo'shish/o'zgartirish">
           ${r.image
             ? `<img src="${r.image}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--brd);cursor:pointer">`
             : `<div style="width:36px;height:36px;border:1.5px dashed #e0ddd8;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:14px;cursor:pointer"><i class="ti ti-camera-plus"></i></div>`}
         </div>
-        <input type="file" id="om-img-inp-${r.sku}" accept="image/*" style="display:none"
-          onchange="omImgSave('${r.sku}',this)">
       </td>` : ""}
       ${cols.sku ? `<td style="font-family:monospace;font-size:11.5px;color:var(--mut)">${r.sku}</td>` : ""}
       ${cols.art ? `<td style="font-family:monospace;font-size:12px;font-weight:700;color:#0D1B2A">${r.art || '<span style="color:#ddd">—</span>'}</td>` : ""}
@@ -786,12 +784,21 @@ function exportChiqimExcel() {
 }
 
 // ── Ombor jadvalidan rasm yuklash ────────────────
-function omImgClick(sku) {
-  const inp = document.getElementById("om-img-inp-" + sku);
-  if (inp) inp.click();
+function omImgClick(sku, color) {
+  let inp = document.getElementById("om-img-inp-" + sku + "-" + (color||"_"));
+  if (!inp) {
+    inp = document.createElement("input");
+    inp.type = "file";
+    inp.accept = "image/*";
+    inp.style.display = "none";
+    inp.id = "om-img-inp-" + sku + "-" + (color||"_");
+    inp.onchange = function() { omImgSave(sku, color, this); };
+    document.body.appendChild(inp);
+  }
+  inp.click();
 }
 
-function omImgSave(sku, input) {
+function omImgSave(sku, color, input) {
   const file = input.files[0]; if (!file) return;
   if (file.size > 2 * 1024 * 1024) { toast("Rasm 2MB dan katta", "err"); return; }
   const reader = new FileReader();
@@ -813,10 +820,15 @@ function omImgSave(sku, input) {
 
       const p = db.products.find(x => x.sku === sku);
       if (!p) { toast("Mahsulot topilmadi", "err"); return; }
-      p.image = dataUrl;
+      if (color) {
+        if (!p.colorImages) p.colorImages = {};
+        p.colorImages[color] = dataUrl;
+      } else {
+        p.image = dataUrl;
+      }
       saveDB();
       renderOmbor();
-      toast("✅ Rasm saqlandi");
+      toast("✅ Rasm saqlandi" + (color ? ` ("${color}" rangiga)` : ""));
     };
     img.src = e.target.result;
   };
