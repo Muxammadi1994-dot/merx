@@ -356,10 +356,20 @@ async function pushToCloud() {
       await sync("debt_payments", (db.debtPayments||[]).map(p => ({
         shop_id: sid,
         id: p.id,
+        chek_num: p.chekNum || null,
         date: p.date,
+        time: p.time || null,
         amount: p.amount || 0,
         currency: p.currency || "uzs",
-        method: p.method || "naqd"
+        method: p.method || "naqd",
+        customer_id: p.customerId || null,
+        customer_name: p.customerName || null,
+        customer_phone: p.customerPhone || null,
+        staff_id: p.staffId || null,
+        note: p.note || null,
+        allocations: p.allocations || [],
+        leftover: p.leftover || 0,
+        leftover_to_balance: !!p.leftoverToBalance
       })));
     } catch(e) { syncErrors.push("debt_payments: " + e.message); console.warn("sync debt_payments xato:", e.message); }
 
@@ -536,14 +546,22 @@ async function pullFromCloud() {
     const { data: payData } = await _sb.from("debt_payments").select("*").eq("shop_id", sid).order("created_at");
     if (payData) {
       db.debtPayments = payData.map(p => ({
-        id:       p.id,
-        saleId:   p.sale_id || null,
-        date:     p.date,
-        amount:   p.amount || 0,
-        currency: p.currency || "uzs",
-        method:   p.method || "naqd",
-        staffId:  p.staff_id || null,
-        note:     p.note || null
+        id:        p.id,
+        chekNum:   p.chek_num || null,
+        saleId:    p.sale_id || null,
+        date:      p.date,
+        time:      p.time || null,
+        amount:    p.amount || 0,
+        currency:  p.currency || "uzs",
+        method:    p.method || "naqd",
+        staffId:   p.staff_id || null,
+        note:      p.note || null,
+        customerId:    p.customer_id || null,
+        customerName:  p.customer_name || null,
+        customerPhone: p.customer_phone || null,
+        allocations:   p.allocations || [],
+        leftover:      p.leftover || 0,
+        leftoverToBalance: !!p.leftover_to_balance
       }));
     }
 
