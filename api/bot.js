@@ -918,16 +918,16 @@ async function actionSendStaffNotification(body) {
     txt += `✅ <b>To'liq to'landi</b>\n`;
   }
 
-  // "Batafsil ko'rish" — Telegram ichki brauzerida ochiladi (web_app sifatida)
-  const shopParam  = sid ? `&shop=${encodeURIComponent(sid)}` : "";
-  const catalogUrl = `https://merx-rho.vercel.app/api/bot?action=staff_order&id=${encodeURIComponent(chekId)}${shopParam}`;
+  // "Batafsil ko'rish" — Telegram Web App orqali (BotFather: /newapp, short_name=ombor)
+  // startapp parametri orqali chekId+shopId uzatiladi (Telegram faqat
+  // harf/raqam/pastki chiziqcha qabul qiladi, shuning uchun maxsus kodlaymiz)
+  const startParam  = sid ? `${chekId}__${sid}` : chekId;
+  const startParamEnc = startParam.replace(/[^a-zA-Z0-9_]/g, m => "x" + m.charCodeAt(0).toString(16));
+  const catalogUrl  = `https://t.me/${BOT_USERNAME}/ombor?startapp=${startParamEnc}`;
 
-  // SINOV: web_app tugmasi inline_keyboard orqali guruhlarda ishlashi
-  // mumkin (Telegram hujjatlariga ko'ra). Agar bu ishlamasa yoki tugma
-  // ko'rinmasa — pastdagi qatorni "url: catalogUrl" ga qaytaring.
   const replyMarkup = {
     inline_keyboard: [[
-      { text: "📋 Batafsil ko'rish — tovarlarni belgilash", web_app: { url: catalogUrl } }
+      { text: "📋 Batafsil ko'rish — tovarlarni belgilash", url: catalogUrl }
     ]],
   };
 
@@ -1593,14 +1593,43 @@ export default async function handler(req, res) {
   // Ishchilar buyurtma katalogi (HTML) — YANGI
   if (req.method === "GET" && req.query?.action === "staff_order") {
     try {
-      const chekId   = String(req.query.id || "");
+      let chekId   = String(req.query.id || "");
       const saleData = req.query.d    || null;
-      const shopId   = req.query.shop || null;
-      if (!chekId) return res.status(400).send("Chek ID kerak");
+      let shopId   = req.query.shop || null;
+
+      // Agar to'g'ridan ID kelmagan bo'lsa — bu Telegram Web App orqali
+      // ochilgan, va Web App initData'ni Telegram skripti JS orqali
+      // beradi (server tomonda ko'rinmaydi). Shuning uchun avval bo'sh
+      // sahifa qaytaramiz, u tg.initDataUnsafe.start_param ni o'qib,
+      // shu sahifaga ?id=... bilan qayta yo'naltiradi.
+      if (!chekId) {
+        return res.status(200).send(`<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head><body style="background:#F2F0EB;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif">
+<div id="msg" style="color:#888">Yuklanmoqda…</div>
+<script>
+  var tg = window.Telegram.WebApp;
+  tg.ready();
+  var param = tg.initDataUnsafe && tg.initDataUnsafe.start_param;
+  if (param) {
+    // startapp kodlangan edi (xNN — maxsus belgilar uchun) — dekodlaymiz
+    var decoded = param.replace(/x([0-9a-f]{2})/g, function(m, hex) {
+      return String.fromCharCode(parseInt(hex, 16));
+    });
+    var parts = decoded.split("__");
+    var url = "/api/bot?action=staff_order&id=" + encodeURIComponent(parts[0]);
+    if (parts[1]) url += "&shop=" + encodeURIComponent(parts[1]);
+    window.location.replace(url);
+  } else {
+    document.getElementById("msg").textContent = "⚠️ Buyurtma ID topilmadi.";
+  }
+</script>
+</body></html>`);
+      }
+
       const html = await actionRenderStaffOrder(chekId, saleData, shopId);
       res.setHeader("Content-Type", "text/html; charset=utf-8");
-      // Kesh muammosini oldini olish — har safar serverdan yangi yuklansin
-      // (Telegram ichki brauzeri va oddiy brauzerlar eski sahifani ko'rsatmasligi uchun)
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
