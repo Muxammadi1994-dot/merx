@@ -136,6 +136,17 @@ async function tg(chatId, text, extra = {}) {
   return res.json();
 }
 
+// Rasm + matn (caption) bilan yuborish — guruhga buyurtma rasmi uchun
+async function tgPhoto(chatId, photoUrl, caption, extra = {}) {
+  const body = { chat_id: chatId, photo: photoUrl, caption, parse_mode: "HTML", ...extra };
+  const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
 // Telegram callback javob
 async function tgAnswer(callbackId) {
   await fetch(`https://api.telegram.org/bot${TOKEN}/answerCallbackQuery`, {
@@ -822,83 +833,98 @@ async function actionSendStaffNotification(body) {
   const { sale, shopName, staffGroupId, shopId } = body || {};
   if (!sale) return { ok: false, error: "sale majburiy" };
 
-  // staffGroupId: frontend dan keladi (settings dan), yoki env dan
   const groupId = staffGroupId || STAFF_GROUP;
   if (!groupId) return { ok: false, reason: "no_group_id" };
   const sid = shopId || null;
 
-  const payLabels = { naqd: "💵 Naqd", karta: "💳 Karta", otkazma: "🏦 O'tkazma", nasiya: "📋 Nasiya", aralash: "🔀 Aralash" };
-  const chekId   = sale.chekNum || ("ID" + sale.id);
-  const shopN    = shopName || "MERX";
-  const items    = sale.items || [];
-  const total    = Number(sale.total || 0);
-  const paid     = Number(sale.paid  || 0);
-  const rem      = Number(sale.remaining || 0);
-  const payType  = sale.payType || sale.pay_type || "";
+  const chekId = sale.chekNum || ("ID" + sale.id);
+  const shopN  = shopName || "MERX";
+  const items  = sale.items || [];
+  const total  = Number(sale.total || 0);
+  const paid   = Number(sale.paid  || 0);
+  const rem    = Number(sale.remaining || 0);
 
-  // ── Xabar matni ────────────────────────────────────────────
-  // Sarlavha
-  let txt = `🆕 <b>Yangi buyurtma</b>\n`;
-  txt += `🏷 Buyurtma ID: <b>${chekId}</b>\n`;
-  txt += `📅 Vaqt: ${sale.date || ""} ${sale.time || ""}\n`;
-
-  // Mijoz
   const custName  = sale.customerName  || sale.customer_name  || "";
   const custPhone = sale.customerPhone || sale.customer_phone || "";
-  if (custName)  txt += `👤 Mijoz: <b>${custName}</b>\n`;
-  if (custPhone) txt += `📞 Tel: ${custPhone}\n`;
 
-  // To'lov
-  // to'lov turi ko'rsatilmaydi — tovarlar ro'yxatida ma'lumot yetarli
+  // Kattaroq, tiniqroq matn — bold va emoji bilan ajratilgan, yaxshi o'qiladigan
+  let txt = `🆕 <b>YANGI BUYURTMA</b>\n`;
+  txt += `🏷 <b>${chekId}</b>\n`;
+  txt += `📅 ${sale.date || ""} ${sale.time || ""}\n`;
+  if (custName)  txt += `\n👤 <b>${custName}</b>`;
+  if (custPhone) txt += `  📞 ${custPhone}`;
+  txt += `\n`;
 
-  // Mahsulotlar ro'yxati — omborchi uchun katta va aniq
   const totalBoxesTxt = items.reduce((a, it) => a + (it.qtyBox || 0), 0);
-  txt += `\n📦 <b>${items.length} xil tovar · ${totalBoxesTxt || items.reduce((a,it)=>a+(it.qty||0),0)} pochka</b>\n`;
-  txt += `${"─".repeat(28)}\n`;
+  const totalDonaTxt  = items.reduce((a, it) => a + (it.qty || 0), 0);
+  txt += `\n📦 <b>${items.length} xil tovar · ${totalBoxesTxt || totalDonaTxt} ${totalBoxesTxt ? "pochka" : "dona"}</b>\n`;
+  txt += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
   for (const it of items) {
     const qtyBox  = it.qtyBox || 0;
     const color   = it.color   || "";
     const size    = it.size    || "";
     const art     = it.art     || "";
     const lineSum = fmt((it.price || 0) * (it.qty || 0));
-    txt += `\n📌 <b>${it.name}</b>`;
-    if (art) txt += ` <code>${art}</code>`;
+    txt += `\n🔸 <b>${it.name}</b>`;
+    if (art) txt += `  <code>${art}</code>`;
     txt += `\n`;
-    if (qtyBox) txt += `   📦 <b>${qtyBox} pochka</b> (${it.qty} ${it.unit || "dona"})\n`;
-    else        txt += `   🔢 <b>${it.qty} ${it.unit || "dona"}</b>\n`;
-    if (color)  txt += `   🎨 Rang: <b>${color}</b>\n`;
-    if (size)   txt += `   📏 O'lcham: <b>${size}</b>\n`;
-    txt += `   💵 ${fmt(it.price)} × ${it.qty} = <b>${lineSum} so'm</b>\n`;
+    if (qtyBox) txt += `📦 <b>${qtyBox} POCHKA</b>  (${it.qty} ${it.unit || "dona"})\n`;
+    else        txt += `🔢 <b>${it.qty} ${it.unit || "dona"}</b>\n`;
+    if (color)  txt += `🎨 Rang: <b>${color}</b>`;
+    if (size)   txt += `   📏 O'lcham: <b>${size}</b>`;
+    if (color || size) txt += `\n`;
+    txt += `💵 ${fmt(it.price)} × ${it.qty} = <b>${lineSum} so'm</b>\n`;
   }
-  txt += `${"─".repeat(28)}\n`;
+  txt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
 
-  // Jami
   const debtCur = sale.debtCurrency || sale.debt_currency || "uzs";
   const debtUsd = sale.debtUsd != null ? Number(sale.debtUsd) : (sale.debt_usd != null ? Number(sale.debt_usd) : null);
   const isUsd   = debtCur === "usd" && debtUsd != null && rem > 0;
 
-  txt += `\n💰 <b>Jami: ${fmt(total)} so'm</b>\n`;
+  txt += `\n💰 <b>JAMI: ${fmt(total)} so'm</b>\n`;
   if (rem > 0) {
     txt += `✅ To'landi: ${fmt(paid)} so'm\n`;
     const debtStr = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${fmt(rem)} so'm`;
-    txt += `🔴 Qarz: <b>${debtStr}</b>`;
-    if (sale.due) txt += ` (muddat: ${sale.due})`;
+    txt += `🔴 <b>Qarz: ${debtStr}</b>`;
+    if (sale.due) txt += `  (muddat: ${sale.due})`;
     txt += "\n";
   } else {
-    txt += `✅ To'liq to'landi\n`;
+    txt += `✅ <b>To'liq to'landi</b>\n`;
   }
 
-  // Catalog URL — shopId bilan (multi-tenant)
+  // "Batafsil ko'rish" — Telegram ichki brauzerida ochiladi (web_app sifatida)
   const shopParam  = sid ? `&shop=${encodeURIComponent(sid)}` : "";
   const catalogUrl = `https://merx-rho.vercel.app/api/bot?action=staff_order&id=${encodeURIComponent(chekId)}${shopParam}`;
 
-  const r = await tg(groupId, txt, {
-    reply_markup: {
-      inline_keyboard: [[
-        { text: "📋 Batafsil ko'rish", url: catalogUrl }
-      ]],
-    },
-  });
+  // Eslatma: web_app tugmasi GURUHLARDA Telegram tomonidan bloklanadi
+  // (faqat shaxsiy chatlarda ishlaydi). Guruh uchun oddiy URL ishlatamiz —
+  // bu Telegram'ning o'z ichki brauzerida ochiladi (default sozlamada).
+  const replyMarkup = {
+    inline_keyboard: [[
+      { text: "📋 Batafsil ko'rish — tovarlarni belgilash", url: catalogUrl }
+    ]],
+  };
+
+  // Birinchi mahsulotda rasm bo'lsa — rasm bilan yuboramiz (caption sifatida)
+  const firstImg = items.find(it => it.image && it.image.startsWith("http"))?.image;
+
+  let r;
+  if (firstImg) {
+    // Telegram caption limiti 1024 belgi — uzun bo'lsa qisqartiramiz
+    let caption = txt;
+    if (caption.length > 1000) {
+      caption = caption.slice(0, 980) + "\n\n…(to'liq ro'yxat \"Batafsil\" da)";
+    }
+    r = await tgPhoto(groupId, firstImg, caption, { reply_markup: replyMarkup });
+    if (!r.ok) {
+      // Rasm yuklanmasa — oddiy matn bilan urinib ko'ramiz
+      console.warn("[staffNotif] rasm bilan yuborish muvaffaqiyatsiz, matn bilan urinib ko'ramiz:", r.description);
+      r = await tg(groupId, txt, { reply_markup: replyMarkup });
+    }
+  } else {
+    r = await tg(groupId, txt, { reply_markup: replyMarkup });
+  }
 
   if (!r.ok) {
     console.error("[staffNotif] tg error:", r.description);
@@ -1028,20 +1054,20 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
 .hdr{background:#0D1B2A;padding:16px 16px 12px;text-align:center;position:sticky;top:0;z-index:10}
 .hdr-logo{font-family:'Sora',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:#E9A500;text-transform:uppercase}
 .hdr-id{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:#fff;margin-top:3px}
-.hdr-sub{font-size:12px;color:#9aa7b5;margin-top:2px}
+.hdr-sub{font-size:12px;color:#c5cdd6;margin-top:2px}
 
 /* CHIPS */
 .chips{background:#1a2d42;display:flex;justify-content:center;gap:12px;padding:9px 16px;flex-wrap:wrap}
-.chip{font-size:13px;color:#cdd5de;font-weight:600}
+.chip{font-size:13px;color:#e2e7ec;font-weight:600}
 .chip b{color:#fff;font-size:15px}
 
 /* MIJOZ */
 .cust-card{margin:10px 12px 0;background:#fff;border-radius:12px;padding:12px 14px}
-.cust-lbl{font-size:11px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:.8px}
+.cust-lbl{font-size:11px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.8px}
 .cust-val{font-size:18px;font-weight:700;color:#0D1B2A;margin-top:2px}
 
 /* SECTION */
-.sec{padding:14px 14px 8px;font-size:11px;font-weight:800;color:#999;text-transform:uppercase;letter-spacing:1px}
+.sec{padding:14px 14px 8px;font-size:11px;font-weight:800;color:#444;text-transform:uppercase;letter-spacing:1px}
 
 /* KARTA */
 .card{background:#fff;border-radius:14px;margin:0 10px 12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07)}
@@ -1057,43 +1083,43 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
 /* Karta body */
 .card-body{padding:18px 16px 14px}
 .qty-row{margin-bottom:8px}
-.qty-badge{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:26px;border-radius:10px;padding:7px 20px;display:inline-block}
+.qty-badge{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:30px;border-radius:10px;padding:9px 24px;display:inline-block}
 
 /* Nom */
-.card-name{font-family:'Sora',sans-serif;font-size:30px;font-weight:800;color:#0D1B2A;line-height:1.2;margin:10px 0 16px}
+.card-name{font-family:'Sora',sans-serif;font-size:34px;font-weight:800;color:#0D1B2A;line-height:1.15;margin:10px 0 18px}
 
 /* Atributlar */
 .card-attrs{display:flex;flex-direction:column;gap:0}
 .attr-row{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid #F0EDE8}
 .attr-row:last-child{border-bottom:none}
-.attr-k{font-size:18px;font-weight:700;color:#9CA3AF;min-width:100px}
-.attr-v{font-size:22px;font-weight:800;color:#0D1B2A;display:flex;align-items:center;gap:8px}
+.attr-k{font-size:20px;font-weight:700;color:#6B7280;min-width:110px}
+.attr-v{font-size:26px;font-weight:800;color:#0D1B2A;display:flex;align-items:center;gap:8px}
 .color-dot{width:26px;height:26px;border-radius:7px;flex-shrink:0;border:2px solid rgba(0,0,0,.12);display:inline-block}
-.code{font-family:monospace;background:#EEF2FF;color:#4F46E5;padding:4px 14px;border-radius:7px;font-size:20px;font-weight:700}
+.code{font-family:monospace;background:#EEF2FF;color:#4F46E5;padding:6px 16px;border-radius:8px;font-size:22px;font-weight:700}
 
 /* Narx */
 .price-row{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:2px dashed #E8E5E0}
-.price-per{font-size:15px;color:#9CA3AF;font-weight:600}
-.price-sum{font-family:'Sora',sans-serif;font-weight:800;font-size:26px;color:#0D1B2A}
+.price-per{font-size:17px;color:#6B7280;font-weight:700}
+.price-sum{font-family:'Sora',sans-serif;font-weight:800;font-size:30px;color:#0D1B2A}
 
 /* Tayyor tugma */
-.done-btn{width:100%;padding:16px;border:none;background:#F0FDF4;color:#16A34A;font-family:'Sora',sans-serif;font-size:18px;font-weight:800;cursor:pointer;border-top:1px solid #BBF7D0;transition:background .2s;letter-spacing:.5px}
+.done-btn{width:100%;padding:20px;border:none;background:#F0FDF4;color:#16A34A;font-family:'Sora',sans-serif;font-size:22px;font-weight:800;cursor:pointer;border-top:1px solid #BBF7D0;transition:background .2s;letter-spacing:.5px}
 .done-btn:active{background:#DCFCE7}
 .card.done .done-btn{background:#DCFCE7;color:#15803D}
 
 /* JAMI */
 .total-card{background:#0D1B2A;margin:4px 12px 0;border-radius:12px;padding:16px}
 .total-row{display:flex;justify-content:space-between;align-items:center}
-.total-lbl{font-family:'Sora',sans-serif;font-size:12px;color:#9aa7b5;font-weight:700;letter-spacing:.5px}
-.total-cnt{font-size:12px;color:#6b7a8d;margin-top:3px}
+.total-lbl{font-family:'Sora',sans-serif;font-size:12px;color:#c5cdd6;font-weight:700;letter-spacing:.5px}
+.total-cnt{font-size:12px;color:#cdd5de;margin-top:3px}
 .total-val{font-family:'Sora',sans-serif;font-weight:800;font-size:30px;color:#fff}
-.total-val span{font-size:14px;font-weight:600;color:#9aa7b5}
+.total-val span{font-size:14px;font-weight:600;color:#c5cdd6}
 
 /* TO'LOV */
 .pay-card{background:#fff;margin:8px 12px 0;border-radius:12px;padding:14px 16px}
 .pay-row{display:flex;justify-content:space-between;padding:5px 0;font-size:14px;color:#555}
 .pay-row.debt{color:#DC2626;border-top:1px dashed #fca5a5;margin-top:6px;padding-top:10px;font-weight:800;font-size:17px}
-.pay-row.muted{color:#aaa;font-size:12px}
+.pay-row.muted{color:#555;font-size:12px}
 .paid-badge{text-align:center;background:#ECFDF5;color:#059669;font-weight:700;font-size:15px;padding:10px;border-radius:8px}
 
 /* FOOTER */
@@ -1463,7 +1489,6 @@ async function cmdMenDokonlarim(chatId) {
 
 // ── /help ────────────────────────────────────────────────────
 async function cmdHelp(chatId) {
-  console.log("[VERSION CHECK] bot.js v2026-06-30-22");
   const ctx = await getShopCtx(chatId);
   const isOwner = ctx.isOwner || ctx.isSuperAdmin;
   const shopName = ctx.shopName || "MERX";
@@ -1585,27 +1610,54 @@ export default async function handler(req, res) {
     }
   }
 
-  // Done state — GET
+  // Done state — GET (Supabase orqali, BARCHA omborchilar uchun sinxron)
   if (req.method === "GET" && req.query?.action === "get_done") {
     const chekId = String(req.query?.id || "");
-    const done = doneStateStore.has(chekId) ? Array.from(doneStateStore.get(chekId)) : [];
-    return res.status(200).json({ ok: true, done });
+    try {
+      const rows = await sb("done_items", `?chek_id=eq.${encodeURIComponent(chekId)}&done=eq.true&select=item_idx`);
+      const done = (rows || []).map(r => r.item_idx);
+      return res.status(200).json({ ok: true, done });
+    } catch(e) {
+      console.error("[get_done] xato:", e.message);
+      return res.status(200).json({ ok: true, done: [] });
+    }
   }
 
-  // Done state — SET
+  // Done state — SET (Supabase orqali, BARCHA omborchilar uchun sinxron)
   if (req.method === "POST" && req.query?.action === "set_done") {
     let body;
     try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; } catch { body = {}; }
     const chekId = String(req.query?.id || body?.id || "");
     const idx2   = parseInt(body?.idx);
     const val    = body?.val === true || body?.val === "true";
+
     if (chekId && !isNaN(idx2)) {
-      if (!doneStateStore.has(chekId)) doneStateStore.set(chekId, new Set());
-      if (val) doneStateStore.get(chekId).add(idx2);
-      else     doneStateStore.get(chekId).delete(idx2);
+      try {
+        if (val) {
+          await fetch(`${SB_URL}/rest/v1/done_items?on_conflict=chek_id,item_idx`, {
+            method: "POST",
+            headers: {
+              apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+              "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+            },
+            body: JSON.stringify({ chek_id: chekId, item_idx: idx2, done: true })
+          });
+        } else {
+          await fetch(`${SB_URL}/rest/v1/done_items?chek_id=eq.${encodeURIComponent(chekId)}&item_idx=eq.${idx2}`, {
+            method: "DELETE",
+            headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
+          });
+        }
+      } catch(e) { console.error("[set_done] xato:", e.message); }
     }
-    const done = doneStateStore.has(chekId) ? Array.from(doneStateStore.get(chekId)) : [];
-    return res.status(200).json({ ok: true, done });
+
+    try {
+      const rows = await sb("done_items", `?chek_id=eq.${encodeURIComponent(chekId)}&done=eq.true&select=item_idx`);
+      const done = (rows || []).map(r => r.item_idx);
+      return res.status(200).json({ ok: true, done });
+    } catch(e) {
+      return res.status(200).json({ ok: true, done: [] });
+    }
   }
 
   // MERX dan: ishchilar guruhiga bildirishnoma — YANGI
