@@ -48,6 +48,48 @@ module.exports = async function handler(req, res) {
   const body = req.body || {};
 
   try {
+    // ── 1b. MAVJUD do'konni yangi tizimga bog'lash ─────────────
+    // Farqi: shopId TASODIFIY yaratilmaydi, balki sizning haqiqiy,
+    // hozirgi ma'lumotlaringiz bog'langan shop_id'ingiz qo'lda beriladi.
+    // Shu orqali eski ma'lumotlar yangi login bilan "uzilmaydi".
+    if (action === "link_existing_shop") {
+      const { email, password, shopId, shopName } = body;
+      if (!email || !password || password.length < 6) {
+        return res.status(400).json({ ok: false, error: "Email va kamida 6 belgili parol kerak" });
+      }
+      if (!shopId || !shopId.startsWith("shop_")) {
+        return res.status(400).json({ ok: false, error: "Haqiqiy shopId kerak (masalan shop_1782763300535)" });
+      }
+
+      const createRes = await fetch(`${SB_URL}/auth/v1/admin/users`, {
+        method: "POST",
+        headers: {
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { shop_id: shopId, shop_name: shopName || "MERX Do'koni" },
+        }),
+      });
+
+      const createData = await createRes.json();
+      if (!createRes.ok) {
+        return res.status(createRes.status).json({ ok: false, error: createData.msg || createData.message || "Hisob yaratilmadi" });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        message: "✅ Mavjud do'kon yangi tizimga bog'landi (hozircha hech narsaga ulanmagan)",
+        shopId,
+        userId: createData.id,
+        email,
+      });
+    }
+
     // ── 1. Yangi do'kon hisobini yaratish (faqat sinov uchun) ──
     if (action === "signup_test") {
       const { email, password, shopName } = body;
