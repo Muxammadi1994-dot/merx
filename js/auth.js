@@ -537,6 +537,11 @@ async function doLogin() {
         }
         db = shopDB;
 
+        // Parolni har doim yangilaymiz — boshqa qurilmada ham to'g'ri ishlashi uchun
+        // (SuperAdmin parolni o'zgartirganda, yangi qurilmada ham mos bo'ladi)
+        if (!db.settings.adminEmail) db.settings.adminEmail = email;
+        db.settings.adminPass = await sha256(pass);
+
         res = await authLogin(email, pass, shopId);
         localStorage.setItem(dbKey, JSON.stringify(db));
 
