@@ -363,7 +363,7 @@ function posDonaAdd(sku, color, rowId) {
       sku, name: p.name, color, size: v.size,
       unit: p.unit||"dona", price: narx, basePrice: narx, priceType: posPriceType,
       qty: qtyWanted, qtyBox: null, inBox: null, sellMode: "dona",
-      image: p.image || null, art: p.art || null, barcode: p.barcode || null
+      image: (p.colorImages && p.colorImages[color]) || p.image || null, art: p.art || null, barcode: p.barcode || null
     });
     addedTotal += qtyWanted;
     if ($(inputId)) $(inputId).value = 0;
@@ -429,7 +429,7 @@ function posQuickAdd(sku, color, packGroup) {
       unit: p.unit||"dona", price: narx, basePrice: _bNarx, priceType: posPriceType,
       qty: totalDona, qtyBox: qtyInput, inBox, sellMode: "karobka",
       packGroup, groupSizes,
-      image: p.image || null, art: p.art || null, barcode: p.barcode || null
+      image: (p.colorImages && p.colorImages[color]) || p.image || null, art: p.art || null, barcode: p.barcode || null
     });
   }
 

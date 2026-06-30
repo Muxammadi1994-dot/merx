@@ -137,8 +137,33 @@ async function tg(chatId, text, extra = {}) {
 }
 
 // Rasm + matn (caption) bilan yuborish — guruhga buyurtma rasmi uchun
-async function tgPhoto(chatId, photoUrl, caption, extra = {}) {
-  const body = { chat_id: chatId, photo: photoUrl, caption, parse_mode: "HTML", ...extra };
+// photoSrc: http(s) URL YOKI base64 data-url (data:image/...;base64,...)
+async function tgPhoto(chatId, photoSrc, caption, extra = {}) {
+  // base64 bo'lsa — multipart/form-data orqali fayl sifatida yuboramiz
+  if (photoSrc && photoSrc.startsWith("data:image")) {
+    try {
+      const base64Data = photoSrc.split(",")[1];
+      const buffer = Buffer.from(base64Data, "base64");
+      const form = new FormData();
+      form.append("chat_id", String(chatId));
+      form.append("caption", caption || "");
+      form.append("parse_mode", "HTML");
+      if (extra.reply_markup) form.append("reply_markup", JSON.stringify(extra.reply_markup));
+      form.append("photo", new Blob([buffer], { type: "image/jpeg" }), "photo.jpg");
+
+      const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
+        method: "POST",
+        body: form,
+      });
+      return res.json();
+    } catch(e) {
+      console.error("[tgPhoto] base64 yuborish xato:", e.message);
+      return { ok: false, description: e.message };
+    }
+  }
+
+  // Oddiy URL bo'lsa — to'g'ridan yuboramiz
+  const body = { chat_id: chatId, photo: photoSrc, caption, parse_mode: "HTML", ...extra };
   const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -907,7 +932,7 @@ async function actionSendStaffNotification(body) {
   };
 
   // Birinchi mahsulotda rasm bo'lsa — rasm bilan yuboramiz (caption sifatida)
-  const firstImg = items.find(it => it.image && it.image.startsWith("http"))?.image;
+  const firstImg = items.find(it => it.image && (it.image.startsWith("http") || it.image.startsWith("data:image")))?.image;
 
   let r;
   if (firstImg) {

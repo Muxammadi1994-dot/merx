@@ -692,6 +692,48 @@ function epUpdateInboxDisplay(p) {
   epUpdateBoxHints();
 }
 
+// Rang bo'yicha rasm yuklash (har rang o'z rasmiga ega bo'ladi)
+function epLoadColorImage(input, color) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast("Rasm 5MB dan kichik bo'lishi kerak","err"); return; }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const MAX = 400;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+      else       { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+
+      let q = 0.82, dataUrl;
+      do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
+      while (dataUrl.length > 400000 && q > 0.25);
+
+      const p = db.products.find(x => x.sku === editSku); if (!p) return;
+      if (!p.colorImages) p.colorImages = {};
+      p.colorImages[color] = dataUrl;
+      epRenderColorCards(p);
+      saveDB();
+      toast(`✅ "${color}" rangiga rasm yuklandi`);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function epRemoveColorImage(color) {
+  const p = db.products.find(x => x.sku === editSku); if (!p) return;
+  if (p.colorImages) delete p.colorImages[color];
+  epRenderColorCards(p);
+  saveDB();
+  toast(`"${color}" rasmi o'chirildi`);
+}
+
 function epRenderColorCards(p) {
   const colors = [...new Set(p.variants.map(v => v.color))];
   const el = $("ep-color-cards");
@@ -702,14 +744,26 @@ function epRenderColorCards(p) {
     const hex      = variants[0]?.hex || "#888";
     const groups   = typeof regroupPackages === "function" ? regroupPackages(p.variants, color) : [];
 
+    const colorImg = (p.colorImages && p.colorImages[color]) || p.image || "";
+    const colorImgId = `epcimg_${color.replace(/[^a-zA-Z0-9]/g,"_")}`;
     return `<div class="ep-color-card" style="border:1.5px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;background:${hex};border:1px solid rgba(0,0,0,.12)"></div>
+        <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:8px;overflow:hidden;border:1.5px solid var(--brd);background:${hex}33;cursor:pointer"
+             onclick="document.getElementById('${colorImgId}').click()">
+          ${colorImg ? `<img src="${colorImg}" style="width:100%;height:100%;object-fit:cover">` : `<div style="width:18px;height:18px;border-radius:5px;position:absolute;top:11px;left:11px;background:${hex};border:1px solid rgba(0,0,0,.12)"></div>`}
+          <div style="position:absolute;bottom:0;right:0;background:#0D1B2A;color:#fff;width:16px;height:16px;border-radius:4px 0 0 0;display:flex;align-items:center;justify-content:center">
+            <i class="ti ti-camera" style="font-size:10px"></i>
+          </div>
+        </div>
+        <input type="file" id="${colorImgId}" accept="image/*" style="display:none" onchange="epLoadColorImage(this,'${color}')">
         <input value="${color}" data-epcolor="${color}" data-field="color"
           oninput="epUpdateColorField('${color}',this)"
           style="font-weight:700;font-size:13.5px;border:none;background:transparent;flex:1;padding:2px 0">
-        <span style="font-size:11px;color:#bbb">${pantone}</span>
-        <span style="font-size:10.5px;color:#bbb">Jami: ${totalQty} dona</span>
+        <span style="font-size:11px;color:#555">${pantone}</span>
+        <span style="font-size:10.5px;color:#555">Jami: ${totalQty} dona</span>
+        ${colorImg ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="epRemoveColorImage('${color}')" title="Rasmni o'chirish">
+          <i class="ti ti-photo-off" style="font-size:13px;color:var(--mut)"></i>
+        </button>` : ""}
         <button class="btn btn-ghost btn-icon btn-sm" onclick="epDeleteColor('${color}')" title="Bu rangni butunlay o'chirish">
           <i class="ti ti-trash" style="color:var(--red)"></i>
         </button>
