@@ -36,6 +36,7 @@ function katGoPage(p) {
   document.getElementById("p-katalog")?.scrollIntoView({behavior:"smooth",block:"start"});
 }
 
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function setKatCat(c) {
   katCatFilter = c;
   katPage = 1;
@@ -192,6 +193,7 @@ function katSortToggle(key) {
 // alohida filtr tugmasi sifatida shart emas edi
 
 // ── Kam qoldiq filtri ──────────────────────────
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function toggleKatLow() {
   katLowFilter = !katLowFilter;
   const btn = $("kat-low-btn");
@@ -539,6 +541,7 @@ function ppRenderGrid(prefix) {
     </div>`).join("");
 }
 
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function ppToggle(prefix) {
   const dd = $(`${prefix}-pp-dd`);
   if (!dd) return;
@@ -566,6 +569,7 @@ function ppSelect(prefix, code, name, hex) {
   if (dd) dd.classList.remove("open");
 }
 
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function ppCustomInput(prefix) {
   const val = $(`${prefix}-pp-custom`)?.value.trim();
   const hex = $(`${prefix}-pp-hex-custom`)?.value || "#888888";
@@ -578,6 +582,7 @@ function ppCustomInput(prefix) {
   if ($(`${prefix}-pp-name`))   $(`${prefix}-pp-name`).textContent = "Maxsus rang";
 }
 
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function ppCustomHex(prefix) {
   const hex = $(`${prefix}-pp-hex-custom`)?.value || "#888888";
   const name = $(`${prefix}-pp-custom`)?.value.trim() || "Maxsus";
@@ -846,6 +851,7 @@ function epToggleDetail(cardId) {
 }
 
 // Pochka sonini bitta input orqali barcha o'lchamlarga teng qilib o'rnatish
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function epUpdateAllQty(color, val) {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   const newQty = parseInt(val) || 0;

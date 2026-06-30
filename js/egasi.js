@@ -655,6 +655,7 @@ function copyTgLink() {
   }
 }
 // ── Cloud Shop ID qo'lda saqlash ──────────────────
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function saveCloudShopId() {
   const inp = document.getElementById("s-cloud-shop-id");
   const val = inp?.value.trim();

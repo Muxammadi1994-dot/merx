@@ -225,6 +225,7 @@ function normPhone(p) {
 const fmt   = n => Math.round(n || 0).toLocaleString("ru-RU");
 const today = () => new Date().toISOString().slice(0, 10);
 
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function isAllowed(chatId) {
   // Superadmin har doim ruxsat
   if (OWNER_ID && String(chatId) === String(OWNER_ID)) return true;

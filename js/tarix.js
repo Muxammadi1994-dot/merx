@@ -563,6 +563,7 @@ function confirmRefund() {
   );
 }
 
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function refundSale() { openRefundModal(_sdSaleId); }
 
 // ── Chek va WhatsApp ──────────────────────────────
@@ -571,6 +572,7 @@ function printSaleDetail() {
   if (typeof showReceiptModal === "function") { closeModal("saledetail"); showReceiptModal(s); }
 }
 
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function shareSaleWhatsApp() {
   const s = db.sales.find(x => x.id === _sdSaleId); if (!s) return;
   if (typeof shareWhatsApp === "function") { _lastSale = s; shareWhatsApp(); }
@@ -608,6 +610,7 @@ function exportTarixExcel() {
 }
 
 // ── Chek print fallback ───────────────────────────
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function printReceipt(id) {
   const s = db.sales.find(x => x.id === id); if (!s) return;
   if (typeof showReceiptModal === "function") { showReceiptModal(s); return; }
@@ -632,6 +635,7 @@ function printReceipt(id) {
 }
 
 // ── Qarz to'lovi qatori (tarix jadvalida) ─────────
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function renderDebtPaymentRow(p) {
   const allocSummary = (p.allocations||[]).map(a =>
     `<div style="font-size:11px">${a.saleDate} <span style="color:#aaa">qarzi</span> — ${fmtMoney(a.amount, a.currency)}${a.fullyPaid?` <span style="color:#059669">✓ yopildi</span>`:""}</div>`

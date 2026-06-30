@@ -464,6 +464,7 @@ function getReservedQty(sku, color, packGroup) {
 }
 
 // Hozirgi aktiv savatdagi miqdor (boshqalardan tashqari)
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function getCurrentCartQty(sku, color) {
   var total = 0;
   var cart = posCartsState.carts[posCartsState.activeIdx] || {items:[]};
@@ -534,6 +535,7 @@ function setPriceType(t) {
 }
 
 // ── Variant modal ─────────────────────────────────
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function openVariantModal(sku) {
   vmProd = db.products.find(p => p.sku === sku); if (!vmProd) return;
   selColor = null; selSize = null;
@@ -1015,6 +1017,7 @@ function posCloseCart(idx) {
 }
 
 // ── To'lov ────────────────────────────────────────
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function setPayType(t) {
   // Nasiya ruxsatini tekshirish
   if (t === "nasiya") {
@@ -1036,6 +1039,7 @@ function setPayType(t) {
 }
 
 // Aralash to'lovda usul checkbox bosilganda — input ni yoqish/o'chirish
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function toggleMixMethod(method) {
   const chk = $(`mix-${method}-chk`);
   const inp = $(`mix-${method}-sum`);
@@ -1476,6 +1480,7 @@ document.addEventListener("click", function(e) {
   }
 });
 
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function custPick() {
   // Eski select bilan moslik — endi ishlatilmaydi
   const id = parseInt(($("c-cust")||{value:""}).value) || null;
@@ -2145,6 +2150,7 @@ function closeReceipt() {
   const pn2=$("pos-note"); if(pn2){pn2.value="";pn2.setAttribute("readonly",true);}
 }
 
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function shareTelegram() {
   if (!_lastSale) return;
   const sale     = _lastSale;
