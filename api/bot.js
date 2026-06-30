@@ -1291,6 +1291,15 @@ async function actionRenderStaffOrder(chekId, saleData, shopId) {
           // Ustuvorlik: 1) sotuv vaqtidagi rasm (i.image) 2) shu rangning rasmi
           // 3) mahsulotning umumiy rasmi (zaxira)
           const colorImg = pm?.colorImages && i.color ? pm.colorImages[i.color] : null;
+          console.log("[staffOrder DEBUG]", JSON.stringify({
+            sku: i.sku, color: i.color,
+            prodFound: !!pm,
+            hasColorImages: !!pm?.colorImages,
+            colorImagesKeys: pm?.colorImages ? Object.keys(pm.colorImages) : [],
+            colorImgFound: !!colorImg,
+            hasProdImage: !!pm?.image,
+            hasOrigItemImage: !!i.image
+          }));
           return {
             ...i,
             art:   i.art   || pm?.art || null,
