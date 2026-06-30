@@ -289,6 +289,16 @@ async function pushToCloud() {
             ? s.modules : JSON.stringify(s.modules); } catch(e) {}
         }
         if (s.pin !== undefined) row.pin = s.pin || null;
+        // Maosh va ruxsatlar — YANGI (oldin sync bo'lmasdi)
+        if (s.salary !== undefined)        row.salary         = s.salary || 0;
+        if (s.bonusPct !== undefined)      row.bonus_pct      = s.bonusPct || 0;
+        if (s.monthTarget !== undefined)   row.month_target   = s.monthTarget || 0;
+        if (s.permDiscount !== undefined)  row.perm_discount  = !!s.permDiscount;
+        if (s.maxDiscount !== undefined)   row.max_discount   = s.maxDiscount || 0;
+        if (s.permNasiya !== undefined)    row.perm_nasiya    = !!s.permNasiya;
+        if (s.permReturn !== undefined)    row.perm_return    = !!s.permReturn;
+        if (s.paidMonths !== undefined)    row.paid_months    = s.paidMonths || [];
+        if (s.salaryHistory !== undefined) row.salary_history = s.salaryHistory || [];
         return row;
       });
       await sync("staff", staffRows);
