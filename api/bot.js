@@ -1461,6 +1461,7 @@ async function cmdMenDokonlarim(chatId) {
 
 // ── /help ────────────────────────────────────────────────────
 async function cmdHelp(chatId) {
+  console.log("[VERSION CHECK] bot.js v2026-06-30-22");
   const ctx = await getShopCtx(chatId);
   const isOwner = ctx.isOwner || ctx.isSuperAdmin;
   const shopName = ctx.shopName || "MERX";
