@@ -30,6 +30,19 @@ async function getShopCtx(chatId) {
     return ctx;
   }
 
+  // 1.5. bot_sessions — DOIMIY saqlangan bog'lanish (Vercel cache muammosini hal qiladi)
+  try {
+    const sess = await sb("bot_sessions", `?chat_id=eq.${cid}&select=shop_id,shop_name,is_owner&limit=1`);
+    if (sess?.[0]?.shop_id) {
+      const ctx = {
+        shopId: sess[0].shop_id, shopName: sess[0].shop_name || "MERX",
+        isOwner: !!sess[0].is_owner, isSuperAdmin: false, ts: Date.now()
+      };
+      _shopCache.set(cid, ctx);
+      return ctx;
+    }
+  } catch(e) { console.warn("getShopCtx bot_sessions xato:", e.message); }
+
   // 2. customers jadvalidan topamiz (mijoz login qilgan)
   try {
     const custs = await sb("customers", `?telegram_chat_id=eq.${cid}&select=id,shop_id&limit=1`);
@@ -74,6 +87,18 @@ async function setShopForUser(chatId, shopId) {
     // Cache ni yangi do'kon bilan yangilaymiz (eski do'konni almashtiramiz)
     const ctx = { shopId, shopName, isOwner: false, isSuperAdmin: false, ts: Date.now() };
     _shopCache.set(cid, ctx);
+
+    // DOIMIY saqlash — bot_sessions jadvaliga (Vercel cache yo'qolsa ham ishlasin)
+    try {
+      await fetch(`${SB_URL}/rest/v1/bot_sessions?on_conflict=chat_id`, {
+        method: "POST",
+        headers: {
+          apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+          "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({ chat_id: cid, shop_id: shopId, shop_name: shopName, is_owner: false })
+      });
+    } catch(e) { console.warn("bot_sessions saqlash xato:", e.message); }
 
     // Agar customers jadvalida bu chatId bilan boshqa shop_id saqlangan bo'lsa
     // yangi do'kon uchun ham telefon so'raymiz (alohida profil)
@@ -269,19 +294,31 @@ async function handleContact(chatId, contact) {
   const rawPhone = normPhone(contact.phone_number);
 
   try {
-    // shopId — cache dan olamiz (start bosganida saqlangan)
+    // shopId — getShopCtx orqali (bot_sessions jadvalidan, ishonchli)
     let ctx = await getShopCtx(chatId);
     let shopId = ctx.shopId;
 
-    // shopId cache da yo'q bo'lsa — shops dan olamiz
+    // shopId hali ham topilmasa — do'kon tanlanmagan, xato qilib taxmin qilmaymiz
     if (!shopId) {
+      console.log(`[handleContact] shopId topilmadi, chatId=${chatId} — do'kon tanlashni so'raymiz`);
       try {
-        const shops = await sb("shops", "?active=eq.true&select=id&limit=2");
+        const shops = await sb("shops", "?active=eq.true&select=id,name&order=name");
+        if (shops?.length > 1) {
+          const btns = shops.map(s => [{ text: "🏪 " + s.name, callback_data: "shop:" + s.id }]);
+          await tg(chatId,
+            "🟡 Avval qaysi do'kondan xarid qilganingizni tanlang:",
+            { reply_markup: { inline_keyboard: btns } }
+          );
+          return;
+        }
         if (shops?.length === 1) {
           shopId = shops[0].id;
-          console.log(`[handleContact] shopId cache yo'q, shops dan olindi: ${shopId}`);
         }
-      } catch(e) {}
+      } catch(e) { console.warn("[handleContact] shops fallback xato:", e.message); }
+    }
+    if (!shopId) {
+      await tg(chatId, "⚠️ Do'kon aniqlanmadi. /start buyrug'ini qaytadan bosing.");
+      return;
     }
     const shopFilter = shopId ? `&shop_id=eq.${shopId}` : "";
 
