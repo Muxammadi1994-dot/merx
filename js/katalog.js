@@ -606,6 +606,7 @@ function duplicateProduct(sku, event) {
 
   const copy = JSON.parse(JSON.stringify(p)); // deep copy
   copy.sku  = newSku;
+  copy.id   = db.seq;
   copy.name = p.name + " (nusxa)";
   copy.barcode = genEAN13 ? genEAN13(db.seq++) : "";
   // Variantlar qoldig'ini 0 qilamiz
@@ -1270,8 +1271,10 @@ function addProduct() {
     }
   } else {
     const autoBarcode = barcode || genEAN13(db.seq);
+    const newProdId = db.seq++;
     db.products.push({
-      sku: `${t==="oyoq"?"SHOE":"CLTH"}-${String(db.seq++).padStart(3,"0")}`,
+      id: newProdId,
+      sku: `${t==="oyoq"?"SHOE":"CLTH"}-${String(newProdId).padStart(3,"0")}`,
       name, category: ($("ap-cat")||{value:""}).value,
       type:t, unit, inBox: effectiveInBox, packUnit,
       art: art || "",
@@ -2052,9 +2055,11 @@ function confirmImport() {
       }
     } else {
       // Yangi mahsulot
-      const sku = `IMP-${String(db.seq++).padStart(4,"0")}`;
+      const newProdId = db.seq++;
+      const sku = `IMP-${String(newProdId).padStart(4,"0")}`;
       const _bc = colorBarcode || r.barcode || genEAN13(db.seq++);
       const newProd = {
+        id: newProdId,
         sku,
         name:        r.nom,
         category:    r.cat || "Qabul qilingan",

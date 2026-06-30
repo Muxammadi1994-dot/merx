@@ -121,3 +121,21 @@ function seedDB() {
 
 // Global db yuklanishi
 db = loadDB() || seedDB();
+
+// ── Migratsiya: id'siz mahsulotlarga (eski yozuvlar) id berish ──
+// Sabab: Supabase'da products.id ustuni majburiy, lekin ba'zi eski
+// yozuvlar (masalan import orqali qo'shilganlar) id'siz qolgan edi —
+// shu sababli ular cloud sync'ga umuman yuborilmasdi.
+(function migrateProductIds() {
+  if (!db.products || !db.products.length) return;
+  let changed = false;
+  db.products.forEach(p => {
+    if (p.id == null) {
+      p.id = (db.seq || 1);
+      db.seq = (db.seq || 1) + 1;
+      changed = true;
+    }
+  });
+  if (changed) saveDB();
+})();
+
