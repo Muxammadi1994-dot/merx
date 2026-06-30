@@ -587,6 +587,18 @@
             <span style="color:#0E7490"><i class="ti ti-wallet"></i> Balans:</span>
             <strong id="cust-balance-val" style="color:#0E7490;margin-left:4px"></strong>
           </div>
+          <div id="cust-loyalty-badge" style="display:none;padding:7px 12px;background:#FEF9E7;border:1px solid #FDE68A;border-radius:9px;font-size:12.5px;margin-bottom:6px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+              <span style="color:#92400E"><i class="ti ti-star"></i> Sodiqlik balli:</span>
+              <strong id="cust-loyalty-val" style="color:#92400E">0</strong>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <input id="loyalty-pts-input" type="number" min="0" placeholder="Ball soni"
+                style="flex:1;font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:7px;padding:5px 8px;background:#fff">
+              <button class="btn btn-ghost btn-sm" onclick="applyLoyaltyPointsPos()">Qo'llash</button>
+            </div>
+            <div id="loyalty-applied-note" style="display:none;font-size:11px;color:#166534;margin-top:5px;font-weight:600"></div>
+          </div>
           <div id="c-name-row" style="display:flex;gap:6px">
             <input id="c-name" placeholder="Ism" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff">
             <input id="c-phone" placeholder="+998 90..." style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff">

@@ -42,6 +42,7 @@ function posSaveCarts() {
 let posCartsState = posLoadCarts();
 let cart = posCartsState.carts[posCartsState.activeIdx].items;
 let posPayMode = "full", posPayType = "naqd", posPriceType = "chakana";
+let posLoyaltyPointsUsed = 0; // joriy chekka qo'llangan ball soni
 let posDebtCurrency = "usd";  // Asosiy: USD
 
 // ── Operatsiyalar tarixi (POS log) ────────────────
@@ -1735,6 +1736,13 @@ async function checkout() {
     addLoyaltyPoints(customerId, total);
   }
 
+  // Ishlatilgan ball bo'lsa — mijoz balansidan ayiramiz va chekka yozamiz
+  if (typeof spendLoyaltyPoints === "function" && customerId && posLoyaltyPointsUsed > 0) {
+    const ok = spendLoyaltyPoints(customerId, posLoyaltyPointsUsed);
+    if (ok) newSale.loyaltyPointsUsed = posLoyaltyPointsUsed;
+  }
+  posLoyaltyPointsUsed = 0;
+
   // Telegram bot orqali avtomatik chek (mijoz botga ulangan bo'lsa)
   if (typeof sendTelegramReceipt === "function") {
     sendTelegramReceipt(customerId, newSale, cPhone);
@@ -1873,6 +1881,42 @@ function calcDiscount(total) {
   return Math.min(val, total);
 }
 
+// ── Sodiqlik ballini chegirma sifatida qo'llash ──
+function applyLoyaltyPointsPos() {
+  const custId = parseInt(($("c-cust")||{value:""}).value) || null;
+  if (!custId) { toast("Avval mijoz tanlang","err"); return; }
+  const cust = (db.customers||[]).find(c => c.id === custId);
+  if (!cust) return;
+  const avail = cust.loyaltyPoints || 0;
+  const wantPts = parseInt(($("loyalty-pts-input")||{value:0}).value) || 0;
+  if (wantPts <= 0) { toast("Ball sonini kiriting","err"); return; }
+  if (wantPts > avail) { toast("Yetarli ball yo'q","err"); return; }
+  if (typeof pointsToSom !== "function") return;
+
+  const somValue = pointsToSom(wantPts);
+
+  // Avvalgi qo'llangan ball bo'lsa — uni chegirmadan ayirib, qaytadan qo'shamiz
+  // (ikki marta qo'shilib ketmasligi uchun)
+  if (discType !== "sum") setDiscType("sum");
+  const currentRaw = Number(getRawVal("discount-val") || 0) - (posLoyaltyPointsUsed ? pointsToSom(posLoyaltyPointsUsed) : 0);
+  const newRaw = Math.max(0, currentRaw) + somValue;
+  const discInput = $("discount-val");
+  if (discInput) {
+    discInput.value = fmt(newRaw);
+    discInput.dataset.raw = String(newRaw);
+  }
+
+  posLoyaltyPointsUsed = wantPts;
+  const note = $("loyalty-applied-note");
+  if (note) {
+    note.textContent = `✅ ${wantPts} ball qo'llandi (${fmt(somValue)} so'm chegirma)`;
+    note.style.display = "block";
+  }
+  if ($("loyalty-pts-input")) $("loyalty-pts-input").value = "";
+  applyDiscount();
+  toast(`✅ ${wantPts} ball ishlatildi`);
+}
+
 // ── Mijoz qarzi ko'rinishi ────────────────────
 function showCustDebt(custId) {
   const badge = $("cust-debt-badge");
@@ -1902,6 +1946,25 @@ function showCustDebt(custId) {
         val.innerHTML = `${txt} <span style="font-size:10.5px;font-weight:400;color:#a16207">(${cntAll} ta sotuv)</span>`;
         badge.style.display = "block";
       }
+    }
+  }
+
+  // Sodiqlik balli ko'rsatish
+  const loyBadge = $("cust-loyalty-badge");
+  const loyVal   = $("cust-loyalty-val");
+  const loyNote  = $("loyalty-applied-note");
+  const loyInput = $("loyalty-pts-input");
+  posLoyaltyPointsUsed = 0; // mijoz almashganda/tozalanganda qayta hisoblanadi
+  if (loyNote) loyNote.style.display = "none";
+  if (loyInput) loyInput.value = "";
+  if (loyBadge && loyVal) {
+    const cust = custId ? (db.customers||[]).find(c => c.id === custId) : null;
+    const pts = cust?.loyaltyPoints || 0;
+    if (!custId || pts <= 0 || !(db.settings?.loyaltyRate > 0)) {
+      loyBadge.style.display = "none";
+    } else {
+      loyVal.textContent = `${pts} ball (${fmt(pointsToSom(pts))} so'm)`;
+      loyBadge.style.display = "block";
     }
   }
 
