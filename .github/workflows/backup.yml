@@ -1,0 +1,48 @@
+name: Supabase Kunlik Zaxira
+
+on:
+  schedule:
+    # Har kecha soat 00:00 (UTC) da — O'zbekiston vaqti bilan 05:00
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # Qo'lda ham ishga tushirish mumkin (GitHub → Actions → Run workflow)
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Zaxira papkasini yaratish
+        run: mkdir -p backup
+
+      - name: Jadvallarni CSV formatda yuklab olish
+        env:
+          SB_URL: ${{ secrets.SUPABASE_URL }}
+          SB_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          TABLES="products sales customers staff ombor xarajatlar debt_payments returns shifts suppliers settings shops"
+
+          for TABLE in $TABLES; do
+            echo "Yuklanmoqda: $TABLE"
+            curl -s \
+              -H "apikey: $SB_KEY" \
+              -H "Authorization: Bearer $SB_KEY" \
+              -H "Accept: text/csv" \
+              "$SB_URL/rest/v1/$TABLE?select=*" \
+              -o "backup/${DATE}_${TABLE}.csv"
+            echo "✅ $TABLE saqlandi"
+          done
+
+      - name: Zaxira natijasini tekshirish
+        run: |
+          echo "=== Zaxira fayllari ==="
+          ls -lh backup/
+          echo "=== Jami hajm ==="
+          du -sh backup/
+
+      - name: Zaxirani GitHub'ga saqlash (Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: merx-backup-${{ github.run_number }}-${{ github.run_id }}
+          path: backup/
+          retention-days: 30
