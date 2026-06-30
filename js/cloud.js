@@ -388,6 +388,43 @@ async function pushToCloud() {
       })));
     } catch(e) { syncErrors.push("debt_payments: " + e.message); console.warn("sync debt_payments xato:", e.message); }
 
+    try {
+      await sync("returns", (db.returns||[]).map(r => ({
+        shop_id: sid, id: r.id,
+        date: r.date, time: r.time || null,
+        orig_sale_id: r.origSaleId || null,
+        orig_chek_num: r.origChekNum || null,
+        items: r.items || [],
+        total: r.total || 0,
+        reason: r.reason || null,
+        customer_name: r.customerName || null,
+        staff_id: r.staffId || null
+      })));
+    } catch(e) { syncErrors.push("returns: " + e.message); console.warn("sync returns xato:", e.message); }
+
+    try {
+      await sync("shifts", (db.shifts||[]).map(sh => ({
+        shop_id: sid, id: sh.id,
+        staff_id: sh.staffId || null,
+        open_time: sh.openTime || null,
+        open_date: sh.openDate || null,
+        open_cash: sh.openCash || 0,
+        note: sh.note || null,
+        close_time: sh.closeTime || null,
+        close_cash: sh.closeCash != null ? sh.closeCash : null,
+        diff: sh.diff != null ? sh.diff : null
+      })));
+    } catch(e) { syncErrors.push("shifts: " + e.message); console.warn("sync shifts xato:", e.message); }
+
+    try {
+      await sync("suppliers", (db.suppliers||[]).map(s => ({
+        shop_id: sid, id: s.id,
+        name: s.name || null,
+        phone: s.phone || null,
+        note: s.note || null
+      })));
+    } catch(e) { syncErrors.push("suppliers: " + e.message); console.warn("sync suppliers xato:", e.message); }
+
     if (syncErrors.length > 0) {
       toast(`⚠️ Saqlandi, lekin xatolar: ${syncErrors.join("; ")}`, "err");
     } else {
@@ -583,6 +620,44 @@ async function pullFromCloud() {
       }));
     }
 
+    // Qaytarilgan tovarlar
+    const { data: retData } = await _sb.from("returns").select("*").eq("shop_id", sid).order("created_at");
+    if (retData) {
+      db.returns = retData.map(r => ({
+        id: r.id, date: r.date, time: r.time || null,
+        origSaleId: r.orig_sale_id || null,
+        origChekNum: r.orig_chek_num || null,
+        items: r.items || [],
+        total: r.total || 0,
+        reason: r.reason || null,
+        customerName: r.customer_name || null,
+        staffId: r.staff_id || null
+      }));
+    }
+
+    // Kassa smenalari
+    const { data: shiftData } = await _sb.from("shifts").select("*").eq("shop_id", sid).order("created_at");
+    if (shiftData) {
+      db.shifts = shiftData.map(sh => ({
+        id: sh.id, staffId: sh.staff_id || null,
+        openTime: sh.open_time || null,
+        openDate: sh.open_date || null,
+        openCash: sh.open_cash || 0,
+        note: sh.note || null,
+        closeTime: sh.close_time || null,
+        closeCash: sh.close_cash != null ? sh.close_cash : null,
+        diff: sh.diff != null ? sh.diff : null
+      }));
+    }
+
+    // Ta'minotchilar
+    const { data: supData } = await _sb.from("suppliers").select("*").eq("shop_id", sid).order("created_at");
+    if (supData) {
+      db.suppliers = supData.map(s => ({
+        id: s.id, name: s.name || "", phone: s.phone || "", note: s.note || ""
+      }));
+    }
+
     // seq yangilash
     const maxId = Math.max(
       ...( db.products.map((_,i)=>i) ),
@@ -593,6 +668,9 @@ async function pullFromCloud() {
       ...((db.xarajatlar||[]).map(x=>x.id||0)),
       ...((db.chiqimlar||[]).map(c=>c.id||0)),
       ...((db.debtPayments||[]).map(p=>p.id||0)),
+      ...((db.returns||[]).map(r=>r.id||0)),
+      ...((db.shifts||[]).map(sh=>sh.id||0)),
+      ...((db.suppliers||[]).map(s=>s.id||0)),
       db.seq || 0
     );
     db.seq = maxId + 1;
