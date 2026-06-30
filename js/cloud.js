@@ -355,7 +355,15 @@ async function pushToCloud() {
         shop_id: sid, id: x.id, date: x.date,
         category: x.category,
         amount: x.amount || 0,
-        note: x.note || null
+        note: x.note || null,
+        recipient: x.recipient || null,
+        paid_by: x.paidBy || null,
+        method: x.method || null,
+        amount_usd: x.amountUsd != null ? x.amountUsd : null,
+        recurring: !!x.recurring,
+        sub_category: x.subCategory || null,
+        xarajat_type: x.xarajatType || null,
+        for_month: x.forMonth || null
       })));
     } catch(e) { syncErrors.push("xarajatlar: " + e.message); console.warn("sync xarajatlar xato:", e.message); }
 
@@ -508,7 +516,10 @@ async function pullFromCloud() {
         amount: x.amount, amountUsd: x.amount_usd || null,
         recipient: x.recipient, paidBy: x.paid_by,
         method: x.method || "naqd", note: x.note,
-        recurring: x.recurring || false
+        recurring: x.recurring || false,
+        subCategory: x.sub_category || null,
+        xarajatType: x.xarajat_type || null,
+        forMonth: x.for_month || null
       }));
     }
 
