@@ -993,10 +993,41 @@ function saEditSave(id) {
   renderSaShops();
   document.getElementById("sa-edit-modal")?.remove();
   showSaToast(`✅ "${name}" yangilandi`);
-  // Supabase da ham yangilaymiz
+
+  // Supabase shops jadvalini yangilaymiz
   _saUpdateShopInSupabase(id, { name, owner_email: s.ownerEmail, plan: s.plan,
     trial_ends: s.expiresAt ? s.expiresAt.slice(0,10) : null,
     active: !s.blocked }).catch(e => console.warn("Supabase update xato:", e.message));
+
+  // Parol o'zgargan bo'lsa — Supabase Auth va localStorage da ham yangilaymiz
+  if (pass && pass.length >= 4) {
+    // localStorage'da hash bilan saqlaymiz
+    (async () => {
+      try {
+        const dbKey = "merx_v5_" + id;
+        const raw = localStorage.getItem(dbKey);
+        if (raw) {
+          const shopDB = JSON.parse(raw);
+          if (!shopDB.settings) shopDB.settings = {};
+          shopDB.settings.adminPass = await saSha256(pass);
+          localStorage.setItem(dbKey, JSON.stringify(shopDB));
+        }
+      } catch(e) {}
+    })();
+
+    // Supabase Auth'da ham yangilaymiz
+    fetch("/api/auth-v2?action=update_shop_password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: s.ownerEmail, newPassword: pass })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) console.log("✅ Supabase Auth parol yangilandi");
+      else console.warn("⚠️ Supabase Auth parol yangilanmadi:", d.error);
+    })
+    .catch(e => console.warn("Supabase Auth parol xato:", e.message));
+  }
 }
 
 async function _saUpdateShopInSupabase(shopId, data) {

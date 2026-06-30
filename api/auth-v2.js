@@ -213,6 +213,43 @@ module.exports = async function handler(req, res) {
             user_metadata: { shop_id: shopId, shop_name: shopName || "MERX Do'koni" }
           })
         });
+
+        // shops va settings ni ham yangilaymiz
+        const shopRow = {
+          id: shopId,
+          name: shopName || "MERX Do'koni",
+          owner_email: email,
+          plan: body.plan || "trial",
+          active: true,
+          trial_ends: new Date(Date.now() + 30*24*60*60*1000).toISOString().slice(0,10)
+        };
+        await fetch(`${SB_URL}/rest/v1/shops`, {
+          method: "POST",
+          headers: {
+            apikey: SERVICE_KEY,
+            Authorization: `Bearer ${SERVICE_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates"
+          },
+          body: JSON.stringify(shopRow)
+        }).catch(e => console.error("shops yangilash xato:", e.message));
+
+        await fetch(`${SB_URL}/rest/v1/settings`, {
+          method: "POST",
+          headers: {
+            apikey: SERVICE_KEY,
+            Authorization: `Bearer ${SERVICE_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates"
+          },
+          body: JSON.stringify({
+            shop_id: shopId,
+            shop_name: shopName || "MERX Do'koni",
+            rate: 12800,
+            price_currency: "uzs"
+          })
+        }).catch(e => console.error("settings yangilash xato:", e.message));
+
         return res.status(200).json({
           ok: true,
           message: "✅ Mavjud hisob yangilandi (parol + shop_id)",
@@ -244,7 +281,15 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // Supabase shops jadvaliga ham yozamiz (service_role bilan, RLS chetlab o'tadi)
+      // shops va settings jadvallariga yozamiz (service_role bilan)
+      const shopRow = {
+        id: shopId,
+        name: shopName || "MERX Do'koni",
+        owner_email: email,
+        plan: body.plan || "trial",
+        active: true,
+        trial_ends: new Date(Date.now() + 30*24*60*60*1000).toISOString().slice(0,10)
+      };
       await fetch(`${SB_URL}/rest/v1/shops`, {
         method: "POST",
         headers: {
@@ -253,15 +298,24 @@ module.exports = async function handler(req, res) {
           "Content-Type": "application/json",
           "Prefer": "resolution=merge-duplicates"
         },
-        body: JSON.stringify({
-          id: shopId,
-          name: shopName || "MERX Do'koni",
-          owner_email: email,
-          plan: body.plan || "trial",
-          active: true,
-          trial_ends: new Date(Date.now() + 30*24*60*60*1000).toISOString().slice(0,10)
-        })
+        body: JSON.stringify(shopRow)
       }).catch(e => console.error("shops yozish xato:", e.message));
+
+      await fetch(`${SB_URL}/rest/v1/settings`, {
+        method: "POST",
+        headers: {
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({
+          shop_id: shopId,
+          shop_name: shopName || "MERX Do'koni",
+          rate: 12800,
+          price_currency: "uzs"
+        })
+      }).catch(e => console.error("settings yozish xato:", e.message));
 
       return res.status(200).json({
         ok: true,
