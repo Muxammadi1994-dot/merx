@@ -1620,6 +1620,21 @@ export default async function handler(req, res) {
     }
   }
 
+  // Done state — GET (Supabase orqali, BARCHA omborchilar uchun sinxron)
+  // MUHIM: bu POST-tekshiruvdan OLDIN bo'lishi shart, aks holda GET so'rovlar
+  // hech qachon ishlamaydi (avvalgi bug — shu yerda edi)
+  if (req.method === "GET" && req.query?.action === "get_done") {
+    const chekId = String(req.query?.id || "");
+    try {
+      const rows = await sb("done_items", `?chek_id=eq.${encodeURIComponent(chekId)}&done=eq.true&select=item_idx`);
+      const done = (rows || []).map(r => r.item_idx);
+      return res.status(200).json({ ok: true, done });
+    } catch(e) {
+      console.error("[get_done] xato:", e.message);
+      return res.status(200).json({ ok: true, done: [] });
+    }
+  }
+
   if (req.method !== "POST") {
     return res.status(200).json({ ok: true, info: "MERX Bot ishlamoqda" });
   }
@@ -1655,19 +1670,6 @@ export default async function handler(req, res) {
     } catch (e) {
       console.error("send_text xato:", e.message);
       return res.status(500).json({ ok: false, error: e.message });
-    }
-  }
-
-  // Done state — GET (Supabase orqali, BARCHA omborchilar uchun sinxron)
-  if (req.method === "GET" && req.query?.action === "get_done") {
-    const chekId = String(req.query?.id || "");
-    try {
-      const rows = await sb("done_items", `?chek_id=eq.${encodeURIComponent(chekId)}&done=eq.true&select=item_idx`);
-      const done = (rows || []).map(r => r.item_idx);
-      return res.status(200).json({ ok: true, done });
-    } catch(e) {
-      console.error("[get_done] xato:", e.message);
-      return res.status(200).json({ ok: true, done: [] });
     }
   }
 
