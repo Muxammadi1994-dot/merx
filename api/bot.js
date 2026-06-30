@@ -925,25 +925,37 @@ async function actionSendStaffNotification(body) {
   // Eslatma: web_app tugmasi GURUHLARDA Telegram tomonidan bloklanadi
   // (faqat shaxsiy chatlarda ishlaydi). Guruh uchun oddiy URL ishlatamiz —
   // bu Telegram'ning o'z ichki brauzerida ochiladi (default sozlamada).
+  //
+  // MUHIM: sahifa har safar har xil bo'lishi mumkin (tayyor holatlar
+  // o'zgaradi), shuning uchun Telegram/brauzer keshlamasligi uchun
+  // har safar BOSILGANDA yangi vaqt belgisi (_t) qo'shilmaydi — chunki
+  // havola guruh xabarida BIR MARTA yaratiladi va statik qoladi.
+  // Sahifaning o'zi server-side har so'rovda yangi render qilinadi
+  // (cache emas), shuning uchun aslida muammo BO'LMASLIGI kerak.
+  // Agar baribir eski ma'lumot ko'rinsa — bu Telegram ilovasining
+  // o'z ichki keshidir (no-cache header bilan oldini olamiz).
   const replyMarkup = {
     inline_keyboard: [[
       { text: "📋 Batafsil ko'rish — tovarlarni belgilash", url: catalogUrl }
     ]],
   };
 
-  // Birinchi mahsulotda rasm bo'lsa — rasm bilan yuboramiz (caption sifatida)
-  const firstImg = items.find(it => it.image && (it.image.startsWith("http") || it.image.startsWith("data:image")))?.image;
+  // ESLATMA: agar 2+ xil tovar bo'lsa, faqat 1 ta rasm yuborish chalkashtiradi
+  // (qaysi rasm qaysi tovarga tegishli ekani noaniq bo'ladi).
+  // Shuning uchun: 1 ta tovar bo'lsa — rasm bilan yuboramiz.
+  //                2+ tovar bo'lsa — faqat matn, rasmlar "Batafsil" sahifasida ko'rinadi.
+  const singleImg = items.length === 1
+    ? (items[0].image && (items[0].image.startsWith("http") || items[0].image.startsWith("data:image")) ? items[0].image : null)
+    : null;
 
   let r;
-  if (firstImg) {
-    // Telegram caption limiti 1024 belgi — uzun bo'lsa qisqartiramiz
+  if (singleImg) {
     let caption = txt;
     if (caption.length > 1000) {
-      caption = caption.slice(0, 980) + "\n\n…(to'liq ro'yxat \"Batafsil\" da)";
+      caption = caption.slice(0, 980) + "\n\n…(to'liq ma'lumot \"Batafsil\" da)";
     }
-    r = await tgPhoto(groupId, firstImg, caption, { reply_markup: replyMarkup });
+    r = await tgPhoto(groupId, singleImg, caption, { reply_markup: replyMarkup });
     if (!r.ok) {
-      // Rasm yuklanmasa — oddiy matn bilan urinib ko'ramiz
       console.warn("[staffNotif] rasm bilan yuborish muvaffaqiyatsiz, matn bilan urinib ko'ramiz:", r.description);
       r = await tg(groupId, txt, { reply_markup: replyMarkup });
     }
@@ -1261,7 +1273,7 @@ function fetchDone() {
       }
     }).catch(function(){});
 }
-setInterval(fetchDone, 4000);
+setInterval(fetchDone, 2000); // 2 soniyada bir — tezroq sinxronlash
 
 // Lightbox
 function openLb(src){document.getElementById('lb-img').src=src;document.getElementById('lb').classList.add('open');document.body.style.overflow='hidden';}
@@ -1590,6 +1602,11 @@ export default async function handler(req, res) {
       if (!chekId) return res.status(400).send("Chek ID kerak");
       const html = await actionRenderStaffOrder(chekId, saleData, shopId);
       res.setHeader("Content-Type", "text/html; charset=utf-8");
+      // Kesh muammosini oldini olish — har safar serverdan yangi yuklansin
+      // (Telegram ichki brauzeri va oddiy brauzerlar eski sahifani ko'rsatmasligi uchun)
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
       return res.status(200).send(html);
     } catch (e) {
       console.error("staff_order xato:", e.message);
