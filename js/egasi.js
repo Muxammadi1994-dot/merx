@@ -23,6 +23,12 @@ function saveSetting(key, val) {
   if (!db.settings) db.settings = {};
   db.settings[key] = val;
   saveDB();
+  if (key === "eskizToken") {
+    // Token qo'lda yangilandi — eski "eskirgan" ogohlantirishni tozalaymiz
+    db.settings.eskizTokenExpired = false;
+    saveDB();
+    if (typeof updateSmsUI === "function") updateSmsUI();
+  }
   if (key === "priceCurrency") {
     document.querySelectorAll("[data-c]").forEach(b => b.classList.toggle("on", b.dataset.c === val));
     if (typeof updateCostCurrency === "function") updateCostCurrency();
@@ -435,7 +441,10 @@ function updateSmsUI() {
   const token  = db.settings?.eskizToken || "";
   const badge  = document.getElementById("sms-status-badge");
   if (!badge) return;
-  if (token) {
+  if (token && db.settings?.eskizTokenExpired) {
+    badge.textContent = "⚠️ Token eskirgan — yangilang";
+    badge.className   = "bg bg-r";
+  } else if (token) {
     badge.textContent = "Ulangan ✅";
     badge.className   = "bg bg-g";
   } else {

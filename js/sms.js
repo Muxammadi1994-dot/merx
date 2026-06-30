@@ -17,9 +17,27 @@ async function sendSms(phone, text) {
       headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
       body: JSON.stringify({ mobile_phone:clean, message:text, from:db.settings.eskizSender||"MERX", callback_url:"" })
     });
+    // Token eskirgan/yaroqsiz bo'lsa, Eskiz odatda 401 qaytaradi —
+    // buni "ko'rinadigan" qilamiz, aks holda hech kim sezmaydi.
+    if (resp.status === 401) {
+      db.settings.eskizTokenExpired = true;
+      saveDB();
+      if (typeof updateSmsUI === "function") updateSmsUI();
+      toast("⚠️ Eskiz token eskirgan — Sozlamalar > SMS bo'limidan yangilang", "err");
+      return;
+    }
     const res = await resp.json();
-    if (res.status === "waiting") toast("✅ SMS yuborildi: " + phone);
-    else toast("SMS yuborilmadi: " + (res.message||"xato"), "err");
+    if (res.status === "waiting") {
+      toast("✅ SMS yuborildi: " + phone);
+      // Muvaffaqiyatli yuborildi — eski ogohlantirish bo'lsa, tozalaymiz
+      if (db.settings.eskizTokenExpired) {
+        db.settings.eskizTokenExpired = false;
+        saveDB();
+        if (typeof updateSmsUI === "function") updateSmsUI();
+      }
+    } else {
+      toast("SMS yuborilmadi: " + (res.message||"xato"), "err");
+    }
   } catch(e) { toast("SMS xatosi — internet bor?","err"); }
 }
 
