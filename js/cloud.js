@@ -66,33 +66,9 @@ async function initSupabase() {
       }
     }
 
-    // Test ulanish — shops jadvalini tekshiramiz (har doim mavjud)
-    const { error } = await _sb.from("shops").select("id").limit(1);
-    if (error) {
-      // shops yo'q bo'lsa — eski schema, settings dan tekshiramiz
-      const { error: e2 } = await _sb.from("settings").select("id").limit(1);
-      if (e2) throw e2;
-    }
-
-    // Do'konni shops jadvaliga ro'yxatdan o'tkazish
-    const sid = getCloudShopId();
-    if (sid && sid !== "local") {
-      try {
-        const { data: shop } = await _sb.from("shops").select("id").eq("id", sid).single();
-        if (!shop) {
-          const auth = typeof getAuthUser === "function" ? getAuthUser() : null;
-          await _sb.from("shops").upsert({
-            id:          sid,
-            name:        db.shop?.name || "MERX Do'koni",
-            owner_email: auth?.email || "",
-            active:      true
-          });
-        }
-      } catch(e) {
-        // shops jadvali yo'q (eski schema) — davom etamiz
-        console.warn("shops jadvali topilmadi, eski schema bo'lishi mumkin");
-      }
-    }
+    // Test ulanish — settings jadvalini tekshiramiz
+    const { error } = await _sb.from("settings").select("shop_id").limit(1);
+    if (error) throw error;
 
     updateCloudUI(true);
     return true;
