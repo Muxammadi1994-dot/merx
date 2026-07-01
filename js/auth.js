@@ -612,6 +612,22 @@ function hideLoginScreen() {
 let _supabaseTestSession = null; // sessiya — _authUser bilan ARALASHMAYDI
 let _sbTokenRefreshTimer = null; // avtomatik yangilash timer
 
+// Sahifa yuklanganda sessionStorage dan token va parolni tiklaymiz
+(function restoreSessionFromStorage() {
+  try {
+    const saved = sessionStorage.getItem("merx_sb_session");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Token muddati tugaganmi tekshiramiz
+      if (parsed.expiresAt && Date.now() < parsed.expiresAt) {
+        _supabaseTestSession = parsed;
+      } else {
+        sessionStorage.removeItem("merx_sb_session");
+      }
+    }
+  } catch(e) {}
+})();
+
 async function authLoginSupabaseTest(email, password) {
   try {
     const res = await fetch("/api/auth-v2?action=login_test", {
@@ -621,24 +637,23 @@ async function authLoginSupabaseTest(email, password) {
     });
     const data = await res.json();
     if (data.ok) {
+      // expiresAt ni hisoblaymiz (hozirdan + expiresIn soniya)
+      data.expiresAt = Date.now() + ((data.expiresIn || 3600) * 1000);
       _supabaseTestSession = data;
+      // sessionStorage ga saqlaymiz — sahifa yangilanganda ham token saqlanadi
+      try {
+        sessionStorage.setItem("merx_sb_session", JSON.stringify(data));
+      } catch(e) {}
       // ── Token avtomatik yangilash ──────────────────────────────
-      // Token 1 soatdan keyin eskiradi (expiresIn: 3600 soniya).
-      // Eskirishdan 5 daqiqa oldin avtomatik yangilaymiz.
       if (_sbTokenRefreshTimer) clearTimeout(_sbTokenRefreshTimer);
       const refreshIn = ((data.expiresIn || 3600) - 300) * 1000; // 55 daqiqa
       _sbTokenRefreshTimer = setTimeout(async () => {
-        const user = typeof getAuthUser === "function" ? getAuthUser() : null;
-        if (user?.email) {
-          // Parolni localStorage dan olamiz (sha256 hash emas, original kerak)
-          // Shuning uchun hozircha faqat initSupabase'ni qayta chaqiramiz
-          // Bu token eskirsa ham cloud sync ishlashda davom etadi (anon key zaxira)
-          if (typeof initSupabase === "function") {
-            _supabaseTestSession = null; // eski tokenni tozalaymiz
-            _sb = null;
-            await initSupabase();
-            console.log("ℹ️ Token muddati tugadi — anon key zaxirasiga o'tildi");
-          }
+        sessionStorage.removeItem("merx_sb_session");
+        _supabaseTestSession = null;
+        _sb = null;
+        if (typeof initSupabase === "function") {
+          await initSupabase();
+          console.log("ℹ️ Token muddati tugadi — anon key zaxirasiga o'tildi");
         }
       }, refreshIn);
       // ── Avtomatik yangilash qo'shildi ──────────────────────────
