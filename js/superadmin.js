@@ -137,13 +137,13 @@ function saDoLogin() {
   saSave(); saLoadShops();
   const overlay = document.getElementById("sa-overlay");
 
-  // Supabase'dan do'konlarni yuklab, keyin panelni ko'rsatamiz
-  // (boshqa qurilmada ham do'konlar ko'rinishi uchun)
+  // Avval bo'sh panel ko'rsatamiz (tez ochilishi uchun)
+  if (overlay) { overlay.innerHTML = buildSaPanel(); renderSaShops(); }
+
+  // Keyin Supabase'dan yuklab, panelni yangilaymiz
   saFetchShopsFromCloud()
-    .catch(e => console.warn("Cloud shops yuklash xato:", e.message))
-    .finally(() => {
-      if (overlay) { overlay.innerHTML = buildSaPanel(); renderSaShops(); }
-    });
+    .then(() => renderSaShops())
+    .catch(e => console.warn("Cloud shops yuklash xato:", e.message));
 }
 
 // ── Dashboard statistika ─────────────────────────
