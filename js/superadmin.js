@@ -117,6 +117,9 @@ function openSaPanel() {
     overlay.innerHTML = buildSaPanel();
     document.body.appendChild(overlay);
     renderSaShops();
+    // Supabase'dan ham yuklaymiz (boshqa qurilmada localStorage bo'sh bo'lishi mumkin)
+    saFetchShopsFromCloud()
+      .catch(e => console.warn("Cloud shops yuklash xato:", e.message));
   }
 }
 
