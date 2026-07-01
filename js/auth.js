@@ -189,6 +189,14 @@ function initAuth() {
   // Plain text parolni hashga o'tkazamiz (bir martalik)
   migratePassToHash();
   applyRoleUI();
+
+  // Cloud sync va token — sahifa yangilanganda ham ishlashi uchun
+  // sessionStorage da token bo'lsa — uni ishlatamiz
+  // bo'lmasa — faqat cloud sync qilamiz (anon key bilan)
+  setTimeout(() => {
+    _initCloudAfterLogin();
+  }, 100);
+
   return true;
 }
 
