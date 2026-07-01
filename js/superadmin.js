@@ -44,12 +44,14 @@ function saLogout() {
 }
 
 function saLoadShops() {
-  try { _saShops = JSON.parse(localStorage.getItem(SHOPS_KEY) || "[]"); }
-  catch(e) { _saShops = []; }
+  // localStorage o'rniga faqat Supabase'dan yuklaymiz
+  // (saFetchShopsFromCloud funksiyasi bu ishni bajaradi)
+  _saShops = [];
 }
 
 function saSaveShops() {
-  localStorage.setItem(SHOPS_KEY, JSON.stringify(_saShops));
+  // localStorage ga yozmaymiz — Supabase birlamchi manba
+  // Faqat xotirada (_saShops) saqlaymiz
 }
 
 function saIsActive(s) {
@@ -828,9 +830,7 @@ async function saFetchShopsFromCloud() {
   });
 
   _saShops = merged;
-  saSaveShops();
-  // Agar SuperAdmin paneli hali ochiq bo'lsa — yangilaymiz
-  // getElementById orqali har safar yangi DOM elementini topamiz
+  // localStorage ga yozmaymiz — xotirada saqlaymiz xolos
   const saList = document.getElementById("sa-shops-list");
   if (saList) {
     renderSaShops();
