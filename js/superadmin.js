@@ -117,9 +117,11 @@ function openSaPanel() {
     overlay.innerHTML = buildSaPanel();
     document.body.appendChild(overlay);
     renderSaShops();
-    // Supabase'dan ham yuklaymiz (boshqa qurilmada localStorage bo'sh bo'lishi mumkin)
-    saFetchShopsFromCloud()
-      .catch(e => console.warn("Cloud shops yuklash xato:", e.message));
+    // Panel to'liq yuklanib bo'lgach, Supabase'dan yangilaymiz
+    setTimeout(() => {
+      saFetchShopsFromCloud()
+        .catch(e => console.warn("Cloud shops yuklash xato:", e.message));
+    }, 300);
   }
 }
 
@@ -139,14 +141,12 @@ function saDoLogin() {
   _saSession = { loggedIn: true, ts: Date.now() };
   saSave(); saLoadShops();
   const overlay = document.getElementById("sa-overlay");
-
-  // Avval bo'sh panel ko'rsatamiz (tez ochilishi uchun)
   if (overlay) { overlay.innerHTML = buildSaPanel(); renderSaShops(); }
 
-  // Keyin Supabase'dan yuklab, panelni yangilaymiz
-  saFetchShopsFromCloud()
-    .then(() => renderSaShops())
-    .catch(e => console.warn("Cloud shops yuklash xato:", e.message));
+  setTimeout(() => {
+    saFetchShopsFromCloud()
+      .catch(e => console.warn("Cloud shops yuklash xato:", e.message));
+  }, 300);
 }
 
 // ── Dashboard statistika ─────────────────────────
