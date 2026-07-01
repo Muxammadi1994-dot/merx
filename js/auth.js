@@ -408,31 +408,26 @@ function doSuperLogin() {
     return;
   }
 
-  // Super admin session yaratamiz
-  if (typeof _saSession !== "undefined") {
-    // saLoad() ni "tashqaridan" simulatsiya qilamiz
-  }
-  localStorage.setItem("merx_superadmin_v1", JSON.stringify({ loggedIn: true, ts: Date.now() }));
-  localStorage.setItem("merx_sa_ts", Date.now().toString());
+  // sessionStorage ga saqlaymiz (localStorage emas)
+  sessionStorage.setItem("merx_superadmin_v1", JSON.stringify({ loggedIn: true, ts: Date.now() }));
+  sessionStorage.setItem("merx_sa_ts", Date.now().toString());
 
   hideLoginScreen();
 
   // Super Admin panelini ochamiz
-  if (typeof openSaPanel === "function") {
-    // _saSession ni yangilaymiz
-    if (typeof saLoad === "function") saLoad();
-    if (typeof saLoadShops === "function") saLoadShops();
+  setTimeout(() => {
+    const overlay = document.createElement("div");
+    overlay.id = "sa-overlay";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif";
+    overlay.innerHTML = typeof buildSaPanel === "function" ? buildSaPanel() : "<div style='color:#fff'>Yuklanmoqda...</div>";
+    document.body.appendChild(overlay);
+    if (typeof renderSaShops === "function") renderSaShops();
 
-    setTimeout(() => {
-      // Panel HTML qurish
-      const overlay = document.createElement("div");
-      overlay.id = "sa-overlay";
-      overlay.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif";
-      overlay.innerHTML = typeof buildSaPanel === "function" ? buildSaPanel() : "<div style='color:#fff'>Yuklanmoqda...</div>";
-      document.body.appendChild(overlay);
-      if (typeof renderSaShops === "function") renderSaShops();
-    }, 100);
-  }
+    // Supabase'dan do'konlarni yuklaymiz
+    if (typeof saFetchShopsFromCloud === "function") {
+      saFetchShopsFromCloud().catch(e => console.warn("SA shops yuklash xato:", e.message));
+    }
+  }, 100);
 }
 
 // ── Egasi/Admin login ─────────────────────────────
