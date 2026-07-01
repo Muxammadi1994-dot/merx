@@ -826,7 +826,12 @@ async function saFetchShopsFromCloud() {
 
   _saShops = merged;
   saSaveShops();
-  renderSaShops();
+  // Agar SuperAdmin paneli ochiq bo'lsa — to'liq yangilaymiz
+  const overlay = document.getElementById("sa-overlay");
+  if (overlay) {
+    overlay.innerHTML = buildSaPanel();
+    renderSaShops();
+  }
   console.log(`✅ Supabase'dan ${d.shops.length} ta do'kon yuklandi`);
   } catch(e) { console.warn("saFetchShopsFromCloud xato:", e.message); }
 }
