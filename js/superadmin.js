@@ -826,11 +826,14 @@ async function saFetchShopsFromCloud() {
 
   _saShops = merged;
   saSaveShops();
-  // Agar SuperAdmin paneli ochiq bo'lsa — to'liq yangilaymiz
-  const overlay = document.getElementById("sa-overlay");
-  if (overlay) {
-    overlay.innerHTML = buildSaPanel();
+  // Agar SuperAdmin paneli hali ochiq bo'lsa — yangilaymiz
+  // getElementById orqali har safar yangi DOM elementini topamiz
+  const saList = document.getElementById("sa-shops-list");
+  if (saList) {
     renderSaShops();
+    // Statistikani ham yangilaymiz
+    const dashEl = document.getElementById("sa-dashboard");
+    if (dashEl) dashEl.innerHTML = buildSaDashboard();
   }
   console.log(`✅ Supabase'dan ${d.shops.length} ta do'kon yuklandi`);
   } catch(e) { console.warn("saFetchShopsFromCloud xato:", e.message); }
