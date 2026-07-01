@@ -24,22 +24,22 @@ let _saFilter  = "Barchasi";
 // ── Session ──────────────────────────────────────
 function saLoad() {
   try {
-    const raw = localStorage.getItem(SA_KEY);
-    const ts  = parseInt(localStorage.getItem(SA_TS_KEY) || "0");
+    const raw = sessionStorage.getItem(SA_KEY);
+    const ts  = parseInt(sessionStorage.getItem(SA_TS_KEY) || "0");
     if (raw && Date.now() - ts < SA_TIMEOUT) _saSession = JSON.parse(raw);
-    else { _saSession = null; localStorage.removeItem(SA_KEY); }
+    else { _saSession = null; sessionStorage.removeItem(SA_KEY); }
   } catch(e) { _saSession = null; }
 }
 
 function saSave() {
-  localStorage.setItem(SA_KEY, JSON.stringify(_saSession));
-  localStorage.setItem(SA_TS_KEY, Date.now().toString());
+  sessionStorage.setItem(SA_KEY, JSON.stringify(_saSession));
+  sessionStorage.setItem(SA_TS_KEY, Date.now().toString());
 }
 
 function saLogout() {
   _saSession = null;
-  localStorage.removeItem(SA_KEY);
-  localStorage.removeItem(SA_TS_KEY);
+  sessionStorage.removeItem(SA_KEY);
+  sessionStorage.removeItem(SA_TS_KEY);
   hideSaPanel();
 }
 
