@@ -204,9 +204,16 @@ function _initCloudAfterLogin() {
     if (!db.settings.supabaseKey) db.settings.supabaseKey = key;
     saveDB();
   }
-  if (typeof initSupabase !== "function") return;
-  initSupabase().then(async ok => {
-    if (!ok) return;
+
+  // initSupabase allaqachon doLogin() ichida chaqirilgan va token bilan ulangan.
+  // Qayta chaqirmaslik — "Multiple GoTrueClient" ogohlantirishini oldini oladi.
+  // Faqat _sb mavjud bo'lsa davom etamiz, bo'lmasa initSupabase chaqiramiz.
+  const proceed = async () => {
+    if (!_sb) {
+      if (typeof initSupabase !== "function") return;
+      const ok = await initSupabase();
+      if (!ok) return;
+    }
     if (typeof updateCloudUI === "function") updateCloudUI(true);
     // Settings ni HAR DOIM cloud dan yuklaymiz (bot, telegram sozlamalari uchun)
     if (typeof pullFromCloud === "function") {
@@ -245,7 +252,8 @@ function _initCloudAfterLogin() {
         } catch(e) { console.warn("Settings pull xato:", e.message); }
       }
     }
-  });
+  };
+  proceed();
 }
 
 // ── Login ekrani ─────────────────────────────────
