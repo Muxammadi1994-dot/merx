@@ -137,6 +137,9 @@ function saDoLogin() {
   saSave(); saLoadShops();
   const overlay = document.getElementById("sa-overlay");
   if (overlay) { overlay.innerHTML = buildSaPanel(); renderSaShops(); }
+
+  // Supabase'dan yangi ma'lumotlarni yuklaymiz (boshqa qurilmada ham ishlashi uchun)
+  saFetchShopsFromCloud().catch(e => console.warn("Cloud shops yuklash xato:", e.message));
 }
 
 // ── Dashboard statistika ─────────────────────────
@@ -780,6 +783,51 @@ async function saAddShop() {
     </div>`;
     document.body.appendChild(d);
   }, 300);
+}
+
+// ── Supabase'dan do'konlarni yuklash ─────────────
+async function saFetchShopsFromCloud() {
+  // service_role bilan barcha do'konlarni yuklaymiz
+  const sbUrl = (typeof MERX_SUPABASE_URL !== "undefined" && MERX_SUPABASE_URL)
+    ? MERX_SUPABASE_URL : (db?.settings?.supabaseUrl || "");
+  if (!sbUrl) return;
+
+  const res = await fetch("/api/auth-v2?action=get_shops", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})
+  });
+  const d = await res.json();
+  if (!d.ok || !d.shops?.length) return;
+
+  // Supabase'dagi do'konlarni localStorage bilan birlashtirамiz
+  // (localStorage'da qo'shimcha ma'lumotlar bo'lishi mumkin: ownerPass, modules va h.k.)
+  const merged = d.shops.map(cloudShop => {
+    const local = _saShops.find(s => s.id === cloudShop.id) || {};
+    return {
+      ...local,
+      id:          cloudShop.id,
+      name:        cloudShop.name,
+      ownerEmail:  cloudShop.owner_email || local.ownerEmail || "",
+      plan:        cloudShop.plan        || local.plan || "trial",
+      blocked:     cloudShop.blocked     || local.blocked || false,
+      expiresAt:   cloudShop.trial_ends  || local.expiresAt || null,
+      createdAt:   cloudShop.created_at  || local.createdAt || new Date().toISOString(),
+      ownerName:   local.ownerName || "",
+      ownerPass:   local.ownerPass || "",
+      modules:     local.modules || {},
+    };
+  });
+
+  // localStorage'da bor, lekin Supabase'da yo'q do'konlarni ham qo'shamiz
+  _saShops.forEach(local => {
+    if (!merged.find(m => m.id === local.id)) merged.push(local);
+  });
+
+  _saShops = merged;
+  saSaveShops();
+  renderSaShops();
+  console.log(`✅ Supabase'dan ${d.shops.length} ta do'kon yuklandi`);
 }
 
 // ── Supabase ga yozish ────────────────────────────
