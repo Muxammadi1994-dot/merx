@@ -791,18 +791,14 @@ async function saAddShop() {
 
 // ── Supabase'dan do'konlarni yuklash ─────────────
 async function saFetchShopsFromCloud() {
-  // service_role bilan barcha do'konlarni yuklaymiz
-  const sbUrl = (typeof MERX_SUPABASE_URL !== "undefined" && MERX_SUPABASE_URL)
-    ? MERX_SUPABASE_URL : (db?.settings?.supabaseUrl || "");
-  if (!sbUrl) return;
-
-  const res = await fetch("/api/auth-v2?action=get_shops", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({})
-  });
-  const d = await res.json();
-  if (!d.ok || !d.shops?.length) return;
+  try {
+    const res = await fetch("/api/auth-v2?action=get_shops", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({})
+    });
+    const d = await res.json();
+    if (!d.ok || !d.shops?.length) return;
 
   // Supabase'dagi do'konlarni localStorage bilan birlashtirамiz
   // (localStorage'da qo'shimcha ma'lumotlar bo'lishi mumkin: ownerPass, modules va h.k.)
@@ -832,6 +828,7 @@ async function saFetchShopsFromCloud() {
   saSaveShops();
   renderSaShops();
   console.log(`✅ Supabase'dan ${d.shops.length} ta do'kon yuklandi`);
+  } catch(e) { console.warn("saFetchShopsFromCloud xato:", e.message); }
 }
 
 // ── Supabase ga yozish ────────────────────────────
