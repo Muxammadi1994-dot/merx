@@ -136,10 +136,14 @@ function saDoLogin() {
   _saSession = { loggedIn: true, ts: Date.now() };
   saSave(); saLoadShops();
   const overlay = document.getElementById("sa-overlay");
-  if (overlay) { overlay.innerHTML = buildSaPanel(); renderSaShops(); }
 
-  // Supabase'dan yangi ma'lumotlarni yuklaymiz (boshqa qurilmada ham ishlashi uchun)
-  saFetchShopsFromCloud().catch(e => console.warn("Cloud shops yuklash xato:", e.message));
+  // Supabase'dan do'konlarni yuklab, keyin panelni ko'rsatamiz
+  // (boshqa qurilmada ham do'konlar ko'rinishi uchun)
+  saFetchShopsFromCloud()
+    .catch(e => console.warn("Cloud shops yuklash xato:", e.message))
+    .finally(() => {
+      if (overlay) { overlay.innerHTML = buildSaPanel(); renderSaShops(); }
+    });
 }
 
 // ── Dashboard statistika ─────────────────────────
