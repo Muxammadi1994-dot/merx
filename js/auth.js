@@ -386,22 +386,34 @@ function toggleAuthPass() {
 }
 
 // ── Super Admin login ─────────────────────────────
-// SA paroli — YAGONA manba, do'kon sozlamalariga BOG'LIQ EMAS.
-// O'zgartirish kerak bo'lsa — faqat shu qatorni tahrirlang:
-const MERX_SA_PASS = "merx2024";
-
-function doSuperLogin() {
+// SA paroli endi KODDA TURMAYDI — server tekshiradi (Vercel ENV:
+// MERX_SA_PASS). Muvaffaqiyatli kirishda parol sessionStorage'da
+// saqlanadi va keyingi SA so'rovlariga x-sa-pass sarlavhasida boradi.
+async function doSuperLogin() {
   const pass    = (document.getElementById("auth-sa-pass")||{value:""}).value;
   const errEl   = document.getElementById("auth-sa-err");
-  const correct = MERX_SA_PASS;
 
-  if (pass !== correct) {
+  let ok = false;
+  try {
+    const r = await fetch("/api/auth-v2?action=sa_login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-sa-pass": pass },
+      body: "{}"
+    });
+    ok = r.ok;
+  } catch(e) {
+    if (errEl) { errEl.textContent = "Server bilan aloqa xatosi"; errEl.style.display = "block"; }
+    return;
+  }
+
+  if (!ok) {
     if (errEl) { errEl.textContent = "Parol noto'g'ri"; errEl.style.display = "block"; }
     if (document.getElementById("auth-sa-pass")) document.getElementById("auth-sa-pass").value = "";
     return;
   }
 
   // sessionStorage ga saqlaymiz (localStorage emas)
+  sessionStorage.setItem("merx_sa_pass", pass); // keyingi SA so'rovlari uchun
   sessionStorage.setItem("merx_superadmin_v1", JSON.stringify({ loggedIn: true, ts: Date.now() }));
   sessionStorage.setItem("merx_sa_ts", Date.now().toString());
 

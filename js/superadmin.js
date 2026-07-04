@@ -131,17 +131,25 @@ function hideSaPanel() {
   document.getElementById("sa-overlay")?.remove();
 }
 
-function saDoLogin() {
+async function saDoLogin() {
   const pass    = document.getElementById("sa-pass")?.value || "";
   const errEl   = document.getElementById("sa-err");
-  // SA paroli endi do'kon sozlamalariga bog'liq emas — auth.js dagi
-  // MERX_SA_PASS konstantasidan olinadi (yagona manba)
-  const correct = (typeof MERX_SA_PASS !== "undefined") ? MERX_SA_PASS : "merx2024";
-  if (pass !== correct) {
+  // SA parol serverda tekshiriladi (Vercel ENV: MERX_SA_PASS)
+  let _ok = false;
+  try {
+    const r = await fetch("/api/auth-v2?action=sa_login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-sa-pass": pass },
+      body: "{}"
+    });
+    _ok = r.ok;
+  } catch(e) { _ok = false; }
+  if (!_ok) {
     if (errEl) { errEl.textContent = "Parol noto'g'ri"; errEl.style.display = "block"; }
     if (document.getElementById("sa-pass")) document.getElementById("sa-pass").value = "";
     return;
   }
+  sessionStorage.setItem("merx_sa_pass", pass);
   _saSession = { loggedIn: true, ts: Date.now() };
   saSave(); saLoadShops();
   const overlay = document.getElementById("sa-overlay");
@@ -725,7 +733,7 @@ async function saAddShop() {
   // kalit bilan yaratadi. Busiz RLS ishlamaydi.
   fetch("/api/auth-v2?action=create_shop", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-sa-pass": sessionStorage.getItem("merx_sa_pass") || "" },
     body: JSON.stringify({
       email: loginEmail,
       password: pass,
@@ -801,7 +809,7 @@ async function saFetchShopsFromCloud() {
   try {
     const res = await fetch("/api/auth-v2?action=get_shops", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-sa-pass": sessionStorage.getItem("merx_sa_pass") || "" },
       body: JSON.stringify({})
     });
     const d = await res.json();
@@ -1069,7 +1077,7 @@ function saEditSave(id) {
     // Supabase Auth'da ham yangilaymiz
     fetch("/api/auth-v2?action=update_shop_password", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-sa-pass": sessionStorage.getItem("merx_sa_pass") || "" },
       body: JSON.stringify({ email: s.ownerEmail, newPassword: pass })
     })
     .then(r => r.json())
@@ -1090,7 +1098,7 @@ async function _saUpdateShopInSupabase(shopId, data) {
 
     const res = await fetch("/api/auth-v2?action=update_shop", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-sa-pass": sessionStorage.getItem("merx_sa_pass") || "" },
       body: JSON.stringify({ shopId, data })
     });
     const d = await res.json();
@@ -1354,11 +1362,10 @@ function saShowInactiveShops() {
 }
 
 // ── Super admin paroli o'zgartirish ───────────────
-// ESLATMA: SA paroli endi do'kon sozlamalarida SAQLANMAYDI —
-// bu "parol almashib qolishi" muammosining sababi edi.
-// Parol yagona joyda: auth.js dagi MERX_SA_PASS konstantasi.
+// ── Super admin paroli o'zgartirish ───────────────
+// SA parol endi serverda (Vercel ENV: MERX_SA_PASS) tekshiriladi.
 function saChangeSuperPass() {
-  showSaToast("SA paroli endi kod orqali boshqariladi (auth.js → MERX_SA_PASS)", "err");
+  showSaToast("SA parolini o'zgartirish: Vercel > Settings > Environment Variables > MERX_SA_PASS", "err");
 }
 
 // ── Do'kon almashtirish (eski funksiya — saOpenShop bilan bir xil) ──

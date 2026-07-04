@@ -47,6 +47,26 @@ module.exports = async function handler(req, res) {
   const { action } = req.query;
   const body = req.body || {};
 
+  // ── SuperAdmin himoyasi ──────────────────────────────────────
+  // SA parol serverda tekshiriladi. Vercel ENV'da MERX_SA_PASS
+  // o'rnatilsa — o'sha, bo'lmasa vaqtincha "merx2024".
+  // TAVSIYA: Vercel > Settings > Environment Variables ga kuchli
+  // MERX_SA_PASS qo'shing — shunda parol kodda umuman turmaydi.
+  const SA_PASS = process.env.MERX_SA_PASS || "merx2024";
+  const SA_ACTIONS = ["sa_login","create_shop","update_shop",
+    "update_shop_password","get_shops","link_existing_shop",
+    "delete_test_user","signup_test"];
+  if (SA_ACTIONS.includes(action)) {
+    const given = req.headers["x-sa-pass"] || body.saPass || "";
+    if (given !== SA_PASS) {
+      return res.status(401).json({ ok: false, error: "SuperAdmin paroli noto'g'ri" });
+    }
+  }
+  // SA parolni tekshirish (SA panelga kirish uchun)
+  if (action === "sa_login") {
+    return res.status(200).json({ ok: true });
+  }
+
   try {
     // ── 1b. MAVJUD do'konni yangi tizimga bog'lash ─────────────
     // Farqi: shopId TASODIFIY yaratilmaydi, balki sizning haqiqiy,
