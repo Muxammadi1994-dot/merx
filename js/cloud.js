@@ -18,10 +18,11 @@ function getCloudShopId() {
     const sid = getShopId();
     if (sid && sid !== "local") return sid;
   }
-  // 3. Supabase URL dan hash (eski usul)
-  const url = db.settings?.supabaseUrl || "";
-  const match = url.match(/https:\/\/([^.]+)\.supabase\.co/);
-  return match ? match[1] : "default";
+  // 3. Do'kon ID topilmadi — sinxronlash MUMKIN EMAS.
+  // ESKI USUL OLIB TASHLANDI: avval bu yerda Supabase URL'dan ID
+  // yasalardi (masalan "satsriyleuzlrxnohecu") — bu turli qurilmalar
+  // ma'lumotlarini bitta egasiz ID ostiga aralashtirib yuborardi.
+  return null;
 }
 
 async function initSupabase() {
@@ -172,8 +173,12 @@ async function _setShopContext(sid) {
 async function pushToCloud() {
   if (!_sb) { toast("Avval ulaning","err"); return; }
   const _sid = getCloudShopId();
+  if (!_sid) {
+    console.warn("Cloud push o'tkazib yuborildi: do'kon ID yo'q (tizimga kirilmagan)");
+    return;
+  }
   await _setShopContext(_sid);
-  const sid = getCloudShopId();
+  const sid = _sid;
   try {
     // Settings
     // Settings — eski schema id=1, yangi schema shop_id
@@ -451,12 +456,17 @@ async function pullFromCloud() {
     if (!ok) { toast("Avval ulaning","err"); return; }
   }
   // RLS: do'kon kontekstini o'rnatamiz
-  await _setShopContext(getCloudShopId());
+  const _pullSid = getCloudShopId();
+  if (!_pullSid) {
+    toast("Sinxronlash uchun avval tizimga kiring", "err");
+    return;
+  }
+  await _setShopContext(_pullSid);
 
   try {
     toast("Cloud dan yuklanmoqda...", "info");
 
-    const sid = getCloudShopId();
+    const sid = _pullSid;
 
     // Products — faqat bu do'kon
     const { data: prods } = await _sb.from("products").select("*").eq("shop_id", sid);
