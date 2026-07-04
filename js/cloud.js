@@ -124,6 +124,9 @@ let _cloudPullDone = false;
 //   pull/merge ularni qayta tiriltirmasligi uchun.
 let _cloudIds = {};
 let _tombstones = new Set();
+// Pull QAYSI do'kon uchun bo'lgan — SA do'kon almashtirganda
+// eski ro'yxat yangi do'konga qo'llanib ketmasligi uchun (KRITIK)
+let _pulledShopId = null;
 
 async function pushToCloud() {
   if (!_sb) { toast("Avval ulaning","err"); return; }
@@ -132,8 +135,9 @@ async function pushToCloud() {
     console.warn("Cloud push o'tkazib yuborildi: do'kon ID yo'q (tizimga kirilmagan)");
     return;
   }
-  if (!_cloudPullDone) {
-    console.warn("Cloud push kutmoqda: bu sessiyada avval bulutdan yuklab olish (pull) tugashi kerak");
+  if (!_cloudPullDone || _pulledShopId !== _sid) {
+    console.warn("Cloud push kutmoqda: AYNAN SHU do'kon uchun pull tugashi kerak (do'kon almashgan bo'lishi mumkin)");
+    if (typeof ensureCloudPull === "function") ensureCloudPull();
     return;
   }
   await _setShopContext(_sid);
@@ -471,19 +475,27 @@ async function pushToCloud() {
 // Pull o'tmasa push bloklangani uchun, bu funksiya pullni bir necha
 // bor takrorlaydi (5s, 15s oraliq), keyin ham bo'lmasa har 60
 // soniyada fonda urinib turadi — internet qaytishi bilan tiklanadi.
+let _pullBusy = false;
 async function ensureCloudPull(tries = 3) {
-  for (let i = 0; i < tries && !_cloudPullDone; i++) {
+  const want = getCloudShopId();
+  const ok = () => _cloudPullDone && _pulledShopId === want;
+  if (_pullBusy || ok()) return ok();
+  _pullBusy = true;
+  try {
+  for (let i = 0; i < tries && !ok(); i++) {
     if (i > 0) {
       console.warn(`Pull qayta urinish ${i}/${tries-1}...`);
       await new Promise(r => setTimeout(r, i * 10000 - 5000));
     }
     try { await pullFromCloud(); } catch(e) { console.warn("pull xato:", e.message); }
   }
-  if (!_cloudPullDone) {
+
+  } finally { _pullBusy = false; }
+  if (!ok()) {
     console.warn("Pull hali o'tmadi — 60 soniyadan keyin fonda yana urinamiz");
-    setTimeout(() => { if (!_cloudPullDone) ensureCloudPull(2); }, 60000);
+    setTimeout(() => { if (!ok()) ensureCloudPull(2); }, 60000);
   }
-  return _cloudPullDone;
+  return ok();
 }
 
 // ── Supabase → LocalDB ────────────────────────────
@@ -793,6 +805,7 @@ async function pullFromCloud() {
 
     // Pull muvaffaqiyatli tugadi — endi push ga ruxsat beriladi
     _cloudPullDone = true;
+    _pulledShopId = sid;
 
     saveDB();
     updateCloudUI(true);
