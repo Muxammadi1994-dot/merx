@@ -96,75 +96,13 @@ function updateCloudUI(connected) {
 }
 
 // ── LocalDB → Supabase (to'liq push) ─────────────
-async function connectCloud() {
-  const url = ($("s-sup-url")||{value:""}).value.trim();
-  const key = ($("s-sup-key")||{value:""}).value.trim();
-  if (!url || !key) { toast("URL va Key kiriting","err"); return; }
-  if (!url.includes("supabase.co") && !url.includes("localhost")) {
-    toast("URL noto'g'ri — https://xxxx.supabase.co bo'lishi kerak","err"); return;
-  }
-
-  db.settings.supabaseUrl = url;
-  db.settings.supabaseKey = key;
-  saveDB();
-
-  toast("Ulanmoqda...", "info");
-  const ok = await initSupabase();
-  if (!ok) {
-    toast("Ulanmadi — URL va Key ni tekshiring. Console da batafsil xato bor.", "err");
-    return;
-  }
-
-  toast("✅ Ulandi! Sinxronlash boshlandi...", "info");
-
-  // Supabase dan bu do'konning shop_id ni topamiz
-  // shops jadvalidan owner_email bo'yicha
-  try {
-    const adminEmail = db.settings?.adminEmail || "";
-    if (adminEmail) {
-      const { data: shops } = await _sb.from("shops")
-        .select("id,name")
-        .eq("owner_email", adminEmail)
-        .limit(1);
-
-      if (shops?.length) {
-        db.settings.cloudShopId = shops[0].id;
-        if (!db.shop) db.shop = {};
-        if (!db.shop.name) db.shop.name = shops[0].name;
-        saveDB();
-        toast(`✅ Do'kon topildi: ${shops[0].name} (${shops[0].id})`, "info");
-        // Havola UI yangilash
-        if (typeof _updateTgMijozLink === "function") _updateTgMijozLink();
-      } else {
-        // Shops jadvalida yo'q — yangi shop yaratamiz
-        const shopId = "shop_" + Date.now();
-        await _sb.from("shops").insert({
-          id: shopId,
-          name: db.shop?.name || "MERX Do'koni",
-          owner_email: adminEmail,
-          plan: "trial",
-          active: true
-        });
-        db.settings.cloudShopId = shopId;
-        saveDB();
-        toast(`✅ Yangi do'kon yaratildi: ${shopId}`, "info");
-        if (typeof _updateTgMijozLink === "function") _updateTgMijozLink();
-      }
-    }
-  } catch(e) {
-    console.warn("shop_id aniqlashda xato:", e.message);
-  }
-
-  // XAVFSIZ TARTIB: avval bulutdan olamiz (pull), keyin yuboramiz (push).
-  // Avval bu yerda to'g'ridan-to'g'ri push turardi — eskirgan qurilma
-  // bulutdagi yangi ma'lumotlarni yozib yuborishi mumkin edi.
-  await pullFromCloud();
-  await pushToCloud();
+// ── connectCloud (ESKI YO'L) OLIB TASHLANDI, 2026-07 (3-bosqich) ──
+// Sabab: bu qo'lda ulash yo'li ichida "shop_"+Date.now() bilan do'kon
+// yaratadigan alohida kanal bor edi — "yagona yozish kanali" prinsipiga
+// zid. Endi ulanish faqat login orqali (avtomatik).
+function connectCloud() {
+  toast("Bu funksiya olib tashlandi — bulut login paytida avtomatik ulanadi", "err");
 }
-
-// ── LocalDB → Supabase ────────────────────────────
-
-// ── RLS: har so'rovdan oldin shop_id o'rnatish ───────────────────
 async function _setShopContext(sid) {
   if (!sid || !_sb) return;
   try {
@@ -598,7 +536,10 @@ async function pullFromCloud() {
     _cloudIds["products"] = new Map((prods||[]).map(r => [String(r.sku), r.sku]));
     if (prods && prods.length > 0) {
       db.products = prods.map(p => ({
-        shop_id: sid, sku: p.sku, name: p.name, category: p.category || "",
+        shop_id: sid, id: p.id, // id SAQLANADI — busiz push filtri (p.id != null)
+                                // pull'dan kelgan mahsulotlarni o'tkazmasdi va
+                                // boshqa qurilmadagi TAHRIR bulutga qaytmasdi
+        sku: p.sku, name: p.name, category: p.category || "",
         type: p.type || "oyoq", unit: p.unit || "dona",
         inBox: p.in_box || 1, art: p.art || "", barcode: p.barcode, image: p.image || null,
         costUsd: p.cost_usd || 0, priceUzs: p.price_uzs || 0,

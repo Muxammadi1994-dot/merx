@@ -1373,16 +1373,16 @@ function saSwitchToShop(shopId) { saOpenShop(shopId); }
 
 // ── SA ko'rish banneri ────────────────────────────
 function saReturnToMainShop() {
-  const prevKey = localStorage.getItem("merx_prev_shop") || "merx_v5";
-  localStorage.setItem("merx_active_shop", prevKey);
-  localStorage.removeItem("merx_is_sa_view");
-  localStorage.removeItem("merx_prev_shop");
+  const prevKey = sessionStorage.getItem("merx_prev_shop") || "merx_v5";
+  sessionStorage.setItem("merx_active_shop", prevKey);
+  sessionStorage.removeItem("merx_is_sa_view");
+  sessionStorage.removeItem("merx_prev_shop");
   localStorage.removeItem("merx_auth_v1");
   window.location.reload();
 }
 
 function renderSaViewBanner() {
-  const isSaView = localStorage.getItem("merx_is_sa_view") === "1";
+  const isSaView = sessionStorage.getItem("merx_is_sa_view") === "1";
   if (!isSaView) return;
   if (document.getElementById("sa-view-banner")) return;
   const banner = document.createElement("div");
@@ -1408,7 +1408,7 @@ function renderSaViewBanner() {
 }
 
 function saLoadActiveShop() {
-  const activeKey = localStorage.getItem("merx_active_shop");
+  const activeKey = sessionStorage.getItem("merx_active_shop");
   if (!activeKey || activeKey === "merx_v5") return false;
   try {
     const raw = localStorage.getItem(activeKey); if (!raw) return false;
@@ -1421,7 +1421,7 @@ function saLoadActiveShop() {
 
 const _origSaveDB = window.saveDB;
 window.saveDB = function() {
-  const activeKey = db._currentKey || localStorage.getItem("merx_active_shop");
+  const activeKey = db._currentKey || sessionStorage.getItem("merx_active_shop");
   if (activeKey && activeKey !== "merx_v5") {
     try { localStorage.setItem(activeKey, JSON.stringify(db)); } catch(e) {}
     if (typeof scheduleCloudSync === "function") scheduleCloudSync();
@@ -1431,12 +1431,12 @@ window.saveDB = function() {
 };
 
 (function() {
-  const isSaView = localStorage.getItem("merx_is_sa_view") === "1";
+  const isSaView = sessionStorage.getItem("merx_is_sa_view") === "1";
   if (isSaView) {
     const loaded = saLoadActiveShop();
     if (!loaded) {
-      localStorage.removeItem("merx_is_sa_view");
-      localStorage.removeItem("merx_active_shop");
+      sessionStorage.removeItem("merx_is_sa_view");
+      sessionStorage.removeItem("merx_active_shop");
     }
   }
 })();
@@ -1519,8 +1519,8 @@ function saSavePriceSettings() {
 // ── Obuna tekshiruvi ──────────────────────────────
 function checkCurrentShopSubscription() {
   saLoadShops();
-  if (localStorage.getItem("merx_is_sa_view") === "1") return;
-  const activeKey = localStorage.getItem("merx_active_shop") || "merx_v5";
+  if (sessionStorage.getItem("merx_is_sa_view") === "1") return;
+  const activeKey = sessionStorage.getItem("merx_active_shop") || "merx_v5";
   if (activeKey === "merx_v5") return;
   const shop = _saShops.find(s => s.dbKey === activeKey);
   if (!shop) return;
@@ -1565,11 +1565,11 @@ function showSubscriptionWall(reason, shop) {
 }
 
 function saWallLogout() {
-  const prevKey = localStorage.getItem("merx_prev_shop");
+  const prevKey = sessionStorage.getItem("merx_prev_shop");
   if (prevKey) {
-    localStorage.setItem("merx_active_shop", prevKey);
-    localStorage.removeItem("merx_is_sa_view");
-    localStorage.removeItem("merx_prev_shop");
+    sessionStorage.setItem("merx_active_shop", prevKey);
+    sessionStorage.removeItem("merx_is_sa_view");
+    sessionStorage.removeItem("merx_prev_shop");
   }
   localStorage.removeItem("merx_auth_v1");
   window.location.reload();
@@ -1595,7 +1595,7 @@ function showSubscriptionWarning(daysLeft, shop) {
 // ── Modullar cheklash ─────────────────────────────
 function applyShopModules() {
   saLoadShops();
-  const activeKey = localStorage.getItem("merx_active_shop");
+  const activeKey = sessionStorage.getItem("merx_active_shop");
   if (!activeKey || activeKey === "merx_v5") return;
   const shop = _saShops.find(s => s.dbKey === activeKey);
   if (!shop || !shop.modules) return;

@@ -2250,7 +2250,7 @@
             <div class="fld"><label>Supabase Project URL</label><input id="s-sup-url" placeholder="https://xxxx.supabase.co" oninput="saveSetting('supabaseUrl',this.value)" style="font-size:12px;font-family:monospace"></div>
             <div class="fld"><label>Anon / Public Key</label><input id="s-sup-key" type="text" placeholder="eyJhbGci..." autocomplete="new-password" oninput="saveSetting('supabaseKey',this.value)" style="font-size:11px;font-family:monospace;color:#374151"></div>
             <div style="display:flex;gap:8px">
-              <button class="btn btn-teal" onclick="connectCloud()" style="flex:1"><i class="ti ti-cloud-upload"></i> Ulash + Sinx</button>
+              <!-- Ulash+Sinx tugmasi olib tashlandi (2026-07): bulut login paytida avtomatik ulanadi -->
               <button class="btn btn-ghost" onclick="pushToCloud()" style="flex:1"><i class="ti ti-cloud-upload"></i> Cloudga yuklash</button>
               <button class="btn btn-ghost" onclick="pullFromCloud()" style="flex:1"><i class="ti ti-cloud-download"></i> Clouddan yuklash</button>
             </div>
@@ -3700,7 +3700,7 @@
 <script src="js/utils.js?v=146"></script>
 <script src="js/auth.js?v=165"></script>
 <script src="js/sms.js?v=141"></script>
-<script src="js/cloud.js?v=156"></script>
+<script src="js/cloud.js?v=157"></script>
 <script src="js/dashboard.js?v=142"></script>
 <script src="js/pos.js?v=160"></script>
 <script src="js/katalog.js?v=143"></script>
@@ -3869,6 +3869,6 @@ document.addEventListener('DOMContentLoaded', () => {
   <span id="toast-msg"></span>
 </div>
 
-<script src="js/superadmin.js?v=167"></script>
+<script src="js/superadmin.js?v=168"></script>
 </body>
 </html>
