@@ -230,7 +230,10 @@ function _initCloudAfterLogin() {
     // lokaldagi hali yuborilmagan yangi yozuvlar saqlab qolinadi.
     // Push esa pull tugamagunicha avtomatik bloklanadi (cloud.js).
     if (typeof pullFromCloud === "function") {
-      await pullFromCloud(); saveDB();
+      // ensureCloudPull: muvaffaqiyatgacha qayta urinadi (2-bosqich)
+      if (typeof ensureCloudPull === "function") await ensureCloudPull();
+      else await pullFromCloud();
+      saveDB();
       if (typeof renderDashboard === "function") renderDashboard();
     }
   };

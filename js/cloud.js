@@ -179,6 +179,14 @@ async function _setShopContext(sid) {
 // bulutdagi yangi ma'lumotlarni yozib yubormasligi uchun.
 let _cloudPullDone = false;
 
+// O'chirish sinxroni uchun holat:
+// _cloudIds — oxirgi pull'da bulutda KO'RILGAN yozuvlar (jadval bo'yicha).
+//   Push paytida lokaldan yo'qolganlari = foydalanuvchi o'chirgan.
+// _tombstones — "o'chirilganlar daftari" (deleted_records jadvalidan),
+//   pull/merge ularni qayta tiriltirmasligi uchun.
+let _cloudIds = {};
+let _tombstones = new Set();
+
 async function pushToCloud() {
   if (!_sb) { toast("Avval ulaning","err"); return; }
   const _sid = getCloudShopId();
@@ -460,6 +468,50 @@ async function pushToCloud() {
       })));
     } catch(e) { syncErrors.push("suppliers: " + e.message); console.warn("sync suppliers xato:", e.message); }
 
+    // ── O'CHIRISHLARNI SINXRONLASH ────────────────────────────────
+    // Mantiq: pull'da bulutda KO'RILGAN (_cloudIds), lekin hozir lokalda
+    // YO'Q yozuv = foydalanuvchi o'chirgan. Uni: (1) o'chirilganlar
+    // daftariga (deleted_records) yozamiz — boshqa qurilmalarda ham
+    // tirilmasin, (2) bulutdan o'chiramiz.
+    // MUHIM: faqat O'ZIMIZ pull'da ko'rgan yozuvlar tekshiriladi —
+    // boshqa qurilma shu orada qo'shgan yangi yozuvlarga tegilmaydi.
+    try {
+      const delMap = {
+        products:      { rows: db.products,     key: "sku", col: "sku" },
+        customers:     { rows: db.customers,    key: "id",  col: "id" },
+        staff:         { rows: db.staff,        key: "id",  col: "id" },
+        sales:         { rows: db.sales,        key: "id",  col: "id" },
+        ombor:         { rows: db.ombor,        key: "id",  col: "id" },
+        xarajatlar:    { rows: db.xarajatlar,   key: "id",  col: "id" },
+        chiqimlar:     { rows: db.chiqimlar,    key: "id",  col: "id" },
+        debt_payments: { rows: db.debtPayments, key: "id",  col: "id" },
+        returns:       { rows: db.returns,      key: "id",  col: "id" },
+        shifts:        { rows: db.shifts,       key: "id",  col: "id" },
+        suppliers:     { rows: db.suppliers,    key: "id",  col: "id" }
+      };
+      for (const [table, cfg] of Object.entries(delMap)) {
+        const seen = _cloudIds[table];
+        if (!seen || seen.size === 0) continue;
+        const localSet = new Set((cfg.rows||[]).map(r => String(r[cfg.key])));
+        const gone = [...seen.entries()].filter(([k]) => !localSet.has(k));
+        if (!gone.length) continue;
+        // 1) daftarga yozamiz
+        const { error: tErr } = await _sb.from("deleted_records").upsert(
+          gone.map(([k]) => ({ shop_id: sid, table_name: table, record_id: k })),
+          { onConflict: "shop_id,table_name,record_id" });
+        if (tErr) { console.warn("deleted_records yozish xato:", tErr.message); continue; }
+        // 2) bulutdan o'chiramiz (asl qiymatlar bilan, 50 talab)
+        const rawVals = gone.map(([,v]) => v);
+        for (let i = 0; i < rawVals.length; i += 50) {
+          const { error: dErr } = await _sb.from(table)
+            .delete().eq("shop_id", sid).in(cfg.col, rawVals.slice(i, i+50));
+          if (dErr) { console.warn(`${table} delete xato:`, dErr.message); break; }
+        }
+        gone.forEach(([k]) => { seen.delete(k); _tombstones.add(table + ":" + k); });
+        console.log(`🗑 ${table}: ${gone.length} ta o'chirish bulutga sinxronlandi`);
+      }
+    } catch(e) { console.warn("O'chirish sinxron xato:", e.message); }
+
     if (syncErrors.length > 0) {
       toast(`⚠️ Saqlandi, lekin xatolar: ${syncErrors.join("; ")}`, "err");
     } else {
@@ -475,6 +527,25 @@ async function pushToCloud() {
     toast("Xato: " + e.message, "err");
     console.error("Cloud push error:", e);
   }
+}
+
+// ── Pull kafolati: muvaffaqiyatgacha qayta urinish ─────────────
+// Pull o'tmasa push bloklangani uchun, bu funksiya pullni bir necha
+// bor takrorlaydi (5s, 15s oraliq), keyin ham bo'lmasa har 60
+// soniyada fonda urinib turadi — internet qaytishi bilan tiklanadi.
+async function ensureCloudPull(tries = 3) {
+  for (let i = 0; i < tries && !_cloudPullDone; i++) {
+    if (i > 0) {
+      console.warn(`Pull qayta urinish ${i}/${tries-1}...`);
+      await new Promise(r => setTimeout(r, i * 10000 - 5000));
+    }
+    try { await pullFromCloud(); } catch(e) { console.warn("pull xato:", e.message); }
+  }
+  if (!_cloudPullDone) {
+    console.warn("Pull hali o'tmadi — 60 soniyadan keyin fonda yana urinamiz");
+    setTimeout(() => { if (!_cloudPullDone) ensureCloudPull(2); }, 60000);
+  }
+  return _cloudPullDone;
 }
 
 // ── Supabase → LocalDB ────────────────────────────
@@ -496,6 +567,15 @@ async function pullFromCloud() {
 
     const sid = _pullSid;
 
+    // O'chirilganlar daftarini o'qiymiz — bular hech qachon tirilmasin
+    _tombstones = new Set();
+    _cloudIds = {};
+    try {
+      const { data: delRecs } = await _sb.from("deleted_records")
+        .select("table_name,record_id").eq("shop_id", sid);
+      (delRecs||[]).forEach(d => _tombstones.add(d.table_name + ":" + d.record_id));
+    } catch(e) { console.warn("deleted_records o'qish xato:", e.message); }
+
     // MERGE uchun lokal holatni suratga olamiz: bulut yozuvlari ustun,
     // lekin lokaldagi hali bulutga yetib bormagan YANGI yozuvlar
     // (masalan, internet uzilganda qilingan sotuvlar) yo'qolmaydi.
@@ -515,6 +595,7 @@ async function pullFromCloud() {
 
     // Products — faqat bu do'kon
     const { data: prods } = await _sb.from("products").select("*").eq("shop_id", sid);
+    _cloudIds["products"] = new Map((prods||[]).map(r => [String(r.sku), r.sku]));
     if (prods && prods.length > 0) {
       db.products = prods.map(p => ({
         shop_id: sid, sku: p.sku, name: p.name, category: p.category || "",
@@ -530,6 +611,7 @@ async function pullFromCloud() {
 
     // Customers
     const { data: custs } = await _sb.from("customers").select("*").eq("shop_id", sid);
+    _cloudIds["customers"] = new Map((custs||[]).map(r => [String(r.id), r.id]));
     if (custs && custs.length > 0) {
       db.customers = custs.map(c => ({
         id: c.id, name: c.name, phone: c.phone || "", phone2: c.phone2 || "",
@@ -544,6 +626,7 @@ async function pullFromCloud() {
 
     // Staff
     const { data: staffData } = await _sb.from("staff").select("*").eq("shop_id", sid);
+    _cloudIds["staff"] = new Map((staffData||[]).map(r => [String(r.id), r.id]));
     if (staffData && staffData.length > 0) {
       db.staff = staffData.map(s => {
         const st = {
@@ -568,6 +651,7 @@ async function pullFromCloud() {
 
     // Sales
     const { data: salesData } = await _sb.from("sales").select("*").eq("shop_id", sid).order("local_id");
+    _cloudIds["sales"] = new Map((salesData||[]).map(r => [String(r.id), r.id]));
     if (salesData && salesData.length > 0) {
       db.sales = salesData.map(s => ({
         id: s.id, chekNum: s.chek_num, date: s.date, time: s.time,
@@ -588,6 +672,7 @@ async function pullFromCloud() {
 
     // Ombor
     const { data: omborData } = await _sb.from("ombor").select("*").eq("shop_id", sid).order("local_id");
+    _cloudIds["ombor"] = new Map((omborData||[]).map(r => [String(r.id), r.id]));
     if (omborData && omborData.length > 0) {
       db.ombor = omborData.map(o => ({
         id: o.id, date: o.date, sku: o.sku,
@@ -604,6 +689,7 @@ async function pullFromCloud() {
 
     // Xarajatlar
     const { data: xarData } = await _sb.from("xarajatlar").select("*").eq("shop_id", sid).order("local_id");
+    _cloudIds["xarajatlar"] = new Map((xarData||[]).map(r => [String(r.id), r.id]));
     if (xarData) {
       db.xarajatlar = xarData.map(x => ({
         id: x.id, date: x.date, category: x.category,
@@ -639,6 +725,7 @@ async function pullFromCloud() {
 
     // Chiqimlar
     const { data: chiqData } = await _sb.from("chiqimlar").select("*").eq("shop_id", sid).order("local_id");
+    _cloudIds["chiqimlar"] = new Map((chiqData||[]).map(r => [String(r.id), r.id]));
     if (chiqData && chiqData.length > 0) {
       db.chiqimlar = chiqData.map(c => ({
         id:          c.local_id || c.id,
@@ -658,6 +745,7 @@ async function pullFromCloud() {
 
     // Qarz to'lovlari
     const { data: payData } = await _sb.from("debt_payments").select("*").eq("shop_id", sid).order("created_at");
+    _cloudIds["debt_payments"] = new Map((payData||[]).map(r => [String(r.id), r.id]));
     if (payData) {
       db.debtPayments = payData.map(p => ({
         id:        p.id,
@@ -681,6 +769,7 @@ async function pullFromCloud() {
 
     // Qaytarilgan tovarlar
     const { data: retData } = await _sb.from("returns").select("*").eq("shop_id", sid).order("created_at");
+    _cloudIds["returns"] = new Map((retData||[]).map(r => [String(r.id), r.id]));
     if (retData) {
       db.returns = retData.map(r => ({
         id: r.id, date: r.date, time: r.time || null,
@@ -696,6 +785,7 @@ async function pullFromCloud() {
 
     // Kassa smenalari
     const { data: shiftData } = await _sb.from("shifts").select("*").eq("shop_id", sid).order("created_at");
+    _cloudIds["shifts"] = new Map((shiftData||[]).map(r => [String(r.id), r.id]));
     if (shiftData) {
       db.shifts = shiftData.map(sh => ({
         id: sh.id, staffId: sh.staff_id || null,
@@ -711,6 +801,7 @@ async function pullFromCloud() {
 
     // Ta'minotchilar
     const { data: supData } = await _sb.from("suppliers").select("*").eq("shop_id", sid).order("created_at");
+    _cloudIds["suppliers"] = new Map((supData||[]).map(r => [String(r.id), r.id]));
     if (supData) {
       db.suppliers = supData.map(s => ({
         id: s.id, name: s.name || "", phone: s.phone || "", note: s.note || ""
@@ -720,22 +811,27 @@ async function pullFromCloud() {
     // ── MERGE: bulut + lokal yangi yozuvlar ──────────────────────
     // Bulutdagi yozuv ustun (bir xil id bo'lsa bulutniki qoladi),
     // bulutda YO'Q lokal yozuvlar saqlanadi va keyingi push bilan ketadi.
-    const _mrg = (cur, old, key) => {
+    const _mrg = (cur, old, key, table) => {
       cur = cur || []; old = old || [];
-      const seen = new Set(cur.map(r => r && r[key]));
-      return cur.concat(old.filter(r => r && r[key] != null && !seen.has(r[key])));
+      const dead = (r) => _tombstones.has(table + ":" + String(r[key]));
+      // Bulut ustun, lekin: (a) o'chirilganlar daftaridagilar chiqarib
+      // tashlanadi, (b) bulutda yo'q lokal YANGI yozuvlar saqlanadi.
+      cur = cur.filter(r => r && !dead(r));
+      const seen = new Set(cur.map(r => String(r[key])));
+      return cur.concat(old.filter(r => r && r[key] != null
+        && !seen.has(String(r[key])) && !dead(r)));
     };
-    db.products     = _mrg(db.products,     _loc.products,     "sku");
-    db.customers    = _mrg(db.customers,    _loc.customers,    "id");
-    db.staff        = _mrg(db.staff,        _loc.staff,        "id");
-    db.sales        = _mrg(db.sales,        _loc.sales,        "id");
-    db.ombor        = _mrg(db.ombor,        _loc.ombor,        "id");
-    db.xarajatlar   = _mrg(db.xarajatlar,   _loc.xarajatlar,   "id");
-    db.chiqimlar    = _mrg(db.chiqimlar,    _loc.chiqimlar,    "id");
-    db.debtPayments = _mrg(db.debtPayments, _loc.debtPayments, "id");
-    db.returns      = _mrg(db.returns,      _loc.returns,      "id");
-    db.shifts       = _mrg(db.shifts,       _loc.shifts,       "id");
-    db.suppliers    = _mrg(db.suppliers,    _loc.suppliers,    "id");
+    db.products     = _mrg(db.products,     _loc.products,     "sku", "products");
+    db.customers    = _mrg(db.customers,    _loc.customers,    "id",  "customers");
+    db.staff        = _mrg(db.staff,        _loc.staff,        "id",  "staff");
+    db.sales        = _mrg(db.sales,        _loc.sales,        "id",  "sales");
+    db.ombor        = _mrg(db.ombor,        _loc.ombor,        "id",  "ombor");
+    db.xarajatlar   = _mrg(db.xarajatlar,   _loc.xarajatlar,   "id",  "xarajatlar");
+    db.chiqimlar    = _mrg(db.chiqimlar,    _loc.chiqimlar,    "id",  "chiqimlar");
+    db.debtPayments = _mrg(db.debtPayments, _loc.debtPayments, "id",  "debt_payments");
+    db.returns      = _mrg(db.returns,      _loc.returns,      "id",  "returns");
+    db.shifts       = _mrg(db.shifts,       _loc.shifts,       "id",  "shifts");
+    db.suppliers    = _mrg(db.suppliers,    _loc.suppliers,    "id",  "suppliers");
 
     // seq yangilash
     const maxId = Math.max(
