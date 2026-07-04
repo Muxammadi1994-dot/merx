@@ -134,7 +134,9 @@ function hideSaPanel() {
 function saDoLogin() {
   const pass    = document.getElementById("sa-pass")?.value || "";
   const errEl   = document.getElementById("sa-err");
-  const correct = db.settings?.superAdminPin || "merx2024";
+  // SA paroli endi do'kon sozlamalariga bog'liq emas — auth.js dagi
+  // MERX_SA_PASS konstantasidan olinadi (yagona manba)
+  const correct = (typeof MERX_SA_PASS !== "undefined") ? MERX_SA_PASS : "merx2024";
   if (pass !== correct) {
     if (errEl) { errEl.textContent = "Parol noto'g'ri"; errEl.style.display = "block"; }
     if (document.getElementById("sa-pass")) document.getElementById("sa-pass").value = "";
@@ -716,12 +718,11 @@ async function saAddShop() {
   };
   localStorage.setItem(dbKey, JSON.stringify(shopDB));
 
-  // Supabase ga yozish
-  _saAddShopToSupabase(newShop).catch(e => console.warn("Supabase shops sync xato:", e.message));
-
-  // ── Supabase Auth hisobi yaratish ────────────────────────────
-  // Bu qilmasa RLS ishlamaydi — yangi do'kon egasi boshqa do'kon
-  // ma'lumotini ham ko'ra olishi mumkin edi.
+  // ── Supabase'ga yozish — FAQAT BITTA KANAL: create_shop API ──
+  // (Avval bu yerda _saAddShopToSupabase ham chaqirilardi — ikkilangan
+  //  yozuv edi, RLS baribir bloklardi. Olib tashlandi, 2026-07.)
+  // create_shop: Auth hisob + shops + settings — barchasini service
+  // kalit bilan yaratadi. Busiz RLS ishlamaydi.
   fetch("/api/auth-v2?action=create_shop", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -729,7 +730,8 @@ async function saAddShop() {
       email: loginEmail,
       password: pass,
       shopId: shopId,
-      shopName: name
+      shopName: name,
+      plan: plan
     })
   })
   .then(r => r.json())
@@ -843,21 +845,10 @@ async function saFetchShopsFromCloud() {
 }
 
 // ── Supabase ga yozish ────────────────────────────
-async function _saAddShopToSupabase(shop) {
-  // shops jadvalida RLS bor — anon key bilan yozib bo'lmaydi.
-  // create_shop endpoint service_role kaliti bilan ishlaydi va
-  // shops jadvaliga ham yozadi. Shuning uchun bu yerda faqat
-  // settings jadvalini yangilaymiz (u ham token bilan yoziladi).
-  if (!_sb && typeof initSupabase === "function") await initSupabase();
-  if (!_sb) return;
-  try {
-    // settings jadvaliga yozamiz (token bilan, RLS mos keladi)
-    await _sb.from("settings").upsert({
-      shop_id: shop.id, shop_name: shop.name,
-      rate: 12800, price_currency: "uzs"
-    }, { onConflict: "shop_id" });
-  } catch(e) { console.warn("settings upsert xato:", e.message); }
-}
+// ESLATMA (2026-07): bu yerda _saAddShopToSupabase funksiyasi bor edi —
+// olib tashlandi. Sabab: u create_shop API bilan parallel ravishda
+// settings jadvaliga yozmoqchi bo'lardi (ikkilangan yozuv), lekin RLS
+// uni baribir bloklardi. Yagona yozish kanali: /api/auth-v2?action=create_shop
 
 // ── Do'konga kirish ───────────────────────────────
 async function saOpenShop(id) {
@@ -1363,14 +1354,11 @@ function saShowInactiveShops() {
 }
 
 // ── Super admin paroli o'zgartirish ───────────────
+// ESLATMA: SA paroli endi do'kon sozlamalarida SAQLANMAYDI —
+// bu "parol almashib qolishi" muammosining sababi edi.
+// Parol yagona joyda: auth.js dagi MERX_SA_PASS konstantasi.
 function saChangeSuperPass() {
-  const newPass = document.getElementById("sa-superpass-inp")?.value.trim();
-  if (!newPass || newPass.length < 6) { showSaToast("Parol kamida 6 ta belgi", "err"); return; }
-  if (!db.settings) db.settings = {};
-  db.settings.superAdminPin = newPass;
-  saveDB();
-  document.getElementById("sa-superpass-inp").value = "";
-  showSaToast("✅ Super admin paroli saqlandi");
+  showSaToast("SA paroli endi kod orqali boshqariladi (auth.js → MERX_SA_PASS)", "err");
 }
 
 // ── Do'kon almashtirish (eski funksiya — saOpenShop bilan bir xil) ──

@@ -413,10 +413,14 @@ function toggleAuthPass() {
 }
 
 // ── Super Admin login ─────────────────────────────
+// SA paroli — YAGONA manba, do'kon sozlamalariga BOG'LIQ EMAS.
+// O'zgartirish kerak bo'lsa — faqat shu qatorni tahrirlang:
+const MERX_SA_PASS = "merx2024";
+
 function doSuperLogin() {
   const pass    = (document.getElementById("auth-sa-pass")||{value:""}).value;
   const errEl   = document.getElementById("auth-sa-err");
-  const correct = db.settings?.superAdminPin || "merx2024";
+  const correct = MERX_SA_PASS;
 
   if (pass !== correct) {
     if (errEl) { errEl.textContent = "Parol noto'g'ri"; errEl.style.display = "block"; }
