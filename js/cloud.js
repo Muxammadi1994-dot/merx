@@ -387,6 +387,21 @@ async function pushToCloud() {
       })));
     } catch(e) { syncErrors.push("xarajatlar: " + e.message); console.warn("sync xarajatlar xato:", e.message); }
 
+    // Chiqimlar (ombordan chiqim) — 2026-07 gacha push qilinmasdi (teshik edi)
+    try {
+      await sync("chiqimlar", (db.chiqimlar||[]).map(c => ({
+        shop_id: sid, id: String(c.id),
+        local_id: parseInt(c.id) || null,
+        date: c.date, time: c.time || null,
+        product_name: c.productName, sku: c.sku || null,
+        color: c.color || null, size: c.size || null,
+        qty: c.qty || 0, unit: c.unit || "dona",
+        reason: c.reason || null, note: c.note || null,
+        cost_uzs: Math.round(c.costUzs || 0),
+        cost_usd_each: c.costUsdEach != null ? c.costUsdEach : null
+      })));
+    } catch(e) { syncErrors.push("chiqimlar: " + e.message); console.warn("sync chiqimlar xato:", e.message); }
+
     try {
       await sync("debt_payments", (db.debtPayments||[]).map(p => ({
         shop_id: sid,
