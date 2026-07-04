@@ -86,10 +86,22 @@ function loadDB() {
   } catch(e) { return mem; }
 }
 
+let _saveFailAt = 0;
 function saveDB() {
   const key = getDBKEY();
   try { localStorage.setItem(key, JSON.stringify(db)); }
-  catch(e) { mem = db; }
+  catch(e) {
+    // XAVFLI HOLAT: brauzer xotirasi to'ldi yoki yozib bo'lmadi.
+    // Ma'lumot faqat operativ xotirada — brauzer yopilsa yo'qoladi.
+    // Bulutga yuborish (quyidagi scheduleCloudSync) baribir ishlaydi,
+    // shuning uchun asosiy himoya — foydalanuvchini OCHIQ ogohlantirish.
+    mem = db;
+    console.error("❌ localStorage saqlash xatosi:", e.message);
+    if (Date.now() - _saveFailAt > 60000 && typeof toast === "function") {
+      _saveFailAt = Date.now();
+      toast("⚠️ DIQQAT: qurilma xotirasi to'ldi! Ma'lumot faqat bulutga saqlanmoqda — internetni uzmang va MERX ni yopishdan oldin sinxronlanishini kuting", "err");
+    }
+  }
   if (typeof scheduleCloudSync === "function") scheduleCloudSync();
 }
 

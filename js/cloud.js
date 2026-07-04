@@ -155,6 +155,10 @@ async function connectCloud() {
     console.warn("shop_id aniqlashda xato:", e.message);
   }
 
+  // XAVFSIZ TARTIB: avval bulutdan olamiz (pull), keyin yuboramiz (push).
+  // Avval bu yerda to'g'ridan-to'g'ri push turardi — eskirgan qurilma
+  // bulutdagi yangi ma'lumotlarni yozib yuborishi mumkin edi.
+  await pullFromCloud();
   await pushToCloud();
 }
 
@@ -170,11 +174,20 @@ async function _setShopContext(sid) {
   }
 }
 
+// Bu sessiyada bulutdan yuklab olish (pull) muvaffaqiyatli tugadimi?
+// Push FAQAT shundan keyin ruxsat etiladi — eskirgan lokal nusxa
+// bulutdagi yangi ma'lumotlarni yozib yubormasligi uchun.
+let _cloudPullDone = false;
+
 async function pushToCloud() {
   if (!_sb) { toast("Avval ulaning","err"); return; }
   const _sid = getCloudShopId();
   if (!_sid) {
     console.warn("Cloud push o'tkazib yuborildi: do'kon ID yo'q (tizimga kirilmagan)");
+    return;
+  }
+  if (!_cloudPullDone) {
+    console.warn("Cloud push kutmoqda: bu sessiyada avval bulutdan yuklab olish (pull) tugashi kerak");
     return;
   }
   await _setShopContext(_sid);
@@ -468,6 +481,23 @@ async function pullFromCloud() {
 
     const sid = _pullSid;
 
+    // MERGE uchun lokal holatni suratga olamiz: bulut yozuvlari ustun,
+    // lekin lokaldagi hali bulutga yetib bormagan YANGI yozuvlar
+    // (masalan, internet uzilganda qilingan sotuvlar) yo'qolmaydi.
+    const _loc = {
+      products:     db.products     || [],
+      customers:    db.customers    || [],
+      staff:        db.staff        || [],
+      sales:        db.sales        || [],
+      ombor:        db.ombor        || [],
+      xarajatlar:   db.xarajatlar   || [],
+      chiqimlar:    db.chiqimlar    || [],
+      debtPayments: db.debtPayments || [],
+      returns:      db.returns      || [],
+      shifts:       db.shifts       || [],
+      suppliers:    db.suppliers    || []
+    };
+
     // Products — faqat bu do'kon
     const { data: prods } = await _sb.from("products").select("*").eq("shop_id", sid);
     if (prods && prods.length > 0) {
@@ -576,10 +606,12 @@ async function pullFromCloud() {
     const { data: setsArr } = await _sb.from("settings").select("*").eq("shop_id", sid).limit(1);
     const sets = setsArr?.[0] || null;
     if (sets) {
-      db.shop = { name: sets.shop_name };
+      // MUHIM: db.shop ni butunlay almashtirmaymiz — type (do'kon turi)
+      // kabi lokal maydonlar saqlanib qolishi kerak
+      db.shop = { ...(db.shop || {}), name: sets.shop_name };
       db.settings.rate           = sets.rate || 12800;
       db.settings.priceCurrency  = sets.price_currency || "uzs";
-      db.settings.shopType       = sets.shop_type;
+      if (sets.shop_type) db.settings.shopType = sets.shop_type;
       db.settings.showChakana    = sets.show_chakana || false;
       if (sets.eskiz_token)    db.settings.eskizToken         = sets.eskiz_token;
       if (sets.eskiz_sender)   db.settings.eskizSender        = sets.eskiz_sender;
@@ -670,6 +702,26 @@ async function pullFromCloud() {
       }));
     }
 
+    // ── MERGE: bulut + lokal yangi yozuvlar ──────────────────────
+    // Bulutdagi yozuv ustun (bir xil id bo'lsa bulutniki qoladi),
+    // bulutda YO'Q lokal yozuvlar saqlanadi va keyingi push bilan ketadi.
+    const _mrg = (cur, old, key) => {
+      cur = cur || []; old = old || [];
+      const seen = new Set(cur.map(r => r && r[key]));
+      return cur.concat(old.filter(r => r && r[key] != null && !seen.has(r[key])));
+    };
+    db.products     = _mrg(db.products,     _loc.products,     "sku");
+    db.customers    = _mrg(db.customers,    _loc.customers,    "id");
+    db.staff        = _mrg(db.staff,        _loc.staff,        "id");
+    db.sales        = _mrg(db.sales,        _loc.sales,        "id");
+    db.ombor        = _mrg(db.ombor,        _loc.ombor,        "id");
+    db.xarajatlar   = _mrg(db.xarajatlar,   _loc.xarajatlar,   "id");
+    db.chiqimlar    = _mrg(db.chiqimlar,    _loc.chiqimlar,    "id");
+    db.debtPayments = _mrg(db.debtPayments, _loc.debtPayments, "id");
+    db.returns      = _mrg(db.returns,      _loc.returns,      "id");
+    db.shifts       = _mrg(db.shifts,       _loc.shifts,       "id");
+    db.suppliers    = _mrg(db.suppliers,    _loc.suppliers,    "id");
+
     // seq yangilash
     const maxId = Math.max(
       ...( db.products.map((_,i)=>i) ),
@@ -686,6 +738,9 @@ async function pullFromCloud() {
       db.seq || 0
     );
     db.seq = maxId + 1;
+
+    // Pull muvaffaqiyatli tugadi — endi push ga ruxsat beriladi
+    _cloudPullDone = true;
 
     saveDB();
     updateCloudUI(true);

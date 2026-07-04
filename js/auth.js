@@ -223,42 +223,15 @@ function _initCloudAfterLogin() {
       if (!ok) return;
     }
     if (typeof updateCloudUI === "function") updateCloudUI(true);
-    // Settings ni HAR DOIM cloud dan yuklaymiz (bot, telegram sozlamalari uchun)
+    // Bulut — YAGONA haqiqat manbasi: kirishda HAR DOIM to'liq pull.
+    // (Avval faqat lokal bo'sh bo'lsa pull bo'lardi — eskirgan lokal
+    //  nusxa keyinchalik bulutni yozib yuborishi mumkin edi.)
+    // pullFromCloud endi MERGE qiladi: bulut yozuvlari ustun, lekin
+    // lokaldagi hali yuborilmagan yangi yozuvlar saqlab qolinadi.
+    // Push esa pull tugamagunicha avtomatik bloklanadi (cloud.js).
     if (typeof pullFromCloud === "function") {
-      const hasLocalData = (db.products?.length > 0) || (db.sales?.length > 0);
-      if (!hasLocalData) {
-        // Bo'sh do'kon — to'liq pull
-        await pullFromCloud(); saveDB();
-        if (typeof renderDashboard === "function") renderDashboard();
-      } else {
-        // Ma'lumotlar bor — settings ni Supabase dan yangilaymiz
-        try {
-          if (typeof _sb !== "undefined" && _sb) {
-            // cloudShopId yoki session dan sid olamiz
-            const sid = (db.settings?.cloudShopId && db.settings.cloudShopId !== "local")
-              ? db.settings.cloudShopId
-              : (typeof getShopId === "function" ? getShopId() : null);
-
-            if (sid && sid !== "local") {
-              const { data: setsArr } = await _sb.from("settings")
-                .select("eskiz_token,eskiz_sender,telegram_bot,telegram_bot_username,staff_group_id,loyalty_rate,loyalty_value")
-                .eq("shop_id", sid).limit(1);
-              const sets = setsArr?.[0];
-              if (sets) {
-                if (!db.settings) db.settings = {};
-                if (sets.eskiz_token)           db.settings.eskizToken         = sets.eskiz_token;
-                if (sets.eskiz_sender)          db.settings.eskizSender        = sets.eskiz_sender;
-                if (sets.telegram_bot)          db.settings.telegramBotUrl     = sets.telegram_bot;
-                if (sets.telegram_bot_username) db.settings.telegramBotUsername = sets.telegram_bot_username;
-                if (sets.staff_group_id)        db.settings.staffGroupId       = sets.staff_group_id;
-                if (sets.loyalty_rate)          db.settings.loyaltyRate        = sets.loyalty_rate;
-                if (sets.loyalty_value)         db.settings.loyaltyValue       = sets.loyalty_value;
-                saveDB();
-              }
-            }
-          }
-        } catch(e) { console.warn("Settings pull xato:", e.message); }
-      }
+      await pullFromCloud(); saveDB();
+      if (typeof renderDashboard === "function") renderDashboard();
     }
   };
   proceed();
