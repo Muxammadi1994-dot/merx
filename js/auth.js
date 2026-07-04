@@ -77,7 +77,7 @@ async function authLogin(email, password, shopId) {
     return { ok: true, user, firstTime: true };
   }
 
-  if (email.toLowerCase() !== stored)
+  if (email.toLowerCase() !== String(stored || "").toLowerCase())
     return { ok: false, error: "Email yoki parol noto'g'ri" };
 
   if (!pass) {
@@ -550,7 +550,9 @@ async function doLogin() {
 
         // Parolni har doim yangilaymiz — boshqa qurilmada ham to'g'ri ishlashi uchun
         // (SuperAdmin parolni o'zgartirganda, yangi qurilmada ham mos bo'ladi)
-        if (!db.settings.adminEmail) db.settings.adminEmail = email;
+        // Emailni ham HAR DOIM yangilaymiz — Supabase Auth allaqachon tasdiqlagan,
+        // eski/xato yozilgan email (masalan katta harfli) lokal nusxada qolib ketmasin
+        db.settings.adminEmail = email;
         db.settings.adminPass = await sha256(pass);
 
         res = await authLogin(email, pass, shopId);
