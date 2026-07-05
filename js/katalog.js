@@ -418,13 +418,19 @@ function renderKatalog() {
     const colorVariants = groupVariants;
     const sizesStr = sizesToRange(colorVariants.map(v => v.size).filter(Boolean), p.type);
 
-    const inBox   = colorVariants.length || 1;
+    // v149: inBox — mahsulotning O'Z qiymatidan (B2 modeli); eski
+    // o'lchamlab kiritilganlarda avvalgidek variantlar sonidan
+    const inBox   = (colorVariants.length === 1 ? (p.inBox || 1)
+                     : (colorVariants.length || 1));
     const costUzs = (p.costUsd || 0) * rate;
 
-    // Pochka soni: bu guruhdagi barcha o'lchamlar uchun bir xil (groupQty)
-    const pochkaSoni = groupQty;
     // Jami dona (shu guruh uchun)
     const colorQty = colorVariants.reduce((a,v) => a + v.qty, 0);
+    // Pochka soni = jami dona ÷ 1 pochkadagi dona (B2); eski modelda
+    // groupQty (har o'lchamdan bir xil son) o'z-o'zidan shuni beradi
+    const pochkaSoni = colorVariants.length === 1
+      ? Math.floor(colorQty / (inBox || 1))
+      : groupQty;
     const pantone  = colorVariants[0]?.pantone || "";
 
     // Margin (ulgurji asosida)

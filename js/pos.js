@@ -249,10 +249,11 @@ function posSearch() {
     const _baseNarx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;
     const narx  = (typeof _priceOverrides !== "undefined" && _priceOverrides[_oKey]) || _baseNarx;
     const _hasOverride = narx !== _baseNarx;
-    const inBox = groupVariants.length || 1;
     const colorVariants = groupVariants;
+    const _pi = packInfo(p, colorVariants);
+    const inBox = _pi.inBox;
     const _reservedInOtherCarts = getReservedQty(p.sku, color);
-    const maxPochka = Math.max(0, groupQty - _reservedInOtherCarts);
+    const maxPochka = Math.max(0, _pi.maxPochka - _reservedInOtherCarts);
     const sizesStr  = typeof sizesToRange === "function"
       ? sizesToRange(colorVariants.map(v => v.size).filter(Boolean), p.type)
       : colorVariants.map(v => v.size).join(", ");
@@ -381,6 +382,19 @@ function posDonaAdd(sku, color, rowId) {
 }
 
 // Qidiruv natijasidan to'g'ridan-to'g'ri savatga qo'shish (pochka rejimida)
+// ── B2 (v161): pochka hisobi — yagona variant (jami dona) yoki eski
+// o'lchamlab model, ikkalasiga ham mos ─────────────────────────────
+function packInfo(p, variants) {
+  const vs = variants || [];
+  const single = vs.length === 1;
+  const inBox = single ? ((p && p.inBox) || 1) : (vs.length || 1);
+  const totalQty = vs.reduce((a, v) => a + (v.qty || 0), 0);
+  const maxPochka = single
+    ? Math.floor(totalQty / (inBox || 1))
+    : (vs.length ? Math.min(...vs.map(v => v.qty || 0)) : 0);
+  return { inBox, maxPochka, totalQty, single };
+}
+
 function posQuickAdd(sku, color, packGroup) {
   const p = db.products.find(x => x.sku === sku); if (!p) return;
   packGroup = packGroup !== undefined ? parseInt(packGroup) : 0;
@@ -394,8 +408,9 @@ function posQuickAdd(sku, color, packGroup) {
   if (!g) { toast("Guruh topilmadi", "err"); return; }
 
   const groupSizes = g.variants.map(v => v.size);
-  const maxPochka = g.qty;
-  const inBox = g.variants.length || 1;
+  const _pi = packInfo(p, g.variants);
+  const maxPochka = _pi.maxPochka;
+  const inBox = _pi.inBox;
 
   const alreadyInCart = cart.find(c => c.sku===sku && c.color===color && c.sellMode==="karobka" && c.packGroup===packGroup);
   const alreadyBoxes  = alreadyInCart ? (alreadyInCart.qtyBox||0) : 0;
@@ -635,7 +650,7 @@ function renderVmChips() {
   // Info matni
   if (vmSellMode === "karobka" && selColor) {
     const colorVariants = vmProd.variants.filter(v => v.color===selColor);
-    const maxPochka = colorVariants.length > 0 ? Math.min(...colorVariants.map(v => v.qty)) : 0;
+    const maxPochka = packInfo(vmProd, colorVariants).maxPochka;
     const sizesStr  = typeof sizesToRange === "function"
       ? sizesToRange(colorVariants.map(v => v.size).filter(Boolean), vmProd.type)
       : colorVariants.map(v => v.size).join(", ");
@@ -684,9 +699,8 @@ function confirmVariant() {
   const narx      = overrideVal > 0 ? overrideVal : baseNarx;
 
   if (vmSellMode === "karobka") {
-    // Pochka soni = eng kam o'lchamdagi qoldiq (chunki 1 pochka = barcha o'lchamlardan 1 tadan)
     const colorVariants = vmProd.variants.filter(v => v.color===selColor);
-    const maxPochka = colorVariants.length > 0 ? Math.min(...colorVariants.map(v => v.qty)) : 0;
+    const maxPochka = packInfo(vmProd, colorVariants).maxPochka;
     const alreadyInCart = cart.find(c => c.sku===vmProd.sku && c.color===selColor && !c.size);
     const alreadyBoxes   = alreadyInCart ? (alreadyInCart.qtyBox||0) : 0;
     if (alreadyBoxes + qtyInput > maxPochka) {
@@ -1675,10 +1689,16 @@ async function checkout() {
       // Pochka mantig'i: har bir pochka = shu guruh o'lchamlaridan 1 tadan.
       // qtyBox = nechta pochka sotildi — shuncha son shu guruhdagi har bir o'lchamdan ayiriladi.
       const boxesSold = c.qtyBox || 0;
-      const targetSizes = c.groupSizes || null; // agar yo'q bo'lsa (eski format) — barcha o'lchamlar
-      p.variants.filter(v => v.color === c.color && (!targetSizes || targetSizes.includes(v.size))).forEach(v => {
-        v.qty = Math.max(0, v.qty - boxesSold);
-      });
+      const targetSizes = c.groupSizes || null;
+      const affected = p.variants.filter(v => v.color === c.color && (!targetSizes || targetSizes.includes(v.size)));
+      if (affected.length === 1) {
+        // B2: yagona variant — dona = pochka × 1 pochkadagi dona
+        const perBox = c.inBox || p.inBox || 1;
+        affected[0].qty = Math.max(0, affected[0].qty - boxesSold * perBox);
+      } else {
+        // Eski model: har o'lchamdan pochka soniga teng ayiriladi
+        affected.forEach(v => { v.qty = Math.max(0, v.qty - boxesSold); });
+      }
     } else {
       const v = p.variants.find(x => x.color===c.color && x.size===c.size);
       if (v) v.qty = Math.max(0, v.qty - c.qty);
