@@ -161,6 +161,11 @@ async function pushToCloud() {
     if (typeof ensureCloudPull === "function") ensureCloudPull();
     return;
   }
+  // Versiya qo'riqchisi: eski kod bulutga YOZA OLMAYDI
+  if (await checkAppVersion() === false) {
+    console.warn("Cloud push bloklandi: ilova versiyasi eskirgan — Ctrl+Shift+R kerak");
+    return;
+  }
   await _setShopContext(_sid);
   const sid = _sid;
   try {
@@ -492,6 +497,36 @@ async function pushToCloud() {
   }
 }
 
+// ── VERSIYA QO'RIQCHISI (2026-07) ──────────────────────────────
+// index.html — versiyalar manifesti (7-qoida: JS bilan birga push).
+// Qurilma serverdagi yangi index.html'ni keshsiz o'qib, o'zining
+// cloud.js versiyasi bilan solishtiradi. Eski bo'lsa: ogohlantiradi
+// va PUSH bloklanadi — eski kod bulutga yozolmaydi (telefon saboqi).
+let _versionOk = null;
+let _versionCheckedAt = 0;
+let _verWarnAt = 0;
+async function checkAppVersion() {
+  if (_versionOk !== null && Date.now() - _versionCheckedAt < 10 * 60 * 1000)
+    return _versionOk; // 10 daqiqada bir tekshirish yetadi
+  try {
+    const my = parseInt((document.querySelector('script[src*="cloud.js?v="]')
+      ?.src.match(/v=(\d+)/) || [])[1]) || 0;
+    const r = await fetch("/index.html", { cache: "no-store" });
+    const html = await r.text();
+    const srv = parseInt((html.match(/cloud\.js\?v=(\d+)/) || [])[1]) || 0;
+    _versionOk = !srv || !my || my >= srv;
+    _versionCheckedAt = Date.now();
+    if (!_versionOk) {
+      console.warn(`❗ ESKI VERSIYA: sizda cloud v${my}, serverda v${srv} — push bloklandi`);
+      if (Date.now() - _verWarnAt > 60000 && typeof toast === "function") {
+        _verWarnAt = Date.now();
+        toast("⚠️ MERX yangilandi! Davom etishdan avval sahifani to'liq yangilang: Ctrl+Shift+R (telefonda: brauzer keshini tozalang)", "err");
+      }
+    }
+  } catch(e) { _versionOk = true; _versionCheckedAt = Date.now(); } // tekshirib bo'lmasa — bloklamaymiz
+  return _versionOk;
+}
+
 // ── Pull kafolati: muvaffaqiyatgacha qayta urinish ─────────────
 // Pull o'tmasa push bloklangani uchun, bu funksiya pullni bir necha
 // bor takrorlaydi (5s, 15s oraliq), keyin ham bo'lmasa har 60
@@ -525,6 +560,9 @@ async function pullFromCloud() {
     const ok = await initSupabase();
     if (!ok) { toast("Avval ulaning","err"); return; }
   }
+  // Versiya tekshiruvi (fonda — pull bloklanmaydi, faqat ogohlantiradi)
+  checkAppVersion();
+
   // RLS: do'kon kontekstini o'rnatamiz
   const _pullSid = getCloudShopId();
   if (!_pullSid) {
