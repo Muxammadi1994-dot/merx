@@ -1052,7 +1052,11 @@ function saveEditProduct() {
     const cur1  = db.settings?.priceCurrency || "uzs";
     const rate1 = db.settings?.rate || 12800;
     const raw   = _pv("ep-cost");
-    p.costUsd = (cur1 === "usd" || cur1 === "both") ? raw : (raw / rate1);
+    const _newCost = (cur1 === "usd" || cur1 === "both") ? raw : (raw / rate1);
+    // v150: YAXLITLASH DRIFTI himoyasi — yangi qiymat eskisidan atigi
+    // tiyin farq qilsa (foydalanuvchi aslida o'zgartirmagan), ASL aniq
+    // qiymat saqlanadi (225000 → 17.578125$ → 17.58 → 225024 sikli tugadi)
+    p.costUsd = Math.abs(_newCost - (p.costUsd || 0)) < 0.01 ? p.costUsd : _newCost;
   }
   p.priceUzs    = _pv("ep-price")   || p.priceUzs;
   p.ulgurjiNarx = _pv("ep-ulgurji");
@@ -1367,7 +1371,7 @@ function addProduct() {
     if (packUnit) p.packUnit = packUnit;
     if (apPendingImage) p.image = apPendingImage;
     // Narxlarni ham yangilaymiz — foydalanuvchi modalda kiritgan narx ustuvor
-    if (cost > 0)  p.costUsd     = cost;
+    if (cost > 0 && Math.abs(cost - (p.costUsd || 0)) >= 0.01) p.costUsd = cost; // v150: drift himoyasi
     if (price > 0) p.priceUzs    = price;
     if (ulg > 0)   p.ulgurjiNarx = ulg;
     // B2: inBox = shu kirimda aniqlangani (qo'lda yozilgani ustuvor)
@@ -1422,6 +1426,7 @@ const AP_FIELDS = [
   { key:"hex",       lbl:"Rang (hex)",              def:true  },
   { key:"sizerange", lbl:"O'lchamni o'zgartirish",  def:false },
   { key:"inbox",     lbl:"Import: '1 pochkada nechta' ustuni", def:false },
+  { key:"sizes",     lbl:"O'lcham bo'limi (Dan/Gacha)",        def:true  },
 ];
 
 function apGetFields() {

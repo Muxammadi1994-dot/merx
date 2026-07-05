@@ -2681,7 +2681,7 @@
     </div>
 
     <!-- O'lcham oraliq: standart yoki o'zgartirish -->
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+    <div class="ap-field" data-apf="sizes" style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
       <span style="font-size:12px;color:var(--mut)">O'lcham oralig'i:</span>
       <span id="ap-size-standard-lbl" style="font-size:13px;font-weight:700;color:#0D1B2A;
         background:var(--bg2);padding:4px 12px;border-radius:7px"></span>
@@ -2701,11 +2701,11 @@
     <!-- O'lcham tanlash (har doim oraliq, standart yopiq) -->
     <div id="ap-size-range">
       <div class="r3">
-        <div class="fld">
+        <div class="fld ap-field" data-apf="sizes">
           <label>Dan</label>
           <select id="ap-size-from" onchange="apCalcBoxes()" disabled></select>
         </div>
-        <div class="fld">
+        <div class="fld ap-field" data-apf="sizes">
           <label>Gacha</label>
           <select id="ap-size-to" onchange="apCalcBoxes()" disabled></select>
         </div>
@@ -2723,7 +2723,7 @@
           <label>Jami dona (avtomatik)</label>
           <input id="ap-qty-range" type="number" readonly style="background:var(--bg2)">
         </div>
-        <div class="fld">
+        <div class="fld ap-field" data-apf="sizes">
           <label>Razmerlar ko'rinishi</label>
           <div id="ap-size-range-preview" style="font-size:12px;color:var(--mut);padding:6px 0"></div>
         </div>
@@ -3712,7 +3712,7 @@
 <script src="js/cloud.js?v=163"></script>
 <script src="js/dashboard.js?v=142"></script>
 <script src="js/pos.js?v=161"></script>
-<script src="js/katalog.js?v=149"></script>
+<script src="js/katalog.js?v=150"></script>
 <script src="js/ombor.js?v=142"></script>
 <script src="js/mijozlar.js?v=142"></script>
 <script src="js/qarzlar.js?v=143"></script>
