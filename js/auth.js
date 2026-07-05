@@ -467,14 +467,7 @@ async function doLogin() {
         body: "{}"
       }); // API faqat POST qabul qiladi (v169 tuzatishi)
       const _cfg = await _r.json();
-      if (_cfg.ok && _cfg.url && _cfg.key) {
-        _sbUrl = _cfg.url; _sbKey = _cfg.key;
-        // MUHIM (v170): initSupabase kalitlarni db.settings dan o'qiydi —
-        // shu yerga yozmasak, toza qurilmada client qurilmasdi (guest bo'sh)
-        if (!db.settings) db.settings = {};
-        db.settings.supabaseUrl = _sbUrl;
-        db.settings.supabaseKey = _sbKey;
-      }
+      if (_cfg.ok && _cfg.url && _cfg.key) { _sbUrl = _cfg.url; _sbKey = _cfg.key; }
     } catch(e) { console.warn("client_config olinmadi:", e.message); }
   }
 
@@ -571,9 +564,9 @@ async function doLogin() {
         // "parol xato" chiqardi.
         const _targetKey = "merx_v5_" + shopId;
         if (window._loadedDbKey && window._loadedDbKey !== _targetKey) {
-          db = JSON.parse(localStorage.getItem(_targetKey) || "null")
-               || (typeof seedDB === "function" ? seedDB() : { settings: {} });
-          if (!db.settings) db.settings = {};
+          // db YUQORIDA allaqachon to'g'ri nusxaga (shopDB) almashtirilgan —
+          // qayta almashtirmaymiz (v171: guest'da bulut sozlamalari
+          // yo'qolib, pull ishlamay qolayotgan edi). Faqat belgilaymiz:
           window._loadedDbKey = _targetKey;
           console.log("🔁 Do'kon almashdi — xotira toza kalitga o'tkazildi:", _targetKey);
         }
