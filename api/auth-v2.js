@@ -67,6 +67,16 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  // Ochiq: klient ulanish sozlamalari. Anon kalit ochiq bo'lishi normal —
+  // himoya RLS zimmasida. Busiz toza qurilma bulutga ulana olmasdi.
+  if (action === "client_config") {
+    return res.status(200).json({
+      ok: true,
+      url: process.env.SUPABASE_URL || "",
+      key: process.env.SUPABASE_KEY || ""
+    });
+  }
+
   try {
     // ── 1b. MAVJUD do'konni yangi tizimga bog'lash ─────────────
     // Farqi: shopId TASODIFIY yaratilmaydi, balki sizning haqiqiy,

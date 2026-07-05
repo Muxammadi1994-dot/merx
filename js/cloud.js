@@ -48,7 +48,12 @@ async function initSupabase() {
 
     // Agar allaqachon token bilan ulangan bo'lsa — qaytadan yaratmaymiz
     // (bu "Multiple GoTrueClient" ogohlantirishini oldini oladi)
-    const needNewClient = !_sb || (sbSession?.accessToken && _sbUsedAnon) || (!sbSession?.accessToken && !_sbUsedAnon);
+    // v159: token ALMASHGANini ham sezamiz — hisob almashganda eski
+    // token bilan qolgan client RLS'da yangi do'konni ko'rmasdi
+    const needNewClient = !_sb
+      || ((sbSession?.accessToken || null) !== _sbLastToken)
+      || (sbSession?.accessToken && _sbUsedAnon) || (!sbSession?.accessToken && !_sbUsedAnon);
+    _sbLastToken = sbSession?.accessToken || null;
 
     if (needNewClient) {
       if (sbSession?.accessToken) {
@@ -115,6 +120,7 @@ async function _setShopContext(sid) {
 // Bu sessiyada bulutdan yuklab olish (pull) muvaffaqiyatli tugadimi?
 // Push FAQAT shundan keyin ruxsat etiladi — eskirgan lokal nusxa
 // bulutdagi yangi ma'lumotlarni yozib yubormasligi uchun.
+let _sbLastToken = null; // client qaysi token bilan qurilgani (v159)
 let _cloudPullDone = false;
 
 // O'chirish sinxroni uchun holat:

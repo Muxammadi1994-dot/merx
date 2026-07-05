@@ -450,12 +450,22 @@ async function doLogin() {
   let res = { ok: false };
 
   // 1. Supabase dan shop topamiz
-  const _sbUrl = (typeof MERX_SUPABASE_URL !== "undefined" && MERX_SUPABASE_URL)
+  let _sbUrl = (typeof MERX_SUPABASE_URL !== "undefined" && MERX_SUPABASE_URL)
     ? MERX_SUPABASE_URL
     : (db?.settings?.supabaseUrl || "");
-  const _sbKey = (typeof MERX_SUPABASE_KEY !== "undefined" && MERX_SUPABASE_KEY)
+  let _sbKey = (typeof MERX_SUPABASE_KEY !== "undefined" && MERX_SUPABASE_KEY)
     ? MERX_SUPABASE_KEY
     : (db?.settings?.supabaseKey || "");
+
+  // TOZA QURILMA (v168): kalitlar lokal yo'q bo'lsa — serverdan olamiz.
+  // Busiz yangi/guest brauzer jimgina "lokal rejim"ga tushib bo'sh ko'rinardi.
+  if (!_sbUrl || !_sbKey) {
+    try {
+      const _r = await fetch("/api/auth-v2?action=client_config");
+      const _cfg = await _r.json();
+      if (_cfg.ok && _cfg.url && _cfg.key) { _sbUrl = _cfg.url; _sbKey = _cfg.key; }
+    } catch(e) { console.warn("client_config olinmadi:", e.message); }
+  }
 
   if (_sbUrl && _sbKey) {
     try {
@@ -491,7 +501,7 @@ async function doLogin() {
         shops = data;
       }
       if (!shops?.length && sb) {
-        const { data } = await sb.from("shops").select("id,name").eq("owner_email", email).limit(1);
+        const { data } = await sb.from("shops").select("id,name").ilike("owner_email", email).limit(1); // katta-kichik harfga befarq (v168)
         shops = data;
       }
 
