@@ -1004,10 +1004,23 @@ function epConfirmAddColor() {
   else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) sizeRange = allSizes.slice(iFrom, iTo+1);
   else sizeRange = [from, to];
 
-  // Pochka mantig'i: har bir o'lchamga bir xil son (boxes)
-  sizeRange.forEach(sz => {
-    p.variants.push({ color, size: sz, qty: boxes, pantone, hex });
+  // B1 (v147): yangi rang SHU tovarga qo'shilmaydi — ALOHIDA TOVAR
+  // sifatida ochiladi (narxlar nusxalanadi, keyin mustaqil o'zgaradi)
+  const newId = db.seq++;
+  db.products.push({
+    id: newId,
+    sku: `${p.type === "oyoq" ? "SHOE" : "CLTH"}-${String(newId).padStart(3,"0")}`,
+    name: p.name, category: p.category, type: p.type, unit: p.unit,
+    inBox: sizeRange.length, packUnit: p.packUnit,
+    art: p.art || "", barcode: genEAN13(db.seq++),
+    costUsd: p.costUsd, priceUzs: p.priceUzs, ulgurjiNarx: p.ulgurjiNarx,
+    image: "", createdAt: new Date().toISOString(),
+    variants: sizeRange.map(sz => ({ color, size: sz, qty: boxes, pantone, hex }))
   });
+  saveDB(); renderKatalog();
+  toast(`"${color}" alohida tovar sifatida ochildi (narxlar nusxalandi)`);
+  epCloseAddColor();
+  return;
 
   epRenderColorCards(p);
   epUpdateInboxDisplay(p);
@@ -1212,6 +1225,34 @@ function apCalcBoxes() {
   apCostNote();
 }
 
+// ── B1 MIGRATSIYA (v147): mavjud ko'p rangli tovarlarni ajratish ──
+// Konsoldan bir marta: splitColors()  — har qo'shimcha rang alohida
+// tovar bo'ladi (narxlar nusxalanadi, qoldiqlar o'z rangida qoladi).
+function splitColors() {
+  let made = 0;
+  const multi = db.products.filter(p =>
+    new Set((p.variants||[]).map(v => v.color)).size > 1);
+  if (!multi.length) { console.log("Ko'p rangli tovar yo'q — ajratish kerak emas"); return; }
+  if (!confirm(`${multi.length} ta ko'p rangli tovar topildi. Har rang alohida tovarga ajratilsinmi?`)) return;
+  multi.forEach(p => {
+    const colors = [...new Set(p.variants.map(v => v.color))];
+    colors.slice(1).forEach(c => {
+      const newId = db.seq++;
+      db.products.push({
+        ...JSON.parse(JSON.stringify(p)),
+        id: newId,
+        sku: p.sku + "-" + (++made),
+        barcode: (p.colorBarcodes && p.colorBarcodes[c]) || genEAN13(db.seq++),
+        variants: p.variants.filter(v => v.color === c)
+      });
+    });
+    p.variants = p.variants.filter(v => v.color === colors[0]);
+  });
+  saveDB(); renderKatalog();
+  console.log(`✅ ${made} ta yangi tovar ochildi (ranglar ajratildi)`);
+  toast(`✅ Ranglar ajratildi: ${made} ta yangi tovar`);
+}
+
 // ── Aralash pochka tarkibi (v145) ─────────────────────────────
 // "40x2, 41x2, 43x1" → [{size:"40",per:2},{size:"41",per:2},{size:"43",per:1}]
 function parsePackMix(raw) {
@@ -1297,7 +1338,13 @@ function addProduct() {
     effectiveInBox = sizeRange.length;
   }
 
-  let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
+  // B1 (v147): HAR RANG = ALOHIDA TOVAR. Mavjudlik nom + RANG bo'yicha
+  // tekshiriladi — boshqa rang bo'lsa, yangi mustaqil tovar ochiladi
+  // (o'z narxi, o'z shtrix-kodi; birida narx o'zgarsa boshqasiga tegmaydi).
+  let p = db.products.find(x =>
+    x.name.toLowerCase() === name.toLowerCase() &&
+    (x.variants || []).some(v => (v.color || "").toLowerCase() === color.toLowerCase())
+  );
   if (p) {
     newVariants.forEach(nv => {
       const ex = p.variants.find(v => v.color === nv.color && v.size === nv.size);
@@ -2066,10 +2113,15 @@ function confirmImport() {
 
   _importRows.forEach(r => {
     // Mavjud mahsulotni topish (nom + art bo'yicha)
+    // B1 (v147): har rang = alohida tovar — qidiruv nom(+art) + RANG bilan
+    const _colorMatch = x => (x.variants || []).some(v =>
+      (v.color || "").toLowerCase() === (r.color || "").toLowerCase());
     let p = db.products.find(x =>
       x.name.toLowerCase() === r.nom.toLowerCase() &&
-      (r.art ? (x.art||"").toLowerCase() === r.art.toLowerCase() : true)
-    ) || db.products.find(x => x.name.toLowerCase() === r.nom.toLowerCase());
+      (r.art ? (x.art||"").toLowerCase() === r.art.toLowerCase() : true) &&
+      _colorMatch(x)
+    ) || db.products.find(x =>
+      x.name.toLowerCase() === r.nom.toLowerCase() && _colorMatch(x));
 
     const variant = { color: r.color, size: r.size, qty: r.qty, pantone: r.pantone, hex: r.hex || "#888888" };
 
