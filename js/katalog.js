@@ -1178,6 +1178,8 @@ function apSetStandardSizeRange() {
 }
 
 function apCalcBoxes() {
+  // v146: aralash tarkib yozilgan bo'lsa — hisob mix bo'yicha
+  if (($("ap-pack-mix")||{value:""}).value.trim()) { apMixHint(); return; }
   const boxes  = parseInt(($("ap-boxes")||{value:1}).value)          || 1;
   const from   = ($("ap-size-from")||{value:""}).value;
   const to     = ($("ap-size-to")||{value:""}).value;
@@ -1214,7 +1216,8 @@ function apCalcBoxes() {
 // "40x2, 41x2, 43x1" → [{size:"40",per:2},{size:"41",per:2},{size:"43",per:1}]
 function parsePackMix(raw) {
   const out = [];
-  String(raw || "").trim().split(/[,;]+/).map(s => s.trim()).filter(Boolean)
+  // v146: vergul, nuqtali vergul VA PROBEL — hammasi ajratuvchi
+  String(raw || "").trim().split(/[,;\s]+/).map(s => s.trim()).filter(Boolean)
     .forEach(tok => {
       const m = tok.match(/^(.+?)\s*[x×X*:]\s*(\d+)$/);
       if (m) out.push({ size: m[1].trim(), per: parseInt(m[2]) || 1 });
@@ -1235,6 +1238,11 @@ function apMixHint() {
   const tot = mix.reduce((s, t) => s + t.per, 0);
   if (el) el.textContent = `1 pochkada: ${tot} dona (${mix.map(t => t.size + "×" + t.per).join(", ")})`;
   if ($("ap-inbox-calc")) $("ap-inbox-calc").value = tot;
+  // Jami dona = pochka soni × 1 pochkadagi dona
+  const _bx = parseInt(($("ap-boxes")||{value:1}).value) || 1;
+  if ($("ap-qty-range")) $("ap-qty-range").value = _bx * tot;
+  const _pv = $("ap-size-range-preview");
+  if (_pv) _pv.textContent = "→ " + mix.map(t => t.size + "×" + t.per).join(", ");
 }
 
 function addProduct() {
@@ -1306,7 +1314,7 @@ function addProduct() {
     if (ulg > 0)   p.ulgurjiNarx = ulg;
     // v145: inBox endi AVTOMAT bosib yozilmaydi — qo'lda kiritilgani
     // ustuvor. Faqat bo'sh bo'lsa avtomat taklif, mix bo'lsa — tarkib.
-    if (mixRaw) p.inBox = effectiveInBox;
+    if (mixRaw) p.inBox = (inBox > 0 ? inBox : effectiveInBox);
     else if (!p.inBox) {
       const colors = [...new Set(p.variants.map(v => v.color))];
       let maxSizes = 1;
@@ -1323,7 +1331,7 @@ function addProduct() {
       id: newProdId,
       sku: `${t==="oyoq"?"SHOE":"CLTH"}-${String(newProdId).padStart(3,"0")}`,
       name, category: ($("ap-cat")||{value:""}).value,
-      type:t, unit, inBox: effectiveInBox, packUnit,
+      type:t, unit, inBox: (inBox > 0 ? inBox : effectiveInBox), packUnit,
       art: art || "",
       costUsd:cost, priceUzs:price, ulgurjiNarx:ulg,
       barcode: autoBarcode,
@@ -1981,13 +1989,14 @@ function parseImportCSV(text) {
     }
 
     // 1 pochkada nechta — agar ustun bo'lmasa, o'lchamlar soniga teng (avtomatik)
-    const inboxVal = cols.inbox >= 0 ? (parseInt(vals[cols.inbox]) || sizeList.length) : sizeList.length;
+    const _inboxGiven = cols.inbox >= 0 && parseInt(vals[cols.inbox]) > 0;
+    const inboxVal = _inboxGiven ? parseInt(vals[cols.inbox]) : sizeList.length;
 
     // Pochka mantig'i: har bir o'lchamga bir xil son (boxesVal)
     sizeList.forEach(sz => {
       _importRows.push({
         nom, cat: catVal, type: typeVal, unit: unitVal,
-        inbox: inboxVal, boxes: boxesVal || null,
+        inbox: inboxVal, _inboxExplicit: _inboxGiven, boxes: boxesVal || null,
         art, barcode, color: colorRaw, pantone, hex,
         size: sz, qty: boxesVal, costUsd, ulg: ulgVal,
       });
@@ -2164,8 +2173,16 @@ function confirmImport() {
     const pp = db.products.find(x => x.name.toLowerCase() === r.nom.toLowerCase());
     return pp ? pp.sku : null;
   }).filter(Boolean));
+  // v146: fayldagi "1 pochkada nechta" USTUVOR — avtomat hisob uni
+  // bosib yozmaydi. Fayl ustun bermagan bo'lsagina avtomat ishlaydi.
+  const explicitInbox = new Map();
+  _importRows.forEach(r => {
+    if (r._inboxExplicit) explicitInbox.set(r.nom.toLowerCase(), r.inbox);
+  });
   touchedSkus.forEach(sku => {
     const pp = db.products.find(x => x.sku === sku); if (!pp) return;
+    const exp = explicitInbox.get(pp.name.toLowerCase());
+    if (exp) { pp.inBox = exp; return; }
     const colors = [...new Set(pp.variants.map(v => v.color))];
     let maxSizes = 1;
     colors.forEach(c => {
