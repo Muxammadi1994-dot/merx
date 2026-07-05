@@ -39,7 +39,19 @@ async function initSupabase() {
   }
 
   try {
-    const { createClient } = window.supabase || supabase;
+    // SEKIN INTERNET DAVOSI (v160): Supabase kutubxonasi CDN'dan hali
+    // yetib kelmagan bo'lishi mumkin — 10 soniyagacha kutamiz.
+    // (Guest/yangi qurilmalarda "do'kon bo'sh" muammosining sababi shu edi)
+    let _lib = window.supabase || (typeof supabase !== "undefined" ? supabase : null);
+    for (let i = 0; i < 40 && !_lib; i++) {
+      await new Promise(r => setTimeout(r, 250));
+      _lib = window.supabase || (typeof supabase !== "undefined" ? supabase : null);
+    }
+    if (!_lib) {
+      console.warn("❌ Supabase kutubxonasi yuklanmadi (internet juda sekin) — birozdan keyin qayta uriniladi");
+      return false;
+    }
+    const { createClient } = _lib;
 
     // Auth token holati
     const sbSession = typeof getSupabaseTestSession === "function"
