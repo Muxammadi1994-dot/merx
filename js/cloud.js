@@ -31,7 +31,10 @@ async function initSupabase() {
               (typeof MERX_SUPABASE_URL !== "undefined" ? MERX_SUPABASE_URL : "");
   const key = (db.settings?.supabaseKey?.trim()) || 
               (typeof MERX_SUPABASE_KEY !== "undefined" ? MERX_SUPABASE_KEY : "");
-  if (!url || !key) return false;
+  if (!url || !key) {
+    console.warn("❌ initSupabase: kalitlar topilmadi (db.settings bo'sh) — bulut o'chiq");
+    return false; // endi JIM yiqilmaydi (v161)
+  }
   // Settings ga ham yozamiz (bo'lmasa)
   if (db.settings && !db.settings.supabaseUrl) {
     db.settings.supabaseUrl = url;
