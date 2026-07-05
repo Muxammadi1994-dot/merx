@@ -1547,8 +1547,16 @@ function refreshStaffList() {
   // Kassirlar ro'yxatini to'ldiramiz
   const lockedId = db?.settings?.posLockedStaffId;
   const cur = _staffLocked && lockedId ? lockedId : sel.value;
-  sel.innerHTML = '<option value="">-- Kassirni tanlang --</option>' +
-    (db.staff||[]).map(s => `<option value="${s.id}"${String(s.id)===String(cur)?" selected":""}>${s.name}</option>`).join("");
+  // v162: JORIY FOYDALANUVCHI avtomat tanlanadi —
+  // egasi (admin) bilan kirilsa "Egasi (admin)", xodim bilan kirilsa o'sha xodim.
+  const _u = (typeof authLoad === "function" ? authLoad() : null);
+  let _autoSel = cur;
+  if (!_autoSel && _u) {
+    if (_u.role === "staff" && _u.id != null) _autoSel = _u.id;          // xodim o'zi
+    else if (_u.role !== "staff") _autoSel = "admin";                     // egasi/admin
+  }
+  sel.innerHTML = '<option value="admin"' + (String(_autoSel)==="admin"?" selected":"") + '>Egasi (admin)</option>' +
+    (db.staff||[]).map(s => `<option value="${s.id}"${String(s.id)===String(_autoSel)?" selected":""}>${s.name}</option>`).join("");
   _applyPayBlocked();
   _applyStaffLock();
 }
@@ -1669,8 +1677,10 @@ async function checkout() {
     if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
     return parseInt(($("pos-staff")||{value:0}).value) || null;
   })();
-  // Kassir majburiy — xodimlar ro'yxati bo'sh bo'lmasa
-  if (!staffId && db.staff && db.staff.length > 0) {
+  // Kassir majburiy — xodimlar bo'lsa; "Egasi (admin)" tanlovi ham
+  // to'g'ri hisoblanadi (v162: staffId null, lekin tanlov aniq)
+  const _selVal = ($("pos-staff")||{value:""}).value;
+  if (!staffId && _selVal !== "admin" && db.staff && db.staff.length > 0) {
     toast("Kassirni tanlang", "err");
     const staffSel = $("pos-staff");
     if (staffSel) {
