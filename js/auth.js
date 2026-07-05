@@ -467,7 +467,14 @@ async function doLogin() {
         body: "{}"
       }); // API faqat POST qabul qiladi (v169 tuzatishi)
       const _cfg = await _r.json();
-      if (_cfg.ok && _cfg.url && _cfg.key) { _sbUrl = _cfg.url; _sbKey = _cfg.key; }
+      if (_cfg.ok && _cfg.url && _cfg.key) {
+        _sbUrl = _cfg.url; _sbKey = _cfg.key;
+        // MUHIM (v170): initSupabase kalitlarni db.settings dan o'qiydi —
+        // shu yerga yozmasak, toza qurilmada client qurilmasdi (guest bo'sh)
+        if (!db.settings) db.settings = {};
+        db.settings.supabaseUrl = _sbUrl;
+        db.settings.supabaseKey = _sbKey;
+      }
     } catch(e) { console.warn("client_config olinmadi:", e.message); }
   }
 
