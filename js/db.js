@@ -78,10 +78,8 @@ function loadDB() {
     const key = getDBKEY();
     const r = localStorage.getItem(key);
     if (r) return JSON.parse(r);
-    // Migration: faqat asosiy do'kon (local) uchun
-    if (key !== "merx_v5") return null; // Yangi do'kon — bo'sh
-    const old = localStorage.getItem("merx_v5");
-    if (old) return JSON.parse(old);
+    // 4-BOSQICH: legacy "merx_v5" (eski yagona-do'kon davri) o'qishi
+    // olib tashlandi — toza holatni har doim bulutdagi pull to'ldiradi.
     return null;
   } catch(e) { return mem; }
 }

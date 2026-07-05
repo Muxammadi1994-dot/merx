@@ -828,6 +828,21 @@ async function pullFromCloud() {
     _cloudPullDone = true;
     _pulledShopId = sid;
 
+    // ── 4-BOSQICH: localStorage — faqat JORIY do'kon keshi ─────────
+    // Boshqa do'konlarning eski nusxalarini o'chiramiz:
+    //  (1) umumiy kompyuterda begona do'kon ma'lumoti qolmaydi (maxfiylik),
+    //  (2) do'konlararo qoldiq/aralashish manbalari butunlay yopiladi.
+    // Bulut — yagona haqiqat: kerak bo'lsa pull qayta to'ldiradi.
+    try {
+      const _curKey = "merx_v5_" + sid;
+      Object.keys(localStorage)
+        .filter(k => (k.indexOf("merx_v5") === 0) && k !== _curKey)
+        .forEach(k => {
+          localStorage.removeItem(k);
+          console.log("🧹 Boshqa do'kon keshi tozalandi:", k);
+        });
+    } catch(e) { console.warn("kesh tozalash xato:", e.message); }
+
     saveDB();
     updateCloudUI(true);
     nav("dashboard");
