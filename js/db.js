@@ -133,6 +133,9 @@ function seedDB() {
 
 // Global db yuklanishi
 db = loadDB() || seedDB();
+// Sahifa QAYSI do'kon kaliti bilan yuklangani — login paytida boshqa
+// do'konga kirilsa, majburiy reload uchun (aralashishga qarshi qo'riqchi)
+window._loadedDbKey = (typeof getDBKEY === "function") ? getDBKEY() : null;
 
 // ── Migratsiya: id'siz mahsulotlarga (eski yozuvlar) id berish ──
 // Sabab: Supabase'da products.id ustuni majburiy, lekin ba'zi eski

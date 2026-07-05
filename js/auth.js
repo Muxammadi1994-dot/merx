@@ -563,6 +563,16 @@ async function doLogin() {
   if (btn) { btn.innerHTML = '<i class="ti ti-login"></i> Kirish'; btn.disabled = false; }
 
   if (res.ok) {
+    // KRITIK QO'RIQCHI: sahifa BOSHQA do'kon ma'lumoti bilan yuklangan
+    // bo'lsa — to'liq qayta yuklaymiz. Aks holda xotiradagi eski do'kon
+    // ma'lumoti yangi do'kon nomi ostida saqlanib, bulutga oqib o'tardi
+    // (2026-07-04 dagi Shoetest↔D_60 aralashuvining ildiz sababi).
+    if (window._loadedDbKey && typeof getDBKEY === "function"
+        && getDBKEY() !== window._loadedDbKey) {
+      toast("Do'kon almashdi — qayta yuklanmoqda...", "info");
+      setTimeout(() => location.reload(), 300);
+      return;
+    }
     hideLoginScreen();
     toast(res.firstTime ? "✅ Hisob yaratildi!" : "✅ Xush kelibsiz!");
     applyRoleUI();
