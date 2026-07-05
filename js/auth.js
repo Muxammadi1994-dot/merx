@@ -461,7 +461,11 @@ async function doLogin() {
   // Busiz yangi/guest brauzer jimgina "lokal rejim"ga tushib bo'sh ko'rinardi.
   if (!_sbUrl || !_sbKey) {
     try {
-      const _r = await fetch("/api/auth-v2?action=client_config");
+      const _r = await fetch("/api/auth-v2?action=client_config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      }); // API faqat POST qabul qiladi (v169 tuzatishi)
       const _cfg = await _r.json();
       if (_cfg.ok && _cfg.url && _cfg.key) { _sbUrl = _cfg.url; _sbKey = _cfg.key; }
     } catch(e) { console.warn("client_config olinmadi:", e.message); }
