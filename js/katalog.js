@@ -500,10 +500,6 @@ function renderKatalog() {
         ${margin != null ? `<span style="color:${mColor};font-weight:700">${margin}%</span>` : '<span style="color:#ddd">—</span>'}
       </td>
       <td onclick="event.stopPropagation()">
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="duplicateProduct('${p.sku}',event)"
-          title="Nusxalash" style="color:#8B5CF6">
-          <i class="ti ti-copy"></i>
-        </button>
         <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditProduct('${p.sku}')">
           <i class="ti ti-edit"></i>
         </button>
@@ -601,6 +597,15 @@ function ppReset(prefix) {
 
 // ── Mahsulot tahrirlash ────────────────────────
 // ── Mahsulot nusxalash ───────────────────────────
+// Tahrir modalidan nusxalash (v144): tugma qator ichidan modal
+// ichiga ko'chirildi — tasodifiy bosishda katalog ifloslanmasin
+function epDuplicate() {
+  if (typeof editSku === "undefined" || !editSku) return;
+  if (!confirm("Shu mahsulotdan nusxa olinsinmi? (qoldiqlar 0 bilan)")) return;
+  duplicateProduct(editSku);
+  if (typeof closeModal === "function") closeModal("editprod");
+}
+
 function duplicateProduct(sku, event) {
   if (event) event.stopPropagation();
   const p = db.products.find(x => x.sku === sku);
@@ -1011,8 +1016,13 @@ function epConfirmAddColor() {
 
 function saveEditProduct() {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
+  // NARX O'QISH TUZATISHI (v144): fmtInput qiymatni "540 000" ko'rinishida
+  // formatlaydi — parseFloat probelda to'xtab 540 qilib yuborardi.
+  // _pv: probel/vergulni tozalab, kasrni saqlab o'qiydi.
+  const _pv = id => parseFloat(String($(id)?.value || "")
+    .replace(/[\s\u00A0\u202F]/g, "").replace(",", ".")) || 0;
   // Narx 0 ogohlantirish
-  const _newPrice = parseFloat($("ep-price")?.value || "0") || 0;
+  const _newPrice = _pv("ep-price");
   if (_newPrice === 0 && !confirm("Chakana narx 0 so'm qilib saqlansin?")) return;
   p.name        = $("ep-name").value.trim()     || p.name;
   p.category    = $("ep-cat").value.trim()      || p.category;
@@ -1020,11 +1030,11 @@ function saveEditProduct() {
   {
     const cur1  = db.settings?.priceCurrency || "uzs";
     const rate1 = db.settings?.rate || 12800;
-    const raw   = parseFloat($("ep-cost").value) || 0;
+    const raw   = _pv("ep-cost");
     p.costUsd = (cur1 === "usd" || cur1 === "both") ? raw : (raw / rate1);
   }
-  p.priceUzs    = parseFloat($("ep-price").value)   || p.priceUzs;
-  p.ulgurjiNarx = parseFloat($("ep-ulgurji").value) || 0;
+  p.priceUzs    = _pv("ep-price")   || p.priceUzs;
+  p.ulgurjiNarx = _pv("ep-ulgurji");
   if ($("ep-unit"))     p.unit     = $("ep-unit").value     || p.unit;
   if ($("ep-art"))      p.art      = $("ep-art").value.trim();
   if ($("ep-barcode"))  p.barcode  = $("ep-barcode").value.trim();
