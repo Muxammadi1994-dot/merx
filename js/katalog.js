@@ -1015,7 +1015,8 @@ function epConfirmAddColor() {
     art: p.art || "", barcode: genEAN13(db.seq++),
     costUsd: p.costUsd, priceUzs: p.priceUzs, ulgurjiNarx: p.ulgurjiNarx,
     image: "", createdAt: new Date().toISOString(),
-    variants: sizeRange.map(sz => ({ color, size: sz, qty: boxes, pantone, hex }))
+    variants: [{ color, size: (from === to ? from : from + "-" + to),
+                 qty: boxes * sizeRange.length, pantone, hex }]
   });
   saveDB(); renderKatalog();
   toast(`"${color}" alohida tovar sifatida ochildi (narxlar nusxalandi)`);
@@ -1312,31 +1313,32 @@ function addProduct() {
   const from = ($("ap-size-from")||{value:""}).value;
   const to   = ($("ap-size-to")||{value:""}).value;
   const mixRaw = ($("ap-pack-mix")||{value:""}).value.trim();
-  if (!mixRaw && (!from || !to)) { toast("O'lchamni tanlang yoki pochka tarkibini yozing","err"); return; }
+  // B2 (v148): o'lcham SHART EMAS — u endi faqat tavsif matni
 
   const boxes  = parseInt(($("ap-boxes")||{value:1}).value)      || 1;
   const inBox  = parseInt(($("ap-inbox-calc")||{value:1}).value) || 1;
   if (boxes <= 0) { toast("Pochka sonini kiriting","err"); return; }
 
-  // O'LCHAM MANBASI (v145): "Pochka tarkibi" yozilgan bo'lsa — aralash
-  // pochka (40x2,41x2,43x1: qty = pochka soni × shu o'lchamning donasi),
-  // aks holda avvalgidek oraliq (39-44, har o'lchamdan 1 tadan).
-  let newVariants, effectiveInBox;
+  // ── B2 (v148): ULGURJI-BIRINCHI MODEL ─────────────────────────
+  // Hisob POCHKA darajasida: jami dona = pochka soni × 1 pochkada nechta.
+  // O'lcham hisobga TA'SIR QILMAYDI — faqat tavsif matni sifatida
+  // saqlanadi ("39-44" yoki "40x2 41x2 43x1") va chek/katalogda ko'rinadi.
+  let sizeText = "";
+  let autoIn = 0;
   if (mixRaw) {
     const mix = parsePackMix(mixRaw);
-    if (!mix.length) { toast("Pochka tarkibi tushunarsiz. Namuna: 40x2, 41x2, 43x1","err"); return; }
-    newVariants = mix.map(tk => ({ color, size: tk.size, qty: boxes * tk.per, pantone, hex }));
-    effectiveInBox = mix.reduce((s, tk) => s + tk.per, 0);
-  } else {
+    if (!mix.length) { toast("Pochka tarkibi tushunarsiz. Namuna: 40x2 41x2 43x1","err"); return; }
+    sizeText = mix.map(tk => tk.size + "x" + tk.per).join(" ");
+    autoIn   = mix.reduce((s, tk) => s + tk.per, 0);
+  } else if (from && to) {
+    sizeText = (from === to) ? from : (from + "-" + to);
     const allSizes = SIZES[t] || [];
-    const iFrom = allSizes.indexOf(from), iTo = allSizes.indexOf(to);
-    let sizeRange;
-    if (from === to) sizeRange = [from];
-    else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) sizeRange = allSizes.slice(iFrom, iTo + 1);
-    else sizeRange = [from, to]; // fallback
-    newVariants = sizeRange.map(sz => ({ color, size: sz, qty: boxes, pantone, hex }));
-    effectiveInBox = sizeRange.length;
+    const iF = allSizes.indexOf(from), iT = allSizes.indexOf(to);
+    autoIn = (iF !== -1 && iT !== -1 && iF <= iT) ? (iT - iF + 1) : 1;
   }
+  // Qo'lda kiritilgan "1 pochkada" USTUVOR, bo'lmasa avtomat taklif
+  const effectiveInBox = (inBox > 0 ? inBox : (autoIn || 1));
+  const newVariants = [{ color, size: sizeText || "-", qty: boxes * effectiveInBox, pantone, hex }];
 
   // B1 (v147): HAR RANG = ALOHIDA TOVAR. Mavjudlik nom + RANG bo'yicha
   // tekshiriladi — boshqa rang bo'lsa, yangi mustaqil tovar ochiladi
@@ -1346,9 +1348,12 @@ function addProduct() {
     (x.variants || []).some(v => (v.color || "").toLowerCase() === color.toLowerCase())
   );
   if (p) {
+    // B2: rang bo'yicha yagona variantga qo'shamiz (o'lcham matni farq
+    // qilsa ham qoldiq bitta joyda yig'iladi)
     newVariants.forEach(nv => {
-      const ex = p.variants.find(v => v.color === nv.color && v.size === nv.size);
-      if (ex) { ex.qty += nv.qty; if (pantone) { ex.pantone = pantone; ex.hex = hex; } }
+      const ex = p.variants.find(v => v.color === nv.color);
+      if (ex) { ex.qty += nv.qty; if (pantone) { ex.pantone = pantone; ex.hex = hex; }
+                if (nv.size && nv.size !== "-") ex.size = nv.size; }
       else p.variants.push(nv);
     });
     if (art) p.art = art;
@@ -1359,18 +1364,8 @@ function addProduct() {
     if (cost > 0)  p.costUsd     = cost;
     if (price > 0) p.priceUzs    = price;
     if (ulg > 0)   p.ulgurjiNarx = ulg;
-    // v145: inBox endi AVTOMAT bosib yozilmaydi — qo'lda kiritilgani
-    // ustuvor. Faqat bo'sh bo'lsa avtomat taklif, mix bo'lsa — tarkib.
-    if (mixRaw) p.inBox = (inBox > 0 ? inBox : effectiveInBox);
-    else if (!p.inBox) {
-      const colors = [...new Set(p.variants.map(v => v.color))];
-      let maxSizes = 1;
-      colors.forEach(c => {
-        const cnt = p.variants.filter(v => v.color === c).length;
-        if (cnt > maxSizes) maxSizes = cnt;
-      });
-      p.inBox = maxSizes;
-    }
+    // B2: inBox = shu kirimda aniqlangani (qo'lda yozilgani ustuvor)
+    p.inBox = effectiveInBox;
   } else {
     const autoBarcode = barcode || genEAN13(db.seq);
     const newProdId = db.seq++;
@@ -1378,7 +1373,7 @@ function addProduct() {
       id: newProdId,
       sku: `${t==="oyoq"?"SHOE":"CLTH"}-${String(newProdId).padStart(3,"0")}`,
       name, category: ($("ap-cat")||{value:""}).value,
-      type:t, unit, inBox: (inBox > 0 ? inBox : effectiveInBox), packUnit,
+      type:t, unit, inBox: effectiveInBox, packUnit,
       art: art || "",
       costUsd:cost, priceUzs:price, ulgurjiNarx:ulg,
       barcode: autoBarcode,
@@ -2015,38 +2010,27 @@ function parseImportCSV(text) {
     const catVal  = cols.cat  >= 0 ? (vals[cols.cat]?.trim()  || "Qabul qilingan") : "Qabul qilingan";
     const unitVal = cols.unit >= 0 ? (vals[cols.unit]?.trim()  || "dona") : "dona";
 
-    // O'lcham: ustun bo'sh/yo'q bo'lsa — standart oraliq ishlatiladi (39-44 yoki S-XL)
+    // B2 (v148): O'lcham — faqat TAVSIF MATNI, qator o'lchamlarga
+    // YOYILMAYDI. Jami dona = pochka soni × 1 pochkada nechta.
     const sizeRaw = cols.size >= 0 ? (vals[cols.size]?.trim() || "") : "";
-    let sizeList;
-    if (sizeRaw) {
-      // "39-44" yoki "S-XL" formatini oraliqqa yoyish, yoki "42" bitta o'lcham
-      const rangeMatch = sizeRaw.match(/^(.+?)\s*[-–]\s*(.+)$/);
-      if (rangeMatch) {
-        const allSizes = SIZES[typeVal] || [];
-        const iF = allSizes.indexOf(rangeMatch[1].trim()), iT = allSizes.indexOf(rangeMatch[2].trim());
-        sizeList = (iF !== -1 && iT !== -1 && iF <= iT) ? allSizes.slice(iF, iT+1) : [rangeMatch[1].trim(), rangeMatch[2].trim()];
-      } else {
-        sizeList = [sizeRaw];
-      }
-    } else {
-      const def = SIZES_DEFAULT_RANGE[typeVal] || { from:(SIZES[typeVal]||["Aralash"])[0], to:(SIZES[typeVal]||["Aralash"])[0] };
-      const allSizes = SIZES[typeVal] || [];
-      const iF = allSizes.indexOf(def.from), iT = allSizes.indexOf(def.to);
-      sizeList = (iF !== -1 && iT !== -1) ? allSizes.slice(iF, iT+1) : [def.from];
-    }
 
-    // 1 pochkada nechta — agar ustun bo'lmasa, o'lchamlar soniga teng (avtomatik)
+    // 1 pochkada nechta: ustunda berilgani USTUVOR; bo'lmasa o'lcham
+    // matnidan taxmin qilinadi (masalan 39-44 → 6), u ham bo'lmasa 1
     const _inboxGiven = cols.inbox >= 0 && parseInt(vals[cols.inbox]) > 0;
-    const inboxVal = _inboxGiven ? parseInt(vals[cols.inbox]) : sizeList.length;
+    let autoIn = 1;
+    const rangeMatch = sizeRaw.match(/^(.+?)\s*[-–]\s*(.+)$/);
+    if (rangeMatch) {
+      const allSizes = SIZES[typeVal] || [];
+      const iF = allSizes.indexOf(rangeMatch[1].trim()), iT = allSizes.indexOf(rangeMatch[2].trim());
+      if (iF !== -1 && iT !== -1 && iF <= iT) autoIn = iT - iF + 1;
+    }
+    const inboxVal = _inboxGiven ? parseInt(vals[cols.inbox]) : autoIn;
 
-    // Pochka mantig'i: har bir o'lchamga bir xil son (boxesVal)
-    sizeList.forEach(sz => {
-      _importRows.push({
-        nom, cat: catVal, type: typeVal, unit: unitVal,
-        inbox: inboxVal, _inboxExplicit: _inboxGiven, boxes: boxesVal || null,
-        art, barcode, color: colorRaw, pantone, hex,
-        size: sz, qty: boxesVal, costUsd, ulg: ulgVal,
-      });
+    _importRows.push({
+      nom, cat: catVal, type: typeVal, unit: unitVal,
+      inbox: inboxVal, _inboxExplicit: true, boxes: boxesVal || null,
+      art, barcode, color: colorRaw, pantone, hex,
+      size: sizeRaw || "-", qty: boxesVal * inboxVal, costUsd, ulg: ulgVal,
     });
   }
 
