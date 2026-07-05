@@ -701,8 +701,9 @@ function epUpdateInboxDisplay(p) {
     const cnt = p.variants.filter(v => v.color === c).length;
     if (cnt > maxSizes) maxSizes = cnt;
   });
-  p.inBox = maxSizes;
-  if ($("ep-inbox")) $("ep-inbox").value = maxSizes;
+  // v145: qo'lda kiritilgan inBox saqlanadi; faqat bo'sh bo'lsa taklif
+  if (!p.inBox) p.inBox = maxSizes;
+  if ($("ep-inbox")) $("ep-inbox").value = p.inBox;
   epUpdateBoxHints();
 }
 
@@ -1209,6 +1210,33 @@ function apCalcBoxes() {
   apCostNote();
 }
 
+// ── Aralash pochka tarkibi (v145) ─────────────────────────────
+// "40x2, 41x2, 43x1" → [{size:"40",per:2},{size:"41",per:2},{size:"43",per:1}]
+function parsePackMix(raw) {
+  const out = [];
+  String(raw || "").trim().split(/[,;]+/).map(s => s.trim()).filter(Boolean)
+    .forEach(tok => {
+      const m = tok.match(/^(.+?)\s*[x×X*:]\s*(\d+)$/);
+      if (m) out.push({ size: m[1].trim(), per: parseInt(m[2]) || 1 });
+      else out.push({ size: tok, per: 1 });
+    });
+  return out;
+}
+
+function apMixHint() {
+  const raw = ($("ap-pack-mix") || {value:""}).value.trim();
+  const el = $("ap-mix-hint");
+  if (!raw) {
+    if (el) el.textContent = "";
+    if (typeof apCalcBoxes === "function") apCalcBoxes();
+    return;
+  }
+  const mix = parsePackMix(raw);
+  const tot = mix.reduce((s, t) => s + t.per, 0);
+  if (el) el.textContent = `1 pochkada: ${tot} dona (${mix.map(t => t.size + "×" + t.per).join(", ")})`;
+  if ($("ap-inbox-calc")) $("ap-inbox-calc").value = tot;
+}
+
 function addProduct() {
   const name = ($("ap-name")||{value:""}).value.trim();
   if (!name) { toast("Nom kiriting","err"); return; }
@@ -1234,30 +1262,32 @@ function addProduct() {
   // O'lcham oralig'i — har doim from/to dan o'qiladi (standart yoki tahrirlangan)
   const from = ($("ap-size-from")||{value:""}).value;
   const to   = ($("ap-size-to")||{value:""}).value;
-  if (!from || !to) { toast("O'lchamni tanlang","err"); return; }
+  const mixRaw = ($("ap-pack-mix")||{value:""}).value.trim();
+  if (!mixRaw && (!from || !to)) { toast("O'lchamni tanlang yoki pochka tarkibini yozing","err"); return; }
 
   const boxes  = parseInt(($("ap-boxes")||{value:1}).value)      || 1;
   const inBox  = parseInt(($("ap-inbox-calc")||{value:1}).value) || 1;
   if (boxes <= 0) { toast("Pochka sonini kiriting","err"); return; }
 
-  // SIZES ro'yxatidan from..to oralig'ini olish
-  const allSizes = SIZES[t] || [];
-  const iFrom = allSizes.indexOf(from), iTo = allSizes.indexOf(to);
-  let sizeRange;
-  if (from === to) {
-    sizeRange = [from];
-  } else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) {
-    sizeRange = allSizes.slice(iFrom, iTo + 1);
+  // O'LCHAM MANBASI (v145): "Pochka tarkibi" yozilgan bo'lsa — aralash
+  // pochka (40x2,41x2,43x1: qty = pochka soni × shu o'lchamning donasi),
+  // aks holda avvalgidek oraliq (39-44, har o'lchamdan 1 tadan).
+  let newVariants, effectiveInBox;
+  if (mixRaw) {
+    const mix = parsePackMix(mixRaw);
+    if (!mix.length) { toast("Pochka tarkibi tushunarsiz. Namuna: 40x2, 41x2, 43x1","err"); return; }
+    newVariants = mix.map(tk => ({ color, size: tk.size, qty: boxes * tk.per, pantone, hex }));
+    effectiveInBox = mix.reduce((s, tk) => s + tk.per, 0);
   } else {
-    sizeRange = [from, to]; // fallback
+    const allSizes = SIZES[t] || [];
+    const iFrom = allSizes.indexOf(from), iTo = allSizes.indexOf(to);
+    let sizeRange;
+    if (from === to) sizeRange = [from];
+    else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) sizeRange = allSizes.slice(iFrom, iTo + 1);
+    else sizeRange = [from, to]; // fallback
+    newVariants = sizeRange.map(sz => ({ color, size: sz, qty: boxes, pantone, hex }));
+    effectiveInBox = sizeRange.length;
   }
-
-  // Pochka mantig'i: har bir pochkada har o'lchamdan 1 tadan bo'ladi.
-  // "boxes" soni = nechta pochka keldi. Har bir o'lcham shu songa teng dona oladi
-  // (masalan 100 pochka × har birida 39-44 dan 1 tadan = har o'lchamda 100 dona).
-  const newVariants = sizeRange.map(sz => ({ color, size: sz, qty: boxes, pantone, hex }));
-  // 1 pochkada nechta dona bor — bu o'lchamlar soniga teng (39-44 = 6 ta o'lcham = 6 dona)
-  const effectiveInBox = sizeRange.length;
 
   let p = db.products.find(x => x.name.toLowerCase() === name.toLowerCase());
   if (p) {
@@ -1274,9 +1304,10 @@ function addProduct() {
     if (cost > 0)  p.costUsd     = cost;
     if (price > 0) p.priceUzs    = price;
     if (ulg > 0)   p.ulgurjiNarx = ulg;
-    // inBox ni real holatdan yangilaymiz — yangi rang boshqa sonli o'lchamga
-    // ega bo'lishi mumkin (masalan eski rang 39-44, yangisi faqat 40-42)
-    {
+    // v145: inBox endi AVTOMAT bosib yozilmaydi — qo'lda kiritilgani
+    // ustuvor. Faqat bo'sh bo'lsa avtomat taklif, mix bo'lsa — tarkib.
+    if (mixRaw) p.inBox = effectiveInBox;
+    else if (!p.inBox) {
       const colors = [...new Set(p.variants.map(v => v.color))];
       let maxSizes = 1;
       colors.forEach(c => {
@@ -1309,6 +1340,8 @@ function addProduct() {
   if ($("ap-name"))       $("ap-name").value       = "";
   if ($("ap-boxes"))      $("ap-boxes").value       = "1";
   if ($("ap-inbox-calc")) $("ap-inbox-calc").value  = "6";
+  if ($("ap-pack-mix")) $("ap-pack-mix").value = "";
+  if ($("ap-mix-hint")) $("ap-mix-hint").textContent = "";
   if ($("ap-art"))        $("ap-art").value         = "";
   if ($("ap-barcode"))    $("ap-barcode").value     = "";
   if ($("ap-cost-note"))  $("ap-cost-note").innerHTML = "";
@@ -1332,6 +1365,7 @@ const AP_FIELDS = [
   { key:"pantone",   lbl:"Pantone kodi",            def:false },
   { key:"hex",       lbl:"Rang (hex)",              def:true  },
   { key:"sizerange", lbl:"O'lchamni o'zgartirish",  def:false },
+  { key:"inbox",     lbl:"Import: '1 pochkada nechta' ustuni", def:false },
 ];
 
 function apGetFields() {
@@ -1710,10 +1744,13 @@ function downloadImportTemplate() {
   const sampleBase3 = ["Ko'ylak slim", "SLM-05", "Ko'k"];
 
   // "O'lcham" va "1 pochkada nechta" faqat "O'lchamni o'zgartirish" yoqilgan bo'lsa chiqadi
+  // v145: "O'lcham" va "1 pochkada nechta" ALOHIDA yoqiladi —
+  // ko'p do'konlarga o'lchamdan ko'ra pochkadagi soni muhimroq
   if (fields.sizerange) {
     headers.push("O'lcham");
     sampleBase.push("39-44"); sampleBase2.push("39-44"); sampleBase3.push("S-XL");
-
+  }
+  if (fields.sizerange || fields.inbox) {
     headers.push("1 pochkada nechta");
     sampleBase.push("6"); sampleBase2.push("6"); sampleBase3.push("4");
   }
