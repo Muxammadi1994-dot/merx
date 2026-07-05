@@ -471,6 +471,8 @@ async function doLogin() {
     } catch(e) { console.warn("client_config olinmadi:", e.message); }
   }
 
+  console.log("🧪 [1] kalitlar:", { url: !!_sbUrl, key: !!_sbKey });
+
   if (_sbUrl && _sbKey) {
     try {
       // ── YANGI TARTIB: avval token olamiz, keyin shops'dan o'qiymiz ──
@@ -491,24 +493,30 @@ async function doLogin() {
 
       // initSupabase orqali ulanamiz — bu "Multiple GoTrueClient" ogohlantirishini oldini oladi
       // (avval token olingan, shuning uchun initSupabase token bilan ulanadi)
+      let _isOk = false;
       if (typeof initSupabase === "function") {
-        try { await initSupabase(); } catch(e) {}
+        try { _isOk = await initSupabase(); } catch(e) { console.warn("🧪 initSupabase xato:", e.message); }
       }
-      const sb = _sb; // global _sb ni ishlatamiz — yangi instance yaratmaymiz
+      const sb = _sb;
+      console.log("🧪 [2] initSupabase:", _isOk, "| client bor:", !!sb); // global _sb ni ishlatamiz — yangi instance yaratmaymiz
 
       // Token ichidagi shop_id bo'yicha qidiramiz (RLS bilan mos)
       // Agar token yo'q bo'lsa — owner_email bo'yicha (eski usul, zaxira)
       const sbSession = getSupabaseTestSession();
+      console.log("🧪 [3] session shopId:", sbSession?.shopId || "(yo'q)");
       let shops = null;
       if (sbSession?.shopId && sb) {
-        const { data } = await sb.from("shops").select("id,name").eq("id", sbSession.shopId).limit(1);
+        const { data, error } = await sb.from("shops").select("id,name").eq("id", sbSession.shopId).limit(1);
         shops = data;
+        console.log("🧪 [4] token bo'yicha qidiruv:", data?.length || 0, error ? "XATO: "+error.message : "");
       }
       if (!shops?.length && sb) {
-        const { data } = await sb.from("shops").select("id,name").ilike("owner_email", email).limit(1); // katta-kichik harfga befarq (v168)
+        const { data, error } = await sb.from("shops").select("id,name").ilike("owner_email", email).limit(1); // katta-kichik harfga befarq (v168)
         shops = data;
+        console.log("🧪 [5] email bo'yicha qidiruv:", data?.length || 0, error ? "XATO: "+error.message : "");
       }
 
+      console.log("🧪 [6] do'kon topildi:", shops?.length ? shops[0].id : "YO'Q — lokal rejimga tushadi");
       if (shops?.length) {
         const shop   = shops[0];
         const shopId = shop.id;
