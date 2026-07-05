@@ -542,6 +542,21 @@ async function doLogin() {
 
         // Parolni har doim yangilaymiz — boshqa qurilmada ham to'g'ri ishlashi uchun
         // (SuperAdmin parolni o'zgartirganda, yangi qurilmada ham mos bo'ladi)
+        // ── ARALASHISHGA QARSHI QO'RIQCHI (v167, silliq usul) ──
+        // Sahifa BOSHQA do'kon ma'lumoti bilan yuklangan bo'lsa, xotirani
+        // shu yerning o'zida yangi do'kon kalitiga toza o'tkazamiz.
+        // Busiz: eski db yangi do'kon nomi ostida saqlanib, bulutga oqib
+        // o'tardi (Shoetest↔D_60 aralashuvi) yoki eski adminEmail tufayli
+        // "parol xato" chiqardi.
+        const _targetKey = "merx_v5_" + shopId;
+        if (window._loadedDbKey && window._loadedDbKey !== _targetKey) {
+          db = JSON.parse(localStorage.getItem(_targetKey) || "null")
+               || (typeof seedDB === "function" ? seedDB() : { settings: {} });
+          if (!db.settings) db.settings = {};
+          window._loadedDbKey = _targetKey;
+          console.log("🔁 Do'kon almashdi — xotira toza kalitga o'tkazildi:", _targetKey);
+        }
+
         // Emailni ham HAR DOIM yangilaymiz — Supabase Auth allaqachon tasdiqlagan,
         // eski/xato yozilgan email (masalan katta harfli) lokal nusxada qolib ketmasin
         db.settings.adminEmail = email;
@@ -563,16 +578,6 @@ async function doLogin() {
   if (btn) { btn.innerHTML = '<i class="ti ti-login"></i> Kirish'; btn.disabled = false; }
 
   if (res.ok) {
-    // KRITIK QO'RIQCHI: sahifa BOSHQA do'kon ma'lumoti bilan yuklangan
-    // bo'lsa — to'liq qayta yuklaymiz. Aks holda xotiradagi eski do'kon
-    // ma'lumoti yangi do'kon nomi ostida saqlanib, bulutga oqib o'tardi
-    // (2026-07-04 dagi Shoetest↔D_60 aralashuvining ildiz sababi).
-    if (window._loadedDbKey && typeof getDBKEY === "function"
-        && getDBKEY() !== window._loadedDbKey) {
-      toast("Do'kon almashdi — qayta yuklanmoqda...", "info");
-      setTimeout(() => location.reload(), 300);
-      return;
-    }
     hideLoginScreen();
     toast(res.firstTime ? "✅ Hisob yaratildi!" : "✅ Xush kelibsiz!");
     applyRoleUI();
