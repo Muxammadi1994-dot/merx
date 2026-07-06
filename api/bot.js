@@ -597,10 +597,19 @@ async function cmdOmbor(chatId) {
     const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
     const products = await sb("products", `?order=name${sidFilter}`);
 
+    // MULTI-TENANT (2026-07): chegara do'konning O'Z sozlamasidan
+    // (settings.low_stock_limit); bo'lmasa ENV/5 zaxirasi
+    let lowLimit = LOW_LIMIT;
+    try {
+      const st = await sb("settings", `?select=low_stock_limit${sid ? `&shop_id=eq.${sid}` : ""}&limit=1`);
+      if (st?.[0]?.low_stock_limit != null && Number(st[0].low_stock_limit) > 0)
+        lowLimit = Number(st[0].low_stock_limit);
+    } catch {}
+
     const low = [];
     for (const p of products) {
       for (const v of (p.variants || [])) {
-        if (Number(v.qty || 0) <= LOW_LIMIT) {
+        if (Number(v.qty || 0) <= lowLimit) {
           low.push({
             name: p.name,
             color: v.color || "",
@@ -612,11 +621,11 @@ async function cmdOmbor(chatId) {
     }
 
     if (!low.length) {
-      await tg(chatId, `📦 Ombor holati\n\n✅ Barcha tovarlar yetarli (>${LOW_LIMIT} dona)`);
+      await tg(chatId, `📦 Ombor holati\n\n✅ Barcha tovarlar yetarli (>${lowLimit} dona)`);
       return;
     }
 
-    let txt = `📦 Kam qolgan tovarlar (≤${LOW_LIMIT} dona)\n`;
+    let txt = `📦 Kam qolgan tovarlar (≤${lowLimit} dona)\n`;
     txt += `Jami: ${low.length} ta variant\n\n`;
 
     for (const item of low.slice(0, 25)) {
@@ -999,8 +1008,11 @@ async function actionSendStaffNotification(body) {
   const { sale, shopName, staffGroupId, shopId } = body || {};
   if (!sale) return { ok: false, error: "sale majburiy" };
 
-  const groupId = staffGroupId || STAFF_GROUP;
-  if (!groupId) return { ok: false, reason: "no_group_id" };
+  // MULTI-TENANT (2026-07): do'kon O'Z guruhini sozlamagan bo'lsa —
+  // xabar YUBORILMAYDI. ENV zaxirasi olib tashlandi: begona do'kon
+  // savdosi asosiy do'kon guruhiga tushib qolmasligi uchun.
+  const groupId = staffGroupId || null;
+  if (!groupId) return { ok: true, sent: false, reason: "no_group_id" };
   const sid = shopId || null;
 
   const chekId = sale.chekNum || ("ID" + sale.id);
