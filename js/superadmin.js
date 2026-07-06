@@ -401,7 +401,7 @@ function buildSaPanel() {
                 <option value="ikki">🧩 Oyoq kiyim + Kiyim</option>
                 <option value="oyoq">👟 Faqat Oyoq kiyim</option>
                 <option value="kiyim">👕 Faqat Kiyim-kechak</option>
-                <option value="aralash">🔀 Aralash (boshqa)</option>
+                <option value="aralash">📦 Boshqa/Universal (kanstovar, aksessuar...)</option>
               </select>
             </div>
             <div>
@@ -871,10 +871,10 @@ async function saOpenShop(id) {
   if (!localStorage.getItem(dbKey)) {
     // Yangi do'kon — bo'sh DB yaratamiz
     const shopDB = {
-      shop: { name: s.name, type: s.shopType || "ikki" },
+      shop: { name: s.name, type: s.shop_type || s.shopType || "ikki" },
       settings: {
         rate: 12800, priceCurrency: "uzs",
-        shopType: s.shopType || "ikki",
+        shopType: s.shop_type || s.shopType || "ikki",
         cloudShopId: id,
         adminEmail: s.ownerEmail || (s.phone ? s.phone.replace(/\D/g,"")+"@merx.uz" : id+"@merx.uz"),
         adminPass: await saSha256(s.ownerPass || "merx123"),

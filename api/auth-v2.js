@@ -211,7 +211,7 @@ module.exports = async function handler(req, res) {
 
     // ── 4. Yangi do'kon uchun Supabase Auth hisobi yaratish ────────
     if (action === "create_shop") {
-      const { email, password, shopId, shopName } = body;
+      const { email, password, shopId, shopName, shopType } = body;
       if (!email || !password || password.length < 4) {
         return res.status(400).json({ ok: false, error: "Email va kamida 4 belgili parol kerak" });
       }
@@ -250,6 +250,7 @@ module.exports = async function handler(req, res) {
           name: shopName || "MERX Do'koni",
           owner_email: email,
           plan: body.plan || "trial",
+          shop_type: shopType || "ikki",
           active: true,
           trial_ends: new Date(Date.now() + 30*24*60*60*1000).toISOString().slice(0,10)
         };
@@ -276,7 +277,8 @@ module.exports = async function handler(req, res) {
             shop_id: shopId,
             shop_name: shopName || "MERX Do'koni",
             rate: 12800,
-            price_currency: "uzs"
+            price_currency: "uzs",
+            shop_type: shopType || "ikki"
           })
         }).catch(e => console.error("settings yangilash xato:", e.message));
 
@@ -317,6 +319,7 @@ module.exports = async function handler(req, res) {
         name: shopName || "MERX Do'koni",
         owner_email: email,
         plan: body.plan || "trial",
+          shop_type: shopType || "ikki",
         active: true,
         trial_ends: new Date(Date.now() + 30*24*60*60*1000).toISOString().slice(0,10)
       };
@@ -343,7 +346,8 @@ module.exports = async function handler(req, res) {
           shop_id: shopId,
           shop_name: shopName || "MERX Do'koni",
           rate: 12800,
-          price_currency: "uzs"
+          price_currency: "uzs",
+          shop_type: shopType || "ikki"
         })
       }).catch(e => console.error("settings yozish xato:", e.message));
 
@@ -425,7 +429,7 @@ module.exports = async function handler(req, res) {
     // ── 7. Barcha do'konlar ro'yxatini olish (SuperAdmin uchun) ────
     if (action === "get_shops") {
       const shopsRes = await fetch(
-        `${SB_URL}/rest/v1/shops?select=id,name,owner_email,plan,active,blocked,trial_ends,created_at&order=created_at.desc`,
+        `${SB_URL}/rest/v1/shops?select=id,name,owner_email,plan,active,blocked,trial_ends,created_at,shop_type&order=created_at.desc`,
         {
           headers: {
             apikey: SERVICE_KEY,

@@ -18,6 +18,14 @@ const PACK_UNITS = {
   kiyim: ["karobka","bog'lam","quti","paket"]
 };
 const PAYTYPES = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash", qarz:"Nasiya" };
+
+// Do'kon turi — YAGONA manba (2026-07). Kod hozircha 2 maxsus turni
+// biladi (oyoq, kiyim); boshqa har qanday qiymat (aralash, kanstovar...)
+// XAVFSIZ "ikki" (universal) rejimga tushadi — hech narsa buzilmaydi.
+function getShopType() {
+  const t = (typeof db !== "undefined" && db && db.settings && db.settings.shopType) || "ikki";
+  return (t === "oyoq" || t === "kiyim") ? t : "ikki";
+}
 const EXP_CATS = ["Ijara","Maosh","Transport","Kommunal","Reklama","Yetkazuvchi","Soliq","Jihozlar","Boshqa"];
 
 const PANTONE_COLORS = [
