@@ -800,11 +800,17 @@ async function actionSendReceipt(body) {
     items: (sale.items || []).map(({ image, ...rest }) => rest)
   };
   const saleB64 = Buffer.from(JSON.stringify(saleLight)).toString("base64");
-  const receiptUrl = `https://merx-rho.vercel.app/api/bot?action=receipt&id=${encodeURIComponent(chekId)}&d=${encodeURIComponent(saleB64)}`;
+
+  // 2026-07: chek endi TELEGRAM ICHIDA ochiladi (mini-app) — tashqi
+  // brauzer/PDF yuklamasi yo'q. "CHK__" belgisi kirish sahifasiga
+  // buni chek ekanini aytadi (omborchi sahifasidan farqlash uchun).
+  const _rp = `CHK__${chekId}${shopId ? "__" + shopId : ""}`;
+  const _rpEnc = _rp.replace(/[^a-zA-Z0-9_]/g, m => "x" + m.charCodeAt(0).toString(16));
+  const receiptUrl = `https://t.me/${BOT_USERNAME}/ombor?startapp=${_rpEnc}`;
 
   const r = await tg(chatId, txt, {
     reply_markup: {
-      inline_keyboard: [[{ text: "📄 Chekni ko'rish / PDF", url: receiptUrl }]],
+      inline_keyboard: [[{ text: "📄 Chekni ko'rish", url: receiptUrl }]],
     },
   });
 
@@ -884,23 +890,22 @@ async function actionSendStaffNotification(body) {
   const totalBoxesTxt = items.reduce((a, it) => a + (it.qtyBox || 0), 0);
   const totalDonaTxt  = items.reduce((a, it) => a + (it.qty || 0), 0);
   txt += `\n📦 <b>${items.length} xil tovar · ${totalBoxesTxt || totalDonaTxt} ${totalBoxesTxt ? "pochka" : "dona"}</b>\n`;
-  txt += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  txt += `━━━━━━━━━━━━━━━━━━━\n`;
 
-  for (const it of items) {
-    const qtyBox  = it.qtyBox || 0;
-    const color   = it.color   || "";
-    const size    = it.size    || "";
-    const art     = it.art     || "";
-    txt += `\n🔸 <b>${it.name}</b>`;
-    if (art) txt += `  <code>${art}</code>`;
-    txt += `\n`;
-    if (qtyBox) txt += `📦 <b>${qtyBox} POCHKA</b>  (${it.qty} ${it.unit || "dona"})\n`;
-    else        txt += `🔢 <b>${it.qty} ${it.unit || "dona"}</b>\n`;
-    if (color)  txt += `🎨 Rang: <b>${color}</b>`;
-    if (size)   txt += `   📏 O'lcham: <b>${size}</b>`;
-    if (color || size) txt += `\n`;
+  // IXCHAM FORMAT (2026-07): har tovar — bitta qator, ko'pi bilan 6 ta;
+  // to'liq tafsilot "Batafsil" sahifasida (rasm, artikul, belgilash)
+  const MAX_LINES = 6;
+  items.slice(0, MAX_LINES).forEach(it => {
+    const qtyTxt = it.qtyBox
+      ? `${it.qtyBox} pochka`
+      : `${it.qty} ${it.unit || "dona"}`;
+    const extras = [it.color, it.size].filter(Boolean).join(" · ");
+    txt += `🔸 <b>${it.name}</b> — <b>${qtyTxt}</b>${extras ? ` (${extras})` : ""}\n`;
+  });
+  if (items.length > MAX_LINES) {
+    txt += `<i>…yana ${items.length - MAX_LINES} tovar — "Batafsil" da</i>\n`;
   }
-  txt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━`;
+  txt += `━━━━━━━━━━━━━━━━━━━`;
 
   // "Batafsil ko'rish" — Telegram Web App orqali (BotFather: /newapp, short_name=ombor)
   // startapp parametri orqali chekId+shopId uzatiladi (Telegram faqat
@@ -1058,12 +1063,15 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
 /* SECTION */
 .sec{padding:14px 14px 8px;font-size:11px;font-weight:800;color:#444;text-transform:uppercase;letter-spacing:1px}
 
-/* KARTA */
-.card{background:#fff;border-radius:14px;margin:0 10px 12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+/* KARTA — 2 USTUNLI TO'R (2026-07): ko'p tovarda sahifa 2x qisqaradi.
+   Shrift KATTALIKLARI o'zgarmagan, ranglar TINIQLASHTIRILGAN. */
+.cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 10px}
+.cards-grid > .card:only-child{grid-column:1/-1}
+.card{background:#fff;border-radius:14px;margin:0;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07)}
 .card.done{opacity:.55;border:2px solid #22C55E}
 
 /* Rasm */
-.card-img-wrap{position:relative;width:100%;height:min(320px,80vw);background:#F0EDE8;overflow:hidden}
+.card-img-wrap{position:relative;width:100%;height:min(200px,44vw);background:#F0EDE8;overflow:hidden}
 .card-img-wrap img{width:100%;height:100%;object-fit:contain;cursor:pointer;display:block}
 .card-done-overlay{display:none;position:absolute;inset:0;background:rgba(34,197,94,.85);color:#fff;font-family:'Sora',sans-serif;font-size:32px;font-weight:800;align-items:center;justify-content:center;letter-spacing:1px}
 .card-done-overlay.show{display:flex}
@@ -1072,17 +1080,17 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
 /* Karta body */
 .card-body{padding:18px 16px 14px}
 .qty-row{margin-bottom:8px}
-.qty-badge{background:#0D1B2A;color:#E9A500;font-family:'Sora',sans-serif;font-weight:800;font-size:30px;border-radius:10px;padding:9px 24px;display:inline-block}
+.qty-badge{background:#0D1B2A;color:#FFC93C;font-family:'Sora',sans-serif;font-weight:800;font-size:30px;border-radius:10px;padding:7px 14px;display:inline-block}
 
 /* Nom */
-.card-name{font-family:'Sora',sans-serif;font-size:34px;font-weight:800;color:#0D1B2A;line-height:1.15;margin:10px 0 18px}
+.card-name{font-family:'Sora',sans-serif;font-size:34px;font-weight:800;color:#050B14;line-height:1.12;margin:8px 0 12px;word-break:break-word}
 
 /* Atributlar */
 .card-attrs{display:flex;flex-direction:column;gap:0}
 .attr-row{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid #F0EDE8}
 .attr-row:last-child{border-bottom:none}
-.attr-k{font-size:20px;font-weight:700;color:#6B7280;min-width:110px}
-.attr-v{font-size:26px;font-weight:800;color:#0D1B2A;display:flex;align-items:center;gap:8px}
+.attr-k{font-size:20px;font-weight:700;color:#3A4453;min-width:88px}
+.attr-v{font-size:26px;font-weight:800;color:#050B14;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .color-dot{width:26px;height:26px;border-radius:7px;flex-shrink:0;border:2px solid rgba(0,0,0,.12);display:inline-block}
 .code{font-family:monospace;background:#EEF2FF;color:#4F46E5;padding:6px 16px;border-radius:8px;font-size:22px;font-weight:700}
 
@@ -1116,9 +1124,8 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
 
 /* Desktop */
 @media(min-width:640px){
-  .hdr,.chips,.sec,.footer{max-width:560px;margin-left:auto;margin-right:auto}
-  .card,.cust-card,.total-card,.pay-card{max-width:560px;margin-left:auto;margin-right:auto}
-  .card{margin-bottom:12px}
+  .hdr,.chips,.sec,.footer{max-width:720px;margin-left:auto;margin-right:auto}
+  .cards-grid,.cust-card,.total-card,.pay-card{max-width:720px;margin-left:auto;margin-right:auto}
 }
 </style></head>
 <body>
@@ -1149,7 +1156,9 @@ ${custName ? `
 
 <div class="sec">Mahsulotlar (${totalTur} xil)</div>
 
+<div class="cards-grid">
 ${cardsHtml}
+</div>
 
 <div class="total-card">
   <div class="total-row">
@@ -1345,7 +1354,7 @@ function buildReceiptHtml(sale, opts) {
   return buildReceiptMerx(s, opts, cfg);
 }
 
-async function actionRenderReceipt(chekId, saleData) {
+async function actionRenderReceipt(chekId, saleData, shopId) {
   let sale = null;
   let shopName = "MERX";
 
@@ -1357,15 +1366,17 @@ async function actionRenderReceipt(chekId, saleData) {
 
   if (!sale) {
     const isNumericId = /^ID\d+$/.test(chekId);
+    const shopF = shopId ? `&shop_id=eq.${encodeURIComponent(shopId)}` : "";
     const query = isNumericId
-      ? `?id=eq.${chekId.slice(2)}&select=*`
-      : `?chek_num=eq.${encodeURIComponent(chekId)}&select=*`;
+      ? `?id=eq.${chekId.slice(2)}${shopF}&select=*`
+      : `?chek_num=eq.${encodeURIComponent(chekId)}${shopF}&select=*`;
     const rows = await sb("sales", query);
     sale = rows?.[0] || null;
   }
 
   try {
-    const sets = await sb("settings", `?limit=1&select=shop_name`);
+    const _sf = (shopId || sale?.shop_id) ? `&shop_id=eq.${encodeURIComponent(shopId || sale.shop_id)}` : "";
+    const sets = await sb("settings", `?limit=1&select=shop_name${_sf}`);
     shopName = sets?.[0]?.shop_name || "MERX";
   } catch {}
 
@@ -1539,8 +1550,9 @@ export default async function handler(req, res) {
     try {
       const chekId   = String(req.query.id || "");
       const saleData = req.query.d || null;
+      const shopQ    = req.query.shop || null; // multi-tenant filtr (2026-07)
       if (!chekId) return res.status(400).send("Chek ID kerak");
-      const html = await actionRenderReceipt(chekId, saleData);
+      const html = await actionRenderReceipt(chekId, saleData, shopQ);
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       return res.status(200).send(html);
     } catch (e) {
@@ -1580,8 +1592,15 @@ export default async function handler(req, res) {
       return String.fromCharCode(parseInt(hex, 16));
     });
     var parts = decoded.split("__");
-    var url = "/api/bot?action=staff_order&id=" + encodeURIComponent(parts[0]);
-    if (parts[1]) url += "&shop=" + encodeURIComponent(parts[1]);
+    var url;
+    if (parts[0] === "CHK") {
+      // Mijoz cheki (2026-07): Telegram ichida ochiladi
+      url = "/api/bot?action=receipt&id=" + encodeURIComponent(parts[1] || "");
+      if (parts[2]) url += "&shop=" + encodeURIComponent(parts[2]);
+    } else {
+      url = "/api/bot?action=staff_order&id=" + encodeURIComponent(parts[0]);
+      if (parts[1]) url += "&shop=" + encodeURIComponent(parts[1]);
+    }
     window.location.replace(url);
   } else {
     document.getElementById("msg").textContent = "⚠️ Buyurtma ID topilmadi.";
