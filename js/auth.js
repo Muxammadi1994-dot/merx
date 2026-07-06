@@ -655,13 +655,19 @@ let _sbTokenRefreshTimer = null; // avtomatik yangilash timer
 // Sahifa yuklanganda sessionStorage dan token va parolni tiklaymiz
 (function restoreSessionFromStorage() {
   try {
-    const saved = sessionStorage.getItem("merx_sb_session");
+    // v175: localStorage — brauzer yopilib-ochilsa ham sessiya yashaydi
+    // (AbuSaxiy hodisasi: sessionStorage o'chib, tizim "kar" bo'lib qolgan)
+    const saved = localStorage.getItem("merx_sb_session")
+               || sessionStorage.getItem("merx_sb_session");
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Token muddati tugaganmi tekshiramiz
-      if (parsed.expiresAt && Date.now() < parsed.expiresAt) {
+      // refreshToken bo'lsa — muddati o'tgan bo'lsa ham SAQLAYMIZ:
+      // cloud.js ensureFreshToken uni avtomatik yangilaydi
+      if (parsed.refreshToken || (parsed.expiresAt && Date.now() < parsed.expiresAt)) {
         _supabaseTestSession = parsed;
+        try { localStorage.setItem("merx_sb_session", JSON.stringify(parsed)); } catch(e) {}
       } else {
+        localStorage.removeItem("merx_sb_session");
         sessionStorage.removeItem("merx_sb_session");
       }
     }
@@ -680,23 +686,15 @@ async function authLoginSupabaseTest(email, password) {
       // expiresAt ni hisoblaymiz (hozirdan + expiresIn soniya)
       data.expiresAt = Date.now() + ((data.expiresIn || 3600) * 1000);
       _supabaseTestSession = data;
-      // sessionStorage ga saqlaymiz — sahifa yangilanganda ham token saqlanadi
+      // v175: localStorage — brauzer qayta ochilsa ham sessiya yashaydi.
+      // ESKI "yangilash taymeri" OLIB TASHLANDI: u 55 daqiqadan keyin
+      // token'ni o'chirib, tizimni jimgina huquqsiz rejimga tushirardi
+      // (AbuSaxiy hodisasining ildizi). Endi yangilash cloud.js dagi
+      // ensureFreshToken zimmasida — token O'LMASDAN yangilanadi.
       try {
-        sessionStorage.setItem("merx_sb_session", JSON.stringify(data));
-      } catch(e) {}
-      // ── Token avtomatik yangilash ──────────────────────────────
-      if (_sbTokenRefreshTimer) clearTimeout(_sbTokenRefreshTimer);
-      const refreshIn = ((data.expiresIn || 3600) - 300) * 1000; // 55 daqiqa
-      _sbTokenRefreshTimer = setTimeout(async () => {
+        localStorage.setItem("merx_sb_session", JSON.stringify(data));
         sessionStorage.removeItem("merx_sb_session");
-        _supabaseTestSession = null;
-        _sb = null;
-        if (typeof initSupabase === "function") {
-          await initSupabase();
-          console.log("ℹ️ Token muddati tugadi — anon key zaxirasiga o'tildi");
-        }
-      }, refreshIn);
-      // ── Avtomatik yangilash qo'shildi ──────────────────────────
+      } catch(e) {}
     } else {
       console.warn("❌ Supabase kirish xato:", data.error);
     }
@@ -711,7 +709,13 @@ function getSupabaseTestSession() {
   return _supabaseTestSession;
 }
 
+// v175: cloud.js token yangilaganda xotiradagi nusxani ham yangilaydi
+function setSupabaseTestSession(s) {
+  _supabaseTestSession = s;
+}
+
 function clearSupabaseTestSession() {
   _supabaseTestSession = null;
+  try { localStorage.removeItem("merx_sb_session"); sessionStorage.removeItem("merx_sb_session"); } catch(e) {}
   if (_sbTokenRefreshTimer) { clearTimeout(_sbTokenRefreshTimer); _sbTokenRefreshTimer = null; }
 }

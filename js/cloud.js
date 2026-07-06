@@ -25,7 +25,48 @@ function getCloudShopId() {
   return null;
 }
 
+// ── TOKEN AVTO-YANGILASH (v166) ────────────────────────────────
+// Kirish kaliti muddati tugashidan 5 daqiqa oldin (yoki tugagan
+// bo'lsa darhol) yangisi olinadi — tizim endi hech qachon jimgina
+// "kar" (yozolmaydigan) rejimga tushmaydi. AbuSaxiy hodisasi davosi.
+let _refreshBusy = false;
+async function ensureFreshToken() {
+  if (_refreshBusy) return;
+  try {
+    const raw = localStorage.getItem("merx_sb_session")
+             || sessionStorage.getItem("merx_sb_session");
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (!s?.refreshToken) return; // eski sessiya (refreshsiz) — yangilab bo'lmaydi
+    if (s.expiresAt && Date.now() < s.expiresAt - 5 * 60 * 1000) return; // hali yangi
+    const url = db.settings?.supabaseUrl?.trim();
+    const key = db.settings?.supabaseKey?.trim();
+    if (!url || !key) return;
+    _refreshBusy = true;
+    const r = await fetch(url + "/auth/v1/token?grant_type=refresh_token", {
+      method: "POST",
+      headers: { apikey: key, "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: s.refreshToken })
+    });
+    const d = await r.json();
+    if (d.access_token) {
+      s.accessToken  = d.access_token;
+      s.refreshToken = d.refresh_token || s.refreshToken;
+      s.expiresAt    = Date.now() + ((d.expires_in || 3600) * 1000);
+      localStorage.setItem("merx_sb_session", JSON.stringify(s));
+      if (typeof setSupabaseTestSession === "function") setSupabaseTestSession(s);
+      console.log("🔄 Kirish kaliti avtomatik yangilandi");
+    } else if (r.status === 400 || r.status === 401) {
+      console.warn("❌ Sessiya butunlay eskirgan — chiqib, qayta kiring");
+      if (typeof toast === "function") toast("Sessiya eskirdi — chiqib, qayta kiring", "err");
+    }
+  } catch (e) { console.warn("token yangilash xato:", e.message); }
+  finally { _refreshBusy = false; }
+}
+
 async function initSupabase() {
+  // Har ulanish oldidan token yangiligini ta'minlaymiz (v166)
+  await ensureFreshToken();
   // 1. settings dan, 2. global config dan
   const url = (db.settings?.supabaseUrl?.trim()) || 
               (typeof MERX_SUPABASE_URL !== "undefined" ? MERX_SUPABASE_URL : "");
@@ -150,6 +191,8 @@ let _tombstones = new Set();
 let _pulledShopId = null;
 
 async function pushToCloud() {
+  // v166: push oldidan token yangiligi + client mosligi ta'minlanadi
+  try { await initSupabase(); } catch(e) {}
   if (!_sb) { toast("Avval ulaning","err"); return; }
   const _sid = getCloudShopId();
   if (!_sid) {

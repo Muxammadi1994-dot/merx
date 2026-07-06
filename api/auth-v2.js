@@ -184,6 +184,7 @@ module.exports = async function handler(req, res) {
         message: "✅ Kirish muvaffaqiyatli (sinov sessiyasi)",
         shopId: loginData.user?.user_metadata?.shop_id || null,
         accessToken: loginData.access_token,
+        refreshToken: loginData.refresh_token, // v175: avto-yangilash uchun
         expiresIn: loginData.expires_in,
       });
     }
