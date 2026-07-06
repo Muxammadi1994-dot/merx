@@ -1428,7 +1428,10 @@ function custQuickAdd(val) {
   const newName  = isPhone ? "" : val.trim();
   const newPhone = isPhone ? val.trim() : "";
 
-  // Mini modal ochish — mavjud addcust modal ishlatamiz
+  // Mini modal ochish — mavjud addcust modal ishlatamiz.
+  // AVVAL toza tozalaymiz (oldingi mijoz qoldiqlari), KEYIN tezkor
+  // rejim o'z qiymatlari va tugmasini o'rnatadi
+  if (typeof resetCustForm === "function") resetCustForm();
   if ($("ac-name"))  $("ac-name").value  = newName;
   if ($("ac-phone")) $("ac-phone").value = newPhone;
   if ($("ac-type"))  $("ac-type").value  = posPriceType === "ulgurji" ? "ulgurji" : "chakana";
@@ -1831,6 +1834,8 @@ async function checkout() {
   cart.length = 0;
   // Mijoz ma'lumotlarini tozalaymiz (qarz badge ham yashiriladi)
   custClear();
+  // "Savat qiymati" belgisi ham darhol 0 ga qaytadi (AbuSaxiy e'tirozi)
+  const _cvv = $("cart-value-val"); if (_cvv) _cvv.textContent = "0 so'm";
   // Chegirmani tozalaymiz
   if ($("discount-val")) { $("discount-val").value = ""; $("discount-val").dataset.raw = ""; }
   const _dres = $("discount-result"); if (_dres) _dres.style.display = "none";

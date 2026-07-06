@@ -617,9 +617,7 @@ function editCustomer(id) {
   c.debtLimit = limitRaw > 0 ? limitRaw : null;
   saveDB(); renderMijozlar(); closeModal("addcust");
   toast("✅ Mijoz ma'lumotlari yangilandi");
-  const h2 = document.querySelector("#ov-addcust h2"); if(h2) h2.textContent = "Yangi mijoz";
-  const btn = document.querySelector("#ov-addcust .btn-acc");
-  if (btn) { btn.innerHTML = '<i class="ti ti-check"></i> Saqlash'; btn.onclick = addCustomer; }
+  resetCustForm(); // maydonlar + sarlavha + tugma to'liq tozalanadi
 }
 
 // ── Yangi mijoz qo'shish ──────────────────────────
@@ -872,6 +870,22 @@ function spendLoyaltyPoints(customerId, pointsToSpend) {
 function pointsToSom(pts) {
   return pts * (db.settings?.loyaltyValue || 100);
 }
+
+// "Yangi mijoz" oynasi HAR DOIM toza ochiladi (tahrirdan keyin eski
+// mijoz ma'lumotlari qolib ketmasligi uchun) — AbuSaxiy e'tirozi
+function resetCustForm() {
+  ["ac-name","ac-phone","ac-phone2","ac-note","ac-company","ac-debt-limit",
+   "ac-birthday","ac-important-note"].forEach(id => {
+    const el = $(id); if (el) { el.value = ""; if (el.dataset) el.dataset.raw = ""; }
+  });
+  if ($("ac-type"))   $("ac-type").value   = "ulgurji";
+  if ($("ac-source")) $("ac-source").value = "";
+  const h2 = document.querySelector("#ov-addcust h2");
+  if (h2) h2.textContent = "Yangi mijoz";
+  const btn = document.querySelector("#ov-addcust .btn-acc");
+  if (btn) { btn.innerHTML = '<i class="ti ti-check"></i> Saqlash'; btn.onclick = addCustomer; }
+}
+function openAddCustomer() { resetCustForm(); openModal("addcust"); }
 
 function addCustomer() {
   const name  = ($("ac-name")||{value:""}).value.trim();
