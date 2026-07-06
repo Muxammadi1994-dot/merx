@@ -14,7 +14,13 @@ function addDays(d, n) {
   const r = new Date(d); r.setDate(r.getDate() + n); return r.toISOString().slice(0, 10);
 }
 
-const getShopType = () => db.settings?.shopType || db.shop?.type || "ikki";
+// Do'kon turi (2026-07): kod 2 maxsus turni biladi (oyoq, kiyim);
+// boshqa har qanday qiymat (aralash, kanstovar...) XAVFSIZ "ikki"
+// (universal) rejimga tushadi — hech narsa buzilmaydi.
+const getShopType = () => {
+  const t = db.settings?.shopType || db.shop?.type || "ikki";
+  return (t === "oyoq" || t === "kiyim") ? t : "ikki";
+};
 const visProds    = () => { const t = getShopType(); return t === "ikki" ? db.products : db.products.filter(p => p.type === t); };
 const totalStock = p  => p.variants.reduce((a, v) => a + v.qty, 0);
 
