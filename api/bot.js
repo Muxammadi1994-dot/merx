@@ -980,19 +980,6 @@ function buildStaffOrderHtml(sale, shopName) {
     const unit    = it.unit    || "dona";
     const lineTotal = (it.price || 0) * (it.qty || 0);
 
-    // Rang rangi
-    const colorBg = (() => {
-      const cm = {
-        "qora":"#1A1A1A","oq":"#F0F0F0","ko'k":"#1E40AF","yashil":"#16A34A",
-        "qizil":"#DC2626","sariq":"#EAB308","kulrang":"#6B7280",
-        "jigarrang":"#92400E","binafsha":"#7C3AED","pushti":"#EC4899",
-        "to'q ko'k":"#1E3A8A","navy":"#1E3A8A","orange":"#EA580C"
-      };
-      const cl = color.toLowerCase();
-      for (const [k,v] of Object.entries(cm)) { if (cl.includes(k)) return v; }
-      return "#888";
-    })();
-
     const imgHtml = it.image
       ? `<img src="${it.image}" class="item-img" onclick="toggleDone(${idx},this)" onerror="this.style.display='none'">`
       : "";
@@ -1010,22 +997,10 @@ function buildStaffOrderHtml(sale, shopName) {
     </div>
     <div class="card-name">${it.name}</div>
     <div class="card-attrs">
-      ${color ? `<div class="attr-row">
-        <span class="attr-k">Rang</span>
-        <span class="attr-v"><span class="color-dot" style="background:${colorBg}"></span>${color}</span>
-      </div>` : ""}
-      ${size ? `<div class="attr-row">
-        <span class="attr-k">O'lcham</span>
-        <span class="attr-v">${size}</span>
-      </div>` : ""}
-      ${art ? `<div class="attr-row">
-        <span class="attr-k">Artikul</span>
-        <span class="attr-v code">${art}</span>
-      </div>` : ""}
-      ${barcode ? `<div class="attr-row">
-        <span class="attr-k">Barcode</span>
-        <span class="attr-v code">${barcode}</span>
-      </div>` : ""}
+      ${color ? `<div class="attr-row"><span class="attr-k k-r">R</span><span class="attr-v">${color}</span></div>` : ""}
+      ${size ? `<div class="attr-row"><span class="attr-k k-o">O</span><span class="attr-v">${size}</span></div>` : ""}
+      ${art ? `<div class="attr-row"><span class="attr-k k-a">A</span><span class="attr-v code">${art}</span></div>` : ""}
+      ${barcode ? `<div class="attr-row"><span class="attr-k k-b">B</span><span class="attr-v code sm">${barcode}</span></div>` : ""}
     </div>
   </div>
   <button class="done-btn" onclick="toggleDone(${idx},null)" id="dbtn-${idx}">
@@ -1078,21 +1053,25 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
 .card-done-bar{background:#22C55E;color:#fff;font-family:'Sora',sans-serif;font-size:20px;font-weight:800;text-align:center;padding:10px;letter-spacing:1px}
 
 /* Karta body */
-.card-body{padding:18px 16px 14px}
-.qty-row{margin-bottom:8px}
-.qty-badge{background:#0D1B2A;color:#FFC93C;font-family:'Sora',sans-serif;font-weight:800;font-size:30px;border-radius:10px;padding:7px 14px;display:inline-block}
+.card-body{padding:12px 12px 10px}
+.qty-row{margin-bottom:4px}
+.qty-badge{background:#0D1B2A;color:#FFC93C;font-family:'Sora',sans-serif;font-weight:800;font-size:20px;border-radius:8px;padding:5px 12px;display:inline-block;white-space:nowrap}
 
 /* Nom */
-.card-name{font-family:'Sora',sans-serif;font-size:34px;font-weight:800;color:#050B14;line-height:1.12;margin:8px 0 12px;word-break:break-word}
+.card-name{font-family:'Sora',sans-serif;font-size:21px;font-weight:800;color:#050B14;line-height:1.15;margin:7px 0 9px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
 /* Atributlar */
 .card-attrs{display:flex;flex-direction:column;gap:0}
-.attr-row{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid #F0EDE8}
-.attr-row:last-child{border-bottom:none}
-.attr-k{font-size:20px;font-weight:700;color:#3A4453;min-width:88px}
-.attr-v{font-size:26px;font-weight:800;color:#050B14;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.color-dot{width:26px;height:26px;border-radius:7px;flex-shrink:0;border:2px solid rgba(0,0,0,.12);display:inline-block}
-.code{font-family:monospace;background:#EEF2FF;color:#4F46E5;padding:6px 16px;border-radius:8px;font-size:22px;font-weight:700}
+/* 2026-07: har ma'lumot BIR QATORDA, chip-yorliq (R/O/A/B), matn TINIQ */
+.attr-row{display:flex;align-items:center;gap:8px;padding:4px 0;white-space:nowrap;overflow:hidden}
+.attr-k{font-family:'Sora',sans-serif;font-size:12px;font-weight:800;letter-spacing:.5px;padding:3px 9px;border-radius:6px;flex-shrink:0}
+.k-r{background:#DCFCE7;color:#15803D}
+.k-o{background:#FEF3C7;color:#B45309}
+.k-a{background:#DBEAFE;color:#1D4ED8}
+.k-b{background:#F3E8FF;color:#7C3AED}
+.attr-v{font-size:18px;font-weight:800;color:#0B1220;overflow:hidden;text-overflow:ellipsis}
+.attr-v.code{font-family:'DM Sans',monospace;font-size:17px;letter-spacing:.3px}
+.attr-v.sm{font-size:14px;font-weight:700;color:#1F2937;letter-spacing:.5px}
 
 /* Narx */
 .price-row{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:2px dashed #E8E5E0}
@@ -1100,7 +1079,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
 .price-sum{font-family:'Sora',sans-serif;font-weight:800;font-size:30px;color:#0D1B2A}
 
 /* Tayyor tugma */
-.done-btn{width:100%;padding:20px;border:none;background:#F0FDF4;color:#16A34A;font-family:'Sora',sans-serif;font-size:22px;font-weight:800;cursor:pointer;border-top:1px solid #BBF7D0;transition:background .2s;letter-spacing:.5px}
+.done-btn{width:100%;padding:13px;border:none;background:#F0FDF4;color:#16A34A;font-family:'Sora',sans-serif;font-size:17px;font-weight:800;cursor:pointer;border-top:1px solid #BBF7D0;transition:background .2s;letter-spacing:.5px}
 .done-btn:active{background:#DCFCE7}
 .card.done .done-btn{background:#DCFCE7;color:#15803D}
 
