@@ -517,8 +517,7 @@ function renderDebtsList(list, rate) {
             </select>
             <select id="pay-staff-${s.id}"
               style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:90px">
-              <option value="">Kassir</option>
-              ${(db.staff||[]).map(st=>`<option value="${st.id}">${st.name}</option>`).join("")}
+              ${_qarzStaffOpts()}
             </select>
             <button class="btn btn-teal btn-sm" onclick="recordPayment(${s.id})">To'lov</button>
           </div>
@@ -749,6 +748,14 @@ function findCustomerDebts(s) {
   const list = candidates.filter(x => calcSaleState(x).remaining > 0.5);
   // Eng eski sana birinchi (sana bo'sh bo'lsa oxiriga)
   return list.sort((a, b) => (a.date||"9999") < (b.date||"9999") ? -1 : 1);
+}
+
+// v144: qarz to'lovida kassir AVTOMAT — joriy foydalanuvchi
+function _qarzStaffOpts() {
+  const u = (typeof authLoad === "function") ? authLoad() : null;
+  const auto = (u && u.role === "staff" && u.id != null) ? String(u.id) : "admin";
+  return '<option value="admin"' + (auto === "admin" ? " selected" : "") + '>Egasi (admin)</option>' +
+    (db.staff||[]).map(st => `<option value="${st.id}"${String(st.id)===auto?" selected":""}>${st.name}</option>`).join("");
 }
 
 // ── To'lov qabul qilish (ko'p qarzga avtomatik taqsimlash) ──

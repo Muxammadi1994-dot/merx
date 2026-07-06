@@ -1310,7 +1310,8 @@ function addProduct() {
   const rate1   = db.settings?.rate || 12800;
   // Har doim USD da saqlaymiz
   const cost    = (cur1 === "usd" || cur1 === "both") ? costRaw : costRaw / rate1;
-  const price   = parseFloat(($("ap-price")||{value:0}).value)   || 0;
+  // v151: chakana narx — endi mavjud maydondan, probelga chidamli o'qiladi
+  const price   = ($("ap-price") && typeof getRawVal === "function") ? (getRawVal("ap-price") || 0) : 0;
   const ulg     = getRawVal("ap-ulgurji");
   const unit    = ($("ap-unit")||{value:"dona"}).value;
   const packUnit = ($("ap-packunit")||{value:"karobka"}).value;
@@ -1427,6 +1428,7 @@ const AP_FIELDS = [
   { key:"sizerange", lbl:"O'lchamni o'zgartirish",  def:false },
   { key:"inbox",     lbl:"Import: '1 pochkada nechta' ustuni", def:false },
   { key:"sizes",     lbl:"O'lcham bo'limi (Dan/Gacha)",        def:true  },
+  { key:"chakana",   lbl:"Chakana narx maydoni",               def:false },
 ];
 
 function apGetFields() {

@@ -406,11 +406,19 @@ function returnItemToStock(item) {
     }
 
     if (targetSizes.length > 0) {
-      targetSizes.forEach(sz => {
-        const v = prod.variants.find(x => x.color === color && x.size === sz);
-        if (v) v.qty += boxesReturned;
-        else prod.variants.push({ color: color||"Noma'lum", size: sz, qty: boxesReturned });
-      });
+      // B2 (v152): yagona-variant tovarda 1 pochka = inBox DONA qaytadi
+      // (sotuvdagi v161 tuzatishining ko'zgu-jufti)
+      const colorVars = prod.variants.filter(v => v.color === color);
+      if (colorVars.length === 1) {
+        const perBox = item.inBox || prod.inBox || 1;
+        colorVars[0].qty += boxesReturned * perBox;
+      } else {
+        targetSizes.forEach(sz => {
+          const v = prod.variants.find(x => x.color === color && x.size === sz);
+          if (v) v.qty += boxesReturned;
+          else prod.variants.push({ color: color||"Noma'lum", size: sz, qty: boxesReturned });
+        });
+      }
     } else if (prod.variants.length > 0) {
       // O'lcham umuman aniqlanmasa — birinchi variantga to'liq qaytaramiz (oxirgi chora)
       prod.variants[0].qty += item.qty;

@@ -483,6 +483,20 @@ function omSetPartiyaFilter(val) {
   omRenderKirim();
 }
 
+// v143: kam-qoldiq ogohlantirishidan tezkor qabul — katalogga o'tib,
+// qo'shish oynasini shu tovar nomi bilan ochadi (nom+rang mos kelsa
+// mavjudga QO'SHILADI — bu aynan "qabul" degani)
+function qabulFromAlert(name) {
+  if (typeof nav === "function") nav("katalog");
+  setTimeout(() => {
+    if (typeof openModal === "function") openModal("addprod");
+    const n = $("ap-name");
+    if (n) { n.value = name; n.dispatchEvent(new Event("input", { bubbles: true })); }
+    const b = $("ap-boxes"); if (b) b.focus();
+    toast(`"${name}" uchun qabul: rang va pochka sonini kiriting`);
+  }, 200);
+}
+
 function omSetKirimFilter(f) {
   omKirimFilter = f;
   document.querySelectorAll("[data-kf]").forEach(b => b.classList.toggle("on", b.dataset.kf === f));
