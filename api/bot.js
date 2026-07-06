@@ -745,6 +745,140 @@ function formatReceiptText(sale, shopName) {
   return lines.filter(l => l !== null).join("\n");
 }
 
+// ═══ QARZ TO'LOVI CHEKI (2026-07) ═══════════════════════════════
+// Xabar: jami qarz EDI / TO'LANDI / QOLDI + mini-app cheki tugmasi
+async function actionSendPayReceipt(body) {
+  const { customerId, customerPhone, payment, shopName } = body || {};
+  if (!payment) return { ok: false, error: "payment majburiy" };
+  const shopId = body.shopId || null;
+  const shopFilter = shopId ? `&shop_id=eq.${shopId}` : "";
+
+  // Mijoz chat_id sini topish (telefon → id tartibida)
+  let chatId = null;
+  if (customerPhone) {
+    const rawPhone = normPhone(customerPhone);
+    const normalize = p => p.startsWith("998") ? p.slice(3) : p;
+    const all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id${shopFilter}`);
+    const match = (all||[]).find(c => {
+      const cp = normPhone(c.phone || "");
+      return cp && normalize(cp) === normalize(rawPhone);
+    });
+    if (match?.telegram_chat_id) chatId = match.telegram_chat_id;
+  }
+  if (!chatId && customerId) {
+    const rows = await sb("customers",
+      `?or=(id.eq.${customerId},local_id.eq.${customerId})&select=telegram_chat_id${shopFilter}`);
+    if (rows?.[0]?.telegram_chat_id) chatId = rows[0].telegram_chat_id;
+  }
+  if (!chatId) return { ok: true, sent: false, reason: "no_chat_id" };
+
+  const F = n => Math.round(n||0).toLocaleString("ru-RU");
+  const cur = payment.currency === "usd" ? "$" : "so'm";
+  const M = n => payment.currency === "usd" ? ("$" + (Math.round((n||0)*100)/100)) : (F(n) + " so'm");
+
+  let txt = `💵 <b>TO'LOV QABUL QILINDI</b>  <code>${payment.chekNum || ("#"+payment.id)}</code>\n`;
+  txt += `🏪 ${shopName || "MERX"}\n📅 ${payment.date || ""} ${payment.time || ""}\n`;
+  txt += `━━━━━━━━━━━━━━━━━━━\n`;
+  if (payment.debtBefore != null) txt += `Jami qarz edi:  <b>${M(payment.debtBefore)}</b>\n`;
+  txt += `To'landi:  <b>${M(payment.amount)}</b>${payment.method ? `  (${payment.method})` : ""}\n`;
+  if (payment.debtAfter != null) {
+    txt += payment.debtAfter > 0
+      ? `Qoldi:  <b>${M(payment.debtAfter)}</b>\n`
+      : `Qoldi:  <b>0</b> — qarz to'liq yopildi ✅\n`;
+  }
+  const alloc = payment.allocations || [];
+  if (alloc.length) {
+    txt += `━━━━━━━━━━━━━━━━━━━\n`;
+    alloc.slice(0, 6).forEach(a => {
+      txt += `▫️ <code>${a.chekNum}</code> — ${a.fullyPaid ? "to'liq yopildi ✅" : M(a.amount) + " (qoldi " + M(a.remainingAfter) + ")"}\n`;
+    });
+    if (alloc.length > 6) txt += `<i>…yana ${alloc.length - 6} chek — chek ichida</i>\n`;
+  }
+  if (payment.leftover > 0) txt += `➕ Ortiqcha ${M(payment.leftover)} — balansingizga qo'shildi\n`;
+
+  const _pp = `PAY__${payment.id}${shopId ? "__" + shopId : ""}`;
+  const _ppEnc = _pp.replace(/[^a-zA-Z0-9_]/g, m => "x" + m.charCodeAt(0).toString(16));
+  const payUrl = `https://t.me/${BOT_USERNAME}/ombor?startapp=${_ppEnc}`;
+
+  const r = await tg(chatId, txt, {
+    reply_markup: { inline_keyboard: [[{ text: "🧾 To'lov chekini ko'rish", url: payUrl }]] },
+  });
+  if (!r.ok) return { ok: false, sent: false, reason: "telegram_error", detail: r.description };
+  return { ok: true, sent: true };
+}
+
+// To'lov cheki sahifasi (mini-app ichida ochiladi)
+function buildPayReceiptHtml(p, shopName) {
+  const F = n => Math.round(n||0).toLocaleString("ru-RU");
+  const M = n => p.currency === "usd" ? ("$" + (Math.round((n||0)*100)/100)) : (F(n) + " so'm");
+  const alloc = Array.isArray(p.allocations) ? p.allocations : [];
+  const methodL = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", balans:"Balansdan" }[p.method] || p.method || "";
+  const rows = alloc.map(a => `
+    <tr><td class="c"><code>${a.chekNum||""}</code></td>
+        <td class="a">${M(a.amount)}</td>
+        <td class="s ${a.fullyPaid?"ok":""}">${a.fullyPaid ? "✅ To'liq" : "qoldi " + M(a.remainingAfter)}</td></tr>`).join("");
+  return `<!DOCTYPE html><html lang="uz"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>To'lov ${p.chek_num||p.chekNum||""}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:wght@400;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:30px}
+.hdr{background:#0D1B2A;padding:16px;text-align:center}
+.hdr .l{font-family:'Sora';font-size:11px;color:#E9A500;letter-spacing:2px;font-weight:700}
+.hdr .t{font-family:'Sora';font-size:19px;color:#fff;font-weight:800;margin-top:3px}
+.hdr .s{font-size:12px;color:#c5cdd6;margin-top:2px}
+.amt{background:#fff;margin:12px;border-radius:14px;padding:18px;text-align:center}
+.amt .v{font-family:'Sora';font-size:34px;font-weight:800;color:#059669}
+.amt .m{font-size:13px;color:#374151;font-weight:700;margin-top:4px}
+.box{background:#fff;margin:0 12px 10px;border-radius:12px;padding:12px 14px}
+.row{display:flex;justify-content:space-between;padding:7px 0;font-size:16px;color:#111827;font-weight:700;border-bottom:1px solid #F0EDE8}
+.row:last-child{border-bottom:none}
+.row .k{color:#4B5563;font-weight:700}
+.row .v{font-weight:800;color:#0B1220}
+.row.red .v{color:#DC2626}
+.row.ok .v{color:#059669}
+.sec{padding:12px 16px 6px;font-size:11px;font-weight:800;color:#444;letter-spacing:1px;text-transform:uppercase}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;margin:0 0 10px}
+.tblwrap{margin:0 12px}
+td{padding:11px 10px;font-size:15px;font-weight:700;color:#0B1220;border-bottom:1px solid #F0EDE8}
+td.c code{background:#EEF2FF;color:#4F46E5;padding:3px 8px;border-radius:6px;font-size:14px}
+td.a{text-align:right;white-space:nowrap}
+td.s{text-align:right;font-size:13px;color:#B45309;white-space:nowrap}
+td.s.ok{color:#059669}
+.footer{text-align:center;margin-top:16px;font-size:11px;color:#999}
+</style></head><body>
+<div class="hdr">
+  <div class="l">${(shopName||"MERX").toUpperCase()}</div>
+  <div class="t">🧾 TO'LOV CHEKI  ${p.chek_num||p.chekNum||""}</div>
+  <div class="s">📅 ${p.date||""} ${p.time||""}${p.customer_name||p.customerName ? " · 👤 " + (p.customer_name||p.customerName) : ""}</div>
+</div>
+<div class="amt"><div class="v">${M(p.amount)}</div><div class="m">${methodL}</div></div>
+<div class="box">
+  ${p.debt_before!=null||p.debtBefore!=null ? `<div class="row"><span class="k">Jami qarz edi</span><span class="v">${M(p.debt_before!=null?p.debt_before:p.debtBefore)}</span></div>` : ""}
+  <div class="row ok"><span class="k">To'landi</span><span class="v">${M(p.amount)}</span></div>
+  ${p.debt_after!=null||p.debtAfter!=null ? `<div class="row ${(p.debt_after!=null?p.debt_after:p.debtAfter)>0?"red":"ok"}"><span class="k">Qoldi</span><span class="v">${M(p.debt_after!=null?p.debt_after:p.debtAfter)}</span></div>` : ""}
+  ${Number(p.leftover||0)>0 ? `<div class="row ok"><span class="k">Balansga qo'shildi</span><span class="v">+${M(p.leftover)}</span></div>` : ""}
+</div>
+${rows ? `<div class="sec">Yopilgan cheklar (${alloc.length})</div><div class="tblwrap"><table>${rows}</table></div>` : ""}
+<div class="footer">Rahmat! · ${shopName||"MERX"}</div>
+</body></html>`;
+}
+
+async function actionRenderPayReceipt(payId, shopId) {
+  const shopF = shopId ? `&shop_id=eq.${encodeURIComponent(shopId)}` : "";
+  const rows = await sb("debt_payments", `?id=eq.${encodeURIComponent(payId)}${shopF}&select=*`);
+  const p = rows?.[0];
+  let shopName = "MERX";
+  try {
+    const _sf = (shopId || p?.shop_id) ? `&shop_id=eq.${encodeURIComponent(shopId || p.shop_id)}` : "";
+    const sets = await sb("settings", `?limit=1&select=shop_name${_sf}`);
+    shopName = sets?.[0]?.shop_name || "MERX";
+  } catch {}
+  if (!p) return `<!DOCTYPE html><html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#F2F0EB;color:#888">To'lov topilmadi (biroz kutib, qayta oching)</body></html>`;
+  return buildPayReceiptHtml(p, shopName);
+}
+
 async function actionSendReceipt(body) {
   const { customerId, customerPhone, sale, shopName } = body || {};
   if (!sale) {
@@ -1525,6 +1659,21 @@ export default async function handler(req, res) {
   }
 
   // Chek sahifasi (HTML) — mijoz uchun
+  if (req.method === "GET" && req.query?.action === "pay_receipt") {
+    try {
+      const payId = String(req.query.id || "");
+      const shopQ = req.query.shop || null;
+      if (!payId) return res.status(400).send("To'lov ID kerak");
+      const html = await actionRenderPayReceipt(payId, shopQ);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0, private");
+      return res.status(200).send(html);
+    } catch (e) {
+      console.error("pay_receipt xato:", e.message);
+      return res.status(500).send("Xato: " + e.message);
+    }
+  }
+
   if (req.method === "GET" && req.query?.action === "receipt") {
     try {
       const chekId   = String(req.query.id || "");
@@ -1572,7 +1721,10 @@ export default async function handler(req, res) {
     });
     var parts = decoded.split("__");
     var url;
-    if (parts[0] === "CHK") {
+    if (parts[0] === "PAY") {
+      url = "/api/bot?action=pay_receipt&id=" + encodeURIComponent(parts[1] || "");
+      if (parts[2]) url += "&shop=" + encodeURIComponent(parts[2]);
+    } else if (parts[0] === "CHK") {
       // Mijoz cheki (2026-07): Telegram ichida ochiladi
       url = "/api/bot?action=receipt&id=" + encodeURIComponent(parts[1] || "");
       if (parts[2]) url += "&shop=" + encodeURIComponent(parts[2]);
@@ -1623,6 +1775,19 @@ export default async function handler(req, res) {
   }
 
   // MERX dan: mijozga chek yuborish
+  if (req.query?.action === "send_pay_receipt") {
+    let body;
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; }
+    catch { return res.status(400).json({ ok: false, error: "invalid_json" }); }
+    try {
+      const result = await actionSendPayReceipt(body);
+      return res.status(200).json(result);
+    } catch (e) {
+      console.error("send_pay_receipt xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
   if (req.query?.action === "send_receipt") {
     let body;
     try {

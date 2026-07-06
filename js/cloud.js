@@ -395,7 +395,9 @@ async function pushToCloud() {
         note: p.note || null,
         allocations: p.allocations || [],
         leftover: p.leftover || 0,
-        leftover_to_balance: !!p.leftoverToBalance
+        leftover_to_balance: !!p.leftoverToBalance,
+        debt_before: p.debtBefore != null ? p.debtBefore : null,
+        debt_after:  p.debtAfter  != null ? p.debtAfter  : null
       })));
     } catch(e) { syncErrors.push("debt_payments: " + e.message); console.warn("sync debt_payments xato:", e.message); }
 
@@ -774,6 +776,8 @@ async function pullFromCloud() {
         customerName:  p.customer_name || null,
         customerPhone: p.customer_phone || null,
         allocations:   p.allocations || [],
+        debtBefore:    p.debt_before,
+        debtAfter:     p.debt_after,
         leftover:      p.leftover || 0,
         leftoverToBalance: !!p.leftover_to_balance
       }));

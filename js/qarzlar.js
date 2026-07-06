@@ -833,12 +833,24 @@ async function recordPayment(id, forcedCurrency) {
     return payCur === "usd" ? isUsd : !isUsd;
   });
 
-  // Bosilgan qarz ro'yxatning boshida bo'lishi shart emas — lekin
-  // taqsimlash har doim eng eski SOTUVDAN boshlanadi (FIFO, muddat emas)
+  // TAQSIMLASH TARTIBI (v145): chek qatoridan to'lansa (forcedCurrency
+  // yo'q) — AVVAL O'SHA CHEK yopiladi, ortiqchasi eng eskidan davom
+  // etadi. Guruhlangan/umumiy to'lovda (forcedCurrency bor) — FIFO.
+  const orderedDebts = forcedCurrency
+    ? sameCurDebts
+    : [ ...sameCurDebts.filter(s => s.id === clicked.id),
+        ...sameCurDebts.filter(s => s.id !== clicked.id) ];
+
+  // Bot xabari uchun: to'lovdan OLDINGI jami qarz (shu valyutada)
+  const totalBefore = sameCurDebts.reduce((a, s) => {
+    const st0 = calcSaleState(s);
+    return a + (payCur === "usd" ? (st0.debtUsd || 0) : (st0.remaining || 0));
+  }, 0);
+
   let remainingPay = amt;
   const allocations = [];
 
-  for (const s of sameCurDebts) {
+  for (const s of orderedDebts) {
     if (remainingPay <= 0) break;
     const st = calcSaleState(s);
 
@@ -907,7 +919,10 @@ async function recordPayment(id, forcedCurrency) {
     method:        method,
     allocations:   allocations,
     leftover:      leftover > 0 ? leftover : 0,
-    leftoverToBalance: leftover > 0 && clicked.customerId ? true : false
+    leftoverToBalance: leftover > 0 && clicked.customerId ? true : false,
+    // v145: bot xabari va to'lov cheki uchun — edi / qoldi
+    debtBefore:    Math.round(totalBefore * 100) / 100,
+    debtAfter:     Math.round(Math.max(0, totalBefore - (amt - (leftover > 0 ? leftover : 0))) * 100) / 100
   };
   db.debtPayments = db.debtPayments || [];
   db.debtPayments.push(payment);
@@ -947,7 +962,7 @@ async function recordPayment(id, forcedCurrency) {
   const phone = cu.phone;
   if (phone && phone.replace(/\D/g,"").length >= 9) {
     const shopName = db.shop?.name || "MERX";
-    let smsTxt = `${shopName}: To'lov qabul qilindi: ${amtDisplay}.`;
+    let smsTxt = `${shopName}: To'lov qabul qilindi: ${amtDisplay}. Jami qarz: ${fmtMoney(payment.debtBefore, payCur)} edi, ${fmtMoney(payment.debtAfter, payCur)} qoldi.`;
     if (allocations.length > 1) {
       smsTxt += " " + allocations.map(a =>
         `${a.saleDate}: ${a.fullyPaid ? "yopildi" : fmtMoney(a.amount,a.currency)+" hisobga o'tdi"}`
@@ -958,11 +973,37 @@ async function recordPayment(id, forcedCurrency) {
     }
     await sendSms(phone, smsTxt);
 
-    // Telegram orqali ham xabar yuboramiz
-    if (typeof sendTelegramText === "function") {
+    // Telegram: to'lov cheki (mini-app tugmasi bilan) — v145
+    if (typeof sendTelegramPayReceipt === "function") {
+      await sendTelegramPayReceipt(clicked.customerId || null, phone, payment);
+    } else if (typeof sendTelegramText === "function") {
       await sendTelegramText(clicked.customerId || null, phone, smsTxt);
     }
   }
+}
+
+// ── Telegram: to'lov chekini yuborish (v145) ─────────────────────
+async function sendTelegramPayReceipt(customerId, customerPhone, payment) {
+  const botUrl = db.settings?.telegramBotUrl;
+  if (!botUrl || (!customerId && !customerPhone)) return;
+  const _sid = (db.settings?.cloudShopId && db.settings.cloudShopId !== "local")
+    ? db.settings.cloudShopId
+    : (typeof getShopId === "function" && getShopId() !== "local" ? getShopId() : null);
+  try {
+    const res = await fetch(botUrl + "?action=send_pay_receipt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        customerId: customerId || null,
+        customerPhone: customerPhone || null,
+        payment,
+        shopName: db.shop?.name || "MERX",
+        shopId: _sid
+      })
+    });
+    const data = await res.json();
+    if (data.sent) toast("📨 To'lov cheki Telegram orqali yuborildi");
+  } catch (e) { console.warn("TG to'lov cheki yuborilmadi:", e.message); }
 }
 
 
