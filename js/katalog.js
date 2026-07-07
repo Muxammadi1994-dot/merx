@@ -1843,7 +1843,11 @@ async function aiNkAnalyze() {
 
     // Natijani MAVJUD import parserining o'ziga uzatamiz — bir xil
     // ko'rib chiqish/tasdiqlash oynasidan foydalanish uchun
-    closeModal("ai-naklad");
+    // Import oynasi "Naklad rasmini yuklash" bosilganda YOPIB qo'yilgan edi
+    // (openModal — bir vaqtda faqat bitta oyna ochiq turishini ta'minlaydi).
+    // Shuning uchun shunchaki yopish emas, IMPORT oynasini qayta ochamiz —
+    // bu ai-naklad'ni ham yopadi va foydalanuvchi natija jadvalini ko'radi.
+    openModal("import");
     _aiNkFiles = [];
     if ($("ai-nk-files")) $("ai-nk-files").value = "";
     if ($("ai-nk-filelist")) $("ai-nk-filelist").textContent = "";
