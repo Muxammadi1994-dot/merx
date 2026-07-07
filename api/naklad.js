@@ -29,7 +29,21 @@ Har element uchun:
   faqat raqam (valyuta belgisiz).
 
 Faqat jadvaldagi haqiqiy tovar qatorlarini chiqar, jami/summary qatorlarni
-o'tkazib yubor. Qiymatni aniq o'qib bo'lmasa ham eng mantiqiy taxminni ber
+o'tkazib yubor.
+
+MUHIM — NARX HAR DOIM TO'LDIRILISHI SHART (bu eng ko'p xato qiladigan joy):
+- Ba'zi jadvallarda narx ustuni faqat GURUHNING BIRINCHI qatorida
+  ko'rsatilib, qolgan rang/variant qatorlarida katak BO'SH yoki
+  birlashtirilgan (merged) bo'ladi — bunda o'sha narxni guruhdagi
+  BARCHA qatorlarga (pastga qarab) qo'llash kerak, HECH QAYSI qatorni
+  narxsiz qoldirma.
+- Ba'zan ustunda T.Price (JAMI summa) ko'rsatiladi, U.Price (bitta
+  DONA narxi) emas — bunday holda birlik_narx_cny ni T.Price ni
+  jami donaga (pochka_soni × birlik_soni) BO'LIB hisobla.
+- Agar bir nechta narx ustuni bo'lsa (masalan turli hajm/rangga oid),
+  o'sha QATORGA tegishli ustundagi narxni ol, boshqa qatorning
+  narxini ishlatma.
+- Qiymatni aniq o'qib bo'lmasa ham eng mantiqiy taxminni ber
 — hech qachon maydonni bo'sh/noaniq qoldirma.`;
 
 const NAKLAD_SCHEMA = {

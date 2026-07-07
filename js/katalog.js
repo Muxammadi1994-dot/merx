@@ -2117,33 +2117,92 @@ function parseImportCSV(text) {
 }
 
 // ── Preview ───────────────────────────────────────
+// v154: qator ichidagi bitta maydonni yangilash (matn maydonlari uchun)
+function impSetField(i, field, value) {
+  if (_importRows[i]) _importRows[i][field] = value;
+}
+
+// v154: Pochka soni / 1 pochkada o'zgarsa — Jami dona qayta hisoblanadi
+function impRecalcQty(i) {
+  const r = _importRows[i]; if (!r) return;
+  const boxes = parseInt(($("imp-boxes-"+i)||{value:0}).value) || 0;
+  const inbox = parseInt(($("imp-inbox-"+i)||{value:0}).value) || 0;
+  r.boxes = boxes || null;
+  r.inbox = inbox || 1;
+  r._inboxExplicit = true;
+  r.qty = boxes * (inbox || 0);
+  const qtyEl = $("imp-qty-"+i);
+  if (qtyEl) qtyEl.textContent = `${r.qty} ${r.unit || "dona"}`;
+}
+
+// v154: Tannarx (so'm ko'rinishida tahrirlanadi, ichida costUsd saqlanadi)
+function impSetCost(i, inputEl) {
+  fmtInput(inputEl);
+  const rate = db.settings?.rate || 12800;
+  const som = parseInt(inputEl.dataset.raw) || 0;
+  if (_importRows[i]) _importRows[i].costUsd = som / rate;
+}
+
+// v154: Sotuv (ulgurji) narxi — to'g'ridan-to'g'ri so'mda saqlanadi
+function impSetUlg(i, inputEl) {
+  fmtInput(inputEl);
+  if (_importRows[i]) _importRows[i].ulg = parseInt(inputEl.dataset.raw) || 0;
+}
+
 function showImportPreview() {
   if (!_importRows.length) { toast("Qatorlar topilmadi","err"); return; }
 
   const prev = $("import-preview"); if (prev) prev.style.display = "block";
   const lbl  = $("import-preview-lbl");
-  if (lbl) lbl.textContent = `${_importRows.length} ta qator topildi — birinchi 5 tasi:`;
+  if (lbl) lbl.textContent = `${_importRows.length} ta qator — har birini tekshiring, xato bo'lsa ustiga bosib tuzating:`;
+  const rate = db.settings?.rate || 12800;
 
   const head = $("import-preview-head");
-  if (head) head.innerHTML = `<tr>${["Nom","ART","Rang","O'lcham","Qoldiq","Tannarx (USD)","Ulgurji"].map(h =>
-    `<th style="padding:6px 10px;font-weight:700;text-align:left;white-space:nowrap">${h}</th>`).join("")}</tr>`;
+  if (head) head.innerHTML = `<tr>${["Nom","ART","Rang","O'lcham","Pochka","1 pochkada","Jami dona","Tannarx (so'm)","Sotuv narxi (so'm)"].map(h =>
+    `<th style="padding:6px 8px;font-weight:700;text-align:left;white-space:nowrap">${h}</th>`).join("")}</tr>`;
+
+  const inpCss = "width:100%;min-width:70px;border:1px solid var(--brd);border-radius:6px;padding:4px 6px;font-size:12px;font-family:inherit";
 
   const body = $("import-preview-body");
-  if (body) body.innerHTML = _importRows.slice(0,5).map(r => `<tr>
-    <td style="padding:5px 10px;border-top:1px solid var(--brd);font-weight:600">${r.nom}</td>
-    <td style="padding:5px 10px;border-top:1px solid var(--brd);font-family:monospace;color:#666">${r.art||"—"}</td>
-    <td style="padding:5px 10px;border-top:1px solid var(--brd)">
-      <div style="display:flex;align-items:center;gap:6px">
-        <div style="width:14px;height:14px;border-radius:3px;background:${r.hex};border:1px solid rgba(0,0,0,.15);flex-shrink:0"></div>
-        ${r.color}
+  if (body) body.innerHTML = _importRows.map((r,i) => `<tr>
+    <td style="padding:4px;border-top:1px solid var(--brd)">
+      <input value="${(r.nom||"").replace(/"/g,'&quot;')}" style="${inpCss};min-width:100px;font-weight:600"
+        oninput="impSetField(${i},'nom',this.value)">
+    </td>
+    <td style="padding:4px;border-top:1px solid var(--brd)">
+      <input value="${(r.art||"").replace(/"/g,'&quot;')}" style="${inpCss};min-width:60px;font-family:monospace"
+        oninput="impSetField(${i},'art',this.value)">
+    </td>
+    <td style="padding:4px;border-top:1px solid var(--brd)">
+      <div style="display:flex;align-items:center;gap:5px">
+        <div style="width:12px;height:12px;border-radius:3px;background:${r.hex||'#888'};border:1px solid rgba(0,0,0,.15);flex-shrink:0"></div>
+        <input value="${(r.color||"").replace(/"/g,'&quot;')}" style="${inpCss};min-width:60px"
+          oninput="impSetField(${i},'color',this.value)">
       </div>
     </td>
-    <td style="padding:5px 10px;border-top:1px solid var(--brd)">${r.size}</td>
-    <td style="padding:5px 10px;border-top:1px solid var(--brd);font-weight:700">
-      ${r.boxes ? `${r.boxes} pochka` : ""}${r.qty} ${r.unit||"dona"}
+    <td style="padding:4px;border-top:1px solid var(--brd)">
+      <input value="${(r.size||"").replace(/"/g,'&quot;')}" style="${inpCss};min-width:55px"
+        oninput="impSetField(${i},'size',this.value)">
     </td>
-    <td style="padding:5px 10px;border-top:1px solid var(--brd)">$${r.costUsd.toFixed(2)}</td>
-    <td style="padding:5px 10px;border-top:1px solid var(--brd)">${fmt(r.ulg)} so'm</td>
+    <td style="padding:4px;border-top:1px solid var(--brd)">
+      <input id="imp-boxes-${i}" type="number" value="${r.boxes||''}" style="${inpCss};min-width:50px"
+        oninput="impRecalcQty(${i})">
+    </td>
+    <td style="padding:4px;border-top:1px solid var(--brd)">
+      <input id="imp-inbox-${i}" type="number" value="${r.inbox||1}" style="${inpCss};min-width:50px"
+        oninput="impRecalcQty(${i})">
+    </td>
+    <td style="padding:4px 8px;border-top:1px solid var(--brd);font-weight:700;white-space:nowrap" id="imp-qty-${i}">
+      ${r.qty} ${r.unit||"dona"}
+    </td>
+    <td style="padding:4px;border-top:1px solid var(--brd)">
+      <input data-price value="${fmt(Math.round((r.costUsd||0)*rate))}" style="${inpCss};min-width:80px"
+        oninput="impSetCost(${i},this)">
+    </td>
+    <td style="padding:4px;border-top:1px solid var(--brd)">
+      <input data-price value="${fmt(r.ulg||0)}" style="${inpCss};min-width:90px;border-color:#059669"
+        oninput="impSetUlg(${i},this)">
+    </td>
   </tr>`).join("");
 
   const btn = $("import-confirm-btn");
