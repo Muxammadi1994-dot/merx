@@ -10,7 +10,7 @@ const STAFF_GROUP  = process.env.STAFF_GROUP_ID;
 const LOW_LIMIT    = parseInt(process.env.LOW_STOCK_LIMIT || "5");
 const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || "merx_savdo_bot";
 const GEMINI_KEY    = process.env.GEMINI_API_KEY;   // AI-naklad uchun (2026-07)
-const GEMINI_MODEL  = "gemini-2.0-flash";
+const GEMINI_MODEL  = "gemini-flash-latest";  // 2026-07: 2.0-flash Google tomonidan o'chirildi; "latest" alias avtomatik yangi modelga ishora qiladi
 
 // ── Multi-tenant: chatId → shopId xaritasi (RAM cache) ──────
 // Har so'rovda Supabase ga bormayslik uchun vaqtinchalik cache

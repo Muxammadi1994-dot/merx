@@ -7,7 +7,7 @@
 // ════════════════════════════════════════════════════════════════
 
 const GEMINI_KEY   = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-flash-latest";  // 2026-07: 2.0-flash Google tomonidan o'chirildi; "latest" alias avtomatik yangi modelga ishora qiladi
 
 const NAKLAD_PROMPT = `Bu — Xitoydan kelayotgan tovar nakladnoyi (proforma invoice) jadvali rasmi.
 Jadvaldagi HAR BIR qatorni (har rang/variant alohida qator) JSON sifatida chiqar.
