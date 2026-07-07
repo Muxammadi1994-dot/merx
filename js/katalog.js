@@ -1351,12 +1351,14 @@ function addProduct() {
   const effectiveInBox = (inBox > 0 ? inBox : (autoIn || 1));
   const newVariants = [{ color, size: sizeText || "-", qty: boxes * effectiveInBox, pantone, hex }];
 
-  // B1 (v147): HAR RANG = ALOHIDA TOVAR. Mavjudlik nom + RANG bo'yicha
-  // tekshiriladi — boshqa rang bo'lsa, yangi mustaqil tovar ochiladi
-  // (o'z narxi, o'z shtrix-kodi; birida narx o'zgarsa boshqasiga tegmaydi).
+  // B1 (v152): HAR RANG = ALOHIDA TOVAR, ARTIKUL ham hisobga olinadi.
+  // Nom+rang bir xil bo'lsa-da, ARTIKUL boshqa bo'lsa — bu boshqa tovar
+  // (masalan xitoy nakladnoylarida bir xil "navy" rang, har xil kod).
+  // Artikul kiritilmagan bo'lsa — avvalgidek nom+rang bo'yicha qidiriladi.
   let p = db.products.find(x =>
     x.name.toLowerCase() === name.toLowerCase() &&
-    (x.variants || []).some(v => (v.color || "").toLowerCase() === color.toLowerCase())
+    (x.variants || []).some(v => (v.color || "").toLowerCase() === color.toLowerCase()) &&
+    (art ? (x.art || "").toLowerCase() === art.toLowerCase() : !(x.art || "").trim())
   );
   if (p) {
     // B2: rang bo'yicha yagona variantga qo'shamiz (o'lcham matni farq
@@ -2110,15 +2112,17 @@ function confirmImport() {
 
   _importRows.forEach(r => {
     // Mavjud mahsulotni topish (nom + art bo'yicha)
-    // B1 (v147): har rang = alohida tovar — qidiruv nom(+art) + RANG bilan
+    // B1 (v152): har rang = alohida tovar, ARTIKUL ham hisobga olinadi.
+    // Nom+rang mos kelib, ARTIKUL boshqa bo'lsa — boshqa tovar (xitoy
+    // nakladnoylarida bir xil rang, har xil kod holati uchun tuzatildi).
+    // Eski "artikulni e'tiborsiz qoldiruvchi" zaxira qidiruv OLIB TASHLANDI.
     const _colorMatch = x => (x.variants || []).some(v =>
       (v.color || "").toLowerCase() === (r.color || "").toLowerCase());
     let p = db.products.find(x =>
       x.name.toLowerCase() === r.nom.toLowerCase() &&
-      (r.art ? (x.art||"").toLowerCase() === r.art.toLowerCase() : true) &&
-      _colorMatch(x)
-    ) || db.products.find(x =>
-      x.name.toLowerCase() === r.nom.toLowerCase() && _colorMatch(x));
+      _colorMatch(x) &&
+      (r.art ? (x.art||"").toLowerCase() === r.art.toLowerCase() : !(x.art||"").trim())
+    );
 
     const variant = { color: r.color, size: r.size, qty: r.qty, pantone: r.pantone, hex: r.hex || "#888888" };
 
