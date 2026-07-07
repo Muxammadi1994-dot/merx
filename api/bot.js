@@ -9,6 +9,8 @@ const OWNER_ID     = process.env.BOT_OWNER_CHAT_ID;  // Superadmin chat ID
 const STAFF_GROUP  = process.env.STAFF_GROUP_ID;
 const LOW_LIMIT    = parseInt(process.env.LOW_STOCK_LIMIT || "5");
 const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || "merx_savdo_bot";
+const GEMINI_KEY    = process.env.GEMINI_API_KEY;   // AI-naklad uchun (2026-07)
+const GEMINI_MODEL  = "gemini-2.0-flash";
 
 // ── Multi-tenant: chatId → shopId xaritasi (RAM cache) ──────
 // Har so'rovda Supabase ga bormayslik uchun vaqtinchalik cache
@@ -172,6 +174,21 @@ async function tgPhoto(chatId, photoSrc, caption, extra = {}) {
   return res.json();
 }
 
+// Fayl (document) yuborish — AI-naklad natijasi CSV uchun (2026-07)
+async function tgDocument(chatId, filename, content, caption) {
+  try {
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    if (caption) { form.append("caption", caption); form.append("parse_mode", "HTML"); }
+    form.append("document", new Blob([content], { type: "text/csv;charset=utf-8" }), filename);
+    const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendDocument`, { method: "POST", body: form });
+    return res.json();
+  } catch (e) {
+    console.error("[tgDocument] xato:", e.message);
+    return { ok: false, description: e.message };
+  }
+}
+
 // Telegram callback javob
 async function tgAnswer(callbackId) {
   await fetch(`https://api.telegram.org/bot${TOKEN}/answerCallbackQuery`, {
@@ -246,6 +263,222 @@ async function isShopOwner(chatId) {
     } catch(e) {}
   }
   return false;
+}
+
+// ════════════════════════════════════════════════════════════════
+// AI-NAKLAD (2026-07): naklad rasmidan Gemini orqali tovar jadvali
+// chiqarib, MERX import shabloniga mos CSV qaytaradi.
+// ════════════════════════════════════════════════════════════════
+
+const NAKLAD_PROMPT = `Bu — Xitoydan kelayotgan tovar nakladnoyi (proforma invoice) jadvali rasmi.
+Jadvaldagi HAR BIR qatorni (har rang/variant alohida qator) JSON sifatida chiqar.
+
+Har element uchun:
+- nom: tovar nomi/turi (masalan "Krossovka", "Ayollar tufli"). Aniq nom yo'q
+  bo'lsa, LOGO/brend nomidan foydalanib qisqa umumiy nom yoz.
+- artikul: model/stil kodi (Styles NO, Art.No, model raqami — jadvalda odatda
+  bor ustun). MAJBURIY va NOYOB bo'lishi kerak: bir xil rangli lekin boshqa
+  model kodli qatorlarni ALOHIDA element deb hisobla, birlashtirma.
+- rang: rang nomi (COLOR ustuni qiymati, masalan "navy", "black").
+- olcham: agar jadvalda o'lcham ustunlari (39,40,41...) bo'lib qiymatlari
+  bir xil takrorlansa — eng kichik va eng katta o'lchamni "39-44" formatida
+  yoz. O'lcham ustunlari yo'q bo'lsa — bo'sh qoldir ("").
+- pochka_soni: CTN ustuni (karobka/karton soni).
+- birlik_soni: 1 karobkada nechta DONA (PRS/CTN nisbati, yoki o'lcham
+  ustunlaridagi qiymatlar yig'indisi, masalan 2+2+2+2+2+2=12).
+- birlik_narx_cny: U.Price ustuni — bitta DONA narxi, Xitoy yuanida (CNY),
+  faqat raqam (valyuta belgisiz).
+
+Faqat jadvaldagi haqiqiy tovar qatorlarini chiqar, jami/summary qatorlarni
+o'tkazib yubor. Qiymatni aniq o'qib bo'lmasa ham eng mantiqiy taxminni ber
+— hech qachon maydonni bo'sh/noaniq qoldirma.`;
+
+const NAKLAD_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    items: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          nom:             { type: "STRING" },
+          artikul:         { type: "STRING" },
+          rang:            { type: "STRING" },
+          olcham:          { type: "STRING" },
+          pochka_soni:     { type: "NUMBER" },
+          birlik_soni:     { type: "NUMBER" },
+          birlik_narx_cny: { type: "NUMBER" },
+        },
+        required: ["rang", "pochka_soni", "birlik_soni", "birlik_narx_cny"],
+      },
+    },
+  },
+  required: ["items"],
+};
+
+// Gemini Vision orqali naklad rasmlaridan tovar ro'yxatini chiqarish
+async function geminiExtractNaklad(images) {
+  if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY sozlanmagan (Vercel ENV)");
+  const parts = [
+    { text: NAKLAD_PROMPT },
+    ...images.map(im => ({ inlineData: { mimeType: im.mimeType, data: im.buffer.toString("base64") } })),
+  ];
+  const body = {
+    contents: [{ role: "user", parts }],
+    generationConfig: { responseMimeType: "application/json", responseSchema: NAKLAD_SCHEMA, temperature: 0.1 },
+  };
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+  );
+  const data = await r.json();
+  if (!r.ok) throw new Error("Gemini xato: " + (data?.error?.message || r.status));
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Gemini bo'sh javob qaytardi");
+  const parsed = JSON.parse(text);
+  return parsed.items || [];
+}
+
+// Kurs + yo'l xarajatini QIYMATGA mutanosib taqsimlab, har dona tannarxini hisoblash
+function computeNakladCosts(items, kurs, logistics) {
+  const withValue = items.map(it => {
+    const jamiDona = Math.max(0, Math.round((it.pochka_soni || 0) * (it.birlik_soni || 0)));
+    const valueCny = (it.birlik_narx_cny || 0) * jamiDona;
+    return { ...it, jamiDona, valueCny };
+  });
+  const totalValueCny = withValue.reduce((a, it) => a + it.valueCny, 0) || 1;
+  return withValue.map(it => {
+    const valueSom = it.valueCny * (kurs || 0);
+    const share = logistics > 0 ? logistics * (it.valueCny / totalValueCny) : 0;
+    const costPerUnitSom = it.jamiDona > 0 ? Math.round((valueSom + share) / it.jamiDona) : 0;
+    return { ...it, costPerUnitSom };
+  });
+}
+
+// MERX import shabloniga mos CSV (Ulgurji narx bo'sh — sotuvchi to'ldiradi)
+function buildNakladCsv(rows) {
+  const headers = ["Nom", "ART", "Rang", "O'lcham", "1 pochkada nechta", "Pochka soni", "Tannarx", "Ulgurji narx"];
+  const esc = v => { const s = String(v ?? ""); return (s.includes(";") || s.includes(",") || s.includes('"')) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const lines = rows.map(r => [
+    r.nom || "Tovar", r.artikul || "", r.rang || "", r.olcham || "",
+    r.birlik_soni || "", r.pochka_soni || "", r.costPerUnitSom || "", "",
+  ]);
+  return "sep=;\r\n" + [headers, ...lines].map(r => r.map(esc).join(";")).join("\r\n");
+}
+
+// Telegram fayl (rasm) yuklab olish
+async function tgGetFileBuffer(fileId) {
+  const infoRes = await fetch(`https://api.telegram.org/bot${TOKEN}/getFile?file_id=${fileId}`);
+  const info = await infoRes.json();
+  if (!info.ok) throw new Error("Telegram getFile xato: " + (info.description || ""));
+  const filePath = info.result.file_path;
+  const fileRes = await fetch(`https://api.telegram.org/file/bot${TOKEN}/${filePath}`);
+  const buffer = Buffer.from(await fileRes.arrayBuffer());
+  const mimeType = filePath.endsWith(".png") ? "image/png"
+    : filePath.endsWith(".webp") ? "image/webp"
+    : filePath.endsWith(".pdf")  ? "application/pdf"
+    : "image/jpeg";
+  return { buffer, mimeType };
+}
+
+// Sessiya: Supabase'dagi naklad_sessions jadvalida (chat_id PK)
+async function nkGet(chatId) {
+  try {
+    const rows = await sb("naklad_sessions", `?chat_id=eq.${chatId}&select=*&limit=1`);
+    return rows?.[0] || null;
+  } catch (e) { return null; }
+}
+async function nkSave(chatId, patch) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/naklad_sessions?on_conflict=chat_id`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify({ chat_id: String(chatId), updated_at: new Date().toISOString(), ...patch }),
+    });
+  } catch (e) { console.warn("nkSave xato:", e.message); }
+}
+async function nkClear(chatId) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/naklad_sessions?chat_id=eq.${chatId}`, {
+      method: "DELETE", headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
+    });
+  } catch (e) {}
+}
+
+async function cmdNakladStart(chatId) {
+  await nkClear(chatId);
+  await nkSave(chatId, { step: "collecting", images: [] });
+  await tg(chatId,
+    "📦 <b>AI orqali naklad import</b>\n\n" +
+    "Naklad rasm(lar)ini yuboring (bir nechta bo'lsa ketma-ket).\n\n" +
+    "Tugatgach: /tayyor\nBekor qilish: /bekor"
+  );
+}
+
+// Faol naklad sessiyasidagi xabarni (rasm yoki matn) tegishli qadamga yo'naltiradi.
+// true qaytarsa — xabar shu yerda "yutilgan", oddiy komanda routeriga o'tmaydi.
+async function handleNakladFlow(chatId, msg, sess) {
+  const text = (msg.text || "").trim();
+  if (text === "/bekor") { await nkClear(chatId); await tg(chatId, "❌ Bekor qilindi."); return true; }
+
+  if (sess.step === "collecting") {
+    const isImg = msg.photo?.length || (msg.document && (msg.document.mime_type || "").startsWith("image/"));
+    if (isImg) {
+      const fid = msg.photo?.length ? msg.photo[msg.photo.length - 1].file_id : msg.document.file_id;
+      const imgs = [...(sess.images || []), { file_id: fid }];
+      await nkSave(chatId, { images: imgs });
+      await tg(chatId, `✅ Rasm qabul qilindi (${imgs.length} ta).\nYana yuboring yoki /tayyor deb yozing.`);
+      return true;
+    }
+    if (text === "/tayyor") {
+      if (!sess.images?.length) { await tg(chatId, "Avval kamida 1 ta rasm yuboring."); return true; }
+      await nkSave(chatId, { step: "kurs" });
+      await tg(chatId, "💱 1 CNY (yuan) necha so'm? (masalan: 1750)");
+      return true;
+    }
+    await tg(chatId, "Naklad rasmini yuboring yoki /tayyor deb yozing.\n(Bekor qilish: /bekor)");
+    return true;
+  }
+
+  if (sess.step === "kurs") {
+    const v = parseFloat(text.replace(/[^\d.]/g, ""));
+    if (!v || v <= 0) { await tg(chatId, "Iltimos, to'g'ri son kiriting (masalan: 1750)"); return true; }
+    await nkSave(chatId, { kurs: v, step: "logistics" });
+    await tg(chatId, "🚚 Jami yo'l xarajati necha so'm? (yo'q bo'lsa 0 yozing)");
+    return true;
+  }
+
+  if (sess.step === "logistics") {
+    const v = parseFloat(text.replace(/[^\d.]/g, ""));
+    if (isNaN(v) || v < 0) { await tg(chatId, "Iltimos, to'g'ri son kiriting (yo'q bo'lsa 0)"); return true; }
+    await nkSave(chatId, { logistics: v, step: "processing" });
+    await processNaklad(chatId, { ...sess, logistics: v });
+    return true;
+  }
+
+  return false;
+}
+
+async function processNaklad(chatId, sess) {
+  await tg(chatId, "⏳ Tahlil qilinmoqda, biroz kuting (yarim daqiqagacha)...");
+  try {
+    const images = [];
+    for (const im of (sess.images || [])) images.push(await tgGetFileBuffer(im.file_id));
+    const items = await geminiExtractNaklad(images);
+    if (!items.length) throw new Error("Tovarlar aniqlanmadi — rasm sifatini tekshirib qayta urining");
+    const computed = computeNakladCosts(items, sess.kurs, sess.logistics || 0);
+    const csv = buildNakladCsv(computed);
+    await tgDocument(chatId, `merx_naklad_${Date.now()}.csv`, csv,
+      `✅ <b>${computed.length} ta tovar aniqlandi</b>\n\n` +
+      `Tannarx avtomat hisoblangan (kurs: ${sess.kurs} so'm/CNY, yo'l xarajati: ${Math.round(sess.logistics || 0).toLocaleString("ru-RU")} so'm taqsimlangan).\n\n` +
+      `⚠️ Import qilishdan oldin ma'lumotlarni tekshiring va Ulgurji narxni to'ldiring — AI xato qilishi mumkin!`
+    );
+  } catch (e) {
+    console.error("processNaklad xato:", e.message);
+    await tg(chatId, `❌ Xato: ${e.message}\n\nQaytadan urinib ko'ring: /naklad`);
+  } finally {
+    await nkClear(chatId);
+  }
 }
 
 // Egasi bo'lgan barcha do'konlar ro'yxati
@@ -1632,6 +1865,7 @@ async function cmdHelp(chatId) {
     txt += "/qarzlar — Muddati o'tgan qarzlar\n";
     txt += "/barcha_qarzlar — Barcha ochiq qarzlar\n";
     txt += "/stat — Bu oylik statistika\n";
+    txt += "/naklad — 🤖 AI orqali naklad rasmidan tovar import qilish\n";
     txt += "\n📱 Mijoz havolasi:\n";
     txt += `t.me/merx_savdo_bot?start=${ctx.shopId || ""}`;
   } else {
@@ -2017,6 +2251,16 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  // AI-NAKLAD (2026-07): faol sessiya bo'lsa, xabar (rasm/matn) shu
+  // oqimga yo'naltiriladi — /naklad bundan mustasno (qayta boshlash uchun)
+  if (cmd !== "/naklad") {
+    const nkSess = await nkGet(chatId);
+    if (nkSess) {
+      const handled = await handleNakladFlow(chatId, msg, nkSess);
+      if (handled) return res.status(200).json({ ok: true });
+    }
+  }
+
   switch (cmd) {
     case "/hisobot":
     case "/bugun":          await cmdHisobot(chatId);        break;
@@ -2026,6 +2270,7 @@ export default async function handler(req, res) {
     case "/barcha_qarzlar": await cmdQarzlar(chatId, true);  break;
     case "/stat":
     case "/oylik":          await cmdOylikStat(chatId);      break;
+    case "/naklad":         await cmdNakladStart(chatId);    break;
     case "/help":           await cmdHelp(chatId);           break;
     default:
       if (text.startsWith("/")) {

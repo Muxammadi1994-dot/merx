@@ -1796,6 +1796,66 @@ function openKatalogImport() {
   openModal("import");
 }
 
+// ── AI-Naklad (2026-07): naklad rasmidan avtomatik shablon ─────
+let _aiNkFiles = [];
+
+function aiNkOnFiles(input) {
+  _aiNkFiles = Array.from(input.files || []);
+  const el = $("ai-nk-filelist");
+  if (el) el.textContent = _aiNkFiles.length
+    ? `${_aiNkFiles.length} ta rasm tanlandi`
+    : "";
+}
+
+function _aiNkFileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function aiNkAnalyze() {
+  const statusEl = $("ai-nk-status");
+  const btn = $("ai-nk-go-btn");
+  const kurs = parseFloat(($("ai-nk-kurs")||{value:0}).value) || 0;
+  const logistics = parseFloat(($("ai-nk-logistics")||{value:0}).value) || 0;
+
+  if (!_aiNkFiles.length) { if (statusEl) { statusEl.textContent = "Kamida 1 ta rasm tanlang"; statusEl.style.color = "#DC2626"; } return; }
+  if (kurs <= 0) { if (statusEl) { statusEl.textContent = "Kursni kiriting (masalan 1750)"; statusEl.style.color = "#DC2626"; } return; }
+
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2"></i> Tahlil qilinmoqda...'; }
+  if (statusEl) { statusEl.textContent = "⏳ AI naklad rasmini o'qimoqda, biroz kuting..."; statusEl.style.color = "#6B7280"; }
+
+  try {
+    const images = [];
+    for (const f of _aiNkFiles) {
+      images.push({ data: await _aiNkFileToBase64(f), mimeType: f.type || "image/jpeg" });
+    }
+    const res = await fetch("/api/naklad?action=analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ images, kurs, logistics }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "Noma'lum xato");
+
+    // Natijani MAVJUD import parserining o'ziga uzatamiz — bir xil
+    // ko'rib chiqish/tasdiqlash oynasidan foydalanish uchun
+    closeModal("ai-naklad");
+    _aiNkFiles = [];
+    if ($("ai-nk-files")) $("ai-nk-files").value = "";
+    if ($("ai-nk-filelist")) $("ai-nk-filelist").textContent = "";
+    parseImportCSV(data.csv);
+    toast(`✅ AI ${data.count} ta tovarni aniqladi — tekshirib, importni tasdiqlang`);
+  } catch (e) {
+    if (statusEl) { statusEl.textContent = "❌ Xato: " + e.message; statusEl.style.color = "#DC2626"; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-sparkles"></i> Aniqlash'; }
+  }
+}
+
 // ── Shablon yuklash ───────────────────────────────
 function downloadImportTemplate() {
   const fields = apGetFields();

@@ -3502,6 +3502,20 @@
       </button>
     </div>
 
+    <!-- AI-Naklad (2026-07): naklad rasmidan avtomatik shablon -->
+    <div style="background:#ECFDF5;border:1px solid #A7F3D0;border-radius:10px;padding:14px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;color:#047857;margin-bottom:6px">
+        🤖 Yoki naklad rasmidan AI orqali avtomatik to'ldirish
+      </div>
+      <div style="font-size:12.5px;color:#059669;margin-bottom:10px">
+        Xitoydan kelgan naklad/proforma rasmi asosida jadval avtomatik tuziladi
+        (Tannarx ham hisoblanadi). Import qilishdan oldin tekshirib chiqing!
+      </div>
+      <button class="btn btn-sm" onclick="openModal('ai-naklad')" style="color:#059669;border-color:#059669">
+        <i class="ti ti-sparkles"></i> Naklad rasmini yuklash
+      </button>
+    </div>
+
     <!-- Fayl yuklash -->
     <div class="fld">
       <label>CSV yoki Excel fayl tanlang</label>
@@ -3545,6 +3559,45 @@
     </div>
   </div>
 </div>
+
+<!-- AI-Naklad modal (2026-07) -->
+<div class="ov" id="ov-ai-naklad" onclick="if(event.target===this)closeModal('ai-naklad')">
+  <div class="modal" style="max-width:480px">
+    <button class="m-close" onclick="closeModal('ai-naklad')"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-sparkles" style="color:#059669;margin-right:8px"></i>AI orqali naklad import</h2>
+    <p style="font-size:12.5px;color:var(--mut);margin:-8px 0 16px">
+      Naklad/proforma invoice rasmini yuklang — AI jadval tuzib, tannarxni
+      hisoblab beradi. Natijani import oynasida ko'rib chiqib tasdiqlaysiz.
+    </p>
+
+    <div class="fld">
+      <label>Naklad rasm(lar)i</label>
+      <input type="file" id="ai-nk-files" accept="image/*" multiple
+        onchange="aiNkOnFiles(this)" style="padding:8px">
+      <div id="ai-nk-filelist" style="font-size:12px;color:var(--mut);margin-top:6px"></div>
+    </div>
+
+    <div class="fld">
+      <label>1 CNY (yuan) necha so'm?</label>
+      <input id="ai-nk-kurs" type="number" placeholder="masalan: 1750">
+    </div>
+
+    <div class="fld">
+      <label>Jami yo'l xarajati (so'm) <span style="font-weight:400;color:var(--mut)">(yo'q bo'lsa 0)</span></label>
+      <input id="ai-nk-logistics" type="number" placeholder="0">
+    </div>
+
+    <div id="ai-nk-status" style="font-size:12.5px;margin:6px 0;min-height:16px"></div>
+
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn" style="flex:1" onclick="closeModal('ai-naklad')">Bekor qilish</button>
+      <button class="btn btn-acc" style="flex:2" id="ai-nk-go-btn" onclick="aiNkAnalyze()">
+        <i class="ti ti-sparkles"></i> Aniqlash
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="ov" id="ov-bulkprice" onclick="if(event.target===this)closeModal('bulkprice')">
   <div class="modal" style="max-width:400px">
     <button class="m-close" onclick="closeModal('bulkprice')"><i class="ti ti-x"></i></button>
@@ -3716,7 +3769,7 @@
 <script src="js/cloud.js?v=166"></script>
 <script src="js/dashboard.js?v=142"></script>
 <script src="js/pos.js?v=163"></script>
-<script src="js/katalog.js?v=152"></script>
+<script src="js/katalog.js?v=153"></script>
 <script src="js/ombor.js?v=143"></script>
 <script src="js/mijozlar.js?v=143"></script>
 <script src="js/qarzlar.js?v=145"></script>
