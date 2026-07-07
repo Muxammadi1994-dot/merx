@@ -251,7 +251,10 @@ function showLoginScreen() {
   }
 
   const hasAdmin = !!(db?.settings?.adminEmail);
-  const shopName = db?.shop?.name || "MERX Savdo tizimi";
+  // Login ekrani hali HECH QANDAY do'konga tegishli emas — shuning uchun
+  // qurilmada keshlangan oldingi do'kon nomi ko'rsatilmaydi (chalkashlik
+  // va boshqa do'kon nomining oshkor bo'lishiga yo'l qo'ymaslik uchun)
+  const shopName = "MERX Savdo tizimi";
   const iStyle   = "width:100%;padding:11px 14px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-family:inherit;font-size:14px;box-sizing:border-box;outline:none";
 
   screen.innerHTML = `
