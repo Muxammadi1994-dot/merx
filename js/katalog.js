@@ -1796,6 +1796,129 @@ function openKatalogImport() {
   openModal("import");
 }
 
+// ── OVOZ+RASM TEZKOR KIRITISH (2026-07-08) ──────────────────────
+// Pres/nakladnoysiz tovar uchun: rasm+ovoz Gemini'ga birga yuboriladi,
+// natija MAVJUD "Yangi tovar" formasiga to'ldiriladi — bu forma va
+// addProduct() funksiyasi BUTUNLAY o'zgarishsiz qoladi (xavfsizlik).
+let _vcPhoto = null;      // { data, mimeType }
+let _vcRecorder = null;
+let _vcChunks = [];
+let _vcCancelled = false;
+
+function vcOnPhoto(input) {
+  const f = input.files?.[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    _vcPhoto = { data: String(reader.result).split(",")[1] || "", mimeType: f.type || "image/jpeg" };
+    const st = $("vc-photo-status");
+    if (st) { st.textContent = "✅ Surat olindi"; st.style.color = "#059669"; }
+    const btn = $("vc-mic-btn");
+    if (btn) { btn.disabled = false; btn.style.background = "#DB2777"; btn.style.color = "#fff"; }
+  };
+  reader.readAsDataURL(f);
+}
+
+async function vcStartRec() {
+  if ($("vc-mic-btn")?.disabled) return;
+  try {
+    _vcCancelled = false;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+    _vcRecorder = new MediaRecorder(stream, { mimeType: mime });
+    _vcChunks = [];
+    _vcRecorder.ondataavailable = e => { if (e.data.size > 0) _vcChunks.push(e.data); };
+    _vcRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      if (_vcCancelled) return;
+      const blob = new Blob(_vcChunks, { type: mime });
+      vcAnalyze(blob, mime);
+    };
+    _vcRecorder.start();
+    const st = $("vc-status"); if (st) { st.textContent = "🔴 Yozilmoqda... (qo'yib yuboring)"; st.style.color = "#DC2626"; }
+  } catch (e) {
+    const st = $("vc-status"); if (st) { st.textContent = "❌ Mikrofonga ruxsat berilmadi"; st.style.color = "#DC2626"; }
+  }
+}
+
+function vcStopRec() {
+  if (_vcRecorder && _vcRecorder.state === "recording") _vcRecorder.stop();
+}
+
+function vcCancelIfRecording() {
+  // Barmoq/sichqoncha tugmadan tashqariga chiqib ketsa — bekor qilamiz
+  if (_vcRecorder && _vcRecorder.state === "recording") { _vcCancelled = true; _vcRecorder.stop(); }
+}
+
+function _vcBlobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function vcAnalyze(blob, mime) {
+  const st = $("vc-status");
+  if (st) { st.textContent = "⏳ AI tahlil qilmoqda..."; st.style.color = "#6B7280"; }
+  try {
+    const audioB64 = await _vcBlobToBase64(blob);
+    const res = await fetch("/api/naklad?action=capture_item", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image: _vcPhoto,
+        audio: { data: audioB64, mimeType: mime },
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "Noma'lum xato");
+    vcFillAddProductForm(data.item);
+  } catch (e) {
+    if (st) { st.textContent = "❌ Xato: " + e.message; st.style.color = "#DC2626"; }
+  }
+}
+
+// Natijani MAVJUD "Yangi tovar" formasiga to'ldiradi — saqlash tugmasi
+// va addProduct() funksiyasi butunlay o'zgarishsiz ishlatiladi
+function vcFillAddProductForm(item) {
+  closeModal("voice-cap");
+  openModal("addprod");
+
+  if ($("ap-name"))  $("ap-name").value  = item.nom || "";
+  if ($("ap-art"))   $("ap-art").value   = item.artikul || "";
+  if ($("ap-color")) $("ap-color").value = item.rang || "";
+  if ($("ap-boxes")) $("ap-boxes").value = item.pochka_soni > 0 ? item.pochka_soni : 1;
+  if ($("ap-inbox-calc")) $("ap-inbox-calc").value = item.birlik_soni > 0 ? item.birlik_soni : 1;
+
+  const rate = db.settings?.rate || 12800;
+  const cur1 = db.settings?.priceCurrency || "uzs";
+  if ($("ap-cost") && item.tannarx_som > 0) {
+    $("ap-cost").value = (cur1 === "usd" || cur1 === "both")
+      ? (item.tannarx_som / rate).toFixed(2)
+      : item.tannarx_som;
+  }
+  if ($("ap-ulgurji") && item.sotuv_narxi_som > 0) {
+    $("ap-ulgurji").value = fmt(item.sotuv_narxi_som);
+    $("ap-ulgurji").dataset.raw = String(item.sotuv_narxi_som);
+  }
+  if (typeof apCalcBoxes === "function") apCalcBoxes();
+  if (typeof apCostNote === "function") apCostNote();
+
+  // Reset — keyingi safar modal ochilganda toza boshlansin
+  _vcPhoto = null;
+  if ($("vc-photo")) $("vc-photo").value = "";
+  if ($("vc-photo-status")) $("vc-photo-status").textContent = "";
+  const btn = $("vc-mic-btn");
+  if (btn) { btn.disabled = true; btn.style.background = "#E5E7EB"; btn.style.color = "#9CA3AF"; }
+  if ($("vc-status")) $("vc-status").textContent = "";
+
+  let hint = `✅ AI aniqladi: ${item.nom || "tovar"}`;
+  if (item.izoh) hint += ` (${item.izoh})`;
+  toast(hint + " — tekshirib, saqlang");
+}
+
 // ── AI-Naklad (2026-07): naklad rasmidan avtomatik shablon ─────
 let _aiNkFiles = [];
 

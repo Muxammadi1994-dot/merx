@@ -830,6 +830,9 @@
           <button class="btn btn-acc btn-sm" onclick="openModal('addprod')">
             <i class="ti ti-plus"></i> Yangi tovar
           </button>
+          <button class="btn btn-sm" onclick="openModal('voice-cap')" style="color:#DB2777;border-color:#DB2777">
+            <i class="ti ti-microphone"></i> Ovoz+Rasm
+          </button>
         </div>
       </div>
 
@@ -3484,6 +3487,39 @@
   </div>
 </div>
 
+<!-- Ovoz+Rasm tezkor kiritish (2026-07-08, pres/nakladnoysiz tovar uchun) -->
+<div class="ov" id="ov-voice-cap" onclick="if(event.target===this)closeModal('voice-cap')">
+  <div class="modal" style="max-width:420px">
+    <button class="m-close" onclick="closeModal('voice-cap')"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-microphone" style="color:#DB2777;margin-right:8px"></i>Ovoz + Rasm bilan tezkor kiritish</h2>
+    <p style="font-size:12.5px;color:var(--mut);margin:-8px 0 16px">
+      Tovarni suratga oling, so'ng mikrofon tugmasini bosib turib tavsiflang
+      (masalan: "Adidas erkaklar shimi, rang oq, pochkada 5 ta, 50 pochka,
+      tannarx 60 ming, sotuv 100 ming"). AI ma'lumotni "Yangi tovar" oynasiga
+      to'ldirib beradi — siz tekshirib, saqlaysiz.
+    </p>
+
+    <div class="fld">
+      <label>1) Surat</label>
+      <input type="file" id="vc-photo" accept="image/*" capture="environment"
+        onchange="vcOnPhoto(this)" style="padding:8px">
+      <div id="vc-photo-status" style="font-size:12px;color:var(--mut);margin-top:6px"></div>
+    </div>
+
+    <div class="fld" style="text-align:center;margin-top:18px">
+      <label>2) Ushlab turib gapiring</label>
+      <button id="vc-mic-btn" disabled
+        onmousedown="vcStartRec()" onmouseup="vcStopRec()" onmouseleave="vcCancelIfRecording()"
+        ontouchstart="event.preventDefault();vcStartRec()" ontouchend="event.preventDefault();vcStopRec()"
+        style="width:84px;height:84px;border-radius:50%;border:none;background:#E5E7EB;color:#9CA3AF;
+               font-size:32px;cursor:pointer;margin-top:8px;transition:.15s">
+        <i class="ti ti-microphone"></i>
+      </button>
+      <div id="vc-status" style="font-size:13px;color:var(--mut);margin-top:10px;min-height:18px"></div>
+    </div>
+  </div>
+</div>
+
 <div class="ov" id="ov-import" onclick="if(event.target===this)closeModal('import')">
   <div class="modal" style="max-width:560px">
     <button class="m-close" onclick="closeModal('import')"><i class="ti ti-x"></i></button>
@@ -3769,7 +3805,7 @@
 <script src="js/cloud.js?v=166"></script>
 <script src="js/dashboard.js?v=142"></script>
 <script src="js/pos.js?v=163"></script>
-<script src="js/katalog.js?v=155"></script>
+<script src="js/katalog.js?v=156"></script>
 <script src="js/ombor.js?v=143"></script>
 <script src="js/mijozlar.js?v=143"></script>
 <script src="js/qarzlar.js?v=145"></script>

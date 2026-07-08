@@ -7,7 +7,7 @@
 // ════════════════════════════════════════════════════════════════
 
 const GEMINI_KEY   = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-flash-latest";  // 2026-07: 2.0-flash Google tomonidan o'chirildi; "latest" alias avtomatik yangi modelga ishora qiladi
+const GEMINI_MODEL = "gemini-2.5-flash";  // 2026-07-08: flash-latest o'rniga — bir xil ishlaydi, ~4-5x arzon oddiy tuzilma-chiqarish vazifalari uchun  // 2026-07: 2.0-flash Google tomonidan o'chirildi; "latest" alias avtomatik yangi modelga ishora qiladi
 
 const NAKLAD_PROMPT = `Bu — Xitoydan kelayotgan tovar nakladnoyi (proforma invoice) jadvali rasmi.
 Jadvaldagi HAR BIR qatorni (har rang/variant alohida qator) JSON sifatida chiqar.
@@ -118,6 +118,65 @@ function buildNakladCsv(rows) {
   return "sep=;\r\n" + [headers, ...lines].map(r => r.map(esc).join(";")).join("\r\n");
 }
 
+// ═══ TEZKOR KIRITISH: rasm + ovoz BITTA so'rovda (2026-07-08) ═══
+// Pres/nakladnoysiz tovar uchun: xodim suratga oladi + tavsiflaydi,
+// AI B2 maydonlariga taqsimlaydi. Mavjud analyze() dan MUSTAQIL.
+const ITEM_PROMPT = `Sen do'kondagi xodimga tovar kiritishda yordam berasan.
+Senga BITTA tovarning surati va xodimning ovozli tavsifi beriladi.
+Ovozdagi ma'lumotni tuzilgan JSON qilib chiqar. Surat rangni/turini
+tasdiqlash uchun yordamchi, asosiy ma'lumot manbasi — OVOZ.
+
+Maydonlar:
+- nom: tovar nomi/turi (masalan "Adidas erkaklar shimi").
+- artikul: agar ovozda aytilgan bo'lsa model/artikul kodi, aks holda "".
+- rang: agar aytilgan bo'lsa rang nomi, aks holda suratdan taxmin qil.
+- pochka_soni: agar aytilgan bo'lsa (masalan "50 pochka"), aks holda 1.
+- birlik_soni: "1 pochkada nechta" (masalan "pochkada 5 ta" → 5),
+  aytilmagan bo'lsa 1 (yakka dona tovar degani).
+- tannarx_som: agar aytilgan bo'lsa (so'mda, masalan "tannarx 60 ming"
+  → 60000), aytilmagan bo'lsa 0.
+- sotuv_narxi_som: agar aytilgan bo'lsa (masalan "sotuv 100 ming" yoki
+  shunchaki narx aytilsa) → so'mda, aytilmagan bo'lsa 0.
+- izoh: agar daraja/holat aytilgan bo'lsa (masalan "ikkinchi daraja",
+  "kichik nuqson bor") shu yerga yoz, aks holda "".
+
+Faqat JSON qaytar, boshqa hech narsa yozma.`;
+
+const ITEM_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    nom:             { type: "STRING" },
+    artikul:         { type: "STRING" },
+    rang:            { type: "STRING" },
+    pochka_soni:     { type: "NUMBER" },
+    birlik_soni:     { type: "NUMBER" },
+    tannarx_som:      { type: "NUMBER" },
+    sotuv_narxi_som:  { type: "NUMBER" },
+    izoh:            { type: "STRING" },
+  },
+  required: ["nom", "rang", "pochka_soni", "birlik_soni"],
+};
+
+async function geminiCaptureItem(image, audio) {
+  if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY sozlanmagan (Vercel ENV)");
+  const parts = [{ text: ITEM_PROMPT }];
+  if (image) parts.push({ inlineData: { mimeType: image.mimeType, data: image.data } });
+  if (audio) parts.push({ inlineData: { mimeType: audio.mimeType, data: audio.data } });
+  const body = {
+    contents: [{ role: "user", parts }],
+    generationConfig: { responseMimeType: "application/json", responseSchema: ITEM_SCHEMA, temperature: 0.1 },
+  };
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+  );
+  const data = await r.json();
+  if (!r.ok) throw new Error("Gemini xato: " + (data?.error?.message || r.status));
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Gemini bo'sh javob qaytardi");
+  return JSON.parse(text);
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ ok: false, error: "Faqat POST so'rovlar qabul qilinadi" });
@@ -148,6 +207,18 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, csv, count: computed.length, rows: computed });
     } catch (e) {
       console.error("naklad analyze xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
+  if (action === "capture_item") {
+    try {
+      const { image, audio } = body || {};
+      if (!audio) return res.status(400).json({ ok: false, error: "Ovoz yozuvi kerak" });
+      const item = await geminiCaptureItem(image || null, audio);
+      return res.status(200).json({ ok: true, item });
+    } catch (e) {
+      console.error("naklad capture_item xato:", e.message);
       return res.status(500).json({ ok: false, error: e.message });
     }
   }
