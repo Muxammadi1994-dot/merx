@@ -1804,19 +1804,47 @@ let _vcPhoto = null;      // { data, mimeType }
 let _vcRecorder = null;
 let _vcChunks = [];
 let _vcCancelled = false;
+let _vcAutoStopTimer = null;
 
-function vcOnPhoto(input) {
+// Telefon kamerasi rasmi (ko'pincha 3-8 MB) yuborishdan oldin
+// kichraytirib siqamiz — aks holda server "so'rov juda katta" deb
+// rad etadi va tahlil sekinlashadi (v157 tuzatishi)
+function _vcCompressImage(file, maxSide) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxSide || height > maxSide) {
+        const scale = maxSide / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.72);
+      resolve({ data: dataUrl.split(",")[1] || "", mimeType: "image/jpeg" });
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+async function vcOnPhoto(input) {
   const f = input.files?.[0];
   if (!f) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    _vcPhoto = { data: String(reader.result).split(",")[1] || "", mimeType: f.type || "image/jpeg" };
-    const st = $("vc-photo-status");
+  const st = $("vc-photo-status");
+  if (st) { st.textContent = "⏳ Rasm tayyorlanmoqda..."; st.style.color = "#6B7280"; }
+  try {
+    _vcPhoto = await _vcCompressImage(f, 1024);
     if (st) { st.textContent = "✅ Surat olindi"; st.style.color = "#059669"; }
     const btn = $("vc-mic-btn");
     if (btn) { btn.disabled = false; btn.style.background = "#DB2777"; btn.style.color = "#fff"; }
-  };
-  reader.readAsDataURL(f);
+  } catch (e) {
+    if (st) { st.textContent = "❌ Rasmni o'qib bo'lmadi"; st.style.color = "#DC2626"; }
+  }
 }
 
 async function vcStartRec() {
@@ -1836,12 +1864,17 @@ async function vcStartRec() {
     };
     _vcRecorder.start();
     const st = $("vc-status"); if (st) { st.textContent = "🔴 Yozilmoqda... (qo'yib yuboring)"; st.style.color = "#DC2626"; }
+    // Xavfsizlik chegarasi: 25s dan keyin avtomatik to'xtaydi (juda katta
+    // audio fayl hosil bo'lib qolmasin)
+    clearTimeout(_vcAutoStopTimer);
+    _vcAutoStopTimer = setTimeout(() => vcStopRec(), 25000);
   } catch (e) {
     const st = $("vc-status"); if (st) { st.textContent = "❌ Mikrofonga ruxsat berilmadi"; st.style.color = "#DC2626"; }
   }
 }
 
 function vcStopRec() {
+  clearTimeout(_vcAutoStopTimer);
   if (_vcRecorder && _vcRecorder.state === "recording") _vcRecorder.stop();
 }
 
@@ -1872,7 +1905,14 @@ async function vcAnalyze(blob, mime) {
         audio: { data: audioB64, mimeType: mime },
       }),
     });
-    const data = await res.json();
+    let data;
+    try { data = await res.json(); }
+    catch (e) {
+      // Server JSON qaytarmadi — odatda "so'rov juda katta" degani
+      throw new Error(res.status === 413
+        ? "Ma'lumot hajmi katta — qisqaroq gapirib, qayta urinib ko'ring"
+        : `Server xatosi (${res.status})`);
+    }
     if (!data.ok) throw new Error(data.error || "Noma'lum xato");
     vcFillAddProductForm(data.item);
   } catch (e) {
