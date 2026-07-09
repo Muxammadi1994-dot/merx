@@ -610,8 +610,10 @@ function renderDebtsGrouped(list, rate) {
       </td>
       <td class="num" style="font-weight:600">${g.sales.length}</td>
       <td class="num">
-        ${g.totalUzs > 0 ? `<div style="font-weight:800;color:var(--red);font-size:14px">${fmt(g.totalUzs)} so'm</div>` : ""}
-        ${g.totalUsd > 0 ? `<div style="font-weight:800;color:#1B4F72;font-size:14px">$${g.totalUsd.toFixed(2)} USD</div>` : ""}
+        ${g.totalUzs > 0 ? `<div style="font-weight:800;color:var(--red);font-size:14px">${fmt(g.totalUzs)} so'm</div>
+          <div style="font-size:10.5px;color:#999;font-weight:600">≈ $${(g.totalUzs/rate).toFixed(2)}</div>` : ""}
+        ${g.totalUsd > 0 ? `<div style="font-weight:800;color:#1B4F72;font-size:14px">$${g.totalUsd.toFixed(2)} USD</div>
+          <div style="font-size:10.5px;color:#999;font-weight:600">≈ ${fmt(Math.round(g.totalUsd*rate))} so'm</div>` : ""}
         ${!g.totalUzs && !g.totalUsd ? `<span style="color:#ccc">—</span>` : ""}
       </td>
       <td>
