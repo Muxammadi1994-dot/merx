@@ -675,25 +675,30 @@ function debtPayMethodInputs(idKey, isUsd, lastRowExtra) {
   // yozilsa — Naqd qatori shu summaning so'mdagi ekvivalenti bilan
   // avtomat to'ladi (mijoz naqd so'mda to'lagan, lekin sotuvchi
   // dollor bilan o'ylashni afzal ko'rgan holat uchun).
-  const usdBox = isUsd ? `
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap;margin-bottom:2px">
+  // v177: "$ Dollor" endi to'lov USULLARIDAN KEYIN, "To'lov" tugmasidan
+  // OLDIN — o'zining alohida qatorida (avval eng tepada edi).
+  const usdBoxRow = isUsd ? `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">
       <span style="font-size:11px;color:#4C9BE8;width:62px;flex-shrink:0;white-space:nowrap;font-weight:700">$ Dollor</span>
       <input type="text" id="pay-usdbox-${idKey}"
         placeholder="0.00"
         oninput="qzUsdBoxToSom('${idKey}')"
         style="font-family:inherit;font-size:12.5px;font-weight:700;color:#1B4F72;border:1.5px solid #4C9BE8;border-radius:8px;padding:5px 7px;width:108px;flex-shrink:0;outline:none">
     </div>` : "";
-  // v175: alohida 4-qator YO'Q — Kassir/To'lov/SMS/Bot ENG OXIRGI
-  // to'lov usuli bilan BIR QATORGA joylashadi (lastRowExtra orqali)
-  return `<div style="display:flex;flex-direction:column;gap:4px">` + usdBox + visible.map(([m, icon, label], i) => `
+  const methodRows = visible.map(([m, icon, label]) => `
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">
       <span style="font-size:11px;color:var(--mut);width:62px;flex-shrink:0;white-space:nowrap">${icon} ${label}</span>
       <input type="text" id="pay-${m}-${idKey}" data-price
         placeholder="so'm"
         oninput="fmtInput(this);${isUsd ? `qzShowUsdHint('${idKey}')` : ""}"
         style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 7px;width:108px;flex-shrink:0;outline:none">
-      ${i === visible.length - 1 && lastRowExtra ? lastRowExtra : ""}
-    </div>`).join("") + `</div>`;
+    </div>`).join("");
+  // Kassir/To'lov/SMS/Bot — usul qatorlaridan (va $ qatoridan) KEYINGI
+  // o'z alohida qatorida
+  const lastRow = lastRowExtra
+    ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">${lastRowExtra}</div>`
+    : "";
+  return `<div style="display:flex;flex-direction:column;gap:4px">${methodRows}${usdBoxRow}${lastRow}</div>`;
 }
 
 // Dollor katakchasiga to'g'ridan-to'g'ri kiritilganda — Naqd qatorini
