@@ -466,7 +466,7 @@ function renderDebtsList(list, rate) {
     ${cols.items  ? "<th>Mahsulotlar</th>" : ""}
     ${cols.paid   ? '<th class="num">To\'langan</th>' : ""}
     <th class="num" style="width:95px">Qolgan qarz</th>
-    ${cols.due    ? '<th style="width:80px">Muddat</th>' : ""}
+    ${cols.due    ? '<th style="width:100px">Muddat</th>' : ""}
     ${cols.status ? "<th>Holat</th>" : ""}
     <th>To'lov <button onclick="event.stopPropagation();openDebtPayMethodsSettings()" title="Qaysi to'lov usullari ko'rinishini tanlash" style="border:none;background:none;cursor:pointer;color:var(--mut);padding:0;vertical-align:middle"><i class="ti ti-settings" style="font-size:13px"></i></button></th>
   </tr>`;
@@ -546,12 +546,14 @@ function renderDebtsList(list, rate) {
 function renderDebtsGrouped(list, rate) {
   const thead = $("debt-head");
   const tbody = $("debt-body");
+  const cols = getDebtCols();
   if (thead) thead.innerHTML = `<tr>
-    <th>Mijoz</th><th style="width:100px">Telefon</th>
+    <th>Mijoz</th>
+    ${cols.phone  ? '<th style="width:100px">Telefon</th>' : ""}
     <th class="num">Sotuvlar</th>
     <th class="num" style="width:110px">Umumiy qarz</th>
-    <th style="width:90px">Eng yaqin muddat</th>
-    <th>Holat</th>
+    ${cols.due    ? '<th style="width:100px">Eng yaqin muddat</th>' : ""}
+    ${cols.status ? "<th>Holat</th>" : ""}
     <th>To'lov qabul qilish <button onclick="event.stopPropagation();openDebtPayMethodsSettings()" title="Qaysi to'lov usullari ko'rinishini tanlash" style="border:none;background:none;cursor:pointer;color:var(--mut);padding:0;vertical-align:middle"><i class="ti ti-settings" style="font-size:13px"></i></button></th>
     <th>Eslatma</th>
   </tr>`;
@@ -591,10 +593,10 @@ function renderDebtsGrouped(list, rate) {
           title="Bu mijozning barcha to'lovlari">${g.name}</div>
         <div style="font-size:10.5px;color:#aaa">${g.sales.length} ta sotuv</div>
       </td>
-      <td style="font-size:12.5px">
+      ${cols.phone ? `<td style="font-size:12.5px">
         ${g.phone && g.phone !== "—"
           ? `<a href="tel:${g.phone}" style="color:inherit">${g.phone}</a>` : "—"}
-      </td>
+      </td>` : ""}
       <td class="num" style="font-weight:600">${g.sales.length}</td>
       <td class="num">
         ${g.totalUzs > 0 ? `<div style="font-weight:800;color:var(--red);font-size:14px">${fmt(g.totalUzs)} so'm</div>
@@ -603,14 +605,14 @@ function renderDebtsGrouped(list, rate) {
           <div style="font-size:10.5px;color:#999;font-weight:600">≈ ${fmt(Math.round(g.totalUsd*rate))} so'm</div>` : ""}
         ${!g.totalUzs && !g.totalUsd ? `<span style="color:#ccc">—</span>` : ""}
       </td>
-      <td>
+      ${cols.due ? `<td>
         <span class="bg ${anyOverdue?"bg-r":"bg-a"}">${nearestDue}</span>
-      </td>
-      <td>
+      </td>` : ""}
+      ${cols.status ? `<td>
         <span class="bg ${anyOverdue?"bg-r":"bg-g"}">
           ${anyOverdue?"⚠️ Muddati o'tgan":"⏳ Kutilmoqda"}
         </span>
-      </td>
+      </td>` : ""}
       <td>
         <div style="display:flex;flex-direction:column;gap:6px;min-width:200px">
           ${g.totalUzs > 0 ? `
@@ -683,7 +685,7 @@ function debtPayMethodInputs(idKey, isUsd, lastRowExtra) {
       <input type="text" id="pay-${m}-${idKey}" data-price
         placeholder="so'm"
         oninput="fmtInput(this);${isUsd ? `qzShowUsdHint('${idKey}')` : ""}"
-        style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 7px;width:80px;flex-shrink:0;outline:none">
+        style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 7px;width:108px;flex-shrink:0;outline:none">
       ${i === visible.length - 1 && lastRowExtra ? lastRowExtra : ""}
     </div>`).join("") + `</div>`;
 }
