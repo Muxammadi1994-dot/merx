@@ -2934,7 +2934,15 @@ body{font-family:Arial,sans-serif;background:#fff}
 .nm-prem-price span{font-size:10px;font-weight:400}
 .nm-prem-ulg{font-size:10px;color:#666}
 .nm-prem-usd{font-size:10px;color:#888}
-@media print{body{margin:0}@page{margin:5mm;size:A4}}
+@media print{
+  body{margin:0}
+  @page{margin:5mm;size:A4}
+  /* v182 — 3-BOSQICH: B&W termal/lazer printer uchun */
+  *{background:#fff !important;background-image:none !important;
+    color:#000 !important;box-shadow:none !important;
+    text-shadow:none !important}
+  [style*="border"]{border-color:#000 !important}
+}
 </style></head><body>
 <div class="nm-label-grid">${labelHtml}</div>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>

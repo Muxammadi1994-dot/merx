@@ -1419,6 +1419,12 @@ function showDebtPaymentReceipt(payment) {
         body{background:#fff;padding:0}
         .receipt{box-shadow:none;border-radius:0;width:100%;max-width:380px}
         .actions{display:none}
+        /* v182 — 3-BOSQICH: B&W termal printer uchun — fon oq, matn
+           qora, hech qanday rangli fon/soya qolmaydi. */
+        *{background:#fff !important;background-image:none !important;
+          color:#000 !important;box-shadow:none !important;
+          text-shadow:none !important}
+        [style*="border"]{border-color:#000 !important}
       }
     </style></head><body>
     <div>
