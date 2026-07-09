@@ -286,6 +286,25 @@
     border-radius: 0 !important;
   }
   .no-print { display: none !important; }
+
+  /* v181 — 2-BOSQICH: B&W termal printerlar uchun — fon HAR DOIM oq,
+     matn HAR DOIM qora, hech qanday rangli fon/soya/gradient qolmaydi.
+     Ekranda (brauzerda) hech narsa o'zgarmaydi — bu qoida FAQAT chop
+     etish paytida ishga tushadi. Ranglar bilan farqlanadigan narsalar
+     (masalan holat belgilari) endi qalin shrift/chegara bilan ajraladi. */
+  #ov-receipt, #ov-receipt * {
+    background: #fff !important;
+    background-image: none !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  #ov-receipt hr,
+  #ov-receipt [style*="border"] {
+    border-color: #000 !important;
+  }
+  /* Rasm (logotip) bo'lsa — o'z holicha qoladi (qora-oq majburlanmaydi) */
+  #ov-receipt img { filter: none !important; }
 }
 </style>
 </head>
