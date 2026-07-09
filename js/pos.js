@@ -2265,29 +2265,17 @@ function shareTelegram() {
   window.open(url, "_blank");
 }
 
+// v180: TUZATISH — avval bu funksiya mavjud bo'lmagan buildReceiptHtml()
+// funksiyasini chaqirar edi (loyihaning hech qayerida yo'q edi), shuning
+// uchun "Print" tugmasi bosilganda HECH NARSA chop etilmasdi (xato,
+// hech kim payqamagan). Endi eng ishonchli yo'l: ekranda ALLAQACHON
+// to'liq tayyor turgan chek oynasining O'ZINI chop etamiz (window.print),
+// buning uchun index.html'da @media print qoidasi qo'shildi — chop
+// etishda faqat chek qoladi, boshqa hech narsa (tugmalar, asosiy ilova)
+// ko'rinmaydi.
 function printReceiptPos() {
   if (!_lastSale) return;
-  const sale     = _lastSale;
-  const shopName = db.shop?.name || "MERX";
-  const staffObj = db.staff.find(s => s.id === sale.staffId);
-  const botUser  = (db.settings?.telegramBotUsername || "").replace(/^@/,"");
-  const botUrl   = db.settings?.telegramBotUrl || "";
-  const receiptUrl = botUrl
-    ? `${botUrl}?action=receipt&id=${encodeURIComponent(sale.chekNum||("ID"+sale.id))}`
-    : "";
-
-  const chekCfg = (typeof db !== "undefined" && db.settings?.chekConfig) || {};
-  const html = buildReceiptHtml(sale, {
-    shopName, staffName: staffObj?.name || "—",
-    botUsername: botUser, receiptUrl,
-    style: chekCfg.posStyle || "merx"
-  });
-
-  const w = window.open("","_blank","width=420,height=700");
-  if (!w) { toast("Pop-up bloklangan","err"); return; }
-  w.document.write(html);
-  w.document.close();
-  w.focus();
+  window.print();
 }
 
 // ── Tezkor miqdor ─────────────────────────────
