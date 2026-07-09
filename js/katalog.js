@@ -1526,31 +1526,6 @@ function apNameAutofill(val) {
   apCostNote();
 }
 
-// ── Rasm manbai menyusi (2026-07-09) ─────────────────────────────
-// Rasm belgisiga BITTA bosish — kichik menyu (Kamera/Galereya), xuddi
-// ko'pchilik mobil ilovalardagidek. Add va Edit oynalari uchun umumiy.
-let _imgMenuGalId = null, _imgMenuCamId = null;
-function imgMenuOpen(galId, camId, ev) {
-  if (ev) { ev.stopPropagation(); ev.preventDefault(); }
-  _imgMenuGalId = galId; _imgMenuCamId = camId;
-  const menu = $("img-src-menu"); if (!menu) return;
-  const rect = (ev?.currentTarget || ev?.target)?.getBoundingClientRect?.();
-  const top  = rect ? rect.bottom + 6 : 100;
-  const left = rect ? Math.min(rect.left, window.innerWidth - 200) : 20;
-  menu.style.top = top + "px";
-  menu.style.left = left + "px";
-  menu.style.display = "block";
-  setTimeout(() => {
-    const closeOnce = () => { menu.style.display = "none"; document.removeEventListener("click", closeOnce); };
-    document.addEventListener("click", closeOnce, { once: true });
-  }, 0);
-}
-function imgMenuPick(kind) {
-  const id = kind === "cam" ? _imgMenuCamId : _imgMenuGalId;
-  const menu = $("img-src-menu"); if (menu) menu.style.display = "none";
-  if (id && $(id)) $(id).click();
-}
-
 // v160: "Yangi tovar" formasini to'liq tozalash — tovar saqlangandan
 // keyin va modal qaytadan ochilganda eski ma'lumot (nom, rang, pochka,
 // rasm...) qolib ketmasligi uchun
