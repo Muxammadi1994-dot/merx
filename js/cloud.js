@@ -446,7 +446,8 @@ async function pushToCloud() {
         leftover_to_balance: !!p.leftoverToBalance,
         debt_before: p.debtBefore != null ? p.debtBefore : null,
         debt_after:  p.debtAfter  != null ? p.debtAfter  : null,
-        method_breakdown: p.methodBreakdown || null
+        method_breakdown: p.methodBreakdown || null,
+        rate: p.rate || null
       })));
     } catch(e) { syncErrors.push("debt_payments: " + e.message); console.warn("sync debt_payments xato:", e.message); }
 
@@ -832,6 +833,7 @@ async function pullFromCloud() {
         debtBefore:    p.debt_before,
         debtAfter:     p.debt_after,
         methodBreakdown: p.method_breakdown || null,
+        rate:            p.rate || null,
         leftover:      p.leftover || 0,
         leftoverToBalance: !!p.leftover_to_balance
       }));

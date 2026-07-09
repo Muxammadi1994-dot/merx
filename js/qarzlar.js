@@ -1073,7 +1073,8 @@ async function recordPayment(id, forcedCurrency) {
     leftoverToBalance: leftover > 0 && clicked.customerId ? true : false,
     // v145: bot xabari va to'lov cheki uchun — edi / qoldi
     debtBefore:    Math.round(totalBefore * 100) / 100,
-    debtAfter:     Math.round(Math.max(0, totalBefore - (amt - (leftover > 0 ? leftover : 0))) * 100) / 100
+    debtAfter:     Math.round(Math.max(0, totalBefore - (amt - (leftover > 0 ? leftover : 0))) * 100) / 100,
+    rate:          rate // v179: chek/xabarda "joriy kursda $X" ko'rsatish uchun — TO'LOV PAYTIDAGI kursni saqlaymiz (keyinchalik kurs o'zgarsa ham bu chek o'zgarmaydi)
   };
   db.debtPayments = db.debtPayments || [];
   db.debtPayments.push(payment);
@@ -1432,6 +1433,21 @@ function showDebtPaymentReceipt(payment) {
             <span>${payment.chekNum}</span>
             <b>${payment.date} ${payment.time||""}</b>
           </div>
+          ${payment.debtBefore != null || payment.debtAfter != null ? `
+          <div style="background:#F6F4EF;border-radius:12px;padding:12px 14px;margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
+              <span style="color:#8a8f98">Jami qarz edi</span>
+              <b style="color:#0D1B2A">${fmtMoney(payment.debtBefore||0, payment.currency)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
+              <span style="color:#8a8f98">To'landi</span>
+              <b style="color:#059669">${fmtMoney(payment.amount, payment.currency)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
+              <span style="color:#8a8f98">Qoldi</span>
+              <b style="color:${payment.debtAfter>0?'#DC2626':'#059669'}">${payment.debtAfter>0 ? fmtMoney(payment.debtAfter, payment.currency) : "0 — to'liq yopildi ✅"}</b>
+            </div>
+          </div>` : ""}
           <div class="section-lbl">Yopilgan / kamaytirilgan qarzlar</div>
           ${allocHtml || `<div style="font-size:12.5px;color:#aaa">Mos qarz topilmadi</div>`}
           <div class="total-row">
@@ -1439,9 +1455,14 @@ function showDebtPaymentReceipt(payment) {
             <span class="val">${fmtMoney(payment.amount, payment.currency)}</span>
           </div>
           <div style="text-align:right;font-size:11.5px;color:#a3a8af;margin-top:4px">
-            ${payment.methodBreakdown
-              ? Object.entries(payment.methodBreakdown).map(([m,v]) => `${fmtMoney(v,"uzs")} ${payMethodLabel(m)}`).join(" + ")
-              : payMethodLabel(payment.method) + " orqali"}
+            ${(() => {
+              if (!payment.methodBreakdown) return payMethodLabel(payment.method) + " orqali";
+              const totalSom = Object.values(payment.methodBreakdown).reduce((a,v)=>a+v,0);
+              let t = Object.entries(payment.methodBreakdown).map(([m,v]) => `${fmt(v)} so'm ${payMethodLabel(m)}`).join(" + ");
+              t += ` = Jami ${fmt(totalSom)} so'm`;
+              if (payment.currency === "usd") t += ` (kurs: $${(totalSom/(payment.rate||db.settings?.rate||12800)).toFixed(2)})`;
+              return t;
+            })()}
           </div>
           ${leftoverHtml}
           <div class="badge-row">

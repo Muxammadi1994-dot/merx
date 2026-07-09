@@ -1029,14 +1029,28 @@ async function actionSendPayReceipt(body) {
   if (!chatId) return { ok: true, sent: false, reason: "no_chat_id" };
 
   const F = n => Math.round(n||0).toLocaleString("ru-RU");
-  const cur = payment.currency === "usd" ? "$" : "so'm";
-  const M = n => payment.currency === "usd" ? ("$" + (Math.round((n||0)*100)/100)) : (F(n) + " so'm");
+  const M = n => payment.currency === "usd" ? ("$" + (Math.round((n||0)*100)/100).toFixed(2)) : (F(n) + " so'm");
+  const PM_LBL = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma" };
+
+  // v179: to'lov usullari taqsimoti (naqd/karta/o'tkazma so'mda) +
+  // joriy kursda dollor ekvivalenti — USD qarzda ham sotuvchi qanday
+  // to'langanini (naqd/karta) aniq ko'rsin.
+  let methodTxt;
+  if (payment.methodBreakdown) {
+    const rate = payment.rate || 12800;
+    const parts = Object.entries(payment.methodBreakdown).map(([m,v]) => `${F(v)} so'm ${PM_LBL[m]||m}`);
+    const totalSom = Object.values(payment.methodBreakdown).reduce((a,v)=>a+v,0);
+    methodTxt = parts.join(" + ") + ` = Jami ${F(totalSom)} so'm`;
+    if (payment.currency === "usd") methodTxt += ` (joriy kursda $${(totalSom/rate).toFixed(2)})`;
+  } else {
+    methodTxt = `${PM_LBL[payment.method] || payment.method || "Naqd"} orqali`;
+  }
 
   let txt = `💵 <b>TO'LOV QABUL QILINDI</b>  <code>${payment.chekNum || ("#"+payment.id)}</code>\n`;
   txt += `🏪 ${shopName || "MERX"}\n📅 ${payment.date || ""} ${payment.time || ""}\n`;
   txt += `━━━━━━━━━━━━━━━━━━━\n`;
   if (payment.debtBefore != null) txt += `Jami qarz edi:  <b>${M(payment.debtBefore)}</b>\n`;
-  txt += `To'landi:  <b>${M(payment.amount)}</b>${payment.method ? `  (${payment.method})` : ""}\n`;
+  txt += `To'landi:  <b>${M(payment.amount)}</b>\n${methodTxt}\n`;
   if (payment.debtAfter != null) {
     txt += payment.debtAfter > 0
       ? `Qoldi:  <b>${M(payment.debtAfter)}</b>\n`
@@ -1044,7 +1058,7 @@ async function actionSendPayReceipt(body) {
   }
   const alloc = payment.allocations || [];
   if (alloc.length) {
-    txt += `━━━━━━━━━━━━━━━━━━━\n`;
+    txt += `━━━━━━━━━━━━━━━━━━━\n<b>Yopilgan/kamaytirilgan cheklar:</b>\n`;
     alloc.slice(0, 6).forEach(a => {
       txt += `▫️ <code>${a.chekNum}</code> — ${a.fullyPaid ? "to'liq yopildi ✅" : M(a.amount) + " (qoldi " + M(a.remainingAfter) + ")"}\n`;
     });
@@ -1066,9 +1080,22 @@ async function actionSendPayReceipt(body) {
 // To'lov cheki sahifasi (mini-app ichida ochiladi)
 function buildPayReceiptHtml(p, shopName) {
   const F = n => Math.round(n||0).toLocaleString("ru-RU");
-  const M = n => p.currency === "usd" ? ("$" + (Math.round((n||0)*100)/100)) : (F(n) + " so'm");
+  const M = n => p.currency === "usd" ? ("$" + (Math.round((n||0)*100)/100).toFixed(2)) : (F(n) + " so'm");
   const alloc = Array.isArray(p.allocations) ? p.allocations : [];
-  const methodL = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", balans:"Balansdan" }[p.method] || p.method || "";
+  const PM_LBL = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", balans:"Balansdan" };
+  const methodL = PM_LBL[p.method] || p.method || "";
+  // v179: to'lov usullari taqsimoti (naqd/karta/o'tkazma) + joriy kursda
+  // dollor ekvivalenti — USD qarzda ham sotuvchi qaysi usulda qancha
+  // to'laganini aniq ko'rsatadi.
+  const mb = p.method_breakdown || p.methodBreakdown || null;
+  let methodTxt = methodL;
+  if (mb) {
+    const rate = p.rate || 12800;
+    const totalSom = Object.values(mb).reduce((a,v)=>a+(v||0),0);
+    methodTxt = Object.entries(mb).map(([m,v]) => `${F(v)} so'm ${PM_LBL[m]||m}`).join(" + ");
+    methodTxt += ` = ${F(totalSom)} so'm`;
+    if (p.currency === "usd") methodTxt += ` (kurs: $${(totalSom/rate).toFixed(2)})`;
+  }
   const rows = alloc.map(a => `
     <tr><td class="c"><code>${a.chekNum||""}</code></td>
         <td class="a">${M(a.amount)}</td>
@@ -1109,7 +1136,7 @@ td.s.ok{color:#059669}
   <div class="t">🧾 TO'LOV CHEKI  ${p.chek_num||p.chekNum||""}</div>
   <div class="s">📅 ${p.date||""} ${p.time||""}${p.customer_name||p.customerName ? " · 👤 " + (p.customer_name||p.customerName) : ""}</div>
 </div>
-<div class="amt"><div class="v">${M(p.amount)}</div><div class="m">${methodL}</div></div>
+<div class="amt"><div class="v">${M(p.amount)}</div><div class="m">${methodTxt}</div></div>
 <div class="box">
   ${p.debt_before!=null||p.debtBefore!=null ? `<div class="row"><span class="k">Jami qarz edi</span><span class="v">${M(p.debt_before!=null?p.debt_before:p.debtBefore)}</span></div>` : ""}
   <div class="row ok"><span class="k">To'landi</span><span class="v">${M(p.amount)}</span></div>
