@@ -655,7 +655,22 @@ function openEditProduct(sku) {
     }
   }
   $("ep-price").value           = p.priceUzs;
-  $("ep-ulgurji").value         = p.ulgurjiNarx || 0;
+  {
+    // v167: Ulgurji narxni joriy valyuta rejimida ko'rsatamiz
+    const _curU  = db.settings?.priceCurrency || "uzs";
+    const _rateU = db.settings?.rate || 12800;
+    const _ulgEl = $("ep-ulgurji");
+    if (_ulgEl) {
+      if (_curU === "usd" || _curU === "both") {
+        const usdVal = (p.ulgurjiNarx || 0) / _rateU;
+        _ulgEl.value = usdVal ? usdVal.toFixed(2) : "";
+        _ulgEl.dataset.raw = usdVal ? usdVal.toFixed(2) : "0";
+      } else {
+        _ulgEl.value = fmt(p.ulgurjiNarx || 0);
+        _ulgEl.dataset.raw = String(p.ulgurjiNarx || 0);
+      }
+    }
+  }
   if ($("ep-unit"))    $("ep-unit").value    = p.unit    || "dona";
   if ($("ep-art"))     $("ep-art").value     = p.art     || "";
   if ($("ep-barcode")) $("ep-barcode").value = p.barcode || "";
@@ -1059,7 +1074,7 @@ function saveEditProduct() {
     p.costUsd = Math.abs(_newCost - (p.costUsd || 0)) < 0.01 ? p.costUsd : _newCost;
   }
   p.priceUzs    = _pv("ep-price")   || p.priceUzs;
-  p.ulgurjiNarx = _pv("ep-ulgurji");
+  p.ulgurjiNarx = readUlgAsUzs("ep-ulgurji");
   if ($("ep-unit"))     p.unit     = $("ep-unit").value     || p.unit;
   if ($("ep-art"))      p.art      = $("ep-art").value.trim();
   if ($("ep-barcode"))  p.barcode  = $("ep-barcode").value.trim();
@@ -1326,7 +1341,7 @@ function addProduct() {
   const cost    = (cur1 === "usd" || cur1 === "both") ? costRaw : costRaw / rate1;
   // v151: chakana narx — endi mavjud maydondan, probelga chidamli o'qiladi
   const price   = ($("ap-price") && typeof getRawVal === "function") ? (getRawVal("ap-price") || 0) : 0;
-  const ulg     = getRawVal("ap-ulgurji");
+  const ulg     = readUlgAsUzs("ap-ulgurji");
   const unit    = ($("ap-unit")||{value:"dona"}).value;
   const packUnit = ($("ap-packunit")||{value:"karobka"}).value;
   const pantone = ($("ap-pantone")||{value:""}).value.trim();
@@ -1834,6 +1849,39 @@ function updateCostCurrency() {
       if (inp) inp.step = "1000";
     }
   });
+
+  // v167: "Ulgurji narx" (sotuv narxi) yorlig'i ham — Tannarx bilan
+  // BIR XIL izchillikda (both rejimi ham USD deb o'qiladi, mavjud
+  // Tannarx konvensiyasiga mos). ICHKI SAQLASH baribir so'mda qoladi
+  // (ulgurjiNarx maydoni o'zgarmaydi) — faqat kiritish/ko'rsatish
+  // qatlami valyutaga moslashadi.
+  ["ap-ulgurji-lbl", "ep-ulgurji-lbl"].forEach(id => {
+    const lbl = $(id); if (!lbl) return;
+    lbl.textContent = (isUsd || isBoth) ? "Sotuv narxi (USD)" : "Sotuv narxi (so'm)";
+  });
+}
+
+// v167: Ulgurji narx maydoni uchun aqlli input — SO'M rejimida
+// vergul-guruhlab butun son (avvalgidek), USD/Both rejimida esa
+// kasr songa ruxsat beruvchi (masalan 15.50) formatlashsiz kiritish.
+function priceInputHandler(el) {
+  const cur = db.settings?.priceCurrency || "uzs";
+  if (cur === "usd" || cur === "both") {
+    const clean = el.value.replace(/[^\d.]/g, "");
+    el.value = clean;
+    el.dataset.raw = clean;
+  } else {
+    fmtInput(el);
+  }
+}
+
+// Ulgurji narxni (so'm/USD rejimidan qat'iy nazar) HAR DOIM to'g'ri
+// SO'M qiymatiga aylantirib o'qiydi — ADD va EDIT uchun umumiy
+function readUlgAsUzs(inputId) {
+  const cur  = db.settings?.priceCurrency || "uzs";
+  const rate = db.settings?.rate || 12800;
+  const raw  = getRawVal(inputId);
+  return (cur === "usd" || cur === "both") ? Math.round(raw * rate) : raw;
 }
 
 // ================================================

@@ -2656,8 +2656,8 @@
         <div id="ap-cost-note" style="font-size:11px;color:var(--mut);margin-top:4px"></div>
       </div>
       <div class="fld">
-        <label>Ulgurji narx (so'm)</label>
-        <input id="ap-ulgurji" type="text" data-price placeholder="0" oninput="fmtInput(this);apCostNote()">
+        <label id="ap-ulgurji-lbl">Ulgurji narx (so'm)</label>
+        <input id="ap-ulgurji" type="text" data-price placeholder="0" oninput="priceInputHandler(this);apCostNote()">
         <div id="ap-ulgurji-note" style="font-size:11px;color:var(--mut);margin-top:4px"></div>
       </div>
       <div class="fld ap-field" data-apf="chakana">
@@ -2841,8 +2841,8 @@
         </div>
       </div>
       <div class="fld">
-        <label>Ulgurji narx (so'm)</label>
-        <input id="ep-ulgurji" type="text" data-price placeholder="0" oninput="fmtInput(this);epUpdateBoxHints()">
+        <label id="ep-ulgurji-lbl">Ulgurji narx (so'm)</label>
+        <input id="ep-ulgurji" type="text" data-price placeholder="0" oninput="priceInputHandler(this);epUpdateBoxHints()">
         <div class="box-narx-hint" id="ep-ulg-hint" style="display:none">
           <i class="ti ti-package"></i><span></span>
         </div>
@@ -3822,7 +3822,7 @@
 <script src="js/cloud.js?v=167"></script>
 <script src="js/dashboard.js?v=143"></script>
 <script src="js/pos.js?v=163"></script>
-<script src="js/katalog.js?v=164"></script>
+<script src="js/katalog.js?v=165"></script>
 <script src="js/ombor.js?v=143"></script>
 <script src="js/mijozlar.js?v=143"></script>
 <script src="js/qarzlar.js?v=145"></script>
