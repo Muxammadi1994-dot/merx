@@ -1563,8 +1563,9 @@ function imgSrcPick(kind) {
 // rasm...) qolib ketmasligi uchun
 function apResetAddForm() {
   ["ap-name","ap-art","ap-color"].forEach(id => { if ($(id)) $(id).value = ""; });
-  if ($("ap-boxes")) $("ap-boxes").value = 1;
-  if ($("ap-inbox-calc")) $("ap-inbox-calc").value = 1;
+  if ($("ap-boxes")) $("ap-boxes").value = "";
+  if ($("ap-inbox-calc")) $("ap-inbox-calc").value = "";
+  if ($("ap-qty-range")) $("ap-qty-range").value = "";
   if ($("ap-pack-mix")) $("ap-pack-mix").value = "";
   if ($("ap-mix-hint")) $("ap-mix-hint").textContent = "";
   if ($("ap-cost")) $("ap-cost").value = "";
@@ -1634,7 +1635,10 @@ function apCostNote() {
   const cur  = db.settings?.priceCurrency || "uzs";
   const rate = db.settings?.rate || 1;
   const c    = parseFloat(($("ap-cost")||{value:0}).value) || 0;
-  const u    = getRawVal("ap-ulgurji") || 0;
+  // v168: marja/foyda hisobi uchun Ulgurji narx HAR DOIM SO'MGA
+  // aylantirib o'qiladi (avval xom USD raqami to'g'ridan-to'g'ri
+  // so'm deb solishtirilib, mantiqsiz foiz chiqarardi)
+  const u    = (typeof readUlgAsUzs === "function") ? readUlgAsUzs("ap-ulgurji") : (getRawVal("ap-ulgurji") || 0);
   const inBoxC = parseInt(($("ap-inbox-calc")||{value:1}).value) || 1;
   const packUnit = ($("ap-packunit")||{value:"karobka"}).value;
   const el   = $("ap-cost-note"); if (!el) return;
@@ -1807,7 +1811,8 @@ function epUpdateBoxHints() {
   const costRaw = parseFloat(($("ep-cost")||{value:0}).value.replace(/\s/g,"").replace(/,/g,"")) || 0;
   // ep-cost input qiymati endi joriy valyuta rejimida (UZS bo'lsa to'g'ridan-to'g'ri so'm)
   const costUzs = (cur === "usd" || cur === "both") ? Math.round(costRaw * rate) : costRaw;
-  const ulg     = getRawVal("ep-ulgurji");
+  // v168: xuddi apCostNote dagidek — SO'MGA aylantirib o'qiymiz
+  const ulg     = (typeof readUlgAsUzs === "function") ? readUlgAsUzs("ep-ulgurji") : getRawVal("ep-ulgurji");
   _showBoxHint("ep-cost-hint", costUzs, inBox);
   _showBoxHint("ep-ulg-hint",  ulg, inBox);
 }
