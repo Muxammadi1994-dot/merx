@@ -468,7 +468,7 @@ function renderDebtsList(list, rate) {
     <th class="num">Qolgan qarz</th>
     ${cols.due    ? "<th>Muddat</th>" : ""}
     ${cols.status ? "<th>Holat</th>" : ""}
-    <th>To'lov</th>
+    <th>To'lov <button onclick="event.stopPropagation();openDebtPayMethodsSettings()" title="Qaysi to'lov usullari ko'rinishini tanlash" style="border:none;background:none;cursor:pointer;color:var(--mut);padding:0;vertical-align:middle"><i class="ti ti-settings" style="font-size:13px"></i></button></th>
   </tr>`;
 
   if (!tbody) return;
@@ -504,24 +504,15 @@ function renderDebtsList(list, rate) {
       </td>` : ""}
       <td>
         <div style="display:flex;flex-direction:column;gap:5px;min-width:180px">
-          <div style="display:flex;gap:5px">
-            <input type="text" id="pay-${s.id}"
-              placeholder="so'm" data-price
-              oninput="${isUsd?`fmtInput(this);qzShowUsdHint(${s.id})`:"fmtInput(this)"}"
-              style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:90px;flex:1;outline:none">
-            ${isUsd ? `<div id="pay-usdhint-${s.id}" style="font-size:10px;color:#4C9BE8;font-weight:600;margin-top:-2px"></div>` : ""}
-            <select id="pay-method-${s.id}"
-              style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:78px">
-              <option value="naqd">💵 Naqd</option>
-              <option value="karta">💳 Karta</option>
-              <option value="otkazma">🏦 O'tkazma</option>
-            </select>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+            ${debtPayMethodInputs(s.id, isUsd)}
             <select id="pay-staff-${s.id}"
               style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:90px">
               ${_qarzStaffOpts()}
             </select>
             <button class="btn btn-teal btn-sm" onclick="recordPayment(${s.id})">To'lov</button>
           </div>
+          ${isUsd ? `<div id="pay-usdhint-${s.id}" style="font-size:10px;color:#4C9BE8;font-weight:600"></div>` : ""}
           ${(() => {
             const others = findCustomerDebts(s).filter(x => x.id !== s.id);
             return others.length
@@ -676,6 +667,48 @@ function renderDebtsGrouped(list, rate) {
 }
 
 // ── Guruhda to'lov qabul qilish (eng eski qarzdan FIFO) ────
+// ── Ko'p usulli qarz to'lovi (2026-07-09, POS'dagi kabi) ─────────
+// Har bir qatorda Naqd/Karta/O'tkazma alohida kiritiladi, yig'indisi
+// bitta to'lov sifatida qarzdan ayiriladi, lekin taqsimoti (kim qancha)
+// saqlanib qoladi — chekda va xabarda aniq ko'rsatiladi.
+function debtPayMethodsShown() {
+  const d = db.settings?.debtPayMethodsShown;
+  return (d && typeof d === "object") ? d : { naqd: true, karta: true, otkazma: false };
+}
+
+function debtPayMethodInputs(saleId, isUsd) {
+  const shown = debtPayMethodsShown();
+  const defs = [["naqd","💵"], ["karta","💳"], ["otkazma","🏦"]];
+  let visible = defs.filter(([m]) => shown[m] !== false);
+  if (!visible.length) visible = [["naqd","💵"]]; // xavfsizlik: kamida bittasi ko'rinishi shart
+  return visible.map(([m, icon]) => `
+    <input type="text" id="pay-${m}-${saleId}" data-price
+      placeholder="${icon}" title="${payMethodLabel(m)} (so'm)"
+      oninput="fmtInput(this);${isUsd ? `qzShowUsdHint(${saleId})` : ""}"
+      style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 6px;width:62px;outline:none">
+  `).join("");
+}
+
+function openDebtPayMethodsSettings() {
+  const shown = debtPayMethodsShown();
+  const list = $("debt-pay-methods-list");
+  if (list) {
+    list.innerHTML = [["naqd","💵 Naqd"],["karta","💳 Karta"],["otkazma","🏦 O'tkazma"]].map(([key,label]) => `
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+        <input type="checkbox" ${shown[key]!==false?"checked":""} onchange="toggleDebtPayMethod('${key}',this.checked)">
+        ${label}
+      </label>`).join("");
+  }
+  openModal("debtpaymethods");
+}
+
+function toggleDebtPayMethod(key, val) {
+  if (!db.settings.debtPayMethodsShown) db.settings.debtPayMethodsShown = { naqd:true, karta:true, otkazma:false };
+  db.settings.debtPayMethodsShown[key] = val;
+  saveDB();
+  renderDebts();
+}
+
 function qzShowGroupUsdHint(gKey) {
   const el = $("gpay-usdhint-" + gKey);
   if (!el) return;
@@ -841,13 +874,11 @@ function qzShowUsdHint(id) {
   const el = $("pay-usdhint-" + id);
   if (!el) return;
   const rate = db.settings.rate || 12800;
-  const raw = ($("pay-" + id) || {value:""}).value.trim();
-  if (raw.startsWith("$")) {
-    const usdVal = parseFloat(raw.slice(1)) || 0;
-    el.textContent = usdVal > 0 ? `= ${fmt(Math.round(usdVal*rate))} so'm` : "";
-    return;
-  }
-  const som = parseFloat(raw.replace(/[\s,]/g,"")) || 0;
+  // v173: endi 3 ta maydon (naqd/karta/o'tkazma) yig'indisidan hisoblanadi
+  const som = ["naqd","karta","otkazma"].reduce((a, m) => {
+    const raw = ($("pay-" + m + "-" + id) || {value:""}).value || "";
+    return a + (parseFloat(raw.replace(/[\s,]/g,"")) || 0);
+  }, 0);
   el.textContent = som > 0 ? `≈ $${(som/rate).toFixed(2)}` : "";
 }
 
@@ -857,26 +888,40 @@ async function recordPayment(id, forcedCurrency) {
   const clickedState = calcSaleState(clicked);
   const payCur  = forcedCurrency || ((clicked.debtCurrency === "usd" && clickedState.debtUsd > 0) ? "usd" : "uzs");
 
-  // v172: Mijoz SO'MDA to'lasa ham (USD qarz bo'lsa ham), sotuvchi endi
-  // doim SO'M kiritadi — tizim joriy kurs bilan o'zi USD'ga o'tkazadi.
-  // Qo'lda kalkulyatorda hisoblash shart emas. (Agar mijoz aynan dollor
-  // naqd bilan to'lasa — "$" belgisini yozib kiritish ham qabul qilinadi.)
-  const rawInput = ($("pay-"+id)||{value:""}).value.trim();
-  if (!rawInput) { toast("Summani kiriting","err"); return; }
-  let amt;
-  if (payCur === "usd") {
-    if (rawInput.startsWith("$")) {
-      amt = parseFloat(rawInput.slice(1)) || 0; // sotuvchi ataylab $ deb kiritgan
-    } else {
-      const enteredSom = parseFloat(rawInput.replace(/[\s,]/g,"")) || 0;
-      amt = Math.round((enteredSom / rate) * 100) / 100; // so'mdan USD'ga
-    }
-  } else {
-    amt = parseFloat(rawInput.replace(/[\s,]/g,"")) || 0;
-  }
-  if (amt <= 0) { toast("Summani kiriting","err"); return; }
+  // v173: KO'P USULLI TO'LOV — Naqd/Karta/O'tkazma alohida kiritiladi
+  // (POS'dagi kabi), yig'indisi bitta to'lov sifatida qarzdan ayiriladi,
+  // taqsimoti esa chek/xabarda aniq ko'rsatish uchun saqlanadi. Har doim
+  // SO'MDA kiritiladi — USD qarz bo'lsa shu yerning o'zida o'tkaziladi
+  // (qo'lda kalkulyator shart emas). Eski yagona maydon ("pay-"+id) hali
+  // ham mavjud bo'lsa (masalan guruhlangan to'lovning vaqtinchalik
+  // inputi) — orqaga moslik uchun o'sha ham qo'llab-quvvatlanadi.
+  const _mSom = {};
+  ["naqd","karta","otkazma"].forEach(m => {
+    const el = $("pay-" + m + "-" + id);
+    if (el) _mSom[m] = parseFloat((el.value||"").replace(/[\s,]/g,"")) || 0;
+  });
+  let totalSom = Object.values(_mSom).reduce((a,v) => a+v, 0);
+  let method, methodBreakdown = null;
+  const legacyEl = $("pay-" + id);
 
-  const method  = ($("pay-method-"+id)||{value:"naqd"}).value || "naqd";
+  if (totalSom > 0) {
+    const nonZero = Object.keys(_mSom).filter(m => _mSom[m] > 0);
+    method = nonZero.length === 1 ? nonZero[0] : "aralash";
+    if (nonZero.length > 1) { methodBreakdown = {}; nonZero.forEach(m => methodBreakdown[m] = _mSom[m]); }
+  } else if (legacyEl) {
+    // Eski yagona maydon (guruhlangan to'lov shu orqali ishlaydi)
+    const rawInput = legacyEl.value.trim();
+    if (!rawInput) { toast("Summani kiriting","err"); return; }
+    if (rawInput.startsWith("$")) {
+      totalSom = (parseFloat(rawInput.slice(1)) || 0) * rate; // USD → so'm (keyin pastda yana USD'ga qaytariladi, izchillik uchun)
+    } else {
+      totalSom = parseFloat(rawInput.replace(/[\s,]/g,"")) || 0;
+    }
+    method = ($("pay-method-"+id)||{value:"naqd"}).value || "naqd";
+  }
+
+  if (totalSom <= 0) { toast("Summani kiriting","err"); return; }
+  const amt = payCur === "usd" ? Math.round((totalSom / rate) * 100) / 100 : totalSom;
   const _staffId = parseInt(($("pay-staff-"+id)||{value:""}).value)||null;
 
   // Mijozning shu valyutadagi barcha ochiq qarzlari, sotuv sanasi bo'yicha (eng eski birinchi)
@@ -971,6 +1016,7 @@ async function recordPayment(id, forcedCurrency) {
     amount:        amt,
     currency:      payCur,
     method:        method,
+    methodBreakdown: methodBreakdown,
     allocations:   allocations,
     leftover:      leftover > 0 ? leftover : 0,
     leftoverToBalance: leftover > 0 && clicked.customerId ? true : false,
@@ -1005,7 +1051,11 @@ async function recordPayment(id, forcedCurrency) {
       : ` | Ortiqcha: ${fmtMoney(leftover, payCur)} (mijoz ro'yxatda emas, balansga qo'shilmadi)`;
   }
 
-  toast(`✅ ${amtDisplay} qabul qilindi. ${summary}`);
+  let methodTxt = "";
+  if (methodBreakdown) {
+    methodTxt = " (" + Object.entries(methodBreakdown).map(([m,v]) => `${fmt(v)} so'm ${payMethodLabel(m)}`).join(" + ") + ")";
+  }
+  toast(`✅ ${amtDisplay}${methodTxt} qabul qilindi. ${summary}`);
 
   // ── Chek modalini ko'rsatish ────────────────────
   if (typeof showDebtPaymentReceipt === "function") {
@@ -1016,7 +1066,7 @@ async function recordPayment(id, forcedCurrency) {
   const phone = cu.phone;
   if (phone && phone.replace(/\D/g,"").length >= 9) {
     const shopName = db.shop?.name || "MERX";
-    let smsTxt = `${shopName}: To'lov qabul qilindi: ${amtDisplay}. Jami qarz: ${fmtMoney(payment.debtBefore, payCur)} edi, ${fmtMoney(payment.debtAfter, payCur)} qoldi.`;
+    let smsTxt = `${shopName}: To'lov qabul qilindi: ${amtDisplay}${methodTxt}. Jami qarz: ${fmtMoney(payment.debtBefore, payCur)} edi, ${fmtMoney(payment.debtAfter, payCur)} qoldi.`;
     if (allocations.length > 1) {
       smsTxt += " " + allocations.map(a =>
         `${a.saleDate}: ${a.fullyPaid ? "yopildi" : fmtMoney(a.amount,a.currency)+" hisobga o'tdi"}`
@@ -1337,7 +1387,11 @@ function showDebtPaymentReceipt(payment) {
             <span class="lbl">QABUL QILINDI</span>
             <span class="val">${fmtMoney(payment.amount, payment.currency)}</span>
           </div>
-          <div style="text-align:right;font-size:11.5px;color:#a3a8af;margin-top:4px">${payMethodLabel(payment.method)} orqali</div>
+          <div style="text-align:right;font-size:11.5px;color:#a3a8af;margin-top:4px">
+            ${payment.methodBreakdown
+              ? Object.entries(payment.methodBreakdown).map(([m,v]) => `${fmtMoney(v,"uzs")} ${payMethodLabel(m)}`).join(" + ")
+              : payMethodLabel(payment.method) + " orqali"}
+          </div>
           ${leftoverHtml}
           <div class="badge-row">
             <span>Mijoz: <b style="color:#0D1B2A">${payment.customerName||"—"}</b></span>
@@ -1772,7 +1826,7 @@ function qtToggleExpand(saleId) {
 }
 
 function payMethodLabel(m) {
-  const labels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", balans: "💰 Balans" };
+  const labels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", balans: "💰 Balans", aralash: "Aralash" };
   return labels[m] || "Naqd";
 }
 

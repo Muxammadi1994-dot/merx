@@ -3613,6 +3613,23 @@
   </div>
 </div>
 
+<!-- Qarz to'lovida qaysi to'lov usullari ko'rinishini tanlash
+     (2026-07-09, ko'p usulli to'lov funksiyasi bilan birga) -->
+<div class="ov" id="ov-debtpaymethods" onclick="if(event.target===this)closeModal('debtpaymethods')">
+  <div class="modal" style="max-width:300px">
+    <button class="m-close" onclick="closeModal('debtpaymethods')"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-cash" style="margin-right:8px"></i>To'lov usullari</h2>
+    <p style="font-size:12.5px;color:var(--mut);margin:-8px 0 14px">
+      Qarz to'lov qatorida qaysi usullar ko'rinishini tanlang. Bir nechtasi
+      belgilansa, hammasini bir vaqtda kiritish mumkin bo'ladi.
+    </p>
+    <div id="debt-pay-methods-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div style="margin-top:16px">
+      <button class="btn btn-acc" style="width:100%" onclick="closeModal('debtpaymethods')">Yopish</button>
+    </div>
+  </div>
+</div>
+
 <!-- Qarzlar jadvali USTUNLARI sozlamalari (2026-07-09) — xuddi shu
      turdagi xato: "Ustunlarni sozlash" tugmasi ham modal yo'qligi
      sabab ishlamas edi -->
@@ -3858,7 +3875,7 @@
 <script src="js/katalog.js?v=167"></script>
 <script src="js/ombor.js?v=143"></script>
 <script src="js/mijozlar.js?v=143"></script>
-<script src="js/qarzlar.js?v=147"></script>
+<script src="js/qarzlar.js?v=148"></script>
 <script src="js/tarix.js?v=152"></script>
 <script src="js/hisobot.js?v=142"></script>
 <script src="js/xodimlar.js?v=141"></script>
