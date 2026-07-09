@@ -516,7 +516,6 @@ function renderDebtsList(list, rate) {
               <button class="btn btn-ghost btn-icon btn-sm" onclick="sendDebtReminderBot(${s.id})" title="Bot" style="flex-shrink:0;color:#0E7490"><i class="ti ti-brand-telegram"></i></button>
             ` : ""}
           `)}
-          ${isUsd ? `<div id="pay-usdhint-${s.id}" style="font-size:10px;color:#4C9BE8;font-weight:600;margin-top:-2px"></div>` : ""}
           ${(() => {
             if (!s.customerId) return "";
             const cust = (db.customers||[]).find(c => c.id === s.customerId);
@@ -632,7 +631,6 @@ function renderDebtsGrouped(list, rate) {
               <button class="btn btn-teal btn-sm" style="font-size:11px;white-space:nowrap;flex-shrink:0"
                 onclick="recordGroupPayment('${ids}','usd','${gKey}')">To'lov</button>
             `)}
-            <div id="pay-usdhint-${gKey}-usd" style="font-size:10px;color:#4C9BE8;font-weight:600;margin:2px 0"></div>
           </div>` : ""}
         </div>
       </td>
@@ -671,9 +669,23 @@ function debtPayMethodInputs(idKey, isUsd, lastRowExtra) {
   const defs = [["naqd","💵","Naqd"], ["karta","💳","Karta"], ["otkazma","🏦","O'tkazma"]];
   let visible = defs.filter(([m]) => shown[m] !== false);
   if (!visible.length) visible = [["naqd","💵","Naqd"]]; // xavfsizlik: kamida bittasi
+  // v176: USD qarzda — ustida "$" katakchasi. Ikki tomonlama:
+  // Naqd/Karta/O'tkazmaga yozilsa — bu yerga jami dollor summasi
+  // avtomat hisoblanadi; yoki bu yerga to'g'ridan-to'g'ri dollor
+  // yozilsa — Naqd qatori shu summaning so'mdagi ekvivalenti bilan
+  // avtomat to'ladi (mijoz naqd so'mda to'lagan, lekin sotuvchi
+  // dollor bilan o'ylashni afzal ko'rgan holat uchun).
+  const usdBox = isUsd ? `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap;margin-bottom:2px">
+      <span style="font-size:11px;color:#4C9BE8;width:62px;flex-shrink:0;white-space:nowrap;font-weight:700">$ Dollor</span>
+      <input type="text" id="pay-usdbox-${idKey}"
+        placeholder="0.00"
+        oninput="qzUsdBoxToSom('${idKey}')"
+        style="font-family:inherit;font-size:12.5px;font-weight:700;color:#1B4F72;border:1.5px solid #4C9BE8;border-radius:8px;padding:5px 7px;width:108px;flex-shrink:0;outline:none">
+    </div>` : "";
   // v175: alohida 4-qator YO'Q — Kassir/To'lov/SMS/Bot ENG OXIRGI
   // to'lov usuli bilan BIR QATORGA joylashadi (lastRowExtra orqali)
-  return `<div style="display:flex;flex-direction:column;gap:4px">` + visible.map(([m, icon, label], i) => `
+  return `<div style="display:flex;flex-direction:column;gap:4px">` + usdBox + visible.map(([m, icon, label], i) => `
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">
       <span style="font-size:11px;color:var(--mut);width:62px;flex-shrink:0;white-space:nowrap">${icon} ${label}</span>
       <input type="text" id="pay-${m}-${idKey}" data-price
@@ -682,6 +694,21 @@ function debtPayMethodInputs(idKey, isUsd, lastRowExtra) {
         style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 7px;width:108px;flex-shrink:0;outline:none">
       ${i === visible.length - 1 && lastRowExtra ? lastRowExtra : ""}
     </div>`).join("") + `</div>`;
+}
+
+// Dollor katakchasiga to'g'ridan-to'g'ri kiritilganda — Naqd qatorini
+// shu summaning so'mdagi ekvivalenti bilan to'ldiradi
+function qzUsdBoxToSom(idKey) {
+  const rate = db.settings.rate || 12800;
+  const el = $("pay-usdbox-" + idKey);
+  if (!el) return;
+  const usdVal = parseFloat((el.value||"").replace(/[\s,]/g,"").replace(",",".")) || 0;
+  const som = Math.round(usdVal * rate);
+  const naqdEl = $("pay-naqd-" + idKey);
+  if (naqdEl) {
+    naqdEl.value = som > 0 ? fmt(som) : "";
+    naqdEl.dataset.raw = som > 0 ? String(som) : "";
+  }
 }
 
 function openDebtPayMethodsSettings() {
@@ -877,15 +904,16 @@ async function useBalanceForDebt(saleId) {
 // jonli "≈ $X.XX" ko'rsatkichi — konvertatsiya to'g'riligini oldindan
 // ko'rsatib beradi (qo'lda kalkulyator shart emas).
 function qzShowUsdHint(id) {
-  const el = $("pay-usdhint-" + id);
-  if (!el) return;
   const rate = db.settings.rate || 12800;
-  // v173: endi 3 ta maydon (naqd/karta/o'tkazma) yig'indisidan hisoblanadi
+  // v176: endi 3 ta maydon (naqd/karta/o'tkazma) yig'indisi to'g'ridan-
+  // to'g'ri "$ Dollor" KATAKCHASIGA yoziladi (avval faqat o'qish uchun
+  // kichik matn edi, endi tahrirlanadigan maydonning o'zi)
   const som = ["naqd","karta","otkazma"].reduce((a, m) => {
     const raw = ($("pay-" + m + "-" + id) || {value:""}).value || "";
     return a + (parseFloat(raw.replace(/[\s,]/g,"")) || 0);
   }, 0);
-  el.textContent = som > 0 ? `≈ $${(som/rate).toFixed(2)}` : "";
+  const box = $("pay-usdbox-" + id);
+  if (box) box.value = som > 0 ? (som/rate).toFixed(2) : "";
 }
 
 async function recordPayment(id, forcedCurrency) {
