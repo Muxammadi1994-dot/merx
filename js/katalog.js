@@ -2902,19 +2902,34 @@ window.onload = () => {
 }
 
 // ── Katalog jadvalidan rasm yuklash ──────────────
+// v165: Kamera/Galereya tanlash oynasi orqali (avval faqat galereyaga
+// yo'naltirardi, chunki mustaqil, capture atributisiz input yaratilgan
+// edi — xuddi ombor.js dagi omImgClick bilan bir xil eski naqsh)
 function katImgClick(sku, color) {
-  // Inputni dinamik yaratamiz (sku+color uchun noyob bo'lishi shart)
-  let inp = document.getElementById("kat-img-inp-" + sku + "-" + (color||"_"));
-  if (!inp) {
-    inp = document.createElement("input");
-    inp.type = "file";
-    inp.accept = "image/*";
-    inp.style.display = "none";
-    inp.id = "kat-img-inp-" + sku + "-" + (color||"_");
-    inp.onchange = function() { katImgSave(sku, color, this); };
-    document.body.appendChild(inp);
+  const key = sku + "-" + (color || "_");
+  let galInp = document.getElementById("kat-img-inp-" + key);
+  if (!galInp) {
+    galInp = document.createElement("input");
+    galInp.type = "file";
+    galInp.accept = "image/*";
+    galInp.style.display = "none";
+    galInp.id = "kat-img-inp-" + key;
+    galInp.onchange = function() { katImgSave(sku, color, this); };
+    document.body.appendChild(galInp);
   }
-  inp.click();
+  let camInp = document.getElementById("kat-img-cam-" + key);
+  if (!camInp) {
+    camInp = document.createElement("input");
+    camInp.type = "file";
+    camInp.accept = "image/*";
+    camInp.capture = "environment";
+    camInp.style.display = "none";
+    camInp.id = "kat-img-cam-" + key;
+    camInp.onchange = function() { katImgSave(sku, color, this); };
+    document.body.appendChild(camInp);
+  }
+  if (typeof imgSrcAsk === "function") imgSrcAsk(galInp.id, camInp.id);
+  else galInp.click(); // zaxira yo'l
 }
 
 function katImgSave(sku, color, input) {
