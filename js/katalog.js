@@ -1219,7 +1219,7 @@ function apSetStandardSizeRange() {
 function apCalcBoxes() {
   // v146: aralash tarkib yozilgan bo'lsa — hisob mix bo'yicha
   if (($("ap-pack-mix")||{value:""}).value.trim()) { apMixHint(); return; }
-  const boxes  = parseInt(($("ap-boxes")||{value:1}).value)          || 1;
+  const boxes  = parseInt(($("ap-boxes")||{value:""}).value)          || 0; // v169: bo'sh=0
   const from   = ($("ap-size-from")||{value:""}).value;
   const to     = ($("ap-size-to")||{value:""}).value;
 
@@ -1242,7 +1242,9 @@ function apCalcBoxes() {
     else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) sizeCount = iTo - iFrom + 1;
   }
 
-  const manualInbox = parseInt(($("ap-inbox-calc")||{value:1}).value) || 1;
+  // v169: bo'sh maydonlar "1" ga emas, 0 ga tushadi — natijada "Jami
+  // dona" ham bo'sh ko'rinadi (foydalanuvchi hali to'ldirmagan bo'lsa)
+  const manualInbox = parseInt(($("ap-inbox-calc")||{value:""}).value) || 0;
   const effectiveInbox = sizesOn ? sizeCount : manualInbox;
   const total = boxes * effectiveInbox;
 
@@ -1250,7 +1252,7 @@ function apCalcBoxes() {
   // avtomatik to'ldiramiz — yopiq bo'lsa qo'lda kiritilgan qiymatga
   // TEGILMAYMIZ.
   if (sizesOn && $("ap-inbox-calc")) $("ap-inbox-calc").value = sizeCount;
-  if ($("ap-qty-range"))  $("ap-qty-range").value  = total;
+  if ($("ap-qty-range"))  $("ap-qty-range").value  = total || ""; // v169: 0 → bo'sh ko'rinsin
 
   const prev = $("ap-size-range-preview");
   if (prev && from && to) prev.textContent = from === to ? `→ faqat ${from}` : `→ ${from}–${to}`;
@@ -1334,7 +1336,7 @@ function addProduct() {
   if (!color) { toast("Rang tanlang","err"); return; }
 
   const t       = currentApType || "oyoq";
-  const costRaw = parseFloat(($("ap-cost")||{value:0}).value.replace(/\s/g,"")) || 0;
+  const costRaw = getRawVal("ap-cost"); // v169: endi vergul-formatlangan (fmtInput/priceInputHandler)
   const cur1    = db.settings?.priceCurrency || "uzs";
   const rate1   = db.settings?.rate || 12800;
   // Har doim USD da saqlaymiz
@@ -1529,7 +1531,7 @@ function apNameAutofill(val) {
   // Mavjud tovar topildi — narxlarni avtomatik to'ldiramiz va ogohlantiramiz
   const rate = db.settings?.rate || 12800;
   const cur1 = db.settings?.priceCurrency || "uzs";
-  if ($("ap-cost")) $("ap-cost").value = (cur1 === "usd" || cur1 === "both") ? p.costUsd : Math.round((p.costUsd||0)*rate);
+  if ($("ap-cost")) { $("ap-cost").value = (cur1 === "usd" || cur1 === "both") ? p.costUsd : Math.round((p.costUsd||0)*rate); if (typeof priceInputHandler === "function") priceInputHandler($("ap-cost")); }
   if ($("ap-ulgurji")) { $("ap-ulgurji").value = p.ulgurjiNarx || 0; if (typeof fmtInput === "function") fmtInput($("ap-ulgurji")); }
   if ($("ap-art") && p.art) $("ap-art").value = p.art;
 
@@ -1634,7 +1636,7 @@ function apTypeChange(t) {
 function apCostNote() {
   const cur  = db.settings?.priceCurrency || "uzs";
   const rate = db.settings?.rate || 1;
-  const c    = parseFloat(($("ap-cost")||{value:0}).value) || 0;
+  const c    = getRawVal("ap-cost"); // v169
   // v168: marja/foyda hisobi uchun Ulgurji narx HAR DOIM SO'MGA
   // aylantirib o'qiladi (avval xom USD raqami to'g'ridan-to'g'ri
   // so'm deb solishtirilib, mantiqsiz foiz chiqarardi)
@@ -1808,7 +1810,7 @@ function epUpdateBoxHints() {
   const rate    = db.settings?.rate || 12800;
   const cur     = db.settings?.priceCurrency || "uzs";
   const inBox   = parseInt(($("ep-inbox")||{value:0}).value) || 0;
-  const costRaw = parseFloat(($("ep-cost")||{value:0}).value.replace(/\s/g,"").replace(/,/g,"")) || 0;
+  const costRaw = getRawVal("ep-cost"); // v169
   // ep-cost input qiymati endi joriy valyuta rejimida (UZS bo'lsa to'g'ridan-to'g'ri so'm)
   const costUzs = (cur === "usd" || cur === "both") ? Math.round(costRaw * rate) : costRaw;
   // v168: xuddi apCostNote dagidek — SO'MGA aylantirib o'qiymiz
@@ -2057,6 +2059,7 @@ function vcFillAddProductForm(item) {
     $("ap-cost").value = (cur1 === "usd" || cur1 === "both")
       ? (item.tannarx_som / rate).toFixed(2)
       : item.tannarx_som;
+    if (typeof priceInputHandler === "function") priceInputHandler($("ap-cost"));
   }
   if ($("ap-ulgurji") && item.sotuv_narxi_som > 0) {
     $("ap-ulgurji").value = fmt(item.sotuv_narxi_som);
