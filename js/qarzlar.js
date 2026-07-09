@@ -462,11 +462,11 @@ function renderDebtsList(list, rate) {
   const cols = getDebtCols();
   if (thead) thead.innerHTML = `<tr>
     <th>Mijoz</th>
-    ${cols.phone  ? "<th>Telefon</th>" : ""}
+    ${cols.phone  ? '<th style="width:100px">Telefon</th>' : ""}
     ${cols.items  ? "<th>Mahsulotlar</th>" : ""}
     ${cols.paid   ? '<th class="num">To\'langan</th>' : ""}
-    <th class="num">Qolgan qarz</th>
-    ${cols.due    ? "<th>Muddat</th>" : ""}
+    <th class="num" style="width:95px">Qolgan qarz</th>
+    ${cols.due    ? '<th style="width:80px">Muddat</th>' : ""}
     ${cols.status ? "<th>Holat</th>" : ""}
     <th>To'lov <button onclick="event.stopPropagation();openDebtPayMethodsSettings()" title="Qaysi to'lov usullari ko'rinishini tanlash" style="border:none;background:none;cursor:pointer;color:var(--mut);padding:0;vertical-align:middle"><i class="ti ti-settings" style="font-size:13px"></i></button></th>
   </tr>`;
@@ -506,15 +506,16 @@ function renderDebtsList(list, rate) {
         <div style="display:flex;flex-direction:column;gap:6px;min-width:190px">
           ${debtPayMethodInputs(s.id, isUsd)}
           ${isUsd ? `<div id="pay-usdhint-${s.id}" style="font-size:10px;color:#4C9BE8;font-weight:600;margin-top:-2px"></div>` : ""}
-          <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
-            <select id="pay-staff-${s.id}"
-              style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:88px">
-              ${_qarzStaffOpts()}
-            </select>
-            <button class="btn btn-teal btn-sm" onclick="recordPayment(${s.id})">To'lov</button>
+          <div style="display:flex;flex-wrap:nowrap;gap:4px;align-items:center">
+            ${debtPayMethodsShown().kassir !== false ? `
+              <select id="pay-staff-${s.id}"
+                style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:78px;flex-shrink:0">
+                ${_qarzStaffOpts()}
+              </select>` : ""}
+            <button class="btn btn-teal btn-sm" style="flex-shrink:0" onclick="recordPayment(${s.id})">To'lov</button>
             ${cu.phone && cu.phone !== "—" ? `
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="sendDebtReminder(${s.id})" title="SMS" style="color:#856404"><i class="ti ti-message"></i></button>
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="sendDebtReminderBot(${s.id})" title="Bot" style="color:#0E7490"><i class="ti ti-brand-telegram"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="sendDebtReminder(${s.id})" title="SMS" style="flex-shrink:0;color:#856404"><i class="ti ti-message"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="sendDebtReminderBot(${s.id})" title="Bot" style="flex-shrink:0;color:#0E7490"><i class="ti ti-brand-telegram"></i></button>
             ` : ""}
           </div>
           ${(() => {
@@ -547,11 +548,13 @@ function renderDebtsGrouped(list, rate) {
   const thead = $("debt-head");
   const tbody = $("debt-body");
   if (thead) thead.innerHTML = `<tr>
-    <th>Mijoz</th><th>Telefon</th>
+    <th>Mijoz</th><th style="width:100px">Telefon</th>
     <th class="num">Sotuvlar</th>
-    <th class="num">Umumiy qarz</th>
-    <th>Eng yaqin muddat</th>
-    <th>Holat</th><th>To'lov qabul qilish</th><th>Eslatma</th>
+    <th class="num" style="width:110px">Umumiy qarz</th>
+    <th style="width:90px">Eng yaqin muddat</th>
+    <th>Holat</th>
+    <th>To'lov qabul qilish <button onclick="event.stopPropagation();openDebtPayMethodsSettings()" title="Qaysi to'lov usullari ko'rinishini tanlash" style="border:none;background:none;cursor:pointer;color:var(--mut);padding:0;vertical-align:middle"><i class="ti ti-settings" style="font-size:13px"></i></button></th>
+    <th>Eslatma</th>
   </tr>`;
   if (!tbody) return;
 
@@ -614,15 +617,29 @@ function renderDebtsGrouped(list, rate) {
           ${g.totalUzs > 0 ? `
           <div>
             ${debtPayMethodInputs(gKey + "-uzs", false)}
-            <button class="btn btn-teal btn-sm" style="font-size:11px;white-space:nowrap;margin-top:4px"
-              onclick="recordGroupPayment('${ids}','uzs','${gKey}')">To'lov</button>
+            <div style="display:flex;gap:4px;align-items:center;margin-top:4px">
+              ${debtPayMethodsShown().kassir !== false ? `
+                <select id="gpay-staff-${gKey}-uzs"
+                  style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:78px;flex-shrink:0">
+                  ${_qarzStaffOpts()}
+                </select>` : ""}
+              <button class="btn btn-teal btn-sm" style="font-size:11px;white-space:nowrap;flex-shrink:0"
+                onclick="recordGroupPayment('${ids}','uzs','${gKey}')">To'lov</button>
+            </div>
           </div>` : ""}
           ${g.totalUsd > 0 ? `
           <div>
             ${debtPayMethodInputs(gKey + "-usd", true)}
             <div id="pay-usdhint-${gKey}-usd" style="font-size:10px;color:#4C9BE8;font-weight:600;margin:2px 0"></div>
-            <button class="btn btn-teal btn-sm" style="font-size:11px;white-space:nowrap"
-              onclick="recordGroupPayment('${ids}','usd','${gKey}')">To'lov</button>
+            <div style="display:flex;gap:4px;align-items:center">
+              ${debtPayMethodsShown().kassir !== false ? `
+                <select id="gpay-staff-${gKey}-usd"
+                  style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:78px;flex-shrink:0">
+                  ${_qarzStaffOpts()}
+                </select>` : ""}
+              <button class="btn btn-teal btn-sm" style="font-size:11px;white-space:nowrap;flex-shrink:0"
+                onclick="recordGroupPayment('${ids}','usd','${gKey}')">To'lov</button>
+            </div>
           </div>` : ""}
         </div>
       </td>
@@ -649,7 +666,7 @@ function renderDebtsGrouped(list, rate) {
 // saqlanib qoladi — chekda va xabarda aniq ko'rsatiladi.
 function debtPayMethodsShown() {
   const d = db.settings?.debtPayMethodsShown;
-  return (d && typeof d === "object") ? d : { naqd: true, karta: true, otkazma: false };
+  return (d && typeof d === "object") ? d : { naqd: true, karta: true, otkazma: false, kassir: true };
 }
 
 // v174: YORLIQLI, USTUN (column) ko'rinish — har usul o'z nomi bilan
@@ -675,7 +692,7 @@ function openDebtPayMethodsSettings() {
   const shown = debtPayMethodsShown();
   const list = $("debt-pay-methods-list");
   if (list) {
-    list.innerHTML = [["naqd","💵 Naqd"],["karta","💳 Karta"],["otkazma","🏦 O'tkazma"]].map(([key,label]) => `
+    list.innerHTML = [["naqd","💵 Naqd"],["karta","💳 Karta"],["otkazma","🏦 O'tkazma"],["kassir","👤 Kassir tanlash"]].map(([key,label]) => `
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
         <input type="checkbox" ${shown[key]!==false?"checked":""} onchange="toggleDebtPayMethod('${key}',this.checked)">
         ${label}
@@ -746,6 +763,19 @@ async function recordGroupPayment(idsStr, currency, gKey) {
     }
     el.value = val > 0 ? String(val) : "";
   });
+
+  // Kassir tanlovini ham xuddi shunday vaqtincha uzatamiz
+  const staffSelId = `gpay-staff-${groupIdKey}`;
+  const staffVal = ($(staffSelId)||{value:""}).value || "";
+  const tempStaffId = `pay-staff-${oldest.id}`;
+  let staffEl = $(tempStaffId);
+  if (!staffEl) {
+    staffEl = document.createElement("input");
+    staffEl.type = "hidden"; staffEl.id = tempStaffId;
+    document.body.appendChild(staffEl);
+    createdTemp.push(tempStaffId);
+  }
+  staffEl.value = staffVal;
 
   // Valyutani aniq belgilab uzatamiz — mijozda ikkala valyutada qarz
   // bo'lganda ham to'g'ri taqsimlanishi uchun.
