@@ -977,12 +977,52 @@ function renderCartTabs() {
     </button>`;
 }
 
+// v170: Tab (savatcha) almashganda TO'LOV PANELINI ham tozalaymiz —
+// avval bu maydonlar tab'larga umuman bog'lanmagan edi, natijada
+// bir tab'da yozilgan Naqd/Karta boshqa tab'ga o'tganda ham qolib,
+// noto'g'ri sotuvga qo'shilib ketishi mumkin edi (jiddiy pul xatosi).
+// v170: To'lov maydoniga kursor qo'yilganda (agar bo'sh bo'lsa) avtomat
+// "qolgan summa"ni joylaydi — kassir har safar terib o'tirishi shart
+// emas, faqat kerak bo'lsa tuzatadi. Bloklangan (lock) maydonlarga
+// tegilmaydi.
+function payFocusAutofill(method) {
+  if (_payBlocked[method]) return; // qulflangan — tegmaymiz
+  const el = $("pay-" + method);
+  if (!el) return;
+  const cur = getRawVal("pay-" + method);
+  if (cur > 0) return; // allaqachon qiymat bor — foydalanuvchi o'zi kiritmoqchi, tegmaymiz
+
+  const total = _cartTotal();
+  const others = ["naqd","karta","otkazma","qarz"]
+    .filter(m => m !== method)
+    .reduce((a, m) => a + (getRawVal("pay-" + m) || 0), 0);
+  const remaining = Math.max(0, Math.round(total - others));
+  if (remaining > 0) {
+    el.value = fmt(remaining);
+    el.dataset.raw = String(remaining);
+    el.select(); // darhol tahrirlashga tayyor (ustidan yozish oson bo'lsin)
+    if (typeof onPayInput === "function") onPayInput(method);
+  }
+}
+
+function posResetPayFields() {
+  ["pay-naqd","pay-karta","pay-otkazma","pay-qarz"].forEach(id => {
+    const el = $(id); if (el) { el.value = ""; el.dataset.raw = ""; }
+  });
+  if (typeof setPayMode === "function") setPayMode("full");
+  if (typeof setDebtCurrency === "function") setDebtCurrency("uzs");
+  const pr = $("pay-remaining"); if (pr) { pr.textContent = "0"; pr.style.color = "#22C55E"; }
+  const mb = $("pay-mode-badge"); if (mb) mb.innerHTML = "";
+  const nb = $("nasiya-box"); if (nb) nb.style.display = "none";
+}
+
 function posSwitchCart(idx) {
   if (idx === posCartsState.activeIdx) return;
   posSaveCarts(); // joriy savatchani saqlab qo'yamiz
   posCartsState.activeIdx = idx;
   cart = posCartsState.carts[idx].items;
   posSaveCarts();
+  posResetPayFields(); // v170
   renderCartTabs();
   renderCart();
 }
@@ -1007,6 +1047,7 @@ function posAddCart() {
   posCartsState.activeIdx = posCartsState.carts.length - 1;
   cart = posCartsState.carts[posCartsState.activeIdx].items;
   posSaveCarts();
+  posResetPayFields(); // v170
   renderCartTabs();
   renderCart();
   toast(`Yangi savatcha ochildi`);
@@ -1025,6 +1066,7 @@ function posCloseCart(idx) {
   }
   cart = posCartsState.carts[posCartsState.activeIdx].items;
   posSaveCarts();
+  posResetPayFields(); // v170
   renderCartTabs();
   renderCart();
 }

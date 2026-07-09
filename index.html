@@ -635,7 +635,7 @@
                 <span style="font-size:12px;font-weight:600;color:#0D1B2A">Naqd <span style="font-weight:400;color:#9CA3AF;font-size:10px">(so'm)</span></span>
               </div>
               <input id="pay-naqd" type="text" data-price placeholder="0"
-                oninput="fmtInput(this);onPayInput('naqd')"
+                onfocus="payFocusAutofill('naqd')" oninput="fmtInput(this);onPayInput('naqd')"
                 style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
             </div>
             <button id="pay-lock-naqd" onclick="togglePayMethodBlock('naqd', this)" title="Bloklash"
@@ -652,7 +652,7 @@
                 <span style="font-size:12px;font-weight:600;color:#0D1B2A">Karta <span style="font-weight:400;color:#9CA3AF;font-size:10px">(so'm)</span></span>
               </div>
               <input id="pay-karta" type="text" data-price placeholder="0"
-                oninput="fmtInput(this);onPayInput('karta')"
+                onfocus="payFocusAutofill('karta')" oninput="fmtInput(this);onPayInput('karta')"
                 style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
             </div>
             <button id="pay-lock-karta" onclick="togglePayMethodBlock('karta', this)" title="Bloklash"
@@ -669,7 +669,7 @@
                 <span style="font-size:12px;font-weight:600;color:#0D1B2A">O'tkazma <span style="font-weight:400;color:#9CA3AF;font-size:10px">(so'm)</span></span>
               </div>
               <input id="pay-otkazma" type="text" data-price placeholder="0"
-                oninput="fmtInput(this);onPayInput('otkazma')"
+                onfocus="payFocusAutofill('otkazma')" oninput="fmtInput(this);onPayInput('otkazma')"
                 style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
             </div>
             <button id="pay-lock-otkazma" onclick="togglePayMethodBlock('otkazma', this)" title="Bloklash"
@@ -686,7 +686,7 @@
                 <span style="font-size:12px;font-weight:600;color:#0D1B2A">Qarz <span style="font-weight:400;color:#9CA3AF;font-size:10px">(so'm)</span></span>
               </div>
               <input id="pay-qarz" type="text" data-price placeholder="0"
-                oninput="fmtInput(this);onPayInput('qarz')"
+                onfocus="payFocusAutofill('qarz')" oninput="fmtInput(this);onPayInput('qarz')"
                 style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
             </div>
             <button id="pay-lock-qarz" onclick="togglePayMethodBlock('qarz', this)" title="Bloklash"
@@ -3821,7 +3821,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=167"></script>
 <script src="js/dashboard.js?v=143"></script>
-<script src="js/pos.js?v=165"></script>
+<script src="js/pos.js?v=166"></script>
 <script src="js/katalog.js?v=167"></script>
 <script src="js/ombor.js?v=143"></script>
 <script src="js/mijozlar.js?v=143"></script>
