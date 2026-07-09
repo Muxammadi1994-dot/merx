@@ -641,18 +641,21 @@ function renderDebtsGrouped(list, rate) {
               onclick="recordGroupPayment('${ids}','uzs','${gKey}')">To'lov</button>
           </div>` : ""}
           ${g.totalUsd > 0 ? `
-          <div style="display:flex;gap:5px;align-items:center">
-            <input type="text" id="gpay-${gKey}-usd"
-              placeholder="so'm" data-price oninput="fmtInput(this)"
-              style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:80px;flex:1;outline:none">
-            <select id="gpay-method-${gKey}-usd"
-              style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 6px;width:110px">
-              <option value="naqd">💵 Naqd</option>
-              <option value="karta">💳 Karta</option>
-              <option value="otkazma">🏦 O'tkazma</option>
-            </select>
-            <button class="btn btn-teal btn-sm" style="font-size:11px;white-space:nowrap"
-              onclick="recordGroupPayment('${ids}','usd','${gKey}')">To'lov</button>
+          <div>
+            <div style="display:flex;gap:5px;align-items:center">
+              <input type="text" id="gpay-${gKey}-usd"
+                placeholder="so'm" data-price oninput="fmtInput(this);qzShowGroupUsdHint('${gKey}')"
+                style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:80px;flex:1;outline:none">
+              <select id="gpay-method-${gKey}-usd"
+                style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 6px;width:110px">
+                <option value="naqd">💵 Naqd</option>
+                <option value="karta">💳 Karta</option>
+                <option value="otkazma">🏦 O'tkazma</option>
+              </select>
+              <button class="btn btn-teal btn-sm" style="font-size:11px;white-space:nowrap"
+                onclick="recordGroupPayment('${ids}','usd','${gKey}')">To'lov</button>
+            </div>
+            <div id="gpay-usdhint-${gKey}" style="font-size:10px;color:#4C9BE8;font-weight:600;margin-top:2px"></div>
           </div>` : ""}
         </div>
       </td>
@@ -673,6 +676,15 @@ function renderDebtsGrouped(list, rate) {
 }
 
 // ── Guruhda to'lov qabul qilish (eng eski qarzdan FIFO) ────
+function qzShowGroupUsdHint(gKey) {
+  const el = $("gpay-usdhint-" + gKey);
+  if (!el) return;
+  const rate = db.settings.rate || 12800;
+  const raw = ($("gpay-" + gKey + "-usd") || {value:""}).value.trim();
+  const som = parseFloat(raw.replace(/[\s,]/g,"")) || 0;
+  el.textContent = som > 0 ? `≈ $${(som/rate).toFixed(2)}` : "";
+}
+
 async function recordGroupPayment(idsStr, currency, gKey) {
   const ids = idsStr.split(",").map(Number);
   const sales = ids.map(id => db.sales.find(s => s.id === id)).filter(Boolean);
