@@ -290,9 +290,8 @@ function posSearch() {
           <div style="text-align:right">
             <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end;margin-bottom:2px">
               <div class="pri-price" id="pripr-${rowId}">
-                ${_hasOverride ? `<span style="text-decoration:line-through;font-size:11px;color:#ccc;margin-right:3px">${fmt(_baseNarx)}</span>` : ""}
-                <span style="font-size:14px;font-weight:800;color:${_hasOverride?'#E9A500':'#E9A500'}">${fmt(narx)}</span>
-                <span style="font-size:11px;font-weight:600;color:#9CA3AF"> so'm</span>
+                ${_hasOverride ? `<span style="text-decoration:line-through;font-size:11px;color:#ccc;margin-right:3px">${dispSom(_baseNarx)}</span>` : ""}
+                <span style="font-size:14px;font-weight:800;color:${_hasOverride?'#E9A500':'#E9A500'}">${dispSom(narx)}</span>
               </div>
               <button onclick="event.stopPropagation();posEditPrice('${rowId}','${p.sku}','${color.replace(/'/g,String.fromCharCode(39))}')" title="Narxni tahrirlash"
                 style="width:22px;height:22px;border:1px solid #E8E5E0;border-radius:6px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
@@ -393,6 +392,18 @@ function packInfo(p, variants) {
     ? Math.floor(totalQty / (inBox || 1))
     : (vs.length ? Math.min(...vs.map(v => v.qty || 0)) : 0);
   return { inBox, maxPochka, totalQty, single };
+}
+
+// ── Narxni tanlangan valyutada KO'RSATISH (2026-07-09) ──────────
+// FAQAT displey uchun! Ichki hisob-kitob, cart.price, sale.total va
+// h.k. HAR DOIM so'mda qoladi — qarz-muzlatish tizimiga (debtCurrency,
+// origDebtUsd) BUTUNLAY tegilmagan, bu funksiya faqat EKRANDA qanday
+// ko'rsatilishini hal qiladi.
+function dispSom(uzs) {
+  const cur  = db.settings?.priceCurrency || "uzs";
+  const rate = db.settings?.rate || 12800;
+  if (cur === "usd" || cur === "both") return "$" + ((uzs||0) / rate).toFixed(2);
+  return fmt(uzs || 0) + " so'm";
 }
 
 function posQuickAdd(sku, color, packGroup) {
@@ -754,14 +765,14 @@ function renderCart() {
 
   $("cart-cnt").textContent = cart.length ? count + " ta" : "bo'sh";
   if ($("cart-items-count")) $("cart-items-count").textContent = cart.length ? count + " ta" : "0 ta";
-  if ($("pos-pay-total")) $("pos-pay-total").textContent = fmt(total) + " so'm";
+  if ($("pos-pay-total")) $("pos-pay-total").textContent = dispSom(total);
 
   // Chegirma natija
   const discEl = $("discount-result");
   if (discEl) {
     if (discount > 0) {
       discEl.style.display = "block";
-      discEl.innerHTML = `−${fmt(discount)} so'm → Jami: <strong style="color:#0D1B2A">${fmt(total)} so'm</strong>`;
+      discEl.innerHTML = `−${dispSom(discount)} → Jami: <strong style="color:#0D1B2A">${dispSom(total)}</strong>`;
     } else {
       discEl.style.display = "none";
     }
@@ -831,18 +842,18 @@ function renderCart() {
   const cartTotalEl = $("cart-total");
   if (cartTotalEl) {
     if (discount > 0) {
-      cartTotalEl.innerHTML = `<span style="text-decoration:line-through;font-size:12px;color:#bbb;margin-right:4px">${fmt(subtotal)}</span><span style="color:#E9A500">${fmt(total)} so'm</span>`;
+      cartTotalEl.innerHTML = `<span style="text-decoration:line-through;font-size:12px;color:#bbb;margin-right:4px">${dispSom(subtotal)}</span><span style="color:#E9A500">${dispSom(total)}</span>`;
     } else {
-      cartTotalEl.textContent = fmt(total) + " so'm";
+      cartTotalEl.textContent = dispSom(total);
     }
   }
   // Savat qiymati badge
   const cvv = $("cart-value-val");
   if (cvv) {
     if (discount > 0) {
-      cvv.innerHTML = `<span style="text-decoration:line-through;font-size:11px;color:#aaa;margin-right:3px">${fmt(subtotal)}</span>${fmt(total)} so'm`;
+      cvv.innerHTML = `<span style="text-decoration:line-through;font-size:11px;color:#aaa;margin-right:3px">${dispSom(subtotal)}</span>${dispSom(total)}`;
     } else {
-      cvv.textContent = fmt(total) + " so'm";
+      cvv.textContent = dispSom(total);
     }
   }
   updatePayTotal();
@@ -1075,7 +1086,7 @@ function getMixedTotal() {
 
 function updateMixedTotal() {
   const mixedTotal = getMixedTotal();
-  if ($("mix-total-view")) $("mix-total-view").textContent = fmt(mixedTotal) + " so'm";
+  if ($("mix-total-view")) $("mix-total-view").textContent = dispSom(mixedTotal);
 
   // Savatcha jami summasi bilan solishtirib, qolgan/ortiqcha ko'rsatamiz
   const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
@@ -1089,17 +1100,17 @@ function updateMixedTotal() {
     if (posPayMode === "part") {
       // Nasiya rejimida — "Jami summa" ko'rsatiladi, qarz pastda alohida hisoblanadi
       diffLbl.textContent = "Jami summa:";
-      diffView.textContent = fmt(cartTotal) + " so'm";
+      diffView.textContent = dispSom(cartTotal);
       diffView.style.color = "#0D1B2A";
     } else {
       const diff = cartTotal - mixedTotal;
       if (diff > 0) {
         diffLbl.textContent = "Yetishmaydi:";
-        diffView.textContent = fmt(diff) + " so'm";
+        diffView.textContent = dispSom(diff);
         diffView.style.color = "var(--red)";
       } else if (diff < 0) {
         diffLbl.textContent = "Ortiqcha:";
-        diffView.textContent = fmt(-diff) + " so'm";
+        diffView.textContent = dispSom(-diff);
         diffView.style.color = "#E07B39";
       } else {
         diffLbl.textContent = "Mos keldi:";
@@ -1170,9 +1181,9 @@ function updatePayRemaining() {
       remEl.textContent = "0"; remEl.style.color = "#22C55E";
     } else if (sum <= 0) {
       // Hech narsa yozilmagan — jami summani ko'rsatamiz
-      remEl.textContent = fmt(total) + " so'm"; remEl.style.color = "#64748B";
+      remEl.textContent = dispSom(total); remEl.style.color = "#64748B";
     } else if (rem > 0) {
-      remEl.textContent = fmt(rem) + " so'm"; remEl.style.color = "#E05A5A";
+      remEl.textContent = dispSom(rem); remEl.style.color = "#E05A5A";
     } else {
       remEl.textContent = "0"; remEl.style.color = "#22C55E";
     }
@@ -1199,7 +1210,7 @@ function updatePayRemaining() {
 function updatePayTotal() {
   const total = cart.reduce((a,c)=>a+c.price*c.qty,0)-calcDiscount(cart.reduce((a,c)=>a+c.price*c.qty,0));
   const el = $("pos-pay-total");
-  if (el) el.textContent = fmt(total) + " so'm";
+  if (el) el.textContent = dispSom(total);
 }
 
 function toggleStaffLock() {
@@ -2041,9 +2052,6 @@ function showReceiptModal(sale) {
 
   // Mahsulotlar
   if ($("rcp-items")) {
-    const _rate = db.settings?.rate || 12800;
-    const _cur  = db.settings?.priceCurrency || "uzs";
-    const _fmtP = v => _cur==="usd" ? "$"+(v/_rate).toFixed(2) : fmt(v)+" so'm";
     $("rcp-items").innerHTML = sale.items.map(i => {
       const lineTotal = (i.price||0) * (i.qty||1);
       const unitPrice = i.price||0;
@@ -2051,9 +2059,9 @@ function showReceiptModal(sale) {
       return `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;font-size:13px">
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;color:#0D1B2A">${i.name}</div>
-          <div style="font-size:12px;color:#374151;font-weight:600;margin-top:2px">${variantStr} · ${i.qty} ${i.unit||"dona"} · ${_fmtP(unitPrice)}/dona</div>
+          <div style="font-size:12px;color:#374151;font-weight:600;margin-top:2px">${variantStr} · ${i.qty} ${i.unit||"dona"} · ${dispSom(unitPrice)}/dona</div>
         </div>
-        <div style="font-weight:800;color:#0D1B2A;margin-left:12px;white-space:nowrap">${_fmtP(lineTotal)}</div>
+        <div style="font-weight:800;color:#0D1B2A;margin-left:12px;white-space:nowrap">${dispSom(lineTotal)}</div>
       </div>`;
     }).join("");
   }
@@ -2061,7 +2069,7 @@ function showReceiptModal(sale) {
   // Subtotal va chegirma
   const subtotal = sale.subtotal || sale.total;
   const disc     = sale.discount || 0;
-  if ($("rcp-subtotal")) $("rcp-subtotal").textContent = fmt(subtotal) + " so'm";
+  if ($("rcp-subtotal")) $("rcp-subtotal").textContent = dispSom(subtotal);
   const discRow = $("rcp-disc-row");
   if (discRow) {
     if (disc > 0) {
@@ -2070,12 +2078,12 @@ function showReceiptModal(sale) {
         ? `Chegirma (${sale.discountPct}%)`
         : sale.discountType === "pct" ? "Chegirma (%)" : "Chegirma";
       if ($("rcp-disc-lbl")) $("rcp-disc-lbl").textContent = lbl;
-      if ($("rcp-disc-val")) $("rcp-disc-val").textContent = "−" + fmt(disc) + " so'm";
+      if ($("rcp-disc-val")) $("rcp-disc-val").textContent = "−" + dispSom(disc);
     } else {
       discRow.style.display = "none";
     }
   }
-  if ($("rcp-total")) $("rcp-total").textContent = fmt(sale.total) + " so'm";
+  if ($("rcp-total")) $("rcp-total").textContent = dispSom(sale.total);
 
   // To'lov
   const mixedWrap = $("rcp-mixed-wrap");
@@ -2090,14 +2098,14 @@ function showReceiptModal(sale) {
         .map(([m, v]) => `
         <div style="display:flex;justify-content:space-between;font-size:12px">
           <span style="color:#374151;font-weight:600">${icons[m]||""} ${payLabels[m]||m}</span>
-          <strong style="color:#0D1B2A">${fmt(v)} so'm</strong>
+          <strong style="color:#0D1B2A">${dispSom(v)}</strong>
         </div>`).join("");
     }
   } else {
     if ($("rcp-paytype")) $("rcp-paytype").textContent = payLabels[sale.payType] || sale.payType;
     if (mixedWrap) mixedWrap.style.display = "none";
   }
-  if ($("rcp-paid"))    $("rcp-paid").textContent    = fmt(sale.paid) + " so'm";
+  if ($("rcp-paid"))    $("rcp-paid").textContent    = dispSom(sale.paid);
 
   const debtWrap = $("rcp-debt-wrap");
   const dueWrap  = $("rcp-due-wrap");
