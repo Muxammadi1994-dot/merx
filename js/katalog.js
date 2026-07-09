@@ -1208,7 +1208,16 @@ function apCalcBoxes() {
   const from   = ($("ap-size-from")||{value:""}).value;
   const to     = ($("ap-size-to")||{value:""}).value;
 
-  // O'lchamlar sonini hisoblash (39-44 = 6 ta o'lcham)
+  // v159 — MUHIM TUZATISH: O'lcham bo'limi YOPIQ bo'lsa, "1 pochkada
+  // nechta" endi HECH QACHON avtomatik qayta yozilmaydi — bu maydon
+  // o'lchamdan TO'LIQ mustaqil (foydalanuvchi to'liq nazorat qiladi).
+  // Avval: Pochka sonini o'zgartirganda bu funksiya har safar ishga
+  // tushib, qo'lda kiritilgan qiymatni (masalan 7) yashiringan standart
+  // o'lcham oralig'idan hisoblangan songa (masalan 6) qaytarib qo'yardi
+  // — natijada "Jami dona" VA pos.js dagi pochka narxi (ular ham shu
+  // inBox ga tayanadi) ikkalasi ham noto'g'ri chiqardi.
+  const sizesOn = db.settings?.apFields?.sizes !== false;
+
   const t = currentApType || "oyoq";
   const allSizes = SIZES[t] || [];
   const iFrom = allSizes.indexOf(from), iTo = allSizes.indexOf(to);
@@ -1218,9 +1227,14 @@ function apCalcBoxes() {
     else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) sizeCount = iTo - iFrom + 1;
   }
 
-  const total = boxes * sizeCount;
+  const manualInbox = parseInt(($("ap-inbox-calc")||{value:1}).value) || 1;
+  const effectiveInbox = sizesOn ? sizeCount : manualInbox;
+  const total = boxes * effectiveInbox;
 
-  if ($("ap-inbox-calc")) $("ap-inbox-calc").value = sizeCount;
+  // Faqat O'lcham bo'limi OCHIQ bo'lganda "1 pochkada"ni oraliqdan
+  // avtomatik to'ldiramiz — yopiq bo'lsa qo'lda kiritilgan qiymatga
+  // TEGILMAYMIZ.
+  if (sizesOn && $("ap-inbox-calc")) $("ap-inbox-calc").value = sizeCount;
   if ($("ap-qty-range"))  $("ap-qty-range").value  = total;
 
   const prev = $("ap-size-range-preview");
