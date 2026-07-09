@@ -1411,6 +1411,7 @@ function addProduct() {
   }
 
   saveDB(); closeModal("addprod"); renderKatalog();
+  apResetAddForm(); // v160: keyingi tovar uchun forma toza turishi kerak
   toast(`"${name}" qo'shildi`);
 
   // Formani tozalash
@@ -1523,6 +1524,29 @@ function apNameAutofill(val) {
     note.innerHTML = `<i class="ti ti-info-circle"></i> Bu tovar allaqachon mavjud (joriy qoldiq: ${totalQty} ${p.unit||"dona"}). Yangi rang shu tovarga qo'shiladi, narxlar yangilanadi.`;
   }
   apCostNote();
+}
+
+// v160: "Yangi tovar" formasini to'liq tozalash — tovar saqlangandan
+// keyin va modal qaytadan ochilganda eski ma'lumot (nom, rang, pochka,
+// rasm...) qolib ketmasligi uchun
+function apResetAddForm() {
+  ["ap-name","ap-art","ap-color"].forEach(id => { if ($(id)) $(id).value = ""; });
+  if ($("ap-boxes")) $("ap-boxes").value = 1;
+  if ($("ap-inbox-calc")) $("ap-inbox-calc").value = 1;
+  if ($("ap-pack-mix")) $("ap-pack-mix").value = "";
+  if ($("ap-mix-hint")) $("ap-mix-hint").textContent = "";
+  if ($("ap-cost")) $("ap-cost").value = "";
+  if ($("ap-cost-note")) $("ap-cost-note").textContent = "";
+  ["ap-ulgurji","ap-price"].forEach(id => {
+    const el = $(id); if (el) { el.value = ""; el.dataset.raw = ""; }
+  });
+  if (typeof apResetImage === "function") apResetImage();
+  if (typeof apTypeChange === "function") apTypeChange(currentApType || "oyoq");
+}
+
+function apOpenAddProduct() {
+  apResetAddForm();
+  openModal("addprod");
 }
 
 function apTypeChange(t) {

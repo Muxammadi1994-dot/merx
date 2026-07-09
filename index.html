@@ -827,7 +827,7 @@
           <button class="btn btn-sm" onclick="openNarxnoma()" style="color:#0D1B2A;border-color:#0D1B2A">
             <i class="ti ti-printer"></i> Narxnoma
           </button>
-          <button class="btn btn-acc btn-sm" onclick="openModal('addprod')">
+          <button class="btn btn-acc btn-sm" onclick="apOpenAddProduct()">
             <i class="ti ti-plus"></i> Yangi tovar
           </button>
           <button class="btn btn-sm" onclick="openModal('voice-cap')" style="color:#DB2777;border-color:#DB2777">
@@ -2611,6 +2611,11 @@
           <button class="btn btn-ghost btn-sm" onclick="apImgClick()" type="button">
             <i class="ti ti-upload"></i> Rasm tanlash
           </button>
+          <button class="btn btn-ghost btn-sm" onclick="$('ap-img-cam').click()" type="button">
+            <i class="ti ti-camera"></i> Suratga olish
+          </button>
+          <input type="file" id="ap-img-cam" accept="image/*" capture="environment"
+            style="display:none" onchange="apImgSave(this)">
           <button class="btn btn-ghost btn-sm" id="ap-img-remove-btn" onclick="apImgRemove()"
             type="button" style="display:none;color:var(--red)">
             <i class="ti ti-trash"></i> O'chirish
@@ -2724,7 +2729,7 @@
       <div class="r3">
         <div class="fld">
           <label>1 pochkada nechta o'lcham <span style="font-weight:400;color:var(--mut)">(o'zgartirsa bo'ladi)</span></label>
-          <input id="ap-inbox-calc" type="number" min="1">
+          <input id="ap-inbox-calc" type="number" min="1" oninput="apCalcBoxes()">
         </div>
         <div class="fld">
           <label>Jami dona (avtomatik)</label>
@@ -3805,7 +3810,7 @@
 <script src="js/cloud.js?v=166"></script>
 <script src="js/dashboard.js?v=142"></script>
 <script src="js/pos.js?v=163"></script>
-<script src="js/katalog.js?v=159"></script>
+<script src="js/katalog.js?v=160"></script>
 <script src="js/ombor.js?v=143"></script>
 <script src="js/mijozlar.js?v=143"></script>
 <script src="js/qarzlar.js?v=145"></script>
