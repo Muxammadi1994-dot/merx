@@ -232,6 +232,8 @@ async function pushToCloud() {
           loyalty_value:  db.settings?.loyaltyValue  || 100,
           rate_mode:       db.settings?.rateMode      || "manual",
           rate_updated_at: db.settings?.rateUpdatedAt || null,
+          debt_pay_methods_shown: db.settings?.debtPayMethodsShown || null,
+          debt_cols:              db.settings?.debtCols            || null,
         }, { onConflict: "shop_id" });
       } catch(e) { console.warn("settings upsert xato:", e.message); }
     }
@@ -443,7 +445,8 @@ async function pushToCloud() {
         leftover: p.leftover || 0,
         leftover_to_balance: !!p.leftoverToBalance,
         debt_before: p.debtBefore != null ? p.debtBefore : null,
-        debt_after:  p.debtAfter  != null ? p.debtAfter  : null
+        debt_after:  p.debtAfter  != null ? p.debtAfter  : null,
+        method_breakdown: p.methodBreakdown || null
       })));
     } catch(e) { syncErrors.push("debt_payments: " + e.message); console.warn("sync debt_payments xato:", e.message); }
 
@@ -783,6 +786,8 @@ async function pullFromCloud() {
       if (sets.loyalty_value)  db.settings.loyaltyValue       = sets.loyalty_value;
       db.settings.rateMode      = sets.rate_mode === "auto" ? "auto" : "manual";
       if (sets.rate_updated_at) db.settings.rateUpdatedAt      = sets.rate_updated_at;
+      if (sets.debt_pay_methods_shown) db.settings.debtPayMethodsShown = sets.debt_pay_methods_shown;
+      if (sets.debt_cols)              db.settings.debtCols            = sets.debt_cols;
     }
 
     // Chiqimlar
@@ -826,6 +831,7 @@ async function pullFromCloud() {
         allocations:   p.allocations || [],
         debtBefore:    p.debt_before,
         debtAfter:     p.debt_after,
+        methodBreakdown: p.method_breakdown || null,
         leftover:      p.leftover || 0,
         leftoverToBalance: !!p.leftover_to_balance
       }));

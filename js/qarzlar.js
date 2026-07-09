@@ -518,12 +518,6 @@ function renderDebtsList(list, rate) {
           `)}
           ${isUsd ? `<div id="pay-usdhint-${s.id}" style="font-size:10px;color:#4C9BE8;font-weight:600;margin-top:-2px"></div>` : ""}
           ${(() => {
-            const others = findCustomerDebts(s).filter(x => x.id !== s.id);
-            return others.length
-              ? `<div style="font-size:10.5px;color:#aaa">+ ${others.length} ta boshqa qarz — avtomatik taqsimlanadi</div>`
-              : "";
-          })()}
-          ${(() => {
             if (!s.customerId) return "";
             const cust = (db.customers||[]).find(c => c.id === s.customerId);
             if (!cust) return "";
