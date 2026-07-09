@@ -503,13 +503,11 @@ function renderDebtsList(list, rate) {
         </span>
       </td>` : ""}
       <td>
-        <div style="display:flex;flex-direction:column;gap:6px;min-width:190px">
-          ${debtPayMethodInputs(s.id, isUsd)}
-          ${isUsd ? `<div id="pay-usdhint-${s.id}" style="font-size:10px;color:#4C9BE8;font-weight:600;margin-top:-2px"></div>` : ""}
-          <div style="display:flex;flex-wrap:nowrap;gap:4px;align-items:center">
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:230px">
+          ${debtPayMethodInputs(s.id, isUsd, `
             ${debtPayMethodsShown().kassir !== false ? `
               <select id="pay-staff-${s.id}"
-                style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:78px;flex-shrink:0">
+                style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:72px;flex-shrink:0">
                 ${_qarzStaffOpts()}
               </select>` : ""}
             <button class="btn btn-teal btn-sm" style="flex-shrink:0" onclick="recordPayment(${s.id})">To'lov</button>
@@ -517,7 +515,8 @@ function renderDebtsList(list, rate) {
               <button class="btn btn-ghost btn-icon btn-sm" onclick="sendDebtReminder(${s.id})" title="SMS" style="flex-shrink:0;color:#856404"><i class="ti ti-message"></i></button>
               <button class="btn btn-ghost btn-icon btn-sm" onclick="sendDebtReminderBot(${s.id})" title="Bot" style="flex-shrink:0;color:#0E7490"><i class="ti ti-brand-telegram"></i></button>
             ` : ""}
-          </div>
+          `)}
+          ${isUsd ? `<div id="pay-usdhint-${s.id}" style="font-size:10px;color:#4C9BE8;font-weight:600;margin-top:-2px"></div>` : ""}
           ${(() => {
             const others = findCustomerDebts(s).filter(x => x.id !== s.id);
             return others.length
@@ -616,30 +615,28 @@ function renderDebtsGrouped(list, rate) {
         <div style="display:flex;flex-direction:column;gap:6px;min-width:200px">
           ${g.totalUzs > 0 ? `
           <div>
-            ${debtPayMethodInputs(gKey + "-uzs", false)}
-            <div style="display:flex;gap:4px;align-items:center;margin-top:4px">
+            ${debtPayMethodInputs(gKey + "-uzs", false, `
               ${debtPayMethodsShown().kassir !== false ? `
                 <select id="gpay-staff-${gKey}-uzs"
-                  style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:78px;flex-shrink:0">
+                  style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:72px;flex-shrink:0">
                   ${_qarzStaffOpts()}
                 </select>` : ""}
               <button class="btn btn-teal btn-sm" style="font-size:11px;white-space:nowrap;flex-shrink:0"
                 onclick="recordGroupPayment('${ids}','uzs','${gKey}')">To'lov</button>
-            </div>
+            `)}
           </div>` : ""}
           ${g.totalUsd > 0 ? `
           <div>
-            ${debtPayMethodInputs(gKey + "-usd", true)}
-            <div id="pay-usdhint-${gKey}-usd" style="font-size:10px;color:#4C9BE8;font-weight:600;margin:2px 0"></div>
-            <div style="display:flex;gap:4px;align-items:center">
+            ${debtPayMethodInputs(gKey + "-usd", true, `
               ${debtPayMethodsShown().kassir !== false ? `
                 <select id="gpay-staff-${gKey}-usd"
-                  style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:78px;flex-shrink:0">
+                  style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:72px;flex-shrink:0">
                   ${_qarzStaffOpts()}
                 </select>` : ""}
               <button class="btn btn-teal btn-sm" style="font-size:11px;white-space:nowrap;flex-shrink:0"
                 onclick="recordGroupPayment('${ids}','usd','${gKey}')">To'lov</button>
-            </div>
+            `)}
+            <div id="pay-usdhint-${gKey}-usd" style="font-size:10px;color:#4C9BE8;font-weight:600;margin:2px 0"></div>
           </div>` : ""}
         </div>
       </td>
@@ -673,18 +670,21 @@ function debtPayMethodsShown() {
 // alohida qatorda, chalkashtirmaslik uchun. idKey — sale.id (individual
 // qator) yoki gKey-asoslangan matn (guruhlangan qator) bo'lishi mumkin,
 // shuning uchun umumiy ishlatiladi.
-function debtPayMethodInputs(idKey, isUsd) {
+function debtPayMethodInputs(idKey, isUsd, lastRowExtra) {
   const shown = debtPayMethodsShown();
   const defs = [["naqd","💵","Naqd"], ["karta","💳","Karta"], ["otkazma","🏦","O'tkazma"]];
   let visible = defs.filter(([m]) => shown[m] !== false);
   if (!visible.length) visible = [["naqd","💵","Naqd"]]; // xavfsizlik: kamida bittasi
-  return `<div style="display:flex;flex-direction:column;gap:4px">` + visible.map(([m, icon, label]) => `
-    <div style="display:flex;align-items:center;gap:6px">
+  // v175: alohida 4-qator YO'Q — Kassir/To'lov/SMS/Bot ENG OXIRGI
+  // to'lov usuli bilan BIR QATORGA joylashadi (lastRowExtra orqali)
+  return `<div style="display:flex;flex-direction:column;gap:4px">` + visible.map(([m, icon, label], i) => `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">
       <span style="font-size:11px;color:var(--mut);width:62px;flex-shrink:0;white-space:nowrap">${icon} ${label}</span>
       <input type="text" id="pay-${m}-${idKey}" data-price
         placeholder="so'm"
         oninput="fmtInput(this);${isUsd ? `qzShowUsdHint('${idKey}')` : ""}"
-        style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 7px;width:100px;outline:none">
+        style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 7px;width:80px;flex-shrink:0;outline:none">
+      ${i === visible.length - 1 && lastRowExtra ? lastRowExtra : ""}
     </div>`).join("") + `</div>`;
 }
 
