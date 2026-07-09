@@ -505,10 +505,11 @@ function renderDebtsList(list, rate) {
       <td>
         <div style="display:flex;flex-direction:column;gap:5px;min-width:180px">
           <div style="display:flex;gap:5px">
-            <input type="number" id="pay-${s.id}"
-              placeholder="${isUsd?"$ summa":"so'm"}"
-              step="${isUsd?"0.01":"10000"}"
+            <input type="text" id="pay-${s.id}"
+              placeholder="so'm" data-price
+              oninput="${isUsd?`fmtInput(this);qzShowUsdHint(${s.id})`:"fmtInput(this)"}"
               style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:90px;flex:1;outline:none">
+            ${isUsd ? `<div id="pay-usdhint-${s.id}" style="font-size:10px;color:#4C9BE8;font-weight:600;margin-top:-2px"></div>` : ""}
             <select id="pay-method-${s.id}"
               style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:78px">
               <option value="naqd">💵 Naqd</option>
@@ -639,8 +640,8 @@ function renderDebtsGrouped(list, rate) {
           </div>` : ""}
           ${g.totalUsd > 0 ? `
           <div style="display:flex;gap:5px;align-items:center">
-            <input type="number" id="gpay-${gKey}-usd"
-              placeholder="$ summa" step="0.01"
+            <input type="text" id="gpay-${gKey}-usd"
+              placeholder="so'm" data-price oninput="fmtInput(this)"
               style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px;width:80px;flex:1;outline:none">
             <select id="gpay-method-${gKey}-usd"
               style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 6px;width:110px">
@@ -677,8 +678,16 @@ async function recordGroupPayment(idsStr, currency, gKey) {
 
   const inputId  = `gpay-${gKey}-${currency}`;
   const methodId = `gpay-method-${gKey}-${currency}`;
-  const amt = parseFloat(($(inputId)||{value:0}).value) || 0;
-  if (amt <= 0) { toast("Summani kiriting","err"); return; }
+  const rawGroupInput = ($(inputId)||{value:""}).value.trim();
+  if (!rawGroupInput) { toast("Summani kiriting","err"); return; }
+  const rate = db.settings.rate || 12800;
+  // v172: ikkala qator (so'm va USD qarz) uchun ham sotuvchi doim SO'M
+  // kiritadi; USD qarz bo'lsa shu yerning o'zida USD'ga o'tkazamiz —
+  // recordPayment ichida QAYTA konvertatsiya bo'lib ketmasligi uchun
+  // pastda "$" belgisi bilan uzatamiz (allaqachon USD ekanini bildiradi).
+  const enteredSom = parseFloat(rawGroupInput.replace(/[\s,]/g,"")) || 0;
+  if (enteredSom <= 0) { toast("Summani kiriting","err"); return; }
+  const amt = currency === "usd" ? Math.round((enteredSom/rate)*100)/100 : enteredSom;
   const method = ($(methodId)||{value:"naqd"}).value || "naqd";
 
   // Shu valyutadagi qarzlar orasidan eng eski sotuvni topamiz (FIFO boshlanish nuqtasi)
@@ -697,11 +706,12 @@ async function recordGroupPayment(idsStr, currency, gKey) {
   const tempMethodId = "pay-method-" + oldest.id;
   let createdTemp = false, createdMethodTemp = false;
 
+  const tempVal = currency === "usd" ? ("$" + amt) : String(amt);
   if (!$(tempInputId)) {
     const inp = document.createElement("input");
-    inp.type = "hidden"; inp.id = tempInputId; inp.value = amt;
+    inp.type = "hidden"; inp.id = tempInputId; inp.value = tempVal;
     document.body.appendChild(inp); createdTemp = true;
-  } else { $(tempInputId).value = amt; }
+  } else { $(tempInputId).value = tempVal; }
 
   if (!$(tempMethodId)) {
     const sel = document.createElement("input");
@@ -810,20 +820,50 @@ async function useBalanceForDebt(saleId) {
   if (typeof renderQarzlarTarixi === "function") renderQarzlarTarixi();
 }
 
+// v172: USD qarz qatorida, sotuvchi so'm summasini kiritayotganda
+// jonli "≈ $X.XX" ko'rsatkichi — konvertatsiya to'g'riligini oldindan
+// ko'rsatib beradi (qo'lda kalkulyator shart emas).
+function qzShowUsdHint(id) {
+  const el = $("pay-usdhint-" + id);
+  if (!el) return;
+  const rate = db.settings.rate || 12800;
+  const raw = ($("pay-" + id) || {value:""}).value.trim();
+  if (raw.startsWith("$")) {
+    const usdVal = parseFloat(raw.slice(1)) || 0;
+    el.textContent = usdVal > 0 ? `= ${fmt(Math.round(usdVal*rate))} so'm` : "";
+    return;
+  }
+  const som = parseFloat(raw.replace(/[\s,]/g,"")) || 0;
+  el.textContent = som > 0 ? `≈ $${(som/rate).toFixed(2)}` : "";
+}
+
 async function recordPayment(id, forcedCurrency) {
   const clicked = db.sales.find(x => x.id === id); if (!clicked) return;
-  const amt = parseFloat(($("pay-"+id)||{value:0}).value) || 0;
+  const rate    = db.settings.rate || 12800;
+  const clickedState = calcSaleState(clicked);
+  const payCur  = forcedCurrency || ((clicked.debtCurrency === "usd" && clickedState.debtUsd > 0) ? "usd" : "uzs");
+
+  // v172: Mijoz SO'MDA to'lasa ham (USD qarz bo'lsa ham), sotuvchi endi
+  // doim SO'M kiritadi — tizim joriy kurs bilan o'zi USD'ga o'tkazadi.
+  // Qo'lda kalkulyatorda hisoblash shart emas. (Agar mijoz aynan dollor
+  // naqd bilan to'lasa — "$" belgisini yozib kiritish ham qabul qilinadi.)
+  const rawInput = ($("pay-"+id)||{value:""}).value.trim();
+  if (!rawInput) { toast("Summani kiriting","err"); return; }
+  let amt;
+  if (payCur === "usd") {
+    if (rawInput.startsWith("$")) {
+      amt = parseFloat(rawInput.slice(1)) || 0; // sotuvchi ataylab $ deb kiritgan
+    } else {
+      const enteredSom = parseFloat(rawInput.replace(/[\s,]/g,"")) || 0;
+      amt = Math.round((enteredSom / rate) * 100) / 100; // so'mdan USD'ga
+    }
+  } else {
+    amt = parseFloat(rawInput.replace(/[\s,]/g,"")) || 0;
+  }
   if (amt <= 0) { toast("Summani kiriting","err"); return; }
 
   const method  = ($("pay-method-"+id)||{value:"naqd"}).value || "naqd";
   const _staffId = parseInt(($("pay-staff-"+id)||{value:""}).value)||null;
-
-  const rate    = db.settings.rate || 12800;
-  const clickedState = calcSaleState(clicked);
-  // forcedCurrency berilgan bo'lsa (masalan guruhlangan ko'rinishdan, mijozda
-  // ikkala valyutada qarz bo'lganda) — shuni ishlatamiz, aks holda bosilgan
-  // chekning o'z valyutasidan avtomatik aniqlaymiz.
-  const payCur  = forcedCurrency || ((clicked.debtCurrency === "usd" && clickedState.debtUsd > 0) ? "usd" : "uzs");
 
   // Mijozning shu valyutadagi barcha ochiq qarzlari, sotuv sanasi bo'yicha (eng eski birinchi)
   const allDebts = findCustomerDebts(clicked);

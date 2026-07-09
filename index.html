@@ -3613,6 +3613,22 @@
   </div>
 </div>
 
+<!-- Qarzlar KPI panel sozlamalari (2026-07-09) — avval BUTUNLAY yo'q
+     edi, "Panellarni sozlash" tugmasi shuning uchun ishlamas edi -->
+<div class="ov" id="ov-debtkpi" onclick="if(event.target===this)closeModal('debtkpi')">
+  <div class="modal" style="max-width:340px">
+    <button class="m-close" onclick="closeModal('debtkpi')"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-settings" style="margin-right:8px"></i>Panellarni sozlash</h2>
+    <p style="font-size:12.5px;color:var(--mut);margin:-8px 0 14px">
+      Qaysi ko'rsatkichlar ko'rinishini tanlang.
+    </p>
+    <div id="debt-kpi-settings-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div style="margin-top:16px">
+      <button class="btn btn-acc" style="width:100%" onclick="closeModal('debtkpi')">Yopish</button>
+    </div>
+  </div>
+</div>
+
 <!-- AI-Naklad modal (2026-07) -->
 <div class="ov" id="ov-ai-naklad" onclick="if(event.target===this)closeModal('ai-naklad')">
   <div class="modal" style="max-width:480px">
@@ -3825,7 +3841,7 @@
 <script src="js/katalog.js?v=167"></script>
 <script src="js/ombor.js?v=143"></script>
 <script src="js/mijozlar.js?v=143"></script>
-<script src="js/qarzlar.js?v=145"></script>
+<script src="js/qarzlar.js?v=146"></script>
 <script src="js/tarix.js?v=152"></script>
 <script src="js/hisobot.js?v=142"></script>
 <script src="js/xodimlar.js?v=141"></script>
