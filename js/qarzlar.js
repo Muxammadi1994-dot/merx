@@ -469,10 +469,11 @@ function renderDebtsList(list, rate) {
     ${cols.due    ? '<th style="width:100px">Muddat</th>' : ""}
     ${cols.status ? "<th>Holat</th>" : ""}
     <th>To'lov <button onclick="event.stopPropagation();openDebtPayMethodsSettings()" title="Qaysi to'lov usullari ko'rinishini tanlash" style="border:none;background:none;cursor:pointer;color:var(--mut);padding:0;vertical-align:middle"><i class="ti ti-settings" style="font-size:13px"></i></button></th>
+    <th style="width:90px">$ Dollor</th>
   </tr>`;
 
   if (!tbody) return;
-  const colCount = 3 + [cols.phone,cols.items,cols.paid,cols.due,cols.status].filter(Boolean).length;
+  const colCount = 4 + [cols.phone,cols.items,cols.paid,cols.due,cols.status].filter(Boolean).length; // v178: +1 ($ Dollor ustuni)
   tbody.innerHTML = list.length ? list.map(s => {
     const cu    = debtCust(s);
     const over  = isOverdue(s);
@@ -529,6 +530,13 @@ function renderDebtsList(list, rate) {
           })()}
         </div>
       </td>
+      <td>
+        ${isUsd ? `<input type="text" id="pay-usdbox-${s.id}"
+            placeholder="0.00"
+            oninput="qzUsdBoxToSom('${s.id}')"
+            style="font-family:inherit;font-size:12.5px;font-weight:700;color:#1B4F72;border:1.5px solid #4C9BE8;border-radius:8px;padding:5px 7px;width:80px;outline:none">`
+          : `<span style="color:#ccc">—</span>`}
+      </td>
     </tr>`;
   }).join("") : `<tr><td colspan="${colCount}" class="empty-td">
     ${debtFilter !== "all" ? "Bu filtrda qarz yo'q" : "Qarz yo'q 🎉"}
@@ -548,6 +556,7 @@ function renderDebtsGrouped(list, rate) {
     ${cols.due    ? '<th style="width:100px">Eng yaqin muddat</th>' : ""}
     ${cols.status ? "<th>Holat</th>" : ""}
     <th>To'lov qabul qilish <button onclick="event.stopPropagation();openDebtPayMethodsSettings()" title="Qaysi to'lov usullari ko'rinishini tanlash" style="border:none;background:none;cursor:pointer;color:var(--mut);padding:0;vertical-align:middle"><i class="ti ti-settings" style="font-size:13px"></i></button></th>
+    <th style="width:90px">$ Dollor</th>
     <th>Eslatma</th>
   </tr>`;
   if (!tbody) return;
@@ -635,6 +644,14 @@ function renderDebtsGrouped(list, rate) {
         </div>
       </td>
       <td>
+        ${g.totalUzs > 0 ? `<div style="height:${34 * (["naqd","karta","otkazma"].filter(m=>debtPayMethodsShown()[m]!==false).length || 1)}px"></div>` : ""}
+        ${g.totalUsd > 0 ? `<input type="text" id="pay-usdbox-${gKey}-usd"
+            placeholder="0.00"
+            oninput="qzUsdBoxToSom('${gKey}-usd')"
+            style="font-family:inherit;font-size:12.5px;font-weight:700;color:#1B4F72;border:1.5px solid #4C9BE8;border-radius:8px;padding:5px 7px;width:80px;outline:none">`
+          : (g.totalUzs > 0 ? "" : `<span style="color:#ccc">—</span>`)}
+      </td>
+      <td>
         <div style="display:flex;gap:5px">
           <button class="btn btn-sm" onclick="expandDebtGroup('${ids}')"
             style="font-size:11.5px"><i class="ti ti-eye"></i></button>
@@ -669,22 +686,8 @@ function debtPayMethodInputs(idKey, isUsd, lastRowExtra) {
   const defs = [["naqd","💵","Naqd"], ["karta","💳","Karta"], ["otkazma","🏦","O'tkazma"]];
   let visible = defs.filter(([m]) => shown[m] !== false);
   if (!visible.length) visible = [["naqd","💵","Naqd"]]; // xavfsizlik: kamida bittasi
-  // v176: USD qarzda — ustida "$" katakchasi. Ikki tomonlama:
-  // Naqd/Karta/O'tkazmaga yozilsa — bu yerga jami dollor summasi
-  // avtomat hisoblanadi; yoki bu yerga to'g'ridan-to'g'ri dollor
-  // yozilsa — Naqd qatori shu summaning so'mdagi ekvivalenti bilan
-  // avtomat to'ladi (mijoz naqd so'mda to'lagan, lekin sotuvchi
-  // dollor bilan o'ylashni afzal ko'rgan holat uchun).
-  // v177: "$ Dollor" endi to'lov USULLARIDAN KEYIN, "To'lov" tugmasidan
-  // OLDIN — o'zining alohida qatorida (avval eng tepada edi).
-  const usdBoxRow = isUsd ? `
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">
-      <span style="font-size:11px;color:#4C9BE8;width:62px;flex-shrink:0;white-space:nowrap;font-weight:700">$ Dollor</span>
-      <input type="text" id="pay-usdbox-${idKey}"
-        placeholder="0.00"
-        oninput="qzUsdBoxToSom('${idKey}')"
-        style="font-family:inherit;font-size:12.5px;font-weight:700;color:#1B4F72;border:1.5px solid #4C9BE8;border-radius:8px;padding:5px 7px;width:108px;flex-shrink:0;outline:none">
-    </div>` : "";
+  // v178: "$ Dollor" endi BUTUNLAY ALOHIDA USTUNDA (chaqiruvchi
+  // tomonidan render qilinadi) — bu yerda faqat Naqd/Karta/O'tkazma.
   const methodRows = visible.map(([m, icon, label]) => `
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">
       <span style="font-size:11px;color:var(--mut);width:62px;flex-shrink:0;white-space:nowrap">${icon} ${label}</span>
@@ -693,12 +696,10 @@ function debtPayMethodInputs(idKey, isUsd, lastRowExtra) {
         oninput="fmtInput(this);${isUsd ? `qzShowUsdHint('${idKey}')` : ""}"
         style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 7px;width:108px;flex-shrink:0;outline:none">
     </div>`).join("");
-  // Kassir/To'lov/SMS/Bot — usul qatorlaridan (va $ qatoridan) KEYINGI
-  // o'z alohida qatorida
   const lastRow = lastRowExtra
-    ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">${lastRowExtra}</div>`
+    ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap;margin-top:2px">${lastRowExtra}</div>`
     : "";
-  return `<div style="display:flex;flex-direction:column;gap:4px">${methodRows}${usdBoxRow}${lastRow}</div>`;
+  return `<div style="display:flex;flex-direction:column;gap:4px">${methodRows}${lastRow}</div>`;
 }
 
 // Dollor katakchasiga to'g'ridan-to'g'ri kiritilganda — Naqd qatorini
