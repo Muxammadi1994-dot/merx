@@ -61,6 +61,7 @@ function dashGetDateRange() {
 
 // ── Asosiy render ──────────────────────────────
 function renderDashboard() {
+  if (typeof checkAutoRate === "function") checkAutoRate(false); // v166: kunlik avtomatik kurs tekshiruvi (faqat 'avtomatik' rejimda, kuniga 1 marta)
   if (!db?.sales) return;
   const t = today();
 
@@ -727,15 +728,25 @@ function renderDashDebtTable(debts) {
     </tr>`).join('');
 }
 
-// ── Valyuta pill ────────────────────────────────
+// ── Valyuta pill (2026-07-09: SOZLAMALAR bilan YAGONA format va
+// YAGONA ma'lumot manbasi — ikkalasi endi har doim bir xil ko'rinadi) ──
 function updateDashCurrencyPill() {
   const el = $('tb-rate');
   if (el) el.textContent = (db.settings?.rate || 12800).toLocaleString('ru-RU');
   const cur = $('tb-cur');
-  if (cur) cur.textContent = db.settings?.priceCurrency === 'usd' ? 'USD' : "so'm";
+  const c = db.settings?.priceCurrency || 'uzs';
+  if (cur) cur.textContent = c === 'usd' ? 'USD' : c === 'both' ? "SO'M+USD" : "SO'M";
 }
 
+// Yuqori paneldagi tugma ham SOZLAMALAR sahifasidagi 3 ta variant
+// (So'm / USD / Ikkalasi) bo'ylab aylanadi — bu ikkalasi ENDI bir xil
+// funksiyani (saveSetting) chaqiradi, shuning uchun qaysi joydan
+// o'zgartirilsa ham BARCHA oynalar (Katalog, POS) birdek yangilanadi.
 function toggleCurrency() {
-  db.settings.priceCurrency = db.settings.priceCurrency === 'usd' ? 'uzs' : 'usd';
-  saveDB(); renderDashboard();
+  const order = ["uzs", "usd", "both"];
+  const cur = db.settings?.priceCurrency || "uzs";
+  const next = order[(order.indexOf(cur) + 1) % order.length];
+  if (typeof saveSetting === "function") saveSetting("priceCurrency", next);
+  else { db.settings.priceCurrency = next; saveDB(); }
+  renderDashboard();
 }

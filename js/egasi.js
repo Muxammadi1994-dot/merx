@@ -18,6 +18,73 @@ function adminTabSwitch(tab) {
   });
 }
 
+// ── Valyuta kursi: Qo'lda / Avtomatik (CBU) — 2026-07-09 ──────────
+// MUHIM: standart holat ("rateMode" sozlamasi hali belgilanmagan)
+// HAR DOIM "manual" deb hisoblanadi — mavjud do'konlarning hech
+// birida xatti-harakat o'zgarmaydi, faqat ANIQ ravishda "Avtomatik"
+// tanlangandagina yangi oqim ishga tushadi.
+function getRateMode() { return db.settings?.rateMode === "auto" ? "auto" : "manual"; }
+
+function renderRateModeUI() {
+  const mode = getRateMode();
+  document.querySelectorAll('[data-ratemode]').forEach(b =>
+    b.classList.toggle("on", b.dataset.ratemode === mode));
+  const inp = $("s-rate");
+  if (inp) inp.readOnly = (mode === "auto");
+  const statusEl = $("s-rate-status");
+  if (statusEl) {
+    if (mode === "auto") {
+      const upd = db.settings?.rateUpdatedAt
+        ? new Date(db.settings.rateUpdatedAt).toLocaleString("uz-UZ", {day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})
+        : "hali yangilanmagan";
+      statusEl.innerHTML = `🏦 Markaziy Bank kursi · oxirgi yangilanish: ${upd} <button class="btn btn-ghost btn-sm" onclick="checkAutoRate(true)" style="margin-left:8px;padding:2px 8px"><i class="ti ti-refresh"></i> Hozir yangilash</button>`;
+    } else {
+      statusEl.textContent = "";
+    }
+  }
+}
+
+let _rateCheckBusy = false;
+async function checkAutoRate(force) {
+  if (getRateMode() !== "auto") return;
+  if (_rateCheckBusy) return;
+  const today = new Date().toISOString().slice(0,10);
+  const lastDate = (db.settings?.rateUpdatedAt || "").slice(0,10);
+  if (!force && lastDate === today) return; // bugun allaqachon yangilangan
+  _rateCheckBusy = true;
+  try {
+    const res = await fetch("/api/rate");
+    const data = await res.json();
+    if (data.ok && data.rate > 0) {
+      db.settings.rate = Math.round(data.rate);
+      db.settings.rateUpdatedAt = new Date().toISOString();
+      saveDB();
+      if ($("s-rate")) $("s-rate").value = db.settings.rate;
+      renderRateModeUI();
+      if (typeof updateRatePill === "function") updateRatePill();
+      if (typeof updateCostCurrency === "function") updateCostCurrency();
+      if (typeof renderKatalog === "function" && document.getElementById("page-katalog")?.style.display !== "none") renderKatalog();
+      if (typeof pushToCloud === "function") pushToCloud();
+      if (force) toast(`✅ Kurs yangilandi: 1$ = ${fmt(db.settings.rate)} so'm (Markaziy Bank)`);
+    } else if (force) {
+      toast("❌ Markaziy Bank kursini olib bo'lmadi", "err");
+    }
+  } catch (e) {
+    if (force) toast("❌ Kursni yangilashda xato: " + e.message, "err");
+  } finally {
+    _rateCheckBusy = false;
+  }
+}
+
+// ── Valyuta yorlig'i — SOZLAMALAR va yuqori panel uchun YAGONA format,
+// shu bilan ikkalasi HAR DOIM bir xil ko'rinishda bo'ladi ──────────
+function currencyPillText() {
+  const cur  = db.settings?.priceCurrency || "uzs";
+  const rate = db.settings?.rate || 12800;
+  const lbl  = cur === "usd" ? "USD" : cur === "both" ? "SO'M+USD" : "SO'M";
+  return `${lbl} (1$=${fmt(rate)})`;
+}
+
 // ── saveSetting — o'zgarmadi ──────────────────────
 function saveSetting(key, val) {
   if (!db.settings) db.settings = {};
@@ -38,6 +105,10 @@ function saveSetting(key, val) {
   }
   if (key === "rate") {
     if (typeof updateRatePill === "function") updateRatePill();
+  }
+  if (key === "rateMode") {
+    renderRateModeUI();
+    if (val === "auto") checkAutoRate(true); // darhol bir marta yangilaymiz
   }
   if (key === "name") {
     if (!db.shop) db.shop = {};
@@ -127,6 +198,7 @@ function renderEgasi() {
   if ($("s-rate")) $("s-rate").value = db.settings?.rate || 12800;
   const cur = db.settings?.priceCurrency || "uzs";
   document.querySelectorAll("[data-c]").forEach(b => b.classList.toggle("on", b.dataset.c === cur));
+  renderRateModeUI(); // v166: Qo'lda/Avtomatik holatini ham ko'rsatamiz
   if ($("s-loyalty-rate"))  $("s-loyalty-rate").value  = db.settings?.loyaltyRate  || "";
   if ($("s-loyalty-value")) $("s-loyalty-value").value = db.settings?.loyaltyValue || 100;
 
