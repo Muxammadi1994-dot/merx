@@ -798,18 +798,34 @@ function exportChiqimExcel() {
 }
 
 // ── Ombor jadvalidan rasm yuklash ────────────────
+// v164: Kamera/Galereya tanlash oynasi orqali (katalog.js dagi umumiy
+// imgSrcAsk/imgSrcPick tizimi) — avval faqat galereyaga yo'naltirardi,
+// chunki bu yerda mustaqil, capture atributisiz input yaratilgan edi.
 function omImgClick(sku, color) {
-  let inp = document.getElementById("om-img-inp-" + sku + "-" + (color||"_"));
-  if (!inp) {
-    inp = document.createElement("input");
-    inp.type = "file";
-    inp.accept = "image/*";
-    inp.style.display = "none";
-    inp.id = "om-img-inp-" + sku + "-" + (color||"_");
-    inp.onchange = function() { omImgSave(sku, color, this); };
-    document.body.appendChild(inp);
+  const key = sku + "-" + (color || "_");
+  let galInp = document.getElementById("om-img-inp-" + key);
+  if (!galInp) {
+    galInp = document.createElement("input");
+    galInp.type = "file";
+    galInp.accept = "image/*";
+    galInp.style.display = "none";
+    galInp.id = "om-img-inp-" + key;
+    galInp.onchange = function() { omImgSave(sku, color, this); };
+    document.body.appendChild(galInp);
   }
-  inp.click();
+  let camInp = document.getElementById("om-img-cam-" + key);
+  if (!camInp) {
+    camInp = document.createElement("input");
+    camInp.type = "file";
+    camInp.accept = "image/*";
+    camInp.capture = "environment";
+    camInp.style.display = "none";
+    camInp.id = "om-img-cam-" + key;
+    camInp.onchange = function() { omImgSave(sku, color, this); };
+    document.body.appendChild(camInp);
+  }
+  if (typeof imgSrcAsk === "function") imgSrcAsk(galInp.id, camInp.id);
+  else galInp.click(); // zaxira yo'l, agar imgSrcAsk yuklanmagan bo'lsa
 }
 
 function omImgSave(sku, color, input) {
