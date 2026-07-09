@@ -1926,6 +1926,17 @@ function vcFillAddProductForm(item) {
   closeModal("voice-cap");
   openModal("addprod");
 
+  // v158: olingan surat mahsulot rasmi sifatida ham to'ldiriladi
+  // (avval faqat matn maydonlari to'ldirilar, rasm o'tkazib yuborilardi)
+  if (_vcPhoto && _vcPhoto.data) {
+    const dataUrl = `data:${_vcPhoto.mimeType};base64,${_vcPhoto.data}`;
+    apPendingImage = dataUrl;
+    const prev = $("ap-img-preview");
+    if (prev) prev.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover">`;
+    const rmBtn = $("ap-img-remove-btn");
+    if (rmBtn) rmBtn.style.display = "";
+  }
+
   if ($("ap-name"))  $("ap-name").value  = item.nom || "";
   if ($("ap-art"))   $("ap-art").value   = item.artikul || "";
   if ($("ap-color")) $("ap-color").value = item.rang || "";
@@ -1947,6 +1958,8 @@ function vcFillAddProductForm(item) {
   if (typeof apCostNote === "function") apCostNote();
 
   // Reset — keyingi safar modal ochilganda toza boshlansin
+  // (mahsulot rasmini TOZALAMAYMIZ — u endi "Yangi tovar" formasining
+  // o'z holati, foydalanuvchi shu yerda ko'rib-o'zgartiradi/saqlaydi)
   _vcPhoto = null;
   if ($("vc-photo")) $("vc-photo").value = "";
   if ($("vc-photo-status")) $("vc-photo-status").textContent = "";
