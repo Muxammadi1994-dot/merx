@@ -993,7 +993,13 @@ function payFocusAutofill(method) {
   if (cur > 0) return; // allaqachon qiymat bor — foydalanuvchi o'zi kiritmoqchi, tegmaymiz
 
   const total = _cartTotal();
-  const others = ["naqd","karta","otkazma","qarz"]
+  // v171: "qarz" HECH QACHON hisobga olinmaydi — u mustaqil kiritilgan
+  // to'lov emas, balki onPayInput() orqali "qolgan summa"ni aks
+  // ettiruvchi HOSILA maydon. Uni ham chegirib tashlasak, ikki
+  // mexanizm bir-birini bekor qilib, natija noto'g'ri 0 chiqib qolardi
+  // (aynan shu sabab Kartaga o'tganda avtomat joylash ishlamagan edi).
+  const realMethods = ["naqd", "karta", "otkazma"];
+  const others = realMethods
     .filter(m => m !== method)
     .reduce((a, m) => a + (getRawVal("pay-" + m) || 0), 0);
   const remaining = Math.max(0, Math.round(total - others));
