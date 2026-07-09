@@ -2602,13 +2602,13 @@
     <div class="fld ap-field" data-apf="image" style="margin-bottom:14px">
       <label>Rasm <span style="font-weight:400;color:var(--mut)">(ixtiyoriy)</span></label>
       <div style="display:flex;align-items:center;gap:10px">
-        <div id="ap-img-preview" onclick="apImgClick()" style="width:64px;height:64px;border-radius:9px;
+        <div id="ap-img-preview" onclick="imgSrcAsk('ap-img-inp','ap-img-cam-hidden')" style="width:64px;height:64px;border-radius:9px;
           border:1.5px dashed var(--brd);cursor:pointer;display:flex;align-items:center;justify-content:center;
           background:var(--bg);flex-shrink:0;overflow:hidden">
           <i class="ti ti-camera-plus" style="font-size:20px;color:#bbb"></i>
         </div>
         <div style="flex:1">
-          <button class="btn btn-ghost btn-sm" onclick="apImgClick()" type="button">
+          <button class="btn btn-ghost btn-sm" onclick="imgSrcAsk('ap-img-inp','ap-img-cam-hidden')" type="button">
             <i class="ti ti-camera"></i> Rasm
           </button>
           <button class="btn btn-ghost btn-sm" id="ap-img-remove-btn" onclick="apImgRemove()"
@@ -2616,7 +2616,8 @@
             <i class="ti ti-trash"></i> O'chirish
           </button>
         </div>
-        <input type="file" id="ap-img-inp" accept="image/*" capture="environment" style="display:none" onchange="apImgSave(this)">
+        <input type="file" id="ap-img-inp" accept="image/*" style="display:none" onchange="apImgSave(this)">
+        <input type="file" id="ap-img-cam-hidden" accept="image/*" capture="environment" style="display:none" onchange="apImgSave(this)">
       </div>
     </div>
 
@@ -2781,14 +2782,14 @@
     <div class="fld" style="margin-bottom:14px">
       <label>Rasm <span style="font-weight:400;color:var(--mut)">(ixtiyoriy)</span></label>
       <div style="display:flex;align-items:center;gap:10px">
-        <div id="ep-img-preview-wrap" onclick="$('ep-img-input').click()" style="width:64px;height:64px;border-radius:9px;
+        <div id="ep-img-preview-wrap" onclick="imgSrcAsk('ep-img-input','ep-img-cam-hidden')" style="width:64px;height:64px;border-radius:9px;
           border:1.5px dashed var(--brd);cursor:pointer;display:flex;align-items:center;justify-content:center;
           background:var(--bg);flex-shrink:0;overflow:hidden">
           <img id="ep-img-preview" src="" style="width:100%;height:100%;object-fit:cover;display:none">
           <i id="ep-img-placeholder" class="ti ti-camera-plus" style="font-size:20px;color:#bbb"></i>
         </div>
         <div style="flex:1">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="$('ep-img-input').click()">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="imgSrcAsk('ep-img-input','ep-img-cam-hidden')">
             <i class="ti ti-camera"></i> Rasm
           </button>
           <button type="button" class="btn btn-ghost btn-sm" id="ep-img-remove" onclick="epRemoveImage()"
@@ -2796,7 +2797,8 @@
             <i class="ti ti-trash"></i> O'chirish
           </button>
         </div>
-        <input type="file" id="ep-img-input" accept="image/*" capture="environment" style="display:none" onchange="epLoadImage(this)">
+        <input type="file" id="ep-img-input" accept="image/*" style="display:none" onchange="epLoadImage(this)">
+        <input type="file" id="ep-img-cam-hidden" accept="image/*" capture="environment" style="display:none" onchange="epLoadImage(this)">
         <input type="hidden" id="ep-image" value="">
       </div>
     </div>
@@ -3596,6 +3598,19 @@
   </div>
 </div>
 
+<!-- Rasm manbai tanlash (2026-07-09) — mavjud modal tizimi orqali,
+     shuning uchun boshqa modal ichida ham ishonchli ishlaydi -->
+<div class="ov" id="ov-img-src" onclick="if(event.target===this)closeModal('img-src')">
+  <div class="modal" style="max-width:280px;padding:10px">
+    <button type="button" onclick="imgSrcPick('cam')" class="btn btn-acc" style="width:100%;margin-bottom:8px;padding:14px">
+      <i class="ti ti-camera"></i> Suratga olish
+    </button>
+    <button type="button" onclick="imgSrcPick('gal')" class="btn" style="width:100%;padding:14px">
+      <i class="ti ti-photo"></i> Galereyadan tanlash
+    </button>
+  </div>
+</div>
+
 <!-- AI-Naklad modal (2026-07) -->
 <div class="ov" id="ov-ai-naklad" onclick="if(event.target===this)closeModal('ai-naklad')">
   <div class="modal" style="max-width:480px">
@@ -3805,7 +3820,7 @@
 <script src="js/cloud.js?v=166"></script>
 <script src="js/dashboard.js?v=142"></script>
 <script src="js/pos.js?v=163"></script>
-<script src="js/katalog.js?v=162"></script>
+<script src="js/katalog.js?v=163"></script>
 <script src="js/ombor.js?v=143"></script>
 <script src="js/mijozlar.js?v=143"></script>
 <script src="js/qarzlar.js?v=145"></script>

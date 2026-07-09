@@ -1526,6 +1526,23 @@ function apNameAutofill(val) {
   apCostNote();
 }
 
+// ── Rasm manbai tanlash (2026-07-09, v163) ──────────────────────
+// Rasm belgisiga BITTA bosish — "Kamera" yoki "Galereya" so'raladigan
+// KICHIK MODAL ochiladi (mavjud openModal/closeModal tizimi orqali —
+// bu ishonchli, chunki bu tizim allaqachon boshqa ichma-ich modallarda
+// (masalan AI-naklad) sinovdan o'tgan; alohida qo'lda pozitsiyalangan
+// popup esa vaqt bo'yicha o'zini yopib qo'yish xatosiga uchragan edi).
+let _imgSrcGalId = null, _imgSrcCamId = null;
+function imgSrcAsk(galId, camId) {
+  _imgSrcGalId = galId; _imgSrcCamId = camId;
+  openModal("img-src");
+}
+function imgSrcPick(kind) {
+  closeModal("img-src");
+  const id = kind === "cam" ? _imgSrcCamId : _imgSrcGalId;
+  if (id && $(id)) $(id).click();
+}
+
 // v160: "Yangi tovar" formasini to'liq tozalash — tovar saqlangandan
 // keyin va modal qaytadan ochilganda eski ma'lumot (nom, rang, pochka,
 // rasm...) qolib ketmasligi uchun
