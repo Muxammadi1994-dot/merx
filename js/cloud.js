@@ -230,6 +230,8 @@ async function pushToCloud() {
           staff_group_id: db.settings?.staffGroupId  || null,
           loyalty_rate:   db.settings?.loyaltyRate   || 0,
           loyalty_value:  db.settings?.loyaltyValue  || 100,
+          rate_mode:       db.settings?.rateMode      || "manual",
+          rate_updated_at: db.settings?.rateUpdatedAt || null,
         }, { onConflict: "shop_id" });
       } catch(e) { console.warn("settings upsert xato:", e.message); }
     }
@@ -779,6 +781,8 @@ async function pullFromCloud() {
       if (sets.staff_group_id) db.settings.staffGroupId       = sets.staff_group_id;
       if (sets.loyalty_rate)   db.settings.loyaltyRate        = sets.loyalty_rate;
       if (sets.loyalty_value)  db.settings.loyaltyValue       = sets.loyalty_value;
+      db.settings.rateMode      = sets.rate_mode === "auto" ? "auto" : "manual";
+      if (sets.rate_updated_at) db.settings.rateUpdatedAt      = sets.rate_updated_at;
     }
 
     // Chiqimlar
