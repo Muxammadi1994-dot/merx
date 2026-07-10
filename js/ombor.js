@@ -168,8 +168,16 @@ function omRenderQoldiq() {
         const pantone = g.variants[0]?.pantone || "";
         const sizes = g.variants.map(v => ({ size: v.size, qty: v.qty }));
         const groupTotalQty = g.variants.reduce((a,v)=>a+v.qty, 0);
-        const inBox = g.variants.length || 1;
-        const boxes = g.qty;
+        // v144 (2026-07-10): B2 MODELI TUZATISHI — Katalog (v149) va POS
+        // (v161) allaqachon tuzatilgan edi, Ombor unutilgan ekan.
+        // Bitta rang = BITTA variant (B2, ulgurji-birinchi model) bo'lsa:
+        //   "1 pochkada" — mahsulotning O'Z qiymatidan (p.inBox),
+        //   pochka soni  — jami dona ÷ 1 pochkadagi dona.
+        // Aks holda (eski, o'lchamlab kiritilgan model) avvalgidek:
+        //   inBox = o'lchamlar soni, boxes = to'liq komplektlar (g.qty).
+        const _single = g.variants.length === 1;
+        const inBox = _single ? (p.inBox || 1) : (g.variants.length || 1);
+        const boxes = _single ? Math.floor(groupTotalQty / (inBox || 1)) : g.qty;
         const costUzs = Math.round((p.costUsd || 0) * rate);
         const margin  = p.ulgurjiNarx > 0 && costUzs > 0
           ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : null;
