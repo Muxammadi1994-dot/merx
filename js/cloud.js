@@ -310,7 +310,19 @@ async function pushToCloud() {
           ulgurji: p.ulgurjiNarx || 0,
           variants: p.variants || [],
           image: p.image || null,
-          color_images: p.colorImages || null
+          color_images: p.colorImages || null,
+          // v171 (2026-07-10): PUSH↔PULL SIMMETRIYA TUZATISHI.
+          // Bu maydonlar pull'da O'QILARDI, lekin push'da YO'Q edi —
+          // natijada har pull'da inBox→1, barcode→yo'q bo'lib
+          // "ma'lumot o'chish" yuzaga kelardi. ESLATMA: bu ustunlar
+          // Supabase'da bo'lishi SHART (SQL avval bajarilsin!).
+          in_box: p.inBox || 1,
+          barcode: p.barcode || null,
+          pack_unit: p.packUnit || null,
+          color_barcodes: p.colorBarcodes || null,
+          pantone: p.pantone || null,
+          color_name: p.colorName || null,
+          hex: p.hex || null
         }));
       if (prodRows?.length) {
         const chunk = 20; // image katta bo'lgani uchun kichik chunk
@@ -669,19 +681,34 @@ async function pullFromCloud() {
     const { data: prods } = await _sb.from("products").select("*").eq("shop_id", sid);
     _cloudIds["products"] = new Map((prods||[]).map(r => [String(r.sku), r.sku]));
     if (prods && prods.length > 0) {
-      db.products = prods.map(p => ({
+      // v171 (2026-07-10): NULL-HIMOYA — bulutdagi eski yozuvlarda
+      // in_box/barcode/pack_unit hali NULL (avval push qilinmagan).
+      // Bunday holatda LOKALDAGI mavjud qiymat o'chirilmasin — aks
+      // holda pull har safar inBox=1, barcode=yo'q qilib qo'yardi
+      // (aynan shu "ma'lumot o'chish" muammosi edi).
+      const _oldBySku = new Map((db.products || []).map(x => [String(x.sku), x]));
+      db.products = prods.map(p => {
+        const old = _oldBySku.get(String(p.sku)) || {};
+        return {
         shop_id: sid, id: p.id, // id SAQLANADI — busiz push filtri (p.id != null)
                                 // pull'dan kelgan mahsulotlarni o'tkazmasdi va
                                 // boshqa qurilmadagi TAHRIR bulutga qaytmasdi
         sku: p.sku, name: p.name, category: p.category || "",
         type: p.type || "oyoq", unit: p.unit || "dona",
-        inBox: p.in_box || 1, art: p.art || "", barcode: p.barcode, image: p.image || null,
+        inBox: p.in_box != null ? p.in_box : (old.inBox || 1),
+        art: p.art || "",
+        barcode: p.barcode || old.barcode || "",
+        image: p.image || null,
         costUsd: p.cost_usd || 0, priceUzs: p.price_uzs || 0,
         ulgurjiNarx: p.ulgurji || 0, variants: p.variants || [],
-        image: p.image || null, pantone: p.pantone || null,
+        pantone: p.pantone || null,
         colorName: p.color_name || null, hex: p.hex || null,
-        colorImages: p.color_images || null
-      }));
+        colorImages: p.color_images || null,
+        // v171: bu ikkisi pull'da UMUMAN yo'q edi
+        packUnit: p.pack_unit || old.packUnit || "pochka",
+        colorBarcodes: p.color_barcodes || old.colorBarcodes || null
+        };
+      });
     }
 
     // Customers
