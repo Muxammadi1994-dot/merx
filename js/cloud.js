@@ -305,6 +305,16 @@ async function pushToCloud() {
 
     try {
       // products: sku bo'yicha upsert (id emas) — ikki marta conflict bo'lmasligi uchun
+      // v173 (2026-07-10): BUTUN JSON MODELI — tovar bulutda TO'LIQ
+      // nusxada ham saqlanadi ("data" ustuni). Rasmlar (image,
+      // colorImages) ATAYLAB chiqarib tashlanadi — ular o'z alohida
+      // ustunlarida turadi, JSON ichida takrorlansa yuklama 2 barobar
+      // og'irlashardi. Endi yangi maydon qo'shilsa, u mapping'ga
+      // qo'shishni unutib qo'yilsa ham data orqali AVTOMATIK sinxron
+      // bo'ladi (9-qoida xatosi products uchun tugadi). Ustunlar esa
+      // bot (api/bot.js faqat O'QIYDI) va SQL so'rovlar uchun qoladi.
+      const _prodData = p => { const c = { ...p };
+        delete c.image; delete c.colorImages; delete c.shop_id; return c; };
       const prodRows = (db.products||[])
         .filter(p => p.id != null)
         .map(p => ({
@@ -330,7 +340,8 @@ async function pushToCloud() {
           color_barcodes: p.colorBarcodes || null,
           pantone: p.pantone || null,
           color_name: p.colorName || null,
-          hex: p.hex || null
+          hex: p.hex || null,
+          data: _prodData(p) // v173: to'liq nusxa (rasmlarsiz)
         }));
       if (prodRows?.length) {
         const chunk = 20; // image katta bo'lgani uchun kichik chunk
@@ -697,6 +708,21 @@ async function pullFromCloud() {
       const _oldBySku = new Map((db.products || []).map(x => [String(x.sku), x]));
       db.products = prods.map(p => {
         const old = _oldBySku.get(String(p.sku)) || {};
+        // v173 (2026-07-10): BUTUN JSON — bulutda to'liq nusxa ("data")
+        // bo'lsa, tovar UNDAN tiklanadi: barcha maydonlar (hozirgi va
+        // KELAJAKDA qo'shiladiganlar ham) avtomatik, yo'qotishsiz keladi.
+        // Faqat rasmlar o'z ustunlaridan olinadi (data ichida ataylab
+        // yo'q) va id/sku bulutdagi rasmiy qiymatdan qat'iy olinadi.
+        if (p.data && typeof p.data === "object" && !Array.isArray(p.data)) {
+          return { ...p.data,
+            shop_id: sid, id: p.id, sku: p.sku,
+            image: p.image || null,
+            colorImages: p.color_images || null,
+            variants: (p.data.variants && p.data.variants.length ? p.data.variants : (p.variants || []))
+          };
+        }
+        // ZAXIRA YO'L (data hali yo'q — eski yozuvlar): v171/v172
+        // mapping NULL-himoya bilan, O'ZGARISHSIZ.
         return {
         shop_id: sid, id: p.id, // id SAQLANADI — busiz push filtri (p.id != null)
                                 // pull'dan kelgan mahsulotlarni o'tkazmasdi va
