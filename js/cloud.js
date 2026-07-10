@@ -245,6 +245,14 @@ async function pushToCloud() {
           rate_updated_at: db.settings?.rateUpdatedAt || null,
           debt_pay_methods_shown: db.settings?.debtPayMethodsShown || null,
           debt_cols:              db.settings?.debtCols            || null,
+          // v172 (2026-07-10): SOZLAMALAR SINXRON SIMMETRIYASI.
+          // low_stock_limit — bot Supabase'dan o'qiydi, lekin bu yerdan
+          // hech qachon yozilmagan (bot doim standart 5 bilan ishlardi).
+          // pos_pay_blocked/pos_staff_locked — POS qulflari avval faqat
+          // bitta qurilmada qolardi, endi barcha qurilmalarga o'tadi.
+          low_stock_limit:  db.settings?.lowStockLimit  ?? null,
+          pos_pay_blocked:  db.settings?.posPayBlocked  || null,
+          pos_staff_locked: db.settings?.posStaffLocked === true,
         }, { onConflict: "shop_id" });
       } catch(e) { console.warn("settings upsert xato:", e.message); }
     }
@@ -827,6 +835,11 @@ async function pullFromCloud() {
       if (sets.rate_updated_at) db.settings.rateUpdatedAt      = sets.rate_updated_at;
       if (sets.debt_pay_methods_shown) db.settings.debtPayMethodsShown = sets.debt_pay_methods_shown;
       if (sets.debt_cols)              db.settings.debtCols            = sets.debt_cols;
+      // v172 (2026-07-10): NULL-himoya bilan — bulutda qiymat hali
+      // bo'lmasa (eski yozuv), lokaldagi mavjud qiymatga TEGILMAYDI.
+      if (sets.low_stock_limit  != null) db.settings.lowStockLimit  = Number(sets.low_stock_limit);
+      if (sets.pos_pay_blocked  != null) db.settings.posPayBlocked  = sets.pos_pay_blocked;
+      if (sets.pos_staff_locked != null) db.settings.posStaffLocked = !!sets.pos_staff_locked;
     }
 
     // Chiqimlar
