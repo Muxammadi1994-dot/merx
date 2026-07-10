@@ -166,11 +166,17 @@ function connectCloud() {
 }
 async function _setShopContext(sid) {
   if (!sid || !_sb) return;
-  try {
-    await _sb.rpc('set_current_shop_id', { p_shop_id: sid });
-  } catch(e) {
-    console.warn('set_current_shop_id xato:', e.message);
-  }
+  // v183 — MUHIM TUZATISH: avval bu yerdagi xato faqat konsolga
+  // yozilib, JIM YUTILARDI. Bu funksiya RLS (xavfsizlik) uchun qaysi
+  // do'kon ekanini bildiradi — agar u ishlamasa, Supabase HECH QANDAY
+  // qatorni ko'rsatmaydi (0 natija), lekin bu XATO EMAS deb
+  // hisoblanardi — natijada "muvaffaqiyatli, lekin BO'SH" pull qayd
+  // etilib, qayta urinish TO'XTAB QOLARDI (katalog abadiy bo'sh qolib
+  // ketardi, ayniqsa yangi qurilmada birinchi kirishda). Endi xato
+  // QAYTA OTILADI (throw) — shunda pullFromCloud() to'xtaydi va
+  // ensureCloudPull() buni HAQIQIY muvaffaqiyatsizlik deb bilib,
+  // qayta uradi (token/tarmoq tayyor bo'lguncha).
+  await _sb.rpc('set_current_shop_id', { p_shop_id: sid });
 }
 
 // Bu sessiyada bulutdan yuklab olish (pull) muvaffaqiyatli tugadimi?
@@ -209,7 +215,12 @@ async function pushToCloud() {
     console.warn("Cloud push bloklandi: ilova versiyasi eskirgan — Ctrl+Shift+R kerak");
     return;
   }
-  await _setShopContext(_sid);
+  // v183: pull uchun xato qayta otilishi kerak (qayta urinish ishlashi
+  // uchun), lekin push uchun shart emas — muvaffaqiyatsiz bo'lsa
+  // keyingi rejalashtirilgan sinxronlashda (scheduleCloudSync) o'zi
+  // qayta urinadi, hozircha jim chiqib ketamiz.
+  try { await _setShopContext(_sid); }
+  catch(e) { console.warn("Cloud push: do'kon konteksti o'rnatilmadi, keyinroq qayta urinamiz:", e.message); return; }
   const sid = _sid;
   try {
     // Settings
@@ -962,7 +973,7 @@ function scheduleCloudSync() {
   _syncTimer = setTimeout(async () => {
     if (!_syncPending) return;
     _syncPending = false;
-    await pushToCloud();
+    try { await pushToCloud(); } catch(e) { console.warn("scheduleCloudSync push xato:", e.message); }
     const txt = $("cloud-txt");
     if (txt) {
       txt.textContent = "Saqlandi ✓";
