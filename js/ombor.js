@@ -999,8 +999,11 @@ function ch2UpdateSizes() {
   const color = ($("ch2-color")||{value:""}).value;
   const variants = p.variants.filter(v => v.color === color);
   if ($("ch2-size")) {
+    // 2026-07-10 (AbuSaxiy №2): B2 tovarlarda o'lcham "-" yoki bo'sh —
+    // ro'yxatda ma'nosiz ko'rinardi. Endi "O'lchamsiz" deb yoziladi
+    // (qiymat o'zgarishsiz qoladi — tanlash mantig'i buzilmaydi).
     $("ch2-size").innerHTML = variants.map(v =>
-      `<option value="${v.size}" ${v.qty<=0?"disabled":""}>${v.size} — ${v.qty} ${p.unit||"dona"}${v.qty<=0?" (tugagan)":""}</option>`
+      `<option value="${v.size}" ${v.qty<=0?"disabled":""}>${(v.size && v.size !== "-") ? v.size : "O'lchamsiz"} — ${v.qty} ${p.unit||"dona"}${v.qty<=0?" (tugagan)":""}</option>`
     ).join("");
   }
 }
@@ -1015,11 +1018,18 @@ function confirmChiqim2() {
   const reason = ($("ch2-reason")||{value:"boshqa"}).value;
   const note  = ($("ch2-note")||{value:""}).value.trim();
 
-  if (!color || !size) { toast("Rang va o'lchamni tanlang", "err"); return; }
+  if (!color) { toast("Rangni tanlang", "err"); return; }
   if (qty <= 0) { toast("Miqdor kiriting", "err"); return; }
 
-  const v = p.variants.find(x => x.color === color && x.size === size);
-  if (!v) { toast("Variant topilmadi", "err"); return; }
+  // 2026-07-10 (AbuSaxiy №2): B2 tovarda o'lcham "-" yoki BO'SH bo'ladi.
+  // Avval `!size` tekshiruvi bo'sh o'lchamli tovarni "Rang va o'lchamni
+  // tanlang" deb TO'XTATIB qo'yardi (tanlangan bo'lsa ham). Endi:
+  // rangda YAGONA variant bo'lsa, o'lchamdan qat'i nazar o'sha olinadi;
+  // ko'p o'lchamli (klassik oyoq) tovarlarda avvalgidek aniq o'lcham shart.
+  const cvAll = p.variants.filter(x => x.color === color);
+  let v = cvAll.find(x => x.size === size);
+  if (!v && cvAll.length === 1) v = cvAll[0];
+  if (!v) { toast("O'lchamni tanlang", "err"); return; }
   if (v.qty < qty) { toast(`Faqat ${v.qty} ta mavjud`, "err"); return; }
 
   const rate = db.settings?.rate || 12800;

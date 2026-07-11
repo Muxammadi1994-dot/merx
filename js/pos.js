@@ -1531,8 +1531,14 @@ function custClear() {
   if ($("cust-clear-btn"))   $("cust-clear-btn").style.display = "none";
   const card = $("cust-selected-card");
   if (card) card.style.display = "none";
-  // Ism/telefon qatorini qaytadan ko'rsatamiz
-  if ($("c-name-row")) $("c-name-row").style.display = "flex";
+  // 2026-07-10 (AbuSaxiy №3): bu qator checkout'dan keyin ham
+  // chaqirilib (checkout -> custClear), v162'da ATAYLAB yashirilgan
+  // qo'lda ism/telefon qatorini QAYTA KO'RSATIB yuborardi — "sotuvdan
+  // keyin ism nomer qatori paydo bo'lyapti" muammosining ildizi.
+  // Maydonlar DOM'da QOLADI (checkout ulardan o'qiydi, custSelect
+  // to'ldiradi) — faqat endi yashirinligicha qoladi. Mijoz "Mijoz
+  // qidirish" orqali tanlanadi/qo'shiladi (v162 siyosati).
+  if ($("c-name-row")) $("c-name-row").style.display = "none";
   showCustDebt(null);
 }
 
