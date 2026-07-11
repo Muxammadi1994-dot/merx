@@ -237,6 +237,67 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
   return pend.length;
 }
 
+// ── v181: RASMLAR SUPABASE STORAGE'GA (2026-07-10) ────────────────
+// Muammo: rasmlar matn (base64) ko'rinishida bazada VA telefon
+// xotirasida (localStorage ~5-10MB chegara!) turardi — 1000 tovarli
+// do'kon uchun bu devor. Yechim: har sinxronda bir nechta "matn-rasm"
+// fayl omboriga (bucket: product-images) yuklanadi, o'rniga KICHIK
+// HAVOLA (URL) qo'yiladi. UI (<img>) ham, bot ham URL bilan azaldan
+// ishlaydi. Mavjud minglab tovar ham shu yo'l bilan ASTA-SEKIN,
+// avtomatik ko'chadi. DIQQAT: bucket va ruxsatlar SQL bilan avval
+// yaratilgan bo'lishi kerak (STORAGE-SOZLASH.sql) — bo'lmasa mexanizm
+// jim chekinadi va eski (base64) yo'l ishlayveradi.
+const _IMG_BUCKET = "product-images";
+const _IMG_PER_SYNC = 20; // har sinxronda ko'pi bilan shuncha rasm
+async function _dataUrlToBlob(d) { const r = await fetch(d); return await r.blob(); }
+async function _uploadOneImage(sid, sku, tag, dataUrl) {
+  const path = sid + "/" + String(sku).replace(/[^\w.-]/g, "_") + "_" + tag + "_" + Date.now() + ".jpg";
+  const blob = await _dataUrlToBlob(dataUrl);
+  const { error } = await _sb.storage.from(_IMG_BUCKET)
+    .upload(path, blob, { contentType: "image/jpeg", upsert: true });
+  if (error) throw error;
+  const { data } = _sb.storage.from(_IMG_BUCKET).getPublicUrl(path);
+  if (!data || !data.publicUrl) throw new Error("publicUrl olinmadi");
+  return data.publicUrl;
+}
+async function _migrateImagesToStorage(sid) {
+  if (!_sb || !sid) return 0;
+  let moved = 0;
+  try {
+    for (const p of (db.products || [])) {
+      if (moved >= _IMG_PER_SYNC) break;
+      if (p.image && typeof p.image === "string" && p.image.startsWith("data:image")) {
+        p.image = await _uploadOneImage(sid, p.sku, "main", p.image);
+        moved++;
+      }
+      if (p.colorImages && typeof p.colorImages === "object") {
+        for (const c of Object.keys(p.colorImages)) {
+          if (moved >= _IMG_PER_SYNC) break;
+          const v = p.colorImages[c];
+          if (v && typeof v === "string" && v.startsWith("data:image")) {
+            p.colorImages[c] = await _uploadOneImage(sid, p.sku, "c_" + String(c).replace(/[^\w-]/g, "_"), v);
+            moved++;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Bucket hali yaratilmagan / tarmoq xatosi — JIM chekinamiz:
+    // eski base64 yo'l ishlashda davom etadi, keyingi sinxronda
+    // qolgan rasmlar qayta uriniladi. (Yarim ko'chgan holat XAVFSIZ:
+    // ko'chganlari URL, qolganlari base64 — ikkalasi ham ishlaydi.)
+    console.warn("🖼️ Rasm ko'chirish to'xtadi (keyingi sinxronda davom etadi):", e.message || e);
+  }
+  if (moved > 0) {
+    // Havolalar DARHOL lokalga (13-qoida: saveDB EMAS — aylanma taqiqi).
+    // O'zgargan tovarlar delta-push'da o'zi "yangi" deb aniqlanib,
+    // vaqt muhri bilan bulutga ketadi.
+    try { localStorage.setItem(getDBKEY(), JSON.stringify(db)); } catch (e) {}
+    console.log("🖼️ " + moved + " ta rasm Storage'ga ko'chirildi (URL)");
+  }
+  return moved;
+}
+
 async function pushToCloud() {
   // v166: push oldidan token yangiligi + client mosligi ta'minlanadi
   try { await initSupabase(); } catch(e) {}
@@ -256,6 +317,10 @@ async function pushToCloud() {
     console.warn("Cloud push bloklandi: ilova versiyasi eskirgan — Ctrl+Shift+R kerak");
     return;
   }
+
+  // v181: navbatdagi partiya rasmlarni fayl omboriga ko'chirish
+  // (bucket tayyor bo'lmasa — jim o'tib ketadi, hech narsa buzilmaydi)
+  try { await _migrateImagesToStorage(_sid); } catch (e) {}
   // v183: pull uchun xato qayta otilishi kerak (qayta urinish ishlashi
   // uchun), lekin push uchun shart emas — muvaffaqiyatsiz bo'lsa
   // keyingi rejalashtirilgan sinxronlashda (scheduleCloudSync) o'zi
