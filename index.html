@@ -3888,20 +3888,10 @@
 
   </div>
 </div>
-<!-- AUTH MENU -->
-<div id="auth-menu" style="display:none;position:fixed;top:54px;right:16px;z-index:9999;
-  background:#fff;border:1.5px solid var(--brd);border-radius:12px;
-  box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:180px;overflow:hidden">
-  <div style="padding:10px 14px;border-bottom:1px solid var(--brd)">
-    <div style="font-weight:700;color:#0D1B2A;font-size:13px" id="auth-menu-name">—</div>
-    <div style="font-size:12px;color:var(--mut)" id="auth-menu-role">—</div>
-  </div>
-  <div onclick="authLogout()" style="padding:10px 14px;cursor:pointer;font-size:13px;
-    color:var(--red);display:flex;align-items:center;gap:8px;font-weight:600"
-    onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background=''">
-    <i class="ti ti-logout"></i> Chiqish
-  </div>
-</div>
+<!-- 2026-07-10: AUTH MENU bloki BU YERDAN KO'CHIRILDI. Sabab: bu
+     nuqta ov-omcols modal oynasining ICHIDA (yopilmagan div) — .ov
+     display:none bo'lgani uchun menyu HECH QACHON ko'rinmasdi.
+     Amaldagi nusxa endi sahifaning oxirida, body darajasida. -->
 
 </div><!-- /#app yopilishi -->
 
@@ -4058,6 +4048,22 @@ document.addEventListener('DOMContentLoaded', () => {
 <!-- 2026-07-10: bu yerda IKKILANGAN "AUTH MENU" bloki va ortiqcha
      </div> yopilishi bor edi (nusxalash xatosi) — o'chirildi.
      Amaldagi yagonasi yuqorida (3892-qator atrofida). -->
+
+<!-- AUTH MENU (2026-07-10: modal ichidan BODY darajasiga ko'chirildi —
+     endi haqiqatan ko'rinadi) -->
+<div id="auth-menu" style="display:none;position:fixed;top:54px;right:16px;z-index:9999;
+  background:#fff;border:1.5px solid var(--brd);border-radius:12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:180px;overflow:hidden">
+  <div style="padding:10px 14px;border-bottom:1px solid var(--brd)">
+    <div style="font-weight:700;color:#0D1B2A;font-size:13px" id="auth-menu-name">—</div>
+    <div style="font-size:12px;color:var(--mut)" id="auth-menu-role">—</div>
+  </div>
+  <div onclick="authLogout()" style="padding:10px 14px;cursor:pointer;font-size:13px;
+    color:var(--red);display:flex;align-items:center;gap:8px;font-weight:600"
+    onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background=''">
+    <i class="ti ti-logout"></i> Chiqish
+  </div>
+</div>
 
 <!-- TOAST BILDIRISHNOMA -->
 <div id="toast">
