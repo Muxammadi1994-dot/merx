@@ -115,14 +115,14 @@ async function initSupabase() {
       if (sbSession?.accessToken) {
         // Yangi yo'l: Supabase Auth token bilan
         _sb = createClient(url, key, {
-          auth: { persistSession: false },
+          auth: { persistSession: false, storageKey: "merx-sb-auth" }, // v180: GoTrue ogohlantirishiga davo
           global: { headers: { Authorization: `Bearer ${sbSession.accessToken}` } }
         });
         _sbUsedAnon = false;
         console.log("✅ Cloud: Supabase Auth token bilan ulandi (yangi, xavfsiz yo'l)");
       } else {
         // Eski zaxira yo'l: anon key bilan
-        _sb = createClient(url, key, { auth: { persistSession: false } });
+        _sb = createClient(url, key, { auth: { persistSession: false, storageKey: "merx-sb-anon" } }); // v180
         _sbUsedAnon = true;
         console.log("ℹ️ Cloud: anon key bilan ulandi (eski yo'l, hali ham ishlaydi)");
       }
@@ -206,16 +206,26 @@ let _pushCache = {};
 // Delta-upsert: rows ichidan faqat keshdagidan farq qilganlarini
 // yuboradi; kesh FAQAT muvaffaqiyatli chunk'dan keyin yangilanadi
 // (xato bo'lsa, o'sha yozuvlar keyingi sinxronda qayta uriniladi).
-async function _deltaUpsert(table, rows, chunkSize, conflict) {
+async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
   if (!rows || !rows.length) return 0;
   const cache = _pushCache[table] || (_pushCache[table] = new Map());
   const pend = [];
   for (const r of rows) {
     const k = String(r.id != null ? r.id : r.shop_id);
-    const j = JSON.stringify(r);
-    if (cache.get(k) !== j) pend.push([r, k, j]);
+    const j0 = JSON.stringify(r);
+    if (cache.get(k) !== j0) {
+      // v180: VAQT MUHRI — o'zgargan yozuvga muhr onDirty ichida
+      // bosiladi (MUHRDAN KEYINGI JSON keshga yoziladi, aks holda
+      // har push "o'zgargan" deb hisoblab abadiy aylanardi)
+      if (onDirty) onDirty(r);
+      pend.push([r, k, JSON.stringify(r)]);
+    }
   }
   if (!pend.length) return 0;
+  // v180: muhrlar DARHOL lokalga yoziladi (upsert xato bersa ham) —
+  // oflayn tahrir stsenariysida muhr localStorage'da saqlanib qoladi.
+  // saveDB EMAS — to'g'ridan-to'g'ri (13-qoida, aylanma taqiqi).
+  if (onDirty) { try { localStorage.setItem(getDBKEY(), JSON.stringify(db)); } catch(e) {} }
   const chunk = chunkSize || 50;
   for (let i = 0; i < pend.length; i += chunk) {
     const part = pend.slice(i, i + chunk);
@@ -323,7 +333,13 @@ async function pushToCloud() {
           row.data = { ...c };
           return row;
         });
-      await _deltaUpsert("customers", custRows, 50);
+      // v180: o'zgargan mijozga vaqt muhri
+      await _deltaUpsert("customers", custRows, 50, null, (row) => {
+        const _t = new Date().toISOString();
+        const lc = (db.customers || []).find(x => String(x.id) === String(row.id));
+        if (lc) lc.updatedAt = _t;
+        if (row.data) row.data.updatedAt = _t;
+      });
     }
 
     // Har bir jadvalni mustaqil sinxronlaymiz
@@ -373,7 +389,13 @@ async function pushToCloud() {
       if (prodRows?.length) {
         // v176: delta — o'zgarmagan tovarlar (ayniqsa katta rasmlilari!)
         // endi qayta-qayta yuborilmaydi. Chunk 20 — rasm katta.
-        await _deltaUpsert("products", prodRows, 20);
+        // v180: o'zgargan tovarga vaqt muhri (lokalga HAM, data'ga HAM)
+        await _deltaUpsert("products", prodRows, 20, null, (row) => {
+          const _t = new Date().toISOString();
+          const lp = (db.products || []).find(x => String(x.sku) === String(row.sku));
+          if (lp) lp.updatedAt = _t;
+          if (row.data) row.data.updatedAt = _t;
+        });
       }
     } catch(e) { syncErrors.push("products: " + e.message); console.warn("sync products xato:", e.message); }
 
@@ -797,6 +819,12 @@ async function pullFromCloud() {
         // Faqat rasmlar o'z ustunlaridan olinadi (data ichida ataylab
         // yo'q) va id/sku bulutdagi rasmiy qiymatdan qat'iy olinadi.
         if (p.data && typeof p.data === "object" && !Array.isArray(p.data)) {
+          // v180: VAQT MUHRI TAQQOSI — lokal nusxa buluttagidan
+          // YANGIROQ bo'lsa (oflayn tahrir + brauzer yopilgan holat),
+          // LOKAL saqlanadi; keyingi push uni bulutga chiqaradi.
+          const _locT = Date.parse(old.updatedAt || 0) || 0;
+          const _cldT = Date.parse(p.data.updatedAt || 0) || 0;
+          if (_locT > _cldT) return { ...old, shop_id: sid, id: p.id };
           return { ...p.data,
             shop_id: sid, id: p.id, sku: p.sku,
             image: p.image || null,
@@ -832,12 +860,20 @@ async function pullFromCloud() {
     const { data: custs } = await _sb.from("customers").select("*").eq("shop_id", sid);
     _cloudIds["customers"] = new Map((custs||[]).map(r => [String(r.id), r.id]));
     if (custs && custs.length > 0) {
+      const _oldCust = new Map((db.customers || []).map(x => [String(x.id), x])); // v180
       db.customers = custs.map(c => {
         // v174: BUTUN JSON bo'lsa — undan tiklanadi. MUHIM ISTISNO:
         // telegramChatId har doim USTUNDAN olinadi, chunki bot mijoz
         // ulanganda shu ustunni to'g'ridan-to'g'ri yozadi (data'dagi
         // nusxa eskirgan bo'lishi mumkin).
         if (c.data && typeof c.data === "object" && !Array.isArray(c.data)) {
+          // v180: lokal yangiroq bo'lsa — lokal g'olib (bot ustuni
+          // telegram_chat_id baribir bulutdan olinadi — 12-qoida)
+          const _oc = _oldCust.get(String(c.id)) || {};
+          const _lt = Date.parse(_oc.updatedAt || 0) || 0;
+          const _ct = Date.parse(c.data.updatedAt || 0) || 0;
+          if (_lt > _ct) return { ..._oc, id: c.id,
+            telegramChatId: c.telegram_chat_id || _oc.telegramChatId || null };
           return { ...c.data, id: c.id,
             telegramChatId: c.telegram_chat_id || null };
         }

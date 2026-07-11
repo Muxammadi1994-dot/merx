@@ -11,7 +11,11 @@ export default async function handler(req, res) {
     });
     if (!r.ok) throw new Error("CBU javob bermadi: " + r.status);
     const data = await r.json();
-    const row = Array.isArray(data) ? data[data.length - 1] : data;
+    // 2026-07-10: oxirgi element o'rniga ANIQ USD qatori qidiriladi
+    // (CBU tartibni o'zgartirsa ham buzilmaydi); topilmasa — birinchisi.
+    const row = Array.isArray(data)
+      ? (data.find(x => x && (x.Ccy === "USD" || x.CcyNm_EN === "US Dollar")) || data[0])
+      : data;
     const rate = parseFloat(row?.Rate);
     if (!rate || rate <= 0) throw new Error("CBU kursi noto'g'ri qaytdi");
     res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate"); // 1 soatlik keshlash — CBU'ga ortiqcha yuklama bermaslik
