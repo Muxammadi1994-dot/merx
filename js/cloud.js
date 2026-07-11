@@ -622,13 +622,20 @@ async function pushToCloud() {
     if (syncErrors.length > 0) {
       toast(`⚠️ Saqlandi, lekin xatolar: ${syncErrors.join("; ")}`, "err");
     } else {
-      toast("✅ Barcha ma'lumotlar cloud ga saqlandi!");
+      // v178: muvaffaqiyat endi JIM — kassirni chalg'itmaydi.
+      // (Xato bo'lsa toast CHIQADI — bu muhim va qoladi.)
+      console.log("✅ Cloud sinxron OK");
     }
     updateCloudUI(true);
-    // Oxirgi sync vaqtini saqlaymiz
+    // Oxirgi sync vaqtini saqlaymiz.
+    // v178: MUHIM — bu yerda saveDB() CHAQIRILMAYDI! saveDB har safar
+    // scheduleCloudSync'ni ishga tushirib, "push -> lastSyncAt yangi ->
+    // saveDB -> 2s dan keyin yana push" CHEKSIZ AYLANMASINI hosil
+    // qilardi (pastdagi tinimsiz "saqlandi" yozuvlarining ildizi).
+    // localStorage'ga to'g'ridan-to'g'ri, jimgina yozamiz:
     if (!db.settings) db.settings = {};
     db.settings.lastSyncAt = new Date().toISOString();
-    saveDB();
+    try { localStorage.setItem(getDBKEY(), JSON.stringify(db)); } catch(e) {}
     if (typeof adminRefreshSyncStats === "function") adminRefreshSyncStats();
   } catch(e) {
     toast("Xato: " + e.message, "err");
@@ -1172,10 +1179,7 @@ function scheduleCloudSync() {
     if (!_syncPending) return;
     _syncPending = false;
     try { await pushToCloud(); } catch(e) { console.warn("scheduleCloudSync push xato:", e.message); }
-    const txt = $("cloud-txt");
-    if (txt) {
-      txt.textContent = "Saqlandi ✓";
-      setTimeout(() => { if (txt) txt.textContent = "Avto-saqlash"; }, 2000);
-    }
+    // v178: pill endi o'ynamaydi — "Avto-saqlash" tinch turadi,
+    // sinxron orqa fonda jim ishlaydi (faqat xato toast bo'ladi).
   }, 2000); // v176: 2 soniya — delta-push tufayli yuk kichik, tezroq ketadi
 }
