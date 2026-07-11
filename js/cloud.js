@@ -153,7 +153,7 @@ function updateCloudUI(connected) {
     badge.className   = connected ? "bg bg-g" : "bg bg-gr";
   }
   if (pill) pill.style.display = connected ? "flex" : "none";
-  if (txt)  txt.textContent    = connected ? "Avto-saqlash" : ""; // v177: sodda matn
+  if (txt)  txt.textContent    = connected ? "Yangilash" : ""; // 2026-07-10: bosilganda bulutdan yangilaydi — nom endi mos
 }
 
 // ── LocalDB → Supabase (to'liq push) ─────────────
@@ -1183,3 +1183,10 @@ function scheduleCloudSync() {
     // sinxron orqa fonda jim ishlaydi (faqat xato toast bo'ladi).
   }, 2000); // v176: 2 soniya — delta-push tufayli yuk kichik, tezroq ketadi
 }
+
+// 2026-07-10: INTERNET QAYTDI tinglovchisi — ulanish tiklanishi bilan
+// kutayotgan o'zgarishlar DARHOL yuboriladi (avval keyingi amalgacha
+// kutardi). Delta-kesh tufayli faqat yuborilmagan yozuvlar ketadi.
+window.addEventListener("online", () => {
+  try { if (_sb) scheduleCloudSync(); } catch(e) {}
+});

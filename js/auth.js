@@ -158,7 +158,7 @@ function applyRoleUI() {
   }
   const topBtn  = document.getElementById("auth-topbar-btn");
   const topName = document.getElementById("auth-topbar-name");
-  if (topBtn)  topBtn.style.display = "flex";
+  if (topBtn)  { topBtn.style.display = "flex"; topBtn.onclick = toggleAuthMenu; } // 2026-07-10: menyu jonlantirildi
   if (topName) topName.textContent  = user.name || (user.email?.split("@")[0]||"").slice(0,14);
   document.querySelectorAll("[data-page]").forEach(el => {
     el.style.display = canAccessPage(el.dataset.page) ? "" : "none";
@@ -177,6 +177,32 @@ function applyRoleUI() {
 }
 
 // ── initAuth ─────────────────────────────────────
+// ── 2026-07-10: PROFIL MENYUSI JONLANTIRILDI ─────────────────────
+// index.html'da auth-menu bloki azaldan bor edi, lekin uni OCHADIGAN
+// kod hech qachon yozilmagan (o'lik HTML edi). Endi: topbar'dagi
+// profil tugmasi bosilganda ochiladi/yopiladi, tashqariga bosilsa
+// yopiladi, ism va rol avtomatik to'ldiriladi.
+function toggleAuthMenu(e) {
+  if (e) e.stopPropagation();
+  const m = document.getElementById("auth-menu");
+  if (!m) return;
+  const isOpen = m.style.display === "block";
+  if (!isOpen) {
+    const u = _authUser || {};
+    const labels = { admin:"Admin", menejer:"Menejer", kassir:"Kassir", omborchi:"Omborchi", superadmin:"Super" };
+    const nm = document.getElementById("auth-menu-name");
+    const rl = document.getElementById("auth-menu-role");
+    if (nm) nm.textContent = u.name || u.email || "—";
+    if (rl) rl.textContent = labels[u.role] || u.role || "";
+  }
+  m.style.display = isOpen ? "none" : "block";
+}
+document.addEventListener("click", (e) => {
+  const m = document.getElementById("auth-menu");
+  if (!m || m.style.display !== "block") return;
+  if (!e.target.closest("#auth-menu") && !e.target.closest("#auth-topbar-btn")) m.style.display = "none";
+});
+
 function initAuth() {
   const user = authLoad();
   if (!user) { showLoginScreen(); return false; }

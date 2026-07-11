@@ -1353,18 +1353,35 @@ function showDebtPaymentReceipt(payment) {
   const chekCfg3 = (typeof db !== "undefined" && db.settings?.chekConfig) || {};
   if (chekCfg3.qarzStyle && !["full","compact"].includes(chekCfg3.qarzStyle)) {
     const staffObj3 = db.staff?.find(s => s.id === payment.staffId);
+    // 2026-07-10: MAXSUS chek uslubi (qarzStyle) endi yangi to'lov
+    // ma'lumotlarini ham ko'rsatadi: ko'p usulli to'lov (aralash +
+    // payBreakdown), "Qoldiq" sifatida qarzning KEYINGI holati,
+    // note'da "Jami qarz edi" + $ kursi. Chek uslublari (utils.js)
+    // bu maydonlarni azaldan chizishni biladi.
+    const _mb = payment.methodBreakdown || null;
+    const _mbMulti = _mb && Object.keys(_mb).filter(k => (_mb[k]||0) > 0).length > 1;
+    const _noteParts = [];
+    if (payment.debtBefore != null)
+      _noteParts.push(`Jami qarz edi: ${fmtMoney(payment.debtBefore, "uzs")}`);
+    if (payment.currency === "usd" && payment.rate)
+      _noteParts.push(`To'lov $ da, kurs: ${fmt(payment.rate)} so'm`);
+    if (payment.leftover > 0)
+      _noteParts.push(`Ortiqcha: ${fmtMoney(payment.leftover, payment.currency)}`);
     const fakeSale = {
       id: payment.id, chekNum: payment.chekNum,
       date: payment.date, time: payment.time || "",
-      payType: payment.method || "naqd",
+      payType: _mbMulti ? "aralash" : (payment.method || "naqd"),
+      payBreakdown: _mb,
       items: (payment.allocations||[]).map(a => ({
         name: `Qarz to'lovi (${a.chekNum||a.saleDate})`,
         variant: a.fullyPaid ? "✓ Yopildi" : `Qoldi: ${fmtMoney(a.remainingAfter, a.currency)}`,
         qty: 1, price: a.amount, unit: "to'lov"
       })),
-      total: payment.amount, paid: payment.amount, remaining: 0,
+      total: payment.amount, paid: payment.amount,
+      remaining: payment.debtAfter != null ? payment.debtAfter : 0,
       customerName: payment.customerName || "",
       customerPhone: payment.customerPhone || "",
+      note: _noteParts.join(" · ")
     };
     const html3 = buildReceiptHtml(fakeSale, {
       shopName, staffName: staffObj3?.name || "—",
