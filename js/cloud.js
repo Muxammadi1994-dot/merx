@@ -291,6 +291,10 @@ async function pushToCloud() {
           if (c.debtLimit !== undefined)     row.debt_limit     = c.debtLimit || null;
           if (c.loyaltyPoints !== undefined)   row.loyalty_points   = c.loyaltyPoints || 0;
           if (c.telegramChatId !== undefined)  row.telegram_chat_id = c.telegramChatId || null;
+          // v174 (2026-07-10): BUTUN JSON — mijoz to'liq nusxada ham
+          // saqlanadi. Kelajakda yangi maydon qo'shilsa, mapping'siz
+          // ham avtomatik sinxron bo'ladi.
+          row.data = { ...c };
           return row;
         });
         const { error } = await _sb.from("customers")
@@ -412,7 +416,12 @@ async function pushToCloud() {
         // Bularsiz calcSaleState() boshqa qurilmada noto'g'ri ishlaydi.
         orig_paid: s.origPaid != null ? s.origPaid : (s.paid || 0),
         orig_remaining: s.origRemaining != null ? s.origRemaining : (s.remaining || 0),
-        orig_debt_usd: s.origDebtUsd != null ? s.origDebtUsd : null
+        orig_debt_usd: s.origDebtUsd != null ? s.origDebtUsd : null,
+        // v174 (2026-07-10): BUTUN JSON — sotuv to'liq nusxada ham
+        // saqlanadi (subtotal/discount/note kabi push'da unutilgan
+        // maydonlar ham endi yo'qolmaydi). Items ichidagi rasmlar
+        // yuqoridagi kabi ATAYLAB olib tashlanadi (juda katta).
+        data: { ...s, items: (s.items || []).map(({ image, ...rest }) => rest) }
       })));
     } catch(e) { syncErrors.push("sales: " + e.message); console.warn("sync sales xato:", e.message); }
 
@@ -489,7 +498,9 @@ async function pushToCloud() {
         debt_before: p.debtBefore != null ? p.debtBefore : null,
         debt_after:  p.debtAfter  != null ? p.debtAfter  : null,
         method_breakdown: p.methodBreakdown || null,
-        rate: p.rate || null
+        rate: p.rate || null,
+        // v174 (2026-07-10): BUTUN JSON — to'lov to'liq nusxada ham
+        data: { ...p }
       })));
     } catch(e) { syncErrors.push("debt_payments: " + e.message); console.warn("sync debt_payments xato:", e.message); }
 
@@ -749,7 +760,17 @@ async function pullFromCloud() {
     const { data: custs } = await _sb.from("customers").select("*").eq("shop_id", sid);
     _cloudIds["customers"] = new Map((custs||[]).map(r => [String(r.id), r.id]));
     if (custs && custs.length > 0) {
-      db.customers = custs.map(c => ({
+      db.customers = custs.map(c => {
+        // v174: BUTUN JSON bo'lsa — undan tiklanadi. MUHIM ISTISNO:
+        // telegramChatId har doim USTUNDAN olinadi, chunki bot mijoz
+        // ulanganda shu ustunni to'g'ridan-to'g'ri yozadi (data'dagi
+        // nusxa eskirgan bo'lishi mumkin).
+        if (c.data && typeof c.data === "object" && !Array.isArray(c.data)) {
+          return { ...c.data, id: c.id,
+            telegramChatId: c.telegram_chat_id || null };
+        }
+        // ZAXIRA YO'L (data hali yo'q) — avvalgi mapping o'zgarishsiz
+        return {
         id: c.id, name: c.name, phone: c.phone || "", phone2: c.phone2 || "",
         type: c.type || "ulgurji", note: c.note || "", company: c.company || "",
         telegramChatId: c.telegram_chat_id || null,
@@ -757,7 +778,8 @@ async function pullFromCloud() {
         source: c.source || "", debtLimit: c.debt_limit || null,
         loyaltyPoints: c.loyalty_points || 0,
         balanceUzs: c.balance_uzs || 0, balanceUsd: c.balance_usd || 0
-      }));
+        };
+      });
     }
 
     // Staff
@@ -789,7 +811,14 @@ async function pullFromCloud() {
     const { data: salesData } = await _sb.from("sales").select("*").eq("shop_id", sid).order("local_id");
     _cloudIds["sales"] = new Map((salesData||[]).map(r => [String(r.id), r.id]));
     if (salesData && salesData.length > 0) {
-      db.sales = salesData.map(s => ({
+      db.sales = salesData.map(s => {
+        // v174: BUTUN JSON bo'lsa — undan (subtotal/discount/note ham
+        // yo'qolmaydi). Sotuvni faqat mijoz (sayt) yozadi, bot yozmaydi.
+        if (s.data && typeof s.data === "object" && !Array.isArray(s.data)) {
+          return { ...s.data, id: s.id };
+        }
+        // ZAXIRA YO'L (data hali yo'q) — avvalgi mapping o'zgarishsiz
+        return {
         id: s.id, chekNum: s.chek_num, date: s.date, time: s.time,
         priceType: s.price_type, payType: s.pay_type,
         payBreakdown: s.pay_breakdown || null,
@@ -803,7 +832,8 @@ async function pullFromCloud() {
         origPaid: s.orig_paid != null ? s.orig_paid : s.paid,
         origRemaining: s.orig_remaining != null ? s.orig_remaining : s.remaining,
         origDebtUsd: s.orig_debt_usd != null ? s.orig_debt_usd : null
-      }));
+        };
+      });
     }
 
     // Ombor
@@ -892,7 +922,13 @@ async function pullFromCloud() {
     const { data: payData } = await _sb.from("debt_payments").select("*").eq("shop_id", sid).order("created_at");
     _cloudIds["debt_payments"] = new Map((payData||[]).map(r => [String(r.id), r.id]));
     if (payData) {
-      db.debtPayments = payData.map(p => ({
+      db.debtPayments = payData.map(p => {
+        // v174: BUTUN JSON bo'lsa — undan. Bot bu jadvalga yozmaydi.
+        if (p.data && typeof p.data === "object" && !Array.isArray(p.data)) {
+          return { ...p.data, id: p.id };
+        }
+        // ZAXIRA YO'L (data hali yo'q) — avvalgi mapping o'zgarishsiz
+        return {
         id:        p.id,
         chekNum:   p.chek_num || null,
         saleId:    p.sale_id || null,
@@ -913,7 +949,8 @@ async function pullFromCloud() {
         rate:            p.rate || null,
         leftover:      p.leftover || 0,
         leftoverToBalance: !!p.leftover_to_balance
-      }));
+        };
+      });
     }
 
     // Qaytarilgan tovarlar
