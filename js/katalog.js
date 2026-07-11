@@ -1551,16 +1551,15 @@ function apNameAutofill(val) {
 // popup esa vaqt bo'yicha o'zini yopib qo'yish xatosiga uchragan edi).
 let _imgSrcGalId = null, _imgSrcCamId = null;
 function imgSrcAsk(galId, camId) {
-  // 2026-07-10: "Kamera/Galereya" ORALIQ MODALI OLIB TASHLANDI.
-  // capture'siz input telefonda O'ZI tabiiy tanlov oynasini ochadi
-  // (kamera HAM, galereya HAM shu yerda) — boshqa ilovalardagidek
-  // BIR bosishda. Kompyuterda oddiy fayl oynasi ochiladi.
-  // imgSrcPick va modal HTML zaxira sifatida qoldirildi.
+  // 2026-07-10 SINOV XULOSASI: capture'siz input Android'ning yangi
+  // rasm-tanlagichini ochadi, unda KAMERA YO'Q (bu OS cheklovi —
+  // kamera tugmasi faqat o'rnatiladigan ilovalarga beriladi, veb-sayt
+  // uchun emas). Shuning uchun kamera kafolati uchun ORALIQ TANLOV
+  // QAYTARILDI. Kamera-input yo'q joylarda to'g'ridan-to'g'ri
+  // galereya ochiladi (modalsiz).
   _imgSrcGalId = galId; _imgSrcCamId = camId;
-  const el = $(galId);
-  if (el) { el.click(); return; }
-  if (camId && $(camId)) { $(camId).click(); return; }
-  openModal("img-src"); // zaxira yo'l
+  if (!camId || !$(camId)) { const el = $(galId); if (el) el.click(); return; }
+  openModal("img-src");
 }
 function imgSrcPick(kind) {
   closeModal("img-src");
