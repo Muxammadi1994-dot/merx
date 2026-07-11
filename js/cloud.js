@@ -361,6 +361,12 @@ async function pushToCloud() {
       await syncCustomers(db.customers);
     } catch(e) { syncErrors.push("customers: " + e.message); console.warn("sync customers xato:", e.message); }
 
+    // v175 (2026-07-10): BUTUN JSON — qolgan jadvallar uchun yordamchi.
+    // Rasm turidagi maydonlar (image, colorImages, photo) data'ga
+    // ATAYLAB kirmaydi (hajm og'irlashmasin).
+    const _dataOf = o => { const c = { ...o };
+      delete c.image; delete c.colorImages; delete c.photo; delete c.shop_id; return c; };
+
     try {
       // Avval asosiy ustunlar (eski schema bilan mos)
       const staffRows = db.staff?.map(s => {
@@ -389,6 +395,7 @@ async function pushToCloud() {
         if (s.permReturn !== undefined)    row.perm_return    = !!s.permReturn;
         if (s.paidMonths !== undefined)    row.paid_months    = s.paidMonths || [];
         if (s.salaryHistory !== undefined) row.salary_history = s.salaryHistory || [];
+        row.data = _dataOf(s); // v175: BUTUN JSON
         return row;
       });
       await sync("staff", staffRows);
@@ -441,7 +448,8 @@ async function pushToCloud() {
         supplier: o.supplier || null,
         partiya: o.partiya || null,
         pay_status: o.payStatus || "tolandan",
-        barcode: o.barcode || null
+        barcode: o.barcode || null,
+        data: _dataOf(o) // v175: BUTUN JSON
       })));
     } catch(e) { syncErrors.push("ombor: " + e.message); console.warn("sync ombor xato:", e.message); }
 
@@ -458,7 +466,8 @@ async function pushToCloud() {
         recurring: !!x.recurring,
         sub_category: x.subCategory || null,
         xarajat_type: x.xarajatType || null,
-        for_month: x.forMonth || null
+        for_month: x.forMonth || null,
+        data: _dataOf(x) // v175: BUTUN JSON
       })));
     } catch(e) { syncErrors.push("xarajatlar: " + e.message); console.warn("sync xarajatlar xato:", e.message); }
 
@@ -473,7 +482,8 @@ async function pushToCloud() {
         qty: c.qty || 0, unit: c.unit || "dona",
         reason: c.reason || null, note: c.note || null,
         cost_uzs: Math.round(c.costUzs || 0),
-        cost_usd_each: c.costUsdEach != null ? c.costUsdEach : null
+        cost_usd_each: c.costUsdEach != null ? c.costUsdEach : null,
+        data: _dataOf(c) // v175: BUTUN JSON
       })));
     } catch(e) { syncErrors.push("chiqimlar: " + e.message); console.warn("sync chiqimlar xato:", e.message); }
 
@@ -514,7 +524,9 @@ async function pushToCloud() {
         total: r.total || 0,
         reason: r.reason || null,
         customer_name: r.customerName || null,
-        staff_id: r.staffId || null
+        staff_id: r.staffId || null,
+        // v175: BUTUN JSON — items ichidagi rasmlar sales'dagidek olib tashlanadi
+        data: { ..._dataOf(r), items: (r.items || []).map(({ image, ...rest }) => rest) }
       })));
     } catch(e) { syncErrors.push("returns: " + e.message); console.warn("sync returns xato:", e.message); }
 
@@ -528,7 +540,8 @@ async function pushToCloud() {
         note: sh.note || null,
         close_time: sh.closeTime || null,
         close_cash: sh.closeCash != null ? sh.closeCash : null,
-        diff: sh.diff != null ? sh.diff : null
+        diff: sh.diff != null ? sh.diff : null,
+        data: _dataOf(sh) // v175: BUTUN JSON
       })));
     } catch(e) { syncErrors.push("shifts: " + e.message); console.warn("sync shifts xato:", e.message); }
 
@@ -537,7 +550,8 @@ async function pushToCloud() {
         shop_id: sid, id: s.id,
         name: s.name || null,
         phone: s.phone || null,
-        note: s.note || null
+        note: s.note || null,
+        data: _dataOf(s) // v175: BUTUN JSON
       })));
     } catch(e) { syncErrors.push("suppliers: " + e.message); console.warn("sync suppliers xato:", e.message); }
 
@@ -787,6 +801,8 @@ async function pullFromCloud() {
     _cloudIds["staff"] = new Map((staffData||[]).map(r => [String(r.id), r.id]));
     if (staffData && staffData.length > 0) {
       db.staff = staffData.map(s => {
+        // v175: BUTUN JSON bo'lsa — undan (barcha maydonlar avtomatik)
+        if (s.data && typeof s.data === "object" && !Array.isArray(s.data)) return { ...s.data, id: s.id };
         const st = {
           id: s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir",
           pin: s.pin || null, salary: s.salary || 0, bonusPct: s.bonus_pct || 0,
@@ -840,7 +856,10 @@ async function pullFromCloud() {
     const { data: omborData } = await _sb.from("ombor").select("*").eq("shop_id", sid).order("local_id");
     _cloudIds["ombor"] = new Map((omborData||[]).map(r => [String(r.id), r.id]));
     if (omborData && omborData.length > 0) {
-      db.ombor = omborData.map(o => ({
+      db.ombor = omborData.map(o => {
+        // v175: BUTUN JSON bo'lsa — undan
+        if (o.data && typeof o.data === "object" && !Array.isArray(o.data)) return { ...o.data, id: o.id };
+        return ({
         id: o.id, date: o.date, sku: o.sku,
         productName: o.product_name, unit: o.unit,
         color: o.color, size: o.size, qty: o.qty,
@@ -850,14 +869,18 @@ async function pullFromCloud() {
         payStatus: o.pay_status, barcode: o.barcode,
         pantone: o.pantone || null, hex: o.hex || null,
         chakana: o.chakana || 0
-      }));
+      });
+      });
     }
 
     // Xarajatlar
     const { data: xarData } = await _sb.from("xarajatlar").select("*").eq("shop_id", sid).order("local_id");
     _cloudIds["xarajatlar"] = new Map((xarData||[]).map(r => [String(r.id), r.id]));
     if (xarData) {
-      db.xarajatlar = xarData.map(x => ({
+      db.xarajatlar = xarData.map(x => {
+        // v175: BUTUN JSON bo'lsa — undan
+        if (x.data && typeof x.data === "object" && !Array.isArray(x.data)) return { ...x.data, id: x.id };
+        return ({
         id: x.id, date: x.date, category: x.category,
         amount: x.amount, amountUsd: x.amount_usd || null,
         recipient: x.recipient, paidBy: x.paid_by,
@@ -866,7 +889,8 @@ async function pullFromCloud() {
         subCategory: x.sub_category || null,
         xarajatType: x.xarajat_type || null,
         forMonth: x.for_month || null
-      }));
+      });
+      });
     }
 
     // Settings
@@ -902,7 +926,10 @@ async function pullFromCloud() {
     const { data: chiqData } = await _sb.from("chiqimlar").select("*").eq("shop_id", sid).order("local_id");
     _cloudIds["chiqimlar"] = new Map((chiqData||[]).map(r => [String(r.id), r.id]));
     if (chiqData && chiqData.length > 0) {
-      db.chiqimlar = chiqData.map(c => ({
+      db.chiqimlar = chiqData.map(c => {
+        // v175: BUTUN JSON bo'lsa — undan (id konvensiyasi saqlanadi)
+        if (c.data && typeof c.data === "object" && !Array.isArray(c.data)) return { ...c.data, id: c.local_id || c.data.id || c.id };
+        return ({
         id:          c.local_id || c.id,
         date:        c.date,
         time:        c.time || "",
@@ -915,7 +942,8 @@ async function pullFromCloud() {
         reason:      c.reason,
         note:        c.note || "",
         costUzs:     c.cost_uzs || 0
-      }));
+      });
+      });
     }
 
     // Qarz to'lovlari
@@ -957,7 +985,10 @@ async function pullFromCloud() {
     const { data: retData } = await _sb.from("returns").select("*").eq("shop_id", sid).order("created_at");
     _cloudIds["returns"] = new Map((retData||[]).map(r => [String(r.id), r.id]));
     if (retData) {
-      db.returns = retData.map(r => ({
+      db.returns = retData.map(r => {
+        // v175: BUTUN JSON bo'lsa — undan
+        if (r.data && typeof r.data === "object" && !Array.isArray(r.data)) return { ...r.data, id: r.id };
+        return ({
         id: r.id, date: r.date, time: r.time || null,
         origSaleId: r.orig_sale_id || null,
         origChekNum: r.orig_chek_num || null,
@@ -966,14 +997,18 @@ async function pullFromCloud() {
         reason: r.reason || null,
         customerName: r.customer_name || null,
         staffId: r.staff_id || null
-      }));
+      });
+      });
     }
 
     // Kassa smenalari
     const { data: shiftData } = await _sb.from("shifts").select("*").eq("shop_id", sid).order("created_at");
     _cloudIds["shifts"] = new Map((shiftData||[]).map(r => [String(r.id), r.id]));
     if (shiftData) {
-      db.shifts = shiftData.map(sh => ({
+      db.shifts = shiftData.map(sh => {
+        // v175: BUTUN JSON bo'lsa — undan
+        if (sh.data && typeof sh.data === "object" && !Array.isArray(sh.data)) return { ...sh.data, id: sh.id };
+        return ({
         id: sh.id, staffId: sh.staff_id || null,
         openTime: sh.open_time || null,
         openDate: sh.open_date || null,
@@ -982,16 +1017,21 @@ async function pullFromCloud() {
         closeTime: sh.close_time || null,
         closeCash: sh.close_cash != null ? sh.close_cash : null,
         diff: sh.diff != null ? sh.diff : null
-      }));
+      });
+      });
     }
 
     // Ta'minotchilar
     const { data: supData } = await _sb.from("suppliers").select("*").eq("shop_id", sid).order("created_at");
     _cloudIds["suppliers"] = new Map((supData||[]).map(r => [String(r.id), r.id]));
     if (supData) {
-      db.suppliers = supData.map(s => ({
+      db.suppliers = supData.map(s => {
+        // v175: BUTUN JSON bo'lsa — undan
+        if (s.data && typeof s.data === "object" && !Array.isArray(s.data)) return { ...s.data, id: s.id };
+        return ({
         id: s.id, name: s.name || "", phone: s.phone || "", note: s.note || ""
-      }));
+        });
+      });
     }
 
     // ── MERGE: bulut + lokal yangi yozuvlar ──────────────────────
