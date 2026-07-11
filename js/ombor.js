@@ -838,7 +838,11 @@ function omImgClick(sku, color) {
 
 function omImgSave(sku, color, input) {
   const file = input.files[0]; if (!file) return;
-  if (file.size > 2 * 1024 * 1024) { toast("Rasm 2MB dan katta", "err"); return; }
+  // 2026-07-10: 2MB darvozasi OLIB TASHLANDI — u pastdagi SIQISHDAN
+  // OLDIN turib, telefon suratlarini (3-8MB) bekorga rad etardi.
+  // Siqish baribir rasmni ~50-150KB ga tushiradi. 15MB — faqat
+  // xato fayl (video va h.k.) dan himoya.
+  if (file.size > 15 * 1024 * 1024) { toast("Fayl juda katta (15MB+) — bu rasm emasga o'xshaydi", "err"); return; }
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();

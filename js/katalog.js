@@ -748,7 +748,7 @@ function epLoadColorImage(input, color) {
 
       let q = 0.82, dataUrl;
       do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
-      while (dataUrl.length > 400000 && q > 0.25);
+      while (dataUrl.length > 150000 && q > 0.25);
 
       const p = db.products.find(x => x.sku === editSku); if (!p) return;
       if (!p.colorImages) p.colorImages = {};
@@ -1551,8 +1551,16 @@ function apNameAutofill(val) {
 // popup esa vaqt bo'yicha o'zini yopib qo'yish xatosiga uchragan edi).
 let _imgSrcGalId = null, _imgSrcCamId = null;
 function imgSrcAsk(galId, camId) {
+  // 2026-07-10: "Kamera/Galereya" ORALIQ MODALI OLIB TASHLANDI.
+  // capture'siz input telefonda O'ZI tabiiy tanlov oynasini ochadi
+  // (kamera HAM, galereya HAM shu yerda) — boshqa ilovalardagidek
+  // BIR bosishda. Kompyuterda oddiy fayl oynasi ochiladi.
+  // imgSrcPick va modal HTML zaxira sifatida qoldirildi.
   _imgSrcGalId = galId; _imgSrcCamId = camId;
-  openModal("img-src");
+  const el = $(galId);
+  if (el) { el.click(); return; }
+  if (camId && $(camId)) { $(camId).click(); return; }
+  openModal("img-src"); // zaxira yo'l
 }
 function imgSrcPick(kind) {
   closeModal("img-src");
@@ -1759,7 +1767,7 @@ function epLoadImage(input) {
       // Sifatni kamaytirish (300KB gacha)
       let q = 0.82, dataUrl;
       do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
-      while (dataUrl.length > 400000 && q > 0.25);
+      while (dataUrl.length > 150000 && q > 0.25);
 
       // UI yangilash
       if ($("ep-img-preview"))     { $("ep-img-preview").src = dataUrl; $("ep-img-preview").style.display = "block"; }
@@ -2998,7 +3006,11 @@ function katImgClick(sku, color) {
 
 function katImgSave(sku, color, input) {
   const file = input.files[0]; if (!file) return;
-  if (file.size > 2 * 1024 * 1024) { toast("Rasm 2MB dan katta", "err"); return; }
+  // 2026-07-10: 2MB darvozasi OLIB TASHLANDI — u pastdagi SIQISHDAN
+  // OLDIN turib, telefon suratlarini (3-8MB) bekorga rad etardi.
+  // Siqish baribir rasmni ~50-150KB ga tushiradi. 15MB — faqat
+  // xato fayl (video va h.k.) dan himoya.
+  if (file.size > 15 * 1024 * 1024) { toast("Fayl juda katta (15MB+) — bu rasm emasga o'xshaydi", "err"); return; }
   const reader = new FileReader();
   reader.onload = e => {
     const raw = e.target.result;
