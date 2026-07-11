@@ -153,7 +153,7 @@ function updateCloudUI(connected) {
     badge.className   = connected ? "bg bg-g" : "bg bg-gr";
   }
   if (pill) pill.style.display = connected ? "flex" : "none";
-  if (txt)  txt.textContent    = connected ? "Cloud" : "";
+  if (txt)  txt.textContent    = connected ? "Avto-saqlash" : ""; // v177: sodda matn
 }
 
 // ── LocalDB → Supabase (to'liq push) ─────────────
@@ -657,14 +657,44 @@ async function checkAppVersion() {
     _versionCheckedAt = Date.now();
     if (!_versionOk) {
       console.warn(`❗ ESKI VERSIYA: sizda cloud v${my}, serverda v${srv} — push bloklandi`);
-      if (Date.now() - _verWarnAt > 60000 && typeof toast === "function") {
-        _verWarnAt = Date.now();
-        toast("⚠️ MERX yangilandi! Davom etishdan avval sahifani to'liq yangilang: Ctrl+Shift+R (telefonda: brauzer keshini tozalang)", "err");
-      }
+      // v177: Ctrl+Shift+R KERAK EMAS — bitta tugmali banner chiqadi,
+      // tugma sahifani kesh chetlab qayta ochadi (?upd=vaqt bilan).
+      _showUpdateBanner();
     }
   } catch(e) { _versionOk = true; _versionCheckedAt = Date.now(); } // tekshirib bo'lmasa — bloklamaymiz
   return _versionOk;
 }
+
+// ── v177: YANGI VERSIYA BANNERI ────────────────────────────────
+// Do'konlarga yangi versiya AVTOMAT yetib borishi uchun: yangi versiya
+// aniqlansa, tepada sariq banner chiqadi. "Yangilash" tugmasi sahifani
+// kesh chetlab (?upd=vaqt) qayta ochadi — Ctrl+Shift+R umuman kerak
+// emas. Avtomatik reload ATAYLAB qilinmaydi: kassir savat yig'ayotgan
+// paytda sahifa o'z-o'zidan yangilanib ketishi xavfli.
+let _updBannerOn = false;
+function _showUpdateBanner() {
+  if (_updBannerOn || document.getElementById("merx-upd-banner")) return;
+  _updBannerOn = true;
+  const b = document.createElement("div");
+  b.id = "merx-upd-banner";
+  b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:99999;" +
+    "background:#E9A500;color:#0D1B2A;font-weight:700;padding:10px 14px;" +
+    "text-align:center;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.25)";
+  b.innerHTML = '🔄 MERX yangi versiyasi tayyor — ' +
+    '<button onclick="merxUpdateNow()" style="margin-left:8px;background:#0D1B2A;' +
+    'color:#fff;border:0;border-radius:8px;padding:6px 14px;font-weight:700;' +
+    'cursor:pointer">Yangilash</button>' +
+    ' <span style="opacity:.8;font-weight:500">(3 soniya, ma\'lumotlar saqlanadi)</span>';
+  document.body.appendChild(b);
+}
+function merxUpdateNow() {
+  location.href = location.pathname + "?upd=" + Date.now();
+}
+
+// v177: yangi versiyani MUNTAZAM tekshirish — foydalanuvchi hech
+// narsa qilmasa ham (30s dan keyin bir marta, so'ng har 10 daqiqada).
+setTimeout(() => { try { checkAppVersion(); } catch(e) {} }, 30000);
+setInterval(() => { try { checkAppVersion(); } catch(e) {} }, 10 * 60 * 1000 + 5000);
 
 // ── Pull kafolati: muvaffaqiyatgacha qayta urinish ─────────────
 // Pull o'tmasa push bloklangani uchun, bu funksiya pullni bir necha
@@ -712,7 +742,7 @@ async function pullFromCloud() {
   await _setShopContext(_pullSid);
 
   try {
-    toast("Cloud dan yuklanmoqda...", "info");
+    toast("Ma'lumotlar yuklanmoqda...", "info");
 
     const sid = _pullSid;
 
@@ -1118,8 +1148,12 @@ async function pullFromCloud() {
 
     saveDB();
     updateCloudUI(true);
-    nav("dashboard");
-    toast("✅ Cloud dan yuklandi! Dashboard yangilandi.");
+    // v177 (4-BOSQICH): endi dashboardga ULOQTIRILMAYDI. Foydalanuvchi
+    // qaysi sahifada bo'lsa, o'sha sahifaning o'zi qayta chiziladi
+    // (nav o'sha sahifaning render funksiyasini chaqiradi).
+    const _cur = document.querySelector("[id^='p-'].on")?.id?.slice(2) || "dashboard";
+    nav(_cur);
+    toast("✅ Ma'lumotlar yangilandi");
   } catch(e) {
     toast("Yuklash xatosi: " + e.message, "err");
     console.error("Cloud pull error:", e);
@@ -1141,7 +1175,7 @@ function scheduleCloudSync() {
     const txt = $("cloud-txt");
     if (txt) {
       txt.textContent = "Saqlandi ✓";
-      setTimeout(() => { if (txt) txt.textContent = "Cloud"; }, 2000);
+      setTimeout(() => { if (txt) txt.textContent = "Avto-saqlash"; }, 2000);
     }
   }, 2000); // v176: 2 soniya — delta-push tufayli yuk kichik, tezroq ketadi
 }
