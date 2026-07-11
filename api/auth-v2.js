@@ -48,15 +48,20 @@ module.exports = async function handler(req, res) {
   const body = req.body || {};
 
   // ── SuperAdmin himoyasi ──────────────────────────────────────
-  // SA parol serverda tekshiriladi. Vercel ENV'da MERX_SA_PASS
-  // o'rnatilsa — o'sha, bo'lmasa vaqtincha "merx2024".
-  // TAVSIYA: Vercel > Settings > Environment Variables ga kuchli
-  // MERX_SA_PASS qo'shing — shunda parol kodda umuman turmaydi.
-  const SA_PASS = process.env.MERX_SA_PASS || "merx2024";
+  // 2026-07-10: zaxira parol OLIB TASHLANDI (repo public — ochiq
+  // koddagi parol xavfsizlik teshigi edi). SA parol endi FAQAT
+  // Vercel ENV'dagi MERX_SA_PASS'dan olinadi. ENV o'rnatilmagan
+  // bo'lsa — SA amallari BUTUNLAY yopiq (xavfsiz standart).
+  const SA_PASS = process.env.MERX_SA_PASS || "";
   const SA_ACTIONS = ["sa_login","create_shop","update_shop",
     "update_shop_password","get_shops","link_existing_shop",
     "delete_test_user","signup_test"];
   if (SA_ACTIONS.includes(action)) {
+    // MUHIM: SA_PASS bo'sh bo'lsa HAM rad etiladi — aks holda bo'sh
+    // parol bilan kirish mumkin bo'lib qolardi.
+    if (!SA_PASS) {
+      return res.status(500).json({ ok: false, error: "Server sozlanmagan: Vercel ENV'da MERX_SA_PASS o'rnating" });
+    }
     const given = req.headers["x-sa-pass"] || body.saPass || "";
     if (given !== SA_PASS) {
       return res.status(401).json({ ok: false, error: "SuperAdmin paroli noto'g'ri" });

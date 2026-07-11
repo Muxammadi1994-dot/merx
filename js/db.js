@@ -104,14 +104,9 @@ function saveDB() {
 }
 
 // ── EAN-13 ────────────────────────────────────────
-function genEAN13(seq) {
-  const body   = "200" + String(seq).padStart(9, "0");
-  const digits = body.split("").map(Number);
-  let sum = 0;
-  digits.forEach((d, i) => { sum += i % 2 === 0 ? d : d * 3; });
-  const check = (10 - (sum % 10)) % 10;
-  return body + check;
-}
+// 2026-07-10: bu yerdagi genEAN13 O'CHIRILDI (8-qoida — nom
+// to'qnashuvi). Amaldagi yagona nusxa: utils.js (yuklash tartibida
+// baribir shu g'olib edi, xatti-harakat O'ZGARMAGAN).
 
 // ── Seed ──────────────────────────────────────────
 function seedDB() {

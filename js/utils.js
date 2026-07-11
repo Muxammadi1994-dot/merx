@@ -187,30 +187,9 @@ function nav(p) {
   }
 }
 
-function toggleCurrency() {
-  const opts = ["uzs", "usd", "both"];
-  const cur = db.settings.priceCurrency || "uzs";
-  db.settings.priceCurrency = opts[(opts.indexOf(cur) + 1) % 3];
-  saveDB(); updateRatePill();
-  // Barcha ochiq bo'limlarni yangilaymiz
-  const renders = [
-    ["katalog",  renderKatalog],
-    ["ombor",    renderOmbor],
-    ["tarix",    renderTarix],
-    ["qarzlar",  renderDebts],
-    ["hisobot",  renderHisobot],
-    ["pos",      renderPosGrid],
-  ];
-  renders.forEach(([page, fn]) => {
-    const el = $("p-" + page);
-    if (el && el.classList.contains("on") && typeof fn === "function") fn();
-  });
-  // Aktiv bo'lmasa ham katalog va posni yangilaymiz (har doim kerak)
-  if (typeof renderKatalog  === "function") renderKatalog();
-  if (typeof renderPosGrid  === "function") renderPosGrid();
-  // Tannarx valyutasini yangilash
-  if (typeof updateCostCurrency === "function") updateCostCurrency();
-}
+// 2026-07-10: bu yerdagi ESKI toggleCurrency O'CHIRILDI (8-qoida —
+// nom to'qnashuvi). Amaldagi yagona nusxa: dashboard.js (saveSetting
+// orqali, bulutga sinxronlanadi). Bu yerda qayta e'lon QILINMASIN!
 function updateRatePill() {
   $("tb-rate").textContent = fmt(db.settings.rate || 0);
   const lbl = { uzs:"so'm", usd:"USD", both:"so'm/USD" };
