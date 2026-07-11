@@ -196,6 +196,37 @@ let _tombstones = new Set();
 // eski ro'yxat yangi do'konga qo'llanib ketmasligi uchun (KRITIK)
 let _pulledShopId = null;
 
+// v176 (2026-07-10): DELTA-PUSH KESHI — jadval -> (id -> oxirgi
+// muvaffaqiyatli yuborilgan yozuvning JSON matni). Shu tufayli har
+// sinxronda BUTUN baza emas, faqat O'ZGARGAN yozuvlar yuboriladi.
+// Kesh xotirada (sahifa yangilansa bo'shaydi) — birinchi push to'liq,
+// keyingilari mayda va tez bo'ladi.
+let _pushCache = {};
+
+// Delta-upsert: rows ichidan faqat keshdagidan farq qilganlarini
+// yuboradi; kesh FAQAT muvaffaqiyatli chunk'dan keyin yangilanadi
+// (xato bo'lsa, o'sha yozuvlar keyingi sinxronda qayta uriniladi).
+async function _deltaUpsert(table, rows, chunkSize, conflict) {
+  if (!rows || !rows.length) return 0;
+  const cache = _pushCache[table] || (_pushCache[table] = new Map());
+  const pend = [];
+  for (const r of rows) {
+    const k = String(r.id != null ? r.id : r.shop_id);
+    const j = JSON.stringify(r);
+    if (cache.get(k) !== j) pend.push([r, k, j]);
+  }
+  if (!pend.length) return 0;
+  const chunk = chunkSize || 50;
+  for (let i = 0; i < pend.length; i += chunk) {
+    const part = pend.slice(i, i + chunk);
+    const { error } = await _sb.from(table)
+      .upsert(part.map(p => p[0]), { onConflict: conflict || "id", ignoreDuplicates: false });
+    if (error) throw error;
+    part.forEach(([r, k, j]) => cache.set(k, j));
+  }
+  return pend.length;
+}
+
 async function pushToCloud() {
   // v166: push oldidan token yangiligi + client mosligi ta'minlanadi
   try { await initSupabase(); } catch(e) {}
@@ -228,7 +259,8 @@ async function pushToCloud() {
     // Settings — shop_id asosida upsert
     if (sid && sid !== "local" && sid !== "default") {
       try {
-        await _sb.from("settings").upsert({
+        // v176: settings ham delta orqali — o'zgarmagan bo'lsa yuborilmaydi
+        await _deltaUpsert("settings", [{
           shop_id:        sid,
           shop_name:      db.shop?.name || "MERX",
           rate:           db.settings?.rate || 12800,
@@ -253,27 +285,21 @@ async function pushToCloud() {
           low_stock_limit:  db.settings?.lowStockLimit  ?? null,
           pos_pay_blocked:  db.settings?.posPayBlocked  || null,
           pos_staff_locked: db.settings?.posStaffLocked === true,
-        }, { onConflict: "shop_id" });
+        }], 1, "shop_id");
       } catch(e) { console.warn("settings upsert xato:", e.message); }
     }
 
     // Helper — upsert id asosida, xato bo'lsa warning, davom etadi
     async function sync(table, rows) {
-      if (!rows || !rows.length) return;
-      const chunk = 50;
-      for (let i = 0; i < rows.length; i += chunk) {
-        const { error } = await _sb.from(table)
-          .upsert(rows.slice(i, i+chunk), {onConflict:"id", ignoreDuplicates:false});
-        if (error) throw error;
-      }
+      // v176: faqat o'zgargan yozuvlar (delta) yuboriladi
+      return _deltaUpsert(table, rows, 50);
     }
 
     // Customers uchun alohida sync — telegram_chat_id ni HECH QACHON o'zgartirmaymiz
     async function syncCustomers(customers) {
       if (!customers || !customers.length) return;
-      const chunk = 50;
-      for (let i = 0; i < customers.length; i += chunk) {
-        const batch = customers.slice(i, i+chunk).map(c => {
+      // v176: avval hamma qator yig'iladi, keyin faqat o'zgarganlari ketadi
+      const custRows = customers.map(c => {
           const row = {
             shop_id: sid, id: c.id, name: c.name,
             phone: c.phone || null,
@@ -297,10 +323,7 @@ async function pushToCloud() {
           row.data = { ...c };
           return row;
         });
-        const { error } = await _sb.from("customers")
-          .upsert(batch, {onConflict:"id", ignoreDuplicates:false});
-        if (error) throw error;
-      }
+      await _deltaUpsert("customers", custRows, 50);
     }
 
     // Har bir jadvalni mustaqil sinxronlaymiz
@@ -348,12 +371,9 @@ async function pushToCloud() {
           data: _prodData(p) // v173: to'liq nusxa (rasmlarsiz)
         }));
       if (prodRows?.length) {
-        const chunk = 20; // image katta bo'lgani uchun kichik chunk
-        for (let i = 0; i < prodRows.length; i += chunk) {
-          const { error } = await _sb.from("products")
-            .upsert(prodRows.slice(i, i+chunk), { onConflict: "id", ignoreDuplicates: false });
-          if (error) throw error;
-        }
+        // v176: delta — o'zgarmagan tovarlar (ayniqsa katta rasmlilari!)
+        // endi qayta-qayta yuborilmaydi. Chunk 20 — rasm katta.
+        await _deltaUpsert("products", prodRows, 20);
       }
     } catch(e) { syncErrors.push("products: " + e.message); console.warn("sync products xato:", e.message); }
 
@@ -675,6 +695,7 @@ async function ensureCloudPull(tries = 3) {
 
 // ── Supabase → LocalDB ────────────────────────────
 async function pullFromCloud() {
+  _pushCache = {}; // v176: pull'dan keyin birinchi push to'liq bo'lsin (xavfsizlik)
   if (!_sb) {
     const ok = await initSupabase();
     if (!ok) { toast("Avval ulaning","err"); return; }
@@ -1122,5 +1143,5 @@ function scheduleCloudSync() {
       txt.textContent = "Saqlandi ✓";
       setTimeout(() => { if (txt) txt.textContent = "Cloud"; }, 2000);
     }
-  }, 5000); // 5 soniya — bir nechta o'zgarish birlashtirilib yuboriladi
+  }, 2000); // v176: 2 soniya — delta-push tufayli yuk kichik, tezroq ketadi
 }
