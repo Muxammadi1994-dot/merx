@@ -704,13 +704,44 @@ function debtPayMethodInputs(idKey, isUsd, lastRowExtra) {
       <span style="font-size:11px;color:var(--mut);width:62px;flex-shrink:0;white-space:nowrap">${icon} ${label}</span>
       <input type="text" id="pay-${m}-${idKey}" data-price
         placeholder="so'm"
-        oninput="fmtInput(this);${isUsd ? `qzShowUsdHint('${idKey}')` : ""}"
+        oninput="fmtInput(this);qzClampPay('${idKey}','${m}');${isUsd ? `qzShowUsdHint('${idKey}')` : ""}"
         style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 7px;width:108px;flex-shrink:0;outline:none">
     </div>`).join("");
   const lastRow = lastRowExtra
     ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap;margin-top:2px">${lastRowExtra}</div>`
     : "";
   return `<div style="display:flex;flex-direction:column;gap:4px">${methodRows}${lastRow}</div>`;
+}
+
+// ── 2026-07-11 (AbuSaxiy №5): ORTIQCHA TO'LOV QULFI ─────────────
+// Yakka chek qatorida yozish paytidayoq chegara: Naqd+Karta+O'tkazma
+// yig'indisi shu chek(mijoz)ning qarzidan oshsa — hozirgi maydon
+// avtomatik chegaraga tushiriladi. Guruh qatorlari uchun yakuniy
+// qulf recordPayment ichida (u yerdan hamma to'lov o'tadi).
+function qzMaxSomFor(idKey) {
+  const num = parseInt(idKey, 10);
+  if (String(num) !== String(idKey) || !db.sales) return null; // guruh qatori
+  const s = db.sales.find(x => x.id === num);
+  if (!s) return null;
+  const st = calcSaleState(s);
+  const rate = db.settings?.rate || 12800;
+  return (s.debtCurrency === "usd" && st.debtUsd > 0)
+    ? Math.round(st.debtUsd * rate)
+    : Math.round(st.remaining || 0);
+}
+function qzClampPay(idKey, method) {
+  const max = qzMaxSomFor(idKey);
+  if (max == null) return;
+  const val = m => { const el = $("pay-" + m + "-" + idKey);
+    return el ? (parseFloat((el.value||"").replace(/[\s,]/g,"")) || 0) : 0; };
+  const sum = val("naqd") + val("karta") + val("otkazma");
+  if (sum <= max) return;
+  const el = $("pay-" + method + "-" + idKey);
+  if (!el) return;
+  const fixed = Math.max(0, val(method) - (sum - max));
+  el.value = fixed > 0 ? fmt(fixed) : "";
+  el.dataset.raw = fixed > 0 ? String(fixed) : ""; // fmtInput bilan izchil
+  toast(`Qarz ${fmt(max)} so'm — undan ko'p yozib bo'lmaydi`, "err");
 }
 
 // Dollor katakchasiga to'g'ridan-to'g'ri kiritilganda — Naqd qatorini
@@ -725,6 +756,7 @@ function qzUsdBoxToSom(idKey) {
   if (naqdEl) {
     naqdEl.value = som > 0 ? fmt(som) : "";
     naqdEl.dataset.raw = som > 0 ? String(som) : "";
+    qzClampPay(idKey, "naqd"); // 2026-07-11 (№5): $ orqali ham oshirib bo'lmasin
   }
 }
 
@@ -996,6 +1028,20 @@ async function recordPayment(id, forcedCurrency) {
     const st0 = calcSaleState(s);
     return a + (payCur === "usd" ? (st0.debtUsd || 0) : (st0.remaining || 0));
   }, 0);
+
+  // 2026-07-11 (AbuSaxiy №5): YAKUNIY ORTIQCHA TO'LOV QULFI —
+  // qarzdan ko'p to'lab BO'LMAYDI (yakka, guruh, $ — hamma yo'l shu
+  // nuqtadan o'tadi). ESLATMA: avvalgi "ortiqcha -> mijoz balansiga"
+  // yo'li shu bilan amalda yopildi (AbuSaxiy talabi); kerak bo'lsa
+  // keyin sozlamaga aylantiramiz. Yaxlitlash farqiga kichik yon
+  // beriladi (so'mda 1 so'm, dollarda 1 sent).
+  const _eps = payCur === "usd" ? 0.01 : 1;
+  if (amt > totalBefore + _eps) {
+    toast(`Qarzdan ortiq to'lov: jami qarz ${payCur === "usd"
+      ? "$" + (Math.round(totalBefore*100)/100)
+      : fmt(Math.round(totalBefore)) + " so'm"} — undan ko'p yozib bo'lmaydi`, "err");
+    return;
+  }
 
   let remainingPay = amt;
   const allocations = [];

@@ -1174,7 +1174,27 @@ var _staffLocked = false;
 function onPayInput(method) {
   const total = _cartTotal();
   if (total <= 0) return;
-  const vals = _getPayVals();
+  let vals = _getPayVals();
+
+  // 2026-07-11 (AbuSaxiy №6): ORTIQCHA TO'LOV QULFI — Naqd+Karta+
+  // O'tkazma yig'indisi savat jamidan OSHIB KETSA, hozir yozilayotgan
+  // maydon avtomatik chegaraga tushiriladi. "Qarz" maydoni hosila —
+  // unga tegilmaydi. Kam to'lash (qisman/nasiya) avvalgidek erkin.
+  if (method !== "qarz") {
+    const paid0 = vals.naqd + vals.karta + vals.otkazma;
+    if (paid0 > total) {
+      const el = $("pay-" + method);
+      if (el) {
+        const fixed = Math.max(0, getRawVal("pay-" + method) - (paid0 - total));
+        el.value = fixed > 0 ? fmt(fixed) : "";
+        // MUHIM: getRawVal dataset.raw'dan o'qiydi — uni ham yangilamasak,
+        // qulf faqat ko'rinishda bo'lib, checkout eski katta sonni olardi
+        el.dataset.raw = fixed > 0 ? String(fixed) : "";
+        toast(`Savat jami ${fmt(total)} so'm — undan ortiq yozib bo'lmaydi`, "err");
+        vals = _getPayVals();
+      }
+    }
+  }
   const paid = vals.naqd + vals.karta + vals.otkazma;
 
   // Avtomat qarz: qolgan summa qarz inputga
