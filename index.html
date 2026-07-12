@@ -714,7 +714,7 @@
           </div>
           <div id="c-name-row" style="display:none;gap:6px"><!-- v162: ortiqcha — yashirildi -->
             <input id="c-name" placeholder="Ism" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff">
-            <input id="c-phone" placeholder="+998 90..." style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff">
+            <input id="c-phone" placeholder="+998 90 000 00 00" oninput="fmtPhone(this)" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff">
           </div>
         </div>
 
@@ -3291,7 +3291,7 @@
     </div>
     <div class="fld" style="margin-bottom:12px">
       <label>Telefon</label>
-      <input id="sup-phone" placeholder="+998 90 123 45 67">
+      <input id="sup-phone" placeholder="+998 90 000 00 00" oninput="fmtPhone(this)">
     </div>
     <div class="fld" style="margin-bottom:14px">
       <label>Eslatma (ixtiyoriy)</label>
@@ -3319,9 +3319,9 @@
       <input id="ac-name" placeholder="Alisher Karimov"></div>
     <div class="r2">
       <div class="fld"><label>Asosiy telefon</label>
-        <input id="ac-phone" placeholder="+998 90 000 00 00"></div>
+        <input id="ac-phone" placeholder="+998 90 000 00 00" oninput="fmtPhone(this)"></div>
       <div class="fld"><label>Qo'shimcha telefon</label>
-        <input id="ac-phone2" placeholder="+998 90 000 00 00"></div>
+        <input id="ac-phone2" placeholder="+998 90 000 00 00" oninput="fmtPhone(this)"></div>
     </div>
     <div class="r2">
       <div class="fld"><label>Mijoz turi</label>
@@ -4027,7 +4027,7 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=155"></script>
-<script src="js/utils.js?v=148"></script>
+<script src="js/utils.js?v=149"></script>
 <script src="js/auth.js?v=177"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=183"></script>
@@ -4039,7 +4039,7 @@
 <script src="js/qarzlar.js?v=165"></script>
 <script src="js/tarix.js?v=152"></script>
 <script src="js/hisobot.js?v=142"></script>
-<script src="js/xodimlar.js?v=141"></script>
+<script src="js/xodimlar.js?v=142"></script>
 <script src="js/moliya.js?v=153"></script>
 <script src="js/egasi.js?v=143"></script>
 <script src="js/portal.js?v=141"></script>

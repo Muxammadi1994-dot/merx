@@ -670,7 +670,7 @@ function openStaffModal(editId = null) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div>
             <label style="${lStyle}">Telefon</label>
-            <input id="as-phone" placeholder="+998 90 ..." value="${s?.phone||''}" style="${iStyle}"
+            <input id="as-phone" placeholder="+998 90 000 00 00" value="${s?.phone||''}" oninput="fmtPhone(this)" style="${iStyle}"
               onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='#E5E7EB'">
           </div>
           <div>

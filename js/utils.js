@@ -262,6 +262,37 @@ function getRawVal(id) {
   return parseFloat(raw) || 0;
 }
 
+// ── 2026-07-12 (AbuSaxiy №4): TELEFON FORMATLASH ──────────────
+// +998 XX XXX XX XX (O'zbekiston standart ko'rinishi).
+// Foydalanish: oninput="fmtPhone(this)" — istalgan telefon inputga
+// Saqlashda value.replace(/\D/g,"") bilan faqat raqamlar olinadi.
+function fmtPhone(input) {
+  if (!input) return;
+  // Faqat raqamlar
+  let d = (input.value || "").replace(/\D/g, "");
+  // 998 bilan boshlanmasa — oldiga qo'shamiz
+  if (d.length > 0 && !d.startsWith("998")) {
+    // Foydalanuvchi 0 bilan boshlasa: 0XX -> 998XX
+    if (d.startsWith("0")) d = "998" + d.slice(1);
+    // Faqat operator kodi bilan boshlasa (90, 91...) -> 998XX
+    else if (d.length <= 9) d = "998" + d;
+  }
+  d = d.slice(0, 12); // 998XXXXXXXXX — 12 raqam
+  // Formatlash: +998 XX XXX XX XX
+  let out = "";
+  if (d.length > 0)  out = "+" + d.slice(0, 3);
+  if (d.length > 3)  out += " " + d.slice(3, 5);
+  if (d.length > 5)  out += " " + d.slice(5, 8);
+  if (d.length > 8)  out += " " + d.slice(8, 10);
+  if (d.length > 10) out += " " + d.slice(10, 12);
+  input.value = out;
+}
+// Telefon raqamini toza saqlash uchun (DB ga +998901234567 shaklida)
+function cleanPhone(val) {
+  const d = (val || "").replace(/\D/g, "");
+  return d.length >= 9 ? "+" + (d.startsWith("998") ? d : "998" + d.slice(-9)) : val;
+}
+
 // Barcha data-price inputlarini ishga tushirish
 function initPriceInputs() {
   document.querySelectorAll("input[data-price]").forEach(inp => {
