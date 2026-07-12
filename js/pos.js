@@ -2392,19 +2392,11 @@ function showLastSale() {
 
 // ── Muddati o'tgan qarz eslatmasi ────────────
 function checkDebtAlerts() {
-  const today_ = today();
-  const overdue = db.sales.filter(s => s.status !== "qaytarilgan" && s.due && s.due < today_)
-    .map(s => ({ sale: s, state: calcSaleState(s) }))
-    .filter(x => x.state.remaining > 0.5);
+  // 2026-07-11 (AbuSaxiy №9): POS'dagi "muddati o'tgan qarz" banneri
+  // OLIB TASHLANDI — kassirni chalg'itardi. Muddati o'tganlar Qarzlar
+  // bo'limida ko'rinishda davom etadi (qizil qatorlar + Holat ustuni).
+  // Funksiya chaqiruvchilar buzilmasligi uchun saqlanadi — banner
+  // endi DOIM yashirin.
   const banner = $("debt-alert-banner");
-  const text   = $("debt-alert-text");
-  if (!banner || !text) return;
-
-  if (overdue.length > 0) {
-    const totalDebt = overdue.reduce((a, x) => a + (x.state.remaining||0), 0);
-    text.textContent = `${overdue.length} ta muddati o'tgan qarz: ${fmt(totalDebt)} so'm`;
-    banner.style.display = "block";
-  } else {
-    banner.style.display = "none";
-  }
+  if (banner) banner.style.display = "none";
 }

@@ -4,7 +4,8 @@
 // ================================================
 
 let debtFilter  = "all";   // "all" | "overdue" | "usd" | "month"
-let debtGrouped = false;   // mijoz bo'yicha guruhlash
+let debtGrouped = true;    // 2026-07-11 (AbuSaxiy №11): sukut bo'yicha GURUHLANGAN
+let _dgInited   = false;   // saqlangan afzallikni bir marta o'qish belgisi
 
 // ── KPI panellarni ko'rsatish/yashirish boshqaruvi ─
 const DEBT_KPI_LABELS = {
@@ -165,7 +166,7 @@ function renderDebtRevenue() {
         <span style="font-size:11px;color:#aaa;margin-left:6px">${p.chekNum} · ${p.date} ${p.time||""}</span>
         <span style="font-size:11px;color:var(--mut);margin-left:6px">· ${payMethodLabel(p.method)}</span>
       </div>
-      <strong style="font-size:13px;color:var(--grn)">${fmtMoney(p.amount, p.currency)}</strong>
+      <strong style="font-size:13px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate)}</strong>
     </div>`).join("");
 }
 
@@ -310,6 +311,8 @@ function setDebtFilter(f) {
 
 function toggleDebtGroup() {
   debtGrouped = !debtGrouped;
+  // №11: tanlov shu qurilmada eslab qolinadi (keyingi ochilishda ham)
+  if (db.settings) { db.settings.debtGrouped = debtGrouped; saveDB(); }
   const btn = $("debt-group-btn");
   if (btn) {
     btn.style.background = debtGrouped ? "#0D1B2A" : "";
@@ -339,6 +342,17 @@ function debtRemDisplay(s, st) {
 
 // ── Render ────────────────────────────────────────
 function renderDebts() {
+  // 2026-07-11 (AbuSaxiy №11): saqlangan afzallik bir marta o'qiladi;
+  // tugma rangi joriy holatni doim aks ettiradi (avval faqat bosilganda
+  // yangilanardi). ESLATMA: expandDebtGroup vaqtincha yoyib ko'rsatishi
+  // ATAYLAB saqlanmaydi — keyingi kirishda yana guruhlangan ochiladi.
+  if (!_dgInited) { _dgInited = true;
+    if (db.settings && db.settings.debtGrouped != null)
+      debtGrouped = db.settings.debtGrouped !== false;
+  }
+  const _gbtn = $("debt-group-btn");
+  if (_gbtn) { _gbtn.style.background = debtGrouped ? "#0D1B2A" : "";
+               _gbtn.style.color      = debtGrouped ? "#fff" : ""; }
   const q    = ($("debt-q")||{value:""}).value.toLowerCase();
   const rate = db.settings.rate || 12800;
   const thisMonth = today().slice(0, 7);
@@ -685,6 +699,16 @@ function renderDebtsGrouped(list, rate) {
 // Har bir qatorda Naqd/Karta/O'tkazma alohida kiritiladi, yig'indisi
 // bitta to'lov sifatida qarzdan ayiriladi, lekin taqsimoti (kim qancha)
 // saqlanib qoladi — chekda va xabarda aniq ko'rsatiladi.
+// 2026-07-11 (AbuSaxiy №12): tarixda $ to'lov IKKALA valyutada —
+// "2 000 000 so'm / $156.25". So'm — to'lov paytidagi MUZLATILGAN
+// kurs (payment.rate) bilan; kurs saqlanmagan eski to'lovlarda joriy
+// kurs bilan taxminiy. So'm to'lovlar avvalgidek.
+function fmtPayBoth(amount, currency, rate) {
+  if (currency !== "usd") return fmtMoney(amount, currency);
+  const r = rate || db.settings?.rate || 12800;
+  return `${fmt(Math.round((amount||0) * r))} so'm / $${amount}`;
+}
+
 function debtPayMethodsShown() {
   const d = db.settings?.debtPayMethodsShown;
   return (d && typeof d === "object") ? d : { naqd: true, karta: true, otkazma: false, kassir: true };
@@ -1778,7 +1802,7 @@ function renderQarzlarTarixiSplit() {
                   <span style="font-size:11px;color:var(--mut);margin-left:6px">· ${payMethodLabel(p.payMethod)}</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
-                  <strong style="font-size:12.5px;color:var(--grn)">${fmtMoney(p.amount, p.currency)}</strong>
+                  <strong style="font-size:12.5px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate || (db.debtPayments||[]).find(x=>x.id===p.paymentId)?.rate)}</strong>
                   <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();reprintDebtPayment(${p.paymentId})" title="Chekni ko'rish">
                     <i class="ti ti-printer" style="font-size:13px"></i>
                   </button>
@@ -1871,7 +1895,7 @@ function renderCustPayHistory() {
               <div style="font-size:11px;color:#aaa;margin-top:1px">${p.date} ${p.time||""} · ${payMethodLabel(p.method)}${allocs.length>1?` · ${allocs.length} ta chekka bo'lindi`:""}</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
-              <strong style="font-size:14px;color:var(--grn)">${fmtMoney(p.amount, p.currency)}</strong>
+              <strong style="font-size:14px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate)}</strong>
               <button class="btn btn-ghost btn-icon btn-sm" onclick="reprintDebtPayment(${p.id})" title="Chekni ko'rish">
                 <i class="ti ti-printer" style="font-size:13px"></i>
               </button>
@@ -1889,7 +1913,7 @@ function renderCustPayHistory() {
           <div style="font-size:11px;color:#aaa;margin-top:1px">${p.payDate} ${p.payTime||""} · ${payMethodLabel(p.payMethod)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          <strong style="font-size:13px;color:var(--grn)">${fmtMoney(p.amount, p.currency)}</strong>
+          <strong style="font-size:13px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate || (db.debtPayments||[]).find(x=>x.id===p.paymentId)?.rate)}</strong>
           <button class="btn btn-ghost btn-icon btn-sm" onclick="reprintDebtPayment(${p.paymentId})" title="Chekni ko'rish">
             <i class="ti ti-printer" style="font-size:13px"></i>
           </button>
