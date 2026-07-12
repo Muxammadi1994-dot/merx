@@ -2154,20 +2154,30 @@ function showReceiptModal(sale) {
     // "soni × narx ... jami" (nuqtali chiziq bilan, raqamlar aniq
     // o'ngga tekislangan). HISOB-KITOBGA (sale obyektiga) TEGILMAYDI —
     // faqat ko'rinish.
+    // 2026-07-12 v4: CHEK FORMATI (AbuSaxiy talabi):
+    // POCHKA: "2pch × (6 juft × 400 000) = 2 400 000"  (mantiqiy B2 format)
+    // DONA:   "6 juft × 400 000 = 2 400 000"            (oddiy format)
+    // "so'm" faqat jami qatorida (oxirida), oraliq narxlarda YO'Q
     $("rcp-items").innerHTML = sale.items.map(i => {
       const lineTotal = (i.price||0) * (i.qty||1);
       const unitPrice = i.price||0;
-      const variantStr = i.variant || ((i.color||"") + (i.size?" / "+i.size:""));
-      const pchk = i.qtyBox ? ` · ${i.qtyBox}pch` : "";
-      // "pochka" -> "pch" (qisqa, 58mm chekda joy tejaydi)
-      const pchkStr = pchk.replace("pochka","pch");
-      const nameLine = variantStr ? `${i.name} / ${variantStr}` : i.name;
+      // Variantdan rang/o'lchamni chiqarish
+      const raw = i.variant || "";
+      const clean = raw.replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
+      const varName = clean ? `${i.name} / ${clean}` : i.name;
+      // Hisob qatori: pochkali yoki oddiy
+      const isBox = i.sellMode === "karobka" && i.qtyBox && i.inBox;
+      let calcStr;
+      if (isBox) {
+        // 2pch × (6 juft × 400 000) = 2 400 000
+        calcStr = `${i.qtyBox}pch × (${i.inBox} ${i.unit||"juft"} × ${fmt(unitPrice)}) = ${fmt(lineTotal)}`;
+      } else {
+        // 6 juft × 400 000 = 2 400 000
+        calcStr = `${i.qty} ${i.unit||"dona"} × ${fmt(unitPrice)} = ${fmt(lineTotal)}`;
+      }
       return `<div style="margin-bottom:3px;padding-bottom:3px;font-size:10px;line-height:1.3;border-bottom:1px dashed #ddd">
-        <div style="font-weight:700;color:#0D1B2A;font-size:10px">${nameLine}</div>
-        <div style="display:flex;justify-content:space-between;color:#374151;font-weight:600;font-size:10px">
-          <span>${i.qty} ${i.unit||"dona"}${pchkStr} × ${priceDisplay(unitPrice)}</span>
-          <span style="font-weight:800;color:#0D1B2A">${priceDisplay(lineTotal)}</span>
-        </div>
+        <div style="font-weight:700;color:#0D1B2A">${varName}</div>
+        <div style="color:#374151;font-weight:600">${calcStr}</div>
       </div>`;
     }).join("");
   }

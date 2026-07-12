@@ -291,10 +291,17 @@
     overflow: visible !important;
     box-sizing: border-box;
   }
-  /* Global yon padding: barcha div larda 24px -> 2mm */
-  #ov-receipt .modal > div {
-    padding-left: 2mm !important;
-    padding-right: 2mm !important;
+  /* Global yon padding: BARCHA ichki elementlar — inline 24px'lar ham */
+  #ov-receipt .modal > div,
+  #ov-receipt .modal > div > div,
+  #ov-receipt [style*="padding:14px 24px"],
+  #ov-receipt [style*="padding: 14px 24px"],
+  #ov-receipt [style*="padding:12px 24px"],
+  #ov-receipt [style*="padding:10px 24px"] {
+    padding-left:   1mm !important;
+    padding-right:  1mm !important;
+    padding-top:    1.5mm !important;
+    padding-bottom: 1.5mm !important;
   }
   /* Shrift o'lchamlari */
   #ov-receipt div, #ov-receipt span, #ov-receipt strong,
@@ -3941,7 +3948,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=182"></script>
 <script src="js/dashboard.js?v=143"></script>
-<script src="js/pos.js?v=175"></script>
+<script src="js/pos.js?v=176"></script>
 <script src="js/katalog.js?v=170"></script>
 <script src="js/ombor.js?v=146"></script>
 <script src="js/mijozlar.js?v=143"></script>
