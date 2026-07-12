@@ -271,31 +271,42 @@
    B&W termal printerga moslashtirish 2-BOSQICHDA qilinadi — hozircha
    faqat "faqat chek chop etilsin, boshqa hech narsa emas" tuzatildi. */
 @media print {
-  /* 2026-07-12 (AbuSaxiy №10, 2-urinish): 58MM TERMAL PRINTER.
-     Birinchi urinishda: ichki elementlar katta shrift (13px inline)
-     bilan tor joyga tiqilib, har so'z yangi qatorga tushdi + ichki
-     aylantirish (scrollbar) bosmaga chiqdi. Endi: (a) barcha ichki
-     shriftlar bosmada majburan ixcham, (b) ichki scroll/balandlik
-     cheklovlari bekor, (c) kenglik 54mm (2mm hoshiya bilan). */
-  @page { size: 58mm auto; margin: 2mm; }
+  /* 2026-07-12 (AbuSaxiy №10 v3): 58MM TERMAL PRINTER — YAKUNIY.
+     (a) @page margin 0 — qog'oz chekkasi bilan bir tekis, hoshiya 0;
+     (b) barcha div/section yon paddinglar 2mm ga tushiriladi;
+     (c) barcha matn 9-10px, sarlavha 12px, jami 11px;
+     (d) har blok orasidagi dashed divider qoladi (border-bottom);
+     (e) scroll/overflow/max-height barchasi bekor (skrollbar bosmaga chiqmasin);
+     (f) FON VA RANGLAR O'ZGARTIRILMAYDI — faqat o'lchamlar. */
+  @page { size: 58mm auto; margin: 0; }
   #ov-receipt .modal,
   #ov-receipt .wrap, #ov-receipt .rc, #ov-receipt .w {
-    width: 54mm !important; max-width: 54mm !important;
-    margin: 0 !important; padding: 1mm !important;
+    width: 58mm !important; max-width: 58mm !important;
+    margin: 0 !important; padding: 0 !important;
+    box-shadow: none !important;
   }
-  #ov-receipt * {
+  /* Barcha o'ralgan scroll/height cheklovlarini ochish */
+  #ov-receipt *, #ov-receipt .modal {
     max-height: none !important;
     overflow: visible !important;
+    box-sizing: border-box;
   }
+  /* Global yon padding: barcha div larda 24px -> 2mm */
+  #ov-receipt .modal > div {
+    padding-left: 2mm !important;
+    padding-right: 2mm !important;
+  }
+  /* Shrift o'lchamlari */
   #ov-receipt div, #ov-receipt span, #ov-receipt strong,
-  #ov-receipt b, #ov-receipt td, #ov-receipt th {
-    font-size: 10px !important;
-    line-height: 1.4 !important;
+  #ov-receipt b, #ov-receipt td, #ov-receipt th, #ov-receipt p {
+    font-size: 9px !important;
+    line-height: 1.3 !important;
     word-break: break-word;
   }
-  #ov-receipt #rcp-shop { font-size: 13px !important; }
-  #ov-receipt #rcp-total, #ov-receipt #rcp-num { font-size: 11.5px !important; }
-  #ov-receipt img { max-width: 100% !important; }
+  #ov-receipt #rcp-shop   { font-size: 12px !important; font-weight: 800 !important; }
+  #ov-receipt #rcp-num    { font-size: 10px !important; }
+  #ov-receipt #rcp-total  { font-size: 11px !important; font-weight: 900 !important; }
+  #ov-receipt img { max-width: 100% !important; display: none; }
 
   #app, .ov:not(#ov-receipt) { display: none !important; }
   #ov-receipt {
@@ -3930,7 +3941,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=182"></script>
 <script src="js/dashboard.js?v=143"></script>
-<script src="js/pos.js?v=174"></script>
+<script src="js/pos.js?v=175"></script>
 <script src="js/katalog.js?v=170"></script>
 <script src="js/ombor.js?v=146"></script>
 <script src="js/mijozlar.js?v=143"></script>

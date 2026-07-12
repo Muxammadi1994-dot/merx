@@ -2159,11 +2159,13 @@ function showReceiptModal(sale) {
       const unitPrice = i.price||0;
       const variantStr = i.variant || ((i.color||"") + (i.size?" / "+i.size:""));
       const pchk = i.qtyBox ? ` · ${i.qtyBox}pch` : "";
-      const nameLine = variantStr ? `${i.name} (${variantStr})` : i.name;
-      return `<div style="margin-bottom:5px;font-size:11px;line-height:1.35">
-        <div style="font-weight:700;color:#0D1B2A">${nameLine}</div>
-        <div style="display:flex;justify-content:space-between;color:#374151;font-weight:600">
-          <span>${i.qty} ${i.unit||"dona"}${pchk} × ${priceDisplay(unitPrice)}</span>
+      // "pochka" -> "pch" (qisqa, 58mm chekda joy tejaydi)
+      const pchkStr = pchk.replace("pochka","pch");
+      const nameLine = variantStr ? `${i.name} / ${variantStr}` : i.name;
+      return `<div style="margin-bottom:3px;padding-bottom:3px;font-size:10px;line-height:1.3;border-bottom:1px dashed #ddd">
+        <div style="font-weight:700;color:#0D1B2A;font-size:10px">${nameLine}</div>
+        <div style="display:flex;justify-content:space-between;color:#374151;font-weight:600;font-size:10px">
+          <span>${i.qty} ${i.unit||"dona"}${pchkStr} × ${priceDisplay(unitPrice)}</span>
           <span style="font-weight:800;color:#0D1B2A">${priceDisplay(lineTotal)}</span>
         </div>
       </div>`;
