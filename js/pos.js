@@ -1320,8 +1320,26 @@ function _applyStaffLock() {
   sel.style.opacity = _staffLocked ? ".6" : "1";
 }
 
+// 2026-07-12 (AbuSaxiy №8): TO'LOV SOZLASH ⚙ TUGMASI
+// Eski: har to'lov usuli yonida kichik qulf tugmasi (kassir chalg'itirar,
+//       boshqa do'konlar nimaga kerak deb so'rar edi).
+// Yangi: sarlavha yonidagi ⚙ tugma modal ochadi — ichida checkboxlar.
+// MANTIQ O'ZGARISHSIZ: togglePayMethodBlock, _payBlocked, posPayBlocked
+// sinxroni (cloud.js v172) to'liq saqlanadi.
+function openPaySettings() {
+  updatePaySettingsUI();
+  openModal("pay-settings");
+}
+function updatePaySettingsUI() {
+  // Checkbox holatlarini _payBlocked bilan moslashtirish
+  ["naqd","karta","otkazma","qarz"].forEach(m => {
+    const cb = document.getElementById("ps-" + m);
+    if (cb) cb.checked = !_payBlocked[m]; // BLOCKED=false => checked=true (yoqilgan)
+  });
+}
+
 function togglePayMethodBlock(method, btnEl) {
-  // Toggle
+  // Toggle — mantiq O'ZGARISHSIZ (posPayBlocked sinxroni saqlanadi)
   _payBlocked[method] = !_payBlocked[method];
   var blocked = !!_payBlocked[method];
 
@@ -1332,8 +1350,10 @@ function togglePayMethodBlock(method, btnEl) {
     var key = typeof getDBKEY === "function" ? getDBKEY() : "merx_db";
     localStorage.setItem(key, JSON.stringify(db));
   } catch(e) {}
+  // Bulutga yuborish (barcha qurilmalarga tarqalsin)
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync();
 
-  // UI yangilash
+  // UI yangilash (yashirin qulf tugmasi ham yangilanadi — garchi ko'rinmasa)
   var btn = btnEl || document.getElementById("pay-lock-" + method);
   var inp = document.getElementById("pay-" + method);
   var row = document.getElementById("pay-row-" + method);
@@ -1341,11 +1361,12 @@ function togglePayMethodBlock(method, btnEl) {
   if (btn) btn.innerHTML = blocked
     ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
     : '<i class="ti ti-lock-open" style="color:#CBD5E1"></i>';
-  if (inp) { inp.disabled = blocked; if (blocked) inp.value = ""; }
+  if (inp) { inp.disabled = blocked; if (blocked) { inp.value = ""; inp.dataset.raw = ""; } }
   if (row) { row.style.opacity = blocked ? "0.4" : "1"; row.style.pointerEvents = blocked ? "none" : "auto"; }
 
   updatePayRemaining();
-  toast((blocked ? "Bloklandi: " : "Ochildi: ") + method);
+  // Sozlash modal checkboxlarini ham yangilaymiz
+  if (typeof updatePaySettingsUI === "function") updatePaySettingsUI();
 }
 
 // Eski setPayMode — ichida nasiya uchun qarz inputini ishlatamiz

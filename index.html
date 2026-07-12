@@ -737,6 +737,10 @@
           <div style="font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:flex;align-items:center;gap:8px">
             To'lov
             <span id="pay-mode-badge"></span>
+            <button onclick="openPaySettings()" title="To'lov usullarini sozlash"
+              style="margin-left:auto;width:24px;height:24px;border:1px solid #E8E5E0;border-radius:6px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">
+              <i class="ti ti-settings" style="font-size:13px;color:#94A3B8"></i>
+            </button>
           </div>
 
           <!-- Naqd -->
@@ -751,7 +755,7 @@
                 style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
             </div>
             <button id="pay-lock-naqd" onclick="togglePayMethodBlock('naqd', this)" title="Bloklash"
-              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;pointer-events:auto">
+              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:none;align-items:center;justify-content:center;flex-shrink:0;padding:0;pointer-events:auto">
               <i class="ti ti-lock-open" style="color:#CBD5E1;font-size:13px"></i>
             </button>
           </div>
@@ -768,7 +772,7 @@
                 style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
             </div>
             <button id="pay-lock-karta" onclick="togglePayMethodBlock('karta', this)" title="Bloklash"
-              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;pointer-events:auto">
+              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:none;align-items:center;justify-content:center;flex-shrink:0;padding:0;pointer-events:auto">
               <i class="ti ti-lock-open" style="color:#CBD5E1;font-size:13px"></i>
             </button>
           </div>
@@ -785,7 +789,7 @@
                 style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
             </div>
             <button id="pay-lock-otkazma" onclick="togglePayMethodBlock('otkazma', this)" title="Bloklash"
-              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;pointer-events:auto">
+              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:none;align-items:center;justify-content:center;flex-shrink:0;padding:0;pointer-events:auto">
               <i class="ti ti-lock-open" style="color:#CBD5E1;font-size:13px"></i>
             </button>
           </div>
@@ -802,7 +806,7 @@
                 style="flex:1;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;padding:7px 10px;background:#fff;text-align:right;outline:none">
             </div>
             <button id="pay-lock-qarz" onclick="togglePayMethodBlock('qarz', this)" title="Bloklash"
-              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;pointer-events:auto">
+              style="width:28px;height:28px;border:1px solid #E8E5E0;border-radius:7px;background:#fff;cursor:pointer;display:none;align-items:center;justify-content:center;flex-shrink:0;padding:0;pointer-events:auto">
               <i class="ti ti-lock-open" style="color:#CBD5E1;font-size:13px"></i>
             </button>
           </div>
@@ -1533,6 +1537,48 @@
     </div>
 
     <div id="qt-list" class="card" style="overflow:hidden"></div>
+  </div>
+
+  <!-- MODAL: POS TO'LOV USULLARINI SOZLASH -->
+  <div class="ov" id="ov-pay-settings" onclick="if(event.target===this)closeModal('pay-settings')">
+    <div class="modal" style="max-width:320px;padding:0;overflow:hidden">
+      <div style="background:#0D1B2A;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:15px;font-weight:700;color:#fff"><i class="ti ti-settings" style="margin-right:6px"></i>To'lov usullari</span>
+        <button class="m-close" onclick="closeModal('pay-settings')" style="color:#fff"><i class="ti ti-x"></i></button>
+      </div>
+      <div style="padding:14px 18px">
+        <div style="font-size:11px;color:#64748B;margin-bottom:12px">Yoqilgan usullar POS da faol, o'chirilgani yashirin bo'ladi</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:8px 10px;border:1px solid #E8E5E0;border-radius:9px">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">
+              <i class="ti ti-cash" style="color:#22C55E;font-size:15px"></i> Naqd pul
+            </span>
+            <input type="checkbox" id="ps-naqd" onchange="togglePayMethodBlock('naqd',document.getElementById('pay-lock-naqd'));updatePaySettingsUI()" style="width:16px;height:16px;cursor:pointer">
+          </label>
+          <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:8px 10px;border:1px solid #E8E5E0;border-radius:9px">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">
+              <i class="ti ti-credit-card" style="color:#3B82F6;font-size:15px"></i> Karta
+            </span>
+            <input type="checkbox" id="ps-karta" onchange="togglePayMethodBlock('karta',document.getElementById('pay-lock-karta'));updatePaySettingsUI()" style="width:16px;height:16px;cursor:pointer">
+          </label>
+          <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:8px 10px;border:1px solid #E8E5E0;border-radius:9px">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">
+              <i class="ti ti-building-bank" style="color:#8B5CF6;font-size:15px"></i> O'tkazma
+            </span>
+            <input type="checkbox" id="ps-otkazma" onchange="togglePayMethodBlock('otkazma',document.getElementById('pay-lock-otkazma'));updatePaySettingsUI()" style="width:16px;height:16px;cursor:pointer">
+          </label>
+          <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:8px 10px;border:1px solid #E8E5E0;border-radius:9px">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">
+              <i class="ti ti-clock" style="color:#F59E0B;font-size:15px"></i> Qarz (nasiya)
+            </span>
+            <input type="checkbox" id="ps-qarz" onchange="togglePayMethodBlock('qarz',document.getElementById('pay-lock-qarz'));updatePaySettingsUI()" style="width:16px;height:16px;cursor:pointer">
+          </label>
+        </div>
+        <button onclick="closeModal('pay-settings')" style="width:100%;margin-top:14px;padding:10px;border:none;border-radius:9px;background:#E9A500;color:#0D1B2A;font-weight:700;font-size:13px;cursor:pointer">
+          Yopish
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- MODAL: MIJOZ TO'LOVLAR TARIXI -->
@@ -3973,7 +4019,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=183"></script>
 <script src="js/dashboard.js?v=143"></script>
-<script src="js/pos.js?v=183"></script>
+<script src="js/pos.js?v=184"></script>
 <script src="js/katalog.js?v=170"></script>
 <script src="js/ombor.js?v=146"></script>
 <script src="js/mijozlar.js?v=143"></script>
