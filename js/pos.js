@@ -2164,7 +2164,9 @@ function showReceiptModal(sale) {
       // Variantdan rang/o'lchamni chiqarish
       const raw = i.variant || "";
       const clean = raw.replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
-      const varName = clean ? `${i.name} / ${clean}` : i.name;
+      // ART (artikul) qo'shildi: "TAPICHKA / Army / D3119"
+      const artPart = i.art ? ` / ${i.art}` : "";
+      const varName = clean ? `${i.name} / ${clean}${artPart}` : `${i.name}${artPart}`;
       // Hisob qatori: pochkali yoki oddiy
       const isBox = i.sellMode === "karobka" && i.qtyBox && i.inBox;
       let calcStr;
@@ -2232,7 +2234,7 @@ function showReceiptModal(sale) {
   const debtWrap = $("rcp-debt-wrap");
   const dueWrap  = $("rcp-due-wrap");
   if (sale.remaining > 0) {
-    if (debtWrap) debtWrap.style.display = "flex";
+    if (debtWrap) debtWrap.style.display = "block"; // "flex" emas — ichki qatorlar alohida ko'rsatilsin
     const isUsd = sale.debtCurrency === "usd" && sale.debtUsd;
 
     // Oldingi qarz satrlari
@@ -2244,16 +2246,16 @@ function showReceiptModal(sale) {
     const debtEl    = $("rcp-debt");
 
     if (isUsd && sale.prevDebtUsd > 0) {
-      if (prevEl)    { prevEl.style.display = "flex"; }
+      if (prevEl)    prevEl.style.display = "flex";
       if (prevValEl) prevValEl.textContent = `$${sale.prevDebtUsd.toFixed(2)}`;
-      if (newEl)     { newEl.style.display = "flex"; }
+      if (newEl)     newEl.style.display = "flex";
       if (newValEl)  newValEl.textContent = `$${sale.debtUsd.toFixed(2)}`;
       if (lblEl)     lblEl.textContent = "Umumiy qarz";
       if (debtEl)    debtEl.textContent = `$${(sale.prevDebtUsd + sale.debtUsd).toFixed(2)} USD`;
     } else if (!isUsd && sale.prevDebtUzs > 0) {
-      if (prevEl)    { prevEl.style.display = "flex"; }
+      if (prevEl)    prevEl.style.display = "flex";
       if (prevValEl) prevValEl.textContent = fmt(sale.prevDebtUzs) + " so'm";
-      if (newEl)     { newEl.style.display = "flex"; }
+      if (newEl)     newEl.style.display = "flex";
       if (newValEl)  newValEl.textContent = fmt(sale.remaining) + " so'm";
       if (lblEl)     lblEl.textContent = "Umumiy qarz";
       if (debtEl)    debtEl.textContent = fmt(sale.prevDebtUzs + sale.remaining) + " so'm";
