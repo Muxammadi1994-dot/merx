@@ -315,6 +315,29 @@
   #ov-receipt #rcp-total  { font-size: 11px !important; font-weight: 900 !important; }
   #ov-receipt img { max-width: 100% !important; display: none; }
 
+  /* QARZ BLOKI: grid ta'sirini butunlay bekor qilish.
+     Eski grid-template-columns:1fr 1fr bosmada div larni yon-yonga
+     chiqarib, qarz matnlari bir-biriga aralashib ketardi.
+     Endi barcha grid konteynerlari oddiy block ga tushiriladi. */
+  #ov-receipt [style*="display:grid"],
+  #ov-receipt [style*="display: grid"] {
+    display: block !important;
+  }
+  /* Qarz qatorlari: har biri to'liq kenglikda, chap-o'ng tekislangan */
+  #ov-receipt #rcp-debt-wrap  { display: block !important; width: 100% !important; }
+  #ov-receipt #rcp-debt-prev,
+  #ov-receipt #rcp-debt-new,
+  #ov-receipt #rcp-debt-total-row,
+  #ov-receipt #rcp-due-wrap   {
+    display: flex !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+  }
+  /* Yashirilgan qatorlar yashirin qolsin */
+  #ov-receipt #rcp-debt-prev[style*="display:none"],
+  #ov-receipt #rcp-debt-new[style*="display:none"],
+  #ov-receipt #rcp-due-wrap[style*="display:none"] { display: none !important; }
+
   #app, .ov:not(#ov-receipt) { display: none !important; }
   #ov-receipt {
     position: static !important;
@@ -3948,7 +3971,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=182"></script>
 <script src="js/dashboard.js?v=143"></script>
-<script src="js/pos.js?v=177"></script>
+<script src="js/pos.js?v=178"></script>
 <script src="js/katalog.js?v=170"></script>
 <script src="js/ombor.js?v=146"></script>
 <script src="js/mijozlar.js?v=143"></script>
