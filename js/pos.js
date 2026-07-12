@@ -2309,8 +2309,11 @@ function showReceiptModal(sale) {
 
   const rcpBotEl = $("rcp-bot-info");
   if (rcpBotEl) {
-    rcpBotEl.style.display = (botUser || rcpUrl) ? "block" : "none";
+    rcpBotEl.style.display = "block";
+    // 2026-07-12: "Rahmat! Yana kutamiz" — chek sozlamalaridan yoki standart
+    const footerTxt = db.settings?.receiptFooter || "Haridingiz uchun rahmat!\nYana kutamiz 🙏";
     rcpBotEl.innerHTML = [
+      `<div style="text-align:center;font-size:11px;color:#555;padding:6px 0;border-top:1px dashed #ddd;font-style:italic">${footerTxt}</div>`,
       botUser ? `<div style="font-size:11px;color:#229ED9;text-align:center;padding:4px 0">🤖 Cheklarni Telegramda olish: <b>@${botUser}</b></div>` : "",
       rcpUrl  ? `<div style="text-align:center;padding:4px 0"><a href="${rcpUrl}" target="_blank" style="font-size:11.5px;color:#0D1B2A;font-weight:600;text-decoration:none;background:#F0EDE8;padding:4px 14px;border-radius:20px;display:inline-block">📄 PDF havolasi</a></div>` : ""
     ].join("");
