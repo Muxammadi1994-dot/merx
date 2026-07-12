@@ -2304,6 +2304,36 @@ function printReceiptPos() {
   window.print();
 }
 
+// 2026-07-12 (AbuSaxiy №1): SAVATNI SOTUVDAN OLDIN CHOP ETISH.
+// Savatdan vaqtinchalik "chek" yasab, mavjud chek oynasida ko'rsatamiz —
+// u yerdagi "Chop etish" 58mm sozlamalar bilan chiqaradi (yoki chop
+// etish oynasida "PDF sifatida saqlash" tanlanadi). Bu VAQTINCHALIK
+// ko'rinish: sotuv YARATILMAYDI, ombor/kassaga TEGILMAYDI.
+function posPrintCart() {
+  if (!cart.length) { toast("Savat bo'sh", "err"); return; }
+  const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
+  const disc = calcDiscount(subtotal);
+  const fake = {
+    id: 0,
+    chekNum: "OLDINDAN KO'RISH",
+    date: today(), time: nowTime(),
+    payType: "-",
+    items: cart.map(c => ({
+      name: c.name,
+      variant: [c.color, c.size].filter(v => v && v !== "-").join(" / "),
+      qty: c.qty, price: c.price, unit: c.unit || "dona"
+    })),
+    subtotal, discount: disc,
+    total: subtotal - disc,
+    // paid=0, remaining=0 — oldindan-ko'rishda "Qarz" bo'limi
+    // chiqib chalg'itmasligi uchun (bu hali sotuv EMAS)
+    paid: 0, remaining: 0,
+    customerName: ($("c-name") ? $("c-name").value : "") || "",
+    customerPhone: ($("c-phone") ? $("c-phone").value : "") || ""
+  };
+  showReceiptModal(fake);
+}
+
 // ── Tezkor miqdor ─────────────────────────────
 function vmSetQty(n) {
   if ($("vm-qty")) { $("vm-qty").value = n; renderVmChips(); }

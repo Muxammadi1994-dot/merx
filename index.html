@@ -271,6 +271,17 @@
    B&W termal printerga moslashtirish 2-BOSQICHDA qilinadi — hozircha
    faqat "faqat chek chop etilsin, boshqa hech narsa emas" tuzatildi. */
 @media print {
+  /* 2026-07-12 (AbuSaxiy №10): 58MM TERMAL PRINTER O'LCHAMLARI.
+     Qog'oz 58mm, bosma maydon ~48mm. Chek uslublarining o'z 72mm
+     qoidalari quyidagi !important bilan yengiladi. */
+  @page { size: 58mm auto; margin: 0; }
+  #ov-receipt .modal,
+  #ov-receipt .wrap, #ov-receipt .rc, #ov-receipt .w {
+    width: 48mm !important; max-width: 48mm !important;
+    margin: 0 !important; padding: 0 !important;
+  }
+  #ov-receipt { font-size: 11px !important; }
+
   #app, .ov:not(#ov-receipt) { display: none !important; }
   #ov-receipt {
     position: static !important;
@@ -798,6 +809,9 @@
         </div>
 
         <!-- Sotish tugmasi -->
+        <button class="btn btn-ghost" onclick="posPrintCart()" title="Savatni sotuvdan OLDIN chek ko'rinishida chop etish (chop etish oynasida 'PDF sifatida saqlash'ni tanlasa PDF bo'ladi)" style="padding:10px 12px">
+          <i class="ti ti-printer"></i>
+        </button>
         <button class="pos-pay-btn" onclick="checkout()">
           <i class="ti ti-check" style="font-size:18px"></i>
           <span>Sotishni yakunlash</span>
@@ -3901,7 +3915,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=181"></script>
 <script src="js/dashboard.js?v=143"></script>
-<script src="js/pos.js?v=171"></script>
+<script src="js/pos.js?v=172"></script>
 <script src="js/katalog.js?v=170"></script>
 <script src="js/ombor.js?v=146"></script>
 <script src="js/mijozlar.js?v=143"></script>
