@@ -582,8 +582,8 @@ function custCardEdit() {
   if (!c) return;
   closeModal("custcard");
   if ($("ac-name"))           $("ac-name").value           = c.name;
-  if ($("ac-phone"))          $("ac-phone").value          = c.phone         || "";
-  if ($("ac-phone2"))         $("ac-phone2").value         = c.phone2        || "";
+  if ($("ac-phone"))          { $("ac-phone").value=""; phoneWidgetLoad("ac-phone", c.phone||""); }
+  if ($("ac-phone2"))         { $("ac-phone2").value=""; phoneWidgetLoad("ac-phone2", c.phone2||""); }
   if ($("ac-type"))           $("ac-type").value           = c.type          || "ulgurji";
   if ($("ac-company"))        $("ac-company").value        = c.company       || "";
   if ($("ac-note"))           $("ac-note").value           = c.note          || "";
@@ -605,8 +605,8 @@ function editCustomer(id) {
   const newName = ($("ac-name")||{value:""}).value.trim();
   if (!newName) { toast("Ism bo'sh bo'lmasin","err"); return; }
   c.name      = newName;
-  c.phone     = ($("ac-phone")||{value:""}).value.trim();
-  c.phone2    = ($("ac-phone2")||{value:""}).value.trim();
+  c.phone     = phoneFullVal("ac-phone") || ($("ac-phone")||{value:""}).value.trim();
+  c.phone2    = phoneFullVal("ac-phone2") || ($("ac-phone2")||{value:""}).value.trim();
   c.type      = ($("ac-type")||{value:""}).value || c.type;
   c.note         = ($("ac-note")||{value:""}).value.trim();
   c.company      = ($("ac-company")||{value:""}).value.trim();

@@ -714,7 +714,21 @@
           </div>
           <div id="c-name-row" style="display:none;gap:6px"><!-- v162: ortiqcha — yashirildi -->
             <input id="c-name" placeholder="Ism" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff">
-            <input id="c-phone" placeholder="+998 90 000 00 00" oninput="fmtPhone(this)" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff">
+            <div id="ph-w-c-phone" style="display:flex;align-items:center;gap:4px;flex:1">
+              <div style="position:relative">
+                <button type="button" id="ph-btn-c-phone" onclick="phToggle('c-phone')"
+                  style="display:flex;align-items:center;gap:3px;padding:6px 7px;border:1.5px solid var(--brd);border-radius:var(--rs);background:#fff;cursor:pointer;font-size:13px;white-space:nowrap;height:38px">
+                  <span id="ph-flag-c-phone">🇺🇿</span>
+                  <span id="ph-dial-c-phone" style="font-weight:600;color:#0D1B2A;font-size:12px">+998</span>
+                  <i class="ti ti-chevron-down" style="font-size:10px;color:#94A3B8"></i>
+                </button>
+                <div id="ph-dd-c-phone" style="display:none;position:absolute;top:42px;left:0;z-index:9999;background:#fff;border:1.5px solid var(--brd);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:220px;overflow:hidden">
+                  <div style="padding:6px 8px;border-bottom:1px solid var(--brd)"><input id="ph-q-c-phone" placeholder="Mamlakat yoki +kod..." oninput="phSearch('c-phone',this.value)" style="width:100%;font-family:inherit;font-size:12px;border:1px solid var(--brd);border-radius:7px;padding:5px 8px;outline:none"></div>
+                  <div id="ph-list-c-phone" style="max-height:180px;overflow-y:auto"></div>
+                </div>
+              </div>
+              <input id="c-phone" type="tel" placeholder="90 123 45 67" oninput="phInput('c-phone')" style="flex:1;font-family:inherit;font-size:13px;font-weight:600;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff;outline:none">
+            </div>
           </div>
         </div>
 
@@ -3291,7 +3305,18 @@
     </div>
     <div class="fld" style="margin-bottom:12px">
       <label>Telefon</label>
-      <input id="sup-phone" placeholder="+998 90 000 00 00" oninput="fmtPhone(this)">
+      <div id="ph-w-sup-phone" style="display:flex;align-items:center;gap:4px">
+        <div style="position:relative">
+          <button type="button" id="ph-btn-sup-phone" onclick="phToggle('sup-phone')" style="display:flex;align-items:center;gap:3px;padding:5px 7px;border:1.5px solid var(--brd);border-radius:var(--rs);background:#fff;cursor:pointer;font-size:13px;height:36px">
+            <span id="ph-flag-sup-phone">🇺🇿</span><span id="ph-dial-sup-phone" style="font-weight:600;font-size:12px">+998</span><i class="ti ti-chevron-down" style="font-size:10px;color:#94A3B8"></i>
+          </button>
+          <div id="ph-dd-sup-phone" style="display:none;position:absolute;top:40px;left:0;z-index:9999;background:#fff;border:1.5px solid var(--brd);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:220px;overflow:hidden">
+            <div style="padding:6px 8px;border-bottom:1px solid var(--brd)"><input id="ph-q-sup-phone" placeholder="Mamlakat yoki +kod..." oninput="phSearch('sup-phone',this.value)" style="width:100%;font-family:inherit;font-size:12px;border:1px solid var(--brd);border-radius:7px;padding:5px 8px;outline:none"></div>
+            <div id="ph-list-sup-phone" style="max-height:180px;overflow-y:auto"></div>
+          </div>
+        </div>
+        <input id="sup-phone" type="tel" placeholder="90 123 45 67" oninput="phInput('sup-phone')" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:6px 10px;background:#fff;outline:none">
+      </div>
     </div>
     <div class="fld" style="margin-bottom:14px">
       <label>Eslatma (ixtiyoriy)</label>
@@ -3319,9 +3344,31 @@
       <input id="ac-name" placeholder="Alisher Karimov"></div>
     <div class="r2">
       <div class="fld"><label>Asosiy telefon</label>
-        <input id="ac-phone" placeholder="+998 90 000 00 00" oninput="fmtPhone(this)"></div>
+        <div id="ph-w-ac-phone" style="display:flex;align-items:center;gap:4px">
+          <div style="position:relative">
+            <button type="button" id="ph-btn-ac-phone" onclick="phToggle('ac-phone')" style="display:flex;align-items:center;gap:3px;padding:5px 7px;border:1.5px solid var(--brd);border-radius:var(--rs);background:#fff;cursor:pointer;font-size:13px;height:36px">
+              <span id="ph-flag-ac-phone">🇺🇿</span><span id="ph-dial-ac-phone" style="font-weight:600;font-size:12px">+998</span><i class="ti ti-chevron-down" style="font-size:10px;color:#94A3B8"></i>
+            </button>
+            <div id="ph-dd-ac-phone" style="display:none;position:absolute;top:40px;left:0;z-index:9999;background:#fff;border:1.5px solid var(--brd);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:220px;overflow:hidden">
+              <div style="padding:6px 8px;border-bottom:1px solid var(--brd)"><input id="ph-q-ac-phone" placeholder="Mamlakat yoki +kod..." oninput="phSearch('ac-phone',this.value)" style="width:100%;font-family:inherit;font-size:12px;border:1px solid var(--brd);border-radius:7px;padding:5px 8px;outline:none"></div>
+              <div id="ph-list-ac-phone" style="max-height:180px;overflow-y:auto"></div>
+            </div>
+          </div>
+          <input id="ac-phone" type="tel" placeholder="90 123 45 67" oninput="phInput('ac-phone')" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:6px 10px;background:#fff;outline:none">
+        </div>
       <div class="fld"><label>Qo'shimcha telefon</label>
-        <input id="ac-phone2" placeholder="+998 90 000 00 00" oninput="fmtPhone(this)"></div>
+        <div id="ph-w-ac-phone2" style="display:flex;align-items:center;gap:4px">
+          <div style="position:relative">
+            <button type="button" id="ph-btn-ac-phone2" onclick="phToggle('ac-phone2')" style="display:flex;align-items:center;gap:3px;padding:5px 7px;border:1.5px solid var(--brd);border-radius:var(--rs);background:#fff;cursor:pointer;font-size:13px;height:36px">
+              <span id="ph-flag-ac-phone2">🇺🇿</span><span id="ph-dial-ac-phone2" style="font-weight:600;font-size:12px">+998</span><i class="ti ti-chevron-down" style="font-size:10px;color:#94A3B8"></i>
+            </button>
+            <div id="ph-dd-ac-phone2" style="display:none;position:absolute;top:40px;left:0;z-index:9999;background:#fff;border:1.5px solid var(--brd);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:220px;overflow:hidden">
+              <div style="padding:6px 8px;border-bottom:1px solid var(--brd)"><input id="ph-q-ac-phone2" placeholder="Mamlakat yoki +kod..." oninput="phSearch('ac-phone2',this.value)" style="width:100%;font-family:inherit;font-size:12px;border:1px solid var(--brd);border-radius:7px;padding:5px 8px;outline:none"></div>
+              <div id="ph-list-ac-phone2" style="max-height:180px;overflow-y:auto"></div>
+            </div>
+          </div>
+          <input id="ac-phone2" type="tel" placeholder="90 123 45 67" oninput="phInput('ac-phone2')" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:6px 10px;background:#fff;outline:none">
+        </div>
     </div>
     <div class="r2">
       <div class="fld"><label>Mijoz turi</label>
@@ -4027,7 +4074,7 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=155"></script>
-<script src="js/utils.js?v=149"></script>
+<script src="js/utils.js?v=150"></script>
 <script src="js/auth.js?v=177"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=183"></script>
@@ -4035,11 +4082,11 @@
 <script src="js/pos.js?v=185"></script>
 <script src="js/katalog.js?v=170"></script>
 <script src="js/ombor.js?v=146"></script>
-<script src="js/mijozlar.js?v=143"></script>
+<script src="js/mijozlar.js?v=144"></script>
 <script src="js/qarzlar.js?v=165"></script>
 <script src="js/tarix.js?v=152"></script>
 <script src="js/hisobot.js?v=142"></script>
-<script src="js/xodimlar.js?v=142"></script>
+<script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=153"></script>
 <script src="js/egasi.js?v=143"></script>
 <script src="js/portal.js?v=141"></script>

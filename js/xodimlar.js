@@ -670,7 +670,17 @@ function openStaffModal(editId = null) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div>
             <label style="${lStyle}">Telefon</label>
-            <input id="as-phone" placeholder="+998 90 000 00 00" value="${s?.phone||''}" oninput="fmtPhone(this)" style="${iStyle}"
+            <div id="ph-w-as-phone" style="display:flex;align-items:center;gap:4px">
+              <div style="position:relative">
+                <button type="button" id="ph-btn-as-phone" onclick="phToggle('as-phone')" style="display:flex;align-items:center;gap:3px;padding:5px 7px;border:1.5px solid var(--brd);border-radius:var(--rs);background:#fff;cursor:pointer;font-size:13px;height:36px">
+                  <span id="ph-flag-as-phone">🇺🇿</span><span id="ph-dial-as-phone" style="font-weight:600;font-size:12px">+998</span><i class="ti ti-chevron-down" style="font-size:10px;color:#94A3B8"></i>
+                </button>
+                <div id="ph-dd-as-phone" style="display:none;position:absolute;top:40px;left:0;z-index:9999;background:#fff;border:1.5px solid var(--brd);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:220px;overflow:hidden">
+                  <div style="padding:6px 8px;border-bottom:1px solid var(--brd)"><input id="ph-q-as-phone" placeholder="Mamlakat yoki +kod..." oninput="phSearch('as-phone',this.value)" style="width:100%;font-family:inherit;font-size:12px;border:1px solid var(--brd);border-radius:7px;padding:5px 8px;outline:none"></div>
+                  <div id="ph-list-as-phone" style="max-height:180px;overflow-y:auto"></div>
+                </div>
+              </div>
+              <input id="as-phone" type="tel" placeholder="90 123 45 67" oninput="phInput('as-phone')" data-full="${s?.phone||''}" style="${iStyle}"
               onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='#E5E7EB'">
           </div>
           <div>

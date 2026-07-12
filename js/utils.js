@@ -262,23 +262,166 @@ function getRawVal(id) {
   return parseFloat(raw) || 0;
 }
 
-// ── 2026-07-12 (AbuSaxiy №4): TELEFON FORMATLASH ──────────────
-// +998 XX XXX XX XX (O'zbekiston standart ko'rinishi).
-// Foydalanish: oninput="fmtPhone(this)" — istalgan telefon inputga
-// Saqlashda value.replace(/\D/g,"") bilan faqat raqamlar olinadi.
+// ── 2026-07-12 (AbuSaxiy №4 v2): XALQARO TELEFON TANLASH ──────
+// Bayroq + mamlakat kodi + raqam kiritish.
+// Foydalanish: phoneWidgetHTML(inputId) — HTML qaytaradi,
+//              phoneWidgetInit(inputId) — hodisalarni ulaydi.
+// Standart: O'zbekiston (+998). Qidiruv: nom yoki kod (+7, 998...).
+const _PH_COUNTRIES = [
+  {code:"UZ",flag:"🇺🇿",name:"O'zbekiston",dial:"+998",max:9},
+  {code:"RU",flag:"🇷🇺",name:"Rossiya",dial:"+7",max:10},
+  {code:"KZ",flag:"🇰🇿",name:"Qozog'iston",dial:"+7",max:10},
+  {code:"KG",flag:"🇰🇬",name:"Qirg'iziston",dial:"+996",max:9},
+  {code:"TJ",flag:"🇹🇯",name:"Tojikiston",dial:"+992",max:9},
+  {code:"TM",flag:"🇹🇲",name:"Turkmaniston",dial:"+993",max:8},
+  {code:"AZ",flag:"🇦🇿",name:"Ozarbayjon",dial:"+994",max:9},
+  {code:"GE",flag:"🇬🇪",name:"Gruziya",dial:"+995",max:9},
+  {code:"AM",flag:"🇦🇲",name:"Armaniston",dial:"+374",max:8},
+  {code:"TR",flag:"🇹🇷",name:"Turkiya",dial:"+90",max:10},
+  {code:"CN",flag:"🇨🇳",name:"Xitoy",dial:"+86",max:11},
+  {code:"AF",flag:"🇦🇫",name:"Afg'oniston",dial:"+93",max:9},
+  {code:"PK",flag:"🇵🇰",name:"Pokiston",dial:"+92",max:10},
+  {code:"IN",flag:"🇮🇳",name:"Hindiston",dial:"+91",max:10},
+  {code:"DE",flag:"🇩🇪",name:"Germaniya",dial:"+49",max:11},
+];
+let _phSel = {}; // inputId -> tanlangan mamlakat
+
+// Telefon widget HTML'ini qaytaradi (input yoniga joylashadi)
+function phoneWidgetHTML(inputId, extraStyle) {
+  const c = _phSel[inputId] || _PH_COUNTRIES[0];
+  return `<div id="ph-w-${inputId}" style="display:flex;align-items:center;gap:4px;${extraStyle||''}">
+  <div style="position:relative">
+    <button type="button" id="ph-btn-${inputId}" onclick="phToggle('${inputId}')"
+      style="display:flex;align-items:center;gap:3px;padding:6px 7px;border:1.5px solid var(--brd);
+      border-radius:var(--rs);background:#fff;cursor:pointer;font-size:13px;white-space:nowrap;height:38px">
+      <span id="ph-flag-${inputId}">${c.flag}</span>
+      <span id="ph-dial-${inputId}" style="font-weight:600;color:#0D1B2A;font-size:12px">${c.dial}</span>
+      <i class="ti ti-chevron-down" style="font-size:10px;color:#94A3B8"></i>
+    </button>
+    <div id="ph-dd-${inputId}" style="display:none;position:absolute;top:42px;left:0;z-index:9999;
+      background:#fff;border:1.5px solid var(--brd);border-radius:10px;
+      box-shadow:0 8px 24px rgba(0,0,0,.12);width:220px;overflow:hidden">
+      <div style="padding:6px 8px;border-bottom:1px solid var(--brd)">
+        <input id="ph-q-${inputId}" placeholder="Mamlakat yoki +kod..."
+          oninput="phSearch('${inputId}',this.value)"
+          style="width:100%;font-family:inherit;font-size:12px;border:1px solid var(--brd);
+          border-radius:7px;padding:5px 8px;outline:none">
+      </div>
+      <div id="ph-list-${inputId}" style="max-height:180px;overflow-y:auto"></div>
+    </div>
+  </div>
+  <input id="${inputId}" type="tel" placeholder="90 123 45 67"
+    oninput="phInput('${inputId}')"
+    style="flex:1;font-family:inherit;font-size:13px;font-weight:600;
+    border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff;outline:none">
+</div>`;
+}
+
+function phSearch(inputId, q) {
+  const Q = q.trim().toLowerCase().replace(/^\+/,'');
+  const list = document.getElementById("ph-list-" + inputId);
+  if (!list) return;
+  const res = _PH_COUNTRIES.filter(c =>
+    !Q || c.name.toLowerCase().includes(Q) ||
+    c.dial.replace('+','').startsWith(Q) ||
+    c.code.toLowerCase().includes(Q)
+  );
+  list.innerHTML = res.map(c =>
+    `<div onclick="phSelect('${inputId}','${c.code}')"
+      style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;font-size:13px"
+      onmouseover="this.style.background='#F8F7F4'" onmouseout="this.style.background=''">
+      <span style="font-size:16px">${c.flag}</span>
+      <span style="flex:1;font-weight:600">${c.name}</span>
+      <span style="color:#64748B;font-size:12px">${c.dial}</span>
+    </div>`
+  ).join('');
+}
+
+function phSelect(inputId, countryCode) {
+  const c = _PH_COUNTRIES.find(x => x.code === countryCode);
+  if (!c) return;
+  _phSel[inputId] = c;
+  const flag = document.getElementById("ph-flag-" + inputId);
+  const dial = document.getElementById("ph-dial-" + inputId);
+  if (flag) flag.textContent = c.flag;
+  if (dial) dial.textContent = c.dial;
+  phHide(inputId);
+  // Inputni tozalab, focusga olib borish
+  const inp = document.getElementById(inputId);
+  if (inp) { inp.value = ""; inp.focus(); }
+}
+
+function phToggle(inputId) {
+  const dd = document.getElementById("ph-dd-" + inputId);
+  if (!dd) return;
+  const isOpen = dd.style.display === "block";
+  // Barcha boshqa dropdownlarni yopish
+  document.querySelectorAll("[id^='ph-dd-']").forEach(el => el.style.display = "none");
+  if (!isOpen) {
+    dd.style.display = "block";
+    phSearch(inputId, ""); // ro'yxatni to'ldirish
+    setTimeout(() => { const q = document.getElementById("ph-q-" + inputId); if (q) q.focus(); }, 50);
+  }
+}
+function phHide(inputId) {
+  const dd = document.getElementById("ph-dd-" + inputId);
+  if (dd) dd.style.display = "none";
+}
+
+// Tashqariga bosilganda yopish
+document.addEventListener("click", e => {
+  if (!e.target.closest("[id^='ph-w-']")) {
+    document.querySelectorAll("[id^='ph-dd-']").forEach(el => el.style.display = "none");
+  }
+});
+
+// Raqam kiritishda faqat raqamlar + max uzunlik
+function phInput(inputId) {
+  const c = _phSel[inputId] || _PH_COUNTRIES[0];
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  let d = inp.value.replace(/\D/g, "").slice(0, c.max);
+  inp.value = d;
+}
+
+// To'liq raqam (saqlash uchun): +998901234567
+function phoneFullVal(inputId) {
+  const c = _phSel[inputId] || _PH_COUNTRIES[0];
+  const inp = document.getElementById(inputId);
+  const d = ((inp && inp.value) || "").replace(/\D/g, "");
+  return d ? c.dial + d : "";
+}
+
+// Mavjud saqlangan qiymatni widgetga yuklash (+998901234567 -> bayroq + raqam)
+function phoneWidgetLoad(inputId, fullVal) {
+  if (!fullVal) return;
+  const d = fullVal.replace(/\s/g, "");
+  // Mamlakat kodini aniqlash (uzunroqdan boshlaymiz)
+  const sorted = [..._PH_COUNTRIES].sort((a,b) => b.dial.length - a.dial.length);
+  const c = sorted.find(x => d.startsWith(x.dial));
+  if (c) {
+    _phSel[inputId] = c;
+    const flag = document.getElementById("ph-flag-" + inputId);
+    const dial = document.getElementById("ph-dial-" + inputId);
+    if (flag) flag.textContent = c.flag;
+    if (dial) dial.textContent = c.dial;
+    const inp = document.getElementById(inputId);
+    if (inp) inp.value = d.slice(c.dial.length);
+  } else {
+    const inp = document.getElementById(inputId);
+    if (inp) inp.value = fullVal;
+  }
+}
+
+// ESKI fmtPhone — moslashuvchilik uchun saqlanadi (to'g'ridan-to'g'ri input bo'lsa)
 function fmtPhone(input) {
   if (!input) return;
-  // Faqat raqamlar
   let d = (input.value || "").replace(/\D/g, "");
-  // 998 bilan boshlanmasa — oldiga qo'shamiz
   if (d.length > 0 && !d.startsWith("998")) {
-    // Foydalanuvchi 0 bilan boshlasa: 0XX -> 998XX
     if (d.startsWith("0")) d = "998" + d.slice(1);
-    // Faqat operator kodi bilan boshlasa (90, 91...) -> 998XX
     else if (d.length <= 9) d = "998" + d;
   }
-  d = d.slice(0, 12); // 998XXXXXXXXX — 12 raqam
-  // Formatlash: +998 XX XXX XX XX
+  d = d.slice(0, 12);
   let out = "";
   if (d.length > 0)  out = "+" + d.slice(0, 3);
   if (d.length > 3)  out += " " + d.slice(3, 5);
@@ -287,7 +430,6 @@ function fmtPhone(input) {
   if (d.length > 10) out += " " + d.slice(10, 12);
   input.value = out;
 }
-// Telefon raqamini toza saqlash uchun (DB ga +998901234567 shaklida)
 function cleanPhone(val) {
   const d = (val || "").replace(/\D/g, "");
   return d.length >= 9 ? "+" + (d.startsWith("998") ? d : "998" + d.slice(-9)) : val;
