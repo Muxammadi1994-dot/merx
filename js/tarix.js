@@ -73,6 +73,7 @@ function txPeriodFilter(s) {
 // ── Sotuv tarixi ustunlari boshqaruvi ─────────────
 const TARIX_COL_DEFS = [
   { key:"items",   lbl:"Mahsulotlar",  def:true },
+  { key:"pchka",   lbl:"Pochka soni",  def:true },  // №13
   { key:"mijoz",   lbl:"Mijoz",        def:true },
   { key:"tolov",   lbl:"To'lov usuli", def:true },
   { key:"tolandi", lbl:"To'landi",     def:true },
@@ -153,6 +154,12 @@ function renderTarix() {
   const total = list.reduce((a, s) => a + (s.total||0), 0);
   const paid  = list.reduce((a, s) => a + (s.paid ||0), 0);
   const rem   = list.reduce((a, s) => a + (s.remaining||0), 0);
+  // №13: jami pochkalar (faqat pochka rejimidagi tovarlar)
+  const jamiPchka = list.reduce((a, s) =>
+    a + (s.items||[]).filter(Boolean).reduce((b, i) =>
+      i.sellMode === "karobka" && i.inBox > 0
+        ? b + (i.qtyBox || Math.round((i.qty||0)/(i.inBox||1)))
+        : b, 0), 0);
 
   // Faol davr belgisini aniqlaymiz
   const periodNames = { all:"(barchasi)", today:"(bugun)", yesterday:"(kecha)", week:"(hafta)", month:"(oy)", year:"(yil)", custom:"(tanlangan davr)" };
@@ -164,6 +171,11 @@ function renderTarix() {
   if ($("tx-total")) $("tx-total").textContent = fmt(total) + " so'm";
   if ($("tx-paid"))  $("tx-paid").textContent  = fmt(paid)  + " so'm";
   if ($("tx-rem"))   $("tx-rem").textContent   = fmt(rem)   + " so'm";
+  // №13: pochka statistikasi
+  const pchEl = $("tx-pch");
+  if (pchEl) { pchEl.textContent = jamiPchka > 0 ? jamiPchka + " pch" : "—";
+               pchEl.closest && pchEl.closest(".tx-pch-wrap") &&
+               (pchEl.closest(".tx-pch-wrap").style.display = jamiPchka > 0 ? "" : "none"); }
 
   const cols = getTarixCols();
 
@@ -174,6 +186,7 @@ function renderTarix() {
     thead.innerHTML = `
       <th>Chek</th><th>Sana / Vaqt</th>
       ${cols.items   ? "<th>Mahsulotlar</th>" : ""}
+      ${cols.pchka   ? '<th class="num">Pochka</th>' : ""}
       ${cols.mijoz   ? "<th>Mijoz</th>" : ""}
       ${cols.tolov   ? "<th>To'lov</th>" : ""}
       <th class="num">Jami</th>
@@ -204,9 +217,13 @@ function renderTarix() {
       // items null bo'lishi mumkin — filter qilamiz
       const safeItems  = (s.items||[]).filter(Boolean);
       const itemsHtml  = safeItems.length
-        ? safeItems.map(i =>
-            `<div style="font-size:12px">${i.name||"?"} <span style="color:#bbb">×${i.qty||0} ${i.unit||""}</span></div>`
-          ).join("")
+        ? safeItems.map(i => {
+            const isBox = i.sellMode === "karobka" && i.inBox > 0;
+            const dispQty = isBox ? (i.qtyBox || Math.round((i.qty||0)/(i.inBox||1))) : (i.qty||0);
+            const dispUnit = isBox ? "pch" : (i.unit || "dona");
+            const donaSuffix = isBox ? ` <span style="color:#aaa;font-size:10px">(${i.qty||0} ${i.unit||"dona"})</span>` : "";
+            return `<div style="font-size:12px">${i.name||"?"} <span style="color:#bbb">×${dispQty} ${dispUnit}${donaSuffix}</span></div>`;
+          }).join("")
         : "—";
 
       const debtCell = isDebt
@@ -227,6 +244,17 @@ function renderTarix() {
           <div style="color:#aaa">${s.time||""}</div>
         </td>
         ${cols.items ? `<td>${itemsHtml}</td>` : ""}
+        ${cols.pchka ? `<td class="num" style="font-size:12px">${
+          (() => {
+            // Jami pochkalar: sellMode=karobka bo'lgan itemlar qtyBox yig'indisi
+            const total = safeItems.reduce((a, i) => {
+              if (i.sellMode === "karobka" && i.inBox > 0)
+                return a + (i.qtyBox || Math.round((i.qty||0)/(i.inBox||1)));
+              return a;
+            }, 0);
+            return total > 0 ? `<span style="font-weight:700">${total}</span> pch` : "<span style='color:#ccc'>—</span>";
+          })()
+        }</td>` : ""}
         ${cols.mijoz ? `<td style="font-size:12.5px">
           <div style="font-weight:600">${s.customerName||"—"}</div>
           ${s.customerPhone ? `<div style="font-size:11px;color:#aaa">${s.customerPhone}</div>` : ""}
