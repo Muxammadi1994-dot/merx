@@ -2370,7 +2370,12 @@ function shareTelegram() {
 // ko'rinmaydi.
 function printReceiptPos() {
   if (!_lastSale) return;
+  // 2026-07-12: CSS !important zanjiri brauzerda ishlamadi — JS orqali
+  // to'g'ridan-to'g'ri yashirish eng ishonchli usul
+  const btns = document.getElementById("rcp-btn-row");
+  if (btns) btns.style.display = "none";
   window.print();
+  if (btns) btns.style.display = "grid";
 }
 
 // 2026-07-12 (AbuSaxiy №1): SAVATNI SOTUVDAN OLDIN CHOP ETISH.
