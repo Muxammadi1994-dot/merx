@@ -1884,7 +1884,7 @@ function renderCustPayHistory() {
           ${allocs.map(a => `
             <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mut)">
               <span>${a.chekNum}-${String(a.partNum).padStart(3,"0")} ${a.fullyPaid?"✓ yopildi":""}</span>
-              <span>${fmtMoney(a.amount, a.currency)}</span>
+              <span>${fmtPayBoth(a.amount, a.currency, p.rate)}</span>
             </div>`).join("")}
         </div>` : "";
       return `
@@ -1973,7 +1973,7 @@ function renderQarzlarTarixiTotal() {
         ${allocs.map(a => `
           <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--mut)">
             <span>${a.chekNum}-${String(a.partNum).padStart(3,"0")} ${a.fullyPaid?'<span style="color:var(--grn)">✓ yopildi</span>':""}</span>
-            <span>${fmtMoney(a.amount, a.currency)}</span>
+            <span>${fmtPayBoth(a.amount, a.currency, p.rate)}</span>
           </div>`).join("")}
       </div>` : "";
 
@@ -1989,7 +1989,7 @@ function renderQarzlarTarixiTotal() {
           <div style="font-size:11.5px;color:var(--mut);margin-top:2px">${p.date} ${p.time||""} · ${payMethodLabel(p.method)}${allocs.length>1?` · ${allocs.length} ta chekka bo'lindi`:""}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
-          <strong style="font-size:15px;color:var(--grn)">${fmtMoney(p.amount, p.currency)}</strong>
+          <strong style="font-size:15px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate)}</strong>
           <button class="btn btn-ghost btn-icon btn-sm" onclick="reprintDebtPayment(${p.id})" title="Chekni ko'rish">
             <i class="ti ti-printer" style="font-size:14px"></i>
           </button>
