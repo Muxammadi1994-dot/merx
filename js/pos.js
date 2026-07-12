@@ -1947,7 +1947,11 @@ async function checkout() {
   renderCart();
   // Yangi to'lov panelini tozalash
   ["pay-naqd","pay-karta","pay-otkazma","pay-qarz"].forEach(id => {
-    const el=$(id); if(el){el.value="";el.disabled=false;}
+    const el=$(id);
+    if(el){ el.value=""; el.dataset.raw=""; el.disabled=false; }
+    // 2026-07-12: dataset.raw ATAYLAB tozalanadi — bo'lmasa getRawVal()
+    // eski sonni o'qib, payFocusAutofill "allaqachon bor" deb avtomat
+    // to'ldirishni o'tkazib yuborardi (POS "eslab qolish" muammosi)
   });
   ["naqd","karta","otkazma","qarz"].forEach(m => {
     if(_payBlocked[m])return;
@@ -1958,7 +1962,8 @@ async function checkout() {
   const _mb=$("pay-mode-badge"); if(_mb)_mb.innerHTML="";
   const _pr=$("pay-remaining"); if(_pr){_pr.textContent="0";_pr.style.color="#22C55E";}
   const _posdue=$("pos-due"); if(_posdue)_posdue.value="";
-  setPayMode("full"); setDebtCurrency("uzs");
+  setPayMode("full"); setDebtCurrency("usd");
+  posPayType = "naqd"; // 2026-07-12: yangi sotuv uchun standartga qaytish
   if ($("c-name"))       $("c-name").value       = "";
   if ($("c-phone"))      $("c-phone").value       = "";
   if ($("c-paid"))       $("c-paid").value        = "0";

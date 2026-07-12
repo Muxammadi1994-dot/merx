@@ -753,7 +753,12 @@ async function checkAppVersion() {
   if (_versionOk !== null && Date.now() - _versionCheckedAt < 10 * 60 * 1000)
     return _versionOk; // 10 daqiqada bir tekshirish yetadi
   try {
-    const my = _jsVersionSignature(document.documentElement.outerHTML);
+    // 2026-07-12: outerHTML ishonchsiz (brauzer script src larini
+    // o'zgartirishi mumkin). DOM'dagi haqiqiy script teg'laridan o'qiymiz.
+    const _scripts = Array.from(document.querySelectorAll('script[src]'));
+    const my = _scripts
+      .map(s => (s.src.match(/js\/[a-z0-9_-]+\.js\?v=\d+/i)||[])[0]||"")
+      .filter(Boolean).sort().join("|");
     const r = await fetch("/index.html", { cache: "no-store" });
     const html = await r.text();
     const srv = _jsVersionSignature(html);
