@@ -166,7 +166,7 @@ function renderDebtRevenue() {
         <span style="font-size:11px;color:#aaa;margin-left:6px">${p.chekNum} · ${p.date} ${p.time||""}</span>
         <span style="font-size:11px;color:var(--mut);margin-left:6px">· ${payMethodLabel(p.method)}</span>
       </div>
-      <strong style="font-size:13px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate)}</strong>
+      <strong style="font-size:13px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate, p.amountSom)}</strong>
     </div>`).join("");
 }
 
@@ -703,10 +703,27 @@ function renderDebtsGrouped(list, rate) {
 // "2 000 000 so'm / $156.25". So'm — to'lov paytidagi MUZLATILGAN
 // kurs (payment.rate) bilan; kurs saqlanmagan eski to'lovlarda joriy
 // kurs bilan taxminiy. So'm to'lovlar avvalgidek.
-function fmtPayBoth(amount, currency, rate) {
+function fmtPayBoth(amount, currency, rate, exactSom) {
   if (currency !== "usd") return fmtMoney(amount, currency);
-  const r = rate || db.settings?.rate || 12800;
-  return `${fmt(Math.round((amount||0) * r))} so'm / $${amount}`;
+  // 2026-07-12: exactSom — to'lovda KIRITILGAN asl so'm (amountSom).
+  // Bor bo'lsa aynan o'sha ko'rsatiladi (yaxlitlash "adashuvi" yo'q);
+  // eski (muhrsiz) to'lovlarda kurs bilan taxminiy hisoblanadi.
+  const som = (exactSom != null && exactSom > 0)
+    ? exactSom
+    : Math.round((amount||0) * (rate || db.settings?.rate || 12800));
+  return `${fmt(som)} so'm / $${amount}`;
+}
+
+// Chek-qismi (allocation) uchun: ota-to'lovni topib, asl so'mni
+// qism ulushiga mos taqsimlaydi (2 mln bitta chekka ketgan bo'lsa —
+// aynan 2 mln; ikkiga bo'lingan bo'lsa — mutanosib bo'laklar)
+function fmtPayPart(partAmount, currency, paymentId) {
+  if (currency !== "usd") return fmtMoney(partAmount, currency);
+  const pp = (db.debtPayments||[]).find(x => x.id === paymentId);
+  const exact = pp && pp.amountSom
+    ? Math.round(pp.amountSom * (partAmount / (pp.amount || 1)))
+    : null;
+  return fmtPayBoth(partAmount, "usd", pp ? pp.rate : null, exact);
 }
 
 function debtPayMethodsShown() {
@@ -1163,7 +1180,12 @@ async function recordPayment(id, forcedCurrency) {
     // v145: bot xabari va to'lov cheki uchun — edi / qoldi
     debtBefore:    Math.round(totalBefore * 100) / 100,
     debtAfter:     Math.round(Math.max(0, totalBefore - (amt - (leftover > 0 ? leftover : 0))) * 100) / 100,
-    rate:          rate // v179: chek/xabarda "joriy kursda $X" ko'rsatish uchun — TO'LOV PAYTIDAGI kursni saqlaymiz (keyinchalik kurs o'zgarsa ham bu chek o'zgarmaydi)
+    rate:          rate, // v179: chek/xabarda "joriy kursda $X" ko'rsatish uchun — TO'LOV PAYTIDAGI kursni saqlaymiz (keyinchalik kurs o'zgarsa ham bu chek o'zgarmaydi)
+    // 2026-07-12 (AbuSaxiy №12 aniqlik): KIRITILGAN ASL SO'M AYNAN
+    // saqlanadi. Sabab: 3 000 000 so'm -> $234.38 (yaxlitlash) ->
+    // qaytarilsa 3 000 064 bo'lib "adashardi". Endi tarix hisoblamaydi —
+    // mijoz nima topshirgan bo'lsa, O'SHA ko'rsatiladi.
+    amountSom:     payCur === "usd" ? Math.round(totalSom) : null
   };
   db.debtPayments = db.debtPayments || [];
   db.debtPayments.push(payment);
@@ -1802,7 +1824,7 @@ function renderQarzlarTarixiSplit() {
                   <span style="font-size:11px;color:var(--mut);margin-left:6px">· ${payMethodLabel(p.payMethod)}</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
-                  <strong style="font-size:12.5px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate || (db.debtPayments||[]).find(x=>x.id===p.paymentId)?.rate)}</strong>
+                  <strong style="font-size:12.5px;color:var(--grn)">${fmtPayPart(p.amount, p.currency, p.paymentId)}</strong>
                   <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();reprintDebtPayment(${p.paymentId})" title="Chekni ko'rish">
                     <i class="ti ti-printer" style="font-size:13px"></i>
                   </button>
@@ -1884,7 +1906,8 @@ function renderCustPayHistory() {
           ${allocs.map(a => `
             <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mut)">
               <span>${a.chekNum}-${String(a.partNum).padStart(3,"0")} ${a.fullyPaid?"✓ yopildi":""}</span>
-              <span>${fmtPayBoth(a.amount, a.currency, p.rate)}</span>
+              <span>${fmtPayBoth(a.amount, a.currency, p.rate,
+              p.amountSom ? Math.round(p.amountSom * (a.amount / (p.amount || 1))) : null)}</span>
             </div>`).join("")}
         </div>` : "";
       return `
@@ -1895,7 +1918,7 @@ function renderCustPayHistory() {
               <div style="font-size:11px;color:#aaa;margin-top:1px">${p.date} ${p.time||""} · ${payMethodLabel(p.method)}${allocs.length>1?` · ${allocs.length} ta chekka bo'lindi`:""}</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
-              <strong style="font-size:14px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate)}</strong>
+              <strong style="font-size:14px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate, p.amountSom)}</strong>
               <button class="btn btn-ghost btn-icon btn-sm" onclick="reprintDebtPayment(${p.id})" title="Chekni ko'rish">
                 <i class="ti ti-printer" style="font-size:13px"></i>
               </button>
@@ -1913,7 +1936,7 @@ function renderCustPayHistory() {
           <div style="font-size:11px;color:#aaa;margin-top:1px">${p.payDate} ${p.payTime||""} · ${payMethodLabel(p.payMethod)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          <strong style="font-size:13px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate || (db.debtPayments||[]).find(x=>x.id===p.paymentId)?.rate)}</strong>
+          <strong style="font-size:13px;color:var(--grn)">${fmtPayPart(p.amount, p.currency, p.paymentId)}</strong>
           <button class="btn btn-ghost btn-icon btn-sm" onclick="reprintDebtPayment(${p.paymentId})" title="Chekni ko'rish">
             <i class="ti ti-printer" style="font-size:13px"></i>
           </button>
@@ -1973,7 +1996,8 @@ function renderQarzlarTarixiTotal() {
         ${allocs.map(a => `
           <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--mut)">
             <span>${a.chekNum}-${String(a.partNum).padStart(3,"0")} ${a.fullyPaid?'<span style="color:var(--grn)">✓ yopildi</span>':""}</span>
-            <span>${fmtPayBoth(a.amount, a.currency, p.rate)}</span>
+            <span>${fmtPayBoth(a.amount, a.currency, p.rate,
+              p.amountSom ? Math.round(p.amountSom * (a.amount / (p.amount || 1))) : null)}</span>
           </div>`).join("")}
       </div>` : "";
 
@@ -1989,7 +2013,7 @@ function renderQarzlarTarixiTotal() {
           <div style="font-size:11.5px;color:var(--mut);margin-top:2px">${p.date} ${p.time||""} · ${payMethodLabel(p.method)}${allocs.length>1?` · ${allocs.length} ta chekka bo'lindi`:""}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
-          <strong style="font-size:15px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate)}</strong>
+          <strong style="font-size:15px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate, p.amountSom)}</strong>
           <button class="btn btn-ghost btn-icon btn-sm" onclick="reprintDebtPayment(${p.id})" title="Chekni ko'rish">
             <i class="ti ti-printer" style="font-size:14px"></i>
           </button>
