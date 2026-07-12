@@ -852,7 +852,7 @@
         </div>
 
         <!-- Izoh -->
-        <div style="margin-bottom:12px">
+        <div id="pos-note-row" style="margin-bottom:12px">
           <div style="font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Izoh <span style="font-weight:400;text-transform:none;color:#ccc">(ixtiyoriy)</span></div>
           <input id="pos-note" readonly autocomplete="new-password" value="" placeholder="Masalan: Toshkent buyurtma..."
             onfocus="this.removeAttribute('readonly')"
@@ -860,7 +860,7 @@
         </div>
 
         <!-- Kassir -->
-        <div style="margin-bottom:14px">
+        <div id="pos-staff-row" style="margin-bottom:14px">
           <div style="font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Kassir</div>
           <div style="display:flex;gap:6px;align-items:center">
             <select id="pos-staff" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff">
@@ -1573,6 +1573,19 @@
             </span>
             <input type="checkbox" id="ps-qarz" onchange="togglePayMethodBlock('qarz',document.getElementById('pay-lock-qarz'));updatePaySettingsUI()" style="width:16px;height:16px;cursor:pointer">
           </label>
+        </div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid #E8E5E0">
+          <div style="font-size:10.5px;color:#64748B;font-weight:600;text-transform:uppercase;margin-bottom:8px">Qo'shimcha maydonlar</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:7px 10px;border:1px solid #E8E5E0;border-radius:9px">
+              <span style="font-size:13px;font-weight:600;color:#0D1B2A">✏️ Izoh maydoni</span>
+              <input type="checkbox" id="ps-note" onchange="togglePosExtra('note',this.checked)" style="width:16px;height:16px;cursor:pointer">
+            </label>
+            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:7px 10px;border:1px solid #E8E5E0;border-radius:9px">
+              <span style="font-size:13px;font-weight:600;color:#0D1B2A">👤 Kassir maydoni</span>
+              <input type="checkbox" id="ps-staff" onchange="togglePosExtra('staff',this.checked)" style="width:16px;height:16px;cursor:pointer">
+            </label>
+          </div>
         </div>
         <button onclick="closeModal('pay-settings')" style="width:100%;margin-top:14px;padding:10px;border:none;border-radius:9px;background:#E9A500;color:#0D1B2A;font-weight:700;font-size:13px;cursor:pointer">
           Yopish
@@ -4019,7 +4032,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=183"></script>
 <script src="js/dashboard.js?v=143"></script>
-<script src="js/pos.js?v=184"></script>
+<script src="js/pos.js?v=185"></script>
 <script src="js/katalog.js?v=170"></script>
 <script src="js/ombor.js?v=146"></script>
 <script src="js/mijozlar.js?v=143"></script>

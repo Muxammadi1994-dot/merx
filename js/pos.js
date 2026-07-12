@@ -496,6 +496,7 @@ function renderPosGrid() {
     _payBlocked = JSON.parse(JSON.stringify(db.settings.posPayBlocked || {}));
   }
   _applyPayBlocked();
+  if (typeof applyPosExtrasUI === "function") applyPosExtrasUI();
   posUpdatePriceTypeVisibility();
   posSearch();
   renderCartTabs();
@@ -1326,16 +1327,43 @@ function _applyStaffLock() {
 // Yangi: sarlavha yonidagi ⚙ tugma modal ochadi — ichida checkboxlar.
 // MANTIQ O'ZGARISHSIZ: togglePayMethodBlock, _payBlocked, posPayBlocked
 // sinxroni (cloud.js v172) to'liq saqlanadi.
+function togglePosExtra(field, visible) {
+  // yashirish/ko'rsatish + db.settings ga saqlash
+  if (!db.settings) db.settings = {};
+  if (!db.settings.posHiddenExtras) db.settings.posHiddenExtras = {};
+  db.settings.posHiddenExtras[field] = !visible;
+  try { localStorage.setItem(getDBKEY(), JSON.stringify(db)); } catch(e) {}
+  const rowId = field === "note" ? "pos-note-row" : "pos-staff-row";
+  const el = document.getElementById(rowId);
+  if (el) el.style.display = visible ? "block" : "none";
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync();
+}
+
+function applyPosExtrasUI() {
+  // Sahifa ochilganda saqlangan holat qo'llanadi
+  const extras = db.settings?.posHiddenExtras || {};
+  const noteRow  = document.getElementById("pos-note-row");
+  const staffRow = document.getElementById("pos-staff-row");
+  if (noteRow)  noteRow.style.display  = extras.note  ? "none" : "block";
+  if (staffRow) staffRow.style.display = extras.staff ? "none" : "block";
+}
+
 function openPaySettings() {
   updatePaySettingsUI();
   openModal("pay-settings");
 }
 function updatePaySettingsUI() {
-  // Checkbox holatlarini _payBlocked bilan moslashtirish
+  // To'lov usullari
   ["naqd","karta","otkazma","qarz"].forEach(m => {
     const cb = document.getElementById("ps-" + m);
-    if (cb) cb.checked = !_payBlocked[m]; // BLOCKED=false => checked=true (yoqilgan)
+    if (cb) cb.checked = !_payBlocked[m];
   });
+  // Izoh va kassir holati (db.settings da saqlanadi)
+  const extras = db.settings?.posHiddenExtras || {};
+  const cbNote = document.getElementById("ps-note");
+  const cbStaff = document.getElementById("ps-staff");
+  if (cbNote)  cbNote.checked  = !extras.note;
+  if (cbStaff) cbStaff.checked = !extras.staff;
 }
 
 function togglePayMethodBlock(method, btnEl) {
@@ -1362,7 +1390,8 @@ function togglePayMethodBlock(method, btnEl) {
     ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
     : '<i class="ti ti-lock-open" style="color:#CBD5E1"></i>';
   if (inp) { inp.disabled = blocked; if (blocked) { inp.value = ""; inp.dataset.raw = ""; } }
-  if (row) { row.style.opacity = blocked ? "0.4" : "1"; row.style.pointerEvents = blocked ? "none" : "auto"; }
+  // 2026-07-12: display:none — galochka olib tashlanganda qator ko'rinmasin
+  if (row) { row.style.display = blocked ? "none" : "flex"; }
 
   updatePayRemaining();
   // Sozlash modal checkboxlarini ham yangilaymiz
@@ -1641,8 +1670,7 @@ function _applyPayBlocked() {
 
     // Qator ko'rinishi — style ni to'liq almashtirish
     if (row) {
-      row.style.opacity        = blocked ? "0.4" : "1";
-      row.style.pointerEvents  = blocked ? "none" : "auto";
+      row.style.display = blocked ? "none" : "flex";
     }
   });
 }
@@ -1977,7 +2005,7 @@ async function checkout() {
   ["naqd","karta","otkazma","qarz"].forEach(m => {
     if(_payBlocked[m])return;
     const row=$("pay-row-"+m);
-    if(row){row.style.opacity="1";row.style.pointerEvents="auto";}
+    if(row){row.style.display="flex";}
   });
   const _nb=$("nasiya-box"); if(_nb)_nb.style.display="none";
   const _mb=$("pay-mode-badge"); if(_mb)_mb.innerHTML="";
@@ -1999,7 +2027,7 @@ async function checkout() {
   if ($("vm-price-input")) $("vm-price-input").value = "";
   // Yangi to'lov panelini tozalash
   ["pay-naqd","pay-karta","pay-otkazma","pay-qarz"].forEach(id => { const el=$(id); if(el){el.value="";el.disabled=false;} });
-  ["naqd","karta","otkazma","qarz"].forEach(m => { if(_payBlocked[m])return; const row=$("pay-row-"+m); if(row){row.style.opacity="1";row.style.pointerEvents="auto";} });
+  ["naqd","karta","otkazma","qarz"].forEach(m => { if(_payBlocked[m])return; const row=$("pay-row-"+m); if(row){row.style.display="flex";} });
   const nb=$("nasiya-box"); if(nb)nb.style.display="none";
   const mb=$("pay-mode-badge"); if(mb)mb.innerHTML="";
   const pr=$("pay-remaining"); if(pr){pr.textContent="0";pr.style.color="#22C55E";}
