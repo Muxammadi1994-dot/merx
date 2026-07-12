@@ -1705,8 +1705,23 @@ async function checkout() {
   const _payO = getRawVal("pay-otkazma");
   const _payQ = getRawVal("pay-qarz");
   const _anyNew = _payN + _payK + _payO + _payQ;
-  // Agar hech narsa yozilmagan bo'lsa — to'liq naqd to'lov deb hisoblaymiz
-  // (kassir kassa belgisi bosdi, summa ko'rinib turibdi)
+
+  // 2026-07-12 (AbuSaxiy, KRITIK): QAT'IY TO'LOV TEKSHIRUVI.
+  // Avval: (a) hammasi bo'sh bo'lsa "to'liq naqd" deb qabul qilinardi;
+  // (b) yig'indi savatdan KAM bo'lsa ham (masalan 4.6 mln savatga
+  // naqd 1 + karta 2, qarz o'chirilgan) sotuv "to'liq to'landi" deb
+  // yopilardi — 1.6 mln JIMGINA yo'qolardi. Endi: kamida bitta usulda
+  // summa bo'lishi VA yig'indi (qarz bilan birga) savat jamiga ANIQ
+  // teng bo'lishi SHART. Jonli qulf (№6) yig'indini oshirib yubormaydi,
+  // bu tekshiruv esa KAM bo'lishiga yo'l qo'ymaydi.
+  if (_anyNew <= 0) {
+    toast("To'lov kiritilmadi — kamida bitta usulga summa yozing (qolgani avtomat Qarz qatoriga tushadi)", "err");
+    return;
+  }
+  if (Math.abs(_anyNew - total) > 1) {
+    toast(`To'lov yig'indisi ${fmt(_anyNew)} so'm — savat jami ${fmt(total)} so'mga TENG EMAS. Farqni to'g'rilang yoki qolganini Qarz qatoriga yozing`, "err");
+    return;
+  }
 
   if (_anyNew > 0) {
     paid = _payN + _payK + _payO;
