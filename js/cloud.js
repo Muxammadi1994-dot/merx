@@ -738,19 +738,29 @@ async function pushToCloud() {
 let _versionOk = null;
 let _versionCheckedAt = 0;
 let _verWarnAt = 0;
+// 2026-07-12 (AbuSaxiy — MUHIM TUZATISH): avval faqat cloud.js
+// versiyasi solishtirilardi. Aksariyat sessiyalarda esa pos.js yoki
+// qarzlar.js versiyasi oshib, cloud.js O'ZGARMAGAN edi — natijada
+// tizim "hech narsa yangilanmagan" deb hisoblab, banner HECH QACHON
+// chiqmasdi va Ctrl+Shift+R doim qo'lda kerak bo'lardi. Endi index.html
+// dagi BARCHA "js/xxx.js?v=NN" versiyalari yig'ilib solishtiriladi —
+// istalgan bitta fayl versiyasi oshsa ham banner chiqadi.
+function _jsVersionSignature(html) {
+  const m = html.match(/js\/[a-z0-9_-]+\.js\?v=\d+/gi) || [];
+  return m.sort().join("|");
+}
 async function checkAppVersion() {
   if (_versionOk !== null && Date.now() - _versionCheckedAt < 10 * 60 * 1000)
     return _versionOk; // 10 daqiqada bir tekshirish yetadi
   try {
-    const my = parseInt((document.querySelector('script[src*="cloud.js?v="]')
-      ?.src.match(/v=(\d+)/) || [])[1]) || 0;
+    const my = _jsVersionSignature(document.documentElement.outerHTML);
     const r = await fetch("/index.html", { cache: "no-store" });
     const html = await r.text();
-    const srv = parseInt((html.match(/cloud\.js\?v=(\d+)/) || [])[1]) || 0;
-    _versionOk = !srv || !my || my >= srv;
+    const srv = _jsVersionSignature(html);
+    _versionOk = !srv || !my || my === srv;
     _versionCheckedAt = Date.now();
     if (!_versionOk) {
-      console.warn(`❗ ESKI VERSIYA: sizda cloud v${my}, serverda v${srv} — push bloklandi`);
+      console.warn("❗ YANGI VERSIYA BOR — sahifani yangilash kerak", { my, srv });
       // v177: Ctrl+Shift+R KERAK EMAS — bitta tugmali banner chiqadi,
       // tugma sahifani kesh chetlab qayta ochadi (?upd=vaqt bilan).
       _showUpdateBanner();

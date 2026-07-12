@@ -950,6 +950,12 @@ function removeFromCart(i) {
 function clearCart() {
   if (cart.length > 0) posLog("Savatcha tozalandi", `${cart.length} ta tovar olib tashlandi`);
   cart.length = 0; posSaveCarts(); renderCart();
+  // 2026-07-12: to'lov maydonlari HAM tozalanadi. Avval faqat savat
+  // bo'shatilib, Naqd/Karta/O'tkazma summalari QOLIB ketardi — sotuvni
+  // tugatmasdan savatni tozalab qayta to'ldirsa, ESKI summalar
+  // saqlanib qolardi va shu tufayli auto-to'ldirish (payFocusAutofill)
+  // "allaqachon qiymat bor" deb ishlamay qolgandek ko'rinardi.
+  if (typeof posResetPayFields === "function") posResetPayFields();
 }
 
 // ── Savatchalar orasida almashish ─────────────────
@@ -1016,7 +1022,11 @@ function posResetPayFields() {
     const el = $(id); if (el) { el.value = ""; el.dataset.raw = ""; }
   });
   if (typeof setPayMode === "function") setPayMode("full");
-  if (typeof setDebtCurrency === "function") setDebtCurrency("uzs");
+  // 2026-07-12: standart har doim USD (asosiy qarz valyutasi — 46-qator
+  // e'lonidagi standart bilan MOS). Avval bu yerda "uzs"ga qaytarilardi —
+  // oldingi sotuvda USD tanlangan bo'lsa, indikator bir marta bosilib
+  // "yangilanmaguncha" noto'g'ri (so'm) ko'rinib qolardi.
+  if (typeof setDebtCurrency === "function") setDebtCurrency("usd");
   const pr = $("pay-remaining"); if (pr) { pr.textContent = "0"; pr.style.color = "#22C55E"; }
   const mb = $("pay-mode-badge"); if (mb) mb.innerHTML = "";
   const nb = $("nasiya-box"); if (nb) nb.style.display = "none";
@@ -1201,7 +1211,14 @@ function onPayInput(method) {
   if (method !== "qarz" && !_payBlocked["qarz"]) {
     const rem = Math.max(0, total - paid);
     const qi = $("pay-qarz");
-    if (qi) qi.value = rem > 0 && paid > 0 ? fmt(rem) : "";
+    if (qi) {
+      // 2026-07-12: dataset.raw ATAYLAB yangilanadi — bo'lmasa keyingi
+      // sotuvda (yoki shu sotuv o'chirilib qayta yozilganda) getRawVal
+      // ESKI qiymatni "eslab qolardi" (dataset.raw value'dan USTUN
+      // o'qiladi). Aynan shu — "eski qiymatlarni saqlab qolish" bagi.
+      qi.value = rem > 0 && paid > 0 ? fmt(rem) : "";
+      qi.dataset.raw = rem > 0 && paid > 0 ? String(rem) : "";
+    }
   }
 
   updatePayRemaining();
@@ -2129,16 +2146,26 @@ function showReceiptModal(sale) {
 
   // Mahsulotlar
   if ($("rcp-items")) {
+    // 2026-07-12 (AbuSaxiy): IXCHAM 2-QATORLI FORMAT (namunadagi chek
+    // kabi). Avval 2-qator matni juda uzun edi ("Rang (1 pochka) · 6
+    // juft · 400 000 so'm/dona") — tor (54mm) joyda o'zi 3-4 qatorga
+    // bo'linib ketardi, tovar ko'p bo'lsa chek metrlab uzayardi.
+    // Endi: 1-qator — nom (+rang, joy bo'lsa), 2-qator — faqat
+    // "soni × narx ... jami" (nuqtali chiziq bilan, raqamlar aniq
+    // o'ngga tekislangan). HISOB-KITOBGA (sale obyektiga) TEGILMAYDI —
+    // faqat ko'rinish.
     $("rcp-items").innerHTML = sale.items.map(i => {
       const lineTotal = (i.price||0) * (i.qty||1);
       const unitPrice = i.price||0;
       const variantStr = i.variant || ((i.color||"") + (i.size?" / "+i.size:""));
-      return `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;font-size:13px">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;color:#0D1B2A">${i.name}</div>
-          <div style="font-size:12px;color:#374151;font-weight:600;margin-top:2px">${variantStr} · ${i.qty} ${i.unit||"dona"} · ${priceDisplay(unitPrice)}/dona</div>
+      const pchk = i.qtyBox ? ` · ${i.qtyBox}pch` : "";
+      const nameLine = variantStr ? `${i.name} (${variantStr})` : i.name;
+      return `<div style="margin-bottom:5px;font-size:11px;line-height:1.35">
+        <div style="font-weight:700;color:#0D1B2A">${nameLine}</div>
+        <div style="display:flex;justify-content:space-between;color:#374151;font-weight:600">
+          <span>${i.qty} ${i.unit||"dona"}${pchk} × ${priceDisplay(unitPrice)}</span>
+          <span style="font-weight:800;color:#0D1B2A">${priceDisplay(lineTotal)}</span>
         </div>
-        <div style="font-weight:800;color:#0D1B2A;margin-left:12px;white-space:nowrap">${priceDisplay(lineTotal)}</div>
       </div>`;
     }).join("");
   }
