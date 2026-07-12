@@ -507,7 +507,9 @@ function renderDebtsList(list, rate) {
       </td>` : ""}
       <td>
         <div style="display:flex;flex-direction:column;gap:6px;min-width:120px">
-          ${debtPayMethodInputs(s.id, isUsd)}
+          ${debtPayMethodInputs(s.id, isUsd, null,
+            isUsd ? Math.round((st.debtUsd||0) * (db.settings?.rate||12800))
+                  : Math.round(st.remaining||0))}
           ${(() => {
             if (!s.customerId) return "";
             const cust = (db.customers||[]).find(c => c.id === s.customerId);
@@ -522,7 +524,7 @@ function renderDebtsList(list, rate) {
         </div>
       </td>
       <td>
-        ${isUsd ? `<input type="text" id="pay-usdbox-${s.id}"
+        ${isUsd ? `<input type="text" id="pay-usdbox-${s.id}" data-maxusd="${st.debtUsd||0}"
             placeholder="0.00"
             oninput="qzUsdBoxToSom('${s.id}')"
             style="font-family:inherit;font-size:12.5px;font-weight:700;color:#1B4F72;border:1.5px solid #4C9BE8;border-radius:8px;padding:5px 7px;width:80px;outline:none">`
@@ -626,13 +628,13 @@ function renderDebtsGrouped(list, rate) {
       </td>` : ""}
       <td>
         <div style="display:flex;flex-direction:column;gap:6px;min-width:120px">
-          ${g.totalUzs > 0 ? `<div>${debtPayMethodInputs(gKey + "-uzs", false)}</div>` : ""}
-          ${g.totalUsd > 0 ? `<div>${debtPayMethodInputs(gKey + "-usd", true)}</div>` : ""}
+          ${g.totalUzs > 0 ? `<div>${debtPayMethodInputs(gKey + "-uzs", false, null, Math.round(g.totalUzs))}</div>` : ""}
+          ${g.totalUsd > 0 ? `<div>${debtPayMethodInputs(gKey + "-usd", true, null, Math.round(g.totalUsd * (db.settings?.rate||12800)))}</div>` : ""}
         </div>
       </td>
       <td>
         ${g.totalUzs > 0 ? `<div style="height:${34 * (["naqd","karta","otkazma"].filter(m=>debtPayMethodsShown()[m]!==false).length || 1)}px"></div>` : ""}
-        ${g.totalUsd > 0 ? `<input type="text" id="pay-usdbox-${gKey}-usd"
+        ${g.totalUsd > 0 ? `<input type="text" id="pay-usdbox-${gKey}-usd" data-maxusd="${g.totalUsd}"
             placeholder="0.00"
             oninput="qzUsdBoxToSom('${gKey}-usd')"
             style="font-family:inherit;font-size:12.5px;font-weight:700;color:#1B4F72;border:1.5px solid #4C9BE8;border-radius:8px;padding:5px 7px;width:80px;outline:none">`
@@ -692,7 +694,10 @@ function debtPayMethodsShown() {
 // alohida qatorda, chalkashtirmaslik uchun. idKey — sale.id (individual
 // qator) yoki gKey-asoslangan matn (guruhlangan qator) bo'lishi mumkin,
 // shuning uchun umumiy ishlatiladi.
-function debtPayMethodInputs(idKey, isUsd, lastRowExtra) {
+function debtPayMethodInputs(idKey, isUsd, lastRowExtra, maxSom) {
+  // 2026-07-11 (№5 davomi): chegara render paytida inputning o'ziga
+  // (data-max, so'mda) yoziladi — yakka qatorda HAM, guruhda HAM
+  // jonli qulf bir xil ishlaydi.
   const shown = debtPayMethodsShown();
   const defs = [["naqd","💵","Naqd"], ["karta","💳","Karta"], ["otkazma","🏦","O'tkazma"]];
   let visible = defs.filter(([m]) => shown[m] !== false);
@@ -702,7 +707,7 @@ function debtPayMethodInputs(idKey, isUsd, lastRowExtra) {
   const methodRows = visible.map(([m, icon, label]) => `
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">
       <span style="font-size:11px;color:var(--mut);width:62px;flex-shrink:0;white-space:nowrap">${icon} ${label}</span>
-      <input type="text" id="pay-${m}-${idKey}" data-price
+      <input type="text" id="pay-${m}-${idKey}" data-price data-max="${maxSom != null ? Math.round(maxSom) : ""}"
         placeholder="so'm"
         oninput="fmtInput(this);qzClampPay('${idKey}','${m}');${isUsd ? `qzShowUsdHint('${idKey}')` : ""}"
         style="font-family:inherit;font-size:12.5px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 7px;width:108px;flex-shrink:0;outline:none">
@@ -730,8 +735,13 @@ function qzMaxSomFor(idKey) {
     : Math.round(st.remaining || 0);
 }
 function qzClampPay(idKey, method) {
-  const max = qzMaxSomFor(idKey);
-  if (max == null) return;
+  // Avval inputning o'zidagi data-max (guruh qatorlari ham shu orqali),
+  // bo'lmasa yakka chek uchun zaxira hisob (qzMaxSomFor)
+  const _mEl = $("pay-" + method + "-" + idKey);
+  let max = _mEl && _mEl.dataset && _mEl.dataset.max !== "" && _mEl.dataset.max != null
+    ? parseInt(_mEl.dataset.max, 10) : NaN;
+  if (isNaN(max)) max = qzMaxSomFor(idKey);
+  if (max == null || isNaN(max)) return;
   const val = m => { const el = $("pay-" + m + "-" + idKey);
     return el ? (parseFloat((el.value||"").replace(/[\s,]/g,"")) || 0) : 0; };
   const sum = val("naqd") + val("karta") + val("otkazma");
@@ -750,7 +760,16 @@ function qzUsdBoxToSom(idKey) {
   const rate = db.settings.rate || 12800;
   const el = $("pay-usdbox-" + idKey);
   if (!el) return;
-  const usdVal = parseFloat((el.value||"").replace(/[\s,]/g,"").replace(",",".")) || 0;
+  let usdVal = parseFloat((el.value||"").replace(/[\s,]/g,"").replace(",",".")) || 0;
+  // 2026-07-11 (№5 davomi): $ katakchasining O'ZI ham dollar
+  // chegarasiga qaytariladi (avval faqat so'm tomoni qaytib, $ da
+  // xohlagancha yozish mumkin bo'lib qolardi)
+  const maxUsd = parseFloat(el.dataset ? el.dataset.maxusd : "") || 0;
+  if (maxUsd > 0 && usdVal > maxUsd + 0.005) {
+    usdVal = Math.round(maxUsd * 100) / 100;
+    el.value = String(usdVal);
+    toast(`$ qarz ${usdVal} — undan ko'p yozib bo'lmaydi`, "err");
+  }
   const som = Math.round(usdVal * rate);
   const naqdEl = $("pay-naqd-" + idKey);
   if (naqdEl) {
