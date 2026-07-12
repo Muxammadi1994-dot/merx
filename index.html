@@ -3344,31 +3344,37 @@
       <input id="ac-name" placeholder="Alisher Karimov"></div>
     <div class="r2">
       <div class="fld"><label>Asosiy telefon</label>
-        <div id="ph-w-ac-phone" style="display:flex;align-items:center;gap:4px">
-          <div style="position:relative">
-            <button type="button" id="ph-btn-ac-phone" onclick="phToggle('ac-phone')" style="display:flex;align-items:center;gap:3px;padding:5px 7px;border:1.5px solid var(--brd);border-radius:var(--rs);background:#fff;cursor:pointer;font-size:13px;height:36px">
+        <div id="ph-w-ac-phone" style="display:flex;align-items:center;gap:4px;overflow:visible">
+          <div style="position:relative;flex-shrink:0">
+            <button type="button" id="ph-btn-ac-phone" onclick="phToggle('ac-phone')"
+              style="display:flex;align-items:center;gap:3px;padding:5px 7px;border:1.5px solid var(--brd);border-radius:var(--rs);background:#fff;cursor:pointer;font-size:13px;height:36px;white-space:nowrap">
               <span id="ph-flag-ac-phone">🇺🇿</span><span id="ph-dial-ac-phone" style="font-weight:600;font-size:12px">+998</span><i class="ti ti-chevron-down" style="font-size:10px;color:#94A3B8"></i>
             </button>
-            <div id="ph-dd-ac-phone" style="display:none;position:absolute;top:40px;left:0;z-index:9999;background:#fff;border:1.5px solid var(--brd);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:220px;overflow:hidden">
+            <div id="ph-dd-ac-phone" style="display:none;position:absolute;top:42px;left:0;z-index:9999;background:#fff;border:1.5px solid var(--brd);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:220px;overflow:hidden">
               <div style="padding:6px 8px;border-bottom:1px solid var(--brd)"><input id="ph-q-ac-phone" placeholder="Mamlakat yoki +kod..." oninput="phSearch('ac-phone',this.value)" style="width:100%;font-family:inherit;font-size:12px;border:1px solid var(--brd);border-radius:7px;padding:5px 8px;outline:none"></div>
               <div id="ph-list-ac-phone" style="max-height:180px;overflow-y:auto"></div>
             </div>
           </div>
-          <input id="ac-phone" type="tel" placeholder="90 123 45 67" oninput="phInput('ac-phone')" style="flex:1;min-width:0;width:auto;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:6px 10px;background:#fff;outline:none">
+          <input id="ac-phone" type="tel" placeholder="90 123 45 67" oninput="phInput('ac-phone')"
+            style="flex:1;min-width:0;width:0;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff;outline:none">
         </div>
+      </div>
       <div class="fld"><label>Qo'shimcha telefon</label>
-        <div id="ph-w-ac-phone2" style="display:flex;align-items:center;gap:4px">
-          <div style="position:relative">
-            <button type="button" id="ph-btn-ac-phone2" onclick="phToggle('ac-phone2')" style="display:flex;align-items:center;gap:3px;padding:5px 7px;border:1.5px solid var(--brd);border-radius:var(--rs);background:#fff;cursor:pointer;font-size:13px;height:36px">
+        <div id="ph-w-ac-phone2" style="display:flex;align-items:center;gap:4px;overflow:visible">
+          <div style="position:relative;flex-shrink:0">
+            <button type="button" id="ph-btn-ac-phone2" onclick="phToggle('ac-phone2')"
+              style="display:flex;align-items:center;gap:3px;padding:5px 7px;border:1.5px solid var(--brd);border-radius:var(--rs);background:#fff;cursor:pointer;font-size:13px;height:36px;white-space:nowrap">
               <span id="ph-flag-ac-phone2">🇺🇿</span><span id="ph-dial-ac-phone2" style="font-weight:600;font-size:12px">+998</span><i class="ti ti-chevron-down" style="font-size:10px;color:#94A3B8"></i>
             </button>
-            <div id="ph-dd-ac-phone2" style="display:none;position:absolute;top:40px;left:0;z-index:9999;background:#fff;border:1.5px solid var(--brd);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:220px;overflow:hidden">
+            <div id="ph-dd-ac-phone2" style="display:none;position:absolute;top:42px;left:0;z-index:9999;background:#fff;border:1.5px solid var(--brd);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:220px;overflow:hidden">
               <div style="padding:6px 8px;border-bottom:1px solid var(--brd)"><input id="ph-q-ac-phone2" placeholder="Mamlakat yoki +kod..." oninput="phSearch('ac-phone2',this.value)" style="width:100%;font-family:inherit;font-size:12px;border:1px solid var(--brd);border-radius:7px;padding:5px 8px;outline:none"></div>
               <div id="ph-list-ac-phone2" style="max-height:180px;overflow-y:auto"></div>
             </div>
           </div>
-          <input id="ac-phone2" type="tel" placeholder="90 123 45 67" oninput="phInput('ac-phone2')" style="flex:1;min-width:0;width:auto;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:6px 10px;background:#fff;outline:none">
+          <input id="ac-phone2" type="tel" placeholder="90 123 45 67" oninput="phInput('ac-phone2')"
+            style="flex:1;min-width:0;width:0;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px;background:#fff;outline:none">
         </div>
+      </div>
     </div>
     <div class="r2">
       <div class="fld"><label>Mijoz turi</label>
