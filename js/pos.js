@@ -2203,25 +2203,31 @@ function showReceiptModal(sale) {
 
   // To'lov
   const mixedWrap = $("rcp-mixed-wrap");
+  const _simpleRow = $("rcp-simple-row");
   if (sale.payType === "aralash" && sale.payBreakdown) {
-    if ($("rcp-paytype")) $("rcp-paytype").textContent = "Aralash";
-    if (mixedWrap) {
-      mixedWrap.style.display = "block";
-      const icons = { naqd:"💵", karta:"💳", otkazma:"🏦" };
-      // qarzni to'lov usullaridan olib tashlaymiz — u pastda alohida ko'rsatiladi
+    // Aralash: oddiy qator yashiriladi, aralash blok ko'rinadi
+    if (_simpleRow) _simpleRow.style.display = "none";
+    if (mixedWrap)  mixedWrap.style.display  = "block";
+    const icons = { naqd:"💵", karta:"💳", otkazma:"🏦" };
+    // Aralashda "To'landi jami" sarlavha qatori + har usul alohida
+    const pt = $("rcp-paid-total");
+    if (pt) pt.textContent = priceDisplay(sale.paid);
+    if ($("rcp-mixed-rows")) {
       $("rcp-mixed-rows").innerHTML = Object.entries(sale.payBreakdown)
         .filter(([m]) => m !== "qarz")
         .map(([m, v]) => `
-        <div style="display:flex;justify-content:space-between;font-size:12px">
+        <div style="display:flex;justify-content:space-between">
           <span style="color:#374151;font-weight:600">${icons[m]||""} ${payLabels[m]||m}</span>
-          <strong style="color:#0D1B2A">${priceDisplay(v)}</strong>
+          <span style="font-weight:700;color:#0D1B2A">${priceDisplay(v)}</span>
         </div>`).join("");
     }
   } else {
-    if ($("rcp-paytype")) $("rcp-paytype").textContent = payLabels[sale.payType] || sale.payType;
-    if (mixedWrap) mixedWrap.style.display = "none";
+    // Oddiy: aralash blok yashiriladi, oddiy qator ko'rinadi
+    if (_simpleRow) _simpleRow.style.display = "flex";
+    if (mixedWrap)  mixedWrap.style.display  = "none";
+    if ($("rcp-paytype")) $("rcp-paytype").textContent = payLabels[sale.payType]||sale.payType;
+    if ($("rcp-paid"))    $("rcp-paid").textContent    = priceDisplay(sale.paid);
   }
-  if ($("rcp-paid"))    $("rcp-paid").textContent    = priceDisplay(sale.paid);
 
   const debtWrap = $("rcp-debt-wrap");
   const dueWrap  = $("rcp-due-wrap");
@@ -2259,8 +2265,15 @@ function showReceiptModal(sale) {
         ? `$${sale.debtUsd.toFixed(2)} USD`
         : fmt(sale.remaining) + " so'm";
     }
-    if (dueWrap && sale.due) { dueWrap.style.display = "block"; if ($("rcp-due")) $("rcp-due").textContent = sale.due; }
-    else if (dueWrap) dueWrap.style.display = "none";
+    // Muddat: flex qator sifatida (chap-o'ng)
+    const dueEl = $("rcp-due");
+    const dueWrapEl = $("rcp-due-wrap");
+    if (dueWrapEl && sale.due) {
+      dueWrapEl.style.display = "flex";
+      // Sanani dd.mm.yyyy formatiga o'tkazish (2026-08-07 -> 07.08.2026)
+      const dueFmt = sale.due.split("-").reverse().join(".");
+      if (dueEl) dueEl.textContent = dueFmt;
+    } else if (dueWrapEl) dueWrapEl.style.display = "none";
   } else {
     if (debtWrap) debtWrap.style.display = "none";
     if (dueWrap)  dueWrap.style.display  = "none";
