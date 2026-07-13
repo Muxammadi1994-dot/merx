@@ -365,8 +365,9 @@ function renderMoliya() {
 
   let exps = [...periodExps].sort((a,b)=>((b.date||"")>(a.date||""))?1:-1);
   // Tekst qidiruv
-  if (q) exps = exps.filter(x =>
+  if (q) exps = exps.filter(x =>       // v154: sub-teg (ichki teg) qidiruvga qo'shildi
     (x.category||"").toLowerCase().includes(q) ||
+    (x.subCategory||"").toLowerCase().includes(q) ||
     (x.note||"").toLowerCase().includes(q) ||
     (x.recipient||"").toLowerCase().includes(q) ||
     (x.paidBy||"").toLowerCase().includes(q)
@@ -991,8 +992,9 @@ function exportExpExcel() {
   const dateTo       = ($("exp-date-to")||{value:""}).value;
 
   let exps = (db.xarajatlar||[]).filter(x => x.date >= from && x.date <= to);
-  if (q)            exps = exps.filter(x =>
+  if (q)            exps = exps.filter(x =>       // v154: sub-teg qidiruvga qo'shildi
     (x.category||"").toLowerCase().includes(q) ||
+    (x.subCategory||"").toLowerCase().includes(q) ||
     (x.note||"").toLowerCase().includes(q) ||
     (x.recipient||"").toLowerCase().includes(q));
   if (catFilter)    exps = exps.filter(x => (x.category||"") === catFilter);
