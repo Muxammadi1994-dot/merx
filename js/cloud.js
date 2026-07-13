@@ -810,6 +810,7 @@ setInterval(() => { try { checkAppVersion(); } catch(e) {} }, 10 * 60 * 1000 + 5
 // bor takrorlaydi (5s, 15s oraliq), keyin ham bo'lmasa har 60
 // soniyada fonda urinib turadi — internet qaytishi bilan tiklanadi.
 let _pullBusy = false;
+let _syncSuppressed = false; // v184: realtime/zaxira pull paytida push'ni to'sadi (aylanma yo'q)
 async function ensureCloudPull(tries = 3) {
   const want = getCloudShopId();
   const ok = () => _cloudPullDone && _pulledShopId === want;
@@ -833,7 +834,9 @@ async function ensureCloudPull(tries = 3) {
 }
 
 // ── Supabase → LocalDB ────────────────────────────
-async function pullFromCloud() {
+async function pullFromCloud(silent = false, skipRender = false) {
+  // v184: silent = muvaffaqiyat toast'lari jim (realtime/zaxira uchun)
+  //       skipRender = ekran qayta chizilmaydi (fon-yangilash uchun)
   _pushCache = {}; // v176: pull'dan keyin birinchi push to'liq bo'lsin (xavfsizlik)
   if (!_sb) {
     const ok = await initSupabase();
@@ -851,7 +854,7 @@ async function pullFromCloud() {
   await _setShopContext(_pullSid);
 
   try {
-    toast("Ma'lumotlar yuklanmoqda...", "info");
+    if (!silent) toast("Ma'lumotlar yuklanmoqda...", "info");
 
     const sid = _pullSid;
 
@@ -1253,6 +1256,7 @@ async function pullFromCloud() {
     // Pull muvaffaqiyatli tugadi — endi push ga ruxsat beriladi
     _cloudPullDone = true;
     _pulledShopId = sid;
+    try { _rtEnsure(); } catch(e) {} // v184: shu do'kon uchun realtime kanalini ochamiz
 
     // ── 4-BOSQICH: localStorage — faqat JORIY do'kon keshi ─────────
     // Boshqa do'konlarning eski nusxalarini o'chiramiz:
@@ -1274,9 +1278,11 @@ async function pullFromCloud() {
     // v177 (4-BOSQICH): endi dashboardga ULOQTIRILMAYDI. Foydalanuvchi
     // qaysi sahifada bo'lsa, o'sha sahifaning o'zi qayta chiziladi
     // (nav o'sha sahifaning render funksiyasini chaqiradi).
-    const _cur = document.querySelector("[id^='p-'].on")?.id?.slice(2) || "dashboard";
-    nav(_cur);
-    toast("✅ Ma'lumotlar yangilandi");
+    if (!skipRender) {
+      const _cur = document.querySelector("[id^='p-'].on")?.id?.slice(2) || "dashboard";
+      nav(_cur);
+    }
+    if (!silent) toast("✅ Ma'lumotlar yangilandi");
   } catch(e) {
     toast("Yuklash xatosi: " + e.message, "err");
     console.error("Cloud pull error:", e);
@@ -1289,6 +1295,7 @@ let _syncPending = false;
 
 function scheduleCloudSync() {
   if (!_sb) return;
+  if (_syncSuppressed) return; // v184: realtime pull chaqirgan saveDB push'ni yubormasin (cheksiz aylanma oldi olinadi)
   _syncPending = true;
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(async () => {
@@ -1304,5 +1311,84 @@ function scheduleCloudSync() {
 // kutayotgan o'zgarishlar DARHOL yuboriladi (avval keyingi amalgacha
 // kutardi). Delta-kesh tufayli faqat yuborilmagan yozuvlar ketadi.
 window.addEventListener("online", () => {
-  try { if (_sb) scheduleCloudSync(); } catch(e) {}
+  try { if (_sb) { scheduleCloudSync(); _rtEnsure(); } } catch(e) {} // v184: realtime kanalini ham tiklaymiz
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// REALTIME (2026-07-13, v184) — "signal → mavjud pull" modeli
+// Boshqa qurilmada o'zgarish bo'lsa, Supabase WebSocket signal beradi
+// va biz mavjud, sinalgan pullFromCloud'ni JIM ishga tushiramiz.
+// Yangi sinxron mantiq YOZILMAGAN — merge / timestamp / tombstone o'z joyida.
+// Push aylanmasi _syncSuppressed bilan to'siladi (scheduleCloudSync qarang).
+// ═══════════════════════════════════════════════════════════════════
+const _RT_TABLES = ['products','sales','customers','staff','ombor','xarajatlar',
+  'debt_payments','shifts','settings','suppliers','returns','chiqimlar','deleted_records'];
+let _rtChannel = null;
+let _rtSubscribedSid = null;
+let _rtPullTimer = null;
+
+// Ekranni hozir qayta chizish xavfsizmi? Band bo'lsa — kutamiz, ishni buzmaymiz.
+function _rtBusyUI() {
+  // Ochiq modal (statik: .ov.on)
+  if (document.querySelector(".ov.on")) return true;
+  // Ochiq modal (dinamik: ko'rinadigan .ov)
+  for (const ov of document.querySelectorAll(".ov")) {
+    const cs = getComputedStyle(ov);
+    if (cs.display !== "none" && cs.visibility !== "hidden" && ov.offsetWidth > 0) return true;
+  }
+  // Foydalanuvchi biror maydonga yozyapti
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return true;
+  // POS savatida tovar bor — sotuv o'rtasida ekranni buzmaymiz
+  try {
+    const c = posCartsState?.carts?.[posCartsState.activeIdx]?.items;
+    if (Array.isArray(c) && c.length > 0) return true;
+  } catch (e) {}
+  return false;
+}
+
+// Realtime signalidan keyin — debounce bilan JIM pull (xavfsiz bo'lsa ekranni yangilaydi)
+function _rtSchedulePull() {
+  clearTimeout(_rtPullTimer);
+  _rtPullTimer = setTimeout(async () => {
+    if (_pullBusy)   { _rtSchedulePull(); return; } // boshqa pull ketyapti — biroz kutamiz
+    if (_rtBusyUI()) { _rtSchedulePull(); return; } // foydalanuvchi band — biroz kutamiz
+    _pullBusy = true; _syncSuppressed = true;
+    try { await pullFromCloud(true, false); }        // JIM, ekran yangilanadi
+    catch (e) { console.warn("realtime pull xato:", e.message); }
+    finally { _syncSuppressed = false; _pullBusy = false; }
+  }, 1500);
+}
+
+// Kanalni ochish (do'kon bo'yicha filtr). Idempotent: bir do'konga bir marta.
+function _rtEnsure() {
+  if (!_sb) return;
+  const sid = getCloudShopId();
+  if (!sid) return;
+  if (_rtChannel && _rtSubscribedSid === sid) return; // allaqachon ulangan
+  if (_rtChannel) { try { _sb.removeChannel(_rtChannel); } catch (e) {} _rtChannel = null; _rtSubscribedSid = null; }
+
+  const ch = _sb.channel("merx-rt-" + sid);
+  _RT_TABLES.forEach(tbl => {
+    ch.on("postgres_changes",
+      { event: "*", schema: "public", table: tbl, filter: "shop_id=eq." + sid },
+      () => _rtSchedulePull());
+  });
+  ch.subscribe(status => {
+    console.log("🔔 realtime:", status);
+    if (status === "SUBSCRIBED") _rtSubscribedSid = sid;
+  });
+  _rtChannel = ch;
+}
+
+// ZAXIRA: har 90 soniyada JIM, ekranSIZ pull — realtime signal biror sabab
+// bilan yetib kelmasa ham ma'lumot to'g'ri qoladi (ekran keyingi harakatda yangilanadi).
+setInterval(async () => {
+  try {
+    if (!_sb || !getCloudShopId() || !_cloudPullDone || _pullBusy) return;
+    _pullBusy = true; _syncSuppressed = true;
+    try { await pullFromCloud(true, true); }          // JIM + ekransiz (fon)
+    catch (e) { console.warn("zaxira pull xato:", e.message); }
+    finally { _syncSuppressed = false; _pullBusy = false; }
+  } catch (e) {}
+}, 90000);
