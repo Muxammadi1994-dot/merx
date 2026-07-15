@@ -1295,7 +1295,12 @@ let _syncPending = false;
 
 function scheduleCloudSync() {
   if (!_sb) return;
-  if (_syncSuppressed) return; // v184: realtime pull chaqirgan saveDB push'ni yubormasin (cheksiz aylanma oldi olinadi)
+  // v184/v185: suppressed paytdagi chaqiruv — bu PULL ichidagi saveDB
+  // (pull o'zi push qilmasligi kerak, aks holda to'liq-push aylanmasi).
+  // Foydalanuvchi tahriri esa v185 himoyalari bilan saqlanadi:
+  // (1) _syncPending borida realtime/zaxira pull KUTADI (poyga yopildi),
+  // (2) katalog saqlashda updatedAt muhri — pull eski nusxani ustiga yozmaydi.
+  if (_syncSuppressed) return;
   _syncPending = true;
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(async () => {
@@ -1351,6 +1356,7 @@ function _rtBusyUI() {
 function _rtSchedulePull() {
   clearTimeout(_rtPullTimer);
   _rtPullTimer = setTimeout(async () => {
+    if (_syncPending) { _rtSchedulePull(); return; } // v185: YUBORILMAGAN lokal o'zgarish bor — avval push ketsin (tahrir yo'qolishi poygasi yopildi)
     if (_pullBusy)   { _rtSchedulePull(); return; } // boshqa pull ketyapti — biroz kutamiz
     if (_rtBusyUI()) { _rtSchedulePull(); return; } // foydalanuvchi band — biroz kutamiz
     _pullBusy = true; _syncSuppressed = true;
@@ -1385,7 +1391,7 @@ function _rtEnsure() {
 // bilan yetib kelmasa ham ma'lumot to'g'ri qoladi (ekran keyingi harakatda yangilanadi).
 setInterval(async () => {
   try {
-    if (!_sb || !getCloudShopId() || !_cloudPullDone || _pullBusy) return;
+    if (!_sb || !getCloudShopId() || !_cloudPullDone || _pullBusy || _syncPending) return; // v185: _syncPending — avval push
     _pullBusy = true; _syncSuppressed = true;
     try { await pullFromCloud(true, true); }          // JIM + ekransiz (fon)
     catch (e) { console.warn("zaxira pull xato:", e.message); }

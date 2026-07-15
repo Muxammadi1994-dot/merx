@@ -1137,6 +1137,8 @@ function saveEditProduct() {
   // Variant qiymatlari allaqachon epUpdateQty/epUpdateColorField orqali to'g'ridan-to'g'ri saqlangan
   p.variants = p.variants.filter(v => v.color && v.size);
 
+  p.updatedAt = new Date().toISOString(); // v173: SAQLASH paytida ISO muhr (v180 taqqosi Date.parse) — pull poygasida tahrir g'olib
+
   saveDB(); closeModal("editprod"); renderKatalog();
   toast(`"${p.name}" saqlandi`);
 }

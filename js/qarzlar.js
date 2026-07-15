@@ -2210,7 +2210,7 @@ function confirmAtkaz() {
   p.cancelledAt = today() + " " + nowTime();
   p.cancelledBy = u ? (u.name || u.role || "admin") : "admin";
   p.cancelReason = reason;
-  p.updatedAt = Date.now(); // vaqt muhri (v180) — sinxronda atkaz g'olib bo'lsin
+  p.updatedAt = new Date().toISOString(); // ISO vaqt muhri (v180 formati) — sinxronda atkaz g'olib bo'lsin
 
   saveDB();
   closeModal("atkaz");

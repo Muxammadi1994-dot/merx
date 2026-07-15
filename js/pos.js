@@ -476,7 +476,7 @@ function posQuickAdd(sku, color, packGroup) {
     cart.push({
       sku, name: p.name, color, size: null,
       unit: p.unit||"dona", price: narx, basePrice: _bNarx, priceType: posPriceType,
-      qty: totalDona, qtyBox: qtyInput, inBox, sellMode: "karobka",
+      qty: totalDona, qtyBox: _safeAdd, inBox, sellMode: "karobka", // v187: kesilganda ham aniq
       packGroup, groupSizes,
       image: (p.colorImages && p.colorImages[color]) || p.image || null, art: p.art || null, barcode: p.barcode || null
     });
@@ -833,7 +833,7 @@ function renderCart() {
       </button>
     </span>`;
     const subLine = c.sellMode === "karobka"
-      ? `${c.qty} ${c.unit} · ${priceDisplay(c.price)}/${c.unit}${isOverride?` <span style="color:#E9A500;font-size:10px">(o'zgartirilgan)</span>`:""}`
+      ? `${c.qtyBox} pochka (${c.qty} ${c.unit}) · ${priceDisplay(c.price*(c.inBox||1))}/pochka${isOverride?` <span style="color:#E9A500;font-size:10px">(o'zgartirilgan)</span>`:""}`
       : isOverride ? `<span style="color:#E9A500;font-size:10.5px">Narx o'zgartirilgan: ${priceDisplay(c.basePrice)} → ${priceDisplay(c.price)}</span>` : "";
     return `<div class="ci">
       <div class="ci-inf">
@@ -902,8 +902,10 @@ function ciGetMax(c) {
   if (c.sellMode === "karobka") {
     const groups = typeof regroupPackages === "function" ? regroupPackages(p.variants, c.color) : [];
     const g = groups[c.packGroup || 0];
-    const totalQty = g ? g.qty : 0;
-    return Math.max(0, totalQty - otherReserved);
+    // v187: g.qty B2'da DONA edi (savat 240 "pochka"gacha ko'tarilardi!).
+    // packInfo ikkala modelga mos: B2 = dona÷inBox, klassik = min(qty) — eskisi bilan bir xil.
+    const _pi = packInfo(p, g ? g.variants : []);
+    return Math.max(0, _pi.maxPochka - otherReserved);
   } else {
     const v = p.variants.find(x => x.color === c.color && x.size === c.size);
     const totalQty = v ? v.qty : 0;
