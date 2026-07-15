@@ -6,8 +6,8 @@
 let editSku = null;
 let katLowFilter = false;
 let katCatFilter = "all"; // "all" | "oyoq" | "kiyim" | category name
-let katSortBy      = null;
-let katSortAsc     = true;
+let katSortBy      = "date";  // v171 (№5): standart — kiritilgan sana, YANGI TEPADA
+let katSortAsc     = false;   // nom/narx saralash tugmalar orqali avvalgidek ishlaydi
 let _katSelected   = new Set(); // tanlangan SKU lar
 let katStatusFilter = "all"; // "all" | "faol" | "nol" | "kam"
 let katViewMode    = "table"; // "table" | "grid"
@@ -690,7 +690,7 @@ function openEditProduct(sku) {
       cbEl.style.display = "none";
     }
   }
-  epUpdateInboxDisplay(p);
+  epUpdateInboxDisplay(p, true); // v171 (№6): faqat ochilishda to'ldiriladi
   if ($("ep-packunit")) {
     $("ep-packunit").innerHTML = (PACK_UNITS[p.type]||["karobka"]).map(u =>
       `<option ${u===p.packUnit?"selected":""}>${u}</option>`).join("");
@@ -715,7 +715,7 @@ function openEditProduct(sku) {
 
 // 1 pochkada nechta o'lcham borligini avtomatik hisoblab ko'rsatish
 // (mahsulotdagi eng ko'p o'lchamga ega rang guruhi asosida)
-function epUpdateInboxDisplay(p) {
+function epUpdateInboxDisplay(p, initial) {
   const colors = [...new Set(p.variants.map(v => v.color))];
   let maxSizes = 1;
   colors.forEach(c => {
@@ -724,7 +724,12 @@ function epUpdateInboxDisplay(p) {
   });
   // v145: qo'lda kiritilgan inBox saqlanadi; faqat bo'sh bo'lsa taklif
   if (!p.inBox) p.inBox = maxSizes;
-  if ($("ep-inbox")) $("ep-inbox").value = p.inBox;
+  // v171 (№6): maydon FAQAT oyna ochilganda (initial) yoki bo'sh bo'lsa
+  // to'ldiriladi. Avval har variant o'zgarishida foydalanuvchi yangi
+  // kiritgan qiymat eski p.inBox bilan QAYTA YOZILIB, maydon "qotib"
+  // qolardi (saqlashgacha p.inBox o'zgarmaydi — shuning uchun).
+  const inp = $("ep-inbox");
+  if (inp && (initial || !inp.value)) inp.value = p.inBox;
   epUpdateBoxHints();
 }
 
