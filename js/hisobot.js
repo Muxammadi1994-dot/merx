@@ -78,7 +78,7 @@ function renderHisobot() {
       paid += s.payType==="nasiya" ? 0 : (s.paid||0);
     }
   });
-  const debtPaid = (db.debtPayments||[]).filter(p=>p.date>=from&&p.date<=to)
+  const debtPaid = activePays().filter(p=>p.date>=from&&p.date<=to)
     .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
   paid += debtPaid;
 
@@ -332,7 +332,7 @@ function renderRepPriceType(sales) {
   const { from, to } = repDateRange();
   const rate = db.settings?.rate || 12800;
 
-  const payments = (db.debtPayments||[]).filter(p => p.date >= from && p.date <= to);
+  const payments = activePays().filter(p => p.date >= from && p.date <= to);
   const toUzs = p => p.currency==="usd" ? p.amount*rate : p.amount;
   const methodColors = { naqd:"#36B48C", karta:"#4C9BE8", otkazma:"#8B5CF6", balans:"#E9A500" };
   const methodLabels = { naqd:"💵 Naqd", karta:"💳 Karta", otkazma:"🏦 O'tkazma", balans:"💰 Balansdan" };
@@ -703,7 +703,7 @@ function renderRepStaff(sales) {
     });
   });
   // debtPayments ham qo'shamiz
-  const debtPays = (db.debtPayments||[]).filter(p=>p.date>=from&&p.date<=to);
+  const debtPays = activePays().filter(p=>p.date>=from&&p.date<=to);
   debtPays.forEach(p => {
     const sale = (db.sales||[]).find(s=>s.id===p.saleId); if(!sale) return;
     const name = (db.staff||[]).find(x=>x.id===sale.staffId)?.name||"Noma'lum";

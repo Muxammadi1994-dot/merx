@@ -157,7 +157,7 @@ function custStats(custId) {
   const topItem = Object.entries(itemMap).sort((a,b)=>b[1]-a[1])[0]?.[0] || null;
 
   // Qarz to'lovlari
-  const debtPayments = (db.debtPayments||[]).filter(p => allSales.some(s => s.id === p.saleId));
+  const debtPayments = activePays().filter(p => allSales.some(s => s.id === p.saleId));
   const debtPayCount = debtPayments.length;
   const debtPaidSum  = debtPayments.reduce((a,p)=>a+(p.currency==="usd"
     ?Math.round(p.amount*(db.settings?.rate||12800)):(p.amount||0)),0);

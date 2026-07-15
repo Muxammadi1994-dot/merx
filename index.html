@@ -3889,6 +3889,23 @@
 
 <!-- Qarzlar KPI panel sozlamalari (2026-07-09) — avval BUTUNLAY yo'q
      edi, "Panellarni sozlash" tugmasi shuning uchun ishlamas edi -->
+<!-- №3 ATKAZ modali (v168) — to'lovni storno qilish tasdig'i -->
+<div class="ov" id="ov-atkaz" onclick="if(event.target===this)closeModal('atkaz')">
+  <div class="modal" style="max-width:400px">
+    <button class="m-close" onclick="closeModal('atkaz')"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-arrow-back-up" style="margin-right:8px;color:var(--red)"></i>To'lovni atkaz qilish</h2>
+    <div id="atkaz-info" style="margin:12px 0"></div>
+    <label style="font-size:12.5px;font-weight:600;display:block;margin-bottom:5px">Atkaz sababi (majburiy):</label>
+    <input id="atkaz-reason" placeholder="Masalan: summa xato kiritildi"
+      style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:9px;padding:9px 12px;box-sizing:border-box">
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('atkaz')">Bekor</button>
+      <button class="btn" style="flex:1;background:var(--red);color:#fff" onclick="confirmAtkaz()">
+        <i class="ti ti-arrow-back-up"></i> Atkaz qilish
+      </button>
+    </div>
+  </div>
+</div>
 <div class="ov" id="ov-debtkpi" onclick="if(event.target===this)closeModal('debtkpi')">
   <div class="modal" style="max-width:340px">
     <button class="m-close" onclick="closeModal('debtkpi')"><i class="ti ti-x"></i></button>
@@ -4100,16 +4117,16 @@
 <script src="js/auth.js?v=177"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=184"></script>
-<script src="js/dashboard.js?v=143"></script>
+<script src="js/dashboard.js?v=144"></script>
 <script src="js/pos.js?v=185"></script>
 <script src="js/katalog.js?v=170"></script>
 <script src="js/ombor.js?v=146"></script>
 <script src="js/mijozlar.js?v=144"></script>
-<script src="js/qarzlar.js?v=167"></script>
+<script src="js/qarzlar.js?v=168"></script>
 <script src="js/tarix.js?v=153"></script>
-<script src="js/hisobot.js?v=142"></script>
+<script src="js/hisobot.js?v=143"></script>
 <script src="js/xodimlar.js?v=143"></script>
-<script src="js/moliya.js?v=154"></script>
+<script src="js/moliya.js?v=155"></script>
 <script src="js/egasi.js?v=143"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=141"></script>

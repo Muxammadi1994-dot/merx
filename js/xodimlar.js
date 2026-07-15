@@ -40,7 +40,7 @@ function staffStats(staffId, from, to) {
     if (pb && (pb.naqd||pb.karta||pb.otkazma)) kassaTushdi += (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
     else kassaTushdi += s.payType==="nasiya" ? 0 : (s.paid||0);
   });
-  const debtPaid = (db.debtPayments||[]).filter(p =>
+  const debtPaid = activePays().filter(p =>
     sales.some(s => s.id === p.saleId) && p.date >= from && p.date <= to
   ).reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
   kassaTushdi += debtPaid;
@@ -568,7 +568,7 @@ function deleteStaff(id) {
   const s = db.staff.find(x => x.id === id); if (!s) return;
   const cnt      = (db.sales||[]).filter(x => x.staffId === id).length;
   const debtCnt  = (db.sales||[]).filter(x => x.staffId === id && x.status === "qarz").length;
-  const payCnt   = (db.debtPayments||[]).filter(x => x.staffId === id).length;
+  const payCnt   = activePays().filter(x => x.staffId === id).length;
 
   let msg = `"${s.name}" ni o'chirasizmi?`;
   if (cnt > 0)    msg += `\n• ${cnt} ta sotuv mavjud`;

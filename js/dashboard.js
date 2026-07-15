@@ -87,7 +87,7 @@ function renderDashboard() {
       todayKassa += s.payType === "nasiya" ? 0 : (s.paid||0);
     }
   });
-  (db.debtPayments||[]).filter(p => p.date === t).forEach(p => {
+  activePays().filter(p => p.date === t).forEach(p => {
     todayKassa += p.currency === "usd" ? Math.round(p.amount * rate) : (p.amount||0);
   });
 
@@ -244,7 +244,7 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
     if (pb && (pb.naqd||pb.karta||pb.otkazma)) kassaTushdiKpi += (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
     else kassaTushdiKpi += s.payType === "nasiya" ? 0 : (s.paid||0);
   });
-  (db.debtPayments||[]).filter(p => p.date === _t).forEach(p => {
+  activePays().filter(p => p.date === _t).forEach(p => {
     kassaTushdiKpi += p.currency === "usd" ? Math.round(p.amount*_rate) : (p.amount||0);
   });
 
@@ -549,7 +549,7 @@ function renderDashPriceType() {
   if (!el) return;
 
   const { from, to } = dashGetDateRange();
-  const payments = (db.debtPayments||[]).filter(p => p.date >= from && p.date <= to);
+  const payments = activePays().filter(p => p.date >= from && p.date <= to);
 
   const rate = db.settings?.rate || 12800;
   const toUzs = p => p.currency === 'usd' ? p.amount * rate : p.amount;

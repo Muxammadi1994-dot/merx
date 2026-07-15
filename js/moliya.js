@@ -256,7 +256,7 @@ function renderMoliya() {
   });
 
   // 3: Qarz tushumi - db.debtPayments dan
-  const periodDebtPays = (db.debtPayments||[]).filter(p => p.date >= from && p.date <= to);
+  const periodDebtPays = activePays().filter(p => p.date >= from && p.date <= to);
   let debtNaqd = 0, debtKarta = 0, debtOtkazma = 0, debtBalans = 0;
   let usdQarzTushum = 0; // USD qarz to'lovlari (dollar hisobida)
   periodDebtPays.forEach(p => {
@@ -331,7 +331,7 @@ function renderMoliya() {
       return a + (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
     return a + (s.payType==="nasiya"?0:(s.paid||0));
   }, 0);
-  const allDebtPaid = (db.debtPayments||[]).reduce((a,p) =>
+  const allDebtPaid = activePays().reduce((a,p) =>
     a + (p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)), 0);
   const allExp  = (db.xarajatlar||[]).reduce((a,x)=>a+(x.amount||0),0);
   const balans  = allSotuvPaid + allDebtPaid - allExp;
@@ -529,7 +529,7 @@ function renderFlowBars(kirim, chiqim, realProfit, netProfit, periodCost) {
     if(pb&&(pb.naqd||pb.karta||pb.otkazma)) prevKirim+=(pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
     else prevKirim+=s.payType==="nasiya"?0:(s.paid||0);
   });
-  prevKirim += (db.debtPayments||[]).filter(p=>p.date>=pf&&p.date<=pt)
+  prevKirim += activePays().filter(p=>p.date>=pf&&p.date<=pt)
     .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
   const prevChiqim = (db.xarajatlar||[]).filter(x=>x.date>=pf&&x.date<=pt)
     .reduce((a,x)=>a+(x.amount||0),0);
@@ -697,7 +697,7 @@ function renderMolTrendChart() {
       else sotuv+=(s.paid||0);
       jami+=(s.total||0);
     });
-    const qarz=(db.debtPayments||[]).filter(p=>p.date>=from&&p.date<=to)
+    const qarz=activePays().filter(p=>p.date>=from&&p.date<=to)
       .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
     return { kassa:Math.round((sotuv+qarz)/1000000*10)/10, jami:Math.round(jami/1000000*10)/10 };
   };
@@ -1445,7 +1445,7 @@ function openCloseShift(staffId) {
     else if (s.payType === "naqd") cashIn += s.paid||0;
   });
   // Qarz to'lovlari (naqd)
-  const debtCash = (db.debtPayments||[])
+  const debtCash = activePays()
     .filter(p => p.staffId == staffId && p.date >= shift.openDate && (p.method||"naqd")==="naqd")
     .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
   // Xarajatlar (naqd, shu kassir)

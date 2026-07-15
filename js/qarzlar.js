@@ -138,7 +138,7 @@ function getDebtRevenueRange() {
 
 function renderDebtRevenue() {
   const { from, to } = getDebtRevenueRange();
-  const payments = (db.debtPayments||[]).filter(p => p.date >= from && p.date <= to);
+  const payments = activePays().filter(p => p.date >= from && p.date <= to);
 
   const rate = db.settings?.rate || 12800;
   const toUzs = p => p.currency === "usd" ? p.amount * rate : p.amount;
@@ -1634,6 +1634,7 @@ function showDebtPaymentReceipt(payment) {
 function reprintDebtPayment(id) {
   const p = (db.debtPayments||[]).find(x => x.id === id);
   if (!p) { toast("To'lov topilmadi","err"); return; }
+  if (p.cancelled) toast("⚠️ Diqqat: bu to'lov ATKAZ QILINGAN — chek faqat ma'lumot uchun", "err"); // v168 (№3)
   showDebtPaymentReceipt(p);
 }
 
@@ -1918,7 +1919,7 @@ function renderCustPayHistory() {
   allPayments.sort((a,b) => (a.payDate+a.payTime < b.payDate+b.payTime) ? 1 : -1);
 
   // Mijozga tegishli UMUMIY to'lovlar (taqsimlanmagan, asl harakat)
-  const totalPayments = (db.debtPayments||[])
+  const totalPayments = activePays()
     .filter(p => p.customerName === customerName && p.customerPhone === customerPhone)
     .slice()
     .sort((a,b) => (a.date+a.time < b.date+b.time) ? 1 : -1);
@@ -2012,11 +2013,13 @@ function renderQarzlarTarixiTotal() {
 
   payments.sort((a,b) => (a.date+a.time < b.date+b.time) ? 1 : -1);
 
-  // Statistika
-  const cntAll = payments.length;
-  const sumUzs = payments.filter(p=>p.currency!=="usd").reduce((a,p)=>a+p.amount,0);
-  const sumUsd = payments.filter(p=>p.currency==="usd").reduce((a,p)=>a+p.amount,0);
-  if ($("qt-stat-count")) $("qt-stat-count").textContent = cntAll;
+  // Statistika — v168 (№3): atkaz qilinganlar summaga KIRMAYDI
+  const activeOnly = payments.filter(p => !p.cancelled);
+  const cntAll = activeOnly.length;
+  const cntCancelled = payments.length - activeOnly.length;
+  const sumUzs = activeOnly.filter(p=>p.currency!=="usd").reduce((a,p)=>a+p.amount,0);
+  const sumUsd = activeOnly.filter(p=>p.currency==="usd").reduce((a,p)=>a+p.amount,0);
+  if ($("qt-stat-count")) $("qt-stat-count").textContent = cntAll + (cntCancelled ? ` (+${cntCancelled} atkaz)` : "");
   if ($("qt-stat-sum")) {
     const parts = [];
     if (sumUzs > 0) parts.push(fmt(sumUzs)+" so'm");
@@ -2043,7 +2046,15 @@ function renderQarzlarTarixiTotal() {
           </div>`).join("")}
       </div>` : "";
 
-    return `<div style="padding:14px 18px;border-bottom:1px solid var(--brd)">
+    // v168 (№3): atkaz holati — qator xira + belgi; faol qatorda admin uchun Atkaz tugmasi
+    const cxl = !!p.cancelled;
+    const cxlBadge = cxl ? `<div style="font-size:11px;color:var(--red);font-weight:700;margin-top:3px">❌ ATKAZ QILINDI ${p.cancelledAt||""} ${p.cancelledBy?("· "+p.cancelledBy):""}${p.cancelReason?(" · Sabab: "+p.cancelReason):""}</div>` : "";
+    const atkazBtn = (!cxl && typeof hasRole === "function" && hasRole("admin"))
+      ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="openAtkaz(${p.id})" title="To'lovni atkaz qilish">
+           <i class="ti ti-arrow-back-up" style="font-size:14px;color:var(--red)"></i>
+         </button>` : "";
+
+    return `<div style="padding:14px 18px;border-bottom:1px solid var(--brd)${cxl?";opacity:.55;background:#FFF5F5":""}">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div>
           <div style="display:flex;align-items:center;gap:8px">
@@ -2053,9 +2064,11 @@ function renderQarzlarTarixiTotal() {
             <span style="font-size:11.5px;color:#aaa;font-family:monospace">${p.chekNum}</span>
           </div>
           <div style="font-size:11.5px;color:var(--mut);margin-top:2px">${p.date} ${p.time||""} · ${payMethodLabel(p.method)}${allocs.length>1?` · ${allocs.length} ta chekka bo'lindi`:""}</div>
+          ${cxlBadge}
         </div>
         <div style="display:flex;align-items:center;gap:10px">
-          <strong style="font-size:15px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate, p.amountSom)}</strong>
+          <strong style="font-size:15px;color:${cxl?"var(--red)":"var(--grn)"};${cxl?"text-decoration:line-through":""}">${fmtPayBoth(p.amount, p.currency, p.rate, p.amountSom)}</strong>
+          ${atkazBtn}
           <button class="btn btn-ghost btn-icon btn-sm" onclick="reprintDebtPayment(${p.id})" title="Chekni ko'rish">
             <i class="ti ti-printer" style="font-size:14px"></i>
           </button>
@@ -2149,3 +2162,62 @@ function exportQarzTarixiExcel() {
   toast("Excel yuklab olindi");
 }
 
+
+// ════════════════════════════════════════════════
+// №3 ATKAZ (2026-07-15, v168) — STORNO modeli
+// To'lov O'CHIRILMAYDI: "cancelled" belgisi qo'yiladi. Qarz qoldig'i
+// hech qayerda qo'lda o'zgartirilmaydi — getSalePayments (utils v150)
+// atkaz qilinganlarni o'tkazib yuborgani uchun calcSaleState qarzni
+// O'ZI qaytaradi. Sinxron: butun-JSON orqali avtomatik tarqaladi.
+// ════════════════════════════════════════════════
+let _atkazPayId = null;
+
+function openAtkaz(payId) {
+  if (typeof hasRole !== "function" || !hasRole("admin")) {
+    toast("Atkaz faqat egasi/admin uchun", "err"); return;
+  }
+  const p = (db.debtPayments||[]).find(x => x.id === payId);
+  if (!p) { toast("To'lov topilmadi", "err"); return; }
+  if (p.cancelled) { toast("Bu to'lov allaqachon atkaz qilingan", "err"); return; }
+  // Balans bilan bog'liq to'lovlar — himoya (balans amaliyoti ishlatilmaydi,
+  // lekin eski yozuv uchrasa, hisob buzilmasligi uchun bloklanadi)
+  if (p.method === "balans") { toast("Balansdan yechilgan to'lovni atkaz qilib bo'lmaydi", "err"); return; }
+  if (p.leftoverToBalance) { toast("Bu to'lovning ortiqchasi mijoz balansiga o'tgan — atkaz qilib bo'lmaydi", "err"); return; }
+
+  _atkazPayId = payId;
+  const info = $("atkaz-info");
+  if (info) info.innerHTML = `
+    <div style="font-size:13px;line-height:1.7">
+      <div><b>Mijoz:</b> ${p.customerName||"Noma'lum"}</div>
+      <div><b>Summa:</b> ${fmtPayBoth(p.amount, p.currency, p.rate, p.amountSom)}</div>
+      <div><b>Sana:</b> ${p.date} ${p.time||""} · ${payMethodLabel(p.method)} · ${p.chekNum}</div>
+    </div>
+    <div style="margin-top:8px;padding:8px 10px;background:#FFF8E6;border:1px solid #F0D48A;border-radius:8px;font-size:12px;color:#7A5A00">
+      Atkazdan keyin bu summa qarz qoldig'iga QAYTADI va barcha hisobotlardan chiqariladi. Yozuv tarixda "❌ atkaz" belgisi bilan qoladi.
+    </div>`;
+  const rsn = $("atkaz-reason"); if (rsn) rsn.value = "";
+  openModal("atkaz");
+}
+
+function confirmAtkaz() {
+  const p = (db.debtPayments||[]).find(x => x.id === _atkazPayId);
+  if (!p || p.cancelled) { closeModal("atkaz"); return; }
+  const reason = (($("atkaz-reason")||{value:""}).value || "").trim();
+  if (!reason) { toast("Atkaz sababini yozish majburiy", "err"); return; }
+
+  const u = (typeof _authUser !== "undefined" && _authUser) ? _authUser : null;
+  p.cancelled   = true;
+  p.cancelledAt = today() + " " + nowTime();
+  p.cancelledBy = u ? (u.name || u.role || "admin") : "admin";
+  p.cancelReason = reason;
+  p.updatedAt = Date.now(); // vaqt muhri (v180) — sinxronda atkaz g'olib bo'lsin
+
+  saveDB();
+  closeModal("atkaz");
+  _atkazPayId = null;
+
+  renderDebts();
+  if (typeof renderQarzlarTarixi === "function") renderQarzlarTarixi();
+  if (typeof renderDebtRevenue === "function") renderDebtRevenue();
+  toast(`✅ To'lov atkaz qilindi — ${fmtPayBoth(p.amount, p.currency, p.rate, p.amountSom)} qarz qoldig'iga qaytdi`);
+}

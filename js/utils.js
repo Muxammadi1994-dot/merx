@@ -92,8 +92,18 @@ function genPayChekNum() {
 }
 
 // ── Bitta sotuv bo'yicha barcha to'lovlarni topish ─
-function getSalePayments(saleId) {
+// v150 (№3 atkaz): FAOL to'lovlar — atkaz (bekor) qilinganlari chiqariladi.
+// Barcha summa-hisoblar (dashboard, hisobot, moliya, xodimlar...) shu
+// yordamchidan o'qiydi — atkazdan keyin sonlar hamma joyda o'zi to'g'rilanadi.
+function activePays() {
+  return (db.debtPayments || []).filter(p => !p.cancelled);
+}
+
+function getSalePayments(saleId, includeCancelled) {
+  // v150 (№3): atkaz qilingan to'lovlar qarz hisobiga KIRMAYDI —
+  // shu bitta filtr tufayli calcSaleState qarzni o'zi "qaytaradi".
   return (db.debtPayments || [])
+    .filter(p => includeCancelled || !p.cancelled)
     .flatMap(p => (p.allocations || []).map(a => ({ ...a, paymentId: p.id, paymentChekNum: p.chekNum, payDate: p.date, payTime: p.time, payMethod: p.method || "naqd" })))
     .filter(a => a.saleId === saleId)
     .sort((a, b) => (a.payDate+a.payTime < b.payDate+b.payTime) ? -1 : 1);
@@ -101,7 +111,8 @@ function getSalePayments(saleId) {
 
 // ── Shu sotuv uchun keyingi T-raqamini hosil qilish (T1, T2, T3...) ─
 function nextPartNum(saleId) {
-  const existing = getSalePayments(saleId);
+  // v150: atkaz qilinganlar HAM sanaladi — T-raqamlar takrorlanmasin
+  const existing = getSalePayments(saleId, true);
   return existing.length + 1;
 }
 
