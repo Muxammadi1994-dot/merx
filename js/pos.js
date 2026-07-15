@@ -198,6 +198,22 @@ function posEditPrice(rowId, sku, color) {
   inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } });
 }
 
+// v186 (№7): maksimal qoldiqqa yetganda qisqa "chiyillash" — savdo paytida
+// ekranga qaramasdan ham tugaganini bilish uchun. Xato bersa jim o'tadi.
+let _beepCtx = null;
+function posBeep() {
+  try {
+    _beepCtx = _beepCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (_beepCtx.state === "suspended") _beepCtx.resume();
+    const o = _beepCtx.createOscillator(), g = _beepCtx.createGain();
+    o.type = "square"; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.12, _beepCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, _beepCtx.currentTime + 0.18);
+    o.connect(g); g.connect(_beepCtx.destination);
+    o.start(); o.stop(_beepCtx.currentTime + 0.2);
+  } catch(e) {}
+}
+
 function posSearch() {
   const q = ($("pos-q")||{value:""}).value.trim();
   const clrBtn = $("pos-q-clr");
@@ -240,9 +256,26 @@ function posSearch() {
         : [{ packGroup:0, isBroken:false,
              qty: Math.min(...p.variants.filter(v=>v.color===color).map(v=>v.qty)),
              variants: p.variants.filter(v=>v.color===color) }];
-      groups.forEach(g => rows.push({ p, color, packGroup: g.packGroup, isBroken: g.isBroken, groupQty: g.qty, groupVariants: g.variants }));
+      groups.forEach(g => {
+        // v186 (№15): butunlay TUGAGAN guruh qidiruvda chiqmasin.
+        // MUHIM: ochiq dona qolganlar (pochka=0, lekin dona>0) KO'RINADI —
+        // ular dona rejimida sotiladi, yashirsak mol "yo'qolgan" bo'lardi.
+        const gDona = (g.variants||[]).reduce((a,v)=>a+(v.qty||0),0);
+        if (gDona <= 0) return;
+        rows.push({ p, color, packGroup: g.packGroup, isBroken: g.isBroken, groupQty: g.qty, groupVariants: g.variants });
+      });
     });
   });
+
+  // v186 (№15): topilganlarning hammasi tugagan bo'lsa — tushunarli xabar
+  if (!rows.length) {
+    $("pos-results").innerHTML = `
+      <div class="pos-empty">
+        <i class="ti ti-package-off"></i>
+        <div>"${q}" bo'yicha qoldiq TUGAGAN</div>
+      </div>`;
+    return;
+  }
 
   $("pos-results").innerHTML = rows.map(({p, color, packGroup, isBroken, groupQty, groupVariants}) => {
     const _oKey  = p.sku + "|" + color;
@@ -305,7 +338,7 @@ function posSearch() {
             style="width:52px;text-align:center;border:1.5px solid var(--brd);border-radius:7px;padding:6px 4px;font-weight:700;font-size:13px"
             onclick="event.stopPropagation();this.select()"
             onfocus="this.select()"
-            oninput="event.stopPropagation();var v=parseInt(this.value)||1;if(v>${maxPochka}){this.value=${maxPochka};v=${maxPochka};}">
+            oninput="event.stopPropagation();var v=parseInt(this.value)||1;if(v>${maxPochka}){this.value=${maxPochka};v=${maxPochka};if(typeof posBeep==='function')posBeep();}">
           <button class="btn btn-ghost btn-sm" style="padding:8px 7px;font-size:10.5px"
             onclick="event.stopPropagation();posToggleDonaMode('${rowId}')"
             title="Dona bo'yicha sotish" id="posdona-btn-${rowId}">
@@ -749,7 +782,9 @@ function renderCart() {
   const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
   const discount = calcDiscount(subtotal);
   const total    = subtotal - discount;
-  const count    = cart.reduce((a, c) => a + c.qty, 0);
+  // v186 (№7): hisoblagich POCHKA tilida — pochka tovarlar qtyBox bilan
+  // sanaladi (avval 10 pochka "240 ta" bo'lib ko'rinardi), dona tovarlar donada
+  const count    = cart.reduce((a, c) => a + (c.sellMode === "karobka" && c.qtyBox ? c.qtyBox : c.qty), 0);
   const rate     = db.settings.rate || 12800;
 
   $("cart-cnt").textContent = cart.length ? count + " ta" : "bo'sh";
@@ -903,12 +938,12 @@ function ciQty(i, d) {
   if (c.sellMode === "karobka" && c.inBox) {
     // Pochka rejimi: avval pochka sonini o'zgartiramiz, keyin jami donani hisoblaymiz
     const newBoxes = Math.max(1, (c.qtyBox || 1) + d);
-    if (newBoxes > max) { toast(`Faqat ${max} pochka bor`, "err"); return; }
+    if (newBoxes > max) { posBeep(); toast(`Faqat ${max} pochka bor`, "err"); return; }
     c.qtyBox = newBoxes;
     c.qty = c.qtyBox * c.inBox;
   } else {
     const newQty = Math.max(1, c.qty + d);
-    if (newQty > max) { toast(`Faqat ${max} ${c.unit||"dona"} bor`, "err"); return; }
+    if (newQty > max) { posBeep(); toast(`Faqat ${max} ${c.unit||"dona"} bor`, "err"); return; }
     c.qty = newQty;
   }
   renderCart();
@@ -921,6 +956,7 @@ function ciQtyLimit(i, inp) {
   const max = ciGetMax(c);
   if (v > max && max > 0) {
     inp.value = max;
+    posBeep(); // v186 (№7)
     inp.style.color = "#E9A500";
     setTimeout(() => { inp.style.color = ""; }, 800);
   } else {
@@ -933,12 +969,12 @@ function ciQtySet(i, v) {
   const max = ciGetMax(c);
   if (c.sellMode === "karobka" && c.inBox) {
     let newBoxes = Math.max(1, v || 1);
-    if (newBoxes > max) { toast(`Faqat ${max} pochka bor`, "err"); newBoxes = max; }
+    if (newBoxes > max) { posBeep(); toast(`Faqat ${max} pochka bor`, "err"); newBoxes = max; }
     c.qtyBox = newBoxes;
     c.qty = c.qtyBox * c.inBox;
   } else {
     let newQty = Math.max(1, v || 1);
-    if (newQty > max) { toast(`Faqat ${max} ${c.unit||"dona"} bor`, "err"); newQty = max; }
+    if (newQty > max) { posBeep(); toast(`Faqat ${max} ${c.unit||"dona"} bor`, "err"); newQty = max; }
     c.qty = newQty;
   }
   renderCart();
@@ -964,7 +1000,7 @@ function renderCartTabs() {
   const el = $("cart-tabs"); if (!el) return;
   el.innerHTML = posCartsState.carts.map((c, i) => {
     const isActive = i === posCartsState.activeIdx;
-    const count = c.items.reduce((a, it) => a + it.qty, 0);
+    const count = c.items.reduce((a, it) => a + (it.sellMode === "karobka" && it.qtyBox ? it.qtyBox : it.qty), 0); // v186 (№7): pochka tilida
     return `<div onclick="posSwitchCart(${i})" style="display:flex;align-items:center;gap:5px;
       padding:6px 10px;border-radius:9px;cursor:pointer;white-space:nowrap;font-size:12.5px;font-weight:600;
       background:${isActive?"var(--acc)":"rgba(255,255,255,.08)"};
