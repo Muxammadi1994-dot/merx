@@ -109,6 +109,9 @@ function setDebtRevenuePeriod(p) {
 function getDebtRevenueRange() {
   const todayStr = today();
   const now = new Date();
+  if (debtRevenuePeriod === "all") { // v166 (№1): Barcha davrlar
+    return { from: "0000-00-00", to: "9999-12-31" };
+  }
   if (debtRevenuePeriod === "custom") {
     const from = ($("dr-date-from")||{value:""}).value;
     const to   = ($("dr-date-to")||{value:""}).value;
@@ -1666,7 +1669,42 @@ function setQtViewMode(mode) {
   renderQarzlarTarixi();
 }
 
+// v166 (№2, №14): Qarzlar tarixi — tezkor davr tugmalari.
+// Mavjud qt-date-from/to maydonlarini avtomatik to'ldiradi, filtr
+// mantiqiga TEGILMAGAN (split va total rejimlar o'zgarishsiz ishlaydi).
+let _qtInitDone = false;
+function qtSetPeriod(p) {
+  const f = $("qt-date-from"), t = $("qt-date-to");
+  if (!f || !t) return;
+  const todayStr = today();
+  const now = new Date();
+  if (p === "all") { f.value = ""; t.value = ""; }
+  else if (p === "yesterday") {
+    const y = new Date(now); y.setDate(y.getDate()-1);
+    const ys = y.toISOString().slice(0,10);
+    f.value = ys; t.value = ys;
+  }
+  else if (p === "week") {
+    const w = new Date(now); w.setDate(w.getDate()-6);
+    f.value = w.toISOString().slice(0,10); t.value = todayStr;
+  }
+  else if (p === "month") { f.value = todayStr.slice(0,7)+"-01"; t.value = todayStr; }
+  else { f.value = todayStr; t.value = todayStr; } // "today"
+  qtHlPeriod(p);
+  renderQarzlarTarixi();
+}
+// Tugma yoritish; qo'lda sana terilsa yoritish o'chadi (custom holat)
+function qtHlPeriod(p) {
+  document.querySelectorAll(".qt-period-btn").forEach(b => {
+    const on = b.dataset.p === p;
+    b.classList.toggle("on", on);
+    b.style.background = on ? "#0D1B2A" : "#fff";
+    b.style.color = on ? "#fff" : "#666";
+  });
+}
+
 function renderQarzlarTarixi() {
+  if (!_qtInitDone) { _qtInitDone = true; qtSetPeriod("today"); return; } // v166 (№14): birinchi ochilishda Bugun
   if (qtViewMode === "total") { renderQarzlarTarixiTotal(); return; }
   renderQarzlarTarixiSplit();
 }
