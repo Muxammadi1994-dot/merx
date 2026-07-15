@@ -59,7 +59,16 @@ function init() {
 
   // ── 5. Rolga qarab sahifaga o'tish ──
   const user = typeof getAuthUser === "function" ? getAuthUser() : null;
-  if (!user || user.role === "admin" || user.role === "menejer" || user.role === "superadmin") {
+  // v142 (№4): F5'dan keyin AMALDAGI oynada qolish — nav (utils v151)
+  // eslab qolgan sahifani tiklaymiz. Himoya: sahifa mavjud bo'lishi va
+  // rol ruxsati bo'lishi shart, aks holda eski rol-standarti ishlaydi.
+  let savedPage = null;
+  try { savedPage = localStorage.getItem("merx_last_page"); } catch(e) {}
+  const canRestore = savedPage && document.getElementById("p-" + savedPage) &&
+    (typeof canAccessPage !== "function" || canAccessPage(savedPage));
+  if (canRestore) {
+    nav(savedPage);
+  } else if (!user || user.role === "admin" || user.role === "menejer" || user.role === "superadmin") {
     nav("dashboard");
   } else if (user.role === "kassir") {
     nav("pos");

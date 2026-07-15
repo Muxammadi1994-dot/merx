@@ -182,6 +182,8 @@ function nav(p) {
   document.querySelectorAll(".ni").forEach(n => n.classList.toggle("on", n.dataset.p === p));
   document.querySelectorAll("[id^='p-']").forEach(el => el.classList.remove("on"));
   const el = $("p-" + p); if (el) el.classList.add("on");
+  // v151 (№4): amaldagi sahifa eslab qolinadi — F5'dan keyin init shu yerdan tiklaydi
+  if (el) { try { localStorage.setItem("merx_last_page", p); } catch(e) {} }
   const T = { dashboard:"Dashboard", pos:"Sotuv (POS)", katalog:"Katalog", ombor:"Ombor",
     mijozlar:"Mijozlar", qarzlar:"Qarzlar", qarztarix:"Qarzlar tarixi", tarix:"Sotuv tarixi",
     hisobot:"Hisobot va tahlil", xodimlar:"Xodimlar", moliya:"Moliya",
