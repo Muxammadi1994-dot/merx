@@ -1197,7 +1197,11 @@ async function recordPayment(id, forcedCurrency) {
   if (typeof renderQarzlarTarixi === "function") renderQarzlarTarixi();
 
   // ── Xabar matni ────────────────────────────────
-  const amtDisplay = fmtMoney(amt, payCur);
+  // v167 (№17): bannerda KIRITILGAN ASL SO'M aynan ko'rsatiladi.
+  // Avval fmtMoney(amt) yaxlitlangan $ ni ko'rsatardi (500 000 so'm ->
+  // $39.06 -> "499 968" bo'lib adashtirardi). fmtPayBoth amountSom
+  // muhridan o'qiydi (v165) — so'm to'lovlarda xatti-harakat o'zgarmagan.
+  const amtDisplay = fmtPayBoth(amt, payCur, rate, payment.amountSom);
   let summary;
   if (allocations.length === 1) {
     const a = allocations[0];
