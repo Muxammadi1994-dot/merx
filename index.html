@@ -3057,7 +3057,7 @@
     <div class="r3">
       <div class="fld">
         <label>1 pochkada nechta o'lcham <span style="font-weight:400;color:var(--mut)">(avtomatik)</span></label>
-        <input id="ep-inbox" type="number" readonly style="background:var(--bg2)">
+        <input id="ep-inbox" type="number" min="1" oninput="epUpdateBoxHints()">
       </div>
     </div>
     <input type="hidden" id="ep-price" value="0">
