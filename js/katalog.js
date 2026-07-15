@@ -819,7 +819,31 @@ function epRenderColorCards(p) {
         </button>
       </div>
 
-      ${groups.map((g, gi) => {
+      ${(() => {
+        // v172 (B2): O'LCHAMSIZ (bitta variantli) tovarda variant.qty = JAMI DONA.
+        // "Pochka" endi dona emas, POCHKA sonini ko'rsatadi va shu birlikda
+        // tahrirlanadi (dona = pochka × inBox avtomatik). Klassik ko'p
+        // o'lchamli tovarlar quyidagi eski groups-oqimida O'ZGARISHSIZ.
+        if (variants.length === 1) {
+          const v = variants[0];
+          const inBoxEff = parseInt(($("ep-inbox")||{value:0}).value) || p.inBox || 1;
+          const pochka = Math.floor((v.qty||0) / inBoxEff);
+          const qoldiq = (v.qty||0) - pochka * inBoxEff;
+          return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0">
+            <div style="font-size:12px;color:var(--mut);min-width:90px">
+              O'lcham: <strong style="color:#0D1B2A">${v.size || "O'lchamsiz"}</strong>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;color:var(--mut)">Pochka:</span>
+              <input type="number" value="${pochka}" min="0" data-epb2="${color}"
+                onchange="epUpdateB2Pochka('${jsEsc(color)}',this.value)"
+                style="width:60px;border:1px solid var(--brd);border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700;text-align:center">
+              <span style="font-size:11px;color:#bbb">${p.packUnit||"pochka"}</span>
+            </div>
+            <span style="font-size:11.5px;color:var(--mut)">= <b style="color:#0D1B2A">${fmt(v.qty||0)}</b> dona${qoldiq ? ` <span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:1px 6px;border-radius:7px">+${qoldiq} dona ochiq</span>` : ""}</span>
+          </div>`;
+        }
+        return groups.map((g, gi) => {
         const sizesStr = sizesToRange(g.variants.map(v => v.size).filter(Boolean), p.type);
         const cardId = `epcard_${color.replace(/[^a-zA-Z0-9]/g,"_")}_${gi}`;
         return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;${gi>0?'border-top:1px dashed var(--brd)':''}">
@@ -849,7 +873,8 @@ function epRenderColorCards(p) {
             </div>
           </div>
         </div>`;
-      }).join("")}
+      }).join("");
+      })()}
 
       <div style="padding-top:8px">
         <button class="btn btn-ghost btn-sm" onclick="epAddSizeToColor('${jsEsc(color)}')"
@@ -862,6 +887,27 @@ function epRenderColorCards(p) {
 }
 
 // Pochka guruhidagi barcha o'lchamlarga teng qiymat o'rnatish
+// v172 (B2): pochka sonini kiritish — dona avtomatik (pochka × inBox)
+function epUpdateB2Pochka(color, val) {
+  const p = db.products.find(x => x.sku === editSku); if (!p) return;
+  const v = p.variants.find(x => x.color === color); if (!v) return;
+  const inBoxEff = parseInt(($("ep-inbox")||{value:0}).value) || p.inBox || 1;
+  const pochka = Math.max(0, parseInt(val) || 0);
+  v.qty = pochka * inBoxEff; // ochiq qoldiq ataylab nolga tushadi — ekranda "= X dona" ko'rinib turadi
+  epRenderColorCards(p);
+  epUpdateBoxHints();
+}
+
+// v172 (B2): "1 pochkada nechta" o'zgarsa — B2 kartalardagi pochka soni
+// qayta hisoblanadi (dona o'zgarmaydi, faqat ko'rinish yangilanadi)
+function epInboxChanged() {
+  epUpdateBoxHints();
+  const p = db.products.find(x => x.sku === editSku); if (!p) return;
+  const colors = [...new Set(p.variants.map(v => v.color))];
+  const hasB2 = colors.some(c => p.variants.filter(v => v.color === c).length === 1);
+  if (hasB2) epRenderColorCards(p);
+}
+
 function epUpdateGroupQty(color, groupIdx, val) {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   const newQty = parseInt(val) || 0;
