@@ -690,9 +690,16 @@ function openEditProduct(sku) {
       cbEl.style.display = "none";
     }
   }
+  // №11a (v175): ep-unit teglardan; tovar birligi ro'yxatda bo'lmasa ham ko'rsatiladi
+  if ($("ep-unit")) {
+    const _ut = getUnitTags(); const _cu = p.unit || "dona";
+    if (!_ut.includes(_cu)) _ut.unshift(_cu);
+    $("ep-unit").innerHTML = _ut.map(u => `<option${u===_cu?" selected":""}>${u}</option>`).join("");
+  }
   epUpdateInboxDisplay(p, true); // v171 (№6): faqat ochilishda to'ldiriladi
   if ($("ep-packunit")) {
-    $("ep-packunit").innerHTML = (PACK_UNITS[p.type]||["karobka"]).map(u =>
+    const _epTags = getPackUnitTags(); if (p.packUnit && !_epTags.includes(p.packUnit)) _epTags.unshift(p.packUnit); // eski qiymat yo'qolmasin
+    $("ep-packunit").innerHTML = _epTags.map(u =>
       `<option ${u===p.packUnit?"selected":""}>${u}</option>`).join("");
   }
 
@@ -1717,7 +1724,9 @@ function apTypeChange(t) {
   if ($("ap-cat"))       $("ap-cat").innerHTML       = (CATS[t]||[]).map(c => `<option>${c}</option>`).join("");
   if ($("ap-size-from")) $("ap-size-from").innerHTML = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
   if ($("ap-size-to"))   $("ap-size-to").innerHTML   = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
-  if ($("ap-packunit"))  $("ap-packunit").innerHTML  = (PACK_UNITS[t]||["karobka"]).map(u => `<option>${u}</option>`).join("");
+  // №11a (v175): birliklar TEG ro'yxatidan — "dona" birinchi/standart
+  if ($("ap-unit"))      $("ap-unit").innerHTML      = getUnitTags().map(u => `<option${u==="dona"?" selected":""}>${u}</option>`).join("");
+  if ($("ap-packunit"))  $("ap-packunit").innerHTML  = getPackUnitTags().map(u => `<option>${u}</option>`).join("");
   apResetSizeToStandard(); // standart oraliqqa o'rnatish (39-44 yoki S-XL)
   apApplyFields();
   apCostNote();
@@ -2464,7 +2473,7 @@ function parseImportCSV(text) {
     const ulgVal = cols.ulg >= 0 ? (parseFloat((vals[cols.ulg]||"0").replace(/[\s,]/g,"")) || 0) : 0;
     const typeVal = cols.type >= 0 ? (vals[cols.type]?.trim() || "oyoq") : "oyoq";
     const catVal  = cols.cat  >= 0 ? (vals[cols.cat]?.trim()  || "Qabul qilingan") : "Qabul qilingan";
-    const unitVal = cols.unit >= 0 ? (vals[cols.unit]?.trim()  || "dona") : "dona";
+    const unitVal = normalizeUnit(cols.unit >= 0 ? vals[cols.unit] : ""); // №11a: ro'yxatda yo'q -> dona
 
     // B2 (v148): O'lcham — faqat TAVSIF MATNI, qator o'lchamlarga
     // YOYILMAYDI. Jami dona = pochka soni × 1 pochkada nechta.

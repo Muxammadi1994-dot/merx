@@ -2264,7 +2264,7 @@ function showReceiptModal(sale) {
       let calcStr;
       if (isBox) {
         // 2pch × (6 juft × 400 000) = 2 400 000
-        calcStr = `${i.qtyBox}pch × (${i.inBox} ${i.unit||"juft"} × ${fmt(unitPrice)}) = ${fmt(lineTotal)}`;
+        calcStr = `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${fmt(unitPrice)}) = ${fmt(lineTotal)}`;
       } else {
         // 6 juft × 400 000 = 2 400 000
         calcStr = `${i.qty} ${i.unit||"dona"} × ${fmt(unitPrice)} = ${fmt(lineTotal)}`;

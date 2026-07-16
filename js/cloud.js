@@ -352,6 +352,8 @@ async function pushToCloud() {
           rate_updated_at: db.settings?.rateUpdatedAt || null,
           debt_pay_methods_shown: db.settings?.debtPayMethodsShown || null,
           debt_cols:              db.settings?.debtCols            || null,
+          unit_tags:              db.settings?.unitTags            || null, // №11a (v186)
+          pack_unit_tags:         db.settings?.packUnitTags        || null,
           // v172 (2026-07-10): SOZLAMALAR SINXRON SIMMETRIYASI.
           // low_stock_limit — bot Supabase'dan o'qiydi, lekin bu yerdan
           // hech qachon yozilmagan (bot doim standart 5 bilan ishlardi).
@@ -1092,6 +1094,8 @@ async function pullFromCloud(silent = false, skipRender = false) {
       if (sets.rate_updated_at) db.settings.rateUpdatedAt      = sets.rate_updated_at;
       if (sets.debt_pay_methods_shown) db.settings.debtPayMethodsShown = sets.debt_pay_methods_shown;
       if (sets.debt_cols)              db.settings.debtCols            = sets.debt_cols;
+      if (sets.unit_tags      != null) db.settings.unitTags      = sets.unit_tags;      // №11a (v186)
+      if (sets.pack_unit_tags != null) db.settings.packUnitTags  = sets.pack_unit_tags;
       // v172 (2026-07-10): NULL-himoya bilan — bulutda qiymat hali
       // bo'lmasa (eski yozuv), lokaldagi mavjud qiymatga TEGILMAYDI.
       if (sets.low_stock_limit  != null) db.settings.lowStockLimit  = Number(sets.low_stock_limit);

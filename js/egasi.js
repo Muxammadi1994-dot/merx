@@ -9,6 +9,7 @@ let _adminTab = "dokon";
 
 function adminTabSwitch(tab) {
   _adminTab = tab;
+  try { renderUnitTags(); } catch(e) {} // №11a: birlik chiplar yangilanadi
   document.querySelectorAll(".adm-tab-btn").forEach(b => {
     const on = b.dataset.tab === tab;
     b.classList.toggle("adm-tab-on", on);
@@ -747,3 +748,46 @@ function saveCloudShopId() {
 }
 
 // renderEgasi da cloud shop id ko'rsatish
+// ════════════════════════════════════════════════
+// №11a (v144): BIRLIK TEGLARI boshqaruvi — chip + qo'shish/o'chirish
+// Sozlamalarda saqlanadi (unitTags/packUnitTags), sinxronlanadi (cloud v186).
+// "dona" o'chirib bo'lmaydi (standart va zaxira birlik).
+// ════════════════════════════════════════════════
+function renderUnitTags() {
+  const boxes = [
+    { el: $("unit-tags-box"), tags: getUnitTags(),     kind: "unit" },
+    { el: $("pack-tags-box"), tags: getPackUnitTags(), kind: "pack" },
+  ];
+  boxes.forEach(({ el, tags, kind }) => {
+    if (!el) return;
+    el.innerHTML = tags.map(t => `
+      <span style="display:inline-flex;align-items:center;gap:5px;background:#F2F0EB;border:1px solid var(--brd);border-radius:16px;padding:4px 10px;font-size:12.5px;font-weight:600">
+        ${t}
+        ${(kind === "unit" && t === "dona") ? "" : `<button onclick="removeUnitTag('${kind}','${t.replace(/'/g,"\\'")}')"
+          style="background:none;border:none;cursor:pointer;color:#bbb;font-size:13px;line-height:1;padding:0">✕</button>`}
+      </span>`).join("");
+  });
+}
+
+function addUnitTag(kind) {
+  const inp = $(kind === "unit" ? "unit-tag-new" : "pack-tag-new");
+  const val = (inp?.value || "").trim().toLowerCase();
+  if (!val) return;
+  if (val.length > 20) { toast("Juda uzun nom", "err"); return; }
+  const key = kind === "unit" ? "unitTags" : "packUnitTags";
+  const cur = kind === "unit" ? getUnitTags() : getPackUnitTags();
+  if (cur.includes(val)) { toast("Bu birlik allaqachon bor", "err"); return; }
+  db.settings[key] = [...cur, val];
+  if (inp) inp.value = "";
+  saveDB(); renderUnitTags();
+  toast(`"${val}" qo'shildi`);
+}
+
+function removeUnitTag(kind, val) {
+  if (kind === "unit" && val === "dona") { toast("'dona' standart — o'chirib bo'lmaydi", "err"); return; }
+  const key = kind === "unit" ? "unitTags" : "packUnitTags";
+  const cur = kind === "unit" ? getUnitTags() : getPackUnitTags();
+  db.settings[key] = cur.filter(t => t !== val);
+  saveDB(); renderUnitTags();
+  toast(`"${val}" o'chirildi (eski tovarlarga ta'sir qilmaydi)`);
+}

@@ -17,6 +17,25 @@ const PACK_UNITS = {
   oyoq:  ["karobka","pochka","quti"],
   kiyim: ["karobka","bog'lam","quti","paket"]
 };
+// ── №11a (v156): BIRLIK TEGLARI — sozlamalarda saqlanadi, sinxronlanadi ──
+// Admin (egasi) Sozlamalarda qo'sha/o'chira oladi. "juft" ATAYLAB yo'q —
+// standart "dona". Barcha kiritish oqimlari (qo'lda, tahrir, Excel, AI)
+// FAQAT shu ikkala funksiyadan o'qiydi.
+const UNIT_TAGS_DEFAULT = ["dona","quti","paket"];
+const PACK_TAGS_DEFAULT = ["pochka","karobka","quti","bog'lam","paket"];
+function getUnitTags() {
+  const t = db.settings && Array.isArray(db.settings.unitTags) ? db.settings.unitTags : null;
+  return (t && t.length) ? t : UNIT_TAGS_DEFAULT.slice();
+}
+function getPackUnitTags() {
+  const t = db.settings && Array.isArray(db.settings.packUnitTags) ? db.settings.packUnitTags : null;
+  return (t && t.length) ? t : PACK_TAGS_DEFAULT.slice();
+}
+// Ro'yxatda yo'q birlik (Excel/AI'dan kelgan) — "dona"ga tushadi
+function normalizeUnit(u) {
+  u = (u || "").trim().toLowerCase();
+  return getUnitTags().includes(u) ? u : "dona";
+}
 const PAYTYPES = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash", qarz:"Nasiya" };
 const EXP_CATS = ["Ijara","Maosh","Transport","Kommunal","Reklama","Yetkazuvchi","Soliq","Jihozlar","Boshqa"];
 

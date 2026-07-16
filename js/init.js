@@ -17,6 +17,17 @@ function init() {
   if (!db.staff)        db.staff = [];
   if (!db.xarajatlar)   db.xarajatlar = [];
   if (!db.ombor)        db.ombor = [];
+  // №11a (v143): JUFT→DONA migratsiyasi (bir martalik, idempotent).
+  // Birlik faqat YORLIQ (chek/ro'yxatda ko'rinadigan so'z) — narx, qoldiq,
+  // pochka hisoblari unga bog'liq emas, shuning uchun xavfsiz.
+  try {
+    if (!db.settings.juftMigrated) {
+      let _jm = 0;
+      (db.products || []).forEach(p => { if ((p.unit||"") === "juft") { p.unit = "dona"; _jm++; } });
+      db.settings.juftMigrated = true;
+      if (_jm) console.log("juft→dona migratsiya:", _jm, "tovar");
+    }
+  } catch(e) {}
   if (!db.chiqimlar)    db.chiqimlar = [];
   if (!db.debtPayments) db.debtPayments = [];
 
