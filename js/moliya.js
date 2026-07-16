@@ -260,9 +260,19 @@ function renderMoliya() {
   let debtNaqd = 0, debtKarta = 0, debtOtkazma = 0, debtBalans = 0;
   let usdQarzTushum = 0; // USD qarz to'lovlari (dollar hisobida)
   periodDebtPays.forEach(p => {
-    const amt = p.currency === "usd" ? Math.round(p.amount * rate) : (p.amount || 0);
+    // v158 (audit): ARALASH endi usullarga bo'linadi (avval butun summa
+    // NAQDGA yozilardi — karta qismi ham!). amountSom — aniq so'm.
+    const amt = (p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * rate) : (p.amount || 0)));
     if (p.currency === "usd") usdQarzTushum += p.amount;
-    if      (p.method === "karta")   debtKarta   += amt;
+    const mb = p.methodBreakdown;
+    const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
+    if (mbHas) {
+      debtNaqd    += (mb.naqd    || 0);
+      debtKarta   += (mb.karta   || 0);
+      debtOtkazma += (mb.otkazma || 0);
+      debtBalans  += (mb.balans  || 0);
+    }
+    else if (p.method === "karta")   debtKarta   += amt;
     else if (p.method === "otkazma") debtOtkazma += amt;
     else if (p.method === "balans")  debtBalans  += amt;
     else                             debtNaqd    += amt;
@@ -1449,8 +1459,15 @@ function openCloseShift(staffId) {
   });
   // Qarz to'lovlari (naqd)
   const debtCash = activePays()
-    .filter(p => p.staffId == staffId && p.date >= shift.openDate && (p.method||"naqd")==="naqd")
-    .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
+    .filter(p => p.staffId == staffId && p.date >= shift.openDate)
+    .reduce((a,p) => {
+      // v158: aralashning NAQD ulushi ham kiradi (avval butunlay tushib qolardi)
+      const mb = p.methodBreakdown;
+      const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
+      if (mbHas) return a + (mb.naqd || 0);
+      if ((p.method||"naqd") !== "naqd") return a;
+      return a + (p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * rate) : (p.amount || 0)));
+    }, 0);
   // Xarajatlar (naqd, shu kassir)
   const expCash = (db.xarajatlar||[])
     .filter(x => x.paidBy === s.name && x.date >= shift.openDate && (x.method||"naqd")==="naqd")

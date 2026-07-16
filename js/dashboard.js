@@ -622,8 +622,18 @@ function renderDashPriceType() {
 
   const byMethod = {};
   payments.forEach(p => {
-    const m = p.method || 'naqd';
-    byMethod[m] = (byMethod[m] || 0) + toUzs(p);
+    // v147 (audit): ARALASH to'lov usullarga BO'LINADI (methodBreakdown,
+    // so'mda saqlanadi) — endi doira "Naqd"i KPI "Naqd tushdi" bilan mos.
+    // amountSom (v165) — kiritilgan asl so'm, yaxlitlash adashuvi yo'q.
+    const somAmt = p.amountSom || (p.currency === 'usd' ? Math.round((p.amount||0) * rate) : (p.amount || 0));
+    const mb = p.methodBreakdown;
+    const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
+    if (mbHas) {
+      Object.keys(mb).forEach(k => { if ((mb[k]||0) > 0) byMethod[k] = (byMethod[k] || 0) + (mb[k]||0); });
+    } else {
+      const m = p.method || 'naqd';
+      byMethod[m] = (byMethod[m] || 0) + somAmt;
+    }
   });
 
   const total = Object.values(byMethod).reduce((a, b) => a + b, 0);

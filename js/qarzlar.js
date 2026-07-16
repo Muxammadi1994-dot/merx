@@ -145,7 +145,15 @@ function renderDebtRevenue() {
 
   const total = payments.reduce((a,p) => a + toUzs(p), 0);
   const byMethod = { naqd:0, karta:0, otkazma:0, balans:0 };
-  payments.forEach(p => { byMethod[p.method||"naqd"] = (byMethod[p.method||"naqd"]||0) + toUzs(p); });
+  payments.forEach(p => {
+    // v173 (audit): aralash to'lov USULLARGA BO'LINADI (methodBreakdown, so'mda) —
+    // barcha statistikalar (dashboard/hisobot/moliya) bilan bir xil mantiq
+    const somAmt = (p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * rate) : (p.amount || 0)));
+    const mb = p.methodBreakdown;
+    const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
+    if (mbHas) Object.keys(mb).forEach(k => { if ((mb[k]||0) > 0) byMethod[k] = (byMethod[k]||0) + (mb[k]||0); });
+    else byMethod[p.method||"naqd"] = (byMethod[p.method||"naqd"]||0) + somAmt;
+  });
 
   if ($("dr-total"))   $("dr-total").textContent   = fmt(Math.round(total)) + " so'm";
   if ($("dr-count"))   $("dr-count").textContent   = payments.length;
