@@ -1480,6 +1480,36 @@ function addProduct() {
     });
   }
 
+  // v174 (№8): QO'LDA qo'shish ham KIRIM TARIXIGA yoziladi (avval faqat
+  // Excel/AI-import yozardi — shuning uchun tab "ishlamayapti" ko'rinardi).
+  // Ikkala tarmoq uchun ham: yangi tovar va mavjudga qo'shish.
+  const _rate = (db.settings?.rate || 12800);
+  newVariants.forEach(nv => {
+    if (!nv.qty || nv.qty <= 0) return;
+    db.ombor.push({
+      id:          db.seq++,
+      date:        today(),
+      time:        (typeof nowTime === "function" ? nowTime() : ""),
+      sku:         p ? p.sku : db.products[db.products.length-1].sku,
+      art:         art || "",
+      productName: name,
+      unit:        unit || "dona",
+      color:       nv.color,
+      size:        nv.size,
+      qty:         nv.qty,
+      pantone:     nv.pantone || pantone || "",
+      hex:         nv.hex || hex || "",
+      boxes:       (effectiveInBox > 1 && newVariants.length === 1)
+                     ? Math.floor(nv.qty / effectiveInBox) : null,
+      kirimNarxi:  Math.round((cost || 0) * _rate),
+      chakana:     price || 0,
+      ulgurji:     ulg || 0,
+      supplier:    "",
+      partiya:     "Qo'lda",
+      payStatus:   "tolandan"
+    });
+  });
+
   saveDB(); closeModal("addprod"); renderKatalog();
   apResetAddForm(); // v160: keyingi tovar uchun forma toza turishi kerak
   toast(`"${name}" qo'shildi`);

@@ -593,6 +593,9 @@ function omRenderKirim() {
         ${o.partiya === "Excel import"
           ? `<span style="font-size:11px;color:#6B4FBB">Excel</span>`
           : (o.partiya||"—")}
+        <button class="btn btn-ghost btn-icon btn-sm" title="Nakladnoy chop etish"
+          onclick="omPrintNaklad('${encodeURIComponent(o.date||"")}','${encodeURIComponent(o.partiya||"")}','${encodeURIComponent(o.supplier||"")}')"
+          style="margin-left:4px;vertical-align:middle"><i class="ti ti-printer" style="font-size:14px"></i></button>
       </td>
       <td><span class="bg ${o.payStatus==="qarz"?"bg-r":"bg-g"}">${o.payStatus==="qarz"?"To'lanmagan":"To'langan"}</span></td>
     </tr>`;
@@ -1057,4 +1060,95 @@ function confirmChiqim2() {
 
   const sababLabel = CHIQIM_SABABLAR.find(s => s.key === reason)?.label || reason;
   toast(`✅ ${p.name} (${color}/${size}) — ${qty} ta hisobdan chiqarildi (${sababLabel})`);
+}
+
+// ════════════════════════════════════════════════
+// №8 (v148): PARTIYA NAKLADNOYINI CHOP ETISH — A4 ko'rinish
+// Bitta kirim (sana + partiya + yetkazuvchi) bo'yicha barcha yozuvlar
+// jadval qilib chiqariladi. 58mm chek uslubidan ATAYLAB alohida.
+// ════════════════════════════════════════════════
+function omPrintNaklad(dateEnc, partiyaEnc, supplierEnc) {
+  const date     = decodeURIComponent(dateEnc||"");
+  const partiya  = decodeURIComponent(partiyaEnc||"");
+  const supplier = decodeURIComponent(supplierEnc||"");
+
+  const recs = (db.ombor||[]).filter(o =>
+    (o.date||"") === date &&
+    (o.partiya||"") === partiya &&
+    (o.supplier||"") === supplier
+  );
+  if (!recs.length) { toast("Kirim yozuvlari topilmadi", "err"); return; }
+
+  // Mahsulot+rang bo'yicha guruhlash (kirim tabi bilan bir xil mantiq)
+  const groups = {};
+  recs.forEach(o => {
+    const key = (o.productName||"") + "|" + (o.art||"") + "|" + (o.color||"");
+    if (!groups[key]) groups[key] = { ...o, sizes: [], totalQty: 0, maxBoxes: 0 };
+    if (o.size) groups[key].sizes.push(o.size);
+    groups[key].totalQty += o.qty || 0;
+    if ((o.boxes||0) > groups[key].maxBoxes) groups[key].maxBoxes = o.boxes||0;
+  });
+  const rows = Object.values(groups);
+
+  let jamiPochka = 0, jamiDona = 0, jamiSumma = 0;
+  const trs = rows.map((g, i) => {
+    const pochka = g.maxBoxes || 0;
+    const dona   = g.totalQty || 0;
+    const narx   = g.kirimNarxi || 0;
+    const summa  = narx * dona;
+    jamiPochka += pochka; jamiDona += dona; jamiSumma += summa;
+    const sizes = [...new Set(g.sizes||[])].filter(Boolean).join(", ");
+    return `<tr>
+      <td>${i+1}</td>
+      <td style="text-align:left">${g.productName}${g.art?` <span style="color:#777">(${g.art})</span>`:""}</td>
+      <td>${g.color||"—"}</td>
+      <td>${sizes||"—"}</td>
+      <td>${pochka ? fmt(pochka) : "—"}</td>
+      <td>${fmt(dona)}</td>
+      <td style="text-align:right">${narx ? fmt(narx) : "—"}</td>
+      <td style="text-align:right">${summa ? fmt(summa) : "—"}</td>
+    </tr>`;
+  }).join("");
+
+  const shopName = (db.settings && (db.settings.shopName || db.settings.name)) || "MERX";
+  const w = window.open("", "_blank", "width=800,height=900");
+  if (!w) { toast("Brauzer yangi oynani blokladi — ruxsat bering", "err"); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Nakladnoy — ${date}</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
+      h2 { margin: 0 0 4px; } .sub { color:#555; font-size:13px; margin-bottom:16px; }
+      table { width:100%; border-collapse:collapse; font-size:13px; }
+      th, td { border:1px solid #999; padding:6px 8px; text-align:center; }
+      th { background:#f0f0f0; }
+      .tot td { font-weight:700; background:#fafafa; }
+      .foot { margin-top:28px; font-size:13px; display:flex; justify-content:space-between; }
+      @media print { body { padding: 8px; } }
+    </style></head><body>
+    <h2>${shopName} — KIRIM NAKLADNOYI</h2>
+    <div class="sub">
+      Sana: <b>${date}</b>
+      ${partiya ? ` · Partiya: <b>${partiya}</b>` : ""}
+      ${supplier ? ` · Yetkazuvchi: <b>${supplier}</b>` : ""}
+    </div>
+    <table>
+      <thead><tr>
+        <th>№</th><th>Mahsulot</th><th>Rang</th><th>O'lchamlar</th>
+        <th>Pochka</th><th>Dona</th><th>Narx (dona)</th><th>Summa</th>
+      </tr></thead>
+      <tbody>${trs}</tbody>
+      <tfoot><tr class="tot">
+        <td colspan="4">JAMI</td>
+        <td>${jamiPochka ? fmt(jamiPochka) : "—"}</td>
+        <td>${fmt(jamiDona)}</td><td></td>
+        <td style="text-align:right">${fmt(jamiSumma)}</td>
+      </tr></tfoot>
+    </table>
+    <div class="foot">
+      <div>Topshirdi: ______________</div>
+      <div>Qabul qildi: ______________</div>
+    </div>
+    <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
+  </body></html>`);
+  w.document.close();
 }
