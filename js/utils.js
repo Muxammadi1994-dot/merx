@@ -179,6 +179,10 @@ function nav(p) {
     toast("Bu sahifaga kirishga ruxsatingiz yo'q", "err");
     return;
   }
+  // v152 (№9): sahifa HAQIQATAN almashganda qidiruvlar tozalanadi
+  // (realtime pull nav(joriy) chaqiradi — u tozalamaydi, guard shu yerda)
+  if (window._navPrevPage && window._navPrevPage !== p) clearPageSearches();
+  window._navPrevPage = p;
   document.querySelectorAll(".ni").forEach(n => n.classList.toggle("on", n.dataset.p === p));
   document.querySelectorAll("[id^='p-']").forEach(el => el.classList.remove("on"));
   const el = $("p-" + p); if (el) el.classList.add("on");
@@ -1515,3 +1519,70 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
 </body></html>`;
 }
 
+
+// ════════════════════════════════════════════════
+// №9 (v152): QIDIRUV QATORLARI — YAGONA UX
+// Har qidiruvda ✕ (bir bosishda tozalash), POS'dagidek qulay o'lcham,
+// sahifadan chiqilganda avtomatik tozalanish (nav ichidagi guard bilan).
+// pos-q va tarix-q allaqachon o'z ✕ tugmasiga ega — ular faqat
+// avto-tozalash ro'yxatida.
+// ════════════════════════════════════════════════
+const _SEARCH_UX = [
+  { id: "kat-q",   render: () => { if (typeof renderKatalog === "function") renderKatalog(); } },
+  { id: "om-q",    render: () => { if (typeof omSearch === "function") omSearch(); } },
+  { id: "cust-q",  render: () => { if (typeof renderMijozlar === "function") renderMijozlar(); } },
+  { id: "debt-q",  render: () => { if (typeof renderDebts === "function") renderDebts(); } },
+  { id: "qt-q",    render: () => { if (typeof renderQarzlarTarixi === "function") renderQarzlarTarixi(); } },
+  { id: "exp-q",   render: () => { if (typeof renderMoliya === "function") renderMoliya(); } },
+];
+const _SEARCH_PRE = [ // o'z ✕ tugmasi bor maydonlar: [input, tugma, render]
+  { id: "pos-q",   btn: "pos-q-clr",   render: () => { if (typeof posSearch === "function") posSearch(); } },
+  { id: "tarix-q", btn: "tarix-q-clr", render: () => { if (typeof renderTarix === "function") renderTarix(); } },
+];
+
+function setupSearchUX() {
+  _SEARCH_UX.forEach(cfg => {
+    const inp = $(cfg.id);
+    if (!inp || inp.dataset.uxDone) return;
+    inp.dataset.uxDone = "1";
+    // Qulay o'lcham (POS uslubiga yaqin)
+    inp.style.fontSize = "14px";
+    inp.style.padding = "9px 32px 9px 12px";
+    if ((parseInt(inp.style.width) || 0) < 220 && !inp.style.width.includes("%")) inp.style.width = "240px";
+    // O'rab, ✕ qo'shamiz (input DOM'da joyida qoladi — listener'lar saqlanadi)
+    const wrap = document.createElement("span");
+    wrap.style.cssText = "position:relative;display:inline-flex;align-items:center";
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.textContent = "✕"; btn.setAttribute("data-qclr", cfg.id);
+    btn.style.cssText = "display:none;position:absolute;right:9px;background:none;border:none;cursor:pointer;color:#bbb;font-size:15px;line-height:1;padding:2px";
+    btn.onclick = e => { e.preventDefault(); inp.value = ""; btn.style.display = "none"; cfg.render(); inp.focus(); };
+    wrap.appendChild(btn);
+    inp.addEventListener("input", () => { btn.style.display = inp.value ? "" : "none"; });
+  });
+}
+
+function clearPageSearches() {
+  _SEARCH_UX.forEach(cfg => {
+    const inp = $(cfg.id);
+    if (inp && inp.value) {
+      inp.value = "";
+      const b = inp.parentNode && inp.parentNode.querySelector('[data-qclr="' + cfg.id + '"]');
+      if (b) b.style.display = "none";
+      try { cfg.render(); } catch(e) {}
+    }
+  });
+  _SEARCH_PRE.forEach(cfg => {
+    const inp = $(cfg.id);
+    if (inp && inp.value) {
+      inp.value = "";
+      const b = $(cfg.btn); if (b) b.style.display = "none";
+      try { cfg.render(); } catch(e) {}
+    }
+  });
+}
+
+// Ulanish: DOM tayyor bo'lishi bilan (skriptlar body oxirida — darhol ishlaydi)
+if (document.readyState !== "loading") setupSearchUX();
+else document.addEventListener("DOMContentLoaded", setupSearchUX);
