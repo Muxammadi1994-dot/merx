@@ -201,7 +201,7 @@ function applyDashBanner() {
 
 // ── KPI kartochkalar ───────────────────────────
 const KPI_DEFAULTS = {
-  kassa: true, sotuvlar: true, ortacha: true, qarz: true, muddati: true, ombor: true
+  kassa: true, naqdtushdi: true, kassaqoldi: true, sotuvlar: true, ortacha: true, qarz: true, muddati: true, ombor: true
 };
 
 function dashGetKpiCols() {
@@ -220,6 +220,8 @@ function dashRenderKpiPanel() {
   const cols = dashGetKpiCols();
   const defs = [
     { key:'kassa',    lbl:'Kassaga tushdi' },
+    { key:'naqdtushdi', lbl:'Naqd tushdi' },
+    { key:'kassaqoldi', lbl:'Kassada qoldi' },
     { key:'sotuvlar', lbl:'Sotuvlar soni' },
     { key:'ortacha',  lbl:"O'rtacha chek" },
     { key:'qarz',     lbl:'Jami qarz' },
@@ -281,20 +283,20 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
   // (aralashda FAQAT naqd qismi — methodBreakdown). "Kassada qoldi" =
   // naqd tushum − bugungi NAQD xarajatlar.
   let kassaNaqd = 0;
-  todaySales.forEach(s => {
+  db.sales.filter(s => s.date === _t).forEach(s => {
     const pb = s.payBreakdown;
     if (pb && (pb.naqd || pb.karta || pb.otkazma)) kassaNaqd += (pb.naqd || 0);
     else if (s.payType === "naqd") kassaNaqd += (s.paid || 0);
   });
-  activePays().filter(p => p.date === t).forEach(p => {
-    const somAmt = p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * rate) : (p.amount || 0));
+  activePays().filter(p => p.date === _t).forEach(p => {
+    const somAmt = p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * _rate) : (p.amount || 0));
     const mb = p.methodBreakdown;
     const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
     if (mbHas) kassaNaqd += (mb.naqd || 0);
     else if ((p.method || "naqd") === "naqd") kassaNaqd += somAmt;
   });
   const naqdXarajat = (db.xarajatlar || [])
-    .filter(x => x.date === t && (x.method || "naqd") === "naqd")
+    .filter(x => x.date === _t && (x.method || "naqd") === "naqd")
     .reduce((a, x) => a + (x.amount || 0), 0);
   const kassadaQoldi = kassaNaqd - naqdXarajat;
 
@@ -308,6 +310,18 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
       icon: 'ti-cash', color: '#36B48C',
       label: 'Kassaga tushdi', val: priceFmt(kassaTushdiKpi, true),
       sub: 'bugun (nasiyasiz)', click: "nav('moliya')"
+    },
+    {
+      key: 'naqdtushdi',
+      icon: 'ti-coin', color: '#36B48C',
+      label: 'Naqd tushdi', val: priceFmt(kassaNaqd, true),
+      sub: "sotuv + qarz to'lovi (naqd)", click: "nav('moliya')"
+    },
+    {
+      key: 'kassaqoldi',
+      icon: 'ti-building-bank', color: kassadaQoldi >= 0 ? '#E9A500' : '#E05A5A',
+      label: 'Kassada qoldi', val: priceFmt(kassadaQoldi, true),
+      sub: 'naqd tushum − naqd xarajat', click: "nav('moliya')"
     },
     {
       key: 'sotuvlar',
