@@ -1486,6 +1486,14 @@ function showDebtPaymentReceipt(payment) {
       _noteParts.push(`To'lov $ da, kurs: ${fmt(payment.rate)} so'm`);
     if (payment.leftover > 0)
       _noteParts.push(`Ortiqcha: ${fmtMoney(payment.leftover, payment.currency)}`);
+    // v171 MUHIM: USD to'lov cheki — shablon barcha sonni "so'm" deb yozadi,
+    // shuning uchun $ sonlar MUZLATILGAN KURS bilan so'mga o'giriladi
+    // (kiritilgan asl so'm — amountSom v165 — aynan ishlatiladi).
+    // $ ma'lumot izohda saqlanadi. SO'M to'lovlarga TEGILMAGAN.
+    const _usd = payment.currency === "usd" && payment.rate;
+    const _r   = payment.rate || db.settings?.rate || 12800;
+    if (_usd && payment.debtAfter != null)
+      _noteParts.push(`Qoldiq: ${fmtMoney(payment.debtAfter, "usd")}`);
     const fakeSale = {
       id: payment.id, chekNum: payment.chekNum,
       date: payment.date, time: payment.time || "",
@@ -1494,10 +1502,14 @@ function showDebtPaymentReceipt(payment) {
       items: (payment.allocations||[]).map(a => ({
         name: `Qarz to'lovi (${a.chekNum||a.saleDate})`,
         variant: a.fullyPaid ? "✓ Yopildi" : `Qoldi: ${fmtMoney(a.remainingAfter, a.currency)}`,
-        qty: 1, price: a.amount, unit: "to'lov"
+        qty: 1,
+        price: _usd ? Math.round((a.amount||0) * _r) : a.amount,
+        unit: "to'lov"
       })),
-      total: payment.amount, paid: payment.amount,
-      remaining: payment.debtAfter != null ? payment.debtAfter : 0,
+      total:     _usd ? (payment.amountSom || Math.round(payment.amount * _r)) : payment.amount,
+      paid:      _usd ? (payment.amountSom || Math.round(payment.amount * _r)) : payment.amount,
+      remaining: payment.debtAfter != null
+                   ? (_usd ? Math.round(payment.debtAfter * _r) : payment.debtAfter) : 0,
       customerName: payment.customerName || "",
       customerPhone: payment.customerPhone || "",
       note: _noteParts.join(" · ")
