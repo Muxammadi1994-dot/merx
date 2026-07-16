@@ -314,6 +314,15 @@
   #ov-receipt #rcp-num    { font-size: 10px !important; }
   #ov-receipt #rcp-total  { font-size: 11px !important; font-weight: 900 !important; }
   #ov-receipt img { max-width: 100% !important; display: none; }
+  /* v191 (№12): O'NG BO'SH JOY — chek ichidagi BARCHA konteynerlar to'liq
+     kenglikda, yon paddinglar 1mm dan oshmaydi (qaysi inline qiymat
+     bo'lishidan qat'i nazar) */
+  #ov-receipt .modal > div { width: 100% !important; }
+  #ov-receipt .modal div {
+    padding-left: 1mm !important;
+    padding-right: 1mm !important;
+    max-width: none !important;
+  }
 
   /* QARZ BLOKI: grid ta'sirini butunlay bekor qilish.
      Eski grid-template-columns:1fr 1fr bosmada div larni yon-yonga
@@ -4128,7 +4137,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=186"></script>
 <script src="js/dashboard.js?v=144"></script>
-<script src="js/pos.js?v=190"></script>
+<script src="js/pos.js?v=191"></script>
 <script src="js/katalog.js?v=175"></script>
 <script src="js/ombor.js?v=148"></script>
 <script src="js/mijozlar.js?v=145"></script>
@@ -4195,6 +4204,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     <!-- Jami -->
     <div style="padding:14px 24px;border-bottom:1px solid #E8E5E0">
+      <div id="rcp-pochka-row" style="display:none;justify-content:space-between;font-size:13px;color:#0D1B2A;font-weight:800;margin-bottom:4px;border-top:1px dashed #ddd;padding-top:4px">
+        <span>JAMI POCHKA</span><span id="rcp-pochka">—</span>
+      </div>
       <div id="rcp-subtotal-row" style="display:flex;justify-content:space-between;font-size:13px;color:#555;font-weight:600;margin-bottom:4px">
         <span>Subtotal</span><span id="rcp-subtotal">—</span>
       </div>

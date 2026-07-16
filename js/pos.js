@@ -2311,6 +2311,14 @@ function showReceiptModal(sale) {
     }).join("");
   }
 
+  // v191 (№12): JAMI POCHKA qatori — pochkali tovarlar yig'indisi
+  const _tp = (sale.items||[]).reduce((a,i)=> a + ((i.sellMode==="karobka" && i.qtyBox) ? i.qtyBox : 0), 0);
+  const _tpRow = $("rcp-pochka-row");
+  if (_tpRow) {
+    _tpRow.style.display = _tp > 0 ? "flex" : "none";
+    if ($("rcp-pochka")) $("rcp-pochka").textContent = fmt(_tp) + " pochka";
+  }
+
   // Subtotal va chegirma
   const subtotal = sale.subtotal || sale.total;
   const disc     = sale.discount || 0;
@@ -2528,9 +2536,13 @@ function posPrintCart() {
     date: today(), time: nowTime(),
     payType: "-",
     items: cart.map(c => ({
-      name: c.name,
-      variant: [c.color, c.size].filter(v => v && v !== "-").join(" / "),
-      qty: c.qty, price: c.price, unit: c.unit || "dona"
+      name: c.name, art: c.art || null,
+      // v191 (№10): checkout bilan BIR XIL variant va pochka maydonlari —
+      // savat cheki endi sotuv cheki kabi "2pch × (6 dona × narx)" formatida
+      variant: c.sellMode === "karobka" ? `${c.color} (${c.qtyBox} pochka)` : [c.color, c.size].filter(v => v && v !== "-").join(" / "),
+      qty: c.qty, qtyBox: c.qtyBox || null, inBox: c.inBox || null,
+      sellMode: c.sellMode || "dona",
+      price: c.price, unit: c.unit || "dona"
     })),
     subtotal, discount: disc,
     total: subtotal - disc,
