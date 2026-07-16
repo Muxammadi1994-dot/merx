@@ -860,7 +860,7 @@ function renderCart() {
         </div>
       </div>
     </div>`;
-  }).join("");
+  }).reverse().join(""); // v188 (№11b): yangi qo'shilgan USTIDA
 
   // cart-total: chegirmadan keyingi narx
   const cartTotalEl = $("cart-total");

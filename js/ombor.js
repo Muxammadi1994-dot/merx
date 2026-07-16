@@ -525,7 +525,11 @@ function omRenderKirim() {
   if (omKirimFilter === "manual") list = list.filter(o => !o.partiya || !o.partiya.startsWith("Excel"));
   if (_omPartiyaFilter) list = list.filter(o => o.partiya === _omPartiyaFilter);
 
-  list = list.slice().reverse();
+  list = list.slice().sort((a,b) => { // v147 (№13): aniq yangi-birinchi
+    const ka = (a.date||"")+(a.time||""), kb = (b.date||"")+(b.time||"");
+    if (ka !== kb) return ka < kb ? 1 : -1;
+    return (b.id||0) - (a.id||0);
+  });
 
   // Pochka rejimi: partiya+mahsulot+rang bo'yicha guruhlash
   let rows = [];

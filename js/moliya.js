@@ -363,7 +363,10 @@ function renderMoliya() {
   const catTotals = {};
   periodExps.forEach(x => { const c=x.category||"Boshqa"; catTotals[c]=(catTotals[c]||0)+(x.amount||0); });
 
-  let exps = [...periodExps].sort((a,b)=>((b.date||"")>(a.date||""))?1:-1);
+  let exps = [...periodExps].sort((a,b)=>{
+    if ((b.date||"") !== (a.date||"")) return ((b.date||"") > (a.date||"")) ? 1 : -1;
+    return (b.id||0) - (a.id||0); // v156 (№13): kun ichida ham yangi tepada
+  });
   // Tekst qidiruv
   if (q) exps = exps.filter(x =>       // v154: sub-teg (ichki teg) qidiruvga qo'shildi
     (x.category||"").toLowerCase().includes(q) ||

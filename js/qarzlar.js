@@ -379,7 +379,8 @@ function renderDebts() {
   list.sort((a, b) => {
     if (isOverdue(a) && !isOverdue(b)) return -1;
     if (!isOverdue(a) && isOverdue(b))  return 1;
-    return (a.due||"") < (b.due||"") ? -1 : 1;
+    // v170 (№13): guruh ichida YANGI sotuv tepada (avval muddat bo'yicha edi)
+    return ((a.date||"")+(a.time||"") < (b.date||"")+(b.time||"")) ? 1 : -1;
   });
 
   // KPI — har doim calcSaleState() orqali joriy holatni hisoblaymiz (mutatsiyasiz)

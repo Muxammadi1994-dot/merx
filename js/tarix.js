@@ -116,7 +116,7 @@ function renderTarix() {
   const clrBtn = $("tarix-q-clr");
   if (clrBtn) clrBtn.style.display = q ? "block" : "none";
 
-  let list = (db.sales || []).slice().reverse().filter(s => {
+  let list = (db.sales || []).slice().sort((a,b) => ((a.date||"")+(a.time||"") < (b.date||"")+(b.time||"")) ? 1 : -1).filter(s => { // v154 (№13): aniq yangi-birinchi
     if (!s) return false;
     if (!txPeriodFilter(s)) return false;
     if (txStatus === "tolandan"    && s.status !== "tolandan")    return false;
@@ -617,7 +617,7 @@ function shareSaleWhatsApp() {
 // ── Excel eksport ─────────────────────────────────
 function exportTarixExcel() {
   const q    = ($("tarix-q")||{value:""}).value.toLowerCase();
-  const list = (db.sales||[]).slice().reverse().filter(s => {
+  const list = (db.sales||[]).slice().sort((a,b) => ((a.date||"")+(a.time||"") < (b.date||"")+(b.time||"")) ? 1 : -1).filter(s => { // v154 (№13)
     if (!s) return false;
     if (!txPeriodFilter(s)) return false;
     if (txStatus === "tolandan"    && s.status !== "tolandan")    return false;

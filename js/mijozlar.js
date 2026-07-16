@@ -227,6 +227,8 @@ function renderMijozlar() {
       if (typeof va === "string") return _custSortAsc ? va.localeCompare(vb,"uz") : vb.localeCompare(va,"uz");
       return _custSortAsc ? va - vb : vb - va;
     });
+  } else {
+    list.reverse(); // v145 (№13): standartda YANGI mijoz tepada
   }
 
   // KPI
