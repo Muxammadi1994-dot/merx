@@ -1071,11 +1071,43 @@ function posResetPayFields() {
   const nb = $("nasiya-box"); if (nb) nb.style.display = "none";
 }
 
+
+// ═══ v190 (AbuSaxiy MUHIM BUG): MIJOZ ENDI SAVATGA BOG'LIQ ═══
+// Avval mijoz tanlovi GLOBAL edi: 1-savatda Mijoz-A tanlansa, 2-savatga
+// o'tilganda ham A qolardi -> boshqa xaridor sotuvida chek A'ning qarzini
+// ko'rsatardi va QARZ NOTO'G'RI MIJOZGA yozilishi mumkin edi.
+// Endi: savat almashishda mijoz shu savatga saqlanadi, kirilgan savatning
+// o'z mijozi tiklanadi. Yangi savat mijozsiz ochiladi.
+function _posSaveCustToCart() {
+  const c = posCartsState.carts[posCartsState.activeIdx];
+  if (!c) return;
+  const selId = parseInt(($("c-cust")||{value:""}).value) || null;
+  const nm = ($("c-name")||{value:""}).value.trim();
+  const ph = ($("c-phone")||{value:""}).value.trim();
+  c.cust = (selId || nm || ph) ? { id: selId, name: nm, phone: ph } : null;
+}
+function _posLoadCustFromCart() {
+  const c = posCartsState.carts[posCartsState.activeIdx];
+  const cu = c && c.cust;
+  if (cu && cu.id && db.customers.find(x => x.id === cu.id)) {
+    custSelect(cu.id);
+  } else if (cu && (cu.name || cu.phone)) {
+    custClear();
+  const _ac = posCartsState.carts[posCartsState.activeIdx]; if (_ac) _ac.cust = null; // v190
+    if ($("c-name"))  $("c-name").value  = cu.name  || "";
+    if ($("c-phone")) $("c-phone").value = cu.phone || "";
+  } else {
+    custClear();
+  }
+}
+
 function posSwitchCart(idx) {
   if (idx === posCartsState.activeIdx) return;
+  _posSaveCustToCart(); // v190: mijoz joriy savatga biriktiriladi
   posSaveCarts(); // joriy savatchani saqlab qo'yamiz
   posCartsState.activeIdx = idx;
   cart = posCartsState.carts[idx].items;
+  _posLoadCustFromCart(); // v190: kirilgan savatning O'Z mijozi tiklanadi
   posSaveCarts();
   posResetPayFields(); // v170
   renderCartTabs();
@@ -1096,11 +1128,13 @@ function posRenameCart(idx) {
 }
 
 function posAddCart() {
+  _posSaveCustToCart(); // v190
   posSaveCarts();
   const newId = Math.max(0, ...posCartsState.carts.map(c => c.id)) + 1;
   posCartsState.carts.push({ id: newId, name: `Savatcha ${newId}`, items: [] });
   posCartsState.activeIdx = posCartsState.carts.length - 1;
   cart = posCartsState.carts[posCartsState.activeIdx].items;
+  custClear(); // v190: yangi savat mijozsiz boshlanadi
   posSaveCarts();
   posResetPayFields(); // v170
   renderCartTabs();
@@ -1120,6 +1154,7 @@ function posCloseCart(idx) {
     posCartsState.activeIdx--;
   }
   cart = posCartsState.carts[posCartsState.activeIdx].items;
+  _posLoadCustFromCart(); // v190: faol savatning o'z mijozi
   posSaveCarts();
   posResetPayFields(); // v170
   renderCartTabs();
