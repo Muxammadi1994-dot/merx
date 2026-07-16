@@ -91,6 +91,28 @@ function renderDashboard() {
     todayKassa += p.currency === "usd" ? Math.round(p.amount * rate) : (p.amount||0);
   });
 
+  // №16 (v145): KASSA NAQD ko'rsatkichlari.
+  // "Naqd tushdi" = sotuv naqd ulushi + qarz to'lovlari naqd ulushi
+  // (aralashda FAQAT naqd qismi — methodBreakdown). "Kassada qoldi" =
+  // naqd tushum − bugungi NAQD xarajatlar.
+  let kassaNaqd = 0;
+  todaySales.forEach(s => {
+    const pb = s.payBreakdown;
+    if (pb && (pb.naqd || pb.karta || pb.otkazma)) kassaNaqd += (pb.naqd || 0);
+    else if (s.payType === "naqd") kassaNaqd += (s.paid || 0);
+  });
+  activePays().filter(p => p.date === t).forEach(p => {
+    const somAmt = p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * rate) : (p.amount || 0));
+    const mb = p.methodBreakdown;
+    const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
+    if (mbHas) kassaNaqd += (mb.naqd || 0);
+    else if ((p.method || "naqd") === "naqd") kassaNaqd += somAmt;
+  });
+  const naqdXarajat = (db.xarajatlar || [])
+    .filter(x => x.date === t && (x.method || "naqd") === "naqd")
+    .reduce((a, x) => a + (x.amount || 0), 0);
+  const kassadaQoldi = kassaNaqd - naqdXarajat;
+
   const lowThreshold = db.settings?.lowStockLimit || 5;
   const lowStock = [];
   db.products.forEach(p => {
@@ -102,7 +124,7 @@ function renderDashboard() {
   });
   lowStock.sort((a, b) => a.qty - b.qty);
 
-  renderDashHeader(todayTotal, todayCnt, growth, todayKassa);
+  renderDashHeader(todayTotal, todayCnt, growth, todayKassa, kassaNaqd, kassadaQoldi);
   applyDashBanner();
   renderDashKpis(todayCnt, todayTotal, totalDebt, debts.length, overdueList.length);
   renderDashChart();
@@ -116,7 +138,7 @@ function renderDashboard() {
 }
 
 // ── Header ─────────────────────────────────────
-function renderDashHeader(todayTotal, todayCnt, growth, kassaTushdi) {
+function renderDashHeader(todayTotal, todayCnt, growth, kassaTushdi, kassaNaqd, kassadaQoldi) {
   const el = $('dash-header');
   if (!el) return;
   const growHtml = growth !== null
@@ -125,6 +147,11 @@ function renderDashHeader(todayTotal, todayCnt, growth, kassaTushdi) {
   const kassaHtml = (kassaTushdi !== undefined && kassaTushdi !== todayTotal)
     ? `<div style="font-size:12px;margin-top:4px;color:rgba(255,255,255,.6)">
         Kassaga tushdi: <span style="color:#4ade80;font-weight:700">${priceFmt(kassaTushdi, true)}</span>
+       </div>` : "";
+  const naqdHtml = (kassaNaqd !== undefined)
+    ? `<div style="font-size:12px;margin-top:2px;color:rgba(255,255,255,.6)">
+        Naqd tushdi: <span style="color:#4ade80;font-weight:700">${priceFmt(kassaNaqd, true)}</span>
+        &nbsp;·&nbsp; Kassada qoldi: <span style="color:${kassadaQoldi >= 0 ? '#fbbf24' : '#f87171'};font-weight:700">${priceFmt(kassadaQoldi, true)}</span>
        </div>` : "";
   el.innerHTML = `
     <div class="dh-left">
@@ -136,6 +163,7 @@ function renderDashHeader(todayTotal, todayCnt, growth, kassaTushdi) {
       <div class="dh-val">${priceFmt(todayTotal, true)}</div>
       <div style="font-size:12px;margin-top:3px;color:rgba(255,255,255,.45)">${todayCnt} ta tranzaksiya ${growHtml}</div>
       ${kassaHtml}
+      ${naqdHtml}
     </div>
     <div class="dh-right">
       <button class="btn btn-acc" onclick="nav('pos')" style="font-weight:600">
@@ -247,6 +275,28 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
   activePays().filter(p => p.date === _t).forEach(p => {
     kassaTushdiKpi += p.currency === "usd" ? Math.round(p.amount*_rate) : (p.amount||0);
   });
+
+  // №16 (v145): KASSA NAQD ko'rsatkichlari.
+  // "Naqd tushdi" = sotuv naqd ulushi + qarz to'lovlari naqd ulushi
+  // (aralashda FAQAT naqd qismi — methodBreakdown). "Kassada qoldi" =
+  // naqd tushum − bugungi NAQD xarajatlar.
+  let kassaNaqd = 0;
+  todaySales.forEach(s => {
+    const pb = s.payBreakdown;
+    if (pb && (pb.naqd || pb.karta || pb.otkazma)) kassaNaqd += (pb.naqd || 0);
+    else if (s.payType === "naqd") kassaNaqd += (s.paid || 0);
+  });
+  activePays().filter(p => p.date === t).forEach(p => {
+    const somAmt = p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * rate) : (p.amount || 0));
+    const mb = p.methodBreakdown;
+    const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
+    if (mbHas) kassaNaqd += (mb.naqd || 0);
+    else if ((p.method || "naqd") === "naqd") kassaNaqd += somAmt;
+  });
+  const naqdXarajat = (db.xarajatlar || [])
+    .filter(x => x.date === t && (x.method || "naqd") === "naqd")
+    .reduce((a, x) => a + (x.amount || 0), 0);
+  const kassadaQoldi = kassaNaqd - naqdXarajat;
 
   const lowThreshold = db.settings?.lowStockLimit || 5;
   const lowCnt = db.products.reduce((a, p) =>
