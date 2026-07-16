@@ -3,7 +3,7 @@
 // MERX — js/hisobot.js  (v2)
 // ================================================
 
-let repRange  = "week";
+let repRange  = "today"; // v144 (№14): standart Bugun
 let _repCharts = {};
 
 function setRepRange(r) {

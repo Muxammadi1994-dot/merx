@@ -1,7 +1,7 @@
 // MERX tarix.js | v2.5 | 2026-06-09 | items null fix
 // ================================================
 
-let txPeriod  = "all";
+let txPeriod  = "today"; // v155 (№14): standart Bugun
 let txStatus  = "all";
 let txStaffId = "all";
 let _sdSaleId = null;

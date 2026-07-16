@@ -3,13 +3,13 @@
 // MERX — js/moliya.js  (v3 — To'liq qayta yozildi)
 // ================================================
 
-let molPeriod = "month"; // default: bu oy
+let molPeriod = "today"; // v157 (№14): standart Bugun (HTML tugmasi bilan endi MOS — avval nomuvofiq edi!)
 let _expType   = "kunlik"; // "kunlik" | "oylik"
 let _expForMonth = ""; // "2026-06" kabi
 let _expForMonthSel = "cur"; // "prev"|"cur"|"next"
 let _expChart = null;
 
-let expDatePeriod = "all";
+let expDatePeriod = "today"; // v157 (№14): standart Bugun
 
 function setExpDatePeriod(p) {
   expDatePeriod = p;
