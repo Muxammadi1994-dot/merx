@@ -353,6 +353,7 @@ async function pushToCloud() {
           debt_pay_methods_shown: db.settings?.debtPayMethodsShown || null,
           debt_cols:              db.settings?.debtCols            || null,
           unit_tags:              db.settings?.unitTags            || null, // №11a (v186)
+          chek_config:            db.settings?.chekConfig          || null, // №12 (v187)
           pack_unit_tags:         db.settings?.packUnitTags        || null,
           // v172 (2026-07-10): SOZLAMALAR SINXRON SIMMETRIYASI.
           // low_stock_limit — bot Supabase'dan o'qiydi, lekin bu yerdan
@@ -1095,6 +1096,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
       if (sets.debt_pay_methods_shown) db.settings.debtPayMethodsShown = sets.debt_pay_methods_shown;
       if (sets.debt_cols)              db.settings.debtCols            = sets.debt_cols;
       if (sets.unit_tags      != null) db.settings.unitTags      = sets.unit_tags;      // №11a (v186)
+      if (sets.chek_config    != null) db.settings.chekConfig    = sets.chek_config;    // №12 (v187)
       if (sets.pack_unit_tags != null) db.settings.packUnitTags  = sets.pack_unit_tags;
       // v172 (2026-07-10): NULL-himoya bilan — bulutda qiymat hali
       // bo'lmasa (eski yozuv), lokaldagi mavjud qiymatga TEGILMAYDI.

@@ -314,6 +314,7 @@
   #ov-receipt #rcp-num    { font-size: 10px !important; }
   #ov-receipt #rcp-total  { font-size: 11px !important; font-weight: 900 !important; }
   #ov-receipt img { max-width: 100% !important; display: none; }
+  #ov-receipt #rcp-logo { display: block !important; max-width: 70% !important; margin: 0 auto 2mm !important; }
   /* v191 (№12): O'NG BO'SH JOY — chek ichidagi BARCHA konteynerlar to'liq
      kenglikda, yon paddinglar 1mm dan oshmaydi (qaysi inline qiymat
      bo'lishidan qat'i nazar) */
@@ -2639,6 +2640,7 @@
                   </div>
                 </div>
               </div>
+              <div class="fld"><label>Manzil (chek tepasida)</label><input id="chek-addr" placeholder="Abu Saxiy bozori, D-60 do'kon"></div>
               <div class="fld"><label>Do'kon telefoni (chekda)</label><input id="chek-contact" placeholder="+998 90 123 45 67, ..."></div>
               <div class="fld"><label>Altbilgi matni</label><input id="chek-footer" placeholder="Rahmat! Yana kutamiz 🙏"></div>
               <div class="fld">
@@ -4135,9 +4137,9 @@
 <script src="js/utils.js?v=152"></script>
 <script src="js/auth.js?v=177"></script>
 <script src="js/sms.js?v=141"></script>
-<script src="js/cloud.js?v=186"></script>
+<script src="js/cloud.js?v=187"></script>
 <script src="js/dashboard.js?v=144"></script>
-<script src="js/pos.js?v=191"></script>
+<script src="js/pos.js?v=192"></script>
 <script src="js/katalog.js?v=175"></script>
 <script src="js/ombor.js?v=148"></script>
 <script src="js/mijozlar.js?v=145"></script>
@@ -4146,7 +4148,7 @@
 <script src="js/hisobot.js?v=144"></script>
 <script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=157"></script>
-<script src="js/egasi.js?v=144"></script>
+<script src="js/egasi.js?v=145"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=143"></script>
 <script>
@@ -4178,7 +4180,10 @@ document.addEventListener('DOMContentLoaded', () => {
   <div class="modal" style="max-width:420px;padding:0;overflow-y:auto;max-height:90vh">
     <!-- Header -->
     <div style="background:#0D1B2A;padding:20px 24px 16px;text-align:center;position:sticky;top:0;z-index:2">
+      <img id="rcp-logo" src="" style="display:none;max-height:48px;max-width:170px;object-fit:contain;margin:0 auto 6px;background:#fff;border-radius:6px;padding:3px">
       <div style="font-size:18px;font-weight:800;color:#fff;letter-spacing:.02em" id="rcp-shop">MERX</div>
+      <div id="rcp-addr" style="display:none;font-size:10.5px;color:rgba(255,255,255,.85);margin-top:3px"></div>
+      <div id="rcp-contact" style="display:none;font-size:10.5px;color:rgba(255,255,255,.85);margin-top:1px;font-weight:700"></div>
       <div style="font-size:11px;color:rgba(255,255,255,.7);margin-top:2px">Ulgurji savdo tizimi</div>
     </div>
 

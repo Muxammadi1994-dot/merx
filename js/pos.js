@@ -2264,8 +2264,19 @@ function showReceiptModal(sale) {
   const shopName = db.shop?.name || "MERX";
   const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi", aralash:"Aralash", qarz:"Nasiya" };
 
-  // Shop nomi
+  // Shop nomi + v192 (№12): chek muharriri sozlamalari (logo/manzil/telefon)
   if ($("rcp-shop")) $("rcp-shop").textContent = shopName;
+  const _ckCfg = db.settings?.chekConfig || {};
+  const _lg = $("rcp-logo");
+  if (_lg) { if (_ckCfg.logo) { _lg.src = _ckCfg.logo; _lg.style.display = "block"; } else { _lg.style.display = "none"; _lg.removeAttribute("src"); } }
+  const _ad = $("rcp-addr");
+  if (_ad) { _ad.textContent = _ckCfg.addr || ""; _ad.style.display = _ckCfg.addr ? "block" : "none"; }
+  const _ct = $("rcp-contact");
+  if (_ct) {
+    const showC = _ckCfg.showContact !== false && _ckCfg.contact;
+    _ct.textContent = _ckCfg.contact || "";
+    _ct.style.display = showC ? "block" : "none";
+  }
 
   // Chek raqami va sana
   if ($("rcp-num")) $("rcp-num").textContent = sale.chekNum || `#${sale.id}`;
@@ -2445,7 +2456,7 @@ function showReceiptModal(sale) {
   // Rahmat yozuvi — BOSMADA KO'RINADI (alohida element)
   const rcpThanks = $("rcp-thanks");
   if (rcpThanks) {
-    const footerTxt = db.settings?.receiptFooter || "Haridingiz uchun rahmat! Yana kutamiz 🙏";
+    const footerTxt = (db.settings?.chekConfig?.footer) || db.settings?.receiptFooter || "Haridingiz uchun rahmat! Yana kutamiz 🙏"; // v192: muharrir endi ASOSIY chekka ham qo'llanadi
     rcpThanks.textContent = footerTxt;
     rcpThanks.style.display = "block";
   }

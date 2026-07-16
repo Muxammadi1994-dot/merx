@@ -238,6 +238,8 @@ function renderEgasi() {
   const cePosStyle   = document.getElementById("chek-pos-style");
   const ceTarixStyle = document.getElementById("chek-tarix-style");
   const ceQarzStyle  = document.getElementById("chek-qarz-style");
+  const ceAddr = document.getElementById("chek-addr");
+  if (ceAddr)    ceAddr.value    = chekCfg.addr     || "";
   if (ceContact) ceContact.value = chekCfg.contact  || "";
   if (ceFooter)  ceFooter.value  = chekCfg.footer   || "Rahmat! Yana kutamiz 🙏";
   if (ceStaff)   ceStaff.checked   = chekCfg.showStaff   !== false;
@@ -600,6 +602,7 @@ function saveChekConfig() {
   if (!db.settings) db.settings = {};
   const cfg = db.settings.chekConfig || {};
 
+  cfg.addr    = document.getElementById("chek-addr")?.value    || ""; // v145 (№12): manzil
   cfg.contact = document.getElementById("chek-contact")?.value || "";
   cfg.footer  = document.getElementById("chek-footer")?.value  || "Rahmat! Yana kutamiz 🙏";
   cfg.showStaff        = document.getElementById("chek-show-staff")?.checked !== false;
