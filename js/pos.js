@@ -2271,6 +2271,8 @@ function showReceiptModal(sale) {
   if (_lg) { if (_ckCfg.logo) { _lg.src = _ckCfg.logo; _lg.style.display = "block"; } else { _lg.style.display = "none"; _lg.removeAttribute("src"); } }
   const _ad = $("rcp-addr");
   if (_ad) { _ad.textContent = _ckCfg.addr || ""; _ad.style.display = _ckCfg.addr ? "block" : "none"; }
+  const _tg = $("rcp-tagline");
+  if (_tg) _tg.textContent = _ckCfg.tagline || "Ulgurji savdo tizimi"; // v193 (№12)
   const _ct = $("rcp-contact");
   if (_ct) {
     const showC = _ckCfg.showContact !== false && _ckCfg.contact;

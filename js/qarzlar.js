@@ -1467,177 +1467,111 @@ async function sendOverdueRemindersBot() {
 // ════════════════════════════════════════════════
 
 function showDebtPaymentReceipt(payment) {
+  // ════════════════════════════════════════════════════════════
+  // 2026-07-16 (AbuSaxiy): QARZ CHEKI TO'LIQ QAYTA QURILDI — SODDA.
+  // Egasi bergan aniq format: To'landi / To'lov usuli / Avvalgi qarz /
+  // Qolgan qarz / Muddat. ORTIQCHA HECH NARSA YO'Q (taqsimot ro'yxati,
+  // "1 to'lov × ..." qatorlari olib tashlandi).
+  // Valyuta qoidasi: qarz $ bo'lsa — qarz sonlari $da, to'lov so'mda
+  // bo'lsa "so'm / $ (kurs)" ko'rinishida. SAQLASHGA TEGILMAGAN.
+  // Eski xato ham yopildi: "Jami qarz edi" DOIM so'm deb yozilardi —
+  // endi qarz valyutasida.
+  // ════════════════════════════════════════════════════════════
+  const cfg      = db.settings?.chekConfig || {};
   const shopName = db.shop?.name || "MERX";
-  // Ixcham uslub tanlangan bo'lsa — buildReceiptHtml ishlatamiz
-  const chekCfg3 = (typeof db !== "undefined" && db.settings?.chekConfig) || {};
-  if (chekCfg3.qarzStyle && !["full","compact"].includes(chekCfg3.qarzStyle)) {
-    const staffObj3 = db.staff?.find(s => s.id === payment.staffId);
-    // 2026-07-10: MAXSUS chek uslubi (qarzStyle) endi yangi to'lov
-    // ma'lumotlarini ham ko'rsatadi: ko'p usulli to'lov (aralash +
-    // payBreakdown), "Qoldiq" sifatida qarzning KEYINGI holati,
-    // note'da "Jami qarz edi" + $ kursi. Chek uslublari (utils.js)
-    // bu maydonlarni azaldan chizishni biladi.
-    const _mb = payment.methodBreakdown || null;
-    const _mbMulti = _mb && Object.keys(_mb).filter(k => (_mb[k]||0) > 0).length > 1;
-    const _noteParts = [];
-    if (payment.debtBefore != null)
-      _noteParts.push(`Jami qarz edi: ${fmtMoney(payment.debtBefore, "uzs")}`);
-    if (payment.currency === "usd" && payment.rate)
-      _noteParts.push(`To'lov $ da, kurs: ${fmt(payment.rate)} so'm`);
-    if (payment.leftover > 0)
-      _noteParts.push(`Ortiqcha: ${fmtMoney(payment.leftover, payment.currency)}`);
-    // v171 MUHIM: USD to'lov cheki — shablon barcha sonni "so'm" deb yozadi,
-    // shuning uchun $ sonlar MUZLATILGAN KURS bilan so'mga o'giriladi
-    // (kiritilgan asl so'm — amountSom v165 — aynan ishlatiladi).
-    // $ ma'lumot izohda saqlanadi. SO'M to'lovlarga TEGILMAGAN.
-    const _usd = payment.currency === "usd" && payment.rate;
-    const _r   = payment.rate || db.settings?.rate || 12800;
-    if (_usd && payment.debtAfter != null)
-      _noteParts.push(`Qoldiq: ${fmtMoney(payment.debtAfter, "usd")}`);
-    const fakeSale = {
-      id: payment.id, chekNum: payment.chekNum,
-      date: payment.date, time: payment.time || "",
-      payType: _mbMulti ? "aralash" : (payment.method || "naqd"),
-      payBreakdown: _mb,
-      items: (payment.allocations||[]).map(a => ({
-        name: `Qarz to'lovi (${a.chekNum||a.saleDate})`,
-        variant: a.fullyPaid ? "✓ Yopildi" : `Qoldi: ${fmtMoney(a.remainingAfter, a.currency)}`,
-        qty: 1,
-        price: _usd ? Math.round((a.amount||0) * _r) : a.amount,
-        unit: "to'lov"
-      })),
-      total:     _usd ? (payment.amountSom || Math.round(payment.amount * _r)) : payment.amount,
-      paid:      _usd ? (payment.amountSom || Math.round(payment.amount * _r)) : payment.amount,
-      remaining: payment.debtAfter != null
-                   ? (_usd ? Math.round(payment.debtAfter * _r) : payment.debtAfter) : 0,
-      customerName: payment.customerName || "",
-      customerPhone: payment.customerPhone || "",
-      note: _noteParts.join(" · ")
-    };
-    const html3 = buildReceiptHtml(fakeSale, {
-      shopName, staffName: staffObj3?.name || "—",
-      style: chekCfg3.qarzStyle || "merx"
-    });
-    const w3 = window.open("","_blank","width=420,height=600");
-    if (w3) { w3.document.write(html3); w3.document.close(); return; }
+  const cur      = payment.currency === "usd" ? "usd" : "uzs";
+  const rate     = payment.rate || db.settings?.rate || 12800;
+  const F        = n => Math.round(n||0).toLocaleString("ru-RU");
+
+  // To'landi qatori
+  const somAmt = payment.amountSom || (cur === "usd" ? Math.round(payment.amount * rate) : payment.amount);
+  const paidLine = cur === "usd"
+    ? `${F(somAmt)} so'm / $${(payment.amount||0).toFixed(2)}`
+    : `${F(payment.amount)} so'm`;
+  const kursLine = cur === "usd" ? `Kurs: ${F(rate)} so'm` : "";
+
+  // To'lov usuli (aralashda taqsimot — so'mda saqlangan)
+  const mb = payment.methodBreakdown || null;
+  const mbRows = mb ? Object.keys(mb).filter(k => (mb[k]||0) > 0) : [];
+  let methodHtml;
+  if (mbRows.length > 1) {
+    methodHtml = mbRows.map(k =>
+      `<div class="r"><span>${payMethodLabel(k)}</span><span>${F(mb[k])} so'm</span></div>`).join("");
+  } else {
+    methodHtml = `<div class="r"><span>Usul</span><span>${payMethodLabel(payment.method || "naqd")}${cur==="usd" && !payment.amountSom ? " (dollarda)" : ""}</span></div>`;
   }
-  const allocHtml = (payment.allocations||[]).map(a => `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;font-size:13px;padding-bottom:8px;border-bottom:1px solid #F6F4EF">
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:600;color:#0D1B2A">${a.saleDate} qarzi <span style="color:#aaa;font-weight:400">(${a.chekNum})</span></div>
-        <div style="font-size:11.5px;color:${a.fullyPaid?'#059669':'#d97706'};margin-top:2px">
-          ${a.fullyPaid ? "✓ To'liq yopildi" : `Qisman to'landi — ${fmtMoney(a.remainingAfter, a.currency)} qoldi`}
-        </div>
-      </div>
-      <div style="font-weight:700;color:#0D1B2A;margin-left:12px;white-space:nowrap">${fmtMoney(a.amount, a.currency)}</div>
-    </div>`).join("");
 
-  const leftoverHtml = payment.leftover > 0 ? `
-    <div style="margin-top:10px;background:#FFFBEB;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#92400E">
-      <i class="ti ti-info-circle"></i> Ortiqcha to'lov: <b>${fmtMoney(payment.leftover, payment.currency)}</b> — boshqa ochiq qarz topilmadi
-    </div>` : "";
+  // Qarz qatorlari — QARZ VALYUTASIDA (eski "uzs" qotirmasi tuzatildi)
+  const fmtC = v => cur === "usd" ? `$${(v||0).toFixed(2)}` : `${F(v)} so'm`;
+  const debtRows = [];
+  if (payment.debtBefore != null) debtRows.push(["Avvalgi qarz", fmtC(payment.debtBefore)]);
+  if (payment.debtAfter  != null) debtRows.push(["Qolgan qarz",  fmtC(payment.debtAfter)]);
 
-  const html = `<!DOCTYPE html>
-    <html><head><meta charset="UTF-8"><title>To'lov cheki ${payment.chekNum}</title>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
-      *{margin:0;padding:0;box-sizing:border-box}
-      body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-content:center;padding:24px 12px}
-      .receipt{background:#fff;width:380px;border-radius:18px;overflow:hidden;box-shadow:0 4px 24px rgba(13,27,42,.08)}
-      .head{background:#0D1B2A;color:#fff;padding:24px 22px 20px;text-align:center}
-      .head .logo{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;letter-spacing:.5px}
-      .head .sub{font-size:11px;color:#9aa7b5;margin-top:2px;letter-spacing:1px;text-transform:uppercase}
-      .head .check{display:inline-block;margin-top:14px;width:36px;height:36px;border-radius:50%;background:#E9A500;color:#0D1B2A;font-size:18px;line-height:36px;font-weight:800}
-      .body{padding:20px 22px}
-      .meta{display:flex;justify-content:space-between;font-size:11.5px;color:#8a8f98;margin-bottom:16px;padding-bottom:14px;border-bottom:1px dashed #E8E5E0}
-      .meta b{color:#0D1B2A;font-weight:700}
-      .total-row{display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:14px;border-top:2px solid #0D1B2A}
-      .total-row .lbl{font-family:'Sora',sans-serif;font-weight:700;font-size:14px;color:#0D1B2A;letter-spacing:.5px}
-      .total-row .val{font-family:'Sora',sans-serif;font-weight:800;font-size:22px;color:#0D1B2A}
-      .badge-row{display:flex;justify-content:space-between;font-size:11px;color:#a3a8af;margin-top:14px;padding-top:12px;border-top:1px dashed #E8E5E0}
-      .footer{padding:18px 22px 24px;text-align:center}
-      .footer .thanks{font-family:'Sora',sans-serif;font-weight:700;font-size:14px;color:#0D1B2A;margin-bottom:4px}
-      .footer .sub{font-size:11px;color:#a3a8af}
-      .section-lbl{font-size:11px;color:#a3a8af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600}
-      .actions{max-width:380px;margin:14px auto 0;display:flex;gap:10px}
-      .actions button{flex:1;border:none;border-radius:12px;padding:12px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer}
-      .btn-print{background:#0D1B2A;color:#fff}
-      .btn-close{background:#fff;color:#0D1B2A;border:1.5px solid #E8E5E0 !important}
-      @media print{
-        body{background:#fff;padding:0}
-        .receipt{box-shadow:none;border-radius:0;width:100%;max-width:380px}
-        .actions{display:none}
-        /* v182 — 3-BOSQICH: B&W termal printer uchun — fon oq, matn
-           qora, hech qanday rangli fon/soya qolmaydi. */
-        *{background:#fff !important;background-image:none !important;
-          color:#000 !important;box-shadow:none !important;
-          text-shadow:none !important}
-        [style*="border"]{border-color:#000 !important}
-      }
-    </style></head><body>
-    <div>
-      <div class="receipt">
-        <div class="head">
-          <div class="logo">${shopName.toUpperCase()}</div>
-          <div class="sub">Qarz to'lov cheki</div>
-          <div class="check">✓</div>
-        </div>
-        <div class="body">
-          <div class="meta">
-            <span>${payment.chekNum}</span>
-            <b>${payment.date} ${payment.time||""}</b>
-          </div>
-          ${payment.debtBefore != null || payment.debtAfter != null ? `
-          <div style="background:#F6F4EF;border-radius:12px;padding:12px 14px;margin-bottom:14px">
-            <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
-              <span style="color:#8a8f98">Jami qarz edi</span>
-              <b style="color:#0D1B2A">${fmtMoney(payment.debtBefore||0, payment.currency)}</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
-              <span style="color:#8a8f98">To'landi</span>
-              <b style="color:#059669">${fmtMoney(payment.amount, payment.currency)}</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0">
-              <span style="color:#8a8f98">Qoldi</span>
-              <b style="color:${payment.debtAfter>0?'#DC2626':'#059669'}">${payment.debtAfter>0 ? fmtMoney(payment.debtAfter, payment.currency) : "0 — to'liq yopildi ✅"}</b>
-            </div>
-          </div>` : ""}
-          <div class="section-lbl">Yopilgan / kamaytirilgan qarzlar</div>
-          ${allocHtml || `<div style="font-size:12.5px;color:#aaa">Mos qarz topilmadi</div>`}
-          <div class="total-row">
-            <span class="lbl">QABUL QILINDI</span>
-            <span class="val">${fmtMoney(payment.amount, payment.currency)}</span>
-          </div>
-          <div style="text-align:right;font-size:11.5px;color:#a3a8af;margin-top:4px">
-            ${(() => {
-              if (!payment.methodBreakdown) return payMethodLabel(payment.method) + " orqali";
-              const totalSom = Object.values(payment.methodBreakdown).reduce((a,v)=>a+v,0);
-              let t = Object.entries(payment.methodBreakdown).map(([m,v]) => `${fmt(v)} so'm ${payMethodLabel(m)}`).join(" + ");
-              t += ` = Jami ${fmt(totalSom)} so'm`;
-              if (payment.currency === "usd") t += ` (kurs: $${(totalSom/(payment.rate||db.settings?.rate||12800)).toFixed(2)})`;
-              return t;
-            })()}
-          </div>
-          ${leftoverHtml}
-          <div class="badge-row">
-            <span>Mijoz: <b style="color:#0D1B2A">${payment.customerName||"—"}</b></span>
-            <span>${payment.customerPhone||""}</span>
-          </div>
-        </div>
-        <div class="footer">
-          <div class="thanks">Rahmat! Yana kutamiz 🙏</div>
-          <div class="sub">${shopName} · ${payment.date}</div>
-        </div>
-      </div>
-      <div class="actions">
-        <button class="btn-print" onclick="window.print()">🖨 Chop etish</button>
-        <button class="btn-close" onclick="window.close()">Yopish</button>
-      </div>
+  // Muddat — bitta chekka to'lov bo'lsa o'sha sotuvning muddati
+  let dueLine = "";
+  const allocs = payment.allocations || [];
+  if (allocs.length === 1) {
+    const s = (db.sales||[]).find(x => x.id === allocs[0].saleId);
+    if (s?.due) dueLine = s.due;
+  }
+
+  const cxlBanner = payment.cancelled
+    ? `<div style="text-align:center;background:#FEE2E2;color:#B91C1C;font-weight:800;padding:4px;border-radius:6px;margin:6px 0">❌ BEKOR QILINGAN</div>` : "";
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Chek ${payment.chekNum||""}</title>
+  <style>
+    body{font-family:'DM Sans',Arial,sans-serif;margin:0;padding:0;display:flex;justify-content:center;background:#eee}
+    .rc{width:300px;background:#fff;padding:0 0 10px}
+    .logo{text-align:center;padding:8px 6px 4px}
+    .logo img{width:100%;max-height:64px;object-fit:contain}
+    .hd{background:#0D1B2A;color:#fff;text-align:center;padding:12px 8px}
+    .hd .nm{font-size:17px;font-weight:800;letter-spacing:.03em}
+    .hd .sub{font-size:10.5px;color:rgba(255,255,255,.85);margin-top:2px}
+    .sec{padding:7px 12px;border-bottom:1px dashed #ddd;font-size:12px}
+    .lbl{font-size:9.5px;color:#777;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+    .r{display:flex;justify-content:space-between;margin:2px 0}
+    .big{font-size:17px;font-weight:900;color:#0D1B2A;text-align:right}
+    .grn{color:#059669;font-weight:800}
+    .red{color:#DC2626;font-weight:800}
+    .ft{text-align:center;font-size:10.5px;color:#555;padding:8px 6px 0;font-style:italic}
+    .ft2{text-align:center;font-size:9.5px;color:#999;margin-top:2px}
+    @media print{ @page{size:58mm auto;margin:0} body{background:#fff} .rc{width:58mm} }
+  </style></head><body><div class="rc">
+    ${cfg.logo ? `<div class="logo"><img src="${cfg.logo}"></div>` : ""}
+    <div class="hd">
+      <div class="nm">${(cfg.shopName || shopName).toUpperCase()}</div>
+      ${cfg.addr ? `<div class="sub">${cfg.addr}</div>` : ""}
+      ${(cfg.showContact !== false && cfg.contact) ? `<div class="sub" style="font-weight:700">${cfg.contact}</div>` : ""}
+      <div class="sub">${cfg.tagline || "Ulgurji savdo tizimi"}</div>
     </div>
-    </body></html>`;
+    <div class="sec">
+      <div class="r"><span style="font-weight:800;font-family:monospace">${payment.chekNum||""}</span><span>${payment.date} ${payment.time||""}</span></div>
+      <div class="r"><span>${payment.customerName||"Noma'lum"}</span><span>${payment.customerPhone||""}</span></div>
+    </div>
+    ${cxlBanner}
+    <div class="sec">
+      <div class="lbl">To'landi</div>
+      <div class="big grn">${paidLine}</div>
+      ${kursLine ? `<div style="text-align:right;font-size:10.5px;color:#777">${kursLine}</div>` : ""}
+    </div>
+    <div class="sec">
+      <div class="lbl">To'lov usuli</div>
+      ${methodHtml}
+    </div>
+    <div class="sec">
+      <div class="lbl">Qarz holati</div>
+      ${debtRows.map(([l,v],i) => `<div class="r"><span>${l}</span><span class="${i===debtRows.length-1?"red":""}">${v}</span></div>`).join("")}
+      ${dueLine ? `<div class="r"><span>Muddat</span><span style="font-weight:700">${dueLine}</span></div>` : ""}
+    </div>
+    <div class="ft">${cfg.footer || "Rahmat! Yana kutamiz 🙏"}</div>
+    <div class="ft2">${cfg.shopName || shopName} · ${payment.date}</div>
+  </div>
+  <script>window.onload=()=>setTimeout(()=>window.print(),300);<\/script>
+  </body></html>`;
 
-  const w = window.open("","_blank","width=440,height=720");
-  if (!w) { toast("Pop-up bloklangan","err"); return; }
+  const w = window.open("", "_blank", "width=380,height=640");
+  if (!w) { toast("Pop-up bloklangan — brauzerga ruxsat bering", "err"); return; }
   w.document.write(html);
   w.document.close();
   w.focus();
