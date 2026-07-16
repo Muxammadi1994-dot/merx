@@ -2270,15 +2270,11 @@ function showReceiptModal(sale) {
   const _lg = $("rcp-logo");
   if (_lg) { if (_ckCfg.logo) { _lg.src = _ckCfg.logo; _lg.style.display = "block"; } else { _lg.style.display = "none"; _lg.removeAttribute("src"); } }
   const _ad = $("rcp-addr");
-  if (_ad) { _ad.textContent = _ckCfg.addr || ""; _ad.style.display = _ckCfg.addr ? "block" : "none"; }
+  if (_ad) _ad.style.display = "none"; // v194: manzil endi parametrlar blokida
   const _tg = $("rcp-tagline");
   if (_tg) _tg.textContent = _ckCfg.tagline || "Ulgurji savdo tizimi"; // v193 (№12)
   const _ct = $("rcp-contact");
-  if (_ct) {
-    const showC = _ckCfg.showContact !== false && _ckCfg.contact;
-    _ct.textContent = _ckCfg.contact || "";
-    _ct.style.display = showC ? "block" : "none";
-  }
+  if (_ct) _ct.style.display = "none"; // v194: kontaktlar endi parametrlar blokida
 
   // Chek raqami va sana
   if ($("rcp-num")) $("rcp-num").textContent = sale.chekNum || `#${sale.id}`;
@@ -2437,6 +2433,18 @@ function showReceiptModal(sale) {
     sale.customerName ? `${sale.customerName}${sale.customerPhone?" · "+sale.customerPhone:""}` : "Noma'lum";
   const staff = db.staff.find(s => s.id === sale.staffId);
   if ($("rcp-staff")) $("rcp-staff").textContent = staff ? staff.name : "—";
+  // v194: NAMUNA parametrlar bloki (tepada)
+  const _pSet = (rowId, valId, val) => {
+    const r = $(rowId), v = $(valId);
+    if (!r || !v) return;
+    v.textContent = val || "";
+    r.style.display = val ? "block" : "none";
+  };
+  _pSet("rcp-p-dokon-row",   "rcp-p-dokon",   _ckCfg.addr || "");
+  _pSet("rcp-p-staff-row",   "rcp-p-staff",   staff ? staff.name : "");
+  _pSet("rcp-p-contact-row", "rcp-p-contact", (_ckCfg.showContact !== false ? _ckCfg.contact : "") || "");
+  if ($("rcp-p-cust")) $("rcp-p-cust").textContent = sale.customerName || "Noma'lum";
+  _pSet("rcp-p-custtel-row", "rcp-p-custtel", sale.customerPhone || "");
 
   // Izoh
   const noteWrap = $("rcp-note-wrap");

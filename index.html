@@ -4140,7 +4140,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=187"></script>
 <script src="js/dashboard.js?v=144"></script>
-<script src="js/pos.js?v=193"></script>
+<script src="js/pos.js?v=194"></script>
 <script src="js/katalog.js?v=175"></script>
 <script src="js/ombor.js?v=148"></script>
 <script src="js/mijozlar.js?v=145"></script>
@@ -4190,16 +4190,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     <!-- Scroll qism - endi shart emas, modal o'zi scroll qiladi -->
     <div style="overflow-y:auto;flex:1">
-    <!-- Chek raqami va sana -->
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:#F8F7F4;border-bottom:1px solid #E8E5E0">
-      <div>
-        <div style="font-size:10px;color:#555;font-weight:700;text-transform:uppercase">Chek raqami</div>
-        <div style="font-size:14px;font-weight:800;color:#0D1B2A;font-family:monospace" id="rcp-num">#—</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:10px;color:#555;font-weight:700;text-transform:uppercase">Sana / Vaqt</div>
-        <div style="font-size:13px;font-weight:700;color:#111" id="rcp-dt">—</div>
-      </div>
+    <!-- NAMUNA uslubidagi parametrlar bloki (2026-07-16, AbuSaxiy) -->
+    <div style="padding:10px 24px;background:#F8F7F4;border-bottom:1px solid #E8E5E0;font-size:12px;line-height:1.75">
+      <div><b>Sotuv:</b> <span id="rcp-num" style="font-family:monospace;font-weight:800">#—</span></div>
+      <div id="rcp-p-dokon-row" style="display:none"><b>Do'kon:</b> <span id="rcp-p-dokon"></span></div>
+      <div><b>Sana:</b> <span id="rcp-dt">—</span></div>
+      <div id="rcp-p-staff-row" style="display:none"><b>Sotuvchi / Kassir:</b> <span id="rcp-p-staff"></span></div>
+      <div id="rcp-p-contact-row" style="display:none"><b>Kontaktlar:</b> <span id="rcp-p-contact"></span></div>
+      <div><b>Mijoz:</b> <span id="rcp-p-cust">—</span></div>
+      <div id="rcp-p-custtel-row" style="display:none"><b>Mijoz raqami:</b> <span id="rcp-p-custtel"></span></div>
     </div>
 
     <!-- Mahsulotlar -->
@@ -4260,8 +4259,8 @@ document.addEventListener('DOMContentLoaded', () => {
       <div style="font-size:10px;color:#92400E;font-weight:700;text-transform:uppercase;margin-bottom:3px">Izoh</div>
       <div style="font-size:13px;color:#78350F;font-style:italic" id="rcp-note"></div>
     </div>
-    <!-- Mijoz / Kassir -->
-    <div style="padding:12px 24px;border-bottom:1px solid #E8E5E0;display:flex;justify-content:space-between">
+    <!-- Mijoz / Kassir — endi tepadagi parametrlar blokida (yashirin, JS mosligi uchun qoldi) -->
+    <div style="display:none;padding:12px 24px;border-bottom:1px solid #E8E5E0;justify-content:space-between">
       <div>
         <div style="font-size:10px;color:#555;font-weight:600;text-transform:uppercase">Mijoz</div>
         <div style="font-size:13px;font-weight:600;color:#111;margin-top:2px" id="rcp-cust">—</div>
