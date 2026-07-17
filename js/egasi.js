@@ -242,6 +242,8 @@ function renderEgasi() {
   if (ceAddr)    ceAddr.value    = chekCfg.addr     || "";
   const ceTag = document.getElementById("chek-tagline");
   if (ceTag)     ceTag.value     = chekCfg.tagline  || "";
+  const cePaper = document.getElementById("chek-paper");
+  if (cePaper)   cePaper.value   = String(chekCfg.paperWidth || 72);
   if (ceContact) ceContact.value = chekCfg.contact  || "";
   if (ceFooter)  ceFooter.value  = chekCfg.footer   || "Rahmat! Yana kutamiz 🙏";
   if (ceStaff)   ceStaff.checked   = chekCfg.showStaff   !== false;
@@ -606,6 +608,7 @@ function saveChekConfig() {
 
   cfg.addr    = document.getElementById("chek-addr")?.value    || ""; // v145 (№12): manzil
   cfg.tagline = document.getElementById("chek-tagline")?.value  || ""; // v146: shior
+  cfg.paperWidth = parseInt(document.getElementById("chek-paper")?.value) || 72; // 2026-07-17: qog'oz eni
   cfg.contact = document.getElementById("chek-contact")?.value || "";
   cfg.footer  = document.getElementById("chek-footer")?.value  || "Rahmat! Yana kutamiz 🙏";
   cfg.showStaff        = document.getElementById("chek-show-staff")?.checked !== false;

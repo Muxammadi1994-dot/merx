@@ -2328,6 +2328,15 @@ function showReceiptModal(sale) {
   const shopName = db.shop?.name || "MERX";
   const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi", aralash:"Aralash", qarz:"Nasiya" };
 
+  // 2026-07-17: QOG'OZ ENI — sozlamadan (58/72/80mm, standart 72). @page
+  // CSS o'zgaruvchini qabul qilmaydi, shuning uchun style-teg dinamik yoziladi.
+  try {
+    const _pw = parseInt(db.settings?.chekConfig?.paperWidth) || 72;
+    let _ps = document.getElementById("chek-paper-style");
+    if (!_ps) { _ps = document.createElement("style"); _ps.id = "chek-paper-style"; document.head.appendChild(_ps); }
+    _ps.textContent = `@media print{ @page{size:${_pw}mm auto;margin:0} #ov-receipt .modal{width:${_pw}mm !important;max-width:${_pw}mm !important;min-width:${_pw}mm !important} }`;
+  } catch(e) {}
+
   // Shop nomi + v192 (№12): chek muharriri sozlamalari (logo/manzil/telefon)
   if ($("rcp-shop")) $("rcp-shop").textContent = shopName;
   const _ckCfg = db.settings?.chekConfig || {};
@@ -2451,57 +2460,36 @@ function showReceiptModal(sale) {
     if ($("rcp-paid"))    $("rcp-paid").textContent    = priceDisplay(sale.paid);
   }
 
+  // ═══ 2026-07-17 (NAMUNA ASOSIDA): "MIJOZ QARZI" bo'limi DOIM ko'rinadi ═══
+  // Billz namunasidagidek: Xariddan oldingi qarz / + Qarzga qo'shildi /
+  // Xariddan keyingi qarz — qarzsiz sotuvda ham 0 bilan chiqadi (avval
+  // yashirinardi va "bo'lim yo'qolgan"dek tuyulardi). Valyuta: qarz $ bo'lsa
+  // hammasi $da, aks holda so'mda. Savat oldindan-ko'rishda (_preview) — yo'q.
   const debtWrap = $("rcp-debt-wrap");
-  const dueWrap  = $("rcp-due-wrap");
-  if (sale.remaining > 0) {
-    if (debtWrap) debtWrap.style.display = "block"; // "flex" emas — ichki qatorlar alohida ko'rsatilsin
-    const isUsd = sale.debtCurrency === "usd" && sale.debtUsd;
+  {
+    const isUsd = sale.debtCurrency === "usd";
+    const P = v => isUsd ? `$${Number(v||0).toFixed(2)}` : fmt(Math.round(v||0)) + " so'm";
+    const prevV = isUsd ? (sale.prevDebtUsd || 0) : (sale.prevDebtUzs || 0);
+    const newV  = isUsd ? (sale.debtUsd     || 0) : (sale.remaining   || 0);
 
-    // Oldingi qarz satrlari
-    const prevEl    = $("rcp-debt-prev");
-    const prevValEl = $("rcp-debt-prev-val");
-    const newEl     = $("rcp-debt-new");
-    const newValEl  = $("rcp-debt-new-val");
-    const lblEl     = $("rcp-debt-lbl");
-    const debtEl    = $("rcp-debt");
+    if (debtWrap) debtWrap.style.display = sale._preview ? "none" : "block";
 
-    if (isUsd && sale.prevDebtUsd > 0) {
-      if (prevEl)    prevEl.style.display = "flex";
-      if (prevValEl) prevValEl.textContent = `$${sale.prevDebtUsd.toFixed(2)}`;
-      if (newEl)     newEl.style.display = "flex";
-      if (newValEl)  newValEl.textContent = `$${sale.debtUsd.toFixed(2)}`;
-      if (lblEl)     lblEl.textContent = "Umumiy qarz";
-      if (debtEl)    debtEl.textContent = `$${(sale.prevDebtUsd + sale.debtUsd).toFixed(2)} USD`;
-    } else if (!isUsd && sale.prevDebtUzs > 0) {
-      if (prevEl)    prevEl.style.display = "flex";
-      if (prevValEl) prevValEl.textContent = fmt(sale.prevDebtUzs) + " so'm";
-      if (newEl)     newEl.style.display = "flex";
-      if (newValEl)  newValEl.textContent = fmt(sale.remaining) + " so'm";
-      if (lblEl)     lblEl.textContent = "Umumiy qarz";
-      if (debtEl)    debtEl.textContent = fmt(sale.prevDebtUzs + sale.remaining) + " so'm";
-    } else {
-      if (prevEl) prevEl.style.display = "none";
-      if (newEl)  newEl.style.display  = "none";
-      if (lblEl)  lblEl.textContent    = "Qolgan qarz";
-      if (debtEl) debtEl.textContent   = isUsd
-        ? `$${sale.debtUsd.toFixed(2)} USD`
-        : fmt(sale.remaining) + " so'm";
-    }
-    // Muddat: flex qator sifatida (chap-o'ng)
-    const dueEl = $("rcp-due");
+    const prevEl    = $("rcp-debt-prev"),    prevValEl = $("rcp-debt-prev-val");
+    const newEl     = $("rcp-debt-new"),     newValEl  = $("rcp-debt-new-val");
+    const lblEl     = $("rcp-debt-lbl"),     debtEl    = $("rcp-debt");
+    if (prevEl)    prevEl.style.display = "flex";
+    if (prevValEl) prevValEl.textContent = P(prevV);
+    if (newEl)     newEl.style.display = "flex";
+    if (newValEl)  newValEl.textContent = P(newV);
+    if (lblEl)     lblEl.textContent = "Xariddan keyingi qarz";
+    if (debtEl)    debtEl.textContent = P(prevV + newV) + (isUsd ? " USD" : "");
+
     const dueWrapEl = $("rcp-due-wrap");
-    if (dueWrapEl && sale.due) {
+    if (dueWrapEl && sale.due && newV > 0) {
       dueWrapEl.style.display = "flex";
-      // Sanani dd.mm.yyyy formatiga o'tkazish (2026-08-07 -> 07.08.2026)
-      const dueFmt = sale.due.split("-").reverse().join(".");
-      if (dueEl) dueEl.textContent = dueFmt;
+      const dueEl = $("rcp-due");
+      if (dueEl) dueEl.textContent = sale.due.split("-").reverse().join(".");
     } else if (dueWrapEl) dueWrapEl.style.display = "none";
-  } else {
-    if (debtWrap) debtWrap.style.display = "none";
-    if (dueWrap)  dueWrap.style.display  = "none";
-    // Oldingi qarz elementlarini ham yashirish
-    const prevEl = $("rcp-debt-prev"); if (prevEl) prevEl.style.display = "none";
-    const newEl  = $("rcp-debt-new");  if (newEl)  newEl.style.display  = "none";
   }
 
   // Mijoz va kassir

@@ -333,6 +333,15 @@
   #ov-receipt #rcp-total { font-size: 19px !important; }
   #ov-receipt #rcp-paid, #ov-receipt #rcp-debt { font-size: 14px !important; }
   #ov-receipt #rcp-pochka-row, #ov-receipt #rcp-subtotal-row { font-size: 13px !important; }
+  /* ═══ 2026-07-17 NAMUNA ASOSIDA: toza tipografiya (72mm) ═══ */
+  #ov-receipt .modal { font-size: 13.5px !important; line-height: 1.55 !important; }
+  #ov-receipt .modal span, #ov-receipt .modal div { letter-spacing: .01em; }
+  #ov-receipt #rcp-shop { font-size: 21px !important; letter-spacing: .05em !important; }
+  #ov-receipt #rcp-items div { font-size: 13.5px !important; line-height: 1.55 !important; }
+  #ov-receipt #rcp-total { font-size: 19px !important; white-space: nowrap !important; }
+  #ov-receipt #rcp-debt-wrap div, #ov-receipt #rcp-due-wrap { font-size: 13.5px !important; }
+  #ov-receipt [id^="rcp-p-"] { font-size: 13px !important; }
+  #ov-receipt .modal div { padding-top: 1.2mm !important; padding-bottom: 1.2mm !important; }
 
   /* QARZ BLOKI: grid ta'sirini butunlay bekor qilish.
      Eski grid-template-columns:1fr 1fr bosmada div larni yon-yonga
@@ -2658,6 +2667,13 @@
               </div>
               <div class="fld"><label>Manzil (chek tepasida)</label><input id="chek-addr" placeholder="Abu Saxiy bozori, D-60 do'kon"></div>
               <div class="fld"><label>Shior qatori (chek tepasida)</label><input id="chek-tagline" placeholder="Ulgurji savdo tizimi"></div>
+              <div class="fld"><label>Chek qog'ozi eni</label>
+                <select id="chek-paper">
+                  <option value="58">58 mm</option>
+                  <option value="72" selected>72 mm</option>
+                  <option value="80">80 mm</option>
+                </select>
+              </div>
               <div class="fld"><label>Do'kon telefoni (chekda)</label><input id="chek-contact" placeholder="+998 90 123 45 67, ..."></div>
               <div class="fld"><label>Altbilgi matni</label><input id="chek-footer" placeholder="Rahmat! Yana kutamiz 🙏"></div>
               <div class="fld">
@@ -4178,7 +4194,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=187"></script>
 <script src="js/dashboard.js?v=148"></script>
-<script src="js/pos.js?v=197"></script>
+<script src="js/pos.js?v=198"></script>
 <script src="js/katalog.js?v=175"></script>
 <script src="js/ombor.js?v=148"></script>
 <script src="js/mijozlar.js?v=145"></script>
@@ -4187,7 +4203,7 @@
 <script src="js/hisobot.js?v=145"></script>
 <script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=158"></script>
-<script src="js/egasi.js?v=146"></script>
+<script src="js/egasi.js?v=147"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=143"></script>
 <script>
@@ -4260,8 +4276,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <span id="rcp-disc-lbl">Chegirma</span><span id="rcp-disc-val">—</span>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:8px;border-top:1.5px dashed #E8E5E0">
-        <span style="font-size:13px;font-weight:700;color:#0D1B2A">JAMI</span>
-        <span style="font-size:18px;font-weight:900;color:#0D1B2A" id="rcp-total">—</span>
+        <span style="font-size:13px;font-weight:700;color:#0D1B2A;white-space:nowrap">JAMI</span>
+        <span style="font-size:18px;font-weight:900;color:#0D1B2A;white-space:nowrap;text-align:right" id="rcp-total">—</span>
       </div>
     </div>
 
@@ -4282,10 +4298,10 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
       <!-- Qarz bloki: chap yorliq, o'ng qiymat -->
       <div id="rcp-debt-wrap" style="display:none;margin-top:4px;padding-top:4px;border-top:1px dashed #E8E5E0">
-        <div id="rcp-debt-prev" style="display:none;justify-content:space-between"><span style="color:#555;font-weight:600">Oldingi qarz</span><span id="rcp-debt-prev-val" style="font-weight:700"></span></div>
-        <div id="rcp-debt-new" style="display:none;justify-content:space-between"><span style="color:#555;font-weight:600">+ Yangi qarz</span><span id="rcp-debt-new-val" style="font-weight:700;color:#DC2626"></span></div>
+        <div id="rcp-debt-prev" style="display:none;justify-content:space-between"><span style="color:#555;font-weight:600">Xariddan oldingi qarz</span><span id="rcp-debt-prev-val" style="font-weight:700"></span></div>
+        <div id="rcp-debt-new" style="display:none;justify-content:space-between"><span style="color:#555;font-weight:600">+ Qarzga qo'shildi</span><span id="rcp-debt-new-val" style="font-weight:700;color:#DC2626"></span></div>
         <div id="rcp-debt-total-row" style="display:flex;justify-content:space-between">
-          <span style="font-weight:700;color:#DC2626" id="rcp-debt-lbl">Umumiy qarz</span>
+          <span style="font-weight:700;color:#DC2626" id="rcp-debt-lbl">Xariddan keyingi qarz</span>
           <span style="font-weight:800;color:#DC2626" id="rcp-debt">—</span>
         </div>
         <div id="rcp-due-wrap" style="display:none;justify-content:space-between;margin-top:2px">

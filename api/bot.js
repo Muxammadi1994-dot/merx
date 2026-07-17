@@ -1677,6 +1677,10 @@ async function actionRenderStaffOrder(chekId, saleData, shopId) {
       : `?chek_num=eq.${encodeURIComponent(chekId)}&select=*${shopFilter}`;
     const rows = await sb("sales", query);
     sale = rows?.[0] || null;
+    // 2026-07-17 (12-qoida: data HOKIM): to'liq maydonlar (prevDebtUsd,
+    // basePrice, rate, payBreakdown, subtotal...) faqat data jsonb'da —
+    // ustunlar bilan birlashtiramiz, aks holda PDF chek to'liq bo'lmaydi
+    if (sale && sale.data && typeof sale.data === "object") sale = { ...sale, ...sale.data };
   }
 
   try {
@@ -1789,22 +1793,16 @@ function buildReceiptHtml(sale, opts) {
     ? pbRows.map(([m,v]) => `<div class="r"><span>${payLabels[m]||m}</span><span>${F(v)} so'm</span></div>`).join("")
     : `<div class="r"><span>To'lov turi</span><b>${payLabels[s.payType]||s.payType||"—"}</b></div>`;
 
-  const isUsd = s.debtCurrency === "usd" && s.debtUsd != null;
-  let debtHtml = "";
-  if (remaining > 0) {
-    if (isUsd && s.prevDebtUsd > 0) {
-      debtHtml = `<div class="r sm"><span>Oldingi qarz</span><span>$${Number(s.prevDebtUsd).toFixed(2)}</span></div>
-        <div class="r sm"><span>+ Yangi qarz</span><span>$${Number(s.debtUsd).toFixed(2)}</span></div>
-        <div class="r bold"><span>Umumiy qarz</span><span>$${(Number(s.prevDebtUsd)+Number(s.debtUsd)).toFixed(2)} USD</span></div>`;
-    } else if (!isUsd && s.prevDebtUzs > 0) {
-      debtHtml = `<div class="r sm"><span>Oldingi qarz</span><span>${F(s.prevDebtUzs)} so'm</span></div>
-        <div class="r sm"><span>+ Yangi qarz</span><span>${F(remaining)} so'm</span></div>
-        <div class="r bold"><span>Umumiy qarz</span><span>${F(Number(s.prevDebtUzs)+remaining)} so'm</span></div>`;
-    } else {
-      debtHtml = `<div class="r bold"><span>QARZ</span><span>${isUsd ? "$"+Number(s.debtUsd).toFixed(2)+" USD" : F(remaining)+" so'm"}</span></div>`;
-    }
-    if (s.due) debtHtml += `<div class="r sm"><span>Muddat</span><span><b>${s.due.split("-").reverse().join(".")}</b></span></div>`;
-  }
+  // 2026-07-17 (NAMUNA): MIJOZ QARZI bo'limi DOIM — POS chek bilan bir xil
+  const isUsd = s.debtCurrency === "usd";
+  const DP = v => isUsd ? `$${Number(v||0).toFixed(2)}` : `${F(v||0)} so'm`;
+  const dPrev = isUsd ? (s.prevDebtUsd || 0) : (s.prevDebtUzs || 0);
+  const dNew  = isUsd ? (s.debtUsd     || 0) : (remaining     || 0);
+  let debtHtml = `<div class="lbl">Mijoz qarzi</div>
+    <div class="r sm"><span>Xariddan oldingi qarz</span><span>${DP(dPrev)}</span></div>
+    <div class="r sm"><span>+ Qarzga qo'shildi</span><span>${DP(dNew)}</span></div>
+    <div class="r bold"><span>Xariddan keyingi qarz</span><span>${DP(dPrev + dNew)}${isUsd ? " USD" : ""}</span></div>`;
+  if (s.due && dNew > 0) debtHtml += `<div class="r sm"><span>Muddat</span><span><b>${s.due.split("-").reverse().join(".")}</b></span></div>`;
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1851,6 +1849,7 @@ body{font-family:'DM Sans',Arial,sans-serif;background:#F2F0EB;display:flex;just
     <div><b>Sotuv:</b> ${s.chekNum || "#"+s.id}</div>
     ${addr ? `<div><b>Do'kon:</b> ${addr}</div>` : ""}
     <div><b>Sana:</b> ${date} ${s.time||""}</div>
+    ${s.staffName ? `<div><b>Sotuvchi / Kassir:</b> ${s.staffName}</div>` : ""}
     ${cfg.contact ? `<div><b>Kontaktlar:</b> ${cfg.contact}</div>` : ""}
     <div><b>Mijoz:</b> ${s.customerName || "Noma'lum"}</div>
     ${s.customerPhone ? `<div><b>Mijoz raqami:</b> ${s.customerPhone}</div>` : ""}
@@ -1859,7 +1858,8 @@ body{font-family:'DM Sans',Arial,sans-serif;background:#F2F0EB;display:flex;just
   ${itemsHtml}
   ${jamiPch > 0 ? `<div class="r bold" style="padding-top:6px"><span>JAMI POCHKA</span><span>${jamiPch} pochka</span></div>` : ""}
   ${itemDisc > 0 ? `<div class="r sm"><span>Tovar chegirmalari</span><span>−${F(itemDisc)} so'm</span></div>` : ""}
-  ${discount > 0 ? `<div class="r sm"><span>Chegirma</span><span>−${F(discount)} so'm</span></div>` : ""}
+  ${discount > 0 ? `<div class="r sm"><span>Subtotal</span><span>${F(s.subtotal || total + discount)} so'm</span></div>
+  <div class="r sm"><span>Chegirma</span><span>−${F(discount)} so'm</span></div>` : ""}
   <div class="tot"><span style="font-weight:800">JAMI</span><span class="v">${F(total)} so'm${usdLine}</span></div>
   <div class="lbl">To'lov</div>
   ${payHtml}
