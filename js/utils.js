@@ -513,6 +513,8 @@ function buildReceiptHtml(sale, opts) {
   const style   = opts.style || chekCfg.posStyle || chekCfg.style || "merx";
   const logo    = chekCfg.logo    || "";   // base64 yoki bo'sh
   const contact = chekCfg.contact || "";   // do'kon telefoni
+  const addr    = chekCfg.addr    || "";   // 2026-07-17: manzil (namuna params)
+  const tagline = chekCfg.tagline || "Ulgurji savdo tizimi";
   const footer  = chekCfg.footer  || "Rahmat! Yana kutamiz 🙏";
   const showStaff   = chekCfg.showStaff   !== false;
   const showContact = chekCfg.showContact !== false;
@@ -554,24 +556,31 @@ function buildReceiptHtml(sale, opts) {
   const F = n => Math.round(n || 0).toLocaleString("ru-RU");
 
   // ── Mahsulotlar ───────────────────────────────
-  const itemsHtml = items.map((i, idx) => {
-    const sum    = (i.price || 0) * (i.qty || 0);
-    const sku    = i.art ? `<span class="it-sku">ART: ${i.art}</span>` : (i.sku ? `<span class="it-sku" style="color:#bbb">SKU: ${i.sku}</span>` : "");
-    const boxRow = i.qtyBox && i.inBox
-      ? `<div class="it-box">${i.qtyBox} karobka × ${F((i.price||0)*(i.inBox||1))} so'm/karobka</div>` : "";
+  // 2026-07-17: POS sotuv cheki bilan BIR XIL format —
+  // "TOVAR / Rang / ART" + "2pch × (6 dona × ~~550 000~~ 540 000) = ..."
+  const itemsHtml = items.map((i) => {
+    const sum   = (i.price || 0) * (i.qty || 0);
+    const clean = (i.variant || "").replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
+    const nm    = [i.name || "", clean, i.art || ""].filter(Boolean).join(" / ");
+    const bp    = (i.basePrice && i.basePrice > (i.price||0)) ? `<s style="color:#aaa">${F(i.basePrice)}</s> ` : "";
+    const isBox = i.sellMode === "karobka" && i.qtyBox && i.inBox;
+    const calc  = isBox
+      ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${F(i.price)}) = ${F(sum)}`
+      : `${i.qty} ${i.unit||"dona"} × ${bp}${F(i.price)} = ${F(sum)}`;
     return `
       <div class="it">
-        <div class="it-num">${idx + 1}</div>
         <div class="it-body">
-          <div class="it-top">
-            <div class="it-name">${i.name || ""}${sku}</div>
-            <div class="it-sum">${F(sum)}</div>
-          </div>
-          <div class="it-det">${i.variant || ""} &nbsp;·&nbsp; ${i.qty} ${i.unit || "dona"} × ${F(i.price)} so'm</div>
-          ${boxRow}
+          <div class="it-name">${nm}</div>
+          <div class="it-det">${calc}</div>
         </div>
       </div>`;
   }).join('<div class="sep-dash"></div>');
+
+  // JAMI POCHKA va tovar chegirmalari (POS chek bilan bir xil)
+  const jamiPch = items.reduce((a,i)=> a + ((i.sellMode==="karobka" && i.qtyBox) ? i.qtyBox : 0), 0);
+  const itemDisc = items.reduce((a,i)=> a + ((i.basePrice && i.basePrice > (i.price||0)) ? (i.basePrice - i.price)*(i.qty||1) : 0), 0);
+  const rate = Number(sale.rate || 0);
+  const usdLine = rate > 0 ? ` / $${(total / rate).toFixed(2)}` : "";
 
   // ── To'lov bo'limi ────────────────────────────
   const discHtml = discount > 0
@@ -698,17 +707,18 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
     ${logoHtml}
     <div class="hd">
       <div class="hd-logo">${shopName.toUpperCase()}</div>
-      <div class="hd-sub">Savdo cheki</div>
+      <div class="hd-sub">${tagline}</div>
       ${showContact && contact ? `<div style="font-size:11px;color:#9aa7b5;margin-top:4px">${contact}</div>` : ""}
     </div>
 
     <div class="meta">
-      <div class="mr"><span>Chek raqami</span><b>${chekNum}</b></div>
-      <div class="mr"><span>Sana / Vaqt</span><b>${date} ${time}</b></div>
-      ${showStaff && staffName && staffName !== "—" ? `<div class="mr"><span>Kassir</span><b>${staffName}</b></div>` : ""}
-      ${custName ? `<div class="sep"></div>
-      <div class="mr"><span>Mijoz</span><b>${custName}</b></div>
-      ${custPhone ? `<div class="mr"><span>Telefon</span><b>${custPhone}</b></div>` : ""}` : ""}
+      <div class="mr"><span>Sotuv</span><b>${chekNum}</b></div>
+      ${addr ? `<div class="mr"><span>Do'kon</span><b>${addr}</b></div>` : ""}
+      <div class="mr"><span>Sana</span><b>${date} ${time}</b></div>
+      ${showStaff && staffName && staffName !== "—" ? `<div class="mr"><span>Sotuvchi / Kassir</span><b>${staffName}</b></div>` : ""}
+      ${showContact && contact ? `<div class="mr"><span>Kontaktlar</span><b>${contact}</b></div>` : ""}
+      <div class="mr"><span>Mijoz</span><b>${custName || "Noma'lum"}</b></div>
+      ${custPhone ? `<div class="mr"><span>Mijoz raqami</span><b>${custPhone}</b></div>` : ""}
     </div>
 
     ${noteHtml}
@@ -718,12 +728,14 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
       ${itemsHtml}
     </div>
 
+    ${jamiPch > 0 ? `<div class="pr" style="padding:5px 16px;font-weight:800;border-top:1px dashed #ddd"><span>JAMI POCHKA</span><span>${jamiPch} pochka</span></div>` : ""}
+    ${itemDisc > 0 ? `<div class="pr" style="padding:2px 16px;color:#B91C1C;font-weight:700"><span>Tovar chegirmalari</span><span>−${F(itemDisc)} so'm</span></div>` : ""}
     <div class="tot">
       <div>
         <div class="tot-lbl">JAMI</div>
         <div class="tot-cnt">${items.length} tur · ${items.reduce((a,i)=>a+(+i.qty||0),0)} dona</div>
       </div>
-      <div class="tot-val">${F(total)}<span class="tot-uzs"> so'm</span></div>
+      <div class="tot-val">${F(total)}<span class="tot-uzs"> so'm${usdLine}</span></div>
     </div>
 
     <div class="pay">
