@@ -343,7 +343,11 @@
     display: block !important;
   }
   /* Qarz qatorlari: har biri to'liq kenglikda, chap-o'ng tekislangan */
-  #ov-receipt #rcp-debt-wrap  { display: block !important; width: 100% !important; }
+  /* 2026-07-17 MUHIM TUZATISH: avval bu yerda display:block !important bor edi —
+     JS yashirgan qarz blokini CHOP paytida kuch bilan ochib, savat chekida
+     OLDINGI renderdan qolgan qarz qiymatlarini ko'rsatardi (AbuSaxiy bugi).
+     Endi ko'rinish faqat JS qaroriga bo'ysunadi. */
+  #ov-receipt #rcp-debt-wrap  { width: 100% !important; }
   #ov-receipt #rcp-debt-prev,
   #ov-receipt #rcp-debt-new,
   #ov-receipt #rcp-debt-total-row,
@@ -4174,7 +4178,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=187"></script>
 <script src="js/dashboard.js?v=148"></script>
-<script src="js/pos.js?v=196"></script>
+<script src="js/pos.js?v=197"></script>
 <script src="js/katalog.js?v=175"></script>
 <script src="js/ombor.js?v=148"></script>
 <script src="js/mijozlar.js?v=145"></script>

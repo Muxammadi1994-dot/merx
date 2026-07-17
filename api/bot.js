@@ -1078,7 +1078,8 @@ async function actionSendPayReceipt(body) {
 }
 
 // To'lov cheki sahifasi (mini-app ichida ochiladi)
-function buildPayReceiptHtml(p, shopName) {
+function buildPayReceiptHtml(p, shopName, ck) {
+  ck = ck || {}; // 2026-07-17: chek sozlamalari (logo/shior/altbilgi)
   const F = n => Math.round(n||0).toLocaleString("ru-RU");
   const M = n => p.currency === "usd" ? ("$" + (Math.round((n||0)*100)/100).toFixed(2)) : (F(n) + " so'm");
   const alloc = Array.isArray(p.allocations) ? p.allocations : [];
@@ -1131,8 +1132,10 @@ td.s{text-align:right;font-size:13px;color:#B45309;white-space:nowrap}
 td.s.ok{color:#059669}
 .footer{text-align:center;margin-top:16px;font-size:11px;color:#999}
 </style></head><body>
+${ck.logo ? `<div style="text-align:center;padding:6px 8px 0;background:#fff"><img src="${ck.logo}" style="width:100%;max-height:64px;object-fit:contain"></div>` : ""}
 <div class="hdr">
   <div class="l">${(shopName||"MERX").toUpperCase()}</div>
+  ${ck.tagline ? `<div class="s">${ck.tagline}</div>` : ""}
   <div class="t">🧾 TO'LOV CHEKI  ${p.chek_num||p.chekNum||""}</div>
   <div class="s">📅 ${p.date||""} ${p.time||""}${p.customer_name||p.customerName ? " · 👤 " + (p.customer_name||p.customerName) : ""}</div>
 </div>
@@ -1144,7 +1147,7 @@ td.s.ok{color:#059669}
   ${Number(p.leftover||0)>0 ? `<div class="row ok"><span class="k">Balansga qo'shildi</span><span class="v">+${M(p.leftover)}</span></div>` : ""}
 </div>
 ${rows ? `<div class="sec">Yopilgan cheklar (${alloc.length})</div><div class="tblwrap"><table>${rows}</table></div>` : ""}
-<div class="footer">Rahmat! · ${shopName||"MERX"}</div>
+<div class="footer">${(ck && ck.footer) || "Rahmat!"} · ${shopName||"MERX"}</div>
 </body></html>`;
 }
 
@@ -1160,7 +1163,7 @@ async function actionRenderPayReceipt(payId, shopId) {
     var _ck = sets?.[0]?.chek_config || {}; // 2026-07-17: logo/manzil/telefon/shior
   } catch { var _ck = {}; }
   if (!p) return `<!DOCTYPE html><html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#F2F0EB;color:#888">To'lov topilmadi (biroz kutib, qayta oching)</body></html>`;
-  return buildPayReceiptHtml(p, shopName);
+  return buildPayReceiptHtml(p, shopName, (typeof _ck !== "undefined" ? _ck : {}));
 }
 
 async function actionSendReceipt(body) {
@@ -1894,9 +1897,11 @@ async function actionRenderReceipt(chekId, saleData, shopId) {
 
   try {
     const _sf = (shopId || sale?.shop_id) ? `&shop_id=eq.${encodeURIComponent(shopId || sale.shop_id)}` : "";
-    const sets = await sb("settings", `?limit=1&select=shop_name${_sf}`);
+    const sets = await sb("settings", `?limit=1&select=shop_name,chek_config${_sf}`);
     shopName = sets?.[0]?.shop_name || "MERX";
-  } catch {}
+    var _ck = sets?.[0]?.chek_config || {}; // 2026-07-17: SHU funksiya o'z sozlamasini oladi (ReferenceError tuzatildi)
+  } catch { var _ck = {}; }
+  if (typeof _ck === "undefined") var _ck = {};
 
   if (!sale) {
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Chek topilmadi</title></head>

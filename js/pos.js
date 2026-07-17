@@ -2395,6 +2395,9 @@ function showReceiptModal(sale) {
   }
   // v195: tovar chegirmalari jami (narxlar allaqachon pasaytirilgan — bu faqat ma'lumot qatori)
   const _idisc = (sale.items||[]).reduce((a,i) => a + ((i.basePrice && i.basePrice > (i.price||0)) ? (i.basePrice - i.price) * (i.qty||1) : 0), 0);
+  // 2026-07-17: SAVAT oldindan-ko'rish — qarz bloki HAR QANDAY holatda yashirin
+  if (sale._preview) { const _dw = $("rcp-debt-wrap"); if (_dw) _dw.style.display = "none"; }
+
   const _idRow = $("rcp-itemdisc-row");
   if (_idRow) {
     _idRow.style.display = _idisc > 0 ? "flex" : "none";
@@ -2642,7 +2645,7 @@ function posPrintCart() {
     total: subtotal - disc,
     // paid=0, remaining=0 — oldindan-ko'rishda "Qarz" bo'limi
     // chiqib chalg'itmasligi uchun (bu hali sotuv EMAS)
-    paid: 0, remaining: 0,
+    paid: 0, remaining: 0, _preview: true, // 2026-07-17: savat cheki — qarz bo'limi umuman chiqmaydi
     customerName: ($("c-name") ? $("c-name").value : "") || "",
     customerPhone: ($("c-phone") ? $("c-phone").value : "") || ""
   };
