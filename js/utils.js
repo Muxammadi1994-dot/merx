@@ -510,7 +510,11 @@ function buildReceiptHtml(sale, opts) {
 
   // Chek sozlamalari — settings dan olamiz
   const chekCfg = (typeof db !== "undefined" && db.settings?.chekConfig) || {};
-  const style   = opts.style || chekCfg.posStyle || chekCfg.style || "merx";
+  // 2026-07-17 (AbuSaxiy): haqiqiy cheklar (PDF havola, bot, tarix) DOIM
+  // yagona — sotuv cheki ko'rinishidagi shablonga boradi (logo, params,
+  // pch-format, JAMI POCHKA). Eski uslub-tarmoqlari faqat Sozlamalardagi
+  // ko'rish (preview) uchun qoldi (opts.style aniq uzatilganda).
+  const style   = opts.style || "unified";
   const logo    = chekCfg.logo    || "";   // base64 yoki bo'sh
   const contact = chekCfg.contact || "";   // do'kon telefoni
   const addr    = chekCfg.addr    || "";   // 2026-07-17: manzil (namuna params)

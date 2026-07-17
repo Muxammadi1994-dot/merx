@@ -1513,6 +1513,7 @@ function showDebtPaymentReceipt(payment) {
   const fmtC = v => cur === "usd" ? `$${(v||0).toFixed(2)}` : `${F(v)} so'm`;
   const debtRows = [];
   if (payment.debtBefore != null) debtRows.push(["Avvalgi qarz", fmtC(payment.debtBefore)]);
+  debtRows.push(["To'landi", fmtC(payment.amount)]); // 2026-07-17: o'rtada — tushunarli zanjir
   if (payment.debtAfter  != null) debtRows.push(["Qolgan qarz",  fmtC(payment.debtAfter)]);
 
   // Muddat — bitta chekka to'lov bo'lsa o'sha sotuvning muddati
@@ -1544,7 +1545,12 @@ function showDebtPaymentReceipt(payment) {
     .red{color:#DC2626;font-weight:800}
     .ft{text-align:center;font-size:10.5px;color:#555;padding:8px 6px 0;font-style:italic}
     .ft2{text-align:center;font-size:9.5px;color:#999;margin-top:2px}
-    @media print{ @page{size:58mm auto;margin:0} body{background:#fff} .rc{width:58mm} }
+    @media print{
+      @page{size:58mm auto;margin:0} body{background:#fff} .rc{width:58mm}
+      /* 2026-07-17: termal printer OQ-QORA — ranglar xira chiqadi, hammasi qora */
+      .grn,.red,.big,.lbl,.sub,.ft,.ft2{color:#000 !important}
+      .hd{background:#000 !important;-webkit-print-color-adjust:exact}
+    }
   </style></head><body><div class="rc">
     ${cfg.logo ? `<div class="logo"><img src="${cfg.logo}"></div>` : ""}
     <div class="hd">
