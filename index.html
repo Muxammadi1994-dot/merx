@@ -611,6 +611,9 @@
           <button onclick="openPosLogs()" title="Operatsiyalar tarixi" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px">
             <i class="ti ti-history"></i>
           </button>
+          <button onclick="posOpenDiscount()" title="Savat bo'ylab chegirma" style="background:rgba(233,165,0,.2);border:1px solid rgba(233,165,0,.4);color:#E9A500;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px">
+            <i class="ti ti-discount-2"></i>
+          </button>
           <button onclick="showLastSale()" title="Oxirgi sotuv" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px">
             <i class="ti ti-clock-hour-3"></i>
           </button>
@@ -3911,6 +3914,28 @@
 
 <!-- Qarzlar KPI panel sozlamalari (2026-07-09) — avval BUTUNLAY yo'q
      edi, "Panellarni sozlash" tugmasi shuning uchun ishlamas edi -->
+<!-- v195: SAVAT CHEGIRMASI modali -->
+<div class="ov" id="ov-cartdisc" onclick="if(event.target===this)closeModal('cartdisc')">
+  <div class="modal" style="max-width:380px">
+    <button class="m-close" onclick="closeModal('cartdisc')"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-discount-2" style="margin-right:8px;color:var(--acc)"></i>Savat bo'ylab chegirma</h2>
+    <div style="display:flex;gap:6px;margin:12px 0 8px">
+      <button class="cd-type-btn" data-t="som" onclick="posSetDiscType('som')"
+        style="flex:1;padding:8px;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;background:#0D1B2A;color:#fff;cursor:pointer">So'mda</button>
+      <button class="cd-type-btn" data-t="foiz" onclick="posSetDiscType('foiz')"
+        style="flex:1;padding:8px;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;background:#fff;color:#666;cursor:pointer">Foizda (%)</button>
+    </div>
+    <div id="cd-hint" style="font-size:11.5px;color:var(--mut);margin-bottom:8px">Har bir DONA narxidan shuncha so'm chegirma</div>
+    <input id="cd-val" type="number" min="0" placeholder="Masalan: 10000 yoki 5"
+      oninput="posCalcDiscPreview()"
+      style="width:100%;font-family:inherit;font-size:16px;font-weight:700;border:1.5px solid var(--brd);border-radius:10px;padding:11px 13px;box-sizing:border-box;text-align:center">
+    <div id="cd-preview" style="text-align:center;font-size:13.5px;margin:10px 0;min-height:20px">Jami chegirma: <b>0 so'm</b></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1;font-size:12px" onclick="posClearDiscount()">Bekor qilish<br><span style="font-size:10px;font-weight:400">(asl narxlar)</span></button>
+      <button class="btn" style="flex:1.4" onclick="posApplyDiscount()"><i class="ti ti-check"></i> Qo'llash</button>
+    </div>
+  </div>
+</div>
 <!-- №3 ATKAZ modali (v168) — to'lovni storno qilish tasdig'i -->
 <div class="ov" id="ov-atkaz" onclick="if(event.target===this)closeModal('atkaz')">
   <div class="modal" style="max-width:400px">
@@ -4140,7 +4165,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=187"></script>
 <script src="js/dashboard.js?v=147"></script>
-<script src="js/pos.js?v=194"></script>
+<script src="js/pos.js?v=196"></script>
 <script src="js/katalog.js?v=175"></script>
 <script src="js/ombor.js?v=148"></script>
 <script src="js/mijozlar.js?v=145"></script>
@@ -4211,6 +4236,9 @@ document.addEventListener('DOMContentLoaded', () => {
     <div style="padding:14px 24px;border-bottom:1px solid #E8E5E0">
       <div id="rcp-pochka-row" style="display:none;justify-content:space-between;font-size:13px;color:#0D1B2A;font-weight:800;margin-bottom:4px;border-top:1px dashed #ddd;padding-top:4px">
         <span>JAMI POCHKA</span><span id="rcp-pochka">—</span>
+      </div>
+      <div id="rcp-itemdisc-row" style="display:none;justify-content:space-between;font-size:12.5px;color:#B91C1C;font-weight:700;margin-bottom:4px">
+        <span>Tovar chegirmalari</span><span id="rcp-itemdisc">—</span>
       </div>
       <div id="rcp-subtotal-row" style="display:flex;justify-content:space-between;font-size:13px;color:#555;font-weight:600;margin-bottom:4px">
         <span>Subtotal</span><span id="rcp-subtotal">—</span>

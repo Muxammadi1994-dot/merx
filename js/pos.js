@@ -833,8 +833,8 @@ function renderCart() {
       </button>
     </span>`;
     const subLine = c.sellMode === "karobka"
-      ? `${c.qtyBox} pochka (${c.qty} ${c.unit}) · ${priceDisplay(c.price*(c.inBox||1))}/pochka${isOverride?` <span style="color:#E9A500;font-size:10px">(o'zgartirilgan)</span>`:""}`
-      : isOverride ? `<span style="color:#E9A500;font-size:10.5px">Narx o'zgartirilgan: ${priceDisplay(c.basePrice)} → ${priceDisplay(c.price)}</span>` : "";
+      ? `${c.qtyBox} pochka (${c.qty} ${c.unit}) · ${isOverride ? `<s style="color:#bbb">${priceDisplay(c.basePrice*(c.inBox||1))}</s> <span style="color:#E9A500;font-weight:700">${priceDisplay(c.price*(c.inBox||1))}</span>` : priceDisplay(c.price*(c.inBox||1))}/pochka`
+      : isOverride ? `<span style="font-size:10.5px"><s style="color:#bbb">${priceDisplay(c.basePrice)}</s> <span style="color:#E9A500;font-weight:700">${priceDisplay(c.price)}</span>/${c.unit||"dona"}</span>` : "";
     return `<div class="ci">
       <div class="ci-inf">
         <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-bottom:2px">
@@ -914,6 +914,69 @@ function ciGetMax(c) {
 }
 
 
+// ═══ v195 (AbuSaxiy): SAVAT BO'YLAB CHEGIRMA ═══
+// Har tovar narxidan so'mda yoki foizda chegirma. Mavjud basePrice
+// mexanizmi ustiga qurilgan: narx shunchaki pasayadi — checkout,
+// ombor, qarz matematikasiga TEGILMAYDI (regressiya minimal).
+let _cdType = "som";
+function posOpenDiscount() {
+  if (!cart.length) { toast("Savat bo'sh", "err"); return; }
+  _cdType = "som";
+  const inp = $("cd-val"); if (inp) inp.value = "";
+  posSetDiscType("som");
+  openModal("cartdisc");
+  if (inp) setTimeout(() => inp.focus(), 100);
+}
+function posSetDiscType(t) {
+  _cdType = t;
+  document.querySelectorAll(".cd-type-btn").forEach(b => {
+    const on = b.dataset.t === t;
+    b.style.background = on ? "#0D1B2A" : "#fff";
+    b.style.color = on ? "#fff" : "#666";
+  });
+  const hint = $("cd-hint");
+  if (hint) hint.textContent = t === "som"
+    ? "Har bir DONA narxidan shuncha so'm chegirma"
+    : "Har tovar o'z narxidan shuncha foiz chegirma";
+  posCalcDiscPreview();
+}
+function _cdPerUnit(c, v) {
+  const base = c.basePrice || c.price;
+  return _cdType === "som" ? Math.round(v) : Math.round(base * v / 100);
+}
+function posCalcDiscPreview() {
+  const v = parseFloat((($("cd-val")||{value:""}).value || "").replace(/\s/g,"")) || 0;
+  let total = 0, bad = null;
+  cart.forEach(c => {
+    const base = c.basePrice || c.price;
+    const per = _cdPerUnit(c, v);
+    if (v > 0 && per >= base) bad = c.name;
+    total += per * (c.qty || 0);
+  });
+  const el = $("cd-preview");
+  if (el) el.innerHTML = bad
+    ? `<span style="color:var(--red)">"${bad}" narxi 0 dan past bo'lib qoladi — kamroq kiriting</span>`
+    : `Jami chegirma: <b style="color:var(--grn)">${fmt(total)} so'm</b>`;
+  return { v, total, bad };
+}
+function posApplyDiscount() {
+  const { v, total, bad } = posCalcDiscPreview();
+  if (!v || v <= 0) { toast("Chegirma qiymatini kiriting", "err"); return; }
+  if (bad) { toast("Chegirma juda katta — narx 0 dan past bo'lib qoladi", "err"); return; }
+  cart.forEach(c => {
+    if (!c.basePrice) c.basePrice = c.price;
+    c.price = c.basePrice - _cdPerUnit(c, v);
+  });
+  posSaveCarts(); renderCart(); closeModal("cartdisc");
+  toast(`✅ Chegirma qo'llandi — jami ${fmt(total)} so'm`);
+}
+function posClearDiscount() {
+  let n = 0;
+  cart.forEach(c => { if (c.basePrice) { c.price = c.basePrice; c.basePrice = null; n++; } });
+  posSaveCarts(); renderCart(); closeModal("cartdisc");
+  toast(n ? "Chegirmalar bekor qilindi — asl narxlar qaytdi" : "Chegirma yo'q edi");
+}
+
 // ── Savatda narxni tahrirlash ─────────────────────
 function ciEditPrice(idx) {
   const c = cart[idx]; if (!c) return;
@@ -923,7 +986,7 @@ function ciEditPrice(idx) {
     c.name + " narxini o'zgartiring\n" +
     "Hozirgi: " + fmt(oldPrice) + " so'm\n" +
     "Yangi narxni kiriting:",
-    oldPrice
+    fmt(oldPrice) // v195: "550 000" ko'rinishida — o'qish oson (probellar avtomatik olib tashlanadi)
   );
   if (newPriceStr === null) return;
   const newPrice = parseFloat((newPriceStr||"").replace(/\s/g,"")) || oldPrice;
@@ -1979,7 +2042,8 @@ async function checkout() {
       sellMode: c.sellMode || "dona",
       packGroup: c.packGroup != null ? c.packGroup : null,
       groupSizes: c.groupSizes || null,
-      price: c.price, unit: c.unit,
+      price: c.price, basePrice: c.basePrice || null, // v195: chekda chizilgan eski narx
+      unit: c.unit,
       image: c.image || null,
       barcode: c.barcode || null
     })),
@@ -2297,6 +2361,8 @@ function showReceiptModal(sale) {
     $("rcp-items").innerHTML = sale.items.map(i => {
       const lineTotal = (i.price||0) * (i.qty||1);
       const unitPrice = i.price||0;
+      // v195: chegirma bo'lsa eski narx chizib ko'rsatiladi
+      const _bp = (i.basePrice && i.basePrice > unitPrice) ? `<s style="color:#aaa">${fmt(i.basePrice)}</s> ` : "";
       // Variantdan rang/o'lchamni chiqarish
       const raw = i.variant || "";
       const clean = raw.replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
@@ -2308,10 +2374,10 @@ function showReceiptModal(sale) {
       let calcStr;
       if (isBox) {
         // 2pch × (6 juft × 400 000) = 2 400 000
-        calcStr = `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${fmt(unitPrice)}) = ${fmt(lineTotal)}`;
+        calcStr = `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${_bp}${fmt(unitPrice)}) = ${fmt(lineTotal)}`;
       } else {
         // 6 juft × 400 000 = 2 400 000
-        calcStr = `${i.qty} ${i.unit||"dona"} × ${fmt(unitPrice)} = ${fmt(lineTotal)}`;
+        calcStr = `${i.qty} ${i.unit||"dona"} × ${_bp}${fmt(unitPrice)} = ${fmt(lineTotal)}`;
       }
       return `<div style="margin-bottom:3px;padding-bottom:3px;font-size:10px;line-height:1.3;border-bottom:1px dashed #ddd">
         <div style="font-weight:700;color:#0D1B2A">${varName}</div>
@@ -2326,6 +2392,13 @@ function showReceiptModal(sale) {
   if (_tpRow) {
     _tpRow.style.display = _tp > 0 ? "flex" : "none";
     if ($("rcp-pochka")) $("rcp-pochka").textContent = fmt(_tp) + " pochka";
+  }
+  // v195: tovar chegirmalari jami (narxlar allaqachon pasaytirilgan — bu faqat ma'lumot qatori)
+  const _idisc = (sale.items||[]).reduce((a,i) => a + ((i.basePrice && i.basePrice > (i.price||0)) ? (i.basePrice - i.price) * (i.qty||1) : 0), 0);
+  const _idRow = $("rcp-itemdisc-row");
+  if (_idRow) {
+    _idRow.style.display = _idisc > 0 ? "flex" : "none";
+    if ($("rcp-itemdisc")) $("rcp-itemdisc").textContent = "−" + fmt(_idisc) + " so'm";
   }
 
   // Subtotal va chegirma
@@ -2563,7 +2636,7 @@ function posPrintCart() {
       variant: c.sellMode === "karobka" ? `${c.color} (${c.qtyBox} pochka)` : [c.color, c.size].filter(v => v && v !== "-").join(" / "),
       qty: c.qty, qtyBox: c.qtyBox || null, inBox: c.inBox || null,
       sellMode: c.sellMode || "dona",
-      price: c.price, unit: c.unit || "dona"
+      price: c.price, basePrice: c.basePrice || null, unit: c.unit || "dona"
     })),
     subtotal, discount: disc,
     total: subtotal - disc,
