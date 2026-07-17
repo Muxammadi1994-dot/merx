@@ -35,6 +35,11 @@ function priceFmt(uzs, forceSom) {
 }
 
 // ── Davr bo'yicha sales filtrlash ──────────────
+function dashPeriodName() {
+  if (dashPeriod === -2) return "tanlangan davr";
+  return ({ "0":"bugun", "1":"kecha", "7":"7 kun", "30":"30 kun", "365":"1 yil", "-1":"barchasi" })[String(dashPeriod)] || "bugun";
+}
+
 function dashGetSales() {
   const t = today();
   if (dashPeriod === -2 && dashCustomFrom && dashCustomTo) {
@@ -78,8 +83,11 @@ function renderDashboard() {
 
   // Kassaga tushdi — payBreakdown + debtPayments (nasiyasiz)
   const rate = db.settings?.rate || 12800;
+  // 2026-07-17: kassa/naqd ko'rsatkichlari DAVR tugmalariga bo'ysunadi
+  const _perSales = dashGetSales();
+  const _pr = dashGetDateRange();
   let todayKassa = 0;
-  todaySales.forEach(s => {
+  _perSales.forEach(s => {
     const pb = s.payBreakdown;
     if (pb && (pb.naqd||pb.karta||pb.otkazma)) {
       todayKassa += (pb.naqd||0) + (pb.karta||0) + (pb.otkazma||0);
@@ -87,7 +95,7 @@ function renderDashboard() {
       todayKassa += s.payType === "nasiya" ? 0 : (s.paid||0);
     }
   });
-  activePays().filter(p => p.date === t).forEach(p => {
+  activePays().filter(p => p.date >= _pr.from && p.date <= _pr.to).forEach(p => {
     todayKassa += p.currency === "usd" ? Math.round(p.amount * rate) : (p.amount||0);
   });
 
@@ -96,12 +104,12 @@ function renderDashboard() {
   // (aralashda FAQAT naqd qismi — methodBreakdown). "Kassada qoldi" =
   // naqd tushum − bugungi NAQD xarajatlar.
   let kassaNaqd = 0;
-  todaySales.forEach(s => {
+  _perSales.forEach(s => {
     const pb = s.payBreakdown;
     if (pb && (pb.naqd || pb.karta || pb.otkazma)) kassaNaqd += (pb.naqd || 0);
     else if (s.payType === "naqd") kassaNaqd += (s.paid || 0);
   });
-  activePays().filter(p => p.date === t).forEach(p => {
+  activePays().filter(p => p.date >= _pr.from && p.date <= _pr.to).forEach(p => {
     const somAmt = p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * rate) : (p.amount || 0));
     const mb = p.methodBreakdown;
     const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
@@ -109,7 +117,7 @@ function renderDashboard() {
     else if ((p.method || "naqd") === "naqd") kassaNaqd += somAmt;
   });
   const naqdXarajat = (db.xarajatlar || [])
-    .filter(x => x.date === t && (x.method || "naqd") === "naqd")
+    .filter(x => x.date >= _pr.from && x.date <= _pr.to && (x.method || "naqd") === "naqd")
     .reduce((a, x) => a + (x.amount || 0), 0);
   const kassadaQoldi = kassaNaqd - naqdXarajat;
 
@@ -250,12 +258,13 @@ function dashToggleKpi(key, val) {
 }
 
 function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
-  // Agar argumentsiz chaqirilsa — hisoblash
-  if (todayCnt === undefined) {
-    const t = today();
-    const td = db.sales.filter(s => s.date === t);
-    todayCnt   = td.length;
-    todayTotal = td.reduce((a,s) => a+s.total, 0);
+  // 2026-07-17: kartalar endi DAVR tugmalariga BO'YSUNADI — argumentlar
+  // e'tiborga olinmaydi, hamma son dashGetSales/dashGetDateRange'dan
+  // (grafiklar bilan BIR manba). Qarz/muddati/ombor — holat, davrsiz.
+  {
+    const perSales = dashGetSales();
+    todayCnt   = perSales.length;
+    todayTotal = perSales.reduce((a,s) => a+(s.total||0), 0);
     const dts  = debtSales();
     totalDebt  = dts.reduce((a,s) => a+s.remaining, 0);
     debtCnt    = dts.length;
@@ -265,16 +274,16 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
   const cols     = dashGetKpiCols();
   const avgCheck = todayCnt ? Math.round(todayTotal / todayCnt) : 0;
 
-  // Kassaga tushdi hisoblash
+  // Kassaga tushdi — davr bo'yicha
   const _rate = db.settings?.rate || 12800;
-  const _t    = today();
+  const _pr2  = dashGetDateRange();
   let kassaTushdiKpi = 0;
-  db.sales.filter(s => s.date === _t).forEach(s => {
+  dashGetSales().forEach(s => {
     const pb = s.payBreakdown;
     if (pb && (pb.naqd||pb.karta||pb.otkazma)) kassaTushdiKpi += (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
     else kassaTushdiKpi += s.payType === "nasiya" ? 0 : (s.paid||0);
   });
-  activePays().filter(p => p.date === _t).forEach(p => {
+  activePays().filter(p => p.date >= _pr2.from && p.date <= _pr2.to).forEach(p => {
     kassaTushdiKpi += p.currency === "usd" ? Math.round(p.amount*_rate) : (p.amount||0);
   });
 
@@ -283,12 +292,12 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
   // (aralashda FAQAT naqd qismi — methodBreakdown). "Kassada qoldi" =
   // naqd tushum − bugungi NAQD xarajatlar.
   let kassaNaqd = 0;
-  db.sales.filter(s => s.date === _t).forEach(s => {
+  dashGetSales().forEach(s => {
     const pb = s.payBreakdown;
     if (pb && (pb.naqd || pb.karta || pb.otkazma)) kassaNaqd += (pb.naqd || 0);
     else if (s.payType === "naqd") kassaNaqd += (s.paid || 0);
   });
-  activePays().filter(p => p.date === _t).forEach(p => {
+  activePays().filter(p => p.date >= _pr2.from && p.date <= _pr2.to).forEach(p => {
     const somAmt = p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * _rate) : (p.amount || 0));
     const mb = p.methodBreakdown;
     const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
@@ -296,7 +305,7 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
     else if ((p.method || "naqd") === "naqd") kassaNaqd += somAmt;
   });
   const naqdXarajat = (db.xarajatlar || [])
-    .filter(x => x.date === _t && (x.method || "naqd") === "naqd")
+    .filter(x => x.date >= _pr2.from && x.date <= _pr2.to && (x.method || "naqd") === "naqd")
     .reduce((a, x) => a + (x.amount || 0), 0);
   const kassadaQoldi = kassaNaqd - naqdXarajat;
 
@@ -309,31 +318,31 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
       key: 'kassa',
       icon: 'ti-cash', color: '#36B48C',
       label: 'Kassaga tushdi', val: priceFmt(kassaTushdiKpi, true),
-      sub: 'bugun (nasiyasiz)', click: "nav('moliya')"
+      sub: dashPeriodName() + ' (nasiyasiz)', click: "nav('moliya')"
     },
     {
       key: 'naqdtushdi',
       icon: 'ti-coin', color: '#36B48C',
       label: 'Naqd tushdi', val: priceFmt(kassaNaqd, true),
-      sub: "sotuv + qarz to'lovi (naqd)", click: "nav('moliya')"
+      sub: "naqd · " + dashPeriodName(), click: "nav('moliya')"
     },
     {
       key: 'kassaqoldi',
       icon: 'ti-building-bank', color: kassadaQoldi >= 0 ? '#E9A500' : '#E05A5A',
       label: 'Kassada qoldi', val: priceFmt(kassadaQoldi, true),
-      sub: 'naqd tushum − naqd xarajat', click: "nav('moliya')"
+      sub: 'tushum − xarajat · ' + dashPeriodName(), click: "nav('moliya')"
     },
     {
       key: 'sotuvlar',
       icon: 'ti-shopping-bag', color: '#4C9BE8',
       label: 'Sotuvlar soni', val: todayCnt + ' ta',
-      sub: 'bugungi tranzaksiya', click: "nav('tarix')"
+      sub: 'tranzaksiya · ' + dashPeriodName(), click: "nav('tarix')"
     },
     {
       key: 'ortacha',
       icon: 'ti-receipt', color: '#36B48C',
       label: "O'rtacha chek", val: todayCnt ? priceFmt(avgCheck, true) : '—',
-      sub: "bir sotuvga o'rtacha", click: "nav('tarix')"
+      sub: "o'rtacha · " + dashPeriodName(), click: "nav('tarix')"
     },
     {
       key: 'qarz',
@@ -391,11 +400,7 @@ function dashSetPeriod(p) {
     const bp = b.dataset.p !== undefined ? +b.dataset.p : null;
     b.classList.toggle('on', bp === p && p !== -2);
   });
-  renderDashChart();
-  renderDashDonut();
-  renderDashPriceType();
-  renderDashTops();
-  renderDashSalesTable();
+  renderDashboard(); // 2026-07-17: header + KPI kartalar + grafiklar — hammasi davrga mos yangilanadi
 }
 
 function dashToggleCalendar() {
@@ -442,11 +447,7 @@ function dashApplyCustom() {
     lbl.style.display = 'inline';
     lbl.textContent   = from.slice(5) + ' – ' + to.slice(5);
   }
-  renderDashChart();
-  renderDashDonut();
-  renderDashPriceType();
-  renderDashTops();
-  renderDashSalesTable();
+  renderDashboard(); // 2026-07-17: header + KPI kartalar ham davrga mos
   toast(`${from} — ${to} oraliq qo'llandi`);
 }
 
