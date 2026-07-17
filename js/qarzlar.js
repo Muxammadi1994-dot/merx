@@ -1549,7 +1549,9 @@ function showDebtPaymentReceipt(payment) {
       @page{size:58mm auto;margin:0} body{background:#fff} .rc{width:58mm}
       /* 2026-07-17: termal printer OQ-QORA — ranglar xira chiqadi, hammasi qora */
       .grn,.red,.big,.lbl,.sub,.ft,.ft2{color:#000 !important}
-      .hd{background:#000 !important;-webkit-print-color-adjust:exact}
+      /* 2026-07-17: qora fon termalda hech narsa ko'rsatmaydi — OQ fon, QORA yozuv */
+      .hd{background:#fff !important;color:#000 !important;border-bottom:2px solid #000}
+      .hd .nm,.hd .sub{color:#000 !important}
     }
   </style></head><body><div class="rc">
     ${cfg.logo ? `<div class="logo"><img src="${cfg.logo}"></div>` : ""}

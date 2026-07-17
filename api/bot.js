@@ -1155,9 +1155,10 @@ async function actionRenderPayReceipt(payId, shopId) {
   let shopName = "MERX";
   try {
     const _sf = (shopId || p?.shop_id) ? `&shop_id=eq.${encodeURIComponent(shopId || p.shop_id)}` : "";
-    const sets = await sb("settings", `?limit=1&select=shop_name${_sf}`);
+    const sets = await sb("settings", `?limit=1&select=shop_name,chek_config${_sf}`);
     shopName = sets?.[0]?.shop_name || "MERX";
-  } catch {}
+    var _ck = sets?.[0]?.chek_config || {}; // 2026-07-17: logo/manzil/telefon/shior
+  } catch { var _ck = {}; }
   if (!p) return `<!DOCTYPE html><html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#F2F0EB;color:#888">To'lov topilmadi (biroz kutib, qayta oching)</body></html>`;
   return buildPayReceiptHtml(p, shopName);
 }
@@ -1750,7 +1751,125 @@ function buildReceiptHtml(sale, opts) {
     showContact: opts.showContact !== false,
     F: n => Math.round(n||0).toLocaleString("ru-RU")
   };
-  return buildReceiptMerx(s, opts, cfg);
+  // 2026-07-17 (AbuSaxiy): PDF/bot cheki endi YAGONA shablonda — POS sotuv
+  // cheki bilan bir xil: logo, namuna-params bloki, pch-format, JAMI POCHKA,
+  // chizilgan chegirma narxlari, $ qatori. (Eski merx-uslub tarmog'i tark etildi.)
+  const F = cfg.F;
+  const addr    = opts.addr    || "";
+  const tagline = opts.tagline || "Ulgurji savdo tizimi";
+  const items   = (s.items || []).filter(Boolean);
+  const date    = (s.date||"").includes("-") ? s.date.split("-").reverse().join(".") : (s.date||"");
+  const total = Number(s.total||0), paid = Number(s.paid||0), remaining = Number(s.remaining||0);
+  const discount = Number(s.discount||0);
+  const rate = Number(s.rate||0);
+  const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi", aralash:"Aralash", nasiya:"Nasiya", qarz:"Nasiya" };
+
+  const itemsHtml = items.map(i => {
+    const sum = (i.price||0)*(i.qty||0);
+    const clean = (i.variant||"").replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
+    const nm = [i.name||"", clean, i.art||""].filter(Boolean).join(" / ");
+    const bp = (i.basePrice && i.basePrice > (i.price||0)) ? `<s style="color:#999">${F(i.basePrice)}</s> ` : "";
+    const isBox = i.sellMode === "karobka" && i.qtyBox && i.inBox;
+    const calc = isBox
+      ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${F(i.price)}) = ${F(sum)}`
+      : `${i.qty} ${i.unit||"dona"} × ${bp}${F(i.price)} = ${F(sum)}`;
+    return `<div class="it"><div class="itn">${nm}</div><div class="itc">${calc}</div></div>`;
+  }).join("");
+
+  const jamiPch = items.reduce((a,i)=> a + ((i.sellMode==="karobka" && i.qtyBox) ? i.qtyBox : 0), 0);
+  const itemDisc = items.reduce((a,i)=> a + ((i.basePrice && i.basePrice > (i.price||0)) ? (i.basePrice-i.price)*(i.qty||1) : 0), 0);
+  const usdLine = rate > 0 ? ` / $${(total/rate).toFixed(2)}` : "";
+
+  const pb = s.payBreakdown;
+  const pbRows = pb ? Object.entries(pb).filter(([,v]) => (v||0) > 0) : [];
+  const payHtml = pbRows.length > 1
+    ? pbRows.map(([m,v]) => `<div class="r"><span>${payLabels[m]||m}</span><span>${F(v)} so'm</span></div>`).join("")
+    : `<div class="r"><span>To'lov turi</span><b>${payLabels[s.payType]||s.payType||"—"}</b></div>`;
+
+  const isUsd = s.debtCurrency === "usd" && s.debtUsd != null;
+  let debtHtml = "";
+  if (remaining > 0) {
+    if (isUsd && s.prevDebtUsd > 0) {
+      debtHtml = `<div class="r sm"><span>Oldingi qarz</span><span>$${Number(s.prevDebtUsd).toFixed(2)}</span></div>
+        <div class="r sm"><span>+ Yangi qarz</span><span>$${Number(s.debtUsd).toFixed(2)}</span></div>
+        <div class="r bold"><span>Umumiy qarz</span><span>$${(Number(s.prevDebtUsd)+Number(s.debtUsd)).toFixed(2)} USD</span></div>`;
+    } else if (!isUsd && s.prevDebtUzs > 0) {
+      debtHtml = `<div class="r sm"><span>Oldingi qarz</span><span>${F(s.prevDebtUzs)} so'm</span></div>
+        <div class="r sm"><span>+ Yangi qarz</span><span>${F(remaining)} so'm</span></div>
+        <div class="r bold"><span>Umumiy qarz</span><span>${F(Number(s.prevDebtUzs)+remaining)} so'm</span></div>`;
+    } else {
+      debtHtml = `<div class="r bold"><span>QARZ</span><span>${isUsd ? "$"+Number(s.debtUsd).toFixed(2)+" USD" : F(remaining)+" so'm"}</span></div>`;
+    }
+    if (s.due) debtHtml += `<div class="r sm"><span>Muddat</span><span><b>${s.due.split("-").reverse().join(".")}</b></span></div>`;
+  }
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chek ${s.chekNum||""}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',Arial,sans-serif;background:#F2F0EB;display:flex;justify-content:center;padding:14px 6px}
+.rc{width:330px;max-width:100%;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 18px rgba(13,27,42,.12)}
+.logo{text-align:center;padding:8px 8px 2px}
+.logo img{width:100%;max-height:64px;object-fit:contain}
+.hd{background:#0D1B2A;color:#fff;text-align:center;padding:12px 10px}
+.hd .nm{font-size:18px;font-weight:800;letter-spacing:.04em}
+.hd .sub{font-size:10.5px;color:rgba(255,255,255,.8);margin-top:2px}
+.meta{padding:8px 14px;font-size:12.5px;line-height:1.8;border-bottom:1px dashed #ddd}
+.meta b{font-weight:800}
+.lbl{font-size:10px;color:#777;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:7px 14px 2px}
+.it{padding:5px 14px;border-bottom:1px dashed #eee}
+.itn{font-size:13px;font-weight:800;color:#0D1B2A}
+.itc{font-size:12.5px;color:#333;margin-top:1px}
+.r{display:flex;justify-content:space-between;padding:2px 14px;font-size:13px}
+.r.sm{font-size:12px;color:#555}
+.r.bold{font-weight:800;font-size:14px}
+.tot{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:2px solid #0D1B2A;border-bottom:1px dashed #ddd}
+.tot .v{font-size:19px;font-weight:900}
+.ft{text-align:center;padding:10px 8px;font-size:12px;color:#444;font-style:italic}
+.ft2{text-align:center;font-size:10.5px;color:#999;padding-bottom:10px}
+.acts{display:flex;gap:8px;justify-content:center;padding:12px}
+.btn{border:none;border-radius:9px;padding:10px 18px;font-weight:700;cursor:pointer}
+@media print{
+  @page{size:58mm auto;margin:0} body{background:#fff;padding:0} .rc{width:58mm;box-shadow:none;border-radius:0}
+  .acts{display:none}
+  .hd{background:#fff !important;color:#000 !important;border-bottom:2px solid #000}
+  .hd .sub{color:#000}
+  .itn,.itc,.r,.meta,.ft,.ft2{color:#000 !important}
+}
+</style></head><body><div>
+<div class="rc">
+  ${cfg.logo ? `<div class="logo"><img src="${cfg.logo}"></div>` : ""}
+  <div class="hd">
+    <div class="nm">${(cfg.shopName||"MERX").toUpperCase()}</div>
+    <div class="sub">${tagline}</div>
+  </div>
+  <div class="meta">
+    <div><b>Sotuv:</b> ${s.chekNum || "#"+s.id}</div>
+    ${addr ? `<div><b>Do'kon:</b> ${addr}</div>` : ""}
+    <div><b>Sana:</b> ${date} ${s.time||""}</div>
+    ${cfg.contact ? `<div><b>Kontaktlar:</b> ${cfg.contact}</div>` : ""}
+    <div><b>Mijoz:</b> ${s.customerName || "Noma'lum"}</div>
+    ${s.customerPhone ? `<div><b>Mijoz raqami:</b> ${s.customerPhone}</div>` : ""}
+  </div>
+  <div class="lbl">Mahsulotlar</div>
+  ${itemsHtml}
+  ${jamiPch > 0 ? `<div class="r bold" style="padding-top:6px"><span>JAMI POCHKA</span><span>${jamiPch} pochka</span></div>` : ""}
+  ${itemDisc > 0 ? `<div class="r sm"><span>Tovar chegirmalari</span><span>−${F(itemDisc)} so'm</span></div>` : ""}
+  ${discount > 0 ? `<div class="r sm"><span>Chegirma</span><span>−${F(discount)} so'm</span></div>` : ""}
+  <div class="tot"><span style="font-weight:800">JAMI</span><span class="v">${F(total)} so'm${usdLine}</span></div>
+  <div class="lbl">To'lov</div>
+  ${payHtml}
+  ${paid > 0 ? `<div class="r"><span>To'landi</span><span style="font-weight:700">${F(paid)} so'm</span></div>` : ""}
+  ${debtHtml}
+  <div class="ft">${cfg.footer}</div>
+  <div class="ft2">${cfg.shopName} · ${date}</div>
+</div>
+<div class="acts">
+  <button class="btn" style="background:#0D1B2A;color:#fff" onclick="window.print()">🖨 Chop etish</button>
+  <button class="btn" style="background:#eee" onclick="window.close?window.close():history.back()">Yopish</button>
+</div>
+</div></body></html>`;
 }
 
 async function actionRenderReceipt(chekId, saleData, shopId) {
@@ -1800,7 +1919,14 @@ async function actionRenderReceipt(chekId, saleData, shopId) {
     };
   }
 
-  return buildReceiptHtml(sale, { shopName });
+  return buildReceiptHtml(sale, {
+    shopName,
+    logo:    _ck.logo    || null,
+    addr:    _ck.addr    || "",
+    contact: (_ck.showContact !== false ? _ck.contact : "") || "",
+    tagline: _ck.tagline || "Ulgurji savdo tizimi",
+    footer:  _ck.footer  || "Rahmat! Yana kutamiz 🙏"
+  });
 }
 
 // ── /stat (oylik statistika) ─────────────────────────────────
