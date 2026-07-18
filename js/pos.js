@@ -2536,6 +2536,13 @@ function showReceiptModal(sale) {
     rcpThanks.textContent = footerTxt;
     rcpThanks.style.display = "block";
   }
+  // 2026-07-18 (2-bosqich): qo'shimcha matn qatorlari (reklama/ish vaqti...)
+  const rcpExtra = $("rcp-extra");
+  if (rcpExtra) {
+    const _ex = Array.isArray(_ckCfg.extraLines) ? _ckCfg.extraLines.filter(Boolean) : [];
+    if (_ex.length) { rcpExtra.innerHTML = _ex.map(t => `<div>${t}</div>`).join(""); rcpExtra.style.display = "block"; }
+    else rcpExtra.style.display = "none";
+  }
   // Bot/PDF — FAQAT EKRANDA (no-print klassi bilan yashiriladi)
   const rcpBotEl = $("rcp-bot-info");
   if (rcpBotEl) {

@@ -2683,8 +2683,23 @@
                   <option value="80">80 mm</option>
                 </select>
               </div>
-              <div class="fld"><label>Do'kon telefoni (chekda)</label><input id="chek-contact" placeholder="+998 90 123 45 67, ..."></div>
+              <div class="fld">
+                <label>Telefon raqamlar (chekda) — bir nechta bo'lishi mumkin</label>
+                <div id="chek-phones-box" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+                <div style="display:flex;gap:6px">
+                  <input id="chek-phone-new" placeholder="+998 90 123 45 67" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:8px 10px">
+                  <button type="button" class="btn btn-sm" onclick="addChekPhone()"><i class="ti ti-plus"></i></button>
+                </div>
+              </div>
               <div class="fld"><label>Altbilgi matni</label><input id="chek-footer" placeholder="Rahmat! Yana kutamiz 🙏"></div>
+              <div class="fld">
+                <label>Qo'shimcha matn qatorlari (chek pastida) — reklama, ish vaqti, ...</label>
+                <div id="chek-extra-box" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+                <div style="display:flex;gap:6px">
+                  <input id="chek-extra-new" placeholder="Masalan: Ish vaqti 9:00–20:00" style="flex:1;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:8px;padding:8px 10px">
+                  <button type="button" class="btn btn-sm" onclick="addChekExtra()"><i class="ti ti-plus"></i></button>
+                </div>
+              </div>
               <div class="fld">
                 <label style="margin-bottom:8px">Chekda ko'rsatish</label>
                 <div style="display:flex;flex-direction:column;gap:8px">
@@ -4198,21 +4213,21 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=157"></script>
-<script src="js/utils.js?v=155"></script>
+<script src="js/utils.js?v=156"></script>
 <script src="js/auth.js?v=177"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=187"></script>
 <script src="js/dashboard.js?v=148"></script>
-<script src="js/pos.js?v=200"></script>
+<script src="js/pos.js?v=201"></script>
 <script src="js/katalog.js?v=175"></script>
 <script src="js/ombor.js?v=148"></script>
 <script src="js/mijozlar.js?v=145"></script>
-<script src="js/qarzlar.js?v=176"></script>
+<script src="js/qarzlar.js?v=177"></script>
 <script src="js/tarix.js?v=155"></script>
 <script src="js/hisobot.js?v=145"></script>
 <script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=158"></script>
-<script src="js/egasi.js?v=147"></script>
+<script src="js/egasi.js?v=148"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=143"></script>
 <script>
@@ -4341,6 +4356,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     <!-- Bot va PDF havola -->
     <div id="rcp-thanks" style="display:none;text-align:center;padding:6px 8px;border-top:1px dashed #ddd;font-size:10px;color:#555;font-style:italic"></div>
+    <div id="rcp-extra" style="display:none;text-align:center;padding:2px 8px 6px;font-size:11px;color:#333"></div>
     <div id="rcp-bot-info" class="no-print" style="display:none;padding:8px 24px;border-top:1px solid #E8E5E0;background:#F9F8F6"></div>
 
     <!-- Tugmalar sticky pastda (chop etilganda ko'rinmaydi) -->

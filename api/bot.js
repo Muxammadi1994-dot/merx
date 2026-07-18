@@ -1874,6 +1874,7 @@ body{font-family:'DM Sans',Arial,sans-serif;background:#F2F0EB;display:flex;just
   ${paid > 0 ? `<div class="r"><span>To'landi</span><span style="font-weight:700">${F(paid)} so'm</span></div>` : ""}
   ${debtHtml}
   <div class="ft">${cfg.footer}</div>
+  ${(Array.isArray(opts.extraLines) && opts.extraLines.length) ? `<div style="text-align:center;font-size:12px;color:#000;padding:2px 8px 4px">${opts.extraLines.filter(Boolean).map(t=>`<div>${t}</div>`).join("")}</div>` : ""}
   <div class="ft2">${cfg.shopName} · ${date}</div>
 </div>
 <div class="acts">
@@ -1940,13 +1941,18 @@ async function actionRenderReceipt(chekId, saleData, shopId) {
     };
   }
 
+  // 2026-07-18 (2-bosqich): telefonlar massivi + qo'shimcha matnlar
+  const _ckContact = (Array.isArray(_ck.phones) && _ck.phones.length)
+    ? _ck.phones.filter(Boolean).join(", ")
+    : (_ck.contact || "");
   return buildReceiptHtml(sale, {
     shopName,
     logo:    _ck.logo    || null,
     addr:    _ck.addr    || "",
-    contact: (_ck.showContact !== false ? _ck.contact : "") || "",
+    contact: (_ck.showContact !== false ? _ckContact : "") || "",
     tagline: _ck.tagline || "Ulgurji savdo tizimi",
-    footer:  _ck.footer  || "Rahmat! Yana kutamiz 🙏"
+    footer:  _ck.footer  || "Rahmat! Yana kutamiz 🙏",
+    extraLines: Array.isArray(_ck.extraLines) ? _ck.extraLines : []
   });
 }
 

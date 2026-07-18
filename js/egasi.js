@@ -230,7 +230,13 @@ function renderEgasi() {
 
   // Chek sozlamalari
   const chekCfg = db.settings?.chekConfig || {};
-  const ceContact = document.getElementById("chek-contact");
+  // 2026-07-18: telefonlar va qo'shimcha matnlar (massiv holida)
+  window._chekPhones = Array.isArray(chekCfg.phones) && chekCfg.phones.length
+    ? chekCfg.phones.slice()
+    : (chekCfg.contact ? String(chekCfg.contact).split(",").map(s => s.trim()).filter(Boolean) : []);
+  window._chekExtra = Array.isArray(chekCfg.extraLines) ? chekCfg.extraLines.slice() : [];
+  renderChekPhones();
+  renderChekExtra();
   const ceFooter  = document.getElementById("chek-footer");
   const ceStaff   = document.getElementById("chek-show-staff");
   const ceContact2= document.getElementById("chek-show-contact");
@@ -609,7 +615,11 @@ function saveChekConfig() {
   cfg.addr    = document.getElementById("chek-addr")?.value    || ""; // v145 (№12): manzil
   cfg.tagline = document.getElementById("chek-tagline")?.value  || ""; // v146: shior
   cfg.paperWidth = parseInt(document.getElementById("chek-paper")?.value) || 72; // 2026-07-17: qog'oz eni
-  cfg.contact = document.getElementById("chek-contact")?.value || "";
+  // 2026-07-18 (2-bosqich): telefonlar massivi + qo'shimcha matnlar.
+  // Eski "contact" (vergulli) o'rniga phones[]; getChekCfg ikkalasini biladi.
+  cfg.phones = Array.isArray(window._chekPhones) ? window._chekPhones.slice() : [];
+  cfg.contact = cfg.phones.join(", "); // eski maydonlar/bot mosligi uchun ham
+  cfg.extraLines = Array.isArray(window._chekExtra) ? window._chekExtra.slice() : [];
   cfg.footer  = document.getElementById("chek-footer")?.value  || "Rahmat! Yana kutamiz 🙏";
   cfg.showStaff        = document.getElementById("chek-show-staff")?.checked !== false;
   cfg.showContact      = document.getElementById("chek-show-contact")?.checked !== false;
@@ -799,4 +809,60 @@ function removeUnitTag(kind, val) {
   db.settings[key] = cur.filter(t => t !== val);
   saveDB(); renderUnitTags();
   toast(`"${val}" o'chirildi (eski tovarlarga ta'sir qilmaydi)`);
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// CHEK KONSTRUKTORI 2-bosqich (2026-07-18): TELEFONLAR + QO'SHIMCHA MATNLAR
+// Chip-uslubidagi boshqaruv (birlik teglari kabi). Saqlash saveChekConfig'da.
+// ═══════════════════════════════════════════════════════════
+function renderChekPhones() {
+  const box = document.getElementById("chek-phones-box");
+  if (!box) return;
+  const arr = window._chekPhones || [];
+  box.innerHTML = arr.length ? arr.map((p, i) => `
+    <span style="display:inline-flex;align-items:center;gap:5px;background:#F2F0EB;border:1px solid var(--brd);border-radius:16px;padding:5px 10px;font-size:13px;font-weight:600">
+      ${p}
+      <button type="button" onclick="removeChekPhone(${i})" style="background:none;border:none;cursor:pointer;color:#bbb;font-size:14px;line-height:1;padding:0">✕</button>
+    </span>`).join("") : `<span style="font-size:12px;color:var(--mut)">Hali telefon qo'shilmagan</span>`;
+}
+function addChekPhone() {
+  const inp = document.getElementById("chek-phone-new");
+  const v = (inp?.value || "").trim();
+  if (!v) return;
+  window._chekPhones = window._chekPhones || [];
+  if (window._chekPhones.includes(v)) { toast("Bu raqam allaqachon bor", "err"); return; }
+  window._chekPhones.push(v);
+  if (inp) inp.value = "";
+  renderChekPhones();
+}
+function removeChekPhone(i) {
+  if (!window._chekPhones) return;
+  window._chekPhones.splice(i, 1);
+  renderChekPhones();
+}
+
+function renderChekExtra() {
+  const box = document.getElementById("chek-extra-box");
+  if (!box) return;
+  const arr = window._chekExtra || [];
+  box.innerHTML = arr.length ? arr.map((t, i) => `
+    <div style="display:flex;align-items:center;gap:6px;background:#F8F7F4;border:1px solid var(--brd);border-radius:8px;padding:6px 10px">
+      <span style="flex:1;font-size:13px">${t}</span>
+      <button type="button" onclick="removeChekExtra(${i})" style="background:none;border:none;cursor:pointer;color:#bbb;font-size:14px;line-height:1;padding:0">✕</button>
+    </div>`).join("") : `<span style="font-size:12px;color:var(--mut)">Qo'shimcha matn yo'q</span>`;
+}
+function addChekExtra() {
+  const inp = document.getElementById("chek-extra-new");
+  const v = (inp?.value || "").trim();
+  if (!v) return;
+  window._chekExtra = window._chekExtra || [];
+  window._chekExtra.push(v);
+  if (inp) inp.value = "";
+  renderChekExtra();
+}
+function removeChekExtra(i) {
+  if (!window._chekExtra) return;
+  window._chekExtra.splice(i, 1);
+  renderChekExtra();
 }

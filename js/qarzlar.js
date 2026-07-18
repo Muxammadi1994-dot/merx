@@ -1582,6 +1582,7 @@ function showDebtPaymentReceipt(payment) {
     </div>
     <div class="ft">${cfg.footer || "Rahmat! Yana kutamiz 🙏"}</div>
     <div class="ft2">${cfg.shopName || shopName} · ${payment.date}</div>
+    ${(Array.isArray(cfg.extraLines) && cfg.extraLines.length) ? `<div style="text-align:center;font-size:11px;color:#333;padding:2px 6px 6px">${cfg.extraLines.filter(Boolean).map(t=>`<div>${t}</div>`).join("")}</div>` : ""}
   </div>
   <script>window.onload=()=>setTimeout(()=>window.print(),300);<\/script>
   </body></html>`;

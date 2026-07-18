@@ -756,6 +756,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
 
     <div class="ft">
       <div class="ft-thanks">${footer}</div>
+      ${(Array.isArray(chekCfg.extraLines) && chekCfg.extraLines.length) ? `<div style="text-align:center;font-size:11px;color:#333;padding:2px 0 4px">${chekCfg.extraLines.filter(Boolean).map(t=>`<div>${t}</div>`).join("")}</div>` : ""}
       <div class="ft-date">${shopName} · ${date}</div>
       ${botHtml}
       ${pdfHtml}
