@@ -1771,16 +1771,18 @@ function buildReceiptHtml(sale, opts) {
   const rate = Number(s.rate||0);
   const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi", aralash:"Aralash", nasiya:"Nasiya", qarz:"Nasiya" };
 
-  const itemsHtml = items.map(i => {
+  // 2026-07-18 YAKUNIY: nomer, IKKI CHETDAN tekis (namunadagidek), qora chizish
+  const itemsHtml = items.map((i, ix) => {
     const sum = (i.price||0)*(i.qty||0);
     const clean = (i.variant||"").replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
     const nm = [i.name||"", clean, i.art||""].filter(Boolean).join(" / ");
-    const bp = (i.basePrice && i.basePrice > (i.price||0)) ? `<s style="color:#999">${F(i.basePrice)}</s> ` : "";
+    const bp = (i.basePrice && i.basePrice > (i.price||0)) ? `<s>${F(i.basePrice)}</s> ` : "";
     const isBox = i.sellMode === "karobka" && i.qtyBox && i.inBox;
-    const calc = isBox
-      ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${F(i.price)}) = ${F(sum)}`
-      : `${i.qty} ${i.unit||"dona"} × ${bp}${F(i.price)} = ${F(sum)}`;
-    return `<div class="it"><div class="itn">${nm}</div><div class="itc">${calc}</div></div>`;
+    const calcLeft = isBox
+      ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${F(i.price)})`
+      : `${i.qty} ${i.unit||"dona"} × ${bp}${F(i.price)}`;
+    return `<div class="it"><div class="itn">${ix+1}. ${nm}</div>
+      <div class="itc"><span>${calcLeft}</span><span class="itv">${F(sum)}</span></div></div>`;
   }).join("");
 
   const jamiPch = items.reduce((a,i)=> a + ((i.sellMode==="karobka" && i.qtyBox) ? i.qtyBox : 0), 0);
@@ -1794,7 +1796,7 @@ function buildReceiptHtml(sale, opts) {
     : `<div class="r"><span>To'lov turi</span><b>${payLabels[s.payType]||s.payType||"—"}</b></div>`;
 
   // 2026-07-17 (NAMUNA): MIJOZ QARZI bo'limi DOIM — POS chek bilan bir xil
-  const isUsd = s.debtCurrency === "usd";
+  const isUsd = s.debtCurrency === "usd" || (Number(s.prevDebtUsd) || 0) > 0; // 2026-07-18: to'langan sotuvda ham $ qarz ko'rinsin
   const DP = v => isUsd ? `$${Number(v||0).toFixed(2)}` : `${F(v||0)} so'm`;
   const dPrev = isUsd ? (s.prevDebtUsd || 0) : (s.prevDebtUzs || 0);
   const dNew  = isUsd ? (s.debtUsd     || 0) : (remaining     || 0);
@@ -1821,12 +1823,13 @@ body{font-family:'DM Sans',Arial,sans-serif;background:#F2F0EB;display:flex;just
 .lbl{font-size:10px;color:#777;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:7px 14px 2px}
 .it{padding:5px 14px;border-bottom:1px dashed #eee}
 .itn{font-size:13px;font-weight:800;color:#0D1B2A}
-.itc{font-size:12.5px;color:#333;margin-top:1px}
+.itc{font-size:13px;color:#000;margin-top:1px;display:flex;justify-content:space-between;gap:6px}
+.itv{font-weight:800;white-space:nowrap}
 .r{display:flex;justify-content:space-between;padding:2px 14px;font-size:13px}
 .r.sm{font-size:12px;color:#555}
 .r.bold{font-weight:800;font-size:14px}
 .tot{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:2px solid #0D1B2A;border-bottom:1px dashed #ddd}
-.tot .v{font-size:19px;font-weight:900}
+.tot .v{font-size:18px;font-weight:900;white-space:nowrap}
 .ft{text-align:center;padding:10px 8px;font-size:12px;color:#444;font-style:italic}
 .ft2{text-align:center;font-size:10.5px;color:#999;padding-bottom:10px}
 .acts{display:flex;gap:8px;justify-content:center;padding:12px}
@@ -1836,7 +1839,9 @@ body{font-family:'DM Sans',Arial,sans-serif;background:#F2F0EB;display:flex;just
   .acts{display:none}
   .hd{background:#fff !important;color:#000 !important;border-bottom:2px solid #000}
   .hd .sub{color:#000}
-  .itn,.itc,.r,.meta,.ft,.ft2{color:#000 !important}
+  .itn,.itc,.r,.meta,.ft,.ft2,.lbl,s{color:#000 !important}
+  s{text-decoration-thickness:1.6px}
+  .r,.r.sm,.meta,.itc,.itn{font-size:13.5px !important}
 }
 </style></head><body><div>
 <div class="rc">

@@ -342,6 +342,15 @@
   #ov-receipt #rcp-debt-wrap div, #ov-receipt #rcp-due-wrap { font-size: 13.5px !important; }
   #ov-receipt [id^="rcp-p-"] { font-size: 13px !important; }
   #ov-receipt .modal div { padding-top: 1.2mm !important; padding-bottom: 1.2mm !important; }
+  /* ═══ 2026-07-18 YAKUNIY: bosmada XIRA YOZUV YO'Q — hamma matn sof qora,
+     shriftlar BIR XIL o'lchamda (faqat qalinlik va JAMI farq qiladi).
+     Kulrang (#555/#777/rgba) matnlar termalda titrab-xira chiqardi. ═══ */
+  #ov-receipt .modal, #ov-receipt .modal * { color: #000 !important; }
+  #ov-receipt .modal s { color: #000 !important; text-decoration-thickness: 1.6px !important; }
+  #ov-receipt .modal div, #ov-receipt .modal span { font-size: 13.5px !important; }
+  #ov-receipt #rcp-shop { font-size: 21px !important; }
+  #ov-receipt #rcp-total { font-size: 19px !important; }
+  #ov-receipt #rcp-logo { filter: contrast(1.15); }
 
   /* QARZ BLOKI: grid ta'sirini butunlay bekor qilish.
      Eski grid-template-columns:1fr 1fr bosmada div larni yon-yonga
@@ -4194,7 +4203,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=187"></script>
 <script src="js/dashboard.js?v=148"></script>
-<script src="js/pos.js?v=198"></script>
+<script src="js/pos.js?v=199"></script>
 <script src="js/katalog.js?v=175"></script>
 <script src="js/ombor.js?v=148"></script>
 <script src="js/mijozlar.js?v=145"></script>

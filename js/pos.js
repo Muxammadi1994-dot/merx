@@ -2367,30 +2367,29 @@ function showReceiptModal(sale) {
     // POCHKA: "2pch × (6 juft × 400 000) = 2 400 000"  (mantiqiy B2 format)
     // DONA:   "6 juft × 400 000 = 2 400 000"            (oddiy format)
     // "so'm" faqat jami qatorida (oxirida), oraliq narxlarda YO'Q
-    $("rcp-items").innerHTML = sale.items.map(i => {
+    // ═══ 2026-07-18 (NAMUNA YAKUNIY): nomerlangan, IKKI CHETDAN tekis,
+    // BIR XIL shrift, faqat qalinlik farqi (xira kulranglar YO'Q).
+    // 1-qator: "1. NOM / Rang / ART"  (chap, qalin)
+    // 2-qator: chapda hisob "1pch × (5 dona × ~~350 000~~ 340 000)",
+    //          o'ngda jami "1 700 000" — namunadagidek ikki chekka.
+    $("rcp-items").innerHTML = sale.items.map((i, _ix) => {
       const lineTotal = (i.price||0) * (i.qty||1);
       const unitPrice = i.price||0;
-      // v195: chegirma bo'lsa eski narx chizib ko'rsatiladi
-      const _bp = (i.basePrice && i.basePrice > unitPrice) ? `<s style="color:#aaa">${fmt(i.basePrice)}</s> ` : "";
-      // Variantdan rang/o'lchamni chiqarish
+      const _bp = (i.basePrice && i.basePrice > unitPrice) ? `<s>${fmt(i.basePrice)}</s> ` : "";
       const raw = i.variant || "";
       const clean = raw.replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
-      // ART (artikul) qo'shildi: "TAPICHKA / Army / D3119"
       const artPart = i.art ? ` / ${i.art}` : "";
       const varName = clean ? `${i.name} / ${clean}${artPart}` : `${i.name}${artPart}`;
-      // Hisob qatori: pochkali yoki oddiy
       const isBox = i.sellMode === "karobka" && i.qtyBox && i.inBox;
-      let calcStr;
-      if (isBox) {
-        // 2pch × (6 juft × 400 000) = 2 400 000
-        calcStr = `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${_bp}${fmt(unitPrice)}) = ${fmt(lineTotal)}`;
-      } else {
-        // 6 juft × 400 000 = 2 400 000
-        calcStr = `${i.qty} ${i.unit||"dona"} × ${_bp}${fmt(unitPrice)} = ${fmt(lineTotal)}`;
-      }
-      return `<div style="margin-bottom:3px;padding-bottom:3px;font-size:10px;line-height:1.3;border-bottom:1px dashed #ddd">
-        <div style="font-weight:700;color:#0D1B2A">${varName}</div>
-        <div style="color:#374151;font-weight:600">${calcStr}</div>
+      const calcLeft = isBox
+        ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${_bp}${fmt(unitPrice)})`
+        : `${i.qty} ${i.unit||"dona"} × ${_bp}${fmt(unitPrice)}`;
+      return `<div style="margin-bottom:2px;padding-bottom:2px;border-bottom:1px dashed #ccc">
+        <div style="font-weight:800;color:#000">${_ix+1}. ${varName}</div>
+        <div style="display:flex;justify-content:space-between;gap:6px;color:#000">
+          <span>${calcLeft}</span>
+          <span style="font-weight:800;white-space:nowrap">${fmt(lineTotal)}</span>
+        </div>
       </div>`;
     }).join("");
   }
@@ -2467,7 +2466,10 @@ function showReceiptModal(sale) {
   // hammasi $da, aks holda so'mda. Savat oldindan-ko'rishda (_preview) — yo'q.
   const debtWrap = $("rcp-debt-wrap");
   {
-    const isUsd = sale.debtCurrency === "usd";
+    // 2026-07-18: to'liq to'langan sotuvda debtCurrency bo'lmaydi — valyuta
+    // MAVJUD qarzga qarab tanlanadi (aks holda $ qarzli mijozda "0 so'm"
+    // chiqardi — AbuSaxiy xatosi)
+    const isUsd = sale.debtCurrency === "usd" || (Number(sale.prevDebtUsd) || 0) > 0;
     const P = v => isUsd ? `$${Number(v||0).toFixed(2)}` : fmt(Math.round(v||0)) + " so'm";
     const prevV = isUsd ? (sale.prevDebtUsd || 0) : (sale.prevDebtUzs || 0);
     const newV  = isUsd ? (sale.debtUsd     || 0) : (sale.remaining   || 0);
