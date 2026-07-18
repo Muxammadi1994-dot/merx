@@ -62,9 +62,13 @@ function getChekCfg(type) {
     showContact:     pick("showContact", true) !== false,
     showStaff:       pick("showStaff", true) !== false,
     showDebtHistory: pick("showDebtHistory", true) !== false,
-    // Kelajak (2-3 bosqich) uchun zaxira — hozir ishlatilmaydi, standart
-    fonts:      pick("fonts", null),   // {block: {size,bold,italic,align}}
-    extraLines: pick("extraLines", null), // [{text, pos, ...}]
+    // Tipografiya (2-bosqich, 2026-07-18)
+    fontScale:   pick("fontScale", "normal"),   // small|normal|large|xlarge yoki son
+    fontFamily:  pick("fontFamily", "dm"),      // dm|sans|serif|mono
+    footerItalic: pick("footerItalic", true) !== false,
+    footerBold:   pick("footerBold", false) === true,
+    extraLines: pick("extraLines", null),
+    fonts:      pick("fonts", null), // kelajak: blok-darajali
     _type: type || "sotuv"
   };
 }

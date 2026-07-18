@@ -1524,14 +1524,19 @@ function showDebtPaymentReceipt(payment) {
     if (s?.due) dueLine = s.due;
   }
 
+  // 2026-07-18: tipografiya
+  const _qsc = ({ small:0.9, large:1.12, xlarge:1.25 })[cfg.fontScale] || (parseFloat(cfg.fontScale) >= 0.7 && parseFloat(cfg.fontScale) <= 1.5 ? parseFloat(cfg.fontScale) : 1);
+  const _qff = ({ mono:"'Courier New',monospace", serif:"'Georgia',serif", sans:"'Arial',sans-serif" })[cfg.fontFamily] || "'DM Sans',Arial,sans-serif";
+  const _qfi = cfg.footerItalic !== false;
   const cxlBanner = payment.cancelled
     ? `<div style="text-align:center;background:#FEE2E2;color:#B91C1C;font-weight:800;padding:4px;border-radius:6px;margin:6px 0">❌ BEKOR QILINGAN</div>` : "";
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
   <title>Chek ${payment.chekNum||""}</title>
   <style>
-    body{font-family:'DM Sans',Arial,sans-serif;margin:0;padding:0;display:flex;justify-content:center;background:#eee}
-    .rc{width:300px;background:#fff;padding:0 0 10px}
+    body{font-family:${_qff};margin:0;padding:0;display:flex;justify-content:center;background:#eee}
+    .rc{width:300px;background:#fff;padding:0 0 10px;zoom:${_qsc}}
+    .ft{font-style:${_qfi ? "italic" : "normal"}}
     .logo{text-align:center;padding:8px 6px 4px}
     .logo img{width:100%;max-height:64px;object-fit:contain}
     .hd{background:#0D1B2A;color:#fff;text-align:center;padding:12px 8px}

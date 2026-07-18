@@ -2331,10 +2331,14 @@ function showReceiptModal(sale) {
   // 2026-07-17: QOG'OZ ENI — sozlamadan (58/72/80mm, standart 72). @page
   // CSS o'zgaruvchini qabul qilmaydi, shuning uchun style-teg dinamik yoziladi.
   try {
-    const _pw = getChekCfg(sale && sale._preview ? "savat" : "sotuv").paperWidth;
+    const _pcfg = getChekCfg(sale && sale._preview ? "savat" : "sotuv");
+    const _pw = _pcfg.paperWidth;
+    // 2026-07-18: tipografiya — POS chekiga ham (zoom + shrift oilasi)
+    const _sc = ({ small:0.9, large:1.12, xlarge:1.25 })[_pcfg.fontScale] || (parseFloat(_pcfg.fontScale) >= 0.7 && parseFloat(_pcfg.fontScale) <= 1.5 ? parseFloat(_pcfg.fontScale) : 1);
+    const _ff = ({ mono:"'Courier New',monospace", serif:"'Georgia',serif", sans:"'Arial',sans-serif" })[_pcfg.fontFamily] || "";
     let _ps = document.getElementById("chek-paper-style");
     if (!_ps) { _ps = document.createElement("style"); _ps.id = "chek-paper-style"; document.head.appendChild(_ps); }
-    _ps.textContent = `@media print{ @page{size:${_pw}mm auto;margin:0} #ov-receipt .modal{width:${_pw}mm !important;max-width:${_pw}mm !important;min-width:${_pw}mm !important} }`;
+    _ps.textContent = `#ov-receipt .modal{zoom:${_sc}${_ff ? `;font-family:${_ff}` : ""}} @media print{ @page{size:${_pw}mm auto;margin:0} #ov-receipt .modal{width:${_pw}mm !important;max-width:${_pw}mm !important;min-width:${_pw}mm !important;zoom:${_sc}} }`;
   } catch(e) {}
 
   // Shop nomi + v192 (№12): chek muharriri sozlamalari (logo/manzil/telefon)

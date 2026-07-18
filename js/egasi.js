@@ -252,6 +252,14 @@ function renderEgasi() {
   if (ceTag)     ceTag.value     = chekCfg.tagline  || "";
   const cePaper = document.getElementById("chek-paper");
   if (cePaper)   cePaper.value   = String(chekCfg.paperWidth || 72);
+  const ceFScale = document.getElementById("chek-font-scale");
+  if (ceFScale)  ceFScale.value  = chekCfg.fontScale  || "normal";
+  const ceFFam = document.getElementById("chek-font-family");
+  if (ceFFam)    ceFFam.value    = chekCfg.fontFamily || "dm";
+  const ceFI = document.getElementById("chek-footer-italic");
+  if (ceFI)      ceFI.checked    = chekCfg.footerItalic !== false;
+  const ceFB = document.getElementById("chek-footer-bold");
+  if (ceFB)      ceFB.checked    = chekCfg.footerBold === true;
   if (ceContact) ceContact.value = chekCfg.contact  || "";
   if (ceFooter)  ceFooter.value  = chekCfg.footer   || "Rahmat! Yana kutamiz 🙏";
   if (ceStaff)   ceStaff.checked   = chekCfg.showStaff   !== false;
@@ -617,6 +625,10 @@ function saveChekConfig() {
   cfg.addr    = document.getElementById("chek-addr")?.value    || ""; // v145 (№12): manzil
   cfg.tagline = document.getElementById("chek-tagline")?.value  || ""; // v146: shior
   cfg.paperWidth = parseInt(document.getElementById("chek-paper")?.value) || 72; // 2026-07-17: qog'oz eni
+  cfg.fontScale  = document.getElementById("chek-font-scale")?.value  || "normal"; // 2026-07-18: tipografiya
+  cfg.fontFamily = document.getElementById("chek-font-family")?.value || "dm";
+  cfg.footerItalic = document.getElementById("chek-footer-italic")?.checked !== false;
+  cfg.footerBold   = document.getElementById("chek-footer-bold")?.checked === true;
   // 2026-07-18 (2-bosqich): telefonlar massivi + qo'shimcha matnlar.
   // Eski "contact" (vergulli) o'rniga phones[]; getChekCfg ikkalasini biladi.
   cfg.phones = Array.isArray(window._chekPhones) ? window._chekPhones.slice() : [];
@@ -905,6 +917,10 @@ function _livePreviewCfg() {
     showContact:     document.getElementById("chek-show-contact")?.checked !== false,
     showStaff:       document.getElementById("chek-show-staff")?.checked !== false,
     showDebtHistory: document.getElementById("chek-show-debt-history")?.checked !== false,
+    fontScale:  document.getElementById("chek-font-scale")?.value  || "normal",
+    fontFamily: document.getElementById("chek-font-family")?.value || "dm",
+    footerItalic: document.getElementById("chek-footer-italic")?.checked !== false,
+    footerBold:   document.getElementById("chek-footer-bold")?.checked === true,
   };
 }
 
@@ -965,7 +981,8 @@ function renderChekPreview() {
 // Barcha chek inputlariga jonli tinglovchi ulash (bir marta)
 function _bindChekPreviewInputs() {
   const ids = ["chek-addr","chek-tagline","chek-footer","chek-paper",
-               "chek-show-contact","chek-show-staff","chek-show-debt-history"];
+               "chek-show-contact","chek-show-staff","chek-show-debt-history",
+               "chek-font-scale","chek-font-family","chek-footer-italic","chek-footer-bold"];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (el && !el.dataset.pvBound) {

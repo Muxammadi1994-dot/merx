@@ -523,6 +523,26 @@ function buildReceiptHtml(sale, opts) {
   const showStaff   = chekCfg.showStaff   !== false;
   const showContact = chekCfg.showContact !== false;
   const showDebtHistory = chekCfg.showDebtHistory !== false;
+  // 2026-07-18 (2-bosqich tipografiya): global shrift o'lchami/oilasi/altbilgi
+  // uslubi. zoom — barcha ichki o'lchamlarni (px/padding/shrift) bir tekis
+  // masshtablaydi (377 ta px'ni birma-bir tuzatmasdan — regressiyasiz).
+  const _fscale = (() => {
+    const s = chekCfg.fontScale;
+    if (s === "small") return 0.9;
+    if (s === "large") return 1.12;
+    if (s === "xlarge") return 1.25;
+    const n = parseFloat(s);
+    return (n >= 0.7 && n <= 1.5) ? n : 1;
+  })();
+  const _ffamily = (() => {
+    const f = chekCfg.fontFamily;
+    if (f === "mono")  return "'Courier New', monospace";
+    if (f === "serif") return "'Georgia', serif";
+    if (f === "sans")  return "'Arial', sans-serif";
+    return "'DM Sans', sans-serif"; // standart
+  })();
+  const _footItalic = chekCfg.footerItalic !== false; // standart kursiv
+  const _footBold   = chekCfg.footerBold === true;
 
   // Ixcham uslub uchun — faqat asosiylarni ko'rsatish
   const _cfg = {shopName,staffName,botUser,receiptUrl,logo,contact,footer,showStaff,showContact,F:n=>Math.round(n||0).toLocaleString("ru-RU")};
@@ -632,8 +652,8 @@ function buildReceiptHtml(sale, opts) {
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-content:center;padding:20px 8px}
-.wrap{width:340px;max-width:100%}
+body{font-family:${_ffamily};background:#F2F0EB;display:flex;justify-content:center;padding:20px 8px}
+.wrap{width:340px;max-width:100%;zoom:${_fscale}}
 .rc{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(13,27,42,.12)}
 
 /* HEAD */
@@ -684,7 +704,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;justify-co
 
 /* FOOTER */
 .ft{padding:12px 16px 16px;text-align:center}
-.ft-thanks{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#0D1B2A}
+.ft-thanks{font-family:'Sora',sans-serif;font-weight:${_footBold ? '800' : '700'};font-style:${_footItalic ? 'italic' : 'normal'};font-size:13px;color:#0D1B2A}
 .ft-date{font-size:10px;color:#555;margin-top:2px}
 .ft-bot{font-size:11px;color:#229ED9;margin-top:8px;line-height:1.4}
 .ft-pdf{margin-top:5px}

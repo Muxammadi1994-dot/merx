@@ -1814,8 +1814,8 @@ function buildReceiptHtml(sale, opts) {
 <title>Chek ${s.chekNum||""}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'DM Sans',Arial,sans-serif;background:#F2F0EB;display:flex;justify-content:center;padding:14px 6px}
-.rc{width:330px;max-width:100%;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 18px rgba(13,27,42,.12)}
+body{font-family:${opts.fontFamily || "'DM Sans',Arial,sans-serif"};background:#F2F0EB;display:flex;justify-content:center;padding:14px 6px}
+.rc{width:330px;max-width:100%;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 18px rgba(13,27,42,.12);zoom:${opts.fontScale || 1}}
 .logo{text-align:center;padding:8px 8px 2px}
 .logo img{width:100%;max-height:64px;object-fit:contain}
 .hd{background:#0D1B2A;color:#fff;text-align:center;padding:12px 10px}
@@ -1952,7 +1952,9 @@ async function actionRenderReceipt(chekId, saleData, shopId) {
     contact: (_ck.showContact !== false ? _ckContact : "") || "",
     tagline: _ck.tagline || "Ulgurji savdo tizimi",
     footer:  _ck.footer  || "Rahmat! Yana kutamiz 🙏",
-    extraLines: Array.isArray(_ck.extraLines) ? _ck.extraLines : []
+    extraLines: Array.isArray(_ck.extraLines) ? _ck.extraLines : [],
+    fontScale: ({ small:0.9, large:1.12, xlarge:1.25 })[_ck.fontScale] || 1,
+    fontFamily: ({ mono:"'Courier New',monospace", serif:"'Georgia',serif", sans:"'Arial',sans-serif" })[_ck.fontFamily] || "'DM Sans',Arial,sans-serif"
   });
 }
 
