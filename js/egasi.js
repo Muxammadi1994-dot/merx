@@ -980,6 +980,14 @@ function renderChekPreview() {
       });
     }
     frame.srcdoc = html || "<div style='padding:20px;font-family:sans-serif;color:#999'>Preview mavjud emas</div>";
+    // 2026-07-18: iframe balandligini chek uzunligiga moslashtirish (kesilmasin)
+    frame.onload = () => {
+      try {
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
+        if (h > 100) frame.style.height = (h + 20) + "px";
+      } catch (e) {}
+    };
   } catch (e) {
     frame.srcdoc = "<div style='padding:20px;font-family:sans-serif;color:#c00'>Preview xatosi: " + (e.message||e) + "</div>";
   }

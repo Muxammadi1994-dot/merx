@@ -2659,7 +2659,7 @@
             <h3><i class="ti ti-receipt"></i> Chek sozlamalari</h3>
             <button class="btn btn-acc btn-sm" onclick="saveChekConfig()"><i class="ti ti-check"></i> Saqlash</button>
           </div>
-          <div style="padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div style="padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
             <!-- Chap: ko'rinish -->
             <div style="display:flex;flex-direction:column;gap:14px">
               <div class="fld">
@@ -2736,7 +2736,7 @@
               </div>
             </div>
             <!-- O'ng: JONLI TEST-CHEK (2026-07-18: sozlamalar yonida — o'zgarish darhol ko'rinadi) -->
-            <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;flex-direction:column;gap:12px;position:sticky;top:12px;align-self:start">
               <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
                 <label style="font-size:13px;font-weight:700;color:#0D1B2A"><i class="ti ti-eye"></i> Jonli test-chek</label>
                 <div style="display:flex;gap:6px">
@@ -2745,8 +2745,8 @@
                   <button type="button" class="prev-tab btn btn-sm btn-ghost" data-pt="savat" onclick="setPreviewType('savat')">Savat</button>
                 </div>
               </div>
-              <div style="display:flex;justify-content:center;background:#E9E7E2;border-radius:12px;padding:14px;overflow:auto;max-height:600px">
-                <iframe id="chek-preview-frame" style="width:300px;min-height:460px;border:none;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:8px" title="Test chek"></iframe>
+              <div style="display:flex;justify-content:center;background:#E9E7E2;border-radius:12px;padding:14px;overflow:auto;max-height:75vh">
+                <iframe id="chek-preview-frame" style="width:320px;height:70vh;min-height:600px;border:none;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:8px" title="Test chek"></iframe>
               </div>
             </div>
           </div>
@@ -4270,7 +4270,7 @@
 <script src="js/hisobot.js?v=145"></script>
 <script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=158"></script>
-<script src="js/egasi.js?v=152"></script>
+<script src="js/egasi.js?v=153"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=143"></script>
 <script>
