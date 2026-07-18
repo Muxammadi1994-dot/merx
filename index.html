@@ -2709,8 +2709,25 @@
                 </div>
               </div>
             </div>
-            <!-- O'ng: uslublar -->
+            <!-- O'ng: JONLI TEST-CHEK (2026-07-18: sozlamalar yonida — o'zgarish darhol ko'rinadi) -->
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                <label style="font-size:13px;font-weight:700;color:#0D1B2A"><i class="ti ti-eye"></i> Jonli test-chek</label>
+                <div style="display:flex;gap:6px">
+                  <button type="button" class="prev-tab btn btn-sm btn-acc" data-pt="sotuv" onclick="setPreviewType('sotuv')">Sotuv</button>
+                  <button type="button" class="prev-tab btn btn-sm btn-ghost" data-pt="qarz" onclick="setPreviewType('qarz')">Qarz</button>
+                  <button type="button" class="prev-tab btn btn-sm btn-ghost" data-pt="savat" onclick="setPreviewType('savat')">Savat</button>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:center;background:#E9E7E2;border-radius:12px;padding:14px;overflow:auto;max-height:600px">
+                <iframe id="chek-preview-frame" style="width:300px;min-height:460px;border:none;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:8px" title="Test chek"></iframe>
+              </div>
+            </div>
+          </div>
+          <!-- Chek uslublari (2026-07-18: pastga ko'chdi; hozircha qisman ishlaydi) -->
+          <div style="grid-column:1/-1;border-top:1.5px dashed var(--brd);padding:16px 20px;margin-top:4px">
             <div style="display:flex;flex-direction:column;gap:14px">
+
               <div>
                 <label style="display:block;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Chek uslublari</label>
                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
@@ -2743,20 +2760,6 @@
                 • <b>Sotuv tarixi</b> — avvalgi sotuvni qayta chop etish<br>
                 • <b>Qarzlar</b> — qarz to'lovi chitigi
               </div>
-            </div>
-          </div>
-          <!-- 2026-07-18 (2-bosqich): JONLI TEST-CHEK — o'zgarishlar darhol ko'rinadi -->
-          <div style="grid-column:1/-1;border-top:1.5px dashed var(--brd);padding:16px 20px;margin-top:4px">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
-              <label style="font-size:13px;font-weight:700;color:#0D1B2A"><i class="ti ti-eye"></i> Jonli test-chek (o'zgarishlar shu yerda darhol ko'rinadi)</label>
-              <div style="display:flex;gap:6px">
-                <button type="button" class="prev-tab btn btn-sm btn-acc" data-pt="sotuv" onclick="setPreviewType('sotuv')">Sotuv</button>
-                <button type="button" class="prev-tab btn btn-sm btn-ghost" data-pt="qarz" onclick="setPreviewType('qarz')">Qarz</button>
-                <button type="button" class="prev-tab btn btn-sm btn-ghost" data-pt="savat" onclick="setPreviewType('savat')">Savat</button>
-              </div>
-            </div>
-            <div style="display:flex;justify-content:center;background:#E9E7E2;border-radius:12px;padding:16px;overflow:auto;max-height:560px">
-              <iframe id="chek-preview-frame" style="width:320px;min-height:480px;border:none;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:8px" title="Test chek"></iframe>
             </div>
           </div>
         </div>
