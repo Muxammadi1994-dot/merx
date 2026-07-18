@@ -2328,6 +2328,36 @@ function showReceiptModal(sale) {
   const shopName = db.shop?.name || "MERX";
   const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi", aralash:"Aralash", qarz:"Nasiya" };
 
+  // 2026-07-18 (birlashtirish B): YANGI yagona-quruvchi rejimi (ixtiyoriy).
+  // chekConfig.unifiedSotuv=true bo'lsa — buildReceiptHtml (barcha chek bilan
+  // bir manba), iframe orqali. Aks holda pastdagi eski (sinalgan) modal.
+  const _uModal = document.getElementById("rcp-unified-modal");
+  const _lModal = document.getElementById("rcp-legacy-modal");
+  const _useUnified = db.settings?.chekConfig?.unifiedSotuv === true
+                      && typeof buildReceiptHtml === "function";
+  if (_uModal && _lModal) {
+    _uModal.style.display = _useUnified ? "flex" : "none";
+    _lModal.style.display = _useUnified ? "none" : "";
+  }
+  if (_useUnified) {
+    const cfg = getChekCfg(sale && sale._preview ? "savat" : "sotuv");
+    const staff = sale.staffId ? (db.staff || []).find(s => s.id === sale.staffId) : (db.currentStaff || null);
+    const html = buildReceiptHtml(sale, {
+      type: sale && sale._preview ? "savat" : "sotuv",
+      shopName, staffName: staff ? staff.name : "—",
+      logo: cfg.logo, addr: cfg.addr, contact: cfg.showContact ? cfg.contact : "",
+      tagline: cfg.tagline, footer: cfg.footer, extraLines: cfg.extraLines,
+      showStaff: cfg.showStaff, showContact: cfg.showContact,
+      fontScale: ({ small:0.9, large:1.12, xlarge:1.25 })[cfg.fontScale] || 1,
+      fontFamily: ({ mono:"'Courier New',monospace", serif:"'Georgia',serif", sans:"'Arial',sans-serif" })[cfg.fontFamily] || "'DM Sans',Arial,sans-serif"
+    });
+    const frame = document.getElementById("rcp-unified-frame");
+    if (frame) frame.srcdoc = html;
+    const ov = document.getElementById("ov-receipt");
+    if (ov) ov.classList.add("on");
+    return;
+  }
+
   // 2026-07-17: QOG'OZ ENI — sozlamadan (58/72/80mm, standart 72). @page
   // CSS o'zgaruvchini qabul qilmaydi, shuning uchun style-teg dinamik yoziladi.
   try {
@@ -2617,6 +2647,15 @@ function printReceiptPos() {
   if (btns) btns.style.display = "none";
   window.print();
   if (btns) btns.style.display = "grid";
+}
+
+// 2026-07-18 (birlashtirish B): YANGI yagona-rejim chekini chop etish —
+// iframe'ning O'ZINI chop qiladi (ichida to'liq chek + @page bor).
+function printUnifiedReceipt() {
+  const frame = document.getElementById("rcp-unified-frame");
+  if (!frame || !frame.contentWindow) { window.print(); return; }
+  try { frame.contentWindow.focus(); frame.contentWindow.print(); }
+  catch (e) { window.print(); }
 }
 
 // 2026-07-12 (AbuSaxiy №1): SAVATNI SOTUVDAN OLDIN CHOP ETISH.

@@ -260,6 +260,8 @@ function renderEgasi() {
   if (ceFI)      ceFI.checked    = chekCfg.footerItalic !== false;
   const ceFB = document.getElementById("chek-footer-bold");
   if (ceFB)      ceFB.checked    = chekCfg.footerBold === true;
+  const ceUni = document.getElementById("chek-unified-sotuv");
+  if (ceUni)     ceUni.checked   = chekCfg.unifiedSotuv === true;
   if (ceContact) ceContact.value = chekCfg.contact  || "";
   if (ceFooter)  ceFooter.value  = chekCfg.footer   || "Rahmat! Yana kutamiz 🙏";
   if (ceStaff)   ceStaff.checked   = chekCfg.showStaff   !== false;
@@ -629,6 +631,7 @@ function saveChekConfig() {
   cfg.fontFamily = document.getElementById("chek-font-family")?.value || "dm";
   cfg.footerItalic = document.getElementById("chek-footer-italic")?.checked !== false;
   cfg.footerBold   = document.getElementById("chek-footer-bold")?.checked === true;
+  cfg.unifiedSotuv = document.getElementById("chek-unified-sotuv")?.checked === true; // 2026-07-18: yagona sotuv cheki (test)
   // 2026-07-18 (2-bosqich): telefonlar massivi + qo'shimcha matnlar.
   // Eski "contact" (vergulli) o'rniga phones[]; getChekCfg ikkalasini biladi.
   cfg.phones = Array.isArray(window._chekPhones) ? window._chekPhones.slice() : [];

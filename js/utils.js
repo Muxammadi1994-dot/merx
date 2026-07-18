@@ -719,8 +719,9 @@ body{font-family:${_ffamily};background:#F2F0EB;display:flex;justify-content:cen
 .btn-p{background:#0D1B2A;color:#fff}
 .btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #E8E5E0!important}
 @media print{
+  @page{size:${chekCfg.paperWidth || 72}mm auto;margin:0}
   body{background:#fff;padding:0}
-  .wrap,.rc{border-radius:0;box-shadow:none;width:72mm;max-width:72mm}
+  .wrap,.rc{border-radius:0;box-shadow:none;width:${chekCfg.paperWidth || 72}mm;max-width:${chekCfg.paperWidth || 72}mm}
   .acts{display:none}
   .hd{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .pr.pr-debt{color:#000 !important;border-top:1px solid #999}

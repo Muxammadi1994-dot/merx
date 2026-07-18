@@ -67,6 +67,7 @@ function getChekCfg(type) {
     fontFamily:  pick("fontFamily", "dm"),      // dm|sans|serif|mono
     footerItalic: pick("footerItalic", true) !== false,
     footerBold:   pick("footerBold", false) === true,
+    unifiedSotuv: pick("unifiedSotuv", false) === true, // 2026-07-18: yangi sotuv cheki (test)
     extraLines: pick("extraLines", null),
     fonts:      pick("fonts", null), // kelajak: blok-darajali
     _type: type || "sotuv"

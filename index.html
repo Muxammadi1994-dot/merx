@@ -2706,6 +2706,9 @@
                   <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500"><input type="checkbox" id="chek-footer-bold" style="width:16px;height:16px;accent-color:var(--acc)"> Qalin</label>
                 </div>
               </div>
+              <div class="fld" style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;padding:12px 14px">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#1E40AF"><input type="checkbox" id="chek-unified-sotuv" style="width:16px;height:16px;accent-color:var(--acc)"> Yangi yagona sotuv cheki (test)</label>
+                <div style="font-size:11px;color:#3B5BA0;margin-top:6px;line-height:1.5">Yoqilsa, sotuv cheki ham jonli test bilan bir xil ko'rinishda chiqadi. Sinab ko'ring — muammo bo'lsa o'chiring.</div>
               <div class="fld">
                 <label>Telefon raqamlar (chekda) — bir nechta bo'lishi mumkin</label>
                 <div id="chek-phones-box" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
@@ -4252,13 +4255,13 @@
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/db.js?v=158"></script>
-<script src="js/utils.js?v=159"></script>
+<script src="js/db.js?v=159"></script>
+<script src="js/utils.js?v=160"></script>
 <script src="js/auth.js?v=177"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=187"></script>
 <script src="js/dashboard.js?v=148"></script>
-<script src="js/pos.js?v=202"></script>
+<script src="js/pos.js?v=203"></script>
 <script src="js/katalog.js?v=175"></script>
 <script src="js/ombor.js?v=148"></script>
 <script src="js/mijozlar.js?v=145"></script>
@@ -4267,7 +4270,7 @@
 <script src="js/hisobot.js?v=145"></script>
 <script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=158"></script>
-<script src="js/egasi.js?v=151"></script>
+<script src="js/egasi.js?v=152"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=143"></script>
 <script>
@@ -4296,7 +4299,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <!-- MODAL: CHEK -->
 <div class="ov" id="ov-receipt" onclick="if(event.target===this)closeReceipt()">
-  <div class="modal" style="max-width:420px;padding:0;overflow-y:auto;max-height:90vh">
+  <!-- 2026-07-18 (birlashtirish B): YANGI yagona-quruvchi rejimi (iframe).
+       chekConfig.unifiedSotuv=true bo'lsa shu ko'rinadi; aks holda pastdagi
+       eski (sinalgan) modal ishlaydi — regressiya himoyasi. -->
+  <div class="modal" id="rcp-unified-modal" style="display:none;max-width:420px;padding:0;overflow:hidden;max-height:92vh;flex-direction:column">
+    <iframe id="rcp-unified-frame" style="width:100%;flex:1;min-height:60vh;border:none;background:#fff" title="Chek"></iframe>
+    <div style="display:flex;gap:8px;padding:12px;background:#F8F7F4;border-top:1px solid #E8E5E0">
+      <button onclick="printUnifiedReceipt()" style="flex:1;background:#0D1B2A;color:#fff;border:none;border-radius:9px;padding:11px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-printer"></i> Chop etish</button>
+      <button onclick="closeReceipt()" style="background:#eee;border:none;border-radius:9px;padding:11px 18px;font-weight:600;cursor:pointer;font-family:inherit">Yopish</button>
+    </div>
+  </div>
+  <div class="modal" id="rcp-legacy-modal" style="max-width:420px;padding:0;overflow-y:auto;max-height:90vh">
     <!-- Header -->
     <div style="background:#0D1B2A;padding:20px 24px 16px;text-align:center;position:sticky;top:0;z-index:2">
       <img id="rcp-logo" src="" style="display:none;width:100%;max-height:64px;object-fit:contain;margin:0 auto 6px;background:#fff;border-radius:6px;padding:3px;box-sizing:border-box">
