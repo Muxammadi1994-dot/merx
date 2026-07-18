@@ -508,8 +508,9 @@ function buildReceiptHtml(sale, opts) {
   const botUser    = (opts.botUsername || "").replace(/^@/, "");
   const receiptUrl = opts.receiptUrl || "";
 
-  // Chek sozlamalari — settings dan olamiz
-  const chekCfg = (typeof db !== "undefined" && db.settings?.chekConfig) || {};
+  // Chek sozlamalari — YAGONA manbadan (1-bosqich). type: bot/PDF cheki.
+  const chekCfg = (typeof getChekCfg === "function") ? getChekCfg("bot")
+                : ((typeof db !== "undefined" && db.settings?.chekConfig) || {});
   // 2026-07-17 (AbuSaxiy): haqiqiy cheklar (PDF havola, bot, tarix) DOIM
   // yagona — sotuv cheki ko'rinishidagi shablonga boradi (logo, params,
   // pch-format, JAMI POCHKA). Eski uslub-tarmoqlari faqat Sozlamalardagi

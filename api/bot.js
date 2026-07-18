@@ -1746,6 +1746,9 @@ function buildReceiptHtml(sale, opts) {
     discountPct:    sale.discountPct != null ? sale.discountPct : sale.discount_pct,
     priceType:      sale.priceType || sale.price_type,
     subtotal:       sale.subtotal != null ? sale.subtotal : (Number(sale.total||0) + Number(sale.discount||0)),
+    discount:       sale.discount != null ? sale.discount : ((sale.data && sale.data.discount) || 0),
+    prevDebtUsd:    sale.prevDebtUsd != null ? sale.prevDebtUsd : (sale.prev_debt_usd != null ? sale.prev_debt_usd : ((sale.data && sale.data.prevDebtUsd) || 0)),
+    prevDebtUzs:    sale.prevDebtUzs != null ? sale.prevDebtUzs : (sale.prev_debt_uzs != null ? sale.prev_debt_uzs : ((sale.data && sale.data.prevDebtUzs) || 0)),
   };
   const cfg = {
     shopName:    opts.shopName    || "MERX",
@@ -1898,6 +1901,14 @@ async function actionRenderReceipt(chekId, saleData, shopId) {
       : `?chek_num=eq.${encodeURIComponent(chekId)}${shopF}&select=*`;
     const rows = await sb("sales", query);
     sale = rows?.[0] || null;
+    // 2026-07-18 (12-qoida: data HOKIM): chegirma (basePrice/discount) va
+    // prevDebtUsd/Uzs FAQAT data jsonb'da — data USTUN turadi, items ham
+    // data'dan (basePrice bilan). Aks holda PDF chekda chegirma va eski
+    // qarz ko'rinmasdi (AbuSaxiy bugi).
+    if (sale && sale.data && typeof sale.data === "object") {
+      const _d = sale.data;
+      sale = { ...sale, ..._d, items: (_d.items && _d.items.length) ? _d.items : sale.items };
+    }
   }
 
   try {

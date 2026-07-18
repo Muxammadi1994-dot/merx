@@ -1485,7 +1485,7 @@ function showDebtPaymentReceipt(payment) {
   // Eski xato ham yopildi: "Jami qarz edi" DOIM so'm deb yozilardi —
   // endi qarz valyutasida.
   // ════════════════════════════════════════════════════════════
-  const cfg      = db.settings?.chekConfig || {};
+  const cfg      = getChekCfg("qarz"); // 1-bosqich: yagona manba
   const shopName = db.shop?.name || "MERX";
   const cur      = payment.currency === "usd" ? "usd" : "uzs";
   const rate     = payment.rate || db.settings?.rate || 12800;

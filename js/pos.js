@@ -2331,7 +2331,7 @@ function showReceiptModal(sale) {
   // 2026-07-17: QOG'OZ ENI — sozlamadan (58/72/80mm, standart 72). @page
   // CSS o'zgaruvchini qabul qilmaydi, shuning uchun style-teg dinamik yoziladi.
   try {
-    const _pw = parseInt(db.settings?.chekConfig?.paperWidth) || 72;
+    const _pw = getChekCfg(sale && sale._preview ? "savat" : "sotuv").paperWidth;
     let _ps = document.getElementById("chek-paper-style");
     if (!_ps) { _ps = document.createElement("style"); _ps.id = "chek-paper-style"; document.head.appendChild(_ps); }
     _ps.textContent = `@media print{ @page{size:${_pw}mm auto;margin:0} #ov-receipt .modal{width:${_pw}mm !important;max-width:${_pw}mm !important;min-width:${_pw}mm !important} }`;
@@ -2339,7 +2339,7 @@ function showReceiptModal(sale) {
 
   // Shop nomi + v192 (№12): chek muharriri sozlamalari (logo/manzil/telefon)
   if ($("rcp-shop")) $("rcp-shop").textContent = shopName;
-  const _ckCfg = db.settings?.chekConfig || {};
+  const _ckCfg = getChekCfg(sale && sale._preview ? "savat" : "sotuv"); // 1-bosqich: yagona manba
   const _lg = $("rcp-logo");
   if (_lg) { if (_ckCfg.logo) { _lg.src = _ckCfg.logo; _lg.style.display = "block"; } else { _lg.style.display = "none"; _lg.removeAttribute("src"); } }
   const _ad = $("rcp-addr");
@@ -2532,7 +2532,7 @@ function showReceiptModal(sale) {
   // Rahmat yozuvi — BOSMADA KO'RINADI (alohida element)
   const rcpThanks = $("rcp-thanks");
   if (rcpThanks) {
-    const footerTxt = (db.settings?.chekConfig?.footer) || db.settings?.receiptFooter || "Haridingiz uchun rahmat! Yana kutamiz 🙏"; // v192: muharrir endi ASOSIY chekka ham qo'llanadi
+    const footerTxt = _ckCfg.footer || db.settings?.receiptFooter || "Haridingiz uchun rahmat! Yana kutamiz 🙏"; // 1-bosqich: yagona manba
     rcpThanks.textContent = footerTxt;
     rcpThanks.style.display = "block";
   }

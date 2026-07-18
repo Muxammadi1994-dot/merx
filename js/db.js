@@ -23,6 +23,52 @@ const PACK_UNITS = {
 // FAQAT shu ikkala funksiyadan o'qiydi.
 const UNIT_TAGS_DEFAULT = ["dona","quti","paket"];
 const PACK_TAGS_DEFAULT = ["pochka","karobka","quti","bog'lam","paket"];
+// ═══════════════════════════════════════════════════════════
+// CHEK KONSTRUKTORI — POYDEVOR (2026-07-18, 1-bosqich)
+// Barcha cheklar (sotuv/qarz/savat/bot) chek sozlamalarini SHU YAGONA
+// funksiyadan oladi. Kelajak bosqichlarda yangi maydonlar (shrift, blok
+// sozlamalari, chek-turi ustunlari) FAQAT shu yerga qo'shiladi — 4 joyni
+// alohida tahrirlash kerak bo'lmaydi (regressiya manbai shu edi).
+//
+// `type` — chek turi: "sotuv" | "qarz" | "savat" | "bot".
+// Umumiy sozlama hammaga; agar cfg.perType[type] bo'lsa — u USTUN turadi
+// (admin shu chek turi uchun farqni qo'shsa). Hozircha perType bo'sh —
+// ko'rinish 100% avvalgidek (bu bosqich faqat birlashtirish).
+// ═══════════════════════════════════════════════════════════
+function getChekCfg(type) {
+  const c = (typeof db !== "undefined" && db.settings && db.settings.chekConfig) || {};
+  const per = (c.perType && type && c.perType[type]) ? c.perType[type] : {};
+  const pick = (k, dflt) => {
+    if (per[k] !== undefined) return per[k];
+    if (c[k]   !== undefined) return c[k];
+    return dflt;
+  };
+  return {
+    // Umumiy
+    logo:       pick("logo", ""),
+    shopName:   pick("shopName", (typeof db !== "undefined" && db.shop && db.shop.name) || "MERX"),
+    addr:       pick("addr", ""),
+    tagline:    pick("tagline", "Ulgurji savdo tizimi"),
+    footer:     pick("footer", "Rahmat! Yana kutamiz 🙏"),
+    paperWidth: parseInt(pick("paperWidth", 72)) || 72,
+    // Telefonlar: bitta "contact" (vergulli) YOKI "phones" massivi — ikkalasi
+    // ham qo'llab-quvvatlanadi (eski konfig buzilmaydi)
+    contact:    (() => {
+      const ph = pick("phones", null);
+      if (Array.isArray(ph) && ph.length) return ph.filter(Boolean).join(", ");
+      return pick("contact", "");
+    })(),
+    // Ko'rsatish bayroqlari
+    showContact:     pick("showContact", true) !== false,
+    showStaff:       pick("showStaff", true) !== false,
+    showDebtHistory: pick("showDebtHistory", true) !== false,
+    // Kelajak (2-3 bosqich) uchun zaxira — hozir ishlatilmaydi, standart
+    fonts:      pick("fonts", null),   // {block: {size,bold,italic,align}}
+    extraLines: pick("extraLines", null), // [{text, pos, ...}]
+    _type: type || "sotuv"
+  };
+}
+
 function getUnitTags() {
   const t = db.settings && Array.isArray(db.settings.unitTags) ? db.settings.unitTags : null;
   return (t && t.length) ? t : UNIT_TAGS_DEFAULT.slice();
