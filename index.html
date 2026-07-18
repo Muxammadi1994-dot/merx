@@ -2745,6 +2745,20 @@
               </div>
             </div>
           </div>
+          <!-- 2026-07-18 (2-bosqich): JONLI TEST-CHEK — o'zgarishlar darhol ko'rinadi -->
+          <div style="grid-column:1/-1;border-top:1.5px dashed var(--brd);padding:16px 20px;margin-top:4px">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+              <label style="font-size:13px;font-weight:700;color:#0D1B2A"><i class="ti ti-eye"></i> Jonli test-chek (o'zgarishlar shu yerda darhol ko'rinadi)</label>
+              <div style="display:flex;gap:6px">
+                <button type="button" class="prev-tab btn btn-sm btn-acc" data-pt="sotuv" onclick="setPreviewType('sotuv')">Sotuv</button>
+                <button type="button" class="prev-tab btn btn-sm btn-ghost" data-pt="qarz" onclick="setPreviewType('qarz')">Qarz</button>
+                <button type="button" class="prev-tab btn btn-sm btn-ghost" data-pt="savat" onclick="setPreviewType('savat')">Savat</button>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:center;background:#E9E7E2;border-radius:12px;padding:16px;overflow:auto;max-height:560px">
+              <iframe id="chek-preview-frame" style="width:320px;min-height:480px;border:none;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:8px" title="Test chek"></iframe>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -4213,7 +4227,7 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=157"></script>
-<script src="js/utils.js?v=156"></script>
+<script src="js/utils.js?v=157"></script>
 <script src="js/auth.js?v=177"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=187"></script>
@@ -4227,7 +4241,7 @@
 <script src="js/hisobot.js?v=145"></script>
 <script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=158"></script>
-<script src="js/egasi.js?v=148"></script>
+<script src="js/egasi.js?v=149"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=143"></script>
 <script>

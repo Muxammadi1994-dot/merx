@@ -237,6 +237,8 @@ function renderEgasi() {
   window._chekExtra = Array.isArray(chekCfg.extraLines) ? chekCfg.extraLines.slice() : [];
   renderChekPhones();
   renderChekExtra();
+  // 2026-07-18: jonli preview — inputlarni ulash + birinchi render
+  setTimeout(() => { try { _bindChekPreviewInputs(); renderChekPreview(); } catch(e) {} }, 100);
   const ceFooter  = document.getElementById("chek-footer");
   const ceStaff   = document.getElementById("chek-show-staff");
   const ceContact2= document.getElementById("chek-show-contact");
@@ -817,6 +819,7 @@ function removeUnitTag(kind, val) {
 // Chip-uslubidagi boshqaruv (birlik teglari kabi). Saqlash saveChekConfig'da.
 // ═══════════════════════════════════════════════════════════
 function renderChekPhones() {
+  try { if (typeof renderChekPreview === 'function') setTimeout(renderChekPreview, 0); } catch(e) {}
   const box = document.getElementById("chek-phones-box");
   if (!box) return;
   const arr = window._chekPhones || [];
@@ -843,6 +846,7 @@ function removeChekPhone(i) {
 }
 
 function renderChekExtra() {
+  try { if (typeof renderChekPreview === 'function') setTimeout(renderChekPreview, 0); } catch(e) {}
   const box = document.getElementById("chek-extra-box");
   if (!box) return;
   const arr = window._chekExtra || [];
@@ -865,4 +869,109 @@ function removeChekExtra(i) {
   if (!window._chekExtra) return;
   window._chekExtra.splice(i, 1);
   renderChekExtra();
+}
+
+// ═══════════════════════════════════════════════════════════
+// CHEK KONSTRUKTORI 2-bosqich (2026-07-18): JONLI TEST-CHEK (preview)
+// Admin biror sozlamani o'zgartirsa — test-chek DARHOL yangilanadi.
+// Joriy INPUT qiymatlaridan vaqtinchalik cfg yig'iladi (hali saqlanmagan
+// bo'lsa ham ko'rinadi). buildReceiptHtml (utils) ishlatiladi — u string
+// qaytaradi, iframe'ga joylanadi. Chek turi: sotuv/qarz/savat.
+// ═══════════════════════════════════════════════════════════
+let _previewType = "sotuv";
+
+function setPreviewType(t) {
+  _previewType = t;
+  document.querySelectorAll(".prev-tab").forEach(b => {
+    const on = b.dataset.pt === t;
+    b.classList.toggle("btn-acc", on);
+    b.classList.toggle("btn-ghost", !on);
+  });
+  renderChekPreview();
+}
+
+// Joriy input qiymatlaridan vaqtinchalik chek-config yig'ish
+function _livePreviewCfg() {
+  return {
+    logo:       (document.getElementById("chek-logo-preview")?.src || "").startsWith("data:") ? document.getElementById("chek-logo-preview").src : (db.settings?.chekConfig?.logo || ""),
+    shopName:   db.shop?.name || "MERX",
+    addr:       document.getElementById("chek-addr")?.value || "",
+    tagline:    document.getElementById("chek-tagline")?.value || "Ulgurji savdo tizimi",
+    footer:     document.getElementById("chek-footer")?.value || "Rahmat! Yana kutamiz 🙏",
+    paperWidth: parseInt(document.getElementById("chek-paper")?.value) || 72,
+    phones:     Array.isArray(window._chekPhones) ? window._chekPhones.slice() : [],
+    contact:    (window._chekPhones || []).join(", "),
+    extraLines: Array.isArray(window._chekExtra) ? window._chekExtra.slice() : [],
+    showContact:     document.getElementById("chek-show-contact")?.checked !== false,
+    showStaff:       document.getElementById("chek-show-staff")?.checked !== false,
+    showDebtHistory: document.getElementById("chek-show-debt-history")?.checked !== false,
+  };
+}
+
+// Namuna (soxta) sotuv — preview uchun
+function _previewSampleSale(type) {
+  const rate = db.settings?.rate || 12800;
+  const base = {
+    chekNum: "CHK-NAMUNA-0001",
+    date: new Date().toISOString().slice(0,10),
+    time: "12:34",
+    customerName: "Namuna Mijoz",
+    customerPhone: "+998 90 000 00 00",
+    staffName: "Sotuvchi",
+    items: [
+      { name: "LORO PIANA", variant: "Oq", art: "LR-01", qty: 6, qtyBox: 1, inBox: 6, sellMode: "karobka", unit: "dona", price: 550000, basePrice: 600000 },
+      { name: "DANIEL'S", variant: "Ko'k", art: "Q-02", qty: 5, qtyBox: 1, inBox: 5, sellMode: "karobka", unit: "dona", price: 350000 },
+    ],
+    subtotal: 5050000, discount: 300000, total: 4750000,
+  };
+  if (type === "qarz") {
+    return { ...base, remaining: 2000000, paid: 2750000, payType: "aralash",
+      payBreakdown: { naqd: 1750000, karta: 1000000 },
+      prevDebtUzs: 3000000, debtCurrency: "uzs", due: base.date };
+  }
+  if (type === "savat") {
+    return { ...base, _preview: true, paid: 0, remaining: 0 };
+  }
+  // sotuv (nasiya bilan namuna)
+  return { ...base, paid: 2750000, remaining: 2000000, payType: "aralash",
+    payBreakdown: { naqd: 1750000, karta: 1000000 },
+    prevDebtUzs: 3000000, debtCurrency: "uzs", due: base.date };
+}
+
+function renderChekPreview() {
+  const frame = document.getElementById("chek-preview-frame");
+  if (!frame) return;
+  try {
+    const cfg = _livePreviewCfg();
+    const sale = _previewSampleSale(_previewType);
+    let html = "";
+    // Sotuv/Savat va Qarz — hozircha yagona (utils) shablon orqali ko'rsatiladi
+    // (haqiqiy cheklar bilan bir manba). Preview real ko'rinishga yaqin.
+    if (typeof buildReceiptHtml === "function") {
+      html = buildReceiptHtml(sale, {
+        shopName: cfg.shopName, staffName: cfg.staffName || "Sotuvchi",
+        logo: cfg.logo, addr: cfg.addr, contact: cfg.showContact ? cfg.contact : "",
+        tagline: cfg.tagline, footer: cfg.footer, extraLines: cfg.extraLines,
+        showStaff: cfg.showStaff, showContact: cfg.showContact,
+        _previewCfg: cfg
+      });
+    }
+    frame.srcdoc = html || "<div style='padding:20px;font-family:sans-serif;color:#999'>Preview mavjud emas</div>";
+  } catch (e) {
+    frame.srcdoc = "<div style='padding:20px;font-family:sans-serif;color:#c00'>Preview xatosi: " + (e.message||e) + "</div>";
+  }
+}
+
+// Barcha chek inputlariga jonli tinglovchi ulash (bir marta)
+function _bindChekPreviewInputs() {
+  const ids = ["chek-addr","chek-tagline","chek-footer","chek-paper",
+               "chek-show-contact","chek-show-staff","chek-show-debt-history"];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.dataset.pvBound) {
+      el.dataset.pvBound = "1";
+      el.addEventListener("input", renderChekPreview);
+      el.addEventListener("change", renderChekPreview);
+    }
+  });
 }
