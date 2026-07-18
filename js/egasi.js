@@ -959,12 +959,16 @@ function renderChekPreview() {
   if (!frame) return;
   try {
     const cfg = _livePreviewCfg();
-    const sale = _previewSampleSale(_previewType);
     let html = "";
-    // Sotuv/Savat va Qarz — hozircha yagona (utils) shablon orqali ko'rsatiladi
-    // (haqiqiy cheklar bilan bir manba). Preview real ko'rinishga yaqin.
-    if (typeof buildReceiptHtml === "function") {
+    // 2026-07-18: har chek turi FARQLI ko'rsatiladi.
+    // qarz — to'lov cheki (boshqa struktura) → showDebtPaymentReceipt uslubi.
+    // sotuv/savat — buildReceiptHtml (type bilan: savatda to'lov/qarz yo'q).
+    if (_previewType === "qarz" && typeof _buildDebtReceiptPreview === "function") {
+      html = _buildDebtReceiptPreview(cfg);
+    } else if (typeof buildReceiptHtml === "function") {
+      const sale = _previewSampleSale(_previewType);
       html = buildReceiptHtml(sale, {
+        type: _previewType,
         shopName: cfg.shopName, staffName: cfg.staffName || "Sotuvchi",
         logo: cfg.logo, addr: cfg.addr, contact: cfg.showContact ? cfg.contact : "",
         tagline: cfg.tagline, footer: cfg.footer, extraLines: cfg.extraLines,
@@ -991,4 +995,48 @@ function _bindChekPreviewInputs() {
       el.addEventListener("change", renderChekPreview);
     }
   });
+}
+
+// ═══════════════════════════════════════════════════════════
+// QARZ CHEKI PREVIEW (2026-07-18): namuna to'lov cheki (qarzlar.js uslubida).
+// Preview'da qarz turi tanlanganda ishlatiladi — sotuv chekidan FARQLI
+// struktura (To'landi / usul / qarz holati). Joriy sozlamalarni oladi.
+// ═══════════════════════════════════════════════════════════
+function _buildDebtReceiptPreview(cfg) {
+  const F = n => Math.round(n||0).toLocaleString("ru-RU");
+  const sc = ({ small:0.9, large:1.12, xlarge:1.25 })[cfg.fontScale] || (parseFloat(cfg.fontScale) >= 0.7 && parseFloat(cfg.fontScale) <= 1.5 ? parseFloat(cfg.fontScale) : 1);
+  const ff = ({ mono:"'Courier New',monospace", serif:"'Georgia',serif", sans:"'Arial',sans-serif" })[cfg.fontFamily] || "'DM Sans',Arial,sans-serif";
+  const fi = cfg.footerItalic !== false;
+  const logo = cfg.logo, shopName = cfg.shopName || "MERX";
+  const contact = cfg.showContact ? (cfg.contact || "") : "";
+  const extra = Array.isArray(cfg.extraLines) ? cfg.extraLines.filter(Boolean) : [];
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    body{font-family:${ff};margin:0;padding:0;display:flex;justify-content:center;background:#eee}
+    .rc{width:300px;background:#fff;padding:0 0 10px;zoom:${sc}}
+    .logo{text-align:center;padding:8px 6px 4px}.logo img{width:100%;max-height:64px;object-fit:contain}
+    .hd{background:#0D1B2A;color:#fff;text-align:center;padding:12px 8px}
+    .hd .nm{font-size:17px;font-weight:800;letter-spacing:.03em}.hd .sub{font-size:10.5px;color:rgba(255,255,255,.85);margin-top:2px}
+    .sec{padding:7px 12px;border-bottom:1px dashed #ddd;font-size:12px}
+    .lbl{font-size:9.5px;color:#777;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+    .r{display:flex;justify-content:space-between;margin:2px 0}
+    .big{font-size:17px;font-weight:900;color:#0D1B2A;text-align:right}.grn{color:#059669}.red{color:#DC2626}
+    .ft{text-align:center;font-size:10.5px;color:#555;padding:8px 6px 0;font-style:${fi?"italic":"normal"}}
+    </style></head><body><div class="rc">
+    ${logo ? `<div class="logo"><img src="${logo}"></div>` : ""}
+    <div class="hd"><div class="nm">${shopName.toUpperCase()}</div>
+      ${cfg.addr ? `<div class="sub">${cfg.addr}</div>` : ""}
+      ${contact ? `<div class="sub" style="font-weight:700">${contact}</div>` : ""}
+      <div class="sub">${cfg.tagline || "Ulgurji savdo tizimi"}</div></div>
+    <div class="sec"><div class="r"><span style="font-weight:800;font-family:monospace">PAY-NAMUNA-0001</span><span>${new Date().toISOString().slice(0,10)}</span></div>
+      <div class="r"><span>Namuna Mijoz</span><span>+998 90 000 00 00</span></div></div>
+    <div class="sec"><div class="lbl">To'landi</div><div class="big grn">${F(1500000)} so'm</div></div>
+    <div class="sec"><div class="lbl">To'lov usuli</div><div class="r"><span>Usul</span><span>Naqd pul</span></div></div>
+    <div class="sec"><div class="lbl">Qarz holati</div>
+      <div class="r"><span>Avvalgi qarz</span><span>${F(5000000)} so'm</span></div>
+      <div class="r"><span>To'landi</span><span>${F(1500000)} so'm</span></div>
+      <div class="r"><span>Qolgan qarz</span><span class="red">${F(3500000)} so'm</span></div>
+      <div class="r"><span>Muddat</span><span style="font-weight:700">${new Date().toISOString().slice(0,10)}</span></div></div>
+    <div class="ft">${cfg.footer || "Rahmat! Yana kutamiz 🙏"}</div>
+    ${extra.length ? `<div style="text-align:center;font-size:11px;color:#333;padding:4px 6px">${extra.map(t=>`<div>${t}</div>`).join("")}</div>` : ""}
+    </div></body></html>`;
 }

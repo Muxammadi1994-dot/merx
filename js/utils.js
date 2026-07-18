@@ -515,6 +515,9 @@ function buildReceiptHtml(sale, opts) {
                 : ((typeof getChekCfg === "function") ? getChekCfg("bot")
                 : ((typeof db !== "undefined" && db.settings?.chekConfig) || {}));
   const style   = opts.style || "unified";
+  // 2026-07-18 (birlashtirish A): chek turi — sotuv/savat/qarz/bot.
+  // savat: to'lov/qarz bloklari YO'Q (hali to'lov qilinmagan — faqat ro'yxat).
+  const _type = opts.type || (sale && sale._preview ? "savat" : "sotuv");
   const logo    = chekCfg.logo    || "";   // base64 yoki bo'sh
   const contact = chekCfg.contact || "";   // do'kon telefoni
   const addr    = chekCfg.addr    || "";   // 2026-07-17: manzil (namuna params)
@@ -736,7 +739,7 @@ body{font-family:${_ffamily};background:#F2F0EB;display:flex;justify-content:cen
     </div>
 
     <div class="meta">
-      <div class="mr"><span>Sotuv</span><b>${chekNum}</b></div>
+      <div class="mr"><span>${_type === "savat" ? "Savat" : "Sotuv"}</span><b>${_type === "savat" ? "OLDINDAN KO'RISH" : chekNum}</b></div>
       ${addr ? `<div class="mr"><span>Do'kon</span><b>${addr}</b></div>` : ""}
       <div class="mr"><span>Sana</span><b>${date} ${time}</b></div>
       ${showStaff && staffName && staffName !== "—" ? `<div class="mr"><span>Sotuvchi / Kassir</span><b>${staffName}</b></div>` : ""}
@@ -762,6 +765,11 @@ body{font-family:${_ffamily};background:#F2F0EB;display:flex;justify-content:cen
       <div class="tot-val">${F(total)}<span class="tot-uzs"> so'm${usdLine}</span></div>
     </div>
 
+    ${_type === "savat" ? `
+    <div class="pay">
+      <div class="pay-lbl">Savat (oldindan ko'rish)</div>
+      <div class="pr" style="color:#92400E;font-weight:600"><span>Holat</span><span>Hali sotuv yakunlanmagan</span></div>
+    </div>` : `
     <div class="pay">
       <div class="pay-lbl">To'lov</div>
       <div class="pr"><span>To'lov turi</span><b style="color:#0D1B2A">${payLabels[payType]||payType||"—"}</b></div>
@@ -771,7 +779,7 @@ body{font-family:${_ffamily};background:#F2F0EB;display:flex;justify-content:cen
       ${discHtml}
       <div class="pr"><span>To'landi</span><span style="color:#059669;font-weight:700">${F(paid)} so'm</span></div>
       ${debtHtml}
-    </div>
+    </div>`}
 
     <div class="ft">
       <div class="ft-thanks">${footer}</div>
