@@ -312,6 +312,24 @@ async function pushToCloud() {
     if (typeof ensureCloudPull === "function") ensureCloudPull();
     return;
   }
+  // 2026-07-19: BO'SH-DB HIMOYASI (push darajasida ham).
+  // Agar lokal deyarli bo'sh (0-2 yozuv) lekin bulutda ko'p bor bo'lsa —
+  // push umuman qilinmaydi (bo'sh db haqiqiy ma'lumotni yozib yubormasin).
+  try {
+    const _tl = (db.products||[]).length + (db.sales||[]).length +
+                (db.customers||[]).length + (db.ombor||[]).length +
+                (db.debtPayments||[]).length;
+    const _tc = ((_cloudIds.products&&_cloudIds.products.size)||0) +
+                ((_cloudIds.sales&&_cloudIds.sales.size)||0) +
+                ((_cloudIds.customers&&_cloudIds.customers.size)||0) +
+                ((_cloudIds.ombor&&_cloudIds.ombor.size)||0) +
+                ((_cloudIds.debt_payments&&_cloudIds.debt_payments.size)||0);
+    if (_tl <= 2 && _tc >= 5) {
+      console.warn("🛡 PUSH BLOKLANDI: lokal bo'sh (" + _tl + "), bulutda " + _tc +
+        " yozuv — ma'lumot himoyalandi. 'Yangilash' bosing yoki chiqib-kiring.");
+      return;
+    }
+  } catch(e) {}
   // Versiya qo'riqchisi: eski kod bulutga YOZA OLMAYDI
   if (await checkAppVersion() === false) {
     console.warn("Cloud push bloklandi: ilova versiyasi eskirgan — Ctrl+Shift+R kerak");
@@ -686,12 +704,43 @@ async function pushToCloud() {
         shifts:        { rows: db.shifts,       key: "id",  col: "id" },
         suppliers:     { rows: db.suppliers,    key: "id",  col: "id" }
       };
+      // ═══════════════════════════════════════════════════════════
+      // 2026-07-19: BO'SH-LOKAL / OMMAVIY-O'CHIRISH HIMOYASI (kritik)
+      // Muammo: bo'sh yoki yarim yuklangan qurilma "bulutda bor, menda
+      // yo'q" deb HAMMA yozuvni o'chirib, bulutni bo'shatardi (2 marta
+      // ma'lumot yo'qolishiga sabab bo'ldi). Endi delete-sync ishlashidan
+      // OLDIN xavfsizlik tekshiruvi: lokal shubhali bo'sh bo'lsa — TO'XTAB
+      // TURAMIZ (o'chirish umuman yuborilmaydi, ma'lumot himoyalanadi).
+      const _totalLocal = (db.products||[]).length + (db.sales||[]).length +
+                          (db.customers||[]).length + (db.ombor||[]).length +
+                          (db.debtPayments||[]).length;
+      const _totalCloud = ((_cloudIds.products&&_cloudIds.products.size)||0) +
+                          ((_cloudIds.sales&&_cloudIds.sales.size)||0) +
+                          ((_cloudIds.customers&&_cloudIds.customers.size)||0) +
+                          ((_cloudIds.ombor&&_cloudIds.ombor.size)||0) +
+                          ((_cloudIds.debt_payments&&_cloudIds.debt_payments.size)||0);
+      // Himoya 1: lokal deyarli bo'sh (0-2 yozuv) lekin bulutda ko'p (5+) bor —
+      // bu bo'sh/buzuq qurilma. O'CHIRISHNI BUTUNLAY BEKOR QILAMIZ.
+      if (_totalLocal <= 2 && _totalCloud >= 5) {
+        console.warn("🛡 O'CHIRISH BLOKLANDI: lokal bo'sh (" + _totalLocal +
+          "), bulutda " + _totalCloud + " yozuv bor — ma'lumot himoyalandi. " +
+          "Bulutdan qayta yuklash uchun 'Yangilash' bosing yoki chiqib-kiring.");
+        if (typeof toast === "function") toast("⚠️ Ma'lumot himoyalandi: bulut bo'sh lokal bilan almashtirilmadi", "err");
+        throw new Error("empty-local-guard"); // push to'xtaydi, o'chirish yuborilmaydi
+      }
       for (const [table, cfg] of Object.entries(delMap)) {
         const seen = _cloudIds[table];
         if (!seen || seen.size === 0) continue;
         const localSet = new Set((cfg.rows||[]).map(r => String(r[cfg.key])));
         const gone = [...seen.entries()].filter(([k]) => !localSet.has(k));
         if (!gone.length) continue;
+        // Himoya 2: bitta jadvaldan bir vaqtda YARMIDAN KO'P (va 5+) o'chirilsa —
+        // bu ommaviy o'chirish, shubhali. Bloklaymiz (bexosdan o'chishni to'xtatadi).
+        if (gone.length >= 5 && gone.length > seen.size * 0.5) {
+          console.warn("🛡 " + table + ": ommaviy o'chirish bloklandi (" +
+            gone.length + "/" + seen.size + ") — himoya. Ataylab bo'lsa bittalab o'chiring.");
+          continue; // bu jadval o'chirilmaydi
+        }
         // 1) daftarga yozamiz
         const { error: tErr } = await _sb.from("deleted_records").upsert(
           gone.map(([k]) => ({ shop_id: sid, table_name: table, record_id: k })),
