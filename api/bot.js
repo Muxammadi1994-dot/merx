@@ -1765,6 +1765,11 @@ function buildReceiptHtml(sale, opts) {
   // cheki bilan bir xil: logo, namuna-params bloki, pch-format, JAMI POCHKA,
   // chizilgan chegirma narxlari, $ qatori. (Eski merx-uslub tarmog'i tark etildi.)
   const F = cfg.F;
+  // 2026-07-19: banner foni (headerStyle) — boshqa cheklar bilan mos
+  const _hs = ["dark","light","none"].includes(opts.headerStyle) ? opts.headerStyle : "dark";
+  const _hCss = _hs === "light" ? "background:#fff;color:#0D1B2A;border-bottom:2px solid #0D1B2A"
+              : _hs === "none" ? "background:#fff;color:#0D1B2A" : "background:#0D1B2A;color:#fff";
+  const _hSub = _hs === "dark" ? "rgba(255,255,255,.8)" : "#667";
   const addr    = opts.addr    || "";
   const tagline = opts.tagline || "Ulgurji savdo tizimi";
   const items   = (s.items || []).filter(Boolean);
@@ -1818,9 +1823,9 @@ body{font-family:${opts.fontFamily || "'DM Sans',Arial,sans-serif"};background:#
 .rc{width:330px;max-width:100%;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 18px rgba(13,27,42,.12);zoom:${opts.fontScale || 1}}
 .logo{text-align:center;padding:8px 8px 2px}
 .logo img{width:100%;max-height:64px;object-fit:contain}
-.hd{background:#0D1B2A;color:#fff;text-align:center;padding:12px 10px}
+.hd{${_hCss};text-align:center;padding:12px 10px}
 .hd .nm{font-size:18px;font-weight:800;letter-spacing:.04em}
-.hd .sub{font-size:10.5px;color:rgba(255,255,255,.8);margin-top:2px}
+.hd .sub{font-size:10.5px;color:${_hSub};margin-top:2px}
 .meta{padding:8px 14px;font-size:12.5px;line-height:1.8;border-bottom:1px dashed #ddd}
 .meta b{font-weight:800}
 .lbl{font-size:10px;color:#777;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:7px 14px 2px}
@@ -1840,8 +1845,9 @@ body{font-family:${opts.fontFamily || "'DM Sans',Arial,sans-serif"};background:#
 @media print{
   @page{size:58mm auto;margin:0} body{background:#fff;padding:0} .rc{width:58mm;box-shadow:none;border-radius:0}
   .acts{display:none}
-  .hd{background:#fff !important;color:#000 !important;border-bottom:2px solid #000}
-  .hd .sub{color:#000}
+  ${_hs === "dark"
+    ? ".hd{background:#0D1B2A !important;-webkit-print-color-adjust:exact;print-color-adjust:exact} .hd, .hd *{color:#fff !important}"
+    : ".hd{background:#fff !important;border-bottom:2px solid #000} .hd, .hd *{color:#000 !important}"}
   .itn,.itc,.r,.meta,.ft,.ft2,.lbl,s{color:#000 !important}
   s{text-decoration-thickness:1.6px}
   .r,.r.sm,.meta,.itc,.itn{font-size:13.5px !important}
@@ -1954,7 +1960,8 @@ async function actionRenderReceipt(chekId, saleData, shopId) {
     footer:  _ck.footer  || "Rahmat! Yana kutamiz 🙏",
     extraLines: Array.isArray(_ck.extraLines) ? _ck.extraLines : [],
     fontScale: ({ small:0.9, large:1.12, xlarge:1.25 })[_ck.fontScale] || 1,
-    fontFamily: ({ mono:"'Courier New',monospace", serif:"'Georgia',serif", sans:"'Arial',sans-serif" })[_ck.fontFamily] || "'DM Sans',Arial,sans-serif"
+    fontFamily: ({ mono:"'Courier New',monospace", serif:"'Georgia',serif", sans:"'Arial',sans-serif" })[_ck.fontFamily] || "'DM Sans',Arial,sans-serif",
+    headerStyle: _ck.headerStyle || "dark" // 2026-07-19: banner foni
   });
 }
 
