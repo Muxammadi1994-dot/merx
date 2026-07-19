@@ -2699,12 +2699,13 @@
                   <option value="mono">Monospace (mashinka)</option>
                 </select>
               </div>
-              <div class="fld">
-                <label style="margin-bottom:8px">Altbilgi matni uslubi</label>
-                <div style="display:flex;gap:16px">
-                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500"><input type="checkbox" id="chek-footer-italic" checked style="width:16px;height:16px;accent-color:var(--acc)"> Kursiv</label>
-                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500"><input type="checkbox" id="chek-footer-bold" style="width:16px;height:16px;accent-color:var(--acc)"> Qalin</label>
-                </div>
+              <div class="fld"><label>Sarlavha foni (banner)</label>
+                <select id="chek-header-style">
+                  <option value="dark" selected>To'q (qora fon, oq yozuv)</option>
+                  <option value="light">Oq (oq fon, qora yozuv) — bosmaga mos</option>
+                  <option value="none">Fonsiz</option>
+                </select>
+                <div style="font-size:11px;color:var(--mut);margin-top:5px;line-height:1.5">Qora fon termal printerda xunuk chiqadi. Bosma uchun "Oq" tavsiya etiladi.</div>
               </div>
               <div class="fld" style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;padding:12px 14px">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#1E40AF"><input type="checkbox" id="chek-unified-sotuv" style="width:16px;height:16px;accent-color:var(--acc)"> Yangi yagona sotuv cheki (test)</label>
@@ -2751,8 +2752,8 @@
                   <button type="button" class="prev-tab btn btn-sm btn-ghost" data-pt="savat" onclick="setPreviewType('savat')">Savat</button>
                 </div>
               </div>
-              <div style="display:flex;justify-content:center;background:#E9E7E2;border-radius:12px;padding:14px;overflow:auto;max-height:75vh">
-                <iframe id="chek-preview-frame" style="width:320px;height:70vh;min-height:600px;border:none;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:8px" title="Test chek"></iframe>
+              <div style="display:flex;justify-content:center;background:#E9E7E2;border-radius:12px;padding:14px;overflow:auto;height:85vh">
+                <iframe id="chek-preview-frame" style="width:320px;height:100%;min-height:500px;border:none;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:8px" title="Test chek"></iframe>
               </div>
             </div>
           </div>
@@ -4261,8 +4262,8 @@
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/db.js?v=160"></script>
-<script src="js/utils.js?v=161"></script>
+<script src="js/db.js?v=161"></script>
+<script src="js/utils.js?v=162"></script>
 <script src="js/auth.js?v=177"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=187"></script>
@@ -4276,7 +4277,7 @@
 <script src="js/hisobot.js?v=145"></script>
 <script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=158"></script>
-<script src="js/egasi.js?v=155"></script>
+<script src="js/egasi.js?v=156"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=143"></script>
 <script>

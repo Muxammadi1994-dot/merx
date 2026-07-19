@@ -71,6 +71,7 @@ function getChekCfg(type) {
     extraLines: pick("extraLines", null),
     fonts:      pick("fonts", null),
     blocks:     pick("blocks", null), // 2026-07-18 (Qadam D): blok-darajali sozlamalar
+    headerStyle: pick("headerStyle", "dark"), // 2026-07-18: banner fon (dark/light/none)
     _type: type || "sotuv"
   };
 }

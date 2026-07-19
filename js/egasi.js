@@ -256,10 +256,8 @@ function renderEgasi() {
   if (ceFScale)  ceFScale.value  = chekCfg.fontScale  || "normal";
   const ceFFam = document.getElementById("chek-font-family");
   if (ceFFam)    ceFFam.value    = chekCfg.fontFamily || "dm";
-  const ceFI = document.getElementById("chek-footer-italic");
-  if (ceFI)      ceFI.checked    = chekCfg.footerItalic !== false;
-  const ceFB = document.getElementById("chek-footer-bold");
-  if (ceFB)      ceFB.checked    = chekCfg.footerBold === true;
+  const ceHdr = document.getElementById("chek-header-style");
+  if (ceHdr)     ceHdr.value     = chekCfg.headerStyle || "dark";
   const ceUni = document.getElementById("chek-unified-sotuv");
   if (ceUni)     ceUni.checked   = chekCfg.unifiedSotuv === true;
   // Qadam D-1: blok sozlamalari
@@ -631,8 +629,7 @@ function saveChekConfig() {
   cfg.paperWidth = parseInt(document.getElementById("chek-paper")?.value) || 72; // 2026-07-17: qog'oz eni
   cfg.fontScale  = document.getElementById("chek-font-scale")?.value  || "normal"; // 2026-07-18: tipografiya
   cfg.fontFamily = document.getElementById("chek-font-family")?.value || "dm";
-  cfg.footerItalic = document.getElementById("chek-footer-italic")?.checked !== false;
-  cfg.footerBold   = document.getElementById("chek-footer-bold")?.checked === true;
+  cfg.headerStyle = document.getElementById("chek-header-style")?.value || "dark"; // 2026-07-18: banner foni
   cfg.unifiedSotuv = document.getElementById("chek-unified-sotuv")?.checked === true; // 2026-07-18: yagona sotuv cheki (test)
   cfg.blocks = (window._chekBlocks && Object.keys(window._chekBlocks).length) ? window._chekBlocks : null; // Qadam D-1: blok sozlamalari
   // 2026-07-18 (2-bosqich): telefonlar massivi + qo'shimcha matnlar.
@@ -925,8 +922,7 @@ function _livePreviewCfg() {
     showDebtHistory: document.getElementById("chek-show-debt-history")?.checked !== false,
     fontScale:  document.getElementById("chek-font-scale")?.value  || "normal",
     fontFamily: document.getElementById("chek-font-family")?.value || "dm",
-    footerItalic: document.getElementById("chek-footer-italic")?.checked !== false,
-    footerBold:   document.getElementById("chek-footer-bold")?.checked === true,
+    headerStyle:  document.getElementById("chek-header-style")?.value || "dark",
     blocks:       (window._chekBlocks && Object.keys(window._chekBlocks).length) ? window._chekBlocks : null,
   };
 }
@@ -984,14 +980,10 @@ function renderChekPreview() {
       });
     }
     frame.srcdoc = html || "<div style='padding:20px;font-family:sans-serif;color:#999'>Preview mavjud emas</div>";
-    // 2026-07-18: iframe balandligini chek uzunligiga moslashtirish (kesilmasin)
-    frame.onload = () => {
-      try {
-        const doc = frame.contentDocument || frame.contentWindow.document;
-        const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
-        if (h > 100) frame.style.height = (h + 20) + "px";
-      } catch (e) {}
-    };
+    // 2026-07-18: iframe konteynerni to'ldiradi (85vh), uzun chek konteyner
+    // ichida skroll qiladi — balandlikni o'zgartirmaymiz (sozlamalar yonida
+    // to'liq turadi). onload faqat scroll'ni tepaga qaytaradi.
+    frame.onload = () => { try { frame.contentWindow.scrollTo(0, 0); } catch (e) {} };
   } catch (e) {
     frame.srcdoc = "<div style='padding:20px;font-family:sans-serif;color:#c00'>Preview xatosi: " + (e.message||e) + "</div>";
   }
@@ -1001,7 +993,7 @@ function renderChekPreview() {
 function _bindChekPreviewInputs() {
   const ids = ["chek-addr","chek-tagline","chek-footer","chek-paper",
                "chek-show-contact","chek-show-staff","chek-show-debt-history",
-               "chek-font-scale","chek-font-family","chek-footer-italic","chek-footer-bold"];
+               "chek-font-scale","chek-font-family","chek-header-style"];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (el && !el.dataset.pvBound) {
@@ -1069,6 +1061,7 @@ const _CHEK_BLOCK_DEFS = [
   { key: "itemPrice", label: "Tovar narxi / hisobi",      dSize: 11, canHide: false },
   { key: "total",     label: "JAMI / summalar",           dSize: 20, canHide: false },
   { key: "debt",      label: "Qarz bo'limi",              dSize: 12, canHide: true },
+  { key: "footer",    label: "Altbilgi (pastdagi yozuv)", dSize: 13, canHide: true },
 ];
 
 function renderChekBlocks() {

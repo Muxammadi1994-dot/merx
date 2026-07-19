@@ -567,6 +567,17 @@ function buildReceiptHtml(sale, opts) {
   const _bIPrice= _blk("itemPrice","11px", "500", "normal", "left");
   const _bTotal = _blk("total",    "20px", "800", "normal", "left");
   const _bDebt  = _blk("debt",     "12px", "600", "normal", "left");
+  const _bFoot  = _blk("footer",   "13px", "700", "normal", "center");
+  // 2026-07-18: sarlavha (banner) fon uslubi — termal printer uchun muhim.
+  // dark: qora fon oq yozuv (ekranда chiroyli, bosmada qora). light: oq fon
+  // qora yozuv (bosmaga eng mos). none: fonsiz. Standart: dark (hozirgidek).
+  const _hdrStyle = ["dark","light","none"].includes(chekCfg.headerStyle) ? chekCfg.headerStyle : "dark";
+  const _hdrCss = _hdrStyle === "light"
+      ? "background:#fff;color:#0D1B2A;border-bottom:2px solid #0D1B2A"
+      : _hdrStyle === "none"
+      ? "background:#fff;color:#0D1B2A"
+      : "background:#0D1B2A;color:#fff";
+  const _hdrSubColor = _hdrStyle === "dark" ? "#9aa7b5" : "#667";
 
   // Ixcham uslub uchun — faqat asosiylarni ko'rsatish
   const _cfg = {shopName,staffName,botUser,receiptUrl,logo,contact,footer,showStaff,showContact,F:n=>Math.round(n||0).toLocaleString("ru-RU")};
@@ -681,9 +692,9 @@ body{font-family:${_ffamily};background:#F2F0EB;display:flex;justify-content:cen
 .rc{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(13,27,42,.12)}
 
 /* HEAD */
-.hd{background:#0D1B2A;padding:18px 20px 14px;text-align:center;color:#fff}
+.hd{${_hdrCss};padding:18px 20px 14px;text-align:center}
 .hd-logo{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;letter-spacing:1.5px}
-.hd-sub{font-size:9.5px;color:#9aa7b5;letter-spacing:2px;text-transform:uppercase;margin-top:3px}
+.hd-sub{font-size:9.5px;color:${_hdrSubColor};letter-spacing:2px;text-transform:uppercase;margin-top:3px}
 
 /* META */
 .meta{padding:10px 16px;font-size:11.5px;border-bottom:1px dashed #E8E5E0}
@@ -728,7 +739,7 @@ body{font-family:${_ffamily};background:#F2F0EB;display:flex;justify-content:cen
 
 /* FOOTER */
 .ft{padding:12px 16px 16px;text-align:center}
-.ft-thanks{font-family:'Sora',sans-serif;font-weight:${_footBold ? '800' : '700'};font-style:${_footItalic ? 'italic' : 'normal'};font-size:13px;color:#0D1B2A}
+.ft-thanks{font-family:'Sora',sans-serif;font-weight:${_bFoot.weight};font-style:${_bFoot.style};font-size:${_bFoot.size};color:#0D1B2A;text-align:${_bFoot.align}}
 .ft-date{font-size:10px;color:#555;margin-top:2px}
 .ft-bot{font-size:11px;color:#229ED9;margin-top:8px;line-height:1.4}
 .ft-pdf{margin-top:5px}
@@ -749,6 +760,7 @@ body{font-family:${_ffamily};background:#F2F0EB;display:flex;justify-content:cen
 .pr-debt,.pay .pr{font-size:${_bDebt.size} !important;font-weight:${_bDebt.weight} !important;font-style:${_bDebt.style} !important}
 ${!_bMeta.show ? ".meta{display:none !important}" : ""}
 ${!_bDebt.show ? ".pay,.pr-debt{display:none !important}" : ""}
+${!_bFoot.show ? ".ft-thanks{display:none !important}" : ""}
 @media print{
   @page{size:${chekCfg.paperWidth || 72}mm auto;margin:0}
   body{background:#fff;padding:0}
@@ -767,7 +779,7 @@ ${!_bDebt.show ? ".pay,.pr-debt{display:none !important}" : ""}
     <div class="hd">
       <div class="hd-logo">${shopName.toUpperCase()}</div>
       <div class="hd-sub">${tagline}</div>
-      ${showContact && contact ? `<div style="font-size:11px;color:#9aa7b5;margin-top:4px">${contact}</div>` : ""}
+      ${showContact && contact ? `<div style="font-size:11px;color:${_hdrSubColor};margin-top:4px">${contact}</div>` : ""}
     </div>
 
     <div class="meta">
