@@ -1074,7 +1074,7 @@ function renderChekBlocks() {
     const bold = b.bold === true, ital = b.italic === true;
     const align = ["left","center","right"].includes(b.align) ? b.align : "";
     const show = b.show !== false;
-    const aBtn = (val, icon) => `<button type="button" onclick="setBlockAlign('${def.key}','${val}')" style="border:1px solid ${align===val?'var(--acc)':'var(--brd)'};background:${align===val?'var(--acc)':'#fff'};color:${align===val?'#fff':'#555'};border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:13px"><i class="ti ti-align-${icon}"></i></button>`;
+    const aBtn = (val, icon, title) => `<button type="button" title="${title||''}" onclick="setBlockAlign('${def.key}','${val}')" style="border:1px solid ${align===val?'var(--acc)':'var(--brd)'};background:${align===val?'var(--acc)':'#fff'};color:${align===val?'#fff':'#555'};border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:13px"><i class="ti ti-align-${icon}"></i></button>`;
     return `
     <div style="border:1px solid var(--brd);border-radius:9px;padding:10px 12px;background:#fff">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
@@ -1089,7 +1089,7 @@ function renderChekBlocks() {
         </div>
         <button type="button" onclick="toggleBlock('${def.key}','bold')" style="border:1px solid ${bold?'var(--acc)':'var(--brd)'};background:${bold?'var(--acc)':'#fff'};color:${bold?'#fff':'#555'};border-radius:6px;width:30px;height:30px;cursor:pointer;font-weight:800;font-size:13px">B</button>
         <button type="button" onclick="toggleBlock('${def.key}','italic')" style="border:1px solid ${ital?'var(--acc)':'var(--brd)'};background:${ital?'var(--acc)':'#fff'};color:${ital?'#fff':'#555'};border-radius:6px;width:30px;height:30px;cursor:pointer;font-style:italic;font-size:13px">I</button>
-        <div style="display:flex;gap:3px;margin-left:auto">${aBtn("left","left")}${aBtn("center","center")}${aBtn("right","right")}</div>
+        <div style="display:flex;gap:3px;margin-left:auto">${aBtn("left","left","Chapga")}${aBtn("center","center","O'rtaga")}${aBtn("right","right","O'ngga")}${(def.key==="itemName"||def.key==="itemPrice")?aBtn("justify","justified","Ikki chetdan (nom chap, narx o'ng)"):""}</div>
       </div>
     </div>`;
   }).join("");
