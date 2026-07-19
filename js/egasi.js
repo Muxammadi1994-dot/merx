@@ -262,7 +262,6 @@ function renderEgasi() {
   if (ceFB)      ceFB.checked    = chekCfg.footerBold === true;
   const ceUni = document.getElementById("chek-unified-sotuv");
   if (ceUni)     ceUni.checked   = chekCfg.unifiedSotuv === true;
-  if (ceContact) ceContact.value = chekCfg.contact  || "";
   if (ceFooter)  ceFooter.value  = chekCfg.footer   || "Rahmat! Yana kutamiz 🙏";
   if (ceStaff)   ceStaff.checked   = chekCfg.showStaff   !== false;
   if (ceContact2) ceContact2.checked = chekCfg.showContact !== false;
