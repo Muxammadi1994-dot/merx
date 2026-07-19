@@ -209,7 +209,8 @@ function applyDashBanner() {
 
 // ── KPI kartochkalar ───────────────────────────
 const KPI_DEFAULTS = {
-  kassa: true, naqdtushdi: true, kassaqoldi: true, sotuvlar: true, ortacha: true, qarz: true, muddati: true, ombor: true
+  kassa: true, naqdtushdi: true, kassaqoldi: true, sotuvlar: true, ortacha: true, qarz: true, muddati: true, ombor: true,
+  kartatushum: true, naqdxarajat: true, kartaxarajat: true, umumiyxarajat: true // 2026-07-19
 };
 
 function dashGetKpiCols() {
@@ -235,6 +236,10 @@ function dashRenderKpiPanel() {
     { key:'qarz',     lbl:'Jami qarz' },
     { key:'muddati',  lbl:"Muddati o'tgan" },
     { key:'ombor',    lbl:'Kam qoldiq' },
+    { key:'kartatushum',   lbl:'Kartaga tushum' },
+    { key:'naqdxarajat',   lbl:'Naqd xarajatlar' },
+    { key:'kartaxarajat',  lbl:'Karta xarajatlar' },
+    { key:'umumiyxarajat', lbl:'Umumiy xarajatlar' },
   ];
   $('dash-kpi-panel').innerHTML = `
     <div style="padding:10px 4px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -291,19 +296,26 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
   // "Naqd tushdi" = sotuv naqd ulushi + qarz to'lovlari naqd ulushi
   // (aralashda FAQAT naqd qismi — methodBreakdown). "Kassada qoldi" =
   // naqd tushum − bugungi NAQD xarajatlar.
-  let kassaNaqd = 0;
+  let kassaNaqd = 0, kartaTushum = 0;
   dashGetSales().forEach(s => {
     const pb = s.payBreakdown;
-    if (pb && (pb.naqd || pb.karta || pb.otkazma)) kassaNaqd += (pb.naqd || 0);
+    if (pb && (pb.naqd || pb.karta || pb.otkazma)) { kassaNaqd += (pb.naqd || 0); kartaTushum += (pb.karta || 0); }
     else if (s.payType === "naqd") kassaNaqd += (s.paid || 0);
+    else if (s.payType === "karta") kartaTushum += (s.paid || 0);
   });
   activePays().filter(p => p.date >= _pr2.from && p.date <= _pr2.to).forEach(p => {
     const somAmt = p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * _rate) : (p.amount || 0));
     const mb = p.methodBreakdown;
     const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
-    if (mbHas) kassaNaqd += (mb.naqd || 0);
+    if (mbHas) { kassaNaqd += (mb.naqd || 0); kartaTushum += (mb.karta || 0); }
     else if ((p.method || "naqd") === "naqd") kassaNaqd += somAmt;
+    else if (p.method === "karta") kartaTushum += somAmt;
   });
+  // 2026-07-19: xarajatlar — naqd / karta / umumiy (4 yangi KPI kartasi uchun)
+  const _expsInPeriod = (db.xarajatlar || []).filter(x => x.date >= _pr2.from && x.date <= _pr2.to);
+  const naqdXarajatKpi  = _expsInPeriod.filter(x => (x.method||"naqd") === "naqd").reduce((a,x)=>a+(x.amount||0),0);
+  const kartaXarajatKpi = _expsInPeriod.filter(x => x.method === "karta").reduce((a,x)=>a+(x.amount||0),0);
+  const umumiyXarajatKpi= _expsInPeriod.reduce((a,x)=>a+(x.amount||0),0);
   const naqdXarajat = (db.xarajatlar || [])
     .filter(x => x.date >= _pr2.from && x.date <= _pr2.to && (x.method || "naqd") === "naqd")
     .reduce((a, x) => a + (x.amount || 0), 0);
@@ -365,6 +377,30 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
       label: 'Kam qoldiq', val: lowCnt + ' ta variant',
       sub: lowCnt > 0 ? 'zaxirani to\'ldirish kerak' : 'ombor yetarli',
       click: "nav('ombor')"
+    },
+    {
+      key: 'kartatushum',
+      icon: 'ti-credit-card', color: '#4C9BE8',
+      label: 'Kartaga tushum', val: priceFmt(kartaTushum, true),
+      sub: 'karta · ' + dashPeriodName(), click: "nav('moliya')"
+    },
+    {
+      key: 'naqdxarajat',
+      icon: 'ti-cash-off', color: '#E05A5A',
+      label: 'Naqd xarajatlar', val: priceFmt(naqdXarajatKpi, true),
+      sub: 'naqd · ' + dashPeriodName(), click: "nav('moliya')"
+    },
+    {
+      key: 'kartaxarajat',
+      icon: 'ti-credit-card-off', color: '#E05A5A',
+      label: 'Karta xarajatlar', val: priceFmt(kartaXarajatKpi, true),
+      sub: 'karta · ' + dashPeriodName(), click: "nav('moliya')"
+    },
+    {
+      key: 'umumiyxarajat',
+      icon: 'ti-receipt-off', color: '#E07B39',
+      label: 'Umumiy xarajatlar', val: priceFmt(umumiyXarajatKpi, true),
+      sub: 'jami · ' + dashPeriodName(), click: "nav('moliya')"
     },
   ];
 
