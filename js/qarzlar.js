@@ -1528,6 +1528,29 @@ function showDebtPaymentReceipt(payment) {
   const _qsc = ({ small:0.9, large:1.12, xlarge:1.25 })[cfg.fontScale] || (parseFloat(cfg.fontScale) >= 0.7 && parseFloat(cfg.fontScale) <= 1.5 ? parseFloat(cfg.fontScale) : 1);
   const _qff = ({ mono:"'Courier New',monospace", serif:"'Georgia',serif", sans:"'Arial',sans-serif" })[cfg.fontFamily] || "'DM Sans',Arial,sans-serif";
   const _qfi = cfg.footerItalic !== false;
+  // 2026-07-19: qarz cheki BLOK sozlamalari (e'lon — avval yetishmagan, ReferenceError edi)
+  const _qb = cfg.blocks || {};
+  const _qblk = (name, dSize, dW, dS, dA) => {
+    const b = _qb[name] || {};
+    const sz = parseInt(b.size);
+    return {
+      size:   (sz >= 6 && sz <= 40) ? sz + "px" : dSize,
+      weight: b.bold === true ? "800" : (b.bold === false ? "400" : dW),
+      style:  b.italic === true ? "italic" : (b.italic === false ? "normal" : dS),
+      align:  ["left","center","right"].includes(b.align) ? b.align : dA,
+    };
+  };
+  const _qbShop = _qblk("shop",   "17px","800","normal","center");
+  const _qbTot  = _qblk("total",  "17px","900","normal","right");
+  const _qbFoot = _qblk("footer", "10.5px","400","italic","center");
+  // Banner foni (headerStyle) + qog'oz eni (paperWidth) — qarz chekiga ham
+  const _qhStyle = ["dark","light","none"].includes(cfg.headerStyle) ? cfg.headerStyle : "dark";
+  const _qhCss = _qhStyle === "light"
+      ? "background:#fff;color:#0D1B2A;border-bottom:2px solid #0D1B2A"
+      : _qhStyle === "none" ? "background:#fff;color:#0D1B2A"
+      : "background:#0D1B2A;color:#fff";
+  const _qhSub = _qhStyle === "dark" ? "rgba(255,255,255,.85)" : "#667";
+  const _qpw = parseInt(cfg.paperWidth) || 72;
   const cxlBanner = payment.cancelled
     ? `<div style="text-align:center;background:#FEE2E2;color:#B91C1C;font-weight:800;padding:4px;border-radius:6px;margin:6px 0">❌ BEKOR QILINGAN</div>` : "";
 
@@ -1539,9 +1562,9 @@ function showDebtPaymentReceipt(payment) {
     .ft{font-style:${_qfi ? "italic" : "normal"}}
     .logo{text-align:center;padding:8px 6px 4px}
     .logo img{width:100%;max-height:64px;object-fit:contain}
-    .hd{text-align:${_qbShop.align};background:#0D1B2A;color:#fff;text-align:center;padding:12px 8px}
+    .hd{text-align:${_qbShop.align};${_qhCss};padding:12px 8px}
     .hd .nm{font-size:${_qbShop.size};font-weight:${_qbShop.weight};font-style:${_qbShop.style};letter-spacing:.03em}
-    .hd .sub{font-size:10.5px;color:rgba(255,255,255,.85);margin-top:2px}
+    .hd .sub{font-size:10.5px;color:${_qhSub};margin-top:2px}
     .sec{padding:7px 12px;border-bottom:1px dashed #ddd;font-size:12px}
     .lbl{font-size:9.5px;color:#777;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
     .r{display:flex;justify-content:space-between;margin:2px 0}
@@ -1551,12 +1574,12 @@ function showDebtPaymentReceipt(payment) {
     .ft{text-align:${_qbFoot.align};font-size:${_qbFoot.size};color:#555;padding:8px 6px 0;font-style:${_qbFoot.style};font-weight:${_qbFoot.weight}}
     .ft2{text-align:center;font-size:9.5px;color:#999;margin-top:2px}
     @media print{
-      @page{size:58mm auto;margin:0} body{background:#fff} .rc{width:58mm}
-      /* 2026-07-17: termal printer OQ-QORA — ranglar xira chiqadi, hammasi qora */
-      .grn,.red,.big,.lbl,.sub,.ft,.ft2{color:#000 !important}
-      /* 2026-07-17: qora fon termalda hech narsa ko'rsatmaydi — OQ fon, QORA yozuv */
-      .hd{background:#fff !important;color:#000 !important;border-bottom:2px solid #000}
-      .hd .nm,.hd .sub{color:#000 !important}
+      @page{size:${_qpw}mm auto;margin:0} body{background:#fff} .rc{width:${_qpw}mm}
+      /* 2026-07-19: barcha yozuv SOF QORA (termal xira rang bermasin) */
+      .rc, .rc *{color:#000 !important}
+      ${_qhStyle === "dark"
+        ? ".hd, .hd *{color:#fff !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
+        : ".hd{background:#fff !important;border-bottom:2px solid #000} .hd, .hd *{color:#000 !important}"}
     }
   </style></head><body><div class="rc">
     ${cfg.logo ? `<div class="logo"><img src="${cfg.logo}"></div>` : ""}

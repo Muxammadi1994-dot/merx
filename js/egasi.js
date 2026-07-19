@@ -1070,12 +1070,17 @@ function _buildDebtReceiptPreview(cfg) {
   const logo = cfg.logo, shopName = cfg.shopName || "MERX";
   const contact = cfg.showContact ? (cfg.contact || "") : "";
   const extra = Array.isArray(cfg.extraLines) ? cfg.extraLines.filter(Boolean) : [];
+  // 2026-07-19: banner foni preview'da ham (haqiqiy qarz cheki bilan mos)
+  const hs = ["dark","light","none"].includes(cfg.headerStyle) ? cfg.headerStyle : "dark";
+  const hCss = hs === "light" ? "background:#fff;color:#0D1B2A;border-bottom:2px solid #0D1B2A"
+             : hs === "none" ? "background:#fff;color:#0D1B2A" : "background:#0D1B2A;color:#fff";
+  const hSub = hs === "dark" ? "rgba(255,255,255,.85)" : "#667";
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     body{font-family:${ff};margin:0;padding:0;display:flex;justify-content:center;background:#eee}
     .rc{width:300px;background:#fff;padding:0 0 10px;zoom:${sc}}
     .logo{text-align:center;padding:8px 6px 4px}.logo img{width:100%;max-height:64px;object-fit:contain}
-    .hd{background:#0D1B2A;color:#fff;text-align:center;padding:12px 8px}
-    .hd .nm{font-size:17px;font-weight:800;letter-spacing:.03em}.hd .sub{font-size:10.5px;color:rgba(255,255,255,.85);margin-top:2px}
+    .hd{${hCss};text-align:center;padding:12px 8px}
+    .hd .nm{font-size:17px;font-weight:800;letter-spacing:.03em}.hd .sub{font-size:10.5px;color:${hSub};margin-top:2px}
     .sec{padding:7px 12px;border-bottom:1px dashed #ddd;font-size:12px}
     .lbl{font-size:9.5px;color:#777;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
     .r{display:flex;justify-content:space-between;margin:2px 0}
