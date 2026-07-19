@@ -1539,16 +1539,16 @@ function showDebtPaymentReceipt(payment) {
     .ft{font-style:${_qfi ? "italic" : "normal"}}
     .logo{text-align:center;padding:8px 6px 4px}
     .logo img{width:100%;max-height:64px;object-fit:contain}
-    .hd{background:#0D1B2A;color:#fff;text-align:center;padding:12px 8px}
-    .hd .nm{font-size:17px;font-weight:800;letter-spacing:.03em}
+    .hd{text-align:${_qbShop.align};background:#0D1B2A;color:#fff;text-align:center;padding:12px 8px}
+    .hd .nm{font-size:${_qbShop.size};font-weight:${_qbShop.weight};font-style:${_qbShop.style};letter-spacing:.03em}
     .hd .sub{font-size:10.5px;color:rgba(255,255,255,.85);margin-top:2px}
     .sec{padding:7px 12px;border-bottom:1px dashed #ddd;font-size:12px}
     .lbl{font-size:9.5px;color:#777;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
     .r{display:flex;justify-content:space-between;margin:2px 0}
-    .big{font-size:17px;font-weight:900;color:#0D1B2A;text-align:right}
+    .big{font-size:${_qbTot.size};font-weight:${_qbTot.weight};font-style:${_qbTot.style};color:#0D1B2A;text-align:right}
     .grn{color:#059669;font-weight:800}
     .red{color:#DC2626;font-weight:800}
-    .ft{text-align:center;font-size:10.5px;color:#555;padding:8px 6px 0;font-style:italic}
+    .ft{text-align:${_qbFoot.align};font-size:${_qbFoot.size};color:#555;padding:8px 6px 0;font-style:${_qbFoot.style};font-weight:${_qbFoot.weight}}
     .ft2{text-align:center;font-size:9.5px;color:#999;margin-top:2px}
     @media print{
       @page{size:58mm auto;margin:0} body{background:#fff} .rc{width:58mm}

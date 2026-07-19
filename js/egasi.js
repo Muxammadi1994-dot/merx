@@ -260,9 +260,17 @@ function renderEgasi() {
   if (ceHdr)     ceHdr.value     = chekCfg.headerStyle || "dark";
   const ceUni = document.getElementById("chek-unified-sotuv");
   if (ceUni)     ceUni.checked   = chekCfg.unifiedSotuv === true;
-  // Qadam D-1: blok sozlamalari
-  window._chekBlocks = (chekCfg.blocks && typeof chekCfg.blocks === "object") ? JSON.parse(JSON.stringify(chekCfg.blocks)) : {};
-  renderChekBlocks();
+  // Qadam D (per-type): har chek turi uchun ALOHIDA blok sozlamalari.
+  // _chekBlocksAll = {umumiy:{}, sotuv:{}, qarz:{}, savat:{}}. Joriy tahrir
+  // turi _previewType (Sotuv/Qarz/Savat tugmasi bilan almashadi).
+  const _rawCfg = (typeof db !== "undefined" && db.settings && db.settings.chekConfig) || {};
+  window._chekBlocksAll = {
+    umumiy: (chekCfg.blocks && typeof chekCfg.blocks === "object") ? JSON.parse(JSON.stringify(chekCfg.blocks)) : {},
+    sotuv:  _perTypeBlocks(_rawCfg, "sotuv"),
+    qarz:   _perTypeBlocks(_rawCfg, "qarz"),
+    savat:  _perTypeBlocks(_rawCfg, "savat"),
+  };
+  _loadBlocksForType(_previewType || "sotuv");
   if (ceFooter)  ceFooter.value  = chekCfg.footer   || "Rahmat! Yana kutamiz 🙏";
   if (ceStaff)   ceStaff.checked   = chekCfg.showStaff   !== false;
   if (ceContact2) ceContact2.checked = chekCfg.showContact !== false;
@@ -631,7 +639,19 @@ function saveChekConfig() {
   cfg.fontFamily = document.getElementById("chek-font-family")?.value || "dm";
   cfg.headerStyle = document.getElementById("chek-header-style")?.value || "dark"; // 2026-07-18: banner foni
   cfg.unifiedSotuv = document.getElementById("chek-unified-sotuv")?.checked === true; // 2026-07-18: yagona sotuv cheki (test)
-  cfg.blocks = (window._chekBlocks && Object.keys(window._chekBlocks).length) ? window._chekBlocks : null; // Qadam D-1: blok sozlamalari
+  // Qadam D (per-type): avval joriy tahrirni _chekBlocksAll'ga saqlaymiz
+  _saveCurrentBlocks();
+  const _all = window._chekBlocksAll || {};
+  cfg.blocks = (_all.umumiy && Object.keys(_all.umumiy).length) ? _all.umumiy : null; // umumiy (moslik)
+  cfg.perType = cfg.perType || {};
+  ["sotuv","qarz","savat"].forEach(t => {
+    if (_all[t] && Object.keys(_all[t]).length) {
+      cfg.perType[t] = cfg.perType[t] || {};
+      cfg.perType[t].blocks = _all[t];
+    } else if (cfg.perType[t]) {
+      delete cfg.perType[t].blocks;
+    }
+  });
   // 2026-07-18 (2-bosqich): telefonlar massivi + qo'shimcha matnlar.
   // Eski "contact" (vergulli) o'rniga phones[]; getChekCfg ikkalasini biladi.
   cfg.phones = Array.isArray(window._chekPhones) ? window._chekPhones.slice() : [];
@@ -896,14 +916,42 @@ function removeChekExtra(i) {
 let _previewType = "sotuv";
 
 function setPreviewType(t) {
+  // Qadam D (per-type): tur almashishdan OLDIN joriy blokni saqlaymiz,
+  // keyin yangi tur blokini yuklaymiz — har chek turi mustaqil.
+  if (typeof _saveCurrentBlocks === "function") _saveCurrentBlocks();
   _previewType = t;
   document.querySelectorAll(".prev-tab").forEach(b => {
     const on = b.dataset.pt === t;
     b.classList.toggle("btn-acc", on);
     b.classList.toggle("btn-ghost", !on);
   });
+  if (typeof _loadBlocksForType === "function") _loadBlocksForType(t);
   renderChekPreview();
 }
+
+// ─── Qadam D (per-type) yordamchilari (2026-07-19) ───
+function _perTypeBlocks(rawCfg, type) {
+  const pt = rawCfg && rawCfg.perType && rawCfg.perType[type];
+  return (pt && pt.blocks && typeof pt.blocks === "object")
+    ? JSON.parse(JSON.stringify(pt.blocks)) : {};
+}
+// Joriy turdagi tahrirni _chekBlocks -> _chekBlocksAll[tur] ga ko'chiradi
+function _saveCurrentBlocks() {
+  window._chekBlocksAll = window._chekBlocksAll || {};
+  const t = _previewType || "sotuv";
+  window._chekBlocksAll[t] = (window._chekBlocks && Object.keys(window._chekBlocks).length)
+    ? JSON.parse(JSON.stringify(window._chekBlocks)) : {};
+}
+// Tanlangan tur blokini tahrirga (_chekBlocks) yuklaydi. Agar shu tur uchun
+// maxsus sozlama yo'q bo'lsa — umumiydan meros (bo'sh = standart ko'rinish).
+function _loadBlocksForType(type) {
+  const all = window._chekBlocksAll || {};
+  const specific = all[type] && Object.keys(all[type]).length ? all[type] : null;
+  const src = specific || all.umumiy || {};
+  window._chekBlocks = JSON.parse(JSON.stringify(src));
+  if (typeof renderChekBlocks === "function") renderChekBlocks();
+}
+
 
 // Joriy input qiymatlaridan vaqtinchalik chek-config yig'ish
 function _livePreviewCfg() {
@@ -923,7 +971,7 @@ function _livePreviewCfg() {
     fontScale:  document.getElementById("chek-font-scale")?.value  || "normal",
     fontFamily: document.getElementById("chek-font-family")?.value || "dm",
     headerStyle:  document.getElementById("chek-header-style")?.value || "dark",
-    blocks:       (window._chekBlocks && Object.keys(window._chekBlocks).length) ? window._chekBlocks : null,
+    blocks:       (window._chekBlocks && Object.keys(window._chekBlocks).length) ? window._chekBlocks : null, // joriy tur (per-type)
   };
 }
 
