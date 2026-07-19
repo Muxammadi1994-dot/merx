@@ -262,6 +262,9 @@ function renderEgasi() {
   if (ceFB)      ceFB.checked    = chekCfg.footerBold === true;
   const ceUni = document.getElementById("chek-unified-sotuv");
   if (ceUni)     ceUni.checked   = chekCfg.unifiedSotuv === true;
+  // Qadam D-1: blok sozlamalari
+  window._chekBlocks = (chekCfg.blocks && typeof chekCfg.blocks === "object") ? JSON.parse(JSON.stringify(chekCfg.blocks)) : {};
+  renderChekBlocks();
   if (ceFooter)  ceFooter.value  = chekCfg.footer   || "Rahmat! Yana kutamiz 🙏";
   if (ceStaff)   ceStaff.checked   = chekCfg.showStaff   !== false;
   if (ceContact2) ceContact2.checked = chekCfg.showContact !== false;
@@ -631,6 +634,7 @@ function saveChekConfig() {
   cfg.footerItalic = document.getElementById("chek-footer-italic")?.checked !== false;
   cfg.footerBold   = document.getElementById("chek-footer-bold")?.checked === true;
   cfg.unifiedSotuv = document.getElementById("chek-unified-sotuv")?.checked === true; // 2026-07-18: yagona sotuv cheki (test)
+  cfg.blocks = (window._chekBlocks && Object.keys(window._chekBlocks).length) ? window._chekBlocks : null; // Qadam D-1: blok sozlamalari
   // 2026-07-18 (2-bosqich): telefonlar massivi + qo'shimcha matnlar.
   // Eski "contact" (vergulli) o'rniga phones[]; getChekCfg ikkalasini biladi.
   cfg.phones = Array.isArray(window._chekPhones) ? window._chekPhones.slice() : [];
@@ -923,6 +927,7 @@ function _livePreviewCfg() {
     fontFamily: document.getElementById("chek-font-family")?.value || "dm",
     footerItalic: document.getElementById("chek-footer-italic")?.checked !== false,
     footerBold:   document.getElementById("chek-footer-bold")?.checked === true,
+    blocks:       (window._chekBlocks && Object.keys(window._chekBlocks).length) ? window._chekBlocks : null,
   };
 }
 
@@ -1050,3 +1055,60 @@ function _buildDebtReceiptPreview(cfg) {
     ${extra.length ? `<div style="text-align:center;font-size:11px;color:#333;padding:4px 6px">${extra.map(t=>`<div>${t}</div>`).join("")}</div>` : ""}
     </div></body></html>`;
 }
+
+// ═══════════════════════════════════════════════════════════
+// CHEK BLOK-DARAJALI TAHRIR (2026-07-18, Qadam D-1)
+// Har blok: o'lcham (px), qalin, kursiv, tekislash, ko'rsatish.
+// window._chekBlocks — {name:{size,bold,italic,align,show}}.
+// Saqlash saveChekConfig'da; qo'llash buildReceiptHtml (yagona quruvchi).
+// ═══════════════════════════════════════════════════════════
+const _CHEK_BLOCK_DEFS = [
+  { key: "shop",      label: "Do'kon nomi (tepa)",        dSize: 20, canHide: false },
+  { key: "meta",      label: "Ma'lumotlar (sotuv/sana/mijoz)", dSize: 12, canHide: true },
+  { key: "itemName",  label: "Tovar nomi",                dSize: 13, canHide: false },
+  { key: "itemPrice", label: "Tovar narxi / hisobi",      dSize: 11, canHide: false },
+  { key: "total",     label: "JAMI / summalar",           dSize: 20, canHide: false },
+  { key: "debt",      label: "Qarz bo'limi",              dSize: 12, canHide: true },
+];
+
+function renderChekBlocks() {
+  const box = document.getElementById("chek-blocks-box");
+  if (!box) return;
+  const B = window._chekBlocks || {};
+  box.innerHTML = _CHEK_BLOCK_DEFS.map(def => {
+    const b = B[def.key] || {};
+    const size = parseInt(b.size) || def.dSize;
+    const bold = b.bold === true, ital = b.italic === true;
+    const align = ["left","center","right"].includes(b.align) ? b.align : "";
+    const show = b.show !== false;
+    const aBtn = (val, icon) => `<button type="button" onclick="setBlockAlign('${def.key}','${val}')" style="border:1px solid ${align===val?'var(--acc)':'var(--brd)'};background:${align===val?'var(--acc)':'#fff'};color:${align===val?'#fff':'#555'};border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:13px"><i class="ti ti-align-${icon}"></i></button>`;
+    return `
+    <div style="border:1px solid var(--brd);border-radius:9px;padding:10px 12px;background:#fff">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+        <span style="font-size:12.5px;font-weight:700;color:#0D1B2A">${def.label}</span>
+        ${def.canHide ? `<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#555;cursor:pointer"><input type="checkbox" ${show?"checked":""} onchange="setBlockShow('${def.key}',this.checked)" style="width:15px;height:15px;accent-color:var(--acc)"> Ko'rsatish</label>` : ""}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:5px">
+          <span style="font-size:11px;color:#777">O'lcham</span>
+          <input type="number" min="6" max="40" value="${size}" onchange="setBlockSize('${def.key}',this.value)" style="width:52px;font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:6px;padding:5px 6px;text-align:center">
+          <span style="font-size:11px;color:#aaa">px</span>
+        </div>
+        <button type="button" onclick="toggleBlock('${def.key}','bold')" style="border:1px solid ${bold?'var(--acc)':'var(--brd)'};background:${bold?'var(--acc)':'#fff'};color:${bold?'#fff':'#555'};border-radius:6px;width:30px;height:30px;cursor:pointer;font-weight:800;font-size:13px">B</button>
+        <button type="button" onclick="toggleBlock('${def.key}','italic')" style="border:1px solid ${ital?'var(--acc)':'var(--brd)'};background:${ital?'var(--acc)':'#fff'};color:${ital?'#fff':'#555'};border-radius:6px;width:30px;height:30px;cursor:pointer;font-style:italic;font-size:13px">I</button>
+        <div style="display:flex;gap:3px;margin-left:auto">${aBtn("left","left")}${aBtn("center","center")}${aBtn("right","right")}</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function _ensureBlock(key) {
+  window._chekBlocks = window._chekBlocks || {};
+  window._chekBlocks[key] = window._chekBlocks[key] || {};
+  return window._chekBlocks[key];
+}
+function setBlockSize(key, val) { _ensureBlock(key).size = parseInt(val) || undefined; _afterBlockChange(); }
+function toggleBlock(key, prop) { const b = _ensureBlock(key); b[prop] = !b[prop]; renderChekBlocks(); _afterBlockChange(); }
+function setBlockAlign(key, val) { const b = _ensureBlock(key); b.align = (b.align === val ? undefined : val); renderChekBlocks(); _afterBlockChange(); }
+function setBlockShow(key, val) { _ensureBlock(key).show = val; _afterBlockChange(); }
+function _afterBlockChange() { try { if (typeof renderChekPreview === "function") renderChekPreview(); } catch(e){} }

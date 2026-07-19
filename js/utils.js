@@ -546,6 +546,27 @@ function buildReceiptHtml(sale, opts) {
   })();
   const _footItalic = chekCfg.footerItalic !== false; // standart kursiv
   const _footBold   = chekCfg.footerBold === true;
+  // 2026-07-18 (Qadam D-1): BLOK-DARAJALI tahrir. Har blok uchun
+  // {size, bold, italic, align, show}. Standart qiymatlar = HOZIRGI ko'rinish
+  // (admin tegmasa hech narsa o'zgarmaydi — regressiya himoyasi).
+  const _blocks = chekCfg.blocks || {};
+  const _blk = (name, dSize, dWeight, dStyle, dAlign) => {
+    const b = _blocks[name] || {};
+    const sz = parseInt(b.size);
+    return {
+      size:   (sz >= 6 && sz <= 40) ? sz + "px" : dSize,
+      weight: b.bold === true ? "800" : (b.bold === false ? "400" : dWeight),
+      style:  b.italic === true ? "italic" : (b.italic === false ? "normal" : dStyle),
+      align:  ["left","center","right"].includes(b.align) ? b.align : dAlign,
+      show:   b.show !== false
+    };
+  };
+  const _bShop  = _blk("shop",     "20px", "800", "normal", "center");
+  const _bMeta  = _blk("meta",     "12px", "500", "normal", "left");
+  const _bIName = _blk("itemName", "13px", "700", "normal", "left");
+  const _bIPrice= _blk("itemPrice","11px", "500", "normal", "left");
+  const _bTotal = _blk("total",    "20px", "800", "normal", "left");
+  const _bDebt  = _blk("debt",     "12px", "600", "normal", "left");
 
   // Ixcham uslub uchun — faqat asosiylarni ko'rsatish
   const _cfg = {shopName,staffName,botUser,receiptUrl,logo,contact,footer,showStaff,showContact,F:n=>Math.round(n||0).toLocaleString("ru-RU")};
@@ -718,6 +739,16 @@ body{font-family:${_ffamily};background:#F2F0EB;display:flex;justify-content:cen
 .acts button{flex:1;border:none;border-radius:10px;padding:11px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer}
 .btn-p{background:#0D1B2A;color:#fff}
 .btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #E8E5E0!important}
+/* 2026-07-18 (Qadam D-1): blok-darajali sozlamalar (standart=hozirgi) */
+.hd-logo{font-size:${_bShop.size} !important;font-weight:${_bShop.weight} !important;font-style:${_bShop.style} !important}
+.hd{text-align:${_bShop.align} !important}
+.meta .mr{font-size:${_bMeta.size} !important;font-weight:${_bMeta.weight} !important;font-style:${_bMeta.style} !important;text-align:${_bMeta.align} !important}
+.it-name{font-size:${_bIName.size} !important;font-weight:${_bIName.weight} !important;font-style:${_bIName.style} !important;text-align:${_bIName.align} !important}
+.it-det{font-size:${_bIPrice.size} !important;font-weight:${_bIPrice.weight} !important;font-style:${_bIPrice.style} !important;text-align:${_bIPrice.align} !important}
+.tot-val{font-size:${_bTotal.size} !important;font-weight:${_bTotal.weight} !important;font-style:${_bTotal.style} !important}
+.pr-debt,.pay .pr{font-size:${_bDebt.size} !important;font-weight:${_bDebt.weight} !important;font-style:${_bDebt.style} !important}
+${!_bMeta.show ? ".meta{display:none !important}" : ""}
+${!_bDebt.show ? ".pay,.pr-debt{display:none !important}" : ""}
 @media print{
   @page{size:${chekCfg.paperWidth || 72}mm auto;margin:0}
   body{background:#fff;padding:0}

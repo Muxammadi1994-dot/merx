@@ -69,7 +69,8 @@ function getChekCfg(type) {
     footerBold:   pick("footerBold", false) === true,
     unifiedSotuv: pick("unifiedSotuv", false) === true, // 2026-07-18: yangi sotuv cheki (test)
     extraLines: pick("extraLines", null),
-    fonts:      pick("fonts", null), // kelajak: blok-darajali
+    fonts:      pick("fonts", null),
+    blocks:     pick("blocks", null), // 2026-07-18 (Qadam D): blok-darajali sozlamalar
     _type: type || "sotuv"
   };
 }
