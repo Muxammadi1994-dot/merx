@@ -871,6 +871,9 @@ ${!_bFoot.show ? ".ft-thanks{display:none !important}" : ""}
 
     ${jamiPch > 0 ? `<div class="pr" style="padding:5px 16px;font-weight:800;border-top:1px dashed #ddd"><span>JAMI POCHKA</span><span>${jamiPch} pochka</span></div>` : ""}
     ${itemDisc > 0 ? `<div class="pr" style="padding:2px 16px;color:#B91C1C;font-weight:700"><span>Tovar chegirmalari</span><span>−${F(itemDisc)} so'm</span></div>` : ""}
+    ${discount > 0 ? `
+    <div class="pr" style="padding:4px 16px 0"><span>Oraliq</span><span>${F(total + discount)} so'm</span></div>
+    <div class="pr" style="padding:2px 16px"><span>Umumiy chegirma</span><span class="c-red">− ${F(discount)} so'm</span></div>` : ""}
     <div class="tot">
       <div>
         <div class="tot-lbl">JAMI</div>
@@ -890,7 +893,6 @@ ${!_bFoot.show ? ".ft-thanks{display:none !important}" : ""}
       ${payType === "aralash" && payBreakdown ? Object.entries(payBreakdown).map(([m,v]) =>
         `<div class="pr" style="padding-left:10px"><span style="color:#999">${payLabels[m]||m}</span><span style="color:#666">${F(v)} so'm</span></div>`
       ).join("") : ""}
-      ${discHtml}
       <div class="pr"><span>To'landi</span><span style="color:#059669;font-weight:700">${F(paid)} so'm</span></div>
       ${debtHtml}
     </div>`}
