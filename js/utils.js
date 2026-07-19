@@ -667,7 +667,19 @@ function buildReceiptHtml(sale, opts) {
     }
     if (due) debtHtml += `<div class="pr pr-sm"><span>To'lov muddati</span><span class="c-red">${due}</span></div>`;
   } else {
-    debtHtml = `<div class="paid-ok">✓ To'liq to'landi</div>`;
+    // 2026-07-18: to'liq to'langan sotuvда ham mijozning MAVJUD qarzi
+    // ko'rsatiladi (kelishилган: oldingi XXX / qo'shildi 0 / keyingi XXX).
+    const _pd = isUsd ? prevUsd : prevUzs;
+    if (showDebtHistory && _pd > 0) {
+      const P = v => isUsd ? `$${Number(v||0).toFixed(2)}` : `${F(v||0)} so'm`;
+      debtHtml = `
+        <div class="sep-dash" style="margin:6px 0"></div>
+        <div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>${P(_pd)}</span></div>
+        <div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>${P(0)}</span></div>
+        <div class="pr pr-debt"><span>Xariddan keyingi qarz</span><span>${P(_pd)}${isUsd ? " USD" : ""}</span></div>`;
+    } else {
+      debtHtml = `<div class="paid-ok">✓ To'liq to'landi</div>`;
+    }
   }
 
   const botHtml  = botUser    ? `<div class="ft-bot">Cheklarni Telegramda olish: <b>@${botUser}</b></div>` : "";
@@ -768,10 +780,13 @@ ${!_bFoot.show ? ".ft-thanks{display:none !important}" : ""}
   body{background:#fff;padding:0}
   .wrap,.rc{border-radius:0;box-shadow:none;width:${chekCfg.paperWidth || 72}mm;max-width:${chekCfg.paperWidth || 72}mm}
   .acts{display:none}
+  /* 2026-07-18: barcha PRINTERLAR oq-qora — hamma yozuv SOF QORA (xira rang yo'q) */
+  .wrap, .wrap *{color:#000 !important}
   .hd{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .pr.pr-debt{color:#000 !important;border-top:1px solid #999}
-  .paid-ok{color:#000 !important;background:#eee !important}
-  .c-red{color:#000 !important}
+  ${_hdrStyle === "dark" ? ".hd, .hd *{color:#fff !important}" : ".hd, .hd *{color:#000 !important}"}
+  .pr.pr-debt{border-top:1px solid #999}
+  .paid-ok{background:#eee !important}
+  s{text-decoration-thickness:1.5px}
 }
 </style></head><body>
 <div class="wrap">
