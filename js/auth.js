@@ -120,10 +120,14 @@ function authStaffLogin(phone, password) {
 // ── Chiqish ──────────────────────────────────────
 function authLogout() {
   authClear();
+  // 2026-07-19: chiqishda Supabase sessiyasini ham to'liq tozalaymiz —
+  // aks holda eski token keyingi kirishda aralashishi mumkin (do'kon aralashuvi).
+  try { if (typeof clearSupabaseTestSession === "function") clearSupabaseTestSession(); } catch(e) {}
   try {
     const main = localStorage.getItem("merx_v5");
-    if (main) db = JSON.parse(main);
+    db = main ? JSON.parse(main) : { shop:{name:"MERX Do'koni"}, settings:{}, customers:[],products:[],sales:[],staff:[],ombor:[],xarajatlar:[],debtPayments:[],shifts:[],kassaBalances:{},seq:1 };
   } catch(e) {}
+  window._loadedDbKey = null;
   showLoginScreen();
 }
 function logoutConfirm() {
@@ -519,6 +523,24 @@ async function doLogin() {
         if (sbAuthRes.ok) {
           sbTokenOk = true;
           console.log("✅ Supabase Auth token olindi — RLS xavfsizligi faol");
+          // ── 2026-07-19: DO'KON ARALASHUVIGA QARSHI QAT'IY QO'RIQCHI ──
+          // Token yangi shop_id qaytarsa va joriy xotira BOSHQA do'konники
+          // bo'lsa — eski do'kon ma'lumotini (nom, parol, tovarlar) DARHOL
+          // tozalaymiz. Busiz: Shoetest sessiyasida D_60 ga kirilganda
+          // eski nom/parol qolib ketardi (aynan shu hodisa).
+          const _newSid = sbAuthRes.shopId;
+          const _curSid = db?.settings?.cloudShopId || null;
+          if (_newSid && _curSid && _newSid !== _curSid) {
+            console.log("🔁 Boshqa do'konga kirish — eski xotira tozalanmoqda:", _curSid, "→", _newSid);
+            db = {
+              shop: { name: "MERX Do'koni", type: "ikki" },
+              settings: { supabaseUrl: _sbUrl, supabaseKey: _sbKey, cloudShopId: _newSid },
+              customers:[], products:[], sales:[], staff:[],
+              ombor:[], xarajatlar:[], debtPayments:[], shifts:[],
+              kassaBalances:{}, seq:1
+            };
+            window._loadedDbKey = "merx_v5_" + _newSid;
+          }
         } else {
           console.warn("ℹ️ Supabase Auth token olinmadi:", sbAuthRes.error);
         }
