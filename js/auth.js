@@ -525,20 +525,16 @@ async function doLogin() {
           console.log("✅ Supabase Auth token olindi — RLS xavfsizligi faol");
           // ── 2026-07-19: DO'KON ARALASHUVIGA QARSHI QAT'IY QO'RIQCHI ──
           // Token yangi shop_id qaytarsa va joriy xotira BOSHQA do'konники
-          // bo'lsa — eski do'kon ma'lumotini (nom, parol, tovarlar) DARHOL
-          // tozalaymiz. Busiz: Shoetest sessiyasida D_60 ga kirilganda
-          // eski nom/parol qolib ketardi (aynan shu hodisa).
+          // bo'lsa — begona do'kon KESHINI (localStorage) o'chiramiz, lekin
+          // joriy `db`ni BO'SH QILMAYMIZ (bo'sh db bulutga yozilib ma'lumotni
+          // o'chirishi mumkin — xavfli). Quyida shopDB har doim Supabase'dan
+          // to'g'ri yuklanadi, _loadedDbKey esa pull'ni yangi do'konga yo'naltiradi.
           const _newSid = sbAuthRes.shopId;
           const _curSid = db?.settings?.cloudShopId || null;
           if (_newSid && _curSid && _newSid !== _curSid) {
-            console.log("🔁 Boshqa do'konga kirish — eski xotira tozalanmoqda:", _curSid, "→", _newSid);
-            db = {
-              shop: { name: "MERX Do'koni", type: "ikki" },
-              settings: { supabaseUrl: _sbUrl, supabaseKey: _sbKey, cloudShopId: _newSid },
-              customers:[], products:[], sales:[], staff:[],
-              ombor:[], xarajatlar:[], debtPayments:[], shifts:[],
-              kassaBalances:{}, seq:1
-            };
+            console.log("🔁 Boshqa do'konga kirish — begona kesh tozalanmoqda:", _curSid, "→", _newSid);
+            // Faqat ESKI (begona) do'kon keshini o'chiramiz — yangisi pull bilan keladi
+            try { localStorage.removeItem("merx_v5_" + _curSid); } catch(e) {}
             window._loadedDbKey = "merx_v5_" + _newSid;
           }
         } else {
@@ -634,9 +630,20 @@ async function doLogin() {
         // Emailni ham HAR DOIM yangilaymiz — Supabase Auth allaqachon tasdiqlagan,
         // eski/xato yozilgan email (masalan katta harfli) lokal nusxada qolib ketmasin
         db.settings.adminEmail = email;
-        db.settings.adminPass = await sha256(pass);
+        // 2026-07-19 TUZATISH: adminPass'ni HAR kirishda yozish PAROLNI BUZAR EDI
+        // (kiritilgan parol yangi parol sifatida o'rnatilib, keyingi authLogin
+        // shu bilan solishtirib doim "to'g'ri" chiqarardi — do'kon aralashuvida
+        // begona parol o'rnatilib qolardi). Supabase Auth SERVER tomonda parolni
+        // ALLAQACHON tekshirdi — bu yagona haqiqiy tekshiruv. Lokal adminPass
+        // faqat oflayn zaxira: uni FAQAT bo'lmaganda (birinchi marta) yozamiz.
+        if (!db.settings.adminPass) {
+          db.settings.adminPass = await sha256(pass);
+        }
 
-        res = await authLogin(email, pass, shopId);
+        // Supabase Auth tasdiqladi — lokal parol tekshiruvini CHETLAB O'TAMIZ
+        // (aks holda eski/boshqa do'kon adminPass'i bilan solishtirib xato berardi).
+        res = { ok: true, user: _buildUser(email, shopId), viaSupabase: true };
+        authSave(res.user);
         localStorage.setItem(dbKey, JSON.stringify(db));
       } else {
         res = await authLogin(email, pass);
