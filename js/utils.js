@@ -615,17 +615,67 @@ function buildReceiptHtml(sale, opts) {
   const F = n => Math.round(n || 0).toLocaleString("ru-RU");
 
   // ── Mahsulotlar ───────────────────────────────
+  // 2026-07-19: UMUMIY chegirmani chekda har tovarga FOYDAGA MUTANOSIB
+  // taqsimlash (faqat CHEK ko'rinishi — summa/foyda/qarz TEGILMAYDI).
+  // Butun sonlarda; qoldiq oxirgi (chegirma olgan) tovarga — pul yo'qolmaydi.
+  // Tannarx (i.cost) faqat ICHKI hisob uchun — mijozga KO'RINMAYDI.
+  const _discTotal = Number(sale.discount) || 0;
+  const _itemDiscMap = {}; // index -> shu tovarga tushgan chegirma (so'm, jami)
+  if (_discTotal > 0 && items.length) {
+    // Har tovar foydasi = (narx - tannarx) * qty. Tannarx bo'lmasa (eski chek) — narx.
+    const profits = items.map(i => {
+      const line = (i.price || 0) * (i.qty || 0);
+      const cost = (i.cost != null ? i.cost : 0) * (i.qty || 0);
+      const p = line - cost;
+      return p > 0 ? p : 0; // manfiy/nol foyda — 0 (chegirma olmaydi)
+    });
+    let totProfit = profits.reduce((a, b) => a + b, 0);
+    // Agar hech kimda foyda yo'q (yoki tannarx yo'q) — narxga mutanosib zaxira
+    let weights = profits, totW = totProfit;
+    if (totW <= 0) {
+      weights = items.map(i => (i.price || 0) * (i.qty || 0));
+      totW = weights.reduce((a, b) => a + b, 0);
+    }
+    if (totW > 0) {
+      let allocated = 0, lastIdx = -1;
+      items.forEach((i, ix) => { if (weights[ix] > 0) lastIdx = ix; });
+      items.forEach((i, ix) => {
+        if (ix === lastIdx) {
+          _itemDiscMap[ix] = _discTotal - allocated; // qoldiq oxirgiga (pul yo'qolmasin)
+        } else if (weights[ix] > 0) {
+          const share = Math.round(_discTotal * weights[ix] / totW);
+          _itemDiscMap[ix] = share;
+          allocated += share;
+        } else {
+          _itemDiscMap[ix] = 0;
+        }
+      });
+    }
+  }
+  // Tovarning chekda ko'rsatiladigan (chegirma taqsimlangan) DONA narxi
+  const _effPrice = (i, ix) => {
+    const d = _itemDiscMap[ix] || 0;
+    if (d <= 0 || !(i.qty > 0)) return { price: i.price, base: i.basePrice };
+    const perUnit = d / i.qty;
+    const newPrice = Math.max(0, Math.round((i.price || 0) - perUnit));
+    // eski narx = chegirmadan oldingi narx (basePrice bo'lsa u, aks holda price)
+    const oldBase = (i.basePrice && i.basePrice > (i.price||0)) ? i.basePrice : i.price;
+    return { price: newPrice, base: oldBase };
+  };
   // 2026-07-17: POS sotuv cheki bilan BIR XIL format —
   // "TOVAR / Rang / ART" + "2pch × (6 dona × ~~550 000~~ 540 000) = ..."
   const itemsHtml = items.map((i, _ix) => {
-    const sum   = (i.price || 0) * (i.qty || 0);
+    const _ep   = _effPrice(i, _ix);
+    const _pr   = _ep.price;
+    const sum   = _pr * (i.qty || 0);
     const clean = (i.variant || "").replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
     const nm    = [i.name || "", clean, i.art || ""].filter(Boolean).join(" / ");
-    const bp    = (i.basePrice && i.basePrice > (i.price||0)) ? `<s style="color:#aaa">${F(i.basePrice)}</s> ` : "";
+    const _showOld = (_ep.base && _ep.base > _pr);
+    const bp    = _showOld ? `<s style="color:#aaa">${F(_ep.base)}</s> ` : "";
     const isBox = i.sellMode === "karobka" && i.qtyBox && i.inBox;
     const calc  = isBox
-      ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${F(i.price)}) = ${F(sum)}`
-      : `${i.qty} ${i.unit||"dona"} × ${bp}${F(i.price)} = ${F(sum)}`;
+      ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${F(_pr)}) = ${F(sum)}`
+      : `${i.qty} ${i.unit||"dona"} × ${bp}${F(_pr)} = ${F(sum)}`;
     return `
       <div class="it">
         <div class="it-body">
