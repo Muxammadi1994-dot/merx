@@ -980,10 +980,15 @@ function renderChekPreview() {
       });
     }
     frame.srcdoc = html || "<div style='padding:20px;font-family:sans-serif;color:#999'>Preview mavjud emas</div>";
-    // 2026-07-18: iframe konteynerni to'ldiradi (85vh), uzun chek konteyner
-    // ichida skroll qiladi — balandlikni o'zgartirmaymiz (sozlamalar yonida
-    // to'liq turadi). onload faqat scroll'ni tepaga qaytaradi.
-    frame.onload = () => { try { frame.contentWindow.scrollTo(0, 0); } catch (e) {} };
+    // 2026-07-19: iframe chek TO'LIQ uzunligiga cho'ziladi (skrollsiz) —
+    // o'ng ustun chap sozlamalar balandligича tabiiy egallaydi.
+    frame.onload = () => {
+      try {
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
+        if (h > 100) frame.style.height = (h + 10) + "px";
+      } catch (e) {}
+    };
   } catch (e) {
     frame.srcdoc = "<div style='padding:20px;font-family:sans-serif;color:#c00'>Preview xatosi: " + (e.message||e) + "</div>";
   }

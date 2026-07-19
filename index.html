@@ -2710,6 +2710,12 @@
               <div class="fld" style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;padding:12px 14px">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#1E40AF"><input type="checkbox" id="chek-unified-sotuv" style="width:16px;height:16px;accent-color:var(--acc)"> Yangi yagona sotuv cheki (test)</label>
                 <div style="font-size:11px;color:#3B5BA0;margin-top:6px;line-height:1.5">Yoqilsa, sotuv cheki ham jonli test bilan bir xil ko'rinishda chiqadi. Sinab ko'ring — muammo bo'lsa o'chiring.</div>
+              </div>
+              <div class="fld" style="margin-bottom:12px;background:#F8F7F4;border:1px solid var(--brd);border-radius:10px;padding:12px 14px;margin-top:6px">
+                <label style="font-size:13px;font-weight:700;color:#0D1B2A;margin-bottom:8px"><i class="ti ti-adjustments"></i> Bloklar bo'yicha sozlash</label>
+                <div style="font-size:11px;color:var(--mut);margin-bottom:10px;line-height:1.5">Har bir bo'limni alohida sozlang: o'lcham (px), qalin, kursiv, tekislash, ko'rsatish. (Yangi yagona chek rejimida ishlaydi.)</div>
+                <div id="chek-blocks-box" style="display:flex;flex-direction:column;gap:10px"></div>
+              </div>
 
               <div class="fld">
                 <label>Telefon raqamlar (chekda) — bir nechta bo'lishi mumkin</label>
@@ -2737,15 +2743,8 @@
                 </div>
               </div>
             </div>
-            </div>
-            <!-- O'ng: JONLI TEST-CHEK (2026-07-18: butun balandlik bo'ylab, sticky) -->
-            <div style="align-self:stretch">
-              <div class="fld" style="margin-bottom:12px;background:#F8F7F4;border:1px solid var(--brd);border-radius:10px;padding:12px 14px;max-height:38vh;overflow-y:auto">
-                <label style="font-size:13px;font-weight:700;color:#0D1B2A;margin-bottom:8px"><i class="ti ti-adjustments"></i> Bloklar bo'yicha sozlash</label>
-                <div style="font-size:11px;color:var(--mut);margin-bottom:10px;line-height:1.5">Har bir bo'limni alohida sozlang: o'lcham (px), qalin, kursiv, tekislash, ko'rsatish. (Yangi yagona chek rejimida ishlaydi.)</div>
-                <div id="chek-blocks-box" style="display:flex;flex-direction:column;gap:10px"></div>
-              </div>
-              <div style="position:sticky;top:12px;display:flex;flex-direction:column;gap:12px">
+                        <!-- O'ng: JONLI TEST-CHEK (2026-07-19: to'liq uzunlik, skrollsiz, sticky) -->
+            <div style="align-self:start;position:sticky;top:12px;display:flex;flex-direction:column;gap:10px">
               <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
                 <label style="font-size:13px;font-weight:700;color:#0D1B2A"><i class="ti ti-eye"></i> Jonli test-chek</label>
                 <div style="display:flex;gap:6px">
@@ -2754,9 +2753,8 @@
                   <button type="button" class="prev-tab btn btn-sm btn-ghost" data-pt="savat" onclick="setPreviewType('savat')">Savat</button>
                 </div>
               </div>
-              <div style="display:flex;justify-content:center;background:#E9E7E2;border-radius:12px;padding:14px;overflow:auto;height:60vh">
-                <iframe id="chek-preview-frame" style="width:320px;height:100%;min-height:500px;border:none;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:8px" title="Test chek"></iframe>
-              </div>
+              <div style="display:flex;justify-content:center;background:#E9E7E2;border-radius:12px;padding:14px">
+                <iframe id="chek-preview-frame" style="width:320px;border:none;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:8px" title="Test chek"></iframe>
               </div>
             </div>
           </div>
@@ -4280,7 +4278,7 @@
 <script src="js/hisobot.js?v=145"></script>
 <script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=158"></script>
-<script src="js/egasi.js?v=157"></script>
+<script src="js/egasi.js?v=158"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=143"></script>
 <script>
