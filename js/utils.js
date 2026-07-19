@@ -617,7 +617,7 @@ function buildReceiptHtml(sale, opts) {
   // ── Mahsulotlar ───────────────────────────────
   // 2026-07-17: POS sotuv cheki bilan BIR XIL format —
   // "TOVAR / Rang / ART" + "2pch × (6 dona × ~~550 000~~ 540 000) = ..."
-  const itemsHtml = items.map((i) => {
+  const itemsHtml = items.map((i, _ix) => {
     const sum   = (i.price || 0) * (i.qty || 0);
     const clean = (i.variant || "").replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
     const nm    = [i.name || "", clean, i.art || ""].filter(Boolean).join(" / ");
@@ -629,7 +629,7 @@ function buildReceiptHtml(sale, opts) {
     return `
       <div class="it">
         <div class="it-body">
-          <div class="it-name">${nm}</div>
+          <div class="it-name">${_ix + 1}. ${nm}</div>
           <div class="it-det">${calc}</div>
         </div>
       </div>`;
@@ -667,16 +667,19 @@ function buildReceiptHtml(sale, opts) {
     }
     if (due) debtHtml += `<div class="pr pr-sm"><span>To'lov muddati</span><span class="c-red">${due}</span></div>`;
   } else {
-    // 2026-07-18: to'liq to'langan sotuvда ham mijozning MAVJUD qarzi
-    // ko'rsatiladi (kelishилган: oldingi XXX / qo'shildi 0 / keyingi XXX).
-    const _pd = isUsd ? prevUsd : prevUzs;
+    // 2026-07-19: to'liq to'langan sotuvда ham mijozning MAVJUD qarzi.
+    // MUHIM: to'lovда debtUsd=0 bo'lgani uchun isUsd=false bo'lib qoladi —
+    // valyutani MAVJUD qarzga qarab aniqlaymiz (aks holda $ qarz "0 so'm" edi).
+    const _pdUsd = Number(prevUsd) || 0, _pdUzs = Number(prevUzs) || 0;
+    const _pIsUsd = _pdUsd > 0;
+    const _pd = _pIsUsd ? _pdUsd : _pdUzs;
     if (showDebtHistory && _pd > 0) {
-      const P = v => isUsd ? `$${Number(v||0).toFixed(2)}` : `${F(v||0)} so'm`;
+      const P = v => _pIsUsd ? `$${Number(v||0).toFixed(2)}` : `${F(v||0)} so'm`;
       debtHtml = `
         <div class="sep-dash" style="margin:6px 0"></div>
         <div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>${P(_pd)}</span></div>
         <div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>${P(0)}</span></div>
-        <div class="pr pr-debt"><span>Xariddan keyingi qarz</span><span>${P(_pd)}${isUsd ? " USD" : ""}</span></div>`;
+        <div class="pr pr-debt"><span>Xariddan keyingi qarz</span><span>${P(_pd)}${_pIsUsd ? " USD" : ""}</span></div>`;
     } else {
       debtHtml = `<div class="paid-ok">✓ To'liq to'landi</div>`;
     }

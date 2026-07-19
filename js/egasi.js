@@ -1163,3 +1163,12 @@ function toggleBlock(key, prop) { const b = _ensureBlock(key); b[prop] = !b[prop
 function setBlockAlign(key, val) { const b = _ensureBlock(key); b.align = (b.align === val ? undefined : val); renderChekBlocks(); _afterBlockChange(); }
 function setBlockShow(key, val) { _ensureBlock(key).show = val; _afterBlockChange(); }
 function _afterBlockChange() { try { if (typeof renderChekPreview === "function") renderChekPreview(); } catch(e){} }
+
+// ─── Bosmadan oldin test chop (2026-07-19, 3-tavsiya) ───
+// Jonli test iframe'ining O'ZINI chop qiladi (ichida to'liq chek + @page).
+function printChekPreview() {
+  const frame = document.getElementById("chek-preview-frame");
+  if (!frame || !frame.contentWindow) { toast("Preview topilmadi", "err"); return; }
+  try { frame.contentWindow.focus(); frame.contentWindow.print(); }
+  catch (e) { toast("Chop xatosi: " + (e.message||e), "err"); }
+}
