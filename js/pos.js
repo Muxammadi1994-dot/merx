@@ -1655,7 +1655,7 @@ function custSearch(q) {
     const totalUsd = debts.filter(st=>st.debtUsd>0).reduce((a,st)=>a+st.debtUsd,0);
     const debtHtml = totalUzs > 0 || totalUsd > 0
       ? `<span style="font-size:10.5px;color:#E05A5A;font-weight:600;margin-left:6px">
-          ⚠️ ${totalUsd>0?"$"+totalUsd.toFixed(2)+" USD":fmt(totalUzs)+" so'm"} qarz
+          ⚠️ ${totalUsd>0?fmtUsd(totalUsd)+" USD":fmt(totalUzs)+" so'm"} qarz
          </span>`
       : `<span style="font-size:10px;color:#36B48C;margin-left:6px">✓</span>`;
     return `<div onclick="custSelect(${c.id})"
@@ -2101,7 +2101,7 @@ async function checkout() {
   if (cPhone && cPhone.replace(/\D/g,"").length >= 9) {
     const shopName = db.shop?.name || "MERX";
     const debtTxt  = debtUsd != null
-      ? `$${debtUsd.toFixed(2)} USD`
+      ? `${fmtUsd(debtUsd)} USD`
       : rem > 0 ? `${fmt(rem)} so'm` : "";
     const itemsTxt = newSale.items.map(i =>
       `${i.name} x${i.qty}${i.unit} = ${fmt(i.price*i.qty)} so'm`
@@ -2290,8 +2290,8 @@ function showCustDebt(custId) {
       if (cntAll === 0) { badge.style.display = "none"; }
       else {
         let txt = "";
-        if (totalUsd > 0 && totalUzs > 0) txt = `$${totalUsd.toFixed(2)} USD + ${fmt(totalUzs)} so'm`;
-        else if (totalUsd > 0) txt = `$${totalUsd.toFixed(2)} USD`;
+        if (totalUsd > 0 && totalUzs > 0) txt = `${fmtUsd(totalUsd)} USD + ${fmt(totalUzs)} so'm`;
+        else if (totalUsd > 0) txt = `${fmtUsd(totalUsd)} USD`;
         else txt = `${fmt(totalUzs)} so'm`;
         val.innerHTML = `${txt} <span style="font-size:10.5px;font-weight:400;color:#a16207">(${cntAll} ta sotuv)</span>`;
         badge.style.display = "block";
@@ -2327,7 +2327,7 @@ function showCustDebt(custId) {
     if (!cust || (bUzs <= 0 && bUsd <= 0)) { balBadge.style.display = "none"; return; }
 
     const parts = [];
-    if (bUsd > 0) parts.push(`$${bUsd.toFixed(2)}`);
+    if (bUsd > 0) parts.push(`${fmtUsd(bUsd)}`);
     if (bUzs > 0) parts.push(`${fmt(bUzs)} so'm`);
     balVal.textContent = parts.join(" + ");
     balBadge.style.display = "block";
@@ -2518,7 +2518,7 @@ function showReceiptModal(sale) {
     // MAVJUD qarzga qarab tanlanadi (aks holda $ qarzli mijozda "0 so'm"
     // chiqardi — AbuSaxiy xatosi)
     const isUsd = sale.debtCurrency === "usd" || (Number(sale.prevDebtUsd) || 0) > 0;
-    const P = v => isUsd ? `$${Number(v||0).toFixed(2)}` : fmt(Math.round(v||0)) + " so'm";
+    const P = v => isUsd ? fmtUsd(Number(v||0)) : fmt(Math.round(v||0)) + " so'm";
     const prevV = isUsd ? (sale.prevDebtUsd || 0) : (sale.prevDebtUzs || 0);
     const newV  = isUsd ? (sale.debtUsd     || 0) : (sale.remaining   || 0);
 
@@ -2634,7 +2634,7 @@ function shareTelegram() {
       if (sale.payType === "qarz") return null; // faqat qarz — pastda ko'rsatiladi
       return `To'lov: ${payLabels[sale.payType]||sale.payType}`;
     })(),
-    sale.remaining > 0 ? `Qarz: ${sale.debtCurrency==="usd"&&sale.debtUsd ? "$"+sale.debtUsd.toFixed(2) : fmt(sale.remaining)+" so'm"}` : `✅ To'liq to'landi`,
+    sale.remaining > 0 ? `Qarz: ${sale.debtCurrency==="usd"&&sale.debtUsd ? fmtUsd(sale.debtUsd) : fmt(sale.remaining)+" so'm"}` : `✅ To'liq to'landi`,
     sale.due ? `Muddat: ${sale.due}` : null,
     ``,
     `Rahmat! Yana kutamiz 🙏`

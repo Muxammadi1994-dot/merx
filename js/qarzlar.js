@@ -405,7 +405,7 @@ function renderDebts() {
   const custCount  = new Set(allDebt.map(s => debtCust(s).name)).size;
 
   $("st-total").textContent     = fmt(totalUzs) + " so'm";
-  if ($("st-total-usd")) $("st-total-usd").textContent = totalUsd > 0 ? `$${totalUsd.toFixed(2)}` : "$0";
+  if ($("st-total-usd")) $("st-total-usd").textContent = totalUsd > 0 ? fmtUsd(totalUsd) : "$0";
   $("st-over").textContent      = overCount + " ta";
   $("st-cnt").textContent       = custCount + " kishi";
   $("debt-count").textContent   = allDebt.length;
@@ -1510,7 +1510,7 @@ function showDebtPaymentReceipt(payment) {
   }
 
   // Qarz qatorlari — QARZ VALYUTASIDA (eski "uzs" qotirmasi tuzatildi)
-  const fmtC = v => cur === "usd" ? `$${(v||0).toFixed(2)}` : `${F(v)} so'm`;
+  const fmtC = v => cur === "usd" ? fmtUsd(v||0) : `${F(v)} so'm`;
   const debtRows = [];
   if (payment.debtBefore != null) debtRows.push(["Avvalgi qarz", fmtC(payment.debtBefore)]);
   debtRows.push(["To'landi", fmtC(payment.amount)]); // 2026-07-17: o'rtada — tushunarli zanjir
@@ -1788,7 +1788,7 @@ function renderQarzlarTarixiSplit() {
 
   const fmtPair = (uzs, usd) => {
     const parts = [];
-    if (usd > 0.005) parts.push("$"+usd.toFixed(2));
+    if (usd > 0.005) parts.push(fmtUsd(usd));
     if (uzs > 0.5) parts.push(fmt(Math.round(uzs))+" so'm");
     return parts.join(" + ") || "0";
   };

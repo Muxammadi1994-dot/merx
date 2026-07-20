@@ -311,8 +311,8 @@ function renderMijozlar() {
       ${cols.debt ? `<td class="num">
         ${(st.totalDebt>0||st.totalDebtUsd>0)
           ? `<span style="color:var(--red);font-weight:700;font-size:13px">${
-              st.totalDebtUsd>0&&st.totalDebt>0?"$"+st.totalDebtUsd.toFixed(2)+" + "+fmt(st.totalDebt)+" so'm"
-              :st.totalDebtUsd>0?"$"+st.totalDebtUsd.toFixed(2)+" USD"
+              st.totalDebtUsd>0&&st.totalDebt>0?fmtUsd(st.totalDebtUsd)+" + "+fmt(st.totalDebt)+" so'm"
+              :st.totalDebtUsd>0?fmtUsd(st.totalDebtUsd)+" USD"
               :fmt(st.totalDebt)+" so'm"}</span>`
           : `<span style="color:var(--grn);font-size:12px">✅</span>`}
       </td>` : ""}
@@ -372,7 +372,7 @@ function openCustCard(id) {
       debtEl.textContent = "Qarz yo'q ✅"; debtEl.style.color = "var(--grn)";
     } else {
       const parts = [];
-      if (st.totalDebtUsd > 0) parts.push("$"+st.totalDebtUsd.toFixed(2)+" USD");
+      if (st.totalDebtUsd > 0) parts.push(fmtUsd(st.totalDebtUsd)+" USD");
       if (st.totalDebt > 0)    parts.push(fmt(st.totalDebt)+" so'm");
       debtEl.textContent = parts.join(" + "); debtEl.style.color = "var(--red)";
     }
@@ -401,7 +401,7 @@ function openCustCard(id) {
   if (balBlock) {
     const bUzs=c.balanceUzs||0, bUsd=c.balanceUsd||0;
     if (bUzs>0||bUsd>0) {
-      const parts=[]; if(bUsd>0) parts.push("$"+bUsd.toFixed(2)); if(bUzs>0) parts.push(fmt(bUzs)+" so'm");
+      const parts=[]; if(bUsd>0) parts.push(fmtUsd(bUsd)); if(bUzs>0) parts.push(fmt(bUzs)+" so'm");
       if ($("cc-balance")) $("cc-balance").textContent = parts.join(" + ");
       balBlock.style.display = "flex";
     } else { balBlock.style.display = "none"; }
@@ -469,13 +469,13 @@ function openCustCard(id) {
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:${pays.length?"5px":"0"}">
             <span class="bg" style="font-size:10.5px">${s.payType||"naqd"}</span>
             ${isRet?`<span class="bg" style="font-size:10.5px;background:#f0f0f0;color:#888">Qaytarilgan</span>`
-              :isDebt?`<span class="bg bg-r" style="font-size:10.5px">Qarz qoldi: ${state.debtUsd>0?"$"+state.debtUsd.toFixed(2)+" USD":fmt(state.remaining)+" so'm"}</span>`
+              :isDebt?`<span class="bg bg-r" style="font-size:10.5px">Qarz qoldi: ${state.debtUsd>0?fmtUsd(state.debtUsd)+" USD":fmt(state.remaining)+" so'm"}</span>`
               :`<span class="bg bg-g" style="font-size:10.5px">✅ To'langan</span>`}
           </div>
           ${pays.length?`<div style="border-top:1px dashed #eee;padding-top:5px">
             ${pays.map(p=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:#555;margin-bottom:2px">
               <span>💰 To'lov${p.method?` · ${p.method}`:""}${p.date?" · "+p.date:""}:</span>
-              <span style="font-weight:700;color:var(--grn)">+${p.currency==="usd"?"$"+p.amount.toFixed(2)+" USD":fmt(p.amount)+" so'm"}</span>
+              <span style="font-weight:700;color:var(--grn)">+${p.currency==="usd"?fmtUsd(p.amount)+" USD":fmt(p.amount)+" so'm"}</span>
             </div>`).join("")}
           </div>`:""}
         </div>`;
@@ -491,8 +491,8 @@ async function custCardSms() {
   const st = custStats(c.id);
   const shopName = db.settings?.shopName || db.shop?.name || "MERX";
   const debtTxt = st.totalDebtUsd>0&&st.totalDebt>0
-    ? `$${st.totalDebtUsd.toFixed(2)} USD + ${fmt(st.totalDebt)} so'm`
-    : st.totalDebtUsd>0 ? `$${st.totalDebtUsd.toFixed(2)} USD`
+    ? `${fmtUsd(st.totalDebtUsd)} USD + ${fmt(st.totalDebt)} so'm`
+    : st.totalDebtUsd>0 ? `${fmtUsd(st.totalDebtUsd)} USD`
     : st.totalDebt>0 ? `${fmt(st.totalDebt)} so'm` : "";
   const defMsg = debtTxt
     ? `${shopName}: Hurmatli ${c.name}, jami qarzingiz: ${debtTxt}. Iltimos to'lovni amalga oshiring.`
@@ -550,7 +550,7 @@ function setCustMsgTemplate(type, custId) {
   const c = db.customers.find(x=>x.id==custId); if(!c) return;
   const shop = db.settings?.shopName || db.shop?.name || "Do'kon";
   const st = custStats(c.id);
-  const debtTxt = st.totalDebtUsd>0?`$${st.totalDebtUsd.toFixed(2)} USD`:st.totalDebt>0?`${fmt(st.totalDebt)} so'm`:"0";
+  const debtTxt = st.totalDebtUsd>0?`${fmtUsd(st.totalDebtUsd)} USD`:st.totalDebt>0?`${fmt(st.totalDebt)} so'm`:"0";
   const templates = {
     debt:  `${shop}: Hurmatli ${c.name}, joriy qarzingiz ${debtTxt}. Iltimos to'lovni amalga oshiring. Rahmat!`,
     promo: `${shop}: Hurmatli ${c.name}, yangi mahsulotlar va maxsus chegirmalar mavjud! Siz bilan hamkorlik qilishdan mamnunmiz.`,
@@ -756,7 +756,7 @@ async function confirmBulkSms(channel = "sms") {
 
   for (const c of custs) {
     const st  = custStats(c.id);
-    const debtTxt = st.totalDebtUsd>0?`$${st.totalDebtUsd.toFixed(2)} USD`:st.totalDebt>0?`${fmt(st.totalDebt)} so'm`:"0";
+    const debtTxt = st.totalDebtUsd>0?`${fmtUsd(st.totalDebtUsd)} USD`:st.totalDebt>0?`${fmt(st.totalDebt)} so'm`:"0";
     const msg = text.replace(/{ism}/g, c.name).replace(/{qarz}/g, debtTxt);
     try {
       if (channel === "bot") {

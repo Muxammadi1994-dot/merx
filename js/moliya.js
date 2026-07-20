@@ -292,7 +292,7 @@ function renderMoliya() {
   const totalUsdDollar = usdSotuvDollar + usdQarzTushum;
   if ($("mol-usd-tushum")) {
     $("mol-usd-tushum").textContent = totalUsdDollar > 0
-      ? `$${totalUsdDollar.toFixed(2)} (${fmt(Math.round(totalUsdDollar*rate))} so'm)`
+      ? `${fmtUsd(totalUsdDollar)} (${fmt(Math.round(totalUsdDollar*rate))} so'm)`
       : "—";
   }
 
@@ -434,7 +434,7 @@ function renderMoliya() {
         </td>` : ""}
         ${cols.recipient ? `<td style="font-size:12px;color:#666">${x.recipient?`<div style="font-weight:600">${x.recipient}</div>`:""}${x.paidBy?`<div style="font-size:11px;color:#aaa">To'ladi: ${x.paidBy}</div>`:""}</td>` : ""}
         ${cols.method    ? `<td style="font-size:11.5px;color:var(--mut);white-space:nowrap">${methodIcon}</td>` : ""}
-        ${cols.amount    ? `<td class="num" style="font-weight:800;color:var(--red);font-size:13px;white-space:nowrap">${fmt(x.amount||0)} so'm${x.amountUsd?`<div style="font-size:10.5px;color:#aaa;font-weight:400">$${x.amountUsd.toFixed(2)}</div>`:""}</td>` : ""}
+        ${cols.amount    ? `<td class="num" style="font-weight:800;color:var(--red);font-size:13px;white-space:nowrap">${fmt(x.amount||0)} so'm${x.amountUsd?`<div style="font-size:10.5px;color:#aaa;font-weight:400">${fmtUsd(x.amountUsd)}</div>`:""}</td>` : ""}
         ${cols.note      ? `<td style="font-size:12px;color:#aaa;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.note||""}</td>` : ""}
         <td style="white-space:nowrap">
           <button class="btn btn-ghost btn-icon btn-sm" onclick="editExp(${x.id})" title="Tahrirlash"><i class="ti ti-pencil"></i></button>
@@ -905,7 +905,7 @@ function addXarajat() {
   saveDB(); renderMoliya(); closeModal("addxarajat");
 
   const recTxt = recipient ? ` → ${recipient}` : "";
-  const amtTxt = sumUsd ? `$${sumUsd.toFixed(2)} (${fmt(sum)} so'm)` : `${fmt(sum)} so'm`;
+  const amtTxt = sumUsd ? `${fmtUsd(sumUsd)} (${fmt(sum)} so'm)` : `${fmt(sum)} so'm`;
   toast(`✅ ${cat}${recTxt}: ${amtTxt}${recurring?" | Takroriy belgilandi":""}`);
 
   // Formani tozalash
