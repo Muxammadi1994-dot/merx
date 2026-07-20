@@ -1399,7 +1399,6 @@ function buildStaffOrderHtml(sale, shopName) {
     const color   = it.color   || "";
     const size    = it.size    || "";
     const art     = it.art     || "";
-    const barcode = it.barcode || "";
     const qtyBox  = it.qtyBox  || 0;
     const unit    = it.unit    || "dona";
     const lineTotal = (it.price || 0) * (it.qty || 0);
@@ -1424,7 +1423,6 @@ function buildStaffOrderHtml(sale, shopName) {
       ${color ? `<div class="attr-row"><span class="attr-k k-r">R</span><span class="attr-v">${color}</span></div>` : ""}
       ${size ? `<div class="attr-row"><span class="attr-k k-o">O</span><span class="attr-v">${size}</span></div>` : ""}
       ${art ? `<div class="attr-row"><span class="attr-k k-a">A</span><span class="attr-v code">${art}</span></div>` : ""}
-      ${barcode ? `<div class="attr-row"><span class="attr-k k-b">B</span><span class="attr-v code sm">${barcode}</span></div>` : ""}
     </div>
   </div>
   <button class="done-btn" onclick="toggleDone(${idx},null)" id="dbtn-${idx}">

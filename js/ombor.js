@@ -62,11 +62,18 @@ function omRenderKpis() {
     a + p.variants.reduce((b,v) => b + (p.costUsd*rate)*v.qty, 0), 0);
   const totalUnits = vProds.reduce((a,p) =>
     a + p.variants.reduce((b,v) => b + v.qty, 0), 0);
+  // 2026-07-20 (№2): jami POCHKA soni — har tovar (jami dona ÷ inBox), yaxlitlab yig'amiz
+  const totalPochka = vProds.reduce((a,p) => {
+    const units = p.variants.reduce((b,v) => b + (v.qty||0), 0);
+    const inBox = p.inBox || 1;
+    return a + (inBox > 0 ? units / inBox : units);
+  }, 0);
+  const pochkaStr = Number.isInteger(totalPochka) ? String(totalPochka) : totalPochka.toFixed(1);
 
   const el = $("om-kpi-row"); if (!el) return;
   el.innerHTML = [
     { icon:"ti-arrow-down-circle", color:"#4C9BE8", lbl:"Bugungi kirim",    val:todayIn+" dona",       sub:"bugun qabul qilindi" },
-    { icon:"ti-box",               color:"#36B48C", lbl:"Jami qoldiq",      val:totalUnits+" dona",    sub:vProds.length+" turdagi tovar" },
+    { icon:"ti-box",               color:"#36B48C", lbl:"Jami qoldiq",      val:totalUnits+" dona",    sub:pochkaStr+" pochka · "+vProds.length+" tur" },
     { icon:"ti-currency-dollar",   color:"#E9A500", lbl:"Bu oy kirim",      val:fmt(monthVal)+" so'm", sub:"tannarxda" },
     { icon:"ti-wallet",            color:"#8B5CF6", lbl:"Ombor qiymati",    val:fmt(totalVal)+" so'm", sub:"tannarxda" },
     { icon:"ti-alert-circle",      color:supDebt>0?"#E05A5A":"#36B48C",
