@@ -161,15 +161,48 @@ function saveDB() {
   const key = getDBKEY();
   try { localStorage.setItem(key, JSON.stringify(db)); }
   catch(e) {
-    // XAVFLI HOLAT: brauzer xotirasi to'ldi yoki yozib bo'lmadi.
-    // Ma'lumot faqat operativ xotirada — brauzer yopilsa yo'qoladi.
-    // Bulutga yuborish (quyidagi scheduleCloudSync) baribir ishlaydi,
-    // shuning uchun asosiy himoya — foydalanuvchini OCHIQ ogohlantirish.
-    mem = db;
-    console.error("❌ localStorage saqlash xatosi:", e.message);
-    if (Date.now() - _saveFailAt > 60000 && typeof toast === "function") {
-      _saveFailAt = Date.now();
-      toast("⚠️ DIQQAT: qurilma xotirasi to'ldi! Ma'lumot faqat bulutga saqlanmoqda — internetni uzmang va MERX ni yopishdan oldin sinxronlanishini kuting", "err");
+    // 2026-07-20: XOTIRA TO'LSA — AVTOMAT TIKLANISH (localStorage deyarli
+    // hech qachon to'lmaydi). Ikki bosqichli qutqaruv:
+    console.warn("localStorage to'ldi — avtomat tozalash boshlandi:", e.message);
+
+    // 1-BOSQICH: begona/eski zaxira kalitlarini tozalab, joy bo'shatamiz
+    try {
+      const keys = Object.keys(localStorage);
+      keys.forEach(k => {
+        // merx zaxira nusxalari (eskilari) va begona kalitlar
+        if (k.startsWith("merx_lbak_") || (!k.startsWith("merx_") && !k.startsWith("supabase") && !k.startsWith("sb-"))) {
+          try { localStorage.removeItem(k); } catch(e2) {}
+        }
+      });
+      localStorage.setItem(key, JSON.stringify(db)); // qayta urinish
+      console.log("✅ Xotira tozalandi — ma'lumot saqlandi");
+      if (typeof scheduleCloudSync === "function") scheduleCloudSync();
+      return;
+    } catch(e2) { /* hali to'la — 2-bosqichga */ }
+
+    // 2-BOSQICH: RASMLARSIZ saqlaymiz (rasmlar Storage'da/bulutda bor —
+    // localStorage'da faqat matn qoladi, hajm 10-20 barobar kichrayadi).
+    try {
+      const light = JSON.stringify(db, (k, v) => {
+        if (k === "image" || k === "colorImages" || k === "photo") return undefined;
+        return v;
+      });
+      localStorage.setItem(key, light);
+      console.log("✅ Ma'lumot rasmsiz saqlandi (rasmlar bulutda) — xotira yengillashdi");
+      if (Date.now() - _saveFailAt > 300000 && typeof toast === "function") {
+        _saveFailAt = Date.now();
+        toast("ℹ️ Qurilma xotirasi to'lgani uchun rasmlar bulutdan yuklanadi (ma'lumot xavfsiz)", "info");
+      }
+      if (typeof scheduleCloudSync === "function") scheduleCloudSync();
+      return;
+    } catch(e3) {
+      // Eng oxirgi holat: hatto rasmsiz ham sig'madi (juda kam ehtimol)
+      mem = db;
+      console.error("❌ localStorage saqlash xatosi (rasmsiz ham):", e3.message);
+      if (Date.now() - _saveFailAt > 60000 && typeof toast === "function") {
+        _saveFailAt = Date.now();
+        toast("⚠️ DIQQAT: qurilma xotirasi to'ldi! Ma'lumot faqat bulutga saqlanmoqda — internetni uzmang va MERX ni yopishdan oldin sinxronlanishini kuting", "err");
+      }
     }
   }
   if (typeof scheduleCloudSync === "function") scheduleCloudSync();
