@@ -2832,17 +2832,41 @@ function updateNmCount() {
   if (el) el.textContent = _narxnomaSelected.size + " ta tanlandi";
 }
 
+function _nmOpts() {
+  // 2026-07-20 (№6): barcha qator-tanlovlari yagona joyda o'qiladi
+  const $c = id => document.getElementById(id);
+  return {
+    style:    $c("nm-style")?.value || "standard",
+    paper:    $c("nm-paper")?.value || "a4",
+    cols:     parseInt($c("nm-cols")?.value) || 3,
+    showLogo: $c("nm-logo")?.checked !== false,
+    showName: $c("nm-name")?.checked !== false,
+    showColor:$c("nm-color")?.checked !== false,
+    showSize: $c("nm-size")?.checked !== false,
+    showPrice:$c("nm-price")?.checked !== false,
+    showUsd:  $c("nm-usd")?.checked !== false,
+    showCat:  $c("nm-cat")?.checked || false,
+    showArt:  $c("nm-art")?.checked || false,
+    showBarc: $c("nm-barcode-chk")?.checked !== false,
+    showSku:  $c("nm-sku")?.checked || false,
+    showUlg:  $c("nm-ulg")?.checked || false,
+    rate:     db.settings.rate || 12800,
+    shopName: db.shop?.name || "MERX"
+  };
+}
+
+// 2026-07-20 (№8): etiketka o'lchami tanlanganda ustunni 1 ga majburlaymiz
+function nmPaperChange() {
+  const paper = document.getElementById("nm-paper")?.value || "a4";
+  const colsSel = document.getElementById("nm-cols");
+  if (colsSel) colsSel.disabled = (paper !== "a4"); // etiketkada 1 ustun
+}
+
 function renderNarxnomaPreview() {
   const el = document.getElementById("nm-preview-area");
   if (!el) return;
-  const style    = document.getElementById("nm-style")?.value || "standard";
-  const showLogo = document.getElementById("nm-logo")?.checked !== false;
-  const showBarc = document.getElementById("nm-barcode-chk")?.checked !== false;
-  const showSku  = document.getElementById("nm-sku")?.checked || false;
-  const showUlg  = document.getElementById("nm-ulg")?.checked || false;
-  const cols     = parseInt(document.getElementById("nm-cols")?.value) || 3;
-  const rate     = db.settings.rate || 12800;
-  const shopName = db.shop?.name || "MERX";
+  const o = _nmOpts();
+  const cols = o.paper === "a4" ? o.cols : 1; // etiketka = 1 ustun
 
   const prods = db.products.filter(p => _narxnomaSelected.has(p.sku));
   if (!prods.length) {
@@ -2857,19 +2881,16 @@ function renderNarxnomaPreview() {
 
   prods.forEach(p => {
     if (byPochka) {
-      // Pochka rejimi: har rang uchun bitta yorliq
       const colors = [...new Set(p.variants.map(v => v.color))];
       colors.forEach(color => {
         const colorVars = p.variants.filter(v => v.color === color);
         const totalQty  = colorVars.reduce((a, v) => a + (v.qty||0), 0);
         if (totalQty <= 0) return;
-        // Ushbu rang uchun birinchi variantni asos sifatida olamiz
         const v0 = colorVars[0];
         const barcode = (p.colorBarcodes && p.colorBarcodes[color]) || p.barcode;
         labels.push({ p, v: {...v0, color}, pochkaMode: true, barcode });
       });
     } else {
-      // Standart: har variant uchun yorliq
       p.variants.forEach(v => {
         if ((v.qty||0) <= 0) return;
         labels.push({ p, v, pochkaMode: false, barcode: p.barcode });
@@ -2882,12 +2903,12 @@ function renderNarxnomaPreview() {
     return;
   }
 
-  el.innerHTML = `<div class="nm-label-grid" style="grid-template-columns:repeat(${cols},1fr)">
-    ${labels.map(({p, v, pochkaMode, barcode}) => buildLabel(p, v, {style,showLogo,showBarc,showSku,showUlg,shopName,rate,pochkaMode,barcode})).join("")}
+  const gridCls = o.paper === "a4" ? "" : " nm-label-grid-etiket";
+  el.innerHTML = `<div class="nm-label-grid${gridCls}" style="grid-template-columns:repeat(${cols},1fr)">
+    ${labels.map(({p, v, pochkaMode, barcode}) => buildLabel(p, v, {...o, pochkaMode, barcode})).join("")}
   </div>`;
 
-  // Har bir yorliqdagi shtrix-kodni chizamiz (skanerlanadigan, raqam emas)
-  if (showBarc && typeof JsBarcode !== "undefined") {
+  if (o.showBarc && typeof JsBarcode !== "undefined") {
     el.querySelectorAll(".nm-barcode-svg").forEach(svg => {
       const code = svg.dataset.code;
       if (!code) return;
@@ -2896,32 +2917,42 @@ function renderNarxnomaPreview() {
           format: "CODE128", width: 1.3, height: 28,
           displayValue: true, fontSize: 9, margin: 0, textMargin: 2
         });
-      } catch (e) { /* noto'g'ri format bo'lsa shtrix chizilmaydi, raqam ko'rinmaydi */ }
+      } catch (e) { /* noto'g'ri format */ }
     });
   }
 }
 
 function buildLabel(p, v, opts) {
-  const {style, showLogo, showBarc, showSku, showUlg, shopName, rate} = opts;
+  const {style, showLogo, showName, showColor, showSize, showPrice, showUsd,
+         showCat, showArt, showSku, showUlg, showBarc, shopName, rate} = opts;
   const hex       = v.hex || "#888";
   const colorDot  = `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${hex};border:1px solid rgba(0,0,0,.12);vertical-align:middle;margin-right:4px"></span>`;
-  // Chakana narx bo'lmasa (ulgurji do'kon), ulgurji narxni asosiy sifatida ko'rsatamiz
   const hasChakana = p.priceUzs > 0;
   const priceUzs  = hasChakana ? p.priceUzs : (p.ulgurjiNarx || 0);
   const ulgUzs    = p.ulgurjiNarx || 0;
   const priceUsd  = rate > 0 ? (priceUzs / rate).toFixed(2) : "0.00";
   const barcodeId = `bc-${p.sku}-${(v.color||"")}-${(v.size||"")}`.replace(/[^a-zA-Z0-9-]/g,"_");
-  // Pochka rejimda rang barcodeini, standart rejimda asosiy barcodeini ishlatamiz
   const useBarcode = opts.barcode || p.barcode || "";
   const barcodeHtml = showBarc && useBarcode
     ? `<div class="nm-barcode"><svg class="nm-barcode-svg" id="${barcodeId}" data-code="${useBarcode}"></svg></div>` : "";
 
+  // Rang + o'lcham qatori (ikkalasi tanlovga bog'liq)
+  const varParts = [];
+  if (showColor && v.color) varParts.push(colorDot + v.color);
+  if (showSize  && v.size)  varParts.push((varParts.length?"· ":"") + v.size);
+  const varLine = varParts.length ? varParts.join(" ") : "";
+
   if (style === "mini") return `
     <div class="nm-label nm-mini">
       ${showLogo?`<div class="nm-shop">${shopName}</div>`:""}
-      <div class="nm-name-sm">${p.name}</div>
-      <div class="nm-var-sm">${colorDot}${v.color||""} ${v.size?"· "+v.size:""}</div>
-      <div class="nm-price-main">${fmt(priceUzs)} so'm</div>
+      ${showName?`<div class="nm-name-sm">${p.name}</div>`:""}
+      ${showCat?`<div class="nm-var-sm">${p.category||""}</div>`:""}
+      ${varLine?`<div class="nm-var-sm">${varLine}</div>`:""}
+      ${showArt&&p.art?`<div class="nm-sku">${p.art}</div>`:""}
+      ${showPrice?`<div class="nm-price-main">${fmt(priceUzs)} so'm</div>`:""}
+      ${showUsd?`<div class="nm-price-usd">$${priceUsd}</div>`:""}
+      ${showUlg&&ulgUzs&&hasChakana?`<div class="nm-price-ulg">Ulg: ${fmt(ulgUzs)}</div>`:""}
+      ${showSku?`<div class="nm-sku">${p.sku}</div>`:""}
       ${barcodeHtml}
     </div>`;
 
@@ -2929,17 +2960,18 @@ function buildLabel(p, v, opts) {
     <div class="nm-label nm-premium">
       <div class="nm-prem-top">
         ${showLogo?`<div class="nm-prem-shop">${shopName}</div>`:""}
-        <div class="nm-prem-name">${p.name}</div>
-        <div class="nm-prem-cat">${p.category}</div>
+        ${showName?`<div class="nm-prem-name">${p.name}</div>`:""}
+        ${showCat?`<div class="nm-prem-cat">${p.category||""}</div>`:""}
       </div>
       <div class="nm-prem-mid">
-        <div class="nm-prem-color">${colorDot}${v.color||""}${v.size?" · "+v.size:""}</div>
+        ${varLine?`<div class="nm-prem-color">${varLine}</div>`:""}
+        ${showArt&&p.art?`<div class="nm-prem-sku">${p.art}</div>`:""}
         ${showSku?`<div class="nm-prem-sku">${p.sku}</div>`:""}
       </div>
       <div class="nm-prem-bot">
-        <div class="nm-prem-price">${fmt(priceUzs)} <span>so'm</span></div>
+        ${showPrice?`<div class="nm-prem-price">${fmt(priceUzs)} <span>so'm</span></div>`:""}
         ${showUlg&&ulgUzs&&hasChakana?`<div class="nm-prem-ulg">Ulgurji: ${fmt(ulgUzs)} so'm</div>`:""}
-        <div class="nm-prem-usd">≈ $${priceUsd}</div>
+        ${showUsd?`<div class="nm-prem-usd">≈ $${priceUsd}</div>`:""}
       </div>
       ${barcodeHtml}
     </div>`;
@@ -2947,27 +2979,24 @@ function buildLabel(p, v, opts) {
   return `
     <div class="nm-label nm-standard">
       ${showLogo?`<div class="nm-shop">${shopName}</div>`:""}
-      <div class="nm-name">${p.name}</div>
-      <div class="nm-var">${colorDot}${v.color||""} ${v.size?"· "+v.size:""}</div>
+      ${showName?`<div class="nm-name">${p.name}</div>`:""}
+      ${showCat?`<div class="nm-var">${p.category||""}</div>`:""}
+      ${varLine?`<div class="nm-var">${varLine}</div>`:""}
       <div class="nm-prices">
-        <div class="nm-price-main">${fmt(priceUzs)} so'm</div>
+        ${showPrice?`<div class="nm-price-main">${fmt(priceUzs)} so'm</div>`:""}
         ${showUlg&&ulgUzs&&hasChakana?`<div class="nm-price-ulg">Ulgurji: ${fmt(ulgUzs)}</div>`:""}
-        <div class="nm-price-usd">$${priceUsd}</div>
+        ${showUsd?`<div class="nm-price-usd">$${priceUsd}</div>`:""}
       </div>
+      ${showArt&&p.art?`<div class="nm-sku">ART: ${p.art}</div>`:""}
       ${showSku?`<div class="nm-sku">${p.sku}</div>`:""}
       ${barcodeHtml}
     </div>`;
 }
 
 function printNarxnoma() {
-  const style    = document.getElementById("nm-style")?.value || "standard";
-  const showLogo = document.getElementById("nm-logo")?.checked !== false;
-  const showBarc = document.getElementById("nm-barcode-chk")?.checked !== false;
-  const showSku  = document.getElementById("nm-sku")?.checked || false;
-  const showUlg  = document.getElementById("nm-ulg")?.checked || false;
-  const cols     = parseInt(document.getElementById("nm-cols")?.value) || 3;
-  const rate     = db.settings.rate || 12800;
-  const shopName = db.shop?.name || "MERX";
+  const o = _nmOpts();
+  const cols = o.paper === "a4" ? o.cols : 1;
+  const shopName = o.shopName;
 
   const prods = db.products.filter(p => _narxnomaSelected.has(p.sku));
   if (!prods.length) { toast("Mahsulot tanlang","err"); return; }
@@ -3003,8 +3032,24 @@ function printNarxnoma() {
   });
 
   const labelHtml = labels.map(({p,v,pochkaMode,barcode}) =>
-    buildLabel(p, v, {style,showLogo,showBarc,showSku,showUlg,shopName,rate,pochkaMode,barcode})
+    buildLabel(p, v, {...o, pochkaMode, barcode})
   ).join("");
+
+  // 2026-07-20 (№8): qog'oz o'lchamiga qarab @page va grid
+  let pageCss, gridCss, barcodeH;
+  if (o.paper === "40x30") {
+    pageCss = "@page{margin:1mm;size:40mm 30mm}";
+    gridCss = ".nm-label-grid{display:block;padding:0}.nm-label{width:38mm;min-height:28mm;page-break-after:always;border:none !important;padding:1mm}";
+    barcodeH = 18;
+  } else if (o.paper === "58x40") {
+    pageCss = "@page{margin:1.5mm;size:58mm 40mm}";
+    gridCss = ".nm-label-grid{display:block;padding:0}.nm-label{width:55mm;min-height:37mm;page-break-after:always;border:none !important;padding:1.5mm}";
+    barcodeH = 24;
+  } else {
+    pageCss = "@page{margin:5mm;size:A4}";
+    gridCss = `.nm-label-grid{display:grid;grid-template-columns:repeat(${cols},1fr);gap:4px;padding:8px}`;
+    barcodeH = 28;
+  }
 
   const w = window.open("","_blank","width=900,height=700");
   if (!w) { toast("Pop-up bloklangan","err"); return; }
@@ -3014,7 +3059,7 @@ function printNarxnoma() {
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:Arial,sans-serif;background:#fff}
-.nm-label-grid{display:grid;grid-template-columns:repeat(${cols},1fr);gap:4px;padding:8px}
+${gridCss}
 .nm-standard{border:1px solid #ddd;border-radius:6px;padding:8px;background:#fff;break-inside:avoid}
 .nm-mini{border:1px solid #eee;border-radius:4px;padding:6px;background:#fff;break-inside:avoid}
 .nm-premium{border:2px solid #0D1B2A;border-radius:8px;overflow:hidden;break-inside:avoid}
@@ -3043,8 +3088,8 @@ body{font-family:Arial,sans-serif;background:#fff}
 .nm-prem-usd{font-size:10px;color:#888}
 @media print{
   body{margin:0}
-  @page{margin:5mm;size:A4}
-  /* v182 — 3-BOSQICH: B&W termal/lazer printer uchun */
+  ${pageCss}
+  /* v182 — B&W termal/lazer/etiketka printer uchun */
   *{background:#fff !important;background-image:none !important;
     color:#000 !important;box-shadow:none !important;
     text-shadow:none !important}
@@ -3060,7 +3105,7 @@ window.onload = () => {
       const code = svg.dataset.code;
       if (!code) return;
       try {
-        JsBarcode(svg, code, { format:"CODE128", width:1.3, height:28, displayValue:true, fontSize:9, margin:0, textMargin:2 });
+        JsBarcode(svg, code, { format:"CODE128", width:1.3, height:${barcodeH}, displayValue:true, fontSize:9, margin:0, textMargin:2 });
       } catch(e) {}
     });
   }

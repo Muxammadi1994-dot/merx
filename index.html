@@ -4222,6 +4222,17 @@
             </select>
           </div>
 
+          <!-- 2026-07-20 (№8): Qog'oz o'lchami — etiketka printeri -->
+          <div class="fld" style="margin:0;min-width:130px">
+            <label style="font-size:11px">Qog'oz o'lchami</label>
+            <select id="nm-paper" onchange="nmPaperChange();renderNarxnomaPreview()"
+              style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:5px 8px">
+              <option value="a4" selected>A4 (ko'p ustun)</option>
+              <option value="40x30">Etiketka 40×30mm</option>
+              <option value="58x40">Etiketka 58×40mm</option>
+            </select>
+          </div>
+
           <div style="display:flex;flex-direction:column;gap:5px">
             <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
               <input type="checkbox" id="nm-logo" checked onchange="renderNarxnomaPreview()"
@@ -4229,18 +4240,51 @@
               Do'kon nomi
             </label>
             <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-barcode-chk" checked onchange="renderNarxnomaPreview()"
+              <input type="checkbox" id="nm-name" checked onchange="renderNarxnomaPreview()"
                 style="width:15px;height:15px;accent-color:var(--acc)">
-              Barcode
+              Mahsulot nomi
             </label>
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;background:#FFF7ED;padding:4px 8px;border-radius:6px;border:1px solid #FED7AA">
-              <input type="checkbox" id="nm-by-pochka" onchange="renderNarxnomaPreview()"
-                style="width:15px;height:15px;accent-color:#E9A500">
-              📦 Pochka barcode
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="nm-color" checked onchange="renderNarxnomaPreview()"
+                style="width:15px;height:15px;accent-color:var(--acc)">
+              Rang
+            </label>
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="nm-size" checked onchange="renderNarxnomaPreview()"
+                style="width:15px;height:15px;accent-color:var(--acc)">
+              O'lcham
             </label>
           </div>
 
           <div style="display:flex;flex-direction:column;gap:5px">
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="nm-price" checked onchange="renderNarxnomaPreview()"
+                style="width:15px;height:15px;accent-color:var(--acc)">
+              Chakana narx
+            </label>
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="nm-usd" checked onchange="renderNarxnomaPreview()"
+                style="width:15px;height:15px;accent-color:var(--acc)">
+              USD narx
+            </label>
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="nm-cat" onchange="renderNarxnomaPreview()"
+                style="width:15px;height:15px;accent-color:var(--acc)">
+              Kategoriya
+            </label>
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="nm-art" onchange="renderNarxnomaPreview()"
+                style="width:15px;height:15px;accent-color:var(--acc)">
+              ART
+            </label>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="nm-barcode-chk" checked onchange="renderNarxnomaPreview()"
+                style="width:15px;height:15px;accent-color:var(--acc)">
+              Barcode
+            </label>
             <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
               <input type="checkbox" id="nm-sku" onchange="renderNarxnomaPreview()"
                 style="width:15px;height:15px;accent-color:var(--acc)">
@@ -4250,6 +4294,11 @@
               <input type="checkbox" id="nm-ulg" onchange="renderNarxnomaPreview()"
                 style="width:15px;height:15px;accent-color:var(--acc)">
               Ulgurji narx
+            </label>
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;background:#FFF7ED;padding:4px 8px;border-radius:6px;border:1px solid #FED7AA">
+              <input type="checkbox" id="nm-by-pochka" onchange="renderNarxnomaPreview()"
+                style="width:15px;height:15px;accent-color:#E9A500">
+              📦 Pochka barcode
             </label>
           </div>
 
@@ -4285,7 +4334,7 @@
 <script src="js/cloud.js?v=188"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=205"></script>
-<script src="js/katalog.js?v=177"></script>
+<script src="js/katalog.js?v=178"></script>
 <script src="js/ombor.js?v=148"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
