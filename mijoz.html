@@ -159,6 +159,57 @@ input::placeholder{color:#bbb}
 
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-thumb{background:#ddd;border-radius:2px}
+/* ═══ BOSH SAHIFA (dashboard) — 2026-07-20 ═══ */
+#tab-bosh{animation:boshIn .3s ease}
+@keyframes boshIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.bosh-hero{background:linear-gradient(135deg,#0D1B2A,#1e3a5f);border-radius:20px;padding:22px;margin-bottom:14px;color:#fff;box-shadow:0 8px 28px rgba(13,27,42,.28)}
+.bosh-hero-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bosh-salom{font-size:14px;opacity:.7}
+.bosh-name{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;margin-top:2px}
+.bosh-pts{display:flex;align-items:center;gap:9px;background:rgba(233,165,0,.18);border:1px solid rgba(233,165,0,.35);border-radius:14px;padding:10px 14px}
+.bosh-pts i{font-size:22px;color:#E9A500}
+.bosh-pts-val{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;color:#E9A500;line-height:1}
+.bosh-pts-lbl{font-size:10px;opacity:.7;margin-top:1px}
+.bosh-debt{background:linear-gradient(135deg,#FEF2F2,#FEE2E2);border:1.5px solid #FECACA;border-radius:16px;padding:16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:.15s}
+.bosh-debt:active{transform:scale(.98)}
+.bosh-debt-l{display:flex;align-items:center;gap:13px}
+.bosh-debt-ico{width:46px;height:46px;border-radius:13px;background:#EF4444;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.bosh-debt-lbl{font-size:12px;color:#B91C1C;font-weight:600}
+.bosh-debt-val{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:#991B1B;line-height:1.2}
+.bosh-debt-sub{font-size:11.5px;color:#DC2626;opacity:.8}
+.bosh-nodebt{background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:14px;padding:13px;margin-bottom:14px;color:#16A34A;font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:8px}
+.bosh-nodebt i{font-size:18px}
+.bosh-stats{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:14px}
+.bosh-stat{background:#fff;border:1px solid var(--brd);border-radius:16px;padding:15px;box-shadow:var(--shadow)}
+.bosh-stat-ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:9px}
+.bosh-stat-val{font-family:'Sora',sans-serif;font-size:21px;font-weight:800;line-height:1}
+.bosh-stat-lbl{font-size:12px;color:#8a8a8a;margin-top:3px}
+.bosh-quick{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px}
+.bosh-q{background:#fff;border:1px solid var(--brd);border-radius:15px;padding:14px 8px;display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;transition:.15s;box-shadow:var(--shadow)}
+.bosh-q:active{transform:scale(.96)}
+.bosh-q-ico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:21px}
+.bosh-q span{font-size:12px;font-weight:600;color:var(--dark);text-align:center}
+.bosh-sec{margin-bottom:18px}
+.bosh-sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+.bosh-sec-head span{font-family:'Sora',sans-serif;font-size:16px;font-weight:700}
+.bosh-sec-head a{font-size:13px;color:var(--acc);font-weight:600;cursor:pointer}
+.bosh-sale{background:#fff;border:1px solid var(--brd);border-radius:14px;padding:13px 15px;margin-bottom:9px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow)}
+.bosh-sale-l{display:flex;align-items:center;gap:11px}
+.bosh-sale-ico{width:40px;height:40px;border-radius:11px;background:#F3F4F6;color:#6B7280;display:flex;align-items:center;justify-content:center;font-size:19px}
+.bosh-sale-num{font-weight:700;font-size:14px}
+.bosh-sale-dt{font-size:12px;color:#9ca3af}
+.bosh-sale-r{text-align:right}
+.bosh-sale-tot{font-family:'Sora',sans-serif;font-weight:700;font-size:14.5px}
+.bosh-sale-debt{font-size:11.5px;color:#DC2626;font-weight:600}
+.bosh-sale-paid{font-size:11.5px;color:#16A34A;font-weight:600}
+.bosh-newgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px}
+.bosh-new{cursor:pointer;transition:.15s}
+.bosh-new:active{transform:scale(.96)}
+.bosh-new-img{aspect-ratio:1;background:#f4f2ee;border-radius:13px;overflow:hidden;display:flex;align-items:center;justify-content:center;margin-bottom:7px;border:1px solid var(--brd)}
+.bosh-new-img img{width:100%;height:100%;object-fit:cover}
+.bosh-new-img i{font-size:28px;color:#c9c5bd}
+.bosh-new-name{font-size:12.5px;font-weight:600;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-bottom:2px}
+.bosh-new-price{font-size:12.5px;font-weight:700;color:var(--acc)}
 </style>
 </head>
 <body>
@@ -211,8 +262,13 @@ input::placeholder{color:#bbb}
   </div>
 
   <div class="main">
+    <!-- BOSH SAHIFA (dashboard) -->
+    <div id="tab-bosh">
+      <div id="bosh-cont"></div>
+    </div>
+
     <!-- KATALOG -->
-    <div id="tab-katalog">
+    <div id="tab-katalog" style="display:none">
       <div class="chips" id="cchips">
         <div class="chip on" onclick="setCat('',this)">Barchasi</div>
         <div class="chip" onclick="setCat('chegirma',this)">🔥 Chegirmalar</div>
@@ -275,7 +331,8 @@ input::placeholder{color:#bbb}
   </div>
 
   <div class="bnav">
-    <div class="bi on" id="nav-katalog" onclick="goTab('katalog')"><i class="ti ti-shirt"></i><span>Katalog</span></div>
+    <div class="bi on" id="nav-bosh" onclick="goTab('bosh')"><i class="ti ti-home"></i><span>Bosh</span></div>
+    <div class="bi" id="nav-katalog" onclick="goTab('katalog')"><i class="ti ti-shirt"></i><span>Katalog</span></div>
     <div class="bi" id="nav-tarix" onclick="goTab('tarix')"><i class="ti ti-receipt"></i><span>Tarix</span></div>
     <div class="bi" id="nav-bron" onclick="goTab('bron')"><i class="ti ti-bookmark"></i><span>Bronlar</span><div class="bbadge" id="bbadge" style="display:none">0</div></div>
     <div class="bi" id="nav-qarz" onclick="goTab('qarz')"><i class="ti ti-credit-card"></i><span>Qarz</span><div class="bbadge" id="qbadge" style="display:none">!</div></div>
@@ -391,6 +448,7 @@ async function startPortal(){
   const tu=$("tuser");if(tu){const sp=tu.querySelector("span");if(sp)sp.textContent=_sess.customerName;}
   await Promise.all([loadProds(),loadSales(),loadBrons()]);
   updateBadges();
+  goTab("bosh");
 }
 
 function updateBadges(){
@@ -828,14 +886,161 @@ function renderQarz(){
 
 // ── TABS ──────────────────────────────────────
 function goTab(name){
-  ["katalog","tarix","bron","qarz","profil"].forEach(t=>{
+  ["bosh","katalog","tarix","bron","qarz","profil"].forEach(t=>{
     const tab=$(("tab-"+t));
     if(tab) tab.style.display=t===name?"block":"none";
     const n=$(("nav-"+t));if(n)n.classList.toggle("on",t===name);
   });
+  if(name==="bosh")renderBosh();
   if(name==="tarix")renderTarix();
   if(name==="qarz")renderQarz();
   if(name==="profil")renderProfil();
+  try{ document.querySelector(".main")?.scrollTo(0,0); window.scrollTo(0,0); }catch(e){}
+}
+
+function renderBosh(){
+  const el=$("bosh-cont");if(!el||!_sess)return;
+  const c=_sess;
+  const nm=(c.customerName||"Mijoz").split(" ")[0];
+  const pts=c.loyaltyPoints||0;
+
+  // Qarz hisobi
+  const debt=_sales.filter(s=>s.status==="qarz"&&s.remaining>0).reduce((a,s)=>a+(s.remaining||0),0);
+  const debtCnt=_sales.filter(s=>s.status==="qarz"&&s.remaining>0).length;
+
+  // Xarid statistikasi
+  const totalSpent=_sales.reduce((a,s)=>a+(s.total||0),0);
+  const buyCnt=_sales.length;
+
+  // Kunlik salom
+  const h=new Date().getHours();
+  const salom=h<6?"Xayrli tun":h<12?"Xayrli tong":h<18?"Xayrli kun":"Xayrli oqshom";
+
+  // Oxirgi xaridlar (2 ta)
+  const lastSales=[..._sales].sort((a,b)=>((b.date||"")+(b.time||"")<(a.date||"")+(a.time||"")?-1:1)).slice(0,2);
+
+  // Yangi tovarlar (oxirgi qo'shilgan, qoldig'i bor — 6 ta)
+  const newProds=[..._prods]
+    .filter(p=>(p.variants||[]).some(v=>(v.qty||0)>0))
+    .sort((a,b)=>((b.created_at||"")<(a.created_at||"")?-1:1))
+    .slice(0,6);
+
+  // Kutilayotgan bronlar
+  const pendingBrons=_brons.filter(b=>b.status==="kutilmoqda").length;
+
+  el.innerHTML=`
+    <!-- Salom + sodiqlik karta -->
+    <div class="bosh-hero">
+      <div class="bosh-hero-top">
+        <div>
+          <div class="bosh-salom">${salom},</div>
+          <div class="bosh-name">${nm} 👋</div>
+        </div>
+        <div class="bosh-pts">
+          <i class="ti ti-award"></i>
+          <div>
+            <div class="bosh-pts-val">${fmt(pts)}</div>
+            <div class="bosh-pts-lbl">ball</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${debt>0?`
+    <!-- Qarz ogohlantirish -->
+    <div class="bosh-debt" onclick="goTab('qarz')">
+      <div class="bosh-debt-l">
+        <div class="bosh-debt-ico"><i class="ti ti-credit-card"></i></div>
+        <div>
+          <div class="bosh-debt-lbl">Jami qarzingiz</div>
+          <div class="bosh-debt-val">${fmt(debt)} so'm</div>
+          <div class="bosh-debt-sub">${debtCnt} ta xaridda</div>
+        </div>
+      </div>
+      <i class="ti ti-chevron-right" style="font-size:20px;opacity:.5"></i>
+    </div>`:`
+    <div class="bosh-nodebt">
+      <i class="ti ti-circle-check"></i> Qarzingiz yo'q — rahmat!
+    </div>`}
+
+    <!-- Statistika 2 karta -->
+    <div class="bosh-stats">
+      <div class="bosh-stat">
+        <div class="bosh-stat-ico" style="background:#EFF6FF;color:#2563EB"><i class="ti ti-shopping-bag"></i></div>
+        <div class="bosh-stat-val">${buyCnt}</div>
+        <div class="bosh-stat-lbl">Xaridlar</div>
+      </div>
+      <div class="bosh-stat">
+        <div class="bosh-stat-ico" style="background:#F0FDF4;color:#16A34A"><i class="ti ti-cash"></i></div>
+        <div class="bosh-stat-val">${totalSpent>=1000000?(totalSpent/1000000).toFixed(1)+"M":fmt(totalSpent)}</div>
+        <div class="bosh-stat-lbl">Jami xarid</div>
+      </div>
+    </div>
+
+    <!-- Tez havolalar -->
+    <div class="bosh-quick">
+      <div class="bosh-q" onclick="goTab('katalog')">
+        <div class="bosh-q-ico" style="background:#FEF3C7;color:#D97706"><i class="ti ti-shirt"></i></div>
+        <span>Katalog</span>
+      </div>
+      <div class="bosh-q" onclick="goTab('bron')">
+        <div class="bosh-q-ico" style="background:#EDE9FE;color:#7C3AED"><i class="ti ti-bookmark"></i></div>
+        <span>Bronlar${pendingBrons>0?` (${pendingBrons})`:""}</span>
+      </div>
+      <div class="bosh-q" onclick="goTab('tarix')">
+        <div class="bosh-q-ico" style="background:#DBEAFE;color:#2563EB"><i class="ti ti-receipt"></i></div>
+        <span>Tarix</span>
+      </div>
+    </div>
+
+    ${lastSales.length?`
+    <!-- Oxirgi xaridlar -->
+    <div class="bosh-sec">
+      <div class="bosh-sec-head">
+        <span>Oxirgi xaridlar</span>
+        <a onclick="goTab('tarix')">Barchasi</a>
+      </div>
+      ${lastSales.map(s=>{
+        const dt=(s.date||"").split("-").reverse().join(".");
+        const isDebt=s.status==="qarz"&&s.remaining>0;
+        return `<div class="bosh-sale">
+          <div class="bosh-sale-l">
+            <div class="bosh-sale-ico"><i class="ti ti-receipt-2"></i></div>
+            <div>
+              <div class="bosh-sale-num">${s.chek_num||"Chek"}</div>
+              <div class="bosh-sale-dt">${dt}</div>
+            </div>
+          </div>
+          <div class="bosh-sale-r">
+            <div class="bosh-sale-tot">${fmt(s.total||0)} so'm</div>
+            ${isDebt?`<div class="bosh-sale-debt">Qarz: ${fmt(s.remaining)}</div>`:`<div class="bosh-sale-paid">To'langan</div>`}
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`:""}
+
+    ${newProds.length?`
+    <!-- Yangi tovarlar -->
+    <div class="bosh-sec">
+      <div class="bosh-sec-head">
+        <span>Yangi tovarlar</span>
+        <a onclick="goTab('katalog')">Barchasi</a>
+      </div>
+      <div class="bosh-newgrid">
+        ${newProds.map(p=>{
+          const img=(p.color_images&&Object.values(p.color_images)[0])||p.image||"";
+          const price=getPrice(p);
+          return `<div class="bosh-new" onclick="goTab('katalog')">
+            <div class="bosh-new-img">${img?`<img src="${img}" loading="lazy">`:`<i class="ti ti-photo"></i>`}</div>
+            <div class="bosh-new-name">${p.name||""}</div>
+            <div class="bosh-new-price">${fmt(price)} so'm</div>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>`:""}
+
+    <div style="height:20px"></div>
+  `;
 }
 
 function renderProfil(){
