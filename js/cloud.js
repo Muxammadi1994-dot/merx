@@ -1313,6 +1313,10 @@ async function pullFromCloud(silent = false, skipRender = false) {
     _pulledShopId = sid;
     try { _rtEnsure(); } catch(e) {} // v184: shu do'kon uchun realtime kanalini ochamiz
 
+    // 2026-07-20: KUNLIK BULUT ZAXIRA — pull tugab, db to'liq bo'lgach.
+    // Kuniga bir marta, fonda, ko'rinmas (egasi hech narsa ko'rmaydi).
+    try { setTimeout(() => { if (typeof cloudDailyBackup === "function") cloudDailyBackup(sid); }, 5000); } catch(e) {}
+
     // ── 4-BOSQICH: localStorage — faqat JORIY do'kon keshi ─────────
     // Boshqa do'konlarning eski nusxalarini o'chiramiz:
     //  (1) umumiy kompyuterda begona do'kon ma'lumoti qolmaydi (maxfiylik),
@@ -1453,3 +1457,152 @@ setInterval(async () => {
     finally { _syncSuppressed = false; _pullBusy = false; }
   } catch (e) {}
 }, 90000);
+
+// ═══════════════════════════════════════════════════════════════
+// 2026-07-20: KUNLIK BULUT ZAXIRA (uch qatlamli himoyaning 2-qatlami)
+// Har do'kon uchun kuniga bir marta joriy db'ni Supabase 'backups'
+// jadvaliga yozadi (rasmsiz, jsonb). SuperAdmin bu zaxiralardan
+// istalgan do'konni tiklaydi. Oxirgi 7 kun qoladi.
+// Egasi HECH NARSA ko'rmaydi — butunlay fonda ishlaydi.
+// ═══════════════════════════════════════════════════════════════
+async function cloudDailyBackup(sid) {
+  try {
+    if (!_sb || !sid) return;
+    if (!db || !db.products) return;
+    // Bo'sh db'ni zaxiralamaymiz (himoya: bo'sh zaxira zararli)
+    const total = (db.products||[]).length + (db.sales||[]).length +
+                  (db.ombor||[]).length + (db.customers||[]).length;
+    if (total < 2) return;
+
+    const bugun = today();
+
+    // Bugun allaqachon zaxira bormi? (kuniga 1 marta)
+    const { data: bor } = await _sb.from("backups")
+      .select("id").eq("shop_id", sid).eq("date", bugun).limit(1);
+    if (bor && bor.length) return; // bugungi zaxira bor
+
+    // Rasmlarni chiqarib tashlaymiz (hajm katta bo'lmasin)
+    const light = JSON.parse(JSON.stringify(db, (k, v) => {
+      if (k === "image" || k === "colorImages" || k === "photo") return undefined;
+      return v;
+    }));
+
+    const { error } = await _sb.from("backups").insert({
+      shop_id: sid, date: bugun, data: light, records: total
+    });
+    if (error) { console.warn("Bulut zaxira xatosi:", error.message); return; }
+    console.log("☁💾 Kunlik bulut zaxira olindi:", bugun, "(" + total + " yozuv)");
+
+    // Eski zaxiralarni tozalash (7 kundan eskisini o'chiramiz)
+    const chegara = addDays(bugun, -7);
+    await _sb.from("backups").delete().eq("shop_id", sid).lt("date", chegara);
+  } catch (e) {
+    console.warn("cloudDailyBackup xato:", e.message);
+  }
+}
+
+// ── SuperAdmin uchun: do'kon zaxiralarini o'qish ──
+async function saListBackups(shopId) {
+  if (!_sb || !shopId) return [];
+  try {
+    const { data, error } = await _sb.from("backups")
+      .select("id, date, records, created_at")
+      .eq("shop_id", shopId).order("date", { ascending: false });
+    if (error) { console.warn("saListBackups xato:", error.message); return []; }
+    return data || [];
+  } catch (e) { return []; }
+}
+
+// ── SuperAdmin uchun: bitta zaxirani to'liq o'qish (tiklash uchun) ──
+async function saGetBackup(backupId) {
+  if (!_sb || !backupId) return null;
+  try {
+    const { data, error } = await _sb.from("backups")
+      .select("data, date, records, shop_id").eq("id", backupId).limit(1).single();
+    if (error) { console.warn("saGetBackup xato:", error.message); return null; }
+    return data || null;
+  } catch (e) { return null; }
+}
+
+// ── SuperAdmin uchun: zaxirani do'kon ma'lumotiga TIKLASH ──
+// Bulutdagi products/sales/... jadvallariga qayta yozadi (o'sha shop_id uchun).
+async function saRestoreBackup(backupId) {
+  if (!_sb) { return { ok:false, error:"Supabase ulanmagan" }; }
+  try {
+    const bk = await saGetBackup(backupId);
+    if (!bk || !bk.data) return { ok:false, error:"Zaxira topilmadi" };
+    const sid = bk.shop_id;
+    const d = bk.data;
+
+    // Har jadval uchun: avval o'sha do'kon yozuvlarini o'chirib, keyin zaxiradan yozamiz.
+    // (products/sales/customers/debt_payments/ombor/xarajatlar/staff/returns)
+    const tables = [
+      { t:"products",      arr:d.products||[],      map:_bkMapProduct },
+      { t:"customers",     arr:d.customers||[],     map:_bkMapCustomer },
+      { t:"sales",         arr:d.sales||[],         map:_bkMapSale },
+      { t:"debt_payments", arr:d.debtPayments||[],  map:_bkMapDebtPay },
+      { t:"ombor",         arr:d.ombor||[],         map:_bkMapOmbor },
+      { t:"xarajatlar",    arr:d.xarajatlar||[],    map:_bkMapXarajat },
+      { t:"staff",         arr:d.staff||[],         map:_bkMapStaff },
+    ];
+
+    for (const {t, arr, map} of tables) {
+      // 1) shu do'kon eski yozuvlarini o'chiramiz
+      await _sb.from(t).delete().eq("shop_id", sid);
+      // 2) zaxiradan qayta yozamiz (bo'laklab, 100 talab)
+      if (arr.length) {
+        const rows = arr.map(x => map(x, sid)).filter(Boolean);
+        for (let i = 0; i < rows.length; i += 100) {
+          const chunk = rows.slice(i, i+100);
+          const { error } = await _sb.from(t).insert(chunk);
+          if (error) console.warn(`saRestore ${t} xato:`, error.message);
+        }
+      }
+    }
+
+    // Tombstone (o'chirilganlar daftari) ni ham tozalaymiz — aks holda
+    // tiklangan yozuvlar "o'chgan" deb yashirilishi mumkin (bugun ko'rgan muammo).
+    try { await _sb.from("deleted_records").delete().eq("shop_id", sid); } catch(e) {}
+
+    return { ok:true, shop_id:sid, date:bk.date, records:bk.records };
+  } catch (e) {
+    return { ok:false, error:e.message };
+  }
+}
+
+// Zaxira JSON'ini Supabase ustunlariga o'giruvchi yordamchilar (data jsonb ham saqlanadi)
+function _bkMapProduct(p, sid) {
+  return { shop_id:sid, sku:p.sku, name:p.name, category:p.category, type:p.type,
+    unit:p.unit, in_box:p.inBox, barcode:p.barcode, cost_usd:p.costUsd,
+    price_uzs:p.priceUzs, ulgurji:p.ulgurjiNarx, variants:p.variants,
+    art:p.art, color_barcodes:p.colorBarcodes, pantone:p.pantone,
+    color_name:p.colorName, hex:p.hex, pack_unit:p.packUnit, data:p };
+}
+function _bkMapCustomer(c, sid) {
+  return { shop_id:sid, name:c.name, phone:c.phone, type:c.type, note:c.note,
+    balance_uzs:c.balanceUzs, balance_usd:c.balanceUsd, data:c };
+}
+function _bkMapSale(s, sid) {
+  return { shop_id:sid, chek_num:s.chekNum, date:s.date, time:s.time,
+    price_type:s.priceType, pay_type:s.payType, pay_breakdown:s.payBreakdown,
+    staff_id:s.staffId, customer_id:s.customerId, items:s.items,
+    subtotal:s.subtotal, discount:s.discount, total:s.total, paid:s.paid,
+    remaining:s.remaining, customer_name:s.customerName, customer_phone:s.customerPhone,
+    status:s.status, debt_currency:s.debtCurrency, debt_usd:s.debtUsd, note:s.note, data:s };
+}
+function _bkMapDebtPay(p, sid) {
+  return { shop_id:sid, customer_id:p.customerId, sale_id:p.saleId, amount:p.amount,
+    currency:p.currency, method:p.method, date:p.date, data:p };
+}
+function _bkMapOmbor(o, sid) {
+  return { shop_id:sid, date:o.date, sku:o.sku, product_name:o.productName,
+    unit:o.unit, color:o.color, size:o.size, qty:o.qty, boxes:o.boxes,
+    kirim_narxi:o.kirimNarxi, supplier:o.supplier, partiya:o.partiya, data:o };
+}
+function _bkMapXarajat(x, sid) {
+  return { shop_id:sid, date:x.date, amount:x.amount, category:x.category,
+    note:x.note, method:x.method, data:x };
+}
+function _bkMapStaff(s, sid) {
+  return { shop_id:sid, name:s.name, phone:s.phone, role:s.role, data:s };
+}

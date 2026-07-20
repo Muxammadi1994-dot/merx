@@ -615,6 +615,9 @@ function renderSaShops() {
                 <button onclick="saEditShopFull('${s.id}')" title="Tahrirlash"
                   style="background:#EFF6FF;border:1px solid #BFDBFE;color:#2563EB;
                   border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer">✏️</button>
+                <button onclick="saOpenBackups('${s.id}','${(s.name||'').replace(/'/g,'')}')" title="Zaxiralar (tiklash)"
+                  style="background:#F5F3FF;border:1px solid #DDD6FE;color:#7C3AED;
+                  border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer">🗄️</button>
                 <button onclick="saToggleShop('${s.id}')" title="${active?'Bloklash':'Faollashtirish'}"
                   style="background:${active?"#FEF2F2":"#ECFDF5"};
                   border:1px solid ${active?"#FECACA":"#BBF7D0"};
@@ -1616,4 +1619,97 @@ if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", renderSaViewBanner);
 } else {
   setTimeout(renderSaViewBanner, 100);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 2026-07-20: SUPERADMIN — DO'KON ZAXIRALARI (bulut, tiklash)
+// Faqat SuperAdmin ko'radi va tiklaydi. Egasi hech narsa ko'rmaydi.
+// ═══════════════════════════════════════════════════════════════
+let _saBackupShopId = null;
+let _saBackupShopName = "";
+
+async function saOpenBackups(shopId, shopName) {
+  _saBackupShopId = shopId;
+  _saBackupShopName = shopName || shopId;
+
+  document.getElementById("sa-backups-modal")?.remove();
+  const modal = document.createElement("div");
+  modal.id = "sa-backups-modal";
+  modal.style.cssText = `position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.5);
+    display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;
+    backdrop-filter:blur(4px)`;
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:20px;width:480px;max-width:95vw;
+      overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,.25)">
+      <div style="padding:20px 24px;background:#0D1B2A;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#E9A500">🗄️ Zaxiralar</div>
+          <div style="font-size:12px;color:#6B8096;margin-top:2px">${_saBackupShopName}</div>
+        </div>
+        <button onclick="document.getElementById('sa-backups-modal').remove()"
+          style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+          color:#fff;border-radius:8px;padding:6px 12px;font-family:inherit;cursor:pointer;font-size:16px">✕</button>
+      </div>
+      <div style="padding:14px 18px 6px;font-size:12px;color:#9CA3AF">
+        Tiklash joriy ma'lumot ustiga yozadi. Faqat zarur bo'lganda ishlating.
+      </div>
+      <div id="sa-backups-list" style="padding:8px 18px 20px;max-height:380px;overflow-y:auto">
+        <div style="text-align:center;padding:26px;color:#9CA3AF">
+          <i class="ti ti-loader" style="font-size:26px;display:block;margin-bottom:8px"></i>Yuklanmoqda...</div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+  const el = document.getElementById("sa-backups-list");
+  if (typeof saListBackups !== "function") {
+    if (el) el.innerHTML = `<div style="text-align:center;padding:20px;color:#DC2626">Zaxira moduli yuklanmadi (cloud.js)</div>`;
+    return;
+  }
+  const list = await saListBackups(shopId);
+  if (el) {
+    el.innerHTML = list.length ? list.map(b => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;
+        padding:12px 14px;border:1px solid #E5E7EB;border-radius:10px;margin-bottom:8px">
+        <div>
+          <div style="font-weight:700;font-size:14px;color:#111827">${b.date}</div>
+          <div style="font-size:12px;color:#9CA3AF">${b.records||0} ta yozuv</div>
+        </div>
+        <button onclick="saDoRestore(${b.id},'${b.date}')"
+          style="background:#7C3AED;border:none;color:#fff;border-radius:8px;
+          padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer">Tiklash</button>
+      </div>`).join("") :
+      `<div style="text-align:center;padding:30px;color:#9CA3AF">
+        <i class="ti ti-database-off" style="font-size:32px;display:block;margin-bottom:10px"></i>
+        Bu do'kon uchun hali bulut zaxira yo'q.<br>
+        <span style="font-size:12px">Do'kon egasi kirganda avtomat olinadi.</span>
+      </div>`;
+  }
+}
+
+async function saDoRestore(backupId, date) {
+  if (!confirm("⚠️ DIQQAT — ZAXIRADAN TIKLASH\n\n" +
+      "Do'kon: " + _saBackupShopName + "\n" +
+      "Sana: " + date + "\n\n" +
+      "Bu do'konning HOZIRGI ma'lumoti O'CHIRILIB, o'rniga shu zaxira yoziladi.\n" +
+      "Tiklashdan keyingi o'zgarishlar yo'qoladi.\n\n" +
+      "Davom etasizmi?")) return;
+
+  const btn = event?.target;
+  if (btn) { btn.disabled = true; btn.textContent = "Tiklanmoqda..."; }
+
+  if (typeof saRestoreBackup !== "function") {
+    alert("Tiklash moduli yuklanmadi (cloud.js)");
+    return;
+  }
+  const res = await saRestoreBackup(backupId);
+  if (res.ok) {
+    alert("✅ TIKLANDI\n\nDo'kon: " + _saBackupShopName + "\nSana: " + res.date +
+      "\nYozuvlar: " + (res.records||0) + " ta\n\n" +
+      "Do'kon egasi endi qurilmasida 'Yangilash' bossa, tiklangan ma'lumot keladi.");
+    document.getElementById("sa-backups-modal")?.remove();
+  } else {
+    alert("❌ Tiklash xatosi: " + (res.error||"noma'lum"));
+    if (btn) { btn.disabled = false; btn.textContent = "Tiklash"; }
+  }
 }
