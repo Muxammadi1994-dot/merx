@@ -126,7 +126,11 @@ function renderTarix() {
     if (!q) return true;
     return (
       (s.customerName||"").toLowerCase().includes(q) ||
-      (s.customerPhone||"").replace(/\D/g,"").includes(q.replace(/\D/g,"")) ||
+      // 2026-07-20 (№4) ILDIZ: q'da raqam bo'lsagina telefonni tekshiramiz.
+      // Aks holda ism (harflar) yozilganda q.replace(\D)="" bo'lib,
+      // phone.includes("")=TRUE bo'lardi -> HAMMA sotuv "mos" chiqib,
+      // ism bo'yicha filtr ishlamas edi (aloqasiz sotuvlar aralashardi).
+      (/\d/.test(q) && (s.customerPhone||"").replace(/\D/g,"").includes(q.replace(/\D/g,""))) ||
       (s.chekNum||"").toLowerCase().includes(q) ||
       (s.note||"").toLowerCase().includes(q) ||
       String(s.id).includes(q) ||

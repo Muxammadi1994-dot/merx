@@ -2789,6 +2789,7 @@ function renderNarxnomaList() {
   const q = (document.getElementById("nm-q")||{value:""}).value.toLowerCase();
   const ps = db.products.filter(p =>
     !q || p.name.toLowerCase().includes(q) || (p.sku||"").toLowerCase().includes(q)
+       || (p.art||"").toLowerCase().includes(q) // 2026-07-20 (№5): art bo'yicha ham
   );
   el.innerHTML = ps.map(p => {
     const st  = totalStock(p);
