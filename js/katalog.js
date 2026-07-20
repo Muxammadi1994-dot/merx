@@ -1973,9 +1973,16 @@ function updateCostCurrency() {
 function priceInputHandler(el) {
   const cur = db.settings?.priceCurrency || "uzs";
   if (cur === "usd" || cur === "both") {
-    const clean = el.value.replace(/[^\d.]/g, "");
-    el.value = clean;
-    el.dataset.raw = clean;
+    // 2026-07-20: USD rejimida ham MING AJRATGICHI (probel) qo'shamiz —
+    // 34500 -> 34 500 (butun qismga), o'nlik (.5) saqlanadi.
+    let clean = el.value.replace(/[^\d.]/g, "");
+    // faqat bitta nuqtaga ruxsat (ikkinchisini olib tashlaymiz)
+    const parts = clean.split(".");
+    const intPart = parts[0] || "";
+    const decPart = parts.length > 1 ? "." + parts.slice(1).join("").slice(0, 2) : "";
+    const intFmt = intPart ? parseInt(intPart, 10).toLocaleString("ru-RU") : "";
+    el.value = (intFmt || (decPart ? "0" : "")) + decPart;
+    el.dataset.raw = intPart + (parts.length > 1 ? "." + parts.slice(1).join("") : "");
   } else {
     fmtInput(el);
   }

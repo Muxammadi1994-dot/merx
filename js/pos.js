@@ -985,18 +985,27 @@ function posClearDiscount() {
 function ciEditPrice(idx) {
   const c = cart[idx]; if (!c) return;
   if (!c.basePrice) c.basePrice = c.price;
+  // 2026-07-20: prompt o'rniga HTML modal — yozganda 350 000 (probel bilan)
+  window._ciPriceIdx = idx;
+  const nameEl = $("ci-price-name"), oldEl = $("ci-price-old"), inp = $("ci-price-input");
+  if (nameEl) nameEl.textContent = c.name || "";
+  if (oldEl)  oldEl.innerHTML = "Hozirgi narx: <b>" + fmt(c.price) + "</b> so'm";
+  if (inp) { inp.value = fmt(c.price); inp.dataset.raw = String(Math.round(c.price)); }
+  openModal("ci-price");
+  setTimeout(() => { if (inp) { inp.focus(); inp.select(); } }, 100);
+}
+
+function ciPriceSave() {
+  const idx = window._ciPriceIdx;
+  const c = cart[idx]; if (!c) { closeModal("ci-price"); return; }
   const oldPrice = c.price;
-  const newPriceStr = prompt(
-    c.name + " narxini o'zgartiring\n" +
-    "Hozirgi: " + fmt(oldPrice) + " so'm\n" +
-    "Yangi narxni kiriting:",
-    fmt(oldPrice) // v195: "550 000" ko'rinishida — o'qish oson (probellar avtomatik olib tashlanadi)
-  );
-  if (newPriceStr === null) return;
-  const newPrice = parseFloat((newPriceStr||"").replace(/\s/g,"")) || oldPrice;
+  const inp = $("ci-price-input");
+  const raw = inp ? (inp.dataset.raw || inp.value.replace(/\s/g,"")) : "";
+  const newPrice = parseFloat(raw) || oldPrice;
   if (newPrice <= 0) { toast("Narx 0 bo'lishi mumkin emas","err"); return; }
   c.price = newPrice;
   if (!c.basePrice || c.basePrice === newPrice) c.basePrice = null;
+  closeModal("ci-price");
   renderCart();
   toast("Narx o'zgartirildi: " + fmt(newPrice) + " so'm");
 }
