@@ -549,10 +549,30 @@ function buildReceiptHtml(sale, opts) {
   })();
   const _ffamily = (() => {
     const f = chekCfg.fontFamily;
-    if (f === "mono")  return "'Courier New', monospace";
-    if (f === "serif") return "'Georgia', serif";
-    if (f === "sans")  return "'Arial', sans-serif";
-    return "'DM Sans', sans-serif"; // standart
+    // 2026-07-20: 20 ta veb-xavfsiz shrift (termal printer + brauzerda ishonchli)
+    const _fontMap = {
+      dm:        "'DM Sans', sans-serif",
+      sans:      "'Arial', sans-serif",
+      serif:     "'Georgia', serif",
+      mono:      "'Courier New', monospace",
+      helvetica: "'Helvetica Neue', Helvetica, sans-serif",
+      verdana:   "'Verdana', sans-serif",
+      tahoma:    "'Tahoma', sans-serif",
+      trebuchet: "'Trebuchet MS', sans-serif",
+      segoe:     "'Segoe UI', sans-serif",
+      calibri:   "'Calibri', sans-serif",
+      century:   "'Century Gothic', sans-serif",
+      times:     "'Times New Roman', serif",
+      garamond:  "'Garamond', serif",
+      palatino:  "'Palatino Linotype', 'Book Antiqua', serif",
+      cambria:   "'Cambria', serif",
+      consolas:  "'Consolas', monospace",
+      lucida:    "'Lucida Console', monospace",
+      impact:    "'Impact', sans-serif",
+      franklin:  "'Franklin Gothic Medium', sans-serif",
+      system:    "system-ui, -apple-system, sans-serif"
+    };
+    return _fontMap[f] || _fontMap.dm;
   })();
   const _footItalic = chekCfg.footerItalic !== false; // standart kursiv
   const _footBold   = chekCfg.footerBold === true;
@@ -572,6 +592,7 @@ function buildReceiptHtml(sale, opts) {
     };
   };
   const _bShop  = _blk("shop",     "20px", "800", "normal", "center");
+  const _bTag   = _blk("tagline",  "9.5px","400", "normal", "center");
   const _bMeta  = _blk("meta",     "12px", "500", "normal", "left");
   const _bIName = _blk("itemName", "13px", "400", "normal", "left");
   const _bIPrice= _blk("itemPrice","11px", "400", "normal", "left");
@@ -720,7 +741,7 @@ function buildReceiptHtml(sale, opts) {
 
   // ── To'lov bo'limi ────────────────────────────
   const discHtml = discount > 0
-    ? `<div class="pr"><span>Chegirma</span><span class="c-red">− ${F(discount)} so'm</span></div>` : "";
+    ? `<div class="pr"><span>Chegirma</span><span class="c-red">− ${FC(discount)}</span></div>` : "";
 
   let debtHtml = "";
   if (remaining > 0) {
@@ -786,7 +807,8 @@ body{font-family:${_ffamily};background:#F2F0EB;display:flex;justify-content:cen
 /* HEAD */
 .hd{${_hdrCss};padding:18px 20px 14px;text-align:center}
 .hd-logo{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;letter-spacing:1.5px}
-.hd-sub{font-size:9.5px;color:${_hdrSubColor};letter-spacing:2px;text-transform:uppercase;margin-top:3px}
+.hd-sub{font-size:${_bTag.size} !important;font-weight:${_bTag.weight} !important;font-style:${_bTag.style} !important;color:${_hdrSubColor};letter-spacing:2px;text-transform:uppercase;margin-top:3px;text-align:${_bTag.align} !important}
+${!_bTag.show ? ".hd-sub{display:none !important}" : ""}
 
 /* META */
 .meta{padding:10px 16px;font-size:11.5px;border-bottom:1px dashed #E8E5E0}
@@ -897,10 +919,10 @@ ${!_bFoot.show ? ".ft-thanks{display:none !important}" : ""}
     </div>
 
     ${jamiPch > 0 ? `<div class="pr" style="padding:5px 16px;font-weight:800;border-top:1px dashed #ddd"><span>JAMI POCHKA</span><span>${jamiPch} pochka</span></div>` : ""}
-    ${itemDisc > 0 ? `<div class="pr" style="padding:2px 16px;color:#B91C1C;font-weight:700"><span>Tovar chegirmalari</span><span>−${F(itemDisc)} so'm</span></div>` : ""}
+    ${itemDisc > 0 ? `<div class="pr" style="padding:2px 16px;color:#B91C1C;font-weight:700"><span>Tovar chegirmalari</span><span>−${FC(itemDisc)}</span></div>` : ""}
     ${discount > 0 ? `
-    <div class="pr" style="padding:4px 16px 0"><span>Oraliq</span><span>${F(total + discount)} so'm</span></div>
-    <div class="pr" style="padding:2px 16px"><span>Umumiy chegirma</span><span class="c-red">− ${F(discount)} so'm</span></div>` : ""}
+    <div class="pr" style="padding:4px 16px 0"><span>Oraliq</span><span>${FC(total + discount)}</span></div>
+    <div class="pr" style="padding:2px 16px"><span>Umumiy chegirma</span><span class="c-red">− ${FC(discount)}</span></div>` : ""}
     <div class="tot">
       <div>
         <div class="tot-lbl">JAMI</div>

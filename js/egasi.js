@@ -1114,6 +1114,7 @@ function _buildDebtReceiptPreview(cfg) {
 // ═══════════════════════════════════════════════════════════
 const _CHEK_BLOCK_DEFS = [
   { key: "shop",      label: "Do'kon nomi (tepa)",        dSize: 20, canHide: false },
+  { key: "tagline",   label: "Shior (do'kon nomi ostida)", dSize: 10, canHide: true },
   { key: "meta",      label: "Ma'lumotlar (sotuv/sana/mijoz)", dSize: 12, canHide: true },
   { key: "itemName",  label: "Tovar nomi",                dSize: 13, canHide: false },
   { key: "itemPrice", label: "Tovar narxi / hisobi",      dSize: 11, canHide: false },
