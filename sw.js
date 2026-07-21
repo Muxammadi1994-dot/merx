@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 // MUHIM: har push'da bu raqamni +1 qiling — eski kesh avtomat o'chadi.
-const CACHE_VERSION = "merx-v1";
+const CACHE_VERSION = "merx-v2";
 const CACHE_NAME = CACHE_VERSION;
 
 // Boshlang'ich keshlanadigan fayllar (offline'da kamida shular bo'lsin)
@@ -65,9 +65,45 @@ self.addEventListener("fetch", (event) => {
   // 3) Realtime WebSocket (wss://) — aralashmaymiz
   if (url.protocol === "wss:" || url.protocol === "ws:") return;
 
-  // 4) DASTUR FAYLLARI + CDN kutubxonalar — NETWORK-FIRST
+  // ── Yordamchi: fetch + timeout (sekin internetda osilib qolmasin) ──
+  const fetchWithTimeout = (request, ms) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), ms);
+    fetch(request).then(
+      (res) => { clearTimeout(timer); resolve(res); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+
+  // 4a) NAVIGATSIYA (index.html / sahifa ochilishi) — NETWORK-FIRST + 3s timeout.
+  //     Internet tez → yangi sahifa. Sekin/yo'q → 3s dan keyin keshdan (osilmaydi).
+  const isNavigate = req.mode === "navigate" || req.destination === "document"
+    || (url.pathname === "/" || url.pathname.endsWith("/index.html"));
+  if (isNavigate) {
+    event.respondWith(
+      fetchWithTimeout(req, 3000)
+        .then((res) => {
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put("/index.html", clone).catch(() => {}));
+          }
+          return res;
+        })
+        .catch(() =>
+          // 3s ichida javob yo'q (sekin/offline) — keshdan beramiz
+          caches.match("/index.html").then((cached) =>
+            cached || caches.match(req) || new Response(
+              "<h2 style='font-family:sans-serif;text-align:center;margin-top:40px'>Internet sekin yoki yo'q.<br>Bir ozdan keyin qayta urinib ko'ring.</h2>",
+              { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
+            )
+          )
+        )
+    );
+    return;
+  }
+
+  // 4b) BOSHQA FAYLLAR (CSS, JS, ikonka, CDN) — NETWORK-FIRST + 5s timeout
   event.respondWith(
-    fetch(req)
+    fetchWithTimeout(req, 5000)
       .then((res) => {
         // Muvaffaqiyatli javob — keshni yangilaymiz (offline uchun zaxira)
         if (res && res.status === 200 && (res.type === "basic" || res.type === "cors")) {
@@ -79,13 +115,9 @@ self.addEventListener("fetch", (event) => {
         return res;
       })
       .catch(() => {
-        // Internet yo'q — keshdan beramiz (oxirgi ishlagan nusxa)
+        // Internet yo'q/sekin — keshdan beramiz (oxirgi ishlagan nusxa)
         return caches.match(req).then((cached) => {
           if (cached) return cached;
-          // Kesh ham yo'q — HTML so'rovi bo'lsa index.html ni beramiz
-          if (req.mode === "navigate" || req.destination === "document") {
-            return caches.match("/index.html");
-          }
           // Boshqa hech narsa yo'q — tabiiy xato
           return new Response("Offline — internet yo'q", {
             status: 503,
