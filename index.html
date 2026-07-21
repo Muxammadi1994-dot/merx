@@ -4,6 +4,14 @@
 <head>
 <meta charset="UTF-8"><!-- v2.3 -->
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<!-- PWA (2026-07-20): manifest + mobil meta -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0D1B2A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MERX">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230D1B2A'/><text x='50%25' y='50%25' font-size='18' text-anchor='middle' dominant-baseline='central' fill='%23E9A500' font-family='sans-serif' font-weight='bold'>M</text></svg>">
 <title>MERX — Ulgurji savdo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4547,5 +4555,39 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <script src="js/superadmin.js?v=170"></script>
+
+<!-- PWA (2026-07-20): Service Worker ro'yxatdan o'tkazish -->
+<script>
+// Service Worker — offline ishlash + tez yuklash. Network-first strategiya.
+// sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js?v=1")
+      .then((reg) => {
+        console.log("✅ Service Worker o'rnatildi (offline tayyor)");
+        // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
+        reg.addEventListener("updatefound", () => {
+          const nw = reg.installing;
+          if (nw) nw.addEventListener("statechange", () => {
+            if (nw.state === "installed" && navigator.serviceWorker.controller) {
+              // Yangi kod tayyor — darhol o'tkazamiz
+              nw.postMessage("skipWaiting");
+            }
+          });
+        });
+      })
+      .catch((e) => console.warn("SW ro'yxatdan o'tmadi:", e.message));
+
+    // Yangi SW faollashsa — sahifani bir marta yangilaymiz (eng yangi kod)
+    let _swRefreshed = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (_swRefreshed) return;
+      _swRefreshed = true;
+      // Faqat online bo'lsa yangilaymiz (offline'da F5 xavfli emas endi)
+      if (navigator.onLine) location.reload();
+    });
+  });
+}
+</script>
 </body>
 </html>
