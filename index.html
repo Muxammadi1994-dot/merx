@@ -4056,11 +4056,15 @@
     <h2><i class="ti ti-discount-2" style="margin-right:8px;color:var(--acc)"></i>Savat bo'ylab chegirma</h2>
     <div style="display:flex;gap:6px;margin:12px 0 8px">
       <button class="cd-type-btn" data-t="som" onclick="posSetDiscType('som')"
-        style="flex:1;padding:8px;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;background:#0D1B2A;color:#fff;cursor:pointer">So'mda</button>
+        style="flex:1;padding:8px;font-size:12.5px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;background:#0D1B2A;color:#fff;cursor:pointer">So'mda</button>
       <button class="cd-type-btn" data-t="foiz" onclick="posSetDiscType('foiz')"
-        style="flex:1;padding:8px;font-size:13px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;background:#fff;color:#666;cursor:pointer">Foizda (%)</button>
+        style="flex:1;padding:8px;font-size:12.5px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;background:#fff;color:#666;cursor:pointer">Foizda (%)</button>
+      <button class="cd-type-btn" data-t="fix" onclick="posSetDiscType('fix')"
+        style="flex:1.3;padding:8px;font-size:12.5px;font-weight:700;border:1.5px solid var(--brd);border-radius:9px;background:#fff;color:#666;cursor:pointer">Standart narx</button>
     </div>
     <div id="cd-hint" style="font-size:11.5px;color:var(--mut);margin-bottom:8px">Har bir DONA narxidan shuncha so'm chegirma</div>
+    <!-- Standart narx rejimida: savatdagi eng qimmat/arzon dona narxlar -->
+    <div id="cd-range" style="display:none;font-size:11.5px;color:#555;margin-bottom:8px;background:#F8F7F4;border:1px solid var(--brd);border-radius:8px;padding:8px 11px"></div>
     <input id="cd-val" type="number" min="0" placeholder="Masalan: 10000 yoki 5"
       oninput="posCalcDiscPreview()"
       style="width:100%;font-family:inherit;font-size:16px;font-weight:700;border:1.5px solid var(--brd);border-radius:10px;padding:11px 13px;box-sizing:border-box;text-align:center">
@@ -4349,7 +4353,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
-<script src="js/pos.js?v=205"></script>
+<script src="js/pos.js?v=206"></script>
 <script src="js/katalog.js?v=178"></script>
 <script src="js/ombor.js?v=150"></script>
 <script src="js/mijozlar.js?v=146"></script>

@@ -941,7 +941,24 @@ function posSetDiscType(t) {
   const hint = $("cd-hint");
   if (hint) hint.textContent = t === "som"
     ? "Har bir DONA narxidan shuncha so'm chegirma"
-    : "Har tovar o'z narxidan shuncha foiz chegirma";
+    : t === "foiz"
+    ? "Har tovar o'z narxidan shuncha foiz chegirma"
+    : "Savatdagi BARCHA tovarlar shu dona narxda sotiladi";
+  // Standart narx rejimida: savatdagi eng qimmat/arzon dona narxni ko'rsatamiz
+  const rangeEl = $("cd-range");
+  if (rangeEl) {
+    if (t === "fix" && cart.length) {
+      const prices = cart.map(c => c.basePrice || c.price).filter(p => p > 0);
+      const minP = Math.min(...prices), maxP = Math.max(...prices);
+      rangeEl.style.display = "block";
+      rangeEl.innerHTML = `<div style="display:flex;justify-content:space-between"><span>Eng arzon (dona):</span><b>${fmt(minP)} so'm</b></div>`
+        + `<div style="display:flex;justify-content:space-between;margin-top:2px"><span>Eng qimmat (dona):</span><b>${fmt(maxP)} so'm</b></div>`;
+    } else {
+      rangeEl.style.display = "none";
+    }
+  }
+  const inp = $("cd-val");
+  if (inp) inp.placeholder = t === "fix" ? "Har dona uchun narx" : "Masalan: 10000 yoki 5";
   posCalcDiscPreview();
 }
 function _cdPerUnit(c, v) {
@@ -950,6 +967,31 @@ function _cdPerUnit(c, v) {
 }
 function posCalcDiscPreview() {
   const v = parseFloat((($("cd-val")||{value:""}).value || "").replace(/\s/g,"")) || 0;
+  const el = $("cd-preview");
+
+  // Standart narx rejimi — barcha tovar shu dona narxda
+  if (_cdType === "fix") {
+    let saved = 0, raised = 0, raisedCount = 0;
+    cart.forEach(c => {
+      const base = c.basePrice || c.price;
+      const diff = (base - v) * (c.qty || 0);
+      if (v < base) saved += diff;          // arzonlashdi (chegirma)
+      else if (v > base) { raised += (v - base) * (c.qty||0); raisedCount++; } // qimmatlashdi
+    });
+    if (el) {
+      if (v <= 0) {
+        el.innerHTML = `<span style="color:var(--mut)">Har dona uchun narx kiriting</span>`;
+      } else {
+        let msg = `Jami chegirma: <b style="color:var(--grn)">${fmt(saved)} so'm</b>`;
+        if (raisedCount > 0) {
+          msg += `<div style="color:var(--red);font-size:11.5px;margin-top:4px">⚠️ ${raisedCount} ta tovar narxi standartdan PAST edi — endi ${fmt(raised)} so'm qimmatlashadi</div>`;
+        }
+        el.innerHTML = msg;
+      }
+    }
+    return { v, total: saved, bad: null };
+  }
+
   let total = 0, bad = null;
   cart.forEach(c => {
     const base = c.basePrice || c.price;
@@ -957,7 +999,6 @@ function posCalcDiscPreview() {
     if (v > 0 && per >= base) bad = c.name;
     total += per * (c.qty || 0);
   });
-  const el = $("cd-preview");
   if (el) el.innerHTML = bad
     ? `<span style="color:var(--red)">"${bad}" narxi 0 dan past bo'lib qoladi — kamroq kiriting</span>`
     : `Jami chegirma: <b style="color:var(--grn)">${fmt(total)} so'm</b>`;
@@ -966,6 +1007,24 @@ function posCalcDiscPreview() {
 function posApplyDiscount() {
   const { v, total, bad } = posCalcDiscPreview();
   if (!v || v <= 0) { toast("Chegirma qiymatini kiriting", "err"); return; }
+
+  // Standart narx: barcha tovar dona narxi = v (past bo'lsa ham tenglashadi)
+  if (_cdType === "fix") {
+    let raisedCount = 0;
+    cart.forEach(c => {
+      if (!c.basePrice) c.basePrice = c.price;
+      if (v > c.basePrice) raisedCount++;
+      c.price = v;
+    });
+    posSaveCarts(); renderCart(); closeModal("cartdisc");
+    if (raisedCount > 0) {
+      toast(`✅ Barcha tovar ${fmt(v)} so'mda (${raisedCount} ta tovar narxi ko'tarildi)`);
+    } else {
+      toast(`✅ Barcha tovar ${fmt(v)} so'mda — jami ${fmt(total)} so'm chegirma`);
+    }
+    return;
+  }
+
   if (bad) { toast("Chegirma juda katta — narx 0 dan past bo'lib qoladi", "err"); return; }
   cart.forEach(c => {
     if (!c.basePrice) c.basePrice = c.price;
