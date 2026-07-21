@@ -608,7 +608,7 @@ function buildReceiptHtml(sale, opts) {
       : _hdrStyle === "none"
       ? "background:#fff;color:#0D1B2A"
       : "background:#0D1B2A;color:#fff";
-  const _hdrSubColor = _hdrStyle === "dark" ? "#9aa7b5" : "#667";
+  const _hdrSubColor = _hdrStyle === "dark" ? "#fff" : "#000";
 
   // Ixcham uslub uchun — faqat asosiylarni ko'rsatish
   const _cfg = {shopName,staffName,botUser,receiptUrl,logo,contact,footer,showStaff,showContact,F:n=>Math.round(n||0).toLocaleString("ru-RU")};
@@ -812,8 +812,8 @@ ${!_bTag.show ? ".hd-sub{display:none !important}" : ""}
 
 /* META */
 .meta{padding:10px 16px;font-size:11.5px;border-bottom:1px dashed #E8E5E0}
-.mr{display:flex;justify-content:space-between;padding:2px 0;color:#333}
-.mr b{color:#0D1B2A;font-weight:600;text-align:right;max-width:60%}
+.mr{display:flex;justify-content:space-between;padding:2px 0;color:#000}
+.mr b{color:#000;font-weight:600;text-align:right;max-width:60%}
 .sep{border-top:1px solid #ddd;margin:5px 0}
 
 /* NOTE */
@@ -821,32 +821,32 @@ ${!_bTag.show ? ".hd-sub{display:none !important}" : ""}
 .note-lbl{font-weight:700;white-space:nowrap}
 
 /* ITEMS */
-.it-lbl{padding:8px 16px 4px;font-size:9.5px;font-weight:700;color:#555;letter-spacing:1.5px;text-transform:uppercase}
+.it-lbl{padding:8px 16px 4px;font-size:9.5px;font-weight:700;color:#000;letter-spacing:1.5px;text-transform:uppercase}
 .items{padding:0 16px}
 .it{display:flex;gap:8px;padding:9px 0;align-items:flex-start}
-.it-num{font-size:10px;color:#666;font-weight:700;min-width:13px;padding-top:3px}
+.it-num{font-size:10px;color:#000;font-weight:700;min-width:13px;padding-top:3px}
 .it-body{flex:1;min-width:0}
 .it-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
 .it-name{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#000;flex:1}
-.it-sku{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:600;color:#555;display:block;margin-top:1px}
-.it-sum{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#0D1B2A;white-space:nowrap}
+.it-sku{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:600;color:#000;display:block;margin-top:1px}
+.it-sum{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#000;white-space:nowrap}
 .it-det{font-size:11px;color:#000;margin-top:2px}
 .it-box{font-size:10.5px;color:#9A6E1A;margin-top:2px;font-weight:600}
 .sep-dash{border-top:1px dashed #ccc}
 
 /* JAMI */
 .tot{margin:0 16px;padding:9px 0;border-top:2px solid #0D1B2A;border-bottom:1px dashed #ccc;display:flex;justify-content:space-between;align-items:center}
-.tot-lbl{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#0D1B2A;letter-spacing:.5px}
-.tot-cnt{font-size:9.5px;color:#555;margin-top:2px;font-weight:500}
-.tot-val{font-family:'Sora',sans-serif;font-weight:800;font-size:20px;color:#0D1B2A}
+.tot-lbl{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#000;letter-spacing:.5px}
+.tot-cnt{font-size:9.5px;color:#000;margin-top:2px;font-weight:500}
+.tot-val{font-family:'Sora',sans-serif;font-weight:800;font-size:20px;color:#000}
 .tot-uzs{font-size:12px;font-weight:600}
 
 /* TO'LOV */
 .pay{padding:9px 16px 10px;border-bottom:1px dashed #ccc}
-.pay-lbl{font-size:9.5px;font-weight:700;color:#555;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
-.pr{display:flex;justify-content:space-between;font-size:13px;color:#111;padding:3px 0;font-weight:500}
-.pr.pr-sm{font-size:11px;color:#555}
-.pr.pr-sm span:last-child{color:#555}
+.pay-lbl{font-size:9.5px;font-weight:700;color:#000;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+.pr{display:flex;justify-content:space-between;font-size:13px;color:#000;padding:3px 0;font-weight:500}
+.pr.pr-sm{font-size:11px;color:#000}
+.pr.pr-sm span:last-child{color:#000}
 .pr.pr-debt{border-top:1px dashed #fca5a5;margin-top:3px;padding-top:5px;font-weight:700;color:#dc2626;font-size:13px}
 .c-red{color:#dc2626!important;font-weight:600}
 .paid-ok{text-align:center;background:#ECFDF5;color:#059669;font-weight:700;font-size:12px;border-radius:8px;padding:6px;margin-top:4px}
@@ -854,10 +854,10 @@ ${!_bTag.show ? ".hd-sub{display:none !important}" : ""}
 /* FOOTER */
 .ft{padding:12px 16px 16px;text-align:center}
 .ft-thanks{font-family:'Sora',sans-serif;font-weight:${_bFoot.weight};font-style:${_bFoot.style};font-size:${_bFoot.size};color:#000;text-align:${_bFoot.align}}
-.ft-date{font-size:10px;color:#555;margin-top:2px}
+.ft-date{font-size:10px;color:#000;margin-top:2px}
 .ft-bot{font-size:11px;color:#229ED9;margin-top:8px;line-height:1.4}
 .ft-pdf{margin-top:5px}
-.ft-pdf a{font-size:11.5px;color:#0D1B2A;font-weight:600;text-decoration:none;background:#F0EDE8;padding:5px 14px;border-radius:20px;display:inline-block}
+.ft-pdf a{font-size:11.5px;color:#000;font-weight:600;text-decoration:none;background:#F0EDE8;padding:5px 14px;border-radius:20px;display:inline-block}
 
 /* ACTIONS */
 .acts{max-width:340px;margin:10px auto 0;display:flex;gap:8px}
@@ -938,11 +938,11 @@ ${!_bFoot.show ? ".ft-thanks{display:none !important}" : ""}
     </div>` : `
     <div class="pay">
       <div class="pay-lbl">To'lov</div>
-      <div class="pr"><span>To'lov turi</span><b style="color:#0D1B2A">${payLabels[payType]||payType||"—"}</b></div>
+      <div class="pr"><span>To'lov turi</span><b style="color:#000">${payLabels[payType]||payType||"—"}</b></div>
       ${payType === "aralash" && payBreakdown ? Object.entries(payBreakdown).map(([m,v]) =>
-        `<div class="pr" style="padding-left:10px"><span style="color:#999">${payLabels[m]||m}</span><span style="color:#666">${F(v)} so'm</span></div>`
+        `<div class="pr" style="padding-left:10px"><span style="color:#000">${payLabels[m]||m}</span><span style="color:#000">${FC(v)}</span></div>`
       ).join("") : ""}
-      <div class="pr"><span>To'landi</span><span style="color:#059669;font-weight:700">${F(paid)} so'm</span></div>
+      <div class="pr"><span>To'landi</span><span style="color:#059669;font-weight:700">${FC(paid)}</span></div>
       ${debtHtml}
     </div>`}
 
@@ -998,15 +998,15 @@ body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-co
 .w{width:300px;max-width:100%;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)}
 .hd{background:#0D1B2A;padding:12px 14px;text-align:center;color:#fff}
 .hd-n{font-size:17px;font-weight:800;letter-spacing:1px}
-.hd-s{font-size:9px;color:#9aa7b5;letter-spacing:2px;text-transform:uppercase;margin-top:2px}
-.info{padding:8px 12px;font-size:11px;border-bottom:1px dashed #ddd;color:#555;display:flex;flex-wrap:wrap;gap:2px 16px}
+.hd-s{font-size:9px;color:#fff;letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+.info{padding:8px 12px;font-size:11px;border-bottom:1px dashed #ddd;color:#000;display:flex;flex-wrap:wrap;gap:2px 16px}
 .items{padding:6px 12px}
 .tot{margin:0 12px;padding:7px 0;border-top:2px solid #0D1B2A;display:flex;justify-content:space-between;font-size:14px;font-weight:800;color:#0D1B2A}
 .pay{padding:6px 12px;font-size:11.5px;border-top:1px dashed #ddd}
 .pr{display:flex;justify-content:space-between;padding:2px 0}
 .ok{background:#ECFDF5;color:#059669;font-weight:700;font-size:11px;text-align:center;padding:5px;border-radius:6px;margin-top:4px}
 .debt{color:#dc2626;font-weight:700}
-.ft{padding:8px 12px;text-align:center;font-size:11px;color:#555;border-top:1px dashed #ddd}
+.ft{padding:8px 12px;text-align:center;font-size:11px;color:#000;border-top:1px dashed #ddd}
 .acts{max-width:300px;margin:8px auto 0;display:flex;gap:6px}
 .acts button{flex:1;border:none;border-radius:8px;padding:9px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
 .btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #ddd}
@@ -1017,7 +1017,7 @@ body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-co
   <div class="hd">
     <div class="hd-n">${shopName.toUpperCase()}</div>
     <div class="hd-s">Savdo cheki</div>
-    ${showContact && contact ? `<div style="font-size:10px;color:#9aa7b5;margin-top:2px">${contact}</div>` : ""}
+    ${showContact && contact ? `<div style="font-size:10px;color:#fff;margin-top:2px">${contact}</div>` : ""}
   </div>
   <div class="info">
     <span><b>${chekNum}</b></span>
@@ -1027,7 +1027,7 @@ body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-co
   </div>
   <div class="items">${itemRows}</div>
   <div class="tot">
-    <span>JAMI <span style="font-size:10px;font-weight:500;color:#888">(${items.length} tur)</span></span>
+    <span>JAMI <span style="font-size:10px;font-weight:500;color:#000">(${items.length} tur)</span></span>
     <span>${F(total)} so'm</span>
   </div>
   <div class="pay">
@@ -1073,16 +1073,16 @@ function buildReceiptTable(sale, opts, cfg) {
       <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px">${idx+1}</td>
       <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px">
         <div style="font-weight:700">${i.name}</div>
-        <div style="font-size:10px;color:#888">${i.variant||""}</div>
+        <div style="font-size:10px;color:#000">${i.variant||""}</div>
       </td>
       <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px;text-align:center">${i.qty}</td>
       <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px;text-align:right">
         <div>${(i.price/rate).toFixed(2)}</div>
-        <div style="color:#888">${F(i.price)}</div>
+        <div style="color:#000">${F(i.price)}</div>
       </td>
       <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px;text-align:right;font-weight:700">
         <div>${sumUsd.toFixed(2)}</div>
-        <div style="color:#888">${F(sumUzs)}</div>
+        <div style="color:#000">${F(sumUzs)}</div>
       </td>
     </tr>`;
   }).join("");
@@ -1102,7 +1102,7 @@ body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-co
 .shop{font-size:20px;font-weight:800;text-align:center;letter-spacing:1px;color:#0D1B2A;margin-bottom:2px}
 .sub{font-size:10px;color:#aaa;text-align:center;margin-bottom:8px}
 .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;margin-bottom:10px;padding:8px;background:#f9f9f9;border-radius:6px}
-.info-grid span{color:#888}.info-grid b{color:#0D1B2A}
+.info-grid span{color:#000}.info-grid b{color:#0D1B2A}
 table{width:100%;border-collapse:collapse;margin-bottom:8px}
 th{background:#0D1B2A;color:#fff;padding:6px;font-size:10px;text-align:center}
 th:first-child,th:nth-child(3){width:30px}
@@ -1111,7 +1111,7 @@ th:first-child,th:nth-child(3){width:30px}
 .pay-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #eee}
 .debt{color:#dc2626;font-weight:700}
 .ok{background:#ECFDF5;color:#059669;font-weight:700;font-size:11px;text-align:center;padding:5px;border-radius:6px;margin-top:4px}
-.ft{text-align:center;font-size:11px;color:#888;margin-top:10px;padding-top:8px;border-top:1px dashed #ddd}
+.ft{text-align:center;font-size:11px;color:#000;margin-top:10px;padding-top:8px;border-top:1px dashed #ddd}
 .acts{max-width:380px;margin:8px auto 0;display:flex;gap:6px}
 .acts button{flex:1;border:none;border-radius:8px;padding:9px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
 .btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #ddd}
@@ -1146,7 +1146,7 @@ th:first-child,th:nth-child(3){width:30px}
         <td style="border:1px solid #ddd"></td>
         <td style="padding:6px;border:1px solid #ddd;text-align:right">
           <div>${totalUsd.toFixed(2)}</div>
-          <div style="color:#888">${F(total)}</div>
+          <div style="color:#000">${F(total)}</div>
         </td>
       </tr>
     </tbody>
@@ -1656,7 +1656,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
 .tot-v{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:#0D1B2A}
 .pay{padding:8px 16px 10px;border-top:1px dashed #ddd}
 .pay-lbl{font-size:10px;font-weight:800;color:#374151;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
-.pr{display:flex;justify-content:space-between;font-size:13px;color:#111;padding:3px 0;font-weight:500}
+.pr{display:flex;justify-content:space-between;font-size:13px;color:#000;padding:3px 0;font-weight:500}
 .pr.pr-sm{font-size:12px;color:#555;font-weight:600}
 .pr.pr-debt{color:#dc2626;font-weight:800;font-size:14px;border-top:1px solid #fca5a5;padding-top:6px;margin-top:2px}
 .pr.pr-debt-total{color:#dc2626;font-weight:800;font-size:16px;border-top:2px solid #dc2626;padding-top:8px;margin-top:4px}
