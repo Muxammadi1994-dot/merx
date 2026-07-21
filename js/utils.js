@@ -719,7 +719,7 @@ function buildReceiptHtml(sale, opts) {
     const clean = (i.variant || "").replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
     const nm    = [i.name || "", clean, i.art || ""].filter(Boolean).join(" / ");
     const _showOld = (_ep.base && _ep.base > _pr);
-    const bp    = _showOld ? `<s style="color:#000">${FC(_ep.base)}</s> ` : "";
+    const bp    = _showOld ? `<s style="color:#000;text-decoration-thickness:1px">${FC(_ep.base)}</s> ` : "";
     const isBox = i.sellMode === "karobka" && i.qtyBox && i.inBox;
     const calc  = isBox
       ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${FC(_pr)}) = ${FC(sum)}`
