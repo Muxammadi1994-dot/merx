@@ -573,11 +573,11 @@ function buildReceiptHtml(sale, opts) {
   };
   const _bShop  = _blk("shop",     "20px", "800", "normal", "center");
   const _bMeta  = _blk("meta",     "12px", "500", "normal", "left");
-  const _bIName = _blk("itemName", "13px", "700", "normal", "left");
-  const _bIPrice= _blk("itemPrice","11px", "500", "normal", "left");
+  const _bIName = _blk("itemName", "13px", "400", "normal", "left");
+  const _bIPrice= _blk("itemPrice","11px", "400", "normal", "left");
   const _bTotal = _blk("total",    "20px", "800", "normal", "left");
   const _bDebt  = _blk("debt",     "12px", "600", "normal", "left");
-  const _bFoot  = _blk("footer",   "13px", "700", "normal", "center");
+  const _bFoot  = _blk("footer",   "13px", "400", "normal", "center");
   // 2026-07-18: sarlavha (banner) fon uslubi — termal printer uchun muhim.
   // dark: qora fon oq yozuv (ekranда chiroyli, bosmada qora). light: oq fon
   // qora yozuv (bosmaga eng mos). none: fonsiz. Standart: dark (hozirgidek).
@@ -623,6 +623,23 @@ function buildReceiptHtml(sale, opts) {
 
   const payLabels = { naqd: "Naqd pul", karta: "Karta", otkazma: "Bank o'tkazmasi", aralash: "Aralash" };
   const F = n => Math.round(n || 0).toLocaleString("ru-RU");
+  // 2026-07-20: tovar narxini valyutaga qarab ko'rsatuvchi helper.
+  // priceCurrency "both" bo'lsa: "540 000 / $42.19"; aks holda avvalgidek so'm.
+  // (Faqat tovar narx qatorlarida ishlatiladi — jami/to'lov F() da qoladi.)
+  const _pcMode = db.settings?.priceCurrency || "uzs";
+  const _pcRate = db.settings?.rate || 12800;
+  const FC = n => {
+    const som = Math.round(n || 0);
+    if (_pcMode === "both") {
+      const usd = _pcRate > 0 ? (som / _pcRate) : 0;
+      return F(som) + " / $" + usd.toLocaleString("ru-RU", {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+    if (_pcMode === "usd") {
+      const usd = _pcRate > 0 ? (som / _pcRate) : 0;
+      return "$" + usd.toLocaleString("ru-RU", {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+    return F(som);
+  };
 
   // ── Mahsulotlar ───────────────────────────────
   // 2026-07-19: UMUMIY chegirmani chekda har tovarga FOYDAGA MUTANOSIB
@@ -681,11 +698,11 @@ function buildReceiptHtml(sale, opts) {
     const clean = (i.variant || "").replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
     const nm    = [i.name || "", clean, i.art || ""].filter(Boolean).join(" / ");
     const _showOld = (_ep.base && _ep.base > _pr);
-    const bp    = _showOld ? `<s style="color:#aaa">${F(_ep.base)}</s> ` : "";
+    const bp    = _showOld ? `<s style="color:#000">${FC(_ep.base)}</s> ` : "";
     const isBox = i.sellMode === "karobka" && i.qtyBox && i.inBox;
     const calc  = isBox
-      ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${F(_pr)}) = ${F(sum)}`
-      : `${i.qty} ${i.unit||"dona"} × ${bp}${F(_pr)} = ${F(sum)}`;
+      ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${FC(_pr)}) = ${FC(sum)}`
+      : `${i.qty} ${i.unit||"dona"} × ${bp}${FC(_pr)} = ${FC(sum)}`;
     return `
       <div class="it">
         <div class="it-body">
@@ -788,10 +805,10 @@ body{font-family:${_ffamily};background:#F2F0EB;display:flex;justify-content:cen
 .it-num{font-size:10px;color:#666;font-weight:700;min-width:13px;padding-top:3px}
 .it-body{flex:1;min-width:0}
 .it-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-.it-name{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#0D1B2A;flex:1}
+.it-name{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#000;flex:1}
 .it-sku{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:600;color:#555;display:block;margin-top:1px}
 .it-sum{font-family:'Sora',sans-serif;font-weight:700;font-size:13px;color:#0D1B2A;white-space:nowrap}
-.it-det{font-size:11px;color:#555;margin-top:2px}
+.it-det{font-size:11px;color:#000;margin-top:2px}
 .it-box{font-size:10.5px;color:#9A6E1A;margin-top:2px;font-weight:600}
 .sep-dash{border-top:1px dashed #ccc}
 
@@ -814,7 +831,7 @@ body{font-family:${_ffamily};background:#F2F0EB;display:flex;justify-content:cen
 
 /* FOOTER */
 .ft{padding:12px 16px 16px;text-align:center}
-.ft-thanks{font-family:'Sora',sans-serif;font-weight:${_bFoot.weight};font-style:${_bFoot.style};font-size:${_bFoot.size};color:#0D1B2A;text-align:${_bFoot.align}}
+.ft-thanks{font-family:'Sora',sans-serif;font-weight:${_bFoot.weight};font-style:${_bFoot.style};font-size:${_bFoot.size};color:#000;text-align:${_bFoot.align}}
 .ft-date{font-size:10px;color:#555;margin-top:2px}
 .ft-bot{font-size:11px;color:#229ED9;margin-top:8px;line-height:1.4}
 .ft-pdf{margin-top:5px}
