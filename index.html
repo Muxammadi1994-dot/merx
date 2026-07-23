@@ -428,6 +428,7 @@
 </head>
 <body>
 <div id="app">
+<div id="mob-overlay" onclick="toggleMobSidebar()"></div>
 <aside id="sb">
   <div class="logo">
     <div class="logo-m">MX</div>
@@ -496,6 +497,8 @@
 
 <div id="main">
   <div id="topbar">
+    <button id="mob-menu-btn" onclick="toggleMobSidebar()" title="Menyu"
+      aria-label="Menyu"><i class="ti ti-menu-2"></i></button>
     <span id="ptitle">Dashboard</span>
     <div class="tb-right">
       <div class="tb-pill" onclick="toggleCurrency()" title="Valyutani almashtirish"><i class="ti ti-currency-dollar"></i><span id="tb-rate">—</span> · <span id="tb-cur">so'm</span></div>
@@ -4356,7 +4359,7 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=162"></script>
-<script src="js/utils.js?v=172"></script>
+<script src="js/utils.js?v=173"></script>
 <script src="js/auth.js?v=179"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=189"></script>
@@ -4562,7 +4565,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=2")
+    navigator.serviceWorker.register("/sw.js?v=3")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

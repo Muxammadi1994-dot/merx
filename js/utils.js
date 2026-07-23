@@ -183,6 +183,21 @@ function toast(msg, type = "ok") {
   toastT = setTimeout(() => $("toast").classList.remove("on"), 4000);
 }
 
+// ═══ MOBIL SIDEBAR (2026-07-21) — gamburger menyu ═══
+function toggleMobSidebar() {
+  const sb = document.getElementById("sb");
+  const ov = document.getElementById("mob-overlay");
+  if (!sb) return;
+  const open = sb.classList.toggle("mob-open");
+  if (ov) ov.classList.toggle("on", open);
+}
+function closeMobSidebar() {
+  const sb = document.getElementById("sb");
+  const ov = document.getElementById("mob-overlay");
+  if (sb) sb.classList.remove("mob-open");
+  if (ov) ov.classList.remove("on");
+}
+
 function nav(p) {
   // Rol tekshiruvi — ruxsati yo'q sahifaga o'tmaslik
   if (typeof canAccessPage === "function" && !canAccessPage(p)) {
@@ -203,6 +218,8 @@ function nav(p) {
     hisobot:"Hisobot va tahlil", xodimlar:"Xodimlar", moliya:"Moliya",
     portal:"Mijoz portali", egasi:"Egasi / Sozlamalar" };
   $("ptitle").textContent = T[p] || p;
+  // Mobil: sahifa tanlangach sidebar avtomat yopiladi
+  if (typeof closeMobSidebar === "function") closeMobSidebar();
   const fn = { dashboard:renderDashboard, katalog:renderKatalog, ombor:renderOmbor,
     mijozlar:renderMijozlar, qarzlar:renderDebts, qarztarix:renderQarzlarTarixi, tarix:renderTarix,
     hisobot:renderHisobot, xodimlar:renderXodimlar, moliya:renderMoliya,

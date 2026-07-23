@@ -447,3 +447,64 @@ tr:hover td{background:#FAFAF8}
   to   { transform: rotate(360deg); }
 }
 .spin { animation: spin .8s linear infinite; display: inline-block; }
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBIL VERSIYA (2026-07-21) — sidebar gamburger, content to'liq
+   Desktop ko'rinish o'zgarmaydi; faqat ≤768px da moslashadi.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Gamburger tugma va overlay — desktop'da YASHIRIN */
+#mob-menu-btn { display: none; background: none; border: none; cursor: pointer;
+  color: var(--ink); font-size: 22px; padding: 4px 8px; margin-right: 2px;
+  align-items: center; }
+#mob-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  z-index: 90; opacity: 0; transition: opacity .25s; }
+
+@media (max-width: 768px) {
+  /* Sidebar — ekrandan tashqarida, ustma-ust (fixed), sirg'alib chiqadi */
+  #sb {
+    position: fixed; top: 0; left: 0; z-index: 100;
+    transform: translateX(-100%);
+    transition: transform .28s cubic-bezier(.4,0,.2,1);
+    box-shadow: 4px 0 24px rgba(0,0,0,.25);
+  }
+  #sb.mob-open { transform: translateX(0); }
+
+  /* Overlay — sidebar ochilganda ko'rinadi */
+  #mob-overlay.on { display: block; opacity: 1; }
+
+  /* Content butun ekranni oladi */
+  #main { width: 100%; }
+
+  /* Gamburger tugma ko'rinadi */
+  #mob-menu-btn { display: inline-flex; }
+
+  /* Topbar ixchamroq */
+  #topbar { padding: 11px 14px; gap: 8px; }
+  #ptitle { font-size: 16px; }
+
+  /* Sahifa ichki bo'shliqlari ixcham */
+  .page { padding: 14px !important; }
+
+  /* Jadvallar gorizontal suriladi (ustunlar qisilib ketmasin) */
+  .tbl-wrap, .table-wrap, .twrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: max-content; }
+
+  /* Kartochka gridlari — kamroq ustun */
+  .kpis, .dash-kpis { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Modallar — deyarli to'liq ekran */
+  .modal { max-width: 94vw !important; width: 94vw !important;
+    max-height: 90vh; overflow-y: auto; }
+
+  /* Topbar tugmalari (pill) ixchamroq */
+  .tb-pill { font-size: 12px; padding: 6px 9px; }
+  .tb-right { gap: 6px; }
+}
+
+/* Juda kichik ekran (≤420px) — yanada ixcham */
+@media (max-width: 420px) {
+  .kpis, .dash-kpis { grid-template-columns: 1fr !important; }
+  #ptitle { font-size: 15px; }
+  .tb-pill span { font-size: 11px; }
+}
