@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=142">
+<link rel="stylesheet" href="style.css?v=143">
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display:inline-block; animation: spin .8s linear infinite; }
@@ -4557,6 +4557,19 @@ document.addEventListener('DOMContentLoaded', () => {
   <span id="toast-msg"></span>
 </div>
 
+<!-- PWA O'RNATISH BANNERI (2026-07-21) — do'konchi bir bosishda o'rnatadi -->
+<div id="pwa-install">
+  <div class="pwa-ico"><i class="ti ti-device-mobile"></i></div>
+  <div class="pwa-txt">
+    <div class="pwa-title">MERX ilovasini o'rnating</div>
+    <div class="pwa-sub">Tezroq ochiladi · internetsiz ham ishlaydi</div>
+  </div>
+  <div class="pwa-btns">
+    <button class="pwa-later" onclick="pwaDismiss()">Keyinroq</button>
+    <button class="pwa-go" onclick="pwaInstall()">O'rnatish</button>
+  </div>
+</div>
+
 <script src="js/superadmin.js?v=170"></script>
 
 <!-- PWA (2026-07-20): Service Worker ro'yxatdan o'tkazish -->
@@ -4565,7 +4578,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=3")
+    navigator.serviceWorker.register("/sw.js?v=4")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
@@ -4591,6 +4604,67 @@ if ("serviceWorker" in navigator) {
     });
   });
 }
+
+// ═══ PWA O'RNATISH BANNERI (2026-07-21) ═══
+// Brauzer "o'rnatish mumkin" desa — o'zimizning chiroyli bannerimizni
+// ko'rsatamiz (do'konchi brauzer menyusini qidirmasin).
+let _pwaPrompt = null;
+
+function _pwaIsInstalled() {
+  return window.matchMedia("(display-mode: standalone)").matches
+      || window.navigator.standalone === true;
+}
+function _pwaDismissedRecently() {
+  try {
+    const t = parseInt(localStorage.getItem("merx_pwa_later") || "0");
+    return t && (Date.now() - t) < 7 * 24 * 60 * 60 * 1000; // 7 kun
+  } catch(e) { return false; }
+}
+function _pwaShow() {
+  if (_pwaIsInstalled() || _pwaDismissedRecently()) return;
+  const el = document.getElementById("pwa-install");
+  if (el) setTimeout(() => el.classList.add("on"), 2500); // 2.5s kutib chiqadi
+}
+function pwaDismiss() {
+  try { localStorage.setItem("merx_pwa_later", String(Date.now())); } catch(e) {}
+  document.getElementById("pwa-install")?.classList.remove("on");
+}
+async function pwaInstall() {
+  const el = document.getElementById("pwa-install");
+  // iPhone/Safari — beforeinstallprompt yo'q, qo'lda ko'rsatma beramiz
+  if (!_pwaPrompt) {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS) {
+      alert("iPhone'da o'rnatish:\n\n1. Pastdagi ⬆️ (Ulashish) tugmasini bosing\n2. Pastga suring\n3. \"Bosh ekranga qo'shish\" ni tanlang\n4. \"Qo'shish\" bosing");
+    } else {
+      alert("O'rnatish uchun:\n\nBrauzer menyusi (⋮) → \"Ilovani o'rnatish\"");
+    }
+    return;
+  }
+  el?.classList.remove("on");
+  _pwaPrompt.prompt();
+  const { outcome } = await _pwaPrompt.userChoice;
+  _pwaPrompt = null;
+  if (outcome === "accepted" && typeof toast === "function") {
+    toast("✅ MERX ilovasi o'rnatildi");
+  } else if (outcome === "dismissed") {
+    try { localStorage.setItem("merx_pwa_later", String(Date.now())); } catch(e) {}
+  }
+}
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  _pwaPrompt = e;
+  _pwaShow();
+});
+window.addEventListener("appinstalled", () => {
+  document.getElementById("pwa-install")?.classList.remove("on");
+  if (typeof toast === "function") toast("✅ MERX ilovasi o'rnatildi");
+});
+// iPhone Safari uchun (beforeinstallprompt yo'q) — baribir taklif qilamiz
+window.addEventListener("load", () => {
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !_pwaIsInstalled()) _pwaShow();
+});
 </script>
 </body>
 </html>
