@@ -1649,7 +1649,9 @@ function imgSrcAsk(galId, camId) {
   // galereya ochiladi (modalsiz).
   _imgSrcGalId = galId; _imgSrcCamId = camId;
   if (!camId || !$(camId)) { const el = $(galId); if (el) el.click(); return; }
-  openModal("img-src");
+  // 2026-07-24: tovar oynasi USTIGA ochiladi — ostidagi oyna YOPILMAYDI
+  // (avval yopilib, foydalanuvchini katalogga otib yuborardi)
+  openModal("img-src", true);
 }
 function imgSrcPick(kind) {
   closeModal("img-src");

@@ -239,17 +239,21 @@ function updateRatePill() {
   const lbl = { uzs:"so'm", usd:"USD", both:"so'm/USD" };
   $("tb-cur").textContent = lbl[db.settings.priceCurrency || "uzs"] || "so'm";
 }
-function openModal(id) {
+function openModal(id, keepOthers) {
   // Mobil: modal ichidagi raqamli maydonlarga raqam klaviaturasi (2026-07-24)
   try { setTimeout(() => applyInputModes(document.getElementById("ov-" + id)), 0); } catch(e) {}
   // Avval ochiq turgan boshqa modallarni yopamiz — bir nechta modal
-  // bir vaqtda "kutib qolmasligi" uchun
+  // bir vaqtda "kutib qolmasligi" uchun.
+  // 2026-07-24: keepOthers=true bo'lsa YOPMAYMIZ — modal ustiga modal
+  // ochiladi (masalan tovar oynasidan rasm manbasini tanlash).
   try {
-    document.querySelectorAll(".ov.on").forEach(ov => {
-      if (ov.id !== "ov-" + id) ov.classList.remove("on");
-    });
+    if (!keepOthers) {
+      document.querySelectorAll(".ov.on").forEach(ov => {
+        if (ov.id !== "ov-" + id) ov.classList.remove("on");
+      });
+    }
     const invEl = document.getElementById("ov-invent");
-    if (invEl) invEl.style.display = "none";
+    if (invEl && !keepOthers) invEl.style.display = "none";
   } catch (e) { /* zararsiz, davom etamiz */ }
 
   const modalEl = document.getElementById("ov-" + id);
