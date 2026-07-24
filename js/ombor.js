@@ -70,12 +70,27 @@ function omRenderKpis() {
   }, 0);
   const pochkaStr = Number.isInteger(totalPochka) ? String(totalPochka) : totalPochka.toFixed(1);
 
+  // 2026-07-24 (№6): "Sotilsa qancha bo'ladi" — potentsial tushum.
+  // Narxlar DONA bo'yicha (POS ham shu asosda ishlaydi):
+  //   chakana = priceUzs (yo'q bo'lsa ulgurji), ulgurji = ulgurjiNarx (yo'q bo'lsa chakana)
+  const potChakana = vProds.reduce((a,p) => {
+    const px = (p.priceUzs > 0 ? p.priceUzs : (p.ulgurjiNarx || 0));
+    return a + p.variants.reduce((b,v) => b + px * (v.qty||0), 0);
+  }, 0);
+  const potUlgurji = vProds.reduce((a,p) => {
+    const px = (p.ulgurjiNarx > 0 ? p.ulgurjiNarx : (p.priceUzs || 0));
+    return a + p.variants.reduce((b,v) => b + px * (v.qty||0), 0);
+  }, 0);
+
   const el = $("om-kpi-row"); if (!el) return;
   el.innerHTML = [
     { icon:"ti-arrow-down-circle", color:"#4C9BE8", lbl:"Bugungi kirim",    val:todayIn+" dona",       sub:"bugun qabul qilindi" },
     { icon:"ti-box",               color:"#36B48C", lbl:"Jami qoldiq",      val:pochkaStr+" pochka",   sub:totalUnits+" dona · "+vProds.length+" tur" },
     { icon:"ti-currency-dollar",   color:"#E9A500", lbl:"Bu oy kirim",      val:fmt(monthVal)+" so'm", sub:"tannarxda" },
     { icon:"ti-wallet",            color:"#8B5CF6", lbl:"Ombor qiymati",    val:fmt(totalVal)+" so'm", sub:"tannarxda" },
+    { icon:"ti-trending-up",       color:"#0EA5E9", lbl:"Sotilsa qancha bo'ladi",
+      val:fmt(potChakana)+" so'm",
+      sub:"ulgurjida "+fmt(potUlgurji)+" so'm" },
     { icon:"ti-alert-circle",      color:supDebt>0?"#E05A5A":"#36B48C",
       lbl:"Yetkazuvchi qarzi", val:fmt(supDebt)+" so'm",
       sub:supDebt>0?"To'lanmagan qarz":"Hammasi to'langan" }
