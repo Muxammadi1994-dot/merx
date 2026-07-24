@@ -743,7 +743,9 @@ function epUpdateInboxDisplay(p, initial) {
 // Rang bo'yicha rasm yuklash (har rang o'z rasmiga ega bo'ladi)
 function epLoadColorImage(input, color) {
   const file = input.files[0]; if (!file) return;
-  if (file.size > 5 * 1024 * 1024) { toast("Rasm 5MB dan kichik bo'lishi kerak","err"); return; }
+  if (file.size > 15 * 1024 * 1024) { toast("Fayl juda katta (15MB+) — bu rasm emasga o'xshaydi","err"); return; }  // 2026-07-24: 5MB darvozasi OLIB TASHLANDI — u SIQISHDAN oldin turib
+  // telefon suratlarini (3-8MB) bekorga rad etardi. Siqish baribir
+  // rasmni ~50-150KB ga tushiradi.
 
   const reader = new FileReader();
   reader.onload = function(e) {
@@ -1195,7 +1197,9 @@ function apImgRemove() {
 
 function apImgSave(input) {
   const file = input.files[0]; if (!file) return;
-  if (file.size > 5 * 1024 * 1024) { toast("Rasm 5MB dan katta", "err"); return; }
+  if (file.size > 15 * 1024 * 1024) { toast("Fayl juda katta (15MB+) — bu rasm emasga o'xshaydi","err"); return; }  // 2026-07-24: 5MB darvozasi OLIB TASHLANDI — u SIQISHDAN oldin turib
+  // telefon suratlarini (3-8MB) bekorga rad etardi. Siqish baribir
+  // rasmni ~50-150KB ga tushiradi.
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
@@ -1841,7 +1845,9 @@ function exportKatalogExcel() {
 // ── Tovar rasmi funksiyalari ───────────────────
 function epLoadImage(input) {
   const file = input.files[0]; if (!file) return;
-  if (file.size > 5 * 1024 * 1024) { toast("Rasm 5MB dan kichik bo'lishi kerak","err"); return; }
+  if (file.size > 15 * 1024 * 1024) { toast("Fayl juda katta (15MB+) — bu rasm emasga o'xshaydi","err"); return; }  // 2026-07-24: 5MB darvozasi OLIB TASHLANDI — u SIQISHDAN oldin turib
+  // telefon suratlarini (3-8MB) bekorga rad etardi. Siqish baribir
+  // rasmni ~50-150KB ga tushiradi.
 
   const reader = new FileReader();
   reader.onload = function(e) {
