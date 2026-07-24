@@ -501,13 +501,34 @@ tr:hover td{background:#FAFAF8}
   /* Topbar tugmalari (pill) ixchamroq */
   .tb-pill { font-size: 12px; padding: 6px 9px; }
   .tb-right { gap: 6px; }
+
+  /* ═══ Barcha bo'limlar uchun (2026-07-24) ═══ */
+  /* Ko'p ustunli bloklar telefonda kamayadi (inline stillarni ham bosadi) */
+  .kpi-row, .stat-row { grid-template-columns: repeat(2, 1fr) !important; }
+  .g2, .r2, .r3, .rep-grid { grid-template-columns: 1fr !important; }
+
+  /* Sahifa sarlavhasi: nom va tugmalar ustma-ust tushsin */
+  .ph { flex-wrap: wrap !important; gap: 10px; }
+
+  /* Kengroq modallar ham ekranga sig'sin */
+  .modal-lg { max-width: 94vw !important; width: 94vw !important;
+    max-height: 90vh; overflow-y: auto; }
+
+  /* Barmoq uchun qulay o'lcham — kichik tugmalar ham bosiladigan bo'lsin */
+  .btn, .btn-sm { min-height: 38px; }
+
+  /* Forma maydonlari to'liq kenglikda (yonma-yon siqilmasin) */
+  .fld { min-width: 0; }
+  .fld input, .fld select, .fld textarea { width: 100%; box-sizing: border-box; }
 }
 
 /* Juda kichik ekran (≤420px) — yanada ixcham */
 @media (max-width: 420px) {
   .kpis, #dash-kpis { grid-template-columns: 1fr !important; }
+  .kpi-row, .stat-row, .om-kpis { grid-template-columns: 1fr !important; }
   #ptitle { font-size: 15px; }
   .tb-pill span { font-size: 11px; }
+  .pg { padding: 11px !important; }
 }
 
 /* ═══ PWA O'RNATISH BANNERI (2026-07-21) ═══ */
