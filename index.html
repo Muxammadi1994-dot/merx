@@ -1088,7 +1088,7 @@
       <!-- Tanlash paneli (ommaviy narx) -->
       <div id="kat-sel-bar" style="display:none;align-items:center;gap:10px;
         padding:10px 18px;background:#fffbf0;border-bottom:1.5px solid #c8a84b">
-        <input type="checkbox" id="kat-cb-all" onchange="this.checked?katSelectAll():katClearSel()"
+        <input type="checkbox" id="kat-cb-all" class="kat-sel-all" onchange="this.checked?katSelectAll():katClearSel()"
           style="width:16px;height:16px;accent-color:var(--acc);cursor:pointer">
         <span id="kat-sel-cnt" style="font-size:13px;font-weight:600;color:#856404">0 ta tanlandi</span>
         <button class="btn btn-sm" onclick="openBulkPrice()"
@@ -1103,7 +1103,7 @@
       <!-- Jadval ko'rinishi -->
       <div id="kat-table-wrap" style="overflow-x:auto">
         <table style="table-layout:auto"><thead><tr>
-          <th style="width:28px"><input type="checkbox" onchange="this.checked?katSelectAll():katClearSel()"
+          <th style="width:28px"><input type="checkbox" class="kat-sel-all" onchange="this.checked?katSelectAll():katClearSel()"
             style="width:15px;height:15px;accent-color:var(--acc);cursor:pointer"></th>
           <th class="kat-col-image" style="width:56px">Rasm</th>
           <th class="kat-col-sku" style="width:70px">SKU</th>
@@ -4379,7 +4379,7 @@
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=209"></script>
-<script src="js/katalog.js?v=184"></script>
+<script src="js/katalog.js?v=185"></script>
 <script src="js/ombor.js?v=152"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
@@ -4592,7 +4592,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=21")
+    navigator.serviceWorker.register("/sw.js?v=22")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

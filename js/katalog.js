@@ -57,6 +57,19 @@ function katToggleSel(sku, checked) {
     const cb = row.querySelector("input[type=checkbox]");
     if (cb) row.style.background = cb.checked ? "#fffbf0" : "";
   });
+  _katSyncAllCb();
+}
+
+// 2026-07-24 (№5): ikkita "hammasini belgilash" katakchasi bor edi
+// (asboblar panelida va jadval sarlavhasida) — ular bir-biridan
+// XABARSIZ ishlardi. Endi ikkalasi ham bir holatda turadi.
+function _katSyncAllCb() {
+  const total = _katAllRowKeys.length;
+  const sel   = _katSelected.size;
+  document.querySelectorAll(".kat-sel-all").forEach(cb => {
+    cb.checked       = total > 0 && sel >= total;
+    cb.indeterminate = sel > 0 && sel < total;   // qisman tanlangan
+  });
 }
 
 function katSelectAll() {
@@ -71,6 +84,7 @@ function katSelectAll() {
     _katSelected.add(cb.dataset.rowkey);
     const tr = cb.closest("tr"); if (tr) tr.style.background = "#fffbf0";
   });
+  _katSyncAllCb();
   updateKatSelBar();
 }
 
@@ -78,8 +92,9 @@ function katClearSel() {
   _katSelected.clear();
   document.querySelectorAll("#katalog-body input[type=checkbox]").forEach(cb => {
     cb.checked = false;
-    cb.closest("tr").style.background = "";
+    const tr = cb.closest("tr"); if (tr) tr.style.background = "";
   });
+  _katSyncAllCb();
   updateKatSelBar();
 }
 
