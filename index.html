@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=148">
+<link rel="stylesheet" href="style.css?v=149">
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display:inline-block; animation: spin .8s linear infinite; }
@@ -1744,6 +1744,8 @@
       <div class="stb tx-pch-wrap">
         <div class="sl">📦 Jami pochka</div>
         <div class="sv num" id="tx-pch">—</div>
+        <!-- 2026-07-24 (№13): pochka yonida DONA ham -->
+        <div id="tx-pch-dona" style="font-size:11.5px;color:var(--mut);margin-top:3px"></div>
       </div>
     </div>
     <div class="card">
@@ -2165,7 +2167,7 @@
         <i class="ti ti-settings"></i> Kartalarni sozlash
       </button>
     </div>
-    <div class="stat-row" id="mol-kpi-row" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+    <div class="stat-row" id="mol-kpi-row" style="grid-template-columns:repeat(auto-fit,minmax(172px,1fr))">
       <div class="stb" data-mkpi="rev" style="position:relative">
         <button class="kpi-hide-btn" onclick="hideMolKpi('rev')"><i class="ti ti-eye-off"></i></button>
         <div class="sl">Kassaga tushdi<span style="font-size:10px;color:#aaa;display:block;font-weight:400">(jami)</span></div>
@@ -4378,7 +4380,7 @@
 <script src="js/ombor.js?v=151"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
-<script src="js/tarix.js?v=156"></script>
+<script src="js/tarix.js?v=157"></script>
 <script src="js/hisobot.js?v=145"></script>
 <script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=159"></script>
@@ -4587,7 +4589,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=15")
+    navigator.serviceWorker.register("/sw.js?v=16")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

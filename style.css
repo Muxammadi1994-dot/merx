@@ -639,3 +639,12 @@ tr:hover td{background:#FAFAF8}
   .pos-sheet    { padding-bottom: env(safe-area-inset-bottom, 0px); }
   #pwa-install  { bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ═══ MOLIYA KPI — hisobot uslubiga moslashtirish (2026-07-24, №12) ═══
+   Faqat moliya bo'limi; boshqa sahifalardagi .stb kartalar TEGILMAYDI. */
+#mol-kpi-row .stb { padding: 16px 18px; }
+#mol-kpi-row .sl {
+  font-size: 11px; color: #4B5563; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px;
+}
+#mol-kpi-row .sv { font-size: 18px; line-height: 1.15; word-break: break-word; }

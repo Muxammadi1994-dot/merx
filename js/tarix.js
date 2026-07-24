@@ -175,6 +175,12 @@ function renderTarix() {
   if ($("tx-total")) $("tx-total").textContent = fmt(total) + " so'm";
   if ($("tx-paid"))  $("tx-paid").textContent  = fmt(paid)  + " so'm";
   if ($("tx-rem"))   $("tx-rem").textContent   = fmt(rem)   + " so'm";
+  // №13: jami DONA (barcha sotilgan tovarlar bo'yicha)
+  const jamiDona = list.reduce((a, s) =>
+    a + (s.items||[]).filter(Boolean).reduce((b, i) => b + (i.qty || 0), 0), 0);
+  const pchDonaEl = $("tx-pch-dona");
+  if (pchDonaEl) pchDonaEl.textContent = jamiDona > 0 ? fmt(jamiDona) + " dona" : "";
+
   // №13: pochka statistikasi
   const pchEl = $("tx-pch");
   if (pchEl) { pchEl.textContent = jamiPchka > 0 ? jamiPchka + " pch" : "—";
