@@ -524,8 +524,16 @@ tr:hover td{background:#FAFAF8}
 
 /* Juda kichik ekran (≤420px) — yanada ixcham */
 @media (max-width: 420px) {
-  .kpis, #dash-kpis { grid-template-columns: 1fr !important; }
-  .kpi-row, .stat-row, .om-kpis { grid-template-columns: 1fr !important; }
+  /* KPI kartalar 2 ustunda QOLADI — o'rniga ixchamlashadi (2026-07-24) */
+  .kpis, #dash-kpis, .kpi-row, .stat-row, .om-kpis {
+    grid-template-columns: repeat(2, 1fr) !important; gap: 9px !important;
+  }
+  .kpi { padding: 11px 12px !important; }
+  .kpi .kl { font-size: 9.5px !important; margin-bottom: 5px !important;
+             letter-spacing: .04em !important; }
+  .kpi .kv { font-size: 17px !important; word-break: break-word; }
+  .kpi .ks { font-size: 10.5px !important; margin-top: 3px !important; }
+
   #ptitle { font-size: 15px; }
   .tb-pill span { font-size: 11px; }
   .pg { padding: 11px !important; }
@@ -576,6 +584,8 @@ tr:hover td{background:#FAFAF8}
 @media (max-width: 768px) {
   /* Tovarlar butun ekranni oladi */
   .pos-left { width: 100%; border-right: none; }
+  /* Suzuvchi tugma oxirgi tovarni to'smasin */
+  .pos-results { padding-bottom: 74px; }
 
   /* Savat + to'lov = pastdan chiqadigan panel */
   .pos-sheet {
