@@ -9,6 +9,7 @@ let katCatFilter = "all"; // "all" | "oyoq" | "kiyim" | category name
 let katSortBy      = "date";  // v171 (№5): standart — kiritilgan sana, YANGI TEPADA
 let katSortAsc     = false;   // nom/narx saralash tugmalar orqali avvalgidek ishlaydi
 let _katSelected   = new Set(); // tanlangan SKU lar
+let _katAllRowKeys = [];           // filtrlangan BARCHA qator kalitlari
 let katStatusFilter = "all"; // "all" | "faol" | "nol" | "kam"
 let katViewMode    = "table"; // "table" | "grid"
 let katPage        = 1;
@@ -62,8 +63,10 @@ function katSelectAll() {
   // 2026-07-24 (№5): kalit endi data-rowkey dan olinadi.
   // Avval onchange MATNIDAN regex bilan ajratilardi — rang nomida
   // apostrof bo'lsa (masalan "Ko'k") noto'g'ri qiymat olinardi.
-  const visible = document.querySelectorAll("#kat-body input[type=checkbox][data-rowkey]");
-  visible.forEach(cb => {
+  // Barcha sahifalardagi qatorlar (faqat ko'rinayotganlar emas)
+  if (_katAllRowKeys.length) _katAllRowKeys.forEach(k => _katSelected.add(k));
+  // Ekrandagi checkboxlarni belgilab chiqamiz
+  document.querySelectorAll("#kat-body input[type=checkbox][data-rowkey]").forEach(cb => {
     cb.checked = true;
     _katSelected.add(cb.dataset.rowkey);
     const tr = cb.closest("tr"); if (tr) tr.style.background = "#fffbf0";
@@ -158,6 +161,14 @@ function applyBulkPrice() {
 
   // 2026-07-24 (№5): pul o'zgarishidan oldin ANIQ tasdiq
   const _c = _bulkCalc();
+
+  // Tanlangan tovarlarda bu narx turi umuman belgilanmagan bo'lsa —
+  // amal jim o'tib ketardi ("chegirma ta'sir qilmadi" muammosi)
+  if (_c.oldSum <= 0) {
+    const _fn = { chakana:"chakana", ulgurji:"ulgurji", ikkalasi:"chakana/ulgurji" }[field];
+    toast(`Tanlangan ${_c.cnt} ta tovarda ${_fn} narx belgilanmagan — o'zgarish yo'q`, "err");
+    return;
+  }
   const _fieldName = { chakana:"chakana", ulgurji:"ulgurji", ikkalasi:"chakana va ulgurji" }[field];
   const _act = type === "chegirma" ? `−${pct}% chegirma` : `+${pct}% oshirish`;
   if (!confirm(
@@ -379,6 +390,10 @@ function renderKatalog() {
 
   // "Ochilgan pochka" filtri — faqat shu maxsus tab tanlanganda
   if (katStatusFilter === "broken") rows = rows.filter(r => r.isBroken);
+
+  // 2026-07-24 (№5): BARCHA (filtrlangan) qator kalitlari — "hammasini
+  // belgilash" endi faqat joriy sahifani emas, hammasini qamraydi
+  _katAllRowKeys = rows.map(r => r.product.sku + "::" + r.color + "::" + r.packGroup);
 
   // Statistika (mahsulot darajasida — nechta turdagi tovar bor)
   const totalAll   = ps.length;
