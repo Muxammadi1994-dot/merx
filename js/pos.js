@@ -296,7 +296,7 @@ function posSearch() {
 
     const rowImg = (p.colorImages && p.colorImages[color]) || p.image || "";
     const imgHtml = rowImg
-      ? `<img src="${rowImg}" style="width:36px;height:36px;object-fit:cover;border-radius:7px;border:1px solid var(--brd);flex-shrink:0">`
+      ? `<img src="${rowImg}" onclick="event.stopPropagation();posImgView('${p.sku}','${typeof jsEsc==='function' ? jsEsc(color) : color}')" title="Rasmni ko'rish" style="cursor:zoom-in;width:36px;height:36px;object-fit:cover;border-radius:7px;border:1px solid var(--brd);flex-shrink:0">`
       : "";
 
     return `<div class="pos-ri" style="align-items:center;flex-direction:column;align-items:stretch;${isBroken?'background:#FFFBF0;border-color:#f0d882':''}" data-rowkey="${rowKey}">
@@ -2896,4 +2896,14 @@ function _posUpdateCartFab(count, total) {
   if (s) s.textContent = (typeof priceDisplay === "function")
     ? priceDisplay(total || 0)
     : (fmt(total || 0) + " so'm");
+}
+
+
+// ═══ RASMNI KATTALASHTIRIB KO'RISH (2026-07-24, №2) ═══
+// POS ro'yxatida rasm bosilsa kattalashadi (savatga QO'SHILMAYDI —
+// event.stopPropagation qator bosilishini to'xtatadi).
+function posImgView(sku, color) {
+  const pr = (db.products || []).find(x => x.sku === sku);
+  const src = (pr && ((pr.colorImages && pr.colorImages[color]) || pr.image)) || "";
+  if (src && typeof showImageBig === "function") showImageBig(src);
 }

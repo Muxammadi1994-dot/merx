@@ -280,7 +280,7 @@ function omRenderQoldiq() {
 
     return `<tr>
       ${cols.image ? `<td onclick="event.stopPropagation()">
-        <div style="position:relative;flex-shrink:0" onclick="omImgClick('${r.sku}','${typeof jsEsc==='function' ? jsEsc(r.color) : r.color}')" title="Rasm qo'shish/o'zgartirish">
+        <div style="position:relative;flex-shrink:0" onclick="omImgView('${r.sku}','${typeof jsEsc==='function' ? jsEsc(r.color) : r.color}')" title="Rasm qo'shish/o'zgartirish">
           ${r.image
             ? `<img src="${r.image}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--brd);cursor:pointer">`
             : `<div style="width:36px;height:36px;border:1.5px dashed #e0ddd8;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:14px;cursor:pointer"><i class="ti ti-camera-plus"></i></div>`}
@@ -1158,4 +1158,15 @@ function omPrintNaklad(dateEnc, partiyaEnc, supplierEnc) {
     <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
   </body></html>`);
   w.document.close();
+}
+
+
+// ═══ RASMNI KATTALASHTIRIB KO'RISH (2026-07-24, №2) ═══
+// Rasm bor bo'lsa kattalashtiramiz (ichida "Almashtirish"),
+// yo'q bo'lsa avvalgidek tanlagichni ochamiz.
+function omImgView(sku, color) {
+  const p = (db.products || []).find(x => x.sku === sku);
+  const src = (p && ((p.colorImages && p.colorImages[color]) || p.image)) || "";
+  if (!src || typeof showImageBig !== "function") { omImgClick(sku, color); return; }
+  showImageBig(src, () => omImgClick(sku, color));
 }
