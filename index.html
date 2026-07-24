@@ -3029,7 +3029,10 @@
         <label>O'lchov birligi</label>
         <select id="ap-unit"><!-- №11a: teglardan JS to'ldiradi --></select>
       </div>
-      <div class="fld ap-field" data-apf="barcode">
+      <!-- 2026-07-24 (№9): umumiy tovar barcode'i OLIB TASHLANDI —
+           barcode endi HAR RANGGA alohida beriladi (avtomat).
+           Maydon DOM'da qoladi (kod unga murojaat qiladi), lekin ko'rinmaydi. -->
+      <div class="fld ap-field" data-apf="barcode" style="display:none">
         <label>Barcode</label>
         <input id="ap-barcode" placeholder="Avtomatik" style="font-family:monospace">
       </div>
@@ -3203,7 +3206,8 @@
         <label>O'lchov birligi</label>
         <select id="ep-unit"><!-- №11a: teglardan JS to'ldiradi --></select>
       </div>
-      <div class="fld">
+      <!-- 2026-07-24 (№9): umumiy barcode ko'rsatilmaydi — rang kodlari quyida -->
+      <div class="fld" style="display:none">
         <label>Barcode</label>
         <input id="ep-barcode" style="font-family:monospace">
       </div>
@@ -4379,7 +4383,7 @@
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=211"></script>
-<script src="js/katalog.js?v=186"></script>
+<script src="js/katalog.js?v=187"></script>
 <script src="js/ombor.js?v=153"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
@@ -4592,7 +4596,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=24")
+    navigator.serviceWorker.register("/sw.js?v=25")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

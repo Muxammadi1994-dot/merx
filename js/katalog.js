@@ -334,6 +334,9 @@ function katColsReset() {
 
 // ─────────────────────────────────────────────────────────────
 function renderKatalog() {
+  // 2026-07-24 (№9): kod berilmagan ranglarga bir martalik to'ldirish
+  try { if (typeof ensureAllColorBarcodes === "function") ensureAllColorBarcodes(); } catch(e) {}
+
   const q    = ($("kat-q")||{value:""}).value.toLowerCase();
   const rate = db.settings.rate || 12800;
   const showChakana = db.settings.showChakana || false;
@@ -555,7 +558,7 @@ function renderKatalog() {
       <td class="kat-col-barcode" style="font-family:monospace;font-size:12px">
         ${p.colorBarcodes && p.colorBarcodes[color]
           ? `<span style="background:var(--bg);padding:2px 8px;border-radius:5px;border:1px solid var(--brd)">${p.colorBarcodes[color]}</span>`
-          : p.barcode
+          : false
             ? `<span style="background:var(--bg);padding:2px 8px;border-radius:5px;border:1px solid var(--brd)">${p.barcode}</span>`
             : `<span style="color:#ccc">—</span>`}
       </td>
@@ -1228,6 +1231,7 @@ function saveEditProduct() {
 
   p.updatedAt = new Date().toISOString(); // v173: SAQLASH paytida ISO muhr (v180 taqqosi Date.parse) — pull poygasida tahrir g'olib
 
+  try { ensureColorBarcodes(p); } catch(e) {}
   saveDB(); closeModal("editprod"); renderKatalog();
   toast(`"${p.name}" saqlandi`);
 }
@@ -1569,6 +1573,8 @@ function addProduct() {
       createdAt: new Date().toISOString(),
       variants: newVariants
     });
+    // 2026-07-24 (№9): yangi tovarning har rangiga alohida barcode
+    try { ensureColorBarcodes(db.products[db.products.length-1]); } catch(e) {}
   }
 
   // v174 (№8): QO'LDA qo'shish ham KIRIM TARIXIGA yoziladi (avval faqat
@@ -3384,4 +3390,32 @@ function epImgView() {
   const src = (img && img.style.display !== "none") ? img.getAttribute("src") : "";
   if (!src) { imgSrcAsk("ep-img-input", "ep-img-cam-hidden"); return; }
   showImageBig(src, () => imgSrcAsk("ep-img-input", "ep-img-cam-hidden"));
+}
+
+// ═══ HAR RANGGA ALOHIDA BARCODE (2026-07-24, №9) ═══
+// Tovar rang bo'yicha ajratilgani uchun barcode ham rang darajasida
+// bo'lishi kerak. Bu funksiya har rang uchun kod yo'q bo'lsa yaratadi.
+// Umumiy tovar barcode'i endi YARATILMAYDI (eskilari qidiruvda qoladi).
+function ensureColorBarcodes(p) {
+  if (!p || !Array.isArray(p.variants)) return false;
+  if (!p.colorBarcodes) p.colorBarcodes = {};
+  let changed = false;
+  [...new Set(p.variants.map(v => v.color).filter(Boolean))].forEach(color => {
+    if (!p.colorBarcodes[color]) {
+      p.colorBarcodes[color] = genEAN13(db.seq++);
+      changed = true;
+    }
+  });
+  return changed;
+}
+
+// Barcha tovarlarga bir martalik to'ldirish (kod yo'q ranglar uchun)
+function ensureAllColorBarcodes() {
+  let changed = 0;
+  (db.products || []).forEach(p => { if (ensureColorBarcodes(p)) changed++; });
+  if (changed > 0) {
+    saveDB();
+    console.log(`🏷 ${changed} ta tovarga rang barcode'lari yaratildi`);
+  }
+  return changed;
 }
