@@ -875,6 +875,9 @@ function renderCart() {
       cartTotalEl.textContent = priceDisplay(total);
     }
   }
+  // Mobil: suzuvchi savat tugmasini yangilaymiz (2026-07-24)
+  try { _posUpdateCartFab(count, total); } catch(e) {}
+
   // Savat qiymati badge
   const cvv = $("cart-value-val");
   if (cvv) {
@@ -2196,6 +2199,8 @@ async function checkout() {
 
   // Reset
   cart.length = 0;
+  // Mobil: savat paneli sotuvdan keyin yopiladi (2026-07-24)
+  try { closePosCart(); } catch(e) {}
   // Mijoz ma'lumotlarini tozalaymiz (qarz badge ham yashiriladi)
   custClear();
   // "Savat qiymati" belgisi ham darhol 0 ga qaytadi (AbuSaxiy e'tirozi)
@@ -2860,4 +2865,32 @@ function checkDebtAlerts() {
   // endi DOIM yashirin.
   const banner = $("debt-alert-banner");
   if (banner) banner.style.display = "none";
+}
+
+// ═══ POS MOBIL: savat pastki paneli (2026-07-24) ═══
+// Desktop'da bu funksiyalar hech narsa qilmaydi (panel va tugma yashirin).
+function togglePosCart() {
+  const sheet = document.getElementById("pos-sheet");
+  const ov    = document.getElementById("pos-sheet-ov");
+  const fab   = document.getElementById("pos-cart-fab");
+  if (!sheet) return;
+  const open = sheet.classList.toggle("on");
+  if (ov)  ov.classList.toggle("on", open);
+  if (fab) fab.classList.toggle("hide", open); // panel ochiq — tugma yashirinadi
+}
+
+function closePosCart() {
+  document.getElementById("pos-sheet")?.classList.remove("on");
+  document.getElementById("pos-sheet-ov")?.classList.remove("on");
+  document.getElementById("pos-cart-fab")?.classList.remove("hide");
+}
+
+// renderCart dan chaqiriladi — tugmada soni va jami turadi
+function _posUpdateCartFab(count, total) {
+  const c = document.getElementById("pcf-cnt");
+  const s = document.getElementById("pcf-sum");
+  if (c) c.textContent = count || 0;
+  if (s) s.textContent = (typeof priceDisplay === "function")
+    ? priceDisplay(total || 0)
+    : (fmt(total || 0) + " so'm");
 }

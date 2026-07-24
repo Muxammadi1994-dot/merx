@@ -542,3 +542,57 @@ tr:hover td{background:#FAFAF8}
   .pwa-btns { width: 100%; }
   .pwa-later, .pwa-go { flex: 1; padding: 10px; }
 }
+
+/* ═══ POS MOBIL: savat+to'lov pastki panel (2026-07-24) ═══
+   Desktop'da hech narsa o'zgarmaydi — FAB va panel yashirin,
+   .pos-sheet oddiy flex bo'lak sifatida qoladi. */
+#pos-cart-fab { display: none; }
+#pos-sheet-ov { display: none; }
+/* Desktop: o'rov layoutga TA'SIR QILMAYDI — pos-mid va pos-right
+   avvalgidek .pos-wrap ning to'g'ridan-to'g'ri flex bolalari bo'lib qoladi */
+.pos-sheet { display: contents; }
+
+@media (max-width: 768px) {
+  /* Tovarlar butun ekranni oladi */
+  .pos-left { width: 100%; border-right: none; }
+
+  /* Savat + to'lov = pastdan chiqadigan panel */
+  .pos-sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 95;
+    width: 100%; height: 82vh;
+    display: flex; flex-direction: column;
+    background: #F8F7F4;
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -8px 32px rgba(0,0,0,.28);
+    transform: translateY(100%);
+    transition: transform .3s cubic-bezier(.16,1,.3,1);
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+  .pos-sheet.on { transform: translateY(0); }
+
+  /* Panel ichida ustunlar to'liq kenglikda, ustma-ust */
+  .pos-sheet .pos-mid,
+  .pos-sheet .pos-right { width: 100%; flex: none; overflow: visible; }
+
+  /* Orqa fon */
+  #pos-sheet-ov { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 94; }
+  #pos-sheet-ov.on { display: block; }
+
+  /* Suzuvchi savat tugmasi */
+  #pos-cart-fab {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    position: fixed; left: 12px; right: 12px; bottom: 14px; z-index: 93;
+    background: var(--acc); color: #0D1B2A; border: none;
+    border-radius: 14px; padding: 13px 18px;
+    font-family: inherit; font-size: 14.5px; font-weight: 800;
+    box-shadow: 0 8px 26px rgba(233,165,0,.45); cursor: pointer;
+  }
+  #pos-cart-fab:active { transform: scale(.97); }
+  #pos-cart-fab.hide { display: none; }
+  .pcf-l { display: flex; align-items: center; gap: 8px; }
+  .pcf-l i { font-size: 19px; }
+  #pcf-cnt {
+    background: #0D1B2A; color: var(--acc); border-radius: 20px;
+    padding: 1px 9px; font-size: 12.5px; min-width: 22px; text-align: center;
+  }
+}

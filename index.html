@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=144">
+<link rel="stylesheet" href="style.css?v=145">
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display:inline-block; animation: spin .8s linear infinite; }
@@ -615,6 +615,12 @@
   <!-- POS -->
   <div id="p-pos">
   <div class="pos-wrap" id="pos-wrap">
+    <!-- Mobil: suzuvchi savat tugmasi (2026-07-24) -->
+    <button id="pos-cart-fab" onclick="togglePosCart()">
+      <span class="pcf-l"><i class="ti ti-shopping-cart"></i><span id="pcf-cnt">0</span></span>
+      <span id="pcf-sum">0 so'm</span>
+    </button>
+    <div id="pos-sheet-ov" onclick="togglePosCart()"></div>
 
     <!-- CHAP: Qidiruv + natijalar -->
     <div class="pos-left">
@@ -639,6 +645,8 @@
     </div>
 
     <!-- O'RTA: Savatcha -->
+    <!-- Mobil: savat+to'lov bitta pastki panel (2026-07-24) -->
+    <div class="pos-sheet" id="pos-sheet">
     <div class="pos-mid">
       <div class="cart-hd">
         <div class="cart-hd-title">
@@ -944,6 +952,7 @@
         </button>
       </div>
     </div>
+    </div><!-- /pos-sheet -->
   </div>
 
 <!-- Kamera barcode modal -->
@@ -4364,7 +4373,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
-<script src="js/pos.js?v=206"></script>
+<script src="js/pos.js?v=207"></script>
 <script src="js/katalog.js?v=178"></script>
 <script src="js/ombor.js?v=150"></script>
 <script src="js/mijozlar.js?v=146"></script>
@@ -4578,7 +4587,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=5")
+    navigator.serviceWorker.register("/sw.js?v=6")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
