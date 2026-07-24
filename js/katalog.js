@@ -59,11 +59,14 @@ function katToggleSel(sku, checked) {
 }
 
 function katSelectAll() {
-  const visible = document.querySelectorAll("#kat-body input[type=checkbox]");
+  // 2026-07-24 (№5): kalit endi data-rowkey dan olinadi.
+  // Avval onchange MATNIDAN regex bilan ajratilardi — rang nomida
+  // apostrof bo'lsa (masalan "Ko'k") noto'g'ri qiymat olinardi.
+  const visible = document.querySelectorAll("#kat-body input[type=checkbox][data-rowkey]");
   visible.forEach(cb => {
     cb.checked = true;
-    _katSelected.add(cb.getAttribute("onchange").match(/'([^']+)'/)[1]);
-    cb.closest("tr").style.background = "#fffbf0";
+    _katSelected.add(cb.dataset.rowkey);
+    const tr = cb.closest("tr"); if (tr) tr.style.background = "#fffbf0";
   });
   updateKatSelBar();
 }
@@ -100,21 +103,50 @@ function openBulkPrice() {
   updateBulkPreview();
 }
 
+// 2026-07-24 (№5): HAQIQIY preview — avval qat'iy 400 000 so'mlik xayoliy
+// tovar ko'rsatilardi (aldamchi edi). Endi TANLANGAN tovarlar bo'yicha hisob.
+function _bulkCalc() {
+  const pct   = parseFloat(document.getElementById("bulk-pct")?.value) || 0;
+  const type  = document.getElementById("bulk-type")?.value  || "chegirma";
+  const field = document.getElementById("bulk-field")?.value || "chakana";
+  const mult  = type === "chegirma" ? (1 - pct/100) : (1 + pct/100);
+
+  const skus = new Set([..._katSelected].map(k => String(k).split("::")[0]));
+  let oldSum = 0, newSum = 0, cnt = 0;
+
+  skus.forEach(sku => {
+    const p = (db.products||[]).find(x => x.sku === sku);
+    if (!p) return;
+    cnt++;
+    const take = [];
+    if (field === "chakana" || field === "ikkalasi") take.push(p.priceUzs || 0);
+    if (field === "ulgurji" || field === "ikkalasi") take.push(p.ulgurjiNarx || 0);
+    take.forEach(v => {
+      oldSum += v;
+      newSum += Math.round(v * mult / 1000) * 1000;
+    });
+  });
+
+  return { pct, type, field, cnt, oldSum, newSum, diff: newSum - oldSum };
+}
+
 function updateBulkPreview() {
-  const pct  = parseFloat(document.getElementById("bulk-pct")?.value) || 0;
-  const type = document.getElementById("bulk-type")?.value || "chegirma";
-  const base = 400000;
-  const result = type === "chegirma"
-    ? Math.round(base * (1 - pct/100) / 1000) * 1000
-    : Math.round(base * (1 + pct/100) / 1000) * 1000;
-  const diff = result - base;
+  const c = _bulkCalc();
   const valEl = document.getElementById("bulk-preview-val");
   const pctEl = document.getElementById("bulk-preview-pct");
+  const isDisc = c.type === "chegirma";
+
   if (valEl) {
-    valEl.textContent = fmt(result) + " so'm";
-    valEl.style.color = type === "chegirma" ? "var(--grn)" : "#E9A500";
+    valEl.textContent = fmt(c.oldSum) + " → " + fmt(c.newSum) + " so'm";
+    valEl.style.color = isDisc ? "var(--grn)" : "#E9A500";
+    valEl.style.fontSize = "15px";
   }
-  if (pctEl) pctEl.textContent = (diff > 0 ? "+" : "") + diff.toLocaleString() + " so'm";
+  if (pctEl) {
+    pctEl.innerHTML = (c.diff > 0 ? "+" : "") + fmt(c.diff) + " so'm" +
+      `<div style="font-size:11.5px;color:var(--mut);margin-top:3px;font-weight:400">
+        ${c.cnt} ta tovar · barcha ranglari uchun
+      </div>`;
+  }
 }
 
 function applyBulkPrice() {
@@ -123,6 +155,19 @@ function applyBulkPrice() {
   const field = document.getElementById("bulk-field")?.value || "chakana";
 
   if (pct <= 0 || pct > 100) { toast("0 dan 100 gacha foiz kiriting","err"); return; }
+
+  // 2026-07-24 (№5): pul o'zgarishidan oldin ANIQ tasdiq
+  const _c = _bulkCalc();
+  const _fieldName = { chakana:"chakana", ulgurji:"ulgurji", ikkalasi:"chakana va ulgurji" }[field];
+  const _act = type === "chegirma" ? `−${pct}% chegirma` : `+${pct}% oshirish`;
+  if (!confirm(
+      "NARX O'ZGARTIRISH\n\n" +
+      `${_c.cnt} ta tovar · ${_fieldName} narxi\n` +
+      `Amal: ${_act}\n\n` +
+      `${fmt(_c.oldSum)} → ${fmt(_c.newSum)} so'm\n` +
+      `Farq: ${_c.diff > 0 ? "+" : ""}${fmt(_c.diff)} so'm\n\n` +
+      "Eslatma: tovarning BARCHA ranglari uchun narx o'zgaradi.\n\nDavom etasizmi?"
+  )) return;
 
   const rate     = db.settings?.rate || 12800;
   const isUsd    = db.settings?.priceCurrency === "usd";
@@ -443,7 +488,8 @@ function renderKatalog() {
     const isSel = _katSelected.has(rowKey);
     return `<tr onclick="openEditProduct('${p.sku}')" style="cursor:pointer;background:${isSel?"#fffbf0":(isBroken?"#FFFBF0":"")}">
       <td style="width:28px;padding:8px 4px" onclick="event.stopPropagation()">
-        <input type="checkbox" ${isSel?"checked":""} onchange="katToggleSel('${rowKey}',this.checked)"
+        <input type="checkbox" ${isSel?"checked":""} data-rowkey="${String(rowKey).replace(/"/g,'&quot;')}"
+          onchange="katToggleSel('${jsEsc(rowKey)}',this.checked)"
           style="width:16px;height:16px;accent-color:var(--acc);cursor:pointer">
       </td>
       <td class="kat-col-image" onclick="event.stopPropagation()">
