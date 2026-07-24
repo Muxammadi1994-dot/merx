@@ -2307,6 +2307,9 @@
           </tr></thead>
           <tbody id="exp-body"></tbody>
         </table>
+        <!-- 2026-07-24 (№14): sahifalash (katalogdagidek 50 qatordan) -->
+        <div id="exp-pagination" style="display:flex;gap:6px;justify-content:center;
+          align-items:center;flex-wrap:wrap;padding:12px 0 4px"></div>
       </div>
     </div>
 
@@ -4383,7 +4386,7 @@
 <script src="js/tarix.js?v=157"></script>
 <script src="js/hisobot.js?v=145"></script>
 <script src="js/xodimlar.js?v=143"></script>
-<script src="js/moliya.js?v=159"></script>
+<script src="js/moliya.js?v=160"></script>
 <script src="js/egasi.js?v=162"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=143"></script>
@@ -4589,7 +4592,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=16")
+    navigator.serviceWorker.register("/sw.js?v=17")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

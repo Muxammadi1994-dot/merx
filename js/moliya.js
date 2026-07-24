@@ -44,6 +44,11 @@ function setExpDatePeriod(p) {
   renderMoliya();
 }
 
+// 2026-07-24 (№14): xarajatlar sahifalanishi (katalogdagidek)
+let expPage = 1;
+let _lastExpSig = null;
+const EXP_PER_PAGE = 50;
+
 const MOL_KPI_LABELS = {
   // Banner (qora fon)
   banner_balans: "🏦 Banner: Kassa balansi",
@@ -417,9 +422,19 @@ function renderMoliya() {
       '<th style="width:72px"></th>';
   }
 
+  // 2026-07-24 (№14): filtr/qidiruv o'zgarsa — birinchi sahifaga qaytamiz
+  const _expSig = [q, typeFilter, catFilter, from, to].join("|");
+  if (_expSig !== _lastExpSig) { expPage = 1; _lastExpSig = _expSig; }
+
+  // Sahifalash — faqat joriy sahifa qatorlari chiziladi
+  const expTotalPages = Math.ceil(exps.length / EXP_PER_PAGE) || 1;
+  if (expPage > expTotalPages) expPage = 1;
+  const expPageRows = exps.slice((expPage-1)*EXP_PER_PAGE, expPage*EXP_PER_PAGE);
+  renderExpPagination(expTotalPages, exps.length);
+
   const tbody = $("exp-body");
   if (tbody) {
-    tbody.innerHTML = exps.length ? exps.map(x => {
+    tbody.innerHTML = expPageRows.length ? expPageRows.map(x => {
       const catIdx = MOL_CATS.indexOf(x.category);
       const color  = MOL_COLORS[catIdx>=0?catIdx:MOL_COLORS.length-1];
       const icon   = ["🏠","👤","🚗","💡","📢","📦","🏛️","🔧","📋"][catIdx>=0?catIdx:8];
@@ -847,6 +862,21 @@ function initExpWhoSelect() {
   sel.innerHTML = '<option value="">— Tanlang —</option>' +
     (db.staff||[]).map(s => `<option value="${s.name}">${s.name}</option>`).join("") +
     '<option value="Ega">Do\'kon egasi</option>';
+  // 2026-07-24 (№15): kirgan foydalanuvchi profilidan AVTOMAT tanlanadi.
+  // Tahrirlashda bu qiymat keyinroq (setTimeout) o'z qiymati bilan almashadi.
+  const def = _expDefaultWho();
+  if (def) sel.value = def;
+}
+
+// Kirgan foydalanuvchiga mos "Kim to'ladi" qiymati
+function _expDefaultWho() {
+  const u = (typeof getAuthUser === "function") ? getAuthUser() : null;
+  if (!u) return "";
+  // Xodim sifatida kirgan bo'lsa — ro'yxatda bor ismini tanlaymiz
+  if (u.name && (db.staff||[]).some(s => s.name === u.name)) return u.name;
+  // Admin / do'kon egasi
+  if (u.role === "admin" || u.role === "superadmin" || u.role === "menejer") return "Ega";
+  return "";
 }
 
 // ── Xarajat qo'shish ──────────────────────────────
@@ -1765,4 +1795,39 @@ function confirmSupPay(supplier, totalDebt) {
   saveDB();
   $("sup-pay-modal")?.remove();
   renderMoliya();
+}
+
+// ═══ XARAJATLAR SAHIFALASHI (2026-07-24, №14) ═══
+function renderExpPagination(totalPages, totalRows) {
+  const el = $("exp-pagination");
+  if (!el) return;
+  if (totalPages <= 1) { el.innerHTML = ""; return; }
+
+  const btn = (label, page, active, disabled) =>
+    `<button onclick="setExpPage(${page})" ${disabled ? "disabled" : ""}
+       style="font-family:inherit;font-size:13px;font-weight:${active?700:500};
+       border:1px solid ${active?'#0D1B2A':'var(--brd)'};background:${active?'#0D1B2A':'#fff'};
+       color:${active?'#fff':(disabled?'#bbb':'var(--ink)')};border-radius:8px;
+       padding:6px 11px;cursor:${disabled?'default':'pointer'}">${label}</button>`;
+
+  let pages = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || Math.abs(i - expPage) <= 2) pages.push(i);
+    else if (pages[pages.length-1] !== "...") pages.push("...");
+  }
+
+  el.innerHTML =
+    btn("‹", Math.max(1, expPage-1), false, expPage === 1) +
+    pages.map(p => p === "..."
+      ? `<span style="color:var(--mut);padding:0 2px">…</span>`
+      : btn(p, p, p === expPage, false)).join("") +
+    btn("›", Math.min(totalPages, expPage+1), false, expPage === totalPages) +
+    `<span style="font-size:12px;color:var(--mut);margin-left:8px">${totalRows} ta yozuv</span>`;
+}
+
+function setExpPage(p) {
+  expPage = p;
+  renderMoliya();
+  const el = $("exp-body");
+  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
