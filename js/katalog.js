@@ -353,6 +353,10 @@ function renderKatalog() {
     p.sku.toLowerCase().includes(q) ||
     (p.art && p.art.toLowerCase().includes(q)) ||
     (p.barcode && p.barcode.toLowerCase().includes(q)) ||
+    // 2026-07-24 (№9): RANG darajasidagi barcode ham qidiriladi —
+    // etiketkalarda aynan shu kod chop etiladi
+    (p.colorBarcodes && Object.values(p.colorBarcodes).some(bc =>
+      bc && String(bc).toLowerCase().includes(q))) ||
     p.category.toLowerCase().includes(q)
   );
   if (katLowFilter) ps = ps.filter(p => totalStock(p) <= 5);

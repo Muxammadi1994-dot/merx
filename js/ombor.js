@@ -240,6 +240,15 @@ function omRenderQoldiq() {
     r.sku.toLowerCase().includes(q)     ||
     (r.art && r.art.toLowerCase().includes(q)) ||
     r.color.toLowerCase().includes(q)   ||
+    // 2026-07-24 (№9): barcode (tovar va RANG darajasi) qidiruvga qo'shildi
+    (r.barcode && String(r.barcode).toLowerCase().includes(q)) ||
+    (() => {
+      const p = (db.products||[]).find(x => x.sku === r.sku);
+      if (!p) return false;
+      if (p.barcode && String(p.barcode).toLowerCase().includes(q)) return true;
+      const bc = p.colorBarcodes && p.colorBarcodes[r.color];
+      return !!(bc && String(bc).toLowerCase().includes(q));
+    })() ||
     r.pantone.toLowerCase().includes(q)
   );
 

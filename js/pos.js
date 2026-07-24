@@ -107,12 +107,22 @@ function processBarcode(code) {
   if (p) {
     toast("Topildi: " + p.name + (foundColor ? " — " + foundColor : ""), "info");
     if ($("pos-q")) { $("pos-q").value = p.art || p.sku; posSearch(); }
+    // 2026-07-24 (№9): rang aniq bo'lsa — 1 POCHKA to'g'ridan savatga.
+    // Rang noma'lum bo'lsa (umumiy tovar barcode'i) qo'shmaymiz — qaysi
+    // rang ekani noaniq, foydalanuvchi o'zi tanlaydi.
+    if (foundColor && typeof posQuickAdd === "function") {
+      setTimeout(() => {
+        try { posQuickAdd(p.sku, foundColor, 0); } catch(e) {}
+      }, 350);
+    }
+
     // Rang aniqlangan bo'lsa avtomatik highlight
     if (foundColor) {
       setTimeout(() => {
         const rows = document.querySelectorAll("[data-rowkey]");
         rows.forEach(row => {
-          if (row.dataset.rowkey && row.dataset.rowkey.includes("|" + foundColor + "|")) {
+          // 2026-07-24 (№9): kalit ajratgichi "::" (avval "|" izlanardi — hech qachon mos kelmasdi)
+          if (row.dataset.rowkey && row.dataset.rowkey.includes("::" + foundColor + "::")) {
             row.style.outline = "2px solid #E9A500";
             setTimeout(() => { row.style.outline = ""; }, 2000);
           }
