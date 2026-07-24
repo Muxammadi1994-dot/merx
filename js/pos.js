@@ -2103,6 +2103,9 @@ async function checkout() {
 
   const newSale = {
     id:db.seq++, chekNum, date:today(), time:nowTime(),
+    // 2026-07-24: sotuv paytidagi kurs saqlanadi — chekda USD summasi
+    // keyinchalik kurs o'zgarsa ham TO'G'RI qoladi
+    rate: Number(db.settings?.rate) || 0,
     priceType: posPriceType,
     payType: posPayType, payBreakdown, staffId, customerId,
     discount, discountType: discType,

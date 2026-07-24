@@ -759,7 +759,9 @@ function buildReceiptHtml(sale, opts) {
   // JAMI POCHKA va tovar chegirmalari (POS chek bilan bir xil)
   const jamiPch = items.reduce((a,i)=> a + ((i.sellMode==="karobka" && i.qtyBox) ? i.qtyBox : 0), 0);
   const itemDisc = items.reduce((a,i)=> a + ((i.basePrice && i.basePrice > (i.price||0)) ? (i.basePrice - i.price)*(i.qty||1) : 0), 0);
-  const rate = Number(sale.rate || 0);
+  // 2026-07-24: sotuvda kurs saqlanmagan bo'lsa (eski cheklar) joriy
+  // kursga tayanamiz — aks holda JAMI'da USD umuman ko'rinmasdi
+  const rate = Number(sale.rate) || Number(db.settings?.rate) || 0;
   const usdLine = rate > 0 ? ` / $${(total / rate).toFixed(2)}` : "";
 
   // ── To'lov bo'limi ────────────────────────────
