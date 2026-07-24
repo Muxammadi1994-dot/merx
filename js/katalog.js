@@ -454,7 +454,7 @@ function renderKatalog() {
             const rowImg = (p.colorImages && p.colorImages[color]) || p.image || "";
             return rowImg
               ? `<img src="${rowImg}" class="kat-thumb" style="cursor:pointer"
-                  onclick="katImgClick('${p.sku}','${jsEsc(color)}')" title="Rasmni o'zgartirish">`
+                  onclick="katImgView('${p.sku}','${jsEsc(color)}')" title="Rasmni ko'rish">`
               : `<div class="kat-thumb-empty" style="cursor:pointer"
                   onclick="katImgClick('${p.sku}','${jsEsc(color)}')" title="Rasm qo'shish">
                   <i class="ti ti-camera-plus" style="font-size:16px"></i>
@@ -3277,4 +3277,31 @@ function migrateColorBarcodes() {
   } else {
     toast("Barcha mahsulotlarda barcode mavjud");
   }
+}
+
+// ═══ RASM BOSILGANDA: bor bo'lsa KATTALASHTIRIB ko'rsatamiz,
+// yo'q bo'lsa tanlagichni ochamiz (2026-07-24, №2) ═══
+
+// Katalog jadvalidagi rasm (rang darajasida)
+function katImgView(sku, color) {
+  const p = (db.products || []).find(x => x.sku === sku);
+  const src = (p && ((p.colorImages && p.colorImages[color]) || p.image)) || "";
+  if (!src) { katImgClick(sku, color); return; }   // rasm yo'q — tanlagich
+  showImageBig(src, () => katImgClick(sku, color));
+}
+
+// "Yangi tovar" oynasidagi rasm
+function apImgView() {
+  const img = document.querySelector("#ap-img-preview img");
+  const src = img ? img.getAttribute("src") : "";
+  if (!src) { imgSrcAsk("ap-img-inp", "ap-img-cam-hidden"); return; }
+  showImageBig(src, () => imgSrcAsk("ap-img-inp", "ap-img-cam-hidden"));
+}
+
+// "Tahrirlash" oynasidagi rasm
+function epImgView() {
+  const img = document.getElementById("ep-img-preview");
+  const src = (img && img.style.display !== "none") ? img.getAttribute("src") : "";
+  if (!src) { imgSrcAsk("ep-img-input", "ep-img-cam-hidden"); return; }
+  showImageBig(src, () => imgSrcAsk("ep-img-input", "ep-img-cam-hidden"));
 }

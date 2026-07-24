@@ -2999,7 +2999,7 @@
     <div class="fld ap-field" data-apf="image" style="margin-bottom:14px">
       <label>Rasm <span style="font-weight:400;color:var(--mut)">(ixtiyoriy)</span></label>
       <div style="display:flex;align-items:center;gap:10px">
-        <div id="ap-img-preview" onclick="imgSrcAsk('ap-img-inp','ap-img-cam-hidden')" style="width:64px;height:64px;border-radius:9px;
+        <div id="ap-img-preview" onclick="apImgView()" style="width:64px;height:64px;border-radius:9px;
           border:1.5px dashed var(--brd);cursor:pointer;display:flex;align-items:center;justify-content:center;
           background:var(--bg);flex-shrink:0;overflow:hidden">
           <i class="ti ti-camera-plus" style="font-size:20px;color:#bbb"></i>
@@ -3171,7 +3171,7 @@
     <div class="fld" style="margin-bottom:14px">
       <label>Rasm <span style="font-weight:400;color:var(--mut)">(ixtiyoriy)</span></label>
       <div style="display:flex;align-items:center;gap:10px">
-        <div id="ep-img-preview-wrap" onclick="imgSrcAsk('ep-img-input','ep-img-cam-hidden')" style="width:64px;height:64px;border-radius:9px;
+        <div id="ep-img-preview-wrap" onclick="epImgView()" style="width:64px;height:64px;border-radius:9px;
           border:1.5px dashed var(--brd);cursor:pointer;display:flex;align-items:center;justify-content:center;
           background:var(--bg);flex-shrink:0;overflow:hidden">
           <img id="ep-img-preview" src="" style="width:100%;height:100%;object-fit:cover;display:none">
@@ -4368,13 +4368,13 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=162"></script>
-<script src="js/utils.js?v=177"></script>
+<script src="js/utils.js?v=178"></script>
 <script src="js/auth.js?v=179"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=208"></script>
-<script src="js/katalog.js?v=180"></script>
+<script src="js/katalog.js?v=181"></script>
 <script src="js/ombor.js?v=150"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
@@ -4587,7 +4587,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=13")
+    navigator.serviceWorker.register("/sw.js?v=14")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

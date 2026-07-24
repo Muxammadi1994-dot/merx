@@ -1852,3 +1852,48 @@ function applyInputModes(root) {
 
 // Sahifa yuklanganda + har modal ochilganda qo'llanadi
 window.addEventListener("load", () => applyInputModes());
+
+// ═══ RASMNI KATTALASHTIRIB KO'RISH (2026-07-24, №2) ═══
+// Dinamik oyna — HTML o'zgartirish shart emas. Rasm ustiga bosilganda
+// to'liq ekranda ochiladi; ichida "Almashtirish" tugmasi (agar berilgan).
+let _imgBigChangeFn = null;
+
+function showImageBig(src, changeFn) {
+  if (!src) return;
+  _imgBigChangeFn = (typeof changeFn === "function") ? changeFn : null;
+  document.getElementById("img-big-ov")?.remove();
+
+  const ov = document.createElement("div");
+  ov.id = "img-big-ov";
+  ov.style.cssText = "position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.9);" +
+    "display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:18px";
+  ov.innerHTML =
+    '<img src="' + src + '" style="max-width:94vw;max-height:74vh;object-fit:contain;' +
+      'border-radius:10px;box-shadow:0 14px 48px rgba(0,0,0,.55)">' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">' +
+      (_imgBigChangeFn ? '<button onclick="imgBigChange()" style="background:#E9A500;border:none;' +
+        'color:#0D1B2A;border-radius:10px;padding:11px 20px;font-family:inherit;font-size:14px;' +
+        'font-weight:700;cursor:pointer">Almashtirish</button>' : '') +
+      '<button onclick="closeImageBig()" style="background:rgba(255,255,255,.14);' +
+        'border:1px solid rgba(255,255,255,.28);color:#fff;border-radius:10px;padding:11px 20px;' +
+        'font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Yopish</button>' +
+    '</div>';
+
+  ov.onclick = (e) => { if (e.target === ov) closeImageBig(); };
+  document.body.appendChild(ov);
+  document.addEventListener("keydown", _imgBigEsc);
+}
+
+function _imgBigEsc(e) { if (e.key === "Escape") closeImageBig(); }
+
+function closeImageBig() {
+  document.getElementById("img-big-ov")?.remove();
+  document.removeEventListener("keydown", _imgBigEsc);
+  _imgBigChangeFn = null;
+}
+
+function imgBigChange() {
+  const f = _imgBigChangeFn;
+  closeImageBig();
+  if (f) f();
+}
