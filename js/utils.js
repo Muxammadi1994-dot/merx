@@ -240,6 +240,8 @@ function updateRatePill() {
   $("tb-cur").textContent = lbl[db.settings.priceCurrency || "uzs"] || "so'm";
 }
 function openModal(id) {
+  // Mobil: modal ichidagi raqamli maydonlarga raqam klaviaturasi (2026-07-24)
+  try { setTimeout(() => applyInputModes(document.getElementById("ov-" + id)), 0); } catch(e) {}
   // Avval ochiq turgan boshqa modallarni yopamiz — bir nechta modal
   // bir vaqtda "kutib qolmasligi" uchun
   try {
@@ -1813,3 +1815,33 @@ function clearPageSearches() {
 // Ulanish: DOM tayyor bo'lishi bilan (skriptlar body oxirida — darhol ishlaydi)
 if (document.readyState !== "loading") setupSearchUX();
 else document.addEventListener("DOMContentLoaded", setupSearchUX);
+
+// ═══ MOBIL: RAQAMLI KLAVIATURA (2026-07-24) ═══
+// Narx/miqdor/telefon maydonlariga inputmode qo'yamiz — telefonda
+// alifbo emas, RAQAM klaviaturasi ochiladi. Faqat ko'rsatishga ta'sir
+// qiladi, kiritilgan qiymat va mantiq O'ZGARMAYDI.
+function applyInputModes(root) {
+  try {
+    const scope = root || document;
+    scope.querySelectorAll("input:not([data-im])").forEach(el => {
+      el.dataset.im = "1";
+      const t = (el.type || "text").toLowerCase();
+      // Tegishli bo'lmagan turlar
+      if (["checkbox","radio","file","date","color","range","time"].includes(t)) return;
+
+      const key = ((el.id||"") + " " + (el.name||"") + " " + (el.placeholder||"")).toLowerCase();
+      // Qidiruv maydonlari matn bo'lib qolsin (nom/ism bo'yicha ham qidiriladi)
+      if (/qidir|search|nom|ism|izoh|note|manzil|addr|email|parol|pass/.test(key)) return;
+
+      let mode = null;
+      if (t === "number") mode = "decimal";
+      else if (t === "tel" || /telefon|phone|\btel\b|raqam/.test(key)) mode = "tel";
+      else if (/narx|price|summa|\bsum\b|miqdor|qty|soni|dona|pochka|karobka|chegirma|discount|ball|bonus|kurs|rate|barcode|shtrix|foiz|percent/.test(key)) mode = "numeric";
+
+      if (mode) el.setAttribute("inputmode", mode);
+    });
+  } catch(e) {}
+}
+
+// Sahifa yuklanganda + har modal ochilganda qo'llanadi
+window.addEventListener("load", () => applyInputModes());

@@ -627,3 +627,15 @@ tr:hover td{background:#FAFAF8}
     padding: 1px 9px; font-size: 12.5px; min-width: 22px; text-align: center;
   }
 }
+
+/* ═══ MOBIL UX TUZATISHLARI (2026-07-24) ═══ */
+@media (max-width: 768px) {
+  /* iPhone Safari maydonga bosilganda ekranni AVTOMAT kattalashtiradi,
+     agar shrift 16px dan kichik bo'lsa. 16px — sakrash bo'lmaydi. */
+  input, select, textarea { font-size: 16px !important; }
+
+  /* iPhone pastki "home" chizig'i tugmalarni to'smasin */
+  #pos-cart-fab { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+  .pos-sheet    { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  #pwa-install  { bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
+}
