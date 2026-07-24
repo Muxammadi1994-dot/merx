@@ -52,7 +52,7 @@ function katToggleSel(sku, checked) {
   else _katSelected.delete(sku);
   updateKatSelBar();
   // Faqat qatorni rang o'zgartir (to'liq render emas)
-  const rows = document.querySelectorAll("#kat-body tr");
+  const rows = document.querySelectorAll("#katalog-body tr");
   rows.forEach(row => {
     const cb = row.querySelector("input[type=checkbox]");
     if (cb) row.style.background = cb.checked ? "#fffbf0" : "";
@@ -66,7 +66,7 @@ function katSelectAll() {
   // Barcha sahifalardagi qatorlar (faqat ko'rinayotganlar emas)
   if (_katAllRowKeys.length) _katAllRowKeys.forEach(k => _katSelected.add(k));
   // Ekrandagi checkboxlarni belgilab chiqamiz
-  document.querySelectorAll("#kat-body input[type=checkbox][data-rowkey]").forEach(cb => {
+  document.querySelectorAll("#katalog-body input[type=checkbox][data-rowkey]").forEach(cb => {
     cb.checked = true;
     _katSelected.add(cb.dataset.rowkey);
     const tr = cb.closest("tr"); if (tr) tr.style.background = "#fffbf0";
@@ -76,7 +76,7 @@ function katSelectAll() {
 
 function katClearSel() {
   _katSelected.clear();
-  document.querySelectorAll("#kat-body input[type=checkbox]").forEach(cb => {
+  document.querySelectorAll("#katalog-body input[type=checkbox]").forEach(cb => {
     cb.checked = false;
     cb.closest("tr").style.background = "";
   });
