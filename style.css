@@ -483,15 +483,16 @@ tr:hover td{background:#FAFAF8}
   #topbar { padding: 11px 14px; gap: 8px; }
   #ptitle { font-size: 16px; }
 
-  /* Sahifa ichki bo'shliqlari ixcham */
-  .page { padding: 14px !important; }
+  /* Sahifa ichki bo'shliqlari ixcham (.pg — haqiqiy sahifa konteyneri) */
+  .pg { padding: 14px !important; }
 
-  /* Jadvallar gorizontal suriladi (ustunlar qisilib ketmasin) */
-  .tbl-wrap, .table-wrap, .twrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  table { min-width: max-content; }
+  /* Jadvallar: kartaning O'ZI gorizontal suriladi (sahifa buzilmaydi).
+     :has() qo'llab-quvvatlanmasa — hech narsa qo'llanmaydi (eski xulq, xavfsiz) */
+  .card:has(table), .ch:has(table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .card:has(table) table, .ch:has(table) table { min-width: max-content; }
 
   /* Kartochka gridlari — kamroq ustun */
-  .kpis, .dash-kpis { grid-template-columns: repeat(2, 1fr) !important; }
+  .kpis, #dash-kpis { grid-template-columns: repeat(2, 1fr) !important; }
 
   /* Modallar — deyarli to'liq ekran */
   .modal { max-width: 94vw !important; width: 94vw !important;
@@ -504,7 +505,7 @@ tr:hover td{background:#FAFAF8}
 
 /* Juda kichik ekran (≤420px) — yanada ixcham */
 @media (max-width: 420px) {
-  .kpis, .dash-kpis { grid-template-columns: 1fr !important; }
+  .kpis, #dash-kpis { grid-template-columns: 1fr !important; }
   #ptitle { font-size: 15px; }
   .tb-pill span { font-size: 11px; }
 }
