@@ -3035,7 +3035,7 @@ function buildLabel(p, v, opts) {
   const {style, showLogo, showName, showColor, showSize, showPrice, showUsd,
          showCat, showArt, showSku, showUlg, showBarc, shopName, rate} = opts;
   const hex       = v.hex || "#888";
-  const colorDot  = `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${hex};border:1px solid rgba(0,0,0,.12);vertical-align:middle;margin-right:4px"></span>`;
+  const colorDot  = `<span class="nm-color-dot" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${hex};border:1px solid rgba(0,0,0,.12);vertical-align:middle;margin-right:4px"></span>`;
   const hasChakana = p.priceUzs > 0;
   const priceUzs  = hasChakana ? p.priceUzs : (p.ulgurjiNarx || 0);
   const ulgUzs    = p.ulgurjiNarx || 0;
@@ -3145,15 +3145,17 @@ function printNarxnoma() {
   ).join("");
 
   // 2026-07-20 (№8): qog'oz o'lchamiga qarab @page va grid
-  let pageCss, gridCss, barcodeH;
+  let pageCss, gridCss, barcodeH, thermal = false;
   if (o.paper === "40x30") {
     pageCss = "@page{margin:1mm;size:40mm 30mm}";
-    gridCss = ".nm-label-grid{display:block;padding:0}.nm-label{width:38mm;min-height:28mm;page-break-after:always;border:none !important;padding:1mm;display:flex;flex-direction:column;justify-content:center}";
-    barcodeH = 18;
+    gridCss = ".nm-label-grid{display:block;padding:0}.nm-label{width:38mm;height:28mm;page-break-after:always;border:none !important;padding:0.8mm;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}";
+    barcodeH = 42;   // 2026-07-25: 18 -> 42 (skaner uchun baland shtrix)
+    thermal  = true;
   } else if (o.paper === "58x40") {
     pageCss = "@page{margin:1.5mm;size:58mm 40mm}";
-    gridCss = ".nm-label-grid{display:block;padding:0}.nm-label{width:55mm;min-height:37mm;page-break-after:always;border:none !important;padding:1.5mm;display:flex;flex-direction:column;justify-content:center}";
-    barcodeH = 24;
+    gridCss = ".nm-label-grid{display:block;padding:0}.nm-label{width:55mm;height:37mm;page-break-after:always;border:none !important;padding:1.2mm;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}";
+    barcodeH = 55;   // 2026-07-25: 24 -> 55
+    thermal  = true;
   } else {
     pageCss = "@page{margin:5mm;size:A4}";
     gridCss = `.nm-label-grid{display:grid;grid-template-columns:repeat(${cols},1fr);gap:4px;padding:8px}`;
@@ -3179,8 +3181,26 @@ ${gridCss}
 .nm-price-ulg{font-size:10px;color:#000}
 .nm-price-usd{font-size:10px;color:#000}
 .nm-sku{font-size:9px;color:#000;font-family:monospace}
-.nm-barcode{text-align:center;margin-top:4px}
+.nm-barcode{text-align:center;margin-top:2px}
 .nm-barcode-svg{max-width:100%}
+${thermal ? `
+/* ═══ TERMAL ETIKETKA (2026-07-25) — Xprinter XP-370B, 203 DPI ═══
+   Shtrix etiketka enini TO'LIQ egallaydi, matn yirikroq, bo'sh joy yo'q */
+.nm-barcode{margin-top:1px;width:100%}
+.nm-barcode-svg{width:100% !important;height:auto !important;display:block}
+.nm-mini,.nm-standard{border:none !important;border-radius:0 !important;padding:0 !important;
+  width:100%;height:100%;display:flex;flex-direction:column;justify-content:space-between}
+.nm-name,.nm-name-sm{font-size:13px !important;font-weight:800 !important;line-height:1.1;
+  margin-bottom:1px !important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-var,.nm-var-sm{font-size:11px !important;font-weight:600 !important;margin-bottom:1px !important;
+  line-height:1.1;overflow:hidden;white-space:nowrap}
+.nm-price-main{font-size:19px !important;font-weight:900 !important;line-height:1.1}
+.nm-price-usd,.nm-price-ulg{font-size:11px !important;line-height:1.1}
+.nm-sku{font-size:10px !important;line-height:1.1}
+.nm-shop{font-size:10px !important;margin-bottom:1px !important;letter-spacing:.5px}
+/* Rang nuqtasi termal printerda bo'sh kvadrat bo'lib chiqadi — yashiramiz */
+.nm-color-dot{display:none !important}
+` : ""}
 .nm-name-sm{font-size:11px;font-weight:700;margin-bottom:2px}
 .nm-var-sm{font-size:9px;color:#000;margin-bottom:3px}
 .nm-prem-top{background:#0D1B2A;padding:8px 10px}
@@ -3214,7 +3234,7 @@ window.onload = () => {
       const code = svg.dataset.code;
       if (!code) return;
       try {
-        JsBarcode(svg, code, { format:"CODE128", width:1.3, height:${barcodeH}, displayValue:true, fontSize:9, margin:0, textMargin:2 });
+        JsBarcode(svg, code, { format:"CODE128", width:${thermal ? 2 : 1.3}, height:${barcodeH}, displayValue:true, fontSize:${thermal ? 13 : 9}, textMargin:${thermal ? 1 : 2}, margin:${thermal ? 0 : 2} });
       } catch(e) {}
     });
   }
