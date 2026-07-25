@@ -4019,6 +4019,32 @@
           <input type="checkbox" id="import-skip-dup" checked style="cursor:pointer">
           Mavjud mahsulotlarga yangi variant qo'sh (duplikat o'tkazib yubor)
         </label>
+
+        <!-- 2026-07-25 (№11): fayldagi narxlar qaysi valyutada — TAXMIN emas,
+             foydalanuvchi ANIQ tanlaydi -->
+        <div style="margin-top:12px;padding:11px 13px;background:#FFF7ED;
+          border:1px solid #FCD9A8;border-radius:9px">
+          <div style="font-size:12.5px;font-weight:700;color:#0D1B2A;margin-bottom:7px">
+            💱 Fayldagi narxlar qaysi valyutada?
+          </div>
+          <div style="display:flex;gap:8px">
+            <label style="flex:1;display:flex;align-items:center;gap:6px;font-size:13px;
+              cursor:pointer;background:#fff;border:1.5px solid var(--brd);border-radius:8px;padding:8px 11px">
+              <input type="radio" name="imp-cur" value="uzs" checked
+                onchange="impCurrencyChanged()" style="cursor:pointer">
+              So'mda (masalan 320 000)
+            </label>
+            <label style="flex:1;display:flex;align-items:center;gap:6px;font-size:13px;
+              cursor:pointer;background:#fff;border:1.5px solid var(--brd);border-radius:8px;padding:8px 11px">
+              <input type="radio" name="imp-cur" value="usd"
+                onchange="impCurrencyChanged()" style="cursor:pointer">
+              USD da (masalan 25)
+            </label>
+          </div>
+          <div style="font-size:11px;color:var(--mut);margin-top:6px;line-height:1.35">
+            Qatorda <b>$</b> belgisi bo'lsa (masalan <b>$25</b>) — o'sha qator baribir USD deb o'qiladi.
+          </div>
+        </div>
       </div>
     </div>
 
@@ -4393,7 +4419,7 @@
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=211"></script>
-<script src="js/katalog.js?v=194"></script>
+<script src="js/katalog.js?v=195"></script>
 <script src="js/ombor.js?v=153"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
@@ -4606,7 +4632,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=32")
+    navigator.serviceWorker.register("/sw.js?v=33")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

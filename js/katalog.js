@@ -2097,6 +2097,7 @@ function readUlgAsUzs(inputId) {
 // ================================================
 
 let _importRows = [];
+let _importRawText = "";   // 2026-07-25: valyuta o'zgarsa qayta o'qish uchun
 
 function openKatalogImport() {
   _importRows = [];
@@ -2441,6 +2442,7 @@ function processImportFile(file) {
 
 // ── CSV parse ─────────────────────────────────────
 function parseImportCSV(text) {
+  _importRawText = text;   // valyuta almashsa shu matndan qayta o'qiladi
   // BOM ni olib tashlash
   const clean = text.replace(/^\uFEFF/, "").trim();
   const allLines = clean.split(/\r?\n/).filter(l => l.trim());
@@ -2561,18 +2563,38 @@ function parseImportCSV(text) {
     const boxesVal = cols.boxes >= 0 ? (parseInt(vals[cols.boxes]) || 0) : 0;
     if (boxesVal <= 0) { return; } // pochka soni bo'lmasa qatorni o'tkazib yuboramiz
 
-    // Tannarx: "$" bilan boshlansa USD, aks holda so'm → USD konversiya
+    // 2026-07-25 (№11): VALYUTA TAXMIN QILINMAYDI.
+    // Avval "1000 dan katta bo'lsa so'm" degan taxmin bor edi — qimmat
+    // USD tovar ($1200) so'm deb o'qilib, narx 13000 barobar buzilardi.
+    // Endi foydalanuvchi oynada aniq tanlaydi; qatordagi "$" ustuvor.
     const rate = db.settings?.rate || 12800;
-    let costRaw = cols.cost >= 0 ? (vals[cols.cost]?.trim() || "0") : "0";
-    let costUsd = 0;
-    if (costRaw.startsWith("$")) {
-      costUsd = parseFloat(costRaw.slice(1).replace(/[\s,]/g,"")) || 0;
-    } else {
-      const costNum = parseFloat(costRaw.replace(/[\s,]/g,"")) || 0;
-      costUsd = costNum > 1000 ? costNum / rate : costNum;
-    }
+    const _impCur = (document.querySelector('input[name="imp-cur"]:checked')||{value:"uzs"}).value;
 
-    const ulgVal = cols.ulg >= 0 ? (parseFloat((vals[cols.ulg]||"0").replace(/[\s,]/g,"")) || 0) : 0;
+    const _toUsd = (raw) => {
+      const txt = String(raw || "").trim();
+      if (!txt) return 0;
+      const hasDollar = txt.startsWith("$");
+      const num = parseFloat(txt.replace(/[$\s,]/g,"")) || 0;
+      if (num <= 0) return 0;
+      // "$" bo'lsa — qator darajasida USD (tanlovdan ustun)
+      if (hasDollar) return num;
+      return _impCur === "usd" ? num : (rate > 0 ? num / rate : 0);
+    };
+    const _toUzs = (raw) => {
+      const txt = String(raw || "").trim();
+      if (!txt) return 0;
+      const hasDollar = txt.startsWith("$");
+      const num = parseFloat(txt.replace(/[$\s,]/g,"")) || 0;
+      if (num <= 0) return 0;
+      if (hasDollar) return Math.round(num * rate);
+      return _impCur === "usd" ? Math.round(num * rate) : num;
+    };
+
+    const costRaw = cols.cost >= 0 ? (vals[cols.cost] || "0") : "0";
+    const costUsd = _toUsd(costRaw);
+
+    // Ulgurji narx SO'MDA saqlanadi — avval valyuta umuman tekshirilmasdi
+    const ulgVal = cols.ulg >= 0 ? _toUzs(vals[cols.ulg] || "0") : 0;
     const typeVal = cols.type >= 0 ? (vals[cols.type]?.trim() || "oyoq") : "oyoq";
     const catVal  = cols.cat  >= 0 ? (vals[cols.cat]?.trim()  || "Qabul qilingan") : "Qabul qilingan";
     const unitVal = normalizeUnit(cols.unit >= 0 ? vals[cols.unit] : ""); // №11a: ro'yxatda yo'q -> dona
@@ -3562,4 +3584,16 @@ function _nmLabelCss(c) {
   align-items:center;text-align:center;width:100%}
 ${c.thermal ? ".nm-color-dot{display:none}" : ""}
 `;
+}
+
+
+// ═══ IMPORT VALYUTASI O'ZGARGANDA (2026-07-25, №11) ═══
+// Narxlar tanlangan valyuta bo'yicha QAYTA o'qiladi.
+function impCurrencyChanged() {
+  if (!_importRawText) { showImportPreview(); return; }
+  try {
+    parseImportCSV(_importRawText);   // ichida showImportPreview() chaqiriladi
+  } catch(e) {
+    showImportPreview();
+  }
 }
