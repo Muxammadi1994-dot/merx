@@ -244,7 +244,11 @@ function posSearch() {
     p.sku.toLowerCase().includes(ql) ||
     (p.art && p.art.toLowerCase().includes(ql)) ||
     p.category.toLowerCase().includes(ql) ||
-    (p.barcode && p.barcode.toLowerCase().includes(ql))
+    (p.barcode && p.barcode.toLowerCase().includes(ql)) ||
+    // 2026-07-25: RANG barcode'lari ham qidiriladi. Yangi tovarlarda
+    // umumiy kod yaratilmaydi, shuning uchun ular topilmay qolardi.
+    (p.colorBarcodes && Object.values(p.colorBarcodes).some(bc =>
+      bc && String(bc).toLowerCase().includes(ql)))
   );
 
   if (!found.length) {

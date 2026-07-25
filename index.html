@@ -1007,7 +1007,8 @@
       <div class="ch">
         <h3><i class="ti ti-box"></i>Mahsulotlar</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input id="kat-q" placeholder="Qidirish, ART, SKU, barcode..." style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:220px" oninput="renderKatalog()">
+          <input id="kat-q" placeholder="Qidirish, ART, SKU, barcode..."
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:220px" oninput="renderKatalog()">
           <!-- Ko'rinish: jadval / karta -->
           <div style="display:flex;border:1.5px solid var(--brd);border-radius:var(--rs);overflow:hidden">
             <button class="kat-view-btn btn-ghost" data-v="table" onclick="setKatView('table')"
@@ -1162,7 +1163,8 @@
         </button>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <input id="om-q" placeholder="Qidirish..." oninput="omSearch()"
+        <input id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch()"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}"
           style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 12px;width:180px">
         <button class="btn btn-ghost btn-sm" onclick="omToggleCols()" title="Ustunlarni sozlash">
           <i class="ti ti-settings"></i>
@@ -4307,9 +4309,9 @@
             <label style="font-size:11px">Qog'oz o'lchami</label>
             <select id="nm-paper" onchange="nmPaperChange();renderNarxnomaPreview()"
               style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:5px 8px">
-              <option value="a4" selected>A4 (ko'p ustun)</option>
+              <option value="58x40" selected>Etiketka 58×40mm</option>
               <option value="40x30">Etiketka 40×30mm</option>
-              <option value="58x40">Etiketka 58×40mm</option>
+              <option value="a4">A4 (ko'p ustun)</option>
             </select>
           </div>
 
@@ -4418,8 +4420,8 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
-<script src="js/pos.js?v=211"></script>
-<script src="js/katalog.js?v=195"></script>
+<script src="js/pos.js?v=212"></script>
+<script src="js/katalog.js?v=196"></script>
 <script src="js/ombor.js?v=153"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
@@ -4632,7 +4634,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=33")
+    navigator.serviceWorker.register("/sw.js?v=34")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

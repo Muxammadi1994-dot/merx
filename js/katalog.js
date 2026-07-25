@@ -2895,6 +2895,8 @@ function openNarxnoma() {
   _narxnomaSelected.clear();
   openModal("narxnoma");
   setTimeout(() => {
+    // 2026-07-25: standart o'lcham (58x40) uchun ustunlar bloklanadi
+    if (typeof nmPaperChange === "function") nmPaperChange();
     renderNarxnomaList();
     renderNarxnomaPreview();
   }, 30);
