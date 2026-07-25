@@ -4265,7 +4265,8 @@
       <!-- Chap panel: mahsulot tanlash -->
       <div style="border-right:1px solid var(--brd);display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:12px 14px;border-bottom:1px solid var(--brd);flex-shrink:0">
-          <input id="nm-q" placeholder="Nom, ART, SKU qidirish..."
+          <input id="nm-q" placeholder="Nom, ART, SKU, barcode..."
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}"
             oninput="renderNarxnomaList()"
             style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 10px">
           <div style="display:flex;gap:6px;margin-top:8px">
@@ -4421,7 +4422,7 @@
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=212"></script>
-<script src="js/katalog.js?v=196"></script>
+<script src="js/katalog.js?v=197"></script>
 <script src="js/ombor.js?v=153"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
@@ -4634,7 +4635,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=34")
+    navigator.serviceWorker.register("/sw.js?v=35")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

@@ -708,10 +708,14 @@ function duplicateProduct(sku, event) {
   copy.id   = db.seq;
   copy.name = p.name + " (nusxa)";
   copy.barcode = genEAN13 ? genEAN13(db.seq++) : "";
+  // 2026-07-25: rang barcode'lari NUSXALANMAYDI — aks holda ikki xil
+  // tovarda bir xil kod bo'lib, skanerlanganda qaysi biri ekani noaniq edi
+  copy.colorBarcodes = {};
   // Variantlar qoldig'ini 0 qilamiz
   copy.variants = copy.variants.map(v => ({ ...v, qty: 0 }));
 
   db.products.push(copy);
+  try { ensureColorBarcodes(copy); } catch(e) {}
   db.seq = (db.seq || 1) + 1;
   saveDB();
   renderKatalog();
@@ -1182,6 +1186,7 @@ function epConfirmAddColor() {
     variants: [{ color, size: (from === to ? from : from + "-" + to),
                  qty: boxes * sizeRange.length, pantone, hex }]
   });
+  try { ensureColorBarcodes(db.products[db.products.length-1]); } catch(e) {}
   saveDB(); renderKatalog();
   toast(`"${color}" alohida tovar sifatida ochildi (narxlar nusxalandi)`);
   epCloseAddColor();
@@ -1436,6 +1441,7 @@ function splitColors() {
         barcode: (p.colorBarcodes && p.colorBarcodes[c]) || genEAN13(db.seq++),
         variants: p.variants.filter(v => v.color === c)
       });
+      try { ensureColorBarcodes(db.products[db.products.length-1]); } catch(e) {}
     });
     p.variants = p.variants.filter(v => v.color === colors[0]);
   });
@@ -2909,6 +2915,10 @@ function renderNarxnomaList() {
   const ps = db.products.filter(p =>
     !q || p.name.toLowerCase().includes(q) || (p.sku||"").toLowerCase().includes(q)
        || (p.art||"").toLowerCase().includes(q) // 2026-07-20 (№5): art bo'yicha ham
+       // 2026-07-25: BARCODE bo'yicha ham (skanerlab yorliq chiqarish uchun)
+       || (p.barcode && String(p.barcode).toLowerCase().includes(q))
+       || (p.colorBarcodes && Object.values(p.colorBarcodes).some(bc =>
+            bc && String(bc).toLowerCase().includes(q)))
   );
   // 2026-07-25: ro'yxat endi RANG darajasida — etiketka ham rang bo'yicha
   // chiqadi. Qoldig'i 0 bo'lganlar KO'RSATILMAYDI (chop etish ma'nosiz).
