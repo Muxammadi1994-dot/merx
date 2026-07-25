@@ -3661,7 +3661,7 @@ function _apCreateExtraColor(base, cd, batchId) {
     priceUzs: base.priceUzs || 0,
     ulgurjiNarx: ulg,
     barcode: (typeof genEAN13 === "function") ? genEAN13(db.seq) : "",
-    image: base.image || "",
+    image: cd.image || base.image || "",   // rangning o'z rasmi ustuvor
     createdAt: new Date().toISOString(),
     variantGroup: batchId || "",      // variativ guruh belgisi
     variants: [{
@@ -3728,6 +3728,10 @@ function apToggleVariativ() {
   // ular jadvalda kiritiladi, pastda turishi chalg'itardi
   const single = document.getElementById("ap-single-fields");
   if (single) single.style.display = _apVarOn ? "none" : "";
+  // Tannarx, ulgurji, chakana, rasm — jadvalda kiritiladi
+  document.querySelectorAll(".ap-hide-var").forEach(el => {
+    el.style.display = _apVarOn ? "none" : "";
+  });
 
   if (_apVarOn) {
     apVarFillSuggestions();
@@ -3809,6 +3813,15 @@ function apVarRenderTable() {
 
   tbody.innerHTML = _apVarColors.map((c, i) => `
     <tr data-vrow="${i}" style="border-top:1px solid var(--brd)">
+      <td style="padding:4px;text-align:center">
+        <div onclick="apVarPickImage(${i})" title="Rasm qo'shish"
+          style="width:32px;height:32px;border-radius:6px;border:1.5px dashed var(--brd);
+          cursor:pointer;display:flex;align-items:center;justify-content:center;
+          overflow:hidden;background:var(--bg)" id="vr-img-${i}">
+          ${c.image ? `<img src="${c.image}" style="width:100%;height:100%;object-fit:cover">`
+                    : `<i class="ti ti-camera-plus" style="font-size:14px;color:#bbb"></i>`}
+        </div>
+      </td>
       <td style="padding:5px 8px;white-space:nowrap">
         <span style="display:inline-block;width:11px;height:11px;border-radius:3px;
           background:${c.hex};border:1px solid rgba(0,0,0,.15);vertical-align:middle"></span>
@@ -3881,6 +3894,7 @@ function _apVarReadRows() {
   return [...document.querySelectorAll("#ap-var-tbody tr")].map((r, i) => ({
     color: _apVarColors[i]?.name || "",
     hex:   _apVarColors[i]?.hex  || "#888888",
+    image: _apVarColors[i]?.image || "",
     boxes: parseInt(r.querySelector(".vr-boxes")?.value) || 0,
     inbox: parseInt(r.querySelector(".vr-inbox")?.value) || 1,
     cost:  (typeof getRawVal === "function")
@@ -3901,6 +3915,7 @@ function _apVarReset() {
   const w = document.getElementById("ap-var-table-wrap"); if (w) w.style.display = "none";
   const tb = document.getElementById("ap-var-tbody");  if (tb) tb.innerHTML = "";
   const sf = document.getElementById("ap-single-fields"); if (sf) sf.style.display = "";
+  document.querySelectorAll(".ap-hide-var").forEach(el => { el.style.display = ""; });
 }
 
 // ═══ VARIATIV TOVAR QO'SHISH (2026-07-25, №3) ═══
@@ -3918,21 +3933,15 @@ function apAddVariativ(name) {
   const category = ($("ap-cat")||{value:""}).value;
   const unit     = ($("ap-unit")||{value:"dona"}).value;
   const packUnit = ($("ap-packunit")||{value:"karobka"}).value;
-  const price    = (typeof getRawVal === "function") ? (getRawVal("ap-price") || 0) : 0;
 
   // Barcha ranglar uchun umumiy "asos" — jadvalda narx yozilmagan
   // qatorlar shundan oladi
-  // Yuqoridagi umumiy narxlar — jadvalda yozilmagan qatorlar shundan oladi
-  const curMode = db.settings?.priceCurrency || "uzs";
-  const rate    = db.settings?.rate || 12800;
-  const costRaw = (typeof getRawVal === "function") ? (getRawVal("ap-cost") || 0) : 0;
-  const baseCost = (curMode === "usd" || curMode === "both") ? costRaw : costRaw / rate;
-  const baseUlg  = (typeof readUlgAsUzs === "function") ? (readUlgAsUzs("ap-ulgurji") || 0) : 0;
-
+  // 2026-07-25: variativda narxlar FAQAT jadvaldan olinadi — yuqoridagi
+  // tannarx/ulgurji/chakana maydonlari yashirilgan (chalg'itmasin)
   const base = {
     name, art, category, type: t, unit, packUnit,
-    inBox: 1, costUsd: baseCost, priceUzs: price, ulgurjiNarx: baseUlg,
-    image: apPendingImage || ""
+    inBox: 1, costUsd: 0, priceUzs: 0, ulgurjiNarx: 0,
+    image: ""
   };
 
   // Bitta partiya — kirim tarixida bir joyda turadi
@@ -3949,4 +3958,45 @@ function apAddVariativ(name) {
   renderKatalog();
   apResetAddForm();
   toast(`✅ "${name}" — ${created} ta rang qo'shildi`);
+}
+
+// ═══ VARIATIV JADVALDA RASM (2026-07-25, №3) ═══
+// Har rangga o'z rasmi (ixtiyoriy). Siqish asosiy oqim bilan bir xil.
+function apVarPickImage(i) {
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = "image/*";
+  inp.onchange = () => {
+    const file = inp.files && inp.files[0];
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      toast("Fayl juda katta (15MB+) — bu rasm emasga o'xshaydi", "err"); return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        // 400px gacha siqamiz (asosiy oqimdagi kabi)
+        const max = 400;
+        let w = img.width, h = img.height;
+        if (w > max || h > max) {
+          if (w > h) { h = Math.round(h * max / w); w = max; }
+          else       { w = Math.round(w * max / h); h = max; }
+        }
+        const cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        const dataUrl = cv.toDataURL("image/jpeg", 0.72);
+
+        if (_apVarColors[i]) _apVarColors[i].image = dataUrl;
+        const cell = document.getElementById("vr-img-" + i);
+        if (cell) cell.innerHTML =
+          `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover">`;
+        toast("Rasm qo'shildi");
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  inp.click();
 }

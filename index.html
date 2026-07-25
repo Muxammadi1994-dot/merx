@@ -3033,11 +3033,12 @@
           <table id="ap-var-table" style="width:100%;border-collapse:collapse;font-size:12.5px">
             <thead>
               <tr style="background:var(--bg)">
+                <th style="width:38px;padding:7px 4px;font-size:11px;color:var(--mut)">RASM</th>
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">RANG</th>
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">POCHKA</th>
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">POCHKADA</th>
-                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">TANNARX*</th>
-                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">ULGURJI*</th>
+                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">TANNARX</th>
+                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">ULGURJI</th>
                 <th style="width:28px"></th>
               </tr>
             </thead>
@@ -3045,14 +3046,15 @@
           </table>
           <div id="ap-var-total" style="font-size:12px;color:var(--mut);margin-top:7px"></div>
           <div style="font-size:11px;color:var(--mut);margin-top:4px;line-height:1.35">
-            * Bo'sh qoldirilsa — yuqoridagi umumiy tannarx/ulgurji narx ishlatiladi
+            Rasm ixtiyoriy — keyin ham qo'shsa bo'ladi.
+            Birinchi qatorga yozganda "barchasiga qo'llash" taklifi chiqadi.
           </div>
         </div>
       </div>
     </div>
 
     <!-- Rasm yuklash (ixtiyoriy) -->
-    <div class="fld ap-field" data-apf="image" style="margin-bottom:14px">
+    <div class="fld ap-field ap-hide-var" data-apf="image" style="margin-bottom:14px">
       <label>Rasm <span style="font-weight:400;color:var(--mut)">(ixtiyoriy)</span></label>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="ap-img-preview" onclick="apImgView()" style="width:64px;height:64px;border-radius:9px;
@@ -3093,17 +3095,17 @@
     <p style="font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Narxlar</p>
 
     <div class="r3">
-      <div class="fld ap-field" data-apf="cost">
+      <div class="fld ap-field ap-hide-var" data-apf="cost">
         <label id="ap-cost-lbl">Tannarx</label>
         <input id="ap-cost" type="text" data-price placeholder="0" oninput="priceInputHandler(this);apCostNote()">
         <div id="ap-cost-note" style="font-size:11px;color:var(--mut);margin-top:4px"></div>
       </div>
-      <div class="fld">
+      <div class="fld ap-hide-var">
         <label id="ap-ulgurji-lbl">Ulgurji narx (so'm)</label>
         <input id="ap-ulgurji" type="text" data-price placeholder="0" oninput="priceInputHandler(this);apCostNote()">
         <div id="ap-ulgurji-note" style="font-size:11px;color:var(--mut);margin-top:4px"></div>
       </div>
-      <div class="fld ap-field" data-apf="chakana">
+      <div class="fld ap-field ap-hide-var" data-apf="chakana">
         <label>Chakana narx <span style="font-weight:400;color:var(--mut)">(so'm)</span></label>
         <input id="ap-price" type="text" data-price placeholder="0" oninput="fmtInput(this)">
       </div>
@@ -4478,7 +4480,7 @@
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=212"></script>
-<script src="js/katalog.js?v=202"></script>
+<script src="js/katalog.js?v=203"></script>
 <script src="js/ombor.js?v=153"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
@@ -4691,7 +4693,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=40")
+    navigator.serviceWorker.register("/sw.js?v=41")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
