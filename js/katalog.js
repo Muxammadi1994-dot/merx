@@ -3240,7 +3240,18 @@ window.onload = () => {
 <\/script>
 </body></html>`);
   w.document.close();
-  toast("✅ Chop etish oynasi ochildi");
+
+  // 2026-07-25: chop etilgach tanlov va qidiruv AVTOMAT tozalanadi —
+  // keyingi tovarni qidirganda eskilari aralashib qolmasin
+  try {
+    _narxnomaSelected.clear();
+    const qEl = document.getElementById("nm-q");
+    if (qEl) qEl.value = "";
+    renderNarxnomaList();
+    renderNarxnomaPreview();
+  } catch(e) {}
+
+  toast("✅ Chop etish oynasi ochildi — tanlov tozalandi");
 }
 
 // ── Katalog jadvalidan rasm yuklash ──────────────
@@ -3487,8 +3498,8 @@ function _nmLabelCss(c) {
     : "";
   return `
 .nm-label{${box}padding:${c.padMm}mm;font-family:Arial,sans-serif;background:#fff;
-  display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;
-  break-inside:avoid;box-sizing:border-box}
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  text-align:center;overflow:hidden;break-inside:avoid;box-sizing:border-box}
 .nm-l-top{display:flex;flex-direction:column;gap:1px;min-height:0}
 .nm-name,.nm-name-sm{font-size:${c.fName}px;font-weight:800;color:#000;line-height:1.15;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0}
@@ -3498,7 +3509,8 @@ function _nmLabelCss(c) {
 .nm-price-usd,.nm-price-ulg,.nm-sku,.nm-shop{font-size:${c.fSmall}px;color:#000;line-height:1.15;margin:0}
 .nm-barcode{width:100%;margin:0 0 1px;text-align:center}
 .nm-barcode-svg{width:100%;height:auto;display:block}
-.nm-l-body{display:flex;flex-direction:column;gap:0;min-height:0;overflow:hidden}
+.nm-l-body{display:flex;flex-direction:column;gap:0;min-height:0;overflow:hidden;
+  align-items:center;text-align:center;width:100%}
 ${c.thermal ? ".nm-color-dot{display:none}" : ""}
 `;
 }
