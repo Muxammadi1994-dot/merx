@@ -3036,14 +3036,17 @@
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">RANG</th>
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">POCHKA</th>
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">POCHKADA</th>
-                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">TANNARX</th>
-                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">ULGURJI</th>
+                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">TANNARX*</th>
+                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">ULGURJI*</th>
                 <th style="width:28px"></th>
               </tr>
             </thead>
             <tbody id="ap-var-tbody"></tbody>
           </table>
           <div id="ap-var-total" style="font-size:12px;color:var(--mut);margin-top:7px"></div>
+          <div style="font-size:11px;color:var(--mut);margin-top:4px;line-height:1.35">
+            * Bo'sh qoldirilsa — yuqoridagi umumiy tannarx/ulgurji narx ishlatiladi
+          </div>
         </div>
       </div>
     </div>
@@ -3111,6 +3114,9 @@
     </div>
 
     <div class="sep"></div>
+    <!-- 2026-07-25: variativ yoqilganda BU BO'LIM yashiriladi —
+         pochka, o'lcham, narx jadvalda kiritiladi -->
+    <div id="ap-single-fields">
     <p style="font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Rang va o'lcham</p>
 
     <!-- Rang -->
@@ -3190,6 +3196,7 @@
         </div>
       </div>
     </div>
+    </div><!-- /ap-single-fields -->
 
     <!-- Field sozlash panel (yashirin) -->
     <div id="ap-fields-panel" style="display:none;border:1.5px solid var(--acc);border-radius:10px;
@@ -4471,7 +4478,7 @@
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=212"></script>
-<script src="js/katalog.js?v=201"></script>
+<script src="js/katalog.js?v=202"></script>
 <script src="js/ombor.js?v=153"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
@@ -4684,7 +4691,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=39")
+    navigator.serviceWorker.register("/sw.js?v=40")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

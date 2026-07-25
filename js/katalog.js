@@ -1491,6 +1491,11 @@ function addProduct() {
   const name = ($("ap-name")||{value:""}).value.trim();
   if (!name) { toast("Nom kiriting","err"); return; }
 
+  // 2026-07-25 (№3): VARIATIV rejim — butunlay alohida oqim.
+  // Rang, pochka, narx jadvalda kiritilgani uchun quyidagi
+  // tekshiruvlar (rang, pochka) bu yerda o'tkazilmaydi.
+  if (_apVarOn) { apAddVariativ(name); return; }
+
   const color   = ($("ap-color")||{value:""}).value.trim();
   if (!color) { toast("Rang tanlang","err"); return; }
 
@@ -1621,27 +1626,9 @@ function addProduct() {
   // 2026-07-25 (№3): jadvalda qo'shimcha ranglar bo'lsa — har biri uchun
   // ALOHIDA tovar yaratamiz (B1 qarori). Jadval bo'sh bo'lsa hech narsa
   // o'zgarmaydi — eski oqim aynan avvalgidek ishlaydi.
-  let _extraCount = 0;
-  try {
-    if (_apVarOn) {
-      const _rows = _apVarReadRows();
-      const _base = db.products[db.products.length - 1] ||
-                    db.products.find(x => x.name === name);
-      // Bitta partiya raqami — kirim tarixida hammasi BIR kirim bo'lib turadi
-      const _batchId = "Variativ " + today() + " " +
-                       (typeof nowTime === "function" ? nowTime() : "");
-      _rows.forEach(cd => {
-        if (_apCreateExtraColor(_base, cd, _batchId)) _extraCount++;
-      });
-      _apVarReset();
-    }
-  } catch(e) { console.warn("Variativ kiritish:", e.message); }
-
   saveDB(); closeModal("addprod"); renderKatalog();
   apResetAddForm(); // v160: keyingi tovar uchun forma toza turishi kerak
-  toast(_extraCount > 0
-    ? `"${name}" + ${_extraCount} ta rang qo'shildi`
-    : `"${name}" qo'shildi`);
+  toast(`"${name}" qo'shildi`);
 
   // Formani tozalash
   if ($("ap-name"))       $("ap-name").value       = "";
@@ -3737,6 +3724,11 @@ function apToggleVariativ() {
     btn.style.color       = _apVarOn ? "#fff" : "#0D1B2A";
     btn.style.borderStyle = _apVarOn ? "solid" : "dashed";
   }
+  // 2026-07-25: variativda pochka/o'lcham/rang maydonlari YASHIRILADI —
+  // ular jadvalda kiritiladi, pastda turishi chalg'itardi
+  const single = document.getElementById("ap-single-fields");
+  if (single) single.style.display = _apVarOn ? "none" : "";
+
   if (_apVarOn) {
     apVarFillSuggestions();
     setTimeout(() => document.getElementById("ap-var-colorinp")?.focus(), 50);
@@ -3908,4 +3900,53 @@ function _apVarReset() {
   const c = document.getElementById("ap-var-chips");   if (c) c.innerHTML = "";
   const w = document.getElementById("ap-var-table-wrap"); if (w) w.style.display = "none";
   const tb = document.getElementById("ap-var-tbody");  if (tb) tb.innerHTML = "";
+  const sf = document.getElementById("ap-single-fields"); if (sf) sf.style.display = "";
+}
+
+// ═══ VARIATIV TOVAR QO'SHISH (2026-07-25, №3) ═══
+// Jadvaldagi har rang uchun alohida tovar yaratiladi.
+// Kirim tarixida hammasi BITTA partiya bo'lib ko'rinadi.
+function apAddVariativ(name) {
+  const rows = _apVarReadRows();
+  if (!rows.length) { toast("Kamida bitta rang qo'shing", "err"); return; }
+
+  const bad = rows.find(r => r.boxes <= 0);
+  if (bad) { toast(`"${bad.color}" uchun pochka sonini kiriting`, "err"); return; }
+
+  const t        = currentApType || "oyoq";
+  const art      = ($("ap-art")||{value:""}).value.trim();
+  const category = ($("ap-cat")||{value:""}).value;
+  const unit     = ($("ap-unit")||{value:"dona"}).value;
+  const packUnit = ($("ap-packunit")||{value:"karobka"}).value;
+  const price    = (typeof getRawVal === "function") ? (getRawVal("ap-price") || 0) : 0;
+
+  // Barcha ranglar uchun umumiy "asos" — jadvalda narx yozilmagan
+  // qatorlar shundan oladi
+  // Yuqoridagi umumiy narxlar — jadvalda yozilmagan qatorlar shundan oladi
+  const curMode = db.settings?.priceCurrency || "uzs";
+  const rate    = db.settings?.rate || 12800;
+  const costRaw = (typeof getRawVal === "function") ? (getRawVal("ap-cost") || 0) : 0;
+  const baseCost = (curMode === "usd" || curMode === "both") ? costRaw : costRaw / rate;
+  const baseUlg  = (typeof readUlgAsUzs === "function") ? (readUlgAsUzs("ap-ulgurji") || 0) : 0;
+
+  const base = {
+    name, art, category, type: t, unit, packUnit,
+    inBox: 1, costUsd: baseCost, priceUzs: price, ulgurjiNarx: baseUlg,
+    image: apPendingImage || ""
+  };
+
+  // Bitta partiya — kirim tarixida bir joyda turadi
+  const batchId = "Variativ " + today() +
+    (typeof nowTime === "function" ? " " + nowTime() : "");
+
+  let created = 0;
+  rows.forEach(cd => { if (_apCreateExtraColor(base, cd, batchId)) created++; });
+
+  if (!created) { toast("Tovar qo'shilmadi", "err"); return; }
+
+  saveDB();
+  closeModal("addprod");
+  renderKatalog();
+  apResetAddForm();
+  toast(`✅ "${name}" — ${created} ta rang qo'shildi`);
 }
