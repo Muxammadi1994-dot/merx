@@ -3077,6 +3077,27 @@
         <label>Pantone kodi</label>
         <input id="ap-pantone" placeholder="Black C" style="font-family:monospace">
       </div>
+    </div>
+
+    <!-- 2026-07-25 (№3): KO'P RANGNI BIR OYNADA kiritish.
+         Bo'sh qoldirilsa — yuqoridagi bitta rang bilan avvalgidek ishlaydi. -->
+    <div class="ap-field" data-apf="multicolor" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;
+        background:#FFF7ED;border:1px solid #FCD9A8;border-radius:9px;padding:9px 12px">
+        <div>
+          <div style="font-size:12.5px;font-weight:700;color:#0D1B2A">🎨 Yana ranglar</div>
+          <div style="font-size:11px;color:var(--mut);margin-top:2px">
+            Bir xil tovar, boshqa ranglar — har biriga o'z pochka soni
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="apAddColorRow()">
+          <i class="ti ti-plus"></i> Rang qo'shish
+        </button>
+      </div>
+      <div id="ap-colors-list" style="margin-top:8px"></div>
+    </div>
+
+    <div class="r3" style="margin-bottom:12px">
       <div class="fld ap-field" data-apf="hex">
         <label>Rang (hex)</label>
         <div style="display:flex;gap:8px;align-items:center">
@@ -4422,7 +4443,7 @@
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=212"></script>
-<script src="js/katalog.js?v=198"></script>
+<script src="js/katalog.js?v=200"></script>
 <script src="js/ombor.js?v=153"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
@@ -4635,7 +4656,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=36")
+    navigator.serviceWorker.register("/sw.js?v=38")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

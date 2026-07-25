@@ -1161,7 +1161,9 @@ function epConfirmAddColor() {
   const hex     = ($("epa-hex")||{value:"#888"}).value;
   const from    = ($("epa-size-from")||{value:""}).value;
   const to      = ($("epa-size-to")||{value:""}).value;
-  if (!from || !to) { toast("O'lchamni tanlang","err"); return; }
+  // 2026-07-25 (№10 regressiyasi): o'lcham endi IXTIYORIY — standart
+  // "39-44" shabloni olib tashlangach bu tekshiruv rang qo'shishni
+  // butunlay to'sib qo'ygan edi.
 
   const boxes = parseInt(($("epa-boxes")||{value:0}).value) || 0;
   if (boxes <= 0) { toast("Pochka sonini kiriting","err"); return; }
@@ -1169,9 +1171,10 @@ function epConfirmAddColor() {
   const allSizes = SIZES[p.type] || [];
   const iFrom = allSizes.indexOf(from), iTo = allSizes.indexOf(to);
   let sizeRange;
-  if (from === to) sizeRange = [from];
+  if (!from && !to)      sizeRange = [""];        // o'lcham belgilanmagan
+  else if (from === to)  sizeRange = [from || to];
   else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) sizeRange = allSizes.slice(iFrom, iTo+1);
-  else sizeRange = [from, to];
+  else sizeRange = [from, to].filter(Boolean);
 
   // B1 (v147): yangi rang SHU tovarga qo'shilmaydi — ALOHIDA TOVAR
   // sifatida ochiladi (narxlar nusxalanadi, keyin mustaqil o'zgaradi)
@@ -1615,9 +1618,27 @@ function addProduct() {
     });
   });
 
+  // 2026-07-25 (№3): jadvalda qo'shimcha ranglar bo'lsa — har biri uchun
+  // ALOHIDA tovar yaratamiz (B1 qarori). Jadval bo'sh bo'lsa hech narsa
+  // o'zgarmaydi — eski oqim aynan avvalgidek ishlaydi.
+  let _extraCount = 0;
+  try {
+    const _extra = _apReadColorRows();
+    if (_extra.length) {
+      const _base = db.products[db.products.length - 1] ||
+                    db.products.find(x => x.name === name);
+      _extra.forEach(cd => {
+        if (_apCreateExtraColor(_base, cd)) _extraCount++;
+      });
+    }
+    _apClearColorRows();
+  } catch(e) { console.warn("Qo'shimcha ranglar:", e.message); }
+
   saveDB(); closeModal("addprod"); renderKatalog();
   apResetAddForm(); // v160: keyingi tovar uchun forma toza turishi kerak
-  toast(`"${name}" qo'shildi`);
+  toast(_extraCount > 0
+    ? `"${name}" + ${_extraCount} ta rang qo'shildi`
+    : `"${name}" qo'shildi`);
 
   // Formani tozalash
   if ($("ap-name"))       $("ap-name").value       = "";
@@ -1761,6 +1782,8 @@ function imgSrcPick(kind) {
 // keyin va modal qaytadan ochilganda eski ma'lumot (nom, rang, pochka,
 // rasm...) qolib ketmasligi uchun
 function apResetAddForm() {
+  // 2026-07-25 (№3): qo'shimcha ranglar jadvali ham tozalanadi
+  try { _apClearColorRows(); } catch(e) {}
   ["ap-name","ap-art","ap-color"].forEach(id => { if ($(id)) $(id).value = ""; });
   if ($("ap-boxes")) $("ap-boxes").value = "";
   if ($("ap-inbox-calc")) $("ap-inbox-calc").value = "";
@@ -3614,4 +3637,126 @@ function impCurrencyChanged() {
   } catch(e) {
     showImportPreview();
   }
+}
+
+// ═══ KO'P RANGNI BIR OYNADA KIRITISH (2026-07-25, №3) ═══
+// Qo'shimcha ranglar jadvali. Bo'sh bo'lsa — eski oqim (bitta rang)
+// hech qanday o'zgarishsiz ishlaydi.
+let _apColorRows = 0;
+
+function apAddColorRow() {
+  const box = document.getElementById("ap-colors-list");
+  if (!box) return;
+  const i = _apColorRows++;
+  const row = document.createElement("div");
+  row.className = "ap-color-row";
+  row.dataset.idx = i;
+  row.style.cssText = "display:grid;grid-template-columns:1.3fr 44px 0.8fr 1.4fr 32px;" +
+    "gap:6px;align-items:center;margin-bottom:6px";
+  row.innerHTML = `
+    <input class="apc-name" placeholder="Rang nomi" style="font-size:13px">
+    <input class="apc-hex" type="color" value="#888888"
+      style="width:40px;height:34px;border:1px solid var(--brd);border-radius:7px;padding:2px;cursor:pointer">
+    <input class="apc-boxes" type="number" min="0" placeholder="Pochka"
+      inputmode="numeric" style="font-size:13px">
+    <input class="apc-mix" placeholder="40x1, 41x2 (ixtiyoriy)" style="font-size:12.5px">
+    <button type="button" onclick="this.closest('.ap-color-row').remove()"
+      title="O'chirish" style="background:none;border:none;color:var(--red);
+      font-size:18px;cursor:pointer;padding:2px">×</button>`;
+  box.appendChild(row);
+  row.querySelector(".apc-name")?.focus();
+}
+
+// Jadvaldagi ranglarni o'qish
+function _apReadColorRows() {
+  return [...document.querySelectorAll("#ap-colors-list .ap-color-row")].map(r => ({
+    color: (r.querySelector(".apc-name")?.value || "").trim(),
+    hex:   r.querySelector(".apc-hex")?.value || "#888888",
+    boxes: parseInt(r.querySelector(".apc-boxes")?.value) || 0,
+    mix:   (r.querySelector(".apc-mix")?.value || "").trim()
+  })).filter(r => r.color);   // nomsiz qatorlar hisobga olinmaydi
+}
+
+function _apClearColorRows() {
+  const box = document.getElementById("ap-colors-list");
+  if (box) box.innerHTML = "";
+  _apColorRows = 0;
+}
+
+// Qo'shimcha rang uchun ALOHIDA tovar yaratadi (B1 qarori, v147 bo'yicha).
+// Asosiy tovardan nom, artikul, narx, tur nusxalanadi; rang va qoldiq o'ziniki.
+function _apCreateExtraColor(base, cd) {
+  if (!base || !cd || !cd.color) return null;
+
+  // Pochka tarkibi berilgan bo'lsa — undan, aks holda asosiy inBox
+  let inBox = base.inBox || 1;
+  let sizes = [""];
+  if (cd.mix) {
+    const parsed = [];
+    cd.mix.split(",").forEach(part => {
+      const m = part.trim().match(/^(.+?)\s*[x×*]\s*(\d+)$/i);
+      if (m) parsed.push({ size: m[1].trim(), qty: parseInt(m[2]) || 0 });
+    });
+    if (parsed.length) {
+      inBox = parsed.reduce((a, x) => a + x.qty, 0) || 1;
+      sizes = parsed;
+    }
+  }
+
+  const newId = db.seq++;
+  const prod = {
+    id: newId,
+    sku: `${base.type === "oyoq" ? "SHOE" : "CLTH"}-${String(newId).padStart(3,"0")}`,
+    name: base.name,
+    category: base.category || "",
+    type: base.type,
+    unit: base.unit,
+    inBox: inBox,
+    packUnit: base.packUnit,
+    art: base.art || "",
+    costUsd: base.costUsd || 0,
+    priceUzs: base.priceUzs || 0,
+    ulgurjiNarx: base.ulgurjiNarx || 0,
+    barcode: (typeof genEAN13 === "function") ? genEAN13(db.seq) : "",
+    image: base.image || "",
+    createdAt: new Date().toISOString(),
+    variants: []
+  };
+
+  // Variantlar: pochka tarkibi bo'yicha yoki yagona
+  if (Array.isArray(sizes) && sizes.length && typeof sizes[0] === "object") {
+    sizes.forEach(sz => {
+      prod.variants.push({
+        color: cd.color, size: sz.size,
+        qty: sz.qty * (cd.boxes || 0),
+        pantone: "", hex: cd.hex || "#888888"
+      });
+    });
+  } else {
+    prod.variants.push({
+      color: cd.color, size: "",
+      qty: (cd.boxes || 0) * inBox,
+      pantone: "", hex: cd.hex || "#888888"
+    });
+  }
+
+  db.products.push(prod);
+  try { ensureColorBarcodes(prod); } catch(e) {}
+
+  // Kirim tarixiga yozamiz (asosiy oqim bilan bir xil)
+  const _rate = db.settings?.rate || 12800;
+  prod.variants.forEach(v => {
+    if (!v.qty || v.qty <= 0) return;
+    db.ombor.push({
+      id: db.seq++,
+      date: today(),
+      time: (typeof nowTime === "function" ? nowTime() : ""),
+      sku: prod.sku, name: prod.name, color: v.color, size: v.size,
+      qty: v.qty, unit: prod.unit,
+      cost: Math.round((prod.costUsd || 0) * _rate),
+      type: "kirim", note: "Qo'lda (ko'p rang)"
+    });
+  });
+
+  return prod;
 }
