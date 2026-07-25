@@ -4349,6 +4349,11 @@
                 style="width:15px;height:15px;accent-color:#E9A500">
               📦 Pochka barcode
             </label>
+            <!-- 2026-07-25: nima qilishini tushuntiruvchi izoh -->
+            <div style="font-size:11px;color:var(--mut);flex-basis:100%;margin-top:2px;line-height:1.35">
+              Belgilansa: har rangga <b>1 ta</b> yorliq (pochkaga yopishtiriladi).<br>
+              Belgilanmasa: har o'lchamga <b>alohida</b> yorliq (har donaga).
+            </div>
           </div>
 
           <button class="btn btn-acc" onclick="printNarxnoma()" style="margin-left:auto;white-space:nowrap">
@@ -4383,7 +4388,7 @@
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=211"></script>
-<script src="js/katalog.js?v=192"></script>
+<script src="js/katalog.js?v=193"></script>
 <script src="js/ombor.js?v=153"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
@@ -4596,7 +4601,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=30")
+    navigator.serviceWorker.register("/sw.js?v=31")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

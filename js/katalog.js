@@ -2885,18 +2885,39 @@ function renderNarxnomaList() {
     !q || p.name.toLowerCase().includes(q) || (p.sku||"").toLowerCase().includes(q)
        || (p.art||"").toLowerCase().includes(q) // 2026-07-20 (№5): art bo'yicha ham
   );
-  el.innerHTML = ps.map(p => {
-    const st  = totalStock(p);
-    const sel = _narxnomaSelected.has(p.sku);
-    return `<label class="nm-prod-item ${sel?"nm-sel":""}" onclick="toggleNmProd('${p.sku}')">
+  // 2026-07-25: ro'yxat endi RANG darajasida — etiketka ham rang bo'yicha
+  // chiqadi. Qoldig'i 0 bo'lganlar KO'RSATILMAYDI (chop etish ma'nosiz).
+  const rows = [];
+  ps.forEach(p => {
+    [...new Set(p.variants.map(v => v.color).filter(Boolean))].forEach(color => {
+      const vars = p.variants.filter(v => v.color === color);
+      const dona = vars.reduce((a, v) => a + (v.qty || 0), 0);
+      if (dona <= 0) return;                       // nol qoldiq — chiqmaydi
+      const pi = (typeof packInfo === "function") ? packInfo(p, vars) : {maxPochka:0};
+      rows.push({ p, color, dona, pochka: pi.maxPochka || 0, sizes: vars.length });
+    });
+  });
+
+  el.innerHTML = rows.map(({p, color, dona, pochka, sizes}) => {
+    const key = p.sku + "::" + color;
+    const sel = _narxnomaSelected.has(key);
+    const art = p.art ? ` <span style="color:var(--mut)">${p.art}</span>` : "";
+    const parts = [];
+    if (pochka > 0) parts.push(`<b>${pochka}</b> pochka`);
+    parts.push(`<b>${dona}</b> dona`);
+    if (sizes > 1) parts.push(`${sizes} o'lcham`);
+    return `<label class="nm-prod-item ${sel?"nm-sel":""}" onclick="toggleNmProd('${jsEsc(key)}')">
       <div class="nm-check">${sel?"✓":""}</div>
       <div class="nm-prod-info">
-        <div class="nm-prod-name">${p.name}</div>
-        <div class="nm-prod-meta">${p.category} · ${st} ${p.unit||"dona"} · ${fmt(p.priceUzs)} so'm</div>
+        <div class="nm-prod-name">${p.name}${art}</div>
+        <div class="nm-prod-meta">
+          <span style="font-weight:700;color:#0D1B2A">${color}</span> ·
+          ${parts.join(" · ")} · ${fmt(p.priceUzs || p.ulgurjiNarx || 0)} so'm
+        </div>
       </div>
-      <div class="nm-prod-right">${p.variants.length} rang/o'lcham</div>
     </label>`;
-  }).join("") || `<div style="text-align:center;padding:20px;color:var(--mut)">Mahsulot yo'q</div>`;
+  }).join("") || `<div style="text-align:center;padding:20px;color:var(--mut)">
+      Qoldiqli mahsulot yo'q</div>`;
   updateNmCount();
 }
 
@@ -2908,9 +2929,19 @@ function toggleNmProd(sku) {
 }
 
 function nmSelectAll() {
+  // 2026-07-25: rang darajasida, faqat QOLDIQLI ranglar
   const q = (document.getElementById("nm-q")||{value:""}).value.toLowerCase();
-  db.products.filter(p => !q || p.name.toLowerCase().includes(q))
-    .forEach(p => _narxnomaSelected.add(p.sku));
+  db.products.filter(p => !q ||
+      p.name.toLowerCase().includes(q) ||
+      (p.sku||"").toLowerCase().includes(q) ||
+      (p.art||"").toLowerCase().includes(q))
+    .forEach(p => {
+      [...new Set(p.variants.map(v => v.color).filter(Boolean))].forEach(color => {
+        const dona = p.variants.filter(v => v.color === color)
+                               .reduce((a,v) => a + (v.qty||0), 0);
+        if (dona > 0) _narxnomaSelected.add(p.sku + "::" + color);
+      });
+    });
   renderNarxnomaList();
   renderNarxnomaPreview();
 }
@@ -2931,7 +2962,9 @@ function updateNmCount() {
   let hidden = 0;
   if (q) {
     (db.products||[]).forEach(p => {
-      if (!_narxnomaSelected.has(p.sku)) return;
+      const anySel = [..._narxnomaSelected]
+        .some(k => String(k).split("::")[0] === p.sku);
+      if (!anySel) return;
       const match = p.name.toLowerCase().includes(q) ||
         (p.sku||"").toLowerCase().includes(q) || (p.art||"").toLowerCase().includes(q);
       if (!match) hidden++;
@@ -2977,7 +3010,9 @@ function renderNarxnomaPreview() {
   const o = _nmOpts();
   const cols = o.paper === "a4" ? o.cols : 1; // etiketka = 1 ustun
 
-  const prods = db.products.filter(p => _narxnomaSelected.has(p.sku));
+  // 2026-07-25: tanlov endi "sku::rang" ko'rinishida
+  const prods = db.products.filter(p =>
+    [..._narxnomaSelected].some(k => String(k).split("::")[0] === p.sku));
   if (!prods.length) {
     el.innerHTML = `<div style="text-align:center;padding:40px;color:var(--mut)">
       <i class="ti ti-tag" style="font-size:32px;display:block;margin-bottom:10px;opacity:.4"></i>
@@ -2989,22 +3024,30 @@ function renderNarxnomaPreview() {
   const labels = [];
 
   prods.forEach(p => {
-    if (byPochka) {
-      const colors = [...new Set(p.variants.map(v => v.color))];
-      colors.forEach(color => {
-        const colorVars = p.variants.filter(v => v.color === color);
-        const totalQty  = colorVars.reduce((a, v) => a + (v.qty||0), 0);
-        if (totalQty <= 0) return;
-        const v0 = colorVars[0];
-        const barcode = (p.colorBarcodes && p.colorBarcodes[color]) || p.barcode;
-        labels.push({ p, v: {...v0, color}, pochkaMode: true, barcode });
-      });
-    } else {
-      p.variants.forEach(v => {
-        if ((v.qty||0) <= 0) return;
-        labels.push({ p, v, pochkaMode: false, barcode: p.barcode });
-      });
-    }
+    // Shu tovardan qaysi ranglar tanlangan
+    const selColors = [..._narxnomaSelected]
+      .filter(k => String(k).split("::")[0] === p.sku)
+      .map(k => String(k).split("::")[1]);
+
+    selColors.forEach(color => {
+      const colorVars = p.variants.filter(v => v.color === color);
+      if (!colorVars.length) return;
+      const totalQty = colorVars.reduce((a, v) => a + (v.qty||0), 0);
+      if (totalQty <= 0) return;
+      // Barcode HAR DOIM rang darajasida (umumiy kod eskirgan)
+      const barcode = (p.colorBarcodes && p.colorBarcodes[color]) || p.barcode;
+
+      if (byPochka) {
+        // Rang uchun BITTA etiketka
+        labels.push({ p, v: {...colorVars[0], color}, pochkaMode: true, barcode });
+      } else {
+        // Har o'lcham uchun alohida etiketka (kod baribir rang darajasida)
+        colorVars.forEach(v => {
+          if ((v.qty||0) <= 0) return;
+          labels.push({ p, v, pochkaMode: false, barcode });
+        });
+      }
+    });
   });
 
   if (!labels.length) {
@@ -3120,37 +3163,39 @@ function printNarxnoma() {
   const cols = o.paper === "a4" ? o.cols : 1;
   const shopName = o.shopName;
 
-  const prods = db.products.filter(p => _narxnomaSelected.has(p.sku));
+  const prods = db.products.filter(p =>
+    [..._narxnomaSelected].some(k => String(k).split("::")[0] === p.sku));
   if (!prods.length) { toast("Mahsulot tanlang","err"); return; }
 
   const labels = [];
   const byPochkaP = document.getElementById("nm-by-pochka")?.checked || false;
 
+  // 2026-07-25: preview bilan AYNAN bir xil mantiq — faqat TANLANGAN ranglar
   prods.forEach(p => {
-    if (byPochkaP) {
-      // Pochka rejimi: har rang uchun bitta yorliq (o'lchamlar birlashtirilgan)
-      const colors = [...new Set(p.variants.map(v => v.color))];
-      colors.forEach(color => {
-        const colorVars = p.variants.filter(v => v.color === color);
-        const totalQty  = colorVars.reduce((a, v) => a + (v.qty||0), 0);
-        if (totalQty <= 0) return;
-        const v0      = colorVars[0];
-        const barcode = (p.colorBarcodes && p.colorBarcodes[color]) || p.barcode;
-        labels.push({ p, v: {...v0, color}, pochkaMode: true, barcode });
-      });
-    } else {
-      // Standart: har rang uchun bitta yorliq (dona, lekin ranglar alohida)
-      const colors = [...new Set(p.variants.map(v => v.color))];
-      colors.forEach(color => {
-        const colorVars = p.variants.filter(v => v.color === color);
-        const totalQty  = colorVars.reduce((a, v) => a + (v.qty||0), 0);
-        if (totalQty <= 0) return;
-        const v0      = colorVars[0];
-        const sizes   = colorVars.map(v => v.size).filter(Boolean);
-        const barcode = (p.colorBarcodes && p.colorBarcodes[color]) || p.barcode;
-        labels.push({ p, v: {...v0, color, size: sizes.join("-")}, pochkaMode: false, barcode });
-      });
-    }
+    const selColors = [..._narxnomaSelected]
+      .filter(k => String(k).split("::")[0] === p.sku)
+      .map(k => String(k).split("::")[1]);
+
+    selColors.forEach(color => {
+      const colorVars = p.variants.filter(v => v.color === color);
+      if (!colorVars.length) return;
+      const totalQty = colorVars.reduce((a, v) => a + (v.qty||0), 0);
+      if (totalQty <= 0) return;
+      const barcode = (p.colorBarcodes && p.colorBarcodes[color]) || p.barcode;
+
+      if (byPochkaP) {
+        // Pochka rejimi: rang uchun BITTA yorliq, o'lchamlar birlashtirilgan
+        const sizes = colorVars.map(v => v.size).filter(Boolean);
+        labels.push({ p, v: {...colorVars[0], color, size: sizes.join("-")},
+                      pochkaMode: true, barcode });
+      } else {
+        // Har o'lcham uchun alohida yorliq
+        colorVars.forEach(v => {
+          if ((v.qty||0) <= 0) return;
+          labels.push({ p, v, pochkaMode: false, barcode });
+        });
+      }
+    });
   });
 
   const labelHtml = labels.map(({p,v,pochkaMode,barcode}) =>
