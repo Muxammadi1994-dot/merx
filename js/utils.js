@@ -1897,3 +1897,24 @@ function imgBigChange() {
   closeImageBig();
   if (f) f();
 }
+
+// ═══ USTAMA va MARJA HISOBI (2026-07-25) ═══
+// YAGONA manba — katalog, tovar oynasi, eksport shu yerdan oladi.
+//   Ustama = (sotuv − tannarx) / TANNARX   → "tannarxga qancha qo'shdim"
+//   Marja  = (sotuv − tannarx) / SOTUV     → "tushumning qancha qismi foyda"
+// Ikkalasi ham to'g'ri o'lchov, lekin har xil savolga javob beradi.
+function calcMarkup(costUzs, sellUzs) {
+  const c = Number(costUzs) || 0, s = Number(sellUzs) || 0;
+  if (c <= 0 || s <= 0) return null;
+  return {
+    markup: Math.round((s - c) / c * 100),   // ustama
+    margin: Math.round((s - c) / s * 100),   // marja
+    profit: Math.round(s - c)
+  };
+}
+
+// Ustama bo'yicha rang (yashil 40%+, sariq 20-40%, qizil 20% dan past)
+function markupColor(markup) {
+  if (markup == null) return "#ccc";
+  return markup >= 40 ? "var(--grn)" : markup >= 20 ? "#E07B39" : "var(--red)";
+}

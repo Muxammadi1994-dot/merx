@@ -293,7 +293,7 @@ const KAT_ALL_COLS = [
   { key:"cost",     lbl:"Tannarx",          def:true  },
   { key:"ulgurji",  lbl:"Ulgurji narx",     def:true  },
   { key:"chakana",  lbl:"Chakana narx",     def:false },
-  { key:"margin",   lbl:"Margin %",         def:false },
+  { key:"margin",   lbl:"Ustama %",        def:false },
   { key:"sku",      lbl:"SKU kodi",         def:false },
 ];
 
@@ -516,10 +516,10 @@ function renderKatalog() {
     const pantone  = colorVariants[0]?.pantone || "";
 
     // Margin (ulgurji asosida)
-    const margin = p.ulgurjiNarx > 0 && costUzs > 0
-      ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : null;
-    const mColor = margin == null ? "#ccc"
-      : margin >= 30 ? "var(--grn)" : margin >= 15 ? "#E07B39" : "var(--red)";
+    // 2026-07-25: ustama (tannarxdan) asosiy, marja kichik yozuvda
+    const _mk = calcMarkup(costUzs, p.ulgurjiNarx);
+    const margin = _mk ? _mk.markup : null;   // ustunda USTAMA ko'rsatiladi
+    const mColor = markupColor(margin);
 
     const rowKey = p.sku + "::" + color + "::" + packGroup;
     const isSel = _katSelected.has(rowKey);
@@ -586,7 +586,8 @@ function renderKatalog() {
       </td>
       <td class="kat-col-chakana num" style="color:var(--teal);font-size:12.5px">${p.priceUzs ? priceDisplay(p.priceUzs) : "—"}</td>
       <td class="kat-col-margin num" style="font-size:12px">
-        ${margin != null ? `<span style="color:${mColor};font-weight:700">${margin}%</span>` : '<span style="color:#ddd">—</span>'}
+        ${margin != null ? `<span style="color:${mColor};font-weight:700">+${margin}%</span>` +
+          `<div style="font-size:10px;color:var(--mut);font-weight:400">${_mk.margin}% marja</div>` : '<span style="color:#ddd">—</span>'}
       </td>
       <td onclick="event.stopPropagation()">
         <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditProduct('${p.sku}')">
@@ -1849,16 +1850,19 @@ function apCostNote() {
     let txt;
     if (cur === "usd" || cur === "both") {
       costUzs = c * rate;
-      const margin = u > 0 ? Math.round((u - costUzs) / u * 100) : null;
-      const mCol   = margin == null ? "#aaa" : margin >= 30 ? "var(--grn)" : margin >= 15 ? "#E07B39" : "var(--red)";
+      // 2026-07-25: USTAMA (tannarxdan) asosiy, marja yonida ko'rsatiladi
+      const _m = calcMarkup(costUzs, u);
+      const mCol = markupColor(_m ? _m.markup : null);
       txt = `$${c} × ${fmt(rate)} = ${fmt(costUzs)} so'm`;
-      if (margin != null) txt += ` → <strong style="color:${mCol}">${margin}% foyda</strong>`;
+      if (_m) txt += ` → <strong style="color:${mCol}">+${_m.markup}% ustama</strong>` +
+                     `<span style="color:var(--mut);font-size:11px"> · ${_m.margin}% marja</span>`;
     } else {
       costUzs = c;
-      const margin = u > 0 ? Math.round((u - costUzs) / u * 100) : null;
-      const mCol   = margin == null ? "#aaa" : margin >= 30 ? "var(--grn)" : margin >= 15 ? "#E07B39" : "var(--red)";
+      const _m = calcMarkup(costUzs, u);
+      const mCol = markupColor(_m ? _m.markup : null);
       txt = `Tannarx: ${fmt(costUzs)} so'm`;
-      if (margin != null) txt += ` → <strong style="color:${mCol}">${margin}% foyda</strong>`;
+      if (_m) txt += ` → <strong style="color:${mCol}">+${_m.markup}% ustama</strong>` +
+                     `<span style="color:var(--mut);font-size:11px"> · ${_m.margin}% marja</span>`;
     }
     // To'plam narxini qo'shamiz (masalan: 1 karobka = 1 800 000 so'm)
     if (inBoxC > 1) txt += `<br>1 ${packUnit} (${inBoxC} dona) = ${fmt(costUzs * inBoxC)} so'm`;
@@ -1894,14 +1898,16 @@ function exportKatalogExcel() {
   if (fields.pantone) headers.push("Pantone");
   headers.push("O'lchamlar", "Pochka soni", "1 pochkada", "Jami dona");
   if (fields.cost) headers.push("Tannarx (USD)", "Tannarx (so'm)");
-  headers.push("Ulgurji narx (so'm)", "Margin (%)");
+  headers.push("Ulgurji narx (so'm)", "Ustama (%)", "Marja (%)");
 
   const rows = [headers];
 
   db.products.forEach(p => {
     const costUzs = Math.round((p.costUsd || 0) * rate);
-    const margin = p.ulgurjiNarx > 0 && costUzs > 0
-      ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : "";
+    // 2026-07-25: eksportda ikkala ko'rsatkich alohida ustunda
+    const _mk = calcMarkup(costUzs, p.ulgurjiNarx);
+    const markup = _mk ? _mk.markup : "";
+    const margin = _mk ? _mk.margin : "";
 
     const colors = [...new Set((p.variants||[]).map(v => v.color))];
     const colorList = colors.length ? colors : [""];
@@ -1923,7 +1929,7 @@ function exportKatalogExcel() {
       if (fields.pantone) row.push(pantone);
       row.push(sizesStr, pochkaSoni, p.inBox || 1, jamiDona);
       if (fields.cost) row.push(p.costUsd || 0, costUzs);
-      row.push(p.ulgurjiNarx || 0, margin);
+      row.push(p.ulgurjiNarx || 0, markup, margin);
       rows.push(row);
     });
   });
