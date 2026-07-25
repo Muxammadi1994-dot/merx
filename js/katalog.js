@@ -1354,13 +1354,14 @@ function apResetSizeToStandard() {
 }
 
 function apSetStandardSizeRange() {
-  const t = currentApType || "oyoq";
-  const def = (typeof SIZES_DEFAULT_RANGE !== "undefined" && SIZES_DEFAULT_RANGE[t])
-    ? SIZES_DEFAULT_RANGE[t] : { from: (SIZES[t]||[])[0], to: (SIZES[t]||[])[0] };
-  if ($("ap-size-from")) $("ap-size-from").value = def.from;
-  if ($("ap-size-to"))   $("ap-size-to").value   = def.to;
+  // 2026-07-25 (№10): STANDART "39-44" SHABLONIDAN VOZ KECHILDI.
+  // Sabab: pochkalar endi har xil tarkibda keladi (40x1, 41x2, 42x2),
+  // shuning uchun "har o'lchamdan bittadan" degan taxmin noto'g'ri.
+  // O'lcham endi IXTIYORIY — kim yozadi, kim yozmaydi.
+  if ($("ap-size-from")) $("ap-size-from").value = "";
+  if ($("ap-size-to"))   $("ap-size-to").value   = "";
   const lbl = $("ap-size-standard-lbl");
-  if (lbl) lbl.textContent = def.from === def.to ? def.from : `${def.from}–${def.to}`;
+  if (lbl) lbl.textContent = "belgilanmagan";
   apCalcBoxes();
 }
 
@@ -3099,7 +3100,10 @@ function buildLabel(p, v, opts) {
   // Rang + o'lcham qatori (ikkalasi tanlovga bog'liq)
   const varParts = [];
   if (showColor && v.color) varParts.push(colorDot + v.color);
-  if (showSize  && v.size)  varParts.push((varParts.length?"· ":"") + v.size);
+  // 2026-07-25 (№10): o'lcham belgilanmagan bo'lsa ("-" yoki bo'sh) —
+  // yorliqda KO'RSATILMAYDI (avval "Yashil · -" bo'lib chalg'itardi)
+  const _sz = String(v.size || "").trim();
+  if (showSize && _sz && _sz !== "-") varParts.push((varParts.length?"· ":"") + _sz);
   const varLine = varParts.length ? varParts.join(" ") : "";
 
   if (style === "mini") return `

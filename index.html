@@ -3085,10 +3085,10 @@
       </div>
     </div>
 
-    <!-- O'lcham oraliq: standart yoki o'zgartirish -->
+    <!-- 2026-07-25 (№10): o'lcham oralig'i endi IXTIYORIY (standart 39-44 yo'q) -->
     <div class="ap-field" data-apf="sizes" style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <span style="font-size:12px;color:var(--mut)">O'lcham oralig'i:</span>
-      <span id="ap-size-standard-lbl" style="font-size:13px;font-weight:700;color:#0D1B2A;
+      <span style="font-size:12px;color:var(--mut)">O'lcham oralig'i <b>(ixtiyoriy)</b>:</span>
+      <span id="ap-size-standard-lbl" style="font-size:13px;font-weight:700;color:var(--mut);
         background:var(--bg2);padding:4px 12px;border-radius:7px"></span>
       <button class="btn btn-ghost btn-sm ap-field" data-apf="sizerange" onclick="apToggleSizeEdit()" id="ap-size-edit-btn">
         <i class="ti ti-edit"></i> O'lchamni o'zgartirish
@@ -3097,9 +3097,14 @@
 
     <!-- Aralash pochka tarkibi (v145, ixtiyoriy) -->
     <div class="fld ap-field" data-apf="sizes" style="margin-bottom:10px">
-      <label>Pochka tarkibi — aralash bo'lsa
-        <span style="font-weight:400;color:var(--mut)">(masalan: 40x2, 41x2, 43x1 — bo'sh qoldirsangiz oraliq ishlaydi)</span></label>
-      <input id="ap-pack-mix" type="text" placeholder="40x2, 41x2, 43x1" oninput="apMixHint()">
+      <label>📦 Pochka tarkibi
+        <span style="font-weight:400;color:var(--mut)">— pochkada qaysi o'lchamdan nechta (ixtiyoriy)</span></label>
+      <input id="ap-pack-mix" type="text" placeholder="40x1, 41x2, 42x2" oninput="apMixHint()"
+        style="font-size:14px">
+      <div style="font-size:11px;color:var(--mut);margin-top:3px;line-height:1.35">
+        Yozsangiz — jami dona shundan aniq hisoblanadi.
+        Bo'sh qoldirsangiz — quyidagi "1 pochkada nechta" ishlatiladi.
+      </div>
       <div id="ap-mix-hint" style="font-size:11px;color:#2e7d32;margin-top:3px"></div>
     </div>
 
@@ -4388,7 +4393,7 @@
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=211"></script>
-<script src="js/katalog.js?v=193"></script>
+<script src="js/katalog.js?v=194"></script>
 <script src="js/ombor.js?v=153"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
@@ -4601,7 +4606,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=31")
+    navigator.serviceWorker.register("/sw.js?v=32")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
