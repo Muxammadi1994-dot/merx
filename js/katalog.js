@@ -3012,8 +3012,15 @@ function renderNarxnomaPreview() {
     return;
   }
 
-  const gridCls = o.paper === "a4" ? "" : " nm-label-grid-etiket";
-  el.innerHTML = `<div class="nm-label-grid${gridCls}" style="grid-template-columns:repeat(${cols},1fr)">
+  // 2026-07-25: preview endi CHOP ETISH bilan bir xil o'lchamdan foydalanadi
+  // (avval boshqa-boshqa sozlama edi — ekranda boshqa, qog'ozda boshqa chiqardi)
+  const c = _nmSizeCfg(o.paper);
+  const gridStyle = o.paper === "a4"
+    ? `grid-template-columns:repeat(${cols},1fr)`
+    : "grid-template-columns:1fr;justify-items:start";
+
+  el.innerHTML = `<style>${_nmLabelCss(c)}</style>
+  <div class="nm-label-grid" style="${gridStyle}">
     ${labels.map(({p, v, pochkaMode, barcode}) => buildLabel(p, v, {...o, pochkaMode, barcode})).join("")}
   </div>`;
 
@@ -3023,8 +3030,9 @@ function renderNarxnomaPreview() {
       if (!code) return;
       try {
         JsBarcode(svg, code, {
-          format: "CODE128", width: 1.3, height: 28,
-          displayValue: true, fontSize: 9, margin: 0, textMargin: 2
+          format: "CODE128", width: c.barW, height: c.barH,
+          displayValue: true, fontSize: c.barFont, margin: 0,
+          textMargin: c.thermal ? 1 : 2
         });
       } catch (e) { /* noto'g'ri format */ }
     });
@@ -3144,22 +3152,21 @@ function printNarxnoma() {
     buildLabel(p, v, {...o, pochkaMode, barcode})
   ).join("");
 
-  // 2026-07-20 (№8): qog'oz o'lchamiga qarab @page va grid
-  let pageCss, gridCss, barcodeH, thermal = false;
+  // 2026-07-25: o'lcham YAGONA manbadan (_nmSizeCfg) — preview bilan bir xil
+  const c = _nmSizeCfg(o.paper);
+  const thermal = c.thermal;
+  const barcodeH = c.barH;
+  let pageCss, gridCss;
   if (o.paper === "40x30") {
-    pageCss = "@page{margin:1mm;size:40mm 30mm}";
-    gridCss = ".nm-label-grid{display:block;padding:0}.nm-label{width:38mm;height:28mm;page-break-after:always;border:none !important;padding:0.8mm;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}";
-    barcodeH = 42;   // 2026-07-25: 18 -> 42 (skaner uchun baland shtrix)
-    thermal  = true;
+    pageCss = "@page{margin:0;size:40mm 30mm}";
+    gridCss = ".nm-label-grid{display:block}.nm-label{page-break-after:always;border:none !important}";
   } else if (o.paper === "58x40") {
-    pageCss = "@page{margin:1.5mm;size:58mm 40mm}";
-    gridCss = ".nm-label-grid{display:block;padding:0}.nm-label{width:55mm;height:37mm;page-break-after:always;border:none !important;padding:1.2mm;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}";
-    barcodeH = 55;   // 2026-07-25: 24 -> 55
-    thermal  = true;
+    pageCss = "@page{margin:0;size:58mm 40mm}";
+    gridCss = ".nm-label-grid{display:block}.nm-label{page-break-after:always;border:none !important}";
   } else {
     pageCss = "@page{margin:5mm;size:A4}";
-    gridCss = `.nm-label-grid{display:grid;grid-template-columns:repeat(${cols},1fr);gap:4px;padding:8px}`;
-    barcodeH = 28;
+    gridCss = `.nm-label-grid{display:grid;grid-template-columns:repeat(${cols},1fr);gap:4px;padding:8px}
+               .nm-label{border:1px solid #ddd;border-radius:4px}`;
   }
 
   const w = window.open("","_blank","width=900,height=700");
@@ -3171,36 +3178,21 @@ function printNarxnoma() {
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:Arial,sans-serif;background:#fff}
 ${gridCss}
-.nm-standard{border:1px solid #ddd;border-radius:6px;padding:8px;background:#fff;break-inside:avoid}
-.nm-mini{border:1px solid #eee;border-radius:4px;padding:6px;background:#fff;break-inside:avoid}
-.nm-premium{border:2px solid #0D1B2A;border-radius:8px;overflow:hidden;break-inside:avoid}
-.nm-shop{font-size:9px;color:#000;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
-.nm-name{font-size:12px;font-weight:700;color:#000;margin-bottom:3px}
-.nm-var{font-size:10px;color:#000;margin-bottom:5px}
-.nm-price-main{font-size:15px;font-weight:800;color:#000}
-.nm-price-ulg{font-size:10px;color:#000}
-.nm-price-usd{font-size:10px;color:#000}
-.nm-sku{font-size:9px;color:#000;font-family:monospace}
-.nm-barcode{text-align:center;margin-top:2px}
-.nm-barcode-svg{max-width:100%}
-${thermal ? `
-/* ═══ TERMAL ETIKETKA (2026-07-25) — Xprinter XP-370B, 203 DPI ═══
-   Shtrix etiketka enini TO'LIQ egallaydi, matn yirikroq, bo'sh joy yo'q */
-.nm-barcode{margin-top:1px;width:100%}
-.nm-barcode-svg{width:100% !important;height:auto !important;display:block}
-.nm-mini,.nm-standard{border:none !important;border-radius:0 !important;padding:0 !important;
-  width:100%;height:100%;display:flex;flex-direction:column;justify-content:space-between}
-.nm-name,.nm-name-sm{font-size:13px !important;font-weight:800 !important;line-height:1.1;
-  margin-bottom:1px !important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.nm-var,.nm-var-sm{font-size:11px !important;font-weight:600 !important;margin-bottom:1px !important;
-  line-height:1.1;overflow:hidden;white-space:nowrap}
-.nm-price-main{font-size:19px !important;font-weight:900 !important;line-height:1.1}
-.nm-price-usd,.nm-price-ulg{font-size:11px !important;line-height:1.1}
-.nm-sku{font-size:10px !important;line-height:1.1}
-.nm-shop{font-size:10px !important;margin-bottom:1px !important;letter-spacing:.5px}
-/* Rang nuqtasi termal printerda bo'sh kvadrat bo'lib chiqadi — yashiramiz */
-.nm-color-dot{display:none !important}
-` : ""}
+/* ═══ YAGONA ETIKETKA SHABLONI (2026-07-25) ═══
+   Preview bilan AYNAN bir xil — _nmLabelCss() dan keladi */
+${_nmLabelCss(c)}
+.nm-premium{border:2px solid #000;border-radius:4px;overflow:hidden;break-inside:avoid}
+.nm-prem-top{background:#000;padding:6px 8px}
+.nm-prem-shop{font-size:8px;color:#fff;text-transform:uppercase;letter-spacing:2px}
+.nm-prem-name{font-size:12px;font-weight:700;color:#fff}
+.nm-prem-cat{font-size:9px;color:#fff}
+.nm-prem-mid{padding:4px 8px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between}
+.nm-prem-color{font-size:10px;color:#000}
+.nm-prem-sku{font-size:9px;color:#000;font-family:monospace}
+.nm-prem-bot{padding:6px 8px}
+.nm-prem-price{font-size:16px;font-weight:800;color:#000}
+.nm-prem-price span{font-size:10px;font-weight:400}
+.nm-prem-ulg,.nm-prem-usd{font-size:10px;color:#000}
 .nm-name-sm{font-size:11px;font-weight:700;margin-bottom:2px}
 .nm-var-sm{font-size:9px;color:#000;margin-bottom:3px}
 .nm-prem-top{background:#0D1B2A;padding:8px 10px}
@@ -3234,7 +3226,7 @@ window.onload = () => {
       const code = svg.dataset.code;
       if (!code) return;
       try {
-        JsBarcode(svg, code, { format:"CODE128", width:${thermal ? 2 : 1.3}, height:${barcodeH}, displayValue:true, fontSize:${thermal ? 13 : 9}, textMargin:${thermal ? 1 : 2}, margin:${thermal ? 0 : 2} });
+        JsBarcode(svg, code, { format:"CODE128", width:${c.barW}, height:${c.barH}, displayValue:true, fontSize:${c.barFont}, textMargin:${c.thermal ? 1 : 2}, margin:0 });
       } catch(e) {}
     });
   }
@@ -3453,4 +3445,54 @@ function ensureAllColorBarcodes() {
     console.log(`🏷 ${changed} ta tovarga rang barcode'lari yaratildi`);
   }
   return changed;
+}
+
+// ═══ ETIKETKA O'LCHAM SOZLAMALARI (2026-07-25) ═══
+// YAGONA manba: preview ham, chop etish ham shu yerdan o'lcham oladi.
+// Shu sabab ekranda ko'ringan narsa qog'ozda ham AYNAN shunday chiqadi.
+// Yangi o'lcham qo'shish uchun shu ro'yxatga bitta qator qo'shiladi.
+function _nmSizeCfg(paper) {
+  const CFG = {
+    "40x30": {                       // Xprinter va shunga o'xshash termal
+      wMm: 40, hMm: 30, padMm: 1,
+      barH: 40, barW: 1.8, barFont: 11,
+      fName: 12, fVar: 9.5, fPrice: 17, fSmall: 9.5,
+      thermal: true
+    },
+    "58x40": {
+      wMm: 58, hMm: 40, padMm: 1.5,
+      barH: 54, barW: 2.2, barFont: 13,
+      fName: 14.5, fVar: 11, fPrice: 21, fSmall: 11,
+      thermal: true
+    },
+    "a4": {                          // oddiy printer, ko'p ustun
+      wMm: 0,  hMm: 0,  padMm: 2.5,  // 0 = grid o'zi belgilaydi
+      barH: 34, barW: 1.5, barFont: 10,
+      fName: 13, fVar: 10, fPrice: 18, fSmall: 10,
+      thermal: false
+    }
+  };
+  return CFG[paper] || CFG["a4"];
+}
+
+// Etiketka ichki uslubi — preview va chop etishda BIR XIL
+function _nmLabelCss(c) {
+  const box = c.wMm > 0
+    ? `width:${c.wMm - c.padMm*2}mm;height:${c.hMm - c.padMm*2}mm;`
+    : "";
+  return `
+.nm-label{${box}padding:${c.padMm}mm;font-family:Arial,sans-serif;background:#fff;
+  display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;
+  break-inside:avoid;box-sizing:border-box}
+.nm-l-top{display:flex;flex-direction:column;gap:1px;min-height:0}
+.nm-name,.nm-name-sm{font-size:${c.fName}px;font-weight:800;color:#000;line-height:1.15;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0}
+.nm-var,.nm-var-sm{font-size:${c.fVar}px;font-weight:600;color:#000;line-height:1.15;
+  overflow:hidden;white-space:nowrap;margin:0}
+.nm-price-main{font-size:${c.fPrice}px;font-weight:900;color:#000;line-height:1.15;margin:0}
+.nm-price-usd,.nm-price-ulg,.nm-sku,.nm-shop{font-size:${c.fSmall}px;color:#000;line-height:1.15;margin:0}
+.nm-barcode{width:100%;margin-top:1px;text-align:center}
+.nm-barcode-svg{width:100%;height:auto;display:block}
+${c.thermal ? ".nm-color-dot{display:none}" : ""}
+`;
 }
