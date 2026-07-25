@@ -3002,6 +3002,52 @@
       </div>
     </div>
 
+    <!-- ═══ VARIATIV KIRITISH (2026-07-25, №3) ═══
+         Bir xil tovar, bir necha rang — har biriga o'z pochkasi va narxi.
+         Yoqilmasa oyna avvalgidek bitta rang bilan ishlaydi. -->
+    <div class="ap-field" data-apf="variativ" style="margin-bottom:14px">
+      <button type="button" id="ap-var-toggle" onclick="apToggleVariativ()"
+        style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+        background:#FFF7ED;border:1.5px dashed #E9A500;border-radius:10px;padding:11px;
+        font-family:inherit;font-size:13.5px;font-weight:700;color:#0D1B2A;cursor:pointer">
+        <i class="ti ti-color-swatch" style="font-size:17px"></i>
+        <span id="ap-var-toggle-txt">Variativ kiritish — bir necha rang</span>
+      </button>
+
+      <div id="ap-var-panel" style="display:none;margin-top:10px;border:1.5px solid #FCD9A8;
+        border-radius:11px;padding:12px;background:#FFFDF9">
+
+        <!-- Ranglar: yozing va Enter bosing -->
+        <label style="font-size:12.5px;font-weight:700;color:#0D1B2A;display:block;margin-bottom:5px">
+          Ranglar <span style="font-weight:400;color:var(--mut)">— yozing va Enter bosing</span>
+        </label>
+        <div id="ap-var-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px"></div>
+        <input id="ap-var-colorinp" placeholder="Rang nomi..." autocomplete="off"
+          list="ap-var-colorlist" onkeydown="apVarColorKey(event)"
+          style="width:100%;font-family:inherit;font-size:13.5px;border:1.5px solid var(--brd);
+          border-radius:8px;padding:9px 12px;box-sizing:border-box">
+        <datalist id="ap-var-colorlist"></datalist>
+
+        <!-- Ranglar kiritilgach jadval paydo bo'ladi -->
+        <div id="ap-var-table-wrap" style="display:none;margin-top:12px;overflow-x:auto">
+          <table id="ap-var-table" style="width:100%;border-collapse:collapse;font-size:12.5px">
+            <thead>
+              <tr style="background:var(--bg)">
+                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">RANG</th>
+                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">POCHKA</th>
+                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">POCHKADA</th>
+                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">TANNARX</th>
+                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">ULGURJI</th>
+                <th style="width:28px"></th>
+              </tr>
+            </thead>
+            <tbody id="ap-var-tbody"></tbody>
+          </table>
+          <div id="ap-var-total" style="font-size:12px;color:var(--mut);margin-top:7px"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Rasm yuklash (ixtiyoriy) -->
     <div class="fld ap-field" data-apf="image" style="margin-bottom:14px">
       <label>Rasm <span style="font-weight:400;color:var(--mut)">(ixtiyoriy)</span></label>
@@ -3077,24 +3123,6 @@
         <label>Pantone kodi</label>
         <input id="ap-pantone" placeholder="Black C" style="font-family:monospace">
       </div>
-    </div>
-
-    <!-- 2026-07-25 (№3): KO'P RANGNI BIR OYNADA kiritish.
-         Bo'sh qoldirilsa — yuqoridagi bitta rang bilan avvalgidek ishlaydi. -->
-    <div class="ap-field" data-apf="multicolor" style="margin-bottom:12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;
-        background:#FFF7ED;border:1px solid #FCD9A8;border-radius:9px;padding:9px 12px">
-        <div>
-          <div style="font-size:12.5px;font-weight:700;color:#0D1B2A">🎨 Yana ranglar</div>
-          <div style="font-size:11px;color:var(--mut);margin-top:2px">
-            Bir xil tovar, boshqa ranglar — har biriga o'z pochka soni
-          </div>
-        </div>
-        <button type="button" class="btn btn-sm btn-ghost" onclick="apAddColorRow()">
-          <i class="ti ti-plus"></i> Rang qo'shish
-        </button>
-      </div>
-      <div id="ap-colors-list" style="margin-top:8px"></div>
     </div>
 
     <div class="r3" style="margin-bottom:12px">
@@ -4443,7 +4471,7 @@
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=212"></script>
-<script src="js/katalog.js?v=200"></script>
+<script src="js/katalog.js?v=201"></script>
 <script src="js/ombor.js?v=153"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
@@ -4656,7 +4684,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=38")
+    navigator.serviceWorker.register("/sw.js?v=39")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

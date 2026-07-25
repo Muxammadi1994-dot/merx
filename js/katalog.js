@@ -1623,16 +1623,19 @@ function addProduct() {
   // o'zgarmaydi — eski oqim aynan avvalgidek ishlaydi.
   let _extraCount = 0;
   try {
-    const _extra = _apReadColorRows();
-    if (_extra.length) {
+    if (_apVarOn) {
+      const _rows = _apVarReadRows();
       const _base = db.products[db.products.length - 1] ||
                     db.products.find(x => x.name === name);
-      _extra.forEach(cd => {
-        if (_apCreateExtraColor(_base, cd)) _extraCount++;
+      // Bitta partiya raqami — kirim tarixida hammasi BIR kirim bo'lib turadi
+      const _batchId = "Variativ " + today() + " " +
+                       (typeof nowTime === "function" ? nowTime() : "");
+      _rows.forEach(cd => {
+        if (_apCreateExtraColor(_base, cd, _batchId)) _extraCount++;
       });
+      _apVarReset();
     }
-    _apClearColorRows();
-  } catch(e) { console.warn("Qo'shimcha ranglar:", e.message); }
+  } catch(e) { console.warn("Variativ kiritish:", e.message); }
 
   saveDB(); closeModal("addprod"); renderKatalog();
   apResetAddForm(); // v160: keyingi tovar uchun forma toza turishi kerak
@@ -1783,7 +1786,7 @@ function imgSrcPick(kind) {
 // rasm...) qolib ketmasligi uchun
 function apResetAddForm() {
   // 2026-07-25 (№3): qo'shimcha ranglar jadvali ham tozalanadi
-  try { _apClearColorRows(); } catch(e) {}
+  try { _apVarReset(); } catch(e) {}
   ["ap-name","ap-art","ap-color"].forEach(id => { if ($(id)) $(id).value = ""; });
   if ($("ap-boxes")) $("ap-boxes").value = "";
   if ($("ap-inbox-calc")) $("ap-inbox-calc").value = "";
@@ -3639,69 +3642,22 @@ function impCurrencyChanged() {
   }
 }
 
-// ═══ KO'P RANGNI BIR OYNADA KIRITISH (2026-07-25, №3) ═══
-// Qo'shimcha ranglar jadvali. Bo'sh bo'lsa — eski oqim (bitta rang)
-// hech qanday o'zgarishsiz ishlaydi.
-let _apColorRows = 0;
-
-function apAddColorRow() {
-  const box = document.getElementById("ap-colors-list");
-  if (!box) return;
-  const i = _apColorRows++;
-  const row = document.createElement("div");
-  row.className = "ap-color-row";
-  row.dataset.idx = i;
-  row.style.cssText = "display:grid;grid-template-columns:1.3fr 44px 0.8fr 1.4fr 32px;" +
-    "gap:6px;align-items:center;margin-bottom:6px";
-  row.innerHTML = `
-    <input class="apc-name" placeholder="Rang nomi" style="font-size:13px">
-    <input class="apc-hex" type="color" value="#888888"
-      style="width:40px;height:34px;border:1px solid var(--brd);border-radius:7px;padding:2px;cursor:pointer">
-    <input class="apc-boxes" type="number" min="0" placeholder="Pochka"
-      inputmode="numeric" style="font-size:13px">
-    <input class="apc-mix" placeholder="40x1, 41x2 (ixtiyoriy)" style="font-size:12.5px">
-    <button type="button" onclick="this.closest('.ap-color-row').remove()"
-      title="O'chirish" style="background:none;border:none;color:var(--red);
-      font-size:18px;cursor:pointer;padding:2px">×</button>`;
-  box.appendChild(row);
-  row.querySelector(".apc-name")?.focus();
-}
-
-// Jadvaldagi ranglarni o'qish
-function _apReadColorRows() {
-  return [...document.querySelectorAll("#ap-colors-list .ap-color-row")].map(r => ({
-    color: (r.querySelector(".apc-name")?.value || "").trim(),
-    hex:   r.querySelector(".apc-hex")?.value || "#888888",
-    boxes: parseInt(r.querySelector(".apc-boxes")?.value) || 0,
-    mix:   (r.querySelector(".apc-mix")?.value || "").trim()
-  })).filter(r => r.color);   // nomsiz qatorlar hisobga olinmaydi
-}
-
-function _apClearColorRows() {
-  const box = document.getElementById("ap-colors-list");
-  if (box) box.innerHTML = "";
-  _apColorRows = 0;
-}
-
-// Qo'shimcha rang uchun ALOHIDA tovar yaratadi (B1 qarori, v147 bo'yicha).
-// Asosiy tovardan nom, artikul, narx, tur nusxalanadi; rang va qoldiq o'ziniki.
-function _apCreateExtraColor(base, cd) {
+// Variativ rang uchun ALOHIDA tovar yaratadi (B1 qarori, v147 bo'yicha).
+// Nom, artikul, tur asosiy tovardan; pochka, narx — jadvaldan.
+// batchId berilsa — kirim tarixida BITTA partiya bo'lib ko'rinadi.
+function _apCreateExtraColor(base, cd, batchId) {
   if (!base || !cd || !cd.color) return null;
 
-  // Pochka tarkibi berilgan bo'lsa — undan, aks holda asosiy inBox
-  let inBox = base.inBox || 1;
-  let sizes = [""];
-  if (cd.mix) {
-    const parsed = [];
-    cd.mix.split(",").forEach(part => {
-      const m = part.trim().match(/^(.+?)\s*[x×*]\s*(\d+)$/i);
-      if (m) parsed.push({ size: m[1].trim(), qty: parseInt(m[2]) || 0 });
-    });
-    if (parsed.length) {
-      inBox = parsed.reduce((a, x) => a + x.qty, 0) || 1;
-      sizes = parsed;
-    }
-  }
+  const rate  = db.settings?.rate || 12800;
+  const inBox = cd.inbox > 0 ? cd.inbox : (base.inBox || 1);
+  const qty   = (cd.boxes || 0) * inBox;
+
+  // Narx: jadvalda yozilgan bo'lsa o'shani, aks holda asosiy tovarniki
+  const curMode = db.settings?.priceCurrency || "uzs";
+  const costUsd = cd.cost > 0
+    ? ((curMode === "usd" || curMode === "both") ? cd.cost : cd.cost / rate)
+    : (base.costUsd || 0);
+  const ulg = cd.ulg > 0 ? cd.ulg : (base.ulgurjiNarx || 0);
 
   const newId = db.seq++;
   const prod = {
@@ -3714,49 +3670,242 @@ function _apCreateExtraColor(base, cd) {
     inBox: inBox,
     packUnit: base.packUnit,
     art: base.art || "",
-    costUsd: base.costUsd || 0,
+    costUsd: costUsd,
     priceUzs: base.priceUzs || 0,
-    ulgurjiNarx: base.ulgurjiNarx || 0,
+    ulgurjiNarx: ulg,
     barcode: (typeof genEAN13 === "function") ? genEAN13(db.seq) : "",
     image: base.image || "",
     createdAt: new Date().toISOString(),
-    variants: []
-  };
-
-  // Variantlar: pochka tarkibi bo'yicha yoki yagona
-  if (Array.isArray(sizes) && sizes.length && typeof sizes[0] === "object") {
-    sizes.forEach(sz => {
-      prod.variants.push({
-        color: cd.color, size: sz.size,
-        qty: sz.qty * (cd.boxes || 0),
-        pantone: "", hex: cd.hex || "#888888"
-      });
-    });
-  } else {
-    prod.variants.push({
+    variantGroup: batchId || "",      // variativ guruh belgisi
+    variants: [{
       color: cd.color, size: "",
-      qty: (cd.boxes || 0) * inBox,
-      pantone: "", hex: cd.hex || "#888888"
-    });
-  }
+      qty: qty, pantone: "", hex: cd.hex || "#888888"
+    }]
+  };
 
   db.products.push(prod);
   try { ensureColorBarcodes(prod); } catch(e) {}
 
-  // Kirim tarixiga yozamiz (asosiy oqim bilan bir xil)
-  const _rate = db.settings?.rate || 12800;
-  prod.variants.forEach(v => {
-    if (!v.qty || v.qty <= 0) return;
+  // Kirim tarixi — mavjud yozuv tuzilishi bilan AYNAN bir xil maydonlar.
+  // partiya bir xil bo'lgani uchun variativ kirim BITTA partiya bo'lib ko'rinadi.
+  if (qty > 0) {
     db.ombor.push({
-      id: db.seq++,
-      date: today(),
-      time: (typeof nowTime === "function" ? nowTime() : ""),
-      sku: prod.sku, name: prod.name, color: v.color, size: v.size,
-      qty: v.qty, unit: prod.unit,
-      cost: Math.round((prod.costUsd || 0) * _rate),
-      type: "kirim", note: "Qo'lda (ko'p rang)"
+      id:          db.seq++,
+      date:        today(),
+      time:        (typeof nowTime === "function" ? nowTime() : ""),
+      sku:         prod.sku,
+      art:         prod.art || "",
+      productName: prod.name,
+      unit:        prod.unit || "dona",
+      color:       cd.color,
+      size:        "",
+      qty:         qty,
+      pantone:     "",
+      hex:         cd.hex || "",
+      boxes:       cd.boxes || null,
+      kirimNarxi:  Math.round(costUsd * rate),
+      chakana:     prod.priceUzs || 0,
+      ulgurji:     ulg || 0,
+      supplier:    "",
+      partiya:     batchId || "Qo'lda",
+      payStatus:   "tolandan"
     });
-  });
+  }
 
   return prod;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VARIATIV KIRITISH (2026-07-25, №3)
+// Bir xil tovar, bir necha rang. Har rangga o'z pochkasi va narxi.
+// Yoqilmasa — oyna avvalgidek bitta rang bilan ishlaydi.
+// ═══════════════════════════════════════════════════════════════
+let _apVarOn     = false;
+let _apVarColors = [];   // [{name, hex}]
+
+function apToggleVariativ() {
+  _apVarOn = !_apVarOn;
+  const panel = document.getElementById("ap-var-panel");
+  const txt   = document.getElementById("ap-var-toggle-txt");
+  const btn   = document.getElementById("ap-var-toggle");
+  if (panel) panel.style.display = _apVarOn ? "block" : "none";
+  if (txt)   txt.textContent = _apVarOn
+    ? "Variativ kiritish yoqilgan — o'chirish"
+    : "Variativ kiritish — bir necha rang";
+  if (btn) {
+    btn.style.background  = _apVarOn ? "#0D1B2A" : "#FFF7ED";
+    btn.style.color       = _apVarOn ? "#fff" : "#0D1B2A";
+    btn.style.borderStyle = _apVarOn ? "solid" : "dashed";
+  }
+  if (_apVarOn) {
+    apVarFillSuggestions();
+    setTimeout(() => document.getElementById("ap-var-colorinp")?.focus(), 50);
+  }
+}
+
+// Avval ishlatilgan ranglarni taklif qilamiz
+function apVarFillSuggestions() {
+  const dl = document.getElementById("ap-var-colorlist");
+  if (!dl) return;
+  const used = new Map();
+  (db.products || []).forEach(p =>
+    (p.variants || []).forEach(v => {
+      if (v.color && !used.has(v.color)) used.set(v.color, v.hex || "#888888");
+    }));
+  dl.innerHTML = [...used.keys()].sort((a,b) => a.localeCompare(b,"uz"))
+    .map(c => `<option value="${c}">`).join("");
+}
+
+// Enter bosilganda rang "chip" bo'lib qo'shiladi
+function apVarColorKey(e) {
+  if (e.key !== "Enter" && e.key !== ",") return;
+  e.preventDefault();
+  const inp = e.target;
+  const name = (inp.value || "").trim();
+  if (!name) return;
+  if (_apVarColors.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+    toast("Bu rang allaqachon qo'shilgan", "err");
+    inp.value = ""; return;
+  }
+  // Avval ishlatilgan bo'lsa — o'sha rang kodini olamiz
+  let hex = "#888888";
+  outer: for (const p of (db.products || [])) {
+    for (const v of (p.variants || [])) {
+      if (v.color && v.color.toLowerCase() === name.toLowerCase() && v.hex) {
+        hex = v.hex; break outer;
+      }
+    }
+  }
+  _apVarColors.push({ name, hex });
+  inp.value = "";
+  apVarRenderChips();
+  apVarRenderTable();
+}
+
+function apVarRemoveColor(i) {
+  _apVarColors.splice(i, 1);
+  apVarRenderChips();
+  apVarRenderTable();
+}
+
+function apVarRenderChips() {
+  const box = document.getElementById("ap-var-chips");
+  if (!box) return;
+  box.innerHTML = _apVarColors.map((c, i) => `
+    <span style="display:inline-flex;align-items:center;gap:6px;background:#fff;
+      border:1.5px solid var(--brd);border-radius:20px;padding:5px 10px 5px 7px;font-size:12.5px">
+      <span style="width:12px;height:12px;border-radius:3px;background:${c.hex};
+        border:1px solid rgba(0,0,0,.15)"></span>
+      <b>${c.name}</b>
+      <button type="button" onclick="apVarRemoveColor(${i})" title="Olib tashlash"
+        style="background:none;border:none;color:var(--red);font-size:15px;
+        cursor:pointer;padding:0 0 0 2px;line-height:1">×</button>
+    </span>`).join("");
+}
+
+// Ranglar soniga qarab jadval quriladi
+function apVarRenderTable() {
+  const wrap  = document.getElementById("ap-var-table-wrap");
+  const tbody = document.getElementById("ap-var-tbody");
+  if (!wrap || !tbody) return;
+
+  if (!_apVarColors.length) { wrap.style.display = "none"; tbody.innerHTML = ""; return; }
+  wrap.style.display = "block";
+
+  const inpCss = "width:100%;font-family:inherit;font-size:12.5px;border:1px solid var(--brd);" +
+                 "border-radius:6px;padding:6px 8px;box-sizing:border-box";
+
+  tbody.innerHTML = _apVarColors.map((c, i) => `
+    <tr data-vrow="${i}" style="border-top:1px solid var(--brd)">
+      <td style="padding:5px 8px;white-space:nowrap">
+        <span style="display:inline-block;width:11px;height:11px;border-radius:3px;
+          background:${c.hex};border:1px solid rgba(0,0,0,.15);vertical-align:middle"></span>
+        <b style="margin-left:5px">${c.name}</b>
+      </td>
+      <td style="padding:4px"><input class="vr-boxes" type="number" min="0" inputmode="numeric"
+        placeholder="0" style="${inpCss}" oninput="apVarFillHint(${i},'boxes');apVarTotals()"></td>
+      <td style="padding:4px"><input class="vr-inbox" type="number" min="1" inputmode="numeric"
+        placeholder="1" style="${inpCss}" oninput="apVarFillHint(${i},'inbox');apVarTotals()"></td>
+      <td style="padding:4px"><input class="vr-cost" type="text" data-price
+        placeholder="0" style="${inpCss}" oninput="priceInputHandler(this);apVarFillHint(${i},'cost')"></td>
+      <td style="padding:4px"><input class="vr-ulg" type="text" data-price
+        placeholder="0" style="${inpCss}" oninput="priceInputHandler(this);apVarFillHint(${i},'ulg')"></td>
+      <td style="padding:4px;text-align:center">
+        <button type="button" onclick="apVarRemoveColor(${i})" title="O'chirish"
+          style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">×</button>
+      </td>
+    </tr>`).join("");
+  apVarTotals();
+}
+
+// Birinchi qatorga yozilganda "barchasini to'ldirish" taklifi
+function apVarFillHint(rowIdx, field) {
+  if (rowIdx !== 0 || _apVarColors.length < 2) return;
+  const cls = { boxes:"vr-boxes", inbox:"vr-inbox", cost:"vr-cost", ulg:"vr-ulg" }[field];
+  const first = document.querySelector(`#ap-var-tbody tr[data-vrow="0"] .${cls}`);
+  if (!first || !first.value.trim()) return;
+
+  const td = first.parentElement;
+  let hint = td.querySelector(".vr-fill-hint");
+  if (!hint) {
+    hint = document.createElement("div");
+    hint.className = "vr-fill-hint";
+    hint.style.cssText = "font-size:10.5px;color:#0D1B2A;background:#FFF7ED;border:1px solid #FCD9A8;" +
+      "border-radius:5px;padding:3px 6px;margin-top:3px;cursor:pointer;text-align:center;font-weight:600";
+    hint.onclick = () => { apVarFillAll(field); hint.remove(); };
+    td.appendChild(hint);
+  }
+  hint.textContent = `↓ Barcha qatorlarga (${_apVarColors.length - 1} ta)`;
+}
+
+// Birinchi qator qiymatini qolganlariga tarqatamiz
+function apVarFillAll(field) {
+  const cls = { boxes:"vr-boxes", inbox:"vr-inbox", cost:"vr-cost", ulg:"vr-ulg" }[field];
+  const rows = [...document.querySelectorAll("#ap-var-tbody tr")];
+  if (rows.length < 2) return;
+  const val = rows[0].querySelector(`.${cls}`)?.value || "";
+  rows.slice(1).forEach(r => {
+    const el = r.querySelector(`.${cls}`);
+    if (el) el.value = val;
+  });
+  apVarTotals();
+  toast(`✅ ${rows.length - 1} ta qatorga qo'llandi`);
+}
+
+// Jami hisob
+function apVarTotals() {
+  const el = document.getElementById("ap-var-total");
+  if (!el) return;
+  const rows = _apVarReadRows();
+  const pochka = rows.reduce((a, r) => a + r.boxes, 0);
+  const dona   = rows.reduce((a, r) => a + r.boxes * r.inbox, 0);
+  el.innerHTML = rows.length
+    ? `Jami: <b>${_apVarColors.length}</b> rang · <b>${pochka}</b> pochka · <b>${dona}</b> dona`
+    : "";
+}
+
+// Jadvaldan ma'lumot o'qish
+function _apVarReadRows() {
+  return [...document.querySelectorAll("#ap-var-tbody tr")].map((r, i) => ({
+    color: _apVarColors[i]?.name || "",
+    hex:   _apVarColors[i]?.hex  || "#888888",
+    boxes: parseInt(r.querySelector(".vr-boxes")?.value) || 0,
+    inbox: parseInt(r.querySelector(".vr-inbox")?.value) || 1,
+    cost:  (typeof getRawVal === "function")
+             ? (parseFloat(String(r.querySelector(".vr-cost")?.value || "").replace(/\s/g,"")) || 0) : 0,
+    ulg:   (parseFloat(String(r.querySelector(".vr-ulg")?.value || "").replace(/\s/g,"")) || 0)
+  })).filter(r => r.color);
+}
+
+function _apVarReset() {
+  _apVarOn = false;
+  _apVarColors = [];
+  const p = document.getElementById("ap-var-panel");   if (p) p.style.display = "none";
+  const t = document.getElementById("ap-var-toggle-txt");
+  if (t) t.textContent = "Variativ kiritish — bir necha rang";
+  const b = document.getElementById("ap-var-toggle");
+  if (b) { b.style.background = "#FFF7ED"; b.style.color = "#0D1B2A"; b.style.borderStyle = "dashed"; }
+  const c = document.getElementById("ap-var-chips");   if (c) c.innerHTML = "";
+  const w = document.getElementById("ap-var-table-wrap"); if (w) w.style.display = "none";
+  const tb = document.getElementById("ap-var-tbody");  if (tb) tb.innerHTML = "";
 }
