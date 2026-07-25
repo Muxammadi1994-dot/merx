@@ -2923,7 +2923,22 @@ function nmClearAll() {
 
 function updateNmCount() {
   const el = document.getElementById("nm-count");
-  if (el) el.textContent = _narxnomaSelected.size + " ta tanlandi";
+  if (!el) return;
+  const total = _narxnomaSelected.size;
+  // 2026-07-24 (№8): qidiruvdan tashqarida qolgan tanlovlarni ham aytamiz —
+  // aks holda "ro'yxatda yo'q, lekin preview'da bor" chalkashligi chiqadi
+  const q = (document.getElementById("nm-q")||{value:""}).value.toLowerCase();
+  let hidden = 0;
+  if (q) {
+    (db.products||[]).forEach(p => {
+      if (!_narxnomaSelected.has(p.sku)) return;
+      const match = p.name.toLowerCase().includes(q) ||
+        (p.sku||"").toLowerCase().includes(q) || (p.art||"").toLowerCase().includes(q);
+      if (!match) hidden++;
+    });
+  }
+  el.textContent = total + " ta tanlandi" +
+    (hidden > 0 ? ` (${hidden} tasi qidiruvdan tashqarida)` : "");
 }
 
 function _nmOpts() {
@@ -3133,11 +3148,11 @@ function printNarxnoma() {
   let pageCss, gridCss, barcodeH;
   if (o.paper === "40x30") {
     pageCss = "@page{margin:1mm;size:40mm 30mm}";
-    gridCss = ".nm-label-grid{display:block;padding:0}.nm-label{width:38mm;min-height:28mm;page-break-after:always;border:none !important;padding:1mm}";
+    gridCss = ".nm-label-grid{display:block;padding:0}.nm-label{width:38mm;min-height:28mm;page-break-after:always;border:none !important;padding:1mm;display:flex;flex-direction:column;justify-content:center}";
     barcodeH = 18;
   } else if (o.paper === "58x40") {
     pageCss = "@page{margin:1.5mm;size:58mm 40mm}";
-    gridCss = ".nm-label-grid{display:block;padding:0}.nm-label{width:55mm;min-height:37mm;page-break-after:always;border:none !important;padding:1.5mm}";
+    gridCss = ".nm-label-grid{display:block;padding:0}.nm-label{width:55mm;min-height:37mm;page-break-after:always;border:none !important;padding:1.5mm;display:flex;flex-direction:column;justify-content:center}";
     barcodeH = 24;
   } else {
     pageCss = "@page{margin:5mm;size:A4}";
@@ -3157,23 +3172,23 @@ ${gridCss}
 .nm-standard{border:1px solid #ddd;border-radius:6px;padding:8px;background:#fff;break-inside:avoid}
 .nm-mini{border:1px solid #eee;border-radius:4px;padding:6px;background:#fff;break-inside:avoid}
 .nm-premium{border:2px solid #0D1B2A;border-radius:8px;overflow:hidden;break-inside:avoid}
-.nm-shop{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
-.nm-name{font-size:12px;font-weight:700;color:#111;margin-bottom:3px}
-.nm-var{font-size:10px;color:#666;margin-bottom:5px}
-.nm-price-main{font-size:15px;font-weight:800;color:#0D1B2A}
-.nm-price-ulg{font-size:10px;color:#888}
-.nm-price-usd{font-size:10px;color:#666}
-.nm-sku{font-size:9px;color:#bbb;font-family:monospace}
+.nm-shop{font-size:9px;color:#000;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+.nm-name{font-size:12px;font-weight:700;color:#000;margin-bottom:3px}
+.nm-var{font-size:10px;color:#000;margin-bottom:5px}
+.nm-price-main{font-size:15px;font-weight:800;color:#000}
+.nm-price-ulg{font-size:10px;color:#000}
+.nm-price-usd{font-size:10px;color:#000}
+.nm-sku{font-size:9px;color:#000;font-family:monospace}
 .nm-barcode{text-align:center;margin-top:4px}
 .nm-barcode-svg{max-width:100%}
 .nm-name-sm{font-size:11px;font-weight:700;margin-bottom:2px}
-.nm-var-sm{font-size:9px;color:#777;margin-bottom:3px}
+.nm-var-sm{font-size:9px;color:#000;margin-bottom:3px}
 .nm-prem-top{background:#0D1B2A;padding:8px 10px}
 .nm-prem-shop{font-size:8px;color:#E9A500;text-transform:uppercase;letter-spacing:2px}
 .nm-prem-name{font-size:12px;font-weight:700;color:#fff}
 .nm-prem-cat{font-size:9px;color:#aaa}
 .nm-prem-mid{padding:5px 10px;border-bottom:1px solid #eee;display:flex;justify-content:space-between}
-.nm-prem-color{font-size:10px;color:#444}
+.nm-prem-color{font-size:10px;color:#000}
 .nm-prem-sku{font-size:9px;color:#bbb;font-family:monospace}
 .nm-prem-bot{padding:7px 10px}
 .nm-prem-price{font-size:16px;font-weight:800;color:#0D1B2A}
