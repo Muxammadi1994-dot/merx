@@ -3061,16 +3061,18 @@ function buildLabel(p, v, opts) {
 
   if (style === "mini") return `
     <div class="nm-label nm-mini">
-      ${showLogo?`<div class="nm-shop">${shopName}</div>`:""}
-      ${showName?`<div class="nm-name-sm">${p.name}</div>`:""}
-      ${showCat?`<div class="nm-var-sm">${p.category||""}</div>`:""}
-      ${varLine?`<div class="nm-var-sm">${varLine}</div>`:""}
-      ${showArt&&p.art?`<div class="nm-sku">${p.art}</div>`:""}
-      ${showPrice?`<div class="nm-price-main">${fmt(priceUzs)} so'm</div>`:""}
-      ${showUsd?`<div class="nm-price-usd">$${priceUsd}</div>`:""}
-      ${showUlg&&ulgUzs&&hasChakana?`<div class="nm-price-ulg">Ulg: ${fmt(ulgUzs)}</div>`:""}
-      ${showSku?`<div class="nm-sku">${p.sku}</div>`:""}
       ${barcodeHtml}
+      <div class="nm-l-body">
+        ${showLogo?`<div class="nm-shop">${shopName}</div>`:""}
+        ${varLine?`<div class="nm-var-sm">${varLine}</div>`:""}
+        ${showName?`<div class="nm-name-sm">${p.name}</div>`:""}
+        ${showCat?`<div class="nm-var-sm">${p.category||""}</div>`:""}
+        ${showArt&&p.art?`<div class="nm-sku">${p.art}</div>`:""}
+        ${showSku?`<div class="nm-sku">${p.sku}</div>`:""}
+        ${showPrice?`<div class="nm-price-main">${fmt(priceUzs)} so'm</div>`:""}
+        ${showUsd?`<div class="nm-price-usd">$${priceUsd}</div>`:""}
+        ${showUlg&&ulgUzs&&hasChakana?`<div class="nm-price-ulg">Ulg: ${fmt(ulgUzs)}</div>`:""}
+      </div>
     </div>`;
 
   if (style === "premium") return `
@@ -3093,20 +3095,23 @@ function buildLabel(p, v, opts) {
       ${barcodeHtml}
     </div>`;
 
+  // 2026-07-25: tartib do'kon namunasiga moslashtirildi —
+  // SHTRIX TEPADA (katta), ostida kod, keyin rang/nom, eng pastda narx.
+  // Skaner uchun qulay: shtrix etiketkaning eng ko'rinadigan joyida.
   return `
     <div class="nm-label nm-standard">
-      ${showLogo?`<div class="nm-shop">${shopName}</div>`:""}
-      ${showName?`<div class="nm-name">${p.name}</div>`:""}
-      ${showCat?`<div class="nm-var">${p.category||""}</div>`:""}
-      ${varLine?`<div class="nm-var">${varLine}</div>`:""}
-      <div class="nm-prices">
+      ${barcodeHtml}
+      <div class="nm-l-body">
+        ${showLogo?`<div class="nm-shop">${shopName}</div>`:""}
+        ${varLine?`<div class="nm-var">${varLine}</div>`:""}
+        ${showName?`<div class="nm-name">${p.name}</div>`:""}
+        ${showCat?`<div class="nm-var">${p.category||""}</div>`:""}
+        ${showArt&&p.art?`<div class="nm-sku">ART: ${p.art}</div>`:""}
+        ${showSku?`<div class="nm-sku">${p.sku}</div>`:""}
         ${showPrice?`<div class="nm-price-main">${fmt(priceUzs)} so'm</div>`:""}
         ${showUlg&&ulgUzs&&hasChakana?`<div class="nm-price-ulg">Ulgurji: ${fmt(ulgUzs)}</div>`:""}
         ${showUsd?`<div class="nm-price-usd">$${priceUsd}</div>`:""}
       </div>
-      ${showArt&&p.art?`<div class="nm-sku">ART: ${p.art}</div>`:""}
-      ${showSku?`<div class="nm-sku">${p.sku}</div>`:""}
-      ${barcodeHtml}
     </div>`;
 }
 
@@ -3455,19 +3460,19 @@ function _nmSizeCfg(paper) {
   const CFG = {
     "40x30": {                       // Xprinter va shunga o'xshash termal
       wMm: 40, hMm: 30, padMm: 1,
-      barH: 40, barW: 1.8, barFont: 11,
-      fName: 12, fVar: 9.5, fPrice: 17, fSmall: 9.5,
+      barH: 44, barW: 1.8, barFont: 15,   // barFont: kod raqami (11 -> 15)
+      fName: 11.5, fVar: 10, fPrice: 16, fSmall: 9.5,
       thermal: true
     },
     "58x40": {
       wMm: 58, hMm: 40, padMm: 1.5,
-      barH: 54, barW: 2.2, barFont: 13,
-      fName: 14.5, fVar: 11, fPrice: 21, fSmall: 11,
+      barH: 58, barW: 2.2, barFont: 18,   // (13 -> 18)
+      fName: 14, fVar: 12, fPrice: 20, fSmall: 11,
       thermal: true
     },
     "a4": {                          // oddiy printer, ko'p ustun
       wMm: 0,  hMm: 0,  padMm: 2.5,  // 0 = grid o'zi belgilaydi
-      barH: 34, barW: 1.5, barFont: 10,
+      barH: 38, barW: 1.5, barFont: 14,   // (10 -> 14)
       fName: 13, fVar: 10, fPrice: 18, fSmall: 10,
       thermal: false
     }
@@ -3491,8 +3496,9 @@ function _nmLabelCss(c) {
   overflow:hidden;white-space:nowrap;margin:0}
 .nm-price-main{font-size:${c.fPrice}px;font-weight:900;color:#000;line-height:1.15;margin:0}
 .nm-price-usd,.nm-price-ulg,.nm-sku,.nm-shop{font-size:${c.fSmall}px;color:#000;line-height:1.15;margin:0}
-.nm-barcode{width:100%;margin-top:1px;text-align:center}
+.nm-barcode{width:100%;margin:0 0 1px;text-align:center}
 .nm-barcode-svg{width:100%;height:auto;display:block}
+.nm-l-body{display:flex;flex-direction:column;gap:0;min-height:0;overflow:hidden}
 ${c.thermal ? ".nm-color-dot{display:none}" : ""}
 `;
 }
