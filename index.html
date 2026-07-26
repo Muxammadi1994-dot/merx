@@ -3863,6 +3863,11 @@
     <div style="font-size:12px;color:var(--mut);font-weight:700;text-transform:uppercase;margin-bottom:8px">
       Qaytariladigan tovarlar (miqdorni o'zgartiring)
     </div>
+    <!-- 2026-07-25: butun sotuvni bir bosishda qaytarish (xato sotuv uchun) -->
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+      <button type="button" class="btn btn-sm btn-ghost" onclick="refFillAll()"
+        style="font-size:12px"><i class="ti ti-checks"></i> Barchasini qaytarish</button>
+    </div>
     <div id="refund-items" style="max-height:260px;overflow-y:auto;margin-bottom:14px"></div>
 
     <div style="display:flex;justify-content:space-between;align-items:center;
@@ -4497,7 +4502,7 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=162"></script>
-<script src="js/utils.js?v=182"></script>
+<script src="js/utils.js?v=183"></script>
 <script src="js/auth.js?v=179"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=192"></script>
@@ -4507,7 +4512,7 @@
 <script src="js/ombor.js?v=156"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=182"></script>
-<script src="js/tarix.js?v=157"></script>
+<script src="js/tarix.js?v=158"></script>
 <script src="js/hisobot.js?v=145"></script>
 <script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=160"></script>
@@ -4716,7 +4721,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=54")
+    navigator.serviceWorker.register("/sw.js?v=55")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

@@ -484,25 +484,45 @@ function openRefundModal(saleId) {
   const el = $("refund-items"); if (!el) return;
 
   const safeItems = (s.items||[]).filter(Boolean);
+
+  // 2026-07-25: allaqachon qaytarilgan miqdorni hisobga olamiz
+  const already = {};
+  (s.refunds || []).forEach(r =>
+    (r.items || []).forEach(ri => {
+      const k = (ri.name||"") + "|" + (ri.variant||"");
+      already[k] = (already[k] || 0) + (ri.qty || 0);
+    }));
+
   el.innerHTML = safeItems.map((item, i) => {
     const isBox = item.sellMode === "karobka" && item.inBox > 0;
     const unitLabel = isBox ? "pochka" : (item.unit || "dona");
-    const displayMax = isBox ? (item.qtyBox || Math.round(item.qty/item.inBox)) : item.qty;
+    const soldRaw = isBox ? (item.qtyBox || Math.round(item.qty/item.inBox)) : item.qty;
+    // Avval qaytarilgani ayiriladi — ikki marta qaytarib bo'lmasin
+    const usedDona = already[(item.name||"") + "|" + (item.variant||"")] || 0;
+    const usedRaw  = isBox ? Math.round(usedDona / (item.inBox||1)) : usedDona;
+    const displayMax = Math.max(0, soldRaw - usedRaw);
+
+    const cellCss = "width:70px;font-family:inherit;font-size:14px;font-weight:700;" +
+      "text-align:center;border:1.5px solid var(--brd);border-radius:8px;padding:6px 8px";
+
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
-      <div style="flex:1">
+      <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:13px">${item.name||"?"}</div>
         <div style="font-size:12px;color:var(--mut)">${item.variant||""} · ${fmt(item.price||0)} so'm/dona</div>
+        ${usedRaw > 0 ? `<div style="font-size:11px;color:var(--red)">Avval qaytarilgan: ${usedRaw} ${unitLabel}</div>` : ""}
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:12px;color:var(--mut)">Sotilgan: ${displayMax} ${unitLabel}</span>
-        <input type="number" id="ref-qty-${i}" min="0" max="${displayMax}"
-          value="${displayMax}" data-isbox="${isBox?1:0}" data-inbox="${item.inBox||1}"
-          style="width:64px;font-family:inherit;font-size:14px;font-weight:700;
-            text-align:center;border:1.5px solid var(--brd);border-radius:8px;padding:5px 8px"
-          oninput="updateRefundTotal()">
-      </div>
+      <!-- Sotilgan: KATAK ko'rinishida, o'zgartirib bo'lmaydi -->
+      <input type="text" value="${displayMax}" readonly tabindex="-1"
+        title="Sotilgan (qaytarish mumkin) — o'zgartirib bo'lmaydi"
+        style="${cellCss};background:var(--bg);color:var(--mut);cursor:not-allowed">
+      <!-- Qaytariladigan: BO'SH, foydalanuvchi yozadi -->
+      <input type="number" id="ref-qty-${i}" min="0" max="${displayMax}" value=""
+        placeholder="0" inputmode="numeric"
+        data-isbox="${isBox?1:0}" data-inbox="${item.inBox||1}" data-max="${displayMax}"
+        oninput="refClampQty(this);updateRefundTotal()"
+        style="${cellCss};border-color:var(--acc)">
       <div style="font-size:13px;font-weight:700;color:var(--red);min-width:90px;text-align:right"
-        id="ref-sum-${i}">${fmt((item.price||0)*(item.qty||0))} so'm</div>
+        id="ref-sum-${i}">0 so'm</div>
     </div>`;
   }).join("");
 
@@ -566,33 +586,49 @@ function confirmRefund() {
   let returnedCount = 0;
   refundItems.forEach(item => { if (returnItemToStock(item)) returnedCount++; });
 
-  const isFullRefund = refundTotal >= (s.total||0);
+  // ═══ 2026-07-25: ASL CHEK HIMOYASI ═══
+  // s.items va s.total ENDI O'ZGARTIRILMAYDI. Avval qisman qaytarishda
+  // tovarlar chekdan olib tashlanardi va summa kamayardi — asl chek
+  // qayta chiqarilganda BOSHQA chek chiqardi. Endi asl sotuv qanday
+  // bo'lsa shunday qoladi, qaytarishlar alohida ro'yxatda yuritiladi.
+  const refundNo = "QT-" + today().replace(/-/g,"").slice(2) + "-" +
+                   String(((s.refunds||[]).length + 1)).padStart(2,"0");
+
+  if (!s.refunds) s.refunds = [];
+  s.refunds.push({
+    no: refundNo, date: today(), time: nowTime(),
+    total: refundTotal, reason,
+    items: refundItems.map(r => ({
+      name: r.name, variant: r.variant, qty: r.qty,
+      qtyBox: r.qtyBox, price: r.price
+    }))
+  });
+  s.refundedTotal = (s.refundedTotal || 0) + refundTotal;
+
+  const isFullRefund = s.refundedTotal >= (s.total || 0);
   if (isFullRefund) {
-    s.status = "qaytarilgan"; s.refundDate = today(); s.refundReason = reason;
-    s.refundTotal = refundTotal; s.remaining = 0;
+    s.status = "qaytarilgan";
+    s.refundDate = today();
+    s.refundReason = reason;
+    s.refundTotal = s.refundedTotal;
+    s.remaining = 0;
   } else {
-    s.total     -= refundTotal;
-    s.paid       = Math.max(0, (s.paid||0) - refundTotal);
-    s.remaining  = Math.max(0, (s.remaining||0) - Math.min(refundTotal, s.remaining||0));
+    // Qarz bo'lsa — qaytarish summasi avval QARZDAN kamayadi
+    s.remaining = Math.max(0, (s.remaining||0) - refundTotal);
     if (s.remaining <= 0) { s.remaining = 0; s.status = "tolandan"; }
     s.refundDate = today();
-    s.refundNote = `Qisman qaytarish: ${fmt(refundTotal)} so'm`;
-    s.items = safeItems.map(item => {
-      const refItem = refundItems.find(r => r.name===item.name && r.variant===item.variant);
-      if (!refItem) return item;
-      const newQty = (item.qty||0) - refItem.qty;
-      if (newQty <= 0) return null;
-      const newQtyBox = item.qtyBox != null ? (item.qtyBox - (refItem.qtyBox||0)) : null;
-      return { ...item, qty: newQty, qtyBox: newQtyBox };
-    }).filter(Boolean);
+    s.refundNote = `Qisman qaytarilgan: ${fmt(s.refundedTotal)} so'm · ${refundNo}`;
   }
 
   if (!db.returns) db.returns = [];
   db.returns.push({
     id: db.seq++, date: today(), time: nowTime(),
+    refundNo,                                  // qaytarish cheki raqami
     origSaleId: s.id, origChekNum: s.chekNum || "#"+s.id,
     items: refundItems, total: refundTotal, reason,
-    customerName: s.customerName||"", staffId: s.staffId
+    customerName: s.customerName||"", customerId: s.customerId || null,
+    staffId: s.staffId,
+    isFull: isFullRefund
   });
 
   saveDB();
@@ -712,4 +748,27 @@ function renderDebtPaymentRow(p) {
       </button>
     </td>
   </tr>`;
+}
+
+// ═══ QAYTARISH: MIQDOR NAZORATI (2026-07-25) ═══
+// Sotilgandan ko'p yozib bo'lmaydi — kiritish paytida darhol cheklanadi.
+function refClampQty(inp) {
+  const max = parseInt(inp.dataset.max) || 0;
+  let v = parseInt(inp.value);
+  if (isNaN(v)) return;                 // bo'sh qoldirish mumkin
+  if (v < 0) v = 0;
+  if (v > max) {
+    v = max;
+    toast(`Ko'pi bilan ${max} ta qaytarish mumkin`, "err");
+  }
+  inp.value = v;
+}
+
+// "Barchasini qaytarish" — hamma kataklarni to'ldiradi (xato sotuv uchun)
+function refFillAll() {
+  const rows = document.querySelectorAll('#refund-items input[id^="ref-qty-"]');
+  if (!rows.length) return;
+  rows.forEach(inp => { inp.value = parseInt(inp.dataset.max) || 0; });
+  updateRefundTotal();
+  toast("Barcha tovarlar qaytarishga belgilandi");
 }

@@ -771,6 +771,28 @@ function buildReceiptHtml(sale, opts) {
   const usdLine = (_pcMode === "both" && rate > 0)
     ? ` / $${(total / rate).toFixed(2)}` : "";
 
+  // 2026-07-25: qaytarish eslatmasi — asl chek O'ZGARMAYDI, faqat
+  // pastida "qisman qaytarilgan" belgisi va qaytarish cheki raqami turadi.
+  let _refundNote = "";
+  const _refs = sale.refunds || [];
+  if (_refs.length) {
+    const _rTot = sale.refundedTotal || _refs.reduce((a,r) => a + (r.total||0), 0);
+    const _full = sale.status === "qaytarilgan";
+    const _nos  = _refs.map(r => r.no).filter(Boolean).join(", ");
+    _refundNote = `
+      <div style="margin:8px 16px 0;padding:8px 10px;border:1px dashed #B91C1C;
+        border-radius:6px;background:#FEF2F2">
+        <div style="font-size:11.5px;font-weight:800;color:#B91C1C">
+          ${_full ? "TO'LIQ QAYTARILGAN" : "QISMAN QAYTARILGAN"}
+        </div>
+        <div style="font-size:11px;color:#000;margin-top:2px">
+          Qaytarilgan summa: <b>${F(_rTot)} so'm</b>
+        </div>
+        ${_nos ? `<div style="font-size:10.5px;color:#000;margin-top:1px">
+          Qaytarish cheki: ${_nos}</div>` : ""}
+      </div>`;
+  }
+
   // ── To'lov bo'limi ────────────────────────────
   const discHtml = discount > 0
     ? `<div class="pr"><span>Chegirma</span><span class="c-red">− ${FC(discount)}</span></div>` : "";
@@ -1010,6 +1032,7 @@ ${!_bFoot.show ? ".ft-thanks{display:none !important}" : ""}
       <div class="pr"><span>To'landi</span><span style="color:#059669;font-weight:700">${FC(paid)}</span></div>
       ${debtHtml}
     </div>`}
+    ${_refundNote}
 
     <div class="ft">
       <div class="ft-thanks">${footer}</div>
