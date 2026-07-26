@@ -796,18 +796,28 @@ function buildReceiptHtml(sale, opts) {
   if (remaining > 0) {
     if (showDebtHistory && isUsd && prevUsd > 0) {
       const tot = prevUsd + debtUsd;
+      // 2026-07-25: OLDINGI va KEYINGI qarz — allaqachon USD da QOTGAN,
+      // ular turli kurslarda yig'ilgan. Ularni qayta hisoblash MUMKIN EMAS.
+      // Faqat SHU XARIDDA qo'shilayotgan summa so'mdan aylantiriladi.
+      const _added = (_pcMode === "both" && _pcRate > 0)
+        ? `${F(remaining)} / ${F(_pcRate)} = $${debtUsd.toFixed(2)}`
+        : `$${debtUsd.toFixed(2)}`;
       debtHtml = `
         <div class="sep-dash" style="margin:6px 0"></div>
         <div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>$${prevUsd.toFixed(2)}</span></div>
-        <div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>$${debtUsd.toFixed(2)}</span></div>
+        <div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>${_added}</span></div>
         <div class="pr pr-debt"><span>Xariddan keyingi qarz</span><span>$${tot.toFixed(2)} USD</span></div>`;
     } else if (showDebtHistory && !isUsd && prevUzs > 0) {
-      // 2026-07-25: both rejimda bu qatorlar ham ikki valyutada
+      // Qarz so'mda yuritiladi — oldingi va keyingi summalar SO'MDA qoladi.
+      // Faqat qo'shilayotgan summa yonida joriy kurs bo'yicha USD ko'rsatiladi.
+      const _added = (_pcMode === "both" && _pcRate > 0)
+        ? `${F(remaining)} / ${F(_pcRate)} = $${(remaining / _pcRate).toFixed(2)}`
+        : `${F(remaining)} so'm`;
       debtHtml = `
         <div class="sep-dash" style="margin:6px 0"></div>
-        <div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>${FD(prevUzs)}</span></div>
-        <div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>${FD(remaining)}</span></div>
-        <div class="pr pr-debt"><span>Xariddan keyingi qarz</span><span>${FD(prevUzs + remaining)}</span></div>`;
+        <div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>${F(prevUzs)} so'm</span></div>
+        <div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>${_added}</span></div>
+        <div class="pr pr-debt"><span>Xariddan keyingi qarz</span><span>${F(prevUzs + remaining)} so'm</span></div>`;
     } else {
       // both rejimda so'm va USD birga; usd/uzs da avvalgidek
       const amt = (_pcMode === "both") ? FD(remaining, isUsd ? debtUsd : null)
@@ -823,11 +833,10 @@ function buildReceiptHtml(sale, opts) {
     const _pIsUsd = _pdUsd > 0;
     const _pd = _pIsUsd ? _pdUsd : _pdUzs;
     if (showDebtHistory && _pd > 0) {
-      // 2026-07-25: both rejimda bu qatorlar ham "som / kurs = $USD"
-      const P = v => (_pcMode === "both")
-        ? FD(_pIsUsd ? (Number(v||0) * _pcRate) : Number(v||0),
-             _pIsUsd ? Number(v||0) : null)
-        : (_pIsUsd ? `$${Number(v||0).toFixed(2)}` : `${F(v||0)} so'm`);
+      // 2026-07-25: MAVJUD qarz — turli kurslarda yig'ilgan, QOTGAN.
+      // Uni joriy kursga aylantirish ma'lumotni buzadi (avval shunday
+      // qilingan edi — tuzatildi). Qanday saqlangan bo'lsa shunday chiqadi.
+      const P = v => _pIsUsd ? `$${Number(v||0).toFixed(2)}` : `${F(v||0)} so'm`;
       debtHtml = `
         <div class="sep-dash" style="margin:6px 0"></div>
         <div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>${P(_pd)}</span></div>
