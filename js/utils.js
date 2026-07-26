@@ -665,12 +665,18 @@ function buildReceiptHtml(sale, opts) {
   const custPhone = sale.customerPhone || sale.customer_phone || "";
   const total     = Number(sale.total     || 0);
   const paid      = Number(sale.paid      || 0);
-  const remaining = Number(sale.remaining || 0);
+  // 2026-07-25: CHEK ASL HOLATNI ko'rsatadi. Qaytarish yoki keyingi
+  // to'lovlar sotuvning joriy qoldig'ini o'zgartiradi, lekin CHEK
+  // sotuv paytida qanday bo'lgan bo'lsa shunday qolishi kerak.
+  // origRemaining — sotuv paytidagi asl qarz (bor bo'lsa ustuvor).
+  const remaining = Number(sale.origRemaining != null ? sale.origRemaining : (sale.remaining || 0));
   const discount  = Number(sale.discount  || 0);
   const due       = sale.due  || "";
   const note      = sale.note || "";
   const debtCur   = sale.debtCurrency || sale.debt_currency || "uzs";
-  const debtUsd   = sale.debtUsd   != null ? Number(sale.debtUsd)      : (sale.debt_usd   != null ? Number(sale.debt_usd)   : null);
+  const debtUsd   = sale.origDebtUsd != null ? Number(sale.origDebtUsd)
+                  : (sale.debtUsd != null ? Number(sale.debtUsd)
+                  : (sale.debt_usd != null ? Number(sale.debt_usd) : null));
   const prevUsd   = sale.prevDebtUsd != null ? Number(sale.prevDebtUsd) : null;
   const prevUzs   = sale.prevDebtUzs != null ? Number(sale.prevDebtUzs) : null;
   const isUsd     = debtCur === "usd" && debtUsd != null;

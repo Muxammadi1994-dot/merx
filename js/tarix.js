@@ -606,6 +606,13 @@ function confirmRefund() {
   const refundNo = "QT-" + today().replace(/-/g,"").slice(2) + "-" +
                    String(((s.refunds||[]).length + 1)).padStart(2,"0");
 
+  // 2026-07-25: CHEK HIMOYASI — sotuv paytidagi asl qarzni muhrlaymiz.
+  // Bundan keyin remaining/status o'zgarsa ham chek asl holatni ko'rsatadi.
+  if (s.origRemaining == null) s.origRemaining = Number(s.remaining || 0);
+  if (s.origPaid      == null) s.origPaid      = Number(s.paid || 0);
+  if (s.debtCurrency === "usd" && s.origDebtUsd == null)
+    s.origDebtUsd = Number(s.debtUsd || 0);
+
   if (!s.refunds) s.refunds = [];
   s.refunds.push({
     no: refundNo, date: today(), time: nowTime(),
