@@ -3305,7 +3305,9 @@
               <tr style="background:var(--bg)">
                 <th style="width:38px;padding:7px 4px;font-size:11px;color:var(--mut)">RASM</th>
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">RANG</th>
-                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">QOLDIQ</th>
+                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">POCHKA</th>
+                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">POCHKADA</th>
+                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">DONA</th>
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">TANNARX</th>
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">ULGURJI</th>
               </tr>
@@ -4574,7 +4576,7 @@
 <script src="js/cloud.js?v=192"></script>
 <script src="js/dashboard.js?v=151"></script>
 <script src="js/pos.js?v=220"></script>
-<script src="js/katalog.js?v=210"></script>
+<script src="js/katalog.js?v=211"></script>
 <script src="js/ombor.js?v=156"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=185"></script>
@@ -4787,7 +4789,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=69")
+    navigator.serviceWorker.register("/sw.js?v=70")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

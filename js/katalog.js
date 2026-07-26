@@ -4125,6 +4125,9 @@ function epVarRenderTable() {
   tbody.innerHTML = grp.map(pr => {
     const color = (pr.variants || [])[0]?.color || "—";
     const qty   = (pr.variants || []).reduce((a, v) => a + (v.qty || 0), 0);
+    // Pochka hisobi: 1 pochkadagi dona (inBox) va pochka soni
+    const inBox  = pr.inBox && pr.inBox > 0 ? pr.inBox : 1;
+    const pochka = inBox > 0 ? Math.round((qty / inBox) * 100) / 100 : 0;
     const cost  = (mode === "usd" || mode === "both")
       ? (pr.costUsd || 0)
       : Math.round((pr.costUsd || 0) * rate);
@@ -4143,8 +4146,14 @@ function epVarRenderTable() {
           <b>${color}</b>
           ${isCurrent ? `<div style="font-size:10px;color:var(--acc);font-weight:700">joriy</div>` : ""}
         </td>
-        <td style="padding:4px"><input class="evr-qty" type="number" min="0" inputmode="numeric"
-          value="${qty}" style="${inpCss}"></td>
+        <td style="padding:4px"><input class="evr-boxes" type="number" min="0" step="0.01"
+          inputmode="decimal" value="${pochka}" style="${inpCss}"
+          oninput="epVarRecalc(this)"></td>
+        <td style="padding:4px"><input class="evr-inbox" type="number" min="1" inputmode="numeric"
+          value="${inBox}" style="${inpCss}" oninput="epVarRecalc(this)"></td>
+        <td style="padding:5px 8px;white-space:nowrap;font-weight:700" class="evr-qty-cell">
+          ${fmt(qty)}<input type="hidden" class="evr-qty" value="${qty}">
+        </td>
         <td style="padding:4px"><input class="evr-cost" type="text" data-price
           value="${fmt(cost)}" oninput="priceInputHandler(this)" style="${inpCss}"></td>
         <td style="padding:4px"><input class="evr-ulg" type="text" data-price
@@ -4152,8 +4161,7 @@ function epVarRenderTable() {
       </tr>`;
   }).join("");
 
-  const el = document.getElementById("ep-var-total");
-  if (el) el.innerHTML = `Guruhda <b>${grp.length}</b> ta rang`;
+  epVarTotals();
 }
 
 // Guruhdagi barcha tovarlarni saqlash
@@ -4170,9 +4178,10 @@ function epSaveVariativ() {
     const p = (db.products || []).find(x => x.sku === sku);
     if (!p) return;
 
-    const qty  = parseInt(r.querySelector(".evr-qty")?.value) || 0;
-    const cost = parseFloat(String(r.querySelector(".evr-cost")?.value || "").replace(/\s/g,"")) || 0;
-    const ulg  = parseFloat(String(r.querySelector(".evr-ulg")?.value  || "").replace(/\s/g,"")) || 0;
+    const qty   = parseInt(r.querySelector(".evr-qty")?.value) || 0;
+    const inBox = parseInt(r.querySelector(".evr-inbox")?.value) || 1;
+    const cost  = parseFloat(String(r.querySelector(".evr-cost")?.value || "").replace(/\s/g,"")) || 0;
+    const ulg   = parseFloat(String(r.querySelector(".evr-ulg")?.value  || "").replace(/\s/g,"")) || 0;
 
     // Tannarx HAR DOIM USD da saqlanadi (tizim qoidasi)
     const costUsd = (mode === "usd" || mode === "both") ? cost : (rate > 0 ? cost / rate : 0);
@@ -4194,6 +4203,7 @@ function epSaveVariativ() {
       vars[0].qty = qty;
     }
 
+    if ((p.inBox || 1) !== inBox && inBox > 0) { p.inBox = inBox; changed++; }
     if (Math.abs((p.costUsd || 0) - costUsd) > 0.001) { p.costUsd = costUsd; changed++; }
     if ((p.ulgurjiNarx || 0) !== ulg) { p.ulgurjiNarx = ulg; changed++; }
     if (oldTotal !== qty) changed++;
@@ -4204,4 +4214,34 @@ function epSaveVariativ() {
   renderKatalog();
   epVarRenderTable();
   toast(changed > 0 ? `✅ ${rows.length} ta rang saqlandi` : "O'zgarish yo'q");
+}
+
+// Pochka yoki "pochkada nechta" o'zgarganda DONA qayta hisoblanadi
+function epVarRecalc(inp) {
+  const tr = inp.closest("tr");
+  if (!tr) return;
+  const boxes = parseFloat(tr.querySelector(".evr-boxes")?.value) || 0;
+  const inBox = parseInt(tr.querySelector(".evr-inbox")?.value) || 1;
+  const qty   = Math.round(boxes * inBox);
+
+  const hidden = tr.querySelector(".evr-qty");
+  if (hidden) hidden.value = qty;
+  const cell = tr.querySelector(".evr-qty-cell");
+  if (cell) {
+    const h = cell.querySelector("input");
+    cell.textContent = fmt(qty);
+    if (h) cell.appendChild(h);
+  }
+  epVarTotals();
+}
+
+// Guruh bo'yicha jami
+function epVarTotals() {
+  const el = document.getElementById("ep-var-total");
+  if (!el) return;
+  const rows = [...document.querySelectorAll("#ep-var-tbody tr")];
+  const pochka = rows.reduce((a, r) => a + (parseFloat(r.querySelector(".evr-boxes")?.value) || 0), 0);
+  const dona   = rows.reduce((a, r) => a + (parseInt(r.querySelector(".evr-qty")?.value) || 0), 0);
+  el.innerHTML = `Guruhda <b>${rows.length}</b> ta rang · ` +
+    `<b>${Math.round(pochka * 100) / 100}</b> pochka · <b>${fmt(dona)}</b> dona`;
 }
