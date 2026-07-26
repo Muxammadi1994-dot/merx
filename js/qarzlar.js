@@ -1525,9 +1525,19 @@ function showDebtPaymentReceipt(payment) {
   // Qarz qatorlari — QARZ VALYUTASIDA (eski "uzs" qotirmasi tuzatildi)
   const fmtC = v => cur === "usd" ? fmtUsd(v||0) : `${F(v)} so'm`;
   const debtRows = [];
-  if (payment.debtBefore != null) debtRows.push(["Avvalgi qarz", fmtC(payment.debtBefore)]);
+  // 2026-07-25: debtBefore/debtAfter yozilmagan ESKI to'lovlar uchun
+  // zaxira — allocations dan tiklaymiz (bo'lim bo'sh qolmasin)
+  let _dBefore = payment.debtBefore, _dAfter = payment.debtAfter;
+  if (_dBefore == null || _dAfter == null) {
+    const _al = (payment.allocations || [])[0];
+    if (_al && _al.remainingAfter != null) {
+      _dAfter  = _dAfter  != null ? _dAfter  : _al.remainingAfter;
+      _dBefore = _dBefore != null ? _dBefore : (_al.remainingAfter + (payment.amount || 0));
+    }
+  }
+  if (_dBefore != null) debtRows.push(["Avvalgi qarz", fmtC(_dBefore)]);
   debtRows.push(["To'landi", fmtC(payment.amount)]); // 2026-07-17: o'rtada — tushunarli zanjir
-  if (payment.debtAfter  != null) debtRows.push(["Qolgan qarz",  fmtC(payment.debtAfter)]);
+  if (_dAfter  != null) debtRows.push(["Qolgan qarz",  fmtC(_dAfter)]);
 
   // Muddat — bitta chekka to'lov bo'lsa o'sha sotuvning muddati
   let dueLine = "";

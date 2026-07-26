@@ -636,17 +636,19 @@ function confirmRefund() {
   const plan = _refundPayPlan(s, refundTotal);
 
   if (plan.fromThisDebt > 0) {
-    s.remaining = Math.max(0, (s.remaining || 0) - plan.fromThisDebt);
+    const _before = s.remaining || 0;                 // to'lovdan OLDINGI qarz
+    s.remaining = Math.max(0, _before - plan.fromThisDebt);
     if (s.remaining <= 0) { s.remaining = 0; if (!isFullRefund) s.status = "tolandan"; }
-    _refundAddDebtPayment(s, plan.fromThisDebt, refundNo);
+    _refundAddDebtPayment(s, plan.fromThisDebt, refundNo, _before, s.remaining);
   }
 
   plan.otherSales.forEach(o => {
     const os = db.sales.find(x => x.id === o.id);
     if (!os) return;
-    os.remaining = Math.max(0, (os.remaining || 0) - o.amount);
+    const _b = os.remaining || 0;
+    os.remaining = Math.max(0, _b - o.amount);
     if (os.remaining <= 0) { os.remaining = 0; os.status = "tolandan"; }
-    _refundAddDebtPayment(os, o.amount, refundNo);
+    _refundAddDebtPayment(os, o.amount, refundNo, _b, os.remaining);
   });
 
   if (plan.fromCash > 0) {
@@ -881,7 +883,7 @@ function updateRefundPayPlan(total) {
 // Qaytarish hisobidan qarz to'lovi yozuvi (2026-07-25)
 // source="refund" — bu HAQIQIY PUL EMAS, tovar qaytarish hisobidan.
 // Shuning uchun kunlik tushum va kassa hisobiga KIRMAYDI.
-function _refundAddDebtPayment(sale, amount, refundNo) {
+function _refundAddDebtPayment(sale, amount, refundNo, debtBefore, debtAfter) {
   if (!amount || amount <= 0) return;
   if (!db.debtPayments) db.debtPayments = [];
 
@@ -900,6 +902,11 @@ function _refundAddDebtPayment(sale, amount, refundNo) {
     method: "qaytarish",          // naqd/karta emas
     source: "refund",             // ⚠️ tushumga kirmaydi
     refundNo,
+    // 2026-07-25: chek "Avvalgi qarz / To'landi / Qolgan qarz" qatorlarini
+    // shu maydonlardan oladi — avval yozilmagani uchun bo'lim bo'sh edi
+    debtBefore: debtBefore != null ? debtBefore : null,
+    debtAfter:  debtAfter  != null ? debtAfter  : null,
+    currency: "uzs",
     note: `Tovar qaytarish hisobidan (${refundNo})`,
     allocations: [{
       saleId: sale.id,
@@ -910,4 +917,14 @@ function _refundAddDebtPayment(sale, amount, refundNo) {
     }],
     leftover: 0
   });
+
+  // 2026-07-25: chek mijozga Telegram orqali ham boradi (oddiy qarz
+  // to'lovi kabi) — avval bu chaqiruv yo'q edi.
+  try {
+    const _pay = db.debtPayments[db.debtPayments.length - 1];
+    const _cust = (db.customers || []).find(c => c.id === sale.customerId);
+    if (typeof sendTelegramPayReceipt === "function" && (sale.customerId || _cust?.phone)) {
+      sendTelegramPayReceipt(sale.customerId || null, _cust?.phone || null, _pay);
+    }
+  } catch(e) { console.warn("Qaytarish cheki botga yuborilmadi:", e.message); }
 }

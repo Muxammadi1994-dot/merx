@@ -1042,11 +1042,17 @@ async function actionSendPayReceipt(body) {
     const totalSom = Object.values(payment.methodBreakdown).reduce((a,v)=>a+v,0);
     methodTxt = parts.join(" + ") + ` = Jami ${F(totalSom)} so'm`;
     if (payment.currency === "usd") methodTxt += ` (joriy kursda $${(totalSom/rate).toFixed(2)})`;
+  } else if (payment.source === "refund") {
+    // 2026-07-25: tovar qaytarish hisobidan yopilgan qarz — haqiqiy pul emas
+    methodTxt = `Tovar qaytarish hisobidan${payment.refundNo ? " (" + payment.refundNo + ")" : ""}`;
   } else {
     methodTxt = `${PM_LBL[payment.method] || payment.method || "Naqd"} orqali`;
   }
 
-  let txt = `💵 <b>TO'LOV QABUL QILINDI</b>  <code>${payment.chekNum || ("#"+payment.id)}</code>\n`;
+  const _isRef = payment.source === "refund";
+  let txt = _isRef
+    ? `↩️ <b>TOVAR QAYTARILDI</b>  <code>${payment.chekNum || ("#"+payment.id)}</code>\n`
+    : `💵 <b>TO'LOV QABUL QILINDI</b>  <code>${payment.chekNum || ("#"+payment.id)}</code>\n`;
   txt += `🏪 ${shopName || "MERX"}\n📅 ${payment.date || ""} ${payment.time || ""}\n`;
   txt += `━━━━━━━━━━━━━━━━━━━\n`;
   if (payment.debtBefore != null) txt += `Jami qarz edi:  <b>${M(payment.debtBefore)}</b>\n`;
