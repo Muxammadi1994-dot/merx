@@ -1368,8 +1368,48 @@ function scheduleCloudSync() {
     try { await pushToCloud(); } catch(e) { console.warn("scheduleCloudSync push xato:", e.message); }
     // v178: pill endi o'ynamaydi — "Avto-saqlash" tinch turadi,
     // sinxron orqa fonda jim ishlaydi (faqat xato toast bo'ladi).
-  }, 2000); // v176: 2 soniya — delta-push tufayli yuk kichik, tezroq ketadi
+  }, 700); // 2026-07-25: 2000 -> 700ms. 2 soniya ichida F5 bosilsa
+           // o'zgarish YO'QOLARDI (o'chirilgan tovar tirilib qolardi).
 }
+
+// ═══ DARHOL SINXRON (2026-07-25) ═══
+// Muhim amallar (o'chirish, sotuv, tovar qo'shish) kutmasdan yuboriladi.
+// Sahifa yopilishi/yashirilishi oldidan ham shu chaqiriladi.
+async function flushCloudSync() {
+  if (!_sb) return false;
+  if (_syncSuppressed) return false;
+  clearTimeout(_syncTimer);
+  if (!_syncPending) return true;   // yuboriladigan narsa yo'q
+  _syncPending = false;
+  try {
+    await pushToCloud();
+    return true;
+  } catch (e) {
+    _syncPending = true;            // yuborilmadi — keyingi urinishga qoladi
+    console.warn("flushCloudSync xato:", e.message);
+    return false;
+  }
+}
+
+// Kutilayotgan o'zgarish bormi (F5 ogohlantirishi uchun)
+function hasPendingSync() { return !!_syncPending; }
+
+// ── Sahifa yashirilganda/yopilganda DARHOL yuborish ──
+// Telefonda ilova fonga o'tganda ham ishlaydi (visibilitychange).
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && _syncPending) {
+    flushCloudSync();
+  }
+});
+
+// F5 / tab yopish — yuborilmagan o'zgarish bo'lsa ogohlantiramiz
+window.addEventListener("beforeunload", (e) => {
+  if (!_syncPending) return;
+  flushCloudSync();                 // ulgursa yuboriladi
+  e.preventDefault();
+  e.returnValue = "";               // brauzer o'z savolini ko'rsatadi
+  return "";
+});
 
 // 2026-07-10: INTERNET QAYTDI tinglovchisi — ulanish tiklanishi bilan
 // kutayotgan o'zgarishlar DARHOL yuboriladi (avval keyingi amalgacha

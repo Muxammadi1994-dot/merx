@@ -1016,6 +1016,8 @@ async function useBalanceForDebt(saleId) {
   db.debtPayments.push(payment);
 
   saveDB();
+  // 2026-07-25: QARZ TO'LOVI — pul mantiqi, darhol bulutga
+  try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}
   toast(`✅ Balansdan ${fmtMoney(useAmt, isUsd?"usd":"uzs")} o'tkazildi`);
   renderDebts();
   if (typeof renderQarzlarTarixi === "function") renderQarzlarTarixi();
@@ -1202,7 +1204,9 @@ async function recordPayment(id, forcedCurrency) {
   db.debtPayments = db.debtPayments || [];
   db.debtPayments.push(payment);
 
-  saveDB(); renderDebts();
+  saveDB();
+  // 2026-07-25: QARZ TO'LOVI — pul mantiqi, darhol bulutga
+  try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {} renderDebts();
   if (typeof renderQarzlarTarixi === "function") renderQarzlarTarixi();
 
   // ── Xabar matni ────────────────────────────────

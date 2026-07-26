@@ -1266,6 +1266,8 @@ function omDeleteKirim(id) {
   }
 
   saveDB();
+  // 2026-07-25: o'chirish DARHOL bulutga — aks holda F5 da tovar "tirilardi"
+  try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}
   if (typeof renderOmbor === "function") renderOmbor();
   if (typeof renderKatalog === "function") renderKatalog();
   toast(prodRemoved
@@ -1332,6 +1334,8 @@ function omDeletePartiya(partiya) {
   });
 
   saveDB();
+  // 2026-07-25: o'chirish DARHOL bulutga — aks holda F5 da tovar "tirilardi"
+  try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}
   if (typeof renderOmbor === "function") renderOmbor();
   if (typeof renderKatalog === "function") renderKatalog();
   toast(`Partiya o'chirildi — ${rows.length} ta kirim, ${removed} ta tovar`, "info");

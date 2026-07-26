@@ -1273,7 +1273,10 @@ function deleteProduct() {
   const _omRemoved = _omBefore - db.ombor.length;
 
   db.products = db.products.filter(x => x.sku !== editSku);
-  saveDB(); closeModal("editprod"); renderKatalog();
+  saveDB();
+  // 2026-07-25: o'chirish DARHOL bulutga
+  try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}
+  closeModal("editprod"); renderKatalog();
   toast(_omRemoved > 0
     ? `"${p.name}" o'chirildi (${_omRemoved} ta kirim yozuvi ham)`
     : `"${p.name}" o'chirildi`, "info");

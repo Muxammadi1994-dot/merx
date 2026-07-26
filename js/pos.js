@@ -2152,6 +2152,8 @@ async function checkout() {
     prevDebtUzs: prevDebtUzs > 0 ? prevDebtUzs : null,
   };
   db.sales.push(newSale); saveDB();
+  // 2026-07-25: SOTUV — pul mantiqi, darhol bulutga yuboriladi
+  try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}
 
   // Sodiqlik balli — avtomatik hisoblanadi (Sozlamalar > Narx bo'limida yoqilsa)
   if (typeof addLoyaltyPoints === "function" && customerId) {
