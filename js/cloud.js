@@ -192,6 +192,11 @@ let _cloudPullDone = false;
 //   pull/merge ularni qayta tiriltirmasligi uchun.
 let _cloudIds = {};
 let _tombstones = new Set();
+// 2026-07-25: foydalanuvchi TUGMA BOSIB o'chirganda yoqiladi. Shunda
+// "ommaviy o'chirish" himoyasi (himoya 2) chetlab o'tiladi — u tasodifiy
+// o'chishdan saqlash uchun edi, ataylab qilingan amalni to'smasligi kerak.
+// Bo'sh-db himoyasi (himoya 1) BARIBIR ISHLAYDI.
+let _intentionalDelete = false;
 // Pull QAYSI do'kon uchun bo'lgan — SA do'kon almashtirganda
 // eski ro'yxat yangi do'konga qo'llanib ketmasligi uchun (KRITIK)
 let _pulledShopId = null;
@@ -730,16 +735,29 @@ async function pushToCloud() {
       }
       for (const [table, cfg] of Object.entries(delMap)) {
         const seen = _cloudIds[table];
-        if (!seen || seen.size === 0) continue;
+        // 2026-07-25: tashxis uchun — delete-sync nima uchun ishlamayotgani
+        // console'da ko'rinsin (avval jim o'tib ketardi)
+        if (!seen || seen.size === 0) {
+          const _localCnt = (cfg.rows || []).length;
+          if (_localCnt === 0 && _intentionalDelete) {
+            console.warn("⚠ " + table + ": pull qilinmagan (_cloudIds bo'sh) — " +
+              "o'chirish bulutga yuborilmadi. Sahifani yangilab qayta urining.");
+          }
+          continue;
+        }
         const localSet = new Set((cfg.rows||[]).map(r => String(r[cfg.key])));
         const gone = [...seen.entries()].filter(([k]) => !localSet.has(k));
         if (!gone.length) continue;
         // Himoya 2: bitta jadvaldan bir vaqtda YARMIDAN KO'P (va 5+) o'chirilsa —
         // bu ommaviy o'chirish, shubhali. Bloklaymiz (bexosdan o'chishni to'xtatadi).
-        if (gone.length >= 5 && gone.length > seen.size * 0.5) {
+        if (!_intentionalDelete && gone.length >= 5 && gone.length > seen.size * 0.5) {
           console.warn("🛡 " + table + ": ommaviy o'chirish bloklandi (" +
             gone.length + "/" + seen.size + ") — himoya. Ataylab bo'lsa bittalab o'chiring.");
           continue; // bu jadval o'chirilmaydi
+        }
+        if (_intentionalDelete && gone.length >= 5) {
+          console.log("✔ " + table + ": " + gone.length +
+            " ta o'chirish — foydalanuvchi ataylab bosgan, himoya chetlab o'tildi");
         }
         // 1) daftarga yozamiz
         const { error: tErr } = await _sb.from("deleted_records").upsert(
@@ -1375,12 +1393,13 @@ function scheduleCloudSync() {
 // ═══ DARHOL SINXRON (2026-07-25) ═══
 // Muhim amallar (o'chirish, sotuv, tovar qo'shish) kutmasdan yuboriladi.
 // Sahifa yopilishi/yashirilishi oldidan ham shu chaqiriladi.
-async function flushCloudSync() {
+async function flushCloudSync(intentionalDelete) {
   if (!_sb) return false;
   if (_syncSuppressed) return false;
   clearTimeout(_syncTimer);
   if (!_syncPending) return true;   // yuboriladigan narsa yo'q
   _syncPending = false;
+  if (intentionalDelete) _intentionalDelete = true;
   try {
     await pushToCloud();
     return true;
@@ -1388,6 +1407,8 @@ async function flushCloudSync() {
     _syncPending = true;            // yuborilmadi — keyingi urinishga qoladi
     console.warn("flushCloudSync xato:", e.message);
     return false;
+  } finally {
+    _intentionalDelete = false;     // bayroq faqat SHU push uchun
   }
 }
 

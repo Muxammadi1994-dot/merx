@@ -1275,7 +1275,7 @@ function deleteProduct() {
   db.products = db.products.filter(x => x.sku !== editSku);
   saveDB();
   // 2026-07-25: o'chirish DARHOL bulutga
-  try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}
+  try { if (typeof flushCloudSync === "function") flushCloudSync(true); } catch(e) {}
   closeModal("editprod"); renderKatalog();
   toast(_omRemoved > 0
     ? `"${p.name}" o'chirildi (${_omRemoved} ta kirim yozuvi ham)`
