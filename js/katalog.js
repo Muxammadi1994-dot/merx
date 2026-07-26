@@ -729,6 +729,8 @@ function duplicateProduct(sku, event) {
 function openEditProduct(sku) {
   const p = db.products.find(x => x.sku === sku); if (!p) return;
   editSku = sku;
+  // 2026-07-25: variativ guruh bo'lsa — "Variativ tahrirlash" tugmasi chiqadi
+  try { epVarInit(p); } catch(e) {}
   $("ep-title").textContent     = p.name + " — tahrirlash";
   $("ep-name").value            = p.name;
   $("ep-cat").value             = p.category;
@@ -4060,3 +4062,146 @@ function apVarImgSave(input) {
   reader.readAsDataURL(file);
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// VARIATIV TAHRIRLASH (2026-07-25, №3 davomi)
+// Bitta partiyada kiritilgan tovarlarni birgalikda tahrirlash.
+// Guruh: variantGroup maydoni (kiritishda yozilgan).
+// ═══════════════════════════════════════════════════════════════
+let _epVarOn = false;
+
+// Shu tovar bilan BIRGA kiritilgan tovarlar
+function _epVarGroup(p) {
+  if (!p) return [];
+  const g = p.variantGroup;
+  if (!g) return [];
+  return (db.products || []).filter(x => x.variantGroup === g);
+}
+
+// Tahrirlash oynasi ochilganda chaqiriladi
+function epVarInit(p) {
+  _epVarOn = false;
+  const block = document.getElementById("ep-var-block");
+  const panel = document.getElementById("ep-var-panel");
+  const txt   = document.getElementById("ep-var-toggle-txt");
+  if (panel) panel.style.display = "none";
+  if (txt)   txt.textContent = "Variativ tahrirlash — birga kiritilgan ranglar";
+
+  const grp = _epVarGroup(p);
+  // Guruhda kamida 2 ta tovar bo'lsagina ma'no bor
+  if (!block) return;
+  block.style.display = (grp.length >= 2) ? "block" : "none";
+}
+
+function epToggleVariativ() {
+  _epVarOn = !_epVarOn;
+  const panel = document.getElementById("ep-var-panel");
+  const txt   = document.getElementById("ep-var-toggle-txt");
+  const btn   = document.getElementById("ep-var-toggle");
+  if (panel) panel.style.display = _epVarOn ? "block" : "none";
+  if (txt)   txt.textContent = _epVarOn
+    ? "Variativ tahrirlash yopilsin"
+    : "Variativ tahrirlash — birga kiritilgan ranglar";
+  if (btn) {
+    btn.style.background  = _epVarOn ? "#0D1B2A" : "#FFF7ED";
+    btn.style.color       = _epVarOn ? "#fff" : "#0D1B2A";
+    btn.style.borderStyle = _epVarOn ? "solid" : "dashed";
+  }
+  if (_epVarOn) epVarRenderTable();
+}
+
+function epVarRenderTable() {
+  const tbody = document.getElementById("ep-var-tbody");
+  if (!tbody) return;
+  const cur = (db.products || []).find(x => x.sku === editSku);
+  const grp = _epVarGroup(cur);
+  if (!grp.length) { tbody.innerHTML = ""; return; }
+
+  const rate   = db.settings?.rate || 12800;
+  const mode   = db.settings?.priceCurrency || "uzs";
+  const inpCss = "width:100%;font-family:inherit;font-size:12.5px;border:1px solid var(--brd);" +
+                 "border-radius:6px;padding:6px 8px;box-sizing:border-box";
+
+  tbody.innerHTML = grp.map(pr => {
+    const color = (pr.variants || [])[0]?.color || "—";
+    const qty   = (pr.variants || []).reduce((a, v) => a + (v.qty || 0), 0);
+    const cost  = (mode === "usd" || mode === "both")
+      ? (pr.costUsd || 0)
+      : Math.round((pr.costUsd || 0) * rate);
+    const isCurrent = pr.sku === editSku;
+    return `
+      <tr data-sku="${pr.sku}" style="border-top:1px solid var(--brd);
+        ${isCurrent ? "background:#FFFBF0" : ""}">
+        <td style="padding:4px;text-align:center">
+          <div style="width:32px;height:32px;border-radius:6px;border:1px solid var(--brd);
+            overflow:hidden;background:var(--bg);display:flex;align-items:center;justify-content:center">
+            ${pr.image ? `<img src="${pr.image}" style="width:100%;height:100%;object-fit:cover">`
+                       : `<i class="ti ti-photo" style="font-size:13px;color:#ccc"></i>`}
+          </div>
+        </td>
+        <td style="padding:5px 8px;white-space:nowrap">
+          <b>${color}</b>
+          ${isCurrent ? `<div style="font-size:10px;color:var(--acc);font-weight:700">joriy</div>` : ""}
+        </td>
+        <td style="padding:4px"><input class="evr-qty" type="number" min="0" inputmode="numeric"
+          value="${qty}" style="${inpCss}"></td>
+        <td style="padding:4px"><input class="evr-cost" type="text" data-price
+          value="${fmt(cost)}" oninput="priceInputHandler(this)" style="${inpCss}"></td>
+        <td style="padding:4px"><input class="evr-ulg" type="text" data-price
+          value="${fmt(pr.ulgurjiNarx || 0)}" oninput="priceInputHandler(this)" style="${inpCss}"></td>
+      </tr>`;
+  }).join("");
+
+  const el = document.getElementById("ep-var-total");
+  if (el) el.innerHTML = `Guruhda <b>${grp.length}</b> ta rang`;
+}
+
+// Guruhdagi barcha tovarlarni saqlash
+function epSaveVariativ() {
+  const rows = [...document.querySelectorAll("#ep-var-tbody tr")];
+  if (!rows.length) { toast("Tahrirlanadigan qator yo'q", "err"); return; }
+
+  const rate = db.settings?.rate || 12800;
+  const mode = db.settings?.priceCurrency || "uzs";
+  let changed = 0;
+
+  rows.forEach(r => {
+    const sku = r.dataset.sku;
+    const p = (db.products || []).find(x => x.sku === sku);
+    if (!p) return;
+
+    const qty  = parseInt(r.querySelector(".evr-qty")?.value) || 0;
+    const cost = parseFloat(String(r.querySelector(".evr-cost")?.value || "").replace(/\s/g,"")) || 0;
+    const ulg  = parseFloat(String(r.querySelector(".evr-ulg")?.value  || "").replace(/\s/g,"")) || 0;
+
+    // Tannarx HAR DOIM USD da saqlanadi (tizim qoidasi)
+    const costUsd = (mode === "usd" || mode === "both") ? cost : (rate > 0 ? cost / rate : 0);
+
+    // Qoldiq — variantlar bo'yicha taqsimlanadi (bittadan ko'p bo'lsa nisbatan)
+    const vars = p.variants || [];
+    const oldTotal = vars.reduce((a, v) => a + (v.qty || 0), 0);
+    if (vars.length === 1) {
+      vars[0].qty = qty;
+    } else if (oldTotal > 0) {
+      // Nisbatni saqlab qayta taqsimlaymiz
+      let left = qty;
+      vars.forEach((v, i) => {
+        if (i === vars.length - 1) { v.qty = Math.max(0, left); return; }
+        const share = Math.round(qty * ((v.qty || 0) / oldTotal));
+        v.qty = share; left -= share;
+      });
+    } else if (vars.length) {
+      vars[0].qty = qty;
+    }
+
+    if (Math.abs((p.costUsd || 0) - costUsd) > 0.001) { p.costUsd = costUsd; changed++; }
+    if ((p.ulgurjiNarx || 0) !== ulg) { p.ulgurjiNarx = ulg; changed++; }
+    if (oldTotal !== qty) changed++;
+  });
+
+  saveDB();
+  try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}
+  renderKatalog();
+  epVarRenderTable();
+  toast(changed > 0 ? `✅ ${rows.length} ta rang saqlandi` : "O'zgarish yo'q");
+}
