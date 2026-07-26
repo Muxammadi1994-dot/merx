@@ -313,59 +313,53 @@ function posSearch() {
       ? `<img src="${rowImg}" onclick="event.stopPropagation();posImgView('${p.sku}','${typeof jsEsc==='function' ? jsEsc(color) : color}')" title="Rasmni ko'rish" style="cursor:zoom-in;width:36px;height:36px;object-fit:cover;border-radius:7px;border:1px solid var(--brd);flex-shrink:0">`
       : "";
 
-    return `<div class="pos-ri" style="align-items:center;flex-direction:column;align-items:stretch;${isBroken?'background:#FFFBF0;border-color:#f0d882':''}" data-rowkey="${rowKey}">
-      <div style="display:flex;align-items:center;gap:14px">
-        ${imgHtml}
-        <div class="pri-body" style="min-width:0">
-          <div class="pri-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-            ${p.name}
-            ${isBroken ? `<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:700;padding:1px 6px;border-radius:7px;margin-left:5px">ochilgan</span>` : ""}
-          </div>
-          <div class="pri-meta">
-            <span style="width:8px;height:8px;border-radius:2px;background:${hex};border:1px solid rgba(0,0,0,.12);display:inline-block;flex-shrink:0"></span>
-            <span style="font-weight:700;color:#1F2937">${color}</span>
-            ${(sizesStr && sizesStr !== "-") ? `<span style="color:#CBD5E1">·</span>
-            <span>${sizesStr}</span>` : ""}
-            ${p.art ? '<span style="color:#CBD5E1">·</span><span style="font-family:monospace;font-weight:700;color:#6B4FBB">' + p.art + '</span>' : ""}
-            <span style="color:#CBD5E1">·</span>
-            <span style="color:${maxPochka<=0?'#EF4444':maxPochka<=5?'#F59E0B':'#9CA3AF'}">
-              ${maxPochka} pochka${_reservedInOtherCarts > 0 ? ' <span style="color:#E9A500;font-size:10px">('+_reservedInOtherCarts+' band)</span>' : ''}
-            </span>
-          </div>
+    return `<div class="pos-ri" style="${isBroken?'background:#FFFBF0;border-color:#FCD9A8;':''}"
+      data-rowkey="${rowKey}" onclick="posQuickAdd('${p.sku}','${color.replace(/'/g,"\\'")}','${packGroup}')">
+      ${imgHtml}
+      <div class="pri-body">
+        <!-- 1-QATOR: nom · rang · artikul -->
+        <div class="pri-name">
+          <span class="pri-nm">${p.name}</span>
+          <span class="pri-dot">·</span>
+          <span class="pri-clr"><i style="background:${hex}"></i>${color}</span>
+          ${p.art ? `<span class="pri-dot">·</span><span class="pri-art">${p.art}</span>` : ""}
+          ${(sizesStr && sizesStr !== "-") ? `<span class="pri-dot">·</span><span class="pri-sz">${sizesStr}</span>` : ""}
+          ${isBroken ? `<span class="pri-broken">ochilgan</span>` : ""}
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          <div style="text-align:right">
-            <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end;margin-bottom:2px">
-              <div class="pri-price" id="pripr-${rowId}">
-                ${_hasOverride ? `<span style="text-decoration:line-through;font-size:11px;color:#ccc;margin-right:3px">${priceDisplay(_baseNarx)}</span>` : ""}
-                <span style="font-size:14px;font-weight:800;color:${_hasOverride?'#E9A500':'#E9A500'}">${priceDisplay(narx)}</span>
-              </div>
-              <button onclick="event.stopPropagation();posEditPrice('${rowId}','${p.sku}','${color.replace(/'/g,String.fromCharCode(39))}')" title="Narxni tahrirlash"
-                style="width:22px;height:22px;border:1px solid #E8E5E0;border-radius:6px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
-                <i class="ti ti-edit" style="font-size:11px;color:#94A3B8"></i>
-              </button>
-            </div>
-
-          </div>
-          <input type="number" min="1" max="${maxPochka}" placeholder="1" value="1"
-            id="posq-${rowId}"
-            style="width:52px;text-align:center;border:1.5px solid var(--brd);border-radius:7px;padding:6px 4px;font-weight:700;font-size:13px"
-            onclick="event.stopPropagation();this.select()"
-            onfocus="this.select()"
-            oninput="event.stopPropagation();var v=parseInt(this.value)||1;if(v>${maxPochka}){this.value=${maxPochka};v=${maxPochka};if(typeof posBeep==='function')posBeep();}">
-          <button class="btn btn-ghost btn-sm" style="padding:8px 7px;font-size:10.5px"
-            onclick="event.stopPropagation();posToggleDonaMode('${rowId}')"
-            title="Dona bo'yicha sotish" id="posdona-btn-${rowId}">
-            <i class="ti ti-grid-dots"></i>
-          </button>
-          <button class="btn btn-acc btn-sm" style="padding:8px 10px"
-            onclick="event.stopPropagation();posQuickAdd('${p.sku}','${color.replace(/'/g,"\\'")}','${packGroup}')"
-            ${maxPochka<=0?"disabled":""}>
-            <i class="ti ti-plus"></i>
+        <!-- 2-QATOR: pochka · narx -->
+        <div class="pri-meta">
+          <span style="color:${maxPochka<=0?'#EF4444':maxPochka<=5?'#F59E0B':'#6B7280'};font-weight:700">
+            ${maxPochka} pochka${_reservedInOtherCarts > 0 ? ' <span style="color:#E9A500">('+_reservedInOtherCarts+' band)</span>' : ''}
+          </span>
+          <span class="pri-dot">·</span>
+          <span class="pri-price" id="pripr-${rowId}">
+            ${_hasOverride ? `<span style="text-decoration:line-through;font-size:11px;color:#bbb;margin-right:3px">${priceDisplay(_basePrice)}</span>` : ""}
+            ${priceDisplay(narx)}
+          </span>
+          <button onclick="event.stopPropagation();posEditPrice('${rowId}','${p.sku}','${color.replace(/'/g,String.fromCharCode(39))}')"
+            title="Narxni o'zgartirish" class="pri-editbtn">
+            <i class="ti ti-edit"></i>
           </button>
         </div>
       </div>
-      <div id="posdona-panel-${rowId}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--brd)">
+      <!-- O'NGDA: miqdor + tugmalar (ikkala qator balandligida) -->
+      <div class="pri-actions">
+        <input type="number" min="1" max="${maxPochka}" placeholder="1" value="1"
+          id="posq-${rowId}" inputmode="numeric"
+          onclick="event.stopPropagation();this.select()"
+          onfocus="this.select()"
+          oninput="event.stopPropagation();var v=parseInt(this.value)||1;if(v>${maxPochka}){this.value=${maxPochka};v=${maxPochka};if(typeof toast==='function')toast('Ko\\'pi bilan ${maxPochka} pochka','err');}">
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();posToggleDonaMode('${rowId}')"
+          title="Dona bo'yicha sotish" id="posdona-btn-${rowId}">
+          <i class="ti ti-grid-dots"></i>
+        </button>
+        <button class="btn btn-acc btn-sm"
+          onclick="event.stopPropagation();posQuickAdd('${p.sku}','${color.replace(/'/g,"\\'")}','${packGroup}')"
+          ${maxPochka<=0?"disabled":""}>
+          <i class="ti ti-plus"></i>
+        </button>
+      </div>
+      <div id="posdona-panel-${rowId}" style="display:none;width:100%;margin-top:8px;padding-top:8px;border-top:1px dashed var(--brd)">
         <div style="font-size:10.5px;color:var(--mut);margin-bottom:5px">O'lcham bo'yicha dona sotish:</div>
         <div style="display:flex;flex-wrap:wrap;gap:5px">
           ${colorVariants.map(v => `
