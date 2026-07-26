@@ -1234,6 +1234,11 @@
             style="font-family:inherit;font-size:12px;border:1.5px solid var(--brd);border-radius:7px;padding:5px 10px;color:var(--ink);background:#fff;cursor:pointer">
             <option value="">Barcha partiyalar</option>
           </select>
+          <!-- 2026-07-25 (№4): tanlangan partiyani butunlay o'chirish -->
+          <button id="om-del-partiya" class="btn btn-sm btn-ghost" style="display:none;color:var(--red)"
+            onclick="omDeletePartiya(_omPartiyaFilter)" title="Butun partiyani o'chirish">
+            <i class="ti ti-trash"></i> Partiyani o'chirish
+          </button>
           <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;background:#FFF7ED;padding:5px 10px;border-radius:7px;border:1px solid #FED7AA">
             <input type="checkbox" id="om-by-pochka" checked onchange="omRenderKirim()"
               style="width:14px;height:14px;accent-color:#E9A500">
@@ -1246,7 +1251,7 @@
           <tr>
             <th>Sana</th><th>Mahsulot</th><th>ART</th><th>Birlik</th><th>Rang/O'lcham</th>
             <th>Pochka</th><th>Tannarx</th><th>Jami</th>
-            <th>Yetkazuvchi</th><th>Partiya</th><th>To'lov</th>
+            <th>Yetkazuvchi</th><th>Partiya</th><th>To'lov</th><th style="width:36px"></th>
           </tr>
         </thead>
         <tbody id="ombor-body"></tbody>
@@ -4489,8 +4494,8 @@
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=212"></script>
-<script src="js/katalog.js?v=205"></script>
-<script src="js/ombor.js?v=153"></script>
+<script src="js/katalog.js?v=206"></script>
+<script src="js/ombor.js?v=154"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
 <script src="js/tarix.js?v=157"></script>
@@ -4702,7 +4707,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=43")
+    navigator.serviceWorker.register("/sw.js?v=44")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

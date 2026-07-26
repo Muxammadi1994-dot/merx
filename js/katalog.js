@@ -1260,12 +1260,23 @@ function deleteProduct() {
       : `"${p.name}" ${activeSales.length} ta sotuvda mavjud.\nBaribir o'chirasizmi?`;
     if (!confirm(msg)) return;
   } else {
-    if (!confirm(`"${p.name}" ni o'chirasizmi? Bu amalni qaytarib bo'lmaydi.`)) return;
+    const _omCnt = (db.ombor || []).filter(o => o.sku === p.sku).length;
+    const _omMsg = _omCnt > 0
+      ? `\n\nOmbordagi ${_omCnt} ta kirim yozuvi ham o'chadi.` : "";
+    if (!confirm(`"${p.name}" ni o'chirasizmi?${_omMsg}\n\nBu amalni qaytarib bo'lmaydi.`)) return;
   }
+
+  // 2026-07-25 (№4): ombor va katalog PARALLEL — tovar o'chsa, uning
+  // kirim tarixi ham o'chadi (avval omborda "arvoh" yozuvlar qolardi)
+  const _omBefore = (db.ombor || []).length;
+  db.ombor = (db.ombor || []).filter(o => o.sku !== p.sku);
+  const _omRemoved = _omBefore - db.ombor.length;
 
   db.products = db.products.filter(x => x.sku !== editSku);
   saveDB(); closeModal("editprod"); renderKatalog();
-  toast(`"${p.name}" o'chirildi`, "info");
+  toast(_omRemoved > 0
+    ? `"${p.name}" o'chirildi (${_omRemoved} ta kirim yozuvi ham)`
+    : `"${p.name}" o'chirildi`, "info");
 }
 
 // ── O'lcham oralig'i: standart yopiq, kerak bo'lsa o'zgartiriladi ──

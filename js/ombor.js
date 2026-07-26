@@ -520,6 +520,9 @@ let _omPartiyaFilter = "";
 function omSetPartiyaFilter(val) {
   _omPartiyaFilter = val;
   omRenderKirim();
+  // 2026-07-25: partiya tanlangandagina o'chirish tugmasi ko'rinadi
+  const delBtn = document.getElementById("om-del-partiya");
+  if (delBtn) delBtn.style.display = _omPartiyaFilter ? "" : "none";
 }
 
 // v143: kam-qoldiq ogohlantirishidan tezkor qabul — katalogga o'tib,
@@ -629,8 +632,13 @@ function omRenderKirim() {
           style="margin-left:4px;vertical-align:middle"><i class="ti ti-printer" style="font-size:14px"></i></button>
       </td>
       <td><span class="bg ${o.payStatus==="qarz"?"bg-r":"bg-g"}">${o.payStatus==="qarz"?"To'lanmagan":"To'langan"}</span></td>
+      <td style="text-align:center">
+        <button class="btn btn-ghost btn-icon btn-sm" title="Kirimni o'chirish"
+          onclick="omDeleteKirim(${o.id})" style="color:var(--red)">
+          <i class="ti ti-trash" style="font-size:14px"></i></button>
+      </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="12" class="empty-td">Kirim yo'q</td></tr>`;
+  }).join("") : `<tr><td colspan="13" class="empty-td">Kirim yo'q</td></tr>`;
 }
 
 function omRenderSuppliers() {
@@ -1193,4 +1201,138 @@ function omImgView(sku, color) {
   const src = (p && ((p.colorImages && p.colorImages[color]) || p.image)) || "";
   if (!src || typeof showImageBig !== "function") { omImgClick(sku, color); return; }
   showImageBig(src, () => omImgClick(sku, color));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KIRIMNI O'CHIRISH (2026-07-25, №4)
+// Ombor va katalog PARALLEL: kirim o'chsa, tovar qoldig'i kamayadi
+// va qoldiq 0 bo'lsa tovar katalogdan ham o'chadi.
+// ⚠️ O'ta ehtiyot: har qadam tasdiqlanadi, sotilgan tovar tekshiriladi.
+// ═══════════════════════════════════════════════════════════════
+function omDeleteKirim(id) {
+  const o = (db.ombor || []).find(x => x.id === id);
+  if (!o) { toast("Kirim topilmadi", "err"); return; }
+
+  const p = (db.products || []).find(x => x.sku === o.sku);
+  const qty = o.qty || 0;
+
+  // Shu tovardan sotuv bo'lganmi — qoldiq manfiy bo'lib qolmasin
+  const sold = (db.sales || []).reduce((a, s) =>
+    a + (s.items || []).filter(i => i.sku === o.sku).reduce((b, i) => b + (i.qty || 0), 0), 0);
+
+  const curQty = p ? p.variants.reduce((a, v) => a + (v.qty || 0), 0) : 0;
+
+  let msg = `KIRIMNI O'CHIRISH\n\n` +
+            `${o.productName || o.sku}\n` +
+            `${o.color || ""}${o.size ? " · " + o.size : ""}\n` +
+            `Miqdor: ${qty} ${o.unit || "dona"}\n` +
+            `Sana: ${o.date || "—"}\n\n`;
+
+  if (sold > 0) {
+    msg += `⚠️ Bu tovardan ${sold} dona SOTILGAN!\n` +
+           `Hozirgi qoldiq: ${curQty} dona\n\n` +
+           `O'chirsangiz qoldiq ${Math.max(0, curQty - qty)} ga tushadi.\n\n`;
+  } else {
+    msg += `Qoldiq ${curQty} → ${Math.max(0, curQty - qty)} ga tushadi.\n\n`;
+  }
+  msg += `Davom etasizmi?`;
+
+  if (!confirm(msg)) return;
+
+  // Qoldiqni kamaytiramiz (rang bo'yicha, manfiy bo'lmaydi)
+  if (p && qty > 0) {
+    let left = qty;
+    p.variants.forEach(v => {
+      if (left <= 0) return;
+      if (o.color && v.color !== o.color) return;
+      const take = Math.min(v.qty || 0, left);
+      v.qty = (v.qty || 0) - take;
+      left -= take;
+    });
+  }
+
+  // Kirim yozuvini o'chiramiz
+  db.ombor = (db.ombor || []).filter(x => x.id !== id);
+
+  // Qoldiq 0 va boshqa kirimi yo'q bo'lsa — tovar ham o'chadi
+  let prodRemoved = false;
+  if (p) {
+    const newQty  = p.variants.reduce((a, v) => a + (v.qty || 0), 0);
+    const hasMore = (db.ombor || []).some(x => x.sku === p.sku);
+    if (newQty <= 0 && !hasMore) {
+      db.products = db.products.filter(x => x.sku !== p.sku);
+      prodRemoved = true;
+    }
+  }
+
+  saveDB();
+  if (typeof renderOmbor === "function") renderOmbor();
+  if (typeof renderKatalog === "function") renderKatalog();
+  toast(prodRemoved
+    ? `Kirim o'chirildi — "${o.productName}" katalogdan ham chiqarildi`
+    : `Kirim o'chirildi (${qty} ${o.unit || "dona"})`, "info");
+}
+
+// ═══ PARTIYANI BUTUNLAY O'CHIRISH (2026-07-25, №4) ═══
+// Variativ yoki import bilan kiritilgan partiya — hammasi birdan.
+// Uch bosqichli tasdiq: bu ko'p tovarga tegadi.
+function omDeletePartiya(partiya) {
+  if (!partiya) { toast("Partiya tanlanmagan", "err"); return; }
+
+  const rows = (db.ombor || []).filter(o => o.partiya === partiya);
+  if (!rows.length) { toast("Bu partiyada kirim yo'q", "err"); return; }
+
+  const skus = [...new Set(rows.map(o => o.sku))];
+  const totalQty = rows.reduce((a, o) => a + (o.qty || 0), 0);
+
+  // Sotuv bo'lganini tekshiramiz
+  const soldSkus = skus.filter(sku =>
+    (db.sales || []).some(s => (s.items || []).some(i => i.sku === sku)));
+
+  let msg = `PARTIYANI O'CHIRISH\n\n"${partiya}"\n\n` +
+            `${rows.length} ta kirim yozuvi\n` +
+            `${skus.length} ta tovar\n` +
+            `Jami ${totalQty} dona\n\n`;
+  if (soldSkus.length) {
+    msg += `⚠️ ${soldSkus.length} ta tovardan SOTUV bo'lgan!\n\n`;
+  }
+  msg += `Bu tovarlar katalogdan ham o'chishi mumkin.\nDavom etasizmi?`;
+
+  if (!confirm(msg)) return;
+  if (!confirm(`TASDIQLANG\n\n${skus.length} ta tovar va ${rows.length} ta kirim yozuvi o'chadi.\n\nBu amalni QAYTARIB BO'LMAYDI.`)) return;
+
+  // Har tovar qoldig'ini kamaytiramiz
+  rows.forEach(o => {
+    const p = (db.products || []).find(x => x.sku === o.sku);
+    if (!p) return;
+    let left = o.qty || 0;
+    p.variants.forEach(v => {
+      if (left <= 0) return;
+      if (o.color && v.color !== o.color) return;
+      const take = Math.min(v.qty || 0, left);
+      v.qty = (v.qty || 0) - take;
+      left -= take;
+    });
+  });
+
+  // Kirim yozuvlarini o'chiramiz
+  db.ombor = (db.ombor || []).filter(o => o.partiya !== partiya);
+
+  // Qoldig'i 0 va boshqa kirimi yo'q tovarlarni katalogdan chiqaramiz
+  let removed = 0;
+  skus.forEach(sku => {
+    const p = (db.products || []).find(x => x.sku === sku);
+    if (!p) return;
+    const qty     = p.variants.reduce((a, v) => a + (v.qty || 0), 0);
+    const hasMore = (db.ombor || []).some(x => x.sku === sku);
+    if (qty <= 0 && !hasMore) {
+      db.products = db.products.filter(x => x.sku !== sku);
+      removed++;
+    }
+  });
+
+  saveDB();
+  if (typeof renderOmbor === "function") renderOmbor();
+  if (typeof renderKatalog === "function") renderKatalog();
+  toast(`Partiya o'chirildi — ${rows.length} ta kirim, ${removed} ta tovar`, "info");
 }
