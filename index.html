@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=152">
+<link rel="stylesheet" href="style.css?v=153">
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display:inline-block; animation: spin .8s linear infinite; }
@@ -100,9 +100,9 @@
 .pri-nm{font-weight:700;font-size:13px;color:#0D1B2A;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0}
 .pri-dot{color:#CBD5E1;flex-shrink:0}
-.pri-clr{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;
-  color:#1F2937;white-space:nowrap;flex-shrink:0}
-.pri-clr i{width:9px;height:9px;border-radius:2px;border:1px solid rgba(0,0,0,.12);flex-shrink:0}
+/* Rang — oddiy matn (badge va rang kvadratchasi OLIB TASHLANDI:
+   ortiqcha joy egallardi, tovar nomi kabi sodda bo'lgani ma'qul) */
+.pri-clr{font-size:12.5px;font-weight:700;color:#1F2937;white-space:nowrap;flex-shrink:0}
 .pri-art{font-family:monospace;font-size:11.5px;font-weight:700;color:#6B4FBB;
   white-space:nowrap;flex-shrink:0}
 .pri-sz{font-size:11.5px;color:#6B7280;white-space:nowrap;flex-shrink:0}
@@ -118,7 +118,6 @@
 .pri-name{font-weight:700;font-size:12.5px;color:#0D1B2A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pri-meta{font-size:11.5px;color:#374151;font-weight:500;display:flex;align-items:center;gap:5px;flex-wrap:nowrap;overflow:hidden;white-space:nowrap}
 .pri-colors{display:flex;flex-wrap:wrap;gap:5px}
-.pri-clr{font-size:11px;background:#F4F2EE;border:1px solid #E8E5E0;border-radius:5px;padding:2px 8px;color:#666;display:inline-flex;align-items:center;gap:4px}
 .pri-box-badge{margin-left:6px;font-size:10.5px;background:#FFF8E7;color:#856404;border-radius:5px;padding:2px 8px;border:1px solid #F0D882}
 .pri-right{text-align:right;flex-shrink:0}
 .pri-price{font-size:12.5px;font-weight:800;color:#E9A500;white-space:nowrap;flex-shrink:0}
@@ -4535,7 +4534,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=192"></script>
 <script src="js/dashboard.js?v=151"></script>
-<script src="js/pos.js?v=217"></script>
+<script src="js/pos.js?v=218"></script>
 <script src="js/katalog.js?v=209"></script>
 <script src="js/ombor.js?v=156"></script>
 <script src="js/mijozlar.js?v=146"></script>
@@ -4749,7 +4748,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=65")
+    navigator.serviceWorker.register("/sw.js?v=66")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

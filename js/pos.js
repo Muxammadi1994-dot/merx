@@ -321,7 +321,7 @@ function posSearch() {
         <div class="pri-name">
           <span class="pri-nm">${p.name}</span>
           <span class="pri-dot">·</span>
-          <span class="pri-clr"><i style="background:${hex}"></i>${color}</span>
+          <span class="pri-clr">${color}</span>
           ${p.art ? `<span class="pri-dot">·</span><span class="pri-art">${p.art}</span>` : ""}
           ${(sizesStr && sizesStr !== "-") ? `<span class="pri-dot">·</span><span class="pri-sz">${sizesStr}</span>` : ""}
           ${isBroken ? `<span class="pri-broken">ochilgan</span>` : ""}
