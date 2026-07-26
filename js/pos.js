@@ -828,7 +828,13 @@ function renderCart() {
 
   if (!cart.length) {
     $("cart-items").innerHTML = `<div class="cart-mt"><i class="ti ti-shopping-cart"></i><p style="font-size:13px">Mahsulot tanlang</p></div>`;
-    $("cart-total").textContent = "0 so'm"; updatePayTotal(); updatePayRemaining(); return;
+    $("cart-total").textContent = "0 so'm";
+    // 2026-07-25: savat bo'shaganda "Savat qiymati" ham NOLGA tushadi.
+    // Avval bu yerda erta return bo'lgani uchun eski summa qolib,
+    // sotuvchini chalg'itardi.
+    const _cvv0 = $("cart-value-val"); if (_cvv0) _cvv0.textContent = "0 so'm";
+    try { _posUpdateCartFab(0, 0); } catch(e) {}
+    updatePayTotal(); updatePayRemaining(); return;
   }
 
   $("cart-items").innerHTML = cart.map((c, i) => {
