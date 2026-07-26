@@ -3992,42 +3992,71 @@ function apAddVariativ(name) {
 }
 
 // ═══ VARIATIV JADVALDA RASM (2026-07-25, №3) ═══
-// Har rangga o'z rasmi (ixtiyoriy). Siqish asosiy oqim bilan bir xil.
-function apVarPickImage(i) {
-  const inp = document.createElement("input");
-  inp.type = "file";
-  inp.accept = "image/*";
-  inp.onchange = () => {
-    const file = inp.files && inp.files[0];
-    if (!file) return;
-    if (file.size > 15 * 1024 * 1024) {
-      toast("Fayl juda katta (15MB+) — bu rasm emasga o'xshaydi", "err"); return;
-    }
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        // 400px gacha siqamiz (asosiy oqimdagi kabi)
-        const max = 400;
-        let w = img.width, h = img.height;
-        if (w > max || h > max) {
-          if (w > h) { h = Math.round(h * max / w); w = max; }
-          else       { w = Math.round(w * max / h); h = max; }
-        }
-        const cv = document.createElement("canvas");
-        cv.width = w; cv.height = h;
-        cv.getContext("2d").drawImage(img, 0, 0, w, h);
-        const dataUrl = cv.toDataURL("image/jpeg", 0.72);
+// Katalog/ombordagi bilan AYNAN bir xil: kamera yoki galereya tanlovi,
+// 15MB aql-sinovi, 600px gacha siqish, ~150KB gacha sifat pasaytirish.
+let _apVarImgRow = -1;
 
-        if (_apVarColors[i]) _apVarColors[i].image = dataUrl;
-        const cell = document.getElementById("vr-img-" + i);
-        if (cell) cell.innerHTML =
-          `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover">`;
-        toast("Rasm qo'shildi");
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  };
-  inp.click();
+function apVarPickImage(i) {
+  // Rasm BOR bo'lsa — avval kattalashtirib ko'rsatamiz (katalogdagi kabi),
+  // ichida "Almashtirish" tugmasi bilan
+  const cur = _apVarColors[i] && _apVarColors[i].image;
+  if (cur && typeof showImageBig === "function") {
+    showImageBig(cur, () => apVarChooseImage(i));
+    return;
+  }
+  apVarChooseImage(i);
 }
+
+// Manba tanlash (kamera / galereya)
+function apVarChooseImage(i) {
+  _apVarImgRow = i;
+  // imgSrcAsk oraliq tanlov oynasini ochadi (kamera / galereya).
+  // Kamera inputi yo'q qurilmada to'g'ridan-to'g'ri galereya ochiladi.
+  if (typeof imgSrcAsk === "function") {
+    imgSrcAsk("ap-var-img-gal", "ap-var-img-cam");
+  } else {
+    document.getElementById("ap-var-img-gal")?.click();
+  }
+}
+
+function apVarImgSave(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (file.size > 15 * 1024 * 1024) {
+    toast("Fayl juda katta (15MB+) — bu rasm emasga o'xshaydi", "err");
+    input.value = ""; return;
+  }
+  const i = _apVarImgRow;
+  if (i < 0 || !_apVarColors[i]) { input.value = ""; return; }
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = function() {
+      // Katalogdagi bilan bir xil: 600px, ~150KB gacha
+      const canvas = document.createElement("canvas");
+      let w = img.width, h = img.height;
+      const MAX = 600;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      let q = 0.85, dataUrl;
+      do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
+      while (dataUrl.length > 150000 && q > 0.3);
+
+      _apVarColors[i].image = dataUrl;
+      const cell = document.getElementById("vr-img-" + i);
+      if (cell) cell.innerHTML =
+        `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover">`;
+      toast("Rasm qo'shildi");
+      input.value = "";     // bir xil faylni qayta tanlash mumkin bo'lsin
+      _apVarImgRow = -1;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+

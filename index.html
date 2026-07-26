@@ -3042,6 +3042,13 @@
         </div>
         <datalist id="ap-var-colorlist"></datalist>
 
+        <!-- 2026-07-25: variativ jadval uchun rasm inputlari.
+             Katalogdagi kabi IKKITA: galereya va kamera. -->
+        <input type="file" id="ap-var-img-gal" accept="image/*" style="display:none"
+          onchange="apVarImgSave(this)">
+        <input type="file" id="ap-var-img-cam" accept="image/*" capture="environment"
+          style="display:none" onchange="apVarImgSave(this)">
+
         <!-- Ranglar kiritilgach jadval paydo bo'ladi -->
         <div id="ap-var-table-wrap" style="display:none;margin-top:12px;overflow-x:auto">
           <table id="ap-var-table" style="width:100%;border-collapse:collapse;font-size:12.5px">
@@ -4494,7 +4501,7 @@
 <script src="js/cloud.js?v=192"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=213"></script>
-<script src="js/katalog.js?v=208"></script>
+<script src="js/katalog.js?v=209"></script>
 <script src="js/ombor.js?v=156"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=182"></script>
@@ -4707,7 +4714,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=47")
+    navigator.serviceWorker.register("/sw.js?v=48")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
