@@ -299,11 +299,10 @@ function posSearch() {
     const colorVariants = groupVariants;
     const _pi = packInfo(p, colorVariants);
     const inBox = _pi.inBox;
-    const _reservedInOtherCarts = getReservedQty(p.sku, color);
+    const _reservedInOtherCarts = getReservedQty(p.sku, color, packGroup, isBroken);
     // 2026-07-25: OCHILGAN pochkada birlik — DONA (pochka emas).
     // packInfo ochilgan qoldiq uchun 0 pochka qaytaradi, shuning uchun
     // guruh miqdorini (groupQty) to'g'ridan-to'g'ri ishlatamiz.
-    const _unitLbl  = isBroken ? "dona" : "pch";
     const _maxRaw   = isBroken ? (groupQty || 0) : _pi.maxPochka;
     const maxPochka = Math.max(0, _maxRaw - _reservedInOtherCarts);
     const sizesStr  = typeof sizesToRange === "function"
@@ -334,7 +333,9 @@ function posSearch() {
         <!-- 2-QATOR: pochka · narx -->
         <div class="pri-meta">
           <span style="color:${maxPochka<=0?'#EF4444':maxPochka<=5?'#F59E0B':'#374151'};font-weight:700">
-            ${maxPochka} ${_unitLbl}${_reservedInOtherCarts > 0 ? ' <span style="color:#E9A500">('+_reservedInOtherCarts+' band)</span>' : ''}
+            ${isBroken
+              ? `0 pch · ${maxPochka} dona`
+              : `${maxPochka} pch`}${_reservedInOtherCarts > 0 ? ` <span style="color:#E9A500">(${_reservedInOtherCarts} ${isBroken?'dona':'pch'} band)</span>` : ''}
           </span>
           <span class="pri-dot">·</span>
           <span class="pri-price" id="pripr-${rowId}">
@@ -513,12 +514,20 @@ function posClear() {
 
 // ── Barcha savatlardagi band stok ────────────────
 // Boshqa savatlarda band qilingan tovar miqdorini qaytaradi
-function getReservedQty(sku, color, packGroup) {
+function getReservedQty(sku, color, packGroup, isBroken) {
+  // 2026-07-25: OCHILGAN pochka DONA bilan o'lchanadi, to'liq pochka —
+  // POCHKA bilan. Avval ikkalasiga ham pochka soni qaytarilardi,
+  // shuning uchun ochilgan qatorda "6 pch band" degan xato chiqardi.
   var total = 0;
-  posCartsState.carts.forEach(function(cart, ci) {
+  posCartsState.carts.forEach(function(cart) {
     cart.items.forEach(function(it) {
-      if (it.sku === sku && it.color === color) {
-        total += it.qtyBox || 0;
+      if (it.sku !== sku || it.color !== color) return;
+      if (isBroken) {
+        // Ochilgan: faqat donalab qo'shilganlar
+        if (it.sellMode === "dona") total += it.qty || 0;
+      } else {
+        // To'liq pochka: faqat pochka bilan qo'shilganlar
+        if (it.sellMode === "karobka") total += it.qtyBox || 0;
       }
     });
   });
