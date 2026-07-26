@@ -109,6 +109,14 @@ function activePays() {
   return (db.debtPayments || []).filter(p => !p.cancelled);
 }
 
+// 2026-07-25: KASSA/TUSHUM hisobiga kiradigan qarz to'lovlari.
+// Tovar qaytarish hisobidan yopilgan qarz (source="refund") HAQIQIY PUL
+// EMAS — kunlik tushumga va kassaga qo'shilmaydi. Qarz hisobida esa
+// u to'liq ishlaydi (qarz kamayadi).
+function cashPays() {
+  return (db.debtPayments || []).filter(p => !p.cancelled && p.source !== "refund");
+}
+
 function getSalePayments(saleId, includeCancelled) {
   // v150 (№3): atkaz qilingan to'lovlar qarz hisobiga KIRMAYDI —
   // shu bitta filtr tufayli calcSaleState qarzni o'zi "qaytaradi".

@@ -223,6 +223,15 @@ function renderTarix() {
       const isDebt     = s.status === "qarz" && (s.remaining||0) > 0;
       const isReturned = s.status === "qaytarilgan";
       const chekN      = s.chekNum || `#${s.id}`;
+      // 2026-07-25: qisman qaytarish belgisi — chek raqami yonida
+      const _refs      = s.refunds || [];
+      const _partialRef = _refs.length > 0 && !isReturned;
+      const _refBadge  = _refs.length
+        ? `<div style="font-size:10.5px;color:#B91C1C;font-weight:700;margin-top:2px"
+             title="${_refs.map(r => r.no + ": " + fmt(r.total) + " so'm").join("&#10;")}">
+             ↩ ${isReturned ? "To'liq qaytarilgan" : "Qisman qaytarilgan"}
+             · ${fmt(s.refundedTotal || 0)} so'm</div>`
+        : "";
 
       // items null bo'lishi mumkin — filter qilamiz
       const safeItems  = (s.items||[]).filter(Boolean);
@@ -247,6 +256,7 @@ function renderTarix() {
       html += `<tr style="cursor:pointer;${isReturned?"opacity:.6;background:#FEF2F2":""}" onclick="openSaleDetail(${s.id})">
         <td>
           <div style="font-family:monospace;font-size:11px;font-weight:700;color:#0D1B2A">${chekN}</div>
+          ${_refBadge}
           ${s.note ? `<div style="font-size:10px;color:#856404;margin-top:1px">📝 ${s.note}</div>` : ""}
         </td>
         <td style="font-size:12px">
@@ -550,6 +560,8 @@ function updateRefundTotal() {
   });
   const el = $("refund-total");
   if (el) el.textContent = fmt(total) + " so'm";
+  // 2026-07-25: pul qanday qoplanishi darhol ko'rsatiladi
+  try { updateRefundPayPlan(total); } catch(e) {}
 }
 
 function confirmRefund() {
@@ -613,11 +625,44 @@ function confirmRefund() {
     s.refundTotal = s.refundedTotal;
     s.remaining = 0;
   } else {
-    // Qarz bo'lsa — qaytarish summasi avval QARZDAN kamayadi
-    s.remaining = Math.max(0, (s.remaining||0) - refundTotal);
-    if (s.remaining <= 0) { s.remaining = 0; s.status = "tolandan"; }
     s.refundDate = today();
     s.refundNote = `Qisman qaytarilgan: ${fmt(s.refundedTotal)} so'm · ${refundNo}`;
+  }
+
+  // ═══ 2026-07-25 (B): PULNI QOPLASH ═══
+  // Tartib: shu sotuv qarzi → boshqa qarzlar → kassadan naqd.
+  // Qarzdan qoplanganda QARZ TO'LOVI yozuvi ochiladi (source="refund"),
+  // u kunlik tushumga KIRMAYDI — haqiqiy pul kelmagan.
+  const plan = _refundPayPlan(s, refundTotal);
+
+  if (plan.fromThisDebt > 0) {
+    s.remaining = Math.max(0, (s.remaining || 0) - plan.fromThisDebt);
+    if (s.remaining <= 0) { s.remaining = 0; if (!isFullRefund) s.status = "tolandan"; }
+    _refundAddDebtPayment(s, plan.fromThisDebt, refundNo);
+  }
+
+  plan.otherSales.forEach(o => {
+    const os = db.sales.find(x => x.id === o.id);
+    if (!os) return;
+    os.remaining = Math.max(0, (os.remaining || 0) - o.amount);
+    if (os.remaining <= 0) { os.remaining = 0; os.status = "tolandan"; }
+    _refundAddDebtPayment(os, o.amount, refundNo);
+  });
+
+  if (plan.fromCash > 0) {
+    if (!db.xarajatlar) db.xarajatlar = [];
+    db.xarajatlar.push({
+      id: db.seq++,
+      date: today(),
+      category: "Tovar qaytarish",
+      amount: plan.fromCash,
+      method: "naqd",
+      recipient: s.customerName || "Mijoz",
+      note: `Qaytarish ${refundNo} · chek ${s.chekNum || "#"+s.id}`,
+      paidBy: (typeof _expDefaultWho === "function" ? _expDefaultWho() : ""),
+      xarajatType: "kunlik",
+      refundNo
+    });
   }
 
   if (!db.returns) db.returns = [];
@@ -771,4 +816,98 @@ function refFillAll() {
   rows.forEach(inp => { inp.value = parseInt(inp.dataset.max) || 0; });
   updateRefundTotal();
   toast("Barcha tovarlar qaytarishga belgilandi");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// QAYTARISH PULI QANDAY QOPLANADI (2026-07-25, B bosqichi)
+// Tartib: 1) shu sotuvdagi qarz  2) mijozning boshqa qarzlari
+//         3) qolgani — kassadan naqd (xarajat sifatida yoziladi)
+// ═══════════════════════════════════════════════════════════════
+function _refundPayPlan(sale, total) {
+  const plan = { fromThisDebt: 0, fromOtherDebt: 0, fromCash: 0, otherSales: [] };
+  let left = total;
+
+  // 1) Shu sotuvdagi qarz
+  const thisDebt = Math.max(0, sale.remaining || 0);
+  plan.fromThisDebt = Math.min(thisDebt, left);
+  left -= plan.fromThisDebt;
+
+  // 2) Mijozning boshqa qarzlari (eng eski birinchi)
+  if (left > 0 && sale.customerId) {
+    const others = (db.sales || [])
+      .filter(s => s.id !== sale.id && s.customerId === sale.customerId &&
+                   (s.remaining || 0) > 0 && s.status !== "qaytarilgan")
+      .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    others.forEach(s => {
+      if (left <= 0) return;
+      const take = Math.min(s.remaining || 0, left);
+      if (take > 0) {
+        plan.otherSales.push({ id: s.id, chekNum: s.chekNum || ("#" + s.id), amount: take });
+        plan.fromOtherDebt += take;
+        left -= take;
+      }
+    });
+  }
+
+  // 3) Qolgani — kassadan
+  plan.fromCash = Math.max(0, left);
+  return plan;
+}
+
+// Rejani ekranda ko'rsatamiz
+function updateRefundPayPlan(total) {
+  const el = $("refund-pay-plan");
+  if (!el) return;
+  const s = db.sales.find(x => x.id === _refundSaleId);
+  if (!s || !total) { el.innerHTML = `<span style="color:var(--mut)">Miqdorni kiriting</span>`; return; }
+
+  const p = _refundPayPlan(s, total);
+  const rows = [];
+  if (p.fromThisDebt > 0)
+    rows.push(`<div style="display:flex;justify-content:space-between">
+      <span>Shu sotuvdagi qarzdan</span><b>${fmt(p.fromThisDebt)} so'm</b></div>`);
+  if (p.fromOtherDebt > 0)
+    rows.push(`<div style="display:flex;justify-content:space-between">
+      <span>Boshqa qarzlaridan <span style="color:var(--mut);font-size:11px">(${p.otherSales.map(o=>o.chekNum).join(", ")})</span></span>
+      <b>${fmt(p.fromOtherDebt)} so'm</b></div>`);
+  if (p.fromCash > 0)
+    rows.push(`<div style="display:flex;justify-content:space-between;color:#B91C1C">
+      <span>Kassadan naqd <span style="font-size:11px">(xarajat sifatida)</span></span>
+      <b>${fmt(p.fromCash)} so'm</b></div>`);
+
+  el.innerHTML = rows.join("") || `<span style="color:var(--mut)">—</span>`;
+}
+
+// Qaytarish hisobidan qarz to'lovi yozuvi (2026-07-25)
+// source="refund" — bu HAQIQIY PUL EMAS, tovar qaytarish hisobidan.
+// Shuning uchun kunlik tushum va kassa hisobiga KIRMAYDI.
+function _refundAddDebtPayment(sale, amount, refundNo) {
+  if (!amount || amount <= 0) return;
+  if (!db.debtPayments) db.debtPayments = [];
+
+  const chekNum = "QTQ-" + today().replace(/-/g,"").slice(2) + "-" +
+                  String((db.debtPayments.length + 1)).padStart(3, "0");
+
+  db.debtPayments.push({
+    id: db.seq++,
+    chekNum,
+    date: today(),
+    time: (typeof nowTime === "function" ? nowTime() : ""),
+    customerId:   sale.customerId || null,
+    customerName: sale.customerName || "",
+    staffId:      sale.staffId || null,
+    amount,
+    method: "qaytarish",          // naqd/karta emas
+    source: "refund",             // ⚠️ tushumga kirmaydi
+    refundNo,
+    note: `Tovar qaytarish hisobidan (${refundNo})`,
+    allocations: [{
+      saleId: sale.id,
+      partNum: sale.chekNum || ("#" + sale.id),
+      amount,
+      fullyPaid: (sale.remaining || 0) <= 0,
+      remainingAfter: Math.max(0, sale.remaining || 0)
+    }],
+    leftover: 0
+  });
 }

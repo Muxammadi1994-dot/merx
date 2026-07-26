@@ -3870,7 +3870,15 @@
     </div>
     <div id="refund-items" style="max-height:260px;overflow-y:auto;margin-bottom:14px"></div>
 
-    <div style="display:flex;justify-content:space-between;align-items:center;
+        <!-- 2026-07-25: PUL QANDAY QOPLANADI (B bosqichi) -->
+    <div id="refund-pay-block" style="margin-bottom:14px;padding:11px 13px;
+      background:#F8F7F4;border:1px solid var(--brd);border-radius:9px">
+      <div style="font-size:12px;font-weight:700;color:var(--mut);
+        text-transform:uppercase;margin-bottom:8px">Pul qanday qaytariladi</div>
+      <div id="refund-pay-plan" style="font-size:13px;line-height:1.6"></div>
+    </div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;
       padding:10px 0;border-top:2px solid var(--brd);margin-bottom:12px">
       <span style="font-weight:700">Qaytarish summasi:</span>
       <span id="refund-total" style="font-size:18px;font-weight:800;color:var(--red)">0 so'm</span>
@@ -4502,20 +4510,20 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=162"></script>
-<script src="js/utils.js?v=183"></script>
+<script src="js/utils.js?v=184"></script>
 <script src="js/auth.js?v=179"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=192"></script>
-<script src="js/dashboard.js?v=149"></script>
+<script src="js/dashboard.js?v=150"></script>
 <script src="js/pos.js?v=215"></script>
 <script src="js/katalog.js?v=209"></script>
 <script src="js/ombor.js?v=156"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=182"></script>
-<script src="js/tarix.js?v=158"></script>
-<script src="js/hisobot.js?v=145"></script>
+<script src="js/tarix.js?v=159"></script>
+<script src="js/hisobot.js?v=146"></script>
 <script src="js/xodimlar.js?v=143"></script>
-<script src="js/moliya.js?v=160"></script>
+<script src="js/moliya.js?v=161"></script>
 <script src="js/egasi.js?v=163"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=143"></script>
@@ -4721,7 +4729,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=55")
+    navigator.serviceWorker.register("/sw.js?v=56")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

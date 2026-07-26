@@ -95,7 +95,7 @@ function renderDashboard() {
       todayKassa += s.payType === "nasiya" ? 0 : (s.paid||0);
     }
   });
-  activePays().filter(p => p.date >= _pr.from && p.date <= _pr.to).forEach(p => {
+  cashPays().filter(p => p.date >= _pr.from && p.date <= _pr.to).forEach(p => {
     todayKassa += p.currency === "usd" ? Math.round(p.amount * rate) : (p.amount||0);
   });
 
@@ -109,7 +109,7 @@ function renderDashboard() {
     if (pb && (pb.naqd || pb.karta || pb.otkazma)) kassaNaqd += (pb.naqd || 0);
     else if (s.payType === "naqd") kassaNaqd += (s.paid || 0);
   });
-  activePays().filter(p => p.date >= _pr.from && p.date <= _pr.to).forEach(p => {
+  cashPays().filter(p => p.date >= _pr.from && p.date <= _pr.to).forEach(p => {
     const somAmt = p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * rate) : (p.amount || 0));
     const mb = p.methodBreakdown;
     const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
@@ -288,7 +288,7 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
     if (pb && (pb.naqd||pb.karta||pb.otkazma)) kassaTushdiKpi += (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
     else kassaTushdiKpi += s.payType === "nasiya" ? 0 : (s.paid||0);
   });
-  activePays().filter(p => p.date >= _pr2.from && p.date <= _pr2.to).forEach(p => {
+  cashPays().filter(p => p.date >= _pr2.from && p.date <= _pr2.to).forEach(p => {
     kassaTushdiKpi += p.currency === "usd" ? Math.round(p.amount*_rate) : (p.amount||0);
   });
 
@@ -303,7 +303,7 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
     else if (s.payType === "naqd") kassaNaqd += (s.paid || 0);
     else if (s.payType === "karta") kartaTushum += (s.paid || 0);
   });
-  activePays().filter(p => p.date >= _pr2.from && p.date <= _pr2.to).forEach(p => {
+  cashPays().filter(p => p.date >= _pr2.from && p.date <= _pr2.to).forEach(p => {
     const somAmt = p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * _rate) : (p.amount || 0));
     const mb = p.methodBreakdown;
     const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
