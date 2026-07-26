@@ -60,10 +60,36 @@ function sizesToRange(sizeList, type) {
 // ── Pochka guruhlash ──────────────────────────────
 // Dona sotuvi natijasida o'lchamlar nomutanosib bo'lib qolsa,
 // variantlarni "to'liq pochka" va "ochilgan pochka" guruhlariga ajratadi.
-function regroupPackages(variants, color) {
+function regroupPackages(variants, color, inBox) {
   const colorVariants = variants.filter(v => v.color === color);
   if (colorVariants.length === 0) return [];
 
+  // ═══ 2026-07-25: O'LCHAMSIZ TOVAR uchun yangi mantiq ═══
+  // O'lcham shablonidan voz kechilgach har rang BITTA variant bo'lib qoldi,
+  // shuning uchun eski "o'lchamlar teng emas" mantiqi ochilgan pochkani
+  // umuman topa olmasdi. Endi qoldiq quti sig'imiga bo'linmasa —
+  // qolgani OCHILGAN pochka deb hisoblanadi.
+  //   88 dona, 1 pochkada 5 → 17 to'liq pochka + 3 dona ochilgan
+  const _ib = parseInt(inBox) || 0;
+  if (colorVariants.length === 1 && _ib > 1) {
+    const total = colorVariants[0].qty || 0;
+    const full  = Math.floor(total / _ib);          // to'liq pochkalar
+    const rest  = total - full * _ib;               // ochilgan qoldiq (dona)
+    const out = [];
+    if (full > 0) out.push({
+      packGroup: 0, qty: full, isBroken: false,
+      variants: [{ ...colorVariants[0], qty: full * _ib }]
+    });
+    if (rest > 0) out.push({
+      packGroup: out.length, qty: rest, isBroken: true, brokenDona: rest,
+      variants: [{ ...colorVariants[0], qty: rest }]
+    });
+    // Hech narsa qolmasa — bo'sh guruh (qoldiq 0)
+    return out.length ? out
+      : [{ packGroup: 0, qty: 0, isBroken: false, variants: colorVariants }];
+  }
+
+  // ── Eski (o'lchamli) tovarlar uchun avvalgi mantiq — TEGILMAYDI ──
   const qtys = colorVariants.map(v => v.qty);
   const minQty = Math.min(...qtys);
   const allEqual = qtys.every(q => q === minQty);

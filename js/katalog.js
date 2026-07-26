@@ -403,7 +403,7 @@ function renderKatalog() {
   ps.forEach(p => {
     const colorsInProduct = [...new Set(p.variants.map(v => v.color))];
     colorsInProduct.forEach(color => {
-      const groups = regroupPackages(p.variants, color);
+      const groups = regroupPackages(p.variants, color, p.inBox);
       groups.forEach(g => {
         rows.push({ product: p, color, packGroup: g.packGroup, isBroken: g.isBroken, groupQty: g.qty, groupVariants: g.variants });
       });
@@ -424,7 +424,7 @@ function renderKatalog() {
     let cnt = 0;
     ps.forEach(p => {
       [...new Set(p.variants.map(v=>v.color))].forEach(c => {
-        cnt += regroupPackages(p.variants, c).filter(g => g.isBroken).length;
+        cnt += regroupPackages(p.variants, c, p.inBox).filter(g => g.isBroken).length;
       });
     });
     return cnt;
@@ -891,7 +891,7 @@ function epRenderColorCards(p) {
     const totalQty = variants.reduce((a,v) => a + v.qty, 0);
     const pantone  = variants[0]?.pantone || "";
     const hex      = variants[0]?.hex || "#888";
-    const groups   = typeof regroupPackages === "function" ? regroupPackages(p.variants, color) : [];
+    const groups   = typeof regroupPackages === "function" ? regroupPackages(p.variants, color, p.inBox) : [];
 
     const colorImg = (p.colorImages && p.colorImages[color]) || p.image || "";
     const colorImgId = `epcimg_${color.replace(/[^a-zA-Z0-9]/g,"_")}`;
@@ -1010,7 +1010,7 @@ function epInboxChanged() {
 function epUpdateGroupQty(color, groupIdx, val) {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   const newQty = parseInt(val) || 0;
-  const groups = regroupPackages(p.variants, color);
+  const groups = regroupPackages(p.variants, color, p.inBox);
   const g = groups[groupIdx]; if (!g) return;
   // Shu guruhdagi har bir o'lchamning farqini hisoblab, asl variantga qo'shamiz
   g.variants.forEach(gv => {

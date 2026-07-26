@@ -182,7 +182,7 @@ function omRenderQoldiq() {
     const colors = [...new Set(p.variants.map(v => v.color))];
     colors.forEach(color => {
       const groups = typeof regroupPackages === "function"
-        ? regroupPackages(p.variants, color)
+        ? regroupPackages(p.variants, color, p.inBox)
         : [{ packGroup:0, isBroken:false, qty: Math.min(...p.variants.filter(v=>v.color===color).map(v=>v.qty)),
              variants: p.variants.filter(v=>v.color===color) }];
 

@@ -266,7 +266,7 @@ function posSearch() {
     const colors = [...new Set(p.variants.map(v => v.color))];
     colors.forEach(color => {
       const groups = typeof regroupPackages === "function"
-        ? regroupPackages(p.variants, color)
+        ? regroupPackages(p.variants, color, p.inBox)
         : [{ packGroup:0, isBroken:false,
              qty: Math.min(...p.variants.filter(v=>v.color===color).map(v=>v.qty)),
              variants: p.variants.filter(v=>v.color===color) }];
@@ -300,7 +300,12 @@ function posSearch() {
     const _pi = packInfo(p, colorVariants);
     const inBox = _pi.inBox;
     const _reservedInOtherCarts = getReservedQty(p.sku, color);
-    const maxPochka = Math.max(0, _pi.maxPochka - _reservedInOtherCarts);
+    // 2026-07-25: OCHILGAN pochkada birlik — DONA (pochka emas).
+    // packInfo ochilgan qoldiq uchun 0 pochka qaytaradi, shuning uchun
+    // guruh miqdorini (groupQty) to'g'ridan-to'g'ri ishlatamiz.
+    const _unitLbl  = isBroken ? "dona" : "pch";
+    const _maxRaw   = isBroken ? (groupQty || 0) : _pi.maxPochka;
+    const maxPochka = Math.max(0, _maxRaw - _reservedInOtherCarts);
     const sizesStr  = typeof sizesToRange === "function"
       ? sizesToRange(colorVariants.map(v => v.size).filter(Boolean), p.type)
       : colorVariants.map(v => v.size).join(", ");
@@ -329,7 +334,7 @@ function posSearch() {
         <!-- 2-QATOR: pochka · narx -->
         <div class="pri-meta">
           <span style="color:${maxPochka<=0?'#EF4444':maxPochka<=5?'#F59E0B':'#374151'};font-weight:700">
-            ${maxPochka} pch${_reservedInOtherCarts > 0 ? ' <span style="color:#E9A500">('+_reservedInOtherCarts+' band)</span>' : ''}
+            ${maxPochka} ${_unitLbl}${_reservedInOtherCarts > 0 ? ' <span style="color:#E9A500">('+_reservedInOtherCarts+' band)</span>' : ''}
           </span>
           <span class="pri-dot">·</span>
           <span class="pri-price" id="pripr-${rowId}">
@@ -444,7 +449,7 @@ function posQuickAdd(sku, color, packGroup) {
   const qtyInput = parseInt(($(inputId)||{value:1}).value) || 1;
 
   // Shu pochka guruhiga tegishli variantlarni topamiz
-  const groups = typeof regroupPackages === "function" ? regroupPackages(p.variants, color) : [];
+  const groups = typeof regroupPackages === "function" ? regroupPackages(p.variants, color, p.inBox) : [];
   const g = groups[packGroup];
   if (!g) { toast("Guruh topilmadi", "err"); return; }
 
@@ -921,7 +926,7 @@ function ciGetMax(c) {
   });
 
   if (c.sellMode === "karobka") {
-    const groups = typeof regroupPackages === "function" ? regroupPackages(p.variants, c.color) : [];
+    const groups = typeof regroupPackages === "function" ? regroupPackages(p.variants, c.color, p.inBox) : [];
     const g = groups[c.packGroup || 0];
     // v187: g.qty B2'da DONA edi (savat 240 "pochka"gacha ko'tarilardi!).
     // packInfo ikkala modelga mos: B2 = dona÷inBox, klassik = min(qty) — eskisi bilan bir xil.
