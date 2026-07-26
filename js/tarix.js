@@ -958,11 +958,17 @@ function _refundAddDebtPayment(sale, amountUzs, refundNo, custTotals) {
     debtBefore: before,
     debtAfter:  after,
     note: `Tovar qaytarish hisobidan (${refundNo})`,
+    // ⚠️ 2026-07-25: allocation ICHIDA ham currency bo'lishi SHART —
+    // calcSaleState qarzni shu maydondan aniqlaydi. U bo'lmasa USD
+    // qarz umuman kamaymasdi (oddiy to'lov ham shu tuzilishda).
     allocations: [{
-      saleId: sale.id,
-      partNum: sale.chekNum || ("#" + sale.id),
+      saleId:   sale.id,
+      saleDate: sale.date || "",
+      chekNum:  sale.chekNum || ("#" + sale.id),
+      partNum:  (typeof nextPartNum === "function") ? nextPartNum(sale.id) : 1,
       amount,
-      fullyPaid: after <= 0,
+      currency,
+      fullyPaid: after <= 0.005,
       remainingAfter: after
     }],
     leftover: 0
