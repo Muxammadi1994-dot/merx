@@ -700,3 +700,38 @@ tr:hover td{background:#FAFAF8}
 @media (max-width: 768px) {
   .vr-fill-hint { padding: 6px !important; font-size: 11.5px !important; }
 }
+
+/* ═══ POS TOVAR QATORI — MOBIL (2026-07-25) ═══
+   Muammo: nom, rang, o'lcham, artikul, pochka, narx — har biri alohida
+   qatorga tushib, bitta tovar 6 qatorni egallardi. Endi 2-3 ixcham qator. */
+@media (max-width: 768px) {
+  .pos-ri { padding: 8px 10px !important; gap: 8px !important; }
+
+  /* Nom — to'liq kenglikda, kesilmasin */
+  .pri-name { font-size: 13.5px !important; line-height: 1.25; white-space: normal !important;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; }
+
+  /* Meta (rang · o'lcham · artikul · pochka) — BIR qator, sig'masa nuqta */
+  .pri-meta { flex-wrap: nowrap !important; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px !important;
+    gap: 4px !important; margin-top: 2px; }
+  .pri-meta > span { flex-shrink: 0; }
+
+  /* Narx — kattaroq, o'z qatorida */
+  .pri-price { font-size: 14.5px !important; white-space: nowrap; }
+
+  /* Rasm kichikroq — matnga joy qolsin */
+  .pos-ri img { width: 42px !important; height: 42px !important; }
+}
+
+/* POS: narx va tugmalar bloki mobilda tor joyga siqilmasin */
+@media (max-width: 768px) {
+  /* Yuqori qator: rasm + nom/meta + narx bloki */
+  .pos-ri > div:first-child { align-items: flex-start !important; gap: 9px !important; }
+  /* Narx/miqdor/qo'shish bloki — o'ng tomonda ixcham */
+  .pos-ri > div:first-child > div:last-child { gap: 6px !important; }
+  /* Miqdor katakchasi ixchamroq */
+  .pos-ri input[id^="posq-"] { width: 44px !important; font-size: 15px !important;
+    padding: 5px 4px !important; }
+}

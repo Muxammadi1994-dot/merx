@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=150">
+<link rel="stylesheet" href="style.css?v=151">
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display:inline-block; animation: spin .8s linear infinite; }
@@ -4515,7 +4515,7 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=192"></script>
 <script src="js/dashboard.js?v=151"></script>
-<script src="js/pos.js?v=215"></script>
+<script src="js/pos.js?v=216"></script>
 <script src="js/katalog.js?v=209"></script>
 <script src="js/ombor.js?v=156"></script>
 <script src="js/mijozlar.js?v=146"></script>
@@ -4729,7 +4729,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=63")
+    navigator.serviceWorker.register("/sw.js?v=64")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

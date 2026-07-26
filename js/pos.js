@@ -324,8 +324,8 @@ function posSearch() {
           <div class="pri-meta">
             <span style="width:8px;height:8px;border-radius:2px;background:${hex};border:1px solid rgba(0,0,0,.12);display:inline-block;flex-shrink:0"></span>
             <span style="font-weight:700;color:#1F2937">${color}</span>
-            <span style="color:#CBD5E1">·</span>
-            <span>${sizesStr || "—"}</span>
+            ${(sizesStr && sizesStr !== "-") ? `<span style="color:#CBD5E1">·</span>
+            <span>${sizesStr}</span>` : ""}
             ${p.art ? '<span style="color:#CBD5E1">·</span><span style="font-family:monospace;font-weight:700;color:#6B4FBB">' + p.art + '</span>' : ""}
             <span style="color:#CBD5E1">·</span>
             <span style="color:${maxPochka<=0?'#EF4444':maxPochka<=5?'#F59E0B':'#9CA3AF'}">
