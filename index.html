@@ -654,9 +654,9 @@
           Savatcha
           <span id="cart-cnt" class="cart-hd-cnt">bo'sh</span>
         </div>
-        <!-- 2026-07-25: tugmalar orasi kengaytirildi (6 -> 10px) —
+        <!-- 2026-07-25: tugmalar orasi kengaytirildi (6 -> 15px) —
              yaqin turgani uchun noto'g'ri bosilardi -->
-        <div style="display:flex;gap:10px">
+        <div style="display:flex;gap:15px">
           <button onclick="posPrintCart()" title="Faol savatni chek ko'rinishida chop etish (PDF — chop etish oynasida 'PDF sifatida saqlash')" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px">
             <i class="ti ti-printer"></i>
           </button>
@@ -4716,7 +4716,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=53")
+    navigator.serviceWorker.register("/sw.js?v=54")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
