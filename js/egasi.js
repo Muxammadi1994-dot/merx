@@ -992,17 +992,33 @@ function _previewSampleSale(type) {
     subtotal: 5050000, discount: 300000, total: 4750000,
   };
   if (type === "qarz") {
+    const _c  = db.settings?.priceCurrency || "uzs";
+    const _r  = db.settings?.rate || 12800;
+    const _ds = (_c === "uzs")
+      ? { prevDebtUzs: 3000000, debtCurrency: "uzs" }
+      : { prevDebtUsd: +(3000000 / _r).toFixed(2),
+          debtUsd:     +(2000000 / _r).toFixed(2), debtCurrency: "usd" };
     return { ...base, remaining: 2000000, paid: 2750000, payType: "aralash",
       payBreakdown: { naqd: 1750000, karta: 1000000 },
-      prevDebtUzs: 3000000, debtCurrency: "uzs", due: base.date };
+      ..._ds, due: base.date };
   }
   if (type === "savat") {
     return { ...base, _preview: true, paid: 0, remaining: 0 };
   }
   // sotuv (nasiya bilan namuna)
+  // 2026-07-25: namuna JORIY valyuta rejimiga moslashadi — foydalanuvchi
+  // o'z sozlamasiga mos ko'rinishni ko'rsin (avval har doim so'm edi).
+  const _cur  = db.settings?.priceCurrency || "uzs";
+  const _rate = db.settings?.rate || 12800;
+  const _debtSample = (_cur === "uzs")
+    ? { prevDebtUzs: 3000000, debtCurrency: "uzs" }
+    : { prevDebtUsd: +(3000000 / _rate).toFixed(2),
+        debtUsd:     +(2000000 / _rate).toFixed(2),
+        debtCurrency: "usd" };
+
   return { ...base, paid: 2750000, remaining: 2000000, payType: "aralash",
     payBreakdown: { naqd: 1750000, karta: 1000000 },
-    prevDebtUzs: 3000000, debtCurrency: "uzs", due: base.date };
+    ..._debtSample, due: base.date };
 }
 
 function renderChekPreview() {
