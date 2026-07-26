@@ -1672,6 +1672,12 @@ function apApplyFields() {
   const fields = apGetFields();
   document.querySelectorAll('.ap-field[data-apf]').forEach(el => {
     const key = el.dataset.apf;
+    // 2026-07-25: variativ yoqilgan bo'lsa — jadvalga ko'chgan maydonlar
+    // (tannarx, chakana, rasm) yashirin QOLADI. Aks holda bu funksiya
+    // har chaqirilganda ularni qaytarib chiqarardi.
+    if (typeof _apVarOn !== "undefined" && _apVarOn && el.classList.contains("ap-hide-var")) {
+      el.style.display = "none"; return;
+    }
     el.style.display = fields[key] !== false ? '' : 'none';
   });
 }
@@ -3732,6 +3738,9 @@ function apToggleVariativ() {
   document.querySelectorAll(".ap-hide-var").forEach(el => {
     el.style.display = _apVarOn ? "none" : "";
   });
+  // O'chirilganda maydon sozlamalari qayta qo'llansin (ba'zilari
+  // sozlamada o'chirilgan bo'lishi mumkin)
+  if (!_apVarOn && typeof apApplyFields === "function") apApplyFields();
 
   if (_apVarOn) {
     apVarFillSuggestions();
@@ -3923,6 +3932,7 @@ function _apVarReset() {
   const tb = document.getElementById("ap-var-tbody");  if (tb) tb.innerHTML = "";
   const sf = document.getElementById("ap-single-fields"); if (sf) sf.style.display = "";
   document.querySelectorAll(".ap-hide-var").forEach(el => { el.style.display = ""; });
+  if (typeof apApplyFields === "function") apApplyFields();
 }
 
 // ═══ VARIATIV TOVAR QO'SHISH (2026-07-25, №3) ═══
