@@ -1535,8 +1535,10 @@ function showDebtPaymentReceipt(payment) {
       _dBefore = _dBefore != null ? _dBefore : (_al.remainingAfter + (payment.amount || 0));
     }
   }
-  if (_dBefore != null) debtRows.push(["Avvalgi qarz", fmtC(_dBefore)]);
-  debtRows.push(["To'landi", fmtC(payment.amount)]); // 2026-07-17: o'rtada — tushunarli zanjir
+  if (_dBefore != null) debtRows.push(["Jami qarz edi", fmtC(_dBefore)]);
+  // Qaytarishda "to'landi" emas — qarzdan kamaytirildi
+  debtRows.push([payment.source === "refund" ? "Qarzdan kamaydi" : "To'landi",
+                 fmtC(payment.amount)]);
   if (_dAfter  != null) debtRows.push(["Qolgan qarz",  fmtC(_dAfter)]);
 
   // Muddat — bitta chekka to'lov bo'lsa o'sha sotuvning muddati

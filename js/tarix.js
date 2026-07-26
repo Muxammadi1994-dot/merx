@@ -635,20 +635,28 @@ function confirmRefund() {
   // u kunlik tushumga KIRMAYDI — haqiqiy pul kelmagan.
   const plan = _refundPayPlan(s, refundTotal);
 
+  // 2026-07-25: chekda mijozning JAMI qarzi ko'rsatiladi (oddiy qarz
+  // to'lovi mantig'i bilan bir xil) — faqat shu chek qarzi emas.
+  const _custTotalDebt = (cid) => (db.sales || [])
+    .filter(x => cid && x.customerId === cid && x.status !== "qaytarilgan")
+    .reduce((a, x) => a + Math.max(0, x.remaining || 0), 0);
+
   if (plan.fromThisDebt > 0) {
-    const _before = s.remaining || 0;                 // to'lovdan OLDINGI qarz
-    s.remaining = Math.max(0, _before - plan.fromThisDebt);
+    const _totalBefore = _custTotalDebt(s.customerId);
+    s.remaining = Math.max(0, (s.remaining || 0) - plan.fromThisDebt);
     if (s.remaining <= 0) { s.remaining = 0; if (!isFullRefund) s.status = "tolandan"; }
-    _refundAddDebtPayment(s, plan.fromThisDebt, refundNo, _before, s.remaining);
+    _refundAddDebtPayment(s, plan.fromThisDebt, refundNo,
+      _totalBefore, Math.max(0, _totalBefore - plan.fromThisDebt));
   }
 
   plan.otherSales.forEach(o => {
     const os = db.sales.find(x => x.id === o.id);
     if (!os) return;
-    const _b = os.remaining || 0;
-    os.remaining = Math.max(0, _b - o.amount);
+    const _totalBefore = _custTotalDebt(os.customerId);
+    os.remaining = Math.max(0, (os.remaining || 0) - o.amount);
     if (os.remaining <= 0) { os.remaining = 0; os.status = "tolandan"; }
-    _refundAddDebtPayment(os, o.amount, refundNo, _b, os.remaining);
+    _refundAddDebtPayment(os, o.amount, refundNo,
+      _totalBefore, Math.max(0, _totalBefore - o.amount));
   });
 
   if (plan.fromCash > 0) {

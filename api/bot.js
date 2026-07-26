@@ -1056,7 +1056,9 @@ async function actionSendPayReceipt(body) {
   txt += `🏪 ${shopName || "MERX"}\n📅 ${payment.date || ""} ${payment.time || ""}\n`;
   txt += `━━━━━━━━━━━━━━━━━━━\n`;
   if (payment.debtBefore != null) txt += `Jami qarz edi:  <b>${M(payment.debtBefore)}</b>\n`;
-  txt += `To'landi:  <b>${M(payment.amount)}</b>\n${methodTxt}\n`;
+  txt += _isRef
+    ? `Qarzdan kamaydi:  <b>${M(payment.amount)}</b>\n`
+    : `To'landi:  <b>${M(payment.amount)}</b>\n${methodTxt}\n`;
   if (payment.debtAfter != null) {
     txt += payment.debtAfter > 0
       ? `Qoldi:  <b>${M(payment.debtAfter)}</b>\n`
