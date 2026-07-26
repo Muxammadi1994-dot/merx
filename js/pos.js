@@ -314,7 +314,7 @@ function posSearch() {
       : "";
 
     return `<div class="pos-ri" style="${isBroken?'background:#FFFBF0;border-color:#FCD9A8;':''}"
-      data-rowkey="${rowKey}" onclick="posQuickAdd('${p.sku}','${color.replace(/'/g,"\\'")}','${packGroup}')">
+      data-rowkey="${rowKey}">
       ${imgHtml}
       <div class="pri-body">
         <!-- 1-QATOR: nom · rang · artikul -->
