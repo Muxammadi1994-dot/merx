@@ -766,7 +766,10 @@ function buildReceiptHtml(sale, opts) {
   // 2026-07-24: sotuvda kurs saqlanmagan bo'lsa (eski cheklar) joriy
   // kursga tayanamiz — aks holda JAMI'da USD umuman ko'rinmasdi
   const rate = Number(sale.rate) || Number(db.settings?.rate) || 0;
-  const usdLine = rate > 0 ? ` / $${(total / rate).toFixed(2)}` : "";
+  // 2026-07-25: JAMI yonidagi USD FAQAT ikki valyuta rejimida chiqadi.
+  // Avval rejimdan qat'i nazar chiqardi — "faqat so'm" tanlangan bo'lsa ham.
+  const usdLine = (_pcMode === "both" && rate > 0)
+    ? ` / $${(total / rate).toFixed(2)}` : "";
 
   // ── To'lov bo'limi ────────────────────────────
   const discHtml = discount > 0
@@ -775,13 +778,17 @@ function buildReceiptHtml(sale, opts) {
   // 2026-07-25: QARZ ham ikki valyutada — "2 400 000 / $200".
   // Kurs SOTUV PAYTIDAGI (_pcRate) — keyin o'zgarsa ham chek o'zgarmaydi.
   // "usd" rejimida avvalgidek faqat $ (bu ataylab shunday edi).
+  // Format: "2 400 000 / 12 000 = $200.00"
+  //   so'm summasi ÷ SOTUV PAYTIDAGI kurs = dollar qiymati.
+  //   Kurs ko'rsatilishi shart: keyin kurs o'zgarsa ham, qarz qaysi
+  //   kurs bo'yicha hisoblanganini chekdan bilib olish mumkin bo'lsin.
   const FD = (som, usd) => {
     const _s = F(Math.round(som || 0));
     const _u = (usd != null ? usd : (_pcRate > 0 ? (som || 0) / _pcRate : 0));
     const _uStr = "$" + _u.toLocaleString("ru-RU",
       { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     if (_pcMode === "usd")  return _uStr;
-    if (_pcMode === "both") return _s + " so'm / " + _uStr;
+    if (_pcMode === "both") return _s + " / " + F(_pcRate) + " = " + _uStr;
     return _s + " so'm";
   };
 
@@ -816,7 +823,11 @@ function buildReceiptHtml(sale, opts) {
     const _pIsUsd = _pdUsd > 0;
     const _pd = _pIsUsd ? _pdUsd : _pdUzs;
     if (showDebtHistory && _pd > 0) {
-      const P = v => _pIsUsd ? `$${Number(v||0).toFixed(2)}` : `${F(v||0)} so'm`;
+      // 2026-07-25: both rejimda bu qatorlar ham "som / kurs = $USD"
+      const P = v => (_pcMode === "both")
+        ? FD(_pIsUsd ? (Number(v||0) * _pcRate) : Number(v||0),
+             _pIsUsd ? Number(v||0) : null)
+        : (_pIsUsd ? `$${Number(v||0).toFixed(2)}` : `${F(v||0)} so'm`);
       debtHtml = `
         <div class="sep-dash" style="margin:6px 0"></div>
         <div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>${P(_pd)}</span></div>
