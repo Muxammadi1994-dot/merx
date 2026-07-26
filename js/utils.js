@@ -8,13 +8,16 @@ const fmt    = n  => Math.round(n).toLocaleString("ru-RU");
 // 2026-07-20: USD ko'rsatishda ham MING AJRATGICHI (probel): $4 500.00
 // Butun qismga probel (ru-RU), o'nlik ikki xona. Bu YAGONA USD-ko'rsatish
 // funksiyasi — qarzlar, katalog, POS, hisobot HAMMA joyda shu ishlaydi.
+// 2026-07-25: butun va kasr qism ALOHIDA yaxlitlanardi — kasr .995 dan
+// katta bo'lsa butun qism oshmay qolardi ($161.995 → "$161.00").
+// Endi avval to'liq son yaxlitlanadi, keyin ajratiladi.
 const fmtUsd = n => {
   const v = +n || 0;
   const neg = v < 0 ? "-" : "";
-  const abs = Math.abs(v);
-  const intPart = Math.floor(abs).toLocaleString("ru-RU");
-  const dec = (abs - Math.floor(abs)).toFixed(2).slice(1); // ".00"
-  return neg + "$" + intPart + dec;
+  const fixed = Math.abs(v).toFixed(2);          // "161.99" / "162.00"
+  const dot = fixed.indexOf(".");
+  const intPart = Number(fixed.slice(0, dot)).toLocaleString("ru-RU");
+  return neg + "$" + intPart + "." + fixed.slice(dot + 1);
 };
 const $      = id => document.getElementById(id);
 const today  = () => new Date().toISOString().slice(0, 10);
