@@ -635,28 +635,41 @@ function confirmRefund() {
   // u kunlik tushumga KIRMAYDI — haqiqiy pul kelmagan.
   const plan = _refundPayPlan(s, refundTotal);
 
-  // 2026-07-25: chekda mijozning JAMI qarzi ko'rsatiladi (oddiy qarz
-  // to'lovi mantig'i bilan bir xil) — faqat shu chek qarzi emas.
-  const _custTotalDebt = (cid) => (db.sales || [])
-    .filter(x => cid && x.customerId === cid && x.status !== "qaytarilgan")
-    .reduce((a, x) => a + Math.max(0, x.remaining || 0), 0);
+  // ⚠️ 2026-07-25: s.remaining O'ZGARTIRILMAYDI. Qarz qoldig'i
+  // calcSaleState() orqali to'lovlardan hisoblanadi — qo'lda ham
+  // kamaytirsak qarz IKKI MARTA kamayardi (oddiy qarz to'lovi ham
+  // shu tamoyilda ishlaydi).
+  const _stateOf = (x) => (typeof calcSaleState === "function")
+    ? calcSaleState(x) : { remaining: x.remaining || 0, debtUsd: 0 };
+
+  // Mijozning JAMI qarzi (chek va bot xabari uchun) — qarz valyutasida
+  const _custTotals = (cid) => {
+    let uzs = 0, usd = 0;
+    (db.sales || []).forEach(x => {
+      if (!cid || x.customerId !== cid || x.status === "qaytarilgan") return;
+      const st = _stateOf(x);
+      uzs += Math.max(0, st.remaining || 0);
+      usd += Math.max(0, st.debtUsd  || 0);
+    });
+    return { uzs, usd };
+  };
 
   if (plan.fromThisDebt > 0) {
-    const _totalBefore = _custTotalDebt(s.customerId);
-    s.remaining = Math.max(0, (s.remaining || 0) - plan.fromThisDebt);
-    if (s.remaining <= 0) { s.remaining = 0; if (!isFullRefund) s.status = "tolandan"; }
-    _refundAddDebtPayment(s, plan.fromThisDebt, refundNo,
-      _totalBefore, Math.max(0, _totalBefore - plan.fromThisDebt));
+    const t = _custTotals(s.customerId);
+    _refundAddDebtPayment(s, plan.fromThisDebt, refundNo, t);
+    if (!isFullRefund) {
+      const after = _stateOf(s);
+      if ((after.remaining || 0) <= 0) s.status = "tolandan";
+    }
   }
 
   plan.otherSales.forEach(o => {
     const os = db.sales.find(x => x.id === o.id);
     if (!os) return;
-    const _totalBefore = _custTotalDebt(os.customerId);
-    os.remaining = Math.max(0, (os.remaining || 0) - o.amount);
-    if (os.remaining <= 0) { os.remaining = 0; os.status = "tolandan"; }
-    _refundAddDebtPayment(os, o.amount, refundNo,
-      _totalBefore, Math.max(0, _totalBefore - o.amount));
+    const t = _custTotals(os.customerId);
+    _refundAddDebtPayment(os, o.amount, refundNo, t);
+    const after = _stateOf(os);
+    if ((after.remaining || 0) <= 0) os.status = "tolandan";
   });
 
   if (plan.fromCash > 0) {
@@ -834,25 +847,35 @@ function refFillAll() {
 //         3) qolgani — kassadan naqd (xarajat sifatida yoziladi)
 // ═══════════════════════════════════════════════════════════════
 function _refundPayPlan(sale, total) {
+  // 2026-07-25: qarz qoldig'i calcSaleState orqali olinadi (to'lovlarni
+  // hisobga oladi). USD qarzda summa DOLLARGA aylantiriladi.
   const plan = { fromThisDebt: 0, fromOtherDebt: 0, fromCash: 0, otherSales: [] };
-  let left = total;
+  let left = total;   // so'mda
+
+  const _st = (x) => (typeof calcSaleState === "function")
+    ? calcSaleState(x) : { remaining: x.remaining || 0, debtUsd: 0 };
 
   // 1) Shu sotuvdagi qarz
-  const thisDebt = Math.max(0, sale.remaining || 0);
+  const st = _st(sale);
+  const thisDebt = Math.max(0, st.remaining || 0);
   plan.fromThisDebt = Math.min(thisDebt, left);
   left -= plan.fromThisDebt;
 
   // 2) Mijozning boshqa qarzlari (eng eski birinchi)
   if (left > 0 && sale.customerId) {
     const others = (db.sales || [])
-      .filter(s => s.id !== sale.id && s.customerId === sale.customerId &&
-                   (s.remaining || 0) > 0 && s.status !== "qaytarilgan")
-      .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-    others.forEach(s => {
+      .filter(x => x.id !== sale.id && x.customerId === sale.customerId &&
+                   x.status !== "qaytarilgan")
+      .map(x => ({ sale: x, st: _st(x) }))
+      .filter(o => (o.st.remaining || 0) > 0)
+      .sort((a, b) => (a.sale.date || "").localeCompare(b.sale.date || ""));
+    others.forEach(o => {
       if (left <= 0) return;
-      const take = Math.min(s.remaining || 0, left);
+      const take = Math.min(o.st.remaining || 0, left);
       if (take > 0) {
-        plan.otherSales.push({ id: s.id, chekNum: s.chekNum || ("#" + s.id), amount: take });
+        plan.otherSales.push({
+          id: o.sale.id, chekNum: o.sale.chekNum || ("#" + o.sale.id), amount: take
+        });
         plan.fromOtherDebt += take;
         left -= take;
       }
@@ -872,14 +895,21 @@ function updateRefundPayPlan(total) {
   if (!s || !total) { el.innerHTML = `<span style="color:var(--mut)">Miqdorni kiriting</span>`; return; }
 
   const p = _refundPayPlan(s, total);
+  // 2026-07-25: qarz dollarda yuritilsa — summalar so'm / $ ko'rinishida
+  const _rate  = Number(s.rate) || Number(db.settings?.rate) || 12800;
+  const _isUsd = s.debtCurrency === "usd";
+  const M = v => _isUsd
+    ? `${fmt(v)} so'm / $${(v / _rate).toFixed(2)}`
+    : `${fmt(v)} so'm`;
+
   const rows = [];
   if (p.fromThisDebt > 0)
-    rows.push(`<div style="display:flex;justify-content:space-between">
-      <span>Shu sotuvdagi qarzdan</span><b>${fmt(p.fromThisDebt)} so'm</b></div>`);
+    rows.push(`<div style="display:flex;justify-content:space-between;gap:8px">
+      <span>Shu sotuvdagi qarzdan</span><b style="text-align:right">${M(p.fromThisDebt)}</b></div>`);
   if (p.fromOtherDebt > 0)
-    rows.push(`<div style="display:flex;justify-content:space-between">
+    rows.push(`<div style="display:flex;justify-content:space-between;gap:8px">
       <span>Boshqa qarzlaridan <span style="color:var(--mut);font-size:11px">(${p.otherSales.map(o=>o.chekNum).join(", ")})</span></span>
-      <b>${fmt(p.fromOtherDebt)} so'm</b></div>`);
+      <b style="text-align:right">${M(p.fromOtherDebt)}</b></div>`);
   if (p.fromCash > 0)
     rows.push(`<div style="display:flex;justify-content:space-between;color:#B91C1C">
       <span>Kassadan naqd <span style="font-size:11px">(xarajat sifatida)</span></span>
@@ -891,14 +921,26 @@ function updateRefundPayPlan(total) {
 // Qaytarish hisobidan qarz to'lovi yozuvi (2026-07-25)
 // source="refund" — bu HAQIQIY PUL EMAS, tovar qaytarish hisobidan.
 // Shuning uchun kunlik tushum va kassa hisobiga KIRMAYDI.
-function _refundAddDebtPayment(sale, amount, refundNo, debtBefore, debtAfter) {
-  if (!amount || amount <= 0) return;
+function _refundAddDebtPayment(sale, amountUzs, refundNo, custTotals) {
+  if (!amountUzs || amountUzs <= 0) return;
   if (!db.debtPayments) db.debtPayments = [];
+
+  const rate = Number(sale.rate) || Number(db.settings?.rate) || 12800;
+
+  // 2026-07-25: QARZ VALYUTASI. Sotuv qarzi dollarda yuritilsa —
+  // qaytarilgan tovar qiymati ham DOLLARGA aylantiriladi va chek/xabar
+  // dollarda chiqadi (mijoz va sotuvchi chalg'imasin).
+  const isUsdDebt = sale.debtCurrency === "usd";
+  const amount   = isUsdDebt ? +(amountUzs / rate).toFixed(2) : amountUzs;
+  const currency = isUsdDebt ? "usd" : "uzs";
+
+  const before = isUsdDebt ? (custTotals?.usd || 0) : (custTotals?.uzs || 0);
+  const after  = Math.max(0, +(before - amount).toFixed(2));
 
   const chekNum = "QTQ-" + today().replace(/-/g,"").slice(2) + "-" +
                   String((db.debtPayments.length + 1)).padStart(3, "0");
 
-  db.debtPayments.push({
+  const payment = {
     id: db.seq++,
     chekNum,
     date: today(),
@@ -906,33 +948,34 @@ function _refundAddDebtPayment(sale, amount, refundNo, debtBefore, debtAfter) {
     customerId:   sale.customerId || null,
     customerName: sale.customerName || "",
     staffId:      sale.staffId || null,
-    amount,
-    method: "qaytarish",          // naqd/karta emas
+    amount,                       // qarz valyutasida
+    amountSom: amountUzs,         // statistika uchun so'mdagi qiymati
+    currency,
+    rate,
+    method: "qaytarish",
     source: "refund",             // ⚠️ tushumga kirmaydi
     refundNo,
-    // 2026-07-25: chek "Avvalgi qarz / To'landi / Qolgan qarz" qatorlarini
-    // shu maydonlardan oladi — avval yozilmagani uchun bo'lim bo'sh edi
-    debtBefore: debtBefore != null ? debtBefore : null,
-    debtAfter:  debtAfter  != null ? debtAfter  : null,
-    currency: "uzs",
+    debtBefore: before,
+    debtAfter:  after,
     note: `Tovar qaytarish hisobidan (${refundNo})`,
     allocations: [{
       saleId: sale.id,
       partNum: sale.chekNum || ("#" + sale.id),
       amount,
-      fullyPaid: (sale.remaining || 0) <= 0,
-      remainingAfter: Math.max(0, sale.remaining || 0)
+      fullyPaid: after <= 0,
+      remainingAfter: after
     }],
     leftover: 0
-  });
+  };
 
-  // 2026-07-25: chek mijozga Telegram orqali ham boradi (oddiy qarz
-  // to'lovi kabi) — avval bu chaqiruv yo'q edi.
+  db.debtPayments.push(payment);
+
+  // Mijozga Telegram orqali chek (oddiy qarz to'lovi kabi)
   try {
-    const _pay = db.debtPayments[db.debtPayments.length - 1];
     const _cust = (db.customers || []).find(c => c.id === sale.customerId);
     if (typeof sendTelegramPayReceipt === "function" && (sale.customerId || _cust?.phone)) {
-      sendTelegramPayReceipt(sale.customerId || null, _cust?.phone || null, _pay);
+      sendTelegramPayReceipt(sale.customerId || null, _cust?.phone || null, payment);
     }
   } catch(e) { console.warn("Qaytarish cheki botga yuborilmadi:", e.message); }
 }
+
