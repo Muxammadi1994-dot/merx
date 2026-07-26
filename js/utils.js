@@ -670,8 +670,12 @@ function buildReceiptHtml(sale, opts) {
   // 2026-07-20: tovar narxini valyutaga qarab ko'rsatuvchi helper.
   // priceCurrency "both" bo'lsa: "540 000 / $42.19"; aks holda avvalgidek so'm.
   // (Faqat tovar narx qatorlarida ishlatiladi — jami/to'lov F() da qoladi.)
-  const _pcMode = db.settings?.priceCurrency || "uzs";
-  const _pcRate = db.settings?.rate || 12800;
+  // 2026-07-25: CHEK MUZLATILADI — sotuv paytidagi valyuta rejimi va kursi
+  // ishlatiladi. Keyin sozlama o'zgarsa (so'm → ikki valyuta) yoki kurs
+  // o'zgarsa, ESKI CHEK O'ZGARMAYDI. Eski sotuvlarda (maydon yo'q) joriy
+  // sozlamaga tayanamiz — ular uchun boshqa manba yo'q.
+  const _pcMode = sale.priceCurrency || db.settings?.priceCurrency || "uzs";
+  const _pcRate = Number(sale.rate) || Number(db.settings?.rate) || 12800;
   const FC = n => {
     const som = Math.round(n || 0);
     if (_pcMode === "both") {
@@ -768,6 +772,19 @@ function buildReceiptHtml(sale, opts) {
   const discHtml = discount > 0
     ? `<div class="pr"><span>Chegirma</span><span class="c-red">− ${FC(discount)}</span></div>` : "";
 
+  // 2026-07-25: QARZ ham ikki valyutada — "2 400 000 / $200".
+  // Kurs SOTUV PAYTIDAGI (_pcRate) — keyin o'zgarsa ham chek o'zgarmaydi.
+  // "usd" rejimida avvalgidek faqat $ (bu ataylab shunday edi).
+  const FD = (som, usd) => {
+    const _s = F(Math.round(som || 0));
+    const _u = (usd != null ? usd : (_pcRate > 0 ? (som || 0) / _pcRate : 0));
+    const _uStr = "$" + _u.toLocaleString("ru-RU",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (_pcMode === "usd")  return _uStr;
+    if (_pcMode === "both") return _s + " so'm / " + _uStr;
+    return _s + " so'm";
+  };
+
   let debtHtml = "";
   if (remaining > 0) {
     if (showDebtHistory && isUsd && prevUsd > 0) {
@@ -778,14 +795,16 @@ function buildReceiptHtml(sale, opts) {
         <div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>$${debtUsd.toFixed(2)}</span></div>
         <div class="pr pr-debt"><span>Xariddan keyingi qarz</span><span>$${tot.toFixed(2)} USD</span></div>`;
     } else if (showDebtHistory && !isUsd && prevUzs > 0) {
-      const tot = prevUzs + remaining;
+      // 2026-07-25: both rejimda bu qatorlar ham ikki valyutada
       debtHtml = `
         <div class="sep-dash" style="margin:6px 0"></div>
-        <div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>${F(prevUzs)} so'm</span></div>
-        <div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>${F(remaining)} so'm</span></div>
-        <div class="pr pr-debt"><span>Xariddan keyingi qarz</span><span>${F(prevUzs + remaining)} so'm</span></div>`;
+        <div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>${FD(prevUzs)}</span></div>
+        <div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>${FD(remaining)}</span></div>
+        <div class="pr pr-debt"><span>Xariddan keyingi qarz</span><span>${FD(prevUzs + remaining)}</span></div>`;
     } else {
-      const amt = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${F(remaining)} so'm`;
+      // both rejimda so'm va USD birga; usd/uzs da avvalgidek
+      const amt = (_pcMode === "both") ? FD(remaining, isUsd ? debtUsd : null)
+                : isUsd ? `$${debtUsd.toFixed(2)} USD` : `${F(remaining)} so'm`;
       debtHtml = `<div class="pr pr-debt"><span>Qarzga</span><span>${amt}</span></div>`;
     }
     if (due) debtHtml += `<div class="pr pr-sm"><span>To'lov muddati</span><span class="c-red">${due}</span></div>`;

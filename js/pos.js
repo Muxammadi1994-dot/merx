@@ -2120,6 +2120,10 @@ async function checkout() {
     // 2026-07-24: sotuv paytidagi kurs saqlanadi — chekda USD summasi
     // keyinchalik kurs o'zgarsa ham TO'G'RI qoladi
     rate: Number(db.settings?.rate) || 0,
+    // 2026-07-25: sotuv paytidagi VALYUTA REJIMI ham saqlanadi.
+    // Chek "muzlatiladi": keyin sozlama o'zgarsa (so'm → ikki valyuta)
+    // ESKI chek o'zgarmaydi, qanday chiqarilgan bo'lsa shunday qoladi.
+    priceCurrency: db.settings?.priceCurrency || "uzs",
     priceType: posPriceType,
     payType: posPayType, payBreakdown, staffId, customerId,
     discount, discountType: discType,
