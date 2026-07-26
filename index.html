@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=149">
+<link rel="stylesheet" href="style.css?v=150">
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display:inline-block; animation: spin .8s linear infinite; }
@@ -3022,10 +3022,19 @@
           Ranglar <span style="font-weight:400;color:var(--mut)">— yozing va Enter bosing</span>
         </label>
         <div id="ap-var-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px"></div>
-        <input id="ap-var-colorinp" placeholder="Rang nomi..." autocomplete="off"
-          list="ap-var-colorlist" onkeydown="apVarColorKey(event)"
-          style="width:100%;font-family:inherit;font-size:13.5px;border:1.5px solid var(--brd);
-          border-radius:8px;padding:9px 12px;box-sizing:border-box">
+        <!-- 2026-07-25: telefonda Enter qiyin — yonida "+" tugmasi -->
+        <div style="display:flex;gap:7px">
+          <input id="ap-var-colorinp" placeholder="Rang nomi..." autocomplete="off"
+            list="ap-var-colorlist" onkeydown="apVarColorKey(event)"
+            style="flex:1;min-width:0;font-family:inherit;font-size:15px;border:1.5px solid var(--brd);
+            border-radius:8px;padding:10px 12px;box-sizing:border-box">
+          <button type="button" onclick="apVarAddColor()"
+            style="flex-shrink:0;background:var(--acc);border:none;border-radius:8px;
+            padding:10px 16px;font-family:inherit;font-size:14px;font-weight:700;
+            color:#0D1B2A;cursor:pointer;white-space:nowrap">
+            <i class="ti ti-plus"></i> Qo'shish
+          </button>
+        </div>
         <datalist id="ap-var-colorlist"></datalist>
 
         <!-- Ranglar kiritilgach jadval paydo bo'ladi -->
@@ -4480,7 +4489,7 @@
 <script src="js/cloud.js?v=189"></script>
 <script src="js/dashboard.js?v=149"></script>
 <script src="js/pos.js?v=212"></script>
-<script src="js/katalog.js?v=203"></script>
+<script src="js/katalog.js?v=204"></script>
 <script src="js/ombor.js?v=153"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=181"></script>
@@ -4693,7 +4702,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=41")
+    navigator.serviceWorker.register("/sw.js?v=42")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

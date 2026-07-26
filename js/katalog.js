@@ -3756,12 +3756,18 @@ function apVarFillSuggestions() {
 function apVarColorKey(e) {
   if (e.key !== "Enter" && e.key !== ",") return;
   e.preventDefault();
-  const inp = e.target;
+  apVarAddColor();
+}
+
+// Rang qo'shish — Enter ham, "Qo'shish" tugmasi ham shu yerga keladi
+function apVarAddColor() {
+  const inp = document.getElementById("ap-var-colorinp");
+  if (!inp) return;
   const name = (inp.value || "").trim();
-  if (!name) return;
+  if (!name) { toast("Rang nomini yozing", "err"); inp.focus(); return; }
   if (_apVarColors.some(c => c.name.toLowerCase() === name.toLowerCase())) {
     toast("Bu rang allaqachon qo'shilgan", "err");
-    inp.value = ""; return;
+    inp.value = ""; inp.focus(); return;
   }
   // Avval ishlatilgan bo'lsa — o'sha rang kodini olamiz
   let hex = "#888888";
@@ -3774,6 +3780,7 @@ function apVarColorKey(e) {
   }
   _apVarColors.push({ name, hex });
   inp.value = "";
+  inp.focus();                 // ketma-ket yozish uchun
   apVarRenderChips();
   apVarRenderTable();
 }

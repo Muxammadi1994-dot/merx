@@ -648,3 +648,55 @@ tr:hover td{background:#FAFAF8}
   text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px;
 }
 #mol-kpi-row .sv { font-size: 18px; line-height: 1.15; word-break: break-word; }
+
+/* ═══ VARIATIV JADVAL — MOBIL (2026-07-25) ═══
+   Telefonda 7 ustunli jadval sig'maydi. Har qator KARTA bo'lib ochiladi. */
+@media (max-width: 768px) {
+  #ap-var-table thead { display: none; }
+  #ap-var-table, #ap-var-table tbody, #ap-var-table tr, #ap-var-table td {
+    display: block; width: 100%;
+  }
+  #ap-var-table tr {
+    border: 1.5px solid var(--brd) !important; border-radius: 10px;
+    padding: 10px 10px 4px; margin-bottom: 9px; background: #fff; position: relative;
+  }
+  /* 1 rasm, 2 rang — tepada yonma-yon */
+  #ap-var-table td:nth-child(1) {
+    display: inline-block; width: auto; vertical-align: middle; padding: 0 !important;
+  }
+  #ap-var-table td:nth-child(2) {
+    display: inline-block; width: auto; vertical-align: middle;
+    padding: 0 0 0 9px !important; font-size: 14px;
+  }
+  /* 7 — o'chirish tugmasi, o'ng yuqorida */
+  #ap-var-table td:nth-child(7) {
+    position: absolute; top: 6px; right: 8px; width: auto !important; padding: 0 !important;
+  }
+  /* 3-6 maydonlar — 2 tadan */
+  #ap-var-table td:nth-child(3),
+  #ap-var-table td:nth-child(4),
+  #ap-var-table td:nth-child(5),
+  #ap-var-table td:nth-child(6) {
+    display: inline-block; width: 48%; padding: 8px 1% 0 !important; vertical-align: top;
+  }
+  #ap-var-table td:nth-child(3)::before { content: "Pochka soni"; }
+  #ap-var-table td:nth-child(4)::before { content: "1 pochkada"; }
+  #ap-var-table td:nth-child(5)::before { content: "Tannarx"; }
+  #ap-var-table td:nth-child(6)::before { content: "Ulgurji narx"; }
+  #ap-var-table td:nth-child(3)::before,
+  #ap-var-table td:nth-child(4)::before,
+  #ap-var-table td:nth-child(5)::before,
+  #ap-var-table td:nth-child(6)::before {
+    display: block; font-size: 10.5px; color: var(--mut);
+    font-weight: 600; margin-bottom: 3px; text-transform: uppercase;
+  }
+  #ap-var-table input { font-size: 16px !important; }   /* iOS zoom bo'lmasin */
+  #ap-var-table-wrap { overflow-x: visible; }
+  /* Rasm katakchasi kattaroq — barmoq uchun */
+  #ap-var-table td:nth-child(1) > div { width: 40px !important; height: 40px !important; }
+}
+
+/* "Barchasiga qo'llash" taklifi — mobilda bosish uchun kattaroq */
+@media (max-width: 768px) {
+  .vr-fill-hint { padding: 6px !important; font-size: 11.5px !important; }
+}
