@@ -328,8 +328,8 @@ function posSearch() {
         </div>
         <!-- 2-QATOR: pochka · narx -->
         <div class="pri-meta">
-          <span style="color:${maxPochka<=0?'#EF4444':maxPochka<=5?'#F59E0B':'#6B7280'};font-weight:700">
-            ${maxPochka} pochka${_reservedInOtherCarts > 0 ? ' <span style="color:#E9A500">('+_reservedInOtherCarts+' band)</span>' : ''}
+          <span style="color:${maxPochka<=0?'#EF4444':maxPochka<=5?'#F59E0B':'#374151'};font-weight:700">
+            ${maxPochka} pch${_reservedInOtherCarts > 0 ? ' <span style="color:#E9A500">('+_reservedInOtherCarts+' band)</span>' : ''}
           </span>
           <span class="pri-dot">·</span>
           <span class="pri-price" id="pripr-${rowId}">
