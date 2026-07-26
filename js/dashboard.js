@@ -650,7 +650,8 @@ function renderDashPriceType() {
   if (!el) return;
 
   const { from, to } = dashGetDateRange();
-  const payments = activePays().filter(p => p.date >= from && p.date <= to);
+  // 2026-07-25: qaytarish hisobidagi qarz to'lovi "naqd" bo'lib ko'rinardi
+  const payments = cashPays().filter(p => p.date >= from && p.date <= to);
 
   const rate = db.settings?.rate || 12800;
   const toUzs = p => p.currency === 'usd' ? p.amount * rate : p.amount;

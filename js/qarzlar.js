@@ -176,6 +176,8 @@ function renderDebtRevenue() {
         <span style="font-size:12.5px;font-weight:700;color:#0D1B2A">${p.customerName||"Noma'lum"}</span>
         <span style="font-size:11px;color:#aaa;margin-left:6px">${p.chekNum} · ${p.date} ${p.time||""}</span>
         <span style="font-size:11px;color:var(--mut);margin-left:6px">· ${payMethodLabel(p.method)}</span>
+        ${p.source === "refund" ? `<div style="font-size:11px;color:#B91C1C;font-weight:600;margin-top:2px">
+          ↩ Tovar qaytarish hisobidan${p.refundNo ? " · " + p.refundNo : ""}</div>` : ""}
       </div>
       <strong style="font-size:13px;color:var(--grn)">${fmtPayBoth(p.amount, p.currency, p.rate, p.amountSom)}</strong>
     </div>`).join("");
@@ -1513,6 +1515,13 @@ function showDebtPaymentReceipt(payment) {
     methodHtml = `<div class="r"><span>Usul</span><span>${payMethodLabel(payment.method || "naqd")}${cur==="usd" && !payment.amountSom ? " (dollarda)" : ""}</span></div>`;
   }
 
+  // 2026-07-25: qaytarish hisobidan yopilgan bo'lsa — chekda ochiq yoziladi
+  if (payment.source === "refund") {
+    methodHtml += `<div class="r" style="color:#B91C1C;font-weight:700">
+      <span>↩ Tovar qaytarish hisobidan</span>
+      <span>${payment.refundNo || ""}</span></div>`;
+  }
+
   // Qarz qatorlari — QARZ VALYUTASIDA (eski "uzs" qotirmasi tuzatildi)
   const fmtC = v => cur === "usd" ? fmtUsd(v||0) : `${F(v)} so'm`;
   const debtRows = [];
@@ -2085,6 +2094,7 @@ function qtToggleExpand(saleId) {
 }
 
 function payMethodLabel(m) {
+  if (m === "qaytarish") return "↩ Qaytarish";
   const labels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", balans: "💰 Balans", aralash: "Aralash" };
   return labels[m] || "Naqd";
 }
