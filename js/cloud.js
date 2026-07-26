@@ -735,16 +735,9 @@ async function pushToCloud() {
       }
       for (const [table, cfg] of Object.entries(delMap)) {
         const seen = _cloudIds[table];
-        // 2026-07-25: tashxis uchun — delete-sync nima uchun ishlamayotgani
-        // console'da ko'rinsin (avval jim o'tib ketardi)
-        if (!seen || seen.size === 0) {
-          const _localCnt = (cfg.rows || []).length;
-          if (_localCnt === 0 && _intentionalDelete) {
-            console.warn("⚠ " + table + ": pull qilinmagan (_cloudIds bo'sh) — " +
-              "o'chirish bulutga yuborilmadi. Sahifani yangilab qayta urining.");
-          }
-          continue;
-        }
+        // Bulutda bu jadvaldan hech narsa ko'rilmagan — o'chiradigan narsa yo'q.
+        // (Bo'sh jadvallar uchun bu NORMAL: xodim, chiqim, smena bo'lmasa.)
+        if (!seen || seen.size === 0) continue;
         const localSet = new Set((cfg.rows||[]).map(r => String(r[cfg.key])));
         const gone = [...seen.entries()].filter(([k]) => !localSet.has(k));
         if (!gone.length) continue;
