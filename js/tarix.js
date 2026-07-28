@@ -116,7 +116,10 @@ function renderTarix() {
   const clrBtn = $("tarix-q-clr");
   if (clrBtn) clrBtn.style.display = q ? "block" : "none";
 
-  let list = (db.sales || []).slice().sort((a,b) => ((a.date||"")+(a.time||"") < (b.date||"")+(b.time||"")) ? 1 : -1).filter(s => { // v154 (№13): aniq yangi-birinchi
+  // 2026-07-25: bekor qilingan sotuvlar ro'yxatda KO'RSATILMAYDI.
+  // Yozuv bazada qoladi (sinxron va audit uchun), faqat yashiriladi.
+  let list = (db.sales || []).filter(s => !s.cancelled)
+    .slice().sort((a,b) => ((a.date||"")+(a.time||"") < (b.date||"")+(b.time||"")) ? 1 : -1).filter(s => { // v154 (№13): aniq yangi-birinchi
     if (!s) return false;
     if (!txPeriodFilter(s)) return false;
     if (txStatus === "tolandan"    && s.status !== "tolandan")    return false;
@@ -466,8 +469,14 @@ function returnItemToStock(item) {
       // (sotuvdagi v161 tuzatishining ko'zgu-jufti)
       const colorVars = prod.variants.filter(v => v.color === color);
       if (colorVars.length === 1) {
-        const perBox = item.inBox || prod.inBox || 1;
-        colorVars[0].qty += boxesReturned * perBox;
+        // ⚠️ 2026-07-25: item.qty ALLAQACHON jami DONA (sotuvda totalDona
+        // saqlanadi). Avval pochka soni × inBox qayta hisoblanardi va
+        // inBox mos kelmasa qoldiq QO'SH hisoblanardi (2 pochka sotilsa
+        // 4 pochka qaytardi). Endi to'g'ridan-to'g'ri dona qaytariladi.
+        const donaBack = (item.qty > 0)
+          ? item.qty
+          : boxesReturned * (item.inBox || prod.inBox || 1);
+        colorVars[0].qty += donaBack;
       } else {
         targetSizes.forEach(sz => {
           const v = prod.variants.find(x => x.color === color && x.size === sz);
@@ -746,7 +755,9 @@ function shareSaleWhatsApp() {
 // ── Excel eksport ─────────────────────────────────
 function exportTarixExcel() {
   const q    = ($("tarix-q")||{value:""}).value.toLowerCase();
-  const list = (db.sales||[]).slice().sort((a,b) => ((a.date||"")+(a.time||"") < (b.date||"")+(b.time||"")) ? 1 : -1).filter(s => { // v154 (№13)
+  // Eksportda ham bekor qilinganlar chiqmaydi
+  const list = (db.sales||[]).filter(s => !s.cancelled)
+    .slice().sort((a,b) => ((a.date||"")+(a.time||"") < (b.date||"")+(b.time||"")) ? 1 : -1).filter(s => { // v154 (№13)
     if (!s) return false;
     if (!txPeriodFilter(s)) return false;
     if (txStatus === "tolandan"    && s.status !== "tolandan")    return false;
