@@ -53,7 +53,7 @@ function repDateRange() {
 
 function repSales() {
   const { from, to } = repDateRange();
-  return db.sales.filter(s => s.date >= from && s.date <= to);
+  return activeSales().filter(s => s.date >= from && s.date <= to);
 }
 
 // ── Asosiy render ─────────────────────────────────
@@ -421,7 +421,7 @@ function renderRepGrowth(curRev, curCnt) {
   const diff = new Date(to) - new Date(from);
   const prevTo   = addDays(from, -1);
   const prevFrom = addDays(prevTo, -Math.round(diff/86400000));
-  const prevSales = db.sales.filter(s => s.date >= prevFrom && s.date <= prevTo);
+  const prevSales = activeSales().filter(s => s.date >= prevFrom && s.date <= prevTo);
   const prevRev   = prevSales.reduce((a,s)=>a+(s.total||0),0);
   const prevCnt   = prevSales.length;
 
@@ -643,7 +643,7 @@ function renderRepCustomerSegment(sales) {
 
   // Barcha vaqtdagi sotuvlardan shu davrdan OLDINGI xarid qilgan mijozlar
   const prevBuyers = new Set(
-    (db.sales||[]).filter(s => s.date < from && s.customerName)
+    activeSales().filter(s => s.date < from && s.customerName)
       .map(s => s.customerName)
   );
 

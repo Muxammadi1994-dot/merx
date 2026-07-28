@@ -41,15 +41,16 @@ function dashPeriodName() {
 }
 
 function dashGetSales() {
+  // 2026-07-25: bekor qilingan sotuvlar statistikaga KIRMAYDI
   const t = today();
   if (dashPeriod === -2 && dashCustomFrom && dashCustomTo) {
-    return db.sales.filter(s => s.date >= dashCustomFrom && s.date <= dashCustomTo);
+    return activeSales().filter(s => s.date >= dashCustomFrom && s.date <= dashCustomTo);
   }
-  if (dashPeriod === -1) return db.sales; // barchasi
-  if (dashPeriod === 0)  return db.sales.filter(s => s.date === t);
-  if (dashPeriod === 1)  return db.sales.filter(s => s.date === addDays(t, -1));
+  if (dashPeriod === -1) return activeSales(); // barchasi
+  if (dashPeriod === 0)  return activeSales().filter(s => s.date === t);
+  if (dashPeriod === 1)  return activeSales().filter(s => s.date === addDays(t, -1));
   const start = addDays(t, -(dashPeriod - 1));
-  return db.sales.filter(s => s.date >= start);
+  return activeSales().filter(s => s.date >= start);
 }
 
 function dashGetDateRange() {

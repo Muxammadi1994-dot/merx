@@ -134,6 +134,11 @@ function genPayChekNum() {
 // v150 (№3 atkaz): FAOL to'lovlar — atkaz (bekor) qilinganlari chiqariladi.
 // Barcha summa-hisoblar (dashboard, hisobot, moliya, xodimlar...) shu
 // yordamchidan o'qiydi — atkazdan keyin sonlar hamma joyda o'zi to'g'rilanadi.
+// 2026-07-25: bekor qilinmagan sotuvlar — statistika uchun YAGONA manba
+function activeSales() {
+  return (db.sales || []).filter(s => !s.cancelled);
+}
+
 function activePays() {
   return (db.debtPayments || []).filter(p => !p.cancelled);
 }
@@ -171,6 +176,10 @@ function nextPartNum(saleId) {
 // ── Sotuvning JORIY holatini hisoblash (asl sale o'zgarmaydi) ─
 // Sale yaratilgandagi asl paid/remaining + barcha keyingi to'lovlar yig'indisi.
 function calcSaleState(sale) {
+  // 2026-07-25: BEKOR QILINGAN sotuv — hech qanday qarz/to'lov qoldirmaydi
+  if (sale && sale.cancelled) {
+    return { remaining: 0, debtUsd: 0, paid: 0, status: "bekor", cancelled: true };
+  }
   const payments = getSalePayments(sale.id);
   const extraPaidUzs = payments.filter(p => p.currency !== "usd").reduce((a,p) => a+(p.amount||0), 0);
   const extraPaidUsd = payments.filter(p => p.currency === "usd").reduce((a,p) => a+(p.amount||0), 0);

@@ -306,6 +306,11 @@ function renderTarix() {
           <button class="btn btn-ghost btn-icon btn-sm" onclick="openSaleDetail(${s.id})" title="Ko'rish">
             <i class="ti ti-eye"></i>
           </button>
+          ${(!isReturned && typeof hasRole === "function" && hasRole("admin")) ? `
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="openSaleCancel(${s.id})"
+            title="Sotuvni bekor qilish" style="color:var(--red)">
+            <i class="ti ti-trash"></i>
+          </button>` : ""}
         </td>
       </tr>`;
     } catch(e) {
@@ -992,3 +997,69 @@ function _refundAddDebtPayment(sale, amountUzs, refundNo, custTotals) {
   } catch(e) { console.warn("Qaytarish cheki botga yuborilmadi:", e.message); }
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// SOTUVNI TO'LIQ BEKOR QILISH (2026-07-25)
+// Xato kiritilgan sotuv uchun. Barcha summalar joyiga qaytadi:
+//   • naqd/karta/o'tkazma — o'sha hisobdan chiqadi
+//   • qarz — qarzdan ayriladi
+//   • tovarlar — omborga qaytadi
+// Sotuv O'CHIRILMAYDI, "cancelled" belgisi qo'yiladi (qarz to'lovi
+// atkazi bilan bir xil tamoyil — audit izi qoladi).
+// ═══════════════════════════════════════════════════════════════
+function openSaleCancel(saleId) {
+  if (typeof hasRole !== "function" || !hasRole("admin")) {
+    toast("Bekor qilish faqat egasi/admin uchun", "err"); return;
+  }
+  const s = db.sales.find(x => x.id === saleId);
+  if (!s) { toast("Sotuv topilmadi", "err"); return; }
+  if (s.cancelled)  { toast("Bu sotuv allaqachon bekor qilingan", "err"); return; }
+  if (s.status === "qaytarilgan") { toast("Bu sotuv qaytarilgan — bekor qilib bo'lmaydi", "err"); return; }
+
+  // Bu sotuv bo'yicha qarz to'lovlari bo'lganmi
+  const pays = (db.debtPayments || []).filter(p => !p.cancelled &&
+    (p.allocations || []).some(a => a.saleId === saleId));
+  if (pays.length) {
+    toast(`Avval ${pays.length} ta qarz to'lovini atkaz qiling`, "err"); return;
+  }
+
+  const pb  = s.payBreakdown || {};
+  const rem = Math.max(0, s.remaining || 0);
+  const lines = [];
+  if (pb.naqd)    lines.push(`Naqd:      ${fmt(pb.naqd)} so'm`);
+  if (pb.karta)   lines.push(`Karta:     ${fmt(pb.karta)} so'm`);
+  if (pb.otkazma) lines.push(`O'tkazma:  ${fmt(pb.otkazma)} so'm`);
+  if (!lines.length && (s.paid || 0) > 0) lines.push(`To'landi:  ${fmt(s.paid)} so'm`);
+  if (rem > 0) lines.push(`Qarz:      ${fmt(rem)} so'm`);
+
+  const itemCnt = (s.items || []).filter(Boolean).length;
+
+  if (!confirm(
+    "SOTUVNI BEKOR QILISH\n\n" +
+    `${s.chekNum || "#"+s.id} · ${s.date} ${s.time || ""}\n` +
+    `${s.customerName || "Mijoz yo'q"}\n\n` +
+    lines.join("\n") + "\n\n" +
+    `${itemCnt} ta tovar omborga qaytadi.\n` +
+    "Barcha summalar hisobdan chiqariladi.\n\nDavom etasizmi?"
+  )) return;
+
+  if (!confirm("TASDIQLANG\n\nBu amalni qaytarib bo'lmaydi.\nSotuv barcha hisobotlardan chiqariladi.")) return;
+
+  // 1) Tovarlarni omborga qaytaramiz
+  (s.items || []).filter(Boolean).forEach(item => {
+    try { returnItemToStock(item); } catch(e) { console.warn("Ombor qaytarish:", e.message); }
+  });
+
+  // 2) Sotuvni bekor qilingan deb belgilaymiz
+  s.cancelled     = true;
+  s.cancelledAt   = today();
+  s.cancelledTime = (typeof nowTime === "function" ? nowTime() : "");
+  s.remaining     = 0;          // qarz yo'qoladi
+  s.status        = "bekor";
+
+  saveDB();
+  try { if (typeof flushCloudSync === "function") flushCloudSync(true); } catch(e) {}
+  renderTarix();
+  if (typeof renderKatalog === "function") renderKatalog();
+  toast(`Sotuv bekor qilindi — ${itemCnt} ta tovar omborga qaytdi`, "info");
+}

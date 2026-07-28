@@ -947,10 +947,10 @@ function findCustomerDebts(s) {
   const cu = debtCust(s);
   let candidates;
   if (s.customerId) {
-    candidates = db.sales.filter(x => x.customerId === s.customerId && x.status !== "qaytarilgan");
+    candidates = activeSales().filter(x => x.customerId === s.customerId && x.status !== "qaytarilgan");
   } else {
     // customerId yo'q bo'lsa — ism+telefon bo'yicha
-    candidates = db.sales.filter(x =>
+    candidates = activeSales().filter(x =>
       !x.customerId &&
       (x.customerName||"") === (s.customerName||"") &&
       (x.customerPhone||"") === (s.customerPhone||"") &&
@@ -1752,7 +1752,7 @@ function renderQarzlarTarixiSplit() {
     return Math.max(0, (s.total||0) - origPaidGuess);
   };
 
-  const debtSalesAll = (db.sales||[]).filter(s => getOrigDebt(s) > 0.005 && s.status !== "qaytarilgan");
+  const debtSalesAll = activeSales().filter(s => getOrigDebt(s) > 0.005 && s.status !== "qaytarilgan");
 
   const rows = debtSalesAll.map(s => {
     const st = calcSaleState(s);
@@ -2014,7 +2014,11 @@ function renderQarzlarTarixiTotal() {
   const el = $("qt-list"); if (!el) return;
   const q = ($("qt-q")||{value:""}).value.toLowerCase();
 
-  let payments = (db.debtPayments||[]).slice();
+  // 2026-07-25: ATKAZ QILINGAN to'lovlar ro'yxatda KO'RSATILMAYDI.
+  // Avval qizil "❌ ATKAZ QILINGAN" belgisi bilan turaverardi va
+  // ro'yxatni chalg'itardi. Yozuv bazada qoladi (audit izi), faqat
+  // ko'rinishdan olib tashlanadi.
+  let payments = (db.debtPayments||[]).filter(p => !p.cancelled);
 
   const dateFrom = ($("qt-date-from")||{value:""}).value;
   const dateTo   = ($("qt-date-to")||{value:""}).value;
