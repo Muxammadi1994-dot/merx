@@ -253,7 +253,8 @@ function renderTarix() {
           }</span>`
         : `<span style="color:var(--grn);font-size:11px">—</span>`;
 
-      html += `<tr style="cursor:pointer;${isReturned?"opacity:.6;background:#FEF2F2":""}" onclick="openSaleDetail(${s.id})">
+      const _cxl = !!s.cancelled;
+      html += `<tr style="cursor:pointer;${_cxl?"opacity:.5;background:#F3F4F6;text-decoration:line-through":isReturned?"opacity:.6;background:#FEF2F2":""}" onclick="openSaleDetail(${s.id})">
         <td>
           <div style="font-family:monospace;font-size:11px;font-weight:700;color:#0D1B2A">${chekN}</div>
           ${_refBadge}
@@ -298,19 +299,21 @@ function renderTarix() {
         ${cols.tolandi ? `<td class="num" style="color:var(--grn);font-size:12.5px">${fmt(s.paid||0)} so'm</td>` : ""}
         ${cols.qoldi  ? `<td class="num">${debtCell}</td>` : ""}
         ${cols.holat  ? `<td>
-          <span class="bg ${isReturned?"bg-r":isDebt?"bg-a":"bg-g"}" style="font-size:11px">
-            ${isReturned ? "↩ Qaytarilgan" : isDebt ? "💳 Qarzda" : "✅ To'langan"}
+          <span class="bg ${_cxl?"bg-r":isReturned?"bg-r":isDebt?"bg-a":"bg-g"}" style="font-size:11px">
+            ${_cxl ? "🚫 Bekor qilingan" : isReturned ? "↩ Qaytarilgan" : isDebt ? "💳 Qarzda" : "✅ To'langan"}
           </span>
         </td>` : ""}
-        <td onclick="event.stopPropagation()">
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="openSaleDetail(${s.id})" title="Ko'rish">
-            <i class="ti ti-eye"></i>
-          </button>
-          ${(!isReturned && typeof hasRole === "function" && hasRole("admin")) ? `
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="openSaleCancel(${s.id})"
-            title="Sotuvni bekor qilish" style="color:var(--red)">
-            <i class="ti ti-trash"></i>
-          </button>` : ""}
+        <td onclick="event.stopPropagation()" style="white-space:nowrap">
+          <div style="display:inline-flex;align-items:center;gap:10px">
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="openSaleDetail(${s.id})" title="Ko'rish">
+              <i class="ti ti-eye"></i>
+            </button>
+            ${(!isReturned && !s.cancelled && typeof hasRole === "function" && hasRole("admin")) ? `
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="openSaleCancel(${s.id})"
+              title="Sotuvni bekor qilish" style="color:var(--red)">
+              <i class="ti ti-trash"></i>
+            </button>` : ""}
+          </div>
         </td>
       </tr>`;
     } catch(e) {

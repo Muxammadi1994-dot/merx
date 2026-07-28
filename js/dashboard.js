@@ -57,7 +57,7 @@ function dashGetDateRange() {
   const t = today();
   if (dashPeriod === -2 && dashCustomFrom) return { from: dashCustomFrom, to: dashCustomTo || t };
   if (dashPeriod === -1) {
-    const all = db.sales.map(s => s.date).sort();
+    const all = activeSales().map(s => s.date).sort();
     return { from: all[0] || t, to: t };
   }
   if (dashPeriod === 0) return { from: t, to: t };
@@ -71,8 +71,9 @@ function renderDashboard() {
   if (!db?.sales) return;
   const t = today();
 
-  const todaySales = db.sales.filter(s => s.date === t);
-  const ystSales   = db.sales.filter(s => s.date === addDays(t, -1));
+  // 2026-07-25: bekor qilingan sotuvlar bannerga ham kirmaydi
+  const todaySales = activeSales().filter(s => s.date === t);
+  const ystSales   = activeSales().filter(s => s.date === addDays(t, -1));
   const todayTotal = todaySales.reduce((a, s) => a + s.total, 0);
   const ystTotal   = ystSales.reduce((a, s) => a + s.total, 0);
   const todayCnt   = todaySales.length;
@@ -510,7 +511,8 @@ function renderDashChart() {
   const data = [];
   for (let i = 0; i < diffDays; i++) {
     const d = addDays(from, i);
-    const total = db.sales.filter(s => s.date === d).reduce((a, s) => a + s.total, 0);
+    // Sotuv dinamikasi — bekor qilinganlarsiz
+    const total = activeSales().filter(s => s.date === d).reduce((a, s) => a + s.total, 0);
     const dObj = new Date(d);
     const wdays = ['Ya','Du','Se','Ch','Pa','Ju','Sh'];
     let lbl;

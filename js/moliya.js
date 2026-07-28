@@ -340,7 +340,7 @@ function renderMoliya() {
     .reduce((a,o)=>a+(o.kirimNarxi||0)*(o.qty||0),0);
 
   // Kassa balansi — barcha vaqt
-  const allSotuvPaid = (db.sales||[]).reduce((a, s) => {
+  const allSotuvPaid = activeSales().reduce((a, s) => {
     const pb = s.payBreakdown;
     if (pb && (pb.naqd||pb.karta||pb.otkazma))
       return a + (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
@@ -1480,7 +1480,7 @@ function openCloseShift(staffId) {
   const rate = db.settings?.rate || 12800;
 
   // Smena davomidagi sotuv hisoblash
-  const shiftSales = (db.sales||[]).filter(s => s.staffId == staffId && s.date >= shift.openDate);
+  const shiftSales = activeSales().filter(s => s.staffId == staffId && s.date >= shift.openDate);
   let cashIn = 0;
   shiftSales.forEach(s => {
     const pb = s.payBreakdown;
