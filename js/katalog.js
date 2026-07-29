@@ -2806,6 +2806,10 @@ function showImportPreview() {
 // ── Import tasdiqlash ─────────────────────────────
 function confirmImport() {
   if (!_importRows.length) return;
+  // 2026-07-26: butun import uchun YAGONA vaqt muhri — aks holda har
+  // tovarga o'z millisekundi tushib, "yangi birinchi" tartibi Excel
+  // qatorlarini TESKARI qilib qo'yardi.
+  const _impStamp = new Date().toISOString();
   const skipDup = $("import-skip-dup")?.checked ?? true;
   const rate    = db.settings?.rate || 12800;
 
@@ -2860,6 +2864,13 @@ function confirmImport() {
     }
 
     if (p) {
+      // 2026-07-26: faylda "1 pochkada nechta" ANIQ berilgan bo'lsa,
+      // mavjud tovarning quti sig'imi ham YANGILANADI. Avval eski qiymat
+      // qolib, dona/pochka hisobi noto'g'ri chiqardi (153 dona pochkada 5
+      // yozilsa ham eski inBox=7 ishlatilardi).
+      if (r._inboxExplicit && r.inbox > 0 && (p.inBox || 1) !== r.inbox) {
+        p.inBox = r.inbox;
+      }
       // Mavjud mahsulotga variant qo'shish
       const ex = p.variants.find(v =>
         v.color.toLowerCase() === r.color.toLowerCase() &&
@@ -2909,7 +2920,7 @@ function confirmImport() {
         costUsd:     r.costUsd || 0,
         priceUzs:    0,
         ulgurjiNarx: r.ulg || 0,
-        createdAt:   new Date().toISOString(),
+        createdAt:   _impStamp,
         variants:    [variant]
       };
       db.products.push(newProd);

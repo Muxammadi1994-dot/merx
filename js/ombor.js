@@ -259,9 +259,10 @@ function omRenderQoldiq() {
       const pa = (db.products || []).find(x => x.sku === a.sku);
       const pb = (db.products || []).find(x => x.sku === b.sku);
       const ca = pa?.createdAt || "", cb = pb?.createdAt || "";
-      if (ca && cb) return ca < cb ? 1 : (ca > cb ? -1 : 0);
-      // createdAt yo'q eski tovarlar — id bo'yicha (kattasi yangi)
-      return (pb?.id || 0) - (pa?.id || 0);
+      if (ca && cb && ca !== cb) return ca < cb ? 1 : -1;   // yangi partiya tepada
+      // 2026-07-26: BIR XIL vaqtda (bitta import/partiya) — kiritilgan
+      // TARTIBDA qoladi (Excel qatorlari joyi o'zgarmasin)
+      return (pa?.id || 0) - (pb?.id || 0);
     });
   }
 
