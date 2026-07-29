@@ -740,6 +740,8 @@ function openEditProduct(sku) {
   editSku = sku;
   // 2026-07-25: variativ guruh bo'lsa — "Variativ tahrirlash" tugmasi chiqadi
   try { epVarInit(p); } catch(e) {}
+  // 2026-07-26: kategoriya takliflari (erkin teg)
+  try { fillCatSuggest(p.type); } catch(e) {}
   $("ep-title").textContent     = p.name + " — tahrirlash";
   $("ep-name").value            = p.name;
   $("ep-cat").value             = p.category;
@@ -1654,7 +1656,7 @@ function addProduct() {
     db.products.push({
       id: newProdId,
       sku: `${t==="oyoq"?"SHOE":"CLTH"}-${String(newProdId).padStart(3,"0")}`,
-      name, category: ($("ap-cat")||{value:""}).value,
+      name, category: (($("ap-cat")||{value:""}).value || "").trim(),
       type:t, unit, inBox: effectiveInBox, packUnit,
       art: art || "",
       costUzs:costUzsVal, costUsd:cost, priceUzs:price, ulgurjiNarx:ulg,
@@ -1872,6 +1874,9 @@ function apResetAddForm() {
 
 function apOpenAddProduct() {
   apResetAddForm();
+  // 2026-07-26: kategoriya takliflari HAR ochilganda yangilanadi —
+  // oldingi sessiyada qo'shilgan yangi kategoriya ham chiqsin
+  try { fillCatSuggest(currentApType); } catch(e) {}
   openModal("addprod");
 }
 
@@ -1915,7 +1920,9 @@ function apTypeChange(t) {
   // Joriy turni saqlash
   currentApType = t;
   // Kategoriya va o'lchamlarni yangilash
-  if ($("ap-cat"))       $("ap-cat").innerHTML       = (CATS[t]||[]).map(c => `<option>${c}</option>`).join("");
+  // 2026-07-26: kategoriya endi ERKIN TEG — tanlash o'rniga yozish.
+  // Avval ishlatilgan kategoriyalar taklif qilinadi (datalist).
+  if (typeof fillCatSuggest === "function") fillCatSuggest(t);
   if ($("ap-size-from")) $("ap-size-from").innerHTML = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
   if ($("ap-size-to"))   $("ap-size-to").innerHTML   = (SIZES[t]||[]).map(s => `<option>${s}</option>`).join("");
   // №11a (v175): birliklar TEG ro'yxatidan — "dona" birinchi/standart
@@ -4102,7 +4109,7 @@ function apAddVariativ(name) {
 
   const t        = currentApType || "oyoq";
   const art      = ($("ap-art")||{value:""}).value.trim();
-  const category = ($("ap-cat")||{value:""}).value;
+  const category = (($("ap-cat")||{value:""}).value || "").trim();
   const unit     = ($("ap-unit")||{value:"dona"}).value;
   const packUnit = ($("ap-packunit")||{value:"karobka"}).value;
 
@@ -4517,4 +4524,28 @@ function epUpdateB2Dona(color, val) {
   const v = p.variants.find(x => x.color === color); if (!v) return;
   v.qty = Math.max(0, parseInt(val) || 0);
   epRenderColorCards(p);
+}
+
+// ═══ KATEGORIYA TEGLARI (2026-07-26) ═══
+// Kategoriya endi qat'iy ro'yxat emas — erkin yoziladi. Avval
+// ishlatilganlari avtomat taklif qilinadi, yangisi shunchaki qo'shiladi.
+// Manba: mavjud tovarlar + tur bo'yicha standart ro'yxat (CATS).
+function fillCatSuggest(type) {
+  const dl = document.getElementById("cat-suggest");
+  if (!dl) return;
+  const set = new Set();
+  // 1) Do'konda allaqachon ishlatilgan kategoriyalar (eng qimmatlisi)
+  (db.products || []).forEach(p => {
+    const c = (p.category || "").trim();
+    if (c) set.add(c);
+  });
+  // 2) Tur bo'yicha standartlar (bo'sh do'kon uchun boshlang'ich)
+  const t = type || currentApType || "oyoq";
+  ((typeof CATS !== "undefined" && CATS[t]) || []).forEach(c => {
+    if (c && String(c).trim()) set.add(String(c).trim());
+  });
+  dl.innerHTML = [...set]
+    .sort((a, b) => a.localeCompare(b, "uz"))
+    .map(c => `<option value="${String(c).replace(/"/g, "&quot;")}">`)
+    .join("");
 }

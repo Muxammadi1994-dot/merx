@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 // MUHIM: har push'da bu raqamni +1 qiling — eski kesh avtomat o'chadi.
-const CACHE_VERSION = "merx-v92";
+const CACHE_VERSION = "merx-v93";
 const CACHE_NAME = CACHE_VERSION;
 
 // Boshlang'ich keshlanadigan fayllar (offline'da kamida shular bo'lsin)

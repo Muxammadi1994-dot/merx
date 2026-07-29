@@ -3124,7 +3124,10 @@
     <div class="r3">
       <div class="fld ap-field" data-apf="category">
         <label>Kategoriya</label>
-        <select id="ap-cat"></select>
+        <!-- 2026-07-26: kategoriya endi ERKIN MATN (teg kabi). Avval
+             ishlatilganlari yozishni boshlaganda taklif qilinadi. -->
+        <input id="ap-cat" list="cat-suggest" autocomplete="off"
+          placeholder="Masalan: Krossovka (ixtiyoriy)">
       </div>
       <div class="fld ap-field" data-apf="unit">
         <label>O'lchov birligi</label>
@@ -3359,7 +3362,8 @@
     <div class="r3">
       <div class="fld">
         <label>Kategoriya</label>
-        <input id="ep-cat">
+        <input id="ep-cat" list="cat-suggest" autocomplete="off"
+          placeholder="Masalan: Krossovka (ixtiyoriy)">
       </div>
       <div class="fld">
         <label>O'lchov birligi</label>
@@ -3830,6 +3834,9 @@
 <!-- MODAL: MIJOZ KARTOCHKASI -->
 <!-- ═══ ESKI QARZ QO'SHISH (2026-07-26) ═══
      Yangi do'kon ochilganda daftardagi mavjud qarzlarni kiritish -->
+<!-- Kategoriya takliflari — mavjud tovarlardan avtomat to'ldiriladi -->
+<datalist id="cat-suggest"></datalist>
+
 <div class="ov" id="ov-olddebt" onclick="if(event.target===this)closeModal('olddebt')">
   <div class="modal" style="max-width:440px">
     <h2><i class="ti ti-notebook" style="color:var(--acc);margin-right:6px"></i>Eski qarz qo'shish</h2>
@@ -4628,7 +4635,7 @@
 <script src="js/cloud.js?v=192"></script>
 <script src="js/dashboard.js?v=154"></script>
 <script src="js/pos.js?v=225"></script>
-<script src="js/katalog.js?v=226"></script>
+<script src="js/katalog.js?v=227"></script>
 <script src="js/ombor.js?v=163"></script>
 <script src="js/mijozlar.js?v=147"></script>
 <script src="js/qarzlar.js?v=186"></script>
@@ -4841,7 +4848,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=92")
+    navigator.serviceWorker.register("/sw.js?v=93")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
