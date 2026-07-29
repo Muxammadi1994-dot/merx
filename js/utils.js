@@ -70,7 +70,32 @@ function regroupPackages(variants, color, inBox) {
   // umuman topa olmasdi. Endi qoldiq quti sig'imiga bo'linmasa —
   // qolgani OCHILGAN pochka deb hisoblanadi.
   //   88 dona, 1 pochkada 5 → 17 to'liq pochka + 3 dona ochilgan
+  // 2026-07-26: O'LCHAMSIZ tovar deb hisoblaymiz — variantlarda haqiqiy
+  // o'lcham bo'lmasa (bo'sh yoki "-"), ular bitta qoldiq sifatida
+  // birlashtiriladi. Avval faqat colorVariants.length===1 tekshirilardi
+  // va import bir necha "-" o'lchamli variant yaratsa eski mantiq ishga
+  // tushib, ochilgan pochka noto'g'ri hisoblanardi.
   const _ib = parseInt(inBox) || 0;
+  const _noSize = colorVariants.every(v => {
+    const sz = String(v.size || "").trim();
+    return !sz || sz === "-";
+  });
+  if (_noSize && _ib > 1) {
+    const _total = colorVariants.reduce((a, v) => a + (v.qty || 0), 0);
+    const full = Math.floor(_total / _ib);
+    const rest = _total - full * _ib;
+    const out = [];
+    if (full > 0) out.push({
+      packGroup: 0, qty: full, isBroken: false,
+      variants: [{ ...colorVariants[0], qty: full * _ib }]
+    });
+    if (rest > 0) out.push({
+      packGroup: out.length, qty: rest, isBroken: true, brokenDona: rest,
+      variants: [{ ...colorVariants[0], qty: rest }]
+    });
+    return out.length ? out
+      : [{ packGroup: 0, qty: 0, isBroken: false, variants: colorVariants }];
+  }
   if (colorVariants.length === 1 && _ib > 1) {
     const total = colorVariants[0].qty || 0;
     const full  = Math.floor(total / _ib);          // to'liq pochkalar

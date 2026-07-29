@@ -2810,6 +2810,8 @@ function confirmImport() {
   // tovarga o'z millisekundi tushib, "yangi birinchi" tartibi Excel
   // qatorlarini TESKARI qilib qo'yardi.
   const _impStamp = new Date().toISOString();
+  console.log("📥 Import boshlandi:", _importRows.map(r =>
+    `${r.nom}/${r.color}: ${r.qty} dona, pochkada ${r.inbox}`).join(" | "));
   const skipDup = $("import-skip-dup")?.checked ?? true;
   const rate    = db.settings?.rate || 12800;
 
@@ -2868,8 +2870,10 @@ function confirmImport() {
       // mavjud tovarning quti sig'imi ham YANGILANADI. Avval eski qiymat
       // qolib, dona/pochka hisobi noto'g'ri chiqardi (153 dona pochkada 5
       // yozilsa ham eski inBox=7 ishlatilardi).
-      if (r._inboxExplicit && r.inbox > 0 && (p.inBox || 1) !== r.inbox) {
-        p.inBox = r.inbox;
+      const _rIn = parseInt(r.inbox) || 0;
+      if (_rIn > 0 && (p.inBox || 1) !== _rIn) {
+        console.log(`📦 "${p.name}" quti sig'imi ${p.inBox} → ${_rIn} (fayldan)`);
+        p.inBox = _rIn;
       }
       // Mavjud mahsulotga variant qo'shish
       const ex = p.variants.find(v =>
@@ -2911,7 +2915,7 @@ function confirmImport() {
         category:    r.cat || "Qabul qilingan",
         type:        r.type === "kiyim" ? "kiyim" : "oyoq",
         unit:        r.unit || "dona",
-        inBox:       r.inbox || 1,
+        inBox:       parseInt(r.inbox) || 1,
         art:         r.art || "",
         barcode:     _bc,
         colorBarcodes: { [colorRaw]: _bc },

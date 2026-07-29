@@ -668,25 +668,29 @@ tr:hover td{background:#FAFAF8}
     display: inline-block; width: auto; vertical-align: middle;
     padding: 0 0 0 9px !important; font-size: 14px;
   }
-  /* 7 — o'chirish tugmasi, o'ng yuqorida */
-  #ap-var-table td:nth-child(7) {
+  /* 8 — o'chirish tugmasi, o'ng yuqorida (2026-07-26: JAMI DONA
+     ustuni qo'shilgach ustunlar 7 → 8 ga o'zgardi) */
+  #ap-var-table td:nth-child(8) {
     position: absolute; top: 6px; right: 8px; width: auto !important; padding: 0 !important;
   }
   /* 3-6 maydonlar — 2 tadan */
   #ap-var-table td:nth-child(3),
   #ap-var-table td:nth-child(4),
   #ap-var-table td:nth-child(5),
-  #ap-var-table td:nth-child(6) {
+  #ap-var-table td:nth-child(6),
+  #ap-var-table td:nth-child(7) {
     display: inline-block; width: 48%; padding: 8px 1% 0 !important; vertical-align: top;
   }
   #ap-var-table td:nth-child(3)::before { content: "Pochka soni"; }
   #ap-var-table td:nth-child(4)::before { content: "1 pochkada"; }
-  #ap-var-table td:nth-child(5)::before { content: "Tannarx"; }
-  #ap-var-table td:nth-child(6)::before { content: "Ulgurji narx"; }
+  #ap-var-table td:nth-child(5)::before { content: "Jami dona"; }
+  #ap-var-table td:nth-child(6)::before { content: "Tannarx (so'm)"; }
+  #ap-var-table td:nth-child(7)::before { content: "Ulgurji (so'm)"; }
   #ap-var-table td:nth-child(3)::before,
   #ap-var-table td:nth-child(4)::before,
   #ap-var-table td:nth-child(5)::before,
-  #ap-var-table td:nth-child(6)::before {
+  #ap-var-table td:nth-child(6)::before,
+  #ap-var-table td:nth-child(7)::before {
     display: block; font-size: 10.5px; color: var(--mut);
     font-weight: 600; margin-bottom: 3px; text-transform: uppercase;
   }
