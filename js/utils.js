@@ -2090,6 +2090,20 @@ function getCostUsdView(p) {
 }
 
 // Bir martalik migratsiya: costUsd → costUzs
+// 2026-07-26: eski tovarlarda variantga inBox yo'q — tovar darajasidagi
+// qiymatdan bir marta to'ldiriladi. Shundan keyin har rang mustaqil.
+function migrateVariantInBox() {
+  let n = 0;
+  (db.products || []).forEach(p => {
+    const ib = parseInt(p.inBox) || 1;
+    (p.variants || []).forEach(v => {
+      if (v.inBox == null) { v.inBox = ib; n++; }
+    });
+  });
+  if (n > 0) { saveDB(); console.log(`📦 ${n} ta variantga quti sig'imi yozildi`); }
+  return n;
+}
+
 function migrateCostToUzs() {
   const rate = db.settings?.rate || 12800;
   let n = 0;

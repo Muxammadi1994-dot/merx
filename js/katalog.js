@@ -338,6 +338,7 @@ function renderKatalog() {
   try { if (typeof ensureAllColorBarcodes === "function") ensureAllColorBarcodes(); } catch(e) {}
   // 2026-07-25: tannarx so'mga bir martalik o'tkaziladi (migratsiya)
   try { if (typeof migrateCostToUzs === "function") migrateCostToUzs(); } catch(e) {}
+  try { if (typeof migrateVariantInBox === "function") migrateVariantInBox(); } catch(e) {}
 
   const q    = ($("kat-q")||{value:""}).value.toLowerCase();
   const rate = db.settings.rate || 12800;
@@ -4204,7 +4205,10 @@ function epVarRenderTable() {
     const inBox = (parseInt(_v0 && _v0.inBox) || 0) > 0
       ? parseInt(_v0.inBox)
       : (pr.inBox && pr.inBox > 0 ? pr.inBox : 1);
-    const pochka = inBox > 0 ? Math.round((qty / inBox) * 100) / 100 : 0;
+    // 2026-07-26: pochka BUTUN son (o'nli kasr chalg'itardi), qoldiq
+    // esa "ochilgan" bo'lib ajraladi
+    const pochka = inBox > 0 ? Math.floor(qty / inBox) : 0;
+    const _rest  = inBox > 0 ? (qty - pochka * inBox) : 0;
     // 2026-07-26: tannarx HAR DOIM SO'MDA ko'rsatiladi
     const cost = (typeof getCostUzs === "function")
       ? getCostUzs(pr)
@@ -4224,13 +4228,17 @@ function epVarRenderTable() {
           <b>${color}</b>
           ${isCurrent ? `<div style="font-size:10px;color:var(--acc);font-weight:700">joriy</div>` : ""}
         </td>
-        <td style="padding:4px"><input class="evr-boxes" type="number" min="0" step="0.01"
-          inputmode="decimal" value="${pochka}" style="${inpCss}"
-          oninput="epVarRecalc(this)"></td>
+        <td style="padding:4px"><input class="evr-boxes" type="number" min="0" step="1"
+          inputmode="numeric" value="${pochka}" style="${inpCss}"
+          oninput="epVarRecalc(this,'boxes')"></td>
         <td style="padding:4px"><input class="evr-inbox" type="number" min="1" inputmode="numeric"
-          value="${inBox}" style="${inpCss}" oninput="epVarRecalc(this)"></td>
-        <td style="padding:5px 8px;white-space:nowrap;font-weight:700" class="evr-qty-cell">
-          ${fmt(qty)}<input type="hidden" class="evr-qty" value="${qty}">
+          value="${inBox}" style="${inpCss}" oninput="epVarRecalc(this,'inbox')"></td>
+        <td style="padding:4px">
+          <input class="evr-qty" type="number" min="0" inputmode="numeric"
+            value="${qty}" style="${inpCss}" oninput="epVarRecalc(this,'dona')">
+          <div class="evr-hint" style="font-size:10px;color:var(--mut);margin-top:2px">
+            ${_rest > 0 ? `${pochka} pch + <span style="color:#B45309">${_rest} dona</span>` : ""}
+          </div>
         </td>
         <td style="padding:4px"><input class="evr-cost" type="text" data-price
           value="${fmt(cost)}" oninput="priceInputHandler(this)" style="${inpCss}"></td>
@@ -4250,6 +4258,20 @@ function epSaveVariativ() {
   const rate = db.settings?.rate || 12800;
   const mode = db.settings?.priceCurrency || "uzs";
   let changed = 0;
+
+  // 2026-07-26: NOLGA TUSHISH HIMOYASI — qoldiq 0 bo'lsa tovar
+  // katalog/ombordan yo'qolib qolardi. Endi ogohlantiriladi.
+  const _zeroRows = rows.filter(r =>
+    (parseInt(r.querySelector(".evr-qty")?.value) || 0) <= 0);
+  if (_zeroRows.length) {
+    const _names = _zeroRows.map(r => {
+      const sku = r.dataset.sku;
+      const p = (db.products || []).find(x => x.sku === sku);
+      return (p?.variants || [])[0]?.color || sku;
+    }).join(", ");
+    if (!confirm(`⚠️ Quyidagi ranglar qoldig'i NOL bo'ladi:\n${_names}\n\n` +
+                 `Ular katalog va omborda "qoldiq yo'q" bo'lib ko'rinadi.\nDavom etasizmi?`)) return;
+  }
 
   rows.forEach(r => {
     const sku = r.dataset.sku;
@@ -4302,23 +4324,37 @@ function epSaveVariativ() {
 }
 
 // Pochka yoki "pochkada nechta" o'zgarganda DONA qayta hisoblanadi
-function epVarRecalc(inp) {
+function epVarRecalc(inp, changed) {
   const tr = inp.closest("tr");
   if (!tr) return;
-  const boxes = parseFloat(tr.querySelector(".evr-boxes")?.value) || 0;
-  const inBox = parseInt(tr.querySelector(".evr-inbox")?.value) || 1;
-  const qty   = Math.round(boxes * inBox);
+  const bEl = tr.querySelector(".evr-boxes");
+  const iEl = tr.querySelector(".evr-inbox");
+  const qEl = tr.querySelector(".evr-qty");
+  if (!bEl || !iEl || !qEl) return;
 
-  const hidden = tr.querySelector(".evr-qty");
-  if (hidden) hidden.value = qty;
-  const cell = tr.querySelector(".evr-qty-cell");
-  if (cell) {
-    const h = cell.querySelector("input");
-    cell.textContent = fmt(qty);
-    if (h) cell.appendChild(h);
+  const inBox = parseInt(iEl.value) || 1;
+
+  if (changed === "dona") {
+    // Dona yozildi → pochka avtomat (ochilgan qoldiq bilan)
+    const dona = parseInt(qEl.value) || 0;
+    bEl.value = inBox > 0 ? Math.floor(dona / inBox) : 0;
+  } else {
+    // Pochka yoki pochkada o'zgardi → dona avtomat
+    const boxes = parseInt(bEl.value) || 0;
+    qEl.value = boxes * inBox;
   }
+
+  // Izoh: ochilgan qoldiq
+  const dona  = parseInt(qEl.value) || 0;
+  const full  = inBox > 0 ? Math.floor(dona / inBox) : 0;
+  const rest  = inBox > 0 ? (dona - full * inBox) : 0;
+  const hint = tr.querySelector(".evr-hint");
+  if (hint) hint.innerHTML = rest > 0
+    ? `${full} pch + <span style="color:#B45309">${rest} dona</span>` : "";
+
   epVarTotals();
 }
+
 
 // Guruh bo'yicha jami
 function epVarTotals() {
