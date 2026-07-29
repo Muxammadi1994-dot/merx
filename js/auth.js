@@ -568,6 +568,39 @@ async function doLogin() {
       if (shops?.length) {
         const shop   = shops[0];
         const shopId = shop.id;
+
+        // ══ OBUNA QO'RIQCHISI (2026-07-30) ═══════════════════════
+        // Bloklangan / muddati tugagan do'kon KIRA OLMAYDI.
+        //
+        // Nega aynan bu yerda: doLogin muvaffaqiyatli kirishdan keyin
+        // sahifani QAYTA YUKLAMAYDI va init() ni chaqirmaydi. Shuning
+        // uchun init() ichidagi tekshiruv toza (gost) brauzerda hech
+        // qachon ishlamasdi — bloklangan do'konga xotirjam kirilardi.
+        //
+        // Hukmni SERVER chiqaradi — qurilma soatiga ishonilmaydi.
+        // Server javob bermasa (internet yo'q) — kirishga RUXSAT
+        // beriladi: tarmoq uzilishi mijozni ishdan to'xtatmasligi kerak.
+        try {
+          const _stRes = await fetch("/api/auth-v2?action=shop_status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ shopId })
+          });
+          const _st = await _stRes.json();
+          if (_st && _st.ok && (_st.status === "blocked" || _st.status === "expired")) {
+            // Olingan Supabase token va sessiyani tozalaymiz — yarim
+            // ochiq holat qolmasin
+            try { if (typeof clearSupabaseTestSession === "function") clearSupabaseTestSession(); } catch(e) {}
+            try { authClear(); } catch(e) {}
+            if (btn) { btn.innerHTML = '<i class="ti ti-login"></i> Kirish'; btn.disabled = false; }
+            showAuthErr(_st.status === "blocked"
+              ? "🔒 Do'kon bloklangan. Administrator bilan bog'laning: +998 97 770 80 13"
+              : "⏰ Obuna muddati tugagan. Administrator bilan bog'laning: +998 97 770 80 13");
+            console.warn("Kirish rad etildi — do'kon holati:", _st.status);
+            return;
+          }
+        } catch(e) { console.warn("shop_status olinmadi (kirishga ruxsat):", e.message); }
+
         const dbKey  = "merx_v5_" + shopId;
         let shopDB   = null;
         try { shopDB = JSON.parse(localStorage.getItem(dbKey)); } catch(e) {}
@@ -663,6 +696,12 @@ async function doLogin() {
     toast(res.firstTime ? "✅ Hisob yaratildi!" : "✅ Xush kelibsiz!");
     applyRoleUI();
     _initCloudAfterLogin();
+    // 2026-07-30: kirishdan keyin obuna holatini ham tekshiramiz.
+    // Yuqoridagi darvoza asosiy himoya; bu ikkinchi qatlam (masalan
+    // lokal/oflayn yo'l bilan kirilgan holat uchun).
+    if (typeof checkCurrentShopSubscription === "function") {
+      setTimeout(() => { try { checkCurrentShopSubscription(); } catch(e) {} }, 1200);
+    }
   } else {
     showAuthErr(res.error || "Kirish xatoligi");
   }
@@ -678,6 +717,11 @@ function doStaffLogin() {
     toast(`✅ Xush kelibsiz, ${res.user.name}!`);
     applyRoleUI();
     _initCloudAfterLogin();
+    // 2026-07-30: xodim kirsa ham do'kon holati tekshiriladi —
+    // aks holda bloklangan do'konda xodim ishlashda davom etardi
+    if (typeof checkCurrentShopSubscription === "function") {
+      setTimeout(() => { try { checkCurrentShopSubscription(); } catch(e) {} }, 1200);
+    }
   } else {
     showAuthErr(res.error, true);
   }
