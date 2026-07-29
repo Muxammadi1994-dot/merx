@@ -2037,3 +2037,44 @@ function markupColor(markup) {
   if (markup == null) return "#ccc";
   return markup >= 40 ? "var(--grn)" : markup >= 20 ? "#E07B39" : "var(--red)";
 }
+
+// ═══════════════════════════════════════════════════════════════
+// TANNARX — SO'MDA QOTADI (2026-07-25)
+// Avval tannarx USD da saqlanardi va kurs o'zgarganda so'mdagi
+// qiymati ham o'zgarardi (500 000 → 497 600). Endi tannarx SO'MDA
+// saqlanadi va MUZLAYDI — kurs o'zgarishi ta'sir qilmaydi.
+//   costUzs — asosiy manba (so'm)
+//   costUsd — eski tovarlar uchun zaxira (migratsiyagacha)
+// ═══════════════════════════════════════════════════════════════
+function getCostUzs(p) {
+  if (!p) return 0;
+  if (p.costUzs != null && p.costUzs > 0) return Math.round(p.costUzs);
+  // Eski tovar: USD dan joriy kurs bo'yicha (migratsiyadan keyin bo'lmaydi)
+  const rate = db.settings?.rate || 12800;
+  return Math.round((p.costUsd || 0) * rate);
+}
+
+// Ko'rsatish uchun USD ekvivalenti (joriy kurs bo'yicha — faqat ko'rinish)
+function getCostUsdView(p) {
+  const rate = db.settings?.rate || 12800;
+  return rate > 0 ? (getCostUzs(p) / rate) : 0;
+}
+
+// Bir martalik migratsiya: costUsd → costUzs
+function migrateCostToUzs() {
+  const rate = db.settings?.rate || 12800;
+  let n = 0;
+  (db.products || []).forEach(p => {
+    if (p.costUzs == null && (p.costUsd || 0) > 0) {
+      p.costUzs = Math.round(p.costUsd * rate);
+      n++;
+    } else if (p.costUzs == null) {
+      p.costUzs = 0;
+    }
+  });
+  if (n > 0) {
+    saveDB();
+    console.log(`💰 ${n} ta tovar tannarxi so'mga o'tkazildi (kurs ${rate})`);
+  }
+  return n;
+}

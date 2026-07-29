@@ -314,7 +314,7 @@ function renderMoliya() {
     let saleCost = 0;
     (s.items||[]).forEach(i => {
       const p = (db.products||[]).find(x => x.name === i.name);
-      if (p) saleCost += Math.round((p.costUsd||0) * rate) * (i.qty||0);
+      if (p) saleCost += getCostUzs(p) * (i.qty||0);
     });
     periodCost  += saleCost;
     grossProfit += (s.total||0) - saleCost;

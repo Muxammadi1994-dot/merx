@@ -336,6 +336,8 @@ function katColsReset() {
 function renderKatalog() {
   // 2026-07-24 (№9): kod berilmagan ranglarga bir martalik to'ldirish
   try { if (typeof ensureAllColorBarcodes === "function") ensureAllColorBarcodes(); } catch(e) {}
+  // 2026-07-25: tannarx so'mga bir martalik o'tkaziladi (migratsiya)
+  try { if (typeof migrateCostToUzs === "function") migrateCostToUzs(); } catch(e) {}
 
   const q    = ($("kat-q")||{value:""}).value.toLowerCase();
   const rate = db.settings.rate || 12800;
@@ -504,7 +506,7 @@ function renderKatalog() {
     // o'lchamlab kiritilganlarda avvalgidek variantlar sonidan
     const inBox   = (colorVariants.length === 1 ? (p.inBox || 1)
                      : (colorVariants.length || 1));
-    const costUzs = (p.costUsd || 0) * rate;
+    const costUzs = getCostUzs(p);
 
     // Jami dona (shu guruh uchun)
     const colorQty = colorVariants.reduce((a,v) => a + v.qty, 0);
@@ -735,15 +737,10 @@ function openEditProduct(sku) {
   $("ep-name").value            = p.name;
   $("ep-cat").value             = p.category;
   // Tannarx: bazada har doim USD da saqlanadi (costUsd). Valyuta rejimiga qarab ko'rsatamiz.
-  {
-    const cur1  = db.settings?.priceCurrency || "uzs";
-    const rate1 = db.settings?.rate || 12800;
-    if (cur1 === "usd" || cur1 === "both") {
-      $("ep-cost").value = p.costUsd;
-    } else {
-      $("ep-cost").value = Math.round((p.costUsd || 0) * rate1);
-    }
-  }
+  // 2026-07-25: tannarx HAR DOIM SO'MDA ko'rsatiladi va kiritiladi
+  $("ep-cost").value = (typeof getCostUzs === "function")
+    ? getCostUzs(p)
+    : Math.round((p.costUsd || 0) * (db.settings?.rate || 12800));
   $("ep-price").value           = p.priceUzs;
   {
     // v167: Ulgurji narxni joriy valyuta rejimida ko'rsatamiz
@@ -1221,11 +1218,10 @@ function saveEditProduct() {
     const cur1  = db.settings?.priceCurrency || "uzs";
     const rate1 = db.settings?.rate || 12800;
     const raw   = _pv("ep-cost");
-    const _newCost = (cur1 === "usd" || cur1 === "both") ? raw : (raw / rate1);
-    // v150: YAXLITLASH DRIFTI himoyasi — yangi qiymat eskisidan atigi
-    // tiyin farq qilsa (foydalanuvchi aslida o'zgartirmagan), ASL aniq
-    // qiymat saqlanadi (225000 → 17.578125$ → 17.58 → 225024 sikli tugadi)
-    p.costUsd = Math.abs(_newCost - (p.costUsd || 0)) < 0.01 ? p.costUsd : _newCost;
+    // 2026-07-25: TANNARX SO'MDA. Yaxlitlash drifti muammosi ham
+    // shu bilan yo'qoladi — aylantirish umuman bo'lmaydi.
+    p.costUzs = Math.round(raw);
+    p.costUsd = rate1 > 0 ? (raw / rate1) : 0;   // eski kod uchun zaxira
   }
   p.priceUzs    = _pv("ep-price")   || p.priceUzs;
   p.ulgurjiNarx = readUlgAsUzs("ep-ulgurji");
@@ -1517,10 +1513,12 @@ function addProduct() {
 
   const t       = currentApType || "oyoq";
   const costRaw = getRawVal("ap-cost"); // v169: endi vergul-formatlangan (fmtInput/priceInputHandler)
-  const cur1    = db.settings?.priceCurrency || "uzs";
   const rate1   = db.settings?.rate || 12800;
-  // Har doim USD da saqlaymiz
-  const cost    = (cur1 === "usd" || cur1 === "both") ? costRaw : costRaw / rate1;
+  // 2026-07-25: TANNARX HAR DOIM SO'MDA kiritiladi va so'mda saqlanadi.
+  // Tizim valyutasi qanday bo'lishidan qat'i nazar — kurs o'zgarganda
+  // tovar narxi O'ZGARMAYDI.
+  const costUzsVal = costRaw;                       // kiritilgan so'm
+  const cost       = rate1 > 0 ? costRaw / rate1 : 0; // eski kod uchun zaxira
   // v151: chakana narx — endi mavjud maydondan, probelga chidamli o'qiladi
   const price   = ($("ap-price") && typeof getRawVal === "function") ? (getRawVal("ap-price") || 0) : 0;
   const ulg     = readUlgAsUzs("ap-ulgurji");
@@ -1599,7 +1597,7 @@ function addProduct() {
       name, category: ($("ap-cat")||{value:""}).value,
       type:t, unit, inBox: effectiveInBox, packUnit,
       art: art || "",
-      costUsd:cost, priceUzs:price, ulgurjiNarx:ulg,
+      costUzs:costUzsVal, costUsd:cost, priceUzs:price, ulgurjiNarx:ulg,
       barcode: autoBarcode,
       image: apPendingImage || "",
       createdAt: new Date().toISOString(),
@@ -1883,15 +1881,9 @@ function apCostNote() {
   let costUzs = 0;
   if (c > 0) {
     let txt;
-    if (cur === "usd" || cur === "both") {
-      costUzs = c * rate;
-      // 2026-07-25: USTAMA (tannarxdan) asosiy, marja yonida ko'rsatiladi
-      const _m = calcMarkup(costUzs, u);
-      const mCol = markupColor(_m ? _m.markup : null);
-      txt = `$${c} × ${fmt(rate)} = ${fmt(costUzs)} so'm`;
-      if (_m) txt += ` → <strong style="color:${mCol}">+${_m.markup}% ustama</strong>` +
-                     `<span style="color:var(--mut);font-size:11px"> · ${_m.margin}% marja</span>`;
-    } else {
+    {
+      // 2026-07-25: TANNARX HAR DOIM SO'MDA kiritiladi (tizim valyutasi
+      // qanday bo'lishidan qat'i nazar) va so'mda qotadi.
       costUzs = c;
       const _m = calcMarkup(costUzs, u);
       const mCol = markupColor(_m ? _m.markup : null);
@@ -1938,7 +1930,7 @@ function exportKatalogExcel() {
   const rows = [headers];
 
   db.products.forEach(p => {
-    const costUzs = Math.round((p.costUsd || 0) * rate);
+    const costUzs = getCostUzs(p);
     // 2026-07-25: eksportda ikkala ko'rsatkich alohida ustunda
     const _mk = calcMarkup(costUzs, p.ulgurjiNarx);
     const markup = _mk ? _mk.markup : "";

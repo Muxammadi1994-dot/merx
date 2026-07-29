@@ -59,7 +59,7 @@ function omRenderKpis() {
   const supDebt  = db.ombor.filter(o => o.payStatus === "qarz").reduce((a,o) => a + (o.kirimNarxi||0)*o.qty, 0);
   const vProds = typeof visProds === "function" ? visProds() : db.products;
   const totalVal = vProds.reduce((a,p) =>
-    a + p.variants.reduce((b,v) => b + (p.costUsd*rate)*v.qty, 0), 0);
+    a + p.variants.reduce((b,v) => b + getCostUzs(p)*v.qty, 0), 0);
   const totalUnits = vProds.reduce((a,p) =>
     a + p.variants.reduce((b,v) => b + v.qty, 0), 0);
   // 2026-07-20 (№2): jami POCHKA soni — har tovar (jami dona ÷ inBox), yaxlitlab yig'amiz
@@ -200,7 +200,7 @@ function omRenderQoldiq() {
         const _single = g.variants.length === 1;
         const inBox = _single ? (p.inBox || 1) : (g.variants.length || 1);
         const boxes = _single ? Math.floor(groupTotalQty / (inBox || 1)) : g.qty;
-        const costUzs = Math.round((p.costUsd || 0) * rate);
+        const costUzs = getCostUzs(p);
         const margin  = p.ulgurjiNarx > 0 && costUzs > 0
           ? Math.round((p.ulgurjiNarx - costUzs) / p.ulgurjiNarx * 100) : null;
 
@@ -226,7 +226,7 @@ function omRenderQoldiq() {
           chakana: p.priceUzs,
           ulgurji: p.ulgurjiNarx || 0,
           margin,
-          qiymati: Math.round(groupTotalQty * (p.costUsd || 0) * rate)
+          qiymati: Math.round(groupTotalQty * getCostUzs(p))
         });
       });
     });
@@ -251,6 +251,19 @@ function omRenderQoldiq() {
     })() ||
     r.pantone.toLowerCase().includes(q)
   );
+
+  // 2026-07-25: STANDART TARTIB — yangi kiritilgan tovar TEPADA
+  // (katalogdagi bilan bir xil). Avval tartibsiz aralash turardi.
+  if (!omSortKey) {
+    rows.sort((a, b) => {
+      const pa = (db.products || []).find(x => x.sku === a.sku);
+      const pb = (db.products || []).find(x => x.sku === b.sku);
+      const ca = pa?.createdAt || "", cb = pb?.createdAt || "";
+      if (ca && cb) return ca < cb ? 1 : (ca > cb ? -1 : 0);
+      // createdAt yo'q eski tovarlar — id bo'yicha (kattasi yangi)
+      return (pb?.id || 0) - (pa?.id || 0);
+    });
+  }
 
   // Saralash
   if (omSortKey) {
@@ -430,7 +443,7 @@ function omRenderKamQoldiq() {
         <tbody>
           ${rows.length ? rows.map(({p, v, minQty}) => {
             const rate = db.settings?.rate || 12800;
-            const costUzs = Math.round((p.costUsd||0)*rate);
+            const costUzs = getCostUzs(p);
             const status = v.qty === 0
               ? '<span class="bg bg-r">🚫 Tugagan</span>'
               : v.qty <= 2
@@ -1079,7 +1092,7 @@ function confirmChiqim2() {
   if (v.qty < qty) { toast(`Faqat ${v.qty} ta mavjud`, "err"); return; }
 
   const rate = db.settings?.rate || 12800;
-  const costUzs = Math.round((p.costUsd || 0) * rate);
+  const costUzs = getCostUzs(p);
 
   v.qty -= qty;
 

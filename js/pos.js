@@ -411,6 +411,7 @@ function posDonaAdd(sku, color, rowId) {
     else cart.push({
       sku, name: p.name, color, size: v.size,
       unit: p.unit||"dona", price: narx, basePrice: narx, priceType: posPriceType,
+      costUzs: (typeof getCostUzs === "function" ? getCostUzs(p) : 0), // 2026-07-25: so'mda muzlagan
       costUsd: p.costUsd || 0, // 2026-07-19: ichki tannarx (chekda foydaga mutanosib chegirma uchun; MIJOZGA KO'RINMAYDI)
       qty: qtyWanted, qtyBox: null, inBox: null, sellMode: "dona",
       image: (p.colorImages && p.colorImages[color]) || p.image || null, art: p.art || null, barcode: p.barcode || null
@@ -491,6 +492,7 @@ function posQuickAdd(sku, color, packGroup) {
     cart.push({
       sku, name: p.name, color, size: null,
       unit: p.unit||"dona", price: narx, basePrice: _bNarx, priceType: posPriceType,
+      costUzs: (typeof getCostUzs === "function" ? getCostUzs(p) : 0),
       costUsd: p.costUsd || 0, // 2026-07-19: ichki tannarx (MIJOZGA KO'RINMAYDI)
       qty: totalDona, qtyBox: _safeAdd, inBox, sellMode: "karobka", // v187: kesilganda ham aniq
       packGroup, groupSizes,
@@ -769,6 +771,7 @@ function confirmVariant() {
     else cart.push({
       sku:vmProd.sku, name:vmProd.name, color:selColor, size:null,
       unit:vmProd.unit||"dona", price:narx, basePrice:baseNarx, priceType:posPriceType,
+      costUzs: (typeof getCostUzs === "function" ? getCostUzs(vmProd) : 0),
       costUsd: vmProd.costUsd || 0, // 2026-07-19: ichki tannarx (MIJOZGA KO'RINMAYDI)
       qty:totalDona, qtyBox:qtyInput, inBox, sellMode:"karobka",
       image: vmProd.image || null,
@@ -789,6 +792,7 @@ function confirmVariant() {
     else cart.push({
       sku:vmProd.sku, name:vmProd.name, color:selColor, size:selSize,
       unit:vmProd.unit||"dona", price:narx, basePrice:baseNarx, priceType:posPriceType,
+      costUzs: (typeof getCostUzs === "function" ? getCostUzs(vmProd) : 0),
       costUsd: vmProd.costUsd || 0, // 2026-07-19: ichki tannarx (MIJOZGA KO'RINMAYDI)
       qty:totalDona, qtyBox:null, inBox:null, sellMode:"dona",
       image: vmProd.image || null,
@@ -2153,7 +2157,7 @@ async function checkout() {
       packGroup: c.packGroup != null ? c.packGroup : null,
       groupSizes: c.groupSizes || null,
       price: c.price, basePrice: c.basePrice || null, // v195: chekda chizilgan eski narx
-      cost: Math.round((c.costUsd || 0) * (db.settings?.rate || 12800)) || null, // 2026-07-19: ICHKI tannarx (so'mda) — chekda foydaga mutanosib chegirma uchun; MIJOZGA KO'RINMAYDI
+      cost: (c.costUzs || Math.round((c.costUsd || 0) * (db.settings?.rate || 12800))) || null, // 2026-07-25: so'mda muzlaganI tannarx (so'mda) — chekda foydaga mutanosib chegirma uchun; MIJOZGA KO'RINMAYDI
       unit: c.unit,
       image: c.image || null,
       barcode: c.barcode || null

@@ -91,7 +91,7 @@ function renderHisobot() {
     s.items?.forEach(item => {
       const p = (db.products||[]).find(x => x.name === item.name);
       if (!p) return;
-      const costUzs = Math.round((p.costUsd||0) * rate);
+      const costUzs = getCostUzs(p);
       saleCost += costUzs * (item.qty||0);
     });
     costTotal   += saleCost;
@@ -157,7 +157,7 @@ function renderHisobot() {
 
   // ── Ombor qiymati ───────────────────────────────
   const omborCost = (db.products||[]).reduce((a, p) => {
-    const costUzs = Math.round((p.costUsd||0) * rate);
+    const costUzs = getCostUzs(p);
     return a + costUzs * (p.variants||[]).reduce((b,v)=>b+(v.qty||0),0);
   }, 0);
   const omborSellVal = (db.products||[]).reduce((a, p) => {
@@ -559,7 +559,7 @@ function renderRepTurnover(sales) {
     const dailyRate = sold / days;
     // Necha kunda tugaydi (0 = tez tugaydi, null = umuman sotilmadi)
     const daysLeft = dailyRate > 0 ? Math.round(totalQty / dailyRate) : null;
-    const costUzs = Math.round((p.costUsd||0) * rate);
+    const costUzs = getCostUzs(p);
     return { name: p.name, qty: totalQty, sold, dailyRate, daysLeft, stockVal: costUzs * totalQty };
   }).filter(r => r.qty > 0 || r.sold > 0);
 
@@ -714,7 +714,7 @@ function renderRepStaff(sales) {
     staffMap[name].debt += calcSaleState(s).remaining;
     s.items?.forEach(i => {
       const p = (db.products||[]).find(x => x.name === i.name);
-      staffMap[name].cost += Math.round((p?.costUsd||0)*rate)*(i.qty||0);
+      staffMap[name].cost += getCostUzs(p)*(i.qty||0);
     });
   });
   // debtPayments ham qo'shamiz
@@ -824,7 +824,7 @@ function exportHisobotStaffExcel() {
     staffMap[name].debt  += calcSaleState(s).remaining;
     s.items?.forEach(i=>{
       const p=(db.products||[]).find(x=>x.name===i.name);
-      staffMap[name].cost += Math.round((p?.costUsd||0)*rate)*(i.qty||0);
+      staffMap[name].cost += getCostUzs(p)*(i.qty||0);
     });
   });
 
@@ -878,7 +878,7 @@ function exportHisobotTurnoverExcel() {
     const sold=soldQty[p.name]||0;
     const dailyRate=sold/days;
     const daysLeft=dailyRate>0?Math.round(totalQty/dailyRate):null;
-    const costUzs=Math.round((p.costUsd||0)*rate);
+    const costUzs = getCostUzs(p);
     rows.push([p.name,totalQty,sold,Math.round(dailyRate*10)/10,daysLeft||"Sotilmayapti",
       costUzs, p.priceUzs||0, costUzs*totalQty, (p.priceUzs||0)*totalQty]);
   });

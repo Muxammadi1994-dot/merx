@@ -863,5 +863,35 @@ function toggleCurrency() {
   const next = order[(order.indexOf(cur) + 1) % order.length];
   if (typeof saveSetting === "function") saveSetting("priceCurrency", next);
   else { db.settings.priceCurrency = next; saveDB(); }
-  renderDashboard();
+
+  // 2026-07-25: valyuta almashganda JORIY sahifa qayta chiziladi.
+  // Avval faqat dashboard yangilanardi — katalog/ombor/POS'da narxlar
+  // eski valyutada qolib ketardi.
+  try {
+    const activeEl = document.querySelector(".pg.on");
+    const page = activeEl ? activeEl.id.replace(/^p-/, "") : "dashboard";
+    const map = {
+      dashboard: typeof renderDashboard === "function" ? renderDashboard : null,
+      katalog:   typeof renderKatalog   === "function" ? renderKatalog   : null,
+      ombor:     typeof renderOmbor     === "function" ? renderOmbor     : null,
+      mijozlar:  typeof renderMijozlar  === "function" ? renderMijozlar  : null,
+      qarzlar:   typeof renderDebts     === "function" ? renderDebts     : null,
+      qarztarix: typeof renderQarzlarTarixi === "function" ? renderQarzlarTarixi : null,
+      tarix:     typeof renderTarix     === "function" ? renderTarix     : null,
+      hisobot:   typeof renderHisobot   === "function" ? renderHisobot   : null,
+      moliya:    typeof renderMoliya    === "function" ? renderMoliya    : null,
+      xodimlar:  typeof renderXodimlar  === "function" ? renderXodimlar  : null
+    };
+    if (page === "pos") {
+      if (typeof renderPosGrid === "function") renderPosGrid();
+      if (typeof renderCart === "function") renderCart();
+    } else if (map[page]) {
+      map[page]();
+    } else {
+      renderDashboard();
+    }
+  } catch(e) {
+    console.warn("Valyuta almashuvi:", e.message);
+    try { renderDashboard(); } catch(_) {}
+  }
 }
