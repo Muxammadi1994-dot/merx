@@ -1053,6 +1053,29 @@ function saEditSave(id) {
   if (plan === "lifetime")    s.expiresAt  = null;
   else if (expires)           s.expiresAt  = new Date(expires).toISOString();
 
+  // ═══ 2026-07-26: BULUTGA YOZISH (shops jadvali) ═══
+  // Avval faqat xotira va lokal baza yangilanardi — shuning uchun
+  // tarif/muddat/nom o'zgarishi bulutga yetmasdi va sahifa yangilangach
+  // eski holat qaytardi ("muddati tugagan" muammosi).
+  // Server SERVICE_KEY bilan yozadi (brauzerdan RLS to'sadi).
+  try {
+    const _cloudId = s.cloudShopId || s.shop_id || id;
+    const _payload = {
+      name: name,
+      owner_email: login || s.ownerEmail || null,
+      plan: plan,
+      shop_type: shopType,
+      trial_ends: (plan === "lifetime") ? null : (s.expiresAt || null),
+      active: s.blocked ? false : true,
+      blocked: !!s.blocked
+    };
+    _saApi("update_shop", { shopId: _cloudId, data: _payload })
+      .then(d => console.log(d.ok
+        ? `☁️ "${name}" bulutda yangilandi (tarif: ${plan})`
+        : "❌ Bulutga yozilmadi: " + (d.error || "")))
+      .catch(e => console.warn("update_shop xato:", e.message));
+  } catch(e) { console.warn("Bulutga yozish:", e.message); }
+
   // LocalStorage DB ni ham yangilaymiz
   try {
     const dbKey = "merx_v5_" + id;
@@ -1091,10 +1114,9 @@ function saEditSave(id) {
   document.getElementById("sa-edit-modal")?.remove();
   showSaToast(`✅ "${name}" yangilandi`);
 
-  // Supabase shops jadvalini yangilaymiz
-  _saUpdateShopInSupabase(id, { name, owner_email: s.ownerEmail, plan: s.plan,
-    trial_ends: s.expiresAt ? s.expiresAt.slice(0,10) : null,
-    active: !s.blocked }).catch(e => console.warn("Supabase update xato:", e.message));
+  // 2026-07-26: bu yerda yozish OLIB TASHLANDI — yuqorida _saApi
+  // ("update_shop") orqali SERVER tomonida bajariladi. Brauzerdan
+  // yozish RLS tufayli jimgina muvaffaqiyatsiz bo'lardi.
 
   // Parol o'zgargan bo'lsa — Supabase Auth va localStorage da ham yangilaymiz
   if (pass && pass.length >= 4) {
@@ -1128,6 +1150,8 @@ function saEditSave(id) {
 }
 
 async function _saUpdateShopInSupabase(shopId, data) {
+  // 2026-07-26: ZAXIRA — endi SERVER orqali yo'naltiriladi
+  try { return await _saApi("update_shop", { shopId, data }); } catch(e) {}
   // shops jadvali RLS bilan himoyalangan — service_role endpoint orqali yangilaymiz
   try {
     const sbUrl = (typeof MERX_SUPABASE_URL !== "undefined" && MERX_SUPABASE_URL)
@@ -1156,9 +1180,17 @@ function saToggleShop(id) {
   if (!s.blocked && s.plan !== "lifetime") s.expiresAt = addDaysToDate(new Date(), 30);
   saSaveShops(); renderSaShops();
   showSaToast(s.blocked ? `"${s.name}" bloklandi` : `"${s.name}" faollashtirildi`);
-  // Supabase da ham yangilaymiz
-  _saUpdateShopInSupabase(s.id, { active: !s.blocked })
-    .catch(e => console.warn("Supabase toggle xato:", e.message));
+  // 2026-07-26: SERVER orqali (brauzerdan RLS to'sardi)
+  const _cid = s.cloudShopId || s.shop_id || s.id;
+  _saApi("update_shop", { shopId: _cid, data: {
+    active:  !s.blocked,
+    blocked: !!s.blocked,
+    trial_ends: (s.plan === "lifetime") ? null : (s.expiresAt || null)
+  }})
+    .then(d => console.log(d.ok
+      ? `☁️ "${s.name}" ${s.blocked ? "bloklandi" : "faollashtirildi"} (bulutda)`
+      : "❌ " + (d.error || "")))
+    .catch(e => console.warn("toggle xato:", e.message));
 }
 
 // ── O'chirish ─────────────────────────────────────
@@ -1179,8 +1211,8 @@ function saDeleteShop(id) {
 async function _saDeleteShopFromSupabase(shopId) {
   if (!_sb && typeof initSupabase === "function") await initSupabase();
   if (!_sb) return;
-  // active = false qilamiz (to'liq o'chirish xavfli)
-  await _sb.from("shops").update({ active: false }).eq("id", shopId);
+  // 2026-07-26: SERVER orqali (brauzerdan RLS to'sardi)
+  try { return await _saApi("delete_shop", { shopId }); } catch(e) {}
 }
 
 // ── Statistika modal ──────────────────────────────
@@ -1302,7 +1334,11 @@ function saExtendShop(id) {
   s.expiresAt = addDaysToDate(base, days);
   saSaveShops(); renderSaShops();
   showSaToast(`✅ "${s.name}" — ${days} kun uzaytirildi (${s.expiresAt.slice(0,10)})`);
-  _saUpdateShopInSupabase(id, { trial_ends: s.expiresAt.slice(0,10) })
+  _saApi("update_shop", { shopId: (s.cloudShopId || s.shop_id || id),
+    data: { trial_ends: s.expiresAt.slice(0,10), active: true, blocked: false } })
+    .then(d => console.log(d.ok
+      ? `☁️ "${s.name}" muddati bulutda uzaytirildi: ${s.expiresAt.slice(0,10)}`
+      : "❌ " + (d.error || "")))
     .catch(e=>console.warn("Supabase extend:", e.message));
 }
 
