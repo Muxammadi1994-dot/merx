@@ -2604,7 +2604,12 @@ function parseImportCSV(text) {
 
     // Pochka soni (har bir o'lchamga bir xil son beriladi)
     const boxesVal = cols.boxes >= 0 ? (parseInt(vals[cols.boxes]) || 0) : 0;
-    if (boxesVal <= 0) { return; } // pochka soni bo'lmasa qatorni o'tkazib yuboramiz
+    // 2026-07-26: JAMI DONA yozilgan bo'lsa pochka soni BO'SH bo'lishi
+    // mumkin (presdan kelgan tovar: 153 dona, pochkada 5). Avval bunday
+    // qator butunlay o'tkazib yuborilardi.
+    const _qtyRaw = cols.qty >= 0
+      ? (parseInt(String(vals[cols.qty] || "").replace(/[\s,]/g,"")) || 0) : 0;
+    if (boxesVal <= 0 && _qtyRaw <= 0) { return; } // ikkalasi ham bo'sh — o'tkazamiz
 
     // 2026-07-25 (№11): VALYUTA TAXMIN QILINMAYDI.
     // Avval "1000 dan katta bo'lsa so'm" degan taxmin bor edi — qimmat
@@ -2662,11 +2667,7 @@ function parseImportCSV(text) {
     // 2026-07-26: faylda JAMI DONA ustuni bo'lsa u USTUVOR — tizim
     // pochka va ochilgan qoldiqni o'zi ajratadi (153 dona, pochkada 5
     // → 30 pochka + 3 dona ochilgan). Bo'lmasa pochka × pochkada.
-    const _qtyGiven = cols.qty >= 0 &&
-      parseInt(String(vals[cols.qty] || "").replace(/[\s,]/g,"")) > 0;
-    const _qtyVal = _qtyGiven
-      ? parseInt(String(vals[cols.qty]).replace(/[\s,]/g,""))
-      : (boxesVal * inboxVal);
+    const _qtyVal = _qtyRaw > 0 ? _qtyRaw : (boxesVal * inboxVal);
     const _boxesCalc = (inboxVal > 0) ? Math.floor(_qtyVal / inboxVal) : boxesVal;
 
     _importRows.push({
