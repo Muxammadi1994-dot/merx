@@ -1814,9 +1814,17 @@ function buildReceiptHtml(sale, opts) {
   const DP = v => isUsd ? `$${Number(v||0).toFixed(2)}` : `${F(v||0)} so'm`;
   const dPrev = isUsd ? (s.prevDebtUsd || 0) : (s.prevDebtUzs || 0);
   const dNew  = isUsd ? (s.debtUsd     || 0) : (remaining     || 0);
+  // 2026-07-25: dollar ishlatilsa — qo'shilgan qarz "summa / kurs = $"
+  // ko'rinishida (klient cheki bilan bir xil). Kurs sotuv paytidagi.
+  const _sRate  = Number(s.rate) || 0;
+  const _sMode  = s.priceCurrency || "uzs";
+  const _showUsd = (_sMode === "both" || _sMode === "usd" || isUsd) && _sRate > 0;
+  const _addedTxt = _showUsd
+    ? `${F(remaining || 0)} / ${F(_sRate)} = $${(isUsd ? dNew : (remaining || 0) / _sRate).toFixed(2)}`
+    : DP(dNew);
   let debtHtml = `<div class="lbl">Mijoz qarzi</div>
     <div class="r sm"><span>Xariddan oldingi qarz</span><span>${DP(dPrev)}</span></div>
-    <div class="r sm"><span>+ Qarzga qo'shildi</span><span>${DP(dNew)}</span></div>
+    <div class="r sm"><span>+ Qarzga qo'shildi</span><span>${_addedTxt}</span></div>
     <div class="r bold"><span>Xariddan keyingi qarz</span><span>${DP(dPrev + dNew)}${isUsd ? " USD" : ""}</span></div>`;
   if (s.due && dNew > 0) debtHtml += `<div class="r sm"><span>Muddat</span><span><b>${s.due.split("-").reverse().join(".")}</b></span></div>`;
 
@@ -2663,7 +2671,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
     <div class="tot">
       <div>
         <div class="tot-l">JAMI</div>
-        <div class="tot-cnt">${items.length} tur · ${totalBoxes ? totalBoxes + " pochka" : totalDona + " dona"}</div>
+        <div class="tot-cnt">${items.length} xil · ${totalBoxes ? totalBoxes + " pochka" : totalDona + " dona"}</div>
       </div>
       <div class="tot-v">${F(total)} <span style="font-size:13px;font-weight:600">so'm</span></div>
     </div>

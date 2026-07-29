@@ -873,7 +873,7 @@ function buildReceiptHtml(sale, opts) {
       // 2026-07-25: OLDINGI va KEYINGI qarz — allaqachon USD da QOTGAN,
       // ular turli kurslarda yig'ilgan. Ularni qayta hisoblash MUMKIN EMAS.
       // Faqat SHU XARIDDA qo'shilayotgan summa so'mdan aylantiriladi.
-      const _added = (_pcMode === "both" && _pcRate > 0)
+      const _added = (_pcRate > 0)
         ? `${F(remaining)} / ${F(_pcRate)} = $${debtUsd.toFixed(2)}`
         : `$${debtUsd.toFixed(2)}`;
       debtHtml = `
@@ -884,7 +884,7 @@ function buildReceiptHtml(sale, opts) {
     } else if (showDebtHistory && !isUsd && prevUzs > 0) {
       // Qarz so'mda yuritiladi — oldingi va keyingi summalar SO'MDA qoladi.
       // Faqat qo'shilayotgan summa yonida joriy kurs bo'yicha USD ko'rsatiladi.
-      const _added = (_pcMode === "both" && _pcRate > 0)
+      const _added = ((_pcMode === "both" || _pcMode === "usd") && _pcRate > 0)
         ? `${F(remaining)} / ${F(_pcRate)} = $${(remaining / _pcRate).toFixed(2)}`
         : `${F(remaining)} so'm`;
       debtHtml = `
@@ -893,9 +893,14 @@ function buildReceiptHtml(sale, opts) {
         <div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>${_added}</span></div>
         <div class="pr pr-debt"><span>Xariddan keyingi qarz</span><span>${F(prevUzs + remaining)} so'm</span></div>`;
     } else {
-      // both rejimda so'm va USD birga; usd/uzs da avvalgidek
-      const amt = (_pcMode === "both") ? FD(remaining, isUsd ? debtUsd : null)
-                : isUsd ? `$${debtUsd.toFixed(2)} USD` : `${F(remaining)} so'm`;
+      // 2026-07-25: dollar ishlatiladigan HAR QANDAY rejimda (both/usd)
+      // qarz "summa / kurs = $" ko'rinishida — qaysi kursda hisoblangani
+      // chekdan ko'rinsin va keyin kurs o'zgarsa ham o'zgarmasin.
+      const _usdMode = (_pcMode === "both" || _pcMode === "usd");
+      const _dUsd = isUsd ? debtUsd : (_pcRate > 0 ? remaining / _pcRate : 0);
+      const amt = _usdMode
+        ? `${F(remaining)} / ${F(_pcRate)} = $${_dUsd.toFixed(2)}`
+        : `${F(remaining)} so'm`;
       debtHtml = `<div class="pr pr-debt"><span>Qarzga</span><span>${amt}</span></div>`;
     }
     if (due) debtHtml += `<div class="pr pr-sm"><span>To'lov muddati</span><span class="c-red">${due}</span></div>`;
@@ -1059,13 +1064,13 @@ ${!_bFoot.show ? ".ft-thanks{display:none !important}" : ""}
 
     ${jamiPch > 0 ? `<div class="pr" style="padding:5px 16px;font-weight:800;border-top:1px dashed #ddd"><span>JAMI POCHKA</span><span>${jamiPch} pochka</span></div>` : ""}
     ${(itemDisc + discount) > 0 ? `
-    <div class="pr" style="padding:4px 16px 0"><span>Oraliq</span><span>${FC(total + itemDisc + discount)}</span></div>` : ""}
+    <div class="pr" style="padding:4px 16px 0"><span>Jami (chegirmasiz)</span><span>${FC(total + itemDisc + discount)}</span></div>` : ""}
     ${itemDisc > 0 ? `<div class="pr" style="padding:2px 16px;color:#B91C1C;font-weight:700"><span>Tovar chegirmalari</span><span>−${FC(itemDisc)}</span></div>` : ""}
     ${discount > 0 ? `<div class="pr" style="padding:2px 16px"><span>Umumiy chegirma</span><span class="c-red">− ${FC(discount)}</span></div>` : ""}
     <div class="tot">
       <div>
         <div class="tot-lbl">JAMI</div>
-        <div class="tot-cnt">${items.length} tur · ${items.reduce((a,i)=>a+(+i.qty||0),0)} dona</div>
+        <div class="tot-cnt">${items.length} xil · ${items.reduce((a,i)=>a+(+i.qty||0),0)} dona</div>
       </div>
       <div class="tot-val">${F(total)}<span class="tot-uzs"> so'm${usdLine}</span></div>
     </div>
@@ -1167,7 +1172,7 @@ body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-co
   </div>
   <div class="items">${itemRows}</div>
   <div class="tot">
-    <span>JAMI <span style="font-size:10px;font-weight:500;color:#000">(${items.length} tur)</span></span>
+    <span>JAMI <span style="font-size:10px;font-weight:500;color:#000">(${items.length} xil)</span></span>
     <span>${F(total)} so'm</span>
   </div>
   <div class="pay">
@@ -1843,7 +1848,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
     <div class="tot">
       <div>
         <div class="tot-l">JAMI</div>
-        <div class="tot-cnt">${items.length} tur · ${totalBoxes ? totalBoxes + " pochka" : totalDona + " dona"}</div>
+        <div class="tot-cnt">${items.length} xil · ${totalBoxes ? totalBoxes + " pochka" : totalDona + " dona"}</div>
       </div>
       <div class="tot-v">${F(total)} <span style="font-size:13px;font-weight:600">so'm</span></div>
     </div>

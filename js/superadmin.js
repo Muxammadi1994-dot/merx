@@ -1214,7 +1214,7 @@ function saShowStats(shopId) {
           {lbl:"Sotuvlar",     val:stats.salesCnt+" ta",         clr:"#374151"},
           {lbl:"Mijozlar",     val:stats.custCnt+" ta",          clr:"#374151"},
           {lbl:"Qarz jami",    val:fmt(stats.totalDebt)+" so'm", clr:"#DC2626"},
-          {lbl:"Mahsulotlar",  val:stats.prodCnt+" tur",         clr:"#374151"},
+          {lbl:"Mahsulotlar",  val:stats.prodCnt+" xil",         clr:"#374151"},
           {lbl:"Qoldiq",       val:stats.stockCnt+" dona",       clr:"#374151"},
           {lbl:"Bu oy sotuv",  val:stats.monthCnt+" ta",         clr:"#2563EB"},
         ].map(k=>`<div style="background:#fff;padding:14px 18px">

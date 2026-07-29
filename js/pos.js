@@ -2232,7 +2232,7 @@ async function checkout() {
   } catch(smsErr) { console.warn("SMS xato:", smsErr.message); }
 
   // Sotuv yakunlanganini loglaymiz
-  posLog("Sotuv yakunlandi", `${chekNum} — ${fmt(total)} so'm (${newSale.items.length} tur, ${posPayType})`);
+  posLog("Sotuv yakunlandi", `${chekNum} — ${fmt(total)} so'm (${newSale.items.length} xil, ${posPayType})`);
 
   // Reset
   cart.length = 0;

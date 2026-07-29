@@ -85,7 +85,7 @@ function omRenderKpis() {
   const el = $("om-kpi-row"); if (!el) return;
   el.innerHTML = [
     { icon:"ti-arrow-down-circle", color:"#4C9BE8", lbl:"Bugungi kirim",    val:todayIn+" dona",       sub:"bugun qabul qilindi" },
-    { icon:"ti-box",               color:"#36B48C", lbl:"Jami qoldiq",      val:pochkaStr+" pochka",   sub:totalUnits+" dona · "+vProds.length+" tur" },
+    { icon:"ti-box",               color:"#36B48C", lbl:"Jami qoldiq",      val:pochkaStr+" pochka",   sub:totalUnits+" dona · "+vProds.length+" xil" },
     { icon:"ti-currency-dollar",   color:"#E9A500", lbl:"Bu oy kirim",      val:fmt(monthVal)+" so'm", sub:"tannarxda" },
     { icon:"ti-wallet",            color:"#8B5CF6", lbl:"Ombor qiymati",    val:fmt(totalVal)+" so'm", sub:"tannarxda" },
     { icon:"ti-trending-up",       color:"#0EA5E9", lbl:"Sotilsa qancha bo'ladi",
