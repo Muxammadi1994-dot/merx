@@ -1254,12 +1254,42 @@ function saveEditProduct() {
   else if ($("ep-image") && $("ep-image").value === "") p.image = "";
 
   // Variant qiymatlari allaqachon epUpdateQty/epUpdateColorField orqali to'g'ridan-to'g'ri saqlangan
-  p.variants = p.variants.filter(v => v.color && v.size);
+  // ⚠️ 2026-07-26: O'LCHAMSIZ tovarlar variantida size BO'SH bo'ladi.
+  // Avval bu filtr ularni O'CHIRIB tashlardi — saqlashdan keyin tovar
+  // butunlay yo'qolardi (telefonda ayniqsa sezilardi). Endi faqat rang
+  // talab qilinadi, o'lcham ixtiyoriy.
+  p.variants = p.variants.filter(v => v.color);
 
   p.updatedAt = new Date().toISOString(); // v173: SAQLASH paytida ISO muhr (v180 taqqosi Date.parse) — pull poygasida tahrir g'olib
 
   try { ensureColorBarcodes(p); } catch(e) {}
-  saveDB(); closeModal("editprod"); renderKatalog();
+
+  // 2026-07-26: tahrirlangan tovar EKRANDA O'Z JOYIDA qolsin —
+  // saqlashdan keyin ro'yxat tepaga sakrab ketmasin
+  const _scrollEl = document.scrollingElement || document.documentElement;
+  const _scrollY  = _scrollEl.scrollTop;
+  const _tblWrap  = document.querySelector("#p-katalog .card:has(table)");
+  const _tblScroll = _tblWrap ? _tblWrap.scrollTop : 0;
+
+  saveDB();
+  try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}
+  closeModal("editprod");
+  renderKatalog();
+
+  // Joyni tiklaymiz + tahrirlangan qatorni qisqa vaqt ajratib ko'rsatamiz
+  requestAnimationFrame(() => {
+    _scrollEl.scrollTop = _scrollY;
+    const w = document.querySelector("#p-katalog .card:has(table)");
+    if (w) w.scrollTop = _tblScroll;
+    document.querySelectorAll(`#katalog-body tr`).forEach(tr => {
+      if ((tr.textContent || "").includes(p.sku)) {
+        tr.style.transition = "background .6s";
+        tr.style.background = "#FFF7ED";
+        setTimeout(() => { tr.style.background = ""; }, 1200);
+      }
+    });
+  });
+
   toast(`"${p.name}" saqlandi`);
 }
 
