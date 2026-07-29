@@ -241,7 +241,7 @@ function renderMoliya() {
   const rate = db.settings?.rate || 12800;
   const q = ($("exp-q")||{value:""}).value.toLowerCase();
 
-  const periodSales = activeSales().filter(s => s.date >= from && s.date <= to);
+  const periodSales = statSales().filter(s => s.date >= from && s.date <= to);
   const periodExps  = (db.xarajatlar||[]).filter(x => x.date >= from && x.date <= to);
 
   // 2: payBreakdown orqali aralash tolov togri hisoblanadi
@@ -340,7 +340,7 @@ function renderMoliya() {
     .reduce((a,o)=>a+(o.kirimNarxi||0)*(o.qty||0),0);
 
   // Kassa balansi — barcha vaqt
-  const allSotuvPaid = activeSales().reduce((a, s) => {
+  const allSotuvPaid = statSales().reduce((a, s) => {
     const pb = s.payBreakdown;
     if (pb && (pb.naqd||pb.karta||pb.otkazma))
       return a + (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
@@ -552,7 +552,7 @@ function renderFlowBars(kirim, chiqim, realProfit, netProfit, periodCost) {
   const pt = prevTo.toISOString().slice(0,10);
 
   let prevKirim = 0;
-  activeSales().filter(s=>s.date>=pf&&s.date<=pt).forEach(s=>{
+  statSales().filter(s=>s.date>=pf&&s.date<=pt).forEach(s=>{
     const pb=s.payBreakdown;
     if(pb&&(pb.naqd||pb.karta||pb.otkazma)) prevKirim+=(pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
     else prevKirim+=s.payType==="nasiya"?0:(s.paid||0);
@@ -719,7 +719,7 @@ function renderMolTrendChart() {
 
   const calcKirim = ({from,to}) => {
     let sotuv=0, jami=0;
-    activeSales().filter(s=>s.date>=from&&s.date<=to).forEach(s=>{
+    statSales().filter(s=>s.date>=from&&s.date<=to).forEach(s=>{
       const pb=s.payBreakdown;
       if(pb&&(pb.naqd||pb.karta||pb.otkazma)) sotuv+=(pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
       else sotuv+=(s.paid||0);
@@ -1480,7 +1480,7 @@ function openCloseShift(staffId) {
   const rate = db.settings?.rate || 12800;
 
   // Smena davomidagi sotuv hisoblash
-  const shiftSales = activeSales().filter(s => s.staffId == staffId && s.date >= shift.openDate);
+  const shiftSales = statSales().filter(s => s.staffId == staffId && s.date >= shift.openDate);
   let cashIn = 0;
   shiftSales.forEach(s => {
     const pb = s.payBreakdown;

@@ -168,6 +168,13 @@ function activeSales() {
   return (db.sales || []).filter(s => !s.cancelled);
 }
 
+// 2026-07-26: STATISTIKA uchun sotuvlar — daftardan ko'chirilgan
+// ESKI QARZLAR (isOldDebt) haqiqiy sotuv EMAS, shuning uchun tushum,
+// foyda va sotuv summasiga KIRMAYDI. Qarz hisobida esa to'liq ishlaydi.
+function statSales() {
+  return (db.sales || []).filter(s => !s.cancelled && !s.isOldDebt);
+}
+
 function activePays() {
   return (db.debtPayments || []).filter(p => !p.cancelled);
 }

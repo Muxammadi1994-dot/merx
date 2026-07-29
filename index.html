@@ -3828,6 +3828,61 @@
 </div>
 
 <!-- MODAL: MIJOZ KARTOCHKASI -->
+<!-- ═══ ESKI QARZ QO'SHISH (2026-07-26) ═══
+     Yangi do'kon ochilganda daftardagi mavjud qarzlarni kiritish -->
+<div class="ov" id="ov-olddebt" onclick="if(event.target===this)closeModal('olddebt')">
+  <div class="modal" style="max-width:440px">
+    <h2><i class="ti ti-notebook" style="color:var(--acc);margin-right:6px"></i>Eski qarz qo'shish</h2>
+    <div id="od-cust" style="font-size:13px;color:var(--mut);margin-bottom:14px"></div>
+
+    <div class="fld" style="margin-bottom:12px">
+      <label>Qarz valyutasi</label>
+      <div style="display:flex;gap:8px;margin-top:5px">
+        <label style="flex:1;display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer;
+          background:#fff;border:1.5px solid var(--brd);border-radius:9px;padding:10px 12px">
+          <input type="radio" name="od-cur" value="uzs" checked onchange="odCurChanged()">
+          So'mda
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer;
+          background:#fff;border:1.5px solid var(--brd);border-radius:9px;padding:10px 12px">
+          <input type="radio" name="od-cur" value="usd" onchange="odCurChanged()">
+          Dollarda
+        </label>
+      </div>
+    </div>
+
+    <div class="fld" style="margin-bottom:12px">
+      <label id="od-amt-lbl">Qarz summasi (so'm)</label>
+      <input id="od-amt" type="text" data-price placeholder="0" inputmode="numeric"
+        oninput="odAmtInput(this)" style="font-size:18px;font-weight:800;text-align:center">
+      <div id="od-hint" style="font-size:11.5px;color:var(--mut);margin-top:5px"></div>
+    </div>
+
+    <div class="r2" style="margin-bottom:12px">
+      <div class="fld">
+        <label>Sana <span style="font-weight:400;color:var(--mut)">(qarz olingan)</span></label>
+        <input id="od-date" type="date">
+      </div>
+      <div class="fld">
+        <label>To'lov muddati <span style="font-weight:400;color:var(--mut)">(ixtiyoriy)</span></label>
+        <input id="od-due" type="date">
+      </div>
+    </div>
+
+    <div class="fld" style="margin-bottom:14px">
+      <label>Izoh <span style="font-weight:400;color:var(--mut)">(ixtiyoriy)</span></label>
+      <input id="od-note" type="text" placeholder="Masalan: daftar 12-bet">
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('olddebt')">Bekor qilish</button>
+      <button class="btn btn-acc" style="flex:1" onclick="saveOldDebt()">
+        <i class="ti ti-check"></i> Qarzni qo'shish
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="ov" id="ov-custcard" onclick="if(event.target===this)closeModal('custcard')">
   <div class="modal modal-lg" style="max-width:600px">
     <button class="m-close" onclick="closeModal('custcard')"><i class="ti ti-x"></i></button>
@@ -4567,7 +4622,7 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=162"></script>
-<script src="js/utils.js?v=193"></script>
+<script src="js/utils.js?v=194"></script>
 <script src="js/auth.js?v=179"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=192"></script>
@@ -4575,7 +4630,7 @@
 <script src="js/pos.js?v=225"></script>
 <script src="js/katalog.js?v=226"></script>
 <script src="js/ombor.js?v=163"></script>
-<script src="js/mijozlar.js?v=146"></script>
+<script src="js/mijozlar.js?v=147"></script>
 <script src="js/qarzlar.js?v=186"></script>
 <script src="js/tarix.js?v=164"></script>
 <script src="js/hisobot.js?v=148"></script>
@@ -4786,7 +4841,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=91")
+    navigator.serviceWorker.register("/sw.js?v=92")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

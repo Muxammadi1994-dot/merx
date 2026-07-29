@@ -326,8 +326,16 @@ function renderMijozlar() {
         })() : `<span style="color:#ccc">—</span>`}
       </td>` : ""}
       ${cols.company ? `<td style="font-size:12px;color:#666">${c.company||"—"}</td>` : ""}
-      <td onclick="event.stopPropagation()">
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="_custCardId=${c.id};custCardEdit()" title="Tahrirlash"><i class="ti ti-edit"></i></button>
+      <td onclick="event.stopPropagation()" style="white-space:nowrap">
+        <div style="display:inline-flex;align-items:center;gap:8px">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="_custCardId=${c.id};custCardEdit()"
+            title="Tahrirlash"><i class="ti ti-edit"></i></button>
+          <!-- 2026-07-26: daftardagi ESKI QARZNI kiritish -->
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="openOldDebt(${c.id})"
+            title="Eski qarz qo'shish (daftardan)" style="color:var(--acc)">
+            <i class="ti ti-notebook"></i>
+          </button>
+        </div>
       </td>
     </tr>`;
   }).join("") : `<tr><td colspan="${colCount}" class="empty-td">
@@ -922,4 +930,139 @@ function addCustomer() {
     "ac-birthday","ac-important-note"].forEach(id => { if ($(id)) $(id).value = ""; });
   if ($("ac-type"))   $("ac-type").value   = "ulgurji";
   if ($("ac-source")) $("ac-source").value = "";
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ESKI QARZ QO'SHISH (2026-07-26)
+// Yangi do'kon ochilganda daftardagi mavjud qarzlarni tizimga
+// kiritish. Qarz "sotuv" yozuvi sifatida saqlanadi (chekNum "ESKI-")
+// — shunda mavjud qarz mantiqi (to'lov, chek, hisobot) o'zgarishsiz
+// ishlaydi va keyingi qarzlar ustiga qo'shilib boradi.
+// ═══════════════════════════════════════════════════════════════
+let _oldDebtCustId = null;
+
+function openOldDebt(custId) {
+  const c = db.customers.find(x => x.id === custId);
+  if (!c) { toast("Mijoz topilmadi", "err"); return; }
+  _oldDebtCustId = custId;
+
+  const el = $("od-cust");
+  if (el) el.innerHTML = `<b style="color:#0D1B2A;font-size:14px">${c.name}</b>` +
+    (c.phone ? ` · ${c.phone}` : "");
+
+  // Joriy qarzini ko'rsatamiz
+  try {
+    const st = (db.sales || [])
+      .filter(s => s.customerId === custId && !s.cancelled && s.status !== "qaytarilgan")
+      .reduce((a, s) => {
+        const _s = (typeof calcSaleState === "function") ? calcSaleState(s) : s;
+        a.uzs += Math.max(0, _s.remaining || 0);
+        a.usd += Math.max(0, _s.debtUsd  || 0);
+        return a;
+      }, { uzs: 0, usd: 0 });
+    if ((st.uzs > 0 || st.usd > 0) && el) {
+      el.innerHTML += `<div style="margin-top:4px;color:#B91C1C;font-weight:700">
+        Hozirgi qarzi: ${st.usd > 0 ? fmtUsd(st.usd) : fmt(st.uzs) + " so'm"}</div>`;
+    }
+  } catch(e) {}
+
+  if ($("od-amt"))  $("od-amt").value  = "";
+  if ($("od-note")) $("od-note").value = "";
+  if ($("od-date")) $("od-date").value = today();
+  if ($("od-due"))  $("od-due").value  = "";
+  const r = document.querySelector('input[name="od-cur"][value="uzs"]');
+  if (r) r.checked = true;
+  odCurChanged();
+  openModal("olddebt");
+}
+
+function odCurChanged() {
+  const cur = (document.querySelector('input[name="od-cur"]:checked') || {value:"uzs"}).value;
+  const lbl = $("od-amt-lbl");
+  const inp = $("od-amt");
+  if (lbl) lbl.textContent = cur === "usd" ? "Qarz summasi ($)" : "Qarz summasi (so'm)";
+  if (inp) { inp.value = ""; inp.dataset.raw = ""; }
+  odAmtInput(inp);
+}
+
+function odAmtInput(el) {
+  if (!el) return;
+  const cur = (document.querySelector('input[name="od-cur"]:checked') || {value:"uzs"}).value;
+  if (cur === "usd") {
+    // Dollarda kasr bo'lishi mumkin
+    let clean = String(el.value).replace(/[^\d.]/g, "");
+    const parts = clean.split(".");
+    el.value = parts[0] + (parts.length > 1 ? "." + parts.slice(1).join("").slice(0,2) : "");
+    el.dataset.raw = el.value;
+  } else {
+    if (typeof fmtInput === "function") fmtInput(el);
+  }
+  const hint = $("od-hint");
+  if (!hint) return;
+  const rate = db.settings?.rate || 12800;
+  const val = parseFloat(String(el.dataset.raw || el.value).replace(/[^\d.]/g,"")) || 0;
+  hint.textContent = val > 0
+    ? (cur === "usd"
+        ? `≈ ${fmt(Math.round(val * rate))} so'm (kurs ${fmt(rate)})`
+        : `≈ $${(val / rate).toFixed(2)} (kurs ${fmt(rate)})`)
+    : "";
+}
+
+function saveOldDebt() {
+  const c = db.customers.find(x => x.id === _oldDebtCustId);
+  if (!c) { toast("Mijoz topilmadi", "err"); return; }
+
+  const cur  = (document.querySelector('input[name="od-cur"]:checked') || {value:"uzs"}).value;
+  const el   = $("od-amt");
+  const val  = parseFloat(String(el?.dataset?.raw || el?.value || "").replace(/[^\d.]/g,"")) || 0;
+  if (val <= 0) { toast("Qarz summasini kiriting", "err"); return; }
+
+  const rate = db.settings?.rate || 12800;
+  const date = ($("od-date")||{value:""}).value || today();
+  const due  = ($("od-due") ||{value:""}).value || "";
+  const note = ($("od-note")||{value:""}).value.trim();
+
+  // So'mdagi ekvivalent — ichki hisob har doim so'mda yuritiladi
+  const uzs = cur === "usd" ? Math.round(val * rate) : Math.round(val);
+  const usd = cur === "usd" ? val : null;
+
+  const _txt = cur === "usd" ? `$${val.toFixed(2)}` : `${fmt(uzs)} so'm`;
+  if (!confirm(`ESKI QARZ QO'SHISH\n\n${c.name}\nSumma: ${_txt}\n` +
+               (cur === "usd" ? `Kurs: ${fmt(rate)} so'm\n` : "") +
+               `Sana: ${date}\n\nDavom etasizmi?`)) return;
+
+  const id = db.seq++;
+  const sale = {
+    id,
+    chekNum: "ESKI-" + String(id).padStart(4, "0"),
+    date, time: (typeof nowTime === "function" ? nowTime() : ""),
+    customerId: c.id, customerName: c.name, customerPhone: c.phone || "",
+    staffId: (typeof currentStaffId !== "undefined" ? currentStaffId : null),
+    items: [{
+      name: "Eski qarz (daftardan)", sku: "", color: "", size: "",
+      qty: 1, price: uzs, unit: "dona", sellMode: "dona"
+    }],
+    total: uzs, paid: 0, remaining: uzs,
+    origPaid: 0, origRemaining: uzs,
+    payType: "nasiya", payBreakdown: null,
+    status: "qarz",
+    due: due || null,
+    note: note || "Daftardan ko'chirilgan eski qarz",
+    isOldDebt: true,                    // belgi — hisobotlarda ajratish uchun
+    rate,
+    priceCurrency: db.settings?.priceCurrency || "uzs",
+    debtCurrency: cur === "usd" ? "usd" : "uzs",
+    debtUsd: usd, origDebtUsd: usd,
+    createdAt: new Date().toISOString()
+  };
+
+  if (!db.sales) db.sales = [];
+  db.sales.push(sale);
+  saveDB();
+  try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}
+
+  closeModal("olddebt");
+  if (typeof renderMijozlar === "function") renderMijozlar();
+  if (typeof renderDebts === "function") renderDebts();
+  toast(`✅ ${c.name}: ${_txt} qarz qo'shildi`);
 }

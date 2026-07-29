@@ -44,20 +44,20 @@ function dashGetSales() {
   // 2026-07-25: bekor qilingan sotuvlar statistikaga KIRMAYDI
   const t = today();
   if (dashPeriod === -2 && dashCustomFrom && dashCustomTo) {
-    return activeSales().filter(s => s.date >= dashCustomFrom && s.date <= dashCustomTo);
+    return statSales().filter(s => s.date >= dashCustomFrom && s.date <= dashCustomTo);
   }
-  if (dashPeriod === -1) return activeSales(); // barchasi
-  if (dashPeriod === 0)  return activeSales().filter(s => s.date === t);
-  if (dashPeriod === 1)  return activeSales().filter(s => s.date === addDays(t, -1));
+  if (dashPeriod === -1) return statSales(); // barchasi
+  if (dashPeriod === 0)  return statSales().filter(s => s.date === t);
+  if (dashPeriod === 1)  return statSales().filter(s => s.date === addDays(t, -1));
   const start = addDays(t, -(dashPeriod - 1));
-  return activeSales().filter(s => s.date >= start);
+  return statSales().filter(s => s.date >= start);
 }
 
 function dashGetDateRange() {
   const t = today();
   if (dashPeriod === -2 && dashCustomFrom) return { from: dashCustomFrom, to: dashCustomTo || t };
   if (dashPeriod === -1) {
-    const all = activeSales().map(s => s.date).sort();
+    const all = statSales().map(s => s.date).sort();
     return { from: all[0] || t, to: t };
   }
   if (dashPeriod === 0) return { from: t, to: t };
@@ -72,8 +72,8 @@ function renderDashboard() {
   const t = today();
 
   // 2026-07-25: bekor qilingan sotuvlar bannerga ham kirmaydi
-  const todaySales = activeSales().filter(s => s.date === t);
-  const ystSales   = activeSales().filter(s => s.date === addDays(t, -1));
+  const todaySales = statSales().filter(s => s.date === t);
+  const ystSales   = statSales().filter(s => s.date === addDays(t, -1));
   const todayTotal = todaySales.reduce((a, s) => a + s.total, 0);
   const ystTotal   = ystSales.reduce((a, s) => a + s.total, 0);
   const todayCnt   = todaySales.length;
@@ -512,7 +512,7 @@ function renderDashChart() {
   for (let i = 0; i < diffDays; i++) {
     const d = addDays(from, i);
     // Sotuv dinamikasi — bekor qilinganlarsiz
-    const total = activeSales().filter(s => s.date === d).reduce((a, s) => a + s.total, 0);
+    const total = statSales().filter(s => s.date === d).reduce((a, s) => a + s.total, 0);
     const dObj = new Date(d);
     const wdays = ['Ya','Du','Se','Ch','Pa','Ju','Sh'];
     let lbl;
