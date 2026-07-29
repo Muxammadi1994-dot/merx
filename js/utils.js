@@ -919,9 +919,10 @@ function buildReceiptHtml(sale, opts) {
     //   chekda qolishi SHART (keyin kurs o'zgarsa ham o'zgarmaydi).
     //   Ikki valyuta o'chirilgan bo'lsa — faqat dollarda.
     if (!isUsd) return `${_s} so'm`;
-    return _dual && _pcRate > 0
-      ? `${_s} / ${F(_pcRate)} = ${_uStr}`
-      : _uStr;
+    // ⚠️ Dollar qarzda kurs KO'RSATILISHI SHART — bu "ikki valyuta
+    // ko'rinishi" emas, balki QAYSI KURSDA hisoblanganini hujjatda
+    // qoldirish. Shuning uchun _dual sozlamasiga BOG'LIQ EMAS.
+    return _pcRate > 0 ? `${_s} / ${F(_pcRate)} = ${_uStr}` : _uStr;
   };
 
   let debtHtml = "";
@@ -932,7 +933,8 @@ function buildReceiptHtml(sale, opts) {
       // ular turli kurslarda yig'ilgan. Ularni qayta hisoblash MUMKIN EMAS.
       // Faqat SHU XARIDDA qo'shilayotgan summa so'mdan aylantiriladi.
       // Dollar qarz: "so'm / kurs = $USD" (o'chiq bo'lsa faqat $)
-      const _added = (_dual && _pcRate > 0)
+      // Kurs har doim ko'rsatiladi (sozlamadan mustaqil — hujjat uchun)
+      const _added = (_pcRate > 0)
         ? `${F(remaining)} / ${F(_pcRate)} = $${debtUsd.toFixed(2)}`
         : `$${debtUsd.toFixed(2)}`;
       debtHtml = `
