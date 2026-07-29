@@ -485,7 +485,7 @@ module.exports = async function handler(req, res) {
 
     if (action === "get_shops") {
       const shopsRes = await fetch(
-        `${SB_URL}/rest/v1/shops?active=not.is.false&select=id,name,owner_email,plan,active,blocked,trial_ends,created_at,shop_type&order=created_at.desc`,
+        `${SB_URL}/rest/v1/shops?active=not.is.false&select=id,name,owner_email,plan,active,blocked,trial_ends,created_at,shop_type,tier,price_uzs&order=created_at.desc`,
         {
           headers: {
             apikey: SERVICE_KEY,
@@ -497,6 +497,27 @@ module.exports = async function handler(req, res) {
       if (!shopsRes.ok) {
         return res.status(shopsRes.status).json({ ok: false, error: "Do'konlar yuklanmadi" });
       }
+
+      // 2026-07-26: valyuta rejimi SETTINGS jadvalida — uni ham o'qib
+      // do'kon yozuviga qo'shamiz. Avval o'qilmagani uchun SuperAdmin
+      // tahrirlash oynasi har safar "ko'p valyutali" ni ko'rsatardi.
+      try {
+        const setRes = await fetch(
+          `${SB_URL}/rest/v1/settings?select=shop_id,currency_mode,price_currency`,
+          { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
+        );
+        if (setRes.ok) {
+          const sets = await setRes.json();
+          const byShop = {};
+          (sets || []).forEach(r => { byShop[r.shop_id] = r; });
+          (shopsData || []).forEach(sh => {
+            const st = byShop[sh.id];
+            sh.currency_mode  = st?.currency_mode  || "multi";
+            sh.price_currency = st?.price_currency || "uzs";
+          });
+        }
+      } catch(e) { /* settings o'qilmasa do'konlar baribir qaytadi */ }
+
       return res.status(200).json({ ok: true, shops: shopsData });
     }
 

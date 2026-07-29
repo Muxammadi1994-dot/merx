@@ -23,23 +23,37 @@ let _saFilter  = "Barchasi";
 
 // ── Session ──────────────────────────────────────
 function saLoad() {
+  // 2026-07-26: sessionStorage -> localStorage. sessionStorage brauzer
+  // yangilanishida (ayniqsa PWA/desktop ilovada) tozalanib ketardi va
+  // SuperAdmin har obnovitda chiqib qolardi. 4 soatlik muddat saqlanadi.
   try {
-    const raw = sessionStorage.getItem(SA_KEY);
-    const ts  = parseInt(sessionStorage.getItem(SA_TS_KEY) || "0");
+    const raw = localStorage.getItem(SA_KEY)   || sessionStorage.getItem(SA_KEY);
+    const ts  = parseInt(localStorage.getItem(SA_TS_KEY)
+                || sessionStorage.getItem(SA_TS_KEY) || "0");
     if (raw && Date.now() - ts < SA_TIMEOUT) _saSession = JSON.parse(raw);
-    else { _saSession = null; sessionStorage.removeItem(SA_KEY); }
+    else {
+      _saSession = null;
+      localStorage.removeItem(SA_KEY);
+      sessionStorage.removeItem(SA_KEY);
+    }
   } catch(e) { _saSession = null; }
 }
 
 function saSave() {
-  sessionStorage.setItem(SA_KEY, JSON.stringify(_saSession));
-  sessionStorage.setItem(SA_TS_KEY, Date.now().toString());
+  const _v = JSON.stringify(_saSession), _t = Date.now().toString();
+  localStorage.setItem(SA_KEY, _v);
+  localStorage.setItem(SA_TS_KEY, _t);
+  sessionStorage.setItem(SA_KEY, _v);      // orqaga moslik
+  sessionStorage.setItem(SA_TS_KEY, _t);
 }
 
 function saLogout() {
   _saSession = null;
-  sessionStorage.removeItem(SA_KEY);
-  sessionStorage.removeItem(SA_TS_KEY);
+  // 2026-07-26: ikkala saqlash joyi ham tozalanadi
+  [SA_KEY, SA_TS_KEY, "merx_sa_pass"].forEach(k => {
+    sessionStorage.removeItem(k);
+    localStorage.removeItem(k);
+  });
   hideSaPanel();
 }
 
@@ -150,6 +164,7 @@ async function saDoLogin() {
     return;
   }
   sessionStorage.setItem("merx_sa_pass", pass);
+  localStorage.setItem("merx_sa_pass", pass);   // obnovitdan omon qolsin
   _saSession = { loggedIn: true, ts: Date.now() };
   saSave(); saLoadShops();
   const overlay = document.getElementById("sa-overlay");
@@ -556,7 +571,17 @@ function renderSaShops() {
                   ${s.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <div style="color:#0D1B2A;font-weight:700">${s.name}</div>
+                  <div style="color:#0D1B2A;font-weight:700">${s.name}
+                    <!-- 2026-07-26: obuna tarifi belgisi -->
+                    <span style="font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:20px;
+                      margin-left:6px;vertical-align:middle;
+                      background:${(s.tier||"pro")==="pro" ? "#0D1B2A" : "#FEF3C7"};
+                      color:${(s.tier||"pro")==="pro" ? "#fff" : "#92400E"}">
+                      ${(s.tier||"pro")==="pro" ? "PRO" : "START"}
+                    </span>
+                    ${s.priceUzs ? `<span style="font-size:10px;color:#6B7280;margin-left:5px">
+                      ${Number(s.priceUzs).toLocaleString("ru-RU")} so'm/oy</span>` : ""}
+                  </div>
                   <div style="font-size:11px;color:#9CA3AF;font-family:monospace">
                     ${s.id.slice(0,24)}...
                   </div>
@@ -687,6 +712,8 @@ async function saAddShop() {
     phone: phone,
     ownerPass: pass, plan, modules, shopType, // ownerPass plain text (login uchun kerak)
     expiresAt: expires, createdAt: now.toISOString(),
+    // 2026-07-26: yangi do'kon standart PRO (keyin SuperAdmin o'zgartiradi)
+    tier: "pro", priceUzs: 0,
     blocked: false, dbKey
   };
 
@@ -736,7 +763,7 @@ async function saAddShop() {
   // kalit bilan yaratadi. Busiz RLS ishlamaydi.
   fetch("/api/auth-v2?action=create_shop", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-sa-pass": sessionStorage.getItem("merx_sa_pass") || "" },
+    headers: { "Content-Type": "application/json", "x-sa-pass": (sessionStorage.getItem("merx_sa_pass") || localStorage.getItem("merx_sa_pass") || "") },
     body: JSON.stringify({
       email: loginEmail,
       password: pass,
@@ -812,7 +839,7 @@ async function saFetchShopsFromCloud() {
   try {
     const res = await fetch("/api/auth-v2?action=get_shops", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-sa-pass": sessionStorage.getItem("merx_sa_pass") || "" },
+      headers: { "Content-Type": "application/json", "x-sa-pass": (sessionStorage.getItem("merx_sa_pass") || localStorage.getItem("merx_sa_pass") || "") },
       body: JSON.stringify({})
     });
     const d = await res.json();
@@ -830,6 +857,10 @@ async function saFetchShopsFromCloud() {
       plan:        cloudShop.plan        || local.plan || "trial",
       blocked:     cloudShop.blocked     || local.blocked || false,
       expiresAt:   cloudShop.trial_ends  || local.expiresAt || null,
+      // 2026-07-26: valyuta rejimi BULUTDAN (settings jadvalidan) keladi
+      currencyMode: cloudShop.currency_mode || local.currencyMode || "multi",
+      tier:         cloudShop.tier      || local.tier || "pro",
+      priceUzs:     cloudShop.price_uzs || local.priceUzs || 0,
       createdAt:   cloudShop.created_at  || local.createdAt || new Date().toISOString(),
       ownerName:   local.ownerName || "",
       ownerPass:   local.ownerPass || "",
@@ -991,6 +1022,25 @@ function saEditShopFull(id) {
         </div>
                 <div>
           <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">
+            Obuna tarifi
+          </label>
+          <select id="se-tier" style="${iStyle}">
+            <option value="start"${(s.tier||"pro")==="start"?" selected":""}>Start (bot yopiq)</option>
+            <option value="pro"${(s.tier||"pro")==="pro"?" selected":""}>Pro (hammasi ochiq)</option>
+          </select>
+          <div style="font-size:10.5px;color:#9CA3AF;margin-top:4px;line-height:1.4">
+            Start: bot, portal, Telegram chek va eslatmalar YOPIQ
+          </div>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">
+            Obuna narxi (so'm/oy)
+          </label>
+          <input id="se-price" type="number" min="0" step="10000"
+            value="${s.priceUzs || ""}" placeholder="Masalan: 349000" style="${iStyle}">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">
             Valyuta rejimi
           </label>
           <select id="se-curmode" style="${iStyle}">
@@ -1038,6 +1088,9 @@ function saEditSave(id) {
   const plan     = document.getElementById("se-plan")?.value || s.plan;
   // 2026-07-26: valyuta rejimi — do'kon egasi o'zgartira olmaydi
   const curMode  = document.getElementById("se-curmode")?.value || s.currencyMode || "multi";
+  // 2026-07-26: obuna tarifi va narxi
+  const tier     = document.getElementById("se-tier")?.value || s.tier || "pro";
+  const priceUzs = parseInt(document.getElementById("se-price")?.value) || 0;
   const expires  = document.getElementById("se-expires")?.value;
 
   if (!name) { showSaToast("Do'kon nomini kiriting", "err"); return; }
@@ -1047,6 +1100,8 @@ function saEditSave(id) {
   s.phone     = phone;
   s.shopType     = shopType;
   s.currencyMode = curMode;
+  s.tier         = tier;
+  s.priceUzs     = priceUzs;
   s.plan      = plan;
   if (login)                  s.ownerEmail = login;
   if (pass && pass.length>=4) s.ownerPass  = pass;
@@ -1073,6 +1128,8 @@ function saEditSave(id) {
       owner_email: login || s.ownerEmail || null,
       plan: plan,
       shop_type: shopType,
+      tier:      tier,
+      price_uzs: priceUzs || null,
       trial_ends: (plan === "lifetime") ? null
                   : (s.expiresAt ? s.expiresAt.slice(0,10) : null),
       active: s.blocked ? false : true,
@@ -1151,7 +1208,7 @@ function saEditSave(id) {
     // Supabase Auth'da ham yangilaymiz
     fetch("/api/auth-v2?action=update_shop_password", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-sa-pass": sessionStorage.getItem("merx_sa_pass") || "" },
+      headers: { "Content-Type": "application/json", "x-sa-pass": (sessionStorage.getItem("merx_sa_pass") || localStorage.getItem("merx_sa_pass") || "") },
       body: JSON.stringify({ email: s.ownerEmail, newPassword: pass })
     })
     .then(r => r.json())
@@ -1174,7 +1231,7 @@ async function _saUpdateShopInSupabase(shopId, data) {
 
     const res = await fetch("/api/auth-v2?action=update_shop", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-sa-pass": sessionStorage.getItem("merx_sa_pass") || "" },
+      headers: { "Content-Type": "application/json", "x-sa-pass": (sessionStorage.getItem("merx_sa_pass") || localStorage.getItem("merx_sa_pass") || "") },
       body: JSON.stringify({ shopId, data })
     });
     const d = await res.json();
@@ -1877,7 +1934,7 @@ async function _saApi(action, payload) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-sa-pass": sessionStorage.getItem("merx_sa_pass") || ""
+      "x-sa-pass": (sessionStorage.getItem("merx_sa_pass") || localStorage.getItem("merx_sa_pass") || "")
     },
     body: JSON.stringify(payload || {})
   });
