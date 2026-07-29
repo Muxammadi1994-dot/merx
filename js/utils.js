@@ -911,11 +911,17 @@ function buildReceiptHtml(sale, opts) {
     // yuritilsa (isUsd), tizim so'mda tursa ham dollarda ko'rsatiladi —
     // aks holda mijoz bilan hisob-kitob buzilardi.
     // Ikki valyuta o'chirilgan bo'lsa — faqat QARZ VALYUTASI.
-    if (!_dual) return isUsd ? _uStr : `${_s} so'm`;
-    // Ikki valyuta yoqilgan: asosiy valyuta oldinda, kurs ko'rsatiladi
-    return isUsd
-      ? `${_uStr} = ${_s} / ${F(_pcRate)}`
-      : `${_s} / ${F(_pcRate)} = ${_uStr}`;
+    // ═══ QARZ QOIDASI (2026-07-26) ═══
+    // SO'M qarz — shunchaki so'mda. Aylantirish bo'lmagan, kurs
+    //   ko'rsatishning ma'nosi yo'q.
+    // DOLLAR qarz — "so'm / kurs = $USD". Qarz sotuv paytida so'mdan
+    //   dollarga aylantirilgan, shuning uchun qaysi kursda ekani
+    //   chekda qolishi SHART (keyin kurs o'zgarsa ham o'zgarmaydi).
+    //   Ikki valyuta o'chirilgan bo'lsa — faqat dollarda.
+    if (!isUsd) return `${_s} so'm`;
+    return _dual && _pcRate > 0
+      ? `${_s} / ${F(_pcRate)} = ${_uStr}`
+      : _uStr;
   };
 
   let debtHtml = "";
@@ -925,10 +931,10 @@ function buildReceiptHtml(sale, opts) {
       // 2026-07-25: OLDINGI va KEYINGI qarz — allaqachon USD da QOTGAN,
       // ular turli kurslarda yig'ilgan. Ularni qayta hisoblash MUMKIN EMAS.
       // Faqat SHU XARIDDA qo'shilayotgan summa so'mdan aylantiriladi.
-      // Ikki valyuta o'chirilgan bo'lsa — faqat dollarda (qarz valyutasi)
-      const _added = (!_dual || _pcRate <= 0)
-        ? `$${debtUsd.toFixed(2)}`
-        : `$${debtUsd.toFixed(2)} = ${F(remaining)} / ${F(_pcRate)}`;
+      // Dollar qarz: "so'm / kurs = $USD" (o'chiq bo'lsa faqat $)
+      const _added = (_dual && _pcRate > 0)
+        ? `${F(remaining)} / ${F(_pcRate)} = $${debtUsd.toFixed(2)}`
+        : `$${debtUsd.toFixed(2)}`;
       debtHtml = `
         <div class="sep-dash" style="margin:6px 0"></div>
         <div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>$${prevUsd.toFixed(2)}</span></div>
