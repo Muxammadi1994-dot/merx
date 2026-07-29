@@ -943,7 +943,14 @@ function epRenderColorCards(p) {
                 style="width:60px;border:1px solid var(--brd);border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700;text-align:center">
               <span style="font-size:11px;color:#bbb">${p.packUnit||"pochka"}</span>
             </div>
-            <span style="font-size:11.5px;color:var(--mut)">= <b style="color:#0D1B2A">${fmt(v.qty||0)}</b> dona${qoldiq ? ` <span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:1px 6px;border-radius:7px">+${qoldiq} dona ochiq</span>` : ""}</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;color:var(--mut)">Jami dona:</span>
+              <input type="number" value="${v.qty||0}" min="0" data-epb2dona="${color}"
+                onchange="epUpdateB2Dona('${jsEsc(color)}',this.value)"
+                style="width:70px;border:1px solid var(--acc);border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700">
+            </div>
+            ${qoldiq > 0 ? `<span style="font-size:11px;color:#B45309;font-weight:700">
+              ${pochka} pch + ${qoldiq} dona ochilgan</span>` : ""}
           </div>`;
         }
         return groups.map((g, gi) => {
@@ -994,9 +1001,15 @@ function epRenderColorCards(p) {
 function epUpdateB2Pochka(color, val) {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   const v = p.variants.find(x => x.color === color); if (!v) return;
-  const inBoxEff = parseInt(($("ep-inbox")||{value:0}).value) || p.inBox || 1;
+  // Variantdagi quti sig'imi ustuvor (rang darajasida)
+  const inBoxEff = parseInt(v.inBox) ||
+    parseInt(($("ep-inbox")||{value:0}).value) || p.inBox || 1;
   const pochka = Math.max(0, parseInt(val) || 0);
-  v.qty = pochka * inBoxEff; // ochiq qoldiq ataylab nolga tushadi — ekranda "= X dona" ko'rinib turadi
+  // ⚠️ 2026-07-26: OCHILGAN QOLDIQ SAQLANADI. Avval "ataylab nolga
+  // tushardi" — 14 pochka + 3 dona bo'lgan tovarni 15 pochka qilsa
+  // 3 dona YO'QOLARDI. Endi qoldiq o'z holicha qo'shiladi.
+  const oldRest = (v.qty || 0) % inBoxEff;
+  v.qty = pochka * inBoxEff + oldRest;
   epRenderColorCards(p);
   epUpdateBoxHints();
 }
@@ -1767,7 +1780,8 @@ function apNameAutofill(val) {
   // Mavjud tovar topildi — narxlarni avtomatik to'ldiramiz va ogohlantiramiz
   const rate = db.settings?.rate || 12800;
   const cur1 = db.settings?.priceCurrency || "uzs";
-  if ($("ap-cost")) { $("ap-cost").value = (cur1 === "usd" || cur1 === "both") ? p.costUsd : Math.round((p.costUsd||0)*rate); if (typeof priceInputHandler === "function") priceInputHandler($("ap-cost")); }
+  // 2026-07-26: tannarx HAR DOIM SO'MDA ko'rsatiladi
+  if ($("ap-cost")) $("ap-cost").value = "";
   if ($("ap-ulgurji")) { $("ap-ulgurji").value = p.ulgurjiNarx || 0; if (typeof fmtInput === "function") fmtInput($("ap-ulgurji")); }
   if ($("ap-art") && p.art) $("ap-art").value = p.art;
 
@@ -2113,6 +2127,12 @@ function updateCostCurrency() {
 // vergul-guruhlab butun son (avvalgidek), USD/Both rejimida esa
 // kasr songa ruxsat beruvchi (masalan 15.50) formatlashsiz kiritish.
 function priceInputHandler(el) {
+  // 2026-07-26: BARCHA narxlar SO'MDA kiritiladi — valyuta rejimidan
+  // qat'i nazar. Bu funksiya endi faqat so'm formatlaydi (eski
+  // chaqiruvlar uchun zaxira sifatida qoldirilgan).
+  fmtInput(el);
+  return;
+  /* eski kod (o'chirilgan):
   const cur = db.settings?.priceCurrency || "uzs";
   if (cur === "usd" || cur === "both") {
     // 2026-07-20: USD rejimida ham MING AJRATGICHI (probel) qo'shamiz —
@@ -2127,7 +2147,7 @@ function priceInputHandler(el) {
     el.dataset.raw = intPart + (parts.length > 1 ? "." + parts.slice(1).join("") : "");
   } else {
     fmtInput(el);
-  }
+  } */
 }
 
 // Ulgurji narxni (so'm/USD rejimidan qat'iy nazar) HAR DOIM to'g'ri
@@ -2299,6 +2319,16 @@ function vcFillAddProductForm(item) {
   if ($("ap-color")) $("ap-color").value = item.rang || "";
   if ($("ap-boxes")) $("ap-boxes").value = item.pochka_soni > 0 ? item.pochka_soni : 1;
   if ($("ap-inbox-calc")) $("ap-inbox-calc").value = item.birlik_soni > 0 ? item.birlik_soni : 1;
+  // 2026-07-26: AI/ovoz orqali kiritishda ham JAMI DONA hisoblanadi.
+  // AI "jami_dona" bergan bo'lsa u ustuvor (presdan kelgan tovar),
+  // aks holda pochka × pochkada.
+  if ($("ap-qty-range")) {
+    const _b  = parseInt(item.pochka_soni) || 0;
+    const _ib = parseInt(item.birlik_soni) || 1;
+    const _d  = parseInt(item.jami_dona || item.dona) || 0;
+    $("ap-qty-range").value = _d > 0 ? _d : (_b * _ib);
+    try { apDonaChanged(); } catch(e) {}
+  }
 
   const rate = db.settings?.rate || 12800;
   const cur1 = db.settings?.priceCurrency || "uzs";
@@ -2306,7 +2336,7 @@ function vcFillAddProductForm(item) {
     $("ap-cost").value = (cur1 === "usd" || cur1 === "both")
       ? (item.tannarx_som / rate).toFixed(2)
       : item.tannarx_som;
-    if (typeof priceInputHandler === "function") priceInputHandler($("ap-cost"));
+    if (typeof fmtInput === "function") fmtInput($("ap-cost"));
   }
   if ($("ap-ulgurji") && item.sotuv_narxi_som > 0) {
     $("ap-ulgurji").value = fmt(item.sotuv_narxi_som);
@@ -3937,9 +3967,9 @@ function apVarRenderTable() {
       <td style="padding:4px"><input class="vr-dona" type="number" min="0" inputmode="numeric"
         placeholder="0" style="${inpCss}" oninput="apVarFillHint(${i},'dona');apVarDonaSync(${i},'dona');apVarTotals()"></td>
       <td style="padding:4px"><input class="vr-cost" type="text" data-price
-        placeholder="0" style="${inpCss}" oninput="priceInputHandler(this);apVarFillHint(${i},'cost')"></td>
+        placeholder="0" style="${inpCss}" oninput="fmtInput(this);apVarFillHint(${i},'cost')"></td>
       <td style="padding:4px"><input class="vr-ulg" type="text" data-price
-        placeholder="0" style="${inpCss}" oninput="priceInputHandler(this);apVarFillHint(${i},'ulg')"></td>
+        placeholder="0" style="${inpCss}" oninput="fmtInput(this);apVarFillHint(${i},'ulg')"></td>
       <td style="padding:4px;text-align:center">
         <button type="button" onclick="apVarRemoveColor(${i})" title="O'chirish"
           style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">×</button>
@@ -4009,9 +4039,8 @@ function _apVarReadRows() {
     boxes: parseInt(r.querySelector(".vr-boxes")?.value) || 0,
     dona:  parseInt(r.querySelector(".vr-dona")?.value)  || 0,
     inbox: parseInt(r.querySelector(".vr-inbox")?.value) || 1,
-    cost:  (typeof getRawVal === "function")
-             ? (parseFloat(String(r.querySelector(".vr-cost")?.value || "").replace(/\s/g,"")) || 0) : 0,
-    ulg:   (parseFloat(String(r.querySelector(".vr-ulg")?.value || "").replace(/\s/g,"")) || 0)
+    cost:  _numFromInput(r.querySelector(".vr-cost")),
+    ulg:   _numFromInput(r.querySelector(".vr-ulg"))
   })).filter(r => r.color);
 }
 
@@ -4247,9 +4276,9 @@ function epVarRenderTable() {
           </div>
         </td>
         <td style="padding:4px"><input class="evr-cost" type="text" data-price
-          value="${fmt(cost)}" oninput="priceInputHandler(this)" style="${inpCss}"></td>
+          value="${fmt(cost)}" oninput="fmtInput(this)" style="${inpCss}"></td>
         <td style="padding:4px"><input class="evr-ulg" type="text" data-price
-          value="${fmt(pr.ulgurjiNarx || 0)}" oninput="priceInputHandler(this)" style="${inpCss}"></td>
+          value="${fmt(pr.ulgurjiNarx || 0)}" oninput="fmtInput(this)" style="${inpCss}"></td>
       </tr>`;
   }).join("");
 
@@ -4286,8 +4315,8 @@ function epSaveVariativ() {
 
     const qty   = parseInt(r.querySelector(".evr-qty")?.value) || 0;
     const inBox = parseInt(r.querySelector(".evr-inbox")?.value) || 1;
-    const cost  = parseFloat(String(r.querySelector(".evr-cost")?.value || "").replace(/\s/g,"")) || 0;
-    const ulg   = parseFloat(String(r.querySelector(".evr-ulg")?.value  || "").replace(/\s/g,"")) || 0;
+    const cost  = _numFromInput(r.querySelector(".evr-cost"));
+    const ulg   = _numFromInput(r.querySelector(".evr-ulg"));
 
     // 2026-07-26: TANNARX SO'MDA — kiritilgan raqam to'g'ridan-to'g'ri
     // so'm (avval "both" rejimda dollar deb qabul qilinardi)
@@ -4436,4 +4465,26 @@ function apVarDonaSync(i, changed) {
     const boxes = parseInt(bEl.value) || 0;
     if (boxes > 0 && inBox > 0) dEl.value = boxes * inBox;
   }
+}
+
+
+// Narx maydonidan aniq son o'qish (2026-07-26)
+// fmtInput probel bilan formatlaydi va dataset.raw ga xom qiymatni
+// yozadi. Telefon klaviaturasi maxsus probel qo'yishi mumkin, shuning
+// uchun avval dataset.raw, keyin tozalangan matn o'qiladi.
+function _numFromInput(el) {
+  if (!el) return 0;
+  const raw = el.dataset && el.dataset.raw;
+  if (raw != null && raw !== "") return parseFloat(raw) || 0;
+  return parseFloat(String(el.value || "").replace(/[^\d.]/g, "")) || 0;
+}
+
+// Tahrirlashda JAMI DONA to'g'ridan-to'g'ri o'zgartirish (2026-07-26)
+// Ochilgan qoldiq shu yerdan boshqariladi: 78 dona, pochkada 5 →
+// 15 pochka + 3 dona ochilgan.
+function epUpdateB2Dona(color, val) {
+  const p = db.products.find(x => x.sku === editSku); if (!p) return;
+  const v = p.variants.find(x => x.color === color); if (!v) return;
+  v.qty = Math.max(0, parseInt(val) || 0);
+  epRenderColorCards(p);
 }

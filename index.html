@@ -3145,12 +3145,12 @@
     <div class="r3">
       <div class="fld ap-field ap-hide-var" data-apf="cost">
         <label id="ap-cost-lbl">Tannarx <span style="font-weight:400;color:var(--mut)">(so'm)</span></label>
-        <input id="ap-cost" type="text" data-price placeholder="0" oninput="priceInputHandler(this);apCostNote()">
+        <input id="ap-cost" type="text" data-price placeholder="0" oninput="fmtInput(this);apCostNote()">
         <div id="ap-cost-note" style="font-size:11px;color:var(--mut);margin-top:4px"></div>
       </div>
       <div class="fld ap-hide-var">
         <label id="ap-ulgurji-lbl">Ulgurji narx (so'm)</label>
-        <input id="ap-ulgurji" type="text" data-price placeholder="0" oninput="priceInputHandler(this);apCostNote()">
+        <input id="ap-ulgurji" type="text" data-price placeholder="0" oninput="fmtInput(this);apCostNote()">
         <div id="ap-ulgurji-note" style="font-size:11px;color:var(--mut);margin-top:4px"></div>
       </div>
       <div class="fld ap-field ap-hide-var" data-apf="chakana">
@@ -3382,7 +3382,7 @@
       <div class="fld" id="ep-cost-wrap">
         <label id="ep-cost-lbl">Tannarx</label>
         <div style="display:flex;gap:6px;align-items:center">
-          <input id="ep-cost" type="text" data-price oninput="priceInputHandler(this);epUpdateBoxHints()" style="flex:1">
+          <input id="ep-cost" type="text" data-price oninput="fmtInput(this);epUpdateBoxHints()" style="flex:1">
           <span id="ep-cost-unit" style="font-size:12px;color:#888;white-space:nowrap;font-weight:600">USD</span>
         </div>
         <div class="box-narx-hint" id="ep-cost-hint" style="display:none">
@@ -3391,7 +3391,7 @@
       </div>
       <div class="fld">
         <label id="ep-ulgurji-lbl">Ulgurji narx (so'm)</label>
-        <input id="ep-ulgurji" type="text" data-price placeholder="0" oninput="priceInputHandler(this);epUpdateBoxHints()">
+        <input id="ep-ulgurji" type="text" data-price placeholder="0" oninput="fmtInput(this);epUpdateBoxHints()">
         <div class="box-narx-hint" id="ep-ulg-hint" style="display:none">
           <i class="ti ti-package"></i><span></span>
         </div>
@@ -4573,7 +4573,7 @@
 <script src="js/cloud.js?v=192"></script>
 <script src="js/dashboard.js?v=154"></script>
 <script src="js/pos.js?v=225"></script>
-<script src="js/katalog.js?v=224"></script>
+<script src="js/katalog.js?v=225"></script>
 <script src="js/ombor.js?v=162"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=186"></script>
@@ -4786,7 +4786,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=88")
+    navigator.serviceWorker.register("/sw.js?v=89")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
