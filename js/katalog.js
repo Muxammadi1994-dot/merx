@@ -2411,6 +2411,14 @@ function downloadImportTemplate() {
   headers.push("Pochka soni");
   sampleBase.push("100"); sampleBase2.push("80"); sampleBase3.push("50");
 
+  // 2026-07-26: JAMI DONA ustuni — presdan kelgan tovar uchun.
+  // Ikkala usul ham ishlaydi:
+  //   Pochka soni to'ldirilsa → dona avtomat (pochka × pochkada)
+  //   Jami dona to'ldirilsa   → pochka va ochilgan qoldiq avtomat
+  //                             (153 dona, pochkada 5 → 30 pochka + 3 dona)
+  headers.push("Jami dona");
+  sampleBase.push(""); sampleBase2.push(""); sampleBase3.push("153");
+
   if (fields.category) {
     headers.push("Kategoriya");
     sampleBase.push("Krossovka"); sampleBase2.push("Krossovka"); sampleBase3.push("Ko'ylak");
@@ -2535,7 +2543,7 @@ function parseImportCSV(text) {
       color:   ["rang","color","rang nomi"],
       pantone: ["pantone","pantone kodi"],
       size:    ["o'lcham","size","olcham","razmer"],
-      qty:     ["qoldiq","qoldiq (dona)","qty","miqdor","soni","dona"],
+      qty:     ["jami dona","qoldiq","qoldiq (dona)","qty","miqdor","soni","dona","jami"],
       cost:    ["tannarx","cost","tannarx so'm","tannarx usd","narx usd","tannarx (usd)","tannarx (so'm)"],
       ulg:     ["ulgurji","ulgurji narx","ulgurji narx (so'm)","sotuv narxi"],
     };
@@ -2687,8 +2695,33 @@ function impRecalcQty(i) {
   r.inbox = inbox || 1;
   r._inboxExplicit = true;
   r.qty = boxes * (inbox || 0);
-  const qtyEl = $("imp-qty-"+i);
-  if (qtyEl) qtyEl.textContent = `${r.qty} ${r.unit || "dona"}`;
+  _impShowQty(i, r);
+}
+
+// 2026-07-26: preview'da ochilgan qoldiq ham ko'rinsin
+function _impShowQty(i, r) {
+  const hint = $("imp-qty-"+i);
+  const inp  = $("imp-dona-"+i);
+  if (inp && String(inp.value) !== String(r.qty)) inp.value = r.qty || "";
+  if (!hint) return;
+  const inbox = r.inbox || 1;
+  const rest  = (inbox > 1 && r.qty > 0) ? (r.qty % inbox) : 0;
+  const full  = (inbox > 1) ? Math.floor(r.qty / inbox) : r.qty;
+  hint.innerHTML = (inbox > 1 && r.qty > 0)
+    ? `${full} pch${rest > 0 ? ` <span style="color:#B45309">+ ${rest} dona</span>` : ""}`
+    : "";
+}
+
+// Preview'da JAMI DONA yozilganda pochka qayta hisoblanadi (2026-07-26)
+function impDonaChanged(i) {
+  const r = _importRows[i]; if (!r) return;
+  const dona = parseInt(($("imp-dona-"+i)||{value:0}).value) || 0;
+  const inbox = r.inbox || 1;
+  r.qty = dona;
+  r.boxes = (inbox > 0) ? Math.floor(dona / inbox) : dona;
+  const bEl = $("imp-boxes-"+i);
+  if (bEl) bEl.value = r.boxes;
+  _impShowQty(i, r);
 }
 
 // v154: Tannarx (so'm ko'rinishida tahrirlanadi, ichida costUsd saqlanadi)
@@ -2748,8 +2781,12 @@ function showImportPreview() {
       <input id="imp-inbox-${i}" type="number" value="${r.inbox||1}" style="${inpCss};min-width:50px"
         oninput="impRecalcQty(${i})">
     </td>
-    <td style="padding:4px 8px;border-top:1px solid var(--brd);font-weight:700;white-space:nowrap" id="imp-qty-${i}">
-      ${r.qty} ${r.unit||"dona"}
+    <td style="padding:4px;border-top:1px solid var(--brd)">
+      <!-- 2026-07-26: JAMI DONA tahrirlanadi — yozilsa pochka va
+           ochilgan qoldiq avtomat qayta hisoblanadi -->
+      <input id="imp-dona-${i}" type="number" min="0" value="${r.qty || ""}"
+        style="${inpCss};min-width:60px" oninput="impDonaChanged(${i})">
+      <div id="imp-qty-${i}" style="font-size:10.5px;color:var(--mut);margin-top:2px"></div>
     </td>
     <td style="padding:4px;border-top:1px solid var(--brd)">
       <input data-price value="${fmt(Math.round((r.costUsd||0)*rate))}" style="${inpCss};min-width:80px"

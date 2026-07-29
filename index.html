@@ -4187,6 +4187,16 @@
           Mavjud mahsulotlarga yangi variant qo'sh (duplikat o'tkazib yubor)
         </label>
 
+        <!-- 2026-07-26: miqdor kiritishning ikki usuli -->
+        <div style="margin-top:11px;padding:10px 12px;background:#F8F7F4;
+          border:1px solid var(--brd);border-radius:9px;font-size:11.5px;line-height:1.5">
+          <b style="color:#0D1B2A">📦 Miqdorni ikki xil yozish mumkin:</b><br>
+          • <b>Pochka soni</b> to'ldirilsa — jami dona o'zi hisoblanadi<br>
+          • <b>Jami dona</b> to'ldirilsa — pochka va ochilgan qoldiq o'zi ajratiladi<br>
+          <span style="color:var(--mut)">Masalan: 1 pochkada 5, jami dona 153
+          → 30 pochka + 3 dona ochilgan</span>
+        </div>
+
 
       </div>
     </div>
@@ -4563,7 +4573,7 @@
 <script src="js/cloud.js?v=192"></script>
 <script src="js/dashboard.js?v=154"></script>
 <script src="js/pos.js?v=224"></script>
-<script src="js/katalog.js?v=216"></script>
+<script src="js/katalog.js?v=217"></script>
 <script src="js/ombor.js?v=159"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=186"></script>
@@ -4776,7 +4786,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=80")
+    navigator.serviceWorker.register("/sw.js?v=81")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
