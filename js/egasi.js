@@ -1022,6 +1022,8 @@ function _previewSampleSale(type) {
 
   return { ...base, paid: 2750000, remaining: 2000000, payType: "aralash",
     payBreakdown: { naqd: 1750000, karta: 1000000 },
+    // 2026-07-26: namuna JORIY rejim va kursda ko'rsatiladi
+    priceCurrency: _cur, rate: _rate,
     ..._debtSample, due: base.date };
 }
 

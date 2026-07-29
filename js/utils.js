@@ -765,17 +765,19 @@ function buildReceiptHtml(sale, opts) {
   // sozlamaga tayanamiz — ular uchun boshqa manba yo'q.
   const _pcMode = sale.priceCurrency || db.settings?.priceCurrency || "uzs";
   const _pcRate = Number(sale.rate) || Number(db.settings?.rate) || 12800;
+  // ═══ 2026-07-26: CHEK HAR DOIM IKKI VALYUTADA ═══
+  // Barcha qatorlar (tovar narxi, chegirma, jami, to'lov) ikkala
+  // valyutada ko'rsatiladi. Faqat TARTIB rejimga qarab o'zgaradi:
+  //   so'm / ikki valyuta  →  "540 000 / $42.19"
+  //   dollar               →  "$42.19 / 540 000"
+  // Kurs sotuv paytidagi (_pcRate) — keyin o'zgarsa chek o'zgarmaydi.
+  const _usdStr = som => "$" + (_pcRate > 0 ? (som / _pcRate) : 0)
+    .toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const FC = n => {
     const som = Math.round(n || 0);
-    if (_pcMode === "both") {
-      const usd = _pcRate > 0 ? (som / _pcRate) : 0;
-      return F(som) + " / $" + usd.toLocaleString("ru-RU", {minimumFractionDigits:2, maximumFractionDigits:2});
-    }
-    if (_pcMode === "usd") {
-      const usd = _pcRate > 0 ? (som / _pcRate) : 0;
-      return "$" + usd.toLocaleString("ru-RU", {minimumFractionDigits:2, maximumFractionDigits:2});
-    }
-    return F(som);
+    return _pcMode === "usd"
+      ? `${_usdStr(som)} / ${F(som)}`
+      : `${F(som)} / ${_usdStr(som)}`;
   };
 
   // ── Mahsulotlar ───────────────────────────────
@@ -857,8 +859,7 @@ function buildReceiptHtml(sale, opts) {
   const rate = Number(sale.rate) || Number(db.settings?.rate) || 0;
   // 2026-07-25: JAMI yonidagi USD FAQAT ikki valyuta rejimida chiqadi.
   // Avval rejimdan qat'i nazar chiqardi — "faqat so'm" tanlangan bo'lsa ham.
-  const usdLine = (_pcMode === "both" && rate > 0)
-    ? ` / $${(total / rate).toFixed(2)}` : "";
+  // 2026-07-26: JAMI ham har doim ikki valyutada (tartib rejimga qarab)
 
   // 2026-07-25: qaytarish eslatmasi — asl chek O'ZGARMAYDI, faqat
   // pastida "qisman qaytarilgan" belgisi va qaytarish cheki raqami turadi.
@@ -898,9 +899,12 @@ function buildReceiptHtml(sale, opts) {
     const _u = (usd != null ? usd : (_pcRate > 0 ? (som || 0) / _pcRate : 0));
     const _uStr = "$" + _u.toLocaleString("ru-RU",
       { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (_pcMode === "usd")  return _uStr;
-    if (_pcMode === "both") return _s + " / " + F(_pcRate) + " = " + _uStr;
-    return _s + " so'm";
+    // 2026-07-26: qarz HAR DOIM "summa / kurs = $USD" ko'rinishida —
+    // qaysi kursda hisoblangani chekdan ko'rinsin. USD rejimida
+    // tartib almashadi.
+    return _pcMode === "usd"
+      ? `${_uStr} = ${_s} / ${F(_pcRate)}`
+      : `${_s} / ${F(_pcRate)} = ${_uStr}`;
   };
 
   let debtHtml = "";
@@ -921,9 +925,7 @@ function buildReceiptHtml(sale, opts) {
     } else if (showDebtHistory && !isUsd && prevUzs > 0) {
       // Qarz so'mda yuritiladi — oldingi va keyingi summalar SO'MDA qoladi.
       // Faqat qo'shilayotgan summa yonida joriy kurs bo'yicha USD ko'rsatiladi.
-      const _added = ((_pcMode === "both" || _pcMode === "usd") && _pcRate > 0)
-        ? `${F(remaining)} / ${F(_pcRate)} = $${(remaining / _pcRate).toFixed(2)}`
-        : `${F(remaining)} so'm`;
+      const _added = FD(remaining);
       debtHtml = `
         <div class="sep-dash" style="margin:6px 0"></div>
         <div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>${F(prevUzs)} so'm</span></div>
@@ -933,11 +935,7 @@ function buildReceiptHtml(sale, opts) {
       // 2026-07-25: dollar ishlatiladigan HAR QANDAY rejimda (both/usd)
       // qarz "summa / kurs = $" ko'rinishida — qaysi kursda hisoblangani
       // chekdan ko'rinsin va keyin kurs o'zgarsa ham o'zgarmasin.
-      const _usdMode = (_pcMode === "both" || _pcMode === "usd");
-      const _dUsd = isUsd ? debtUsd : (_pcRate > 0 ? remaining / _pcRate : 0);
-      const amt = _usdMode
-        ? `${F(remaining)} / ${F(_pcRate)} = $${_dUsd.toFixed(2)}`
-        : `${F(remaining)} so'm`;
+      const amt = FD(remaining, isUsd ? debtUsd : null);
       debtHtml = `<div class="pr pr-debt"><span>Qarzga</span><span>${amt}</span></div>`;
     }
     if (due) debtHtml += `<div class="pr pr-sm"><span>To'lov muddati</span><span class="c-red">${due}</span></div>`;
@@ -1109,7 +1107,9 @@ ${!_bFoot.show ? ".ft-thanks{display:none !important}" : ""}
         <div class="tot-lbl">JAMI</div>
         <div class="tot-cnt">${items.length} xil · ${items.reduce((a,i)=>a+(+i.qty||0),0)} dona</div>
       </div>
-      <div class="tot-val">${F(total)}<span class="tot-uzs"> so'm${usdLine}</span></div>
+      <div class="tot-val">${_pcMode === "usd"
+        ? `${_usdStr(total)}<span class="tot-uzs"> / ${F(total)} so'm</span>`
+        : `${F(total)}<span class="tot-uzs"> so'm / ${_usdStr(total)}</span>`}</div>
     </div>
 
     ${_type === "savat" ? `
