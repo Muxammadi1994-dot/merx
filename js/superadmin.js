@@ -1050,8 +1050,16 @@ function saEditSave(id) {
   s.plan      = plan;
   if (login)                  s.ownerEmail = login;
   if (pass && pass.length>=4) s.ownerPass  = pass;
-  if (plan === "lifetime")    s.expiresAt  = null;
-  else if (expires)           s.expiresAt  = new Date(expires).toISOString();
+  // 2026-07-26: tarif o'zgarganda muddat ham to'g'ri belgilanadi
+  if (plan === "lifetime") {
+    s.expiresAt = null;
+    s.blocked   = false;          // umrbod tarif — bloklanmagan
+  } else if (expires) {
+    s.expiresAt = new Date(expires).toISOString();
+  } else if (!s.expiresAt || new Date(s.expiresAt) <= new Date()) {
+    // Muddat kiritilmagan va eskisi tugagan — 30 kun beramiz
+    s.expiresAt = addDaysToDate(new Date(), 30);
+  }
 
   // ═══ 2026-07-26: BULUTGA YOZISH (shops jadvali) ═══
   // Avval faqat xotira va lokal baza yangilanardi — shuning uchun
@@ -1065,14 +1073,20 @@ function saEditSave(id) {
       owner_email: login || s.ownerEmail || null,
       plan: plan,
       shop_type: shopType,
-      trial_ends: (plan === "lifetime") ? null : (s.expiresAt || null),
+      trial_ends: (plan === "lifetime") ? null
+                  : (s.expiresAt ? s.expiresAt.slice(0,10) : null),
       active: s.blocked ? false : true,
       blocked: !!s.blocked
     };
     _saApi("update_shop", { shopId: _cloudId, data: _payload })
-      .then(d => console.log(d.ok
-        ? `☁️ "${name}" bulutda yangilandi (tarif: ${plan})`
-        : "❌ Bulutga yozilmadi: " + (d.error || "")))
+      .then(d => {
+        console.log(d.ok
+          ? `☁️ "${name}" bulutda yangilandi (tarif: ${plan})`
+          : "❌ Bulutga yozilmadi: " + (d.error || ""));
+        // Bulutdan qayta o'qib ro'yxatni yangilaymiz — haqiqiy holat ko'rinsin
+        if (d.ok && typeof saFetchShopsFromCloud === "function")
+          setTimeout(() => saFetchShopsFromCloud().catch(()=>{}), 600);
+      })
       .catch(e => console.warn("update_shop xato:", e.message));
   } catch(e) { console.warn("Bulutga yozish:", e.message); }
 
@@ -1176,10 +1190,29 @@ function saEditShop(id) { saEditShopFull(id); }
 // ── Bloklash / faollashtirish ─────────────────────
 function saToggleShop(id) {
   const s = _saShops.find(x => x.id === id); if (!s) return;
-  s.blocked = !s.blocked;
-  if (!s.blocked && s.plan !== "lifetime") s.expiresAt = addDaysToDate(new Date(), 30);
+
+  // ⚠️ 2026-07-26 TUZATISH: avval faqat `blocked` teskari qilinardi.
+  // MUDDATI TUGAGAN (lekin bloklanmagan) do'konda tugma "Faollashtirish"
+  // deb turardi, bosilganda esa do'konni BLOKLAB qo'yardi — teskari ish.
+  // Endi HOLATGA qarab ishlaydi: faol bo'lsa → bloklash, faol bo'lmasa
+  // (bloklangan YOKI muddati tugagan) → to'liq faollashtirish.
+  const wasActive = saIsActive(s);
+
+  if (wasActive) {
+    s.blocked = true;                       // faol edi → bloklaymiz
+  } else {
+    s.blocked = false;                      // faol emas → ochamiz
+    // Muddati tugagan yoki yo'q bo'lsa — 30 kun beramiz
+    if (s.plan !== "lifetime") {
+      const exp = s.expiresAt ? new Date(s.expiresAt) : null;
+      if (!exp || exp <= new Date()) s.expiresAt = addDaysToDate(new Date(), 30);
+    }
+  }
+
   saSaveShops(); renderSaShops();
-  showSaToast(s.blocked ? `"${s.name}" bloklandi` : `"${s.name}" faollashtirildi`);
+  showSaToast(s.blocked
+    ? `"${s.name}" bloklandi`
+    : `"${s.name}" faollashtirildi${s.expiresAt ? " (" + s.expiresAt.slice(0,10) + " gacha)" : ""}`);
   // 2026-07-26: SERVER orqali (brauzerdan RLS to'sardi)
   const _cid = s.cloudShopId || s.shop_id || s.id;
   _saApi("update_shop", { shopId: _cid, data: {
@@ -1187,9 +1220,13 @@ function saToggleShop(id) {
     blocked: !!s.blocked,
     trial_ends: (s.plan === "lifetime") ? null : (s.expiresAt || null)
   }})
-    .then(d => console.log(d.ok
-      ? `☁️ "${s.name}" ${s.blocked ? "bloklandi" : "faollashtirildi"} (bulutda)`
-      : "❌ " + (d.error || "")))
+    .then(d => {
+      console.log(d.ok
+        ? `☁️ "${s.name}" ${s.blocked ? "bloklandi" : "faollashtirildi"} (bulutda)`
+        : "❌ " + (d.error || ""));
+      if (d.ok && typeof saFetchShopsFromCloud === "function")
+        setTimeout(() => saFetchShopsFromCloud().catch(()=>{}), 600);
+    })
     .catch(e => console.warn("toggle xato:", e.message));
 }
 
