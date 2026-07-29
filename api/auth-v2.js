@@ -435,7 +435,7 @@ module.exports = async function handler(req, res) {
     // ── 7. Barcha do'konlar ro'yxatini olish (SuperAdmin uchun) ────
     if (action === "get_shops") {
       const shopsRes = await fetch(
-        `${SB_URL}/rest/v1/shops?select=id,name,owner_email,plan,active,blocked,trial_ends,created_at,shop_type&order=created_at.desc`,
+        `${SB_URL}/rest/v1/shops?active=eq.true&select=id,name,owner_email,plan,active,blocked,trial_ends,created_at,shop_type&order=created_at.desc`,
         {
           headers: {
             apikey: SERVICE_KEY,

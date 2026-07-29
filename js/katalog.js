@@ -1314,8 +1314,18 @@ function deleteProduct() {
   // 2026-07-25 (№4): ombor va katalog PARALLEL — tovar o'chsa, uning
   // kirim tarixi ham o'chadi (avval omborda "arvoh" yozuvlar qolardi)
   const _omBefore = (db.ombor || []).length;
+  const _omRemovedIds = (db.ombor || []).filter(o => o.sku === p.sku).map(o => o.id);
   db.ombor = (db.ombor || []).filter(o => o.sku !== p.sku);
   const _omRemoved = _omBefore - db.ombor.length;
+
+  // 2026-07-26: o'chirishni NAVBATGA yozamiz — bulutga yetishi
+  // kafolatlanadi (pull tugamagan bo'lsa ham tirilmaydi)
+  try {
+    if (typeof queueCloudDelete === "function") {
+      queueCloudDelete("products", "sku", p.sku);
+      _omRemovedIds.forEach(oid => queueCloudDelete("ombor", "id", oid));
+    }
+  } catch(e) {}
 
   db.products = db.products.filter(x => x.sku !== editSku);
   saveDB();

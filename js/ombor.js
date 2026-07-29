@@ -1290,6 +1290,7 @@ function omDeleteKirim(id) {
   }
 
   // Kirim yozuvini o'chiramiz
+  try { if (typeof queueCloudDelete === "function") queueCloudDelete("ombor", "id", id); } catch(e) {}
   db.ombor = (db.ombor || []).filter(x => x.id !== id);
 
   // Qoldiq 0 va boshqa kirimi yo'q bo'lsa — tovar ham o'chadi
@@ -1298,6 +1299,7 @@ function omDeleteKirim(id) {
     const newQty  = p.variants.reduce((a, v) => a + (v.qty || 0), 0);
     const hasMore = (db.ombor || []).some(x => x.sku === p.sku);
     if (newQty <= 0 && !hasMore) {
+      try { if (typeof queueCloudDelete === "function") queueCloudDelete("products", "sku", p.sku); } catch(e) {}
       db.products = db.products.filter(x => x.sku !== p.sku);
       prodRemoved = true;
     }
@@ -1356,6 +1358,10 @@ function omDeletePartiya(partiya) {
   });
 
   // Kirim yozuvlarini o'chiramiz
+  try {
+    if (typeof queueCloudDelete === "function")
+      rows.forEach(r => queueCloudDelete("ombor", "id", r.id));
+  } catch(e) {}
   db.ombor = (db.ombor || []).filter(o => o.partiya !== partiya);
 
   // Qoldig'i 0 va boshqa kirimi yo'q tovarlarni katalogdan chiqaramiz
@@ -1366,6 +1372,7 @@ function omDeletePartiya(partiya) {
     const qty     = p.variants.reduce((a, v) => a + (v.qty || 0), 0);
     const hasMore = (db.ombor || []).some(x => x.sku === sku);
     if (qty <= 0 && !hasMore) {
+      try { if (typeof queueCloudDelete === "function") queueCloudDelete("products", "sku", sku); } catch(e) {}
       db.products = db.products.filter(x => x.sku !== sku);
       removed++;
     }

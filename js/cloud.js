@@ -737,6 +737,10 @@ async function pushToCloud() {
         if (typeof toast === "function") toast("⚠️ Ma'lumot himoyalandi: bulut bo'sh lokal bilan almashtirilmadi", "err");
         throw new Error("empty-local-guard"); // push to'xtaydi, o'chirish yuborilmaydi
       }
+      // 2026-07-26: AVVAL navbatdagi o'chirishlarni bajaramiz — ular
+      // _cloudIds ga BOG'LIQ EMAS, shuning uchun ishonchli
+      try { await processPendingDeletes(sid); } catch(e) {}
+
       for (const [table, cfg] of Object.entries(delMap)) {
         const seen = _cloudIds[table];
         // Bulutda bu jadvaldan hech narsa ko'rilmagan — o'chiradigan narsa yo'q.
@@ -779,6 +783,13 @@ async function pushToCloud() {
       // v178: muvaffaqiyat endi JIM — kassirni chalg'itmaydi.
       // (Xato bo'lsa toast CHIQADI — bu muhim va qoladi.)
       console.log("✅ Cloud sinxron OK");
+      // 2026-07-26: navbatda qolgan o'chirishlar bo'lsa qayta urinamiz
+      try {
+        if ((db._pendingDeletes || []).length) {
+          console.log(`🗑 navbatda ${db._pendingDeletes.length} ta o'chirish — qayta urinilmoqda`);
+          await processPendingDeletes(sid);
+        }
+      } catch(e) {}
     }
     updateCloudUI(true);
     // Oxirgi sync vaqtini saqlaymiz.
@@ -1670,4 +1681,61 @@ function _bkMapXarajat(x, sid) {
 }
 function _bkMapStaff(s, sid) {
   return { shop_id:sid, name:s.name, phone:s.phone, role:s.role, data:s };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// O'CHIRISH NAVBATI (2026-07-26) — "tirilish" muammosining ILDIZ YECHIMI
+//
+// Muammo: o'chirish bulutga faqat _cloudIds to'lgan bo'lsa yetardi.
+// _cloudIds esa pull tugagandan keyin to'ladi va sahifa yangilanganda
+// bo'shab qoladi. Ya'ni pull tugamasdan o'chirilsa — o'chirish JIMGINA
+// tashlab yuborilardi, keyingi pull yozuvni QAYTARARDI.
+//
+// Yechim: har o'chirish db'ga NAVBATGA yoziladi (localStorage'da
+// saqlanadi, sahifa yangilansa ham yo'qolmaydi). Har push'da navbat
+// qayta ishlanadi — bulutdan o'chiriladi va tombstone yoziladi.
+// Muvaffaqiyatli bo'lgach navbatdan chiqadi.
+// ═══════════════════════════════════════════════════════════════
+function queueCloudDelete(table, keyCol, keyVal) {
+  if (!table || keyVal == null) return;
+  if (!db._pendingDeletes) db._pendingDeletes = [];
+  const k = String(keyVal);
+  if (db._pendingDeletes.some(d => d.table === table && String(d.val) === k)) return;
+  db._pendingDeletes.push({ table, keyCol, val: k, at: Date.now() });
+  try { saveDB(); } catch(e) {}
+  console.log(`🗑 navbatga: ${table}.${keyCol}=${k}`);
+}
+
+async function processPendingDeletes(sid) {
+  const q = db._pendingDeletes || [];
+  if (!q.length || !_sb || !sid) return 0;
+
+  let done = 0;
+  const left = [];
+  for (const d of q) {
+    try {
+      // 1) Tombstone — boshqa qurilmalar ham bilsin
+      await _sb.from("deleted_records").upsert(
+        [{ shop_id: sid, table_name: d.table, record_id: d.val }],
+        { onConflict: "shop_id,table_name,record_id" }
+      );
+      // 2) Bulutdan o'chiramiz
+      const { error } = await _sb.from(d.table)
+        .delete().eq("shop_id", sid).eq(d.keyCol, d.val);
+      if (error) { left.push(d); continue; }
+
+      _tombstones.add(d.table + ":" + d.val);
+      if (_cloudIds[d.table]) _cloudIds[d.table].delete(d.val);
+      done++;
+    } catch (e) {
+      left.push(d);   // keyingi push'da qayta uriniladi
+    }
+  }
+  db._pendingDeletes = left;
+  if (done > 0) {
+    try { saveDB(); } catch(e) {}
+    console.log(`🗑 ${done} ta o'chirish bulutda tasdiqlandi` +
+      (left.length ? ` · ${left.length} tasi navbatda qoldi` : ""));
+  }
+  return done;
 }
