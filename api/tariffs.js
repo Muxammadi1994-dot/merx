@@ -15,10 +15,11 @@ export default async function handler(req, res) {
   if (req.method !== "GET")
     return res.status(405).json({ ok: false, error: "Faqat GET" });
 
-  const SB_URL = process.env.SUPABASE_URL || process.env.MERX_SUPABASE_URL;
-  const KEY    = process.env.SUPABASE_SERVICE_KEY
-              || process.env.MERX_SUPABASE_SERVICE_KEY
-              || process.env.SUPABASE_ANON_KEY;
+  // 2026-07-26: o'zgaruvchi nomlari auth-v2.js dagi bilan BIR XIL bo'lishi
+  // shart — avval boshqa nom kutilgani uchun API ishlamasdi
+  const SB_URL = process.env.SUPABASE_URL;
+  const KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY
+              || process.env.SUPABASE_KEY;
 
   if (!SB_URL || !KEY)
     return res.status(500).json({ ok: false, error: "Server sozlanmagan" });

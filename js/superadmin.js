@@ -456,18 +456,6 @@ function buildSaPanel() {
                 <option value="multi">Ko'p valyutali</option>
               </select>
             </div>
-            <div>
-              <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Modullar</label>
-              <select id="sa-new-modules" multiple style="${saInputStyle()} height:76px">
-                <option value="pos" selected>📦 POS · Sotuv</option>
-                <option value="ombor" selected>🏭 Ombor</option>
-                <option value="hisobot" selected>📊 Hisobot</option>
-                <option value="sms">📱 SMS (Eskiz)</option>
-                <option value="cloud">☁️ Cloud sync</option>
-              </select>
-            </div>
-          </div>
-
           <!-- Login preview -->
           <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;
             padding:12px 16px;margin-top:16px">
