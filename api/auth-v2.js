@@ -585,7 +585,65 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true, shops: shopsData });
     }
 
-    return res.status(400).json({ ok: false, error: "Noma'lum action. Mavjud: signup_test, login_test, create_shop, update_shop_password, delete_test_user" });
+    // ── 9. DO'KON HOLATI — OCHIQ action (2026-07-30) ────────────
+    // Do'kon ilovasi o'zining obuna holatini shu yerdan biladi.
+    // AVVAL: bloklash/muddat FAQAT SuperAdmin panelida ko'rinardi,
+    // do'kon egasi esa hech qanday cheklovsiz ishlashda davom etardi.
+    //
+    // Hukmni SERVER chiqaradi — qurilma soati orqaga surilsa ham
+    // muddat "cho'zilmaydi".
+    // SA paroli KERAK EMAS (SA_ACTIONS ro'yxatiga qo'shilmagan):
+    // faqat holat qaytadi, sir ma'lumot yo'q.
+    if (action === "shop_status") {
+      const shopId = body.shopId || body.shop_id;
+      if (!shopId) return res.status(400).json({ ok: false, error: "shopId majburiy" });
+
+      const stRes = await fetch(
+        `${SB_URL}/rest/v1/shops?id=eq.${encodeURIComponent(shopId)}` +
+        `&select=name,plan,active,blocked,trial_ends,tier&limit=1`,
+        { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
+      );
+
+      // Bulut javob bermasa — CHEKLAMAYMIZ. "Ochiq qolish" xatosi
+      // "noto'g'ri qulflash" xatosidan ancha yengil.
+      if (!stRes.ok) {
+        return res.status(200).json({ ok: true, status: "unknown", reason: "shops o'qilmadi" });
+      }
+      const stRows = await stRes.json();
+      const sh = (Array.isArray(stRows) && stRows[0]) || null;
+      if (!sh) return res.status(200).json({ ok: true, status: "unknown", reason: "yozuv yo'q" });
+
+      let status = "ok";
+      let daysLeft = null;
+
+      if (sh.blocked === true) {
+        status = "blocked";
+      } else if (sh.active === false) {
+        status = "blocked";          // o'chirilgan do'kon
+      } else if (sh.plan !== "lifetime" && sh.trial_ends) {
+        // trial_ends turli ko'rinishda kelishi mumkin: "2026-08-25"
+        // yoki to'liq ISO. Ikkalasi ham ishlashi uchun sanani kesamiz.
+        const day = String(sh.trial_ends).slice(0, 10);
+        const end = new Date(day + "T23:59:59Z").getTime();  // kun oxirigacha amal qiladi
+        if (!isNaN(end)) {
+          const now = Date.now();
+          if (now > end) status = "expired";
+          else daysLeft = Math.ceil((end - now) / 86400000);
+        }
+      }
+
+      return res.status(200).json({
+        ok: true,
+        status,                       // ok | blocked | expired | unknown
+        days_left:  daysLeft,
+        name:       sh.name  || null,
+        plan:       sh.plan  || null,
+        expires_at: sh.trial_ends || null,
+        tier:       sh.tier  || null
+      });
+    }
+
+    return res.status(400).json({ ok: false, error: "Noma'lum action. Mavjud: signup_test, login_test, create_shop, update_shop_password, delete_test_user, shop_status" });
   } catch (e) {
     return res.status(500).json({ ok: false, error: "Server xatosi: " + e.message });
   }

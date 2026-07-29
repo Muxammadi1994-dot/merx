@@ -1158,7 +1158,8 @@ function saEditSave(id) {
       price_uzs: priceUzs || null,
       trial_ends: (plan === "lifetime") ? null
                   : (s.expiresAt ? s.expiresAt.slice(0,10) : null),
-      active: s.blocked ? false : true,
+      // 2026-07-30: bloklash `active` ga tegmaydi (yuqoridagi izohga qarang)
+      active: true,
       blocked: !!s.blocked
     };
     _saApi("update_shop", { shopId: _cloudId, data: _payload })
@@ -1299,7 +1300,12 @@ function saToggleShop(id) {
   // 2026-07-26: SERVER orqali (brauzerdan RLS to'sardi)
   const _cid = s.cloudShopId || s.shop_id || s.id;
   _saApi("update_shop", { shopId: _cid, data: {
-    active:  !s.blocked,
+    // 2026-07-30: `active` ENDI TEGILMAYDI. Avval bloklashda
+    // active=false yozilardi, `get_shops` esa active=not.is.false
+    // bilan filtrlaydi — bloklangan do'kon ro'yxatdan YO'QOLARDI va
+    // yangi qurilmadan uni ochib bo'lmasdi. Endi active faqat
+    // "o'chirilgan" ma'nosini bildiradi (delete_shop yozadi).
+    active:  true,
     blocked: !!s.blocked,
     trial_ends: (s.plan === "lifetime") ? null : (s.expiresAt || null)
   }})
@@ -1714,20 +1720,80 @@ function saSavePriceSettings() {
 }
 
 // ── Obuna tekshiruvi ──────────────────────────────
-function checkCurrentShopSubscription() {
-  saLoadShops();
-  if (sessionStorage.getItem("merx_is_sa_view") === "1") return;
-  const activeKey = sessionStorage.getItem("merx_active_shop") || "merx_v5";
-  if (activeKey === "merx_v5") return;
-  const shop = _saShops.find(s => s.dbKey === activeKey);
-  if (!shop) return;
-  if (shop.blocked) { showSubscriptionWall("blocked", shop); return; }
-  if (saIsExpired(shop)) { showSubscriptionWall("expired", shop); return; }
-  if (shop.expiresAt && shop.plan !== "lifetime") {
-    const daysLeft = Math.ceil((new Date(shop.expiresAt) - new Date()) / 86400000);
-    if (daysLeft <= 3) showSubscriptionWarning(daysLeft, shop);
+// 2026-07-30 QAYTA YOZILDI. Avvalgi variant `sessionStorage`dagi
+// "merx_active_shop" kalitiga tayanardi — u kalit KOD BO'YICHA HECH
+// QAYERDA YOZILMASDI, shuning uchun funksiya har safar birinchi
+// qatorda chiqib ketardi. Natija: SuperAdmin do'konni bloklasa ham
+// do'kon egasi hech narsa sezmasdi.
+//
+// Endi holat BULUTDAN (server hukmi bilan) olinadi:
+//   /api/auth-v2?action=shop_status  →  ok | blocked | expired | unknown
+//
+// Himoyalar:
+//  · Internet yo'q bo'lsa — oxirgi ma'lum holat ishlatiladi
+//  · Hech qachon tekshirilmagan bo'lsa — CHEKLANMAYDI (fail-open)
+//  · SuperAdmin "do'kon sifatida kirish" rejimida devor chiqmaydi
+async function checkCurrentShopSubscription() {
+  // 1) SuperAdmin ko'rinishi — cheklov qo'llanmaydi
+  try {
+    const u = JSON.parse(localStorage.getItem("merx_auth_v1") || "{}");
+    if (u && (u.saAccess === true || u.role === "superadmin")) return;
+  } catch(e) {}
+
+  // 2) Do'kon ID — busiz tekshirib bo'lmaydi (faqat lokal rejim)
+  const sid = (typeof getCloudShopId === "function") ? getCloudShopId() : null;
+  if (!sid) return;
+
+  const CK = "merx_sub_status_" + sid;
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(CK) || "null"); } catch(e) {}
+
+  // 3) Serverdan so'raymiz
+  let fresh = null;
+  try {
+    const r = await fetch("/api/auth-v2?action=shop_status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shopId: sid })
+    });
+    const d = await r.json();
+    if (d && d.ok && d.status) {
+      fresh = d;
+      try {
+        localStorage.setItem(CK, JSON.stringify({
+          status: d.status, daysLeft: d.days_left,
+          name: d.name, expiresAt: d.expires_at, at: Date.now()
+        }));
+      } catch(e) {}
+    }
+  } catch(e) { /* internet yo'q — pastda oxirgi ma'lum holat ishlatiladi */ }
+
+  // 4) Hukm. Server ham, kesh ham yo'q bo'lsa — "ok" (fail-open)
+  const status   = (fresh && fresh.status)     || (cached && cached.status)   || "ok";
+  const daysLeft = (fresh ? fresh.days_left    : (cached ? cached.daysLeft   : null));
+  const shopInfo = {
+    name:      (fresh && fresh.name) || (cached && cached.name) || db?.shop?.name || "Do'kon",
+    expiresAt: (fresh && fresh.expires_at) || (cached && cached.expiresAt) || null,
+    plan:      (fresh && fresh.plan) || null
+  };
+
+  if (status === "blocked") { showSubscriptionWall("blocked", shopInfo); return; }
+  if (status === "expired") { showSubscriptionWall("expired", shopInfo); return; }
+
+  // Devor yo'q — agar avval chiqarilgan bo'lsa olib tashlaymiz
+  // (masalan SuperAdmin faollashtirgan bo'lsa)
+  if (status === "ok") {
+    const w = document.getElementById("sub-wall");
+    if (w) { w.remove(); const a = document.getElementById("app"); if (a) a.style.display = ""; }
+    if (daysLeft != null && daysLeft <= 3) showSubscriptionWarning(daysLeft, shopInfo);
   }
 }
+
+// Har 30 daqiqada qayta tekshiramiz — aks holda kun bo'yi ochiq
+// turgan ilovada bloklash faqat sahifa yangilangach ta'sir qilardi.
+setInterval(() => {
+  try { checkCurrentShopSubscription(); } catch(e) {}
+}, 30 * 60 * 1000);
 
 function showSubscriptionWall(reason, shop) {
   const app = document.getElementById("app");
