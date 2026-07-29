@@ -1079,7 +1079,11 @@ function saEditSave(id) {
   // qurilmadan kirsa ham shu rejimda ochilsin
   try {
     const _cloudId = s.cloudShopId || s.shop_id || id;
-    saPushCurrencyMode(_cloudId, curMode);
+    _saApi("set_currency_mode", { shopId: _cloudId, mode: curMode })
+      .then(d => console.log(d.ok
+        ? `💱 ${_cloudId}: valyuta rejimi "${curMode}" saqlandi`
+        : "❌ Valyuta rejimi: " + (d.error || "")))
+      .catch(e => console.warn("Valyuta rejimi xato:", e.message));
   } catch(e) { console.warn("Valyuta rejimi bulutga:", e.message); }
 
   saSaveShops();
@@ -1166,7 +1170,10 @@ function saDeleteShop(id) {
   saSaveShops(); renderSaShops();
   showSaToast(`"${s.name}" o'chirildi`);
   // Supabase dan ham o'chiramiz
-  _saDeleteShopFromSupabase(id).catch(e => console.warn("Supabase delete xato:", e.message));
+  // 2026-07-26: SERVER orqali (SERVICE_KEY) — brauzerdan RLS to'sardi
+  _saApi("delete_shop", { shopId: id })
+    .then(d => console.log(d.ok ? `🗑 "${s.name}" bulutdan o'chirildi` : "❌ " + (d.error||"")))
+    .catch(e => console.warn("Do'kon o'chirish xato:", e.message));
 }
 
 async function _saDeleteShopFromSupabase(shopId) {
@@ -1786,4 +1793,20 @@ async function saPushCurrencyMode(shopId, mode) {
     console.warn("Valyuta rejimi xato:", e.message);
     return false;
   }
+}
+
+
+// ═══ SUPERADMIN SERVER CHAQIRUVI (2026-07-26) ═══
+// SuperAdmin amallari SERVICE_KEY bilan serverda bajariladi —
+// brauzerdagi ochiq kalit boshqa do'kon yozuvini o'zgartira olmaydi.
+async function _saApi(action, payload) {
+  const res = await fetch(`/api/auth-v2?action=${action}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-sa-pass": sessionStorage.getItem("merx_sa_pass") || ""
+    },
+    body: JSON.stringify(payload || {})
+  });
+  return res.json();
 }

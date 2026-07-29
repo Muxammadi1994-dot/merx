@@ -55,7 +55,12 @@ module.exports = async function handler(req, res) {
   const SA_PASS = process.env.MERX_SA_PASS || "";
   const SA_ACTIONS = ["sa_login","create_shop","update_shop",
     "update_shop_password","get_shops","link_existing_shop",
-    "delete_test_user","signup_test"];
+    "delete_test_user","signup_test",
+    // 2026-07-26: SuperAdmin amallari SERVER orqali (SERVICE_KEY bilan).
+    // Brauzerdagi ochiq kalit boshqa do'kon yozuvini o'zgartira olmaydi
+    // (RLS to'sadi) — shuning uchun o'chirish va valyuta rejimi
+    // bulutga umuman yetmasdi.
+    "delete_shop","set_currency_mode"];
   if (SA_ACTIONS.includes(action)) {
     // MUHIM: SA_PASS bo'sh bo'lsa HAM rad etiladi — aks holda bo'sh
     // parol bilan kirish mumkin bo'lib qolardi.
@@ -433,9 +438,54 @@ module.exports = async function handler(req, res) {
     }
 
     // ── 7. Barcha do'konlar ro'yxatini olish (SuperAdmin uchun) ────
+    // ═══ DO'KONNI O'CHIRISH (2026-07-26) ═══
+    // SERVICE_KEY bilan — brauzerdan RLS to'sardi
+    if (action === "delete_shop") {
+      const shopId = body.shopId || body.shop_id;
+      if (!shopId) return res.status(400).json({ ok: false, error: "shopId majburiy" });
+      const r = await fetch(`${SB_URL}/rest/v1/shops?id=eq.${encodeURIComponent(shopId)}`, {
+        method: "PATCH",
+        headers: {
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "return=representation"
+        },
+        body: JSON.stringify({ active: false })
+      });
+      const d = await r.json();
+      if (!r.ok) return res.status(r.status).json({ ok: false, error: "O'chirilmadi", detail: d });
+      return res.status(200).json({ ok: true, shop: d?.[0] || null });
+    }
+
+    // ═══ VALYUTA REJIMINI BELGILASH (2026-07-26) ═══
+    if (action === "set_currency_mode") {
+      const shopId = body.shopId || body.shop_id;
+      const mode   = body.mode;
+      if (!shopId || !["uzs","usd","multi"].includes(mode))
+        return res.status(400).json({ ok: false, error: "shopId va mode majburiy" });
+
+      const payload = { shop_id: shopId, currency_mode: mode };
+      if (mode === "uzs" || mode === "usd") payload.price_currency = mode;
+
+      const r = await fetch(`${SB_URL}/rest/v1/settings?on_conflict=shop_id`, {
+        method: "POST",
+        headers: {
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=representation"
+        },
+        body: JSON.stringify([payload])
+      });
+      const d = await r.json();
+      if (!r.ok) return res.status(r.status).json({ ok: false, error: "Yozilmadi", detail: d });
+      return res.status(200).json({ ok: true, settings: d?.[0] || null });
+    }
+
     if (action === "get_shops") {
       const shopsRes = await fetch(
-        `${SB_URL}/rest/v1/shops?active=eq.true&select=id,name,owner_email,plan,active,blocked,trial_ends,created_at,shop_type&order=created_at.desc`,
+        `${SB_URL}/rest/v1/shops?active=not.is.false&select=id,name,owner_email,plan,active,blocked,trial_ends,created_at,shop_type&order=created_at.desc`,
         {
           headers: {
             apikey: SERVICE_KEY,
