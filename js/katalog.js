@@ -752,19 +752,14 @@ function openEditProduct(sku) {
     : Math.round((p.costUsd || 0) * (db.settings?.rate || 12800));
   $("ep-price").value           = p.priceUzs;
   {
-    // v167: Ulgurji narxni joriy valyuta rejimida ko'rsatamiz
-    const _curU  = db.settings?.priceCurrency || "uzs";
-    const _rateU = db.settings?.rate || 12800;
+    // 2026-07-26: ulgurji narx HAR DOIM SO'MDA ko'rsatiladi va
+    // kiritiladi. Avval "USD/ikki valyuta" rejimida dollarga
+    // aylantirilib ko'rsatilardi va saqlashda qayta ko'paytirilib
+    // narx buzilardi.
     const _ulgEl = $("ep-ulgurji");
     if (_ulgEl) {
-      if (_curU === "usd" || _curU === "both") {
-        const usdVal = (p.ulgurjiNarx || 0) / _rateU;
-        _ulgEl.value = usdVal ? usdVal.toFixed(2) : "";
-        _ulgEl.dataset.raw = usdVal ? usdVal.toFixed(2) : "0";
-      } else {
-        _ulgEl.value = fmt(p.ulgurjiNarx || 0);
-        _ulgEl.dataset.raw = String(p.ulgurjiNarx || 0);
-      }
+      _ulgEl.value = fmt(p.ulgurjiNarx || 0);
+      _ulgEl.dataset.raw = String(p.ulgurjiNarx || 0);
     }
   }
   if ($("ep-unit"))    $("ep-unit").value    = p.unit    || "dona";
@@ -2368,11 +2363,9 @@ function vcFillAddProductForm(item) {
   }
 
   const rate = db.settings?.rate || 12800;
-  const cur1 = db.settings?.priceCurrency || "uzs";
+  // 2026-07-26: tannarx HAR DOIM SO'MDA (AI ham so'mda beradi)
   if ($("ap-cost") && item.tannarx_som > 0) {
-    $("ap-cost").value = (cur1 === "usd" || cur1 === "both")
-      ? (item.tannarx_som / rate).toFixed(2)
-      : item.tannarx_som;
+    $("ap-cost").value = item.tannarx_som;
     if (typeof fmtInput === "function") fmtInput($("ap-cost"));
   }
   if ($("ap-ulgurji") && item.sotuv_narxi_som > 0) {

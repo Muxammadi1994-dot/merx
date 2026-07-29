@@ -850,7 +850,8 @@ function updateDashCurrencyPill() {
   if (el) el.textContent = (db.settings?.rate || 12800).toLocaleString('ru-RU');
   const cur = $('tb-cur');
   const c = db.settings?.priceCurrency || 'uzs';
-  if (cur) cur.textContent = c === 'usd' ? 'USD' : c === 'both' ? "SO'M+USD" : "SO'M";
+  if (cur) cur.textContent = (typeof currencyLabel === "function")
+    ? currencyLabel(c) : (c === 'usd' ? 'USD' : c === 'both' ? "SO'M+USD" : "SO'M");
 }
 
 // Yuqori paneldagi tugma ham SOZLAMALAR sahifasidagi 3 ta variant

@@ -85,7 +85,8 @@ async function checkAutoRate(force) {
 function currencyPillText() {
   const cur  = db.settings?.priceCurrency || "uzs";
   const rate = db.settings?.rate || 12800;
-  const lbl  = cur === "usd" ? "USD" : cur === "both" ? "SO'M+USD" : "SO'M";
+  const lbl  = (typeof currencyLabel === "function") ? currencyLabel(cur)
+    : (cur === "usd" ? "USD" : cur === "both" ? "SO'M+USD" : "SO'M");
   return `${lbl} (1$=${fmt(rate)})`;
 }
 

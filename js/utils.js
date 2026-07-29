@@ -318,8 +318,9 @@ function nav(p) {
 // orqali, bulutga sinxronlanadi). Bu yerda qayta e'lon QILINMASIN!
 function updateRatePill() {
   $("tb-rate").textContent = fmt(db.settings.rate || 0);
-  const lbl = { uzs:"so'm", usd:"USD", both:"so'm/USD" };
-  $("tb-cur").textContent = lbl[db.settings.priceCurrency || "uzs"] || "so'm";
+  // 2026-07-26: valyuta yorlig'i YAGONA manbadan (avval uch faylda
+  // uch xil yozilib, tugma goh "SO'M+USD", goh "so'm/USD" ko'rinardi)
+  $("tb-cur").textContent = currencyLabel();
 }
 function openModal(id, keepOthers) {
   // Mobil: modal ichidagi raqamli maydonlarga raqam klaviaturasi (2026-07-24)
@@ -2127,4 +2128,11 @@ function migrateCostToUzs() {
     console.log(`💰 ${n} ta tovar tannarxi so'mga o'tkazildi (kurs ${rate})`);
   }
   return n;
+}
+
+
+// Valyuta rejimi yorlig'i — BARCHA joyda shu funksiya ishlatiladi
+function currencyLabel(cur) {
+  const c = cur || db.settings?.priceCurrency || "uzs";
+  return c === "usd" ? "USD" : c === "both" ? "SO'M+USD" : "SO'M";
 }
