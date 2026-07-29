@@ -1940,3 +1940,28 @@ async function _saApi(action, payload) {
   });
   return res.json();
 }
+
+// ═══ F5 DAN KEYIN PANELNI TIKLASH (2026-07-26) ═══
+// Avval sahifa yangilangach SuperAdmin paneli o'zi ochilmasdi —
+// foydalanuvchi asosiy ilovaga tushib qolib, "chiqarib yubordi" deb
+// o'ylardi. Endi amaldagi sessiya bo'lsa panel avtomat qaytadi.
+function saRestorePanelIfLoggedIn() {
+  try {
+    saLoad();
+    if (!_saSession) return false;
+    // ⚠️ openSaPanel() toggle qiladi (ochiq bo'lsa YOPADI) — shuning
+    // uchun faqat panel YO'Q bo'lganda chaqiramiz
+    if (document.getElementById("sa-overlay")) return true;
+    openSaPanel();
+    console.log("🔐 SuperAdmin sessiyasi tiklandi");
+    return true;
+  } catch(e) { return false; }
+}
+
+// Ilova yuklangach tekshiramiz (DOM tayyor bo'lgach)
+if (typeof window !== "undefined") {
+  const _saBoot = () => setTimeout(saRestorePanelIfLoggedIn, 400);
+  if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", _saBoot);
+  else _saBoot();
+}

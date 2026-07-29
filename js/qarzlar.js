@@ -1263,7 +1263,9 @@ async function recordPayment(id, forcedCurrency) {
     await sendSms(phone, smsTxt);
 
     // Telegram: to'lov cheki (mini-app tugmasi bilan) — v145
-    if (typeof sendTelegramPayReceipt === "function") {
+    // 2026-07-26: Telegram chek — faqat PRO tarifda
+    if (typeof sendTelegramPayReceipt === "function" &&
+        (typeof canUseBot !== "function" || canUseBot())) {
       await sendTelegramPayReceipt(clicked.customerId || null, phone, payment);
     } else if (typeof sendTelegramText === "function") {
       await sendTelegramText(clicked.customerId || null, phone, smsTxt);

@@ -2196,7 +2196,9 @@ async function checkout() {
   posLoyaltyPointsUsed = 0;
 
   // Telegram bot orqali avtomatik chek (mijoz botga ulangan bo'lsa)
-  if (typeof sendTelegramReceipt === "function") {
+  // 2026-07-26: Telegram chek — faqat PRO tarifda
+  if (typeof sendTelegramReceipt === "function" &&
+      (typeof canUseBot !== "function" || canUseBot())) {
     sendTelegramReceipt(customerId, newSale, cPhone);
   }
 

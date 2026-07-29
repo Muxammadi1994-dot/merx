@@ -2196,3 +2196,38 @@ function enforceCurrencyMode() {
   }
   return false;
 }
+
+// ═══ OBUNA TARIFI (2026-07-26) ═══
+// SuperAdmin belgilaydi: "start" (bot yopiq) yoki "pro" (hammasi ochiq).
+// Do'kon egasi o'zgartira olmaydi — bulutdan keladi.
+function getShopTier() {
+  const t = db.settings?.tier;
+  return t === "start" ? "start" : "pro";
+}
+
+// Bot bilan bog'liq imkoniyatlar (portal, Telegram chek, eslatmalar)
+function canUseBot() {
+  return getShopTier() === "pro";
+}
+
+// Yopiq imkoniyat bosilganda ko'rsatiladigan xabar
+function tierLockedToast(nima) {
+  toast(`🔒 ${nima || "Bu imkoniyat"} — PRO tarifda mavjud. ` +
+        `Yangilash uchun MERX bilan bog'laning.`, "info");
+}
+
+// Start tarifida bot bo'limlarini yashirish (sahifa yuklangach)
+function applyTierLock() {
+  const locked = !canUseBot();
+  document.querySelectorAll("[data-tier-pro]").forEach(el => {
+    if (locked) {
+      el.style.display = "none";
+    } else {
+      el.style.display = "";
+    }
+  });
+  // Yon menyudagi "Mijoz portali" bo'limi
+  const navPortal = document.querySelector('.ni[data-p="portal"]');
+  if (navPortal) navPortal.style.display = locked ? "none" : "";
+  return locked;
+}

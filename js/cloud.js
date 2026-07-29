@@ -1160,6 +1160,11 @@ async function pullFromCloud(silent = false, skipRender = false) {
       if (sets.shop_type) db.settings.shopType = sets.shop_type;
       // 2026-07-26: valyuta rejimi SuperAdmin tomonidan belgilanadi —
       // do'kon egasi o'zgartira olmaydi, faqat bulutdan keladi
+      // 2026-07-26: obuna tarifi — SuperAdmin belgilaydi, do'kon o'qiydi
+      if (sets.tier) {
+        db.settings.tier = sets.tier;
+        try { if (typeof applyTierLock === "function") applyTierLock(); } catch(e) {}
+      }
       if (sets.currency_mode) {
         db.settings.currencyMode = sets.currency_mode;
         // Qat'iy rejim kelgan bo'lsa darhol qo'llaymiz

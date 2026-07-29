@@ -1005,7 +1005,9 @@ function _refundAddDebtPayment(sale, amountUzs, refundNo, custTotals) {
   // Mijozga Telegram orqali chek (oddiy qarz to'lovi kabi)
   try {
     const _cust = (db.customers || []).find(c => c.id === sale.customerId);
-    if (typeof sendTelegramPayReceipt === "function" && (sale.customerId || _cust?.phone)) {
+    if (typeof sendTelegramPayReceipt === "function" &&
+        (typeof canUseBot !== "function" || canUseBot()) &&
+        (sale.customerId || _cust?.phone)) {
       sendTelegramPayReceipt(sale.customerId || null, _cust?.phone || null, payment);
     }
   } catch(e) { console.warn("Qaytarish cheki botga yuborilmadi:", e.message); }

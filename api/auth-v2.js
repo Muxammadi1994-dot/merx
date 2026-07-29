@@ -434,6 +434,23 @@ module.exports = async function handler(req, res) {
         return res.status(updRes.status).json({ ok: false, error: errData.message || "Yangilash muvaffaqiyatsiz" });
       }
 
+      // 2026-07-26: TARIF settings jadvaliga ham yoziladi — do'kon
+      // ilovasi shu jadvaldan o'qiydi (cheklovni qo'llash uchun)
+      if (data.tier) {
+        try {
+          await fetch(`${SB_URL}/rest/v1/settings?on_conflict=shop_id`, {
+            method: "POST",
+            headers: {
+              apikey: SERVICE_KEY,
+              Authorization: `Bearer ${SERVICE_KEY}`,
+              "Content-Type": "application/json",
+              Prefer: "resolution=merge-duplicates"
+            },
+            body: JSON.stringify([{ shop_id: shopId, tier: data.tier }])
+          });
+        } catch(e) { /* settings yozilmasa shops baribir yangilandi */ }
+      }
+
       return res.status(200).json({ ok: true, message: "✅ Do'kon yangilandi", shopId });
     }
 
@@ -503,7 +520,7 @@ module.exports = async function handler(req, res) {
       // tahrirlash oynasi har safar "ko'p valyutali" ni ko'rsatardi.
       try {
         const setRes = await fetch(
-          `${SB_URL}/rest/v1/settings?select=shop_id,currency_mode,price_currency`,
+          `${SB_URL}/rest/v1/settings?select=shop_id,currency_mode,price_currency,tier`,
           { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
         );
         if (setRes.ok) {
