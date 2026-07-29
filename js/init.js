@@ -32,6 +32,8 @@ function init() {
   if (!db.debtPayments) db.debtPayments = [];
 
   // ── 3. UI yangilash — endi getShopId() to'g'ri shopId qaytaradi ──
+  // 2026-07-26: SuperAdmin belgilagan valyuta rejimini majburlaymiz
+  try { if (typeof enforceCurrencyMode === "function") enforceCurrencyMode(); } catch(e) {}
   updateRatePill();
   if ($("sb-shop")) $("sb-shop").textContent = db.shop?.name || "MERX";
   if ($("debt-count")) $("debt-count").textContent = debtSales().length;

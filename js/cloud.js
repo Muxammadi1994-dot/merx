@@ -364,6 +364,7 @@ async function pushToCloud() {
           rate:           db.settings?.rate || 12800,
           price_currency: db.settings?.priceCurrency || "uzs",
           shop_type:      db.settings?.shopType || null,
+          currency_mode:  db.settings?.currencyMode || null,
           eskiz_token:    db.settings?.eskizToken    || null,
           eskiz_sender:   db.settings?.eskizSender   || null,
           telegram_bot:   db.settings?.telegramBotUrl || null,
@@ -1143,6 +1144,13 @@ async function pullFromCloud(silent = false, skipRender = false) {
       db.settings.rate           = sets.rate || 12800;
       db.settings.priceCurrency  = sets.price_currency || "uzs";
       if (sets.shop_type) db.settings.shopType = sets.shop_type;
+      // 2026-07-26: valyuta rejimi SuperAdmin tomonidan belgilanadi —
+      // do'kon egasi o'zgartira olmaydi, faqat bulutdan keladi
+      if (sets.currency_mode) {
+        db.settings.currencyMode = sets.currency_mode;
+        // Qat'iy rejim kelgan bo'lsa darhol qo'llaymiz
+        try { if (typeof enforceCurrencyMode === "function") enforceCurrencyMode(); } catch(e) {}
+      }
       db.settings.showChakana    = sets.show_chakana || false;
       if (sets.eskiz_token)    db.settings.eskizToken         = sets.eskiz_token;
       if (sets.eskiz_sender)   db.settings.eskizSender        = sets.eskiz_sender;

@@ -846,6 +846,8 @@ function renderDashDebtTable(debts) {
 // ── Valyuta pill (2026-07-09: SOZLAMALAR bilan YAGONA format va
 // YAGONA ma'lumot manbasi — ikkalasi endi har doim bir xil ko'rinadi) ──
 function updateDashCurrencyPill() {
+  // Qat'iy rejim bo'lsa sozlamani majburlaymiz
+  try { if (typeof enforceCurrencyMode === "function") enforceCurrencyMode(); } catch(e) {}
   const el = $('tb-rate');
   if (el) el.textContent = (db.settings?.rate || 12800).toLocaleString('ru-RU');
   const cur = $('tb-cur');
@@ -859,6 +861,13 @@ function updateDashCurrencyPill() {
 // funksiyani (saveSetting) chaqiradi, shuning uchun qaysi joydan
 // o'zgartirilsa ham BARCHA oynalar (Katalog, POS) birdek yangilanadi.
 function toggleCurrency() {
+  // 2026-07-26: qat'iy rejimda (SuperAdmin belgilagan) o'zgartirib bo'lmaydi
+  if (typeof canChangeCurrency === "function" && !canChangeCurrency()) {
+    const m = getShopCurrencyMode();
+    toast(`Do'kon ${m === "usd" ? "dollar" : "so'm"} rejimida ishlaydi — ` +
+          `valyutani o'zgartirish yopiq`, "info");
+    return;
+  }
   const order = ["uzs", "usd", "both"];
   const cur = db.settings?.priceCurrency || "uzs";
   const next = order[(order.indexOf(cur) + 1) % order.length];

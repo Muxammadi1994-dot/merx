@@ -2158,3 +2158,41 @@ function currencyLabel(cur) {
   const c = cur || db.settings?.priceCurrency || "uzs";
   return c === "usd" ? "USD" : c === "both" ? "SO'M+USD" : "SO'M";
 }
+
+// ═══ VALYUTA REJIMI — SUPERADMIN BOSHQARADI (2026-07-26) ═══
+// Do'kon ochilganda SuperAdmin belgilaydi:
+//   "uzs"   — faqat so'm (egasi o'zgartira olmaydi)
+//   "usd"   — faqat dollar (egasi o'zgartira olmaydi)
+//   "multi" — ko'p valyutali, egasi o'zi tanlaydi (eski xulq)
+// Sabab: ko'p do'konlar ko'p valyutali rejimda chalg'ib, tannarx va
+// ulgurji narxlar dollarga o'tib ketardi.
+function getShopCurrencyMode() {
+  const m = db.settings?.currencyMode;
+  return (m === "uzs" || m === "usd" || m === "multi") ? m : "multi";
+}
+
+// Egasi valyutani o'zgartira oladimi?
+function canChangeCurrency() {
+  return getShopCurrencyMode() === "multi";
+}
+
+// Amaldagi ko'rsatish valyutasi — qat'iy rejimda MAJBURIY
+function effectivePriceCurrency() {
+  const mode = getShopCurrencyMode();
+  if (mode === "uzs") return "uzs";
+  if (mode === "usd") return "usd";
+  return db.settings?.priceCurrency || "uzs";
+}
+
+// Qat'iy rejimda sozlamani ham to'g'rilab qo'yamiz (bir marta)
+function enforceCurrencyMode() {
+  const mode = getShopCurrencyMode();
+  if (mode === "multi") return false;
+  if (db.settings && db.settings.priceCurrency !== mode) {
+    db.settings.priceCurrency = mode;
+    saveDB();
+    console.log(`💱 Valyuta rejimi qat'iy: ${mode} (SuperAdmin belgilagan)`);
+    return true;
+  }
+  return false;
+}

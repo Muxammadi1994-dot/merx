@@ -876,7 +876,10 @@ async function saOpenShop(id) {
     const shopDB = {
       shop: { name: s.name, type: s.shop_type || s.shopType || "ikki" },
       settings: {
-        rate: 12800, priceCurrency: "uzs",
+        rate: 12800,
+        // 2026-07-26: valyuta rejimi SuperAdmin belgilaydi
+        currencyMode: s.currency_mode || s.currencyMode || "multi",
+        priceCurrency: (s.currency_mode || s.currencyMode) === "usd" ? "usd" : "uzs",
         shopType: s.shop_type || s.shopType || "ikki",
         cloudShopId: id,
         adminEmail: s.ownerEmail || (s.phone ? s.phone.replace(/\D/g,"")+"@merx.uz" : id+"@merx.uz"),
@@ -986,7 +989,20 @@ function saEditShopFull(id) {
           <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon turi</label>
           <select id="se-shoptype" style="${iStyle}">${shopTypeOpts}</select>
         </div>
-        <div>
+                <div>
+          <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">
+            Valyuta rejimi
+          </label>
+          <select id="se-curmode" style="${iStyle}">
+            <option value="uzs"${(s.currencyMode||"multi")==="uzs"?" selected":""}>So'm (faqat so'm)</option>
+            <option value="usd"${(s.currencyMode||"multi")==="usd"?" selected":""}>Dollar (faqat $)</option>
+            <option value="multi"${(s.currencyMode||"multi")==="multi"?" selected":""}>Ko'p valyutali (do'kon tanlaydi)</option>
+          </select>
+          <div style="font-size:10.5px;color:#9CA3AF;margin-top:4px;line-height:1.4">
+            So'm yoki Dollar tanlansa — do'kon egasi valyutani o'zgartira olmaydi
+          </div>
+        </div>
+<div>
           <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna turi</label>
           <select id="se-plan" style="${iStyle}" onchange="var d=document.getElementById('se-expires');if(this.value==='lifetime'){d.value='';d.disabled=true;}else{d.disabled=false;}">${planOpts}</select>
         </div>
@@ -1020,6 +1036,8 @@ function saEditSave(id) {
   const pass     = document.getElementById("se-pass")?.value.trim();
   const shopType = document.getElementById("se-shoptype")?.value || "ikki";
   const plan     = document.getElementById("se-plan")?.value || s.plan;
+  // 2026-07-26: valyuta rejimi — do'kon egasi o'zgartira olmaydi
+  const curMode  = document.getElementById("se-curmode")?.value || s.currencyMode || "multi";
   const expires  = document.getElementById("se-expires")?.value;
 
   if (!name) { showSaToast("Do'kon nomini kiriting", "err"); return; }
@@ -1027,7 +1045,8 @@ function saEditSave(id) {
   s.name      = name;
   s.ownerName = owner || s.ownerName;
   s.phone     = phone;
-  s.shopType  = shopType;
+  s.shopType     = shopType;
+  s.currencyMode = curMode;
   s.plan      = plan;
   if (login)                  s.ownerEmail = login;
   if (pass && pass.length>=4) s.ownerPass  = pass;

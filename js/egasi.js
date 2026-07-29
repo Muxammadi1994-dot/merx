@@ -173,6 +173,8 @@ function saveAdminCreds() {
 
 // ── renderEgasi (renderAdmin) — barcha tablarni to'ldiradi ──
 function renderEgasi() {
+  // 2026-07-26: valyuta rejimi qat'iy bo'lsa tanlovni yopamiz
+  try { applyCurrencyLock(); } catch(e) {}
   // 2026-07-26: chek valyuta sozlamasini formaga tiklaymiz
   try { loadChekDualSetting(); } catch(e) {}
   // ── DO'KON TAB ──
@@ -1235,4 +1237,27 @@ function saveRateManual() {
   toast(`✅ Kurs saqlandi: ${fmt(val)} so'm`);
   // Joriy sahifa narxlari yangilansin
   try { if (typeof renderEgasi === "function") renderEgasi(); } catch(e) {}
+}
+
+
+// Valyuta tanlovini qulflash (SuperAdmin qat'iy rejim belgilagan bo'lsa)
+function applyCurrencyLock() {
+  const seg    = document.getElementById("cur-seg");
+  const locked = document.getElementById("cur-locked");
+  const mode   = (typeof getShopCurrencyMode === "function") ? getShopCurrencyMode() : "multi";
+
+  if (mode === "multi") {
+    if (seg) seg.style.display = "";
+    if (locked) locked.style.display = "none";
+    return;
+  }
+  // Qat'iy rejim — tanlov yopiq, sozlama majburlanadi
+  try { if (typeof enforceCurrencyMode === "function") enforceCurrencyMode(); } catch(e) {}
+  if (seg) seg.style.display = "none";
+  if (locked) {
+    locked.style.display = "";
+    locked.innerHTML = `🔒 <b>${mode === "usd" ? "Dollar" : "So'm"}</b> rejimi ` +
+      `<span style="color:var(--mut)">— tizim sozlamasi</span><br>` +
+      `<span style="font-size:11px">O'zgartirish uchun MERX qo'llab-quvvatlash xizmatiga murojaat qiling.</span>`;
+  }
 }
