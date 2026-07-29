@@ -1063,12 +1063,24 @@ function saEditSave(id) {
       if (!shopDB.settings) shopDB.settings = {};
       shopDB.shop.name        = name;
       shopDB.shop.type        = shopType;
-      shopDB.settings.shopType = shopType;
+      shopDB.settings.shopType     = shopType;
+      // 2026-07-26: valyuta rejimi ham do'kon sozlamalariga yoziladi
+      shopDB.settings.currencyMode = curMode;
+      if (curMode === "uzs" || curMode === "usd") {
+        shopDB.settings.priceCurrency = curMode;   // qat'iy rejim — majburlaymiz
+      }
       if (login)                  shopDB.settings.adminEmail = login;
       if (pass && pass.length>=4) shopDB.settings.adminPass  = pass;
       localStorage.setItem(dbKey, JSON.stringify(shopDB));
     }
   } catch(e) {}
+
+  // 2026-07-26: valyuta rejimini BULUTGA ham yozamiz — do'kon boshqa
+  // qurilmadan kirsa ham shu rejimda ochilsin
+  try {
+    const _cloudId = s.cloudShopId || s.shop_id || id;
+    saPushCurrencyMode(_cloudId, curMode);
+  } catch(e) { console.warn("Valyuta rejimi bulutga:", e.message); }
 
   saSaveShops();
   renderSaShops();
@@ -1730,5 +1742,48 @@ async function saDoRestore(backupId, date) {
   } else {
     alert("❌ Tiklash xatosi: " + (res.error||"noma'lum"));
     if (btn) { btn.disabled = false; btn.textContent = "Tiklash"; }
+  }
+}
+
+// ═══ VALYUTA REJIMINI BULUTGA YOZISH (2026-07-26) ═══
+// SuperAdmin belgilagan rejim do'konning Supabase settings jadvaliga
+// yoziladi — shunda do'kon istalgan qurilmadan kirsa ham shu rejimda
+// ochiladi va egasi o'zgartira olmaydi.
+async function saPushCurrencyMode(shopId, mode) {
+  if (!shopId || !mode) return false;
+  let url = "", key = "";
+  try {
+    const m = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+    url = m?.settings?.supabaseUrl || "";
+    key = m?.settings?.supabaseKey || "";
+  } catch(e) {}
+  if (!url && typeof MERX_SUPABASE_URL !== "undefined") url = MERX_SUPABASE_URL;
+  if (!key && typeof MERX_SUPABASE_KEY !== "undefined") key = MERX_SUPABASE_KEY;
+  if (!url || !key) { console.warn("Supabase kaliti yo'q"); return false; }
+
+  const body = { shop_id: shopId, currency_mode: mode };
+  // Qat'iy rejimda ko'rsatish valyutasi ham majburlanadi
+  if (mode === "uzs" || mode === "usd") body.price_currency = mode;
+
+  try {
+    const res = await fetch(`${url}/rest/v1/settings?on_conflict=shop_id`, {
+      method: "POST",
+      headers: {
+        "apikey": key, "Authorization": "Bearer " + key,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates"
+      },
+      body: JSON.stringify([body])
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      console.warn("Valyuta rejimi yozilmadi:", t);
+      return false;
+    }
+    console.log(`💱 ${shopId}: valyuta rejimi "${mode}" bulutga yozildi`);
+    return true;
+  } catch(e) {
+    console.warn("Valyuta rejimi xato:", e.message);
+    return false;
   }
 }

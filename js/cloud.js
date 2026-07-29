@@ -364,7 +364,10 @@ async function pushToCloud() {
           rate:           db.settings?.rate || 12800,
           price_currency: db.settings?.priceCurrency || "uzs",
           shop_type:      db.settings?.shopType || null,
-          currency_mode:  db.settings?.currencyMode || null,
+          // ⚠️ 2026-07-26: currency_mode do'kondan PUSH QILINMAYDI —
+          // u SuperAdmin boshqaradigan maydon. Aks holda do'kon o'z
+          // eski qiymatini qaytarib yozib, SuperAdmin sozlamasini
+          // bekor qilardi (12-qoida: server yozadigan ustunlar ustun).
           eskiz_token:    db.settings?.eskizToken    || null,
           eskiz_sender:   db.settings?.eskizSender   || null,
           telegram_bot:   db.settings?.telegramBotUrl || null,
