@@ -60,7 +60,9 @@ module.exports = async function handler(req, res) {
     // Brauzerdagi ochiq kalit boshqa do'kon yozuvini o'zgartira olmaydi
     // (RLS to'sadi) — shuning uchun o'chirish va valyuta rejimi
     // bulutga umuman yetmasdi.
-    "delete_shop","set_currency_mode"];
+    "delete_shop","set_currency_mode",
+    // 2026-07-26: landing tarif narxlarini boshqarish
+    "get_tariffs","update_tariff"];
   if (SA_ACTIONS.includes(action)) {
     // MUHIM: SA_PASS bo'sh bo'lsa HAM rad etiladi — aks holda bo'sh
     // parol bilan kirish mumkin bo'lib qolardi.
@@ -223,6 +225,10 @@ module.exports = async function handler(req, res) {
     // ── 4. Yangi do'kon uchun Supabase Auth hisobi yaratish ────────
     if (action === "create_shop") {
       const { email, password, shopId, shopName, shopType } = body;
+      // 2026-07-26: tarif, narx, valyuta rejimi
+      const _tier  = body.tier === "start" ? "start" : "pro";
+      const _price = parseInt(body.priceUzs) || null;
+      const _cmode = ["uzs","usd","multi"].includes(body.currencyMode) ? body.currencyMode : "uzs";
       if (!email || !password || password.length < 4) {
         return res.status(400).json({ ok: false, error: "Email va kamida 4 belgili parol kerak" });
       }
@@ -264,7 +270,9 @@ module.exports = async function handler(req, res) {
           shop_type: shopType || "ikki",
           active: true,
           trial_ends: new Date(Date.now() + 30*24*60*60*1000).toISOString().slice(0,10)
-        };
+        ,
+          tier: _tier,
+          price_uzs: _price};
         await fetch(`${SB_URL}/rest/v1/shops`, {
           method: "POST",
           headers: {
@@ -288,7 +296,10 @@ module.exports = async function handler(req, res) {
             shop_id: shopId,
             shop_name: shopName || "MERX Do'koni",
             rate: 12800,
-            price_currency: "uzs",
+            // 2026-07-26: valyuta rejimi va tarif SuperAdmin belgilaganidek
+            price_currency: (_cmode === "usd") ? "usd" : "uzs",
+            currency_mode: _cmode,
+            tier: _tier,
             shop_type: shopType || "ikki"
           })
         }).catch(e => console.error("settings yangilash xato:", e.message));
@@ -498,6 +509,42 @@ module.exports = async function handler(req, res) {
       const d = await r.json();
       if (!r.ok) return res.status(r.status).json({ ok: false, error: "Yozilmadi", detail: d });
       return res.status(200).json({ ok: true, settings: d?.[0] || null });
+    }
+
+    // ═══ TARIF NARXLARI (2026-07-26) — landing sahifa uchun ═══
+    if (action === "get_tariffs") {
+      const r = await fetch(
+        `${SB_URL}/rest/v1/tariffs?select=tier,title,price_uzs,period,features,sort_order,active&order=sort_order.asc`,
+        { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
+      );
+      const d = await r.json();
+      if (!r.ok) return res.status(r.status).json({ ok: false, error: "Tariflar o'qilmadi", detail: d });
+      return res.status(200).json({ ok: true, tariffs: d || [] });
+    }
+
+    if (action === "update_tariff") {
+      const { tier } = body;
+      if (!tier) return res.status(400).json({ ok: false, error: "tier majburiy" });
+      const payload = { tier, updated_at: new Date().toISOString() };
+      if (body.title     != null) payload.title     = body.title;
+      if (body.price_uzs != null) payload.price_uzs = parseInt(body.price_uzs) || 0;
+      if (body.period    != null) payload.period    = body.period;
+      if (body.features  != null) payload.features  = body.features;
+      if (body.active    != null) payload.active    = !!body.active;
+
+      const r = await fetch(`${SB_URL}/rest/v1/tariffs?on_conflict=tier`, {
+        method: "POST",
+        headers: {
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=representation"
+        },
+        body: JSON.stringify([payload])
+      });
+      const d = await r.json();
+      if (!r.ok) return res.status(r.status).json({ ok: false, error: "Saqlanmadi", detail: d });
+      return res.status(200).json({ ok: true, tariff: d?.[0] || null });
     }
 
     if (action === "get_shops") {

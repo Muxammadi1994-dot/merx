@@ -348,6 +348,13 @@ function buildSaPanel() {
             font-weight:600;cursor:pointer" title="Obuna narxlarini sozlash">
             💳 Narxlar
           </button>
+          <!-- 2026-07-26: merx.uz landing tarif narxlari -->
+          <button onclick="saOpenTariffs()"
+            style="background:#FFF7ED;border:1.5px solid #FCD9A8;color:#B45309;
+            border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
+            font-weight:600;cursor:pointer" title="merx.uz sahifasidagi tarif narxlari">
+            🌐 Landing tariflari
+          </button>
           <input id="sa-superpass-inp" type="password" placeholder="Yangi super admin paroli"
             style="background:#fff;border:1.5px solid #E5E7EB;color:#111;
             border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
@@ -426,6 +433,27 @@ function buildSaPanel() {
                 <option value="monthly">📅 Oylik</option>
                 <option value="yearly">📆 Yillik</option>
                 <option value="lifetime">♾️ Umrlik</option>
+              </select>
+            </div>
+            <!-- 2026-07-26: yangi do'kon uchun tarif, narx va valyuta -->
+            <div>
+              <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna tarifi</label>
+              <select id="sa-new-tier" style="${saInputStyle()}">
+                <option value="pro">Pro (hammasi ochiq)</option>
+                <option value="start">Start (bot yopiq)</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna narxi (so'm/oy)</label>
+              <input id="sa-new-price" type="number" min="0" step="10000"
+                placeholder="Masalan: 349000" style="${saInputStyle()}">
+            </div>
+            <div>
+              <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Valyuta rejimi</label>
+              <select id="sa-new-curmode" style="${saInputStyle()}">
+                <option value="uzs">So'm (faqat so'm)</option>
+                <option value="usd">Dollar (faqat $)</option>
+                <option value="multi">Ko'p valyutali</option>
               </select>
             </div>
             <div>
@@ -672,6 +700,10 @@ async function saAddShop() {
   const rawLogin= document.getElementById("sa-new-login")?.value.trim();
   const pass    = document.getElementById("sa-new-pass")?.value.trim();
   const plan    = document.getElementById("sa-new-plan")?.value || "trial";
+  // 2026-07-26: tarif, narx va valyuta rejimi
+  const tier     = document.getElementById("sa-new-tier")?.value || "pro";
+  const priceUzs = parseInt(document.getElementById("sa-new-price")?.value) || 0;
+  const curMode  = document.getElementById("sa-new-curmode")?.value || "uzs";
   const modSel  = document.getElementById("sa-new-modules");
   const modules = modSel ? Array.from(modSel.selectedOptions).map(o=>o.value) : ["pos","ombor","hisobot"];
 
@@ -713,7 +745,7 @@ async function saAddShop() {
     ownerPass: pass, plan, modules, shopType, // ownerPass plain text (login uchun kerak)
     expiresAt: expires, createdAt: now.toISOString(),
     // 2026-07-26: yangi do'kon standart PRO (keyin SuperAdmin o'zgartiradi)
-    tier: "pro", priceUzs: 0,
+    tier, priceUzs, currencyMode: curMode,
     blocked: false, dbKey
   };
 
@@ -769,7 +801,12 @@ async function saAddShop() {
       password: pass,
       shopId: shopId,
       shopName: name,
-      plan: plan
+      plan: plan,
+      // 2026-07-26: tarif, narx va valyuta rejimi ham serverga
+      tier: tier,
+      priceUzs: priceUzs,
+      currencyMode: curMode,
+      shopType: shopType
     })
   })
   .then(r => r.json())
@@ -911,6 +948,7 @@ async function saOpenShop(id) {
         // 2026-07-26: valyuta rejimi SuperAdmin belgilaydi
         currencyMode: s.currency_mode || s.currencyMode || "multi",
         priceCurrency: (s.currency_mode || s.currencyMode) === "usd" ? "usd" : "uzs",
+        tier: s.tier || "pro",
         shopType: s.shop_type || s.shopType || "ikki",
         cloudShopId: id,
         adminEmail: s.ownerEmail || (s.phone ? s.phone.replace(/\D/g,"")+"@merx.uz" : id+"@merx.uz"),
@@ -1964,4 +2002,104 @@ if (typeof window !== "undefined") {
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", _saBoot);
   else _saBoot();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LANDING TARIF NARXLARI (2026-07-26)
+// merx.uz sahifasidagi tarif kartalari narxi va imkoniyatlar
+// ro'yxatini shu yerdan boshqariladi.
+// ═══════════════════════════════════════════════════════════════
+async function saOpenTariffs() {
+  document.getElementById("sa-tariff-modal")?.remove();
+
+  const d = await _saApi("get_tariffs", {}).catch(() => ({ ok: false }));
+  const list = (d && d.ok && d.tariffs?.length) ? d.tariffs : [];
+
+  const iSt = "width:100%;padding:9px 11px;border:1.5px solid #E5E7EB;border-radius:9px;" +
+              "font-family:inherit;font-size:14px;box-sizing:border-box";
+
+  const m = document.createElement("div");
+  m.id = "sa-tariff-modal";
+  m.style.cssText = "position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,.6);" +
+    "display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto";
+  m.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:26px;max-width:600px;width:100%;
+      max-height:90vh;overflow:auto;font-family:'DM Sans',sans-serif">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <h3 style="margin:0;font-size:19px;font-weight:800;color:#0D1B2A">
+          💰 Landing tarif narxlari
+        </h3>
+        <button onclick="document.getElementById('sa-tariff-modal').remove()"
+          style="background:none;border:none;font-size:24px;cursor:pointer;color:#9CA3AF">×</button>
+      </div>
+      <p style="font-size:12.5px;color:#6B7280;margin:0 0 20px;line-height:1.5">
+        Bu narxlar <b>merx.uz</b> sahifasida ko'rinadi. O'zgartirsangiz sayt
+        5 daqiqa ichida yangilanadi.
+      </p>
+
+      ${list.length ? list.map(t => `
+        <div style="border:1.5px solid #E5E7EB;border-radius:12px;padding:18px;margin-bottom:14px;
+          background:${t.tier === "pro" ? "#FAFAF9" : "#fff"}">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <span style="font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;
+              background:${t.tier === "pro" ? "#0D1B2A" : "#FEF3C7"};
+              color:${t.tier === "pro" ? "#fff" : "#92400E"}">
+              ${(t.tier || "").toUpperCase()}
+            </span>
+            <input id="tf-title-${t.tier}" value="${t.title || ""}"
+              style="${iSt};flex:1;font-weight:700" placeholder="Tarif nomi">
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div>
+              <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:4px">
+                NARX (so'm)</label>
+              <input id="tf-price-${t.tier}" type="number" min="0" step="10000"
+                value="${t.price_uzs || 0}" style="${iSt};font-weight:800">
+            </div>
+            <div>
+              <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:4px">
+                DAVR</label>
+              <input id="tf-period-${t.tier}" value="${t.period || "oyiga"}" style="${iSt}">
+            </div>
+          </div>
+
+          <label style="font-size:11px;color:#6B7280;font-weight:700;display:block;margin-bottom:4px">
+            IMKONIYATLAR <span style="font-weight:400">(har qator — alohida band)</span></label>
+          <textarea id="tf-feat-${t.tier}" rows="6" style="${iSt};resize:vertical;line-height:1.5"
+            >${(Array.isArray(t.features) ? t.features : []).join("\\n")}</textarea>
+
+          <button onclick="saSaveTariff('${t.tier}')"
+            style="width:100%;margin-top:12px;background:#0D1B2A;color:#fff;border:none;
+            border-radius:9px;padding:11px;font-weight:700;font-size:14px;cursor:pointer">
+            ✓ ${t.title || t.tier} tarifini saqlash
+          </button>
+        </div>`).join("") : `
+        <div style="text-align:center;padding:30px;color:#9CA3AF">
+          Tariflar topilmadi.<br>
+          <span style="font-size:12px">OBUNA-TARIFLARI.sql ni ishga tushirganmisiz?</span>
+        </div>`}
+    </div>`;
+  document.body.appendChild(m);
+}
+
+async function saSaveTariff(tier) {
+  const price  = parseInt(document.getElementById(`tf-price-${tier}`)?.value) || 0;
+  const title  = document.getElementById(`tf-title-${tier}`)?.value.trim() || tier;
+  const period = document.getElementById(`tf-period-${tier}`)?.value.trim() || "oyiga";
+  const raw    = document.getElementById(`tf-feat-${tier}`)?.value || "";
+  const features = raw.split("\n").map(x => x.trim()).filter(Boolean);
+
+  if (price <= 0 && !confirm("Narx 0 — bu to'g'rimi?")) return;
+
+  const d = await _saApi("update_tariff", {
+    tier, title, price_uzs: price, period, features
+  }).catch(e => ({ ok: false, error: e.message }));
+
+  if (d && d.ok) {
+    showSaToast(`✅ ${title}: ${Number(price).toLocaleString("ru-RU")} so'm saqlandi`);
+    console.log(`💰 ${tier} tarifi yangilandi: ${price}`);
+  } else {
+    showSaToast("❌ Saqlanmadi: " + (d?.error || "xato"), "err");
+  }
 }
