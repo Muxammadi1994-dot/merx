@@ -505,8 +505,14 @@ function renderKatalog() {
 
     // v149: inBox — mahsulotning O'Z qiymatidan (B2 modeli); eski
     // o'lchamlab kiritilganlarda avvalgidek variantlar sonidan
-    const inBox   = (colorVariants.length === 1 ? (p.inBox || 1)
-                     : (colorVariants.length || 1));
+    // 2026-07-26: VARIANTDAGI quti sig'imi USTUVOR — bitta tovarning
+    // turli ranglari har xil pochkada kelishi mumkin (qora 5, oq 6,
+    // ko'k 7). Avval tovar darajasidagi yagona qiymat ishlatilib,
+    // pochka soni noto'g'ri chiqardi (150 dona / 7 = 21, aslida 30).
+    const _cvIb = parseInt(colorVariants[0] && colorVariants[0].inBox) || 0;
+    const inBox   = _cvIb > 0 ? _cvIb
+                    : (colorVariants.length === 1 ? (p.inBox || 1)
+                       : (colorVariants.length || 1));
     const costUzs = getCostUzs(p);
 
     // Jami dona (shu guruh uchun)

@@ -65,7 +65,7 @@ function omRenderKpis() {
   // 2026-07-20 (№2): jami POCHKA soni — har tovar (jami dona ÷ inBox), yaxlitlab yig'amiz
   const totalPochka = vProds.reduce((a,p) => {
     const units = p.variants.reduce((b,v) => b + (v.qty||0), 0);
-    const inBox = p.inBox || 1;
+    const inBox = parseInt((p.variants || [])[0]?.inBox) || p.inBox || 1;
     return a + (inBox > 0 ? units / inBox : units);
   }, 0);
   const pochkaStr = Number.isInteger(totalPochka) ? String(totalPochka) : totalPochka.toFixed(1);
@@ -198,7 +198,10 @@ function omRenderQoldiq() {
         // Aks holda (eski, o'lchamlab kiritilgan model) avvalgidek:
         //   inBox = o'lchamlar soni, boxes = to'liq komplektlar (g.qty).
         const _single = g.variants.length === 1;
-        const inBox = _single ? (p.inBox || 1) : (g.variants.length || 1);
+        // 2026-07-26: variantdagi quti sig'imi USTUVOR (rang darajasida)
+        const _gIb = parseInt((g.variants || [])[0]?.inBox) || 0;
+        const inBox = _gIb > 0 ? _gIb
+                      : (_single ? (p.inBox || 1) : (g.variants.length || 1));
         const boxes = _single ? Math.floor(groupTotalQty / (inBox || 1)) : g.qty;
         const costUzs = getCostUzs(p);
         const margin  = p.ulgurjiNarx > 0 && costUzs > 0
