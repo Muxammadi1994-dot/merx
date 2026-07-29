@@ -62,13 +62,28 @@ function omRenderKpis() {
     a + p.variants.reduce((b,v) => b + getCostUzs(p)*v.qty, 0), 0);
   const totalUnits = vProds.reduce((a,p) =>
     a + p.variants.reduce((b,v) => b + v.qty, 0), 0);
-  // 2026-07-20 (№2): jami POCHKA soni — har tovar (jami dona ÷ inBox), yaxlitlab yig'amiz
-  const totalPochka = vProds.reduce((a,p) => {
-    const units = p.variants.reduce((b,v) => b + (v.qty||0), 0);
-    const inBox = parseInt((p.variants || [])[0]?.inBox) || p.inBox || 1;
-    return a + (inBox > 0 ? units / inBox : units);
-  }, 0);
-  const pochkaStr = Number.isInteger(totalPochka) ? String(totalPochka) : totalPochka.toFixed(1);
+  // 2026-07-26: TO'LIQ va OCHILGAN pochkalar ALOHIDA sanaladi.
+  // Avval jami dona ÷ inBox qilinib, o'nli kasr chiqardi (masalan 30.6).
+  // Endi: 30 to'liq pochka + 3 ta ochilgan pochka (qoldiqlar) ko'rinadi.
+  let fullPochka = 0, brokenPacks = 0;
+  vProds.forEach(p => {
+    const _pIb = parseInt(p.inBox) || 1;
+    // Har RANG alohida — quti sig'imi rang darajasida bo'lishi mumkin
+    const byColor = {};
+    (p.variants || []).forEach(v => {
+      const c = v.color || "—";
+      if (!byColor[c]) byColor[c] = { qty: 0, ib: parseInt(v.inBox) || _pIb };
+      byColor[c].qty += (v.qty || 0);
+    });
+    Object.values(byColor).forEach(({ qty, ib }) => {
+      const _ib = ib > 0 ? ib : 1;
+      const full = Math.floor(qty / _ib);
+      const rest = qty - full * _ib;
+      fullPochka  += full;
+      if (rest > 0) brokenPacks += 1;   // ochilgan pochka — bittasi
+    });
+  });
+  const pochkaStr = String(fullPochka);
 
   // 2026-07-24 (№6): "Sotilsa qancha bo'ladi" — potentsial tushum.
   // Narxlar DONA bo'yicha (POS ham shu asosda ishlaydi):
@@ -85,7 +100,8 @@ function omRenderKpis() {
   const el = $("om-kpi-row"); if (!el) return;
   el.innerHTML = [
     { icon:"ti-arrow-down-circle", color:"#4C9BE8", lbl:"Bugungi kirim",    val:todayIn+" dona",       sub:"bugun qabul qilindi" },
-    { icon:"ti-box",               color:"#36B48C", lbl:"Jami qoldiq",      val:pochkaStr+" pochka",   sub:totalUnits+" dona · "+vProds.length+" xil" },
+    { icon:"ti-box",               color:"#36B48C", lbl:"Jami qoldiq",      val:pochkaStr+" pochka",
+      sub:(brokenPacks > 0 ? brokenPacks+" ta ochilgan · " : "")+fmt(totalUnits)+" dona" },
     { icon:"ti-currency-dollar",   color:"#E9A500", lbl:"Bu oy kirim",      val:fmt(monthVal)+" so'm", sub:"tannarxda" },
     { icon:"ti-wallet",            color:"#8B5CF6", lbl:"Ombor qiymati",    val:fmt(totalVal)+" so'm", sub:"tannarxda" },
     { icon:"ti-trending-up",       color:"#0EA5E9", lbl:"Sotilsa qancha bo'ladi",
