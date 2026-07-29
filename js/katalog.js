@@ -1422,7 +1422,8 @@ function apCalcBoxes() {
   // avtomatik to'ldiramiz — yopiq bo'lsa qo'lda kiritilgan qiymatga
   // TEGILMAYMIZ.
   if (sizesOn && $("ap-inbox-calc")) $("ap-inbox-calc").value = sizeCount;
-  if ($("ap-qty-range"))  $("ap-qty-range").value  = total || ""; // v169: 0 → bo'sh ko'rinsin
+  // 2026-07-26: dona QO'LDA yozilayotgan bo'lsa ustidan yozmaymiz
+  if ($("ap-qty-range") && !_apDonaEditing) $("ap-qty-range").value = total || "";
 
   const prev = $("ap-size-range-preview");
   if (prev && from && to) prev.textContent = from === to ? `→ faqat ${from}` : `→ ${from}–${to}`;
@@ -1494,7 +1495,7 @@ function apMixHint() {
   if ($("ap-inbox-calc")) $("ap-inbox-calc").value = tot;
   // Jami dona = pochka soni × 1 pochkadagi dona
   const _bx = parseInt(($("ap-boxes")||{value:1}).value) || 1;
-  if ($("ap-qty-range")) $("ap-qty-range").value = _bx * tot;
+  if ($("ap-qty-range") && !_apDonaEditing) $("ap-qty-range").value = _bx * tot;
   const _pv = $("ap-size-range-preview");
   if (_pv) _pv.textContent = "→ " + mix.map(t => t.size + "×" + t.per).join(", ");
 }
@@ -1537,7 +1538,10 @@ function addProduct() {
 
   const boxes  = parseInt(($("ap-boxes")||{value:1}).value)      || 1;
   const inBox  = parseInt(($("ap-inbox-calc")||{value:1}).value) || 1;
-  if (boxes <= 0) { toast("Pochka sonini kiriting","err"); return; }
+  // 2026-07-26: JAMI DONA yozilgan bo'lsa u USTUVOR — ochilgan qoldiq
+  // shu yerdan keladi (153 dona = 30 pochka × 5 + 3 dona ochilgan).
+  const _donaInput = parseInt(($("ap-qty-range")||{value:""}).value) || 0;
+  if (boxes <= 0 && _donaInput <= 0) { toast("Pochka soni yoki jami donani kiriting","err"); return; }
 
   // ── B2 (v148): ULGURJI-BIRINCHI MODEL ─────────────────────────
   // Hisob POCHKA darajasida: jami dona = pochka soni × 1 pochkada nechta.
@@ -1558,7 +1562,10 @@ function addProduct() {
   }
   // Qo'lda kiritilgan "1 pochkada" USTUVOR, bo'lmasa avtomat taklif
   const effectiveInBox = (inBox > 0 ? inBox : (autoIn || 1));
-  const newVariants = [{ color, size: sizeText || "-", qty: boxes * effectiveInBox, pantone, hex }];
+  // Jami dona yozilgan bo'lsa o'shani olamiz (ochilgan qoldiq bilan),
+  // aks holda pochka × pochkada (eski usul — buzilmaydi)
+  const _totalQty = _donaInput > 0 ? _donaInput : (boxes * effectiveInBox);
+  const newVariants = [{ color, size: sizeText || "-", qty: _totalQty, pantone, hex }];
 
   // B1 (v152): HAR RANG = ALOHIDA TOVAR, ARTIKUL ham hisobga olinadi.
   // Nom+rang bir xil bo'lsa-da, ARTIKUL boshqa bo'lsa — bu boshqa tovar
@@ -2644,11 +2651,21 @@ function parseImportCSV(text) {
     }
     const inboxVal = _inboxGiven ? parseInt(vals[cols.inbox]) : autoIn;
 
+    // 2026-07-26: faylda JAMI DONA ustuni bo'lsa u USTUVOR — tizim
+    // pochka va ochilgan qoldiqni o'zi ajratadi (153 dona, pochkada 5
+    // → 30 pochka + 3 dona ochilgan). Bo'lmasa pochka × pochkada.
+    const _qtyGiven = cols.qty >= 0 &&
+      parseInt(String(vals[cols.qty] || "").replace(/[\s,]/g,"")) > 0;
+    const _qtyVal = _qtyGiven
+      ? parseInt(String(vals[cols.qty]).replace(/[\s,]/g,""))
+      : (boxesVal * inboxVal);
+    const _boxesCalc = (inboxVal > 0) ? Math.floor(_qtyVal / inboxVal) : boxesVal;
+
     _importRows.push({
       nom, cat: catVal, type: typeVal, unit: unitVal,
-      inbox: inboxVal, _inboxExplicit: true, boxes: boxesVal || null,
+      inbox: inboxVal, _inboxExplicit: true, boxes: _boxesCalc || boxesVal || null,
       art, barcode, color: colorRaw, pantone, hex,
-      size: sizeRaw || "-", qty: boxesVal * inboxVal, costUsd, ulg: ulgVal,
+      size: sizeRaw || "-", qty: _qtyVal, costUsd, ulg: ulgVal,
     });
   }
 
@@ -3646,7 +3663,8 @@ function _apCreateExtraColor(base, cd, batchId) {
 
   const rate  = db.settings?.rate || 12800;
   const inBox = cd.inbox > 0 ? cd.inbox : (base.inBox || 1);
-  const qty   = (cd.boxes || 0) * inBox;
+  // 2026-07-26: JAMI DONA yozilgan bo'lsa u ustuvor (ochilgan qoldiq bilan)
+  const qty   = (cd.dona > 0) ? cd.dona : ((cd.boxes || 0) * inBox);
 
   // Narx: jadvalda yozilgan bo'lsa o'shani, aks holda asosiy tovarniki
   const curMode = db.settings?.priceCurrency || "uzs";
@@ -3847,9 +3865,11 @@ function apVarRenderTable() {
         <b style="margin-left:5px">${c.name}</b>
       </td>
       <td style="padding:4px"><input class="vr-boxes" type="number" min="0" inputmode="numeric"
-        placeholder="0" style="${inpCss}" oninput="apVarFillHint(${i},'boxes');apVarTotals()"></td>
+        placeholder="0" style="${inpCss}" oninput="apVarFillHint(${i},'boxes');apVarDonaSync(${i},'boxes');apVarTotals()"></td>
       <td style="padding:4px"><input class="vr-inbox" type="number" min="1" inputmode="numeric"
-        placeholder="1" style="${inpCss}" oninput="apVarFillHint(${i},'inbox');apVarTotals()"></td>
+        placeholder="1" style="${inpCss}" oninput="apVarFillHint(${i},'inbox');apVarDonaSync(${i},'inbox');apVarTotals()"></td>
+      <td style="padding:4px"><input class="vr-dona" type="number" min="0" inputmode="numeric"
+        placeholder="0" style="${inpCss}" oninput="apVarFillHint(${i},'dona');apVarDonaSync(${i},'dona');apVarTotals()"></td>
       <td style="padding:4px"><input class="vr-cost" type="text" data-price
         placeholder="0" style="${inpCss}" oninput="priceInputHandler(this);apVarFillHint(${i},'cost')"></td>
       <td style="padding:4px"><input class="vr-ulg" type="text" data-price
@@ -3865,7 +3885,7 @@ function apVarRenderTable() {
 // Birinchi qatorga yozilganda "barchasini to'ldirish" taklifi
 function apVarFillHint(rowIdx, field) {
   if (rowIdx !== 0 || _apVarColors.length < 2) return;
-  const cls = { boxes:"vr-boxes", inbox:"vr-inbox", cost:"vr-cost", ulg:"vr-ulg" }[field];
+  const cls = { boxes:"vr-boxes", inbox:"vr-inbox", dona:"vr-dona", cost:"vr-cost", ulg:"vr-ulg" }[field];
   const first = document.querySelector(`#ap-var-tbody tr[data-vrow="0"] .${cls}`);
   if (!first || !first.value.trim()) return;
 
@@ -3884,13 +3904,18 @@ function apVarFillHint(rowIdx, field) {
 
 // Birinchi qator qiymatini qolganlariga tarqatamiz
 function apVarFillAll(field) {
-  const cls = { boxes:"vr-boxes", inbox:"vr-inbox", cost:"vr-cost", ulg:"vr-ulg" }[field];
+  const cls = { boxes:"vr-boxes", inbox:"vr-inbox", dona:"vr-dona", cost:"vr-cost", ulg:"vr-ulg" }[field];
   const rows = [...document.querySelectorAll("#ap-var-tbody tr")];
   if (rows.length < 2) return;
   const val = rows[0].querySelector(`.${cls}`)?.value || "";
-  rows.slice(1).forEach(r => {
+  rows.slice(1).forEach((r, idx) => {
     const el = r.querySelector(`.${cls}`);
     if (el) el.value = val;
+    // 2026-07-26: pochka/dona/pochkada — biri to'ldirilsa qolgani ham
+    // qayta hisoblansin (aks holda jadval nomuvofiq qolardi)
+    if (["boxes","dona","inbox"].includes(field)) {
+      try { apVarDonaSync(idx + 1, field); } catch(e) {}
+    }
   });
   apVarTotals();
   toast(`✅ ${rows.length - 1} ta qatorga qo'llandi`);
@@ -3902,7 +3927,8 @@ function apVarTotals() {
   if (!el) return;
   const rows = _apVarReadRows();
   const pochka = rows.reduce((a, r) => a + r.boxes, 0);
-  const dona   = rows.reduce((a, r) => a + r.boxes * r.inbox, 0);
+  // 2026-07-26: dona ustuni ustuvor (ochilgan qoldiq bilan)
+  const dona   = rows.reduce((a, r) => a + (r.dona > 0 ? r.dona : r.boxes * r.inbox), 0);
   el.innerHTML = rows.length
     ? `Jami: <b>${_apVarColors.length}</b> rang · <b>${pochka}</b> pochka · <b>${dona}</b> dona`
     : "";
@@ -3915,6 +3941,7 @@ function _apVarReadRows() {
     hex:   _apVarColors[i]?.hex  || "#888888",
     image: _apVarColors[i]?.image || "",
     boxes: parseInt(r.querySelector(".vr-boxes")?.value) || 0,
+    dona:  parseInt(r.querySelector(".vr-dona")?.value)  || 0,
     inbox: parseInt(r.querySelector(".vr-inbox")?.value) || 1,
     cost:  (typeof getRawVal === "function")
              ? (parseFloat(String(r.querySelector(".vr-cost")?.value || "").replace(/\s/g,"")) || 0) : 0,
@@ -3945,8 +3972,8 @@ function apAddVariativ(name) {
   const rows = _apVarReadRows();
   if (!rows.length) { toast("Kamida bitta rang qo'shing", "err"); return; }
 
-  const bad = rows.find(r => r.boxes <= 0);
-  if (bad) { toast(`"${bad.color}" uchun pochka sonini kiriting`, "err"); return; }
+  const bad = rows.find(r => r.boxes <= 0 && r.dona <= 0);
+  if (bad) { toast(`"${bad.color}" uchun pochka soni yoki jami donani kiriting`, "err"); return; }
 
   const t        = currentApType || "oyoq";
   const art      = ($("ap-art")||{value:""}).value.trim();
@@ -4231,4 +4258,69 @@ function epVarTotals() {
   const dona   = rows.reduce((a, r) => a + (parseInt(r.querySelector(".evr-qty")?.value) || 0), 0);
   el.innerHTML = `Guruhda <b>${rows.length}</b> ta rang · ` +
     `<b>${Math.round(pochka * 100) / 100}</b> pochka · <b>${fmt(dona)}</b> dona`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// JAMI DONA'DAN POCHKA HISOBI (2026-07-26)
+// Ba'zi do'konlarga tovar pres bilan keladi va ortiqcha donalar
+// bo'lishi mumkin: 30 pochka × 5 + 3 dona = 153 dona.
+// Endi "Jami dona" ga 153 yozilsa, tizim o'zi 30 pochka va 3 dona
+// ochilgan qoldiq deb qabul qiladi.
+// Ikki tomonlama:
+//   pochka + pochkada  →  dona avtomat  (eski usul, buzilmaydi)
+//   dona  + pochkada   →  pochka avtomat (yangi usul)
+// ═══════════════════════════════════════════════════════════════
+let _apDonaEditing = false;   // dona qo'lda yozilyaptimi
+
+function apDonaChanged() {
+  _apDonaEditing = true;
+  const donaEl  = $("ap-qty-range");
+  const boxEl   = $("ap-boxes");
+  const inBoxEl = $("ap-inbox-calc");
+  if (!donaEl || !boxEl || !inBoxEl) return;
+
+  const dona  = parseInt(donaEl.value) || 0;
+  const inBox = parseInt(inBoxEl.value) || 0;
+
+  if (dona > 0 && inBox > 0) {
+    const full = Math.floor(dona / inBox);
+    const rest = dona - full * inBox;
+    boxEl.value = full;                      // pochka avtomat to'ladi
+    _apShowDonaHint(full, rest, inBox, dona);
+  } else {
+    _apShowDonaHint(0, 0, inBox, dona);
+  }
+  _apDonaEditing = false;
+}
+
+function _apShowDonaHint(full, rest, inBox, dona) {
+  const el = $("ap-dona-hint");
+  if (!el) return;
+  if (!dona || !inBox) { el.textContent = ""; return; }
+  el.innerHTML = rest > 0
+    ? `<b>${full}</b> pochka × ${inBox} = ${fmt(full*inBox)} dona
+       <span style="color:#B45309">+ <b>${rest}</b> dona ochilgan</span>`
+    : `<b>${full}</b> pochka × ${inBox} = ${fmt(dona)} dona`;
+}
+
+// Variativ jadvalda pochka ↔ dona ikki tomonlama bog'lanish (2026-07-26)
+function apVarDonaSync(i, changed) {
+  const tr = document.querySelector(`#ap-var-tbody tr[data-vrow="${i}"]`);
+  if (!tr) return;
+  const bEl = tr.querySelector(".vr-boxes");
+  const iEl = tr.querySelector(".vr-inbox");
+  const dEl = tr.querySelector(".vr-dona");
+  if (!bEl || !iEl || !dEl) return;
+
+  const inBox = parseInt(iEl.value) || 0;
+
+  if (changed === "dona") {
+    // Dona yozildi → pochka avtomat (ochilgan qoldiq bilan)
+    const dona = parseInt(dEl.value) || 0;
+    if (dona > 0 && inBox > 0) bEl.value = Math.floor(dona / inBox);
+  } else {
+    // Pochka yoki pochkada o'zgardi → dona avtomat
+    const boxes = parseInt(bEl.value) || 0;
+    if (boxes > 0 && inBox > 0) dEl.value = boxes * inBox;
+  }
 }

@@ -3084,6 +3084,7 @@
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">RANG</th>
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">POCHKA</th>
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">POCHKADA</th>
+                <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">JAMI DONA</th>
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">TANNARX</th>
                 <th style="text-align:left;padding:7px 8px;font-size:11px;color:var(--mut)">ULGURJI</th>
                 <th style="width:28px"></th>
@@ -3232,12 +3233,17 @@
       </div>
       <div class="r3">
         <div class="fld">
-          <label>1 pochkada nechta o'lcham <span style="font-weight:400;color:var(--mut)">(o'zgartirsa bo'ladi)</span></label>
+          <label>1 pochkada nechta <span style="font-weight:400;color:var(--mut)">(dona)</span></label>
           <input id="ap-inbox-calc" type="number" min="1" oninput="apCalcBoxes()">
         </div>
         <div class="fld">
-          <label>Jami dona (avtomatik)</label>
-          <input id="ap-qty-range" type="number" readonly style="background:var(--bg2)">
+          <!-- 2026-07-26: JAMI DONA endi TAHRIRLANADI. Yozilsa tizim
+               pochka sonini va ochilgan qoldiqni o'zi hisoblaydi
+               (153 dona, pochkada 5 → 30 pochka + 3 dona ochilgan) -->
+          <label>Jami dona <span style="font-weight:400;color:var(--mut)">(yozsa ham bo'ladi)</span></label>
+          <input id="ap-qty-range" type="number" min="0" inputmode="numeric"
+            oninput="apDonaChanged()">
+          <div id="ap-dona-hint" style="font-size:11px;color:var(--mut);margin-top:3px;line-height:1.35"></div>
         </div>
         <div class="fld ap-field" data-apf="sizes">
           <label>Razmerlar ko'rinishi</label>
@@ -4557,7 +4563,7 @@
 <script src="js/cloud.js?v=192"></script>
 <script src="js/dashboard.js?v=154"></script>
 <script src="js/pos.js?v=224"></script>
-<script src="js/katalog.js?v=214"></script>
+<script src="js/katalog.js?v=215"></script>
 <script src="js/ombor.js?v=159"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=186"></script>
@@ -4770,7 +4776,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=78")
+    navigator.serviceWorker.register("/sw.js?v=79")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
