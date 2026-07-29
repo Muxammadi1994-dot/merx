@@ -3666,12 +3666,12 @@ function _apCreateExtraColor(base, cd, batchId) {
   // 2026-07-26: JAMI DONA yozilgan bo'lsa u ustuvor (ochilgan qoldiq bilan)
   const qty   = (cd.dona > 0) ? cd.dona : ((cd.boxes || 0) * inBox);
 
-  // Narx: jadvalda yozilgan bo'lsa o'shani, aks holda asosiy tovarniki
-  const curMode = db.settings?.priceCurrency || "uzs";
-  const costUsd = cd.cost > 0
-    ? ((curMode === "usd" || curMode === "both") ? cd.cost : cd.cost / rate)
-    : (base.costUsd || 0);
-  const ulg = cd.ulg > 0 ? cd.ulg : (base.ulgurjiNarx || 0);
+  // 2026-07-26: NARX HAR DOIM SO'MDA kiritiladi (tizim valyutasidan
+  // qat'i nazar). Avval "both" rejimda kiritilgan raqam DOLLAR deb
+  // qabul qilinardi va 300 000 → 3 615 000 000 bo'lib ketardi.
+  const costUzsVal = cd.cost > 0 ? Math.round(cd.cost) : (base.costUzs || 0);
+  const costUsd    = rate > 0 ? (costUzsVal / rate) : 0;   // eski kod uchun zaxira
+  const ulg = cd.ulg > 0 ? Math.round(cd.ulg) : (base.ulgurjiNarx || 0);
 
   const newId = db.seq++;
   const prod = {
@@ -3684,6 +3684,7 @@ function _apCreateExtraColor(base, cd, batchId) {
     inBox: inBox,
     packUnit: base.packUnit,
     art: base.art || "",
+    costUzs: costUzsVal,
     costUsd: costUsd,
     priceUzs: base.priceUzs || 0,
     ulgurjiNarx: ulg,
@@ -4142,8 +4143,9 @@ function epVarRenderTable() {
     // Pochka hisobi: 1 pochkadagi dona (inBox) va pochka soni
     const inBox  = pr.inBox && pr.inBox > 0 ? pr.inBox : 1;
     const pochka = inBox > 0 ? Math.round((qty / inBox) * 100) / 100 : 0;
-    const cost  = (mode === "usd" || mode === "both")
-      ? (pr.costUsd || 0)
+    // 2026-07-26: tannarx HAR DOIM SO'MDA ko'rsatiladi
+    const cost = (typeof getCostUzs === "function")
+      ? getCostUzs(pr)
       : Math.round((pr.costUsd || 0) * rate);
     const isCurrent = pr.sku === editSku;
     return `
@@ -4197,8 +4199,10 @@ function epSaveVariativ() {
     const cost  = parseFloat(String(r.querySelector(".evr-cost")?.value || "").replace(/\s/g,"")) || 0;
     const ulg   = parseFloat(String(r.querySelector(".evr-ulg")?.value  || "").replace(/\s/g,"")) || 0;
 
-    // Tannarx HAR DOIM USD da saqlanadi (tizim qoidasi)
-    const costUsd = (mode === "usd" || mode === "both") ? cost : (rate > 0 ? cost / rate : 0);
+    // 2026-07-26: TANNARX SO'MDA — kiritilgan raqam to'g'ridan-to'g'ri
+    // so'm (avval "both" rejimda dollar deb qabul qilinardi)
+    const costUzsVal = Math.round(cost);
+    const costUsd    = rate > 0 ? (costUzsVal / rate) : 0;
 
     // Qoldiq — variantlar bo'yicha taqsimlanadi (bittadan ko'p bo'lsa nisbatan)
     const vars = p.variants || [];
@@ -4218,7 +4222,8 @@ function epSaveVariativ() {
     }
 
     if ((p.inBox || 1) !== inBox && inBox > 0) { p.inBox = inBox; changed++; }
-    if (Math.abs((p.costUsd || 0) - costUsd) > 0.001) { p.costUsd = costUsd; changed++; }
+    if ((p.costUzs || 0) !== costUzsVal) { p.costUzs = costUzsVal; changed++; }
+    p.costUsd = costUsd;   // zaxira (eski kod uchun)
     if ((p.ulgurjiNarx || 0) !== ulg) { p.ulgurjiNarx = ulg; changed++; }
     if (oldTotal !== qty) changed++;
   });
