@@ -2072,22 +2072,12 @@ function updateCostCurrency() {
     const inp  = $(inputId);
     if (!lbl || !unit) return;
 
-    if (isUsd) {
-      lbl.textContent  = "Tannarx (USD)";
-      unit.textContent = "USD";
-      unit.style.color = "#4C9BE8";
-      if (inp) inp.step = "0.5";
-    } else if (isBoth) {
-      lbl.textContent  = "Tannarx (USD yoki so'm)";
-      unit.textContent = "USD/so'm";
-      unit.style.color = "#856404";
-    } else {
-      // UZS
-      lbl.textContent  = "Tannarx (so'm)";
-      unit.textContent = "so'm";
-      unit.style.color = "#888";
-      if (inp) inp.step = "1000";
-    }
+    // 2026-07-25: TANNARX HAR DOIM SO'MDA — tizim valyutasi qanday
+    // bo'lishidan qat'i nazar. Narx so'mda qotadi, kurs ta'sir qilmaydi.
+    lbl.textContent  = "Tannarx (so'm)";
+    unit.textContent = "so'm";
+    unit.style.color = "#888";
+    if (inp) inp.step = "1000";
   });
 
   // v167: "Ulgurji narx" (sotuv narxi) yorlig'i ham — Tannarx bilan
@@ -2097,7 +2087,8 @@ function updateCostCurrency() {
   // qatlami valyutaga moslashadi.
   ["ap-ulgurji-lbl", "ep-ulgurji-lbl"].forEach(id => {
     const lbl = $(id); if (!lbl) return;
-    lbl.textContent = (isUsd || isBoth) ? "Sotuv narxi (USD)" : "Sotuv narxi (so'm)";
+    // 2026-07-25: sotuv narxi ham HAR DOIM SO'MDA kiritiladi
+    lbl.textContent = "Sotuv narxi (so'm)";
   });
 }
 
@@ -2125,10 +2116,8 @@ function priceInputHandler(el) {
 // Ulgurji narxni (so'm/USD rejimidan qat'iy nazar) HAR DOIM to'g'ri
 // SO'M qiymatiga aylantirib o'qiydi — ADD va EDIT uchun umumiy
 function readUlgAsUzs(inputId) {
-  const cur  = db.settings?.priceCurrency || "uzs";
-  const rate = db.settings?.rate || 12800;
-  const raw  = getRawVal(inputId);
-  return (cur === "usd" || cur === "both") ? Math.round(raw * rate) : raw;
+  // 2026-07-25: narx HAR DOIM SO'MDA kiritiladi — aylantirish yo'q
+  return getRawVal(inputId);
 }
 
 // ================================================
@@ -2607,7 +2596,8 @@ function parseImportCSV(text) {
     // USD tovar ($1200) so'm deb o'qilib, narx 13000 barobar buzilardi.
     // Endi foydalanuvchi oynada aniq tanlaydi; qatordagi "$" ustuvor.
     const rate = db.settings?.rate || 12800;
-    const _impCur = (document.querySelector('input[name="imp-cur"]:checked')||{value:"uzs"}).value;
+    // 2026-07-25: import HAR DOIM SO'MDA — valyuta tanlovi olib tashlandi
+    const _impCur = "uzs";
 
     const _toUsd = (raw) => {
       const txt = String(raw || "").trim();
@@ -2831,7 +2821,10 @@ function confirmImport() {
       } else {
         p.variants.push(variant);
         if (r.art && !p.art)   p.art         = r.art;
-        if (r.costUsd > 0)     p.costUsd     = r.costUsd;
+        if (r.costUsd > 0) {
+          p.costUsd = r.costUsd;
+          p.costUzs = Math.round(r.costUsd * (db.settings?.rate || 12800));
+        }
         if (r.ulg  > 0)        p.ulgurjiNarx = r.ulg;
         // colorBarcodes yangilash
         if (!p.colorBarcodes) p.colorBarcodes = {};
@@ -2856,6 +2849,8 @@ function confirmImport() {
         art:         r.art || "",
         barcode:     _bc,
         colorBarcodes: { [colorRaw]: _bc },
+        // 2026-07-25: tannarx so'mda muzlaydi
+        costUzs:     Math.round((r.costUsd || 0) * (db.settings?.rate || 12800)),
         costUsd:     r.costUsd || 0,
         priceUzs:    0,
         ulgurjiNarx: r.ulg || 0,

@@ -32,6 +32,9 @@ function renderRateModeUI() {
     b.classList.toggle("on", b.dataset.ratemode === mode));
   const inp = $("s-rate");
   if (inp) inp.readOnly = (mode === "auto");
+  // 2026-07-25: saqlash tugmasi avtomat rejimda kerak emas
+  const saveBtn = $("s-rate-save");
+  if (saveBtn) saveBtn.style.display = "none";
   const statusEl = $("s-rate-status");
   if (statusEl) {
     if (mode === "auto") {
@@ -1188,4 +1191,37 @@ function printChekPreview() {
   if (!frame || !frame.contentWindow) { toast("Preview topilmadi", "err"); return; }
   try { frame.contentWindow.focus(); frame.contentWindow.print(); }
   catch (e) { toast("Chop xatosi: " + (e.message||e), "err"); }
+}
+
+// ═══ KURSNI QO'LDA SAQLASH (2026-07-25) ═══
+// Avval har harfda saqlanardi — yarim yozilgan raqam ham tizimga
+// tushib chalg'itardi. Endi "Saqlash" tugmasi bilan.
+function rateInputChanged() {
+  const btn = document.getElementById("s-rate-save");
+  const inp = document.getElementById("s-rate");
+  if (!btn || !inp) return;
+  const cur = Number(db.settings?.rate) || 0;
+  const val = Number(inp.value) || 0;
+  // Qiymat o'zgargan bo'lsa tugma ko'rinadi
+  btn.style.display = (val > 0 && val !== cur) ? "" : "none";
+}
+
+function saveRateManual() {
+  const inp = document.getElementById("s-rate");
+  if (!inp) return;
+  const val = Number(inp.value) || 0;
+  if (val <= 0) { toast("Kursni kiriting", "err"); return; }
+  if (val < 1000 || val > 100000) {
+    if (!confirm(`Kurs ${fmt(val)} so'm — bu to'g'rimi?`)) return;
+  }
+  // Qo'lda o'zgartirilsa rejim ham "manual" ga o'tadi
+  if (db.settings?.rateMode !== "manual") {
+    saveSetting("rateMode", "manual");
+  }
+  saveSetting("rate", val);
+  const btn = document.getElementById("s-rate-save");
+  if (btn) btn.style.display = "none";
+  toast(`✅ Kurs saqlandi: ${fmt(val)} so'm`);
+  // Joriy sahifa narxlari yangilansin
+  try { if (typeof renderEgasi === "function") renderEgasi(); } catch(e) {}
 }

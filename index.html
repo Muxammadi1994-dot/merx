@@ -2514,8 +2514,13 @@
             <div class="fld">
               <label>1 USD = ? so'm</label>
               <div style="display:flex;align-items:center;gap:10px">
-                <input id="s-rate" type="number" step="50" placeholder="12800" oninput="saveSetting('rate',+this.value)" style="flex:1;font-size:20px;font-weight:800;text-align:center">
+                <!-- 2026-07-25: har harfda saqlash chalg'itardi — endi "Saqlash" tugmasi -->
+                <input id="s-rate" type="number" step="50" placeholder="12800"
+                  oninput="rateInputChanged()" onkeydown="if(event.key==='Enter')saveRateManual()"
+                  style="flex:1;font-size:20px;font-weight:800;text-align:center">
                 <span style="font-size:14px;color:var(--mut);white-space:nowrap">so'm / $</span>
+                <button id="s-rate-save" class="btn btn-acc btn-sm" onclick="saveRateManual()"
+                  style="display:none;white-space:nowrap"><i class="ti ti-check"></i> Saqlash</button>
               </div>
               <div id="s-rate-status" style="font-size:12px;color:var(--mut);margin-top:6px"></div>
             </div>
@@ -4176,31 +4181,7 @@
           Mavjud mahsulotlarga yangi variant qo'sh (duplikat o'tkazib yubor)
         </label>
 
-        <!-- 2026-07-25 (№11): fayldagi narxlar qaysi valyutada — TAXMIN emas,
-             foydalanuvchi ANIQ tanlaydi -->
-        <div style="margin-top:12px;padding:11px 13px;background:#FFF7ED;
-          border:1px solid #FCD9A8;border-radius:9px">
-          <div style="font-size:12.5px;font-weight:700;color:#0D1B2A;margin-bottom:7px">
-            💱 Fayldagi narxlar qaysi valyutada?
-          </div>
-          <div style="display:flex;gap:8px">
-            <label style="flex:1;display:flex;align-items:center;gap:6px;font-size:13px;
-              cursor:pointer;background:#fff;border:1.5px solid var(--brd);border-radius:8px;padding:8px 11px">
-              <input type="radio" name="imp-cur" value="uzs" checked
-                onchange="impCurrencyChanged()" style="cursor:pointer">
-              So'mda (masalan 320 000)
-            </label>
-            <label style="flex:1;display:flex;align-items:center;gap:6px;font-size:13px;
-              cursor:pointer;background:#fff;border:1.5px solid var(--brd);border-radius:8px;padding:8px 11px">
-              <input type="radio" name="imp-cur" value="usd"
-                onchange="impCurrencyChanged()" style="cursor:pointer">
-              USD da (masalan 25)
-            </label>
-          </div>
-          <div style="font-size:11px;color:var(--mut);margin-top:6px;line-height:1.35">
-            Qatorda <b>$</b> belgisi bo'lsa (masalan <b>$25</b>) — o'sha qator baribir USD deb o'qiladi.
-          </div>
-        </div>
+
       </div>
     </div>
 
@@ -4576,7 +4557,7 @@
 <script src="js/cloud.js?v=192"></script>
 <script src="js/dashboard.js?v=154"></script>
 <script src="js/pos.js?v=224"></script>
-<script src="js/katalog.js?v=213"></script>
+<script src="js/katalog.js?v=214"></script>
 <script src="js/ombor.js?v=159"></script>
 <script src="js/mijozlar.js?v=146"></script>
 <script src="js/qarzlar.js?v=186"></script>
@@ -4584,7 +4565,7 @@
 <script src="js/hisobot.js?v=148"></script>
 <script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=164"></script>
-<script src="js/egasi.js?v=163"></script>
+<script src="js/egasi.js?v=164"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=143"></script>
 <script>
@@ -4789,7 +4770,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=77")
+    navigator.serviceWorker.register("/sw.js?v=78")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
