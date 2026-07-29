@@ -1565,7 +1565,8 @@ function addProduct() {
   // Jami dona yozilgan bo'lsa o'shani olamiz (ochilgan qoldiq bilan),
   // aks holda pochka × pochkada (eski usul — buzilmaydi)
   const _totalQty = _donaInput > 0 ? _donaInput : (boxes * effectiveInBox);
-  const newVariants = [{ color, size: sizeText || "-", qty: _totalQty, pantone, hex }];
+  const newVariants = [{ color, size: sizeText || "-", qty: _totalQty,
+    inBox: effectiveInBox, pantone, hex }];
 
   // B1 (v152): HAR RANG = ALOHIDA TOVAR, ARTIKUL ham hisobga olinadi.
   // Nom+rang bir xil bo'lsa-da, ARTIKUL boshqa bo'lsa — bu boshqa tovar
@@ -1582,6 +1583,8 @@ function addProduct() {
     newVariants.forEach(nv => {
       const ex = p.variants.find(v => v.color === nv.color);
       if (ex) { ex.qty += nv.qty; if (pantone) { ex.pantone = pantone; ex.hex = hex; }
+        // Fayldagi quti sig'imi variantga yoziladi
+        if ((parseInt(r.inbox) || 0) > 0) ex.inBox = parseInt(r.inbox);
                 if (nv.size && nv.size !== "-") ex.size = nv.size; }
       else p.variants.push(nv);
     });
@@ -2847,7 +2850,11 @@ function confirmImport() {
       (r.art ? (x.art||"").toLowerCase() === r.art.toLowerCase() : !(x.art||"").trim())
     );
 
-    const variant = { color: r.color, size: r.size, qty: r.qty, pantone: r.pantone, hex: r.hex || "#888888" };
+    // 2026-07-26: quti sig'imi VARIANTGA ham yoziladi — bitta tovarning
+    // turli ranglari har xil pochkada kelishi mumkin (qora 5, oq 6, ko'k 7)
+    const variant = { color: r.color, size: r.size, qty: r.qty,
+      inBox: parseInt(r.inbox) || 1,
+      pantone: r.pantone, hex: r.hex || "#888888" };
 
     // Rang barcode — nom+art+rang bo'yicha
     const colorRaw = r.color || "Standart";
@@ -2870,11 +2877,9 @@ function confirmImport() {
       // mavjud tovarning quti sig'imi ham YANGILANADI. Avval eski qiymat
       // qolib, dona/pochka hisobi noto'g'ri chiqardi (153 dona pochkada 5
       // yozilsa ham eski inBox=7 ishlatilardi).
-      const _rIn = parseInt(r.inbox) || 0;
-      if (_rIn > 0 && (p.inBox || 1) !== _rIn) {
-        console.log(`📦 "${p.name}" quti sig'imi ${p.inBox} → ${_rIn} (fayldan)`);
-        p.inBox = _rIn;
-      }
+      // 2026-07-26: p.inBox BOSIB YOZILMAYDI — har rang o'z quti
+      // sig'imini variantda saqlaydi (avval oxirgi qator hammasiga
+      // qo'llanib, 153/5 o'rniga 153/7 hisoblanardi)
       // Mavjud mahsulotga variant qo'shish
       const ex = p.variants.find(v =>
         v.color.toLowerCase() === r.color.toLowerCase() &&
@@ -3747,7 +3752,7 @@ function _apCreateExtraColor(base, cd, batchId) {
     variantGroup: batchId || "",      // variativ guruh belgisi
     variants: [{
       color: cd.color, size: "",
-      qty: qty, pantone: "", hex: cd.hex || "#888888"
+      qty: qty, inBox: inBox, pantone: "", hex: cd.hex || "#888888"
     }]
   };
 
@@ -4194,7 +4199,11 @@ function epVarRenderTable() {
     const color = (pr.variants || [])[0]?.color || "—";
     const qty   = (pr.variants || []).reduce((a, v) => a + (v.qty || 0), 0);
     // Pochka hisobi: 1 pochkadagi dona (inBox) va pochka soni
-    const inBox  = pr.inBox && pr.inBox > 0 ? pr.inBox : 1;
+    // Variantdagi quti sig'imi ustuvor (rang darajasida)
+    const _v0 = (pr.variants || [])[0];
+    const inBox = (parseInt(_v0 && _v0.inBox) || 0) > 0
+      ? parseInt(_v0.inBox)
+      : (pr.inBox && pr.inBox > 0 ? pr.inBox : 1);
     const pochka = inBox > 0 ? Math.round((qty / inBox) * 100) / 100 : 0;
     // 2026-07-26: tannarx HAR DOIM SO'MDA ko'rsatiladi
     const cost = (typeof getCostUzs === "function")
@@ -4274,7 +4283,11 @@ function epSaveVariativ() {
       vars[0].qty = qty;
     }
 
-    if ((p.inBox || 1) !== inBox && inBox > 0) { p.inBox = inBox; changed++; }
+    // 2026-07-26: quti sig'imi VARIANTGA ham yoziladi (rang darajasida)
+    if (inBox > 0) {
+      if ((p.inBox || 1) !== inBox) { p.inBox = inBox; changed++; }
+      (p.variants || []).forEach(v => { v.inBox = inBox; });
+    }
     if ((p.costUzs || 0) !== costUzsVal) { p.costUzs = costUzsVal; changed++; }
     p.costUsd = costUsd;   // zaxira (eski kod uchun)
     if ((p.ulgurjiNarx || 0) !== ulg) { p.ulgurjiNarx = ulg; changed++; }

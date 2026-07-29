@@ -435,7 +435,11 @@ function posDonaAdd(sku, color, rowId) {
 function packInfo(p, variants) {
   const vs = variants || [];
   const single = vs.length === 1;
-  const inBox = single ? ((p && p.inBox) || 1) : (vs.length || 1);
+  // 2026-07-26: variantda o'z quti sig'imi bo'lsa u USTUVOR (bitta
+  // tovarning ranglari har xil pochkada kelishi mumkin)
+  const _vIb = parseInt(vs[0] && vs[0].inBox) || 0;
+  const inBox = _vIb > 0 ? _vIb
+    : (single ? ((p && p.inBox) || 1) : (vs.length || 1));
   const totalQty = vs.reduce((a, v) => a + (v.qty || 0), 0);
   const maxPochka = single
     ? Math.floor(totalQty / (inBox || 1))

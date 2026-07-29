@@ -75,7 +75,11 @@ function regroupPackages(variants, color, inBox) {
   // birlashtiriladi. Avval faqat colorVariants.length===1 tekshirilardi
   // va import bir necha "-" o'lchamli variant yaratsa eski mantiq ishga
   // tushib, ochilgan pochka noto'g'ri hisoblanardi.
-  const _ib = parseInt(inBox) || 0;
+  // 2026-07-26: quti sig'imi RANG darajasida bo'lishi mumkin (bitta
+  // tovarning turli ranglari har xil pochkada kelishi mumkin: qora 5,
+  // oq 6, ko'k 7). Variantda inBox bo'lsa u USTUVOR.
+  const _vIb = parseInt(colorVariants[0] && colorVariants[0].inBox) || 0;
+  const _ib = _vIb > 0 ? _vIb : (parseInt(inBox) || 0);
   const _noSize = colorVariants.every(v => {
     const sz = String(v.size || "").trim();
     return !sz || sz === "-";
