@@ -2798,6 +2798,21 @@
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#1E40AF"><input type="checkbox" id="chek-unified-sotuv" style="width:16px;height:16px;accent-color:var(--acc)"> Yangi yagona sotuv cheki (test)</label>
                 <div style="font-size:11px;color:#3B5BA0;margin-top:6px;line-height:1.5">Yoqilsa, sotuv cheki ham jonli test bilan bir xil ko'rinishda chiqadi. Sinab ko'ring — muammo bo'lsa o'chiring.</div>
               </div>
+              <!-- 2026-07-26: chekda ikki valyuta ko'rsatish (yoqib/o'chirish) -->
+              <div class="fld" style="background:#FFF7ED;border:1px solid #FCD9A8;border-radius:9px;padding:12px 14px;margin-bottom:12px">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#0D1B2A">
+                  <input type="checkbox" id="chek-dual-cur" checked
+                    onchange="saveSetting('chekDualCurrency', this.checked); renderChekPreview();"
+                    style="width:16px;height:16px;accent-color:#E9A500;cursor:pointer">
+                  💱 Chekda ikki valyuta ko'rsatilsin
+                </label>
+                <div style="font-size:11px;color:#856404;margin-top:6px;line-height:1.5">
+                  Yoqilsa: <b>540 000 / $43.20</b> — ikkala valyuta birga.<br>
+                  O'chirilsa: faqat tizim valyutasida (<b>540 000 so'm</b>).<br>
+                  Chiqarilgan cheklar o'zgarmaydi — sozlama yangi sotuvlarga ta'sir qiladi.
+                </div>
+              </div>
+
               <div class="fld" style="margin-bottom:12px;background:#F8F7F4;border:1px solid var(--brd);border-radius:10px;padding:12px 14px;margin-top:6px">
                 <label style="font-size:13px;font-weight:700;color:#0D1B2A;margin-bottom:8px"><i class="ti ti-adjustments"></i> Bloklar bo'yicha sozlash</label>
                 <div style="font-size:11px;color:var(--mut);margin-bottom:10px;line-height:1.5">Har bir bo'limni alohida sozlang: o'lcham (px), qalin, kursiv, tekislash, ko'rsatish. (Yangi yagona chek rejimida ishlaydi.)</div>
@@ -4629,12 +4644,12 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=162"></script>
-<script src="js/utils.js?v=196"></script>
+<script src="js/utils.js?v=197"></script>
 <script src="js/auth.js?v=179"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=192"></script>
 <script src="js/dashboard.js?v=155"></script>
-<script src="js/pos.js?v=225"></script>
+<script src="js/pos.js?v=226"></script>
 <script src="js/katalog.js?v=228"></script>
 <script src="js/ombor.js?v=163"></script>
 <script src="js/mijozlar.js?v=147"></script>
@@ -4643,7 +4658,7 @@
 <script src="js/hisobot.js?v=148"></script>
 <script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=164"></script>
-<script src="js/egasi.js?v=166"></script>
+<script src="js/egasi.js?v=167"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=143"></script>
 <script>
@@ -4848,7 +4863,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=95")
+    navigator.serviceWorker.register("/sw.js?v=96")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

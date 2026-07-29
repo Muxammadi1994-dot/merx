@@ -2146,6 +2146,8 @@ async function checkout() {
     // Chek "muzlatiladi": keyin sozlama o'zgarsa (so'm → ikki valyuta)
     // ESKI chek o'zgarmaydi, qanday chiqarilgan bo'lsa shunday qoladi.
     priceCurrency: db.settings?.priceCurrency || "uzs",
+    // 2026-07-26: chekda ikki valyuta ko'rsatish sozlamasi ham muhrlanadi
+    chekDual: db.settings?.chekDualCurrency !== false,
     priceType: posPriceType,
     payType: posPayType, payBreakdown, staffId, customerId,
     discount, discountType: discType,

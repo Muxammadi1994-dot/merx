@@ -773,8 +773,16 @@ function buildReceiptHtml(sale, opts) {
   // Kurs sotuv paytidagi (_pcRate) — keyin o'zgarsa chek o'zgarmaydi.
   const _usdStr = som => "$" + (_pcRate > 0 ? (som / _pcRate) : 0)
     .toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // 2026-07-26: do'kon xohlasa chek FAQAT bitta valyutada bo'lishi mumkin.
+  // Sotuvda muhrlangan qiymat ustuvor (eski cheklar o'zgarmasin).
+  const _dual = (sale.chekDual != null)
+    ? !!sale.chekDual
+    : (db.settings?.chekDualCurrency !== false);
+
   const FC = n => {
     const som = Math.round(n || 0);
+    if (!_dual) return _pcMode === "usd" ? _usdStr(som) : F(som);
     return _pcMode === "usd"
       ? `${_usdStr(som)} / ${F(som)}`
       : `${F(som)} / ${_usdStr(som)}`;
@@ -902,6 +910,7 @@ function buildReceiptHtml(sale, opts) {
     // 2026-07-26: qarz HAR DOIM "summa / kurs = $USD" ko'rinishida —
     // qaysi kursda hisoblangani chekdan ko'rinsin. USD rejimida
     // tartib almashadi.
+    if (!_dual) return _pcMode === "usd" ? _uStr : `${_s} so'm`;
     return _pcMode === "usd"
       ? `${_uStr} = ${_s} / ${F(_pcRate)}`
       : `${_s} / ${F(_pcRate)} = ${_uStr}`;
@@ -1107,9 +1116,11 @@ ${!_bFoot.show ? ".ft-thanks{display:none !important}" : ""}
         <div class="tot-lbl">JAMI</div>
         <div class="tot-cnt">${items.length} xil · ${items.reduce((a,i)=>a+(+i.qty||0),0)} dona</div>
       </div>
-      <div class="tot-val">${_pcMode === "usd"
-        ? `${_usdStr(total)}<span class="tot-uzs"> / ${F(total)} so'm</span>`
-        : `${F(total)}<span class="tot-uzs"> so'm / ${_usdStr(total)}</span>`}</div>
+      <div class="tot-val">${!_dual
+        ? (_pcMode === "usd" ? _usdStr(total) : `${F(total)}<span class="tot-uzs"> so'm</span>`)
+        : _pcMode === "usd"
+          ? `${_usdStr(total)}<span class="tot-uzs"> / ${F(total)} so'm</span>`
+          : `${F(total)}<span class="tot-uzs"> so'm / ${_usdStr(total)}</span>`}</div>
     </div>
 
     ${_type === "savat" ? `

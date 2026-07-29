@@ -173,6 +173,8 @@ function saveAdminCreds() {
 
 // ── renderEgasi (renderAdmin) — barcha tablarni to'ldiradi ──
 function renderEgasi() {
+  // 2026-07-26: chek valyuta sozlamasini formaga tiklaymiz
+  try { loadChekDualSetting(); } catch(e) {}
   // ── DO'KON TAB ──
   if ($("s-name"))      $("s-name").value      = db.shop?.name || db.settings?.name || "";
   if ($("s-low-stock")) $("s-low-stock").value = db.settings?.lowStockLimit || 5;
@@ -1025,6 +1027,12 @@ function _previewSampleSale(type) {
     // 2026-07-26: namuna JORIY rejim va kursda ko'rsatiladi
     priceCurrency: _cur, rate: _rate,
     ..._debtSample, due: base.date };
+}
+
+// 2026-07-26: "ikki valyuta" sozlamasini formaga tiklash
+function loadChekDualSetting() {
+  const el = document.getElementById("chek-dual-cur");
+  if (el) el.checked = db.settings?.chekDualCurrency !== false;
 }
 
 function renderChekPreview() {
