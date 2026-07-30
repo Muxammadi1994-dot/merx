@@ -525,7 +525,18 @@ function renderDashChart() {
   if (!data.length) { el.innerHTML = '<div style="text-align:center;padding:40px;color:#bbb">Ma\'lumot yo\'q</div>'; return; }
 
   const maxVal = Math.max(...data.map(d => d.total), 1);
-  const W = 580, H = 180, pL = 52, pB = 28, pT = 24, pR = 16;
+
+  // ── 2026-07-30: chap chekka ENDI YOZUV UZUNLIGIGA QARAB hisoblanadi ──
+  // Avval pL qat'iy 52 edi. Sotuv 10 mln dan oshgach "14 310 000" kabi
+  // yozuvlar 52px ga sig'may, kartaning chap chetidan chiqib KESILIB
+  // qolardi (birinchi raqam ko'rinmasdi).
+  const AX_FS    = 11;   // yozuv o'lchami — avval 10 edi, juda mayda ko'rinardi
+  const _yLabels = [0, 0.25, 0.5, 0.75, 1].map(pct => String(fmtK(maxVal * pct)));
+  const _maxLbl  = Math.max(..._yLabels.map(t => t.length));
+  // ~0.56 — raqam kengligining shrift o'lchamiga nisbati, +12 nafas joyi
+  const _pL      = Math.max(52, Math.round(_maxLbl * AX_FS * 0.56) + 12);
+
+  const W = 580, H = 180, pL = _pL, pB = 28, pT = 24, pR = 16;
   const cW = W - pL - pR, cH = H - pB - pT;
   // Minimal 7 slot ko'rsatamiz (1-2 kun bo'lsa ham chiroyli ko'rinadi)
   const slots = Math.max(data.length, 7);
@@ -537,8 +548,8 @@ function renderDashChart() {
     return `
       <line x1="${pL}" y1="${y}" x2="${W - pR}" y2="${y}"
             stroke="#e8e5df" stroke-width="1" ${pct > 0 ? 'stroke-dasharray="4 4"' : ''}/>
-      <text x="${pL - 6}" y="${y + 4}" text-anchor="end"
-            fill="#bbb" font-size="10">${fmtK(maxVal * pct)}</text>`;
+      <text x="${pL - 8}" y="${y + 4}" text-anchor="end"
+            fill="#5F6470" font-size="${AX_FS}" font-weight="500">${fmtK(maxVal * pct)}</text>`;
   }).join('');
 
   const bars = data.map((d, i) => {
@@ -554,7 +565,7 @@ function renderDashChart() {
             fill="${fill}" rx="3" opacity="${d.total ? 1 : 0.15}">
         <title>${tip}</title>
       </rect>
-      <text x="${x}" y="${H - 6}" text-anchor="middle" fill="#aaa" font-size="${slots > 30 ? 8 : 10}">
+      <text x="${x}" y="${H - 6}" text-anchor="middle" fill="#5F6470" font-weight="500" font-size="${slots > 30 ? 9 : AX_FS}">
         ${slots <= 60 ? d.label : ''}
       </text>`;
   }).join('');
