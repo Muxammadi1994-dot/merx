@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════
-// TELEGRAM BOT — TIZIM DARAJASIDAGI QIYMATLAR (2026-07-30)
+// TIZIM DARAJASIDAGI QIYMATLAR (2026-07-30)
 // ══════════════════════════════════════════════════════════════
 // Bot BITTA — u barcha do'konlarga xizmat qiladi, do'konlar shop_id
 // bo'yicha ajratiladi. Demak bu ikki qiymat har do'konda bir xil
@@ -84,6 +84,39 @@ function init() {
         saveDB();
       }
     } catch(e) {}
+  }
+
+  // ── 4.5. Kalitlar hali ham yo'qmi — SERVERDAN olamiz (2026-07-30) ──
+  // Yuqoridagi blok kalitlarni faqat `merx_v5` (asosiy do'kon) dan
+  // qidiradi. Do'kon egasining O'Z qurilmasida esa `merx_v5` umuman
+  // yo'q. Kirish paytida auth.js buni client_config orqali hal qiladi,
+  // lekin foydalanuvchi allaqachon kirgan bo'lsa (F5, PWA) o'sha yo'l
+  // ishlamaydi va do'kon jimgina "lokal rejim"da qolib ketardi.
+  // Sozlamalardagi maydonlar endi YOPIQ — qo'lda tuzatib bo'lmaydi,
+  // shuning uchun bu bo'shliqni yopish SHART.
+  if (!db.settings?.supabaseUrl || !db.settings?.supabaseKey) {
+    (async () => {
+      try {
+        const _r = await fetch("/api/auth-v2?action=client_config", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}"
+        });
+        const _cfg = await _r.json();
+        if (!_cfg?.ok || !_cfg.url || !_cfg.key) return;
+        if (!db.settings) db.settings = {};
+        db.settings.supabaseUrl = _cfg.url;
+        db.settings.supabaseKey = _cfg.key;
+        saveDB();
+        console.log("☁️ Bulut kalitlari serverdan olindi");
+        // Kalitlar endi bor — pastdagi blok allaqachon o'tib ketgan,
+        // shuning uchun ulanishni shu yerda o'zimiz boshlaymiz
+        if (typeof initSupabase === "function" && await initSupabase()) {
+          if (typeof updateCloudUI === "function") updateCloudUI(true);
+          const _empty = !db.products?.length && !db.sales?.length;
+          if (_empty && typeof pullFromCloud === "function") await pullFromCloud();
+          else if (typeof renderDashboard === "function") renderDashboard();
+        }
+      } catch(e) { console.warn("client_config olinmadi:", e.message); }
+    })();
   }
 
   if (db.settings?.supabaseUrl && db.settings?.supabaseKey) {

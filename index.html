@@ -2605,8 +2605,16 @@
         <div class="card">
           <div class="ch"><h3><i class="ti ti-cloud"></i> Supabase ulanish</h3><span class="bg bg-gr" id="cloud-status-badge">Ulanmagan</span></div>
           <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
-            <div class="fld"><label>Supabase Project URL</label><input id="s-sup-url" placeholder="https://xxxx.supabase.co" oninput="saveSetting('supabaseUrl',this.value)" style="font-size:12px;font-family:monospace"></div>
-            <div class="fld"><label>Anon / Public Key</label><input id="s-sup-key" type="text" placeholder="eyJhbGci..." autocomplete="new-password" oninput="saveSetting('supabaseKey',this.value)" style="font-size:11px;font-family:monospace;color:#374151"></div>
+            <!-- 2026-07-30: bulut kalitlari YOPIQ. Bu ikki qiymatga adashib
+                 tegilsa do'kon bulutdan uziladi va ma'lumot sinxronlanmay
+                 qoladi. Qiymatlar tizim tomonidan beriladi (serverdagi
+                 client_config), do'kon egasi ularni bilishi shart emas. -->
+            <div class="fld"><label>Supabase Project URL</label><input id="s-sup-url" type="password" readonly tabindex="-1" title="Tizim tomonidan sozlangan — o'zgartirilmaydi" oninput="saveSetting('supabaseUrl',this.value)" style="font-size:12px;font-family:monospace;background:var(--bg);color:var(--mut);cursor:default"></div>
+            <div class="fld"><label>Anon / Public Key</label><input id="s-sup-key" type="password" readonly tabindex="-1" autocomplete="new-password" title="Tizim tomonidan sozlangan — o'zgartirilmaydi" oninput="saveSetting('supabaseKey',this.value)" style="font-size:11px;font-family:monospace;background:var(--bg);color:var(--mut);cursor:default"></div>
+            <div style="font-size:11.5px;color:var(--mut);margin-top:-6px;line-height:1.6">
+              <i class="ti ti-lock"></i> Bulut ulanishi tizim tomonidan sozlangan va yopiq.
+              Yuqoridagi rozetka <strong>Ulangan ✅</strong> bo'lsa hammasi joyida.
+            </div>
             <div style="display:flex;gap:8px">
               <!-- Ulash+Sinx tugmasi olib tashlandi (2026-07): bulut login paytida avtomatik ulanadi -->
               <button class="btn btn-ghost" onclick="pushToCloud()" style="flex:1"><i class="ti ti-cloud-upload"></i> Cloudga yuklash</button>
@@ -2614,10 +2622,11 @@
             </div>
 
             <div style="background:var(--bg);border-radius:var(--rs);padding:12px 14px;font-size:12.5px;color:var(--mut);line-height:1.7">
-              <strong style="color:var(--ink)">Qanday olish:</strong><br>
-              1. supabase.com → bepul akkaunt → yangi project<br>
-              2. Project Settings → API → Project URL + anon key<br>
-              3. SQL Editor → <code>schema_multitenant.sql</code> faylini ishga tushiring
+              <strong style="color:var(--ink)">Bulut nima qiladi:</strong><br>
+              Ma'lumotlaringiz avtomat saqlanadi va boshqa qurilmalarda ochiladi.<br>
+              <strong>Cloudga yuklash</strong> — shu qurilmadagi ma'lumotni bulutga jo'natadi.<br>
+              <strong>Clouddan yuklash</strong> — bulutdagi ma'lumotni shu qurilmaga oladi.<br>
+              Rozetka "Ulanmagan" bo'lib qolsa — internetni tekshiring, keyin administratorga murojaat qiling.
             </div>
           </div>
         </div>
@@ -4680,7 +4689,7 @@
 <script src="js/moliya.js?v=164"></script>
 <script src="js/egasi.js?v=168"></script>
 <script src="js/portal.js?v=141"></script>
-<script src="js/init.js?v=147"></script>
+<script src="js/init.js?v=148"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -4883,7 +4892,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=121")
+    navigator.serviceWorker.register("/sw.js?v=122")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
