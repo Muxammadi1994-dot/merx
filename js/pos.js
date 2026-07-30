@@ -88,6 +88,11 @@ document.addEventListener("keydown", function(e) {
 });
 
 // ── Barcode ishlov berish ────────────────────────
+// 2026-07-30: skanerdan kelgan qidiruvni belgilaymiz — qoldiq tugagan
+// bo'lsa posSearch ovoz chiqarishi uchun. Qo'lda yozilayotganda esa
+// har harfda chiyillamasin.
+let _posScanMode = false;
+
 function processBarcode(code) {
   const q = code.toLowerCase();
   let foundColor = null;
@@ -106,7 +111,11 @@ function processBarcode(code) {
   }
   if (p) {
     toast("Topildi: " + p.name + (foundColor ? " — " + foundColor : ""), "info");
-    if ($("pos-q")) { $("pos-q").value = p.art || p.sku; posSearch(); }
+    if ($("pos-q")) {
+      $("pos-q").value = p.art || p.sku;
+      _posScanMode = true;
+      try { posSearch(); } finally { _posScanMode = false; }
+    }
     // 2026-07-24 (№9): rang aniq bo'lsa — 1 POCHKA to'g'ridan savatga.
     // Rang noma'lum bo'lsa (umumiy tovar barcode'i) qo'shmaymiz — qaysi
     // rang ekani noaniq, foydalanuvchi o'zi tanlaydi.
@@ -130,7 +139,11 @@ function processBarcode(code) {
       }, 300);
     }
   } else {
-    if ($("pos-q")) { $("pos-q").value = code; posSearch(); }
+    if ($("pos-q")) {
+      $("pos-q").value = code;
+      _posScanMode = true;
+      try { posSearch(); } finally { _posScanMode = false; }
+    }
     toast('Barcode: "' + code + '" — qolda tanlang', "info");
   }
 }
@@ -208,20 +221,79 @@ function posEditPrice(rowId, sku, color) {
   inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } });
 }
 
-// v186 (№7): maksimal qoldiqqa yetganda qisqa "chiyillash" — savdo paytida
+// v186 (№7): maksimal qoldiqqa yetganda "chiyillash" — savdo paytida
 // ekranga qaramasdan ham tugaganini bilish uchun. Xato bersa jim o'tadi.
+//
+// 2026-07-30 KUCHAYTIRILDI. Avvalgi ovoz juda past edi, sabablari:
+//   · gain 0.12 (to'liq kuchning ~1/8 qismi)
+//   · 880 Hz — quloq eng sezgir bo'lgan 2–4 kHz oralig'idan ancha past,
+//     shu bois bir xil kuchda ham past eshitilardi
+//   · bitta qisqa (0.2s) signal — shovqinli do'konda bilinmasdi
+// Endi: 2600+3300 Hz ikki ohang, to'liq kuch, ikki marta "bip-bip",
+// va telefonda tebranish.
 let _beepCtx = null;
-function posBeep() {
+
+// Ovoz kuchi — kerak bo'lsa FAQAT shu raqamni o'zgartiring (0.0 – 1.0)
+const POS_BEEP_VOL = 1.0;
+
+function _posAudioCtx() {
   try {
     _beepCtx = _beepCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (_beepCtx.state === "suspended") _beepCtx.resume();
-    const o = _beepCtx.createOscillator(), g = _beepCtx.createGain();
-    o.type = "square"; o.frequency.value = 880;
-    g.gain.setValueAtTime(0.12, _beepCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, _beepCtx.currentTime + 0.18);
-    o.connect(g); g.connect(_beepCtx.destination);
-    o.start(); o.stop(_beepCtx.currentTime + 0.2);
-  } catch(e) {}
+    return _beepCtx;
+  } catch(e) { return null; }
+}
+
+// Brauzerlar audio'ni faqat foydalanuvchi harakatidan keyin ochadi.
+// Busiz birinchi signal ba'zan umuman chiqmasdi — shuning uchun
+// birinchi teginish/tugma bosishda audio kanalini oldindan ochamiz.
+["pointerdown","keydown"].forEach(ev =>
+  document.addEventListener(ev, () => { _posAudioCtx(); }, { passive: true })
+);
+
+// Ketma-ket kelgan bir nechta signalni bittaga yig'amiz (masalan skaner
+// urganda posSearch ham, posQuickAdd ham chaqirishi mumkin)
+let _lastBeepAt = 0;
+
+function posBeep(pips) {
+  const now = Date.now();
+  if (now - _lastBeepAt < 400) return;   // takroriy chiyillashni bosamiz
+  _lastBeepAt = now;
+
+  const ctx = _posAudioCtx();
+  if (ctx) {
+    try {
+      const n = pips || 2;                       // "bip-bip"
+      const master = ctx.createGain();
+      master.gain.value = POS_BEEP_VOL;
+      // To'liq kuchda tovush "yorilib" ketmasligi uchun kompressor
+      if (typeof ctx.createDynamicsCompressor === "function") {
+        const comp = ctx.createDynamicsCompressor();
+        master.connect(comp); comp.connect(ctx.destination);
+      } else {
+        master.connect(ctx.destination);
+      }
+      const t0 = ctx.currentTime;
+      for (let i = 0; i < n; i++) {
+        const st = t0 + i * 0.17;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, st);
+        g.gain.exponentialRampToValueAtTime(0.5, st + 0.006);  // keskin boshlanish
+        g.gain.setValueAtTime(0.5, st + 0.10);
+        g.gain.exponentialRampToValueAtTime(0.0001, st + 0.14);
+        g.connect(master);
+        // Ikki ohang birga — skaner "pip"iga o'xshash, o'tkir va uzoqdan eshitiladi
+        [2600, 3300].forEach(f => {
+          const o = ctx.createOscillator();
+          o.type = "square"; o.frequency.value = f;
+          o.connect(g); o.start(st); o.stop(st + 0.15);
+        });
+      }
+    } catch(e) {}
+  }
+
+  // Telefon cho'ntakda yoki shovqin baland bo'lsa — qo'lda seziladi
+  try { if (navigator.vibrate) navigator.vibrate([70, 60, 70]); } catch(e) {}
 }
 
 function posSearch() {
@@ -288,6 +360,9 @@ function posSearch() {
         <i class="ti ti-package-off"></i>
         <div>"${q}" bo'yicha qoldiq TUGAGAN</div>
       </div>`;
+    // 2026-07-30: skaner bilan yurgan odam ekranga qaramaydi — eshitsin.
+    // Faqat skanerdan kelganda: qo'lda yozganda har harfda chiyillamasin.
+    if (_posScanMode) posBeep();
     return;
   }
 
@@ -404,7 +479,7 @@ function posDonaAdd(sku, color, rowId) {
     const inputId = `posdq-${rowId}-${v.size}`;
     const qtyWanted = parseInt(($(inputId)||{value:0}).value) || 0;
     if (qtyWanted <= 0) return;
-    if (qtyWanted > v.qty) { toast(`${v.size}: faqat ${v.qty} ta bor`, "err"); return; }
+    if (qtyWanted > v.qty) { posBeep(); toast(`${v.size}: faqat ${v.qty} ta bor`, "err"); return; }
 
     const ex = cart.find(c => c.sku===sku && c.color===color && c.size===v.size && c.sellMode==="dona");
     if (ex) ex.qty += qtyWanted;
@@ -476,11 +551,16 @@ function posQuickAdd(sku, color, packGroup) {
     const msg = _otherReserved > 0
       ? `Boshqa savatlarda ${_otherReserved} pochka band. Stok tugagan`
       : `Stok tugagan`;
+    // 2026-07-30: SKANER YO'LI. processBarcode → posQuickAdd shu yerga
+    // tushadi. Avval ovoz faqat savatda bor edi, shuning uchun uzoqdan
+    // skanerlab yurgan odam tovar tugaganini bilmasdi.
+    posBeep();
     toast(msg, "err"); return;
   }
   // qtyInput limitdan oshsa — avtomat kesib olamiz
   const _actualAdd = Math.min(qtyInput, _freeAdd);
   if (_actualAdd < qtyInput) {
+    posBeep(1);  // so'ralgancha sig'madi — bitta qisqa signal
     toast(`${_actualAdd} pochka qo'shildi (limit: ${_limit} pochka${_otherReserved>0?', '+_otherReserved+' boshqa savatda band':''})`, "info");
   }
 
@@ -786,10 +866,11 @@ function confirmVariant() {
   } else {
     // Dona rejimi
     const v = vmProd.variants.find(x => x.color===selColor && x.size===selSize);
-    if (!v || v.qty <= 0) { toast("Bu variant tugagan","err"); return; }
+    if (!v || v.qty <= 0) { posBeep(); toast("Bu variant tugagan","err"); return; }
     const ex      = cart.find(c => c.sku===vmProd.sku && c.color===selColor && c.size===selSize);
     const already = ex ? ex.qty : 0;
     if (already + totalDona > v.qty) {
+      posBeep();
       toast(`Faqat ${v.qty - already} ${vmProd.unit||"dona"} bor`,"err"); return;
     }
     if (ex) ex.qty += totalDona;
