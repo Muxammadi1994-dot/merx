@@ -214,8 +214,14 @@ function renderEgasi() {
   // ── CLOUD TAB ──
   const url = db.settings?.supabaseUrl || "";
   const key = db.settings?.supabaseKey || "";
-  if ($("s-sup-url")) $("s-sup-url").value = url;
-  if ($("s-sup-key")) $("s-sup-key").value = key;
+  // 2026-07-30: bu ikki maydonga HAQIQIY qiymat qo'yilmaydi.
+  // Sabab: ular yopiq (readonly) va kodda HECH QAYERDA o'qilmaydi —
+  // ilova kalitlarni faqat db.settings dan oladi. Ekranga chiqarishning
+  // hojati yo'q, chiqarilsa esa brauzer ularni parol deb hisoblab
+  // "parolni saqlaymizmi?" oynasini chiqaraverardi.
+  const _MASK = "••••••••••••••••••••";
+  if ($("s-sup-url")) $("s-sup-url").value = url ? _MASK : "";
+  if ($("s-sup-key")) $("s-sup-key").value = key ? _MASK : "";
   const cloudBadge = $("cloud-status-badge");
   if (cloudBadge) {
     cloudBadge.textContent = (url && key) ? "Ulangan ✅" : "Ulanmagan";
