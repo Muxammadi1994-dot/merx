@@ -1574,7 +1574,26 @@ function saCopyBotLink(shopId) {
 // Ataylab takrorlandi — ishlab turgan funksiyaga tegmaslik uchun.
 // Keyinchalik ikkalasini shu yordamchiga o'tkazsa bo'ladi.
 function _saBotUsername() {
+  // 2026-07-30 TUZATILDI. Avval faqat localStorage["merx_v5"] o'qilardi.
+  // Lekin bulutga ulangan do'kon ma'lumoti "merx_v5_<shopId>" kalitida
+  // saqlanadi ("merx_v5" — faqat lokal rejim uchun). Ya'ni bulut orqali
+  // kirgan SuperAdmin qurilmasida o'sha kalit BO'SH bo'lardi va tugma
+  // "Bot username sozlanmagan" deb qizil xato berardi.
+  //
+  // Endi tartib: 1) tizim konstantasi, 2) joriy do'kon, 3) eski kalit.
   try {
+    // 1) init.js dagi tizim qiymati — eng ishonchli manba
+    if (typeof MERX_BOT_USERNAME === "string" && MERX_BOT_USERNAME.trim()) {
+      return MERX_BOT_USERNAME.replace(/^@/,"").trim();
+    }
+  } catch(e) {}
+  try {
+    // 2) Joriy ochiq do'kon sozlamasi
+    let u = (db?.settings?.telegramBotUsername || "").replace(/^@/,"").trim();
+    if (u && !u.includes("@") && !u.includes(".")) return u;
+  } catch(e) {}
+  try {
+    // 3) Eski lokal do'kon (zaxira)
     const mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
     let u = (mainDB?.settings?.telegramBotUsername || "").replace(/^@/,"").trim();
     if (u.includes("@") || u.includes(".")) u = "";
