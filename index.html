@@ -3168,10 +3168,23 @@
     <div class="r3">
       <div class="fld ap-field" data-apf="category">
         <label>Kategoriya</label>
-        <!-- 2026-07-26: kategoriya endi ERKIN MATN (teg kabi). Avval
-             ishlatilganlari yozishni boshlaganda taklif qilinadi. -->
-        <input id="ap-cat" list="cat-suggest" autocomplete="off"
-          placeholder="Masalan: Krossovka (ixtiyoriy)">
+        <!-- 2026-07-30: teg (chip) ko'rinishi — variativ ranglar uslubida.
+             Qiymat pastdagi YASHIRIN maydonda turadi, saqlash kodi
+             o'zgarmadi. -->
+        <div id="ap-cat-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:7px">
+          <input id="ap-cat-new" placeholder="Yangi kategoriya yozing..." autocomplete="off"
+            onkeydown="catChipKey('ap',event)"
+            style="flex:1;min-width:0;font-family:inherit;font-size:15px;
+            border:1.5px solid var(--brd);border-radius:8px;padding:10px 12px;box-sizing:border-box">
+          <button type="button" onclick="catChipAdd('ap')"
+            style="flex-shrink:0;background:var(--acc);border:none;border-radius:8px;
+            padding:10px 16px;font-family:inherit;font-size:14px;font-weight:700;
+            color:#0D1B2A;cursor:pointer;white-space:nowrap">
+            <i class="ti ti-plus"></i> Qo'shish
+          </button>
+        </div>
+        <input type="hidden" id="ap-cat">
       </div>
       <div class="fld ap-field" data-apf="unit">
         <label>O'lchov birligi</label>
@@ -3406,8 +3419,23 @@
     <div class="r3">
       <div class="fld">
         <label>Kategoriya</label>
-        <input id="ep-cat" list="cat-suggest" autocomplete="off"
-          placeholder="Masalan: Krossovka (ixtiyoriy)">
+        <!-- 2026-07-30: teg (chip) ko'rinishi — variativ ranglar uslubida.
+             Qiymat pastdagi YASHIRIN maydonda turadi, saqlash kodi
+             o'zgarmadi. -->
+        <div id="ep-cat-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:7px">
+          <input id="ep-cat-new" placeholder="Yangi kategoriya yozing..." autocomplete="off"
+            onkeydown="catChipKey('ep',event)"
+            style="flex:1;min-width:0;font-family:inherit;font-size:15px;
+            border:1.5px solid var(--brd);border-radius:8px;padding:10px 12px;box-sizing:border-box">
+          <button type="button" onclick="catChipAdd('ep')"
+            style="flex-shrink:0;background:var(--acc);border:none;border-radius:8px;
+            padding:10px 16px;font-family:inherit;font-size:14px;font-weight:700;
+            color:#0D1B2A;cursor:pointer;white-space:nowrap">
+            <i class="ti ti-plus"></i> Qo'shish
+          </button>
+        </div>
+        <input type="hidden" id="ep-cat">
       </div>
       <div class="fld">
         <label>O'lchov birligi</label>
@@ -4679,7 +4707,7 @@
 <script src="js/cloud.js?v=196"></script>
 <script src="js/dashboard.js?v=157"></script>
 <script src="js/pos.js?v=229"></script>
-<script src="js/katalog.js?v=229"></script>
+<script src="js/katalog.js?v=230"></script>
 <script src="js/ombor.js?v=164"></script>
 <script src="js/mijozlar.js?v=147"></script>
 <script src="js/qarzlar.js?v=187"></script>
@@ -4892,7 +4920,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=124")
+    navigator.serviceWorker.register("/sw.js?v=125")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
