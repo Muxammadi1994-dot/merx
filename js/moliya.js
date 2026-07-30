@@ -197,6 +197,28 @@ function setMolCustomRange() {
   renderMoliya();
 }
 
+// ── Xarajatlar RO'YXATI uchun mustaqil davr (2026-07-31) ──────
+// Avval ro'yxat yuqoridagi banner davriga (molPeriod) bog'langan edi:
+// jadval ustidagi tugma faqat SHU davr ICHIDA ishlardi. Ya'ni banner
+// "Bugun" bo'lsa, jadvalda "Yil" bosilsa ham bugundan chiqmasdi.
+// Endi ro'yxat o'z filtriga bo'ysunadi, KPI kartalar esa avvalgidek
+// banner davriga (o'zgarmadi).
+function expDateRange() {
+  const t = today();
+  if (expDatePeriod === "all")       return { from: "2000-01-01", to: "2100-01-01" };
+  if (expDatePeriod === "yesterday") return { from: addDays(t,-1), to: addDays(t,-1) };
+  if (expDatePeriod === "today")     return { from: t, to: t };
+  if (expDatePeriod === "week")      return { from: addDays(t,-6), to: t };
+  if (expDatePeriod === "month")     return { from: t.slice(0,7)+"-01", to: t };
+  if (expDatePeriod === "year")      return { from: t.slice(0,4)+"-01-01", to: t };
+  if (expDatePeriod === "custom") {
+    const f = ($("exp-date-from")||{value:""}).value;
+    const o = ($("exp-date-to")  ||{value:""}).value;
+    return { from: f || "2000-01-01", to: o || "2100-01-01" };
+  }
+  return { from: t, to: t };
+}
+
 function molDateRange() {
   const t = today();
   if (molPeriod === "yesterday") return { from: addDays(t,-1), to: addDays(t,-1) };
@@ -378,7 +400,12 @@ function renderMoliya() {
   const catTotals = {};
   periodExps.forEach(x => { const c=x.category||"Boshqa"; catTotals[c]=(catTotals[c]||0)+(x.amount||0); });
 
-  let exps = [...periodExps].sort((a,b)=>{
+  // 2026-07-31: ro'yxat endi O'Z davridan oladi (periodExps emas).
+  // KPI kartalar yuqorida periodExps bilan ishlashda davom etadi.
+  const _er = expDateRange();
+  let exps = (db.xarajatlar||[])
+    .filter(x => (x.date||"") >= _er.from && (x.date||"") <= _er.to)
+    .sort((a,b)=>{
     if ((b.date||"") !== (a.date||"")) return ((b.date||"") > (a.date||"")) ? 1 : -1;
     return (b.id||0) - (a.id||0); // v156 (№13): kun ichida ham yangi tepada
   });
@@ -401,11 +428,8 @@ function renderMoliya() {
   // To'lov usuli filtri
   const methodFilter = ($("exp-method-filter")||{value:""}).value;
   if (methodFilter) exps = exps.filter(x => (x.method||"naqd") === methodFilter);
-  // Sana oralig'i filtri
-  const dateFrom = ($("exp-date-from")||{value:""}).value;
-  const dateTo   = ($("exp-date-to")||{value:""}).value;
-  if (dateFrom) exps = exps.filter(x => (x.date||"") >= dateFrom);
-  if (dateTo)   exps = exps.filter(x => (x.date||"") <= dateTo);
+  // 2026-07-31: sana oralig'i endi yuqorida expDateRange() orqali
+  // qo'llanadi (kalendar "custom" holatida o'sha yerda o'qiladi).
 
   const cols = getExpCols();
   const colCount = Object.values(cols).filter(Boolean).length + 1; // +1 amallar ustuni
@@ -1031,10 +1055,12 @@ function exportExpExcel() {
   const q = ($("exp-q")||{value:""}).value.toLowerCase();
   const catFilter    = ($("exp-cat-filter")||{value:""}).value;
   const methodFilter = ($("exp-method-filter")||{value:""}).value;
-  const dateFrom     = ($("exp-date-from")||{value:""}).value;
-  const dateTo       = ($("exp-date-to")||{value:""}).value;
+  // 2026-07-31: eksport ham ro'yxat bilan BIR XIL davrni oladi —
+  // avval ekranda bir narsa, faylda boshqa narsa chiqishi mumkin edi.
+  const _er2 = expDateRange();
 
-  let exps = (db.xarajatlar||[]).filter(x => x.date >= from && x.date <= to);
+  let exps = (db.xarajatlar||[])
+    .filter(x => (x.date||"") >= _er2.from && (x.date||"") <= _er2.to);
   if (q)            exps = exps.filter(x =>       // v154: sub-teg qidiruvga qo'shildi
     (x.category||"").toLowerCase().includes(q) ||
     (x.subCategory||"").toLowerCase().includes(q) ||
@@ -1042,8 +1068,6 @@ function exportExpExcel() {
     (x.recipient||"").toLowerCase().includes(q));
   if (catFilter)    exps = exps.filter(x => (x.category||"") === catFilter);
   if (methodFilter) exps = exps.filter(x => (x.method||"naqd") === methodFilter);
-  if (dateFrom)     exps = exps.filter(x => (x.date||"") >= dateFrom);
-  if (dateTo)       exps = exps.filter(x => (x.date||"") <= dateTo);
 
   const rows = [["Sana","Kategoriya","Kimga/Nima uchun","Kim to'ladi","To'lov usuli","Summa (so'm)","USD","Izoh"]];
   exps.forEach(x => rows.push([
