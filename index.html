@@ -2609,8 +2609,8 @@
                  tegilsa do'kon bulutdan uziladi va ma'lumot sinxronlanmay
                  qoladi. Qiymatlar tizim tomonidan beriladi (serverdagi
                  client_config), do'kon egasi ularni bilishi shart emas. -->
-            <div class="fld"><label>Supabase Project URL</label><input id="s-sup-url" type="text" readonly tabindex="-1" autocomplete="off" title="Tizim tomonidan sozlangan — o'zgartirilmaydi" oninput="saveSetting('supabaseUrl',this.value)" style="font-size:12px;font-family:monospace;background:var(--bg);color:var(--mut);cursor:default"></div>
-            <div class="fld"><label>Anon / Public Key</label><input id="s-sup-key" type="text" readonly tabindex="-1" autocomplete="off" title="Tizim tomonidan sozlangan — o'zgartirilmaydi" oninput="saveSetting('supabaseKey',this.value)" style="font-size:11px;font-family:monospace;background:var(--bg);color:var(--mut);cursor:default"></div>
+            <div class="fld"><label>Supabase Project URL</label><input id="s-sup-url" type="text" readonly tabindex="-1" autocomplete="off" title="Tizim tomonidan sozlangan — o'zgartirilmaydi" style="font-size:12px;font-family:monospace;background:var(--bg);color:var(--mut);cursor:default"></div>
+            <div class="fld"><label>Anon / Public Key</label><input id="s-sup-key" type="text" readonly tabindex="-1" autocomplete="off" title="Tizim tomonidan sozlangan — o'zgartirilmaydi" style="font-size:11px;font-family:monospace;background:var(--bg);color:var(--mut);cursor:default"></div>
             <div style="font-size:11.5px;color:var(--mut);margin-top:-6px;line-height:1.6">
               <i class="ti ti-lock"></i> Bulut ulanishi tizim tomonidan sozlangan va yopiq.
               Yuqoridagi rozetka <strong>Ulangan ✅</strong> bo'lsa hammasi joyida.
@@ -2684,8 +2684,8 @@
             <!-- 2026-07-30: bu ikki maydon TIZIM tomonidan to'ldiriladi va
                  o'zgartirilmaydi. Bot bitta — barcha do'konlarga xizmat qiladi.
                  Qiymatlar init.js dagi MERX_BOT_URL / MERX_BOT_USERNAME dan. -->
-            <div class="fld"><label>Bot API manzili (Vercel)</label><input id="s-tg-bot-url" readonly tabindex="-1" title="Tizim tomonidan sozlangan — o'zgartirilmaydi" oninput="saveSetting('telegramBotUrl',this.value)" style="font-size:12px;background:var(--bg);color:var(--mut);cursor:default"></div>
-            <div class="fld"><label>Bot username</label><input id="s-tg-bot-username" readonly tabindex="-1" title="Tizim tomonidan sozlangan — o'zgartirilmaydi" oninput="saveSetting('telegramBotUsername',this.value)" style="background:var(--bg);color:var(--mut);cursor:default"></div>
+            <div class="fld"><label>Bot API manzili (Vercel)</label><input id="s-tg-bot-url" readonly tabindex="-1" title="Tizim tomonidan sozlangan — o'zgartirilmaydi" style="font-size:12px;background:var(--bg);color:var(--mut);cursor:default"></div>
+            <div class="fld"><label>Bot username</label><input id="s-tg-bot-username" readonly tabindex="-1" title="Tizim tomonidan sozlangan — o'zgartirilmaydi" style="background:var(--bg);color:var(--mut);cursor:default"></div>
             <div style="font-size:11.5px;color:var(--mut);margin-top:-6px;line-height:1.6">
               <i class="ti ti-lock"></i> Yuqoridagi ikki maydon tizim tomonidan sozlangan —
               o'zgartirish shart emas. Sizga faqat <strong>guruh ID</strong> ni kiritish kerak.
@@ -4902,7 +4902,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=126")
+    navigator.serviceWorker.register("/sw.js?v=127")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
