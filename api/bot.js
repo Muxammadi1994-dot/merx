@@ -32,6 +32,30 @@ async function getShopCtx(chatId) {
     return ctx;
   }
 
+  // 1.4. EGA tekshiruvi — shop_owners (2026-07-30) ─────────────────
+  // NEGA ENG OLDINDA: avval `customers` tekshiruvi egadan OLDIN turardi.
+  // Agar bitta raqam biror do'konda mijoz sifatida bog'langan bo'lsa,
+  // funksiya o'sha yerda isOwner:false bilan qaytib ketardi va ega
+  // tekshiruviga UMUMAN yetib bormasdi. Shu sabab bir do'konda mijoz
+  // bo'lgan odam boshqa do'konga ega bo'la olmasdi.
+  // Egalik — mijozlikdan kuchliroq da'vo, shuning uchun birinchi.
+  //
+  // Bu bitta indeksli so'rov (chat_id bo'yicha) — sekinlashtirmaydi.
+  // Pastdagi `settings` bo'yicha ega tekshiruvi JOYIDA QOLDI: u har
+  // do'kon uchun alohida so'rov qiladi, uni yuqoriga chiqarsak har
+  // xabarda o'nlab so'rov ketardi.
+  try {
+    const own = await sb("shop_owners", `?chat_id=eq.${cid}&select=shop_id,shop_name&limit=1`);
+    if (own?.[0]?.shop_id) {
+      const ctx = {
+        shopId: own[0].shop_id, shopName: own[0].shop_name || "MERX",
+        isOwner: true, isSuperAdmin: false, ts: Date.now()
+      };
+      _shopCache.set(cid, ctx);
+      return ctx;
+    }
+  } catch(e) { console.warn("getShopCtx shop_owners xato:", e.message); }
+
   // 1.5. bot_sessions — DOIMIY saqlangan bog'lanish (Vercel cache muammosini hal qiladi)
   try {
     const sess = await sb("bot_sessions", `?chat_id=eq.${cid}&select=shop_id,shop_name,is_owner&limit=1`);
@@ -530,6 +554,89 @@ async function cmdStart(chatId, param) {
       "🔴 /qarzlar — muddati o'tgan qarzlar\n" +
       "❓ /help — yordam"
     );
+    return;
+  }
+
+  // ══ EGANI ULASH HAVOLASI (2026-07-30) ═══════════════════════════
+  //   t.me/BOT?start=own_shop_XXXXX
+  // Muammo: yangi do'kon egasi ega bo'lib TANILISHINING yo'li yo'q edi.
+  //  · settings.telegram_owner_chat_id hech qayerda YOZILMAYDI
+  //  · setShopForUser bot_sessions ga is_owner:false yozadi
+  //  · shop_owners ga yozish `if (isOwner)` ICHIDA — ya'ni ega bo'lish
+  //    uchun avval ega bo'lish kerak edi (yopiq doira)
+  // Endi shu havola o'sha doirani ochadi.
+  //
+  // XAVFSIZLIK: havola FAQAT BIR MARTA ishlaydi — do'konda hali ega
+  // ro'yxatdan o'tmagan bo'lsa. Ega bor bo'lsa havola kuchsiz, oddiy
+  // mijoz havolasi kabi ishlaydi.
+  if (param && param.startsWith("own_shop_")) {
+    const shopId = param.slice(4);   // "own_" ni kesamiz
+
+    const shops = await sb("shops", `?id=eq.${shopId}&select=id,name&limit=1`).catch(() => []);
+    if (!shops?.[0]) {
+      await tg(chatId, "⚠️ Do'kon topilmadi. Havolani do'kon administratoridan qayta oling.");
+      return;
+    }
+    const shopName = shops[0].name || "MERX";
+
+    // Bu do'konda ega allaqachon bormi?
+    const already = await sb("shop_owners", `?shop_id=eq.${shopId}&select=chat_id&limit=1`).catch(() => []);
+    const meAlready = (already || []).some(r => String(r.chat_id) === cid);
+
+    if (already?.length && !meAlready) {
+      await tg(chatId,
+        "⚠️ Bu do'konga ega allaqachon ulangan.\n\n" +
+        "Sizning ID: " + cid + "\n" +
+        "Agar bu xato bo'lsa, administratorga shu ID ni yuboring.");
+      return;
+    }
+
+    // shop_owners ga yozamiz
+    let okOwner = false;
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/shop_owners?on_conflict=chat_id,shop_id`, {
+        method: "POST",
+        headers: {
+          apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+          "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({ chat_id: cid, shop_id: shopId, shop_name: shopName })
+      });
+      okOwner = r.ok;
+      if (!r.ok) console.error("[own_] shop_owners yozilmadi:", r.status, await r.text().catch(()=>""));
+    } catch(e) { console.error("[own_] shop_owners xato:", e.message); }
+
+    if (!okOwner) {
+      await tg(chatId,
+        "⚠️ Ulashda xatolik yuz berdi.\n\nSizning ID: " + cid +
+        "\nShu ID ni administratorga yuboring.");
+      return;
+    }
+
+    // bot_sessions — is_owner: true (setShopForUser doim false yozadi,
+    // shuning uchun uni ishlatmasdan o'zimiz yozamiz)
+    try {
+      await fetch(`${SB_URL}/rest/v1/bot_sessions?on_conflict=chat_id`, {
+        method: "POST",
+        headers: {
+          apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+          "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({ chat_id: cid, shop_id: shopId, shop_name: shopName, is_owner: true })
+      });
+    } catch(e) { console.warn("[own_] bot_sessions xato:", e.message); }
+
+    _shopCache.set(cid, { shopId, shopName, isOwner: true, isSuperAdmin: false, ts: Date.now() });
+
+    await tg(chatId,
+      "✅ " + shopName + "\n\n" +
+      "Do'kon egasi sifatida ulandingiz.\n\n" +
+      "📊 /hisobot — bugungi savdo\n" +
+      "💰 /balans — kassa holati\n" +
+      "📦 /ombor — kam qolgan tovarlar\n" +
+      "🔴 /qarzlar — muddati o'tgan qarzlar\n" +
+      "❓ /help — yordam",
+      { reply_markup: { remove_keyboard: true } });
     return;
   }
 
