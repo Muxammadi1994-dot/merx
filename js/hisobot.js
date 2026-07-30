@@ -89,7 +89,16 @@ function renderHisobot() {
   sales.forEach(s => {
     let saleCost = 0;
     s.items?.forEach(item => {
-      const p = (db.products||[]).find(x => x.name === item.name);
+      // 2026-07-31: TANNARXNI TOPISH TARTIBI TUZATILDI.
+      // Avval FAQAT nom bo'yicha izlanardi. Bir xil nomli, har xil
+      // tannarxli tovarlar ko'p bo'lgan do'konda (masalan "Loro piana"
+      // — 20 xil tannarx) `find` birinchi topilganini olib, foyda
+      // ~28% xato chiqardi.
+      // Endi: 1) item ichidagi tannarx (chek muzlatilgan — eng aniq),
+      //       2) sku bo'yicha tovar, 3) nom bo'yicha (eski zaxira).
+      if (item.costUzs > 0) { saleCost += item.costUzs * (item.qty||0); return; }
+      const p = (db.products||[]).find(x =>
+        (item.sku && x.sku === item.sku) || x.name === item.name);
       if (!p) return;
       const costUzs = getCostUzs(p);
       saleCost += costUzs * (item.qty||0);
