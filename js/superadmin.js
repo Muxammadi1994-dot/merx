@@ -653,6 +653,10 @@ function renderSaShops() {
                   style="background:#ECFDF5;border:1px solid #BBF7D0;color:#059669;
                   border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer"
                   title="Bot havola">🔗</button>
+                <button onclick="saCopyOwnerLink('${s.id}')"
+                  style="background:#FEF3C7;border:1px solid #FDE68A;color:#B45309;
+                  border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer"
+                  title="EGA havolasi — do'kon egasini botga ulash">👑</button>
                 <button onclick="saEditShopFull('${s.id}')" title="Tahrirlash"
                   style="background:#EFF6FF;border:1px solid #BFDBFE;color:#2563EB;
                   border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer">✏️</button>
@@ -1458,6 +1462,10 @@ function saShowStats(shopId) {
           style="background:#ECFDF5;border:1px solid #BBF7D0;color:#059669;
           border-radius:8px;padding:9px 16px;font-family:inherit;font-size:13px;cursor:pointer;font-weight:600">
           🔗 Bot havolasi</button>
+        <button onclick="saCopyOwnerLink('${shop.id}')"
+          style="background:#FEF3C7;border:1px solid #FDE68A;color:#B45309;
+          border-radius:8px;padding:9px 16px;font-family:inherit;font-size:13px;cursor:pointer;font-weight:600">
+          👑 Ega havolasi</button>
         <button onclick="saToggleShop('${shop.id}');document.getElementById('sa-stats-modal').remove()"
           style="background:${saIsActive(shop)?"#FEF2F2":"#ECFDF5"};
           border:1px solid ${saIsActive(shop)?"#FECACA":"#BBF7D0"};
@@ -1546,6 +1554,68 @@ function saCopyBotLink(shopId) {
     document.body.removeChild(t);
     showSaToast("✅ Havola nusxa olindi!");
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// EGA HAVOLASI (2026-07-30)
+// ══════════════════════════════════════════════════════════════
+// Yangi do'kon egasini botga ulash uchun. Oddiy bot havolasidan
+// farqi: `own_` prefiksi bilan ketadi va bot uni EGA sifatida
+// ro'yxatdan o'tkazadi (shop_owners + bot_sessions.is_owner=true).
+//
+// Nega kerak: avval yangi do'kon egasi ega bo'lib TANILISHINING yo'li
+// yo'q edi — shop_owners ga yozish `if (isOwner)` ichida turardi,
+// ya'ni ega bo'lish uchun avval ega bo'lish kerak edi.
+//
+// Havola BIR MARTA ishlaydi: do'konda ega ro'yxatdan o'tgach kuchini
+// yo'qotadi.
+//
+// Eslatma: bot username o'qish mantiqi saCopyBotLink da ham bor.
+// Ataylab takrorlandi — ishlab turgan funksiyaga tegmaslik uchun.
+// Keyinchalik ikkalasini shu yordamchiga o'tkazsa bo'ladi.
+function _saBotUsername() {
+  try {
+    const mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+    let u = (mainDB?.settings?.telegramBotUsername || "").replace(/^@/,"").trim();
+    if (u.includes("@") || u.includes(".")) u = "";
+    return u;
+  } catch(e) { return ""; }
+}
+
+function saCopyOwnerLink(shopId) {
+  const botUsername = _saBotUsername();
+  if (!botUsername) {
+    showSaToast("Bot username sozlanmagan — Asosiy do'kon Sozlamalar → SMS & Bot", "err");
+    return;
+  }
+
+  const shop = (_saShops || []).find(x => (x.cloudShopId || x.shop_id || x.id) === shopId
+                                       || x.id === shopId);
+  const shopName = shop ? shop.name : "";
+  const link = `https://t.me/${botUsername}?start=own_${shopId}`;
+
+  const copy = (txt) => {
+    if (navigator.clipboard) return navigator.clipboard.writeText(txt).catch(() => {});
+    const t = document.createElement("textarea");
+    t.value = txt; document.body.appendChild(t);
+    t.select(); document.execCommand("copy");
+    document.body.removeChild(t);
+  };
+  copy(link);
+
+  // Nusxa olindi, lekin havolani ko'rsatib ham qo'yamiz — telefonda
+  // clipboard ba'zan ishlamaydi, qo'lda belgilab olish mumkin bo'lsin
+  alert(
+    "👑 EGA HAVOLASI" + (shopName ? "\n\nDo'kon: " + shopName : "") + "\n\n" +
+    link + "\n\n" +
+    "Nusxa olindi.\n\n" +
+    "Shu havolani DO'KON EGASIGA yuboring. U bosgach bot uni ega sifatida\n" +
+    "taniydi va /hisobot, /balans, /ombor, /qarzlar ochiladi.\n\n" +
+    "⚠️ Havola BIR MARTA ishlaydi — faqat birinchi bosgan odam ega bo'ladi.\n" +
+    "Shuning uchun uni faqat egasiga yuboring.\n\n" +
+    "Mijozlar uchun oddiy havola (🔗 tugmasi) ishlatiladi."
+  );
+  showSaToast("👑 Ega havolasi nusxa olindi");
 }
 
 // ── Muddati yaqin do'konlarga eslatma ────────────
