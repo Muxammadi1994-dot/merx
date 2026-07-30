@@ -1957,7 +1957,7 @@
         <div class="kl">Qolgan qarz</div><div class="kv num" id="rep-debt">0</div></div>
       <div class="kpi" data-kpi="profit" style="position:relative;border-top:3px solid #36B48C">
         <button class="kpi-hide-btn" onclick="hideRepKpi('profit')"><i class="ti ti-eye-off"></i></button>
-        <div class="kl">Hisoblangan foyda<span style="font-size:10px;color:#aaa;display:block;font-weight:400">sotuv - tannarx</span></div>
+        <div class="kl">Hisoblangan foyda<span style="font-size:10px;color:#aaa;display:block;font-weight:400">sotuv − tannarx · nasiya ham kiradi</span></div>
         <div class="kv num" id="rep-profit" style="color:#36B48C">0</div></div>
       <div class="kpi" data-kpi="realprofit" style="position:relative;border-top:3px solid #8B5CF6">
         <button class="kpi-hide-btn" onclick="hideRepKpi('realprofit')"><i class="ti ti-eye-off"></i></button>
@@ -1973,13 +1973,22 @@
         <button class="kpi-hide-btn" onclick="hideRepKpi('expenses')"><i class="ti ti-eye-off"></i></button>
         <div class="kl">Xarajatlar<span style="font-size:10px;color:#aaa;display:block;font-weight:400">shu davr uchun</span></div>
         <div class="kv num" id="rep-expenses" style="color:var(--red)">0</div></div>
+      <!-- 2026-07-30: ASOSIY KARTA — to'lov usulidan qat'i nazar haqiqiy foyda -->
+      <div class="kpi" data-kpi="truenet" style="position:relative;border-top:3px solid #36B48C">
+        <button class="kpi-hide-btn" onclick="hideRepKpi('truenet')"><i class="ti ti-eye-off"></i></button>
+        <div class="kl">Sof foyda (haqiqiy)<span style="font-size:10px;color:#aaa;display:block;font-weight:400">foyda − xarajat · naqd/karta/nasiya farqsiz</span></div>
+        <div class="kv num" id="rep-true-net" style="color:#36B48C">0</div></div>
+      <div class="kpi" data-kpi="truemargin" style="position:relative;border-top:3px solid #36B48C">
+        <button class="kpi-hide-btn" onclick="hideRepKpi('truemargin')"><i class="ti ti-eye-off"></i></button>
+        <div class="kl">Sof margin (haqiqiy)<span style="font-size:10px;color:#aaa;display:block;font-weight:400">jami sotuvdan</span></div>
+        <div class="kv num" id="rep-true-margin" style="color:#36B48C">0%</div></div>
       <div class="kpi" data-kpi="netprofit" style="position:relative;border-top:3px solid #0D1B2A">
         <button class="kpi-hide-btn" onclick="hideRepKpi('netprofit')"><i class="ti ti-eye-off"></i></button>
-        <div class="kl">Sof foyda<span style="font-size:10px;color:#aaa;display:block;font-weight:400">kassa − xarajatlar</span></div>
+        <div class="kl">Sof foyda (kassa)<span style="font-size:10px;color:#aaa;display:block;font-weight:400">qo'lga tekkan pul − xarajat</span></div>
         <div class="kv num" id="rep-net-profit" style="color:#0D1B2A">0</div></div>
       <div class="kpi" data-kpi="netmargin" style="position:relative;border-top:3px solid #0D1B2A">
         <button class="kpi-hide-btn" onclick="hideRepKpi('netmargin')"><i class="ti ti-eye-off"></i></button>
-        <div class="kl">Sof margin</div><div class="kv num" id="rep-net-margin">0%</div></div>
+        <div class="kl">Sof margin (kassa)</div><div class="kv num" id="rep-net-margin">0%</div></div>
     </div>
 
     <!-- MODAL: Hisobot KPI sozlash -->
@@ -1993,7 +2002,7 @@
     </div>
 
     <!-- Ombor qiymati kartasi -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px">
       <div class="card" style="padding:14px 18px">
         <div style="font-size:10.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
           <i class="ti ti-box"></i> Ombor tannarxi
@@ -2008,13 +2017,8 @@
         <div id="rep-ombor-sell" style="font-size:18px;font-weight:800;color:#0D1B2A">0</div>
         <div style="font-size:11px;color:#aaa;margin-top:2px">joriy zaxira × sotuv narxi</div>
       </div>
-      <div class="card" style="padding:14px 18px">
-        <div style="font-size:10.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
-          <i class="ti ti-trending-up"></i> Ombordagi potensial foyda
-        </div>
-        <div id="rep-ombor-profit" style="font-size:18px;font-weight:800;color:var(--grn)">0</div>
-        <div style="font-size:11px;color:#aaa;margin-top:2px">sotuv − tannarx</div>
-      </div>
+      <!-- 2026-07-30: "Ombordagi potensial foyda" kartasi OLIB TASHLANDI
+           (ma'nosi tushunarli emas edi). Grid 3 → 2 ustunga o'tkazildi. -->
     </div>
 
     <div class="rep-grid">
@@ -4664,7 +4668,7 @@
 <script src="js/mijozlar.js?v=147"></script>
 <script src="js/qarzlar.js?v=187"></script>
 <script src="js/tarix.js?v=165"></script>
-<script src="js/hisobot.js?v=148"></script>
+<script src="js/hisobot.js?v=149"></script>
 <script src="js/xodimlar.js?v=143"></script>
 <script src="js/moliya.js?v=164"></script>
 <script src="js/egasi.js?v=168"></script>
@@ -4872,7 +4876,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=116")
+    navigator.serviceWorker.register("/sw.js?v=117")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

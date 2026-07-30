@@ -142,8 +142,29 @@ function renderHisobot() {
   const periodExp = (db.xarajatlar||[])
     .filter(x => x.date >= from && x.date <= to)
     .reduce((a, x) => a + (x.amount||0), 0);
+  // ── IKKI XIL SOF FOYDA (2026-07-30) ───────────────────────────
+  // 1) KASSA bo'yicha: qo'lga tekkan pul − xarajatlar.
+  //    Bu "bugun kassada qancha qoldi" degan savolga javob.
   const netProfit = realProfit - periodExp;
   const netMargin = paid > 0 ? Math.round(netProfit / paid * 100) : 0;
+
+  // 2) HAQIQIY (to'lov usulidan qat'i nazar): sotilgan tovardan
+  //    olingan butun foyda − xarajatlar. Tovar naqdga, kartaga yoki
+  //    NASIYAGA ketganidan qat'i nazar foyda ishlab topilgan hisoblanadi.
+  //    Avval bunday karta YO'Q edi — barcha foyda kartalari faqat
+  //    kassaga tushgan pulni ko'rsatardi, shu bois qarzga ketgan
+  //    savdoning foydasi hech qayerda ko'rinmasdi.
+  const trueNet    = grossProfit - periodExp;
+  const trueMargin = rev > 0 ? Math.round(trueNet / rev * 100) : 0;
+
+  if ($("rep-true-net")) {
+    $("rep-true-net").textContent = fmtK(trueNet) + " so'm";
+    $("rep-true-net").style.color = trueNet >= 0 ? "var(--grn)" : "var(--red)";
+  }
+  if ($("rep-true-margin")) {
+    $("rep-true-margin").textContent = trueMargin + "%";
+    $("rep-true-margin").style.color = trueMargin >= 15 ? "var(--grn)" : trueMargin >= 5 ? "#E07B39" : "var(--red)";
+  }
 
   if ($("rep-expenses")) $("rep-expenses").textContent = fmtK(periodExp) + " so'm";
   if ($("rep-net-profit")) {
@@ -163,13 +184,10 @@ function renderHisobot() {
   const omborSellVal = (db.products||[]).reduce((a, p) => {
     return a + (p.priceUzs||0) * (p.variants||[]).reduce((b,v)=>b+(v.qty||0),0);
   }, 0);
+  // 2026-07-30: "Ombordagi potensial foyda" kartasi OLIB TASHLANDI —
+  // ma'nosi na egasiga, na sotuvchilarga tushunarli edi.
   if ($("rep-ombor-cost"))   $("rep-ombor-cost").textContent   = fmtK(omborCost) + " so'm";
   if ($("rep-ombor-sell"))   $("rep-ombor-sell").textContent   = fmtK(omborSellVal) + " so'm";
-  if ($("rep-ombor-profit")) {
-    const op = omborSellVal - omborCost;
-    $("rep-ombor-profit").textContent = fmtK(op) + " so'm";
-    $("rep-ombor-profit").style.color = op >= 0 ? "var(--grn)" : "var(--red)";
-  }
 
   renderRepExpenseChart(periodExp, costTotal, realProfit);
   renderRepTrendChart(sales);
@@ -383,7 +401,9 @@ function renderRepPriceType(sales) {
 const REP_KPI_LABELS = {
   cnt:"Sotuvlar soni", rev:"Jami sotuv", paid:"Kassaga tushdi", debt:"Qolgan qarz",
   profit:"Hisoblangan foyda", realprofit:"Kassaga tushgan foyda", margin:"Margin",
-  cost:"Jami tannarx", expenses:"Xarajatlar", netprofit:"Sof foyda", netmargin:"Sof margin"
+  cost:"Jami tannarx", expenses:"Xarajatlar",
+  truenet:"Sof foyda (haqiqiy)", truemargin:"Sof margin (haqiqiy)",
+  netprofit:"Sof foyda (kassa)", netmargin:"Sof margin (kassa)"
 };
 
 function hideRepKpi(key) {
