@@ -1,3 +1,17 @@
+// ══════════════════════════════════════════════════════════════
+// TELEGRAM BOT — TIZIM DARAJASIDAGI QIYMATLAR (2026-07-30)
+// ══════════════════════════════════════════════════════════════
+// Bot BITTA — u barcha do'konlarga xizmat qiladi, do'konlar shop_id
+// bo'yicha ajratiladi. Demak bu ikki qiymat har do'konda bir xil
+// bo'lishi SHART. Do'kon egasi ularni qo'lda yozmasligi kerak:
+// bitta xato belgi bot bilan aloqani uzadi va mijozga chek
+// yuborilmay qoladi.
+// Sozlamalar oynasida maydonlar `readonly`, qiymat esa quyida
+// majburlanadi — yangi do'kon birinchi ochilishidayoq tayyor turadi.
+// Bot o'zgarsa FAQAT shu ikki qatorni yangilash kifoya.
+const MERX_BOT_URL      = "https://merx-rho.vercel.app/api/bot";
+const MERX_BOT_USERNAME = "merx_savdo_bot";
+
 // MERX init.js | v2.3 | 2026-06-24
 // ================================================
 // MERX — js/init.js
@@ -41,6 +55,22 @@ function init() {
   if ($("debt-count")) $("debt-count").textContent = debtSales().length;
   refreshStaffList();
   if (typeof updateSmsUI === "function") updateSmsUI();
+
+  // ── 3.5. Bot sozlamalarini majburlash (2026-07-30) ──
+  // Yangi do'kon uchun avtomat to'ldiriladi, eskisida noto'g'ri
+  // yozilgan bo'lsa to'g'rilanadi. Faqat qiymat farq qilsa yoziladi —
+  // keraksiz sinxron bo'lmasin.
+  try {
+    if (!db.settings) db.settings = {};
+    let _botFixed = false;
+    if (db.settings.telegramBotUrl !== MERX_BOT_URL) {
+      db.settings.telegramBotUrl = MERX_BOT_URL; _botFixed = true;
+    }
+    if (db.settings.telegramBotUsername !== MERX_BOT_USERNAME) {
+      db.settings.telegramBotUsername = MERX_BOT_USERNAME; _botFixed = true;
+    }
+    if (_botFixed) { saveDB(); console.log("🤖 Bot sozlamalari avtomat to'ldirildi"); }
+  } catch(e) { console.warn("bot sozlamalari:", e.message); }
 
   // ── 4. Supabase ulanish ──
   // Yangi do'konda URL/Key yo'q bo'lsa asosiy do'kondan olamiz

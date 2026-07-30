@@ -2672,8 +2672,15 @@
         <div class="card">
           <div class="ch"><h3><i class="ti ti-brand-telegram"></i> Telegram bot</h3><span class="bg bg-gr" id="tg-bot-status-badge">Sozlanmagan</span></div>
           <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
-            <div class="fld"><label>Bot API manzili (Vercel)</label><input id="s-tg-bot-url" placeholder="https://merx-rho.vercel.app/api/bot" oninput="saveSetting('telegramBotUrl',this.value)" style="font-size:12px"></div>
-            <div class="fld"><label>Bot username</label><input id="s-tg-bot-username" placeholder="merx_savdo_bot (@ siz)" oninput="saveSetting('telegramBotUsername',this.value)"></div>
+            <!-- 2026-07-30: bu ikki maydon TIZIM tomonidan to'ldiriladi va
+                 o'zgartirilmaydi. Bot bitta — barcha do'konlarga xizmat qiladi.
+                 Qiymatlar init.js dagi MERX_BOT_URL / MERX_BOT_USERNAME dan. -->
+            <div class="fld"><label>Bot API manzili (Vercel)</label><input id="s-tg-bot-url" readonly tabindex="-1" title="Tizim tomonidan sozlangan — o'zgartirilmaydi" oninput="saveSetting('telegramBotUrl',this.value)" style="font-size:12px;background:var(--bg);color:var(--mut);cursor:default"></div>
+            <div class="fld"><label>Bot username</label><input id="s-tg-bot-username" readonly tabindex="-1" title="Tizim tomonidan sozlangan — o'zgartirilmaydi" oninput="saveSetting('telegramBotUsername',this.value)" style="background:var(--bg);color:var(--mut);cursor:default"></div>
+            <div style="font-size:11.5px;color:var(--mut);margin-top:-6px;line-height:1.6">
+              <i class="ti ti-lock"></i> Yuqoridagi ikki maydon tizim tomonidan sozlangan —
+              o'zgartirish shart emas. Sizga faqat <strong>guruh ID</strong> ni kiritish kerak.
+            </div>
             <div class="fld"><label>Xodimlar guruhi ID</label><input id="s-staff-group-id" placeholder="-100xxxxxxxxxx" oninput="saveSetting('staffGroupId',this.value)"></div>
             <button class="btn btn-teal btn-sm" onclick="testTelegramBot()" style="width:fit-content"><i class="ti ti-send"></i> Ulanishni tekshirish</button>
 
@@ -4673,7 +4680,7 @@
 <script src="js/moliya.js?v=164"></script>
 <script src="js/egasi.js?v=168"></script>
 <script src="js/portal.js?v=141"></script>
-<script src="js/init.js?v=146"></script>
+<script src="js/init.js?v=147"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -4876,7 +4883,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=120")
+    navigator.serviceWorker.register("/sw.js?v=121")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
