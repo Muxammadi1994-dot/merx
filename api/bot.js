@@ -4,13 +4,7 @@
 
 const TOKEN        = process.env.TELEGRAM_BOT_TOKEN;
 const SB_URL       = process.env.SUPABASE_URL;
-// 2026-07-30 TUZATISH. Avval faqat SUPABASE_KEY (anon kalit) ishlatilardi.
-// `shops` jadvali RLS bilan himoyalangandan keyin anon kalit u jadvalni
-// O'QIY OLMAY QOLDI — xato ham bermaydi, shunchaki BO'SH ro'yxat qaytaradi.
-// Natijada bot do'konni topa olmay "Do'kon aniqlanmadi" deb yozardi.
-// Endi boshqa API fayllar bilan bir xil — SERVICE_ROLE kaliti ustun,
-// u yo'q bo'lsa eskisiga tushadi.
-const SB_KEY       = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+const SB_KEY       = process.env.SUPABASE_KEY;
 const OWNER_ID     = process.env.BOT_OWNER_CHAT_ID;  // Superadmin chat ID
 const STAFF_GROUP  = process.env.STAFF_GROUP_ID;
 const LOW_LIMIT    = parseInt(process.env.LOW_STOCK_LIMIT || "5");
@@ -590,7 +584,7 @@ async function cmdStart(chatId, param) {
   // ── Oddiy /start — do'kon tanlanmagan ──
   // Barcha faol do'konlar ro'yxatini ko'rsatamiz
   try {
-    const shops = await sb("shops", "?active=not.is.false&select=id,name&order=name");
+    const shops = await sb("shops", "?active=eq.true&select=id,name&order=name");
     if (shops?.length === 1) {
       // Bitta do'kon — avtomatik tanlash
       await cmdStart(chatId, shops[0].id);
@@ -604,12 +598,7 @@ async function cmdStart(chatId, param) {
       );
       return;
     }
-    // Ro'yxat BO'SH qaytdi — bu deyarli har doim kalit/RLS muammosi.
-    // Avval bu holat jimgina o'tib ketardi va foydalanuvchi sababini
-    // bilmasdan "do'kon topilmadi" xabarini olardi.
-    console.error("[cmdStart] shops ro'yxati BO'SH qaytdi — SUPABASE_SERVICE_ROLE_KEY " +
-      "sozlanganini va shops jadvalidagi `active` ustunini tekshiring.");
-  } catch(e) { console.error("shops list xato:", e.message); }
+  } catch(e) { console.warn("shops list xato:", e.message); }
 
   // Fallback
   await tg(chatId,
@@ -637,7 +626,7 @@ async function handleContact(chatId, contact) {
     if (!shopId) {
       console.log(`[handleContact] shopId topilmadi, chatId=${chatId} — do'kon tanlashni so'raymiz`);
       try {
-        const shops = await sb("shops", "?active=not.is.false&select=id,name&order=name");
+        const shops = await sb("shops", "?active=eq.true&select=id,name&order=name");
         if (shops?.length > 1) {
           const btns = shops.map(s => [{ text: "🏪 " + s.name, callback_data: "shop:" + s.id }]);
           await tg(chatId,
@@ -651,42 +640,8 @@ async function handleContact(chatId, contact) {
         }
       } catch(e) { console.warn("[handleContact] shops fallback xato:", e.message); }
     }
-    // ZAXIRA YO'L (2026-07-30): do'kon hali ham noma'lum bo'lsa,
-    // ulashilgan RAQAM bo'yicha topamiz. Mijoz ilovada endigina
-    // qo'shilgan bo'lsa uning raqami customers da bor — demak qaysi
-    // do'kon ekanini shundan bilsa bo'ladi.
-    // Eslatma: bu "global qidiruv" emas — boshqa do'kon ma'lumoti
-    // ko'rsatilmaydi, faqat qaysi do'kon ekani aniqlanadi.
     if (!shopId) {
-      try {
-        const byPhone = await sb("customers", `?select=shop_id,phone`);
-        const norm9 = p => { const x = normPhone(p||""); return x.startsWith("998") ? x.slice(3) : x; };
-        const me = norm9(rawPhone);
-        const hits = [...new Set((byPhone||[])
-          .filter(c => c.phone && norm9(c.phone) === me && c.shop_id)
-          .map(c => c.shop_id))];
-        console.log(`[handleContact] raqam bo'yicha do'kon qidiruvi: ${hits.length} ta`);
-        if (hits.length === 1) {
-          shopId = hits[0];
-          try { await setShopForUser(chatId, shopId); } catch(e) {}
-        } else if (hits.length > 1) {
-          const shops = await sb("shops", `?id=in.(${hits.join(",")})&select=id,name`);
-          const btns = (shops||[]).map(x => [{ text: "🏪 " + x.name, callback_data: "shop:" + x.id }]);
-          if (btns.length) {
-            await tg(chatId, "🟡 Siz bir nechta do'konning mijozisiz. Qaysi biri?",
-              { reply_markup: { inline_keyboard: btns } });
-            return;
-          }
-        }
-      } catch(e) { console.warn("[handleContact] raqam bo'yicha qidiruv xato:", e.message); }
-    }
-
-    if (!shopId) {
-      console.error("[handleContact] DO'KON ANIQLANMADI. Sabab: shops jadvali bo'sh qaytdi " +
-        "(RLS/kalit muammosi) yoki raqam hech qaysi do'kon bazasida yo'q. chatId=" + chatId);
-      await tg(chatId,
-        "⚠️ Do'kon aniqlanmadi.\n\n" +
-        "Iltimos, do'kon bergan havola orqali qayta kiring yoki do'konga murojaat qiling.");
+      await tg(chatId, "⚠️ Do'kon aniqlanmadi. /start buyrug'ini qaytadan bosing.");
       return;
     }
     const shopFilter = shopId ? `&shop_id=eq.${shopId}` : "";
