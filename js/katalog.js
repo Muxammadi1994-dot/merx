@@ -4535,33 +4535,29 @@ function epUpdateB2Dona(color, val) {
 // Manba: mavjud tovarlar + tur bo'yicha standart ro'yxat (CATS).
 
 // ═══════════════════════════════════════════════════════════════
-// KATEGORIYA — TEG (CHIP) KO'RINISHI (2026-07-30)
+// KATEGORIYA TAKLIFI (2026-07-30)
 // ═══════════════════════════════════════════════════════════════
-// Avval kategoriya oddiy matn maydoni + <datalist> edi: telefonda
-// takliflar deyarli ochilmasdi, mavjudlarini bir qarashda ko'rib
-// bo'lmasdi, kichik xato yozuv ("krossovka" / "Krossovka") ikkinchi
-// kategoriya yaratib yuborardi, o'chirish esa umuman yo'q edi.
-// Endi variativ ranglar kiritish uslubi: chip bosiladi — tanlanadi,
-// yozib "+" bosiladi — yangisi qo'shiladi, "×" — ro'yxatdan o'chadi.
+// Variativ rang kiritish uslubi: maydon BO'SH turadi, yozishni
+// boshlaganda avval ishlatilganlari taklif bo'ladi, mos keladigani
+// bo'lmasa "qo'shish" qatori chiqadi.
 //
-// Qiymat AVVALGIDEK #ap-cat / #ep-cat maydonida turadi (endi yashirin)
-// — saqlash kodi (katalog.js:1664, 1232, 4115) o'zgarmadi.
+// Nega kerak edi: avval `<datalist>` ishlatilardi — u telefonda
+// deyarli ochilmaydi, shu bois har safar to'liq qo'lda yozishga
+// to'g'ri kelardi va kichik farq bilan yozilgan nom ("krossovka" /
+// "Krossovka") ikkinchi kategoriya yaratib yuborardi.
+//
+// Qiymat AVVALGIDEK #ap-cat / #ep-cat maydonining o'zida turadi —
+// saqlash kodi (katalog.js:1664, 1232, 4115) tegilmadi.
 
 // Qo'lda qo'shilgan kategoriyalar
 function _catCustom() {
   try { return Array.isArray(db.settings?.categories) ? db.settings.categories : []; }
   catch(e) { return []; }
 }
-// Ro'yxatdan yashirilganlar (standart CATS dan o'chirish uchun)
-function _catHidden() {
-  try { return Array.isArray(db.settings?.categoriesHidden) ? db.settings.categoriesHidden : []; }
-  catch(e) { return []; }
-}
 
-// Barcha kategoriyalar: tovarlarda ishlatilganlar + qo'lda qo'shilganlar
-// + tur bo'yicha standartlar. Katta-kichik harf farqi bilan takrorlanmaydi.
+// Barcha ma'lum kategoriyalar (takrorsiz, katta-kichik harf farqisiz)
 function allCategories(type) {
-  const map = new Map();          // kichik harf → asl yozuv
+  const map = new Map();
   const add = c => {
     const t = String(c || "").trim();
     if (t && !map.has(t.toLowerCase())) map.set(t.toLowerCase(), t);
@@ -4570,126 +4566,94 @@ function allCategories(type) {
   _catCustom().forEach(add);
   const t = type || (typeof currentApType !== "undefined" ? currentApType : "oyoq");
   ((typeof CATS !== "undefined" && CATS[t]) || []).forEach(add);
-  const hid = _catHidden().map(x => String(x).toLowerCase());
-  return [...map.entries()]
-    .filter(([k]) => !hid.includes(k))
-    .map(([, v]) => v)
-    .sort((a, b) => a.localeCompare(b, "uz"));
-}
-
-// Kategoriya nechta tovarda ishlatilyapti
-function catUsedCount(name) {
-  const n = String(name || "").toLowerCase();
-  return (db.products || []).filter(p => String(p.category || "").toLowerCase() === n).length;
+  return [...map.values()].sort((a, b) => a.localeCompare(b, "uz"));
 }
 
 // prefix: "ap" (qo'shish) yoki "ep" (tahrirlash)
-function catChipsRender(prefix) {
-  const box = document.getElementById(prefix + "-cat-chips");
-  if (!box) return;
+// Yozilgan matnga qarab taklif ro'yxatini chizadi. Bo'sh bo'lsa —
+// hech narsa ko'rsatilmaydi (oyna to'lib ketmasin).
+function catSuggest(prefix) {
   const inp = document.getElementById(prefix + "-cat");
-  const cur = ((inp && inp.value) || "").trim().toLowerCase();
-  const list = allCategories(prefix === "ap"
-    ? (typeof currentApType !== "undefined" ? currentApType : null) : null);
+  const box = document.getElementById(prefix + "-cat-sug");
+  if (!inp || !box) return;
 
-  if (!list.length) {
-    box.innerHTML = `<span style="font-size:12px;color:var(--mut)">
-      Hali kategoriya yo'q — pastdan yozib qo'shing</span>`;
-    return;
+  const q = (inp.value || "").trim();
+  if (!q) { box.style.display = "none"; box.innerHTML = ""; return; }
+
+  const ql   = q.toLowerCase();
+  const all  = allCategories(prefix === "ap"
+    ? (typeof currentApType !== "undefined" ? currentApType : null) : null);
+  const hits = all.filter(c => c.toLowerCase().includes(ql)).slice(0, 6);
+  const same = all.some(c => c.toLowerCase() === ql);
+  const esc  = v => (typeof jsEsc === "function" ? jsEsc(v) : String(v));
+
+  let html = hits.map(c => `
+    <div onmousedown="event.preventDefault();catSuggestPick('${prefix}','${esc(c)}')"
+      style="padding:9px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid var(--brd)"
+      onmouseover="this.style.background='var(--bg)'"
+      onmouseout="this.style.background='#fff'">${c}</div>`).join("");
+
+  // Aynan shunday kategoriya yo'q — qo'shish taklif qilinadi
+  if (!same) {
+    html += `
+      <div onmousedown="event.preventDefault();catSuggestAdd('${prefix}')"
+        style="padding:9px 12px;font-size:14px;cursor:pointer;color:#0D1B2A;
+        background:#FFF7ED;font-weight:700">
+        <i class="ti ti-plus"></i> "${q}" ni qo'shish
+      </div>`;
   }
-  const esc = v => (typeof jsEsc === "function" ? jsEsc(v) : String(v));
-  box.innerHTML = list.map(c => {
-    const on = c.toLowerCase() === cur;
-    return `<span onclick="catChipPick('${prefix}','${esc(c)}')"
-      style="display:inline-flex;align-items:center;gap:5px;
-      background:${on ? "#0D1B2A" : "#fff"};color:${on ? "#fff" : "#444"};
-      border:1.5px solid ${on ? "#0D1B2A" : "var(--brd)"};border-radius:20px;
-      padding:5px 8px 5px 11px;font-size:12.5px;cursor:pointer;user-select:none">
-      <b style="font-weight:600">${c}</b>
-      <button type="button" title="Ro'yxatdan o'chirish"
-        onclick="event.stopPropagation();catChipDelete('${prefix}','${esc(c)}')"
-        style="background:none;border:none;color:${on ? "#fff" : "var(--red)"};
-        font-size:15px;cursor:pointer;padding:0;line-height:1">×</button>
-    </span>`;
-  }).join("");
+
+  box.innerHTML = html;
+  box.style.display = html ? "block" : "none";
 }
 
-// Chip bosildi — tanlanadi. Ikkinchi marta bosilsa tanlov bekor bo'ladi.
-function catChipPick(prefix, name) {
+function catSuggestPick(prefix, name) {
+  const inp = document.getElementById(prefix + "-cat");
+  const box = document.getElementById(prefix + "-cat-sug");
+  if (inp) inp.value = name;
+  if (box) { box.style.display = "none"; box.innerHTML = ""; }
+}
+
+// Yangi kategoriyani ro'yxatga saqlaydi — tovar saqlanmasdan
+// oldin ham keyingi safar taklifda chiqsin
+function catSuggestAdd(prefix) {
   const inp = document.getElementById(prefix + "-cat");
   if (!inp) return;
-  inp.value = ((inp.value || "").trim().toLowerCase() === String(name).toLowerCase())
-    ? "" : name;
-  catChipsRender(prefix);
-}
-
-// Yangi kategoriya qo'shish (+ tugmasi yoki Enter)
-function catChipAdd(prefix) {
-  const inp = document.getElementById(prefix + "-cat-new");
-  const tgt = document.getElementById(prefix + "-cat");
-  if (!inp || !tgt) return;
   const n = (inp.value || "").trim();
-  if (!n) { toast("Kategoriya nomini yozing", "err"); inp.focus(); return; }
-
-  // Allaqachon bor bo'lsa — yangisini yaratmaymiz, borini tanlaymiz
-  const exists = allCategories().find(c => c.toLowerCase() === n.toLowerCase());
-  if (exists) {
-    tgt.value = exists;
-    inp.value = "";
-    catChipsRender(prefix);
-    toast(`"${exists}" tanlandi`);
-    return;
-  }
-
+  if (!n) return;
   try {
     if (!db.settings) db.settings = {};
     if (!Array.isArray(db.settings.categories)) db.settings.categories = [];
-    db.settings.categories.push(n);
-    // Avval yashirilgan bo'lsa — qaytaramiz
-    if (Array.isArray(db.settings.categoriesHidden)) {
-      db.settings.categoriesHidden =
-        db.settings.categoriesHidden.filter(x => String(x).toLowerCase() !== n.toLowerCase());
+    if (!db.settings.categories.some(c => String(c).toLowerCase() === n.toLowerCase())) {
+      db.settings.categories.push(n);
+      saveDB();
     }
-    saveDB();
   } catch(e) {}
-
-  tgt.value = n;
-  inp.value = "";
-  inp.focus();                 // ketma-ket qo'shish uchun
-  catChipsRender(prefix);
+  catSuggestPick(prefix, n);
   toast(`✅ "${n}" qo'shildi`);
 }
 
-function catChipKey(prefix, e) {
-  if (e && e.key === "Enter") { e.preventDefault(); catChipAdd(prefix); }
+// Maydondan chiqilganda ro'yxat yopiladi. Kechikish kerak — aks holda
+// taklif bosilishidan oldin yopilib, bosish ishlamay qolardi.
+function catSuggestClose(prefix) {
+  setTimeout(() => {
+    const box = document.getElementById(prefix + "-cat-sug");
+    if (box) { box.style.display = "none"; box.innerHTML = ""; }
+  }, 150);
 }
 
-// Ro'yxatdan o'chirish. Tovarlarda ishlatilayotgan bo'lsa RUXSAT YO'Q —
-// aks holda o'sha tovarlarning kategoriyasi "yetim" bo'lib qolardi.
-function catChipDelete(prefix, name) {
-  const used = catUsedCount(name);
-  if (used > 0) {
-    toast(`"${name}" — ${used} ta tovarda ishlatilyapti, o'chirib bo'lmaydi`, "err");
-    return;
-  }
-  if (!confirm(`"${name}" kategoriyasi ro'yxatdan o'chirilsinmi?\n\nTovarlarga ta'sir qilmaydi.`)) return;
-  try {
-    if (!db.settings) db.settings = {};
-    if (Array.isArray(db.settings.categories)) {
-      db.settings.categories =
-        db.settings.categories.filter(c => String(c).toLowerCase() !== String(name).toLowerCase());
-    }
-    // Standart ro'yxatdagilarni o'chirib bo'lmaydi — yashiramiz
-    if (!Array.isArray(db.settings.categoriesHidden)) db.settings.categoriesHidden = [];
-    if (!db.settings.categoriesHidden.some(x => String(x).toLowerCase() === String(name).toLowerCase()))
-      db.settings.categoriesHidden.push(name);
-    saveDB();
-  } catch(e) {}
-
-  const tgt = document.getElementById(prefix + "-cat");
-  if (tgt && (tgt.value || "").toLowerCase() === String(name).toLowerCase()) tgt.value = "";
-  catChipsRender(prefix);
-  toast(`"${name}" ro'yxatdan olib tashlandi`);
+// Enter — birinchi taklifni oladi, bo'lmasa yozilganini qo'shadi
+function catSuggestKey(prefix, e) {
+  if (!e) return;
+  if (e.key === "Escape") { catSuggestClose(prefix); return; }
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  const inp = document.getElementById(prefix + "-cat");
+  const q   = ((inp && inp.value) || "").trim();
+  if (!q) return;
+  const hit = allCategories().find(c => c.toLowerCase().includes(q.toLowerCase()));
+  if (hit) catSuggestPick(prefix, hit);
+  else catSuggestAdd(prefix);
 }
 
 function fillCatSuggest(type) {
@@ -4710,11 +4674,4 @@ function fillCatSuggest(type) {
     .sort((a, b) => a.localeCompare(b, "uz"))
     .map(c => `<option value="${String(c).replace(/"/g, "&quot;")}">`)
     .join("");
-
-  // 2026-07-30: chip ko'rinishini ham yangilaymiz.
-  // setTimeout kerak — tahrirlash oynasida bu funksiya `ep-cat`
-  // qiymati yozilishidan OLDIN chaqiriladi (744-qator → 747-qator).
-  setTimeout(() => {
-    try { catChipsRender("ap"); catChipsRender("ep"); } catch(e) {}
-  }, 0);
 }
