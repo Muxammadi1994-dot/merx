@@ -79,18 +79,19 @@ function init() {
   // rol ruxsati bo'lishi shart, aks holda eski rol-standarti ishlaydi.
   let savedPage = null;
   try { savedPage = localStorage.getItem("merx_last_page"); } catch(e) {}
+  // 2026-07-30: qo'shimcha shart — uzoq tanaffusdan keyin (ertasi kun
+  // yoki 4 soatdan ko'p) oxirgi sahifa TIKLANMAYDI, rolga mos standart
+  // sahifa (egasi uchun Dashboard) ochiladi.
+  // MUHIM: bu qaror faqat SHU YERDA, ilova ochilganda bir marta olinadi.
+  // Ishlash paytida sahifa hech qachon o'zgartirilmaydi (v151 xatosi
+  // qaytmasligi uchun).
   const canRestore = savedPage && document.getElementById("p-" + savedPage) &&
-    (typeof canAccessPage !== "function" || canAccessPage(savedPage));
+    (typeof canAccessPage !== "function" || canAccessPage(savedPage)) &&
+    (typeof shouldRestoreLastPage !== "function" || shouldRestoreLastPage());
   if (canRestore) {
     nav(savedPage);
-  } else if (!user || user.role === "admin" || user.role === "menejer" || user.role === "superadmin") {
-    nav("dashboard");
-  } else if (user.role === "kassir") {
-    nav("pos");
-  } else if (user.role === "omborchi") {
-    nav("ombor");
   } else {
-    nav("dashboard");
+    nav(typeof defaultPageForRole === "function" ? defaultPageForRole(user) : "dashboard");
   }
 
   // ── 6. Rol UI — nav dan keyin ──

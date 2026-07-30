@@ -280,6 +280,92 @@ function closeMobSidebar() {
   if (ov) ov.classList.remove("on");
 }
 
+// ══════════════════════════════════════════════════════════════
+// SAHIFANI TIKLASH QOIDASI (2026-07-30)
+// ══════════════════════════════════════════════════════════════
+// F5 dan keyin amaldagi sahifada qolish v151 da ataylab qilingan —
+// avval har yangilashda Dashboard'ga otib yuborardi va ish uzilardi.
+// U xato QAYTMASLIGI shart.
+//
+// Yangi talab: uzoq tanaffusdan keyin (ertasi kun yoki 4 soatdan
+// ko'p) yangi ish kunini Dashboard'dan boshlash.
+//
+// Xavfsizlik qoidasi: bu qaror FAQAT ilova ochilganda, init() ichida,
+// BIR MARTA qabul qilinadi. Ishlash paytida, yangilashda yoki oyna
+// fokusga qaytganda sahifa HECH QACHON o'zgartirilmaydi.
+const PAGE_STALE_MS = 4 * 60 * 60 * 1000;   // 4 soat
+
+// Foydalanuvchi ishlayotganini belgilab boramiz — aks holda POS'da
+// 5 soat tinmay ishlagan odam F5 bosganda Dashboard'ga otilardi.
+function _touchPageStamp() {
+  try {
+    const now = Date.now();
+    if (window._lastStampAt && now - window._lastStampAt < 60000) return; // daqiqada bir marta
+    window._lastStampAt = now;
+    localStorage.setItem("merx_last_page_at", String(now));
+  } catch(e) {}
+}
+["pointerdown","keydown"].forEach(ev =>
+  document.addEventListener(ev, _touchPageStamp, { passive: true })
+);
+
+// Oxirgi sahifani tiklash mumkinmi?
+function shouldRestoreLastPage() {
+  try {
+    const at = parseInt(localStorage.getItem("merx_last_page_at") || "0");
+    if (!at) return false;                                  // vaqt yo'q
+    if (Date.now() - at > PAGE_STALE_MS) return false;      // uzoq tanaffus
+    const prev = new Date(at), now = new Date();
+    if (prev.toDateString() !== now.toDateString()) return false;  // boshqa kun
+    return true;
+  } catch(e) { return false; }
+}
+
+// Rolga mos standart sahifa — YAGONA MANBA (init ham, login ham ishlatadi)
+function defaultPageForRole(user) {
+  const r = user && user.role;
+  if (r === "kassir")   return "pos";
+  if (r === "omborchi") return "ombor";
+  return "dashboard";
+}
+
+// ══════════════════════════════════════════════════════════════
+// ILOVANI YANGILASH — tepadagi ⟳ tugmasi (2026-07-30)
+// ══════════════════════════════════════════════════════════════
+// Kompyuterda F5 / Ctrl+Shift+R bor. Telefonda va kassa ekranida esa
+// bu qiyin. Bu tugma o'sha ishni bajaradi: kutayotgan o'zgarishlarni
+// bulutga yuboradi, eski keshni tozalaydi, service worker'ni
+// yangilaydi va sahifani qayta yuklaydi.
+async function appHardReload() {
+  try { toast("Yangilanmoqda..."); } catch(e) {}
+
+  // 1) Yuborilmagan o'zgarishlar yo'qolmasin
+  try { if (typeof flushCloudSync === "function") await flushCloudSync(true); } catch(e) {}
+
+  // 2) Eski keshni tozalaymiz
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch(e) {}
+
+  // 3) Service worker'ni yangi versiyaga o'tkazamiz
+  try {
+    if (navigator.serviceWorker) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const r of regs) {
+        try { if (r.waiting) r.waiting.postMessage("skipWaiting"); } catch(e) {}
+        try { await r.update(); } catch(e) {}
+      }
+    }
+  } catch(e) {}
+
+  // 4) Qayta yuklash. index.html Vercel'da no-cache, kesh esa
+  //    yuqorida tozalandi — shuning uchun yangi kod keladi.
+  setTimeout(() => { try { location.reload(); } catch(e) {} }, 250);
+}
+
 function nav(p) {
   // Rol tekshiruvi — ruxsati yo'q sahifaga o'tmaslik
   if (typeof canAccessPage === "function" && !canAccessPage(p)) {
@@ -294,7 +380,14 @@ function nav(p) {
   document.querySelectorAll("[id^='p-']").forEach(el => el.classList.remove("on"));
   const el = $("p-" + p); if (el) el.classList.add("on");
   // v151 (№4): amaldagi sahifa eslab qolinadi — F5'dan keyin init shu yerdan tiklaydi
-  if (el) { try { localStorage.setItem("merx_last_page", p); } catch(e) {} }
+  if (el) {
+    try {
+      localStorage.setItem("merx_last_page", p);
+      // 2026-07-30: sahifa bilan birga VAQTI ham yoziladi (pastdagi izohga qarang)
+      localStorage.setItem("merx_last_page_at", String(Date.now()));
+      window._lastStampAt = Date.now();
+    } catch(e) {}
+  }
   const T = { dashboard:"Dashboard", pos:"Sotuv (POS)", katalog:"Katalog", ombor:"Ombor",
     mijozlar:"Mijozlar", qarzlar:"Qarzlar", qarztarix:"Qarzlar tarixi", tarix:"Sotuv tarixi",
     hisobot:"Hisobot va tahlil", xodimlar:"Xodimlar", moliya:"Moliya",

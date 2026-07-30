@@ -737,6 +737,15 @@ async function doLogin() {
     hideLoginScreen();
     toast(res.firstTime ? "✅ Hisob yaratildi!" : "✅ Xush kelibsiz!");
     applyRoleUI();
+    // 2026-07-30: parol bilan kirilganda HAR DOIM rolga mos standart
+    // sahifa ochiladi (egasi uchun Dashboard). Oldingi sessiyada qayerda
+    // chiqib ketilgan bo'lsa — o'sha sahifa qolib ketmasin.
+    try {
+      localStorage.removeItem("merx_last_page");
+      localStorage.setItem("merx_last_page_at", String(Date.now()));
+      if (typeof nav === "function" && typeof defaultPageForRole === "function")
+        nav(defaultPageForRole(res.user));
+    } catch(e) {}
     _initCloudAfterLogin();
     // 2026-07-30: kirishdan keyin obuna holatini ham tekshiramiz.
     // Yuqoridagi darvoza asosiy himoya; bu ikkinchi qatlam (masalan
@@ -758,6 +767,15 @@ function doStaffLogin() {
     hideLoginScreen();
     toast(`✅ Xush kelibsiz, ${res.user.name}!`);
     applyRoleUI();
+    // 2026-07-30: parol bilan kirilganda HAR DOIM rolga mos standart
+    // sahifa ochiladi (egasi uchun Dashboard). Oldingi sessiyada qayerda
+    // chiqib ketilgan bo'lsa — o'sha sahifa qolib ketmasin.
+    try {
+      localStorage.removeItem("merx_last_page");
+      localStorage.setItem("merx_last_page_at", String(Date.now()));
+      if (typeof nav === "function" && typeof defaultPageForRole === "function")
+        nav(defaultPageForRole(res.user));
+    } catch(e) {}
     _initCloudAfterLogin();
     // 2026-07-30: xodim kirsa ham do'kon holati tekshiriladi —
     // aks holda bloklangan do'konda xodim ishlashda davom etardi

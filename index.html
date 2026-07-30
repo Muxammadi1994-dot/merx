@@ -521,6 +521,11 @@
     <span id="ptitle">Dashboard</span>
     <div class="tb-right">
       <div class="tb-pill" onclick="toggleCurrency()" title="Valyutani almashtirish"><i class="ti ti-currency-dollar"></i><span id="tb-rate">—</span> · <span id="tb-cur">so'm</span></div>
+      <!-- 2026-07-30: Ilovani yangilash (F5 ning tugmali varianti).
+           Telefonda va kassa ekranida F5 bosish qiyin. -->
+      <div class="tb-pill" id="app-reload-pill" onclick="appHardReload()"
+        title="Ilovani yangilash — yangi versiyani yuklash"
+        style="cursor:pointer"><i class="ti ti-refresh"></i></div>
       <div class="tb-pill" id="cloud-pill" onclick="pullFromCloud()" title="Bulutdan yangilash" style="display:none;cursor:pointer"><i class="ti ti-cloud"></i><span id="cloud-txt">Yangilash</span></div>
       <!-- Auth tugmasi -->
       <div class="tb-pill" id="auth-topbar-btn"
@@ -4648,8 +4653,8 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=162"></script>
-<script src="js/utils.js?v=203"></script>
-<script src="js/auth.js?v=181"></script>
+<script src="js/utils.js?v=204"></script>
+<script src="js/auth.js?v=182"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=196"></script>
 <script src="js/dashboard.js?v=156"></script>
@@ -4664,7 +4669,7 @@
 <script src="js/moliya.js?v=164"></script>
 <script src="js/egasi.js?v=168"></script>
 <script src="js/portal.js?v=141"></script>
-<script src="js/init.js?v=145"></script>
+<script src="js/init.js?v=146"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
 function toggleNav(el) {
@@ -4867,7 +4872,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=115")
+    navigator.serviceWorker.register("/sw.js?v=116")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
