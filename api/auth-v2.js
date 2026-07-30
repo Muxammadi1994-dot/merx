@@ -62,7 +62,10 @@ module.exports = async function handler(req, res) {
     // bulutga umuman yetmasdi.
     "delete_shop","set_currency_mode",
     // 2026-07-26: landing tarif narxlarini boshqarish
-    "get_tariffs","update_tariff"];
+    "get_tariffs","update_tariff",
+    // 2026-07-30: zaxira/tiklash — brauzerdagi anon kalit BOSHQA
+    // do'kon yozuviga tega olmaydi (RLS), xato jimgina yutilardi
+    "list_backups","get_backup","restore_write"];
   if (SA_ACTIONS.includes(action)) {
     // MUHIM: SA_PASS bo'sh bo'lsa HAM rad etiladi — aks holda bo'sh
     // parol bilan kirish mumkin bo'lib qolardi.
@@ -641,6 +644,94 @@ module.exports = async function handler(req, res) {
         expires_at: sh.trial_ends || null,
         tier:       sh.tier  || null
       });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // ZAXIRA / TIKLASH — SERVER ORQALI (2026-07-30)
+    // Avval bularning hammasi brauzerda, anon kalit bilan bajarilardi.
+    // §4.5: anon kalit boshqa do'kon yozuviga tega olmaydi va xato
+    // JIMGINA YUTILADI — shuning uchun "✅ TIKLANDI" yozilib, aslida
+    // hech nima tiklanmagan bo'lishi mumkin edi.
+    // ══════════════════════════════════════════════════════════════
+
+    // ── Do'kon zaxiralari ro'yxati ──────────────────────────────
+    if (action === "list_backups") {
+      const shopId = body.shopId || body.shop_id;
+      if (!shopId) return res.status(400).json({ ok: false, error: "shopId majburiy" });
+      const r = await fetch(
+        `${SB_URL}/rest/v1/backups?shop_id=eq.${encodeURIComponent(shopId)}` +
+        `&select=id,date,records,created_at&order=date.desc`,
+        { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
+      );
+      const rows = await r.json().catch(() => null);
+      if (!r.ok) return res.status(r.status).json({ ok: false, error: "Zaxiralar o'qilmadi", detail: rows });
+      return res.status(200).json({ ok: true, backups: rows || [] });
+    }
+
+    // ── Bitta zaxirani to'liq o'qish ────────────────────────────
+    if (action === "get_backup") {
+      const backupId = body.backupId || body.backup_id;
+      if (!backupId) return res.status(400).json({ ok: false, error: "backupId majburiy" });
+      const r = await fetch(
+        `${SB_URL}/rest/v1/backups?id=eq.${encodeURIComponent(backupId)}` +
+        `&select=id,shop_id,date,records,data&limit=1`,
+        { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
+      );
+      const rows = await r.json().catch(() => null);
+      if (!r.ok) return res.status(r.status).json({ ok: false, error: "Zaxira o'qilmadi", detail: rows });
+      const bk = (Array.isArray(rows) && rows[0]) || null;
+      if (!bk) return res.status(404).json({ ok: false, error: "Zaxira topilmadi" });
+      return res.status(200).json({ ok: true, backup: bk });
+    }
+
+    // ── Tiklash uchun YOZISH (bir jadval, bir bo'lak) ───────────
+    // Klient jadvalga o'girishni O'ZI bajaradi (cloud.js dagi _bkMap*
+    // funksiyalari — YAGONA MANBA, serverda takrorlanmaydi), server
+    // faqat SERVICE_KEY bilan o'chirish/yozishni bajaradi.
+    // wipe=true bo'lsa avval shu do'konning eski qatorlari o'chiriladi.
+    if (action === "restore_write") {
+      const shopId = body.shopId || body.shop_id;
+      const table  = body.table;
+      const rows   = Array.isArray(body.rows) ? body.rows : [];
+      const wipe   = body.wipe === true;
+
+      const ALLOWED = ["products","customers","sales","debt_payments",
+                       "ombor","xarajatlar","staff","deleted_records"];
+      if (!shopId) return res.status(400).json({ ok: false, error: "shopId majburiy" });
+      if (!ALLOWED.includes(table))
+        return res.status(400).json({ ok: false, error: "Ruxsat berilmagan jadval: " + table });
+
+      const H = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+                  "Content-Type": "application/json" };
+      let deleted = 0;
+
+      if (wipe) {
+        const dr = await fetch(
+          `${SB_URL}/rest/v1/${table}?shop_id=eq.${encodeURIComponent(shopId)}`,
+          { method: "DELETE", headers: { ...H, Prefer: "count=exact" } }
+        );
+        if (!dr.ok) {
+          const t = await dr.text().catch(() => "");
+          // MUHIM: o'chirish muvaffaqiyatsiz bo'lsa TO'XTAYMIZ — yozib
+          // yuborsak ma'lumot ikkilanib ketardi
+          return res.status(dr.status).json({ ok: false, step: "delete", table, error: t || "O'chirish muvaffaqiyatsiz" });
+        }
+        const cr = dr.headers.get("content-range") || "";
+        deleted = parseInt(String(cr).split("/")[1]) || 0;
+      }
+
+      if (!rows.length) return res.status(200).json({ ok: true, table, deleted, inserted: 0 });
+
+      const ir = await fetch(`${SB_URL}/rest/v1/${table}`, {
+        method: "POST",
+        headers: { ...H, Prefer: "return=minimal" },
+        body: JSON.stringify(rows)
+      });
+      if (!ir.ok) {
+        const t = await ir.text().catch(() => "");
+        return res.status(ir.status).json({ ok: false, step: "insert", table, deleted, error: t || "Yozish muvaffaqiyatsiz" });
+      }
+      return res.status(200).json({ ok: true, table, deleted, inserted: rows.length });
     }
 
     return res.status(400).json({ ok: false, error: "Noma'lum action. Mavjud: signup_test, login_test, create_shop, update_shop_password, delete_test_user, shop_status" });

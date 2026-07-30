@@ -1294,9 +1294,13 @@ function saToggleShop(id) {
   }
 
   saSaveShops(); renderSaShops();
-  showSaToast(s.blocked
-    ? `"${s.name}" bloklandi`
-    : `"${s.name}" faollashtirildi${s.expiresAt ? " (" + s.expiresAt.slice(0,10) + " gacha)" : ""}`);
+  // 2026-07-30: AVVAL bu yerda darhol "bloklandi" deb yozilardi —
+  // server javobi kutilmasdi. Bulutga yozish muvaffaqiyatsiz bo'lsa
+  // (xato faqat konsolga chiqardi) panel "bloklandi" ko'rsatardi,
+  // do'kon esa bulutda FAOL qolardi va egasi bemalol ishlardi.
+  // Endi haqiqiy natija kutiladi va xato bo'lsa holat QAYTARILADI.
+  showSaToast(s.blocked ? "Bloklanmoqda..." : "Faollashtirilmoqda...");
+  const _wantBlocked = !!s.blocked;
   // 2026-07-26: SERVER orqali (brauzerdan RLS to'sardi)
   const _cid = s.cloudShopId || s.shop_id || s.id;
   _saApi("update_shop", { shopId: _cid, data: {
@@ -1310,13 +1314,29 @@ function saToggleShop(id) {
     trial_ends: (s.plan === "lifetime") ? null : (s.expiresAt || null)
   }})
     .then(d => {
-      console.log(d.ok
-        ? `☁️ "${s.name}" ${s.blocked ? "bloklandi" : "faollashtirildi"} (bulutda)`
-        : "❌ " + (d.error || ""));
-      if (d.ok && typeof saFetchShopsFromCloud === "function")
-        setTimeout(() => saFetchShopsFromCloud().catch(()=>{}), 600);
+      if (d && d.ok) {
+        console.log(`☁️ "${s.name}" ${_wantBlocked ? "bloklandi" : "faollashtirildi"} (bulutda)`);
+        showSaToast(_wantBlocked
+          ? `🔒 "${s.name}" bloklandi (bulutda tasdiqlandi)`
+          : `✅ "${s.name}" faollashtirildi${s.expiresAt ? " (" + String(s.expiresAt).slice(0,10) + " gacha)" : ""}`);
+        if (typeof saFetchShopsFromCloud === "function")
+          setTimeout(() => saFetchShopsFromCloud().catch(()=>{}), 600);
+      } else {
+        // BULUTGA YETMADI — lokal holatni qaytaramiz, aks holda panel
+        // yolg'on ko'rsatadi
+        s.blocked = !_wantBlocked;
+        saSaveShops(); renderSaShops();
+        showSaToast("❌ Bulutga yozilmadi: " + ((d && d.error) || "noma'lum xato") +
+                    " — holat o'zgarmadi", "err");
+        console.error("update_shop rad etdi:", d);
+      }
     })
-    .catch(e => console.warn("toggle xato:", e.message));
+    .catch(e => {
+      s.blocked = !_wantBlocked;
+      saSaveShops(); renderSaShops();
+      showSaToast("❌ Tarmoq xatosi: " + e.message + " — holat o'zgarmadi", "err");
+      console.error("toggle xato:", e);
+    });
 }
 
 // ── O'chirish ─────────────────────────────────────
@@ -1962,14 +1982,36 @@ async function saDoRestore(backupId, date) {
     alert("Tiklash moduli yuklanmadi (cloud.js)");
     return;
   }
-  const res = await saRestoreBackup(backupId);
+  // 2026-07-30: natija endi HAQIQIY. Avval saRestoreBackup har doim
+  // ok:true qaytarardi — hech nima tiklanmasa ham "✅ TIKLANDI"
+  // yozilardi. Endi har jadval bo'yicha nechta yozuv o'chirilgani va
+  // nechta yozilgani ko'rsatiladi.
+  const res = await saRestoreBackup(backupId, (t, done, total) => {
+    if (btn) btn.textContent = `${t} ${done}/${total}`;
+  });
+
+  const _nice = { products:"Tovarlar", customers:"Mijozlar", sales:"Sotuvlar",
+    debt_payments:"Qarz to'lovlari", ombor:"Ombor", xarajatlar:"Xarajatlar", staff:"Xodimlar" };
+  const _lines = (arr) => (arr || []).map(x =>
+    `  · ${_nice[x.table] || x.table}: ${x.inserted} ta yozildi (${x.deleted} ta o'chirildi)`).join("\n");
+
   if (res.ok) {
-    alert("✅ TIKLANDI\n\nDo'kon: " + _saBackupShopName + "\nSana: " + res.date +
-      "\nYozuvlar: " + (res.records||0) + " ta\n\n" +
-      "Do'kon egasi endi qurilmasida 'Yangilash' bossa, tiklangan ma'lumot keladi.");
+    alert("✅ TIKLANDI\n\n" +
+      "Do'kon: " + _saBackupShopName + "\n" +
+      "Sana: " + res.date + "\n\n" +
+      _lines(res.tables) + "\n\n" +
+      "JAMI: " + (res.records || 0) + " ta yozuv\n" +
+      (res.tombOk ? "" : "\n⚠️ O'chirilganlar daftari tozalanmadi — ba'zi yozuvlar yashirin qolishi mumkin.\n") +
+      "\nDo'kon egasi qurilmasida 'Yangilash' bossa, tiklangan ma'lumot keladi.");
     document.getElementById("sa-backups-modal")?.remove();
   } else {
-    alert("❌ Tiklash xatosi: " + (res.error||"noma'lum"));
+    alert("❌ TIKLASH TO'XTADI\n\n" +
+      (res.error || "noma'lum xato") + "\n\n" +
+      (res.done && res.done.length
+        ? "Tiklanib bo'lgan jadvallar:\n" + _lines(res.done) +
+          "\n\n⚠️ DIQQAT: tiklash yarim qoldi. Xatoni tuzatib SHU ZAXIRANI QAYTA tiklang — " +
+          "aks holda ma'lumot chala holatda qoladi."
+        : "Hech qanday o'zgarish kiritilmadi — ma'lumot avvalgi holatda."));
     if (btn) { btn.disabled = false; btn.textContent = "Tiklash"; }
   }
 }

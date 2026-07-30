@@ -472,6 +472,60 @@ async function doSuperLogin() {
 }
 
 // ── Egasi/Admin login ─────────────────────────────
+// ══ OBUNA DARVOZASI — YAGONA MANBA (2026-07-30) ═══════════════════
+// Bloklangan/muddati tugagan do'kon kira olmasligi uchun. Hukmni
+// SERVER chiqaradi (qurilma soatiga ishonilmaydi).
+// Qaytaradi: "blocked" | "expired" | null (kirishga ruxsat)
+// Server javob bermasa — null (fail-open): tarmoq uzilishi mijozni
+// ishdan to'xtatmasligi kerak.
+let _subGateChecked = null;   // shu kirish urinishida tekshirilgan shopId
+async function _subGateCheck(shopId) {
+  if (!shopId) return null;
+  try {
+    const r = await fetch("/api/auth-v2?action=shop_status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shopId })
+    });
+    const d = await r.json();
+    console.log("🔎 Do'kon holati:", shopId, "→", d && d.status, d);
+    _subGateChecked = shopId;
+    if (d && d.ok && (d.status === "blocked" || d.status === "expired")) return d.status;
+    return null;
+  } catch(e) {
+    console.warn("shop_status olinmadi (kirishga ruxsat):", e.message);
+    return null;
+  }
+}
+
+// Darvoza yopilganda: sessiyani tozalab, kirish oynasida xabar
+function _subGateDeny(status, btn) {
+  try { if (typeof clearSupabaseTestSession === "function") clearSupabaseTestSession(); } catch(e) {}
+  try { authClear(); } catch(e) {}
+  if (btn) { btn.innerHTML = '<i class="ti ti-login"></i> Kirish'; btn.disabled = false; }
+  showAuthErr(status === "blocked"
+    ? "🔒 Do'kon bloklangan. Administrator bilan bog'laning: +998 97 770 80 13"
+    : "⏰ Obuna muddati tugagan. Administrator bilan bog'laning: +998 97 770 80 13");
+  console.warn("⛔ Kirish rad etildi — do'kon holati:", status);
+}
+
+// ══ ZAXIRA KIRISH — XAVFSIZ VARIANT (2026-07-30) ══════════════════
+// Bulut sozlangan, lekin `shops` jadvalidan do'kon TOPILMADI.
+// Avval bu holatda to'g'ridan authLogin chaqirilardi. Toza (gost)
+// brauzerda `db.settings.adminEmail` bo'sh bo'ladi — authLogin esa
+// buni "birinchi kirish" deb hisoblab, ISTALGAN email va 4 belgili
+// parol bilan YANGI bo'sh do'kon yaratib kiritib yuborardi.
+// Ya'ni obuna darvozasini butunlay chetlab o'tish yo'li bor edi.
+// Endi: lokal hisob allaqachon bo'lsa — oflayn kirishga ruxsat,
+// bo'lmasa — rad etamiz.
+async function _cloudFallbackLogin(email, pass) {
+  if (!db?.settings?.adminEmail) {
+    console.warn("⛔ Zaxira kirish rad etildi: bulutda do'kon topilmadi, lokal hisob ham yo'q");
+    return { ok:false, error:"Do'kon topilmadi. Internet aloqasini tekshirib qayta urinib ko'ring yoki administrator bilan bog'laning." };
+  }
+  return await authLogin(email, pass);
+}
+
 async function doLogin() {
   const email = (document.getElementById("auth-email")||{value:""}).value.trim().toLowerCase();
   const pass  = (document.getElementById("auth-pass") ||{value:""}).value;
@@ -544,6 +598,19 @@ async function doLogin() {
         console.warn("ℹ️ Supabase Auth token xatosi:", e.message);
       }
 
+      // ══ DARVOZA — 1-nuqta: token shop_id qaytardi ═══════════════
+      // 2026-07-30: avval darvoza faqat `shops` jadvali muvaffaqiyatli
+      // O'QILGANDA ishlardi. RLS/tarmoq tufayli o'qish bo'sh qaytsa
+      // tekshiruv umuman bajarilmasdi va pastdagi zaxira yo'l bilan
+      // kirilardi. Endi shop_id ma'lum bo'lishi bilanoq tekshiramiz.
+      try {
+        const _tokSid = getSupabaseTestSession()?.shopId || null;
+        if (_tokSid) {
+          const _bad = await _subGateCheck(_tokSid);
+          if (_bad) { _subGateDeny(_bad, btn); return; }
+        }
+      } catch(e) { console.warn("darvoza (1-nuqta):", e.message); }
+
       // initSupabase orqali ulanamiz — bu "Multiple GoTrueClient" ogohlantirishini oldini oladi
       // (avval token olingan, shuning uchun initSupabase token bilan ulanadi)
       let _isOk = false;
@@ -569,37 +636,12 @@ async function doLogin() {
         const shop   = shops[0];
         const shopId = shop.id;
 
-        // ══ OBUNA QO'RIQCHISI (2026-07-30) ═══════════════════════
-        // Bloklangan / muddati tugagan do'kon KIRA OLMAYDI.
-        //
-        // Nega aynan bu yerda: doLogin muvaffaqiyatli kirishdan keyin
-        // sahifani QAYTA YUKLAMAYDI va init() ni chaqirmaydi. Shuning
-        // uchun init() ichidagi tekshiruv toza (gost) brauzerda hech
-        // qachon ishlamasdi — bloklangan do'konga xotirjam kirilardi.
-        //
-        // Hukmni SERVER chiqaradi — qurilma soatiga ishonilmaydi.
-        // Server javob bermasa (internet yo'q) — kirishga RUXSAT
-        // beriladi: tarmoq uzilishi mijozni ishdan to'xtatmasligi kerak.
-        try {
-          const _stRes = await fetch("/api/auth-v2?action=shop_status", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ shopId })
-          });
-          const _st = await _stRes.json();
-          if (_st && _st.ok && (_st.status === "blocked" || _st.status === "expired")) {
-            // Olingan Supabase token va sessiyani tozalaymiz — yarim
-            // ochiq holat qolmasin
-            try { if (typeof clearSupabaseTestSession === "function") clearSupabaseTestSession(); } catch(e) {}
-            try { authClear(); } catch(e) {}
-            if (btn) { btn.innerHTML = '<i class="ti ti-login"></i> Kirish'; btn.disabled = false; }
-            showAuthErr(_st.status === "blocked"
-              ? "🔒 Do'kon bloklangan. Administrator bilan bog'laning: +998 97 770 80 13"
-              : "⏰ Obuna muddati tugagan. Administrator bilan bog'laning: +998 97 770 80 13");
-            console.warn("Kirish rad etildi — do'kon holati:", _st.status);
-            return;
-          }
-        } catch(e) { console.warn("shop_status olinmadi (kirishga ruxsat):", e.message); }
+        // ══ DARVOZA — 2-nuqta: shops jadvalidan topilgan shopId ══
+        // (token shop_id bermagan, email bo'yicha topilgan holat)
+        if (_subGateChecked !== shopId) {
+          const _bad2 = await _subGateCheck(shopId);
+          if (_bad2) { _subGateDeny(_bad2, btn); return; }
+        }
 
         const dbKey  = "merx_v5_" + shopId;
         let shopDB   = null;
@@ -679,11 +721,11 @@ async function doLogin() {
         authSave(res.user);
         localStorage.setItem(dbKey, JSON.stringify(db));
       } else {
-        res = await authLogin(email, pass);
+        res = await _cloudFallbackLogin(email, pass);
       }
     } catch(e) {
       console.warn("Supabase login xato:", e.message);
-      res = await authLogin(email, pass);
+      res = await _cloudFallbackLogin(email, pass);
     }
   } else {
     res = await authLogin(email, pass);

@@ -1582,73 +1582,120 @@ async function cloudDailyBackup(sid) {
   }
 }
 
-// ── SuperAdmin uchun: do'kon zaxiralarini o'qish ──
+// ══════════════════════════════════════════════════════════════
+// SUPERADMIN ZAXIRA / TIKLASH — SERVER ORQALI (2026-07-30)
+// AVVAL: bu funksiyalar brauzerdagi anon kalit (`_sb`) bilan
+// ishlardi. §4.5 bo'yicha anon kalit BOSHQA do'kon yozuviga tega
+// olmaydi va xato JIMGINA YUTILADI. Natijada:
+//   · zaxiralar ro'yxati bo'sh chiqardi ("zaxira yo'q")
+//   · tiklash hech nima qilmasa ham "✅ TIKLANDI" deb yozardi
+//     (funksiya HAR DOIM ok:true qaytarardi)
+// Endi: o'qish/yozish SERVICE_KEY bilan serverda, natija HAQIQIY.
+// Jadvalga o'girish (_bkMap*) esa shu faylda qoladi — YAGONA MANBA.
+// ══════════════════════════════════════════════════════════════
+
+// ── Do'kon zaxiralari ro'yxati ──
 async function saListBackups(shopId) {
-  if (!_sb || !shopId) return [];
+  if (!shopId) return [];
+  if (typeof _saApi !== "function") { console.warn("saListBackups: _saApi yo'q"); return []; }
   try {
-    const { data, error } = await _sb.from("backups")
-      .select("id, date, records, created_at")
-      .eq("shop_id", shopId).order("date", { ascending: false });
-    if (error) { console.warn("saListBackups xato:", error.message); return []; }
-    return data || [];
-  } catch (e) { return []; }
+    const d = await _saApi("list_backups", { shopId });
+    if (!d || !d.ok) { console.warn("saListBackups xato:", d && d.error); return []; }
+    return d.backups || [];
+  } catch (e) { console.warn("saListBackups xato:", e.message); return []; }
 }
 
-// ── SuperAdmin uchun: bitta zaxirani to'liq o'qish (tiklash uchun) ──
+// ── Bitta zaxirani to'liq o'qish ──
 async function saGetBackup(backupId) {
-  if (!_sb || !backupId) return null;
+  if (!backupId) return null;
+  if (typeof _saApi !== "function") return null;
   try {
-    const { data, error } = await _sb.from("backups")
-      .select("data, date, records, shop_id").eq("id", backupId).limit(1).single();
-    if (error) { console.warn("saGetBackup xato:", error.message); return null; }
-    return data || null;
-  } catch (e) { return null; }
+    const d = await _saApi("get_backup", { backupId });
+    if (!d || !d.ok) { console.warn("saGetBackup xato:", d && d.error); return null; }
+    return d.backup || null;
+  } catch (e) { console.warn("saGetBackup xato:", e.message); return null; }
 }
 
-// ── SuperAdmin uchun: zaxirani do'kon ma'lumotiga TIKLASH ──
-// Bulutdagi products/sales/... jadvallariga qayta yozadi (o'sha shop_id uchun).
-async function saRestoreBackup(backupId) {
-  if (!_sb) { return { ok:false, error:"Supabase ulanmagan" }; }
-  try {
-    const bk = await saGetBackup(backupId);
-    if (!bk || !bk.data) return { ok:false, error:"Zaxira topilmadi" };
-    const sid = bk.shop_id;
-    const d = bk.data;
+// ── Zaxirani do'kon ma'lumotiga TIKLASH ──
+// Qaytaradi: { ok, records, tables:[{table,deleted,inserted}], tombOk }
+// yoki xato bo'lsa: { ok:false, error, stoppedAt, done:[...] }
+// MUHIM: har jadval uchun o'chirish va yozish natijasi tekshiriladi.
+// Birinchi xatoda TO'XTAYDI va qaysi jadvalda to'xtaganini aytadi.
+async function saRestoreBackup(backupId, onProgress) {
+  if (typeof _saApi !== "function")
+    return { ok:false, error:"SuperAdmin API yordamchisi topilmadi (superadmin.js yuklanmagan)" };
 
-    // Har jadval uchun: avval o'sha do'kon yozuvlarini o'chirib, keyin zaxiradan yozamiz.
-    // (products/sales/customers/debt_payments/ombor/xarajatlar/staff/returns)
-    const tables = [
-      { t:"products",      arr:d.products||[],      map:_bkMapProduct },
-      { t:"customers",     arr:d.customers||[],     map:_bkMapCustomer },
-      { t:"sales",         arr:d.sales||[],         map:_bkMapSale },
-      { t:"debt_payments", arr:d.debtPayments||[],  map:_bkMapDebtPay },
-      { t:"ombor",         arr:d.ombor||[],         map:_bkMapOmbor },
-      { t:"xarajatlar",    arr:d.xarajatlar||[],    map:_bkMapXarajat },
-      { t:"staff",         arr:d.staff||[],         map:_bkMapStaff },
-    ];
+  const bk = await saGetBackup(backupId);
+  if (!bk)        return { ok:false, error:"Zaxira o'qilmadi" };
+  const sid = bk.shop_id;
+  const d   = bk.data;
+  if (!sid)       return { ok:false, error:"Zaxirada do'kon ID yo'q" };
+  if (!d)         return { ok:false, error:"Zaxira bo'sh (data yo'q)" };
 
-    for (const {t, arr, map} of tables) {
-      // 1) shu do'kon eski yozuvlarini o'chiramiz
-      await _sb.from(t).delete().eq("shop_id", sid);
-      // 2) zaxiradan qayta yozamiz (bo'laklab, 100 talab)
-      if (arr.length) {
-        const rows = arr.map(x => map(x, sid)).filter(Boolean);
-        for (let i = 0; i < rows.length; i += 100) {
-          const chunk = rows.slice(i, i+100);
-          const { error } = await _sb.from(t).insert(chunk);
-          if (error) console.warn(`saRestore ${t} xato:`, error.message);
-        }
-      }
+  const tables = [
+    { t:"products",      arr:d.products||[],      map:_bkMapProduct },
+    { t:"customers",     arr:d.customers||[],     map:_bkMapCustomer },
+    { t:"sales",         arr:d.sales||[],         map:_bkMapSale },
+    { t:"debt_payments", arr:d.debtPayments||[],  map:_bkMapDebtPay },
+    { t:"ombor",         arr:d.ombor||[],         map:_bkMapOmbor },
+    { t:"xarajatlar",    arr:d.xarajatlar||[],    map:_bkMapXarajat },
+    { t:"staff",         arr:d.staff||[],         map:_bkMapStaff },
+  ];
+
+  // HIMOYA: bo'sh zaxira bilan tiklash = ma'lumotni o'chirish
+  const totalRows = tables.reduce((a,x) => a + x.arr.length, 0);
+  if (totalRows < 1)
+    return { ok:false, error:"Zaxirada bironta yozuv yo'q — tiklash bekor qilindi (himoya)" };
+
+  const report = [];
+  for (const { t, arr, map } of tables) {
+    const rows = arr.map(x => { try { return map(x, sid); } catch(e) { return null; } }).filter(Boolean);
+    const line = { table:t, deleted:0, inserted:0 };
+
+    // Yozuv yo'q — faqat eski qatorlarni tozalaymiz
+    if (!rows.length) {
+      const r = await _saApi("restore_write", { shopId:sid, table:t, rows:[], wipe:true })
+        .catch(e => ({ ok:false, error:e.message }));
+      if (!r || !r.ok)
+        return { ok:false, stoppedAt:t, done:report,
+                 error:`"${t}": ${(r && r.error) || "noma'lum xato"}` };
+      line.deleted = r.deleted || 0;
+      report.push(line);
+      continue;
     }
 
-    // Tombstone (o'chirilganlar daftari) ni ham tozalaymiz — aks holda
-    // tiklangan yozuvlar "o'chgan" deb yashirilishi mumkin (bugun ko'rgan muammo).
-    try { await _sb.from("deleted_records").delete().eq("shop_id", sid); } catch(e) {}
-
-    return { ok:true, shop_id:sid, date:bk.date, records:bk.records };
-  } catch (e) {
-    return { ok:false, error:e.message };
+    // Birinchi bo'lakda eski qatorlar o'chiriladi (wipe), keyingilarida yo'q
+    let first = true;
+    for (let i = 0; i < rows.length; i += 100) {
+      const chunk = rows.slice(i, i + 100);
+      const r = await _saApi("restore_write", { shopId:sid, table:t, rows:chunk, wipe:first })
+        .catch(e => ({ ok:false, error:e.message }));
+      if (!r || !r.ok) {
+        if (line.inserted || line.deleted) report.push(line);
+        return { ok:false, stoppedAt:t, done:report,
+                 error:`"${t}" jadvalida to'xtadi (${(r && r.step) || "yozish"}): ` +
+                       `${(r && r.error) || "noma'lum xato"}` };
+      }
+      if (first) { line.deleted = r.deleted || 0; first = false; }
+      line.inserted += chunk.length;
+      if (typeof onProgress === "function") {
+        try { onProgress(t, line.inserted, rows.length); } catch(e) {}
+      }
+    }
+    report.push(line);
   }
+
+  // Tombstone (o'chirilganlar daftari) tozalanadi — aks holda tiklangan
+  // yozuvlar "o'chirilgan" deb yashirilishi mumkin
+  let tombOk = true;
+  try {
+    const r = await _saApi("restore_write", { shopId:sid, table:"deleted_records", rows:[], wipe:true });
+    tombOk = !!(r && r.ok);
+  } catch(e) { tombOk = false; }
+
+  const inserted = report.reduce((a,x) => a + (x.inserted || 0), 0);
+  console.log("♻️ Tiklash yakuni:", report);
+  return { ok:true, shop_id:sid, date:bk.date, records:inserted, tables:report, tombOk };
 }
 
 // Zaxira JSON'ini Supabase ustunlariga o'giruvchi yordamchilar (data jsonb ham saqlanadi)
