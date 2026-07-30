@@ -181,8 +181,14 @@ function renderHisobot() {
     const costUzs = getCostUzs(p);
     return a + costUzs * (p.variants||[]).reduce((b,v)=>b+(v.qty||0),0);
   }, 0);
+  // 2026-07-31: chakana narx BO'SH bo'lsa ULGURJI olinadi.
+  // Avval faqat p.priceUzs (chakana) o'qilardi — ulgurji do'konda u
+  // har doim 0, shuning uchun "Ombor sotuv qiymati" doim 0 chiqardi.
+  // `||` tartibi muhim: chakana bor bo'lsa AVVALGIDEK u ishlatiladi,
+  // ya'ni chakana narxli do'konlarda hech narsa o'zgarmaydi.
   const omborSellVal = (db.products||[]).reduce((a, p) => {
-    return a + (p.priceUzs||0) * (p.variants||[]).reduce((b,v)=>b+(v.qty||0),0);
+    const sell = (p.priceUzs || p.ulgurjiNarx || 0);
+    return a + sell * (p.variants||[]).reduce((b,v)=>b+(v.qty||0),0);
   }, 0);
   // 2026-07-30: "Ombordagi potensial foyda" kartasi OLIB TASHLANDI —
   // ma'nosi na egasiga, na sotuvchilarga tushunarli edi.
@@ -900,11 +906,16 @@ function exportHisobotTurnoverExcel() {
     const daysLeft=dailyRate>0?Math.round(totalQty/dailyRate):null;
     const costUzs = getCostUzs(p);
     rows.push([p.name,totalQty,sold,Math.round(dailyRate*10)/10,daysLeft||"Sotilmayapti",
-      costUzs, p.priceUzs||0, costUzs*totalQty, (p.priceUzs||0)*totalQty]);
+      costUzs, (p.priceUzs||p.ulgurjiNarx||0), costUzs*totalQty,
+      (p.priceUzs||p.ulgurjiNarx||0)*totalQty]);
   });
   rows.push([]);
-  const omborCost=(db.products||[]).reduce((a,p)=>a+Math.round((p.costUsd||0)*rate)*(p.variants||[]).reduce((b,v)=>b+(v.qty||0),0),0);
-  const omborSell=(db.products||[]).reduce((a,p)=>a+(p.priceUzs||0)*(p.variants||[]).reduce((b,v)=>b+(v.qty||0),0),0);
+  // 2026-07-31: getCostUzs() — tannarxni o'qishning YAGONA nuqtasi (§3.1).
+  // Avval bu yer costUsd dan hisoblardi; yangi tovarlarda u bo'sh, shuning
+  // uchun Excel'da tannarx 0 chiqardi. getCostUzs eski tovarlar uchun
+  // o'sha eski yo'lni (costUsd × kurs) zaxira sifatida saqlaydi.
+  const omborCost=(db.products||[]).reduce((a,p)=>a+getCostUzs(p)*(p.variants||[]).reduce((b,v)=>b+(v.qty||0),0),0);
+  const omborSell=(db.products||[]).reduce((a,p)=>a+(p.priceUzs||p.ulgurjiNarx||0)*(p.variants||[]).reduce((b,v)=>b+(v.qty||0),0),0);
   rows.push(["JAMI OMBOR TANNARXI", omborCost]);
   rows.push(["JAMI OMBOR SOTUV QIYMATI", omborSell]);
   rows.push(["POTENSIAL FOYDA", omborSell-omborCost]);
