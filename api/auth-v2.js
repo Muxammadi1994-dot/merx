@@ -448,6 +448,39 @@ module.exports = async function handler(req, res) {
         return res.status(updRes.status).json({ ok: false, error: errData.message || "Yangilash muvaffaqiyatsiz" });
       }
 
+      // ══ 2026-07-30: DO'KON NOMI — barcha joyga tarqatiladi ══════
+      // Muammo: SuperAdmin nomni o'zgartirsa FAQAT `shops.name` yozilardi.
+      // Do'konning o'z ilovasi esa nomni `settings.shop_name` dan oladi
+      // (cloud.js: db.shop = {...db.shop, name: sets.shop_name}), chekda
+      // ham o'sha ishlatiladi. Natijada SuperAdmin panelida yangi nom,
+      // do'konning o'zida va cheklarda esa ESKI nom qolardi.
+      // Bot ham `bot_sessions` / `shop_owners` dagi nusxadan o'qiydi.
+      if (typeof data.name === "string" && data.name.trim()) {
+        const _nm = data.name.trim();
+        const _H  = {
+          apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/json"
+        };
+        // 1) settings.shop_name — ilova va chek shu yerdan o'qiydi
+        try {
+          await fetch(`${SB_URL}/rest/v1/settings?on_conflict=shop_id`, {
+            method: "POST",
+            headers: { ..._H, Prefer: "resolution=merge-duplicates" },
+            body: JSON.stringify([{ shop_id: shopId, shop_name: _nm }])
+          });
+        } catch(e) { console.warn("shop_name → settings:", e.message); }
+        // 2) Botdagi nusxalar — eski nom ko'rinib qolmasin
+        for (const _t of ["bot_sessions", "shop_owners"]) {
+          try {
+            await fetch(`${SB_URL}/rest/v1/${_t}?shop_id=eq.${encodeURIComponent(shopId)}`, {
+              method: "PATCH",
+              headers: { ..._H, Prefer: "return=minimal" },
+              body: JSON.stringify({ shop_name: _nm })
+            });
+          } catch(e) { console.warn(`shop_name → ${_t}:`, e.message); }
+        }
+      }
+
       // 2026-07-26: TARIF settings jadvaliga ham yoziladi — do'kon
       // ilovasi shu jadvaldan o'qiydi (cheklovni qo'llash uchun)
       if (data.tier) {
