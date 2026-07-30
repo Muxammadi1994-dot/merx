@@ -3,6 +3,39 @@
 // ════════════════════════════════════════════════════════════════
 
 const TOKEN        = process.env.TELEGRAM_BOT_TOKEN;
+
+// ── GURUH ID SI (2026-07-30) ──────────────────────────────────
+// Bot o'zining raqamli ID si. Token "<bot_id>:<hash>" ko'rinishida,
+// shuning uchun birinchi qismi bot ID si bo'ladi.
+// DIQQAT: muhit o'zgaruvchisi nomi TELEGRAM_BOT_TOKEN (boshqa nom
+// yozilsa jimgina bo'sh qoladi).
+const _BOT_ID = String(process.env.TELEGRAM_BOT_TOKEN || "").split(":")[0];
+
+// Telegram bitta qo'shilishda ikkita yangilanish yuborishi mumkin
+// (my_chat_member + xizmat xabari) — xabar ikki marta ketmasin
+const _groupHello = new Map();
+function _helloOnce(chatId) {
+  const k = String(chatId), now = Date.now();
+  const prev = _groupHello.get(k);
+  if (prev && now - prev < 60000) return false;
+  _groupHello.set(k, now);
+  return true;
+}
+
+// Guruh ID sini tushunarli qilib yuborish.
+// Avval do'kon egasi ID ni tashqi botlar orqali qidirishi kerak edi va
+// ko'pchilik minus belgisini tushirib qoldirib xato kiritardi.
+async function sendGroupIdCard(chatId, added) {
+  await tg(chatId,
+    (added ? "🤖 <b>MERX bot ulandi</b>\n\n" : "🆔 <b>Guruh ma'lumoti</b>\n\n") +
+    "Bu guruhning ID si:\n" +
+    "<code>" + chatId + "</code>\n\n" +
+    "👆 Raqamga bosing — nusxa olinadi (minus belgisi bilan birga).\n\n" +
+    "Ilovada: <b>Sozlamalar → SMS &amp; Bot → Xodimlar guruhi ID</b>\n" +
+    "maydoniga qo'ying va saqlang.\n\n" +
+    "Shundan keyin sotuv va ombor xabarlari shu guruhga keladi."
+  );
+}
 const SB_URL       = process.env.SUPABASE_URL;
 const SB_KEY       = process.env.SUPABASE_KEY;
 const OWNER_ID     = process.env.BOT_OWNER_CHAT_ID;  // Superadmin chat ID
@@ -2542,12 +2575,36 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  // ── Bot guruhga QO'SHILDI (2026-07-30) ────────────────────────
+  // Telegram bot a'zoligi o'zgarganda `my_chat_member` yuboradi. Bu
+  // yangilanish turi standart sozlamada ham keladi — webhook'ni qayta
+  // sozlash SHART EMAS.
+  if (update.my_chat_member) {
+    try {
+      const _mcm    = update.my_chat_member;
+      const _chat   = _mcm.chat || {};
+      const _status = _mcm.new_chat_member?.status;
+      const _isGrp  = _chat.type === "group" || _chat.type === "supergroup";
+      if (_isGrp && (_status === "member" || _status === "administrator") && _helloOnce(_chat.id)) {
+        await sendGroupIdCard(_chat.id, true);
+      }
+    } catch(e) { console.warn("my_chat_member xato:", e.message); }
+    return res.status(200).json({ ok: true });
+  }
+
   const msg    = update.message;
   if (!msg) return res.status(200).json({ ok: true });
 
   const chatId = msg.chat?.id;
   const text   = (msg.text || "").trim();
   if (!chatId) return res.status(200).json({ ok: true });
+
+  // Zaxira yo'l: my_chat_member kelmasa xizmat xabaridan bilamiz
+  if (Array.isArray(msg.new_chat_members) && _BOT_ID &&
+      msg.new_chat_members.some(u => String(u.id) === _BOT_ID)) {
+    if (_helloOnce(chatId)) { try { await sendGroupIdCard(chatId, true); } catch(e) {} }
+    return res.status(200).json({ ok: true });
+  }
 
   if (msg.contact) {
     await handleContact(chatId, msg.contact);
@@ -2559,6 +2616,15 @@ export default async function handler(req, res) {
     // Deep link parametrini olamiz: /start shop_XXXXX
     const param = text.split(" ")[1] || "";
     await cmdStart(chatId, param);
+    return res.status(200).json({ ok: true });
+  }
+
+  // /id — chat ID sini ko'rsatadi. Bot ALLAQACHON qo'shilgan guruhlar
+  // uchun kerak: ularda "qo'shildi" xabari o'tib ketgan bo'ladi.
+  if (cmd === "/id") {
+    const _t = msg.chat?.type;
+    if (_t === "group" || _t === "supergroup") await sendGroupIdCard(chatId, false);
+    else await tg(chatId, "🆔 Sizning chat ID: <code>" + chatId + "</code>");
     return res.status(200).json({ ok: true });
   }
 
