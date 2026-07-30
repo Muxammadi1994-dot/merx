@@ -96,19 +96,65 @@ let _posScanMode = false;
 function processBarcode(code) {
   const q = code.toLowerCase();
   let foundColor = null;
-  let p = db.products.find(x =>
-    x.sku.toLowerCase() === q || (x.barcode && x.barcode.toLowerCase() === q)
-  );
-  // colorBarcodes dan ham qidirish
-  if (!p) {
-    for (const prod of db.products) {
-      if (!prod.colorBarcodes) continue;
-      for (const [clr, bc] of Object.entries(prod.colorBarcodes)) {
-        if (bc && bc.toLowerCase() === q) { p = prod; foundColor = clr; break; }
+  let p = null;
+  let matchedBy = null;   // tashxis uchun: kod qaysi maydonga mos keldi
+
+  // ── 1) AVVAL rang kodi bo'yicha (2026-07-30: tartib almashtirildi) ──
+  // Avval tovar darajasidagi sku/barcode birinchi tekshirilardi. Rang
+  // kodi aniqroq ma'lumot — u birinchi turishi kerak.
+  for (const prod of db.products) {
+    if (!prod.colorBarcodes) continue;
+    for (const [clr, bc] of Object.entries(prod.colorBarcodes)) {
+      if (bc && String(bc).toLowerCase() === q) {
+        p = prod; foundColor = clr; matchedBy = "rang kodi"; break;
       }
-      if (p) break;
+    }
+    if (p) break;
+  }
+
+  // ── 2) Topilmasa — tovar darajasidagi kod (sku yoki umumiy barcode) ──
+  if (!p) {
+    p = db.products.find(x => x.sku.toLowerCase() === q);
+    if (p) matchedBy = "sku";
+    if (!p) {
+      p = db.products.find(x => x.barcode && String(x.barcode).toLowerCase() === q);
+      if (p) matchedBy = "umumiy barcode (p.barcode)";
+    }
+
+    // ── 3) Rangni aniqlashga urinamiz (2026-07-30) ──
+    // Tovar darajasidagi kod QAYSI RANG ekanini aytmaydi. Avval shu
+    // holatda savatga umuman qo'shilmasdi va hech qanday izoh ham
+    // berilmasdi — qidiruvda hamma rang chiqib turardi, xolos.
+    // Endi: rang bitta bo'lsa yoki qoldig'i bor rang bitta bo'lsa —
+    // noaniqlik yo'q, o'shani olamiz.
+    if (p && Array.isArray(p.variants)) {
+      const allColors = [...new Set(p.variants.map(v => v.color).filter(Boolean))];
+      const withStock = [...new Set(p.variants.filter(v => (v.qty||0) > 0)
+                                              .map(v => v.color).filter(Boolean))];
+      if (allColors.length === 1)      foundColor = allColors[0];
+      else if (withStock.length === 1) foundColor = withStock[0];
+      else if (allColors.length > 1) {
+        setTimeout(() => {
+          try {
+            posBeep(1);
+            toast(`${p.name}: ${allColors.length} ta rang bor — rangni tanlang`, "err");
+          } catch(e) {}
+        }, 400);
+      }
     }
   }
+
+  // ── TASHXIS: nima bo'layotganini konsolda ko'rsatamiz ──
+  // Skaner "topyapti-yu savatga qo'shmayapti" holatida sababni shu
+  // yozuvdan bilsa bo'ladi.
+  console.log("🔦 SKANER:", {
+    "o'qilgan kod": code,
+    "mos keldi": matchedBy || "TOPILMADI",
+    "tovar": p ? p.name : null,
+    "rang": foundColor || "ANIQLANMADI",
+    "tovardagi rang kodlari": p ? (p.colorBarcodes || "yo'q") : null,
+    "umumiy p.barcode": p ? (p.barcode || "yo'q") : null
+  });
   if (p) {
     toast("Topildi: " + p.name + (foundColor ? " — " + foundColor : ""), "info");
     if ($("pos-q")) {
