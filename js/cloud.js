@@ -256,6 +256,16 @@ async function uploadImageToStorage(dataUrl, tag) {
 //  4. Xato bo'lsa — to'liq pull'ga qaytadi
 //  5. O'chirishlar `deleted_records` orqali qo'llanadi
 
+// ⛔ 2026-07-31: DELTA VAQTINCHA O'CHIRILGAN.
+// Sinovda ikki xato chiqdi:
+//  1) Vaqt belgisi oldinga SILJIMASDI (chekinish har safar qo'llanardi)
+//     → o'sha qatorlar aylanib tortilaverdi.
+//  2) Bulut nusxasi lokal o'zgarishni SO'ZSIZ bosib yozardi → telefonda
+//     qo'yilgan rasm bulutga yetmasdan yo'qolib ketdi.
+// Ikkalasi ham quyida tuzatildi, lekin JONLI do'konda sinamasdan
+// yoqilmaydi. Sinash uchun: USE_DELTA = true.
+const USE_DELTA = false;
+
 function _lastPullKey(sid) { return "merx_lastpull_" + sid; }
 function _getLastPull(sid) {
   try { return localStorage.getItem(_lastPullKey(sid)) || null; } catch(e) { return null; }
@@ -267,13 +277,16 @@ function _getLastPull(sid) {
 // Narxi: har delta oxirgi 5 daqiqani qayta oladi — bu bir necha
 // qator, id bo'yicha birlashtirish takrorni yaratmaydi.
 const _PULL_MARGIN_MS = 5 * 60 * 1000;
+
+// TUZATILDI: endi HAQIQIY eng katta vaqt saqlanadi. Chekinish faqat
+// SO'ROV paytida qo'llanadi (_sinceQuery). Avval chekinish saqlashda
+// qo'llanib, belgi hech qachon oldinga siljimasdi.
 function _setLastPull(sid, iso) {
-  try {
-    if (!iso) return;
-    const t = Date.parse(iso);
-    const safe = isNaN(t) ? iso : new Date(t - _PULL_MARGIN_MS).toISOString();
-    localStorage.setItem(_lastPullKey(sid), safe);
-  } catch(e) {}
+  try { if (iso) localStorage.setItem(_lastPullKey(sid), iso); } catch(e) {}
+}
+function _sinceQuery(iso) {
+  const t = Date.parse(iso);
+  return isNaN(t) ? iso : new Date(t - _PULL_MARGIN_MS).toISOString();
 }
 
 // Delta qamrab oladigan jadvallar: bulut ustuni → lokal massiv
@@ -294,17 +307,24 @@ function _mergeById(arr, rows) {
 
 // Qaytaradi: true — delta bajarildi, false — to'liq pull kerak
 async function pullDelta() {
+  if (!USE_DELTA) return false;             // o'chirilgan — to'liq pull
   const sid = getCloudShopId();
   if (!_sb || !sid) return false;
   const since = _getLastPull(sid);
   if (!since) return false;                 // hali to'liq tortilmagan
 
+  // HIMOYA: yuborilmagan lokal o'zgarish bo'lsa delta QILINMAYDI.
+  // Aks holda bulutdagi eski nusxa yangi lokal o'zgarishni bosib
+  // yozardi (rasm yo'qolishi shundan edi).
+  if (typeof _syncPending !== "undefined" && _syncPending) return false;
+
+  const _q = _sinceQuery(since);
   let maxTs = since, changed = 0;
   try {
     for (const [tbl, key] of _DELTA_TABLES) {
       const rows = await _selectAll(() => _sb.from(tbl).select("*")
         .eq("shop_id", sid)
-        .gt("updated_at", since)
+        .gt("updated_at", _q)
         .order("updated_at"), "delta:" + tbl);
       if (!rows.length) continue;
 
@@ -322,7 +342,7 @@ async function pullDelta() {
     // O'chirilganlar
     const dels = await _selectAll(() => _sb.from("deleted_records").select("*")
       .eq("shop_id", sid)
-      .gt("deleted_at", since)
+      .gt("deleted_at", _q)
       .order("deleted_at"), "delta:deleted");
     if (dels.length) {
       const byTable = {};
