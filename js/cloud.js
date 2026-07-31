@@ -269,7 +269,7 @@ async function uploadImageToStorage(dataUrl, tag) {
 //      sotuv, qarz kiritish
 //   3) Hech narsa yo'qolmasa — AbuSaxiy va B20 ga o'tkaziladi
 // Muammo chiqsa: `false` qilib push — bir zumda eski holatga qaytadi.
-const USE_DELTA = false;  // 2026-07-31: rasm masalasi hal bo'lguncha O'CHIQ
+const USE_DELTA = true;   // 2026-07-31: rasm himoyasi qo'shilgach YOQILDI
 
 // ⚠️ DELTA FAQAT SHU DO'KONLARDA ishlaydi. Qolganlari (AbuSaxiy, B20)
 // eski, sinalgan to'liq pull yo'lida qoladi — sinov ularga tegmaydi.
@@ -322,9 +322,12 @@ const _DELTA_DEL_KEY = {
   ombor: "id", xarajatlar: "id", debt_payments: "id",
 };
 
-function _mergeById(arr, rows) {
-  const map = new Map((arr || []).map(x => [String(x.id), x]));
-  rows.forEach(r => map.set(String(r.id), r));
+// Tovarlar SKU bo'yicha, qolganlari id bo'yicha birlashtiriladi —
+// to'liq pull'dagi `_mrg` bilan bir xil qoida (§10.3).
+function _mergeById(arr, rows, keyField) {
+  const k = keyField || "id";
+  const map = new Map((arr || []).map(x => [String(x[k]), x]));
+  rows.forEach(r => map.set(String(r[k]), r));
   return [...map.values()].sort((a, b) => (a.id || 0) - (b.id || 0));
 }
 
@@ -383,7 +386,24 @@ async function pullDelta() {
       if (rows.some(r => !r.data || typeof r.data !== "object" || Array.isArray(r.data))) {
         return false;
       }
-      staged.push({ key, rows: rows.map(r => ({ ...r.data, id: r.id })) });
+      // ⚠️ TOVARLAR ALOHIDA: rasmlar `data` ICHIDA YO'Q — ular o'z
+      // ustunlarida (image, color_images). Avval delta faqat `data`
+      // dan o'qib, rasmlarni butunlay yo'qotardi. Endi to'liq pull
+      // bilan bir xil tartib: rasm o'z ustunidan olinadi va lokal
+      // nusxa bilan himoyalanadi (_keepImg / _keepColorImgs).
+      const mapped = rows.map(r => {
+        const base = { ...r.data, id: r.id };
+        if (tbl === "products") {
+          const old = (db.products || []).find(x => String(x.sku) === String(r.sku)) || {};
+          base.sku         = r.sku;
+          base.image       = _keepImg(r.image, old.image);
+          base.colorImages = _keepColorImgs(r.color_images, old.colorImages);
+          base.variants    = (r.data.variants && r.data.variants.length)
+                             ? r.data.variants : (r.variants || []);
+        }
+        return base;
+      });
+      staged.push({ key, rows: mapped, mergeKey: (tbl === "products" ? "sku" : "id") });
       incoming += rows.length;
       rows.forEach(r => { if (r.updated_at && r.updated_at > maxTs) maxTs = r.updated_at; });
     }
@@ -407,7 +427,7 @@ async function pullDelta() {
     // ── QO'LLASH (bitta qadamda) ──
     let changed = 0;
     for (const st of staged) {
-      db[st.key] = _mergeById(db[st.key], st.rows);
+      db[st.key] = _mergeById(db[st.key], st.rows, st.mergeKey);
       changed += st.rows.length;
     }
     if (dels.length) {
