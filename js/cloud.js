@@ -1,3 +1,30 @@
+// ══════════════════════════════════════════════════════════════
+// SINXRON OYNASI (2026-07-31)
+// ══════════════════════════════════════════════════════════════
+// MUAMMO: butun baza localStorage'da BITTA JSON bo'lib saqlanadi.
+// Brauzer chegarasi ~5 MB. Sotuv tarixi esa vaqt o'tgani sari
+// cheksiz o'sadi — 8 oylik tarix 4,74 MB egallab, ilova qotib
+// qoldi va ma'lumot to'liq yuklanmay qoldi.
+//
+// YECHIM: qurilma bulutdan FAQAT oxirgi 60 kunni oladi.
+// Butun tarix BULUTDA SAQLANIB QOLADI — hech narsa o'chmaydi.
+// Shu bilan qurilmadagi hajm do'kon necha yil ishlashidan
+// QAT'I NAZAR bir xil qoladi.
+//
+// ⚠️ ISTISNO: to'lanmagan qarz (remaining > 0) qancha eski bo'lsa
+// ham HAR DOIM olinadi. Busiz 3 oy oldingi qarz ilovadan
+// yo'qolib ketardi.
+//
+// Eski davr hisobotlari keyingi bosqichda (serverda hisoblash)
+// qaytariladi.
+const SYNC_WINDOW_DAYS = 60;
+
+function syncCutoffDate() {
+  const d = new Date();
+  d.setDate(d.getDate() - SYNC_WINDOW_DAYS);
+  return d.toISOString().slice(0, 10);
+}
+
 // MERX cloud.js | v2.3 | 2026-06-11
 // ================================================
 // MERX — js/cloud.js  (v2 — Supabase sync)
@@ -1078,8 +1105,17 @@ async function pullFromCloud(silent = false, skipRender = false) {
       });
     }
 
-    // Sales
-    const { data: salesData } = await _sb.from("sales").select("*").eq("shop_id", sid).order("local_id");
+    // Sales — OYNA bilan (2026-07-31)
+    // Oxirgi 60 kun + to'lanmagan qarzlar (qancha eski bo'lsa ham).
+    // `_cloudIds` ham SHU natijadan to'ladi — ya'ni o'chirish nazorati
+    // oynadan tashqaridagi eski sotuvlarni "o'chirilgan" deb
+    // hisoblamaydi va ularga tegmaydi.
+    const _cut = syncCutoffDate();
+    const { data: salesData } = await _sb.from("sales").select("*")
+      .eq("shop_id", sid)
+      .or(`date.gte.${_cut},remaining.gt.0`)
+      .order("local_id");
+    console.log(`☁️ Sotuvlar oynasi: ${_cut} dan buyon + ochiq qarzlar → ${(salesData||[]).length} ta`);
     _cloudIds["sales"] = new Map((salesData||[]).map(r => [String(r.id), r.id]));
     if (salesData && salesData.length > 0) {
       db.sales = salesData.map(s => {
