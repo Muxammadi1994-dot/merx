@@ -367,7 +367,7 @@ function _mergeById(arr, rows, keyField) {
 // Qaytaradi: true — delta bajarildi, false — to'liq pull kerak
 let _deltaFailStreak = 0;
 
-async function pullDelta() {
+async function pullDelta(noRender) {
   if (!USE_DELTA) return false;
   const sid = getCloudShopId();
   if (!_sb || !sid) return false;
@@ -464,12 +464,16 @@ async function pullDelta() {
     _setLastPull(sid, maxTs);
     if (changed > 0) {
       try { saveDB(); } catch(e) {}
-      try {
-        if (typeof renderDashboard === "function") renderDashboard();
-        const pg = document.querySelector(".pg.on");
-        if (pg && typeof nav === "function") nav(pg.id.replace(/^p-/, ""));
-      } catch(e) {}
-      console.log(`⚡ Delta: ${changed} ta o'zgarish`);
+      // Foydalanuvchi band bo'lsa ekranga TEGMAYMIZ — ma'lumot jim
+      // keladi, u keyingi sahifa almashishida ko'rinadi.
+      if (!noRender) {
+        try {
+          if (typeof renderDashboard === "function") renderDashboard();
+          const pg = document.querySelector(".pg.on");
+          if (pg && typeof nav === "function") nav(pg.id.replace(/^p-/, ""));
+        } catch(e) {}
+      }
+      console.log(`⚡ Delta: ${changed} ta o'zgarish${noRender ? " (jim)" : ""}`);
     }
     return true;
 
@@ -481,7 +485,7 @@ async function pullDelta() {
 
 // Delta bo'lmasa to'liq pull. Realtime va zaxira shu funksiyani chaqiradi.
 async function pullSmart(silent, background) {
-  const ok = await pullDelta();
+  const ok = await pullDelta(background);   // background=true → ekran yangilanmaydi
   if (ok) return;
   await pullFromCloud(silent, background);
 }
@@ -2004,15 +2008,35 @@ function _rtBusyUI() {
 }
 
 // Realtime signalidan keyin — debounce bilan JIM pull (xavfsiz bo'lsa ekranni yangilaydi)
+// ⚠️ 2026-07-31 TUZATISH — MUDDAT QO'YILDI.
+// AVVAL: `_rtBusyUI()` true bo'lsa (biror maydonga bosilgan, modal
+// ochiq yoki POS savatida tovar bor) funksiya o'zini har 1,5 soniyada
+// QAYTA rejalashtiraverardi va HECH QACHON ishlamasdi. Sotuvchi
+// katalog qidiruviga bir marta bossa — realtime butunlay to'xtardi.
+// Natijada faqat 90 soniyalik zaxira ishlab, o'zgarish shuncha kech
+// yetib borardi ("rasm 90 soniyada chiqdi" — aynan shu).
+//
+// ENDI: kutish MUDDATI bor. Muddat o'tsa pull baribir bajariladi,
+// lekin foydalanuvchi band bo'lsa EKRAN YANGILANMAYDI — ma'lumot
+// jim keladi, yozayotgan matn yoki savat buzilmaydi.
+let _rtWaitSince = 0;
+const _RT_MAX_WAIT_MS   = 8000;    // foydalanuvchi band bo'lsa
+const _RT_MAX_PEND_MS   = 15000;   // yuborilmagan o'zgarish bo'lsa
+
 function _rtSchedulePull() {
+  if (!_rtWaitSince) _rtWaitSince = Date.now();
   clearTimeout(_rtPullTimer);
   _rtPullTimer = setTimeout(async () => {
-    if (_syncPending) { _rtSchedulePull(); return; } // v185: YUBORILMAGAN lokal o'zgarish bor — avval push ketsin (tahrir yo'qolishi poygasi yopildi)
-    if (_pullBusy)   { _rtSchedulePull(); return; } // boshqa pull ketyapti — biroz kutamiz
-    if (_rtBusyUI()) { _rtSchedulePull(); return; } // foydalanuvchi band — biroz kutamiz
+    const waited = Date.now() - _rtWaitSince;
+    // Yuborilmagan o'zgarish — avval push ketsin, lekin abadiy emas
+    if (_syncPending && waited < _RT_MAX_PEND_MS) { _rtSchedulePull(); return; }
+    if (_pullBusy) { _rtSchedulePull(); return; }   // boshqa pull ketyapti
+    const busy = _rtBusyUI();
+    if (busy && waited < _RT_MAX_WAIT_MS) { _rtSchedulePull(); return; }
+    _rtWaitSince = 0;
     _pullBusy = true; _syncSuppressed = true;
-    // 2026-07-31: avval DELTA (odatda 1-5 qator). Ishlamasa to'liq pull.
-    try { await pullSmart(true, false); }            // JIM, ekran yangilanadi
+    // Delta (odatda 1-5 qator). Band bo'lsa ekranga tegmaymiz.
+    try { await pullSmart(true, busy); }
     catch (e) { console.warn("realtime pull xato:", e.message); }
     finally { _syncSuppressed = false; _pullBusy = false; }
   }, 1500);
