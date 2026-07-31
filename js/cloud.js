@@ -234,6 +234,135 @@ async function uploadImageToStorage(dataUrl, tag) {
   }
 }
 
+// ══════════════════════════════════════════════════════════════
+// DELTA SINXRON — FAQAT O'ZGARGANINI OLISH (2026-07-31, 4-bosqich)
+// ══════════════════════════════════════════════════════════════
+// MUAMMO: har o'zgarishda (realtime signal yoki 90 soniyalik zaxira)
+// BUTUN baza qaytadan tortilardi — 3000 sotuv, 844 tovar, 847 mijoz.
+// B20 da bir necha kishi bir vaqtda ishlaydi: har biri har o'zgarishda
+// hammasini qayta yuklaydi. Shuning uchun telefondagi o'zgarishni
+// kompyuter kech sezardi.
+//
+// YECHIM: "oxirgi tortishdan keyin NIMA o'zgardi" degan so'rov.
+// Odatda 1-5 qator keladi — bir soniyada.
+//
+// XAVFSIZLIK QOIDALARI:
+//  1. To'liq pull (pullFromCloud) O'ZGARMADI — birinchi yuklash,
+//     "Yangilash" tugmasi va do'kon almashishida u ishlaydi
+//  2. Delta faqat `data` ustuni to'la qatorlar uchun. Bittasi bo'sh
+//     bo'lsa — TO'LIQ pull'ga qaytadi (eski, ishonchli yo'l)
+//  3. Vaqt belgisi FAQAT serverdan kelgan qiymatlardan olinadi —
+//     qurilma soati noto'g'ri bo'lsa ham ma'lumot yo'qolmaydi
+//  4. Xato bo'lsa — to'liq pull'ga qaytadi
+//  5. O'chirishlar `deleted_records` orqali qo'llanadi
+
+function _lastPullKey(sid) { return "merx_lastpull_" + sid; }
+function _getLastPull(sid) {
+  try { return localStorage.getItem(_lastPullKey(sid)) || null; } catch(e) { return null; }
+}
+// Vaqt belgisi 5 DAQIQA ORQAGA suriladi.
+// Sabab: to'liq pull bir necha soniya davom etadi. Jadvallar ketma-ket
+// o'qiladi, va oraliqda o'zgargan qator "eski" bo'lib qolib, keyingi
+// delta uni olmasligi mumkin edi. Chekinish shu teshikni yopadi.
+// Narxi: har delta oxirgi 5 daqiqani qayta oladi — bu bir necha
+// qator, id bo'yicha birlashtirish takrorni yaratmaydi.
+const _PULL_MARGIN_MS = 5 * 60 * 1000;
+function _setLastPull(sid, iso) {
+  try {
+    if (!iso) return;
+    const t = Date.parse(iso);
+    const safe = isNaN(t) ? iso : new Date(t - _PULL_MARGIN_MS).toISOString();
+    localStorage.setItem(_lastPullKey(sid), safe);
+  } catch(e) {}
+}
+
+// Delta qamrab oladigan jadvallar: bulut ustuni → lokal massiv
+const _DELTA_TABLES = [
+  ["products",      "products"],
+  ["customers",     "customers"],
+  ["sales",         "sales"],
+  ["ombor",         "ombor"],
+  ["xarajatlar",    "xarajatlar"],
+  ["debt_payments", "debtPayments"],
+];
+
+function _mergeById(arr, rows) {
+  const map = new Map((arr || []).map(x => [String(x.id), x]));
+  rows.forEach(r => map.set(String(r.id), r));
+  return [...map.values()].sort((a, b) => (a.id || 0) - (b.id || 0));
+}
+
+// Qaytaradi: true — delta bajarildi, false — to'liq pull kerak
+async function pullDelta() {
+  const sid = getCloudShopId();
+  if (!_sb || !sid) return false;
+  const since = _getLastPull(sid);
+  if (!since) return false;                 // hali to'liq tortilmagan
+
+  let maxTs = since, changed = 0;
+  try {
+    for (const [tbl, key] of _DELTA_TABLES) {
+      const rows = await _selectAll(() => _sb.from(tbl).select("*")
+        .eq("shop_id", sid)
+        .gt("updated_at", since)
+        .order("updated_at"), "delta:" + tbl);
+      if (!rows.length) continue;
+
+      // `data` bo'sh qator bo'lsa — eski yo'lga qaytamiz
+      if (rows.some(r => !r.data || typeof r.data !== "object" || Array.isArray(r.data))) {
+        console.log("↩️ delta to'xtadi (data bo'sh qator) — to'liq pull");
+        return false;
+      }
+      const mapped = rows.map(r => ({ ...r.data, id: r.id }));
+      db[key] = _mergeById(db[key], mapped);
+      changed += mapped.length;
+      rows.forEach(r => { if (r.updated_at && r.updated_at > maxTs) maxTs = r.updated_at; });
+    }
+
+    // O'chirilganlar
+    const dels = await _selectAll(() => _sb.from("deleted_records").select("*")
+      .eq("shop_id", sid)
+      .gt("deleted_at", since)
+      .order("deleted_at"), "delta:deleted");
+    if (dels.length) {
+      const byTable = {};
+      dels.forEach(d => {
+        (byTable[d.table_name] = byTable[d.table_name] || new Set()).add(String(d.record_id));
+        if (d.deleted_at && d.deleted_at > maxTs) maxTs = d.deleted_at;
+      });
+      for (const [tbl, key] of _DELTA_TABLES) {
+        const ids = byTable[tbl];
+        if (!ids || !Array.isArray(db[key])) continue;
+        const before = db[key].length;
+        db[key] = db[key].filter(x => !ids.has(String(x.id)));
+        changed += before - db[key].length;
+      }
+    }
+
+    if (changed > 0) {
+      try { saveDB(); } catch(e) {}
+      try {
+        if (typeof renderDashboard === "function") renderDashboard();
+        const pg = document.querySelector(".pg.on");
+        if (pg && typeof nav === "function") nav(pg.id.replace(/^p-/, ""));
+      } catch(e) {}
+      console.log(`⚡ Delta sinxron: ${changed} ta o'zgarish`);
+    }
+    _setLastPull(sid, maxTs);
+    return true;
+  } catch (e) {
+    console.warn("delta xato — to'liq pull'ga qaytamiz:", e.message || e);
+    return false;
+  }
+}
+
+// Delta bo'lmasa to'liq pull. Realtime va zaxira shu funksiyani chaqiradi.
+async function pullSmart(silent, background) {
+  const ok = await pullDelta();
+  if (ok) return;
+  await pullFromCloud(silent, background);
+}
+
 // ── LocalDB → Supabase (to'liq push) ─────────────
 // ── connectCloud (ESKI YO'L) OLIB TASHLANDI, 2026-07 (3-bosqich) ──
 // Sabab: bu qo'lda ulash yo'li ichida "shop_"+Date.now() bilan do'kon
@@ -1186,6 +1315,13 @@ async function pullFromCloud(silent = false, skipRender = false) {
       .order("local_id"), "sales");
     console.log(`☁️ Sotuvlar oynasi: ${_cut} dan buyon + ochiq qarzlar → ${(salesData||[]).length} ta`);
     _cloudIds["sales"] = new Map((salesData||[]).map(r => [String(r.id), r.id]));
+    // 2026-07-31: delta uchun vaqt belgisi — FAQAT serverdan kelgan
+    // qiymatlardan olinadi (qurilma soatiga ishonilmaydi)
+    try {
+      let _mx = null;
+      (salesData||[]).forEach(r => { if (r.updated_at && (!_mx || r.updated_at > _mx)) _mx = r.updated_at; });
+      if (_mx) _setLastPull(sid, _mx);
+    } catch(e) {}
     if (salesData && salesData.length > 0) {
       db.sales = salesData.map(s => {
         // v174: BUTUN JSON bo'lsa — undan (subtotal/discount/note ham
@@ -1605,7 +1741,8 @@ function _rtSchedulePull() {
     if (_pullBusy)   { _rtSchedulePull(); return; } // boshqa pull ketyapti — biroz kutamiz
     if (_rtBusyUI()) { _rtSchedulePull(); return; } // foydalanuvchi band — biroz kutamiz
     _pullBusy = true; _syncSuppressed = true;
-    try { await pullFromCloud(true, false); }        // JIM, ekran yangilanadi
+    // 2026-07-31: avval DELTA (odatda 1-5 qator). Ishlamasa to'liq pull.
+    try { await pullSmart(true, false); }            // JIM, ekran yangilanadi
     catch (e) { console.warn("realtime pull xato:", e.message); }
     finally { _syncSuppressed = false; _pullBusy = false; }
   }, 1500);
@@ -1638,7 +1775,8 @@ setInterval(async () => {
   try {
     if (!_sb || !getCloudShopId() || !_cloudPullDone || _pullBusy || _syncPending) return; // v185: _syncPending — avval push
     _pullBusy = true; _syncSuppressed = true;
-    try { await pullFromCloud(true, true); }          // JIM + ekransiz (fon)
+    // 2026-07-31: zaxira ham delta bilan — fon so'rovi yengil bo'lsin
+    try { await pullSmart(true, true); }              // JIM + ekransiz (fon)
     catch (e) { console.warn("zaxira pull xato:", e.message); }
     finally { _syncSuppressed = false; _pullBusy = false; }
   } catch (e) {}
