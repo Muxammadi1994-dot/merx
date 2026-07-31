@@ -159,6 +159,8 @@ async function initSupabase() {
       }
     }
 
+    try { _loadPushCache(); } catch(e) {}
+
     // Test ulanish — settings jadvalini tekshiramiz
     const { error } = await _sb.from("settings").select("shop_id").limit(1);
     if (error) throw error;
@@ -310,6 +312,16 @@ const _DELTA_TABLES = [
   ["debt_payments", "debtPayments"],
 ];
 
+// ⚠️ O'CHIRISH KALITI jadval bo'yicha HAR XIL.
+// `queueCloudDelete("products", "sku", ...)` — tovar SKU bilan
+// o'chiriladi, qolganlari id bilan. Avval delta hammasini id deb
+// hisoblardi, shuning uchun tovar o'chirilishi boshqa qurilmaga
+// YETIB BORMASDI (telefonda o'chirilgan tovar kompyuterda qolardi).
+const _DELTA_DEL_KEY = {
+  products: "sku", customers: "id", sales: "id",
+  ombor: "id", xarajatlar: "id", debt_payments: "id",
+};
+
 function _mergeById(arr, rows) {
   const map = new Map((arr || []).map(x => [String(x.id), x]));
   rows.forEach(r => map.set(String(r.id), r));
@@ -405,8 +417,9 @@ async function pullDelta() {
       for (const [tbl, key] of _DELTA_TABLES) {
         const ids = byTable[tbl];
         if (!ids || !Array.isArray(db[key])) continue;
+        const kf = _DELTA_DEL_KEY[tbl] || "id";
         const before = db[key].length;
-        db[key] = db[key].filter(x => !ids.has(String(x.id)));
+        db[key] = db[key].filter(x => !ids.has(String(x[kf])));
         changed += before - db[key].length;
       }
     }
@@ -492,19 +505,58 @@ let _pushCache = {};
 // Delta-upsert: rows ichidan faqat keshdagidan farq qilganlarini
 // yuboradi; kesh FAQAT muvaffaqiyatli chunk'dan keyin yangilanadi
 // (xato bo'lsa, o'sha yozuvlar keyingi sinxronda qayta uriniladi).
+// ══════════════════════════════════════════════════════════════
+// PUSH KESHI — SAHIFA YANGILANGANDA HAM SAQLANADI (2026-07-31)
+// ══════════════════════════════════════════════════════════════
+// MUAMMO: kesh faqat XOTIRADA edi. Har sahifa yangilanishida u
+// bo'shab, ilova BUTUN bazani qaytadan bulutga yozardi. Server
+// tetigi esa har yozuvga yangi vaqt muhrini bosadi — natijada
+// "hamma narsa o'zgardi" bo'lib, delta 474 qatorni qayta-qayta
+// tortardi. Ya'ni delta'ning foydasi yo'qolardi.
+//
+// ENDI: har qatorning qisqa BARMOQ IZI localStorage'da saqlanadi.
+// Sahifa yangilangach ilova nima o'zgarmaganini biladi va ortiqcha
+// yozmaydi. Hajmi kichik (qator boshiga ~20 belgi).
+function _fp(str) {                       // qisqa barmoq izi
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return str.length + ":" + (h >>> 0).toString(36);
+}
+function _pushCacheKey() { return "merx_pushfp_" + (getCloudShopId() || "x"); }
+function _loadPushCache() {
+  try {
+    const raw = localStorage.getItem(_pushCacheKey());
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    for (const t in o) _pushCache[t] = new Map(Object.entries(o[t]));
+    console.log("♻️ Push keshi tiklandi — ortiqcha yozuv bo'lmaydi");
+  } catch(e) {}
+}
+let _pcSaveTimer = null;
+function _savePushCache() {
+  clearTimeout(_pcSaveTimer);
+  _pcSaveTimer = setTimeout(() => {
+    try {
+      const o = {};
+      for (const t in _pushCache) o[t] = Object.fromEntries(_pushCache[t]);
+      localStorage.setItem(_pushCacheKey(), JSON.stringify(o));
+    } catch(e) {}
+  }, 1500);
+}
+
 async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
   if (!rows || !rows.length) return 0;
   const cache = _pushCache[table] || (_pushCache[table] = new Map());
   const pend = [];
   for (const r of rows) {
     const k = String(r.id != null ? r.id : r.shop_id);
-    const j0 = JSON.stringify(r);
+    const j0 = _fp(JSON.stringify(r));
     if (cache.get(k) !== j0) {
       // v180: VAQT MUHRI — o'zgargan yozuvga muhr onDirty ichida
       // bosiladi (MUHRDAN KEYINGI JSON keshga yoziladi, aks holda
       // har push "o'zgargan" deb hisoblab abadiy aylanardi)
       if (onDirty) onDirty(r);
-      pend.push([r, k, JSON.stringify(r)]);
+      pend.push([r, k, _fp(JSON.stringify(r))]);
     }
   }
   if (!pend.length) return 0;
@@ -525,6 +577,7 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
       .upsert(part.map(p => p[0]), { onConflict: conflict || "id", ignoreDuplicates: false });
     if (error) throw error;
     part.forEach(([r, k, j]) => cache.set(k, j));
+    _savePushCache();   // 2026-07-31: sahifa yangilansa ham saqlanadi
   }
   return pend.length;
 }
