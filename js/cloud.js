@@ -2054,7 +2054,12 @@ function _rtEnsure() {
   _RT_TABLES.forEach(tbl => {
     ch.on("postgres_changes",
       { event: "*", schema: "public", table: tbl, filter: "shop_id=eq." + sid },
-      () => _rtSchedulePull());
+      (payload) => {
+        // 2026-07-31 TASHXIS: signal kelayaptimi yoki yo'qmi — aniq bilish
+        // uchun. Kelmasa muammo Supabase tomonda, kelsa — klientda.
+        console.log("🔔 realtime signal:", tbl, payload && payload.eventType);
+        _rtSchedulePull();
+      });
   });
   ch.subscribe(status => {
     console.log("🔔 realtime:", status);
