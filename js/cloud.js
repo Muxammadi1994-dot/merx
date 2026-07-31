@@ -267,7 +267,15 @@ async function uploadImageToStorage(dataUrl, tag) {
 //      sotuv, qarz kiritish
 //   3) Hech narsa yo'qolmasa — AbuSaxiy va B20 ga o'tkaziladi
 // Muammo chiqsa: `false` qilib push — bir zumda eski holatga qaytadi.
-const USE_DELTA = false;
+const USE_DELTA = true;   // 2026-07-31: sinov uchun YOQILDI
+
+// ⚠️ DELTA FAQAT SHU DO'KONLARDA ishlaydi. Qolganlari (AbuSaxiy, B20)
+// eski, sinalgan to'liq pull yo'lida qoladi — sinov ularga tegmaydi.
+// Sinov muvaffaqiyatli bo'lsa ro'yxatga boshqa do'konlar qo'shiladi,
+// yoki ro'yxat bo'sh qoldirilib hammasiga ochiladi.
+const DELTA_SHOPS = [
+  "shop_1782763300535",   // Shoetest
+];
 
 function _lastPullKey(sid) { return "merx_lastpull_" + sid; }
 function _getLastPull(sid) {
@@ -332,6 +340,9 @@ async function pullDelta() {
   if (!USE_DELTA) return false;
   const sid = getCloudShopId();
   if (!_sb || !sid) return false;
+  // Faqat ruxsat berilgan do'konlarda (ro'yxat bo'sh bo'lsa — hammasida)
+  if (DELTA_SHOPS.length && !DELTA_SHOPS.includes(sid)) return false;
+
   const since = _getLastPull(sid);
   if (!since) return false;                       // hali to'liq tortilmagan
 
