@@ -694,6 +694,15 @@ async function _migrateImagesToStorage(sid) {
 }
 
 async function pushToCloud() {
+  // ⚠️ 2026-07-31: OG'IR JADVALLAR YUKLANGUNCHA YOZMAYMIZ.
+  // Tovarlar va mijozlar endi IndexedDB'dan ASINXRON keladi. Agar shu
+  // oraliqda push ketsa, bulutga BO'SH ro'yxat yozilib ma'lumot o'chib
+  // ketardi. Bayroq qo'yilgach yozish ochiladi (odatda ~1 soniya).
+  if (typeof window !== "undefined" && window._heavyHydrated === false) {
+    console.log("⏳ Push kutmoqda: ma'lumot hali yuklanmoqda");
+    try { scheduleCloudSync(); } catch(e) {}
+    return;
+  }
   // v166: push oldidan token yangiligi + client mosligi ta'minlanadi
   try { await initSupabase(); } catch(e) {}
   if (!_sb) { toast("Avval ulaning","err"); return; }

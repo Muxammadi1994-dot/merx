@@ -182,7 +182,17 @@ function loadDB() {
 const USE_IDB = true;
 const IDB_NAME = "merx_heavy", IDB_STORE = "heavy", IDB_VER = 1;
 // Vaqt bo'yicha cheksiz o'sadigan jadvallar
-const IDB_TABLES = ["sales", "xarajatlar", "debtPayments", "ombor", "chiqimlar"];
+// 2026-07-31: TOVARLAR va MIJOZLAR ham qo'shildi.
+// Sabab: ba'zi do'konlarda 10 000+ tovar bo'lishi mumkin (bir kelishda
+// 5 000 tagacha). 10 000 tovar localStorage'da ~4 MB — chegaraga urilardi.
+// Endi localStorage'da faqat sozlamalar qoladi va u HECH QACHON to'lmaydi.
+const IDB_TABLES = ["sales", "xarajatlar", "debtPayments", "ombor", "chiqimlar",
+                    "products", "customers"];
+
+// Og'ir jadvallar yuklanganini bildiradi. Bulutga YOZISH shu bayroqsiz
+// boshlanmaydi — aks holda hali yuklanmagan (bo'sh) tovarlar ro'yxati
+// bulutga yozilib, ma'lumot o'chib ketishi mumkin edi.
+window._heavyHydrated = false;
 
 let _idb = null, _idbOk = false, _idbVerified = false;
 
@@ -234,9 +244,9 @@ const _idbKey = t => getDBKEY() + "::" + t;
 // bo'lsa (birinchi marta yoki eski qurilma) — ular USTUN, chunki
 // hali ko'chirilmagan bo'lishi mumkin.
 async function hydrateHeavy() {
-  if (!USE_IDB) return false;
+  if (!USE_IDB) { window._heavyHydrated = true; return false; }
   const d = await idbOpen();
-  if (!d) return false;
+  if (!d) { window._heavyHydrated = true; return false; }   // eski yo'l ishlaydi
   let loaded = 0;
   for (const t of IDB_TABLES) {
     try {
@@ -253,6 +263,7 @@ async function hydrateHeavy() {
   if (loaded) console.log("💾 IndexedDB'dan yuklandi:", loaded, "yozuv");
   // Ko'chirilmagan bo'lsa — hozir ko'chiramiz
   await migrateHeavyToIdb();
+  window._heavyHydrated = true;      // endi bulutga yozish mumkin
   return true;
 }
 
