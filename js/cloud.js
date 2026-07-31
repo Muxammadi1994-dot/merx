@@ -17,7 +17,11 @@
 //
 // Eski davr hisobotlari keyingi bosqichda (serverda hisoblash)
 // qaytariladi.
-const SYNC_WINDOW_DAYS = 60;
+// 2026-07-31: IndexedDB ishga tushgach oyna 60 → 365 kunga kengaytirildi.
+// Endi butun Billz tarixi (2025-12 dan buyon) qurilmaga tushadi.
+// Oyna BUTUNLAY olib tashlanmadi — 10 yildan keyin ham qurilmada
+// ko'pi bilan 1 yillik ma'lumot bo'lsin, undan eskisi bulutda qoladi.
+const SYNC_WINDOW_DAYS = 365;
 
 function syncCutoffDate() {
   const d = new Date();
@@ -181,6 +185,29 @@ function updateCloudUI(connected) {
   }
   if (pill) pill.style.display = connected ? "flex" : "none";
   if (txt)  txt.textContent    = connected ? "Yangilash" : ""; // 2026-07-10: bosilganda bulutdan yangilaydi — nom endi mos
+}
+
+// ══════════════════════════════════════════════════════════════
+// SAHIFALAB O'QISH (2026-07-31)
+// ══════════════════════════════════════════════════════════════
+// Supabase bitta so'rovda ko'pi bilan 1000 QATOR qaytaradi va bu
+// haqda XATO BERMAYDI — shunchaki qolganini tashlab ketadi.
+// Ilova esa buni "bulutda shuncha bor" deb qabul qilardi. Do'kon
+// o'sganda (3000 sotuv, 1500 mijoz) ma'lumot jimgina chala
+// yuklanardi. Endi 1000 talab bo'lib, tugaguncha o'qiladi.
+async function _selectAll(build, label) {
+  const PAGE = 1000;
+  let from = 0, out = [];
+  for (;;) {
+    const { data, error } = await build().range(from, from + PAGE - 1);
+    if (error) { console.warn(`_selectAll(${label||""}) xato:`, error.message); break; }
+    const rows = data || [];
+    out = out.concat(rows);
+    if (rows.length < PAGE) break;
+    from += PAGE;
+    if (from > 200000) { console.warn("_selectAll: juda ko'p qator, to'xtatildi"); break; }
+  }
+  return out;
 }
 
 // ── LocalDB → Supabase (to'liq push) ─────────────
@@ -1008,7 +1035,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     };
 
     // Products — faqat bu do'kon
-    const { data: prods } = await _sb.from("products").select("*").eq("shop_id", sid);
+    const prods = await _selectAll(() => _sb.from("products").select("*").eq("shop_id", sid), "products");
     _cloudIds["products"] = new Map((prods||[]).map(r => [String(r.sku), r.sku]));
     if (prods && prods.length > 0) {
       // v171 (2026-07-10): NULL-HIMOYA — bulutdagi eski yozuvlarda
@@ -1063,7 +1090,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     }
 
     // Customers
-    const { data: custs } = await _sb.from("customers").select("*").eq("shop_id", sid);
+    const custs = await _selectAll(() => _sb.from("customers").select("*").eq("shop_id", sid), "customers");
     _cloudIds["customers"] = new Map((custs||[]).map(r => [String(r.id), r.id]));
     if (custs && custs.length > 0) {
       const _oldCust = new Map((db.customers || []).map(x => [String(x.id), x])); // v180
@@ -1097,7 +1124,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     }
 
     // Staff
-    const { data: staffData } = await _sb.from("staff").select("*").eq("shop_id", sid);
+    const staffData = await _selectAll(() => _sb.from("staff").select("*").eq("shop_id", sid), "staff");
     _cloudIds["staff"] = new Map((staffData||[]).map(r => [String(r.id), r.id]));
     if (staffData && staffData.length > 0) {
       db.staff = staffData.map(s => {
@@ -1129,10 +1156,10 @@ async function pullFromCloud(silent = false, skipRender = false) {
     // oynadan tashqaridagi eski sotuvlarni "o'chirilgan" deb
     // hisoblamaydi va ularga tegmaydi.
     const _cut = syncCutoffDate();
-    const { data: salesData } = await _sb.from("sales").select("*")
+    const salesData = await _selectAll(() => _sb.from("sales").select("*")
       .eq("shop_id", sid)
       .or(`date.gte.${_cut},remaining.gt.0`)
-      .order("local_id");
+      .order("local_id"), "sales");
     console.log(`☁️ Sotuvlar oynasi: ${_cut} dan buyon + ochiq qarzlar → ${(salesData||[]).length} ta`);
     _cloudIds["sales"] = new Map((salesData||[]).map(r => [String(r.id), r.id]));
     if (salesData && salesData.length > 0) {
@@ -1162,7 +1189,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     }
 
     // Ombor
-    const { data: omborData } = await _sb.from("ombor").select("*").eq("shop_id", sid).order("local_id");
+    const omborData = await _selectAll(() => _sb.from("ombor").select("*").eq("shop_id", sid).order("local_id"), "ombor");
     _cloudIds["ombor"] = new Map((omborData||[]).map(r => [String(r.id), r.id]));
     if (omborData && omborData.length > 0) {
       db.ombor = omborData.map(o => {
@@ -1183,7 +1210,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     }
 
     // Xarajatlar
-    const { data: xarData } = await _sb.from("xarajatlar").select("*").eq("shop_id", sid).order("local_id");
+    const xarData = await _selectAll(() => _sb.from("xarajatlar").select("*").eq("shop_id", sid).order("local_id"), "xarajatlar");
     _cloudIds["xarajatlar"] = new Map((xarData||[]).map(r => [String(r.id), r.id]));
     if (xarData) {
       db.xarajatlar = xarData.map(x => {
@@ -1247,7 +1274,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     }
 
     // Chiqimlar
-    const { data: chiqData } = await _sb.from("chiqimlar").select("*").eq("shop_id", sid).order("local_id");
+    const chiqData = await _selectAll(() => _sb.from("chiqimlar").select("*").eq("shop_id", sid).order("local_id"), "chiqimlar");
     _cloudIds["chiqimlar"] = new Map((chiqData||[]).map(r => [String(r.id), r.id]));
     if (chiqData && chiqData.length > 0) {
       db.chiqimlar = chiqData.map(c => {
@@ -1271,7 +1298,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     }
 
     // Qarz to'lovlari
-    const { data: payData } = await _sb.from("debt_payments").select("*").eq("shop_id", sid).order("created_at");
+    const payData = await _selectAll(() => _sb.from("debt_payments").select("*").eq("shop_id", sid).order("created_at"), "debt_payments");
     _cloudIds["debt_payments"] = new Map((payData||[]).map(r => [String(r.id), r.id]));
     if (payData) {
       db.debtPayments = payData.map(p => {
@@ -1306,7 +1333,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     }
 
     // Qaytarilgan tovarlar
-    const { data: retData } = await _sb.from("returns").select("*").eq("shop_id", sid).order("created_at");
+    const retData = await _selectAll(() => _sb.from("returns").select("*").eq("shop_id", sid).order("created_at"), "returns");
     _cloudIds["returns"] = new Map((retData||[]).map(r => [String(r.id), r.id]));
     if (retData) {
       db.returns = retData.map(r => {
@@ -1326,7 +1353,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     }
 
     // Kassa smenalari
-    const { data: shiftData } = await _sb.from("shifts").select("*").eq("shop_id", sid).order("created_at");
+    const shiftData = await _selectAll(() => _sb.from("shifts").select("*").eq("shop_id", sid).order("created_at"), "shifts");
     _cloudIds["shifts"] = new Map((shiftData||[]).map(r => [String(r.id), r.id]));
     if (shiftData) {
       db.shifts = shiftData.map(sh => {
