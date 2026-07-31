@@ -269,7 +269,7 @@ async function uploadImageToStorage(dataUrl, tag) {
 //      sotuv, qarz kiritish
 //   3) Hech narsa yo'qolmasa — AbuSaxiy va B20 ga o'tkaziladi
 // Muammo chiqsa: `false` qilib push — bir zumda eski holatga qaytadi.
-const USE_DELTA = true;   // 2026-07-31: sinov uchun YOQILDI
+const USE_DELTA = false;  // 2026-07-31: rasm masalasi hal bo'lguncha O'CHIQ
 
 // ⚠️ DELTA FAQAT SHU DO'KONLARDA ishlaydi. Qolganlari (AbuSaxiy, B20)
 // eski, sinalgan to'liq pull yo'lida qoladi — sinov ularga tegmaydi.
@@ -448,6 +448,28 @@ async function pullSmart(silent, background) {
   const ok = await pullDelta();
   if (ok) return;
   await pullFromCloud(silent, background);
+}
+
+// ── RASM HIMOYASI (2026-07-31) ────────────────────────────────
+// MUAMMO: pull paytida `image: p.image || null` yozilardi. Bulutdagi
+// nusxada rasm bo'lmasa (boshqa qurilma eski nusxasini yuborgan
+// bo'lsa), qurilmadagi rasm O'CHIB ketardi. Natijada rasm "bir
+// paydo bo'lib, bir yo'qolardi" va oxiri butunlay yo'qolardi.
+//
+// ENDI: bulutda rasm bo'lmasa LOKAL nusxa saqlanadi. Rasm hech
+// qachon "yo'q" bilan almashtirilmaydi — faqat yangisi bilan.
+// Rang rasmlari esa BIRLASHTIRILADI: bir qurilmada qora rangga,
+// boshqasida oq rangga rasm qo'yilsa — ikkalasi ham qoladi.
+function _keepImg(cloudVal, localVal) {
+  return cloudVal || localVal || null;
+}
+function _keepColorImgs(cloudObj, localObj) {
+  const c = cloudObj && typeof cloudObj === "object" ? cloudObj : null;
+  const l = localObj && typeof localObj === "object" ? localObj : null;
+  if (!c && !l) return null;
+  const out = { ...(l || {}) };
+  if (c) for (const k in c) { if (c[k]) out[k] = c[k]; }
+  return Object.keys(out).length ? out : null;
 }
 
 // ── LocalDB → Supabase (to'liq push) ─────────────
@@ -1416,8 +1438,8 @@ async function pullFromCloud(silent = false, skipRender = false) {
           if (_locT > _cldT) return { ...old, shop_id: sid, id: p.id };
           return { ...p.data,
             shop_id: sid, id: p.id, sku: p.sku,
-            image: p.image || null,
-            colorImages: p.color_images || null,
+            image: _keepImg(p.image, old.image),
+            colorImages: _keepColorImgs(p.color_images, old.colorImages),
             variants: (p.data.variants && p.data.variants.length ? p.data.variants : (p.variants || []))
           };
         }
@@ -1432,12 +1454,12 @@ async function pullFromCloud(silent = false, skipRender = false) {
         inBox: p.in_box != null ? p.in_box : (old.inBox || 1),
         art: p.art || "",
         barcode: p.barcode || old.barcode || "",
-        image: p.image || null,
+        image: _keepImg(p.image, old.image),
         costUsd: p.cost_usd || 0, priceUzs: p.price_uzs || 0,
         ulgurjiNarx: p.ulgurji || 0, variants: p.variants || [],
         pantone: p.pantone || null,
         colorName: p.color_name || null, hex: p.hex || null,
-        colorImages: p.color_images || null,
+        colorImages: _keepColorImgs(p.color_images, old.colorImages),
         // v171: bu ikkisi pull'da UMUMAN yo'q edi
         packUnit: p.pack_unit || old.packUnit || "pochka",
         colorBarcodes: p.color_barcodes || old.colorBarcodes || null
