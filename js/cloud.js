@@ -1104,24 +1104,47 @@ async function checkAppVersion() {
 // emas. Avtomatik reload ATAYLAB qilinmaydi: kassir savat yig'ayotgan
 // paytda sahifa o'z-o'zidan yangilanib ketishi xavfli.
 let _updBannerOn = false;
-function _showUpdateBanner() {
-  if (_updBannerOn || document.getElementById("merx-upd-banner")) return;
-  _updBannerOn = true;
-  const b = document.createElement("div");
-  b.id = "merx-upd-banner";
-  b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:99999;" +
-    "background:#E9A500;color:#0D1B2A;font-weight:700;padding:10px 14px;" +
-    "text-align:center;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.25)";
-  b.innerHTML = '🔄 MERX yangi versiyasi tayyor — ' +
-    '<button onclick="merxUpdateNow()" style="margin-left:8px;background:#0D1B2A;' +
-    'color:#fff;border:0;border-radius:8px;padding:6px 14px;font-weight:700;' +
-    'cursor:pointer">Yangilash</button>' +
-    ' <span style="opacity:.8;font-weight:500">(3 soniya, ma\'lumotlar saqlanadi)</span>';
-  document.body.appendChild(b);
+// ══════════════════════════════════════════════════════════════
+// JIM YANGILANISH (2026-07-31)
+// ══════════════════════════════════════════════════════════════
+// AVVAL: yangi versiya chiqqanda tepada sariq banner turardi va
+// foydalanuvchi "Yangilash" bosishi kerak edi. Do'kon egalari va
+// sotuvchilar buni xatolik deb o'ylab shubhalanardi.
+//
+// ENDI: yangilanish O'ZI qo'llanadi. Lekin ish o'rtasida ekran
+// yopilib qolmasligi uchun faqat XAVFSIZ paytda:
+//   · ochiq oyna (modal) yo'q
+//   · foydalanuvchi biror maydonga yozmayapti
+//   · POS savati bo'sh (sotuv o'rtasi emas)
+// Bularning birortasi bo'lsa — 20 soniyadan keyin qayta uriniladi.
+// Shu shartlarni `_rtBusyUI()` allaqachon tekshiradi, takrorlanmadi.
+let _updScheduled = false;
+
+function _showUpdateBanner() { _autoUpdateWhenSafe(); }   // eski nom saqlandi
+
+function _autoUpdateWhenSafe() {
+  if (_updScheduled) return;
+  _updScheduled = true;
+  const tryNow = () => {
+    let busy = false;
+    try { busy = _rtBusyUI(); } catch(e) {}
+    // Yuborilmagan o'zgarish bo'lsa ham kutamiz — avval bulutga ketsin
+    if (typeof _syncPending !== "undefined" && _syncPending) busy = true;
+    if (busy) { setTimeout(tryNow, 20000); return; }
+    console.log("🔄 Yangi versiya jim qo'llanmoqda...");
+    try { flushCloudSync && flushCloudSync(true); } catch(e) {}
+    setTimeout(() => {
+      location.replace(location.pathname + "?upd=" + Date.now());
+    }, 600);
+  };
+  setTimeout(tryNow, 4000);
 }
+
+// Qo'lda chaqirish uchun (⟳ tugmasi ishlatadi)
 function merxUpdateNow() {
   location.href = location.pathname + "?upd=" + Date.now();
 }
+
 
 // v177: yangi versiyani MUNTAZAM tekshirish — foydalanuvchi hech
 // narsa qilmasa ham (30s dan keyin bir marta, so'ng har 10 daqiqada).
