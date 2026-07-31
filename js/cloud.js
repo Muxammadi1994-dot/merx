@@ -210,80 +210,28 @@ async function _selectAll(build, label) {
   return out;
 }
 
-// ══════════════════════════════════════════════════════════════
-// RASMLAR — SUPABASE STORAGE (2026-07-31, 3-bosqich)
-// ══════════════════════════════════════════════════════════════
-// MUAMMO: rasm base64 matn bo'lib tovar yozuvi ICHIDA saqlanardi.
-// Bitta rasm ~150 KB. 500 ta rasmli tovar = 75 MB, va u HAR
-// sinxronda oldinga-orqaga yuboriladi. Shu bois telefonda qo'yilgan
-// rasmni kompyuter kech ko'radi.
+// ── Rasmni DARHOL omborga yuklash (2026-07-31) ────────────────
+// Mavjud `_migrateImagesToStorage` har sinxronda base64 rasmlarni
+// ko'chiradi. Lekin u ko'chirgunicha og'ir base64 KAMIDA BIR MARTA
+// bazaga yozilib, sinxronlanadi.
+// Bu yordamchi rasm TANLANGAN ZAHOTI yuklaydi — base64 bazaga
+// umuman tushmaydi. Yuklashning O'ZI mavjud `_uploadOneImage` da,
+// takrorlanmadi (§10.3 — yagona manba).
 //
-// YECHIM: rasm alohida omborga (Storage) yuklanadi, ma'lumotda
-// faqat HAVOLA qoladi (~100 belgi). Sinxron yuzlab barobar yengil.
-//
-// XAVFSIZLIK:
-//  · Yuklash muvaffaqiyatsiz bo'lsa — base64 QOLADI, hech narsa
-//    buzilmaydi (internetsiz ishlash saqlanadi)
-//  · Ko'rsatish kodiga TEGILMAGAN: <img src> ikkalasini ham oladi
-//  · Bot ham ikkalasini qo'llab-quvvatlaydi (tgPhoto da shart bor)
-const IMG_BUCKET = "product-images";
-
+// Yuklab bo'lmasa base64 QAYTADI: internetsiz ishlash saqlanadi,
+// keyin sinxron paytida eski mexanizm baribir ko'chiradi.
 async function uploadImageToStorage(dataUrl, tag) {
-  // Havola bo'lsa — allaqachon ko'chirilgan
   if (!dataUrl || !String(dataUrl).startsWith("data:image")) return dataUrl;
   try {
     if (!_sb && typeof initSupabase === "function") await initSupabase();
-    if (!_sb) return dataUrl;
     const sid = getCloudShopId();
-    if (!sid) return dataUrl;
-
-    const blob = await (await fetch(dataUrl)).blob();
-    const safe = String(tag || "img").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) || "img";
-    const path = `${sid}/${safe}_${Date.now()}.jpg`;
-
-    const { error } = await _sb.storage.from(IMG_BUCKET)
-      .upload(path, blob, { contentType: "image/jpeg", upsert: true });
-    if (error) { console.warn("🖼 rasm yuklanmadi:", error.message); return dataUrl; }
-
-    const { data } = _sb.storage.from(IMG_BUCKET).getPublicUrl(path);
-    const url = data && data.publicUrl;
-    if (!url) return dataUrl;
-    console.log("🖼 rasm omborga yuklandi:", path);
-    return url;
+    if (!_sb || !sid) return dataUrl;
+    const safe = String(tag || "img").replace(/[^\w-]/g, "_").slice(0, 40) || "img";
+    return await _uploadOneImage(sid, safe, "now", dataUrl);
   } catch (e) {
-    console.warn("🖼 rasm yuklanmadi:", e.message);
-    return dataUrl;   // base64 qoladi — ishlashda davom etadi
+    console.warn("🖼️ rasm yuklanmadi (base64 qoldi):", e.message || e);
+    return dataUrl;
   }
-}
-
-// ── Eski base64 rasmlarni ko'chirish (bir martalik) ──
-// Konsoldan chaqiriladi: migrateImagesToStorage()
-// Har tovar alohida ko'chiriladi va darhol saqlanadi — jarayon
-// uzilib qolsa ham ko'chirilganlari joyida qoladi.
-async function migrateImagesToStorage() {
-  const ps = db.products || [];
-  let done = 0, fail = 0, skip = 0;
-  for (const p of ps) {
-    let changed = false;
-    if (p.image && String(p.image).startsWith("data:image")) {
-      const u = await uploadImageToStorage(p.image, p.sku);
-      if (u !== p.image) { p.image = u; changed = true; done++; } else fail++;
-    }
-    if (p.colorImages) {
-      for (const c of Object.keys(p.colorImages)) {
-        const v = p.colorImages[c];
-        if (v && String(v).startsWith("data:image")) {
-          const u = await uploadImageToStorage(v, `${p.sku}_${c}`);
-          if (u !== v) { p.colorImages[c] = u; changed = true; done++; } else fail++;
-        }
-      }
-    }
-    if (changed) { try { saveDB(); } catch(e) {} } else skip++;
-  }
-  console.log(`🖼 Ko'chirildi: ${done} · Xato: ${fail} · Rasmsiz tovar: ${skip}`);
-  if (typeof toast === "function")
-    toast(fail ? `🖼 ${done} ta ko'chirildi, ${fail} tasi xato` : `✅ ${done} ta rasm ko'chirildi`);
-  return { done, fail, skip };
 }
 
 // ── LocalDB → Supabase (to'liq push) ─────────────
