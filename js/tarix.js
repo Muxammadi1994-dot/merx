@@ -13,6 +13,7 @@ function setTxStaff(id) {
 
 function setTxPeriod(p) {
   txPeriod = p;
+  txResetLimit();   // 2026-07-31: yangi davr — ro'yxat boshidan
   // Kalendar inputlarni tozalaymiz (custom davr bekor bo'ladi)
   if (p !== "custom") {
     const f = $("tx-date-from"), t = $("tx-date-to");
@@ -32,6 +33,7 @@ function setTxCustomRange() {
   const to   = ($("tx-date-to")||{value:""}).value;
   if (!from && !to) return;
   txPeriod = "custom";
+  txResetLimit();
   // Barcha period tugmalarini o'chiramiz
   document.querySelectorAll(".tx-period-btn").forEach(b => {
     b.classList.remove("on");
@@ -109,6 +111,15 @@ function toggleTarixCol(key, val) {
   saveDB();
   renderTarix();
 }
+
+// Bir martada nechta qator chiziladi (2026-07-31)
+let _txLimit = 100;
+function txShowMore() {
+  _txLimit += 200;
+  renderTarix();
+}
+// Filtr yoki qidiruv o'zgarsa ro'yxat boshidan boshlanadi
+function txResetLimit() { _txLimit = 100; }
 
 function renderTarix() {
   const q = ($("tarix-q")||{value:""}).value.toLowerCase().trim();
@@ -219,9 +230,23 @@ function renderTarix() {
     return;
   }
 
+  // ══════════════════════════════════════════════════════════════
+  // SAHIFALASH (2026-07-31)
+  // ══════════════════════════════════════════════════════════════
+  // AVVAL: mos kelgan HAMMA sotuv birdan chizilardi. "Yil" tanlansa
+  // 2853 qator HTML qilib yasalib, bir yo'la joylashtirilardi — har
+  // qatorda tovarlar ro'yxati, qaytarishlar, holat hisobi bor.
+  // Shu sababli filtr almashtirilganda ilova qotib qolardi.
+  // Endi bir martada 100 qator chiziladi, qolgani tugma bilan.
+  // Yuqoridagi jamlanma (KPI) hisoblari TO'LIQ ro'yxatdan olinadi —
+  // ular o'zgarmadi.
+  const _txTotal = list.length;
+  const _txShown = Math.min(_txLimit, _txTotal);
+  const _txList  = list.slice(0, _txShown);
+
   // Har bir qatorni alohida try/catch bilan render qilamiz
   let html = "";
-  list.forEach(s => {
+  _txList.forEach(s => {
     try {
       const isDebt     = s.status === "qarz" && (s.remaining||0) > 0;
       const isReturned = s.status === "qaytarilgan";
@@ -324,6 +349,16 @@ function renderTarix() {
     }
   });
 
+  if (_txShown < _txTotal) {
+    html += `<tr><td colspan="10" style="text-align:center;padding:14px">
+      <button class="btn btn-ghost" onclick="txShowMore()">
+        <i class="ti ti-chevron-down"></i> Yana 200 ta ko'rsatish
+      </button>
+      <div style="font-size:12px;color:var(--mut);margin-top:6px">
+        ${_txShown} / ${_txTotal} ta ko'rsatilgan
+      </div>
+    </td></tr>`;
+  }
   tbody.innerHTML = html || `<tr><td colspan="10" class="empty-td">Render xatosi — console ni tekshiring</td></tr>`;
 }
 
