@@ -512,6 +512,25 @@ function _keepColorImgs(cloudObj, localObj) {
   return Object.keys(out).length ? out : null;
 }
 
+// ── SOZLAMA HIMOYASI (2026-07-31) ─────────────────────────────
+// MUAMMO: sozlama BO'SH bo'lgan qurilma uni bulutga `null` qilib
+// yozib yuborardi va boshqa qurilmada kiritilgan qiymat o'chardi.
+// Guruh ID aynan shu sababdan bir necha marta yo'qolgan.
+// (Rasmlar bilan ham xuddi shunday bo'lgan edi.)
+//
+// ENDI: lokal qiymat bo'sh bo'lsa — OXIRGI MA'LUM qiymat yuboriladi.
+// Ya'ni bo'sh qiymat hech qachon to'lasini bosmaydi.
+// Ataylab tozalash kerak bo'lsa SuperAdmin orqali qilinadi.
+function _keepSet(localVal, key) {
+  const v = (localVal === "" || localVal === undefined) ? null : localVal;
+  const memKey = "merx_lastset_" + key;
+  try {
+    if (v !== null && v !== false) { localStorage.setItem(memKey, String(v)); return v; }
+    const prev = localStorage.getItem(memKey);
+    return prev !== null && prev !== "" ? prev : v;
+  } catch(e) { return v; }
+}
+
 // ── LocalDB → Supabase (to'liq push) ─────────────
 // ── connectCloud (ESKI YO'L) OLIB TASHLANDI, 2026-07 (3-bosqich) ──
 // Sabab: bu qo'lda ulash yo'li ichida "shop_"+Date.now() bilan do'kon
@@ -791,11 +810,11 @@ async function pushToCloud() {
           // u SuperAdmin boshqaradigan maydon. Aks holda do'kon o'z
           // eski qiymatini qaytarib yozib, SuperAdmin sozlamasini
           // bekor qilardi (12-qoida: server yozadigan ustunlar ustun).
-          eskiz_token:    db.settings?.eskizToken    || null,
-          eskiz_sender:   db.settings?.eskizSender   || null,
-          telegram_bot:   db.settings?.telegramBotUrl || null,
-          telegram_bot_username: db.settings?.telegramBotUsername || null,
-          staff_group_id: db.settings?.staffGroupId  || null,
+          eskiz_token:    _keepSet(db.settings?.eskizToken, "eskizToken"),
+          eskiz_sender:   _keepSet(db.settings?.eskizSender, "eskizSender"),
+          telegram_bot:   _keepSet(db.settings?.telegramBotUrl, "telegramBotUrl"),
+          telegram_bot_username: _keepSet(db.settings?.telegramBotUsername, "telegramBotUsername"),
+          staff_group_id: _keepSet(db.settings?.staffGroupId, "staffGroupId"),
           loyalty_rate:   db.settings?.loyaltyRate   || 0,
           loyalty_value:  db.settings?.loyaltyValue  || 100,
           rate_mode:       db.settings?.rateMode      || "manual",
@@ -2085,12 +2104,7 @@ function _rtEnsure() {
   _RT_TABLES.forEach(tbl => {
     ch.on("postgres_changes",
       { event: "*", schema: "public", table: tbl, filter: "shop_id=eq." + sid },
-      (payload) => {
-        // 2026-07-31 TASHXIS: signal kelayaptimi yoki yo'qmi — aniq bilish
-        // uchun. Kelmasa muammo Supabase tomonda, kelsa — klientda.
-        console.log("🔔 realtime signal:", tbl, payload && payload.eventType);
-        _rtSchedulePull();
-      });
+      () => _rtSchedulePull());
   });
   ch.subscribe(status => {
     console.log("🔔 realtime:", status);
