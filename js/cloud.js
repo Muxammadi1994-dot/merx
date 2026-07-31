@@ -86,6 +86,9 @@ async function ensureFreshToken() {
       s.expiresAt    = Date.now() + ((d.expires_in || 3600) * 1000);
       localStorage.setItem("merx_sb_session", JSON.stringify(s));
       if (typeof setSupabaseTestSession === "function") setSupabaseTestSession(s);
+      // Token yangilanganda realtime soketiga ham berish SHART —
+      // aks holda eski token bilan qolib, xabarlar to'xtardi.
+      try { if (_sb && _sb.realtime) _sb.realtime.setAuth(s.accessToken); } catch(e) {}
       console.log("🔄 Kirish kaliti avtomatik yangilandi");
     } else if (r.status === 400 || r.status === 401) {
       console.warn("❌ Sessiya butunlay eskirgan — chiqib, qayta kiring");
@@ -150,6 +153,17 @@ async function initSupabase() {
           global: { headers: { Authorization: `Bearer ${sbSession.accessToken}` } }
         });
         _sbUsedAnon = false;
+        // ⚠️ 2026-07-31: REALTIME SOKETIGA TOKENNI ALOHIDA BERISH SHART.
+        // `global.headers.Authorization` faqat oddiy so'rovlarga ta'sir
+        // qiladi. Realtime — alohida WebSocket ulanishi va u tokenni
+        // FAQAT setAuth() orqali oladi.
+        // Busiz soket anon huquqi bilan ulanardi: kanal "SUBSCRIBED"
+        // deb ko'rinsa ham RLS xabarlarni to'sardi — natijada o'zgarish
+        // darhol yetib bormay, ilova 90 soniyalik zaxira tekshiruvini
+        // kutardi. Rasm va sotuvlar "sekin" ko'rinishining sababi shu.
+        try { _sb.realtime.setAuth(sbSession.accessToken); } catch(e) {
+          console.warn("realtime setAuth:", e.message);
+        }
         console.log("✅ Cloud: Supabase Auth token bilan ulandi (yangi, xavfsiz yo'l)");
       } else {
         // Eski zaxira yo'l: anon key bilan
