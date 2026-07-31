@@ -1191,6 +1191,18 @@ async function checkAppVersion() {
   try {
     // 2026-07-12: outerHTML ishonchsiz (brauzer script src larini
     // o'zgartirishi mumkin). DOM'dagi haqiqiy script teg'laridan o'qiymiz.
+    // ⚠️ POYGA HIMOYASI (2026-07-31)
+    // `init.js` sahifa O'RTASIDA turadi va init() ni darhol ishga
+    // tushiradi. `superadmin.js` esa oxirroqda (4897-qator). Tekshiruv
+    // erta bajarilsa brauzer hali oxirgi skriptlarga yetib bormagan
+    // bo'ladi — DOM'da 18 ta, serverda 19 ta chiqib, ilova o'zini
+    // "eskirgan" deb hisoblardi. Sekin internetda bu doim takrorlanardi.
+    // Shuning uchun sahifa TO'LIQ yuklanmaguncha tekshirmaymiz.
+    if (document.readyState !== "complete") {
+      _versionOk = true;          // hozircha to'g'ri deb hisoblaymiz
+      _versionCheckedAt = 0;      // keyingi safar qayta tekshiriladi
+      return true;
+    }
     const _scripts = Array.from(document.querySelectorAll('script[src]'));
     const my = _scripts
       .map(s => (s.src.match(/js\/[a-z0-9_-]+\.js\?v=\d+/i)||[])[0]||"")
@@ -1198,7 +1210,15 @@ async function checkAppVersion() {
     const r = await fetch("/index.html", { cache: "no-store" });
     const html = await r.text();
     const srv = _jsVersionSignature(html);
-    _versionOk = !srv || !my || my === srv;
+    // Eskirgan deb FAQAT shu holda hisoblanadi: DOM'da serverda YO'Q
+    // fayl bor (ya'ni bizda eski versiya). Serverda ortiqcha fayl
+    // bo'lishi — hali yuklanmagani, xato emas.
+    let _domOnly = [];
+    try {
+      const _a = my.split("|"), _b = srv.split("|");
+      _domOnly = _a.filter(x => x && !_b.includes(x));
+    } catch(e) {}
+    _versionOk = !srv || !my || _domOnly.length === 0;
     _versionCheckedAt = Date.now();
     if (!_versionOk) {
       // Farqni ANIQ ko'rsatamiz — qaysi fayl mos kelmayotgani bilinsin
