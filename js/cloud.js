@@ -276,7 +276,9 @@ const USE_DELTA = true;   // 2026-07-31: rasm himoyasi qo'shilgach YOQILDI
 // Sinov muvaffaqiyatli bo'lsa ro'yxatga boshqa do'konlar qo'shiladi,
 // yoki ro'yxat bo'sh qoldirilib hammasiga ochiladi.
 const DELTA_SHOPS = [
-  "shop_1782763300535",   // Shoetest
+  "shop_1782763300535",              // Shoetest — sinov do'koni
+  "shop_ec8819052df7890cde096dcc",   // AbuSaxiy_D_60
+  "shop_199a1471b421e408431190c7",   // DJ-B20 (ko'p qurilmali — delta ayni kerak)
 ];
 
 function _lastPullKey(sid) { return "merx_lastpull_" + sid; }
