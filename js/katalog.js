@@ -1171,8 +1171,12 @@ function epaCalc() {
     else if (iFrom !== -1 && iTo !== -1 && iFrom <= iTo) sizeCount = iTo - iFrom + 1;
   }
 
-  if ($("epa-inbox")) $("epa-inbox").value = sizeCount;
-  if ($("epa-qty"))   $("epa-qty").value   = boxes * sizeCount;
+  // 2026-07-31: sig'im o'lchamdan mustaqil (yuqoridagi izoh).
+  // Bo'sh bo'lsagina oraliqdan taklif qilamiz, aks holda tegmaymiz.
+  const _epaManual = parseInt(($("epa-inbox")||{value:""}).value) || 0;
+  if ($("epa-inbox") && !_epaManual && from && to) $("epa-inbox").value = sizeCount;
+  const _epaInbox = parseInt(($("epa-inbox")||{value:""}).value) || 1;
+  if ($("epa-qty")) $("epa-qty").value = boxes * _epaInbox;
   const lbl = $("epa-size-lbl");
   if (lbl) lbl.textContent = from && to ? (from===to?from:`${from}–${to}`) : "";
 }
@@ -1490,13 +1494,26 @@ function apCalcBoxes() {
   // v169: bo'sh maydonlar "1" ga emas, 0 ga tushadi — natijada "Jami
   // dona" ham bo'sh ko'rinadi (foydalanuvchi hali to'ldirmagan bo'lsa)
   const manualInbox = parseInt(($("ap-inbox-calc")||{value:""}).value) || 0;
-  const effectiveInbox = sizesOn ? sizeCount : manualInbox;
+  // ══════════════════════════════════════════════════════════════
+  // 2026-07-31: "1 POCHKADA NECHTA" — O'LCHAMDAN TO'LIQ MUSTAQIL
+  // ══════════════════════════════════════════════════════════════
+  // §3.2 bo'yicha "39-44" standarti OLIB TASHLANGAN, o'lcham ixtiyoriy.
+  // Lekin kod hali ham pochka sig'imini o'lchamlar sonidan hisoblab,
+  // qo'lda yozilgan qiymatni ustidan yozardi (oraliq tanlanmasa 1 ga
+  // qaytarardi) — dona tovar kiritib bo'lmasdi.
+  // §3.3: sig'im RANG darajasidagi mustaqil qiymat, o'lchamga bog'liq
+  // emas. Endi FAQAT foydalanuvchi yozgani ishlatiladi.
+  const effectiveInbox = manualInbox;
   const total = boxes * effectiveInbox;
 
   // Faqat O'lcham bo'limi OCHIQ bo'lganda "1 pochkada"ni oraliqdan
   // avtomatik to'ldiramiz — yopiq bo'lsa qo'lda kiritilgan qiymatga
   // TEGILMAYMIZ.
-  if (sizesOn && $("ap-inbox-calc")) $("ap-inbox-calc").value = sizeCount;
+  // Maydon endi HECH QACHON avtomat qayta yozilmaydi (yuqoridagi izoh).
+  // O'lcham oralig'i tanlanganda ham foydalanuvchi qiymati saqlanadi.
+  // Faqat maydon BO'SH bo'lsa taklif sifatida oraliqdan to'ldiramiz.
+  if (sizesOn && from && to && !manualInbox && $("ap-inbox-calc"))
+    $("ap-inbox-calc").value = sizeCount;
   // 2026-07-26: dona QO'LDA yozilayotgan bo'lsa ustidan yozmaymiz
   if ($("ap-qty-range") && !_apDonaEditing) $("ap-qty-range").value = total || "";
 
