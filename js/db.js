@@ -327,6 +327,12 @@ function _dbForLocal() {
 
 function saveDB() {
   const key = getDBKEY();
+  // 2026-07-31: LOKAL O'ZGARISH HISOBLAGICHI.
+  // Delta sinxron buni ishlatadi: so'rov yuborishdan oldin va javobni
+  // qo'llashdan OLDIN solishtiriladi. Oraliqda biror narsa o'zgargan
+  // bo'lsa — bulut nusxasi QO'LLANMAYDI. Shu bilan "telefonda qo'yilgan
+  // rasm yo'qolishi" kabi holat imkonsiz bo'ladi.
+  try { window._dbMutSeq = (window._dbMutSeq || 0) + 1; } catch(e) {}
   scheduleHeavySave();
   try { localStorage.setItem(key, JSON.stringify(_dbForLocal())); }
   catch(e) {

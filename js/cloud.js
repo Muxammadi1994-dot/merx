@@ -256,14 +256,17 @@ async function uploadImageToStorage(dataUrl, tag) {
 //  4. Xato bo'lsa — to'liq pull'ga qaytadi
 //  5. O'chirishlar `deleted_records` orqali qo'llanadi
 
-// ⛔ 2026-07-31: DELTA VAQTINCHA O'CHIRILGAN.
-// Sinovda ikki xato chiqdi:
-//  1) Vaqt belgisi oldinga SILJIMASDI (chekinish har safar qo'llanardi)
-//     → o'sha qatorlar aylanib tortilaverdi.
-//  2) Bulut nusxasi lokal o'zgarishni SO'ZSIZ bosib yozardi → telefonda
-//     qo'yilgan rasm bulutga yetmasdan yo'qolib ketdi.
-// Ikkalasi ham quyida tuzatildi, lekin JONLI do'konda sinamasdan
-// yoqilmaydi. Sinash uchun: USE_DELTA = true.
+// ── DELTA SINXRON KALITI (2026-07-31) ─────────────────────────
+// Birinchi urinishda ikki xato bo'lgan (vaqt belgisi siljimasligi va
+// lokal o'zgarishning bosib yozilishi). Ikkalasi ham tuzatildi va
+// qo'shimcha qo'riqchilar qo'yildi (pastda pullDelta izohiga qarang).
+//
+// SINOV TARTIBI:
+//   1) `true` qilib FAQAT Shoetest'da bir necha kun ishlating
+//   2) Ikki qurilmadan bir vaqtda: tovar qo'shish, rasm qo'yish,
+//      sotuv, qarz kiritish
+//   3) Hech narsa yo'qolmasa — AbuSaxiy va B20 ga o'tkaziladi
+// Muammo chiqsa: `false` qilib push — bir zumda eski holatga qaytadi.
 const USE_DELTA = false;
 
 function _lastPullKey(sid) { return "merx_lastpull_" + sid; }
@@ -305,51 +308,89 @@ function _mergeById(arr, rows) {
   return [...map.values()].sort((a, b) => (a.id || 0) - (b.id || 0));
 }
 
+// ══════════════════════════════════════════════════════════════
+// DELTA — XAVFSIZ QAYTA YOZILGAN (2026-07-31, 2-urinish)
+// ══════════════════════════════════════════════════════════════
+// BIRINCHI URINISHDA NIMA XATO BO'LGAN:
+//   Tekshiruv so'rovdan OLDIN turgan, javob esa bir necha soniyadan
+//   keyin kelgan. O'sha oraliqda telefonda qo'yilgan rasm bulutdagi
+//   ESKI nusxa bilan bosib yozilgan — ma'lumot yo'qolgan.
+//
+// ENDI TO'RTTA QO'RIQCHI:
+//   1. Boshlanishda: yuborilmagan o'zgarish bo'lsa — delta yo'q
+//   2. `_dbMutSeq` so'rovdan oldin olinadi va javobni QO'LLASHDAN
+//      OLDIN qayta solishtiriladi. Farq bo'lsa — butunlay bekor
+//      qilinadi (hech narsa yozilmaydi), keyingi safar qaytariladi
+//   3. Yozish bitta qadamda: avval hammasi tayyorlanadi, keyin
+//      birdaniga qo'llanadi — yarim holat qolmaydi
+//   4. Har qanday xatoda — to'liq pull'ga qaytadi
+//
 // Qaytaradi: true — delta bajarildi, false — to'liq pull kerak
+let _deltaFailStreak = 0;
+
 async function pullDelta() {
-  if (!USE_DELTA) return false;             // o'chirilgan — to'liq pull
+  if (!USE_DELTA) return false;
   const sid = getCloudShopId();
   if (!_sb || !sid) return false;
   const since = _getLastPull(sid);
-  if (!since) return false;                 // hali to'liq tortilmagan
+  if (!since) return false;                       // hali to'liq tortilmagan
 
-  // HIMOYA: yuborilmagan lokal o'zgarish bo'lsa delta QILINMAYDI.
-  // Aks holda bulutdagi eski nusxa yangi lokal o'zgarishni bosib
-  // yozardi (rasm yo'qolishi shundan edi).
+  // Har 20 deltadan keyin bir marta to'liq pull — ehtiyot uchun
+  // (biror qator sababsiz o'tkazib yuborilgan bo'lsa tiklanadi)
+  if (_deltaFailStreak >= 20) { _deltaFailStreak = 0; return false; }
+
+  // ── QO'RIQCHI 1: yuborilmagan lokal o'zgarish bo'lsa — delta yo'q
   if (typeof _syncPending !== "undefined" && _syncPending) return false;
 
+  const seq0 = (typeof window !== "undefined" && window._dbMutSeq) || 0;
   const _q = _sinceQuery(since);
-  let maxTs = since, changed = 0;
+
   try {
+    // ── Ma'lumotni YIG'AMIZ (hali hech narsa yozilmaydi) ──
+    const staged = [];      // [{key, rows}]
+    let maxTs = since, incoming = 0;
+
     for (const [tbl, key] of _DELTA_TABLES) {
       const rows = await _selectAll(() => _sb.from(tbl).select("*")
         .eq("shop_id", sid)
         .gt("updated_at", _q)
         .order("updated_at"), "delta:" + tbl);
       if (!rows.length) continue;
-
-      // `data` bo'sh qator bo'lsa — eski yo'lga qaytamiz
+      // `data` bo'sh qator bo'lsa — eski, ishonchli yo'lga qaytamiz
       if (rows.some(r => !r.data || typeof r.data !== "object" || Array.isArray(r.data))) {
-        console.log("↩️ delta to'xtadi (data bo'sh qator) — to'liq pull");
         return false;
       }
-      const mapped = rows.map(r => ({ ...r.data, id: r.id }));
-      db[key] = _mergeById(db[key], mapped);
-      changed += mapped.length;
+      staged.push({ key, rows: rows.map(r => ({ ...r.data, id: r.id })) });
+      incoming += rows.length;
       rows.forEach(r => { if (r.updated_at && r.updated_at > maxTs) maxTs = r.updated_at; });
     }
 
-    // O'chirilganlar
     const dels = await _selectAll(() => _sb.from("deleted_records").select("*")
       .eq("shop_id", sid)
       .gt("deleted_at", _q)
       .order("deleted_at"), "delta:deleted");
+    dels.forEach(d => { if (d.deleted_at && d.deleted_at > maxTs) maxTs = d.deleted_at; });
+
+    // ── QO'RIQCHI 2: so'rov davomida lokal o'zgardimi? ──
+    const seq1 = (typeof window !== "undefined" && window._dbMutSeq) || 0;
+    if (seq1 !== seq0 || (typeof _syncPending !== "undefined" && _syncPending)) {
+      _deltaFailStreak++;
+      console.log("↩️ delta bekor qilindi — lokal o'zgarish bor (ma'lumot saqlandi)");
+      return false;                                // HECH NARSA yozilmadi
+    }
+
+    if (!incoming && !dels.length) { _setLastPull(sid, maxTs); return true; }
+
+    // ── QO'LLASH (bitta qadamda) ──
+    let changed = 0;
+    for (const st of staged) {
+      db[st.key] = _mergeById(db[st.key], st.rows);
+      changed += st.rows.length;
+    }
     if (dels.length) {
       const byTable = {};
-      dels.forEach(d => {
-        (byTable[d.table_name] = byTable[d.table_name] || new Set()).add(String(d.record_id));
-        if (d.deleted_at && d.deleted_at > maxTs) maxTs = d.deleted_at;
-      });
+      dels.forEach(d => (byTable[d.table_name] = byTable[d.table_name] || new Set())
+        .add(String(d.record_id)));
       for (const [tbl, key] of _DELTA_TABLES) {
         const ids = byTable[tbl];
         if (!ids || !Array.isArray(db[key])) continue;
@@ -359,6 +400,8 @@ async function pullDelta() {
       }
     }
 
+    _deltaFailStreak = 0;
+    _setLastPull(sid, maxTs);
     if (changed > 0) {
       try { saveDB(); } catch(e) {}
       try {
@@ -366,12 +409,12 @@ async function pullDelta() {
         const pg = document.querySelector(".pg.on");
         if (pg && typeof nav === "function") nav(pg.id.replace(/^p-/, ""));
       } catch(e) {}
-      console.log(`⚡ Delta sinxron: ${changed} ta o'zgarish`);
+      console.log(`⚡ Delta: ${changed} ta o'zgarish`);
     }
-    _setLastPull(sid, maxTs);
     return true;
+
   } catch (e) {
-    console.warn("delta xato — to'liq pull'ga qaytamiz:", e.message || e);
+    console.warn("delta xato — to'liq pull:", e.message || e);
     return false;
   }
 }
