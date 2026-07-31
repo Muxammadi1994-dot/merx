@@ -857,10 +857,21 @@ function epLoadColorImage(input, color) {
 
       const p = db.products.find(x => x.sku === editSku); if (!p) return;
       if (!p.colorImages) p.colorImages = {};
-      p.colorImages[color] = dataUrl;
+      p.colorImages[color] = dataUrl;      // darhol ko'rinsin
       epRenderColorCards(p);
       saveDB();
       toast(`✅ "${color}" rangiga rasm yuklandi`);
+      // 2026-07-31: rasm omborga (Storage) yuklanadi, ma'lumotda
+      // faqat havola qoladi. Yuklanmasa base64 joyida qolaveradi.
+      if (typeof uploadImageToStorage === "function") {
+        uploadImageToStorage(dataUrl, `${p.sku}_${color}`).then(url => {
+          if (url && url !== dataUrl) {
+            p.colorImages[color] = url;
+            saveDB();
+            try { epRenderColorCards(p); } catch(e) {}
+          }
+        }).catch(() => {});
+      }
     };
     img.src = e.target.result;
   };
@@ -1382,6 +1393,13 @@ function apImgSave(input) {
       apPendingImage = dataUrl;
       const prev = $("ap-img-preview");
       if (prev) prev.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover">`;
+      // 2026-07-31: fonda omborga yuklaymiz. Tovar saqlanganda
+      // allaqachon havola bo'ladi; ulgurmasa base64 ketadi (zarar yo'q).
+      if (typeof uploadImageToStorage === "function") {
+        uploadImageToStorage(dataUrl, "yangi").then(url => {
+          if (url && url !== dataUrl && apPendingImage === dataUrl) apPendingImage = url;
+        }).catch(() => {});
+      }
       const btn = $("ap-img-remove-btn");
       if (btn) btn.style.display = "";
     };
@@ -2072,6 +2090,13 @@ function epLoadImage(input) {
       if ($("ep-img-placeholder")) $("ep-img-placeholder").style.display = "none";
       if ($("ep-img-remove"))      $("ep-img-remove").style.display = "";
       if ($("ep-image"))           $("ep-image").value = dataUrl;
+      // 2026-07-31: fonda omborga yuklaymiz — saqlanganda havola ketadi
+      if (typeof uploadImageToStorage === "function") {
+        uploadImageToStorage(dataUrl, editSku || "tovar").then(url => {
+          const el = $("ep-image");
+          if (url && url !== dataUrl && el && el.value === dataUrl) el.value = url;
+        }).catch(() => {});
+      }
 
       const kb = Math.round(dataUrl.length * 0.75 / 1024);
       toast(`✅ Rasm yuklandi (${kb}KB)`);
