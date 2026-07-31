@@ -1367,7 +1367,7 @@
           <button class="btn btn-ghost btn-sm" onclick="openCustColsSettings()" title="Ustunlarni sozlash">
             <i class="ti ti-settings"></i>
           </button>
-          <input id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="renderMijozlar()"
+          <input id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar()"
             style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:190px">
         </div>
       </div>
@@ -4691,7 +4691,7 @@
 <script src="js/pos.js?v=229"></script>
 <script src="js/katalog.js?v=231"></script>
 <script src="js/ombor.js?v=164"></script>
-<script src="js/mijozlar.js?v=148"></script>
+<script src="js/mijozlar.js?v=149"></script>
 <script src="js/qarzlar.js?v=187"></script>
 <script src="js/tarix.js?v=166"></script>
 <script src="js/hisobot.js?v=151"></script>
@@ -4902,7 +4902,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=136")
+    navigator.serviceWorker.register("/sw.js?v=137")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
