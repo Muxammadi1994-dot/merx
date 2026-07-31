@@ -719,7 +719,11 @@ async function doLogin() {
         // (aks holda eski/boshqa do'kon adminPass'i bilan solishtirib xato berardi).
         res = { ok: true, user: _buildUser(email, shopId), viaSupabase: true };
         authSave(res.user);
-        localStorage.setItem(dbKey, JSON.stringify(db));
+        /* 2026-07-31: og'ir jadvallar IndexedDB'da — localStorage'ga
+                   YENGIL nusxa yoziladi (aks holda sotuvlar u yerda
+                   qolib, 5 MB chegarasi qaytarardi) */
+        localStorage.setItem(dbKey, JSON.stringify((typeof _dbForLocal === "function" ? _dbForLocal() : db)));
+        if (typeof scheduleHeavySave === "function") scheduleHeavySave();
       } else {
         res = await _cloudFallbackLogin(email, pass);
       }

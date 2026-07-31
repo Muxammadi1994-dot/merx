@@ -257,7 +257,13 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
   // v180: muhrlar DARHOL lokalga yoziladi (upsert xato bersa ham) —
   // oflayn tahrir stsenariysida muhr localStorage'da saqlanib qoladi.
   // saveDB EMAS — to'g'ridan-to'g'ri (13-qoida, aylanma taqiqi).
-  if (onDirty) { try { localStorage.setItem(getDBKEY(), JSON.stringify(db)); } catch(e) {} }
+  if (onDirty) { try {
+    /* 2026-07-31: og'ir jadvallar IndexedDB'da — localStorage'ga
+                   YENGIL nusxa yoziladi (aks holda sotuvlar u yerda
+                   qolib, 5 MB chegarasi qaytarardi) */
+    localStorage.setItem(getDBKEY(), JSON.stringify((typeof _dbForLocal === "function" ? _dbForLocal() : db)));
+    if (typeof scheduleHeavySave === "function") scheduleHeavySave();
+  } catch(e) {} }
   const chunk = chunkSize || 50;
   for (let i = 0; i < pend.length; i += chunk) {
     const part = pend.slice(i, i + chunk);
@@ -324,7 +330,13 @@ async function _migrateImagesToStorage(sid) {
     // Havolalar DARHOL lokalga (13-qoida: saveDB EMAS — aylanma taqiqi).
     // O'zgargan tovarlar delta-push'da o'zi "yangi" deb aniqlanib,
     // vaqt muhri bilan bulutga ketadi.
-    try { localStorage.setItem(getDBKEY(), JSON.stringify(db)); } catch (e) {}
+    try {
+      /* 2026-07-31: og'ir jadvallar IndexedDB'da — localStorage'ga
+                   YENGIL nusxa yoziladi (aks holda sotuvlar u yerda
+                   qolib, 5 MB chegarasi qaytarardi) */
+      localStorage.setItem(getDBKEY(), JSON.stringify((typeof _dbForLocal === "function" ? _dbForLocal() : db)));
+      if (typeof scheduleHeavySave === "function") scheduleHeavySave();
+    } catch (e) {}
     console.log("🖼️ " + moved + " ta rasm Storage'ga ko'chirildi (URL)");
   }
   return moved;
@@ -827,7 +839,13 @@ async function pushToCloud() {
     // localStorage'ga to'g'ridan-to'g'ri, jimgina yozamiz:
     if (!db.settings) db.settings = {};
     db.settings.lastSyncAt = new Date().toISOString();
-    try { localStorage.setItem(getDBKEY(), JSON.stringify(db)); } catch(e) {}
+    try {
+      /* 2026-07-31: og'ir jadvallar IndexedDB'da — localStorage'ga
+                   YENGIL nusxa yoziladi (aks holda sotuvlar u yerda
+                   qolib, 5 MB chegarasi qaytarardi) */
+      localStorage.setItem(getDBKEY(), JSON.stringify((typeof _dbForLocal === "function" ? _dbForLocal() : db)));
+      if (typeof scheduleHeavySave === "function") scheduleHeavySave();
+    } catch(e) {}
     if (typeof adminRefreshSyncStats === "function") adminRefreshSyncStats();
   } catch(e) {
     toast("Xato: " + e.message, "err");
