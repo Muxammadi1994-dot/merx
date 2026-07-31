@@ -26,6 +26,21 @@ function init() {
     if (!authed) return; // login ekrani ko'rsatildi, init to'xtatiladi
   }
 
+  // ── 1.5. OG'IR JADVALLAR (2026-07-31) ──────────────────────
+  // sales/xarajatlar/... endi IndexedDB'da. Ular ASINXRON keladi,
+  // shuning uchun yuklangach ekranni qayta chizamiz. Bu bulutdan
+  // pull kelganda allaqachon ishlatiladigan usul — yangi emas.
+  if (typeof hydrateHeavy === "function") {
+    hydrateHeavy().then(() => {
+      try {
+        if ($("debt-count")) $("debt-count").textContent = debtSales().length;
+        if (typeof renderDashboard === "function") renderDashboard();
+        const p = document.querySelector(".pg.on");
+        if (p && typeof nav === "function") nav(p.id.replace(/^p-/, ""));
+      } catch(e) {}
+    }).catch(e => console.warn("hydrateHeavy:", e.message));
+  }
+
   // ── 2. DB tekshiruvi — auth dan keyin db to'g'ri yuklangan ──
   if (!db) db = seedDB();
   if (!db.staff)        db.staff = [];

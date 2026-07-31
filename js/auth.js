@@ -746,6 +746,16 @@ async function doLogin() {
       if (typeof nav === "function" && typeof defaultPageForRole === "function")
         nav(defaultPageForRole(res.user));
     } catch(e) {}
+    // 2026-07-31: og'ir jadvallar (sales va h.k.) IndexedDB'da —
+    // kirishdan keyin ham yuklab, ekranni yangilaymiz
+    if (typeof hydrateHeavy === "function") {
+      hydrateHeavy().then(() => {
+        try {
+          if ($("debt-count")) $("debt-count").textContent = debtSales().length;
+          if (typeof renderDashboard === "function") renderDashboard();
+        } catch(e) {}
+      }).catch(() => {});
+    }
     _initCloudAfterLogin();
     // 2026-07-30: kirishdan keyin obuna holatini ham tekshiramiz.
     // Yuqoridagi darvoza asosiy himoya; bu ikkinchi qatlam (masalan
@@ -776,6 +786,16 @@ function doStaffLogin() {
       if (typeof nav === "function" && typeof defaultPageForRole === "function")
         nav(defaultPageForRole(res.user));
     } catch(e) {}
+    // 2026-07-31: og'ir jadvallar (sales va h.k.) IndexedDB'da —
+    // kirishdan keyin ham yuklab, ekranni yangilaymiz
+    if (typeof hydrateHeavy === "function") {
+      hydrateHeavy().then(() => {
+        try {
+          if ($("debt-count")) $("debt-count").textContent = debtSales().length;
+          if (typeof renderDashboard === "function") renderDashboard();
+        } catch(e) {}
+      }).catch(() => {});
+    }
     _initCloudAfterLogin();
     // 2026-07-30: xodim kirsa ham do'kon holati tekshiriladi —
     // aks holda bloklangan do'konda xodim ishlashda davom etardi

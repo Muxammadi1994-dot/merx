@@ -156,10 +156,179 @@ function loadDB() {
   } catch(e) { return mem; }
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// OG'IR JADVALLAR — IndexedDB (2026-07-31, 2-bosqich)
+// ══════════════════════════════════════════════════════════════
+// MUAMMO: butun baza localStorage'da BITTA JSON edi. Brauzer
+// chegarasi ~5 MB. Sotuv tarixi vaqt o'tgani sari cheksiz o'sadi —
+// 8 oylik tarix 4,74 MB egallab ilova qotib qoldi.
+//
+// YECHIM: vaqt bo'yicha CHEKSIZ o'sadigan jadvallar IndexedDB'ga
+// ko'chirildi. U yuzlab MB ko'taradi va har o'zgarishda butun
+// bazani qayta yozmaydi — shuning uchun tez.
+//
+// ⚠️ ATAYLAB CHEKLANGAN QAMROV: kirish/do'kon almashtirish yo'liga
+// (auth.js) TEGILMADI. Tovarlar, mijozlar, sozlamalar avvalgidek
+// localStorage'da — ular biznes hajmi bilan cheklangan va POS'da
+// darhol kerak. Og'irlik esa sotuvlarda edi.
+//
+// XAVFSIZLIK QOIDALARI:
+//  1. IndexedDB ochilmasa — hech narsa o'zgarmaydi, eski yo'l ishlaydi
+//  2. Ma'lumot localStorage'dan O'CHIRILMAYDI, toki IndexedDB'ga
+//     yozilib, QAYTA O'QIB tasdiqlanmaguncha
+//  3. Har yozuvdan keyin natija tekshiriladi
+//  4. USE_IDB = false qilinsa — bir zumda eski holatga qaytadi
+const USE_IDB = true;
+const IDB_NAME = "merx_heavy", IDB_STORE = "heavy", IDB_VER = 1;
+// Vaqt bo'yicha cheksiz o'sadigan jadvallar
+const IDB_TABLES = ["sales", "xarajatlar", "debtPayments", "ombor", "chiqimlar"];
+
+let _idb = null, _idbOk = false, _idbVerified = false;
+
+function idbOpen() {
+  if (!USE_IDB || !window.indexedDB) return Promise.resolve(null);
+  if (_idb) return Promise.resolve(_idb);
+  return new Promise(res => {
+    try {
+      const rq = indexedDB.open(IDB_NAME, IDB_VER);
+      rq.onupgradeneeded = () => {
+        const d = rq.result;
+        if (!d.objectStoreNames.contains(IDB_STORE)) d.createObjectStore(IDB_STORE);
+      };
+      rq.onsuccess = () => { _idb = rq.result; _idbOk = true; res(_idb); };
+      rq.onerror   = () => { console.warn("IndexedDB ochilmadi — localStorage'da davom etamiz"); res(null); };
+      rq.onblocked = () => res(null);
+    } catch(e) { res(null); }
+  });
+}
+
+function idbPut(key, val) {
+  return idbOpen().then(d => new Promise(res => {
+    if (!d) return res(false);
+    try {
+      const tx = d.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).put(val, key);
+      tx.oncomplete = () => res(true);
+      tx.onerror    = () => res(false);
+      tx.onabort    = () => res(false);
+    } catch(e) { res(false); }
+  }));
+}
+
+function idbGet(key) {
+  return idbOpen().then(d => new Promise(res => {
+    if (!d) return res(undefined);
+    try {
+      const rq = d.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).get(key);
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror   = () => res(undefined);
+    } catch(e) { res(undefined); }
+  }));
+}
+
+const _idbKey = t => getDBKEY() + "::" + t;
+
+// ── Og'ir jadvallarni IndexedDB'dan yuklash ──
+// init() va kirishdan keyin chaqiriladi. localStorage'da bu jadvallar
+// bo'lsa (birinchi marta yoki eski qurilma) — ular USTUN, chunki
+// hali ko'chirilmagan bo'lishi mumkin.
+async function hydrateHeavy() {
+  if (!USE_IDB) return false;
+  const d = await idbOpen();
+  if (!d) return false;
+  let loaded = 0;
+  for (const t of IDB_TABLES) {
+    try {
+      const v = await idbGet(_idbKey(t));
+      if (Array.isArray(v)) {
+        // localStorage'da ham bor va u BO'SH EMAS bo'lsa — hali
+        // ko'chirilmagan, uni yo'qotmaymiz
+        const cur = db[t];
+        if (Array.isArray(cur) && cur.length > v.length) continue;
+        db[t] = v; loaded += v.length;
+      }
+    } catch(e) {}
+  }
+  if (loaded) console.log("💾 IndexedDB'dan yuklandi:", loaded, "yozuv");
+  // Ko'chirilmagan bo'lsa — hozir ko'chiramiz
+  await migrateHeavyToIdb();
+  return true;
+}
+
+// ── Bir martalik ko'chirish (tasdiqlash bilan) ──
+async function migrateHeavyToIdb() {
+  if (!USE_IDB || _idbVerified) return;
+  let ok = true, moved = 0;
+  for (const t of IDB_TABLES) {
+    const arr = Array.isArray(db[t]) ? db[t] : [];
+    const w = await idbPut(_idbKey(t), arr);
+    if (!w) { ok = false; break; }
+    // TASDIQLASH: qayta o'qib, uzunligi mos kelishini tekshiramiz
+    const back = await idbGet(_idbKey(t));
+    if (!Array.isArray(back) || back.length !== arr.length) { ok = false; break; }
+    moved += arr.length;
+  }
+  if (!ok) {
+    console.warn("⚠️ IndexedDB tasdiqlanmadi — localStorage'da davom etamiz");
+    _idbVerified = false;
+    return;
+  }
+  _idbVerified = true;   // shundan keyingina localStorage yengillashadi
+  console.log("✅ Og'ir jadvallar IndexedDB'ga ko'chdi:", moved, "yozuv");
+  try { saveDB(); } catch(e) {}   // localStorage'ni yengil holatda qayta yozamiz
+}
+
+// ── Kechiktirilgan yozish ──
+let _idbTimer = null, _idbDirty = false;
+function scheduleHeavySave() {
+  if (!USE_IDB || !_idbVerified) return;
+  _idbDirty = true;
+  clearTimeout(_idbTimer);
+  _idbTimer = setTimeout(flushHeavy, 200);
+}
+
+async function flushHeavy() {
+  if (!USE_IDB || !_idbVerified || !_idbDirty) return;
+  _idbDirty = false;
+  for (const t of IDB_TABLES) {
+    const arr = Array.isArray(db[t]) ? db[t] : [];
+    const ok = await idbPut(_idbKey(t), arr);
+    if (!ok) {
+      // Yozib bo'lmadi — localStorage'ga qaytamiz, ma'lumot yo'qolmasin
+      console.error("❌ IndexedDB yozmadi — localStorage'ga qaytildi");
+      _idbVerified = false;
+      try { saveDB(); } catch(e) {}
+      return;
+    }
+  }
+}
+
+// Sahifa yopilishida yoki fonga o'tganda darhol yozamiz
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") { try { flushHeavy(); } catch(e) {} }
+});
+window.addEventListener("beforeunload", () => { try { flushHeavy(); } catch(e) {} });
+
 let _saveFailAt = 0;
+
+// localStorage uchun: og'ir jadvallar TASDIQLANGANDAN keyin chiqarib
+// tashlanadi (ular IndexedDB'da). Tasdiqlanmaguncha — avvalgidek
+// hammasi yoziladi, ya'ni ma'lumot hech qachon ikki joydan ham
+// yo'qolmaydi.
+function _dbForLocal() {
+  if (!USE_IDB || !_idbVerified) return db;
+  const light = {};
+  for (const k in db) if (!IDB_TABLES.includes(k)) light[k] = db[k];
+  IDB_TABLES.forEach(t => { light[t] = []; });   // tuzilma buzilmasin
+  light._heavyInIdb = true;
+  return light;
+}
+
 function saveDB() {
   const key = getDBKEY();
-  try { localStorage.setItem(key, JSON.stringify(db)); }
+  scheduleHeavySave();
+  try { localStorage.setItem(key, JSON.stringify(_dbForLocal())); }
   catch(e) {
     // 2026-07-20: XOTIRA TO'LSA — AVTOMAT TIKLANISH (localStorage deyarli
     // hech qachon to'lmaydi). Ikki bosqichli qutqaruv:
@@ -174,7 +343,7 @@ function saveDB() {
           try { localStorage.removeItem(k); } catch(e2) {}
         }
       });
-      localStorage.setItem(key, JSON.stringify(db)); // qayta urinish
+      localStorage.setItem(key, JSON.stringify(_dbForLocal())); // qayta urinish
       console.log("✅ Xotira tozalandi — ma'lumot saqlandi");
       if (typeof scheduleCloudSync === "function") scheduleCloudSync();
       return;
@@ -183,7 +352,7 @@ function saveDB() {
     // 2-BOSQICH: RASMLARSIZ saqlaymiz (rasmlar Storage'da/bulutda bor —
     // localStorage'da faqat matn qoladi, hajm 10-20 barobar kichrayadi).
     try {
-      const light = JSON.stringify(db, (k, v) => {
+      const light = JSON.stringify(_dbForLocal(), (k, v) => {
         if (k === "image" || k === "colorImages" || k === "photo") return undefined;
         return v;
       });
