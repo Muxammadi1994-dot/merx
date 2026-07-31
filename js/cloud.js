@@ -2023,6 +2023,36 @@ let _rtWaitSince = 0;
 const _RT_MAX_WAIT_MS   = 8000;    // foydalanuvchi band bo'lsa
 const _RT_MAX_PEND_MS   = 15000;   // yuborilmagan o'zgarish bo'lsa
 
+// ── EKRANNI YANGILASH XAVFSIZMI (2026-07-31) ──────────────────
+// `_rtBusyUI()` KECHIKTIRISH uchun ishlatiladi va u juda keng:
+// POS savatida tovar bo'lsa DOIM true qaytaradi. Natijada
+// foydalanuvchi KATALOGDA tursa ham ekran hech qachon
+// yangilanmasdi — ma'lumot kelgan, lekin chizilmagan.
+//
+// Ekranni yangilash uchun tor tekshiruv kerak:
+//  · modal ochiq bo'lsa — tegmaymiz
+//  · foydalanuvchi maydonga yozayotgan bo'lsa — tegmaymiz
+//  · POS SAHIFASIDA turib savatda tovar bo'lsa — tegmaymiz
+// Boshqa sahifalarda (katalog, ombor, qarzlar) savat bilan ishimiz
+// yo'q — u yerda yangilash xavfsiz.
+function _rtRenderBlocked() {
+  try {
+    if (document.querySelector(".ov.on")) return true;
+    for (const ov of document.querySelectorAll(".ov")) {
+      const cs = getComputedStyle(ov);
+      if (cs.display !== "none" && cs.visibility !== "hidden" && ov.offsetWidth > 0) return true;
+    }
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return true;
+    const pg = document.querySelector(".pg.on");
+    if (pg && pg.id === "p-pos") {
+      const c = posCartsState?.carts?.[posCartsState.activeIdx]?.items;
+      if (Array.isArray(c) && c.length > 0) return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
 function _rtSchedulePull() {
   if (!_rtWaitSince) _rtWaitSince = Date.now();
   clearTimeout(_rtPullTimer);
@@ -2035,8 +2065,9 @@ function _rtSchedulePull() {
     if (busy && waited < _RT_MAX_WAIT_MS) { _rtSchedulePull(); return; }
     _rtWaitSince = 0;
     _pullBusy = true; _syncSuppressed = true;
-    // Delta (odatda 1-5 qator). Band bo'lsa ekranga tegmaymiz.
-    try { await pullSmart(true, busy); }
+    // Delta (odatda 1-5 qator). Ekranga tegish XAVFSIZMI — alohida,
+    // torroq tekshiruv bilan hal qilinadi (yuqoridagi izoh).
+    try { await pullSmart(true, _rtRenderBlocked()); }
     catch (e) { console.warn("realtime pull xato:", e.message); }
     finally { _syncSuppressed = false; _pullBusy = false; }
   }, 1500);
