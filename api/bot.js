@@ -2634,7 +2634,18 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
-  // Shop egasi tekshiruvi
+  // ── GURUHDA JIM TURISH (2026-07-31) ──────────────────────────
+  // Avval bot GURUHDAGI har xabarga "⛔ Bu komanda faqat do'kon
+  // egasi uchun" deb javob qaytarardi. Xodimlar o'zaro yozganda
+  // ham chiqaverib, ombor guruhini to'ldirardi.
+  // Endi guruhda bot FAQAT o'ziga qaratilgan buyruqqa javob beradi
+  // (/id, /start, /mendokonlarim — ular yuqorida hal qilinadi).
+  // Qolgan hamma narsaga JIM turadi.
+  const _chatType = msg.chat?.type;
+  const _inGroup  = _chatType === "group" || _chatType === "supergroup";
+  if (_inGroup) return res.status(200).json({ ok: true });
+
+  // Shop egasi tekshiruvi (faqat shaxsiy chatda)
   const allowed = await isShopOwner(chatId);
   if (!allowed) {
     await tg(chatId, "⛔ Bu komanda faqat do'kon egasi uchun.\n\n/start — qaytadan boshlash\n/mendokonlarim — do'konlaringiz ro'yxati");
