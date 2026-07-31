@@ -5,6 +5,7 @@
 //   - Offline: keshdan (oxirgi ishlagan nusxa)
 // Ma'lumot (Supabase/API) HECH QACHON keshlanmaydi — doim jonli.
 // ═══════════════════════════════════════════════════════════════
+// deploy 1
 
 // MUHIM: har push'da bu raqamni +1 qiling — eski kesh avtomat o'chadi.
 const CACHE_VERSION = "merx-v133";
