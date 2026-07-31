@@ -1966,7 +1966,8 @@ function custQuickSave() {
   const nc = {
     id:    db.seq++,
     name,
-    phone: phone || "",
+    // 2026-07-31: mamlakat kodi bilan (mijozlar.js bilan bir xil qoida)
+    phone: (typeof phoneFullVal === "function" ? phoneFullVal("ac-phone") : "") || phone || "",
     type:  ($("ac-type")||{value:"ulgurji"}).value,
     note:  ($("ac-note")||{value:""}).value.trim()
   };

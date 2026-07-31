@@ -661,8 +661,21 @@ function phInput(inputId) {
   const c = _phSel[inputId] || _PH_COUNTRIES[0];
   const inp = document.getElementById(inputId);
   if (!inp) return;
-  let d = inp.value.replace(/\D/g, "").slice(0, c.max);
-  inp.value = d;
+  let d = inp.value.replace(/\D/g, "");
+
+  // 2026-07-31: ODATIY BOSHLANISHLARNI TANIYMIZ.
+  // Odam raqamni ko'pincha to'liq yozadi ("87012345678" yoki
+  // "77012345678", "998901234567"). Avval ortiqcha raqamlar
+  // OXIRIDAN kesilardi — Qozog'iston raqamida oxirgi raqam
+  // yo'qolib, mijoz telefoni noto'g'ri saqlanardi.
+  // Endi boshidagi ortiqcha kod olib tashlanadi.
+  const dial = String(c.dial || "").replace("+", "");
+  if (d.length > c.max) {
+    if (dial && d.startsWith(dial))       d = d.slice(dial.length);
+    else if (c.dial === "+7" && d[0] === "8") d = d.slice(1);   // 8701... → 701...
+    else if (d[0] === "0")                d = d.slice(1);       // 0XX... → XX...
+  }
+  inp.value = d.slice(0, c.max);
 }
 
 // To'liq raqam (saqlash uchun): +998901234567

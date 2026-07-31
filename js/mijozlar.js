@@ -959,8 +959,12 @@ function addCustomer() {
   const nc = {
     id:        db.seq++,
     name,
-    phone:     phone || "",
-    phone2:    ($("ac-phone2")||{value:""}).value.trim(),
+    // 2026-07-31: mamlakat kodi bilan saqlanadi (+7701..., +998901...).
+    // Avval bu yerda faqat maydondagi qism olinardi va kod tushib
+    // qolardi — chet el mijozlarining raqami chalkashardi.
+    phone:     (typeof phoneFullVal === "function" ? phoneFullVal("ac-phone") : "") || phone || "",
+    phone2:    (typeof phoneFullVal === "function" ? phoneFullVal("ac-phone2") : "")
+               || ($("ac-phone2")||{value:""}).value.trim(),
     type:      ($("ac-type")||{value:"ulgurji"}).value,
     company:   ($("ac-company")||{value:""}).value.trim(),
     note:      ($("ac-note")||{value:""}).value.trim(),
