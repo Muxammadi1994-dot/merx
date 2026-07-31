@@ -1195,7 +1195,13 @@ async function checkAppVersion() {
     _versionOk = !srv || !my || my === srv;
     _versionCheckedAt = Date.now();
     if (!_versionOk) {
-      console.warn("❗ YANGI VERSIYA BOR — sahifani yangilash kerak", { my, srv });
+      // Farqni ANIQ ko'rsatamiz — qaysi fayl mos kelmayotgani bilinsin
+      try {
+        const a = my.split("|"), b = srv.split("|");
+        console.warn("❗ Versiya farqi:",
+          { "DOMda bor, serverda yo'q": a.filter(x => !b.includes(x)),
+            "Serverda bor, DOMda yo'q": b.filter(x => !a.includes(x)) });
+      } catch(e) { console.warn("❗ Versiya farqi", { my, srv }); }
       // v177: Ctrl+Shift+R KERAK EMAS — bitta tugmali banner chiqadi,
       // tugma sahifani kesh chetlab qayta ochadi (?upd=vaqt bilan).
       _showUpdateBanner();
@@ -1229,20 +1235,39 @@ let _updScheduled = false;
 
 function _showUpdateBanner() { _autoUpdateWhenSafe(); }   // eski nom saqlandi
 
+// ⚠️ HALQA HIMOYASI: qayta yuklashdan keyin ham versiya mos kelmasa
+// (masalan server eski nusxani berayotgan bo'lsa) ilova cheksiz
+// qayta yuklanib qolardi. Endi bir sessiyada KO'PI BILAN 2 marta
+// uriniladi, keyin jim to'xtaydi — foydalanuvchi ishlayveradi.
+function _updTries() {
+  try { return parseInt(sessionStorage.getItem("merx_upd_tries") || "0", 10) || 0; }
+  catch(e) { return 0; }
+}
+function _updTriesInc() {
+  try { sessionStorage.setItem("merx_upd_tries", String(_updTries() + 1)); } catch(e) {}
+}
+
 function _autoUpdateWhenSafe() {
   if (_updScheduled) return;
+  if (_updTries() >= 2) {
+    console.warn("⏸ Avtomat yangilash to'xtatildi (2 marta urinildi) — keyingi ochilishda qayta uriniladi");
+    return;
+  }
   _updScheduled = true;
   const tryNow = () => {
     let busy = false;
     try { busy = _rtBusyUI(); } catch(e) {}
-    // Yuborilmagan o'zgarish bo'lsa ham kutamiz — avval bulutga ketsin
-    if (typeof _syncPending !== "undefined" && _syncPending) busy = true;
-    if (busy) { setTimeout(tryNow, 20000); return; }
+    // ⚠️ _syncPending bo'lsa QAYTA YUKLAMAYMIZ: `beforeunload` qo'riqchisi
+    // brauzer tasdiq oynasini chiqarardi ("Perezagruzit sayt?").
+    // Avval o'zgarish bulutga ketsin — keyin jim qayta yuklaymiz.
+    if (typeof _syncPending !== "undefined" && _syncPending) {
+      try { flushCloudSync(true); } catch(e) {}
+      busy = true;
+    }
+    if (busy) { setTimeout(tryNow, 15000); return; }
+    _updTriesInc();
     console.log("🔄 Yangi versiya jim qo'llanmoqda...");
-    try { flushCloudSync && flushCloudSync(true); } catch(e) {}
-    setTimeout(() => {
-      location.replace(location.pathname + "?upd=" + Date.now());
-    }, 600);
+    location.replace(location.pathname + "?upd=" + Date.now());
   };
   setTimeout(tryNow, 4000);
 }
