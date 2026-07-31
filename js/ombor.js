@@ -24,6 +24,13 @@ const OM_ALL_COLS = [
 
 const OM_DEFAULT_COLS = Object.fromEntries(OM_ALL_COLS.map(c => [c.key, c.def]));
 
+// ── Sahifalash (2026-07-31) — katalog bilan bir xil uslub ──
+// Avval ombor ro'yxati BUTUNLAY chizilardi (1046 qator). Endi
+// bir sahifada 50 ta, pastda sahifa raqamlari.
+let _omPage = 1;
+function omGoPage(p) { _omPage = p; omRenderQoldiq(); pagerScrollTop("p-ombor"); }
+function omResetPage() { _omPage = 1; }
+
 function omGetCols() {
   return Object.assign({}, OM_DEFAULT_COLS, db.settings.omborCols || {});
 }
@@ -153,6 +160,7 @@ function omColsReset() {
 }
 
 function omSetFilter(f) {
+  try { omResetPage(); } catch(e) {}
   omStockFilter = f;
   document.querySelectorAll(".om-filter-btn").forEach(b =>
     b.classList.toggle("on", b.dataset.f === f));
@@ -321,7 +329,11 @@ function omRenderQoldiq() {
     <th></th>
   </tr>`;
 
-  const tbody = rows.length ? rows.map(r => {
+  // 2026-07-31: sahifalash. Pastdagi jamlanma (jami dona, qiymat)
+  // TO'LIQ ro'yxatdan hisoblanadi — o'zgarmadi.
+  _omPage = clampPage(_omPage, rows.length);
+  const _omPager = pagerRow(14, rows.length, _omPage, "omGoPage", "qator");
+  const tbody = rows.length ? pageSlice(rows, _omPage).map(r => {
     const qBadge = `<span style="font-size:12.5px;color:var(--mut)">${r.qty} ${r.unit}</span>`;
 
     const boxCell = r.boxes != null
@@ -396,7 +408,7 @@ function omRenderQoldiq() {
         </button>
       </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="14" class="empty-td">
+  }).join("") + _omPager : `<tr><td colspan="14" class="empty-td">
     ${omStockFilter !== "all" ? "Bu filtrda mahsulot yo'q" : q ? `"${q}" topilmadi` : "Mahsulot yo'q"}
   </td></tr>`;
 
@@ -785,7 +797,8 @@ function deleteSupplier() {
   toast("Yetkazuvchi o'chirildi", "info");
 }
 
-function omSearch() { renderOmbor(); }
+function omSearch() {
+  try { omResetPage(); } catch(e) {} renderOmbor(); }
 
 // ── Chiqimlar tarixi (Hisobdan chiqarish tab) ────
 const CHIQIM_SABABLAR = [

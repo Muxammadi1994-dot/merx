@@ -112,14 +112,10 @@ function toggleTarixCol(key, val) {
   renderTarix();
 }
 
-// Bir martada nechta qator chiziladi (2026-07-31)
-let _txLimit = 100;
-function txShowMore() {
-  _txLimit += 200;
-  renderTarix();
-}
-// Filtr yoki qidiruv o'zgarsa ro'yxat boshidan boshlanadi
-function txResetLimit() { _txLimit = 100; }
+// Sahifalash (2026-07-31) — katalog bilan bir xil uslub
+let _txPage = 1;
+function txGoPage(p) { _txPage = p; renderTarix(); pagerScrollTop("p-tarix"); }
+function txResetLimit() { _txPage = 1; }
 
 function renderTarix() {
   const q = ($("tarix-q")||{value:""}).value.toLowerCase().trim();
@@ -241,8 +237,8 @@ function renderTarix() {
   // Yuqoridagi jamlanma (KPI) hisoblari TO'LIQ ro'yxatdan olinadi —
   // ular o'zgarmadi.
   const _txTotal = list.length;
-  const _txShown = Math.min(_txLimit, _txTotal);
-  const _txList  = list.slice(0, _txShown);
+  _txPage = clampPage(_txPage, _txTotal);
+  const _txList = pageSlice(list, _txPage);
 
   // Har bir qatorni alohida try/catch bilan render qilamiz
   let html = "";
@@ -349,16 +345,7 @@ function renderTarix() {
     }
   });
 
-  if (_txShown < _txTotal) {
-    html += `<tr><td colspan="10" style="text-align:center;padding:14px">
-      <button class="btn btn-ghost" onclick="txShowMore()">
-        <i class="ti ti-chevron-down"></i> Yana 200 ta ko'rsatish
-      </button>
-      <div style="font-size:12px;color:var(--mut);margin-top:6px">
-        ${_txShown} / ${_txTotal} ta ko'rsatilgan
-      </div>
-    </td></tr>`;
-  }
+  html += pagerRow(10, _txTotal, _txPage, "txGoPage", "chek");
   tbody.innerHTML = html || `<tr><td colspan="10" class="empty-td">Render xatosi — console ni tekshiring</td></tr>`;
 }
 

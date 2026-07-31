@@ -224,9 +224,9 @@ function custSortToggle(key) {
 // AVVAL: barcha mijozlar (847 ta) birdan chizilardi, har qatorda
 // custStats + custSegment hisobi bor. Ro'yxat o'sgani sari
 // sekinlashardi. Endi 100 tadan chiziladi.
-let _mjLimit = 100;
-function mjShowMore() { _mjLimit += 200; renderMijozlar(); }
-function mjResetLimit() { _mjLimit = 100; }
+let _mjPage = 1;
+function mjGoPage(p) { _mjPage = p; renderMijozlar(); pagerScrollTop("p-mijozlar"); }
+function mjResetLimit() { _mjPage = 1; }
 
 function renderMijozlar() {
   // 2026-07-31: kesh tozalanadi — sahifa doim yangi ma'lumot ko'rsatsin
@@ -323,16 +323,9 @@ function renderMijozlar() {
   // 2026-07-31: faqat birinchi _mjLimit ta chiziladi. Yuqoridagi
   // jamlanma raqamlar TO'LIQ ro'yxatdan hisoblanadi — o'zgarmadi.
   const _mjTotal = list.length;
-  const _mjShown = Math.min(_mjLimit, _mjTotal);
-  const _mjMore  = _mjShown < _mjTotal
-    ? `<tr><td colspan="${colCount}" style="text-align:center;padding:14px">
-         <button class="btn btn-ghost" onclick="mjShowMore()">
-           <i class="ti ti-chevron-down"></i> Yana 200 ta ko'rsatish</button>
-         <div style="font-size:12px;color:var(--mut);margin-top:6px">
-           ${_mjShown} / ${_mjTotal} ta ko'rsatilgan</div>
-       </td></tr>`
-    : "";
-  $("mijozlar-body").innerHTML = list.length ? list.slice(0, _mjShown).map(c => {
+  _mjPage = clampPage(_mjPage, _mjTotal);
+  const _mjMore = pagerRow(colCount, _mjTotal, _mjPage, "mjGoPage", "mijoz");
+  $("mijozlar-body").innerHTML = list.length ? pageSlice(list, _mjPage).map(c => {
     const st  = custStats(c.id);
     const seg = custSegment(st, c);
     const limitWarn = c.debtLimit && (st.totalDebt+(st.totalDebtUsd||0)*(db.settings?.rate||12800)) >= c.debtLimit * 0.8;

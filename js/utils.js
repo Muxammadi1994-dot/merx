@@ -366,6 +366,61 @@ async function appHardReload() {
   setTimeout(() => { try { location.reload(); } catch(e) {} }, 250);
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// RO'YXAT SAHIFALASH — YAGONA MANBA (2026-07-31)
+// ══════════════════════════════════════════════════════════════
+// Talab: o'sib boradigan HAMMA ro'yxat bir xil ishlasin — bir
+// sahifada 50 ta, pastda sahifa raqamlari. Avval katalogda shunday
+// edi, tarix/mijozlarda "yana ko'rsatish" tugmasi, omborda esa
+// umuman yo'q edi.
+// Uslub katalogdan olindi, shuning uchun ko'rinish o'zgarmaydi.
+const LIST_PER_PAGE = 50;
+
+function pageCount(total) { return Math.ceil(total / LIST_PER_PAGE) || 1; }
+function clampPage(page, total) {
+  const tp = pageCount(total);
+  return (page > tp || page < 1) ? 1 : page;
+}
+function pageSlice(arr, page) {
+  const p = clampPage(page, arr.length);
+  return arr.slice((p - 1) * LIST_PER_PAGE, p * LIST_PER_PAGE);
+}
+
+// Jadval oxiriga qo'yiladigan sahifa qatori.
+// colspan — jadvaldagi ustunlar soni, goFn — sahifaga o'tish funksiyasi nomi.
+function pagerRow(colspan, total, page, goFn, unit) {
+  const totalPages = pageCount(total);
+  if (totalPages <= 1) return "";
+  const cur = clampPage(page, total);
+  const pages = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || Math.abs(i - cur) <= 2) pages.push(i);
+    else if (pages[pages.length - 1] !== "...") pages.push("...");
+  }
+  return `<tr class="pager-row"><td colspan="${colspan}" style="padding:0;background:#fff">
+    <div style="display:flex;align-items:center;gap:4px;padding:10px 18px;
+      border-top:1px solid var(--brd);flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--mut);margin-right:8px">${total} ta ${unit || "qator"}</span>
+      ${cur > 1 ? `<button class="btn btn-ghost btn-sm" onclick="${goFn}(${cur-1})">‹</button>` : ""}
+      ${pages.map(p => p === "..."
+        ? `<span style="padding:0 4px;color:var(--mut)">...</span>`
+        : `<button class="btn btn-sm ${p===cur?"btn-acc":"btn-ghost"}" onclick="${goFn}(${p})">${p}</button>`
+      ).join("")}
+      ${cur < totalPages ? `<button class="btn btn-ghost btn-sm" onclick="${goFn}(${cur+1})">›</button>` : ""}
+      <span style="font-size:12px;color:var(--mut);margin-left:8px">${cur}/${totalPages} sahifa</span>
+    </div>
+  </td></tr>`;
+}
+
+// Sahifa almashganda jadval tepasiga qaytamiz
+function pagerScrollTop(elId) {
+  try {
+    const el = document.getElementById(elId);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch(e) {}
+}
+
 function nav(p) {
   // Rol tekshiruvi — ruxsati yo'q sahifaga o'tmaslik
   if (typeof canAccessPage === "function" && !canAccessPage(p)) {

@@ -1,3 +1,9 @@
+// ── Sahifalash (2026-07-31) — katalog bilan bir xil uslub ──
+// Qarzdorlar soni ham o'sib boradi, shuning uchun bir xil qoida.
+let _dbPage = 1;
+function dbGoPage(p) { _dbPage = p; renderQarzlar(); pagerScrollTop("p-qarzlar"); }
+function dbResetPage() { _dbPage = 1; }
+
 // MERX qarzlar.js | v2.2 | 2026-06-06 06:00
 // ================================================
 // MERX — js/qarzlar.js  (v3 — To'liq qarz tizimi)
@@ -316,6 +322,7 @@ function renderDebtTrendChart() {
 }
 
 function setDebtFilter(f) {
+  try { dbResetPage(); } catch(e) {}
   debtFilter = f;
   document.querySelectorAll(".debt-filter-btn").forEach(b =>
     b.classList.toggle("on", b.dataset.f === f));
@@ -504,7 +511,11 @@ function renderDebtsList(list, rate) {
 
   if (!tbody) return;
   const colCount = 6 + [cols.phone,cols.items,cols.paid,cols.due,cols.status].filter(Boolean).length; // v179: +3 (To'lov usullari/$ Dollor/To'lov/Eslatma alohida)
-  tbody.innerHTML = list.length ? list.map(s => {
+  // 2026-07-31: sahifalash. Yuqoridagi jamlanma (jami qarz)
+  // TO'LIQ ro'yxatdan hisoblanadi — o'zgarmadi.
+  _dbPage = clampPage(_dbPage, list.length);
+  const _dbPager = pagerRow(colCount, list.length, _dbPage, "dbGoPage", "qarzdor");
+  tbody.innerHTML = list.length ? pageSlice(list, _dbPage).map(s => {
     const cu    = debtCust(s);
     const over  = isOverdue(s);
     const st    = calcSaleState(s);
@@ -576,7 +587,7 @@ function renderDebtsList(list, rate) {
           </div>` : `<span style="color:#ccc">—</span>`}
       </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="${colCount}" class="empty-td">
+  }).join("") + _dbPager : `<tr><td colspan="${colCount}" class="empty-td">
     ${debtFilter !== "all" ? "Bu filtrda qarz yo'q" : "Qarz yo'q 🎉"}
   </td></tr>`;
 }
