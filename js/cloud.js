@@ -681,11 +681,17 @@ async function pushToCloud() {
       return;
     }
   } catch(e) {}
-  // Versiya qo'riqchisi: eski kod bulutga YOZA OLMAYDI
-  if (await checkAppVersion() === false) {
-    console.warn("Cloud push bloklandi: ilova versiyasi eskirgan — Ctrl+Shift+R kerak");
-    return;
-  }
+  // ── VERSIYA QO'RIQCHISI (2026-07-31: YUMSHATILDI) ────────────
+  // AVVAL: versiya mos kelmasa push BUTUNLAY to'xtardi. Amalda bu
+  // xavfliroq bo'lib chiqdi — tekshiruv noto'g'ri ishlaganda do'kon
+  // ma'lumoti bulutga UMUMAN ketmay qolardi (sotuvlar faqat
+  // qurilmada qolib ketishi mumkin edi).
+  // ENDI: ogohlantiramiz, lekin YOZAMIZ. Ma'lumot yo'qolishi
+  // eskirgan koddan kelib chiqadigan xavfdan og'irroq.
+  try {
+    if (await checkAppVersion() === false)
+      console.warn("⚠️ Ilova versiyasi eskirgan — sinxron davom etmoqda, ilova tez orada yangilanadi");
+  } catch(e) {}
 
   // v181: navbatdagi partiya rasmlarni fayl omboriga ko'chirish
   // (bucket tayyor bo'lmasa — jim o'tib ketadi, hech narsa buzilmaydi)
@@ -1198,9 +1204,11 @@ async function checkAppVersion() {
       // Farqni ANIQ ko'rsatamiz — qaysi fayl mos kelmayotgani bilinsin
       try {
         const a = my.split("|"), b = srv.split("|");
-        console.warn("❗ Versiya farqi:",
-          { "DOMda bor, serverda yo'q": a.filter(x => !b.includes(x)),
-            "Serverda bor, DOMda yo'q": b.filter(x => !a.includes(x)) });
+        console.warn("❗ Versiya farqi → DOMda bor, serverda yo'q: " +
+          JSON.stringify(a.filter(x => !b.includes(x))) +
+          " | Serverda bor, DOMda yo'q: " +
+          JSON.stringify(b.filter(x => !a.includes(x))) +
+          " | DOM soni: " + a.length + ", server soni: " + b.length);
       } catch(e) { console.warn("❗ Versiya farqi", { my, srv }); }
       // v177: Ctrl+Shift+R KERAK EMAS — bitta tugmali banner chiqadi,
       // tugma sahifani kesh chetlab qayta ochadi (?upd=vaqt bilan).
