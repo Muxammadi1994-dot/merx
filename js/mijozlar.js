@@ -125,10 +125,41 @@ function custSegment(st, c) {
   return { key:"regular", label:"👤 Oddiy", color:"#4C9BE8", bg:"#DBEAFE" };
 }
 
+// ══════════════════════════════════════════════════════════════
+// custStats — TEZLIK TUZATISHI (2026-07-31)
+// ══════════════════════════════════════════════════════════════
+// AVVAL: filtr ichida `db.customers.find(...)` bor edi — ya'ni HAR
+// SOTUV uchun BARCHA mijozlar aylanardi. 874 sotuv × 856 mijoz =
+// 750 000 amal, bitta mijoz uchun. Sahifa esa buni har mijoz uchun
+// bir necha marta chaqiradi → milliardlab amal, ilova qotib qolardi.
+// Kichik do'konda sezilmagan (3 mijoz, 88 tovar).
+//
+// TUZATISH: mijozni BIR MARTA topamiz (natija bir xil — u yerda
+// aslida "shu mijozning ismi shu sotuvdagi ism bilan bir xilmi"
+// degan tekshiruv bor edi, xolos), va natijani keshlaymiz.
+let _csCache = new Map(), _csStamp = "";
+function _csStampNow() {
+  return (db.sales?.length || 0) + "/" + (db.customers?.length || 0) +
+         "/" + (db.debtPayments?.length || 0);
+}
+// Ma'lumot o'zgarganda keshni tozalash uchun (render boshida chaqiriladi)
+function custStatsClear() { _csCache.clear(); _csStamp = ""; }
+
 function custStats(custId) {
+  const st = _csStampNow();
+  if (st !== _csStamp) { _csCache.clear(); _csStamp = st; }
+  if (_csCache.has(custId)) return _csCache.get(custId);
+  const _res = _custStatsCalc(custId);
+  _csCache.set(custId, _res);
+  return _res;
+}
+
+function _custStatsCalc(custId) {
+  const _me   = db.customers.find(c => c.id === custId);
+  const _name = _me ? _me.name : null;
   const allSales = db.sales.filter(s =>
     s.customerId === custId ||
-    (s.customerName && db.customers.find(c => c.id === custId && c.name === s.customerName))
+    (_name && s.customerName === _name)
   );
   // Qaytarilmaganlar — xarid statistikasi uchun
   const sales    = allSales.filter(s => s.status !== "qaytarilgan");
@@ -189,6 +220,8 @@ function custSortToggle(key) {
 }
 
 function renderMijozlar() {
+  // 2026-07-31: kesh tozalanadi — sahifa doim yangi ma'lumot ko'rsatsin
+  try { custStatsClear(); } catch(e) {}
   // Tug'ilgan kun eslatmasi — bugun va yaqin 3 kun
   checkBirthdayAlerts();
   const q = ($("cust-q")||{value:""}).value.toLowerCase();
