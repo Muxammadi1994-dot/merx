@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=154">
+<link rel="stylesheet" href="style.css?v=155">
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display:inline-block; animation: spin .8s linear infinite; }
@@ -1069,9 +1069,9 @@
         </div>
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
-      <div style="padding:12px 18px 0">
-        <input id="kat-q" placeholder="Qidirish, ART, SKU, barcode..."
-            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" style="width:100%;font-family:inherit;font-size:14.5px;font-weight:500;border:2px solid #E8E5E0;border-radius:12px;padding:11px 14px;background:#F8F7F4;color:#0D1B2A;box-sizing:border-box;outline:none" oninput="renderKatalog()">
+      <div class="srch-row">
+        <input class="srch-inp" id="kat-q" placeholder="Qidirish, ART, SKU, barcode..."
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" oninput="renderKatalog()">
       </div>
       </div>
 
@@ -1207,10 +1207,9 @@
       </div>
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
-      <div style="padding:12px 18px 0">
-        <input id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch()"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}"
-          style="width:100%;font-family:inherit;font-size:14.5px;font-weight:500;border:2px solid #E8E5E0;border-radius:12px;padding:11px 14px;background:#F8F7F4;color:#0D1B2A;box-sizing:border-box;outline:none">
+      <div class="srch-row">
+        <input class="srch-inp" id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch()"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}">
       </div>
     </div>
 
@@ -1381,9 +1380,8 @@
         </div>
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
-      <div style="padding:12px 18px 0">
-        <input id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar()"
-            style="width:100%;font-family:inherit;font-size:14.5px;font-weight:500;border:2px solid #E8E5E0;border-radius:12px;padding:11px 14px;background:#F8F7F4;color:#0D1B2A;box-sizing:border-box;outline:none">
+      <div class="srch-row">
+        <input class="srch-inp" id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar()">
       </div>
       </div>
       <!-- Filtr qatori -->
@@ -1588,8 +1586,8 @@
         </div>
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
-      <div style="padding:12px 18px 0">
-        <input id="debt-q" placeholder="Mijoz, telefon qidirish..." style="width:100%;font-family:inherit;font-size:14.5px;font-weight:500;border:2px solid #E8E5E0;border-radius:12px;padding:11px 14px;background:#F8F7F4;color:#0D1B2A;box-sizing:border-box;outline:none" oninput="renderDebts()">
+      <div class="srch-row">
+        <input class="srch-inp" id="debt-q" placeholder="Mijoz, telefon qidirish..." oninput="renderDebts()">
       </div>
       </div>
       <!-- Mijoz topilmadi xabari (faqat guruhlangan rejimda kerak bo'lganda) -->
@@ -1639,8 +1637,7 @@
 
     <div class="card" style="margin-bottom:16px">
       <div style="display:flex;gap:8px;padding:14px 18px;flex-wrap:wrap;align-items:center">
-        <input id="qt-q" placeholder="Mijoz, chek raqami qidirish..." oninput="renderQarzlarTarixi()"
-          style="flex:1;min-width:200px;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px">
+        
         <div style="display:flex;gap:6px">
           <button class="qt-view-btn on" data-v="split" onclick="setQtViewMode('split')"
             style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#0D1B2A;color:#fff;font-size:12px;font-weight:600;cursor:pointer">
@@ -1651,6 +1648,9 @@
             Umumiy to'lov bo'yicha
           </button>
         </div>
+      </div>
+      <div class="srch-row">
+        <input class="srch-inp" id="qt-q" placeholder="Mijoz, chek raqami qidirish..." oninput="renderQarzlarTarixi()">
       </div>
       <div id="qt-status-bar" style="display:flex;gap:6px;padding:0 18px 14px;flex-wrap:wrap">
         <button class="qt-status-btn on" data-s="all" onclick="setQtStatus('all')"
@@ -1845,9 +1845,9 @@
       <div style="padding:0 18px 10px">
         <div style="position:relative">
           <i class="ti ti-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:#bbb;pointer-events:none"></i>
-          <input id="tarix-q" type="text" placeholder="Mijoz ismi, chek raqami, tovar nomi, telefon..."
+          <input class="srch-inp" id="tarix-q" type="text" placeholder="Mijoz ismi, chek raqami, tovar nomi, telefon..."
             oninput="renderTarix()"
-            style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:9px;padding:8px 36px 8px 34px;background:#fff;outline:none;box-sizing:border-box">
+            style="padding-left:34px">
           <button id="tarix-q-clr" onclick="$('tarix-q').value='';renderTarix();this.style.display='none'"
             style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#bbb;font-size:16px;line-height:1;padding:0">×</button>
         </div>
@@ -2311,9 +2311,8 @@
         </div>
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
-      <div style="padding:12px 18px 0">
-        <input id="exp-q" placeholder="Qidirish..." oninput="renderMoliya()"
-            style="width:100%;font-family:inherit;font-size:14.5px;font-weight:500;border:2px solid #E8E5E0;border-radius:12px;padding:11px 14px;background:#F8F7F4;color:#0D1B2A;box-sizing:border-box;outline:none">
+      <div class="srch-row">
+        <input class="srch-inp" id="exp-q" placeholder="Qidirish..." oninput="renderMoliya()">
       </div>
       </div>
 
@@ -4927,7 +4926,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=163")
+    navigator.serviceWorker.register("/sw.js?v=164")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

@@ -725,3 +725,32 @@ tr:hover td{background:#FAFAF8}
   .pri-actions .btn { padding: 8px 9px !important; }
 }
 
+/* ══════════════════════════════════════════════════════════════
+   QIDIRUV QATORI (2026-08-01) — YAGONA USLUB
+   ══════════════════════════════════════════════════════════════
+   Talab: qidiruv alohida qatorda, to'liq kenglikda, chapdan
+   boshlansin va chegarasi YAQQOL ko'rinsin.
+   Avval inline `style` bilan edi va har sahifada har xil chiqardi;
+   xira fon (#F8F7F4 + och chegara) ko'zga tashlanmasdi.
+   Endi bitta klass — telefon ham avtomat to'g'ri bo'ladi. */
+.srch-row{padding:12px 18px 0}
+.srch-inp{
+  width:100%; box-sizing:border-box;
+  font-family:inherit; font-size:15px; font-weight:500;
+  color:#0D1B2A; background:#fff;
+  border:2px solid #C8C2B8; border-radius:12px;
+  padding:12px 16px; outline:none;
+  box-shadow:0 1px 3px rgba(0,0,0,.05);
+  transition:border-color .15s, box-shadow .15s;
+}
+.srch-inp::placeholder{color:#9CA3AF; font-weight:400}
+.srch-inp:hover{border-color:#A8A29A}
+.srch-inp:focus{
+  border-color:#E9A500; background:#fff;
+  box-shadow:0 0 0 4px rgba(233,165,0,.14);
+}
+/* Telefon: chetdan bo'shliq kichrayadi, o'lcham saqlanadi */
+@media (max-width:768px){
+  .srch-row{padding:10px 12px 0}
+  .srch-inp{font-size:16px; padding:11px 14px}  /* 16px — iOS zoom qilmasin */
+}
