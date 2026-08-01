@@ -425,11 +425,31 @@ async function pullDelta(noRender) {
     const staged = [];      // [{key, rows}]
     let maxTs = since, incoming = 0;
 
-    for (const [tbl, key] of _DELTA_TABLES) {
-      const rows = await _selectAll(() => _sb.from(tbl).select("*")
+    // ⚠️ 2026-08-02: SO'ROVLAR BIRGA YUBORILADI.
+    // Avval 8 ta jadval KETMA-KET so'ralardi va har biri sekin
+    // internetda ~0,5 soniya olardi — jami 4 soniya. Qator yo'q
+    // bo'lsa ham so'rov ketardi. Logda shu ko'rindi: bitta qator
+    // uchun "signaldan ekranga: 4,7 s".
+    // Endi hammasi bir vaqtda ketadi — jami bitta so'rov vaqti.
+    const _all = await Promise.all([
+      ..._DELTA_TABLES.map(([tbl]) => _selectAll(() => _sb.from(tbl).select("*")
         .eq("shop_id", sid)
         .gt("updated_at", _q)
-        .order("updated_at"), "delta:" + tbl);
+        .order("updated_at"), "delta:" + tbl)),
+      // Sozlamalar va o'chirilganlar daftari ham SHU to'plamda
+      _selectAll(() => _sb.from("settings").select("*")
+        .eq("shop_id", sid).gt("updated_at", _q), "delta:settings"),
+      _selectAll(() => _sb.from("deleted_records").select("*")
+        .eq("shop_id", sid).gt("deleted_at", _q)
+        .order("deleted_at"), "delta:deleted"),
+    ]);
+    const _results = _all.slice(0, _DELTA_TABLES.length);
+    const _setRows = _all[_DELTA_TABLES.length]     || [];
+    const dels     = _all[_DELTA_TABLES.length + 1] || [];
+
+    for (let _i = 0; _i < _DELTA_TABLES.length; _i++) {
+      const [tbl, key] = _DELTA_TABLES[_i];
+      const rows = _results[_i] || [];
       if (!rows.length) continue;
       // `data` bo'sh qator bo'lsa — eski, ishonchli yo'lga qaytamiz
       if (rows.some(r => !r.data || typeof r.data !== "object" || Array.isArray(r.data))) {
@@ -470,8 +490,7 @@ async function pullDelta(noRender) {
     // Delta ro'yxatiga qo'shib bo'lmaydi. Bo'sh qiymat lokalni
     // BOSMAYDI (pull'dagi qoida bilan bir xil).
     try {
-      const sr = await _selectAll(() => _sb.from("settings").select("*")
-        .eq("shop_id", sid).gt("updated_at", _q), "delta:settings");
+      const sr = _setRows;
       if (sr.length) {
         const st = sr[0];
         if (!db.settings) db.settings = {};
@@ -486,10 +505,6 @@ async function pullDelta(noRender) {
       }
     } catch(e) { console.warn("delta:settings", e.message); }
 
-    const dels = await _selectAll(() => _sb.from("deleted_records").select("*")
-      .eq("shop_id", sid)
-      .gt("deleted_at", _q)
-      .order("deleted_at"), "delta:deleted");
     dels.forEach(d => { if (d.deleted_at && d.deleted_at > maxTs) maxTs = d.deleted_at; });
 
     // ── QO'RIQCHI 2: so'rov davomida lokal o'zgardimi? ──
