@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=156">
+<link rel="stylesheet" href="style.css?v=157">
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display:inline-block; animation: spin .8s linear infinite; }
@@ -1069,13 +1069,14 @@
         </div>
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
+      
+      </div>
       <div class="srch-row">
         <div style="position:relative">
         <input class="srch-inp" id="kat-q" placeholder="Qidirish, ART, SKU, barcode..."
             onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" oninput="renderKatalog();srchClr('kat-q')">
         <button id="kat-q-clr" class="srch-clr" style="display:none"
           onclick="$('kat-q').value='';renderKatalog();srchClr('kat-q')">×</button>
-      </div>
       </div>
       </div>
 
@@ -1211,6 +1212,8 @@
       </div>
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
+      
+    </div>
       <div class="srch-row">
         <div style="position:relative">
         <input class="srch-inp" id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch();srchClr('om-q')"
@@ -1219,7 +1222,6 @@
           onclick="$('om-q').value='';omSearch();srchClr('om-q')">×</button>
       </div>
       </div>
-    </div>
 
     <!-- Ustunlarni sozlash paneli (modal, Katalogga o'xshash) -->
     <div id="om-cols-panel" style="display:none"></div>
@@ -1388,12 +1390,13 @@
         </div>
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
+      
+      </div>
       <div class="srch-row">
         <div style="position:relative">
         <input class="srch-inp" id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar();srchClr('cust-q')">
         <button id="cust-q-clr" class="srch-clr" style="display:none"
           onclick="$('cust-q').value='';mjResetLimit();renderMijozlar();srchClr('cust-q')">×</button>
-      </div>
       </div>
       </div>
       <!-- Filtr qatori -->
@@ -1598,12 +1601,13 @@
         </div>
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
+      
+      </div>
       <div class="srch-row">
         <div style="position:relative">
         <input class="srch-inp" id="debt-q" placeholder="Mijoz, telefon qidirish..." oninput="renderDebts();srchClr('debt-q')">
         <button id="debt-q-clr" class="srch-clr" style="display:none"
           onclick="$('debt-q').value='';renderDebts();srchClr('debt-q')">×</button>
-      </div>
       </div>
       </div>
       <!-- Mijoz topilmadi xabari (faqat guruhlangan rejimda kerak bo'lganda) -->
@@ -2331,12 +2335,13 @@
         </div>
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
+      
+      </div>
       <div class="srch-row">
         <div style="position:relative">
         <input class="srch-inp" id="exp-q" placeholder="Qidirish..." oninput="renderMoliya();srchClr('exp-q')">
         <button id="exp-q-clr" class="srch-clr" style="display:none"
           onclick="$('exp-q').value='';renderMoliya();srchClr('exp-q')">×</button>
-      </div>
       </div>
       </div>
 
@@ -4950,7 +4955,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=165")
+    navigator.serviceWorker.register("/sw.js?v=166")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

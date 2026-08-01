@@ -737,9 +737,13 @@ tr:hover td{background:#FAFAF8}
    kenglikda bo'lishi kerak. `flex:1 0 100%` — flex konteyner ichida
    butun qatorni egallaydi; oddiy blok ichida ta'sirsiz.
    `order:99` — sarlavha va tugmalardan KEYIN turadi. */
-.srch-row{flex:1 0 100%; order:99; padding:12px 18px 0; box-sizing:border-box}
-/* .ch da allaqachon 18px yon bo'shliq bor — ikki marta bo'lmasin */
-.ch > .srch-row{padding:2px 0 0}
+/* Qator endi HAR DOIM oddiy blok ichida (.card yoki .pg) —
+   flex qoidalariga bog'liq emas, shuning uchun to'liq kenglik
+   kafolatlangan. `flex` va `width` zaxira sifatida qoldirildi. */
+.srch-row{width:100%; flex:1 0 100%; padding:12px 18px 14px; box-sizing:border-box}
+/* Ombor sahifasida qator to'g'ridan .pg ichida — u yerda yon
+   bo'shliq allaqachon bor, ikki marta bo'lmasin */
+.pg > .srch-row{padding:0 0 14px}
 .srch-inp{
   width:100%; box-sizing:border-box;
   font-family:inherit; font-size:15px; font-weight:500;
@@ -757,7 +761,8 @@ tr:hover td{background:#FAFAF8}
 }
 /* Telefon: chetdan bo'shliq kichrayadi, o'lcham saqlanadi */
 @media (max-width:768px){
-  .srch-row{padding:10px 12px 0}
+  .srch-row{padding:10px 12px 12px}
+  .pg > .srch-row{padding:0 0 12px}
   .srch-inp{font-size:16px; padding:11px 14px}  /* 16px — iOS zoom qilmasin */
 }
 
