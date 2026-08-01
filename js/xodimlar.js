@@ -828,6 +828,11 @@ function openStaffModal(editId = null) {
     </div>`;
 
   document.body.appendChild(modal);
+  // 2026-08-01: TELEFONNI FORMAGA YUKLASH.
+  // Saqlangan qiymat "+998901231212" ko'rinishida. Uni mamlakat
+  // kodi va raqamga ajratish kerak, aks holda maydon BO'SH ko'rinardi
+  // va saqlaganda telefon o'chib ketardi.
+  try { if (isEdit && s?.phone) phoneWidgetLoad("as-phone", s.phone); } catch(e) {}
   setTimeout(() => document.getElementById("as-name")?.focus(), 50);
 }
 

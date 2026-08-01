@@ -115,17 +115,48 @@ function _phKey(v) {
   return d;
 }
 
+// Xodimlarni qidirish: joriy `db` dan TASHQARI, saqlangan barcha
+// do'kon bazalaridan ham. Sabab: chiqishda `authLogout` db ni
+// almashtiradi va `db.staff` BO'SH qoladi — xodim login oynasida
+// hech qachon topilmasdi.
+function _allStaff() {
+  const out = [];
+  const seen = new Set();
+  const add = (arr, sid) => (arr || []).forEach(x => {
+    const k = sid + ":" + x.id;
+    if (!seen.has(k)) { seen.add(k); out.push({ ...x, _sid: sid }); }
+  });
+  try { add(db?.staff, getShopId()); } catch(e) {}
+  try {
+    for (const k of Object.keys(localStorage)) {
+      if (!k.startsWith("merx_v5")) continue;
+      const sid = k === "merx_v5" ? "local" : k.slice("merx_v5_".length);
+      try { add(JSON.parse(localStorage.getItem(k) || "{}").staff, sid); } catch(e) {}
+    }
+  } catch(e) {}
+  return out;
+}
+
 function authStaffLogin(phone, password) {
   const key = _phKey(phone);
   const pin = String(password || "").trim();
-  const staff = (db.staff||[]).find(s => _phKey(s.phone) === key && String(s.pin||"").trim() === pin);
+  const staff = _allStaff().find(s =>
+    _phKey(s.phone) === key && String(s.pin||"").trim() === pin);
   if (!staff) return { ok: false, error: "Telefon yoki PIN noto'g'ri" };
-  const sid   = getShopId();
+  // Xodim qaysi do'konda ro'yxatdan o'tgan bo'lsa — o'shanga kiradi
+  const sid   = staff._sid || getShopId();
   const dbKey = sid === "local" ? "merx_v5" : "merx_v5_" + sid;
   const user  = {
     id: "staff_" + staff.id, email: staff.phone,
     staffId: staff.id, shopId: sid, dbKey,
-    shopName: db?.shop?.name || "MERX Do'koni",
+    // Do'kon nomi xodimning O'Z do'koni bazasidan
+    shopName: (() => {
+      try {
+        if (sid === getShopId()) return db?.shop?.name || "MERX Do'koni";
+        const raw = localStorage.getItem(dbKey);
+        return (raw ? JSON.parse(raw)?.shop?.name : null) || "MERX Do'koni";
+      } catch(e) { return "MERX Do'koni"; }
+    })(),
     role: staff.role || "kassir", name: staff.name
   };
   authSave(user);
