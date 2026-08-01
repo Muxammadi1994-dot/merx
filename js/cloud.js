@@ -319,13 +319,32 @@ const _PULL_MARGIN_MS = 45 * 1000;
 // TUZATILDI: endi HAQIQIY eng katta vaqt saqlanadi. Chekinish faqat
 // SO'ROV paytida qo'llanadi (_sinceQuery). Avval chekinish saqlashda
 // qo'llanib, belgi hech qachon oldinga siljimasdi.
-function _setLastPull(sid, iso) {
-  try { if (iso) localStorage.setItem(_lastPullKey(sid), iso); } catch(e) {}
+// ⚠️ 2026-08-02: CHEKINISH ENDI FAQAT TO'LIQ PULL'DA.
+// XATO: chekinish HAR so'rovda qo'llanardi. Hamma qator bitta paytda
+// yozilsa (masalan bir martalik to'liq qayta yozish), ularning vaqti
+// `T` bo'ladi. Delta `T` ni belgi qilib saqlaydi, lekin so'rov doim
+// `T − 45s` dan boshlanadi — yangi yozuv bo'lmasa belgi `T` da
+// QOTADI va o'sha qatorlar ABADIY qaytaveradi.
+// Logda shu ko'rindi: products=87, sales=129, ombor=202 har safar
+// bir xil, delta 5-6 soniya olardi.
+//
+// ENDI:
+//   · to'liq pull — chekinish BILAN saqlanadi (u bir necha soniya
+//     davom etadi, oraliqda o'zgargan qator o'tkazib yuborilmasin)
+//   · delta — chekinishSIZ, aniq vaqt saqlanadi (delta tez, poyga yo'q)
+function _setLastPull(sid, iso, withMargin) {
+  try {
+    if (!iso) return;
+    let v = iso;
+    if (withMargin) {
+      const t = Date.parse(iso);
+      if (!isNaN(t)) v = new Date(t - _PULL_MARGIN_MS).toISOString();
+    }
+    localStorage.setItem(_lastPullKey(sid), v);
+  } catch(e) {}
 }
-function _sinceQuery(iso) {
-  const t = Date.parse(iso);
-  return isNaN(t) ? iso : new Date(t - _PULL_MARGIN_MS).toISOString();
-}
+// So'rov endi belgini o'zgartirmasdan ishlatadi
+function _sinceQuery(iso) { return iso; }
 
 // Delta qamrab oladigan jadvallar: bulut ustuni → lokal massiv
 const _DELTA_TABLES = [
@@ -1762,7 +1781,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     try {
       let _mx = null;
       (salesData||[]).forEach(r => { if (r.updated_at && (!_mx || r.updated_at > _mx)) _mx = r.updated_at; });
-      if (_mx) _setLastPull(sid, _mx);
+      if (_mx) _setLastPull(sid, _mx, true);   // to'liq pull — chekinish bilan
     } catch(e) {}
     if (salesData && salesData.length > 0) {
       db.sales = salesData.map(s => {
