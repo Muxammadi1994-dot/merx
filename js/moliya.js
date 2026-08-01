@@ -980,7 +980,14 @@ function deleteExp(id) {
   const info = x.recipient ? ` (${x.recipient})` : "";
   if (!confirm(`${catIcon} ${x.category}${info}\n${fmt(x.amount)} so'm — o'chirilsinmi?`)) return;
   db.xarajatlar = db.xarajatlar.filter(e => e.id !== id);
-  saveDB(); renderMoliya();
+  // 2026-08-02: BULUTGA HAM AYTAMIZ (kontekst §5.3 — chala ish edi).
+  // Avval `queueCloudDelete` chaqirilmasdi: xarajat faqat qurilmadan
+  // o'chib, keyingi tortishda bulutdagi nusxa QAYTIB kelardi.
+  // Mijozlarda ham xuddi shu bo'lgan edi.
+  try { if (typeof queueCloudDelete === "function") queueCloudDelete("xarajatlar", "id", id); } catch(e) {}
+  saveDB();
+  try { if (typeof flushCloudSync === "function") flushCloudSync(true); } catch(e) {}
+  renderMoliya();
   toast("Xarajat o'chirildi");
 }
 

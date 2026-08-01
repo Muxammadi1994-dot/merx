@@ -1650,8 +1650,58 @@ function showDebtPaymentReceipt(payment) {
     <div class="ft2">${cfg.shopName || shopName} · ${payment.date}</div>
     ${(Array.isArray(cfg.extraLines) && cfg.extraLines.length) ? `<div style="text-align:center;font-size:11px;color:#333;padding:2px 6px 6px">${cfg.extraLines.filter(Boolean).map(t=>`<div>${t}</div>`).join("")}</div>` : ""}
   </div>
-  <script>window.onload=()=>setTimeout(()=>window.print(),300);<\/script>
+  <div style="height:64px"></div>
+  <div id="chek-bar" style="position:fixed;left:0;right:0;bottom:0;
+    display:flex;gap:8px;padding:10px 12px;background:#fff;
+    border-top:1px solid #ddd;box-shadow:0 -2px 8px rgba(0,0,0,.08)">
+    <button onclick="window.print()" style="flex:1;padding:13px;font-size:15px;
+      font-weight:700;border:none;border-radius:10px;background:#0D1B2A;
+      color:#fff;cursor:pointer">🖨 Chop etish</button>
+    <button onclick="window.close?window.close():history.back()"
+      style="flex:1;padding:13px;font-size:15px;font-weight:700;
+      border:1.5px solid #ccc;border-radius:10px;background:#fff;
+      color:#333;cursor:pointer">✕ Yopish</button>
+  </div>
+  <script>
+  // 2026-08-02: iOS TUZATISHI.
+  // Avval chek ochilishi bilan window.print() AVTOMAT ishlardi va
+  // iPhone'da chop etish oynasi yopilgach sahifa javob bermay qolardi.
+  // Ustiga PWA rejimida yangi oyna ochilmaydi — orqaga tugmasi ham
+  // bo'lmasdi, foydalanuvchi qamalib qolardi.
+  // Endi: pastda doimiy "Chop etish" va "Yopish" tugmalari,
+  // avtomat chop etish esa FAQAT iOS'DAN TASHQARI qurilmalarda.
+  var _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+               (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (!_isIOS) window.onload = function(){ setTimeout(function(){ window.print(); }, 300); };
+  <\/script>
   </body></html>`;
+
+  // ⚠️ 2026-08-02: iOS/PWA da `window.open` ishonchsiz — bloklanadi yoki
+  // orqaga qaytish yo'li qolmaydi. Shu sabab u yerda chek SHU SAHIFADA,
+  // to'liq ekranli qatlamda ochiladi (yopish tugmasi bilan).
+  const _iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+               (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const _standalone = window.matchMedia("(display-mode: standalone)").matches ||
+                      window.navigator.standalone === true;
+
+  if (_iOS || _standalone) {
+    document.getElementById("chek-overlay")?.remove();
+    const ov = document.createElement("div");
+    ov.id = "chek-overlay";
+    ov.style.cssText = "position:fixed;inset:0;z-index:99999;background:#fff";
+    ov.innerHTML =
+      '<iframe id="chek-frame" style="width:100%;height:100%;border:none"></iframe>' +
+      '<button onclick="document.getElementById(\'chek-overlay\').remove()" ' +
+      'style="position:fixed;top:10px;right:12px;z-index:100000;width:40px;height:40px;' +
+      'border-radius:50%;border:none;background:#0D1B2A;color:#fff;font-size:20px;' +
+      'cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)">✕</button>';
+    document.body.appendChild(ov);
+    const fr = ov.querySelector("#chek-frame");
+    fr.contentDocument.open();
+    fr.contentDocument.write(html);
+    fr.contentDocument.close();
+    return;
+  }
 
   const w = window.open("", "_blank", "width=380,height=640");
   if (!w) { toast("Pop-up bloklangan — brauzerga ruxsat bering", "err"); return; }
