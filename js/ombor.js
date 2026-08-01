@@ -763,6 +763,8 @@ function openEditSupplier(id) {
 }
 
 function saveSupplier() {
+  if (typeof requireUse === "function" && !requireUse("ombor")) return;
+
   const name  = ($("sup-name")||{value:""}).value.trim();
   const phone = ($("sup-phone")||{value:""}).value.trim();
   const note  = ($("sup-note")||{value:""}).value.trim();
@@ -1261,6 +1263,8 @@ function omImgView(sku, color) {
 // ⚠️ O'ta ehtiyot: har qadam tasdiqlanadi, sotilgan tovar tekshiriladi.
 // ═══════════════════════════════════════════════════════════════
 function omDeleteKirim(id) {
+  if (typeof requireUse === "function" && !requireUse("ombor")) return;
+
   const o = (db.ombor || []).find(x => x.id === id);
   if (!o) { toast("Kirim topilmadi", "err"); return; }
 

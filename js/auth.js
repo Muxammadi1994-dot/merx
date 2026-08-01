@@ -192,8 +192,67 @@ const PAGE_ROLES = {
   hisobot:"menejer", xodimlar:"menejer", moliya:"menejer",
   egasi:"admin", portal:"admin",
 };
+// ══════════════════════════════════════════════════════════════
+// RUXSATLAR — KO'RISH / ISHLATISH (2026-08-02)
+// ══════════════════════════════════════════════════════════════
+// Avval kirish FAQAT rol darajasi bilan hal qilinardi va admin uni
+// o'zgartira olmasdi. Endi har xodimga har sahifa bo'yicha ikki
+// daraja: ko'rish (faqat o'qish) va ishlatish (to'liq).
+//
+// XAVFSIZLIK IKKI QATLAMDA:
+//   1. UI — tugmalar yashiriladi/o'chiriladi (qulaylik uchun)
+//   2. `requireUse()` — yozish funksiyalarining ICHIDA tekshiriladi.
+//      Tugmani chetlab o'tgan holatda ham amal bajarilmaydi.
+//
+// ORQAGA MOSLIK: xodimda `perms` bo'lmasa (eski yozuvlar) — hozirgi
+// rol qoidasi ishlaydi, ya'ni hech narsa buzilmaydi.
+
+function _myPerms() {
+  try {
+    const u = _authUser;
+    if (!u || !u.staffId) return null;              // egasi/superadmin — cheklovsiz
+    const st = (db.staff || []).find(x => x.id === u.staffId);
+    return (st && st.perms && typeof st.perms === "object") ? st.perms : null;
+  } catch(e) { return null; }
+}
+
+// Sahifani OCHISH mumkinmi
 function canAccessPage(page) {
-  return hasRole(PAGE_ROLES[page] || "admin");
+  // Sozlamalar har doim faqat egada — galochka bilan ham berilmaydi
+  if (page === "egasi" || page === "portal") return hasRole("admin");
+  const p = _myPerms();
+  if (p && p[page]) return !!p[page].view;
+  return hasRole(PAGE_ROLES[page] || "admin");      // eski qoida (zaxira)
+}
+
+// Sahifada AMAL bajarish mumkinmi
+function canUsePage(page) {
+  const u = _authUser;
+  if (!u) return false;
+  if (!u.staffId) return true;                      // egasi/superadmin
+  const p = _myPerms();
+  if (p && p[page]) return !!p[page].use;
+  return hasRole(PAGE_ROLES[page] || "admin");      // eski qoida (zaxira)
+}
+
+// ⚠️ YOZISH FUNKSIYALARI SHU BILAN QO'RIQLANADI.
+// Ishlatish: `if (!requireUse("katalog")) return;`
+// Ruxsat yo'q bo'lsa xabar chiqadi va `false` qaytadi.
+function requireUse(page) {
+  if (canUsePage(page)) return true;
+  try { toast("⛔ Sizda bu bo'limda faqat ko'rish huquqi bor", "err"); } catch(e) {}
+  return false;
+}
+
+// Joriy sahifani "faqat ko'rish" holatiga o'tkazish (UI qatlami)
+function applyViewOnlyUI() {
+  try {
+    document.querySelectorAll(".pg").forEach(pg => {
+      const page = pg.id.replace(/^p-/, "");
+      const ro = !canUsePage(page);
+      pg.classList.toggle("view-only", ro);
+    });
+  } catch(e) {}
 }
 
 // ── applyRoleUI ───────────────────────────────────
@@ -224,6 +283,8 @@ function applyRoleUI() {
   document.querySelectorAll(".menejer-only").forEach(el => {
     el.style.display = hasRole("menejer") ? "" : "none";
   });
+  // 2026-08-02: "faqat ko'rish" sahifalarini belgilaymiz
+  try { applyViewOnlyUI(); } catch(e) {}
 }
 
 // ── initAuth ─────────────────────────────────────

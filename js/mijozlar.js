@@ -680,6 +680,8 @@ function editCustomer(id) {
 // ── Yangi mijoz qo'shish ──────────────────────────
 // ── Mijoz o'chirish ───────────────────────────────
 function deleteCust(id) {
+  if (typeof requireUse === "function" && !requireUse("mijozlar")) return;
+
   const c = db.customers.find(x => x.id === id); if (!c) return;
   const st = custStats(id);
 
@@ -963,6 +965,8 @@ function resetCustForm() {
 function openAddCustomer() { resetCustForm(); openModal("addcust"); }
 
 function addCustomer() {
+  if (typeof requireUse === "function" && !requireUse("mijozlar")) return;
+
   const name  = ($("ac-name")||{value:""}).value.trim();
   const phone = ($("ac-phone")||{value:""}).value.trim();
   if (!name) { toast("Ism kiriting","err"); return; }
@@ -1078,6 +1082,8 @@ function odAmtInput(el) {
 }
 
 function saveOldDebt() {
+  if (typeof requireUse === "function" && !requireUse("mijozlar")) return;
+
   const c = db.customers.find(x => x.id === _oldDebtCustId);
   if (!c) { toast("Mijoz topilmadi", "err"); return; }
 

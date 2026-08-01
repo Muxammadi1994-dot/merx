@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=158">
+<link rel="stylesheet" href="style.css?v=159">
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display:inline-block; animation: spin .8s linear infinite; }
@@ -1176,22 +1176,22 @@
     <div class="om-kpis" id="om-kpi-row"></div>
 
     <!-- Tab bar + amallar -->
-    <div class="om-tabbar">
-      <div class="om-tabs">
-        <button class="om-tab on" data-tab="qoldiq" onclick="omSetTab('qoldiq')">
+    <div data-viewok class="om-tabbar">
+      <div data-viewok class="om-tabs">
+        <button data-viewok class="om-tab on" data-tab="qoldiq" onclick="omSetTab('qoldiq')">
           <i class="ti ti-package"></i> Joriy qoldiq
         </button>
-        <button class="om-tab" data-tab="kirim" onclick="omSetTab('kirim')">
+        <button data-viewok class="om-tab" data-tab="kirim" onclick="omSetTab('kirim')">
           <i class="ti ti-arrow-down-circle"></i> Kirim tarixi
         </button>
-        <button class="om-tab" data-tab="sup" onclick="omSetTab('sup')">
+        <button data-viewok class="om-tab" data-tab="sup" onclick="omSetTab('sup')">
           <i class="ti ti-truck"></i> Yetkazuvchilar
         </button>
-        <button class="om-tab" data-tab="kam" onclick="omSetTab('kam')" id="om-tab-kam-btn"
+        <button data-viewok class="om-tab" data-tab="kam" onclick="omSetTab('kam')" id="om-tab-kam-btn"
           style="color:#d97706;border-color:#fde68a">
           <i class="ti ti-alert-triangle"></i> Kam qoldiq
         </button>
-        <button class="om-tab" data-tab="chiqim" onclick="omSetTab('chiqim')"
+        <button data-viewok class="om-tab" data-tab="chiqim" onclick="omSetTab('chiqim')"
           style="color:#E05A5A;border-color:#fca5a5">
           <i class="ti ti-minus-circle"></i> Chiqimlar
         </button>
@@ -1227,11 +1227,11 @@
     <div id="om-tab-qoldiq" class="card" style="overflow:hidden">
       <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--brd);flex-wrap:wrap">
         <span style="font-size:12px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Filtr:</span>
-        <button class="om-filter-btn on" data-f="all" onclick="omSetFilter('all')">Barchasi</button>
-        <button class="om-filter-btn" data-f="low" onclick="omSetFilter('low')">
+        <button data-viewok class="om-filter-btn on" data-f="all" onclick="omSetFilter('all')">Barchasi</button>
+        <button data-viewok class="om-filter-btn" data-f="low" onclick="omSetFilter('low')">
           <i class="ti ti-alert-triangle" style="font-size:12px"></i> Kam qoldiq (≤5)
         </button>
-        <button class="om-filter-btn" data-f="out" onclick="omSetFilter('out')">
+        <button data-viewok class="om-filter-btn" data-f="out" onclick="omSetFilter('out')">
           <i class="ti ti-x" style="font-size:12px"></i> Tugagan
         </button>
         <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
@@ -1263,11 +1263,11 @@
     <div id="om-tab-kirim" class="card" style="overflow-x:auto;display:none">
       <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--brd);flex-wrap:wrap">
         <span style="font-size:12px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Manba:</span>
-        <button class="om-filter-btn on" data-kf="all" onclick="omSetKirimFilter('all')">Barchasi</button>
-        <button class="om-filter-btn" data-kf="excel" onclick="omSetKirimFilter('excel')">
+        <button data-viewok class="om-filter-btn on" data-kf="all" onclick="omSetKirimFilter('all')">Barchasi</button>
+        <button data-viewok class="om-filter-btn" data-kf="excel" onclick="omSetKirimFilter('excel')">
           <i class="ti ti-file-spreadsheet" style="font-size:12px"></i> Excel import
         </button>
-        <button class="om-filter-btn" data-kf="manual" onclick="omSetKirimFilter('manual')">
+        <button data-viewok class="om-filter-btn" data-kf="manual" onclick="omSetKirimFilter('manual')">
           <i class="ti ti-edit" style="font-size:12px"></i> Qo'lda kiritilgan
         </button>
         <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
@@ -1396,19 +1396,19 @@
       <!-- Filtr qatori -->
       <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 18px 12px;border-bottom:1px solid var(--brd)">
         <div style="display:flex;background:var(--bg);border:1px solid var(--brd);border-radius:9px;padding:3px;gap:2px">
-          <button class="cust-filter-btn on" data-f="all" onclick="setCustFilter('all')"
+          <button data-viewok class="cust-filter-btn on" data-f="all" onclick="setCustFilter('all')"
             style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:#0D1B2A;color:#fff;cursor:pointer">Barchasi</button>
-          <button class="cust-filter-btn" data-f="ulgurji" onclick="setCustFilter('ulgurji')"
+          <button data-viewok class="cust-filter-btn" data-f="ulgurji" onclick="setCustFilter('ulgurji')"
             style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">📦 Ulgurji</button>
-          <button class="cust-filter-btn" data-f="chakana" onclick="setCustFilter('chakana')"
+          <button data-viewok class="cust-filter-btn" data-f="chakana" onclick="setCustFilter('chakana')"
             style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">👤 Chakana</button>
-          <button class="cust-filter-btn" data-f="debt" onclick="setCustFilter('debt')"
+          <button data-viewok class="cust-filter-btn" data-f="debt" onclick="setCustFilter('debt')"
             style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">💳 Qarzli</button>
-          <button class="cust-filter-btn" data-f="vip" onclick="setCustFilter('vip')"
+          <button data-viewok class="cust-filter-btn" data-f="vip" onclick="setCustFilter('vip')"
             style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">⭐ VIP</button>
-          <button class="cust-filter-btn" data-f="new" onclick="setCustFilter('new')"
+          <button data-viewok class="cust-filter-btn" data-f="new" onclick="setCustFilter('new')"
             style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">🆕 Yangi</button>
-          <button class="cust-filter-btn" data-f="inactive" onclick="setCustFilter('inactive')"
+          <button data-viewok class="cust-filter-btn" data-f="inactive" onclick="setCustFilter('inactive')"
             style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">💤 Faolsiz</button>
         </div>
       </div>
@@ -1569,10 +1569,10 @@
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           
           <div style="display:flex;gap:4px">
-            <button class="debt-filter-btn on" data-f="all"      onclick="setDebtFilter('all')">Barchasi</button>
-            <button class="debt-filter-btn"    data-f="overdue"  onclick="setDebtFilter('overdue')">⚠️ Muddati o'tgan</button>
-            <button class="debt-filter-btn"    data-f="usd"      onclick="setDebtFilter('usd')">💵 USD</button>
-            <button class="debt-filter-btn"    data-f="month"    onclick="setDebtFilter('month')">Bu oy</button>
+            <button data-viewok class="debt-filter-btn on" data-f="all"      onclick="setDebtFilter('all')">Barchasi</button>
+            <button data-viewok class="debt-filter-btn"    data-f="overdue"  onclick="setDebtFilter('overdue')">⚠️ Muddati o'tgan</button>
+            <button data-viewok class="debt-filter-btn"    data-f="usd"      onclick="setDebtFilter('usd')">💵 USD</button>
+            <button data-viewok class="debt-filter-btn"    data-f="month"    onclick="setDebtFilter('month')">Bu oy</button>
           </div>
           <button class="btn btn-sm" id="debt-group-btn" onclick="toggleDebtGroup()" title="Mijoz bo'yicha guruhlash">
             <i class="ti ti-users"></i> Guruhlab ko'rsatish
@@ -1667,19 +1667,19 @@
       </div>
       </div>
       <div id="qt-status-bar" style="display:flex;gap:6px;padding:0 18px 14px;flex-wrap:wrap">
-        <button class="qt-status-btn on" data-s="all" onclick="setQtStatus('all')"
+        <button data-viewok class="qt-status-btn on" data-s="all" onclick="setQtStatus('all')"
           style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;font-size:12.5px;font-weight:600;cursor:pointer">
           Barchasi <span id="qt-cnt-all">0</span>
         </button>
-        <button class="qt-status-btn" data-s="paid" onclick="setQtStatus('paid')"
+        <button data-viewok class="qt-status-btn" data-s="paid" onclick="setQtStatus('paid')"
           style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;color:var(--grn);font-size:12.5px;font-weight:600;cursor:pointer">
           🟢 To'liq to'langan <span id="qt-cnt-paid">0</span>
         </button>
-        <button class="qt-status-btn" data-s="partial" onclick="setQtStatus('partial')"
+        <button data-viewok class="qt-status-btn" data-s="partial" onclick="setQtStatus('partial')"
           style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;color:#D97706;font-size:12.5px;font-weight:600;cursor:pointer">
           🟡 Qisman to'langan <span id="qt-cnt-partial">0</span>
         </button>
-        <button class="qt-status-btn" data-s="unpaid" onclick="setQtStatus('unpaid')"
+        <button data-viewok class="qt-status-btn" data-s="unpaid" onclick="setQtStatus('unpaid')"
           style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;color:var(--red);font-size:12.5px;font-weight:600;cursor:pointer">
           🔴 To'lanmagan <span id="qt-cnt-unpaid">0</span>
         </button>
@@ -1832,17 +1832,17 @@
       <!-- 2-qator: Davr (segment) + Kalendar -->
       <div style="display:flex;align-items:center;gap:8px;padding:0 18px 10px;flex-wrap:wrap">
         <div style="display:flex;background:var(--bg);border:1px solid var(--brd);border-radius:9px;padding:3px;gap:2px">
-          <button class="tx-period-btn" data-p="yesterday" onclick="setTxPeriod('yesterday')"
+          <button data-viewok class="tx-period-btn" data-p="yesterday" onclick="setTxPeriod('yesterday')"
             style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Kecha</button>
-          <button class="tx-period-btn on" data-p="today" onclick="setTxPeriod('today')"
+          <button data-viewok class="tx-period-btn on" data-p="today" onclick="setTxPeriod('today')"
             style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:#0D1B2A;color:#fff;cursor:pointer">Bugun</button>
-          <button class="tx-period-btn" data-p="week" onclick="setTxPeriod('week')"
+          <button data-viewok class="tx-period-btn" data-p="week" onclick="setTxPeriod('week')"
             style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Hafta</button>
-          <button class="tx-period-btn" data-p="month" onclick="setTxPeriod('month')"
+          <button data-viewok class="tx-period-btn" data-p="month" onclick="setTxPeriod('month')"
             style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Oy</button>
-          <button class="tx-period-btn" data-p="year" onclick="setTxPeriod('year')"
+          <button data-viewok class="tx-period-btn" data-p="year" onclick="setTxPeriod('year')"
             style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Yil</button>
-          <button class="tx-period-btn" data-p="all" onclick="setTxPeriod('all')"
+          <button data-viewok class="tx-period-btn" data-p="all" onclick="setTxPeriod('all')"
             style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Barchasi</button>
         </div>
         <div style="display:flex;align-items:center;gap:5px">
@@ -2354,17 +2354,17 @@
         </select>
         <!-- Sana filtri: segment + kalendar -->
         <div style="display:flex;background:var(--bg);border:1px solid var(--brd);border-radius:9px;padding:3px;gap:2px">
-          <button class="exp-date-btn" data-p="all" onclick="setExpDatePeriod('all')"
+          <button data-viewok class="exp-date-btn" data-p="all" onclick="setExpDatePeriod('all')"
             style="padding:5px 10px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Barchasi</button>
-          <button class="exp-date-btn" data-p="yesterday" onclick="setExpDatePeriod('yesterday')"
+          <button data-viewok class="exp-date-btn" data-p="yesterday" onclick="setExpDatePeriod('yesterday')"
             style="padding:5px 10px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Kecha</button>
-          <button class="exp-date-btn on" data-p="today" onclick="setExpDatePeriod('today')"
+          <button data-viewok class="exp-date-btn on" data-p="today" onclick="setExpDatePeriod('today')"
             style="padding:5px 10px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:#0D1B2A;color:#fff;cursor:pointer">Bugun</button>
-          <button class="exp-date-btn" data-p="week" onclick="setExpDatePeriod('week')"
+          <button data-viewok class="exp-date-btn" data-p="week" onclick="setExpDatePeriod('week')"
             style="padding:5px 10px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Hafta</button>
-          <button class="exp-date-btn" data-p="month" onclick="setExpDatePeriod('month')"
+          <button data-viewok class="exp-date-btn" data-p="month" onclick="setExpDatePeriod('month')"
             style="padding:5px 10px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Oy</button>
-          <button class="exp-date-btn" data-p="year" onclick="setExpDatePeriod('year')"
+          <button data-viewok class="exp-date-btn" data-p="year" onclick="setExpDatePeriod('year')"
             style="padding:5px 10px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">Yil</button>
         </div>
         <div style="display:flex;align-items:center;gap:5px">
@@ -4725,19 +4725,19 @@
 
 <script src="js/db.js?v=165"></script>
 <script src="js/utils.js?v=208"></script>
-<script src="js/auth.js?v=186"></script>
+<script src="js/auth.js?v=187"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=219"></script>
 <script src="js/dashboard.js?v=157"></script>
-<script src="js/pos.js?v=230"></script>
-<script src="js/katalog.js?v=233"></script>
-<script src="js/ombor.js?v=166"></script>
-<script src="js/mijozlar.js?v=152"></script>
-<script src="js/qarzlar.js?v=189"></script>
+<script src="js/pos.js?v=231"></script>
+<script src="js/katalog.js?v=234"></script>
+<script src="js/ombor.js?v=167"></script>
+<script src="js/mijozlar.js?v=153"></script>
+<script src="js/qarzlar.js?v=190"></script>
 <script src="js/tarix.js?v=167"></script>
 <script src="js/hisobot.js?v=151"></script>
-<script src="js/xodimlar.js?v=146"></script>
-<script src="js/moliya.js?v=166"></script>
+<script src="js/xodimlar.js?v=147"></script>
+<script src="js/moliya.js?v=167"></script>
 <script src="js/egasi.js?v=169"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=149"></script>
@@ -4943,7 +4943,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=170")
+    navigator.serviceWorker.register("/sw.js?v=171")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

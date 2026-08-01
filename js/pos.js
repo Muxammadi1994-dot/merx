@@ -2080,6 +2080,8 @@ function refreshStaffList() {
 
 // ── Savdo yakunlash ───────────────────────────────
 async function checkout() {
+  if (typeof requireUse === "function" && !requireUse("sotuv")) return;
+
   if (!cart.length) { toast("Savatcha bo'sh","err"); return; }
   const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
   const discount = calcDiscount(subtotal);

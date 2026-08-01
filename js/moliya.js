@@ -905,6 +905,8 @@ function _expDefaultWho() {
 
 // ── Xarajat qo'shish ──────────────────────────────
 function addXarajat() {
+  if (typeof requireUse === "function" && !requireUse("moliya")) return;
+
   const cat      = ($("exp-cat-val")||{value:"Boshqa"}).value;
   const currency = ($("ax-currency")||{value:"uzs"}).value;
   const method   = ($("ax-pay-method")||{value:"naqd"}).value;
@@ -975,6 +977,8 @@ function addXarajat() {
 
 // ── Xarajatni o'chirish ───────────────────────────
 function deleteExp(id) {
+  if (typeof requireUse === "function" && !requireUse("moliya")) return;
+
   const x = (db.xarajatlar||[]).find(e => e.id === id); if (!x) return;
   const catIcon = ["🏠","👤","🚗","💡","📢","📦","🏛️","🔧","📋"][MOL_CATS.indexOf(x.category)] || "📋";
   const info = x.recipient ? ` (${x.recipient})` : "";

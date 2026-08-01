@@ -168,6 +168,8 @@ function updateBulkPreview() {
 }
 
 function applyBulkPrice() {
+  if (typeof requireUse === "function" && !requireUse("katalog")) return;
+
   const pct   = parseFloat(document.getElementById("bulk-pct")?.value) || 0;
   const type  = document.getElementById("bulk-type")?.value  || "chegirma";
   const field = document.getElementById("bulk-field")?.value || "chakana";
@@ -1234,6 +1236,8 @@ function epConfirmAddColor() {
 }
 
 function saveEditProduct() {
+  if (typeof requireUse === "function" && !requireUse("katalog")) return;
+
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   // NARX O'QISH TUZATISHI (v144): fmtInput qiymatni "540 000" ko'rinishida
   // formatlaydi — parseFloat probelda to'xtab 540 qilib yuborardi.
@@ -1306,6 +1310,8 @@ function saveEditProduct() {
 }
 
 function deleteProduct() {
+  if (typeof requireUse === "function" && !requireUse("katalog")) return;
+
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
 
   // Aktiv sotuvlarda bormi?
@@ -1593,6 +1599,8 @@ function apMixHint() {
 }
 
 function addProduct() {
+  if (typeof requireUse === "function" && !requireUse("katalog")) return;
+
   const name = ($("ap-name")||{value:""}).value.trim();
   if (!name) { toast("Nom kiriting","err"); return; }
 
@@ -2927,6 +2935,8 @@ function showImportPreview() {
 
 // ── Import tasdiqlash ─────────────────────────────
 function confirmImport() {
+  if (typeof requireUse === "function" && !requireUse("katalog")) return;
+
   if (!_importRows.length) return;
   // 2026-07-26: butun import uchun YAGONA vaqt muhri — aks holda har
   // tovarga o'z millisekundi tushib, "yangi birinchi" tartibi Excel
@@ -4146,6 +4156,8 @@ function _apVarReset() {
 // Jadvaldagi har rang uchun alohida tovar yaratiladi.
 // Kirim tarixida hammasi BITTA partiya bo'lib ko'rinadi.
 function apAddVariativ(name) {
+  if (typeof requireUse === "function" && !requireUse("katalog")) return;
+
   const rows = _apVarReadRows();
   if (!rows.length) { toast("Kamida bitta rang qo'shing", "err"); return; }
 

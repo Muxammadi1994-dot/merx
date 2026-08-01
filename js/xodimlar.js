@@ -495,6 +495,83 @@ function updateStaffPay(id, field, val) {
 }
 
 // ── Xodim qo'shish ────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// XODIM RUXSATLARI — KO'RISH / ISHLATISH (2026-08-02)
+// ══════════════════════════════════════════════════════════════
+// Avval kirish faqat ROL darajasi bilan hal qilinardi (ROLE_LEVELS)
+// va admin uni o'zgartira olmasdi. Endi har xodimga har sahifa
+// bo'yicha ikki galochka:
+//   · Ko'rish   — sahifani ocha oladi, lekin HECH QANDAY amal yo'q
+//   · Ishlatish — hamma kabi to'liq ishlaydi
+//
+// ⚠️ Sozlamalar (egasi) sahifasi bu ro'yxatda YO'Q — u har doim
+// faqat egada qoladi, galochka bilan ham berilmaydi.
+const PERM_PAGES = [
+  { key:"dashboard", lbl:"Dashboard"     },
+  { key:"sotuv",     lbl:"Sotuv (POS)"   },
+  { key:"katalog",   lbl:"Katalog"       },
+  { key:"ombor",     lbl:"Ombor"         },
+  { key:"mijozlar",  lbl:"Mijozlar"      },
+  { key:"qarzlar",   lbl:"Qarzlar"       },
+  { key:"qarztarix", lbl:"Qarzlar tarixi"},
+  { key:"tarix",     lbl:"Sotuv tarixi"  },
+  { key:"hisobot",   lbl:"Hisobot"       },
+  { key:"moliya",    lbl:"Moliya"        },
+  { key:"xodimlar",  lbl:"Xodimlar"      },
+];
+
+// Rol tanlanganda taklif qilinadigan standart holat.
+// Manba: egasi.js dagi ROLE_PERMS_TABLE (bir xil bo'lishi uchun).
+const PERM_DEFAULTS = {
+  kassir:   { dashboard:"use", sotuv:"use", katalog:"view", ombor:"",
+              mijozlar:"use", qarzlar:"view", qarztarix:"view", tarix:"view",
+              hisobot:"", moliya:"", xodimlar:"" },
+  menejer:  { dashboard:"use", sotuv:"use", katalog:"use", ombor:"use",
+              mijozlar:"use", qarzlar:"use", qarztarix:"use", tarix:"use",
+              hisobot:"use", moliya:"use", xodimlar:"use" },
+  omborchi: { dashboard:"view", sotuv:"", katalog:"view", ombor:"use",
+              mijozlar:"", qarzlar:"", qarztarix:"", tarix:"",
+              hisobot:"", moliya:"", xodimlar:"" },
+};
+
+// Formadagi galochkalarni o'qish → { katalog:{view:true,use:false}, ... }
+function _readPerms() {
+  const out = {};
+  PERM_PAGES.forEach(pg => {
+    const v = document.getElementById("as-pv-" + pg.key);
+    const u = document.getElementById("as-pu-" + pg.key);
+    out[pg.key] = {
+      view: !!(v && v.checked) || !!(u && u.checked),   // ishlatish → ko'rish ham
+      use:  !!(u && u.checked)
+    };
+  });
+  return out;
+}
+
+// Rol tanlanganda standartni qo'yish (faqat galochkalar bo'sh bo'lsa)
+function permApplyDefaults(role, force) {
+  const d = PERM_DEFAULTS[role];
+  if (!d) return;
+  PERM_PAGES.forEach(pg => {
+    const v = document.getElementById("as-pv-" + pg.key);
+    const u = document.getElementById("as-pu-" + pg.key);
+    if (!v || !u) return;
+    if (!force && (v.checked || u.checked)) return;
+    const lvl = d[pg.key] || "";
+    u.checked = lvl === "use";
+    v.checked = lvl === "use" || lvl === "view";
+  });
+}
+
+// "Ishlatish" belgilansa "Ko'rish" ham avtomat yoqiladi
+function permSync(key) {
+  const v = document.getElementById("as-pv-" + key);
+  const u = document.getElementById("as-pu-" + key);
+  if (!v || !u) return;
+  if (u.checked) v.checked = true;
+  if (!v.checked) u.checked = false;
+}
+
 function _getStaffFormData() {
   const permDiscount = ($("as-perm-discount")||{checked:false}).checked;
   return {
@@ -520,6 +597,8 @@ function _getStaffFormData() {
     note:        ($("as-note")     ||{value:""}).value.trim(),
     permDiscount,
     maxDiscount: permDiscount ? (parseFloat(($("as-max-discount")||{value:"0"}).value)||0) : 0,
+    // 2026-08-02: sahifa ruxsatlari (ko'rish / ishlatish)
+    perms:       _readPerms(),
     permNasiya:  ($("as-perm-nasiya")||{checked:false}).checked,
     permReturn:  ($("as-perm-return")||{checked:false}).checked,
   };
@@ -707,7 +786,7 @@ function openStaffModal(editId = null) {
         </div>
         <div>
           <label style="${lStyle}">Lavozim</label>
-          <select id="as-role" style="${iStyle}">
+          <select id="as-role" onchange="permApplyDefaults(this.value, true)" style="${iStyle}">
             <option value="kassir"   ${(s?.role||'kassir')==='kassir'   ?'selected':''}>💼 Kassir</option>
             <option value="menejer"  ${s?.role==='menejer'  ?'selected':''}>📊 Menejer</option>
             <option value="omborchi" ${s?.role==='omborchi' ?'selected':''}>📦 Omborchi</option>
@@ -739,6 +818,43 @@ function openStaffModal(editId = null) {
           <strong>Rol asosida ruxsatlar:</strong><br>
           💼 Kassir — faqat sotuv | 📊 Menejer — barcha operatsiyalar | 📦 Omborchi — ombor
         </div>
+        <!-- 2026-08-02: SAHIFA RUXSATLARI — ko'rish / ishlatish -->
+        <div style="border:1.5px solid #E5E7EB;border-radius:10px;overflow:hidden;margin-bottom:16px">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr style="background:#F9FAFB">
+                <th style="text-align:left;padding:9px 12px;font-size:11px;color:#6B7280;
+                  text-transform:uppercase;letter-spacing:.04em">Bo'lim</th>
+                <th style="width:78px;padding:9px 6px;font-size:11px;color:#6B7280">Ko'rish</th>
+                <th style="width:88px;padding:9px 6px;font-size:11px;color:#6B7280">Ishlatish</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${PERM_PAGES.map(pg => {
+                const pr = (s?.perms||{})[pg.key] || {};
+                return `<tr style="border-top:1px solid #F3F4F6">
+                  <td style="padding:8px 12px">${pg.lbl}</td>
+                  <td style="text-align:center;padding:8px 6px">
+                    <input type="checkbox" id="as-pv-${pg.key}" ${pr.view?'checked':''}
+                      onchange="permSync('${pg.key}')"
+                      style="width:17px;height:17px;accent-color:#6B7280;cursor:pointer"></td>
+                  <td style="text-align:center;padding:8px 6px">
+                    <input type="checkbox" id="as-pu-${pg.key}" ${pr.use?'checked':''}
+                      onchange="permSync('${pg.key}')"
+                      style="width:17px;height:17px;accent-color:var(--acc);cursor:pointer"></td>
+                </tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+          <div style="padding:9px 12px;background:#FFFBEB;border-top:1px solid #FDE68A;
+            font-size:11.5px;color:#92400E;line-height:1.5">
+            <strong>Ko'rish</strong> — bo'limni ocha oladi, lekin hech narsa
+            o'zgartira olmaydi.<br>
+            <strong>Ishlatish</strong> — to'liq ishlaydi (qo'shish, tahrirlash, o'chirish).<br>
+            <strong>Sozlamalar</strong> bo'limi har doim faqat egada.
+          </div>
+        </div>
+
         <div style="display:flex;flex-direction:column;gap:10px">
           <label style="display:flex;align-items:center;gap-12px;padding:12px 14px;
             background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:9px;cursor:pointer;gap:12px">

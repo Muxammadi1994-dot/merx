@@ -985,6 +985,8 @@ function _qarzStaffOpts() {
 // ── To'lov qabul qilish (ko'p qarzga avtomatik taqsimlash) ──
 // ── Mijoz balansidan qarzga o'tkazish (qo'lda, sotuvchi tanlaganda) ─
 async function useBalanceForDebt(saleId) {
+  if (typeof requireUse === "function" && !requireUse("qarzlar")) return;
+
   const sale = db.sales.find(x => x.id === saleId); if (!sale) return;
   if (!sale.customerId) { toast("Bu sotuvda mijoz ro'yxatdan tanlanmagan","err"); return; }
   const cust = (db.customers||[]).find(c => c.id === sale.customerId);
@@ -1053,6 +1055,8 @@ function qzShowUsdHint(id) {
 }
 
 async function recordPayment(id, forcedCurrency) {
+  if (typeof requireUse === "function" && !requireUse("qarzlar")) return;
+
   const clicked = db.sales.find(x => x.id === id); if (!clicked) return;
   const rate    = db.settings.rate || 12800;
   const clickedState = calcSaleState(clicked);
