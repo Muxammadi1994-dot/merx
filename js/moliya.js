@@ -410,13 +410,11 @@ function renderMoliya() {
     return (b.id||0) - (a.id||0); // v156 (№13): kun ichida ham yangi tepada
   });
   // Tekst qidiruv
-  if (q) exps = exps.filter(x =>       // v154: sub-teg (ichki teg) qidiruvga qo'shildi
-    (x.category||"").toLowerCase().includes(q) ||
-    (x.subCategory||"").toLowerCase().includes(q) ||
-    (x.note||"").toLowerCase().includes(q) ||
-    (x.recipient||"").toLowerCase().includes(q) ||
-    (x.paidBy||"").toLowerCase().includes(q)
-  );
+  // 2026-08-02: ko'p parametrli qidiruv (utils.js → srchMatcher)
+  if (q) {
+    const _m = srchMatcher(q);
+    exps = exps.filter(x => _m(x.category, x.subCategory, x.note, x.recipient, x.paidBy));
+  }
   // Xarajat turi filtri (kunlik/oylik)
   const typeFilter = ($("exp-type-filter")||{value:""}).value;
   if (typeFilter) exps = exps.filter(x => (x.xarajatType || "kunlik") === typeFilter);

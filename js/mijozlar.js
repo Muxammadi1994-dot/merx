@@ -245,12 +245,11 @@ function renderMijozlar() {
   if (custFilter === "new")      list = list.filter(c => custSegment(custStats(c.id),c).key === "new");
 
   // Qidiruv
-  if (q) list = list.filter(c =>
-    (c.name||"").toLowerCase().includes(q) ||
-    (c.phone||"").includes(q) ||
-    (c.note||"").toLowerCase().includes(q) ||
-    (c.company||"").toLowerCase().includes(q)
-  );
+  // 2026-08-02: ko'p parametrli qidiruv (utils.js → srchMatcher)
+  if (q) {
+    const _m = srchMatcher(q);
+    list = list.filter(c => _m(c.name, c.phone, c.phone2, c.note, c.company));
+  }
 
   // Saralash
   if (_custSortKey) {

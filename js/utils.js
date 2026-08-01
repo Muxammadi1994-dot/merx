@@ -425,6 +425,42 @@ function pagerScrollTop(elId) {
 // srchClr() OLIB TASHLANDI (2026-08-01): ✕ tugmasini setupSearchUX()
 // allaqachon qo'shadi. Ikki xil mexanizm bo'lmasin (yagona manba).
 
+// ══════════════════════════════════════════════════════════════
+// KO'P PARAMETRLI QIDIRUV (2026-08-02)
+// ══════════════════════════════════════════════════════════════
+// AVVAL: qidiruv matni BUTUNLIGICHA qidirilardi —
+//   `p.name.toLowerCase().includes(q)`
+// Shu sabab "c1 krossovka" deb yozilsa hech narsa topilmasdi:
+// aynan shunday matn hech bir maydonda yo'q edi.
+//
+// ENDI: matn so'zlarga bo'linadi va HAR BIR so'z biror maydonda
+// topilishi shart. "c1 krossovka" →
+//   · "c1"        artikulda bor
+//   · "krossovka" nomida bor
+//   · ikkalasi topildi → chiqadi
+//
+// Bitta so'z yozilsa xatti-harakat O'ZGARMAYDI (avvalgidek).
+//
+// Ishlatish:
+//   const m = srchMatcher(q);          // bir marta tayyorlanadi
+//   list.filter(x => m(x.name, x.sku, x.art));
+function srchMatcher(query) {
+  const words = String(query || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return () => true;          // bo'sh qidiruv — hammasi
+  return function (...fields) {
+    // Maydonlarni bitta matnga yig'amiz (massiv/obyekt ham bo'lishi mumkin)
+    let hay = "";
+    for (const f of fields) {
+      if (f == null) continue;
+      if (Array.isArray(f)) hay += " " + f.join(" ");
+      else if (typeof f === "object") hay += " " + Object.values(f).join(" ");
+      else hay += " " + f;
+    }
+    hay = hay.toLowerCase();
+    return words.every(w => hay.includes(w));
+  };
+}
+
 function nav(p) {
   // Rol tekshiruvi — ruxsati yo'q sahifaga o'tmaslik
   if (typeof canAccessPage === "function" && !canAccessPage(p)) {

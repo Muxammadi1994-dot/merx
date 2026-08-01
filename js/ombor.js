@@ -262,22 +262,18 @@ function omRenderQoldiq() {
   if (omStockFilter === "low") rows = rows.filter(r => r.qty > 0 && r.qty <= 5);
   if (omStockFilter === "out") rows = rows.filter(r => r.qty <= 0);
   if (omStockFilter === "broken") rows = rows.filter(r => r.isBroken);
-  if (q) rows = rows.filter(r =>
-    r.name.toLowerCase().includes(q)    ||
-    r.sku.toLowerCase().includes(q)     ||
-    (r.art && r.art.toLowerCase().includes(q)) ||
-    r.color.toLowerCase().includes(q)   ||
-    // 2026-07-24 (№9): barcode (tovar va RANG darajasi) qidiruvga qo'shildi
-    (r.barcode && String(r.barcode).toLowerCase().includes(q)) ||
-    (() => {
+  // 2026-08-02: ko'p parametrli qidiruv (utils.js → srchMatcher).
+  // Barcode (tovar va RANG darajasi) avvalgidek qidiriladi —
+  // etiketkalarda aynan shu kod chop etiladi.
+  if (q) {
+    const _m = srchMatcher(q);
+    rows = rows.filter(r => {
       const p = (db.products||[]).find(x => x.sku === r.sku);
-      if (!p) return false;
-      if (p.barcode && String(p.barcode).toLowerCase().includes(q)) return true;
-      const bc = p.colorBarcodes && p.colorBarcodes[r.color];
-      return !!(bc && String(bc).toLowerCase().includes(q));
-    })() ||
-    r.pantone.toLowerCase().includes(q)
-  );
+      const cbc = (p && p.colorBarcodes && p.colorBarcodes[r.color]) || "";
+      return _m(r.name, r.sku, r.art, r.color, r.barcode, r.pantone,
+                (p && p.barcode) || "", cbc);
+    });
+  }
 
   // 2026-07-25: STANDART TARTIB — yangi kiritilgan tovar TEPADA
   // (katalogdagi bilan bir xil). Avval tartibsiz aralash turardi.

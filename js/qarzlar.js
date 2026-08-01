@@ -385,12 +385,15 @@ function renderDebts() {
   if (debtFilter === "month")   list = list.filter(s => s.date?.startsWith(thisMonth));
 
   // Qidiruv
-  if (q) list = list.filter(s => {
-    const cu = debtCust(s);
-    return (cu.name||"").toLowerCase().includes(q) ||
-           (cu.phone||"").includes(q) ||
-           s.items?.some(i => i.name.toLowerCase().includes(q));
-  });
+  // 2026-08-02: ko'p parametrli qidiruv (utils.js → srchMatcher)
+  if (q) {
+    const _m = srchMatcher(q);
+    list = list.filter(s => {
+      const cu = debtCust(s);
+      return _m(cu.name, cu.phone, s.chekNum,
+                (s.items||[]).map(i => i.name).join(" "));
+    });
+  }
 
   // Muddati o'tganlar tepaga
   list.sort((a, b) => {

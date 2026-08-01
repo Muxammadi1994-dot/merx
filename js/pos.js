@@ -357,16 +357,14 @@ function posSearch() {
     return;
   }
   const ql = q.toLowerCase();
+  // 2026-08-02: ko'p parametrli qidiruv (utils.js → srchMatcher).
+  // "c1 krossovka" kabi ikki so'z bilan aniqlashtirish mumkin.
+  // RANG barcode'lari avvalgidek qidiriladi — yangi tovarlarda
+  // umumiy kod yaratilmaydi, faqat rang darajasida bo'ladi.
+  const _pm = srchMatcher(ql);
   const found = visProds().filter(p =>
-    p.name.toLowerCase().includes(ql) ||
-    p.sku.toLowerCase().includes(ql) ||
-    (p.art && p.art.toLowerCase().includes(ql)) ||
-    p.category.toLowerCase().includes(ql) ||
-    (p.barcode && p.barcode.toLowerCase().includes(ql)) ||
-    // 2026-07-25: RANG barcode'lari ham qidiriladi. Yangi tovarlarda
-    // umumiy kod yaratilmaydi, shuning uchun ular topilmay qolardi.
-    (p.colorBarcodes && Object.values(p.colorBarcodes).some(bc =>
-      bc && String(bc).toLowerCase().includes(ql)))
+    _pm(p.name, p.sku, p.art, p.category, p.barcode, p.colorBarcodes,
+        (p.variants||[]).map(v => v.color).join(" "))
   );
 
   if (!found.length) {
@@ -1854,7 +1852,7 @@ function custSearch(q) {
       <div style="padding:10px 14px;font-size:12.5px;color:var(--mut);text-align:center;border-bottom:1px solid var(--brd)">
         "${val}" topilmadi
       </div>
-      <div onclick="custQuickAdd('${val.replace(/'/g,"&#39;")}')"
+      <div onclick="custQuickAdd('${typeof jsEsc === "function" ? jsEsc(val) : val}')"
         style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#0D1B2A;font-weight:600;font-size:13px"
         onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background=''">
         <i class="ti ti-user-plus" style="font-size:16px;color:#36B48C"></i>
@@ -1865,7 +1863,7 @@ function custSearch(q) {
 
   // Natijalar oxiriga "Yangi qo'shish" ham qo'shamiz
   const addNewHtml = `
-    <div onclick="custQuickAdd('${val.replace(/'/g,"&#39;")}')"
+    <div onclick="custQuickAdd('${typeof jsEsc === "function" ? jsEsc(val) : val}')"
       style="padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;border-top:1px solid var(--brd);color:#36B48C;font-size:12.5px;font-weight:600"
       onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background=''">
       <i class="ti ti-user-plus" style="font-size:14px"></i>

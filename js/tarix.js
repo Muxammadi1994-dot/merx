@@ -134,22 +134,17 @@ function renderTarix() {
     if (txStatus === "qaytarilgan" && s.status !== "qaytarilgan") return false;
     if (txStaffId !== "all" && String(s.staffId) !== String(txStaffId)) return false;
     if (!q) return true;
-    return (
-      (s.customerName||"").toLowerCase().includes(q) ||
-      // 2026-07-20 (№4) ILDIZ: q'da raqam bo'lsagina telefonni tekshiramiz.
-      // Aks holda ism (harflar) yozilganda q.replace(\D)="" bo'lib,
-      // phone.includes("")=TRUE bo'lardi -> HAMMA sotuv "mos" chiqib,
-      // ism bo'yicha filtr ishlamas edi (aloqasiz sotuvlar aralashardi).
-      (/\d/.test(q) && (s.customerPhone||"").replace(/\D/g,"").includes(q.replace(/\D/g,""))) ||
-      (s.chekNum||"").toLowerCase().includes(q) ||
-      (s.note||"").toLowerCase().includes(q) ||
-      String(s.id).includes(q) ||
-      (s.items||[]).filter(Boolean).some(i =>
-        (i.name||"").toLowerCase().includes(q) ||
-        (i.art||"").toLowerCase().includes(q) ||
-        (i.sku||"").toLowerCase().includes(q) ||
-        (i.color||"").toLowerCase().includes(q)
-      )
+    // 2026-08-02: ko'p parametrli qidiruv (utils.js → srchMatcher).
+    // Telefon ALOHIDA qoladi: unda faqat raqamlar solishtiriladi.
+    // (2026-07-20 dagi tuzatish saqlandi — ism yozilganda telefon
+    //  filtri hammani "mos" deb chiqarib yubormasin.)
+    const _m = srchMatcher(q);
+    const _phOk = /\d/.test(q) &&
+      (s.customerPhone||"").replace(/\D/g,"").includes(q.replace(/\D/g,""));
+    return _phOk || _m(
+      s.customerName, s.chekNum, s.note, String(s.id),
+      (s.items||[]).filter(Boolean).map(i =>
+        [i.name, i.art, i.sku, i.color].filter(Boolean).join(" ")).join(" ")
     );
   });
 

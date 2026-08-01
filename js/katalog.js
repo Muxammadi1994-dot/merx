@@ -355,17 +355,15 @@ function renderKatalog() {
   if (btnKiyim) btnKiyim.style.display = shopType === "oyoq"  ? "none" : "";
 
   // visProds() shopType ga qarab filtrlaydi
+  // 2026-08-02: KO'P PARAMETRLI qidiruv (utils.js → srchMatcher).
+  // "c1 krossovka" — har bir so'z biror maydonda topilishi shart.
+  // Rang barcode'lari ham qidiriladi (etiketkada shu kod chop etiladi).
+  const _km = typeof srchMatcher === "function" ? srchMatcher(q) : null;
   let ps = visProds().filter(p =>
-    !q ||
-    p.name.toLowerCase().includes(q) ||
-    p.sku.toLowerCase().includes(q) ||
-    (p.art && p.art.toLowerCase().includes(q)) ||
-    (p.barcode && p.barcode.toLowerCase().includes(q)) ||
-    // 2026-07-24 (№9): RANG darajasidagi barcode ham qidiriladi —
-    // etiketkalarda aynan shu kod chop etiladi
-    (p.colorBarcodes && Object.values(p.colorBarcodes).some(bc =>
-      bc && String(bc).toLowerCase().includes(q))) ||
-    p.category.toLowerCase().includes(q)
+    !q || (_km
+      ? _km(p.name, p.sku, p.art, p.barcode, p.category,
+            p.colorBarcodes, (p.variants||[]).map(v => v.color).join(" "))
+      : p.name.toLowerCase().includes(q))
   );
   if (katLowFilter) ps = ps.filter(p => totalStock(p) <= 5);
   // katCatFilter endi faqat kategoriya bo'yicha — tur esa visProds() orqali
