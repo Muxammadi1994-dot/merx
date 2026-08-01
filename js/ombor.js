@@ -14,7 +14,7 @@ const OM_ALL_COLS = [
   { key:"kategoriya", lbl:"Kategoriya",       def:false },
   { key:"barcode",    lbl:"Barcode",          def:false },
   { key:"sizes",      lbl:"O'lchamlar",       def:true  },
-  { key:"boxes",      lbl:"Karobka soni",     def:true  },
+  { key:"boxes",      lbl:"Pochka soni",      def:true  },
   { key:"tannarx",    lbl:"Tannarx",          def:true  },
   { key:"ulgurji",    lbl:"Ulgurji narx",     def:true  },
   { key:"chakana",    lbl:"Chakana narx",     def:false },
@@ -423,7 +423,7 @@ function omRenderQoldiq() {
   if (foot) foot.innerHTML = rows.length ? `
     <div style="display:flex;gap:24px;font-size:13px;padding:10px 16px;color:var(--mut);border-top:1px solid var(--brd)">
       <span>Jami: <strong style="color:#0D1B2A">${rows.length} ta rang varianti</strong></span>
-      <span><strong>${totalBoxes}</strong> karobka</span>
+      <span><strong>${totalBoxes}</strong> pochka</span>
       <span><strong>${totalQty}</strong> dona qoldiq</span>
       <span>Qiymati: <strong style="color:var(--acc)">${fmt(totalVal)} so'm</strong></span>
     </div>` : "";

@@ -1034,7 +1034,7 @@
         <h3><i class="ti ti-box"></i>Mahsulotlar</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input id="kat-q" placeholder="Qidirish, ART, SKU, barcode..."
-            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:220px" oninput="renderKatalog()">
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" style="flex:1;min-width:180px;max-width:420px;font-family:inherit;font-size:14px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;box-sizing:border-box;outline:none" oninput="renderKatalog()">
           <!-- Ko'rinish: jadval / karta -->
           <div style="display:flex;border:1.5px solid var(--brd);border-radius:var(--rs);overflow:hidden">
             <button class="kat-view-btn btn-ghost" data-v="table" onclick="setKatView('table')"
@@ -1188,10 +1188,10 @@
           <i class="ti ti-minus-circle"></i> Chiqimlar
         </button>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <input id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch()"
           onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}"
-          style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 12px;width:180px">
+          style="flex:1;min-width:180px;max-width:420px;font-family:inherit;font-size:14px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;box-sizing:border-box;outline:none">
         <button class="btn btn-ghost btn-sm" onclick="omToggleCols()" title="Ustunlarni sozlash">
           <i class="ti ti-settings"></i>
         </button>
@@ -1368,7 +1368,7 @@
             <i class="ti ti-settings"></i>
           </button>
           <input id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar()"
-            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 11px;width:190px">
+            style="flex:1;min-width:180px;max-width:420px;font-family:inherit;font-size:14px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;box-sizing:border-box;outline:none">
         </div>
       </div>
       <!-- Filtr qatori -->
@@ -1545,7 +1545,7 @@
       <div class="ch" style="flex-wrap:wrap;gap:8px">
         <h3><i class="ti ti-credit-card"></i>Qarzlar ro'yxati</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input id="debt-q" placeholder="Mijoz, telefon qidirish..." style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:7px 12px;width:200px" oninput="renderDebts()">
+          <input id="debt-q" placeholder="Mijoz, telefon qidirish..." style="flex:1;min-width:180px;max-width:420px;font-family:inherit;font-size:14px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;box-sizing:border-box;outline:none" oninput="renderDebts()">
           <div style="display:flex;gap:4px">
             <button class="debt-filter-btn on" data-f="all"      onclick="setDebtFilter('all')">Barchasi</button>
             <button class="debt-filter-btn"    data-f="overdue"  onclick="setDebtFilter('overdue')">⚠️ Muddati o'tgan</button>
@@ -2282,7 +2282,7 @@
             <i class="ti ti-plus"></i> Xarajat qo'shish
           </button>
           <input id="exp-q" placeholder="Qidirish..." oninput="renderMoliya()"
-            style="font-family:inherit;font-size:13px;border:1px solid var(--brd);border-radius:var(--rs);padding:6px 10px;width:140px">
+            style="flex:1;min-width:180px;max-width:420px;font-family:inherit;font-size:14px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;box-sizing:border-box;outline:none">
           <button class="btn btn-sm" onclick="exportExpExcel()" style="color:#1D6A39">
             <i class="ti ti-file-spreadsheet"></i>
           </button>
@@ -4690,7 +4690,7 @@
 <script src="js/dashboard.js?v=157"></script>
 <script src="js/pos.js?v=230"></script>
 <script src="js/katalog.js?v=233"></script>
-<script src="js/ombor.js?v=165"></script>
+<script src="js/ombor.js?v=166"></script>
 <script src="js/mijozlar.js?v=152"></script>
 <script src="js/qarzlar.js?v=188"></script>
 <script src="js/tarix.js?v=167"></script>
@@ -4902,7 +4902,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=162")
+    navigator.serviceWorker.register("/sw.js?v=163")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
