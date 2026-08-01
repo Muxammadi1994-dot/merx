@@ -733,7 +733,13 @@ tr:hover td{background:#FAFAF8}
    Avval inline `style` bilan edi va har sahifada har xil chiqardi;
    xira fon (#F8F7F4 + och chegara) ko'zga tashlanmasdi.
    Endi bitta klass — telefon ham avtomat to'g'ri bo'ladi. */
-.srch-row{padding:12px 18px 0}
+/* Qator .card ichida ham, .ch (flex sarlavha) ICHIDA ham to'liq
+   kenglikda bo'lishi kerak. `flex:1 0 100%` — flex konteyner ichida
+   butun qatorni egallaydi; oddiy blok ichida ta'sirsiz.
+   `order:99` — sarlavha va tugmalardan KEYIN turadi. */
+.srch-row{flex:1 0 100%; order:99; padding:12px 18px 0; box-sizing:border-box}
+/* .ch da allaqachon 18px yon bo'shliq bor — ikki marta bo'lmasin */
+.ch > .srch-row{padding:2px 0 0}
 .srch-inp{
   width:100%; box-sizing:border-box;
   font-family:inherit; font-size:15px; font-weight:500;
@@ -754,3 +760,12 @@ tr:hover td{background:#FAFAF8}
   .srch-row{padding:10px 12px 0}
   .srch-inp{font-size:16px; padding:11px 14px}  /* 16px — iOS zoom qilmasin */
 }
+
+/* Qidiruvni tozalash tugmasi — kattaroq va aniqroq (2026-08-01) */
+.srch-clr{
+  position:absolute; right:12px; top:50%; transform:translateY(-50%);
+  background:none; border:none; cursor:pointer;
+  color:#9CA3AF; font-size:22px; line-height:1; padding:2px 6px;
+  border-radius:8px; transition:color .15s, background .15s;
+}
+.srch-clr:hover{color:#0D1B2A; background:#F1EFEA}

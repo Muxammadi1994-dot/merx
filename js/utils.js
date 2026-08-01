@@ -421,6 +421,17 @@ function pagerScrollTop(elId) {
   } catch(e) {}
 }
 
+
+// ── Qidiruv tozalash tugmasi (2026-08-01) ─────────────────────
+// Maydonda matn bo'lsa X ko'rinadi, bo'sh bo'lsa yashirinadi.
+// Sotuv tarixida shunday qilingan edi — endi hamma qidiruvda.
+function srchClr(inputId) {
+  const inp = document.getElementById(inputId);
+  const btn = document.getElementById(inputId + "-clr");
+  if (!inp || !btn) return;
+  btn.style.display = (inp.value || "").trim() ? "block" : "none";
+}
+
 function nav(p) {
   // Rol tekshiruvi — ruxsati yo'q sahifaga o'tmaslik
   if (typeof canAccessPage === "function" && !canAccessPage(p)) {

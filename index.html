@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=155">
+<link rel="stylesheet" href="style.css?v=156">
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display:inline-block; animation: spin .8s linear infinite; }
@@ -1070,8 +1070,12 @@
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
       <div class="srch-row">
+        <div style="position:relative">
         <input class="srch-inp" id="kat-q" placeholder="Qidirish, ART, SKU, barcode..."
-            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" oninput="renderKatalog()">
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" oninput="renderKatalog();srchClr('kat-q')">
+        <button id="kat-q-clr" class="srch-clr" style="display:none"
+          onclick="$('kat-q').value='';renderKatalog();srchClr('kat-q')">×</button>
+      </div>
       </div>
       </div>
 
@@ -1208,8 +1212,12 @@
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
       <div class="srch-row">
-        <input class="srch-inp" id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch()"
+        <div style="position:relative">
+        <input class="srch-inp" id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch();srchClr('om-q')"
           onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}">
+        <button id="om-q-clr" class="srch-clr" style="display:none"
+          onclick="$('om-q').value='';omSearch();srchClr('om-q')">×</button>
+      </div>
       </div>
     </div>
 
@@ -1381,7 +1389,11 @@
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
       <div class="srch-row">
-        <input class="srch-inp" id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar()">
+        <div style="position:relative">
+        <input class="srch-inp" id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar();srchClr('cust-q')">
+        <button id="cust-q-clr" class="srch-clr" style="display:none"
+          onclick="$('cust-q').value='';mjResetLimit();renderMijozlar();srchClr('cust-q')">×</button>
+      </div>
       </div>
       </div>
       <!-- Filtr qatori -->
@@ -1587,7 +1599,11 @@
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
       <div class="srch-row">
-        <input class="srch-inp" id="debt-q" placeholder="Mijoz, telefon qidirish..." oninput="renderDebts()">
+        <div style="position:relative">
+        <input class="srch-inp" id="debt-q" placeholder="Mijoz, telefon qidirish..." oninput="renderDebts();srchClr('debt-q')">
+        <button id="debt-q-clr" class="srch-clr" style="display:none"
+          onclick="$('debt-q').value='';renderDebts();srchClr('debt-q')">×</button>
+      </div>
       </div>
       </div>
       <!-- Mijoz topilmadi xabari (faqat guruhlangan rejimda kerak bo'lganda) -->
@@ -1650,7 +1666,11 @@
         </div>
       </div>
       <div class="srch-row">
-        <input class="srch-inp" id="qt-q" placeholder="Mijoz, chek raqami qidirish..." oninput="renderQarzlarTarixi()">
+        <div style="position:relative">
+        <input class="srch-inp" id="qt-q" placeholder="Mijoz, chek raqami qidirish..." oninput="renderQarzlarTarixi();srchClr('qt-q')">
+        <button id="qt-q-clr" class="srch-clr" style="display:none"
+          onclick="$('qt-q').value='';renderQarzlarTarixi();srchClr('qt-q')">×</button>
+      </div>
       </div>
       <div id="qt-status-bar" style="display:flex;gap:6px;padding:0 18px 14px;flex-wrap:wrap">
         <button class="qt-status-btn on" data-s="all" onclick="setQtStatus('all')"
@@ -1848,8 +1868,8 @@
           <input class="srch-inp" id="tarix-q" type="text" placeholder="Mijoz ismi, chek raqami, tovar nomi, telefon..."
             oninput="renderTarix()"
             style="padding-left:34px">
-          <button id="tarix-q-clr" onclick="$('tarix-q').value='';renderTarix();this.style.display='none'"
-            style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#bbb;font-size:16px;line-height:1;padding:0">×</button>
+          <button id="tarix-q-clr" class="srch-clr" onclick="$('tarix-q').value='';renderTarix();this.style.display='none'"
+            style="display:none">×</button>
         </div>
       </div>
 
@@ -2312,7 +2332,11 @@
       <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
       <div class="srch-row">
-        <input class="srch-inp" id="exp-q" placeholder="Qidirish..." oninput="renderMoliya()">
+        <div style="position:relative">
+        <input class="srch-inp" id="exp-q" placeholder="Qidirish..." oninput="renderMoliya();srchClr('exp-q')">
+        <button id="exp-q-clr" class="srch-clr" style="display:none"
+          onclick="$('exp-q').value='';renderMoliya();srchClr('exp-q')">×</button>
+      </div>
       </div>
       </div>
 
@@ -4707,7 +4731,7 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=165"></script>
-<script src="js/utils.js?v=206"></script>
+<script src="js/utils.js?v=207"></script>
 <script src="js/auth.js?v=186"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=219"></script>
@@ -4926,7 +4950,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=164")
+    navigator.serviceWorker.register("/sw.js?v=165")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
