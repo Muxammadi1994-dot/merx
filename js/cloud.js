@@ -1185,7 +1185,14 @@ async function pushToCloud() {
       const delMap = {
         products:      { rows: db.products,     key: "sku", col: "sku" },
         customers:     { rows: db.customers,    key: "id",  col: "id" },
-        staff:         { rows: db.staff,        key: "id",  col: "id" },
+        // ⚠️ 2026-08-02: `staff` BU RO'YXATDAN OLIB TASHLANDI.
+        // Sabab: "bulutda bor, menda yo'q → o'chir" supurishi xodimni
+        // JIMGINA o'chirib yuborardi. Ommaviy o'chirishdan himoya esa
+        // kamida 5 ta yozuvda ishlaydi — 3 xodimdan bittasi o'chsa
+        // himoya umuman ishga tushmasdi. Eski ro'yxatli istalgan
+        // qurilma bulutdagi xodimni yo'q qilardi (haqiqiy hodisa).
+        // Endi xodim FAQAT `deleteStaff` orqali, tombstone bilan
+        // o'chiriladi (queueCloudDelete) — ishonchli yo'l.
         sales:         { rows: db.sales,        key: "id",  col: "id" },
         ombor:         { rows: db.ombor,        key: "id",  col: "id" },
         xarajatlar:    { rows: db.xarajatlar,   key: "id",  col: "id" },
@@ -1204,7 +1211,7 @@ async function pushToCloud() {
       // TURAMIZ (o'chirish umuman yuborilmaydi, ma'lumot himoyalanadi).
       const _totalLocal = (db.products||[]).length + (db.sales||[]).length +
                           (db.customers||[]).length + (db.ombor||[]).length +
-                          (db.debtPayments||[]).length;
+                          (db.debtPayments||[]).length + (db.staff||[]).length;
       const _totalCloud = ((_cloudIds.products&&_cloudIds.products.size)||0) +
                           ((_cloudIds.sales&&_cloudIds.sales.size)||0) +
                           ((_cloudIds.customers&&_cloudIds.customers.size)||0) +
@@ -1233,7 +1240,9 @@ async function pushToCloud() {
         if (!gone.length) continue;
         // Himoya 2: bitta jadvaldan bir vaqtda YARMIDAN KO'P (va 5+) o'chirilsa —
         // bu ommaviy o'chirish, shubhali. Bloklaymiz (bexosdan o'chishni to'xtatadi).
-        if (!_intentionalDelete && gone.length >= 5 && gone.length > seen.size * 0.5) {
+        // 2026-08-02: chegara 5 → 2. Kichik jadvallarda (xodim, yetkazuvchi,
+        // smena) 5 ta hech qachon to'planmasdi va himoya ishlamasdi.
+        if (!_intentionalDelete && gone.length >= 2 && gone.length > seen.size * 0.5) {
           console.warn("🛡 " + table + ": ommaviy o'chirish bloklandi (" +
             gone.length + "/" + seen.size + ") — himoya. Ataylab bo'lsa bittalab o'chiring.");
           continue; // bu jadval o'chirilmaydi

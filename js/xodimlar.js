@@ -698,7 +698,13 @@ function deleteStaff(id) {
 
   if (!confirm(msg)) return;
   db.staff = db.staff.filter(x => x.id !== id);
-  saveDB(); renderXodimlar();
+  // 2026-08-02: BULUTGA HAM AYTAMIZ (tombstone bilan).
+  // Avval chaqirilmasdi — xodim faqat qurilmadan o'chib, bulutdagi
+  // nusxa qaytib kelardi. Endi ishonchli yo'l bilan o'chadi.
+  try { if (typeof queueCloudDelete === "function") queueCloudDelete("staff", "id", id); } catch(e) {}
+  saveDB();
+  try { if (typeof flushCloudSync === "function") flushCloudSync(true); } catch(e) {}
+  renderXodimlar();
   toast(`"${s.name}" o'chirildi`);
 }
 
