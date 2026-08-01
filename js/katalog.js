@@ -2066,24 +2066,48 @@ function exportKatalogExcel() {
     const colorList = colors.length ? colors : [""];
 
     colorList.forEach(color => {
-      const variants = p.variants.filter(v => v.color === color);
-      const sizesStr = variants.map(v => v.size).filter(Boolean).join(", ");
-      const pochkaSoni = variants.length > 0 ? Math.min(...variants.map(v => v.qty)) : 0;
-      const jamiDona = variants.reduce((a,v) => a + v.qty, 0);
-      const pantone = variants[0]?.pantone || "";
+      // ⚠️ 2026-08-02: EKRAN BILAN AYNAN BIR XIL HISOB.
+      // Avval eksport o'z mantiqini ishlatardi va uch joyda xato edi:
+      //   1. pochka soni = eng kichik variant miqdori (Math.min) —
+      //      aslida jami dona ÷ pochka sig'imi bo'lishi kerak
+      //   2. "pochkada nechta" p.inBox dan olinardi — RANG darajasidagi
+      //      qiymat (variant.inBox) e'tiborsiz qolardi
+      //   3. to'liq va OCHILGAN pochka bitta qatorga qo'shilib ketardi
+      // Endi ekrandagi `regroupPackages()` ishlatiladi (yagona manba):
+      //   to'liq  → pochka 30, pochkada 5, jami dona 150
+      //   ochilgan → pochka 0,  pochkada 5, jami dona 3
+      const groups = typeof regroupPackages === "function"
+        ? regroupPackages(p.variants, color, p.inBox) : [];
+      const _fallback = [{ packGroup: 0, isBroken: false,
+                           variants: p.variants.filter(v => v.color === color) }];
+      (groups.length ? groups : _fallback).forEach(g => {
+        const gv = g.groupVariants || g.variants ||
+                   p.variants.filter(v => v.color === color);
+        const sizesStr = gv.map(v => v.size).filter(x => x && x !== "-").join(", ");
+        const jamiDona = gv.reduce((a,v) => a + (v.qty||0), 0);
+        // Sig'im: RANG darajasi ustuvor (ekrandagi qoida)
+        const _vIb = parseInt(gv[0] && gv[0].inBox) || 0;
+        const inBoxEff = _vIb > 0 ? _vIb
+                         : (gv.length === 1 ? (p.inBox || 1) : (gv.length || 1));
+        // Ochilgan pochkada pochka soni 0 — ekranda ham shunday
+        const pochkaSoni = g.isBroken ? 0
+          : (gv.length === 1 ? Math.floor(jamiDona / (inBoxEff || 1))
+                             : (g.packGroup || 0));
+        const pantone = gv[0]?.pantone || "";
 
-      const row = [p.name, p.art || ""];
-      if (fields.category) row.push(p.category);
-      if (shopType === "ikki") row.push(p.type === "oyoq" ? "Oyoq kiyim" : "Kiyim");
-      if (fields.unit) row.push(p.unit || "dona");
-      if (fields.packunit) row.push(p.packUnit || "pochka");
-      if (fields.barcode) row.push(p.barcode || "");
-      row.push(color);
-      if (fields.pantone) row.push(pantone);
-      row.push(sizesStr, pochkaSoni, p.inBox || 1, jamiDona);
-      if (fields.cost) row.push(p.costUsd || 0, costUzs);
-      row.push(p.ulgurjiNarx || 0, markup, margin);
-      rows.push(row);
+        const row = [p.name, p.art || ""];
+        if (fields.category) row.push(p.category);
+        if (shopType === "ikki") row.push(p.type === "oyoq" ? "Oyoq kiyim" : "Kiyim");
+        if (fields.unit) row.push(p.unit || "dona");
+        if (fields.packunit) row.push(p.packUnit || "pochka");
+        if (fields.barcode) row.push((p.colorBarcodes && p.colorBarcodes[color]) || p.barcode || "");
+        row.push(color + (g.isBroken ? " (ochilgan)" : ""));
+        if (fields.pantone) row.push(pantone);
+        row.push(sizesStr, pochkaSoni, inBoxEff, jamiDona);
+        if (fields.cost) row.push(p.costUsd || 0, costUzs);
+        row.push(p.ulgurjiNarx || 0, markup, margin);
+        rows.push(row);
+      });
     });
   });
 
