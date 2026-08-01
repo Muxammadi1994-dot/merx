@@ -8,7 +8,7 @@
 // deploy 1
 
 // MUHIM: har push'da bu raqamni +1 qiling — eski kesh avtomat o'chadi.
-const CACHE_VERSION = "merx-v167";
+const CACHE_VERSION = "merx-v168";
 const CACHE_NAME = CACHE_VERSION;
 
 // Boshlang'ich keshlanadigan fayllar (offline'da kamida shular bo'lsin)
@@ -23,12 +23,16 @@ const CORE_ASSETS = [
 // ── O'RNATISH: yangi SW o'rnatiladi, darhol faollashsin ──
 self.addEventListener("install", (event) => {
   self.skipWaiting(); // yangi versiya kutmasin, darhol o'rnatilsin
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) =>
-      // Core fayllarni oldindan keshlaymiz (xato bo'lsa ham SW o'rnatiladi)
-      cache.addAll(CORE_ASSETS).catch(() => {})
-    )
-  );
+  // ⚠️ 2026-08-01: KESHLASHNI KUTMAYMIZ.
+  // Avval `event.waitUntil(cache.addAll(...))` edi — sekin internetda
+  // bu tugamasdi va o'rnatish yakunlanmasdi. Natijada yangi SW
+  // "waiting to activate" holatida qolib, ESKI SW eski index.html
+  // ni berishda davom etardi: kod yangilangan, brauzer eskisini
+  // ko'rsatib turardi ("push qildim, o'zgarmadi").
+  // Endi keshlash fonda ketadi, o'rnatish DARHOL tugaydi.
+  caches.open(CACHE_NAME).then((cache) =>
+    cache.addAll(CORE_ASSETS).catch(() => {})
+  ).catch(() => {});
 });
 
 // ── FAOLLASHISH: eski versiyalarning keshini o'chiramiz ──
@@ -81,7 +85,8 @@ self.addEventListener("fetch", (event) => {
     || (url.pathname === "/" || url.pathname.endsWith("/index.html"));
   if (isNavigate) {
     event.respondWith(
-      fetchWithTimeout(req, 3000)
+      fetchWithTimeout(req, 8000)   // 2026-08-01: 3s sekin internetda
+                                    // yetmasdi — eski HTML berilardi
         .then((res) => {
           if (res && res.status === 200) {
             const clone = res.clone();
