@@ -1033,8 +1033,7 @@
       <div class="ch">
         <h3><i class="ti ti-box"></i>Mahsulotlar</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input id="kat-q" placeholder="Qidirish, ART, SKU, barcode..."
-            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" style="flex:1;min-width:180px;max-width:420px;font-family:inherit;font-size:14px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;box-sizing:border-box;outline:none" oninput="renderKatalog()">
+          
           <!-- Ko'rinish: jadval / karta -->
           <div style="display:flex;border:1.5px solid var(--brd);border-radius:var(--rs);overflow:hidden">
             <button class="kat-view-btn btn-ghost" data-v="table" onclick="setKatView('table')"
@@ -1068,6 +1067,12 @@
             <i class="ti ti-microphone"></i> Ovoz+Rasm
           </button>
         </div>
+      <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
+           (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
+      <div style="padding:12px 18px 0">
+        <input id="kat-q" placeholder="Qidirish, ART, SKU, barcode..."
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" style="width:100%;font-family:inherit;font-size:14.5px;font-weight:500;border:2px solid #E8E5E0;border-radius:12px;padding:11px 14px;background:#F8F7F4;color:#0D1B2A;box-sizing:border-box;outline:none" oninput="renderKatalog()">
+      </div>
       </div>
 
       <!-- Status tab filtrlari (Billz uslubida) -->
@@ -1188,10 +1193,8 @@
           <i class="ti ti-minus-circle"></i> Chiqimlar
         </button>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch()"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}"
-          style="flex:1;min-width:180px;max-width:420px;font-family:inherit;font-size:14px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;box-sizing:border-box;outline:none">
+      <div style="display:flex;gap:8px;align-items:center">
+        
         <button class="btn btn-ghost btn-sm" onclick="omToggleCols()" title="Ustunlarni sozlash">
           <i class="ti ti-settings"></i>
         </button>
@@ -1201,6 +1204,13 @@
         <button class="btn btn-sm" onclick="openChiqim2()" style="color:#E05A5A;border-color:#fca5a5">
           <i class="ti ti-minus-circle"></i> Hisobdan chiqarish
         </button>
+      </div>
+      <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
+           (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
+      <div style="padding:12px 18px 0">
+        <input id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch()"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}"
+          style="width:100%;font-family:inherit;font-size:14.5px;font-weight:500;border:2px solid #E8E5E0;border-radius:12px;padding:11px 14px;background:#F8F7F4;color:#0D1B2A;box-sizing:border-box;outline:none">
       </div>
     </div>
 
@@ -1367,9 +1377,14 @@
           <button class="btn btn-ghost btn-sm" onclick="openCustColsSettings()" title="Ustunlarni sozlash">
             <i class="ti ti-settings"></i>
           </button>
-          <input id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar()"
-            style="flex:1;min-width:180px;max-width:420px;font-family:inherit;font-size:14px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;box-sizing:border-box;outline:none">
+          
         </div>
+      <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
+           (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
+      <div style="padding:12px 18px 0">
+        <input id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar()"
+            style="width:100%;font-family:inherit;font-size:14.5px;font-weight:500;border:2px solid #E8E5E0;border-radius:12px;padding:11px 14px;background:#F8F7F4;color:#0D1B2A;box-sizing:border-box;outline:none">
+      </div>
       </div>
       <!-- Filtr qatori -->
       <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 18px 12px;border-bottom:1px solid var(--brd)">
@@ -1545,7 +1560,7 @@
       <div class="ch" style="flex-wrap:wrap;gap:8px">
         <h3><i class="ti ti-credit-card"></i>Qarzlar ro'yxati</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input id="debt-q" placeholder="Mijoz, telefon qidirish..." style="flex:1;min-width:180px;max-width:420px;font-family:inherit;font-size:14px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;box-sizing:border-box;outline:none" oninput="renderDebts()">
+          
           <div style="display:flex;gap:4px">
             <button class="debt-filter-btn on" data-f="all"      onclick="setDebtFilter('all')">Barchasi</button>
             <button class="debt-filter-btn"    data-f="overdue"  onclick="setDebtFilter('overdue')">⚠️ Muddati o'tgan</button>
@@ -1571,6 +1586,11 @@
             <i class="ti ti-settings"></i>
           </button>
         </div>
+      <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
+           (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
+      <div style="padding:12px 18px 0">
+        <input id="debt-q" placeholder="Mijoz, telefon qidirish..." style="width:100%;font-family:inherit;font-size:14.5px;font-weight:500;border:2px solid #E8E5E0;border-radius:12px;padding:11px 14px;background:#F8F7F4;color:#0D1B2A;box-sizing:border-box;outline:none" oninput="renderDebts()">
+      </div>
       </div>
       <!-- Mijoz topilmadi xabari (faqat guruhlangan rejimda kerak bo'lganda) -->
       <div id="debt-cust-cards" style="display:none"></div>
@@ -2281,8 +2301,7 @@
           <button class="btn btn-acc btn-sm" onclick="openModal('addxarajat');initExpModal()">
             <i class="ti ti-plus"></i> Xarajat qo'shish
           </button>
-          <input id="exp-q" placeholder="Qidirish..." oninput="renderMoliya()"
-            style="flex:1;min-width:180px;max-width:420px;font-family:inherit;font-size:14px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:8px 12px;box-sizing:border-box;outline:none">
+          
           <button class="btn btn-sm" onclick="exportExpExcel()" style="color:#1D6A39">
             <i class="ti ti-file-spreadsheet"></i>
           </button>
@@ -2290,6 +2309,12 @@
             <i class="ti ti-settings"></i>
           </button>
         </div>
+      <!-- 2026-08-01: qidiruv ALOHIDA QATORDA, to'liq kenglikda
+           (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
+      <div style="padding:12px 18px 0">
+        <input id="exp-q" placeholder="Qidirish..." oninput="renderMoliya()"
+            style="width:100%;font-family:inherit;font-size:14.5px;font-weight:500;border:2px solid #E8E5E0;border-radius:12px;padding:11px 14px;background:#F8F7F4;color:#0D1B2A;box-sizing:border-box;outline:none">
+      </div>
       </div>
 
       <!-- Filtr qatori -->
