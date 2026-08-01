@@ -813,6 +813,10 @@ function openStaffModal(editId = null) {
             onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='#E5E7EB'">
         </div>
       </div>
+      </div><!-- /sm-pane-asosiy — 2026-08-02: bu yopuvchi teg YETISHMASDI.
+        Natijada "Ruxsatlar" va "Moliya" panellari Asosiy panel ICHIDA
+        qolib ketgan edi: Asosiy yopilganda ular ham yashirinardi va
+        ikkala tab ham BO'SH ko'rinardi. -->
 
       <!-- Tab: Ruxsatlar -->
       <div id="sm-pane-ruxsat" style="padding:20px;display:none">
