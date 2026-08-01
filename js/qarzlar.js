@@ -2102,6 +2102,11 @@ function renderQarzlarTarixiTotal() {
     (p.allocations||[]).some(a => (a.chekNum||"").toLowerCase().includes(q))
   );
 
+  // 2026-08-02: EKSPORT uchun yakuniy ro'yxat. Avval eksport o'z
+  // filtrini yozardi va bekor qilingan to'lovlarni ham qo'shardi,
+  // qidiruvni esa umuman qo'llamasdi — Excel ekrandan farq qilardi.
+  try { setExportList("qarztarix-total", payments); } catch(e) {}
+
   payments.sort((a,b) => (a.date+a.time < b.date+b.time) ? 1 : -1);
 
   // Statistika — v168 (№3): atkaz qilinganlar summaga KIRMAYDI
@@ -2190,12 +2195,14 @@ function exportQarzTarixiExcel() {
   if (qtViewMode === "total") {
     // Umumiy to'lov rejimi — har bir to'lov harakati bitta qator
     const rows = [["To'lov chek raqami","Sana","Vaqt","Mijoz","Telefon","Summa","Valyuta","Usul","Nechta chekka bo'lindi","Tafsilot"]];
-    let payments = (db.debtPayments||[]).slice();
-    const dateFrom = ($("qt-date-from")||{value:""}).value;
-    const dateTo   = ($("qt-date-to")||{value:""}).value;
-    if (dateFrom) payments = payments.filter(p => p.date >= dateFrom);
-    if (dateTo)   payments = payments.filter(p => p.date <= dateTo);
-    payments.sort((a,b) => (a.date+a.time < b.date+b.time) ? -1 : 1);
+    // ⚠️ 2026-08-02: EKRANDAGI RO'YXATDAN.
+    // Avval bu yerda filtr QAYTA YOZILGAN edi va ekrandan farq
+    // qilardi: qidiruv umuman qo'llanmasdi, bekor qilingan to'lovlar
+    // esa faylga kirib ketardi.
+    const payments = getExportList("qarztarix-total",
+      (db.debtPayments||[]).filter(p => !p.cancelled))
+      .slice()
+      .sort((a,b) => (a.date+a.time < b.date+b.time) ? -1 : 1);
 
     payments.forEach(p => {
       const allocs = p.allocations || [];

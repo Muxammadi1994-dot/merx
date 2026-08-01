@@ -451,6 +451,8 @@ function renderMoliya() {
   // Sahifalash — faqat joriy sahifa qatorlari chiziladi
   const expTotalPages = Math.ceil(exps.length / EXP_PER_PAGE) || 1;
   if (expPage > expTotalPages) expPage = 1;
+  // 2026-08-02: EKSPORT uchun yakuniy ro'yxat (sahifalashdan OLDIN)
+  try { setExportList("moliya", exps); } catch(e) {}
   const expPageRows = exps.slice((expPage-1)*EXP_PER_PAGE, expPage*EXP_PER_PAGE);
   renderExpPagination(expTotalPages, exps.length);
 
@@ -1068,15 +1070,12 @@ function exportExpExcel() {
   // avval ekranda bir narsa, faylda boshqa narsa chiqishi mumkin edi.
   const _er2 = expDateRange();
 
-  let exps = (db.xarajatlar||[])
-    .filter(x => (x.date||"") >= _er2.from && (x.date||"") <= _er2.to);
-  if (q)            exps = exps.filter(x =>       // v154: sub-teg qidiruvga qo'shildi
-    (x.category||"").toLowerCase().includes(q) ||
-    (x.subCategory||"").toLowerCase().includes(q) ||
-    (x.note||"").toLowerCase().includes(q) ||
-    (x.recipient||"").toLowerCase().includes(q));
-  if (catFilter)    exps = exps.filter(x => (x.category||"") === catFilter);
-  if (methodFilter) exps = exps.filter(x => (x.method||"naqd") === methodFilter);
+  // ⚠️ 2026-08-02: EKRANDAGI RO'YXATDAN.
+  // Avval filtr shu yerda qayta yozilardi. Ro'yxat filtri
+  // o'zgarganda (xarajat turi, ko'p parametrli qidiruv) eksport
+  // orqada qolardi — ekran va fayl har xil chiqardi.
+  const exps = getExportList("moliya", (db.xarajatlar||[])
+    .filter(x => (x.date||"") >= _er2.from && (x.date||"") <= _er2.to));
 
   const rows = [["Sana","Kategoriya","Kimga/Nima uchun","Kim to'ladi","To'lov usuli","Summa (so'm)","USD","Izoh"]];
   exps.forEach(x => rows.push([

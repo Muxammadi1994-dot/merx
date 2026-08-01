@@ -321,6 +321,8 @@ function renderMijozlar() {
   const colCount = Object.values(cols).filter(Boolean).length + 2;
   // 2026-07-31: faqat birinchi _mjLimit ta chiziladi. Yuqoridagi
   // jamlanma raqamlar TO'LIQ ro'yxatdan hisoblanadi — o'zgarmadi.
+  // 2026-08-02: EKSPORT uchun yakuniy ro'yxat (sahifalashdan OLDIN)
+  try { setExportList("mijozlar", list); } catch(e) {}
   const _mjTotal = list.length;
   _mjPage = clampPage(_mjPage, _mjTotal);
   const _mjMore = pagerRow(colCount, _mjTotal, _mjPage, "mjGoPage", "mijoz");
@@ -858,7 +860,9 @@ function exportMijozlarExcel() {
     "Muhim qayд","Manba","Tug'ilgan kun","Sotuvlar","Jami xarid","O'rtacha chek",
     "Oxirgi xarid","Joriy qarz (so'm)","Joriy qarz (USD)","Segment","Qarz limiti","Sodiqlik ballari"]];
 
-  db.customers.forEach(c => {
+  // 2026-08-02: EKRANDAGI ro'yxatdan (filtr va qidiruv bilan).
+  // Avval `db.customers` — hamma mijoz chiqardi.
+  getExportList("mijozlar", db.customers).forEach(c => {
     const st  = custStats(c.id);
     const seg = custSegment(st, c);
     const typeLabel = { ulgurji:"Ulgurji", chakana:"Chakana", other:"Boshqa" };

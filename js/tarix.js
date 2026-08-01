@@ -231,6 +231,8 @@ function renderTarix() {
   // Endi bir martada 100 qator chiziladi, qolgani tugma bilan.
   // Yuqoridagi jamlanma (KPI) hisoblari TO'LIQ ro'yxatdan olinadi —
   // ular o'zgarmadi.
+  // 2026-08-02: EKSPORT uchun yakuniy ro'yxat (sahifalashdan OLDIN)
+  try { setExportList("tarix", list); } catch(e) {}
   const _txTotal = list.length;
   _txPage = clampPage(_txPage, _txTotal);
   const _txList = pageSlice(list, _txPage);
@@ -771,19 +773,13 @@ function shareSaleWhatsApp() {
 
 // ── Excel eksport ─────────────────────────────────
 function exportTarixExcel() {
-  const q    = ($("tarix-q")||{value:""}).value.toLowerCase();
-  // Eksportda ham bekor qilinganlar chiqmaydi
-  const list = (db.sales||[]).filter(s => !s.cancelled)
-    .slice().sort((a,b) => ((a.date||"")+(a.time||"") < (b.date||"")+(b.time||"")) ? 1 : -1).filter(s => { // v154 (№13)
-    if (!s) return false;
-    if (!txPeriodFilter(s)) return false;
-    if (txStatus === "tolandan"    && s.status !== "tolandan")    return false;
-    if (txStatus === "qarz"        && s.status !== "qarz")        return false;
-    if (txStatus === "qaytarilgan" && s.status !== "qaytarilgan") return false;
-    if (!q) return true;
-    return (s.customerName||"").toLowerCase().includes(q) ||
-           (s.items||[]).filter(Boolean).some(i=>(i.name||"").toLowerCase().includes(q));
-  });
+  // ⚠️ 2026-08-02: EKRANDAGI RO'YXATDAN.
+  // Avval bu yerda filtr QAYTA YOZILGAN edi va u ekrandagidan
+  // orqada qolgandi: qidiruv faqat ism va tovar nomida ishlardi,
+  // ekranda esa chek raqami, telefon, izoh ham qidirilardi.
+  // Natijada Excel va ekran har xil natija berardi.
+  // Endi manba bitta — render tayyorlagan yakuniy ro'yxat.
+  const list = getExportList("tarix", (db.sales||[]).filter(s => s && !s.cancelled));
 
   const rows = [["Chek","Sana","Vaqt","Mahsulotlar","Mijoz","Telefon","To'lov turi","Narx turi","Jami","To'landi","Qolgan","Holat","Izoh"]];
   list.forEach(s => {

@@ -461,6 +461,33 @@ function srchMatcher(query) {
   };
 }
 
+// ══════════════════════════════════════════════════════════════
+// EKSPORT MANBAI — EKRANDAGI RO'YXAT (2026-08-02)
+// ══════════════════════════════════════════════════════════════
+// MUAMMO: har eksport o'z filtrini QAYTA YOZARDI (yoki umuman
+// filtrlamasdi). Natijada ekranda bir narsa, faylda boshqasi
+// chiqardi va ekran filtri o'zgarganda eksport orqada qolardi.
+//
+// ENDI: render funksiyasi yakuniy ro'yxatni shu yerga qo'yadi,
+// eksport o'shani oladi. Filtr, qidiruv, saralash — hammasi
+// avtomat mos keladi, chunki manba BITTA.
+//
+// ⚠️ Sahifalash ta'sir qilmaydi: bu YAKUNIY ro'yxat (hamma qator),
+// ekranda ko'rinib turgan 50 ta emas.
+const _lastLists = {};
+
+function setExportList(page, arr) {
+  try { _lastLists[page] = Array.isArray(arr) ? arr.slice() : []; } catch(e) {}
+}
+
+// Ro'yxat bo'lmasa (sahifa hali ochilmagan) — zaxira qiymat qaytadi,
+// ya'ni eski xatti-harakat saqlanadi va eksport hech qachon bo'sh
+// fayl bermaydi.
+function getExportList(page, fallback) {
+  const v = _lastLists[page];
+  return (Array.isArray(v) && v.length) ? v : (fallback || []);
+}
+
 function nav(p) {
   // Rol tekshiruvi — ruxsati yo'q sahifaga o'tmaslik
   if (typeof canAccessPage === "function" && !canAccessPage(p)) {

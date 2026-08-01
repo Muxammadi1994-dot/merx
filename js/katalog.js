@@ -446,6 +446,11 @@ function renderKatalog() {
     badge("kat-stat-broken", totalBroken);
   }
 
+  // 2026-08-02: EKSPORT uchun yakuniy ro'yxatni saqlaymiz.
+  // `ps` — filtr, qidiruv va saralashdan O'TGAN to'liq ro'yxat
+  // (sahifalashdan OLDIN). Excel shu ro'yxatdan oladi.
+  try { setExportList("katalog", ps); } catch(e) {}
+
   // Pagination — endi rang-qatorlar bo'yicha
   const totalPages = Math.ceil(rows.length / KAT_PER_PAGE) || 1;
   if (katPage > totalPages) katPage = 1;
@@ -2047,7 +2052,10 @@ function exportKatalogExcel() {
 
   const rows = [headers];
 
-  db.products.forEach(p => {
+  // 2026-08-02: EKRANDAGI ro'yxatdan olamiz — filtr, qidiruv va
+  // saralash avtomat mos keladi. Avval `db.products` dan olinardi
+  // va ekranda nima ko'rinishidan qat'i nazar HAMMA tovar chiqardi.
+  getExportList("katalog", db.products).forEach(p => {
     const costUzs = getCostUzs(p);
     // 2026-07-25: eksportda ikkala ko'rsatkich alohida ustunda
     const _mk = calcMarkup(costUzs, p.ulgurjiNarx);
