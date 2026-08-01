@@ -505,6 +505,12 @@ function _getStaffFormData() {
     // eski (kodsiz) yozuvlar ham ishlashda davom etadi.
     phone:       (typeof phoneFullVal === "function" ? phoneFullVal("as-phone") : "")
                  || ($("as-phone")||{value:""}).value.trim(),
+    // ⚠️ 2026-08-01: PIN QO'SHILDI.
+    // AVVAL: forma PIN maydonini to'ldirardi (`value="${s?.pin}"`),
+    // lekin saqlashda uni O'QIMASDI — pin hech qachon yozilmasdi.
+    // Shuning uchun xodim tizimga kira olmasdi: kirish telefon+PIN
+    // bo'yicha tekshiriladi, PIN esa bazada bo'sh edi.
+    pin:         ($("as-pin")     ||{value:""}).value.trim(),
     role:        ($("as-role")    ||{value:"kassir"}).value,
     salary:      parseFloat(($("as-salary")||{value:"0"}).value) || 0,
     bonusPct:    parseFloat(($("as-bonus") ||{value:"0"}).value) || 0,
@@ -562,6 +568,9 @@ function saveStaff(id) {
   const s = db.staff.find(x => x.id === id); if (!s) return;
   const d = _getStaffFormData();
   if (!d.name) { toast("Ism kiriting","err"); return; }
+  // 2026-08-01: PIN maydoni bo'sh qoldirilsa ESKISI saqlanadi —
+  // tasodifan o'chirilib, xodim kira olmay qolmasin.
+  if (!d.pin && s.pin) d.pin = s.pin;
   Object.assign(s, d);
   saveDB(); renderXodimlar(); closeStaffModal();
   toast("Xodim ma\'lumotlari yangilandi");
