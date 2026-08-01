@@ -507,6 +507,12 @@ async function pullDelta(noRender) {
           if (pg && typeof nav === "function") nav(pg.id.replace(/^p-/, ""));
         } catch(e) {}
       }
+      // S8: signaldan ekranga chiqquncha qancha vaqt ketdi
+      if (_trLastSignal) {
+        _trLog("signaldan ekranga", _trMs(_trLastSignal),
+               changed + " qator" + (noRender ? " (jim)" : ""));
+        _trLastSignal = 0;
+      }
       console.log(`⚡ Delta: ${changed} ta o'zgarish${noRender ? " (jim)" : ""}`);
     }
     return true;
@@ -563,6 +569,32 @@ function _keepSet(localVal, key) {
     const prev = localStorage.getItem(memKey);
     return prev !== null && prev !== "" ? prev : v;
   } catch(e) { return v; }
+}
+
+// ══════════════════════════════════════════════════════════════
+// SINXRON KUZATUVI (2026-08-02, S8) — TASHXIS UCHUN
+// ══════════════════════════════════════════════════════════════
+// Maqsad: "qarz to'lovi 1 soatdan keyin ko'rindi" kabi holatlarda
+// qaysi bosqichda to'xtaganini ANIQ bilish. Taxmin qilmaymiz.
+//
+// Bosqichlar:
+//   1. saqlandi   — o'zgarish lokalga yozildi (scheduleCloudSync)
+//   2. yuborildi  — bulutga push tugadi
+//   3. signal     — ikkinchi qurilmaga realtime xabari keldi
+//   4. tortildi   — delta/pull tugadi, ekranga chiqdi
+//
+// Kuzatuv FAQAT log yozadi — sinxron mantiqiga TEGMAYDI.
+// O'chirish: SYNC_TRACE = false
+const SYNC_TRACE = true;
+let _trQueuedAt = 0;      // o'zgarish navbatga qo'yilgan vaqt
+let _trLastSignal = 0;    // oxirgi realtime signali
+
+function _trNow() { return Date.now(); }
+function _trMs(from) { return from ? (Date.now() - from) : 0; }
+function _trLog(step, ms, extra) {
+  if (!SYNC_TRACE) return;
+  const t = ms >= 1000 ? (ms / 1000).toFixed(1) + " s" : ms + " ms";
+  console.log(`⏱ SINXRON · ${step}: ${t}${extra ? " · " + extra : ""}`);
 }
 
 // ── LocalDB → Supabase (to'liq push) ─────────────
@@ -2005,12 +2037,17 @@ function scheduleCloudSync() {
   // (1) _syncPending borida realtime/zaxira pull KUTADI (poyga yopildi),
   // (2) katalog saqlashda updatedAt muhri — pull eski nusxani ustiga yozmaydi.
   if (_syncSuppressed) return;
+  if (!_syncPending) _trQueuedAt = _trNow();   // S8: kutish boshlandi
   _syncPending = true;
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(async () => {
     if (!_syncPending) return;
     _syncPending = false;
-    try { await pushToCloud(); } catch(e) { console.warn("scheduleCloudSync push xato:", e.message); }
+    const _t0 = _trNow();
+    try {
+      await pushToCloud();
+      _trLog("yuborildi", _trMs(_t0), "kutish: " + _trMs(_trQueuedAt) + " ms");
+    } catch(e) { console.warn("scheduleCloudSync push xato:", e.message); }
     // v178: pill endi o'ynamaydi — "Avto-saqlash" tinch turadi,
     // sinxron orqa fonda jim ishlaydi (faqat xato toast bo'ladi).
   }, 700); // 2026-07-25: 2000 -> 700ms. 2 soniya ichida F5 bosilsa
@@ -2027,8 +2064,10 @@ async function flushCloudSync(intentionalDelete) {
   if (!_syncPending) return true;   // yuboriladigan narsa yo'q
   _syncPending = false;
   if (intentionalDelete) _intentionalDelete = true;
+  const _tf = _trNow();
   try {
     await pushToCloud();
+    _trLog("yuborildi (darhol)", _trMs(_tf));
     return true;
   } catch (e) {
     _syncPending = true;            // yuborilmadi — keyingi urinishga qoladi
@@ -2151,10 +2190,15 @@ function _rtSchedulePull() {
   _rtPullTimer = setTimeout(async () => {
     const waited = Date.now() - _rtWaitSince;
     // Yuborilmagan o'zgarish — avval push ketsin, lekin abadiy emas
-    if (_syncPending && waited < _RT_MAX_PEND_MS) { _rtSchedulePull(); return; }
-    if (_pullBusy) { _rtSchedulePull(); return; }   // boshqa pull ketyapti
+    // S8: nega kutyapti — sababi yoziladi (har 5 soniyada bir marta)
+    const _trWhy = (r) => {
+      if (SYNC_TRACE && waited > 3000 && waited % 5000 < 1600)
+        console.log(`⏱ SINXRON · kutmoqda (${(waited/1000).toFixed(0)} s): ${r}`);
+    };
+    if (_syncPending && waited < _RT_MAX_PEND_MS) { _trWhy("yuborilmagan o'zgarish bor"); _rtSchedulePull(); return; }
+    if (_pullBusy) { _trWhy("boshqa tortish ketyapti"); _rtSchedulePull(); return; }
     const busy = _rtBusyUI();
-    if (busy && waited < _RT_MAX_WAIT_MS) { _rtSchedulePull(); return; }
+    if (busy && waited < _RT_MAX_WAIT_MS) { _trWhy("foydalanuvchi band (modal/savat/maydon)"); _rtSchedulePull(); return; }
     _rtWaitSince = 0;
     _pullBusy = true; _syncSuppressed = true;
     // Delta (odatda 1-5 qator). Ekranga tegish XAVFSIZMI — alohida,
@@ -2177,7 +2221,11 @@ function _rtEnsure() {
   _RT_TABLES.forEach(tbl => {
     ch.on("postgres_changes",
       { event: "*", schema: "public", table: tbl, filter: "shop_id=eq." + sid },
-      () => _rtSchedulePull());
+      () => {
+        // S8: signal kelgan payt — keyin qancha kutgani o'lchanadi
+        if (!_trLastSignal) _trLastSignal = _trNow();
+        _rtSchedulePull();
+      });
   });
   ch.subscribe(status => {
     console.log("🔔 realtime:", status);
@@ -2190,10 +2238,20 @@ function _rtEnsure() {
 // bilan yetib kelmasa ham ma'lumot to'g'ri qoladi (ekran keyingi harakatda yangilanadi).
 setInterval(async () => {
   try {
-    if (!_sb || !getCloudShopId() || !_cloudPullDone || _pullBusy || _syncPending) return; // v185: _syncPending — avval push
+    // S8: zaxira tortish nega o'tkazib yuborilyapti — sababi
+    if (!_sb || !getCloudShopId() || !_cloudPullDone) return;
+    if (_pullBusy || _syncPending) {
+      if (SYNC_TRACE) console.log("⏱ SINXRON · 90s zaxira o'tkazildi: " +
+        (_syncPending ? "yuborilmagan o'zgarish bor" : "boshqa tortish ketyapti"));
+      return;
+    }
     _pullBusy = true; _syncSuppressed = true;
+    const _tz = _trNow();
     // 2026-07-31: zaxira ham delta bilan — fon so'rovi yengil bo'lsin
-    try { await pullSmart(true, true); }              // JIM + ekransiz (fon)
+    try {
+      await pullSmart(true, true);                    // JIM + ekransiz (fon)
+      _trLog("90s zaxira tortish", _trMs(_tz));
+    }
     catch (e) { console.warn("zaxira pull xato:", e.message); }
     finally { _syncSuppressed = false; _pullBusy = false; }
   } catch (e) {}
