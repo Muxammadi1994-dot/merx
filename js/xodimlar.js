@@ -570,6 +570,33 @@ function permSync(key) {
   if (!v || !u) return;
   if (u.checked) v.checked = true;
   if (!v.checked) u.checked = false;
+  // Sotuv ichidagi qo'shimcha ruxsatlar — faqat "Ishlatish" bo'lsa
+  if (key === "sotuv") {
+    const ex = document.getElementById("sotuv-extra");
+    if (ex) ex.style.display = u.checked ? "" : "none";
+    if (!u.checked) {
+      ["as-perm-discount","as-perm-nasiya","as-perm-return"].forEach(id => {
+        const el = document.getElementById(id); if (el) el.checked = false;
+      });
+      const w = document.getElementById("as-disc-wrap"); if (w) w.style.display = "none";
+    }
+  }
+}
+
+// Ustun bo'yicha hammasini belgilash / bekor qilish (2026-08-02)
+function permToggleAll(col, on) {
+  PERM_PAGES.forEach(pg => {
+    const el = document.getElementById("as-p" + (col === "use" ? "u" : "v") + "-" + pg.key);
+    if (el) el.checked = on;
+    permSync(pg.key);
+  });
+  // "Ishlatish" hammasi yoqilsa "Ko'rish" ham to'ladi
+  if (col === "use" && on) {
+    const v = document.getElementById("as-pv-all"); if (v) v.checked = true;
+  }
+  if (col === "view" && !on) {
+    const u = document.getElementById("as-pu-all"); if (u) u.checked = false;
+  }
 }
 
 function _getStaffFormData() {
@@ -789,7 +816,7 @@ function openStaffModal(editId = null) {
         </div>
         <div>
           <label style="${lStyle}">Lavozim</label>
-          <select id="as-role" onchange="permApplyDefaults(this.value, true)" style="${iStyle}">
+          <select id="as-role" style="${iStyle}">
             <option value="kassir"   ${(s?.role||'kassir')==='kassir'   ?'selected':''}>💼 Kassir</option>
             <option value="menejer"  ${s?.role==='menejer'  ?'selected':''}>📊 Menejer</option>
             <option value="omborchi" ${s?.role==='omborchi' ?'selected':''}>📦 Omborchi</option>
@@ -820,11 +847,7 @@ function openStaffModal(editId = null) {
 
       <!-- Tab: Ruxsatlar -->
       <div id="sm-pane-ruxsat" style="padding:20px;display:none">
-        <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;
-          padding:12px 14px;margin-bottom:16px;font-size:13px;color:#1E40AF;line-height:1.5">
-          <strong>Rol asosida ruxsatlar:</strong><br>
-          💼 Kassir — faqat sotuv | 📊 Menejer — barcha operatsiyalar | 📦 Omborchi — ombor
-        </div>
+        
         <!-- 2026-08-02: SAHIFA RUXSATLARI — ko'rish / ishlatish -->
         <div style="border:1.5px solid #E5E7EB;border-radius:10px;overflow:hidden;margin-bottom:16px">
           <div style="max-height:46vh;overflow-y:auto">
@@ -833,8 +856,16 @@ function openStaffModal(editId = null) {
               <tr style="background:#F9FAFB">
                 <th style="text-align:left;padding:9px 12px;font-size:11px;color:#6B7280;
                   text-transform:uppercase;letter-spacing:.04em">Bo'lim</th>
-                <th style="width:78px;padding:9px 6px;font-size:11px;color:#6B7280">Ko'rish</th>
-                <th style="width:88px;padding:9px 6px;font-size:11px;color:#6B7280">Ishlatish</th>
+                <th style="width:78px;padding:6px 6px;font-size:11px;color:#6B7280">
+                  Ko'rish<br>
+                  <input type="checkbox" id="as-pv-all" onchange="permToggleAll('view',this.checked)"
+                    title="Hammasini belgilash"
+                    style="width:15px;height:15px;accent-color:#6B7280;cursor:pointer;margin-top:3px"></th>
+                <th style="width:88px;padding:6px 6px;font-size:11px;color:#6B7280">
+                  Ishlatish<br>
+                  <input type="checkbox" id="as-pu-all" onchange="permToggleAll('use',this.checked)"
+                    title="Hammasini belgilash"
+                    style="width:15px;height:15px;accent-color:var(--acc);cursor:pointer;margin-top:3px"></th>
               </tr>
             </thead>
             <tbody>
@@ -850,7 +881,33 @@ function openStaffModal(editId = null) {
                     <input type="checkbox" id="as-pu-${pg.key}" ${pr.use?'checked':''}
                       onchange="permSync('${pg.key}')"
                       style="width:17px;height:17px;accent-color:var(--acc);cursor:pointer"></td>
-                </tr>`;
+                </tr>` + (pg.key === "sotuv" ? `
+                <tr id="sotuv-extra" style="display:${pr.use?'':'none'}">
+                  <td colspan="3" style="padding:0">
+                    <div style="background:#FFFBEB;border-top:1px solid #FDE68A;padding:8px 12px 8px 26px">
+                      <div style="font-size:11px;color:#92400E;font-weight:700;margin-bottom:6px">
+                        Sotuv ichidagi qo'shimcha ruxsatlar</div>
+                      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0;cursor:pointer">
+                        <input type="checkbox" id="as-perm-discount" ${s?.permDiscount?'checked':''}
+                          onchange="document.getElementById('as-disc-wrap').style.display=this.checked?'block':'none'"
+                          style="width:16px;height:16px;accent-color:var(--acc)">
+                        ✂️ Chegirma berish</label>
+                      <div id="as-disc-wrap" style="display:${s?.permDiscount?'block':'none'};padding:4px 0 4px 24px">
+                        <input id="as-max-discount" type="number" min="0" max="50" placeholder="max %"
+                          value="${s?.maxDiscount||''}"
+                          style="width:90px;font-family:inherit;font-size:12.5px;border:1.5px solid #FDE68A;
+                          border-radius:6px;padding:4px 8px;text-align:center"></div>
+                      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0;cursor:pointer">
+                        <input type="checkbox" id="as-perm-nasiya" ${s?.permNasiya?'checked':''}
+                          style="width:16px;height:16px;accent-color:var(--acc)">
+                        💳 Nasiya sotuv</label>
+                      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0;cursor:pointer">
+                        <input type="checkbox" id="as-perm-return" ${s?.permReturn?'checked':''}
+                          style="width:16px;height:16px;accent-color:var(--acc)">
+                        ↩ Qaytarish qabul qilish</label>
+                    </div>
+                  </td>
+                </tr>` : "");
               }).join("")}
             </tbody>
           </table>
@@ -862,48 +919,6 @@ function openStaffModal(editId = null) {
             <strong>Ishlatish</strong> — to'liq ishlaydi (qo'shish, tahrirlash, o'chirish).<br>
             <strong>Sozlamalar</strong> bo'limi har doim faqat egada.
           </div>
-        </div>
-
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <label style="display:flex;align-items:center;gap-12px;padding:12px 14px;
-            background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:9px;cursor:pointer;gap:12px">
-            <input type="checkbox" id="as-perm-discount"
-              ${s?.permDiscount?'checked':''}
-              style="width:18px;height:18px;accent-color:var(--acc);flex-shrink:0"
-              onchange="document.getElementById('as-discount-wrap').style.display=this.checked?'block':'none'">
-            <div>
-              <div style="font-size:13px;font-weight:700;color:var(--ink)">✂️ Chegirma berish</div>
-              <div style="font-size:11px;color:#9CA3AF">Kassir uchun qo'shimcha ruxsat</div>
-            </div>
-          </label>
-          <div id="as-discount-wrap" style="display:${s?.permDiscount?'block':'none'};
-            margin-left:12px;padding:10px 14px;background:#FFFBEB;border-radius:8px;border:1px solid #FDE68A">
-            <label style="${lStyle}">Maksimal chegirma (%)</label>
-            <input id="as-max-discount" type="number" min="0" max="50" placeholder="10"
-              value="${s?.maxDiscount||''}"
-              style="width:120px;font-family:inherit;font-size:14px;font-weight:700;
-              border:1.5px solid #E5E7EB;border-radius:7px;padding:7px 10px;text-align:center">
-          </div>
-          <label style="display:flex;align-items:center;padding:12px 14px;
-            background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:9px;cursor:pointer;gap:12px">
-            <input type="checkbox" id="as-perm-nasiya"
-              ${s?.permNasiya?'checked':''}
-              style="width:18px;height:18px;accent-color:var(--acc);flex-shrink:0">
-            <div>
-              <div style="font-size:13px;font-weight:700;color:var(--ink)">💳 Nasiya berish</div>
-              <div style="font-size:11px;color:#9CA3AF">Qarzga sotuv qilish huquqi</div>
-            </div>
-          </label>
-          <label style="display:flex;align-items:center;padding:12px 14px;
-            background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:9px;cursor:pointer;gap:12px">
-            <input type="checkbox" id="as-perm-return"
-              ${s?.permReturn?'checked':''}
-              style="width:18px;height:18px;accent-color:var(--acc);flex-shrink:0">
-            <div>
-              <div style="font-size:13px;font-weight:700;color:var(--ink)">↩ Qaytarish qabul</div>
-              <div style="font-size:11px;color:#9CA3AF">Tovar qaytarishni rasmiylashtirish</div>
-            </div>
-          </label>
         </div>
       </div>
 
@@ -957,9 +972,12 @@ function openStaffModal(editId = null) {
   // Xodimda `perms` bo'lmasa (yangi xodim yoki eski yozuv) — roli
   // bo'yicha STANDART holat qo'yiladi. Aks holda jadval butunlay
   // bo'sh ko'rinardi va admin har birini qo'lda belgilashi kerak edi.
+  // 2026-08-02: YANGI xodimda galochkalar BO'SH (admin o'zi tanlaydi).
+  // MAVJUD xodimda `perms` bo'lmasa — roli bo'yicha standart qo'yiladi,
+  // aks holda saqlaganda u hamma huquqini yo'qotardi.
   try {
     const _hasPerms = s && s.perms && Object.keys(s.perms).length;
-    if (!_hasPerms) permApplyDefaults((s?.role) || ($("as-role")||{value:"kassir"}).value, true);
+    if (isEdit && !_hasPerms) permApplyDefaults(s?.role || "kassir", true);
   } catch(e) {}
   // 2026-08-01: TELEFONNI FORMAGA YUKLASH.
   // Saqlangan qiymat "+998901231212" ko'rinishida. Uni mamlakat

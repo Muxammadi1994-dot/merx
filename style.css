@@ -784,12 +784,15 @@ tr:hover td{background:#FAFAF8}
    konteynerlarda).
    ⚠️ Bu FAQAT ko'rinish qatlami. Haqiqiy himoya — yozish
    funksiyalari ichidagi `requireUse()`. */
+/* 2026-08-02: XIRALIK OLIB TASHLANDI.
+   Avval `opacity:.45` qo'yilardi — butun sahifa o'chgandek ko'rinardi.
+   Endi sahifa ODATDAGIDEK ochiladi, faqat amal bajarib bo'lmaydi. */
 .pg.view-only button:not([data-viewok]),
 .pg.view-only input[type="checkbox"],
 .pg.view-only select:not([data-viewok]),
 .pg.view-only [onclick]:not([data-viewok]){
   pointer-events:none !important;
-  opacity:.45 !important;
+  cursor:default !important;
 }
 /* Ruxsat etilganlar: qidiruv, sahifalash, filtr/tab qatorlari */
 .pg.view-only .srch-row,     .pg.view-only .srch-row *,
@@ -797,7 +800,6 @@ tr:hover td{background:#FAFAF8}
 .pg.view-only .om-tabbar,    .pg.view-only .om-tabbar *,
 .pg.view-only [data-viewok], .pg.view-only [data-viewok] *{
   pointer-events:auto !important;
-  opacity:1 !important;
 }
 /* Yuqorida ogohlantirish lentasi */
 .pg.view-only::before{

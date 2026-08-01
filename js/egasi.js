@@ -455,48 +455,14 @@ function adminRefreshStats() {
 
 // renderEgasi chaqirilganda statistikani ham yangilash
 // ── Xodimlar tab render ───────────────────────────
-const ROLE_PERMS_TABLE = [
-  { lbl:"Sotuv (POS)",        kassir:true,  menejer:true,  omborchi:false, admin:true  },
-  { lbl:"Chegirma berish",    kassir:false, menejer:true,  omborchi:false, admin:true, note:"* Alohida ruxsat bilan" },
-  { lbl:"Nasiya sotuv",       kassir:false, menejer:true,  omborchi:false, admin:true, note:"* Alohida ruxsat bilan" },
-  { lbl:"Qaytarish",          kassir:false, menejer:true,  omborchi:false, admin:true, note:"* Alohida ruxsat bilan" },
-  { lbl:"Mijozlar ko'rish",   kassir:true,  menejer:true,  omborchi:false, admin:true  },
-  { lbl:"Qarzlar ko'rish",    kassir:true,  menejer:true,  omborchi:false, admin:true  },
-  { lbl:"Ombor",              kassir:false, menejer:true,  omborchi:true,  admin:true  },
-  { lbl:"Katalog boshqarish", kassir:false, menejer:true,  omborchi:true,  admin:true  },
-  { lbl:"Sotuv tarixi",       kassir:true,  menejer:true,  omborchi:false, admin:true  },
-  { lbl:"Hisobot",            kassir:false, menejer:true,  omborchi:false, admin:true  },
-  { lbl:"Moliya",             kassir:false, menejer:true,  omborchi:false, admin:true  },
-  { lbl:"Xodimlar",          kassir:false, menejer:true,  omborchi:false, admin:true  },
-  { lbl:"Sozlamalar",         kassir:false, menejer:false, omborchi:false, admin:true  },
-];
+// ROLE_PERMS_TABLE olib tashlandi (2026-08-02): faqat ko'rsatuvchi
+// jadval edi, hech narsani boshqarmasdi. Ruxsatlar endi har xodimga
+// alohida beriladi (xodimlar.js → PERM_PAGES).
 
 function renderAdminXodimlar() {
   // Rol jadvali
-  const tbody = document.getElementById("adm-role-table-body");
-  if (tbody) {
-    const yes = `<td style="text-align:center;padding:10px 12px;border-bottom:1px solid #F3F4F6">
-      <span style="color:#059669;font-size:16px">✅</span></td>`;
-    const no  = `<td style="text-align:center;padding:10px 12px;border-bottom:1px solid #F3F4F6">
-      <span style="color:#E5E7EB;font-size:16px">—</span></td>`;
-    const partial = `<td style="text-align:center;padding:10px 12px;border-bottom:1px solid #F3F4F6">
-      <span style="color:#D97706;font-size:12px;font-weight:700">✳️</span></td>`;
+  // (rol jadvali olib tashlandi)
 
-    tbody.innerHTML = ROLE_PERMS_TABLE.map((row, i) => {
-      const bg = i % 2 === 0 ? "" : "background:#FAFAFA";
-      const kassirCell = row.note && !row.kassir ? partial : (row.kassir ? yes : no);
-      return `<tr style="${bg}">
-        <td style="padding:10px 12px;border-bottom:1px solid #F3F4F6;font-weight:600;color:#374151">
-          ${row.lbl}
-          ${row.note ? `<span style="font-size:10px;color:#9CA3AF;font-weight:400;display:block">${row.note}</span>` : ""}
-        </td>
-        ${kassirCell}
-        ${row.menejer ? yes : no}
-        ${row.omborchi ? yes : no}
-        ${row.admin ? yes : no}
-      </tr>`;
-    }).join("");
-  }
 
   // Xodimlar ruxsatlari
   const permsEl = document.getElementById("adm-staff-perms");

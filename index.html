@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=159">
+<link rel="stylesheet" href="style.css?v=160">
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display:inline-block; animation: spin .8s linear infinite; }
@@ -2612,26 +2612,11 @@
     <!-- TAB 3: XODIMLAR -->
     <!-- TAB 3: XODIMLAR -->
     <div class="adm-tab-pane" data-tab="xodimlar" style="display:none">
-      <div class="card" style="margin-bottom:16px">
-        <div class="ch"><h3><i class="ti ti-shield-check"></i> Rol tizimi — imkoniyatlar jadvali</h3></div>
-        <div style="padding:16px 20px;overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:500px">
-            <thead>
-              <tr style="background:#F9FAFB">
-                <th style="text-align:left;padding:10px 12px;font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;border-bottom:2px solid #E5E7EB">Imkoniyat</th>
-                <th style="text-align:center;padding:10px 12px;font-size:12px;color:#4C9BE8;font-weight:700;text-transform:uppercase;border-bottom:2px solid #E5E7EB">💼 Kassir</th>
-                <th style="text-align:center;padding:10px 12px;font-size:12px;color:#8B5CF6;font-weight:700;text-transform:uppercase;border-bottom:2px solid #E5E7EB">📊 Menejer</th>
-                <th style="text-align:center;padding:10px 12px;font-size:12px;color:#36B48C;font-weight:700;text-transform:uppercase;border-bottom:2px solid #E5E7EB">📦 Omborchi</th>
-                <th style="text-align:center;padding:10px 12px;font-size:12px;color:#E9A500;font-weight:700;text-transform:uppercase;border-bottom:2px solid #E5E7EB">🔑 Admin</th>
-              </tr>
-            </thead>
-            <tbody id="adm-role-table-body"></tbody>
-          </table>
-        </div>
-        <div style="padding:10px 20px 14px;font-size:12px;color:#9CA3AF;background:#F9FAFB;border-top:1px solid #E5E7EB">
-          ✳️ = alohida ruxsat bilan kassir ham qila oladi
-        </div>
-      </div>
+            <!-- 2026-08-02: ROL JADVALI OLIB TASHLANDI.
+           U faqat ko'rsatuvchi edi va hech narsani boshqarmasdi.
+           Endi ruxsatlar HAR XODIMGA ALOHIDA beriladi:
+           Xodimlar → xodimni ochish → "Ruxsatlar" tabi. -->
+
       <div class="card">
         <div class="ch">
           <h3><i class="ti ti-users"></i> Xodimlar ruxsatlari</h3>
@@ -4736,9 +4721,9 @@
 <script src="js/qarzlar.js?v=190"></script>
 <script src="js/tarix.js?v=167"></script>
 <script src="js/hisobot.js?v=151"></script>
-<script src="js/xodimlar.js?v=150"></script>
+<script src="js/xodimlar.js?v=151"></script>
 <script src="js/moliya.js?v=167"></script>
-<script src="js/egasi.js?v=169"></script>
+<script src="js/egasi.js?v=170"></script>
 <script src="js/portal.js?v=141"></script>
 <script src="js/init.js?v=149"></script>
 <script>
@@ -4943,7 +4928,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=174")
+    navigator.serviceWorker.register("/sw.js?v=175")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
