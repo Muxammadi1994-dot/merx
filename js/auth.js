@@ -102,8 +102,23 @@ async function authLogin(email, password, shopId) {
 }
 
 // ── Xodim login ──────────────────────────────────
+// ── Telefonni solishtirish uchun soddalashtirish (2026-08-01) ──
+// AVVAL: `s.phone === phone` — AYNAN bir xil bo'lishi talab qilinardi.
+// Xodim qo'shishda telefon "901234567" deb (kodsiz) saqlanardi, kirish
+// oynasida esa odam "+998 90 123 45 67" deb yozardi. Ikkalasi mos
+// kelmasdi va xodim tizimga UMUMAN kira olmasdi.
+// Endi ikkala tomon ham faqat raqamga keltiriladi va 998 prefiksi
+// hisobga olinadi — qaysi ko'rinishda yozilsa ham topiladi.
+function _phKey(v) {
+  let d = String(v || "").replace(/\D/g, "");
+  if (d.length > 9 && d.startsWith("998")) d = d.slice(3);
+  return d;
+}
+
 function authStaffLogin(phone, password) {
-  const staff = (db.staff||[]).find(s => s.phone === phone && s.pin === password);
+  const key = _phKey(phone);
+  const pin = String(password || "").trim();
+  const staff = (db.staff||[]).find(s => _phKey(s.phone) === key && String(s.pin||"").trim() === pin);
   if (!staff) return { ok: false, error: "Telefon yoki PIN noto'g'ri" };
   const sid   = getShopId();
   const dbKey = sid === "local" ? "merx_v5" : "merx_v5_" + sid;

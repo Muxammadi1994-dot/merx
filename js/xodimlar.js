@@ -499,7 +499,12 @@ function _getStaffFormData() {
   const permDiscount = ($("as-perm-discount")||{checked:false}).checked;
   return {
     name:        ($("as-name")    ||{value:""}).value.trim(),
-    phone:       ($("as-phone")   ||{value:""}).value.trim(),
+    // 2026-08-01: mamlakat kodi bilan saqlanadi (+998901234567).
+    // Avval kodsiz saqlanardi — mijozlardagi bilan bir xil xato.
+    // Kirishda solishtiruv raqamga keltirib qilinadi, shuning uchun
+    // eski (kodsiz) yozuvlar ham ishlashda davom etadi.
+    phone:       (typeof phoneFullVal === "function" ? phoneFullVal("as-phone") : "")
+                 || ($("as-phone")||{value:""}).value.trim(),
     role:        ($("as-role")    ||{value:"kassir"}).value,
     salary:      parseFloat(($("as-salary")||{value:"0"}).value) || 0,
     bonusPct:    parseFloat(($("as-bonus") ||{value:"0"}).value) || 0,

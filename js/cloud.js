@@ -952,6 +952,9 @@ async function pushToCloud() {
         const row = {
           shop_id: sid, id: s.id, name: s.name,
           phone: s.phone || null,
+          // 2026-08-01: PIN ham yuboriladi. Avval u push'da YO'Q edi —
+          // xodim boshqa qurilmada PIN'siz qolib, tizimga kira olmasdi.
+          pin: s.pin || null,
           role: s.role || "kassir"
         };
         // Ruxsatlar va modullarni JSON ga o'tkazamiz

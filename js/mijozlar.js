@@ -689,18 +689,36 @@ function deleteCust(id) {
     (typeof calcSaleState === "function" ? calcSaleState(s).remaining > 0 : s.remaining > 0)
   );
 
+  // ── 2026-08-01: QARZDOR MIJOZ O'CHIRILMAYDI ──────────────────
+  // AVVAL: ogohlantirardi, lekin tasdiqlansa O'CHIRARDI. Natijada
+  // mijoz yo'qolib, uning qarzlari `sales` da YETIM qolardi —
+  // Qarzlar sahifasida turaveradi, lekin mijozi yo'q, to'lov ham
+  // qabul qilib bo'lmaydi. B20 da aynan shu bo'lgan.
+  // ENDI: taqiqlanadi. Avval qarz yopilishi kerak.
   if (openDebts.length > 0) {
     const totalDebt = openDebts.reduce((a, s) =>
       a + (typeof calcSaleState === "function" ? calcSaleState(s).remaining : s.remaining||0), 0);
-    if (!confirm(`"${c.name}" mijozida ${openDebts.length} ta yopilmagan qarz bor!\nJami qarz: ${Math.round(totalDebt).toLocaleString("ru-RU")} so'm\n\nQarzlari to'lanmagan mijozni o'chirasizmi?`)) return;
-  } else if (st.count > 0) {
+    alert(`⛔ "${c.name}" — o'chirib bo'lmaydi\n\n` +
+          `${openDebts.length} ta yopilmagan qarz bor.\n` +
+          `Jami: ${Math.round(totalDebt).toLocaleString("ru-RU")} so'm\n\n` +
+          `Avval qarzni yoping yoki bekor qiling, keyin o'chiring.`);
+    return;
+  }
+  if (st.count > 0) {
     if (!confirm(`"${c.name}" mijozida ${st.count} ta sotuv tarixi bor.\nO'chirilsa faqat kontakt ma'lumotlari o'chadi, sotuv tarixi saqlanadi.\nDavom etilsinmi?`)) return;
   } else {
     if (!confirm(`"${c.name}" o'chirilsinmi?`)) return;
   }
 
   db.customers = db.customers.filter(x => x.id !== id);
-  saveDB(); closeModal("custcard"); renderMijozlar();
+  // 2026-08-01: BULUTGA HAM AYTAMIZ.
+  // Avval `queueCloudDelete` chaqirilmasdi — mijoz faqat qurilmadan
+  // o'chib, keyingi tortishda bulutdagi nusxa QAYTIB kelardi.
+  // "Mijoz o'chmayapti" muammosining sababi shu edi (§4.2).
+  try { if (typeof queueCloudDelete === "function") queueCloudDelete("customers", "id", id); } catch(e) {}
+  saveDB();
+  try { if (typeof flushCloudSync === "function") flushCloudSync(true); } catch(e) {}
+  closeModal("custcard"); renderMijozlar();
   toast(`"${c.name}" o'chirildi`);
 }
 
