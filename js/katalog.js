@@ -1348,8 +1348,12 @@ function deleteProduct() {
     }
   } catch(e) {}
 
+  // 2026-08-02: BULUTGA HAM AYTAMIZ (tombstone). Busiz yozuv
+  // keyingi tortishda QAYTIB kelardi.
+  try { if (typeof queueCloudDelete === "function") queueCloudDelete("products", "sku", editSku); } catch(e) {}
   db.products = db.products.filter(x => x.sku !== editSku);
   saveDB();
+  try { if (typeof flushCloudSync === "function") flushCloudSync(true); } catch(e) {}
   // 2026-07-25: o'chirish DARHOL bulutga
   try { if (typeof flushCloudSync === "function") flushCloudSync(true); } catch(e) {}
   closeModal("editprod"); renderKatalog();

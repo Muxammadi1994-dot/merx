@@ -1230,7 +1230,29 @@ async function pushToCloud() {
       // _cloudIds ga BOG'LIQ EMAS, shuning uchun ishonchli
       try { await processPendingDeletes(sid); } catch(e) {}
 
-      for (const [table, cfg] of Object.entries(delMap)) {
+      // ══════════════════════════════════════════════════════════
+      // ⚠️ 2026-08-02: XULOSA BILAN O'CHIRISH O'CHIRILDI
+      // ══════════════════════════════════════════════════════════
+      // AVVAL: "bulutda bor, mening ro'yxatimda yo'q → o'chir".
+      // Bu xulosa FAQAT lokal ro'yxat to'liq bo'lsagina to'g'ri edi,
+      // amalda esa u hech qachon kafolatlanmagan:
+      //   · qurilma yangi yozuvni hali tortmagan bo'lishi mumkin
+      //   · delta sinxrondan keyin to'liq pull kamdan-kam bo'ladi,
+      //     `_cloudIds` eskirib qoladi
+      //   · gost oyna, tozalangan qurilma, sekin internet — har biri
+      //     chala ro'yxat beradi
+      // Natijada chala ro'yxatli qurilma bulutdagi ma'lumotni
+      // O'CHIRIB YUBORARDI. Shoetest'da xodim shu sabab yo'qolgan.
+      //
+      // ENDI: o'chirish FAQAT `queueCloudDelete` + tombstone orqali
+      // (yuqoridagi `processPendingDeletes`). U yozib qo'yiladi,
+      // localStorage'da saqlanadi va muvaffaqiyatsiz bo'lsa qayta
+      // uriniladi — xulosaga bog'liq emas.
+      //
+      // Barcha o'chirish yo'llari tekshirildi va tombstone qo'shildi:
+      // tovar, mijoz, xodim, xarajat, chiqim, yetkazuvchi, ombor.
+      const _SWEEP_DELETE = false;   // kill-switch: kerak bo'lsa true
+      for (const [table, cfg] of (_SWEEP_DELETE ? Object.entries(delMap) : [])) {
         const seen = _cloudIds[table];
         // Bulutda bu jadvaldan hech narsa ko'rilmagan — o'chiradigan narsa yo'q.
         // (Bo'sh jadvallar uchun bu NORMAL: xodim, chiqim, smena bo'lmasa.)
@@ -2190,15 +2212,38 @@ async function cloudDailyBackup(sid) {
     if (!db || !db.products) return;
     // Bo'sh db'ni zaxiralamaymiz (himoya: bo'sh zaxira zararli)
     const total = (db.products||[]).length + (db.sales||[]).length +
-                  (db.ombor||[]).length + (db.customers||[]).length;
+                  (db.ombor||[]).length + (db.customers||[]).length +
+                  (db.staff||[]).length + (db.xarajatlar||[]).length;
     if (total < 2) return;
 
     const bugun = today();
 
     // Bugun allaqachon zaxira bormi? (kuniga 1 marta)
     const { data: bor } = await _sb.from("backups")
-      .select("id").eq("shop_id", sid).eq("date", bugun).limit(1);
-    if (bor && bor.length) return; // bugungi zaxira bor
+      .select("id,records").eq("shop_id", sid).eq("date", bugun).limit(1);
+
+    // ⚠️ 2026-08-02: ZAXIRA CHALA MA'LUMOT BILAN OLINMASIN.
+    // Avval kuniga BIR MARTA olinardi va birinchi olingani qolardi.
+    // Agar o'sha payt qurilmada ma'lumot to'liq bo'lmasa (masalan
+    // og'ir jadvallar hali IndexedDB'dan yuklanmagan), zaxira CHALA
+    // saqlanardi. Shu sabab zaxiralarda xodimlar soni 0 chiqqan va
+    // yo'qolgan xodimni tiklab bo'lmagan.
+    if (typeof window !== "undefined" && window._heavyHydrated === false) return;
+    if (!(db.products||[]).length && !(db.customers||[]).length) return;
+
+    // Bugungi zaxira bor, LEKIN hozirgi ma'lumot to'liqroq bo'lsa —
+    // uni yangilaymiz (eng to'liq nusxa saqlanadi).
+    if (bor && bor.length) {
+      const _old = bor[0].records || 0;
+      if (total <= _old) return;
+      try {
+        await _sb.from("backups").update({ data: JSON.parse(JSON.stringify(db, (k,v) =>
+          (k==="image"||k==="colorImages"||k==="photo") ? undefined : v)), records: total })
+          .eq("id", bor[0].id);
+        console.log("☁💾 Zaxira yangilandi (to'liqroq): " + _old + " → " + total);
+      } catch(e) { console.warn("zaxira yangilanmadi:", e.message); }
+      return;
+    }
 
     // Rasmlarni chiqarib tashlaymiz (hajm katta bo'lmasin)
     const light = JSON.parse(JSON.stringify(db, (k, v) => {

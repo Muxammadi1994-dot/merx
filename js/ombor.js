@@ -792,8 +792,12 @@ function deleteSupplier() {
   if (!editingSupplierId) return;
   const s = db.suppliers.find(x => x.id === editingSupplierId); if (!s) return;
   if (!confirm(`"${s.name}" yetkazuvchisini ro'yxatdan o'chirasizmi?\nKirim tarixi saqlanib qoladi.`)) return;
+  // 2026-08-02: BULUTGA HAM AYTAMIZ (tombstone). Busiz yozuv
+  // keyingi tortishda QAYTIB kelardi.
+  try { if (typeof queueCloudDelete === "function") queueCloudDelete("suppliers", "id", editingSupplierId); } catch(e) {}
   db.suppliers = db.suppliers.filter(x => x.id !== editingSupplierId);
   saveDB();
+  try { if (typeof flushCloudSync === "function") flushCloudSync(true); } catch(e) {}
   closeModal("supplier");
   omRenderSuppliers();
   toast("Yetkazuvchi o'chirildi", "info");
@@ -887,8 +891,13 @@ function omRenderChiqim() {
 function deleteChiqim(id) {
   const c = db.chiqimlar.find(x => x.id === id); if (!c) return;
   if (!confirm(`${c.productName} (${c.color}/${c.size}) — ${c.qty} ta chiqimni o'chirasizmi?\nOmbor qoldig'i TIKLANMAYDI.`)) return;
+  // 2026-08-02: BULUTGA HAM AYTAMIZ (tombstone). Busiz yozuv
+  // keyingi tortishda QAYTIB kelardi.
+  try { if (typeof queueCloudDelete === "function") queueCloudDelete("chiqimlar", "id", id); } catch(e) {}
   db.chiqimlar = db.chiqimlar.filter(x => x.id !== id);
-  saveDB(); omRenderChiqim();
+  saveDB();
+  try { if (typeof flushCloudSync === "function") flushCloudSync(true); } catch(e) {}
+  omRenderChiqim();
   toast("Chiqim o'chirildi", "info");
 }
 
