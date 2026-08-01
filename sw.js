@@ -8,7 +8,7 @@
 // deploy 1
 
 // MUHIM: har push'da bu raqamni +1 qiling — eski kesh avtomat o'chadi.
-const CACHE_VERSION = "merx-v166";
+const CACHE_VERSION = "merx-v167";
 const CACHE_NAME = CACHE_VERSION;
 
 // Boshlang'ich keshlanadigan fayllar (offline'da kamida shular bo'lsin)
@@ -102,9 +102,17 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 4b) BOSHQA FAYLLAR (CSS, JS, ikonka, CDN) — NETWORK-FIRST + 5s timeout
+  // 4b) BOSHQA FAYLLAR (CSS, JS, ikonka, CDN) — NETWORK-FIRST + timeout
+  //
+  // ⚠️ 2026-08-01: VERSIYALANGAN FAYLLARGA UZUNROQ MUDDAT.
+  // Manzilida `?v=` bo'lgan fayl (style.css?v=157, js/*.js?v=N) —
+  // bu YANGI versiya, keshda umuman yo'q. Sekin internetda 5 soniya
+  // yetmasdi va SW eski nusxani berardi: kod yangilangan, lekin
+  // brauzer eskisini ko'rsatib turardi.
+  // Versiyalangan manzil o'zi kesh buzadi, shuning uchun 20 soniya.
+  const _isVersioned = /[?&]v=\d+/.test(req.url);
   event.respondWith(
-    fetchWithTimeout(req, 5000)
+    fetchWithTimeout(req, _isVersioned ? 20000 : 5000)
       .then((res) => {
         // Muvaffaqiyatli javob — keshni yangilaymiz (offline uchun zaxira)
         if (res && res.status === 200 && (res.type === "basic" || res.type === "cors")) {

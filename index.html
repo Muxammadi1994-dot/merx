@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=157">
+<link rel="stylesheet" href="style.css?v=158">
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display:inline-block; animation: spin .8s linear infinite; }
@@ -1071,11 +1071,11 @@
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
       
       </div>
-      <div class="srch-row">
+      <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
         <input class="srch-inp" id="kat-q" placeholder="Qidirish, ART, SKU, barcode..."
-            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" oninput="renderKatalog();srchClr('kat-q')">
-        <button id="kat-q-clr" class="srch-clr" style="display:none"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" oninput="renderKatalog();srchClr('kat-q')" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
+        <button id="kat-q-clr" class="srch-clr" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:22px;line-height:1;padding:2px 6px"
           onclick="$('kat-q').value='';renderKatalog();srchClr('kat-q')">×</button>
       </div>
       </div>
@@ -1214,11 +1214,11 @@
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
       
     </div>
-      <div class="srch-row">
+      <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
         <input class="srch-inp" id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch();srchClr('om-q')"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}">
-        <button id="om-q-clr" class="srch-clr" style="display:none"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
+        <button id="om-q-clr" class="srch-clr" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:22px;line-height:1;padding:2px 6px"
           onclick="$('om-q').value='';omSearch();srchClr('om-q')">×</button>
       </div>
       </div>
@@ -1392,10 +1392,10 @@
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
       
       </div>
-      <div class="srch-row">
+      <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar();srchClr('cust-q')">
-        <button id="cust-q-clr" class="srch-clr" style="display:none"
+        <input class="srch-inp" id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar();srchClr('cust-q')" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
+        <button id="cust-q-clr" class="srch-clr" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:22px;line-height:1;padding:2px 6px"
           onclick="$('cust-q').value='';mjResetLimit();renderMijozlar();srchClr('cust-q')">×</button>
       </div>
       </div>
@@ -1603,10 +1603,10 @@
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
       
       </div>
-      <div class="srch-row">
+      <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="debt-q" placeholder="Mijoz, telefon qidirish..." oninput="renderDebts();srchClr('debt-q')">
-        <button id="debt-q-clr" class="srch-clr" style="display:none"
+        <input class="srch-inp" id="debt-q" placeholder="Mijoz, telefon qidirish..." oninput="renderDebts();srchClr('debt-q')" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
+        <button id="debt-q-clr" class="srch-clr" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:22px;line-height:1;padding:2px 6px"
           onclick="$('debt-q').value='';renderDebts();srchClr('debt-q')">×</button>
       </div>
       </div>
@@ -1669,10 +1669,10 @@
           </button>
         </div>
       </div>
-      <div class="srch-row">
+      <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="qt-q" placeholder="Mijoz, chek raqami qidirish..." oninput="renderQarzlarTarixi();srchClr('qt-q')">
-        <button id="qt-q-clr" class="srch-clr" style="display:none"
+        <input class="srch-inp" id="qt-q" placeholder="Mijoz, chek raqami qidirish..." oninput="renderQarzlarTarixi();srchClr('qt-q')" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
+        <button id="qt-q-clr" class="srch-clr" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:22px;line-height:1;padding:2px 6px"
           onclick="$('qt-q').value='';renderQarzlarTarixi();srchClr('qt-q')">×</button>
       </div>
       </div>
@@ -1871,7 +1871,7 @@
           <i class="ti ti-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:#bbb;pointer-events:none"></i>
           <input class="srch-inp" id="tarix-q" type="text" placeholder="Mijoz ismi, chek raqami, tovar nomi, telefon..."
             oninput="renderTarix()"
-            style="padding-left:34px">
+            style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none;padding-left:34px">
           <button id="tarix-q-clr" class="srch-clr" onclick="$('tarix-q').value='';renderTarix();this.style.display='none'"
             style="display:none">×</button>
         </div>
@@ -2337,10 +2337,10 @@
            (POS uslubida). Sarlavha/tugmalar tegilmadi. -->
       
       </div>
-      <div class="srch-row">
+      <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="exp-q" placeholder="Qidirish..." oninput="renderMoliya();srchClr('exp-q')">
-        <button id="exp-q-clr" class="srch-clr" style="display:none"
+        <input class="srch-inp" id="exp-q" placeholder="Qidirish..." oninput="renderMoliya();srchClr('exp-q')" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
+        <button id="exp-q-clr" class="srch-clr" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:22px;line-height:1;padding:2px 6px"
           onclick="$('exp-q').value='';renderMoliya();srchClr('exp-q')">×</button>
       </div>
       </div>
@@ -4955,7 +4955,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=166")
+    navigator.serviceWorker.register("/sw.js?v=167")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
