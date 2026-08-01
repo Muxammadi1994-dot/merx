@@ -326,6 +326,11 @@ const _DELTA_TABLES = [
   ["ombor",         "ombor"],
   ["xarajatlar",    "xarajatlar"],
   ["debt_payments", "debtPayments"],
+  // 2026-08-01: XODIMLAR QO'SHILDI.
+  // Avval delta ro'yxatida yo'q edi va delta ishlaganda `pullFromCloud`
+  // umuman chaqirilmasdi — bir qurilmada qo'shilgan xodim boshqasiga
+  // HECH QACHON yetib bormasdi (u tizimga kira olmasdi).
+  ["staff",         "staff"],
 ];
 
 // ⚠️ O'CHIRISH KALITI jadval bo'yicha HAR XIL.
@@ -335,7 +340,7 @@ const _DELTA_TABLES = [
 // YETIB BORMASDI (telefonda o'chirilgan tovar kompyuterda qolardi).
 const _DELTA_DEL_KEY = {
   products: "sku", customers: "id", sales: "id",
-  ombor: "id", xarajatlar: "id", debt_payments: "id",
+  ombor: "id", xarajatlar: "id", debt_payments: "id", staff: "id",
 };
 
 // Tovarlar SKU bo'yicha, qolganlari id bo'yicha birlashtiriladi —
@@ -409,6 +414,14 @@ async function pullDelta(noRender) {
       // nusxa bilan himoyalanadi (_keepImg / _keepColorImgs).
       const mapped = rows.map(r => {
         const base = { ...r.data, id: r.id };
+        if (tbl === "staff") {
+          // Xodimda PIN va telefon o'z ustunlarida ham bor — `data`
+          // bo'sh bo'lsa ular yo'qolmasin (kirish shu ikkisiga bog'liq).
+          if (!base.pin   && r.pin)   base.pin   = r.pin;
+          if (!base.phone && r.phone) base.phone = r.phone;
+          if (!base.name  && r.name)  base.name  = r.name;
+          if (!base.role  && r.role)  base.role  = r.role;
+        }
         if (tbl === "products") {
           const old = (db.products || []).find(x => String(x.sku) === String(r.sku)) || {};
           base.sku         = r.sku;
@@ -423,6 +436,27 @@ async function pullDelta(noRender) {
       incoming += rows.length;
       rows.forEach(r => { if (r.updated_at && r.updated_at > maxTs) maxTs = r.updated_at; });
     }
+
+    // ── SOZLAMALAR (2026-08-01) ──────────────────────────────
+    // `settings` — bitta qator, massiv emas, shuning uchun alohida.
+    // Delta ro'yxatiga qo'shib bo'lmaydi. Bo'sh qiymat lokalni
+    // BOSMAYDI (pull'dagi qoida bilan bir xil).
+    try {
+      const sr = await _selectAll(() => _sb.from("settings").select("*")
+        .eq("shop_id", sid).gt("updated_at", _q), "delta:settings");
+      if (sr.length) {
+        const st = sr[0];
+        if (!db.settings) db.settings = {};
+        if (st.staff_group_id)        db.settings.staffGroupId        = st.staff_group_id;
+        if (st.telegram_bot)          db.settings.telegramBotUrl      = st.telegram_bot;
+        if (st.telegram_bot_username) db.settings.telegramBotUsername = st.telegram_bot_username;
+        if (st.eskiz_token)           db.settings.eskizToken          = st.eskiz_token;
+        if (st.eskiz_sender)          db.settings.eskizSender         = st.eskiz_sender;
+        if (st.rate)                  db.settings.rate                = st.rate;
+        if (st.tier)                  db.settings.tier                = st.tier;
+        if (st.updated_at && st.updated_at > maxTs) maxTs = st.updated_at;
+      }
+    } catch(e) { console.warn("delta:settings", e.message); }
 
     const dels = await _selectAll(() => _sb.from("deleted_records").select("*")
       .eq("shop_id", sid)
@@ -954,7 +988,10 @@ async function pushToCloud() {
           phone: s.phone || null,
           // 2026-08-01: PIN ham yuboriladi. Avval u push'da YO'Q edi —
           // xodim boshqa qurilmada PIN'siz qolib, tizimga kira olmasdi.
-          pin: s.pin || null,
+          // 2026-08-01: PIN bo'sh bo'lsa BULUTDAGINI BOSMAYMIZ.
+          // Aks holda PIN'siz qurilma bulutdagi PIN ni o'chirib
+          // yuborardi va xodim hech qayerdan kira olmasdi.
+          ...(s.pin ? { pin: s.pin } : {}),
           role: s.role || "kassir"
         };
         // Ruxsatlar va modullarni JSON ga o'tkazamiz
@@ -1579,9 +1616,11 @@ async function pullFromCloud(silent = false, skipRender = false) {
       db.staff = staffData.map(s => {
         // v175: BUTUN JSON bo'lsa — undan (barcha maydonlar avtomatik)
         if (s.data && typeof s.data === "object" && !Array.isArray(s.data)) return { ...s.data, id: s.id };
+        // 2026-08-01: bulutdagi PIN bo'sh bo'lsa LOKALDAGINI saqlaymiz
+        const _oldSt = (db.staff || []).find(x => String(x.id) === String(s.id)) || {};
         const st = {
           id: s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir",
-          pin: s.pin || null, salary: s.salary || 0, bonusPct: s.bonus_pct || 0,
+          pin: s.pin || _oldSt.pin || null, salary: s.salary || 0, bonusPct: s.bonus_pct || 0,
           monthTarget: s.month_target || 0,
           permDiscount: s.perm_discount || false, maxDiscount: s.max_discount || 0,
           permNasiya: s.perm_nasiya || false, permReturn: s.perm_return || false,
