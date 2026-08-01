@@ -944,6 +944,14 @@ function openStaffModal(editId = null) {
     </div>`;
 
   document.body.appendChild(modal);
+  // 2026-08-02: RUXSAT GALOCHKALARINI TO'LDIRISH.
+  // Xodimda `perms` bo'lmasa (yangi xodim yoki eski yozuv) — roli
+  // bo'yicha STANDART holat qo'yiladi. Aks holda jadval butunlay
+  // bo'sh ko'rinardi va admin har birini qo'lda belgilashi kerak edi.
+  try {
+    const _hasPerms = s && s.perms && Object.keys(s.perms).length;
+    if (!_hasPerms) permApplyDefaults((s?.role) || ($("as-role")||{value:"kassir"}).value, true);
+  } catch(e) {}
   // 2026-08-01: TELEFONNI FORMAGA YUKLASH.
   // Saqlangan qiymat "+998901231212" ko'rinishida. Uni mamlakat
   // kodi va raqamga ajratish kerak, aks holda maydon BO'SH ko'rinardi
