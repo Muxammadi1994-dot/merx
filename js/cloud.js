@@ -305,7 +305,16 @@ function _getLastPull(sid) {
 // delta uni olmasligi mumkin edi. Chekinish shu teshikni yopadi.
 // Narxi: har delta oxirgi 5 daqiqani qayta oladi — bu bir necha
 // qator, id bo'yicha birlashtirish takrorni yaratmaydi.
-const _PULL_MARGIN_MS = 5 * 60 * 1000;
+// ⚠️ 2026-08-02: 5 DAQIQA → 45 SONIYA.
+// Chekinish poyga xavfini yopish uchun edi: to'liq pull bir necha
+// soniya davom etadi va oraliqda o'zgargan qator o'tkazib
+// yuborilishi mumkin. Lekin 5 daqiqa haddan tashqari ko'p bo'lib
+// chiqdi — har delta oxirgi 5 daqiqadagi HAMMA o'zgarishni QAYTA
+// tortardi. Ketma-ket to'lov qilinganda ular to'planib, bitta
+// tortishda ~95 qator kelardi va 5-10 soniya vaqt olardi.
+// 45 soniya poygani baribir yopadi (pull odatda 1-3 soniya),
+// lekin ortiqcha tortish deyarli yo'qoladi.
+const _PULL_MARGIN_MS = 45 * 1000;
 
 // TUZATILDI: endi HAQIQIY eng katta vaqt saqlanadi. Chekinish faqat
 // SO'ROV paytida qo'llanadi (_sinceQuery). Avval chekinish saqlashda
@@ -432,7 +441,7 @@ async function pullDelta(noRender) {
         }
         return base;
       });
-      staged.push({ key, rows: mapped, mergeKey: (tbl === "products" ? "sku" : "id") });
+      staged.push({ key, rows: mapped, mergeKey: (tbl === "products" ? "sku" : "id"), tbl });
       incoming += rows.length;
       rows.forEach(r => { if (r.updated_at && r.updated_at > maxTs) maxTs = r.updated_at; });
     }
@@ -512,6 +521,11 @@ async function pullDelta(noRender) {
         _trLog("signaldan ekranga", _trMs(_trLastSignal),
                changed + " qator" + (noRender ? " (jim)" : ""));
         _trLastSignal = 0;
+      }
+      // S8: qaysi jadvaldan qancha kelgani — sekinlik manbaini ko'rsatadi
+      if (SYNC_TRACE && staged.length) {
+        console.log("⏱ SINXRON · manba: " +
+          staged.map(x => x.tbl + "=" + x.rows.length).join(", "));
       }
       console.log(`⚡ Delta: ${changed} ta o'zgarish${noRender ? " (jim)" : ""}`);
     }
@@ -2085,6 +2099,18 @@ function hasPendingSync() { return !!_syncPending; }
 // Telefonda ilova fonga o'tganda ham ishlaydi (visibilitychange).
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden" && _syncPending) {
+    flushCloudSync();
+    return;
+  }
+  // ⚠️ 2026-08-02: ILOVA QAYTGANDA HAM TEKSHIRAMIZ.
+  // Avval faqat fonga o'tishda yuborilardi. Telefon brauzeri fonda
+  // taymerlarni to'xtatadi — agar o'sha payt yuborishga ulgurmasa,
+  // o'zgarish KEYINGI AMALGACHA kutib qolardi. Amalda shunday
+  // bo'lgan: kichik to'lov telefonda ko'rindi, kompyuterga esa
+  // keyingi to'lov qilinganda ikkalasi BIRGA yetib bordi.
+  if (document.visibilityState === "visible" && _syncPending) {
+    if (typeof SYNC_TRACE !== "undefined" && SYNC_TRACE)
+      console.log("⏱ SINXRON · ilova qaytdi — yuborilmagan o'zgarish jo'natilyapti");
     flushCloudSync();
   }
 });
