@@ -705,7 +705,15 @@ function _fpRow(r) {
     return _fp(JSON.stringify(c));
   } catch (e) { return _fp(JSON.stringify(r)); }
 }
-function _pushCacheKey() { return "merx_pushfp_" + (getCloudShopId() || "x"); }
+// 2026-08-02: kalitga FORMAT raqami qo'shildi. Barmoq izi hisoblash
+// usuli o'zgarganda eski kesh mos kelmay qoladi va HAMMA yozuv
+// "o'zgargan" bo'lib chiqadi — bir marta to'liq qayta yozish bo'ladi.
+// Format raqami bilan eski kesh o'zi tashlab yuboriladi va bu
+// chalkashlik takrorlanmaydi.
+const _PUSH_FP_VER = "v2";
+function _pushCacheKey() {
+  return "merx_pushfp_" + _PUSH_FP_VER + "_" + (getCloudShopId() || "x");
+}
 function _loadPushCache() {
   try {
     const raw = localStorage.getItem(_pushCacheKey());
@@ -2254,7 +2262,12 @@ function _rtSchedulePull() {
     try { await pullSmart(true, _rtRenderBlocked()); }
     catch (e) { console.warn("realtime pull xato:", e.message); }
     finally { _syncSuppressed = false; _pullBusy = false; }
-  }, 1500);
+  }, 600);   // ⚠️ 2026-08-02: 1500 → 600 ms.
+  // Kechiktirish bir necha signalni birlashtirish uchun edi. Endi
+  // ortiqcha tortish (products=87 aylanishi) tuzatilgach, har signal
+  // 1-2 qator olib keladi — uzoq kutishning ma'nosi qolmadi.
+  // Sotuvchilar "boshqa tizimda darhol seziladi" deb aytgan edi;
+  // shu 0,9 soniya aynan sezilarli farq beradi.
 }
 
 // Kanalni ochish (do'kon bo'yicha filtr). Idempotent: bir do'konga bir marta.
