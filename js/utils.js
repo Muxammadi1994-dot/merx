@@ -422,15 +422,8 @@ function pagerScrollTop(elId) {
 }
 
 
-// ── Qidiruv tozalash tugmasi (2026-08-01) ─────────────────────
-// Maydonda matn bo'lsa X ko'rinadi, bo'sh bo'lsa yashirinadi.
-// Sotuv tarixida shunday qilingan edi — endi hamma qidiruvda.
-function srchClr(inputId) {
-  const inp = document.getElementById(inputId);
-  const btn = document.getElementById(inputId + "-clr");
-  if (!inp || !btn) return;
-  btn.style.display = (inp.value || "").trim() ? "block" : "none";
-}
+// srchClr() OLIB TASHLANDI (2026-08-01): ✕ tugmasini setupSearchUX()
+// allaqachon qo'shadi. Ikki xil mexanizm bo'lmasin (yagona manba).
 
 function nav(p) {
   // Rol tekshiruvi — ruxsati yo'q sahifaga o'tmaslik
@@ -2131,18 +2124,24 @@ function setupSearchUX() {
     const inp = $(cfg.id);
     if (!inp || inp.dataset.uxDone) return;
     inp.dataset.uxDone = "1";
-    // Qulay o'lcham (POS uslubiga yaqin)
-    inp.style.fontSize = "14px";
-    inp.style.padding = "9px 32px 9px 12px";
-    if ((parseInt(inp.style.width) || 0) < 220 && !inp.style.width.includes("%")) inp.style.width = "240px";
+    // ⚠️ 2026-08-01: O'LCHAM ENDI BU YERDA BELGILANMAYDI.
+    // Avval shu funksiya fontSize/padding/width ni QAYTA YOZARDI va
+    // `.srch-inp` klassini (hamda HTML dagi uslubni) bosib ketardi —
+    // qidiruv qatorini kattalashtirish urinishlari ta'sir qilmasdi.
+    // Endi ko'rinish faqat CSS klassida (yagona manba).
+
     // O'rab, ✕ qo'shamiz (input DOM'da joyida qoladi — listener'lar saqlanadi)
+    // ⚠️ `inline-flex` edi — o'ram MAZMUNIGA QARAB kichrayardi va
+    // input'ning `width:100%` i tor blokka nisbatan hisoblanardi.
+    // Endi `flex` + `width:100%` — qator to'liq kenglikda.
     const wrap = document.createElement("span");
-    wrap.style.cssText = "position:relative;display:inline-flex;align-items:center";
+    wrap.style.cssText = "position:relative;display:flex;width:100%;align-items:center";
     inp.parentNode.insertBefore(wrap, inp);
     wrap.appendChild(inp);
     const btn = document.createElement("button");
     btn.type = "button"; btn.textContent = "✕"; btn.setAttribute("data-qclr", cfg.id);
-    btn.style.cssText = "display:none;position:absolute;right:9px;background:none;border:none;cursor:pointer;color:#bbb;font-size:15px;line-height:1;padding:2px";
+    // Kattaroq va aniqroq ✕ (avval 15px, ko'zga tashlanmasdi)
+    btn.style.cssText = "display:none;position:absolute;right:12px;background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:20px;line-height:1;padding:2px 6px;border-radius:8px";
     btn.onclick = e => { e.preventDefault(); inp.value = ""; btn.style.display = "none"; cfg.render(); inp.focus(); };
     wrap.appendChild(btn);
     inp.addEventListener("input", () => { btn.style.display = inp.value ? "" : "none"; });

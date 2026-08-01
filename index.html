@@ -1074,9 +1074,7 @@
       <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
         <input class="srch-inp" id="kat-q" placeholder="Qidirish, ART, SKU, barcode..."
-            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" oninput="renderKatalog();srchClr('kat-q')" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
-        <button id="kat-q-clr" class="srch-clr" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:22px;line-height:1;padding:2px 6px"
-          onclick="$('kat-q').value='';renderKatalog();srchClr('kat-q')">×</button>
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" oninput="renderKatalog()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
       </div>
       </div>
 
@@ -1216,10 +1214,8 @@
     </div>
       <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch();srchClr('om-q')"
+        <input class="srch-inp" id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch()"
           onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
-        <button id="om-q-clr" class="srch-clr" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:22px;line-height:1;padding:2px 6px"
-          onclick="$('om-q').value='';omSearch();srchClr('om-q')">×</button>
       </div>
       </div>
 
@@ -1394,9 +1390,7 @@
       </div>
       <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar();srchClr('cust-q')" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
-        <button id="cust-q-clr" class="srch-clr" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:22px;line-height:1;padding:2px 6px"
-          onclick="$('cust-q').value='';mjResetLimit();renderMijozlar();srchClr('cust-q')">×</button>
+        <input class="srch-inp" id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
       </div>
       </div>
       <!-- Filtr qatori -->
@@ -1605,9 +1599,7 @@
       </div>
       <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="debt-q" placeholder="Mijoz, telefon qidirish..." oninput="renderDebts();srchClr('debt-q')" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
-        <button id="debt-q-clr" class="srch-clr" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:22px;line-height:1;padding:2px 6px"
-          onclick="$('debt-q').value='';renderDebts();srchClr('debt-q')">×</button>
+        <input class="srch-inp" id="debt-q" placeholder="Mijoz, telefon qidirish..." oninput="renderDebts()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
       </div>
       </div>
       <!-- Mijoz topilmadi xabari (faqat guruhlangan rejimda kerak bo'lganda) -->
@@ -1671,9 +1663,7 @@
       </div>
       <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="qt-q" placeholder="Mijoz, chek raqami qidirish..." oninput="renderQarzlarTarixi();srchClr('qt-q')" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
-        <button id="qt-q-clr" class="srch-clr" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:22px;line-height:1;padding:2px 6px"
-          onclick="$('qt-q').value='';renderQarzlarTarixi();srchClr('qt-q')">×</button>
+        <input class="srch-inp" id="qt-q" placeholder="Mijoz, chek raqami qidirish..." oninput="renderQarzlarTarixi()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
       </div>
       </div>
       <div id="qt-status-bar" style="display:flex;gap:6px;padding:0 18px 14px;flex-wrap:wrap">
@@ -2339,9 +2329,7 @@
       </div>
       <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="exp-q" placeholder="Qidirish..." oninput="renderMoliya();srchClr('exp-q')" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
-        <button id="exp-q-clr" class="srch-clr" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:22px;line-height:1;padding:2px 6px"
-          onclick="$('exp-q').value='';renderMoliya();srchClr('exp-q')">×</button>
+        <input class="srch-inp" id="exp-q" placeholder="Qidirish..." oninput="renderMoliya()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
       </div>
       </div>
 
@@ -4736,7 +4724,7 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=165"></script>
-<script src="js/utils.js?v=207"></script>
+<script src="js/utils.js?v=208"></script>
 <script src="js/auth.js?v=186"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=219"></script>
@@ -4955,7 +4943,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=168")
+    navigator.serviceWorker.register("/sw.js?v=169")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
