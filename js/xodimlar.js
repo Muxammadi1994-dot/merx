@@ -720,8 +720,11 @@ function openStaffModal(editId = null) {
   modal.onclick = e => { if (e.target === modal) closeStaffModal(); };
   modal.style.cssText = "display:flex";
 
+  // 2026-08-02: oldin overflow:hidden edi — mazmun max-height:90vh dan
+  // oshsa KESILARDI va aylantirib bo'lmasdi. Ruxsatlar jadvali
+  // qo'shilgach oyna shu chegaradan oshdi va bo'sh ko'rinib qoldi.
   modal.innerHTML = `
-    <div class="modal" style="max-width:520px;padding:0;overflow:hidden">
+    <div class="modal" style="max-width:520px;padding:0;overflow:auto">
 
       <!-- Header -->
       <div style="padding:18px 20px;background:#0D1B2A;display:flex;align-items:center;justify-content:space-between">
@@ -820,6 +823,7 @@ function openStaffModal(editId = null) {
         </div>
         <!-- 2026-08-02: SAHIFA RUXSATLARI — ko'rish / ishlatish -->
         <div style="border:1.5px solid #E5E7EB;border-radius:10px;overflow:hidden;margin-bottom:16px">
+          <div style="max-height:46vh;overflow-y:auto">
           <table style="width:100%;border-collapse:collapse;font-size:13px">
             <thead>
               <tr style="background:#F9FAFB">
@@ -846,6 +850,7 @@ function openStaffModal(editId = null) {
               }).join("")}
             </tbody>
           </table>
+          </div>
           <div style="padding:9px 12px;background:#FFFBEB;border-top:1px solid #FDE68A;
             font-size:11.5px;color:#92400E;line-height:1.5">
             <strong>Ko'rish</strong> — bo'limni ocha oladi, lekin hech narsa
