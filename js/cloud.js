@@ -683,6 +683,28 @@ function _fp(str) {                       // qisqa barmoq izi
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
   return str.length + ":" + (h >>> 0).toString(36);
 }
+
+// ══════════════════════════════════════════════════════════════
+// ⚠️ 2026-08-02: `updatedAt` BARMOQ IZIGA KIRMAYDI — MUHIM
+// ══════════════════════════════════════════════════════════════
+// XATO: push yuborilgan tovarga `updatedAt` muhrini bosardi, lekin
+// barmoq izi muhrdan OLDIN hisoblanardi. Keyingi safar tovar ichida
+// yangi `updatedAt` bo'lgani uchun barmoq izi YANA farq qilardi →
+// tovar qayta yuborilardi → yana muhr → CHEKSIZ AYLANISH.
+// Natijada har push BARCHA tovarlarni qayta yozardi, server
+// `updated_at` ni yangilardi va delta ularni qayta tortardi:
+// logda "products=87" har safar chiqardi va sinxron 6-8 soniya
+// olardi (aslida 1-2 qator kelishi kerak edi).
+// Endi vaqt muhri hisobga olinmaydi — faqat HAQIQIY o'zgarish
+// tovarni "yangilangan" deb belgilaydi.
+function _fpRow(r) {
+  try {
+    const c = JSON.parse(JSON.stringify(r));
+    delete c.updated_at;
+    if (c.data && typeof c.data === "object") delete c.data.updatedAt;
+    return _fp(JSON.stringify(c));
+  } catch (e) { return _fp(JSON.stringify(r)); }
+}
 function _pushCacheKey() { return "merx_pushfp_" + (getCloudShopId() || "x"); }
 function _loadPushCache() {
   try {
@@ -711,13 +733,13 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
   const pend = [];
   for (const r of rows) {
     const k = String(r.id != null ? r.id : r.shop_id);
-    const j0 = _fp(JSON.stringify(r));
+    const j0 = _fpRow(r);
     if (cache.get(k) !== j0) {
       // v180: VAQT MUHRI — o'zgargan yozuvga muhr onDirty ichida
       // bosiladi (MUHRDAN KEYINGI JSON keshga yoziladi, aks holda
       // har push "o'zgargan" deb hisoblab abadiy aylanardi)
       if (onDirty) onDirty(r);
-      pend.push([r, k, _fp(JSON.stringify(r))]);
+      pend.push([r, k, _fpRow(r)]);
     }
   }
   if (!pend.length) return 0;
