@@ -149,6 +149,7 @@ function authStaffLogin(phone, password) {
   const user  = {
     id: "staff_" + staff.id, email: staff.phone,
     staffId: staff.id, shopId: sid, dbKey,
+    perms: staff.perms || null,      // 2026-08-02: darhol amal qilsin
     // Do'kon nomi xodimning O'Z do'koni bazasidan
     shopName: (() => {
       try {
@@ -212,7 +213,17 @@ function _myPerms() {
     const u = _authUser;
     if (!u || !u.staffId) return null;              // egasi/superadmin — cheklovsiz
     const st = (db.staff || []).find(x => x.id === u.staffId);
-    return (st && st.perms && typeof st.perms === "object") ? st.perms : null;
+    if (st && st.perms && typeof st.perms === "object") return st.perms;
+    // ⚠️ 2026-08-02: ZAXIRA — FOYDALANUVCHI YOZUVIDAN.
+    // Kirgan zahoti `db.staff` hali BO'SH bo'ladi (og'ir jadvallar
+    // yuklanmagan, bulutdan tortish tugamagan). Shu payt ruxsat
+    // topilmasdi va HAMMA NARSA OCHIQ ko'rinardi — xodim taqiqlangan
+    // bo'limlarni ham ko'rardi. Faqat sahifa yangilangach to'g'ri
+    // ishlardi.
+    // Endi ruxsat kirish paytida `_authUser` ga ham yoziladi va
+    // darhol amal qiladi.
+    if (u.perms && typeof u.perms === "object") return u.perms;
+    return null;
   } catch(e) { return null; }
 }
 
@@ -1047,6 +1058,7 @@ async function doStaffLogin() {
       const user = {
         id: "staff_" + cs.id, email: cs.phone,
         staffId: cs.id, shopId: cs.shopId, dbKey,
+        perms: cs.perms || null,     // 2026-08-02: darhol amal qilsin
         shopName: cs.shopName, role: cs.role, name: cs.name
       };
       // Keyingi safar internetsiz ham kira olsin
