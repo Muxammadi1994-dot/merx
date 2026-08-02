@@ -782,7 +782,7 @@ function _savePushCache() {
 async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
   if (!rows || !rows.length) return 0;
   const cache = _pushCache[table] || (_pushCache[table] = new Map());
-  const pend = [];
+  let pend = [];   // 2026-08-02: takror tozalashda qayta o'zlashtiriladi
   for (const r of rows) {
     const k = String(r.id != null ? r.id : r.shop_id);
     const j0 = _fpRow(r);
@@ -805,6 +805,35 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
     localStorage.setItem(getDBKEY(), JSON.stringify((typeof _dbForLocal === "function" ? _dbForLocal() : db)));
     if (typeof scheduleHeavySave === "function") scheduleHeavySave();
   } catch(e) {} }
+  // ══════════════════════════════════════════════════════════════
+  // ⚠️ 2026-08-02: TAKROR KALITLARNI TOZALAYMIZ
+  // ══════════════════════════════════════════════════════════════
+  // Postgres qoidasi: bitta yuborishda bitta qatorni IKKI MARTA
+  // yangilab bo'lmaydi. To'plamda bir xil kalitli (masalan bir xil
+  // `sku`) ikki qator bo'lsa, baza shu xatoni beradi:
+  //   "ON CONFLICT DO UPDATE command cannot affect row a second time"
+  // va BUTUN TO'PLAM rad etiladi — ya'ni bitta takror tovar
+  // qolgan 19 tasini ham saqlanmay qoldiradi.
+  // B20 da aynan shu bo'lgan: "Saqlandi, lekin xatolar" xabari.
+  //
+  // Endi takrorlar oldindan tashlanadi (OXIRGISI qoladi — u eng
+  // yangi holat). Konsolga ogohlantirish yoziladi: takrorning
+  // haqiqiy manbasini shu bo'yicha topamiz.
+  const _keys = String(conflict || "id").split(",").map(x => x.trim());
+  const _seen = new Map();
+  pend.forEach(row => {
+    const k = _keys.map(c => String(row[0][c] ?? "")).join("|");
+    if (_seen.has(k)) {
+      console.warn(`⚠️ TAKROR yozuv (${table}): ${k} — eskisi tashlandi`);
+    }
+    _seen.set(k, row);           // oxirgisi qoladi
+  });
+  if (_seen.size !== pend.length) {
+    console.warn(`⚠️ ${table}: ${pend.length - _seen.size} ta takror tozalandi ` +
+                 `(${pend.length} → ${_seen.size})`);
+    pend = Array.from(_seen.values());
+  }
+
   const chunk = chunkSize || 50;
   for (let i = 0; i < pend.length; i += chunk) {
     const part = pend.slice(i, i + chunk);

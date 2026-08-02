@@ -635,7 +635,16 @@ function renderDebtsGrouped(list, rate) {
     return;
   }
 
-  tbody.innerHTML = Object.values(groups).map((g, gi) => {
+  // ⚠️ 2026-08-02: SAHIFALASH QO'SHILDI.
+  // Chek bo'yicha ko'rinishda (`renderDebtsList`) sahifalash bor edi,
+  // guruhlangan ko'rinishda esa YO'Q — 160 dan ortiq qarzdor bitta
+  // sahifada chiqardi. Endi ikkala ko'rinish ham bir xil ishlaydi.
+  // Jamlanma raqamlar TO'LIQ ro'yxatdan olinadi (kontekst §4.3).
+  const _grpAll = Object.values(groups);
+  _dbPage = clampPage(_dbPage, _grpAll.length);
+  const _grpPager = pagerRow(9, _grpAll.length, _dbPage, "dbGoPage", "qarzdor");
+
+  tbody.innerHTML = pageSlice(_grpAll, _dbPage).map((g, gi) => {
     const anyOverdue  = g.sales.some(isOverdue);
     const nearestDue  = g.sales.map(s => s.due).filter(Boolean).sort()[0] || "—";
     const ids         = g.sales.map(s => s.id).join(",");
@@ -719,7 +728,7 @@ function renderDebtsGrouped(list, rate) {
         </div>
       </td>
     </tr>`;
-  }).join("");
+  }).join("") + _grpPager;
 }
 
 // ── Guruhda to'lov qabul qilish (eng eski qarzdan FIFO) ────
@@ -1619,6 +1628,12 @@ function showDebtPaymentReceipt(payment) {
     .ft{text-align:${_qbFoot.align};font-size:${_qbFoot.size};color:#555;padding:8px 6px 0;font-style:${_qbFoot.style};font-weight:${_qbFoot.weight}}
     .ft2{text-align:center;font-size:9.5px;color:#999;margin-top:2px}
     @media print{
+      /* ⚠️ 2026-08-02: EKRAN TUGMALARI QOG'OZGA CHIQMASIN.
+         Kecha iPhone uchun "Chop etish" va "Yopish" tugmalari
+         qo'shilgan edi, lekin ular chop etishda yashirilmagan:
+         chek uzun chiqib, o'rtada bo'shliq qolib, pastida tugmalar
+         bosilib chiqardi. Termal qog'oz behuda ketardi. */
+      .no-print, #chek-bar{display:none !important}
       @page{size:${_qpw}mm auto;margin:0} body{background:#fff} .rc{width:${_qpw}mm}
       /* 2026-07-19: barcha yozuv SOF QORA (termal xira rang bermasin) */
       .rc, .rc *{color:#000 !important}
@@ -1657,8 +1672,8 @@ function showDebtPaymentReceipt(payment) {
     <div class="ft2">${cfg.shopName || shopName} · ${payment.date}</div>
     ${(Array.isArray(cfg.extraLines) && cfg.extraLines.length) ? `<div style="text-align:center;font-size:11px;color:#333;padding:2px 6px 6px">${cfg.extraLines.filter(Boolean).map(t=>`<div>${t}</div>`).join("")}</div>` : ""}
   </div>
-  <div style="height:64px"></div>
-  <div id="chek-bar" style="position:fixed;left:0;right:0;bottom:0;
+  <div class="no-print" style="height:64px"></div>
+  <div id="chek-bar" class="no-print" style="position:fixed;left:0;right:0;bottom:0;
     display:flex;gap:8px;padding:10px 12px;background:#fff;
     border-top:1px solid #ddd;box-shadow:0 -2px 8px rgba(0,0,0,.08)">
     <button onclick="window.print()" style="flex:1;padding:13px;font-size:15px;
