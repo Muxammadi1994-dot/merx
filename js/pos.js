@@ -51,6 +51,16 @@ function posLog(action, details) {
   if (!db.posLogs) db.posLogs = [];
   // Kassir — bloklangan bo'lsa settings dan olamiz
   const staffId = (() => {
+    // ⚠️ 2026-08-02: KIRGAN XODIM USTUVOR.
+    // Avval faqat ro'yxatdan tanlangani olinardi — xodim o'z hisobi
+    // bilan kirgan bo'lsa ham, ro'yxatda boshqa kassir tursa amaliyot
+    // O'SHANIKIGA yozilardi. Ruxsatlar tizimi joriy qilingach bu
+    // mantiqsiz: kim kirgan bo'lsa, o'sha javobgar.
+    // Egasi kirsa (staffId yo'q) — avvalgidek ro'yxatdan olinadi.
+    try {
+      const _u = typeof getAuthUser === "function" ? getAuthUser() : null;
+      if (_u && _u.staffId) return _u.staffId;
+    } catch(e) {}
     if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
     return parseInt(($("pos-staff")||{value:0}).value) || null;
   })();
@@ -1492,6 +1502,16 @@ function setPayType(t) {
   if (t === "nasiya") {
     // Kassir — bloklangan bo'lsa settings dan olamiz
   const staffId = (() => {
+    // ⚠️ 2026-08-02: KIRGAN XODIM USTUVOR.
+    // Avval faqat ro'yxatdan tanlangani olinardi — xodim o'z hisobi
+    // bilan kirgan bo'lsa ham, ro'yxatda boshqa kassir tursa amaliyot
+    // O'SHANIKIGA yozilardi. Ruxsatlar tizimi joriy qilingach bu
+    // mantiqsiz: kim kirgan bo'lsa, o'sha javobgar.
+    // Egasi kirsa (staffId yo'q) — avvalgidek ro'yxatdan olinadi.
+    try {
+      const _u = typeof getAuthUser === "function" ? getAuthUser() : null;
+      if (_u && _u.staffId) return _u.staffId;
+    } catch(e) {}
     if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
     return parseInt(($("pos-staff")||{value:0}).value) || null;
   })();
@@ -2123,14 +2143,22 @@ function refreshStaffList() {
   const cur = _staffLocked && lockedId ? lockedId : sel.value;
   // v162: JORIY FOYDALANUVCHI avtomat tanlanadi —
   // egasi (admin) bilan kirilsa "Egasi (admin)", xodim bilan kirilsa o'sha xodim.
-  const _u = (typeof authLoad === "function" ? authLoad() : null);
-  let _autoSel = cur;
-  if (!_autoSel && _u) {
-    if (_u.role === "staff" && _u.id != null) _autoSel = _u.id;          // xodim o'zi
-    else if (_u.role !== "staff") _autoSel = "admin";                     // egasi/admin
-  }
+  const _u = (typeof getAuthUser === "function" ? getAuthUser() : null);
+  // ⚠️ 2026-08-02: TUZATILDI.
+  // Avval shart `_u.role === "staff"` edi, lekin xodimning roli
+  // "kassir"/"omborchi"/"menejer" bo'ladi — "staff" hech qachon
+  // bo'lmaydi. Shu sabab xodim o'zi HECH QACHON tanlanmasdi.
+  // Ustiga `_u.id` "staff_4110" ko'rinishida, ro'yxatdagi qiymat esa
+  // 4110 — ular baribir mos kelmasdi.
+  // Endi `staffId` ishlatiladi va xodim kirgan bo'lsa ro'yxat
+  // BLOKLANADI: amaliyot boshqa odam nomiga yozilmasin.
+  const _isStaff = !!(_u && _u.staffId);
+  let _autoSel = _isStaff ? _u.staffId : cur;
+  if (!_autoSel && _u && !_isStaff) _autoSel = "admin";       // egasi/admin
   sel.innerHTML = '<option value="admin"' + (String(_autoSel)==="admin"?" selected":"") + '>Egasi (admin)</option>' +
     (db.staff||[]).map(s => `<option value="${s.id}"${String(s.id)===String(_autoSel)?" selected":""}>${s.name}</option>`).join("");
+  // Xodim kirgan bo'lsa — ro'yxat o'zgartirilmaydi
+  if (_isStaff) { sel.disabled = true; sel.title = "Kirgan xodim"; }
   _applyPayBlocked();
   _applyStaffLock();
 }
@@ -2266,6 +2294,16 @@ async function checkout() {
 
   // Kassir — bloklangan bo'lsa settings dan olamiz
   const staffId = (() => {
+    // ⚠️ 2026-08-02: KIRGAN XODIM USTUVOR.
+    // Avval faqat ro'yxatdan tanlangani olinardi — xodim o'z hisobi
+    // bilan kirgan bo'lsa ham, ro'yxatda boshqa kassir tursa amaliyot
+    // O'SHANIKIGA yozilardi. Ruxsatlar tizimi joriy qilingach bu
+    // mantiqsiz: kim kirgan bo'lsa, o'sha javobgar.
+    // Egasi kirsa (staffId yo'q) — avvalgidek ro'yxatdan olinadi.
+    try {
+      const _u = typeof getAuthUser === "function" ? getAuthUser() : null;
+      if (_u && _u.staffId) return _u.staffId;
+    } catch(e) {}
     if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
     return parseInt(($("pos-staff")||{value:0}).value) || null;
   })();
@@ -2508,6 +2546,16 @@ function setDiscType(t) {
 function applyDiscount() {
   // Kassir ruxsatini tekshirish — faqat maxDiscount chegarasi qo'yilgan bo'lsa
   const staffId = (() => {
+    // ⚠️ 2026-08-02: KIRGAN XODIM USTUVOR.
+    // Avval faqat ro'yxatdan tanlangani olinardi — xodim o'z hisobi
+    // bilan kirgan bo'lsa ham, ro'yxatda boshqa kassir tursa amaliyot
+    // O'SHANIKIGA yozilardi. Ruxsatlar tizimi joriy qilingach bu
+    // mantiqsiz: kim kirgan bo'lsa, o'sha javobgar.
+    // Egasi kirsa (staffId yo'q) — avvalgidek ro'yxatdan olinadi.
+    try {
+      const _u = typeof getAuthUser === "function" ? getAuthUser() : null;
+      if (_u && _u.staffId) return _u.staffId;
+    } catch(e) {}
     if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
     return parseInt(($("pos-staff")||{value:0}).value) || null;
   })();

@@ -883,9 +883,23 @@ function renderExpExtraField(cat) {
 // ── "Kim to'ladi" selectni to'ldirish ─────────────
 function initExpWhoSelect() {
   const sel = $("ax-who"); if (!sel) return;
+  // 2026-08-02: xodim kirgan bo'lsa — o'zi tanlangan va o'zgartirib
+  // bo'lmaydi. Egasi uchun ro'yxat avvalgidek ochiq.
+  const _lockTo = (() => {
+    try {
+      const u = typeof getAuthUser === "function" ? getAuthUser() : null;
+      if (u && u.staffId) {
+        const me = (db.staff||[]).find(x => x.id === u.staffId);
+        return me && me.name ? me.name : null;
+      }
+    } catch(e) {}
+    return null;
+  })();
   sel.innerHTML = '<option value="">— Tanlang —</option>' +
     (db.staff||[]).map(s => `<option value="${s.name}">${s.name}</option>`).join("") +
     '<option value="Ega">Do\'kon egasi</option>';
+  if (_lockTo) { sel.value = _lockTo; sel.disabled = true; }
+  else { sel.disabled = false; }
   // 2026-07-24 (№15): kirgan foydalanuvchi profilidan AVTOMAT tanlanadi.
   // Tahrirlashda bu qiymat keyinroq (setTimeout) o'z qiymati bilan almashadi.
   const def = _expDefaultWho();
@@ -915,7 +929,22 @@ function addXarajat() {
   const method   = ($("ax-pay-method")||{value:"naqd"}).value;
   const date     = ($("ax-date")||{value:""}).value || today();
   const note     = ($("ax-note")||{value:""}).value.trim();
-  const paidBy   = ($("ax-who")||{value:""}).value;
+  // ⚠️ 2026-08-02: KIRGAN XODIM USTUVOR (POS bilan bir xil qoida).
+  // Avval faqat ro'yxatdan tanlangani olinardi — xodim o'z hisobi
+  // bilan kirgan bo'lsa ham, xarajatni BOSHQA odam nomiga yozib
+  // yuborishi mumkin edi. Endi kim kirgan bo'lsa, o'sha yoziladi.
+  // `ax-who` ISM saqlaydi (id emas) — shuning uchun ism olinadi.
+  // Egasi kirsa (staffId yo'q) — avvalgidek ro'yxatdan.
+  const paidBy = (() => {
+    try {
+      const u = typeof getAuthUser === "function" ? getAuthUser() : null;
+      if (u && u.staffId) {
+        const me = (db.staff||[]).find(x => x.id === u.staffId);
+        if (me && me.name) return me.name;
+      }
+    } catch(e) {}
+    return ($("ax-who")||{value:""}).value;
+  })();
   const recurring= ($("ax-recurring")||{checked:false}).checked;
   const rate     = db.settings?.rate || 12800;
 
