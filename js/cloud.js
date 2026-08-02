@@ -1144,7 +1144,10 @@ async function pushToCloud() {
           // natijada har pull'da inBox→1, barcode→yo'q bo'lib
           // "ma'lumot o'chish" yuzaga kelardi. ESLATMA: bu ustunlar
           // Supabase'da bo'lishi SHART (SQL avval bajarilsin!).
-          in_box: p.inBox || 1,
+          // ⚠️ 2026-08-02: pochka sig'imi aniqlanmagan bo'lsa
+          // YUBORILMAYDI — bulutdagi qiymat 1 ga tushib, qoldiq
+          // hisobi buzilmasin (kontekst §3.3).
+          ...(p.inBox != null ? { in_box: p.inBox } : {}),
           barcode: p.barcode || null,
           pack_unit: p.packUnit || null,
           color_barcodes: p.colorBarcodes || null,
@@ -1225,19 +1228,30 @@ async function pushToCloud() {
         pay_breakdown: s.payBreakdown || null,
         items: (s.items || []).map(({ image, ...rest }) => rest), // image base64 ni Supabase ga yubormaymiz (juda katta)
         total: s.total || 0, paid: s.paid || 0,
-        remaining: s.remaining || 0,
+        // ⚠️ 2026-08-02: STANDART QIYMAT BULUTDAGINI BOSMASIN.
+        // Yozuv chala bo'lsa (bot yaratgan, eski migratsiyadan
+        // qolgan, yoki chala tortilgan) standart qiymat yozilib,
+        // bulutdagi HAQIQIY ma'lumot o'chib ketardi:
+        //   status="tolandan" → ochiq qarz TO'LANGAN bo'lib qolardi
+        //   remaining=0       → qarz qoldig'i NOLGA aylanardi
+        // Endi qiymat aniqlanmagan bo'lsa maydon UMUMAN yuborilmaydi
+        // va bulutdagi saqlanadi.
+        ...(s.remaining != null ? { remaining: s.remaining } : {}),
         due: s.due || null,
         customer_id: s.customerId || null,
         customer_name: s.customerName || null,
         customer_phone: s.customerPhone || null,
         staff_id: s.staffId || null,
-        status: s.status || "tolandan",
+        ...(s.status ? { status: s.status } : {}),
         debt_currency: s.debtCurrency || "uzs",
         debt_usd: s.debtUsd != null ? s.debtUsd : null,
         // Asl (o'zgarmas) qiymatlar — qarz to'lovlari bularga tegmaydi.
         // Bularsiz calcSaleState() boshqa qurilmada noto'g'ri ishlaydi.
         orig_paid: s.origPaid != null ? s.origPaid : (s.paid || 0),
-        orig_remaining: s.origRemaining != null ? s.origRemaining : (s.remaining || 0),
+        // 2026-08-02: asl qarz summasi — chekda ko'rsatiladi.
+        // Aniqlanmagan bo'lsa yuborilmaydi (nolga aylanmasin).
+        ...(s.origRemaining != null ? { orig_remaining: s.origRemaining }
+            : (s.remaining != null ? { orig_remaining: s.remaining } : {})),
         orig_debt_usd: s.origDebtUsd != null ? s.origDebtUsd : null,
         // v174 (2026-07-10): BUTUN JSON — sotuv to'liq nusxada ham
         // saqlanadi (subtotal/discount/note kabi push'da unutilgan
