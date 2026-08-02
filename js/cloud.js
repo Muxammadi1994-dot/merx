@@ -2040,8 +2040,13 @@ async function pullFromCloud(silent = false, skipRender = false) {
       // MUHIM: db.shop ni butunlay almashtirmaymiz — type (do'kon turi)
       // kabi lokal maydonlar saqlanib qolishi kerak
       db.shop = { ...(db.shop || {}), name: sets.shop_name };
-      db.settings.rate           = sets.rate || 12800;
-      db.settings.priceCurrency  = sets.price_currency || "uzs";
+      // ⚠️ 2026-08-02: BULUTDAGI BO'SH QIYMAT LOKALNI BOSMAYDI.
+      // Avval bulutda kurs yo'q bo'lsa lokalga 12800 yozilardi,
+      // keyin o'sha qaytib bulutga ketardi — haqiqiy kurs
+      // butunlay yo'qolardi. Endi tartib:
+      //   bulutdagi → lokaldagi → standart
+      db.settings.rate           = sets.rate || db.settings.rate || 12800;
+      db.settings.priceCurrency  = sets.price_currency || db.settings.priceCurrency || "uzs";
       if (sets.shop_type) db.settings.shopType = sets.shop_type;
       // 2026-07-26: valyuta rejimi SuperAdmin tomonidan belgilanadi —
       // do'kon egasi o'zgartira olmaydi, faqat bulutdan keladi
@@ -2063,7 +2068,10 @@ async function pullFromCloud(silent = false, skipRender = false) {
       if (sets.staff_group_id) db.settings.staffGroupId       = sets.staff_group_id;
       if (sets.loyalty_rate)   db.settings.loyaltyRate        = sets.loyalty_rate;
       if (sets.loyalty_value)  db.settings.loyaltyValue       = sets.loyalty_value;
-      db.settings.rateMode      = sets.rate_mode === "auto" ? "auto" : "manual";
+      // Rejim bulutda yo'q bo'lsa — lokaldagini saqlaymiz
+      db.settings.rateMode      = sets.rate_mode
+        ? (sets.rate_mode === "auto" ? "auto" : "manual")
+        : (db.settings.rateMode || "manual");
       if (sets.rate_updated_at) db.settings.rateUpdatedAt      = sets.rate_updated_at;
       if (sets.debt_pay_methods_shown) db.settings.debtPayMethodsShown = sets.debt_pay_methods_shown;
       if (sets.debt_cols)              db.settings.debtCols            = sets.debt_cols;
