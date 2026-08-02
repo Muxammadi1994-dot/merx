@@ -526,6 +526,8 @@ function nav(p) {
     refreshCustList(); refreshStaffList(); renderPosGrid();
     if (typeof checkDebtAlerts === "function") checkDebtAlerts();
   }
+  // 2026-08-02: sahifa chizilgach ruxsat bo'yicha bloklar yashiriladi
+  try { if (typeof applyPermBlocks === "function") applyPermBlocks(); } catch(e) {}
 }
 
 // 2026-07-10: bu yerdagi ESKI toggleCurrency O'CHIRILDI (8-qoida —

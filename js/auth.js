@@ -235,6 +235,46 @@ function canUsePage(page) {
   return hasRole(PAGE_ROLES[page] || "admin");      // eski qoida (zaxira)
 }
 
+// ══════════════════════════════════════════════════════════════
+// BAND DARAJASIDAGI RUXSAT (2026-08-02, 2-bosqich)
+// ══════════════════════════════════════════════════════════════
+// `permSee(page, key)` — shu bandni KO'RSATISH mumkinmi
+// `permDo(page, key)`  — shu amalni BAJARISH mumkinmi
+//
+// ⚠️ QOIDA: ma'lumotda YASHIRILGANLAR saqlanadi (`hide`, `deny`).
+// Ro'yxatda yo'q band — KO'RINADI. Shu sabab yangi band qo'shilsa
+// u avtomat ochiq bo'ladi, hech kimdan yashirinib qolmaydi.
+//
+// ⚠️ `db.settings` GA HECH QACHON YOZILMAYDI. Ustun sozlamalari
+// do'kon sozlamasi bo'lib, bulutga sinxronlanadi va EGASINIKI.
+// Ruxsat esa xodim yozuvida — ikkisi butunlay alohida.
+// Ko'rinadi = sozlamada yoqilgan VA ruxsatda yashirilmagan.
+function permSee(page, key) {
+  const u = _authUser;
+  if (!u || !u.staffId) return true;          // egasi/superadmin — cheklovsiz
+  const p = _myPerms();
+  if (!p || !p[page]) return true;            // ruxsat berilmagan — eski qoida
+  const hid = p[page].hide;
+  return !(Array.isArray(hid) && hid.includes(key));
+}
+
+function permDo(page, key) {
+  const u = _authUser;
+  if (!u || !u.staffId) return true;
+  const p = _myPerms();
+  if (!p || !p[page]) return true;
+  const dn = p[page].deny;
+  if (Array.isArray(dn) && dn.includes(key)) return false;
+  return canUsePage(page);                    // bo'lim darajasi ham tekshiriladi
+}
+
+// Amalni qo'riqlash: `if (!requireDo("katalog","del")) return;`
+function requireDo(page, key) {
+  if (permDo(page, key)) return true;
+  try { toast("⛔ Bu amal uchun ruxsatingiz yo'q", "err"); } catch(e) {}
+  return false;
+}
+
 // ⚠️ YOZISH FUNKSIYALARI SHU BILAN QO'RIQLANADI.
 // Ishlatish: `if (!requireUse("katalog")) return;`
 // Ruxsat yo'q bo'lsa xabar chiqadi va `false` qaytadi.
@@ -242,6 +282,35 @@ function requireUse(page) {
   if (canUsePage(page)) return true;
   try { toast("⛔ Sizda bu bo'limda faqat ko'rish huquqi bor", "err"); } catch(e) {}
   return false;
+}
+
+// KPI bloklarini ruxsat bo'yicha yashirish (2026-08-02).
+// Ular alohida bloklar — `id` bo'yicha yashiriladi, boshqa
+// hech narsaga tegilmaydi. Egasi kirsa hammasi ko'rinadi.
+const _PERM_BLOCKS = [
+  ["ombor",    "kpi", "om-kpi-row"],
+  ["mijozlar", "kpi", "cust-kpi-row"],
+  ["qarzlar",  "kpi", "debt-kpi-grid"],
+  ["qarzlar",  "trend", "debt-kpi-trend-wrap"],
+  ["moliya",   "kpi", "mol-kpi-row"],
+  ["hisobot",  "kpi", "rep-kpis"],
+  ["dashboard","kpi", "dash-kpis"],
+  ["dashboard","kpi", "dash-kpi-panel"],
+];
+
+function applyPermBlocks() {
+  try {
+    if (typeof permSee !== "function") return;
+    _PERM_BLOCKS.forEach(([page, key, id]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const ok = permSee(page, key);
+      // `dataset` bilan asl holat saqlanadi — boshqa kod uni
+      // ko'rsatmoqchi bo'lsa buzilmasin
+      if (!ok) { el.style.display = "none"; el.dataset.permHidden = "1"; }
+      else if (el.dataset.permHidden) { el.style.display = ""; delete el.dataset.permHidden; }
+    });
+  } catch(e) {}
 }
 
 // Joriy sahifani "faqat ko'rish" holatiga o'tkazish (UI qatlami)
@@ -285,6 +354,7 @@ function applyRoleUI() {
   });
   // 2026-08-02: "faqat ko'rish" sahifalarini belgilaymiz
   try { applyViewOnlyUI(); } catch(e) {}
+  try { applyPermBlocks(); } catch(e) {}
 }
 
 // ── initAuth ─────────────────────────────────────

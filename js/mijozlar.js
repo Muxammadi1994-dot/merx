@@ -61,6 +61,17 @@ function getCustCols() {
   const saved = db.settings?.custCols || {};
   const cols = {};
   CUST_COL_DEFS.forEach(c => { cols[c.key] = c.key in saved ? saved[c.key] : c.def; });
+  // ⚠️ 2026-08-02: RUXSAT QATLAMI — `db.settings` GA TEGILMAYDI.
+  // Sozlama egasiniki va bulutga sinxronlanadi. Ruxsat esa xodim
+  // yozuvida. Ustun ko'rinadi = sozlamada yoqilgan VA ruxsatda
+  // yashirilmagan. Egasi kirsa cheklov umuman ishlamaydi.
+  try {
+    if (typeof permSee === "function") {
+      ["totalBuy","avgCheck","debt","debtLimit"].forEach(k => {
+        if (!permSee("mijozlar", k)) cols[k] = false;
+      });
+    }
+  } catch(e) {}
   return cols;
 }
 

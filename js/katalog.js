@@ -302,7 +302,19 @@ const KAT_ALL_COLS = [
 const KAT_DEFAULT_COLS = Object.fromEntries(KAT_ALL_COLS.map(c => [c.key, c.def]));
 
 function katGetCols() {
-  return Object.assign({}, KAT_DEFAULT_COLS, db.settings.katCols || {});
+  const cols = Object.assign({}, KAT_DEFAULT_COLS, db.settings.katCols || {});
+  // ⚠️ 2026-08-02: RUXSAT QATLAMI — `db.settings` GA TEGILMAYDI.
+  // Sozlama egasiniki va bulutga sinxronlanadi. Ruxsat esa xodim
+  // yozuvida. Ustun ko'rinadi = sozlamada yoqilgan VA ruxsatda
+  // yashirilmagan. Egasi kirsa cheklov umuman ishlamaydi.
+  try {
+    if (typeof permSee === "function") {
+      ["cost","ulgurji","chakana","margin","supplier","sku"].forEach(k => {
+        if (!permSee("katalog", k)) cols[k] = false;
+      });
+    }
+  } catch(e) {}
+  return cols;
 }
 
 function katToggleCols() {

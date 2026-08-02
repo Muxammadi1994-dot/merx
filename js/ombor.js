@@ -32,7 +32,21 @@ function omGoPage(p) { _omPage = p; omRenderQoldiq(); pagerScrollTop("p-ombor");
 function omResetPage() { _omPage = 1; }
 
 function omGetCols() {
-  return Object.assign({}, OM_DEFAULT_COLS, db.settings.omborCols || {});
+  const cols = Object.assign({}, OM_DEFAULT_COLS, db.settings.omborCols || {});
+  // ⚠️ 2026-08-02: RUXSAT QATLAMI — `db.settings` GA TEGILMAYDI.
+  // Sozlama egasiniki va bulutga sinxronlanadi. Ruxsat esa xodim
+  // yozuvida. Ustun ko'rinadi = sozlamada yoqilgan VA ruxsatda
+  // yashirilmagan. Egasi kirsa cheklov umuman ishlamaydi.
+  try {
+    if (typeof permSee === "function") {
+      // ruxsat kaliti → ustun kaliti
+      const map = { cost:"tannarx", value:"qiymati", margin:"margin" };
+      Object.entries(map).forEach(([pk, ck]) => {
+        if (!permSee("ombor", pk)) cols[ck] = false;
+      });
+    }
+  } catch(e) {}
+  return cols;
 }
 
 function renderOmbor() {
