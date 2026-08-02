@@ -61,7 +61,7 @@ function posLog(action, details) {
       const _u = typeof getAuthUser === "function" ? getAuthUser() : null;
       if (_u && _u.staffId) return _u.staffId;
     } catch(e) {}
-    if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
+    // Eski qulf sozlamasi endi ishlatilmaydi (yuqoridagi izoh)
     return parseInt(($("pos-staff")||{value:0}).value) || null;
   })();
   const staff = staffId ? (db.staff||[]).find(s => s.id === staffId) : null;
@@ -1512,7 +1512,7 @@ function setPayType(t) {
       const _u = typeof getAuthUser === "function" ? getAuthUser() : null;
       if (_u && _u.staffId) return _u.staffId;
     } catch(e) {}
-    if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
+    // Eski qulf sozlamasi endi ishlatilmaydi (yuqoridagi izoh)
     return parseInt(($("pos-staff")||{value:0}).value) || null;
   })();
     const staff   = staffId ? (db.staff||[]).find(s=>s.id===staffId) : null;
@@ -1705,37 +1705,27 @@ function updatePayTotal() {
 }
 
 function toggleStaffLock() {
-  _staffLocked = !_staffLocked;
-  if (typeof db !== "undefined") {
-    if (!db.settings) db.settings = {};
-    db.settings.posStaffLocked = _staffLocked;
-    // Bloklanganda hozirgi kassir ID ni ham saqlaymiz
-    if (_staffLocked) {
-      const sel = $("pos-staff");
-      const sid = sel ? parseInt(sel.value)||null : null;
-      db.settings.posLockedStaffId = sid;
-    } else {
-      db.settings.posLockedStaffId = null;
-    }
-    saveDB();
-  }
-  _applyStaffLock();
-  toast(_staffLocked ? "Kassir bloklandi" : "Kassir bloki ochildi");
+  // 2026-08-02: qulf olib tashlandi — kassir kim kirganidan
+  // aniqlanadi. Bu funksiya endi hech narsa qilmaydi.
+  return;
 }
 
 function _applyStaffLock() {
+  // ⚠️ 2026-08-02: ESKI QULF OLIB TASHLANDI.
+  // Avval bu funksiya `sel.disabled = _staffLocked` bilan tanlovni
+  // boshqarardi va u `refreshStaffList` dan KEYIN ishlagani uchun
+  // yangi qoidani (kim kirgan bo'lsa — o'sha) BEKOR QILARDI:
+  // Toshmurod kirsa ham ro'yxatda "Egasi" turib, o'zgartirish
+  // mumkin bo'lardi.
+  // Ruxsat tizimi joriy qilingach qulfning ma'nosi qolmadi —
+  // kassir kim kirganidan aniqlanadi, qo'lda tanlanmaydi.
+  // Qulf tugmasi ham yashiriladi.
   const btn = $("pos-staff-lock-btn");
-  if (btn) btn.innerHTML = _staffLocked
-    ? '<i class="ti ti-lock" style="color:#E9A500"></i>'
-    : '<i class="ti ti-lock-open" style="color:#94A3B8"></i>';
+  if (btn) btn.style.display = "none";
   const sel = $("pos-staff");
   if (!sel) return;
-  // Bloklangan kassirni tanlaymiz
-  if (_staffLocked && db?.settings?.posLockedStaffId) {
-    sel.value = db.settings.posLockedStaffId;
-  }
-  sel.disabled = _staffLocked;
-  sel.style.opacity = _staffLocked ? ".6" : "1";
+  sel.disabled = true;
+  sel.style.opacity = "1";
 }
 
 // 2026-07-12 (AbuSaxiy №8): TO'LOV SOZLASH ⚙ TUGMASI
@@ -2140,7 +2130,7 @@ function refreshStaffList() {
   const sel = $("pos-staff"); if (!sel) return;
   // Kassirlar ro'yxatini to'ldiramiz
   const lockedId = db?.settings?.posLockedStaffId;
-  const cur = _staffLocked && lockedId ? lockedId : sel.value;
+  const cur = sel.value;   // 2026-08-02: qulf olib tashlandi
   // v162: JORIY FOYDALANUVCHI avtomat tanlanadi —
   // egasi (admin) bilan kirilsa "Egasi (admin)", xodim bilan kirilsa o'sha xodim.
   const _u = (typeof getAuthUser === "function" ? getAuthUser() : null);
@@ -2312,7 +2302,7 @@ async function checkout() {
       const _u = typeof getAuthUser === "function" ? getAuthUser() : null;
       if (_u && _u.staffId) return _u.staffId;
     } catch(e) {}
-    if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
+    // Eski qulf sozlamasi endi ishlatilmaydi (yuqoridagi izoh)
     return parseInt(($("pos-staff")||{value:0}).value) || null;
   })();
   // Kassir majburiy — xodimlar bo'lsa; "Egasi (admin)" tanlovi ham
@@ -2564,7 +2554,7 @@ function applyDiscount() {
       const _u = typeof getAuthUser === "function" ? getAuthUser() : null;
       if (_u && _u.staffId) return _u.staffId;
     } catch(e) {}
-    if (_staffLocked && db?.settings?.posLockedStaffId) return db.settings.posLockedStaffId;
+    // Eski qulf sozlamasi endi ishlatilmaydi (yuqoridagi izoh)
     return parseInt(($("pos-staff")||{value:0}).value) || null;
   })();
   const staff = staffId ? (db.staff||[]).find(s=>s.id===staffId) : null;

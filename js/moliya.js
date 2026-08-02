@@ -897,9 +897,18 @@ function initExpWhoSelect() {
   })();
   sel.innerHTML = '<option value="">— Tanlang —</option>' +
     (db.staff||[]).map(s => `<option value="${s.name}">${s.name}</option>`).join("") +
-    '<option value="Ega">Do\'kon egasi</option>';
-  if (_lockTo) { sel.value = _lockTo; sel.disabled = true; }
-  else { sel.disabled = false; }
+    '<option value="Ega">' + ((db.settings?.ownerName || "").trim()
+       ? db.settings.ownerName.trim() + " (admin)" : "Do\'kon egasi") + '</option>';
+  // ⚠️ 2026-08-02: EGASI HAM QOTIRILADI.
+  // Avval faqat xodim bloklanardi, egasi esa xohlagan kishini
+  // tanlashi mumkin edi — xarajat boshqa odam nomiga yozilardi.
+  // Endi kim kirgan bo'lsa, o'sha yoziladi.
+  if (_lockTo) { sel.value = _lockTo; sel.disabled = true; sel.title = "Kirgan xodim"; }
+  else {
+    const u = (typeof getAuthUser === "function") ? getAuthUser() : null;
+    if (u) { sel.value = "Ega"; sel.disabled = true; sel.title = "Do'kon egasi"; }
+    else sel.disabled = false;
+  }
   // 2026-07-24 (№15): kirgan foydalanuvchi profilidan AVTOMAT tanlanadi.
   // Tahrirlashda bu qiymat keyinroq (setTimeout) o'z qiymati bilan almashadi.
   const def = _expDefaultWho();
@@ -942,6 +951,7 @@ function addXarajat() {
         const me = (db.staff||[]).find(x => x.id === u.staffId);
         if (me && me.name) return me.name;
       }
+      if (u) return "Ega";        // egasi kirgan — o'zi
     } catch(e) {}
     return ($("ax-who")||{value:""}).value;
   })();
