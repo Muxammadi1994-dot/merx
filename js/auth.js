@@ -331,7 +331,10 @@ const _PERM_BLOCKS = [
 // ko'rinmaydi. Haqiqiy himoya baribir funksiya ichida (`requireDo`).
 const _PERM_BTNS = [
   ["katalog","add",      'onclick="apOpenAddProduct()"'],
-  ["katalog","import",   'onclick="openModal(\'import\')"'],
+  // 2026-08-02: TUZATILDI — tugma `openKatalogImport()` chaqiradi,
+  // `openModal('import')` emas. Selektor mos kelmagani uchun tugma
+  // yashirilmasdan qolgan edi.
+  ["katalog","import",   'onclick="openKatalogImport()"'],
   ["katalog","narxnoma", 'onclick="openNarxnoma()"'],
   ["katalog","excel",    'onclick="exportKatalogExcel()"'],
   ["ombor","inv",        'onclick="openInvent2()"'],

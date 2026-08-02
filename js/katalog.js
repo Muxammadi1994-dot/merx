@@ -2322,6 +2322,9 @@ let _importRows = [];
 let _importRawText = "";   // 2026-07-25: valyuta o'zgarsa qayta o'qish uchun
 
 function openKatalogImport() {
+  // 2026-08-02: import oynasini ochish ham ruxsatga bog'liq
+  if (typeof requireDo === "function" && !requireDo("katalog","import")) return;
+
   _importRows = [];
   const prev = $("import-preview"); if (prev) prev.style.display = "none";
   const res  = $("import-result");  if (res)  res.style.display  = "none";
