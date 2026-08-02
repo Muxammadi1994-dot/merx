@@ -766,6 +766,9 @@ function _resetStaffForm() {
 }
 
 function addStaff() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("xodimlar","add")) return;
+
   const d = _getStaffFormData();
   if (!d.name) { toast("Ism kiriting","err"); return; }
   db.staff.push({ id: db.seq++, ...d, paidMonths:[], salaryHistory:[], monthTarget:0 });
@@ -794,6 +797,9 @@ function editStaff(id) {
 }
 
 function saveStaff(id) {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("xodimlar","edit")) return;
+
   const s = db.staff.find(x => x.id === id); if (!s) return;
   const d = _getStaffFormData();
   if (!d.name) { toast("Ism kiriting","err"); return; }
@@ -811,6 +817,9 @@ function saveStaff(id) {
 
 
 function deleteStaff(id) {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("xodimlar","del")) return;
+
   const s = db.staff.find(x => x.id === id); if (!s) return;
   const cnt      = (db.sales||[]).filter(x => x.staffId === id).length;
   const debtCnt  = (db.sales||[]).filter(x => x.staffId === id && x.status === "qarz").length;

@@ -1073,6 +1073,9 @@ function qzShowUsdHint(id) {
 }
 
 async function recordPayment(id, forcedCurrency) {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("qarzlar","pay")) return;
+
   if (typeof requireUse === "function" && !requireUse("qarzlar")) return;
 
   const clicked = db.sales.find(x => x.id === id); if (!clicked) return;
@@ -2213,6 +2216,9 @@ function payMethodLabel(m) {
 
 // ── Excel eksport ──────────────────────────────────
 function exportQarzTarixiExcel() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("qarzlar","excel")) return;
+
   if (qtViewMode === "total") {
     // Umumiy to'lov rejimi — har bir to'lov harakati bitta qator
     const rows = [["To'lov chek raqami","Sana","Vaqt","Mijoz","Telefon","Summa","Valyuta","Usul","Nechta chekka bo'lindi","Tafsilot"]];

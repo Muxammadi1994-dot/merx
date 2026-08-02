@@ -781,6 +781,9 @@ function shareSaleWhatsApp() {
 
 // ── Excel eksport ─────────────────────────────────
 function exportTarixExcel() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("tarix","excel")) return;
+
   // ⚠️ 2026-08-02: EKRANDAGI RO'YXATDAN.
   // Avval bu yerda filtr QAYTA YOZILGAN edi va u ekrandagidan
   // orqada qolgandi: qidiruv faqat ism va tovar nomida ishlardi,
@@ -1045,6 +1048,9 @@ function _refundAddDebtPayment(sale, amountUzs, refundNo, custTotals) {
 // atkazi bilan bir xil tamoyil — audit izi qoladi).
 // ═══════════════════════════════════════════════════════════════
 function openSaleCancel(saleId) {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("tarix","cancel")) return;
+
   if (typeof hasRole !== "function" || !hasRole("admin")) {
     toast("Bekor qilish faqat egasi/admin uchun", "err"); return;
   }

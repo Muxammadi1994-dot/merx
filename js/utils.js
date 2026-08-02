@@ -528,6 +528,7 @@ function nav(p) {
   }
   // 2026-08-02: sahifa chizilgach ruxsat bo'yicha bloklar yashiriladi
   try { if (typeof applyPermBlocks === "function") applyPermBlocks(); } catch(e) {}
+  try { if (typeof applyPermButtons === "function") applyPermButtons(); } catch(e) {}
 }
 
 // 2026-07-10: bu yerdagi ESKI toggleCurrency O'CHIRILDI (8-qoida —

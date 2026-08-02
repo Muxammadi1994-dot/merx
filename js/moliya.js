@@ -905,6 +905,9 @@ function _expDefaultWho() {
 
 // ── Xarajat qo'shish ──────────────────────────────
 function addXarajat() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("moliya","add")) return;
+
   if (typeof requireUse === "function" && !requireUse("moliya")) return;
 
   const cat      = ($("exp-cat-val")||{value:"Boshqa"}).value;
@@ -977,6 +980,9 @@ function addXarajat() {
 
 // ── Xarajatni o'chirish ───────────────────────────
 function deleteExp(id) {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("moliya","del")) return;
+
   if (typeof requireUse === "function" && !requireUse("moliya")) return;
 
   const x = (db.xarajatlar||[]).find(e => e.id === id); if (!x) return;
@@ -1062,6 +1068,9 @@ function saveEditExp(id) {
 
 // ── Excel eksport ─────────────────────────────────
 function exportExpExcel() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("moliya","excel")) return;
+
   const { from, to } = molDateRange();
   const q = ($("exp-q")||{value:""}).value.toLowerCase();
   const catFilter    = ($("exp-cat-filter")||{value:""}).value;

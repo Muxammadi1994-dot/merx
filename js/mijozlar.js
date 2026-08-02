@@ -669,6 +669,9 @@ function custCardEdit() {
 }
 
 function editCustomer(id) {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("mijozlar","edit")) return;
+
   const c = db.customers.find(x => x.id === id);
   if (!c) return;
   const newName = ($("ac-name")||{value:""}).value.trim();
@@ -701,6 +704,9 @@ function editCustomer(id) {
 // ── Yangi mijoz qo'shish ──────────────────────────
 // ── Mijoz o'chirish ───────────────────────────────
 function deleteCust(id) {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("mijozlar","del")) return;
+
   if (typeof requireUse === "function" && !requireUse("mijozlar")) return;
 
   const c = db.customers.find(x => x.id === id); if (!c) return;
@@ -875,6 +881,9 @@ async function confirmBulkSms(channel = "sms") {
 
 // ── Excel eksport ────────────────────────────────
 function exportMijozlarExcel() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("mijozlar","excel")) return;
+
   const rate = db.settings?.rate || 12800;
   const rows = [["Ism","Telefon","Qo'shimcha tel","Turi","Kompaniya","Manzil/Izoh",
     "Muhim qayд","Manba","Tug'ilgan kun","Sotuvlar","Jami xarid","O'rtacha chek",
@@ -988,6 +997,9 @@ function resetCustForm() {
 function openAddCustomer() { resetCustForm(); openModal("addcust"); }
 
 function addCustomer() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("mijozlar","add")) return;
+
   if (typeof requireUse === "function" && !requireUse("mijozlar")) return;
 
   const name  = ($("ac-name")||{value:""}).value.trim();
@@ -1106,6 +1118,9 @@ function odAmtInput(el) {
 }
 
 function saveOldDebt() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("mijozlar","add")) return;
+
   if (typeof requireUse === "function" && !requireUse("mijozlar")) return;
 
   const c = db.customers.find(x => x.id === _oldDebtCustId);

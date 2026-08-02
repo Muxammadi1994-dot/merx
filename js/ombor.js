@@ -773,6 +773,9 @@ function openEditSupplier(id) {
 }
 
 function saveSupplier() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("ombor","supplier")) return;
+
   if (typeof requireUse === "function" && !requireUse("ombor")) return;
 
   const name  = ($("sup-name")||{value:""}).value.trim();
@@ -912,6 +915,9 @@ function deleteChiqim(id) {
 }
 
 function exportChiqimExcel() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("ombor","excel")) return;
+
   const rows = [["Sana","Mahsulot","SKU","Rang","O'lcham","Miqdor","Birlik","Sabab","Izoh","Zarar (so'm)"]];
   (db.chiqimlar||[]).slice().reverse().forEach(c => {
     const sabab = CHIQIM_SABABLAR.find(s => s.key === c.reason)?.label || c.reason;
@@ -1000,6 +1006,9 @@ function omImgSave(sku, color, input) {
 // ════════════════════════════════════════════════
 
 function openInvent2() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("ombor","inv")) return;
+
   openModal("invent2");
   renderInvent2();
 }
@@ -1079,6 +1088,9 @@ function saveInvent2() {
 let ch2SelectedProduct = null;
 
 function openChiqim2() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("ombor","writeoff")) return;
+
   ch2SelectedProduct = null;
   if ($("ch2-name")) $("ch2-name").value = "";
   if ($("ch2-note")) $("ch2-note").value = "";
@@ -1282,6 +1294,9 @@ function omImgView(sku, color) {
 // ⚠️ O'ta ehtiyot: har qadam tasdiqlanadi, sotilgan tovar tekshiriladi.
 // ═══════════════════════════════════════════════════════════════
 function omDeleteKirim(id) {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("ombor","kirim")) return;
+
   if (typeof requireUse === "function" && !requireUse("ombor")) return;
 
   const o = (db.ombor || []).find(x => x.id === id);

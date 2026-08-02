@@ -1251,6 +1251,9 @@ function epConfirmAddColor() {
 }
 
 function saveEditProduct() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("katalog","edit")) return;
+
   if (typeof requireUse === "function" && !requireUse("katalog")) return;
 
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
@@ -1325,6 +1328,9 @@ function saveEditProduct() {
 }
 
 function deleteProduct() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("katalog","del")) return;
+
   if (typeof requireUse === "function" && !requireUse("katalog")) return;
 
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
@@ -1618,6 +1624,9 @@ function apMixHint() {
 }
 
 function addProduct() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("katalog","add")) return;
+
   if (typeof requireUse === "function" && !requireUse("katalog")) return;
 
   const name = ($("ap-name")||{value:""}).value.trim();
@@ -2053,6 +2062,9 @@ function apCostNote() {
 
 // ── Excel eksport ──────────────────────────────
 function exportKatalogExcel() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("katalog","excel")) return;
+
   const rate = db.settings.rate || 12800;
   const fields = apGetFields();
   const shopType = typeof getShopType === "function" ? getShopType() : "ikki";
@@ -2988,6 +3000,9 @@ function showImportPreview() {
 
 // ── Import tasdiqlash ─────────────────────────────
 function confirmImport() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("katalog","import")) return;
+
   if (typeof requireUse === "function" && !requireUse("katalog")) return;
 
   if (!_importRows.length) return;
@@ -3183,6 +3198,9 @@ function confirmImport() {
 let _narxnomaSelected = new Set();
 
 function openNarxnoma() {
+  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
+  if (typeof requireDo === "function" && !requireDo("katalog","narxnoma")) return;
+
   _narxnomaSelected.clear();
   openModal("narxnoma");
   setTimeout(() => {

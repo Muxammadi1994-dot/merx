@@ -315,6 +315,40 @@ const _PERM_BLOCKS = [
   ["moliya",  "suppliers", "mol-b-suppliers"],
 ];
 
+// Amal tugmalarini ruxsat bo'yicha yashirish (2026-08-02, 4-bosqich).
+// Bosilmaydigan tugma turishi noqulay — ruxsat yo'q bo'lsa umuman
+// ko'rinmaydi. Haqiqiy himoya baribir funksiya ichida (`requireDo`).
+const _PERM_BTNS = [
+  ["katalog","add",      'onclick="apOpenAddProduct()"'],
+  ["katalog","import",   'onclick="openModal(\'import\')"'],
+  ["katalog","narxnoma", 'onclick="openNarxnoma()"'],
+  ["katalog","excel",    'onclick="exportKatalogExcel()"'],
+  ["ombor","inv",        'onclick="openInvent2()"'],
+  ["ombor","writeoff",   'onclick="openChiqim2()"'],
+  ["mijozlar","add",     'onclick="openAddCustomer()"'],
+  ["mijozlar","excel",   'onclick="exportMijozlarExcel()"'],
+  ["moliya","excel",     'onclick="exportExpExcel()"'],
+  ["tarix","excel",      'onclick="exportTarixExcel()"'],
+  ["qarztarix","excel",  'onclick="exportQarzTarixiExcel()"'],
+  ["xodimlar","add",     'onclick="openStaffModal()"'],
+];
+
+function applyPermButtons() {
+  try {
+    if (typeof permDo !== "function") return;
+    _PERM_BTNS.forEach(([page, key, sel]) => {
+      const attr = sel.slice(sel.indexOf('"') + 1, sel.lastIndexOf('"'));
+      document.querySelectorAll(`[onclick="${attr}"]`).forEach(el => {
+        const ok = permDo(page, key);
+        if (!ok) { el.style.display = "none"; el.dataset.permHidden = "1"; }
+        else if (el.dataset.permHidden) {
+          el.style.display = ""; delete el.dataset.permHidden;
+        }
+      });
+    });
+  } catch(e) {}
+}
+
 function applyPermBlocks() {
   try {
     if (typeof permSee !== "function") return;
@@ -372,6 +406,7 @@ function applyRoleUI() {
   // 2026-08-02: "faqat ko'rish" sahifalarini belgilaymiz
   try { applyViewOnlyUI(); } catch(e) {}
   try { applyPermBlocks(); } catch(e) {}
+  try { applyPermButtons(); } catch(e) {}
 }
 
 // ── initAuth ─────────────────────────────────────
