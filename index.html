@@ -4710,7 +4710,7 @@
 
 <script src="js/db.js?v=165"></script>
 <script src="js/utils.js?v=210"></script>
-<script src="js/auth.js?v=188"></script>
+<script src="js/auth.js?v=189"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=230"></script>
 <script src="js/dashboard.js?v=157"></script>
@@ -4927,8 +4927,26 @@ document.addEventListener('DOMContentLoaded', () => {
 // Service Worker — offline ishlash + tez yuklash. Network-first strategiya.
 // sw.js ichidagi CACHE_VERSION o'zgarsa, eski kesh avtomat o'chadi.
 if ("serviceWorker" in navigator) {
+  // ⚠️ 2026-08-02: AVTOMAT YANGILANISH.
+  // Yangi Service Worker faollashganda u ochiq oynalarga xabar
+  // yuboradi. Sahifa xabarni olib O'ZI qayta yuklanadi — sotuvchi
+  // hech narsa qilmaydi (kassada Ctrl+Shift+R aytib bo'lmaydi).
+  // `sessionStorage` bayrog'i cheksiz qayta yuklanishdan saqlaydi:
+  // har CACHE_VERSION uchun BIR MARTA.
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    try {
+      const d = e.data || {};
+      if (d.type !== "SW_UPDATED" || !d.v) return;
+      const key = "merx_swreload_" + d.v;
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+      console.log("♻️ Yangi versiya faollashdi — sahifa yangilanmoqda");
+      setTimeout(() => location.reload(), 400);
+    } catch (err) {}
+  });
+
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=190")
+    navigator.serviceWorker.register("/sw.js?v=191")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

@@ -8,7 +8,7 @@
 // deploy 1
 
 // MUHIM: har push'da bu raqamni +1 qiling — eski kesh avtomat o'chadi.
-const CACHE_VERSION = "merx-v190";
+const CACHE_VERSION = "merx-v191";
 const CACHE_NAME = CACHE_VERSION;
 
 // Boshlang'ich keshlanadigan fayllar (offline'da kamida shular bo'lsin)
@@ -43,6 +43,15 @@ self.addEventListener("activate", (event) => {
         keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
       )
     ).then(() => self.clients.claim()) // barcha oynalarni darhol boshqaramiz
+     // ⚠️ 2026-08-02: OCHIQ OYNALARGA XABAR BERAMIZ.
+     // Yangi SW faollashsa ham, ochiq turgan sahifa ESKI kod bilan
+     // ishlashda davom etardi. Foydalanuvchi buni bilmaydi va
+     // qo'lda yangilashni ham bilmaydi (kassada Ctrl+Shift+R
+     // aytib bo'lmaydi). Endi sahifa xabar olib O'ZI yangilanadi.
+     .then(() => self.clients.matchAll({ type: "window" }))
+     .then((cs) => cs.forEach((c) => {
+       try { c.postMessage({ type: "SW_UPDATED", v: CACHE_VERSION }); } catch (e) {}
+     }))
   );
 });
 
