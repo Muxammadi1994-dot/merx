@@ -662,17 +662,8 @@ function permSync(key) {
   };
   dim("see", v.checked);
   dim("use", u.checked);
-  // Sotuv ichidagi qo'shimcha ruxsatlar — faqat "Ishlatish" bo'lsa
-  if (key === "sotuv") {
-    const ex = document.getElementById("sotuv-extra");
-    if (ex) ex.style.display = u.checked ? "" : "none";
-    if (!u.checked) {
-      ["as-perm-discount","as-perm-nasiya","as-perm-return"].forEach(id => {
-        const el = document.getElementById(id); if (el) el.checked = false;
-      });
-      const w = document.getElementById("as-disc-wrap"); if (w) w.style.display = "none";
-    }
-  }
+  // 2026-08-02: eski "sotuv-extra" boshqaruvi olib tashlandi —
+  // u endi "Nimalarni ishlatsin" ro'yxati orqali ishlaydi.
 }
 
 // Ochiladigan ro'yxatni ko'rsatish/yashirish (2026-08-02)
@@ -722,7 +713,13 @@ function permToggleAll(col, on) {
 }
 
 function _getStaffFormData() {
-  const permDiscount = ($("as-perm-discount")||{checked:false}).checked;
+  // ⚠️ 2026-08-02: ESKI MAYDONLAR O'RNIGA YANGI GALOCHKALAR.
+  // `as-perm-discount` va shokoshilari eski "sotuv-extra" blokida
+  // edi — u olib tashlandi (takror ko'rinardi). Endi bu bayroqlar
+  // "Nimalarni ishlatsin" ro'yxatidagi galochkalardan olinadi.
+  // Maydon topilmasa `true` — ya'ni cheklov yo'q (eski holat).
+  const _chk = (id) => { const el = $(id); return el ? !!el.checked : true; };
+  const permDiscount = _chk("as-use-sotuv-discount");
   return {
     name:        ($("as-name")    ||{value:""}).value.trim(),
     // 2026-08-01: mamlakat kodi bilan saqlanadi (+998901234567).
@@ -745,11 +742,15 @@ function _getStaffFormData() {
     address:     ($("as-address")  ||{value:""}).value.trim(),
     note:        ($("as-note")     ||{value:""}).value.trim(),
     permDiscount,
-    maxDiscount: permDiscount ? (parseFloat(($("as-max-discount")||{value:"0"}).value)||0) : 0,
+    // Maydon eski blokda edi va endi yo'q — `null` qaytariladi,
+    // `saveStaff` uni eski qiymat bilan to'ldiradi (yo'qolmasin).
+    maxDiscount: $("as-max-discount")
+                 ? (permDiscount ? (parseFloat($("as-max-discount").value)||0) : 0)
+                 : null,
     // 2026-08-02: sahifa ruxsatlari (ko'rish / ishlatish)
     perms:       _readPerms(),
-    permNasiya:  ($("as-perm-nasiya")||{checked:false}).checked,
-    permReturn:  ($("as-perm-return")||{checked:false}).checked,
+    permNasiya:  _chk("as-use-sotuv-nasiya"),
+    permReturn:  _chk("as-use-sotuv-ret"),
   };
 }
 
@@ -799,6 +800,9 @@ function saveStaff(id) {
   // 2026-08-01: PIN maydoni bo'sh qoldirilsa ESKISI saqlanadi —
   // tasodifan o'chirilib, xodim kira olmay qolmasin.
   if (!d.pin && s.pin) d.pin = s.pin;
+  // 2026-08-02: chegirma chegarasi maydoni endi oynada yo'q —
+  // eski qiymat saqlanadi, nolga aylanib ketmasin.
+  if (d.maxDiscount === null) d.maxDiscount = s.maxDiscount || 0;
   Object.assign(s, d);
   saveDB(); renderXodimlar(); closeStaffModal();
   toast("Xodim ma\'lumotlari yangilandi");
@@ -1053,33 +1057,10 @@ function openStaffModal(editId = null) {
                   <td style="text-align:center;padding:8px 4px">${mini("use", useOn, useN)}</td>
                 </tr>`
                 + box("see", pg.see||[], hid)
-                + box("use", pg.use||[], deny) + (pg.key === "sotuv" ? `
-                <tr id="sotuv-extra" style="display:${pr.use?'':'none'}">
-                  <td colspan="3" style="padding:0">
-                    <div style="background:#FFFBEB;border-top:1px solid #FDE68A;padding:8px 12px 8px 26px">
-                      <div style="font-size:11px;color:#92400E;font-weight:700;margin-bottom:6px">
-                        Sotuv ichidagi qo'shimcha ruxsatlar</div>
-                      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0;cursor:pointer">
-                        <input type="checkbox" id="as-perm-discount" ${s?.permDiscount?'checked':''}
-                          onchange="document.getElementById('as-disc-wrap').style.display=this.checked?'block':'none'"
-                          style="width:16px;height:16px;accent-color:var(--acc)">
-                        ✂️ Chegirma berish</label>
-                      <div id="as-disc-wrap" style="display:${s?.permDiscount?'block':'none'};padding:4px 0 4px 24px">
-                        <input id="as-max-discount" type="number" min="0" max="50" placeholder="max %"
-                          value="${s?.maxDiscount||''}"
-                          style="width:90px;font-family:inherit;font-size:12.5px;border:1.5px solid #FDE68A;
-                          border-radius:6px;padding:4px 8px;text-align:center"></div>
-                      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0;cursor:pointer">
-                        <input type="checkbox" id="as-perm-nasiya" ${s?.permNasiya?'checked':''}
-                          style="width:16px;height:16px;accent-color:var(--acc)">
-                        💳 Nasiya sotuv</label>
-                      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0;cursor:pointer">
-                        <input type="checkbox" id="as-perm-return" ${s?.permReturn?'checked':''}
-                          style="width:16px;height:16px;accent-color:var(--acc)">
-                        ↩ Qaytarish qabul qilish</label>
-                    </div>
-                  </td>
-                </tr>` : "");
+                + box("use", pg.use||[], deny) + ""   /* 2026-08-02: eski "sotuv-extra" bloki OLIB TASHLANDI.
+       Yangi 5 ustunli jadvalda "Nimalarni ishlatsin" ro'yxati
+       allaqachon chegirma/nasiya/qaytarish bandlarini beradi —
+       eski blok qolib ketib, bir xil ruxsat IKKI MARTA ko'rinardi. */
               }).join("")}
             </tbody>
           </table>
