@@ -2177,11 +2177,6 @@ async function checkout() {
   // Bu YOZISH nuqtasi: shu yerda to'silsa, hech qanday yo'l qolmaydi.
   try {
     if (typeof permDo === "function") {
-      const _isQarz = posPayType === "qarz" ||
-        (posPayType === "aralash" && (parseFloat(getRawVal("pay-qarz")) || 0) > 0);
-      if (_isQarz && !permDo("sotuv", "nasiya")) {
-        toast("⛔ Sizda nasiya sotuv huquqi yo'q", "err"); return;
-      }
     }
   } catch(e) {}
 
@@ -2283,6 +2278,17 @@ async function checkout() {
       if (!due) { toast("Nasiyada muddat majburiy","err"); $("pos-due")?.focus(); return; }
       rem    = Math.max(0, total - paid);
       status = rem > 0 ? "qarz" : "tolandan";
+
+      // ⚠️ 2026-08-02: NASIYA RUXSATI — AYNAN SHU YERDA.
+      // Avval shart `posPayType === "qarz"` edi va O'TIB KETARDI:
+      // nasiya to'lov TURI bilan emas, QOLDIQ bilan aniqlanadi.
+      // Kassir naqd 0 yoki kam yozsa, qoldiq qarzga aylanadi,
+      // `payType` esa "naqd" bo'lib qolaveradi.
+      if (rem > 0 && typeof permDo === "function" && !permDo("sotuv", "nasiya")) {
+        toast("⛔ Sizda nasiya sotuv huquqi yo'q — to'liq to'lov kiriting", "err");
+        return;
+      }
+
       if (posDebtCurrency === "usd" && rem > 0) debtUsd = parseFloat((rem/(db.settings.rate||12800)).toFixed(2));
       posPayMode = "part";
     }
