@@ -1024,7 +1024,14 @@ async function pushToCloud() {
         // v176: settings ham delta orqali — o'zgarmagan bo'lsa yuborilmaydi
         await _deltaUpsert("settings", [{
           shop_id:        sid,
-          shop_name:      db.shop?.name || "MERX",
+          // ⚠️ 2026-08-02: DO'KON NOMI — STANDART QIYMAT YOZILMAYDI.
+          // Chiqishda `db` almashadi va `shop.name` "MERX Do'koni"
+          // bo'lib qoladi. Xodim kirganda o'sha nom bulutga yozilib,
+          // haqiqiy do'kon nomini O'CHIRIB yuborardi (Shoetest'da
+          // aynan shunday bo'lgan).
+          // Nom standart bo'lsa — mavjudini o'zgartirmaymiz.
+          ...((db.shop?.name && !["MERX", "MERX Do'koni"].includes(db.shop.name))
+              ? { shop_name: db.shop.name } : {}),
           rate:           db.settings?.rate || 12800,
           price_currency: db.settings?.priceCurrency || "uzs",
           shop_type:      db.settings?.shopType || null,
