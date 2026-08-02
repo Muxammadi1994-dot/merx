@@ -551,7 +551,11 @@ const PERM_PAGES = [
     use:[ ["cancel","To'lovni bekor qilish"], ["chek","Chek"], ["excel","Excel"] ] },
 
   { key:"tarix", lbl:"Sotuv tarixi",
-    see:[ ["cost","Tannarx"], ["profit","Foyda"], ["staff","Kassir"] ],
+    // 2026-08-02: bandlar HAQIQIY ustunlarga moslandi (TARIX_COL_DEFS).
+    // Avval "Tannarx/Foyda/Kassir" deb yozilgan edi — bu sahifada
+    // bunday ustunlar yo'q, ular ishlamas edi.
+    see:[ ["mijoz","Mijoz"], ["tolandi","To'langan"], ["qoldi","Qoldiq"],
+          ["tolov","To'lov usuli"] ],
     use:[ ["cancel","Sotuvni bekor qilish"], ["ret","Qaytarish"],
           ["chek","Chek"], ["excel","Excel"] ] },
 

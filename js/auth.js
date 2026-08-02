@@ -296,6 +296,23 @@ const _PERM_BLOCKS = [
   ["hisobot",  "kpi", "rep-kpis"],
   ["dashboard","kpi", "dash-kpis"],
   ["dashboard","kpi", "dash-kpi-panel"],
+
+  // 3-bosqich (2026-08-02): Hisobot va Moliya bo'limlari.
+  // Ularda `id` yo'q edi — index.html ga qo'shildi.
+  ["hisobot", "dyn",       "rep-b-dyn"],
+  ["hisobot", "dyn",       "rep-b-compare"],
+  ["hisobot", "cash",      "rep-b-cash"],
+  ["hisobot", "cash",      "rep-b-methods"],
+  ["hisobot", "topProd",   "rep-b-topprod"],
+  ["hisobot", "topCust",   "rep-b-topcust"],
+  ["hisobot", "staff",     "rep-b-staff"],
+
+  ["moliya",  "struct",    "mol-b-struct"],
+  ["moliya",  "inout",     "mol-b-inout"],
+  ["moliya",  "inout",     "mol-b-dyn"],
+  ["moliya",  "inout",     "mol-b-sources"],
+  ["moliya",  "balances",  "mol-b-balances"],
+  ["moliya",  "suppliers", "mol-b-suppliers"],
 ];
 
 function applyPermBlocks() {

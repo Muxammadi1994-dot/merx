@@ -1971,7 +1971,7 @@
     </div>
 
     <!-- O'sish taqqoslovi -->
-    <div class="card" style="padding:14px 18px;margin-bottom:0">
+    <div class="card" id="rep-b-compare" style="padding:14px 18px;margin-bottom:0">
       <div class="ch" style="margin-bottom:10px">
         <h3><i class="ti ti-trending-up"></i> Avvalgi davr bilan taqqos</h3>
       </div>
@@ -2063,10 +2063,10 @@
     </div>
 
     <div class="rep-grid">
-      <div class="card"><div class="ch"><h3><i class="ti ti-trending-up"></i>Sotuv dinamikasi</h3></div>
+      <div class="card" id="rep-b-dyn"><div class="ch"><h3><i class="ti ti-trending-up"></i>Sotuv dinamikasi</h3></div>
         <div style="padding:14px 18px"><div class="chart-lg"><canvas id="repTrendChart"></canvas></div></div></div>
       <!-- Pul oqimi grafigi (yangi) -->
-      <div class="card">
+      <div class="card" id="rep-b-cash">
         <div class="ch"><h3><i class="ti ti-cash"></i>Pul oqimi tahlili</h3></div>
         <div style="padding:14px 18px">
           <div style="height:180px"><canvas id="rep-expense-chart"></canvas></div>
@@ -2076,21 +2076,21 @@
           <tbody id="rep-expense-cats"></tbody></table>
         </div>
       </div>
-      <div class="card"><div class="ch"><h3><i class="ti ti-chart-donut"></i>To'lov usullari</h3></div>
+      <div class="card" id="rep-b-methods"><div class="ch"><h3><i class="ti ti-chart-donut"></i>To'lov usullari</h3></div>
         <div style="padding:14px 18px"><div class="chart-sm"><canvas id="repPayChart"></canvas></div>
         <div id="rep-pay-legend" style="display:flex;gap:12px;justify-content:center;font-size:12.5px;margin-top:8px;flex-wrap:wrap"></div></div></div>
     </div>
     <div class="g2">
-      <div class="card"><div class="ch"><h3><i class="ti ti-package"></i>Top mahsulotlar</h3></div>
+      <div class="card" id="rep-b-topprod"><div class="ch"><h3><i class="ti ti-package"></i>Top mahsulotlar</h3></div>
         <table><thead><tr><th>Mahsulot</th><th>Soni</th><th>Sotuv</th><th>Ulush</th></tr></thead>
         <tbody id="rep-products"></tbody></table></div>
-      <div class="card"><div class="ch"><h3><i class="ti ti-users"></i>Top mijozlar</h3></div>
+      <div class="card" id="rep-b-topcust"><div class="ch"><h3><i class="ti ti-users"></i>Top mijozlar</h3></div>
         <table><thead><tr><th>Mijoz</th><th>Sotuvlar</th><th>Jami</th><th>Qarz</th></tr></thead>
         <tbody id="rep-customers"></tbody></table></div>
     </div>
 
     <!-- Kassir chuqur tahlili -->
-    <div class="card"><div class="ch"><h3><i class="ti ti-id-badge"></i>Kassirlar tahlili</h3></div>
+    <div class="card" id="rep-b-staff"><div class="ch"><h3><i class="ti ti-id-badge"></i>Kassirlar tahlili</h3></div>
       <table><thead><tr><th>Kassir</th><th>Sotuvlar</th><th>Jami</th><th>O'rtacha chek</th><th>Foyda (kassa)</th><th>Nasiya %</th><th>Ulush</th></tr></thead>
       <tbody id="rep-staff"></tbody></table></div>
 
@@ -2295,7 +2295,7 @@
     </div>
 
     <!-- Moliyaviy trend -->
-    <div class="card" style="margin-bottom:16px">
+    <div class="card" id="mol-b-dyn" style="margin-bottom:16px">
       <div class="ch" style="flex-wrap:wrap;gap:8px">
         <h3><i class="ti ti-chart-bar"></i>Moliyaviy dinamika</h3>
         <div style="display:flex;background:var(--bg);border:1px solid var(--brd);border-radius:9px;padding:3px;gap:2px">
@@ -2411,7 +2411,7 @@
     <!-- Grafiklar: Xarajat tarkibi + Kirim vs Chiqim -->
     <div class="g2" style="margin-bottom:16px">
       <!-- Xarajat tarkibi (faqat xarajat kategoriyalari) -->
-      <div class="card">
+      <div class="card" id="mol-b-struct">
         <div class="ch"><h3><i class="ti ti-chart-donut-3"></i>Xarajat tarkibi</h3></div>
         <div style="padding:14px 18px">
           <div class="chart-sm"><canvas id="expChart"></canvas></div>
@@ -2425,7 +2425,7 @@
         </div>
       </div>
       <!-- Kirim vs Chiqim (boyitilgan) -->
-      <div class="card">
+      <div class="card" id="mol-b-inout">
         <div class="ch"><h3><i class="ti ti-arrows-exchange"></i>Kirim vs Chiqim</h3></div>
         <div style="padding:14px 18px">
           <div id="mol-flow-bars"></div>
@@ -2434,7 +2434,7 @@
     </div>
 
     <!-- Kirim manbalari — alohida karta -->
-    <div class="card" style="margin-bottom:16px">
+    <div class="card" id="mol-b-sources" style="margin-bottom:16px">
       <div class="ch"><h3><i class="ti ti-wallet"></i>Kirim manbalari (to'lov usuli bo'yicha)</h3></div>
       <div style="padding:0 18px 16px">
         <div id="mol-kirim-manbalar"></div>
@@ -2442,7 +2442,7 @@
     </div>
 
     <!-- Kassir balanslari va smena boshqaruvi -->
-    <div class="card" style="margin-bottom:16px">
+    <div class="card" id="mol-b-balances" style="margin-bottom:16px">
       <div class="ch">
         <h3><i class="ti ti-users"></i> Kassir balanslari</h3>
         <span style="font-size:12px;color:var(--mut)">Smena ochish/yopish va naqd balans</span>
@@ -2453,7 +2453,7 @@
     </div>
 
     <!-- Yetkazuvchi qarzlar ro'yxati -->
-    <div class="card">
+    <div class="card" id="mol-b-suppliers">
       <div class="ch">
         <h3><i class="ti ti-truck"></i> Yetkazuvchi qarzlari</h3>
         <span style="font-size:12px;color:var(--mut)">Ombordagi to'lanmagan partiyalar</span>
@@ -4717,7 +4717,7 @@
 
 <script src="js/db.js?v=165"></script>
 <script src="js/utils.js?v=211"></script>
-<script src="js/auth.js?v=190"></script>
+<script src="js/auth.js?v=191"></script>
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=232"></script>
 <script src="js/dashboard.js?v=157"></script>
@@ -4725,10 +4725,10 @@
 <script src="js/katalog.js?v=241"></script>
 <script src="js/ombor.js?v=170"></script>
 <script src="js/mijozlar.js?v=158"></script>
-<script src="js/qarzlar.js?v=193"></script>
-<script src="js/tarix.js?v=169"></script>
+<script src="js/qarzlar.js?v=194"></script>
+<script src="js/tarix.js?v=170"></script>
 <script src="js/hisobot.js?v=151"></script>
-<script src="js/xodimlar.js?v=153"></script>
+<script src="js/xodimlar.js?v=154"></script>
 <script src="js/moliya.js?v=169"></script>
 <script src="js/egasi.js?v=170"></script>
 <script src="js/portal.js?v=141"></script>
@@ -4953,7 +4953,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=200")
+    navigator.serviceWorker.register("/sw.js?v=201")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

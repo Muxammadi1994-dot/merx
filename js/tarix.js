@@ -87,6 +87,14 @@ function getTarixCols() {
   const saved = db.settings?.tarixCols;
   const cols = {};
   TARIX_COL_DEFS.forEach(c => { cols[c.key] = saved && c.key in saved ? saved[c.key] : c.def; });
+  // 2026-08-02: RUXSAT QATLAMI — `db.settings` ga TEGILMAYDI.
+  try {
+    if (typeof permSee === "function") {
+      ["mijoz","tolandi","qoldi","tolov"].forEach(k => {
+        if (!permSee("tarix", k)) cols[k] = false;
+      });
+    }
+  } catch(e) {}
   return cols;
 }
 

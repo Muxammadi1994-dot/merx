@@ -73,6 +73,12 @@ function getDebtCols() {
   const saved = db.settings?.debtCols;
   const cols = {};
   DEBT_COL_DEFS.forEach(c => { cols[c.key] = saved && c.key in saved ? saved[c.key] : c.def; });
+  // 2026-08-02: RUXSAT QATLAMI — `db.settings` ga TEGILMAYDI.
+  try {
+    if (typeof permSee === "function") {
+      ["phone","paid"].forEach(k => { if (!permSee("qarzlar", k)) cols[k] = false; });
+    }
+  } catch(e) {}
   return cols;
 }
 
