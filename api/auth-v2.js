@@ -548,6 +548,78 @@ module.exports = async function handler(req, res) {
     }
 
     // ═══ TARIF NARXLARI (2026-07-26) — landing sahifa uchun ═══
+    // ══════════════════════════════════════════════════════════
+    // XODIM KIRISHI (2026-08-02)
+    // ══════════════════════════════════════════════════════════
+    // Klient (`auth.js` → `_staffLoginCloud`) shu amalni chaqiradi,
+    // lekin u SERVERDA UMUMAN YO'Q edi — so'rov "noma'lum amal"
+    // deb rad etilardi va bulutdan qidirish hech qachon ishlamasdi.
+    // Natijada xodim faqat O'ZI QO'SHILGAN qurilmada kira olardi:
+    // egasi bir kompyuterda xodim yaratsa, kassada kirib bo'lmasdi.
+    //
+    // Telefon RAQAMGACHA keltirib solishtiriladi (+998, bo'shliq,
+    // qavs — hammasi tashlanadi), 998 prefiksi hisobga olinadi.
+    // Shu bilan eski (kodsiz) yozuvlar ham ishlaydi.
+    if (action === "staff_login") {
+      const phone = String(body.phone || "").trim();
+      const pin   = String(body.pin   || "").trim();
+      if (!phone || !pin)
+        return res.status(400).json({ ok: false, error: "Telefon va PIN majburiy" });
+
+      const phKey = (v) => {
+        let d = String(v || "").replace(/\D/g, "");
+        if (d.length > 9 && d.startsWith("998")) d = d.slice(3);
+        return d;
+      };
+      const key = phKey(phone);
+      if (!key) return res.status(400).json({ ok: false, error: "Telefon noto'g'ri" });
+
+      // PIN bo'yicha tor ro'yxat, telefon esa raqam bo'yicha
+      const r = await fetch(
+        `${SB_URL}/rest/v1/staff?select=*&pin=eq.${encodeURIComponent(pin)}`,
+        { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
+      );
+      const rows = await r.json();
+      if (!r.ok) return res.status(500).json({ ok: false, error: "Xodim o'qilmadi" });
+
+      const row = (rows || []).find(x => phKey(x.phone) === key);
+      if (!row)
+        return res.status(200).json({ ok: false, error: "Telefon yoki PIN noto'g'ri" });
+
+      // To'liq nusxa `data` ustunida bo'lsa — undan (ruxsatlar ham keladi)
+      const d = (row.data && typeof row.data === "object" && !Array.isArray(row.data))
+                ? row.data : {};
+
+      // Do'kon nomi
+      let shopName = "MERX Do'koni";
+      try {
+        const sr = await fetch(
+          `${SB_URL}/rest/v1/shops?select=name&id=eq.${encodeURIComponent(row.shop_id)}&limit=1`,
+          { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
+        );
+        const sd = await sr.json();
+        if (Array.isArray(sd) && sd[0]?.name) shopName = sd[0].name;
+      } catch (e) {}
+
+      return res.status(200).json({
+        ok: true,
+        staff: {
+          id:       row.id,
+          shopId:   row.shop_id,
+          shopName,
+          name:     d.name  || row.name  || "Xodim",
+          phone:    d.phone || row.phone || "",
+          role:     d.role  || row.role  || "kassir",
+          pin:      row.pin,
+          perms:        d.perms        || null,
+          permDiscount: !!d.permDiscount,
+          permNasiya:   !!d.permNasiya,
+          permReturn:   !!d.permReturn,
+          maxDiscount:  d.maxDiscount || 0
+        }
+      });
+    }
+
     if (action === "get_tariffs") {
       const r = await fetch(
         `${SB_URL}/rest/v1/tariffs?select=tier,title,price_uzs,period,features,sort_order,active&order=sort_order.asc`,
