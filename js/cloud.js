@@ -543,6 +543,24 @@ async function pullDelta(noRender) {
       try { saveDB(); } catch(e) {}
       // Foydalanuvchi band bo'lsa ekranga TEGMAYMIZ — ma'lumot jim
       // keladi, u keyingi sahifa almashishida ko'rinadi.
+      // ⚠️ 2026-08-02: NARXNOMA OYNASI OCHIQ BO'LSA — RO'YXAT YANGILANADI.
+      // Oyna ochiq bo'lganda ekran qayta chizilmaydi (`_rtRenderBlocked`
+      // ochiq oynani sezadi va `noRender` true bo'ladi). Ma'lumot
+      // `db.products` ga tushadi, narxnoma ro'yxati esa ESKI holicha
+      // qoladi — yangi kiritilgan tovar u yerda ko'rinmaydi.
+      // B20 shundan "tovar narxnomada chiqmadi" degan: aslida tovar
+      // kelgan, faqat oyna yangilanmagan (yopib qayta ochilganda
+      // "paydo bo'lgan").
+      // Tanlangan tovarlar `_narxnomaSelected` da saqlanadi —
+      // qayta chizishda belgilanganlar YO'QOLMAYDI.
+      try {
+        const _nm = document.getElementById("ov-narxnoma");
+        if (_nm && _nm.classList.contains("on") &&
+            typeof renderNarxnomaList === "function") {
+          renderNarxnomaList();
+        }
+      } catch(e) {}
+
       if (!noRender) {
         try {
           if (typeof renderDashboard === "function") renderDashboard();
