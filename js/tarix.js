@@ -529,6 +529,9 @@ function returnItemToStock(item) {
 }
 
 function openRefundModal(saleId) {
+  // 2026-08-02: amal darajasidagi ruxsat
+  if (typeof requireDo === "function" && !requireDo("tarix","ret")) return;
+
   const id = saleId || _sdSaleId;
   const s  = db.sales.find(x => x.id === id);
   if (!s) return;

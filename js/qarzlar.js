@@ -1348,6 +1348,9 @@ async function sendTelegramPayReceipt(customerId, customerPhone, payment) {
 
 // ── SMS eslatma (bitta) ───────────────────────────
 async function sendDebtReminder(id) {
+  // 2026-08-02: amal darajasidagi ruxsat
+  if (typeof requireDo === "function" && !requireDo("qarzlar","sms")) return;
+
   const s     = db.sales.find(x => x.id === id); if (!s) return;
   const cu    = debtCust(s);
   const phone = cu.phone;
@@ -1369,6 +1372,9 @@ async function sendDebtReminder(id) {
 }
 
 async function sendDebtReminderBot(id) {
+  // 2026-08-02: amal darajasidagi ruxsat
+  if (typeof requireDo === "function" && !requireDo("qarzlar","bot")) return;
+
   const s     = db.sales.find(x => x.id === id); if (!s) return;
   const cu    = debtCust(s);
 
@@ -2229,7 +2235,7 @@ function payMethodLabel(m) {
 // ── Excel eksport ──────────────────────────────────
 function exportQarzTarixiExcel() {
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
-  if (typeof requireDo === "function" && !requireDo("qarzlar","excel")) return;
+  if (typeof requireDo === "function" && !requireDo("qarztarix","excel")) return;
 
   if (qtViewMode === "total") {
     // Umumiy to'lov rejimi — har bir to'lov harakati bitta qator

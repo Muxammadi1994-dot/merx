@@ -998,7 +998,7 @@ function openAddCustomer() { resetCustForm(); openModal("addcust"); }
 
 function addCustomer() {
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
-  if (typeof requireDo === "function" && !requireDo("mijozlar","add")) return;
+  if (typeof requireDo === "function" && !requireDo("qarzlar","old")) return;
 
   if (typeof requireUse === "function" && !requireUse("mijozlar")) return;
 

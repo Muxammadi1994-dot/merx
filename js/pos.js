@@ -1515,9 +1515,14 @@ function setPayType(t) {
     // Eski qulf sozlamasi endi ishlatilmaydi (yuqoridagi izoh)
     return parseInt(($("pos-staff")||{value:0}).value) || null;
   })();
-    const staff   = staffId ? (db.staff||[]).find(s=>s.id===staffId) : null;
-    if (staff && !staff.permNasiya) {
-      toast("Bu kassirda nasiya berish huquqi yo'q","err"); return;
+    // ⚠️ 2026-08-02: YANGI RUXSAT TIZIMI.
+    // Avval `staff.permNasiya` (eski bayroq) tekshirilardi va u
+    // `db.staff` dan o'qilardi. Kirgan zahoti bu ro'yxat BO'SH
+    // bo'ladi — `staff` topilmay, tekshiruv umuman o'tkazib
+    // yuborilardi. Endi `permDo` ishlatiladi: u kirish paytida
+    // saqlangan ruxsatdan ham o'qiy oladi.
+    if (typeof permDo === "function" && !permDo("sotuv", "nasiya")) {
+      toast("⛔ Sizda nasiya sotuv huquqi yo'q", "err"); return;
     }
   }
   posPayType = t;
@@ -2165,9 +2170,29 @@ function refreshStaffList() {
 async function checkout() {
   if (typeof requireUse === "function" && !requireUse("sotuv")) return;
 
+  // ⚠️ 2026-08-02: RUXSAT SOTUV YAKUNLANISHIDA HAM TEKSHIRILADI.
+  // Avval faqat to'lov turi TUGMASI bosilganda tekshirilardi —
+  // tugmani chetlab o'tib (aralash to'lov, eski holat, qayta
+  // yuklash) nasiya sotuv baribir o'tib ketardi.
+  // Bu YOZISH nuqtasi: shu yerda to'silsa, hech qanday yo'l qolmaydi.
+  try {
+    if (typeof permDo === "function") {
+      const _isQarz = posPayType === "qarz" ||
+        (posPayType === "aralash" && (parseFloat(getRawVal("pay-qarz")) || 0) > 0);
+      if (_isQarz && !permDo("sotuv", "nasiya")) {
+        toast("⛔ Sizda nasiya sotuv huquqi yo'q", "err"); return;
+      }
+    }
+  } catch(e) {}
+
   if (!cart.length) { toast("Savatcha bo'sh","err"); return; }
   const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
   const discount = calcDiscount(subtotal);
+  // ⚠️ 2026-08-02: CHEGIRMA RUXSATI — YOZISH NUQTASIDA.
+  // Savat chizilganda emas, aynan sotuv yakunlanishida tekshiriladi.
+  if (discount > 0 && typeof permDo === "function" && !permDo("sotuv", "discount")) {
+    toast("⛔ Sizda chegirma berish huquqi yo'q", "err"); return;
+  }
   const total    = subtotal - discount;
   let paid = total, rem = 0, due = "", cName = "", cPhone = "", status = "tolandan";
   let customerId = null, debtUsd = null;
