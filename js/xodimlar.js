@@ -506,18 +506,71 @@ function updateStaffPay(id, field, val) {
 //
 // ⚠️ Sozlamalar (egasi) sahifasi bu ro'yxatda YO'Q — u har doim
 // faqat egada qoladi, galochka bilan ham berilmaydi.
+// Har bo'lim uchun: `see` — ko'rinishni cheklash, `use` — amallar.
+// ⚠️ STANDART HOLAT: ro'yxatdagi hamma band YOQILGAN. Ya'ni egasi
+// ataylab o'chirmasa, hech narsa yashirilmaydi va hozirgi xatti-
+// harakat o'zgarmaydi. Bu qoida buzilmasin — jonli do'konlar bor.
 const PERM_PAGES = [
-  { key:"dashboard", lbl:"Dashboard"     },
-  { key:"sotuv",     lbl:"Sotuv (POS)"   },
-  { key:"katalog",   lbl:"Katalog"       },
-  { key:"ombor",     lbl:"Ombor"         },
-  { key:"mijozlar",  lbl:"Mijozlar"      },
-  { key:"qarzlar",   lbl:"Qarzlar"       },
-  { key:"qarztarix", lbl:"Qarzlar tarixi"},
-  { key:"tarix",     lbl:"Sotuv tarixi"  },
-  { key:"hisobot",   lbl:"Hisobot"       },
-  { key:"moliya",    lbl:"Moliya"        },
-  { key:"xodimlar",  lbl:"Xodimlar"      },
+  { key:"dashboard", lbl:"Dashboard",
+    see:[ ["kpi","KPI paneli"], ["charts","Grafiklar"], ["top","Top mahsulotlar"] ],
+    use:[] },
+
+  { key:"sotuv", lbl:"Sotuv (POS)",
+    see:[ ["cost","Tannarx"], ["profit","Foyda"] ],
+    use:[ ["discount","Chegirma"], ["nasiya","Nasiya"], ["ret","Qaytarish"] ] },
+
+  { key:"katalog", lbl:"Katalog",
+    see:[ ["cost","Tannarx"], ["ulgurji","Ulgurji narx"], ["chakana","Chakana narx"],
+          ["margin","Ustama %"], ["supplier","Yetkazuvchi"], ["sku","SKU"] ],
+    use:[ ["add","Qo'shish"], ["edit","Tahrirlash"], ["del","O'chirish"],
+          ["import","Import"], ["barcode","Barcode"], ["narxnoma","Narxnoma"],
+          ["excel","Excel"] ] },
+
+  { key:"ombor", lbl:"Ombor",
+    see:[ ["kpi","KPI kartalar"], ["cost","Tannarx"],
+          ["value","Qoldiq qiymati"], ["margin","Margin %"] ],
+    use:[ ["kirim","Kirim"], ["chiqim","Chiqim"], ["inv","Inventarizatsiya"],
+          ["writeoff","Hisobdan chiqarish"], ["supplier","Yetkazuvchi"],
+          ["excel","Excel"] ] },
+
+  { key:"mijozlar", lbl:"Mijozlar",
+    see:[ ["kpi","KPI kartalar"], ["totalBuy","Jami xarid"],
+          ["avgCheck","O'rtacha chek"], ["debt","Joriy qarz"],
+          ["debtLimit","Qarz limiti"] ],
+    use:[ ["add","Qo'shish"], ["edit","Tahrirlash"], ["del","O'chirish"],
+          ["excel","Excel"] ] },
+
+  { key:"qarzlar", lbl:"Qarzlar",
+    see:[ ["kpi","KPI bloki"], ["trend","Trend grafigi"],
+          ["phone","Telefon"], ["paid","To'langan"] ],
+    use:[ ["pay","To'lov qabul qilish"], ["old","Eski qarz"],
+          ["sms","SMS"], ["bot","Bot xabari"] ] },
+
+  { key:"qarztarix", lbl:"Qarzlar tarixi",
+    see:[ ["totals","Jami summalar"], ["method","To'lov usuli"] ],
+    use:[ ["cancel","To'lovni bekor qilish"], ["chek","Chek"], ["excel","Excel"] ] },
+
+  { key:"tarix", lbl:"Sotuv tarixi",
+    see:[ ["cost","Tannarx"], ["profit","Foyda"], ["staff","Kassir"] ],
+    use:[ ["cancel","Sotuvni bekor qilish"], ["ret","Qaytarish"],
+          ["chek","Chek"], ["excel","Excel"] ] },
+
+  { key:"hisobot", lbl:"Hisobot",
+    see:[ ["kpi","KPI kartalar"], ["dyn","Sotuv dinamikasi"],
+          ["cash","Pul oqimi"], ["topProd","Top mahsulotlar"],
+          ["topCust","Top mijozlar"], ["staff","Kassirlar"] ],
+    use:[ ["excel","Excel"] ] },
+
+  { key:"moliya", lbl:"Moliya",
+    see:[ ["kpi","KPI kartalar"], ["struct","Xarajat tarkibi"],
+          ["inout","Kirim vs Chiqim"], ["balances","Kassir balanslari"],
+          ["suppliers","Yetkazuvchi qarzlari"], ["shop","Do'kon ma'lumotlari"] ],
+    use:[ ["add","Xarajat qo'shish"], ["del","O'chirish"], ["excel","Excel"] ] },
+
+  { key:"xodimlar", lbl:"Xodimlar",
+    see:[ ["salary","Maosh"], ["bonus","Bonus"], ["stats","Sotuv statistikasi"] ],
+    use:[ ["add","Qo'shish"], ["edit","Tahrirlash"], ["del","O'chirish"],
+          ["perms","Ruxsat berish"] ] },
 ];
 
 // Rol tanlanganda taklif qilinadigan standart holat.
@@ -540,10 +593,29 @@ function _readPerms() {
   PERM_PAGES.forEach(pg => {
     const v = document.getElementById("as-pv-" + pg.key);
     const u = document.getElementById("as-pu-" + pg.key);
-    out[pg.key] = {
+    const rec = {
       view: !!(v && v.checked) || !!(u && u.checked),   // ishlatish → ko'rish ham
       use:  !!(u && u.checked)
     };
+    // ⚠️ YASHIRILGANLAR ro'yxati saqlanadi, ko'rsatiladiganlar EMAS.
+    // Sabab: keyinchalik yangi band qo'shilsa, u avtomat KO'RINADI
+    // (yashirin ro'yxatda yo'q). Teskarisi bo'lsa yangi band hamma
+    // xodimdan yashirinib qolardi.
+    const hid = [];
+    (pg.see || []).forEach(([k]) => {
+      const el = document.getElementById(`as-see-${pg.key}-${k}`);
+      if (el && !el.checked) hid.push(k);
+    });
+    if (hid.length) rec.hide = hid;
+
+    const noUse = [];
+    (pg.use || []).forEach(([k]) => {
+      const el = document.getElementById(`as-use-${pg.key}-${k}`);
+      if (el && !el.checked) noUse.push(k);
+    });
+    if (noUse.length) rec.deny = noUse;
+
+    out[pg.key] = rec;
   });
   return out;
 }
@@ -570,6 +642,22 @@ function permSync(key) {
   if (!v || !u) return;
   if (u.checked) v.checked = true;
   if (!v.checked) u.checked = false;
+
+  // 2026-08-02: "Nimalarni ko'rsin/ishlatsin" tugmalari asosiy
+  // galochkaga bog'liq — ruxsat yo'q bo'lsa bosilmaydi.
+  const dim = (kind, on) => {
+    const b = document.getElementById(`as-${kind}btn-${key}`);
+    if (!b) return;
+    b.disabled = !on;
+    b.style.opacity = on ? "1" : ".35";
+    b.style.cursor  = on ? "pointer" : "default";
+    if (!on) {
+      const box = document.getElementById(`as-${kind}box-${key}`);
+      if (box) box.style.display = "none";
+    }
+  };
+  dim("see", v.checked);
+  dim("use", u.checked);
   // Sotuv ichidagi qo'shimcha ruxsatlar — faqat "Ishlatish" bo'lsa
   if (key === "sotuv") {
     const ex = document.getElementById("sotuv-extra");
@@ -581,6 +669,36 @@ function permSync(key) {
       const w = document.getElementById("as-disc-wrap"); if (w) w.style.display = "none";
     }
   }
+}
+
+// Ochiladigan ro'yxatni ko'rsatish/yashirish (2026-08-02)
+// Bir vaqtda faqat BITTA ro'yxat ochiq turadi — oyna chalkashmasin.
+function permToggleBox(kind, page) {
+  const id  = `as-${kind}box-${page}`;
+  const box = document.getElementById(id);
+  if (!box) return;
+  const wasOpen = box.style.display !== "none";
+  // Avval hammasini yopamiz
+  PERM_PAGES.forEach(pg => {
+    ["see","use"].forEach(k => {
+      const b = document.getElementById(`as-${k}box-${pg.key}`);
+      if (b) b.style.display = "none";
+    });
+  });
+  if (!wasOpen) box.style.display = "";
+}
+
+// Tugmadagi hisobni yangilaydi: "4/6 ▾"
+function permCountBox(kind, page) {
+  const pg = PERM_PAGES.find(x => x.key === page); if (!pg) return;
+  const items = (kind === "see" ? pg.see : pg.use) || [];
+  let on = 0;
+  items.forEach(([k]) => {
+    const el = document.getElementById(`as-${kind}-${page}-${k}`);
+    if (el && el.checked) on++;
+  });
+  const btn = document.getElementById(`as-${kind}btn-${page}`);
+  if (btn) btn.textContent = `${on}/${items.length} ▾`;
 }
 
 // Ustun bo'yicha hammasini belgilash / bekor qilish (2026-08-02)
@@ -860,34 +978,78 @@ function openStaffModal(editId = null) {
           <table style="width:100%;border-collapse:collapse;font-size:13px">
             <thead>
               <tr style="background:#F9FAFB">
-                <th style="text-align:left;padding:9px 12px;font-size:11px;color:#6B7280;
+                <th style="text-align:left;padding:9px 10px;font-size:11px;color:#6B7280;
                   text-transform:uppercase;letter-spacing:.04em">Bo'lim</th>
                 <th style="width:78px;padding:6px 6px;font-size:11px;color:#6B7280">
                   Ko'rish<br>
                   <input type="checkbox" id="as-pv-all" onchange="permToggleAll('view',this.checked)"
                     title="Hammasini belgilash"
                     style="width:15px;height:15px;accent-color:#6B7280;cursor:pointer;margin-top:3px"></th>
-                <th style="width:88px;padding:6px 6px;font-size:11px;color:#6B7280">
+                <th style="width:74px;padding:6px 4px;font-size:10.5px;color:#6B7280;line-height:1.25">
+                  Nimalarni<br>ko'rsin</th>
+                <th style="width:78px;padding:6px 6px;font-size:11px;color:#6B7280">
                   Ishlatish<br>
                   <input type="checkbox" id="as-pu-all" onchange="permToggleAll('use',this.checked)"
                     title="Hammasini belgilash"
                     style="width:15px;height:15px;accent-color:var(--acc);cursor:pointer;margin-top:3px"></th>
+                <th style="width:74px;padding:6px 4px;font-size:10.5px;color:#6B7280;line-height:1.25">
+                  Nimalarni<br>ishlatsin</th>
               </tr>
             </thead>
             <tbody>
               ${PERM_PAGES.map(pg => {
-                const pr = (s?.perms||{})[pg.key] || {};
+                const pr   = (s?.perms||{})[pg.key] || {};
+                const hid  = new Set(pr.hide || []);
+                const deny = new Set(pr.deny || []);
+                // Tugmadagi hisob: nechtadan nechtasi yoqilgan
+                const seeN = (pg.see||[]).length, useN = (pg.use||[]).length;
+                const seeOn = (pg.see||[]).filter(([k]) => !hid.has(k)).length;
+                const useOn = (pg.use||[]).filter(([k]) => !deny.has(k)).length;
+                const mini = (kind, on, all) => all === 0
+                  ? `<span style="color:#D1D5DB">—</span>`
+                  : `<button type="button" id="as-${kind}btn-${pg.key}"
+                       onclick="permToggleBox('${kind}','${pg.key}')"
+                       style="border:1px solid #E5E7EB;background:#fff;border-radius:7px;
+                       padding:3px 8px;font-size:11px;cursor:pointer;white-space:nowrap;
+                       color:#374151">${on}/${all} ▾</button>`;
+
+                // Ochiladigan ro'yxat (standart: yopiq)
+                const box = (kind, items, offSet) => !items.length ? "" : `
+                  <tr id="as-${kind}box-${pg.key}" style="display:none">
+                    <td colspan="5" style="padding:0">
+                      <div style="background:${kind==='see'?'#F8FAFC':'#FFFBEB'};
+                        border-top:1px solid #E5E7EB;padding:8px 12px 8px 26px">
+                        <div style="font-size:11px;font-weight:700;margin-bottom:6px;
+                          color:${kind==='see'?'#475569':'#92400E'}">
+                          ${pg.lbl} — ${kind==='see'?"nimalarni ko'rsin":"nimalarni ishlatsin"}</div>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 10px">
+                        ${items.map(([k,lbl]) => `
+                          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer">
+                            <input type="checkbox" id="as-${kind}-${pg.key}-${k}"
+                              ${offSet.has(k)?'':'checked'}
+                              onchange="permCountBox('${kind}','${pg.key}')"
+                              style="width:15px;height:15px;accent-color:${kind==='see'?'#6B7280':'var(--acc)'}">
+                            ${lbl}</label>`).join("")}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>`;
+
                 return `<tr style="border-top:1px solid #F3F4F6">
                   <td style="padding:8px 12px">${pg.lbl}</td>
                   <td style="text-align:center;padding:8px 6px">
                     <input type="checkbox" id="as-pv-${pg.key}" ${pr.view?'checked':''}
                       onchange="permSync('${pg.key}')"
                       style="width:17px;height:17px;accent-color:#6B7280;cursor:pointer"></td>
+                  <td style="text-align:center;padding:8px 4px">${mini("see", seeOn, seeN)}</td>
                   <td style="text-align:center;padding:8px 6px">
                     <input type="checkbox" id="as-pu-${pg.key}" ${pr.use?'checked':''}
                       onchange="permSync('${pg.key}')"
                       style="width:17px;height:17px;accent-color:var(--acc);cursor:pointer"></td>
-                </tr>` + (pg.key === "sotuv" ? `
+                  <td style="text-align:center;padding:8px 4px">${mini("use", useOn, useN)}</td>
+                </tr>`
+                + box("see", pg.see||[], hid)
+                + box("use", pg.use||[], deny) + (pg.key === "sotuv" ? `
                 <tr id="sotuv-extra" style="display:${pr.use?'':'none'}">
                   <td colspan="3" style="padding:0">
                     <div style="background:#FFFBEB;border-top:1px solid #FDE68A;padding:8px 12px 8px 26px">
@@ -984,6 +1146,8 @@ function openStaffModal(editId = null) {
   try {
     const _hasPerms = s && s.perms && Object.keys(s.perms).length;
     if (isEdit && !_hasPerms) permApplyDefaults(s?.role || "kassir", true);
+    // Tugmalarning faol/nofaol holatini boshlang'ich moslash
+    PERM_PAGES.forEach(pg => { try { permSync(pg.key); } catch(e) {} });
   } catch(e) {}
   // 2026-08-01: TELEFONNI FORMAGA YUKLASH.
   // Saqlangan qiymat "+998901231212" ko'rinishida. Uni mamlakat
