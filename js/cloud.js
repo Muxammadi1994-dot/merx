@@ -1563,7 +1563,7 @@ function _autoUpdateWhenSafe() {
     return;
   }
   _updScheduled = true;
-  const tryNow = () => {
+  const tryNow = async () => {
     let busy = false;
     try { busy = _rtBusyUI(); } catch(e) {}
     // ⚠️ _syncPending bo'lsa QAYTA YUKLAMAYMIZ: `beforeunload` qo'riqchisi
@@ -1574,7 +1574,35 @@ function _autoUpdateWhenSafe() {
       busy = true;
     }
     if (busy) { setTimeout(tryNow, 15000); return; }
+    const _try = _updTries();
     _updTriesInc();
+    // ⚠️ 2026-08-02: IKKINCHI URINISHDA KESH MAJBURAN TOZALANADI.
+    // Muammo: Service Worker keshdagi ESKI index.html ni berardi.
+    // Versiya tekshiruvi DOM (eski) bilan serverdagini solishtiradi,
+    // farq topadi, sahifani qayta yuklaydi — lekin SW yana o'sha
+    // eski nusxani beradi. Cheksiz aylanish, ikki urinishdan keyin
+    // to'xtaydi va foydalanuvchi ESKI KODDA qolib ketadi.
+    // Amalda shunday bo'lgan: kassada xodim kirishi ishlamadi,
+    // chunki brauzer eski `auth.js` ni ishlatayotgan edi.
+    //
+    // Endi ikkinchi urinishda SW ro'yxatdan chiqariladi va kesh
+    // tozalanadi — eski nusxa qaytib kela olmaydi. Offline rejim
+    // keyingi ochilishda o'zi tiklanadi.
+    if (_try >= 1) {
+      console.warn("♻️ Eski kesh tozalanmoqda — yangi versiya majburan olinadi");
+      try {
+        if (navigator.serviceWorker) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        }
+        if (window.caches) {
+          const ks = await caches.keys();
+          await Promise.all(ks.map(k => caches.delete(k)));
+        }
+      } catch (e) { console.warn("kesh tozalanmadi:", e.message); }
+      location.replace("/?fresh=" + Date.now());
+      return;
+    }
     console.log("🔄 Yangi versiya jim qo'llanmoqda...");
     location.replace(location.pathname + "?upd=" + Date.now());
   };
