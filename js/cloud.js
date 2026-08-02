@@ -1758,6 +1758,23 @@ async function ensureCloudPull(tries = 3) {
     console.warn("Pull hali o'tmadi — 60 soniyadan keyin fonda yana urinamiz");
     setTimeout(() => { if (!ok()) ensureCloudPull(2); }, 60000);
   }
+    // ⚠️ 2026-08-02: TORTISH TUGAGACH EKRAN YANGILANADI.
+  // Xodim kirganda `db.settings` bo'sh bo'ladi va ekran standart
+  // kursni (12800) ko'rsatardi. Faqat F5 dan keyin to'g'rilanardi —
+  // ya'ni kimdir yangilamasdan savdo qilsa, dollar hisobidagi
+  // narxlar NOTO'G'RI chiqardi.
+  // Endi tortish tugagach ekran o'zi qayta chiziladi.
+  try {
+    if (ok()) {
+      if (typeof updateCloudUI === "function") updateCloudUI(true);
+      const _pg = document.querySelector(".pg.on");
+      if (_pg && typeof nav === "function") {
+        const _p = _pg.id.replace(/^p-/, "");
+        nav(_p === "pos" ? "sotuv" : _p);
+      }
+      if (db?.settings?.rate) console.log("💱 Kurs yuklandi:", db.settings.rate);
+    }
+  } catch(e) {}
   return ok();
 }
 

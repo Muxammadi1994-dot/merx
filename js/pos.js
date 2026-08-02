@@ -2170,6 +2170,18 @@ function refreshStaffList() {
 async function checkout() {
   if (typeof requireUse === "function" && !requireUse("sotuv")) return;
 
+  // ⚠️ 2026-08-02: KURS YUKLANMAGUNCHA SOTUV YO'Q.
+  // Xodim kirganda `db.settings` bo'sh bo'ladi va butun ilova
+  // standart kursni (12800) ishlatadi. O'sha payt sotuv qilinsa
+  // dollar hisobidagi narxlar va qarz NOTO'G'RI yoziladi —
+  // keyin tuzatish og'ir.
+  // Bulutdan sozlama kelmaguncha to'xtatamiz (odatda 1-2 soniya).
+  if (!db?.settings?.rate) {
+    toast("⏳ Kurs yuklanmoqda — bir necha soniyadan keyin urinib ko'ring", "err");
+    try { if (typeof ensureCloudPull === "function") ensureCloudPull(); } catch(e) {}
+    return;
+  }
+
   // ⚠️ 2026-08-02: RUXSAT SOTUV YAKUNLANISHIDA HAM TEKSHIRILADI.
   // Avval faqat to'lov turi TUGMASI bosilganda tekshirilardi —
   // tugmani chetlab o'tib (aralash to'lov, eski holat, qayta

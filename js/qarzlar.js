@@ -1015,6 +1015,15 @@ function _qarzStaffOpts() {
 // ── To'lov qabul qilish (ko'p qarzga avtomatik taqsimlash) ──
 // ── Mijoz balansidan qarzga o'tkazish (qo'lda, sotuvchi tanlaganda) ─
 async function useBalanceForDebt(saleId) {
+  // ⚠️ 2026-08-02: KURS YUKLANMAGUNCHA TO'LOV YO'Q.
+  // Xodim kirganda sozlamalar bo'sh bo'ladi va standart kurs
+  // (12800) ishlatiladi — dollar qarzi noto'g'ri hisoblanardi.
+  if (!db?.settings?.rate) {
+    toast("⏳ Kurs yuklanmoqda — bir necha soniyadan keyin urinib ko'ring", "err");
+    try { if (typeof ensureCloudPull === "function") ensureCloudPull(); } catch(e) {}
+    return;
+  }
+
   if (typeof requireUse === "function" && !requireUse("qarzlar")) return;
 
   const sale = db.sales.find(x => x.id === saleId); if (!sale) return;
@@ -1085,6 +1094,15 @@ function qzShowUsdHint(id) {
 }
 
 async function recordPayment(id, forcedCurrency) {
+  // ⚠️ 2026-08-02: KURS YUKLANMAGUNCHA TO'LOV YO'Q.
+  // Xodim kirganda sozlamalar bo'sh bo'ladi va standart kurs
+  // (12800) ishlatiladi — dollar qarzi noto'g'ri hisoblanardi.
+  if (!db?.settings?.rate) {
+    toast("⏳ Kurs yuklanmoqda — bir necha soniyadan keyin urinib ko'ring", "err");
+    try { if (typeof ensureCloudPull === "function") ensureCloudPull(); } catch(e) {}
+    return;
+  }
+
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("qarzlar","pay")) return;
 
