@@ -93,7 +93,12 @@ document.addEventListener("keydown", function(e) {
 // har harfda chiyillamasin.
 let _posScanMode = false;
 
+// Skaner kuzatuvi — sekinlik qaysi bosqichda ekanini ko'rsatadi.
+// O'chirish: SCAN_TRACE = false
+const SCAN_TRACE = true;
+
 function processBarcode(code) {
+  const _sc0 = Date.now();
   const q = code.toLowerCase();
   let foundColor = null;
   let p = null;
@@ -156,19 +161,39 @@ function processBarcode(code) {
     "umumiy p.barcode": p ? (p.barcode || "yo'q") : null
   });
   if (p) {
+    if (SCAN_TRACE) console.log(`🔦 SKANER · topildi: ${Date.now() - _sc0} ms (${matchedBy})`);
     toast("Topildi: " + p.name + (foundColor ? " — " + foundColor : ""), "info");
     if ($("pos-q")) {
       $("pos-q").value = p.art || p.sku;
       _posScanMode = true;
+      const _r0 = Date.now();
       try { posSearch(); } finally { _posScanMode = false; }
+      if (SCAN_TRACE) console.log(`🔦 SKANER · ekran: ${Date.now() - _r0} ms`);
     }
     // 2026-07-24 (№9): rang aniq bo'lsa — 1 POCHKA to'g'ridan savatga.
     // Rang noma'lum bo'lsa (umumiy tovar barcode'i) qo'shmaymiz — qaysi
     // rang ekani noaniq, foydalanuvchi o'zi tanlaydi.
     if (foundColor && typeof posQuickAdd === "function") {
-      setTimeout(() => {
-        try { posQuickAdd(p.sku, foundColor, 0); } catch(e) {}
-      }, 350);
+      // ⚠️ 2026-08-02: QAT'IY 350ms KUTISH → MAYDONNI KUTISH.
+      // `posQuickAdd` miqdorni EKRANDAGI maydondan o'qiydi
+      // (`posq-<sku>_<rang>_0`), u esa `posSearch()` ro'yxatni
+      // chizgandan keyin paydo bo'ladi. Shuning uchun kechikish
+      // KERAK edi — uni olib tashlash miqdorni doim 1 qilib
+      // qo'yardi va kassir kiritgan son e'tiborsiz qolardi.
+      // Lekin 350ms qat'iy edi: tez qurilmada ortiqcha kutish,
+      // sekin qurilmada esa YETMASLIGI mumkin.
+      // Endi maydon paydo bo'lishi kutiladi — tez qurilmada ~16ms,
+      // sekin qurilmada esa 350ms dan uzoqroq ham kutadi.
+      const _qid = "posq-" + `${p.sku}::${foundColor}::0`.replace(/[^a-zA-Z0-9]/g, "_");
+      const _t0  = Date.now();
+      (function _waitField() {
+        if (document.getElementById(_qid) || Date.now() - _t0 > 1500) {
+          if (SCAN_TRACE) console.log(`🔦 SKANER · savatga: ${Date.now() - _t0} ms`);
+          try { posQuickAdd(p.sku, foundColor, 0); } catch(e) {}
+          return;
+        }
+        requestAnimationFrame(_waitField);
+      })();
     }
 
     // Rang aniqlangan bo'lsa avtomatik highlight
@@ -433,7 +458,7 @@ function posSearch() {
 
     const rowImg = (p.colorImages && p.colorImages[color]) || p.image || "";
     const imgHtml = rowImg
-      ? `<img src="${rowImg}" onclick="event.stopPropagation();posImgView('${p.sku}','${typeof jsEsc==='function' ? jsEsc(color) : color}')" title="Rasmni ko'rish" style="cursor:zoom-in;width:36px;height:36px;object-fit:cover;border-radius:7px;border:1px solid var(--brd);flex-shrink:0">`
+      ? `<img src="${rowImg}" loading="lazy" decoding="async" onclick="event.stopPropagation();posImgView('${p.sku}','${typeof jsEsc==='function' ? jsEsc(color) : color}')" title="Rasmni ko'rish" style="cursor:zoom-in;width:36px;height:36px;object-fit:cover;border-radius:7px;border:1px solid var(--brd);flex-shrink:0">`
       : "";
 
     return `<div class="pos-ri" style="${isBroken?'background:#FFFBF0;border-color:#FCD9A8;':''}"
