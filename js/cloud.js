@@ -376,7 +376,22 @@ const _DELTA_DEL_KEY = {
 function _mergeById(arr, rows, keyField) {
   const k = keyField || "id";
   const map = new Map((arr || []).map(x => [String(x[k]), x]));
-  rows.forEach(r => map.set(String(r[k]), r));
+  rows.forEach(r => {
+    // ⚠️ 2026-08-02: VAQT SOLISHTIRUVI DELTA'DA HAM.
+    // To'liq pull'da bu qoida bor edi, deltada esa YO'Q — bulut
+    // nusxasi so'zsiz o'rnatilardi. Delta esa kunning aksariyat
+    // vaqtida ishlaydi, ya'ni himoya amalda teshik qolardi:
+    // eski nusxali qurilma bekor qilingan sotuvni yoki eski ombor
+    // qoldig'ini tiklab yuborishi mumkin edi.
+    // Muhr yo'q bo'lsa — bulut g'olib (eski yozuvlar buzilmaydi).
+    const cur = map.get(String(r[k]));
+    if (cur) {
+      const _lt = Date.parse(cur.updatedAt || 0) || 0;
+      const _ct = Date.parse(r.updatedAt   || 0) || 0;
+      if (_lt > _ct) return;                 // lokal yangiroq — saqlanadi
+    }
+    map.set(String(r[k]), r);
+  });
   return [...map.values()].sort((a, b) => (a.id || 0) - (b.id || 0));
 }
 
@@ -1069,7 +1084,22 @@ async function pushToCloud() {
     // Helper — upsert id asosida, xato bo'lsa warning, davom etadi
     async function sync(table, rows) {
       // v176: faqat o'zgargan yozuvlar (delta) yuboriladi
-      return _deltaUpsert(table, rows, 50);
+      // ⚠️ 2026-08-02: VAQT MUHRI QO'SHILDI.
+      // Sotuv, ombor va xodimda `updatedAt` UMUMAN YO'Q edi.
+      // Shu sabab tortishda "lokal yangiroqmi" degan solishtiruv
+      // qilib bo'lmasdi va bulut nusxasi SO'ZSIZ olinardi: eski
+      // nusxali qurilma bekor qilingan sotuvni tiklab yuborishi
+      // mumkin edi.
+      // Muhr FAQAT haqiqatan o'zgargan qatorga bosiladi (`onDirty`),
+      // shuning uchun u "oxirgi haqiqiy o'zgarish" vaqtini bildiradi.
+      const _local = { sales: db.sales, ombor: db.ombor, staff: db.staff }[table];
+      const _stamp = !_local ? null : (row) => {
+        const _t = new Date().toISOString();
+        const lr = _local.find(x => String(x.id) === String(row.id));
+        if (lr) lr.updatedAt = _t;
+        if (row.data) row.data.updatedAt = _t;
+      };
+      return _deltaUpsert(table, rows, 50, null, _stamp);
     }
 
     // Customers uchun alohida sync — telegram_chat_id ni HECH QACHON o'zgartirmaymiz
@@ -1922,9 +1952,19 @@ async function pullFromCloud(silent = false, skipRender = false) {
     const staffData = await _selectAll(() => _sb.from("staff").select("*").eq("shop_id", sid), "staff");
     _cloudIds["staff"] = new Map((staffData||[]).map(r => [String(r.id), r.id]));
     if (staffData && staffData.length > 0) {
+      // 2026-08-02: vaqt solishtiruvi. Xodim ruxsatlari ikki qurilmada
+      // o'zgartirilsa — keyingi tahrir g'olib bo'ladi, oxirgi push emas.
+      const _oldStf = new Map((db.staff || []).map(x => [String(x.id), x]));
       db.staff = staffData.map(s => {
         // v175: BUTUN JSON bo'lsa — undan (barcha maydonlar avtomatik)
-        if (s.data && typeof s.data === "object" && !Array.isArray(s.data)) return { ...s.data, id: s.id };
+        if (s.data && typeof s.data === "object" && !Array.isArray(s.data)) {
+          const _o  = _oldStf.get(String(s.id)) || {};
+          const _lt = Date.parse(_o.updatedAt || 0) || 0;
+          const _ct = Date.parse(s.data.updatedAt || 0) || 0;
+          // PIN bulutda bo'sh bo'lsa lokaldagi saqlanadi (2026-08-01)
+          if (_lt > _ct) return { ..._o, id: s.id, pin: s.pin || _o.pin || null };
+          return { ...s.data, id: s.id, pin: s.data.pin || s.pin || _o.pin || null };
+        }
         // 2026-08-01: bulutdagi PIN bo'sh bo'lsa LOKALDAGINI saqlaymiz
         const _oldSt = (db.staff || []).find(x => String(x.id) === String(s.id)) || {};
         const st = {
@@ -1967,10 +2007,19 @@ async function pullFromCloud(silent = false, skipRender = false) {
       if (_mx) _setLastPull(sid, _mx, true);   // to'liq pull — chekinish bilan
     } catch(e) {}
     if (salesData && salesData.length > 0) {
+      // ⚠️ 2026-08-02: VAQT SOLISHTIRUVI (tovar/mijozdagi qoida).
+      // Lokal nusxa buluttagidan YANGIROQ bo'lsa — lokal saqlanadi.
+      // Busiz eski nusxali qurilma bekor qilingan sotuvni yoki
+      // eski ombor qoldig'ini tiklab yuborardi.
+      const _oldSale = new Map((db.sales || []).map(x => [String(x.id), x]));
       db.sales = salesData.map(s => {
         // v174: BUTUN JSON bo'lsa — undan (subtotal/discount/note ham
         // yo'qolmaydi). Sotuvni faqat mijoz (sayt) yozadi, bot yozmaydi.
         if (s.data && typeof s.data === "object" && !Array.isArray(s.data)) {
+          const _o  = _oldSale.get(String(s.id)) || {};
+          const _lt = Date.parse(_o.updatedAt || 0) || 0;
+          const _ct = Date.parse(s.data.updatedAt || 0) || 0;
+          if (_lt > _ct) return { ..._o, id: s.id };      // lokal yangiroq
           return { ...s.data, id: s.id };
         }
         // ZAXIRA YO'L (data hali yo'q) — avvalgi mapping o'zgarishsiz
@@ -1996,9 +2045,17 @@ async function pullFromCloud(silent = false, skipRender = false) {
     const omborData = await _selectAll(() => _sb.from("ombor").select("*").eq("shop_id", sid).order("local_id"), "ombor");
     _cloudIds["ombor"] = new Map((omborData||[]).map(r => [String(r.id), r.id]));
     if (omborData && omborData.length > 0) {
+      // 2026-08-02: vaqt solishtiruvi (sotuvdagi qoida)
+      const _oldOm = new Map((db.ombor || []).map(x => [String(x.id), x]));
       db.ombor = omborData.map(o => {
         // v175: BUTUN JSON bo'lsa — undan
-        if (o.data && typeof o.data === "object" && !Array.isArray(o.data)) return { ...o.data, id: o.id };
+        if (o.data && typeof o.data === "object" && !Array.isArray(o.data)) {
+          const _o  = _oldOm.get(String(o.id)) || {};
+          const _lt = Date.parse(_o.updatedAt || 0) || 0;
+          const _ct = Date.parse(o.data.updatedAt || 0) || 0;
+          if (_lt > _ct) return { ..._o, id: o.id };      // lokal yangiroq
+          return { ...o.data, id: o.id };
+        }
         return ({
         id: o.id, date: o.date, sku: o.sku,
         productName: o.product_name, unit: o.unit,
