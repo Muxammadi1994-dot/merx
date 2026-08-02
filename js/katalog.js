@@ -1864,13 +1864,20 @@ function apNameAutofill(val) {
     return;
   }
 
-  // Mavjud tovar topildi — narxlarni avtomatik to'ldiramiz va ogohlantiramiz
-  const rate = db.settings?.rate || 12800;
-  const cur1 = db.settings?.priceCurrency || "uzs";
-  // 2026-07-26: tannarx HAR DOIM SO'MDA ko'rsatiladi
-  if ($("ap-cost")) $("ap-cost").value = "";
-  if ($("ap-ulgurji")) { $("ap-ulgurji").value = p.ulgurjiNarx || 0; if (typeof fmtInput === "function") fmtInput($("ap-ulgurji")); }
-  if ($("ap-art") && p.art) $("ap-art").value = p.art;
+  // ⚠️ 2026-08-02: MAYDONLARNI AVTOMAT TO'LDIRISH OLIB TASHLANDI.
+  // Avval nom mavjud tovarga mos kelsa, kod uchta maydonga
+  // ARALASHARDI:
+  //     ap-art      ← eski tovar artikuli YOZILARDI
+  //     ap-ulgurji  ← eski tovar ulgurji narxi YOZILARDI
+  //     ap-cost     ← BO'SHATILARDI (kiritilgan tannarx yo'qolardi)
+  // Telefonda taklif ro'yxatidan nom tanlangan zahoti shu sodir
+  // bo'lardi va yangi tovar eski tovarning narxlari bilan to'lib
+  // ketardi. Har tovarning nomi, artikuli va narxlari ALOHIDA
+  // kiritiladi — avtomat to'ldirish xato edi.
+  //
+  // QOLDI: pastdagi taklif ro'yxati va "bu tovar mavjud" ogohlantirishi
+  // (ular foydali — takror kiritishdan saqlaydi).
+  // TEGILMADI: rang tanlash, kategoriya, pochka sig'imi, rasm, barcode.
 
   const totalQty = p.variants.reduce((a,v) => a+v.qty, 0);
   if (note) {
