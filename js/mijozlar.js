@@ -681,6 +681,8 @@ function editCustomer(id) {
   // yozardi va tahrir yo'qolardi (POS qidiruvida topilmasdi).
   c.updatedAt = new Date().toISOString();
   saveDB(); renderMijozlar(); closeModal("addcust");
+  // 2026-08-02: POS'da shu mijoz tanlangan bo'lsa — kartasi yangilanadi
+  try { if (typeof posRefreshCustCard === "function") posRefreshCustCard(); } catch(e) {}
   toast("✅ Mijoz ma'lumotlari yangilandi");
   resetCustForm(); // maydonlar + sarlavha + tugma to'liq tozalanadi
 }

@@ -761,11 +761,18 @@
           </div>
           <div id="cust-selected-card" style="display:none;padding:8px 12px;background:#f9f7f3;border:1.5px solid #c8a84b;border-radius:var(--rs);margin-bottom:6px">
             <div style="display:flex;align-items:center;justify-content:space-between">
-              <div>
-                <div style="font-weight:600;font-size:13px" id="cust-sel-name">—</div>
-                <div style="font-size:11.5px;color:var(--mut)" id="cust-sel-phone">—</div>
+              <!-- 2026-08-02: ism/telefon bosilsa mijoz tahriri ochiladi.
+                   Sotuv paytida "raqamim o'zgardi" desa — shu yerdan
+                   tuzatib ketiladi. ✕ tugmasi o'z ishida qoldi. -->
+              <div onclick="posEditCustomer()" title="Tahrirlash uchun bosing"
+                style="cursor:pointer;flex:1;display:flex;align-items:center;gap:7px;min-width:0">
+                <div style="min-width:0">
+                  <div style="font-weight:600;font-size:13px" id="cust-sel-name">—</div>
+                  <div style="font-size:11.5px;color:var(--mut)" id="cust-sel-phone">—</div>
+                </div>
+                <i class="ti ti-pencil" style="font-size:14px;color:#c8a84b;flex-shrink:0"></i>
               </div>
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="custClear()" title="O'chirish">
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();custClear()" title="O'chirish">
                 <i class="ti ti-x"></i>
               </button>
             </div>
@@ -4714,10 +4721,10 @@
 <script src="js/sms.js?v=141"></script>
 <script src="js/cloud.js?v=231"></script>
 <script src="js/dashboard.js?v=157"></script>
-<script src="js/pos.js?v=234"></script>
+<script src="js/pos.js?v=235"></script>
 <script src="js/katalog.js?v=239"></script>
 <script src="js/ombor.js?v=169"></script>
-<script src="js/mijozlar.js?v=156"></script>
+<script src="js/mijozlar.js?v=157"></script>
 <script src="js/qarzlar.js?v=193"></script>
 <script src="js/tarix.js?v=169"></script>
 <script src="js/hisobot.js?v=151"></script>
@@ -4946,7 +4953,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=195")
+    navigator.serviceWorker.register("/sw.js?v=196")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

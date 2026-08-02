@@ -1849,6 +1849,39 @@ function updateRem() {
 // ── Mijoz qidiruv (yangi) ────────────────────────
 let _custSearchTimer = null;
 
+// ══════════════════════════════════════════════════════════════
+// POS'DAN MIJOZNI TAHRIRLASH (2026-08-02)
+// ══════════════════════════════════════════════════════════════
+// Sotuv paytida mijoz "raqamim o'zgardi" desa — POS'dan chiqmasdan
+// shu yerda tuzatib ketish mumkin.
+// Mavjud `custCardEdit()` (mijozlar.js) ishlatiladi — yangi tahrir
+// oynasi yozilmaydi (yagona manba).
+// ⚠️ Savat, narx turi, tanlangan mijoz — hech biriga tegilmaydi.
+function posEditCustomer() {
+  const id = parseInt(($("c-cust")||{value:""}).value) || null;
+  if (!id) return;
+  if (typeof custCardEdit !== "function") return;
+  try {
+    _custCardId = id;          // custCardEdit shu o'zgaruvchiga tayanadi
+    custCardEdit();
+  } catch (e) { console.warn("mijoz tahriri ochilmadi:", e.message); }
+}
+
+// Tahrirdan keyin POS kartasidagi ism va telefonni yangilaydi.
+// `editCustomer` (mijozlar.js) saqlagach chaqiradi.
+function posRefreshCustCard() {
+  try {
+    const id = parseInt(($("c-cust")||{value:""}).value) || null;
+    if (!id) return;
+    const c = (db.customers||[]).find(x => x.id === id);
+    if (!c) return;
+    if ($("cust-sel-name"))  $("cust-sel-name").textContent  = c.name;
+    if ($("cust-sel-phone")) $("cust-sel-phone").textContent = c.phone || "Telefon yo'q";
+    if ($("c-name"))  $("c-name").value  = c.name;      // chek uchun yashirin maydon
+    if ($("c-phone")) $("c-phone").value = c.phone || "";
+  } catch (e) {}
+}
+
 function custSearch(q) {
   const dd = $("cust-dropdown"); if (!dd) return;
   const clearBtn = $("cust-clear-btn");
