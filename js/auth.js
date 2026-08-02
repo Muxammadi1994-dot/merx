@@ -879,11 +879,73 @@ async function doLogin() {
   }
 }
 
-function doStaffLogin() {
+// ══════════════════════════════════════════════════════════════
+// XODIM KIRISHI — BULUTDAN QIDIRISH (2026-08-02)
+// ══════════════════════════════════════════════════════════════
+// MUAMMO: kirish FAQAT qurilmadagi ma'lumotdan qidirardi
+// (`_allStaff()` → localStorage). Qurilmada o'sha do'kon bazasi
+// bo'lmasa — yangi kompyuter, tozalangan brauzer, yoki xodim
+// boshqa qurilmada qo'shilgan bo'lsa — "Telefon yoki PIN
+// noto'g'ri" chiqardi. Egasi bir joyda xodim yaratsa, kassada
+// kirib bo'lmasdi.
+// ENDI: lokal topilmasa server orqali bulutdan qidiriladi
+// (`api/auth-v2?action=staff_login`). Qurilmaga bog'liq emas.
+async function _staffLoginCloud(phone, pin) {
+  try {
+    const r = await fetch("/api/auth-v2?action=staff_login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, pin })
+    });
+    const j = await r.json();
+    if (!j || !j.ok || !j.staff) return null;
+    console.log("🔑 Xodim bulutdan topildi:", j.staff.name, "·", j.staff.shopName);
+    return j.staff;
+  } catch (e) {
+    console.warn("bulutdan xodim qidirish xatosi:", e.message);
+    return null;
+  }
+}
+
+let _staffLoginBusy = false;
+
+async function doStaffLogin() {
   const phone = (document.getElementById("auth-phone")||{value:""}).value.trim();
   const pin   = (document.getElementById("auth-pin") ||{value:""}).value;
   if (!phone || !pin) { showAuthErr("Telefon va PIN kiriting", true); return; }
-  const res = authStaffLogin(phone, pin);
+  if (_staffLoginBusy) return;
+  _staffLoginBusy = true;
+  try {
+  let res = authStaffLogin(phone, pin);
+  if (!res.ok) {
+    showAuthErr("Tekshirilmoqda...", true);
+    const cs = await _staffLoginCloud(phone, pin);
+    if (cs) {
+      const dbKey = "merx_v5_" + cs.shopId;
+      const user = {
+        id: "staff_" + cs.id, email: cs.phone,
+        staffId: cs.id, shopId: cs.shopId, dbKey,
+        shopName: cs.shopName, role: cs.role, name: cs.name
+      };
+      // Keyingi safar internetsiz ham kira olsin
+      try {
+        const raw = localStorage.getItem(dbKey);
+        const d = raw ? JSON.parse(raw) : null;
+        if (d) {
+          d.staff = Array.isArray(d.staff) ? d.staff : [];
+          if (!d.staff.some(x => String(x.id) === String(cs.id))) {
+            d.staff.push({ id: cs.id, name: cs.name, phone: cs.phone,
+              pin: cs.pin, role: cs.role, perms: cs.perms || undefined,
+              permDiscount: cs.permDiscount, permNasiya: cs.permNasiya,
+              permReturn: cs.permReturn, maxDiscount: cs.maxDiscount });
+            localStorage.setItem(dbKey, JSON.stringify(d));
+          }
+        }
+      } catch (e) {}
+      authSave(user);
+      res = { ok: true, user };
+    }
+  }
   if (res.ok) {
     hideLoginScreen();
     toast(`✅ Xush kelibsiz, ${res.user.name}!`);
@@ -916,6 +978,7 @@ function doStaffLogin() {
   } else {
     showAuthErr(res.error, true);
   }
+  } finally { _staffLoginBusy = false; }
 }
 
 function showAuthErr(msg, isStaff = false) {
