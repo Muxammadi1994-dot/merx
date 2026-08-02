@@ -673,6 +673,13 @@ function editCustomer(id) {
   c.source       = ($("ac-source")||{value:""}).value;
   const limitRaw = getRawVal("ac-debt-limit");
   c.debtLimit = limitRaw > 0 ? limitRaw : null;
+  // ⚠️ 2026-08-02: BELGI TAHRIRLASH PAYTIDA QO'YILADI.
+  // Avval `updatedAt` faqat PUSH paytida qo'yilardi. Tortishda esa
+  // shu belgi solishtiriladi: lokal yangiroq bo'lsa lokal g'olib.
+  // Natijada kim TAHRIRLAGANI emas, kim OXIRGI YUBORGANI hal
+  // qilardi — eski telefoni bo'lgan qurilma yangi raqamni bosib
+  // yozardi va tahrir yo'qolardi (POS qidiruvida topilmasdi).
+  c.updatedAt = new Date().toISOString();
   saveDB(); renderMijozlar(); closeModal("addcust");
   toast("✅ Mijoz ma'lumotlari yangilandi");
   resetCustForm(); // maydonlar + sarlavha + tugma to'liq tozalanadi
@@ -997,7 +1004,8 @@ function addCustomer() {
     birthday:      ($("ac-birthday")||{value:""}).value,
     importantNote: ($("ac-important-note")||{value:""}).value.trim(),
     source:        ($("ac-source")||{value:""}).value,
-    loyaltyPoints: 0
+    loyaltyPoints: 0,
+    updatedAt: new Date().toISOString()   // 2026-08-02: sinxron solishtiruvi
   };
   db.customers.push(nc);
   saveDB(); renderMijozlar(); closeModal("addcust");

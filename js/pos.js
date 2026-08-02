@@ -1992,7 +1992,8 @@ function custQuickSave() {
     // 2026-07-31: mamlakat kodi bilan (mijozlar.js bilan bir xil qoida)
     phone: (typeof phoneFullVal === "function" ? phoneFullVal("ac-phone") : "") || phone || "",
     type:  ($("ac-type")||{value:"ulgurji"}).value,
-    note:  ($("ac-note")||{value:""}).value.trim()
+    note:  ($("ac-note")||{value:""}).value.trim(),
+    updatedAt: new Date().toISOString()   // 2026-08-02: sinxron solishtiruvi
   };
   db.customers.push(nc);
   saveDB();
@@ -2131,10 +2132,11 @@ async function checkout() {
     );
     if (ex) {
       customerId = ex.id; cName = ex.name; cPhone = ex.phone || phoneTyped;
-      if (!ex.phone && phoneTyped) ex.phone = phoneTyped;
+      if (!ex.phone && phoneTyped) { ex.phone = phoneTyped; ex.updatedAt = new Date().toISOString(); }
     } else {
       const nc = { id:db.seq++, name:nameTyped, phone:phoneTyped,
-        type: posPriceType==="ulgurji"?"ulgurji":"chakana", note:"POS orqali qo'shildi" };
+        type: posPriceType==="ulgurji"?"ulgurji":"chakana", note:"POS orqali qo'shildi",
+        updatedAt: new Date().toISOString() };   // 2026-08-02: sinxron solishtiruvi
       db.customers.push(nc);
       customerId = nc.id; cName = nc.name; cPhone = nc.phone;
     }
