@@ -547,7 +547,17 @@ async function pullDelta(noRender) {
         try {
           if (typeof renderDashboard === "function") renderDashboard();
           const pg = document.querySelector(".pg.on");
-          if (pg && typeof nav === "function") nav(pg.id.replace(/^p-/, ""));
+          if (pg) {
+            const _page = pg.id.replace(/^p-/, "");
+            if (_page === "pos") {
+              // POS'da TO'LIQ qayta chizish shart emas va zararli:
+              // `nav("pos")` izoh maydonini tozalaydi. Faqat tovarlar
+              // ro'yxatini yangilaymiz — rasm va qoldiq shu yerda.
+              if (typeof posSearch === "function") posSearch();
+            } else if (typeof nav === "function") {
+              nav(_page);
+            }
+          }
         } catch(e) {}
       }
       // S8: signaldan ekranga chiqquncha qancha vaqt ketdi
@@ -2220,11 +2230,13 @@ function _rtBusyUI() {
   // Foydalanuvchi biror maydonga yozyapti
   const ae = document.activeElement;
   if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return true;
-  // POS savatida tovar bor — sotuv o'rtasida ekranni buzmaymiz
-  try {
-    const c = posCartsState?.carts?.[posCartsState.activeIdx]?.items;
-    if (Array.isArray(c) && c.length > 0) return true;
-  } catch (e) {}
+  // ⚠️ 2026-08-02: SAVAT SHARTI OLIB TASHLANDI (bu yerda ham).
+  // `_rtBusyUI()` tortishni KECHIKTIRISH uchun ishlatiladi. Kassada
+  // savat deyarli doim to'la — natijada tortish 8 soniya kechikardi
+  // va yangi ma'lumot kassa ekraniga yetib bormasdi.
+  // Savat `posCartsState` da, sinxron unga tegmaydi.
+  // Ochiq oyna va yozayotgan maydon tekshiruvi yuqorida qoldi —
+  // ular haqiqatan xalaqit beradi.
   return false;
 }
 
@@ -2265,11 +2277,14 @@ function _rtRenderBlocked() {
     }
     const ae = document.activeElement;
     if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return true;
-    const pg = document.querySelector(".pg.on");
-    if (pg && pg.id === "p-pos") {
-      const c = posCartsState?.carts?.[posCartsState.activeIdx]?.items;
-      if (Array.isArray(c) && c.length > 0) return true;
-    }
+    // ⚠️ 2026-08-02: SAVAT SHARTI OLIB TASHLANDI.
+    // Avval POS sahifasida savatda tovar bo'lsa ekran YANGILANMASDI.
+    // Kassada savat deyarli doim to'la — natijada telefonda qo'yilgan
+    // rasm yoki yangi tovar kassa ekranida umuman ko'rinmasdi
+    // (AbuSaxiy shundan e'tiroz qildi).
+    // Savat `posCartsState` da saqlanadi, qayta chizishda YO'QOLMAYDI —
+    // shuning uchun to'sishning hojati yo'q edi.
+    // Yozayotgan maydon va ochiq oyna tekshiruvi yuqorida qoldi.
   } catch (e) {}
   return false;
 }
