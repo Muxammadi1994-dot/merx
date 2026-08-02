@@ -1454,6 +1454,20 @@ async function pushToCloud() {
 // va PUSH bloklanadi — eski kod bulutga yozolmaydi (telefon saboqi).
 let _versionOk = null;
 let _versionCheckedAt = 0;
+
+// ⚠️ 2026-08-02: TEKSHIRUV ENDI MUSTAQIL ISHLAYDI.
+// Avval u FAQAT `pushToCloud` ichida chaqirilardi — ya'ni
+// kirgandan keyin va ma'lumot o'zgarganda. Kirish oynasida
+// umuman tekshirilmasdi: eski kodli qurilmada xodim kira olmasa,
+// yangilanish ham kelmasdi — chiqib bo'lmaydigan halqa.
+// Endi sahifa yuklangach va har 10 daqiqada mustaqil tekshiriladi.
+function _startVersionWatch() {
+  const run = () => { try { checkAppVersion(); } catch(e) {} };
+  if (document.readyState === "complete") setTimeout(run, 4000);
+  else window.addEventListener("load", () => setTimeout(run, 4000));
+  setInterval(run, 10 * 60 * 1000);
+}
+try { _startVersionWatch(); } catch(e) {}
 let _verWarnAt = 0;
 // 2026-07-12 (AbuSaxiy — MUHIM TUZATISH): avval faqat cloud.js
 // versiyasi solishtirilardi. Aksariyat sessiyalarda esa pos.js yoki
@@ -1488,7 +1502,16 @@ async function checkAppVersion() {
     const my = _scripts
       .map(s => (s.src.match(/js\/[a-z0-9_-]+\.js\?v=\d+/i)||[])[0]||"")
       .filter(Boolean).sort().join("|");
-    const r = await fetch("/index.html", { cache: "no-store" });
+    // ⚠️ 2026-08-02: `?cb=` MAJBURIY.
+    // `cache:"no-store"` brauzer keshini chetlab o'tadi, lekin
+    // Service Worker'ni EMAS — SW so'rovni ushlab o'zining keshidagi
+    // ESKI index.html ni berardi. Natijada DOM'dagi versiya serverdan
+    // kelgan (aslida keshdagi) versiya bilan bir xil chiqardi, farq
+    // topilmasdi va ilova o'zini HECH QACHON eskirgan deb hisoblamasdi.
+    // Qurilma abadiy eski kodda qolardi — kassada aynan shu bo'lgan.
+    // Har safar yangi manzil bo'lgani uchun SW keshida topa olmaydi
+    // va majburan tarmoqqa chiqadi.
+    const r = await fetch("/index.html?cb=" + Date.now(), { cache: "no-store" });
     const html = await r.text();
     const srv = _jsVersionSignature(html);
     // Eskirgan deb FAQAT shu holda hisoblanadi: DOM'da serverda YO'Q

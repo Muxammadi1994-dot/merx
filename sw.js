@@ -8,7 +8,7 @@
 // deploy 1
 
 // MUHIM: har push'da bu raqamni +1 qiling — eski kesh avtomat o'chadi.
-const CACHE_VERSION = "merx-v188";
+const CACHE_VERSION = "merx-v189";
 const CACHE_NAME = CACHE_VERSION;
 
 // Boshlang'ich keshlanadigan fayllar (offline'da kamida shular bo'lsin)
@@ -81,6 +81,13 @@ self.addEventListener("fetch", (event) => {
 
   // 4a) NAVIGATSIYA (index.html / sahifa ochilishi) — NETWORK-FIRST + 3s timeout.
   //     Internet tez → yangi sahifa. Sekin/yo'q → 3s dan keyin keshdan (osilmaydi).
+  // ⚠️ 2026-08-02: VERSIYA TEKSHIRUVI SW DAN BUTUNLAY CHIQARILADI.
+  // Ilova o'zining eskirganini bilish uchun serverdagi index.html ni
+  // `?cb=<vaqt>` bilan so'raydi. Agar SW bu so'rovni ushlab keshdan
+  // javob bersa — ilova o'zini "yangi" deb hisoblaydi va HECH QACHON
+  // yangilanmaydi. Aynan shu sabab qurilma eski kodda qolib ketardi.
+  if (url.searchParams.has("cb")) return;   // to'g'ridan tarmoqqa
+
   const isNavigate = req.mode === "navigate" || req.destination === "document"
     || (url.pathname === "/" || url.pathname.endsWith("/index.html"));
   if (isNavigate) {
