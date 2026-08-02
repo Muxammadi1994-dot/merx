@@ -3193,7 +3193,19 @@ function renderNarxnomaList() {
        || (p.colorBarcodes && Object.values(p.colorBarcodes).some(bc =>
             bc && String(bc).toLowerCase().includes(q)))
   );
-  // 2026-07-25: ro'yxat endi RANG darajasida — etiketka ham rang bo'yicha
+  // ⚠️ 2026-08-02: TARTIB KATALOGDAGIDEK — YANGI TEPADA.
+  // Avval tartib `db.products` dagi tabiiy tartibda edi va katalogdan
+  // farq qilardi: endigina kiritilgan tovarni topish uchun ro'yxatni
+  // aylantirish kerak bo'lardi.
+  // Qoida katalogdan olindi (yagona manba): `createdAt` bo'yicha,
+  // bo'lmasa SKU ichidagi ketma-ket raqam bo'yicha (SKU har doim
+  // oshib boruvchi tartibda yaratiladi).
+  const _nmKey = (p) => p.createdAt
+    ? String(p.createdAt)
+    : String(parseInt((p.sku||"").match(/\d+/g)?.pop()) || 0).padStart(14, "0");
+  ps.sort((a, b) => _nmKey(b).localeCompare(_nmKey(a)));
+
+  // 2026-07-25: ro'yxat RANG darajasida — etiketka ham rang bo'yicha
   // chiqadi. Qoldig'i 0 bo'lganlar KO'RSATILMAYDI (chop etish ma'nosiz).
   const rows = [];
   ps.forEach(p => {
