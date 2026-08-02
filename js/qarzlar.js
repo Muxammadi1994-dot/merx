@@ -581,9 +581,9 @@ function renderDebtsList(list, rate) {
       <td>
         <div style="display:flex;flex-direction:column;gap:5px">
           ${debtPayMethodsShown().kassir !== false ? `
-            <select id="pay-staff-${s.id}"
+            <select id="pay-staff-${s.id}"${_qarzStaffOpts().lock}
               style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:100px">
-              ${_qarzStaffOpts()}
+              ${_qarzStaffOpts().html}
             </select>` : ""}
           <button class="btn btn-teal btn-sm" onclick="recordPayment(${s.id})">To'lov</button>
         </div>
@@ -702,9 +702,9 @@ function renderDebtsGrouped(list, rate) {
           ${g.totalUzs > 0 ? `
           <div style="display:flex;gap:4px;align-items:center">
             ${debtPayMethodsShown().kassir !== false ? `
-              <select id="gpay-staff-${gKey}-uzs"
+              <select id="gpay-staff-${gKey}-uzs"${_qarzStaffOpts().lock}
                 style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:78px;flex-shrink:0">
-                ${_qarzStaffOpts()}
+                ${_qarzStaffOpts().html}
               </select>` : ""}
             <button class="btn btn-teal btn-sm" style="font-size:11px;white-space:nowrap;flex-shrink:0"
               onclick="recordGroupPayment('${ids}','uzs','${gKey}')">To'lov</button>
@@ -712,9 +712,9 @@ function renderDebtsGrouped(list, rate) {
           ${g.totalUsd > 0 ? `
           <div style="display:flex;gap:4px;align-items:center">
             ${debtPayMethodsShown().kassir !== false ? `
-              <select id="gpay-staff-${gKey}-usd"
+              <select id="gpay-staff-${gKey}-usd"${_qarzStaffOpts().lock}
                 style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:5px 4px;width:78px;flex-shrink:0">
-                ${_qarzStaffOpts()}
+                ${_qarzStaffOpts().html}
               </select>` : ""}
             <button class="btn btn-teal btn-sm" style="font-size:11px;white-space:nowrap;flex-shrink:0"
               onclick="recordGroupPayment('${ids}','usd','${gKey}')">To'lov</button>
@@ -994,10 +994,22 @@ function findCustomerDebts(s) {
 
 // v144: qarz to'lovida kassir AVTOMAT — joriy foydalanuvchi
 function _qarzStaffOpts() {
-  const u = (typeof authLoad === "function") ? authLoad() : null;
-  const auto = (u && u.role === "staff" && u.id != null) ? String(u.id) : "admin";
-  return '<option value="admin"' + (auto === "admin" ? " selected" : "") + '>Egasi (admin)</option>' +
-    (db.staff||[]).map(st => `<option value="${st.id}"${String(st.id)===auto?" selected":""}>${st.name}</option>`).join("");
+  // ⚠️ 2026-08-02: POS BILAN BIR XIL QOIDA.
+  // Avval shart `u.role === "staff"` edi — xodimning roli esa
+  // "kassir"/"omborchi" bo'ladi, ya'ni shart HECH QACHON bajarilmasdi.
+  // Ustiga `u.id` "staff_4110" ko'rinishida, ro'yxatdagi qiymat 4110 —
+  // ular baribir mos kelmasdi. Natijada qarz to'lovi kim kirganidan
+  // qat'i nazar ro'yxatdagi kishiga yozilardi.
+  // Endi `staffId` ishlatiladi va ro'yxat BLOKLANADI.
+  const u = (typeof getAuthUser === "function") ? getAuthUser() : null;
+  const isStaff = !!(u && u.staffId);
+  const auto = isStaff ? String(u.staffId) : "admin";
+  const lock = u ? ' disabled title="' + (isStaff ? "Kirgan xodim" : "Do'kon egasi") + '"' : "";
+  const adminLbl = (db.settings?.ownerName || "").trim()
+    ? `${db.settings.ownerName.trim()} (admin)` : "Egasi (admin)";
+  return { lock, html:
+    '<option value="admin"' + (auto === "admin" ? " selected" : "") + '>' + adminLbl + '</option>' +
+    (db.staff||[]).map(st => `<option value="${st.id}"${String(st.id)===auto?" selected":""}>${st.name}</option>`).join("") };
 }
 
 // ── To'lov qabul qilish (ko'p qarzga avtomatik taqsimlash) ──

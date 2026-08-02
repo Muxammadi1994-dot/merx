@@ -208,6 +208,15 @@ const PAGE_ROLES = {
 // ORQAGA MOSLIK: xodimda `perms` bo'lmasa (eski yozuvlar) — hozirgi
 // rol qoidasi ishlaydi, ya'ni hech narsa buzilmaydi.
 
+// ⚠️ 2026-08-02: SAHIFA NOMINI BIR XILLASHTIRISH.
+// Menyu `data-page="sotuv"` deb chaqiradi, sahifa elementi esa
+// `id="p-pos"`. Ruxsat ro'yxatida kalit — "sotuv".
+// Sahifa `id` sidan nom olinganda "pos" chiqib, ruxsat topilmasdi
+// va eski rol qoidasiga tushib "ruxsat yo'q" deb rad etardi —
+// sotuvga ruxsat berilgan xodim ham kira olmasdi.
+const _PAGE_ALIAS = { pos: "sotuv", sotuv: "sotuv" };
+function _pgKey(p) { return _PAGE_ALIAS[p] || p; }
+
 function _myPerms() {
   try {
     const u = _authUser;
@@ -229,6 +238,7 @@ function _myPerms() {
 
 // Sahifani OCHISH mumkinmi
 function canAccessPage(page) {
+  page = _pgKey(page);
   // Sozlamalar har doim faqat egada — galochka bilan ham berilmaydi
   if (page === "egasi" || page === "portal") return hasRole("admin");
   const p = _myPerms();
@@ -238,6 +248,7 @@ function canAccessPage(page) {
 
 // Sahifada AMAL bajarish mumkinmi
 function canUsePage(page) {
+  page = _pgKey(page);
   const u = _authUser;
   if (!u) return false;
   if (!u.staffId) return true;                      // egasi/superadmin
@@ -261,6 +272,7 @@ function canUsePage(page) {
 // Ruxsat esa xodim yozuvida — ikkisi butunlay alohida.
 // Ko'rinadi = sozlamada yoqilgan VA ruxsatda yashirilmagan.
 function permSee(page, key) {
+  page = _pgKey(page);
   const u = _authUser;
   if (!u || !u.staffId) return true;          // egasi/superadmin — cheklovsiz
   const p = _myPerms();
@@ -270,6 +282,7 @@ function permSee(page, key) {
 }
 
 function permDo(page, key) {
+  page = _pgKey(page);
   const u = _authUser;
   if (!u || !u.staffId) return true;
   const p = _myPerms();
@@ -382,7 +395,7 @@ function applyPermBlocks() {
 function applyViewOnlyUI() {
   try {
     document.querySelectorAll(".pg").forEach(pg => {
-      const page = pg.id.replace(/^p-/, "");
+      const page = _pgKey(pg.id.replace(/^p-/, ""));
       const ro = !canUsePage(page);
       pg.classList.toggle("view-only", ro);
     });

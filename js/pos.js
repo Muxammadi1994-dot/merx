@@ -2155,10 +2155,18 @@ function refreshStaffList() {
   const _isStaff = !!(_u && _u.staffId);
   let _autoSel = _isStaff ? _u.staffId : cur;
   if (!_autoSel && _u && !_isStaff) _autoSel = "admin";       // egasi/admin
-  sel.innerHTML = '<option value="admin"' + (String(_autoSel)==="admin"?" selected":"") + '>Egasi (admin)</option>' +
+  // ⚠️ 2026-08-02: EGASI ham QOTIRILADI.
+  // Avval egasi ro'yxatdan xohlagan kassirni tanlashi mumkin edi —
+  // amaliyot boshqa odam nomiga yozilardi. Endi kim kirgan bo'lsa,
+  // o'sha yoziladi (xodim ham, egasi ham).
+  // Ism: sozlamada bo'lsa "Akmal (admin)", bo'lmasa "Egasi (admin)".
+  const _adminLbl = (db.settings?.ownerName || "").trim()
+    ? `${db.settings.ownerName.trim()} (admin)` : "Egasi (admin)";
+  sel.innerHTML = '<option value="admin"' + (String(_autoSel)==="admin"?" selected":"") + '>' + _adminLbl + '</option>' +
     (db.staff||[]).map(s => `<option value="${s.id}"${String(s.id)===String(_autoSel)?" selected":""}>${s.name}</option>`).join("");
-  // Xodim kirgan bo'lsa — ro'yxat o'zgartirilmaydi
+  // Kim kirgan bo'lsa — ro'yxat o'zgartirilmaydi (xodim ham, egasi ham)
   if (_isStaff) { sel.disabled = true; sel.title = "Kirgan xodim"; }
+  else if (_u)  { sel.value = "admin"; sel.disabled = true; sel.title = "Do'kon egasi"; }
   _applyPayBlocked();
   _applyStaffLock();
 }
