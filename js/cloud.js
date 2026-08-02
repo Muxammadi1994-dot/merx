@@ -999,6 +999,27 @@ async function pushToCloud() {
     // Settings — eski schema id=1, yangi schema shop_id
     // Settings — shop_id asosida upsert
     if (sid && sid !== "local" && sid !== "default") {
+      // ══════════════════════════════════════════════════════════
+      // ⚠️ 2026-08-02: BO'SH SOZLAMA BULUTGA YOZILMAYDI
+      // ══════════════════════════════════════════════════════════
+      // MUAMMO: har maydonda standart qiymat bor edi —
+      //     rate: db.settings?.rate || 12800
+      // Xodim kirganda `db.settings` BO'SH bo'ladi (bulutdan hali
+      // tortilmagan). Shu payt push ishlasa, bulutdagi HAQIQIY kurs
+      // (masalan Markaziy bank) 12800 ga almashardi va do'kon nomi
+      // "MERX" bo'lib qolardi.
+      // Amalda shunday bo'lgan: xodim kirib chiqqach asosiy do'konda
+      // kurs 12800 ga tushib qolgan.
+      //
+      // ENDI: sozlamalar bo'sh bo'lsa YUBORILMAYDI. Bulutdan
+      // tortilgach, keyingi push to'g'ri qiymat bilan ketadi.
+      // Bu tovarlardagi `_heavyHydrated` himoyasining aynan o'zi.
+      const _st = db.settings || {};
+      const _stReady = Object.keys(_st).length > 0 && (_st.rate || _st.priceCurrency);
+      if (!_stReady) {
+        console.warn("⏸ Sozlamalar hali yuklanmagan — bulutga YOZILMADI " +
+                     "(kurs va do'kon nomi o'chib ketmasin)");
+      } else {
       try {
         // v176: settings ham delta orqali — o'zgarmagan bo'lsa yuborilmaydi
         await _deltaUpsert("settings", [{
@@ -1035,6 +1056,7 @@ async function pushToCloud() {
           pos_staff_locked: db.settings?.posStaffLocked === true,
         }], 1, "shop_id");
       } catch(e) { console.warn("settings upsert xato:", e.message); }
+      }   // _stReady
     }
 
     // Helper — upsert id asosida, xato bo'lsa warning, davom etadi
