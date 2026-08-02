@@ -1039,6 +1039,52 @@ async function doLogin() {
 // kirib bo'lmasdi.
 // ENDI: lokal topilmasa server orqali bulutdan qidiriladi
 // (`api/auth-v2?action=staff_login`). Qurilmaga bog'liq emas.
+// ══════════════════════════════════════════════════════════════
+// BULUT KALITLARI — HAR KIRISHDA (2026-08-02)
+// ══════════════════════════════════════════════════════════════
+// MUAMMO: kalitlarni serverdan olish FAQAT `doLogin` (admin
+// kirishi) ichida edi. Xodim kirishi bu yo'ldan o'tmasdi.
+// Natijada xodimda `db.settings` bo'sh qolib, `initSupabase`
+// "kalitlar topilmadi — bulut o'chiq" deb to'xtardi.
+// Bulut o'chiq → tortish yo'q → sozlamalar hech qachon kelmaydi.
+// Yopiq halqa: kurs 12800 da qotib qolardi va F5 ham yordam
+// bermasdi.
+// ENDI: ikkala kirish ham shu funksiyani chaqiradi.
+async function ensureCloudKeys() {
+  try {
+    if (!db.settings) db.settings = {};
+    if (db.settings.supabaseUrl && db.settings.supabaseKey) return true;
+
+    // Boshqa do'kon bazasida saqlangan bo'lsa — o'shandan
+    try {
+      for (const k of Object.keys(localStorage)) {
+        if (!k.startsWith("merx_v5")) continue;
+        const d = JSON.parse(localStorage.getItem(k) || "{}");
+        if (d?.settings?.supabaseUrl && d?.settings?.supabaseKey) {
+          db.settings.supabaseUrl = d.settings.supabaseUrl;
+          db.settings.supabaseKey = d.settings.supabaseKey;
+          return true;
+        }
+      }
+    } catch(e) {}
+
+    // Serverdan
+    const r = await fetch("/api/auth-v2?action=client_config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}"
+    });
+    const cfg = await r.json();
+    if (cfg.ok && cfg.url && cfg.key) {
+      db.settings.supabaseUrl = cfg.url;
+      db.settings.supabaseKey = cfg.key;
+      console.log("🔑 Bulut kalitlari serverdan olindi");
+      return true;
+    }
+  } catch(e) { console.warn("bulut kalitlari olinmadi:", e.message); }
+  return false;
+}
+
 async function _staffLoginCloud(phone, pin) {
   try {
     const r = await fetch("/api/auth-v2?action=staff_login", {
@@ -1093,10 +1139,17 @@ async function doStaffLogin() {
         }
       } catch (e) {}
       authSave(user);
+      // ⚠️ Bulut kalitlarini ta'minlaymiz — busiz sozlamalar
+      // (kurs, do'kon nomi) hech qachon yuklanmaydi.
+      try { await ensureCloudKeys(); } catch(e) {}
       res = { ok: true, user };
     }
   }
   if (res.ok) {
+    // ⚠️ 2026-08-02: LOKAL YO'L UCHUN HAM.
+    // Xodim qurilmada topilsa `_staffLoginCloud` chaqirilmaydi —
+    // kalitlar baribir kerak, aks holda bulut o'chiq qoladi.
+    try { await ensureCloudKeys(); } catch(e) {}
     hideLoginScreen();
     toast(`✅ Xush kelibsiz, ${res.user.name}!`);
     applyRoleUI();
