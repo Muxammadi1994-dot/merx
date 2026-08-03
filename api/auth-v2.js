@@ -67,7 +67,9 @@ module.exports = async function handler(req, res) {
     // do'kon yozuviga tega olmaydi (RLS), xato jimgina yutilardi
     "list_backups","get_backup","restore_write",
     // 2026-08-03: server hajmi — faqat SuperAdmin ko'radi
-    "server_stats"];
+    "server_stats",
+    // 2026-08-03: SuperAdmin moliyasi — shaxsiy hisob
+    "sa_finance"];
   if (SA_ACTIONS.includes(action)) {
     // MUHIM: SA_PASS bo'sh bo'lsa HAM rad etiladi — aks holda bo'sh
     // parol bilan kirish mumkin bo'lib qolardi.
@@ -716,6 +718,101 @@ module.exports = async function handler(req, res) {
         db_limit:    500 * 1024 * 1024,    // bepul reja: 500 MB
         img_limit:  1024 * 1024 * 1024     // bepul reja: 1 GB
       });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // SUPERADMIN MOLIYASI (2026-08-03)
+  // ══════════════════════════════════════════════════════════
+  // Tariflar, daromad va xarajat. Jadvallarda RLS yoqilgan —
+  // brauzerdan to'g'ridan o'qilmaydi, faqat shu yerdan
+  // SERVICE_KEY bilan. Bu SuperAdminning shaxsiy hisobi,
+  // do'kon egalari ko'rmasligi kerak.
+  if (action === "sa_finance") {
+    let body;
+    try {
+      body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+    } catch { return res.status(400).json({ ok: false, error: "invalid_json" }); }
+
+    const H = {
+      apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+      "Content-Type": "application/json"
+    };
+    const op = body.op || "";
+
+    try {
+      // ── O'QISH ──
+      if (op === "load") {
+        const [tf, inc, exp] = await Promise.all([
+          fetch(`${SB_URL}/rest/v1/sa_tariffs?select=*&order=sort_order`, { headers: H }),
+          fetch(`${SB_URL}/rest/v1/sa_income?select=*&order=date.desc&limit=500`, { headers: H }),
+          fetch(`${SB_URL}/rest/v1/sa_expense?select=*&order=date.desc&limit=500`, { headers: H })
+        ]);
+        return res.status(200).json({
+          ok: true,
+          tariffs: tf.ok  ? await tf.json()  : [],
+          income:  inc.ok ? await inc.json() : [],
+          expense: exp.ok ? await exp.json() : []
+        });
+      }
+
+      // ── TARIF SAQLASH ──
+      if (op === "save_tariff") {
+        const t = body.tariff || {};
+        if (!t.id) return res.status(400).json({ ok: false, error: "id majburiy" });
+        const r = await fetch(`${SB_URL}/rest/v1/sa_tariffs?on_conflict=id`, {
+          method: "POST",
+          headers: { ...H, Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify([{
+            id: t.id, title: t.title || t.id,
+            price_month: Number(t.price_month) || 0,
+            price_year:  Number(t.price_year)  || 0,
+            discount_pct: Number(t.discount_pct) || 0,
+            currency: t.currency || "uzs",
+            active: t.active !== false,
+            sort_order: Number(t.sort_order) || 0,
+            updated_at: new Date().toISOString()
+          }])
+        });
+        if (!r.ok) return res.status(500).json({ ok: false, error: await r.text() });
+        return res.status(200).json({ ok: true });
+      }
+
+      // ── DAROMAD / XARAJAT QO'SHISH ──
+      if (op === "add_income" || op === "add_expense") {
+        const tbl = op === "add_income" ? "sa_income" : "sa_expense";
+        const d = body.row || {};
+        if (!(Number(d.amount) > 0))
+          return res.status(400).json({ ok: false, error: "Summa 0 dan katta bo'lsin" });
+        const row = op === "add_income"
+          ? { shop_id: d.shop_id || null, shop_name: d.shop_name || null,
+              tariff: d.tariff || null, period: d.period || null,
+              amount: Number(d.amount), currency: d.currency || "uzs",
+              date: d.date || null, note: d.note || null }
+          : { tag: d.tag || "Boshqa", amount: Number(d.amount),
+              currency: d.currency || "uzs", date: d.date || null, note: d.note || null };
+        const r = await fetch(`${SB_URL}/rest/v1/${tbl}`, {
+          method: "POST", headers: { ...H, Prefer: "return=minimal" },
+          body: JSON.stringify([row])
+        });
+        if (!r.ok) return res.status(500).json({ ok: false, error: await r.text() });
+        return res.status(200).json({ ok: true });
+      }
+
+      // ── O'CHIRISH ──
+      if (op === "del_income" || op === "del_expense") {
+        const tbl = op === "del_income" ? "sa_income" : "sa_expense";
+        if (!body.id) return res.status(400).json({ ok: false, error: "id majburiy" });
+        const r = await fetch(`${SB_URL}/rest/v1/${tbl}?id=eq.${encodeURIComponent(body.id)}`, {
+          method: "DELETE", headers: H
+        });
+        if (!r.ok) return res.status(500).json({ ok: false, error: await r.text() });
+        return res.status(200).json({ ok: true });
+      }
+
+      return res.status(400).json({ ok: false, error: "noma'lum op: " + op });
     } catch (e) {
       return res.status(500).json({ ok: false, error: e.message });
     }

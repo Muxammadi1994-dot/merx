@@ -205,9 +205,12 @@ function buildSaDashboard() {
   const newShops = _saShops.filter(s=>s.createdAt?.startsWith(m)).length;
   const plans    = {trial:0,monthly:0,yearly:0,lifetime:0};
   _saShops.forEach(s=>{ if(plans[s.plan]!==undefined) plans[s.plan]++; });
-  const savedPrices  = (()=>{ try{return JSON.parse(localStorage.getItem("merx_sa_prices")||"{}");}catch(e){return {};} })();
-  const planPrices   = {trial:0, monthly:savedPrices.monthly||50000, yearly:savedPrices.yearly||500000, lifetime:0};
-  const monthlyIncome= _saShops.filter(s=>saIsActive(s)).reduce((a,s)=>a+(planPrices[s.plan]||0),0);
+  // ⚠️ 2026-08-03: DAROMAD ENDI HAQIQIY YOZUVLARDAN.
+  // Avval `localStorage` dagi taxminiy narx × faol do'kon soni
+  // hisoblanardi — bu HAQIQIY tushum emas, faqat taxmin edi.
+  // Endi `sa_income` jadvalidagi haqiqiy to'lovlar yig'iladi
+  // (`saLoadFinance` to'ldiradi).
+  const monthlyIncome = 0;   // pastda `sa-inc-val` orqali yangilanadi
   return `
     <!-- 1-qator: Asosiy raqamlar -->
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;background:#F8FAFC;border-bottom:1px solid #E5E7EB">
@@ -236,9 +239,27 @@ function buildSaDashboard() {
            Bugungi, Jami qarz) - ular qurilma xotirasidan
            hisoblanardi va kirilmagan do'konda NOL chiqardi. -->
 <div style="padding:8px 14px;border-right:1px solid #F3F4F6">
-        <div style="font-size:11.5px;color:#334155;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">💳 Obuna daromad</div>
-        <div style="font-size:20px;font-weight:800;color:#7C3AED">${fmt(monthlyIncome)} so'm</div>
-        <div style="font-size:12.5px;color:#334155;margin-top:2px">${active} faol do'kon</div>
+        <!-- 2026-08-03: MOLIYA — haqiqiy daromad, xarajat va foyda.
+             Yozuvlar sa_income va sa_expense jadvallarida. -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+          <div style="font-size:11.5px;color:#334155;font-weight:800;text-transform:uppercase;
+            letter-spacing:.04em">💳 Moliya</div>
+          <div style="display:flex;gap:4px">
+            <button onclick="saOpenFinance('income')" title="Daromad qo'shish"
+              style="background:#ECFDF5;border:1px solid #A7F3D0;color:#047857;border-radius:6px;
+              padding:2px 7px;font-size:11px;cursor:pointer;font-family:inherit">+ Daromad</button>
+            <button onclick="saOpenFinance('expense')" title="Xarajat qo'shish"
+              style="background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;border-radius:6px;
+              padding:2px 7px;font-size:11px;cursor:pointer;font-family:inherit">+ Xarajat</button>
+          </div>
+        </div>
+        ${[["📈","Daromad","sa-inc","#047857"],["📉","Xarajat","sa-exp","#DC2626"],
+           ["💰","Foyda","sa-prf","#7C3AED"]]
+          .map(([e,l,id,c])=>`<div style="display:flex;justify-content:space-between;
+            align-items:baseline;gap:8px;margin-bottom:2px">
+            <span style="font-size:12.5px;color:#1F2937">${e} ${l}</span>
+            <b id="${id}-val" style="font-size:12.5px;font-weight:800;color:${c}">—</b>
+          </div>`).join("")}
       </div>
       <div style="padding:8px 14px;border-right:1px solid #F3F4F6">
         <div style="font-size:11.5px;color:#334155;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Obuna turlari</div>
@@ -463,7 +484,11 @@ function buildSaPanel() {
             <!-- 2026-07-26: yangi do'kon uchun tarif, narx va valyuta -->
             <div>
               <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna tarifi</label>
-              <select id="sa-new-tier" style="${saInputStyle()}">
+              <!-- 2026-08-03: tarif tanlansa narx AVTOMAT qo'yiladi
+                   (Narxlar oynasida belgilangan qiymatdan). Kerak
+                   bo'lsa qo'lda o'zgartirish mumkin — chegirma
+                   berish uchun. -->
+              <select id="sa-new-tier" onchange="saNewTierPrice()" style="${saInputStyle()}">
                 <option value="pro">Pro (hammasi ochiq)</option>
                 <option value="start">Start (bot yopiq)</option>
               </select>
@@ -618,12 +643,251 @@ async function saLoadServerStats() {
   }
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// MOLIYA — DAROMAD VA XARAJAT (2026-08-03)
+// ══════════════════════════════════════════════════════════════
+// Daromad: do'kon obuna to'lovi. Xarajat: Supabase, Cloud, domen...
+// Ikkalasi ham teg uslubida, valyuta va sana bilan.
+// KPI kartasi shu yozuvlardan hisoblanadi (taxminiy narxdan emas).
+let _saFin = { income: [], expense: [], tariffs: [] };
+
+const SA_EXP_TAGS = ["Supabase", "Vercel", "Domen", "Telegram bot",
+                     "Reklama", "Dizayn", "Boshqa"];
+
+async function saLoadFinance() {
+  try {
+    const d = await _saApi("sa_finance", { op: "load" });
+    if (!d || !d.ok) return;
+    _saFin = { income: d.income || [], expense: d.expense || [], tariffs: d.tariffs || [] };
+    _saTariffs = _saFin.tariffs;
+    saRenderFinKpi();
+  } catch (e) { console.warn("moliya:", e.message); }
+}
+
+// Dollar summalarni so'mga keltirib jamlaymiz
+function _saSum(rows) {
+  const rate = (typeof db !== "undefined" && db.settings?.rate) || 12100;
+  return (rows || []).reduce((a, r) =>
+    a + (r.currency === "usd" ? (+r.amount || 0) * rate : (+r.amount || 0)), 0);
+}
+
+function saRenderFinKpi() {
+  const f = n => n >= 1000000 ? (n/1000000).toFixed(1) + "M"
+                : n >= 1000 ? (n/1000).toFixed(0) + "K" : String(Math.round(n) || 0);
+  const inc = _saSum(_saFin.income);
+  const exp = _saSum(_saFin.expense);
+  const set = (id, v, clr) => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = f(v) + " so'm";
+    if (clr) e.style.color = clr;
+  };
+  set("sa-inc-val", inc);
+  set("sa-exp-val", exp);
+  set("sa-prf-val", inc - exp, (inc - exp) >= 0 ? "#7C3AED" : "#DC2626");
+}
+
+// ── Qo'shish va ro'yxat oynasi ──
+async function saOpenFinance(kind) {
+  document.getElementById("sa-fin-modal")?.remove();
+  const isInc = kind === "income";
+  const m = document.createElement("div");
+  m.id = "sa-fin-modal";
+  m.style.cssText = "position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.5);" +
+    "display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif";
+  const iCss = "width:100%;font-family:inherit;font-size:13.5px;border:1.5px solid #E5E7EB;" +
+               "border-radius:8px;padding:8px 10px;box-sizing:border-box";
+  const bugun = new Date();
+  const p2 = n => String(n).padStart(2, "0");
+  const dStr = `${bugun.getFullYear()}-${p2(bugun.getMonth()+1)}-${p2(bugun.getDate())}`;
+
+  m.innerHTML = `<div style="background:#fff;border-radius:16px;padding:22px;width:660px;
+    max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.25)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:800;color:#0D1B2A">
+        ${isInc ? "📈 Daromadlar" : "📉 Xarajatlar"}</div>
+      <button onclick="document.getElementById('sa-fin-modal').remove()"
+        style="background:none;border:none;font-size:24px;cursor:pointer;color:#334155">×</button>
+    </div>
+
+    <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:12px;
+      padding:14px;margin-bottom:14px">
+      <div style="font-size:12.5px;font-weight:800;color:#334155;margin-bottom:9px">
+        Yangi ${isInc ? "daromad" : "xarajat"}</div>
+      ${isInc ? `
+      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:9px;margin-bottom:9px">
+        <div><label style="font-size:11.5px;color:#334155;font-weight:700">Do'kon</label>
+          <select id="fin-shop" style="${iCss}">
+            <option value="">— tanlang —</option>
+            ${(_saShops||[]).map(sh=>`<option value="${sh.id}">${sh.name}</option>`).join("")}
+          </select></div>
+        <div><label style="font-size:11.5px;color:#334155;font-weight:700">Tarif</label>
+          <select id="fin-tariff" style="${iCss}">
+            ${(_saTariffs||[]).map(t=>`<option value="${t.id}">${t.title}</option>`).join("")}
+          </select></div>
+        <div><label style="font-size:11.5px;color:#334155;font-weight:700">Davr</label>
+          <select id="fin-period" onchange="saFinAutoPrice()" style="${iCss}">
+            <option value="oylik">Oylik</option><option value="yillik">Yillik</option>
+          </select></div>
+      </div>` : `
+      <div style="margin-bottom:9px">
+        <label style="font-size:11.5px;color:#334155;font-weight:700">Turi</label>
+        <div id="fin-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:5px">
+          ${SA_EXP_TAGS.map((t,i)=>`
+            <button type="button" onclick="saFinPickTag('${t}')" id="fintag-${i}"
+              style="border:1.5px solid ${i===0?'#0D1B2A':'#E5E7EB'};
+              background:${i===0?'#0D1B2A':'#fff'};color:${i===0?'#fff':'#334155'};
+              border-radius:20px;padding:5px 13px;font-size:12.5px;cursor:pointer;
+              font-family:inherit">${t}</button>`).join("")}
+        </div>
+        <input type="hidden" id="fin-tag" value="${SA_EXP_TAGS[0]}">
+      </div>`}
+      <div style="display:grid;grid-template-columns:1.2fr .8fr 1fr;gap:9px;margin-bottom:9px">
+        <div><label style="font-size:11.5px;color:#334155;font-weight:700">Summa</label>
+          <input id="fin-amount" type="number" min="0" step="0.01" placeholder="0" style="${iCss}"></div>
+        <div><label style="font-size:11.5px;color:#334155;font-weight:700">Valyuta</label>
+          <select id="fin-cur" style="${iCss}">
+            <option value="uzs">so'm</option><option value="usd">USD</option></select></div>
+        <div><label style="font-size:11.5px;color:#334155;font-weight:700">Sana</label>
+          <input id="fin-date" type="date" value="${dStr}" style="${iCss}"></div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:11.5px;color:#334155;font-weight:700">Izoh</label>
+        <input id="fin-note" placeholder="ixtiyoriy" style="${iCss}"></div>
+      <button onclick="saFinAdd('${kind}')"
+        style="width:100%;background:${isInc?'#047857':'#DC2626'};color:#fff;border:none;
+        border-radius:9px;padding:10px;font-family:inherit;font-size:13.5px;
+        font-weight:700;cursor:pointer">Qo'shish</button>
+    </div>
+
+    <div id="fin-list"></div>
+  </div>`;
+  m.onclick = (e) => { if (e.target === m) m.remove(); };
+  document.body.appendChild(m);
+  if (isInc) saFinAutoPrice();
+  saFinRenderList(kind);
+}
+
+// Tarif va davrga qarab summani avtomat qo'yamiz
+function saFinAutoPrice() {
+  const tid = document.getElementById("fin-tariff")?.value;
+  const per = document.getElementById("fin-period")?.value;
+  const t = (_saTariffs || []).find(x => x.id === tid);
+  if (!t) return;
+  const amt = per === "yillik" ? (+t.price_year || 0) : (+t.price_month || 0);
+  const a = document.getElementById("fin-amount");
+  if (a && amt) a.value = amt;
+  const c = document.getElementById("fin-cur");
+  if (c && t.currency) c.value = t.currency;
+}
+
+function saFinPickTag(tag) {
+  const h = document.getElementById("fin-tag"); if (h) h.value = tag;
+  SA_EXP_TAGS.forEach((t, i) => {
+    const b = document.getElementById("fintag-" + i); if (!b) return;
+    const on = t === tag;
+    b.style.borderColor = on ? "#0D1B2A" : "#E5E7EB";
+    b.style.background  = on ? "#0D1B2A" : "#fff";
+    b.style.color       = on ? "#fff"    : "#334155";
+  });
+}
+
+async function saFinAdd(kind) {
+  const isInc = kind === "income";
+  const amount = parseFloat(document.getElementById("fin-amount")?.value) || 0;
+  if (!(amount > 0)) { showSaToast("⚠️ Summani kiriting", "err"); return; }
+  const row = {
+    amount,
+    currency: document.getElementById("fin-cur")?.value || "uzs",
+    date:     document.getElementById("fin-date")?.value || null,
+    note:     document.getElementById("fin-note")?.value.trim() || null
+  };
+  if (isInc) {
+    const sid = document.getElementById("fin-shop")?.value || "";
+    const sh  = (_saShops || []).find(x => x.id === sid);
+    row.shop_id   = sid || null;
+    row.shop_name = sh ? sh.name : null;
+    row.tariff    = document.getElementById("fin-tariff")?.value || null;
+    row.period    = document.getElementById("fin-period")?.value || null;
+  } else {
+    row.tag = document.getElementById("fin-tag")?.value || "Boshqa";
+  }
+  try {
+    const d = await _saApi("sa_finance", { op: isInc ? "add_income" : "add_expense", row });
+    if (!d || !d.ok) throw new Error(d?.error || "saqlanmadi");
+    showSaToast("✅ Qo'shildi");
+    document.getElementById("fin-amount").value = "";
+    document.getElementById("fin-note").value = "";
+    await saLoadFinance();
+    saFinRenderList(kind);
+  } catch (e) { showSaToast("⚠️ " + e.message, "err"); }
+}
+
+function saFinRenderList(kind) {
+  const el = document.getElementById("fin-list"); if (!el) return;
+  const isInc = kind === "income";
+  const rows = (isInc ? _saFin.income : _saFin.expense) || [];
+  const money = r => (r.currency === "usd" ? "$" : "") +
+    (+r.amount || 0).toLocaleString("ru-RU", { maximumFractionDigits: 2 }) +
+    (r.currency === "usd" ? "" : " so'm");
+  if (!rows.length) {
+    el.innerHTML = `<div style="text-align:center;color:#334155;padding:22px">
+      Hali yozuv yo'q</div>`;
+    return;
+  }
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="background:#F9FAFB">
+      <th style="text-align:left;padding:8px 10px;font-size:11.5px;color:#334155">SANA</th>
+      <th style="text-align:left;padding:8px 10px;font-size:11.5px;color:#334155">
+        ${isInc ? "DO'KON" : "TURI"}</th>
+      <th style="text-align:left;padding:8px 10px;font-size:11.5px;color:#334155">IZOH</th>
+      <th style="text-align:right;padding:8px 10px;font-size:11.5px;color:#334155">SUMMA</th>
+      <th style="width:36px"></th>
+    </tr></thead><tbody>
+    ${rows.map(r => `<tr style="border-top:1px solid #F3F4F6">
+      <td style="padding:8px 10px;color:#334155">${r.date || "—"}</td>
+      <td style="padding:8px 10px;color:#1F2937;font-weight:600">
+        ${isInc ? (r.shop_name || "—") : (r.tag || "—")}
+        ${isInc && r.period ? `<span style="font-size:11px;color:#334155"> · ${r.period}</span>` : ""}</td>
+      <td style="padding:8px 10px;color:#334155">${r.note || ""}</td>
+      <td style="padding:8px 10px;text-align:right;font-weight:800;
+        color:${isInc ? "#047857" : "#DC2626"}">${money(r)}</td>
+      <td style="padding:8px 6px;text-align:right">
+        <button onclick="saFinDel('${kind}',${r.id})" title="O'chirish"
+          style="background:none;border:none;color:#DC2626;cursor:pointer;font-size:14px">🗑</button></td>
+    </tr>`).join("")}</tbody></table>`;
+}
+
+async function saFinDel(kind, id) {
+  if (!confirm("Bu yozuv o'chirilsinmi?")) return;
+  try {
+    const d = await _saApi("sa_finance",
+      { op: kind === "income" ? "del_income" : "del_expense", id });
+    if (!d || !d.ok) throw new Error(d?.error || "o'chmadi");
+    await saLoadFinance();
+    saFinRenderList(kind);
+    showSaToast("✅ O'chirildi");
+  } catch (e) { showSaToast("⚠️ " + e.message, "err"); }
+}
+
+// Tarif tanlanganda narxni avtomat qo'yamiz (2026-08-03).
+// Narx `sa_tariffs` dan — Narxlar oynasida belgilanadi.
+// Qo'lda o'zgartirish mumkin: alohida do'konga chegirma berish uchun.
+function saNewTierPrice() {
+  const id = document.getElementById("sa-new-tier")?.value;
+  const t  = (_saTariffs || []).find(x => x.id === id);
+  const p  = document.getElementById("sa-new-price");
+  if (t && p && (+t.price_month || 0) > 0) p.value = Math.round(+t.price_month);
+}
+
 function renderSaShops() {
   const el = document.getElementById("sa-shops-list"); if (!el) return;
   // 2026-08-03: server holati bir marta yuklanadi
   if (!window._saStatsLoaded) {
     window._saStatsLoaded = true;
     try { saLoadServerStats(); } catch(e) {}
+    try { saLoadFinance(); } catch(e) {}
   }
   // 2026-08-03: sarlavhadagi do'kon soni ro'yxat kelgach yangilanadi
   try {
@@ -973,6 +1237,8 @@ async function saAddShop() {
       </button>
     </div>`;
     document.body.appendChild(d);
+  // 2026-08-03: oyna ochilganda tarif narxini qo'yamiz
+  try { setTimeout(saNewTierPrice, 30); } catch(e) {}
   }, 300);
 }
 
@@ -1904,135 +2170,129 @@ document.addEventListener("keydown", e => {
 });
 
 // ── Obuna narxlarini sozlash ─────────────────────
-function saOpenPriceSettings() {
+// ══════════════════════════════════════════════════════════════
+// TARIF NARXLARI (2026-08-03)
+// ══════════════════════════════════════════════════════════════
+// Avval oyna faqat ikki raqamni `localStorage` ga yozardi va
+// u HECH QAYERGA ta'sir qilmasdi — do'kon yaratishda ham,
+// tahrirda ham ishlatilmasdi.
+// Endi bazada (`sa_tariffs`), Start va Pro uchun alohida:
+// oylik narx, yillik narx, yillikdagi chegirma foizi.
+// Yillik narx chegirma bilan avtomat hisoblanadi, lekin qo'lda
+// ham o'zgartirish mumkin.
+let _saTariffs = [];
+
+async function saOpenPriceSettings() {
   document.getElementById("sa-price-modal")?.remove();
-  const prices = (() => {
-    try { return JSON.parse(localStorage.getItem("merx_sa_prices")||"{}"); } catch(e){ return {}; }
-  })();
-  const monthly  = prices.monthly  || 50000;
-  const yearly   = prices.yearly   || 500000;
+  const m = document.createElement("div");
+  m.id = "sa-price-modal";
+  m.style.cssText = "position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.5);" +
+    "display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif";
+  m.innerHTML = `<div style="background:#fff;border-radius:16px;padding:22px;width:620px;
+    max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.25)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:800;color:#0D1B2A">💵 Tarif narxlari</div>
+      <button onclick="document.getElementById('sa-price-modal').remove()"
+        style="background:none;border:none;font-size:24px;cursor:pointer;color:#334155">×</button>
+    </div>
+    <div id="sa-tf-body" style="color:#334155">Yuklanmoqda...</div>
+  </div>`;
+  m.onclick = (e) => { if (e.target === m) m.remove(); };
+  document.body.appendChild(m);
 
-  const modal = document.createElement("div");
-  modal.id = "sa-price-modal";
-  modal.style.cssText = "position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif";
-  modal.innerHTML = `
-    <div style="background:#fff;border-radius:16px;padding:28px;width:400px;max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.25)">
-      <div style="font-size:19px;font-weight:800;color:#0D1B2A;margin-bottom:20px">💳 Obuna narxlari</div>
-      <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px">
-        <div>
-          <label style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;display:block;margin-bottom:5px">📅 Oylik narx (so'm)</label>
-          <input id="sa-price-monthly" type="number" value="${monthly}" step="10000"
-            style="width:100%;box-sizing:border-box;border:1.5px solid #E5E7EB;border-radius:8px;padding:10px 12px;font-family:inherit;font-size:15px;font-weight:700">
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;display:block;margin-bottom:5px">📆 Yillik narx (so'm)</label>
-          <input id="sa-price-yearly" type="number" value="${yearly}" step="50000"
-            style="width:100%;box-sizing:border-box;border:1.5px solid #E5E7EB;border-radius:8px;padding:10px 12px;font-family:inherit;font-size:15px;font-weight:700">
-        </div>
-        <div style="background:#F0FDF4;border-radius:8px;padding:10px 14px;font-size:12px;color:#065F46">
-          Ushbu narxlar dashboard da ko\'rsatiladigan taxminiy daromad hisoblash uchun
-        </div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button onclick="saSavePriceSettings()"
-          style="flex:1;background:#0D1B2A;border:none;border-radius:10px;padding:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;color:#E9A500">
-          ✓ Saqlash
-        </button>
-        <button onclick="document.getElementById('sa-price-modal').remove()"
-          style="background:#F3F4F6;border:none;border-radius:10px;padding:12px 18px;font-family:inherit;font-size:13px;cursor:pointer;color:#374151">
-          Bekor
-        </button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-}
-
-function saSavePriceSettings() {
-  const monthly = parseInt(document.getElementById("sa-price-monthly")?.value)||50000;
-  const yearly  = parseInt(document.getElementById("sa-price-yearly")?.value)||500000;
-  localStorage.setItem("merx_sa_prices", JSON.stringify({monthly,yearly}));
-  document.getElementById("sa-price-modal")?.remove();
-  showSaToast("✅ Narxlar saqlandi");
-  // Dashboard yangilaymiz
-  const dash = document.getElementById("sa-dashboard");
-  if (dash) dash.innerHTML = buildSaDashboard();
-}
-
-// ── Obuna tekshiruvi ──────────────────────────────
-// 2026-07-30 QAYTA YOZILDI. Avvalgi variant `sessionStorage`dagi
-// "merx_active_shop" kalitiga tayanardi — u kalit KOD BO'YICHA HECH
-// QAYERDA YOZILMASDI, shuning uchun funksiya har safar birinchi
-// qatorda chiqib ketardi. Natija: SuperAdmin do'konni bloklasa ham
-// do'kon egasi hech narsa sezmasdi.
-//
-// Endi holat BULUTDAN (server hukmi bilan) olinadi:
-//   /api/auth-v2?action=shop_status  →  ok | blocked | expired | unknown
-//
-// Himoyalar:
-//  · Internet yo'q bo'lsa — oxirgi ma'lum holat ishlatiladi
-//  · Hech qachon tekshirilmagan bo'lsa — CHEKLANMAYDI (fail-open)
-//  · SuperAdmin "do'kon sifatida kirish" rejimida devor chiqmaydi
-async function checkCurrentShopSubscription() {
-  // 1) SuperAdmin ko'rinishi — cheklov qo'llanmaydi
   try {
-    const u = JSON.parse(localStorage.getItem("merx_auth_v1") || "{}");
-    if (u && (u.saAccess === true || u.role === "superadmin")) return;
-  } catch(e) {}
-
-  // 2) Do'kon ID — busiz tekshirib bo'lmaydi (faqat lokal rejim)
-  const sid = (typeof getCloudShopId === "function") ? getCloudShopId() : null;
-  if (!sid) return;
-
-  const CK = "merx_sub_status_" + sid;
-  let cached = null;
-  try { cached = JSON.parse(localStorage.getItem(CK) || "null"); } catch(e) {}
-
-  // 3) Serverdan so'raymiz
-  let fresh = null;
-  try {
-    const r = await fetch("/api/auth-v2?action=shop_status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shopId: sid })
-    });
-    const d = await r.json();
-    if (d && d.ok && d.status) {
-      fresh = d;
-      try {
-        localStorage.setItem(CK, JSON.stringify({
-          status: d.status, daysLeft: d.days_left,
-          name: d.name, expiresAt: d.expires_at, at: Date.now()
-        }));
-      } catch(e) {}
-    }
-  } catch(e) { /* internet yo'q — pastda oxirgi ma'lum holat ishlatiladi */ }
-
-  // 4) Hukm. Server ham, kesh ham yo'q bo'lsa — "ok" (fail-open)
-  const status   = (fresh && fresh.status)     || (cached && cached.status)   || "ok";
-  const daysLeft = (fresh ? fresh.days_left    : (cached ? cached.daysLeft   : null));
-  const shopInfo = {
-    name:      (fresh && fresh.name) || (cached && cached.name) || db?.shop?.name || "Do'kon",
-    expiresAt: (fresh && fresh.expires_at) || (cached && cached.expiresAt) || null,
-    plan:      (fresh && fresh.plan) || null
-  };
-
-  if (status === "blocked") { showSubscriptionWall("blocked", shopInfo); return; }
-  if (status === "expired") { showSubscriptionWall("expired", shopInfo); return; }
-
-  // Devor yo'q — agar avval chiqarilgan bo'lsa olib tashlaymiz
-  // (masalan SuperAdmin faollashtirgan bo'lsa)
-  if (status === "ok") {
-    const w = document.getElementById("sub-wall");
-    if (w) { w.remove(); const a = document.getElementById("app"); if (a) a.style.display = ""; }
-    if (daysLeft != null && daysLeft <= 3) showSubscriptionWarning(daysLeft, shopInfo);
+    const d = await _saApi("sa_finance", { op: "load" });
+    if (!d || !d.ok) throw new Error(d?.error || "yuklanmadi");
+    _saTariffs = d.tariffs || [];
+    saRenderTariffs();
+  } catch (e) {
+    const b = document.getElementById("sa-tf-body");
+    if (b) b.innerHTML = `<div style="color:#DC2626">Xato: ${e.message}</div>`;
   }
 }
 
-// Har 30 daqiqada qayta tekshiramiz — aks holda kun bo'yi ochiq
-// turgan ilovada bloklash faqat sahifa yangilangach ta'sir qilardi.
-setInterval(() => {
-  try { checkCurrentShopSubscription(); } catch(e) {}
-}, 30 * 60 * 1000);
+function saRenderTariffs() {
+  const b = document.getElementById("sa-tf-body"); if (!b) return;
+  const iCss = "width:100%;font-family:inherit;font-size:13.5px;border:1.5px solid #E5E7EB;" +
+               "border-radius:8px;padding:8px 10px;box-sizing:border-box";
+  b.innerHTML = _saTariffs.map(t => `
+    <div style="border:1px solid #E5E7EB;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;color:#0D1B2A;margin-bottom:10px">
+        ${t.title || t.id}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 90px 90px;gap:10px;align-items:end">
+        <div>
+          <label style="font-size:11.5px;color:#334155;font-weight:700">Oylik narx</label>
+          <input id="tf-m-${t.id}" type="number" min="0" value="${+t.price_month || 0}"
+            oninput="saTfCalcYear('${t.id}')" style="${iCss}">
+        </div>
+        <div>
+          <label style="font-size:11.5px;color:#334155;font-weight:700">Yillik narx</label>
+          <input id="tf-y-${t.id}" type="number" min="0" value="${+t.price_year || 0}"
+            style="${iCss}">
+        </div>
+        <div>
+          <label style="font-size:11.5px;color:#334155;font-weight:700">Chegirma %</label>
+          <input id="tf-d-${t.id}" type="number" min="0" max="90" value="${+t.discount_pct || 0}"
+            oninput="saTfCalcYear('${t.id}')" style="${iCss}">
+        </div>
+        <div>
+          <label style="font-size:11.5px;color:#334155;font-weight:700">Valyuta</label>
+          <select id="tf-c-${t.id}" style="${iCss}">
+            <option value="uzs"${t.currency==="uzs"?" selected":""}>so'm</option>
+            <option value="usd"${t.currency==="usd"?" selected":""}>USD</option>
+          </select>
+        </div>
+      </div>
+      <div id="tf-hint-${t.id}" style="font-size:11.5px;color:#334155;margin-top:7px"></div>
+    </div>`).join("") + `
+    <button onclick="saSaveTariffPrices()" class="btn"
+      style="width:100%;background:#0D1B2A;color:#fff;border:none;border-radius:10px;
+      padding:11px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">
+      Saqlash</button>
+    <div style="font-size:11.5px;color:#334155;margin-top:10px;line-height:1.5">
+      Yillik narx chegirma bilan avtomat hisoblanadi — qo'lda ham o'zgartirsangiz bo'ladi.
+      Bu narxlar yangi do'kon yaratishda avtomat qo'yiladi.
+    </div>`;
+  _saTariffs.forEach(t => saTfCalcYear(t.id));
+}
+
+// Oylik narx yoki chegirma o'zgarsa — yillikni qayta hisoblaymiz
+function saTfCalcYear(id) {
+  const mo = parseFloat(document.getElementById("tf-m-" + id)?.value) || 0;
+  const dc = parseFloat(document.getElementById("tf-d-" + id)?.value) || 0;
+  const yr = Math.round(mo * 12 * (1 - dc / 100));
+  const yEl = document.getElementById("tf-y-" + id);
+  if (yEl) yEl.value = yr;
+  const h = document.getElementById("tf-hint-" + id);
+  if (h) h.textContent = mo
+    ? `12 oy × ${mo.toLocaleString("ru-RU")} = ${(mo*12).toLocaleString("ru-RU")}, ` +
+      `${dc}% chegirma → ${yr.toLocaleString("ru-RU")}`
+    : "";
+}
+
+async function saSaveTariffPrices() {
+  try {
+    for (const t of _saTariffs) {
+      await _saApi("sa_finance", { op: "save_tariff", tariff: {
+        id: t.id, title: t.title,
+        price_month:  parseFloat(document.getElementById("tf-m-" + t.id)?.value) || 0,
+        price_year:   parseFloat(document.getElementById("tf-y-" + t.id)?.value) || 0,
+        discount_pct: parseFloat(document.getElementById("tf-d-" + t.id)?.value) || 0,
+        currency:     document.getElementById("tf-c-" + t.id)?.value || "uzs",
+        sort_order:   t.sort_order
+      }});
+    }
+    showSaToast("✅ Tarif narxlari saqlandi");
+    document.getElementById("sa-price-modal")?.remove();
+  } catch (e) {
+    showSaToast("⚠️ Saqlanmadi: " + e.message, "err");
+  }
+}
+
+// 2026-08-03: eski `saSavePriceSettings` olib tashlandi — u
+// narxni `localStorage` ga yozardi va hech qayerga ta'sir
+// qilmasdi. O'rniga `saSaveTariffPrices` (bazaga yozadi).
+
 
 function showSubscriptionWall(reason, shop) {
   const app = document.getElementById("app");
