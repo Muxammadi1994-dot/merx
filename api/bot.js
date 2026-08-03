@@ -1978,7 +1978,16 @@ function buildReceiptHtml(sale, opts) {
   const tagline = opts.tagline || "Ulgurji savdo tizimi";
   const items   = (s.items || []).filter(Boolean);
   const date    = (s.date||"").includes("-") ? s.date.split("-").reverse().join(".") : (s.date||"");
-  const total = Number(s.total||0), paid = Number(s.paid||0), remaining = Number(s.remaining||0);
+  const total = Number(s.total||0), paid = Number(s.paid||0);
+  // ⚠️ 2026-08-03: CHEK MUZLATILADI (kontekst §3.5).
+  // Avval `s.remaining` — HOZIRGI qoldiq ishlatilardi. Mijoz
+  // keyinroq to'lov qilsa qoldiq kamayardi va BOTDAGI ESKI CHEK
+  // ham o'zgargandek ko'rinardi:
+  //   ilovada 500 000, botda 300 000
+  // `origRemaining` — sotuv paytidagi asl qarz, u o'zgarmaydi.
+  // Klientdagi (utils.js) qoidaning aynan o'zi.
+  // Eski sotuvlarda bu maydon yo'q — o'shanda avvalgidek ishlaydi.
+  const remaining = Number(s.origRemaining != null ? s.origRemaining : (s.remaining || 0));
   const discount = Number(s.discount||0);
   const rate = Number(s.rate||0);
   const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi", aralash:"Aralash", nasiya:"Nasiya", qarz:"Nasiya" };
@@ -2007,11 +2016,41 @@ function buildReceiptHtml(sale, opts) {
     ? pbRows.map(([m,v]) => `<div class="r"><span>${payLabels[m]||m}</span><span>${F(v)} so'm</span></div>`).join("")
     : `<div class="r"><span>To'lov turi</span><b>${payLabels[s.payType]||s.payType||"—"}</b></div>`;
 
+  // ⚠️ 2026-08-03: QAYTARISH BELGISI (kontekst §3.6).
+  // Klient chekida qaytarilgan sotuv ochiq belgilanadi, botda esa
+  // UMUMAN ko'rinmasdi — mijoz qaytarib bergan tovar chekda
+  // hech qanday izsiz qolardi.
+  let _refundNote = "";
+  try {
+    const _refs = Array.isArray(s.refunds) ? s.refunds : [];
+    if (_refs.length) {
+      const _rTot = Number(s.refundedTotal || 0)
+                 || _refs.reduce((a, r) => a + Number(r.total || 0), 0);
+      const _full = s.status === "qaytarilgan";
+      const _nos  = _refs.map(r => r.no).filter(Boolean).join(", ");
+      _refundNote = `
+        <div style="margin:8px 0 0;padding:8px 10px;border:1px dashed #B91C1C;
+          border-radius:6px;background:#FEF2F2">
+          <div style="font-size:12px;font-weight:800;color:#B91C1C">
+            ${_full ? "TO'LIQ QAYTARILGAN" : "QISMAN QAYTARILGAN"}</div>
+          <div style="font-size:11.5px;color:#000;margin-top:2px">
+            Qaytarilgan summa: <b>${F(_rTot)} so'm</b></div>
+          ${_nos ? `<div style="font-size:11px;color:#333;margin-top:2px">
+            Hujjat: ${_nos}</div>` : ""}
+        </div>`;
+    }
+  } catch(e) {}
+
   // 2026-07-17 (NAMUNA): MIJOZ QARZI bo'limi DOIM — POS chek bilan bir xil
   const isUsd = s.debtCurrency === "usd" || (Number(s.prevDebtUsd) || 0) > 0; // 2026-07-18: to'langan sotuvda ham $ qarz ko'rinsin
   const DP = v => isUsd ? `$${Number(v||0).toFixed(2)}` : `${F(v||0)} so'm`;
   const dPrev = isUsd ? (s.prevDebtUsd || 0) : (s.prevDebtUzs || 0);
-  const dNew  = isUsd ? (s.debtUsd     || 0) : (remaining     || 0);
+  // ⚠️ 2026-08-03: DOLLAR QARZI HAM MUZLATILADI.
+  // `origDebtUsd` — sotuv paytidagi asl dollar qarzi. Klientdagi
+  // (utils.js) qoidaning aynan o'zi. Yo'q bo'lsa eskisi ishlatiladi.
+  const _dUsdFrozen = s.origDebtUsd != null ? Number(s.origDebtUsd)
+                    : (s.debtUsd != null ? Number(s.debtUsd) : 0);
+  const dNew  = isUsd ? (_dUsdFrozen || 0) : (remaining     || 0);
   // 2026-07-25: dollar ishlatilsa — qo'shilgan qarz "summa / kurs = $"
   // ko'rinishida (klient cheki bilan bir xil). Kurs sotuv paytidagi.
   const _sRate  = Number(s.rate) || 0;
@@ -2091,6 +2130,7 @@ body{font-family:${opts.fontFamily || "'DM Sans',Arial,sans-serif"};background:#
   ${payHtml}
   ${paid > 0 ? `<div class="r"><span>To'landi</span><span style="font-weight:700">${F(paid)} so'm</span></div>` : ""}
   ${debtHtml}
+  ${_refundNote}
   <div class="ft">${cfg.footer}</div>
   ${(Array.isArray(opts.extraLines) && opts.extraLines.length) ? `<div style="text-align:center;font-size:12px;color:#000;padding:2px 8px 4px">${opts.extraLines.filter(Boolean).map(t=>`<div>${t}</div>`).join("")}</div>` : ""}
   <div class="ft2">${cfg.shopName} · ${date}</div>
