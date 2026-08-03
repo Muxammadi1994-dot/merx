@@ -11,6 +11,15 @@ let _expChart = null;
 
 let expDatePeriod = "today"; // v157 (№14): standart Bugun
 
+// 2026-08-03: sana qurilma vaqtidan (utils.js dagi `today` bilan
+// bir xil qoida). `toISOString()` UTC qaytaradi va tunda kechagi
+// kunni yozadi — ulgurji do'konlar ertalab 3-4 da ish boshlaydi.
+function _dStr(d) {
+  const x = d instanceof Date ? d : new Date(d);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}`;
+}
+
 function setExpDatePeriod(p) {
   expDatePeriod = p;
   const t = today();
@@ -572,8 +581,8 @@ function renderFlowBars(kirim, chiqim, realProfit, netProfit, periodCost) {
   const daysDiff = Math.max(1, Math.round((new Date(to)-new Date(from))/86400000)+1);
   const prevTo   = new Date(from); prevTo.setDate(prevTo.getDate()-1);
   const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate()-daysDiff+1);
-  const pf = prevFrom.toISOString().slice(0,10);
-  const pt = prevTo.toISOString().slice(0,10);
+  const pf = _dStr(prevFrom);
+  const pt = _dStr(prevTo);
 
   let prevKirim = 0;
   statSales().filter(s=>s.date>=pf&&s.date<=pt).forEach(s=>{
@@ -697,7 +706,7 @@ function renderMolTrendChart() {
 
   const rate = db.settings?.rate || 12800;
   const now  = new Date();
-  const t    = now.toISOString().slice(0,10);
+  const t    = _dStr(now);
 
   let points = []; // [{label, from, to}]
 
@@ -705,7 +714,7 @@ function renderMolTrendChart() {
     // So'nggi 7 kun — kunlik
     for (let i = 6; i >= 0; i--) {
       const d  = new Date(now); d.setDate(d.getDate()-i);
-      const ds = d.toISOString().slice(0,10);
+      const ds = _dStr(d);
       const dd = d.getDate(), mo = d.getMonth();
       const names = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
       points.push({ label: `${dd} ${names[mo]}`, from: ds, to: ds });
@@ -714,7 +723,7 @@ function renderMolTrendChart() {
     // So'nggi 30 kun — kunlik (har 2 kunda bitta label)
     for (let i = 29; i >= 0; i--) {
       const d  = new Date(now); d.setDate(d.getDate()-i);
-      const ds = d.toISOString().slice(0,10);
+      const ds = _dStr(d);
       const dd = d.getDate();
       const names = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
       points.push({ label: i%3===0 ? `${dd} ${names[d.getMonth()]}` : "", from: ds, to: ds });
@@ -1540,7 +1549,7 @@ function confirmStartShift(staffId) {
   db.shifts.push({
     id: db.seq++, staffId,
     openTime: now.toISOString().slice(0,16).replace("T"," "),
-    openDate: now.toISOString().slice(0,10),
+    openDate: _dStr(now),
     openCash, note, closeTime: null, closeCash: null, diff: null
   });
 
@@ -1682,7 +1691,7 @@ function confirmCloseShift(staffId, expectedCash) {
   if (diff < 0) {
     if (!db.xarajatlar) db.xarajatlar = [];
     db.xarajatlar.push({
-      id: db.seq++, date: now.toISOString().slice(0,10),
+      id: db.seq++, date: _dStr(now),
       category: "Boshqa", amount: Math.abs(diff),
       recipient: (db.staff||[]).find(x=>x.id==staffId)?.name || "Kassir",
       note: `Kassa kamomadi (${shift.openTime} — ${shift.closeTime})`,

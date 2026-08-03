@@ -1,6 +1,15 @@
 // ── Sahifalash (2026-07-31) — katalog bilan bir xil uslub ──
 // Qarzdorlar soni ham o'sib boradi, shuning uchun bir xil qoida.
 let _dbPage = 1;
+// 2026-08-03: sana qurilma vaqtidan (utils.js dagi `today` bilan
+// bir xil qoida). `toISOString()` UTC qaytaradi va tunda kechagi
+// kunni yozadi — ulgurji do'konlar ertalab 3-4 da ish boshlaydi.
+function _dStr(d) {
+  const x = d instanceof Date ? d : new Date(d);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}`;
+}
+
 function dbGoPage(p) { _dbPage = p; renderQarzlar(); pagerScrollTop("p-qarzlar"); }
 function dbResetPage() { _dbPage = 1; }
 
@@ -131,12 +140,12 @@ function getDebtRevenueRange() {
   }
   if (debtRevenuePeriod === "yesterday") {
     const y = new Date(now); y.setDate(y.getDate()-1);
-    const ys = y.toISOString().slice(0,10);
+    const ys = _dStr(y);
     return { from: ys, to: ys };
   }
   if (debtRevenuePeriod === "week") {
     const w = new Date(now); w.setDate(w.getDate()-6);
-    return { from: w.toISOString().slice(0,10), to: todayStr };
+    return { from: _dStr(w), to: todayStr };
   }
   if (debtRevenuePeriod === "month") {
     return { from: todayStr.slice(0,7) + "-01", to: todayStr };
@@ -245,7 +254,7 @@ function renderDebtTrendChart() {
     // So'nggi 7 kun, kunma-kun
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now); d.setDate(d.getDate() - i);
-      const ds = d.toISOString().slice(0,10);
+      const ds = _dStr(d);
       points.push({ label: `${d.getDate()}.${d.getMonth()+1}`, endDate: ds });
     }
   } else if (debtTrendPeriod === "year") {
@@ -254,7 +263,7 @@ function renderDebtTrendChart() {
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const lastDay = new Date(d.getFullYear(), d.getMonth()+1, 0);
-      points.push({ label: names[d.getMonth()] + " " + String(d.getFullYear()).slice(2), endDate: lastDay.toISOString().slice(0,10) });
+      points.push({ label: names[d.getMonth()] + " " + String(d.getFullYear()).slice(2), endDate: _dStr(lastDay) });
     }
   } else {
     // "month" — joriy oyning har bir kuni (yoki so'nggi 30 kun agar oy boshida bo'lsa)
@@ -264,10 +273,10 @@ function renderDebtTrendChart() {
     const step = today_ > 15 ? 2 : 1;
     for (let d = 1; d <= today_; d += step) {
       const dt = new Date(now.getFullYear(), now.getMonth(), d);
-      points.push({ label: String(d), endDate: dt.toISOString().slice(0,10) });
+      points.push({ label: String(d), endDate: _dStr(dt) });
     }
     // Oxirgi nuqta har doim BUGUN bo'lishi kerak
-    const todayStr = now.toISOString().slice(0,10);
+    const todayStr = _dStr(now);
     if (points[points.length-1]?.endDate !== todayStr) {
       points.push({ label: String(today_), endDate: todayStr });
     }
@@ -1833,12 +1842,12 @@ function qtSetPeriod(p) {
   if (p === "all") { f.value = ""; t.value = ""; }
   else if (p === "yesterday") {
     const y = new Date(now); y.setDate(y.getDate()-1);
-    const ys = y.toISOString().slice(0,10);
+    const ys = _dStr(y);
     f.value = ys; t.value = ys;
   }
   else if (p === "week") {
     const w = new Date(now); w.setDate(w.getDate()-6);
-    f.value = w.toISOString().slice(0,10); t.value = todayStr;
+    f.value = _dStr(w); t.value = todayStr;
   }
   else if (p === "month") { f.value = todayStr.slice(0,7)+"-01"; t.value = todayStr; }
   else { f.value = todayStr; t.value = todayStr; } // "today"

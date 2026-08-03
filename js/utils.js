@@ -20,11 +20,32 @@ const fmtUsd = n => {
   return neg + "$" + intPart + "." + fixed.slice(dot + 1);
 };
 const $      = id => document.getElementById(id);
-const today  = () => new Date().toISOString().slice(0, 10);
+// ══════════════════════════════════════════════════════════════
+// ⚠️ 2026-08-03: SANA QURILMA VAQTIDAN OLINADI
+// ══════════════════════════════════════════════════════════════
+// MUAMMO: `toISOString()` HAR DOIM UTC qaytaradi, qurilma vaqtini
+// emas. Toshkent UTC dan 5 soat oldinda, ya'ni har kuni
+// 00:00–05:00 oralig'ida ilova KECHAGI sanani yozardi.
+// Ulgurji do'konlar aynan ertalab 3-4 da ish boshlaydi —
+// ertalabki savdo KECHAGI kunga tushib qolardi.
+//
+// Soat (`nowTime`) allaqachon to'g'ri edi — u qurilmadan olinadi.
+// Ya'ni bitta sotuvda sana UTC, soat esa mahalliy bo'lardi.
+//
+// Endi ikkalasi ham qurilma vaqtidan. Kunduzi hech narsa
+// o'zgarmaydi — farq faqat o'sha tungi oynada bilinadi.
+// ESKI yozuvlar tegilmaydi (kelishilgan).
+const _p2 = (n) => String(n).padStart(2, "0");
+const today  = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${_p2(d.getMonth() + 1)}-${_p2(d.getDate())}`;
+};
 const nowTime= () => new Date().toLocaleTimeString("uz-UZ", {hour:"2-digit", minute:"2-digit"});
 
 function addDays(d, n) {
-  const r = new Date(d); r.setDate(r.getDate() + n); return r.toISOString().slice(0, 10);
+  // 2026-08-03: natija ham qurilma vaqtida (yuqoridagi izoh)
+  const r = new Date(d); r.setDate(r.getDate() + n);
+  return `${r.getFullYear()}-${_p2(r.getMonth() + 1)}-${_p2(r.getDate())}`;
 }
 
 // Do'kon turi (2026-07): kod 2 maxsus turni biladi (oyoq, kiyim);

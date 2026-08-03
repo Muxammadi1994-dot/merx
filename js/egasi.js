@@ -7,6 +7,15 @@
 // ── Aktiv tab ────────────────────────────────────
 let _adminTab = "dokon";
 
+// 2026-08-03: sana qurilma vaqtidan (utils.js dagi `today` bilan
+// bir xil qoida). `toISOString()` UTC qaytaradi va tunda kechagi
+// kunni yozadi — ulgurji do'konlar ertalab 3-4 da ish boshlaydi.
+function _dStr(d) {
+  const x = d instanceof Date ? d : new Date(d);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}`;
+}
+
 function adminTabSwitch(tab) {
   _adminTab = tab;
   try { renderUnitTags(); } catch(e) {} // №11a: birlik chiplar yangilanadi
@@ -52,7 +61,7 @@ let _rateCheckBusy = false;
 async function checkAutoRate(force) {
   if (getRateMode() !== "auto") return;
   if (_rateCheckBusy) return;
-  const today = new Date().toISOString().slice(0,10);
+  const today = _dStr(new Date());
   const lastDate = (db.settings?.rateUpdatedAt || "").slice(0,10);
   if (!force && lastDate === today) return; // bugun allaqachon yangilangan
   _rateCheckBusy = true;
@@ -685,7 +694,7 @@ function previewChek(style) {
   // Test sotuv ma'lumotlari bilan preview
   const testSale = {
     id: 999, chekNum: "CHK-TEST-001",
-    date: new Date().toISOString().slice(0,10),
+    date: _dStr(new Date()),
     time: new Date().toLocaleTimeString("uz-UZ").slice(0,5),
     payType: "naqd",
     items: [
@@ -960,7 +969,7 @@ function _previewSampleSale(type) {
   const rate = db.settings?.rate || 12800;
   const base = {
     chekNum: "CHK-NAMUNA-0001",
-    date: new Date().toISOString().slice(0,10),
+    date: _dStr(new Date()),
     time: "12:34",
     customerName: "Namuna Mijoz",
     customerPhone: "+998 90 000 00 00",
@@ -1096,7 +1105,7 @@ function _buildDebtReceiptPreview(cfg) {
       ${cfg.addr ? `<div class="sub">${cfg.addr}</div>` : ""}
       ${contact ? `<div class="sub" style="font-weight:700">${contact}</div>` : ""}
       <div class="sub">${cfg.tagline || "Ulgurji savdo tizimi"}</div></div>
-    <div class="sec"><div class="r"><span style="font-weight:800;font-family:monospace">PAY-NAMUNA-0001</span><span>${new Date().toISOString().slice(0,10)}</span></div>
+    <div class="sec"><div class="r"><span style="font-weight:800;font-family:monospace">PAY-NAMUNA-0001</span><span>${_dStr(new Date())}</span></div>
       <div class="r"><span>Namuna Mijoz</span><span>+998 90 000 00 00</span></div></div>
     <div class="sec"><div class="lbl">To'landi</div><div class="big grn">${F(1500000)} so'm</div></div>
     <div class="sec"><div class="lbl">To'lov usuli</div><div class="r"><span>Usul</span><span>Naqd pul</span></div></div>
@@ -1104,7 +1113,7 @@ function _buildDebtReceiptPreview(cfg) {
       <div class="r"><span>Avvalgi qarz</span><span>${F(5000000)} so'm</span></div>
       <div class="r"><span>To'landi</span><span>${F(1500000)} so'm</span></div>
       <div class="r"><span>Qolgan qarz</span><span class="red">${F(3500000)} so'm</span></div>
-      <div class="r"><span>Muddat</span><span style="font-weight:700">${new Date().toISOString().slice(0,10)}</span></div></div>
+      <div class="r"><span>Muddat</span><span style="font-weight:700">${_dStr(new Date())}</span></div></div>
     <div class="ft">${cfg.footer || "Rahmat! Yana kutamiz 🙏"}</div>
     ${extra.length ? `<div style="text-align:center;font-size:11px;color:#333;padding:4px 6px">${extra.map(t=>`<div>${t}</div>`).join("")}</div>` : ""}
     </div></body></html>`;
