@@ -210,13 +210,15 @@ function buildSaDashboard() {
   const monthlyIncome= _saShops.filter(s=>saIsActive(s)).reduce((a,s)=>a+(planPrices[s.plan]||0),0);
   return `
     <!-- 1-qator: Asosiy raqamlar -->
-    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0;background:#F8FAFC;border-bottom:1px solid #E5E7EB">
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;background:#F8FAFC;border-bottom:1px solid #E5E7EB">
       ${[
         {lbl:"Jami do'konlar",  val:_saShops.length+" ta",  clr:"#0D1B2A", ico:"ti-building-store", sub:""},
         {lbl:"Faol",            val:active+" ta",            clr:"#059669", ico:"ti-circle-check",   sub:"obunalar"},
         {lbl:"Muddati o'tgan",  val:expired+" ta",           clr:expired?"#DC2626":"#9CA3AF", ico:"ti-clock-x", sub:""},
         {lbl:"3 kunda tugaydi", val:soon3+" ta",             clr:soon3?"#D97706":"#9CA3AF",   ico:"ti-alert-triangle", sub:"diqqat!"},
-        {lbl:"Faolsiz (7 kun)", val:inactive+" ta",          clr:inactive?"#9333EA":"#9CA3AF",ico:"ti-zzz",            sub:"sotuvsiz"},
+        // 2026-08-03: "Faolsiz (7 kun)" olib tashlandi — u localStorage
+        // dan hisoblanardi, SuperAdmin kirmagan do'kon har doim
+        // "faolsiz" ko'rinardi. Noto'g'ri ma'lumot.
         {lbl:"Bu oy qo'shildi", val:newShops+" ta",          clr:"#2563EB", ico:"ti-plus",           sub:"yangi"},
       ].map(k=>`
         <div style="padding:12px 14px;border-right:1px solid #E5E7EB;background:#fff">
@@ -228,24 +230,12 @@ function buildSaDashboard() {
           ${k.sub?`<div style="font-size:10px;color:#9CA3AF;margin-top:2px">${k.sub}</div>`:""}
         </div>`).join("")}
     </div>
-    <!-- 2-qator: Moliyaviy -->
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;background:#fff;border-bottom:1px solid #E5E7EB">
-      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
-        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">💰 Jami tushum</div>
-        <div style="font-size:18px;font-weight:800;color:#059669">${fmt(totalRev)} so'm</div>
-        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">Bu oy: <span style="color:#2563EB;font-weight:600">${fmt(monthRev)}</span></div>
-      </div>
-      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
-        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Bugungi</div>
-        <div style="font-size:18px;font-weight:800;color:#0D1B2A">${fmt(todayRev)} so'm</div>
-        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${todaySales} ta sotuv</div>
-      </div>
-      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
-        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">🔴 Jami qarz</div>
-        <div style="font-size:18px;font-weight:800;color:${totalDebt>0?"#DC2626":"#9CA3AF"}">${fmt(totalDebt)} so'm</div>
-        <div style="font-size:11px;color:#9CA3AF;margin-top:2px">barcha do'konlar</div>
-      </div>
-      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
+    <!-- 2-qator: Obuna -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0;background:#fff;border-bottom:1px solid #E5E7EB">
+      <!-- 2026-08-03: uch pul kartasi olib tashlandi (Jami tushum,
+           Bugungi, Jami qarz) - ular qurilma xotirasidan
+           hisoblanardi va kirilmagan do'konda NOL chiqardi. -->
+<div style="padding:12px 16px;border-right:1px solid #F3F4F6">
         <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">💳 Obuna daromad</div>
         <div style="font-size:18px;font-weight:800;color:#7C3AED">${fmt(monthlyIncome)} so'm</div>
         <div style="font-size:11px;color:#9CA3AF;margin-top:2px">${active} faol do'kon</div>
@@ -257,7 +247,32 @@ function buildSaDashboard() {
           .map(([e,v,c,l])=>`<div style="display:flex;justify-content:space-between;margin-bottom:2px">
             <span style="font-size:11px;color:#6B7280">${e} ${l}</span>
             <span style="font-size:11px;font-weight:700;color:${c}">${v}</span>
-          </div>`).join("")}
+          </div>
+    <!-- 3-qator: SERVER HOLATI (2026-08-03) -->
+    <!-- Bepul rejada baza 500 MB, rasmlar 1 GB. Chegaraga
+         yaqinlashganini sezmay qolmaslik uchun shu yerda. -->
+    <div id="sa-server-row" style="display:grid;grid-template-columns:repeat(3,1fr);
+      gap:0;background:#fff;border-bottom:1px solid #E5E7EB">
+      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
+        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;
+          letter-spacing:.04em;margin-bottom:4px">💾 Baza hajmi</div>
+        <div id="sa-db-val" style="font-size:18px;font-weight:800;color:#0D1B2A">—</div>
+        <div id="sa-db-sub" style="font-size:11px;color:#9CA3AF;margin-top:2px">yuklanmoqda...</div>
+      </div>
+      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
+        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;
+          letter-spacing:.04em;margin-bottom:4px">🖼 Rasmlar</div>
+        <div id="sa-img-val" style="font-size:18px;font-weight:800;color:#0D1B2A">—</div>
+        <div id="sa-img-sub" style="font-size:11px;color:#9CA3AF;margin-top:2px">yuklanmoqda...</div>
+      </div>
+      <div style="padding:12px 16px">
+        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;
+          letter-spacing:.04em;margin-bottom:4px">📊 Eng katta jadval</div>
+        <div id="sa-tbl-val" style="font-size:18px;font-weight:800;color:#0D1B2A">—</div>
+        <div id="sa-tbl-sub" style="font-size:11px;color:#9CA3AF;margin-top:2px">yuklanmoqda...</div>
+      </div>
+    </div>
+`).join("")}
       </div>
     </div>`;
 }
@@ -528,8 +543,74 @@ function saSetFilter(btn) {
 }
 
 // ── Do'konlar jadvali ─────────────────────────────
+
+// ══════════════════════════════════════════════════════════════
+// SERVER HOLATI (2026-08-03)
+// ══════════════════════════════════════════════════════════════
+// Bepul rejada baza 500 MB, rasmlar 1 GB. Chegaraga
+// yaqinlashganini SEZMAY QOLMASLIK uchun rang bilan ogohlantiradi:
+//   70% dan oshsa sariq, 85% dan qizil.
+function _saMB(bytes) {
+  const mb = (bytes || 0) / 1048576;
+  return mb >= 1024 ? (mb / 1024).toFixed(2) + " GB" : mb.toFixed(1) + " MB";
+}
+function _saUseClr(pct) {
+  return pct >= 85 ? "#DC2626" : pct >= 70 ? "#D97706" : "#059669";
+}
+
+async function saLoadServerStats() {
+  const set = (id, txt, clr) => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = txt;
+    if (clr) e.style.color = clr;
+  };
+  try {
+    const d = await _saApi("server_stats", {});
+    if (!d || !d.ok) throw new Error(d?.error || "javob yo'q");
+
+    // ── Baza ──
+    const dbPct = d.db_limit ? (d.db_bytes / d.db_limit) * 100 : 0;
+    set("sa-db-val", _saMB(d.db_bytes), _saUseClr(dbPct));
+    set("sa-db-sub", `${dbPct.toFixed(1)}% band · chegara ${_saMB(d.db_limit)}`);
+
+    // ── Rasmlar ──
+    const imgPct = d.img_limit ? (d.img_bytes / d.img_limit) * 100 : 0;
+    set("sa-img-val", _saMB(d.img_bytes), _saUseClr(imgPct));
+    set("sa-img-sub", `${d.img_count || 0} ta fayl · ${imgPct.toFixed(1)}% band`);
+
+    // ── Eng katta jadval ──
+    const top = (d.tables || [])[0];
+    if (top) {
+      set("sa-tbl-val", top.name);
+      set("sa-tbl-sub", `${_saMB(top.bytes)} · ${(top.rows || 0).toLocaleString("ru-RU")} yozuv`);
+    } else {
+      set("sa-tbl-val", "—");
+      set("sa-tbl-sub", "ma'lumot yo'q");
+    }
+
+    // Chegaraga yaqin bo'lsa ochiq ogohlantirish
+    if (dbPct >= 85 || imgPct >= 85) {
+      showSaToast("⚠️ Server hajmi chegaraga yaqin — tarifni ko'taring", "err");
+    }
+  } catch (e) {
+    ["sa-db","sa-img","sa-tbl"].forEach(k => {
+      const v = document.getElementById(k + "-val");
+      const b = document.getElementById(k + "-sub");
+      if (v) v.textContent = "—";
+      if (b) b.textContent = "olinmadi";
+    });
+    console.warn("server_stats:", e.message);
+  }
+}
+
 function renderSaShops() {
   const el = document.getElementById("sa-shops-list"); if (!el) return;
+  // 2026-08-03: server holati bir marta yuklanadi
+  if (!window._saStatsLoaded) {
+    window._saStatsLoaded = true;
+    try { saLoadServerStats(); } catch(e) {}
+  }
   // 2026-08-03: sarlavhadagi do'kon soni ro'yxat kelgach yangilanadi
   try {
     const _c = document.getElementById("sa-shopcount");

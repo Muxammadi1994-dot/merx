@@ -639,7 +639,61 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    if (action === "get_tariffs") {
+    // ══════════════════════════════════════════════════════════
+  // SERVER HAJMI (2026-08-03)
+  // ══════════════════════════════════════════════════════════
+  // Baza va rasm hajmini qaytaradi. Bepul rejada baza 500 MB,
+  // Storage 1 GB — chegaraga yaqinlashganini SEZMAY QOLMASLIK
+  // uchun SuperAdmin panelida ko'rsatiladi.
+  // Hajm REST orqali olinmaydi — `sa_db_stats()` Postgres
+  // funksiyasi kerak (SA3-HAJM.sql bilan yaratiladi).
+  if (action === "server_stats") {
+    try {
+      const H = {
+        apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+        "Content-Type": "application/json"
+      };
+      // 1) Baza hajmi va jadvallar
+      let db = null;
+      try {
+        const r = await fetch(`${SB_URL}/rest/v1/rpc/sa_db_stats`, {
+          method: "POST", headers: H, body: "{}"
+        });
+        if (r.ok) db = await r.json();
+      } catch (e) { console.warn("sa_db_stats:", e.message); }
+
+      // 2) Rasmlar (Storage) — bucket ichidagi fayllar
+      let imgBytes = 0, imgCount = 0;
+      try {
+        const r2 = await fetch(`${SB_URL}/storage/v1/object/list/product-images`, {
+          method: "POST", headers: H,
+          body: JSON.stringify({ limit: 5000, offset: 0, prefix: "" })
+        });
+        if (r2.ok) {
+          const files = await r2.json();
+          if (Array.isArray(files)) {
+            imgCount = files.length;
+            imgBytes = files.reduce((a, f) => a + (f?.metadata?.size || 0), 0);
+          }
+        }
+      } catch (e) { console.warn("storage list:", e.message); }
+
+      return res.status(200).json({
+        ok: true,
+        db_bytes:    db?.db_bytes || 0,
+        total_rows:  db?.total_rows || 0,
+        tables:      db?.tables || [],
+        img_bytes:   imgBytes,
+        img_count:   imgCount,
+        db_limit:    500 * 1024 * 1024,    // bepul reja: 500 MB
+        img_limit:  1024 * 1024 * 1024     // bepul reja: 1 GB
+      });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
+  if (action === "get_tariffs") {
       const r = await fetch(
         `${SB_URL}/rest/v1/tariffs?select=tier,title,price_uzs,period,features,sort_order,active&order=sort_order.asc`,
         { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
