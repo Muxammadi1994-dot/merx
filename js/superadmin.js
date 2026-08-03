@@ -400,7 +400,8 @@ function buildSaPanel() {
             style="background:#fff;border:1.5px solid #E5E7EB;color:#111;
             border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
             outline:none;width:160px" onfocus="this.style.borderColor='#E9A500'"
-            onblur="this.style.borderColor='#E5E7EB'">
+            onblur="this.style.borderColor='#E5E7EB'"
+            onkeydown="if(event.key==='Enter')saChangeSuperPass()">
           <button onclick="saChangeSuperPass()"
             style="background:#fff;border:1.5px solid #7C3AED;color:#7C3AED;
             border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
@@ -2342,8 +2343,47 @@ function saShowInactiveShops() {
 // ── Super admin paroli o'zgartirish ───────────────
 // ── Super admin paroli o'zgartirish ───────────────
 // SA parol endi serverda (Vercel ENV: MERX_SA_PASS) tekshiriladi.
-function saChangeSuperPass() {
-  showSaToast("SA parolini o'zgartirish: Vercel > Settings > Environment Variables > MERX_SA_PASS", "err");
+// ══════════════════════════════════════════════════════════════
+// SUPERADMIN PAROLINI O'ZGARTIRISH (2026-08-03)
+// ══════════════════════════════════════════════════════════════
+// Avval bu funksiya HECH NARSA QILMASDI — faqat "Vercel'ga
+// kiring" degan qizil xabar chiqarardi. Yonidagi maydon esa
+// aldardi: parol yozilardi, lekin hech qayerga bormasdi.
+//
+// Endi parol bazada (SHA-256 xesh) saqlanadi. `MERX_SA_PASS`
+// ZAXIRA bo'lib qoladi — ikkalasi ham ishlaydi. Ya'ni Vercel
+// hisobiga kira olmasangiz ham parolni o'zgartira olasiz, va
+// bazadagi parol yo'qolsa eski ENV bilan kira olasiz.
+async function saChangeSuperPass() {
+  const inp = document.getElementById("sa-superpass-inp");
+  const yangi = (inp?.value || "").trim();
+
+  if (yangi.length < 6) {
+    showSaToast("Parol kamida 6 belgi bo'lsin", "err");
+    inp?.focus();
+    return;
+  }
+  if (!confirm("SuperAdmin paroli o'zgartirilsinmi?\n\n" +
+               "Eski parol ishlamay qoladi. Vercel'dagi MERX_SA_PASS " +
+               "esa ZAXIRA bo'lib qoladi — u bilan ham kira olasiz.")) return;
+
+  try {
+    const d = await _saApi("change_sa_pass", { newPass: yangi });
+    if (!d || !d.ok) throw new Error(d?.error || "saqlanmadi");
+
+    // Yangi parolni sessiyaga yozamiz — chiqib qolmaslik uchun
+    try {
+      sessionStorage.setItem("merx_sa_pass", yangi);
+      if (localStorage.getItem("merx_sa_pass")) {
+        localStorage.setItem("merx_sa_pass", yangi);
+      }
+    } catch(e) {}
+
+    if (inp) inp.value = "";
+    showSaToast("✅ Parol o'zgartirildi");
+  } catch (e) {
+    showSaToast("⚠️ " + e.message, "err");
+  }
 }
 
 // ── Do'kon almashtirish (eski funksiya — saOpenShop bilan bir xil) ──

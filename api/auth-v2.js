@@ -69,16 +69,69 @@ module.exports = async function handler(req, res) {
     // 2026-08-03: server hajmi — faqat SuperAdmin ko'radi
     "server_stats",
     // 2026-08-03: SuperAdmin moliyasi — shaxsiy hisob
-    "sa_finance"];
+    "sa_finance",
+    // 2026-08-03: parolni o'zgartirish — joriy parol bilan
+    "change_sa_pass"];
   if (SA_ACTIONS.includes(action)) {
     // MUHIM: SA_PASS bo'sh bo'lsa HAM rad etiladi — aks holda bo'sh
     // parol bilan kirish mumkin bo'lib qolardi.
-    if (!SA_PASS) {
-      return res.status(500).json({ ok: false, error: "Server sozlanmagan: Vercel ENV'da MERX_SA_PASS o'rnating" });
-    }
     const given = req.headers["x-sa-pass"] || body.saPass || "";
-    if (given !== SA_PASS) {
+
+    // ⚠️ 2026-08-03: IKKI YO'L — bazadagi parol yoki ENV.
+    // Avval parol FAQAT `MERX_SA_PASS` da edi: uni o'zgartirish
+    // uchun Vercel'ga kirish shart bo'lardi. Hisobga kira
+    // olmasangiz parolni ham o'zgartira olmasdingiz.
+    // Endi panel orqali o'zgartiriladi, ENV esa ZAXIRA bo'lib
+    // qoladi — ikkalasi ham ishlaydi.
+    let dbHash = "";
+    try {
+      const r = await fetch(
+        `${SB_URL}/rest/v1/sa_settings?id=eq.pass_hash&select=value&limit=1`,
+        { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+      if (r.ok) { const j = await r.json(); dbHash = j?.[0]?.value || ""; }
+    } catch (e) { console.warn("sa_settings o'qilmadi:", e.message); }
+
+    const sha = (t) => require("crypto").createHash("sha256").update(t).digest("hex");
+    const bazaOk = dbHash && sha(given) === dbHash;
+    const envOk  = SA_PASS && given === SA_PASS;
+
+    if (!dbHash && !SA_PASS) {
+      return res.status(500).json({ ok: false,
+        error: "Server sozlanmagan: Vercel ENV'da MERX_SA_PASS o'rnating" });
+    }
+    if (!bazaOk && !envOk) {
       return res.status(401).json({ ok: false, error: "SuperAdmin paroli noto'g'ri" });
+    }
+  }
+
+  // ── PAROLNI O'ZGARTIRISH (2026-08-03) ─────────────────────────
+  // Yuqoridagi darvozadan o'tgan bo'lsa — joriy parol to'g'ri.
+  if (action === "change_sa_pass") {
+    let body2;
+    try {
+      body2 = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+    } catch { return res.status(400).json({ ok: false, error: "invalid_json" }); }
+
+    const yangi = (body2.newPass || "").trim();
+    if (yangi.length < 6) {
+      return res.status(400).json({ ok: false, error: "Parol kamida 6 belgi bo'lsin" });
+    }
+    try {
+      const hash = require("crypto").createHash("sha256").update(yangi).digest("hex");
+      const r = await fetch(`${SB_URL}/rest/v1/sa_settings?on_conflict=id`, {
+        method: "POST",
+        headers: {
+          apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=minimal"
+        },
+        body: JSON.stringify([{ id: "pass_hash", value: hash,
+                                updated_at: new Date().toISOString() }])
+      });
+      if (!r.ok) return res.status(500).json({ ok: false, error: await r.text() });
+      return res.status(200).json({ ok: true });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
     }
   }
   // SA parolni tekshirish (SA panelga kirish uchun)
