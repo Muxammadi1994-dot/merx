@@ -250,8 +250,7 @@ function buildSaDashboard() {
           </div>
 `).join("")}
       </div>
-    </div>
-      <!-- SERVER HOLATI (2026-08-03) — obuna qatoriga qo'shildi,
+<!-- SERVER HOLATI (2026-08-03) — obuna qatoriga qo'shildi,
            shunda hamma karta IKKI QATORGA sig'adi. -->
       <div style="padding:8px 14px;border-right:1px solid #F3F4F6">
         <div style="font-size:10px;color:#4B5563;font-weight:700;text-transform:uppercase;
@@ -271,6 +270,8 @@ function buildSaDashboard() {
         <div id="sa-tbl-val" style="font-size:16px;font-weight:800;color:#0D1B2A">—</div>
         <div id="sa-tbl-sub" style="font-size:10.5px;color:#4B5563;margin-top:1px">—</div>
       </div>
+    </div>
+      
     `;
 }
 
