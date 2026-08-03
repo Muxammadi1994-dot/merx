@@ -652,8 +652,18 @@ async function saLoadServerStats() {
 // KPI kartasi shu yozuvlardan hisoblanadi (taxminiy narxdan emas).
 let _saFin = { income: [], expense: [], tariffs: [] };
 
-const SA_EXP_TAGS = ["Supabase", "Vercel", "Domen", "Telegram bot",
-                     "Reklama", "Dizayn", "Boshqa"];
+const SA_EXP_TAGS_DEF = ["Supabase", "Vercel", "Domen", "Telegram bot",
+                         "Reklama", "Dizayn", "Boshqa"];
+
+// ⚠️ 2026-08-03: TEGLAR BAZADAN HAM OLINADI.
+// Yangi teg yozilsa u xarajat yozuvi bilan birga Supabase'ga
+// tushadi — keyingi safar ro'yxatda avtomat chiqadi.
+// Alohida jadval kerak emas: mavjud yozuvlardan yig'iladi.
+function saExpTags() {
+  const bazadan = [...new Set((_saFin.expense || [])
+    .map(x => (x.tag || "").trim()).filter(Boolean))];
+  return [...new Set([...SA_EXP_TAGS_DEF, ...bazadan])];
+}
 
 async function saLoadFinance() {
   try {
@@ -690,6 +700,12 @@ function saRenderFinKpi() {
 
 // ── Qo'shish va ro'yxat oynasi ──
 async function saOpenFinance(kind) {
+  // 2026-08-03: tarif va yozuvlar yuklanmagan bo'lsa — avval olamiz.
+  // Busiz daromad oynasida tarif ro'yxati bo'sh chiqardi va
+  // avtomat narx ishlamasdi.
+  if (!(_saTariffs || []).length || !(_saFin.income || []).length) {
+    try { await saLoadFinance(); } catch(e) {}
+  }
   document.getElementById("sa-fin-modal")?.remove();
   const isInc = kind === "income";
   const m = document.createElement("div");
@@ -734,14 +750,24 @@ async function saOpenFinance(kind) {
       <div style="margin-bottom:9px">
         <label style="font-size:11.5px;color:#334155;font-weight:700">Turi</label>
         <div id="fin-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:5px">
-          ${SA_EXP_TAGS.map((t,i)=>`
+          ${saExpTags().map((t,i)=>`
             <button type="button" onclick="saFinPickTag('${t}')" id="fintag-${i}"
               style="border:1.5px solid ${i===0?'#0D1B2A':'#E5E7EB'};
               background:${i===0?'#0D1B2A':'#fff'};color:${i===0?'#fff':'#334155'};
               border-radius:20px;padding:5px 13px;font-size:12.5px;cursor:pointer;
               font-family:inherit">${t}</button>`).join("")}
         </div>
-        <input type="hidden" id="fin-tag" value="${SA_EXP_TAGS[0]}">
+        <input type="hidden" id="fin-tag" value="${saExpTags()[0]}">
+        <div style="display:flex;gap:6px;margin-top:7px">
+          <input id="fin-newtag" placeholder="Yangi teg yozing..."
+            onkeydown="if(event.key==='Enter'){event.preventDefault();saFinAddTag();}"
+            style="flex:1;font-family:inherit;font-size:12.5px;border:1.5px solid #E5E7EB;
+            border-radius:20px;padding:5px 13px;box-sizing:border-box">
+          <button type="button" onclick="saFinAddTag()"
+            style="border:1.5px solid #0D1B2A;background:#fff;color:#0D1B2A;border-radius:20px;
+            padding:5px 14px;font-size:12.5px;cursor:pointer;font-family:inherit;
+            font-weight:700">+ Qo'shish</button>
+        </div>
       </div>`}
       <div style="display:grid;grid-template-columns:1.2fr .8fr 1fr;gap:9px;margin-bottom:9px">
         <div><label style="font-size:11.5px;color:#334155;font-weight:700">Summa</label>
@@ -773,20 +799,54 @@ async function saOpenFinance(kind) {
 function saFinAutoPrice() {
   const tid = document.getElementById("fin-tariff")?.value;
   const per = document.getElementById("fin-period")?.value;
+  const a   = document.getElementById("fin-amount");
   const t = (_saTariffs || []).find(x => x.id === tid);
-  if (!t) return;
+  // ⚠️ 2026-08-03: TARIF NARXI QO'YILMAGAN BO'LSA — OCHIQ AYTAMIZ.
+  // Avval jimgina o'tib ketardi va "avtomat ishlamadi" deb
+  // ko'rinardi. Aslida `sa_tariffs` da narx 0 edi.
+  if (!t) {
+    if (a) a.placeholder = "Tariflar yuklanmadi";
+    return;
+  }
   const amt = per === "yillik" ? (+t.price_year || 0) : (+t.price_month || 0);
-  const a = document.getElementById("fin-amount");
-  if (a && amt) a.value = amt;
+  if (a) {
+    if (amt > 0) { a.value = amt; a.placeholder = "0"; }
+    else { a.value = ""; a.placeholder = "Narxlar oynasida tarif narxini kiriting"; }
+  }
   const c = document.getElementById("fin-cur");
   if (c && t.currency) c.value = t.currency;
 }
 
+// Yangi teg qo'shish (2026-08-03).
+// Teg alohida jadvalda saqlanmaydi — xarajat yozuvi bilan birga
+// Supabase'ga tushadi va keyingi safar ro'yxatda avtomat chiqadi.
+function saFinAddTag() {
+  const inp = document.getElementById("fin-newtag"); if (!inp) return;
+  const t = (inp.value || "").trim();
+  if (!t) { inp.focus(); return; }
+  const box = document.getElementById("fin-tags"); if (!box) return;
+  // allaqachon bormi
+  const bor = [...box.querySelectorAll("button")].some(
+    b => b.textContent.trim().toLowerCase() === t.toLowerCase());
+  if (!bor) {
+    const i = box.querySelectorAll("button").length;
+    const b = document.createElement("button");
+    b.type = "button"; b.id = "fintag-" + i; b.textContent = t;
+    b.style.cssText = "border:1.5px solid #E5E7EB;background:#fff;color:#334155;" +
+      "border-radius:20px;padding:5px 13px;font-size:12.5px;cursor:pointer;font-family:inherit";
+    b.onclick = () => saFinPickTag(t);
+    box.appendChild(b);
+  }
+  saFinPickTag(t);
+  inp.value = "";
+}
+
 function saFinPickTag(tag) {
   const h = document.getElementById("fin-tag"); if (h) h.value = tag;
-  SA_EXP_TAGS.forEach((t, i) => {
-    const b = document.getElementById("fintag-" + i); if (!b) return;
-    const on = t === tag;
+  // 2026-08-03: qo'lda qo'shilgan teglar ham bor — DOM dan olamiz
+  const box = document.getElementById("fin-tags"); if (!box) return;
+  box.querySelectorAll("button").forEach(b => {
+    const on = b.textContent.trim() === tag;
     b.style.borderColor = on ? "#0D1B2A" : "#E5E7EB";
     b.style.background  = on ? "#0D1B2A" : "#fff";
     b.style.color       = on ? "#fff"    : "#334155";
@@ -876,9 +936,14 @@ async function saFinDel(kind, id) {
 // Qo'lda o'zgartirish mumkin: alohida do'konga chegirma berish uchun.
 function saNewTierPrice() {
   const id = document.getElementById("sa-new-tier")?.value;
-  const t  = (_saTariffs || []).find(x => x.id === id);
   const p  = document.getElementById("sa-new-price");
-  if (t && p && (+t.price_month || 0) > 0) p.value = Math.round(+t.price_month);
+  if (!p) return;
+  const t  = (_saTariffs || []).find(x => x.id === id);
+  // ⚠️ 2026-08-03: narx qo'yilmagan bo'lsa OCHIQ aytamiz.
+  if (!t) { p.placeholder = "Tariflar yuklanmadi"; return; }
+  const mo = +t.price_month || 0;
+  if (mo > 0) { p.value = Math.round(mo); p.placeholder = "Masalan: 349000"; }
+  else { p.placeholder = "Narxlar oynasida tarif narxini kiriting"; }
 }
 
 function renderSaShops() {
@@ -1238,7 +1303,12 @@ async function saAddShop() {
     </div>`;
     document.body.appendChild(d);
   // 2026-08-03: oyna ochilganda tarif narxini qo'yamiz
-  try { setTimeout(saNewTierPrice, 30); } catch(e) {}
+  // 2026-08-03: tariflar hali yuklanmagan bo'lsa — avval yuklaymiz
+  try {
+    if (!(_saTariffs || []).length) {
+      saLoadFinance().then(() => { try { saNewTierPrice(); } catch(e) {} });
+    } else setTimeout(saNewTierPrice, 30);
+  } catch(e) {}
   }, 300);
 }
 
