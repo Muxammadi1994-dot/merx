@@ -279,7 +279,11 @@ function buildSaPanel() {
           </div>
           <div>
             <div style="font-size:16px;font-weight:800;color:#fff">Super Admin Panel</div>
-            <div style="font-size:11px;color:#6B8096">MERX · ${_saShops.length} ta do'kon boshqaruvi</div>
+            <!-- 2026-08-03: matn soddalashtirildi. Avval "0 ta do'kon
+                 boshqaruvi" deb turardi — ro'yxat yuklanmagan paytda
+                 nol chiqib, keyin yangilanmasdi. Endi id bilan
+                 belgilandi va ro'yxat kelgach yangilanadi. -->
+            <div id="sa-shopcount" style="font-size:11px;color:#6B8096">MERX · ${_saShops.length} ta do'kon</div>
           </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
@@ -526,6 +530,11 @@ function saSetFilter(btn) {
 // ── Do'konlar jadvali ─────────────────────────────
 function renderSaShops() {
   const el = document.getElementById("sa-shops-list"); if (!el) return;
+  // 2026-08-03: sarlavhadagi do'kon soni ro'yxat kelgach yangilanadi
+  try {
+    const _c = document.getElementById("sa-shopcount");
+    if (_c) _c.textContent = `MERX · ${_saShops.length} ta do'kon`;
+  } catch(e) {}
   const q  = document.getElementById("sa-q")?.value.toLowerCase() || "";
 
   let list = [..._saShops].sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0));
@@ -553,6 +562,9 @@ function renderSaShops() {
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead>
         <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
+          <!-- 2026-08-03: tartib raqami ustuni -->
+          <th style="text-align:center;padding:10px 8px;color:#6B7280;font-size:11px;
+            text-transform:uppercase;letter-spacing:.05em;font-weight:700;width:42px">№</th>
           <th style="text-align:left;padding:10px 16px;color:#6B7280;font-size:11px;
             text-transform:uppercase;letter-spacing:.05em;font-weight:700">Do'kon</th>
           <th style="text-align:left;padding:10px 16px;color:#6B7280;font-size:11px;
@@ -570,7 +582,7 @@ function renderSaShops() {
         </tr>
       </thead>
       <tbody>
-        ${list.map(s => {
+        ${list.map((s, _i) => {
           const active  = saIsActive(s);
           const expired = saIsExpired(s);
           const statusBg   = active ? "#ECFDF5" : expired ? "#FEF2F2" : "#FFFBEB";
@@ -582,6 +594,9 @@ function renderSaShops() {
 
           return `<tr style="border-bottom:1px solid #F3F4F6;transition:background .1s"
             onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
+            <!-- 2026-08-03: tartib raqami -->
+            <td style="padding:13px 8px;text-align:center;color:#9CA3AF;
+              font-size:12px;font-weight:700">${_i + 1}</td>
             <td style="padding:13px 16px">
               <div style="font-weight:700;color:#111827;cursor:pointer;display:flex;align-items:center;gap:8px"
                 onclick="saShowStats('${s.id}')">
