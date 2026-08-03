@@ -65,7 +65,9 @@ module.exports = async function handler(req, res) {
     "get_tariffs","update_tariff",
     // 2026-07-30: zaxira/tiklash — brauzerdagi anon kalit BOSHQA
     // do'kon yozuviga tega olmaydi (RLS), xato jimgina yutilardi
-    "list_backups","get_backup","restore_write"];
+    "list_backups","get_backup","restore_write",
+    // 2026-08-03: server hajmi — faqat SuperAdmin ko'radi
+    "server_stats"];
   if (SA_ACTIONS.includes(action)) {
     // MUHIM: SA_PASS bo'sh bo'lsa HAM rad etiladi — aks holda bo'sh
     // parol bilan kirish mumkin bo'lib qolardi.
