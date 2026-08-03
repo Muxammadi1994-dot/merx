@@ -197,7 +197,15 @@ function buildSaDashboard() {
     const d = Math.ceil((new Date(s.expiresAt)-new Date())/86400000);
     return d>=0 && d<=3;
   }).length;
-  const newShops = _saShops.filter(s=>s.createdAt?.startsWith(m)).length;
+  // ⚠️ 2026-08-03 TUZATILDI: `m` (joriy oy) e'loni o'lik kod bilan
+  // birga olib tashlangan edi va "Bu oy qo'shildi" kartasi
+  // "m is not defined" xatosi bilan yiqilardi — butun do'konlar
+  // ro'yxati chizilmay qolardi.
+  const _oy = (() => {
+    const d = new Date(), p2 = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p2(d.getMonth() + 1)}`;
+  })();
+  const newShops = _saShops.filter(s => (s.createdAt || "").startsWith(_oy)).length;
   const plans    = {trial:0,monthly:0,yearly:0,lifetime:0};
   _saShops.forEach(s=>{ if(plans[s.plan]!==undefined) plans[s.plan]++; });
   // ⚠️ 2026-08-03: DAROMAD ENDI HAQIQIY YOZUVLARDAN.
