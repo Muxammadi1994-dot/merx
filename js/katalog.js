@@ -549,7 +549,13 @@ function renderKatalog() {
 
     const rowKey = p.sku + "::" + color + "::" + packGroup;
     const isSel = _katSelected.has(rowKey);
-    return `<tr onclick="openEditProduct('${p.sku}')" style="cursor:pointer;background:${isSel?"#fffbf0":(isBroken?"#FFFBF0":"")}">
+    // ⚠️ 2026-08-03: QATORGA BOSISH OLIB TASHLANDI.
+    // Avval qatorning ISTALGAN joyiga bosilsa tahrir oynasi ochilardi —
+    // galochka, rasm, barcode ustiga bosganda ham. Tasodifan ochilib,
+    // ma'lumot o'zgartirib yuborish xavfi bor edi.
+    // Endi faqat ✏️ tugmasi orqali. Katak ko'rinishida (3767) qoldi —
+    // u yerda bosish tabiiy va boshqa element yo'q.
+    return `<tr style="background:${isSel?"#fffbf0":(isBroken?"#FFFBF0":"")}">
       <td style="width:28px;padding:8px 4px" onclick="event.stopPropagation()">
         <input type="checkbox" ${isSel?"checked":""} data-rowkey="${String(rowKey).replace(/"/g,'&quot;')}"
           onchange="katToggleSel('${jsEsc(rowKey)}',this.checked)"
