@@ -973,7 +973,8 @@ function omImgSave(sku, color, input) {
     img.onload = function() {
       const canvas = document.createElement("canvas");
       let w = img.width, h = img.height;
-      const MAX = 600;
+      // 2026-08-03: katalogdagi bilan bir xil (600px/150KB → 1200px/400KB)
+      const MAX = 1200;
       if (w > MAX || h > MAX) {
         if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
         else       { w = Math.round(w * MAX / h); h = MAX; }
@@ -982,7 +983,7 @@ function omImgSave(sku, color, input) {
       canvas.getContext("2d").drawImage(img, 0, 0, w, h);
       let q = 0.85, dataUrl;
       do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
-      while (dataUrl.length > 150000 && q > 0.3);
+      while (dataUrl.length > 400000 && q > 0.55);
 
       const p = db.products.find(x => x.sku === sku);
       if (!p) { toast("Mahsulot topilmadi", "err"); return; }

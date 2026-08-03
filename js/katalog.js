@@ -1226,10 +1226,11 @@ function epConfirmAddColor() {
 
   // B1 (v147): yangi rang SHU tovarga qo'shilmaydi — ALOHIDA TOVAR
   // sifatida ochiladi (narxlar nusxalanadi, keyin mustaqil o'zgaradi)
-  const newId = db.seq++;
+  // 2026-08-03: SKU noyobligi kafolatlanadi
+  const { id: newId, sku: _newSku3 } = _apNextSku(p.type);
   db.products.push({
     id: newId,
-    sku: `${p.type === "oyoq" ? "SHOE" : "CLTH"}-${String(newId).padStart(3,"0")}`,
+    sku: _newSku3,
     name: p.name, category: p.category, type: p.type, unit: p.unit,
     inBox: sizeRange.length, packUnit: p.packUnit,
     art: p.art || "", barcode: genEAN13(db.seq++),
@@ -1414,7 +1415,13 @@ function apImgSave(input) {
     img.onload = function() {
       const canvas = document.createElement("canvas");
       let w = img.width, h = img.height;
-      const MAX = 600;
+      // ⚠️ 2026-08-03: SIFAT KO'TARILDI (600px/150KB → 1200px/400KB).
+      // Eski chegara rasm base64 ko'rinishida BAZAGA yozilgan paytda
+      // qo'yilgan — hajm muhim edi. Endi rasmlar Supabase Storage'da
+      // (§6), hajm chegarasi ancha erkin.
+      // Eski qiymatda sifat 0.3 gacha tushib, rasm sezilarli XIRA
+      // chiqardi (B20 e'tirozi).
+      const MAX = 1200;
       if (w > MAX || h > MAX) {
         if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
         else       { w = Math.round(w * MAX / h); h = MAX; }
@@ -1423,7 +1430,7 @@ function apImgSave(input) {
       canvas.getContext("2d").drawImage(img, 0, 0, w, h);
       let q = 0.85, dataUrl;
       do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
-      while (dataUrl.length > 150000 && q > 0.3);
+      while (dataUrl.length > 400000 && q > 0.55);
 
       apPendingImage = dataUrl;
       const prev = $("ap-img-preview");
@@ -1728,10 +1735,11 @@ function addProduct() {
     p.inBox = effectiveInBox;
   } else {
     const autoBarcode = barcode || genEAN13(db.seq);
-    const newProdId = db.seq++;
+    // 2026-08-03: SKU noyobligi kafolatlanadi
+    const { id: newProdId, sku: _newSku2 } = _apNextSku(t);
     db.products.push({
       id: newProdId,
-      sku: `${t==="oyoq"?"SHOE":"CLTH"}-${String(newProdId).padStart(3,"0")}`,
+      sku: _newSku2,
       name, category: (($("ap-cat")||{value:""}).value || "").trim(),
       type:t, unit, inBox: effectiveInBox, packUnit,
       art: art || "",
@@ -3701,7 +3709,13 @@ function katImgSave(sku, color, input) {
     img.onload = function() {
       const canvas = document.createElement("canvas");
       let w = img.width, h = img.height;
-      const MAX = 600;
+      // ⚠️ 2026-08-03: SIFAT KO'TARILDI (600px/150KB → 1200px/400KB).
+      // Eski chegara rasm base64 ko'rinishida BAZAGA yozilgan paytda
+      // qo'yilgan — hajm muhim edi. Endi rasmlar Supabase Storage'da
+      // (§6), hajm chegarasi ancha erkin.
+      // Eski qiymatda sifat 0.3 gacha tushib, rasm sezilarli XIRA
+      // chiqardi (B20 e'tirozi).
+      const MAX = 1200;
       if (w > MAX || h > MAX) {
         if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
         else       { w = Math.round(w * MAX / h); h = MAX; }
@@ -3710,7 +3724,7 @@ function katImgSave(sku, color, input) {
       canvas.getContext("2d").drawImage(img, 0, 0, w, h);
       let q = 0.85, dataUrl;
       do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
-      while (dataUrl.length > 150000 && q > 0.3);
+      while (dataUrl.length > 400000 && q > 0.55);
 
       const p = db.products.find(x => x.sku === sku);
       if (!p) return;
@@ -3931,6 +3945,34 @@ function impCurrencyChanged() {
 // Variativ rang uchun ALOHIDA tovar yaratadi (B1 qarori, v147 bo'yicha).
 // Nom, artikul, tur asosiy tovardan; pochka, narx — jadvaldan.
 // batchId berilsa — kirim tarixida BITTA partiya bo'lib ko'rinadi.
+// ══════════════════════════════════════════════════════════════
+// SKU YARATISH — NOYOBLIK KAFOLATI (2026-08-03)
+// ══════════════════════════════════════════════════════════════
+// MUAMMO: SKU `CLTH-1234` ko'rinishida `db.seq` dan yaratilardi va
+// takrorlanish UMUMAN tekshirilmasdi. Shu raqamli tovar allaqachon
+// bo'lsa, bulutda ikkalasi BIR XIL kalitga tushardi
+// (`products` da noyob kalit — `shop_id, sku`) va bittasi
+// ikkinchisini BOSIB YOZARDI.
+//
+// Amalda: B20 da 6 rang kiritilib 4 tasi qolgan. Bazada 183 tovar,
+// 183 noyob SKU — chunki takrorlanganlari YO'QOLGAN.
+//
+// Endi: band bo'lsa keyingi raqam olinadi. Rang darajasidagi
+// barcode'ga tegilmaydi (u alohida mexanizm, §3.10).
+function _apNextSku(type) {
+  const pref = type === "oyoq" ? "SHOE" : "CLTH";
+  const band = new Set((db.products || []).map(x => String(x.sku || "")));
+  let guard = 0;
+  while (guard++ < 10000) {
+    const id  = db.seq++;
+    const sku = `${pref}-${String(id).padStart(3, "0")}`;
+    if (!band.has(sku)) return { id, sku };
+  }
+  // Bu yerga yetib kelish deyarli imkonsiz — zaxira yo'l
+  const id = db.seq++;
+  return { id, sku: `${pref}-${id}-${Date.now().toString(36)}` };
+}
+
 function _apCreateExtraColor(base, cd, batchId) {
   if (!base || !cd || !cd.color) return null;
 
@@ -3946,10 +3988,11 @@ function _apCreateExtraColor(base, cd, batchId) {
   const costUsd    = rate > 0 ? (costUzsVal / rate) : 0;   // eski kod uchun zaxira
   const ulg = cd.ulg > 0 ? Math.round(cd.ulg) : (base.ulgurjiNarx || 0);
 
-  const newId = db.seq++;
+  // 2026-08-03: SKU noyobligi kafolatlanadi (yuqoridagi izoh)
+  const { id: newId, sku: newSku } = _apNextSku(base.type);
   const prod = {
     id: newId,
-    sku: `${base.type === "oyoq" ? "SHOE" : "CLTH"}-${String(newId).padStart(3,"0")}`,
+    sku: newSku,
     name: base.name,
     category: base.category || "",
     type: base.type,
@@ -4327,7 +4370,13 @@ function apVarImgSave(input) {
       // Katalogdagi bilan bir xil: 600px, ~150KB gacha
       const canvas = document.createElement("canvas");
       let w = img.width, h = img.height;
-      const MAX = 600;
+      // ⚠️ 2026-08-03: SIFAT KO'TARILDI (600px/150KB → 1200px/400KB).
+      // Eski chegara rasm base64 ko'rinishida BAZAGA yozilgan paytda
+      // qo'yilgan — hajm muhim edi. Endi rasmlar Supabase Storage'da
+      // (§6), hajm chegarasi ancha erkin.
+      // Eski qiymatda sifat 0.3 gacha tushib, rasm sezilarli XIRA
+      // chiqardi (B20 e'tirozi).
+      const MAX = 1200;
       if (w > MAX || h > MAX) {
         if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
         else       { w = Math.round(w * MAX / h); h = MAX; }
@@ -4336,7 +4385,7 @@ function apVarImgSave(input) {
       canvas.getContext("2d").drawImage(img, 0, 0, w, h);
       let q = 0.85, dataUrl;
       do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
-      while (dataUrl.length > 150000 && q > 0.3);
+      while (dataUrl.length > 400000 && q > 0.55);
 
       _apVarColors[i].image = dataUrl;
       const cell = document.getElementById("vr-img-" + i);
