@@ -163,21 +163,82 @@ function _updateTgBadge(has) {
 }
 
 // ── Admin login ma'lumotlarini saqlash ────────────
-function saveAdminCreds() {
-  const email = ($("s-admin-email")||{value:""}).value.trim().toLowerCase();
-  const pass  = ($("s-admin-pass") ||{value:""}).value;
+// ══════════════════════════════════════════════════════════════
+// EGASI KIRISH MA'LUMOTINI O'ZGARTIRADI (2026-08-03)
+// ══════════════════════════════════════════════════════════════
+// ⚠️ AVVAL NIMA XATO EDI:
+//   1. Faqat LOKAL bazaga yozilardi — Supabase Auth hisobiga
+//      UMUMAN tegilmasdi. Egasi loginini o'zgartirsa, keyingi
+//      kirishda "Invalid login credentials" chiqib, ilova `anon`
+//      yo'liga tushardi. Shoetestda aynan shu bo'lgan.
+//   2. Parol XESHSIZ saqlanardi (`adminPass = pass`), holbuki
+//      `auth.js` da sha256 bilan saqlanadi.
+//   3. Joriy parol so'ralmasdi — ochiq qolgan qurilmada kim
+//      bo'lsa ham loginni o'zgartira olardi.
+//
+// ENDI: server orqali, joriy parol bilan tasdiqlanadi. Server
+// haqiqiy kirish qilib ko'radi — parol noto'g'ri bo'lsa rad etadi.
+async function saveAdminCreds() {
+  const email   = ($("s-admin-email")  ||{value:""}).value.trim().toLowerCase();
+  const pass    = ($("s-admin-pass")   ||{value:""}).value;
+  const curPass = ($("s-admin-curpass")||{value:""}).value;
+
   if (!email) { toast("Email kiriting","err"); return; }
-  if (pass && pass.length < 4) { toast("Parol kamida 4 ta belgi","err"); return; }
-  if (!db.settings) db.settings = {};
-  db.settings.adminEmail = email;
-  if (pass) db.settings.adminPass = pass;
-  if (typeof getAuthUser === "function") {
-    const u = getAuthUser();
-    if (u) { u.email = email; if (typeof authSave === "function") authSave(u); }
+  if (pass && pass.length < 6) { toast("Yangi parol kamida 6 ta belgi","err"); return; }
+
+  const eskiEmail = (db.settings?.adminEmail || "").toLowerCase();
+  const emailOzgardi = email !== eskiEmail;
+  if (!emailOzgardi && !pass) { toast("O'zgarish yo'q","info"); return; }
+
+  if (!curPass) {
+    toast("Joriy parolni kiriting — xavfsizlik uchun majburiy","err");
+    $("s-admin-curpass")?.focus();
+    return;
   }
-  saveDB();
-  if ($("s-admin-pass")) $("s-admin-pass").value = "";
-  toast("✅ Login ma'lumotlari saqlandi");
+
+  const btnTxt = "Saqlanmoqda...";
+  try {
+    const r = await fetch("/api/auth-v2?action=owner_update_creds", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shopId: db.settings?.cloudShopId || null,
+        currentEmail: eskiEmail || email,
+        currentPassword: curPass,
+        newEmail: emailOzgardi ? email : "",
+        newPassword: pass || ""
+      })
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      toast("⚠️ " + (d.error || "O'zgartirilmadi"), "err");
+      return;
+    }
+
+    // Server tasdiqladi — endi lokal nusxani ham yangilaymiz
+    if (!db.settings) db.settings = {};
+    db.settings.adminEmail = d.email || email;
+    // ⚠️ Parol XESH bilan (auth.js dagi qoida)
+    if (pass && typeof sha256 === "function") {
+      db.settings.adminPass = await sha256(pass);
+    }
+    if (typeof getAuthUser === "function") {
+      const u = getAuthUser();
+      if (u) { u.email = d.email || email; if (typeof authSave === "function") authSave(u); }
+    }
+    saveDB();
+
+    ["s-admin-pass","s-admin-curpass"].forEach(id => {
+      const e = $(id); if (e) { e.value = ""; e.blur(); }
+    });
+
+    const nima = [];
+    if (d.changed?.email)    nima.push("login");
+    if (d.changed?.password) nima.push("parol");
+    toast(`✅ ${nima.join(" va ")} o'zgartirildi — keyingi kirishda ishlatiladi`);
+  } catch (e) {
+    toast("⚠️ Serverga ulanib bo'lmadi: " + e.message, "err");
+  }
 }
 
 // ── renderEgasi (renderAdmin) — barcha tablarni to'ldiradi ──

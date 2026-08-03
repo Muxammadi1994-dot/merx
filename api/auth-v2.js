@@ -139,6 +139,117 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  // ══════════════════════════════════════════════════════════
+  // EGASI O'Z KIRISH MA'LUMOTINI O'ZGARTIRADI (2026-08-03)
+  // ══════════════════════════════════════════════════════════
+  // ⚠️ MUAMMO: `saveAdminCreds()` (egasi.js) faqat LOKAL bazaga
+  // yozardi — Supabase Auth hisobiga UMUMAN tegmasdi. Natijada
+  // egasi o'z loginini yoki parolini o'zgartirsa, keyingi kirishda
+  // `400 Invalid login credentials` chiqib, ilova `anon` yo'liga
+  // tushardi. Ustiga parol XESHSIZ saqlanardi.
+  //
+  // XAVFSIZLIK: SuperAdmin paroli talab qilinmaydi (egasi uni
+  // bilmaydi), lekin JORIY PAROL majburiy — u serverda haqiqiy
+  // kirish bilan tekshiriladi. Ya'ni parolni bilmagan odam
+  // o'zgartira olmaydi.
+  if (action === "owner_update_creds") {
+    let body2;
+    try {
+      body2 = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+    } catch { return res.status(400).json({ ok: false, error: "invalid_json" }); }
+
+    const curEmail = (body2.currentEmail || "").trim().toLowerCase();
+    const curPass  = body2.currentPassword || "";
+    const newEmail = (body2.newEmail || "").trim().toLowerCase();
+    const newPass  = body2.newPassword || "";
+
+    if (!curEmail || !curPass) {
+      return res.status(400).json({ ok: false, error: "Joriy email va parol kerak" });
+    }
+    if (!newEmail && !newPass) {
+      return res.status(400).json({ ok: false, error: "O'zgartirish uchun yangi qiymat kerak" });
+    }
+    if (newPass && newPass.length < 6) {
+      return res.status(400).json({ ok: false, error: "Yangi parol kamida 6 belgi bo'lsin" });
+    }
+
+    try {
+      // ── 1) JORIY PAROLNI TEKSHIRAMIZ ──
+      // Haqiqiy kirish qilib ko'ramiz. Muvaffaqiyatsiz bo'lsa —
+      // o'zgartirishga huquq yo'q.
+      const ANON = process.env.SUPABASE_KEY || "";
+      const lr = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+        method: "POST",
+        headers: { apikey: ANON, "Content-Type": "application/json" },
+        body: JSON.stringify({ email: curEmail, password: curPass })
+      });
+      if (!lr.ok) {
+        return res.status(401).json({ ok: false, error: "Joriy parol noto'g'ri" });
+      }
+      const sess = await lr.json();
+      const uid  = sess?.user?.id;
+      if (!uid) return res.status(500).json({ ok: false, error: "Hisob aniqlanmadi" });
+
+      // ── 2) YANGI EMAIL band emasligini tekshiramiz ──
+      if (newEmail && newEmail !== curEmail) {
+        const fr = await fetch(`${SB_URL}/auth/v1/admin/users?page=1&per_page=1000`,
+          { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+        const fd = fr.ok ? await fr.json() : {};
+        const band = (fd?.users || []).find(
+          u => u.email?.toLowerCase() === newEmail && u.id !== uid);
+        if (band) {
+          return res.status(409).json({ ok: false,
+            error: `"${newEmail}" allaqachon band — boshqa email tanlang` });
+        }
+      }
+
+      // ── 3) AUTH HISOBINI YANGILAYMIZ ──
+      const payload = {};
+      if (newEmail && newEmail !== curEmail) {
+        payload.email = newEmail;
+        payload.email_confirm = true;
+      }
+      if (newPass) payload.password = newPass;
+
+      if (Object.keys(payload).length) {
+        const ur = await fetch(`${SB_URL}/auth/v1/admin/users/${uid}`, {
+          method: "PUT",
+          headers: {
+            apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!ur.ok) {
+          const ud = await ur.json().catch(() => ({}));
+          return res.status(500).json({ ok: false,
+            error: "Auth hisobi yangilanmadi: " + (ud.msg || ur.status) });
+        }
+      }
+
+      // ── 4) `shops.owner_email` ni ham moslaymiz ──
+      if (newEmail && newEmail !== curEmail && body2.shopId) {
+        try {
+          await fetch(
+            `${SB_URL}/rest/v1/shops?id=eq.${encodeURIComponent(body2.shopId)}`, {
+            method: "PATCH",
+            headers: {
+              apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+              "Content-Type": "application/json", Prefer: "return=minimal"
+            },
+            body: JSON.stringify({ owner_email: newEmail })
+          });
+        } catch (e) { console.warn("shops.owner_email:", e.message); }
+      }
+
+      return res.status(200).json({ ok: true,
+        email: newEmail || curEmail,
+        changed: { email: !!(newEmail && newEmail !== curEmail), password: !!newPass } });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
   // Ochiq: klient ulanish sozlamalari. Anon kalit ochiq bo'lishi normal —
   // himoya RLS zimmasida. Busiz toza qurilma bulutga ulana olmasdi.
   if (action === "client_config") {
