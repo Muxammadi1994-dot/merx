@@ -1400,7 +1400,16 @@ async function saFetchShopsFromCloud() {
     renderSaShops();
     // Statistikani ham yangilaymiz
     const dashEl = document.getElementById("sa-dashboard");
-    if (dashEl) dashEl.innerHTML = buildSaDashboard();
+    if (dashEl) {
+      dashEl.innerHTML = buildSaDashboard();
+      // ⚠️ 2026-08-03: DASHBOARD QAYTA CHIZILGACH RAQAMLAR TIKLANADI.
+      // Server holati va moliya raqamlari `id` orqali to'ldiriladi.
+      // Dashboard qayta chizilganda ular BO'SHAB qolardi — shuning
+      // uchun birinchi ochilishda "—" turib, faqat oyna ochilgach
+      // to'lardi.
+      try { saRenderFinKpi(); } catch(e) {}
+      try { saLoadServerStats(); } catch(e) {}
+    }
   }
   console.log(`✅ Supabase'dan ${d.shops.length} ta do'kon yuklandi`);
   } catch(e) { console.warn("saFetchShopsFromCloud xato:", e.message); }
