@@ -747,8 +747,9 @@ module.exports = async function handler(req, res) {
       if (op === "load") {
         const [tf, inc, exp] = await Promise.all([
           fetch(`${SB_URL}/rest/v1/sa_tariffs?select=*&order=sort_order`, { headers: H }),
-          fetch(`${SB_URL}/rest/v1/sa_income?select=*&order=date.desc&limit=500`, { headers: H }),
-          fetch(`${SB_URL}/rest/v1/sa_expense?select=*&order=date.desc&limit=500`, { headers: H })
+          // 2026-08-03: bir kunda qo'shilganlar ham yangisi tepada
+          fetch(`${SB_URL}/rest/v1/sa_income?select=*&order=date.desc,created_at.desc&limit=500`, { headers: H }),
+          fetch(`${SB_URL}/rest/v1/sa_expense?select=*&order=date.desc,created_at.desc&limit=500`, { headers: H })
         ]);
         return res.status(200).json({
           ok: true,

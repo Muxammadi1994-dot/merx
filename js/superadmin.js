@@ -474,7 +474,9 @@ function buildSaPanel() {
             </div>
             <div>
               <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna turi</label>
-              <select id="sa-new-plan" style="${saInputStyle()}">
+              <!-- 2026-08-03: obuna turi o'zgarsa narx ham yangilanadi
+                   (yillik tanlansa YILLIK narx tortiladi) -->
+              <select id="sa-new-plan" onchange="saNewTierPrice()" style="${saInputStyle()}">
                 <option value="trial">🧪 Sinov (30 kun)</option>
                 <option value="monthly">📅 Oylik</option>
                 <option value="yearly">📆 Yillik</option>
@@ -494,7 +496,7 @@ function buildSaPanel() {
               </select>
             </div>
             <div>
-              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna narxi (so'm/oy)</label>
+              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase"><span id="sa-new-price-lbl">Obuna narxi</span></label>
               <input id="sa-new-price" type="number" min="0" step="10000"
                 placeholder="Masalan: 349000" style="${saInputStyle()}">
             </div>
@@ -884,10 +886,17 @@ async function saFinAdd(kind) {
   } catch (e) { showSaToast("⚠️ " + e.message, "err"); }
 }
 
+// ⚠️ 2026-08-03: RO'YXAT CHEKLANADI.
+// Yozuvlar to'planib borsa oyna cheksiz uzayardi. Endi oxirgi
+// 20 tasi ko'rsatiladi, ro'yxat o'z ichida aylanadi, pastda
+// "hammasini ko'rish" tugmasi bor.
+let _saFinAll = false;
+
 function saFinRenderList(kind) {
   const el = document.getElementById("fin-list"); if (!el) return;
   const isInc = kind === "income";
-  const rows = (isInc ? _saFin.income : _saFin.expense) || [];
+  const hammasi = (isInc ? _saFin.income : _saFin.expense) || [];
+  const rows = _saFinAll ? hammasi : hammasi.slice(0, 20);
   const money = r => (r.currency === "usd" ? "$" : "") +
     (+r.amount || 0).toLocaleString("ru-RU", { maximumFractionDigits: 2 }) +
     (r.currency === "usd" ? "" : " so'm");
@@ -896,7 +905,17 @@ function saFinRenderList(kind) {
       Hali yozuv yo'q</div>`;
     return;
   }
-  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
+  const jami = hammasi.length;
+  const yigindi = _saSum(hammasi);
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;
+      margin-bottom:7px;font-size:12.5px;color:#334155">
+      <span>Jami <b style="color:#0D1B2A">${jami}</b> yozuv</span>
+      <span>Yig'indi: <b style="color:${isInc ? "#047857" : "#DC2626"}">
+        ${Math.round(yigindi).toLocaleString("ru-RU")} so'm</b></span>
+    </div>
+    <div style="max-height:300px;overflow-y:auto;border:1px solid #E5E7EB;border-radius:10px">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
     <thead><tr style="background:#F9FAFB">
       <th style="text-align:left;padding:8px 10px;font-size:11.5px;color:#334155">SANA</th>
       <th style="text-align:left;padding:8px 10px;font-size:11.5px;color:#334155">
@@ -916,7 +935,11 @@ function saFinRenderList(kind) {
       <td style="padding:8px 6px;text-align:right">
         <button onclick="saFinDel('${kind}',${r.id})" title="O'chirish"
           style="background:none;border:none;color:#DC2626;cursor:pointer;font-size:14px">🗑</button></td>
-    </tr>`).join("")}</tbody></table>`;
+    </tr>`).join("")}</tbody></table></div>
+    ${jami > 20 ? `<button onclick="_saFinAll=!_saFinAll;saFinRenderList('${kind}')"
+      style="width:100%;margin-top:8px;background:#F9FAFB;border:1px solid #E5E7EB;
+      color:#334155;border-radius:8px;padding:7px;font-size:12.5px;cursor:pointer;
+      font-family:inherit">${_saFinAll ? "Kamroq ko'rsatish" : `Hammasini ko'rish (${jami})`}</button>` : ""}`;
 }
 
 async function saFinDel(kind, id) {
@@ -935,15 +958,29 @@ async function saFinDel(kind, id) {
 // Narx `sa_tariffs` dan — Narxlar oynasida belgilanadi.
 // Qo'lda o'zgartirish mumkin: alohida do'konga chegirma berish uchun.
 function saNewTierPrice() {
-  const id = document.getElementById("sa-new-tier")?.value;
-  const p  = document.getElementById("sa-new-price");
+  const id   = document.getElementById("sa-new-tier")?.value;
+  const plan = document.getElementById("sa-new-plan")?.value || "monthly";
+  const p    = document.getElementById("sa-new-price");
+  const lbl  = document.getElementById("sa-new-price-lbl");
   if (!p) return;
-  const t  = (_saTariffs || []).find(x => x.id === id);
-  // ⚠️ 2026-08-03: narx qo'yilmagan bo'lsa OCHIQ aytamiz.
+  const t = (_saTariffs || []).find(x => x.id === id);
   if (!t) { p.placeholder = "Tariflar yuklanmadi"; return; }
-  const mo = +t.price_month || 0;
-  if (mo > 0) { p.value = Math.round(mo); p.placeholder = "Masalan: 349000"; }
-  else { p.placeholder = "Narxlar oynasida tarif narxini kiriting"; }
+
+  // ⚠️ 2026-08-03: DAVRGA QARAB NARX.
+  // Avval oyna faqat OYLIK narxni tortardi — yillik tanlansa ham
+  // o'sha chiqardi. Sarlavhada ham "(so'm/oy)" qotib qolgandi.
+  const yillik = plan === "yearly";
+  const amt = yillik ? (+t.price_year || 0) : (+t.price_month || 0);
+  const bir = t.currency === "usd" ? "$" : "so'm";
+
+  if (lbl) lbl.textContent = plan === "trial"    ? "Obuna narxi (sinov)"
+                           : plan === "lifetime" ? `Obuna narxi (${bir}, umrlik)`
+                           : yillik              ? `Obuna narxi (${bir}/yil)`
+                           :                       `Obuna narxi (${bir}/oy)`;
+
+  if (plan === "trial") { p.value = ""; p.placeholder = "Sinov — bepul"; return; }
+  if (amt > 0) { p.value = Math.round(amt); p.placeholder = "0"; }
+  else { p.value = ""; p.placeholder = "Narxlar oynasida tarif narxini kiriting"; }
 }
 
 function renderSaShops() {
