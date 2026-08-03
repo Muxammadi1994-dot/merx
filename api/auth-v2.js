@@ -759,6 +759,27 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      // ── DO'KON FAOLLIGI (2026-08-03) ──
+      // Har do'konning oxirgi sotuv sanasi va bugungi soni.
+      // Avval bu `localStorage` dan olinardi — SuperAdmin kirmagan
+      // do'kon "Ma'lumot yo'q" ko'rsatardi. Endi BULUTDAN.
+      if (op === "activity") {
+        const bugun = new Date().toISOString().slice(0, 10);
+        const r = await fetch(
+          `${SB_URL}/rest/v1/sales?select=shop_id,date&order=date.desc&limit=20000`,
+          { headers: H });
+        if (!r.ok) return res.status(500).json({ ok: false, error: await r.text() });
+        const rows = await r.json();
+        const map = {};
+        for (const x of (rows || [])) {
+          const sid = x.shop_id; if (!sid) continue;
+          if (!map[sid]) map[sid] = { last: null, today: 0 };
+          if (!map[sid].last || x.date > map[sid].last) map[sid].last = x.date;
+          if (x.date === bugun) map[sid].today++;
+        }
+        return res.status(200).json({ ok: true, activity: map });
+      }
+
       // ── TARIF SAQLASH ──
       if (op === "save_tariff") {
         const t = body.tariff || {};

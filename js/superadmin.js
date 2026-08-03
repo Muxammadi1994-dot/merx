@@ -182,20 +182,15 @@ async function saDoLogin() {
 // ── Dashboard statistika ─────────────────────────
 function buildSaDashboard() {
   let totalRev = 0, totalSales = 0, totalCust = 0, totalProd = 0, monthRev = 0, monthSales = 0;
-  let todayRev = 0, todaySales = 0, totalDebt = 0;
-  const m = new Date().toISOString().slice(0,7);
-  _saShops.forEach(shop => {
-    const s = saGetShopStats(shop); if (!s) return;
-    totalRev   += s.totalRev;   totalSales += s.salesCnt;
-    totalCust  += s.custCnt;    totalProd  += s.prodCnt;
-    monthRev   += s.monthRev;   monthSales += s.monthCnt;
-    todayRev   += s.todayRev||0; todaySales += s.todayCnt||0;
-    totalDebt  += s.totalDebt||0;
-  });
+  // ⚠️ 2026-08-03: O'LIK KOD OLIB TASHLANDI.
+  // Pul kartalari (Jami tushum, Bugungi, Jami qarz) olib
+  // tashlangach bu hisob-kitob HECH QAYERDA ishlatilmaydi.
+  // Ustiga u `localStorage` dan o'qirdi — kirilmagan do'kon
+  // uchun baribir nol berardi.
   const fmt = n => n>=1000000?(n/1000000).toFixed(1)+"M":n>=1000?(n/1000).toFixed(0)+"K":String(n||0);
   const active   = _saShops.filter(s=>saIsActive(s)).length;
   const expired  = _saShops.filter(s=>saIsExpired(s)).length;
-  const inactive = _saShops.filter(s=>{ const st=saGetShopStats(s); return st && !st.isActive7; }).length;
+  // `inactive` ham ishlatilmaydi — "Faolsiz" kartasi olib tashlangan
   // 3 kun ichida muddati tugaydiganlar
   const soon3 = _saShops.filter(s=>{
     if (!s.expiresAt || s.plan==="lifetime") return false;
@@ -656,6 +651,16 @@ let _saFin = { income: [], expense: [], tariffs: [] };
 // 2026-08-03: joriy Markaziy bank kursi — kartada ko'rsatiladi
 // va yangi yozuvlarda shu muzlatiladi.
 let _saRate = 0;
+// 2026-08-03: do'kon faolligi BULUTDAN (avval localStorage dan
+// olinardi va kirilmagan do'kon "Ma'lumot yo'q" ko'rsatardi).
+let _saAct = {};
+
+async function saLoadActivity() {
+  try {
+    const d = await _saApi("sa_finance", { op: "activity" });
+    if (d && d.ok) { _saAct = d.activity || {}; renderSaShops(); }
+  } catch (e) { console.warn("faollik:", e.message); }
+}
 
 async function saLoadRate() {
   try {
@@ -1083,6 +1088,7 @@ function renderSaShops() {
     try { saLoadServerStats(); } catch(e) {}
     try { saLoadFinance(); } catch(e) {}
     try { saLoadRate(); } catch(e) {}
+    try { saLoadActivity(); } catch(e) {}
   }
   // 2026-08-03: sarlavhadagi do'kon soni ro'yxat kelgach yangilanadi
   try {
@@ -1194,19 +1200,26 @@ function renderSaShops() {
             </td>
             <td style="padding:13px 16px">
               ${(()=>{
-                const st = saGetShopStats(s);
-                if (!st) return '<span style="font-size:13px;color:#334155">Ma\u02BClumo\u02BC yo\u02BCq</span>';
-                const lastD = st.lastSale;
-                const today2 = new Date().toISOString().slice(0,10);
-                const diffDays = lastD ? Math.floor((new Date(today2)-new Date(lastD))/86400000) : null;
-                let actClr = "#059669", actTxt = "🟢 Faol";
-                if (diffDays===null)       { actClr="#334155"; actTxt="⚪ Sotuvсиз"; }
-                else if (diffDays===0)     { actClr="#059669"; actTxt="🟢 Bugun"; }
-                else if (diffDays<=7)      { actClr="#D97706"; actTxt="🟡 "+diffDays+"k oldin"; }
-                else if (diffDays<=30)     { actClr="#F97316"; actTxt="🟠 "+diffDays+"k oldin"; }
-                else                       { actClr="#DC2626"; actTxt="🔴 "+diffDays+"k oldin"; }
-                return '<div style="font-size:13px;font-weight:600;color:'+actClr+'">'+actTxt+'</div>'
-                  +(st.todayCnt>0?'<div style="font-size:13.5px;color:#334155">Bugun: '+st.todayCnt+' sotuv</div>':'');
+                // 2026-08-03: BULUTDAN. Matndagi kirill harflari ham
+                // tuzatildi ("Sotuvсиз" da s va i kirill edi).
+                const key = s.cloudShopId || s.shop_id || s.id;
+                const st  = _saAct[key];
+                if (!st) return '<span style="font-size:13px;color:#334155">—</span>';
+                const p2 = n => String(n).padStart(2,"0");
+                const d  = new Date();
+                const bugun = `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+                const kun = st.last
+                  ? Math.floor((new Date(bugun) - new Date(st.last)) / 86400000) : null;
+                let clr = "#334155", txt = "⚪ Sotuvsiz";
+                if (kun === 0)      { clr = "#059669"; txt = "🟢 Bugun"; }
+                else if (kun === null) {}
+                else if (kun <= 7)  { clr = "#D97706"; txt = "🟡 " + kun + " kun oldin"; }
+                else if (kun <= 30) { clr = "#F97316"; txt = "🟠 " + kun + " kun oldin"; }
+                else                { clr = "#DC2626"; txt = "🔴 " + kun + " kun oldin"; }
+                return '<div style="font-size:13px;font-weight:600;color:' + clr + '">' + txt + '</div>'
+                  + (st.today > 0
+                     ? '<div style="font-size:12.5px;color:#334155">Bugun: ' + st.today + ' sotuv</div>'
+                     : '');
               })()}
             </td>
             <td style="padding:13px 16px">
@@ -1997,7 +2010,16 @@ function saGetShopStats(shop) {
 
 function saShowStats(shopId) {
   const shop = _saShops.find(s=>s.id===shopId); if (!shop) return;
+  // ⚠️ 2026-08-03: BU OYNA HALI `localStorage` DAN O'QIYDI.
+  // Ya'ni SuperAdmin kirmagan do'kon uchun raqamlar BO'SH chiqadi.
+  // To'liq bulutga o'tkazish alohida ish (tushum, mijoz, tovar
+  // sonini har do'kon uchun serverdan olish kerak).
+  // Hozircha: ma'lumot yo'q bo'lsa ochiq aytamiz.
   const stats = saGetShopStats(shop);
+  if (!stats) {
+    showSaToast("Bu do'kon ma'lumoti bu qurilmada yo'q — " +
+                "batafsil ko'rish uchun do'konga kiring", "err");
+  }
   document.getElementById("sa-stats-modal")?.remove();
   const modal = document.createElement("div");
   modal.id = "sa-stats-modal";
@@ -2218,17 +2240,34 @@ function saCheckExpiringSoon() {
 
 // ── Faolsiz do'konlar hisoboti ────────────────────
 function saShowInactiveShops() {
+  // ⚠️ 2026-08-03: BULUTDAGI MA'LUMOTDAN.
+  // Avval `localStorage` dan o'qirdi — SuperAdmin kirmagan do'kon
+  // ro'yxatga UMUMAN tushmasdi (`if (!st) return false`), ya'ni
+  // aynan tekshirilishi kerak bo'lgan do'konlar ko'rinmasdi.
+  if (!Object.keys(_saAct || {}).length) {
+    showSaToast("Ma'lumot yuklanmoqda — bir soniyadan keyin urining");
+    try { saLoadActivity(); } catch(e) {}
+    return;
+  }
+  const p2 = n => String(n).padStart(2, "0");
+  const d  = new Date();
+  const bugun = `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+  const kunlar = (last) => last
+    ? Math.floor((new Date(bugun) - new Date(last)) / 86400000) : null;
+
   const inactive = _saShops.filter(s => {
-    const st = saGetShopStats(s); if (!st) return false;
-    return !st.isActive30;
+    const st = _saAct[s.cloudShopId || s.shop_id || s.id];
+    const k  = kunlar(st && st.last);
+    return k === null || k > 30;        // sotuvsiz yoki 30 kundan ko'p
   });
 
   if (!inactive.length) { showSaToast("Barcha do'konlar faol ✅"); return; }
 
   const list = inactive.map(s => {
-    const st = saGetShopStats(s);
-    const last = st?.lastSale || "hech qachon";
-    return `• ${s.name} — oxirgi sotuv: ${last}`;
+    const st = _saAct[s.cloudShopId || s.shop_id || s.id];
+    const last = (st && st.last) || "hech qachon";
+    const k = kunlar(st && st.last);
+    return `• ${s.name} — oxirgi sotuv: ${last}${k !== null ? ` (${k} kun)` : ""}`;
   }).join("\n");
 
   alert(`😴 Faolsiz do'konlar (30 kunda sotuvsiz, ${inactive.length} ta):\n\n${list}`);
