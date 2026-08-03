@@ -214,8 +214,8 @@ function buildSaDashboard() {
       ${[
         {lbl:"Jami do'konlar",  val:_saShops.length+" ta",  clr:"#0D1B2A", ico:"ti-building-store", sub:""},
         {lbl:"Faol",            val:active+" ta",            clr:"#059669", ico:"ti-circle-check",   sub:"obunalar"},
-        {lbl:"Muddati o'tgan",  val:expired+" ta",           clr:expired?"#DC2626":"#4B5563", ico:"ti-clock-x", sub:""},
-        {lbl:"3 kunda tugaydi", val:soon3+" ta",             clr:soon3?"#D97706":"#4B5563",   ico:"ti-alert-triangle", sub:"diqqat!"},
+        {lbl:"Muddati o'tgan",  val:expired+" ta",           clr:expired?"#DC2626":"#334155", ico:"ti-clock-x", sub:""},
+        {lbl:"3 kunda tugaydi", val:soon3+" ta",             clr:soon3?"#D97706":"#334155",   ico:"ti-alert-triangle", sub:"diqqat!"},
         // 2026-08-03: "Faolsiz (7 kun)" olib tashlandi — u localStorage
         // dan hisoblanardi, SuperAdmin kirmagan do'kon har doim
         // "faolsiz" ko'rinardi. Noto'g'ri ma'lumot.
@@ -226,8 +226,8 @@ function buildSaDashboard() {
             <i class="ti ${k.ico}" style="font-size:14px;color:${k.clr}"></i>
             <div style="font-size:10px;color:#374151;font-weight:700;text-transform:uppercase;letter-spacing:.04em">${k.lbl}</div>
           </div>
-          <div style="font-size:16px;font-weight:800;color:${k.clr}">${k.val}</div>
-          ${k.sub?`<div style="font-size:10px;color:#4B5563;margin-top:2px">${k.sub}</div>`:""}
+          <div style="font-size:19px;font-weight:800;color:${k.clr}">${k.val}</div>
+          ${k.sub?`<div style="font-size:10px;color:#334155;margin-top:2px">${k.sub}</div>`:""}
         </div>`).join("")}
     </div>
     <!-- 2-qator: Obuna -->
@@ -236,39 +236,39 @@ function buildSaDashboard() {
            Bugungi, Jami qarz) - ular qurilma xotirasidan
            hisoblanardi va kirilmagan do'konda NOL chiqardi. -->
 <div style="padding:8px 14px;border-right:1px solid #F3F4F6">
-        <div style="font-size:10px;color:#4B5563;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">💳 Obuna daromad</div>
-        <div style="font-size:18px;font-weight:800;color:#7C3AED">${fmt(monthlyIncome)} so'm</div>
-        <div style="font-size:11px;color:#4B5563;margin-top:2px">${active} faol do'kon</div>
+        <div style="font-size:11.5px;color:#334155;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">💳 Obuna daromad</div>
+        <div style="font-size:20px;font-weight:800;color:#7C3AED">${fmt(monthlyIncome)} so'm</div>
+        <div style="font-size:12.5px;color:#334155;margin-top:2px">${active} faol do'kon</div>
       </div>
       <div style="padding:12px 16px">
-        <div style="font-size:10px;color:#4B5563;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Obuna turlari</div>
+        <div style="font-size:11.5px;color:#334155;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Obuna turlari</div>
         ${[["🧪",plans.trial,"#D97706","Sinov"],["📅",plans.monthly,"#2563EB","Oylik"],
            ["📆",plans.yearly,"#059669","Yillik"],["♾️",plans.lifetime,"#7C3AED","Umrlik"]]
           .map(([e,v,c,l])=>`<div style="display:flex;justify-content:space-between;margin-bottom:2px">
-            <span style="font-size:11px;color:#374151">${e} ${l}</span>
-            <span style="font-size:11px;font-weight:700;color:${c}">${v}</span>
+            <span style="font-size:12.5px;color:#1F2937">${e} ${l}</span>
+            <span style="font-size:12.5px;font-weight:800;color:${c}">${v}</span>
           </div>
 `).join("")}
       </div>
 <!-- SERVER HOLATI (2026-08-03) — obuna qatoriga qo'shildi,
            shunda hamma karta IKKI QATORGA sig'adi. -->
       <div style="padding:8px 14px;border-right:1px solid #F3F4F6">
-        <div style="font-size:10px;color:#4B5563;font-weight:700;text-transform:uppercase;
+        <div style="font-size:11.5px;color:#334155;font-weight:800;text-transform:uppercase;
           letter-spacing:.04em;margin-bottom:3px">🗄 Baza</div>
-        <div id="sa-db-val" style="font-size:16px;font-weight:800;color:#0D1B2A">—</div>
-        <div id="sa-db-sub" style="font-size:10.5px;color:#4B5563;margin-top:1px">—</div>
+        <div id="sa-db-val" style="font-size:19px;font-weight:800;color:#0D1B2A">—</div>
+        <div id="sa-db-sub" style="font-size:12px;color:#334155;margin-top:1px">—</div>
       </div>
       <div style="padding:8px 14px;border-right:1px solid #F3F4F6">
-        <div style="font-size:10px;color:#4B5563;font-weight:700;text-transform:uppercase;
+        <div style="font-size:11.5px;color:#334155;font-weight:800;text-transform:uppercase;
           letter-spacing:.04em;margin-bottom:3px">🖼 Rasmlar</div>
-        <div id="sa-img-val" style="font-size:16px;font-weight:800;color:#0D1B2A">—</div>
-        <div id="sa-img-sub" style="font-size:10.5px;color:#4B5563;margin-top:1px">—</div>
+        <div id="sa-img-val" style="font-size:19px;font-weight:800;color:#0D1B2A">—</div>
+        <div id="sa-img-sub" style="font-size:12px;color:#334155;margin-top:1px">—</div>
       </div>
       <div style="padding:8px 14px">
-        <div style="font-size:10px;color:#4B5563;font-weight:700;text-transform:uppercase;
+        <div style="font-size:11.5px;color:#334155;font-weight:800;text-transform:uppercase;
           letter-spacing:.04em;margin-bottom:3px">📊 Eng katta jadval</div>
-        <div id="sa-tbl-val" style="font-size:16px;font-weight:800;color:#0D1B2A">—</div>
-        <div id="sa-tbl-sub" style="font-size:10.5px;color:#4B5563;margin-top:1px">—</div>
+        <div id="sa-tbl-val" style="font-size:19px;font-weight:800;color:#0D1B2A">—</div>
+        <div id="sa-tbl-sub" style="font-size:12px;color:#334155;margin-top:1px">—</div>
       </div>
     </div>
       
@@ -291,7 +291,7 @@ function buildSaPanel() {
             <i class="ti ti-shield-bolt" style="font-size:20px;color:#0D1B2A"></i>
           </div>
           <div>
-            <div style="font-size:16px;font-weight:800;color:#fff">Super Admin Panel</div>
+            <div style="font-size:19px;font-weight:800;color:#fff">Super Admin Panel</div>
             <!-- 2026-08-03: matn soddalashtirildi. Avval "0 ta do'kon
                  boshqaruvi" deb turardi — ro'yxat yuklanmagan paytda
                  nol chiqib, keyin yangilanmasdi. Endi id bilan
@@ -327,7 +327,7 @@ function buildSaPanel() {
         </button>
         <div style="position:relative">
           <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);
-            color:#4B5563;font-size:14px"></i>
+            color:#334155;font-size:14px"></i>
           <input id="sa-q" placeholder="Do'kon qidirish..."
             oninput="renderSaShops()"
             style="background:#fff;border:1.5px solid #E5E7EB;color:#111;
@@ -399,7 +399,7 @@ function buildSaPanel() {
         <div style="background:#fff;border-radius:16px;padding:28px;width:520px;
           max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.2)">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-            <div style="font-size:16px;font-weight:800;color:#0D1B2A">
+            <div style="font-size:19px;font-weight:800;color:#0D1B2A">
               <i class="ti ti-building-store" style="color:#E9A500"></i> Yangi do'kon qo'shish
             </div>
             <button onclick="document.getElementById('sa-add-modal').style.display='none'"
@@ -409,36 +409,36 @@ function buildSaPanel() {
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
             <div>
-              <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon nomi *</label>
+              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon nomi *</label>
               <input id="sa-new-name" placeholder="Fashion Store" style="${saInputStyle()}">
             </div>
             <div>
-              <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Egasi ismi *</label>
+              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Egasi ismi *</label>
               <input id="sa-new-owner" placeholder="Alisher Karimov" style="${saInputStyle()}">
             </div>
             <div>
-              <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Login (email) *</label>
+              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Login (email) *</label>
               <input id="sa-new-login" placeholder="alisher@gmail.com" style="${saInputStyle()}"
                 oninput="saPreviewLogin()">
-              <div id="sa-login-preview" style="font-size:11px;color:#4B5563;margin-top:4px"></div>
+              <div id="sa-login-preview" style="font-size:12.5px;color:#334155;margin-top:4px"></div>
             </div>
             <div>
-              <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Telefon raqam</label>
+              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Telefon raqam</label>
               <input id="sa-new-phone" placeholder="+998 90 123 45 67" style="${saInputStyle()}">
             </div>
             <div>
-              <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon paroli *</label>
+              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon paroli *</label>
               <div style="position:relative">
                 <input id="sa-new-pass" type="password" placeholder="Kirish paroli" style="${saInputStyle()}">
                 <button onclick="var i=document.getElementById('sa-new-pass');i.type=i.type==='password'?'text':'password'"
                   style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
-                  background:none;border:none;cursor:pointer;color:#4B5563;padding:0">
+                  background:none;border:none;cursor:pointer;color:#334155;padding:0">
                   <i class="ti ti-eye" style="font-size:15px"></i>
                 </button>
               </div>
             </div>
             <div>
-              <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon turi *</label>
+              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon turi *</label>
               <select id="sa-new-shoptype" style="${saInputStyle()}">
                 <option value="ikki">🧩 Oyoq kiyim + Kiyim</option>
                 <option value="oyoq">👟 Faqat Oyoq kiyim</option>
@@ -447,7 +447,7 @@ function buildSaPanel() {
               </select>
             </div>
             <div>
-              <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna turi</label>
+              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna turi</label>
               <select id="sa-new-plan" style="${saInputStyle()}">
                 <option value="trial">🧪 Sinov (30 kun)</option>
                 <option value="monthly">📅 Oylik</option>
@@ -457,19 +457,19 @@ function buildSaPanel() {
             </div>
             <!-- 2026-07-26: yangi do'kon uchun tarif, narx va valyuta -->
             <div>
-              <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna tarifi</label>
+              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna tarifi</label>
               <select id="sa-new-tier" style="${saInputStyle()}">
                 <option value="pro">Pro (hammasi ochiq)</option>
                 <option value="start">Start (bot yopiq)</option>
               </select>
             </div>
             <div>
-              <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna narxi (so'm/oy)</label>
+              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna narxi (so'm/oy)</label>
               <input id="sa-new-price" type="number" min="0" step="10000"
                 placeholder="Masalan: 349000" style="${saInputStyle()}">
             </div>
             <div>
-              <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Valyuta rejimi</label>
+              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Valyuta rejimi</label>
               <select id="sa-new-curmode" style="${saInputStyle()}">
                 <option value="uzs">So'm (faqat so'm)</option>
                 <option value="usd">Dollar (faqat $)</option>
@@ -628,7 +628,7 @@ function renderSaShops() {
   if (_saFilter === "Sinov")          list = list.filter(s => s.plan === "trial");
 
   if (!list.length) {
-    el.innerHTML = `<div style="text-align:center;padding:60px;color:#4B5563;font-size:14px">
+    el.innerHTML = `<div style="text-align:center;padding:60px;color:#334155;font-size:14px">
       <i class="ti ti-building-off" style="font-size:40px;display:block;margin-bottom:12px"></i>
       ${q ? `"${q}" topilmadi` : "Do'konlar yo'q"}</div>`;
     return;
@@ -642,21 +642,21 @@ function renderSaShops() {
       <thead>
         <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
           <!-- 2026-08-03: tartib raqami ustuni -->
-          <th style="text-align:center;padding:10px 8px;color:#374151;font-size:11px;
+          <th style="text-align:center;padding:10px 8px;color:#374151;font-size:13.5px;
             text-transform:uppercase;letter-spacing:.05em;font-weight:700;width:42px">№</th>
-          <th style="text-align:left;padding:10px 16px;color:#374151;font-size:11px;
+          <th style="text-align:left;padding:10px 16px;color:#374151;font-size:13.5px;
             text-transform:uppercase;letter-spacing:.05em;font-weight:700">Do'kon</th>
-          <th style="text-align:left;padding:10px 16px;color:#374151;font-size:11px;
+          <th style="text-align:left;padding:10px 16px;color:#374151;font-size:13.5px;
             text-transform:uppercase;letter-spacing:.05em;font-weight:700">Egasi · Login</th>
-          <th style="text-align:left;padding:10px 16px;color:#374151;font-size:11px;
+          <th style="text-align:left;padding:10px 16px;color:#374151;font-size:13.5px;
             text-transform:uppercase;letter-spacing:.05em;font-weight:700">Obuna</th>
-          <th style="text-align:left;padding:10px 16px;color:#374151;font-size:11px;
+          <th style="text-align:left;padding:10px 16px;color:#374151;font-size:13.5px;
             text-transform:uppercase;letter-spacing:.05em;font-weight:700">Muddat</th>
-          <th style="text-align:left;padding:10px 16px;color:#374151;font-size:11px;
+          <th style="text-align:left;padding:10px 16px;color:#374151;font-size:13.5px;
             text-transform:uppercase;letter-spacing:.05em;font-weight:700">Faollik</th>
-          <th style="text-align:left;padding:10px 16px;color:#374151;font-size:11px;
+          <th style="text-align:left;padding:10px 16px;color:#374151;font-size:13.5px;
             text-transform:uppercase;letter-spacing:.05em;font-weight:700">Holat</th>
-          <th style="padding:10px 16px;color:#374151;font-size:11px;
+          <th style="padding:10px 16px;color:#374151;font-size:13.5px;
             text-transform:uppercase;letter-spacing:.05em;font-weight:700;text-align:center">Amallar</th>
         </tr>
       </thead>
@@ -674,8 +674,8 @@ function renderSaShops() {
           return `<tr style="border-bottom:1px solid #F3F4F6;transition:background .1s"
             onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''">
             <!-- 2026-08-03: tartib raqami -->
-            <td style="padding:13px 8px;text-align:center;color:#4B5563;
-              font-size:12px;font-weight:700">${_i + 1}</td>
+            <td style="padding:13px 8px;text-align:center;color:#334155;
+              font-size:13px;font-weight:700">${_i + 1}</td>
             <td style="padding:13px 16px">
               <div style="font-weight:700;color:#111827;cursor:pointer;display:flex;align-items:center;gap:8px"
                 onclick="saShowStats('${s.id}')">
@@ -686,16 +686,16 @@ function renderSaShops() {
                 <div>
                   <div style="color:#0D1B2A;font-weight:700">${s.name}
                     <!-- 2026-07-26: obuna tarifi belgisi -->
-                    <span style="font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:20px;
+                    <span style="font-size:13.5px;font-weight:800;padding:2px 7px;border-radius:20px;
                       margin-left:6px;vertical-align:middle;
                       background:${(s.tier||"pro")==="pro" ? "#0D1B2A" : "#FEF3C7"};
                       color:${(s.tier||"pro")==="pro" ? "#fff" : "#92400E"}">
                       ${(s.tier||"pro")==="pro" ? "PRO" : "START"}
                     </span>
-                    ${s.priceUzs ? `<span style="font-size:10px;color:#374151;margin-left:5px">
+                    ${s.priceUzs ? `<span style="font-size:11.5px;color:#374151;margin-left:5px">
                       ${Number(s.priceUzs).toLocaleString("ru-RU")} so'm/oy</span>` : ""}
                   </div>
-                  <div style="font-size:11px;color:#4B5563;font-family:monospace">
+                  <div style="font-size:13.5px;color:#334155;font-family:monospace">
                     ${s.id.slice(0,24)}...
                   </div>
                 </div>
@@ -703,40 +703,40 @@ function renderSaShops() {
             </td>
             <td style="padding:13px 16px">
               <div style="font-weight:600;color:#374151">${s.ownerName || "—"}</div>
-              <div style="font-size:12px;color:#374151;margin-top:2px">
-                <i class="ti ti-mail" style="font-size:11px"></i> ${login}
+              <div style="font-size:13px;color:#374151;margin-top:2px">
+                <i class="ti ti-mail" style="font-size:13.5px"></i> ${login}
               </div>
-              ${s.phone ? `<div style="font-size:12px;color:#4B5563">📞 ${s.phone}</div>` : ""}
+              ${s.phone ? `<div style="font-size:13px;color:#334155">📞 ${s.phone}</div>` : ""}
             </td>
             <td style="padding:13px 16px">
               <span style="background:${planClr}18;color:${planClr};border:1px solid ${planClr}40;
-                border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700">
+                border-radius:6px;padding:3px 10px;font-size:13px;font-weight:700">
                 ${planLabels[s.plan]||s.plan}
               </span>
             </td>
-            <td style="padding:13px 16px;font-size:12px;color:${expired?"#DC2626":"#374151"}">
+            <td style="padding:13px 16px;font-size:13px;color:${expired?"#DC2626":"#374151"}">
               ${s.plan==="lifetime" ? "<span style='color:#7C3AED;font-weight:700'>♾️ Cheksiz</span>" : expDate}
             </td>
             <td style="padding:13px 16px">
               ${(()=>{
                 const st = saGetShopStats(s);
-                if (!st) return '<span style="font-size:12px;color:#4B5563">Ma\u02BClumo\u02BC yo\u02BCq</span>';
+                if (!st) return '<span style="font-size:13px;color:#334155">Ma\u02BClumo\u02BC yo\u02BCq</span>';
                 const lastD = st.lastSale;
                 const today2 = new Date().toISOString().slice(0,10);
                 const diffDays = lastD ? Math.floor((new Date(today2)-new Date(lastD))/86400000) : null;
                 let actClr = "#059669", actTxt = "🟢 Faol";
-                if (diffDays===null)       { actClr="#4B5563"; actTxt="⚪ Sotuvсиз"; }
+                if (diffDays===null)       { actClr="#334155"; actTxt="⚪ Sotuvсиз"; }
                 else if (diffDays===0)     { actClr="#059669"; actTxt="🟢 Bugun"; }
                 else if (diffDays<=7)      { actClr="#D97706"; actTxt="🟡 "+diffDays+"k oldin"; }
                 else if (diffDays<=30)     { actClr="#F97316"; actTxt="🟠 "+diffDays+"k oldin"; }
                 else                       { actClr="#DC2626"; actTxt="🔴 "+diffDays+"k oldin"; }
-                return '<div style="font-size:12px;font-weight:600;color:'+actClr+'">'+actTxt+'</div>'
-                  +(st.todayCnt>0?'<div style="font-size:11px;color:#4B5563">Bugun: '+st.todayCnt+' sotuv</div>':'');
+                return '<div style="font-size:13px;font-weight:600;color:'+actClr+'">'+actTxt+'</div>'
+                  +(st.todayCnt>0?'<div style="font-size:13.5px;color:#334155">Bugun: '+st.todayCnt+' sotuv</div>':'');
               })()}
             </td>
             <td style="padding:13px 16px">
               <span style="background:${statusBg};color:${statusClr};
-                border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600">
+                border-radius:6px;padding:4px 10px;font-size:13px;font-weight:600">
                 ${statusText}
               </span>
             </td>
@@ -744,31 +744,31 @@ function renderSaShops() {
               <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">
                 <button onclick="saOpenShop('${s.id}')" title="Do'konga kirish"
                   style="background:#E9A500;border:none;color:#0D1B2A;border-radius:7px;
-                  padding:6px 10px;font-size:12px;cursor:pointer;font-weight:700">
+                  padding:6px 10px;font-size:13px;cursor:pointer;font-weight:700">
                   🔑</button>
                 <button onclick="saCopyBotLink('${s.id}')" title="Bot havolasini nusxalash"
                   style="background:#ECFDF5;border:1px solid #BBF7D0;color:#059669;
-                  border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer"
+                  border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer"
                   title="Bot havola">🔗</button>
                 <button onclick="saCopyOwnerLink('${s.id}')"
                   style="background:#FEF3C7;border:1px solid #FDE68A;color:#B45309;
-                  border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer"
+                  border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer"
                   title="EGA havolasi — do'kon egasini botga ulash">👑</button>
                 <button onclick="saEditShopFull('${s.id}')" title="Tahrirlash"
                   style="background:#EFF6FF;border:1px solid #BFDBFE;color:#2563EB;
-                  border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer">✏️</button>
+                  border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer">✏️</button>
                 <button onclick="saOpenBackups('${s.id}','${(s.name||'').replace(/'/g,'')}')" title="Zaxiralar (tiklash)"
                   style="background:#F5F3FF;border:1px solid #DDD6FE;color:#7C3AED;
-                  border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer">🗄️</button>
+                  border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer">🗄️</button>
                 <button onclick="saToggleShop('${s.id}')" title="${active?'Bloklash':'Faollashtirish'}"
                   style="background:${active?"#FEF2F2":"#ECFDF5"};
                   border:1px solid ${active?"#FECACA":"#BBF7D0"};
                   color:${active?"#DC2626":"#059669"};
-                  border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer">
+                  border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer">
                   ${active ? "🔒" : "✅"}</button>
                 <button onclick="saDeleteShop('${s.id}')" title="O'chirish"
                   style="background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;
-                  border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer">🗑️</button>
+                  border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer">🗑️</button>
               </div>
             </td>
           </tr>`;
@@ -934,7 +934,7 @@ async function saAddShop() {
     const d=document.createElement("div");
     d.style.cssText="position:fixed;inset:0;z-index:9999999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif";
     d.innerHTML=`<div style="background:#fff;border-radius:16px;padding:28px;width:440px;max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.3)">
-      <div style="font-size:16px;font-weight:800;color:#0D1B2A;margin-bottom:16px">✅ Do'kon yaratildi</div>
+      <div style="font-size:19px;font-weight:800;color:#0D1B2A;margin-bottom:16px">✅ Do'kon yaratildi</div>
       <div style="background:#F9FAFB;border-radius:10px;padding:14px;font-size:13px;line-height:2;margin-bottom:16px">
         <div><span style="color:#374151">Do'kon:</span> <strong>${name}</strong></div>
         <div><span style="color:#374151">Login:</span> <strong style="font-family:monospace">${loginEmail}</strong></div>
@@ -1123,56 +1123,56 @@ function saEditShopFull(id) {
     <div style="background:#fff;border-radius:16px;padding:28px;width:500px;
       max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.2)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-        <div style="font-size:16px;font-weight:800;color:#0D1B2A">✏️ Do'konni tahrirlash</div>
+        <div style="font-size:19px;font-weight:800;color:#0D1B2A">✏️ Do'konni tahrirlash</div>
         <button onclick="document.getElementById('sa-edit-modal').remove()"
           style="background:#F3F4F6;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;color:#374151;font-size:16px">✕</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div style="grid-column:1/-1">
-          <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon nomi *</label>
+          <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon nomi *</label>
           <input id="se-name" value="${s.name||""}" style="${iStyle}">
         </div>
         <div>
-          <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Egasi ismi</label>
+          <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Egasi ismi</label>
           <input id="se-owner" value="${s.ownerName||""}" style="${iStyle}">
         </div>
         <div>
-          <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Telefon raqam</label>
+          <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Telefon raqam</label>
           <input id="se-phone" value="${s.phone||""}" placeholder="+998 90 123 45 67" style="${iStyle}">
         </div>
         <div>
-          <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Login (email)</label>
+          <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Login (email)</label>
           <input id="se-login" value="${s.ownerEmail||""}" style="${iStyle}">
         </div>
         <div>
-          <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Yangi parol (bo'sh = o'zgarmaydi)</label>
+          <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Yangi parol (bo'sh = o'zgarmaydi)</label>
           <input id="se-pass" type="password" placeholder="••••••••" style="${iStyle}">
         </div>
         <div>
-          <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon turi</label>
+          <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon turi</label>
           <select id="se-shoptype" style="${iStyle}">${shopTypeOpts}</select>
         </div>
                 <div>
-          <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">
+          <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">
             Obuna tarifi
           </label>
           <select id="se-tier" style="${iStyle}">
             <option value="start"${(s.tier||"pro")==="start"?" selected":""}>Start (bot yopiq)</option>
             <option value="pro"${(s.tier||"pro")==="pro"?" selected":""}>Pro (hammasi ochiq)</option>
           </select>
-          <div style="font-size:10.5px;color:#4B5563;margin-top:4px;line-height:1.4">
+          <div style="font-size:12px;color:#334155;margin-top:4px;line-height:1.4">
             Start: bot, portal, Telegram chek va eslatmalar YOPIQ
           </div>
         </div>
         <div>
-          <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">
+          <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">
             Obuna narxi (so'm/oy)
           </label>
           <input id="se-price" type="number" min="0" step="10000"
             value="${s.priceUzs || ""}" placeholder="Masalan: 349000" style="${iStyle}">
         </div>
         <div>
-          <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">
+          <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">
             Valyuta rejimi
           </label>
           <select id="se-curmode" style="${iStyle}">
@@ -1180,16 +1180,16 @@ function saEditShopFull(id) {
             <option value="usd"${(s.currencyMode||"multi")==="usd"?" selected":""}>Dollar (faqat $)</option>
             <option value="multi"${(s.currencyMode||"multi")==="multi"?" selected":""}>Ko'p valyutali (do'kon tanlaydi)</option>
           </select>
-          <div style="font-size:10.5px;color:#4B5563;margin-top:4px;line-height:1.4">
+          <div style="font-size:12px;color:#334155;margin-top:4px;line-height:1.4">
             So'm yoki Dollar tanlansa — do'kon egasi valyutani o'zgartira olmaydi
           </div>
         </div>
 <div>
-          <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna turi</label>
+          <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Obuna turi</label>
           <select id="se-plan" style="${iStyle}" onchange="var d=document.getElementById('se-expires');if(this.value==='lifetime'){d.value='';d.disabled=true;}else{d.disabled=false;}">${planOpts}</select>
         </div>
         <div>
-          <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Muddat tugashi</label>
+          <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Muddat tugashi</label>
           <input id="se-expires" type="date" value="${expVal}" ${s.plan==="lifetime"?"disabled":""} style="${iStyle}">
         </div>
       </div>
@@ -1533,7 +1533,7 @@ function saShowStats(shopId) {
           style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
           color:#fff;border-radius:8px;padding:6px 12px;font-family:inherit;cursor:pointer;font-size:16px">✕</button>
       </div>
-      ${!stats ? `<div style="padding:48px;text-align:center;color:#4B5563">
+      ${!stats ? `<div style="padding:48px;text-align:center;color:#334155">
           <i class="ti ti-database-off" style="font-size:40px;display:block;margin-bottom:12px"></i>
           Bu do'konda hali ma'lumot yuklanmagan</div>` : `
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#E5E7EB">
@@ -1548,7 +1548,7 @@ function saShowStats(shopId) {
           {lbl:"Qoldiq",       val:stats.stockCnt+" dona",       clr:"#374151"},
           {lbl:"Bu oy sotuv",  val:stats.monthCnt+" ta",         clr:"#2563EB"},
         ].map(k=>`<div style="background:#fff;padding:14px 18px">
-          <div style="font-size:11px;color:#4B5563;font-weight:600;margin-bottom:4px;text-transform:uppercase">${k.lbl}</div>
+          <div style="font-size:12.5px;color:#334155;font-weight:600;margin-bottom:4px;text-transform:uppercase">${k.lbl}</div>
           <div style="font-size:15px;font-weight:800;color:${k.clr}">${k.val}</div>
         </div>`).join("")}
       </div>
@@ -1559,7 +1559,7 @@ function saShowStats(shopId) {
           {lbl:"Holat",   val:saIsActive(shop)?"✅ Faol":"❌ Nofaol"},
           {lbl:"Qo'shildi",val:shop.createdAt?.slice(0,10)||"—"},
         ].map(k=>`<div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:8px 14px">
-          <div style="font-size:10px;color:#4B5563;font-weight:600;text-transform:uppercase;margin-bottom:3px">${k.lbl}</div>
+          <div style="font-size:10px;color:#334155;font-weight:600;text-transform:uppercase;margin-bottom:3px">${k.lbl}</div>
           <div style="font-size:13px;font-weight:700;color:#111827">${k.val}</div>
         </div>`).join("")}
       </div>
@@ -1901,7 +1901,7 @@ function saOpenPriceSettings() {
   modal.style.cssText = "position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif";
   modal.innerHTML = `
     <div style="background:#fff;border-radius:16px;padding:28px;width:400px;max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.25)">
-      <div style="font-size:16px;font-weight:800;color:#0D1B2A;margin-bottom:20px">💳 Obuna narxlari</div>
+      <div style="font-size:19px;font-weight:800;color:#0D1B2A;margin-bottom:20px">💳 Obuna narxlari</div>
       <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px">
         <div>
           <label style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;display:block;margin-bottom:5px">📅 Oylik narx (so'm)</label>
@@ -2126,18 +2126,18 @@ async function saOpenBackups(shopId, shopName) {
       overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,.25)">
       <div style="padding:20px 24px;background:#0D1B2A;display:flex;align-items:center;justify-content:space-between">
         <div>
-          <div style="font-size:16px;font-weight:800;color:#E9A500">🗄️ Zaxiralar</div>
+          <div style="font-size:19px;font-weight:800;color:#E9A500">🗄️ Zaxiralar</div>
           <div style="font-size:12px;color:#6B8096;margin-top:2px">${_saBackupShopName}</div>
         </div>
         <button onclick="document.getElementById('sa-backups-modal').remove()"
           style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
           color:#fff;border-radius:8px;padding:6px 12px;font-family:inherit;cursor:pointer;font-size:16px">✕</button>
       </div>
-      <div style="padding:14px 18px 6px;font-size:12px;color:#4B5563">
+      <div style="padding:14px 18px 6px;font-size:13px;color:#334155">
         Tiklash joriy ma'lumot ustiga yozadi. Faqat zarur bo'lganda ishlating.
       </div>
       <div id="sa-backups-list" style="padding:8px 18px 20px;max-height:380px;overflow-y:auto">
-        <div style="text-align:center;padding:26px;color:#4B5563">
+        <div style="text-align:center;padding:26px;color:#334155">
           <i class="ti ti-loader" style="font-size:26px;display:block;margin-bottom:8px"></i>Yuklanmoqda...</div>
       </div>
     </div>`;
@@ -2156,13 +2156,13 @@ async function saOpenBackups(shopId, shopName) {
         padding:12px 14px;border:1px solid #E5E7EB;border-radius:10px;margin-bottom:8px">
         <div>
           <div style="font-weight:700;font-size:14px;color:#111827">${b.date}</div>
-          <div style="font-size:12px;color:#4B5563">${b.records||0} ta yozuv</div>
+          <div style="font-size:13px;color:#334155">${b.records||0} ta yozuv</div>
         </div>
         <button onclick="saDoRestore(${b.id},'${b.date}')"
           style="background:#7C3AED;border:none;color:#fff;border-radius:8px;
           padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer">Tiklash</button>
       </div>`).join("") :
-      `<div style="text-align:center;padding:30px;color:#4B5563">
+      `<div style="text-align:center;padding:30px;color:#334155">
         <i class="ti ti-database-off" style="font-size:32px;display:block;margin-bottom:10px"></i>
         Bu do'kon uchun hali bulut zaxira yo'q.<br>
         <span style="font-size:12px">Do'kon egasi kirganda avtomat olinadi.</span>
@@ -2329,7 +2329,7 @@ async function saOpenTariffs() {
           💰 Landing tarif narxlari
         </h3>
         <button onclick="document.getElementById('sa-tariff-modal').remove()"
-          style="background:none;border:none;font-size:24px;cursor:pointer;color:#4B5563">×</button>
+          style="background:none;border:none;font-size:24px;cursor:pointer;color:#334155">×</button>
       </div>
       <p style="font-size:12.5px;color:#374151;margin:0 0 20px;line-height:1.5">
         Bu narxlar <b>merx.uz</b> sahifasida ko'rinadi. O'zgartirsangiz sayt
@@ -2351,19 +2351,19 @@ async function saOpenTariffs() {
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
             <div>
-              <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:4px">
+              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:4px">
                 NARX (so'm)</label>
               <input id="tf-price-${t.tier}" type="number" min="0" step="10000"
                 value="${t.price_uzs || 0}" style="${iSt};font-weight:800">
             </div>
             <div>
-              <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:4px">
+              <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:4px">
                 DAVR</label>
               <input id="tf-period-${t.tier}" value="${t.period || "oyiga"}" style="${iSt}">
             </div>
           </div>
 
-          <label style="font-size:11px;color:#374151;font-weight:700;display:block;margin-bottom:4px">
+          <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:4px">
             IMKONIYATLAR <span style="font-weight:400">(har qator — alohida band)</span></label>
           <textarea id="tf-feat-${t.tier}" rows="6" style="${iSt};resize:vertical;line-height:1.5"
             >${(Array.isArray(t.features) ? t.features : []).join("\\n")}</textarea>
@@ -2374,7 +2374,7 @@ async function saOpenTariffs() {
             ✓ ${t.title || t.tier} tarifini saqlash
           </button>
         </div>`).join("") : `
-        <div style="text-align:center;padding:30px;color:#4B5563">
+        <div style="text-align:center;padding:30px;color:#334155">
           Tariflar topilmadi.<br>
           <span style="font-size:12px">OBUNA-TARIFLARI.sql ni ishga tushirganmisiz?</span>
         </div>`}

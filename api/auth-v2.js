@@ -664,18 +664,44 @@ module.exports = async function handler(req, res) {
         if (r.ok) db = await r.json();
       } catch (e) { console.warn("sa_db_stats:", e.message); }
 
-      // 2) Rasmlar (Storage) — bucket ichidagi fayllar
+      // 2) Rasmlar (Storage)
+      // ⚠️ 2026-08-03: PAPKALAR ICHIGA KIRAMIZ.
+      // Rasmlar `product-images/<shop_id>/<fayl>` ko'rinishida
+      // saqlanadi (`_uploadOneImage` da shunday). Ildizdan ro'yxat
+      // olinsa faqat PAPKALAR chiqadi — shuning uchun "3 ta fayl,
+      // 0 MB" deb ko'rsatardi.
       let imgBytes = 0, imgCount = 0;
-      try {
-        const r2 = await fetch(`${SB_URL}/storage/v1/object/list/product-images`, {
+      const _list = async (prefix) => {
+        const r = await fetch(`${SB_URL}/storage/v1/object/list/product-images`, {
           method: "POST", headers: H,
-          body: JSON.stringify({ limit: 5000, offset: 0, prefix: "" })
+          body: JSON.stringify({ limit: 1000, offset: 0, prefix,
+                                 sortBy: { column: "name", order: "asc" } })
         });
-        if (r2.ok) {
-          const files = await r2.json();
-          if (Array.isArray(files)) {
-            imgCount = files.length;
-            imgBytes = files.reduce((a, f) => a + (f?.metadata?.size || 0), 0);
+        return r.ok ? await r.json() : [];
+      };
+      try {
+        const roots = await _list("");
+        for (const it of (Array.isArray(roots) ? roots : [])) {
+          if (it?.id && it?.metadata) {              // ildizdagi fayl
+            imgCount++; imgBytes += it.metadata.size || 0;
+            continue;
+          }
+          // papka — ichini sahifalab o'qiymiz
+          let off = 0;
+          for (let page = 0; page < 20; page++) {
+            const r = await fetch(`${SB_URL}/storage/v1/object/list/product-images`, {
+              method: "POST", headers: H,
+              body: JSON.stringify({ limit: 1000, offset: off,
+                                     prefix: it.name + "/",
+                                     sortBy: { column: "name", order: "asc" } })
+            });
+            const files = r.ok ? await r.json() : [];
+            if (!Array.isArray(files) || !files.length) break;
+            files.forEach(f => {
+              if (f?.metadata) { imgCount++; imgBytes += f.metadata.size || 0; }
+            });
+            if (files.length < 1000) break;
+            off += 1000;
           }
         }
       } catch (e) { console.warn("storage list:", e.message); }
