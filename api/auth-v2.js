@@ -455,6 +455,25 @@ module.exports = async function handler(req, res) {
       // ham o'sha ishlatiladi. Natijada SuperAdmin panelida yangi nom,
       // do'konning o'zida va cheklarda esa ESKI nom qolardi.
       // Bot ham `bot_sessions` / `shop_owners` dagi nusxadan o'qiydi.
+      // ⚠️ 2026-08-03: EGASI ISMI — `settings` GA HAM YOZILADI.
+      // Do'kon ilovasi `shops` jadvalini o'qimaydi, u `settings` dan
+      // ishlaydi. Ism u yerga yozilmasa POS'da "Akmal (admin)" deb
+      // ko'rsatib bo'lmasdi.
+      // Bo'sh qiymat yuborilmaydi — mavjudini o'chirmasin.
+      if (typeof data.owner_name === "string" && data.owner_name.trim()) {
+        try {
+          await fetch(`${SB_URL}/rest/v1/settings?on_conflict=shop_id`, {
+            method: "POST",
+            headers: {
+              apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+              "Content-Type": "application/json",
+              Prefer: "resolution=merge-duplicates"
+            },
+            body: JSON.stringify([{ shop_id: shopId, owner_name: data.owner_name.trim() }])
+          });
+        } catch (e) { console.warn("owner_name → settings:", e.message); }
+      }
+
       if (typeof data.name === "string" && data.name.trim()) {
         const _nm = data.name.trim();
         const _H  = {

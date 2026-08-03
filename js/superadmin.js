@@ -93,8 +93,11 @@ function openSaPanel() {
 
   const overlay = document.createElement("div");
   overlay.id = "sa-overlay";
-  overlay.style.cssText = `position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);
-    backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;
+  // ⚠️ 2026-08-03: PANEL TO'LIQ EKRANLI.
+  // Avval modal edi: orqada qorong'i fon va BEGONA do'kon ko'rinib
+  // turardi. SuperAdmin alohida ish joyi — orqa fonning ma'nosi yo'q.
+  overlay.style.cssText = `position:fixed;inset:0;z-index:99999;background:#F4F3F0;
+    display:flex;align-items:stretch;justify-content:center;
     font-family:'DM Sans',sans-serif`;
 
   if (!_saSession) {
@@ -262,9 +265,9 @@ function buildSaDashboard() {
 // ── Panel qurish ─────────────────────────────────
 function buildSaPanel() {
   return `
-    <div style="background:#fff;border-radius:20px;width:1100px;max-width:98vw;
-      max-height:92vh;overflow:hidden;display:flex;flex-direction:column;
-      box-shadow:0 32px 80px rgba(0,0,0,.25)">
+    <!-- 2026-08-03: to'liq ekran — modal emas, alohida ish joyi -->
+    <div style="background:#fff;width:100%;height:100vh;
+      overflow:hidden;display:flex;flex-direction:column">
 
       <!-- Header -->
       <div style="padding:18px 24px;border-bottom:1px solid #E5E7EB;
@@ -1156,6 +1159,14 @@ function saEditSave(id) {
     const _payload = {
       name: name,
       owner_email: login || s.ownerEmail || null,
+      // ⚠️ 2026-08-03: EGASI ISMI VA TELEFONI QO'SHILDI.
+      // Avval ular faqat brauzer xotirasiga (`s.ownerName`, `s.phone`)
+      // yozilardi va bulutga UMUMAN ketmasdi: boshqa qurilmada ochsangiz
+      // bo'sh chiqardi, do'kon ilovasiga ham yetib bormasdi.
+      // (POS'da "Akmal (admin)" ko'rinishi uchun shu kerak edi.)
+      // Bo'sh qiymat yuborilmaydi — mavjudini o'chirmasin.
+      ...(owner ? { owner_name:  owner } : {}),
+      ...(phone ? { owner_phone: phone } : {}),
       plan: plan,
       shop_type: shopType,
       tier:      tier,

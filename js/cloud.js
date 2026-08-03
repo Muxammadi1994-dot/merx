@@ -2126,6 +2126,10 @@ async function pullFromCloud(silent = false, skipRender = false) {
       if (sets.loyalty_rate)   db.settings.loyaltyRate        = sets.loyalty_rate;
       if (sets.loyalty_value)  db.settings.loyaltyValue       = sets.loyalty_value;
       // Rejim bulutda yo'q bo'lsa — lokaldagini saqlaymiz
+      // 2026-08-03: egasi ismi — POS'da "Akmal (admin)" uchun.
+      // Bo'sh bo'lsa lokaldagi saqlanadi.
+      if (sets.owner_name) db.settings.ownerName = sets.owner_name;
+
       db.settings.rateMode      = sets.rate_mode
         ? (sets.rate_mode === "auto" ? "auto" : "manual")
         : (db.settings.rateMode || "manual");
