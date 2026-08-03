@@ -77,18 +77,12 @@ async function getShopCtx(chatId) {
   // Pastdagi `settings` bo'yicha ega tekshiruvi JOYIDA QOLDI: u har
   // do'kon uchun alohida so'rov qiladi, uni yuqoriga chiqarsak har
   // xabarda o'nlab so'rov ketardi.
-  try {
-    const own = await sb("shop_owners", `?chat_id=eq.${cid}&select=shop_id,shop_name&limit=1`);
-    if (own?.[0]?.shop_id) {
-      const ctx = {
-        shopId: own[0].shop_id, shopName: own[0].shop_name || "MERX",
-        isOwner: true, isSuperAdmin: false, ts: Date.now()
-      };
-      _shopCache.set(cid, ctx);
-      return ctx;
-    }
-  } catch(e) { console.warn("getShopCtx shop_owners xato:", e.message); }
-
+  // ⚠️ 2026-08-03: TANLOV BIRINCHI — `bot_sessions` YUQORIGA CHIQDI.
+  // Avval `shop_owners` birinchi tekshirilardi. Ega `/mendokonlarim`
+  // orqali do'kon tanlasa, tanlov `bot_sessions` ga yozilardi —
+  // lekin keyingi xabarda `shop_owners` uni BEKOR QILARDI.
+  // Ya'ni ko'p do'konli ega uchun tanlash umuman ishlamasdi.
+  // Endi: avval TANLOV, keyin egalik.
   // 1.5. bot_sessions — DOIMIY saqlangan bog'lanish (Vercel cache muammosini hal qiladi)
   try {
     const sess = await sb("bot_sessions", `?chat_id=eq.${cid}&select=shop_id,shop_name,is_owner&limit=1`);
@@ -101,6 +95,28 @@ async function getShopCtx(chatId) {
       return ctx;
     }
   } catch(e) { console.warn("getShopCtx bot_sessions xato:", e.message); }
+
+  // 1.5. EGA tekshiruvi — shop_owners.
+  // Tanlov bo'lmasa ishlaydi (birinchi marta, yoki tanlanmagan bo'lsa).
+  // ⚠️ TARTIB BERILDI: avval `limit=1` da tartib yo'q edi va qaysi
+  // do'kon chiqishi ANIQLANMAGAN edi. Endi eng oxirgi bog'langani.
+  //
+  // NEGA MIJOZDAN OLDIN (2026-07-30): agar bitta raqam biror do'konda
+  // mijoz sifatida bog'langan bo'lsa, funksiya o'sha yerda
+  // isOwner:false bilan qaytib ketardi va ega tekshiruviga UMUMAN
+  // yetib bormasdi. Egalik — mijozlikdan kuchliroq da'vo.
+  try {
+    const own = await sb("shop_owners",
+      `?chat_id=eq.${cid}&select=shop_id,shop_name&order=shop_id.desc&limit=1`);
+    if (own?.[0]?.shop_id) {
+      const ctx = {
+        shopId: own[0].shop_id, shopName: own[0].shop_name || "MERX",
+        isOwner: true, isSuperAdmin: false, ts: Date.now()
+      };
+      _shopCache.set(cid, ctx);
+      return ctx;
+    }
+  } catch(e) { console.warn("getShopCtx shop_owners xato:", e.message); }
 
   // 2. customers jadvalidan topamiz (mijoz login qilgan)
   try {
