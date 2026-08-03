@@ -833,6 +833,49 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({ ok: true, activity: map });
       }
 
+      // ── BITTA DO'KON STATISTIKASI (2026-08-03) ──
+      // Avval bu `localStorage` dan hisoblanardi — SuperAdmin
+      // kirmagan do'konda raqamlar BO'SH chiqardi. Endi bulutdan.
+      if (op === "shop_stats") {
+        const sid = body.shopId;
+        if (!sid) return res.status(400).json({ ok: false, error: "shopId majburiy" });
+        const q = encodeURIComponent(sid);
+        const oy = new Date().toISOString().slice(0, 7);
+
+        const [sl, cu, pr, om] = await Promise.all([
+          fetch(`${SB_URL}/rest/v1/sales?shop_id=eq.${q}&select=total,paid,remaining,status,date&limit=20000`, { headers: H }),
+          fetch(`${SB_URL}/rest/v1/customers?shop_id=eq.${q}&select=id`, { headers: H }),
+          fetch(`${SB_URL}/rest/v1/products?shop_id=eq.${q}&select=data`, { headers: H }),
+          fetch(`${SB_URL}/rest/v1/ombor?shop_id=eq.${q}&select=id`, { headers: H })
+        ]);
+        const sales = sl.ok ? await sl.json() : [];
+        const custs = cu.ok ? await cu.json() : [];
+        const prods = pr.ok ? await pr.json() : [];
+        const omb   = om.ok ? await om.json() : [];
+
+        let totalRev = 0, monthRev = 0, monthCnt = 0, totalDebt = 0;
+        for (const x of sales) {
+          if (x.status === "bekor") continue;
+          const t = +x.total || 0;
+          totalRev += t;
+          totalDebt += +x.remaining || 0;
+          if ((x.date || "").startsWith(oy)) { monthRev += t; monthCnt++; }
+        }
+        // Ombordagi jami dona — tovar variantlaridan
+        let stockCnt = 0;
+        for (const p of prods) {
+          const v = p?.data?.variants;
+          if (Array.isArray(v)) v.forEach(x => stockCnt += (+x.qty || 0));
+        }
+        return res.status(200).json({ ok: true, stats: {
+          totalRev, monthRev, monthCnt, totalDebt,
+          salesCnt: sales.filter(x => x.status !== "bekor").length,
+          custCnt: custs.length, prodCnt: prods.length,
+          stockCnt, omborCnt: omb.length,
+          profit: null      // tannarx `data` ichida — alohida hisob kerak
+        }});
+      }
+
       // ── TARIF SAQLASH ──
       if (op === "save_tariff") {
         const t = body.tariff || {};

@@ -2111,16 +2111,11 @@ function saGetShopStats(shop) {
 
 function saShowStats(shopId) {
   const shop = _saShops.find(s=>s.id===shopId); if (!shop) return;
-  // ⚠️ 2026-08-03: BU OYNA HALI `localStorage` DAN O'QIYDI.
-  // Ya'ni SuperAdmin kirmagan do'kon uchun raqamlar BO'SH chiqadi.
-  // To'liq bulutga o'tkazish alohida ish (tushum, mijoz, tovar
-  // sonini har do'kon uchun serverdan olish kerak).
-  // Hozircha: ma'lumot yo'q bo'lsa ochiq aytamiz.
-  const stats = saGetShopStats(shop);
-  if (!stats) {
-    showSaToast("Bu do'kon ma'lumoti bu qurilmada yo'q — " +
-                "batafsil ko'rish uchun do'konga kiring", "err");
-  }
+  // ⚠️ 2026-08-03: STATISTIKA BULUTDAN.
+  // Avval `localStorage` dan o'qirdi va SuperAdmin kirmagan do'kon
+  // uchun raqamlar BO'SH chiqardi. Endi server hisoblab beradi.
+  // Lokal nusxa zaxira sifatida qoladi (tezroq ko'rinadi).
+  let stats = saGetShopStats(shop) || {};
   document.getElementById("sa-stats-modal")?.remove();
   const modal = document.createElement("div");
   modal.id = "sa-stats-modal";
@@ -2149,18 +2144,21 @@ function saShowStats(shopId) {
           Bu do'konda hali ma'lumot yuklanmagan</div>` : `
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#E5E7EB">
         ${[
-          {lbl:"Jami sotuv",   val:fmt(stats.totalRev)+" so'm", clr:"#059669"},
-          {lbl:"Bu oy tushum", val:fmt(stats.monthRev)+" so'm", clr:"#2563EB"},
-          {lbl:"Taxminiy foyda",val:fmt(stats.profit)+" so'm",  clr:stats.profit>=0?"#D97706":"#DC2626"},
-          {lbl:"Sotuvlar",     val:stats.salesCnt+" ta",         clr:"#374151"},
-          {lbl:"Mijozlar",     val:stats.custCnt+" ta",          clr:"#374151"},
-          {lbl:"Qarz jami",    val:fmt(stats.totalDebt)+" so'm", clr:"#DC2626"},
-          {lbl:"Mahsulotlar",  val:stats.prodCnt+" xil",         clr:"#374151"},
-          {lbl:"Qoldiq",       val:stats.stockCnt+" dona",       clr:"#374151"},
-          {lbl:"Bu oy sotuv",  val:stats.monthCnt+" ta",         clr:"#2563EB"},
+          // 2026-08-03: har kartaga `id` — bulutdan kelgan raqam
+          // shu yerga yoziladi. "Taxminiy foyda" OLIB TASHLANDI:
+          // u tannarxdan hisoblanadi, tannarx esa `data` ichida —
+          // serverda hisoblash og'ir va noaniq bo'lardi.
+          {id:"sst-rev",   lbl:"Jami sotuv",   val:fmt(stats.totalRev||0)+" so'm", clr:"#059669"},
+          {id:"sst-month", lbl:"Bu oy tushum", val:fmt(stats.monthRev||0)+" so'm", clr:"#2563EB"},
+          {id:"sst-debt",  lbl:"Qarz jami",    val:fmt(stats.totalDebt||0)+" so'm", clr:"#DC2626"},
+          {id:"sst-sales", lbl:"Sotuvlar",     val:(stats.salesCnt||0)+" ta",  clr:"#374151"},
+          {id:"sst-cust",  lbl:"Mijozlar",     val:(stats.custCnt||0)+" ta",   clr:"#374151"},
+          {id:"sst-mcnt",  lbl:"Bu oy sotuv",  val:(stats.monthCnt||0)+" ta",  clr:"#2563EB"},
+          {id:"sst-prod",  lbl:"Mahsulotlar",  val:(stats.prodCnt||0)+" xil",  clr:"#374151"},
+          {id:"sst-stock", lbl:"Qoldiq",       val:(stats.stockCnt||0)+" dona",clr:"#374151"},
         ].map(k=>`<div style="background:#fff;padding:14px 18px">
           <div style="font-size:12.5px;color:#334155;font-weight:600;margin-bottom:4px;text-transform:uppercase">${k.lbl}</div>
-          <div style="font-size:15px;font-weight:800;color:${k.clr}">${k.val}</div>
+          <div id="${k.id}" style="font-size:15px;font-weight:800;color:${k.clr}">${k.val}</div>
         </div>`).join("")}
       </div>
       <div style="padding:14px 20px;background:#F9FAFB;display:flex;gap:8px;flex-wrap:wrap">
@@ -2198,6 +2196,28 @@ function saShowStats(shopId) {
       </div>`}
     </div>`;
   document.body.appendChild(modal);
+
+  // 2026-08-03: bulutdagi haqiqiy raqamlarni tortamiz
+  (async () => {
+    try {
+      const key = shop.cloudShopId || shop.shop_id || shop.id;
+      const d = await _saApi("sa_finance", { op: "shop_stats", shopId: key });
+      if (!d || !d.ok || !d.stats) return;
+      const st = d.stats;
+      const f  = n => n >= 1000000 ? (n/1000000).toFixed(1) + "M"
+                    : n >= 1000 ? (n/1000).toFixed(0) + "K" : String(Math.round(n) || 0);
+      const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+      set("sst-rev",   f(st.totalRev) + " so'm");
+      set("sst-month", f(st.monthRev) + " so'm");
+      set("sst-debt",  f(st.totalDebt) + " so'm");
+      set("sst-sales", (st.salesCnt || 0).toLocaleString("ru-RU"));
+      set("sst-cust",  (st.custCnt  || 0).toLocaleString("ru-RU"));
+      set("sst-prod",  (st.prodCnt  || 0).toLocaleString("ru-RU"));
+      set("sst-stock", (st.stockCnt || 0).toLocaleString("ru-RU"));
+      set("sst-mcnt",  (st.monthCnt || 0) + " ta");
+    } catch (e) { console.warn("shop_stats:", e.message); }
+  })();
+
 }
 
 function saExtendShop(id) {
