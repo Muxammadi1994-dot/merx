@@ -894,7 +894,12 @@ async function saFetchShopsFromCloud() {
       tier:         cloudShop.tier      || local.tier || "pro",
       priceUzs:     cloudShop.price_uzs || local.priceUzs || 0,
       createdAt:   cloudShop.created_at  || local.createdAt || new Date().toISOString(),
-      ownerName:   local.ownerName || "",
+      // ⚠️ 2026-08-03: BULUTDAGI QIYMAT USTUVOR.
+      // Avval faqat `local.ownerName` o'qilardi — bulutga saqlangan
+      // ism qaytib kelmasdi. Panel yopib-ochilganda lokal xotirada
+      // turardi, F5 dan keyin esa yo'qolardi.
+      ownerName:   cloudShop.owner_name  || local.ownerName || "",
+      phone:       cloudShop.owner_phone || local.phone     || "",
       ownerPass:   local.ownerPass || "",
       modules:     local.modules || {},
     };

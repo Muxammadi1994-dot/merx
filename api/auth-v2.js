@@ -676,7 +676,7 @@ module.exports = async function handler(req, res) {
 
     if (action === "get_shops") {
       const shopsRes = await fetch(
-        `${SB_URL}/rest/v1/shops?active=not.is.false&select=id,name,owner_email,plan,active,blocked,trial_ends,created_at,shop_type,tier,price_uzs&order=created_at.desc`,
+        `${SB_URL}/rest/v1/shops?active=not.is.false&select=id,name,owner_email,owner_name,owner_phone,plan,active,blocked,trial_ends,created_at,shop_type,tier,price_uzs&order=created_at.desc`,
         {
           headers: {
             apikey: SERVICE_KEY,
