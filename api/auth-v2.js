@@ -846,9 +846,16 @@ module.exports = async function handler(req, res) {
 
       if (!rows.length) return res.status(200).json({ ok: true, table, deleted, inserted: 0 });
 
-      const ir = await fetch(`${SB_URL}/rest/v1/${table}`, {
+      // ⚠️ 2026-08-03: INSERT → UPSERT.
+      // Avval oddiy INSERT edi: mavjud yozuv bo'lsa "takror kalit"
+      // xatosi chiqib, butun to'plam rad etilardi. Tiklash esa
+      // ko'pincha MAVJUD ma'lumot ustiga bo'ladi.
+      // Tovarlarda to'qnashuv kaliti `shop_id,sku` (u noyob va
+      // ustuvor), qolganlarida `id`.
+      const _conf = table === "products" ? "shop_id,sku" : "id";
+      const ir = await fetch(`${SB_URL}/rest/v1/${table}?on_conflict=${_conf}`, {
         method: "POST",
-        headers: { ...H, Prefer: "return=minimal" },
+        headers: { ...H, Prefer: "return=minimal,resolution=merge-duplicates" },
         body: JSON.stringify(rows)
       });
       if (!ir.ok) {
