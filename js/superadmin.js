@@ -54,7 +54,24 @@ function saLogout() {
     sessionStorage.removeItem(k);
     localStorage.removeItem(k);
   });
+
+  // ⚠️ 2026-08-03: DO'KON SESSIYASI HAM TOZALANADI.
+  // Avval faqat SuperAdmin sessiyasi o'chirilib panel yopilardi.
+  // Ostida esa `saOpenShop` orqali kirilgan do'kon OCHIQ qolardi —
+  // chiqish tugmasi bosilgach foydalanuvchi begona (ko'pincha
+  // bo'sh) do'kon ekranida qolib ketardi.
+  // Endi kirish oynasiga chiqadi.
+  try {
+    localStorage.removeItem("merx_auth_v1");
+    sessionStorage.removeItem("merx_active_shop");
+    sessionStorage.removeItem("merx_is_sa_view");
+    sessionStorage.removeItem("merx_prev_shop");
+    sessionStorage.removeItem("merx_sa_entering");
+  } catch(e) {}
+
   hideSaPanel();
+  // Kirish oynasi chiqishi uchun sahifa yangilanadi
+  setTimeout(() => location.reload(), 200);
 }
 
 function saLoadShops() {
