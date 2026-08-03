@@ -2139,9 +2139,7 @@ function saShowStats(shopId) {
           style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
           color:#fff;border-radius:8px;padding:6px 12px;font-family:inherit;cursor:pointer;font-size:16px">✕</button>
       </div>
-      ${!stats ? `<div style="padding:48px;text-align:center;color:#334155">
-          <i class="ti ti-database-off" style="font-size:40px;display:block;margin-bottom:12px"></i>
-          Bu do'konda hali ma'lumot yuklanmagan</div>` : `
+      ${false ? "" : `
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#E5E7EB">
         ${[
           // 2026-08-03: har kartaga `id` — bulutdan kelgan raqam
