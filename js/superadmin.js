@@ -248,31 +248,33 @@ function buildSaDashboard() {
             <span style="font-size:11px;color:#6B7280">${e} ${l}</span>
             <span style="font-size:11px;font-weight:700;color:${c}">${v}</span>
           </div>
-    <!-- 3-qator: SERVER HOLATI (2026-08-03) -->
-    <!-- Bepul rejada baza 500 MB, rasmlar 1 GB. Chegaraga
-         yaqinlashganini sezmay qolmaslik uchun shu yerda. -->
-    <div id="sa-server-row" style="display:grid;grid-template-columns:repeat(3,1fr);
-      gap:0;background:#fff;border-bottom:1px solid #E5E7EB">
-      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
-        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;
-          letter-spacing:.04em;margin-bottom:4px">💾 Baza hajmi</div>
-        <div id="sa-db-val" style="font-size:18px;font-weight:800;color:#0D1B2A">—</div>
-        <div id="sa-db-sub" style="font-size:11px;color:#9CA3AF;margin-top:2px">yuklanmoqda...</div>
-      </div>
-      <div style="padding:12px 16px;border-right:1px solid #F3F4F6">
-        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;
-          letter-spacing:.04em;margin-bottom:4px">🖼 Rasmlar</div>
-        <div id="sa-img-val" style="font-size:18px;font-weight:800;color:#0D1B2A">—</div>
-        <div id="sa-img-sub" style="font-size:11px;color:#9CA3AF;margin-top:2px">yuklanmoqda...</div>
-      </div>
-      <div style="padding:12px 16px">
-        <div style="font-size:10px;color:#9CA3AF;font-weight:700;text-transform:uppercase;
-          letter-spacing:.04em;margin-bottom:4px">📊 Eng katta jadval</div>
-        <div id="sa-tbl-val" style="font-size:18px;font-weight:800;color:#0D1B2A">—</div>
-        <div id="sa-tbl-sub" style="font-size:11px;color:#9CA3AF;margin-top:2px">yuklanmoqda...</div>
+`).join("")}
       </div>
     </div>
-`).join("")}
+    <!-- SERVER HOLATI (2026-08-03) — obuna qatoridan KEYIN, alohida.
+         ⚠️ Avval "Obuna turlari" ro'yxatining ICHIGA tushib qolgan
+         edi va har tarif uchun takrorlanardi, do'konlar jadvali esa
+         pastga siqilib ko'rinmay qolgandi.
+         Ixcham: bitta qatorda uchta ko'rsatkich. -->
+    <div style="display:flex;gap:0;background:#fff;border-bottom:1px solid #E5E7EB;
+      align-items:center;padding:8px 16px;font-size:11.5px;color:#374151">
+      <div style="display:flex;align-items:center;gap:6px;margin-right:22px">
+        <i class="ti ti-database" style="font-size:13px;color:#6B7280"></i>
+        <span style="color:#9CA3AF">Baza</span>
+        <b id="sa-db-val" style="font-weight:800">—</b>
+        <span id="sa-db-sub" style="color:#9CA3AF">—</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-right:22px">
+        <i class="ti ti-photo" style="font-size:13px;color:#6B7280"></i>
+        <span style="color:#9CA3AF">Rasmlar</span>
+        <b id="sa-img-val" style="font-weight:800">—</b>
+        <span id="sa-img-sub" style="color:#9CA3AF">—</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <i class="ti ti-table" style="font-size:13px;color:#6B7280"></i>
+        <span style="color:#9CA3AF">Eng katta</span>
+        <b id="sa-tbl-val" style="font-weight:800">—</b>
+        <span id="sa-tbl-sub" style="color:#9CA3AF">—</span>
       </div>
     </div>`;
 }
