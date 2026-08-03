@@ -231,7 +231,7 @@ function buildSaDashboard() {
         </div>`).join("")}
     </div>
     <!-- 2-qator: Obuna -->
-    <div style="display:grid;grid-template-columns:1.1fr 1.4fr .9fr .9fr 1fr;gap:0;background:#fff;border-bottom:1px solid #E5E7EB">
+    <div style="display:grid;grid-template-columns:.9fr 1fr 1.1fr 1.4fr;gap:0;background:#fff;border-bottom:1px solid #E5E7EB">
       <!-- 2026-08-03: uch pul kartasi olib tashlandi (Jami tushum,
            Bugungi, Jami qarz) - ular qurilma xotirasidan
            hisoblanardi va kirilmagan do'konda NOL chiqardi. -->
@@ -240,7 +240,7 @@ function buildSaDashboard() {
         <div style="font-size:20px;font-weight:800;color:#7C3AED">${fmt(monthlyIncome)} so'm</div>
         <div style="font-size:12.5px;color:#334155;margin-top:2px">${active} faol do'kon</div>
       </div>
-      <div style="padding:12px 16px">
+      <div style="padding:8px 14px;border-right:1px solid #F3F4F6">
         <div style="font-size:11.5px;color:#334155;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Obuna turlari</div>
         ${[["🧪",plans.trial,"#D97706","Sinov"],["📅",plans.monthly,"#2563EB","Oylik"],
            ["📆",plans.yearly,"#059669","Yillik"],["♾️",plans.lifetime,"#7C3AED","Umrlik"]]
@@ -250,25 +250,30 @@ function buildSaDashboard() {
           </div>
 `).join("")}
       </div>
-<!-- SERVER HOLATI (2026-08-03) — obuna qatoriga qo'shildi,
-           shunda hamma karta IKKI QATORGA sig'adi. -->
-      <div style="padding:8px 14px;border-right:1px solid #F3F4F6">
-        <div style="font-size:11.5px;color:#334155;font-weight:800;text-transform:uppercase;
-          letter-spacing:.04em;margin-bottom:3px">🗄 Baza</div>
-        <div id="sa-db-val" style="font-size:19px;font-weight:800;color:#0D1B2A">—</div>
-        <div id="sa-db-sub" style="font-size:12px;color:#334155;margin-top:1px">—</div>
-      </div>
-      <div style="padding:8px 14px;border-right:1px solid #F3F4F6">
-        <div style="font-size:11.5px;color:#334155;font-weight:800;text-transform:uppercase;
-          letter-spacing:.04em;margin-bottom:3px">🖼 Rasmlar</div>
-        <div id="sa-img-val" style="font-size:19px;font-weight:800;color:#0D1B2A">—</div>
-        <div id="sa-img-sub" style="font-size:12px;color:#334155;margin-top:1px">—</div>
-      </div>
+<!-- SERVER HOLATI (2026-08-03) — BITTA karta, satr uslubida
+           (obuna turlari kabi). Avval uchta alohida karta edi va
+           ular ko'p joy egallardi. -->
       <div style="padding:8px 14px">
         <div style="font-size:11.5px;color:#334155;font-weight:800;text-transform:uppercase;
-          letter-spacing:.04em;margin-bottom:3px">📊 Eng katta jadval</div>
-        <div id="sa-tbl-val" style="font-size:19px;font-weight:800;color:#0D1B2A">—</div>
-        <div id="sa-tbl-sub" style="font-size:12px;color:#334155;margin-top:1px">—</div>
+          letter-spacing:.04em;margin-bottom:6px">🖥 Server holati</div>
+        ${[["🗄","Baza","sa-db"],["🖼","Rasmlar","sa-img"],
+           ["🧮","Jami yozuv","sa-row"]]
+          .map(([e,l,id])=>`<div style="display:flex;justify-content:space-between;
+            align-items:baseline;gap:8px;margin-bottom:2px">
+            <span style="font-size:12.5px;color:#1F2937;white-space:nowrap">${e} ${l}</span>
+            <span style="font-size:12.5px;font-weight:800;color:#0D1B2A;
+              text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              <span id="${id}-val">—</span>
+              <span id="${id}-sub" style="font-weight:600;color:#334155;font-size:11.5px"></span>
+            </span>
+          </div>`).join("")}
+      </div>
+      <!-- JADVALLAR (2026-08-03) — eng katta jadvallar ro'yxati.
+           Qaysi biri o'sib ketayotganini bir qarashda ko'rish uchun. -->
+      <div style="padding:8px 14px">
+        <div style="font-size:11.5px;color:#334155;font-weight:800;text-transform:uppercase;
+          letter-spacing:.04em;margin-bottom:6px">📋 Jadvallar</div>
+        <div id="sa-tables-list" style="font-size:12.5px;color:#334155">—</div>
       </div>
     </div>
       
@@ -570,29 +575,40 @@ async function saLoadServerStats() {
     // ── Baza ──
     const dbPct = d.db_limit ? (d.db_bytes / d.db_limit) * 100 : 0;
     set("sa-db-val", _saMB(d.db_bytes), _saUseClr(dbPct));
-    set("sa-db-sub", `${dbPct.toFixed(1)}% band · chegara ${_saMB(d.db_limit)}`);
+    set("sa-db-sub", `(${dbPct.toFixed(1)}%)`);
 
     // ── Rasmlar ──
     const imgPct = d.img_limit ? (d.img_bytes / d.img_limit) * 100 : 0;
     set("sa-img-val", _saMB(d.img_bytes), _saUseClr(imgPct));
-    set("sa-img-sub", `${d.img_count || 0} ta fayl · ${imgPct.toFixed(1)}% band`);
+    set("sa-img-sub", `(${imgPct.toFixed(1)}% · ${d.img_count || 0} ta)`);
 
-    // ── Eng katta jadval ──
-    const top = (d.tables || [])[0];
-    if (top) {
-      set("sa-tbl-val", top.name);
-      set("sa-tbl-sub", `${_saMB(top.bytes)} · ${(top.rows || 0).toLocaleString("ru-RU")} yozuv`);
-    } else {
-      set("sa-tbl-val", "—");
-      set("sa-tbl-sub", "ma'lumot yo'q");
+    // ── Jadvallar ro'yxati (2026-08-03) ──
+    // Qaysi jadval o'sib ketayotganini bir qarashda ko'rish uchun.
+    const tl = document.getElementById("sa-tables-list");
+    if (tl) {
+      const rows = (d.tables || []).slice(0, 5);
+      tl.innerHTML = rows.length ? rows.map(t => `
+        <div style="display:flex;justify-content:space-between;align-items:baseline;
+          gap:8px;margin-bottom:2px">
+          <span style="color:#1F2937;white-space:nowrap;overflow:hidden;
+            text-overflow:ellipsis">${t.name}</span>
+          <span style="white-space:nowrap;color:#334155">
+            <b style="color:#0D1B2A">${_saMB(t.bytes)}</b>
+            <span style="font-size:11.5px">· ${(t.rows||0).toLocaleString("ru-RU")}</span>
+          </span>
+        </div>`).join("") : "ma'lumot yo'q";
     }
+
+    // ── Jami yozuv (2026-08-03) ──
+    set("sa-row-val", (d.total_rows || 0).toLocaleString("ru-RU"));
+    set("sa-row-sub", "");
 
     // Chegaraga yaqin bo'lsa ochiq ogohlantirish
     if (dbPct >= 85 || imgPct >= 85) {
       showSaToast("⚠️ Server hajmi chegaraga yaqin — tarifni ko'taring", "err");
     }
   } catch (e) {
-    ["sa-db","sa-img","sa-tbl"].forEach(k => {
+    ["sa-db","sa-img","sa-row"].forEach(k => {
       const v = document.getElementById(k + "-val");
       const b = document.getElementById(k + "-sub");
       if (v) v.textContent = "—";
