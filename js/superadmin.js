@@ -129,7 +129,7 @@ function openSaPanel() {
         <div style="font-size:13px;color:#9ca3af;margin-bottom:28px">MERX boshqaruv paneli</div>
         <div id="sa-err" style="display:none;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;
           border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;font-weight:600"></div>
-        <input id="sa-pass" type="password" placeholder="Super admin paroli" autocomplete="new-password" name="sa-nopick-0"
+        <input id="sa-pass" type="password" placeholder="Super admin paroli" autocomplete="off" name="merx-sa-key" data-lpignore="true" data-form-type="other"
           onkeydown="if(event.key==='Enter')saDoLogin()"
           style="width:100%;box-sizing:border-box;background:#F9FAFB;border:1.5px solid #E5E7EB;
           color:#111;border-radius:10px;padding:12px 16px;font-family:inherit;
@@ -183,6 +183,15 @@ async function saDoLogin() {
     if (document.getElementById("sa-pass")) document.getElementById("sa-pass").value = "";
     return;
   }
+  // ⚠️ 2026-08-03: MAYDON DARHOL TOZALANADI.
+  // Chrome parolli maydon QIYMATI BILAN yo'q bo'lishini
+  // "muvaffaqiyatli kirish" deb biladi va "parolni saqlaymizmi?"
+  // deb so'raydi. Maydon bo'sh bo'lsa — so'ramaydi.
+  try {
+    const _pf = document.getElementById("sa-pass");
+    if (_pf) { _pf.value = ""; _pf.blur(); }
+  } catch(e) {}
+
   sessionStorage.setItem("merx_sa_pass", pass);
   localStorage.setItem("merx_sa_pass", pass);   // obnovitdan omon qolsin
   _saSession = { loggedIn: true, ts: Date.now() };
@@ -421,7 +430,7 @@ function buildSaPanel() {
             font-weight:600;cursor:pointer" title="merx.uz sahifasidagi tarif narxlari">
             🌐 Landing tariflari
           </button>
-          <input id="sa-superpass-inp" type="password" placeholder="Yangi super admin paroli" autocomplete="new-password" name="sa-nopick-1"
+          <input id="sa-superpass-inp" type="password" placeholder="Yangi super admin paroli" autocomplete="off" name="merx-sa-newkey" data-lpignore="true" data-form-type="other"
             style="background:#fff;border:1.5px solid #E5E7EB;color:#111;
             border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
             outline:none;width:160px" onfocus="this.style.borderColor='#E9A500'"
@@ -2404,7 +2413,8 @@ async function saChangeSuperPass() {
       }
     } catch(e) {}
 
-    if (inp) inp.value = "";
+    // 2026-08-03: Chrome so'ramasin — darhol tozalaymiz
+    if (inp) { inp.value = ""; inp.blur(); }
     showSaToast("✅ Parol o'zgartirildi");
   } catch (e) {
     showSaToast("⚠️ " + e.message, "err");
