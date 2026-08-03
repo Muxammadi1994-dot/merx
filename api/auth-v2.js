@@ -787,13 +787,30 @@ module.exports = async function handler(req, res) {
         const d = body.row || {};
         if (!(Number(d.amount) > 0))
           return res.status(400).json({ ok: false, error: "Summa 0 dan katta bo'lsin" });
+        // ⚠️ 2026-08-03: KURS YOZUV BILAN MUZLATILADI (kontekst §3.5).
+        // Avval hisoblash paytidagi kurs ishlatilardi va u
+        // SuperAdmin qaysi do'konga kirganiga bog'liq edi. Kurs
+        // o'zgarsa O'TMISH ham o'zgarardi.
+        // Endi kurs Markaziy bankdan olinadi va yozuvda qoladi.
+        const cur = d.currency || "uzs";
+        let rate = Number(d.rate) || 0;
+        if (cur === "usd" && !(rate > 0)) {
+          try {
+            const rr = await fetch("https://cbu.uz/uz/arkhiv-kursov-valyut/json/USD/");
+            const rj = await rr.json();
+            rate = parseFloat(rj?.[0]?.Rate) || 0;
+          } catch (e) { console.warn("kurs olinmadi:", e.message); }
+        }
+        if (cur === "uzs") rate = 1;
+        if (!(rate > 0)) rate = 12100;      // oxirgi chora
+
         const row = op === "add_income"
           ? { shop_id: d.shop_id || null, shop_name: d.shop_name || null,
               tariff: d.tariff || null, period: d.period || null,
-              amount: Number(d.amount), currency: d.currency || "uzs",
+              amount: Number(d.amount), currency: cur, rate,
               date: d.date || null, note: d.note || null }
           : { tag: d.tag || "Boshqa", amount: Number(d.amount),
-              currency: d.currency || "uzs", date: d.date || null, note: d.note || null };
+              currency: cur, rate, date: d.date || null, note: d.note || null };
         const r = await fetch(`${SB_URL}/rest/v1/${tbl}`, {
           method: "POST", headers: { ...H, Prefer: "return=minimal" },
           body: JSON.stringify([row])

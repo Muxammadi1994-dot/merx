@@ -678,10 +678,17 @@ async function saLoadFinance() {
 }
 
 // Dollar summalarni so'mga keltirib jamlaymiz
+// ⚠️ 2026-08-03: KURS YOZUVNING O'ZIDAN OLINADI.
+// Avval `db.settings.rate` ishlatilardi — u SuperAdmin qaysi
+// do'konga kirganiga bog'liq edi va kurs o'zgarsa O'TMISH ham
+// o'zgarardi. Endi har yozuvda o'z kursi muzlatilgan (§3.5).
 function _saSum(rows) {
-  const rate = (typeof db !== "undefined" && db.settings?.rate) || 12100;
-  return (rows || []).reduce((a, r) =>
-    a + (r.currency === "usd" ? (+r.amount || 0) * rate : (+r.amount || 0)), 0);
+  return (rows || []).reduce((a, r) => {
+    const amt = +r.amount || 0;
+    if (r.currency !== "usd") return a + amt;
+    const rt = +r.rate || 12100;      // eski yozuvlar uchun zaxira
+    return a + amt * rt;
+  }, 0);
 }
 
 function saRenderFinKpi() {
@@ -789,6 +796,21 @@ async function saOpenFinance(kind) {
         font-weight:700;cursor:pointer">Qo'shish</button>
     </div>
 
+    <!-- 2026-08-03: qidiruv va sana filtri -->
+    <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr auto;gap:8px;
+      margin-bottom:11px;align-items:end">
+      <div><label style="font-size:11.5px;color:#334155;font-weight:700">Qidiruv</label>
+        <input id="fin-q" placeholder="izoh, do'kon, teg..." oninput="saFinRenderList('${kind}')"
+          style="${iCss}"></div>
+      <div><label style="font-size:11.5px;color:#334155;font-weight:700">Dan</label>
+        <input id="fin-f1" type="date" onchange="saFinRenderList('${kind}')" style="${iCss}"></div>
+      <div><label style="font-size:11.5px;color:#334155;font-weight:700">Gacha</label>
+        <input id="fin-f2" type="date" onchange="saFinRenderList('${kind}')" style="${iCss}"></div>
+      <button onclick="saFinQuick('${kind}')" title="Shu oy"
+        style="border:1.5px solid #E5E7EB;background:#fff;color:#334155;border-radius:8px;
+        padding:8px 12px;font-size:12.5px;cursor:pointer;font-family:inherit;
+        white-space:nowrap">Shu oy</button>
+    </div>
     <div id="fin-list"></div>
   </div>`;
   m.onclick = (e) => { if (e.target === m) m.remove(); };
@@ -895,7 +917,18 @@ let _saFinAll = false;
 function saFinRenderList(kind) {
   const el = document.getElementById("fin-list"); if (!el) return;
   const isInc = kind === "income";
-  const hammasi = (isInc ? _saFin.income : _saFin.expense) || [];
+  let hammasi = (isInc ? _saFin.income : _saFin.expense) || [];
+
+  // 2026-08-03: qidiruv va sana oralig'i
+  const q  = (document.getElementById("fin-q")?.value || "").trim().toLowerCase();
+  const f1 = document.getElementById("fin-f1")?.value || "";
+  const f2 = document.getElementById("fin-f2")?.value || "";
+  if (q) hammasi = hammasi.filter(r =>
+    [r.note, r.shop_name, r.tag, r.tariff, r.period, String(r.amount)]
+      .some(v => (v || "").toString().toLowerCase().includes(q)));
+  if (f1) hammasi = hammasi.filter(r => (r.date || "") >= f1);
+  if (f2) hammasi = hammasi.filter(r => (r.date || "") <= f2);
+
   const rows = _saFinAll ? hammasi : hammasi.slice(0, 20);
   const money = r => (r.currency === "usd" ? "$" : "") +
     (+r.amount || 0).toLocaleString("ru-RU", { maximumFractionDigits: 2 }) +
@@ -910,7 +943,10 @@ function saFinRenderList(kind) {
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;
       margin-bottom:7px;font-size:12.5px;color:#334155">
-      <span>Jami <b style="color:#0D1B2A">${jami}</b> yozuv</span>
+      <span>${(document.getElementById("fin-q")?.value ||
+        document.getElementById("fin-f1")?.value ||
+        document.getElementById("fin-f2")?.value) ? "Topildi" : "Jami"}
+        <b style="color:#0D1B2A">${jami}</b> yozuv</span>
       <span>Yig'indi: <b style="color:${isInc ? "#047857" : "#DC2626"}">
         ${Math.round(yigindi).toLocaleString("ru-RU")} so'm</b></span>
     </div>
@@ -940,6 +976,23 @@ function saFinRenderList(kind) {
       style="width:100%;margin-top:8px;background:#F9FAFB;border:1px solid #E5E7EB;
       color:#334155;border-radius:8px;padding:7px;font-size:12.5px;cursor:pointer;
       font-family:inherit">${_saFinAll ? "Kamroq ko'rsatish" : `Hammasini ko'rish (${jami})`}</button>` : ""}`;
+}
+
+// "Shu oy" tugmasi — sana oralig'ini oyning boshi va oxiriga
+// qo'yadi. Ikkinchi bosishda tozalaydi (2026-08-03).
+function saFinQuick(kind) {
+  const f1 = document.getElementById("fin-f1");
+  const f2 = document.getElementById("fin-f2");
+  if (!f1 || !f2) return;
+  if (f1.value || f2.value) { f1.value = ""; f2.value = ""; }
+  else {
+    const d = new Date(), p2 = n => String(n).padStart(2, "0");
+    const y = d.getFullYear(), m = d.getMonth();
+    const oxir = new Date(y, m + 1, 0).getDate();
+    f1.value = `${y}-${p2(m + 1)}-01`;
+    f2.value = `${y}-${p2(m + 1)}-${p2(oxir)}`;
+  }
+  saFinRenderList(kind);
 }
 
 async function saFinDel(kind, id) {
