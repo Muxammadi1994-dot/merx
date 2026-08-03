@@ -112,7 +112,7 @@ function openSaPanel() {
         <div style="font-size:13px;color:#9ca3af;margin-bottom:28px">MERX boshqaruv paneli</div>
         <div id="sa-err" style="display:none;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;
           border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;font-weight:600"></div>
-        <input id="sa-pass" type="password" placeholder="Super admin paroli"
+        <input id="sa-pass" type="password" placeholder="Super admin paroli" autocomplete="new-password" name="sa-nopick-0"
           onkeydown="if(event.key==='Enter')saDoLogin()"
           style="width:100%;box-sizing:border-box;background:#F9FAFB;border:1.5px solid #E5E7EB;
           color:#111;border-radius:10px;padding:12px 16px;font-family:inherit;
@@ -349,7 +349,7 @@ function buildSaPanel() {
         <div style="position:relative">
           <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);
             color:#334155;font-size:14px"></i>
-          <input id="sa-q" placeholder="Do'kon qidirish..."
+          <input id="sa-q" placeholder="Do'kon qidirish..." autocomplete="off" name="nopick-sa-q"
             oninput="renderSaShops()"
             style="background:#fff;border:1.5px solid #E5E7EB;color:#111;
             border-radius:8px;padding:8px 12px 8px 32px;font-family:inherit;font-size:13px;
@@ -396,7 +396,7 @@ function buildSaPanel() {
             font-weight:600;cursor:pointer" title="merx.uz sahifasidagi tarif narxlari">
             🌐 Landing tariflari
           </button>
-          <input id="sa-superpass-inp" type="password" placeholder="Yangi super admin paroli"
+          <input id="sa-superpass-inp" type="password" placeholder="Yangi super admin paroli" autocomplete="new-password" name="sa-nopick-1"
             style="background:#fff;border:1.5px solid #E5E7EB;color:#111;
             border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
             outline:none;width:160px" onfocus="this.style.borderColor='#E9A500'"
@@ -440,18 +440,18 @@ function buildSaPanel() {
             </div>
             <div>
               <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Login (email) *</label>
-              <input id="sa-new-login" placeholder="alisher@gmail.com" style="${saInputStyle()}"
+              <input id="sa-new-login" placeholder="alisher@gmail.com" autocomplete="off" name="nopick-sa-login" style="${saInputStyle()}"
                 oninput="saPreviewLogin()">
               <div id="sa-login-preview" style="font-size:12.5px;color:#334155;margin-top:4px"></div>
             </div>
             <div>
               <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Telefon raqam</label>
-              <input id="sa-new-phone" placeholder="+998 90 123 45 67" style="${saInputStyle()}">
+              <input id="sa-new-phone" placeholder="+998 90 123 45 67" autocomplete="off" name="nopick-sa-phone" style="${saInputStyle()}">
             </div>
             <div>
               <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon paroli *</label>
               <div style="position:relative">
-                <input id="sa-new-pass" type="password" placeholder="Kirish paroli" style="${saInputStyle()}">
+                <input id="sa-new-pass" type="password" placeholder="Kirish paroli" autocomplete="new-password" name="sa-nopick-2" style="${saInputStyle()}">
                 <button onclick="var i=document.getElementById('sa-new-pass');i.type=i.type==='password'?'text':'password'"
                   style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
                   background:none;border:none;cursor:pointer;color:#334155;padding:0">
@@ -1706,15 +1706,15 @@ function saEditShopFull(id) {
         </div>
         <div>
           <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Telefon raqam</label>
-          <input id="se-phone" value="${s.phone||""}" placeholder="+998 90 123 45 67" style="${iStyle}">
+          <input id="se-phone" value="${s.phone||""}" placeholder="+998 90 123 45 67" autocomplete="off" name="nopick-se-phone" style="${iStyle}">
         </div>
         <div>
           <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Login (email)</label>
-          <input id="se-login" value="${s.ownerEmail||""}" style="${iStyle}">
+          <input id="se-login" value="${s.ownerEmail||""}" autocomplete="off" name="nopick-se-login" style="${iStyle}">
         </div>
         <div>
           <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Yangi parol (bo'sh = o'zgarmaydi)</label>
-          <input id="se-pass" type="password" placeholder="••••••••" style="${iStyle}">
+          <input id="se-pass" type="password" placeholder="••••••••" autocomplete="new-password" name="sa-nopick-3" style="${iStyle}">
         </div>
         <div>
           <label style="font-size:12.5px;color:#1F2937;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase">Do'kon turi</label>

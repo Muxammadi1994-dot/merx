@@ -605,12 +605,14 @@ function showLoginScreen() {
           <div style="margin-bottom:12px">
             <label style="font-size:12px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;font-weight:600">TELEFON</label>
             <input id="auth-phone" type="tel" placeholder="+998 90 000 00 00"
+              autocomplete="off" name="merx-staff-phone"
               style="${iStyle}" onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='rgba(255,255,255,.15)'"
               onkeydown="if(event.key==='Enter')document.getElementById('auth-pin').focus()">
           </div>
           <div style="margin-bottom:20px">
             <label style="font-size:12px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;font-weight:600">PIN KOD</label>
             <input id="auth-pin" type="password" placeholder="••••" maxlength="6" inputmode="numeric"
+              autocomplete="one-time-code" name="merx-staff-pin"
               style="width:100%;padding:11px 14px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-family:inherit;font-size:20px;letter-spacing:8px;box-sizing:border-box;outline:none"
               onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='rgba(255,255,255,.15)'"
               onkeydown="if(event.key==='Enter')doStaffLogin()">
