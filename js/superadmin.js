@@ -1883,6 +1883,10 @@ function saEditSave(id) {
         console.log(d.ok
           ? `☁️ "${name}" bulutda yangilandi (tarif: ${plan})`
           : "❌ Bulutga yozilmadi: " + (d.error || ""));
+        // 2026-08-03: login o'zgarganda Auth hisobi bilan bog'liq
+        // ogohlantirish bo'lsa — OCHIQ ko'rsatamiz. Busiz egasi
+        // yangi login bilan kira olmay qolgani bilinmasdi.
+        if (d.ok && d.authWarn) showSaToast("⚠️ " + d.authWarn, "err");
         // Bulutdan qayta o'qib ro'yxatni yangilaymiz — haqiqiy holat ko'rinsin
         if (d.ok && typeof saFetchShopsFromCloud === "function")
           setTimeout(() => saFetchShopsFromCloud().catch(()=>{}), 600);

@@ -512,6 +512,56 @@ module.exports = async function handler(req, res) {
       // ham o'sha ishlatiladi. Natijada SuperAdmin panelida yangi nom,
       // do'konning o'zida va cheklarda esa ESKI nom qolardi.
       // Bot ham `bot_sessions` / `shop_owners` dagi nusxadan o'qiydi.
+      // ⚠️ 2026-08-03: LOGIN (EMAIL) O'ZGARSA — AUTH HISOBI HAM.
+      // Avval `update_shop` faqat `shops.owner_email` ni yangilardi,
+      // Supabase Auth hisobi esa ESKI email bilan qolardi. Natijada
+      // egasi yangi login bilan kira olmasdi:
+      //     login_test → 400 Invalid login credentials
+      // Ilova `anon` yo'liga tushib ishlardi, lekin token yo'q edi.
+      //
+      // Xato bo'lsa do'kon yangilanishi TO'XTAMAYDI — faqat
+      // ogohlantirish yoziladi va javobda bildiriladi.
+      let _authWarn = null;
+      if (typeof data.owner_email === "string" && data.owner_email.trim()) {
+        const _yangiEmail = data.owner_email.trim().toLowerCase();
+        try {
+          // Do'konning HOZIRGI emailini olamiz — o'zgarganini bilish uchun
+          const _cur = await fetch(
+            `${SB_URL}/rest/v1/shops?id=eq.${encodeURIComponent(shopId)}&select=owner_email&limit=1`,
+            { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+          const _curJson = _cur.ok ? await _cur.json() : [];
+          const _eskiEmail = (_curJson?.[0]?.owner_email || "").toLowerCase();
+
+          if (_eskiEmail && _eskiEmail !== _yangiEmail) {
+            const _fr = await fetch(`${SB_URL}/auth/v1/admin/users?page=1&per_page=1000`,
+              { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+            const _fd = _fr.ok ? await _fr.json() : {};
+            const _user = (_fd?.users || []).find(
+              u => u.email?.toLowerCase() === _eskiEmail);
+
+            if (!_user) {
+              _authWarn = `Eski email "${_eskiEmail}" bilan Auth hisobi topilmadi — ` +
+                          `egasi yangi login bilan kira olmasligi mumkin`;
+            } else {
+              const _ur = await fetch(`${SB_URL}/auth/v1/admin/users/${_user.id}`, {
+                method: "PUT",
+                headers: {
+                  apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ email: _yangiEmail, email_confirm: true })
+              });
+              if (!_ur.ok) {
+                const _ud = await _ur.json().catch(() => ({}));
+                _authWarn = "Auth hisobi yangilanmadi: " + (_ud.msg || _ur.status);
+              }
+            }
+          }
+        } catch (e) {
+          _authWarn = "Auth hisobi tekshirilmadi: " + e.message;
+        }
+      }
+
       // ⚠️ 2026-08-03: EGASI ISMI — `settings` GA HAM YOZILADI.
       // Do'kon ilovasi `shops` jadvalini o'qimaydi, u `settings` dan
       // ishlaydi. Ism u yerga yozilmasa POS'da "Akmal (admin)" deb
@@ -574,7 +624,10 @@ module.exports = async function handler(req, res) {
         } catch(e) { /* settings yozilmasa shops baribir yangilandi */ }
       }
 
-      return res.status(200).json({ ok: true, message: "✅ Do'kon yangilandi", shopId });
+      return res.status(200).json({ ok: true,
+        message: _authWarn ? "⚠️ Do'kon yangilandi, lekin: " + _authWarn
+                           : "✅ Do'kon yangilandi",
+        authWarn: _authWarn || null, shopId });
     }
 
     // ── 7. Barcha do'konlar ro'yxatini olish (SuperAdmin uchun) ────
