@@ -1521,7 +1521,11 @@ async function _saSendOwnerNotif(shop, text) {
       body:JSON.stringify({ shopId:shop.id, ownerEmail:shop.ownerEmail, ownerPhone:shop.phone, text })
     });
     const data = await res.json();
+    // 2026-08-03: yuborilmasa ham AYTAMIZ.
+    // Avval faqat muvaffaqiyat ko'rsatilardi — egasi botga ulanmagan
+    // bo'lsa siz bilmay qolardingiz va xabar yetdi deb o'ylardingiz.
     if (data.sent) showSaToast("📨 Egasiga xabar yuborildi");
+    else showSaToast("⚠️ " + (data.error || "Xabar yuborilmadi — egasi botga ulanmagan"));
   } catch(e) { console.warn("owner notif:", e.message); }
 }
 

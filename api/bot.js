@@ -1430,6 +1430,48 @@ async function actionSendTextMessage(body) {
   return { ok: true, sent: true, result: r };
 }
 
+// ══════════════════════════════════════════════════════════════
+// EGASIGA XABAR (2026-08-03)
+// ══════════════════════════════════════════════════════════════
+// SuperAdmin paneli `?action=send_owner_notif` ni chaqiradi
+// (obuna muddati eslatmasi uchun), lekin bu amal SERVERDA
+// UMUMAN YO'Q edi. So'rov javobsiz qolib, xato jimgina yutilardi:
+// panel "yuborildi" deb ko'rsatardi, aslida hech kim xabar olmasdi.
+//
+// Egasining chat_id si `shop_owners` jadvalida — u bot bilan
+// bog'langanda yoziladi. Bog'lanmagan bo'lsa xabar yuborilmaydi
+// va buni ochiq aytamiz (yolg'on "yuborildi" bo'lmasin).
+async function actionSendOwnerNotif(body) {
+  const { shopId, text } = body || {};
+  if (!shopId) return { ok: false, error: "shopId majburiy" };
+  if (!text)   return { ok: false, error: "text majburiy" };
+
+  let rows = [];
+  try {
+    rows = await sb("shop_owners",
+      `?shop_id=eq.${encodeURIComponent(shopId)}&select=chat_id,shop_name`);
+  } catch (e) {
+    return { ok: false, sent: false, error: "shop_owners o'qilmadi: " + e.message };
+  }
+
+  const chats = (rows || []).map(r => r.chat_id).filter(Boolean);
+  if (!chats.length)
+    return { ok: true, sent: false, reason: "owner_not_linked",
+             error: "Egasi botga ulanmagan — xabar yuborilmadi" };
+
+  const shopN = (rows[0] && rows[0].shop_name) || "MERX";
+  const msg = `🔔 <b>${shopN}</b>\n\n${text}`;
+
+  let sent = 0;
+  for (const cid of chats) {
+    try {
+      const r = await tg(cid, msg);
+      if (r && r.ok) sent++;
+    } catch (e) { console.warn("owner notif:", cid, e.message); }
+  }
+  return { ok: true, sent: sent > 0, count: sent, total: chats.length };
+}
+
 async function actionSendStaffNotification(body) {
   const { sale, shopName, staffGroupId, shopId } = body || {};
   if (!sale) return { ok: false, error: "sale majburiy" };
@@ -2477,6 +2519,23 @@ export default async function handler(req, res) {
       return res.status(500).json({ ok: false, error: e.message });
     }
   }
+  // 2026-08-03: egasiga xabar (SuperAdmin panelidan)
+  if (action === "send_owner_notif") {
+    let body;
+    try {
+      body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    } catch {
+      return res.status(400).json({ ok: false, error: "invalid_json" });
+    }
+    try {
+      const result = await actionSendOwnerNotif(body);
+      return res.status(200).json(result);
+    } catch (e) {
+      console.error("send_owner_notif xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
 
   let update;
   try {
