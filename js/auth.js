@@ -1180,6 +1180,30 @@ async function doStaffLogin() {
     // Xodim qurilmada topilsa `_staffLoginCloud` chaqirilmaydi —
     // kalitlar baribir kerak, aks holda bulut o'chiq qoladi.
     try { await ensureCloudKeys(); } catch(e) {}
+
+    // ⚠️ 2026-08-03: AUTH SESSIYASI LOKAL YO'LDA HAM.
+    // Xodim qurilmada topilsa server umuman chaqirilmasdi — ya'ni
+    // sessiya ham olinmasdi va `anon` kalitda qolardi. Bazadagi
+    // `shop_isolation_*` qoidalari esa tokendagi `shop_id` ni
+    // tekshiradi.
+    // FONDA olinadi — kirishni SEKINLASHTIRMAYDI. Xato bo'lsa
+    // avvalgidek `anon` bilan ishlaydi.
+    try {
+      if (!getSupabaseTestSession()?.accessToken) {
+        _staffLoginCloud(phone, pin).then(cs2 => {
+          if (cs2 && cs2._session && cs2._session.accessToken) {
+            _supabaseTestSession = cs2._session;
+            try { localStorage.setItem("merx_sb_session",
+                    JSON.stringify(cs2._session)); } catch(e) {}
+            console.log("✅ Xodim sessiyasi olindi (fonda) — RLS faol");
+            // Bulut ulanishini token bilan qayta ochamiz
+            try { if (typeof initSupabase === "function") initSupabase(); } catch(e) {}
+          } else {
+            console.warn("ℹ️ Xodim sessiyasiz — anon kalit ishlatiladi");
+          }
+        }).catch(e => console.warn("xodim sessiyasi:", e.message));
+      }
+    } catch(e) {}
     hideLoginScreen();
     toast(`✅ Xush kelibsiz, ${res.user.name}!`);
     applyRoleUI();
