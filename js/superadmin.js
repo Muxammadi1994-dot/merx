@@ -129,7 +129,7 @@ function openSaPanel() {
         <div style="font-size:13px;color:#9ca3af;margin-bottom:28px">MERX boshqaruv paneli</div>
         <div id="sa-err" style="display:none;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;
           border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;font-weight:600"></div>
-        <input id="sa-pass" type="password" placeholder="Super admin paroli" autocomplete="off" name="merx-sa-key" data-lpignore="true" data-form-type="other"
+        <input id="sa-pass" type="password" placeholder="Super admin paroli" autocomplete="off" name="merx-sa-key" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')"
           onkeydown="if(event.key==='Enter')saDoLogin()"
           style="width:100%;box-sizing:border-box;background:#F9FAFB;border:1.5px solid #E5E7EB;
           color:#111;border-radius:10px;padding:12px 16px;font-family:inherit;
@@ -430,7 +430,7 @@ function buildSaPanel() {
             font-weight:600;cursor:pointer" title="merx.uz sahifasidagi tarif narxlari">
             🌐 Landing tariflari
           </button>
-          <input id="sa-superpass-inp" type="password" placeholder="Yangi super admin paroli" autocomplete="off" name="merx-sa-newkey" data-lpignore="true" data-form-type="other"
+          <input id="sa-superpass-inp" type="password" placeholder="Yangi super admin paroli" autocomplete="off" name="merx-sa-newkey" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')"
             style="background:#fff;border:1.5px solid #E5E7EB;color:#111;
             border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
             outline:none;width:160px" onfocus="this.style.borderColor='#E9A500'"

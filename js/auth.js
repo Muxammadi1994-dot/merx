@@ -584,7 +584,11 @@ function showLoginScreen() {
           <div style="margin-bottom:20px">
             <label style="font-size:12px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;font-weight:600">PAROL</label>
             <div style="position:relative">
-              <input id="auth-pass" type="password" placeholder="••••••••" autocomplete="current-password"
+              <!-- 2026-08-03: readonly hiylasi. Chrome saqlangan parol
+              bo'lsa autocomplete=off ni mensimaydi va kursor
+              qo'yilganda ro'yxat ochadi. readonly maydonni esa
+              to'ldirmaydi — fokus tushganda olib tashlanadi. -->
+              <input id="auth-pass" type="password" placeholder="••••••••" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')"
                 style="width:100%;padding:11px 40px 11px 14px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-family:inherit;font-size:14px;box-sizing:border-box;outline:none"
                 onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='rgba(255,255,255,.15)'"
                 onkeydown="if(event.key==='Enter')doLogin()">
@@ -612,7 +616,7 @@ function showLoginScreen() {
           <div style="margin-bottom:20px">
             <label style="font-size:12px;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;font-weight:600">PIN KOD</label>
             <input id="auth-pin" type="password" placeholder="••••" maxlength="6" inputmode="numeric"
-              autocomplete="one-time-code" name="merx-staff-pin"
+              autocomplete="off" name="merx-staff-pin" readonly onfocus="this.removeAttribute('readonly')"
               style="width:100%;padding:11px 14px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-family:inherit;font-size:20px;letter-spacing:8px;box-sizing:border-box;outline:none"
               onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='rgba(255,255,255,.15)'"
               onkeydown="if(event.key==='Enter')doStaffLogin()">
