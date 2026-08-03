@@ -1080,6 +1080,31 @@ function saNewTierPrice() {
   else { p.value = ""; p.placeholder = "Narxlar oynasida tarif narxini kiriting"; }
 }
 
+// ══════════════════════════════════════════════════════════════
+// ASOSIY DB — YAGONA MANBA (2026-08-03)
+// ══════════════════════════════════════════════════════════════
+// ⚠️ Kodda 7 joyda `localStorage.getItem("merx_v5")` yozilgan edi.
+// Bu ESKI, do'konsiz kalit. Hozirgi tizimda do'kon bazasi
+// `merx_v5_shop_xxx` ko'rinishida — ya'ni u yo'q va hamma joyda
+// bo'sh obyekt qaytardi. Oqibati: bot havolasi ishlamagan,
+// do'kon ochilganda kalitlar bo'shab qolgan.
+// Endi yagona funksiya: avval eski kalit, topilmasa birinchi
+// to'ldirilgan do'kon bazasi.
+function _saMainDB() {
+  try {
+    const eski = _saMainDB();
+    if (eski && eski.settings) return eski;
+  } catch(e) {}
+  try {
+    for (const k of Object.keys(localStorage)) {
+      if (!k.startsWith("merx_v5")) continue;
+      const d = JSON.parse(localStorage.getItem(k) || "{}");
+      if (d && d.settings) return d;
+    }
+  } catch(e) {}
+  return {};
+}
+
 function renderSaShops() {
   const el = document.getElementById("sa-shops-list"); if (!el) return;
   // 2026-08-03: server holati bir marta yuklanadi
@@ -1329,7 +1354,7 @@ async function saAddShop() {
   // Supabase URL/Key asosiy do'kondan
   let _url = "", _key = "";
   try {
-    const m = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+    const m = _saMainDB();
     _url = m?.settings?.supabaseUrl || "";
     _key = m?.settings?.supabaseKey || "";
   } catch(e) {}
@@ -1340,7 +1365,7 @@ async function saAddShop() {
   // Asosiy do'kon bot sozlamalarini olamiz
   let _mainBotUrl = "", _mainBotUser = "";
   try {
-    const _mdb = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+    const _mdb = _saMainDB();
     _mainBotUrl  = _mdb?.settings?.telegramBotUrl || "";
     _mainBotUser = _mdb?.settings?.telegramBotUsername || "";
   } catch(e) {}
@@ -1411,7 +1436,7 @@ async function saAddShop() {
   setTimeout(() => {
     let botUsername="";
     try {
-      const m=JSON.parse(localStorage.getItem("merx_v5")||"{}");
+      const m=_saMainDB();
       botUsername=(m?.settings?.telegramBotUsername||"").replace(/^@/,"").trim();
       if (botUsername.includes("@")||botUsername.includes(".")) botUsername="";
     } catch(e){}
@@ -1529,17 +1554,44 @@ async function saOpenShop(id) {
   const s = _saShops.find(x => x.id === id); if (!s) return;
   const dbKey = "merx_v5_" + id;
 
+  // ⚠️ 2026-08-03: BULUT KALITLARI — BARCHA MANBADAN.
+  // Avval faqat eski `merx_v5` kaliti o'qilardi. Hozirgi tizimda
+  // do'kon bazasi `merx_v5_shop_xxx` ko'rinishida, ya'ni kalit
+  // TOPILMASDI va pastda mavjud do'konning ISHLAYDIGAN kalitlari
+  // ustiga BO'SH qiymat yozilardi — do'kon buluti o'chib qolardi.
   let url = "", key2 = "";
-  try { const m = JSON.parse(localStorage.getItem("merx_v5")||"{}"); url=m?.settings?.supabaseUrl||""; key2=m?.settings?.supabaseKey||""; } catch(e) {}
-  if (!url && typeof MERX_SUPABASE_URL !== "undefined") url  = MERX_SUPABASE_URL;
-  if (!key2 && typeof MERX_SUPABASE_KEY !== "undefined") key2 = MERX_SUPABASE_KEY;
+  try {
+    for (const k of Object.keys(localStorage)) {
+      if (!k.startsWith("merx_v5")) continue;
+      const d = JSON.parse(localStorage.getItem(k) || "{}");
+      if (d?.settings?.supabaseUrl && d?.settings?.supabaseKey) {
+        url = d.settings.supabaseUrl; key2 = d.settings.supabaseKey; break;
+      }
+    }
+  } catch(e) {}
+  // Serverdan (auth.js dagi `ensureCloudKeys` bilan bir xil yo'l)
+  if (!url || !key2) {
+    try {
+      const r = await fetch("/api/auth-v2?action=client_config", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}"
+      });
+      const cfg = await r.json();
+      if (cfg.ok && cfg.url && cfg.key) { url = cfg.url; key2 = cfg.key; }
+    } catch(e) { console.warn("client_config:", e.message); }
+  }
+  if (!url || !key2) {
+    showSaToast("Bulut kalitlari topilmadi — do'kon ochilmadi", "err");
+    return;
+  }
 
   if (!localStorage.getItem(dbKey)) {
     // Yangi do'kon — bo'sh DB yaratamiz
     const shopDB = {
       shop: { name: s.name, type: s.shop_type || s.shopType || "ikki" },
       settings: {
-        rate: 12800,
+        // 2026-08-03: kurs QOTIRILMAYDI — do'kon bulutdan tortadi.
+        // Avval 12800 yozilardi va yangi do'kon noto'g'ri kurs
+        // bilan boshlanardi.
         // 2026-07-26: valyuta rejimi SuperAdmin belgilaydi
         currencyMode: s.currency_mode || s.currencyMode || "multi",
         priceCurrency: (s.currency_mode || s.currencyMode) === "usd" ? "usd" : "uzs",
@@ -1561,8 +1613,9 @@ async function saOpenShop(id) {
       const existing = JSON.parse(localStorage.getItem(dbKey));
       if (!existing.settings) existing.settings = {};
       existing.settings.cloudShopId = id;
-      existing.settings.supabaseUrl = url;
-      existing.settings.supabaseKey = key2;
+      // ⚠️ Bo'sh qiymat mavjudini BOSMAYDI (kontekst §10.7)
+      if (url)  existing.settings.supabaseUrl = url;
+      if (key2) existing.settings.supabaseKey = key2;
       // adminEmail/adminPass — do'kon egasidan olamiz, asosiy do'kondan emas
       if (!existing.settings.adminEmail)
         existing.settings.adminEmail = s.ownerEmail || (s.phone ? s.phone.replace(/\D/g,"")+"@merx.uz" : id+"@merx.uz");
@@ -1570,7 +1623,7 @@ async function saOpenShop(id) {
         existing.settings.adminPass = await saSha256(s.ownerPass || "merx123");
       // Bot sozlamalari — faqat yangi do'konda yo'q bo'lsa
       try {
-        const mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+        const mainDB = _saMainDB();
         if (!existing.settings.telegramBotUrl && mainDB?.settings?.telegramBotUrl)
           existing.settings.telegramBotUrl = mainDB.settings.telegramBotUrl;
         if (!existing.settings.telegramBotUsername && mainDB?.settings?.telegramBotUsername)
@@ -2115,7 +2168,7 @@ function saExtendShop(id) {
 }
 
 async function _saSendOwnerNotif(shop, text) {
-  const botUrl = (()=>{ try { return JSON.parse(localStorage.getItem("merx_v5")||"{}").settings?.telegramBotUrl||""; } catch(e){return "";} })();
+  const botUrl = (()=>{ try { return _saMainDB().settings?.telegramBotUrl||""; } catch(e){return "";} })();
   if (!botUrl) return;
   try {
     const res = await fetch(botUrl+"?action=send_owner_notif", {
@@ -2177,7 +2230,7 @@ function _saBotUsername() {
   } catch(e) {}
   try {
     // 3) Eski lokal do'kon (zaxira)
-    const mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+    const mainDB = _saMainDB();
     let u = (mainDB?.settings?.telegramBotUsername || "").replace(/^@/,"").trim();
     if (u.includes("@") || u.includes(".")) u = "";
     return u;
@@ -2707,7 +2760,7 @@ async function saPushCurrencyMode(shopId, mode) {
   if (!shopId || !mode) return false;
   let url = "", key = "";
   try {
-    const m = JSON.parse(localStorage.getItem("merx_v5") || "{}");
+    const m = _saMainDB();
     url = m?.settings?.supabaseUrl || "";
     key = m?.settings?.supabaseKey || "";
   } catch(e) {}
