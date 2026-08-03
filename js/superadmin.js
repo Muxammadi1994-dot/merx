@@ -254,7 +254,7 @@ function buildSaDashboard() {
           </div>
         </div>
         ${[["📈","Daromad","sa-inc","#047857"],["📉","Xarajat","sa-exp","#DC2626"],
-           ["💰","Foyda","sa-prf","#7C3AED"]]
+           ["💰","Foyda","sa-prf","#7C3AED"],["💱","Kurs","sa-rate","#334155"]]
           .map(([e,l,id,c])=>`<div style="display:flex;justify-content:space-between;
             align-items:baseline;gap:8px;margin-bottom:2px">
             <span style="font-size:12.5px;color:#1F2937">${e} ${l}</span>
@@ -653,6 +653,18 @@ async function saLoadServerStats() {
 // Ikkalasi ham teg uslubida, valyuta va sana bilan.
 // KPI kartasi shu yozuvlardan hisoblanadi (taxminiy narxdan emas).
 let _saFin = { income: [], expense: [], tariffs: [] };
+// 2026-08-03: joriy Markaziy bank kursi — kartada ko'rsatiladi
+// va yangi yozuvlarda shu muzlatiladi.
+let _saRate = 0;
+
+async function saLoadRate() {
+  try {
+    const r = await fetch("https://cbu.uz/uz/arkhiv-kursov-valyut/json/USD/");
+    const j = await r.json();
+    _saRate = parseFloat(j?.[0]?.Rate) || 0;
+  } catch (e) { console.warn("kurs olinmadi:", e.message); }
+  try { saRenderFinKpi(); } catch(e) {}
+}
 
 const SA_EXP_TAGS_DEF = ["Supabase", "Vercel", "Domen", "Telegram bot",
                          "Reklama", "Dizayn", "Boshqa"];
@@ -705,6 +717,11 @@ function saRenderFinKpi() {
   set("sa-inc-val", inc);
   set("sa-exp-val", exp);
   set("sa-prf-val", inc - exp, (inc - exp) >= 0 ? "#7C3AED" : "#DC2626");
+  // 2026-08-03: joriy kurs — yangi yozuvlar shu bilan muzlatiladi
+  const rEl = document.getElementById("sa-rate-val");
+  if (rEl) rEl.textContent = _saRate
+    ? Math.round(_saRate).toLocaleString("ru-RU") + " so'm"
+    : "yuklanmoqda...";
 }
 
 // ── Qo'shish va ro'yxat oynasi ──
@@ -912,7 +929,10 @@ async function saFinAdd(kind) {
 // Yozuvlar to'planib borsa oyna cheksiz uzayardi. Endi oxirgi
 // 20 tasi ko'rsatiladi, ro'yxat o'z ichida aylanadi, pastda
 // "hammasini ko'rish" tugmasi bor.
-let _saFinAll = false;
+// 2026-08-03: 20 tadan varaqlanadi (avval "hammasini ko'rish"
+// tugmasi bor edi va ro'yxat baribir uzayib ketardi).
+let _saFinPage = 1;
+const SA_FIN_PER = 20;
 
 function saFinRenderList(kind) {
   const el = document.getElementById("fin-list"); if (!el) return;
@@ -929,7 +949,12 @@ function saFinRenderList(kind) {
   if (f1) hammasi = hammasi.filter(r => (r.date || "") >= f1);
   if (f2) hammasi = hammasi.filter(r => (r.date || "") <= f2);
 
-  const rows = _saFinAll ? hammasi : hammasi.slice(0, 20);
+  // Filtr o'zgarsa birinchi sahifaga qaytamiz
+  if (q || f1 || f2) { if (_saFinPage > Math.ceil(hammasi.length / SA_FIN_PER)) _saFinPage = 1; }
+
+  const sahifalar = Math.max(1, Math.ceil(hammasi.length / SA_FIN_PER));
+  if (_saFinPage > sahifalar) _saFinPage = sahifalar;
+  const rows = hammasi.slice((_saFinPage - 1) * SA_FIN_PER, _saFinPage * SA_FIN_PER);
   const money = r => (r.currency === "usd" ? "$" : "") +
     (+r.amount || 0).toLocaleString("ru-RU", { maximumFractionDigits: 2 }) +
     (r.currency === "usd" ? "" : " so'm");
@@ -972,14 +997,28 @@ function saFinRenderList(kind) {
         <button onclick="saFinDel('${kind}',${r.id})" title="O'chirish"
           style="background:none;border:none;color:#DC2626;cursor:pointer;font-size:14px">🗑</button></td>
     </tr>`).join("")}</tbody></table></div>
-    ${jami > 20 ? `<button onclick="_saFinAll=!_saFinAll;saFinRenderList('${kind}')"
-      style="width:100%;margin-top:8px;background:#F9FAFB;border:1px solid #E5E7EB;
-      color:#334155;border-radius:8px;padding:7px;font-size:12.5px;cursor:pointer;
-      font-family:inherit">${_saFinAll ? "Kamroq ko'rsatish" : `Hammasini ko'rish (${jami})`}</button>` : ""}`;
+    ${sahifalar > 1 ? `
+    <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:9px">
+      <button onclick="saFinPage('${kind}',-1)" ${_saFinPage<=1?"disabled":""}
+        style="border:1px solid #E5E7EB;background:#fff;color:#334155;border-radius:7px;
+        padding:5px 12px;font-size:12.5px;cursor:${_saFinPage<=1?"default":"pointer"};
+        opacity:${_saFinPage<=1?".4":"1"};font-family:inherit">‹ Oldingi</button>
+      <span style="font-size:12.5px;color:#334155">
+        ${_saFinPage} / ${sahifalar}</span>
+      <button onclick="saFinPage('${kind}',1)" ${_saFinPage>=sahifalar?"disabled":""}
+        style="border:1px solid #E5E7EB;background:#fff;color:#334155;border-radius:7px;
+        padding:5px 12px;font-size:12.5px;cursor:${_saFinPage>=sahifalar?"default":"pointer"};
+        opacity:${_saFinPage>=sahifalar?".4":"1"};font-family:inherit">Keyingi ›</button>
+    </div>` : ""}`;
 }
 
 // "Shu oy" tugmasi — sana oralig'ini oyning boshi va oxiriga
 // qo'yadi. Ikkinchi bosishda tozalaydi (2026-08-03).
+function saFinPage(kind, d) {
+  _saFinPage = Math.max(1, _saFinPage + d);
+  saFinRenderList(kind);
+}
+
 function saFinQuick(kind) {
   const f1 = document.getElementById("fin-f1");
   const f2 = document.getElementById("fin-f2");
@@ -1043,6 +1082,7 @@ function renderSaShops() {
     window._saStatsLoaded = true;
     try { saLoadServerStats(); } catch(e) {}
     try { saLoadFinance(); } catch(e) {}
+    try { saLoadRate(); } catch(e) {}
   }
   // 2026-08-03: sarlavhadagi do'kon soni ro'yxat kelgach yangilanadi
   try {
@@ -1181,10 +1221,7 @@ function renderSaShops() {
                   style="background:#E9A500;border:none;color:#0D1B2A;border-radius:7px;
                   padding:6px 10px;font-size:13px;cursor:pointer;font-weight:700">
                   🔑</button>
-                <button onclick="saCopyBotLink('${s.id}')" title="Bot havolasini nusxalash"
-                  style="background:#ECFDF5;border:1px solid #BBF7D0;color:#059669;
-                  border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer"
-                  title="Bot havola">🔗</button>
+                
                 <button onclick="saCopyOwnerLink('${s.id}')"
                   style="background:#FEF3C7;border:1px solid #FDE68A;color:#B45309;
                   border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer"
@@ -2019,10 +2056,8 @@ function saShowStats(shopId) {
           style="background:#0D1B2A;border:none;color:#E9A500;border-radius:8px;padding:9px 16px;
           font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">
           🔑 Kirish</button>
-        <button onclick="saCopyBotLink('${shop.id}')"
-          style="background:#ECFDF5;border:1px solid #BBF7D0;color:#059669;
-          border-radius:8px;padding:9px 16px;font-family:inherit;font-size:13px;cursor:pointer;font-weight:600">
-          🔗 Bot havolasi</button>
+        <!-- 2026-08-03: takror "Bot havolasi" olib tashlandi —
+             yonidagi tugma xuddi shu ishni to'g'ri bajaradi. -->
         <button onclick="saCopyOwnerLink('${shop.id}')"
           style="background:#FEF3C7;border:1px solid #FDE68A;color:#B45309;
           border-radius:8px;padding:9px 16px;font-family:inherit;font-size:13px;cursor:pointer;font-weight:600">
@@ -2091,53 +2126,14 @@ async function saSendExpiryReminders() {
 }
 
 // ── Bot havolasini nusxalash ─────────────────────
-function saCopyBotLink(shopId) {
-  // Bot username — asosiy do'kon settings dan olamiz
-  let botUsername = "";
-  try {
-    const mainDB = JSON.parse(localStorage.getItem("merx_v5") || "{}");
-    botUsername = (mainDB?.settings?.telegramBotUsername || "").replace(/^@/,"").trim();
-    // Email bo'lsa tozalaymiz
-    if (botUsername.includes("@") || botUsername.includes(".")) botUsername = "";
-  } catch(e) {}
+// ⚠️ 2026-08-03: `saCopyBotLink` OLIB TASHLANDI.
+// U bot nomini eski `merx_v5` kalitidan o'qirdi — hozirgi
+// tizimda do'kon bazasi `merx_v5_shop_xxx` ko'rinishida, ya'ni
+// nom hech qachon topilmasdi va tugma doim xato berardi.
+// Xuddi shu ishni `saCopyOwnerLink` bajaradi (u `_saBotUsername()`
+// orqali to'g'ri manbadan oladi — 2026-07-30 da tuzatilgan).
 
-  if (!botUsername) {
-    showSaToast("Bot username sozlanmagan — Asosiy do'kon Sozlamalar → SMS & Bot", "err");
-    return;
-  }
 
-  const link = `https://t.me/${botUsername}?start=${shopId}`;
-
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(link).then(() => {
-      showSaToast("✅ Havola nusxa olindi: " + link);
-    });
-  } else {
-    const t = document.createElement("textarea");
-    t.value = link; document.body.appendChild(t);
-    t.select(); document.execCommand("copy");
-    document.body.removeChild(t);
-    showSaToast("✅ Havola nusxa olindi!");
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// EGA HAVOLASI (2026-07-30)
-// ══════════════════════════════════════════════════════════════
-// Yangi do'kon egasini botga ulash uchun. Oddiy bot havolasidan
-// farqi: `own_` prefiksi bilan ketadi va bot uni EGA sifatida
-// ro'yxatdan o'tkazadi (shop_owners + bot_sessions.is_owner=true).
-//
-// Nega kerak: avval yangi do'kon egasi ega bo'lib TANILISHINING yo'li
-// yo'q edi — shop_owners ga yozish `if (isOwner)` ichida turardi,
-// ya'ni ega bo'lish uchun avval ega bo'lish kerak edi.
-//
-// Havola BIR MARTA ishlaydi: do'konda ega ro'yxatdan o'tgach kuchini
-// yo'qotadi.
-//
-// Eslatma: bot username o'qish mantiqi saCopyBotLink da ham bor.
-// Ataylab takrorlandi — ishlab turgan funksiyaga tegmaslik uchun.
-// Keyinchalik ikkalasini shu yordamchiga o'tkazsa bo'ladi.
 function _saBotUsername() {
   // 2026-07-30 TUZATILDI. Avval faqat localStorage["merx_v5"] o'qilardi.
   // Lekin bulutga ulangan do'kon ma'lumoti "merx_v5_<shopId>" kalitida
