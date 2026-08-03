@@ -1152,6 +1152,23 @@ async function doStaffLogin() {
         }
       } catch (e) {}
       authSave(user);
+
+      // ⚠️ 2026-08-03: XODIM SESSIYASINI SAQLAYMIZ.
+      // Server `staff_login` da Supabase Auth sessiyasi qaytaradi
+      // (`user_metadata.shop_id` bilan). `cloud.js` shu yerdan
+      // o'qiydi va token bilan ulanadi. Busiz xodim `anon` kalitda
+      // qolardi va bazadagi `shop_isolation_*` qoidalari unga
+      // qo'llanmasdi.
+      try {
+        if (cs._session && cs._session.accessToken) {
+          _supabaseTestSession = cs._session;
+          localStorage.setItem("merx_sb_session", JSON.stringify(cs._session));
+          console.log("✅ Xodim uchun Auth sessiyasi olindi — RLS faol");
+        } else {
+          console.warn("ℹ️ Xodim sessiyasiz kirdi — anon kalit ishlatiladi");
+        }
+      } catch(e) { console.warn("xodim sessiyasi saqlanmadi:", e.message); }
+
       // ⚠️ Bulut kalitlarini ta'minlaymiz — busiz sozlamalar
       // (kurs, do'kon nomi) hech qachon yuklanmaydi.
       try { await ensureCloudKeys(); } catch(e) {}
