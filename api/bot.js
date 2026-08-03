@@ -1990,6 +1990,35 @@ function buildReceiptHtml(sale, opts) {
   const remaining = Number(s.origRemaining != null ? s.origRemaining : (s.remaining || 0));
   const discount = Number(s.discount||0);
   const rate = Number(s.rate||0);
+
+  // ══════════════════════════════════════════════════════════════
+  // ⚠️ 2026-08-03: IKKI VALYUTALI CHEK (kontekst §3.5)
+  // ══════════════════════════════════════════════════════════════
+  // Klient chekida har qator ikkala valyutada ko'rsatiladi:
+  //     so'm rejimi   →  "540 000 / $42.19"
+  //     dollar rejimi →  "$42.19 / 540 000"
+  // Botda esa faqat JAMI qatorida dollar bor edi (`usdLine`),
+  // qolgan qatorlar bitta valyutada chiqardi. Ya'ni mijoz botdan
+  // olgan chek ilovadagidan farq qilardi.
+  //
+  // Kurs SOTUV PAYTIDAGI (`s.rate`) — keyin o'zgarsa chek
+  // o'zgarmaydi. Do'kon xohlasa bitta valyuta qoldirishi mumkin
+  // (`chekDual: false`), eski cheklar ham buzilmaydi.
+  const _pcMode = s.priceCurrency || "uzs";
+  const _pcRate = rate || 0;
+  const _usdStr = som => "$" + (_pcRate > 0 ? (som / _pcRate) : 0)
+    .toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const _dual = (s.chekDual != null) ? !!s.chekDual : true;
+
+  // FC — pul ko'rsatish. Kurs yo'q bo'lsa faqat so'm (bo'linish xato
+  // bermasin). Eski cheklarda `rate` bo'lmasligi mumkin.
+  const FC = n => {
+    const som = Math.round(n || 0);
+    if (!_dual || _pcRate <= 0) return _pcMode === "usd" ? _usdStr(som) : F(som);
+    return _pcMode === "usd"
+      ? `${_usdStr(som)} / ${F(som)}`
+      : `${F(som)} / ${_usdStr(som)}`;
+  };
   const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi", aralash:"Aralash", nasiya:"Nasiya", qarz:"Nasiya" };
 
   // 2026-07-18 YAKUNIY: nomer, IKKI CHETDAN tekis (namunadagidek), qora chizish
@@ -1997,23 +2026,24 @@ function buildReceiptHtml(sale, opts) {
     const sum = (i.price||0)*(i.qty||0);
     const clean = (i.variant||"").replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
     const nm = [i.name||"", clean, i.art||""].filter(Boolean).join(" / ");
-    const bp = (i.basePrice && i.basePrice > (i.price||0)) ? `<s>${F(i.basePrice)}</s> ` : "";
+    const bp = (i.basePrice && i.basePrice > (i.price||0)) ? `<s>${FC(i.basePrice)}</s> ` : "";
     const isBox = i.sellMode === "karobka" && i.qtyBox && i.inBox;
     const calcLeft = isBox
-      ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${F(i.price)})`
-      : `${i.qty} ${i.unit||"dona"} × ${bp}${F(i.price)}`;
+      ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${FC(i.price)})`
+      : `${i.qty} ${i.unit||"dona"} × ${bp}${FC(i.price)}`;
     return `<div class="it"><div class="itn">${ix+1}. ${nm}</div>
-      <div class="itc"><span>${calcLeft}</span><span class="itv">${F(sum)}</span></div></div>`;
+      <div class="itc"><span>${calcLeft}</span><span class="itv">${FC(sum)}</span></div></div>`;
   }).join("");
 
   const jamiPch = items.reduce((a,i)=> a + ((i.sellMode==="karobka" && i.qtyBox) ? i.qtyBox : 0), 0);
   const itemDisc = items.reduce((a,i)=> a + ((i.basePrice && i.basePrice > (i.price||0)) ? (i.basePrice-i.price)*(i.qty||1) : 0), 0);
-  const usdLine = rate > 0 ? ` / $${(total/rate).toFixed(2)}` : "";
+  // 2026-08-03: `usdLine` OLIB TASHLANDI — endi FC har qatorda
+  // ikki valyutani o'zi qo'shadi, ikki marta chiqmasin.
 
   const pb = s.payBreakdown;
   const pbRows = pb ? Object.entries(pb).filter(([,v]) => (v||0) > 0) : [];
   const payHtml = pbRows.length > 1
-    ? pbRows.map(([m,v]) => `<div class="r"><span>${payLabels[m]||m}</span><span>${F(v)} so'm</span></div>`).join("")
+    ? pbRows.map(([m,v]) => `<div class="r"><span>${payLabels[m]||m}</span><span>${FC(v)}</span></div>`).join("")
     : `<div class="r"><span>To'lov turi</span><b>${payLabels[s.payType]||s.payType||"—"}</b></div>`;
 
   // ⚠️ 2026-08-03: QAYTARISH BELGISI (kontekst §3.6).
@@ -2034,7 +2064,7 @@ function buildReceiptHtml(sale, opts) {
           <div style="font-size:12px;font-weight:800;color:#B91C1C">
             ${_full ? "TO'LIQ QAYTARILGAN" : "QISMAN QAYTARILGAN"}</div>
           <div style="font-size:11.5px;color:#000;margin-top:2px">
-            Qaytarilgan summa: <b>${F(_rTot)} so'm</b></div>
+            Qaytarilgan summa: <b>${FC(_rTot)}</b></div>
           ${_nos ? `<div style="font-size:11px;color:#333;margin-top:2px">
             Hujjat: ${_nos}</div>` : ""}
         </div>`;
@@ -2122,13 +2152,13 @@ body{font-family:${opts.fontFamily || "'DM Sans',Arial,sans-serif"};background:#
   <div class="lbl">Mahsulotlar</div>
   ${itemsHtml}
   ${jamiPch > 0 ? `<div class="r bold" style="padding-top:6px"><span>JAMI POCHKA</span><span>${jamiPch} pochka</span></div>` : ""}
-  ${itemDisc > 0 ? `<div class="r sm"><span>Tovar chegirmalari</span><span>−${F(itemDisc)} so'm</span></div>` : ""}
+  ${itemDisc > 0 ? `<div class="r sm"><span>Tovar chegirmalari</span><span>−${FC(itemDisc)}</span></div>` : ""}
   ${discount > 0 ? `<div class="r sm"><span>Subtotal</span><span>${F(s.subtotal || total + discount)} so'm</span></div>
-  <div class="r sm"><span>Chegirma</span><span>−${F(discount)} so'm</span></div>` : ""}
-  <div class="tot"><span style="font-weight:800">JAMI</span><span class="v">${F(total)} so'm${usdLine}</span></div>
+  <div class="r sm"><span>Chegirma</span><span>−${FC(discount)}</span></div>` : ""}
+  <div class="tot"><span style="font-weight:800">JAMI</span><span class="v">${FC(total)}</span></div>
   <div class="lbl">To'lov</div>
   ${payHtml}
-  ${paid > 0 ? `<div class="r"><span>To'landi</span><span style="font-weight:700">${F(paid)} so'm</span></div>` : ""}
+  ${paid > 0 ? `<div class="r"><span>To'landi</span><span style="font-weight:700">${FC(paid)}</span></div>` : ""}
   ${debtHtml}
   ${_refundNote}
   <div class="ft">${cfg.footer}</div>
