@@ -1640,6 +1640,19 @@ async function saOpenShop(id) {
     role: "admin", saAccess: true
   };
   localStorage.setItem("merx_auth_v1", JSON.stringify(user));
+  // ⚠️ 2026-08-03: PANEL QAYTA OCHILMASIN.
+  // `saRestorePanelIfLoggedIn()` sahifa yuklangach 400ms da
+  // panelni O'ZI ochadi (SA sessiyasi ochiq bo'lgani uchun).
+  // Natijada do'konga kirilardi-yu, panel darhol ustiga qaytardi.
+  // Bu belgi bir martalik — panel ochilmaydi, keyin o'chiriladi.
+  try {
+    sessionStorage.setItem("merx_sa_entering", "1");
+    // ⚠️ 2026-08-03: QAYTISH LENTASI UCHUN BELGI.
+    // `renderSaViewBanner()` shu belgiga qaraydi, lekin u
+    // HECH QAYERDA qo'yilmasdi — faqat o'chirilardi. Natijada
+    // do'konga kirilgach SuperAdminga qaytish yo'li ko'rinmasdi.
+    sessionStorage.setItem("merx_is_sa_view", "1");
+  } catch(e) {}
   hideSaPanel();
   showSaToast(`"${s.name}" ga kirilmoqda...`);
   setTimeout(() => location.reload(), 600);
@@ -2817,6 +2830,12 @@ async function _saApi(action, payload) {
 // o'ylardi. Endi amaldagi sessiya bo'lsa panel avtomat qaytadi.
 function saRestorePanelIfLoggedIn() {
   try {
+    // 2026-08-03: do'konga kirilyapti — panel ochilmaydi
+    if (sessionStorage.getItem("merx_sa_entering") === "1") {
+      sessionStorage.removeItem("merx_sa_entering");
+      console.log("🏪 Do'konga kirildi — SuperAdmin paneli ochilmadi");
+      return false;
+    }
     saLoad();
     if (!_saSession) return false;
     // ⚠️ openSaPanel() toggle qiladi (ochiq bo'lsa YOPADI) — shuning
@@ -2830,7 +2849,14 @@ function saRestorePanelIfLoggedIn() {
 
 // Ilova yuklangach tekshiramiz (DOM tayyor bo'lgach)
 if (typeof window !== "undefined") {
-  const _saBoot = () => setTimeout(saRestorePanelIfLoggedIn, 400);
+  // ⚠️ 2026-08-03: QAYTISH LENTASI HAM CHIZILADI.
+  // `renderSaViewBanner()` yozilgan, lekin HECH QAYERDA
+  // chaqirilmasdi — do'konga kirilgach SuperAdminga qaytish
+  // tugmasi ko'rinmasdi.
+  const _saBoot = () => setTimeout(() => {
+    try { renderSaViewBanner(); } catch(e) {}
+    saRestorePanelIfLoggedIn();
+  }, 400);
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", _saBoot);
   else _saBoot();
