@@ -841,8 +841,95 @@ module.exports = async function handler(req, res) {
         if (Array.isArray(sd) && sd[0]?.name) shopName = sd[0].name;
       } catch (e) {}
 
+      // ══════════════════════════════════════════════════════════
+      // ⚠️ 2026-08-03: XODIMGA HAM SUPABASE AUTH SESSIYASI
+      // ══════════════════════════════════════════════════════════
+      // Avval xodim `anon` kalit bilan ulanardi. Bazadagi
+      // `shop_isolation_*` qoidalari esa tokendagi
+      // `user_metadata.shop_id` ni tekshiradi — token bo'lmagani
+      // uchun ular xodimga UMUMAN qo'llanmasdi.
+      //
+      // Endi har xodim uchun Auth hisobi bo'ladi:
+      //   email  — sun'iy: `staff.<id>.<shop>@merx.local`
+      //            (xodim uni KO'RMAYDI, telefon+PIN bilan kiradi)
+      //   parol  — PIN dan hosil qilinadi (PIN 4 raqam bo'lishi
+      //            mumkin, Supabase esa 6 belgi talab qiladi)
+      //
+      // ⚠️ XATO BO'LSA KIRISH TO'XTAMAYDI — xodim avvalgidek
+      // `anon` bilan ishlaydi. Ya'ni bu QO'SHIMCHA, almashtirish emas.
+      let _session = null, _authWarn = null;
+      try {
+        const _crypto = require("crypto");
+        const _mail = `staff.${row.id}.${String(row.shop_id).slice(-8)}@merx.local`;
+        // Parol: PIN + do'kon + xodim id dan barqaror xesh.
+        // PIN o'zgarsa parol ham o'zgaradi — eski PIN ishlamaydi.
+        const _pass = _crypto.createHash("sha256")
+          .update(`merx.staff.${row.id}.${row.shop_id}.${pin}`)
+          .digest("hex").slice(0, 24);
+        const _meta = { shop_id: row.shop_id, staff_id: row.id,
+                        role: d.role || row.role || "kassir" };
+
+        // 1) Hisob bormi
+        const _fr = await fetch(`${SB_URL}/auth/v1/admin/users?page=1&per_page=1000`,
+          { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+        const _fd = _fr.ok ? await _fr.json() : {};
+        const _u = (_fd?.users || []).find(u => u.email?.toLowerCase() === _mail);
+
+        if (!_u) {
+          // 2a) Yo'q — yaratamiz
+          await fetch(`${SB_URL}/auth/v1/admin/users`, {
+            method: "POST",
+            headers: {
+              apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              email: _mail, password: _pass, email_confirm: true,
+              user_metadata: _meta
+            })
+          });
+        } else {
+          // 2b) Bor — parol va metama'lumotni yangilaymiz
+          // (PIN yoki do'kon o'zgargan bo'lishi mumkin)
+          await fetch(`${SB_URL}/auth/v1/admin/users/${_u.id}`, {
+            method: "PUT",
+            headers: {
+              apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ password: _pass, user_metadata: _meta })
+          });
+        }
+
+        // 3) Sessiya olamiz
+        const ANON = process.env.SUPABASE_KEY || "";
+        const _lr = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+          method: "POST",
+          headers: { apikey: ANON, "Content-Type": "application/json" },
+          body: JSON.stringify({ email: _mail, password: _pass })
+        });
+        if (_lr.ok) {
+          const _sd = await _lr.json();
+          _session = {
+            accessToken:  _sd.access_token,
+            refreshToken: _sd.refresh_token,
+            expiresAt:    Date.now() + (Number(_sd.expires_in || 3600) * 1000),
+            email:        _mail,
+            shopId:       row.shop_id
+          };
+        } else {
+          const _le = await _lr.json().catch(() => ({}));
+          _authWarn = "Sessiya olinmadi: " + (_le.error_description || _lr.status);
+        }
+      } catch (e) {
+        _authWarn = "Auth: " + e.message;
+        console.warn("staff auth:", e.message);
+      }
+
       return res.status(200).json({
         ok: true,
+        session: _session,          // 2026-08-03: bo'lsa token yo'li
+        authWarn: _authWarn,        // bo'lmasa anon — ishlash to'xtamaydi
         staff: {
           id:       row.id,
           shopId:   row.shop_id,

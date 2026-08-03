@@ -1101,6 +1101,13 @@ async function _staffLoginCloud(phone, pin) {
     const j = await r.json();
     if (!j || !j.ok || !j.staff) return null;
     console.log("🔑 Xodim bulutdan topildi:", j.staff.name, "·", j.staff.shopName);
+    // ⚠️ 2026-08-03: SESSIYA HAM O'TKAZILADI.
+    // Server xodim uchun Supabase Auth sessiyasi qaytaradi
+    // (`user_metadata.shop_id` bilan). Busiz xodim `anon` kalitda
+    // qolardi va bazadagi `shop_isolation_*` qoidalari unga
+    // qo'llanmasdi.
+    if (j.session) j.staff._session = j.session;
+    if (j.authWarn) console.warn("xodim auth:", j.authWarn);
     return j.staff;
   } catch (e) {
     console.warn("bulutdan xodim qidirish xatosi:", e.message);
