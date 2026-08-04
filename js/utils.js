@@ -85,9 +85,37 @@ function _devIdx() {
 
 // Yangi noyob id: `db.seq` × 1000 + qurilma raqami.
 // Ikki qurilma bir xil `seq` da bo'lsa ham id FARQ QILADI.
+// ⚠️ 2026-08-04: SANOQ ALOHIDA — `db.seq` SHISHMAYDI.
+// Avval `id = db.seq × 1000 + kod` edi. Sinxrondan keyin esa
+// `db.seq` eng katta `id` dan qayta hisoblanardi — ikkisi
+// bir-birini surib, chek raqami "430771" bo'lib ketdi.
+//
+// Endi `db.seq` FAQAT sanoq (chek raqami uchun), `id` esa
+// undan MUSTAQIL: vaqt muhri + qurilma kodi.
+// Vaqt muhri har millisekundda o'sadi va ikki qurilmada
+// bir xil bo'lsa ham qurilma kodi ularni ajratadi.
+let _lastId = 0;
 function nextId() {
-  const s = (db.seq = (db.seq || 1) + 1) - 1;
-  return s * 1000 + _devIdx();
+  db.seq = (db.seq || 1) + 1;              // sanoq o'z yo'lida
+  // Vaqt muhri (soniya) × 1000 + qurilma kodi (0..675).
+  // 2026-yilda ~1.78 mlrd → id ~1.78e12, JS uchun xavfsiz.
+  let id = Math.floor(Date.now() / 1000) * 1000 + _devIdx();
+  // ⚠️ Bir soniyada bir nechta yozuv bo'lsa (masalan sotuv +
+  // mijoz + qarz to'lovi) id takrorlanmasin.
+  if (id <= _lastId) id = _lastId + 1000;
+  _lastId = id;
+  return id;
+}
+
+// Sanoqni sog'lom oraliqda ushlaydi (chek raqami uchun).
+// Shishib ketgan qurilmalarda bir marta tiklanadi.
+function _seqSane() {
+  if ((db.seq || 0) >= 100000) {
+    const small = (db.sales || []).map(x => +x.id || 0)
+      .filter(n => n > 0 && n < 100000);
+    db.seq = small.length ? Math.max(...small) + 1 : 1;
+  }
+  return db.seq || 1;
 }
 
 

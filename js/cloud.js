@@ -2298,43 +2298,24 @@ async function pullFromCloud(silent = false, skipRender = false) {
       ...((db.suppliers||[]).map(s=>s.id||0)),
       db.seq || 0
     );
-    // ⚠️ 2026-08-04: `seq` YANGI ID LARDAN SHISHIB KETMASIN.
-    // `nextId()` id ni `seq × 1000 + qurilma` ko'rinishida beradi.
-    // Bu yerda esa `seq` eng katta id dan hisoblanardi — natijada
-    // ikkisi bir-birini surib, chek raqami "430769" bo'lib ketdi.
-    // Yechim: katta id lar (>= 1 000 000) sanoqqa KIRITILMAYDI,
-    // ular allaqachon `seq × 1000` dan hosil bo'lgan.
-    // Eski kichik id lar avvalgidek ishlaydi.
-    // ⚠️ 2026-08-04: `seq` YANGI ID LARDAN SHISHIB KETMASIN.
-    // `nextId()` id ni `seq × 1000 + qurilma` ko'rinishida beradi.
-    // Bu yerda esa `seq` eng katta id dan hisoblanardi — ikkisi
-    // bir-birini surib, chek raqami "430769" bo'lib ketdi.
-    //
-    // Yechim: sanoq FAQAT kichik (eski) id lardan olinadi. Yangi
-    // katta id lar hisobga kirmaydi — ular allaqachon `seq` dan
-    // hosil bo'lgan.
-    // Shishib ketgan `seq` ham normal oraliqqa qaytariladi.
+        // ⚠️ 2026-08-04: `seq` FAQAT SANOQ — id dan MUSTAQIL.
+    // Avval `seq` eng katta `id` dan hisoblanardi. `id` esa
+    // `seq` dan hosil bo'lardi — ikkisi bir-birini surib, chek
+    // raqami "430771" bo'lib ketdi.
+    // Endi `id` vaqt muhridan olinadi (`nextId`, utils.js), ya'ni
+    // bu yerda sanoqni id lardan hisoblash KERAK EMAS.
+    // Faqat eski, kichik id lar hisobga olinadi — ular hali
+    // sanoqdan hosil bo'lgan.
     const _SEQ_LIMIT = 100000;
     const _smallIds = [
       ...db.customers.map(c => c.id || 0),
-      ...db.products.map(p2 => p2.id || 0),
-      ...db.sales.map(x => x.id || 0),
-      ...(db.debtPayments || []).map(x => x.id || 0)
+      ...db.sales.map(x => x.id || 0)
     ].filter(n => n > 0 && n < _SEQ_LIMIT);
     const _smallMax = _smallIds.length ? Math.max(..._smallIds) : 0;
 
-    // Katta id lardan sanoqni QAYTA HOSIL qilamiz (id = seq×1000+kod).
-    // Busiz faqat yangi yozuvli qurilmada sanoq 1 ga tushib,
-    // chek raqamlari takrorlanardi.
-    const _bigIds = [
-      ...db.sales.map(x => x.id || 0),
-      ...db.customers.map(c => c.id || 0)
-    ].filter(n => n >= _SEQ_LIMIT);
-    const _fromBig = _bigIds.length ? Math.floor(Math.max(..._bigIds) / 1000) : 0;
-
     let _seqNow = db.seq || 1;
     if (_seqNow >= _SEQ_LIMIT) _seqNow = 0;   // shishgan — tashlanadi
-    db.seq = Math.max(_smallMax + 1, _fromBig + 1, _seqNow, 1);
+    db.seq = Math.max(_smallMax + 1, _seqNow, 1);
 
     // Pull muvaffaqiyatli tugadi — endi push ga ruxsat beriladi
     _cloudPullDone = true;
