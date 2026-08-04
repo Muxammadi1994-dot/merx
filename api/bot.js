@@ -313,7 +313,27 @@ function normPhone(p) {
 }
 
 const fmt   = n => Math.round(n || 0).toLocaleString("ru-RU");
-const today = () => new Date().toISOString().slice(0, 10);
+// ══════════════════════════════════════════════════════════════
+// ⚠️ 2026-08-04: SANA — TOSHKENT VAQTIDA
+// ══════════════════════════════════════════════════════════════
+// `toISOString()` HAR DOIM UTC qaytaradi. Toshkent UTC dan 5 soat
+// oldinda, ya'ni har kuni 00:00–05:00 oralig'ida bot KECHAGI
+// sanani hisoblardi. Ulgurji do'konlar aynan ertalab 3-4 da ish
+// boshlaydi — o'sha paytda `/bugun`, `/balans`, `/qarzlar`
+// noto'g'ri javob berardi.
+//
+// Ilovada bu 2026-08-03 da tuzatilgan (utils.js), botda esa
+// e'tibordan chetda qolgan. Server UTC da ishlaydi, shuning uchun
+// qurilma vaqtiga tayanib bo'lmaydi — ofset ANIQ qo'shiladi.
+const TZ_OFFSET_MIN = 5 * 60;          // Asia/Tashkent = UTC+5
+const today = () => {
+  const d = new Date(Date.now() + TZ_OFFSET_MIN * 60 * 1000);
+  return d.toISOString().slice(0, 10);
+};
+const thisMonth = () => {
+  const d = new Date(Date.now() + TZ_OFFSET_MIN * 60 * 1000);
+  return d.toISOString().slice(0, 7);
+};
 
 // ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function isAllowed(chatId) {
@@ -891,7 +911,7 @@ async function cmdHisobot(chatId) {
     const sid = ctx.shopId;
     const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
     const [sales, xarajat] = await Promise.all([
-      sb("sales", `?date=eq.${t}&order=created_at.desc${sidFilter}`),
+      sb("sales", `?date=eq.${t}&status=neq.bekor&order=created_at.desc${sidFilter}`),
       sb("xarajatlar", `?date=eq.${t}${sidFilter}`),
     ]);
 
@@ -900,16 +920,21 @@ async function cmdHisobot(chatId) {
       return;
     }
 
-    const totalSales = sales.length;
-    const totalSum   = sales.reduce((s, x) => s + Number(x.total || 0), 0);
-    const totalPaid  = sales.reduce((s, x) => s + Number(x.paid || 0), 0);
-    const totalDebt  = sales.reduce((s, x) => s + Number(x.remaining || 0), 0);
+    // ⚠️ 2026-08-04: ESKI QARZLAR KUNLIK HISOBOTDA HAM KIRMAYDI.
+  // `isOldDebt` — Billz'dan ko'chirilganlar, haqiqiy sotuv emas
+  // (ilovadagi `statSales()` qoidasi).
+  const _sales = (sales || []).filter(x => (x?.data && x.data.isOldDebt) !== true);
+
+  const totalSales = _sales.length;
+    const totalSum   = _sales.reduce((s, x) => s + Number(x.total || 0), 0);
+    const totalPaid  = _sales.reduce((s, x) => s + Number(x.paid || 0), 0);
+    const totalDebt  = _sales.reduce((s, x) => s + Number(x.remaining || 0), 0);
     const totalExp   = xarajat.reduce((s, x) => s + Number(x.amount || 0), 0);
     const foyda      = totalPaid - totalExp;
 
     // To'lov turi bo'yicha
     const byType = {};
-    for (const s of sales) {
+    for (const s of _sales) {
       const k = s.pay_type || "boshqa";
       byType[k] = (byType[k] || 0) + Number(s.total || 0);
     }
@@ -917,7 +942,7 @@ async function cmdHisobot(chatId) {
 
     // Eng ko'p sotilgan
     const itemCounts = {};
-    for (const s of sales) {
+    for (const s of _sales) {
       for (const it of (s.items || [])) {
         if (!it?.name) continue;
         itemCounts[it.name] = (itemCounts[it.name] || 0) + (it.qty || 1);
@@ -955,7 +980,7 @@ async function cmdBalans(chatId) {
     const sid = ctx.shopId;
     const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
     const [sales, xarajat, sets] = await Promise.all([
-      sb("sales", `?date=eq.${t}${sidFilter}`),
+      sb("sales", `?date=eq.${t}&status=neq.bekor${sidFilter}`),
       sb("xarajatlar", `?date=eq.${t}${sidFilter}`),
       sid ? sb("settings", `?shop_id=eq.${sid}&limit=1`) : sb("settings", `?limit=1`),
     ]);
@@ -1055,8 +1080,8 @@ async function cmdQarzlar(chatId, barcha = false) {
     const sid = ctx.shopId;
     const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
     const query = barcha
-      ? `?remaining=gt.0&order=due${sidFilter}`
-      : `?remaining=gt.0&due=lt.${t}&order=due${sidFilter}`;
+      ? `?remaining=gt.0&status=neq.bekor&order=due${sidFilter}`
+      : `?remaining=gt.0&status=neq.bekor&due=lt.${t}&order=due${sidFilter}`;
 
     const debts = await sb("sales", query);
 
@@ -1110,24 +1135,34 @@ async function cmdQarzlar(chatId, barcha = false) {
 // ── Mijozga chek yuborish ──────────────────────────────────────
 function formatReceiptText(sale, shopName) {
   const payLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", aralash: "Aralash" };
-  const isUsd = sale.debtCurrency === "usd" && sale.debtUsd;
+  const isUsd = sale.debtCurrency === "usd" && _dUsdFrozen;
 
   // Qarz satrlari
   let debtLines = [];
-  if (sale.remaining > 0) {
-    const newDebt = isUsd ? `$${Number(sale.debtUsd).toFixed(2)}` : `${fmt(sale.remaining)} so'm`;
+  // ⚠️ 2026-08-04: XABAR MATNI HAM MUZLATILADI.
+  // Chek HTML'i `origRemaining` ga o'tkazilgan (kontekst §3.5),
+  // matn esa `sale.remaining` — HOZIRGI qoldiqda qolgandi.
+  // Natijada mijoz to'lov qilgach xabarda bir summa, "Chekni
+  // ko'rish" bosganda BOSHQA summa chiqardi.
+  const _remFrozen = Number(sale.origRemaining != null
+                            ? sale.origRemaining : (sale.remaining || 0));
+  const _dUsdFrozen = sale.origDebtUsd != null ? Number(sale.origDebtUsd)
+                    : (sale.debtUsd != null ? Number(sale.debtUsd) : 0);
+
+  if (_remFrozen > 0) {
+    const newDebt = isUsd ? `$${_dUsdFrozen.toFixed(2)}` : `${fmt(_remFrozen)} so'm`;
     if (isUsd && sale.prevDebtUsd > 0) {
-      const total = sale.prevDebtUsd + Number(sale.debtUsd);
+      const total = sale.prevDebtUsd + _dUsdFrozen;
       debtLines = [
         `Oldingi qarz: $${sale.prevDebtUsd.toFixed(2)}`,
-        `+ Yangi qarz: $${Number(sale.debtUsd).toFixed(2)}`,
+        `+ Yangi qarz: $${_dUsdFrozen.toFixed(2)}`,
         `💳 Umumiy qarz: $${total.toFixed(2)}`,
       ];
     } else if (!isUsd && sale.prevDebtUzs > 0) {
-      const total = sale.prevDebtUzs + sale.remaining;
+      const total = sale.prevDebtUzs + _remFrozen;
       debtLines = [
         `Oldingi qarz: ${fmt(sale.prevDebtUzs)} so'm`,
-        `+ Yangi qarz: ${fmt(sale.remaining)} so'm`,
+        `+ Yangi qarz: ${fmt(_remFrozen)} so'm`,
         `💳 Umumiy qarz: ${fmt(total)} so'm`,
       ];
     } else {
@@ -2253,22 +2288,35 @@ async function cmdOylikStat(chatId) {
     const ctx = await getShopCtx(chatId);
     const sid = ctx.shopId;
     const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
-    const m = new Date().toISOString().slice(0, 7); // 2026-06
+    // 2026-08-04: Toshkent vaqtida (yuqoridagi `thisMonth` izohiga qarang).
+  // Oy boshida UTC hali oldingi oyda bo'lardi va statistika bir kun
+  // noto'g'ri chiqardi.
+  const m = thisMonth();
 
     const [sales, xarajat] = await Promise.all([
-      sb("sales", `?date=gte.${m}-01&order=date.asc${sidFilter}`),
+      sb("sales", `?date=gte.${m}-01&status=neq.bekor&order=date.asc${sidFilter}`),
       sb("xarajatlar", `?date=gte.${m}-01${sidFilter}`),
     ]);
 
     const shopName = ctx.shopName || "MERX";
-    const totalSum  = sales.reduce((a, s) => a + Number(s.total || 0), 0);
-    const totalPaid = sales.reduce((a, s) => a + Number(s.paid || 0), 0);
-    const totalDebt = sales.reduce((a, s) => a + Number(s.remaining || 0), 0);
+    // ⚠️ 2026-08-04: ESKI QARZLAR STATISTIKAGA KIRMAYDI.
+  // `isOldDebt` — Billz'dan ko'chirilgan eski qarzlar (335 ta).
+  // Ular HAQIQIY SOTUV EMAS, faqat qarz yozuvi. Ilovadagi
+  // `statSales()` ularni chiqarib tashlaydi, botda esa kirardi
+  // va oylik statistikani shishirardi.
+  // ⚠️ `/qarzlar` da ular QOLADI — u yerda haqiqiy qarz.
+  const _oldDebt = x => (x?.data && x.data.isOldDebt) === true;
+  const _statSales = sales.filter(x => !_oldDebt(x));
+
+  const totalSum  = _statSales.reduce((a, s) => a + Number(s.total || 0), 0);
+    const totalPaid = _statSales.reduce((a, s) => a + Number(s.paid || 0), 0);
+    const totalDebt = _statSales.reduce((a, s) => a + Number(s.remaining || 0), 0);
     const totalExp  = xarajat.reduce((a, x) => a + Number(x.amount || 0), 0);
     const foyda     = totalPaid - totalExp;
 
     // Kunlik o'rtacha
-    const days = new Date().getDate();
+    // Kun raqami ham Toshkent bo'yicha — o'rtacha hisobi to'g'ri bo'lsin
+  const days = Number(today().slice(8, 10));
     const avgDay = Math.round(totalPaid / days);
 
     // Top 3 mahsulot
@@ -2283,7 +2331,7 @@ async function cmdOylikStat(chatId) {
       .sort((a, b) => b[1] - a[1]).slice(0, 3);
 
     let txt = `📈 ${shopName} — ${m} oylik statistika\n\n`;
-    txt += `🛍 Jami sotuvlar: ${sales.length} ta\n`;
+    txt += `🛍 Jami sotuvlar: ${_statSales.length} ta\n`;
     txt += `💵 Jami summa: ${fmt(totalSum)} so'm\n`;
     txt += `✅ To'langan: ${fmt(totalPaid)} so'm\n`;
     if (totalDebt > 0) txt += `🔴 Nasiya: ${fmt(totalDebt)} so'm\n`;
