@@ -1539,7 +1539,34 @@ async function actionSendReceipt(body) {
   if (!r.ok) {
     return { ok: false, sent: false, reason: "telegram_error", detail: r.description };
   }
-  return { ok: true, sent: true };
+
+  // ══════════════════════════════════════════════════════════════
+  // MIJOZ GURUHIGA HAM (2026-08-05)
+  // ══════════════════════════════════════════════════════════════
+  // Ba'zi do'konlar har mijoz bilan alohida Telegram guruh ochadi
+  // (do'kon egasi + mijoz + 2-3 kishi). Mijoz kartasida "Telegram
+  // guruh ID" to'ldirilgan bo'lsa chek u yerga HAM boradi.
+  //
+  // ⚠️ MIJOZGA YUBORISH OQIMI TEGILMAGAN — u yuqorida tugadi va
+  // natijasi shu yerda o'zgarmaydi. Guruhga yuborish QO'SHIMCHA:
+  // xato bo'lsa jimgina o'tkaziladi, mijoz cheki baribir ketgan.
+  let groupSent = false;
+  try {
+    const gid = String(body.groupId || "").trim();
+    // Faqat haqiqiy Telegram guruh ID (manfiy, 5+ raqam)
+    if (/^-?\d{5,}$/.test(gid) && String(gid) !== String(chatId)) {
+      const gr = await tg(gid, txt, {
+        reply_markup: {
+          inline_keyboard: [[{ text: "📄 Chekni ko'rish", url: receiptUrl }]],
+        },
+      });
+      groupSent = !!gr.ok;
+      if (!gr.ok) console.warn(`[sendReceipt] guruhga yuborilmadi (${gid}):`,
+                               gr.description);
+    }
+  } catch (e) { console.warn("[sendReceipt] guruh xato:", e.message); }
+
+  return { ok: true, sent: true, groupSent };
 }
 
 // ════════════════════════════════════════════════════════════════

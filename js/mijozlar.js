@@ -656,6 +656,8 @@ function custCardEdit() {
   if ($("ac-type"))           $("ac-type").value           = c.type          || "ulgurji";
   if ($("ac-company"))        $("ac-company").value        = c.company       || "";
   if ($("ac-note"))           $("ac-note").value           = c.note          || "";
+  // 2026-08-05: mijoz guruhi (ixtiyoriy)
+  if ($("ac-group"))          $("ac-group").value          = c.groupId       || "";
   if ($("ac-birthday"))       $("ac-birthday").value       = c.birthday      || "";
   if ($("ac-important-note")) $("ac-important-note").value = c.importantNote || "";
   if ($("ac-source"))         $("ac-source").value         = c.source        || "";
@@ -681,6 +683,10 @@ function editCustomer(id) {
   c.phone2    = phoneFullVal("ac-phone2") || ($("ac-phone2")||{value:""}).value.trim();
   c.type      = ($("ac-type")||{value:""}).value || c.type;
   c.note         = ($("ac-note")||{value:""}).value.trim();
+  // ⚠️ 2026-08-05: GURUH ID — faqat raqam va minus.
+  // Telegram guruh ID manfiy bo'ladi (-1001234567890).
+  // Boshqa belgilar tozalanadi — noto'g'ri qiymat yuborilmasin.
+  c.groupId      = ($("ac-group")||{value:""}).value.replace(/[^\d-]/g, "").trim();
   c.company      = ($("ac-company")||{value:""}).value.trim();
   c.birthday     = ($("ac-birthday")||{value:""}).value;
   c.importantNote= ($("ac-important-note")||{value:""}).value.trim();
@@ -1025,6 +1031,7 @@ function addCustomer() {
     type:      ($("ac-type")||{value:"ulgurji"}).value,
     company:   ($("ac-company")||{value:""}).value.trim(),
     note:      ($("ac-note")||{value:""}).value.trim(),
+    groupId:   ($("ac-group")||{value:""}).value.replace(/[^\d-]/g, "").trim(),
     debtLimit:     limitRaw > 0 ? limitRaw : null,
     birthday:      ($("ac-birthday")||{value:""}).value,
     importantNote: ($("ac-important-note")||{value:""}).value.trim(),

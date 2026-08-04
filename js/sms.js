@@ -89,12 +89,27 @@ async function sendTelegramReceipt(customerId, sale, customerPhone) {
         customerPhone: customerPhone || null,
         sale,
         shopName: db.shop?.name || db.settings?.name || "MERX",
-        shopId: _sid
+        shopId: _sid,
+        // ⚠️ 2026-08-05: MIJOZ GURUHI (ixtiyoriy).
+        // Ba'zi do'konlar har mijoz bilan alohida guruh ochadi.
+        // Guruh ID kiritilgan bo'lsa chek u yerga HAM boradi.
+        // Mijozga yuborish oqimi TEGILMAGAN — u avvalgidek.
+        groupId: (() => {
+          try {
+            const c = (db.customers || []).find(
+              x => String(x.id) === String(customerId));
+            const g = (c && c.groupId) ? String(c.groupId).trim() : "";
+            return /^-?\d{5,}$/.test(g) ? g : null;   // faqat haqiqiy ID
+          } catch (e) { return null; }
+        })()
       })
     });
     const data = await res.json();
     if (data.sent) {
-      toast("📨 Chek mijozga Telegram orqali yuborildi");
+      // 2026-08-05: guruhga ham ketgan bo'lsa aytamiz
+      toast(data.groupSent
+        ? "📨 Chek mijozga va guruhga yuborildi"
+        : "📨 Chek mijozga Telegram orqali yuborildi");
     }
   } catch (e) {
     console.warn("Telegram chek yuborilmadi:", e.message);
