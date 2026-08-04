@@ -60,30 +60,36 @@ const nowTime= () => new Date().toLocaleTimeString("uz-UZ", {hour:"2-digit", min
 // chekni RAQAM bo'yicha qidiradi).
 //
 // Eski yozuvlar TEGILMAYDI — faqat yangilari.
-function _devNo() {
+// Qurilma kodi — IKKI HARF (AA..ZZ, 676 variant).
+// ⚠️ 2026-08-04 tuzatildi: avval 1-99 raqam edi va 52 dan katta
+// bo'lsa harf o'rniga RAQAM qaytarardi. Natijada chek raqami
+// "CHK-20260804-429665" ko'rinishida yopishib ketardi.
+function _devCode() {
   try {
-    let n = parseInt(localStorage.getItem("merx_dev_no"));
-    if (!(n >= 1 && n <= 99)) {
-      n = 1 + Math.floor(Math.random() * 99);
-      localStorage.setItem("merx_dev_no", String(n));
+    let c = localStorage.getItem("merx_dev_code");
+    if (!/^[A-Z]{2}$/.test(c || "")) {
+      const A = 65;
+      c = String.fromCharCode(A + Math.floor(Math.random() * 26))
+        + String.fromCharCode(A + Math.floor(Math.random() * 26));
+      localStorage.setItem("merx_dev_code", c);
     }
-    return n;
-  } catch (e) { return 1; }
+    return c;
+  } catch (e) { return "AA"; }
 }
 
-// Qurilma harfi — chek raqami uchun (A..Z, keyin a..z)
-function _devLetter() {
-  const n = _devNo();
-  return n <= 26 ? String.fromCharCode(64 + n)          // A-Z
-       : n <= 52 ? String.fromCharCode(96 + n - 26)     // a-z
-       : String(n);                                      // 53+ → raqam
+// Kod → 0..675 oralig'idagi raqam (`id` uchun)
+function _devIdx() {
+  const c = _devCode();
+  return (c.charCodeAt(0) - 65) * 26 + (c.charCodeAt(1) - 65);
 }
 
-// Yangi noyob id. `db.seq` o'sadi, oxiriga qurilma raqami.
+// Yangi noyob id: `db.seq` × 1000 + qurilma raqami.
+// Ikki qurilma bir xil `seq` da bo'lsa ham id FARQ QILADI.
 function nextId() {
   const s = (db.seq = (db.seq || 1) + 1) - 1;
-  return s * 100 + _devNo();
+  return s * 1000 + _devIdx();
 }
+
 
 function addDays(d, n) {
   // 2026-08-03: natija ham qurilma vaqtida (yuqoridagi izoh)

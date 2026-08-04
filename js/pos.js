@@ -2395,7 +2395,7 @@ async function checkout() {
   // olardi. Mini-app chekni RAQAM bo'yicha qidiradi — natijada
   // "Batafsil" da BOSHQA sotuv ochilardi (B20, 2026-08-04).
   const chekNum = `CHK-${today().replace(/-/g,"")}` +
-    `-${String(db.seq).padStart(4,"0")}${_devLetter()}`;
+    `-${String(db.seq).padStart(4,"0")}-${_devCode()}`;
 
   // Mijozning oldingi qarzlarini hisoblaymiz
   let prevDebtUsd = 0, prevDebtUzs = 0;
