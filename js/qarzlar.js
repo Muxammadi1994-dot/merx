@@ -4,6 +4,20 @@ let _dbPage = 1;
 // 2026-08-03: sana qurilma vaqtidan (utils.js dagi `today` bilan
 // bir xil qoida). `toISOString()` UTC qaytaradi va tunda kechagi
 // kunni yozadi — ulgurji do'konlar ertalab 3-4 da ish boshlaydi.
+// ⚠️ 2026-08-04: BOT SO'ROVLARIGA AUTH TOKENI.
+// `api/bot.js` manzili ochiq edi — kim bilsa soxta chek yoki
+// guruh xabari yubora olardi. Endi server tokenni tekshiradi.
+// Token ilovada allaqachon bor (egasi ham, xodim ham).
+function _botHeaders() {
+  const h = { "Content-Type": "application/json" };
+  try {
+    const t = (typeof getSupabaseTestSession === "function")
+      ? getSupabaseTestSession()?.accessToken : null;
+    if (t) h["Authorization"] = "Bearer " + t;
+  } catch (e) {}
+  return h;
+}
+
 function _dStr(d) {
   const x = d instanceof Date ? d : new Date(d);
   const p = (n) => String(n).padStart(2, "0");
@@ -1358,7 +1372,7 @@ async function sendTelegramPayReceipt(customerId, customerPhone, payment) {
   try {
     const res = await fetch(botUrl + "?action=send_pay_receipt", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: _botHeaders(),
       body: JSON.stringify({
         customerId: customerId || null,
         customerPhone: customerPhone || null,

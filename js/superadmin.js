@@ -2242,7 +2242,17 @@ async function _saSendOwnerNotif(shop, text) {
   if (!botUrl) return;
   try {
     const res = await fetch(botUrl+"?action=send_owner_notif", {
-      method:"POST", headers:{"Content-Type":"application/json"},
+      // 2026-08-04: bot so'rovlariga Auth tokeni (api/bot.js tekshiradi)
+      method:"POST",
+      headers:(() => {
+        const h = { "Content-Type":"application/json" };
+        try {
+          const t = (typeof getSupabaseTestSession === "function")
+            ? getSupabaseTestSession()?.accessToken : null;
+          if (t) h["Authorization"] = "Bearer " + t;
+        } catch(e) {}
+        return h;
+      })(),
       body:JSON.stringify({ shopId:shop.id, ownerEmail:shop.ownerEmail, ownerPhone:shop.phone, text })
     });
     const data = await res.json();

@@ -3,6 +3,20 @@
 // Eskiz SMS + Telegram integratsiyasi
 // ================================================
 
+// ⚠️ 2026-08-04: BOT SO'ROVLARIGA AUTH TOKENI.
+// `api/bot.js` manzili ochiq edi — kim bilsa soxta chek yoki
+// guruh xabari yubora olardi. Endi server tokenni tekshiradi.
+// Token ilovada allaqachon bor (egasi ham, xodim ham).
+function _botHeaders() {
+  const h = { "Content-Type": "application/json" };
+  try {
+    const t = (typeof getSupabaseTestSession === "function")
+      ? getSupabaseTestSession()?.accessToken : null;
+    if (t) h["Authorization"] = "Bearer " + t;
+  } catch (e) {}
+  return h;
+}
+
 async function sendSms(phone, text) {
   const token = db.settings.eskizToken;
   if (!token) {
@@ -69,7 +83,7 @@ async function sendTelegramReceipt(customerId, sale, customerPhone) {
   try {
     const res = await fetch(botUrl + "?action=send_receipt", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: _botHeaders(),
       body: JSON.stringify({
         customerId: customerId || null,
         customerPhone: customerPhone || null,
@@ -108,7 +122,7 @@ async function sendTelegramText(customerId, customerPhone, text) {
   try {
     const res = await fetch(botUrl + "?action=send_text", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: _botHeaders(),
       body: JSON.stringify({
         customerId: customerId || null,
         customerPhone: customerPhone || null,
@@ -149,7 +163,7 @@ async function sendStaffNotification(sale) {
   try {
     const res = await fetch(botUrl + "?action=send_staff_notif", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: _botHeaders(),
       body: JSON.stringify({
         sale,
         shopName:     db.shop?.name || db.settings?.name || "MERX",

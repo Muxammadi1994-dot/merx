@@ -2845,6 +2845,71 @@ export default async function handler(req, res) {
     }
   }
 
+  // ══════════════════════════════════════════════════════════
+  // ⚠️ 2026-08-04: HTTP AMALLARI UCHUN KALIT
+  // ══════════════════════════════════════════════════════════
+  // `api/bot.js` manzili ochiq edi — kim bilsa chaqira olardi:
+  //   send_text        → istalgan chat'ga xabar yuborish
+  //   send_receipt     → soxta chek
+  //   send_staff_notif → omborchi guruhiga soxta buyurtma
+  //   set_done         → tovarni "tayyor" deb belgilash
+  //
+  // BOSQICHMA-BOSQICH: hozir kalit TEKSHIRILADI, lekin TALAB
+  // QILINMAYDI — kalitsiz so'rov ham o'tadi va log yoziladi.
+  // Klient kalit yubora boshlagach va loglarda kalitsiz so'rov
+  // qolmagach, `MERX_BOT_STRICT=1` qo'yiladi va talab qilinadi.
+  // Shunda hech narsa to'satdan to'xtamaydi.
+  // ⚠️ KLIENTDAGI KALIT HIMOYA EMAS — brauzer kodini kim ochsa
+  // ko'radi. Shuning uchun SUPABASE AUTH TOKENI tekshiriladi:
+  // ilovada u allaqachon bor (egasi ham, xodim ham).
+  // Zaxira sifatida `MERX_BOT_KEY` ham qabul qilinadi — u
+  // serverdan serverga chaqiruvlar uchun (SuperAdmin paneli).
+  const _BOT_KEY    = process.env.MERX_BOT_KEY || "";
+  const _BOT_STRICT = process.env.MERX_BOT_STRICT === "1";
+  // ⚠️ `set_done` RO'YXATDA YO'Q: u omborchi sahifasidan (Telegram
+  // mini-app) chaqiriladi, u yerda Supabase sessiyasi bo'lmaydi.
+  // Xavfi past — faqat "tayyor" belgisi qo'yiladi, ma'lumot
+  // o'qilmaydi va xabar yuborilmaydi.
+  const _PROTECTED  = ["send_text","send_receipt","send_pay_receipt",
+                       "send_staff_notif","send_owner_notif"];
+  const _act = req.query?.action || "";
+
+  if (_PROTECTED.includes(_act)) {
+    let _ok = false, _kim = "";
+
+    // 1) Supabase Auth tokeni
+    const _auth = req.headers["authorization"] || "";
+    const _tok  = _auth.startsWith("Bearer ") ? _auth.slice(7) : "";
+    if (_tok) {
+      try {
+        const r = await fetch(`${SB_URL}/auth/v1/user`, {
+          headers: { apikey: SB_KEY, Authorization: `Bearer ${_tok}` }
+        });
+        if (r.ok) {
+          const u = await r.json();
+          if (u?.id) { _ok = true; _kim = u.email || u.id; }
+        }
+      } catch (e) { console.warn("[bot] token tekshiruvi:", e.message); }
+    }
+
+    // 2) Zaxira: server kaliti
+    if (!_ok && _BOT_KEY && req.headers["x-merx-key"] === _BOT_KEY) {
+      _ok = true; _kim = "server";
+    }
+
+    // BOSQICHMA-BOSQICH: hozir rad etilmaydi, faqat log yoziladi.
+    // Klient token yubora boshlagach va loglarda "RUXSATSIZ"
+    // qolmagach, `MERX_BOT_STRICT=1` qo'yiladi.
+    if (!_ok) {
+      if (_BOT_STRICT) {
+        console.warn(`[bot] RAD ETILDI: ${_act}`);
+        return res.status(401).json({ ok: false, error: "Ruxsat yo'q" });
+      }
+      console.warn(`[bot] RUXSATSIZ: ${_act} — hozircha o'tkazildi ` +
+                   `(MERX_BOT_STRICT=1 qo'yilsa rad etiladi)`);
+    }
+  }
+
   if (req.query?.action === "send_receipt") {
     let body;
     try {
