@@ -1746,8 +1746,13 @@ function buildStaffOrderHtml(sale, shopName) {
     const unit    = it.unit    || "dona";
     const lineTotal = (it.price || 0) * (it.qty || 0);
 
+    // ⚠️ 2026-08-04: RASM BOSILGANDA KATTALASHADI.
+    // Avval rasm bosilsa `toggleDone` ishlardi — ya'ni tovar
+    // belgilanardi. Telefonda esa ekran surilmay qolardi va bosish
+    // hech narsa hal qilmasdi. Belgilash uchun pastda alohida
+    // "Tayyor belgilash" tugmasi bor — u TEGILMADI.
     const imgHtml = it.image
-      ? `<img src="${it.image}" class="item-img" onclick="toggleDone(${idx},this)" onerror="this.style.display='none'">`
+      ? `<img src="${it.image}" class="item-img"  onerror="this.style.display='none'">`
       : "";
 
     const qtyLabel = qtyBox
@@ -1811,6 +1816,11 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
 .card.done{opacity:.55;border:2px solid #22C55E}
 
 /* Rasm */
+#lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
+  z-index:999;align-items:center;justify-content:center;cursor:zoom-out}
+#lb.open{display:flex}
+#lb img{max-width:96vw;max-height:88vh;object-fit:contain;border-radius:8px}
+.card-img-wrap img{cursor:zoom-in}
 .card-img-wrap{position:relative;width:100%;height:min(200px,44vw);background:#F0EDE8;overflow:hidden}
 .card-img-wrap img{width:100%;height:100%;object-fit:contain;cursor:pointer;display:block}
 .card-done-overlay{display:none;position:absolute;inset:0;background:rgba(34,197,94,.85);color:#fff;font-family:'Sora',sans-serif;font-size:32px;font-weight:800;align-items:center;justify-content:center;letter-spacing:1px}
@@ -1990,7 +2000,13 @@ document.querySelectorAll('.card-img-wrap img').forEach(function(img) {
 fetchDone();
 </script>
 
-<div style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:999;align-items:center;justify-content:center;cursor:zoom-out" id="lb" onclick="closeLb()">
+<!-- ⚠️ 2026-08-04: RASM KATTALASHTIRISH ISHLAMASDI.
+     Bu yerda display:none INLINE yozilgan edi, openLb() esa
+     .open klassini qo'shadi — lekin uning uslubi UMUMAN
+     ta'riflanmagan. Inline uslub klassdan kuchli, shuning uchun
+     oyna hech qachon ochilmasdi.
+     Endi display klass orqali boshqariladi. -->
+<div id="lb" onclick="closeLb()">
   <div style="position:absolute;top:16px;right:16px;color:#fff;font-size:28px;cursor:pointer;background:rgba(255,255,255,.15);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center" onclick="closeLb()">✕</div>
   <img id="lb-img" src="" style="max-width:95vw;max-height:90vh;object-fit:contain;border-radius:10px">
 </div>
