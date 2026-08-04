@@ -1780,7 +1780,8 @@ async function ensureCloudPull(tries = 3) {
       console.warn(`Pull qayta urinish ${i}/${tries-1}...`);
       await new Promise(r => setTimeout(r, i * 10000 - 5000));
     }
-    try { await pullFromCloud(); } catch(e) { console.warn("pull xato:", e.message); }
+    // 2026-08-05: `silent` — qayta urinish AVTOMAT, xabar chiqmasin
+    try { await pullFromCloud(true); } catch(e) { console.warn("pull xato:", e.message); }
   }
 
   } finally { _pullBusy = false; }
@@ -1823,7 +1824,13 @@ async function pullFromCloud(silent = false, skipRender = false) {
   // RLS: do'kon kontekstini o'rnatamiz
   const _pullSid = getCloudShopId();
   if (!_pullSid) {
-    toast("Sinxronlash uchun avval tizimga kiring", "err");
+    // ⚠️ 2026-08-05: XABAR FAQAT QO'LDA SINXRONDA.
+    // Sahifa yuklanganda sinxron kirishdan OLDIN ishga tushadi va
+    // "Sinxronlash uchun avval tizimga kiring" xabari bejiz
+    // chiqardi — ayniqsa xodim kirishida (u fonda ketadi).
+    // Endi avtomat sinxronda faqat konsolga yoziladi.
+    if (!silent) toast("Sinxronlash uchun avval tizimga kiring", "err");
+    else console.warn("Pull o'tkazib yuborildi: do'kon ID yo'q (hali kirilmagan)");
     return;
   }
   await _setShopContext(_pullSid);
