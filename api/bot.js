@@ -59,8 +59,29 @@ async function getShopCtx(chatId) {
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached;
 
   // 1. Superadmin — alohida holat
+  // ⚠️ 2026-08-04: TANLOV HISOBGA OLINADI.
+  // Avval SuperAdmin shu yerda ushlanib qolardi va `shopId: null`
+  // bilan qaytardi — ya'ni DOIM barcha do'kon yig'indisini ko'rardi
+  // va bitta do'konni tanlay olmasdi.
+  // Endi `bot_sessions` dagi tanlov o'qiladi:
+  //   • shop_id bor  → o'sha do'kon (sinov uchun)
+  //   • shop_id null → barcha do'kon (nazorat uchun)
+  // `isSuperAdmin` HAR IKKALASIDA ham true — huquqlar saqlanadi.
   if (OWNER_ID && cid === String(OWNER_ID)) {
-    const ctx = { shopId: null, shopName: "MERX", isOwner: true, isSuperAdmin: true, ts: Date.now() };
+    let saShop = null, saName = "MERX";
+    try {
+      const sess = await sb("bot_sessions",
+        `?chat_id=eq.${cid}&select=shop_id,shop_name&limit=1`);
+      if (sess?.[0]?.shop_id) {
+        saShop = sess[0].shop_id;
+        saName = sess[0].shop_name || saShop;
+      }
+    } catch(e) { console.warn("sa sessiya o'qilmadi:", e.message); }
+
+    const ctx = {
+      shopId: saShop, shopName: saShop ? saName : "MERX",
+      isOwner: true, isSuperAdmin: true, ts: Date.now()
+    };
     _shopCache.set(cid, ctx);
     return ctx;
   }
@@ -974,7 +995,9 @@ async function cmdHisobot(chatId) {
     // Avval `MERX — Bugungi savdo` deb yozilardi va bu bitta
     // do'kon hisobotiga o'xshardi. Aslida SuperAdminda BARCHA
     // do'kon yig'indisi chiqadi (`shopId` null → filtr yo'q).
-    const shopName = ctx.isSuperAdmin
+    // 2026-08-04: SuperAdmin bitta do'konni tanlagan bo'lsa —
+    // o'sha do'kon nomi. Tanlanmagan bo'lsa yig'indi ekani ochiq.
+    const shopName = (ctx.isSuperAdmin && !ctx.shopId)
       ? "BARCHA DO'KONLAR"
       : (ctx.shopName || "MERX");
     let txt = `📊 ${shopName} — Bugungi savdo\n`;
@@ -2388,7 +2411,9 @@ async function cmdOylikStat(chatId) {
     // Avval `MERX — Bugungi savdo` deb yozilardi va bu bitta
     // do'kon hisobotiga o'xshardi. Aslida SuperAdminda BARCHA
     // do'kon yig'indisi chiqadi (`shopId` null → filtr yo'q).
-    const shopName = ctx.isSuperAdmin
+    // 2026-08-04: SuperAdmin bitta do'konni tanlagan bo'lsa —
+    // o'sha do'kon nomi. Tanlanmagan bo'lsa yig'indi ekani ochiq.
+    const shopName = (ctx.isSuperAdmin && !ctx.shopId)
       ? "BARCHA DO'KONLAR"
       : (ctx.shopName || "MERX");
     // ⚠️ 2026-08-04: ESKI QARZLAR STATISTIKAGA KIRMAYDI.
@@ -2454,6 +2479,37 @@ async function cmdOylikStat(chatId) {
 // ── /mendokonlarim — egasi/mijoz bo'lgan barcha do'konlar ──────
 async function cmdMenDokonlarim(chatId) {
   console.log(`[mendokonlarim] chatId=${chatId} (type=${typeof chatId})`);
+
+  // ⚠️ 2026-08-04: SUPERADMIN UCHUN ALOHIDA RO'YXAT.
+  // Avval SuperAdmin `getShopCtx` ning eng boshida ushlanib qolardi
+  // va do'kon TANLAY OLMASDI — har doim barcha do'kon yig'indisini
+  // ko'rardi. Endi ikki rejim:
+  //   • "Barcha do'konlar" — yig'indi (SuperAdmin nazorati uchun)
+  //   • bitta do'kon — o'sha do'kon ma'lumoti (sinov uchun)
+  // Tanlov `bot_sessions` da saqlanadi, oddiy egadagi kabi.
+  if (OWNER_ID && String(chatId) === String(OWNER_ID)) {
+    const all = await sb("shops", "?select=id,name&order=name");
+    const cur = await sb("bot_sessions",
+      `?chat_id=eq.${chatId}&select=shop_id,shop_name&limit=1`);
+    const curId = cur?.[0]?.shop_id || null;
+
+    let t = "👑 <b>SuperAdmin rejimi</b>\n\n";
+    t += curId
+      ? `Hozir: <b>${cur[0].shop_name || curId}</b>\n\n`
+      : "Hozir: <b>Barcha do'konlar</b> (yig'indi)\n\n";
+    t += "Rejimni tanlang:";
+
+    const btns = [[{ text: (curId ? "" : "✅ ") + "📊 Barcha do'konlar",
+                     callback_data: "sa_all" }]];
+    (all || []).forEach(x => btns.push([{
+      text: (String(x.id) === String(curId) ? "✅ " : "") + "🏪 " + x.name,
+      callback_data: "sa_shop:" + x.id
+    }]));
+
+    await tg(chatId, t, { reply_markup: { inline_keyboard: btns } });
+    return;
+  }
+
   const ownerShops = await getOwnerShops(chatId);
   const custShops   = await getCustomerShops(chatId);
   console.log(`[mendokonlarim] ownerShops=${JSON.stringify(ownerShops)}, custShops=${JSON.stringify(custShops)}`);
@@ -2810,6 +2866,40 @@ export default async function handler(req, res) {
       }
 
       // Egasi sifatida do'kon almashtirish (/mendokonlarim dan)
+      // ⚠️ 2026-08-04: SUPERADMIN REJIM ALMASHTIRISHI.
+      // Ikki rejim: barcha do'kon yig'indisi yoki bitta do'kon.
+      // Tanlov `bot_sessions` da saqlanadi.
+      if (cb.data === "sa_all" || cb.data?.startsWith("sa_shop:")) {
+        if (!OWNER_ID || String(chatId) !== String(OWNER_ID)) {
+          await tgAnswer(cb.id);
+          return res.status(200).json({ ok: true });
+        }
+        const pick = cb.data === "sa_all" ? null : cb.data.slice(8);
+        let nom = "Barcha do'konlar";
+        if (pick) {
+          const sh = await sb("shops", `?id=eq.${pick}&select=name&limit=1`);
+          nom = sh?.[0]?.name || pick;
+        }
+        try {
+          await fetch(`${SB_URL}/rest/v1/bot_sessions?on_conflict=chat_id`, {
+            method: "POST",
+            headers: {
+              apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+              "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+            },
+            body: JSON.stringify({ chat_id: String(chatId), shop_id: pick,
+                                   shop_name: nom, is_owner: true })
+          });
+        } catch (e) { console.warn("sa rejim saqlanmadi:", e.message); }
+
+        _shopCache.delete(String(chatId));   // kesh eskirmasin
+        await tgAnswer(cb.id);
+        await tg(chatId, pick
+          ? `🏪 <b>${nom}</b> tanlandi.\n\nEndi hisobotlar SHU do'kon bo'yicha chiqadi.\n/mendokonlarim — rejimni o'zgartirish`
+          : "📊 <b>Barcha do'konlar</b> rejimi.\n\nHisobotlar yig'indi bo'lib chiqadi.\n/mendokonlarim — rejimni o'zgartirish");
+        return res.status(200).json({ ok: true });
+      }
+
       if (cb.data?.startsWith("switch_owner:")) {
         const shopId = cb.data.slice(13);
         const ctx = await setShopForUser(chatId, shopId);
