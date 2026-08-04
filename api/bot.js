@@ -2606,7 +2606,13 @@ export default async function handler(req, res) {
     }
   }
   // 2026-08-03: egasiga xabar (SuperAdmin panelidan)
-  if (action === "send_owner_notif") {
+  // ⚠️ 2026-08-04 TUZATILDI: `action` o'zgaruvchisi bot.js da YO'Q.
+  // Bu faylda amal `req.query?.action` orqali o'qiladi (yuqoridagi
+  // `send_staff_notif` kabi). Men `auth-v2.js` naqshini ko'chirib
+  // xato yozganman va butun bot yiqilgan:
+  //     ReferenceError: action is not defined
+  // Natijada /start, /mendokonlarim, hisobot ishlamay qolgan.
+  if (req.query?.action === "send_owner_notif") {
     let body;
     try {
       body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
