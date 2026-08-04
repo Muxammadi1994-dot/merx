@@ -2508,7 +2508,8 @@ async function cmdTizim(chatId) {
   }
   try {
     const [shops, inc, exp] = await Promise.all([
-      sb("shops", "?select=id,name,plan,expires_at,active&order=name"),
+      // ⚠️ 2026-08-04: ustun nomi `trial_ends` (`expires_at` YO'Q).
+      sb("shops", "?select=id,name,plan,trial_ends,active&order=name"),
       _sbService("sa_income",  "?select=amount,currency,rate"),
       _sbService("sa_expense", "?select=amount,currency,rate")
     ]);
@@ -2521,17 +2522,17 @@ async function cmdTizim(chatId) {
 
     // ── Do'konlar ──
     const faol = (shops || []).filter(x => {
-      const k = kunFarq(x.expires_at);
+      const k = kunFarq(x.trial_ends);
       return x.active !== false && (k === null || k >= 0);
     }).length;
     t += `🏪 <b>Do'konlar: ${(shops || []).length}</b> · ${faol} faol\n`;
     (shops || []).forEach(x => {
-      const k = kunFarq(x.expires_at);
+      const k = kunFarq(x.trial_ends);
       let belgi = "  ";
       if (k !== null && k < 0)       belgi = "🔴";
       else if (k !== null && k <= 7) belgi = "🟡";
       else                           belgi = "🟢";
-      const muddat = x.expires_at ? String(x.expires_at).slice(0, 10) : "—";
+      const muddat = x.trial_ends ? String(x.trial_ends).slice(0, 10) : "—";
       const qolgan = (k !== null && k >= 0) ? ` (${k} kun)` : (k !== null ? " (o'tgan)" : "");
       t += `${belgi} ${x.name} — ${muddat}${qolgan}\n`;
     });
