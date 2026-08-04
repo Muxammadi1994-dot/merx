@@ -729,7 +729,7 @@ function confirmRefund() {
   if (plan.fromCash > 0) {
     if (!db.xarajatlar) db.xarajatlar = [];
     db.xarajatlar.push({
-      id: db.seq++,
+      id: nextId(),
       date: today(),
       category: "Tovar qaytarish",
       amount: plan.fromCash,
@@ -744,7 +744,7 @@ function confirmRefund() {
 
   if (!db.returns) db.returns = [];
   db.returns.push({
-    id: db.seq++, date: today(), time: nowTime(),
+    id: nextId(), date: today(), time: nowTime(),
     refundNo,                                  // qaytarish cheki raqami
     origSaleId: s.id, origChekNum: s.chekNum || "#"+s.id,
     items: refundItems, total: refundTotal, reason,
@@ -994,7 +994,7 @@ function _refundAddDebtPayment(sale, amountUzs, refundNo, custTotals) {
                   String((db.debtPayments.length + 1)).padStart(3, "0");
 
   const payment = {
-    id: db.seq++,
+    id: nextId(),
     chekNum,
     date: today(),
     time: (typeof nowTime === "function" ? nowTime() : ""),

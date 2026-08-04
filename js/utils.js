@@ -42,6 +42,49 @@ const today  = () => {
 };
 const nowTime= () => new Date().toLocaleTimeString("uz-UZ", {hour:"2-digit", minute:"2-digit"});
 
+
+// ══════════════════════════════════════════════════════════════
+// QURILMA RAQAMI VA NOYOB ID (2026-08-04)
+// ══════════════════════════════════════════════════════════════
+// ⚠️ MA'LUMOT YO'QOLISHI: har qurilma o'z `db.seq` ini yuritadi
+// (u bulutga sinxronlanmaydi). Ikki kassa bir vaqtda sotuv qilsa
+// IKKALASI HAM bir xil `id` oladi, sinxronda esa keyingisi
+// birinchisini USTIGA YOZADI — sotuv butunlay yo'qoladi.
+//
+// 2026-08-04, B20: CHK-20260804-2037 aynan shunday yo'qolgan.
+// Xabarda 06:21 dagi sotuv, bazada esa 06:29 dagi boshqa sotuv.
+//
+// YECHIM: har qurilmaga bir martalik raqam (1-99). Yangi `id`
+// shu raqam bilan tugaydi — ikki qurilma bir xil `id` bera
+// olmaydi. Chek raqamiga ham qurilma harfi qo'shiladi (mini-app
+// chekni RAQAM bo'yicha qidiradi).
+//
+// Eski yozuvlar TEGILMAYDI — faqat yangilari.
+function _devNo() {
+  try {
+    let n = parseInt(localStorage.getItem("merx_dev_no"));
+    if (!(n >= 1 && n <= 99)) {
+      n = 1 + Math.floor(Math.random() * 99);
+      localStorage.setItem("merx_dev_no", String(n));
+    }
+    return n;
+  } catch (e) { return 1; }
+}
+
+// Qurilma harfi — chek raqami uchun (A..Z, keyin a..z)
+function _devLetter() {
+  const n = _devNo();
+  return n <= 26 ? String.fromCharCode(64 + n)          // A-Z
+       : n <= 52 ? String.fromCharCode(96 + n - 26)     // a-z
+       : String(n);                                      // 53+ → raqam
+}
+
+// Yangi noyob id. `db.seq` o'sadi, oxiriga qurilma raqami.
+function nextId() {
+  const s = (db.seq = (db.seq || 1) + 1) - 1;
+  return s * 100 + _devNo();
+}
+
 function addDays(d, n) {
   // 2026-08-03: natija ham qurilma vaqtida (yuqoridagi izoh)
   const r = new Date(d); r.setDate(r.getDate() + n);

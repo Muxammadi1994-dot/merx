@@ -792,7 +792,7 @@ function saveSupplier() {
     if (db.suppliers.some(x => x.name.toLowerCase() === name.toLowerCase())) {
       toast("Bu nomdagi yetkazuvchi allaqachon mavjud", "err"); return;
     }
-    db.suppliers.push({ id: db.seq++, name, phone, note });
+    db.suppliers.push({ id: nextId(), name, phone, note });
   }
 
   saveDB();
@@ -1170,7 +1170,7 @@ function confirmChiqim2() {
 
   if (!db.chiqimlar) db.chiqimlar = [];
   db.chiqimlar.push({
-    id: db.seq++, date: today(), time: typeof nowTime === "function" ? nowTime() : "",
+    id: nextId(), date: today(), time: typeof nowTime === "function" ? nowTime() : "",
     productName: p.name, sku: p.sku,
     color, size, qty, unit: p.unit || "dona",
     reason, note: note || "",

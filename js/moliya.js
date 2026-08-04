@@ -990,7 +990,7 @@ function addXarajat() {
   if (!db.xarajatlar) db.xarajatlar = [];
   const subCat = ($("exp-subcat-val")||{value:""}).value.trim();
   const entry = {
-    id: db.seq++, date, category: cat, amount: sum,
+    id: nextId(), date, category: cat, amount: sum,
     subCategory: subCat || null,
     recipient, paidBy, note, method,
     xarajatType: _expType || "kunlik",
@@ -1547,7 +1547,7 @@ function confirmStartShift(staffId) {
 
   if (!db.shifts) db.shifts = [];
   db.shifts.push({
-    id: db.seq++, staffId,
+    id: nextId(), staffId,
     openTime: now.toISOString().slice(0,16).replace("T"," "),
     openDate: _dStr(now),
     openCash, note, closeTime: null, closeCash: null, diff: null
@@ -1691,7 +1691,7 @@ function confirmCloseShift(staffId, expectedCash) {
   if (diff < 0) {
     if (!db.xarajatlar) db.xarajatlar = [];
     db.xarajatlar.push({
-      id: db.seq++, date: _dStr(now),
+      id: nextId(), date: _dStr(now),
       category: "Boshqa", amount: Math.abs(diff),
       recipient: (db.staff||[]).find(x=>x.id==staffId)?.name || "Kassir",
       note: `Kassa kamomadi (${shift.openTime} — ${shift.closeTime})`,
@@ -1861,7 +1861,7 @@ function confirmSupPay(supplier, totalDebt) {
   // Xarajatlarga qo'shamiz
   if (!db.xarajatlar) db.xarajatlar = [];
   db.xarajatlar.push({
-    id: db.seq++, date: today(), category: "Yetkazuvchi",
+    id: nextId(), date: today(), category: "Yetkazuvchi",
     amount: rawSum, recipient: supplier, paidBy: "kassa",
     method, note
   });

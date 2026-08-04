@@ -2035,7 +2035,9 @@ function custQuickSave() {
   if (!name) { toast("Ism kiriting","err"); return; }
 
   const nc = {
-    id:    db.seq++,
+    // 2026-08-04: qurilmaga bog'liq noyob raqam — ikki kassa
+    // bir vaqtda mijoz qo'shsa biri yo'qolmasin.
+    id:    nextId(),
     name,
     // 2026-07-31: mamlakat kodi bilan (mijozlar.js bilan bir xil qoida)
     phone: (typeof phoneFullVal === "function" ? phoneFullVal("ac-phone") : "") || phone || "",
@@ -2225,7 +2227,8 @@ async function checkout() {
       customerId = ex.id; cName = ex.name; cPhone = ex.phone || phoneTyped;
       if (!ex.phone && phoneTyped) { ex.phone = phoneTyped; ex.updatedAt = new Date().toISOString(); }
     } else {
-      const nc = { id:db.seq++, name:nameTyped, phone:phoneTyped,
+      // 2026-08-04: noyob raqam (yuqoridagi izoh)
+      const nc = { id:nextId(), name:nameTyped, phone:phoneTyped,
         type: posPriceType==="ulgurji"?"ulgurji":"chakana", note:"POS orqali qo'shildi",
         updatedAt: new Date().toISOString() };   // 2026-08-02: sinxron solishtiruvi
       db.customers.push(nc);
@@ -2387,8 +2390,12 @@ async function checkout() {
   });
 
   // Chek raqami
+  // ⚠️ 2026-08-04: QURILMA HARFI QO'SHILDI.
+  // Ikki kassa bir vaqtda sotsa ikkalasi ham bir xil raqam
+  // olardi. Mini-app chekni RAQAM bo'yicha qidiradi — natijada
+  // "Batafsil" da BOSHQA sotuv ochilardi (B20, 2026-08-04).
   const chekNum = `CHK-${today().replace(/-/g,"")}` +
-    `-${String(db.seq).padStart(4,"0")}`;
+    `-${String(db.seq).padStart(4,"0")}${_devLetter()}`;
 
   // Mijozning oldingi qarzlarini hisoblaymiz
   let prevDebtUsd = 0, prevDebtUzs = 0;
@@ -2405,7 +2412,11 @@ async function checkout() {
   }
 
   const newSale = {
-    id:db.seq++, chekNum, date:today(), time:nowTime(),
+    // ⚠️ 2026-08-04: `nextId()` — qurilmaga bog'liq noyob raqam.
+    // Avval `db.seq++` edi va ikki qurilma bir xil id berardi;
+    // sinxronda keyingisi birinchisini USTIGA YOZARDI (sotuv
+    // butunlay yo'qolardi).
+    id: nextId(), chekNum, date:today(), time:nowTime(),
     // 2026-07-24: sotuv paytidagi kurs saqlanadi — chekda USD summasi
     // keyinchalik kurs o'zgarsa ham TO'G'RI qoladi
     rate: Number(db.settings?.rate) || 0,

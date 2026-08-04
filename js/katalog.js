@@ -740,7 +740,7 @@ function duplicateProduct(sku, event) {
   copy.sku  = newSku;
   copy.id   = db.seq;
   copy.name = p.name + " (nusxa)";
-  copy.barcode = genEAN13 ? genEAN13(db.seq++) : "";
+  copy.barcode = genEAN13 ? genEAN13(nextId()) : "";
   // 2026-07-25: rang barcode'lari NUSXALANMAYDI — aks holda ikki xil
   // tovarda bir xil kod bo'lib, skanerlanganda qaysi biri ekani noaniq edi
   copy.colorBarcodes = {};
@@ -1239,7 +1239,7 @@ function epConfirmAddColor() {
     sku: _newSku3,
     name: p.name, category: p.category, type: p.type, unit: p.unit,
     inBox: sizeRange.length, packUnit: p.packUnit,
-    art: p.art || "", barcode: genEAN13(db.seq++),
+    art: p.art || "", barcode: genEAN13(nextId()),
     costUsd: p.costUsd, priceUzs: p.priceUzs, ulgurjiNarx: p.ulgurjiNarx,
     image: "", createdAt: new Date().toISOString(),
     variants: [{ color, size: (from === to ? from : from + "-" + to),
@@ -1602,12 +1602,12 @@ function splitColors() {
   multi.forEach(p => {
     const colors = [...new Set(p.variants.map(v => v.color))];
     colors.slice(1).forEach(c => {
-      const newId = db.seq++;
+      const newId = nextId();
       db.products.push({
         ...JSON.parse(JSON.stringify(p)),
         id: newId,
         sku: p.sku + "-" + (++made),
-        barcode: (p.colorBarcodes && p.colorBarcodes[c]) || genEAN13(db.seq++),
+        barcode: (p.colorBarcodes && p.colorBarcodes[c]) || genEAN13(nextId()),
         variants: p.variants.filter(v => v.color === c)
       });
       try { ensureColorBarcodes(db.products[db.products.length-1]); } catch(e) {}
@@ -1791,7 +1791,7 @@ function addProduct() {
   newVariants.forEach(nv => {
     if (!nv.qty || nv.qty <= 0) return;
     db.ombor.push({
-      id:          db.seq++,
+      id:          nextId(),
       date:        today(),
       time:        (typeof nowTime === "function" ? nowTime() : ""),
       sku:         p ? p.sku : db.products[db.products.length-1].sku,
@@ -2832,7 +2832,7 @@ function parseImportCSV(text) {
       // nom+art+RANG bo'yicha barcode — har xil rang alohida barcode oladi
       const bKey = (nom + "|" + art + "|" + colorRaw).toLowerCase();
       if (!barcodeMap[bKey]) {
-        barcodeMap[bKey] = genEAN13(db.seq++);
+        barcodeMap[bKey] = genEAN13(nextId());
       }
       barcode = barcodeMap[bKey];
     }
@@ -3107,7 +3107,7 @@ function confirmImport() {
       if (p && p.colorBarcodes && p.colorBarcodes[colorRaw]) {
         colorBarcode = p.colorBarcodes[colorRaw];
       } else {
-        colorBarcode = genEAN13(db.seq++);
+        colorBarcode = genEAN13(nextId());
       }
     }
 
@@ -3149,9 +3149,9 @@ function confirmImport() {
       }
     } else {
       // Yangi mahsulot
-      const newProdId = db.seq++;
+      const newProdId = nextId();
       const sku = `IMP-${String(newProdId).padStart(4,"0")}`;
-      const _bc = colorBarcode || r.barcode || genEAN13(db.seq++);
+      const _bc = colorBarcode || r.barcode || genEAN13(nextId());
       const newProd = {
         id: newProdId,
         sku,
@@ -3179,7 +3179,7 @@ function confirmImport() {
     // Ombor kirim yozuvi (har bir qator uchun)
     if (r.qty > 0) {
       db.ombor.push({
-        id:          db.seq++,
+        id:          nextId(),
         date:        today(),
         sku:         p.sku,
         art:         p.art || "",
@@ -3840,7 +3840,7 @@ function migrateColorBarcodes() {
     p.colorBarcodes = {};
     colors.forEach((clr, i) => {
       // Birinchi rang uchun p.barcode ni ishlat, qolganlariga yangi barcode
-      const bc = i === 0 && p.barcode ? p.barcode : genEAN13(db.seq++);
+      const bc = i === 0 && p.barcode ? p.barcode : genEAN13(nextId());
       p.colorBarcodes[clr] = bc;
     });
     fixed++;
@@ -3891,7 +3891,7 @@ function ensureColorBarcodes(p) {
   let changed = false;
   [...new Set(p.variants.map(v => v.color).filter(Boolean))].forEach(color => {
     if (!p.colorBarcodes[color]) {
-      p.colorBarcodes[color] = genEAN13(db.seq++);
+      p.colorBarcodes[color] = genEAN13(nextId());
       changed = true;
     }
   });
@@ -3995,12 +3995,12 @@ function _apNextSku(type) {
   const band = new Set((db.products || []).map(x => String(x.sku || "")));
   let guard = 0;
   while (guard++ < 10000) {
-    const id  = db.seq++;
+    const id  = nextId();
     const sku = `${pref}-${String(id).padStart(3, "0")}`;
     if (!band.has(sku)) return { id, sku };
   }
   // Bu yerga yetib kelish deyarli imkonsiz — zaxira yo'l
-  const id = db.seq++;
+  const id = nextId();
   return { id, sku: `${pref}-${id}-${Date.now().toString(36)}` };
 }
 
@@ -4052,7 +4052,7 @@ function _apCreateExtraColor(base, cd, batchId) {
   // partiya bir xil bo'lgani uchun variativ kirim BITTA partiya bo'lib ko'rinadi.
   if (qty > 0) {
     db.ombor.push({
-      id:          db.seq++,
+      id:          nextId(),
       date:        today(),
       time:        (typeof nowTime === "function" ? nowTime() : ""),
       sku:         prod.sku,

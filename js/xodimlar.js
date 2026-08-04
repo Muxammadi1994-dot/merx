@@ -128,7 +128,7 @@ function confirmPaySalary(staffId, month, fullPay) {
   if (!rawSum || rawSum <= 0) { toast("Summani kiriting","err"); return; }
   if (!db.xarajatlar) db.xarajatlar = [];
   db.xarajatlar.push({
-    id: db.seq++, date: today(), category: "Maosh",
+    id: nextId(), date: today(), category: "Maosh",
     amount: rawSum, recipient: s.name, paidBy: "kassa", method, note
   });
   if (!s.paidMonths) s.paidMonths = [];
@@ -771,7 +771,7 @@ function addStaff() {
 
   const d = _getStaffFormData();
   if (!d.name) { toast("Ism kiriting","err"); return; }
-  db.staff.push({ id: db.seq++, ...d, paidMonths:[], salaryHistory:[], monthTarget:0 });
+  db.staff.push({ id: nextId(), ...d, paidMonths:[], salaryHistory:[], monthTarget:0 });
   saveDB(); renderXodimlar(); closeStaffModal();
   toast(`\u2705 ${d.name} qo\'shildi`);
   _resetStaffForm();

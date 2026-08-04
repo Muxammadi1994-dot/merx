@@ -1014,7 +1014,7 @@ function addCustomer() {
 
   const limitRaw = getRawVal("ac-debt-limit");
   const nc = {
-    id:        db.seq++,
+    id:        nextId(),
     name,
     // 2026-07-31: mamlakat kodi bilan saqlanadi (+7701..., +998901...).
     // Avval bu yerda faqat maydondagi qism olinardi va kod tushib
@@ -1145,7 +1145,7 @@ function saveOldDebt() {
                (cur === "usd" ? `Kurs: ${fmt(rate)} so'm\n` : "") +
                `Sana: ${date}\n\nDavom etasizmi?`)) return;
 
-  const id = db.seq++;
+  const id = nextId();
   const sale = {
     id,
     chekNum: "ESKI-" + String(id).padStart(4, "0"),
