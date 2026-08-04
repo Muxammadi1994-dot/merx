@@ -1289,7 +1289,23 @@ function saveEditProduct() {
   if ($("ep-unit"))     p.unit     = $("ep-unit").value     || p.unit;
   if ($("ep-art"))      p.art      = $("ep-art").value.trim();
   if ($("ep-barcode"))  p.barcode  = $("ep-barcode").value.trim();
-  if ($("ep-inbox"))    p.inBox    = parseInt($("ep-inbox").value) || p.inBox || 1;
+  // ⚠️ 2026-08-04: POCHKA SIG'IMI RANG DARAJASIGA HAM YOZILADI.
+  // Avval faqat `p.inBox` yangilanardi. POS esa `variant.inBox` ni
+  // BIRINCHI o'qiydi (kontekst §3.3) — ya'ni tahrir POS'ga YETIB
+  // BORMASDI. B20 da "Loro 003" 6 talik qilingan, POS esa 5 talik
+  // bo'yicha sotardi (2026-08-04 da 20 tovarda topilgan).
+  // Rang darajasida ALOHIDA sig'im ataylab qo'yilgan bo'lsa, u
+  // `epUpdateColorField` orqali keyin qayta yoziladi.
+  if ($("ep-inbox")) {
+    const _newIb = parseInt($("ep-inbox").value) || p.inBox || 1;
+    const _oldIb = parseInt(p.inBox) || 0;
+    p.inBox = _newIb;
+    // Faqat O'ZGARGAN bo'lsa tegamiz — qo'lda qo'yilgan farqli
+    // qiymatlar bekorga yo'qolmasin.
+    if (_newIb !== _oldIb && Array.isArray(p.variants)) {
+      p.variants.forEach(v => { v.inBox = _newIb; });
+    }
+  }
   if ($("ep-packunit")) p.packUnit = $("ep-packunit").value || p.packUnit;
   if ($("ep-image") && $("ep-image").value) p.image = $("ep-image").value;
   else if ($("ep-image") && $("ep-image").value === "") p.image = "";
@@ -1738,7 +1754,16 @@ function addProduct() {
     if (price > 0) p.priceUzs    = price;
     if (ulg > 0)   p.ulgurjiNarx = ulg;
     // B2: inBox = shu kirimda aniqlangani (qo'lda yozilgani ustuvor)
-    p.inBox = effectiveInBox;
+    // ⚠️ 2026-08-04: RANG DARAJASIGA HAM. POS `variant.inBox` ni
+    // birinchi o'qiydi — busiz kirimdagi yangi sig'im POS'ga yetib
+    // bormasdi (tahrir yo'lidagi bilan bir xil xato).
+    {
+      const _oldIb = parseInt(p.inBox) || 0;
+      p.inBox = effectiveInBox;
+      if (effectiveInBox !== _oldIb && Array.isArray(p.variants)) {
+        p.variants.forEach(v => { v.inBox = effectiveInBox; });
+      }
+    }
   } else {
     const autoBarcode = barcode || genEAN13(db.seq);
     // 2026-08-03: SKU noyobligi kafolatlanadi
