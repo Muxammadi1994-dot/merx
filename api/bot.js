@@ -2694,7 +2694,15 @@ async function cmdHelp(chatId) {
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  // ⚠️ 2026-08-04: `Authorization` VA `x-merx-key` QO'SHILDI.
+  // Ilova `app.merx.uz` da, bot esa `merx-rho.vercel.app` da —
+  // ya'ni BOSHQA MANZIL. Brauzer `Authorization` sarlavhali
+  // so'rovdan oldin ruxsat so'raydi (preflight) va ro'yxatda
+  // bo'lmagan sarlavhani TO'SADI.
+  // Busiz chek va guruh xabari "internet bormi?" xatosi bilan
+  // to'xtab qoldi (2026-08-05).
+  res.setHeader("Access-Control-Allow-Headers",
+                "Content-Type, Authorization, x-merx-key");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
