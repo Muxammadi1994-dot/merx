@@ -909,7 +909,20 @@ async function cmdHisobot(chatId) {
     const t = today();
     const ctx = await getShopCtx(chatId);
     const sid = ctx.shopId;
-    const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
+  // ⚠️ 2026-08-04: DO'KON ANIQLANMASA — MA'LUMOT BERILMAYDI.
+    // Avval `shopId` null bo'lsa `sidFilter` BO'SH qolardi va so'rov
+    // BARCHA DO'KON ma'lumotini qaytarardi. Ya'ni botni topgan begona
+    // odam `/hisobot` yozib hamma do'konning savdo raqamlarini
+    // ko'ra olardi.
+    // SuperAdmin (`OWNER_ID`) uchun istisno — u ataylab hammasini
+    // ko'radi, lekin sarlavhada bu ochiq yoziladi.
+    if (!ctx.shopId && !ctx.isSuperAdmin) {
+      await tg(chatId, "🔒 Do'kon aniqlanmadi.\n\n" +
+        "/start bosing yoki do'kon egasidan havola so'rang.");
+      return;
+    }
+
+        const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
     const [sales, xarajat] = await Promise.all([
       sb("sales", `?date=eq.${t}&status=neq.bekor&order=created_at.desc${sidFilter}`),
       sb("xarajatlar", `?date=eq.${t}${sidFilter}`),
@@ -930,7 +943,14 @@ async function cmdHisobot(chatId) {
     const totalPaid  = _sales.reduce((s, x) => s + Number(x.paid || 0), 0);
     const totalDebt  = _sales.reduce((s, x) => s + Number(x.remaining || 0), 0);
     const totalExp   = xarajat.reduce((s, x) => s + Number(x.amount || 0), 0);
-    const foyda      = totalPaid - totalExp;
+    // ⚠️ 2026-08-04: "Toza foyda" NOMI NOTO'G'RI EDI.
+  // Hisob: tushum − xarajat. TANNARX umuman ayrilmaydi, ya'ni bu
+  // FOYDA EMAS. Egasi 190 mln "foyda" ko'rib, aslida tovarning
+  // tannarxi hali ayrilmagan bo'lardi.
+  // Haqiqiy foyda uchun har sotuvdagi tovar tannarxini yig'ish
+  // kerak — bu alohida ish (ilovada `calcMarkup` bor).
+  // Hozircha NOM to'g'rilandi: aldamaydigan bo'ldi.
+  const foyda      = totalPaid - totalExp;
 
     // To'lov turi bo'yicha
     const byType = {};
@@ -950,7 +970,13 @@ async function cmdHisobot(chatId) {
     }
     const topItem = Object.entries(itemCounts).sort((a, b) => b[1] - a[1])[0];
 
-    const shopName = ctx.shopName || "MERX";
+    // ⚠️ 2026-08-04: SUPERADMIN UCHUN SARLAVHA ANIQ BO'LSIN.
+    // Avval `MERX — Bugungi savdo` deb yozilardi va bu bitta
+    // do'kon hisobotiga o'xshardi. Aslida SuperAdminda BARCHA
+    // do'kon yig'indisi chiqadi (`shopId` null → filtr yo'q).
+    const shopName = ctx.isSuperAdmin
+      ? "BARCHA DO'KONLAR"
+      : (ctx.shopName || "MERX");
     let txt = `📊 ${shopName} — Bugungi savdo\n`;
     txt += `📅 ${t}\n\n`;
     txt += `🛍 Sotuvlar: ${totalSales} ta\n`;
@@ -963,7 +989,8 @@ async function cmdHisobot(chatId) {
     }
     if (topItem) txt += `\n🏆 Eng ko'p: ${topItem[0]} (${topItem[1]} dona)\n`;
     txt += `\n💸 Xarajatlar: ${fmt(totalExp)} so'm\n`;
-    txt += `💰 Toza foyda: ${fmt(foyda)} so'm`;
+    txt += `💰 Tushum − xarajat: ${fmt(foyda)} so'm\n`;
+  txt += `<i>   (tannarx ayrilmagan)</i>`;
 
     await tg(chatId, txt);
   } catch (e) {
@@ -978,7 +1005,20 @@ async function cmdBalans(chatId) {
     const t = today();
     const ctx = await getShopCtx(chatId);
     const sid = ctx.shopId;
-    const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
+  // ⚠️ 2026-08-04: DO'KON ANIQLANMASA — MA'LUMOT BERILMAYDI.
+    // Avval `shopId` null bo'lsa `sidFilter` BO'SH qolardi va so'rov
+    // BARCHA DO'KON ma'lumotini qaytarardi. Ya'ni botni topgan begona
+    // odam `/hisobot` yozib hamma do'konning savdo raqamlarini
+    // ko'ra olardi.
+    // SuperAdmin (`OWNER_ID`) uchun istisno — u ataylab hammasini
+    // ko'radi, lekin sarlavhada bu ochiq yoziladi.
+    if (!ctx.shopId && !ctx.isSuperAdmin) {
+      await tg(chatId, "🔒 Do'kon aniqlanmadi.\n\n" +
+        "/start bosing yoki do'kon egasidan havola so'rang.");
+      return;
+    }
+
+        const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
     const [sales, xarajat, sets] = await Promise.all([
       sb("sales", `?date=eq.${t}&status=neq.bekor${sidFilter}`),
       sb("xarajatlar", `?date=eq.${t}${sidFilter}`),
@@ -992,7 +1032,14 @@ async function cmdBalans(chatId) {
     const nasiya  = sales.reduce((a, s) => a + Number(s.remaining || 0), 0);
     const kirim   = naqd + karta + otkazma;
     const xar     = xarajat.reduce((a, x) => a + Number(x.amount || 0), 0);
-    const foyda   = kirim - xar;
+    // ⚠️ 2026-08-04: "Toza foyda" NOMI NOTO'G'RI EDI.
+  // Hisob: tushum − xarajat. TANNARX umuman ayrilmaydi, ya'ni bu
+  // FOYDA EMAS. Egasi 190 mln "foyda" ko'rib, aslida tovarning
+  // tannarxi hali ayrilmagan bo'lardi.
+  // Haqiqiy foyda uchun har sotuvdagi tovar tannarxini yig'ish
+  // kerak — bu alohida ish (ilovada `calcMarkup` bor).
+  // Hozircha NOM to'g'rilandi: aldamaydigan bo'ldi.
+  const foyda   = kirim - xar;
 
     let txt = `💰 Kassa holati — ${t}\n\n`;
     txt += `💵 Naqd: ${fmt(naqd)} so'm\n`;
@@ -1002,7 +1049,7 @@ async function cmdBalans(chatId) {
     txt += `📥 Jami kirim: ${fmt(kirim)} so'm\n`;
     txt += `📤 Xarajat: ${fmt(xar)} so'm\n`;
     txt += `─────────────────\n`;
-    txt += `✨ Toza foyda: ${fmt(foyda)} so'm\n`;
+    txt += `✨ Tushum − xarajat: ${fmt(foyda)} so'm\n`;
     txt += `   ≈ $${(foyda / rate).toFixed(2)}\n`;
     if (nasiya > 0) {
       txt += `\n🔴 Bugun nasiyaga: ${fmt(nasiya)} so'm`;
@@ -1022,7 +1069,20 @@ async function cmdOmbor(chatId) {
   try {
     const ctx = await getShopCtx(chatId);
     const sid = ctx.shopId;
-    const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
+  // ⚠️ 2026-08-04: DO'KON ANIQLANMASA — MA'LUMOT BERILMAYDI.
+    // Avval `shopId` null bo'lsa `sidFilter` BO'SH qolardi va so'rov
+    // BARCHA DO'KON ma'lumotini qaytarardi. Ya'ni botni topgan begona
+    // odam `/hisobot` yozib hamma do'konning savdo raqamlarini
+    // ko'ra olardi.
+    // SuperAdmin (`OWNER_ID`) uchun istisno — u ataylab hammasini
+    // ko'radi, lekin sarlavhada bu ochiq yoziladi.
+    if (!ctx.shopId && !ctx.isSuperAdmin) {
+      await tg(chatId, "🔒 Do'kon aniqlanmadi.\n\n" +
+        "/start bosing yoki do'kon egasidan havola so'rang.");
+      return;
+    }
+
+        const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
     const products = await sb("products", `?order=name${sidFilter}`);
 
     // MULTI-TENANT (2026-07): chegara do'konning O'Z sozlamasidan
@@ -1078,7 +1138,20 @@ async function cmdQarzlar(chatId, barcha = false) {
     const t = today();
     const ctx = await getShopCtx(chatId);
     const sid = ctx.shopId;
-    const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
+  // ⚠️ 2026-08-04: DO'KON ANIQLANMASA — MA'LUMOT BERILMAYDI.
+    // Avval `shopId` null bo'lsa `sidFilter` BO'SH qolardi va so'rov
+    // BARCHA DO'KON ma'lumotini qaytarardi. Ya'ni botni topgan begona
+    // odam `/hisobot` yozib hamma do'konning savdo raqamlarini
+    // ko'ra olardi.
+    // SuperAdmin (`OWNER_ID`) uchun istisno — u ataylab hammasini
+    // ko'radi, lekin sarlavhada bu ochiq yoziladi.
+    if (!ctx.shopId && !ctx.isSuperAdmin) {
+      await tg(chatId, "🔒 Do'kon aniqlanmadi.\n\n" +
+        "/start bosing yoki do'kon egasidan havola so'rang.");
+      return;
+    }
+
+        const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
     const query = barcha
       ? `?remaining=gt.0&status=neq.bekor&order=due${sidFilter}`
       : `?remaining=gt.0&status=neq.bekor&due=lt.${t}&order=due${sidFilter}`;
@@ -2287,7 +2360,20 @@ async function cmdOylikStat(chatId) {
   try {
     const ctx = await getShopCtx(chatId);
     const sid = ctx.shopId;
-    const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
+  // ⚠️ 2026-08-04: DO'KON ANIQLANMASA — MA'LUMOT BERILMAYDI.
+    // Avval `shopId` null bo'lsa `sidFilter` BO'SH qolardi va so'rov
+    // BARCHA DO'KON ma'lumotini qaytarardi. Ya'ni botni topgan begona
+    // odam `/hisobot` yozib hamma do'konning savdo raqamlarini
+    // ko'ra olardi.
+    // SuperAdmin (`OWNER_ID`) uchun istisno — u ataylab hammasini
+    // ko'radi, lekin sarlavhada bu ochiq yoziladi.
+    if (!ctx.shopId && !ctx.isSuperAdmin) {
+      await tg(chatId, "🔒 Do'kon aniqlanmadi.\n\n" +
+        "/start bosing yoki do'kon egasidan havola so'rang.");
+      return;
+    }
+
+        const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
     // 2026-08-04: Toshkent vaqtida (yuqoridagi `thisMonth` izohiga qarang).
   // Oy boshida UTC hali oldingi oyda bo'lardi va statistika bir kun
   // noto'g'ri chiqardi.
@@ -2298,7 +2384,13 @@ async function cmdOylikStat(chatId) {
       sb("xarajatlar", `?date=gte.${m}-01${sidFilter}`),
     ]);
 
-    const shopName = ctx.shopName || "MERX";
+    // ⚠️ 2026-08-04: SUPERADMIN UCHUN SARLAVHA ANIQ BO'LSIN.
+    // Avval `MERX — Bugungi savdo` deb yozilardi va bu bitta
+    // do'kon hisobotiga o'xshardi. Aslida SuperAdminda BARCHA
+    // do'kon yig'indisi chiqadi (`shopId` null → filtr yo'q).
+    const shopName = ctx.isSuperAdmin
+      ? "BARCHA DO'KONLAR"
+      : (ctx.shopName || "MERX");
     // ⚠️ 2026-08-04: ESKI QARZLAR STATISTIKAGA KIRMAYDI.
   // `isOldDebt` — Billz'dan ko'chirilgan eski qarzlar (335 ta).
   // Ular HAQIQIY SOTUV EMAS, faqat qarz yozuvi. Ilovadagi
@@ -2312,7 +2404,14 @@ async function cmdOylikStat(chatId) {
     const totalPaid = _statSales.reduce((a, s) => a + Number(s.paid || 0), 0);
     const totalDebt = _statSales.reduce((a, s) => a + Number(s.remaining || 0), 0);
     const totalExp  = xarajat.reduce((a, x) => a + Number(x.amount || 0), 0);
-    const foyda     = totalPaid - totalExp;
+    // ⚠️ 2026-08-04: "Toza foyda" NOMI NOTO'G'RI EDI.
+  // Hisob: tushum − xarajat. TANNARX umuman ayrilmaydi, ya'ni bu
+  // FOYDA EMAS. Egasi 190 mln "foyda" ko'rib, aslida tovarning
+  // tannarxi hali ayrilmagan bo'lardi.
+  // Haqiqiy foyda uchun har sotuvdagi tovar tannarxini yig'ish
+  // kerak — bu alohida ish (ilovada `calcMarkup` bor).
+  // Hozircha NOM to'g'rilandi: aldamaydigan bo'ldi.
+  const foyda     = totalPaid - totalExp;
 
     // Kunlik o'rtacha
     // Kun raqami ham Toshkent bo'yicha — o'rtacha hisobi to'g'ri bo'lsin
@@ -2336,7 +2435,8 @@ async function cmdOylikStat(chatId) {
     txt += `✅ To'langan: ${fmt(totalPaid)} so'm\n`;
     if (totalDebt > 0) txt += `🔴 Nasiya: ${fmt(totalDebt)} so'm\n`;
     txt += `💸 Xarajatlar: ${fmt(totalExp)} so'm\n`;
-    txt += `💰 Toza foyda: ${fmt(foyda)} so'm\n`;
+    txt += `💰 Tushum − xarajat: ${fmt(foyda)} so'm\n`;
+  txt += `<i>   (tannarx ayrilmagan)</i>\n`;
     txt += `📊 Kunlik o'rtacha: ${fmt(avgDay)} so'm\n`;
     if (top3.length) {
       txt += `\n🏆 Top mahsulotlar:\n`;
@@ -2393,7 +2493,7 @@ async function cmdHelp(chatId) {
   if (isOwner) {
     txt += "👤 Do'kon egasi uchun:\n";
     txt += "/hisobot — Bugungi savdo hisoboti\n";
-    txt += "/balans — Kassa holati (naqd, karta, foyda)\n";
+    txt += "/balans — Kassa holati (naqd, karta, tushum)\n";
     txt += "/ombor — Kam qolgan tovarlar\n";
     txt += "/qarzlar — Muddati o'tgan qarzlar\n";
     txt += "/barcha_qarzlar — Barcha ochiq qarzlar\n";
