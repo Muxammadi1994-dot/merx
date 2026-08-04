@@ -38,6 +38,12 @@ async function sendGroupIdCard(chatId, added) {
 }
 const SB_URL       = process.env.SUPABASE_URL;
 const SB_KEY       = process.env.SUPABASE_KEY;
+// ⚠️ 2026-08-04: SERVICE kaliti — FAQAT `/tizim` uchun.
+// Bot odatda anon kalit bilan ishlaydi (RLS qoidalari bo'yicha).
+// Lekin SuperAdmin moliyasi (`sa_income`, `sa_expense`) RLS bilan
+// TO'LIQ yopiq — anon uni o'qiy olmaydi. `/tizim` faqat OWNER_ID
+// uchun ishlaydi, shuning uchun bu xavfsiz.
+const SB_SERVICE   = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const OWNER_ID     = process.env.BOT_OWNER_CHAT_ID;  // Superadmin chat ID
 const STAFF_GROUP  = process.env.STAFF_GROUP_ID;
 const LOW_LIMIT    = parseInt(process.env.LOW_STOCK_LIMIT || "5");
@@ -2477,6 +2483,99 @@ async function cmdOylikStat(chatId) {
 }
 
 // ── /mendokonlarim — egasi/mijoz bo'lgan barcha do'konlar ──────
+// ══════════════════════════════════════════════════════════════
+// /tizim — SUPERADMIN UCHUN TIZIM HOLATI (2026-08-04)
+// ══════════════════════════════════════════════════════════════
+// SuperAdmin panelidagi asosiy raqamlar botda. Faqat OWNER_ID
+// ko'radi — boshqalarga javob berilmaydi.
+// Manba: `shops`, `sa_income`, `sa_expense` va `sa_db_stats()`.
+// Server kaliti bilan o'qish — faqat SuperAdmin ma'lumoti uchun.
+// Kalit yo'q bo'lsa bo'sh massiv (xato bermaydi).
+async function _sbService(table, query) {
+  if (!SB_SERVICE) return [];
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/${table}${query}`, {
+      headers: { apikey: SB_SERVICE, Authorization: `Bearer ${SB_SERVICE}` }
+    });
+    return r.ok ? await r.json() : [];
+  } catch (e) { console.warn("_sbService:", e.message); return []; }
+}
+
+async function cmdTizim(chatId) {
+  if (!OWNER_ID || String(chatId) !== String(OWNER_ID)) {
+    await tg(chatId, "🔒 Bu buyruq faqat tizim egasi uchun.");
+    return;
+  }
+  try {
+    const [shops, inc, exp] = await Promise.all([
+      sb("shops", "?select=id,name,plan,expires_at,active&order=name"),
+      _sbService("sa_income",  "?select=amount,currency,rate"),
+      _sbService("sa_expense", "?select=amount,currency,rate")
+    ]);
+
+    const bugun = today();
+    const kunFarq = (d) => d
+      ? Math.ceil((new Date(d) - new Date(bugun)) / 86400000) : null;
+
+    let t = "👑 <b>TIZIM HOLATI</b>\n\n";
+
+    // ── Do'konlar ──
+    const faol = (shops || []).filter(x => {
+      const k = kunFarq(x.expires_at);
+      return x.active !== false && (k === null || k >= 0);
+    }).length;
+    t += `🏪 <b>Do'konlar: ${(shops || []).length}</b> · ${faol} faol\n`;
+    (shops || []).forEach(x => {
+      const k = kunFarq(x.expires_at);
+      let belgi = "  ";
+      if (k !== null && k < 0)       belgi = "🔴";
+      else if (k !== null && k <= 7) belgi = "🟡";
+      else                           belgi = "🟢";
+      const muddat = x.expires_at ? String(x.expires_at).slice(0, 10) : "—";
+      const qolgan = (k !== null && k >= 0) ? ` (${k} kun)` : (k !== null ? " (o'tgan)" : "");
+      t += `${belgi} ${x.name} — ${muddat}${qolgan}\n`;
+    });
+
+    // ── Server hajmi ──
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/rpc/sa_db_stats`, {
+        method: "POST",
+        headers: { apikey: SB_SERVICE || SB_KEY,
+                   Authorization: `Bearer ${SB_SERVICE || SB_KEY}`,
+                   "Content-Type": "application/json" },
+        body: "{}"
+      });
+      if (r.ok) {
+        const d = await r.json();
+        const mb = b => (b / 1048576).toFixed(1);
+        const pct = (b, lim) => ((b / lim) * 100).toFixed(1);
+        const dbB = d?.db_bytes || 0;
+        t += `\n💾 <b>Baza:</b> ${mb(dbB)} MB / 500 MB (${pct(dbB, 500*1048576)}%)\n`;
+        t += `🧮 Yozuvlar: ${(d?.total_rows || 0).toLocaleString("ru-RU")}\n`;
+        const top = (d?.tables || [])[0];
+        if (top) t += `📊 Eng katta: ${top.name} (${mb(top.bytes)} MB)\n`;
+      }
+    } catch (e) { console.warn("tizim: db stats", e.message); }
+
+    // ── Moliya ──
+    // Kurs YOZUVDA muzlatilgan (kontekst §3.5) — o'zgarmaydi.
+    const yig = rows => (rows || []).reduce((a, x) => {
+      const v = Number(x.amount) || 0;
+      return a + (x.currency === "usd" ? v * (Number(x.rate) || 12100) : v);
+    }, 0);
+    const dIn = yig(inc), dEx = yig(exp);
+    const F2 = n => Math.round(n).toLocaleString("ru-RU");
+    t += `\n📈 <b>Daromad:</b> ${F2(dIn)} so'm\n`;
+    t += `📉 <b>Xarajat:</b> ${F2(dEx)} so'm\n`;
+    t += `💰 <b>Foyda:</b> ${F2(dIn - dEx)} so'm\n`;
+
+    await tg(chatId, t);
+  } catch (e) {
+    console.error("cmdTizim xato:", e.message);
+    await tg(chatId, "⚠️ Ma'lumot olinmadi: " + e.message);
+  }
+}
+
 async function cmdMenDokonlarim(chatId) {
   console.log(`[mendokonlarim] chatId=${chatId} (type=${typeof chatId})`);
 
@@ -2555,6 +2654,12 @@ async function cmdHelp(chatId) {
     txt += "/barcha_qarzlar — Barcha ochiq qarzlar\n";
     txt += "/stat — Bu oylik statistika\n";
     txt += "/naklad — 🤖 AI orqali naklad rasmidan tovar import qilish\n";
+    // 2026-08-04: SuperAdmin buyruqlari — faqat tizim egasiga
+    if (ctx.isSuperAdmin) {
+      txt += "\n👑 Tizim egasi uchun:\n";
+      txt += "/tizim — Do'konlar, server hajmi, moliya\n";
+      txt += "/mendokonlarim — Rejim: barcha do'kon yoki bittasi\n";
+    }
     txt += "\n📱 Mijoz havolasi:\n";
     txt += `t.me/merx_savdo_bot?start=${ctx.shopId || ""}`;
   } else {
@@ -3061,6 +3166,7 @@ export default async function handler(req, res) {
     case "/stat":
     case "/oylik":          await cmdOylikStat(chatId);      break;
     case "/naklad":         await cmdNakladStart(chatId);    break;
+    case "/tizim":          await cmdTizim(chatId);          break;
     case "/help":           await cmdHelp(chatId);           break;
     default:
       if (text.startsWith("/")) {
