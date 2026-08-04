@@ -814,9 +814,23 @@ module.exports = async function handler(req, res) {
       const key = phKey(phone);
       if (!key) return res.status(400).json({ ok: false, error: "Telefon noto'g'ri" });
 
-      // PIN bo'yicha tor ro'yxat, telefon esa raqam bo'yicha
+      // ⚠️ 2026-08-05: PIN XESH BILAN TEKSHIRILADI.
+      // Avval `?pin=eq.<ochiq PIN>` so'ralardi va PIN jadvalda
+      // OCHIQ MATNDA turardi. `staff` da esa `anon_all_staff`
+      // qoidasi bor — ya'ni anon kalitni bilgan har kim BARCHA
+      // do'konning BARCHA xodimi PIN va telefonini o'qiy olardi,
+      // keyin o'sha PIN bilan kira olardi.
+      //
+      // Endi: PIN xeshlanadi (`pin_hash`), so'rov xesh bo'yicha.
+      // ⚠️ ESKI `pin` USTUNI HAM QABUL QILINADI — barcha xodim
+      // bir marta kirib xeshi yozilgunicha ishlashda davom etadi.
+      const _sha = (t) => require("crypto").createHash("sha256")
+        .update("merx.pin." + t).digest("hex");
+      const _pinHash = _sha(pin);
+
       const r = await fetch(
-        `${SB_URL}/rest/v1/staff?select=*&pin=eq.${encodeURIComponent(pin)}`,
+        `${SB_URL}/rest/v1/staff?select=*&or=(pin_hash.eq.${_pinHash},` +
+        `pin.eq.${encodeURIComponent(pin)})`,
         { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
       );
       const rows = await r.json();
@@ -825,6 +839,25 @@ module.exports = async function handler(req, res) {
       const row = (rows || []).find(x => phKey(x.phone) === key);
       if (!row)
         return res.status(200).json({ ok: false, error: "Telefon yoki PIN noto'g'ri" });
+
+      // ⚠️ 2026-08-05: XESHNI YOZIB QO'YAMIZ.
+      // Xodim birinchi marta kirganda `pin_hash` to'ldiriladi.
+      // Barcha xodim bir marta kirgach eski `pin` ustunini
+      // o'chirish mumkin bo'ladi (§14 chala ishlar).
+      // Xato bo'lsa kirish TO'XTAMAYDI — faqat log.
+      if (!row.pin_hash) {
+        try {
+          await fetch(`${SB_URL}/rest/v1/staff?id=eq.${encodeURIComponent(row.id)}` +
+                      `&shop_id=eq.${encodeURIComponent(row.shop_id)}`, {
+            method: "PATCH",
+            headers: {
+              apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+              "Content-Type": "application/json", Prefer: "return=minimal"
+            },
+            body: JSON.stringify({ pin_hash: _pinHash })
+          });
+        } catch (e) { console.warn("pin_hash yozilmadi:", e.message); }
+      }
 
       // To'liq nusxa `data` ustunida bo'lsa — undan (ruxsatlar ham keladi)
       const d = (row.data && typeof row.data === "object" && !Array.isArray(row.data))
