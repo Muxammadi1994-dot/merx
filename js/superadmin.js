@@ -47,7 +47,8 @@ function saSave() {
   sessionStorage.setItem(SA_TS_KEY, _t);
 }
 
-function saLogout() {
+async function saLogout() {
+  await _saFlushSync();
   _saSession = null;
   // 2026-07-26: ikkala saqlash joyi ham tozalanadi
   [SA_KEY, SA_TS_KEY, "merx_sa_pass"].forEach(k => {
@@ -1140,6 +1141,22 @@ function _saMainDB() {
   return {};
 }
 
+// ⚠️ 2026-08-05: SAHIFA QAYTA YUKLANISHIDAN OLDIN SINXRON.
+// Chiqish, do'kon almashtirish va qaytish — hammasi
+// `location.reload()` qiladi. Kutilayotgan yozuv (sotuv, tahrir)
+// bulutga yetmagan bo'lsa YO'QOLADI.
+// 2026-08-05, Shoetest: ikki sotuv aynan shunday yo'qolgan.
+async function _saFlushSync() {
+  try {
+    if (typeof pushToCloud === "function") {
+      await Promise.race([
+        pushToCloud(),
+        new Promise(r => setTimeout(r, 8000))
+      ]);
+    }
+  } catch (e) { console.warn("sinxron tugallanmadi:", e.message); }
+}
+
 function renderSaShops() {
   const el = document.getElementById("sa-shops-list"); if (!el) return;
   // 2026-08-03: server holati bir marta yuklanadi
@@ -1680,6 +1697,12 @@ async function saOpenShop(id) {
   // panelni O'ZI ochadi (SA sessiyasi ochiq bo'lgani uchun).
   // Natijada do'konga kirilardi-yu, panel darhol ustiga qaytardi.
   // Bu belgi bir martalik — panel ochilmaydi, keyin o'chiriladi.
+  // ⚠️ 2026-08-05: DO'KON ALMASHTIRISHDAN OLDIN SINXRON.
+  // `saOpenShop` sahifani qayta yuklaydi. Kutilayotgan yozuv
+  // (sotuv, tahrir) bulutga yetmagan bo'lsa YO'QOLADI —
+  // chiqishdagi bilan bir xil xato.
+  await _saFlushSync();
+
   try {
     sessionStorage.setItem("merx_sa_entering", "1");
     // ⚠️ 2026-08-03: QAYTISH LENTASI UCHUN BELGI.
@@ -2242,17 +2265,7 @@ async function _saSendOwnerNotif(shop, text) {
   if (!botUrl) return;
   try {
     const res = await fetch(botUrl+"?action=send_owner_notif", {
-      // 2026-08-04: bot so'rovlariga Auth tokeni (api/bot.js tekshiradi)
-      method:"POST",
-      headers:(() => {
-        const h = { "Content-Type":"application/json" };
-        try {
-          const t = (typeof getSupabaseTestSession === "function")
-            ? getSupabaseTestSession()?.accessToken : null;
-          if (t) h["Authorization"] = "Bearer " + t;
-        } catch(e) {}
-        return h;
-      })(),
+      method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({ shopId:shop.id, ownerEmail:shop.ownerEmail, ownerPhone:shop.phone, text })
     });
     const data = await res.json();
@@ -2457,7 +2470,8 @@ async function saChangeSuperPass() {
 function saSwitchToShop(shopId) { saOpenShop(shopId); }
 
 // ── SA ko'rish banneri ────────────────────────────
-function saReturnToMainShop() {
+async function saReturnToMainShop() {
+  await _saFlushSync();
   const prevKey = sessionStorage.getItem("merx_prev_shop") || "merx_v5";
   sessionStorage.setItem("merx_active_shop", prevKey);
   sessionStorage.removeItem("merx_is_sa_view");
@@ -2703,7 +2717,8 @@ function showSubscriptionWall(reason, shop) {
   document.body.appendChild(wall);
 }
 
-function saWallLogout() {
+async function saWallLogout() {
+  await _saFlushSync();
   const prevKey = sessionStorage.getItem("merx_prev_shop");
   if (prevKey) {
     sessionStorage.setItem("merx_active_shop", prevKey);

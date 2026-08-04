@@ -459,6 +459,19 @@ async function appHardReload() {
     }
   } catch(e) {}
 
+  // ⚠️ 2026-08-05: AVVAL KUTILAYOTGAN YOZUVNI YUBORAMIZ.
+  // Ilova yangilanganda sahifa qayta yuklanadi. Sotuv yoki tahrir
+  // bulutga yetmagan bo'lsa yo'qolardi (chiqishdagi bilan bir xil
+  // xato — 2026-08-05, Shoetest'da ikki sotuv).
+  try {
+    if (typeof pushToCloud === "function") {
+      await Promise.race([
+        pushToCloud(),
+        new Promise(r => setTimeout(r, 8000))
+      ]);
+    }
+  } catch (e) { console.warn("yangilashdan oldin sinxron:", e.message); }
+
   // 4) Qayta yuklash. index.html Vercel'da no-cache, kesh esa
   //    yuqorida tozalandi — shuning uchun yangi kod keladi.
   setTimeout(() => { try { location.reload(); } catch(e) {} }, 250);
