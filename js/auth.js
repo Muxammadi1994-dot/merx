@@ -165,7 +165,23 @@ function authStaffLogin(phone, password) {
 }
 
 // ── Chiqish ──────────────────────────────────────
-function authLogout() {
+// ⚠️ 2026-08-05: CHIQISHDAN OLDIN KUTILAYOTGAN YOZUV YUBORILADI.
+// Sotuv qilingach push 700 ms kechikib boshlanadi va 1-3 soniya
+// davom etadi. Foydalanuvchi shu oraliqda chiqsa yozuv BULUTGA
+// YETMASDAN yo'qolardi.
+// 2026-08-05, Shoetest: ikki sotuv (`4285-LV`, `4286-LV`) aynan
+// shunday yo'qolgan — bot cheki ketgan, bazada esa yo'q.
+async function authLogout() {
+  // Kutilayotgan sinxronni majburan tugatamiz (eng ko'pi 8 soniya)
+  try {
+    if (typeof pushToCloud === "function") {
+      await Promise.race([
+        pushToCloud(),
+        new Promise(r => setTimeout(r, 8000))
+      ]);
+    }
+  } catch (e) { console.warn("chiqishdan oldin sinxron:", e.message); }
+
   authClear();
   // 2026-07-19: chiqishda Supabase sessiyasini ham to'liq tozalaymiz —
   // aks holda eski token keyingi kirishda aralashishi mumkin (do'kon aralashuvi).
