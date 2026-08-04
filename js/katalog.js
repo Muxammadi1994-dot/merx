@@ -740,7 +740,7 @@ function duplicateProduct(sku, event) {
   copy.sku  = newSku;
   copy.id   = db.seq;
   copy.name = p.name + " (nusxa)";
-  copy.barcode = genEAN13 ? genEAN13(nextId()) : "";
+  copy.barcode = genEAN13 ? genEAN13(db.seq++) : "";
   // 2026-07-25: rang barcode'lari NUSXALANMAYDI — aks holda ikki xil
   // tovarda bir xil kod bo'lib, skanerlanganda qaysi biri ekani noaniq edi
   copy.colorBarcodes = {};
@@ -1239,7 +1239,7 @@ function epConfirmAddColor() {
     sku: _newSku3,
     name: p.name, category: p.category, type: p.type, unit: p.unit,
     inBox: sizeRange.length, packUnit: p.packUnit,
-    art: p.art || "", barcode: genEAN13(nextId()),
+    art: p.art || "", barcode: genEAN13(db.seq++),
     costUsd: p.costUsd, priceUzs: p.priceUzs, ulgurjiNarx: p.ulgurjiNarx,
     image: "", createdAt: new Date().toISOString(),
     variants: [{ color, size: (from === to ? from : from + "-" + to),
@@ -1607,7 +1607,7 @@ function splitColors() {
         ...JSON.parse(JSON.stringify(p)),
         id: newId,
         sku: p.sku + "-" + (++made),
-        barcode: (p.colorBarcodes && p.colorBarcodes[c]) || genEAN13(nextId()),
+        barcode: (p.colorBarcodes && p.colorBarcodes[c]) || genEAN13(db.seq++),
         variants: p.variants.filter(v => v.color === c)
       });
       try { ensureColorBarcodes(db.products[db.products.length-1]); } catch(e) {}
@@ -2832,7 +2832,7 @@ function parseImportCSV(text) {
       // nom+art+RANG bo'yicha barcode — har xil rang alohida barcode oladi
       const bKey = (nom + "|" + art + "|" + colorRaw).toLowerCase();
       if (!barcodeMap[bKey]) {
-        barcodeMap[bKey] = genEAN13(nextId());
+        barcodeMap[bKey] = genEAN13(db.seq++);
       }
       barcode = barcodeMap[bKey];
     }
@@ -3107,7 +3107,7 @@ function confirmImport() {
       if (p && p.colorBarcodes && p.colorBarcodes[colorRaw]) {
         colorBarcode = p.colorBarcodes[colorRaw];
       } else {
-        colorBarcode = genEAN13(nextId());
+        colorBarcode = genEAN13(db.seq++);
       }
     }
 
@@ -3149,9 +3149,13 @@ function confirmImport() {
       }
     } else {
       // Yangi mahsulot
+      // ⚠️ 2026-08-04: SKU SANOQDAN, id esa `nextId()` dan.
+      // Avval ikkalasi bir manbadan edi — `nextId()` vaqt muhri
+      // qaytargach SKU "IMP-1785848660110" bo'lib ketardi.
+      const _skuNo    = db.seq++;
       const newProdId = nextId();
-      const sku = `IMP-${String(newProdId).padStart(4,"0")}`;
-      const _bc = colorBarcode || r.barcode || genEAN13(nextId());
+      const sku = `IMP-${String(_skuNo).padStart(4,"0")}`;
+      const _bc = colorBarcode || r.barcode || genEAN13(db.seq++);
       const newProd = {
         id: newProdId,
         sku,
@@ -3840,7 +3844,7 @@ function migrateColorBarcodes() {
     p.colorBarcodes = {};
     colors.forEach((clr, i) => {
       // Birinchi rang uchun p.barcode ni ishlat, qolganlariga yangi barcode
-      const bc = i === 0 && p.barcode ? p.barcode : genEAN13(nextId());
+      const bc = i === 0 && p.barcode ? p.barcode : genEAN13(db.seq++);
       p.colorBarcodes[clr] = bc;
     });
     fixed++;
@@ -3891,7 +3895,7 @@ function ensureColorBarcodes(p) {
   let changed = false;
   [...new Set(p.variants.map(v => v.color).filter(Boolean))].forEach(color => {
     if (!p.colorBarcodes[color]) {
-      p.colorBarcodes[color] = genEAN13(nextId());
+      p.colorBarcodes[color] = genEAN13(db.seq++);
       changed = true;
     }
   });
@@ -3990,17 +3994,24 @@ function impCurrencyChanged() {
 //
 // Endi: band bo'lsa keyingi raqam olinadi. Rang darajasidagi
 // barcode'ga tegilmaydi (u alohida mexanizm, §3.10).
+// ⚠️ 2026-08-04: SANOQQA QAYTARILDI.
+// SKU va barkod `db.seq` dan hosil bo'ladi — ular QISQA bo'lishi
+// shart (CLTH-1785, 13 xonali EAN). `nextId()` esa vaqt muhri
+// qaytaradi va SKU "CLTH-1785848660110" bo'lib ketdi, barkod ham
+// yorliqdagi kod bilan mos kelmay qoldi (B20, 187 tovar).
+// Yozuv `id` lari uchun `nextId()` TO'G'RI — u faqat noyoblik
+// uchun. Kod/SKU uchun esa sanoq kerak.
 function _apNextSku(type) {
   const pref = type === "oyoq" ? "SHOE" : "CLTH";
   const band = new Set((db.products || []).map(x => String(x.sku || "")));
   let guard = 0;
   while (guard++ < 10000) {
-    const id  = nextId();
+    const id  = db.seq++;
     const sku = `${pref}-${String(id).padStart(3, "0")}`;
     if (!band.has(sku)) return { id, sku };
   }
   // Bu yerga yetib kelish deyarli imkonsiz — zaxira yo'l
-  const id = nextId();
+  const id = db.seq++;
   return { id, sku: `${pref}-${id}-${Date.now().toString(36)}` };
 }
 

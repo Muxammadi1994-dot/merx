@@ -1145,10 +1145,14 @@ function saveOldDebt() {
                (cur === "usd" ? `Kurs: ${fmt(rate)} so'm\n` : "") +
                `Sana: ${date}\n\nDavom etasizmi?`)) return;
 
-  const id = nextId();
+  // ⚠️ 2026-08-04: RAQAM SANOQDAN, id esa `nextId()` dan.
+  // Avval ikkalasi bir manbadan edi — `nextId()` vaqt muhri
+  // qaytargach chek raqami "ESKI-1785848660110" bo'lib ketardi.
+  const _no = db.seq++;
+  const id  = nextId();
   const sale = {
     id,
-    chekNum: "ESKI-" + String(id).padStart(4, "0"),
+    chekNum: "ESKI-" + String(_no).padStart(4, "0"),
     date, time: (typeof nowTime === "function" ? nowTime() : ""),
     customerId: c.id, customerName: c.name, customerPhone: c.phone || "",
     staffId: (typeof currentStaffId !== "undefined" ? currentStaffId : null),
