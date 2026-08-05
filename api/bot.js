@@ -1253,6 +1253,25 @@ function formatReceiptText(sale, shopName) {
 
   const isUsd = sale.debtCurrency === "usd" && _dUsdFrozen;
 
+  // ⚠️ 2026-08-05: QAYTARISH — XABAR MATNIDA HAM.
+  // Avval qaytarish belgisi faqat chek HTML'ida edi. Mijoz
+  // xabarni ochmasdan ham nima qaytarganini ko'rsin.
+  let _refTxt = "";
+  try {
+    const _rf = Array.isArray(sale.refunds) ? sale.refunds : [];
+    if (_rf.length) {
+      const _rTot = Number(sale.refundedTotal || 0)
+                 || _rf.reduce((a, r) => a + Number(r.total || 0), 0);
+      _refTxt = `\n<b>${sale.status === "qaytarilgan"
+        ? "🔴 TO'LIQ QAYTARILGAN" : "🟠 QISMAN QAYTARILGAN"}</b>\n`;
+      _refTxt += `Qaytarilgan: <b>${fmt(_rTot)} so'm</b>\n`;
+      _rf.forEach(r => (r.items || []).forEach(it => {
+        const q = it.qtyBox ? `${it.qtyBox} pochka` : `${it.qty || 0} dona`;
+        _refTxt += `  ▫️ ${it.name || ""}${it.variant ? " (" + it.variant + ")" : ""} — ${q}\n`;
+      }));
+    }
+  } catch (e) {}
+
   // Qarz satrlari
   let debtLines = [];
   if (_remFrozen > 0) {
@@ -1292,6 +1311,8 @@ function formatReceiptText(sale, shopName) {
       : []),
     sale.paid < sale.total ? `To'landi: ${fmt(sale.paid)} so'm` : null,
     ...(debtLines.length ? debtLines : ["✅ To'liq to'landi"]),
+    // 2026-08-05: qaytarish bo'lsa — ro'yxati bilan
+    _refTxt || null,
     "",
     "Rahmat! Yana kutamiz 🙏",
   ];
@@ -2268,6 +2289,24 @@ function buildReceiptHtml(sale, opts) {
             Qaytarilgan summa: <b>${FC(_rTot)}</b></div>
           ${_nos ? `<div style="font-size:11px;color:#333;margin-top:2px">
             Hujjat: ${_nos}</div>` : ""}
+          ${(() => {
+            // ⚠️ 2026-08-05: QAYSI TOVAR QAYTARILGANI.
+            // `refunds[].items` da nom, variant, miqdor va narx
+            // saqlanadi (tarix.js) — lekin chekda ko'rsatilmasdi.
+            // Mijoz nima qaytarganini aniq ko'rsin.
+            const rows = [];
+            _refs.forEach(r => (r.items || []).forEach(it => {
+              const qty = it.qtyBox
+                ? `${it.qtyBox} pochka` : `${it.qty || 0} dona`;
+              rows.push(`<div style="font-size:11px;color:#000">
+                • ${it.name || ""}${it.variant ? " (" + it.variant + ")" : ""}
+                — ${qty}</div>`);
+            }));
+            return rows.length
+              ? `<div style="margin-top:4px;padding-top:4px;
+                   border-top:1px dashed #FCA5A5">${rows.join("")}</div>`
+              : "";
+          })()}
         </div>`;
     }
   } catch(e) {}
