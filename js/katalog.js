@@ -3780,6 +3780,14 @@ function katImgSave(sku, color, input) {
 }
 
 // ── Karta ko'rinish ─────────────────────────────
+// 2026-08-05: TELEFON UCHUN QAYTA ISHLANDI.
+// Avval minmax(200px,1fr) edi — telefonda bitta ustun chiqib, rasm
+// 130px balandlikda butun ekran kengligini egallardi, ma'lumot esa
+// 4 qatorgina edi. Endi:
+//   - kompyuterda: avvalgidek ustunli, rasm 110px
+//   - telefonda (<=560px): yon-ma-yon — rasm chapda 78x78, ma'lumot o'ngda
+// Rasm: RANG rasmi ustuvor (jadval ko'rinishidagidek), yo'q bo'lsa umumiy.
+// ⚠️ Jadval ko'rinishiga TEGILMAGAN — u alohida funksiya.
 function _renderKatGrid(rows, rate, showChakana) {
   const el = $("kat-grid-wrap");
   if (!el) return;
@@ -3787,28 +3795,72 @@ function _renderKatGrid(rows, rate, showChakana) {
     el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--mut)">Mahsulot topilmadi</div>`;
     return;
   }
-  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;padding:18px">` +
-    rows.map(({product:p, color}) => {
+
+  const css = `<style>
+    .kgw{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;padding:16px}
+    .kg-card{border:1.5px solid var(--brd);border-radius:10px;cursor:pointer;overflow:hidden;transition:.13s;display:flex;flex-direction:column}
+    .kg-card:hover{border-color:var(--acc)}
+    .kg-img{width:100%;height:110px;object-fit:cover;flex:none;display:block}
+    .kg-noimg{width:100%;height:110px;background:var(--bg2);flex:none;display:flex;align-items:center;justify-content:center;color:#ddd}
+    .kg-body{padding:9px 11px;min-width:0;flex:1}
+    .kg-art{font-size:11px;color:var(--mut);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .kg-name{font-weight:700;font-size:13px;margin:2px 0;line-height:1.3}
+    .kg-sub{font-size:11.5px;color:var(--mut);line-height:1.35}
+    .kg-badges{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:6px}
+    .kg-price{font-weight:700;color:var(--acc);font-size:13px;margin-top:6px}
+    .kg-boxprice{font-size:11px;color:#e9a500;margin-top:1px}
+    @media (max-width:560px){
+      .kgw{grid-template-columns:1fr;gap:8px;padding:10px}
+      .kg-card{flex-direction:row;align-items:stretch}
+      .kg-img,.kg-noimg{width:78px;height:78px}
+      .kg-body{padding:8px 10px}
+      .kg-name{font-size:13.5px;margin:1px 0 2px}
+    }
+  </style>`;
+
+  el.innerHTML = css + `<div class="kgw">` +
+    rows.map(({product:p, color, isBroken}) => {
       const colorVariants = p.variants.filter(v => v.color === color);
       const st = colorVariants.reduce((a,v) => a + v.qty, 0);
+
+      // Quti sig'imi — VARIANTDAGISI ustuvor, keyin tovarniki (§3.3)
+      const _cvIb = parseInt(colorVariants[0] && colorVariants[0].inBox) || 0;
+      const inBox = _cvIb > 0 ? _cvIb
+                  : (colorVariants.length === 1 ? (parseInt(p.inBox) || 0) : 0);
+      // Pochka soni faqat haqiqiy sig'im ma'lum bo'lsa ko'rsatiladi
+      const pochka = inBox > 1 ? Math.floor(st / inBox) : null;
+
       const badge = st <= 0
         ? `<span class="bg bg-r" style="font-size:10px">Tugagan</span>`
         : st <= 5
-          ? `<span class="bg bg-a" style="font-size:10px">${st} dona</span>`
-          : `<span class="bg bg-g" style="font-size:10px">${st} dona</span>`;
-      const imgHtml = p.image
-        ? `<img src="${p.image}" style="width:100%;height:130px;object-fit:cover;border-radius:8px 8px 0 0">`
-        : `<div style="width:100%;height:130px;background:var(--bg2);border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;color:#ddd"><i class="ti ti-photo" style="font-size:32px"></i></div>`;
-      return `<div onclick="openEditProduct('${p.sku}')" style="border:1.5px solid var(--brd);border-radius:10px;cursor:pointer;transition:.13s;overflow:hidden" onmouseover="this.style.borderColor='var(--acc)'" onmouseout="this.style.borderColor='var(--brd)'">
+          ? `<span class="bg bg-a" style="font-size:10px">${st} ${p.unit||"dona"}</span>`
+          : `<span class="bg bg-g" style="font-size:10px">${st} ${p.unit||"dona"}</span>`;
+      const pochkaBadge = pochka != null
+        ? `<span class="bg ${pochka<=0?"bg-r":pochka<=5?"bg-a":"bg-g"}" style="font-size:10px">${pochka} ${p.packUnit||"pochka"}</span>`
+        : "";
+      const brokenBadge = isBroken
+        ? `<span style="background:#FEF3C7;color:#92400E;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:8px;white-space:nowrap">ochilgan</span>`
+        : "";
+
+      // Rang rasmi ustuvor — jadval ko'rinishidagi qoida (569-qator)
+      const cImg = (p.colorImages && p.colorImages[color]) || p.image || "";
+      const imgHtml = cImg
+        ? `<img class="kg-img" src="${cImg}">`
+        : `<div class="kg-noimg"><i class="ti ti-photo" style="font-size:28px"></i></div>`;
+
+      const pantone = colorVariants[0] && colorVariants[0].pantone || "";
+
+      return `<div class="kg-card" onclick="openEditProduct('${p.sku}')">
         ${imgHtml}
-        <div style="padding:10px 12px">
-          <div style="font-size:11px;color:var(--mut);font-family:monospace">${p.art || p.sku}</div>
-          <div style="font-weight:700;font-size:13px;margin:3px 0;line-height:1.3">${p.name}</div>
-          <div style="font-size:11.5px;color:var(--mut)">${color} · ${p.category}</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
-            <span style="font-weight:700;color:var(--acc);font-size:13px">${p.ulgurjiNarx ? fmt(p.ulgurjiNarx)+' so\'m' : '—'}</span>
-            ${badge}
-          </div>
+        <div class="kg-body">
+          <div class="kg-art">${p.art || p.sku}</div>
+          <div class="kg-name">${p.name}</div>
+          <div class="kg-sub">${color}${pantone ? " · " + pantone : ""}</div>
+          <div class="kg-sub">${p.category || ""}</div>
+          <div class="kg-badges">${badge}${pochkaBadge}${brokenBadge}</div>
+          <div class="kg-price">${p.ulgurjiNarx ? fmt(p.ulgurjiNarx)+' so\'m' : '—'}</div>
+          ${p.ulgurjiNarx && inBox > 1
+            ? `<div class="kg-boxprice">📦 ${fmt(p.ulgurjiNarx * inBox)} so'm</div>` : ""}
         </div>
       </div>`;
     }).join("") + `</div>`;
