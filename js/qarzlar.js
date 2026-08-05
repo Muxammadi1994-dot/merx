@@ -1378,11 +1378,23 @@ async function sendTelegramPayReceipt(customerId, customerPhone, payment) {
         customerPhone: customerPhone || null,
         payment,
         shopName: db.shop?.name || "MERX",
-        shopId: _sid
+        shopId: _sid,
+        // ⚠️ 2026-08-05: MIJOZ GURUHI — sotuv chekidagi kabi.
+        // Mijozga nima ketsa guruhga ham ketishi kerak.
+        groupId: (() => {
+          try {
+            const c = (db.customers || []).find(
+              x => String(x.id) === String(customerId));
+            const g = (c && c.groupId) ? String(c.groupId).trim() : "";
+            return /^-?\d{5,}$/.test(g) ? g : null;
+          } catch (e) { return null; }
+        })()
       })
     });
     const data = await res.json();
-    if (data.sent) toast("📨 To'lov cheki Telegram orqali yuborildi");
+    if (data.sent) toast(data.groupSent
+      ? "📨 To'lov cheki mijozga va guruhga yuborildi"
+      : "📨 To'lov cheki Telegram orqali yuborildi");
   } catch (e) { console.warn("TG to'lov cheki yuborilmadi:", e.message); }
 }
 

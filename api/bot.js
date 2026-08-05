@@ -1379,7 +1379,24 @@ async function actionSendPayReceipt(body) {
     reply_markup: { inline_keyboard: [[{ text: "🧾 To'lov chekini ko'rish", url: payUrl }]] },
   });
   if (!r.ok) return { ok: false, sent: false, reason: "telegram_error", detail: r.description };
-  return { ok: true, sent: true };
+
+  // ⚠️ 2026-08-05: MIJOZ GURUHIGA HAM — sotuv chekidagi kabi.
+  // Avval faqat SOTUV cheki guruhga borardi, qarz to'lovi esa
+  // faqat mijozga. Mijozga nima ketsa guruhga ham ketishi kerak.
+  // Mijozga yuborish oqimi TEGILMAGAN — bu qo'shimcha.
+  let groupSent = false;
+  try {
+    const gid = String(body.groupId || "").trim();
+    if (/^-?\d{5,}$/.test(gid) && String(gid) !== String(chatId)) {
+      const gr = await tg(gid, txt, {
+        reply_markup: { inline_keyboard: [[{ text: "🧾 To'lov chekini ko'rish", url: payUrl }]] },
+      });
+      groupSent = !!gr.ok;
+      if (!gr.ok) console.warn(`[payReceipt] guruhga yuborilmadi (${gid}):`, gr.description);
+    }
+  } catch (e) { console.warn("[payReceipt] guruh xato:", e.message); }
+
+  return { ok: true, sent: true, groupSent };
 }
 
 // To'lov cheki sahifasi (mini-app ichida ochiladi)
