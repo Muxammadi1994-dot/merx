@@ -3790,6 +3790,11 @@ function katImgSave(sku, color, input) {
 // ⚠️ HISOB-KITOB JADVAL BILAN BIR XIL (518-qatordan ko'chirilgan):
 //   pochka/dona — SHU POCHKA GURUHI bo'yicha (groupVariants, groupQty),
 //   butun rang bo'yicha EMAS. Ochilgan pochkada "0 pochka · 3 dona".
+// ⚠️ 2026-08-05: KATAKKA BOSISH OLIB TASHLANDI (jadvalda 2026-08-03 da
+// qilingandek). Avval katakning ISTALGAN joyiga bosilsa tahrir oynasi
+// ochilardi — rasmni kattalashtirmoqchi bo'lganda ham. Endi:
+//   rasm  → katImgView (kattalashadi; rasm yo'q bo'lsa tanlagich)
+//   ✏️    → openEditProduct (YAGONA tahrir yo'li)
 // ⚠️ Jadval ko'rinishiga TEGILMAGAN — u alohida funksiya.
 function _renderKatGrid(rows, rate, showChakana) {
   const el = $("kat-grid-wrap");
@@ -3801,11 +3806,12 @@ function _renderKatGrid(rows, rate, showChakana) {
 
   const css = `<style>
     .kgw{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;padding:16px}
-    .kg-card{border:1.5px solid var(--brd);border-radius:10px;cursor:pointer;overflow:hidden;transition:.13s;display:flex;flex-direction:column}
+    .kg-card{border:1.5px solid var(--brd);border-radius:10px;overflow:hidden;transition:.13s;display:flex;flex-direction:column}
     .kg-card:hover{border-color:var(--acc)}
-    .kg-img{width:100%;height:110px;object-fit:cover;flex:none;display:block}
-    .kg-noimg{width:100%;height:110px;background:var(--bg2);flex:none;display:flex;align-items:center;justify-content:center;color:#ddd}
-    .kg-body{padding:9px 11px;min-width:0;flex:1}
+    .kg-img{width:100%;height:110px;object-fit:cover;flex:none;display:block;cursor:zoom-in}
+    .kg-noimg{width:100%;height:110px;background:var(--bg2);flex:none;display:flex;align-items:center;justify-content:center;color:#ddd;cursor:pointer}
+    .kg-body{padding:9px 11px;min-width:0;flex:1;display:flex;flex-direction:column}
+    .kg-foot{margin-top:auto;padding-top:8px;display:flex;justify-content:flex-end}
     .kg-art{font-size:11px;color:var(--mut);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .kg-name{font-weight:700;font-size:13px;margin:2px 0;line-height:1.3}
     .kg-sub{font-size:11.5px;color:var(--mut);line-height:1.35}
@@ -3848,11 +3854,14 @@ function _renderKatGrid(rows, rate, showChakana) {
 
       // Rang rasmi ustuvor — jadval ko'rinishidagi qoida (569-qator)
       const cImg = (p.colorImages && p.colorImages[color]) || p.image || "";
+      // Rasmga bosilsa kattalashadi; rasm yo'q bo'lsa katImgView o'zi
+      // tanlagichni ochadi (3868-qator) — tahrir oynasi OCHILMAYDI
+      const imgClick = `onclick="katImgView('${p.sku}','${jsEsc(color)}')"`;
       const imgHtml = cImg
-        ? `<img class="kg-img" src="${cImg}">`
-        : `<div class="kg-noimg"><i class="ti ti-photo" style="font-size:28px"></i></div>`;
+        ? `<img class="kg-img" src="${cImg}" ${imgClick} title="Rasmni ko'rish">`
+        : `<div class="kg-noimg" ${imgClick} title="Rasm qo'shish"><i class="ti ti-photo" style="font-size:28px"></i></div>`;
 
-      return `<div class="kg-card" onclick="openEditProduct('${p.sku}')">
+      return `<div class="kg-card">
         ${imgHtml}
         <div class="kg-body">
           <div class="kg-art">${p.art || p.sku}</div>
@@ -3864,6 +3873,11 @@ function _renderKatGrid(rows, rate, showChakana) {
           ${costUzs && inBox > 1 ? `<div class="kg-cost-box">📦 ${priceDisplay(costUzs * inBox)}</div>` : ""}
           <div class="kg-price"><span class="kg-lbl">Ulgurji:</span> ${p.ulgurjiNarx ? priceDisplay(p.ulgurjiNarx) : "—"}</div>
           ${p.ulgurjiNarx && inBox > 1 ? `<div class="kg-box">📦 ${priceDisplay(p.ulgurjiNarx * inBox)}</div>` : ""}
+          <div class="kg-foot">
+            <button class="btn btn-ghost btn-sm" onclick="openEditProduct('${p.sku}')">
+              <i class="ti ti-edit"></i> Tahrirlash
+            </button>
+          </div>
         </div>
       </div>`;
     }).join("") + `</div>`;
