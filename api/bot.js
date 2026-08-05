@@ -1237,10 +1237,10 @@ async function cmdQarzlar(chatId, barcha = false) {
 // ── Mijozga chek yuborish ──────────────────────────────────────
 function formatReceiptText(sale, shopName) {
   const payLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", aralash: "Aralash" };
-  const isUsd = sale.debtCurrency === "usd" && _dUsdFrozen;
-
-  // Qarz satrlari
-  let debtLines = [];
+  // ⚠️ 2026-08-05 TUZATILDI: e'lonlar `isUsd` dan OLDIN bo'lishi
+  // SHART. Avval pastda edi va nasiyali sotuvda xato berardi:
+  //   Cannot access '_dUsdFrozen' before initialization
+  // Naqd sotuvda chiqmasdi — shuning uchun darhol bilinmagan.
   // ⚠️ 2026-08-04: XABAR MATNI HAM MUZLATILADI.
   // Chek HTML'i `origRemaining` ga o'tkazilgan (kontekst §3.5),
   // matn esa `sale.remaining` — HOZIRGI qoldiqda qolgandi.
@@ -1251,6 +1251,10 @@ function formatReceiptText(sale, shopName) {
   const _dUsdFrozen = sale.origDebtUsd != null ? Number(sale.origDebtUsd)
                     : (sale.debtUsd != null ? Number(sale.debtUsd) : 0);
 
+  const isUsd = sale.debtCurrency === "usd" && _dUsdFrozen;
+
+  // Qarz satrlari
+  let debtLines = [];
   if (_remFrozen > 0) {
     const newDebt = isUsd ? `$${_dUsdFrozen.toFixed(2)}` : `${fmt(_remFrozen)} so'm`;
     if (isUsd && sale.prevDebtUsd > 0) {
