@@ -765,6 +765,19 @@ function confirmRefund() {
     ? `✅ To'liq qaytarildi: ${fmt(refundTotal)} so'm. ${returnedCount} ta tovar omborga qaytdi.`
     : `✅ Qisman qaytarildi: ${fmt(refundTotal)} so'm. ${returnedCount} ta tovar omborga qaytdi.`
   );
+
+  // ⚠️ 2026-08-05: QAYTARISHDAN KEYIN CHEK QAYTA YUBORILADI.
+  // Avval qaytarishda Telegram xabari UMUMAN yuborilmasdi — mijoz
+  // qaytarganini bilardi-yu, yangilangan chekni ko'rmasdi.
+  // ASL CHEK yuboriladi: unda qaytarish belgisi bor (bot chekiga
+  // 2026-08-04 da qo'shilgan) va qoldiq summa yangilangan.
+  // Mijozga ham, guruhga ham — boshqa cheklardagi kabi.
+  // Xato bo'lsa qaytarish O'ZI buzilmaydi (try-catch).
+  try {
+    if (typeof sendTelegramReceipt === "function") {
+      sendTelegramReceipt(s.customerId, s, s.customerPhone);
+    }
+  } catch (e) { console.warn("qaytarish cheki yuborilmadi:", e.message); }
 }
 
 // ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
