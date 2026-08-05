@@ -978,7 +978,7 @@
         </div>
 
         <!-- Sotish tugmasi -->
-        <button class="pos-pay-btn" onclick="checkout()">
+        <button class="pos-pay-btn" id="pos-checkout-btn" onclick="checkout()">
           <i class="ti ti-check" style="font-size:18px"></i>
           <span>Sotishni yakunlash</span>
           <span id="pos-pay-total" style="margin-left:auto;font-size:15px;opacity:.9">0 so'm</span>
@@ -4746,7 +4746,7 @@
 <script src="js/sms.js?v=143"></script>
 <script src="js/cloud.js?v=243"></script>
 <script src="js/dashboard.js?v=157"></script>
-<script src="js/pos.js?v=244"></script>
+<script src="js/pos.js?v=245"></script>
 <script src="js/katalog.js?v=248"></script>
 <script src="js/ombor.js?v=173"></script>
 <script src="js/mijozlar.js?v=163"></script>
@@ -4978,7 +4978,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=262")
+    navigator.serviceWorker.register("/sw.js?v=263")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

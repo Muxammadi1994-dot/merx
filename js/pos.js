@@ -2169,8 +2169,40 @@ function refreshStaffList() {
 }
 
 // ── Savdo yakunlash ───────────────────────────────
+// ⚠️ 2026-08-05: IKKI MARTA BOSISHDAN HIMOYA.
+// Sotuv sekinlashsa (internet, ko'p tovar) tugma bosilmagandek
+// tuyuladi va kassir QAYTA bosadi — natijada BITTA sotuv IKKI
+// MARTA yoziladi. Jonli do'konda bu og'ir chalkashlik: ombor
+// ikki marta yechiladi, mijoz qarzi ikki barobar bo'ladi.
+let _checkoutBusy = false;
+
 async function checkout() {
+  // Birinchi bosish tugamaguncha ikkinchisi QABUL QILINMAYDI
+  if (_checkoutBusy) {
+    if (typeof toast === "function") toast("Sotuv yakunlanmoqda, kuting...", "info");
+    return;
+  }
   if (typeof requireUse === "function" && !requireUse("sotuv")) return;
+  _checkoutBusy = true;
+  // Tugmani ham o'chiramiz — kassir bosilmaganini ko'rsin
+  const _btn = document.getElementById("pos-checkout-btn")
+            || document.querySelector("[onclick*='checkout']");
+  const _btnTxt = _btn ? _btn.innerHTML : null;
+  if (_btn) {
+    _btn.disabled = true;
+    _btn.style.opacity = ".6";
+    _btn.innerHTML = "⏳ Yakunlanmoqda...";
+  }
+  const _unlock = () => {
+    _checkoutBusy = false;
+    if (_btn) {
+      _btn.disabled = false;
+      _btn.style.opacity = "";
+      if (_btnTxt != null) _btn.innerHTML = _btnTxt;
+    }
+  };
+
+  try {
 
   // ⚠️ 2026-08-02: KURS YUKLANMAGUNCHA SOTUV YO'Q.
   // Xodim kirganda `db.settings` bo'sh bo'ladi va butun ilova
@@ -2583,6 +2615,16 @@ async function checkout() {
   } catch(e) {
     console.error("Chek xato:", e);
     toast("Sotuv saqlandi! Chek: " + (newSale.chekNum||""), "info");
+  }
+
+  } catch (e) {
+    // Xato bo'lsa ham qulf ochilishi SHART — aks holda kassir
+    // boshqa sotuv qila olmay qoladi.
+    console.error("checkout xato:", e);
+    if (typeof toast === "function") toast("Sotuv xatosi: " + e.message, "err");
+    throw e;
+  } finally {
+    _unlock();
   }
 }
 
