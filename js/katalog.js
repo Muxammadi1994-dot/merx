@@ -3787,6 +3787,9 @@ function katImgSave(sku, color, input) {
 //   - kompyuterda: avvalgidek ustunli, rasm 110px
 //   - telefonda (<=560px): yon-ma-yon — rasm chapda 78x78, ma'lumot o'ngda
 // Rasm: RANG rasmi ustuvor (jadval ko'rinishidagidek), yo'q bo'lsa umumiy.
+// ⚠️ HISOB-KITOB JADVAL BILAN BIR XIL (518-qatordan ko'chirilgan):
+//   pochka/dona — SHU POCHKA GURUHI bo'yicha (groupVariants, groupQty),
+//   butun rang bo'yicha EMAS. Ochilgan pochkada "0 pochka · 3 dona".
 // ⚠️ Jadval ko'rinishiga TEGILMAGAN — u alohida funksiya.
 function _renderKatGrid(rows, rate, showChakana) {
   const el = $("kat-grid-wrap");
@@ -3806,9 +3809,13 @@ function _renderKatGrid(rows, rate, showChakana) {
     .kg-art{font-size:11px;color:var(--mut);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .kg-name{font-weight:700;font-size:13px;margin:2px 0;line-height:1.3}
     .kg-sub{font-size:11.5px;color:var(--mut);line-height:1.35}
-    .kg-badges{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:6px}
-    .kg-price{font-weight:700;color:var(--acc);font-size:13px;margin-top:6px}
-    .kg-boxprice{font-size:11px;color:#e9a500;margin-top:1px}
+    .kg-badges{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:6px}
+    .kg-qty{font-size:12px;color:var(--mut)}
+    .kg-cost{font-size:12px;color:#0D1B2A;font-weight:600;margin-top:6px}
+    .kg-cost-box{font-size:11px;color:#856404;margin-top:1px}
+    .kg-price{font-weight:700;color:var(--acc);font-size:13px;margin-top:4px}
+    .kg-box{font-size:11px;color:#e9a500;margin-top:1px}
+    .kg-lbl{color:var(--mut);font-weight:400;font-size:11px}
     @media (max-width:560px){
       .kgw{grid-template-columns:1fr;gap:8px;padding:10px}
       .kg-card{flex-direction:row;align-items:stretch}
@@ -3819,25 +3826,22 @@ function _renderKatGrid(rows, rate, showChakana) {
   </style>`;
 
   el.innerHTML = css + `<div class="kgw">` +
-    rows.map(({product:p, color, isBroken}) => {
-      const colorVariants = p.variants.filter(v => v.color === color);
-      const st = colorVariants.reduce((a,v) => a + v.qty, 0);
-
-      // Quti sig'imi — VARIANTDAGISI ustuvor, keyin tovarniki (§3.3)
+    rows.map(({product:p, color, isBroken, groupQty, groupVariants}) => {
+      // ⚠️ Jadvaldagi (520–541) hisob AYNAN takrorlanadi
+      const colorVariants = groupVariants;
       const _cvIb = parseInt(colorVariants[0] && colorVariants[0].inBox) || 0;
-      const inBox = _cvIb > 0 ? _cvIb
-                  : (colorVariants.length === 1 ? (parseInt(p.inBox) || 0) : 0);
-      // Pochka soni faqat haqiqiy sig'im ma'lum bo'lsa ko'rsatiladi
-      const pochka = inBox > 1 ? Math.floor(st / inBox) : null;
+      const inBox   = _cvIb > 0 ? _cvIb
+                      : (colorVariants.length === 1 ? (p.inBox || 1)
+                         : (colorVariants.length || 1));
+      const costUzs  = getCostUzs(p);
+      const colorQty = colorVariants.reduce((a,v) => a + v.qty, 0);
+      const pochkaSoni = colorVariants.length === 1
+        ? Math.floor(colorQty / (inBox || 1))
+        : groupQty;
+      const pantone = colorVariants[0] && colorVariants[0].pantone || "";
 
-      const badge = st <= 0
-        ? `<span class="bg bg-r" style="font-size:10px">Tugagan</span>`
-        : st <= 5
-          ? `<span class="bg bg-a" style="font-size:10px">${st} ${p.unit||"dona"}</span>`
-          : `<span class="bg bg-g" style="font-size:10px">${st} ${p.unit||"dona"}</span>`;
-      const pochkaBadge = pochka != null
-        ? `<span class="bg ${pochka<=0?"bg-r":pochka<=5?"bg-a":"bg-g"}" style="font-size:10px">${pochka} ${p.packUnit||"pochka"}</span>`
-        : "";
+      const pochkaBadge = `<span class="bg ${isBroken?"bg-a":pochkaSoni<=0?"bg-r":pochkaSoni<=5?"bg-a":"bg-g"}" style="font-size:10px;font-weight:700">${pochkaSoni} ${p.packUnit||"pochka"}</span>`;
+      const qtyText = `<span class="kg-qty">${colorQty} ${p.unit||"dona"}</span>`;
       const brokenBadge = isBroken
         ? `<span style="background:#FEF3C7;color:#92400E;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:8px;white-space:nowrap">ochilgan</span>`
         : "";
@@ -3848,8 +3852,6 @@ function _renderKatGrid(rows, rate, showChakana) {
         ? `<img class="kg-img" src="${cImg}">`
         : `<div class="kg-noimg"><i class="ti ti-photo" style="font-size:28px"></i></div>`;
 
-      const pantone = colorVariants[0] && colorVariants[0].pantone || "";
-
       return `<div class="kg-card" onclick="openEditProduct('${p.sku}')">
         ${imgHtml}
         <div class="kg-body">
@@ -3857,10 +3859,11 @@ function _renderKatGrid(rows, rate, showChakana) {
           <div class="kg-name">${p.name}</div>
           <div class="kg-sub">${color}${pantone ? " · " + pantone : ""}</div>
           <div class="kg-sub">${p.category || ""}</div>
-          <div class="kg-badges">${badge}${pochkaBadge}${brokenBadge}</div>
-          <div class="kg-price">${p.ulgurjiNarx ? fmt(p.ulgurjiNarx)+' so\'m' : '—'}</div>
-          ${p.ulgurjiNarx && inBox > 1
-            ? `<div class="kg-boxprice">📦 ${fmt(p.ulgurjiNarx * inBox)} so'm</div>` : ""}
+          <div class="kg-badges">${pochkaBadge}${qtyText}${brokenBadge}</div>
+          ${costUzs ? `<div class="kg-cost"><span class="kg-lbl">Tannarx:</span> ${priceDisplay(costUzs)}</div>` : ""}
+          ${costUzs && inBox > 1 ? `<div class="kg-cost-box">📦 ${priceDisplay(costUzs * inBox)}</div>` : ""}
+          <div class="kg-price"><span class="kg-lbl">Ulgurji:</span> ${p.ulgurjiNarx ? priceDisplay(p.ulgurjiNarx) : "—"}</div>
+          ${p.ulgurjiNarx && inBox > 1 ? `<div class="kg-box">📦 ${priceDisplay(p.ulgurjiNarx * inBox)}</div>` : ""}
         </div>
       </div>`;
     }).join("") + `</div>`;
