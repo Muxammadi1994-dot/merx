@@ -31,6 +31,21 @@ let _omPage = 1;
 function omGoPage(p) { _omPage = p; omRenderQoldiq(); pagerScrollTop("p-ombor"); }
 function omResetPage() { _omPage = 1; }
 
+// ── Ko'rinish rejimi (2026-08-05) ─────────────────
+// Katalogdagi `katViewMode` bilan bir xil uslub. Standart — JADVAL,
+// ya'ni tugma bosilmaguncha hech narsa o'zgarmaydi.
+let omViewMode = "table";   // "table" | "grid"
+
+function setOmView(v) {
+  omViewMode = v;
+  document.querySelectorAll(".om-view-btn").forEach(b => {
+    const on = b.dataset.v === v;
+    b.style.background = on ? "var(--acc)" : "transparent";
+    b.style.color      = on ? "#0D1B2A" : "";
+  });
+  omRenderQoldiq();
+}
+
 function omGetCols() {
   const cols = Object.assign({}, OM_DEFAULT_COLS, db.settings.omborCols || {});
   // ⚠️ 2026-08-02: RUXSAT QATLAMI — `db.settings` GA TEGILMAYDI.
@@ -437,6 +452,129 @@ function omRenderQoldiq() {
       <span><strong>${totalQty}</strong> dona qoldiq</span>
       <span>Qiymati: <strong style="color:var(--acc)">${fmt(totalVal)} so'm</strong></span>
     </div>` : "";
+
+  // ── Ko'rinish rejimi (2026-08-05) ────────────────
+  // ⚠️ Yuqoridagi JADVAL kodi butunlay tegilmagan — u har doim
+  // chiziladi. Bu yerda faqat qaysi biri KO'RINISHI hal qilinadi.
+  const _omTW = $("om-table-wrap");
+  const _omGW = $("om-grid-wrap");
+  if (_omTW) _omTW.style.display = omViewMode === "grid" ? "none" : "";
+  if (_omGW) {
+    _omGW.style.display = omViewMode === "grid" ? "" : "none";
+    if (omViewMode === "grid") {
+      _renderOmGrid(rows.length ? pageSlice(rows, _omPage) : [], cols, _omPager, q);
+    }
+  }
+}
+
+// ── Ombor: katak ko'rinish (2026-08-05) ───────────
+// ⚠️ HISOB-KITOB YO'Q. omRenderQoldiq tayyorlagan `rows` dan
+// o'qiydi, xolos — pochka/dona/narx jadval bilan AYNAN bir xil.
+// ⚠️ `cols` — omGetCols() dan keladi va RUXSAT QATLAMIDAN o'tgan
+// (permSee: tannarx, qiymati, margin). Shu sababli katakda ham
+// xodimga yopiq ustunlar ko'rinmaydi.
+// Bosish: rasm → omImgView (kattalashadi), ✏️ → openEditProduct.
+function _renderOmGrid(list, cols, pagerHtml, q) {
+  const el = $("om-grid-wrap");
+  if (!el) return;
+  const esc = (s) => typeof jsEsc === "function" ? jsEsc(s) : String(s == null ? "" : s);
+
+  if (!list.length) {
+    el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--mut)">
+      ${omStockFilter !== "all" ? "Bu filtrda mahsulot yo'q" : q ? `"${q}" topilmadi` : "Mahsulot yo'q"}
+    </div>`;
+    return;
+  }
+
+  const css = `<style>
+    .omgw{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;padding:16px}
+    .omg-card{border:1.5px solid var(--brd);border-radius:10px;overflow:hidden;transition:.13s;display:flex;flex-direction:column}
+    .omg-card:hover{border-color:var(--acc)}
+    .omg-img{width:100%;height:110px;object-fit:cover;flex:none;display:block;cursor:zoom-in}
+    .omg-noimg{width:100%;height:110px;background:var(--bg2);flex:none;display:flex;align-items:center;justify-content:center;color:#ddd;cursor:pointer}
+    .omg-body{padding:9px 11px;min-width:0;flex:1;display:flex;flex-direction:column}
+    .omg-art{font-size:11px;color:var(--mut);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .omg-name{font-weight:700;font-size:13px;margin:2px 0;line-height:1.3}
+    .omg-sub{font-size:11.5px;color:var(--mut);line-height:1.35}
+    .omg-badges{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:6px}
+    .omg-qty{font-size:12px;color:var(--mut)}
+    .omg-inbox{font-size:10px;color:#aaa}
+    .omg-sizes{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+    .omg-cost{font-size:12px;color:#0D1B2A;font-weight:600;margin-top:6px}
+    .omg-cost-box{font-size:11px;color:#856404;margin-top:1px}
+    .omg-price{font-weight:700;color:var(--acc);font-size:13px;margin-top:4px}
+    .omg-box{font-size:11px;color:#e9a500;margin-top:1px}
+    .omg-val{font-size:11.5px;color:var(--mut);margin-top:4px}
+    .omg-lbl{color:var(--mut);font-weight:400;font-size:11px}
+    .omg-foot{margin-top:auto;padding-top:8px;display:flex;justify-content:flex-end}
+    .omg-pager{width:100%;border:none}
+    @media (max-width:560px){
+      .omgw{grid-template-columns:1fr;gap:8px;padding:10px}
+      .omg-card{flex-direction:row;align-items:stretch}
+      .omg-img,.omg-noimg{width:78px;height:78px}
+      .omg-body{padding:8px 10px}
+      .omg-name{font-size:13.5px;margin:1px 0 2px}
+    }
+  </style>`;
+
+  const cards = list.map(r => {
+    const imgClick = `onclick="omImgView('${r.sku}','${esc(r.color)}')"`;
+    const imgHtml = !cols.image ? "" : (r.image
+      ? `<img class="omg-img" src="${r.image}" ${imgClick} title="Rasmni ko'rish">`
+      : `<div class="omg-noimg" ${imgClick} title="Rasm qo'shish"><i class="ti ti-photo" style="font-size:28px"></i></div>`);
+
+    const boxBadge = (cols.boxes && r.boxes != null)
+      ? `<span class="bg ${r.boxes<=0?"bg-r":r.boxes<=3?"bg-a":"bg-g"}" style="font-size:10px;font-weight:700">${r.boxes} ${r.packUnit||"pochka"}</span>
+         <span class="omg-inbox">×${r.inBox} ${r.unit}</span>`
+      : "";
+
+    const sortedSizes = (r.sizes||[]).slice().sort((a,b) => {
+      const na = parseFloat(a.size), nb = parseFloat(b.size);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      return String(a.size).localeCompare(String(b.size));
+    });
+    const sizesHtml = !cols.sizes ? "" : (r.isBroken
+      ? `<div class="omg-sizes">${sortedSizes.map(s => {
+          const lvl = s.qty <= 0 ? "bg-r" : s.qty <= 3 ? "bg-a" : "";
+          return `<span class="bg ${lvl}" style="font-size:10.5px;padding:1px 6px;font-weight:${s.qty<=3?"700":"400"}">${s.size}<span style="margin-left:2px;font-size:9.5px;color:${s.qty<=0?"#dc2626":s.qty<=3?"#92400e":"#888"}">${s.qty}</span></span>`;
+        }).join("")}</div>`
+      : (sortedSizes.length
+          ? `<div class="omg-sub" style="margin-top:4px;font-weight:600;color:#0D1B2A">${typeof sizesToRange==="function" ? sizesToRange(sortedSizes.map(s=>s.size), r.type) : sortedSizes.map(s=>s.size).join(", ")}</div>`
+          : ""));
+
+    const mColor = r.margin == null ? "#ccc"
+      : r.margin >= 30 ? "var(--grn)" : r.margin >= 15 ? "#E07B39" : "var(--red)";
+
+    return `<div class="omg-card">
+      ${imgHtml}
+      <div class="omg-body">
+        ${cols.art || cols.sku ? `<div class="omg-art">${(cols.art && r.art) ? r.art : r.sku}</div>` : ""}
+        <div class="omg-name">${r.name}${r.isBroken?` <span style="background:#FEF3C7;color:#92400E;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:7px;white-space:nowrap">ochilgan</span>`:""}</div>
+        <div class="omg-sub">${r.color}${r.pantone ? " · " + r.pantone : ""}</div>
+        ${cols.kategoriya && r.category ? `<div class="omg-sub">${r.category}</div>` : ""}
+        ${cols.barcode && r.barcode ? `<div class="omg-art">${r.barcode}</div>` : ""}
+        <div class="omg-badges">${boxBadge}<span class="omg-qty">${r.qty} ${r.unit}</span></div>
+        ${sizesHtml}
+        ${cols.tannarx && r.costUzs ? `<div class="omg-cost"><span class="omg-lbl">Tannarx:</span> ${priceDisplay(r.costUzs)}</div>` : ""}
+        ${cols.tannarx && r.costUzs && r.inBox > 1 ? `<div class="omg-cost-box">📦 ${priceDisplay(r.costUzs * r.inBox)}</div>` : ""}
+        ${cols.ulgurji ? `<div class="omg-price"><span class="omg-lbl">Ulgurji:</span> ${r.ulgurji ? priceDisplay(r.ulgurji) : "—"}</div>` : ""}
+        ${cols.ulgurji && r.ulgurji && r.inBox > 1 ? `<div class="omg-box">📦 ${priceDisplay(r.ulgurji * r.inBox)}</div>` : ""}
+        ${cols.margin && r.margin != null ? `<div class="omg-val">Margin: <strong style="color:${mColor}">${r.margin}%</strong></div>` : ""}
+        ${cols.qiymati && r.qiymati ? `<div class="omg-val">Qoldiq qiymati: ${fmt(r.qiymati)} so'm</div>` : ""}
+        <div class="omg-foot">
+          <button class="btn btn-ghost btn-sm" onclick="openEditProduct('${r.sku}')" title="Katalogda tahrirlash">
+            <i class="ti ti-edit"></i> Tahrirlash
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // Sahifalash — mavjud pagerRow() dan (yagona manba). U <tr> qaytaradi,
+  // shuning uchun kichik jadval ichiga o'raladi.
+  const pager = pagerHtml ? `<table class="omg-pager"><tbody>${pagerHtml}</tbody></table>` : "";
+
+  el.innerHTML = css + `<div class="omgw">` + cards + `</div>` + pager;
 }
 
 // ── Kam qoldiq tab ───────────────────────────────

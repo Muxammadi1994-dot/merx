@@ -1242,6 +1242,17 @@
           <i class="ti ti-x" style="font-size:12px"></i> Tugagan
         </button>
         <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+          <!-- Ko'rinish: jadval / karta (2026-08-05) -->
+          <div style="display:flex;border:1.5px solid var(--brd);border-radius:var(--rs);overflow:hidden;margin-right:4px">
+            <button class="om-view-btn btn-ghost" data-v="table" onclick="setOmView('table')"
+              style="border:none;padding:5px 9px;cursor:pointer;background:var(--acc);color:#0D1B2A" title="Jadval">
+              <i class="ti ti-layout-rows"></i>
+            </button>
+            <button class="om-view-btn btn-ghost" data-v="grid" onclick="setOmView('grid')"
+              style="border:none;padding:5px 9px;cursor:pointer;background:transparent" title="Karta">
+              <i class="ti ti-layout-grid"></i>
+            </button>
+          </div>
           <span style="font-size:11px;color:var(--mut)">Saralash:</span>
           <button class="btn btn-sm btn-ghost om-sort-btn" id="sort-name-btn"
             onclick="omSortBy('name')" title="Nom bo'yicha">
@@ -1257,12 +1268,13 @@
           </button>
         </div>
       </div>
-      <div style="overflow-x:auto">
+      <div id="om-table-wrap" style="overflow-x:auto">
         <table id="om-qoldiq-table">
           <thead></thead>
           <tbody></tbody>
         </table>
       </div>
+      <div id="om-grid-wrap" style="display:none"></div>
       <div id="om-qoldiq-foot" style="border-top:1px solid var(--brd)"></div>
     </div>
 
@@ -4748,7 +4760,7 @@
 <script src="js/dashboard.js?v=157"></script>
 <script src="js/pos.js?v=245"></script>
 <script src="js/katalog.js?v=251"></script>
-<script src="js/ombor.js?v=173"></script>
+<script src="js/ombor.js?v=174"></script>
 <script src="js/mijozlar.js?v=163"></script>
 <script src="js/qarzlar.js?v=202"></script>
 <script src="js/tarix.js?v=174"></script>
@@ -4978,7 +4990,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=268")
+    navigator.serviceWorker.register("/sw.js?v=269")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
