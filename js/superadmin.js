@@ -1709,6 +1709,14 @@ async function saOpenShop(id) {
       const existing = JSON.parse(localStorage.getItem(dbKey));
       if (!existing.settings) existing.settings = {};
       existing.settings.cloudShopId = id;
+      // ⚠️ 2026-08-06: DO'KON NOMI DARHOL TO'G'RI BO'LSIN.
+      // Avval kirilganda sarlavhada "MERX Do'koni" turardi —
+      // lokal nusxadagi standart nom. To'g'ri nom faqat qo'lda
+      // "Yangilash" bosilgandan keyin chiqardi. Nomni SuperAdmin
+      // ro'yxatidan bilamiz, shuning uchun shu yerda yozamiz.
+      // ⚠️ Bulutga TA'SIR QILMAYDI: push'da standart nomlar
+      // ("MERX", "MERX Do'koni") baribir yuborilmaydi (cloud.js §5.3).
+      if (s.name) existing.shop = { ...(existing.shop || {}), name: s.name };
       // ⚠️ Bo'sh qiymat mavjudini BOSMAYDI (kontekst §10.7)
       if (url)  existing.settings.supabaseUrl = url;
       if (key2) existing.settings.supabaseKey = key2;

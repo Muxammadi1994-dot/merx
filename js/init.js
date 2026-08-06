@@ -140,8 +140,19 @@ function init() {
         updateCloudUI(true);
         const isEmpty = !db.products?.length && !db.sales?.length;
         const cloudId = db.settings?.cloudShopId;
-        if (isEmpty && cloudId && cloudId !== "local") {
-          // Yangi qurilma yoki yangi do'kon — Supabase dan yuklaymiz
+        // ⚠️ 2026-08-06: SUPERADMIN ORQALI KIRILGANDA MAJBURIY TORTISH.
+        // Avval to'liq sinxron FAQAT baza butunlay bo'sh bo'lganda
+        // ishlardi. Do'konda ma'lumot bo'lsa hech narsa tortilmasdi,
+        // delta esa faqat O'ZGARGAN yozuvlarni oladi — sozlamalar
+        // bulutda o'zgarmagan bo'lsa umuman kelmasdi. Natijada
+        // kirilganda eskirgan kurs (12 800) va nom ko'rinardi,
+        // faqat qo'lda "Yangilash" bosilgach to'g'rilanardi.
+        // ⚠️ Belgi shu yerda O'CHIRILMAYDI — uni `saRestorePanelIfLoggedIn`
+        //    o'qiydi (panel qayta ochilmasligi uchun).
+        let _saEnter = false;
+        try { _saEnter = sessionStorage.getItem("merx_sa_entering") === "1"; } catch(e) {}
+        if ((isEmpty || _saEnter) && cloudId && cloudId !== "local") {
+          // Yangi qurilma, yangi do'kon yoki SuperAdmin kirishi
           await pullFromCloud();
         } else if (typeof renderDashboard === "function") {
           renderDashboard();
