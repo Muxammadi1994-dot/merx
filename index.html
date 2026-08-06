@@ -301,6 +301,34 @@
 .inv-qty-input{width:70px;text-align:center;border:2px solid #E8E5E0;border-radius:8px;padding:6px;font-family:inherit;font-size:14px;font-weight:700;outline:none;transition:border-color .15s}
 .inv-qty-input:focus{border-color:#8B5CF6}
 .inv-qty-input.changed{border-color:#E9A500;background:#FFFBEB}
+
+/* ═══ TELEFON: KENGLIKDAN CHIQIB KETISH (2026-08-05) ═══
+   IKKITA ALOHIDA MUAMMO TUZATILDI:
+   1) #topbar — #main da overflow:hidden turgani uchun sig'magan
+      tugmalar KESILARDI va ularga yetib bo'lmasdi (surish ham yo'q).
+      Endi keyingi qatorga o'tadi.
+   2) #pages da overflow-y:auto turgani uchun gorizontal surish ham
+      yoqilgan. Ichidagi filtr/davr tugmalari qatorlarida flex-wrap
+      yo'q edi — ular sahifani kengaytirib, ma'lumotni ekrandan
+      chiqarib yuborardi. Endi hammasi o'ralib ketadi.
+   ⚠️ Faqat <=700px — kompyuter ko'rinishiga TEGILMAGAN.
+   ⚠️ Jadvallar bu yerga kirmaydi: ular .card:has(table) qoidasi bilan
+      karta ICHIDA suriladi, sahifani buzmaydi. */
+@media (max-width:700px) {
+  #topbar   { flex-wrap:wrap; row-gap:8px }
+  .tb-right { flex-wrap:wrap; justify-content:flex-end; row-gap:6px }
+
+  div:has(> .cust-filter-btn), div:has(> .om-filter-btn),
+  div:has(> .tx-period-btn),   div:has(> .tx-status-btn),
+  div:has(> .kat-status-btn),  div:has(> .kat-sort-btn),
+  div:has(> .debt-filter-btn), div:has(> .qt-period-btn),
+  div:has(> .qt-status-btn),   div:has(> .qt-view-btn),
+  div:has(> .dr-period-btn),   div:has(> .dt-period-btn),
+  div:has(> .mol-period-btn),  div:has(> .mol-trend-btn),
+  div:has(> .exp-date-btn),    div:has(> .xod-period-btn),
+  div:has(> .adm-tab-btn),     div:has(> .inv-filter-btn),
+  .om-tabs { flex-wrap:wrap !important }
+}
 /* v180: CHOP ETISH — faqat sotuv cheki chiqadi, boshqa hech narsa
    (asosiy ilova, boshqa modallar, tugmalar) chop etilmaydi. Ranglarni
    B&W termal printerga moslashtirish 2-BOSQICHDA qilinadi — hozircha
@@ -5022,7 +5050,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=272")
+    navigator.serviceWorker.register("/sw.js?v=273")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
