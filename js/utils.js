@@ -2637,3 +2637,46 @@ function initTopbarAutoHide() {
 
 if (document.readyState !== "loading") initTopbarAutoHide();
 else document.addEventListener("DOMContentLoaded", initTopbarAutoHide);
+
+// ═══ KO'RINISH REJIMINI ESLAB QOLISH (2026-08-06) ═══
+// Jadval / katak tanlovi QURILMADA saqlanadi (localStorage).
+// ⚠️ ATAYLAB `db.settings` ga YOZILMAYDI — u bulutga sinxronlanadi
+//    va telefondagi tanlov kompyuterga ham o'tib ketardi. Har
+//    qurilma o'z tanlovini yuritadi: telefonda katak, kompyuterda
+//    jadval bo'lib qolaveradi.
+// ⚠️ Ma'lumotga aloqasi yo'q — faqat ko'rinish. Sinxron, sotuv,
+//    qarz, ombor — hech biriga tegmaydi.
+function viewModeGet(key, def) {
+  try {
+    const v = localStorage.getItem("merx_view_" + key);
+    return (v === "grid" || v === "table") ? v : (def || "table");
+  } catch (e) { return def || "table"; }
+}
+
+function viewModeSet(key, v) {
+  try { localStorage.setItem("merx_view_" + key, v); } catch (e) {}
+}
+
+// Sahifa ochilganda tugmalarni saqlangan holatga moslaydi.
+// ⚠️ Render CHAQIRILMAYDI — har bo'lim o'zi ochilganda o'z rejim
+//    o'zgaruvchisini o'qiydi, u esa yuqorida allaqachon tiklangan.
+function viewModeInitBtns() {
+  [ ["kat", "kat-view-btn", "class"],
+    ["om",  "om-view-btn",  "style"],
+    ["tx",  "tx-view-btn",  "style"],
+    ["mj",  "mj-view-btn",  "style"],
+    ["db",  "db-view-btn",  "style"] ].forEach(([key, cls, kind]) => {
+    const v = viewModeGet(key, "table");
+    document.querySelectorAll("." + cls).forEach(b => {
+      const on = b.dataset.v === v;
+      if (kind === "class") b.classList.toggle("on", on);
+      else {
+        b.style.background = on ? "var(--acc)" : "transparent";
+        b.style.color      = on ? "#0D1B2A" : "";
+      }
+    });
+  });
+}
+
+if (document.readyState !== "loading") viewModeInitBtns();
+else document.addEventListener("DOMContentLoaded", viewModeInitBtns);

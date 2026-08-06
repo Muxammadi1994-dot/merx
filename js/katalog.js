@@ -11,7 +11,7 @@ let katSortAsc     = false;   // nom/narx saralash tugmalar orqali avvalgidek is
 let _katSelected   = new Set(); // tanlangan SKU lar
 let _katAllRowKeys = [];           // filtrlangan BARCHA qator kalitlari
 let katStatusFilter = "all"; // "all" | "faol" | "nol" | "kam"
-let katViewMode    = "table"; // "table" | "grid"
+let katViewMode    = viewModeGet("kat"); // "table" | "grid" — qurilmada saqlanadi (utils.js)
 let katPage        = 1;
 const KAT_PER_PAGE = 50;
 
@@ -26,6 +26,7 @@ function setKatStatus(s) {
 
 function setKatView(v) {
   katViewMode = v;
+  viewModeSet("kat", v);
   document.querySelectorAll(".kat-view-btn").forEach(b =>
     b.classList.toggle("on", b.dataset.v === v));
   renderKatalog();

@@ -241,10 +241,11 @@ function mjResetLimit() { _mjPage = 1; }
 
 // ── Ko'rinish rejimi (2026-08-05) ─────────────────
 // Katalog/ombor/tarixdagi bilan bir xil uslub. Standart — JADVAL.
-let mjViewMode = "table";   // "table" | "grid"
+let mjViewMode = viewModeGet("mj");   // qurilmada saqlanadi (utils.js)
 
 function setMjView(v) {
   mjViewMode = v;
+  viewModeSet("mj", v);
   document.querySelectorAll(".mj-view-btn").forEach(b => {
     const on = b.dataset.v === v;
     b.style.background = on ? "var(--acc)" : "transparent";

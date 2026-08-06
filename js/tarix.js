@@ -128,10 +128,11 @@ function txResetLimit() { _txPage = 1; }
 // ── Ko'rinish rejimi (2026-08-05) ─────────────────
 // Katalog/ombordagi bilan bir xil uslub. Standart — JADVAL,
 // ya'ni tugma bosilmaguncha hech narsa o'zgarmaydi.
-let txViewMode = "table";   // "table" | "grid"
+let txViewMode = viewModeGet("tx");   // qurilmada saqlanadi (utils.js)
 
 function setTxView(v) {
   txViewMode = v;
+  viewModeSet("tx", v);
   document.querySelectorAll(".tx-view-btn").forEach(b => {
     const on = b.dataset.v === v;
     b.style.background = on ? "var(--acc)" : "transparent";

@@ -34,10 +34,11 @@ function omResetPage() { _omPage = 1; }
 // ── Ko'rinish rejimi (2026-08-05) ─────────────────
 // Katalogdagi `katViewMode` bilan bir xil uslub. Standart — JADVAL,
 // ya'ni tugma bosilmaguncha hech narsa o'zgarmaydi.
-let omViewMode = "table";   // "table" | "grid"
+let omViewMode = viewModeGet("om");   // qurilmada saqlanadi (utils.js)
 
 function setOmView(v) {
   omViewMode = v;
+  viewModeSet("om", v);
   document.querySelectorAll(".om-view-btn").forEach(b => {
     const on = b.dataset.v === v;
     b.style.background = on ? "var(--acc)" : "transparent";

@@ -40,10 +40,11 @@ function dbResetPage() { _dbPage = 1; }
 // ⚠️ To'lov mantig'iga (recordGroupPayment, recordPayment,
 //    debtPayMethodInputs, qzClampPay, qzUsdBoxToSom) TEGILMAGAN —
 //    katak ularni o'zgarishsiz chaqiradi.
-let dbViewMode = "table";   // "table" | "grid"
+let dbViewMode = viewModeGet("db");   // qurilmada saqlanadi (utils.js)
 
 function setDbView(v) {
   dbViewMode = v;
+  viewModeSet("db", v);
   document.querySelectorAll(".db-view-btn").forEach(b => {
     const on = b.dataset.v === v;
     b.style.background = on ? "var(--acc)" : "transparent";
