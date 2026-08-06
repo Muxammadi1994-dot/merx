@@ -355,9 +355,17 @@
      (flex:1) joy qolmaydi va u nolga siqiladi — surish ham yo'q.
      Yechim: telefonda PANELNING O'ZI suriladi, ro'yxat esa tabiiy
      balandlikda qoladi. */
-  .sa-panel { height:auto !important; min-height:100dvh; overflow-y:auto !important }
-  #sa-shops-list { flex:none !important }
-  /* Kirish oynasi — faqat o'zi markazda (panel cho'zilib qolsin) */
+  /* ⚠️ 2026-08-06 (3-bosqich): SURISH TUZATILDI.
+     2-bosqichda `.sa-panel{height:auto;overflow-y:auto}` deb yozilgandi —
+     BU ISHLAMAYDI: height:auto bo'lsa element mazmuniga qarab cho'ziladi,
+     ichida ortiqcha narsa qolmaydi va overflow hech qachon ishga
+     tushmaydi. Panel esa tashqi qobiqdan (position:fixed) chiqib
+     ketardi. Endi surish TASHQI QOBIQDA (#sa-overlay). */
+  #sa-overlay { overflow-y:auto !important; align-items:flex-start !important;
+                -webkit-overflow-scrolling:touch }
+  .sa-panel { height:auto !important; min-height:100dvh; overflow:visible !important }
+  #sa-shops-list { flex:none !important; overflow-y:visible !important }
+  /* Kirish oynasi — margin:auto tufayli baribir markazda qoladi */
   .sa-login-card { align-self:center !important; padding:30px 22px !important }
   .sa-head { padding:12px 14px !important; flex-wrap:wrap; gap:8px }
   .sa-head > div:first-child { min-width:0 }
@@ -5101,7 +5109,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=280")
+    navigator.serviceWorker.register("/sw.js?v=281")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
