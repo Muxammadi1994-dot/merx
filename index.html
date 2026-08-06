@@ -1438,6 +1438,17 @@
           <button data-viewok class="cust-filter-btn" data-f="inactive" onclick="setCustFilter('inactive')"
             style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:transparent;color:var(--mut);cursor:pointer">💤 Faolsiz</button>
         </div>
+        <!-- Ko'rinish: jadval / karta (2026-08-05) -->
+        <div style="display:flex;border:1.5px solid var(--brd);border-radius:var(--rs);overflow:hidden;margin-left:auto">
+          <button class="mj-view-btn btn-ghost" data-v="table" onclick="setMjView('table')"
+            style="border:none;padding:5px 9px;cursor:pointer;background:var(--acc);color:#0D1B2A" title="Jadval">
+            <i class="ti ti-layout-rows"></i>
+          </button>
+          <button class="mj-view-btn btn-ghost" data-v="grid" onclick="setMjView('grid')"
+            style="border:none;padding:5px 9px;cursor:pointer;background:transparent" title="Karta">
+            <i class="ti ti-layout-grid"></i>
+          </button>
+        </div>
       </div>
       <!-- Guruhli SMS bar (tanlanganda ko'rinadi) -->
       <div id="bulk-sms-bar" style="display:none;align-items:center;gap:10px;padding:10px 18px;background:#EFF6FF;border-bottom:1px solid #BFDBFE">
@@ -1450,7 +1461,7 @@
           <i class="ti ti-x"></i> Bekor qilish
         </button>
       </div>
-      <div style="overflow-x:auto">
+      <div id="mijozlar-table-wrap" style="overflow-x:auto">
         <table style="min-width:800px">
           <thead id="mijozlar-thead"><tr>
             <th>Ism</th><th>Telefon</th><th>Segment</th>
@@ -1462,6 +1473,7 @@
           <tbody id="mijozlar-body"></tbody>
         </table>
       </div>
+      <div id="mijozlar-grid-wrap" style="display:none"></div>
     </div>
   </div>
 
@@ -4781,7 +4793,7 @@
 <script src="js/pos.js?v=245"></script>
 <script src="js/katalog.js?v=252"></script>
 <script src="js/ombor.js?v=175"></script>
-<script src="js/mijozlar.js?v=163"></script>
+<script src="js/mijozlar.js?v=164"></script>
 <script src="js/qarzlar.js?v=202"></script>
 <script src="js/tarix.js?v=175"></script>
 <script src="js/hisobot.js?v=151"></script>
@@ -5010,7 +5022,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=271")
+    navigator.serviceWorker.register("/sw.js?v=272")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

@@ -239,6 +239,20 @@ let _mjPage = 1;
 function mjGoPage(p) { _mjPage = p; renderMijozlar(); pagerScrollTop("p-mijozlar"); }
 function mjResetLimit() { _mjPage = 1; }
 
+// ── Ko'rinish rejimi (2026-08-05) ─────────────────
+// Katalog/ombor/tarixdagi bilan bir xil uslub. Standart — JADVAL.
+let mjViewMode = "table";   // "table" | "grid"
+
+function setMjView(v) {
+  mjViewMode = v;
+  document.querySelectorAll(".mj-view-btn").forEach(b => {
+    const on = b.dataset.v === v;
+    b.style.background = on ? "var(--acc)" : "transparent";
+    b.style.color      = on ? "#0D1B2A" : "";
+  });
+  renderMijozlar();
+}
+
 function renderMijozlar() {
   // 2026-07-31: kesh tozalanadi — sahifa doim yangi ma'lumot ko'rsatsin
   try { custStatsClear(); } catch(e) {}
@@ -400,6 +414,133 @@ function renderMijozlar() {
   }).join("") + _mjMore : `<tr><td colspan="${colCount}" class="empty-td">
     ${custFilter!=="all"?"Bu filtrda mijoz yo'q":q?`"${q}" topilmadi`:"Mijoz yo'q"}
   </td></tr>`;
+
+  // ── Ko'rinish rejimi (2026-08-05) ────────────────
+  // ⚠️ Yuqoridagi JADVAL kodi butunlay tegilmagan — u har doim
+  // chiziladi. Bu yerda faqat qaysi biri KO'RINISHI hal qilinadi.
+  const _mjTW = $("mijozlar-table-wrap");
+  const _mjGW = $("mijozlar-grid-wrap");
+  if (_mjTW) _mjTW.style.display = mjViewMode === "grid" ? "none" : "";
+  if (_mjGW) {
+    _mjGW.style.display = mjViewMode === "grid" ? "" : "none";
+    if (mjViewMode === "grid") {
+      _renderMjGrid(list.length ? pageSlice(list, _mjPage) : [], cols,
+        pagerRow(1, _mjTotal, _mjPage, "mjGoPage", "mijoz"), q);
+    }
+  }
+}
+
+// ── Mijozlar: katak ko'rinish (2026-08-05) ────────
+// ⚠️ HISOB YO'Q. renderMijozlar tayyorlagan ro'yxatdan o'qiydi,
+//    statistika esa mavjud custStats()/custSegment() dan (yagona manba).
+// ⚠️ `cols` — getCustCols() dan (ustun sozlamalari hisobga olinadi).
+// ⚠️ Kartochkaga bosish YO'Q — mijoz kartasi faqat 👁 orqali ochiladi.
+// ⚠️ Belgilash katagi `data-cust-check` bilan — ommaviy SMS jadvaldagidek
+//    ishlaydi (toggleCustSelect / selectAllCusts o'zgartirilmagan).
+function _renderMjGrid(list, cols, pagerHtml, q) {
+  const el = $("mijozlar-grid-wrap");
+  if (!el) return;
+
+  if (!list.length) {
+    el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--mut)">
+      ${custFilter!=="all"?"Bu filtrda mijoz yo'q":q?`"${q}" topilmadi`:"Mijoz yo'q"}
+    </div>`;
+    return;
+  }
+
+  const css = `<style>
+    .mgw{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;padding:16px}
+    .mg-card{border:1.5px solid var(--brd);border-radius:10px;padding:10px 12px;position:relative;display:flex;flex-direction:column;transition:.13s}
+    .mg-card:hover{border-color:var(--acc)}
+    .mg-head{padding-right:106px;display:flex;align-items:flex-start;gap:7px}
+    .mg-name{font-weight:700;font-size:13.5px;line-height:1.3}
+    .mg-comp{font-size:11px;color:#aaa}
+    .mg-ph{font-size:12px;margin-top:4px}
+    .mg-ph a{color:inherit}
+    .mg-badges{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:6px}
+    .mg-stats{display:flex;flex-wrap:wrap;gap:3px 14px;margin-top:7px;font-size:11.5px;color:var(--mut)}
+    .mg-stats b{color:#0D1B2A;font-weight:700}
+    .mg-debt{margin-top:6px;font-size:12.5px}
+    .mg-foot{position:absolute;right:6px;top:6px;display:flex;gap:3px}
+    @media (max-width:560px){
+      .mgw{grid-template-columns:1fr;gap:7px;padding:9px}
+      .mg-card{padding:8px 10px}
+    }
+  </style>`;
+
+  const rate = db.settings?.rate || 12800;
+
+  const cards = list.map(c => {
+    const st  = custStats(c.id);
+    const seg = custSegment(st, c);
+    const curDebt = st.totalDebt + (st.totalDebtUsd||0) * rate;
+    const limitWarn = c.debtLimit && curDebt >= c.debtLimit * 0.8;
+
+    const debtTxt = (st.totalDebt>0 || st.totalDebtUsd>0)
+      ? `<span style="color:var(--red);font-weight:700">${
+          st.totalDebtUsd>0 && st.totalDebt>0
+            ? fmtUsd(st.totalDebtUsd)+" + "+fmt(st.totalDebt)+" so'm"
+            : st.totalDebtUsd>0 ? fmtUsd(st.totalDebtUsd)+" USD"
+            : fmt(st.totalDebt)+" so'm"}</span>`
+      : `<span style="color:var(--grn)">✅ Qarz yo'q</span>`;
+
+    const lastTxt = st.daysSinceLastBuy !== null
+      ? (st.daysSinceLastBuy === 0 ? `<span style="color:var(--grn)">Bugun</span>`
+        : st.daysSinceLastBuy <= 7  ? `<span style="color:var(--grn)">${st.daysSinceLastBuy} kun</span>`
+        : st.daysSinceLastBuy <= 30 ? `${st.daysSinceLastBuy} kun`
+        : `<span style="color:#E9A500">${st.lastDate}</span>`)
+      : "—";
+
+    const limitHtml = (cols.debtLimit && c.debtLimit) ? (() => {
+      const pct = Math.min(100, Math.round(curDebt / c.debtLimit * 100));
+      const color = pct>=100 ? "var(--red)" : pct>=80 ? "#E9A500" : "var(--mut)";
+      return `<div style="font-size:11px;color:${color};margin-top:3px">
+        Limit: ${fmtK(c.debtLimit)} so'm · ${pct}% ishlatilgan</div>`;
+    })() : "";
+
+    return `<div class="mg-card" style="${limitWarn?"background:#FFF7F7":""}">
+      <div class="mg-foot">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="openCustCard(${c.id})" title="Mijoz kartasi">
+          <i class="ti ti-eye"></i>
+        </button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="_custCardId=${c.id};custCardEdit()" title="Tahrirlash">
+          <i class="ti ti-edit"></i>
+        </button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="openOldDebt(${c.id})"
+          title="Eski qarz qo'shish (daftardan)" style="color:var(--acc)">
+          <i class="ti ti-notebook"></i>
+        </button>
+      </div>
+      <div class="mg-head">
+        <input type="checkbox" data-cust-check="${c.id}" ${_selectedCusts.has(c.id)?"checked":""}
+          onclick="toggleCustSelect(${c.id})"
+          style="width:15px;height:15px;accent-color:var(--acc);cursor:pointer;margin-top:2px;flex:none">
+        <div style="min-width:0">
+          ${cols.name ? `<div class="mg-name">${c.name}</div>` : ""}
+          ${c.company ? `<div class="mg-comp">${c.company}</div>` : ""}
+        </div>
+      </div>
+      ${cols.phone ? `<div class="mg-ph">
+        ${c.phone ? `<a href="tel:${c.phone}">${c.phone}</a>` : `<span style="color:#ccc">—</span>`}
+        ${c.phone2 ? ` · <a href="tel:${c.phone2}" style="color:#4C9BE8">${c.phone2}</a>` : ""}
+      </div>` : ""}
+      ${cols.segment ? `<div class="mg-badges">
+        <span class="bg" style="font-size:10.5px;background:${seg.bg};color:${seg.color};font-weight:600">${seg.label}</span>
+      </div>` : ""}
+      <div class="mg-stats">
+        ${cols.count    ? `<span>Sotuv: <b>${st.count}</b></span>` : ""}
+        ${cols.totalBuy ? `<span>Jami: <b>${st.totalBuy?fmtK(st.totalBuy)+" so'm":"—"}</b></span>` : ""}
+        ${cols.avgCheck ? `<span>O'rtacha: <b>${st.avgCheck?fmtK(st.avgCheck)+" so'm":"—"}</b></span>` : ""}
+        ${cols.lastDate ? `<span>Oxirgi: ${lastTxt}</span>` : ""}
+      </div>
+      ${cols.debt ? `<div class="mg-debt">${debtTxt}</div>` : ""}
+      ${limitHtml}
+    </div>`;
+  }).join("");
+
+  // Sahifalash — mavjud pagerRow() dan (yagona manba)
+  const pager = pagerHtml ? `<table style="width:100%;border:none"><tbody>${pagerHtml}</tbody></table>` : "";
+  el.innerHTML = css + `<div class="mgw">` + cards + `</div>` + pager;
 }
 
 // ── Mijoz kartochkasi ─────────────────────────────
