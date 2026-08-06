@@ -348,8 +348,17 @@
        · sarlavhada flex-wrap yo'q edi — ✕ tugmasi ekrandan
          chiqib ketib, panelni yopib bo'lmasdi
      ⚠️ Faqat ko'rinish. Panel mantig'iga tegilmagan. */
-  #sa-overlay { align-items:center !important }
-  .sa-login-card { padding:30px 22px !important }
+  /* ⚠️ 2026-08-06 (2-bosqich): PASTDAGI DO'KONLAR RO'YXATIGA
+     TUSHIB BO'LMAY QOLGANDI. Sabab: panel qobig'ida overflow:hidden
+     va height:100vh turibdi, ichkarida esa sarlavha + KPI kartalari +
+     asboblar qatori telefonda o'ralib BALANDLASHADI. Ro'yxatga
+     (flex:1) joy qolmaydi va u nolga siqiladi — surish ham yo'q.
+     Yechim: telefonda PANELNING O'ZI suriladi, ro'yxat esa tabiiy
+     balandlikda qoladi. */
+  .sa-panel { height:auto !important; min-height:100dvh; overflow-y:auto !important }
+  #sa-shops-list { flex:none !important }
+  /* Kirish oynasi — faqat o'zi markazda (panel cho'zilib qolsin) */
+  .sa-login-card { align-self:center !important; padding:30px 22px !important }
   .sa-head { padding:12px 14px !important; flex-wrap:wrap; gap:8px }
   .sa-head > div:first-child { min-width:0 }
   .sa-kpi5, .sa-kpi4 { grid-template-columns:repeat(2,1fr) !important }
@@ -5066,7 +5075,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
-<script src="js/superadmin.js?v=217"></script>
+<script src="js/superadmin.js?v=218"></script>
 
 <!-- PWA (2026-07-20): Service Worker ro'yxatdan o'tkazish -->
 <script>
@@ -5092,7 +5101,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=279")
+    navigator.serviceWorker.register("/sw.js?v=280")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

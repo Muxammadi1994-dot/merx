@@ -336,7 +336,7 @@ function buildSaDashboard() {
 function buildSaPanel() {
   return `
     <!-- 2026-08-03: to'liq ekran — modal emas, alohida ish joyi -->
-    <div style="background:#fff;width:100%;height:100vh;height:100dvh;
+    <div class="sa-panel" style="background:#fff;width:100%;height:100vh;height:100dvh;
       overflow:hidden;display:flex;flex-direction:column">
 
       <!-- Header -->
@@ -357,6 +357,12 @@ function buildSaPanel() {
           </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
+          <button id="sa-refresh-btn" onclick="saRefreshPanel(this)" title="Bulutdan yangilash"
+            style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+            color:#fff;border-radius:8px;padding:6px 12px;font-family:inherit;
+            font-size:12px;cursor:pointer;font-weight:600">
+            <i class="ti ti-refresh"></i> Yangilash
+          </button>
           <button onclick="saLogout()"
             style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
             color:#fca5a5;border-radius:8px;padding:6px 14px;font-family:inherit;
@@ -1531,6 +1537,24 @@ async function saAddShop() {
 }
 
 // ── Supabase'dan do'konlarni yuklash ─────────────
+// ── Panelni bulutdan yangilash (2026-08-06) ───────
+// ⚠️ Yangi mantiq YO'Q — mavjud saFetchShopsFromCloud() chaqiriladi,
+//    u ro'yxatni ham, jamlanmani ham o'zi qayta chizadi.
+async function saRefreshPanel(btn) {
+  const ico = btn ? btn.querySelector("i") : null;
+  if (btn) { btn.disabled = true; btn.style.opacity = ".55"; }
+  if (ico) ico.style.animation = "spin 1s linear infinite";
+  try {
+    await saFetchShopsFromCloud();
+    showSaToast("Yangilandi");
+  } catch (e) {
+    showSaToast("Yangilab bo'lmadi: " + (e.message || "xato"), "err");
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = ""; }
+    if (ico) ico.style.animation = "";
+  }
+}
+
 async function saFetchShopsFromCloud() {
   try {
     const res = await fetch("/api/auth-v2?action=get_shops", {
