@@ -1172,6 +1172,58 @@ module.exports = async function handler(req, res) {
 
       // ── BITTA DO'KON STATISTIKASI (2026-08-03) ──
       // Avval bu `localStorage` dan hisoblanardi — SuperAdmin
+      // ── QURILMALAR FAOLLIGI (2026-08-06) ──
+      // Har chek raqamida qurilma kodi bor: CHK-20260806-2611-JS
+      // Bulutga birinchi yozilgan vaqt — `created_at` (§13.15:
+      // `updated_at` qayta yozilganda o'zgaradi, kechikish o'lchamaydi).
+      // ⚠️ FAQAT O'QISH. Yangi jadval yaratilmaydi, hech narsa yozilmaydi.
+      if (op === "devices") {
+        const kun = (n) => new Date(Date.now() + TZ_OFFSET_MIN * 60000
+                                    - n * 86400000).toISOString().slice(0, 10);
+        const bugun = kun(0), hafta = kun(6);
+
+        const { rows, capped } = await sbFetchAll(
+          `sales?select=shop_id,chek_num,date,time,created_at` +
+          `&date=gte.${hafta}&order=created_at.desc`, H);
+
+        const map = {};
+        for (const x of (rows || [])) {
+          const ch = x.chek_num || "";
+          if (!ch.startsWith("CHK-")) continue;          // ESKI- va boshqalar emas
+          const dev = ch.slice(-2);
+          const key = x.shop_id + "|" + dev;
+          if (!map[key]) map[key] = {
+            shopId: x.shop_id, device: dev,
+            today: 0, week: 0, lastDate: null, lastTime: null,
+            delaySum: 0, delayCnt: 0, delayMax: 0
+          };
+          const m = map[key];
+          m.week++;
+          if (x.date === bugun) m.today++;
+          if (!m.lastDate || (x.date + (x.time || "")) > (m.lastDate + (m.lastTime || ""))) {
+            m.lastDate = x.date; m.lastTime = x.time || "";
+          }
+          // Kechikish: bulutga kelgan vaqt (Toshkentga o'girilgan) − chek vaqti
+          if (x.created_at && x.date && x.time) {
+            const arrived = new Date(x.created_at).getTime() + TZ_OFFSET_MIN * 60000;
+            const made    = Date.parse(`${x.date}T${x.time}:00Z`);
+            if (!isNaN(made)) {
+              const min = Math.round((arrived - made) / 60000);
+              if (min > -600 && min < 60 * 24 * 7) {     // aql bovar qiladigan oraliq
+                m.delaySum += min; m.delayCnt++;
+                if (min > m.delayMax) m.delayMax = min;
+              }
+            }
+          }
+        }
+        const list = Object.values(map).map(m => ({
+          ...m,
+          delayAvg: m.delayCnt ? Math.round(m.delaySum / m.delayCnt) : null
+        })).sort((a, b) => b.week - a.week);
+
+        return res.status(200).json({ ok: true, devices: list, capped, bugun });
+      }
+
       // kirmagan do'konda raqamlar BO'SH chiqardi. Endi bulutdan.
       if (op === "shop_stats") {
         const sid = body.shopId;

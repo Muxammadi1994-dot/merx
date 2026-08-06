@@ -419,6 +419,12 @@ function buildSaPanel() {
             font-weight:600;cursor:pointer" title="Telegram eslatma yuborish">
             📨 Eslatma
           </button>
+          <button onclick="saShowDevices()"
+            style="background:#EFF6FF;border:1.5px solid #BFDBFE;color:#1D4ED8;
+            border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
+            font-weight:600;cursor:pointer" title="Qaysi qurilma yozayapti, sinxron kechikayaptimi">
+            📱 Qurilmalar
+          </button>
           <button onclick="saShowInactiveShops()"
             style="background:#F5F3FF;border:1.5px solid #DDD6FE;color:#7C3AED;
             border-radius:8px;padding:7px 12px;font-family:inherit;font-size:12px;
@@ -2468,6 +2474,108 @@ function saCheckExpiringSoon() {
 }
 
 // ── Faolsiz do'konlar hisoboti ────────────────────
+// ── QURILMALAR FAOLLIGI (2026-08-06) ──────────────
+// Bugungi B20 tekshiruvida eng kerakli bo'lgan ma'lumot: qaysi
+// qurilma yozayapti, qachondan beri jim, sinxron kechikayaptimi.
+// Ma'lumot MAVJUD narsalardan olinadi — chek raqamidagi qurilma
+// kodi va `created_at`. Yangi jadval yo'q, hech narsa yozilmaydi.
+// ⚠️ Ilova versiyasi va qurilmadagi tovar soni bu yerda YO'Q —
+//    ular chekda saqlanmaydi. Ular 1-bosqichda qo'shiladi.
+async function saShowDevices() {
+  document.getElementById("sa-dev-modal")?.remove();
+  const m = document.createElement("div");
+  m.id = "sa-dev-modal";
+  m.style.cssText = `position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.5);
+    display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;
+    backdrop-filter:blur(4px);padding:12px`;
+  m.innerHTML = `<div style="background:#fff;border-radius:16px;width:820px;max-width:96vw;
+    max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.25)">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+      padding:16px 20px;background:#0D1B2A;border-radius:16px 16px 0 0">
+      <div>
+        <div style="font-size:16px;font-weight:800;color:#E9A500">📱 Qurilmalar faolligi</div>
+        <div style="font-size:11px;color:#6B8096;margin-top:2px">Oxirgi 7 kun · chek raqamidagi qurilma kodi bo'yicha</div>
+      </div>
+      <button onclick="document.getElementById('sa-dev-modal').remove()"
+        style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+        color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:16px">✕</button>
+    </div>
+    <div id="sa-dev-body" style="padding:18px 20px;color:#334155;font-size:14px">
+      Yuklanmoqda...
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+
+  let d;
+  try {
+    d = await _saApi("sa_finance", { op: "devices" });
+  } catch (e) {
+    const b = document.getElementById("sa-dev-body");
+    if (b) b.innerHTML = `<div style="color:#DC2626">Xato: ${e.message || "so'rov bajarilmadi"}</div>`;
+    return;
+  }
+  const body = document.getElementById("sa-dev-body");
+  if (!body) return;
+  const list = (d && d.ok && d.devices) || [];
+  if (!list.length) {
+    body.innerHTML = `<div style="text-align:center;padding:30px;color:#334155">
+      Oxirgi 7 kunda chek yozilmagan</div>`;
+    return;
+  }
+
+  // Do'kon nomi — SuperAdmin ro'yxatidan
+  const nameOf = (sid) => {
+    const s = (_saShops || []).find(x =>
+      x.cloudShopId === sid || x.shop_id === sid || x.id === sid);
+    return s ? s.name : sid;
+  };
+  const delayColor = (n) => n == null ? "#9ca3af"
+    : n <= 10 ? "#059669" : n <= 60 ? "#D97706" : "#DC2626";
+  const quietColor = (lastDate) => {
+    if (!lastDate) return "#9ca3af";
+    const kun = Math.round((Date.now() - Date.parse(lastDate + "T00:00:00Z")) / 86400000);
+    return kun <= 1 ? "#059669" : kun <= 3 ? "#D97706" : "#DC2626";
+  };
+
+  body.innerHTML = `
+    ${d.capped ? `<div style="background:#FFFBEB;border:1px solid #FDE68A;color:#B45309;
+      border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;margin-bottom:12px">
+      ⚠️ 20 000 yozuv chegarasi — ro'yxat to'liq emas</div>` : ""}
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
+        <th style="text-align:left;padding:9px 10px;font-weight:700">Do'kon</th>
+        <th style="text-align:center;padding:9px 6px;font-weight:700">Qurilma</th>
+        <th style="text-align:center;padding:9px 6px;font-weight:700">Bugun</th>
+        <th style="text-align:center;padding:9px 6px;font-weight:700">7 kun</th>
+        <th style="text-align:left;padding:9px 10px;font-weight:700">Oxirgi chek</th>
+        <th style="text-align:center;padding:9px 6px;font-weight:700">Kechikish</th>
+      </tr></thead>
+      <tbody>
+        ${list.map(r => `<tr style="border-bottom:1px solid #F3F4F6">
+          <td style="padding:9px 10px;font-weight:600">${nameOf(r.shopId)}</td>
+          <td style="padding:9px 6px;text-align:center">
+            <span style="font-family:monospace;font-weight:800;background:#EFF6FF;
+              color:#1D4ED8;border-radius:6px;padding:2px 8px">${r.device}</span></td>
+          <td style="padding:9px 6px;text-align:center;font-weight:700;
+            color:${r.today > 0 ? "#059669" : "#9ca3af"}">${r.today}</td>
+          <td style="padding:9px 6px;text-align:center">${r.week}</td>
+          <td style="padding:9px 10px;color:${quietColor(r.lastDate)};font-weight:600">
+            ${r.lastDate || "—"} ${r.lastTime || ""}</td>
+          <td style="padding:9px 6px;text-align:center;font-weight:700;
+            color:${delayColor(r.delayAvg)}">
+            ${r.delayAvg == null ? "—" : r.delayAvg + " daq"}
+            ${r.delayMax > 60 ? `<div style="font-size:10px;color:#9ca3af;font-weight:400">eng ko'pi ${r.delayMax}</div>` : ""}
+          </td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    <div style="margin-top:12px;font-size:11.5px;color:#6B7280;line-height:1.5">
+      <b>Kechikish</b> — chek yozilgan vaqt bilan bulutga kelgan vaqt orasidagi farq
+      (<code>created_at</code> bo'yicha). Yashil ≤10 daq · sariq ≤60 daq · qizil undan ko'p.<br>
+      <b>Oxirgi chek</b> qizil bo'lsa — qurilma 3 kundan beri jim.
+    </div>`;
+}
+
 function saShowInactiveShops() {
   // ⚠️ 2026-08-03: BULUTDAGI MA'LUMOTDAN.
   // Avval `localStorage` dan o'qirdi — SuperAdmin kirmagan do'kon
