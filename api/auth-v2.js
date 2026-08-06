@@ -1127,7 +1127,7 @@ module.exports = async function handler(req, res) {
         const oy = new Date().toISOString().slice(0, 7);
 
         const [sl, cu, pr, om] = await Promise.all([
-          fetch(`${SB_URL}/rest/v1/sales?shop_id=eq.${q}&select=total,paid,remaining,status,date&limit=20000`, { headers: H }),
+          fetch(`${SB_URL}/rest/v1/sales?shop_id=eq.${q}&select=total,paid,remaining,status,date,debt_currency,debt_usd&limit=20000`, { headers: H }),
           fetch(`${SB_URL}/rest/v1/customers?shop_id=eq.${q}&select=id`, { headers: H }),
           fetch(`${SB_URL}/rest/v1/products?shop_id=eq.${q}&select=data`, { headers: H }),
           fetch(`${SB_URL}/rest/v1/ombor?shop_id=eq.${q}&select=id`, { headers: H })
@@ -1137,12 +1137,19 @@ module.exports = async function handler(req, res) {
         const prods = pr.ok ? await pr.json() : [];
         const omb   = om.ok ? await om.json() : [];
 
-        let totalRev = 0, monthRev = 0, monthCnt = 0, totalDebt = 0;
+        // 2026-08-06: QARZ IKKI VALYUTADA ALOHIDA.
+        // Avval hammasi `remaining` ga qo'shilardi — dollar qarzning
+        // so'mdagi ekvivalenti so'm qarzlar bilan ARALASHIB ketardi.
+        // Ilovadagi qoidaning o'zi (qarzlar.js → renderDebts):
+        // dollar qarz `debt_usd` da, qolganlari `remaining` da.
+        let totalRev = 0, monthRev = 0, monthCnt = 0, debtUzs = 0, debtUsd = 0;
         for (const x of sales) {
           if (x.status === "bekor") continue;
           const t = +x.total || 0;
           totalRev += t;
-          totalDebt += +x.remaining || 0;
+          const isUsd = x.debt_currency === "usd" && (+x.debt_usd || 0) > 0;
+          if (isUsd) debtUsd += +x.debt_usd || 0;
+          else       debtUzs += +x.remaining || 0;
           if ((x.date || "").startsWith(oy)) { monthRev += t; monthCnt++; }
         }
         // Ombordagi jami dona — tovar variantlaridan
@@ -1152,7 +1159,9 @@ module.exports = async function handler(req, res) {
           if (Array.isArray(v)) v.forEach(x => stockCnt += (+x.qty || 0));
         }
         return res.status(200).json({ ok: true, stats: {
-          totalRev, monthRev, monthCnt, totalDebt,
+          totalRev, monthRev, monthCnt,
+          totalDebt: debtUzs,   // eskicha nom — faqat SO'M qarzlar
+          debtUzs, debtUsd,
           salesCnt: sales.filter(x => x.status !== "bekor").length,
           custCnt: custs.length, prodCnt: prods.length,
           stockCnt, omborCnt: omb.length,

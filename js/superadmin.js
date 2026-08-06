@@ -752,14 +752,14 @@ function _saSum(rows) {
 }
 
 function saRenderFinKpi() {
-  const f = n => n >= 1000000 ? (n/1000000).toFixed(1) + "M"
-                : n >= 1000 ? (n/1000).toFixed(0) + "K" : String(Math.round(n) || 0);
+  // 2026-08-06: QISQARTIRISH OLIB TASHLANDI (2.0M → 2 019 400).
+  // Yagona manba: utils.js dagi fmt().
   const inc = _saSum(_saFin.income);
   const exp = _saSum(_saFin.expense);
   const set = (id, v, clr) => {
     const e = document.getElementById(id);
     if (!e) return;
-    e.textContent = f(v) + " so'm";
+    e.textContent = fmt(Math.round(v) || 0) + " so'm";
     if (clr) e.style.color = clr;
   };
   set("sa-inc-val", inc);
@@ -2254,12 +2254,21 @@ function saShowStats(shopId) {
       const d = await _saApi("sa_finance", { op: "shop_stats", shopId: key });
       if (!d || !d.ok || !d.stats) return;
       const st = d.stats;
-      const f  = n => n >= 1000000 ? (n/1000000).toFixed(1) + "M"
-                    : n >= 1000 ? (n/1000).toFixed(0) + "K" : String(Math.round(n) || 0);
       const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-      set("sst-rev",   f(st.totalRev) + " so'm");
-      set("sst-month", f(st.monthRev) + " so'm");
-      set("sst-debt",  f(st.totalDebt) + " so'm");
+      // 2026-08-06: QISQARTIRISH OLIB TASHLANDI (18225.4M → 18 225 400 000).
+      // Yagona manba: utils.js dagi fmt() — bo'sh joy bilan ajratadi.
+      set("sst-rev",   fmt(st.totalRev || 0) + " so'm");
+      set("sst-month", fmt(st.monthRev || 0) + " so'm");
+      // Qarz — ikki valyuta ALOHIDA (server 2026-08-06 dan beri ajratib beradi)
+      const _dUzs = st.debtUzs != null ? st.debtUzs : (st.totalDebt || 0);
+      const _dUsd = st.debtUsd || 0;
+      const _dEl  = document.getElementById("sst-debt");
+      if (_dEl) {
+        _dEl.innerHTML = (_dUzs > 0 || _dUsd <= 0)
+          ? fmt(_dUzs) + " so'm" +
+            (_dUsd > 0 ? `<div style="font-size:13px;color:#1B4F72;margin-top:2px">$${_dUsd.toFixed(2)}</div>` : "")
+          : `<span style="color:#1B4F72">$${_dUsd.toFixed(2)}</span>`;
+      }
       set("sst-sales", (st.salesCnt || 0).toLocaleString("ru-RU"));
       set("sst-cust",  (st.custCnt  || 0).toLocaleString("ru-RU"));
       set("sst-prod",  (st.prodCnt  || 0).toLocaleString("ru-RU"));
