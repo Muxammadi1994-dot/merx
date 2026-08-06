@@ -125,6 +125,21 @@ let _txPage = 1;
 function txGoPage(p) { _txPage = p; renderTarix(); pagerScrollTop("p-tarix"); }
 function txResetLimit() { _txPage = 1; }
 
+// ── Ko'rinish rejimi (2026-08-05) ─────────────────
+// Katalog/ombordagi bilan bir xil uslub. Standart — JADVAL,
+// ya'ni tugma bosilmaguncha hech narsa o'zgarmaydi.
+let txViewMode = "table";   // "table" | "grid"
+
+function setTxView(v) {
+  txViewMode = v;
+  document.querySelectorAll(".tx-view-btn").forEach(b => {
+    const on = b.dataset.v === v;
+    b.style.background = on ? "var(--acc)" : "transparent";
+    b.style.color      = on ? "#0D1B2A" : "";
+  });
+  renderTarix();
+}
+
 function renderTarix() {
   const q = ($("tarix-q")||{value:""}).value.toLowerCase().trim();
   // Tozalash tugmasini ko'rsatish/yashirish
@@ -221,6 +236,15 @@ function renderTarix() {
 
   const tbody = $("tarix-body");
   if (!tbody) return;
+
+  // ── Ko'rinish rejimi (2026-08-05) ───────────────
+  // ⚠️ Quyidagi JADVAL kodi butunlay tegilmagan — u har doim
+  // chiziladi. Bu yerda faqat qaysi biri KO'RINISHI hal qilinadi.
+  const _txTW = $("tarix-table-wrap");
+  const _txGW = $("tarix-grid-wrap");
+  if (_txTW) _txTW.style.display = txViewMode === "grid" ? "none" : "";
+  if (_txGW) _txGW.style.display = txViewMode === "grid" ? "" : "none";
+  if (txViewMode === "grid" && !list.length) _renderTxGrid([], cols, "", q);
 
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="10" class="empty-td">
@@ -352,6 +376,143 @@ function renderTarix() {
 
   html += pagerRow(10, _txTotal, _txPage, "txGoPage", "chek");
   tbody.innerHTML = html || `<tr><td colspan="10" class="empty-td">Render xatosi — console ni tekshiring</td></tr>`;
+
+  if (txViewMode === "grid") {
+    _renderTxGrid(_txList, cols,
+      pagerRow(1, _txTotal, _txPage, "txGoPage", "chek"), q);
+  }
+}
+
+// ── Sotuv tarixi: katak ko'rinish (2026-08-05) ────
+// ⚠️ HISOB YO'Q. renderTarix tayyorlagan ro'yxatdan o'qiydi.
+// ⚠️ `cols` — getTarixCols() dan (ustun sozlamalari hisobga olinadi).
+// ⚠️ Kartochkaga bosish YO'Q — chek faqat 👁 tugmasi orqali ochiladi.
+//    🗑 (bekor qilish) jadvaldagi shartning aynan o'zi bilan:
+//    qaytarilmagan + bekor qilinmagan + hasRole("admin").
+function _renderTxGrid(list, cols, pagerHtml, q) {
+  const el = $("tarix-grid-wrap");
+  if (!el) return;
+
+  if (!list.length) {
+    el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--mut)">
+      ${q || txPeriod !== "all" || txStatus !== "all" ? "Filtr bo'yicha sotuv topilmadi" : "Sotuv tarixi bo'sh"}
+    </div>`;
+    return;
+  }
+
+  const css = `<style>
+    .tgw{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;padding:16px}
+    .tg-card{border:1.5px solid var(--brd);border-radius:10px;padding:10px 12px;position:relative;display:flex;flex-direction:column;transition:.13s}
+    .tg-card:hover{border-color:var(--acc)}
+    .tg-head{padding-right:74px}
+    .tg-chek{font-family:monospace;font-size:11.5px;font-weight:700;color:#0D1B2A}
+    .tg-dt{font-size:11.5px;color:var(--mut);margin-top:1px}
+    .tg-cust{font-size:12.5px;font-weight:600;margin-top:5px}
+    .tg-ph{font-size:11px;color:#aaa;font-weight:400}
+    .tg-items{margin-top:5px;font-size:11.5px;color:#444;line-height:1.45}
+    .tg-badges{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:6px}
+    .tg-money{margin-top:7px;font-size:12px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+    .tg-total{font-weight:800;font-size:13.5px;color:#0D1B2A}
+    .tg-lbl{color:var(--mut);font-weight:400;font-size:11px}
+    .tg-foot{position:absolute;right:6px;top:6px;display:flex;gap:4px}
+    @media (max-width:560px){
+      .tgw{grid-template-columns:1fr;gap:7px;padding:9px}
+      .tg-card{padding:8px 10px}
+      .tg-items{font-size:11px}
+    }
+  </style>`;
+
+  const cards = list.map(s => {
+    try {
+      const isDebt     = s.status === "qarz" && (s.remaining||0) > 0;
+      const isReturned = s.status === "qaytarilgan";
+      const _cxl       = !!s.cancelled;
+      const chekN      = s.chekNum || `#${s.id}`;
+      const _refs      = s.refunds || [];
+      const _refBadge  = _refs.length
+        ? `<div style="font-size:10.5px;color:#B91C1C;font-weight:700;margin-top:2px">
+             ↩ ${isReturned ? "To'liq qaytarilgan" : "Qisman qaytarilgan"} · ${fmt(s.refundedTotal || 0)} so'm</div>`
+        : "";
+
+      const safeItems = (s.items||[]).filter(Boolean);
+      // Kartochkada eng ko'pi 3 ta tovar, qolgani "+N ta" (jadvalda hammasi)
+      const shown = safeItems.slice(0, 3);
+      const itemsHtml = !cols.items ? "" : (safeItems.length
+        ? `<div class="tg-items">${shown.map(i => {
+            const isBox = i.sellMode === "karobka" && i.inBox > 0;
+            const dispQty = isBox ? (i.qtyBox || Math.round((i.qty||0)/(i.inBox||1))) : (i.qty||0);
+            const dispUnit = isBox ? "pch" : (i.unit || "dona");
+            return `<div>${i.name||"?"} <span style="color:#bbb">×${dispQty} ${dispUnit}</span></div>`;
+          }).join("")}${safeItems.length > 3
+            ? `<div style="color:#aaa">+${safeItems.length - 3} ta yana</div>` : ""}</div>`
+        : "");
+
+      const pchTotal = safeItems.reduce((a, i) =>
+        (i.sellMode === "karobka" && i.inBox > 0)
+          ? a + (i.qtyBox || Math.round((i.qty||0)/(i.inBox||1))) : a, 0);
+      const pchBadge = (cols.pchka && pchTotal > 0)
+        ? `<span class="bg" style="font-size:10.5px">📦 ${pchTotal} pch</span>` : "";
+
+      const payLabel = (() => {
+        if (s.payType === "aralash" && s.payBreakdown) {
+          const lbls = {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma"};
+          return Object.entries(s.payBreakdown).filter(([m,v])=>m!=="qarz"&&v>0)
+            .map(([m])=>lbls[m]||m).join("+") || "Aralash";
+        }
+        if (s.payType === "qarz") return "Nasiya";
+        return PAYTYPES[s.payType]||s.payType||"—";
+      })();
+      const payBadge = cols.tolov
+        ? `<span class="bg" style="font-size:10.5px">${payLabel}</span>
+           <span class="bg ${s.priceType==="ulgurji"?"bg-a":""}" style="font-size:10.5px">${s.priceType==="ulgurji"?"📦 Ulgurji":"👤 Chakana"}</span>`
+        : "";
+      const statusBadge = cols.holat
+        ? `<span class="bg ${_cxl?"bg-r":isReturned?"bg-r":isDebt?"bg-a":"bg-g"}" style="font-size:10.5px">
+             ${_cxl ? "🚫 Bekor qilingan" : isReturned ? "↩ Qaytarilgan" : isDebt ? "💳 Qarzda" : "✅ To'langan"}</span>`
+        : "";
+
+      const remTxt = s.debtCurrency === "usd" && s.debtUsd
+        ? `$${(+s.debtUsd).toFixed(2)}` : fmt(s.remaining||0) + " so'm";
+
+      const canCancel = !isReturned && !s.cancelled
+        && typeof hasRole === "function" && hasRole("admin");
+
+      return `<div class="tg-card" style="${_cxl?"opacity:.5;background:#F3F4F6":isReturned?"opacity:.75;background:#FEF2F2":""}">
+        <div class="tg-foot">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="openSaleDetail(${s.id})" title="Ko'rish">
+            <i class="ti ti-eye"></i>
+          </button>
+          ${canCancel ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="openSaleCancel(${s.id})"
+            title="Sotuvni bekor qilish" style="color:var(--red)"><i class="ti ti-trash"></i></button>` : ""}
+        </div>
+        <div class="tg-head">
+          <div class="tg-chek">${chekN}</div>
+          <div class="tg-dt">${s.date||"—"} · ${s.time||""}</div>
+        </div>
+        ${_refBadge}
+        ${s.note ? `<div style="font-size:10.5px;color:#856404;margin-top:2px">📝 ${s.note}</div>` : ""}
+        ${cols.mijoz ? `<div class="tg-cust">${s.customerName||"—"}${
+          s.customerPhone ? ` <span class="tg-ph">${s.customerPhone}</span>` : ""}</div>` : ""}
+        ${itemsHtml}
+        <div class="tg-badges">${payBadge}${pchBadge}${statusBadge}</div>
+        <div class="tg-money">
+          <span class="tg-total">${fmt(s.total||0)} so'm</span>
+          ${cols.tolandi ? `<span style="color:var(--grn)"><span class="tg-lbl">To'landi:</span> ${fmt(s.paid||0)} so'm</span>` : ""}
+          ${cols.qoldi ? (isDebt
+            ? `<span style="color:var(--red);font-weight:700"><span class="tg-lbl">Qoldi:</span> ${remTxt}</span>`
+            : "") : ""}
+        </div>
+      </div>`;
+    } catch(e) {
+      console.warn("Sotuv katak render xatosi:", s.id, e.message);
+      return "";
+    }
+  }).join("");
+
+  // Sahifalash — mavjud pagerRow() dan (yagona manba). U <tr> qaytaradi,
+  // shuning uchun kichik jadval ichiga o'raladi.
+  const pager = pagerHtml ? `<table style="width:100%;border:none"><tbody>${pagerHtml}</tbody></table>` : "";
+  el.innerHTML = css + `<div class="tgw">` + cards + `</div>` + pager;
 }
 
 // ── Sotuv detail modal ────────────────────────────

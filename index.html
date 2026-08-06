@@ -1911,6 +1911,17 @@
           border-radius:var(--rs);padding:5px 10px;background:#fff;max-width:170px">
           <option value="all">👤 Barcha kassirlar</option>
         </select>
+        <!-- Ko'rinish: jadval / karta (2026-08-05) -->
+        <div style="display:flex;border:1.5px solid var(--brd);border-radius:var(--rs);overflow:hidden;margin-left:auto">
+          <button class="tx-view-btn btn-ghost" data-v="table" onclick="setTxView('table')"
+            style="border:none;padding:5px 9px;cursor:pointer;background:var(--acc);color:#0D1B2A" title="Jadval">
+            <i class="ti ti-layout-rows"></i>
+          </button>
+          <button class="tx-view-btn btn-ghost" data-v="grid" onclick="setTxView('grid')"
+            style="border:none;padding:5px 9px;cursor:pointer;background:transparent" title="Karta">
+            <i class="ti ti-layout-grid"></i>
+          </button>
+        </div>
       </div>
 
       <!-- MODAL: Ustunlarni sozlash -->
@@ -1923,7 +1934,7 @@
         </div>
       </div>
 
-      <div style="overflow-x:auto">
+      <div id="tarix-table-wrap" style="overflow-x:auto">
         <table>
           <thead><tr>
             <th>Chek</th><th>Sana / Vaqt</th><th>Mahsulotlar</th>
@@ -1934,6 +1945,7 @@
           <tbody id="tarix-body"></tbody>
         </table>
       </div>
+      <div id="tarix-grid-wrap" style="display:none"></div>
     </div>
   </div>
 
@@ -4771,7 +4783,7 @@
 <script src="js/ombor.js?v=175"></script>
 <script src="js/mijozlar.js?v=163"></script>
 <script src="js/qarzlar.js?v=202"></script>
-<script src="js/tarix.js?v=174"></script>
+<script src="js/tarix.js?v=175"></script>
 <script src="js/hisobot.js?v=151"></script>
 <script src="js/xodimlar.js?v=157"></script>
 <script src="js/moliya.js?v=174"></script>
@@ -4998,7 +5010,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=270")
+    navigator.serviceWorker.register("/sw.js?v=271")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
