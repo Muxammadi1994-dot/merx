@@ -361,10 +361,18 @@
      ichida ortiqcha narsa qolmaydi va overflow hech qachon ishga
      tushmaydi. Panel esa tashqi qobiqdan (position:fixed) chiqib
      ketardi. Endi surish TASHQI QOBIQDA (#sa-overlay). */
-  #sa-overlay { overflow-y:auto !important; align-items:flex-start !important;
+  #sa-overlay { overflow-y:auto !important; overflow-x:hidden !important;
+                align-items:flex-start !important;
                 -webkit-overflow-scrolling:touch }
-  .sa-panel { height:auto !important; min-height:100dvh; overflow:visible !important }
+  .sa-panel { height:auto !important; min-height:100dvh; overflow:visible !important;
+              max-width:100vw }
   #sa-shops-list { flex:none !important; overflow-y:visible !important }
+  /* ⚠️ Panjara kataklari standart holda O'Z MAZMUNIDAN kichrayolmaydi
+     (min-width:auto). "3 kunda tugaydi", "Rasmlar 233.4 MB (22.8% ·
+     1721 ta)" kabi uzun yozuvlar katakni majburan kengaytirib, butun
+     panelni ekrandan chiqarib yuborardi. min-width:0 shuni yechadi. */
+  .sa-kpi5 > *, .sa-kpi4 > * { min-width:0 !important }
+  .sa-kpi5, .sa-kpi4 { overflow-wrap:anywhere }
   /* Kirish oynasi — margin:auto tufayli baribir markazda qoladi */
   .sa-login-card { align-self:center !important; padding:30px 22px !important }
   .sa-head { padding:12px 14px !important; flex-wrap:wrap; gap:8px }
@@ -5109,7 +5117,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=281")
+    navigator.serviceWorker.register("/sw.js?v=282")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
