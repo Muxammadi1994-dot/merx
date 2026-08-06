@@ -2831,10 +2831,33 @@
             <button class="btn btn-ghost" onclick="forceRepushAll()" style="width:100%;color:#856404;border-color:#FDE68A">
               <i class="ti ti-cloud-upload"></i> Majburiy qayta yuborish
             </button>
+            <!-- 2026-08-06 (2-bosqich): tortish tomoni. Delta faqat
+                 o'zgargan yozuvni oladi — qurilmada yo'qolgan yozuv
+                 hech qachon qaytmaydi. Bu tugma kursorni tozalab
+                 hammasini qaytadan tortadi. -->
+            <button class="btn btn-ghost" onclick="forceFullPull()" style="width:100%;color:#1D4ED8;border-color:#BFDBFE">
+              <i class="ti ti-cloud-download"></i> Majburiy to'liq yangilash
+            </button>
             <div style="font-size:11px;color:var(--mut);line-height:1.45">
-              Qurilmada bor, lekin bulutda yo'q ma'lumot bo'lsa shu tugmani bosing.
-              Hech narsa o'chmaydi — hammasi qaytadan yuboriladi.
+              Qurilmada bor, bulutda yo'q bo'lsa — <b>qayta yuborish</b>.
+              Bulutda bor, qurilmada yo'q bo'lsa — <b>to'liq yangilash</b>.
+              Hech narsa o'chmaydi.
             </div>
+          </div>
+        </div>
+
+        <!-- ═══ SINXRON TASHXISI (2026-08-06) ═══
+             Do'konchidan konsol so'ralmaydi (§13.17) — hamma raqam
+             shu yerda. Faqat o'qish. -->
+        <div class="card">
+          <div class="ch"><h3><i class="ti ti-stethoscope"></i> Sinxron tashxisi</h3></div>
+          <div class="cb" style="display:flex;flex-direction:column;gap:10px">
+            <div id="sync-diag-body" style="font-size:13px;color:var(--mut)">
+              Tekshirish uchun tugmani bosing
+            </div>
+            <button class="btn btn-ghost" onclick="syncDiagRefresh()" style="width:100%">
+              <i class="ti ti-refresh"></i> Tekshirish
+            </button>
           </div>
         </div>
       </div>
@@ -4893,7 +4916,7 @@
 <script src="js/utils.js?v=219"></script>
 <script src="js/auth.js?v=202"></script>
 <script src="js/sms.js?v=143"></script>
-<script src="js/cloud.js?v=246"></script>
+<script src="js/cloud.js?v=247"></script>
 <script src="js/dashboard.js?v=157"></script>
 <script src="js/pos.js?v=245"></script>
 <script src="js/katalog.js?v=253"></script>
@@ -5131,10 +5154,10 @@ if ("serviceWorker" in navigator) {
   // versiyada ishlayotgan kassa DARROV ko'rinadi.
   // ⚠️ §2 GA QO'SHIMCHA: har push'da bu raqam ham sw.js?v= bilan
   //    BIR XIL bo'lishi shart.
-  window.SW_V = 293;
+  window.SW_V = 294;
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=293")
+    navigator.serviceWorker.register("/sw.js?v=294")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

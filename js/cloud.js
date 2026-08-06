@@ -3023,3 +3023,120 @@ async function forceRepushAll() {
     toast("Xato: " + (e.message || "qayta yuborilmadi"), "err");
   }
 }
+
+// ═══ MAJBURIY TO'LIQ YANGILASH (2026-08-06, 2-bosqich) ═══
+// "Majburiy qayta yuborish" ning JUFTI: u YUBORISH tomonini,
+// bu esa TORTISH tomonini tuzatadi.
+//
+// Muammo: delta sinxroni faqat O'ZGARGAN yozuvlarni oladi. Agar
+// qurilmada biror yozuv yo'qolgan bo'lsa (yoki hech qachon
+// kelmagan bo'lsa), uning bulutdagi vaqt muhri eski — delta uni
+// HECH QACHON qaytarmaydi. Qurilma abadiy kam ma'lumot bilan
+// ishlayveradi.
+//
+// Bu tugma delta kursorini tozalaydi va TO'LIQ tortishni bajaradi.
+// ⚠️ To'liq pull BIRLASHTIRADI, almashtirmaydi (§5.5 — `_mrg`):
+//    bulutda yo'q lokal yozuvlar SAQLANADI va keyingi push bilan
+//    ketadi. Ya'ni internetsiz qilingan sotuv yo'qolmaydi.
+async function forceFullPull() {
+  try {
+    if (!_sb) { toast("Bulutga ulanish yo'q", "err"); return; }
+    if (!confirm("Barcha ma'lumot bulutdan QAYTADAN yuklanadi.\n\n" +
+                 "Qurilmadagi yuborilmagan yozuvlar saqlanadi.\n" +
+                 "Sekin internetda bir necha daqiqa davom etishi mumkin.\n\n" +
+                 "Davom etilsinmi?")) return;
+
+    const sid = getCloudShopId();
+    try { localStorage.removeItem(_lastPullKey(sid)); } catch(e) {}
+    console.warn("♻️ Delta kursori tozalandi — to'liq tortish");
+    toast("Bulutdan yuklanmoqda...", "info");
+
+    await pullFromCloud();
+    if (typeof adminRefreshSyncStats === "function") adminRefreshSyncStats();
+    try { syncDiagRefresh(); } catch(e) {}
+  } catch (e) {
+    console.error("forceFullPull:", e);
+    toast("Xato: " + (e.message || "yuklanmadi"), "err");
+  }
+}
+
+// ═══ SINXRON TASHXISI — QURILMADAGI OYNA (2026-08-06) ═══
+// Bugungi B20 tekshiruvi 2 soat oldi va oxirida ham javob topilmadi,
+// chunki do'kondagi qurilmaning ichini ko'rish imkoni yo'q edi.
+// Endi do'konchi bitta tugma bosadi va hammasi bir ekranda.
+// ⚠️ FAQAT O'QISH. Hech narsa yozilmaydi, o'zgartirilmaydi.
+async function syncDiagRefresh() {
+  const box = document.getElementById("sync-diag-body");
+  if (!box) return;
+  box.innerHTML = `<div style="color:var(--mut);font-size:13px">Tekshirilmoqda...</div>`;
+
+  const sid  = getCloudShopId();
+  const dev  = (typeof _devCode === "function") ? _devCode() : "—";
+  const ver  = (typeof window !== "undefined" && window.SW_V) || "—";
+  const last = db.settings?.lastSyncAt
+    ? new Date(db.settings.lastSyncAt).toLocaleString("ru-RU") : "hali yo'q";
+  const pend = (typeof hasPendingSync === "function" && hasPendingSync());
+
+  const lokal = {
+    products:  (db.products  || []).length,
+    sales:     (db.sales     || []).length,
+    customers: (db.customers || []).length
+  };
+
+  // Bulutdagi sonlar — qatorlarsiz sanash (tez va chegarasiz)
+  const bulut = {};
+  for (const t of ["products", "sales", "customers"]) {
+    try {
+      const { count, error } = await _sb.from(t)
+        .select("id", { count: "exact", head: true })
+        .eq("shop_id", sid);
+      bulut[t] = error ? null : count;
+    } catch (e) { bulut[t] = null; }
+  }
+
+  const qator = (nom, l, b) => {
+    const farq = (b == null) ? null : l - b;
+    const rang = farq == null ? "#9ca3af" : (farq === 0 ? "#059669" : "#DC2626");
+    return `<tr style="border-bottom:1px solid var(--brd)">
+      <td style="padding:7px 4px">${nom}</td>
+      <td style="padding:7px 4px;text-align:center;font-weight:700">${l}</td>
+      <td style="padding:7px 4px;text-align:center;font-weight:700">${b == null ? "—" : b}</td>
+      <td style="padding:7px 4px;text-align:center;font-weight:800;color:${rang}">
+        ${farq == null ? "—" : (farq === 0 ? "✓" : (farq > 0 ? "+" + farq : farq))}</td>
+    </tr>`;
+  };
+
+  const farqBor = ["products","sales","customers"]
+    .some(t => bulut[t] != null && lokal[t] !== bulut[t]);
+
+  box.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;margin-bottom:10px">
+      <div>Qurilma kodi: <b style="font-family:monospace">${dev}</b></div>
+      <div>Ilova versiyasi: <b>${ver}</b></div>
+      <div>Oxirgi sinxron: <b>${last}</b></div>
+      <div>Yuborilmagan: <b style="color:${pend ? "#DC2626" : "#059669"}">${pend ? "bor" : "yo'q"}</b></div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:var(--bg);border-bottom:2px solid var(--brd)">
+        <th style="text-align:left;padding:6px 4px">Ma'lumot</th>
+        <th style="padding:6px 4px">Qurilmada</th>
+        <th style="padding:6px 4px">Bulutda</th>
+        <th style="padding:6px 4px">Farq</th>
+      </tr></thead>
+      <tbody>
+        ${qator("Tovarlar",  lokal.products,  bulut.products)}
+        ${qator("Sotuvlar",  lokal.sales,     bulut.sales)}
+        ${qator("Mijozlar",  lokal.customers, bulut.customers)}
+      </tbody>
+    </table>
+    ${farqBor ? `<div style="margin-top:10px;background:#FEF2F2;border:1px solid #FECACA;
+      color:#991B1B;border-radius:8px;padding:9px 12px;font-size:12px;line-height:1.5">
+      ⚠️ <b>Farq bor.</b> Qurilmada ko'p bo'lsa (+) — "Majburiy qayta yuborish".
+      Bulutda ko'p bo'lsa (−) — "Majburiy to'liq yangilash".</div>`
+    : `<div style="margin-top:10px;color:#059669;font-size:12px;font-weight:600">
+      ✓ Qurilma bulut bilan to'liq mos</div>`}
+    <div style="margin-top:6px;font-size:11px;color:var(--mut)">
+      ⚠️ Sotuvlarda farq normal bo'lishi mumkin: qurilmaga oxirgi 365 kunlik
+      sotuvlar tortiladi, bulutda esa butun tarix turadi.
+    </div>`;
+}
