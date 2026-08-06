@@ -1047,9 +1047,22 @@ async function pushToCloud() {
           // Nom standart bo'lsa — mavjudini o'zgartirmaymiz.
           ...((db.shop?.name && !["MERX", "MERX Do'koni"].includes(db.shop.name))
               ? { shop_name: db.shop.name } : {}),
-          rate:           db.settings?.rate || 12800,
-          price_currency: db.settings?.priceCurrency || "uzs",
-          shop_type:      db.settings?.shopType || null,
+          // ⚠️⚠️ 2026-08-06: STANDART QIYMAT BULUTGA YOZILMAYDI.
+          // Avval shunday edi: `rate: db.settings?.rate || 12800`.
+          // Bu kontekst §5.3 va §13.7 da ANIQ TAQIQLANGAN naqsh
+          // (`|| standart_qiymat` push'da mumkin emas).
+          // Xavf: sozlamalar bulutdan hali tortilmagan paytda push
+          // ishga tushsa (SuperAdmin orqali boshqa do'konga kirish,
+          // sekin internet, sahifa yangilanishi) — do'konning HAQIQIY
+          // kursi 12 800 bilan bosib ketilardi. Kurs esa dollar
+          // qarzlarni, narxlarni va cheklarni belgilaydi (§3.5, §7.5).
+          // 2026-08-06 da Shoetest'da aynan shu holat kuzatildi:
+          // ekranda 12 800 chiqdi, bulut esa omad bilan buzilmadi.
+          // Endi qiymat yo'q bo'lsa maydon UMUMAN YUBORILMAYDI —
+          // bulutdagi mavjud qiymat o'z joyida qoladi.
+          ...(Number(db.settings?.rate) > 0 ? { rate: Number(db.settings.rate) } : {}),
+          ...(db.settings?.priceCurrency ? { price_currency: db.settings.priceCurrency } : {}),
+          ...(db.settings?.shopType ? { shop_type: db.settings.shopType } : {}),
           // ⚠️ 2026-07-26: currency_mode do'kondan PUSH QILINMAYDI —
           // u SuperAdmin boshqaradigan maydon. Aks holda do'kon o'z
           // eski qiymatini qaytarib yozib, SuperAdmin sozlamasini
@@ -1059,9 +1072,10 @@ async function pushToCloud() {
           telegram_bot:   _keepSet(db.settings?.telegramBotUrl, "telegramBotUrl"),
           telegram_bot_username: _keepSet(db.settings?.telegramBotUsername, "telegramBotUsername"),
           staff_group_id: _keepSet(db.settings?.staffGroupId, "staffGroupId"),
-          loyalty_rate:   db.settings?.loyaltyRate   || 0,
-          loyalty_value:  db.settings?.loyaltyValue  || 100,
-          rate_mode:       db.settings?.rateMode      || "manual",
+          // ⚠️ 2026-08-06: bular ham standart qiymat bilan bosmasin
+          ...(db.settings?.loyaltyRate  != null ? { loyalty_rate:  db.settings.loyaltyRate  } : {}),
+          ...(db.settings?.loyaltyValue != null ? { loyalty_value: db.settings.loyaltyValue } : {}),
+          ...(db.settings?.rateMode ? { rate_mode: db.settings.rateMode } : {}),
           rate_updated_at: db.settings?.rateUpdatedAt || null,
           debt_pay_methods_shown: db.settings?.debtPayMethodsShown || null,
           debt_cols:              db.settings?.debtCols            || null,
