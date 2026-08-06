@@ -27,6 +27,38 @@ function _dStr(d) {
 function dbGoPage(p) { _dbPage = p; renderQarzlar(); pagerScrollTop("p-qarzlar"); }
 function dbResetPage() { _dbPage = 1; }
 
+// ── Ko'rinish rejimi (2026-08-06) ─────────────────
+// ⚠️⚠️ ENG MUHIM XAVFSIZLIK QOIDASI SHU YERDA:
+// To'lov maydonlari id bo'yicha topiladi (pay-naqd-<kalit>) va
+// getElementById BIRINCHI topilganini oladi. Agar jadval va katak
+// bir xil kalit ishlatsa, to'lov YASHIRIN jadvaldagi bo'sh maydonni
+// o'qib, 0 bo'lib yozilardi.
+// Shuning uchun ikki qatlam himoya:
+//   1) Jadval kaliti "gp-", katak kaliti "gc-" — HECH QACHON to'qnashmaydi
+//   2) Katak faqat guruhlangan ko'rinishda chiziladi; "chek bo'yicha"
+//      ko'rinishga o'tilsa katak butunlay TOZALANADI
+// ⚠️ To'lov mantig'iga (recordGroupPayment, recordPayment,
+//    debtPayMethodInputs, qzClampPay, qzUsdBoxToSom) TEGILMAGAN —
+//    katak ularni o'zgarishsiz chaqiradi.
+let dbViewMode = "table";   // "table" | "grid"
+
+function setDbView(v) {
+  dbViewMode = v;
+  document.querySelectorAll(".db-view-btn").forEach(b => {
+    const on = b.dataset.v === v;
+    b.style.background = on ? "var(--acc)" : "transparent";
+    b.style.color      = on ? "#0D1B2A" : "";
+  });
+  renderDebts();
+}
+
+// Jadvalni ko'rsatib, katakni tozalaydi (katakdagi id'lar yo'qoladi)
+function _debtForceTable() {
+  const tw = $("debt-table-wrap"), gw = $("debt-grid-wrap");
+  if (tw) tw.style.display = "";
+  if (gw) { gw.innerHTML = ""; gw.style.display = "none"; }
+}
+
 // MERX qarzlar.js | v2.2 | 2026-06-06 06:00
 // ================================================
 // MERX — js/qarzlar.js  (v3 — To'liq qarz tizimi)
@@ -622,6 +654,11 @@ function renderDebtsList(list, rate) {
   }).join("") + _dbPager : `<tr><td colspan="${colCount}" class="empty-td">
     ${debtFilter !== "all" ? "Bu filtrda qarz yo'q" : "Qarz yo'q 🎉"}
   </td></tr>`;
+
+  // ⚠️ "Chek bo'yicha" ko'rinishda katak ISHLATILMAYDI: bu yerda to'lov
+  // kaliti sotuvning o'z id'si (recordPayment shuni kutadi) va uni
+  // prefiks bilan ajratib bo'lmaydi. Shuning uchun katak tozalanadi.
+  _debtForceTable();
 }
 
 // ── Mijoz bo'yicha guruhlangan ko'rinish ──────────
@@ -661,6 +698,8 @@ function renderDebtsGrouped(list, rate) {
 
   if (!Object.keys(groups).length) {
     tbody.innerHTML = `<tr><td colspan="8" class="empty-td">Qarz yo'q 🎉</td></tr>`;
+    if (dbViewMode === "grid") _renderDebtGrid([], rate, cols, "");
+    else _debtForceTable();
     return;
   }
 
@@ -758,6 +797,147 @@ function renderDebtsGrouped(list, rate) {
       </td>
     </tr>`;
   }).join("") + _grpPager;
+
+  // ── Ko'rinish rejimi ────────────────────────────
+  // ⚠️ Yuqoridagi JADVAL kodi butunlay tegilmagan.
+  if (dbViewMode === "grid") {
+    _renderDebtGrid(pageSlice(_grpAll, _dbPage), rate, cols, _grpPager);
+  } else {
+    _debtForceTable();
+  }
+}
+
+// ── Qarzlar: katak ko'rinish (2026-08-06) ─────────
+// ⚠️ HISOB YO'Q. renderDebtsGrouped tayyorlagan guruhlardan o'qiydi.
+// ⚠️ To'lov maydonlari MAVJUD funksiyalardan chiqadi
+//    (debtPayMethodInputs, _qarzStaffOpts) — nusxa ko'chirilmagan.
+// ⚠️ Kalit "gc-<n>" — jadvalning "gp-<n>" kaliti bilan to'qnashmaydi.
+// Tuzilishi (talab bo'yicha):
+//   1-qator: mijoz ismi + telefon
+//   2-qator: umumiy qarz + muddat + holat
+//   3-qator: to'lov usullari + $ katak + To'lov tugmasi
+//   4-qator: ikkinchi valyuta bo'lsa — o'sha uchun alohida blok
+//   pastki o'ng burchak: ko'rish · SMS · bot (kichik)
+function _renderDebtGrid(groups, rate, cols, pagerHtml) {
+  const el = $("debt-grid-wrap");
+  if (!el) return;
+  const tw = $("debt-table-wrap");
+  if (tw) tw.style.display = "none";
+  el.style.display = "";
+
+  if (!groups.length) {
+    el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--mut)">
+      ${debtFilter !== "all" ? "Bu filtrda qarz yo'q" : "Qarz yo'q 🎉"}</div>`;
+    return;
+  }
+
+  const css = `<style>
+    .dgw{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;padding:16px}
+    .dg-card{border:1.5px solid var(--brd);border-radius:12px;padding:12px 14px 10px;position:relative;background:var(--surf);transition:.13s}
+    .dg-card:hover{border-color:var(--acc)}
+    .dg-card.over{border-color:#FCA5A5;background:#FFFBFB}
+    .dg-name{font-weight:800;font-size:14.5px;line-height:1.25;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+    .dg-sub{font-size:11.5px;color:var(--mut);margin-top:2px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+    .dg-sub a{color:inherit}
+    .dg-sums{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;margin-top:9px;padding-bottom:9px;border-bottom:1px dashed var(--brd)}
+    .dg-uzs{font-weight:800;color:var(--red);font-size:16px}
+    .dg-usd{font-weight:800;color:#1B4F72;font-size:16px}
+    .dg-eq{font-size:10.5px;color:#aaa;font-weight:600}
+    .dg-badges{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-left:auto}
+    .dg-pay{margin-top:10px;padding:9px 10px;border:1px solid var(--brd);border-radius:10px;background:var(--bg)}
+    .dg-pay + .dg-pay{margin-top:8px}
+    .dg-pay.usd{border-color:#BFDBFE;background:#F5FAFF}
+    .dg-pay-h{font-size:10.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+    .dg-pay-act{display:flex;gap:6px;align-items:center;margin-top:8px}
+    .dg-pay-act select{flex:1;min-width:0}
+    .dg-foot{display:flex;justify-content:flex-end;gap:4px;margin-top:9px}
+    .dg-foot .btn{padding:3px 8px;font-size:11px}
+    @media (max-width:560px){
+      .dgw{grid-template-columns:1fr;gap:8px;padding:9px}
+      .dg-card{padding:10px 11px 8px}
+      .dg-name{font-size:14px}
+    }
+  </style>`;
+
+  const shown = debtPayMethodsShown();
+
+  const cards = groups.map((g, gi) => {
+    const gKey        = "gc-" + gi;              // ⚠️ jadvalniki "gp-"
+    const ids         = g.sales.map(s => s.id).join(",");
+    const anyOverdue  = g.sales.some(isOverdue);
+    const nearestDue  = g.sales.map(s => s.due).filter(Boolean).sort()[0] || "—";
+    const nameEsc     = g.name.replace(/'/g, "\\'");
+    const phoneEsc    = (g.phone || "").replace(/'/g, "\\'");
+    const hasPhone    = g.phone && g.phone !== "—";
+
+    // To'lov bloki — usullar mavjud funksiyadan, kassir tanlovi ham
+    const payBlock = (cur) => {
+      const isUsd  = cur === "usd";
+      const key    = gKey + "-" + cur;
+      const maxSom = isUsd ? Math.round(g.totalUsd * rate) : Math.round(g.totalUzs);
+      return `<div class="dg-pay${isUsd?" usd":""}">
+        <div class="dg-pay-h">${isUsd ? "💵 Dollar qarzi uchun" : "🇺🇿 So'm qarzi uchun"}</div>
+        ${debtPayMethodInputs(key, isUsd, null, maxSom)}
+        ${isUsd ? `<div style="display:flex;align-items:center;gap:6px;margin-top:5px">
+            <span style="font-size:11px;color:var(--mut);width:62px;flex-shrink:0">$ Dollor</span>
+            <input type="text" id="pay-usdbox-${key}" data-maxusd="${g.totalUsd}"
+              placeholder="0.00" oninput="qzUsdBoxToSom('${key}')"
+              style="font-family:inherit;font-size:12.5px;font-weight:700;color:#1B4F72;
+              border:1.5px solid #4C9BE8;border-radius:8px;padding:5px 7px;width:108px;outline:none">
+          </div>` : ""}
+        <div class="dg-pay-act">
+          ${shown.kassir !== false ? `<select id="gpay-staff-${key}"${_qarzStaffOpts().lock}
+            style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:6px 4px">
+            ${_qarzStaffOpts().html}</select>` : ""}
+          <button class="btn btn-teal btn-sm" style="font-size:12px;white-space:nowrap"
+            onclick="recordGroupPayment('${ids}','${cur}','${gKey}')">To'lov</button>
+        </div>
+      </div>`;
+    };
+
+    return `<div class="dg-card${anyOverdue?" over":""}">
+      <div class="dg-name" onclick="openCustPayHistory('${nameEsc}','${phoneEsc}')"
+        title="Bu mijozning barcha to'lovlari">${g.name}</div>
+      <div class="dg-sub">
+        ${cols.phone && hasPhone ? `<a href="tel:${g.phone}">${g.phone}</a>` : ""}
+        <span>${g.sales.length} ta sotuv</span>
+      </div>
+
+      <div class="dg-sums">
+        ${g.totalUzs > 0 ? `<div>
+          <div class="dg-uzs">${fmt(g.totalUzs)} so'm</div>
+          <div class="dg-eq">≈ $${(g.totalUzs/rate).toFixed(2)}</div></div>` : ""}
+        ${g.totalUsd > 0 ? `<div>
+          <div class="dg-usd">$${g.totalUsd.toFixed(2)}</div>
+          <div class="dg-eq">≈ ${fmt(Math.round(g.totalUsd*rate))} so'm</div></div>` : ""}
+        ${(!g.totalUzs && !g.totalUsd) ? `<span style="color:#ccc">—</span>` : ""}
+        <div class="dg-badges">
+          ${cols.due ? `<span class="bg ${anyOverdue?"bg-r":"bg-a"}" style="font-size:10.5px">📅 ${nearestDue}</span>` : ""}
+          ${cols.status ? `<span class="bg ${anyOverdue?"bg-r":"bg-g"}" style="font-size:10.5px">
+            ${anyOverdue?"⚠️ Muddati o'tgan":"⏳ Kutilmoqda"}</span>` : ""}
+        </div>
+      </div>
+
+      ${g.totalUzs > 0 ? payBlock("uzs") : ""}
+      ${g.totalUsd > 0 ? payBlock("usd") : ""}
+
+      <div class="dg-foot">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="expandDebtGroup('${ids}')"
+          title="Cheklarni ko'rish"><i class="ti ti-eye"></i></button>
+        ${hasPhone ? `
+          <button class="btn btn-ghost btn-icon btn-sm" style="color:#856404" title="SMS eslatma"
+            onclick="sendGroupReminder('${phoneEsc}','${nameEsc}',${g.totalUzs},${g.totalUsd})">
+            <i class="ti ti-message"></i></button>
+          <button class="btn btn-ghost btn-icon btn-sm" style="color:#0E7490" title="Telegram bot"
+            onclick="sendGroupReminderBot(${g.customerId||"null"},'${phoneEsc}','${nameEsc}',${g.totalUzs},${g.totalUsd})">
+            <i class="ti ti-brand-telegram"></i></button>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+
+  // Sahifalash — mavjud pagerRow() dan (yagona manba)
+  const pager = pagerHtml ? `<table style="width:100%;border:none"><tbody>${pagerHtml}</tbody></table>` : "";
+  el.innerHTML = css + `<div class="dgw">` + cards + `</div>` + pager;
 }
 
 // ── Guruhda to'lov qabul qilish (eng eski qarzdan FIFO) ────

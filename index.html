@@ -1653,6 +1653,18 @@
           <button class="btn btn-sm" id="debt-group-btn" onclick="toggleDebtGroup()" title="Mijoz bo'yicha guruhlash">
             <i class="ti ti-users"></i> Guruhlab ko'rsatish
           </button>
+          <!-- Ko'rinish: jadval / karta (2026-08-06). Karta faqat
+               guruhlangan ko'rinishda ishlaydi -->
+          <div style="display:flex;border:1.5px solid var(--brd);border-radius:var(--rs);overflow:hidden">
+            <button class="db-view-btn btn-ghost" data-v="table" onclick="setDbView('table')"
+              style="border:none;padding:5px 9px;cursor:pointer;background:var(--acc);color:#0D1B2A" title="Jadval">
+              <i class="ti ti-layout-rows"></i>
+            </button>
+            <button class="db-view-btn btn-ghost" data-v="grid" onclick="setDbView('grid')"
+              style="border:none;padding:5px 9px;cursor:pointer;background:transparent" title="Karta (guruhlangan ko'rinishda)">
+              <i class="ti ti-layout-grid"></i>
+            </button>
+          </div>
           <button class="btn btn-sm" onclick="sendOverdueReminders()" style="color:var(--red)">
             <i class="ti ti-bell"></i> Muddati o'tganlarga SMS
           </button>
@@ -1682,12 +1694,13 @@
       <div id="debt-cust-cards" style="display:none"></div>
       <!-- Tanlangan mijozning to'lovlar tarixi -->
       <div id="debt-payments-history" style="display:none"></div>
-      <div style="overflow-x:auto">
+      <div id="debt-table-wrap" style="overflow-x:auto">
         <table id="debt-table">
           <thead id="debt-head"></thead>
           <tbody id="debt-body"></tbody>
         </table>
       </div>
+      <div id="debt-grid-wrap" style="display:none"></div>
     </div>
   </div>
 
@@ -4831,7 +4844,7 @@
 <script src="js/katalog.js?v=252"></script>
 <script src="js/ombor.js?v=175"></script>
 <script src="js/mijozlar.js?v=164"></script>
-<script src="js/qarzlar.js?v=202"></script>
+<script src="js/qarzlar.js?v=203"></script>
 <script src="js/tarix.js?v=175"></script>
 <script src="js/hisobot.js?v=151"></script>
 <script src="js/xodimlar.js?v=157"></script>
@@ -5059,7 +5072,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=274")
+    navigator.serviceWorker.register("/sw.js?v=275")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
