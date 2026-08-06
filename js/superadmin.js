@@ -2480,16 +2480,60 @@ async function saReturnToMainShop() {
   window.location.reload();
 }
 
+// ── Lenta (banner) idishi — 2026-08-06 ────────────
+// UCHTA XATO TUZATILDI:
+//  1) Ikkala lenta ham position:fixed;top:0 edi — biri ikkinchisini
+//     BUTUNLAY yopardi. Endi bitta idishda, ustma-ust emas, ketma-ket.
+//  2) Bo'shliq 36px deb QOTIRILGAN edi. Telefonda lenta ikki qatorga
+//     bo'linsa ~60px bo'ladi va tepa qatorni (sendvich tugmasini)
+//     yopardi. Endi haqiqiy balandlik OLCHANADI.
+//  3) Obuna lentasidagi X bosilganda lenta o'chardi, lekin bo'shliq
+//     joyida qolardi — tepada 36px bo'sh chiziq sahifa yangilanmaguncha
+//     turardi. Endi yopilgach qayta o'lchanadi.
+function _bannerStack() {
+  let st = document.getElementById("banner-stack");
+  if (!st) {
+    st = document.createElement("div");
+    st.id = "banner-stack";
+    st.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999";
+    document.body.prepend(st);
+  }
+  return st;
+}
+
+// Bo'shliqni haqiqiy balandlik bo'yicha qayta hisoblaydi
+function _bannerReflow() {
+  const st = document.getElementById("banner-stack");
+  const h  = (st && st.children.length) ? st.offsetHeight : 0;
+  const main = document.getElementById("main");
+  const sb   = document.getElementById("sb");
+  if (main) main.style.paddingTop = h ? h + "px" : "";
+  if (sb)   sb.style.paddingTop   = h ? h + "px" : "";
+}
+
+// X tugmasi shuni chaqiradi — o'chiradi VA bo'shliqni tiklaydi
+function _bannerClose(btn) {
+  const box = btn && btn.closest("#banner-stack > div");
+  if (box) box.remove();
+  _bannerReflow();
+}
+
+// Ekran burilganda yoki o'lcham o'zgarganda qayta o'lchash
+window.addEventListener("resize", () => {
+  if (document.getElementById("banner-stack")) _bannerReflow();
+});
+
 function renderSaViewBanner() {
   const isSaView = sessionStorage.getItem("merx_is_sa_view") === "1";
   if (!isSaView) return;
   if (document.getElementById("sa-view-banner")) return;
   const banner = document.createElement("div");
   banner.id = "sa-view-banner";
-  banner.style.cssText = `position:fixed;top:0;left:0;right:0;z-index:9999;
+  banner.style.cssText = `position:relative;
     background:linear-gradient(90deg,#4c1d95,#7c3aed);
     color:#fff;padding:8px 20px;font-family:'DM Sans',sans-serif;
     font-size:13px;font-weight:600;display:flex;align-items:center;gap:12px;
+    flex-wrap:wrap;
     box-shadow:0 2px 12px rgba(0,0,0,.3)`;
   banner.innerHTML = `
     <span style="opacity:.7">⚡ Super Admin ko'rinishi:</span>
@@ -2500,10 +2544,8 @@ function renderSaViewBanner() {
       color:#fff;border-radius:6px;padding:4px 14px;font-family:inherit;font-size:12px;cursor:pointer">
       ← Asosiy do'konga qaytish
     </button>`;
-  document.body.prepend(banner);
-  const main=document.getElementById("main"), sb=document.getElementById("sb");
-  if (main) main.style.paddingTop="36px";
-  if (sb)   sb.style.paddingTop="36px";
+  _bannerStack().prepend(banner);   // SuperAdmin lentasi eng tepada
+  _bannerReflow();
 }
 
 function saLoadActiveShop() {
@@ -2733,17 +2775,15 @@ function showSubscriptionWarning(daysLeft, shop) {
   if (document.getElementById("sub-warning")) return;
   const el = document.createElement("div");
   el.id = "sub-warning";
-  el.style.cssText = `position:fixed;top:0;left:0;right:0;z-index:9998;
+  el.style.cssText = `position:relative;
     background:#92400E;color:#FDE68A;padding:8px 20px;font-family:'DM Sans',sans-serif;
     font-size:13px;font-weight:600;display:flex;align-items:center;
-    justify-content:center;gap:12px`;
+    justify-content:center;gap:12px;flex-wrap:wrap`;
   el.innerHTML = `⚠️ Obuna muddati ${daysLeft} kun ichida tugaydi!
-    <button onclick="this.parentElement.remove()"
+    <button onclick="_bannerClose(this)"
       style="background:transparent;border:none;color:#FDE68A;cursor:pointer;font-size:16px">✕</button>`;
-  document.body.prepend(el);
-  const main=document.getElementById("main"), sb=document.getElementById("sb");
-  if (main) main.style.paddingTop=(parseInt(main.style.paddingTop)||0)+36+"px";
-  if (sb)   sb.style.paddingTop  =(parseInt(sb.style.paddingTop)||0)+36+"px";
+  _bannerStack().appendChild(el);
+  _bannerReflow();
 }
 
 // ── Modullar cheklash ─────────────────────────────

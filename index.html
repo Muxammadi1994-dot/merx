@@ -328,6 +328,15 @@
   div:has(> .exp-date-btn),    div:has(> .xod-period-btn),
   div:has(> .adm-tab-btn),     div:has(> .inv-filter-btn),
   .om-tabs { flex-wrap:wrap !important }
+
+  /* Tepa qator yig'ilishi — utils.js dagi initTopbarAutoHide bilan
+     birga ishlaydi (u marginTop ni o'zgartiradi, bu esa silliq qiladi) */
+  #topbar { transition:margin-top .18s ease }
+
+  /* Lentalar telefonda ixcham — matn ikki qatorga bo'linsa ham
+     "Asosiy do'konga qaytish" tugmasi ekranda qoladi */
+  #banner-stack > div { padding:6px 12px !important; font-size:12px !important; gap:6px !important }
+  #banner-stack button { font-size:11.5px !important }
 }
 /* v180: CHOP ETISH — faqat sotuv cheki chiqadi, boshqa hech narsa
    (asosiy ilova, boshqa modallar, tugmalar) chop etilmaydi. Ranglarni
@@ -4813,7 +4822,7 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=165"></script>
-<script src="js/utils.js?v=217"></script>
+<script src="js/utils.js?v=218"></script>
 <script src="js/auth.js?v=202"></script>
 <script src="js/sms.js?v=143"></script>
 <script src="js/cloud.js?v=243"></script>
@@ -5024,7 +5033,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
-<script src="js/superadmin.js?v=215"></script>
+<script src="js/superadmin.js?v=216"></script>
 
 <!-- PWA (2026-07-20): Service Worker ro'yxatdan o'tkazish -->
 <script>
@@ -5050,7 +5059,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=273")
+    navigator.serviceWorker.register("/sw.js?v=274")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

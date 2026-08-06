@@ -2579,3 +2579,61 @@ function applyTierLock() {
   if (navPortal) navPortal.style.display = locked ? "none" : "";
   return locked;
 }
+
+// ═══ MOBIL: TEPA QATORNI YIG'ISH (2026-08-06) ═══
+// Telefonda #topbar doim ~50px joy egallaydi. Endi pastga
+// surilganda yig'iladi, yuqoriga surilganda qaytadi.
+//
+// ⚠️ Surish OYNADA emas, #pages ichida bo'ladi
+//    (#pages{overflow-y:auto}) — tinglovchi o'shanga ulanadi.
+// ⚠️ Balandlik O'LCHANADI, qotirilmaydi (lenta chiqsa o'zgaradi).
+// ⚠️ Uch himoya: faqat <=768px · yon menyu ochiq bo'lsa yig'ilmaydi ·
+//    tepaga yaqin bo'lsa (40px) doim ochiq.
+// ⚠️ POS sahifasiga tegmaydi — u o'z ichida suriladi, #pages da
+//    scroll hodisasi umuman bo'lmaydi.
+function initTopbarAutoHide() {
+  const pages  = document.getElementById("pages");
+  const topbar = document.getElementById("topbar");
+  if (!pages || !topbar) return;
+
+  let lastY = 0, hidden = false, ticking = false;
+
+  const show = () => {
+    if (!hidden) return;
+    topbar.style.marginTop = "";
+    hidden = false;
+  };
+  const hide = () => {
+    if (hidden) return;
+    const h = topbar.offsetHeight;
+    if (!h) return;
+    topbar.style.marginTop = "-" + h + "px";
+    hidden = true;
+  };
+
+  const onScroll = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      ticking = false;
+      // Faqat telefon o'lchamida
+      if (window.innerWidth > 768) { show(); lastY = pages.scrollTop; return; }
+      // Yon menyu ochiq bo'lsa tegilmaydi
+      const sb = document.getElementById("sb");
+      if (sb && sb.classList.contains("mob-open")) { show(); return; }
+
+      const y = pages.scrollTop;
+      if (y < 40) { show(); lastY = y; return; }          // tepada — doim ochiq
+      const d = y - lastY;
+      if (Math.abs(d) < 8) return;                         // mayda tebranish
+      if (d > 0) hide(); else show();
+      lastY = y;
+    });
+  };
+
+  pages.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", () => { if (window.innerWidth > 768) show(); });
+}
+
+if (document.readyState !== "loading") initTopbarAutoHide();
+else document.addEventListener("DOMContentLoaded", initTopbarAutoHide);
