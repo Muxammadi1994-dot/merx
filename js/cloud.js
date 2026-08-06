@@ -1575,6 +1575,8 @@ async function pushToCloud() {
       if (typeof scheduleHeavySave === "function") scheduleHeavySave();
     } catch(e) {}
     if (typeof adminRefreshSyncStats === "function") adminRefreshSyncStats();
+    // Qurilma holati (15 daqiqada bir marta, jim ishlaydi)
+    try { reportDeviceStatus(); } catch(e) {}
   } catch(e) {
     toast("Xato: " + e.message, "err");
     console.error("Cloud push error:", e);
@@ -2372,6 +2374,9 @@ async function pullFromCloud(silent = false, skipRender = false) {
       nav(_cur);
     }
     if (!silent) toast("✅ Ma'lumotlar yangilandi");
+    // Faqat o'qiydigan qurilma ham (egasi telefonida ko'rish) ro'yxatga
+    // tushsin — push bo'lmasa ham holat yuboriladi
+    try { reportDeviceStatus(); } catch(e) {}
   } catch(e) {
     toast("Yuklash xatosi: " + e.message, "err");
     console.error("Cloud pull error:", e);
@@ -2906,4 +2911,57 @@ async function processPendingDeletes(sid) {
       (left.length ? ` · ${left.length} tasi navbatda qoldi` : ""));
   }
   return done;
+}
+
+// ═══ QURILMA HOLATI — HISOBOT (2026-08-06) ═══
+// SuperAdmin panelidagi "📱 Qurilmalar" jadvaliga ilova versiyasi,
+// qurilmadagi yozuvlar soni va yuborilmagan o'zgarishlar sonini
+// yetkazadi. Bugungi B20 tekshiruvida aynan shu ma'lumot yetishmadi:
+// "qaysi qurilma eski versiyada?" degan savolga javob yo'q edi.
+//
+// ⚠️ FAQAT TEXNIK SONLAR. Pul summasi, mijoz nomi, tovar nomi —
+//    hech qanday maxfiy ma'lumot YUBORILMAYDI.
+// ⚠️ ALOHIDA JADVAL (`device_status`). Sotuv, qarz, tovar oqimiga
+//    aloqasi yo'q. Xato bo'lsa jim o'tadi — sinxron TO'XTAMAYDI.
+// ⚠️ 15 daqiqada bir martadan tez yozilmaydi (baza yuklanmasin).
+
+const _DEV_REPORT_MS = 15 * 60 * 1000;
+let _devReportAt = 0;
+
+async function reportDeviceStatus(force) {
+  try {
+    if (!_sb) return;
+    const now = Date.now();
+    if (!force && now - _devReportAt < _DEV_REPORT_MS) return;
+
+    const sid = typeof getCloudShopId === "function" ? getCloudShopId() : null;
+    if (!sid || sid === "local") return;
+    const dev = typeof _devCode === "function" ? _devCode() : null;
+    if (!dev) return;
+
+    // Og'ir jadvallar hali yuklanmagan bo'lsa sonlar NOTO'G'RI chiqadi
+    if (typeof window !== "undefined" && window._heavyHydrated === false) return;
+
+    _devReportAt = now;
+
+    const row = {
+      shop_id:       sid,
+      device_code:   dev,
+      app_version:   String((typeof window !== "undefined" && window.SW_V) || ""),
+      last_seen:     new Date().toISOString(),
+      sales_cnt:     (db.sales     || []).length,
+      products_cnt:  (db.products  || []).length,
+      customers_cnt: (db.customers || []).length,
+      pending_cnt:   (typeof hasPendingSync === "function" && hasPendingSync()) ? 1 : 0,
+      tz_offset:     -new Date().getTimezoneOffset(),
+      platform:      (typeof navigator !== "undefined" &&
+                      /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent || ""))
+                       ? "telefon" : "kompyuter"
+    };
+
+    await _sb.from("device_status").upsert(row, { onConflict: "shop_id,device_code" });
+  } catch (e) {
+    // Jim o'tadi — bu yordamchi vosita, sinxronga xalaqit bermaydi
+    console.warn("device_status:", e.message);
+  }
 }

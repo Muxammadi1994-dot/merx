@@ -1229,6 +1229,44 @@ module.exports = async function handler(req, res) {
           delayAvg: m.delayCnt ? Math.round(m.delaySum / m.delayCnt) : null
         })).sort((a, b) => (a.legacy - b.legacy) || (b.week - a.week));
 
+        // ── Qurilma o'zi yuborgan holat (2026-08-06) ──
+        // `device_status` — alohida jadval, har qurilma uchun bitta qator.
+        // Ilova versiyasi va lokal sonlar CHEKDA yo'q, faqat shu yerda.
+        let st = [];
+        try {
+          const r = await fetch(
+            `${SB_URL}/rest/v1/device_status?select=*&limit=500`, { headers: H });
+          if (r.ok) st = await r.json();
+        } catch (e) { /* jadval hali yaratilmagan bo'lishi mumkin */ }
+
+        const stMap = {};
+        for (const s of (st || [])) stMap[s.shop_id + "|" + s.device_code] = s;
+
+        for (const row of list) {
+          const s = stMap[row.shopId + "|" + row.device];
+          if (!s) continue;
+          row.appVersion  = s.app_version || null;
+          row.lastSeen    = s.last_seen   || null;
+          row.localSales  = s.sales_cnt;
+          row.localProds  = s.products_cnt;
+          row.pending     = s.pending_cnt;
+          row.platform    = s.platform || null;
+          row.tzOffset    = s.tz_offset;
+          delete stMap[row.shopId + "|" + row.device];
+        }
+        // Chek yozmagan, lekin holat yuborgan qurilmalar ham ko'rinsin
+        for (const k of Object.keys(stMap)) {
+          const s = stMap[k];
+          list.push({
+            shopId: s.shop_id, device: s.device_code, legacy: false,
+            today: 0, week: 0, lastDate: null, lastTime: null,
+            delayAvg: null, delayMax: 0,
+            appVersion: s.app_version, lastSeen: s.last_seen,
+            localSales: s.sales_cnt, localProds: s.products_cnt,
+            pending: s.pending_cnt, platform: s.platform, tzOffset: s.tz_offset
+          });
+        }
+
         return res.status(200).json({ ok: true, devices: list, capped, bugun });
       }
 

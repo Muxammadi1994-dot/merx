@@ -2537,6 +2537,13 @@ async function saShowDevices() {
     return kun <= 1 ? "#059669" : kun <= 3 ? "#D97706" : "#DC2626";
   };
 
+  // Eng yangi versiya — ro'yxatdagi eng kattasi. Undan orqada
+  // qolgan qurilma QIZIL bo'lib ko'rinadi.
+  const newestVer = list.reduce((mx, r) => {
+    const v = parseInt(r.appVersion, 10);
+    return (!isNaN(v) && v > mx) ? v : mx;
+  }, 0) || null;
+
   body.innerHTML = `
     ${d.capped ? `<div style="background:#FFFBEB;border:1px solid #FDE68A;color:#B45309;
       border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;margin-bottom:12px">
@@ -2549,6 +2556,9 @@ async function saShowDevices() {
         <th style="text-align:center;padding:9px 6px;font-weight:700">7 kun</th>
         <th style="text-align:left;padding:9px 10px;font-weight:700">Oxirgi chek</th>
         <th style="text-align:center;padding:9px 6px;font-weight:700">Kechikish</th>
+        <th style="text-align:center;padding:9px 6px;font-weight:700">Versiya</th>
+        <th style="text-align:center;padding:9px 6px;font-weight:700">Lokal<br>tovar / sotuv</th>
+        <th style="text-align:center;padding:9px 6px;font-weight:700">Kutayotgan</th>
       </tr></thead>
       <tbody>
         ${list.map(r => `<tr style="border-bottom:1px solid #F3F4F6${r.legacy?";opacity:.55":""}">
@@ -2568,6 +2578,18 @@ async function saShowDevices() {
             ${r.delayAvg == null ? "—" : r.delayAvg + " daq"}
             ${r.delayMax > 60 ? `<div style="font-size:10px;color:#9ca3af;font-weight:400">eng ko'pi ${r.delayMax}</div>` : ""}
           </td>
+          <td style="padding:9px 6px;text-align:center;font-weight:700;
+            color:${!r.appVersion ? "#9ca3af" : (r.appVersion == newestVer ? "#059669" : "#DC2626")}">
+            ${r.appVersion || "—"}
+            ${r.platform ? `<div style="font-size:10px;color:#9ca3af;font-weight:400">${r.platform}</div>` : ""}
+          </td>
+          <td style="padding:9px 6px;text-align:center;font-size:12px">
+            ${r.localProds != null ? `${r.localProds} / ${r.localSales}` : "—"}
+          </td>
+          <td style="padding:9px 6px;text-align:center;font-weight:700;
+            color:${r.pending ? "#DC2626" : (r.pending === 0 ? "#059669" : "#9ca3af")}">
+            ${r.pending == null ? "—" : (r.pending ? "⚠️ bor" : "yo'q")}
+          </td>
         </tr>`).join("")}
       </tbody>
     </table>
@@ -2576,6 +2598,10 @@ async function saShowDevices() {
       (<code>created_at</code> bo'yicha). Yashil ≤10 daq · sariq ≤60 daq · qizil undan ko'p.<br>
       <b>Oxirgi chek</b> qizil bo'lsa — qurilma 3 kundan beri jim.<br>
       <b>"eski chek"</b> — chek raqamida qurilma kodi yo'q (eski format). Bu qurilma emas.<br>
+      <b>Versiya</b> qizil bo'lsa — qurilma eski ilovada ishlayapti, yangilash kerak.
+      Chiziqcha bo'lsa — qurilma hali holat yubormagan (eski versiya yoki 15 daqiqa kutilyapti).<br>
+      <b>Lokal tovar/sotuv</b> — o'sha qurilmadagi yozuvlar soni. Boshqalardan
+      keskin kam bo'lsa, qurilma to'liq sinxronlanmagan.<br>
       ⚠️ Qo'lda tiklangan sotuvlar kechikishni katta ko'rsatadi — ular sotilganidan
       ancha keyin bazaga yozilgan.
     </div>`;

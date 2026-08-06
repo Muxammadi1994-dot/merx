@@ -4883,7 +4883,7 @@
 <script src="js/utils.js?v=219"></script>
 <script src="js/auth.js?v=202"></script>
 <script src="js/sms.js?v=143"></script>
-<script src="js/cloud.js?v=244"></script>
+<script src="js/cloud.js?v=245"></script>
 <script src="js/dashboard.js?v=157"></script>
 <script src="js/pos.js?v=245"></script>
 <script src="js/katalog.js?v=253"></script>
@@ -5091,7 +5091,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
-<script src="js/superadmin.js?v=225"></script>
+<script src="js/superadmin.js?v=226"></script>
 
 <!-- PWA (2026-07-20): Service Worker ro'yxatdan o'tkazish -->
 <script>
@@ -5116,8 +5116,15 @@ if ("serviceWorker" in navigator) {
     } catch (err) {}
   });
 
+  // ⚠️ 2026-08-06: ILOVA VERSIYASI — SuperAdmin "Qurilmalar" jadvali
+  // uchun. Qurilma shu raqamni bulutga yuboradi va panelda eski
+  // versiyada ishlayotgan kassa DARROV ko'rinadi.
+  // ⚠️ §2 GA QO'SHIMCHA: har push'da bu raqam ham sw.js?v= bilan
+  //    BIR XIL bo'lishi shart.
+  window.SW_V = 291;
+
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=290")
+    navigator.serviceWorker.register("/sw.js?v=291")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
