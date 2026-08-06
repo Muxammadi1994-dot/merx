@@ -488,7 +488,7 @@ function _renderOmGrid(list, cols, pagerHtml, q) {
 
   const css = `<style>
     .omgw{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;padding:16px}
-    .omg-card{border:1.5px solid var(--brd);border-radius:10px;overflow:hidden;transition:.13s;display:flex;flex-direction:column}
+    .omg-card{border:1.5px solid var(--brd);border-radius:10px;overflow:hidden;transition:.13s;display:flex;flex-direction:column;position:relative}
     .omg-card:hover{border-color:var(--acc)}
     .omg-img{width:100%;height:110px;object-fit:cover;flex:none;display:block;cursor:zoom-in}
     .omg-noimg{width:100%;height:110px;background:var(--bg2);flex:none;display:flex;align-items:center;justify-content:center;color:#ddd;cursor:pointer}
@@ -501,19 +501,31 @@ function _renderOmGrid(list, cols, pagerHtml, q) {
     .omg-inbox{font-size:10px;color:#aaa}
     .omg-sizes{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
     .omg-cost{font-size:12px;color:#0D1B2A;font-weight:600;margin-top:6px}
-    .omg-cost-box{font-size:11px;color:#856404;margin-top:1px}
+    .omg-cost-box{display:block;font-size:11px;color:#856404;font-weight:400;margin-top:1px}
     .omg-price{font-weight:700;color:var(--acc);font-size:13px;margin-top:4px}
-    .omg-box{font-size:11px;color:#e9a500;margin-top:1px}
+    .omg-box{display:block;font-size:11px;color:#e9a500;font-weight:400;margin-top:1px}
     .omg-val{font-size:11.5px;color:var(--mut);margin-top:4px}
+    .omg-cat{display:block}
     .omg-lbl{color:var(--mut);font-weight:400;font-size:11px}
     .omg-foot{margin-top:auto;padding-top:8px;display:flex;justify-content:flex-end}
     .omg-pager{width:100%;border:none}
     @media (max-width:560px){
-      .omgw{grid-template-columns:1fr;gap:8px;padding:10px}
-      .omg-card{flex-direction:row;align-items:stretch}
-      .omg-img,.omg-noimg{width:78px;height:78px}
-      .omg-body{padding:8px 10px}
-      .omg-name{font-size:13.5px;margin:1px 0 2px}
+      .omgw{grid-template-columns:1fr;gap:7px;padding:9px}
+      .omg-card{display:block}
+      .omg-img,.omg-noimg{position:absolute;left:0;top:0;bottom:0;width:84px;height:auto}
+      .omg-body{display:block;margin-left:84px;padding:7px 36px 8px 10px}
+      .omg-art{font-size:10.5px}
+      .omg-name{font-size:13px;margin:1px 0 2px}
+      .omg-cat{display:inline}
+      .omg-cat::before{content:"· "}
+      .omg-badges{margin-top:4px;gap:4px}
+      .omg-sizes{margin-top:3px}
+      .omg-cost{margin-top:4px;font-size:11.5px}
+      .omg-price{margin-top:2px;font-size:12.5px}
+      .omg-cost-box,.omg-box{display:inline;margin-left:5px;font-size:10.5px}
+      .omg-val{margin-top:2px;font-size:11px}
+      .omg-foot{position:absolute;right:4px;top:4px;margin:0;padding:0}
+      .omg-btxt{display:none}
     }
   </style>`;
 
@@ -550,20 +562,20 @@ function _renderOmGrid(list, cols, pagerHtml, q) {
       <div class="omg-body">
         ${cols.art || cols.sku ? `<div class="omg-art">${(cols.art && r.art) ? r.art : r.sku}</div>` : ""}
         <div class="omg-name">${r.name}${r.isBroken?` <span style="background:#FEF3C7;color:#92400E;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:7px;white-space:nowrap">ochilgan</span>`:""}</div>
-        <div class="omg-sub">${r.color}${r.pantone ? " · " + r.pantone : ""}</div>
-        ${cols.kategoriya && r.category ? `<div class="omg-sub">${r.category}</div>` : ""}
+        <div class="omg-sub">${r.color}${r.pantone ? " · " + r.pantone : ""}${
+          (cols.kategoriya && r.category) ? `<span class="omg-cat">${r.category}</span>` : ""}</div>
         ${cols.barcode && r.barcode ? `<div class="omg-art">${r.barcode}</div>` : ""}
         <div class="omg-badges">${boxBadge}<span class="omg-qty">${r.qty} ${r.unit}</span></div>
         ${sizesHtml}
-        ${cols.tannarx && r.costUzs ? `<div class="omg-cost"><span class="omg-lbl">Tannarx:</span> ${priceDisplay(r.costUzs)}</div>` : ""}
-        ${cols.tannarx && r.costUzs && r.inBox > 1 ? `<div class="omg-cost-box">📦 ${priceDisplay(r.costUzs * r.inBox)}</div>` : ""}
-        ${cols.ulgurji ? `<div class="omg-price"><span class="omg-lbl">Ulgurji:</span> ${r.ulgurji ? priceDisplay(r.ulgurji) : "—"}</div>` : ""}
-        ${cols.ulgurji && r.ulgurji && r.inBox > 1 ? `<div class="omg-box">📦 ${priceDisplay(r.ulgurji * r.inBox)}</div>` : ""}
+        ${cols.tannarx && r.costUzs ? `<div class="omg-cost"><span class="omg-lbl">Tannarx:</span> ${priceDisplay(r.costUzs)}${
+          r.inBox > 1 ? `<span class="omg-cost-box">📦 ${priceDisplay(r.costUzs * r.inBox)}</span>` : ""}</div>` : ""}
+        ${cols.ulgurji ? `<div class="omg-price"><span class="omg-lbl">Ulgurji:</span> ${r.ulgurji ? priceDisplay(r.ulgurji) : "—"}${
+          (r.ulgurji && r.inBox > 1) ? `<span class="omg-box">📦 ${priceDisplay(r.ulgurji * r.inBox)}</span>` : ""}</div>` : ""}
         ${cols.margin && r.margin != null ? `<div class="omg-val">Margin: <strong style="color:${mColor}">${r.margin}%</strong></div>` : ""}
         ${cols.qiymati && r.qiymati ? `<div class="omg-val">Qoldiq qiymati: ${fmt(r.qiymati)} so'm</div>` : ""}
         <div class="omg-foot">
           <button class="btn btn-ghost btn-sm" onclick="openEditProduct('${r.sku}')" title="Katalogda tahrirlash">
-            <i class="ti ti-edit"></i> Tahrirlash
+            <i class="ti ti-edit"></i><span class="omg-btxt"> Tahrirlash</span>
           </button>
         </div>
       </div>

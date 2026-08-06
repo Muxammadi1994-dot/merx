@@ -3781,20 +3781,18 @@ function katImgSave(sku, color, input) {
 
 // ── Karta ko'rinish ─────────────────────────────
 // 2026-08-05: TELEFON UCHUN QAYTA ISHLANDI.
-// Avval minmax(200px,1fr) edi — telefonda bitta ustun chiqib, rasm
-// 130px balandlikda butun ekran kengligini egallardi, ma'lumot esa
-// 4 qatorgina edi. Endi:
-//   - kompyuterda: avvalgidek ustunli, rasm 110px
-//   - telefonda (<=560px): yon-ma-yon — rasm chapda 78x78, ma'lumot o'ngda
+//   - kompyuterda: ustunli, rasm 110px (o'zgarmadi)
+//   - telefonda (<=560px): yon-ma-yon — rasm CHAP TOMONDA, kartochkaning
+//     butun balandligini to'ldiradi (absolute), ma'lumot o'ngda.
+// 2026-08-05 (2-bosqich, telefon talabi):
+//   - tahrir tugmasi — faqat BELGI, o'ng yuqori burchakda (bo'sh joyda)
+//   - pochka narxi (📦) narx bilan BIR QATORDA
+//   - rang · kategoriya bir qatorda
+//   → bitta tovarga ketadigan balandlik ~230px dan ~110px ga tushdi
 // Rasm: RANG rasmi ustuvor (jadval ko'rinishidagidek), yo'q bo'lsa umumiy.
 // ⚠️ HISOB-KITOB JADVAL BILAN BIR XIL (518-qatordan ko'chirilgan):
-//   pochka/dona — SHU POCHKA GURUHI bo'yicha (groupVariants, groupQty),
-//   butun rang bo'yicha EMAS. Ochilgan pochkada "0 pochka · 3 dona".
-// ⚠️ 2026-08-05: KATAKKA BOSISH OLIB TASHLANDI (jadvalda 2026-08-03 da
-// qilingandek). Avval katakning ISTALGAN joyiga bosilsa tahrir oynasi
-// ochilardi — rasmni kattalashtirmoqchi bo'lganda ham. Endi:
-//   rasm  → katImgView (kattalashadi; rasm yo'q bo'lsa tanlagich)
-//   ✏️    → openEditProduct (YAGONA tahrir yo'li)
+//   pochka/dona — SHU POCHKA GURUHI bo'yicha (groupVariants, groupQty).
+// ⚠️ Bosish: rasm → katImgView (kattalashadi), ✏️ → openEditProduct.
 // ⚠️ Jadval ko'rinishiga TEGILMAGAN — u alohida funksiya.
 function _renderKatGrid(rows, rate, showChakana) {
   const el = $("kat-grid-wrap");
@@ -3806,28 +3804,38 @@ function _renderKatGrid(rows, rate, showChakana) {
 
   const css = `<style>
     .kgw{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;padding:16px}
-    .kg-card{border:1.5px solid var(--brd);border-radius:10px;overflow:hidden;transition:.13s;display:flex;flex-direction:column}
+    .kg-card{border:1.5px solid var(--brd);border-radius:10px;overflow:hidden;transition:.13s;display:flex;flex-direction:column;position:relative}
     .kg-card:hover{border-color:var(--acc)}
     .kg-img{width:100%;height:110px;object-fit:cover;flex:none;display:block;cursor:zoom-in}
     .kg-noimg{width:100%;height:110px;background:var(--bg2);flex:none;display:flex;align-items:center;justify-content:center;color:#ddd;cursor:pointer}
     .kg-body{padding:9px 11px;min-width:0;flex:1;display:flex;flex-direction:column}
-    .kg-foot{margin-top:auto;padding-top:8px;display:flex;justify-content:flex-end}
     .kg-art{font-size:11px;color:var(--mut);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .kg-name{font-weight:700;font-size:13px;margin:2px 0;line-height:1.3}
     .kg-sub{font-size:11.5px;color:var(--mut);line-height:1.35}
+    .kg-cat{display:block}
     .kg-badges{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:6px}
     .kg-qty{font-size:12px;color:var(--mut)}
     .kg-cost{font-size:12px;color:#0D1B2A;font-weight:600;margin-top:6px}
-    .kg-cost-box{font-size:11px;color:#856404;margin-top:1px}
     .kg-price{font-weight:700;color:var(--acc);font-size:13px;margin-top:4px}
-    .kg-box{font-size:11px;color:#e9a500;margin-top:1px}
+    .kg-boxc{display:block;font-size:11px;color:#856404;font-weight:400;margin-top:1px}
+    .kg-boxu{display:block;font-size:11px;color:#e9a500;font-weight:400;margin-top:1px}
     .kg-lbl{color:var(--mut);font-weight:400;font-size:11px}
+    .kg-foot{margin-top:auto;padding-top:8px;display:flex;justify-content:flex-end}
     @media (max-width:560px){
-      .kgw{grid-template-columns:1fr;gap:8px;padding:10px}
-      .kg-card{flex-direction:row;align-items:stretch}
-      .kg-img,.kg-noimg{width:78px;height:78px}
-      .kg-body{padding:8px 10px}
-      .kg-name{font-size:13.5px;margin:1px 0 2px}
+      .kgw{grid-template-columns:1fr;gap:7px;padding:9px}
+      .kg-card{display:block}
+      .kg-img,.kg-noimg{position:absolute;left:0;top:0;bottom:0;width:84px;height:auto}
+      .kg-body{display:block;margin-left:84px;padding:7px 36px 8px 10px}
+      .kg-art{font-size:10.5px}
+      .kg-name{font-size:13px;margin:1px 0 2px}
+      .kg-cat{display:inline}
+      .kg-cat::before{content:"· "}
+      .kg-badges{margin-top:4px;gap:4px}
+      .kg-cost{margin-top:4px;font-size:11.5px}
+      .kg-price{margin-top:2px;font-size:12.5px}
+      .kg-boxc,.kg-boxu{display:inline;margin-left:5px;font-size:10.5px}
+      .kg-foot{position:absolute;right:4px;top:4px;margin:0;padding:0}
+      .kg-btxt{display:none}
     }
   </style>`;
 
@@ -3852,10 +3860,9 @@ function _renderKatGrid(rows, rate, showChakana) {
         ? `<span style="background:#FEF3C7;color:#92400E;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:8px;white-space:nowrap">ochilgan</span>`
         : "";
 
-      // Rang rasmi ustuvor — jadval ko'rinishidagi qoida (569-qator)
-      const cImg = (p.colorImages && p.colorImages[color]) || p.image || "";
       // Rasmga bosilsa kattalashadi; rasm yo'q bo'lsa katImgView o'zi
       // tanlagichni ochadi (3868-qator) — tahrir oynasi OCHILMAYDI
+      const cImg = (p.colorImages && p.colorImages[color]) || p.image || "";
       const imgClick = `onclick="katImgView('${p.sku}','${jsEsc(color)}')"`;
       const imgHtml = cImg
         ? `<img class="kg-img" src="${cImg}" ${imgClick} title="Rasmni ko'rish">`
@@ -3866,16 +3873,15 @@ function _renderKatGrid(rows, rate, showChakana) {
         <div class="kg-body">
           <div class="kg-art">${p.art || p.sku}</div>
           <div class="kg-name">${p.name}</div>
-          <div class="kg-sub">${color}${pantone ? " · " + pantone : ""}</div>
-          <div class="kg-sub">${p.category || ""}</div>
+          <div class="kg-sub">${color}${pantone ? " · " + pantone : ""}${p.category ? `<span class="kg-cat">${p.category}</span>` : ""}</div>
           <div class="kg-badges">${pochkaBadge}${qtyText}${brokenBadge}</div>
-          ${costUzs ? `<div class="kg-cost"><span class="kg-lbl">Tannarx:</span> ${priceDisplay(costUzs)}</div>` : ""}
-          ${costUzs && inBox > 1 ? `<div class="kg-cost-box">📦 ${priceDisplay(costUzs * inBox)}</div>` : ""}
-          <div class="kg-price"><span class="kg-lbl">Ulgurji:</span> ${p.ulgurjiNarx ? priceDisplay(p.ulgurjiNarx) : "—"}</div>
-          ${p.ulgurjiNarx && inBox > 1 ? `<div class="kg-box">📦 ${priceDisplay(p.ulgurjiNarx * inBox)}</div>` : ""}
+          ${costUzs ? `<div class="kg-cost"><span class="kg-lbl">Tannarx:</span> ${priceDisplay(costUzs)}${
+            inBox > 1 ? `<span class="kg-boxc">📦 ${priceDisplay(costUzs * inBox)}</span>` : ""}</div>` : ""}
+          <div class="kg-price"><span class="kg-lbl">Ulgurji:</span> ${p.ulgurjiNarx ? priceDisplay(p.ulgurjiNarx) : "—"}${
+            (p.ulgurjiNarx && inBox > 1) ? `<span class="kg-boxu">📦 ${priceDisplay(p.ulgurjiNarx * inBox)}</span>` : ""}</div>
           <div class="kg-foot">
-            <button class="btn btn-ghost btn-sm" onclick="openEditProduct('${p.sku}')">
-              <i class="ti ti-edit"></i> Tahrirlash
+            <button class="btn btn-ghost btn-sm" onclick="openEditProduct('${p.sku}')" title="Tahrirlash">
+              <i class="ti ti-edit"></i><span class="kg-btxt"> Tahrirlash</span>
             </button>
           </div>
         </div>

@@ -216,6 +216,14 @@
 .stb2-sub{font-size:11px;color:#bbb}
 .om-tabbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px}
 .om-tabs{display:flex;gap:4px}
+/* 2026-08-05: telefonda beshta tab bir qatorga sig'masdi va sahifa
+   YON TOMONGA surilib ketardi. Endi keyingi qatorga o'tadi.
+   ⚠️ Kompyuter ko'rinishi tegilmagan (faqat <=700px). */
+@media(max-width:700px){
+  .om-tabs{flex-wrap:wrap;gap:5px}
+  .om-tab{padding:7px 11px;font-size:12.5px}
+  .om-tabbar{justify-content:flex-start}
+}
 .om-tab{padding:8px 16px;border-radius:8px;border:1.5px solid var(--brd);font-size:13px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s;display:flex;align-items:center;gap:6px}
 .om-tab.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
 .om-filter-btn{padding:4px 12px;border-radius:6px;border:1.5px solid var(--brd);font-size:12px;font-family:inherit;cursor:pointer;background:#fff;color:#666;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
@@ -4759,8 +4767,8 @@
 <script src="js/cloud.js?v=243"></script>
 <script src="js/dashboard.js?v=157"></script>
 <script src="js/pos.js?v=245"></script>
-<script src="js/katalog.js?v=251"></script>
-<script src="js/ombor.js?v=174"></script>
+<script src="js/katalog.js?v=252"></script>
+<script src="js/ombor.js?v=175"></script>
 <script src="js/mijozlar.js?v=163"></script>
 <script src="js/qarzlar.js?v=202"></script>
 <script src="js/tarix.js?v=174"></script>
@@ -4990,7 +4998,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=269")
+    navigator.serviceWorker.register("/sw.js?v=270")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
