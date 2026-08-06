@@ -8,7 +8,7 @@
 // deploy 1
 
 // MUHIM: har push'da bu raqamni +1 qiling — eski kesh avtomat o'chadi.
-const CACHE_VERSION = "merx-v291";
+const CACHE_VERSION = "merx-v292";
 const CACHE_NAME = CACHE_VERSION;
 
 // Boshlang'ich keshlanadigan fayllar (offline'da kamida shular bo'lsin)
@@ -37,12 +37,34 @@ self.addEventListener("install", (event) => {
 
 // ── FAOLLASHISH: eski versiyalarning keshini o'chiramiz ──
 self.addEventListener("activate", (event) => {
+  // ⚠️⚠️ 2026-08-06: ESKI KESH YANGISI TO'LGUNCHA O'CHIRILMAYDI.
+  // MUAMMO: avval activate darhol barcha eski keshni o'chirardi.
+  // Yangi kesh esa bo'sh bo'ladi. Sekin internetda (200 kbps)
+  // index.html (~320 KB) 8 soniyada ulgurmaydi, SW keshdan berishga
+  // uradi — kesh esa ENDIGINA o'chirilgan. Natijada "Internet sekin
+  // yoki yo'q" sahifasi chiqadi va HAR URINISHDA takrorlanadi:
+  // qurilma ilovaga umuman kira olmay qoladi.
+  // YECHIM: avval yangi keshga asosiy fayllar yoziladi, keyingina
+  // eskisi o'chiriladi. Yozib bo'lmasa — eski kesh JOYIDA QOLADI
+  // va zaxira sifatida ishlaydi (caches.match butun keshdan qidiradi).
+  // ⚠️ Yuklab olish OSILIB QOLMASIN: 20 soniyadan oshsa faollashish
+  // baribir davom etadi, eski kesh esa joyida qoladi (zaxira sifatida).
+  const _guard = (p, ms) => Promise.race([
+    p, new Promise((res) => setTimeout(() => res("timeout"), ms))
+  ]);
+
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+    _guard(caches.open(CACHE_NAME).then((c) => c.addAll(CORE_ASSETS)), 20000)
+      .then((r) => (r === "timeout" ? Promise.reject(new Error("kesh timeout")) : r))
+      .then(() =>
+        caches.keys().then((keys) =>
+          Promise.all(
+            keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+          )
+        )
       )
-    ).then(() => self.clients.claim()) // barcha oynalarni darhol boshqaramiz
+      .catch(() => {})   // yuklanmadi — eski kesh saqlanadi
+      .then(() => self.clients.claim()) // barcha oynalarni darhol boshqaramiz
      // ⚠️ 2026-08-02: OCHIQ OYNALARGA XABAR BERAMIZ.
      // Yangi SW faollashsa ham, ochiq turgan sahifa ESKI kod bilan
      // ishlashda davom etardi. Foydalanuvchi buni bilmaydi va
@@ -101,8 +123,14 @@ self.addEventListener("fetch", (event) => {
     || (url.pathname === "/" || url.pathname.endsWith("/index.html"));
   if (isNavigate) {
     event.respondWith(
-      fetchWithTimeout(req, 8000)   // 2026-08-01: 3s sekin internetda
-                                    // yetmasdi — eski HTML berilardi
+      // ⚠️ 2026-08-06: 8s -> 15s. index.html ~320 KB; 200 kbps da
+      // yuklanishi ~13 soniya. 8 soniyalik muddat uni UZIB QO'YARDI.
+      // 25 emas 15: internet ULANGAN, lekin ISHLAMAYOTGAN bo'lsa
+      // (Wi-Fi bor, tarmoq o'lik) foydalanuvchi shuncha kutadi.
+      // ⚠️ Internet UMUMAN yo'q bo'lsa kutmaymiz — pastda darhol keshdan.
+      (self.navigator && self.navigator.onLine === false
+        ? Promise.reject(new Error("offline"))
+        : fetchWithTimeout(req, 15000))
         .then((res) => {
           if (res && res.status === 200) {
             const clone = res.clone();

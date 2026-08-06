@@ -5121,10 +5121,10 @@ if ("serviceWorker" in navigator) {
   // versiyada ishlayotgan kassa DARROV ko'rinadi.
   // ⚠️ §2 GA QO'SHIMCHA: har push'da bu raqam ham sw.js?v= bilan
   //    BIR XIL bo'lishi shart.
-  window.SW_V = 291;
+  window.SW_V = 292;
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=291")
+    navigator.serviceWorker.register("/sw.js?v=292")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
