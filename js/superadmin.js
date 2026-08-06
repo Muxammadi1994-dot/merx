@@ -2551,11 +2551,13 @@ async function saShowDevices() {
         <th style="text-align:center;padding:9px 6px;font-weight:700">Kechikish</th>
       </tr></thead>
       <tbody>
-        ${list.map(r => `<tr style="border-bottom:1px solid #F3F4F6">
+        ${list.map(r => `<tr style="border-bottom:1px solid #F3F4F6${r.legacy?";opacity:.55":""}">
           <td style="padding:9px 10px;font-weight:600">${nameOf(r.shopId)}</td>
           <td style="padding:9px 6px;text-align:center">
-            <span style="font-family:monospace;font-weight:800;background:#EFF6FF;
-              color:#1D4ED8;border-radius:6px;padding:2px 8px">${r.device}</span></td>
+            ${r.legacy
+              ? `<span style="font-size:11px;color:#9ca3af">eski chek</span>`
+              : `<span style="font-family:monospace;font-weight:800;background:#EFF6FF;
+                  color:#1D4ED8;border-radius:6px;padding:2px 8px">${r.device}</span>`}</td>
           <td style="padding:9px 6px;text-align:center;font-weight:700;
             color:${r.today > 0 ? "#059669" : "#9ca3af"}">${r.today}</td>
           <td style="padding:9px 6px;text-align:center">${r.week}</td>
@@ -2572,7 +2574,10 @@ async function saShowDevices() {
     <div style="margin-top:12px;font-size:11.5px;color:#6B7280;line-height:1.5">
       <b>Kechikish</b> — chek yozilgan vaqt bilan bulutga kelgan vaqt orasidagi farq
       (<code>created_at</code> bo'yicha). Yashil ≤10 daq · sariq ≤60 daq · qizil undan ko'p.<br>
-      <b>Oxirgi chek</b> qizil bo'lsa — qurilma 3 kundan beri jim.
+      <b>Oxirgi chek</b> qizil bo'lsa — qurilma 3 kundan beri jim.<br>
+      <b>"eski chek"</b> — chek raqamida qurilma kodi yo'q (eski format). Bu qurilma emas.<br>
+      ⚠️ Qo'lda tiklangan sotuvlar kechikishni katta ko'rsatadi — ular sotilganidan
+      ancha keyin bazaga yozilgan.
     </div>`;
 }
 

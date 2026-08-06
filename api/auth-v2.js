@@ -1190,10 +1190,18 @@ module.exports = async function handler(req, res) {
         for (const x of (rows || [])) {
           const ch = x.chek_num || "";
           if (!ch.startsWith("CHK-")) continue;          // ESKI- va boshqalar emas
-          const dev = ch.slice(-2);
+          // ⚠️ 2026-08-06: QURILMA KODI — IKKI HARF (§3.14).
+          // Avval oxirgi ikki belgi ko'r-ko'rona olinardi va eski
+          // formatdagi cheklar (CHK-20260804-2565 — kodsiz) "55",
+          // "66", "41" degan SOXTA qurilma bo'lib chiqardi.
+          // Endi format tekshiriladi: CHK-<sana>-<raqam>-<XX>.
+          const parts = ch.split("-");
+          const raw   = parts.length >= 4 ? parts[3] : "";
+          const isDev = /^[A-Za-z]{2}$/.test(raw);
+          const dev   = isDev ? raw.toUpperCase() : "—";
           const key = x.shop_id + "|" + dev;
           if (!map[key]) map[key] = {
-            shopId: x.shop_id, device: dev,
+            shopId: x.shop_id, device: dev, legacy: !isDev,
             today: 0, week: 0, lastDate: null, lastTime: null,
             delaySum: 0, delayCnt: 0, delayMax: 0
           };
@@ -1219,7 +1227,7 @@ module.exports = async function handler(req, res) {
         const list = Object.values(map).map(m => ({
           ...m,
           delayAvg: m.delayCnt ? Math.round(m.delaySum / m.delayCnt) : null
-        })).sort((a, b) => b.week - a.week);
+        })).sort((a, b) => (a.legacy - b.legacy) || (b.week - a.week));
 
         return res.status(200).json({ ok: true, devices: list, capped, bugun });
       }
