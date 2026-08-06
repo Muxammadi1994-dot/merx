@@ -1631,22 +1631,25 @@ async function saOpenShop(id) {
   const s = _saShops.find(x => x.id === id); if (!s) return;
   const dbKey = "merx_v5_" + id;
 
-  // ⚠️ 2026-08-03: BULUT KALITLARI — BARCHA MANBADAN.
-  // Avval faqat eski `merx_v5` kaliti o'qilardi. Hozirgi tizimda
-  // do'kon bazasi `merx_v5_shop_xxx` ko'rinishida, ya'ni kalit
-  // TOPILMASDI va pastda mavjud do'konning ISHLAYDIGAN kalitlari
-  // ustiga BO'SH qiymat yozilardi — do'kon buluti o'chib qolardi.
+  // ⚠️ 2026-08-06: KALIT IZLASH TARTIBI TUZATILDI.
+  // Avval `merx_v5` bilan boshlanadigan HAR QANDAY bazadan birinchi
+  // topilgan kalit olinardi — ya'ni B20 ga kirayotganda sinov
+  // do'konining kaliti ishlatilishi mumkin edi. Hozir zarar yo'q
+  // (uchala do'kon bitta Supabase loyihasida), lekin do'kon boshqa
+  // loyihaga ko'chirilsa NOTO'G'RI BAZAGA ulanardi va buni sezish
+  // qiyin bo'lardi. Endi tartib auth.js dagi ensureCloudKeys() bilan
+  // bir xil: O'Z bazasi → server → (oxirgi chora) boshqa do'kon.
   let url = "", key2 = "";
+
+  // 1) Kiriladigan do'konning O'Z bazasi
   try {
-    for (const k of Object.keys(localStorage)) {
-      if (!k.startsWith("merx_v5")) continue;
-      const d = JSON.parse(localStorage.getItem(k) || "{}");
-      if (d?.settings?.supabaseUrl && d?.settings?.supabaseKey) {
-        url = d.settings.supabaseUrl; key2 = d.settings.supabaseKey; break;
-      }
+    const own = JSON.parse(localStorage.getItem(dbKey) || "{}");
+    if (own?.settings?.supabaseUrl && own?.settings?.supabaseKey) {
+      url = own.settings.supabaseUrl; key2 = own.settings.supabaseKey;
     }
   } catch(e) {}
-  // Serverdan (auth.js dagi `ensureCloudKeys` bilan bir xil yo'l)
+
+  // 2) Server (auth.js dagi `ensureCloudKeys` bilan bir xil yo'l)
   if (!url || !key2) {
     try {
       const r = await fetch("/api/auth-v2?action=client_config", {
@@ -1655,6 +1658,22 @@ async function saOpenShop(id) {
       const cfg = await r.json();
       if (cfg.ok && cfg.url && cfg.key) { url = cfg.url; key2 = cfg.key; }
     } catch(e) { console.warn("client_config:", e.message); }
+  }
+
+  // 3) OXIRGI CHORA — boshqa do'kon bazasidan. Server ishlamay
+  //    qolganda do'kon ochilmay qolmasin uchun saqlandi.
+  if (!url || !key2) {
+    try {
+      for (const k of Object.keys(localStorage)) {
+        if (!k.startsWith("merx_v5")) continue;
+        const d = JSON.parse(localStorage.getItem(k) || "{}");
+        if (d?.settings?.supabaseUrl && d?.settings?.supabaseKey) {
+          url = d.settings.supabaseUrl; key2 = d.settings.supabaseKey;
+          console.warn("⚠️ Bulut kaliti BOSHQA do'kon bazasidan olindi:", k);
+          break;
+        }
+      }
+    } catch(e) {}
   }
   if (!url || !key2) {
     showSaToast("Bulut kalitlari topilmadi — do'kon ochilmadi", "err");
