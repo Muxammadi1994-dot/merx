@@ -22,6 +22,15 @@
 // ════════════════════════════════════════════════════════════════
 
 const SB_URL         = process.env.SUPABASE_URL;
+
+// ⚠️ 2026-08-06: SANA TOSHKENT VAQTIDAN (kontekst §4.6).
+// Server UTC da ishlaydi. Avval `new Date().toISOString()` ishlatilardi —
+// Toshkentda soat 00:00-05:00 oraligida KECHAGI sana chiqardi va
+// "bugungi sotuv", "bu oy tushum" xato hisoblanardi. Ulgurji do'konlar
+// ertalab 3-4 da ochiladi, ya'ni bu aynan ish vaqtiga to'g'ri keladi.
+// Ilova (utils.js) va bot (api/bot.js) da bu allaqachon tuzatilgan edi.
+const TZ_OFFSET_MIN  = 5 * 60;
+const tashkentNow    = () => new Date(Date.now() + TZ_OFFSET_MIN * 60000);
 const SERVICE_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ANON_KEY       = process.env.SUPABASE_KEY; // hozirgi, mavjud anon kalit
 
@@ -1101,7 +1110,7 @@ module.exports = async function handler(req, res) {
       // Avval bu `localStorage` dan olinardi — SuperAdmin kirmagan
       // do'kon "Ma'lumot yo'q" ko'rsatardi. Endi BULUTDAN.
       if (op === "activity") {
-        const bugun = new Date().toISOString().slice(0, 10);
+        const bugun = tashkentNow().toISOString().slice(0, 10);   // Toshkent
         const r = await fetch(
           `${SB_URL}/rest/v1/sales?select=shop_id,date&order=date.desc&limit=20000`,
           { headers: H });
@@ -1124,7 +1133,7 @@ module.exports = async function handler(req, res) {
         const sid = body.shopId;
         if (!sid) return res.status(400).json({ ok: false, error: "shopId majburiy" });
         const q = encodeURIComponent(sid);
-        const oy = new Date().toISOString().slice(0, 7);
+        const oy = tashkentNow().toISOString().slice(0, 7);        // Toshkent
 
         const [sl, cu, pr, om] = await Promise.all([
           fetch(`${SB_URL}/rest/v1/sales?shop_id=eq.${q}&select=total,paid,remaining,status,date,debt_currency,debt_usd&limit=20000`, { headers: H }),

@@ -2141,10 +2141,18 @@ function saGetShopStats(shop) {
     const totalStock= prods.reduce((a,p)=>a+p.variants.reduce((b,v)=>b+(v.qty||0),0),0);
     let costTotal = 0;
     sales.forEach(s=>{ s.items?.forEach(i=>{ const p=prods.find(x=>x.name===i.name); if(p) costTotal+=Math.round((p.costUsd||0)*rate)*(i.qty||0); }); });
-    const today = new Date().toISOString().slice(0,10);
-    const m = today.slice(0,7);
+    // ⚠️ 2026-08-06: sana QURILMA vaqtidan — utils.js dagi today()
+    // orqali (kontekst §4.6, yagona manba). Avval toISOString() ishlatilardi,
+    // u UTC qaytaradi va Toshkentda 00:00-05:00 oraligida "bugungi sotuv"
+    // kechagi kunga tushib ketardi.
+    // ⚠️ O'zgaruvchi nomi `bugun` — avvalgi `today` global today() ni
+    // to'sib qo'yardi va uni chaqirib bo'lmasdi (§13.8).
+    const bugun = typeof today === "function"
+      ? today()
+      : new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+    const m = bugun.slice(0,7);
     const monthSales = sales.filter(s=>s.date?.startsWith(m));
-    const todaySales = sales.filter(s=>s.date===today);
+    const todaySales = sales.filter(s=>s.date===bugun);
     // Oxirgi sotuv sanasi
     const lastSale = sales.length ? sales[sales.length-1].date : null;
     // Faollik: so'nggi 7 kunda sotuv bo'ldimi?
@@ -2174,7 +2182,10 @@ function saShowStats(shopId) {
   modal.style.cssText = `position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.5);
     display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;
     backdrop-filter:blur(4px)`;
-  const fmt = n => n>=1000000?(n/1000000).toFixed(1)+"M":n>=1000?(n/1000).toFixed(0)+"K":String(n||0);
+  // ⚠️ 2026-08-06: MAHALLIY `fmt` OLIB TASHLANDI. U global fmt() ni
+  // butun funksiya bo'ylab TO'SIB QO'YARDI — shu sababli "18225.4M so'm"
+  // chiqardi va oldingi tuzatish ham ishlamasdi (u ham shu mahalliy
+  // nusxani chaqirardi). Endi utils.js dagi yagona fmt() ishlatiladi.
   const planL = {trial:"Sinov",monthly:"Oylik",yearly:"Yillik",lifetime:"Umrlik"};
   const login = shop.ownerEmail || (shop.phone ? shop.phone.replace(/\D/g,"")+"@merx.uz" : "—");
   modal.innerHTML = `
