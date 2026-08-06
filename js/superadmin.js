@@ -120,7 +120,8 @@ function openSaPanel() {
 
   if (!_saSession) {
     overlay.innerHTML = `
-      <div style="background:#fff;border-radius:20px;padding:40px 36px;width:360px;
+      <div class="sa-login-card" style="background:#fff;border-radius:20px;padding:40px 36px;width:360px;
+        max-width:92vw;margin:auto;
         box-shadow:0 24px 60px rgba(0,0,0,.25);text-align:center">
         <div style="width:56px;height:56px;background:#0D1B2A;border-radius:14px;
           display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
@@ -243,7 +244,7 @@ function buildSaDashboard() {
   const monthlyIncome = 0;   // pastda `sa-inc-val` orqali yangilanadi
   return `
     <!-- 1-qator: Asosiy raqamlar -->
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;background:#F8FAFC;border-bottom:1px solid #E5E7EB">
+    <div class="sa-kpi5" style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;background:#F8FAFC;border-bottom:1px solid #E5E7EB">
       ${[
         {lbl:"Jami do'konlar",  val:_saShops.length+" ta",  clr:"#0D1B2A", ico:"ti-building-store", sub:""},
         {lbl:"Faol",            val:active+" ta",            clr:"#059669", ico:"ti-circle-check",   sub:"obunalar"},
@@ -264,7 +265,7 @@ function buildSaDashboard() {
         </div>`).join("")}
     </div>
     <!-- 2-qator: Obuna -->
-    <div style="display:grid;grid-template-columns:.9fr 1fr 1.1fr 1.4fr;gap:0;background:#fff;border-bottom:1px solid #E5E7EB">
+    <div class="sa-kpi4" style="display:grid;grid-template-columns:.9fr 1fr 1.1fr 1.4fr;gap:0;background:#fff;border-bottom:1px solid #E5E7EB">
       <!-- 2026-08-03: uch pul kartasi olib tashlandi (Jami tushum,
            Bugungi, Jami qarz) - ular qurilma xotirasidan
            hisoblanardi va kirilmagan do'konda NOL chiqardi. -->
@@ -335,11 +336,11 @@ function buildSaDashboard() {
 function buildSaPanel() {
   return `
     <!-- 2026-08-03: to'liq ekran — modal emas, alohida ish joyi -->
-    <div style="background:#fff;width:100%;height:100vh;
+    <div style="background:#fff;width:100%;height:100vh;height:100dvh;
       overflow:hidden;display:flex;flex-direction:column">
 
       <!-- Header -->
-      <div style="padding:18px 24px;border-bottom:1px solid #E5E7EB;
+      <div class="sa-head" style="padding:18px 24px;border-bottom:1px solid #E5E7EB;
         display:flex;align-items:center;justify-content:space-between;background:#0D1B2A">
         <div style="display:flex;align-items:center;gap:12px">
           <div style="width:36px;height:36px;background:#E9A500;border-radius:10px;
@@ -373,7 +374,7 @@ function buildSaPanel() {
       <div id="sa-dashboard">${buildSaDashboard()}</div>
 
       <!-- Toolbar -->
-      <div style="padding:12px 20px;border-bottom:1px solid #E5E7EB;
+      <div class="sa-toolbar" style="padding:12px 20px;border-bottom:1px solid #E5E7EB;
         display:flex;align-items:center;gap:10px;background:#F9FAFB;flex-wrap:wrap">
         <button onclick="saOpenAddShop()"
           style="background:#0D1B2A;border:none;border-radius:8px;padding:8px 18px;

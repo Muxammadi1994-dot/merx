@@ -337,6 +337,26 @@
      "Asosiy do'konga qaytish" tugmasi ekranda qoladi */
   #banner-stack > div { padding:6px 12px !important; font-size:12px !important; gap:6px !important }
   #banner-stack button { font-size:11.5px !important }
+
+  /* ═══ SUPERADMIN PANELI — TELEFON (2026-08-06) ═══
+     Panel kompyuter uchun qurilgan edi:
+       · kirish oynasi 360px, max-width YO'Q edi — tor ekranda
+         chiqib ketardi; tashqi qobiqda align-items:stretch tufayli
+         balandligi bo'yicha cho'zilardi
+       · KPI kartalari 5 va 4 ustun — 380px da har biri ~76px,
+         yozuvlar ustma-ust tushardi
+       · sarlavhada flex-wrap yo'q edi — ✕ tugmasi ekrandan
+         chiqib ketib, panelni yopib bo'lmasdi
+     ⚠️ Faqat ko'rinish. Panel mantig'iga tegilmagan. */
+  #sa-overlay { align-items:center !important }
+  .sa-login-card { padding:30px 22px !important }
+  .sa-head { padding:12px 14px !important; flex-wrap:wrap; gap:8px }
+  .sa-head > div:first-child { min-width:0 }
+  .sa-kpi5, .sa-kpi4 { grid-template-columns:repeat(2,1fr) !important }
+  .sa-toolbar { padding:10px 12px !important; gap:8px !important }
+  .sa-toolbar input { width:100% !important }
+  .sa-toolbar > div[style*="position:relative"] { flex:1 1 100% }
+  .sa-toolbar > div[style*="margin-left:auto"] { margin-left:0 !important; flex-wrap:wrap }
 }
 /* v180: CHOP ETISH — faqat sotuv cheki chiqadi, boshqa hech narsa
    (asosiy ilova, boshqa modallar, tugmalar) chop etilmaydi. Ranglarni
@@ -5046,7 +5066,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
-<script src="js/superadmin.js?v=216"></script>
+<script src="js/superadmin.js?v=217"></script>
 
 <!-- PWA (2026-07-20): Service Worker ro'yxatdan o'tkazish -->
 <script>
@@ -5072,7 +5092,7 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=278")
+    navigator.serviceWorker.register("/sw.js?v=279")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
