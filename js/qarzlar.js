@@ -118,7 +118,7 @@ function applyDebtKpiVisibility() {
 // ── Qarz jadvali ustunlari boshqaruvi ──────────────
 const DEBT_COL_DEFS = [
   { key:"phone",    lbl:"Telefon",      def:true },
-  { key:"items",    lbl:"Mahsulotlar",  def:true },
+  { key:"items",    lbl:"Chek / sana",  def:true },   // 2026-08-06: avval "Mahsulotlar" edi
   { key:"paid",     lbl:"To'langan",    def:true },
   { key:"due",      lbl:"Muddat",       def:true },
   { key:"status",   lbl:"Holat",        def:true },
@@ -598,7 +598,7 @@ function renderDebtsList(list, rate) {
   if (thead) thead.innerHTML = `<tr>
     <th>Mijoz</th>
     ${cols.phone  ? '<th style="width:100px">Telefon</th>' : ""}
-    ${cols.items  ? "<th>Mahsulotlar</th>" : ""}
+    ${cols.items  ? '<th style="width:130px">Chek / sana</th>' : ""}
     ${cols.paid   ? '<th class="num">To\'langan</th>' : ""}
     <th class="num" style="width:95px">Qolgan qarz</th>
     ${cols.due    ? '<th style="width:100px">Muddat</th>' : ""}
@@ -629,8 +629,9 @@ function renderDebtsList(list, rate) {
         ${cu.phone && cu.phone !== "—"
           ? `<a href="tel:${cu.phone}" style="color:inherit;text-decoration:none">${cu.phone}</a>` : "—"}
       </td>` : ""}
-      ${cols.items ? `<td style="font-size:12px;max-width:160px">
-        ${s.items?.map(i => `<div>${i.name} <span style="color:#aaa">×${i.qty}</span></div>`).join("") || "—"}
+      ${cols.items ? `<td style="font-size:12px">
+        <div style="font-family:monospace;font-weight:600">${s.chekNum || ("#" + s.id)}</div>
+        <div style="font-size:11px;color:#aaa">${s.date || ""}${s.time ? " · " + s.time : ""}</div>
       </td>` : ""}
       ${cols.paid ? `<td class="num" style="font-size:12.5px;color:var(--grn)">${fmt(st.paid)} so'm</td>` : ""}
       <td class="num">${debtRemDisplay(s, st)}</td>
@@ -738,7 +739,7 @@ function _renderDebtListGrid(list, rate, cols, pagerHtml) {
           <div class="dg-name" style="cursor:default;text-decoration:none">${cu.name||"—"}</div>
           <div class="dg-sub">
             ${cols.phone && hasPhone ? `<a href="tel:${cu.phone}">${cu.phone}</a>` : ""}
-            <span style="font-family:monospace">${s.chekNum||("#"+s.id)}</span>
+            ${cols.items ? `<span style="font-family:monospace">${s.chekNum||("#"+s.id)}</span>` : ""}
           </div>
         </div>
         ${cols.status ? `<span class="bg ${over?"bg-r":"bg-g"}" style="font-size:10.5px;margin-left:auto">
@@ -748,7 +749,7 @@ function _renderDebtListGrid(list, rate, cols, pagerHtml) {
       <div class="dg-sums">
         <div>
           <div class="${isUsd?"dg-usd":"dg-uzs"}">${debtRemDisplay(s, st)}</div>
-          <div class="dg-eq">${s.date||""}</div>
+          ${cols.items ? `<div class="dg-eq">${s.date||""}${s.time ? " · " + s.time : ""}</div>` : ""}
         </div>
         <div class="dg-badges">
           ${cols.due && s.due ? `<span class="bg ${over?"bg-r":"bg-a"}" style="font-size:10.5px">📅 ${s.due}</span>` : ""}
