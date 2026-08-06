@@ -1169,6 +1169,33 @@ async function pushToCloud() {
       // bot (api/bot.js faqat O'QIYDI) va SQL so'rovlar uchun qoladi.
       const _prodData = p => { const c = { ...p };
         delete c.image; delete c.colorImages; delete c.shop_id; return c; };
+      // ⚠️⚠️ 2026-08-06: `id` YO'Q TOVARLAR ENDI TASHLANMAYDI.
+      // Avval shunday edi: `.filter(p => p.id != null)` — ya'ni `id`
+      // maydoni yo'q tovar bulutga UMUMAN yuborilmasdi. Xato ham,
+      // ogohlantirish ham yo'q edi: tovar qurilmada ko'rinadi,
+      // bulutda esa yo'q, ikkinchi kassa uni hech qachon ko'rmaydi.
+      // Shoetest'da aynan shu holat topildi (12 ta tovar).
+      // Endi `id` yo'q bo'lsa BERILADI va yozuv yuboriladi.
+      // ⚠️ nextId() aniqligi 1 SONIYA — bir siklda ko'p chaqirilsa
+      //    bir xil raqam qaytaradi. Shuning uchun band raqamlar
+      //    to'plami yuritiladi va takrorlanmasligi ta'minlanadi.
+      let _idFixed = 0;
+      try {
+        const _used = new Set((db.products || [])
+          .map(p => p.id).filter(v => v != null).map(String));
+        for (const p of (db.products || [])) {
+          if (p.id != null) continue;
+          let nid = (typeof nextId === "function") ? nextId() : Date.now();
+          while (_used.has(String(nid))) nid++;
+          p.id = nid; _used.add(String(nid)); _idFixed++;
+        }
+        if (_idFixed) {
+          console.warn(`⚠️ ${_idFixed} ta tovarda 'id' yo'q edi — berildi. ` +
+                       `Ular shu paytgacha bulutga YUBORILMAGAN.`);
+          try { toast(`${_idFixed} ta tovar tiklandi va bulutga yuborilmoqda`, "info"); } catch(e) {}
+        }
+      } catch(e) { console.warn("id tiklash:", e.message); }
+
       const prodRows = (db.products||[])
         .filter(p => p.id != null)
         .map(p => ({
@@ -2963,5 +2990,36 @@ async function reportDeviceStatus(force) {
   } catch (e) {
     // Jim o'tadi — bu yordamchi vosita, sinxronga xalaqit bermaydi
     console.warn("device_status:", e.message);
+  }
+}
+
+// ═══ MAJBURIY QAYTA YUBORISH (2026-08-06) ═══
+// Yuborish keshi (`_pushCache`) yozuvni "allaqachon yuborilgan" deb
+// belgilab qo'ygan bo'lsa, u BOSHQA HECH QACHON yuborilmaydi —
+// qurilmada bor, bulutda yo'q. Kesh localStorage'da saqlanadi, ya'ni
+// sahifani yangilash ham yordam bermaydi.
+//
+// Bu tugma keshni tozalaydi va HAMMASINI qaytadan yuboradi.
+// ⚠️ Ma'lumot O'CHIRILMAYDI, faqat qayta yuboriladi. Bulutdagi
+//    yozuvlar ustiga o'sha yozuvning o'zi yoziladi.
+// ⚠️ Sekin internetda uzoq davom etishi mumkin (barcha tovar, rasmlar).
+async function forceRepushAll() {
+  try {
+    if (!_sb) { toast("Bulutga ulanish yo'q", "err"); return; }
+    if (!confirm("Barcha ma'lumot bulutga QAYTADAN yuboriladi.\n\n" +
+                 "Hech narsa o'chmaydi. Sekin internetda bir necha " +
+                 "daqiqa davom etishi mumkin.\n\nDavom etilsinmi?")) return;
+
+    _pushCache = {};
+    try { localStorage.removeItem(_pushCacheKey()); } catch(e) {}
+    console.warn("♻️ Push keshi tozalandi — to'liq qayta yuborish");
+    toast("Qayta yuborilmoqda...", "info");
+
+    await pushToCloud();
+    toast("✅ Qayta yuborish tugadi", "ok");
+    if (typeof adminRefreshSyncStats === "function") adminRefreshSyncStats();
+  } catch (e) {
+    console.error("forceRepushAll:", e);
+    toast("Xato: " + (e.message || "qayta yuborilmadi"), "err");
   }
 }
