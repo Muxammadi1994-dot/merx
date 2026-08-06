@@ -31,6 +31,48 @@ const SB_URL         = process.env.SUPABASE_URL;
 // Ilova (utils.js) va bot (api/bot.js) da bu allaqachon tuzatilgan edi.
 const TZ_OFFSET_MIN  = 5 * 60;
 const tashkentNow    = () => new Date(Date.now() + TZ_OFFSET_MIN * 60000);
+
+// ⚠️ 2026-08-06: 1000 QATOR CHEGARASI.
+// Supabase bitta so'rovga ko'pi bilan 1000 qator qaytaradi va
+// `limit=20000` yozilsa ham SHU chegara ishlaydi — xato ham bermaydi,
+// jimgina kam ma'lumot beradi. Ilovada bu allaqachon hisobga olingan
+// (cloud.js → _selectAll, kontekst §4.4), serverda esa YO'Q edi:
+// do'kon 1000 sotuvga yetganda statistika sekin-asta yolg'on
+// ko'rsatib boshlardi. Quyidagi ikki yordamchi shuni yopadi.
+
+const SB_PAGE     = 1000;   // bir so'rovdagi eng ko'p qator
+const SB_MAX_PAGE = 20;     // xavfsizlik: ko'pi bilan 20 000 yozuv
+
+// Sahifalab to'liq o'qish. Chegaraga urilsa capped=true qaytadi —
+// raqam JIMGINA kesilmasin, panelda ogohlantirish chiqsin.
+async function sbFetchAll(pathWithQuery, H) {
+  const out = [];
+  let capped = false;
+  for (let page = 0; page < SB_MAX_PAGE; page++) {
+    const sep = pathWithQuery.includes("?") ? "&" : "?";
+    const url = `${SB_URL}/rest/v1/${pathWithQuery}${sep}limit=${SB_PAGE}&offset=${page * SB_PAGE}`;
+    const r = await fetch(url, { headers: H });
+    if (!r.ok) break;
+    const rows = await r.json();
+    out.push(...rows);
+    if (rows.length < SB_PAGE) return { rows: out, capped };
+    if (page === SB_MAX_PAGE - 1) capped = true;
+  }
+  return { rows: out, capped };
+}
+
+// Faqat SANASH — qatorlar umuman tortilmaydi, baza aniq sonni
+// `content-range` sarlavhasida qaytaradi. Tez va chegarasiz.
+async function sbCount(pathWithQuery, H) {
+  const sep = pathWithQuery.includes("?") ? "&" : "?";
+  const r = await fetch(`${SB_URL}/rest/v1/${pathWithQuery}${sep}select=id&limit=1`, {
+    headers: { ...H, Prefer: "count=exact" }
+  });
+  if (!r.ok) return 0;
+  const cr = r.headers.get("content-range") || "";   // masalan "0-0/1061"
+  const n  = parseInt(cr.split("/")[1], 10);
+  return isNaN(n) ? 0 : n;
+}
 const SERVICE_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ANON_KEY       = process.env.SUPABASE_KEY; // hozirgi, mavjud anon kalit
 
@@ -1111,11 +1153,13 @@ module.exports = async function handler(req, res) {
       // do'kon "Ma'lumot yo'q" ko'rsatardi. Endi BULUTDAN.
       if (op === "activity") {
         const bugun = tashkentNow().toISOString().slice(0, 10);   // Toshkent
-        const r = await fetch(
-          `${SB_URL}/rest/v1/sales?select=shop_id,date&order=date.desc&limit=20000`,
-          { headers: H });
-        if (!r.ok) return res.status(500).json({ ok: false, error: await r.text() });
-        const rows = await r.json();
+        // ⚠️ 2026-08-06: AVVAL `limit=20000` yozilgan edi, lekin Supabase
+        // baribir 1000 qator qaytaradi. Bazada 3500 dan ortiq sotuv bor —
+        // ya'ni faqat eng yangi 1000 tasi ko'rinardi va uzoq vaqt sotuv
+        // qilmagan do'kon "ma'lumot yo'q" bo'lib chiqardi. Endi sahifalab
+        // o'qiladi.
+        const { rows, capped } = await sbFetchAll(
+          `sales?select=shop_id,date&order=date.desc`, H);
         const map = {};
         for (const x of (rows || [])) {
           const sid = x.shop_id; if (!sid) continue;
@@ -1123,7 +1167,7 @@ module.exports = async function handler(req, res) {
           if (!map[sid].last || x.date > map[sid].last) map[sid].last = x.date;
           if (x.date === bugun) map[sid].today++;
         }
-        return res.status(200).json({ ok: true, activity: map });
+        return res.status(200).json({ ok: true, activity: map, capped });
       }
 
       // ── BITTA DO'KON STATISTIKASI (2026-08-03) ──
@@ -1135,25 +1179,28 @@ module.exports = async function handler(req, res) {
         const q = encodeURIComponent(sid);
         const oy = tashkentNow().toISOString().slice(0, 7);        // Toshkent
 
-        const [sl, cu, pr, om] = await Promise.all([
-          fetch(`${SB_URL}/rest/v1/sales?shop_id=eq.${q}&select=total,paid,remaining,status,date,debt_currency,debt_usd&limit=20000`, { headers: H }),
-          fetch(`${SB_URL}/rest/v1/customers?shop_id=eq.${q}&select=id`, { headers: H }),
-          fetch(`${SB_URL}/rest/v1/products?shop_id=eq.${q}&select=data`, { headers: H }),
-          fetch(`${SB_URL}/rest/v1/ombor?shop_id=eq.${q}&select=id`, { headers: H })
+        const [slR, prR, custCnt, omborCnt] = await Promise.all([
+          // Yig'indi kerak — barcha qatorlar sahifalab o'qiladi
+          sbFetchAll(`sales?shop_id=eq.${q}&select=total,remaining,status,date,debt_currency,debt_usd&order=id`, H),
+          // Qoldiq dona `data` ichida — tovarlar ham sahifalanadi
+          sbFetchAll(`products?shop_id=eq.${q}&select=data&order=sku`, H),
+          // Bularga faqat SON kerak — qatorlar tortilmaydi
+          sbCount(`customers?shop_id=eq.${q}`, H),
+          sbCount(`ombor?shop_id=eq.${q}`, H)
         ]);
-        const sales = sl.ok ? await sl.json() : [];
-        const custs = cu.ok ? await cu.json() : [];
-        const prods = pr.ok ? await pr.json() : [];
-        const omb   = om.ok ? await om.json() : [];
+        const sales = slR.rows;
+        const prods = prR.rows;
+        const capped = slR.capped || prR.capped;
 
         // 2026-08-06: QARZ IKKI VALYUTADA ALOHIDA.
         // Avval hammasi `remaining` ga qo'shilardi — dollar qarzning
         // so'mdagi ekvivalenti so'm qarzlar bilan ARALASHIB ketardi.
         // Ilovadagi qoidaning o'zi (qarzlar.js → renderDebts):
         // dollar qarz `debt_usd` da, qolganlari `remaining` da.
-        let totalRev = 0, monthRev = 0, monthCnt = 0, debtUzs = 0, debtUsd = 0;
+        let totalRev = 0, monthRev = 0, monthCnt = 0, debtUzs = 0, debtUsd = 0, salesCnt = 0;
         for (const x of sales) {
           if (x.status === "bekor") continue;
+          salesCnt++;
           const t = +x.total || 0;
           totalRev += t;
           const isUsd = x.debt_currency === "usd" && (+x.debt_usd || 0) > 0;
@@ -1171,9 +1218,10 @@ module.exports = async function handler(req, res) {
           totalRev, monthRev, monthCnt,
           totalDebt: debtUzs,   // eskicha nom — faqat SO'M qarzlar
           debtUzs, debtUsd,
-          salesCnt: sales.filter(x => x.status !== "bekor").length,
-          custCnt: custs.length, prodCnt: prods.length,
-          stockCnt, omborCnt: omb.length,
+          salesCnt,
+          custCnt: custCnt, prodCnt: prods.length,
+          stockCnt, omborCnt: omborCnt,
+          capped,               // true bo'lsa raqamlar TO'LIQ EMAS
           profit: null      // tannarx `data` ichida — alohida hisob kerak
         }});
       }

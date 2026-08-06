@@ -2285,6 +2285,17 @@ function saShowStats(shopId) {
       set("sst-prod",  (st.prodCnt  || 0).toLocaleString("ru-RU"));
       set("sst-stock", (st.stockCnt || 0).toLocaleString("ru-RU"));
       set("sst-mcnt",  (st.monthCnt || 0) + " ta");
+      // ⚠️ Server 20 000 yozuvdan oshsa kesadi — buni JIMGINA o'tkazmaymiz
+      if (st.capped) {
+        const _c = document.getElementById("sst-rev");
+        if (_c && !document.getElementById("sst-capped")) {
+          const w = document.createElement("div");
+          w.id = "sst-capped";
+          w.style.cssText = "font-size:10.5px;color:#B45309;font-weight:600;margin-top:3px";
+          w.textContent = "⚠️ 20 000 yozuv chegarasi — raqamlar to'liq emas";
+          _c.parentElement.appendChild(w);
+        }
+      }
     } catch (e) { console.warn("shop_stats:", e.message); }
   })();
 
