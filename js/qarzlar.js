@@ -495,6 +495,42 @@ function renderDebts() {
   renderDebtTrendChart();
 }
 
+// Katak uslublari — guruhlangan va chek bo'yicha ko'rinish UCHUN BIR XIL
+function _dgCss() {
+  return `<style>
+    .dgw{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;padding:16px}
+    .dg-card{border:1.5px solid var(--brd);border-radius:12px;padding:12px 14px 10px;position:relative;background:var(--surf);transition:.13s}
+    .dg-card:hover{border-color:var(--acc)}
+    .dg-card.over{border-color:#FCA5A5;background:#FFFBFB}
+    .dg-name{font-weight:800;font-size:14.5px;line-height:1.25;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+    .dg-top{display:flex;align-items:flex-start;gap:8px}
+    .dg-top .bg{flex:none}
+    .dg-sub{font-size:11.5px;color:var(--mut);margin-top:2px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+    .dg-sub a{color:inherit}
+    .dg-sums{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;margin-top:8px;padding-bottom:8px;border-bottom:1px dashed var(--brd)}
+    .dg-uzs{font-weight:800;color:var(--red);font-size:16px}
+    .dg-usd{font-weight:800;color:#1B4F72;font-size:16px}
+    .dg-eq{font-size:10.5px;color:#aaa;font-weight:600}
+    .dg-badges{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-left:auto}
+    .dg-pay{margin-top:9px;padding:9px 10px;border:1px solid var(--brd);border-radius:10px;background:var(--bg)}
+    .dg-pay + .dg-pay{margin-top:8px}
+    .dg-pay.usd{border-color:#BFDBFE;background:#F5FAFF}
+    .dg-pay-h{font-size:10.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+    .dg-pay-row{display:flex;gap:10px;align-items:flex-start}
+    .dg-pay-fields{flex:1;min-width:0}
+    .dg-pay-act{display:flex;flex-direction:column;gap:5px;justify-content:center;flex:none;width:96px}
+    .dg-pay-act select{width:100%;font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:6px 4px}
+    .dg-pay-act .btn{width:100%}
+    .dg-foot{display:flex;justify-content:flex-end;gap:4px;margin-top:8px}
+    .dg-foot .btn{padding:3px 8px;font-size:11px}
+    @media (max-width:560px){
+      .dgw{grid-template-columns:1fr;gap:8px;padding:9px}
+      .dg-card{padding:10px 11px 8px}
+      .dg-name{font-size:14px}
+    }
+  </style>`;
+}
+
 // ── Mijoz umumiy qarz kartalar paneli ─────────────
 function renderDebtCustCards() {
   const el = $("debt-cust-cards"); if (!el) return;
@@ -655,10 +691,102 @@ function renderDebtsList(list, rate) {
     ${debtFilter !== "all" ? "Bu filtrda qarz yo'q" : "Qarz yo'q 🎉"}
   </td></tr>`;
 
-  // ⚠️ "Chek bo'yicha" ko'rinishda katak ISHLATILMAYDI: bu yerda to'lov
-  // kaliti sotuvning o'z id'si (recordPayment shuni kutadi) va uni
-  // prefiks bilan ajratib bo'lmaydi. Shuning uchun katak tozalanadi.
-  _debtForceTable();
+  // ── Ko'rinish rejimi ────────────────────────────
+  // ⚠️⚠️ BU YERDA KALIT — SOTUVNING O'Z id'si (recordPayment shuni
+  // kutadi, prefiks qo'shib bo'lmaydi). Shuning uchun jadval va katak
+  // BIR VAQTDA TURA OLMAYDI: katak rejimida jadval tanasi BO'SHATILADI,
+  // jadval rejimida katak tozalanadi. Shunda har id faqat bitta joyda
+  // bo'ladi va to'lov to'g'ri maydonni o'qiydi.
+  if (dbViewMode === "grid") {
+    tbody.innerHTML = "";
+    _renderDebtListGrid(list.length ? pageSlice(list, _dbPage) : [], rate, cols, _dbPager);
+  } else {
+    _debtForceTable();
+  }
+}
+
+// ── Qarzlar: "chek bo'yicha" katak ko'rinish (2026-08-06) ──
+// ⚠️ Talab bo'yicha mahsulotlar va to'langan summa KO'RSATILMAYDI.
+// ⚠️ To'lov kaliti — sotuv id'si, jadvaldagi bilan bir xil. Shuning
+//    uchun chaqiruvchi jadval tanasini bo'shatgan bo'lishi SHART.
+function _renderDebtListGrid(list, rate, cols, pagerHtml) {
+  const el = $("debt-grid-wrap");
+  if (!el) return;
+  const tw = $("debt-table-wrap");
+  if (tw) tw.style.display = "none";
+  el.style.display = "";
+
+  if (!list.length) {
+    el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--mut)">
+      ${debtFilter !== "all" ? "Bu filtrda qarz yo'q" : "Qarz yo'q 🎉"}</div>`;
+    return;
+  }
+
+  const shown = debtPayMethodsShown();
+
+  const cards = list.map(s => {
+    const cu    = debtCust(s);
+    const over  = isOverdue(s);
+    const st    = calcSaleState(s);
+    const isUsd = s.debtCurrency === "usd" && st.debtUsd != null;
+    const maxSom = isUsd ? Math.round((st.debtUsd||0) * rate) : Math.round(st.remaining||0);
+    const hasPhone = cu.phone && cu.phone !== "—";
+
+    return `<div class="dg-card${over?" over":""}">
+      <div class="dg-top">
+        <div style="min-width:0">
+          <div class="dg-name" style="cursor:default;text-decoration:none">${cu.name||"—"}</div>
+          <div class="dg-sub">
+            ${cols.phone && hasPhone ? `<a href="tel:${cu.phone}">${cu.phone}</a>` : ""}
+            <span style="font-family:monospace">${s.chekNum||("#"+s.id)}</span>
+          </div>
+        </div>
+        ${cols.status ? `<span class="bg ${over?"bg-r":"bg-g"}" style="font-size:10.5px;margin-left:auto">
+          ${over?"⚠️ Muddati o'tgan":"⏳ Kutilmoqda"}</span>` : ""}
+      </div>
+
+      <div class="dg-sums">
+        <div>
+          <div class="${isUsd?"dg-usd":"dg-uzs"}">${debtRemDisplay(s, st)}</div>
+          <div class="dg-eq">${s.date||""}</div>
+        </div>
+        <div class="dg-badges">
+          ${cols.due && s.due ? `<span class="bg ${over?"bg-r":"bg-a"}" style="font-size:10.5px">📅 ${s.due}</span>` : ""}
+        </div>
+      </div>
+
+      <div class="dg-pay${isUsd?" usd":""}">
+        <div class="dg-pay-row">
+          <div class="dg-pay-fields">
+            ${debtPayMethodInputs(s.id, isUsd, null, maxSom)}
+            ${isUsd ? `<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                <span style="font-size:11px;color:var(--mut);width:62px;flex-shrink:0">$ Dollor</span>
+                <input type="text" id="pay-usdbox-${s.id}" data-maxusd="${st.debtUsd||0}"
+                  placeholder="0.00" oninput="qzUsdBoxToSom('${s.id}')"
+                  style="font-family:inherit;font-size:12.5px;font-weight:700;color:#1B4F72;
+                  border:1.5px solid #4C9BE8;border-radius:8px;padding:5px 7px;width:108px;outline:none">
+              </div>` : ""}
+          </div>
+          <div class="dg-pay-act">
+            ${shown.kassir !== false ? `<select id="pay-staff-${s.id}"${_qarzStaffOpts().lock}>
+              ${_qarzStaffOpts().html}</select>` : ""}
+            <button class="btn btn-teal btn-sm" style="font-size:12px"
+              onclick="recordPayment(${s.id})">To'lov</button>
+          </div>
+        </div>
+      </div>
+
+      ${hasPhone ? `<div class="dg-foot">
+        <button class="btn btn-ghost btn-icon btn-sm" style="color:#856404" title="SMS eslatma"
+          onclick="sendDebtReminder(${s.id})"><i class="ti ti-message"></i></button>
+        <button class="btn btn-ghost btn-icon btn-sm" style="color:#0E7490" title="Telegram bot"
+          onclick="sendDebtReminderBot(${s.id})"><i class="ti ti-brand-telegram"></i></button>
+      </div>` : ""}
+    </div>`;
+  }).join("");
+
+  const pager = pagerHtml ? `<table style="width:100%;border:none"><tbody>${pagerHtml}</tbody></table>` : "";
+  el.innerHTML = _dgCss() + `<div class="dgw">` + cards + `</div>` + pager;
 }
 
 // ── Mijoz bo'yicha guruhlangan ko'rinish ──────────
@@ -818,6 +946,7 @@ function renderDebtsGrouped(list, rate) {
 //   3-qator: to'lov usullari + $ katak + To'lov tugmasi
 //   4-qator: ikkinchi valyuta bo'lsa — o'sha uchun alohida blok
 //   pastki o'ng burchak: ko'rish · SMS · bot (kichik)
+
 function _renderDebtGrid(groups, rate, cols, pagerHtml) {
   const el = $("debt-grid-wrap");
   if (!el) return;
@@ -831,33 +960,7 @@ function _renderDebtGrid(groups, rate, cols, pagerHtml) {
     return;
   }
 
-  const css = `<style>
-    .dgw{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;padding:16px}
-    .dg-card{border:1.5px solid var(--brd);border-radius:12px;padding:12px 14px 10px;position:relative;background:var(--surf);transition:.13s}
-    .dg-card:hover{border-color:var(--acc)}
-    .dg-card.over{border-color:#FCA5A5;background:#FFFBFB}
-    .dg-name{font-weight:800;font-size:14.5px;line-height:1.25;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
-    .dg-sub{font-size:11.5px;color:var(--mut);margin-top:2px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
-    .dg-sub a{color:inherit}
-    .dg-sums{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;margin-top:9px;padding-bottom:9px;border-bottom:1px dashed var(--brd)}
-    .dg-uzs{font-weight:800;color:var(--red);font-size:16px}
-    .dg-usd{font-weight:800;color:#1B4F72;font-size:16px}
-    .dg-eq{font-size:10.5px;color:#aaa;font-weight:600}
-    .dg-badges{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-left:auto}
-    .dg-pay{margin-top:10px;padding:9px 10px;border:1px solid var(--brd);border-radius:10px;background:var(--bg)}
-    .dg-pay + .dg-pay{margin-top:8px}
-    .dg-pay.usd{border-color:#BFDBFE;background:#F5FAFF}
-    .dg-pay-h{font-size:10.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
-    .dg-pay-act{display:flex;gap:6px;align-items:center;margin-top:8px}
-    .dg-pay-act select{flex:1;min-width:0}
-    .dg-foot{display:flex;justify-content:flex-end;gap:4px;margin-top:9px}
-    .dg-foot .btn{padding:3px 8px;font-size:11px}
-    @media (max-width:560px){
-      .dgw{grid-template-columns:1fr;gap:8px;padding:9px}
-      .dg-card{padding:10px 11px 8px}
-      .dg-name{font-size:14px}
-    }
-  </style>`;
+  const css = _dgCss();
 
   const shown = debtPayMethodsShown();
 
@@ -877,30 +980,39 @@ function _renderDebtGrid(groups, rate, cols, pagerHtml) {
       const maxSom = isUsd ? Math.round(g.totalUsd * rate) : Math.round(g.totalUzs);
       return `<div class="dg-pay${isUsd?" usd":""}">
         <div class="dg-pay-h">${isUsd ? "💵 Dollar qarzi uchun" : "🇺🇿 So'm qarzi uchun"}</div>
-        ${debtPayMethodInputs(key, isUsd, null, maxSom)}
-        ${isUsd ? `<div style="display:flex;align-items:center;gap:6px;margin-top:5px">
-            <span style="font-size:11px;color:var(--mut);width:62px;flex-shrink:0">$ Dollor</span>
-            <input type="text" id="pay-usdbox-${key}" data-maxusd="${g.totalUsd}"
-              placeholder="0.00" oninput="qzUsdBoxToSom('${key}')"
-              style="font-family:inherit;font-size:12.5px;font-weight:700;color:#1B4F72;
-              border:1.5px solid #4C9BE8;border-radius:8px;padding:5px 7px;width:108px;outline:none">
-          </div>` : ""}
-        <div class="dg-pay-act">
-          ${shown.kassir !== false ? `<select id="gpay-staff-${key}"${_qarzStaffOpts().lock}
-            style="font-family:inherit;font-size:11px;border:1.5px solid var(--brd);border-radius:8px;padding:6px 4px">
-            ${_qarzStaffOpts().html}</select>` : ""}
-          <button class="btn btn-teal btn-sm" style="font-size:12px;white-space:nowrap"
-            onclick="recordGroupPayment('${ids}','${cur}','${gKey}')">To'lov</button>
+        <div class="dg-pay-row">
+          <div class="dg-pay-fields">
+            ${debtPayMethodInputs(key, isUsd, null, maxSom)}
+            ${isUsd ? `<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                <span style="font-size:11px;color:var(--mut);width:62px;flex-shrink:0">$ Dollor</span>
+                <input type="text" id="pay-usdbox-${key}" data-maxusd="${g.totalUsd}"
+                  placeholder="0.00" oninput="qzUsdBoxToSom('${key}')"
+                  style="font-family:inherit;font-size:12.5px;font-weight:700;color:#1B4F72;
+                  border:1.5px solid #4C9BE8;border-radius:8px;padding:5px 7px;width:108px;outline:none">
+              </div>` : ""}
+          </div>
+          <div class="dg-pay-act">
+            ${shown.kassir !== false ? `<select id="gpay-staff-${key}"${_qarzStaffOpts().lock}>
+              ${_qarzStaffOpts().html}</select>` : ""}
+            <button class="btn btn-teal btn-sm" style="font-size:12px;white-space:nowrap"
+              onclick="recordGroupPayment('${ids}','${cur}','${gKey}')">To'lov</button>
+          </div>
         </div>
       </div>`;
     };
 
     return `<div class="dg-card${anyOverdue?" over":""}">
-      <div class="dg-name" onclick="openCustPayHistory('${nameEsc}','${phoneEsc}')"
-        title="Bu mijozning barcha to'lovlari">${g.name}</div>
-      <div class="dg-sub">
-        ${cols.phone && hasPhone ? `<a href="tel:${g.phone}">${g.phone}</a>` : ""}
-        <span>${g.sales.length} ta sotuv</span>
+      <div class="dg-top">
+        <div style="min-width:0">
+          <div class="dg-name" onclick="openCustPayHistory('${nameEsc}','${phoneEsc}')"
+            title="Bu mijozning barcha to'lovlari">${g.name}</div>
+          <div class="dg-sub">
+            ${cols.phone && hasPhone ? `<a href="tel:${g.phone}">${g.phone}</a>` : ""}
+            <span>${g.sales.length} ta sotuv</span>
+          </div>
+        </div>
+        ${cols.status ? `<span class="bg ${anyOverdue?"bg-r":"bg-g"}" style="font-size:10.5px;margin-left:auto">
+          ${anyOverdue?"⚠️ Muddati o'tgan":"⏳ Kutilmoqda"}</span>` : ""}
       </div>
 
       <div class="dg-sums">
@@ -913,8 +1025,6 @@ function _renderDebtGrid(groups, rate, cols, pagerHtml) {
         ${(!g.totalUzs && !g.totalUsd) ? `<span style="color:#ccc">—</span>` : ""}
         <div class="dg-badges">
           ${cols.due ? `<span class="bg ${anyOverdue?"bg-r":"bg-a"}" style="font-size:10.5px">📅 ${nearestDue}</span>` : ""}
-          ${cols.status ? `<span class="bg ${anyOverdue?"bg-r":"bg-g"}" style="font-size:10.5px">
-            ${anyOverdue?"⚠️ Muddati o'tgan":"⏳ Kutilmoqda"}</span>` : ""}
         </div>
       </div>
 
