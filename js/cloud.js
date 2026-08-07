@@ -1158,7 +1158,9 @@ async function pushToCloud() {
     const syncErrors = [];
 
     try {
-      // products: sku bo'yicha upsert (id emas) — ikki marta conflict bo'lmasligi uchun
+      // products: sku bo'yicha upsert (id emas) — 2026-08-08 dan
+      // amalda ham shunday (avval bu izoh yolg'on edi: kod id
+      // ishlatardi, pastdagi 2026-08-08 izohiga qarang)
       // v173 (2026-07-10): BUTUN JSON MODELI — tovar bulutda TO'LIQ
       // nusxada ham saqlanadi ("data" ustuni). Rasmlar (image,
       // colorImages) ATAYLAB chiqarib tashlanadi — ular o'z alohida
@@ -1231,7 +1233,19 @@ async function pushToCloud() {
         // v176: delta — o'zgarmagan tovarlar (ayniqsa katta rasmlilari!)
         // endi qayta-qayta yuborilmaydi. Chunk 20 — rasm katta.
         // v180: o'zgargan tovarga vaqt muhri (lokalga HAM, data'ga HAM)
-        await _deltaUpsert("products", prodRows, 20, null, (row) => {
+        // ⚠️ 2026-08-08: KALIT id → (sku, shop_id) GA O'TKAZILDI.
+        // products jadvalida PRIMARY KEY (id) BUTUN BAZA bo'ylab
+        // yagona. Eski uslub id (id = SKU raqami) har do'konda bir
+        // xil sonlardan boshlanadi — ikki do'kon bitta id uchun
+        // kurashsa, keyin yuborgani oldingi do'kon yozuvini USTIDAN
+        // YOZIB o'ziga olib qo'yardi (o'chirish emas — tombstone ham,
+        // delete-tuzoq ham ko'rmaydi). Shoetest 12 tovar sirining
+        // me'moriy ildiz sinfi shu. UNIQUE (sku, shop_id) bazada
+        // allaqachon bor — endi upsert shu kalit bilan: har do'kon
+        // faqat O'Z qatorini yangilaydi. id to'qnashuvi endi jim
+        // o'g'irlik o'rniga ko'rinadigan xato beradi (sariq lenta) —
+        // bu ataylab: yashirin yo'qolishdan ochiq signal yaxshi.
+        await _deltaUpsert("products", prodRows, 20, "sku,shop_id", (row) => {
           const _t = new Date().toISOString();
           const lp = (db.products || []).find(x => String(x.sku) === String(row.sku));
           if (lp) lp.updatedAt = _t;
