@@ -37,12 +37,19 @@ async function sendGroupIdCard(chatId, added) {
   );
 }
 const SB_URL       = process.env.SUPABASE_URL;
-const SB_KEY       = process.env.SUPABASE_KEY;
-// ⚠️ 2026-08-04: SERVICE kaliti — FAQAT `/tizim` uchun.
-// Bot odatda anon kalit bilan ishlaydi (RLS qoidalari bo'yicha).
-// Lekin SuperAdmin moliyasi (`sa_income`, `sa_expense`) RLS bilan
-// TO'LIQ yopiq — anon uni o'qiy olmaydi. `/tizim` faqat OWNER_ID
-// uchun ishlaydi, shuning uchun bu xavfsiz.
+// ⚠️ 2026-08-07: BOT SERVICE KALITGA O'TDI (anon qoidalarni yopishga
+// tayyorgarlik, reja 1.1-bosqich). Avval barcha so'rovlar anon kalit
+// bilan ketardi — anon qoidalar o'chirilganda bot ko'r bo'lib qolardi.
+// Service kalit RLS'dan o'tadi, so'rovlar esa avvalgidek shop_id bilan
+// chegaralangan, ya'ni amaldagi huquq darajasi o'zgarmadi (ochiq
+// qoidalar paytida ham hamma narsa ko'rinar edi). Service kalit
+// sozlanmagan bo'lsa eski anon kalitga qaytadi — bot baribir ishlaydi.
+// Kalit hech qachon xabar yoki havola ichiga yozilmaydi (tekshirilgan:
+// barcha ishlatilishlar faqat Supabase so'rov sarlavhalarida).
+const SB_KEY       = process.env.SUPABASE_SERVICE_ROLE_KEY
+                  || process.env.SUPABASE_KEY;
+// SERVICE kaliti alohida nomda ham qoladi — /tizim va SuperAdmin
+// moliyasi (sa_income, sa_expense) shuni ishlatadi.
 const SB_SERVICE   = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const OWNER_ID     = process.env.BOT_OWNER_CHAT_ID;  // Superadmin chat ID
 const STAFF_GROUP  = process.env.STAFF_GROUP_ID;
