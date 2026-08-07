@@ -1722,13 +1722,19 @@ async function actionSendStaffNotification(body) {
   const custName  = sale.customerName  || sale.customer_name  || "";
   const custPhone = sale.customerPhone || sale.customer_phone || "";
 
-  // SODDALASHTIRILGAN: omborchiga pul/qarz ma'lumoti kerak emas —
+  // SODDALASHTIRILGAN: omborchiga to'lov/qarz TAFSILOTI kerak emas —
   // faqat mijoz va tovar tafsilotlari (nima yig'ish kerakligi) muhim.
+  // ⚠️ 2026-08-07: do'kon talabi bilan BITTA istisno — yakuniy JAMI
+  // summa ko'rsatiladi. sale.total ilovada chegirmadan KEYINGI,
+  // mijoz to'lashi kerak bo'lgan oxirgi qiymat (pos.js: total =
+  // subtotal - discount). To'langan/qarz kabi boshqa pul
+  // ma'lumotlari avvalgidek yozilmaydi.
   let txt = `🆕 <b>YANGI BUYURTMA</b>  <code>${chekId}</code>\n`;
   txt += `📅 ${sale.date || ""} ${sale.time || ""}\n`;
   if (custName)  txt += `\n👤 <b>${custName}</b>`;
   if (custPhone) txt += `  📞 ${custPhone}`;
   txt += `\n`;
+  if (total > 0) txt += `💰 <b>Jami: ${fmt(total)} so'm</b>\n`;
 
   const totalBoxesTxt = items.reduce((a, it) => a + (it.qtyBox || 0), 0);
   const totalDonaTxt  = items.reduce((a, it) => a + (it.qty || 0), 0);
