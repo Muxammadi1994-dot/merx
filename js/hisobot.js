@@ -299,8 +299,12 @@ function renderRepProducts(sales, totalRev) {
   const el = $("rep-products"); if (!el) return;
   const prods = {};
   sales.forEach(s => s.items?.forEach(i => {
-    if (!prods[i.name]) prods[i.name] = { qty:0, total:0 };
+    if (!prods[i.name]) prods[i.name] = { qty:0, box:0, total:0 };
     prods[i.name].qty   += i.qty || 0;
+    // 2026-08-07: pochka soni ham yig'iladi (do'kon talabi) — SONI
+    // ustunida "X pochka · Y dona" chiqishi uchun. Dona raqami jami
+    // donalar (pochka ichidagilar ham kiradi) — avvalgi ma'no saqlanadi.
+    prods[i.name].box   += i.qtyBox || 0;
     prods[i.name].total += (i.price||0) * (i.qty||0);
   }));
 
@@ -316,7 +320,7 @@ function renderRepProducts(sales, totalRev) {
           <span style="font-weight:600;font-size:13px">${name}</span>
         </div>
       </td>
-      <td class="num">${d.qty} ta</td>
+      <td class="num">${d.box > 0 ? `${d.box} pochka · ${d.qty} dona` : `${d.qty} ta`}</td>
       <td class="num" style="font-weight:700;color:var(--acc)">${fmtK(d.total)} so'm</td>
       <td class="num">
         <div style="display:flex;align-items:center;gap:6px">
