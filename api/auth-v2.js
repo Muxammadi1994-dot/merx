@@ -122,7 +122,11 @@ module.exports = async function handler(req, res) {
     // 2026-08-03: SuperAdmin moliyasi — shaxsiy hisob
     "sa_finance",
     // 2026-08-03: parolni o'zgartirish — joriy parol bilan
-    "change_sa_pass"];
+    "change_sa_pass",
+    // 2026-08-07: SA do'konga kirganda unga token beruvchi amal
+    // (reja 1.2). SA parolisiz chaqirib BO'LMAYDI — aks holda har
+    // kim istalgan do'kon tokenini olardi.
+    "sa_shop_session"];
   if (SA_ACTIONS.includes(action)) {
     // MUHIM: SA_PASS bo'sh bo'lsa HAM rad etiladi — aks holda bo'sh
     // parol bilan kirish mumkin bo'lib qolardi.
@@ -1029,6 +1033,102 @@ module.exports = async function handler(req, res) {
           maxDiscount:  d.maxDiscount || 0
         }
       });
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // ⚠️ 2026-08-07: SUPERADMIN DO'KON SESSIYASI (reja 1.2)
+    // ══════════════════════════════════════════════════════════
+    // Muammo (kontekst §8.3-1): SA do'konga kirganda brauzerda shu
+    // do'kon uchun haqiqiy Auth sessiyasi bo'lmasdi — bazadagi
+    // shop_isolation_* qoidalari uchun bu "begona" yoki "hech kim"
+    // degani. staff kabi yopiq jadvalga yozib bo'lmasdi, anon
+    // qoidalar yopilgach esa hamma yozuv to'xtardi.
+    // Yechim staff_login bilan BIR XIL naqsh: har do'kon uchun
+    // texnik hisob (sa.<shop_id>@merx.local). Parol serverda server
+    // sirlaridan hosil qilinadi va brauzerga HECH QACHON bormaydi —
+    // faqat tayyor token qaytadi. Do'kon egasining hisobi va
+    // paroliga TEGILMAYDI. Darvoza: SA_ACTIONS — SA paroli majburiy.
+    if (action === "sa_shop_session") {
+      const shopId = String(body.shopId || "").trim();
+      if (!shopId)
+        return res.status(400).json({ ok: false, error: "shopId majburiy" });
+
+      // Do'kon haqiqatan mavjudligini tekshiramiz
+      const shr = await fetch(
+        `${SB_URL}/rest/v1/shops?select=id&id=eq.${encodeURIComponent(shopId)}&limit=1`,
+        { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+      const shd = shr.ok ? await shr.json() : [];
+      if (!Array.isArray(shd) || !shd[0])
+        return res.status(404).json({ ok: false, error: "Do'kon topilmadi" });
+
+      try {
+        const _crypto = require("crypto");
+        const _mail = `sa.${shopId}@merx.local`;
+        // Parol — server sirlaridan barqaror xesh. Sir o'zgarsa parol
+        // ham o'zgaradi, lekin quyida hisob paroli har safar
+        // yangilanadi — tizim o'z-o'zini davolaydi.
+        const _pass = _crypto.createHash("sha256")
+          .update(`merx.sa.${shopId}.${SA_PASS || ""}.${SERVICE_KEY}`)
+          .digest("hex").slice(0, 24);
+        const _meta = { shop_id: shopId, name: "SuperAdmin", sa: true };
+
+        // 1) Texnik hisob bormi (staff_login bilan bir xil usul)
+        const _fr = await fetch(`${SB_URL}/auth/v1/admin/users?page=1&per_page=1000`,
+          { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+        const _fd = _fr.ok ? await _fr.json() : {};
+        const _u = (_fd?.users || []).find(u => u.email?.toLowerCase() === _mail);
+
+        if (!_u) {
+          // 1a) Yo'q — yaratamiz
+          await fetch(`${SB_URL}/auth/v1/admin/users`, {
+            method: "POST",
+            headers: {
+              apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              email: _mail, password: _pass, email_confirm: true,
+              user_metadata: _meta
+            })
+          });
+        } else {
+          // 1b) Bor — parol va metama'lumot yangilanadi
+          await fetch(`${SB_URL}/auth/v1/admin/users/${_u.id}`, {
+            method: "PUT",
+            headers: {
+              apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ password: _pass, user_metadata: _meta })
+          });
+        }
+
+        // 2) Sessiya olamiz
+        const ANON = process.env.SUPABASE_KEY || "";
+        const _lr = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+          method: "POST",
+          headers: { apikey: ANON, "Content-Type": "application/json" },
+          body: JSON.stringify({ email: _mail, password: _pass })
+        });
+        if (!_lr.ok) {
+          const _le = await _lr.json().catch(() => ({}));
+          return res.status(200).json({ ok: false,
+            error: "Sessiya olinmadi: " + (_le.error_description || _lr.status) });
+        }
+        const _sd = await _lr.json();
+        return res.status(200).json({
+          ok: true,
+          session: {
+            accessToken:  _sd.access_token,
+            refreshToken: _sd.refresh_token,
+            expiresAt:    Date.now() + (Number(_sd.expires_in || 3600) * 1000),
+            email:        _mail,
+            shopId
+          }
+        });
+      } catch (e) {
+        return res.status(200).json({ ok: false, error: "Auth: " + e.message });
+      }
     }
 
     // ══════════════════════════════════════════════════════════

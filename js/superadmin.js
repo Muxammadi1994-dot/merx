@@ -47,8 +47,28 @@ function saSave() {
   sessionStorage.setItem(SA_TS_KEY, _t);
 }
 
+// ⚠️ 2026-08-07: SA CHIQISHIDA SESSIYANI TIKLASH (reja 1.2).
+// saOpenShop do'kon uchun TEXNIK token qo'yadi (quyida). Chiqishda
+// asl sessiya qaytariladi — aks holda asosiy do'kon begona do'kon
+// tokeni bilan qolib, bazadagi shop_isolation_* qoidalariga mos
+// kelmay qolardi. Zaxira bo'lmasa-yu joriy sessiya texnik bo'lsa —
+// shunchaki o'chiriladi.
+function _saRestoreSbSession() {
+  try {
+    const orig = localStorage.getItem("merx_sb_session_sa_orig");
+    if (orig) {
+      localStorage.setItem("merx_sb_session", orig);
+      localStorage.removeItem("merx_sb_session_sa_orig");
+      return;
+    }
+    const cur = JSON.parse(localStorage.getItem("merx_sb_session") || "null");
+    if (cur && cur.saShopSession) localStorage.removeItem("merx_sb_session");
+  } catch(e) {}
+}
+
 async function saLogout() {
   await _saFlushSync();
+  _saRestoreSbSession();
   _saSession = null;
   // 2026-07-26: ikkala saqlash joyi ham tozalanadi
   [SA_KEY, SA_TS_KEY, "merx_sa_pass"].forEach(k => {
@@ -1761,6 +1781,34 @@ async function saOpenShop(id) {
   // chiqishdagi bilan bir xil xato.
   await _saFlushSync();
 
+  // ⚠️ 2026-08-07: DO'KON UCHUN HAQIQIY AUTH SESSIYASI (reja 1.2).
+  // Avval SA do'konga kirganda eski token joyida qolardi (yoki umuman
+  // bo'lmasdi) — bazadagi shop_isolation_* qoidalari uchun bu "begona"
+  // yoki "hech kim" degani: staff kabi yopiq jadvalga yozib bo'lmasdi
+  // ("new row violates row-level security" xatosi), anon qoidalar
+  // yopilgach esa hamma yozuv to'xtardi. Endi server texnik hisob
+  // orqali shu do'konning O'Z tokenini beradi. Avvalgi sessiya
+  // zaxiraga olinadi va qaytishda tiklanadi (_saRestoreSbSession).
+  // Server javob bermasa — eski usulda davom etadi, kirish TO'XTAMAYDI.
+  try {
+    const sr = await _saApi("sa_shop_session", { shopId: id });
+    if (sr && sr.ok && sr.session && sr.session.accessToken) {
+      sr.session.saShopSession = true; // texnik sessiya belgisi
+      const old = localStorage.getItem("merx_sb_session");
+      let oldTech = false;
+      try { oldTech = !!JSON.parse(old || "null")?.saShopSession; } catch(e) {}
+      // Faqat HAQIQIY (texnik bo'lmagan) sessiya zaxiralanadi va mavjud
+      // zaxira ustidan yozilmaydi — do'kondan do'konga o'tilganda asl
+      // sessiya yo'qolmasin
+      if (old && !oldTech && !localStorage.getItem("merx_sb_session_sa_orig"))
+        localStorage.setItem("merx_sb_session_sa_orig", old);
+      localStorage.setItem("merx_sb_session", JSON.stringify(sr.session));
+      console.log("✅ SA: do'kon uchun token olindi — RLS mos ishlaydi");
+    } else {
+      console.warn("⚠️ SA: do'kon sessiyasi olinmadi:", sr && sr.error);
+    }
+  } catch(e) { console.warn("⚠️ SA sessiya:", e.message); }
+
   try {
     sessionStorage.setItem("merx_sa_entering", "1");
     // ⚠️ 2026-08-03: QAYTISH LENTASI UCHUN BELGI.
@@ -2694,6 +2742,7 @@ function saSwitchToShop(shopId) { saOpenShop(shopId); }
 // ── SA ko'rish banneri ────────────────────────────
 async function saReturnToMainShop() {
   await _saFlushSync();
+  _saRestoreSbSession();  // 2026-08-07: texnik token o'rniga asl sessiya (reja 1.2)
   const prevKey = sessionStorage.getItem("merx_prev_shop") || "merx_v5";
   sessionStorage.setItem("merx_active_shop", prevKey);
   sessionStorage.removeItem("merx_is_sa_view");
@@ -2983,6 +3032,7 @@ function showSubscriptionWall(reason, shop) {
 
 async function saWallLogout() {
   await _saFlushSync();
+  _saRestoreSbSession();  // 2026-08-07: texnik token o'rniga asl sessiya (reja 1.2)
   const prevKey = sessionStorage.getItem("merx_prev_shop");
   if (prevKey) {
     sessionStorage.setItem("merx_active_shop", prevKey);
