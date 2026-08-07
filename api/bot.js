@@ -321,6 +321,27 @@ async function sb(table, query = "") {
   return res.json();
 }
 
+// ⚠️ 2026-08-07: 1000 QATOR CHEGARASI YOPILDI (kontekst §4.4, №9).
+// Supabase bitta so'rovga ko'pi bilan 1000 qator qaytaradi va
+// ortig'ini JIMGINA kesadi — limit=20000 yozilsa ham. Shu sabab
+// /oylik va /barcha_qarzlar katta do'konda KAM ko'rsatishi mumkin
+// edi. auth-v2.js dagi sbFetchAll bilan bir xil usul: sahifalab
+// yig'iladi. 20 sahifa (20 000 qator) — xavfsizlik shifti; unga
+// yetish amalda deyarli mumkin emas, yetilsa capped=true qaytadi.
+async function sbAll(table, query = "") {
+  const PAGE = 1000, MAX_PAGE = 20;
+  const out = [];
+  let capped = false;
+  for (let page = 0; page < MAX_PAGE; page++) {
+    const sep = query.includes("?") ? "&" : "?";
+    const rows = await sb(table, `${query}${sep}limit=${PAGE}&offset=${page * PAGE}`);
+    out.push(...rows);
+    if (rows.length < PAGE) return { rows: out, capped };
+    if (page === MAX_PAGE - 1) capped = true;
+  }
+  return { rows: out, capped };
+}
+
 // Supabase PATCH (yozuvni yangilash)
 async function sbPatch(table, query, body) {
   const url = `${SB_URL}/rest/v1/${table}${query}`;
@@ -957,9 +978,10 @@ async function cmdHisobot(chatId) {
     }
 
         const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
+    // 2026-08-07: sahifalab olinadi — 1000 qator chegarasi (§4.4, №9)
     const [sales, xarajat] = await Promise.all([
-      sb("sales", `?date=eq.${t}&status=neq.bekor&order=created_at.desc${sidFilter}`),
-      sb("xarajatlar", `?date=eq.${t}${sidFilter}`),
+      sbAll("sales", `?date=eq.${t}&status=neq.bekor&order=created_at.desc${sidFilter}`).then(r => r.rows),
+      sbAll("xarajatlar", `?date=eq.${t}${sidFilter}`).then(r => r.rows),
     ]);
 
     if (!sales.length) {
@@ -1192,7 +1214,8 @@ async function cmdQarzlar(chatId, barcha = false) {
       ? `?remaining=gt.0&status=neq.bekor&order=due${sidFilter}`
       : `?remaining=gt.0&status=neq.bekor&due=lt.${t}&order=due${sidFilter}`;
 
-    const debts = await sb("sales", query);
+    // 2026-08-07: sahifalab olinadi — 1000 qator chegarasi (§4.4, №9)
+    const debts = await sbAll("sales", query).then(r => r.rows);
 
     if (!debts.length) {
       const msg = barcha ? "✅ Hozirda hech qanday qarz yo'q" : "✅ Muddati o'tgan qarz yo'q";
@@ -2525,9 +2548,12 @@ async function cmdOylikStat(chatId) {
   const m = thisMonth();
 
     const [sales, xarajat] = await Promise.all([
-      sb("sales", `?date=gte.${m}-01&status=neq.bekor&order=date.asc${sidFilter}`),
-      sb("xarajatlar", `?date=gte.${m}-01${sidFilter}`),
+      sbAll("sales", `?date=gte.${m}-01&status=neq.bekor&order=date.asc${sidFilter}`).then(r => r.rows),
+      sbAll("xarajatlar", `?date=gte.${m}-01${sidFilter}`).then(r => r.rows),
     ]);
+    // 2026-08-07: yuqorida sahifalab olindi — avval bitta so'rov 1000
+    // qatordan keyin JIMGINA kesardi va oylik raqam kam chiqishi
+    // mumkin edi (§4.4, №9)
 
     // ⚠️ 2026-08-04: SUPERADMIN UCHUN SARLAVHA ANIQ BO'LSIN.
     // Avval `MERX — Bugungi savdo` deb yozilardi va bu bitta
