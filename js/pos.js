@@ -232,10 +232,63 @@ function processBarcode(code) {
 // ── Kamera barcode scanner ───────────────────────
 let _camStream = null, _camInterval = null, _barcodeDetector = null;
 
-async function openBarcodeCamera() {
-  if (!("BarcodeDetector" in window)) {
-    toast("Chrome 83+ kerak yoki USB skaner ishlating","err"); return;
+// ⚠️ 2026-08-08: iPhone/iPad UCHUN ZAXIRA O'QIGICH.
+// Sabab: kamera bilan skanerlash `BarcodeDetector` API'siga tayanadi,
+// u esa faqat Chrome/Android'da bor. iOS'da BARCHA brauzerlar (Safari,
+// "Chrome for iOS" ham) WebKit ustida ishlaydi va bu API yo'q —
+// shuning uchun iPhone'da "Chrome 83+ kerak" xabari chiqardi.
+// Yechim: API bo'lmasa ZXing kutubxonasi bir marta yuklab olinadi va
+// o'qish shu bilan qilinadi. Kutubxona yuklanmasa (internet yo'q) —
+// avvalgi xabar chiqadi, ya'ni holat yomonlashmaydi.
+const _ZXING_SRC = [
+  "https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js",
+  "https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"
+];
+let _zxReader = null;
+
+function _loadZxing() {
+  if (window.ZXing || window.ZXingBrowser) return Promise.resolve(true);
+  return new Promise(resolve => {
+    let i = 0;
+    const tryNext = () => {
+      if (i >= _ZXING_SRC.length) return resolve(false);
+      const sc = document.createElement("script");
+      sc.src = _ZXING_SRC[i++];
+      sc.onload  = () => resolve(!!(window.ZXing || window.ZXingBrowser));
+      sc.onerror = () => { sc.remove(); tryNext(); };
+      document.head.appendChild(sc);
+    };
+    tryNext();
+  });
+}
+
+// iOS yo'li: ZXing videodan uzluksiz o'qiydi
+async function _openBarcodeCameraZxing() {
+  const ok = await _loadZxing();
+  if (!ok) {
+    toast("Skaner kutubxonasi yuklanmadi — internetni tekshiring yoki USB skaner ishlating", "err");
+    return;
   }
+  try {
+    const Z = window.ZXing || window.ZXingBrowser;
+    _zxReader = new Z.BrowserMultiFormatReader();
+    openModal("barcode-cam");
+    const vid = $("barcode-video");
+    await _zxReader.decodeFromVideoDevice(undefined, vid, (result) => {
+      if (result && result.getText) {
+        const code = result.getText();
+        closeBarcodeCamera();
+        processBarcode(code);
+      }
+    });
+  } catch (e) {
+    toast("Kamera ochib bo'lmadi: " + (e.message || e), "err");
+    try { closeBarcodeCamera(); } catch(_) {}
+  }
+}
+
+async function openBarcodeCamera() {
+  if (!("BarcodeDetector" in window)) return _openBarcodeCameraZxing();
   try {
     _barcodeDetector = new BarcodeDetector({
       formats: ["ean_13","ean_8","code_128","code_39","qr_code","upc_a","upc_e","itf"]
@@ -262,6 +315,9 @@ async function openBarcodeCamera() {
 function closeBarcodeCamera() {
   clearInterval(_camInterval);
   if (_camStream) { _camStream.getTracks().forEach(t => t.stop()); _camStream = null; }
+  // iOS zaxira o'qigichini ham to'xtatamiz — aks holda kamera yoniq qolib
+  // batareyani yeydi
+  try { if (_zxReader) { _zxReader.reset(); _zxReader = null; } } catch(e) {}
   closeModal("barcode-cam");
 }
 
