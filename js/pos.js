@@ -136,6 +136,37 @@ function processBarcode(code) {
       if (p) matchedBy = "umumiy barcode (p.barcode)";
     }
 
+    // ── 2b) BOSH NOLLARNI TENGLASHTIRIB QAYTA QIDIRAMIZ (2026-08-08) ──
+    // Sabab: MERX yasagan kodlar 13 xonali va NOLLAR bilan boshlanadi
+    // (masalan 0000011128717). Ko'p skanerlar — kamera o'qigichi ham,
+    // ba'zi USB pistoletlar ham — bosh nollarni tashlab, qisqartirilgan
+    // ko'rinishda uzatadi (11128717). Aynan tenglik bilan solishtirish
+    // esa buni topa olmasdi: "qayta tuting" chiqib, kod qidiruv qatoriga
+    // yozilib qolardi (iPhone'da jonli ko'rildi).
+    // Endi aniq moslik topilmasa — nollarsiz ko'rinishda qayta qidiriladi.
+    // ⚠️ Faqat ZAXIRA yo'l: to'g'ri kod topilsa bu yergacha yetib
+    // kelinmaydi, ya'ni mavjud xatti-harakat o'zgarmaydi.
+    if (!p) {
+      const _nz = v => String(v == null ? "" : v).trim().replace(/^0+/, "");
+      const qn = _nz(q);
+      if (qn) {
+        for (const prod of db.products) {
+          if (prod.colorBarcodes) {
+            for (const [clr, bc] of Object.entries(prod.colorBarcodes)) {
+              if (bc && _nz(bc).toLowerCase() === qn) {
+                p = prod; foundColor = clr; matchedBy = "rang kodi (bosh nollarsiz)"; break;
+              }
+            }
+          }
+          if (p) break;
+        }
+        if (!p) {
+          p = db.products.find(x => x.barcode && _nz(x.barcode).toLowerCase() === qn);
+          if (p) matchedBy = "umumiy barcode (bosh nollarsiz)";
+        }
+      }
+    }
+
     // ── 3) Rangni aniqlashga urinamiz (2026-07-30) ──
     // Tovar darajasidagi kod QAYSI RANG ekanini aytmaydi. Avval shu
     // holatda savatga umuman qo'shilmasdi va hech qanday izoh ham
