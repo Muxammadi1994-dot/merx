@@ -630,6 +630,11 @@ function openSaleDetail(id) {
   const refBtn = $("sd-refund-btn");
   if (refBtn) refBtn.style.display = s.status !== "qaytarilgan" ? "inline-flex" : "none";
 
+  // ⚠️ 2026-08-08: "Bulutga" tugmasi majburiy sinxron kalitiga bog'langan
+  // (§5.8). Oyna ochilganda holatni qayta qo'llaymiz — SA yaqinda ochgan
+  // bo'lsa darhol ko'rinsin, yopgan bo'lsa darhol yo'qolsin.
+  try { if (typeof applySyncToolsLock === "function") applySyncToolsLock(); } catch(e) {}
+
   // Qarz to'lash endi faqat Qarzlar sahifasidan amalga oshiriladi —
   // sotuv chekining o'zi (sd-pay-block) bu yerda o'zgartirilmaydi.
   // Faqat shu sotuvda hali yopilmagan qarz bor-yo'qligini ko'rsatamiz.

@@ -4119,7 +4119,12 @@
     </div>
     <div style="padding:12px 20px;border-top:1px solid var(--brd);display:flex;gap:8px">
       <button onclick="printSaleDetail()" class="btn btn-sm" style="flex:1"><i class="ti ti-printer"></i> Chek</button>
-      <button id="sd-push-btn" onclick="saleForcePush()" class="btn btn-sm" style="flex:1"><i class="ti ti-cloud-up"></i> Bulutga</button>
+      <!-- ⚠️ 2026-08-08: "Bulutga" ham majburiy sinxron tugmalari bilan
+           BIR SINFDA — u ham chekni bulutga majburan bosadi (ataylab
+           yangi vaqt muhri qo'yadi va qo'riqchidan o'tadi). Shuning
+           uchun ular bilan BIRGA ochiladi/yopiladi (`data-sync-tool`).
+           Kunlik ishda kerak emas: chek o'zi bulutga ketadi. -->
+      <button id="sd-push-btn" data-sync-tool onclick="saleForcePush()" class="btn btn-sm" style="flex:1;display:none"><i class="ti ti-cloud-up"></i> Bulutga</button>
       <button id="sd-refund-btn" onclick="openRefundModal()" class="btn btn-sm" style="flex:1;color:var(--red)"><i class="ti ti-arrow-back"></i> Qaytarish</button>
     </div>
   </div>
@@ -4933,7 +4938,7 @@
 <script src="js/ombor.js?v=176"></script>
 <script src="js/mijozlar.js?v=165"></script>
 <script src="js/qarzlar.js?v=206"></script>
-<script src="js/tarix.js?v=180"></script>
+<script src="js/tarix.js?v=181"></script>
 <script src="js/hisobot.js?v=152"></script>
 <script src="js/xodimlar.js?v=157"></script>
 <script src="js/moliya.js?v=174"></script>
@@ -5231,7 +5236,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 314;
+  window.SW_V = 315;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5254,7 +5259,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=314")
+    navigator.serviceWorker.register("/sw.js?v=315")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
