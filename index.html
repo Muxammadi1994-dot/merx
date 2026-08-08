@@ -1170,7 +1170,7 @@
       </div>
       <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="kat-q" placeholder="Qidirish, ART, SKU, barcode..."
+        <input autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" class="srch-inp" id="kat-q" placeholder="Qidirish, ART, SKU, barcode..."
             onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" oninput="renderKatalog()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
       </div>
       </div>
@@ -1311,7 +1311,7 @@
     </div>
       <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch()"
+        <input autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" class="srch-inp" id="om-q" placeholder="Qidirish, barcode..." oninput="omSearch()"
           onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
       </div>
       </div>
@@ -1499,7 +1499,7 @@
       </div>
       <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
+        <input autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" class="srch-inp" id="cust-q" placeholder="Ism, telefon, kompaniya..." oninput="mjResetLimit();renderMijozlar()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
       </div>
       </div>
       <!-- Filtr qatori -->
@@ -1732,7 +1732,7 @@
       </div>
       <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="debt-q" placeholder="Mijoz, telefon qidirish..." oninput="renderDebts()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
+        <input autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" class="srch-inp" id="debt-q" placeholder="Mijoz, telefon qidirish..." oninput="renderDebts()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
       </div>
       </div>
       <!-- Mijoz topilmadi xabari (faqat guruhlangan rejimda kerak bo'lganda) -->
@@ -1797,7 +1797,7 @@
       </div>
       <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="qt-q" placeholder="Mijoz, chek raqami qidirish..." oninput="renderQarzlarTarixi()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
+        <input autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" class="srch-inp" id="qt-q" placeholder="Mijoz, chek raqami qidirish..." oninput="renderQarzlarTarixi()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
       </div>
       </div>
       <div id="qt-status-bar" style="display:flex;gap:6px;padding:0 18px 14px;flex-wrap:wrap">
@@ -1993,7 +1993,7 @@
       <div style="padding:0 18px 10px">
         <div style="position:relative">
           <i class="ti ti-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:#bbb;pointer-events:none"></i>
-          <input class="srch-inp" id="tarix-q" type="text" placeholder="Mijoz ismi, chek raqami, tovar nomi, telefon..."
+          <input autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" class="srch-inp" id="tarix-q" type="text" placeholder="Mijoz ismi, chek raqami, tovar nomi, telefon..."
             oninput="renderTarix()"
             style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none;padding-left:34px">
           <button id="tarix-q-clr" class="srch-clr" onclick="$('tarix-q').value='';renderTarix();this.style.display='none'"
@@ -2475,7 +2475,7 @@
       </div>
       <div class="srch-row" style="width:100%;box-sizing:border-box">
         <div style="position:relative">
-        <input class="srch-inp" id="exp-q" placeholder="Qidirish..." oninput="renderMoliya()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
+        <input autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" class="srch-inp" id="exp-q" placeholder="Qidirish..." oninput="renderMoliya()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
       </div>
       </div>
 
@@ -5155,10 +5155,51 @@ if ("serviceWorker" in navigator) {
   // versiyada ishlayotgan kassa DARROV ko'rinadi.
   // ⚠️ §2 GA QO'SHIMCHA: har push'da bu raqam ham sw.js?v= bilan
   //    BIR XIL bo'lishi shart.
-  window.SW_V = 298;
+  // ⚠️ 2026-08-08: BRAUZER AVTO-TO'LDIRISHIDAN HIMOYA (do'kon talabi).
+  // Muammo: foydalanuvchi kirish oynasida "parolni saqlash"ni bossa,
+  // brauzer keyin ilova ICHIDAGI maydonlarga ham (katalog qidiruvi,
+  // mijoz ismi, summa...) o'sha email/parolni taklif qiladi va sahifa
+  // yangilanganda AVTOMAT yozib qo'yadi — katalogda "shoetest@merx.uz"
+  // qidirilib, "topilmadi" chiqadi. Bu brauzer nosozligi EMAS: 167
+  // maydondan faqat 13 tasida himoya bor edi.
+  // Yechim: kirish oynasidagi email/parol maydonlaridan BOSHQA hamma
+  // maydonga himoya atributlari qo'yiladi (saqlash taklifi kirish
+  // oynasida avvalgidek ishlayveradi). Yangi maydonlar ham avtomat
+  // qamrab olinadi — shuning uchun bu global qoida sifatida yozilgan.
+  (function _noAutofill() {
+    const SKIP = ["auth-email", "auth-pass", "auth-staff-pass", "sa-pass"];
+    function harden(root) {
+      try {
+        (root || document).querySelectorAll("input, textarea").forEach(el => {
+          if (SKIP.includes(el.id)) return;
+          const t = (el.type || "").toLowerCase();
+          if (t === "hidden" || t === "checkbox" || t === "radio" ||
+              t === "file" || t === "color" || t === "password") return;
+          el.setAttribute("autocomplete", "off");
+          el.setAttribute("data-lpignore", "true");   // LastPass
+          el.setAttribute("data-1p-ignore", "true");  // 1Password
+          el.setAttribute("data-form-type", "other"); // Dashlane
+        });
+      } catch (e) {}
+    }
+    // 1) Sahifa tayyor bo'lganda
+    if (document.readyState === "loading")
+      document.addEventListener("DOMContentLoaded", () => harden());
+    else harden();
+    // 2) Keyin qo'shilgan maydonlar uchun ham (modallar, ro'yxatlar)
+    try {
+      new MutationObserver(muts => {
+        for (const m of muts)
+          for (const n of m.addedNodes)
+            if (n.nodeType === 1) harden(n.querySelector ? n : null);
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    } catch (e) {}
+  })();
+
+  window.SW_V = 299;
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=298")
+    navigator.serviceWorker.register("/sw.js?v=299")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
