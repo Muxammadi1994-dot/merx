@@ -2811,7 +2811,7 @@ async function saRestoreBackup(backupId, onProgress) {
 
   const report = [];
   for (const { t, arr, map } of tables) {
-    const rows = arr.map(x => { try { return map(x, sid); } catch(e) { return null; } }).filter(Boolean);
+    const rows = arr.map(x => { try { return _bkEnsureId(map(x, sid)); } catch(e) { return null; } }).filter(Boolean);
     const line = { table:t, deleted:0, inserted:0 };
 
     // Yozuv yo'q — faqat eski qatorlarni tozalaymiz
@@ -2888,20 +2888,37 @@ function _bkFixKeys(o) {
   return out;
 }
 
+// ⚠️ 2026-08-08: `id` USTUNI — MAJBURIY (jonli holatda topildi).
+// Zaxira map'lari `id` ni umuman bermasdi, jadvallarda esa u NOT NULL —
+// natijada tiklash BIRINCHI qatordayoq to'xtardi:
+//   23502 "Failing row contains (null, shop_..., SHOE-4318, ...)"
+// Ya'ni tiklash funksiyasi amalda hech qachon ishlamagan bo'lishi
+// mumkin. Endi har map `id` ni beradi (u zaxirada `data` ichida
+// saqlangan). Eski yozuvlarda `id` bo'lmasa — quyidagi qo'riqchi
+// vaqt muhridan yangi id yasaydi, tiklash to'xtamaydi.
+function _bkEnsureId(row) {
+  if (row && (row.id === null || row.id === undefined)) {
+    row.id = (typeof nextId === "function")
+      ? nextId()
+      : Math.floor(Date.now() / 1000) * 1000 + Math.floor(Math.random() * 675);
+  }
+  return row;
+}
+
 // Zaxira JSON'ini Supabase ustunlariga o'giruvchi yordamchilar (data jsonb ham saqlanadi)
 function _bkMapProduct(p, sid) {
-  return _bkFixKeys({ shop_id:sid, sku:p.sku, name:p.name, category:p.category, type:p.type,
+  return _bkFixKeys({ id:p.id, shop_id:sid, sku:p.sku, name:p.name, category:p.category, type:p.type,
     unit:p.unit, in_box:p.inBox, barcode:p.barcode, cost_usd:p.costUsd,
     price_uzs:p.priceUzs, ulgurji:p.ulgurjiNarx, variants:p.variants,
     art:p.art, color_barcodes:p.colorBarcodes, pantone:p.pantone,
     color_name:p.colorName, hex:p.hex, pack_unit:p.packUnit, data:p });
 }
 function _bkMapCustomer(c, sid) {
-  return _bkFixKeys({ shop_id:sid, name:c.name, phone:c.phone, type:c.type, note:c.note,
+  return _bkFixKeys({ id:c.id, shop_id:sid, name:c.name, phone:c.phone, type:c.type, note:c.note,
     balance_uzs:c.balanceUzs, balance_usd:c.balanceUsd, data:c });
 }
 function _bkMapSale(s, sid) {
-  return _bkFixKeys({ shop_id:sid, chek_num:s.chekNum, date:s.date, time:s.time,
+  return _bkFixKeys({ id:s.id, shop_id:sid, chek_num:s.chekNum, date:s.date, time:s.time,
     price_type:s.priceType, pay_type:s.payType, pay_breakdown:s.payBreakdown,
     staff_id:s.staffId, customer_id:s.customerId, items:s.items,
     subtotal:s.subtotal, discount:s.discount, total:s.total, paid:s.paid,
@@ -2909,20 +2926,20 @@ function _bkMapSale(s, sid) {
     status:s.status, debt_currency:s.debtCurrency, debt_usd:s.debtUsd, note:s.note, data:s });
 }
 function _bkMapDebtPay(p, sid) {
-  return _bkFixKeys({ shop_id:sid, customer_id:p.customerId, sale_id:p.saleId, amount:p.amount,
+  return _bkFixKeys({ id:p.id, shop_id:sid, customer_id:p.customerId, sale_id:p.saleId, amount:p.amount,
     currency:p.currency, method:p.method, date:p.date, data:p });
 }
 function _bkMapOmbor(o, sid) {
-  return _bkFixKeys({ shop_id:sid, date:o.date, sku:o.sku, product_name:o.productName,
+  return _bkFixKeys({ id:o.id, shop_id:sid, date:o.date, sku:o.sku, product_name:o.productName,
     unit:o.unit, color:o.color, size:o.size, qty:o.qty, boxes:o.boxes,
     kirim_narxi:o.kirimNarxi, supplier:o.supplier, partiya:o.partiya, data:o });
 }
 function _bkMapXarajat(x, sid) {
-  return _bkFixKeys({ shop_id:sid, date:x.date, amount:x.amount, category:x.category,
+  return _bkFixKeys({ id:x.id, shop_id:sid, date:x.date, amount:x.amount, category:x.category,
     note:x.note, method:x.method, data:x });
 }
 function _bkMapStaff(s, sid) {
-  return _bkFixKeys({ shop_id:sid, name:s.name, phone:s.phone, role:s.role, data:s });
+  return _bkFixKeys({ id:s.id, shop_id:sid, name:s.name, phone:s.phone, role:s.role, data:s });
 }
 
 // ═══════════════════════════════════════════════════════════════
