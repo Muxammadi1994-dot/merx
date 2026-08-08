@@ -2869,41 +2869,60 @@ async function saRestoreBackup(backupId, onProgress) {
   return { ok:true, shop_id:sid, date:bk.date, records:inserted, tables:report, tombOk };
 }
 
+// ⚠️ 2026-08-08: PGRST102 "All object keys must match" TUZATISHI.
+// PostgREST bitta partiyadagi HAMMA qator AYNAN bir xil ustunlar
+// to'plamiga ega bo'lishini talab qiladi. Quyidagi map'lar esa
+// `p.pantone`, `p.hex` kabi maydonlarni oladi — ba'zi yozuvlarda
+// ular bor, ba'zilarida YO'Q (undefined). JSON.stringify undefined
+// maydonni TASHLAB ketadi → qatorlarning kalitlari farq qiladi →
+// butun tiklash "insert" bosqichida to'xtardi (jonli holatda
+// ko'rildi: "products jadvalida to'xtadi").
+// Yechim: har qatorni shu yordamchidan o'tkazamiz — undefined
+// qiymatlar `null` ga aylanadi, kalit to'plami BIR XIL bo'ladi.
+// ⚠️ `null` yozilishi xavfsiz: bu tiklash oqimi (butun jadval
+// zaxiradan qayta yoziladi), push emas — §5.3 dagi "|| standart
+// taqiqi" bu yerga taalluqli emas.
+function _bkFixKeys(o) {
+  const out = {};
+  for (const k in o) out[k] = (o[k] === undefined ? null : o[k]);
+  return out;
+}
+
 // Zaxira JSON'ini Supabase ustunlariga o'giruvchi yordamchilar (data jsonb ham saqlanadi)
 function _bkMapProduct(p, sid) {
-  return { shop_id:sid, sku:p.sku, name:p.name, category:p.category, type:p.type,
+  return _bkFixKeys({ shop_id:sid, sku:p.sku, name:p.name, category:p.category, type:p.type,
     unit:p.unit, in_box:p.inBox, barcode:p.barcode, cost_usd:p.costUsd,
     price_uzs:p.priceUzs, ulgurji:p.ulgurjiNarx, variants:p.variants,
     art:p.art, color_barcodes:p.colorBarcodes, pantone:p.pantone,
-    color_name:p.colorName, hex:p.hex, pack_unit:p.packUnit, data:p };
+    color_name:p.colorName, hex:p.hex, pack_unit:p.packUnit, data:p });
 }
 function _bkMapCustomer(c, sid) {
-  return { shop_id:sid, name:c.name, phone:c.phone, type:c.type, note:c.note,
-    balance_uzs:c.balanceUzs, balance_usd:c.balanceUsd, data:c };
+  return _bkFixKeys({ shop_id:sid, name:c.name, phone:c.phone, type:c.type, note:c.note,
+    balance_uzs:c.balanceUzs, balance_usd:c.balanceUsd, data:c });
 }
 function _bkMapSale(s, sid) {
-  return { shop_id:sid, chek_num:s.chekNum, date:s.date, time:s.time,
+  return _bkFixKeys({ shop_id:sid, chek_num:s.chekNum, date:s.date, time:s.time,
     price_type:s.priceType, pay_type:s.payType, pay_breakdown:s.payBreakdown,
     staff_id:s.staffId, customer_id:s.customerId, items:s.items,
     subtotal:s.subtotal, discount:s.discount, total:s.total, paid:s.paid,
     remaining:s.remaining, customer_name:s.customerName, customer_phone:s.customerPhone,
-    status:s.status, debt_currency:s.debtCurrency, debt_usd:s.debtUsd, note:s.note, data:s };
+    status:s.status, debt_currency:s.debtCurrency, debt_usd:s.debtUsd, note:s.note, data:s });
 }
 function _bkMapDebtPay(p, sid) {
-  return { shop_id:sid, customer_id:p.customerId, sale_id:p.saleId, amount:p.amount,
-    currency:p.currency, method:p.method, date:p.date, data:p };
+  return _bkFixKeys({ shop_id:sid, customer_id:p.customerId, sale_id:p.saleId, amount:p.amount,
+    currency:p.currency, method:p.method, date:p.date, data:p });
 }
 function _bkMapOmbor(o, sid) {
-  return { shop_id:sid, date:o.date, sku:o.sku, product_name:o.productName,
+  return _bkFixKeys({ shop_id:sid, date:o.date, sku:o.sku, product_name:o.productName,
     unit:o.unit, color:o.color, size:o.size, qty:o.qty, boxes:o.boxes,
-    kirim_narxi:o.kirimNarxi, supplier:o.supplier, partiya:o.partiya, data:o };
+    kirim_narxi:o.kirimNarxi, supplier:o.supplier, partiya:o.partiya, data:o });
 }
 function _bkMapXarajat(x, sid) {
-  return { shop_id:sid, date:x.date, amount:x.amount, category:x.category,
-    note:x.note, method:x.method, data:x };
+  return _bkFixKeys({ shop_id:sid, date:x.date, amount:x.amount, category:x.category,
+    note:x.note, method:x.method, data:x });
 }
 function _bkMapStaff(s, sid) {
-  return { shop_id:sid, name:s.name, phone:s.phone, role:s.role, data:s };
+  return _bkFixKeys({ shop_id:sid, name:s.name, phone:s.phone, role:s.role, data:s });
 }
 
 // ═══════════════════════════════════════════════════════════════
