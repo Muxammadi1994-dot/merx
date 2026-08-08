@@ -2754,3 +2754,32 @@ function effLineTotal(sale, itemIdx, qty) {
   if (!it) return 0;
   return Math.round(Number(it.effPrice || 0) * Number(qty || 0));
 }
+
+// ══════════════════════════════════════════════════════════════
+// MAJBURIY SINXRON TUGMALARINI YOPISH (2026-08-08)
+// ══════════════════════════════════════════════════════════════
+// SABAB (jonli hodisa, isbotlangan): "Majburiy qayta yuborish"
+// qurilmaning BUTUN lokal nusxasini bulutga bosadi. Agar o'sha
+// qurilmada boshqa kassada qilingan ish hali tortilmagan bo'lsa —
+// u YO'QOLADI. CHK-20260808-3301-EG dagi 10 mln lik qaytarish
+// aynan shunday o'chdi: 14:45 da EG telefonda qilingan, 15:54 da
+// boshqa qurilma 40 ta chekni majburiy yuborganda bosib ketilgan.
+// (3177 dagi qaytarish omon qoldi — u bulutga tushib ulgurgandi.)
+//
+// YECHIM: ikkala majburiy tugma STANDART YOPIQ. SuperAdmin
+// do'kon uchun kerak bo'lganda ochadi (SA → do'kon → "Sinxron
+// tugmalari"), ish tugagach yopadi. Sinxron tashxisi va oddiy
+// "Yangilash" ochiq qoladi — ular xavfsiz.
+function applySyncToolsLock() {
+  try {
+    const on = (window._syncToolsOn === true) ||
+               (localStorage.getItem("merx_sync_tools") === "1");
+    document.querySelectorAll("[data-sync-tool]").forEach(el => {
+      el.style.display = on ? "" : "none";
+    });
+    const note = document.getElementById("sync-tools-note");
+    if (note) note.style.display = on ? "none" : "";
+  } catch (e) {}
+}
+if (document.readyState !== "loading") applySyncToolsLock();
+else document.addEventListener("DOMContentLoaded", applySyncToolsLock);

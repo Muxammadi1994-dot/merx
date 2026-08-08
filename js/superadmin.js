@@ -1355,6 +1355,12 @@ function renderSaShops() {
                 <button onclick="saOpenBackups('${s.id}','${(s.name||'').replace(/'/g,'')}')" title="Zaxiralar (tiklash)"
                   style="background:#F5F3FF;border:1px solid #DDD6FE;color:#7C3AED;
                   border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer">🗄️</button>
+                <button onclick="saToggleSyncTools('${s.id}')" title="${s.sync_tools ? 'Sinxron tugmalari OCHIQ — yopish' : 'Sinxron tugmalari yopiq — ochish'}"
+                  style="background:${s.sync_tools?'#FFFBEB':'#F9FAFB'};
+                  border:1px solid ${s.sync_tools?'#FDE68A':'#E5E7EB'};
+                  color:${s.sync_tools?'#B45309':'#9CA3AF'};
+                  border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer">
+                  ${s.sync_tools ? "🛠️" : "🚫"}</button>
                 <button onclick="saToggleShop('${s.id}')" title="${active?'Bloklash':'Faollashtirish'}"
                   style="background:${active?"#FEF2F2":"#ECFDF5"};
                   border:1px solid ${active?"#FECACA":"#BBF7D0"};
@@ -2121,6 +2127,39 @@ async function _saUpdateShopInSupabase(shopId, data) {
 function saEditShop(id) { saEditShopFull(id); }
 
 // ── Bloklash / faollashtirish ─────────────────────
+// ⚠️ 2026-08-08: MAJBURIY SINXRON TUGMALARINI OCHISH/YOPISH.
+// Sabab (jonli hodisa): "Majburiy qayta yuborish" qurilmaning butun
+// nusxasini bulutga bosadi va boshqa kassada qilingan ishni o'chirib
+// yuborishi mumkin — CHK-20260808-3301-EG dagi 10 mln lik qaytarish
+// shunday yo'qolgan. Endi tugmalar do'konda STANDART YOPIQ; bu yerdan
+// kerak bo'lganda ochiladi, ish tugagach yana yopiladi.
+// ⚠️ Do'kon qurilmasi bayroqni KIRISHDA oladi — ochilgandan keyin
+// kassir bir marta chiqib kirishi (yoki ilovani qayta ochishi) kerak.
+function saToggleSyncTools(id) {
+  const s = _saShops.find(x => x.id === id); if (!s) return;
+  const want = !s.sync_tools;
+  if (want && !confirm(
+      `"${s.name}" uchun majburiy sinxron tugmalari OCHILSINMI?\n\n` +
+      `⚠️ Bu tugmalar noto'g'ri ishlatilsa boshqa kassada qilingan ish ` +
+      `o'chib ketishi mumkin. Ish tugagach yana yoping.`)) return;
+
+  const _cid = s.cloudShopId || s.shop_id || s.id;
+  showSaToast(want ? "Ochilmoqda..." : "Yopilmoqda...");
+  _saApi("update_shop", { shopId: _cid, data: { sync_tools: want } })
+    .then(d => {
+      if (d && d.ok) {
+        s.sync_tools = want;
+        saSaveShops(); renderSaShops();
+        showSaToast(want
+          ? `🔓 "${s.name}" — sinxron tugmalari OCHILDI (kassir qayta kirsin)`
+          : `🔒 "${s.name}" — sinxron tugmalari yopildi`);
+      } else {
+        showSaToast("❌ Bulutga yozilmadi: " + ((d && d.error) || "noma'lum xato"), "err");
+      }
+    })
+    .catch(e => showSaToast("❌ Xato: " + e.message, "err"));
+}
+
 function saToggleShop(id) {
   const s = _saShops.find(x => x.id === id); if (!s) return;
 

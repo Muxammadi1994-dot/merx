@@ -1538,7 +1538,7 @@ module.exports = async function handler(req, res) {
 
     if (action === "get_shops") {
       const shopsRes = await fetch(
-        `${SB_URL}/rest/v1/shops?active=not.is.false&select=id,name,owner_email,owner_name,owner_phone,plan,active,blocked,trial_ends,created_at,shop_type,tier,price_uzs&order=created_at.desc`,
+        `${SB_URL}/rest/v1/shops?active=not.is.false&select=id,name,owner_email,owner_name,owner_phone,plan,active,blocked,trial_ends,created_at,shop_type,tier,price_uzs,sync_tools&order=created_at.desc`,
         {
           headers: {
             apikey: SERVICE_KEY,
@@ -1589,7 +1589,7 @@ module.exports = async function handler(req, res) {
 
       const stRes = await fetch(
         `${SB_URL}/rest/v1/shops?id=eq.${encodeURIComponent(shopId)}` +
-        `&select=name,plan,active,blocked,trial_ends,tier&limit=1`,
+        `&select=name,plan,active,blocked,trial_ends,tier,sync_tools&limit=1`,
         { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
       );
 
@@ -1628,7 +1628,16 @@ module.exports = async function handler(req, res) {
         name:       sh.name  || null,
         plan:       sh.plan  || null,
         expires_at: sh.trial_ends || null,
-        tier:       sh.tier  || null
+        tier:       sh.tier  || null,
+        // ⚠️ 2026-08-08: MAJBURIY SINXRON TUGMALARI — DO'KON DARAJASIDA.
+        // Sabab (jonli hodisa): bitta qurilma "Majburiy qayta yuborish"
+        // bosganda, uning ESKIRGAN nusxasi boshqa qurilmada qilingan
+        // ishni bosib ketdi — CHK-20260808-3301-EG dagi qaytarish
+        // shunday yo'qoldi (14:45 da qilingan, 15:54 dagi massaviy
+        // qayta yuborish o'chirib yubordi).
+        // Endi bu tugmalar STANDART YOPIQ. SuperAdmin kerak bo'lganda
+        // do'kon uchun ochadi, ish tugagach yopadi.
+        sync_tools: sh.sync_tools === true
       });
     }
 

@@ -768,6 +768,14 @@ async function _subGateCheck(shopId) {
     const d = await r.json();
     console.log("🔎 Do'kon holati:", shopId, "→", d && d.status, d);
     _subGateChecked = shopId;
+    // ⚠️ 2026-08-08: MAJBURIY SINXRON TUGMALARI bayrog'i.
+    // Server do'kon uchun ochilgan-yopilganini aytadi (§5.8).
+    // Standart YOPIQ — SuperAdmin kerak bo'lganda ochadi.
+    try {
+      window._syncToolsOn = (d && d.sync_tools === true);
+      localStorage.setItem("merx_sync_tools", window._syncToolsOn ? "1" : "0");
+      if (typeof applySyncToolsLock === "function") applySyncToolsLock();
+    } catch(e) {}
     if (d && d.ok && (d.status === "blocked" || d.status === "expired")) return d.status;
     return null;
   } catch(e) {

@@ -2828,16 +2828,25 @@
             <!-- 2026-08-06: yuborish keshi yozuvni "yuborilgan" deb
                  belgilab qo'ysa, u boshqa hech qachon yuborilmaydi.
                  Bu tugma keshni tozalab hammasini qaytadan yuboradi. -->
-            <button class="btn btn-ghost" onclick="forceRepushAll()" style="width:100%;color:#856404;border-color:#FDE68A">
+            <button class="btn btn-ghost" data-sync-tool onclick="forceRepushAll()" style="width:100%;color:#856404;border-color:#FDE68A;display:none">
               <i class="ti ti-cloud-upload"></i> Majburiy qayta yuborish
             </button>
             <!-- 2026-08-06 (2-bosqich): tortish tomoni. Delta faqat
                  o'zgargan yozuvni oladi — qurilmada yo'qolgan yozuv
                  hech qachon qaytmaydi. Bu tugma kursorni tozalab
                  hammasini qaytadan tortadi. -->
-            <button class="btn btn-ghost" onclick="forceFullPull()" style="width:100%;color:#1D4ED8;border-color:#BFDBFE">
+            <button class="btn btn-ghost" data-sync-tool onclick="forceFullPull()" style="width:100%;color:#1D4ED8;border-color:#BFDBFE;display:none">
               <i class="ti ti-cloud-download"></i> Majburiy to'liq yangilash
             </button>
+            <!-- ⚠️ 2026-08-08: tugmalar STANDART YOPIQ (§5.8). Ular
+                 qurilmaning butun nusxasini bulutga bosadi va boshqa
+                 kassada qilingan ishni o'chirib yuborishi mumkin —
+                 CHK-20260808-3301-EG dagi qaytarish shunday yo'qolgan.
+                 SuperAdmin kerak bo'lganda do'kon uchun ochadi. -->
+            <div id="sync-tools-note" style="font-size:11px;color:var(--mut);background:#F9FAFB;border:1px dashed var(--brd);border-radius:8px;padding:9px 11px;line-height:1.45">
+              🔒 Majburiy sinxron tugmalari yopiq. Kerak bo'lsa administrator
+              ochib beradi: <b>+998 97 770 80 13</b>
+            </div>
             <div style="font-size:11px;color:var(--mut);line-height:1.45">
               Qurilmada bor, bulutda yo'q bo'lsa — <b>qayta yuborish</b>.
               Bulutda bor, qurilmada yo'q bo'lsa — <b>to'liq yangilash</b>.
@@ -4914,8 +4923,8 @@
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=166"></script>
-<script src="js/utils.js?v=220"></script>
-<script src="js/auth.js?v=202"></script>
+<script src="js/utils.js?v=221"></script>
+<script src="js/auth.js?v=203"></script>
 <script src="js/sms.js?v=143"></script>
 <script src="js/cloud.js?v=257"></script>
 <script src="js/dashboard.js?v=157"></script>
@@ -5125,7 +5134,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
-<script src="js/superadmin.js?v=227"></script>
+<script src="js/superadmin.js?v=228"></script>
 
 <!-- PWA (2026-07-20): Service Worker ro'yxatdan o'tkazish -->
 <script>
@@ -5222,7 +5231,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 312;
+  window.SW_V = 313;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5245,7 +5254,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=312")
+    navigator.serviceWorker.register("/sw.js?v=313")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
