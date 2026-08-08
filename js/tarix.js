@@ -557,14 +557,25 @@ function openSaleDetail(id) {
 
   if ($("sd-totals")) {
     const disc = s.discount || 0;
+    // ⚠️ 2026-08-08: ETALON (utils.js:1463) bilan tenglashtirildi.
+    // Avval bu yerda "Subtotal" deb `s.subtotal` yozilardi va u
+    // faqat `subtotal !== total` bo'lganda chiqardi — tovar
+    // darajasidagi chegirmani ko'rsatmasdi. Endi yorliq, shart va
+    // qiymat ilova cheki bilan bir xil.
+    const _itemDisc = (s.items || []).reduce((a, it) =>
+      a + ((Number(it.basePrice) > Number(it.price || 0))
+           ? (Number(it.basePrice) - Number(it.price || 0)) * Number(it.qty || 1) : 0), 0);
     $("sd-totals").innerHTML = `
-      ${s.subtotal && s.subtotal !== s.total ? `
+      ${(_itemDisc + disc) > 0 ? `
         <div style="display:flex;justify-content:space-between;font-size:13px;color:#888;margin-bottom:4px">
-          <span>Subtotal</span><span>${fmt(s.subtotal)} so'm</span>
+          <span>Jami (chegirmasiz)</span><span>${fmt((s.total || 0) + _itemDisc + disc)} so'm</span>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;color:#E05A5A;margin-bottom:4px">
-          <span>Chegirma</span><span>−${fmt(disc)} so'm</span>
+        ${_itemDisc > 0 ? `<div style="display:flex;justify-content:space-between;font-size:13px;color:#B91C1C;margin-bottom:4px">
+          <span>Tovar chegirmalari</span><span>−${fmt(_itemDisc)} so'm</span>
         </div>` : ""}
+        ${disc > 0 ? `<div style="display:flex;justify-content:space-between;font-size:13px;color:#E05A5A;margin-bottom:4px">
+          <span>Umumiy chegirma</span><span>−${fmt(disc)} so'm</span>
+        </div>` : ""}` : ""}
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-weight:700;font-size:14px">Jami</span>
         <span style="font-weight:900;font-size:18px">${fmt(s.total||0)} so'm</span>

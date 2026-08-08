@@ -1382,6 +1382,10 @@ function formatReceiptText(sale, shopName) {
   const _discPct  = sale.discountPct != null ? sale.discountPct : sale.discount_pct;
   const _rate     = Number(sale.rate || 0);
   const _pchJami  = (sale.items || []).reduce((a, it) => a + (Number(it.qtyBox) || 0), 0);
+  // Tovar darajasidagi chegirmalar yig'indisi (basePrice > price)
+  const _itemDisc = (sale.items || []).reduce((a, it) =>
+    a + ((Number(it.basePrice) > Number(it.price || 0))
+         ? (Number(it.basePrice) - Number(it.price || 0)) * Number(it.qty || 1) : 0), 0);
   // $ ekvivalenti — kurs bo'lsa, PDF chekdagi kabi
   const _usd = (v) => (_rate > 0 && v > 0) ? ` ($${(v / _rate).toFixed(2)})` : "";
 
@@ -1414,9 +1418,15 @@ function formatReceiptText(sale, shopName) {
     })(),
     "",
     _pchJami > 0 ? `📦 Jami: ${_pchJami} pochka` : null,
-    // Chegirma bo'lsa — subtotal va chegirma alohida qatorlarda
-    _disc > 0 ? `Chegirmagacha: ${fmt(_subtotal)} so'm` : null,
-    _disc > 0 ? `Chegirma${_discPct ? ` (-${_discPct}%)` : ""}: −${fmt(_disc)} so'm` : null,
+    // ⚠️ 2026-08-08: ETALON — `utils.js` dagi ilova cheki (1463-1466).
+    // U yerda qator "Jami (chegirmasiz)" deb yoziladi va HAR IKKALA
+    // chegirma turida chiqadi. Bot tomonida esa boshqacha edi:
+    // PDF chekda "Subtotal" deb, faqat UMUMIY chegirmada, va tovar
+    // chegirmalarisiz qiymat bilan; matn xabarida esa umuman yo'q edi.
+    // Endi uchchalasi bir xil: yorliq ham, shart ham, qiymat ham.
+    (_itemDisc + _disc) > 0 ? `Jami (chegirmasiz): ${fmt(Number(sale.total || 0) + _itemDisc + _disc)} so'm` : null,
+    _itemDisc > 0 ? `Tovar chegirmalari: −${fmt(_itemDisc)} so'm` : null,
+    _disc > 0 ? `Umumiy chegirma: −${fmt(_disc)} so'm` : null,
     `Jami: ${fmt(sale.total)} so'm${_usd(Number(sale.total || 0))}`,
     `To'lov: ${payLabels[sale.payType] || sale.payType || "—"}`,
     ...(sale.payType === "aralash" && (sale.payBreakdown || sale.pay_breakdown)
@@ -2520,9 +2530,9 @@ body{font-family:${opts.fontFamily || "'DM Sans',Arial,sans-serif"};background:#
   <div class="lbl">Mahsulotlar</div>
   ${itemsHtml}
   ${jamiPch > 0 ? `<div class="r bold" style="padding-top:6px"><span>JAMI POCHKA</span><span>${jamiPch} pochka</span></div>` : ""}
+  ${(itemDisc + discount) > 0 ? `<div class="r sm"><span>Jami (chegirmasiz)</span><span>${F(total + itemDisc + discount)} so'm</span></div>` : ""}
   ${itemDisc > 0 ? `<div class="r sm"><span>Tovar chegirmalari</span><span>−${FC(itemDisc)}</span></div>` : ""}
-  ${discount > 0 ? `<div class="r sm"><span>Subtotal</span><span>${F(s.subtotal || total + discount)} so'm</span></div>
-  <div class="r sm"><span>Chegirma</span><span>−${FC(discount)}</span></div>` : ""}
+  ${discount > 0 ? `<div class="r sm"><span>Umumiy chegirma</span><span>−${FC(discount)}</span></div>` : ""}
   <div class="tot"><span style="font-weight:800">JAMI</span><span class="v">${FC(total)}</span></div>
   <div class="lbl">To'lov</div>
   ${payHtml}
