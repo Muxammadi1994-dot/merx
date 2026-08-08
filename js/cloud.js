@@ -871,7 +871,16 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
   for (let i = 0; i < pend.length; i += chunk) {
     const part = pend.slice(i, i + chunk);
     const { error } = await _sb.from(table)
-      .upsert(part.map(p => p[0]), { onConflict: conflict || "id", ignoreDuplicates: false });
+      // ⚠️ 2026-08-08: STANDART KALIT `id` → `id,shop_id`.
+      // Bugun asosiy jadvallarning PK'si `(shop_id, id)` ga
+      // o'tkazildi (id to'qnashuvi sinfini yopish uchun, §3.14).
+      // Shundan keyin `onConflict:"id"` mos kalit topa olmay qoldi:
+      //   "there is no unique or exclusion constraint matching the
+      //    ON CONFLICT specification"
+      // — ya'ni butun push to'xtardi. Endi standart kalit ham
+      // yangi PK bilan bir xil. Alohida kalit berilgan joylar
+      // (masalan products → "sku,shop_id") avvalgidek ishlaydi.
+      .upsert(part.map(p => p[0]), { onConflict: conflict || "id,shop_id", ignoreDuplicates: false });
     if (error) throw error;
     part.forEach(([r, k, j]) => cache.set(k, j));
     _savePushCache();   // 2026-07-31: sahifa yangilansa ham saqlanadi
