@@ -361,6 +361,57 @@ function normPhone(p) {
 }
 
 const fmt   = n => Math.round(n || 0).toLocaleString("ru-RU");
+
+// ══════════════════════════════════════════════════════════════
+// UMUMIY CHEGIRMANI TOVARLARGA YOYISH (2026-08-08)
+// ══════════════════════════════════════════════════════════════
+// Klientdagi `spreadSaleDiscount` (utils.js) BILAN BIR XIL mantiq —
+// chek ikki joyda yasalgani uchun (ilova va bot) nusxa shart.
+// ⚠️ Ikkalasi BIR VAQTDA o'zgartirilishi kerak, aks holda mijoz
+// ikki xil chek ko'radi.
+// Sabab: umumiy chegirma alohida maydonda saqlanadi, tovar
+// narxlariga tegmaydi — chekda mijoz o'zi to'lagan narxni tovar
+// bo'yicha ko'rmasdi. Taqsimlash FOYDAGA mutanosib (`item.cost`),
+// tannarx yo'q bo'lsa qator qiymatiga mutanosib.
+function spreadDiscount(sale) {
+  const items = (sale && sale.items) ? sale.items : [];
+  const disc  = Number((sale && (sale.discount != null ? sale.discount
+                 : (sale.data && sale.data.discount))) || 0);
+  const out = items.map(it => ({
+    ...it,
+    effPrice: Number(it.price || 0),
+    origPrice: Number(it.basePrice || it.price || 0)
+  }));
+  if (!(disc > 0) || !out.length) return out;
+
+  const lineVal = it => Number(it.price || 0) * Number(it.qty || 0);
+  const subtotal = out.reduce((a, it) => a + lineVal(it), 0);
+  if (!(subtotal > 0) || disc >= subtotal) return out;
+
+  const profit = it => {
+    const c = Number(it.cost || 0);
+    return c > 0 ? Math.max(0, (Number(it.price || 0) - c) * Number(it.qty || 0)) : 0;
+  };
+  const profitSum = out.reduce((a, it) => a + profit(it), 0);
+  const basis = profitSum > 0 ? profit : lineVal;
+  const basisSum = profitSum > 0 ? profitSum : subtotal;
+
+  let berilgan = 0, maxIdx = 0, maxVal = -1;
+  out.forEach((it, i) => {
+    const ulush = Math.round(disc * (basis(it) / basisSum));
+    it._d = ulush; berilgan += ulush;
+    if (lineVal(it) > maxVal) { maxVal = lineVal(it); maxIdx = i; }
+  });
+  out[maxIdx]._d += (disc - berilgan);
+
+  out.forEach(it => {
+    const qty = Number(it.qty || 0) || 1;
+    it.effPrice = Math.max(0, Math.round(Number(it.price || 0) - (it._d / qty)));
+    if (it._d > 0) it.origPrice = Number(it.price || 0);
+    delete it._d;
+  });
+  return out;
+}
 // ══════════════════════════════════════════════════════════════
 // ⚠️ 2026-08-04: SANA — TOSHKENT VAQTIDA
 // ══════════════════════════════════════════════════════════════
@@ -1339,13 +1390,28 @@ function formatReceiptText(sale, shopName) {
     `📌 ${sale.chekNum || "#" + sale.id} | ${sale.date} ${sale.time || ""}`,
     sale.customerName ? `👤 ${sale.customerName}` : null,
     "",
-    ...(sale.items || []).map(i => {
-      // Pochka hisobi ham ko'rsatiladi (avval faqat dona edi)
-      const q = i.qtyBox
-        ? `${i.qtyBox} pochka / ${i.qty} ${i.unit || "dona"}`
-        : `${i.qty} ${i.unit || "dona"}`;
-      return `▪ ${i.name} (${i.variant || ""}) × ${q} = ${fmt((i.price || 0) * (i.qty || 0))} so'm`;
-    }),
+    ...(function () {
+      // ⚠️ 2026-08-08: TOVAR NARXLARI CHEGIRMA BILAN.
+      // PDF chekda asl narx chizilib yangi narx yoziladi — matn
+      // xabarida ham shunday bo'lsin (do'kon talabi). Ikki xil
+      // chegirma qamrab olinadi:
+      //   · tovar darajasidagi (basePrice > price)
+      //   · umumiy chegirma (spreadDiscount bilan yoyiladi)
+      const _eff = spreadDiscount(sale);
+      return (sale.items || []).map((i, idx) => {
+        const e = _eff[idx] || {};
+        const p = Number(e.effPrice != null ? e.effPrice : (i.price || 0));
+        const asl = Number(e.origPrice || i.basePrice || i.price || 0);
+        const q = i.qtyBox
+          ? `${i.qtyBox} pochka / ${i.qty} ${i.unit || "dona"}`
+          : `${i.qty} ${i.unit || "dona"}`;
+        // Chegirma bo'lsa: asl narx chizilgan holda ko'rsatiladi
+        const narx = (asl > p)
+          ? `<s>${fmt(asl)}</s> ${fmt(p)}`
+          : `${fmt(p)}`;
+        return `▪ ${i.name} (${i.variant || ""}) × ${q} × ${narx} = ${fmt(p * (i.qty || 0))} so'm`;
+      });
+    })(),
     "",
     _pchJami > 0 ? `📦 Jami: ${_pchJami} pochka` : null,
     // Chegirma bo'lsa — subtotal va chegirma alohida qatorlarda
@@ -2297,15 +2363,24 @@ function buildReceiptHtml(sale, opts) {
   const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi", aralash:"Aralash", nasiya:"Nasiya", qarz:"Nasiya" };
 
   // 2026-07-18 YAKUNIY: nomer, IKKI CHETDAN tekis (namunadagidek), qora chizish
+  // ⚠️ 2026-08-08: UMUMIY CHEGIRMA HAM TOVARLARGA YOYILADI.
+  // Avval faqat TOVAR darajasidagi chegirma (basePrice) chizilgan
+  // narx bilan ko'rinardi; savatga qo'yilgan UMUMIY chegirma esa
+  // pastdagi bitta qatorda qolar, tovar narxlari asl holida turardi.
+  // Endi ikkalasi ham qatorda ko'rinadi (do'kon talabi).
+  const _effItems = spreadDiscount(s);
   const itemsHtml = items.map((i, ix) => {
-    const sum = (i.price||0)*(i.qty||0);
+    const _e = _effItems[ix] || {};
+    const _p = Number(_e.effPrice != null ? _e.effPrice : (i.price || 0));
+    const _asl = Number(_e.origPrice || i.basePrice || i.price || 0);
+    const sum = _p * (i.qty||0);
     const clean = (i.variant||"").replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
     const nm = [i.name||"", clean, i.art||""].filter(Boolean).join(" / ");
-    const bp = (i.basePrice && i.basePrice > (i.price||0)) ? `<s>${FC(i.basePrice)}</s> ` : "";
+    const bp = (_asl > _p) ? `<s>${FC(_asl)}</s> ` : "";
     const isBox = i.sellMode === "karobka" && i.qtyBox && i.inBox;
     const calcLeft = isBox
-      ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${FC(i.price)})`
-      : `${i.qty} ${i.unit||"dona"} × ${bp}${FC(i.price)}`;
+      ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${FC(_p)})`
+      : `${i.qty} ${i.unit||"dona"} × ${bp}${FC(_p)}`;
     return `<div class="it"><div class="itn">${ix+1}. ${nm}</div>
       <div class="itc"><span>${calcLeft}</span><span class="itv">${FC(sum)}</span></div></div>`;
   }).join("");

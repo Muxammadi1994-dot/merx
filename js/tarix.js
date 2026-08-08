@@ -793,6 +793,19 @@ function confirmRefund() {
   const s = db.sales.find(x => x.id === _refundSaleId); if (!s) return;
   const reason     = $("refund-reason")?.value.trim() || "Sabab ko'rsatilmagan";
   const safeItems  = (s.items||[]).filter(Boolean);
+  // ⚠️ 2026-08-08: QAYTARISH ENDI CHEGIRMANI HISOBGA OLADI.
+  // Avval `qty * item.price` ishlatilardi — ya'ni CHEGIRMASIZ asl
+  // narx. Umumiy chegirma esa alohida maydonda turadi va tovar
+  // narxiga tegmaydi. Natijada chegirmali chek qaytarilganda do'kon
+  // chegirma miqdoricha ORTIQCHA qaytarardi — jonli isbot:
+  // CHK-20260807-3014-EG, mijoz 19 490 000 to'lagan, qaytarilgan
+  // 20 280 000 (790 000 ortiqcha = aynan chegirma).
+  // `spreadSaleDiscount` (utils.js) chegirmani foydaga mutanosib
+  // tovarlarga yoyadi va HAQIQIY narxni beradi. Saqlangan
+  // ma'lumotga tegilmaydi — hisob har safar qaytadan qilinadi.
+  const _eff = (typeof spreadSaleDiscount === "function")
+    ? spreadSaleDiscount({ items: safeItems, discount: Number(s.discount || 0) })
+    : safeItems.map(it => ({ ...it, effPrice: Number(it.price || 0) }));
   const refundItems = [];
   let   refundTotal = 0;
   let   hasError    = false;
@@ -813,7 +826,8 @@ function confirmRefund() {
     // Pochka rejimida qtyBox — foydalanuvchi to'g'ridan-to'g'ri pochka sonini kiritgan
     const adjustedQtyBox = isBox ? rawVal : item.qtyBox;
     refundItems.push({ ...item, qty, qtyBox: adjustedQtyBox });
-    refundTotal += qty * (item.price||0);
+    const _p = Number((_eff[i] && _eff[i].effPrice) != null ? _eff[i].effPrice : (item.price || 0));
+    refundTotal += qty * _p;
   });
 
   if (hasError) return;

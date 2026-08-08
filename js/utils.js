@@ -2680,3 +2680,77 @@ function viewModeInitBtns() {
 
 if (document.readyState !== "loading") viewModeInitBtns();
 else document.addEventListener("DOMContentLoaded", viewModeInitBtns);
+
+// ══════════════════════════════════════════════════════════════
+// UMUMIY CHEGIRMANI TOVARLARGA YOYISH (2026-08-08)
+// ══════════════════════════════════════════════════════════════
+// MUAMMO (jonli holatda isbotlangan): savatga qo'yilgan UMUMIY
+// chegirma (masalan 790 000) alohida maydonda saqlanadi, tovar
+// narxlariga esa TEGMAYDI. Oqibatlari:
+//   1) Chekda mijoz to'lagan narxni tovar bo'yicha ko'rmaydi —
+//      faqat pastda bitta "Chegirma" qatori turadi.
+//   2) ⚠️ QAYTARISHDA PUL OQADI: qaytarish tovar narxidan
+//      hisoblanadi (tarix.js), ya'ni chegirmasiz asl narxdan.
+//      CHK-20260807-3014-EG: mijoz 19 490 000 to'lagan, qaytarilgan
+//      20 280 000 — aynan chegirma miqdori 790 000 ortiqcha.
+//
+// YECHIM: saqlangan ma'lumotga TEGMAYMIZ (eski cheklar o'zgarmaydi),
+// balki kerak bo'lganda "haqiqiy narx" hisoblanadi. Bitta funksiya —
+// uch joyda ishlatiladi: PDF chek, Telegram xabari, qaytarish hisobi.
+//
+// TAQSIMLASH ASOSI — FOYDA (pos.js:2476 dagi `item.cost` shu uchun
+// saqlanadi): chegirma ko'proq foyda beradigan tovarga ko'proq
+// tushadi, tannarxga yaqin tovar deyarli tegilmaydi. Tannarx
+// noma'lum bo'lsa — qator qiymatiga (narx×miqdor) mutanosib.
+// ⚠️ Yig'indi ANIQ mos kelishi shart: yaxlitlash qoldig'i eng katta
+// qatorga qo'shiladi, aks holda tiyinlar yo'qoladi.
+function spreadSaleDiscount(sale) {
+  const items = (sale && sale.items) ? sale.items : [];
+  const disc  = Number(sale && sale.discount || 0);
+  const out   = items.map(it => ({
+    ...it,
+    effPrice: Number(it.price || 0),           // yoyilgandan keyingi narx
+    origPrice: Number(it.basePrice || it.price || 0) // chizilgan asl narx
+  }));
+  if (!(disc > 0) || !out.length) return out;
+
+  const lineVal = it => Number(it.price || 0) * Number(it.qty || 0);
+  const subtotal = out.reduce((a, it) => a + lineVal(it), 0);
+  if (!(subtotal > 0) || disc >= subtotal) return out;
+
+  // Foyda asosi (tannarx bo'lsa), aks holda qiymat asosi
+  const profit = it => {
+    const c = Number(it.cost || 0);
+    return c > 0 ? Math.max(0, (Number(it.price || 0) - c) * Number(it.qty || 0)) : 0;
+  };
+  const profitSum = out.reduce((a, it) => a + profit(it), 0);
+  const basis = profitSum > 0 ? profit : lineVal;
+  const basisSum = profitSum > 0 ? profitSum : subtotal;
+
+  let berilgan = 0, maxIdx = 0, maxVal = -1;
+  out.forEach((it, i) => {
+    const ulush = Math.round(disc * (basis(it) / basisSum));
+    it._disc = ulush;
+    berilgan += ulush;
+    if (lineVal(it) > maxVal) { maxVal = lineVal(it); maxIdx = i; }
+  });
+  // Yaxlitlash qoldig'i — eng katta qatorga
+  out[maxIdx]._disc += (disc - berilgan);
+
+  out.forEach(it => {
+    const qty = Number(it.qty || 0) || 1;
+    const yangi = Number(it.price || 0) - (it._disc / qty);
+    it.effPrice = Math.max(0, Math.round(yangi));
+    if (it._disc > 0) it.origPrice = Number(it.price || 0); // chizish uchun
+    delete it._disc;
+  });
+  return out;
+}
+
+// Bitta tovarning yoyilgandan keyingi qator summasi (qaytarish uchun)
+function effLineTotal(sale, itemIdx, qty) {
+  const arr = spreadSaleDiscount(sale);
+  const it = arr[itemIdx];
+  if (!it) return 0;
+  return Math.round(Number(it.effPrice || 0) * Number(qty || 0));
+}

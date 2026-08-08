@@ -1322,6 +1322,20 @@ async function pushToCloud() {
         pay_breakdown: s.payBreakdown || null,
         items: (s.items || []).map(({ image, ...rest }) => rest), // image base64 ni Supabase ga yubormaymiz (juda katta)
         total: s.total || 0, paid: s.paid || 0,
+        // ⚠️ 2026-08-08: CHEGIRMA USTUNLARI HAM YOZILADI.
+        // Avval `discount`/`subtotal` faqat `data` JSON ichida
+        // saqlanardi, ustunlar esa BO'SH qolardi (tekshiruv: 3463
+        // sotuvdan `discount` ustunida 0 ta, `data` ichida 53 ta).
+        // Ustundan o'qiydigan hisobot/bot chegirmani ko'rmasdi.
+        // ⚠️ §5.3 QOIDASI: qiymat aniqlanmagan bo'lsa maydon UMUMAN
+        // yuborilmaydi — standart 0 bulutdagi haqiqiy qiymatni
+        // bosib ketmasin.
+        ...(s.discount != null ? { discount: s.discount } : {}),
+        ...(s.subtotal != null ? { subtotal: s.subtotal }
+            : (s.total != null && s.discount != null
+               ? { subtotal: (s.total || 0) + (s.discount || 0) } : {})),
+        ...(s.discountType != null ? { discount_type: s.discountType } : {}),
+        ...(s.discountPct  != null ? { discount_pct:  s.discountPct  } : {}),
         // ⚠️ 2026-08-02: STANDART QIYMAT BULUTDAGINI BOSMASIN.
         // Yozuv chala bo'lsa (bot yaratgan, eski migratsiyadan
         // qolgan, yoki chala tortilgan) standart qiymat yozilib,
