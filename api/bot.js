@@ -166,21 +166,14 @@ async function getShopCtx(chatId) {
     }
   } catch(e) { console.warn("getShopCtx customers xato:", e.message); }
 
-  // 3. shops jadvalidan owner tekshiruv
-  try {
-    const shops = await sb("shops", `?select=id,name`);
-    for (const shop of (shops || [])) {
-      // settings jadvalidan owner chatId ni topamiz
-      try {
-        const sets = await sb("settings", `?shop_id=eq.${shop.id}&select=telegram_owner_chat_id&limit=1`);
-        if (sets?.[0]?.telegram_owner_chat_id === cid) {
-          const ctx = { shopId: shop.id, shopName: shop.name, isOwner: true, isSuperAdmin: false, ts: Date.now() };
-          _shopCache.set(cid, ctx);
-          return ctx;
-        }
-      } catch(e) {}
-    }
-  } catch(e) { console.warn("getShopCtx shops xato:", e.message); }
+  // 3. ⚠️ 2026-08-08: OLIB TASHLANDI — o'lik va zararli qadam edi.
+  // Avval bu yerda BARCHA do'konlar aylanib chiqilib, har biri uchun
+  // `settings.telegram_owner_chat_id` so'ralardi. Lekin bunday ustun
+  // jadvalda UMUMAN YO'Q (§11.2) — ya'ni natija doim bo'sh edi, evaziga
+  // har chaqiruvda N ta ortiqcha so'rov ketardi va do'konlar
+  // ko'paygan sari bot sekinlashardi.
+  // Egalik aslida yuqoridagi `shop_owners` qadami (1) orqali
+  // aniqlanadi — u ishlaydi va shu yetarli.
 
   // Topilmadi
   return { shopId: null, shopName: "MERX", isOwner: false, isSuperAdmin: false, ts: Date.now() };
@@ -1326,15 +1319,39 @@ function formatReceiptText(sale, shopName) {
     if (sale.due) debtLines.push(`Muddat: ${sale.due}`);
   }
 
+  // ⚠️ 2026-08-08: MATN CHEKI PDF CHEK BILAN TENGLASHTIRILDI.
+  // Muammo (do'kon aytdi): Telegramdagi matn xabari va "Batafsil"
+  // dagi PDF chek BOSHQA-BOSHQA kod bilan yasalar edi — natijada
+  // matnda CHEGIRMA umuman ko'rinmasdi (PDF da bor), subtotal,
+  // mijoz ismi, pochka hisobi va $ ekvivalenti ham yo'q edi.
+  // Mijoz ikki xil chek ko'rib chalkashardi. Endi matn ham shu
+  // ma'lumotlarni beradi.
+  const _subtotal = Number(sale.subtotal || 0) || (Number(sale.total || 0) + Number(sale.discount || 0));
+  const _disc     = Number(sale.discount || 0);
+  const _discPct  = sale.discountPct != null ? sale.discountPct : sale.discount_pct;
+  const _rate     = Number(sale.rate || 0);
+  const _pchJami  = (sale.items || []).reduce((a, it) => a + (Number(it.qtyBox) || 0), 0);
+  // $ ekvivalenti — kurs bo'lsa, PDF chekdagi kabi
+  const _usd = (v) => (_rate > 0 && v > 0) ? ` ($${(v / _rate).toFixed(2)})` : "";
+
   const lines = [
     `🧾 ${shopName} — Chek`,
     `📌 ${sale.chekNum || "#" + sale.id} | ${sale.date} ${sale.time || ""}`,
+    sale.customerName ? `👤 ${sale.customerName}` : null,
     "",
-    ...(sale.items || []).map(i =>
-      `▪ ${i.name} (${i.variant || ""}) × ${i.qty} ${i.unit || ""} = ${fmt((i.price || 0) * (i.qty || 0))} so'm`
-    ),
+    ...(sale.items || []).map(i => {
+      // Pochka hisobi ham ko'rsatiladi (avval faqat dona edi)
+      const q = i.qtyBox
+        ? `${i.qtyBox} pochka / ${i.qty} ${i.unit || "dona"}`
+        : `${i.qty} ${i.unit || "dona"}`;
+      return `▪ ${i.name} (${i.variant || ""}) × ${q} = ${fmt((i.price || 0) * (i.qty || 0))} so'm`;
+    }),
     "",
-    `Jami: ${fmt(sale.total)} so'm`,
+    _pchJami > 0 ? `📦 Jami: ${_pchJami} pochka` : null,
+    // Chegirma bo'lsa — subtotal va chegirma alohida qatorlarda
+    _disc > 0 ? `Chegirmagacha: ${fmt(_subtotal)} so'm` : null,
+    _disc > 0 ? `Chegirma${_discPct ? ` (-${_discPct}%)` : ""}: −${fmt(_disc)} so'm` : null,
+    `Jami: ${fmt(sale.total)} so'm${_usd(Number(sale.total || 0))}`,
     `To'lov: ${payLabels[sale.payType] || sale.payType || "—"}`,
     ...(sale.payType === "aralash" && (sale.payBreakdown || sale.pay_breakdown)
       ? Object.entries(sale.payBreakdown || sale.pay_breakdown).map(([m,v]) => `  • ${payLabels[m]||m}: ${fmt(v)} so'm`)
@@ -3086,6 +3103,23 @@ export default async function handler(req, res) {
     const val    = body?.val === true || body?.val === "true";
 
     if (chekId && !isNaN(idx2)) {
+      // ⚠️ 2026-08-08: SESSIYASIZ HIMOYA (§14.C-8).
+      // `set_done` ni oddiy token ro'yxatiga qo'shib bo'lmaydi:
+      // u omborchining Telegram mini-app'idan chaqiriladi, u yerda
+      // Supabase sessiyasi YO'Q — qo'shilsa "Tayyor" tugmasi o'lardi.
+      // Shuning uchun boshqa qo'riqchi: chek raqami HAQIQATAN
+      // mavjudligini bazadan tekshiramiz. Shu bilan tasodifiy yoki
+      // o'ylab topilgan chek raqamlari bilan jadvalni to'ldirib
+      // bo'lmaydi, omborchi oqimi esa avvalgidek ishlaydi.
+      let _chekBor = false;
+      try {
+        const _s = await sb("sales", `?chek_num=eq.${encodeURIComponent(chekId)}&select=chek_num&limit=1`);
+        _chekBor = Array.isArray(_s) && _s.length > 0;
+      } catch(e) { _chekBor = true; /* baza javob bermasa oqimni to'xtatmaymiz */ }
+      if (!_chekBor) {
+        console.warn(`[set_done] mavjud bo'lmagan chek rad etildi: ${chekId}`);
+        return res.status(200).json({ ok: true, done: [] });
+      }
       try {
         if (val) {
           await fetch(`${SB_URL}/rest/v1/done_items?on_conflict=chek_id,item_idx`, {
