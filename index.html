@@ -5179,6 +5179,23 @@ if ("serviceWorker" in navigator) {
           el.setAttribute("data-lpignore", "true");   // LastPass
           el.setAttribute("data-1p-ignore", "true");  // 1Password
           el.setAttribute("data-form-type", "other"); // Dashlane
+          // ⚠️ Chrome `autocomplete="off"` ni saqlangan login uchun
+          // ATAYLAB e'tiborsiz qoldiradi. Ikki qo'shimcha choratadbir:
+          // 1) `name` ni brauzer tanimaydigan qiymatga o'zgartirish —
+          //    u maydonni "email/login" deb taniy olmay qoladi;
+          // 2) `readonly` hiylasi (loyihada `s-admin-email` da
+          //    allaqachon sinalgan): brauzer readonly maydonni
+          //    to'ldirmaydi, foydalanuvchi bosganda esa ochiladi.
+          if (!el.getAttribute("name") || /mail|user|login/i.test(el.getAttribute("name")))
+            el.setAttribute("name", "f_" + Math.random().toString(36).slice(2, 9));
+          if (!el.dataset.roGuard) {
+            el.dataset.roGuard = "1";
+            el.setAttribute("readonly", "readonly");
+            const open = () => el.removeAttribute("readonly");
+            el.addEventListener("focus", open);
+            el.addEventListener("click", open);
+            el.addEventListener("touchstart", open, { passive: true });
+          }
         });
       } catch (e) {}
     }
@@ -5196,10 +5213,10 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 299;
+  window.SW_V = 300;
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=299")
+    navigator.serviceWorker.register("/sw.js?v=300")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
