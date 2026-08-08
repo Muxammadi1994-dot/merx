@@ -5179,22 +5179,31 @@ if ("serviceWorker" in navigator) {
           el.setAttribute("data-lpignore", "true");   // LastPass
           el.setAttribute("data-1p-ignore", "true");  // 1Password
           el.setAttribute("data-form-type", "other"); // Dashlane
-          // ⚠️ Chrome `autocomplete="off"` ni saqlangan login uchun
-          // ATAYLAB e'tiborsiz qoldiradi. Ikki qo'shimcha choratadbir:
-          // 1) `name` ni brauzer tanimaydigan qiymatga o'zgartirish —
-          //    u maydonni "email/login" deb taniy olmay qoladi;
-          // 2) `readonly` hiylasi (loyihada `s-admin-email` da
-          //    allaqachon sinalgan): brauzer readonly maydonni
-          //    to'ldirmaydi, foydalanuvchi bosganda esa ochiladi.
-          if (!el.getAttribute("name") || /mail|user|login/i.test(el.getAttribute("name")))
-            el.setAttribute("name", "f_" + Math.random().toString(36).slice(2, 9));
-          if (!el.dataset.roGuard) {
-            el.dataset.roGuard = "1";
-            el.setAttribute("readonly", "readonly");
-            const open = () => el.removeAttribute("readonly");
-            el.addEventListener("focus", open);
-            el.addEventListener("click", open);
-            el.addEventListener("touchstart", open, { passive: true });
+          // ⚠️ 2026-08-08: readonly-hiyla va name-o'zgartirish FAQAT
+          // matnli qidiruv maydonlariga qo'llanadi.
+          // Muammo (jonli holatda topildi): oldingi versiya HAMMA
+          // maydonga (jumladan to'lov summalari — naqd/karta) name'ni
+          // tasodifiy qilib readonly qo'ygandi. Brauzer yonma-yon
+          // ikki summa maydonini "yangi login+parol juftligi" deb
+          // o'ylab, "Parolni saqlash?" oynasini chiqara boshladi.
+          // Sonli, sana va parol maydonlariga readonly/name kerak
+          // EMAS — ularga yuqoridagi yumshoq atributlar yetarli.
+          const typ = (el.type || "").toLowerCase();
+          const matnli = (el.tagName === "TEXTAREA" ||
+                          typ === "text" || typ === "search" || typ === "");
+          const qidiruv = /(-q$|search|qidir)/i.test(el.id || "") ||
+                          (el.className || "").includes("srch-inp");
+          if (matnli && qidiruv) {
+            if (!el.getAttribute("name") || /mail|user|login|pass/i.test(el.getAttribute("name")))
+              el.setAttribute("name", "f_" + Math.random().toString(36).slice(2, 9));
+            if (!el.dataset.roGuard) {
+              el.dataset.roGuard = "1";
+              el.setAttribute("readonly", "readonly");
+              const open = () => el.removeAttribute("readonly");
+              el.addEventListener("focus", open);
+              el.addEventListener("click", open);
+              el.addEventListener("touchstart", open, { passive: true });
+            }
           }
         });
       } catch (e) {}
@@ -5213,7 +5222,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 304;
+  window.SW_V = 305;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5236,7 +5245,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=304")
+    navigator.serviceWorker.register("/sw.js?v=305")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
