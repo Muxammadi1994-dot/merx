@@ -1691,7 +1691,50 @@ module.exports = async function handler(req, res) {
                   "Content-Type": "application/json" };
       let deleted = 0;
 
+      // ══════════════════════════════════════════════════════════
+      // ⚠️ 2026-08-08: HIMOYA KAMARI (kontekst §5.7, §14.C-7)
+      // ══════════════════════════════════════════════════════════
+      // Bu amal `wipe=true` bilan do'konning BUTUN jadvalini
+      // o'chirib, zaxiradan qayta yozadi. Himoyasiz holda u eng
+      // xavfli qurol edi: bitta noto'g'ri chaqiruv butun sotuv
+      // tarixini yo'q qilishi mumkin. Uchta qo'riqchi qo'yildi.
       if (wipe) {
+        // 1-QO'RIQCHI: BO'SH WIPE — ataylab tasdiqlanishi kerak.
+        // ⚠️ Muhim: mavjud tiklash oqimi (cloud.js) uchta o'rinda
+        // qonuniy ravishda `rows:[] + wipe:true` yuboradi:
+        //   (a) zaxirada bu jadval bo'sh — eskisini tozalash,
+        //   (b) `deleted_records` tozalash (tombstone),
+        // shuning uchun BLOKLAMAYMIZ, lekin `allowEmpty:true`
+        // talab qilamiz. Shu bilan qo'lda/tasodifan yuborilgan
+        // "hammasini o'chir, hech narsa yozma" chaqiruvi o'tmaydi,
+        // ilovaning o'z oqimi esa (quyida yangilangan) ishlayveradi.
+        if (!rows.length && body.allowEmpty !== true)
+          return res.status(400).json({ ok: false,
+            error: "Bo'sh wipe uchun allowEmpty:true kerak — " +
+                   "tasodifan butun jadvalni o'chirib yuborishdan himoya" });
+
+        // 2-QO'RIQCHI: NISBAT tekshiruvi (faqat yoziladigan ma'lumot bor bo'lsa).
+        // Jadvalda 3000 qator bo'lib, zaxirada 50 tasi bo'lsa — bu
+        // deyarli har doim xato (eski/qisman zaxira). Ataylab bo'lsa
+        // `force:true` bilan tasdiqlanadi.
+        // ⚠️ Bo'laklab yozishda birinchi bo'lak 100 qatorli bo'lishi
+        // mumkin — shuning uchun klient `totalRows` (jami reja)
+        // yuborsa, nisbat SHU raqamga qarab hisoblanadi.
+        const rejaJami = Number(body.totalRows) || rows.length;
+        if (rows.length && body.force !== true) {
+          const cntRes = await fetch(
+            `${SB_URL}/rest/v1/${table}?shop_id=eq.${encodeURIComponent(shopId)}&select=shop_id`,
+            { headers: { ...H, Prefer: "count=exact", Range: "0-0" } });
+          const cntRange = cntRes.headers.get("content-range") || "";
+          const hozirgi = parseInt(String(cntRange).split("/")[1]) || 0;
+          if (hozirgi > 0 && rejaJami < hozirgi * 0.5) {
+            return res.status(400).json({ ok: false,
+              error: `Xavfsizlik to'xtatdi: hozir ${hozirgi} qator bor, zaxirada ${rejaJami} ta ` +
+                     `(yarmidan kam). Ataylab bo'lsa force:true bilan qayta yuboring.`,
+              hozirgi, zaxirada: rejaJami });
+          }
+        }
+
         const dr = await fetch(
           `${SB_URL}/rest/v1/${table}?shop_id=eq.${encodeURIComponent(shopId)}`,
           { method: "DELETE", headers: { ...H, Prefer: "count=exact" } }
@@ -1704,6 +1747,22 @@ module.exports = async function handler(req, res) {
         }
         const cr = dr.headers.get("content-range") || "";
         deleted = parseInt(String(cr).split("/")[1]) || 0;
+
+        // 3-QO'RIQCHI: IZ QOLDIRAMIZ.
+        // Avval bu amal hech qanday iz qoldirmasdi — nima, qachon,
+        // qancha o'chgani noma'lum edi. Endi deleted_records ga
+        // yozuv tushadi (jadval allaqachon bor, tombstone tizimi).
+        try {
+          await fetch(`${SB_URL}/rest/v1/deleted_records`, {
+            method: "POST",
+            headers: { ...H, Prefer: "return=minimal" },
+            body: JSON.stringify([{
+              shop_id: shopId,
+              table_name: "_restore_write",
+              record_id: `${table}:${deleted}->${rows.length}:${new Date().toISOString()}`
+            }])
+          });
+        } catch (e) { /* jurnal yozilmasa ham tiklash to'xtamaydi */ }
       }
 
       if (!rows.length) return res.status(200).json({ ok: true, table, deleted, inserted: 0 });

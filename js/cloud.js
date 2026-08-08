@@ -2815,8 +2815,12 @@ async function saRestoreBackup(backupId, onProgress) {
     const line = { table:t, deleted:0, inserted:0 };
 
     // Yozuv yo'q — faqat eski qatorlarni tozalaymiz
+    // ⚠️ 2026-08-08: serverda himoya kamari bor — bo'sh wipe uchun
+    // `allowEmpty:true` talab qilinadi (tasodifiy "hammasini o'chir"
+    // chaqiruvidan himoya). Bu yer ATAYLAB bo'sh, shuning uchun
+    // bayroq beriladi.
     if (!rows.length) {
-      const r = await _saApi("restore_write", { shopId:sid, table:t, rows:[], wipe:true })
+      const r = await _saApi("restore_write", { shopId:sid, table:t, rows:[], wipe:true, allowEmpty:true })
         .catch(e => ({ ok:false, error:e.message }));
       if (!r || !r.ok)
         return { ok:false, stoppedAt:t, done:report,
@@ -2830,7 +2834,12 @@ async function saRestoreBackup(backupId, onProgress) {
     let first = true;
     for (let i = 0; i < rows.length; i += 100) {
       const chunk = rows.slice(i, i + 100);
-      const r = await _saApi("restore_write", { shopId:sid, table:t, rows:chunk, wipe:first })
+      // ⚠️ 2026-08-08: `totalRows` — server himoya kamari uchun.
+      // Server "hozirgi qatorlar soniga nisbatan zaxira juda kichik
+      // bo'lsa to'xtat" qoidasini tekshiradi; bo'laklab yuborilganda
+      // u faqat 100 qatorni ko'rib qolmasligi uchun JAMI rejani ham
+      // bilishi kerak.
+      const r = await _saApi("restore_write", { shopId:sid, table:t, rows:chunk, wipe:first, totalRows: rows.length })
         .catch(e => ({ ok:false, error:e.message }));
       if (!r || !r.ok) {
         if (line.inserted || line.deleted) report.push(line);
@@ -2851,7 +2860,7 @@ async function saRestoreBackup(backupId, onProgress) {
   // yozuvlar "o'chirilgan" deb yashirilishi mumkin
   let tombOk = true;
   try {
-    const r = await _saApi("restore_write", { shopId:sid, table:"deleted_records", rows:[], wipe:true });
+    const r = await _saApi("restore_write", { shopId:sid, table:"deleted_records", rows:[], wipe:true, allowEmpty:true });
     tombOk = !!(r && r.ok);
   } catch(e) { tombOk = false; }
 
