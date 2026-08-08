@@ -4110,6 +4110,7 @@
     </div>
     <div style="padding:12px 20px;border-top:1px solid var(--brd);display:flex;gap:8px">
       <button onclick="printSaleDetail()" class="btn btn-sm" style="flex:1"><i class="ti ti-printer"></i> Chek</button>
+      <button id="sd-push-btn" onclick="saleForcePush()" class="btn btn-sm" style="flex:1"><i class="ti ti-cloud-up"></i> Bulutga</button>
       <button id="sd-refund-btn" onclick="openRefundModal()" class="btn btn-sm" style="flex:1;color:var(--red)"><i class="ti ti-arrow-back"></i> Qaytarish</button>
     </div>
   </div>
@@ -4923,7 +4924,7 @@
 <script src="js/ombor.js?v=176"></script>
 <script src="js/mijozlar.js?v=165"></script>
 <script src="js/qarzlar.js?v=206"></script>
-<script src="js/tarix.js?v=176"></script>
+<script src="js/tarix.js?v=177"></script>
 <script src="js/hisobot.js?v=152"></script>
 <script src="js/xodimlar.js?v=157"></script>
 <script src="js/moliya.js?v=174"></script>
@@ -5154,10 +5155,10 @@ if ("serviceWorker" in navigator) {
   // versiyada ishlayotgan kassa DARROV ko'rinadi.
   // ⚠️ §2 GA QO'SHIMCHA: har push'da bu raqam ham sw.js?v= bilan
   //    BIR XIL bo'lishi shart.
-  window.SW_V = 297;
+  window.SW_V = 298;
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=297")
+    navigator.serviceWorker.register("/sw.js?v=298")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

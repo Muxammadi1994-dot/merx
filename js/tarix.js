@@ -517,6 +517,22 @@ function _renderTxGrid(list, cols, pagerHtml, q) {
 }
 
 // ── Sotuv detail modal ────────────────────────────
+// ⚠️ 2026-08-08: OSILGAN CHEKNI BULUTGA ITARISH (JS 3177 hodisasi).
+// Eskirgan sessiyada qilingan yozuv rad etilib qolsa, sessiya
+// yangilangach ham barmoq izi tufayli qayta ketmasligi mumkin.
+// Bu tugma yozuvga yangi vaqt muhri beradi, kesh izini o'chiradi
+// va pushni darhol uyg'otadi. Ma'lumotning o'ziga TEGMAYDI —
+// istalgan chekda bosish xavfsiz.
+function saleForcePush() {
+  const s = (db.sales || []).find(x => x.id === _sdSaleId);
+  if (!s) { toast("Sotuv topilmadi", "err"); return; }
+  s.updatedAt = Date.now();
+  try { if (typeof _pushCache !== "undefined") delete _pushCache[String(s.id)]; } catch(e) {}
+  try { saveDB(); } catch(e) {}
+  try { if (typeof pushToCloud === "function") pushToCloud(); } catch(e) {}
+  toast("🔁 Chek bulutga qayta yuborilmoqda — 20 soniyadan keyin tekshiring");
+}
+
 function openSaleDetail(id) {
   const s = db.sales.find(x => x.id === id); if (!s) return;
   _sdSaleId = id;
