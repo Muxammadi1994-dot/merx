@@ -345,7 +345,19 @@ function saveDB() {
   // rasm yo'qolishi" kabi holat imkonsiz bo'ladi.
   try { window._dbMutSeq = (window._dbMutSeq || 0) + 1; } catch(e) {}
   scheduleHeavySave();
-  try { localStorage.setItem(key, JSON.stringify(_dbForLocal())); }
+  // ⚠️ 2026-08-08: RASMLAR localStorage'GA UMUMAN YOZILMAYDI.
+  // Avval saveDB() har safar rasmlar bilan yozishga urinardi va
+  // faqat SIG'MAGACH ularsiz qayta yozardi. Katta do'konda (ABU
+  // SAXIY: 895 tovar) bu har saqlashda ~5 MB chegarani urish, keyin
+  // ikki bosqichli qutqaruv va foydalanuvchiga qo'rqinchli
+  // ogohlantirish demakdi — jonli holatda ko'rildi.
+  // Rasmlar Supabase Storage'da saqlanadi (§6) va bulutdan
+  // yuklanadi, ya'ni ularni qurilma xotirasida saqlashning ma'nosi
+  // yo'q. Endi ular boshidanoq chiqarib tashlanadi: saqlash tez,
+  // xotira bosimi yo'qoladi, rasmlar avvalgidek ko'rinaveradi.
+  const _noImg = (k, v) =>
+    (k === "image" || k === "colorImages" || k === "photo") ? undefined : v;
+  try { localStorage.setItem(key, JSON.stringify(_dbForLocal(), _noImg)); }
   catch(e) {
     // 2026-07-20: XOTIRA TO'LSA — AVTOMAT TIKLANISH (localStorage deyarli
     // hech qachon to'lmaydi). Ikki bosqichli qutqaruv:
@@ -360,34 +372,32 @@ function saveDB() {
           try { localStorage.removeItem(k); } catch(e2) {}
         }
       });
-      localStorage.setItem(key, JSON.stringify(_dbForLocal())); // qayta urinish
+      localStorage.setItem(key, JSON.stringify(_dbForLocal(), _noImg)); // qayta urinish
       console.log("✅ Xotira tozalandi — ma'lumot saqlandi");
       if (typeof scheduleCloudSync === "function") scheduleCloudSync();
       return;
     } catch(e2) { /* hali to'la — 2-bosqichga */ }
 
-    // 2-BOSQICH: RASMLARSIZ saqlaymiz (rasmlar Storage'da/bulutda bor —
-    // localStorage'da faqat matn qoladi, hajm 10-20 barobar kichrayadi).
+    // 2-BOSQICH: eng eski sotuvlarni lokal keshdan chiqarib joy bo'shatamiz.
+    // (Rasmlar allaqachon yozilmaydi — yuqoriga qarang.) Sotuvlar
+    // bulutda to'liq saqlanadi, qurilmaga esa oxirgi 365 kun tortiladi
+    // (§4.2), shuning uchun bu yerda eskilarini tashlash xavfsiz.
     try {
-      const light = JSON.stringify(_dbForLocal(), (k, v) => {
-        if (k === "image" || k === "colorImages" || k === "photo") return undefined;
-        return v;
-      });
-      localStorage.setItem(key, light);
-      console.log("✅ Ma'lumot rasmsiz saqlandi (rasmlar bulutda) — xotira yengillashdi");
-      if (Date.now() - _saveFailAt > 300000 && typeof toast === "function") {
-        _saveFailAt = Date.now();
-        toast("ℹ️ Qurilma xotirasi to'lgani uchun rasmlar bulutdan yuklanadi (ma'lumot xavfsiz)", "info");
-      }
+      const lite = _dbForLocal();
+      if (Array.isArray(lite.sales) && lite.sales.length > 200)
+        lite.sales = lite.sales.slice(-200);
+      localStorage.setItem(key, JSON.stringify(lite, _noImg));
+      console.log("✅ Eski sotuvlar lokal keshdan chiqarildi — ma'lumot saqlandi (bulutda to'liq)");
       if (typeof scheduleCloudSync === "function") scheduleCloudSync();
       return;
     } catch(e3) {
-      // Eng oxirgi holat: hatto rasmsiz ham sig'madi (juda kam ehtimol)
+      // Eng oxirgi holat: bunda ham sig'madi (juda kam ehtimol)
       mem = db;
-      console.error("❌ localStorage saqlash xatosi (rasmsiz ham):", e3.message);
+      console.error("❌ localStorage saqlash xatosi:", e3.message);
       if (Date.now() - _saveFailAt > 60000 && typeof toast === "function") {
         _saveFailAt = Date.now();
-        toast("⚠️ DIQQAT: qurilma xotirasi to'ldi! Ma'lumot faqat bulutga saqlanmoqda — internetni uzmang va MERX ni yopishdan oldin sinxronlanishini kuting", "err");
+        toast("⚠️ Qurilma xotirasi to'ldi — ma'lumot bulutga saqlanmoqda. " +
+              "Internetni uzmang va MERX ni yopishdan oldin sinxron tugashini kuting", "err");
       }
     }
   }

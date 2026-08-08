@@ -3191,7 +3191,7 @@
             <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--mut)">Sotuvlar</span><strong id="tiz-sales">—</strong></div>
             <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--mut)">Mijozlar</span><strong id="tiz-custs">—</strong></div>
             <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--mut)">Xodimlar</span><strong id="tiz-staff">—</strong></div>
-            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--mut)">Versiya</span><strong>2026-07 (v179)</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)"><span style="font-size:13px;color:var(--mut)">Versiya</span><strong id="sys-version">—</strong></div>
             <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
               <span style="font-size:13px;color:var(--mut)">Ma'lumotlar hajmi</span>
               <strong id="tiz-ls-size" style="font-size:13px">—</strong>
@@ -4913,7 +4913,7 @@
 
 </div><!-- /#app yopilishi -->
 
-<script src="js/db.js?v=165"></script>
+<script src="js/db.js?v=166"></script>
 <script src="js/utils.js?v=219"></script>
 <script src="js/auth.js?v=202"></script>
 <script src="js/sms.js?v=143"></script>
@@ -5213,10 +5213,30 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 303;
+  window.SW_V = 304;
+
+  // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
+  // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
+  // turardi va hech qachon yangilanmasdi. U qurilmaning haqiqiy
+  // versiyasiga aloqasi yo'q edi, lekin tashxis paytida "qurilma
+  // eskirgan" degan noto'g'ri xulosaga olib keldi (jonli holatda
+  // ko'rildi). Endi bu yer `window.SW_V` dan — ya'ni qurilmadagi
+  // HAQIQIY versiyadan — to'ldiriladi.
+  // ⚠️ Bu blok SW_V TAYINLANGANDAN KEYIN turishi shart.
+  (function _showVersion() {
+    function put() {
+      try {
+        const el = document.getElementById("sys-version");
+        if (el) el.textContent = "v" + (window.SW_V || "?");
+      } catch (e) {}
+    }
+    if (document.readyState === "loading")
+      document.addEventListener("DOMContentLoaded", put);
+    else put();
+  })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=303")
+    navigator.serviceWorker.register("/sw.js?v=304")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
