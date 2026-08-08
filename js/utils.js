@@ -2783,3 +2783,43 @@ function applySyncToolsLock() {
 }
 if (document.readyState !== "loading") applySyncToolsLock();
 else document.addEventListener("DOMContentLoaded", applySyncToolsLock);
+
+// ══════════════════════════════════════════════════════════════
+// EKRAN QALTIRASHI — SAHIFANI QAYTA QURMASDAN YANGILASH (2026-08-08)
+// ══════════════════════════════════════════════════════════════
+// MUAMMO (video bilan isbotlangan): bulutdan har o'zgarish kelganda
+// `nav(_page)` chaqirilardi — u sahifani BUTUNLAY qaytadan quradi
+// (sarlavha, ruxsat bloklari, ro'yxat, surish holati). Faol do'konda
+// uch kassa birdan sotayotganda signal ketma-ket keladi va ekran
+// to'xtovsiz sakraydi. Qarzlar sahifasida qidiruv yozayotganda ayniqsa
+// bilinadi: 5 soniyada har yarim soniyada butun ro'yxat qayta chizilgan.
+// (POS uchun bu istisno allaqachon bor edi — qolgan sahifalar chetda
+// qolgan ekan.)
+//
+// YECHIM: (1) faqat o'sha sahifaning ro'yxati qayta chiziladi;
+// (2) foydalanuvchi maydonga YOZAYOTGAN bo'lsa — yangilash kuttiriladi
+// va u to'xtagach bajariladi. Ma'lumot baribir yangi, faqat ekran
+// tinch turadi.
+const _PAGE_RENDER_FN = {
+  dashboard: "renderDashboard", katalog: "renderKatalog", ombor: "renderOmbor",
+  mijozlar: "renderMijozlar", qarzlar: "renderDebts", qarztarix: "renderQarzlarTarixi",
+  tarix: "renderTarix", hisobot: "renderHisobot", xodimlar: "renderXodimlar",
+  moliya: "renderMoliya", portal: "renderPortal", egasi: "renderEgasi"
+};
+let _pageRerenderTimer = null;
+function renderPageOnly(p) {
+  const nm = _PAGE_RENDER_FN[p];
+  if (!nm) return;
+  const fn = window[nm];
+  if (typeof fn !== "function") return;
+  const ae = document.activeElement;
+  const yozyapti = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" ||
+                          ae.isContentEditable);
+  if (yozyapti) {
+    // Yozib bo'lgach yangilaymiz — ekran yozuv paytida qimirlamaydi
+    clearTimeout(_pageRerenderTimer);
+    _pageRerenderTimer = setTimeout(() => renderPageOnly(p), 2000);
+    return;
+  }
+  try { fn(); } catch (e) { console.warn("renderPageOnly:", e.message); }
+}

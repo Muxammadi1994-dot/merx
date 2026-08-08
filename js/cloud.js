@@ -587,8 +587,17 @@ async function pullDelta(noRender) {
               // `nav("pos")` izoh maydonini tozalaydi. Faqat tovarlar
               // ro'yxatini yangilaymiz — rasm va qoldiq shu yerda.
               if (typeof posSearch === "function") posSearch();
+            } else if (typeof renderPageOnly === "function") {
+              // ⚠️ 2026-08-08: EKRAN QALTIRASHI TUZATILDI.
+              // Avval bu yerda `nav(_page)` chaqirilardi — u sahifani
+              // BUTUNLAY qaytadan quradi. Faol do'konda signal ketma-ket
+              // keladi va ekran to'xtovsiz sakraydi (video bilan
+              // isbotlangan). Endi faqat o'sha sahifaning ro'yxati
+              // qayta chiziladi, foydalanuvchi yozayotgan bo'lsa esa
+              // yangilash u to'xtaguncha kuttiriladi (utils.js).
+              renderPageOnly(_page);
             } else if (typeof nav === "function") {
-              nav(_page);
+              nav(_page);   // zaxira yo'l (eski nusxa)
             }
           }
         } catch(e) {}
