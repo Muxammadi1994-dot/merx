@@ -2968,14 +2968,29 @@ function _bkMapCustomer(c, sid) {
   // (§5.3, "telegram_chat_id ni HECH QACHON o'zgartirmaymiz") —
   // endi tiklash ham shu qoidaga bo'ysunadi: zaxirada bo'lsa
   // beriladi, bo'lmasa `_bkKeepChatIds` bulutdagisini qaytaradi.
+  // ⚠️ 2026-08-08: TO'LIQ USTUNLAR (audit natijasi) — sodiqlik
+  // ballari, qarz limiti, tug'ilgan kun, kompaniya va muhim izoh
+  // ham tiklanadi (avval yo'qolardi).
   const row = { id:c.id, shop_id:sid, name:c.name, phone:c.phone, type:c.type, note:c.note,
-    balance_uzs:c.balanceUzs, balance_usd:c.balanceUsd, data:c };
+    balance_uzs:c.balanceUzs, balance_usd:c.balanceUsd,
+    local_id:c.localId, phone2:c.phone2, company:c.company,
+    important_note:c.importantNote, birthday:c.birthday, source:c.source,
+    debt_limit:c.debtLimit, loyalty_points:c.loyaltyPoints, telegram_id:c.telegramId,
+    data:c };
   const chat = c.telegramChatId || c.telegram_chat_id || null;
   if (chat) row.telegram_chat_id = chat;
   return _bkFixKeys(row);
 }
 function _bkMapSale(s, sid) {
+  // ⚠️ 2026-08-08: TO'LIQ USTUNLAR (audit natijasi).
+  // Avval bu map 23 ustun yozardi, jadvalda esa 34 ta bor edi —
+  // tiklashdan keyin `due` (qarz muddati), `orig_*` (chek muzlatilgan
+  // qiymatlari, §3.5), `prev_debt_*`, chegirma turi va `local_id`
+  // JIMGINA yo'qolardi. Endi hammasi yoziladi.
   return _bkFixKeys({ id:s.id, shop_id:sid, chek_num:s.chekNum, date:s.date, time:s.time,
+    due:s.due, local_id:s.localId, orig_paid:s.origPaid, orig_remaining:s.origRemaining,
+    orig_debt_usd:s.origDebtUsd, prev_debt_usd:s.prevDebtUsd, prev_debt_uzs:s.prevDebtUzs,
+    discount_type:s.discountType, discount_pct:s.discountPct,
     price_type:s.priceType, pay_type:s.payType, pay_breakdown:s.payBreakdown,
     staff_id:s.staffId, customer_id:s.customerId, items:s.items,
     subtotal:s.subtotal, discount:s.discount, total:s.total, paid:s.paid,
@@ -2983,20 +2998,46 @@ function _bkMapSale(s, sid) {
     status:s.status, debt_currency:s.debtCurrency, debt_usd:s.debtUsd, note:s.note, data:s });
 }
 function _bkMapDebtPay(p, sid) {
+  // ⚠️ 2026-08-08: TO'LIQ USTUNLAR — ENG MUHIMI `allocations`.
+  // Avval bu map 9 ustun yozardi (jadvalda 26 ta). Tiklashdan keyin
+  // to'lovning QAYSI QARZLARGA taqsimlangani (`allocations`),
+  // chek raqami, mijoz ismi, oldingi/keyingi qarz, ortiqcha pul
+  // (`leftover`) va kurs yo'qolardi — bu PUL ma'lumoti (§15).
   return _bkFixKeys({ id:p.id, shop_id:sid, customer_id:p.customerId, sale_id:p.saleId, amount:p.amount,
+    chek_num:p.chekNum, time:p.time, customer_name:p.customerName, customer_phone:p.customerPhone,
+    allocations:p.allocations, leftover:p.leftover, leftover_to_balance:p.leftoverToBalance,
+    debt_before:p.debtBefore, debt_after:p.debtAfter, method_breakdown:p.methodBreakdown,
+    rate:p.rate, amount_usd:p.amountUsd, staff_id:p.staffId, note:p.note, local_id:p.localId,
     currency:p.currency, method:p.method, date:p.date, data:p });
 }
 function _bkMapOmbor(o, sid) {
+  // ⚠️ 2026-08-08: TO'LIQ USTUNLAR — narxlar, shtrix, to'lov holati.
   return _bkFixKeys({ id:o.id, shop_id:sid, date:o.date, sku:o.sku, product_name:o.productName,
+    barcode:o.barcode, chakana:o.chakana, ulgurji:o.ulgurji, pay_status:o.payStatus,
+    hex:o.hex, pantone:o.pantone, local_id:o.localId,
     unit:o.unit, color:o.color, size:o.size, qty:o.qty, boxes:o.boxes,
     kirim_narxi:o.kirimNarxi, supplier:o.supplier, partiya:o.partiya, data:o });
 }
 function _bkMapXarajat(x, sid) {
+  // ⚠️ 2026-08-08: TO'LIQ USTUNLAR — valyuta, kim to'lagani, oy, tur.
   return _bkFixKeys({ id:x.id, shop_id:sid, date:x.date, amount:x.amount, category:x.category,
+    sub_category:x.subCategory, currency:x.currency, amount_usd:x.amountUsd,
+    recipient:x.recipient, paid_by:x.paidBy, xarajat_type:x.xarajatType,
+    for_month:x.forMonth, recurring:x.recurring, local_id:x.localId,
     note:x.note, method:x.method, data:x });
 }
 function _bkMapStaff(s, sid) {
-  return _bkFixKeys({ id:s.id, shop_id:sid, name:s.name, phone:s.phone, role:s.role, data:s });
+  // ⚠️ 2026-08-08: TO'LIQ USTUNLAR — RUXSATLAR VA MAOSH.
+  // Avval faqat 6 ustun yozilardi (jadvalda 21 ta): tiklashdan
+  // keyin xodimning RUXSATLARI (`permissions`, `modules`,
+  // `perm_*`), PIN kodi, maoshi va to'langan oylari yo'qolardi —
+  // ya'ni xodim tizimga kira olmay qolishi mumkin edi.
+  return _bkFixKeys({ id:s.id, shop_id:sid, name:s.name, phone:s.phone, role:s.role,
+    permissions:s.permissions, modules:s.modules, pin:s.pin, pin_hash:s.pinHash,
+    perm_discount:s.permDiscount, max_discount:s.maxDiscount, perm_nasiya:s.permNasiya,
+    perm_return:s.permReturn, salary:s.salary, bonus_pct:s.bonusPct,
+    month_target:s.monthTarget, paid_months:s.paidMonths, salary_history:s.salaryHistory,
+    data:s });
 }
 
 // ═══════════════════════════════════════════════════════════════
