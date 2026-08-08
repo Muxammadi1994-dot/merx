@@ -2810,6 +2810,27 @@ async function saRestoreBackup(backupId, onProgress) {
     return { ok:false, error:"Zaxirada bironta yozuv yo'q — tiklash bekor qilindi (himoya)" };
 
   const report = [];
+
+  // ⚠️ 2026-08-08: BOT ULANISHLARINI SAQLAB QOLISH (jonli hodisa).
+  // `telegram_chat_id` faqat BULUTDA yashaydi — mijoz botga
+  // ulanganda bot yozadi, qurilmada ham, zaxirada ham yo'q.
+  // Tiklash `wipe` bilan eski qatorlarni o'chirgani uchun bu
+  // ulanishlar NULL bo'lib yo'qolardi va mijozlarga chek kelmay
+  // qolardi (Shoetest'da aynan shunday bo'ldi). Endi tiklashdan
+  // OLDIN bulutdagi juftliklar o'qib olinadi va yozilgandan keyin
+  // qaytariladi. Xato bo'lsa tiklash TO'XTAMAYDI — ogohlantirish
+  // beriladi, chunki asosiy ma'lumot muhimroq.
+  let _savedChatIds = [];
+  try {
+    const { data: _cc } = await _sb.from("customers")
+      .select("id,phone,telegram_chat_id")
+      .eq("shop_id", sid)
+      .not("telegram_chat_id", "is", null);
+    _savedChatIds = _cc || [];
+    if (_savedChatIds.length)
+      console.log(`💾 Bot ulanishlari saqlandi: ${_savedChatIds.length} ta mijoz`);
+  } catch(e) { console.warn("Bot ulanishlarini o'qib bo'lmadi:", e.message); }
+
   for (const { t, arr, map } of tables) {
     const rows = arr.map(x => { try { return _bkEnsureId(map(x, sid)); } catch(e) { return null; } }).filter(Boolean);
     const line = { table:t, deleted:0, inserted:0 };
@@ -2864,9 +2885,33 @@ async function saRestoreBackup(backupId, onProgress) {
     tombOk = !!(r && r.ok);
   } catch(e) { tombOk = false; }
 
+  // ⚠️ 2026-08-08: BOT ULANISHLARINI QAYTARAMIZ (yuqoriga qarang).
+  // Yozuv `id` bo'yicha, u topilmasa `phone` bo'yicha tiklanadi —
+  // chunki tiklashda id o'zgargan bo'lishi mumkin, telefon esa
+  // mijozning barqaror belgisi.
+  let chatOk = 0;
+  if (_savedChatIds.length) {
+    for (const c of _savedChatIds) {
+      try {
+        let r = await _sb.from("customers")
+          .update({ telegram_chat_id: c.telegram_chat_id })
+          .eq("shop_id", sid).eq("id", c.id).select("id");
+        if (!r.data || !r.data.length) {
+          if (c.phone)
+            r = await _sb.from("customers")
+              .update({ telegram_chat_id: c.telegram_chat_id })
+              .eq("shop_id", sid).eq("phone", c.phone).select("id");
+        }
+        if (r.data && r.data.length) chatOk++;
+      } catch(e) {}
+    }
+    console.log(`🔗 Bot ulanishlari qaytarildi: ${chatOk}/${_savedChatIds.length}`);
+  }
+
   const inserted = report.reduce((a,x) => a + (x.inserted || 0), 0);
   console.log("♻️ Tiklash yakuni:", report);
-  return { ok:true, shop_id:sid, date:bk.date, records:inserted, tables:report, tombOk };
+  return { ok:true, shop_id:sid, date:bk.date, records:inserted, tables:report, tombOk,
+           chatIdsRestored: chatOk, chatIdsTotal: _savedChatIds.length };
 }
 
 // ⚠️ 2026-08-08: PGRST102 "All object keys must match" TUZATISHI.
@@ -2914,8 +2959,20 @@ function _bkMapProduct(p, sid) {
     color_name:p.colorName, hex:p.hex, pack_unit:p.packUnit, data:p });
 }
 function _bkMapCustomer(c, sid) {
-  return _bkFixKeys({ id:c.id, shop_id:sid, name:c.name, phone:c.phone, type:c.type, note:c.note,
-    balance_uzs:c.balanceUzs, balance_usd:c.balanceUsd, data:c });
+  // ⚠️ 2026-08-08: `telegram_chat_id` — TIKLASHDA SAQLANADI.
+  // Bu qiymat FAQAT bulutda yashaydi (mijoz botga ulanganda bot
+  // yozadi), qurilmada/zaxirada yo'q. Avval bu map uni bermasdi —
+  // natijada `wipe` bilan tiklashda barcha bot ulanishlari NULL
+  // bo'lib yo'qolardi va mijozlarga chek kelmay qolardi (Shoetest'da
+  // jonli ko'rildi). Kundalik push'da u allaqachon himoyalangan
+  // (§5.3, "telegram_chat_id ni HECH QACHON o'zgartirmaymiz") —
+  // endi tiklash ham shu qoidaga bo'ysunadi: zaxirada bo'lsa
+  // beriladi, bo'lmasa `_bkKeepChatIds` bulutdagisini qaytaradi.
+  const row = { id:c.id, shop_id:sid, name:c.name, phone:c.phone, type:c.type, note:c.note,
+    balance_uzs:c.balanceUzs, balance_usd:c.balanceUsd, data:c };
+  const chat = c.telegramChatId || c.telegram_chat_id || null;
+  if (chat) row.telegram_chat_id = chat;
+  return _bkFixKeys(row);
 }
 function _bkMapSale(s, sid) {
   return _bkFixKeys({ id:s.id, shop_id:sid, chek_num:s.chekNum, date:s.date, time:s.time,
