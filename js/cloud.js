@@ -2832,7 +2832,10 @@ async function saRestoreBackup(backupId, onProgress) {
   } catch(e) { console.warn("Bot ulanishlarini o'qib bo'lmadi:", e.message); }
 
   for (const { t, arr, map } of tables) {
-    const rows = arr.map(x => { try { return _bkEnsureId(map(x, sid)); } catch(e) { return null; } }).filter(Boolean);
+    const rows = _bkAlignKeys(
+      arr.map(x => { try { return _bkEnsureId(map(x, sid)); } catch(e) { return null; } })
+         .filter(Boolean)
+    );
     const line = { table:t, deleted:0, inserted:0 };
 
     // Yozuv yo'q — faqat eski qatorlarni tozalaymiz
@@ -2927,6 +2930,24 @@ async function saRestoreBackup(backupId, onProgress) {
 // ⚠️ `null` yozilishi xavfsiz: bu tiklash oqimi (butun jadval
 // zaxiradan qayta yoziladi), push emas — §5.3 dagi "|| standart
 // taqiqi" bu yerga taalluqli emas.
+// ⚠️ 2026-08-08: PARTIYA KALITLARINI TENGLASHTIRISH.
+// PostgREST bitta so'rovdagi HAMMA qator aynan bir xil kalitlarga
+// ega bo'lishini talab qiladi (PGRST102 "All object keys must
+// match"). Bitta qatorda biror maydon bo'lib, boshqasida bo'lmasa —
+// butun tiklash to'xtaydi. Bu jonli holatda ikki marta yuz berdi.
+// Shuning uchun yuborishdan OLDIN barcha qatorlar bir xil kalit
+// to'plamiga keltiriladi: birortasida uchragan har kalit hammasiga
+// qo'shiladi (yo'qlari `null` bo'ladi).
+function _bkAlignKeys(rows) {
+  const all = new Set();
+  rows.forEach(r => { for (const k in r) all.add(k); });
+  return rows.map(r => {
+    const out = {};
+    all.forEach(k => { out[k] = (r[k] === undefined ? null : r[k]); });
+    return out;
+  });
+}
+
 function _bkFixKeys(o) {
   const out = {};
   for (const k in o) out[k] = (o[k] === undefined ? null : o[k]);
@@ -2976,9 +2997,13 @@ function _bkMapCustomer(c, sid) {
     local_id:c.localId, phone2:c.phone2, company:c.company,
     important_note:c.importantNote, birthday:c.birthday, source:c.source,
     debt_limit:c.debtLimit, loyalty_points:c.loyaltyPoints, telegram_id:c.telegramId,
+    // ⚠️ Bu maydon SHARTSIZ qo'shiladi (null bo'lsa ham) — aks holda
+    // partiyadagi qatorlarning kalitlari farq qilib, PostgREST
+    // "All object keys must match" (PGRST102) xatosi beradi.
+    // Bulutdagi haqiqiy qiymat tiklash oxirida `_savedChatIds` dan
+    // qaytariladi, shuning uchun null yozilishi zarar qilmaydi.
+    telegram_chat_id: (c.telegramChatId || c.telegram_chat_id || null),
     data:c };
-  const chat = c.telegramChatId || c.telegram_chat_id || null;
-  if (chat) row.telegram_chat_id = chat;
   return _bkFixKeys(row);
 }
 function _bkMapSale(s, sid) {
