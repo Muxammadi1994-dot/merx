@@ -526,7 +526,12 @@ function _renderTxGrid(list, cols, pagerHtml, q) {
 function saleForcePush() {
   const s = (db.sales || []).find(x => x.id === _sdSaleId);
   if (!s) { toast("Sotuv topilmadi", "err"); return; }
-  s.updatedAt = Date.now();
+  // ⚠️ 2026-08-08: ISO MATN (son EMAS). Tizimning qolgan qismi
+  // muhrni `Date.parse(...)` bilan o'qiydi — u sonni tushunmaydi va
+  // 0 qaytaradi, ya'ni bu yozuv "eng eski" bo'lib qolardi va
+  // tortishda bulut nusxasi uni bosib ketardi. Endi `_stamp` bilan
+  // bir xil format.
+  s.updatedAt = new Date().toISOString();
   try { if (typeof _pushCache !== "undefined") delete _pushCache[String(s.id)]; } catch(e) {}
   try { saveDB(); } catch(e) {}
   try { if (typeof pushToCloud === "function") pushToCloud(); } catch(e) {}

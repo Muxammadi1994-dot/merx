@@ -1117,6 +1117,16 @@ async function pushToCloud() {
       // shuning uchun u "oxirgi haqiqiy o'zgarish" vaqtini bildiradi.
       const _local = { sales: db.sales, ombor: db.ombor, staff: db.staff }[table];
       const _stamp = !_local ? null : (row) => {
+        // ⚠️ 2026-08-08: MAJBURIY QAYTA YUBORISHDA MUHR YANGILANMAYDI.
+        // `forceRepushAll` push keshini tozalaydi — shundan keyin HAR
+        // qator "o'zgargan" deb hisoblanadi va bu yer hammasiga YANGI
+        // muhr bosardi. Natijada qurilmaning ESKI nusxasi bulutga
+        // eng yangi muhr bilan borib, boshqa kassada qilingan ishni
+        // bosib ketardi — CHK-20260808-3301-EG dagi 10 mln lik
+        // qaytarish aynan shunday yo'qolgan.
+        // Majburiy yuborish "bor narsani qayta jo'nat" degani, "bu
+        // yozuv yangiroq" degani EMAS — shuning uchun muhrga tegmaymiz.
+        if (window._forceRepushing) return;
         const _t = new Date().toISOString();
         const lr = _local.find(x => String(x.id) === String(row.id));
         if (lr) lr.updatedAt = _t;
@@ -3245,6 +3255,10 @@ async function forceRepushAll() {
                  "Hech narsa o'chmaydi. Sekin internetda bir necha " +
                  "daqiqa davom etishi mumkin.\n\nDavom etilsinmi?")) return;
 
+    // ⚠️ 2026-08-08: BAYROQ — bu yuborishda vaqt muhri YANGILANMASIN
+    // (yuqoridagi `_stamp` ga qarang). Busiz eski nusxa yangi muhr
+    // olib, bulutdagi to'g'ri yozuvni bosib ketardi.
+    window._forceRepushing = true;
     _pushCache = {};
     try { localStorage.removeItem(_pushCacheKey()); } catch(e) {}
     console.warn("♻️ Push keshi tozalandi — to'liq qayta yuborish");
@@ -3256,6 +3270,10 @@ async function forceRepushAll() {
   } catch (e) {
     console.error("forceRepushAll:", e);
     toast("Xato: " + (e.message || "qayta yuborilmadi"), "err");
+  } finally {
+    // Bayroq HAR HOLDA o'chiriladi — aks holda keyingi oddiy
+    // push'larda ham muhr qo'yilmay qolardi
+    window._forceRepushing = false;
   }
 }
 
