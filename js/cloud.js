@@ -2833,7 +2833,7 @@ async function saRestoreBackup(backupId, onProgress) {
 
   for (const { t, arr, map } of tables) {
     const rows = _bkAlignKeys(
-      arr.map(x => { try { return _bkEnsureId(map(x, sid)); } catch(e) { return null; } })
+      arr.map(x => { try { return _bkFixDates(_bkEnsureId(map(x, sid))); } catch(e) { return null; } })
          .filter(Boolean)
     );
     const line = { table:t, deleted:0, inserted:0 };
@@ -2938,6 +2938,36 @@ async function saRestoreBackup(backupId, onProgress) {
 // Shuning uchun yuborishdan OLDIN barcha qatorlar bir xil kalit
 // to'plamiga keltiriladi: birortasida uchragan har kalit hammasiga
 // qo'shiladi (yo'qlari `null` bo'ladi).
+// ⚠️ 2026-08-08: BO'SH SANA → NULL.
+// PostgreSQL `date` ustuniga bo'sh matn ("") yozib bo'lmaydi:
+// `22007 invalid input syntax for type date`. Ilovada esa muddat
+// belgilanmagan sotuvda `due` aynan "" bo'ladi (null emas).
+// Kundalik push buni `s.due || null` bilan hal qiladi; tiklash
+// oqimida ham xuddi shunday qilamiz — barcha sana/vaqt turidagi
+// ustunlarda bo'sh matn `null` ga aylantiriladi.
+const _BK_DATE_COLS = ["date", "due", "birthday", "for_month", "created_at", "updated_at"];
+// Sonli va JSON ustunlar ham bo'sh matnni qabul qilmaydi
+// (`22P02 invalid input syntax for type numeric/json`). Bir xil
+// sabab — shuning uchun ular ham oldindan tozalanadi.
+const _BK_NUM_COLS = ["amount", "amount_usd", "qty", "boxes", "total", "paid", "remaining",
+  "subtotal", "discount", "discount_pct", "cost_usd", "price_uzs", "ulgurji", "chakana",
+  "kirim_narxi", "in_box", "balance_uzs", "balance_usd", "debt_usd", "debt_limit",
+  "loyalty_points", "salary", "bonus_pct", "month_target", "max_discount", "rate",
+  "leftover", "debt_before", "debt_after", "orig_paid", "orig_remaining", "orig_debt_usd",
+  "prev_debt_usd", "prev_debt_uzs", "sale_id", "customer_id", "staff_id", "local_id"];
+const _BK_JSON_COLS = ["items", "variants", "color_barcodes", "pay_breakdown", "allocations",
+  "method_breakdown", "permissions", "modules", "paid_months", "salary_history", "data"];
+
+function _bkFixDates(o) {
+  for (const k of _BK_DATE_COLS)
+    if (k in o && (o[k] === "" || o[k] === undefined)) o[k] = null;
+  for (const k of _BK_NUM_COLS)
+    if (k in o && (o[k] === "" || o[k] === undefined)) o[k] = null;
+  for (const k of _BK_JSON_COLS)
+    if (k in o && (o[k] === "" || o[k] === undefined)) o[k] = null;
+  return o;
+}
+
 function _bkAlignKeys(rows) {
   const all = new Set();
   rows.forEach(r => { for (const k in r) all.add(k); });
