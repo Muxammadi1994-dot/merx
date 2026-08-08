@@ -782,6 +782,13 @@ function openRefundModal(saleId) {
 function updateRefundTotal() {
   const s = db.sales.find(x => x.id === _refundSaleId); if (!s) return;
   const safeItems = (s.items||[]).filter(Boolean);
+  // ⚠️ 2026-08-08: OYNADAGI SUMMA HAM CHEGIRMA BILAN.
+  // `confirmRefund` chegirmani hisobga oladi; bu yer esa eski
+  // hisobda qolsa — oynada bir raqam, saqlanganda boshqasi
+  // chiqardi. Ikkalasi bir manbadan hisoblanadi.
+  const _eff = (typeof spreadSaleDiscount === "function")
+    ? spreadSaleDiscount({ items: safeItems, discount: Number(s.discount || 0) })
+    : safeItems.map(it => ({ ...it, effPrice: Number(it.price || 0) }));
   let total = 0;
   safeItems.forEach((item, i) => {
     const inp = $(`ref-qty-${i}`); if (!inp) return;
@@ -789,7 +796,8 @@ function updateRefundTotal() {
     const isBox  = inp.dataset.isbox === "1";
     const inBox  = parseInt(inp.dataset.inbox) || 1;
     const qtyDona = isBox ? rawVal * inBox : rawVal;
-    const sum = qtyDona * (item.price||0);
+    const _p = Number((_eff[i] && _eff[i].effPrice) != null ? _eff[i].effPrice : (item.price || 0));
+    const sum = qtyDona * _p;
     total += sum;
     const sumEl = $(`ref-sum-${i}`);
     if (sumEl) sumEl.textContent = fmt(sum) + " so'm";
