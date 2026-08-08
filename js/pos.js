@@ -302,7 +302,22 @@ async function _openBarcodeCameraZxing() {
   }
   try {
     const Z = window.ZXing || window.ZXingBrowser;
-    _zxReader = new Z.BrowserMultiFormatReader();
+    // ⚠️ Formatlar CHEKLANADI (yuqoridagi izohga qarang): ITF va boshqa
+    // nazorat raqamsiz turlar soxta kod berishi mumkin.
+    let _hints = null;
+    try {
+      if (Z.DecodeHintType && Z.BarcodeFormat) {
+        _hints = new Map();
+        _hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [
+          Z.BarcodeFormat.CODE_128, Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8,
+          Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_39,
+          Z.BarcodeFormat.QR_CODE
+        ]);
+        _hints.set(Z.DecodeHintType.TRY_HARDER, true);
+      }
+    } catch (e) { _hints = null; }
+    _zxReader = _hints ? new Z.BrowserMultiFormatReader(_hints)
+                       : new Z.BrowserMultiFormatReader();
     openModal("barcode-cam");
     const vid = $("barcode-video");
     await _zxReader.decodeFromVideoDevice(undefined, vid, (result) => {
@@ -321,6 +336,10 @@ async function _openBarcodeCameraZxing() {
 async function openBarcodeCamera() {
   if (!("BarcodeDetector" in window)) return _openBarcodeCameraZxing();
   try {
+    // ⚠️ 2026-08-08: BU YO'L (Android/Chrome) O'ZGARTIRILMADI —
+    // u jonli holatda TO'G'RI ishlayapti (do'kon tasdiqladi), demak
+    // tegishga asos yo'q. Soxta o'qish faqat iOS zaxira yo'lida
+    // (ZXing) kuzatilgan va tuzatish o'sha yerda qilingan.
     _barcodeDetector = new BarcodeDetector({
       formats: ["ean_13","ean_8","code_128","code_39","qr_code","upc_a","upc_e","itf"]
     });
