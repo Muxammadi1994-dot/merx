@@ -320,13 +320,47 @@ async function _openBarcodeCameraZxing() {
                        : new Z.BrowserMultiFormatReader();
     openModal("barcode-cam");
     const vid = $("barcode-video");
-    await _zxReader.decodeFromVideoDevice(undefined, vid, (result) => {
+    // ⚠️ 2026-08-08: ORQA KAMERA MAJBURAN SO'RALADI.
+    // Avval `decodeFromVideoDevice(undefined, ...)` yozilgandi — bunda
+    // kutubxona ro'yxatdagi BIRINCHI kamerani oladi, iPhone'da esa u
+    // ko'pincha OLD (selfi) kamera bo'ladi: fokusi yo'q, sifati past,
+    // shtrixni goh o'qiydi goh yo'q. Jonli holatda aynan shunday
+    // beqarorlik kuzatildi (bir telefonda ishladi, keyin u ham
+    // to'xtadi). Endi orqa kamera aniq so'raladi va imkon boricha
+    // yuqori aniqlik beriladi — dagi zich CODE128 ishonchli o'qiladi.
+    const _camCons = {
+      video: {
+        facingMode: { ideal: "environment" },
+        width:  { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    };
+    const _onRead = (result) => {
       if (result && result.getText) {
         const code = result.getText();
         closeBarcodeCamera();
         processBarcode(code);
       }
-    });
+    };
+    if (typeof _zxReader.decodeFromConstraints === "function") {
+      await _zxReader.decodeFromConstraints(_camCons, vid, _onRead);
+    } else {
+      // Eski kutubxona: qurilmalar ro'yxatidan orqa kamerani izlaymiz
+      let devId;
+      try {
+        const devs = await navigator.mediaDevices.enumerateDevices();
+        const back = devs.filter(d => d.kind === "videoinput")
+          .find(d => /back|rear|environment|orqa/i.test(d.label || ""));
+        devId = back ? back.deviceId : undefined;
+      } catch (e) {}
+      await _zxReader.decodeFromVideoDevice(devId, vid, _onRead);
+    }
+
+    // 20 soniya ichida o'qilmasa — foydalanuvchiga yo'l ko'rsatamiz
+    clearTimeout(window._zxHintTimer);
+    window._zxHintTimer = setTimeout(() => {
+      if (_zxReader) toast("Kodni 10–15 sm masofada, yorug'da ushlab turing. O'qilmasa raqamni qidiruvga qo'lda kiriting", "info");
+    }, 20000);
   } catch (e) {
     toast("Kamera ochib bo'lmadi: " + (e.message || e), "err");
     try { closeBarcodeCamera(); } catch(_) {}
@@ -367,6 +401,7 @@ function closeBarcodeCamera() {
   if (_camStream) { _camStream.getTracks().forEach(t => t.stop()); _camStream = null; }
   // iOS zaxira o'qigichini ham to'xtatamiz — aks holda kamera yoniq qolib
   // batareyani yeydi
+  try { clearTimeout(window._zxHintTimer); } catch(e) {}
   try { if (_zxReader) { _zxReader.reset(); _zxReader = null; } } catch(e) {}
   closeModal("barcode-cam");
 }
