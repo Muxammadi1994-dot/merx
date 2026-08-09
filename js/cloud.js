@@ -2290,6 +2290,18 @@ async function pullFromCloud(silent = false, skipRender = false) {
       db.settings.rateMode      = sets.rate_mode
         ? (sets.rate_mode === "auto" ? "auto" : "manual")
         : (db.settings.rateMode || "manual");
+      // ⚠️ 2026-08-09: PULL KELGACH KO'RSATKICHLAR HAM YANGILANADI.
+      // Ma'lumot db ga tushardi-yu, tepadagi kurs pilli (tb-rate) va
+      // do'kon nomi (sb-shop) QAYTA CHIZILMASDI — xodim kirganda kurs
+      // va nom "Yangilash" bosilguncha eskicha ko'rinardi ("bir
+      // qurilmada yangilandi, ikkinchisida yo'q" jumbog'ining javobi:
+      // Dashboard chizilgan joyda tasodifan yangilanib qolardi).
+      // Endi shu yerda — sozlamalar qo'llanadigan YAGONA nuqtada (3-qoida).
+      try { if (typeof updateRatePill === "function") updateRatePill(); } catch(e) {}
+      try {
+        const _sbEl = document.getElementById("sb-shop");
+        if (_sbEl && db.shop?.name) _sbEl.textContent = db.shop.name;
+      } catch(e) {}
       if (sets.rate_updated_at) db.settings.rateUpdatedAt      = sets.rate_updated_at;
       if (sets.debt_pay_methods_shown) db.settings.debtPayMethodsShown = sets.debt_pay_methods_shown;
       if (sets.debt_cols)              db.settings.debtCols            = sets.debt_cols;
