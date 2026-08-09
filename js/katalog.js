@@ -3517,7 +3517,8 @@ function renderNarxnomaPreview() {
 
   // 2026-07-25: preview endi CHOP ETISH bilan bir xil o'lchamdan foydalanadi
   // (avval boshqa-boshqa sozlama edi — ekranda boshqa, qog'ozda boshqa chiqardi)
-  const c = _nmSizeCfg(o.paper);
+  // 2026-08-09: + dizayn (mini/premium) o'lchamlari ham shu yerda qo'llanadi
+  const c = _nmStyleCfg(_nmSizeCfg(o.paper), o.style);
   const gridStyle = o.paper === "a4"
     ? `grid-template-columns:repeat(${cols},1fr)`
     : "grid-template-columns:1fr;justify-items:start";
@@ -3617,12 +3618,12 @@ function buildLabel(p, v, opts) {
         ${showArt&&p.art?`<div class="nm-prem-sku">${p.art}</div>`:""}
         ${showSku?`<div class="nm-prem-sku">${p.sku}</div>`:""}
       </div>
+      ${barcodeHtml}
       <div class="nm-prem-bot">
         ${mainUzs>0?`<div class="nm-prem-price">${fmt(mainUzs)} <span>so'm</span></div>`:""}
         ${(chakanaOn&&ulgOn)?`<div class="nm-prem-ulg">Ulgurji: ${fmt(ulgUzs)} so'm</div>`:""}
         ${(showUsd&&priceUsd)?`<div class="nm-prem-usd">≈ $${priceUsd}</div>`:""}
       </div>
-      ${barcodeHtml}
     </div>`;
 
   // 2026-07-25: tartib do'kon namunasiga moslashtirildi —
@@ -3682,7 +3683,8 @@ function printNarxnoma() {
   ).join("");
 
   // 2026-07-25: o'lcham YAGONA manbadan (_nmSizeCfg) — preview bilan bir xil
-  const c = _nmSizeCfg(o.paper);
+  // 2026-08-09: + dizayn o'lchamlari (_nmStyleCfg) ham preview bilan bir xil
+  const c = _nmStyleCfg(_nmSizeCfg(o.paper), o.style);
   const thermal = c.thermal;
   const barcodeH = c.barH;
   let pageCss, gridCss;
@@ -3710,32 +3712,9 @@ ${gridCss}
 /* ═══ YAGONA ETIKETKA SHABLONI (2026-07-25) ═══
    Preview bilan AYNAN bir xil — _nmLabelCss() dan keladi */
 ${_nmLabelCss(c)}
-.nm-premium{border:2px solid #000;border-radius:4px;overflow:hidden;break-inside:avoid}
-.nm-prem-top{background:#000;padding:6px 8px}
-.nm-prem-shop{font-size:8px;color:#fff;text-transform:uppercase;letter-spacing:2px}
-.nm-prem-name{font-size:12px;font-weight:700;color:#fff}
-.nm-prem-cat{font-size:9px;color:#fff}
-.nm-prem-mid{padding:4px 8px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between}
-.nm-prem-color{font-size:10px;color:#000}
-.nm-prem-sku{font-size:9px;color:#000;font-family:monospace}
-.nm-prem-bot{padding:6px 8px}
-.nm-prem-price{font-size:16px;font-weight:800;color:#000}
-.nm-prem-price span{font-size:10px;font-weight:400}
-.nm-prem-ulg,.nm-prem-usd{font-size:10px;color:#000}
-.nm-name-sm{font-size:11px;font-weight:700;margin-bottom:2px}
-.nm-var-sm{font-size:9px;color:#000;margin-bottom:3px}
-.nm-prem-top{background:#0D1B2A;padding:8px 10px}
-.nm-prem-shop{font-size:8px;color:#E9A500;text-transform:uppercase;letter-spacing:2px}
-.nm-prem-name{font-size:12px;font-weight:700;color:#fff}
-.nm-prem-cat{font-size:9px;color:#aaa}
-.nm-prem-mid{padding:5px 10px;border-bottom:1px solid #eee;display:flex;justify-content:space-between}
-.nm-prem-color{font-size:10px;color:#000}
-.nm-prem-sku{font-size:9px;color:#bbb;font-family:monospace}
-.nm-prem-bot{padding:7px 10px}
-.nm-prem-price{font-size:16px;font-weight:800;color:#0D1B2A}
-.nm-prem-price span{font-size:10px;font-weight:400}
-.nm-prem-ulg{font-size:10px;color:#666}
-.nm-prem-usd{font-size:10px;color:#888}
+/* 2026-08-09: mini/premium CSS'lari endi YAGONA manbada — _nmLabelCss(c).
+   Avval shu yerda premium CSS IKKI nusxada takrorlanib yotardi (biri
+   ikkinchisini bosardi), preview'da esa umuman yo'q edi. */
 @media print{
   body{margin:0}
   ${pageCss}
@@ -4096,6 +4075,23 @@ function _nmSizeCfg(paper) {
   return CFG[paper] || CFG["a4"];
 }
 
+// ⚠️ 2026-08-09: DIZAYN tanlovi o'lchamlarga TA'SIR QILADI.
+// Avval "Mini" standartdan deyarli farq qilmasdi (hamma shrift bir xil
+// edi), "Premium" esa etiketkaga sig'may, pastdagi qismi kesilardi.
+// Endi: Mini — hamma narsa ixchamroq (kichik yorliqqa ko'p narsa
+// sig'adi); Premium — shtrix balandligi biroz qisqarib, sarlavha va
+// narxga joy ochiladi.
+function _nmStyleCfg(c, style) {
+  if (style === "mini") return {...c,
+    barH: Math.round(c.barH * 0.7),
+    barFont: Math.max(10, c.barFont - 3),
+    fName: c.fName - 2, fVar: c.fVar - 1.5,
+    fPrice: c.fPrice - 4, fSmall: c.fSmall - 1};
+  if (style === "premium") return {...c,
+    barH: Math.round(c.barH * 0.75)};
+  return c;
+}
+
 // Etiketka ichki uslubi — preview va chop etishda BIR XIL
 // ⚠️ 2026-08-09: etiketkada (termal) tarkib TEPADAN boshlanadi
 // (flex-start). Avval markazlash (center) ortiqcha joyni tepa/pastga
@@ -4122,6 +4118,32 @@ function _nmLabelCss(c) {
 .nm-barcode-svg{width:100%;height:auto;display:block}
 .nm-l-body{display:flex;flex-direction:column;gap:0;min-height:0;overflow:hidden;
   align-items:center;text-align:center;width:100%}
+/* ═══ PREMIUM dizayn (2026-08-09) ═══
+   Avval bu CSS faqat chop etish oynasida (ikki nusxada!) bor edi,
+   preview'da esa umuman yo'q — "Premium" ekranda yalang'och divlar
+   bo'lib ko'rinardi. Endi YAGONA manba shu yer: preview = qog'oz.
+   Chop etishda @media print hamma fonni oq qiladi (B&W termal) —
+   shuning uchun sarlavha ostiga qora chiziq qo'yilgan: rangsiz
+   printerda ham bo'limlar ajralib turadi. */
+.nm-premium{align-items:stretch;text-align:left;padding:0;
+  border:1.5px solid #000;border-radius:5px}
+.nm-prem-top{background:#0D1B2A;color:#fff;padding:3px 7px 4px;
+  border-bottom:1.5px solid #000}
+.nm-prem-shop{font-size:${Math.max(7, c.fSmall-2)}px;color:#E9A500;
+  text-transform:uppercase;letter-spacing:1.5px}
+.nm-prem-name{font-size:${c.fName}px;font-weight:800;line-height:1.15;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-prem-cat{font-size:${Math.max(7, c.fSmall-2)}px;color:#ddd}
+.nm-prem-mid{display:flex;justify-content:space-between;align-items:center;
+  gap:6px;padding:2px 7px;border-bottom:1px solid #ccc}
+.nm-prem-color{font-size:${c.fVar}px;font-weight:600}
+.nm-prem-sku{font-size:${c.fSmall}px;font-family:monospace}
+.nm-prem-bot{display:flex;align-items:baseline;flex-wrap:wrap;
+  gap:2px 8px;padding:1px 7px 2px}
+.nm-prem-price{font-size:${c.fPrice}px;font-weight:900;line-height:1.1}
+.nm-prem-price span{font-size:${c.fSmall}px;font-weight:400}
+.nm-prem-ulg,.nm-prem-usd{font-size:${c.fSmall}px;color:#222}
+.nm-premium .nm-barcode{padding:0 5px;margin:0}
 ${c.thermal ? ".nm-color-dot{display:none}" : ""}
 `;
 }

@@ -4793,10 +4793,15 @@
       <!-- O'ng panel: sozlamalar + preview -->
       <div style="display:flex;flex-direction:column;overflow:hidden">
 
-        <!-- Sozlamalar qatori -->
-        <div style="padding:12px 16px;border-bottom:1px solid var(--brd);flex-shrink:0;display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+        <!-- Sozlamalar qatori
+             2026-08-09: IXCHAM QAYTA JOYLASH — galochkalar 4 ustun x 3 tadan,
+             narx galochkalari bitta ustunga yig'ildi, "Chop etish" tepa
+             qatorga chiqdi, izoh 1 qatorga qisqardi. Avval Barcode/SKU/
+             Ulgurji ustuni va 3 qatorli izoh pastga tushib, preview
+             (yorliqlar ko'rinadigan) maydonni yeb qo'ygan edi. -->
+        <div style="padding:10px 16px;border-bottom:1px solid var(--brd);flex-shrink:0;display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center">
 
-          <div class="fld" style="margin:0;min-width:120px">
+          <div class="fld" style="margin:0;min-width:118px">
             <label style="font-size:11px">Dizayn</label>
             <select id="nm-style" onchange="renderNarxnomaPreview()"
               style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:5px 8px">
@@ -4806,7 +4811,7 @@
             </select>
           </div>
 
-          <div class="fld" style="margin:0;min-width:80px">
+          <div class="fld" style="margin:0;min-width:78px">
             <label style="font-size:11px">Ustunlar</label>
             <select id="nm-cols" onchange="renderNarxnomaPreview()"
               style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:5px 8px">
@@ -4818,7 +4823,7 @@
           </div>
 
           <!-- 2026-07-20 (№8): Qog'oz o'lchami — etiketka printeri -->
-          <div class="fld" style="margin:0;min-width:130px">
+          <div class="fld" style="margin:0;min-width:128px">
             <label style="font-size:11px">Qog'oz o'lchami</label>
             <select id="nm-paper" onchange="nmPaperChange();renderNarxnomaPreview()"
               style="font-family:inherit;font-size:13px;border:1.5px solid var(--brd);border-radius:var(--rs);padding:5px 8px">
@@ -4828,88 +4833,76 @@
             </select>
           </div>
 
-          <div style="display:flex;flex-direction:column;gap:5px">
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-logo" onchange="renderNarxnomaPreview()"
-                style="width:15px;height:15px;accent-color:var(--acc)">
+          <button class="btn btn-acc" onclick="printNarxnoma()" style="margin-left:auto;white-space:nowrap">
+            <i class="ti ti-printer"></i> Chop etish
+          </button>
+
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
+              <input type="checkbox" id="nm-logo" onchange="renderNarxnomaPreview()" style="width:15px;height:15px;accent-color:var(--acc)">
               Do'kon nomi
             </label>
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-name" checked onchange="renderNarxnomaPreview()"
-                style="width:15px;height:15px;accent-color:var(--acc)">
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
+              <input type="checkbox" id="nm-name" checked onchange="renderNarxnomaPreview()" style="width:15px;height:15px;accent-color:var(--acc)">
               Mahsulot nomi
             </label>
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-color" checked onchange="renderNarxnomaPreview()"
-                style="width:15px;height:15px;accent-color:var(--acc)">
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
+              <input type="checkbox" id="nm-color" checked onchange="renderNarxnomaPreview()" style="width:15px;height:15px;accent-color:var(--acc)">
               Rang
-            </label>
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-size" onchange="renderNarxnomaPreview()"
-                style="width:15px;height:15px;accent-color:var(--acc)">
-              O'lcham
             </label>
           </div>
 
-          <div style="display:flex;flex-direction:column;gap:5px">
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-price" onchange="renderNarxnomaPreview()"
-                style="width:15px;height:15px;accent-color:var(--acc)">
-              Chakana narx
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
+              <input type="checkbox" id="nm-size" onchange="renderNarxnomaPreview()" style="width:15px;height:15px;accent-color:var(--acc)">
+              O'lcham
             </label>
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-usd" onchange="renderNarxnomaPreview()"
-                style="width:15px;height:15px;accent-color:var(--acc)">
-              USD narx
-            </label>
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-cat" onchange="renderNarxnomaPreview()"
-                style="width:15px;height:15px;accent-color:var(--acc)">
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
+              <input type="checkbox" id="nm-cat" onchange="renderNarxnomaPreview()" style="width:15px;height:15px;accent-color:var(--acc)">
               Kategoriya
             </label>
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-art" onchange="renderNarxnomaPreview()"
-                style="width:15px;height:15px;accent-color:var(--acc)">
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
+              <input type="checkbox" id="nm-art" onchange="renderNarxnomaPreview()" style="width:15px;height:15px;accent-color:var(--acc)">
               ART
             </label>
           </div>
 
-          <div style="display:flex;flex-direction:column;gap:5px">
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-barcode-chk" checked onchange="renderNarxnomaPreview()"
-                style="width:15px;height:15px;accent-color:var(--acc)">
-              Barcode
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
+              <input type="checkbox" id="nm-price" onchange="renderNarxnomaPreview()" style="width:15px;height:15px;accent-color:var(--acc)">
+              Chakana narx
             </label>
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-sku" onchange="renderNarxnomaPreview()"
-                style="width:15px;height:15px;accent-color:var(--acc)">
-              SKU kodi
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
+              <input type="checkbox" id="nm-usd" onchange="renderNarxnomaPreview()" style="width:15px;height:15px;accent-color:var(--acc)">
+              USD narx
             </label>
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-ulg" checked onchange="renderNarxnomaPreview()"
-                style="width:15px;height:15px;accent-color:var(--acc)">
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
+              <input type="checkbox" id="nm-ulg" checked onchange="renderNarxnomaPreview()" style="width:15px;height:15px;accent-color:var(--acc)">
               Ulgurji narx
             </label>
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;background:#FFF7ED;padding:4px 8px;border-radius:6px;border:1px solid #FED7AA">
-              <input type="checkbox" id="nm-by-pochka" onchange="nmByPochkaChange()"
-                style="width:15px;height:15px;accent-color:#E9A500">
-              🎨 Tovar (barcha ranglar)
-            </label>
-            <!-- 2026-08-09: eski "Pochka barcode" o'lcham davridan qolgan
-                 edi. Yangi ma'no: bitta rang tanlansa, tovarning qoldiqli
-                 BARCHA ranglari avtomat qo'shiladi (mantiq: katalog.js
-                 nmByPochkaChange / _nmAddAllColors). -->
-            <div style="font-size:11px;color:var(--mut);flex-basis:100%;margin-top:2px;line-height:1.35">
-              Belgilansa: bitta rang tanlaganingizda shu tovarning qoldiqli
-              <b>barcha ranglari</b> avtomat belgilanadi (ranglar bir xil
-              <b>ART</b> orqali topiladi).<br>
-              Har rangga <b>1 ta</b> yorliq chiqadi (har rang — alohida shtrix-kod).
-            </div>
           </div>
 
-          <button class="btn btn-acc" onclick="printNarxnoma()" style="margin-left:auto;white-space:nowrap">
-            <i class="ti ti-printer"></i> Chop etish
-          </button>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
+              <input type="checkbox" id="nm-barcode-chk" checked onchange="renderNarxnomaPreview()" style="width:15px;height:15px;accent-color:var(--acc)">
+              Barcode
+            </label>
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
+              <input type="checkbox" id="nm-sku" onchange="renderNarxnomaPreview()" style="width:15px;height:15px;accent-color:var(--acc)">
+              SKU kodi
+            </label>
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;background:#FFF7ED;padding:2px 6px;border-radius:6px;border:1px solid #FED7AA">
+              <input type="checkbox" id="nm-by-pochka" onchange="nmByPochkaChange()"
+                style="width:15px;height:15px;accent-color:#E9A500">
+              🎨 Barcha ranglar
+            </label>
+          </div>
+
+          <!-- 2026-08-09: bitta qatorli izoh (mantiq: katalog.js nmByPochkaChange) -->
+          <div style="font-size:11px;color:var(--mut);flex-basis:100%;line-height:1.3">
+            🎨 <b>Barcha ranglar</b>: bitta rang tanlansa, tovarning (bir xil <b>ART</b>)
+            qolgan ranglari avtomat qo'shiladi — har rangga 1 ta yorliq.
+          </div>
         </div>
 
         <!-- Preview -->
@@ -4939,7 +4932,7 @@
 <script src="js/cloud.js?v=259"></script>
 <script src="js/dashboard.js?v=157"></script>
 <script src="js/pos.js?v=250"></script>
-<script src="js/katalog.js?v=256"></script>
+<script src="js/katalog.js?v=257"></script>
 <script src="js/ombor.js?v=176"></script>
 <script src="js/mijozlar.js?v=165"></script>
 <script src="js/qarzlar.js?v=206"></script>
@@ -5241,7 +5234,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 323;
+  window.SW_V = 324;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5264,7 +5257,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=323")
+    navigator.serviceWorker.register("/sw.js?v=324")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
