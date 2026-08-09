@@ -1909,13 +1909,10 @@ function apToggleField(key, val) {
 
 // Mahsulot nomi yozilganda — agar mavjud tovar bo'lsa, narxlarni ko'rsatish
 function apNameAutofill(val) {
-  const listEl = $("ap-name-list");
-  if (listEl) {
-    listEl.innerHTML = db.products
-      .filter(p => p.name.toLowerCase().includes(val.toLowerCase()))
-      .slice(0, 20)
-      .map(p => `<option value="${p.name}">`).join("");
-  }
+  // ⚠️ 2026-08-09: TAKLIF RO'YXATI OLIB TASHLANDI (egasining talabi).
+  // Nomlar yuzlab-minglab bo'lganda datalist taklifi kiritishga
+  // yordam emas, TO'SIQ bo'ldi — endi nom har safar yangidan yoziladi.
+  // Bu funksiya faqat "bu nomli tovar mavjud" ogohlantirishini qoldirdi.
 
   const note = $("ap-existing-note");
   const p = db.products.find(x => x.name.toLowerCase() === val.toLowerCase().trim());
@@ -1936,7 +1933,7 @@ function apNameAutofill(val) {
   // ketardi. Har tovarning nomi, artikuli va narxlari ALOHIDA
   // kiritiladi — avtomat to'ldirish xato edi.
   //
-  // QOLDI: pastdagi taklif ro'yxati va "bu tovar mavjud" ogohlantirishi
+  // QOLDI (2026-08-09 dan keyin): faqat "bu tovar mavjud" ogohlantirishi
   // (ular foydali — takror kiritishdan saqlaydi).
   // TEGILMADI: rang tanlash, kategoriya, pochka sig'imi, rasm, barcode.
 
