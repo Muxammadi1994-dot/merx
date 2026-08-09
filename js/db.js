@@ -193,6 +193,15 @@ const IDB_TABLES = ["sales", "xarajatlar", "debtPayments", "ombor", "chiqimlar",
 // boshlanmaydi — aks holda hali yuklanmagan (bo'sh) tovarlar ro'yxati
 // bulutga yozilib, ma'lumot o'chib ketishi mumkin edi.
 window._heavyHydrated = false;
+// ⚠️ 2026-08-09: TOVARLAR ALOHIDA BAYROQ BILAN ERTAROQ OCHILADI.
+// Skanerga faqat `products` kerak, lekin u ro'yxatda OLTINCHI turardi —
+// birinchi skan butun yillik sotuvlar tarixi (eng katta jadval!)
+// o'qib bo'linishini kutardi. ABU SAXIY'dagi "birinchisini topishda
+// kutish bor, keyingilari tez" holatining asosiy ildizi shu edi.
+// Android telefonlarda sezilmasligi sababi: PWA xotirada tirik qoladi
+// va qayta ochilganda hydratsiya UMUMAN qayta yurmaydi; kompyuterda
+// esa brauzer har tong yangidan yuklanadi.
+window._productsHydrated = false;
 
 let _idb = null, _idbOk = false, _idbVerified = false;
 
@@ -244,21 +253,30 @@ const _idbKey = t => getDBKEY() + "::" + t;
 // bo'lsa (birinchi marta yoki eski qurilma) — ular USTUN, chunki
 // hali ko'chirilmagan bo'lishi mumkin.
 async function hydrateHeavy() {
-  if (!USE_IDB) { window._heavyHydrated = true; return false; }
+  if (!USE_IDB) { window._productsHydrated = true; window._heavyHydrated = true; return false; }
   const d = await idbOpen();
-  if (!d) { window._heavyHydrated = true; return false; }   // eski yo'l ishlaydi
+  if (!d) { window._productsHydrated = true; window._heavyHydrated = true; return false; }   // eski yo'l ishlaydi
   let loaded = 0;
-  for (const t of IDB_TABLES) {
+  // ⚠️ 2026-08-09: `products` BIRINCHI o'qiladi (skaner faqat shunga
+  // muhtoj) va o'qib bo'linishi bilan _productsHydrated ochiladi —
+  // qolgan og'ir jadvallar (yillik sotuvlar!) fonda davom etaveradi.
+  const order = ["products", ...IDB_TABLES.filter(t => t !== "products")];
+  for (const t of order) {
     try {
       const v = await idbGet(_idbKey(t));
       if (Array.isArray(v)) {
         // localStorage'da ham bor va u BO'SH EMAS bo'lsa — hali
         // ko'chirilmagan, uni yo'qotmaymiz
         const cur = db[t];
-        if (Array.isArray(cur) && cur.length > v.length) continue;
-        db[t] = v; loaded += v.length;
+        if (Array.isArray(cur) && cur.length > v.length) { /* pastdagi bayroqqa tushamiz */ }
+        else { db[t] = v; loaded += v.length; }
       }
     } catch(e) {}
+    if (t === "products") {
+      window._productsHydrated = true;   // skaner yo'li shu zahoti ochiq
+      // Navbatda kutayotgan skan bo'lsa — uni kuzatuvchi interval
+      // (pos.js) 250 ms ichida o'zi ushlab ishlaydi.
+    }
   }
   if (loaded) console.log("💾 IndexedDB'dan yuklandi:", loaded, "yozuv");
   // Ko'chirilmagan bo'lsa — hozir ko'chiramiz

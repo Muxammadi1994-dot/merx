@@ -125,18 +125,24 @@ function _scCharOf(e) {
   return null;
 }
 
-function _scPush(ch, raw, alt) {
-  const now = Date.now();
-  if (_scLog.length && now - _scLog[_scLog.length - 1].t > _SC_GAP) _scLog = [];
-  _scLog.push({ t: now, ch: ch, raw: raw, alt: !!alt });
+// ⚠️ 2026-08-09 (2-tuzatish): VAQT ENDI HODISANING O'ZIDAN (e.timeStamp).
+// Avval Date.now() ISHLOV vaqtini o'lchardi: og'ir chizish (895 tovarli
+// qidiruv) asosiy oqimni bo'g'sa, ketma-ket kelgan belgilar navbatda
+// turib, oralari sun'iy ravishda 300 ms dan oshib ketar va jurnal
+// O'RTASIDA tozalanib, koddan parcha qolardi ("savat tozalangach
+// topmay qoldi" holatining ildizi). e.timeStamp esa tugma BOSILGAN
+// paytda muhrlanadi — brauzer qancha bandligidan qat'i nazar.
+function _scPush(ch, raw, alt, ts) {
+  if (_scLog.length && ts - _scLog[_scLog.length - 1].t > _SC_GAP) _scLog = [];
+  _scLog.push({ t: ts, ch: ch, raw: raw, alt: !!alt });
   if (_scLog.length > 64) _scLog.shift();
 }
 
 // Jurnaldan oxirgi UZLUKSIZ yugurishni olamiz va o'lchaymiz
-function _scRun() {
-  const now = Date.now();
+// (nowTs — yakunlovchi tugmaning o'z timeStamp'i)
+function _scRun(nowTs) {
   let i = _scLog.length - 1;
-  if (i < 0 || now - _scLog[i].t > 500) return null;
+  if (i < 0 || nowTs - _scLog[i].t > 500) return null;
   while (i > 0 && _scLog[i].t - _scLog[i - 1].t <= _SC_GAP) i--;
   const run = _scLog.slice(i);
   const gaps = [];
@@ -218,7 +224,7 @@ document.addEventListener("keydown", function (e) {
   // 2) Yakunlovchi: Enter (ba'zi skanerlar Tab yuboradi — u faqat
   //    aniq skaner imzosi bilan qabul qilinadi, Tab-navigatsiya buzilmasin)
   if (e.key === "Enter" || e.key === "Tab") {
-    const run = _scRun();
+    const run = _scRun(e.timeStamp);
     _scLog = [];
     const tag = ae && ae.tagName;
     const routeFocus = _SC_ROUTE.includes(aId);
@@ -241,7 +247,7 @@ document.addEventListener("keydown", function (e) {
   const ch  = _scCharOf(e);
   const raw = (!e.altKey && e.key && e.key.length === 1) ? e.key : "";
   if (ch == null && !raw) return;
-  _scPush(ch == null ? "" : ch, raw, false);
+  _scPush(ch == null ? "" : ch, raw, false, e.timeStamp);
 }, true);
 
 // ALT qo'yib yuborilganda yig'ilgan raqamlar bitta belgiga aylanadi
@@ -251,7 +257,7 @@ document.addEventListener("keyup", function (e) {
   const cp = parseInt(_scAltSeq, 10); _scAltSeq = "";
   if (isNaN(cp)) return;
   const ch = _SC_CP1252[cp] || (cp >= 32 ? String.fromCharCode(cp) : null);
-  if (ch) _scPush(ch, "", true);
+  if (ch) _scPush(ch, "", true, e.timeStamp);
 }, true);
 
 // ── Barcode ishlov berish ────────────────────────
@@ -271,13 +277,16 @@ function processBarcode(code) {
   // "topilmadi" derdi (ABU SAXIY — 895 tovar, yuklanish soniyalar
   // oladi: "birinchi tovarni tortishda qiynalyapti"ning ikkinchi yuzi).
   // Endi kod eslab qolinadi va katalog yuklanishi bilan O'ZI ishlanadi.
-  if (!window._heavyHydrated || !(db.products || []).length) {
+  // 2026-08-09: endi TO'LIQ yuklanishni kutmaymiz — faqat TOVARLAR
+  // jadvali yetarli (window._productsHydrated, db.js). Avval skaner
+  // butun yillik sotuvlar tarixi o'qib bo'linishini kutardi.
+  if (!(window._productsHydrated || window._heavyHydrated) || !(db.products || []).length) {
     window._pendingScan = code;
     toast("⏳ Katalog yuklanmoqda — kod navbatda, hozir o'zi ishlanadi", "info");
     if (!window._pendingScanTimer) {
       const _t0 = Date.now();
       window._pendingScanTimer = setInterval(() => {
-        if (window._heavyHydrated && (db.products || []).length) {
+        if ((window._productsHydrated || window._heavyHydrated) && (db.products || []).length) {
           clearInterval(window._pendingScanTimer);
           window._pendingScanTimer = null;
           const c = window._pendingScan; window._pendingScan = null;
@@ -391,7 +400,7 @@ function processBarcode(code) {
       $("pos-q").value = p.art || p.sku;
       _posScanMode = true;
       const _r0 = Date.now();
-      try { posSearch(); } finally { _posScanMode = false; }
+      try { _posSearchNow(); } finally { _posScanMode = false; }
       if (SCAN_TRACE) console.log(`🔦 SKANER · ekran: ${Date.now() - _r0} ms`);
     }
     // 2026-07-24 (№9): rang aniq bo'lsa — 1 POCHKA to'g'ridan savatga.
@@ -437,7 +446,7 @@ function processBarcode(code) {
     if ($("pos-q")) {
       $("pos-q").value = code;
       _posScanMode = true;
-      try { posSearch(); } finally { _posScanMode = false; }
+      try { _posSearchNow(); } finally { _posScanMode = false; }
     }
     toast('Barcode: "' + code + '" — qolda tanlang', "info");
   }
@@ -655,7 +664,7 @@ function posEditPrice(rowId, sku, color) {
     } else {
       delete _priceOverrides[oKey];
     }
-    posSearch();
+    _posSearchNow();
     toast("Narx: " + fmt(newVal) + " so'm (faqat shu sotuv uchun)");
   };
   inp.addEventListener("blur", save);
@@ -737,7 +746,27 @@ function posBeep(pips) {
   try { if (navigator.vibrate) navigator.vibrate([70, 60, 70]); } catch(e) {}
 }
 
+// ⚠️ 2026-08-09: QIDIRUV KECHIKTIRGICHI (yozish tugagach 150 ms).
+// Kursor pos-q da turganda skanerning HAR BELGISI to'liq qidiruv-
+// chizishni ishga tushirardi: "0000000043168"ning birinchi 8 belgisi
+// "0...0" — bunga deyarli BARCHA tovar mos keladi (hamma rang-barcode
+// nollar bilan boshlanadi), ya'ni 8 marta 895 tovarlik ro'yxat qayta
+// chiziladi. Eski kompyuterda bu asosiy oqimni bo'g'ardi. Savat
+// tozalangach kursor AVTOMAT pos-q ga tushadi (posClear) — shuning
+// uchun muammo aynan "savatdan keyin" boshlanardi. Endi chizish
+// oxirgi belgidan 150 ms keyin BIR marta bo'ladi; dastur ichidan
+// chaqiruvlar esa _posSearchNow() bilan avvalgidek darhol ishlaydi.
+let _posSearchT = null;
 function posSearch() {
+  const q0 = ($("pos-q")||{value:""}).value.trim();
+  const clrBtn0 = $("pos-q-clr");
+  if (clrBtn0) clrBtn0.style.display = q0 ? "flex" : "none";
+  clearTimeout(_posSearchT);
+  _posSearchT = setTimeout(_posSearchNow, 150);
+}
+
+function _posSearchNow() {
+  clearTimeout(_posSearchT);
   const q = ($("pos-q")||{value:""}).value.trim();
   const clrBtn = $("pos-q-clr");
   if (clrBtn) clrBtn.style.display = q ? "flex" : "none";
@@ -1032,7 +1061,7 @@ function posQuickAdd(sku, color, packGroup) {
 
 function posClear() {
   if ($("pos-q")) $("pos-q").value = "";
-  posSearch();
+  _posSearchNow();
   $("pos-q")?.focus();
 }
 
@@ -1080,7 +1109,7 @@ function renderPosGrid() {
   _applyPayBlocked();
   if (typeof applyPosExtrasUI === "function") applyPosExtrasUI();
   posUpdatePriceTypeVisibility();
-  posSearch();
+  _posSearchNow();
   renderCartTabs();
   renderCart();
   setTimeout(() => {
@@ -1128,7 +1157,7 @@ function setPriceType(t) {
     toast(`${updatedCount} ta tovar narxi ${t === "ulgurji" ? "ulgurji" : "chakana"}ga yangilandi`, "info");
   }
 
-  posSearch(); renderCart();
+  _posSearchNow(); renderCart();
 }
 
 // ── Variant modal ─────────────────────────────────
