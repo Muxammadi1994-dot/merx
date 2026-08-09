@@ -3350,14 +3350,30 @@ function toggleNmProd(sku) {
   renderNarxnomaPreview();
 }
 
-// Tovarning qoldig'i bor BARCHA ranglarini tanlovga qo'shadi
+// Tovarning qoldig'i bor BARCHA ranglarini tanlovga qo'shadi.
+// ⚠️ 2026-08-09 (2-tuzatish): birinchi urinish ranglarni faqat BITTA
+// tovar yozuvining ichidan (p.variants) qidirardi. Lekin bu bazada
+// HAR RANG KO'PINCHA ALOHIDA TOVAR (§3.2, B1 qarori: variativ rang
+// alohida tovar bo'lib yaratiladi, nom va ARTIKUL asosiydan meros
+// oladi). Ya'ni "shu tovarning boshqa ranglari" — ART'i BIR XIL
+// bo'lgan qo'shni tovarlarda yashaydi. Endi guruh = o'zi + bir xil
+// ART'li tovarlar (katta-kichik harf va bo'sh joy farqi e'tiborsiz).
+// Nom bo'yicha birlashtirish ATAYLAB yo'q: §3.2 ogohlantiradi —
+// bir xil nom 23 marta = 23 TURLI model bo'lishi mumkin (Billz).
+// ART bo'sh bo'lsa — faqat tovarning o'z ichidagi ranglar olinadi.
 function _nmAddAllColors(psku) {
-  const p = (db.products || []).find(x => x.sku === psku);
-  if (!p) return;
-  [...new Set(p.variants.map(v => v.color).filter(Boolean))].forEach(color => {
-    const dona = p.variants.filter(v => v.color === color)
-                           .reduce((a, v) => a + (v.qty||0), 0);
-    if (dona > 0) _narxnomaSelected.add(p.sku + "::" + color);
+  const p0 = (db.products || []).find(x => x.sku === psku);
+  if (!p0) return;
+  const art = String(p0.art || "").trim().toUpperCase();
+  const group = (db.products || []).filter(x =>
+    x.sku === p0.sku ||
+    (art && String(x.art || "").trim().toUpperCase() === art));
+  group.forEach(p => {
+    [...new Set((p.variants || []).map(v => v.color).filter(Boolean))].forEach(color => {
+      const dona = p.variants.filter(v => v.color === color)
+                             .reduce((a, v) => a + (v.qty||0), 0);
+      if (dona > 0) _narxnomaSelected.add(p.sku + "::" + color);
+    });
   });
 }
 
