@@ -97,8 +97,17 @@ function renderHisobot() {
       // Endi: 1) item ichidagi tannarx (chek muzlatilgan — eng aniq),
       //       2) sku bo'yicha tovar, 3) nom bo'yicha (eski zaxira).
       if (item.costUzs > 0) { saleCost += item.costUzs * (item.qty||0); return; }
-      const p = (db.products||[]).find(x =>
-        (item.sku && x.sku === item.sku) || x.name === item.name);
+      // ⚠️ 2026-08-09: `||` TUZOG'I TUZATILDI. Avvalgi yozuv
+      //   find(x => (item.sku && x.sku===item.sku) || x.name===item.name)
+      // "avval sku, keyin nom" DEGANI EMAS edi: ro'yxatda OLDINROQ
+      // turgan nomi mos tovar, sku'si aniq mos tovarni yengib ketardi.
+      // Nom = brend bo'lgan katalogda (ABU SAXIY, §3.2) va ro'yxat
+      // tartibi har pull'da o'zgargani uchun foyda chizishdan
+      // chizishga sakrardi (jonli video: 60,9M ↔ 160,1M, bir xil davr).
+      // Endi chin ikki bosqich: sku (yagona kalit) → topilmasa nom.
+      let p = null;
+      if (item.sku) p = (db.products||[]).find(x => x.sku === item.sku);
+      if (!p)       p = (db.products||[]).find(x => x.name === item.name);
       if (!p) return;
       const costUzs = getCostUzs(p);
       saleCost += costUzs * (item.qty||0);
