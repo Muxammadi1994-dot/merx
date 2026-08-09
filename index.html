@@ -503,7 +503,16 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
   #ov-receipt #rcp-debt-new[style*="display:none"],
   #ov-receipt #rcp-due-wrap[style*="display:none"] { display: none !important; }
 
-  #app, .ov:not(#ov-receipt) { display: none !important; }
+  /* ⚠️ 2026-08-09: OQ RO'YXAT USULI. Avval "nimani yashirish" sanab
+     chiqilgan edi (#app va .ov) — sanovga kirmagan BODY farzandlari
+     (toast qatlami, yordamchi elementlar, kelajakda qo'shiladigan har
+     narsa) chop sahifasiga ko'rinmas balandlik qo'shar, "size:auto"
+     sahifani metrlab cho'zar, ko'rish oynasi esa uni sig'dirish uchun
+     chekni IGNA kabi ingichka ko'rsatardi — kun davomida o'sib borardi
+     (jonli video, 2026-08-09). Endi teskari qoida: chop paytida
+     body'da FAQAT chek qatlami qoladi. #chek-overlay o'z iframe'ida
+     chop etiladi — istisno ehtiyot uchun. */
+  body > *:not(#ov-receipt):not(#chek-overlay) { display: none !important; }
   /* TUGMALAR: eng oxirda — boshqa qoidalar ustidan yozib ketmasin */
   .no-print { display: none !important; }
   #ov-receipt {
@@ -5261,7 +5270,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 334;
+  window.SW_V = 335;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5284,7 +5293,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=334")
+    navigator.serviceWorker.register("/sw.js?v=335")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
