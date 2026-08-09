@@ -1282,6 +1282,99 @@ function saveRateManual() {
 }
 
 
+// ══════════════════════════════════════════════════════════
+// 💱 KURS TEZ-TAHRIRI (2026-08-09, C-3 kurs qismi)
+// Muammo: kurs faqat Egasi sahifasida (admin qulfi) edi — menejer
+// sotuv kuni kursni o'zgartira olmasdi. Endi topbar'dagi 💱 tugma
+// menejer+ uchun mini-oynani ochadi. IKKI QATLAM himoya:
+//   1) rol: hasRole("menejer") — kassirga tahrir umuman ochilmaydi
+//      (unga tugma faqat joriy kursni ko'rsatadi);
+//   2) ruxsat: permDo("sotuv","kurs") — egasi Xodimlar oynasida
+//      istalgan menejerdan olib qo'yishi mumkin (yangi band).
+// Avto (CBU) rejimda tahrir yopiq — faqat ma'lumot.
+// Saqlash saveSetting orqali — pill, saveDB va bulut push o'sha yerda.
+// ══════════════════════════════════════════════════════════
+function kursCanEdit() {
+  try { return hasRole("menejer") && permDo("sotuv", "kurs"); }
+  catch(e) { return false; }
+}
+function kursPillTap() {
+  const rate = Number(db.settings?.rate) || 0;
+  if (!kursCanEdit()) {
+    toast(`💱 Kurs: ${fmt(rate)} so'm / $ (o'zgartirish — menejer+)`);
+    return;
+  }
+  if (getRateMode() === "auto") {
+    toast(`💱 Kurs avtomatik (Markaziy Bank): ${fmt(rate)} so'm`);
+    return;
+  }
+  openKursQuick();
+}
+function openKursQuick() {
+  let ov = document.getElementById("kurs-quick-ov");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "kurs-quick-ov";
+    ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px";
+    ov.innerHTML = `
+      <div style="background:var(--card,#fff);border-radius:14px;padding:20px 22px;max-width:320px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25)">
+        <div style="font-weight:800;font-size:15px;margin-bottom:4px">💱 Dollar kursi</div>
+        <div id="kurs-quick-cur" style="font-size:12.5px;color:var(--mut);margin-bottom:12px"></div>
+        <input id="kurs-quick-inp" type="number" step="50" inputmode="numeric"
+          style="width:100%;font-size:22px;font-weight:800;text-align:center;padding:10px;border:1.5px solid var(--brd,#ddd);border-radius:10px;box-sizing:border-box"
+          onkeydown="if(event.key==='Enter')saveKursQuick()">
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-sm" style="flex:1" onclick="closeKursQuick()">Bekor</button>
+          <button class="btn btn-acc btn-sm" style="flex:1" onclick="saveKursQuick()"><i class="ti ti-check"></i> Saqlash</button>
+        </div>
+      </div>`;
+    ov.addEventListener("click", ev => { if (ev.target === ov) closeKursQuick(); });
+    document.body.appendChild(ov);
+  }
+  const rate = Number(db.settings?.rate) || 0;
+  const c = document.getElementById("kurs-quick-cur");
+  if (c) c.textContent = "Hozirgi: " + fmt(rate) + " so'm / $";
+  const inp = document.getElementById("kurs-quick-inp");
+  if (inp) { inp.value = rate || ""; setTimeout(() => { try { inp.focus(); inp.select(); } catch(e) {} }, 60); }
+  ov.style.display = "flex";
+}
+function closeKursQuick() {
+  const ov = document.getElementById("kurs-quick-ov");
+  if (ov) ov.style.display = "none";
+}
+function saveKursQuick() {
+  // Qo'riqchi FUNKSIYA ICHIDA ham — tugmani chetlab o'tishga qarshi
+  if (!kursCanEdit()) { toast("Ruxsat yo'q: kursni menejer+ o'zgartiradi", "err"); return; }
+  const inp = document.getElementById("kurs-quick-inp");
+  const val = Number(inp && inp.value) || 0;
+  if (val <= 0) { toast("Kursni kiriting", "err"); return; }
+  if (val < 1000 || val > 100000) {
+    if (!confirm(`Kurs ${fmt(val)} so'm — bu to'g'rimi?`)) return;
+  }
+  const eski = Number(db.settings?.rate) || 0;
+  if (db.settings?.rateMode !== "manual") saveSetting("rateMode", "manual");
+  saveSetting("rate", val);
+  closeKursQuick();
+  toast(`✅ Kurs: ${fmt(eski)} → ${fmt(val)} so'm`);
+}
+
+// ── C-6: EGANI BOTGA ULASH havolasi ──────────────────────────────
+// Bot tomoni allaqachon tayyor (/start own_shop_... · 2026-07-30,
+// "birinchi ega" bir martalik himoyasi bilan) — ilovada havola
+// KO'RSATILMAS edi. Endi Sozlamalar → SMS & Bot'dagi tugma ochadi.
+function ownerBotLink() {
+  if (!hasRole("admin")) { toast("Bu amal faqat egasi uchun", "err"); return; }
+  const u = (db.settings?.telegramBotUsername || "").replace(/^@/, "").trim();
+  if (!u) { toast("Bot username hali sozlanmagan (yuqoridagi maydon)", "err"); return; }
+  const sid = (typeof getCloudShopId === "function" && getCloudShopId()) ||
+              (typeof getAuthUser === "function" && getAuthUser()?.shopId) || "";
+  if (!sid || sid === "local") { toast("Do'kon aniqlanmadi — avval tizimga kiring", "err"); return; }
+  const link = `https://t.me/${u}?start=own_${sid}`;
+  try { if (navigator.clipboard) navigator.clipboard.writeText(link); } catch(e) {}
+  try { window.open(link, "_blank"); } catch(e) {}
+  toast("🔗 Havola ochildi va nusxalandi. Telegram'da «Start» bosing.");
+}
+
 // Valyuta tanlovini qulflash (SuperAdmin qat'iy rejim belgilagan bo'lsa)
 function applyCurrencyLock() {
   const seg    = document.getElementById("cur-seg");

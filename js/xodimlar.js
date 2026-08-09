@@ -522,7 +522,11 @@ const PERM_PAGES = [
     // qo'riqlanadi); bu galochka egasini "yopdim" deb aldab turardi.
     // "Narxni o'zgartirish" YANGI band — pos.js posEditPrice shu bilan
     // qo'riqlanadi (standartda ochiq, taqiq ro'yxati modeli).
-    use:[ ["discount","Chegirma"], ["price","Narxni o'zgartirish"], ["nasiya","Nasiya"] ] },
+    // 2026-08-09: "Dollar kursi" YANGI band (C-3 kurs qismi) — topbar 💱
+    // tugmasi shu bilan qo'riqlanadi. Rol qatlami ALOHIDA: band ochiq
+    // bo'lsa ham kassirni hasRole("menejer") o'tkazmaydi (egasi.js).
+    use:[ ["discount","Chegirma"], ["price","Narxni o'zgartirish"], ["nasiya","Nasiya"],
+          ["kurs","Dollar kursi (menejer+)"] ] },
 
   { key:"katalog", lbl:"Katalog",
     see:[ ["cost","Tannarx"], ["ulgurji","Ulgurji narx"], ["chakana","Chakana narx"],
