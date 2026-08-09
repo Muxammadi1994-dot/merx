@@ -930,16 +930,20 @@ module.exports = async function handler(req, res) {
       // do'konning BARCHA xodimi PIN va telefonini o'qiy olardi,
       // keyin o'sha PIN bilan kira olardi.
       //
-      // Endi: PIN xeshlanadi (`pin_hash`), so'rov xesh bo'yicha.
-      // ⚠️ ESKI `pin` USTUNI HAM QABUL QILINADI — barcha xodim
-      // bir marta kirib xeshi yozilgunicha ishlashda davom etadi.
+      // Endi: PIN xeshlanadi (`pin_hash`), so'rov FAQAT xesh bo'yicha.
+      // ⚠️ 2026-08-09 (C-1 YAKUNI): eski `pin.eq` zaxira yo'li OLIB
+      // TASHLANDI. Shartlari tekshirilib bajarilgan edi:
+      //   1) bazada xeshsiz xodim 0 ta (SQL tekshiruvi),
+      //   2) bulutda ochiq PIN 0 ta (2b-tozalash + trigger qo'riqchi),
+      //   3) klient v261+ yangi xodimga xeshni O'ZI yozadi (formula
+      //      bir xilligi sinov bilan isbotlangan: merx.pin.<PIN>).
+      // Ochiq PIN endi kirish zanjirining HECH QAYERIDA qatnashmaydi.
       const _sha = (t) => require("crypto").createHash("sha256")
         .update("merx.pin." + t).digest("hex");
       const _pinHash = _sha(pin);
 
       const r = await fetch(
-        `${SB_URL}/rest/v1/staff?select=*&or=(pin_hash.eq.${_pinHash},` +
-        `pin.eq.${encodeURIComponent(pin)})`,
+        `${SB_URL}/rest/v1/staff?select=*&pin_hash=eq.${_pinHash}`,
         { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
       );
       const rows = await r.json();
@@ -954,6 +958,9 @@ module.exports = async function handler(req, res) {
       // Barcha xodim bir marta kirgach eski `pin` ustunini
       // o'chirish mumkin bo'ladi (§14 chala ishlar).
       // Xato bo'lsa kirish TO'XTAMAYDI — faqat log.
+      // 2026-08-09: quyidagi blok endi AMALDA ISHLAMAYDI — qator faqat
+      // xesh bo'yicha topilgani uchun row.pin_hash doim to'la. Tarix
+      // uchun qoldirildi (zarari yo'q, hech qachon ishga tushmaydi).
       if (!row.pin_hash) {
         try {
           await fetch(`${SB_URL}/rest/v1/staff?id=eq.${encodeURIComponent(row.id)}` +
