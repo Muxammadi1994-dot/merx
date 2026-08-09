@@ -377,6 +377,10 @@ function buildSaPanel() {
           </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
+          <button onclick="saBroadcastStaff()" title="Barcha xodimlar guruhlariga e'lon yuborish"
+            style="background:#0D1B2A;color:#E9A500;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;margin-right:6px">
+            📣 E'lon
+          </button>
           <button id="sa-refresh-btn" onclick="saRefreshPanel(this)" title="Bulutdan yangilash"
             style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
             color:#fff;border-radius:8px;padding:6px 12px;font-family:inherit;
@@ -3295,6 +3299,43 @@ async function _saApi(action, payload) {
     body: JSON.stringify(payload || {})
   });
   return res.json();
+}
+
+// ═══ 📣 BARCHA XODIMLAR GURUHLARIGA E'LON (2026-08-09) ═══
+// Yangilanish chiqqanda bitta tugma: avval server QURUQ ro'yxatni
+// qaytaradi (hech narsa yuborilmaydi), ro'yxat ko'rsatilib tasdiq
+// so'raladi, keyin haqiqiy yuborish ketadi. Matn oldindan joriy
+// versiya (window.SW_V) bilan to'ldirilgan — tahrirlash mumkin.
+async function saBroadcastStaff() {
+  let dr;
+  try { dr = await _saApi("sa_broadcast_staff", { dryRun: true }); }
+  catch (e) { toast("Server javob bermadi: " + e.message, "err"); return; }
+  if (!dr || !dr.ok) { toast("Ro'yxat olinmadi: " + (dr && dr.error || "noma'lum xato"), "err"); return; }
+  const t = dr.targets || [];
+  if (!t.length) { toast("Guruh ulangan do'kon topilmadi", "err"); return; }
+
+  const names = t.map(x => "• " + x.name).join("\n");
+  const v = window.SW_V || "?";
+  const def = "🔄 MERX yangilandi (v" + v + ")\n\n" +
+    "Iltimos, qurilmalarni yangilang:\n" +
+    "• Kompyuter: Ctrl+Shift+R\n" +
+    "• Telefon: ilovani to'liq yopib, qayta oching\n\n" +
+    "Tekshiruv: Tizim sahifasida «Versiya: v" + v + "» turishi kerak.";
+  const text = prompt("Xabar matni — " + t.length + " ta guruhga ketadi:\n" + names, def);
+  if (text === null) return;
+  if (!text.trim()) { toast("Matn bo'sh — yuborilmadi", "err"); return; }
+  if (!confirm(t.length + " ta guruhga yuborilsinmi?\n\n" + names)) return;
+
+  let r;
+  try { r = await _saApi("sa_broadcast_staff", { text: text.trim() }); }
+  catch (e) { toast("Yuborishda xato: " + e.message, "err"); return; }
+  if (r && r.ok) {
+    let msg = "✅ Yuborildi: " + r.sentCount + " ta guruh";
+    if (r.failed && r.failed.length) msg += "\n\n⚠️ Bormaganlar:\n" + r.failed.join("\n");
+    alert(msg);
+  } else {
+    toast("Yuborilmadi: " + (r && r.error || "server xatosi"), "err");
+  }
 }
 
 // ═══ F5 DAN KEYIN PANELNI TIKLASH (2026-07-26) ═══

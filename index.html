@@ -5137,7 +5137,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
-<script src="js/superadmin.js?v=228"></script>
+<script src="js/superadmin.js?v=229"></script>
 
 <!-- PWA (2026-07-20): Service Worker ro'yxatdan o'tkazish -->
 <script>
@@ -5234,7 +5234,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 326;
+  window.SW_V = 327;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5257,7 +5257,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=326")
+    navigator.serviceWorker.register("/sw.js?v=327")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

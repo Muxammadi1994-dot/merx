@@ -126,7 +126,9 @@ module.exports = async function handler(req, res) {
     // 2026-08-07: SA do'konga kirganda unga token beruvchi amal
     // (reja 1.2). SA parolisiz chaqirib BO'LMAYDI — aks holda har
     // kim istalgan do'kon tokenini olardi.
-    "sa_shop_session"];
+    "sa_shop_session",
+    // 2026-08-09: barcha xodimlar guruhlariga e'lon (yangilanish xabari)
+    "sa_broadcast_staff"];
   if (SA_ACTIONS.includes(action)) {
     // MUHIM: SA_PASS bo'sh bo'lsa HAM rad etiladi — aks holda bo'sh
     // parol bilan kirish mumkin bo'lib qolardi.
@@ -157,6 +159,58 @@ module.exports = async function handler(req, res) {
     if (!bazaOk && !envOk) {
       return res.status(401).json({ ok: false, error: "SuperAdmin paroli noto'g'ri" });
     }
+  }
+
+  // ── 📣 OMBORCHI GURUHLARIGA E'LON (2026-08-09) ────────────────
+  // Sabab: yangilanish chiqqanda har do'konga qo'lda yozish o'rniga
+  // SuperAdmin paneldan BIR tugma bilan xabar ketadi. SQL o'zi xabar
+  // yubora olmaydi — yuboruvchi shu server (Telegram Bot API).
+  // Guruh manzillari: settings.staff_group_id (ilovada "Sozlamalar →
+  // SMS & Bot → Xodimlar guruhi ID" ga kiritilgan qiymat).
+  // dryRun:true — HECH NARSA yubormaydi, faqat qabul qiluvchilar
+  // ro'yxatini qaytaradi; panel avval shu ro'yxatni ko'rsatib,
+  // tasdiqdan keyingina haqiqiy yuborishni chaqiradi.
+  if (action === "sa_broadcast_staff") {
+    const H = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` };
+    const text   = String(body.text || "").trim();
+    const dryRun = !!body.dryRun;
+    if (!dryRun && !text)
+      return res.status(400).json({ ok: false, error: "Xabar matni bo'sh" });
+    if (!dryRun && text.length > 3500)
+      return res.status(400).json({ ok: false, error: "Matn juda uzun (3500 belgidan oshdi)" });
+    const TG = process.env.TELEGRAM_BOT_TOKEN || "";
+    if (!dryRun && !TG)
+      return res.status(500).json({ ok: false, error: "TELEGRAM_BOT_TOKEN o'rnatilmagan" });
+
+    const { rows: setRows }  = await sbFetchAll(
+      "settings?select=shop_id,staff_group_id&staff_group_id=not.is.null&order=shop_id", H);
+    const { rows: shopRows } = await sbFetchAll("shops?select=id,name&order=id", H);
+    const nameOf = {}; (shopRows || []).forEach(x => { nameOf[x.id] = x.name || x.id; });
+    const targets = (setRows || [])
+      .filter(r => String(r.staff_group_id || "").trim())
+      .map(r => ({ shopId: r.shop_id,
+                   name: nameOf[r.shop_id] || r.shop_id,
+                   gid: String(r.staff_group_id).trim() }));
+
+    if (dryRun) return res.status(200).json({ ok: true, targets });
+
+    const sent = [], failed = [];
+    for (const t of targets) {
+      try {
+        const tr = await fetch(`https://api.telegram.org/bot${TG}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          // parse_mode ATAYLAB berilmaydi: matn qanday yozilsa shunday
+          // boradi — maxsus belgi formatlashni buzib xabarni yiqitmaydi
+          body: JSON.stringify({ chat_id: t.gid, text })
+        });
+        const tj = await tr.json().catch(() => ({}));
+        if (tj && tj.ok) sent.push(t.name);
+        else failed.push(t.name + (tj && tj.description ? ` (${tj.description})` : ""));
+      } catch (e) { failed.push(t.name + " (" + e.message + ")"); }
+      await new Promise(r2 => setTimeout(r2, 60));   // Telegram tezlik chegarasi
+    }
+    return res.status(200).json({ ok: true, sentCount: sent.length, sent, failed });
   }
 
   // ── PAROLNI O'ZGARTIRISH (2026-08-03) ─────────────────────────
