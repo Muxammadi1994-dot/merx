@@ -78,24 +78,181 @@ function posLog(action, details) {
 }
 let vmProd = null, selColor = null, selSize = null, vmSellMode = "dona";
 
-// ── USB Barcode scanner (global listener) ───────
-let _usbBuf = "", _usbTimer = null;
-document.addEventListener("keydown", function(e) {
-  if (!$("p-pos")?.classList.contains("on")) return;
-  const tag = document.activeElement?.tagName;
-  const id  = document.activeElement?.id;
-  // Faqat pos-q bo'lmagan inputlarda to'xtatamiz
-  if (["INPUT","TEXTAREA","SELECT"].includes(tag) && id !== "pos-q") return;
+// ── UNIVERSAL SKANER DVIJOKI (2026-08-09) ────────────────────────
+// Eski "USB listener" (80 ms bufer · e.key · faqat POS · faqat pos-q)
+// TO'RTTA isbotlangan nuqsoni uchun almashtirildi:
+//   1) 80 ms oynasi — sekin Bluetooth skanerlar (iPhone) va ilova endi
+//      ochilib protsessor band paytdagi BIRINCHI skan buferni
+//      yo'qotardi (ABU SAXIY "birinchi tovar qiynaladi"ning bir yuzi).
+//   2) e.key'ga tayangani — skaner ALT-rejimda yoki qurilma klaviatura
+//      tili boshqacha bo'lsa raqam o'rniga "?0±" kabi buzuq belgilar
+//      kelardi (B20 iPhone — jonli videoda ko'rildi).
+//   3) Fokus tuzog'i — kursor miqdor/chegirma kabi BOSHQA maydonda
+//      qolsa skan butunlay e'tiborsiz qolib, raqamlar o'sha maydonga
+//      yozilib ketardi (B20 "tez-tez ishlamay qoladi"ning kod ildizi).
+//   4) 3 belgili chegara — 3 ta buzuq belgi ham "kod" deb o'tardi.
+// Yangi dvijok belgilarni FIZIK tugma (e.code) orqali o'qiydi — til va
+// uzatish rejimi farq qilmaydi; ALT+raqam ketma-ketligini o'zi ochadi;
+// 300 ms gacha sekinlikka chidaydi; kursor qayerda bo'lsa ham ishlaydi
+// va begona maydonga tushib qolgan izlarni o'zi artib qo'yadi.
+// Skanerlar (USB, Bluetooth, 2.4G) klaviatura sifatida ulanadi —
+// demak bu yo'l HAMMASI uchun bitta, qurilma turi ahamiyatsiz.
 
-  if (e.key === "Enter") {
-    if (_usbBuf.length >= 3) { e.preventDefault(); processBarcode(_usbBuf.trim()); }
-    _usbBuf = ""; clearTimeout(_usbTimer);
-  } else if (e.key.length === 1) {
-    _usbBuf += e.key;
-    clearTimeout(_usbTimer);
-    _usbTimer = setTimeout(() => { _usbBuf = ""; }, 80);
+const _SC_GAP   = 300;  // ikki belgi orasidagi ruxsat etilgan tanaffus (ms)
+// Skaner-qidiruv maydonlari (ko'rinib turgan birinchisi tanlanadi;
+// nm-q modal ichida bo'lgani uchun ro'yxat boshida turadi):
+const _SC_ROUTE = ["nm-q", "om-q", "kat-q", "pos-q", "cust-q", "debt-q"];
+let _scLog = [];        // {t, ch(normallashgan), raw(maydonga tushgani), alt}
+let _scAltSeq = "";
+
+// ALT+0NNN (Windows-1252) jadvalining 128–159 oralig'i; qolgan kodlar
+// to'g'ridan-to'g'ri belgi raqami bilan mos keladi.
+const _SC_CP1252 = {128:"\u20AC",130:"\u201A",131:"\u0192",132:"\u201E",133:"\u2026",134:"\u2020",135:"\u2021",136:"\u02C6",137:"\u2030",138:"\u0160",139:"\u2039",140:"\u0152",142:"\u017D",145:"\u2018",146:"\u2019",147:"\u201C",148:"\u201D",149:"\u2022",150:"\u2013",151:"\u2014",152:"\u02DC",153:"\u2122",154:"\u0161",155:"\u203A",156:"\u0153",158:"\u017E",159:"\u0178"};
+
+// Belgini FIZIK tugmadan aniqlaymiz: raqamlar istalgan klaviatura
+// tilida bir xil tugmada turadi — e.code hech qachon aldamaydi.
+function _scCharOf(e) {
+  const c = e.code || "";
+  const m = /^(?:Digit|Numpad)(\d)$/.exec(c);
+  if (m) return m[1];
+  const k = e.key || "";
+  if (/^Key[A-Z]$/.test(c))
+    return /^[\x21-\x7E]$/.test(k) ? k : c.slice(3);  // buzuq bo'lsa fizik harf
+  if (c === "Minus")  return "-";
+  if (c === "Period") return ".";
+  if (c === "Slash")  return "/";
+  if (k.length === 1 && /[\x20-\x7E]/.test(k)) return k;
+  return null;
+}
+
+function _scPush(ch, raw, alt) {
+  const now = Date.now();
+  if (_scLog.length && now - _scLog[_scLog.length - 1].t > _SC_GAP) _scLog = [];
+  _scLog.push({ t: now, ch: ch, raw: raw, alt: !!alt });
+  if (_scLog.length > 64) _scLog.shift();
+}
+
+// Jurnaldan oxirgi UZLUKSIZ yugurishni olamiz va o'lchaymiz
+function _scRun() {
+  const now = Date.now();
+  let i = _scLog.length - 1;
+  if (i < 0 || now - _scLog[i].t > 500) return null;
+  while (i > 0 && _scLog[i].t - _scLog[i - 1].t <= _SC_GAP) i--;
+  const run = _scLog.slice(i);
+  const gaps = [];
+  for (let j = 1; j < run.length; j++) gaps.push(run[j].t - run[j - 1].t);
+  gaps.sort((a, b) => a - b);
+  return {
+    str:    run.map(r => r.ch).join(""),
+    raw:    run.map(r => r.raw).join(""),
+    alt:    run.some(r => r.alt),
+    median: gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0,
+    max:    gaps.length ? gaps[gaps.length - 1] : 0
+  };
+}
+
+// Nomzod chindan skan ekanini baholaymiz. Ikki daraja:
+//  · YUMSHOQ — kursor bo'sh joyda yoki skaner-qidiruv maydonida:
+//    kamida 4 belgi va 3 raqam yetadi (kodni QO'LDA terib Enter bosgan
+//    kassir ham skanerdek natija oladi — bu ataylab shunday).
+//  · QAT'IY — kursor BOSHQA maydonda (miqdor, izoh, summa ...):
+//    faqat aniq skaner "imzosi" bilan aralashamiz — ALT-rejim izi,
+//    juda tez terilish yoki 10+ belgili tekis yugurish. Oddiy qo'l
+//    terishga o'xshagan hech narsa bu maydonlardan tortib olinmaydi.
+function _scValid(run, strict) {
+  if (!run) return false;
+  const s = run.str, dig = (s.match(/\d/g) || []).length;
+  if (strict)
+    return s.length >= 6 && dig >= 6 &&
+           (run.alt || run.median <= 100 || (s.length >= 10 && run.max <= 160));
+  return s.length >= 4 && dig >= 3;
+}
+
+// Skan begona maydon fokusida urilgan bo'lsa — brauzer u yerga yozib
+// ulgurgan belgilarni qaytarib olamiz (raw'da aynan nima tushganini
+// sanab turamiz, shuning uchun faqat o'sha quyruq kesiladi)
+function _scCleanField(el, rawStr) {
+  if (!el || !rawStr) return;
+  if (!["INPUT", "TEXTAREA"].includes(el.tagName)) return;
+  const v = el.value || "";
+  if (v.endsWith(rawStr)) {
+    el.value = v.slice(0, v.length - rawStr.length);
+    try { el.dispatchEvent(new Event("input", { bubbles: true })); } catch (_) {}
   }
-});
+}
+
+// Kod qayerga ketadi: POS ochiq bo'lsa — to'liq yo'l (processBarcode).
+// Boshqa sahifada — o'sha sahifaning ko'rinib turgan skaner-qidiruv
+// maydoniga TOZA holda yoziladi va sahifaning o'z qidiruvi ishlaydi.
+function _scRoute(code) {
+  if ($("p-pos")?.classList.contains("on")) { processBarcode(code); return true; }
+  for (const rid of _SC_ROUTE) {
+    const el = $(rid);
+    if (el && el.offsetParent !== null) {
+      el.value = code;
+      try { el.dispatchEvent(new Event("input", { bubbles: true })); } catch (_) {}
+      try { el.focus(); } catch (_) {}
+      return true;
+    }
+  }
+  return false;
+}
+
+document.addEventListener("keydown", function (e) {
+  const ae = document.activeElement;
+  const aType = ((ae && ae.type) || "").toLowerCase();
+  const aId   = (ae && ae.id) || "";
+  // Parol / telefon / email maydonlari — dvijok umuman aralashmaydi
+  if (aType === "password" || aType === "tel" || aType === "email" ||
+      /^auth-|^sa-pass/.test(aId)) { _scLog = []; _scAltSeq = ""; return; }
+
+  // 1) Skanerning ALT-rejimi: ALT bosig'liq kelgan raqamlarni yig'amiz
+  //    va brauzerga O'TKAZMAYMIZ — aks holda iOS ulardan "±", "?"
+  //    kabi belgilar yasab maydonni ifloslaydi (jonli video holati).
+  if (e.altKey && /^(?:Digit|Numpad)\d$/.test(e.code || "")) {
+    _scAltSeq += (e.code || "").slice(-1);
+    e.preventDefault(); e.stopPropagation();
+    return;
+  }
+
+  // 2) Yakunlovchi: Enter (ba'zi skanerlar Tab yuboradi — u faqat
+  //    aniq skaner imzosi bilan qabul qilinadi, Tab-navigatsiya buzilmasin)
+  if (e.key === "Enter" || e.key === "Tab") {
+    const run = _scRun();
+    _scLog = [];
+    const tag = ae && ae.tagName;
+    const routeFocus = _SC_ROUTE.includes(aId);
+    const freeFocus  = !["INPUT", "TEXTAREA", "SELECT"].includes(tag || "");
+    const strict = !(routeFocus || freeFocus) || e.key === "Tab";
+    if (run && _scValid(run, strict)) {
+      e.preventDefault(); e.stopPropagation();
+      _scCleanField(ae, run.raw);
+      if (!_scRoute(run.str.trim()))
+        toast('Skaner o\'qidi: "' + run.str.trim() + '"', "info");
+    }
+    return;
+  }
+
+  if (e.ctrlKey || e.metaKey) { _scLog = []; return; }
+
+  // 3) Oddiy belgi — jurnalga (fizik tugma bo'yicha normallashtirib).
+  //    Belgi tanilmasa ham (ch=null) maydonga tushgan RAW izni sanab
+  //    boramiz — keyin tozalash to'liq bo'lsin.
+  const ch  = _scCharOf(e);
+  const raw = (!e.altKey && e.key && e.key.length === 1) ? e.key : "";
+  if (ch == null && !raw) return;
+  _scPush(ch == null ? "" : ch, raw, false);
+}, true);
+
+// ALT qo'yib yuborilganda yig'ilgan raqamlar bitta belgiga aylanadi
+document.addEventListener("keyup", function (e) {
+  if (e.key !== "Alt" || !_scAltSeq) return;
+  e.preventDefault(); e.stopPropagation();
+  const cp = parseInt(_scAltSeq, 10); _scAltSeq = "";
+  if (isNaN(cp)) return;
+  const ch = _SC_CP1252[cp] || (cp >= 32 ? String.fromCharCode(cp) : null);
+  if (ch) _scPush(ch, "", true);
+}, true);
 
 // ── Barcode ishlov berish ────────────────────────
 // 2026-07-30: skanerdan kelgan qidiruvni belgilaymiz — qoldiq tugagan
@@ -108,6 +265,32 @@ let _posScanMode = false;
 const SCAN_TRACE = true;
 
 function processBarcode(code) {
+  // ⚠️ 2026-08-09: KATALOG HALI YUKLANMAGAN BO'LSA — KOD NAVBATGA.
+  // Tovarlar IndexedDB'dan ASINXRON keladi (§4.1). Ilova endi ochilgan
+  // zahoti urilgan BIRINCHI skan avval bo'sh ro'yxatdan qidirib
+  // "topilmadi" derdi (ABU SAXIY — 895 tovar, yuklanish soniyalar
+  // oladi: "birinchi tovarni tortishda qiynalyapti"ning ikkinchi yuzi).
+  // Endi kod eslab qolinadi va katalog yuklanishi bilan O'ZI ishlanadi.
+  if (!window._heavyHydrated || !(db.products || []).length) {
+    window._pendingScan = code;
+    toast("⏳ Katalog yuklanmoqda — kod navbatda, hozir o'zi ishlanadi", "info");
+    if (!window._pendingScanTimer) {
+      const _t0 = Date.now();
+      window._pendingScanTimer = setInterval(() => {
+        if (window._heavyHydrated && (db.products || []).length) {
+          clearInterval(window._pendingScanTimer);
+          window._pendingScanTimer = null;
+          const c = window._pendingScan; window._pendingScan = null;
+          if (c) processBarcode(c);
+        } else if (Date.now() - _t0 > 20000) {   // 20 s dan keyin taslim
+          clearInterval(window._pendingScanTimer);
+          window._pendingScanTimer = null;
+          window._pendingScan = null;
+        }
+      }, 250);
+    }
+    return;
+  }
   const _sc0 = Date.now();
   const q = code.toLowerCase();
   let foundColor = null;
@@ -272,6 +455,14 @@ let _camStream = null, _camInterval = null, _barcodeDetector = null;
 // o'qish shu bilan qilinadi. Kutubxona yuklanmasa (internet yo'q) —
 // avvalgi xabar chiqadi, ya'ni holat yomonlashmaydi.
 const _ZXING_SRC = [
+  // ⚠️ 2026-08-09: AVVAL LOKAL NUSXA — repo ichida (js/zxing.min.js).
+  // Sabab: kutubxona faqat CDN'dan olinardi. Do'kon wifi'si unpkg'ni
+  // yopgan yoki internet uzilgan iPhone'da kamera skaneri "kutubxona
+  // yuklanmadi" bilan to'xtardi — bir telefonda ishlab, ikkinchisida
+  // ishlamasligining sabablaridan biri shu tashqi bog'liqlik edi.
+  // Endi fayl o'zimizniki, Service Worker uni oldindan keshlaydi —
+  // internetsiz ham ishlaydi. CDN'lar faqat zaxira bo'lib qoldi.
+  "js/zxing.min.js?v=1",
   "https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js",
   "https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"
 ];
@@ -362,13 +553,41 @@ async function _openBarcodeCameraZxing() {
       if (_zxReader) toast("Kodni 10–15 sm masofada, yorug'da ushlab turing. O'qilmasa raqamni qidiruvga qo'lda kiriting", "info");
     }, 20000);
   } catch (e) {
-    toast("Kamera ochib bo'lmadi: " + (e.message || e), "err");
+    toast(_camErrText(e), "err");
     try { closeBarcodeCamera(); } catch(_) {}
   }
 }
 
+// Kamera xatosini foydalanuvchi tushunadigan tilga o'giramiz.
+// "NotAllowedError" kabi inglizcha nomlar hech narsa aytmasdi —
+// telefonlarda eng ko'p uchraydigani aynan RUXSAT rad etilgani
+// (ikkita bir xil iPhone'da har xil natija berishining tipik sababi:
+// birida ruxsat berilgan, ikkinchisida bir marta "Rad et" bosilgan).
+function _camErrText(e) {
+  const n = (e && e.name) || "";
+  if (n === "NotAllowedError" || n === "PermissionDeniedError" || n === "SecurityError")
+    return "Kameraga ruxsat berilmagan. iPhone: Sozlamalar → Safari (yoki Chrome) → Kamera → Ruxsat bering. Yoki manzil qatoridagi «AA»/qulf belgisi → Veb-sayt sozlamalari → Kamera";
+  if (n === "NotFoundError" || n === "OverconstrainedError")
+    return "Qurilmada mos kamera topilmadi";
+  if (n === "NotReadableError")
+    return "Kamera boshqa ilova tomonidan band — o'sha ilovani yopib, qayta urinib ko'ring";
+  return "Kamera ochib bo'lmadi: " + ((e && e.message) || e);
+}
+
 async function openBarcodeCamera() {
   if (!("BarcodeDetector" in window)) return _openBarcodeCameraZxing();
+  // ⚠️ 2026-08-09: API BOR-U, KERAKLI FORMATNI BILMASLIGI MUMKIN.
+  // Ba'zi qurilmalarda BarcodeDetector mavjud, lekin code_128 yoki
+  // ean_13 ni qo'llamaydi — bunda kamera ochilib "hech narsani
+  // o'qimay" turaveradi. Ro'yxatni oldindan so'raymiz: kerakli format
+  // yo'q bo'lsa darhol ZXing yo'liga o'tamiz.
+  try {
+    if (typeof BarcodeDetector.getSupportedFormats === "function") {
+      const fm = await BarcodeDetector.getSupportedFormats();
+      if (!fm.includes("code_128") || !fm.includes("ean_13"))
+        return _openBarcodeCameraZxing();
+    }
+  } catch (e) { /* so'rov ishlamasa — eski yo'l davom etadi */ }
   try {
     // ⚠️ 2026-08-08: BU YO'L (Android/Chrome) O'ZGARTIRILMADI —
     // u jonli holatda TO'G'RI ishlayapti (do'kon tasdiqladi), demak
@@ -392,7 +611,7 @@ async function openBarcodeCamera() {
       } catch(e) {}
     }, 300);
   } catch(e) {
-    toast("Kamera ochib bo'lmadi: " + e.message, "err");
+    toast(_camErrText(e), "err");
   }
 }
 

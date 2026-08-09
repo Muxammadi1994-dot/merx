@@ -3471,7 +3471,17 @@ function renderNarxnomaPreview() {
       try {
         JsBarcode(svg, code, {
           format: "CODE128", width: c.barW, height: c.barH,
-          displayValue: true, fontSize: c.barFont, margin: 0,
+          displayValue: true, fontSize: c.barFont,
+          // ⚠️ 2026-08-09: margin 0 EDI — bu CODE128 uchun MAJBURIY
+          // bo'lgan "tinch zona"ni (shtrixdan oldin/keyin kamida
+          // 10 modul ENI bo'sh oq joy) butunlay yo'q qilardi. Tinch
+          // zonasiz yorliqni ko'p skanerlar UMUMAN o'qiy olmaydi —
+          // B20'dagi "yorliqdan Bloknotga ham hech narsa kelmayapti"
+          // holatining (§14.A-1) spetsifikatsiyaga asoslangan nomzodi.
+          // SVG yorliq kengligiga moslashib chizilgani uchun
+          // (width:100%) joy yetmay qolish xavfi yo'q — shtrix
+          // biroz ixchamlashadi, o'qilishi esa keskin yaxshilanadi.
+          margin: Math.round(c.barW * 10),
           textMargin: c.thermal ? 1 : 2
         });
       } catch (e) { /* noto'g'ri format */ }
@@ -3676,7 +3686,7 @@ window.onload = () => {
       const code = svg.dataset.code;
       if (!code) return;
       try {
-        JsBarcode(svg, code, { format:"CODE128", width:${c.barW}, height:${c.barH}, displayValue:true, fontSize:${c.barFont}, textMargin:${c.thermal ? 1 : 2}, margin:0 });
+        JsBarcode(svg, code, { format:"CODE128", width:${c.barW}, height:${c.barH}, displayValue:true, fontSize:${c.barFont}, textMargin:${c.thermal ? 1 : 2}, margin:${Math.round(c.barW * 10)} });
       } catch(e) {}
     });
   }

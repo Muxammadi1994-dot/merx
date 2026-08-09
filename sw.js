@@ -8,12 +8,13 @@
 // deploy 1
 
 // MUHIM: har push'da bu raqamni +1 qiling — eski kesh avtomat o'chadi.
-const CACHE_VERSION = "merx-v320";
+const CACHE_VERSION = "merx-v321";
 const CACHE_NAME = CACHE_VERSION;
 
 // Boshlang'ich keshlanadigan fayllar (offline'da kamida shular bo'lsin)
 const CORE_ASSETS = [
   "/index.html",
+  "/js/zxing.min.js?v=1",   // 2026-08-09: kamera skaneri (iPhone) — lokal, offline ham ishlasin
   "/style.css",
   "/manifest.json",
   "/icon-192.png",
