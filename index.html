@@ -4845,7 +4845,7 @@
               Rang
             </label>
             <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-size" checked onchange="renderNarxnomaPreview()"
+              <input type="checkbox" id="nm-size" onchange="renderNarxnomaPreview()"
                 style="width:15px;height:15px;accent-color:var(--acc)">
               O'lcham
             </label>
@@ -4853,12 +4853,12 @@
 
           <div style="display:flex;flex-direction:column;gap:5px">
             <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-price" checked onchange="renderNarxnomaPreview()"
+              <input type="checkbox" id="nm-price" onchange="renderNarxnomaPreview()"
                 style="width:15px;height:15px;accent-color:var(--acc)">
               Chakana narx
             </label>
             <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-usd" checked onchange="renderNarxnomaPreview()"
+              <input type="checkbox" id="nm-usd" onchange="renderNarxnomaPreview()"
                 style="width:15px;height:15px;accent-color:var(--acc)">
               USD narx
             </label>
@@ -4886,19 +4886,23 @@
               SKU kodi
             </label>
             <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-              <input type="checkbox" id="nm-ulg" onchange="renderNarxnomaPreview()"
+              <input type="checkbox" id="nm-ulg" checked onchange="renderNarxnomaPreview()"
                 style="width:15px;height:15px;accent-color:var(--acc)">
               Ulgurji narx
             </label>
             <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;background:#FFF7ED;padding:4px 8px;border-radius:6px;border:1px solid #FED7AA">
-              <input type="checkbox" id="nm-by-pochka" onchange="renderNarxnomaPreview()"
+              <input type="checkbox" id="nm-by-pochka" onchange="nmByPochkaChange()"
                 style="width:15px;height:15px;accent-color:#E9A500">
-              📦 Pochka barcode
+              🎨 Tovar (barcha ranglar)
             </label>
-            <!-- 2026-07-25: nima qilishini tushuntiruvchi izoh -->
+            <!-- 2026-08-09: eski "Pochka barcode" o'lcham davridan qolgan
+                 edi. Yangi ma'no: bitta rang tanlansa, tovarning qoldiqli
+                 BARCHA ranglari avtomat qo'shiladi (mantiq: katalog.js
+                 nmByPochkaChange / _nmAddAllColors). -->
             <div style="font-size:11px;color:var(--mut);flex-basis:100%;margin-top:2px;line-height:1.35">
-              Belgilansa: har rangga <b>1 ta</b> yorliq (pochkaga yopishtiriladi).<br>
-              Belgilanmasa: har o'lchamga <b>alohida</b> yorliq (har donaga).
+              Belgilansa: bitta rang tanlaganingizda shu tovarning qoldiqli
+              <b>barcha ranglari</b> avtomat belgilanadi.<br>
+              Har rangga <b>1 ta</b> yorliq chiqadi (har rang — alohida shtrix-kod).
             </div>
           </div>
 
@@ -4934,7 +4938,7 @@
 <script src="js/cloud.js?v=259"></script>
 <script src="js/dashboard.js?v=157"></script>
 <script src="js/pos.js?v=250"></script>
-<script src="js/katalog.js?v=254"></script>
+<script src="js/katalog.js?v=255"></script>
 <script src="js/ombor.js?v=176"></script>
 <script src="js/mijozlar.js?v=165"></script>
 <script src="js/qarzlar.js?v=206"></script>
@@ -5236,7 +5240,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 321;
+  window.SW_V = 322;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5259,7 +5263,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=321")
+    navigator.serviceWorker.register("/sw.js?v=322")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

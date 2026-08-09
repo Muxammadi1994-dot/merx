@@ -3250,6 +3250,20 @@ function openNarxnoma() {
 
   _narxnomaSelected.clear();
   openModal("narxnoma");
+  // ⚠️ 2026-08-09: KIRGANDA DOIM BIR XIL STANDART TANLOV.
+  // Ulgurji do'kon uchun asosiy to'plam: Nomi + Rang + Barcode + Ulgurji
+  // narx. Qolganlari o'chiq (oldin "Chakana + USD + O'lcham" yoqig'liq
+  // kelardi — chakana ko'pincha 0 bo'lgani uchun chalg'itardi).
+  // DOM'da oldingi ochilishdagi belgilar saqlanib qolgani uchun
+  // har ochilishda MAJBURIY qayta o'rnatiladi.
+  const _nmDef = { "nm-logo":false, "nm-name":true, "nm-color":true,
+    "nm-size":false, "nm-price":false, "nm-usd":false, "nm-cat":false,
+    "nm-art":false, "nm-barcode-chk":true, "nm-sku":false,
+    "nm-ulg":true, "nm-by-pochka":false };
+  Object.keys(_nmDef).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = _nmDef[id];
+  });
   setTimeout(() => {
     // 2026-07-25: standart o'lcham (58x40) uchun ustunlar bloklanadi
     if (typeof nmPaperChange === "function") nmPaperChange();
@@ -3319,8 +3333,42 @@ function renderNarxnomaList() {
 }
 
 function toggleNmProd(sku) {
-  if (_narxnomaSelected.has(sku)) _narxnomaSelected.delete(sku);
-  else _narxnomaSelected.add(sku);
+  if (_narxnomaSelected.has(sku)) {
+    _narxnomaSelected.delete(sku);
+  } else {
+    _narxnomaSelected.add(sku);
+    // ⚠️ 2026-08-09: "Tovar (barcha ranglar)" yoqiq bo'lsa — bitta rang
+    // tanlanganda shu tovarning QOLDIQLI barcha ranglari avtomat
+    // qo'shiladi (har rangga 1 ta yorliq — pochkalarga yopishtirish
+    // uchun). Olib tashlash esa donabay qoladi: keraksiz rangni
+    // alohida bosib chiqarib tashlash mumkin.
+    if (document.getElementById("nm-by-pochka")?.checked) {
+      _nmAddAllColors(String(sku).split("::")[0]);
+    }
+  }
+  renderNarxnomaList();
+  renderNarxnomaPreview();
+}
+
+// Tovarning qoldig'i bor BARCHA ranglarini tanlovga qo'shadi
+function _nmAddAllColors(psku) {
+  const p = (db.products || []).find(x => x.sku === psku);
+  if (!p) return;
+  [...new Set(p.variants.map(v => v.color).filter(Boolean))].forEach(color => {
+    const dona = p.variants.filter(v => v.color === color)
+                           .reduce((a, v) => a + (v.qty||0), 0);
+    if (dona > 0) _narxnomaSelected.add(p.sku + "::" + color);
+  });
+}
+
+// "Tovar (barcha ranglar)" galochkasi bosilganda: yoqilsa — allaqachon
+// tanlab qo'yilgan tovarlarning qolgan ranglari ham darhol qo'shiladi
+function nmByPochkaChange() {
+  if (document.getElementById("nm-by-pochka")?.checked) {
+    const skus = [...new Set([..._narxnomaSelected]
+      .map(k => String(k).split("::")[0]))];
+    skus.forEach(_nmAddAllColors);
+  }
   renderNarxnomaList();
   renderNarxnomaPreview();
 }
@@ -3378,17 +3426,20 @@ function _nmOpts() {
     style:    $c("nm-style")?.value || "standard",
     paper:    $c("nm-paper")?.value || "a4",
     cols:     parseInt($c("nm-cols")?.value) || 3,
-    showLogo: $c("nm-logo")?.checked !== false,
+    showLogo: $c("nm-logo")?.checked || false,
     showName: $c("nm-name")?.checked !== false,
     showColor:$c("nm-color")?.checked !== false,
-    showSize: $c("nm-size")?.checked !== false,
-    showPrice:$c("nm-price")?.checked !== false,
-    showUsd:  $c("nm-usd")?.checked !== false,
+    // 2026-08-09: standart to'plam o'zgardi (ulgurji do'kon) —
+    // zaxira qiymatlar ham yangi standartga tenglashtirildi:
+    // O'lcham/Chakana/USD endi standartda O'CHIQ, Ulgurji — YOQIQ.
+    showSize: $c("nm-size")?.checked || false,
+    showPrice:$c("nm-price")?.checked || false,
+    showUsd:  $c("nm-usd")?.checked || false,
     showCat:  $c("nm-cat")?.checked || false,
     showArt:  $c("nm-art")?.checked || false,
     showBarc: $c("nm-barcode-chk")?.checked !== false,
     showSku:  $c("nm-sku")?.checked || false,
-    showUlg:  $c("nm-ulg")?.checked || false,
+    showUlg:  $c("nm-ulg")?.checked !== false,
     rate:     db.settings.rate || 12800,
     shopName: db.shop?.name || "MERX"
   };
@@ -3417,7 +3468,6 @@ function renderNarxnomaPreview() {
     return;
   }
 
-  const byPochka = document.getElementById("nm-by-pochka")?.checked || false;
   const labels = [];
 
   prods.forEach(p => {
@@ -3433,17 +3483,14 @@ function renderNarxnomaPreview() {
       if (totalQty <= 0) return;
       // Barcode HAR DOIM rang darajasida (umumiy kod eskirgan)
       const barcode = (p.colorBarcodes && p.colorBarcodes[color]) || p.barcode;
-
-      if (byPochka) {
-        // Rang uchun BITTA etiketka
-        labels.push({ p, v: {...colorVars[0], color}, pochkaMode: true, barcode });
-      } else {
-        // Har o'lcham uchun alohida etiketka (kod baribir rang darajasida)
-        colorVars.forEach(v => {
-          if ((v.qty||0) <= 0) return;
-          labels.push({ p, v, pochkaMode: false, barcode });
-        });
-      }
+      // ⚠️ 2026-08-09: HAR RANG = 1 YORLIQ, DOIM. Avval "Pochka barcode"
+      // o'chiq bo'lsa har O'LCHAMGA alohida yorliq chiqardi — o'lchamdan
+      // voz kechilganidan keyin (§3.2) bu bir xil shtrix-kodli TAKROR
+      // yorliqlar edi. Rang darajasidan boshqa daraja qolmadi.
+      labels.push({ p,
+        v: {...colorVars[0], color,
+            size: colorVars.length === 1 ? colorVars[0].size : ""},
+        barcode });
     });
   });
 
@@ -3461,7 +3508,7 @@ function renderNarxnomaPreview() {
 
   el.innerHTML = `<style>${_nmLabelCss(c)}</style>
   <div class="nm-label-grid" style="${gridStyle}">
-    ${labels.map(({p, v, pochkaMode, barcode}) => buildLabel(p, v, {...o, pochkaMode, barcode})).join("")}
+    ${labels.map(({p, v, barcode}) => buildLabel(p, v, {...o, barcode})).join("")}
   </div>`;
 
   if (o.showBarc && typeof JsBarcode !== "undefined") {
@@ -3472,16 +3519,13 @@ function renderNarxnomaPreview() {
         JsBarcode(svg, code, {
           format: "CODE128", width: c.barW, height: c.barH,
           displayValue: true, fontSize: c.barFont,
-          // ⚠️ 2026-08-09: margin 0 EDI — bu CODE128 uchun MAJBURIY
-          // bo'lgan "tinch zona"ni (shtrixdan oldin/keyin kamida
-          // 10 modul ENI bo'sh oq joy) butunlay yo'q qilardi. Tinch
-          // zonasiz yorliqni ko'p skanerlar UMUMAN o'qiy olmaydi —
-          // B20'dagi "yorliqdan Bloknotga ham hech narsa kelmayapti"
-          // holatining (§14.A-1) spetsifikatsiyaga asoslangan nomzodi.
-          // SVG yorliq kengligiga moslashib chizilgani uchun
-          // (width:100%) joy yetmay qolish xavfi yo'q — shtrix
-          // biroz ixchamlashadi, o'qilishi esa keskin yaxshilanadi.
-          margin: Math.round(c.barW * 10),
+          // Tinch zona (CODE128 talabi) — faqat YON tomonlarda kerak.
+          // ⚠️ 2026-08-09: avvalgi `margin` TO'RTALA tomonga tushib,
+          // shtrix tepasida/pastida keraksiz bo'sh joy ochgan edi
+          // (yorliqda joy tanqis). Endi: yon = 10 modul, tepa/past = 0.
+          marginLeft: Math.round(c.barW * 10),
+          marginRight: Math.round(c.barW * 10),
+          marginTop: 0, marginBottom: 0,
           textMargin: c.thermal ? 1 : 2
         });
       } catch (e) { /* noto'g'ri format */ }
@@ -3494,10 +3538,27 @@ function buildLabel(p, v, opts) {
          showCat, showArt, showSku, showUlg, showBarc, shopName, rate} = opts;
   const hex       = v.hex || "#888";
   const colorDot  = `<span class="nm-color-dot" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${hex};border:1px solid rgba(0,0,0,.12);vertical-align:middle;margin-right:4px"></span>`;
-  const hasChakana = p.priceUzs > 0;
-  const priceUzs  = hasChakana ? p.priceUzs : (p.ulgurjiNarx || 0);
-  const ulgUzs    = p.ulgurjiNarx || 0;
-  const priceUsd  = rate > 0 ? (priceUzs / rate).toFixed(2) : "0.00";
+
+  // ⚠️ 2026-08-09: NARX QAT'IY QOIDA — QAYSI GALOCHKA, O'SHA NARX.
+  // Avval "Chakana narx" belgilansa-yu chakana 0 bo'lsa (ulgurji
+  // do'konda odatiy hol), yorliqqa JIMGINA ULGURJI narx chiqardi —
+  // "Chakana" yozuvi ostida ulgurji ko'rsatilardi. "Ulgurji narx"
+  // galochkasi esa faqat chakana>0 bo'lgandagina ishlardi (teskari
+  // shart). Endi: chakana → faqat chakana, ulgurji → faqat ulgurji;
+  // narx 0 bo'lsa o'sha qator umuman chiqmaydi (yolg'on chiqmaydi).
+  const chakanaUzs = p.priceUzs || 0;
+  const ulgUzs     = p.ulgurjiNarx || 0;
+  const chakanaOn  = showPrice && chakanaUzs > 0;
+  const ulgOn      = showUlg && ulgUzs > 0;
+  // Katta (asosiy) qator: chakana yoqiq bo'lsa — chakana; bo'lmasa ulgurji
+  const mainUzs    = chakanaOn ? chakanaUzs : (ulgOn ? ulgUzs : 0);
+  // USD ham xuddi shu asosiy narxdan (avval fallback aralashmasidan edi)
+  const priceUsd   = (mainUzs > 0 && rate > 0) ? (mainUzs / rate).toFixed(2) : "";
+  // Ikkalasi ham yoqiq bo'lsa: katta qator = chakana, kichik qator = ulgurji
+  const mainLine = mainUzs > 0 ? `<div class="nm-price-main">${fmt(mainUzs)} so'm</div>` : "";
+  const ulgLine  = (chakanaOn && ulgOn) ? `<div class="nm-price-ulg">Ulgurji: ${fmt(ulgUzs)}</div>` : "";
+  const usdLine  = (showUsd && priceUsd) ? `<div class="nm-price-usd">$${priceUsd}</div>` : "";
+
   const barcodeId = `bc-${p.sku}-${(v.color||"")}-${(v.size||"")}`.replace(/[^a-zA-Z0-9-]/g,"_");
   const useBarcode = opts.barcode || p.barcode || "";
   const barcodeHtml = showBarc && useBarcode
@@ -3522,9 +3583,9 @@ function buildLabel(p, v, opts) {
         ${showCat?`<div class="nm-var-sm">${p.category||""}</div>`:""}
         ${showArt&&p.art?`<div class="nm-sku">${p.art}</div>`:""}
         ${showSku?`<div class="nm-sku">${p.sku}</div>`:""}
-        ${showPrice?`<div class="nm-price-main">${fmt(priceUzs)} so'm</div>`:""}
-        ${showUsd?`<div class="nm-price-usd">$${priceUsd}</div>`:""}
-        ${showUlg&&ulgUzs&&hasChakana?`<div class="nm-price-ulg">Ulg: ${fmt(ulgUzs)}</div>`:""}
+        ${mainLine}
+        ${ulgLine}
+        ${usdLine}
       </div>
     </div>`;
 
@@ -3541,9 +3602,9 @@ function buildLabel(p, v, opts) {
         ${showSku?`<div class="nm-prem-sku">${p.sku}</div>`:""}
       </div>
       <div class="nm-prem-bot">
-        ${showPrice?`<div class="nm-prem-price">${fmt(priceUzs)} <span>so'm</span></div>`:""}
-        ${showUlg&&ulgUzs&&hasChakana?`<div class="nm-prem-ulg">Ulgurji: ${fmt(ulgUzs)} so'm</div>`:""}
-        ${showUsd?`<div class="nm-prem-usd">≈ $${priceUsd}</div>`:""}
+        ${mainUzs>0?`<div class="nm-prem-price">${fmt(mainUzs)} <span>so'm</span></div>`:""}
+        ${(chakanaOn&&ulgOn)?`<div class="nm-prem-ulg">Ulgurji: ${fmt(ulgUzs)} so'm</div>`:""}
+        ${(showUsd&&priceUsd)?`<div class="nm-prem-usd">≈ $${priceUsd}</div>`:""}
       </div>
       ${barcodeHtml}
     </div>`;
@@ -3561,9 +3622,9 @@ function buildLabel(p, v, opts) {
         ${showCat?`<div class="nm-var">${p.category||""}</div>`:""}
         ${showArt&&p.art?`<div class="nm-sku">ART: ${p.art}</div>`:""}
         ${showSku?`<div class="nm-sku">${p.sku}</div>`:""}
-        ${showPrice?`<div class="nm-price-main">${fmt(priceUzs)} so'm</div>`:""}
-        ${showUlg&&ulgUzs&&hasChakana?`<div class="nm-price-ulg">Ulgurji: ${fmt(ulgUzs)}</div>`:""}
-        ${showUsd?`<div class="nm-price-usd">$${priceUsd}</div>`:""}
+        ${mainLine}
+        ${ulgLine}
+        ${usdLine}
       </div>
     </div>`;
 }
@@ -3578,9 +3639,10 @@ function printNarxnoma() {
   if (!prods.length) { toast("Mahsulot tanlang","err"); return; }
 
   const labels = [];
-  const byPochkaP = document.getElementById("nm-by-pochka")?.checked || false;
 
-  // 2026-07-25: preview bilan AYNAN bir xil mantiq — faqat TANLANGAN ranglar
+  // 2026-08-09: preview bilan AYNAN bir xil — HAR RANG = 1 YORLIQ, doim.
+  // (Eski "har o'lchamga alohida" tarmog'i olib tashlandi — o'lchamdan
+  // voz kechilgan, u bir xil kodli takror yorliqlar chiqarardi.)
   prods.forEach(p => {
     const selColors = [..._narxnomaSelected]
       .filter(k => String(k).split("::")[0] === p.sku)
@@ -3592,24 +3654,15 @@ function printNarxnoma() {
       const totalQty = colorVars.reduce((a, v) => a + (v.qty||0), 0);
       if (totalQty <= 0) return;
       const barcode = (p.colorBarcodes && p.colorBarcodes[color]) || p.barcode;
-
-      if (byPochkaP) {
-        // Pochka rejimi: rang uchun BITTA yorliq, o'lchamlar birlashtirilgan
-        const sizes = colorVars.map(v => v.size).filter(Boolean);
-        labels.push({ p, v: {...colorVars[0], color, size: sizes.join("-")},
-                      pochkaMode: true, barcode });
-      } else {
-        // Har o'lcham uchun alohida yorliq
-        colorVars.forEach(v => {
-          if ((v.qty||0) <= 0) return;
-          labels.push({ p, v, pochkaMode: false, barcode });
-        });
-      }
+      labels.push({ p,
+        v: {...colorVars[0], color,
+            size: colorVars.length === 1 ? colorVars[0].size : ""},
+        barcode });
     });
   });
 
-  const labelHtml = labels.map(({p,v,pochkaMode,barcode}) =>
-    buildLabel(p, v, {...o, pochkaMode, barcode})
+  const labelHtml = labels.map(({p,v,barcode}) =>
+    buildLabel(p, v, {...o, barcode})
   ).join("");
 
   // 2026-07-25: o'lcham YAGONA manbadan (_nmSizeCfg) — preview bilan bir xil
@@ -3686,7 +3739,7 @@ window.onload = () => {
       const code = svg.dataset.code;
       if (!code) return;
       try {
-        JsBarcode(svg, code, { format:"CODE128", width:${c.barW}, height:${c.barH}, displayValue:true, fontSize:${c.barFont}, textMargin:${c.thermal ? 1 : 2}, margin:${Math.round(c.barW * 10)} });
+        JsBarcode(svg, code, { format:"CODE128", width:${c.barW}, height:${c.barH}, displayValue:true, fontSize:${c.barFont}, textMargin:${c.thermal ? 1 : 2}, marginLeft:${Math.round(c.barW * 10)}, marginRight:${Math.round(c.barW * 10)}, marginTop:0, marginBottom:0 });
       } catch(e) {}
     });
   }
@@ -4028,13 +4081,19 @@ function _nmSizeCfg(paper) {
 }
 
 // Etiketka ichki uslubi — preview va chop etishda BIR XIL
+// ⚠️ 2026-08-09: etiketkada (termal) tarkib TEPADAN boshlanadi
+// (flex-start). Avval markazlash (center) ortiqcha joyni tepa/pastga
+// bo'lib, shtrix tepasida bo'sh hoshiya ochardi; tarkib sig'may qolsa
+// esa shtrixning O'ZI ham kesilib ketishi mumkin edi. Endi shtrix eng
+// tepada, bo'sh joy pastda to'planadi — boshqa qatorlar belgilansa
+// ham joy yetadi. A4 kartochkalarida markazlash chiroyli — qoladi.
 function _nmLabelCss(c) {
   const box = c.wMm > 0
     ? `width:${c.wMm - c.padMm*2}mm;height:${c.hMm - c.padMm*2}mm;`
     : "";
   return `
 .nm-label{${box}padding:${c.padMm}mm;font-family:Arial,sans-serif;background:#fff;
-  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  display:flex;flex-direction:column;justify-content:${c.thermal ? "flex-start" : "center"};align-items:center;
   text-align:center;overflow:hidden;break-inside:avoid;box-sizing:border-box}
 .nm-l-top{display:flex;flex-direction:column;gap:1px;min-height:0}
 .nm-name,.nm-name-sm{font-size:${c.fName}px;font-weight:800;color:#000;line-height:1.15;
