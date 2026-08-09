@@ -964,6 +964,17 @@ async function _migrateImagesToStorage(sid) {
   return moved;
 }
 
+// ⚠️ 2026-08-09: joriy foydalanuvchi XODIMmi va tokeni yo'qmi?
+// Egasi/SA doim o'z tokeni bilan kiradi — bu tekshiruv faqat xodimga tegadi.
+function _staffNoToken() {
+  try {
+    const u = (typeof getAuthUser === "function") ? getAuthUser() : null;
+    if (!u || (u.staffId == null && !String(u.id || "").startsWith("staff_"))) return false;
+    const s = (typeof getSupabaseTestSession === "function") ? getSupabaseTestSession() : null;
+    return !(s && s.accessToken);
+  } catch(e) { return false; }
+}
+
 async function pushToCloud() {
   // ⚠️ 2026-07-31: OG'IR JADVALLAR YUKLANGUNCHA YOZMAYMIZ.
   // Tovarlar va mijozlar endi IndexedDB'dan ASINXRON keladi. Agar shu
@@ -980,6 +991,16 @@ async function pushToCloud() {
   const _sid = getCloudShopId();
   if (!_sid) {
     console.warn("Cloud push o'tkazib yuborildi: do'kon ID yo'q (tizimga kirilmagan)");
+    return;
+  }
+  // ⚠️ 2026-08-09: XODIM TOKENSIZ — PUSH JIM KUTADI.
+  // Anon yopilgan (§8.1): tokensiz push har jadvalda RLS xatosi olib,
+  // "Saqlandi, lekin xatolar" qo'rqinchli toastini chiqarardi.
+  // Ma'lumot yo'qolmaydi — push keshi faqat muvaffaqiyatda yangilanadi
+  // (§5.4); token kelishi bilan hammasi o'zi ketadi (_staffTokenRetry).
+  if (_staffNoToken()) {
+    console.warn("⏳ Xodim tokeni hali yo'q — push jim kutadi");
+    try { if (typeof window._staffTokenRetry === "function") window._staffTokenRetry(); } catch(e) {}
     return;
   }
   if (!_cloudPullDone || _pulledShopId !== _sid) {
@@ -2555,6 +2576,9 @@ window.addEventListener("beforeunload", (e) => {
 // kutayotgan o'zgarishlar DARHOL yuboriladi (avval keyingi amalgacha
 // kutardi). Delta-kesh tufayli faqat yuborilmagan yozuvlar ketadi.
 window.addEventListener("online", () => {
+  // 2026-08-09: oflayn kirgan xodim uchun avval token tiklanadi —
+  // muvaffaqiyatda _staffTokenRetry o'zi push + sozlama pull qiladi.
+  try { if (typeof window._staffTokenRetry === "function") window._staffTokenRetry(); } catch(e) {}
   try { if (_sb) { scheduleCloudSync(); _rtEnsure(); } } catch(e) {} // v184: realtime kanalini ham tiklaymiz
 });
 

@@ -1205,27 +1205,49 @@ async function doStaffLogin() {
     // kalitlar baribir kerak, aks holda bulut o'chiq qoladi.
     try { await ensureCloudKeys(); } catch(e) {}
 
-    // ⚠️ 2026-08-03: AUTH SESSIYASI LOKAL YO'LDA HAM.
-    // Xodim qurilmada topilsa server umuman chaqirilmasdi — ya'ni
-    // sessiya ham olinmasdi va `anon` kalitda qolardi. Bazadagi
-    // `shop_isolation_*` qoidalari esa tokendagi `shop_id` ni
-    // tekshiradi.
-    // FONDA olinadi — kirishni SEKINLASHTIRMAYDI. Xato bo'lsa
-    // avvalgidek `anon` bilan ishlaydi.
+    // ⚠️ 2026-08-09: TAKROR KIRISHDA TOKEN KUTIB OLINADI (avval FONDA edi).
+    // Fonda so'ralganda sinxron tokendan OLDIN boshlanardi: push RLSga
+    // urilib "Saqlandi, lekin xatolar: products/..." toasti chiqardi,
+    // pull esa bo'sh qaytardi — kurs va do'kon nomi "Yangilash"
+    // bosilguncha eskicha turardi. Endi internet bor bo'lsa bitta tez
+    // so'rov KUTIB olinadi (eng ko'pi 6 s, odatda ~1 s); kechiksa ham
+    // natija baribir saqlanadi. Internet yo'q bo'lsa — avvalgidek
+    // oflayn kiradi, push token kelguncha jim kutadi (cloud.js
+    // qo'riqchisi + _staffTokenRetry).
     try {
       if (!getSupabaseTestSession()?.accessToken) {
-        _staffLoginCloud(phone, pin).then(cs2 => {
+        const _tokSave = (cs2) => {
           if (cs2 && cs2._session && cs2._session.accessToken) {
             _supabaseTestSession = cs2._session;
             try { localStorage.setItem("merx_sb_session",
                     JSON.stringify(cs2._session)); } catch(e) {}
-            console.log("✅ Xodim sessiyasi olindi (fonda) — RLS faol");
+            // Bulutdagi eng yangi rol/ruxsat DARHOL amal qilsin
+            try {
+              if (cs2.perms || cs2.role || cs2.name) {
+                const u2 = Object.assign({}, res.user, {
+                  perms: cs2.perms || res.user.perms,
+                  role:  cs2.role  || res.user.role,
+                  name:  cs2.name  || res.user.name });
+                authSave(u2); res.user = u2;
+              }
+            } catch(e) {}
+            console.log("✅ Xodim sessiyasi olindi — RLS faol");
             // Bulut ulanishini token bilan qayta ochamiz
             try { if (typeof initSupabase === "function") initSupabase(); } catch(e) {}
-          } else {
-            console.warn("ℹ️ Xodim sessiyasiz — anon kalit ishlatiladi");
+            return true;
           }
-        }).catch(e => console.warn("xodim sessiyasi:", e.message));
+          console.warn("ℹ️ Xodim sessiyasiz — push token kelguncha kutadi");
+          return false;
+        };
+        const _p = _staffLoginCloud(phone, pin);
+        _p.then(_tokSave).catch(e => console.warn("xodim sessiyasi:", e.message));
+        if (typeof navigator === "undefined" || navigator.onLine !== false) {
+          showAuthErr("Tekshirilmoqda...", true);
+          await Promise.race([
+            _p.catch(() => null),
+            new Promise(r => setTimeout(r, 6000))
+          ]);
+        }
       }
     } catch(e) {}
     hideLoginScreen();
@@ -1261,6 +1283,44 @@ async function doStaffLogin() {
   }
   } finally { _staffLoginBusy = false; }
 }
+
+// ⚠️ 2026-08-09: XODIM TOKENINI KEYIN TIKLASH (oflayn kirgan xodim uchun).
+// Internet qaytganda ("online" tinglovchisi) yoki push urinishida
+// (cloud.js qo'riqchisi) chaqiriladi. Qurilmada keshlangan xodim
+// ma'lumoti bilan server so'raladi; muvaffaqiyatda sinxron va
+// sozlamalar (kurs, do'kon nomi) O'ZI yangilanadi — "Yangilash" shart emas.
+let _staffTokRetryBusy = false;
+async function _staffTokenRetry() {
+  if (_staffTokRetryBusy) return false;
+  try {
+    const u = (typeof getAuthUser === "function") ? getAuthUser() : null;
+    if (!u || u.staffId == null) return false;              // faqat xodim
+    if (getSupabaseTestSession()?.accessToken) return true; // token bor
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
+    const st = ((db && db.staff) || []).find(x => String(x.id) === String(u.staffId));
+    if (!st || !st.phone || !st.pin) return false;
+    _staffTokRetryBusy = true;
+    const cs = await _staffLoginCloud(st.phone, st.pin);
+    if (cs && cs._session && cs._session.accessToken) {
+      _supabaseTestSession = cs._session;
+      try { localStorage.setItem("merx_sb_session", JSON.stringify(cs._session)); } catch(e) {}
+      console.log("✅ Xodim sessiyasi tiklandi — RLS faol");
+      try { if (typeof initSupabase === "function") await initSupabase(); } catch(e) {}
+      try { if (typeof scheduleCloudSync === "function") scheduleCloudSync(); } catch(e) {}
+      try {
+        const _pl = (typeof ensureCloudPull === "function") ? ensureCloudPull()
+                  : (typeof pullFromCloud === "function") ? pullFromCloud() : null;
+        if (_pl && _pl.then) _pl.then(() => { try { saveDB();
+          if (typeof renderDashboard === "function") renderDashboard(); } catch(e) {} });
+      } catch(e) {}
+      return true;
+    }
+    console.warn("ℹ️ Xodim tokeni tiklanmadi — keyinroq qayta uriniladi");
+  } catch(e) { console.warn("xodim token retry:", e.message);
+  } finally { _staffTokRetryBusy = false; }
+  return false;
+}
+window._staffTokenRetry = _staffTokenRetry;
 
 function showAuthErr(msg, isStaff = false) {
   const id = isStaff ? "auth-staff-err" : "auth-err";
