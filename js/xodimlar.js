@@ -517,7 +517,12 @@ const PERM_PAGES = [
 
   { key:"sotuv", lbl:"Sotuv (POS)",
     see:[ ["cost","Tannarx"], ["profit","Foyda"] ],
-    use:[ ["discount","Chegirma"], ["nasiya","Nasiya"], ["ret","Qaytarish"] ] },
+    // 2026-08-09 RUXSAT AUDITI: "Qaytarish" bandi olib tashlandi — POS'da
+    // qaytarish amali umuman YO'Q (u Sotuv tarixida, "tarix → ret" bilan
+    // qo'riqlanadi); bu galochka egasini "yopdim" deb aldab turardi.
+    // "Narxni o'zgartirish" YANGI band — pos.js posEditPrice shu bilan
+    // qo'riqlanadi (standartda ochiq, taqiq ro'yxati modeli).
+    use:[ ["discount","Chegirma"], ["price","Narxni o'zgartirish"], ["nasiya","Nasiya"] ] },
 
   { key:"katalog", lbl:"Katalog",
     see:[ ["cost","Tannarx"], ["ulgurji","Ulgurji narx"], ["chakana","Chakana narx"],
@@ -590,6 +595,49 @@ const PERM_DEFAULTS = {
               mijozlar:"", qarzlar:"", qarztarix:"", tarix:"",
               hisobot:"", moliya:"", xodimlar:"" },
 };
+
+// ══ 2026-08-09 RUXSAT AUDITI: XODIMLAR IERARXIYASI ══
+// Xodim faqat O'ZIDAN PAST darajadagi xodimni boshqara oladi (ochish,
+// saqlash, o'chirish). Sabab (jonli xavf): xodimlar bo'limiga "ishlatish"
+// huquqi bor menejer ADMIN xodimning PIN'ini almashtirib, uning nomidan
+// kirishi — butun ruxsat tizimini chetlab o'tishi mumkin edi. Endi:
+//   · teng va yuqori daraja (jumladan O'ZI) — yopiq;
+//   · rol berishda ham faqat o'zidan PAST daraja;
+//   · egasi/SuperAdmin (staffId yo'q) cheklanmaydi — daraja 99.
+function _staffLvlOf(role) {
+  return (typeof ROLE_LEVELS !== "undefined" && ROLE_LEVELS[role]) || 0;
+}
+function _myStaffLvl() {
+  const u = (typeof _authUser !== "undefined") ? _authUser : null;
+  return (u && u.staffId) ? _staffLvlOf(u.role) : 99;
+}
+function _staffCanTouch(t) {
+  if (_myStaffLvl() === 99) return true;
+  return !!t && _staffLvlOf(t.role) < _myStaffLvl();
+}
+function _roleAssignable(role) {
+  return _myStaffLvl() === 99 || _staffLvlOf(role) < _myStaffLvl();
+}
+// "Ruxsat berish" huquqisiz qo'shilgan xodimga — rol SHABLONI beriladi
+// (formadagi galochkalar e'tiborga olinmaydi)
+function _permsFromTemplate(role) {
+  const d = PERM_DEFAULTS[role] || {}; const out = {};
+  PERM_PAGES.forEach(pg => {
+    const lvl = d[pg.key] || "";
+    out[pg.key] = { view: lvl !== "", use: lvl === "use" };
+  });
+  return out;
+}
+// Rol tanlovi: xodim faqat o'zidan past darajani ko'radi; mavjud xodim
+// undan yuqorida bo'lsa — roli KO'RINADI, lekin o'zgartirib bo'lmaydi
+function _asRoleOptions(s) {
+  const cur = (s && s.role) || "kassir";
+  const all = [["kassir","\uD83D\uDCBC Kassir"],["menejer","\uD83D\uDCCA Menejer"],["omborchi","\uD83D\uDCE6 Omborchi"]];
+  return all
+    .filter(([r]) => _roleAssignable(r) || r === cur)
+    .map(([r,l]) => `<option value="${r}" ${cur===r?"selected":""} ${_roleAssignable(r)?"":"disabled"}>${l}</option>`)
+    .join("");
+}
 
 // Formadagi galochkalarni o'qish → { katalog:{view:true,use:false}, ... }
 function _readPerms() {
@@ -771,6 +819,13 @@ function addStaff() {
 
   const d = _getStaffFormData();
   if (!d.name) { toast("Ism kiriting","err"); return; }
+  // 2026-08-09 RUXSAT AUDITI: faqat o'zidan PAST daraja beriladi
+  if (!_roleAssignable(d.role)) {
+    toast("⛔ Faqat o'zingizdan past darajadagi rol berish mumkin", "err"); return;
+  }
+  // "Ruxsat berish" huquqi yo'q — galochkalar emas, rol shabloni
+  if (typeof permDo === "function" && !permDo("xodimlar","perms"))
+    d.perms = _permsFromTemplate(d.role);
   db.staff.push({ id: nextId(), ...d, paidMonths:[], salaryHistory:[], monthTarget:0 });
   saveDB(); renderXodimlar(); closeStaffModal();
   toast(`\u2705 ${d.name} qo\'shildi`);
@@ -779,6 +834,11 @@ function addStaff() {
 
 function editStaff(id) {
   const s = db.staff.find(x => x.id === id); if (!s) return;
+  // 2026-08-09 RUXSAT AUDITI: teng/yuqori darajani (va O'ZINI) ochib bo'lmaydi
+  if (!_staffCanTouch(s)) {
+    toast("⛔ O'zingiz bilan teng yoki yuqori darajadagi xodimni tahrirlab bo'lmaydi", "err");
+    return;
+  }
   if ($("as-name"))         $("as-name").value         = s.name;
   if ($("as-phone"))        $("as-phone").value        = s.phone       || "";
   if ($("as-role"))         $("as-role").value         = s.role        || "kassir";
@@ -801,8 +861,20 @@ function saveStaff(id) {
   if (typeof requireDo === "function" && !requireDo("xodimlar","edit")) return;
 
   const s = db.staff.find(x => x.id === id); if (!s) return;
+  // 2026-08-09 RUXSAT AUDITI: teng/yuqori darajaga tegib bo'lmaydi
+  if (!_staffCanTouch(s)) {
+    toast("⛔ O'zingiz bilan teng yoki yuqori darajadagi xodimni tahrirlab bo'lmaydi", "err");
+    return;
+  }
   const d = _getStaffFormData();
   if (!d.name) { toast("Ism kiriting","err"); return; }
+  // "Ruxsat berish" huquqi yo'q — ruxsatlar va rol ESKICHA qoladi
+  if (typeof permDo === "function" && !permDo("xodimlar","perms")) {
+    d.perms = s.perms;
+    d.role  = s.role || d.role;
+  } else if (d.role !== s.role && !_roleAssignable(d.role)) {
+    toast("⛔ Bu rolni berish huquqingiz yo'q", "err"); return;
+  }
   // 2026-08-01: PIN maydoni bo'sh qoldirilsa ESKISI saqlanadi —
   // tasodifan o'chirilib, xodim kira olmay qolmasin.
   if (!d.pin && s.pin) d.pin = s.pin;
@@ -821,6 +893,11 @@ function deleteStaff(id) {
   if (typeof requireDo === "function" && !requireDo("xodimlar","del")) return;
 
   const s = db.staff.find(x => x.id === id); if (!s) return;
+  // 2026-08-09 RUXSAT AUDITI: teng/yuqori darajani o'chirib bo'lmaydi
+  if (!_staffCanTouch(s)) {
+    toast("⛔ O'zingiz bilan teng yoki yuqori darajadagi xodimni o'chirib bo'lmaydi", "err");
+    return;
+  }
   const cnt      = (db.sales||[]).filter(x => x.staffId === id).length;
   const debtCnt  = (db.sales||[]).filter(x => x.staffId === id && x.status === "qarz").length;
   const payCnt   = activePays().filter(x => x.staffId === id).length;
@@ -958,9 +1035,7 @@ function openStaffModal(editId = null) {
         <div>
           <label style="${lStyle}">Lavozim</label>
           <select id="as-role" style="${iStyle}">
-            <option value="kassir"   ${(s?.role||'kassir')==='kassir'   ?'selected':''}>💼 Kassir</option>
-            <option value="menejer"  ${s?.role==='menejer'  ?'selected':''}>📊 Menejer</option>
-            <option value="omborchi" ${s?.role==='omborchi' ?'selected':''}>📦 Omborchi</option>
+            ${_asRoleOptions(s)}
           </select>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">

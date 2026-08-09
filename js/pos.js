@@ -641,6 +641,13 @@ function closeBarcodeCamera() {
 const _priceOverrides = {};
 
 function posEditPrice(rowId, sku, color) {
+  // 2026-08-09 RUXSAT AUDITI: POS'da narxni qo'lda o'zgartirish endi
+  // alohida ruxsat ("Sotuv → Narxni o'zgartirish"). Avval HECH QANDAY
+  // tekshiruvsiz edi — istalgan kassir tovar narxini xohlagancha (0
+  // gacha ham) tushira olardi; "Chegirma" ruxsati bunga taalluqsiz.
+  // Standart holatda ruxsat OCHIQ (taqiq ro'yxati modeli) — jonli
+  // do'konlarda xatti-harakat o'zgarmaydi, egasi endi yopa oladi.
+  if (typeof requireDo === "function" && !requireDo("sotuv", "price")) return;
   const p = db.products.find(x => x.sku === sku);
   if (!p) return;
   const baseNarx = posPriceType === "ulgurji" ? (p.ulgurjiNarx || p.priceUzs) : p.priceUzs;

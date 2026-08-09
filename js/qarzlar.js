@@ -2662,6 +2662,10 @@ function exportQarzTarixiExcel() {
 let _atkazPayId = null;
 
 function openAtkaz(payId) {
+  // 2026-08-09 RUXSAT AUDITI: "qarztarix → To'lovni bekor qilish" kaliti
+  // endi HAQIQATAN tekshiriladi (katalogda e'lon qilingan, lekin hech
+  // qayerda ishlatilmagan edi — egasi taqiqlasa ham amal o'taverardi).
+  if (typeof requireDo === "function" && !requireDo("qarztarix", "cancel")) return;
   if (typeof hasRole !== "function" || !hasRole("admin")) {
     toast("Atkaz faqat egasi/admin uchun", "err"); return;
   }
@@ -2689,6 +2693,8 @@ function openAtkaz(payId) {
 }
 
 function confirmAtkaz() {
+  // Himoya kamari: oyna ochiq qolgan holatda ham amal qo'riqlanadi
+  if (typeof requireDo === "function" && !requireDo("qarztarix", "cancel")) return;
   const p = (db.debtPayments||[]).find(x => x.id === _atkazPayId);
   if (!p || p.cancelled) { closeModal("atkaz"); return; }
   const reason = (($("atkaz-reason")||{value:""}).value || "").trim();

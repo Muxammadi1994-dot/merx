@@ -3951,6 +3951,9 @@ function _renderKatGrid(rows, rate, showChakana) {
 
 // ── Rang barcodeini yangilash ─────────────────────
 function updateColorBarcode(sku, color, newBarcode) {
+  // 2026-08-09 RUXSAT AUDITI: katalogdagi "Barcode" kaliti endi amalda —
+  // rang shtrix-kodini qo'lda o'zgartirish shu kalit bilan qo'riqlanadi.
+  if (typeof requireDo === "function" && !requireDo("katalog", "barcode")) return;
   const p = db.products.find(x => x.sku === sku); if (!p) return;
   if (!p.colorBarcodes) p.colorBarcodes = {};
   newBarcode = newBarcode.trim();

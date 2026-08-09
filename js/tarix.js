@@ -362,7 +362,7 @@ function renderTarix() {
             <button class="btn btn-ghost btn-icon btn-sm" onclick="openSaleDetail(${s.id})" title="Ko'rish">
               <i class="ti ti-eye"></i>
             </button>
-            ${(!isReturned && !s.cancelled && typeof hasRole === "function" && hasRole("admin")) ? `
+            ${(!isReturned && !s.cancelled && _canCancelSaleBtn()) ? `
             <button class="btn btn-ghost btn-icon btn-sm" onclick="openSaleCancel(${s.id})"
               title="Sotuvni bekor qilish" style="color:var(--red)">
               <i class="ti ti-trash"></i>
@@ -475,8 +475,7 @@ function _renderTxGrid(list, cols, pagerHtml, q) {
       const remTxt = s.debtCurrency === "usd" && s.debtUsd
         ? `$${(+s.debtUsd).toFixed(2)}` : fmt(s.remaining||0) + " so'm";
 
-      const canCancel = !isReturned && !s.cancelled
-        && typeof hasRole === "function" && hasRole("admin");
+      const canCancel = !isReturned && !s.cancelled && _canCancelSaleBtn();
 
       return `<div class="tg-card" style="${_cxl?"opacity:.5;background:#F3F4F6":isReturned?"opacity:.75;background:#FEF2F2":""}">
         <div class="tg-foot">
@@ -1284,6 +1283,16 @@ function _refundAddDebtPayment(sale, amountUzs, refundNo, custTotals) {
 // Sotuv O'CHIRILMAYDI, "cancelled" belgisi qo'yiladi (qarz to'lovi
 // atkazi bilan bir xil tamoyil — audit izi qoladi).
 // ═══════════════════════════════════════════════════════════════
+// 2026-08-09 RUXSAT AUDITI: bekor tugmasi endi AMAL bilan BIR XIL
+// shartda ko'rinadi (ruxsat + admin daraja). Avval faqat rol tekshirilardi:
+// admin-xodimda tarix "ko'rish"da bo'lsa tugma KO'RINIB, bosilganda
+// "ruxsat yo'q" derdi (ABU SAXIY 16941 jonli holati); tarix "ishlatish"
+// berilgan xodim esa tugmani ko'rmasdi ham.
+function _canCancelSaleBtn() {
+  return typeof hasRole === "function" && hasRole("admin") &&
+         (typeof permDo !== "function" || permDo("tarix", "cancel"));
+}
+
 function openSaleCancel(saleId) {
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("tarix","cancel")) return;

@@ -953,6 +953,8 @@ function saveSupplier() {
 }
 
 function deleteSupplier() {
+  // 2026-08-09 RUXSAT AUDITI: o'chirish ham "supplier" kaliti ostida
+  if (typeof requireDo === "function" && !requireDo("ombor","supplier")) return;
   if (!editingSupplierId) return;
   const s = db.suppliers.find(x => x.id === editingSupplierId); if (!s) return;
   if (!confirm(`"${s.name}" yetkazuvchisini ro'yxatdan o'chirasizmi?\nKirim tarixi saqlanib qoladi.`)) return;
@@ -1053,6 +1055,9 @@ function omRenderChiqim() {
 }
 
 function deleteChiqim(id) {
+  // 2026-08-09 RUXSAT AUDITI: avval HECH QANDAY tekshiruvsiz edi —
+  // faqat "ko'rish" huquqli xodim ham chiqim yozuvini o'chira olardi.
+  if (typeof requireDo === "function" && !requireDo("ombor","chiqim")) return;
   const c = db.chiqimlar.find(x => x.id === id); if (!c) return;
   if (!confirm(`${c.productName} (${c.color}/${c.size}) — ${c.qty} ta chiqimni o'chirasizmi?\nOmbor qoldig'i TIKLANMAYDI.`)) return;
   // 2026-08-02: BULUTGA HAM AYTAMIZ (tombstone). Busiz yozuv
@@ -1240,8 +1245,11 @@ function saveInvent2() {
 let ch2SelectedProduct = null;
 
 function openChiqim2() {
-  // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
-  if (typeof requireDo === "function" && !requireDo("ombor","writeoff")) return;
+  // 2026-08-09 RUXSAT AUDITI: NOTO'G'RI KALIT tuzatildi — chiqim oynasi
+  // "writeoff" (hisobdan chiqarish) kaliti bilan qo'riqlanardi; egasi
+  // "Chiqim"ni taqiqlasa ta'sir qilmasdi, "Hisobdan chiqarish"ni
+  // taqiqlasa chiqim ham yopilib qolardi.
+  if (typeof requireDo === "function" && !requireDo("ombor","chiqim")) return;
 
   ch2SelectedProduct = null;
   if ($("ch2-name")) $("ch2-name").value = "";
@@ -1291,6 +1299,8 @@ function ch2UpdateSizes() {
 }
 
 function confirmChiqim2() {
+  // 2026-08-09 RUXSAT AUDITI: amal qo'riqchisi (oyna ochiq qolsa ham)
+  if (typeof requireDo === "function" && !requireDo("ombor","chiqim")) return;
   const p = ch2SelectedProduct;
   if (!p) { toast("Mahsulot tanlang", "err"); return; }
 
@@ -1522,6 +1532,8 @@ function omDeleteKirim(id) {
 // Variativ yoki import bilan kiritilgan partiya — hammasi birdan.
 // Uch bosqichli tasdiq: bu ko'p tovarga tegadi.
 function omDeletePartiya(partiya) {
+  // 2026-08-09 RUXSAT AUDITI: butun partiyani o'chirish — kirim huquqi
+  if (typeof requireDo === "function" && !requireDo("ombor","kirim")) return;
   if (!partiya) { toast("Partiya tanlanmagan", "err"); return; }
 
   const rows = (db.ombor || []).filter(o => o.partiya === partiya);

@@ -805,6 +805,8 @@ function renderRepStaff(sales) {
 function printHisobot() { window.print(); }
 
 function exportHisobotExcel() {
+  // 2026-08-09 RUXSAT AUDITI: katalogdagi "hisobot → Excel" kaliti endi amalda
+  if (typeof requireDo === "function" && !requireDo("hisobot","excel")) return;
   // 1. Asosiy sotuv tarixi
   const { from, to } = repDateRange();
   const sales = repSales();
@@ -824,6 +826,8 @@ function exportHisobotExcel() {
 }
 
 function exportHisobotProductsExcel() {
+  // 2026-08-09 RUXSAT AUDITI: katalogdagi "hisobot → Excel" kaliti endi amalda
+  if (typeof requireDo === "function" && !requireDo("hisobot","excel")) return;
   // 2. Top mahsulotlar (ABC tahlil bilan)
   const { from, to } = repDateRange();
   const sales = repSales();
@@ -848,6 +852,8 @@ function exportHisobotProductsExcel() {
 }
 
 function exportHisobotStaffExcel() {
+  // 2026-08-09 RUXSAT AUDITI: katalogdagi "hisobot → Excel" kaliti endi amalda
+  if (typeof requireDo === "function" && !requireDo("hisobot","excel")) return;
   // 3. Kassirlar tahlili
   const { from, to } = repDateRange();
   const sales = repSales();
@@ -880,6 +886,8 @@ function exportHisobotStaffExcel() {
 }
 
 function exportHisobotExpensesExcel() {
+  // 2026-08-09 RUXSAT AUDITI: katalogdagi "hisobot → Excel" kaliti endi amalda
+  if (typeof requireDo === "function" && !requireDo("hisobot","excel")) return;
   // 4. Xarajatlar tahlili
   const { from, to } = repDateRange();
   const exps = (db.xarajatlar||[]).filter(x=>x.date>=from&&x.date<=to)
@@ -902,6 +910,8 @@ function exportHisobotExpensesExcel() {
 }
 
 function exportHisobotTurnoverExcel() {
+  // 2026-08-09 RUXSAT AUDITI: katalogdagi "hisobot → Excel" kaliti endi amalda
+  if (typeof requireDo === "function" && !requireDo("hisobot","excel")) return;
   // 5. Tovar aylanmasi + ombor qiymati
   const { from, to } = repDateRange();
   const sales = repSales();
