@@ -1168,7 +1168,9 @@ async function doStaffLogin() {
           d.staff = Array.isArray(d.staff) ? d.staff : [];
           if (!d.staff.some(x => String(x.id) === String(cs.id))) {
             d.staff.push({ id: cs.id, name: cs.name, phone: cs.phone,
-              pin: cs.pin, role: cs.role, perms: cs.perms || undefined,
+              // 2026-08-09: bulutda ochiq PIN endi yo'q — TERILGAN pin saqlanadi
+              pin: cs.pin || pin, pinHash: cs.pin_hash || undefined,
+              role: cs.role, perms: cs.perms || undefined,
               permDiscount: cs.permDiscount, permNasiya: cs.permNasiya,
               permReturn: cs.permReturn, maxDiscount: cs.maxDiscount });
             localStorage.setItem(dbKey, JSON.stringify(d));
@@ -1216,6 +1218,7 @@ async function doStaffLogin() {
     // qo'riqchisi + _staffTokenRetry).
     try {
       if (!getSupabaseTestSession()?.accessToken) {
+        let _tokWaited = false; // race tugadimi (kech token belgisi)
         const _tokSave = (cs2) => {
           if (cs2 && cs2._session && cs2._session.accessToken) {
             _supabaseTestSession = cs2._session;
@@ -1234,6 +1237,18 @@ async function doStaffLogin() {
             console.log("✅ Xodim sessiyasi olindi — RLS faol");
             // Bulut ulanishini token bilan qayta ochamiz
             try { if (typeof initSupabase === "function") initSupabase(); } catch(e) {}
+            // Kech kelgan token (6 s dan keyin): kirish o'tib bo'lgan —
+            // sinxron va sozlamalar (kurs, nom) DARHOL yangilanadi,
+            // 90 soniyalik zaxira kutilmaydi.
+            if (_tokWaited) {
+              try { if (typeof scheduleCloudSync === "function") scheduleCloudSync(); } catch(e) {}
+              try {
+                const _pl = (typeof ensureCloudPull === "function") ? ensureCloudPull()
+                          : (typeof pullFromCloud === "function") ? pullFromCloud() : null;
+                if (_pl && _pl.then) _pl.then(() => { try { saveDB();
+                  if (typeof renderDashboard === "function") renderDashboard(); } catch(e) {} });
+              } catch(e) {}
+            }
             return true;
           }
           console.warn("ℹ️ Xodim sessiyasiz — push token kelguncha kutadi");
@@ -1248,6 +1263,7 @@ async function doStaffLogin() {
             new Promise(r => setTimeout(r, 6000))
           ]);
         }
+        _tokWaited = true; // bundan keyin kelgan token — "kech"
       }
     } catch(e) {}
     hideLoginScreen();

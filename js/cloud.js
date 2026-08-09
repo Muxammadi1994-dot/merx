@@ -964,6 +964,16 @@ async function _migrateImagesToStorage(sid) {
   return moved;
 }
 
+// ⚠️ 2026-08-09 (C-1 2-bosqich): PIN XESHI KLIENTDA HAM.
+// Server formulasi bilan AYNAN bir xil: sha256("merx.pin." + PIN).
+// Endi bulutga ochiq PIN emas, xesh yuboriladi (staff push, pastda).
+async function _pinSha(pin) {
+  const buf = await crypto.subtle.digest("SHA-256",
+    new TextEncoder().encode("merx.pin." + String(pin)));
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 // ⚠️ 2026-08-09: joriy foydalanuvchi XODIMmi va tokeni yo'qmi?
 // Egasi/SA doim o'z tokeni bilan kiradi — bu tekshiruv faqat xodimga tegadi.
 function _staffNoToken() {
@@ -1315,16 +1325,29 @@ async function pushToCloud() {
 
     try {
       // Avval asosiy ustunlar (eski schema bilan mos)
+      // ⚠️ 2026-08-09 (C-1): xeshi yo'q xodimga hisoblab qo'yamiz —
+      // shunda bulutga ochiq PIN chiqmaydi. Xotirada; keyingi oddiy
+      // saqlashda diskka ham tushadi. saveDB bu yerda ATAYLAB yo'q —
+      // push ichida saveDB taqiqlangan (aylanma hosil qiladi).
+      for (const s of (db.staff || [])) {
+        if (s.pin && !s.pinHash) {
+          try { s.pinHash = await _pinSha(s.pin); } catch(e) {}
+        }
+      }
       const staffRows = db.staff?.map(s => {
         const row = {
           shop_id: sid, id: s.id, name: s.name,
           phone: s.phone || null,
-          // 2026-08-01: PIN ham yuboriladi. Avval u push'da YO'Q edi —
-          // xodim boshqa qurilmada PIN'siz qolib, tizimga kira olmasdi.
-          // 2026-08-01: PIN bo'sh bo'lsa BULUTDAGINI BOSMAYMIZ.
-          // Aks holda PIN'siz qurilma bulutdagi PIN ni o'chirib
-          // yuborardi va xodim hech qayerdan kira olmasdi.
-          ...(s.pin ? { pin: s.pin } : {}),
+          // ⚠️ 2026-08-09 (C-1 2-bosqich): OCHIQ PIN O'RNIGA XESH.
+          // Avval ochiq `pin` yuborilardi — 2b-tozalashdan keyin
+          // birinchi tahrirdayoq bulutga qaytib yozilib qolardi.
+          // Endi `pin_hash` ketadi (server formulasi bilan bir xil);
+          // ochiq `pin` faqat xesh hisoblanmagan kamdan-kam holda
+          // zaxira bo'lib qoladi (eski qurilma o'tish davri; bazadagi
+          // qo'riqchi-trigger uni ham xesh borida darhol tozalaydi).
+          // Bo'sh qiymat bulutdagini BOSMAYDI (2026-08-01 qoidasi saqlandi).
+          ...(s.pinHash ? { pin_hash: s.pinHash }
+              : (s.pin ? { pin: s.pin } : {})),
           role: s.role || "kassir"
         };
         // Ruxsatlar va modullarni JSON ga o'tkazamiz
@@ -1336,7 +1359,8 @@ async function pushToCloud() {
           try { row.modules = typeof s.modules === "string"
             ? s.modules : JSON.stringify(s.modules); } catch(e) {}
         }
-        if (s.pin !== undefined) row.pin = s.pin || null;
+        // 2026-08-09: `row.pin` qayta yozish OLIB TASHLANDI (C-1) —
+        // ochiq PIN endi bulutga qaytarilmaydi (yuqoridagi xesh yo'li).
         // Maosh va ruxsatlar — YANGI (oldin sync bo'lmasdi)
         if (s.salary !== undefined)        row.salary         = s.salary || 0;
         if (s.bonusPct !== undefined)      row.bonus_pct      = s.bonusPct || 0;
@@ -1347,7 +1371,9 @@ async function pushToCloud() {
         if (s.permReturn !== undefined)    row.perm_return    = !!s.permReturn;
         if (s.paidMonths !== undefined)    row.paid_months    = s.paidMonths || [];
         if (s.salaryHistory !== undefined) row.salary_history = s.salaryHistory || [];
-        row.data = _dataOf(s); // v175: BUTUN JSON
+        // ⚠️ 2026-08-09 (C-1): `data` JSON ichida ham ochiq PIN ketmasin
+        row.data = (() => { const _c = _dataOf(s);
+          delete _c.pin; delete _c.pinHash; return _c; })(); // v175: BUTUN JSON
         return row;
       });
       await sync("staff", staffRows);
@@ -2089,14 +2115,18 @@ async function pullFromCloud(silent = false, skipRender = false) {
           const _lt = Date.parse(_o.updatedAt || 0) || 0;
           const _ct = Date.parse(s.data.updatedAt || 0) || 0;
           // PIN bulutda bo'sh bo'lsa lokaldagi saqlanadi (2026-08-01)
-          if (_lt > _ct) return { ..._o, id: s.id, pin: s.pin || _o.pin || null };
-          return { ...s.data, id: s.id, pin: s.data.pin || s.pin || _o.pin || null };
+          if (_lt > _ct) return { ..._o, id: s.id, pin: s.pin || _o.pin || null,
+            pinHash: s.pin_hash || _o.pinHash || null };
+          return { ...s.data, id: s.id, pin: s.data.pin || s.pin || _o.pin || null,
+            pinHash: s.pin_hash || s.data.pinHash || _o.pinHash || null };
         }
         // 2026-08-01: bulutdagi PIN bo'sh bo'lsa LOKALDAGINI saqlaymiz
         const _oldSt = (db.staff || []).find(x => String(x.id) === String(s.id)) || {};
         const st = {
           id: s.id, name: s.name, phone: s.phone || "", role: s.role || "kassir",
-          pin: s.pin || _oldSt.pin || null, salary: s.salary || 0, bonusPct: s.bonus_pct || 0,
+          pin: s.pin || _oldSt.pin || null,
+          pinHash: s.pin_hash || _oldSt.pinHash || null,
+          salary: s.salary || 0, bonusPct: s.bonus_pct || 0,
           monthTarget: s.month_target || 0,
           permDiscount: s.perm_discount || false, maxDiscount: s.max_discount || 0,
           permNasiya: s.perm_nasiya || false, permReturn: s.perm_return || false,
