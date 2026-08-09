@@ -70,6 +70,13 @@
 
 /* ═══ POS v5 — Professional Design ═══ */
 #p-pos{padding:0!important}
+/* ⚠️ 2026-08-09: TELEFONDA PASTGA TORTGANDA SAKRASH davosi.
+   Android Chrome pastga tortishni "sahifani yangilash" deb tushunib
+   butun sahifani silkitardi; iOS esa chetga yetganda rezina-sakrash
+   berardi. overscroll-behavior ikkalasini ham o'chiradi; sahifa ichki
+   aylantirgichlariga `contain` — sakrash tashqariga "yuqmasin". */
+html,body{overscroll-behavior-y:none;overflow-x:hidden}
+[id^="p-"],.ov{overscroll-behavior:contain}
 .pos-wrap{display:flex;flex:1;overflow:hidden;min-height:0}
 #p-pos.on{overflow:hidden;padding:0!important}
 #p-pos.on .pos-wrap{height:100%;width:100%}
@@ -4948,7 +4955,7 @@
 <script src="js/sms.js?v=143"></script>
 <script src="js/cloud.js?v=262"></script>
 <script src="js/dashboard.js?v=157"></script>
-<script src="js/pos.js?v=252"></script>
+<script src="js/pos.js?v=253"></script>
 <script src="js/katalog.js?v=258"></script>
 <script src="js/ombor.js?v=177"></script>
 <script src="js/mijozlar.js?v=165"></script>
@@ -5251,7 +5258,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 331;
+  window.SW_V = 332;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5274,7 +5281,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=331")
+    navigator.serviceWorker.register("/sw.js?v=332")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

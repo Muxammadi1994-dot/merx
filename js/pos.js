@@ -531,8 +531,11 @@ async function _openBarcodeCameraZxing() {
     const _camCons = {
       video: {
         facingMode: { ideal: "environment" },
-        width:  { ideal: 1280 },
-        height: { ideal: 720 }
+        // ⚠️ 2026-08-09: 720p → 1080p. Zich CODE128 uchun chiziq boshiga
+        // piksel yetmasdi (iPhone jonli video: 20 s o'qimadi). `ideal` —
+        // eski qurilma qo'llamasa o'zi pastroqqa tushadi, xavfsiz.
+        width:  { ideal: 1920 },
+        height: { ideal: 1080 }
       }
     };
     const _onRead = (result) => {
@@ -556,11 +559,20 @@ async function _openBarcodeCameraZxing() {
       await _zxReader.decodeFromVideoDevice(devId, vid, _onRead);
     }
 
+    // ⚠️ 2026-08-09: iPhone yaqin masofada fokus TUTMASLIGI mumkin —
+    // uzluksiz fokus so'raladi (qo'llamagan qurilmada jim o'tadi).
+    try {
+      const _tr = vid.srcObject && vid.srcObject.getVideoTracks
+        ? vid.srcObject.getVideoTracks()[0] : null;
+      if (_tr && _tr.applyConstraints)
+        _tr.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
+    } catch (e) {}
+
     // 20 soniya ichida o'qilmasa — foydalanuvchiga yo'l ko'rsatamiz
     clearTimeout(window._zxHintTimer);
     window._zxHintTimer = setTimeout(() => {
-      if (_zxReader) toast("Kodni 10–15 sm masofada, yorug'da ushlab turing. O'qilmasa raqamni qidiruvga qo'lda kiriting", "info");
-    }, 20000);
+      if (_zxReader) toast("Kodni 12–15 sm masofada, tekis va yorug'da tuting; yaltirasa biroz qiyalatib ko'ring. O'qilmasa raqamni qo'lda kiriting", "info");
+    }, 8000); // 2026-08-09: 20 s → 8 s — maslahat kech kelardi
   } catch (e) {
     toast(_camErrText(e), "err");
     try { closeBarcodeCamera(); } catch(_) {}
