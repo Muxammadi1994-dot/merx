@@ -516,6 +516,8 @@ async function pullDelta(noRender) {
         if (st.eskiz_sender)          db.settings.eskizSender         = st.eskiz_sender;
         if (st.rate)                  db.settings.rate                = st.rate;
         if (st.tier)                  db.settings.tier                = st.tier;
+        if (st.exp_tags_kunlik)       db.settings.expTagsKunlik       = st.exp_tags_kunlik; // C-2
+        if (st.exp_tags_oylik)        db.settings.expTagsOylik        = st.exp_tags_oylik;  // C-2
         if (st.updated_at && st.updated_at > maxTs) maxTs = st.updated_at;
       }
     } catch(e) { console.warn("delta:settings", e.message); }
@@ -1128,6 +1130,13 @@ async function pushToCloud() {
           rate_updated_at: db.settings?.rateUpdatedAt || null,
           debt_pay_methods_shown: db.settings?.debtPayMethodsShown || null,
           debt_cols:              db.settings?.debtCols            || null,
+          // ⚠️ 2026-08-09 (C-2): XARAJAT TEGLARI endi sinxron.
+          // Bo'sh ro'yxat bulutni BOSMAYDI (§5.3 uslubi) — demak teg
+          // O'CHIRISHLAR tarqalmaydi, faqat qo'shilganlar tarqaladi.
+          ...(Array.isArray(db.settings?.expTagsKunlik) && db.settings.expTagsKunlik.length
+              ? { exp_tags_kunlik: db.settings.expTagsKunlik } : {}),
+          ...(Array.isArray(db.settings?.expTagsOylik) && db.settings.expTagsOylik.length
+              ? { exp_tags_oylik: db.settings.expTagsOylik } : {}),
           unit_tags:              db.settings?.unitTags            || null, // №11a (v186)
           chek_config:            db.settings?.chekConfig          || null, // №12 (v187)
           pack_unit_tags:         db.settings?.packUnitTags        || null,
@@ -2306,6 +2315,8 @@ async function pullFromCloud(silent = false, skipRender = false) {
       if (sets.debt_pay_methods_shown) db.settings.debtPayMethodsShown = sets.debt_pay_methods_shown;
       if (sets.debt_cols)              db.settings.debtCols            = sets.debt_cols;
       if (sets.unit_tags      != null) db.settings.unitTags      = sets.unit_tags;      // №11a (v186)
+      if (sets.exp_tags_kunlik != null) db.settings.expTagsKunlik = sets.exp_tags_kunlik; // C-2 (2026-08-09)
+      if (sets.exp_tags_oylik  != null) db.settings.expTagsOylik  = sets.exp_tags_oylik;  // C-2
       if (sets.chek_config    != null) db.settings.chekConfig    = sets.chek_config;    // №12 (v187)
       if (sets.pack_unit_tags != null) db.settings.packUnitTags  = sets.pack_unit_tags;
       // v172 (2026-07-10): NULL-himoya bilan — bulutda qiymat hali

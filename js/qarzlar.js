@@ -1678,33 +1678,32 @@ async function sendTelegramPayReceipt(customerId, customerPhone, payment) {
   const _sid = (db.settings?.cloudShopId && db.settings.cloudShopId !== "local")
     ? db.settings.cloudShopId
     : (typeof getShopId === "function" && getShopId() !== "local" ? getShopId() : null);
-  try {
-    const res = await fetch(botUrl + "?action=send_pay_receipt", {
-      method: "POST",
-      headers: _botHeaders(),
-      body: JSON.stringify({
-        customerId: customerId || null,
-        customerPhone: customerPhone || null,
-        payment,
-        shopName: db.shop?.name || "MERX",
-        shopId: _sid,
-        // ⚠️ 2026-08-05: MIJOZ GURUHI — sotuv chekidagi kabi.
-        // Mijozga nima ketsa guruhga ham ketishi kerak.
-        groupId: (() => {
-          try {
-            const c = (db.customers || []).find(
-              x => String(x.id) === String(customerId));
-            const g = (c && c.groupId) ? String(c.groupId).trim() : "";
-            return /^-?\d{5,}$/.test(g) ? g : null;
-          } catch (e) { return null; }
-        })()
-      })
-    });
-    const data = await res.json();
-    if (data.sent) toast(data.groupSent
-      ? "📨 To'lov cheki mijozga va guruhga yuborildi"
-      : "📨 To'lov cheki Telegram orqali yuborildi");
-  } catch (e) { console.warn("TG to'lov cheki yuborilmadi:", e.message); }
+  // ⚠️ 2026-08-09 (C-9): NAVBATLI YUBORISH — uzilsa yo'qolmaydi.
+  const _payload = {
+    customerId: customerId || null,
+    customerPhone: customerPhone || null,
+    payment,
+    shopName: db.shop?.name || "MERX",
+    shopId: _sid,
+    // ⚠️ 2026-08-05: MIJOZ GURUHI — sotuv chekidagi kabi.
+    groupId: (() => {
+      try {
+        const c = (db.customers || []).find(
+          x => String(x.id) === String(customerId));
+        const g = (c && c.groupId) ? String(c.groupId).trim() : "";
+        return /^-?\d{5,}$/.test(g) ? g : null;
+      } catch (e) { return null; }
+    })()
+  };
+  const data = await botSend(botUrl + "?action=send_pay_receipt", _payload,
+    "pay-" + (payment?.chekNum || payment?.id || Date.now()));
+  if (!data) {
+    toast("📮 To'lov cheki navbatga qo'yildi — internet qaytishi bilan o'zi yuboriladi");
+    return;
+  }
+  if (data.sent) toast(data.groupSent
+    ? "📨 To'lov cheki mijozga va guruhga yuborildi"
+    : "📨 To'lov cheki Telegram orqali yuborildi");
 }
 
 

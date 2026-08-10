@@ -80,39 +80,36 @@ async function sendTelegramReceipt(customerId, sale, customerPhone) {
     return null;
   })();
 
-  try {
-    const res = await fetch(botUrl + "?action=send_receipt", {
-      method: "POST",
-      headers: _botHeaders(),
-      body: JSON.stringify({
-        customerId: customerId || null,
-        customerPhone: customerPhone || null,
-        sale,
-        shopName: db.shop?.name || db.settings?.name || "MERX",
-        shopId: _sid,
-        // ⚠️ 2026-08-05: MIJOZ GURUHI (ixtiyoriy).
-        // Ba'zi do'konlar har mijoz bilan alohida guruh ochadi.
-        // Guruh ID kiritilgan bo'lsa chek u yerga HAM boradi.
-        // Mijozga yuborish oqimi TEGILMAGAN — u avvalgidek.
-        groupId: (() => {
-          try {
-            const c = (db.customers || []).find(
-              x => String(x.id) === String(customerId));
-            const g = (c && c.groupId) ? String(c.groupId).trim() : "";
-            return /^-?\d{5,}$/.test(g) ? g : null;   // faqat haqiqiy ID
-          } catch (e) { return null; }
-        })()
-      })
-    });
-    const data = await res.json();
-    if (data.sent) {
-      // 2026-08-05: guruhga ham ketgan bo'lsa aytamiz
-      toast(data.groupSent
-        ? "📨 Chek mijozga va guruhga yuborildi"
-        : "📨 Chek mijozga Telegram orqali yuborildi");
-    }
-  } catch (e) {
-    console.warn("Telegram chek yuborilmadi:", e.message);
+  // ⚠️ 2026-08-09 (C-9): NAVBATLI YUBORISH. Avval bitta urinish edi —
+  // internet o'sha soniyada uzilsa mijoz cheki HAM, omborchi guruhidagi
+  // buyurtma kartochkasi HAM (server ikkalasini shu chaqiruvda yuboradi)
+  // butunlay yo'qolardi. Endi botSend (utils.js) navbatga qo'yadi.
+  const _payload = {
+    customerId: customerId || null,
+    customerPhone: customerPhone || null,
+    sale,
+    shopName: db.shop?.name || db.settings?.name || "MERX",
+    shopId: _sid,
+    // ⚠️ 2026-08-05: MIJOZ GURUHI (ixtiyoriy) — avvalgidek.
+    groupId: (() => {
+      try {
+        const c = (db.customers || []).find(
+          x => String(x.id) === String(customerId));
+        const g = (c && c.groupId) ? String(c.groupId).trim() : "";
+        return /^-?\d{5,}$/.test(g) ? g : null;
+      } catch (e) { return null; }
+    })()
+  };
+  const data = await botSend(botUrl + "?action=send_receipt", _payload,
+    "chk-" + (sale?.chekNum || sale?.id || Date.now()));
+  if (!data) {
+    toast("📮 Chek navbatga qo'yildi — internet qaytishi bilan o'zi yuboriladi");
+    return;
+  }
+  if (data.sent) {
+    toast(data.groupSent
+      ? "📨 Chek mijozga va guruhga yuborildi"
+      : "📨 Chek mijozga Telegram orqali yuborildi");
   }
 }
 

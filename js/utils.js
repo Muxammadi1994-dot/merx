@@ -2838,3 +2838,67 @@ function renderPageOnly(p) {
   }
   try { fn(); } catch (e) { console.warn("renderPageOnly:", e.message); }
 }
+
+
+// ═══ BOT XABARLARI NAVBATI (2026-08-09, C-9) ═══════════════
+// Muammo: sotuv/to'lov xabari botga BIR marta yuborilardi — ayni
+// o'sha soniyada internet uzilsa, omborchi guruhidagi buyurtma
+// kartochkasi va mijoz cheki BUTUNLAY yo'qolardi (v32 §11.4).
+// Endi muvaffaqiyatsiz yuborish navbatga tushadi (localStorage) va
+// har 90 soniyada hamda internet qaytganda qayta uriniladi.
+// Takror-himoya: bitta kalit (chek raqami) navbatda ikki marta
+// turmaydi. Kamdan-kam holatda (xabar yetib borib, JAVOB yo'qolsa)
+// TAKROR kartochka chiqishi mumkin — omborchi uchun takror
+// yo'qolgandan YAXSHI, bu ongli tanlov.
+const _BOTQ_KEY = "merx_botq";
+function _botqLoad() {
+  try { return JSON.parse(localStorage.getItem(_BOTQ_KEY) || "[]"); }
+  catch (e) { return []; }
+}
+function _botqSave(q) {
+  try { localStorage.setItem(_BOTQ_KEY, JSON.stringify(q.slice(-30))); }
+  catch (e) {}
+}
+function _botqHeaders() {
+  try { if (typeof _botHeaders === "function") return _botHeaders(); } catch (e) {}
+  return { "Content-Type": "application/json" };
+}
+// Asosiy yuboruvchi: muvaffaqiyatda javob (obyekt), aks holda null
+// (xabar navbatga tushdi). key — takror-himoya kaliti (chek raqami).
+async function botSend(url, bodyObj, key) {
+  const body = JSON.stringify(bodyObj);
+  try {
+    const r = await fetch(url, { method: "POST", headers: _botqHeaders(), body });
+    if (r.ok) return await r.json().catch(() => ({ ok: true }));
+  } catch (e) {}
+  const q = _botqLoad();
+  if (!(key && q.some(x => x.key === key)) && body.length < 60000) {
+    q.push({ url, body, key: key || ("k" + Date.now()), ts: Date.now(), tries: 0 });
+    _botqSave(q);
+    console.warn("📮 Bot xabari navbatga qo'yildi:", key || "(kalitsiz)");
+  }
+  return null;
+}
+async function _botqFlush() {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+  const q = _botqLoad();
+  if (!q.length) return;
+  const it = q[0];
+  if (Date.now() - it.ts > 24 * 3600 * 1000 || it.tries > 60) {
+    console.warn("📮 Bot navbati: eskirdi, tashlab yuborildi:", it.key);
+    _botqSave(q.slice(1));
+    return;
+  }
+  try {
+    const r = await fetch(it.url, { method: "POST", headers: _botqHeaders(), body: it.body });
+    if (r.ok) {
+      console.log("📮 Bot navbati: yuborildi ✅", it.key);
+      _botqSave(q.slice(1));
+      return;
+    }
+  } catch (e) {}
+  it.tries++;
+  _botqSave(q);
+}
+setInterval(_botqFlush, 90000);
+window.addEventListener("online", () => setTimeout(_botqFlush, 1500));
