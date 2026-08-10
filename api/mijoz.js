@@ -95,7 +95,15 @@ function safeProduct(p) {
   return {
     sku: p.sku, art: p.art || null, name: p.name,
     category: p.category || null,
-    price_uzs: p.price_uzs || 0,
+    // ⚠️ 2026-08-10: PORTAL NARXI = ULGURJI → bo'lmasa chakana.
+    // Ilovada ikkita narx bor: `ulgurji` (ulgurjiNarx) va `price_uzs`
+    // (chakana). Portal mijozlari — ulgurji xaridorlar; avval faqat
+    // chakana o'qilardi — ulgurji do'konlarda u bo'sh, narx 0 chiqardi
+    // (jonli sinov 2026-08-10). Maxsus `portal_price` baribir ustun
+    // (mijoz.html getPrice shunday).
+    price_uzs: p.ulgurji || p.price_uzs || 0,
+    ulgurji:   p.ulgurji || 0,      // kelajak UI uchun alohida ham beriladi
+    chakana:   p.price_uzs || 0,
     image: p.image || p.img || null,
     qty: p.qty || 0,
     variants: Array.isArray(p.variants)
