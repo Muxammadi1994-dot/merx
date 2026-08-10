@@ -433,34 +433,45 @@ async function confirmBooking(id) {
       const rate = db.settings?.rate || 12800;
       const narx = bron.color && p.ulgurjiNarx ? p.ulgurjiNarx : (p.priceUzs || 0);
 
-      // Yangi savat yaratish yoki mavjudiga qo'shish
-      const cartsRaw = localStorage.getItem("merx_pos_carts_v1");
-      const cartsState = cartsRaw ? JSON.parse(cartsRaw) : { activeIdx:0, carts:[{name:"Savat",items:[]}] };
-      const activeCart = cartsState.carts[cartsState.activeIdx];
-
-      const ex = activeCart.items.find(c => c.sku===bron.sku && c.color===bron.color && c.size===bron.size);
-      if (ex) {
-        ex.qty += (bron.qty||1);
+      // ⚠️ 2026-08-10: JONLI SAVATGA to'g'ridan-to'g'ri (bir oynadamiz).
+      // Avval localStorage'ga yozilardi — POS esa XOTIRADAGI nusxadan
+      // chizadi: element ko'rinmasdi, keyingi istalgan savat-amal
+      // diskdagini eski xotira bilan USTIDAN BOSIB, bronni jimgina
+      // o'chirib ham yuborardi ("tushdi deydi, tushmaydi" jumbog'i).
+      // Eslatma: eski koddagi renderPos() umuman MAVJUD EMAS edi —
+      // typeof qo'riqchisi jim o'tkazib yuborardi (§13.16 saboqqa mos).
+      const _bronItem = {
+        sku: bron.sku,
+        name: bron.product_name || p.name,
+        color: bron.color || "",
+        size: bron.size || "",
+        unit: p.unit || "dona",
+        price: narx, basePrice: narx,
+        priceType, qty: bron.qty||1,
+        qtyBox: null, inBox: null,
+        sellMode: "dona",
+        fromBron: id,         // brondan kelganini belgilash
+        customerId: bron.customer_id
+      };
+      if (typeof cart !== "undefined" && Array.isArray(cart)) {
+        const ex = cart.find(c => c.sku===bron.sku &&
+          c.color===(bron.color||"") && c.size===(bron.size||""));
+        if (ex) ex.qty += (bron.qty||1);
+        else cart.push(_bronItem);
+        if (typeof posSaveCarts === "function") posSaveCarts();
+        if (typeof renderCart === "function") renderCart();
       } else {
-        activeCart.items.push({
-          sku: bron.sku,
-          name: bron.product_name || p.name,
-          color: bron.color || "",
-          size: bron.size || "",
-          unit: p.unit || "dona",
-          price: narx, basePrice: narx,
-          priceType, qty: bron.qty||1,
-          qtyBox: null, inBox: null,
-          sellMode: "dona",
-          fromBron: id,         // brondan kelganini belgilash
-          customerId: bron.customer_id
-        });
+        // Zaxira (POS moduli yuklanmagan g'ayrioddiy holat): disk yo'li
+        const cartsRaw = localStorage.getItem("merx_pos_carts_v1");
+        const cartsState = cartsRaw ? JSON.parse(cartsRaw)
+          : { activeIdx:0, carts:[{ id:1, name:"Savatcha 1", items:[] }] };
+        const activeCart = cartsState.carts[cartsState.activeIdx];
+        const ex = activeCart.items.find(c => c.sku===bron.sku &&
+          c.color===bron.color && c.size===bron.size);
+        if (ex) ex.qty += (bron.qty||1);
+        else activeCart.items.push(_bronItem);
+        localStorage.setItem("merx_pos_carts_v1", JSON.stringify(cartsState));
       }
-      localStorage.setItem("merx_pos_carts_v1", JSON.stringify(cartsState));
-
-      // POS tab ochiq bo'lsa yangilash
-      if (typeof renderPos === "function") renderPos();
-      if (typeof renderCart === "function") renderCart();
 
       toast(`✅ "${bron.product_name}" POS savatiga qo'shildi — ${bron.qty||1} ta`);
     } else {

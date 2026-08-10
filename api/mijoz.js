@@ -55,8 +55,13 @@ async function sb(path, opts) {
     const t = await r.text().catch(() => "");
     throw new Error(`db ${r.status}: ${t.slice(0, 160)}`);
   }
+  // 2026-08-10: "minimal" rejimda javob tanasi BO'SH keladi (201/204) —
+  // bo'sh tanani JSON deb o'qish "bron yozildi-yu, xato ko'rindi"
+  // jumbog'ini berardi (jonli sinov). Endi bo'sh tana = null.
   if (r.status === 204) return null;
-  return r.json();
+  const t = await r.text();
+  if (!t) return null;
+  try { return JSON.parse(t); } catch (e) { return null; }
 }
 
 // ── Chipta (HMAC imzoli, serverda saqlanmaydi) ──────────────────
