@@ -494,11 +494,11 @@ async function cancelBooking(id) {
 // ── Portal link yaratish ─────────────────────────
 function getPortalLink() {
   const sid = getCloudShopId ? getCloudShopId() : "default";
-  const url = db?.settings?.supabaseUrl || "";
-  const key = db?.settings?.supabaseKey || "";
-  // URL va key ni base64 ga o'tkazamiz
-  const creds = btoa(url + "|||" + key);
-  return location.origin + "/mijoz.html?shop=" + sid + "&c=" + creds;
+  // ⚠️ 2026-08-10: havoladan KALIT OLIB TASHLANDI. Avval `&c=` ichida
+  // bulut manzili + anon kalit base64 bo'lib OCHIQ ketardi. Endi mijoz
+  // sahifasi /api/mijoz darvozasi bilan ishlaydi. Eski `&c=` li
+  // havolalar ham ishlayveradi (mijoz.html u qismni e'tiborsiz qoldiradi).
+  return location.origin + "/mijoz.html?shop=" + sid;
 }
 
 function openPortalPage() {
