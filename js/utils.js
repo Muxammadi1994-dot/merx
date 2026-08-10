@@ -2596,19 +2596,31 @@ function initTopbarAutoHide() {
   const topbar = document.getElementById("topbar");
   if (!pages || !topbar) return;
 
-  let lastY = 0, hidden = false, ticking = false;
+  // ⚠️ 2026-08-09: SILKINISH (qaltirash) DAVOSI. Avval hide/show
+  // margin'ni o'zgartirardi — margin butun joylashuvni suradi, surish
+  // O'ZI yangi scroll hodisasini tug'dirardi, kod uni "yo'nalish
+  // o'zgardi" deb panelni qaytarardi — o'z-o'zini qo'zg'atuvchi halqa.
+  // Qaysi sahifada tebranishi kontent balandligiga bog'liq edi (shu
+  // sabab katalogda sezilmay, hisobot/mijozlarda sezilardi). Endi:
+  //   1) o'zimiz qo'zg'atgan hodisalar 250 ms e'tiborsiz (selfAdj);
+  //   2) yig'ish uchun 24px, qaytarish uchun 12px YIG'ILGAN masofa
+  //      kerak (bir martalik mayda tebranish yetmaydi);
+  //   3) o'tish silliq (margin-top .18s) — keskin sakrash yo'q.
+  // Xulq saqlanadi: pastga surilganda yig'iladi, yuqoriga — qaytadi.
+  let lastY = 0, hidden = false, ticking = false, selfAdj = false, acc = 0;
+  try { topbar.style.transition = "margin-top .18s ease"; } catch(e) {}
 
-  const show = () => {
-    if (!hidden) return;
-    topbar.style.marginTop = "";
-    hidden = false;
+  const _apply = (m) => {
+    selfAdj = true;
+    topbar.style.marginTop = m;
+    setTimeout(() => { selfAdj = false; lastY = pages.scrollTop; }, 250);
   };
+  const show = () => { if (!hidden) return; _apply(""); hidden = false; };
   const hide = () => {
     if (hidden) return;
     const h = topbar.offsetHeight;
     if (!h) return;
-    topbar.style.marginTop = "-" + h + "px";
-    hidden = true;
+    _apply("-" + h + "px"); hidden = true;
   };
 
   const onScroll = () => {
@@ -2616,6 +2628,7 @@ function initTopbarAutoHide() {
     ticking = true;
     requestAnimationFrame(() => {
       ticking = false;
+      if (selfAdj) { lastY = pages.scrollTop; return; }   // o'z sakrashimiz
       // Faqat telefon o'lchamida
       if (window.innerWidth > 768) { show(); lastY = pages.scrollTop; return; }
       // Yon menyu ochiq bo'lsa tegilmaydi
@@ -2623,11 +2636,13 @@ function initTopbarAutoHide() {
       if (sb && sb.classList.contains("mob-open")) { show(); return; }
 
       const y = pages.scrollTop;
-      if (y < 40) { show(); lastY = y; return; }          // tepada — doim ochiq
+      if (y < 40) { show(); lastY = y; acc = 0; return; } // tepada — doim ochiq
       const d = y - lastY;
-      if (Math.abs(d) < 8) return;                         // mayda tebranish
-      if (d > 0) hide(); else show();
       lastY = y;
+      if (Math.abs(d) < 2) return;
+      acc = (acc > 0) === (d > 0) ? acc + d : d;          // bir yo'nalishda yig'amiz
+      if (acc > 24)      { hide(); acc = 0; }
+      else if (acc < -12){ show(); acc = 0; }
     });
   };
 

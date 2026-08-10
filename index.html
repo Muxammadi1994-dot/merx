@@ -76,7 +76,10 @@
    berardi. overscroll-behavior ikkalasini ham o'chiradi; sahifa ichki
    aylantirgichlariga `contain` — sakrash tashqariga "yuqmasin". */
 html,body{overscroll-behavior-y:none;overflow-x:hidden}
-[id^="p-"],.ov{overscroll-behavior:contain}
+/* 2026-08-09 (2-bosqich): sakrash BA'ZI sahifalarda qolgan edi —
+   sabab: qamrov faqat sahifa divlarida edi, markaziy o'ram zanjiri
+   (#main → #pages) esa ochiq qolgan. Endi butun zanjir qamraladi. */
+#main,#pages,[id^="p-"],.ov{overscroll-behavior:contain}
 .pos-wrap{display:flex;flex:1;overflow:hidden;min-height:0}
 #p-pos.on{overflow:hidden;padding:0!important}
 #p-pos.on .pos-wrap{height:100%;width:100%}
@@ -4962,7 +4965,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=167"></script>
-<script src="js/utils.js?v=222"></script>
+<script src="js/utils.js?v=223"></script>
 <script src="js/auth.js?v=205"></script>
 <script src="js/sms.js?v=143"></script>
 <script src="js/cloud.js?v=262"></script>
@@ -5270,7 +5273,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 335;
+  window.SW_V = 337;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5293,7 +5296,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=335")
+    navigator.serviceWorker.register("/sw.js?v=337")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
