@@ -2441,14 +2441,14 @@ function saExtendShop(id) {
 }
 
 async function _saSendOwnerNotif(shop, text) {
-  const botUrl = (()=>{ try { return _saMainDB().settings?.telegramBotUrl||""; } catch(e){return "";} })();
-  if (!botUrl) return;
   try {
-    const res = await fetch(botUrl+"?action=send_owner_notif", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ shopId:shop.id, ownerEmail:shop.ownerEmail, ownerPhone:shop.phone, text })
-    });
-    const data = await res.json();
+    // ⚠️ 2026-08-09 (STRICT tayyorgarligi): endi SA-SERVER ORQALI
+    // (auth-v2 `sa_owner_notif` → bot, `x-merx-key` bilan). Avval
+    // brauzerdan to'g'ridan-to'g'ri TOKENSIZ ketardi — beshala
+    // himoyalangan amal ichida yagona ochiq qolgani shu edi (audit
+    // 2026-08-09); STRICT=1 yoqilsa aynan shu oqim to'xtardi.
+    const data = await _saApi("sa_owner_notif",
+      { shopId: shop.id, ownerEmail: shop.ownerEmail, ownerPhone: shop.phone, text });
     // 2026-08-03: yuborilmasa ham AYTAMIZ.
     // Avval faqat muvaffaqiyat ko'rsatilardi — egasi botga ulanmagan
     // bo'lsa siz bilmay qolardingiz va xabar yetdi deb o'ylardingiz.

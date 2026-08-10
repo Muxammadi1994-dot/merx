@@ -128,7 +128,10 @@ module.exports = async function handler(req, res) {
     // kim istalgan do'kon tokenini olardi.
     "sa_shop_session",
     // 2026-08-09: barcha xodimlar guruhlariga e'lon (yangilanish xabari)
-    "sa_broadcast_staff"];
+    "sa_broadcast_staff",
+    // 2026-08-09: SA panelidan egaga xabar — STRICT rejimga tayyorgarlik
+    // (brauzer tokensiz; server botga x-merx-key bilan uzatadi)
+    "sa_owner_notif"];
   if (SA_ACTIONS.includes(action)) {
     // MUHIM: SA_PASS bo'sh bo'lsa HAM rad etiladi — aks holda bo'sh
     // parol bilan kirish mumkin bo'lib qolardi.
@@ -1279,6 +1282,32 @@ module.exports = async function handler(req, res) {
   // brauzerdan to'g'ridan o'qilmaydi, faqat shu yerdan
   // SERVICE_KEY bilan. Bu SuperAdminning shaxsiy hisobi,
   // do'kon egalari ko'rmasligi kerak.
+  if (action === "sa_owner_notif") {
+    // ⚠️ 2026-08-09 (STRICT tayyorgarligi): SA panel brauzeri Supabase
+    // tokenisiz ishlaydi, bot esa STRICT rejimda tokensiz so'rovni rad
+    // etadi. Yechim: SA parol darvozasidan o'tgan so'rovni server O'ZI
+    // botga `x-merx-key` bilan uzatadi (bot.js shu kalitni "server"
+    // sifatida qabul qiladi). MERX_BOT_KEY — bitta env, ikkala fayl
+    // o'qiydi; o'rnatilmagan bo'lsa STRICT'gacha kalitsiz ham o'tadi.
+    let body;
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {}); }
+    catch { return res.status(400).json({ ok: false, error: "invalid_json" }); }
+    try {
+      const _botKey = process.env.MERX_BOT_KEY || "";
+      const r = await fetch(`https://${req.headers.host}/api/bot?action=send_owner_notif`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json",
+                   ...(_botKey ? { "x-merx-key": _botKey } : {}) },
+        body: JSON.stringify({ shopId: body.shopId, ownerEmail: body.ownerEmail,
+                               ownerPhone: body.ownerPhone, text: body.text })
+      });
+      const j = await r.json().catch(() => ({}));
+      return res.status(200).json({ ok: true, ...j });
+    } catch (e) {
+      return res.status(200).json({ ok: false, error: e.message });
+    }
+  }
+
   if (action === "sa_finance") {
     let body;
     try {
