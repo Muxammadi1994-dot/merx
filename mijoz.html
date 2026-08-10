@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+<!-- 2026-08-10: supabase kutubxonasi OLIB TASHLANDI — endi hamma so'rov /api/portal darvozasi orqali (poydevor bosqichi) -->
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -390,8 +390,29 @@ input::placeholder{color:#bbb}
 </div>
 
 <script>
-let _sb=null,_sess=null;
+let _sid="",_sess=null;
 let _prods=[],_pp=[],_sales=[],_brons=[];
+
+// ⚠️ 2026-08-10: YAGONA DARVOZA. Avval bulutga to'g'ridan-to'g'ri anon
+// kalit bilan kirilardi: havolada kalit ochiq ketardi, `select *`
+// tannarxni ham berardi, anon yopilgach katalog/xaridlar O'LIK edi.
+// Endi hamma so'rov /api/portal orqali — server service-kalit bilan
+// o'qiydi, mijozga faqat XAVFSIZ maydonlar keladi, mijoz o'zini
+// imzolangan CHIPTA bilan tanitadi (30 kun).
+async function api(action,extra){
+  const r=await fetch("/api/portal",{method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action,shopId:_sid,ticket:_sess?.ticket||null,...(extra||{})})});
+  let d=null;try{d=await r.json();}catch(e){}
+  d=d||{ok:false,error:"Aloqa xatosi"};
+  if(r.status===401||d.error==="expired"){
+    localStorage.removeItem("mp_session");_sess=null;
+    const ls=$("login-screen");if(ls)ls.style.display="flex";
+    throw new Error("Muddat tugadi — qayta kiring");
+  }
+  if(!d.ok)throw new Error(d.error||"Xatolik");
+  return d;
+}
 let _cat="",_tf="all",_bf="all",_viewList=false;
 const _today=new Date().toISOString().slice(0,10);
 let _det={};
@@ -418,25 +439,19 @@ async function init(){
   const sid=p.get("shop")||localStorage.getItem("mp_shop")||"";
   if(!sid){showErr("Do'kon topilmadi. Yangi link so'rang.");return;}
 
-  let url,key;
-  const c=p.get("c");
-  if(c){try{const d=atob(c),pts=d.split("|||");url=pts[0];key=pts[1];localStorage.setItem("mp_creds",JSON.stringify({url,key,shop:sid}));localStorage.setItem("mp_shop",sid);}catch(e){}}
-  if(!url||!key){try{const s=JSON.parse(localStorage.getItem("mp_creds")||"{}");if(s.shop===sid){url=s.url;key=s.key;}}catch(e){}}
-  if(!url||!key){try{const d=JSON.parse(localStorage.getItem("merx_v5")||"{}");url=d?.settings?.supabaseUrl;key=d?.settings?.supabaseKey;}catch(e){}}
-  if(!url||!key){showErr("Ulanib bo'lmadi. Do'kon egasidan link so'rang.");return;}
-
-  try{_sb=supabase.createClient(url,key,{auth:{persistSession:false}});}
-  catch(e){showErr("Ulanish xatosi");return;}
-
+  // ⚠️ 2026-08-10: kalit mantig'i OLIB TASHLANDI. Eski tarqatilgan
+  // havolalardagi `&c=` qismi endi shunchaki E'TIBORSIZ qoladi —
+  // havolalar buzilmaydi, faqat kalit tashish yo'qoladi.
+  _sid=sid;localStorage.setItem("mp_shop",sid);
   try{
-    const{data:sa}=await _sb.from("settings").select("shop_name").eq("shop_id",sid).limit(1);
-    const nm=sa?.[0]?.shop_name||"MERX";
+    const cf=await api("config");
+    const nm=cf.shopName||"MERX";
     $("lshop").textContent=nm;$("tshop").textContent=nm;document.title=nm+" — Mijoz portali";
-  }catch(e){}
+  }catch(e){showErr("Ulanib bo'lmadi: "+e.message);return;}
 
   try{
     const sv=JSON.parse(localStorage.getItem("mp_session")||"null");
-    if(sv&&sv.shopId===sid){_sess=sv;await startPortal();return;}
+    if(sv&&sv.shopId===sid&&sv.ticket){_sess=sv;await startPortal();return;}
   }catch(e){}
 
   $("login-screen").style.display="flex";
@@ -457,23 +472,19 @@ async function doLogin(){
   err.style.display="none";
   btn.innerHTML='<i class="ti ti-loader spin"></i> Tekshirilmoqda...';btn.disabled=true;
   try{
-    const{data,error}=await _sb.from("portal_customers").select("*")
-      .eq("shop_id",sid).eq("phone",ph).eq("password",pw).eq("is_active",true).limit(1);
+    const d=await api("login",{phone:ph,pass:pw});
     btn.innerHTML='<i class="ti ti-login"></i> Kirish';btn.disabled=false;
-    if(error||!data?.length){err.textContent="Telefon yoki parol noto'g'ri";err.style.display="block";return;}
-    const row=data[0];
-    let nm=ph;
-    try{const{data:sd}=await _sb.from("sales").select("customer_name").eq("shop_id",sid).eq("customer_id",row.customer_id).limit(1);if(sd?.[0]?.customer_name)nm=sd[0].customer_name;}catch(e){}
-    _sess={customerId:row.customer_id,customerName:nm,shopId:sid,phone:ph,
-      loyaltyPoints:row.loyalty_points||0,
-      birthday:row.birthday||"",
-      loyaltyRate:row.loyalty_rate||0};
+    _sess={customerId:d.customerId,customerName:d.customerName,shopId:_sid,phone:ph,
+      ticket:d.ticket,
+      loyaltyPoints:d.loyaltyPoints||0,
+      birthday:d.birthday||"",
+      loyaltyRate:d.loyaltyRate||0};
     localStorage.setItem("mp_session",JSON.stringify(_sess));
     $("login-screen").style.display="none";
     await startPortal();
   }catch(e){
     btn.innerHTML='<i class="ti ti-login"></i> Kirish';btn.disabled=false;
-    err.textContent="Xatolik: "+e.message;err.style.display="block";
+    err.textContent=e.message;err.style.display="block";
   }
 }
 
@@ -508,11 +519,9 @@ function updateBadges(){
 // ── PRODUCTS ──────────────────────────────────
 async function loadProds(){
   try{
-    const{data:pr,error}=await _sb.from("products").select("*").eq("shop_id",_sess.shopId);
-    if(error)throw error;
-    _prods=pr||[];
-    const{data:pp}=await _sb.from("portal_products").select("*").eq("shop_id",_sess.shopId);
-    _pp=pp||[];
+    const d=await api("catalog");   // tannarx SERVERDA qoladi
+    _prods=d.products||[];
+    _pp=d.portal||[];
     renderCatalog();buildCatChips();
   }catch(e){
     $("pgrid").innerHTML=`<div class="empty"><i class="ti ti-wifi-off"></i><div class="etitle">Yuklanmadi</div><div class="esub">${e.message}</div><button class="btn btn-sm btn-acc" style="margin-top:16px" onclick="loadProds()"><i class="ti ti-refresh"></i> Qayta</button></div>`;
@@ -770,14 +779,8 @@ async function submitBron(sku){
   const btn=$("bbtn");
   btn.innerHTML='<i class="ti ti-loader spin"></i> Yuborilmoqda...';btn.disabled=true;
   try{
-    const{error}=await _sb.from("portal_bookings").insert({
-      id:_sess.shopId+"_b_"+Date.now(),
-      shop_id:_sess.shopId,customer_id:_sess.customerId,
-      sku,product_name:p.name,
-      color:_det.color||"",size:_det.size||"",qty:_det.qty||1,
-      note:note||null,status:"kutilmoqda"
-    });
-    if(error)throw error;
+    await api("booking_new",{sku,product_name:p.name,
+      color:_det.color||"",size:_det.size||"",qty:_det.qty||1,note});
     toast("✅ Bron qabul qilindi! Do'kon tasdiqlaydi.","grn");
     closeSheet();await loadBrons();updateBadges();goTab("bron");
   }catch(e){
@@ -787,19 +790,17 @@ async function submitBron(sku){
 }
 
 async function loadBrons(){
-  if(!_sess||!_sb)return;
+  if(!_sess)return;
   try{
-    const{data}=await _sb.from("portal_bookings").select("*")
-      .eq("shop_id",_sess.shopId).eq("customer_id",_sess.customerId)
-      .order("created_at",{ascending:false}).limit(50);
-    _brons=data||[];renderBrons();
+    const d=await api("bookings");
+    _brons=d.bookings||[];renderBrons();
   }catch(e){}
 }
 
 async function cancelBron(id){
   if(!confirm("Bronni bekor qilasizmi?"))return;
   try{
-    await _sb.from("portal_bookings").update({status:"bekor"}).eq("id",id);
+    await api("booking_cancel",{id});
     toast("Bron bekor qilindi");await loadBrons();updateBadges();
   }catch(e){toast("Xato: "+e.message,"err");}
 }
@@ -841,12 +842,10 @@ function renderBrons(){
 
 // ── TARIX ─────────────────────────────────────
 async function loadSales(){
-  if(!_sess||!_sb)return;
+  if(!_sess)return;
   try{
-    const{data}=await _sb.from("sales").select("*")
-      .eq("shop_id",_sess.shopId).eq("customer_id",_sess.customerId)
-      .order("date",{ascending:false});
-    _sales=data||[];renderTarix();renderQarz();
+    const d=await api("mysales");
+    _sales=d.sales||[];renderTarix();renderQarz();
   }catch(e){}
 }
 
