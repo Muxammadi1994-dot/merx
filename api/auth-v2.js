@@ -1294,17 +1294,33 @@ module.exports = async function handler(req, res) {
     try {
       // ── O'QISH ──
       if (op === "load") {
+        // ⚠️ 2026-08-09: `limit=500` OLIB TASHLANDI (§4.4 qoldig'i).
+        // Yozuvlar 500 dan oshgach eskilari JIM yo'qolardi — 1000-qator
+        // kesishining aynan o'zi. Endi sahifalab TO'LIQ o'qiladi.
+        const _all = async (table) => {
+          const out = [];
+          for (let from = 0; ; from += 1000) {
+            const r = await fetch(
+              `${SB_URL}/rest/v1/${table}?select=*&order=date.desc,created_at.desc` +
+              `&offset=${from}&limit=1000`, { headers: H });
+            if (!r.ok) break;
+            const j = await r.json();
+            out.push(...j);
+            if (j.length < 1000) break;
+            if (from > 50000) { console.warn("sa_finance:", table, "juda ko'p qator"); break; }
+          }
+          return out;
+        };
         const [tf, inc, exp] = await Promise.all([
           fetch(`${SB_URL}/rest/v1/sa_tariffs?select=*&order=sort_order`, { headers: H }),
-          // 2026-08-03: bir kunda qo'shilganlar ham yangisi tepada
-          fetch(`${SB_URL}/rest/v1/sa_income?select=*&order=date.desc,created_at.desc&limit=500`, { headers: H }),
-          fetch(`${SB_URL}/rest/v1/sa_expense?select=*&order=date.desc,created_at.desc&limit=500`, { headers: H })
+          _all("sa_income"),
+          _all("sa_expense")
         ]);
         return res.status(200).json({
           ok: true,
-          tariffs: tf.ok  ? await tf.json()  : [],
-          income:  inc.ok ? await inc.json() : [],
-          expense: exp.ok ? await exp.json() : []
+          tariffs: tf.ok ? await tf.json() : [],
+          income:  inc,
+          expense: exp
         });
       }
 

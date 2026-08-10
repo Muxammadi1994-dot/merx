@@ -3562,29 +3562,11 @@ function vmSetQty(n) {
   if ($("vm-qty")) { $("vm-qty").value = n; renderVmChips(); }
 }
 
-// ── Klaviatura shortcuts ──────────────────────
-document.addEventListener("keydown", function(e) {
-  // Agar input/textarea fokusda bo'lsa — qo'shmaymiz
-  const tag = document.activeElement?.tagName;
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-
-  // Faqat POS sahifasi ochiq bo'lganda
-  if (!document.getElementById("p-pos")?.classList.contains("active")) return;
-
-  if (e.key === "/" || e.key === "F2") {
-    e.preventDefault();
-    $("pos-q")?.focus();
-  }
-  if (e.key === "Escape") {
-    ["variant","receipt","barcode"].forEach(m => closeModal(m));
-    if ($("pos-q")) { $("pos-q").value = ""; posClear(); }
-  }
-  if (e.key === "Enter" && document.getElementById("ov-variant")?.style.display !== "none") {
-    e.preventDefault();
-    confirmVariant();
-  }
-  if (e.key === "F9") checkout();
-});
+// ── Klaviatura yorliqlari OLIB TASHLANDI (2026-08-09) ─────────
+// Blok hech qachon ishlamagan: #p-pos da "active" klassi tekshirilardi,
+// sahifalar esa "on" ishlatadi — shart doim yolg'on, F2/Esc/F9 birorta
+// kassada ishlamagan (v32 §14.C-12). Egasining qarori: tiklamasdan
+// olib tashlash — kassalar sensor/sichqoncha bilan ishlaydi.
 
 // ── So'nggi mahsulotlar (qidiruv bo'sh bo'lganda) ──
 // ── Oxirgi sotuv ──────────────────────────────

@@ -754,8 +754,10 @@ async function cmdStart(chatId, param) {
     if (already?.length && !meAlready) {
       await tg(chatId,
         "⚠️ Bu do'konga ega allaqachon ulangan.\n\n" +
-        "Sizning ID: " + cid + "\n" +
-        "Agar bu xato bo'lsa, administratorga shu ID ni yuboring.");
+        "Sizning ID: " + cid + "\n\n" +
+        "Bu ID ni do'kon EGASIGA yuboring — u botda\n" +
+        "<code>/egaqoshish " + cid + "</code>\n" +
+        "deb yozsa, siz ham EGA sifatida ulanasiz.");
       return;
     }
 
@@ -2821,6 +2823,71 @@ async function cmdTizim(chatId) {
   }
 }
 
+// ══ /egaqoshish (2026-08-09) ════════════════════════════
+// Oqim: sherik havolani bosadi → bot unga ID sini ko'rsatadi →
+// sherik ID ni egaga yuboradi → ega botda `/egaqoshish <ID>` yozadi
+// → sherik shop_owners ga qo'shiladi va unga xabar boradi.
+// Xavfsizlik: yozayotgan odam O'SHA do'konda shop_owners da bo'lishi
+// SHART; ko'p do'konli ega avval /mendokonlarim bilan tanlaydi.
+async function cmdEgaQoshish(chatId, arg) {
+  const cid = String(chatId);
+  const newId = String(arg || "");
+  if (!/^[0-9]{5,15}$/.test(newId)) {
+    await tg(chatId,
+      "ℹ️ Ishlatilishi: <code>/egaqoshish 123456789</code>\n\n" +
+      "Sherik avval bot havolasini bosadi — bot unga ID sini ko'rsatadi. " +
+      "Sherik shu ID ni sizga yuboradi, siz esa yuqoridagi buyruq bilan qo'shasiz.");
+    return;
+  }
+  if (newId === cid) { await tg(chatId, "ℹ️ Bu sizning o'z ID raqamingiz."); return; }
+
+  const mine = await sb("shop_owners",
+    `?chat_id=eq.${cid}&select=shop_id,shop_name`).catch(() => []);
+  if (!mine?.length) {
+    await tg(chatId, "⛔ Bu buyruq faqat do'kon egasi uchun.");
+    return;
+  }
+  let t = mine[0];
+  if (mine.length > 1) {
+    const ctx = await getShopCtx(chatId).catch(() => null);
+    const sel = ctx && ctx.shopId ? mine.find(m => m.shop_id === ctx.shopId) : null;
+    if (!sel) {
+      await tg(chatId,
+        "ℹ️ Sizda bir nechta do'kon bor. Avval /mendokonlarim orqali " +
+        "do'konni tanlang, keyin buyruqni qayta yuboring.");
+      return;
+    }
+    t = sel;
+  }
+
+  let ok = false;
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/shop_owners?on_conflict=chat_id,shop_id`, {
+      method: "POST",
+      headers: {
+        apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+        "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+      },
+      body: JSON.stringify({ chat_id: newId, shop_id: t.shop_id, shop_name: t.shop_name || "MERX" })
+    });
+    ok = r.ok;
+    if (!r.ok) console.error("[egaqoshish] yozilmadi:", r.status, await r.text().catch(()=>""));
+  } catch(e) { console.error("[egaqoshish] xato:", e.message); }
+
+  if (!ok) {
+    await tg(chatId, "⚠️ Qo'shishda xatolik yuz berdi. Birozdan so'ng qayta urinib ko'ring.");
+    return;
+  }
+  await tg(chatId, "✅ <b>" + newId + "</b> endi <b>" +
+    (t.shop_name || t.shop_id) + "</b> do'koniga EGA sifatida ulandi.");
+  // Yangi egaga xabar (u botni allaqachon /start qilgan — havolani bosganda)
+  try {
+    await tg(newId, "✅ Siz <b>" + (t.shop_name || "MERX") +
+      "</b> do'koniga EGA sifatida ulandingiz.\n" +
+      "Endi /hisobot, /balans, /qarzlar buyruqlari sizga ham ishlaydi.");
+  } catch(e) {}
+}
+
 async function cmdMenDokonlarim(chatId) {
   console.log(`[mendokonlarim] chatId=${chatId} (type=${typeof chatId})`);
 
@@ -3460,6 +3527,14 @@ export default async function handler(req, res) {
   // /mendokonlarim — egasi tekshiruvisiz, hamma uchun ochiq
   if (cmd === "/mendokonlarim") {
     await cmdMenDokonlarim(chatId);
+    return res.status(200).json({ ok: true });
+  }
+
+  // /egaqoshish <ID> — SHERIK-EGANI QO'SHISH (2026-08-09, C-6 davomi).
+  // Havola faqat BIRINCHI egaga ishlaydi; keyingi sheriklarni mavjud
+  // ega O'ZI shu buyruq bilan qo'shadi — administrator kerak emas.
+  if (cmd === "/egaqoshish") {
+    await cmdEgaQoshish(chatId, (text.split(" ")[1] || "").trim());
     return res.status(200).json({ ok: true });
   }
 

@@ -807,7 +807,10 @@ function _subGateDeny(status, btn) {
 async function _cloudFallbackLogin(email, pass) {
   if (!db?.settings?.adminEmail) {
     console.warn("⛔ Zaxira kirish rad etildi: bulutda do'kon topilmadi, lokal hisob ham yo'q");
-    return { ok:false, error:"Do'kon topilmadi. Internet aloqasini tekshirib qayta urinib ko'ring yoki administrator bilan bog'laning." };
+    // ⚠️ 2026-08-09 (C-5): MATN TO'G'RILANDI. Bu holatga eng ko'p
+    // NOTO'G'RI PAROL olib keladi (parol katta-kichik harfga sezgir,
+    // §1) — avvalgi "Do'kon topilmadi" foydalanuvchini chalg'itardi.
+    return { ok:false, error:"Email yoki parol noto'g'ri bo'lishi mumkin — parol KATTA-kichik harfga sezgir. Internet aloqasini ham tekshirib, qayta urinib ko'ring yoki administrator bilan bog'laning." };
   }
   return await authLogin(email, pass);
 }

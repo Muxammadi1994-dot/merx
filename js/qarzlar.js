@@ -171,6 +171,23 @@ function setDebtRevenuePeriod(p) {
     b.style.background = on ? "#0D1B2A" : "transparent";
     b.style.color = on ? "#fff" : "var(--mut)";
   });
+  // ⚠️ 2026-08-09: "Barchasi" — HALOL BELGI (08-06 kelishuvi, 1-yo'l).
+  // Filtr bulutga bormaydi — QURILMADAGI ma'lumotni ko'rsatadi
+  // (sinxron oynasi 365 kun, §4.2). Belgisiz foydalanuvchi raqamni
+  // "butun tarix" deb o'ylashi mumkin edi. Endi eng eski sana yoziladi.
+  try {
+    const note = $("dr-all-note");
+    if (note) {
+      if (p === "all") {
+        const dd = []
+          .concat((db.sales || []).map(x => x.date))
+          .concat((db.debtPayments || []).map(x => x.date))
+          .filter(Boolean).sort();
+        note.textContent = dd.length ? ("ℹ️ Ma'lumot " + dd[0] + " dan buyon") : "";
+        note.style.display = dd.length ? "" : "none";
+      } else note.style.display = "none";
+    }
+  } catch (e) {}
   renderDebtRevenue();
 }
 
