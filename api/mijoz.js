@@ -1,5 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// MERX — api/portal.js  ·  MIJOZ PORTALI DARVOZASI  ·  2026-08-10
+// MERX — api/mijoz.js  ·  MIJOZ PORTALI DARVOZASI  ·  2026-08-10
+// (nom: mijoz.html ↔ api/mijoz.js jufti; egasi sahifasi js/portal.js — boshqa fayl)
 // ════════════════════════════════════════════════════════════════
 //
 // NIMA UCHUN: mijoz.html avval bulutga TO'G'RIDAN-TO'G'RI anon kalit
@@ -268,7 +269,7 @@ module.exports = async (req, res) => {
 
     return res.status(400).json({ ok: false, error: "Noma'lum amal: " + act });
   } catch (e) {
-    console.error("[portal]", act, e.message);
+    console.error("[mijoz]", act, e.message);
     return res.status(200).json({ ok: false, error: "Server xatosi: " + e.message });
   }
 };

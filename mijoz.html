@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
-<!-- 2026-08-10: supabase kutubxonasi OLIB TASHLANDI — endi hamma so'rov /api/portal darvozasi orqali (poydevor bosqichi) -->
+<!-- 2026-08-10: supabase kutubxonasi OLIB TASHLANDI — endi hamma so'rov /api/mijoz darvozasi orqali (poydevor bosqichi) -->
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -396,11 +396,11 @@ let _prods=[],_pp=[],_sales=[],_brons=[];
 // ⚠️ 2026-08-10: YAGONA DARVOZA. Avval bulutga to'g'ridan-to'g'ri anon
 // kalit bilan kirilardi: havolada kalit ochiq ketardi, `select *`
 // tannarxni ham berardi, anon yopilgach katalog/xaridlar O'LIK edi.
-// Endi hamma so'rov /api/portal orqali — server service-kalit bilan
+// Endi hamma so'rov /api/mijoz orqali — server service-kalit bilan
 // o'qiydi, mijozga faqat XAVFSIZ maydonlar keladi, mijoz o'zini
 // imzolangan CHIPTA bilan tanitadi (30 kun).
 async function api(action,extra){
-  const r=await fetch("/api/portal",{method:"POST",
+  const r=await fetch("/api/mijoz",{method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({action,shopId:_sid,ticket:_sess?.ticket||null,...(extra||{})})});
   let d=null;try{d=await r.json();}catch(e){}
