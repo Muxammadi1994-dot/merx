@@ -359,6 +359,63 @@ function processBarcode(code) {
       }
     }
 
+    // ── 2c) NORMALLASHTIRILGAN TENGLIK (2026-08-11) ──
+    // Jonli holat (IKKALA do'kon): matn-qidiruv kodni TOPADI, skaner
+    // esa "qolda tanlang" deydi. Sabab: qidiruv (srchMatcher) yumshoq
+    // solishtiradi, skaner-yo'l AYNAN tenglik talab qilardi — saqlangan
+    // kodda ortiqcha bo'shliq/defis/ko'rinmas belgi (Billz importi,
+    // qo'lda kiritish) bo'lsa tenglik yiqilardi. Endi ikkala tomon ham
+    // faqat harf-raqamga keltirilib solishtiriladi.
+    if (!p) {
+      const _norm = v => String(v == null ? "" : v).toLowerCase().replace(/[^a-z0-9]/g, "");
+      const qq = _norm(q);
+      if (qq.length >= 4) {
+        for (const prod of db.products) {
+          if (prod.colorBarcodes) {
+            for (const [clr, bc] of Object.entries(prod.colorBarcodes)) {
+              if (bc && _norm(bc) === qq) {
+                p = prod; foundColor = clr; matchedBy = "rang kodi (normallashtirilgan)"; break;
+              }
+            }
+          }
+          if (p) break;
+          if (_norm(prod.sku) === qq) { p = prod; matchedBy = "sku (normallashtirilgan)"; break; }
+          if (prod.barcode && _norm(prod.barcode) === qq) {
+            p = prod; matchedBy = "umumiy barcode (normallashtirilgan)"; break;
+          }
+        }
+      }
+
+      // ── 2d) YAGONA QISMAN MOSLIK (oxirgi zaxira) ──
+      // Skaner nazorat raqamini qo'shib/tashlab uzatsa yoki kod bazada
+      // qisqartirilgan bo'lsa — normallashtirilganda biri ikkinchisining
+      // ICHIDA bo'ladi. FAQAT bitta tovar mos kelsa olinadi; ikki va
+      // undan ko'p nomzodda avvalgidek qo'lda tanlash qoladi —
+      // noto'g'ri tovarni jimgina qo'shishdan ko'ra so'ragan yaxshi.
+      if (!p && qq.length >= 6) {
+        let cand = null, candColor = null, candN = 0;
+        for (const prod of db.products) {
+          let hit = false, hitClr = null;
+          if (prod.colorBarcodes) {
+            for (const [clr, bc] of Object.entries(prod.colorBarcodes)) {
+              const nb = _norm(bc);
+              if (nb.length >= 6 && (nb.includes(qq) || qq.includes(nb))) {
+                hit = true; hitClr = clr; break;
+              }
+            }
+          }
+          if (!hit && prod.barcode) {
+            const nb = _norm(prod.barcode);
+            if (nb.length >= 6 && (nb.includes(qq) || qq.includes(nb))) hit = true;
+          }
+          if (hit) { candN++; if (candN > 1) break; cand = prod; candColor = hitClr; }
+        }
+        if (candN === 1) {
+          p = cand; foundColor = candColor; matchedBy = "yagona qisman moslik";
+        }
+      }
+    }
+
     // ── 3) Rangni aniqlashga urinamiz (2026-07-30) ──
     // Tovar darajasidagi kod QAYSI RANG ekanini aytmaydi. Avval shu
     // holatda savatga umuman qo'shilmasdi va hech qanday izoh ham
@@ -448,6 +505,7 @@ function processBarcode(code) {
       _posScanMode = true;
       try { _posSearchNow(); } finally { _posScanMode = false; }
     }
+    posBeepErr();   // 2026-08-11: skaner urmadi — eshitiladigan signal
     toast('Barcode: "' + code + '" — qolda tanlang', "info");
   }
 }
@@ -763,6 +821,44 @@ function posBeep(pips) {
 
   // Telefon cho'ntakda yoki shovqin baland bo'lsa — qo'lda seziladi
   try { if (navigator.vibrate) navigator.vibrate([70, 60, 70]); } catch(e) {}
+}
+
+// ⚠️ 2026-08-11: XATO OVOZI — skaner "URMAGANDA". Sotuvchi masofadan
+// otib "qo'shildi" deb o'ylab ketishining oldini oladi. Muvaffaqiyat
+// "bip-bip"idan (2600/3300 Hz, o'tkir) KESKIN farq qiladi: PAST, uzun
+// g'o'ng'illagan ikki tushuvchi ohang (340→220 Hz). Balandligi bir xil
+// (POS_BEEP_VOL) — shovqinli do'konda ham eshitiladi.
+let _lastErrBeepAt = 0;
+function posBeepErr() {
+  const now = Date.now();
+  if (now - _lastErrBeepAt < 600) return;
+  _lastErrBeepAt = now;
+  const ctx = _posAudioCtx();
+  if (ctx) {
+    try {
+      const master = ctx.createGain();
+      master.gain.value = POS_BEEP_VOL;
+      if (typeof ctx.createDynamicsCompressor === "function") {
+        const comp = ctx.createDynamicsCompressor();
+        master.connect(comp); comp.connect(ctx.destination);
+      } else {
+        master.connect(ctx.destination);
+      }
+      const t0 = ctx.currentTime;
+      [[t0, 340], [t0 + 0.26, 220]].forEach(([st, f]) => {
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, st);
+        g.gain.exponentialRampToValueAtTime(0.6, st + 0.01);
+        g.gain.setValueAtTime(0.6, st + 0.18);
+        g.gain.exponentialRampToValueAtTime(0.0001, st + 0.24);
+        g.connect(master);
+        const o = ctx.createOscillator();
+        o.type = "sawtooth"; o.frequency.value = f;
+        o.connect(g); o.start(st); o.stop(st + 0.25);
+      });
+    } catch (e) {}
+  }
+  try { if (navigator.vibrate) navigator.vibrate([220, 90, 220]); } catch (e) {}
 }
 
 // ⚠️ 2026-08-09: QIDIRUV KECHIKTIRGICHI (yozish tugagach 150 ms).
