@@ -1589,7 +1589,9 @@ function buildReceiptCompact(sale, opts, cfg) {
 
   const itemRows = items.map((i,idx) =>
     `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #eee">
-      <span style="flex:1;min-width:0;overflow:hidden">${idx+1}. ${i.name} <span style="color:#aaa">${i.variant||""}</span></span>
+      <span style="flex:1;min-width:0;overflow:hidden">${idx+1}. <b>${i.art || i.name}</b>${
+        i.art ? `<span style="color:#888;font-size:11px"> \u00b7 ${i.name}</span>` : ""} <span style="color:#aaa">${
+        i.variant || [i.color, i.size].filter(Boolean).join(" / ") || ""}</span></span>
       <span style="white-space:nowrap;margin-left:8px;font-weight:700">${i.qty}×${F(i.price)} = ${F(i.price*i.qty)}</span>
     </div>`
   ).join("");
@@ -1657,130 +1659,134 @@ body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-co
 // TABLE CHEK — jadval ko'rinishida (USD+UZS)
 // ════════════════════════════════════════════════
 function buildReceiptTable(sale, opts, cfg) {
-  const {shopName, staffName, botUser, receiptUrl, logo, contact, footer, showStaff, showContact, F} = cfg;
+  // \u2550\u2550 JADVAL (2026-08-12: PDF namunasi darajasiga chiqarildi) \u2550\u2550
+  // Egasining namunasi (ALEX GIARDINI hujjati) tuzilishi:
+  //   sarlavha + tel + KURS \u2192 mijoz/sotuvchi \u2192 chek \u2116 va sana \u2192
+  //   BOSHLANG'ICH QOLDIQ ($) \u2192 jadval: \u2116 | Model | Soni |
+  //   Narx ($ va so'm) | Jami ($ va so'm) \u2192 ITOGO ikki valyutada \u2192
+  //   To'landi \u2192 QOLDIQ. Oq fon, qora yozuv; eni sozlamadan (58/72/80).
+  const {shopName, staffName, contact, footer, showStaff, showContact, F} = cfg;
+  const W        = parseInt(cfg.paperWidth) || 72;
+  const dark     = (cfg.headerStyle || "dark") === "dark";
   const chekNum  = sale.chekNum || ("#" + sale.id);
   const date     = (sale.date||"").split("-").reverse().join(".");
   const time     = sale.time || "";
-  const total    = Number(sale.total || 0);
-  const paid     = Number(sale.paid  || 0);
-  const remaining= Number(sale.remaining || 0);
-  const discount = Number(sale.discount  || 0);
+  const total    = Number(sale.total    || 0);
+  const paid     = Number(sale.paid     || 0);
+  const remaining= Number(sale.remaining|| 0);
+  const discount = Number(sale.discount || 0);
   const items    = (sale.items||[]).filter(Boolean);
-  const rate     = (typeof db !== "undefined" && db.settings?.rate) || 12800;
-  const payLabels= {naqd:"Naqd",karta:"Karta",otkazma:"O'tkazma",aralash:"Aralash"};
+  const payType  = sale.payType || "";
   const isUsd    = sale.debtCurrency === "usd" && sale.debtUsd;
-  const debtAmt  = isUsd ? `$${Number(sale.debtUsd).toFixed(2)}` : `${F(remaining)} so'm`;
-  const logoHtml = logo ? `<div style="text-align:center;padding:8px 0 0"><img src="${logo}" style="max-height:55px;max-width:170px;object-fit:contain"></div>` : "";
+  const debtUsd  = Number(sale.debtUsd || 0);
+  const prevUsd  = Number(sale.prevDebtUsd || 0);
+  const prevUzs  = Number(sale.prevDebtUzs || 0);
+  const due      = sale.due  || "";
+  const rate     = Number(sale.rate) || (typeof db !== "undefined" && db.settings?.rate) || 12800;
+  const payLabels= {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash"};
+  const D  = n => (Number(n)||0).toFixed(2);
+  const hdrCss = dark ? "background:#0D1B2A;color:#fff"
+                      : "background:#fff;color:#000;border-bottom:2px solid #000";
 
-  const itemRows = items.map((i,idx) => {
-    const sumUzs = (i.price||0) * (i.qty||0);
-    const sumUsd = sumUzs / rate;
+  const totalDona  = items.reduce((a,i) => a + (i.qty||0), 0);
+  const totalBoxes = items.reduce((a,i) => a + (i.qtyBox||0), 0);
+  const totalUsd   = total / (rate || 1);
+
+  const rows = items.map((it, idx) => {
+    const isBox   = it.sellMode === "karobka" && it.qtyBox;
+    const model   = it.art || it.name || "\u2014";
+    const izoh    = [it.color, isBox ? (it.groupSizes||"") : (it.size||"")]
+                      .filter(Boolean).join(" / ");
+    const qtyShow = isBox ? (it.qtyBox + " pchk") : String(it.qty || 0);
+    const qtySub  = isBox ? ((it.qty||0) + " dona") : (it.unit || "dona");
+    const perUzs  = Number(it.price||0);
+    const sumUzs  = perUzs * Number(it.qty||0);
+    // PDF namunasidagi kabi: dona narx $ da yaxlitlanadi, jami esa
+    // O'SHA yaxlitlangan narx \u00d7 soni (aks holda tiyinlarda farq chiqadi).
+    const perUsd  = Math.round((perUzs / (rate||1)) * 100) / 100;
     return `<tr>
-      <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px">${idx+1}</td>
-      <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px">
-        <div style="font-weight:700">${i.name}</div>
-        <div style="font-size:10px;color:#000">${i.variant||""}</div>
-      </td>
-      <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px;text-align:center">${i.qty}</td>
-      <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px;text-align:right">
-        <div>${(i.price/rate).toFixed(2)}</div>
-        <div style="color:#000">${F(i.price)}</div>
-      </td>
-      <td style="padding:5px 6px;border:1px solid #ddd;font-size:11px;text-align:right;font-weight:700">
-        <div>${sumUsd.toFixed(2)}</div>
-        <div style="color:#000">${F(sumUzs)}</div>
-      </td>
+      <td class="c">${idx+1}</td>
+      <td class="l"><b>${model}</b>${izoh ? `<div class="sub">${izoh}</div>` : ""}</td>
+      <td class="c">${qtyShow}<div class="sub">${qtySub}</div></td>
+      <td class="r">${D(perUsd)}<div class="sub">${F(perUzs)}</div></td>
+      <td class="r b">${D(perUsd * Number(it.qty||0))}<div class="sub">${F(sumUzs)}</div></td>
     </tr>`;
   }).join("");
 
-  const totalUsd = total / rate;
-  const paidUsd  = paid  / rate;
-  const debtUsd2 = remaining / rate;
+  const boshRow = (prevUsd > 0 || prevUzs > 0)
+    ? `<div class="mrow"><span>Boshlang'ich qoldiq</span><b>${
+        prevUsd > 0 ? "$" + D(prevUsd) : F(prevUzs) + " so'm"}</b></div>` : "";
 
   return `<!DOCTYPE html><html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Chek ${chekNum}</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-content:center;padding:16px 8px}
-.w{width:380px;max-width:100%;background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 12px rgba(0,0,0,.1)}
-.shop{font-size:20px;font-weight:800;text-align:center;letter-spacing:1px;color:#0D1B2A;margin-bottom:2px}
-.sub{font-size:10px;color:#aaa;text-align:center;margin-bottom:8px}
-.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;margin-bottom:10px;padding:8px;background:#f9f9f9;border-radius:6px}
-.info-grid span{color:#000}.info-grid b{color:#0D1B2A}
-table{width:100%;border-collapse:collapse;margin-bottom:8px}
-th{${cfg.headerStyle === "dark" ? "background:#0D1B2A;color:#fff" : "background:#fff;color:#000;border-bottom:1px solid #000"};padding:6px;font-size:10px;text-align:center}
-th:first-child,th:nth-child(3){width:30px}
-.col-cur{font-size:9px;color:#ccc;font-weight:400}
-.tot-row td{background:#f0f0f0;font-weight:800;font-size:12px;padding:6px}
-.pay-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #eee}
-.debt{color:#dc2626;font-weight:700}
-.ok{background:#ECFDF5;color:#059669;font-weight:700;font-size:11px;text-align:center;padding:5px;border-radius:6px;margin-top:4px}
-.ft{text-align:center;font-size:11px;color:#000;margin-top:10px;padding-top:8px;border-top:1px dashed #ddd}
-.acts{max-width:380px;margin:8px auto 0;display:flex;gap:6px}
-.acts button{flex:1;border:none;border-radius:8px;padding:9px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
-.btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #ddd}
-@media print{body{background:#fff;padding:0}.w{border-radius:0;box-shadow:none;width:100%}.acts{display:none}}
+body{font-family:'DM Sans',Arial,sans-serif;background:#fff;color:#000;
+     padding:6px;font-size:11px;line-height:1.35}
+.doc{width:${W}mm;max-width:${W}mm;margin:0 auto;background:#fff}
+.hd{${hdrCss};padding:9px 10px;text-align:center}
+.shop{font-size:14px;font-weight:800;letter-spacing:.02em}
+.sm{font-size:9.5px;opacity:.85}
+.meta{font-size:10px;padding:5px 0;border-bottom:1px solid #000}
+.mrow{display:flex;justify-content:space-between;gap:6px;padding:1px 0}
+table{width:100%;border-collapse:collapse;font-size:10px;margin-top:3px}
+th{border-bottom:1px solid #000;padding:3px 1px;font-size:9px;font-weight:700}
+th .u{display:block;font-size:8px;font-weight:600;opacity:.7}
+td{padding:3px 1px;border-bottom:1px dotted #999;vertical-align:top}
+.c{text-align:center}.r{text-align:right}.l{text-align:left}.b{font-weight:700}
+.sub{font-size:8.5px;opacity:.72;margin-top:1px}
+.tot{border-top:1px solid #000;margin-top:4px;padding-top:4px}
+.trow{display:flex;justify-content:space-between;gap:8px;padding:1.5px 0;font-size:11px}
+.trow.big{font-size:12.5px;font-weight:800;border-top:1px dashed #000;
+          border-bottom:1px dashed #000;padding:3px 0;margin:3px 0}
+.ft{text-align:center;font-size:9.5px;margin-top:6px;border-top:1px dashed #000;padding-top:5px}
+@media print{ @page{size:${W}mm auto;margin:0} body{padding:0} .doc{width:${W}mm} }
 </style></head><body>
-<div class="w">
-  ${logoHtml}
-  <div class="shop">${shopName.toUpperCase()}</div>
-  <div class="sub">Savdo cheki ${showContact && contact ? "· " + contact : ""}</div>
-  <div class="info-grid">
-    <span>Chek №</span><b>${chekNum}</b>
-    <span>Sana</span><b>${date} ${time}</b>
-    ${showStaff && staffName && staffName!=="—" ? `<span>Kassir</span><b>${staffName}</b>` : ""}
-    ${sale.customerName ? `<span>Mijoz</span><b>${sale.customerName}</b>` : ""}
-    ${sale.customerPhone ? `<span>Telefon</span><b>${sale.customerPhone}</b>` : ""}
-    <span>Kurs</span><b>1$ = ${F(rate)} so'm</b>
+<div class="doc">
+  <div class="hd">
+    <div class="shop">${shopName}</div>
+    ${showContact && contact ? `<div class="sm">Tel: ${contact}</div>` : ""}
+    <div class="sm">Kurs: ${F(rate)}</div>
+  </div>
+  <div class="meta">
+    ${sale.customerName ? `<div class="mrow"><span>Mijoz</span><b>${sale.customerName}</b></div>` : ""}
+    ${showStaff && staffName ? `<div class="mrow"><span>Sotuvchi</span><span>${staffName}</span></div>` : ""}
+    <div class="mrow"><span>Chek \u2116</span><b>${chekNum}</b></div>
+    <div class="mrow"><span>Sana</span><span>${date} ${time}</span></div>
+    ${boshRow}
   </div>
   <table>
-    <thead>
-      <tr>
-        <th>№</th>
-        <th>Mahsulot</th>
-        <th>Qty</th>
-        <th>Narx<br><span class="col-cur">$ / so'm</span></th>
-        <th>Summa<br><span class="col-cur">$ / so'm</span></th>
-      </tr>
-    </thead>
-    <tbody>
-      ${itemRows}
-      <tr class="tot-row">
-        <td colspan="3" style="padding:6px;border:1px solid #ddd;text-align:right">JAMI</td>
-        <td style="border:1px solid #ddd"></td>
-        <td style="padding:6px;border:1px solid #ddd;text-align:right">
-          <div>${totalUsd.toFixed(2)}</div>
-          <div style="color:#000">${F(total)}</div>
-        </td>
-      </tr>
-    </tbody>
+    <thead><tr>
+      <th style="width:14px">\u2116</th>
+      <th class="l">Model</th>
+      <th>Soni</th>
+      <th class="r">Narx<span class="u">$ / so'm</span></th>
+      <th class="r">Jami<span class="u">$ / so'm</span></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
   </table>
-  <div>
-    ${discount > 0 ? `<div class="pay-row"><span>Chegirma</span><span style="color:#dc2626">−${F(discount)} so'm</span></div>` : ""}
-    <div class="pay-row">
-      <span>${payLabels[sale.payType]||sale.payType||"—"}</span>
-      <span style="color:#059669;font-weight:700">${paidUsd.toFixed(2)} $ / ${F(paid)} so'm</span>
-    </div>
+  <div class="tot">
+    <div class="trow"><span>${items.length} xil \u00b7 ${totalDona} dona${
+      totalBoxes ? " \u00b7 " + totalBoxes + " pchk" : ""}</span><span></span></div>
+    ${discount > 0 ? `<div class="trow"><span>Chegirma</span><b>-${F(discount)}</b></div>` : ""}
+    <div class="trow big"><span>JAMI</span><b>$${D(totalUsd)} / ${F(total)}</b></div>
+    <div class="trow"><span>To'landi (${payLabels[payType]||payType||"\u2014"})</span><b>${F(paid)} so'm</b></div>
     ${remaining > 0
-      ? `<div class="pay-row debt"><span>Qarz</span><span>${isUsd ? "$"+Number(sale.debtUsd).toFixed(2) : debtUsd2.toFixed(2)+" $ / "+F(remaining)+" so'm"}</span></div>
-         ${sale.due ? `<div class="pay-row" style="font-size:10px;color:#aaa"><span>Muddat</span><span>${sale.due}</span></div>` : ""}`
-      : `<div class="ok">✓ To'liq to'landi</div>`}
+      ? `<div class="trow big"><span>QOLDIQ</span><b>${
+           isUsd ? "$" + D(debtUsd) : F(remaining) + " so'm"}</b></div>` +
+        ((isUsd && prevUsd > 0)
+          ? `<div class="trow"><span>Umumiy qarz</span><b>$${D(prevUsd + debtUsd)}</b></div>` : "") +
+        ((!isUsd && prevUzs > 0)
+          ? `<div class="trow"><span>Umumiy qarz</span><b>${F(prevUzs + remaining)} so'm</b></div>` : "") +
+        (due ? `<div class="trow"><span>Muddat</span><b>${due}</b></div>` : "")
+      : `<div class="trow big"><span>QOLDIQ</span><b>0</b></div>`}
   </div>
-  <div class="ft">${footer}<br>${shopName} · ${date}</div>
-</div>
-<div class="acts">
-  <button class="btn-p" onclick="window.print()">🖨 Chop etish</button>
-  <button class="btn-c" onclick="window.close?window.close():history.back()">Yopish</button>
+  <div class="ft">${footer || "Rahmat!"}</div>
 </div>
 </body></html>`;
 }
 
-// ════════════════════════════════════════════════
-// THERMAL CHEK — Korzinka uslubi, oq-qora
-// 80mm termal printer, Courier font
-// ════════════════════════════════════════════════
 function buildReceiptThermal(sale, opts, cfg) {
   const {shopName, staffName, botUser, contact, footer, showStaff, showContact, F} = cfg;
   const chekNum  = sale.chekNum || ("#" + sale.id);
