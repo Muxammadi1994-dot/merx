@@ -359,49 +359,27 @@ function renderEgasi() {
   if (ceStaff)   ceStaff.checked   = chekCfg.showStaff   !== false;
   if (ceContact2) ceContact2.checked = chekCfg.showContact !== false;
   if (ceDebtH)   ceDebtH.checked  = chekCfg.showDebtHistory !== false;
-  if (cePosStyle) {
-    // Yangi uslublar qo'shamiz (agar yo'q bo'lsa)
-    const posStyleOpts = [
-      {v:"merx",       l:"MERX brend (zamonaviy)"},
-      {v:"thermal",    l:"Termal printer (72mm)"},
-      {v:"wholesale",  l:"Ulgurji hujjat (A4)"},
-      {v:"full",       l:"To'liq (eski)"},
-      {v:"compact",    l:"Ixcham"},
-      {v:"table",      l:"Jadval (USD+UZS)"},
-    ];
-    if (cePosStyle.options.length < 4) {
-      cePosStyle.innerHTML = posStyleOpts.map(o =>
-        `<option value="${o.v}">${o.l}</option>`).join("");
-    }
-    cePosStyle.value = chekCfg.posStyle || "merx";
-  }
-  if (ceTarixStyle) {
-    const tarixStyleOpts = [
-      {v:"merx",      l:"MERX brend (zamonaviy)"},
-      {v:"thermal",   l:"Termal printer (72mm)"},
-      {v:"wholesale", l:"Ulgurji hujjat (A4)"},
-      {v:"full",      l:"To'liq (eski)"},
-      {v:"compact",   l:"Ixcham"},
-    ];
-    if (ceTarixStyle.options.length < 3) {
-      ceTarixStyle.innerHTML = tarixStyleOpts.map(o =>
-        `<option value="${o.v}">${o.l}</option>`).join("");
-    }
-    ceTarixStyle.value = chekCfg.tarixStyle || "merx";
-  }
-  if (ceQarzStyle) {
-    const qarzStyleOpts = [
-      {v:"merx",      l:"MERX brend (zamonaviy)"},
-      {v:"thermal",   l:"Termal printer (72mm)"},
-      {v:"wholesale", l:"Ulgurji hujjat (A4)"},
-      {v:"compact",   l:"Ixcham (eski)"},
-    ];
-    if (ceQarzStyle.options.length < 3) {
-      ceQarzStyle.innerHTML = qarzStyleOpts.map(o =>
-        `<option value="${o.v}">${o.l}</option>`).join("");
-    }
-    ceQarzStyle.value = chekCfg.qarzStyle || "merx";
-  }
+  // ══ USLUB TANLOVLARI (2026-08-12: yagona ro'yxat) ════════
+  // Avval uch joyda uch xil ro'yxat bor edi va kartalar (To'liq/Ixcham/
+  // Jadval) amaldagi uslublardan farq qilardi. Endi BITTA manba.
+  const CHEK_USLUBLAR = [
+    { v:"merx",      l:"MERX brend (zamonaviy)" },
+    { v:"thermal",   l:"Termal (tor, tejamkor)" },
+    { v:"wholesale", l:"Ulgurji (model + $ va so'm)" },
+    { v:"compact",   l:"Ixcham (qisqa)" },
+    { v:"table",     l:"Jadval (USD + so'm)" },
+  ];
+  const _fillStyle = (el, val) => {
+    if (!el) return;
+    el.innerHTML = CHEK_USLUBLAR.map(o =>
+      `<option value="${o.v}">${o.l}</option>`).join("");
+    el.value = val || "merx";
+  };
+  _fillStyle(cePosStyle,   chekCfg.posStyle);
+  _fillStyle(ceTarixStyle, chekCfg.tarixStyle);
+  _fillStyle(ceQarzStyle,  chekCfg.qarzStyle);
+  try { ceMarkStyle(); } catch (e) {}
+
   // Logo preview
   const logoPreview = document.getElementById("chek-logo-preview");
   if (logoPreview) {
@@ -767,12 +745,18 @@ function previewChek(style) {
     date: _dStr(new Date()),
     time: new Date().toLocaleTimeString("uz-UZ").slice(0,5),
     payType: "naqd",
+    // 2026-08-12: namuna boyitildi — ulgurji uslubi MODEL (art), rang,
+    // pochka va ikki valyutani ko'rsatadi; usiz namuna chala ko'rinardi.
     items: [
-      { name: "Krossovka", variant: "Ko'k / 42", qty: 2, price: 850000, unit: "juft" },
-      { name: "Futbolka",  variant: "Oq / L",    qty: 3, price: 120000, unit: "dona" },
+      { name: "Krossovka", art: "W4149-4YS", color: "Ko'k", size: "42",
+        variant: "Ko'k / 42", qty: 12, price: 850000, unit: "juft",
+        sellMode: "karobka", qtyBox: 2, inBox: 6, groupSizes: "40-45" },
+      { name: "Futbolka",  art: "C10200", color: "Oq", size: "L",
+        variant: "Oq / L", qty: 3, price: 120000, unit: "dona" },
     ],
-    total: 2060000, paid: 1000000, remaining: 1060000,
+    total: 10560000, paid: 4000000, remaining: 6560000,
     discount: 0, debtCurrency: "uzs",
+    rate: (db.settings?.rate || 12100),
     customerName: "Alisher Karimov", customerPhone: "+998 90 123 45 67",
     prevDebtUzs: 500000, due: "2026-07-15"
   };
@@ -1409,4 +1393,17 @@ function applyCurrencyLock() {
       `<span style="color:var(--mut)">— tizim sozlamasi</span><br>` +
       `<span style="font-size:11px">O'zgartirish uchun MERX qo'llab-quvvatlash xizmatiga murojaat qiling.</span>`;
   }
+}
+
+
+// 2026-08-12: POS uchun tanlangan uslub kartasi ajratib ko'rsatiladi.
+function ceMarkStyle() {
+  try {
+    const v = (document.getElementById("chek-pos-style") || {}).value || "merx";
+    document.querySelectorAll("#chek-style-cards .cs-card").forEach(c => {
+      const on = c.dataset.s === v;
+      c.style.border = on ? "2px solid var(--acc)" : "1.5px solid var(--brd)";
+      c.style.background = on ? "var(--bg2,#FAFAF8)" : "";
+    });
+  } catch (e) {}
 }
