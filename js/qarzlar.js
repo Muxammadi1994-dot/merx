@@ -1949,13 +1949,48 @@ function showDebtPaymentReceipt(payment) {
   // ════════════════════════════════════════════════════════════
   const cfg      = getChekCfg("qarz"); // 1-bosqich: yagona manba
   const shopName = db.shop?.name || "MERX";
-  // ⚠️ 2026-08-12: "Qarzlar bo'limi cheki" uslub tanlovi HOZIRCHA
-  // QO'LLANMAYDI — va buni ochiq yozib qo'yamiz. Sabab: uslub
-  // chizuvchilari (merx/thermal/wholesale/compact/table) SOTUV cheki
-  // uchun yozilgan (tovarlar jadvali, jami, to'lov turi). To'lov chekini
-  // ularga soxta "sotuv" qilib uzatish BUZUQ chek berardi (bo'sh tovar
-  // ro'yxati, noto'g'ri yorliqlar). To'g'ri yechim — har uslub uchun
-  // TO'LOV varianti yozish (2-qadam rejasida).
+  // ✅ 2026-08-12: USLUB TANLOVI ULANDI — to'lov chekining O'Z
+  // chizuvchisi bilan (buildPayReceiptStyled, utils.js). Sotuv-cheki
+  // uslublari to'lov chitigiga yaramaydi (ular tovar jadvali uchun),
+  // shuning uchun alohida chizuvchi, lekin BIR XIL uslub tilida:
+  // fon (Sarlavha foni sozlamasi), qog'oz eni, zichlik.
+  // Standart "unified" — hech kim tanlamagan bo'lsa AVVALGI chek
+  // chiqadi (ishlab turgan do'konlar buzilmasin).
+  try {
+    const _qs = cfg.qarzStyle || "unified";
+    if (_qs !== "unified" && typeof buildPayReceiptStyled === "function") {
+      let _due = "";
+      const _al = payment.allocations || [];
+      if (_al.length === 1) {
+        const _s1 = (db.sales || []).find(x => x.id === _al[0].saleId);
+        if (_s1 && _s1.due) _due = _s1.due;
+      }
+      const _html = buildPayReceiptStyled(payment, {
+        style: _qs, shopName,
+        staffName: (db.currentStaff && db.currentStaff.name) || "",
+        dueLine: _due,
+        cfg: { ...cfg, shopName }
+      });
+      const _ov = document.getElementById("ov-receipt");
+      if (_ov) {
+        const _box = _ov.querySelector(".modal") || _ov;
+        _box.innerHTML = `<button class="m-close" onclick="closeModal('receipt')">
+            <i class="ti ti-x"></i></button>
+          <iframe style="width:100%;height:70vh;border:0;background:#fff"
+                  srcdoc="${_html.replace(/"/g, "&quot;")}"></iframe>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn btn-acc" style="flex:1"
+              onclick="const f=this.closest('.modal').querySelector('iframe');
+                       f.contentWindow.focus();f.contentWindow.print()">
+              <i class="ti ti-printer"></i> Chop etish</button>
+          </div>`;
+        openModal("receipt", true);
+        return;
+      }
+      const _w = window.open("", "_blank", "width=420,height=700");
+      if (_w) { _w.document.write(_html); _w.document.close(); _w.focus(); return; }
+    }
+  } catch (e) { console.warn("qarz cheki uslubi:", e.message); }
   const cur      = payment.currency === "usd" ? "usd" : "uzs";
   const rate     = payment.rate || db.settings?.rate || 12800;
   const F        = n => Math.round(n||0).toLocaleString("ru-RU");

@@ -3012,3 +3012,135 @@ function _auditPrune() {
   } catch (e) {}
 }
 setTimeout(_auditPrune, 20000);
+
+
+// \u2550\u2550\u2550 QARZ TO'LOVI CHEKI \u2014 USLUBLI (2026-08-12) \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// Egasining talabi: "har bo'lim o'z tanloviga ega bo'lsin". Sotuv
+// cheki uslublari to'lov chitigiga to'g'ridan-to'g'ri yaramaydi
+// (ular tovar jadvali uchun), shuning uchun to'lov uchun ALOHIDA
+// chizuvchi \u2014 lekin BIR XIL uslub tilida (fon, qog'oz eni, zichlik).
+//
+// \u26a0\ufe0f QAT'IY: debtBefore/debtAfter MUHRLANGAN qiymatlar (\u00a73.5) \u2014
+// faqat O'QILADI, hech qachon qayta hisoblanmaydi.
+//
+// Egasi so'ragan qator: to'lov so'mda bo'lsa-yu qarz dollarda bo'lsa,
+// hisob OCHIQ ko'rsatiladi: "10 000 000 / 12 100 = $826.45".
+function buildPayReceiptStyled(payment, opts) {
+  const o = opts || {};
+  const style = o.style || "unified";
+  const cfg   = o.cfg || {};
+  const W     = parseInt(cfg.paperWidth) || 72;
+  const dark  = (cfg.headerStyle || "dark") === "dark";
+  const F     = n => Math.round(Number(n) || 0).toLocaleString("ru-RU");
+  const D     = n => "$" + (Number(n) || 0).toFixed(2);
+
+  const cur   = payment.currency === "usd" ? "usd" : "uzs";
+  const rate  = Number(payment.rate) || (typeof db !== "undefined" && db.settings?.rate) || 12800;
+  const somAmt = Number(payment.amountSom) ||
+                 (cur === "usd" ? Math.round(Number(payment.amount || 0) * rate) : Number(payment.amount || 0));
+
+  // To'landi qatori + OCHIQ HISOB (egasining talabi)
+  const paidMain = cur === "usd" ? D(payment.amount) : F(payment.amount) + " so'm";
+  const hisobLine = (cur === "usd" && somAmt)
+    ? F(somAmt) + " / " + F(rate) + " = " + D(payment.amount)
+    : "";
+
+  // Muhrlangan qarz holati \u2014 FAQAT O'QIYMIZ
+  const dB = payment.debtBefore, dA = payment.debtAfter;
+  const M  = v => (v == null) ? "" : (cur === "usd" ? D(v) : F(v) + " so'm");
+
+  // To'lov usuli
+  const payLabels = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash" };
+  const mb = payment.methodBreakdown || null;
+  const mbRows = mb ? Object.keys(mb).filter(k => (mb[k] || 0) > 0) : [];
+  const usulHtml = mbRows.length > 1
+    ? mbRows.map(k => `<div class="r"><span>${payLabels[k] || k}</span><b>${F(mb[k])} so'm</b></div>`).join("")
+    : `<div class="r"><span>Usul</span><b>${payLabels[payment.method] || payment.method || "\u2014"}</b></div>`;
+
+  const ixcham = (style === "compact" || style === "thermal");
+  const oq     = (style === "wholesale") || !dark;
+  const hdrCss = oq ? "background:#fff;color:#000;border-bottom:2px solid #000"
+                    : "background:#0D1B2A;color:#fff";
+  const bodyFs = ixcham ? "11px" : "12px";
+
+  // Jadval uslubi: ikki valyuta ustunda
+  const jadval = (style === "table");
+
+  return `<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>To'lov cheki ${payment.chekNum || ""}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',Arial,sans-serif;background:#fff;color:#000;
+     padding:6px;font-size:${bodyFs};line-height:1.4}
+.doc{width:${W}mm;max-width:${W}mm;margin:0 auto;background:#fff}
+.hd{${hdrCss};padding:${ixcham ? "8px 10px" : "11px 14px"};text-align:center}
+.shop{font-size:${ixcham ? "13px" : "15px"};font-weight:800}
+.sm{font-size:10px;opacity:.85}
+.meta{font-size:10.5px;padding:5px 0;border-bottom:1px dashed #000}
+.meta div{display:flex;justify-content:space-between;gap:6px}
+.sec{padding:6px 0;border-bottom:1px dashed #000}
+.lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;
+     letter-spacing:.04em;opacity:.7;margin-bottom:3px}
+.r{display:flex;justify-content:space-between;gap:8px;padding:1.5px 0}
+.big{font-size:${ixcham ? "15px" : "18px"};font-weight:800;text-align:right}
+.calc{font-size:10px;text-align:right;opacity:.75;margin-top:1px}
+.qold{font-size:${ixcham ? "13px" : "15px"};font-weight:800}
+table{width:100%;border-collapse:collapse;font-size:10.5px}
+th{border-top:1px solid #000;border-bottom:1px solid #000;padding:3px 2px;
+   font-size:9.5px;font-weight:700}
+td{padding:3px 2px;border-bottom:1px dotted #999}
+.r2{text-align:right}
+.ft{text-align:center;font-size:10px;margin-top:6px;padding-top:5px;
+    border-top:1px dashed #000}
+@media print{ @page{size:${W}mm auto;margin:0} body{padding:0} .doc{width:${W}mm} }
+</style></head><body>
+<div class="doc">
+  <div class="hd">
+    <div class="shop">${cfg.shopName || o.shopName || "MERX"}</div>
+    ${cfg.showContact && cfg.contact ? `<div class="sm">${cfg.contact}</div>` : ""}
+    <div class="sm">TO'LOV CHEKI</div>
+  </div>
+  <div class="meta">
+    <div><span>Chek</span><b>${payment.chekNum || ""}</b></div>
+    <div><span>Sana</span><span>${payment.date || ""} ${payment.time || ""}</span></div>
+    ${payment.customerName ? `<div><span>Mijoz</span><b>${payment.customerName}</b></div>` : ""}
+    ${cfg.showStaff && o.staffName ? `<div><span>Qabul qildi</span><span>${o.staffName}</span></div>` : ""}
+  </div>
+
+  <div class="sec">
+    <div class="lbl">To'landi</div>
+    <div class="big">${paidMain}</div>
+    ${hisobLine ? `<div class="calc">${hisobLine}</div>` : ""}
+    ${cur === "usd" ? `<div class="calc">Kurs: ${F(rate)} so'm</div>` : ""}
+  </div>
+
+  <div class="sec">
+    <div class="lbl">To'lov usuli</div>
+    ${usulHtml}
+  </div>
+
+  <div class="sec">
+    <div class="lbl">Qarz holati</div>
+    ${jadval
+      ? `<table>
+           <tr><th>&nbsp;</th><th class="r2">So'm</th><th class="r2">USD</th></tr>
+           ${dB != null ? `<tr><td>Edi</td><td class="r2">${
+             cur === "usd" ? F(dB * rate) : F(dB)}</td><td class="r2">${
+             cur === "usd" ? D(dB) : D(dB / (rate || 1))}</td></tr>` : ""}
+           <tr><td>To'landi</td><td class="r2">${F(somAmt)}</td><td class="r2">${
+             D(cur === "usd" ? payment.amount : somAmt / (rate || 1))}</td></tr>
+           ${dA != null ? `<tr><td><b>Qoldi</b></td><td class="r2"><b>${
+             cur === "usd" ? F(dA * rate) : F(dA)}</b></td><td class="r2"><b>${
+             cur === "usd" ? D(dA) : D(dA / (rate || 1))}</b></td></tr>` : ""}
+         </table>`
+      : `${dB != null ? `<div class="r"><span>Jami qarz edi</span><b>${M(dB)}</b></div>` : ""}
+         ${dA != null ? `<div class="r qold"><span>${
+           Number(dA) > 0 ? "Qoldi" : "To'liq yopildi"}</span><b>${M(dA)}</b></div>` : ""}`}
+    ${o.dueLine ? `<div class="r"><span>Muddat</span><b>${o.dueLine}</b></div>` : ""}
+  </div>
+
+  <div class="ft">${cfg.footer || "Rahmat! Yana kutamiz"}</div>
+</div>
+</body></html>`;
+}
