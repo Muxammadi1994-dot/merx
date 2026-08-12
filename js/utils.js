@@ -1925,209 +1925,138 @@ body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
 // B5 format, jadval, imzo joyi
 // ════════════════════════════════════════════════
 function buildReceiptWholesale(sale, opts, cfg) {
-  const {shopName, staffName, botUser, logo, contact, footer, showStaff, showContact, F} = cfg;
+  // \u2550\u2550 ULGURJI CHEK (2026-08-12, qayta yozildi) \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+  // Egasining talabi: PDF namunadagi ULGURJI HUJJAT tarkibi, lekin
+  // A4 emas \u2014 TERMAL qog'ozda (58/72/80 mm, sozlamadan). Ranglar,
+  // soyalar, to'q sarlavha YO'Q: faqat OQ FON + QORA YOZUV (printerda
+  // aniq chiqadi va siyoh tejaydi).
+  // Namunadan olingan tarkib: boshlang'ich qoldiq, MODEL (artikul)
+  // ustuni, dona narx va jami IKKI VALYUTADA, oxirida
+  // Jami / To'landi / Qoldiq uch qatori.
+  const {shopName, staffName, contact, footer, showStaff, showContact, F} = cfg;
+  const W        = parseInt(cfg.paperWidth) || 72;
   const chekNum  = sale.chekNum || ("#" + sale.id);
   const date     = (sale.date||"").split("-").reverse().join(".");
   const time     = sale.time || "";
   const total    = Number(sale.total    || 0);
-  const subtotal = Number(sale.subtotal || total);
   const paid     = Number(sale.paid     || 0);
   const remaining= Number(sale.remaining|| 0);
   const discount = Number(sale.discount || 0);
   const items    = (sale.items||[]).filter(Boolean);
   const payType  = sale.payType || "";
-  const payBreakdown = sale.payBreakdown || null;
   const isUsd    = sale.debtCurrency === "usd" && sale.debtUsd;
   const debtUsd  = Number(sale.debtUsd || 0);
   const prevUsd  = Number(sale.prevDebtUsd || 0);
   const prevUzs  = Number(sale.prevDebtUzs || 0);
-  const note     = sale.note || "";
   const due      = sale.due  || "";
-  const priceType= sale.priceType || "";
-  const rate     = (typeof db !== "undefined" && db.settings?.rate) || 12800;
+  const rate     = Number(sale.rate) || (typeof db !== "undefined" && db.settings?.rate) || 12800;
   const payLabels= {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash"};
+  const D        = n => "$" + (Number(n)||0).toFixed(2);
 
-  const totalBoxes = items.reduce((a,i) => a + (i.qtyBox||0), 0);
   const totalDona  = items.reduce((a,i) => a + (i.qty||0), 0);
+  const totalBoxes = items.reduce((a,i) => a + (i.qtyBox||0), 0);
 
+  // Tovar qatorlari: MODEL / soni / dona narx ($ va so'm) / jami
   const itemRows = items.map((it, idx) => {
     const isBox   = it.sellMode === "karobka" && it.qtyBox;
-    const colorStr= it.color || "—";
-    const sizeStr = isBox ? (it.groupSizes||"—") : (it.size||"—");
-    const qtyShow = isBox ? `${it.qtyBox} pchk` : `${it.qty} ${it.unit||"dona"}`;
-    const pricePer= isBox ? F((it.price||0)*(it.inBox||1)) : F(it.price||0);
-    const sum     = (it.price||0)*(it.qty||0);
-    const art     = it.art ? `<div style="font-size:10px;color:#555;margin-top:1px">${it.art}</div>` : "";
+    const model   = it.art || it.name || "\u2014";
+    const rang    = [it.color, isBox ? (it.groupSizes||"") : (it.size||"")]
+                      .filter(Boolean).join(" / ");
+    const qtyShow = isBox ? (it.qtyBox + " pchk (" + (it.qty||0) + ")")
+                          : ((it.qty||0) + " " + (it.unit||"dona"));
+    const perUzs  = Number(it.price||0);
+    const sumUzs  = perUzs * Number(it.qty||0);
     return `<tr>
-      <td class="c n">${idx+1}</td>
-      <td class="l"><b>${it.name}</b>${art}</td>
-      <td class="c">${colorStr}</td>
-      <td class="c">${sizeStr}</td>
-      <td class="c"><b>${qtyShow}</b></td>
-      <td class="r">${pricePer}</td>
-      <td class="r b">${F(sum)}</td>
+      <td class="c">${idx+1}</td>
+      <td class="l"><b>${model}</b>${rang ? `<div class="sub">${rang}</div>` : ""}</td>
+      <td class="c">${qtyShow}</td>
+      <td class="r">${F(perUzs)}<div class="sub">${D(perUzs / (rate||1))}</div></td>
+      <td class="r b">${F(sumUzs)}<div class="sub">${D(sumUzs / (rate||1))}</div></td>
     </tr>`;
   }).join("");
 
-  // To'lov
-  let payHtml = "";
-  if (payType === "aralash" && payBreakdown) {
-    const lblMap = {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma"};
-    payHtml = Object.entries(payBreakdown)
-      .filter(([m,v]) => m !== "qarz" && v > 0)
-      .map(([m,v]) => `<div class="prow"><span>${lblMap[m]||m}</span><b>${F(v)} so'm</b></div>`).join("");
-  } else {
-    payHtml = `<div class="prow"><span>${payLabels[payType]||payType}</span><b style="color:#059669">${F(paid)} so'm</b></div>`;
-  }
+  // Boshlang'ich qoldiq (namunadagi "\u041d\u0430\u0447\u0430\u043b\u044c\u043d\u0430\u044f \u043e\u0441\u0442\u0430\u0442\u043a\u0430")
+  const boshRow = (prevUsd > 0 || prevUzs > 0)
+    ? `<div class="row"><span>Boshlang'ich qoldiq</span><b>${
+        prevUsd > 0 ? D(prevUsd) : F(prevUzs) + " so'm"}</b></div>` : "";
 
-  // Qarz
-  let debtHtml = "";
-  if (remaining > 0) {
-    const newDebt = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${F(remaining)} so'm`;
-    debtHtml = `<div class="prow dr"><span>QARZ</span><b>${newDebt}</b></div>`;
-    if (isUsd && prevUsd > 0) {
-      debtHtml += `<div class="prow sm"><span>Oldingi qarz</span><span>$${prevUsd.toFixed(2)}</span></div>`;
-      debtHtml += `<div class="prow sm"><span>Yangi qarz</span><span>$${debtUsd.toFixed(2)}</span></div>`;
-      debtHtml += `<div class="prow dt"><span>JAMI QARZ</span><b>$${(prevUsd+debtUsd).toFixed(2)} USD</b></div>`;
-    } else if (!isUsd && prevUzs > 0) {
-      debtHtml += `<div class="prow sm"><span>Oldingi qarz</span><span>${F(prevUzs)} so'm</span></div>`;
-      debtHtml += `<div class="prow sm"><span>Yangi qarz</span><span>${F(remaining)} so'm</span></div>`;
-      debtHtml += `<div class="prow dt"><span>JAMI QARZ</span><b>${F(prevUzs+remaining)} so'm</b></div>`;
-    }
-    if (due) debtHtml += `<div class="prow sm"><span>Muddat</span><span style="color:#dc2626;font-weight:700">${due}</span></div>`;
-  } else {
-    debtHtml = `<div class="paid">✓ To'liq to'landi</div>`;
-  }
-
-  const logoHtml = logo ? `<img src="${logo}" style="max-height:40px;max-width:120px;object-fit:contain">` : "";
+  // Yakun: Jami / To'landi / Qoldiq
+  const yakun =
+    `<div class="row big"><span>JAMI</span><b>${F(total)} so'm${
+      isUsd || prevUsd > 0 ? " / " + D(total / (rate||1)) : ""}</b></div>` +
+    (discount > 0 ? `<div class="row"><span>Chegirma</span><b>-${F(discount)}</b></div>` : "") +
+    `<div class="row"><span>To'landi (${payLabels[payType]||payType||"\u2014"})</span><b>${F(paid)} so'm</b></div>` +
+    (remaining > 0
+      ? `<div class="row big"><span>QOLDIQ</span><b>${
+          isUsd ? D(debtUsd) : F(remaining) + " so'm"}</b></div>` +
+        ((isUsd && prevUsd > 0)
+          ? `<div class="row"><span>Umumiy qarz</span><b>${D(prevUsd + debtUsd)}</b></div>` : "") +
+        ((!isUsd && prevUzs > 0)
+          ? `<div class="row"><span>Umumiy qarz</span><b>${F(prevUzs + remaining)} so'm</b></div>` : "") +
+        (due ? `<div class="row"><span>Muddat</span><b>${due}</b></div>` : "")
+      : `<div class="row big"><span>QOLDIQ</span><b>0</b></div>`);
 
   return `<!DOCTYPE html><html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Savdo hujjati ${chekNum}</title>
+<title>Ulgurji chek ${chekNum}</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'DM Sans',sans-serif;background:#eee;padding:16px 8px;color:#111}
-.doc{background:#fff;max-width:520px;margin:0 auto;border-radius:6px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.15)}
-/* HEADER */
-.hdr{background:#0D1B2A;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
-.shop{font-size:17px;font-weight:800;color:#fff;letter-spacing:.5px}
-.hdr-sub{font-size:10px;color:#9aa7b5;margin-top:2px}
-.hdr-r{text-align:right}
-.chek-num{font-size:14px;font-weight:800;color:#E9A500}
-.chek-dt{font-size:11px;color:#cdd5de;margin-top:2px}
-/* META */
-.meta{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:8px 14px;font-size:11.5px;border-bottom:1px solid #E8E5E0;background:#FAFAF8}
-.ml{color:#555}.mv{font-weight:700;color:#111}
-.badge-u{display:inline-block;background:#E9A500;color:#0D1B2A;font-size:9px;font-weight:800;padding:1px 7px;border-radius:8px}
-/* JADVAL */
-table{width:100%;border-collapse:collapse;font-size:11.5px}
-th{background:#0D1B2A;color:#fff;padding:6px 8px;font-size:10px;font-weight:700}
-td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:middle}
-.c{text-align:center}.r{text-align:right}.l{text-align:left}.n{width:24px}.b{font-weight:700}
-.tot-row td{background:#F0EDE8;font-weight:800;border-top:2px solid #0D1B2A}
-.disc-row td{color:#dc2626;font-size:11px}
-/* PASTKI QISM */
-.bottom{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #ddd}
-.pay-box{padding:10px 14px;border-right:1px solid #eee}
-.pay-ttl{font-size:9px;font-weight:800;color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
-.prow{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #eee;color:#111}
-.prow.dr{color:#dc2626;font-weight:800;font-size:13px;border-top:1px solid #fca5a5;padding-top:5px;margin-top:3px;border-bottom:none}
-.prow.dt{color:#dc2626;font-weight:800;font-size:14px;border-top:2px solid #dc2626;padding-top:6px;margin-top:2px;border-bottom:none}
-.prow.sm{font-size:11px;color:#666}
-.paid{background:#ECFDF5;color:#059669;font-weight:700;font-size:12px;text-align:center;padding:8px;border-radius:5px}
-/* IMZO */
-.sign-box{padding:10px 14px}
-.sign-ttl{font-size:9px;font-weight:800;color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
-.sign-line{width:110px;border-top:1px solid #999;margin-top:28px;font-size:9px;color:#888;padding-top:3px}
-/* FOOTER */
-.note-row{padding:6px 14px;background:#FFFBEB;border-top:1px dashed #FDE68A;font-size:11px;color:#92400E}
-.foot{padding:7px 14px;text-align:center;font-size:10px;color:#888;border-top:1px dashed #ddd}
-/* PRINT */
-.acts{max-width:520px;margin:10px auto 0;display:flex;gap:8px}
-.acts button{flex:1;border:none;border-radius:8px;padding:10px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
-.btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #ccc}
+body{font-family:'DM Sans',Arial,sans-serif;background:#fff;color:#000;
+     padding:6px;font-size:11.5px;line-height:1.35}
+.doc{width:${W}mm;max-width:${W}mm;margin:0 auto;background:#fff}
+.hd{text-align:center;border-bottom:1px solid #000;padding-bottom:5px;margin-bottom:5px}
+.shop{font-size:15px;font-weight:800;letter-spacing:.02em}
+.sm{font-size:10px}
+.meta{font-size:10.5px;margin-bottom:5px}
+.meta div{display:flex;justify-content:space-between;gap:6px}
+table{width:100%;border-collapse:collapse;font-size:10.5px}
+th{border-top:1px solid #000;border-bottom:1px solid #000;padding:3px 2px;
+   font-size:9.5px;font-weight:700;text-align:center}
+td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
+.c{text-align:center}.r{text-align:right}.l{text-align:left}.b{font-weight:700}
+.sub{font-size:9px;color:#000;opacity:.75}
+.tot{border-top:1px solid #000;margin-top:5px;padding-top:4px}
+.row{display:flex;justify-content:space-between;gap:8px;padding:1.5px 0;font-size:11px}
+.row.big{font-size:13px;font-weight:800;border-top:1px dashed #000;
+         border-bottom:1px dashed #000;padding:3px 0;margin:3px 0}
+.ft{text-align:center;font-size:10px;margin-top:6px;border-top:1px dashed #000;padding-top:5px}
 @media print{
-  body{background:#fff;padding:0}
-  .doc{border-radius:0;box-shadow:none;max-width:100%}
-  .acts{display:none}
-  .hdr,.tot-row{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{size:${W}mm auto;margin:0}
+  body{padding:0}
+  .doc{width:${W}mm}
 }
 </style></head><body>
 <div class="doc">
-  <div class="hdr">
-    <div>
-      ${logoHtml}
-      <div class="shop">${shopName.toUpperCase()}</div>
-      <div class="hdr-sub">Savdo hujjati${showContact && contact ? " · " + contact : ""}
-        ${priceType==="ulgurji" ? ` · <span class="badge-u">ULGURJI</span>` : ""}
-      </div>
-    </div>
-    <div class="hdr-r">
-      <div class="chek-num">${chekNum}</div>
-      <div class="chek-dt">${date} ${time}</div>
-      ${showStaff && staffName && staffName!=="—" ? `<div class="chek-dt">Kassir: ${staffName}</div>` : ""}
-    </div>
+  <div class="hd">
+    <div class="shop">${shopName}</div>
+    ${showContact && contact ? `<div class="sm">${contact}</div>` : ""}
+    ${cfg.addr ? `<div class="sm">${cfg.addr}</div>` : ""}
   </div>
-
   <div class="meta">
-    ${sale.customerName ? `<span class="ml">Mijoz</span><span class="mv">${sale.customerName}</span>` : ""}
-    ${sale.customerPhone ? `<span class="ml">Telefon</span><span class="mv">${sale.customerPhone}</span>` : ""}
-    <span class="ml">Tovarlar</span><span class="mv">${items.length} xil · ${totalBoxes||totalDona} ${totalBoxes?"pochka":"dona"}</span>
-    ${isUsd ? `<span class="ml">Kurs</span><span class="mv">1$=${F(rate)} so'm</span>` : ""}
+    <div><span>Chek</span><b>${chekNum}</b></div>
+    <div><span>Sana</span><span>${date} ${time}</span></div>
+    ${sale.customerName ? `<div><span>Mijoz</span><b>${sale.customerName}</b></div>` : ""}
+    ${showStaff && staffName ? `<div><span>Sotuvchi</span><span>${staffName}</span></div>` : ""}
+    <div><span>Kurs</span><span>${F(rate)}</span></div>
   </div>
-
+  ${boshRow ? `<div class="meta">${boshRow}</div>` : ""}
   <table>
     <thead><tr>
-      <th>№</th><th style="text-align:left">Mahsulot</th>
-      <th>Rang</th><th>O'lcham</th><th>Miqdor</th>
-      <th style="text-align:right">Narx</th>
-      <th style="text-align:right">Summa</th>
+      <th style="width:16px">\u2116</th><th class="l">Model</th>
+      <th>Soni</th><th class="r">Narx</th><th class="r">Jami</th>
     </tr></thead>
-    <tbody>
-      ${itemRows}
-      ${discount > 0 ? `
-      <tr class="tot-row">
-        <td colspan="6" class="r">Jami:</td><td class="r">${F(subtotal)} so'm</td>
-      </tr>
-      <tr class="disc-row">
-        <td colspan="6" class="r">Chegirma${sale.discountPct ? " -"+sale.discountPct+"%" : ""}:</td>
-        <td class="r">-${F(discount)} so'm</td>
-      </tr>` : ""}
-      <tr class="tot-row">
-        <td colspan="6" class="r" style="font-size:13px">TO'LOV:</td>
-        <td class="r" style="font-size:15px">${F(total)} so'm</td>
-      </tr>
-    </tbody>
+    <tbody>${itemRows}</tbody>
   </table>
-
-  <div class="bottom">
-    <div class="pay-box">
-      <div class="pay-ttl">To'lov</div>
-      ${payHtml}
-      ${debtHtml}
-    </div>
-    <div class="sign-box">
-      <div class="sign-ttl">Imzolar</div>
-      <div class="sign-line">Sotuvchi</div>
-      <div class="sign-line" style="margin-top:18px">Xaridor</div>
-    </div>
+  <div class="tot">
+    <div class="row"><span>${items.length} xil \u00b7 ${totalDona} dona${
+      totalBoxes ? " \u00b7 " + totalBoxes + " pchk" : ""}</span><span></span></div>
+    ${yakun}
   </div>
-
-  ${note ? `<div class="note-row">📝 Izoh: ${note}</div>` : ""}
-  <div class="foot">${footer||"Rahmat!"} · ${shopName} · ${date}</div>
-</div>
-<div class="acts">
-  <button class="btn-p" onclick="window.print()">🖨 Chop etish</button>
-  <button class="btn-c" onclick="window.close?window.close():history.back()">Yopish</button>
+  <div class="ft">${footer || "Rahmat!"}</div>
 </div>
 </body></html>`;
 }
 
-
-// ════════════════════════════════════════════════
-// MERX BREND CHEK — Zamonaviy, optimallashgan
-// ════════════════════════════════════════════════
 function buildReceiptMerx(sale, opts, cfg) {
   const {shopName, staffName, botUser, logo, contact, footer, showStaff, showContact, F} = cfg;
   const chekNum  = sale.chekNum || ("#" + sale.id);
