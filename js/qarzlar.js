@@ -2756,6 +2756,12 @@ function confirmAtkaz() {
   if (!reason) { toast("Atkaz sababini yozish majburiy", "err"); return; }
 
   const u = (typeof _authUser !== "undefined" && _authUser) ? _authUser : null;
+  // ⚖️ AUDIT (2026-08-12): to'lov atkazi izi
+  try {
+    auditLog("atkaz", "payment", p.chekNum || p.id,
+      (p.customerName || "") + " · " + (p.amount || 0) + " " + String(p.currency||"").toUpperCase(),
+      { before: "faol", after: "atkaz", note: reason });
+  } catch (e) {}
   p.cancelled   = true;
   p.cancelledAt = today() + " " + nowTime();
   p.cancelledBy = u ? (u.name || u.role || "admin") : "admin";

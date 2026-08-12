@@ -2929,3 +2929,38 @@ async function _botqFlush() {
 }
 setInterval(_botqFlush, 90000);
 window.addEventListener("online", () => setTimeout(_botqFlush, 1500));
+
+
+// ═══ AUDIT LOG (2026-08-12, 1-bosqich) ═══════════════
+// "Kim, qachon, qaysi qurilmada nima qildi" — tizimdagi eng katta
+// bo'shliq edi (jonli misol: Atelier Q.27 qora qatorini kim o'chirgani
+// faqat egadan so'rab bilindi). 1-bosqich FAQAT o'chirish va bekor
+// amallarini yozadi — eng kam uchraydigan, eng qimmatli izlar.
+//
+// ⚠️ QAT'IY QOIDA: audit HECH QACHON asosiy amalni to'xtatmaydi.
+// Butun tana try/catch ichida — xato bo'lsa jim o'tib ketadi.
+// Sotuv/o'chirish/atkaz audit tufayli yiqilmaydi.
+function auditLog(action, entity, entityId, label, extra) {
+  try {
+    if (!db.auditLog) db.auditLog = [];
+    const u = (typeof _authUser !== "undefined" && _authUser) ? _authUser : null;
+    db.auditLog.push({
+      id:        String(Date.now()) + "-" + Math.random().toString(36).slice(2, 6),
+      ts:        new Date().toISOString(),
+      date:      (typeof today === "function") ? today() : "",
+      time:      (typeof nowTime === "function") ? nowTime() : "",
+      actor:     u ? (u.name || u.role || "?") : "Egasi",
+      actorId:   u ? String(u.id || "") : "",
+      device:    (typeof _devCode === "function") ? _devCode() : "",
+      action, entity,
+      entityId:  entityId != null ? String(entityId) : "",
+      label:     label || "",
+      before:    extra && extra.before != null ? String(extra.before) : "",
+      after:     extra && extra.after  != null ? String(extra.after)  : "",
+      note:      extra && extra.note   ? String(extra.note) : ""
+    });
+    // 90 kundan eski yozuvlar qurilmada saqlanmaydi (hajm nazorati;
+    // bulutdagi nusxa qoladi)
+    if (db.auditLog.length > 3000) db.auditLog = db.auditLog.slice(-2000);
+  } catch (e) { /* audit hech qachon to'xtatmaydi */ }
+}

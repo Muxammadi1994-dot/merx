@@ -1535,6 +1535,24 @@ async function pushToCloud() {
       })));
     } catch(e) { syncErrors.push("chiqimlar: " + e.message); console.warn("sync chiqimlar xato:", e.message); }
 
+    // ⚖️ AUDIT LOG (2026-08-12) — faqat QO'SHILADI, hech qachon
+    // yangilanmaydi/o'chirilmaydi. Xato bo'lsa qolgan sinxron davom etadi.
+    try {
+      if ((db.auditLog || []).length) {
+        await sync("audit_log", (db.auditLog || []).map(a => ({
+          shop_id: sid, id: String(a.id),
+          ts: a.ts || new Date().toISOString(),
+          date: a.date || null, time: a.time || null,
+          actor: a.actor || null, actor_id: a.actorId || null,
+          device: a.device || null,
+          action: a.action, entity: a.entity,
+          entity_id: a.entityId || null, label: a.label || null,
+          before_val: a.before || null, after_val: a.after || null,
+          note: a.note || null
+        })));
+      }
+    } catch(e) { syncErrors.push("audit_log: " + e.message); console.warn("sync audit xato:", e.message); }
+
     try {
       await sync("debt_payments", (db.debtPayments||[]).map(p => ({
         shop_id: sid,
@@ -2301,6 +2319,22 @@ async function pullFromCloud(silent = false, skipRender = false) {
     if (sets) applyCloudSettings(sets);
 
     // Chiqimlar
+    // ⚖️ AUDIT: bulutdagi izlarni ham olamiz (birlashtirish — id bo'yicha)
+    try {
+      const _aud = await _selectAll(() => _sb.from("audit_log").select("*")
+        .eq("shop_id", sid).order("ts", { ascending: false }).limit(2000), "audit_log");
+      if (_aud && _aud.length) {
+        const _have = new Set((db.auditLog || []).map(x => String(x.id)));
+        const _add = _aud.filter(r => !_have.has(String(r.id))).map(r => ({
+          id: String(r.id), ts: r.ts, date: r.date, time: r.time,
+          actor: r.actor, actorId: r.actor_id, device: r.device,
+          action: r.action, entity: r.entity, entityId: r.entity_id,
+          label: r.label, before: r.before_val, after: r.after_val, note: r.note
+        }));
+        if (_add.length) db.auditLog = (db.auditLog || []).concat(_add);
+      }
+    } catch(e) { console.warn("audit pull:", e.message); }
+
     const chiqData = await _selectAll(() => _sb.from("chiqimlar").select("*").eq("shop_id", sid).order("local_id"), "chiqimlar");
     _cloudIds["chiqimlar"] = new Map((chiqData||[]).map(r => [String(r.id), r.id]));
     if (chiqData && chiqData.length > 0) {

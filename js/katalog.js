@@ -1377,6 +1377,15 @@ function deleteProduct() {
     if (!confirm(`"${p.name}" ni o'chirasizmi?${_omMsg}\n\nBu amalni qaytarib bo'lmaydi.`)) return;
   }
 
+  // ⚖️ AUDIT (2026-08-12): o'chirish izi — tovar ketadi, iz QOLADI.
+  try {
+    const _q = (p.variants || []).reduce((a,v) => a + (v.qty || 0), 0);
+    auditLog("delete", "product", p.sku,
+      p.name + (p.art ? " · " + p.art : ""),
+      { before: "qoldiq " + _q + " dona",
+        note: "kod: " + JSON.stringify(p.colorBarcodes || {}).slice(0, 200) });
+  } catch (e) {}
+
   // 2026-07-25 (№4): ombor va katalog PARALLEL — tovar o'chsa, uning
   // kirim tarixi ham o'chadi (avval omborda "arvoh" yozuvlar qolardi)
   const _omBefore = (db.ombor || []).length;
@@ -5159,6 +5168,16 @@ function showProductHistory(sku) {
       matn: "Kartochka oxirgi marta tahrirlandi", ong: "" });
   }
 
+  // 6) AUDIT yozuvlari (v2, 2026-08-12) — "kim qildi"
+  (db.auditLog || []).filter(a => a.entity === "product" && a.entityId === sku)
+    .forEach(a => {
+      ev.push({ ts: new Date(a.ts).getTime() || 0, sana: a.date || "",
+        vaqt: a.time || "", tur: "audit",
+        matn: (a.action === "delete" ? "O'CHIRILDI" : a.action) + " — " +
+              (a.actor || "?") + (a.device ? " (" + a.device + ")" : ""),
+        ong: a.before || "" });
+    });
+
   ev.sort((a,b) => (a.ts || 0) - (b.ts || 0));
 
   // Yig'indilar
@@ -5169,9 +5188,11 @@ function showProductHistory(sku) {
   const qoldiq = (p.variants || []).reduce((a,v) => a + (v.qty || 0), 0);
 
   const _ico = { yaratildi:"➕", kirim:"📥", chiqim:"📤",
-                 sotuv:"🛒", bekor:"❌", tahrir:"✏️" };
+                 sotuv:"🛒", bekor:"❌", tahrir:"✏️",
+                 audit:"⚖️" };
   const _clr = { yaratildi:"#6B4FBB", kirim:"#0F6E56", chiqim:"#993C1D",
-                 sotuv:"#185FA5", bekor:"#A32D2D", tahrir:"#5F5E5A" };
+                 sotuv:"#185FA5", bekor:"#A32D2D", tahrir:"#5F5E5A",
+                 audit:"#A32D2D" };
 
   $("ph-title").textContent = p.name + " — tarix";
   $("ph-body").innerHTML =

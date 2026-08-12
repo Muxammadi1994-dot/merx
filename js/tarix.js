@@ -1340,6 +1340,12 @@ function openSaleCancel(saleId) {
   });
 
   // 2) Sotuvni bekor qilingan deb belgilaymiz
+  // ⚖️ AUDIT (2026-08-12): sotuv bekori izi
+  try {
+    auditLog("cancel", "sale", s.chekNum || s.id,
+      (s.customerName || "Mijozsiz") + " · " + fmt(s.total || 0),
+      { before: "faol", after: "bekor" });
+  } catch (e) {}
   s.cancelled     = true;
   s.cancelledAt   = today();
   s.cancelledTime = (typeof nowTime === "function" ? nowTime() : "");
