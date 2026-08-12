@@ -251,14 +251,38 @@ const debtSales  = () => db.sales.filter(s => calcSaleState(s).remaining > 0.5);
 const isOverdue  = s  => s.due && s.due < today();
 
 // ── Qarz to'lov chek raqami ────────────────────
+// ═══ HUJJAT RAQAMI — TO'QNASHUVSIZ (2026-08-12) ══════════
+// ILDIZ: raqamlar LOKAL SANOQDAN (`db.seq`, ro'yxat uzunligi) olinardi.
+// Sanoq shishib ketsa `_seqSane()` uni ORQAGA tiklardi — o'sha zahoti
+// bir xil raqam qayta berilardi. Jonli isbotlar: `CHK-20260805-4326-DW`
+// ikki sotuvda; `QT-260805-01` ikki qaytarishda; to'lovda 6 juft takror.
+// YECHIM: raqam MA'LUMOTNING O'ZIDAN — shu kun + shu qurilma bo'yicha
+// eng katta raqam + 1. Sanoq qanday buzilsa ham takror bo'lmaydi.
+function _nextDocSeq(list, field, prefix, pad, datePart) {
+  try {
+    const d   = datePart || today().replace(/-/g, "");
+    const dev = (typeof _devCode === "function") ? _devCode() : "AA";
+    const re  = new RegExp("^" + prefix + "-" + d + "-(\\d+)-" + dev + "$");
+    let mx = 0;
+    (list || []).forEach(x => {
+      const m = re.exec(String((x && x[field]) || ""));
+      if (m) { const n = parseInt(m[1], 10) || 0; if (n > mx) mx = n; }
+    });
+    return String(mx + 1).padStart(pad || 4, "0");
+  } catch (e) {
+    return String(Date.now() % 10000).padStart(pad || 4, "0");
+  }
+}
+
 function genPayChekNum() {
   const datePart = today().replace(/-/g, "");
-  const seq = (db.debtPayments || []).filter(p => p.chekNum?.includes(datePart)).length + 1;
+  // ✅ 2026-08-12: ro'yxat UZUNLIGI emas — mavjud raqamlardan MAX+1.
+  const seq = _nextDocSeq(db.debtPayments, "chekNum", "PAY", 4, datePart);
   // ⚠️ PUL-QALQON (2026-08-12): raqam oxiriga KASSA HARFI qo'shildi —
   // sanoq lokal bo'lgani uchun ikki kassa bir kunda BIR XIL raqam
   // berardi (auditda 6 juft topildi). Endi sotuv cheki kabi ajralади.
   const dev = (typeof _devCode === "function") ? ("-" + _devCode()) : "";
-  return `PAY-${datePart}-${String(seq).padStart(4, "0")}${dev}`;
+  return `PAY-${datePart}-${seq}${dev}`;
 }
 
 // ⚠️ PUL-QALQON B (2026-08-12): to'lov id endi VAQT-ASOSLI.

@@ -870,8 +870,11 @@ function confirmRefund() {
   // tovarlar chekdan olib tashlanardi va summa kamayardi — asl chek
   // qayta chiqarilganda BOSHQA chek chiqardi. Endi asl sotuv qanday
   // bo'lsa shunday qoladi, qaytarishlar alohida ro'yxatda yuritiladi.
-  const refundNo = "QT-" + today().replace(/-/g,"").slice(2) + "-" +
-                   String(((s.refunds||[]).length + 1)).padStart(2,"0");
+  // ✅ 2026-08-12: TO'QNASHUVSIZ (avval bitta sotuvning qaytarishlar
+  // soni edi — turli sotuvlarda bir xil raqam chiqardi).
+  const _rdp = today().replace(/-/g,"").slice(2);
+  const refundNo = "QT-" + _rdp + "-" +
+    _nextDocSeq((db.returns || []), "refundNo", "QT", 2, _rdp) + "-" + _devCode();
 
   // 2026-07-25: CHEK HIMOYASI — sotuv paytidagi asl qarzni muhrlaymiz.
   // Bundan keyin remaining/status o'zgarsa ham chek asl holatni ko'rsatadi.
@@ -1223,8 +1226,10 @@ function _refundAddDebtPayment(sale, amountUzs, refundNo, custTotals) {
   const before = isUsdDebt ? (custTotals?.usd || 0) : (custTotals?.uzs || 0);
   const after  = Math.max(0, +(before - amount).toFixed(2));
 
-  const chekNum = "QTQ-" + today().replace(/-/g,"").slice(2) + "-" +
-                  String((db.debtPayments.length + 1)).padStart(3, "0");
+  // ✅ 2026-08-12: TO'QNASHUVSIZ (avval ro'yxat uzunligi edi).
+  const _qdp = today().replace(/-/g,"").slice(2);
+  const chekNum = "QTQ-" + _qdp + "-" +
+    _nextDocSeq((db.debtPayments || []), "chekNum", "QTQ", 3, _qdp) + "-" + _devCode();
 
   const payment = {
     id: nextId(),

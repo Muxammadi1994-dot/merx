@@ -2930,8 +2930,12 @@ async function checkout() {
   // Ikki kassa bir vaqtda sotsa ikkalasi ham bir xil raqam
   // olardi. Mini-app chekni RAQAM bo'yicha qidiradi — natijada
   // "Batafsil" da BOSHQA sotuv ochilardi (B20, 2026-08-04).
-  const chekNum = `CHK-${today().replace(/-/g,"")}` +
-    `-${String(_seqSane()).padStart(4,"0")}-${_devCode()}`;
+  // ✅ 2026-08-12: TO'QNASHUVSIZ. Avval `_seqSane()` (lokal sanoq) edi —
+  // sanoq orqaga tiklanganda bir xil raqam qayta berilardi (jonli isbot:
+  // CHK-20260805-4326-DW ikki sotuvda). Endi shu kun + shu qurilma
+  // bo'yicha mavjud eng katta raqam + 1.
+  const _dp = today().replace(/-/g,"");
+  const chekNum = `CHK-${_dp}-${_nextDocSeq(db.sales, "chekNum", "CHK", 4, _dp)}-${_devCode()}`;
 
   // Mijozning oldingi qarzlarini hisoblaymiz
   let prevDebtUsd = 0, prevDebtUzs = 0;
