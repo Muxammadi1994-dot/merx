@@ -1078,12 +1078,38 @@ async function pushToCloud() {
       // tortilgach, keyingi push to'g'ri qiymat bilan ketadi.
       // Bu tovarlardagi `_heavyHydrated` himoyasining aynan o'zi.
       const _st = db.settings || {};
-      const _stReady = Object.keys(_st).length > 0 && (_st.rate || _st.priceCurrency);
+      // ⚠️ 2026-08-12 (KENGAYTIRILDI — "lokal nusxa bulutni bosishi"
+      // sinfini yopish). Avvalgi shart juda yumshoq edi: kurs YOKI
+      // valyuta bo'lsa "tayyor" deb hisoblanardi — lekin chek dizayni,
+      // qulflar, teglar hali yuklanmagan bo'lishi mumkin edi va o'sha
+      // CHALA nusxa bulutga qaytib yozilib, adminning sozlamasini
+      // O'CHIRIB yuborardi (ABU SAXIY chek voqeasi: menejer seansi
+      // lokalni buzgan → bulutga ketgan → admin qurilmasida ham
+      // buzuq holat). Endi uch shart BIRGA:
+      //   (a) bulutdan kamida bir marta sozlama TORTILGAN bo'lsin;
+      //   (b) kurs va valyuta ikkalasi ham bo'lsin;
+      //   (c) qurilmada eng oxirgi bulut-nusxasi bo'lsin (eskirgan
+      //       nusxa yangi qiymatni bosmasin).
+      const _stReady = !!(_st._pulledAt && _st.rate && _st.priceCurrency);
       if (!_stReady) {
         console.warn("⏸ Sozlamalar hali yuklanmagan — bulutga YOZILMADI " +
                      "(kurs va do'kon nomi o'chib ketmasin)");
       } else {
       try {
+        // ⚠️ 2026-08-12: ESKIRGAN NUSXA YUBORILMAYDI. Qurilmadagi
+        // sozlama bulutdagidan eski bo'lsa (boshqa kassa yangilagan),
+        // push TO'XTAYDI — avval yangisi tortiladi, keyin yoziladi.
+        try {
+          const _chk = await _sb.from("settings").select("updated_at")
+            .eq("shop_id", sid).limit(1);
+          const _cloudTs = _chk?.data?.[0]?.updated_at || null;
+          if (_cloudTs && db.settings._cloudTs && _cloudTs > db.settings._cloudTs) {
+            console.warn("⏸ Sozlamalar bulutda YANGIROQ — lokal nusxa " +
+                         "yozilmadi (avval pull qilinadi)");
+            try { if (typeof ensureCloudPull === "function") ensureCloudPull(); } catch(e) {}
+            throw new Error("_stSkip");
+          }
+        } catch (e) { if (e && e.message === "_stSkip") throw e; }
         // v176: settings ham delta orqali — o'zgarmagan bo'lsa yuborilmaydi
         await _deltaUpsert("settings", [{
           shop_id:        sid,
@@ -1156,7 +1182,10 @@ async function pushToCloud() {
           // o'z qatorini qaytib oladi — zararsiz, qo'llash idempotent.
           updated_at: new Date().toISOString(),
         }], 1, "shop_id");
-      } catch(e) { console.warn("settings upsert xato:", e.message); }
+      } catch(e) {
+        // "_stSkip" — ataylab to'xtatildi (bulut yangiroq), xato emas
+        if (!e || e.message !== "_stSkip") console.warn("settings upsert xato:", e.message);
+      }
       }   // _stReady
     }
 
@@ -3435,6 +3464,10 @@ async function syncDiagRefresh() {
 function applyCloudSettings(sets) {
   if (!sets) return;
   if (!db.settings) db.settings = {};
+  // 2026-08-12: "bulutdan tortilgan" muhri — push qo'riqchisi shunga
+  // qaraydi (usiz qurilma sozlamalarni bulutga UMUMAN yozmaydi).
+  db.settings._pulledAt = new Date().toISOString();
+  if (sets.updated_at) db.settings._cloudTs = sets.updated_at;
       // MUHIM: db.shop ni butunlay almashtirmaymiz — type (do'kon turi)
   // kabi lokal maydonlar saqlanib qolishi kerak
   db.shop = { ...(db.shop || {}), name: sets.shop_name };
