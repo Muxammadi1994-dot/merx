@@ -1949,6 +1949,13 @@ function showDebtPaymentReceipt(payment) {
   // ════════════════════════════════════════════════════════════
   const cfg      = getChekCfg("qarz"); // 1-bosqich: yagona manba
   const shopName = db.shop?.name || "MERX";
+  // ⚠️ 2026-08-12: "Qarzlar bo'limi cheki" uslub tanlovi HOZIRCHA
+  // QO'LLANMAYDI — va buni ochiq yozib qo'yamiz. Sabab: uslub
+  // chizuvchilari (merx/thermal/wholesale/compact/table) SOTUV cheki
+  // uchun yozilgan (tovarlar jadvali, jami, to'lov turi). To'lov chekini
+  // ularga soxta "sotuv" qilib uzatish BUZUQ chek berardi (bo'sh tovar
+  // ro'yxati, noto'g'ri yorliqlar). To'g'ri yechim — har uslub uchun
+  // TO'LOV varianti yozish (2-qadam rejasida).
   const cur      = payment.currency === "usd" ? "usd" : "uzs";
   const rate     = payment.rate || db.settings?.rate || 12800;
   const F        = n => Math.round(n||0).toLocaleString("ru-RU");

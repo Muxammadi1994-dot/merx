@@ -3308,6 +3308,11 @@ function showReceiptModal(sale) {
     const cfg = getChekCfg(sale && sale._preview ? "savat" : "sotuv");
     const staff = sale.staffId ? (db.staff || []).find(s => s.id === sale.staffId) : (db.currentStaff || null);
     const html = buildReceiptHtml(sale, {
+      // ✅ 2026-08-12: USLUB TANLOVI ULANDI. Avval `style` umuman
+      // uzatilmasdi — Sozlamalardagi "POS (yangi sotuv cheki)" ro'yxati
+      // hech narsaga ta'sir qilmasdi (foydalanuvchi tanladim deb
+      // o'ylardi). Endi tanlangan uslub chindan qo'llanadi.
+      style: cfg.posStyle || "merx",
       type: sale && sale._preview ? "savat" : "sotuv",
       shopName, staffName: staff ? staff.name : "—",
       logo: cfg.logo, addr: cfg.addr, contact: cfg.showContact ? cfg.contact : "",
