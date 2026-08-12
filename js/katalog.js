@@ -5133,10 +5133,11 @@ function showProductHistory(sku) {
     const v0 = (p.variants || [])[0];
     return parseInt(v0 && v0.inBox) || parseInt(p.inBox) || 1;
   })();
-  const _pd = (n) => {
+  const _pd = (n, box) => {
     n = parseInt(n) || 0;
-    if (_inBox <= 1) return n + " dona";
-    const po = Math.floor(n / _inBox), d = n % _inBox;
+    const bx = parseInt(box) || _inBox;
+    if (bx <= 1) return n + " dona";
+    const po = Math.floor(n / bx), d = n % bx;
     return (po ? po + " pochka" : "") + (po && d ? " " : "") +
            (d || !po ? d + " dona" : "");
   };
@@ -5185,7 +5186,7 @@ function showProductHistory(sku) {
         tur: sale.cancelled ? "bekor" : "sotuv", n: (sale.cancelled ? 0 : (parseInt(it.qty) || 0)),
         matn: (sale.cancelled ? "BEKOR: " : "") + "Sotuv · " +
               (it.color || "—") + (it.size ? " / " + it.size : "") +
-              " · " + _pd(it.qty) + " · " +
+              " · " + _pd(it.qty, it.inBox) + " · " +
               (sale.customerName || "Mijozsiz"),
         saleId: sale.id,
         ong: (sale.chekNum || "") });
@@ -5233,13 +5234,24 @@ function showProductHistory(sku) {
   const sotuvJami = ev.filter(x => x.tur === "sotuv" || x.tur === "qaytarish")
     .reduce((a,x) => a + (x.n || 0), 0);   // qaytarish MANFIY
   const qoldiq = (p.variants || []).reduce((a,v) => a + (v.qty || 0), 0);
+  // ⚠️ 2026-08-12: BALANS QATORI. Kirim − sof sotildi = qoldiq bo'lishi
+  // kerak. Farq chiqsa — tovar KIRIM YOZUVISIZ kelgan: (a) Billz/Excel
+  // importida qoldiq bilan yaratilgan, (b) kirim yozuvi keyin o'chirilgan
+  // yoki tahrirlangan. Buni yashirmaymiz — ochiq ko'rsatamiz, aks holda
+  // raqamlar "mos kelmayapti" bo'lib qoladi (jonli: 30 kirim / 33 sotildi).
+  const boshlangich = qoldiq + sotuvJami - kirimJami;
+  if (boshlangich > 0) {
+    ev.unshift({ ts: 0, sana: "", vaqt: "", tur: "boshlangich", n: 0,
+      matn: "Boshlang'ich qoldiq — " + _pd(boshlangich) +
+            " (kirim yozuvisiz: import yoki o'chirilgan kirim)", ong: "" });
+  }
 
   const _ico = { yaratildi:"➕", kirim:"📥", chiqim:"📤",
                  sotuv:"🛒", bekor:"❌", tahrir:"✏️",
-                 audit:"⚖️", qaytarish:"↩️" };
+                 audit:"⚖️", qaytarish:"↩️", boshlangich:"📋" };
   const _clr = { yaratildi:"#6B4FBB", kirim:"#0F6E56", chiqim:"#993C1D",
                  sotuv:"#185FA5", bekor:"#A32D2D", tahrir:"#5F5E5A",
-                 audit:"#A32D2D", qaytarish:"#8A6D1F" };
+                 audit:"#A32D2D", qaytarish:"#8A6D1F", boshlangich:"#5F5E5A" };
 
   $("ph-title").textContent = p.name + " — tarix";
   $("ph-body").innerHTML =
@@ -5247,6 +5259,8 @@ function showProductHistory(sku) {
       ${[["Jami kirim", _pd(kirimJami)],
          ["Sof sotildi", _pd(sotuvJami)],
          ...(qaytJami ? [["Qaytarildi", _pd(qaytJami)]] : []),
+         ...(boshlangich > 0 ? [["Boshlang'ich", _pd(boshlangich)]] : []),
+         ...(boshlangich < 0 ? [["⚠️ Farq", _pd(-boshlangich)]] : []),
          ["Hozirgi qoldiq", _pd(qoldiq)],
          ["Voqealar", ev.length + " ta"]].map(([k,v]) =>
         `<div style="background:var(--bg2,#F5F5F3);border-radius:8px;padding:8px 12px;min-width:110px">
