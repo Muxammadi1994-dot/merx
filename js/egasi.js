@@ -1363,6 +1363,11 @@ function saveKursQuick() {
   const eski = Number(db.settings?.rate) || 0;
   if (db.settings?.rateMode !== "manual") saveSetting("rateMode", "manual");
   saveSetting("rate", val);
+  // ⚖️ AUDIT 2-bosqich (2026-08-12): kurs o'zgarishi izi
+  try {
+    if (eski !== val) auditLog("kurs", "settings", "rate", "Dollar kursi",
+      { before: String(eski), after: String(val) });
+  } catch (e) {}
   closeKursQuick();
   toast(`✅ Kurs: ${fmt(eski)} → ${fmt(val)} so'm`);
 }

@@ -671,7 +671,7 @@ function nav(p) {
   const fn = { dashboard:renderDashboard, katalog:renderKatalog, ombor:renderOmbor,
     mijozlar:renderMijozlar, qarzlar:renderDebts, qarztarix:renderQarzlarTarixi, tarix:renderTarix,
     hisobot:renderHisobot, xodimlar:renderXodimlar, moliya:renderMoliya,
-    portal:renderPortal, egasi:renderEgasi };
+    portal:renderPortal, egasi:renderEgasi, audit:renderAudit };
   if (fn[p]) fn[p]();
   if (p === "pos") {
     refreshCustList(); refreshStaffList(); renderPosGrid();
@@ -2988,3 +2988,89 @@ function auditLog(action, entity, entityId, label, extra) {
     if (db.auditLog.length > 3000) db.auditLog = db.auditLog.slice(-2000);
   } catch (e) { /* audit hech qachon to'xtatmaydi */ }
 }
+
+
+// ═══ AUDIT SAHIFASI (2026-08-12, 2-bosqich) ════════════
+// Egasi/admin uchun: kim, qachon, qaysi qurilmada, nimani o'zgartirdi.
+// FAQAT O'QIYDI. Manba — db.auditLog (bulut bilan sinxron).
+function renderAudit() {
+  const body = document.getElementById("au-body");
+  if (!body) return;
+  if (typeof hasRole === "function" && !hasRole("admin")) {
+    body.innerHTML = `<div style="color:var(--mut);font-size:13px">
+      Bu sahifa faqat egasi va admin uchun.</div>`;
+    const st = document.getElementById("au-stat"); if (st) st.textContent = "";
+    return;
+  }
+  const all = (db.auditLog || []).slice().sort((a,b) =>
+    String(b.ts || "").localeCompare(String(a.ts || "")));
+
+  // Xodim ro'yxatini bir marta to'ldiramiz
+  const selA = document.getElementById("au-actor");
+  if (selA && selA.options.length <= 1) {
+    [...new Set(all.map(x => x.actor).filter(Boolean))].sort().forEach(n => {
+      const o = document.createElement("option"); o.value = n; o.textContent = n;
+      selA.appendChild(o);
+    });
+  }
+
+  const fAct   = (document.getElementById("au-act")   || {}).value || "";
+  const fActor = (document.getElementById("au-actor") || {}).value || "";
+  const q      = ((document.getElementById("au-q")    || {}).value || "").toLowerCase().trim();
+
+  const list = all.filter(x =>
+    (!fAct   || x.action === fAct) &&
+    (!fActor || x.actor  === fActor) &&
+    (!q || (String(x.label||"") + " " + String(x.entityId||"") + " " +
+            String(x.actor||"") + " " + String(x.note||"")).toLowerCase().includes(q)));
+
+  const NOM = { delete:"Tovar o'chirildi", restore:"Arxivdan tiklandi",
+    cancel:"Sotuv bekor qilindi", atkaz:"To'lov atkaz qilindi",
+    narx:"Narx o'zgardi", kurs:"Kurs o'zgardi",
+    inventar:"Qoldiq sanaldi", qoldiq:"Qoldiq harakati" };
+  const RANG = { delete:"#A32D2D", restore:"#0F6E56", cancel:"#A32D2D",
+    atkaz:"#8A6D1F", narx:"#185FA5", kurs:"#6B4FBB",
+    inventar:"#5F5E5A", qoldiq:"#0F6E56" };
+
+  const st = document.getElementById("au-stat");
+  if (st) st.textContent = list.length + " ta yozuv" +
+    (all.length !== list.length ? " (jami " + all.length + ")" : "");
+
+  body.innerHTML = list.length ? list.slice(0, 300).map(x =>
+    `<div style="display:flex;gap:10px;align-items:flex-start;
+                 border-left:3px solid ${RANG[x.action] || "#ccc"};
+                 background:var(--bg2,#FAFAF8);padding:8px 10px;
+                 border-radius:0 8px 8px 0;margin-bottom:6px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500">
+          ${NOM[x.action] || x.action} — ${x.label || x.entityId || ""}
+        </div>
+        <div style="font-size:11.5px;color:var(--mut);margin-top:2px">
+          ${x.date || ""} ${x.time || ""} · <b>${x.actor || "?"}</b>${
+            x.device ? " (" + x.device + ")" : ""}${
+            x.entityId ? " · " + x.entityId : ""}
+        </div>
+        ${(x.before || x.after) && String(x.before||"").length < 60
+          ? `<div style="font-size:11.5px;margin-top:3px">
+               ${x.before ? "<s>" + x.before + "</s> → " : ""}<b>${x.after || ""}</b></div>`
+          : ""}
+        ${x.note && x.note.length < 120
+          ? `<div style="font-size:11px;color:var(--mut);margin-top:2px">${x.note}</div>` : ""}
+      </div>
+    </div>`).join("") + (list.length > 300
+      ? `<div style="font-size:11.5px;color:var(--mut);margin-top:6px">
+           Eng yangi 300 tasi ko'rsatildi.</div>` : "")
+    : `<div style="color:var(--mut);font-size:13px">Yozuv topilmadi.</div>`;
+}
+
+// 90 kundan eski yozuvlar QURILMADAN tozalanadi (bulutdagi nusxa qoladi)
+function _auditPrune() {
+  try {
+    if (!Array.isArray(db.auditLog) || !db.auditLog.length) return;
+    const chek = new Date(Date.now() - 90 * 86400000).toISOString();
+    const oldN = db.auditLog.length;
+    db.auditLog = db.auditLog.filter(x => String(x.ts || "") >= chek);
+    if (db.auditLog.length !== oldN) saveDB();
+  } catch (e) {}
+}
+setTimeout(_auditPrune, 20000);

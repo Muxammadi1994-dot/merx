@@ -611,6 +611,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
     <div class="ns-group">
       <div class="ni" data-p="hisobot" data-page="hisobot"><i class="ti ti-chart-dots"></i>Hisobot</div>
       <div class="ni" data-p="moliya" data-page="moliya"><i class="ti ti-cash"></i>Moliya</div>
+      <div class="ni" data-p="audit" data-page="audit"><i class="ti ti-scale"></i>Audit</div>
     </div>
 
     <!-- SOZLAMALAR -->
@@ -2359,6 +2360,35 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
   </div>
 
   <!-- MOLIYA -->
+  <!-- AUDIT (2026-08-12): kim / qachon / qaysi qurilma / nima -->
+  <div class="pg" id="p-audit">
+    <div class="card">
+      <div class="ch">
+        <h3><i class="ti ti-scale"></i>Audit — amallar izi</h3>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="au-act" onchange="renderAudit()" class="inp" style="min-width:150px">
+            <option value="">Barcha amallar</option>
+            <option value="delete">Tovar o'chirish</option>
+            <option value="restore">Tiklash</option>
+            <option value="cancel">Sotuv bekori</option>
+            <option value="atkaz">To'lov atkazi</option>
+            <option value="narx">Narx o'zgarishi</option>
+            <option value="kurs">Kurs o'zgarishi</option>
+            <option value="inventar">Qoldiq sanash</option>
+            <option value="qoldiq">Qoldiq harakati</option>
+          </select>
+          <select id="au-actor" onchange="renderAudit()" class="inp" style="min-width:140px">
+            <option value="">Barcha xodimlar</option>
+          </select>
+          <input id="au-q" class="inp" placeholder="Qidirish…" oninput="renderAudit()"
+            style="min-width:150px">
+        </div>
+      </div>
+      <div id="au-stat" style="font-size:12px;color:var(--mut);margin-bottom:8px"></div>
+      <div id="au-body"></div>
+    </div>
+  </div>
+
   <div class="pg" id="p-moliya">
     <!-- Xarajatlar header banner -->
     <div class="mol-bal">
@@ -4985,13 +5015,13 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=167"></script>
-<script src="js/utils.js?v=229"></script>
+<script src="js/utils.js?v=230"></script>
 <script src="js/auth.js?v=206"></script>
 <script src="js/sms.js?v=144"></script>
 <script src="js/cloud.js?v=268"></script>
 <script src="js/dashboard.js?v=157"></script>
 <script src="js/pos.js?v=256"></script>
-<script src="js/katalog.js?v=267"></script>
+<script src="js/katalog.js?v=268"></script>
 <script src="js/ombor.js?v=178"></script>
 <script src="js/mijozlar.js?v=165"></script>
 <script src="js/qarzlar.js?v=211"></script>
@@ -4999,7 +5029,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 <script src="js/hisobot.js?v=154"></script>
 <script src="js/xodimlar.js?v=159"></script>
 <script src="js/moliya.js?v=174"></script>
-<script src="js/egasi.js?v=174"></script>
+<script src="js/egasi.js?v=175"></script>
 <script src="js/portal.js?v=143"></script>
 <script src="js/init.js?v=151"></script>
 <script>
@@ -5293,7 +5323,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 359;
+  window.SW_V = 361;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5316,7 +5346,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=359")
+    navigator.serviceWorker.register("/sw.js?v=361")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

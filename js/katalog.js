@@ -1279,6 +1279,10 @@ function saveEditProduct() {
   // Narx 0 ogohlantirish
   const _newPrice = _pv("ep-price");
   if (_newPrice === 0 && !confirm("Chakana narx 0 so'm qilib saqlansin?")) return;
+  // ⚖️ AUDIT 2-bosqich (2026-08-12): narx/tannarx o'zgarishlarini
+  // yozish uchun ESKI qiymatlarni eslab qolamiz.
+  const _oldVals = { cost: p.costUzs || 0, ulg: p.ulgurjiNarx || 0,
+                     price: p.priceUzs || 0, name: p.name };
   p.name        = $("ep-name").value.trim()     || p.name;
   p.category    = $("ep-cat").value.trim()      || p.category;
   // Tannarx: input qiymati joriy valyuta rejimida, bazaga har doim USD saqlanadi
@@ -1293,6 +1297,17 @@ function saveEditProduct() {
   }
   p.priceUzs    = _pv("ep-price")   || p.priceUzs;
   p.ulgurjiNarx = readUlgAsUzs("ep-ulgurji");
+  // ⚖️ AUDIT: nima o'zgarganini nomma-nom yozamiz
+  try {
+    const _chg = [];
+    if ((p.costUzs || 0)     !== _oldVals.cost)  _chg.push(["Tannarx", _oldVals.cost, p.costUzs || 0]);
+    if ((p.ulgurjiNarx || 0) !== _oldVals.ulg)   _chg.push(["Ulgurji narx", _oldVals.ulg, p.ulgurjiNarx || 0]);
+    if ((p.priceUzs || 0)    !== _oldVals.price) _chg.push(["Chakana narx", _oldVals.price, p.priceUzs || 0]);
+    if (p.name !== _oldVals.name)                _chg.push(["Nomi", _oldVals.name, p.name]);
+    _chg.forEach(([nomi, eski, yangi]) =>
+      auditLog("narx", "product", p.sku, p.name + " · " + nomi,
+        { before: String(eski), after: String(yangi) }));
+  } catch (e) {}
   if ($("ep-unit"))     p.unit     = $("ep-unit").value     || p.unit;
   if ($("ep-art"))      p.art      = $("ep-art").value.trim();
   if ($("ep-barcode"))  p.barcode  = $("ep-barcode").value.trim();
@@ -5237,8 +5252,13 @@ function showProductHistory(sku, vp) {
   (db.auditLog || []).filter(a => a.entity === "product" && a.entityId === sku)
     .forEach(a => {
       ev.push({ ts: new Date(a.ts).getTime() || 0, sana: a.date || "",
-        vaqt: a.time || "", tur: (a.action === "inventar" ? "inventar" : "audit"),
+        vaqt: a.time || "",
+        tur: (a.action === "inventar" || a.action === "narx") ? "inventar" : "audit",
         matn: (a.action === "delete" ? "O'CHIRILDI"
+              : a.action === "narx"
+                ? (a.label || "").split(" · ").slice(-1)[0] + ": " +
+                  fmt(Number(a.before) || 0) + " → " + fmt(Number(a.after) || 0)
+              : a.action === "restore" ? "ARXIVDAN TIKLANDI"
               : a.action === "inventar"
                 ? "Qoldiq tuzatildi: " + (a.before || "?") + " → " + (a.after || "?") + " dona"
                 : a.action) + " — " +
