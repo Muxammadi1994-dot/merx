@@ -373,7 +373,10 @@ function renderEgasi() {
     { v:"merx",      l:"MERX brend (zamonaviy)" },
     { v:"thermal",   l:"Termal (tor, tejamkor)" },
     { v:"wholesale", l:"Ulgurji (model + $ va so'm)" },
-    { v:"compact",   l:"Ixcham (qisqa)" },
+    // "Ixcham" RO'YXATDAN OLINDI (2026-08-12, egasining qarori): Termal
+    // bilan deyarli bir xil edi, alohida foydasi yo'q. Chizuvchi
+    // (buildReceiptCompact) KODDA QOLADI — eski saqlangan qiymat
+    // bo'lgan do'konda chek buzilmasin (mavjud funksiyaga tegmaymiz).
     { v:"table",     l:"Jadval (USD + so'm)" },
   ];
   const _fillStyle = (el, val) => {
@@ -729,7 +732,11 @@ function saveChekConfig() {
     // ✅ USLUB SOZLAMALARI (2026-08-12): faqat TANLANGAN uslub uchun.
     // Bo'sh maydon — umumiy sozlamadan olinadi (kalit o'chiriladi).
     try {
-      const _st = cfg.posStyle || "unified";
+      // Saqlash ham TANLANGAN BO'LIM uslubi uchun
+      const _sect = (document.getElementById("cs-sect") || {}).value || "sotuv";
+      const _st = (_sect === "qarz" ? cfg.qarzStyle
+                 : _sect === "tarix" ? cfg.tarixStyle
+                 : cfg.posStyle) || "unified";
       if (!cfg.perStyle) cfg.perStyle = {};
       const _o = cfg.perStyle[_st] || {};
       const _put = (id, key, num) => {
@@ -807,10 +814,22 @@ function previewChek(style) {
     prevDebtUzs: 500000, due: "2026-07-15"
   };
   const staffObj = db.staff?.[0];
+  // ✅ 2026-08-12: namuna endi USLUB SOZLAMALARINI ham hisobga oladi
+  // (qog'oz eni, sarlavha foni, shrift) — avval umumiy sozlama bilan
+  // chizardi va "58mm qo'ydim, namunada ko'rinmadi" holati bo'lardi.
+  const _pv = (() => {
+    try {
+      const c = (db.settings && db.settings.chekConfig) || {};
+      const o = (c.perStyle && c.perStyle[style]) || {};
+      const base = (typeof getChekCfg === "function") ? getChekCfg("sotuv") : {};
+      return { ...base, ...o };
+    } catch (e) { return null; }
+  })();
   const html = buildReceiptHtml(testSale, {
     shopName: db.shop?.name || "MERX",
     staffName: staffObj?.name || "Kassir",
-    style
+    style, type: "sotuv",
+    ...(_pv ? { _previewCfg: _pv } : {})
   });
   const w = window.open("", "_blank", "width=440,height=700");
   if (!w) { toast("Pop-up bloklangan", "err"); return; }
@@ -1447,7 +1466,11 @@ function applyCurrencyLock() {
 function csLoadStyleOpts() {
   try {
     const cfg = (db.settings && db.settings.chekConfig) || {};
-    const st  = (document.getElementById("chek-pos-style") || {}).value || "unified";
+    // 2026-08-12: panel qaysi BO'LIM uslubini sozlashi — tanlagichdan
+    const sect = (document.getElementById("cs-sect") || {}).value || "sotuv";
+    const selId = sect === "qarz" ? "chek-qarz-style"
+                : sect === "tarix" ? "chek-tarix-style" : "chek-pos-style";
+    const st  = (document.getElementById(selId) || {}).value || "unified";
     const NOM = { unified:"Yagona", merx:"MERX brend", thermal:"Termal",
                   wholesale:"Ulgurji", compact:"Ixcham", table:"Jadval" };
     ["cs-opts-name","cs-opts-name2"].forEach(id => {
@@ -1466,6 +1489,7 @@ function csLoadStyleOpts() {
 
 function ceMarkStyle() {
   try { csLoadStyleOpts(); } catch (e) {}
+  // Kartalar POS uslubini belgilaydi (asosiy bo'lim)
   try {
     const v = (document.getElementById("chek-pos-style") || {}).value || "unified";
     document.querySelectorAll("#chek-style-cards .cs-card").forEach(c => {

@@ -1019,9 +1019,14 @@ function buildReceiptHtml(sale, opts) {
 
   // Chek sozlamalari — YAGONA manbadan (1-bosqich). type: bot/PDF cheki.
   // 2026-07-18: preview uchun opts._previewCfg (saqlanmagan joriy qiymatlar) USTUN.
+  // ⚠️ 2026-08-12 (TUZATILDI): sozlama BO'LIM bo'yicha olinadi.
+  // Avval doim getChekCfg("bot") edi — ya'ni uslub-sozlamalari
+  // (qog'oz eni, sarlavha foni) chekka YETMASDI: sotuv ham, tarix ham
+  // "bot" qatlamini olardi. Endi haqiqiy bo'lim uzatiladi.
+  const _sect = opts.type === "savat" ? "sotuv" : (opts.type || "sotuv");
   const chekCfg = opts._previewCfg
                 ? opts._previewCfg
-                : ((typeof getChekCfg === "function") ? getChekCfg("bot")
+                : ((typeof getChekCfg === "function") ? getChekCfg(_sect)
                 : ((typeof db !== "undefined" && db.settings?.chekConfig) || {}));
   const style   = opts.style || "unified";
   // 2026-07-18 (birlashtirish A): chek turi — sotuv/savat/qarz/bot.

@@ -3077,12 +3077,6 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
                     <div style="font-size:10px;color:var(--mut)">Ro'yxat: model, pochka, $</div>
                     <button type="button" onclick="previewChek('wholesale')" class="btn btn-ghost btn-sm" style="margin-top:6px;font-size:10px">Ko'rish</button>
                   </div>
-                  <div class="cs-card" data-s="compact" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center">
-                    <i class="ti ti-file-minus" style="font-size:20px;display:block;margin-bottom:4px"></i>
-                    <div style="font-size:12px;font-weight:700">Ixcham</div>
-                    <div style="font-size:10px;color:var(--mut)">Eng qisqa: 1 qator/tovar</div>
-                    <button type="button" onclick="previewChek('compact')" class="btn btn-ghost btn-sm" style="margin-top:6px;font-size:10px">Ko'rish</button>
-                  </div>
                   <div class="cs-card" data-s="table" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center">
                     <i class="ti ti-table" style="font-size:20px;display:block;margin-bottom:4px"></i>
                     <div style="font-size:12px;font-weight:700">Jadval</div>
@@ -3093,8 +3087,16 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 
                 <!-- 2026-08-12: TANLANGAN USLUB SOZLAMALARI -->
                 <div id="cs-opts" style="border:1.5px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:14px;background:var(--bg2,#FAFAF8)">
-                  <div style="font-size:11.5px;font-weight:700;margin-bottom:8px">
-                    <span id="cs-opts-name">Yagona</span> uslubi sozlamalari
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+                    <div style="font-size:11.5px;font-weight:700">
+                      <span id="cs-opts-name">Yagona</span> uslubi sozlamalari
+                    </div>
+                    <select id="cs-sect" onchange="csLoadStyleOpts()"
+                      style="font-size:11.5px;padding:4px 8px;border:1.5px solid var(--brd);border-radius:6px;background:#fff">
+                      <option value="sotuv">POS bo'limi</option>
+                      <option value="tarix">Sotuv tarixi</option>
+                      <option value="qarz">Qarzlar</option>
+                    </select>
                   </div>
                   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
                     <div class="fld"><label>Qog'oz eni</label>
@@ -3128,7 +3130,8 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
                   </div>
                   <div style="font-size:11px;color:var(--mut);margin-top:8px">
                     Bo'sh qoldirilgan maydon umumiy sozlamadan olinadi.
-                    Bu yerdagi qiymatlar faqat <b id="cs-opts-name2">Yagona</b> uslubiga ta'sir qiladi.
+                    Bu yerdagi qiymatlar faqat <b id="cs-opts-name2">Yagona</b> uslubiga ta'sir qiladi
+                    (yuqoridagi bo'lim tanlovi qaysi bo'lim uslubini sozlashni belgilaydi).
                   </div>
                 </div>
 
@@ -5085,7 +5088,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=168"></script>
-<script src="js/utils.js?v=235"></script>
+<script src="js/utils.js?v=236"></script>
 <script src="js/auth.js?v=206"></script>
 <script src="js/sms.js?v=144"></script>
 <script src="js/cloud.js?v=268"></script>
@@ -5095,11 +5098,11 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 <script src="js/ombor.js?v=178"></script>
 <script src="js/mijozlar.js?v=165"></script>
 <script src="js/qarzlar.js?v=213"></script>
-<script src="js/tarix.js?v=185"></script>
+<script src="js/tarix.js?v=186"></script>
 <script src="js/hisobot.js?v=154"></script>
 <script src="js/xodimlar.js?v=159"></script>
 <script src="js/moliya.js?v=174"></script>
-<script src="js/egasi.js?v=180"></script>
+<script src="js/egasi.js?v=182"></script>
 <script src="js/portal.js?v=143"></script>
 <script src="js/init.js?v=151"></script>
 <script>
@@ -5393,7 +5396,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 372;
+  window.SW_V = 374;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5416,7 +5419,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=372")
+    navigator.serviceWorker.register("/sw.js?v=374")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

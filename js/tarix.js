@@ -1065,6 +1065,7 @@ function printReceipt(id) {
     shopName, staffName: staffObj?.name || "—",
     botUsername: botUser, receiptUrl,
     // 2026-08-12: eski qiymat kuchga kirmaydi (styleV2 muhri — pos.js dagi izoh)
+    type: "tarix",   // 2026-08-12: sozlama shu bo'lim bo'yicha olinsin
     style: (chekCfg2.styleV2 ? (chekCfg2.tarixStyle || "unified") : "unified")
   });
   const w = window.open("","_blank","width=420,height=700");
