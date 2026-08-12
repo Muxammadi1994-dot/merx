@@ -707,7 +707,16 @@ function saveChekConfig() {
   cfg.phones = Array.isArray(window._chekPhones) ? window._chekPhones.slice() : [];
   cfg.contact = cfg.phones.join(", "); // eski maydonlar/bot mosligi uchun ham
   cfg.extraLines = Array.isArray(window._chekExtra) ? window._chekExtra.slice() : [];
-  cfg.footer  = document.getElementById("chek-footer")?.value  || "Rahmat! Yana kutamiz 🙏";
+  // ⚠️ 2026-08-12: STANDART MATN FOYDALANUVCHINIKINI BOSMAYDI.
+  // Avval `el?.value || "Rahmat! Yana kutamiz"` edi — maydon hali
+  // chizilmagan (yoki bo'sh) bo'lsa, standart matn adminning o'z
+  // yozuvini O'CHIRIB yozardi. Endi element mavjud bo'lsagina
+  // o'qiladi; yo'q bo'lsa avvalgi qiymat saqlanadi.
+  {
+    const _fEl = document.getElementById("chek-footer");
+    if (_fEl) cfg.footer = _fEl.value;
+    else if (cfg.footer == null) cfg.footer = "Rahmat! Yana kutamiz 🙏";
+  }
   cfg.showStaff        = document.getElementById("chek-show-staff")?.checked !== false;
   cfg.showContact      = document.getElementById("chek-show-contact")?.checked !== false;
   cfg.showDebtHistory  = document.getElementById("chek-show-debt-history")?.checked !== false;
