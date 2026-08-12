@@ -3124,6 +3124,33 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
                         <option value="xlarge">Juda katta</option>
                       </select>
                     </div>
+                    <div class="fld"><label>Do'kon nomi o'lchami</label>
+                      <select id="cs-b-shop">
+                        <option value="">Umumiy</option>
+                        <option value="16">Kichik (16)</option>
+                        <option value="20">Odatiy (20)</option>
+                        <option value="24">Katta (24)</option>
+                        <option value="28">Juda katta (28)</option>
+                      </select>
+                    </div>
+                    <div class="fld"><label>Tovar nomi o'lchami</label>
+                      <select id="cs-b-item">
+                        <option value="">Umumiy</option>
+                        <option value="11">Kichik (11)</option>
+                        <option value="13">Odatiy (13)</option>
+                        <option value="15">Katta (15)</option>
+                        <option value="17">Juda katta (17)</option>
+                      </select>
+                    </div>
+                    <div class="fld"><label>JAMI o'lchami</label>
+                      <select id="cs-b-total">
+                        <option value="">Umumiy</option>
+                        <option value="16">Kichik (16)</option>
+                        <option value="20">Odatiy (20)</option>
+                        <option value="24">Katta (24)</option>
+                        <option value="28">Juda katta (28)</option>
+                      </select>
+                    </div>
                     <div class="fld" style="grid-column:1/-1"><label>Pastki matn (faqat shu uslubda)</label>
                       <input id="cs-footer" placeholder="Umumiy sozlamadan olinadi">
                     </div>
@@ -5088,7 +5115,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=168"></script>
-<script src="js/utils.js?v=236"></script>
+<script src="js/utils.js?v=237"></script>
 <script src="js/auth.js?v=206"></script>
 <script src="js/sms.js?v=144"></script>
 <script src="js/cloud.js?v=268"></script>
@@ -5102,7 +5129,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 <script src="js/hisobot.js?v=154"></script>
 <script src="js/xodimlar.js?v=159"></script>
 <script src="js/moliya.js?v=174"></script>
-<script src="js/egasi.js?v=182"></script>
+<script src="js/egasi.js?v=183"></script>
 <script src="js/portal.js?v=143"></script>
 <script src="js/init.js?v=151"></script>
 <script>
@@ -5396,7 +5423,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 374;
+  window.SW_V = 375;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5419,7 +5446,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=374")
+    navigator.serviceWorker.register("/sw.js?v=375")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

@@ -1926,9 +1926,15 @@ body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
 .btn-p{background:#000;color:#fff}
 .btn-c{background:#fff;color:#000;border:1.5px solid #ccc}
 @media print{
+  /* \u2705 2026-08-12: qog'oz eni SOZLAMADAN (avval 72mm qotib qolgandi \u2014
+     58/80 mm tanlansa ham termal chek 72mm da chiqardi). Shrift ham
+     uslub sozlamasiga ergashadi. */
+  @page{size:${cfg.paperWidth || 72}mm auto;margin:0}
   body{background:#fff;padding:0}
-  .rc{width:72mm;max-width:72mm;border-radius:0;box-shadow:none;
-      font-size:11px;line-height:1.5;padding:4px 6px}
+  .rc{width:${cfg.paperWidth || 72}mm;max-width:${cfg.paperWidth || 72}mm;
+      border-radius:0;box-shadow:none;
+      font-size:${({small:10,normal:11,large:12.5,xlarge:14})[cfg.fontScale] || 11}px;
+      line-height:1.5;padding:4px 6px}
   .acts{display:none}
 }
 </style></head><body>

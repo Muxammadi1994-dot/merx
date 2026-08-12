@@ -750,6 +750,21 @@ function saveChekConfig() {
       _put("cs-header", "headerStyle");
       _put("cs-font",   "fontScale");
       _put("cs-footer", "footer");
+      // Blok o'lchamlari — shu uslub uchun
+      const _bl = _o.blocks || {};
+      const _putB = (id, key) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const v = (el.value || "").trim();
+        if (v === "") { if (_bl[key]) delete _bl[key].size;
+                        if (_bl[key] && !Object.keys(_bl[key]).length) delete _bl[key]; }
+        else { _bl[key] = { ...(_bl[key] || {}), size: v + "px" }; }
+      };
+      _putB("cs-b-shop",  "shop");
+      _putB("cs-b-item",  "itemName");
+      _putB("cs-b-total", "total");
+      if (Object.keys(_bl).length) _o.blocks = _bl; else delete _o.blocks;
+
       if (Object.keys(_o).length) cfg.perStyle[_st] = _o;
       else delete cfg.perStyle[_st];
     } catch (e) {}
@@ -1484,6 +1499,11 @@ function csLoadStyleOpts() {
     set("cs-header", o.headerStyle);
     set("cs-font",   o.fontScale);
     set("cs-footer", o.footer);
+    // 2026-08-12: blok o'lchamlari HAM uslubga bog'landi
+    const _b = o.blocks || {};
+    set("cs-b-shop",  _b.shop     && parseInt(_b.shop.size));
+    set("cs-b-item",  _b.itemName && parseInt(_b.itemName.size));
+    set("cs-b-total", _b.total    && parseInt(_b.total.size));
   } catch (e) {}
 }
 
