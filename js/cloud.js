@@ -3511,27 +3511,39 @@ function applyCloudSettings(sets) {
 // ish davom etadi, lekin holat endi YASHIRINMAYDI.
 let _syncAliveAt = Date.now();
 function _syncAliveMark() { _syncAliveAt = Date.now(); }
-function _syncAlarmCheck() {
+async function _syncAlarmCheck() {
   try {
     const DEAD_MS = 12 * 60 * 1000;
-    const dead = (Date.now() - _syncAliveAt) > DEAD_MS &&
-                 (typeof navigator === "undefined" || navigator.onLine !== false);
+    const quiet = (Date.now() - _syncAliveAt) > DEAD_MS &&
+                  (typeof navigator === "undefined" || navigator.onLine !== false);
     let el = document.getElementById("sync-dead-banner");
-    if (dead) {
-      if (!el) {
-        el = document.createElement("div");
-        el.id = "sync-dead-banner";
-        el.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:99999;" +
-          "background:#C62828;color:#fff;font-weight:800;font-size:13px;" +
-          "padding:10px 14px;text-align:center;box-shadow:0 -2px 10px rgba(0,0,0,.3)";
-        document.body.appendChild(el);
+    if (!quiet) { if (el) el.remove(); return; }
+    // ⚠️ 2026-08-12 (egasining savoli: "sotuvchini chalg'itmaydimi?"):
+    // JIM turgan SOG' kassa lentani KO'RMAYDI — avval yengil ping
+    // yuboriladi; bulut javob bersa "tirik" muhri yangilanadi va lenta
+    // chiqmaydi/o'chadi. Lenta FAQAT ping ham yiqilganda — haqiqiy
+    // uzilishda — paydo bo'ladi, aloqa qaytishi bilan O'ZI yo'qoladi.
+    // Ish bloklanmaydi — bu ogohlantirish, taqiq emas.
+    try {
+      if (_sb) {
+        const sid = (typeof getCloudShopId === "function") ? getCloudShopId() : null;
+        let q = _sb.from("settings").select("shop_id").limit(1);
+        if (sid) q = q.eq("shop_id", sid);
+        const { error } = await q;
+        if (!error) { _syncAliveMark(); if (el) el.remove(); return; }
       }
-      const min = Math.round((Date.now() - _syncAliveAt) / 60000);
-      el.textContent = "⛔ SINXRON UZILGAN — " + min + " daqiqadan beri bulut bilan " +
-        "aloqa yo'q. Yozuvlar FAQAT SHU QURILMADA. Internet/versiyani tekshiring!";
-    } else if (el) {
-      el.remove();
+    } catch (e) {}
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "sync-dead-banner";
+      el.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:99999;" +
+        "background:#C62828;color:#fff;font-weight:800;font-size:13px;" +
+        "padding:10px 14px;text-align:center;box-shadow:0 -2px 10px rgba(0,0,0,.3)";
+      document.body.appendChild(el);
     }
+    const min = Math.round((Date.now() - _syncAliveAt) / 60000);
+    el.textContent = "⛔ SINXRON UZILGAN — " + min + " daqiqadan beri bulut bilan " +
+      "aloqa yo'q. Yozuvlar FAQAT SHU QURILMADA. Internet/versiyani tekshiring!";
   } catch (e) {}
 }
 setInterval(_syncAlarmCheck, 60000);

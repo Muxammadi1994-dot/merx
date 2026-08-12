@@ -1347,6 +1347,14 @@ function _qarzStaffOpts() {
 // ── To'lov qabul qilish (ko'p qarzga avtomatik taqsimlash) ──
 // ── Mijoz balansidan qarzga o'tkazish (qo'lda, sotuvchi tanlaganda) ─
 async function useBalanceForDebt(saleId) {
+  // ⚠️ PUL-QALQON A1: balans-o'tkazishga ham xuddi shu qulf.
+  if (window._payBusy) {
+    toast("⏳ Avvalgi amal yozilmoqda — bir soniya kuting", "err");
+    return;
+  }
+  window._payBusy = true;
+  setTimeout(() => { window._payBusy = false; }, 2500);
+
   // ⚠️ 2026-08-02: KURS YUKLANMAGUNCHA TO'LOV YO'Q.
   // Xodim kirganda sozlamalar bo'sh bo'ladi va standart kurs
   // (12800) ishlatiladi — dollar qarzi noto'g'ri hisoblanardi.
@@ -1381,7 +1389,9 @@ async function useBalanceForDebt(saleId) {
   // To'lov sifatida yozamiz (manba: balans)
   const staffId1 = parseInt((typeof $==="function"&&$("qarz-staff")?.value)||0)||null;
   const payment = {
-    id: (db.seq = (db.seq||1) + 1),
+    id: payNewId(),              // PUL-QALQON B: vaqt-asosli, to'qnashuvsiz
+    createdTs: Date.now(),
+    updatedAt: new Date().toISOString(),
     chekNum: genPayChekNum(),
     date: today(), time: nowTime(),
     customerId: sale.customerId,
@@ -1426,6 +1436,17 @@ function qzShowUsdHint(id) {
 }
 
 async function recordPayment(id, forcedCurrency) {
+  // ⚠️ PUL-QALQON A1 (2026-08-12): TAKROR-BOSISH QULFI. Jonli isbot:
+  // Nuriddin 17:55/17:59 ($1000×2), Muhammad 04:39/04:43 ($821×2) —
+  // tugma ketma-ket bosilib bir to'lov IKKI marta yozilgan. Sotuvda
+  // bunday qulf bor edi (_checkoutBusy), pul-amallarda YO'Q edi.
+  if (window._payBusy) {
+    toast("⏳ Avvalgi to'lov yozilmoqda — bir soniya kuting", "err");
+    return;
+  }
+  window._payBusy = true;
+  setTimeout(() => { window._payBusy = false; }, 2500);
+
   // ⚠️ 2026-08-02: KURS YUKLANMAGUNCHA TO'LOV YO'Q.
   // Xodim kirganda sozlamalar bo'sh bo'ladi va standart kurs
   // (12800) ishlatiladi — dollar qarzi noto'g'ri hisoblanardi.
@@ -1575,8 +1596,26 @@ async function recordPayment(id, forcedCurrency) {
     const el = typeof $ === "function" ? $("qarz-pay-staff") : null;
     return el ? (parseInt(el.value)||null) : null;
   })();
+  // ⚠️ PUL-QALQON A2: 10 soniya ichida AYNAN bir xil to'lov (mijoz+
+  // valyuta+summa) qayta yozilsa — ongli tasdiq so'raladi ("saqlanmadi
+  // deb qayta kiritish" holati: Nuriddinning kechki juftligi).
+  try {
+    const _dupe = (db.debtPayments || []).find(p => !p.cancelled &&
+      String(p.customerId) === String(clicked.customerId || "") &&
+      p.currency === payCur && Math.abs((p.amount || 0) - amt) < 0.01 &&
+      p.createdTs && (Date.now() - p.createdTs) < 10000);
+    if (_dupe && !confirm("⚠️ Hozirgina xuddi shunday to'lov yozildi (" +
+        fmt(amt) + " " + String(payCur).toUpperCase() +
+        ").\n\nYANA BIR MARTA yozilsinmi?")) {
+      toast("Takror to'lov yozilmadi", "err");
+      window._payBusy = false;
+      return;
+    }
+  } catch (e) {}
   const payment = {
-    id:            (db.seq = (db.seq||1) + 1),
+    id:            payNewId(),   // PUL-QALQON B: vaqt-asosli id
+    createdTs:     Date.now(),
+    updatedAt:     new Date().toISOString(),
     chekNum:       genPayChekNum(),
     date:          today(),
     time:          nowTime(),

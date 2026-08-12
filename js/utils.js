@@ -254,7 +254,23 @@ const isOverdue  = s  => s.due && s.due < today();
 function genPayChekNum() {
   const datePart = today().replace(/-/g, "");
   const seq = (db.debtPayments || []).filter(p => p.chekNum?.includes(datePart)).length + 1;
-  return `PAY-${datePart}-${String(seq).padStart(4, "0")}`;
+  // ⚠️ PUL-QALQON (2026-08-12): raqam oxiriga KASSA HARFI qo'shildi —
+  // sanoq lokal bo'lgani uchun ikki kassa bir kunda BIR XIL raqam
+  // berardi (auditda 6 juft topildi). Endi sotuv cheki kabi ajralади.
+  const dev = (typeof _devCode === "function") ? ("-" + _devCode()) : "";
+  return `PAY-${datePart}-${String(seq).padStart(4, "0")}${dev}`;
+}
+
+// ⚠️ PUL-QALQON B (2026-08-12): to'lov id endi VAQT-ASOSLI.
+// Avval `db.seq` (lokal sanoq) edi — ikki kassa to'qnashsa bulutda
+// (id,shop_id) upsert BIRINI IKKINCHISI BILAN BOSIB KETARDI —
+// "yo'qolgan to'lov"ning isbotlangan mexanizmlaridan biri.
+let _lastPayIdTs = 0;
+function payNewId() {
+  let t = Date.now();
+  if (t <= _lastPayIdTs) t = _lastPayIdTs + 1;
+  _lastPayIdTs = t;
+  return t;
 }
 
 // ── Bitta sotuv bo'yicha barcha to'lovlarni topish ─
