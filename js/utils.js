@@ -666,7 +666,14 @@ function updateRatePill() {
   // (12800/0) KO'RSATILMAYDI — "—" turadi. Aks holda kirishda standart
   // raqam haqiqiy kursdek ko'rinib, chalg'itardi (jonli voqea: admin
   // 12800 ni ko'rib qo'lda to'g'rilagan).
-  $("tb-rate").textContent = db.settings?.rate ? fmt(db.settings.rate) : "—";
+  // ⚠️ 2026-08-12 (davomi): ESKI 12800 IZI ham yashiriladi. Ba'zi
+  // qurilmalar lokalida o'sha mashhur kurs-xatosi davridan MUHRSIZ
+  // 12800 qolgan — pill uni haqiqiy kursdek ko'rsatib yuborardi
+  // (jonli: xodim kirishida). Muhrsiz 12800 = qoldiq deb qaraladi,
+  // haqiqiy qiymat pull bilan kelganda o'z-o'zidan almashadi.
+  const _r = db.settings?.rate;
+  const _stale = (_r === 12800 && !db.settings?.rateUpdatedAt);
+  $("tb-rate").textContent = (_r && !_stale) ? fmt(_r) : "—";
   // 2026-07-26: valyuta yorlig'i YAGONA manbadan (avval uch faylda
   // uch xil yozilib, tugma goh "SO'M+USD", goh "so'm/USD" ko'rinardi)
   $("tb-cur").textContent = currencyLabel();

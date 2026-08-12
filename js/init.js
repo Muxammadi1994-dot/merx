@@ -66,7 +66,12 @@ function init() {
   // 2026-07-26: obuna tarifi cheklovi (Start'da bot bo'limlari yopiq)
   try { if (typeof applyTierLock === "function") applyTierLock(); } catch(e) {}
   updateRatePill();
-  if ($("sb-shop")) $("sb-shop").textContent = db.shop?.name || "MERX";
+  // 2026-08-12: nom YUKLANGUNCHA "—" — urug' "MERX Do'koni" ham
+  // ko'rsatilmaydi (egasining talabi: soxta qiymat chalg'itmasin).
+  if ($("sb-shop")) {
+    const _nm = db.shop?.name;
+    $("sb-shop").textContent = (_nm && _nm !== "MERX Do'koni") ? _nm : "—";
+  }
   if ($("debt-count")) $("debt-count").textContent = debtSales().length;
   refreshStaffList();
   if (typeof updateSmsUI === "function") updateSmsUI();
