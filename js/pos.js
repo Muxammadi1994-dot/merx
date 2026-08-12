@@ -3308,11 +3308,13 @@ function showReceiptModal(sale) {
     const cfg = getChekCfg(sale && sale._preview ? "savat" : "sotuv");
     const staff = sale.staffId ? (db.staff || []).find(s => s.id === sale.staffId) : (db.currentStaff || null);
     const html = buildReceiptHtml(sale, {
-      // ✅ 2026-08-12: USLUB TANLOVI ULANDI. Avval `style` umuman
-      // uzatilmasdi — Sozlamalardagi "POS (yangi sotuv cheki)" ro'yxati
-      // hech narsaga ta'sir qilmasdi (foydalanuvchi tanladim deb
-      // o'ylardi). Endi tanlangan uslub chindan qo'llanadi.
-      style: cfg.posStyle || "merx",
+      // ⚠️ 2026-08-12 (TUZATILDI): USLUB TANLOVI — lekin STANDART
+      // O'ZGARMAYDI. Avval bu yerda `cfg.posStyle || "merx"` edi va
+      // 365-versiyada ishlab turgan do'konlarning cheki ular hech narsa
+      // tanlamagan holda "merx" ko'rinishiga o'tib ketardi.
+      // Endi qoida: uslub FAQAT ega ATAYLAB tanlaganda qo'llanadi;
+      // tanlanmagan bo'lsa — hozirgi yagona chek (standart) qoladi.
+      style: cfg.posStyle || "unified",
       type: sale && sale._preview ? "savat" : "sotuv",
       shopName, staffName: staff ? staff.name : "—",
       logo: cfg.logo, addr: cfg.addr, contact: cfg.showContact ? cfg.contact : "",

@@ -362,7 +362,11 @@ function renderEgasi() {
   // ══ USLUB TANLOVLARI (2026-08-12: yagona ro'yxat) ════════
   // Avval uch joyda uch xil ro'yxat bor edi va kartalar (To'liq/Ixcham/
   // Jadval) amaldagi uslublardan farq qilardi. Endi BITTA manba.
+  // ⚠️ 2026-08-12 (TUZATILDI): standart BIRINCHI, eski uslublar ham
+  // ro'yxatda — hech biri yo'qolmaydi (365 da "To'liq" tushib qolgandi).
   const CHEK_USLUBLAR = [
+    { v:"unified",   l:"Yagona — hozirgi standart" },
+    { v:"full",      l:"To'liq (eski)" },
     { v:"merx",      l:"MERX brend (zamonaviy)" },
     { v:"thermal",   l:"Termal (tor, tejamkor)" },
     { v:"wholesale", l:"Ulgurji (model + $ va so'm)" },
@@ -375,9 +379,9 @@ function renderEgasi() {
       `<option value="${o.v}">${o.l}</option>`).join("");
     el.value = val || "merx";
   };
-  _fillStyle(cePosStyle,   chekCfg.posStyle);
-  _fillStyle(ceTarixStyle, chekCfg.tarixStyle);
-  _fillStyle(ceQarzStyle,  chekCfg.qarzStyle);
+  _fillStyle(cePosStyle,   chekCfg.posStyle   || "unified");
+  _fillStyle(ceTarixStyle, chekCfg.tarixStyle || "unified");
+  _fillStyle(ceQarzStyle,  chekCfg.qarzStyle  || "unified");
   try { ceMarkStyle(); } catch (e) {}
 
   // Logo preview
@@ -706,7 +710,7 @@ function saveChekConfig() {
     const _sty = (id, eski) => {
       const el = document.getElementById(id);
       const v  = el && el.value;
-      return v ? v : (eski || "merx");
+      return v ? v : (eski || "unified");
     };
     cfg.posStyle   = _sty("chek-pos-style",   cfg.posStyle);
     cfg.tarixStyle = _sty("chek-tarix-style", cfg.tarixStyle);
@@ -1410,7 +1414,7 @@ function applyCurrencyLock() {
 // 2026-08-12: POS uchun tanlangan uslub kartasi ajratib ko'rsatiladi.
 function ceMarkStyle() {
   try {
-    const v = (document.getElementById("chek-pos-style") || {}).value || "merx";
+    const v = (document.getElementById("chek-pos-style") || {}).value || "unified";
     document.querySelectorAll("#chek-style-cards .cs-card").forEach(c => {
       const on = c.dataset.s === v;
       c.style.border = on ? "2px solid var(--acc)" : "1.5px solid var(--brd)";
