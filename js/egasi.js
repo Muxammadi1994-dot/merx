@@ -391,6 +391,7 @@ function renderEgasi() {
   _fillStyle(ceTarixStyle, _norm(chekCfg.tarixStyle));
   _fillStyle(ceQarzStyle,  _norm(chekCfg.qarzStyle));
   try { ceMarkStyle(); } catch (e) {}
+  try { csLoadStyleOpts(); } catch (e) {}
 
   // Logo preview
   const logoPreview = document.getElementById("chek-logo-preview");
@@ -725,6 +726,26 @@ function saveChekConfig() {
     cfg.qarzStyle  = _sty("chek-qarz-style",  cfg.qarzStyle);
     // ✅ Muhr: shu saqlashdan boshlab tanlov KUCHGA KIRADI.
     cfg.styleV2 = true;
+    // ✅ USLUB SOZLAMALARI (2026-08-12): faqat TANLANGAN uslub uchun.
+    // Bo'sh maydon — umumiy sozlamadan olinadi (kalit o'chiriladi).
+    try {
+      const _st = cfg.posStyle || "unified";
+      if (!cfg.perStyle) cfg.perStyle = {};
+      const _o = cfg.perStyle[_st] || {};
+      const _put = (id, key, num) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const v = (el.value || "").trim();
+        if (v === "") delete _o[key];
+        else _o[key] = num ? (parseInt(v) || undefined) : v;
+      };
+      _put("cs-paper",  "paperWidth", true);
+      _put("cs-header", "headerStyle");
+      _put("cs-font",   "fontScale");
+      _put("cs-footer", "footer");
+      if (Object.keys(_o).length) cfg.perStyle[_st] = _o;
+      else delete cfg.perStyle[_st];
+    } catch (e) {}
   }
 
   db.settings.chekConfig = cfg;
@@ -1422,7 +1443,29 @@ function applyCurrencyLock() {
 
 
 // 2026-08-12: POS uchun tanlangan uslub kartasi ajratib ko'rsatiladi.
+// 2026-08-12: tanlangan uslub sozlamalarini panelga yuklash.
+function csLoadStyleOpts() {
+  try {
+    const cfg = (db.settings && db.settings.chekConfig) || {};
+    const st  = (document.getElementById("chek-pos-style") || {}).value || "unified";
+    const NOM = { unified:"Yagona", merx:"MERX brend", thermal:"Termal",
+                  wholesale:"Ulgurji", compact:"Ixcham", table:"Jadval" };
+    ["cs-opts-name","cs-opts-name2"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = NOM[st] || st;
+    });
+    const o = (cfg.perStyle && cfg.perStyle[st]) || {};
+    const set = (id, v) => { const el = document.getElementById(id);
+      if (el) el.value = (v === undefined || v === null) ? "" : String(v); };
+    set("cs-paper",  o.paperWidth);
+    set("cs-header", o.headerStyle);
+    set("cs-font",   o.fontScale);
+    set("cs-footer", o.footer);
+  } catch (e) {}
+}
+
 function ceMarkStyle() {
+  try { csLoadStyleOpts(); } catch (e) {}
   try {
     const v = (document.getElementById("chek-pos-style") || {}).value || "unified";
     document.querySelectorAll("#chek-style-cards .cs-card").forEach(c => {

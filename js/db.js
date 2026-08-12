@@ -38,9 +38,20 @@ const PACK_TAGS_DEFAULT = ["pochka","karobka","quti","bog'lam","paket"];
 function getChekCfg(type) {
   const c = (typeof db !== "undefined" && db.settings && db.settings.chekConfig) || {};
   const per = (c.perType && type && c.perType[type]) ? c.perType[type] : {};
+  // ══ USLUB SOZLAMALARI (2026-08-12) ═════════════════════
+  // Har uslub o'z sozlamasiga ega bo'lishi (egasining talabi). Qatlam
+  // tartibi: BO'LIM (perType) → USLUB (perStyle) → UMUMIY (c) → standart.
+  // perStyle bo'sh bo'lsa — hech narsa o'zgarmaydi (umumiy sozlama
+  // ishlaydi), ya'ni mavjud do'konlarga ta'sir yo'q.
+  const _styKey = (type === "qarz")  ? "qarzStyle"
+                : (type === "tarix") ? "tarixStyle"
+                : "posStyle";
+  const _sty = (c.styleV2 ? (c[_styKey] || "unified") : "unified");
+  const perS = (c.perStyle && c.perStyle[_sty]) ? c.perStyle[_sty] : {};
   const pick = (k, dflt) => {
-    if (per[k] !== undefined) return per[k];
-    if (c[k]   !== undefined) return c[k];
+    if (per[k]  !== undefined) return per[k];
+    if (perS[k] !== undefined) return perS[k];
+    if (c[k]    !== undefined) return c[k];
     return dflt;
   };
   return {
@@ -72,7 +83,8 @@ function getChekCfg(type) {
     fonts:      pick("fonts", null),
     blocks:     pick("blocks", null), // 2026-07-18 (Qadam D): blok-darajali sozlamalar
     headerStyle: pick("headerStyle", "dark"), // 2026-07-18: banner fon (dark/light/none)
-    _type: type || "sotuv"
+    _type: type || "sotuv",
+    _style: _sty
   };
 }
 
