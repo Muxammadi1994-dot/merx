@@ -1110,7 +1110,16 @@ function buildReceiptHtml(sale, opts) {
   const _hdrSubColor = _hdrStyle === "dark" ? "#fff" : "#000";
 
   // Ixcham uslub uchun — faqat asosiylarni ko'rsatish
-  const _cfg = {shopName,staffName,botUser,receiptUrl,logo,contact,footer,showStaff,showContact,F:n=>Math.round(n||0).toLocaleString("ru-RU")};
+  // ⚠️ 2026-08-12: uslub-chizuvchilarga SOZLAMALAR ham uzatiladi.
+  // Avval ular faqat nom/kontakt/footer olardi — "Sarlavha foni" va
+  // qog'oz eni sozlamalari ularga YETIB BORMASDI, shuning uchun har
+  // uslub o'z QORA fonini chizardi (egasining shikoyati).
+  const _cfg = {shopName,staffName,botUser,receiptUrl,logo,contact,footer,
+    showStaff,showContact,
+    addr: chekCfg.addr || "", tagline: chekCfg.tagline || "",
+    headerStyle: _hdrStyle, hdrCss: _hdrCss,
+    paperWidth: chekCfg.paperWidth || 72,
+    F:n=>Math.round(n||0).toLocaleString("ru-RU")};
   if (style === "compact")   return buildReceiptCompact(sale, opts, _cfg);
   if (style === "table")     return buildReceiptTable(sale, opts, _cfg);
   if (style === "thermal")   return buildReceiptThermal(sale, opts, _cfg);
@@ -1593,7 +1602,7 @@ function buildReceiptCompact(sale, opts, cfg) {
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-content:center;padding:16px 8px}
 .w{width:300px;max-width:100%;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)}
-.hd{background:#0D1B2A;padding:12px 14px;text-align:center;color:#fff}
+.hd{${cfg.headerStyle === "dark" ? "background:#0D1B2A;color:#fff" : "background:#fff;color:#000;border-bottom:2px solid #000"};padding:12px 14px;text-align:center}
 .hd-n{font-size:17px;font-weight:800;letter-spacing:1px}
 .hd-s{font-size:9px;color:#fff;letter-spacing:2px;text-transform:uppercase;margin-top:2px}
 .info{padding:8px 12px;font-size:11px;border-bottom:1px dashed #ddd;color:#000;display:flex;flex-wrap:wrap;gap:2px 16px}
@@ -1701,7 +1710,7 @@ body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-co
 .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;margin-bottom:10px;padding:8px;background:#f9f9f9;border-radius:6px}
 .info-grid span{color:#000}.info-grid b{color:#0D1B2A}
 table{width:100%;border-collapse:collapse;margin-bottom:8px}
-th{background:#0D1B2A;color:#fff;padding:6px;font-size:10px;text-align:center}
+th{${cfg.headerStyle === "dark" ? "background:#0D1B2A;color:#fff" : "background:#fff;color:#000;border-bottom:1px solid #000"};padding:6px;font-size:10px;text-align:center}
 th:first-child,th:nth-child(3){width:30px}
 .col-cur{font-size:9px;color:#ccc;font-weight:400}
 .tot-row td{background:#f0f0f0;font-weight:800;font-size:12px;padding:6px}
@@ -2158,7 +2167,7 @@ function buildReceiptMerx(sale, opts, cfg) {
 body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direction:column;align-items:center;padding:16px 8px}
 .wrap{width:340px;max-width:100%}
 .rc{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(13,27,42,.12)}
-.hd{background:#0D1B2A;padding:14px 18px;text-align:center;color:#fff}
+.hd{${cfg.headerStyle === "dark" ? "background:#0D1B2A;color:#fff" : "background:#fff;color:#000;border-bottom:2px solid #000"};padding:14px 18px;text-align:center}
 .hd-name{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;letter-spacing:1.5px}
 .hd-meta{font-size:12px;color:#b8c5d0;margin-top:4px;line-height:1.6;font-weight:500}
 .hd-meta b{color:#E9A500}
