@@ -698,9 +698,20 @@ function saveChekConfig() {
   cfg.showStaff        = document.getElementById("chek-show-staff")?.checked !== false;
   cfg.showContact      = document.getElementById("chek-show-contact")?.checked !== false;
   cfg.showDebtHistory  = document.getElementById("chek-show-debt-history")?.checked !== false;
-  cfg.posStyle   = document.getElementById("chek-pos-style")?.value   || "merx";
-  cfg.tarixStyle = document.getElementById("chek-tarix-style")?.value || "merx";
-  cfg.qarzStyle  = document.getElementById("chek-qarz-style")?.value  || "merx";
+  // ⚠️ 2026-08-12: STANDART QIYMAT TANLANGANNI BOSMAYDI (kecha
+  // footer matnida topilgan `el?.value || "standart"` kasalining
+  // o'sha oilasi). Element yo'q yoki ro'yxat hali to'lmagan bo'lsa —
+  // avvalgi tanlov SAQLANADI, "merx" ga tushib qolmaydi.
+  {
+    const _sty = (id, eski) => {
+      const el = document.getElementById(id);
+      const v  = el && el.value;
+      return v ? v : (eski || "merx");
+    };
+    cfg.posStyle   = _sty("chek-pos-style",   cfg.posStyle);
+    cfg.tarixStyle = _sty("chek-tarix-style", cfg.tarixStyle);
+    cfg.qarzStyle  = _sty("chek-qarz-style",  cfg.qarzStyle);
+  }
 
   db.settings.chekConfig = cfg;
   saveDB();
