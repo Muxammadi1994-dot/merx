@@ -1383,7 +1383,24 @@ function deleteProduct() {
     auditLog("delete", "product", p.sku,
       p.name + (p.art ? " · " + p.art : ""),
       { before: "qoldiq " + _q + " dona",
-        note: "kod: " + JSON.stringify(p.colorBarcodes || {}).slice(0, 200) });
+        // ⭐ A (2026-08-12): O'LIM NUSXASI — tovar ketadi, TO'LIQ ma'lumoti
+        // audit ichida qoladi: kartochka + kirim yozuvlari. Shu bilan
+        // o'chirilgan tovarning tarixini ham ko'rsa bo'ladi (arxiv), va
+        // kerak bo'lsa qo'lda qayta tiklash uchun hamma narsa bor.
+        note: JSON.stringify({
+          sku: p.sku, art: p.art || "", name: p.name,
+          category: p.category || "", type: p.type || "",
+          unit: p.unit || "dona", inBox: p.inBox || null,
+          costUsd: p.costUsd || 0, costUzs: (typeof getCostUzs === "function" ? getCostUzs(p) : 0),
+          ulgurjiNarx: p.ulgurjiNarx || 0, priceUzs: p.priceUzs || 0,
+          variants: (p.variants || []).map(v => ({
+            color: v.color, size: v.size, qty: v.qty, inBox: v.inBox || null })),
+          colorBarcodes: p.colorBarcodes || {},
+          ombor: (db.ombor || []).filter(o => o.sku === p.sku).map(o => ({
+            date: o.date, time: o.time || "", color: o.color, qty: o.qty,
+            kirimNarxi: o.kirimNarxi || 0, supplier: o.supplier || "",
+            partiya: o.partiya || "" }))
+        }).slice(0, 12000) });
   } catch (e) {}
 
   // 2026-07-25 (№4): ombor va katalog PARALLEL — tovar o'chsa, uning
@@ -5175,6 +5192,24 @@ function showProductHistory(sku) {
     });
   });
 
+  // 4b) QAYTARISHLAR (2026-08-12) — avval HISOBGA OLINMASDI:
+  // "Jami sotildi" qaytarilgan tovarlarni ham sanab, kirimdan katta
+  // chiqardi (jonli: 30 pochka kirim / 35 pochka "sotildi"). Endi
+  // qaytarish alohida voqea va sotuv yig'indisidan AYIRILADI.
+  (db.returns || []).forEach(r => {
+    (r.items || []).forEach(it => {
+      if (it.sku !== sku) return;
+      ev.push({ ts: new Date(_d(r.date, r.time || "00:00")).getTime() || 0,
+        sana: r.date || "", vaqt: r.time || "", tur: "qaytarish",
+        n: -(parseInt(it.qty) || 0),
+        matn: "Qaytarish · " + (it.color || "—") +
+              (it.size ? " / " + it.size : "") + " · " + _pd(it.qty) +
+              " · " + (r.customerName || "Mijozsiz") +
+              (r.reason ? " · " + r.reason : ""),
+        ong: r.refundNo || r.origChekNum || "" });
+    });
+  });
+
   // 5) ⚠️ 2026-08-12: "Oxirgi tahrir" OLIB TASHLANDI — ALDAMCHI edi.
   // `updatedAt` tovar TAHRIRLANGANDA emas, SINXRON paytida qo'yiladi
   // (cloud.js push ichida) — shu sabab hamma tovarda BIR XIL vaqt
@@ -5194,21 +5229,24 @@ function showProductHistory(sku) {
 
   // Yig'indilar
   const kirimJami = ev.filter(x => x.tur === "kirim").reduce((a,x) => a + (x.n || 0), 0);
-  const sotuvJami = ev.filter(x => x.tur === "sotuv").reduce((a,x) => a + (x.n || 0), 0);
+  const qaytJami  = ev.filter(x => x.tur === "qaytarish").reduce((a,x) => a - (x.n || 0), 0);
+  const sotuvJami = ev.filter(x => x.tur === "sotuv" || x.tur === "qaytarish")
+    .reduce((a,x) => a + (x.n || 0), 0);   // qaytarish MANFIY
   const qoldiq = (p.variants || []).reduce((a,v) => a + (v.qty || 0), 0);
 
   const _ico = { yaratildi:"➕", kirim:"📥", chiqim:"📤",
                  sotuv:"🛒", bekor:"❌", tahrir:"✏️",
-                 audit:"⚖️" };
+                 audit:"⚖️", qaytarish:"↩️" };
   const _clr = { yaratildi:"#6B4FBB", kirim:"#0F6E56", chiqim:"#993C1D",
                  sotuv:"#185FA5", bekor:"#A32D2D", tahrir:"#5F5E5A",
-                 audit:"#A32D2D" };
+                 audit:"#A32D2D", qaytarish:"#8A6D1F" };
 
   $("ph-title").textContent = p.name + " — tarix";
   $("ph-body").innerHTML =
     `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
       ${[["Jami kirim", _pd(kirimJami)],
-         ["Jami sotildi", _pd(sotuvJami)],
+         ["Sof sotildi", _pd(sotuvJami)],
+         ...(qaytJami ? [["Qaytarildi", _pd(qaytJami)]] : []),
          ["Hozirgi qoldiq", _pd(qoldiq)],
          ["Voqealar", ev.length + " ta"]].map(([k,v]) =>
         `<div style="background:var(--bg2,#F5F5F3);border-radius:8px;padding:8px 12px;min-width:110px">
@@ -5251,4 +5289,47 @@ function phOpenSale(saleId) {
       if (typeof openSaleDetail === "function") openSaleDetail(saleId);
     }, 260);
   } catch (e) { toast("Sotuvni ochib bo'lmadi", "err"); }
+}
+
+
+// ═══ B · O'CHIRILGANLAR ARXIVI (2026-08-12) ═════════════
+// FAQAT O'QIYDI. Manba: audit_log dagi "delete" yozuvlari (ular
+// ichida o'chirish lahzasidagi TO'LIQ nusxa bor — A bosqichi).
+// Sotuvlar baribir cheklarda qolgani uchun o'chirilgan tovarning
+// sotuv tarixi ham to'liq ko'rinadi.
+function showDeletedProducts() {
+  const dels = (db.auditLog || [])
+    .filter(a => a.action === "delete" && a.entity === "product")
+    .sort((a,b) => String(b.ts).localeCompare(String(a.ts)));
+
+  $("ph-title").textContent = "O'chirilgan tovarlar";
+  $("ph-body").innerHTML = dels.length ? dels.map(a => {
+    let snap = null;
+    try { snap = JSON.parse(a.note || "{}"); } catch (e) {}
+    const satildi = (db.sales || []).reduce((n, s) =>
+      n + (s.cancelled ? 0 : (s.items || [])
+        .filter(i => i.sku === a.entityId)
+        .reduce((m, i) => m + (parseInt(i.qty) || 0), 0)), 0);
+    return `<div style="border-left:3px solid #A32D2D;background:var(--bg2,#FAFAF8);
+                 padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:8px">
+      <div style="font-weight:600;font-size:14px">${a.label || a.entityId}</div>
+      <div style="font-size:11.5px;color:var(--mut);margin-top:2px">
+        ⚖️ ${a.actor || "?"}${a.device ? " (" + a.device + ")" : ""}
+        · ${a.date || ""} ${a.time || ""} · ${a.before || ""}
+      </div>
+      <div style="font-size:12px;margin-top:6px">
+        SKU: <b>${a.entityId}</b>${snap && snap.art ? " · ART: " + snap.art : ""}
+        ${snap && snap.ulgurjiNarx ? " · Ulgurji: " + fmt(snap.ulgurjiNarx) : ""}
+        ${snap && snap.ombor ? " · Kirim yozuvlari: " + snap.ombor.length : ""}
+        · Sotilgan: <b>${satildi}</b> dona
+      </div>
+      ${snap && snap.colorBarcodes && Object.keys(snap.colorBarcodes).length
+        ? `<div style="font-size:11px;color:var(--mut);margin-top:4px">Kodlari: ${
+            Object.entries(snap.colorBarcodes).map(([c,b]) => c + "=" + b).join(" · ")}</div>` : ""}
+    </div>`;
+  }).join("") : `<div style="color:var(--mut);font-size:13px">
+      O'chirilgan tovar yozuvi yo'q.<br><br>
+      ℹ️ Iz 2026-08-12 dan boshlab yig'iladi (audit). Undan oldin
+      o'chirilganlar kunlik zaxiralarda saqlangan.</div>`;
+  openModal("prodhist", true);
 }
