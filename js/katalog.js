@@ -5135,9 +5135,13 @@ function fillCatSuggest(type) {
 // yo'lini tiklaydi: qachon kiritildi, qachon kirim bo'ldi, kimga
 // nechta sotildi, qachon tahrirlandi, qachon qoldiq nolga tushdi.
 // v2 (audit_log bilan) keyinroq: kim kiritdi/tahrirladi/o'chirdi.
-function showProductHistory(sku) {
-  const p = (db.products || []).find(x => x.sku === sku);
+function showProductHistory(sku, vp) {
+  // 2026-08-12 (arxiv): `vp` — O'CHIRILGAN tovarning saqlangan nusxasi.
+  // Tovar katalogda yo'q bo'lsa ham tarixi ko'rsatiladi (sotuvlar
+  // cheklarda qolgan, kirimlar esa o'lim-nusxasida).
+  const p = (db.products || []).find(x => x.sku === sku) || vp;
   if (!p) { toast("Tovar topilmadi", "err"); return; }
+  const _virt = !((db.products || []).some(x => x.sku === sku));
 
   // 2026-08-12: sonlar POCHKA + DONA ko'rinishida (§3.3: variant.inBox
   // ustuvor, p.inBox zaxira). Quti sig'imi 1 bo'lsa faqat dona.
@@ -5170,7 +5174,8 @@ function showProductHistory(sku) {
   }
 
   // 2) KIRIMLAR (ombor)
-  (db.ombor || []).filter(o => o.sku === sku).forEach(o => {
+  (_virt && Array.isArray(p._ombor) ? p._ombor
+        : (db.ombor || []).filter(o => o.sku === sku)).forEach(o => {
     ev.push({ ts: new Date(_d(o.date, o.time || "00:00")).getTime() || 0,
       sana: o.date || "", vaqt: o.time || "",
       tur: "kirim", n: (parseInt(o.qty) || 0),
@@ -5273,7 +5278,7 @@ function showProductHistory(sku) {
                  sotuv:"#185FA5", bekor:"#A32D2D", tahrir:"#5F5E5A",
                  audit:"#A32D2D", qaytarish:"#8A6D1F", farq:"#8A6D1F", inventar:"#5F5E5A" };
 
-  $("ph-title").textContent = p.name + " — tarix";
+  $("ph-title").textContent = p.name + (_virt ? " — tarix (O'CHIRILGAN)" : " — tarix");
   $("ph-body").innerHTML =
     `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
       ${[["Jami kirim", _pd(kirimJami)],
@@ -5331,40 +5336,138 @@ function phOpenSale(saleId) {
 // Sotuvlar baribir cheklarda qolgani uchun o'chirilgan tovarning
 // sotuv tarixi ham to'liq ko'rinadi.
 function showDeletedProducts() {
+  // ARXIV v2 (2026-08-12). Ikki manba: (1) audit \u2014 12-avgustdan keyingi
+  // o'chirishlar, to'liq nusxasi bilan (TIKLASH mumkin); (2) SOTUVLARDAN \u2014
+  // katalogda yo'q, lekin cheklarda uchraydigan SKU'lar = eski davr
+  // o'chirishlari (nusxasi yo'q, lekin sotuv tarixi bor).
   const dels = (db.auditLog || [])
     .filter(a => a.action === "delete" && a.entity === "product")
-    .sort((a,b) => String(b.ts).localeCompare(String(a.ts)));
+    .sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+  const bor = new Set((db.products || []).map(x => String(x.sku)));
+  const auditSku = new Set(dels.map(a => String(a.entityId)));
+
+  const eski = {};
+  (db.sales || []).forEach(sa => {
+    (sa.items || []).forEach(it => {
+      const k = String(it.sku || "");
+      if (!k || bor.has(k) || auditSku.has(k)) return;
+      if (!eski[k]) eski[k] = { sku: k, name: it.name || k, qty: 0, oxirgi: "" };
+      if (!sa.cancelled) eski[k].qty += (parseInt(it.qty) || 0);
+      if ((sa.date || "") > eski[k].oxirgi) eski[k].oxirgi = sa.date || "";
+    });
+  });
+  const eskiList = Object.values(eski).sort((a, b) => b.oxirgi.localeCompare(a.oxirgi));
+
+  const satildi = (sku) => (db.sales || []).reduce((n, sa) =>
+    n + (sa.cancelled ? 0 : (sa.items || [])
+      .filter(i => i.sku === sku)
+      .reduce((m, i) => m + (parseInt(i.qty) || 0), 0)), 0);
 
   $("ph-title").textContent = "O'chirilgan tovarlar";
-  $("ph-body").innerHTML = dels.length ? dels.map(a => {
-    let snap = null;
-    try { snap = JSON.parse(a.note || "{}"); } catch (e) {}
-    const satildi = (db.sales || []).reduce((n, s) =>
-      n + (s.cancelled ? 0 : (s.items || [])
-        .filter(i => i.sku === a.entityId)
-        .reduce((m, i) => m + (parseInt(i.qty) || 0), 0)), 0);
-    return `<div style="border-left:3px solid #A32D2D;background:var(--bg2,#FAFAF8);
-                 padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:8px">
-      <div style="font-weight:600;font-size:14px">${a.label || a.entityId}</div>
-      <div style="font-size:11.5px;color:var(--mut);margin-top:2px">
-        ⚖️ ${a.actor || "?"}${a.device ? " (" + a.device + ")" : ""}
-        · ${a.date || ""} ${a.time || ""} · ${a.before || ""}
-      </div>
-      <div style="font-size:12px;margin-top:6px">
-        SKU: <b>${a.entityId}</b>${snap && snap.art ? " · ART: " + snap.art : ""}
-        ${snap && snap.ulgurjiNarx ? " · Ulgurji: " + fmt(snap.ulgurjiNarx) : ""}
-        ${snap && snap.ombor ? " · Kirim yozuvlari: " + snap.ombor.length : ""}
-        · Sotilgan: <b>${satildi}</b> dona
-      </div>
-      ${snap && snap.colorBarcodes && Object.keys(snap.colorBarcodes).length
-        ? `<div style="font-size:11px;color:var(--mut);margin-top:4px">Kodlari: ${
-            Object.entries(snap.colorBarcodes).map(([c,b]) => c + "=" + b).join(" · ")}</div>` : ""}
-    </div>`;
-  }).join("") : `<div style="color:var(--mut);font-size:13px">
-      O'chirilgan tovar yozuvi yo'q.<br><br>
-      ℹ️ Iz 2026-08-12 dan boshlab yig'iladi (audit). Undan oldin
-      o'chirilganlar kunlik zaxiralarda saqlangan.</div>`;
+  $("ph-body").innerHTML =
+    (dels.length ? `<div style="font-size:12px;font-weight:600;color:var(--mut);margin:2px 0 6px">
+        \u2696\ufe0f IZI BOR (tiklash mumkin)</div>` + dels.map(a => {
+      let snap = null;
+      try { snap = JSON.parse(a.note || "{}"); } catch (e) {}
+      const nusxa = snap && snap.sku;
+      return `<div style="border-left:3px solid #A32D2D;background:var(--bg2,#FAFAF8);
+                   padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:8px">
+        <div style="font-weight:600;font-size:14px">${a.label || a.entityId}</div>
+        <div style="font-size:11.5px;color:var(--mut);margin-top:2px">
+          \u2696\ufe0f ${a.actor || "?"}${a.device ? " (" + a.device + ")" : ""}
+          \u00b7 ${a.date || ""} ${a.time || ""} \u00b7 ${a.before || ""}
+        </div>
+        <div style="font-size:12px;margin-top:6px">
+          SKU: <b>${a.entityId}</b>${snap && snap.art ? " \u00b7 ART: " + snap.art : ""}
+          ${snap && snap.ulgurjiNarx ? " \u00b7 Ulgurji: " + fmt(snap.ulgurjiNarx) : ""}
+          \u00b7 Sotilgan: <b>${satildi(a.entityId)}</b> dona
+        </div>
+        ${snap && snap.colorBarcodes && Object.keys(snap.colorBarcodes).length
+          ? `<div style="font-size:11px;color:var(--mut);margin-top:4px">Kodlari: ${
+              Object.entries(snap.colorBarcodes).map(([c, b]) => c + "=" + b).join(" \u00b7 ")}</div>` : ""}
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn btn-ghost btn-sm" onclick="phDeletedHistory('${a.id}')">
+            <i class="ti ti-history"></i> Tarix
+          </button>
+          ${nusxa ? `<button class="btn btn-ghost btn-sm" onclick="phRestoreProduct('${a.id}')"
+             style="color:#0F6E56"><i class="ti ti-refresh"></i> Tiklash</button>` : ""}
+        </div>
+      </div>`;
+    }).join("") : "") +
+    (eskiList.length ? `<div style="font-size:12px;font-weight:600;color:var(--mut);margin:14px 0 6px">
+        \U0001f553 ESKI DAVR (12-avgustgacha \u2014 nusxasi yo'q)</div>` + eskiList.map(e =>
+      `<div style="border-left:3px solid #8A6D1F;background:var(--bg2,#FAFAF8);
+                   padding:9px 12px;border-radius:0 8px 8px 0;margin-bottom:6px">
+        <div style="font-weight:600;font-size:13.5px">${e.name}</div>
+        <div style="font-size:11.5px;color:var(--mut);margin-top:2px">
+          SKU: <b>${e.sku}</b> \u00b7 Sotilgan: <b>${e.qty}</b> dona
+          \u00b7 Oxirgi sotuv: ${e.oxirgi || "\u2014"}
+        </div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:6px"
+          onclick='showProductHistory(${JSON.stringify(e.sku)}, {sku:${JSON.stringify(e.sku)}, name:${JSON.stringify(e.name)}, variants:[], _ombor:[]})'>
+          <i class="ti ti-history"></i> Tarix
+        </button>
+      </div>`).join("") : "") +
+    ((!dels.length && !eskiList.length)
+      ? `<div style="color:var(--mut);font-size:13px">O'chirilgan tovar topilmadi.</div>` : "");
   openModal("prodhist", true);
+}
+
+// Arxiv yozuvidan TARIX oynasi (o'lim-nusxasi bilan)
+function phDeletedHistory(auditId) {
+  const a = (db.auditLog || []).find(x => String(x.id) === String(auditId));
+  if (!a) { toast("Yozuv topilmadi", "err"); return; }
+  let snap = {};
+  try { snap = JSON.parse(a.note || "{}"); } catch (e) {}
+  showProductHistory(a.entityId, {
+    sku: a.entityId, name: snap.name || a.label || a.entityId,
+    art: snap.art || "", inBox: snap.inBox || 1,
+    variants: snap.variants || [], _ombor: snap.ombor || []
+  });
+}
+
+// \u267b\ufe0f TIKLASH \u2014 saqlangan nusxadan YANGI SKU bilan qayta yaratadi.
+// Eski SKU QAYTARILMAYDI: uning sotuv tarixi eski SKU'ga bog'langan,
+// qayta ishlatilsa ikki davr aralashib ketardi.
+function phRestoreProduct(auditId) {
+  const a = (db.auditLog || []).find(x => String(x.id) === String(auditId));
+  if (!a) { toast("Yozuv topilmadi", "err"); return; }
+  let snap = null;
+  try { snap = JSON.parse(a.note || "{}"); } catch (e) {}
+  if (!snap || !snap.sku) { toast("Bu yozuvda nusxa yo'q \u2014 tiklab bo'lmaydi", "err"); return; }
+  const _q = (snap.variants || []).reduce((n, v) => n + (parseInt(v.qty) || 0), 0);
+  if (!confirm(`"${snap.name}" tiklansinmi?\n\n` +
+      `\u00b7 Yangi SKU bilan yaratiladi (eski: ${snap.sku})\n` +
+      `\u00b7 Ranglar: ${(snap.variants || []).length} ta, qoldiq: ${_q} dona\n` +
+      `\u00b7 Eski barcode kodlari SAQLANADI (bosilgan yorliqlar ishlaydi)`)) return;
+  try {
+    const { id: newId, sku: newSku } = _apNextSku(snap.type || "");
+    const np = {
+      id: newId, sku: newSku,
+      name: snap.name, art: snap.art || "", category: snap.category || "",
+      type: snap.type || "", unit: snap.unit || "dona", inBox: snap.inBox || 1,
+      costUsd: snap.costUsd || 0, costUzs: snap.costUzs || 0,
+      ulgurjiNarx: snap.ulgurjiNarx || 0, priceUzs: snap.priceUzs || 0,
+      image: "", createdAt: new Date().toISOString(),
+      colorBarcodes: snap.colorBarcodes || {},
+      variants: (snap.variants || []).map(v => ({
+        color: v.color, size: v.size, qty: parseInt(v.qty) || 0,
+        inBox: v.inBox || snap.inBox || null })),
+      note: "Tiklangan (eski SKU: " + snap.sku + ", o'chirilgan: " + (a.date || "") + ")"
+    };
+    db.products.push(np);
+    (np.variants || []).forEach(v => {
+      if (v.qty > 0) _stockMove(np, v.color, v.size, v.qty, "Arxivdan tiklandi");
+    });
+    auditLog("restore", "product", newSku, np.name,
+      { before: snap.sku, after: newSku, note: "arxivdan tiklandi" });
+    saveDB();
+    renderKatalog();
+    closeModal("prodhist");
+    toast(`\u267b\ufe0f "${np.name}" tiklandi \u2014 yangi SKU: ${newSku}`);
+  } catch (e) {
+    toast("Tiklashda xato: " + e.message, "err");
+  }
 }
 
 
