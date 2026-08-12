@@ -528,7 +528,10 @@ function renderAdminXodimlar() {
   // (rol jadvali olib tashlandi)
 
 
-  // Xodimlar ruxsatlari
+  // 2026-08-12: tashqi xizmatlar paneli
+  try { tsRender(); } catch (e) {}
+
+  // Xodimlar ruxsatlari (panel olib tashlandi — null bo'lsa jim o'tadi)
   const permsEl = document.getElementById("adm-staff-perms");
   if (!permsEl) return;
 
@@ -1518,4 +1521,105 @@ function ceMarkStyle() {
       c.style.background = on ? "var(--bg2,#FAFAF8)" : "";
     });
   } catch (e) {}
+}
+
+
+// \u2550\u2550\u2550 TASHQI XIZMATLAR (2026-08-12, 1-bosqich) \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// \u26a0\ufe0f 1-BOSQICH: FAQAT SOZLAMALARNI SAQLAYDI. Hech qanday tashqi
+// ulanish, so'rov yoki pul amali YO'Q \u2014 mavjud oqimlarga tegilmagan.
+// Me'moriy qaror: MERX fiskal chek BOSMAYDI, faqat do'konning fiskal
+// apparatiga ma'lumot uzatadi (keyingi bosqichda) \u2014 mas'uliyat do'konda.
+const TS_PAY_SYS = [
+  { k:"payme",  n:"Payme",  ico:"\U0001f4b3", f:["Merchant ID","Kalit (key)"] },
+  { k:"click",  n:"Click",  ico:"\U0001f537", f:["Merchant ID","Service ID","Kalit"] },
+  { k:"paynet", n:"Paynet", ico:"\U0001f7e2", f:["Terminal ID","Kalit"] },
+  { k:"uzum",   n:"Uzum",   ico:"\U0001f7e3", f:["Merchant ID","Kalit"] },
+];
+
+function tsGet() {
+  try { return (db.settings && db.settings.extServices) || {}; }
+  catch (e) { return {}; }
+}
+
+function tsRender() {
+  try {
+    const c = tsGet();
+    // Fiskal
+    const on = document.getElementById("ts-fiskal-on");
+    if (on) on.checked = !!(c.fiskal && c.fiskal.enabled);
+    const set = (id, v) => { const el = document.getElementById(id);
+      if (el) el.value = v == null ? "" : String(v); };
+    set("ts-inn",         c.fiskal && c.fiskal.inn);
+    set("ts-fiskal-type", c.fiskal && c.fiskal.type);
+    set("ts-fiskal-addr", c.fiskal && c.fiskal.addr);
+    set("ts-fiskal-sn",   c.fiskal && c.fiskal.sn);
+    tsToggleFiskal();
+
+    // To'lov tizimlari
+    const box = document.getElementById("ts-pay-list");
+    if (!box) return;
+    const P = c.pay || {};
+    box.innerHTML = TS_PAY_SYS.map(sys => {
+      const v = P[sys.k] || {};
+      return `<div style="border:1.5px solid var(--brd);border-radius:10px;padding:12px 13px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
+          <input type="checkbox" data-ts="${sys.k}" ${v.enabled ? "checked" : ""}
+                 onchange="tsTogglePay('${sys.k}')" style="width:17px;height:17px">
+          <span style="font-size:14px">${sys.ico}</span>
+          <span style="font-weight:700;font-size:13px">${sys.n}</span>
+        </label>
+        <div id="ts-pay-${sys.k}" style="display:${v.enabled ? "flex" : "none"};flex-direction:column;gap:7px">
+          ${sys.f.map((lbl, i) =>
+            `<div class="fld"><label>${lbl}</label>
+               <input id="ts-${sys.k}-${i}" value="${(v.fields && v.fields[i]) || ""}"
+                      placeholder="${lbl}"></div>`).join("")}
+          <label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer">
+            <input type="checkbox" id="ts-${sys.k}-test" ${v.test ? "checked" : ""}
+                   style="width:15px;height:15px">
+            Sinov rejimi (test)
+          </label>
+        </div>
+      </div>`;
+    }).join("");
+  } catch (e) { console.warn("tashqi xizmatlar:", e.message); }
+}
+
+function tsToggleFiskal() {
+  const on  = document.getElementById("ts-fiskal-on");
+  const box = document.getElementById("ts-fiskal-box");
+  if (box) box.style.display = (on && on.checked) ? "flex" : "none";
+}
+
+function tsTogglePay(k) {
+  const cb  = document.querySelector(`[data-ts="${k}"]`);
+  const box = document.getElementById("ts-pay-" + k);
+  if (box) box.style.display = (cb && cb.checked) ? "flex" : "none";
+}
+
+// Saqlash \u2014 sozlamalar bilan birga (yagona push nuqtasidan o'tadi)
+function tsSave() {
+  try {
+    const c = { fiskal: {}, pay: {} };
+    const g = id => { const el = document.getElementById(id); return el ? (el.value || "").trim() : ""; };
+    const on = document.getElementById("ts-fiskal-on");
+    c.fiskal = {
+      enabled: !!(on && on.checked),
+      inn:  g("ts-inn"), type: g("ts-fiskal-type"),
+      addr: g("ts-fiskal-addr"), sn: g("ts-fiskal-sn")
+    };
+    TS_PAY_SYS.forEach(sys => {
+      const cb = document.querySelector(`[data-ts="${sys.k}"]`);
+      const tt = document.getElementById(`ts-${sys.k}-test`);
+      c.pay[sys.k] = {
+        enabled: !!(cb && cb.checked),
+        test:    !!(tt && tt.checked),
+        fields:  sys.f.map((_, i) => g(`ts-${sys.k}-${i}`))
+      };
+    });
+    if (!db.settings) db.settings = {};
+    db.settings.extServices = c;
+    saveDB();
+    if (typeof cloudSync === "function") { try { cloudSync(); } catch (e) {} }
+    toast("\u2705 Tashqi xizmatlar sozlamasi saqlandi");
+  } catch (e) { toast("Saqlashda xato: " + e.message, "err"); }
 }

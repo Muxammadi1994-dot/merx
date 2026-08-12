@@ -2684,8 +2684,8 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
       <button class="adm-tab-btn" data-tab="narx" onclick="adminTabSwitch('narx')">
         💰 Narx
       </button>
-      <button class="adm-tab-btn" data-tab="xodimlar" onclick="adminTabSwitch('xodimlar')">
-        👥 Xodimlar
+      <button class="adm-tab-btn" data-tab="tashqi" onclick="adminTabSwitch('tashqi')">
+        🔌 Tashqi xizmatlar
       </button>
       <button class="adm-tab-btn" data-tab="cloud" onclick="adminTabSwitch('cloud')">
         ☁️ Cloud
@@ -2814,18 +2814,84 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 
     <!-- TAB 3: XODIMLAR -->
     <!-- TAB 3: XODIMLAR -->
-    <div class="adm-tab-pane" data-tab="xodimlar" style="display:none">
-            <!-- 2026-08-02: ROL JADVALI OLIB TASHLANDI.
-           U faqat ko'rsatuvchi edi va hech narsani boshqarmasdi.
-           Endi ruxsatlar HAR XODIMGA ALOHIDA beriladi:
-           Xodimlar → xodimni ochish → "Ruxsatlar" tabi. -->
+    <!-- TASHQI XIZMATLAR (2026-08-12) — Xodimlar tabi o'rniga.
+         Eski tab faqat "Xodimlar bo'limiga o'tish" tugmasi edi (ruxsatlar
+         allaqachon Xodimlar sahifasida beriladi) — takror bo'lim edi.
+         ⚠️ MUHIM ME'MORIY QAROR (egasining qarori): MERX FISKAL CHEK
+         BOSMAYDI. U mavjud chek ma'lumotini do'konning fiskal apparatiga
+         YO'NALTIRADI, apparat esa o'zi QR bilan chop etadi. Mas'uliyat
+         do'konda qoladi. Bu bo'lim faqat SOZLAMALARNI saqlaydi —
+         hozircha hech qanday tashqi ulanish qilmaydi. -->
+    <div class="adm-tab-pane" data-tab="tashqi" style="display:none">
+      <div class="g2">
 
-      <div class="card">
-        <div class="ch">
-          <h3><i class="ti ti-users"></i> Xodimlar ruxsatlari</h3>
-          <button class="btn btn-acc btn-sm" onclick="nav('xodimlar')"><i class="ti ti-arrow-right"></i> Xodimlar bo'limiga o'tish</button>
+        <!-- FISKAL -->
+        <div class="card" style="grid-column:1/-1">
+          <div class="ch"><h3><i class="ti ti-receipt-tax"></i> Soliq / fiskal apparat</h3></div>
+          <div style="padding:14px 20px;display:flex;flex-direction:column;gap:12px">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+              <input type="checkbox" id="ts-fiskal-on" onchange="tsToggleFiskal()" style="width:18px;height:18px">
+              <span style="font-weight:600">Do'kon soliq to'lovchi — fiskal apparat ishlatiladi</span>
+            </label>
+            <div id="ts-fiskal-box" style="display:none;flex-direction:column;gap:10px">
+              <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;padding:11px 13px;font-size:12px;color:#1E40AF;line-height:1.55">
+                <b>MERX fiskal chek bosmaydi.</b> Sotuv ma'lumotini fiskal apparatga
+                uzatadi — QR kodli rasmiy chekni apparat o'zi chop etadi.
+                Soliq oldidagi mas'uliyat do'kon zimmasida qoladi.
+              </div>
+              <div class="r3">
+                <div class="fld"><label>STIR (INN)</label><input id="ts-inn" placeholder="123456789"></div>
+                <div class="fld"><label>Fiskal apparat turi</label>
+                  <select id="ts-fiskal-type">
+                    <option value="">Tanlanmagan</option>
+                    <option value="mkassa">M-Kassa</option>
+                    <option value="ipos">iPOS</option>
+                    <option value="uzum">Uzum Fiskal</option>
+                    <option value="boshqa">Boshqa</option>
+                  </select>
+                </div>
+                <div class="fld"><label>Ulanish manzili (IP:port)</label><input id="ts-fiskal-addr" placeholder="192.168.1.50:8080"></div>
+              </div>
+              <div class="fld"><label>Kassa raqami / seriya</label><input id="ts-fiskal-sn" placeholder="Apparat seriyasi"></div>
+              <div style="font-size:11.5px;color:var(--mut)">
+                ℹ️ Hozircha bu ma'lumotlar faqat saqlanadi. Uzatish keyingi bosqichda yoqiladi.
+              </div>
+            </div>
+          </div>
         </div>
-        <div id="adm-staff-perms" style="padding:12px 20px"></div>
+
+        <!-- TO'LOV TIZIMLARI -->
+        <div class="card" style="grid-column:1/-1">
+          <div class="ch"><h3><i class="ti ti-credit-card"></i> To'lov tizimlari</h3></div>
+          <div style="padding:14px 20px;display:flex;flex-direction:column;gap:14px">
+            <div style="font-size:12px;color:var(--mut);line-height:1.55">
+              Yoqilgan tizim uchun mijozga to'lov havolasi yoki QR yuborish mumkin bo'ladi.
+              Kalitlarni to'lov tizimidagi shaxsiy kabinetingizdan olasiz.
+            </div>
+            <div id="ts-pay-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px"></div>
+          </div>
+        </div>
+
+        <div style="grid-column:1/-1;display:flex;justify-content:flex-end">
+          <button class="btn btn-acc" onclick="tsSave()">
+            <i class="ti ti-device-floppy"></i> Saqlash
+          </button>
+        </div>
+
+        <!-- MERX TO'LOVI -->
+        <div class="card" style="grid-column:1/-1">
+          <div class="ch"><h3><i class="ti ti-wallet"></i> MERX to'lov tizimi</h3></div>
+          <div style="padding:14px 20px">
+            <div style="border:1.5px dashed var(--brd);border-radius:10px;padding:16px;text-align:center">
+              <div style="font-size:13px;font-weight:700;margin-bottom:4px">Tez orada</div>
+              <div style="font-size:12px;color:var(--mut);line-height:1.55">
+                MERX ichida to'lovlarni qabul qilish — vositachisiz, bitta hisobda.
+                Rejalashtirilgan bosqich.
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -5118,7 +5184,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 <script src="js/utils.js?v=238"></script>
 <script src="js/auth.js?v=206"></script>
 <script src="js/sms.js?v=144"></script>
-<script src="js/cloud.js?v=268"></script>
+<script src="js/cloud.js?v=269"></script>
 <script src="js/dashboard.js?v=157"></script>
 <script src="js/pos.js?v=259"></script>
 <script src="js/katalog.js?v=268"></script>
@@ -5129,7 +5195,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 <script src="js/hisobot.js?v=154"></script>
 <script src="js/xodimlar.js?v=159"></script>
 <script src="js/moliya.js?v=174"></script>
-<script src="js/egasi.js?v=183"></script>
+<script src="js/egasi.js?v=184"></script>
 <script src="js/portal.js?v=143"></script>
 <script src="js/init.js?v=151"></script>
 <script>
@@ -5423,7 +5489,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 376;
+  window.SW_V = 377;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5446,7 +5512,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=376")
+    navigator.serviceWorker.register("/sw.js?v=377")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

@@ -1160,6 +1160,10 @@ async function pushToCloud() {
               ? { exp_tags_kunlik: db.settings.expTagsKunlik } : {}),
           ...(Array.isArray(db.settings?.expTagsOylik) && db.settings.expTagsOylik.length
               ? { exp_tags_oylik: db.settings.expTagsOylik } : {}),
+          // 2026-08-12: tashqi xizmatlar (fiskal + to'lov tizimlari).
+          // Bo'sh obyekt bulutni BOSMAYDI (§5.3 uslubi).
+          ...(db.settings?.extServices && Object.keys(db.settings.extServices).length
+              ? { ext_services: db.settings.extServices } : {}),
           unit_tags:              db.settings?.unitTags            || null, // №11a (v186)
           chek_config:            db.settings?.chekConfig          || null, // №12 (v187)
           pack_unit_tags:         db.settings?.packUnitTags        || null,
@@ -3559,6 +3563,7 @@ function applyCloudSettings(sets) {
   if (sets.unit_tags      != null) db.settings.unitTags      = sets.unit_tags;      // №11a (v186)
   if (sets.exp_tags_kunlik != null) db.settings.expTagsKunlik = sets.exp_tags_kunlik; // C-2 (2026-08-09)
   if (sets.exp_tags_oylik  != null) db.settings.expTagsOylik  = sets.exp_tags_oylik;  // C-2
+  if (sets.ext_services    != null) db.settings.extServices   = sets.ext_services;   // 2026-08-12
   if (sets.chek_config    != null) db.settings.chekConfig    = sets.chek_config;    // №12 (v187)
   if (sets.pack_unit_tags != null) db.settings.packUnitTags  = sets.pack_unit_tags;
   // v172 (2026-07-10): NULL-himoya bilan — bulutda qiymat hali
