@@ -1623,7 +1623,10 @@ body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-co
 .acts{max-width:none;margin:14px 10px 10px;display:flex;gap:8px}
 .acts button{flex:1;border:none;border-radius:8px;padding:11px 8px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
 .btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #ddd}
-@media print{body{background:#fff;padding:0}.w{border-radius:0;box-shadow:none;width:72mm}.acts{display:none}}
+@media print{@page{size:${cfg.paperWidth || 72}mm auto;margin:0}
+  body{background:#fff;padding:0}
+  .w{border-radius:0;box-shadow:none;width:${cfg.paperWidth || 72}mm;max-width:${cfg.paperWidth || 72}mm}
+  .acts{display:none}}
 </style></head><body>
 <div class="w">
   ${logoHtml}
@@ -2223,7 +2226,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
 .btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #E8E5E0}
 @media print{
   body{background:#fff;padding:0}
-  .wrap,.rc{width:72mm;max-width:72mm;border-radius:0;box-shadow:none}
+  .wrap,.rc{width:${cfg.paperWidth || 72}mm;max-width:${cfg.paperWidth || 72}mm;border-radius:0;box-shadow:none}
   .acts{display:none}
   .hd,.hd-meta b{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .pr.pr-debt,.pr.pr-debt-total{color:#000!important}

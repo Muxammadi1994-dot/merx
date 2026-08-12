@@ -1,0 +1,3794 @@
+// ════════════════════════════════════════════════════════════════
+// MERX Telegram Bot  |  api/bot.js  |  v1.3  |  2026-06-17
+// ════════════════════════════════════════════════════════════════
+
+const TOKEN        = process.env.TELEGRAM_BOT_TOKEN;
+
+// ── GURUH ID SI (2026-07-30) ──────────────────────────────────
+// Bot o'zining raqamli ID si. Token "<bot_id>:<hash>" ko'rinishida,
+// shuning uchun birinchi qismi bot ID si bo'ladi.
+// DIQQAT: muhit o'zgaruvchisi nomi TELEGRAM_BOT_TOKEN (boshqa nom
+// yozilsa jimgina bo'sh qoladi).
+const _BOT_ID = String(process.env.TELEGRAM_BOT_TOKEN || "").split(":")[0];
+
+// Telegram bitta qo'shilishda ikkita yangilanish yuborishi mumkin
+// (my_chat_member + xizmat xabari) — xabar ikki marta ketmasin
+const _groupHello = new Map();
+function _helloOnce(chatId) {
+  const k = String(chatId), now = Date.now();
+  const prev = _groupHello.get(k);
+  if (prev && now - prev < 60000) return false;
+  _groupHello.set(k, now);
+  return true;
+}
+
+// Guruh ID sini tushunarli qilib yuborish.
+// Avval do'kon egasi ID ni tashqi botlar orqali qidirishi kerak edi va
+// ko'pchilik minus belgisini tushirib qoldirib xato kiritardi.
+async function sendGroupIdCard(chatId, added) {
+  await tg(chatId,
+    (added ? "🤖 <b>MERX bot ulandi</b>\n\n" : "🆔 <b>Guruh ma'lumoti</b>\n\n") +
+    "Bu guruhning ID si:\n" +
+    "<code>" + chatId + "</code>\n\n" +
+    "👆 Raqamga bosing — nusxa olinadi (minus belgisi bilan birga).\n\n" +
+    "Ilovada: <b>Sozlamalar → SMS &amp; Bot → Xodimlar guruhi ID</b>\n" +
+    "maydoniga qo'ying va saqlang.\n\n" +
+    "Shundan keyin sotuv va ombor xabarlari shu guruhga keladi."
+  );
+}
+const SB_URL       = process.env.SUPABASE_URL;
+// ⚠️ 2026-08-07: BOT SERVICE KALITGA O'TDI (anon qoidalarni yopishga
+// tayyorgarlik, reja 1.1-bosqich). Avval barcha so'rovlar anon kalit
+// bilan ketardi — anon qoidalar o'chirilganda bot ko'r bo'lib qolardi.
+// Service kalit RLS'dan o'tadi, so'rovlar esa avvalgidek shop_id bilan
+// chegaralangan, ya'ni amaldagi huquq darajasi o'zgarmadi (ochiq
+// qoidalar paytida ham hamma narsa ko'rinar edi). Service kalit
+// sozlanmagan bo'lsa eski anon kalitga qaytadi — bot baribir ishlaydi.
+// Kalit hech qachon xabar yoki havola ichiga yozilmaydi (tekshirilgan:
+// barcha ishlatilishlar faqat Supabase so'rov sarlavhalarida).
+const SB_KEY       = process.env.SUPABASE_SERVICE_ROLE_KEY
+                  || process.env.SUPABASE_KEY;
+// SERVICE kaliti alohida nomda ham qoladi — /tizim va SuperAdmin
+// moliyasi (sa_income, sa_expense) shuni ishlatadi.
+const SB_SERVICE   = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const OWNER_ID     = process.env.BOT_OWNER_CHAT_ID;  // Superadmin chat ID
+const STAFF_GROUP  = process.env.STAFF_GROUP_ID;
+const LOW_LIMIT    = parseInt(process.env.LOW_STOCK_LIMIT || "5");
+const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || "merx_savdo_bot";
+const GEMINI_KEY    = process.env.GEMINI_API_KEY;   // AI-naklad uchun (2026-07)
+const GEMINI_MODEL  = "gemini-2.5-flash";  // 2026-07-08: flash-latest o'rniga — bir xil ishlaydi, ~4-5x arzon oddiy tuzilma-chiqarish vazifalari uchun
+
+// ── Multi-tenant: chatId → shopId xaritasi (RAM cache) ──────
+// Har so'rovda Supabase ga bormayslik uchun vaqtinchalik cache
+const _shopCache = new Map(); // chatId → { shopId, shopName, isOwner, ts }
+const CACHE_TTL  = 10 * 60 * 1000; // 10 daqiqa
+
+// chatId uchun shopId ni topamiz
+async function getShopCtx(chatId) {
+  const cid = String(chatId);
+
+  // Cache tekshiruv
+  const cached = _shopCache.get(cid);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached;
+
+  // 1. Superadmin — alohida holat
+  // ⚠️ 2026-08-04: TANLOV HISOBGA OLINADI.
+  // Avval SuperAdmin shu yerda ushlanib qolardi va `shopId: null`
+  // bilan qaytardi — ya'ni DOIM barcha do'kon yig'indisini ko'rardi
+  // va bitta do'konni tanlay olmasdi.
+  // Endi `bot_sessions` dagi tanlov o'qiladi:
+  //   • shop_id bor  → o'sha do'kon (sinov uchun)
+  //   • shop_id null → barcha do'kon (nazorat uchun)
+  // `isSuperAdmin` HAR IKKALASIDA ham true — huquqlar saqlanadi.
+  if (OWNER_ID && cid === String(OWNER_ID)) {
+    let saShop = null, saName = "MERX";
+    try {
+      const sess = await sb("bot_sessions",
+        `?chat_id=eq.${cid}&select=shop_id,shop_name&limit=1`);
+      if (sess?.[0]?.shop_id) {
+        saShop = sess[0].shop_id;
+        saName = sess[0].shop_name || saShop;
+      }
+    } catch(e) { console.warn("sa sessiya o'qilmadi:", e.message); }
+
+    const ctx = {
+      shopId: saShop, shopName: saShop ? saName : "MERX",
+      isOwner: true, isSuperAdmin: true, ts: Date.now()
+    };
+    _shopCache.set(cid, ctx);
+    return ctx;
+  }
+
+  // 1.4. EGA tekshiruvi — shop_owners (2026-07-30) ─────────────────
+  // NEGA ENG OLDINDA: avval `customers` tekshiruvi egadan OLDIN turardi.
+  // Agar bitta raqam biror do'konda mijoz sifatida bog'langan bo'lsa,
+  // funksiya o'sha yerda isOwner:false bilan qaytib ketardi va ega
+  // tekshiruviga UMUMAN yetib bormasdi. Shu sabab bir do'konda mijoz
+  // bo'lgan odam boshqa do'konga ega bo'la olmasdi.
+  // Egalik — mijozlikdan kuchliroq da'vo, shuning uchun birinchi.
+  //
+  // Bu bitta indeksli so'rov (chat_id bo'yicha) — sekinlashtirmaydi.
+  // Pastdagi `settings` bo'yicha ega tekshiruvi JOYIDA QOLDI: u har
+  // do'kon uchun alohida so'rov qiladi, uni yuqoriga chiqarsak har
+  // xabarda o'nlab so'rov ketardi.
+  // ⚠️ 2026-08-03: TANLOV BIRINCHI — `bot_sessions` YUQORIGA CHIQDI.
+  // Avval `shop_owners` birinchi tekshirilardi. Ega `/mendokonlarim`
+  // orqali do'kon tanlasa, tanlov `bot_sessions` ga yozilardi —
+  // lekin keyingi xabarda `shop_owners` uni BEKOR QILARDI.
+  // Ya'ni ko'p do'konli ega uchun tanlash umuman ishlamasdi.
+  // Endi: avval TANLOV, keyin egalik.
+  // 1.5. bot_sessions — DOIMIY saqlangan bog'lanish (Vercel cache muammosini hal qiladi)
+  try {
+    const sess = await sb("bot_sessions", `?chat_id=eq.${cid}&select=shop_id,shop_name,is_owner&limit=1`);
+    if (sess?.[0]?.shop_id) {
+      const ctx = {
+        shopId: sess[0].shop_id, shopName: sess[0].shop_name || "MERX",
+        isOwner: !!sess[0].is_owner, isSuperAdmin: false, ts: Date.now()
+      };
+      _shopCache.set(cid, ctx);
+      return ctx;
+    }
+  } catch(e) { console.warn("getShopCtx bot_sessions xato:", e.message); }
+
+  // 1.5. EGA tekshiruvi — shop_owners.
+  // Tanlov bo'lmasa ishlaydi (birinchi marta, yoki tanlanmagan bo'lsa).
+  // ⚠️ TARTIB BERILDI: avval `limit=1` da tartib yo'q edi va qaysi
+  // do'kon chiqishi ANIQLANMAGAN edi. Endi eng oxirgi bog'langani.
+  //
+  // NEGA MIJOZDAN OLDIN (2026-07-30): agar bitta raqam biror do'konda
+  // mijoz sifatida bog'langan bo'lsa, funksiya o'sha yerda
+  // isOwner:false bilan qaytib ketardi va ega tekshiruviga UMUMAN
+  // yetib bormasdi. Egalik — mijozlikdan kuchliroq da'vo.
+  try {
+    const own = await sb("shop_owners",
+      `?chat_id=eq.${cid}&select=shop_id,shop_name&order=shop_id.desc&limit=1`);
+    if (own?.[0]?.shop_id) {
+      const ctx = {
+        shopId: own[0].shop_id, shopName: own[0].shop_name || "MERX",
+        isOwner: true, isSuperAdmin: false, ts: Date.now()
+      };
+      _shopCache.set(cid, ctx);
+      return ctx;
+    }
+  } catch(e) { console.warn("getShopCtx shop_owners xato:", e.message); }
+
+  // 2. customers jadvalidan topamiz (mijoz login qilgan)
+  try {
+    const custs = await sb("customers", `?telegram_chat_id=eq.${cid}&select=id,shop_id&limit=1`);
+    if (custs?.[0]?.shop_id) {
+      const shopId = custs[0].shop_id;
+      // Shop nomini olamiz
+      const shops = await sb("shops", `?id=eq.${shopId}&select=name&limit=1`);
+      const shopName = shops?.[0]?.name || "MERX";
+      const ctx = { shopId, shopName, isOwner: false, isSuperAdmin: false, ts: Date.now() };
+      _shopCache.set(cid, ctx);
+      return ctx;
+    }
+  } catch(e) { console.warn("getShopCtx customers xato:", e.message); }
+
+  // 3. ⚠️ 2026-08-08: OLIB TASHLANDI — o'lik va zararli qadam edi.
+  // Avval bu yerda BARCHA do'konlar aylanib chiqilib, har biri uchun
+  // `settings.telegram_owner_chat_id` so'ralardi. Lekin bunday ustun
+  // jadvalda UMUMAN YO'Q (§11.2) — ya'ni natija doim bo'sh edi, evaziga
+  // har chaqiruvda N ta ortiqcha so'rov ketardi va do'konlar
+  // ko'paygan sari bot sekinlashardi.
+  // Egalik aslida yuqoridagi `shop_owners` qadami (1) orqali
+  // aniqlanadi — u ishlaydi va shu yetarli.
+
+  // Topilmadi
+  return { shopId: null, shopName: "MERX", isOwner: false, isSuperAdmin: false, ts: Date.now() };
+}
+
+// chatId uchun deep link shop tanlash (start parametridan)
+async function setShopForUser(chatId, shopId) {
+  const cid = String(chatId);
+  try {
+    const shops = await sb("shops", `?id=eq.${shopId}&select=id,name&limit=1`);
+    if (!shops?.[0]) return null;
+    const shopName = shops[0].name;
+    // Cache ni yangi do'kon bilan yangilaymiz (eski do'konni almashtiramiz)
+    const ctx = { shopId, shopName, isOwner: false, isSuperAdmin: false, ts: Date.now() };
+    _shopCache.set(cid, ctx);
+
+    // DOIMIY saqlash — bot_sessions jadvaliga (Vercel cache yo'qolsa ham ishlasin)
+    try {
+      await fetch(`${SB_URL}/rest/v1/bot_sessions?on_conflict=chat_id`, {
+        method: "POST",
+        headers: {
+          apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+          "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({ chat_id: cid, shop_id: shopId, shop_name: shopName, is_owner: false })
+      });
+    } catch(e) { console.warn("bot_sessions saqlash xato:", e.message); }
+
+    // Agar customers jadvalida bu chatId bilan boshqa shop_id saqlangan bo'lsa
+    // yangi do'kon uchun ham telefon so'raymiz (alohida profil)
+    try {
+      const existing = await sb("customers",
+        `?telegram_chat_id=eq.${cid}&shop_id=eq.${shopId}&select=id&limit=1`);
+      if (!existing?.[0]) {
+        // Bu do'konda hali ulanmagan — telefon so'raymiz
+        ctx.needsContact = true;
+      }
+    } catch(e) {}
+
+    return ctx;
+  } catch(e) {
+    console.warn("setShopForUser xato:", e.message);
+    return null;
+  }
+}
+
+// sb() ga shop_id filter qo'shuvchi yordamchi
+function sbShop(table, shopId, query = "") {
+  const sep = query.includes("?") ? "&" : "?";
+  if (!shopId) return sb(table, query); // superadmin — filtr yo'q
+  return sb(table, `${query}${query ? "&" : "?"}shop_id=eq.${shopId}`);
+}
+
+// Telegram xabar yuborish
+async function tg(chatId, text, extra = {}) {
+  const body = { chat_id: chatId, text, parse_mode: "HTML", ...extra };
+  const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+// Rasm + matn (caption) bilan yuborish — guruhga buyurtma rasmi uchun
+// photoSrc: http(s) URL YOKI base64 data-url (data:image/...;base64,...)
+async function tgPhoto(chatId, photoSrc, caption, extra = {}) {
+  // base64 bo'lsa — multipart/form-data orqali fayl sifatida yuboramiz
+  if (photoSrc && photoSrc.startsWith("data:image")) {
+    try {
+      const base64Data = photoSrc.split(",")[1];
+      const buffer = Buffer.from(base64Data, "base64");
+      const form = new FormData();
+      form.append("chat_id", String(chatId));
+      form.append("caption", caption || "");
+      form.append("parse_mode", "HTML");
+      if (extra.reply_markup) form.append("reply_markup", JSON.stringify(extra.reply_markup));
+      form.append("photo", new Blob([buffer], { type: "image/jpeg" }), "photo.jpg");
+
+      const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
+        method: "POST",
+        body: form,
+      });
+      return res.json();
+    } catch(e) {
+      console.error("[tgPhoto] base64 yuborish xato:", e.message);
+      return { ok: false, description: e.message };
+    }
+  }
+
+  // Oddiy URL bo'lsa — to'g'ridan yuboramiz
+  const body = { chat_id: chatId, photo: photoSrc, caption, parse_mode: "HTML", ...extra };
+  const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+// Fayl (document) yuborish — AI-naklad natijasi CSV uchun (2026-07)
+async function tgDocument(chatId, filename, content, caption) {
+  try {
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    if (caption) { form.append("caption", caption); form.append("parse_mode", "HTML"); }
+    form.append("document", new Blob([content], { type: "text/csv;charset=utf-8" }), filename);
+    const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendDocument`, { method: "POST", body: form });
+    return res.json();
+  } catch (e) {
+    console.error("[tgDocument] xato:", e.message);
+    return { ok: false, description: e.message };
+  }
+}
+
+// Telegram callback javob
+async function tgAnswer(callbackId) {
+  await fetch(`https://api.telegram.org/bot${TOKEN}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callback_query_id: callbackId }),
+  });
+}
+
+// Supabase GET
+async function sb(table, query = "") {
+  const url = `${SB_URL}/rest/v1/${table}${query}`;
+  const res = await fetch(url, {
+    headers: {
+      apikey: SB_KEY,
+      Authorization: `Bearer ${SB_KEY}`,
+    },
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Supabase ${table}: ${res.status} — ${err}`);
+  }
+  return res.json();
+}
+
+// ⚠️ 2026-08-07: 1000 QATOR CHEGARASI YOPILDI (kontekst §4.4, №9).
+// Supabase bitta so'rovga ko'pi bilan 1000 qator qaytaradi va
+// ortig'ini JIMGINA kesadi — limit=20000 yozilsa ham. Shu sabab
+// /oylik va /barcha_qarzlar katta do'konda KAM ko'rsatishi mumkin
+// edi. auth-v2.js dagi sbFetchAll bilan bir xil usul: sahifalab
+// yig'iladi. 20 sahifa (20 000 qator) — xavfsizlik shifti; unga
+// yetish amalda deyarli mumkin emas, yetilsa capped=true qaytadi.
+async function sbAll(table, query = "") {
+  const PAGE = 1000, MAX_PAGE = 20;
+  const out = [];
+  let capped = false;
+  for (let page = 0; page < MAX_PAGE; page++) {
+    const sep = query.includes("?") ? "&" : "?";
+    const rows = await sb(table, `${query}${sep}limit=${PAGE}&offset=${page * PAGE}`);
+    out.push(...rows);
+    if (rows.length < PAGE) return { rows: out, capped };
+    if (page === MAX_PAGE - 1) capped = true;
+  }
+  return { rows: out, capped };
+}
+
+// Supabase PATCH (yozuvni yangilash)
+async function sbPatch(table, query, body) {
+  const url = `${SB_URL}/rest/v1/${table}${query}`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      apikey: SB_KEY,
+      Authorization: `Bearer ${SB_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Supabase PATCH ${table}: ${res.status} — ${err}`);
+  }
+  return res.json();
+}
+
+// Telefon raqamini faqat raqamlarga keltirish (solishtirish uchun)
+function normPhone(p) {
+  return (p || "").replace(/\D/g, "");
+}
+
+const fmt   = n => Math.round(n || 0).toLocaleString("ru-RU");
+
+// ══════════════════════════════════════════════════════════════
+// UMUMIY CHEGIRMANI TOVARLARGA YOYISH (2026-08-08)
+// ══════════════════════════════════════════════════════════════
+// Klientdagi `spreadSaleDiscount` (utils.js) BILAN BIR XIL mantiq —
+// chek ikki joyda yasalgani uchun (ilova va bot) nusxa shart.
+// ⚠️ Ikkalasi BIR VAQTDA o'zgartirilishi kerak, aks holda mijoz
+// ikki xil chek ko'radi.
+// Sabab: umumiy chegirma alohida maydonda saqlanadi, tovar
+// narxlariga tegmaydi — chekda mijoz o'zi to'lagan narxni tovar
+// bo'yicha ko'rmasdi. Taqsimlash FOYDAGA mutanosib (`item.cost`),
+// tannarx yo'q bo'lsa qator qiymatiga mutanosib.
+function spreadDiscount(sale) {
+  const items = (sale && sale.items) ? sale.items : [];
+  const disc  = Number((sale && (sale.discount != null ? sale.discount
+                 : (sale.data && sale.data.discount))) || 0);
+  const out = items.map(it => ({
+    ...it,
+    effPrice: Number(it.price || 0),
+    origPrice: Number(it.basePrice || it.price || 0)
+  }));
+  if (!(disc > 0) || !out.length) return out;
+
+  const lineVal = it => Number(it.price || 0) * Number(it.qty || 0);
+  const subtotal = out.reduce((a, it) => a + lineVal(it), 0);
+  if (!(subtotal > 0) || disc >= subtotal) return out;
+
+  const profit = it => {
+    const c = Number(it.cost || 0);
+    return c > 0 ? Math.max(0, (Number(it.price || 0) - c) * Number(it.qty || 0)) : 0;
+  };
+  const profitSum = out.reduce((a, it) => a + profit(it), 0);
+  const basis = profitSum > 0 ? profit : lineVal;
+  const basisSum = profitSum > 0 ? profitSum : subtotal;
+
+  let berilgan = 0, maxIdx = 0, maxVal = -1;
+  out.forEach((it, i) => {
+    const ulush = Math.round(disc * (basis(it) / basisSum));
+    it._d = ulush; berilgan += ulush;
+    if (lineVal(it) > maxVal) { maxVal = lineVal(it); maxIdx = i; }
+  });
+  out[maxIdx]._d += (disc - berilgan);
+
+  out.forEach(it => {
+    const qty = Number(it.qty || 0) || 1;
+    it.effPrice = Math.max(0, Math.round(Number(it.price || 0) - (it._d / qty)));
+    if (it._d > 0) it.origPrice = Number(it.price || 0);
+    delete it._d;
+  });
+  return out;
+}
+// ══════════════════════════════════════════════════════════════
+// ⚠️ 2026-08-04: SANA — TOSHKENT VAQTIDA
+// ══════════════════════════════════════════════════════════════
+// `toISOString()` HAR DOIM UTC qaytaradi. Toshkent UTC dan 5 soat
+// oldinda, ya'ni har kuni 00:00–05:00 oralig'ida bot KECHAGI
+// sanani hisoblardi. Ulgurji do'konlar aynan ertalab 3-4 da ish
+// boshlaydi — o'sha paytda `/bugun`, `/balans`, `/qarzlar`
+// noto'g'ri javob berardi.
+//
+// Ilovada bu 2026-08-03 da tuzatilgan (utils.js), botda esa
+// e'tibordan chetda qolgan. Server UTC da ishlaydi, shuning uchun
+// qurilma vaqtiga tayanib bo'lmaydi — ofset ANIQ qo'shiladi.
+const TZ_OFFSET_MIN = 5 * 60;          // Asia/Tashkent = UTC+5
+const today = () => {
+  const d = new Date(Date.now() + TZ_OFFSET_MIN * 60 * 1000);
+  return d.toISOString().slice(0, 10);
+};
+const thisMonth = () => {
+  const d = new Date(Date.now() + TZ_OFFSET_MIN * 60 * 1000);
+  return d.toISOString().slice(0, 7);
+};
+
+// ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
+function isAllowed(chatId) {
+  // Superadmin har doim ruxsat
+  if (OWNER_ID && String(chatId) === String(OWNER_ID)) return true;
+  // Boshqa foydalanuvchilar — /hisobot kabi komandalarga ruxsatsiz
+  // (shopCtx da isOwner bo'lsa ruxsat beriladi — quyida tekshiriladi)
+  return false;
+}
+
+async function isShopOwner(chatId) {
+  if (OWNER_ID && String(chatId) === String(OWNER_ID)) return true;
+  const ctx = await getShopCtx(chatId);
+  if (ctx.isOwner === true) return true;
+  // shop_owners jadvalidan ham tekshiramiz (ko'p do'konli egalar uchun)
+  if (ctx.shopId) {
+    try {
+      const rows = await sb("shop_owners", `?chat_id=eq.${chatId}&shop_id=eq.${ctx.shopId}&select=shop_id&limit=1`);
+      if (rows?.length) return true;
+    } catch(e) {}
+  }
+  return false;
+}
+
+// ════════════════════════════════════════════════════════════════
+// AI-NAKLAD (2026-07): naklad rasmidan Gemini orqali tovar jadvali
+// chiqarib, MERX import shabloniga mos CSV qaytaradi.
+// ════════════════════════════════════════════════════════════════
+
+const NAKLAD_PROMPT = `Bu — Xitoydan kelayotgan tovar nakladnoyi (proforma invoice) jadvali rasmi.
+Jadvaldagi HAR BIR qatorni (har rang/variant alohida qator) JSON sifatida chiqar.
+
+Har element uchun:
+- nom: tovar nomi/turi (masalan "Krossovka", "Ayollar tufli"). Aniq nom yo'q
+  bo'lsa, LOGO/brend nomidan foydalanib qisqa umumiy nom yoz.
+- artikul: model/stil kodi (Styles NO, Art.No, model raqami — jadvalda odatda
+  bor ustun). MAJBURIY va NOYOB bo'lishi kerak: bir xil rangli lekin boshqa
+  model kodli qatorlarni ALOHIDA element deb hisobla, birlashtirma.
+- rang: rang nomi (COLOR ustuni qiymati, masalan "navy", "black").
+- olcham: agar jadvalda o'lcham ustunlari (39,40,41...) bo'lib qiymatlari
+  bir xil takrorlansa — eng kichik va eng katta o'lchamni "39-44" formatida
+  yoz. O'lcham ustunlari yo'q bo'lsa — bo'sh qoldir ("").
+- pochka_soni: CTN ustuni (karobka/karton soni).
+- birlik_soni: 1 karobkada nechta DONA (PRS/CTN nisbati, yoki o'lcham
+  ustunlaridagi qiymatlar yig'indisi, masalan 2+2+2+2+2+2=12).
+- birlik_narx_cny: U.Price ustuni — bitta DONA narxi, Xitoy yuanida (CNY),
+  faqat raqam (valyuta belgisiz).
+
+Faqat jadvaldagi haqiqiy tovar qatorlarini chiqar, jami/summary qatorlarni
+o'tkazib yubor.
+
+MUHIM — NARX HAR DOIM TO'LDIRILISHI SHART (bu eng ko'p xato qiladigan joy):
+- Ba'zi jadvallarda narx ustuni faqat GURUHNING BIRINCHI qatorida
+  ko'rsatilib, qolgan rang/variant qatorlarida katak BO'SH yoki
+  birlashtirilgan (merged) bo'ladi — bunda o'sha narxni guruhdagi
+  BARCHA qatorlarga (pastga qarab) qo'llash kerak, HECH QAYSI qatorni
+  narxsiz qoldirma.
+- Ba'zan ustunda T.Price (JAMI summa) ko'rsatiladi, U.Price (bitta
+  DONA narxi) emas — bunday holda birlik_narx_cny ni T.Price ni
+  jami donaga (pochka_soni × birlik_soni) BO'LIB hisobla.
+- Agar bir nechta narx ustuni bo'lsa (masalan turli hajm/rangga oid),
+  o'sha QATORGA tegishli ustundagi narxni ol, boshqa qatorning
+  narxini ishlatma.
+- Qiymatni aniq o'qib bo'lmasa ham eng mantiqiy taxminni ber
+— hech qachon maydonni bo'sh/noaniq qoldirma.`;
+
+const NAKLAD_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    items: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          nom:             { type: "STRING" },
+          artikul:         { type: "STRING" },
+          rang:            { type: "STRING" },
+          olcham:          { type: "STRING" },
+          pochka_soni:     { type: "NUMBER" },
+          birlik_soni:     { type: "NUMBER" },
+          birlik_narx_cny: { type: "NUMBER" },
+        },
+        required: ["rang", "pochka_soni", "birlik_soni", "birlik_narx_cny"],
+      },
+    },
+  },
+  required: ["items"],
+};
+
+// Gemini Vision orqali naklad rasmlaridan tovar ro'yxatini chiqarish
+async function geminiExtractNaklad(images) {
+  if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY sozlanmagan (Vercel ENV)");
+  const parts = [
+    { text: NAKLAD_PROMPT },
+    ...images.map(im => ({ inlineData: { mimeType: im.mimeType, data: im.buffer.toString("base64") } })),
+  ];
+  const body = {
+    contents: [{ role: "user", parts }],
+    generationConfig: { responseMimeType: "application/json", responseSchema: NAKLAD_SCHEMA, temperature: 0.1 },
+  };
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+  );
+  const data = await r.json();
+  if (!r.ok) throw new Error("Gemini xato: " + (data?.error?.message || r.status));
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Gemini bo'sh javob qaytardi");
+  const parsed = JSON.parse(text);
+  return parsed.items || [];
+}
+
+// Kurs + yo'l xarajatini QIYMATGA mutanosib taqsimlab, har dona tannarxini hisoblash
+function computeNakladCosts(items, kurs, logistics) {
+  const withValue = items.map(it => {
+    const jamiDona = Math.max(0, Math.round((it.pochka_soni || 0) * (it.birlik_soni || 0)));
+    const valueCny = (it.birlik_narx_cny || 0) * jamiDona;
+    return { ...it, jamiDona, valueCny };
+  });
+  const totalValueCny = withValue.reduce((a, it) => a + it.valueCny, 0) || 1;
+  return withValue.map(it => {
+    const valueSom = it.valueCny * (kurs || 0);
+    const share = logistics > 0 ? logistics * (it.valueCny / totalValueCny) : 0;
+    const costPerUnitSom = it.jamiDona > 0 ? Math.round((valueSom + share) / it.jamiDona) : 0;
+    return { ...it, costPerUnitSom };
+  });
+}
+
+// MERX import shabloniga mos CSV (Ulgurji narx bo'sh — sotuvchi to'ldiradi)
+function buildNakladCsv(rows) {
+  const headers = ["Nom", "ART", "Rang", "O'lcham", "1 pochkada nechta", "Pochka soni", "Tannarx", "Ulgurji narx"];
+  const esc = v => { const s = String(v ?? ""); return (s.includes(";") || s.includes(",") || s.includes('"')) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const lines = rows.map(r => [
+    r.nom || "Tovar", r.artikul || "", r.rang || "", r.olcham || "",
+    r.birlik_soni || "", r.pochka_soni || "", r.costPerUnitSom || "", "",
+  ]);
+  return "sep=;\r\n" + [headers, ...lines].map(r => r.map(esc).join(";")).join("\r\n");
+}
+
+// Telegram fayl (rasm) yuklab olish
+async function tgGetFileBuffer(fileId) {
+  const infoRes = await fetch(`https://api.telegram.org/bot${TOKEN}/getFile?file_id=${fileId}`);
+  const info = await infoRes.json();
+  if (!info.ok) throw new Error("Telegram getFile xato: " + (info.description || ""));
+  const filePath = info.result.file_path;
+  const fileRes = await fetch(`https://api.telegram.org/file/bot${TOKEN}/${filePath}`);
+  const buffer = Buffer.from(await fileRes.arrayBuffer());
+  const mimeType = filePath.endsWith(".png") ? "image/png"
+    : filePath.endsWith(".webp") ? "image/webp"
+    : filePath.endsWith(".pdf")  ? "application/pdf"
+    : "image/jpeg";
+  return { buffer, mimeType };
+}
+
+// Sessiya: Supabase'dagi naklad_sessions jadvalida (chat_id PK)
+async function nkGet(chatId) {
+  try {
+    const rows = await sb("naklad_sessions", `?chat_id=eq.${chatId}&select=*&limit=1`);
+    return rows?.[0] || null;
+  } catch (e) { return null; }
+}
+async function nkSave(chatId, patch) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/naklad_sessions?on_conflict=chat_id`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify({ chat_id: String(chatId), updated_at: new Date().toISOString(), ...patch }),
+    });
+  } catch (e) { console.warn("nkSave xato:", e.message); }
+}
+async function nkClear(chatId) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/naklad_sessions?chat_id=eq.${chatId}`, {
+      method: "DELETE", headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
+    });
+  } catch (e) {}
+}
+
+async function cmdNakladStart(chatId) {
+  await nkClear(chatId);
+  await nkSave(chatId, { step: "collecting", images: [] });
+  await tg(chatId,
+    "📦 <b>AI orqali naklad import</b>\n\n" +
+    "Naklad rasm(lar)ini yuboring (bir nechta bo'lsa ketma-ket).\n\n" +
+    "Tugatgach: /tayyor\nBekor qilish: /bekor"
+  );
+}
+
+// Faol naklad sessiyasidagi xabarni (rasm yoki matn) tegishli qadamga yo'naltiradi.
+// true qaytarsa — xabar shu yerda "yutilgan", oddiy komanda routeriga o'tmaydi.
+async function handleNakladFlow(chatId, msg, sess) {
+  const text = (msg.text || "").trim();
+  if (text === "/bekor") { await nkClear(chatId); await tg(chatId, "❌ Bekor qilindi."); return true; }
+
+  if (sess.step === "collecting") {
+    const isImg = msg.photo?.length || (msg.document && (msg.document.mime_type || "").startsWith("image/"));
+    if (isImg) {
+      const fid = msg.photo?.length ? msg.photo[msg.photo.length - 1].file_id : msg.document.file_id;
+      const imgs = [...(sess.images || []), { file_id: fid }];
+      await nkSave(chatId, { images: imgs });
+      await tg(chatId, `✅ Rasm qabul qilindi (${imgs.length} ta).\nYana yuboring yoki /tayyor deb yozing.`);
+      return true;
+    }
+    if (text === "/tayyor") {
+      if (!sess.images?.length) { await tg(chatId, "Avval kamida 1 ta rasm yuboring."); return true; }
+      await nkSave(chatId, { step: "kurs" });
+      await tg(chatId, "💱 1 CNY (yuan) necha so'm? (masalan: 1750)");
+      return true;
+    }
+    await tg(chatId, "Naklad rasmini yuboring yoki /tayyor deb yozing.\n(Bekor qilish: /bekor)");
+    return true;
+  }
+
+  if (sess.step === "kurs") {
+    const v = parseFloat(text.replace(/[^\d.]/g, ""));
+    if (!v || v <= 0) { await tg(chatId, "Iltimos, to'g'ri son kiriting (masalan: 1750)"); return true; }
+    await nkSave(chatId, { kurs: v, step: "logistics" });
+    await tg(chatId, "🚚 Jami yo'l xarajati necha so'm? (yo'q bo'lsa 0 yozing)");
+    return true;
+  }
+
+  if (sess.step === "logistics") {
+    const v = parseFloat(text.replace(/[^\d.]/g, ""));
+    if (isNaN(v) || v < 0) { await tg(chatId, "Iltimos, to'g'ri son kiriting (yo'q bo'lsa 0)"); return true; }
+    await nkSave(chatId, { logistics: v, step: "processing" });
+    await processNaklad(chatId, { ...sess, logistics: v });
+    return true;
+  }
+
+  return false;
+}
+
+async function processNaklad(chatId, sess) {
+  await tg(chatId, "⏳ Tahlil qilinmoqda, biroz kuting (yarim daqiqagacha)...");
+  try {
+    const images = [];
+    for (const im of (sess.images || [])) images.push(await tgGetFileBuffer(im.file_id));
+    const items = await geminiExtractNaklad(images);
+    if (!items.length) throw new Error("Tovarlar aniqlanmadi — rasm sifatini tekshirib qayta urining");
+    const computed = computeNakladCosts(items, sess.kurs, sess.logistics || 0);
+    const csv = buildNakladCsv(computed);
+    await tgDocument(chatId, `merx_naklad_${Date.now()}.csv`, csv,
+      `✅ <b>${computed.length} ta tovar aniqlandi</b>\n\n` +
+      `Tannarx avtomat hisoblangan (kurs: ${sess.kurs} so'm/CNY, yo'l xarajati: ${Math.round(sess.logistics || 0).toLocaleString("ru-RU")} so'm taqsimlangan).\n\n` +
+      `⚠️ Import qilishdan oldin ma'lumotlarni tekshiring va Ulgurji narxni to'ldiring — AI xato qilishi mumkin!`
+    );
+  } catch (e) {
+    console.error("processNaklad xato:", e.message);
+    await tg(chatId, `❌ Xato: ${e.message}\n\nQaytadan urinib ko'ring: /naklad`);
+  } finally {
+    await nkClear(chatId);
+  }
+}
+
+// Egasi bo'lgan barcha do'konlar ro'yxati
+async function getOwnerShops(chatId) {
+  try {
+    return await sb("shop_owners", `?chat_id=eq.${chatId}&select=shop_id,shop_name&order=shop_name`);
+  } catch(e) { return []; }
+}
+
+// Mijoz sifatida bog'langan barcha do'konlar ro'yxati
+async function getCustomerShops(chatId) {
+  try {
+    const rows = await sb("customers", `?telegram_chat_id=eq.${chatId}&select=shop_id&limit=50`);
+    if (!rows?.length) return [];
+    const shopIds = [...new Set(rows.map(r => r.shop_id).filter(Boolean))];
+    if (!shopIds.length) return [];
+    const inList = shopIds.map(id => `"${id}"`).join(",");
+    const shops = await sb("shops", `?id=in.(${inList})&select=id,name`);
+    return shops || [];
+  } catch(e) { return []; }
+}
+
+// ── /start ───────────────────────────────────────────────────
+async function cmdStart(chatId, param) {
+  const cid = String(chatId);
+
+  // ── Superadmin ──
+  if (OWNER_ID && cid === String(OWNER_ID)) {
+    await tg(chatId,
+      "🛡 MERX Super Admin\n\n" +
+      "Barcha do'konlarni boshqarish uchun:\n" +
+      "📊 /hisobot — bugungi savdo\n" +
+      "💰 /balans — kassa holati\n" +
+      "📦 /ombor — kam qolgan tovarlar\n" +
+      "🔴 /qarzlar — muddati o'tgan qarzlar\n" +
+      "❓ /help — yordam"
+    );
+    return;
+  }
+
+  // ══ EGANI ULASH HAVOLASI (2026-07-30) ═══════════════════════════
+  //   t.me/BOT?start=own_shop_XXXXX
+  // Muammo: yangi do'kon egasi ega bo'lib TANILISHINING yo'li yo'q edi.
+  //  · settings.telegram_owner_chat_id hech qayerda YOZILMAYDI
+  //  · setShopForUser bot_sessions ga is_owner:false yozadi
+  //  · shop_owners ga yozish `if (isOwner)` ICHIDA — ya'ni ega bo'lish
+  //    uchun avval ega bo'lish kerak edi (yopiq doira)
+  // Endi shu havola o'sha doirani ochadi.
+  //
+  // XAVFSIZLIK: havola FAQAT BIR MARTA ishlaydi — do'konda hali ega
+  // ro'yxatdan o'tmagan bo'lsa. Ega bor bo'lsa havola kuchsiz, oddiy
+  // mijoz havolasi kabi ishlaydi.
+  if (param && param.startsWith("own_shop_")) {
+    const shopId = param.slice(4);   // "own_" ni kesamiz
+
+    const shops = await sb("shops", `?id=eq.${shopId}&select=id,name&limit=1`).catch(() => []);
+    if (!shops?.[0]) {
+      await tg(chatId, "⚠️ Do'kon topilmadi. Havolani do'kon administratoridan qayta oling.");
+      return;
+    }
+    const shopName = shops[0].name || "MERX";
+
+    // Bu do'konda ega allaqachon bormi?
+    const already = await sb("shop_owners", `?shop_id=eq.${shopId}&select=chat_id&limit=1`).catch(() => []);
+    const meAlready = (already || []).some(r => String(r.chat_id) === cid);
+
+    if (already?.length && !meAlready) {
+      await tg(chatId,
+        "⚠️ Bu do'konga ega allaqachon ulangan.\n\n" +
+        "Sizning ID: " + cid + "\n\n" +
+        "Bu ID ni do'kon EGASIGA yuboring — u botda\n" +
+        "<code>/egaqoshish " + cid + "</code>\n" +
+        "deb yozsa, siz ham EGA sifatida ulanasiz.");
+      return;
+    }
+
+    // shop_owners ga yozamiz
+    let okOwner = false;
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/shop_owners?on_conflict=chat_id,shop_id`, {
+        method: "POST",
+        headers: {
+          apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+          "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({ chat_id: cid, shop_id: shopId, shop_name: shopName })
+      });
+      okOwner = r.ok;
+      if (!r.ok) console.error("[own_] shop_owners yozilmadi:", r.status, await r.text().catch(()=>""));
+    } catch(e) { console.error("[own_] shop_owners xato:", e.message); }
+
+    if (!okOwner) {
+      await tg(chatId,
+        "⚠️ Ulashda xatolik yuz berdi.\n\nSizning ID: " + cid +
+        "\nShu ID ni administratorga yuboring.");
+      return;
+    }
+
+    // bot_sessions — is_owner: true (setShopForUser doim false yozadi,
+    // shuning uchun uni ishlatmasdan o'zimiz yozamiz)
+    try {
+      await fetch(`${SB_URL}/rest/v1/bot_sessions?on_conflict=chat_id`, {
+        method: "POST",
+        headers: {
+          apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+          "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({ chat_id: cid, shop_id: shopId, shop_name: shopName, is_owner: true })
+      });
+    } catch(e) { console.warn("[own_] bot_sessions xato:", e.message); }
+
+    _shopCache.set(cid, { shopId, shopName, isOwner: true, isSuperAdmin: false, ts: Date.now() });
+
+    await tg(chatId,
+      "✅ " + shopName + "\n\n" +
+      "Do'kon egasi sifatida ulandingiz.\n\n" +
+      "📊 /hisobot — bugungi savdo\n" +
+      "💰 /balans — kassa holati\n" +
+      "📦 /ombor — kam qolgan tovarlar\n" +
+      "🔴 /qarzlar — muddati o'tgan qarzlar\n" +
+      "❓ /help — yordam",
+      { reply_markup: { remove_keyboard: true } });
+    return;
+  }
+
+  // ── Deep link: /start shop_XXXXX ──
+  // Do'kon egasi yoki mijoz havoladan kirgan
+  if (param && param.startsWith("shop_")) {
+    const shopId = param;
+    const ctx = await setShopForUser(chatId, shopId);
+    if (ctx) {
+      // Do'kon egasimi tekshiramiz
+      const isOwner = await isShopOwner(chatId);
+      if (isOwner) {
+        // shop_owners jadvaliga doimiy yozamiz (ko'p do'konli egalar uchun)
+        try {
+          await fetch(`${SB_URL}/rest/v1/shop_owners?on_conflict=chat_id,shop_id`, {
+            method: "POST",
+            headers: {
+              apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+              "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+            },
+            body: JSON.stringify({ chat_id: String(chatId), shop_id: shopId, shop_name: ctx.shopName })
+          });
+        } catch(e) { console.warn("shop_owners saqlash xato:", e.message); }
+
+        await tg(chatId,
+          "🏪 " + ctx.shopName + "\n\n" +
+          "Do'kon egasi sifatida kirildi.\n\n" +
+          "📊 /hisobot — bugungi savdo\n" +
+          "💰 /balans — kassa holati\n" +
+          "📦 /ombor — kam qolgan tovarlar\n" +
+          "🔴 /qarzlar — muddati o'tgan qarzlar\n" +
+          "❓ /help — yordam"
+        );
+      } else {
+        // Mijoz — telefon so'raymiz
+        await tg(chatId,
+          "🟡 " + ctx.shopName + "\n\n" +
+          "Xush kelibsiz! Xaridlaringiz uchun cheklarni shu botda avtomatik olishingiz mumkin.\n\n" +
+          "Davom etish uchun telefon raqamingizni ulashing 👇",
+          {
+            reply_markup: {
+              keyboard: [[{ text: "📱 Raqamni ulashish", request_contact: true }]],
+              resize_keyboard: true, one_time_keyboard: true,
+            },
+          }
+        );
+      }
+      return;
+    }
+  }
+
+  // ── Oddiy /start — do'kon tanlanmagan ──
+  // Barcha faol do'konlar ro'yxatini ko'rsatamiz
+  try {
+    const shops = await sb("shops", "?active=eq.true&select=id,name&order=name");
+    if (shops?.length === 1) {
+      // Bitta do'kon — avtomatik tanlash
+      await cmdStart(chatId, shops[0].id);
+      return;
+    }
+    if (shops?.length > 1) {
+      const btns = shops.map(s => [{ text: "🏪 " + s.name, callback_data: "shop:" + s.id }]);
+      await tg(chatId,
+        "🟡 MERX Savdo tizimi\n\nQaysi do'kondan xarid qildingiz?",
+        { reply_markup: { inline_keyboard: btns } }
+      );
+      return;
+    }
+  } catch(e) { console.warn("shops list xato:", e.message); }
+
+  // Fallback
+  await tg(chatId,
+    "🟡 MERX do'koniga xush kelibsiz!\n\n" +
+    "Davom etish uchun telefon raqamingizni ulashing 👇",
+    {
+      reply_markup: {
+        keyboard: [[{ text: "📱 Raqamni ulashish", request_contact: true }]],
+        resize_keyboard: true, one_time_keyboard: true,
+      },
+    }
+  );
+}
+
+// ── Kontakt qabul qilish (mijoz raqamini ulashganda) ──────────
+async function handleContact(chatId, contact) {
+  const rawPhone = normPhone(contact.phone_number);
+
+  try {
+    // shopId — getShopCtx orqali (bot_sessions jadvalidan, ishonchli)
+    let ctx = await getShopCtx(chatId);
+    let shopId = ctx.shopId;
+
+    // shopId hali ham topilmasa — do'kon tanlanmagan, xato qilib taxmin qilmaymiz
+    if (!shopId) {
+      console.log(`[handleContact] shopId topilmadi, chatId=${chatId} — do'kon tanlashni so'raymiz`);
+      try {
+        const shops = await sb("shops", "?active=eq.true&select=id,name&order=name");
+        if (shops?.length > 1) {
+          const btns = shops.map(s => [{ text: "🏪 " + s.name, callback_data: "shop:" + s.id }]);
+          await tg(chatId,
+            "🟡 Avval qaysi do'kondan xarid qilganingizni tanlang:",
+            { reply_markup: { inline_keyboard: btns } }
+          );
+          return;
+        }
+        if (shops?.length === 1) {
+          shopId = shops[0].id;
+        }
+      } catch(e) { console.warn("[handleContact] shops fallback xato:", e.message); }
+    }
+    if (!shopId) {
+      await tg(chatId, "⚠️ Do'kon aniqlanmadi. /start buyrug'ini qaytadan bosing.");
+      return;
+    }
+    const shopFilter = shopId ? `&shop_id=eq.${shopId}` : "";
+
+    // Shu do'kon customers ni olamiz (yoki shop_id yo'q bo'lsa barchani)
+    const all = await sb("customers", `?select=*${shopFilter}`);
+    console.log(`[handleContact] phone=${rawPhone}, shopId=${shopId}, customers=${all?.length}`);
+
+    // Telefon formatlarini solishtirish (998 prefix bilan va siz)
+    const match = all.find(c => {
+      const cp = normPhone(c.phone || "");
+      if (!cp) return false;
+      // Har ikki tomonni 9 xonali formatga keltirib solishtirish
+      const normalize = p => p.startsWith("998") ? p.slice(3) : p;
+      return normalize(cp) === normalize(rawPhone);
+    });
+
+    if (!match) {
+      console.log(`[handleContact] topilmadi: ${rawPhone}`);
+      // Global qidiruv o'chirildi — har do'kon faqat o'z mijozlarini ko'radi
+      await tg(chatId,
+        "⚠️ Raqamingiz bizning mijozlar bazasida topilmadi.\n\n" +
+        "Birinchi xaridingizdan so'ng avtomatik bog'lanadi. Iltimos, do'konda xarid qiling.",
+        { reply_markup: { remove_keyboard: true } }
+      );
+      return;
+    }
+
+    console.log(`[handleContact] topildi: id=${match.id}, local_id=${match.local_id}, phone=${match.phone}, existing_chat_id=${match.telegram_chat_id}`);
+
+    // Telefon raqami bo'yicha PATCH — eng ishonchli usul
+    let patchResult = null;
+    const matchShopId = match.shop_id || shopId || null;
+
+    // Cache ga shopId ni saqlaymiz
+    if (matchShopId) {
+      const shops = await sb("shops", `?id=eq.${matchShopId}&select=name&limit=1`).catch(() => []);
+      const shopName = shops?.[0]?.name || "MERX";
+      _shopCache.set(String(chatId), { shopId: matchShopId, shopName, isOwner: false, isSuperAdmin: false, ts: Date.now() });
+    }
+
+    // 1. Telefon bo'yicha yangilash
+    try {
+      patchResult = await sbPatch("customers",
+        `?phone=eq.${encodeURIComponent(match.phone)}${matchShopId ? "&shop_id=eq."+matchShopId : ""}`,
+        { telegram_chat_id: String(chatId) }
+      );
+      console.log(`[handleContact] phone patch result: ${JSON.stringify(patchResult)}`);
+    } catch(e) {
+      console.log(`[handleContact] phone patch xato: ${e.message}`);
+    }
+
+    // 2. Agar phone patch ishlamasa, local_id bo'yicha
+    if (!patchResult?.length && match.local_id != null) {
+      try {
+        patchResult = await sbPatch("customers", `?local_id=eq.${match.local_id}${matchShopId?"&shop_id=eq."+matchShopId:""}`, { telegram_chat_id: String(chatId) });
+        console.log(`[handleContact] local_id patch: ${JSON.stringify(patchResult)}`);
+      } catch(e) {
+        console.log(`[handleContact] local_id patch xato: ${e.message}`);
+      }
+    }
+
+    // 3. id bo'yicha (Supabase auto id)
+    if (!patchResult?.length && match.id != null) {
+      try {
+        patchResult = await sbPatch("customers", `?id=eq.${match.id}`, { telegram_chat_id: String(chatId) });
+        console.log(`[handleContact] id patch: ${JSON.stringify(patchResult)}`);
+      } catch(e) {
+        console.log(`[handleContact] id patch xato: ${e.message}`);
+      }
+    }
+
+    console.log(`[handleContact] yakuniy natija: ${patchResult?.length ? "✅ yangilandi" : "❌ yangilanmadi"}`);
+
+    await tg(chatId,
+      `✅ Rahmat, ${match.name}!\n\n` +
+      "Endi har bir xaridingiz uchun chek shu yerga avtomatik keladi. 🧾",
+      { reply_markup: { remove_keyboard: true } }
+    );
+  } catch (e) {
+    console.error("[handleContact] xato:", e.message);
+    await tg(chatId, `⚠️ Xato yuz berdi: ${e.message}`, { reply_markup: { remove_keyboard: true } });
+  }
+}
+
+// ── /hisobot ─────────────────────────────────────────────────
+async function cmdHisobot(chatId) {
+  try {
+    const t = today();
+    const ctx = await getShopCtx(chatId);
+    const sid = ctx.shopId;
+  // ⚠️ 2026-08-04: DO'KON ANIQLANMASA — MA'LUMOT BERILMAYDI.
+    // Avval `shopId` null bo'lsa `sidFilter` BO'SH qolardi va so'rov
+    // BARCHA DO'KON ma'lumotini qaytarardi. Ya'ni botni topgan begona
+    // odam `/hisobot` yozib hamma do'konning savdo raqamlarini
+    // ko'ra olardi.
+    // SuperAdmin (`OWNER_ID`) uchun istisno — u ataylab hammasini
+    // ko'radi, lekin sarlavhada bu ochiq yoziladi.
+    if (!ctx.shopId && !ctx.isSuperAdmin) {
+      await tg(chatId, "🔒 Do'kon aniqlanmadi.\n\n" +
+        "/start bosing yoki do'kon egasidan havola so'rang.");
+      return;
+    }
+
+        const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
+    // 2026-08-07: sahifalab olinadi — 1000 qator chegarasi (§4.4, №9)
+    const [sales, xarajat] = await Promise.all([
+      sbAll("sales", `?date=eq.${t}&status=neq.bekor&order=created_at.desc${sidFilter}`).then(r => r.rows),
+      sbAll("xarajatlar", `?date=eq.${t}${sidFilter}`).then(r => r.rows),
+    ]);
+
+    if (!sales.length) {
+      await tg(chatId, `📊 Bugungi hisobot — ${t}\n\n⚪ Bugun hali sotuv yo'q`);
+      return;
+    }
+
+    // ⚠️ 2026-08-04: ESKI QARZLAR KUNLIK HISOBOTDA HAM KIRMAYDI.
+  // `isOldDebt` — Billz'dan ko'chirilganlar, haqiqiy sotuv emas
+  // (ilovadagi `statSales()` qoidasi).
+  const _sales = (sales || []).filter(x => (x?.data && x.data.isOldDebt) !== true);
+
+  const totalSales = _sales.length;
+    const totalSum   = _sales.reduce((s, x) => s + Number(x.total || 0), 0);
+    const totalPaid  = _sales.reduce((s, x) => s + Number(x.paid || 0), 0);
+    const totalDebt  = _sales.reduce((s, x) => s + Number(x.remaining || 0), 0);
+    const totalExp   = xarajat.reduce((s, x) => s + Number(x.amount || 0), 0);
+    // ⚠️ 2026-08-04: "Toza foyda" NOMI NOTO'G'RI EDI.
+  // Hisob: tushum − xarajat. TANNARX umuman ayrilmaydi, ya'ni bu
+  // FOYDA EMAS. Egasi 190 mln "foyda" ko'rib, aslida tovarning
+  // tannarxi hali ayrilmagan bo'lardi.
+  // Haqiqiy foyda uchun har sotuvdagi tovar tannarxini yig'ish
+  // kerak — bu alohida ish (ilovada `calcMarkup` bor).
+  // Hozircha NOM to'g'rilandi: aldamaydigan bo'ldi.
+  const foyda      = totalPaid - totalExp;
+
+    // To'lov turi bo'yicha
+    const byType = {};
+    for (const s of _sales) {
+      const k = s.pay_type || "boshqa";
+      byType[k] = (byType[k] || 0) + Number(s.total || 0);
+    }
+    const typeLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", nasiya: "Nasiya" };
+
+    // Eng ko'p sotilgan
+    const itemCounts = {};
+    for (const s of _sales) {
+      for (const it of (s.items || [])) {
+        if (!it?.name) continue;
+        itemCounts[it.name] = (itemCounts[it.name] || 0) + (it.qty || 1);
+      }
+    }
+    const topItem = Object.entries(itemCounts).sort((a, b) => b[1] - a[1])[0];
+
+    // ⚠️ 2026-08-04: SUPERADMIN UCHUN SARLAVHA ANIQ BO'LSIN.
+    // Avval `MERX — Bugungi savdo` deb yozilardi va bu bitta
+    // do'kon hisobotiga o'xshardi. Aslida SuperAdminda BARCHA
+    // do'kon yig'indisi chiqadi (`shopId` null → filtr yo'q).
+    // 2026-08-04: SuperAdmin bitta do'konni tanlagan bo'lsa —
+    // o'sha do'kon nomi. Tanlanmagan bo'lsa yig'indi ekani ochiq.
+    const shopName = (ctx.isSuperAdmin && !ctx.shopId)
+      ? "BARCHA DO'KONLAR"
+      : (ctx.shopName || "MERX");
+    let txt = `📊 ${shopName} — Bugungi savdo\n`;
+    txt += `📅 ${t}\n\n`;
+    txt += `🛍 Sotuvlar: ${totalSales} ta\n`;
+    txt += `💵 Jami summa: ${fmt(totalSum)} so'm\n`;
+    txt += `✅ To'langan: ${fmt(totalPaid)} so'm\n`;
+    if (totalDebt > 0) txt += `🔴 Nasiya: ${fmt(totalDebt)} so'm\n`;
+    txt += `\n📌 To'lov turlari:\n`;
+    for (const [k, v] of Object.entries(byType)) {
+      txt += `  ${typeLabels[k] || k}: ${fmt(v)} so'm\n`;
+    }
+    if (topItem) txt += `\n🏆 Eng ko'p: ${topItem[0]} (${topItem[1]} dona)\n`;
+    txt += `\n💸 Xarajatlar: ${fmt(totalExp)} so'm\n`;
+    txt += `💰 Tushum − xarajat: ${fmt(foyda)} so'm\n`;
+  txt += `<i>   (tannarx ayrilmagan)</i>`;
+
+    await tg(chatId, txt);
+  } catch (e) {
+    console.error("hisobot xato:", e.message);
+    await tg(chatId, `⚠️ Xato: ${e.message}`);
+  }
+}
+
+// ── /balans ──────────────────────────────────────────────────
+async function cmdBalans(chatId) {
+  try {
+    const t = today();
+    const ctx = await getShopCtx(chatId);
+    const sid = ctx.shopId;
+  // ⚠️ 2026-08-04: DO'KON ANIQLANMASA — MA'LUMOT BERILMAYDI.
+    // Avval `shopId` null bo'lsa `sidFilter` BO'SH qolardi va so'rov
+    // BARCHA DO'KON ma'lumotini qaytarardi. Ya'ni botni topgan begona
+    // odam `/hisobot` yozib hamma do'konning savdo raqamlarini
+    // ko'ra olardi.
+    // SuperAdmin (`OWNER_ID`) uchun istisno — u ataylab hammasini
+    // ko'radi, lekin sarlavhada bu ochiq yoziladi.
+    if (!ctx.shopId && !ctx.isSuperAdmin) {
+      await tg(chatId, "🔒 Do'kon aniqlanmadi.\n\n" +
+        "/start bosing yoki do'kon egasidan havola so'rang.");
+      return;
+    }
+
+        const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
+    const [sales, xarajat, sets] = await Promise.all([
+      sb("sales", `?date=eq.${t}&status=neq.bekor${sidFilter}`),
+      sb("xarajatlar", `?date=eq.${t}${sidFilter}`),
+      sid ? sb("settings", `?shop_id=eq.${sid}&limit=1`) : sb("settings", `?limit=1`),
+    ]);
+
+    const rate    = Number(sets[0]?.rate || 12800);
+    const naqd    = sales.filter(s => s.pay_type === "naqd").reduce((a, s) => a + Number(s.paid || 0), 0);
+    const karta   = sales.filter(s => s.pay_type === "karta").reduce((a, s) => a + Number(s.paid || 0), 0);
+    const otkazma = sales.filter(s => s.pay_type === "otkazma").reduce((a, s) => a + Number(s.paid || 0), 0);
+    const nasiya  = sales.reduce((a, s) => a + Number(s.remaining || 0), 0);
+    const kirim   = naqd + karta + otkazma;
+    const xar     = xarajat.reduce((a, x) => a + Number(x.amount || 0), 0);
+    // ⚠️ 2026-08-04: "Toza foyda" NOMI NOTO'G'RI EDI.
+  // Hisob: tushum − xarajat. TANNARX umuman ayrilmaydi, ya'ni bu
+  // FOYDA EMAS. Egasi 190 mln "foyda" ko'rib, aslida tovarning
+  // tannarxi hali ayrilmagan bo'lardi.
+  // Haqiqiy foyda uchun har sotuvdagi tovar tannarxini yig'ish
+  // kerak — bu alohida ish (ilovada `calcMarkup` bor).
+  // Hozircha NOM to'g'rilandi: aldamaydigan bo'ldi.
+  const foyda   = kirim - xar;
+
+    let txt = `💰 Kassa holati — ${t}\n\n`;
+    txt += `💵 Naqd: ${fmt(naqd)} so'm\n`;
+    txt += `💳 Karta: ${fmt(karta)} so'm\n`;
+    txt += `🏦 O'tkazma: ${fmt(otkazma)} so'm\n`;
+    txt += `─────────────────\n`;
+    txt += `📥 Jami kirim: ${fmt(kirim)} so'm\n`;
+    txt += `📤 Xarajat: ${fmt(xar)} so'm\n`;
+    txt += `─────────────────\n`;
+    txt += `✨ Tushum − xarajat: ${fmt(foyda)} so'm\n`;
+    txt += `   ≈ $${(foyda / rate).toFixed(2)}\n`;
+    if (nasiya > 0) {
+      txt += `\n🔴 Bugun nasiyaga: ${fmt(nasiya)} so'm`;
+    } else {
+      txt += `\n✅ Barcha to'lovlar qabul qilindi`;
+    }
+
+    await tg(chatId, txt);
+  } catch (e) {
+    console.error("balans xato:", e.message);
+    await tg(chatId, `⚠️ Xato: ${e.message}`);
+  }
+}
+
+// ── /ombor ───────────────────────────────────────────────────
+async function cmdOmbor(chatId) {
+  try {
+    const ctx = await getShopCtx(chatId);
+    const sid = ctx.shopId;
+  // ⚠️ 2026-08-04: DO'KON ANIQLANMASA — MA'LUMOT BERILMAYDI.
+    // Avval `shopId` null bo'lsa `sidFilter` BO'SH qolardi va so'rov
+    // BARCHA DO'KON ma'lumotini qaytarardi. Ya'ni botni topgan begona
+    // odam `/hisobot` yozib hamma do'konning savdo raqamlarini
+    // ko'ra olardi.
+    // SuperAdmin (`OWNER_ID`) uchun istisno — u ataylab hammasini
+    // ko'radi, lekin sarlavhada bu ochiq yoziladi.
+    if (!ctx.shopId && !ctx.isSuperAdmin) {
+      await tg(chatId, "🔒 Do'kon aniqlanmadi.\n\n" +
+        "/start bosing yoki do'kon egasidan havola so'rang.");
+      return;
+    }
+
+        const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
+    const products = await sb("products", `?order=name${sidFilter}`);
+
+    // MULTI-TENANT (2026-07): chegara do'konning O'Z sozlamasidan
+    // (settings.low_stock_limit); bo'lmasa ENV/5 zaxirasi
+    let lowLimit = LOW_LIMIT;
+    try {
+      const st = await sb("settings", `?select=low_stock_limit${sid ? `&shop_id=eq.${sid}` : ""}&limit=1`);
+      if (st?.[0]?.low_stock_limit != null && Number(st[0].low_stock_limit) > 0)
+        lowLimit = Number(st[0].low_stock_limit);
+    } catch {}
+
+    const low = [];
+    for (const p of products) {
+      for (const v of (p.variants || [])) {
+        if (Number(v.qty || 0) <= lowLimit) {
+          low.push({
+            name: p.name,
+            color: v.color || "",
+            size: v.size || "",
+            qty: Number(v.qty || 0),
+          });
+        }
+      }
+    }
+
+    if (!low.length) {
+      await tg(chatId, `📦 Ombor holati\n\n✅ Barcha tovarlar yetarli (>${lowLimit} dona)`);
+      return;
+    }
+
+    let txt = `📦 Kam qolgan tovarlar (≤${lowLimit} dona)\n`;
+    txt += `Jami: ${low.length} ta variant\n\n`;
+
+    for (const item of low.slice(0, 25)) {
+      const emoji = item.qty === 0 ? "🔴" : item.qty <= 2 ? "🟠" : "🟡";
+      txt += `${emoji} ${item.name}`;
+      if (item.color) txt += ` / ${item.color}`;
+      if (item.size)  txt += ` / ${item.size}`;
+      txt += ` — ${item.qty} dona\n`;
+    }
+    if (low.length > 25) txt += `\n...va yana ${low.length - 25} ta`;
+
+    await tg(chatId, txt);
+  } catch (e) {
+    console.error("ombor xato:", e.message);
+    await tg(chatId, `⚠️ Xato: ${e.message}`);
+  }
+}
+
+// ── /qarzlar ─────────────────────────────────────────────────
+async function cmdQarzlar(chatId, barcha = false) {
+  try {
+    const t = today();
+    const ctx = await getShopCtx(chatId);
+    const sid = ctx.shopId;
+  // ⚠️ 2026-08-04: DO'KON ANIQLANMASA — MA'LUMOT BERILMAYDI.
+    // Avval `shopId` null bo'lsa `sidFilter` BO'SH qolardi va so'rov
+    // BARCHA DO'KON ma'lumotini qaytarardi. Ya'ni botni topgan begona
+    // odam `/hisobot` yozib hamma do'konning savdo raqamlarini
+    // ko'ra olardi.
+    // SuperAdmin (`OWNER_ID`) uchun istisno — u ataylab hammasini
+    // ko'radi, lekin sarlavhada bu ochiq yoziladi.
+    if (!ctx.shopId && !ctx.isSuperAdmin) {
+      await tg(chatId, "🔒 Do'kon aniqlanmadi.\n\n" +
+        "/start bosing yoki do'kon egasidan havola so'rang.");
+      return;
+    }
+
+        const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
+    const query = barcha
+      ? `?remaining=gt.0&status=neq.bekor&order=due${sidFilter}`
+      : `?remaining=gt.0&status=neq.bekor&due=lt.${t}&order=due${sidFilter}`;
+
+    // 2026-08-07: sahifalab olinadi — 1000 qator chegarasi (§4.4, №9)
+    const debts = await sbAll("sales", query).then(r => r.rows);
+
+    if (!debts.length) {
+      const msg = barcha ? "✅ Hozirda hech qanday qarz yo'q" : "✅ Muddati o'tgan qarz yo'q";
+      await tg(chatId, msg);
+      return;
+    }
+
+    const totalDebt = debts.reduce((a, s) => a + Number(s.remaining || 0), 0);
+    const shopName2 = ctx.shopName || "MERX";
+    let txt = barcha
+      ? `📋 ${shopName2} — Barcha qarzlar (${debts.length} ta)\n\n`
+      : `🔴 ${shopName2} — Muddati o'tgan (${debts.length} ta)\n\n`;
+
+    for (const d of debts.slice(0, 15)) {
+      const name  = d.customer_name || "Noma'lum";
+      const phone = d.customer_phone || "—";
+      txt += `👤 ${name}\n`;
+      txt += `   📞 ${phone}\n`;
+      txt += `   💸 ${fmt(d.remaining)} so'm\n`;
+      if (d.due) {
+        let overdue = "";
+        if (d.due < t) {
+          const days = Math.floor((new Date(t) - new Date(d.due)) / 86400000);
+          overdue = ` (${days} kun kechikkan)`;
+        }
+        txt += `   📅 Muddat: ${d.due}${overdue}\n`;
+      }
+      txt += "\n";
+    }
+
+    if (debts.length > 15) txt += `...va yana ${debts.length - 15} ta\n\n`;
+    txt += `─────────────────\n`;
+    txt += `💰 Jami qarz: ${fmt(totalDebt)} so'm`;
+
+    const opts = {};
+    if (!barcha) {
+      opts.reply_markup = {
+        inline_keyboard: [[{ text: "📋 Barcha qarzlarni ko'rish", callback_data: "barcha_qarzlar" }]],
+      };
+    }
+
+    await tg(chatId, txt, opts);
+  } catch (e) {
+    console.error("qarzlar xato:", e.message);
+    await tg(chatId, `⚠️ Xato: ${e.message}`);
+  }
+}
+
+// ── Mijozga chek yuborish ──────────────────────────────────────
+function formatReceiptText(sale, shopName) {
+  const payLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", aralash: "Aralash" };
+  // ⚠️ 2026-08-05 TUZATILDI: e'lonlar `isUsd` dan OLDIN bo'lishi
+  // SHART. Avval pastda edi va nasiyali sotuvda xato berardi:
+  //   Cannot access '_dUsdFrozen' before initialization
+  // Naqd sotuvda chiqmasdi — shuning uchun darhol bilinmagan.
+  // ⚠️ 2026-08-04: XABAR MATNI HAM MUZLATILADI.
+  // Chek HTML'i `origRemaining` ga o'tkazilgan (kontekst §3.5),
+  // matn esa `sale.remaining` — HOZIRGI qoldiqda qolgandi.
+  // Natijada mijoz to'lov qilgach xabarda bir summa, "Chekni
+  // ko'rish" bosganda BOSHQA summa chiqardi.
+  const _remFrozen = Number(sale.origRemaining != null
+                            ? sale.origRemaining : (sale.remaining || 0));
+  const _dUsdFrozen = sale.origDebtUsd != null ? Number(sale.origDebtUsd)
+                    : (sale.debtUsd != null ? Number(sale.debtUsd) : 0);
+
+  const isUsd = sale.debtCurrency === "usd" && _dUsdFrozen;
+
+  // ⚠️ 2026-08-05: QAYTARISH — XABAR MATNIDA HAM.
+  // Avval qaytarish belgisi faqat chek HTML'ida edi. Mijoz
+  // xabarni ochmasdan ham nima qaytarganini ko'rsin.
+  let _refTxt = "";
+  try {
+    const _rf = Array.isArray(sale.refunds) ? sale.refunds : [];
+    if (_rf.length) {
+      const _rTot = Number(sale.refundedTotal || 0)
+                 || _rf.reduce((a, r) => a + Number(r.total || 0), 0);
+      _refTxt = `\n<b>${sale.status === "qaytarilgan"
+        ? "🔴 TO'LIQ QAYTARILGAN" : "🟠 QISMAN QAYTARILGAN"}</b>\n`;
+      _refTxt += `Qaytarilgan: <b>${fmt(_rTot)} so'm</b>\n`;
+      _rf.forEach(r => (r.items || []).forEach(it => {
+        const q = it.qtyBox ? `${it.qtyBox} pochka` : `${it.qty || 0} dona`;
+        _refTxt += `  ▫️ ${it.name || ""}${it.variant ? " (" + it.variant + ")" : ""} — ${q}\n`;
+      }));
+    }
+  } catch (e) {}
+
+  // Qarz satrlari
+  let debtLines = [];
+  if (_remFrozen > 0) {
+    const newDebt = isUsd ? `$${_dUsdFrozen.toFixed(2)}` : `${fmt(_remFrozen)} so'm`;
+    if (isUsd && sale.prevDebtUsd > 0) {
+      const total = sale.prevDebtUsd + _dUsdFrozen;
+      debtLines = [
+        `Oldingi qarz: $${sale.prevDebtUsd.toFixed(2)}`,
+        `+ Yangi qarz: $${_dUsdFrozen.toFixed(2)}`,
+        `💳 Umumiy qarz: $${total.toFixed(2)}`,
+      ];
+    } else if (!isUsd && sale.prevDebtUzs > 0) {
+      const total = sale.prevDebtUzs + _remFrozen;
+      debtLines = [
+        `Oldingi qarz: ${fmt(sale.prevDebtUzs)} so'm`,
+        `+ Yangi qarz: ${fmt(_remFrozen)} so'm`,
+        `💳 Umumiy qarz: ${fmt(total)} so'm`,
+      ];
+    } else {
+      debtLines = [`💳 Qarz: ${newDebt}`];
+    }
+    if (sale.due) debtLines.push(`Muddat: ${sale.due}`);
+  }
+
+  // ⚠️ 2026-08-08: MATN CHEKI PDF CHEK BILAN TENGLASHTIRILDI.
+  // Muammo (do'kon aytdi): Telegramdagi matn xabari va "Batafsil"
+  // dagi PDF chek BOSHQA-BOSHQA kod bilan yasalar edi — natijada
+  // matnda CHEGIRMA umuman ko'rinmasdi (PDF da bor), subtotal,
+  // mijoz ismi, pochka hisobi va $ ekvivalenti ham yo'q edi.
+  // Mijoz ikki xil chek ko'rib chalkashardi. Endi matn ham shu
+  // ma'lumotlarni beradi.
+  const _subtotal = Number(sale.subtotal || 0) || (Number(sale.total || 0) + Number(sale.discount || 0));
+  const _disc     = Number(sale.discount || 0);
+  const _discPct  = sale.discountPct != null ? sale.discountPct : sale.discount_pct;
+  const _rate     = Number(sale.rate || 0);
+  const _pchJami  = (sale.items || []).reduce((a, it) => a + (Number(it.qtyBox) || 0), 0);
+  // Tovar darajasidagi chegirmalar yig'indisi (basePrice > price)
+  const _itemDisc = (sale.items || []).reduce((a, it) =>
+    a + ((Number(it.basePrice) > Number(it.price || 0))
+         ? (Number(it.basePrice) - Number(it.price || 0)) * Number(it.qty || 1) : 0), 0);
+  // $ ekvivalenti — kurs bo'lsa, PDF chekdagi kabi
+  const _usd = (v) => (_rate > 0 && v > 0) ? ` ($${(v / _rate).toFixed(2)})` : "";
+
+  const lines = [
+    `🧾 ${shopName} — Chek`,
+    `📌 ${sale.chekNum || "#" + sale.id} | ${sale.date} ${sale.time || ""}`,
+    sale.customerName ? `👤 ${sale.customerName}` : null,
+    "",
+    ...(function () {
+      // ⚠️ 2026-08-08: TOVAR NARXLARI CHEGIRMA BILAN.
+      // PDF chekda asl narx chizilib yangi narx yoziladi — matn
+      // xabarida ham shunday bo'lsin (do'kon talabi). Ikki xil
+      // chegirma qamrab olinadi:
+      //   · tovar darajasidagi (basePrice > price)
+      //   · umumiy chegirma (spreadDiscount bilan yoyiladi)
+      const _eff = spreadDiscount(sale);
+      return (sale.items || []).map((i, idx) => {
+        const e = _eff[idx] || {};
+        const p = Number(e.effPrice != null ? e.effPrice : (i.price || 0));
+        const asl = Number(e.origPrice || i.basePrice || i.price || 0);
+        const q = i.qtyBox
+          ? `${i.qtyBox} pochka / ${i.qty} ${i.unit || "dona"}`
+          : `${i.qty} ${i.unit || "dona"}`;
+        // Chegirma bo'lsa: asl narx chizilgan holda ko'rsatiladi
+        const narx = (asl > p)
+          ? `<s>${fmt(asl)}</s> ${fmt(p)}`
+          : `${fmt(p)}`;
+        return `▪ ${i.name} (${i.variant || ""}) × ${q} × ${narx} = ${fmt(p * (i.qty || 0))} so'm`;
+      });
+    })(),
+    "",
+    _pchJami > 0 ? `📦 Jami: ${_pchJami} pochka` : null,
+    // ⚠️ 2026-08-08: ETALON — `utils.js` dagi ilova cheki (1463-1466).
+    // U yerda qator "Jami (chegirmasiz)" deb yoziladi va HAR IKKALA
+    // chegirma turida chiqadi. Bot tomonida esa boshqacha edi:
+    // PDF chekda "Subtotal" deb, faqat UMUMIY chegirmada, va tovar
+    // chegirmalarisiz qiymat bilan; matn xabarida esa umuman yo'q edi.
+    // Endi uchchalasi bir xil: yorliq ham, shart ham, qiymat ham.
+    (_itemDisc + _disc) > 0 ? `Jami (chegirmasiz): ${fmt(Number(sale.total || 0) + _itemDisc + _disc)} so'm` : null,
+    _itemDisc > 0 ? `Tovar chegirmalari: −${fmt(_itemDisc)} so'm` : null,
+    _disc > 0 ? `Umumiy chegirma: −${fmt(_disc)} so'm` : null,
+    `Jami: ${fmt(sale.total)} so'm${_usd(Number(sale.total || 0))}`,
+    `To'lov: ${payLabels[sale.payType] || sale.payType || "—"}`,
+    ...(sale.payType === "aralash" && (sale.payBreakdown || sale.pay_breakdown)
+      ? Object.entries(sale.payBreakdown || sale.pay_breakdown).map(([m,v]) => `  • ${payLabels[m]||m}: ${fmt(v)} so'm`)
+      : []),
+    sale.paid < sale.total ? `To'landi: ${fmt(sale.paid)} so'm` : null,
+    ...(debtLines.length ? debtLines : ["✅ To'liq to'landi"]),
+    // 2026-08-05: qaytarish bo'lsa — ro'yxati bilan
+    _refTxt || null,
+    "",
+    "Rahmat! Yana kutamiz 🙏",
+  ];
+  return lines.filter(l => l !== null).join("\n");
+}
+
+// ═══ QARZ TO'LOVI CHEKI (2026-07) ═══════════════════════════════
+// Xabar: jami qarz EDI / TO'LANDI / QOLDI + mini-app cheki tugmasi
+async function actionSendPayReceipt(body) {
+  const { customerId, customerPhone, payment, shopName } = body || {};
+  if (!payment) return { ok: false, error: "payment majburiy" };
+  const shopId = body.shopId || null;
+  const shopFilter = shopId ? `&shop_id=eq.${shopId}` : "";
+
+  // Mijoz chat_id sini topish (telefon → id tartibida)
+  let chatId = null;
+  if (customerPhone) {
+    const rawPhone = normPhone(customerPhone);
+    const normalize = p => p.startsWith("998") ? p.slice(3) : p;
+    const all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id${shopFilter}`);
+    const match = (all||[]).find(c => {
+      const cp = normPhone(c.phone || "");
+      return cp && normalize(cp) === normalize(rawPhone);
+    });
+    if (match?.telegram_chat_id) chatId = match.telegram_chat_id;
+  }
+  if (!chatId && customerId) {
+    const rows = await sb("customers",
+      `?or=(id.eq.${customerId},local_id.eq.${customerId})&select=telegram_chat_id${shopFilter}`);
+    if (rows?.[0]?.telegram_chat_id) chatId = rows[0].telegram_chat_id;
+  }
+  if (!chatId) return { ok: true, sent: false, reason: "no_chat_id" };
+
+  const F = n => Math.round(n||0).toLocaleString("ru-RU");
+  const M = n => payment.currency === "usd" ? ("$" + (Math.round((n||0)*100)/100).toFixed(2)) : (F(n) + " so'm");
+  const PM_LBL = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma" };
+
+  // v179: to'lov usullari taqsimoti (naqd/karta/o'tkazma so'mda) +
+  // joriy kursda dollor ekvivalenti — USD qarzda ham sotuvchi qanday
+  // to'langanini (naqd/karta) aniq ko'rsin.
+  let methodTxt;
+  if (payment.methodBreakdown) {
+    const rate = payment.rate || 12800;
+    const parts = Object.entries(payment.methodBreakdown).map(([m,v]) => `${F(v)} so'm ${PM_LBL[m]||m}`);
+    const totalSom = Object.values(payment.methodBreakdown).reduce((a,v)=>a+v,0);
+    methodTxt = parts.join(" + ") + ` = Jami ${F(totalSom)} so'm`;
+    if (payment.currency === "usd") methodTxt += ` (joriy kursda $${(totalSom/rate).toFixed(2)})`;
+  } else if (payment.source === "refund") {
+    // 2026-07-25: tovar qaytarish hisobidan yopilgan qarz — haqiqiy pul emas
+    methodTxt = `Tovar qaytarish hisobidan${payment.refundNo ? " (" + payment.refundNo + ")" : ""}`;
+  } else {
+    methodTxt = `${PM_LBL[payment.method] || payment.method || "Naqd"} orqali`;
+  }
+
+  const _isRef = payment.source === "refund";
+  let txt = _isRef
+    ? `↩️ <b>TOVAR QAYTARILDI</b>  <code>${payment.chekNum || ("#"+payment.id)}</code>\n`
+    : `💵 <b>TO'LOV QABUL QILINDI</b>  <code>${payment.chekNum || ("#"+payment.id)}</code>\n`;
+  txt += `🏪 ${shopName || "MERX"}\n📅 ${payment.date || ""} ${payment.time || ""}\n`;
+  txt += `━━━━━━━━━━━━━━━━━━━\n`;
+  if (payment.debtBefore != null) txt += `Jami qarz edi:  <b>${M(payment.debtBefore)}</b>\n`;
+  txt += _isRef
+    ? `Qarzdan kamaydi:  <b>${M(payment.amount)}</b>\n`
+    : `To'landi:  <b>${M(payment.amount)}</b>\n${methodTxt}\n`;
+  if (payment.debtAfter != null) {
+    txt += payment.debtAfter > 0
+      ? `Qoldi:  <b>${M(payment.debtAfter)}</b>\n`
+      : `Qoldi:  <b>0</b> — qarz to'liq yopildi ✅\n`;
+  }
+  const alloc = payment.allocations || [];
+  if (alloc.length) {
+    txt += `━━━━━━━━━━━━━━━━━━━\n<b>Yopilgan/kamaytirilgan cheklar:</b>\n`;
+    alloc.slice(0, 6).forEach(a => {
+      txt += `▫️ <code>${a.chekNum}</code> — ${a.fullyPaid ? "to'liq yopildi ✅" : M(a.amount) + " (qoldi " + M(a.remainingAfter) + ")"}\n`;
+    });
+    if (alloc.length > 6) txt += `<i>…yana ${alloc.length - 6} chek — chek ichida</i>\n`;
+  }
+  if (payment.leftover > 0) txt += `➕ Ortiqcha ${M(payment.leftover)} — balansingizga qo'shildi\n`;
+
+  const _pp = `PAY__${payment.id}${shopId ? "__" + shopId : ""}`;
+  const _ppEnc = _pp.replace(/[^a-zA-Z0-9_]/g, m => "x" + m.charCodeAt(0).toString(16));
+  const payUrl = `https://t.me/${BOT_USERNAME}/ombor?startapp=${_ppEnc}`;
+
+  const r = await tg(chatId, txt, {
+    reply_markup: { inline_keyboard: [[{ text: "🧾 To'lov chekini ko'rish", url: payUrl }]] },
+  });
+  if (!r.ok) return { ok: false, sent: false, reason: "telegram_error", detail: r.description };
+
+  // ⚠️ 2026-08-05: MIJOZ GURUHIGA HAM — sotuv chekidagi kabi.
+  // Avval faqat SOTUV cheki guruhga borardi, qarz to'lovi esa
+  // faqat mijozga. Mijozga nima ketsa guruhga ham ketishi kerak.
+  // Mijozga yuborish oqimi TEGILMAGAN — bu qo'shimcha.
+  let groupSent = false;
+  try {
+    const gid = String(body.groupId || "").trim();
+    if (/^-?\d{5,}$/.test(gid) && String(gid) !== String(chatId)) {
+      const gr = await tg(gid, txt, {
+        reply_markup: { inline_keyboard: [[{ text: "🧾 To'lov chekini ko'rish", url: payUrl }]] },
+      });
+      groupSent = !!gr.ok;
+      if (!gr.ok) console.warn(`[payReceipt] guruhga yuborilmadi (${gid}):`, gr.description);
+    }
+  } catch (e) { console.warn("[payReceipt] guruh xato:", e.message); }
+
+  return { ok: true, sent: true, groupSent };
+}
+
+// To'lov cheki sahifasi (mini-app ichida ochiladi)
+function buildPayReceiptHtml(p, shopName, ck) {
+  ck = ck || {}; // 2026-07-17: chek sozlamalari (logo/shior/altbilgi)
+  const F = n => Math.round(n||0).toLocaleString("ru-RU");
+  const M = n => p.currency === "usd" ? ("$" + (Math.round((n||0)*100)/100).toFixed(2)) : (F(n) + " so'm");
+  const alloc = Array.isArray(p.allocations) ? p.allocations : [];
+  const PM_LBL = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", balans:"Balansdan" };
+  const methodL = PM_LBL[p.method] || p.method || "";
+  // v179: to'lov usullari taqsimoti (naqd/karta/o'tkazma) + joriy kursda
+  // dollor ekvivalenti — USD qarzda ham sotuvchi qaysi usulda qancha
+  // to'laganini aniq ko'rsatadi.
+  const mb = p.method_breakdown || p.methodBreakdown || null;
+  let methodTxt = methodL;
+  if (mb) {
+    const rate = p.rate || 12800;
+    const totalSom = Object.values(mb).reduce((a,v)=>a+(v||0),0);
+    methodTxt = Object.entries(mb).map(([m,v]) => `${F(v)} so'm ${PM_LBL[m]||m}`).join(" + ");
+    methodTxt += ` = ${F(totalSom)} so'm`;
+    if (p.currency === "usd") methodTxt += ` (kurs: $${(totalSom/rate).toFixed(2)})`;
+  }
+  const rows = alloc.map(a => `
+    <tr><td class="c"><code>${a.chekNum||""}</code></td>
+        <td class="a">${M(a.amount)}</td>
+        <td class="s ${a.fullyPaid?"ok":""}">${a.fullyPaid ? "✅ To'liq" : "qoldi " + M(a.remainingAfter)}</td></tr>`).join("");
+  return `<!DOCTYPE html><html lang="uz"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>To'lov ${p.chek_num||p.chekNum||""}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:wght@400;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:30px}
+.hdr{background:#0D1B2A;padding:16px;text-align:center}
+.hdr .l{font-family:'Sora';font-size:11px;color:#E9A500;letter-spacing:2px;font-weight:700}
+.hdr .t{font-family:'Sora';font-size:19px;color:#fff;font-weight:800;margin-top:3px}
+.hdr .s{font-size:12px;color:#c5cdd6;margin-top:2px}
+.amt{background:#fff;margin:12px;border-radius:14px;padding:18px;text-align:center}
+.amt .v{font-family:'Sora';font-size:34px;font-weight:800;color:#059669}
+.amt .m{font-size:13px;color:#374151;font-weight:700;margin-top:4px}
+.box{background:#fff;margin:0 12px 10px;border-radius:12px;padding:12px 14px}
+.row{display:flex;justify-content:space-between;padding:7px 0;font-size:16px;color:#111827;font-weight:700;border-bottom:1px solid #F0EDE8}
+.row:last-child{border-bottom:none}
+.row .k{color:#4B5563;font-weight:700}
+.row .v{font-weight:800;color:#0B1220}
+.row.red .v{color:#DC2626}
+.row.ok .v{color:#059669}
+.sec{padding:12px 16px 6px;font-size:11px;font-weight:800;color:#444;letter-spacing:1px;text-transform:uppercase}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;margin:0 0 10px}
+.tblwrap{margin:0 12px}
+td{padding:11px 10px;font-size:15px;font-weight:700;color:#0B1220;border-bottom:1px solid #F0EDE8}
+td.c code{background:#EEF2FF;color:#4F46E5;padding:3px 8px;border-radius:6px;font-size:14px}
+td.a{text-align:right;white-space:nowrap}
+td.s{text-align:right;font-size:13px;color:#B45309;white-space:nowrap}
+td.s.ok{color:#059669}
+.footer{text-align:center;margin-top:16px;font-size:11px;color:#999}
+</style></head><body>
+${ck.logo ? `<div style="text-align:center;padding:6px 8px 0;background:#fff"><img src="${ck.logo}" style="width:100%;max-height:64px;object-fit:contain"></div>` : ""}
+<div class="hdr">
+  <div class="l">${(shopName||"MERX").toUpperCase()}</div>
+  ${ck.tagline ? `<div class="s">${ck.tagline}</div>` : ""}
+  <div class="t">🧾 TO'LOV CHEKI  ${p.chek_num||p.chekNum||""}</div>
+  <div class="s">📅 ${p.date||""} ${p.time||""}${p.customer_name||p.customerName ? " · 👤 " + (p.customer_name||p.customerName) : ""}</div>
+</div>
+<div class="amt"><div class="v">${M(p.amount)}</div><div class="m">${methodTxt}</div></div>
+<div class="box">
+  ${p.debt_before!=null||p.debtBefore!=null ? `<div class="row"><span class="k">Jami qarz edi</span><span class="v">${M(p.debt_before!=null?p.debt_before:p.debtBefore)}</span></div>` : ""}
+  <div class="row ok"><span class="k">To'landi</span><span class="v">${M(p.amount)}</span></div>
+  ${p.debt_after!=null||p.debtAfter!=null ? `<div class="row ${(p.debt_after!=null?p.debt_after:p.debtAfter)>0?"red":"ok"}"><span class="k">Qoldi</span><span class="v">${M(p.debt_after!=null?p.debt_after:p.debtAfter)}</span></div>` : ""}
+  ${Number(p.leftover||0)>0 ? `<div class="row ok"><span class="k">Balansga qo'shildi</span><span class="v">+${M(p.leftover)}</span></div>` : ""}
+</div>
+${rows ? `<div class="sec">Yopilgan cheklar (${alloc.length})</div><div class="tblwrap"><table>${rows}</table></div>` : ""}
+<div class="footer">${(ck && ck.footer) || "Rahmat!"} · ${shopName||"MERX"}</div>
+</body></html>`;
+}
+
+async function actionRenderPayReceipt(payId, shopId) {
+  const shopF = shopId ? `&shop_id=eq.${encodeURIComponent(shopId)}` : "";
+  const rows = await sb("debt_payments", `?id=eq.${encodeURIComponent(payId)}${shopF}&select=*`);
+  const p = rows?.[0];
+  let shopName = "MERX";
+  try {
+    const _sf = (shopId || p?.shop_id) ? `&shop_id=eq.${encodeURIComponent(shopId || p.shop_id)}` : "";
+    const sets = await sb("settings", `?limit=1&select=shop_name,chek_config${_sf}`);
+    shopName = sets?.[0]?.shop_name || "MERX";
+    var _ck = sets?.[0]?.chek_config || {}; // 2026-07-17: logo/manzil/telefon/shior
+  } catch { var _ck = {}; }
+  if (!p) return `<!DOCTYPE html><html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#F2F0EB;color:#888">To'lov topilmadi (biroz kutib, qayta oching)</body></html>`;
+  return buildPayReceiptHtml(p, shopName, (typeof _ck !== "undefined" ? _ck : {}));
+}
+
+async function actionSendReceipt(body) {
+  const { customerId, customerPhone, sale, shopName } = body || {};
+  if (!sale) {
+    return { ok: false, error: "sale majburiy" };
+  }
+
+  let chatId = null;
+  console.log(`[sendReceipt] customerId=${customerId}, phone=${customerPhone}`);
+
+  // shop_id ni body dan olamiz
+  const shopId = body.shopId || body.shop_id || null;
+  const shopFilter = shopId ? `&shop_id=eq.${shopId}` : "";
+
+  // 1. Avval telefondan qidiramiz
+  if (customerPhone) {
+    const rawPhone = normPhone(customerPhone);
+    const normalize = p => p.startsWith("998") ? p.slice(3) : p;
+    const all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id${shopFilter}`);
+    console.log(`[sendReceipt] customers count=${all?.length}, searching phone=${rawPhone}`);
+    const match = all.find(c => {
+      const cp = normPhone(c.phone || "");
+      return cp && normalize(cp) === normalize(rawPhone);
+    });
+    console.log(`[sendReceipt] phone match:`, match
+      ? `id=${match.id} local_id=${match.local_id} chat_id=${match.telegram_chat_id}`
+      : "topilmadi");
+    if (match?.telegram_chat_id) chatId = match.telegram_chat_id;
+  }
+
+  // 2. customerId bo'yicha urinamiz
+  if (!chatId && customerId) {
+    const byLocalId = await sb("customers", `?local_id=eq.${customerId}&select=id,telegram_chat_id${shopFilter}`);
+    if (byLocalId?.[0]?.telegram_chat_id) {
+      chatId = byLocalId[0].telegram_chat_id;
+    } else {
+      const byId = await sb("customers", `?id=eq.${customerId}&select=id,telegram_chat_id${shopFilter}`);
+      if (byId?.[0]?.telegram_chat_id) chatId = byId[0].telegram_chat_id;
+    }
+  }
+
+  console.log(`[sendReceipt] chatId=${chatId}`);
+
+  if (!chatId) {
+    return { ok: false, sent: false, reason: "no_telegram" };
+  }
+
+  const txt = formatReceiptText(sale, shopName || "MERX");
+  const chekId = sale.chekNum || ("ID" + sale.id);
+
+  // URL da image (base64) bo'lmasligi kerak — juda katta bo'ladi
+  const saleLight = {
+    ...sale,
+    items: (sale.items || []).map(({ image, ...rest }) => rest)
+  };
+  const saleB64 = Buffer.from(JSON.stringify(saleLight)).toString("base64");
+
+  // 2026-07: chek endi TELEGRAM ICHIDA ochiladi (mini-app) — tashqi
+  // brauzer/PDF yuklamasi yo'q. "CHK__" belgisi kirish sahifasiga
+  // buni chek ekanini aytadi (omborchi sahifasidan farqlash uchun).
+  const _rp = `CHK__${chekId}${shopId ? "__" + shopId : ""}`;
+  const _rpEnc = _rp.replace(/[^a-zA-Z0-9_]/g, m => "x" + m.charCodeAt(0).toString(16));
+  const receiptUrl = `https://t.me/${BOT_USERNAME}/ombor?startapp=${_rpEnc}`;
+
+  const r = await tg(chatId, txt, {
+    reply_markup: {
+      inline_keyboard: [[{ text: "📄 Chekni ko'rish", url: receiptUrl }]],
+    },
+  });
+
+  if (!r.ok) {
+    return { ok: false, sent: false, reason: "telegram_error", detail: r.description };
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // MIJOZ GURUHIGA HAM (2026-08-05)
+  // ══════════════════════════════════════════════════════════════
+  // Ba'zi do'konlar har mijoz bilan alohida Telegram guruh ochadi
+  // (do'kon egasi + mijoz + 2-3 kishi). Mijoz kartasida "Telegram
+  // guruh ID" to'ldirilgan bo'lsa chek u yerga HAM boradi.
+  //
+  // ⚠️ MIJOZGA YUBORISH OQIMI TEGILMAGAN — u yuqorida tugadi va
+  // natijasi shu yerda o'zgarmaydi. Guruhga yuborish QO'SHIMCHA:
+  // xato bo'lsa jimgina o'tkaziladi, mijoz cheki baribir ketgan.
+  let groupSent = false;
+  try {
+    const gid = String(body.groupId || "").trim();
+    // Faqat haqiqiy Telegram guruh ID (manfiy, 5+ raqam)
+    if (/^-?\d{5,}$/.test(gid) && String(gid) !== String(chatId)) {
+      const gr = await tg(gid, txt, {
+        reply_markup: {
+          inline_keyboard: [[{ text: "📄 Chekni ko'rish", url: receiptUrl }]],
+        },
+      });
+      groupSent = !!gr.ok;
+      if (!gr.ok) console.warn(`[sendReceipt] guruhga yuborilmadi (${gid}):`,
+                               gr.description);
+    }
+  } catch (e) { console.warn("[sendReceipt] guruh xato:", e.message); }
+
+  return { ok: true, sent: true, groupSent };
+}
+
+// ════════════════════════════════════════════════════════════════
+// YANGI: Ishchilar guruhiga sotuv bildirishnomasi yuborish
+// ════════════════════════════════════════════════════════════════
+
+// MERX dan: oddiy matn xabar yuborish (qarz eslatmalari uchun)
+async function actionSendTextMessage(body) {
+  const { customerId, customerPhone, text } = body || {};
+  if (!text) return { ok: false, error: "text majburiy" };
+
+  let chatId = null;
+
+  const shopId2 = body.shopId || body.shop_id || null;
+  const shopFilter2 = shopId2 ? `&shop_id=eq.${shopId2}` : "";
+
+  if (customerPhone) {
+    const rawPhone = normPhone(customerPhone);
+    const normalize = p => p.startsWith("998") ? p.slice(3) : p;
+    const all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id${shopFilter2}`);
+    const match = all.find(c => {
+      const cp = normPhone(c.phone || "");
+      return cp && normalize(cp) === normalize(rawPhone);
+    });
+    if (match?.telegram_chat_id) chatId = match.telegram_chat_id;
+  }
+
+  if (!chatId && customerId) {
+    const byLocalId = await sb("customers", `?local_id=eq.${customerId}&select=id,telegram_chat_id${shopFilter2}`);
+    if (byLocalId?.[0]?.telegram_chat_id) {
+      chatId = byLocalId[0].telegram_chat_id;
+    } else {
+      const byId = await sb("customers", `?id=eq.${customerId}&select=id,telegram_chat_id${shopFilter2}`);
+      if (byId?.[0]?.telegram_chat_id) chatId = byId[0].telegram_chat_id;
+    }
+  }
+
+  if (!chatId) return { ok: false, sent: false, reason: "no_telegram" };
+
+  const r = await tg(chatId, text);
+  return { ok: true, sent: true, result: r };
+}
+
+// ══════════════════════════════════════════════════════════════
+// EGASIGA XABAR (2026-08-03)
+// ══════════════════════════════════════════════════════════════
+// SuperAdmin paneli `?action=send_owner_notif` ni chaqiradi
+// (obuna muddati eslatmasi uchun), lekin bu amal SERVERDA
+// UMUMAN YO'Q edi. So'rov javobsiz qolib, xato jimgina yutilardi:
+// panel "yuborildi" deb ko'rsatardi, aslida hech kim xabar olmasdi.
+//
+// Egasining chat_id si `shop_owners` jadvalida — u bot bilan
+// bog'langanda yoziladi. Bog'lanmagan bo'lsa xabar yuborilmaydi
+// va buni ochiq aytamiz (yolg'on "yuborildi" bo'lmasin).
+async function actionSendOwnerNotif(body) {
+  const { shopId, text } = body || {};
+  if (!shopId) return { ok: false, error: "shopId majburiy" };
+  if (!text)   return { ok: false, error: "text majburiy" };
+
+  let rows = [];
+  try {
+    rows = await sb("shop_owners",
+      `?shop_id=eq.${encodeURIComponent(shopId)}&select=chat_id,shop_name`);
+  } catch (e) {
+    return { ok: false, sent: false, error: "shop_owners o'qilmadi: " + e.message };
+  }
+
+  const chats = (rows || []).map(r => r.chat_id).filter(Boolean);
+  if (!chats.length)
+    return { ok: true, sent: false, reason: "owner_not_linked",
+             error: "Egasi botga ulanmagan — xabar yuborilmadi" };
+
+  const shopN = (rows[0] && rows[0].shop_name) || "MERX";
+  const msg = `🔔 <b>${shopN}</b>\n\n${text}`;
+
+  let sent = 0;
+  for (const cid of chats) {
+    try {
+      const r = await tg(cid, msg);
+      if (r && r.ok) sent++;
+    } catch (e) { console.warn("owner notif:", cid, e.message); }
+  }
+  return { ok: true, sent: sent > 0, count: sent, total: chats.length };
+}
+
+async function actionSendStaffNotification(body) {
+  const { sale, shopName, staffGroupId, shopId } = body || {};
+  if (!sale) return { ok: false, error: "sale majburiy" };
+
+  // MULTI-TENANT (2026-07): do'kon O'Z guruhini sozlamagan bo'lsa —
+  // xabar YUBORILMAYDI. ENV zaxirasi olib tashlandi: begona do'kon
+  // savdosi asosiy do'kon guruhiga tushib qolmasligi uchun.
+  const groupId = staffGroupId || null;
+  if (!groupId) return { ok: true, sent: false, reason: "no_group_id" };
+  const sid = shopId || null;
+
+  const chekId = sale.chekNum || ("ID" + sale.id);
+  const shopN  = shopName || "MERX";
+  const items  = sale.items || [];
+  const total  = Number(sale.total || 0);
+  const paid   = Number(sale.paid  || 0);
+  const rem    = Number(sale.remaining || 0);
+
+  const custName  = sale.customerName  || sale.customer_name  || "";
+  const custPhone = sale.customerPhone || sale.customer_phone || "";
+
+  // SODDALASHTIRILGAN: omborchiga to'lov/qarz TAFSILOTI kerak emas —
+  // faqat mijoz va tovar tafsilotlari (nima yig'ish kerakligi) muhim.
+  // ⚠️ 2026-08-07: do'kon talabi bilan BITTA istisno — yakuniy JAMI
+  // summa ko'rsatiladi. sale.total ilovada chegirmadan KEYINGI,
+  // mijoz to'lashi kerak bo'lgan oxirgi qiymat (pos.js: total =
+  // subtotal - discount). To'langan/qarz kabi boshqa pul
+  // ma'lumotlari avvalgidek yozilmaydi.
+  let txt = `🆕 <b>YANGI BUYURTMA</b>  <code>${chekId}</code>\n`;
+  txt += `📅 ${sale.date || ""} ${sale.time || ""}\n`;
+  if (custName)  txt += `\n👤 <b>${custName}</b>`;
+  if (custPhone) txt += `  📞 ${custPhone}`;
+  txt += `\n`;
+  if (total > 0) txt += `💰 <b>Jami: ${fmt(total)} so'm</b>\n`;
+
+  const totalBoxesTxt = items.reduce((a, it) => a + (it.qtyBox || 0), 0);
+  const totalDonaTxt  = items.reduce((a, it) => a + (it.qty || 0), 0);
+  txt += `\n📦 <b>${items.length} xil tovar · ${totalBoxesTxt || totalDonaTxt} ${totalBoxesTxt ? "pochka" : "dona"}</b>\n`;
+  txt += `━━━━━━━━━━━━━━━━━━━\n`;
+
+  // IXCHAM FORMAT (2026-07): har tovar — bitta qator, ko'pi bilan 6 ta;
+  // to'liq tafsilot "Batafsil" sahifasida (rasm, artikul, belgilash)
+  const MAX_LINES = 6;
+  items.slice(0, MAX_LINES).forEach(it => {
+    const qtyTxt = it.qtyBox
+      ? `${it.qtyBox} pochka`
+      : `${it.qty} ${it.unit || "dona"}`;
+    const extras = [it.color, it.size].filter(Boolean).join(" · ");
+    txt += `🔸 <b>${it.name}</b> — <b>${qtyTxt}</b>${extras ? ` (${extras})` : ""}\n`;
+  });
+  if (items.length > MAX_LINES) {
+    txt += `<i>…yana ${items.length - MAX_LINES} tovar — "Batafsil" da</i>\n`;
+  }
+  txt += `━━━━━━━━━━━━━━━━━━━`;
+
+  // "Batafsil ko'rish" — Telegram Web App orqali (BotFather: /newapp, short_name=ombor)
+  // startapp parametri orqali chekId+shopId uzatiladi (Telegram faqat
+  // harf/raqam/pastki chiziqcha qabul qiladi, shuning uchun maxsus kodlaymiz)
+  const startParam  = sid ? `${chekId}__${sid}` : chekId;
+  const startParamEnc = startParam.replace(/[^a-zA-Z0-9_]/g, m => "x" + m.charCodeAt(0).toString(16));
+  const catalogUrl  = `https://t.me/${BOT_USERNAME}/ombor?startapp=${startParamEnc}`;
+
+  const replyMarkup = {
+    inline_keyboard: [[
+      { text: "📋 Batafsil ko'rish — tovarlarni belgilash", url: catalogUrl }
+    ]],
+  };
+
+  // ESLATMA: agar 2+ xil tovar bo'lsa, faqat 1 ta rasm yuborish chalkashtiradi
+  // (qaysi rasm qaysi tovarga tegishli ekani noaniq bo'ladi).
+  // Shuning uchun: 1 ta tovar bo'lsa — rasm bilan yuboramiz.
+  //                2+ tovar bo'lsa — faqat matn, rasmlar "Batafsil" sahifasida ko'rinadi.
+  const singleImg = items.length === 1
+    ? (items[0].image && (items[0].image.startsWith("http") || items[0].image.startsWith("data:image")) ? items[0].image : null)
+    : null;
+
+  let r;
+  if (singleImg) {
+    let caption = txt;
+    if (caption.length > 1000) {
+      caption = caption.slice(0, 980) + "\n\n…(to'liq ma'lumot \"Batafsil\" da)";
+    }
+    r = await tgPhoto(groupId, singleImg, caption, { reply_markup: replyMarkup });
+    if (!r.ok) {
+      console.warn("[staffNotif] rasm bilan yuborish muvaffaqiyatsiz, matn bilan urinib ko'ramiz:", r.description);
+      r = await tg(groupId, txt, { reply_markup: replyMarkup });
+    }
+  } else {
+    r = await tg(groupId, txt, { reply_markup: replyMarkup });
+  }
+
+  if (!r.ok) {
+    console.error("[staffNotif] tg error:", r.description);
+    return { ok: false, reason: "telegram_error", detail: r.description };
+  }
+  return { ok: true, sent: true };
+}
+
+// ── Ishchilar uchun buyurtma katalogi (HTML sahifa) ─────────────
+function buildStaffOrderHtml(sale, shopName) {
+  const chekId    = sale.chekNum || sale.chek_num || ("#" + sale.id);
+  const date      = sale.date || "";
+  const time      = sale.time || "";
+  const items     = (sale.items || []).filter(Boolean);
+  const total     = Number(sale.total     || 0);
+  const paid      = Number(sale.paid      || 0);
+  const rem       = Number(sale.remaining || 0);
+  const payType   = sale.payType || sale.pay_type || "";
+  const custName  = sale.customerName  || sale.customer_name  || "";
+  const custPhone = sale.customerPhone || sale.customer_phone || "";
+  const fmtN = n => Math.round(n || 0).toLocaleString("ru-RU");
+
+  // Jami pochkalar (barcha itemlar)
+  const totalBoxes = items.reduce((a, it) => a + (it.qtyBox || 0), 0);
+  const totalTur   = items.length;
+
+  const payLabels = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", nasiya:"Nasiya", aralash:"Aralash" };
+
+  // Mahsulot kartochkalari
+  const cardsHtml = items.map((it, idx) => {
+    const color   = it.color   || "";
+    const size    = it.size    || "";
+    const art     = it.art     || "";
+    const qtyBox  = it.qtyBox  || 0;
+    const unit    = it.unit    || "dona";
+    const lineTotal = (it.price || 0) * (it.qty || 0);
+
+    // ⚠️ 2026-08-04: RASM BOSILGANDA KATTALASHADI.
+    // Avval rasm bosilsa `toggleDone` ishlardi — ya'ni tovar
+    // belgilanardi. Telefonda esa ekran surilmay qolardi va bosish
+    // hech narsa hal qilmasdi. Belgilash uchun pastda alohida
+    // "Tayyor belgilash" tugmasi bor — u TEGILMADI.
+    const imgHtml = it.image
+      ? `<img src="${it.image}" class="item-img"  onerror="this.style.display='none'">`
+      : "";
+
+    const qtyLabel = qtyBox
+      ? `${qtyBox} pochka / ${it.qty} ${unit}`
+      : `${it.qty} ${unit}`;
+
+    return `
+<div class="card" id="card-${idx}">
+  ${imgHtml ? `<div class="card-img-wrap">${imgHtml}<div class="card-done-overlay" id="done-${idx}">✅ TAYYOR</div></div>` : `<div class="card-done-bar" id="done-${idx}" style="display:none">✅ TAYYOR</div>`}
+  <div class="card-body">
+    <div class="qty-row">
+      <span class="qty-badge">×${qtyBox || it.qty} ${qtyBox ? "pochka" : unit}</span>
+    </div>
+    <div class="card-name">${it.name}</div>
+    <div class="card-attrs">
+      ${color ? `<div class="attr-row"><span class="attr-k k-r">R</span><span class="attr-v">${color}</span></div>` : ""}
+      ${size ? `<div class="attr-row"><span class="attr-k k-o">O</span><span class="attr-v">${size}</span></div>` : ""}
+      ${art ? `<div class="attr-row"><span class="attr-k k-a">A</span><span class="attr-v code">${art}</span></div>` : ""}
+    </div>
+  </div>
+  <button class="done-btn" onclick="toggleDone(${idx},null)" id="dbtn-${idx}">
+    Tayyor belgilash
+  </button>
+</div>`;
+  }).join("");
+
+  return `<!DOCTYPE html>
+<html lang="uz"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes">
+<title>${chekId}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:wght@400;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-webkit-text-size-adjust:100%}
+
+/* HEADER */
+.hdr{background:#0D1B2A;padding:16px 16px 12px;text-align:center;position:sticky;top:0;z-index:10}
+.hdr-logo{font-family:'Sora',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:#E9A500;text-transform:uppercase}
+.hdr-id{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:#fff;margin-top:3px}
+.hdr-sub{font-size:12px;color:#c5cdd6;margin-top:2px}
+
+/* CHIPS */
+.chips{background:#1a2d42;display:flex;justify-content:center;gap:12px;padding:9px 16px;flex-wrap:wrap}
+.chip{font-size:13px;color:#e2e7ec;font-weight:600}
+.chip b{color:#fff;font-size:15px}
+
+/* MIJOZ */
+.cust-card{margin:10px 12px 0;background:#fff;border-radius:12px;padding:12px 14px}
+.cust-lbl{font-size:11px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.8px}
+.cust-val{font-size:18px;font-weight:700;color:#0D1B2A;margin-top:2px}
+
+/* SECTION */
+.sec{padding:14px 14px 8px;font-size:11px;font-weight:800;color:#444;text-transform:uppercase;letter-spacing:1px}
+
+/* KARTA — 2 USTUNLI TO'R (2026-07): ko'p tovarda sahifa 2x qisqaradi.
+   Shrift KATTALIKLARI o'zgarmagan, ranglar TINIQLASHTIRILGAN. */
+.cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 10px}
+.cards-grid > .card:only-child{grid-column:1/-1}
+.card{background:#fff;border-radius:14px;margin:0;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.card.done{opacity:.55;border:2px solid #22C55E}
+
+/* Rasm */
+#lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
+  z-index:999;align-items:center;justify-content:center;cursor:zoom-out}
+#lb.open{display:flex}
+#lb img{max-width:96vw;max-height:88vh;object-fit:contain;border-radius:8px}
+.card-img-wrap img{cursor:zoom-in}
+.card-img-wrap{position:relative;width:100%;height:min(200px,44vw);background:#F0EDE8;overflow:hidden}
+.card-img-wrap img{width:100%;height:100%;object-fit:contain;cursor:pointer;display:block}
+.card-done-overlay{display:none;position:absolute;inset:0;background:rgba(34,197,94,.85);color:#fff;font-family:'Sora',sans-serif;font-size:32px;font-weight:800;align-items:center;justify-content:center;letter-spacing:1px}
+.card-done-overlay.show{display:flex}
+.card-done-bar{background:#22C55E;color:#fff;font-family:'Sora',sans-serif;font-size:20px;font-weight:800;text-align:center;padding:10px;letter-spacing:1px}
+
+/* Karta body */
+.card-body{padding:12px 12px 10px}
+.qty-row{margin-bottom:4px}
+.qty-badge{background:#0D1B2A;color:#FFC93C;font-family:'Sora',sans-serif;font-weight:800;font-size:20px;border-radius:8px;padding:5px 12px;display:inline-block;white-space:nowrap}
+
+/* Nom */
+.card-name{font-family:'Sora',sans-serif;font-size:21px;font-weight:800;color:#050B14;line-height:1.15;margin:7px 0 9px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* Atributlar */
+.card-attrs{display:flex;flex-direction:column;gap:0}
+/* 2026-07: har ma'lumot BIR QATORDA, chip-yorliq (R/O/A/B), matn TINIQ */
+.attr-row{display:flex;align-items:center;gap:8px;padding:4px 0;white-space:nowrap;overflow:hidden}
+.attr-k{font-family:'Sora',sans-serif;font-size:12px;font-weight:800;letter-spacing:.5px;padding:3px 9px;border-radius:6px;flex-shrink:0}
+.k-r{background:#DCFCE7;color:#15803D}
+.k-o{background:#FEF3C7;color:#B45309}
+.k-a{background:#DBEAFE;color:#1D4ED8}
+.k-b{background:#F3E8FF;color:#7C3AED}
+.attr-v{font-size:18px;font-weight:800;color:#0B1220;overflow:hidden;text-overflow:ellipsis}
+.attr-v.code{font-family:'DM Sans',monospace;font-size:17px;letter-spacing:.3px}
+.attr-v.sm{font-size:14px;font-weight:700;color:#1F2937;letter-spacing:.5px}
+
+/* Narx */
+.price-row{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:2px dashed #E8E5E0}
+.price-per{font-size:17px;color:#6B7280;font-weight:700}
+.price-sum{font-family:'Sora',sans-serif;font-weight:800;font-size:30px;color:#0D1B2A}
+
+/* Tayyor tugma */
+.done-btn{width:100%;padding:13px;border:none;background:#F0FDF4;color:#16A34A;font-family:'Sora',sans-serif;font-size:17px;font-weight:800;cursor:pointer;border-top:1px solid #BBF7D0;transition:background .2s;letter-spacing:.5px}
+.done-btn:active{background:#DCFCE7}
+.card.done .done-btn{background:#DCFCE7;color:#15803D}
+
+/* JAMI */
+.total-card{background:#0D1B2A;margin:4px 12px 0;border-radius:12px;padding:16px}
+.total-row{display:flex;justify-content:space-between;align-items:center}
+.total-lbl{font-family:'Sora',sans-serif;font-size:12px;color:#c5cdd6;font-weight:700;letter-spacing:.5px}
+.total-cnt{font-size:12px;color:#cdd5de;margin-top:3px}
+.total-val{font-family:'Sora',sans-serif;font-weight:800;font-size:30px;color:#fff}
+.total-val span{font-size:14px;font-weight:600;color:#c5cdd6}
+
+/* TO'LOV */
+.pay-card{background:#fff;margin:8px 12px 0;border-radius:12px;padding:14px 16px}
+.pay-row{display:flex;justify-content:space-between;padding:5px 0;font-size:14px;color:#555}
+.pay-row.debt{color:#DC2626;border-top:1px dashed #fca5a5;margin-top:6px;padding-top:10px;font-weight:800;font-size:17px}
+.pay-row.muted{color:#555;font-size:12px}
+.paid-badge{text-align:center;background:#ECFDF5;color:#059669;font-weight:700;font-size:15px;padding:10px;border-radius:8px}
+
+/* FOOTER */
+.footer{text-align:center;margin-top:20px;font-size:11px;color:#bbb}
+
+/* Desktop */
+@media(min-width:640px){
+  .hdr,.chips,.sec,.footer{max-width:720px;margin-left:auto;margin-right:auto}
+  .cards-grid,.cust-card,.total-card,.pay-card{max-width:720px;margin-left:auto;margin-right:auto}
+}
+</style></head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-logo">${shopName.toUpperCase()} · OMBORCHI</div>
+  <div class="hdr-id">${chekId}</div>
+  <div class="hdr-sub">📅 ${date} ${time}</div>
+</div>
+
+<div class="chips">
+  <div class="chip"><b>${totalTur}</b> xil tovar</div>
+  <div class="chip"><b>${totalBoxes || items.reduce((a,i)=>a+(i.qty||0),0)}</b> pochka</div>
+  <div class="chip" style="background:#E9A50022;border-radius:20px;padding:2px 12px">
+    <span id="progress-text" style="color:#E9A500;font-weight:800">0/${totalTur} tayyor</span>
+  </div>
+</div>
+<div style="height:4px;background:#1a2d42">
+  <div id="prog-bar-fill" style="height:100%;background:#22C55E;width:0%;transition:width .3s"></div>
+</div>
+
+${custName ? `
+<div class="cust-card">
+  <div class="cust-lbl">Mijoz</div>
+  <div class="cust-val">👤 ${custName}</div>
+  ${custPhone ? `<div class="cust-val" style="font-size:15px;color:#555;margin-top:4px">📞 ${custPhone}</div>` : ""}
+</div>` : ""}
+
+<div class="sec">Mahsulotlar (${totalTur} xil)</div>
+
+<div class="cards-grid">
+${cardsHtml}
+</div>
+
+<div class="total-card">
+  <div class="total-row">
+    <div>
+      <div class="total-lbl">JAMI YIG'ISH KERAK</div>
+      <div class="total-cnt">${totalTur} xil mahsulot</div>
+    </div>
+    <div class="total-val">${totalBoxes || items.reduce((a,i)=>a+(i.qty||0),0)}<span> ${totalBoxes ? "pochka" : "dona"}</span></div>
+  </div>
+</div>
+
+<div class="footer">@${BOT_USERNAME} · ${shopName}</div>
+
+<script>
+// Tayyor belgilash — server orqali REAL-TIME
+var doneItems = {};
+var CHEK_ID   = "${chekId}";
+var TOTAL_TUR2 = ${totalTur};
+var API_BASE  = window.location.origin + "/api/bot";
+
+function applyDone() {
+  var total = ${totalTur};
+  var cnt = 0;
+  for (var i = 0; i < total; i++) {
+    var card    = document.getElementById('card-' + i);
+    var overlay = document.getElementById('done-' + i);
+    var btn     = document.getElementById('dbtn-' + i);
+    var done    = !!doneItems[i];
+    if (done) cnt++;
+    if (card)    card.classList.toggle('done', done);
+    if (overlay) {
+      if (overlay.classList.contains('card-done-overlay')) {
+        overlay.classList.toggle('show', done);
+      } else {
+        overlay.style.display = done ? 'block' : 'none';
+      }
+    }
+    if (btn) btn.textContent = done ? '↩ Bekor qilish' : 'Tayyor belgilash';
+  }
+  // Progress
+  var prog = document.getElementById('progress-text');
+  if (prog) {
+    prog.textContent = cnt + '/' + total + ' tayyor';
+    prog.style.color = cnt === total ? '#22C55E' : '#E9A500';
+  }
+  // Header progress bar
+  var bar = document.getElementById('prog-bar-fill');
+  if (bar) bar.style.width = (total > 0 ? Math.round(cnt/total*100) : 0) + '%';
+}
+
+function toggleDone(idx) {
+  doneItems[idx] = !doneItems[idx];
+  applyDone();
+  fetch(API_BASE + '?action=set_done&id=' + encodeURIComponent(CHEK_ID), {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ idx: idx, val: !!doneItems[idx] })
+  }).catch(function(){});
+}
+
+// Har 4 soniyada serverdan yangilash
+function fetchDone() {
+  fetch(API_BASE + '?action=get_done&id=' + encodeURIComponent(CHEK_ID))
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (data.ok && Array.isArray(data.done)) {
+        var nd = {};
+        data.done.forEach(function(i){ nd[i] = true; });
+        doneItems = nd;
+        applyDone();
+      }
+    }).catch(function(){});
+}
+setInterval(fetchDone, 2000); // 2 soniyada bir — tezroq sinxronlash
+
+// Lightbox
+function openLb(src){document.getElementById('lb-img').src=src;document.getElementById('lb').classList.add('open');document.body.style.overflow='hidden';}
+function closeLb(){document.getElementById('lb').classList.remove('open');document.body.style.overflow='';}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeLb();});
+document.querySelectorAll('.card-img-wrap img').forEach(function(img) {
+  img.onclick = function(e) { e.stopPropagation(); openLb(this.src); };
+});
+
+// Ishga tushirish
+fetchDone();
+</script>
+
+<!-- ⚠️ 2026-08-04: RASM KATTALASHTIRISH ISHLAMASDI.
+     Bu yerda display:none INLINE yozilgan edi, openLb() esa
+     .open klassini qo'shadi — lekin uning uslubi UMUMAN
+     ta'riflanmagan. Inline uslub klassdan kuchli, shuning uchun
+     oyna hech qachon ochilmasdi.
+     Endi display klass orqali boshqariladi. -->
+<div id="lb" onclick="closeLb()">
+  <div style="position:absolute;top:16px;right:16px;color:#fff;font-size:28px;cursor:pointer;background:rgba(255,255,255,.15);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center" onclick="closeLb()">✕</div>
+  <img id="lb-img" src="" style="max-width:95vw;max-height:90vh;object-fit:contain;border-radius:10px">
+</div>
+
+</body></html>`;
+}
+
+
+async function actionRenderStaffOrder(chekId, saleData, shopId) {
+  let sale = null;
+  let shopName = "MERX";
+  const sid = shopId || null;
+
+  if (saleData) {
+    try {
+      sale = JSON.parse(Buffer.from(saleData, "base64").toString("utf8"));
+    } catch {}
+  }
+
+  if (!sale) {
+    const isNumericId = /^ID\d+$/.test(chekId);
+    const shopFilter  = sid ? `&shop_id=eq.${encodeURIComponent(sid)}` : "";
+    const query = isNumericId
+      ? `?id=eq.${chekId.slice(2)}&select=*${shopFilter}`
+      : `?chek_num=eq.${encodeURIComponent(chekId)}&select=*${shopFilter}`;
+    const rows = await sb("sales", query);
+    sale = rows?.[0] || null;
+    // 2026-07-17 (12-qoida: data HOKIM): to'liq maydonlar (prevDebtUsd,
+    // basePrice, rate, payBreakdown, subtotal...) faqat data jsonb'da —
+    // ustunlar bilan birlashtiramiz, aks holda PDF chek to'liq bo'lmaydi
+    if (sale && sale.data && typeof sale.data === "object") sale = { ...sale, ...sale.data };
+  }
+
+  try {
+    const setsQ = sid
+      ? `?shop_id=eq.${sid}&select=shop_name&limit=1`
+      : `?limit=1&select=shop_name`;
+    const sets = await sb("settings", setsQ);
+    shopName = sets?.[0]?.shop_name || "MERX";
+  } catch {}
+
+  // items dagi sku lar bo'yicha products dan art va rasm olish
+  if (sale?.items?.length) {
+    try {
+      const skus = [...new Set(sale.items.map(i => i.sku).filter(Boolean))];
+      if (skus.length) {
+        const skuFilter = skus.map(s => `sku.eq.${encodeURIComponent(s)}`).join(",");
+        const prodShopF = sid ? `&shop_id=eq.${sid}` : "";
+        const prods = await sb("products", `?or=(${skuFilter})&select=sku,art,image,color_images${prodShopF}`);
+        const prodMap = {};
+        for (const p of (prods || [])) {
+          if (p.sku) prodMap[p.sku] = { art: p.art || "", image: p.image || null, colorImages: p.color_images || null };
+        }
+        sale.items = sale.items.map(i => {
+          const pm = prodMap[i.sku];
+          // Ustuvorlik: 1) sotuv vaqtidagi rasm (i.image) 2) shu rangning rasmi
+          // 3) mahsulotning umumiy rasmi (zaxira)
+          const colorImg = pm?.colorImages && i.color ? pm.colorImages[i.color] : null;
+          return {
+            ...i,
+            art:   i.art   || pm?.art || null,
+            image: i.image || colorImg || pm?.image || null,
+          };
+        });
+      }
+    } catch(e) { console.warn("[staffOrder] products ma'lumot olishda xato:", e.message); }
+  }
+
+  if (!sale) {
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Topilmadi</title></head>
+      <body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#F2F0EB">
+        <div style="text-align:center;color:#888"><div style="font-size:40px">⚠️</div><div>Buyurtma topilmadi: ${chekId}</div></div>
+      </body></html>`;
+  }
+
+  return buildStaffOrderHtml(sale, shopName);
+}
+
+// ── Chek sahifasi (HTML, Print/PDF uchun) ──────────────────────
+function buildReceiptHtml(sale, opts) {
+  opts = opts || {};
+  // snake_case → camelCase normalizatsiya (Supabase dan kelgan sale uchun)
+  const s = {
+    ...sale,
+    chekNum:        sale.chekNum || sale.chek_num,
+    payType:        sale.payType || sale.pay_type,
+    payBreakdown:   sale.payBreakdown || sale.pay_breakdown,
+    customerName:   sale.customerName || sale.customer_name,
+    customerPhone:  sale.customerPhone || sale.customer_phone,
+    debtCurrency:   sale.debtCurrency || sale.debt_currency || "uzs",
+    debtUsd:        sale.debtUsd != null ? sale.debtUsd : sale.debt_usd,
+    prevDebtUsd:    sale.prevDebtUsd != null ? sale.prevDebtUsd : sale.prev_debt_usd,
+    prevDebtUzs:    sale.prevDebtUzs != null ? sale.prevDebtUzs : sale.prev_debt_uzs,
+    discountPct:    sale.discountPct != null ? sale.discountPct : sale.discount_pct,
+    priceType:      sale.priceType || sale.price_type,
+    subtotal:       sale.subtotal != null ? sale.subtotal : (Number(sale.total||0) + Number(sale.discount||0)),
+    discount:       sale.discount != null ? sale.discount : ((sale.data && sale.data.discount) || 0),
+    prevDebtUsd:    sale.prevDebtUsd != null ? sale.prevDebtUsd : (sale.prev_debt_usd != null ? sale.prev_debt_usd : ((sale.data && sale.data.prevDebtUsd) || 0)),
+    prevDebtUzs:    sale.prevDebtUzs != null ? sale.prevDebtUzs : (sale.prev_debt_uzs != null ? sale.prev_debt_uzs : ((sale.data && sale.data.prevDebtUzs) || 0)),
+  };
+  const cfg = {
+    shopName:    opts.shopName    || "MERX",
+    staffName:   opts.staffName   || "—",
+    botUser:     (opts.botUsername || "").replace(/^@/, ""),
+    logo:        opts.logo        || null,
+    contact:     opts.contact     || "",
+    footer:      opts.footer      || "Rahmat! Yana kutamiz 🙏",
+    showStaff:   opts.showStaff   !== false,
+    showContact: opts.showContact !== false,
+    F: n => Math.round(n||0).toLocaleString("ru-RU")
+  };
+  // 2026-07-17 (AbuSaxiy): PDF/bot cheki endi YAGONA shablonda — POS sotuv
+  // cheki bilan bir xil: logo, namuna-params bloki, pch-format, JAMI POCHKA,
+  // chizilgan chegirma narxlari, $ qatori. (Eski merx-uslub tarmog'i tark etildi.)
+  const F = cfg.F;
+  // 2026-07-19: banner foni (headerStyle) — boshqa cheklar bilan mos
+  const _hs = ["dark","light","none"].includes(opts.headerStyle) ? opts.headerStyle : "dark";
+  const _hCss = _hs === "light" ? "background:#fff;color:#0D1B2A;border-bottom:2px solid #0D1B2A"
+              : _hs === "none" ? "background:#fff;color:#0D1B2A" : "background:#0D1B2A;color:#fff";
+  const _hSub = _hs === "dark" ? "rgba(255,255,255,.8)" : "#667";
+  const addr    = opts.addr    || "";
+  const tagline = opts.tagline || "Ulgurji savdo tizimi";
+  const items   = (s.items || []).filter(Boolean);
+  const date    = (s.date||"").includes("-") ? s.date.split("-").reverse().join(".") : (s.date||"");
+  const total = Number(s.total||0), paid = Number(s.paid||0);
+  // ⚠️ 2026-08-03: CHEK MUZLATILADI (kontekst §3.5).
+  // Avval `s.remaining` — HOZIRGI qoldiq ishlatilardi. Mijoz
+  // keyinroq to'lov qilsa qoldiq kamayardi va BOTDAGI ESKI CHEK
+  // ham o'zgargandek ko'rinardi:
+  //   ilovada 500 000, botda 300 000
+  // `origRemaining` — sotuv paytidagi asl qarz, u o'zgarmaydi.
+  // Klientdagi (utils.js) qoidaning aynan o'zi.
+  // Eski sotuvlarda bu maydon yo'q — o'shanda avvalgidek ishlaydi.
+  const remaining = Number(s.origRemaining != null ? s.origRemaining : (s.remaining || 0));
+  const discount = Number(s.discount||0);
+  const rate = Number(s.rate||0);
+
+  // ══════════════════════════════════════════════════════════════
+  // ⚠️ 2026-08-03: IKKI VALYUTALI CHEK (kontekst §3.5)
+  // ══════════════════════════════════════════════════════════════
+  // Klient chekida har qator ikkala valyutada ko'rsatiladi:
+  //     so'm rejimi   →  "540 000 / $42.19"
+  //     dollar rejimi →  "$42.19 / 540 000"
+  // Botda esa faqat JAMI qatorida dollar bor edi (`usdLine`),
+  // qolgan qatorlar bitta valyutada chiqardi. Ya'ni mijoz botdan
+  // olgan chek ilovadagidan farq qilardi.
+  //
+  // Kurs SOTUV PAYTIDAGI (`s.rate`) — keyin o'zgarsa chek
+  // o'zgarmaydi. Do'kon xohlasa bitta valyuta qoldirishi mumkin
+  // (`chekDual: false`), eski cheklar ham buzilmaydi.
+  const _pcMode = s.priceCurrency || "uzs";
+  const _pcRate = rate || 0;
+  const _usdStr = som => "$" + (_pcRate > 0 ? (som / _pcRate) : 0)
+    .toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const _dual = (s.chekDual != null) ? !!s.chekDual : true;
+
+  // FC — pul ko'rsatish. Kurs yo'q bo'lsa faqat so'm (bo'linish xato
+  // bermasin). Eski cheklarda `rate` bo'lmasligi mumkin.
+  const FC = n => {
+    const som = Math.round(n || 0);
+    if (!_dual || _pcRate <= 0) return _pcMode === "usd" ? _usdStr(som) : F(som);
+    return _pcMode === "usd"
+      ? `${_usdStr(som)} / ${F(som)}`
+      : `${F(som)} / ${_usdStr(som)}`;
+  };
+  const payLabels = { naqd:"Naqd pul", karta:"Karta", otkazma:"Bank o'tkazmasi", aralash:"Aralash", nasiya:"Nasiya", qarz:"Nasiya" };
+
+  // 2026-07-18 YAKUNIY: nomer, IKKI CHETDAN tekis (namunadagidek), qora chizish
+  // ⚠️ 2026-08-08: UMUMIY CHEGIRMA HAM TOVARLARGA YOYILADI.
+  // Avval faqat TOVAR darajasidagi chegirma (basePrice) chizilgan
+  // narx bilan ko'rinardi; savatga qo'yilgan UMUMIY chegirma esa
+  // pastdagi bitta qatorda qolar, tovar narxlari asl holida turardi.
+  // Endi ikkalasi ham qatorda ko'rinadi (do'kon talabi).
+  const _effItems = spreadDiscount(s);
+  const itemsHtml = items.map((i, ix) => {
+    const _e = _effItems[ix] || {};
+    const _p = Number(_e.effPrice != null ? _e.effPrice : (i.price || 0));
+    const _asl = Number(_e.origPrice || i.basePrice || i.price || 0);
+    const sum = _p * (i.qty||0);
+    const clean = (i.variant||"").replace(/\(\d+ pochka\)/gi,"").replace(/\(\d+ pch\)/gi,"").trim().replace(/\/\s*$/,"").trim();
+    const nm = [i.name||"", clean, i.art||""].filter(Boolean).join(" / ");
+    const bp = (_asl > _p) ? `<s>${FC(_asl)}</s> ` : "";
+    const isBox = i.sellMode === "karobka" && i.qtyBox && i.inBox;
+    const calcLeft = isBox
+      ? `${i.qtyBox}pch × (${i.inBox} ${i.unit||"dona"} × ${bp}${FC(_p)})`
+      : `${i.qty} ${i.unit||"dona"} × ${bp}${FC(_p)}`;
+    return `<div class="it"><div class="itn">${ix+1}. ${nm}</div>
+      <div class="itc"><span>${calcLeft}</span><span class="itv">${FC(sum)}</span></div></div>`;
+  }).join("");
+
+  const jamiPch = items.reduce((a,i)=> a + ((i.sellMode==="karobka" && i.qtyBox) ? i.qtyBox : 0), 0);
+  const itemDisc = items.reduce((a,i)=> a + ((i.basePrice && i.basePrice > (i.price||0)) ? (i.basePrice-i.price)*(i.qty||1) : 0), 0);
+  // 2026-08-03: `usdLine` OLIB TASHLANDI — endi FC har qatorda
+  // ikki valyutani o'zi qo'shadi, ikki marta chiqmasin.
+
+  const pb = s.payBreakdown;
+  const pbRows = pb ? Object.entries(pb).filter(([,v]) => (v||0) > 0) : [];
+  const payHtml = pbRows.length > 1
+    ? pbRows.map(([m,v]) => `<div class="r"><span>${payLabels[m]||m}</span><span>${FC(v)}</span></div>`).join("")
+    : `<div class="r"><span>To'lov turi</span><b>${payLabels[s.payType]||s.payType||"—"}</b></div>`;
+
+  // ⚠️ 2026-08-03: QAYTARISH BELGISI (kontekst §3.6).
+  // Klient chekida qaytarilgan sotuv ochiq belgilanadi, botda esa
+  // UMUMAN ko'rinmasdi — mijoz qaytarib bergan tovar chekda
+  // hech qanday izsiz qolardi.
+  let _refundNote = "";
+  try {
+    const _refs = Array.isArray(s.refunds) ? s.refunds : [];
+    if (_refs.length) {
+      const _rTot = Number(s.refundedTotal || 0)
+                 || _refs.reduce((a, r) => a + Number(r.total || 0), 0);
+      const _full = s.status === "qaytarilgan";
+      const _nos  = _refs.map(r => r.no).filter(Boolean).join(", ");
+      _refundNote = `
+        <div style="margin:8px 0 0;padding:8px 10px;border:1px dashed #B91C1C;
+          border-radius:6px;background:#FEF2F2">
+          <div style="font-size:12px;font-weight:800;color:#B91C1C">
+            ${_full ? "TO'LIQ QAYTARILGAN" : "QISMAN QAYTARILGAN"}</div>
+          <div style="font-size:11.5px;color:#000;margin-top:2px">
+            Qaytarilgan summa: <b>${FC(_rTot)}</b></div>
+          ${_nos ? `<div style="font-size:11px;color:#333;margin-top:2px">
+            Hujjat: ${_nos}</div>` : ""}
+          ${(() => {
+            // ⚠️ 2026-08-05: QAYSI TOVAR QAYTARILGANI.
+            // `refunds[].items` da nom, variant, miqdor va narx
+            // saqlanadi (tarix.js) — lekin chekda ko'rsatilmasdi.
+            // Mijoz nima qaytarganini aniq ko'rsin.
+            const rows = [];
+            _refs.forEach(r => (r.items || []).forEach(it => {
+              const qty = it.qtyBox
+                ? `${it.qtyBox} pochka` : `${it.qty || 0} dona`;
+              rows.push(`<div style="font-size:11px;color:#000">
+                • ${it.name || ""}${it.variant ? " (" + it.variant + ")" : ""}
+                — ${qty}</div>`);
+            }));
+            return rows.length
+              ? `<div style="margin-top:4px;padding-top:4px;
+                   border-top:1px dashed #FCA5A5">${rows.join("")}</div>`
+              : "";
+          })()}
+        </div>`;
+    }
+  } catch(e) {}
+
+  // 2026-07-17 (NAMUNA): MIJOZ QARZI bo'limi DOIM — POS chek bilan bir xil
+  const isUsd = s.debtCurrency === "usd" || (Number(s.prevDebtUsd) || 0) > 0; // 2026-07-18: to'langan sotuvda ham $ qarz ko'rinsin
+  const DP = v => isUsd ? `$${Number(v||0).toFixed(2)}` : `${F(v||0)} so'm`;
+  const dPrev = isUsd ? (s.prevDebtUsd || 0) : (s.prevDebtUzs || 0);
+  // ⚠️ 2026-08-03: DOLLAR QARZI HAM MUZLATILADI.
+  // `origDebtUsd` — sotuv paytidagi asl dollar qarzi. Klientdagi
+  // (utils.js) qoidaning aynan o'zi. Yo'q bo'lsa eskisi ishlatiladi.
+  const _dUsdFrozen = s.origDebtUsd != null ? Number(s.origDebtUsd)
+                    : (s.debtUsd != null ? Number(s.debtUsd) : 0);
+  const dNew  = isUsd ? (_dUsdFrozen || 0) : (remaining     || 0);
+  // 2026-07-25: dollar ishlatilsa — qo'shilgan qarz "summa / kurs = $"
+  // ko'rinishida (klient cheki bilan bir xil). Kurs sotuv paytidagi.
+  const _sRate  = Number(s.rate) || 0;
+  const _sMode  = s.priceCurrency || "uzs";
+  const _showUsd = (_sMode === "both" || _sMode === "usd" || isUsd) && _sRate > 0;
+  const _addedTxt = _showUsd
+    ? `${F(remaining || 0)} / ${F(_sRate)} = $${(isUsd ? dNew : (remaining || 0) / _sRate).toFixed(2)}`
+    : DP(dNew);
+  let debtHtml = `<div class="lbl">Mijoz qarzi</div>
+    <div class="r sm"><span>Xariddan oldingi qarz</span><span>${DP(dPrev)}</span></div>
+    <div class="r sm"><span>+ Qarzga qo'shildi</span><span>${_addedTxt}</span></div>
+    <div class="r bold"><span>Xariddan keyingi qarz</span><span>${DP(dPrev + dNew)}${isUsd ? " USD" : ""}</span></div>`;
+  if (s.due && dNew > 0) debtHtml += `<div class="r sm"><span>Muddat</span><span><b>${s.due.split("-").reverse().join(".")}</b></span></div>`;
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chek ${s.chekNum||""}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:${opts.fontFamily || "'DM Sans',Arial,sans-serif"};background:#F2F0EB;display:flex;justify-content:center;padding:14px 6px}
+.rc{width:330px;max-width:100%;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 18px rgba(13,27,42,.12);zoom:${opts.fontScale || 1}}
+.logo{text-align:center;padding:8px 8px 2px}
+.logo img{width:100%;max-height:64px;object-fit:contain}
+.hd{${_hCss};text-align:center;padding:12px 10px}
+.hd .nm{font-size:18px;font-weight:800;letter-spacing:.04em}
+.hd .sub{font-size:10.5px;color:${_hSub};margin-top:2px}
+.meta{padding:8px 14px;font-size:12.5px;line-height:1.8;border-bottom:1px dashed #ddd}
+.meta b{font-weight:800}
+.lbl{font-size:10px;color:#777;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:7px 14px 2px}
+.it{padding:5px 14px;border-bottom:1px dashed #eee}
+.itn{font-size:13px;font-weight:800;color:#0D1B2A}
+.itc{font-size:13px;color:#000;margin-top:1px;display:flex;justify-content:space-between;gap:6px}
+.itv{font-weight:800;white-space:nowrap}
+.r{display:flex;justify-content:space-between;padding:2px 14px;font-size:13px}
+.r.sm{font-size:12px;color:#555}
+.r.bold{font-weight:800;font-size:14px}
+.tot{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:2px solid #0D1B2A;border-bottom:1px dashed #ddd}
+.tot .v{font-size:18px;font-weight:900;white-space:nowrap}
+.ft{text-align:center;padding:10px 8px;font-size:12px;color:#444;font-style:italic}
+.ft2{text-align:center;font-size:10.5px;color:#999;padding-bottom:10px}
+.acts{display:flex;gap:8px;justify-content:center;padding:12px}
+.btn{border:none;border-radius:9px;padding:10px 18px;font-weight:700;cursor:pointer}
+@media print{
+  @page{size:58mm auto;margin:0} body{background:#fff;padding:0} .rc{width:58mm;box-shadow:none;border-radius:0}
+  .acts{display:none}
+  ${_hs === "dark"
+    ? ".hd{background:#0D1B2A !important;-webkit-print-color-adjust:exact;print-color-adjust:exact} .hd, .hd *{color:#fff !important}"
+    : ".hd{background:#fff !important;border-bottom:2px solid #000} .hd, .hd *{color:#000 !important}"}
+  .itn,.itc,.r,.meta,.ft,.ft2,.lbl,s{color:#000 !important}
+  s{text-decoration-thickness:1.6px}
+  .r,.r.sm,.meta,.itc,.itn{font-size:13.5px !important}
+}
+</style></head><body><div>
+<div class="rc">
+  ${cfg.logo ? `<div class="logo"><img src="${cfg.logo}"></div>` : ""}
+  <div class="hd">
+    <div class="nm">${(cfg.shopName||"MERX").toUpperCase()}</div>
+    <div class="sub">${tagline}</div>
+  </div>
+  <div class="meta">
+    <div><b>Sotuv:</b> ${s.chekNum || "#"+s.id}</div>
+    ${addr ? `<div><b>Do'kon:</b> ${addr}</div>` : ""}
+    <div><b>Sana:</b> ${date} ${s.time||""}</div>
+    ${s.staffName ? `<div><b>Sotuvchi / Kassir:</b> ${s.staffName}</div>` : ""}
+    ${cfg.contact ? `<div><b>Kontaktlar:</b> ${cfg.contact}</div>` : ""}
+    <div><b>Mijoz:</b> ${s.customerName || "Noma'lum"}</div>
+    ${s.customerPhone ? `<div><b>Mijoz raqami:</b> ${s.customerPhone}</div>` : ""}
+  </div>
+  <div class="lbl">Mahsulotlar</div>
+  ${itemsHtml}
+  ${jamiPch > 0 ? `<div class="r bold" style="padding-top:6px"><span>JAMI POCHKA</span><span>${jamiPch} pochka</span></div>` : ""}
+  ${(itemDisc + discount) > 0 ? `<div class="r sm"><span>Jami (chegirmasiz)</span><span>${F(total + itemDisc + discount)} so'm</span></div>` : ""}
+  ${itemDisc > 0 ? `<div class="r sm"><span>Tovar chegirmalari</span><span>−${FC(itemDisc)}</span></div>` : ""}
+  ${discount > 0 ? `<div class="r sm"><span>Umumiy chegirma</span><span>−${FC(discount)}</span></div>` : ""}
+  <div class="tot"><span style="font-weight:800">JAMI</span><span class="v">${FC(total)}</span></div>
+  <div class="lbl">To'lov</div>
+  ${payHtml}
+  ${paid > 0 ? `<div class="r"><span>To'landi</span><span style="font-weight:700">${FC(paid)}</span></div>` : ""}
+  ${debtHtml}
+  ${_refundNote}
+  <div class="ft">${cfg.footer}</div>
+  ${(Array.isArray(opts.extraLines) && opts.extraLines.length) ? `<div style="text-align:center;font-size:12px;color:#000;padding:2px 8px 4px">${opts.extraLines.filter(Boolean).map(t=>`<div>${t}</div>`).join("")}</div>` : ""}
+  <div class="ft2">${cfg.shopName} · ${date}</div>
+</div>
+<div class="acts">
+  <button class="btn" style="background:#0D1B2A;color:#fff" onclick="window.print()">🖨 Chop etish</button>
+  <button class="btn" style="background:#eee" onclick="window.close?window.close():history.back()">Yopish</button>
+</div>
+</div></body></html>`;
+}
+
+async function actionRenderReceipt(chekId, saleData, shopId) {
+  let sale = null;
+  let shopName = "MERX";
+
+  if (saleData) {
+    try {
+      sale = JSON.parse(Buffer.from(saleData, "base64").toString("utf8"));
+    } catch {}
+  }
+
+  if (!sale) {
+    const isNumericId = /^ID\d+$/.test(chekId);
+    const shopF = shopId ? `&shop_id=eq.${encodeURIComponent(shopId)}` : "";
+    const query = isNumericId
+      ? `?id=eq.${chekId.slice(2)}${shopF}&select=*`
+      : `?chek_num=eq.${encodeURIComponent(chekId)}${shopF}&select=*`;
+    const rows = await sb("sales", query);
+    sale = rows?.[0] || null;
+    // 2026-07-18 (12-qoida: data HOKIM): chegirma (basePrice/discount) va
+    // prevDebtUsd/Uzs FAQAT data jsonb'da — data USTUN turadi, items ham
+    // data'dan (basePrice bilan). Aks holda PDF chekda chegirma va eski
+    // qarz ko'rinmasdi (AbuSaxiy bugi).
+    if (sale && sale.data && typeof sale.data === "object") {
+      const _d = sale.data;
+      sale = { ...sale, ..._d, items: (_d.items && _d.items.length) ? _d.items : sale.items };
+    }
+  }
+
+  try {
+    const _sf = (shopId || sale?.shop_id) ? `&shop_id=eq.${encodeURIComponent(shopId || sale.shop_id)}` : "";
+    const sets = await sb("settings", `?limit=1&select=shop_name,chek_config${_sf}`);
+    shopName = sets?.[0]?.shop_name || "MERX";
+    var _ck = sets?.[0]?.chek_config || {}; // 2026-07-17: SHU funksiya o'z sozlamasini oladi (ReferenceError tuzatildi)
+  } catch { var _ck = {}; }
+  if (typeof _ck === "undefined") var _ck = {};
+
+  if (!sale) {
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Chek topilmadi</title></head>
+      <body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#F2F0EB">
+        <div style="text-align:center;color:#888">
+          <div style="font-size:40px;margin-bottom:8px">⚠️</div>
+          <div>Chek topilmadi: ${chekId}</div>
+        </div>
+      </body></html>`;
+  }
+
+  if (!sale.chek_num && sale.chekNum) {
+    sale = {
+      ...sale,
+      chek_num:      sale.chekNum,
+      pay_type:      sale.payType,
+      customer_name: sale.customerName,
+      debt_currency: sale.debtCurrency,
+      debt_usd:      sale.debtUsd,
+    };
+  }
+
+  // 2026-07-18 (2-bosqich): telefonlar massivi + qo'shimcha matnlar
+  const _ckContact = (Array.isArray(_ck.phones) && _ck.phones.length)
+    ? _ck.phones.filter(Boolean).join(", ")
+    : (_ck.contact || "");
+  return buildReceiptHtml(sale, {
+    // ✅ 2026-08-12: BOT CHEKI ham uslub tanlovini biladi.
+    // ⚠️ EHTIYOT: botda faqat `merx` chizuvchisi bor (qolganlari
+    // ilovada). Shuning uchun FAQAT merx uzatiladi — boshqa uslub
+    // tanlangan bo'lsa bot avvalgidek STANDART chekni chizadi
+    // (mavjud funksiya buzilmasin, mijozga chala chek bormasin).
+    style: (_ck.styleV2 && _ck.posStyle === "merx") ? "merx" : "unified",
+    shopName,
+    logo:    _ck.logo    || null,
+    addr:    _ck.addr    || "",
+    contact: (_ck.showContact !== false ? _ckContact : "") || "",
+    tagline: _ck.tagline || "Ulgurji savdo tizimi",
+    footer:  _ck.footer  || "Rahmat! Yana kutamiz 🙏",
+    extraLines: Array.isArray(_ck.extraLines) ? _ck.extraLines : [],
+    fontScale: ({ small:0.9, large:1.12, xlarge:1.25 })[_ck.fontScale] || 1,
+    fontFamily: ({ mono:"'Courier New',monospace", serif:"'Georgia',serif", sans:"'Arial',sans-serif" })[_ck.fontFamily] || "'DM Sans',Arial,sans-serif",
+    headerStyle: _ck.headerStyle || "dark" // 2026-07-19: banner foni
+  });
+}
+
+// ── /stat (oylik statistika) ─────────────────────────────────
+async function cmdOylikStat(chatId) {
+  try {
+    const ctx = await getShopCtx(chatId);
+    const sid = ctx.shopId;
+  // ⚠️ 2026-08-04: DO'KON ANIQLANMASA — MA'LUMOT BERILMAYDI.
+    // Avval `shopId` null bo'lsa `sidFilter` BO'SH qolardi va so'rov
+    // BARCHA DO'KON ma'lumotini qaytarardi. Ya'ni botni topgan begona
+    // odam `/hisobot` yozib hamma do'konning savdo raqamlarini
+    // ko'ra olardi.
+    // SuperAdmin (`OWNER_ID`) uchun istisno — u ataylab hammasini
+    // ko'radi, lekin sarlavhada bu ochiq yoziladi.
+    if (!ctx.shopId && !ctx.isSuperAdmin) {
+      await tg(chatId, "🔒 Do'kon aniqlanmadi.\n\n" +
+        "/start bosing yoki do'kon egasidan havola so'rang.");
+      return;
+    }
+
+        const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
+    // 2026-08-04: Toshkent vaqtida (yuqoridagi `thisMonth` izohiga qarang).
+  // Oy boshida UTC hali oldingi oyda bo'lardi va statistika bir kun
+  // noto'g'ri chiqardi.
+  const m = thisMonth();
+
+    const [sales, xarajat] = await Promise.all([
+      sbAll("sales", `?date=gte.${m}-01&status=neq.bekor&order=date.asc${sidFilter}`).then(r => r.rows),
+      sbAll("xarajatlar", `?date=gte.${m}-01${sidFilter}`).then(r => r.rows),
+    ]);
+    // 2026-08-07: yuqorida sahifalab olindi — avval bitta so'rov 1000
+    // qatordan keyin JIMGINA kesardi va oylik raqam kam chiqishi
+    // mumkin edi (§4.4, №9)
+
+    // ⚠️ 2026-08-04: SUPERADMIN UCHUN SARLAVHA ANIQ BO'LSIN.
+    // Avval `MERX — Bugungi savdo` deb yozilardi va bu bitta
+    // do'kon hisobotiga o'xshardi. Aslida SuperAdminda BARCHA
+    // do'kon yig'indisi chiqadi (`shopId` null → filtr yo'q).
+    // 2026-08-04: SuperAdmin bitta do'konni tanlagan bo'lsa —
+    // o'sha do'kon nomi. Tanlanmagan bo'lsa yig'indi ekani ochiq.
+    const shopName = (ctx.isSuperAdmin && !ctx.shopId)
+      ? "BARCHA DO'KONLAR"
+      : (ctx.shopName || "MERX");
+    // ⚠️ 2026-08-04: ESKI QARZLAR STATISTIKAGA KIRMAYDI.
+  // `isOldDebt` — Billz'dan ko'chirilgan eski qarzlar (335 ta).
+  // Ular HAQIQIY SOTUV EMAS, faqat qarz yozuvi. Ilovadagi
+  // `statSales()` ularni chiqarib tashlaydi, botda esa kirardi
+  // va oylik statistikani shishirardi.
+  // ⚠️ `/qarzlar` da ular QOLADI — u yerda haqiqiy qarz.
+  const _oldDebt = x => (x?.data && x.data.isOldDebt) === true;
+  const _statSales = sales.filter(x => !_oldDebt(x));
+
+  const totalSum  = _statSales.reduce((a, s) => a + Number(s.total || 0), 0);
+    const totalPaid = _statSales.reduce((a, s) => a + Number(s.paid || 0), 0);
+    const totalDebt = _statSales.reduce((a, s) => a + Number(s.remaining || 0), 0);
+    const totalExp  = xarajat.reduce((a, x) => a + Number(x.amount || 0), 0);
+    // ⚠️ 2026-08-04: "Toza foyda" NOMI NOTO'G'RI EDI.
+  // Hisob: tushum − xarajat. TANNARX umuman ayrilmaydi, ya'ni bu
+  // FOYDA EMAS. Egasi 190 mln "foyda" ko'rib, aslida tovarning
+  // tannarxi hali ayrilmagan bo'lardi.
+  // Haqiqiy foyda uchun har sotuvdagi tovar tannarxini yig'ish
+  // kerak — bu alohida ish (ilovada `calcMarkup` bor).
+  // Hozircha NOM to'g'rilandi: aldamaydigan bo'ldi.
+  const foyda     = totalPaid - totalExp;
+
+    // Kunlik o'rtacha
+    // Kun raqami ham Toshkent bo'yicha — o'rtacha hisobi to'g'ri bo'lsin
+  const days = Number(today().slice(8, 10));
+    const avgDay = Math.round(totalPaid / days);
+
+    // Top 3 mahsulot
+    const itemCounts = {};
+    for (const s of sales) {
+      for (const it of (s.items || [])) {
+        if (!it?.name) continue;
+        itemCounts[it.name] = (itemCounts[it.name] || 0) + (it.qty || 1);
+      }
+    }
+    const top3 = Object.entries(itemCounts)
+      .sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+    let txt = `📈 ${shopName} — ${m} oylik statistika\n\n`;
+    txt += `🛍 Jami sotuvlar: ${_statSales.length} ta\n`;
+    txt += `💵 Jami summa: ${fmt(totalSum)} so'm\n`;
+    txt += `✅ To'langan: ${fmt(totalPaid)} so'm\n`;
+    if (totalDebt > 0) txt += `🔴 Nasiya: ${fmt(totalDebt)} so'm\n`;
+    txt += `💸 Xarajatlar: ${fmt(totalExp)} so'm\n`;
+    txt += `💰 Tushum − xarajat: ${fmt(foyda)} so'm\n`;
+  txt += `<i>   (tannarx ayrilmagan)</i>\n`;
+    txt += `📊 Kunlik o'rtacha: ${fmt(avgDay)} so'm\n`;
+    if (top3.length) {
+      txt += `\n🏆 Top mahsulotlar:\n`;
+      top3.forEach(([name, qty], i) => {
+        txt += `  ${i+1}. ${name} — ${qty} dona\n`;
+      });
+    }
+    await tg(chatId, txt);
+  } catch(e) {
+    console.error("oylik stat xato:", e.message);
+    await tg(chatId, `⚠️ Xato: ${e.message}`);
+  }
+}
+
+// ── /mendokonlarim — egasi/mijoz bo'lgan barcha do'konlar ──────
+// ══════════════════════════════════════════════════════════════
+// /tizim — SUPERADMIN UCHUN TIZIM HOLATI (2026-08-04)
+// ══════════════════════════════════════════════════════════════
+// SuperAdmin panelidagi asosiy raqamlar botda. Faqat OWNER_ID
+// ko'radi — boshqalarga javob berilmaydi.
+// Manba: `shops`, `sa_income`, `sa_expense` va `sa_db_stats()`.
+// Server kaliti bilan o'qish — faqat SuperAdmin ma'lumoti uchun.
+// Kalit yo'q bo'lsa bo'sh massiv (xato bermaydi).
+async function _sbService(table, query) {
+  if (!SB_SERVICE) return [];
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/${table}${query}`, {
+      headers: { apikey: SB_SERVICE, Authorization: `Bearer ${SB_SERVICE}` }
+    });
+    return r.ok ? await r.json() : [];
+  } catch (e) { console.warn("_sbService:", e.message); return []; }
+}
+
+async function cmdTizim(chatId) {
+  if (!OWNER_ID || String(chatId) !== String(OWNER_ID)) {
+    await tg(chatId, "🔒 Bu buyruq faqat tizim egasi uchun.");
+    return;
+  }
+  try {
+    const [shops, inc, exp] = await Promise.all([
+      // ⚠️ 2026-08-04: ustun nomi `trial_ends` (`expires_at` YO'Q).
+      sb("shops", "?select=id,name,plan,trial_ends,active&order=name"),
+      _sbService("sa_income",  "?select=amount,currency,rate"),
+      _sbService("sa_expense", "?select=amount,currency,rate")
+    ]);
+
+    const bugun = today();
+    const kunFarq = (d) => d
+      ? Math.ceil((new Date(d) - new Date(bugun)) / 86400000) : null;
+
+    let t = "👑 <b>TIZIM HOLATI</b>\n\n";
+
+    // ── Do'konlar ──
+    const faol = (shops || []).filter(x => {
+      const k = kunFarq(x.trial_ends);
+      return x.active !== false && (k === null || k >= 0);
+    }).length;
+    t += `🏪 <b>Do'konlar: ${(shops || []).length}</b> · ${faol} faol\n`;
+    (shops || []).forEach(x => {
+      const k = kunFarq(x.trial_ends);
+      let belgi = "  ";
+      if (k !== null && k < 0)       belgi = "🔴";
+      else if (k !== null && k <= 7) belgi = "🟡";
+      else                           belgi = "🟢";
+      const muddat = x.trial_ends ? String(x.trial_ends).slice(0, 10) : "—";
+      const qolgan = (k !== null && k >= 0) ? ` (${k} kun)` : (k !== null ? " (o'tgan)" : "");
+      t += `${belgi} ${x.name} — ${muddat}${qolgan}\n`;
+    });
+
+    // ── Server hajmi ──
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/rpc/sa_db_stats`, {
+        method: "POST",
+        headers: { apikey: SB_SERVICE || SB_KEY,
+                   Authorization: `Bearer ${SB_SERVICE || SB_KEY}`,
+                   "Content-Type": "application/json" },
+        body: "{}"
+      });
+      if (r.ok) {
+        const d = await r.json();
+        const mb = b => (b / 1048576).toFixed(1);
+        const pct = (b, lim) => ((b / lim) * 100).toFixed(1);
+        const dbB = d?.db_bytes || 0;
+        t += `\n💾 <b>Baza:</b> ${mb(dbB)} MB / 500 MB (${pct(dbB, 500*1048576)}%)\n`;
+        t += `🧮 Yozuvlar: ${(d?.total_rows || 0).toLocaleString("ru-RU")}\n`;
+        const top = (d?.tables || [])[0];
+        if (top) t += `📊 Eng katta: ${top.name} (${mb(top.bytes)} MB)\n`;
+      }
+    } catch (e) { console.warn("tizim: db stats", e.message); }
+
+    // ── Moliya ──
+    // Kurs YOZUVDA muzlatilgan (kontekst §3.5) — o'zgarmaydi.
+    const yig = rows => (rows || []).reduce((a, x) => {
+      const v = Number(x.amount) || 0;
+      return a + (x.currency === "usd" ? v * (Number(x.rate) || 12100) : v);
+    }, 0);
+    const dIn = yig(inc), dEx = yig(exp);
+    const F2 = n => Math.round(n).toLocaleString("ru-RU");
+    t += `\n📈 <b>Daromad:</b> ${F2(dIn)} so'm\n`;
+    t += `📉 <b>Xarajat:</b> ${F2(dEx)} so'm\n`;
+    t += `💰 <b>Foyda:</b> ${F2(dIn - dEx)} so'm\n`;
+
+    await tg(chatId, t);
+  } catch (e) {
+    console.error("cmdTizim xato:", e.message);
+    await tg(chatId, "⚠️ Ma'lumot olinmadi: " + e.message);
+  }
+}
+
+// ══ /egaqoshish (2026-08-09) ════════════════════════════
+// Oqim: sherik havolani bosadi → bot unga ID sini ko'rsatadi →
+// sherik ID ni egaga yuboradi → ega botda `/egaqoshish <ID>` yozadi
+// → sherik shop_owners ga qo'shiladi va unga xabar boradi.
+// Xavfsizlik: yozayotgan odam O'SHA do'konda shop_owners da bo'lishi
+// SHART; ko'p do'konli ega avval /mendokonlarim bilan tanlaydi.
+async function cmdEgaQoshish(chatId, arg) {
+  const cid = String(chatId);
+  const newId = String(arg || "");
+  if (!/^[0-9]{5,15}$/.test(newId)) {
+    await tg(chatId,
+      "ℹ️ Ishlatilishi: <code>/egaqoshish 123456789</code>\n\n" +
+      "Sherik avval bot havolasini bosadi — bot unga ID sini ko'rsatadi. " +
+      "Sherik shu ID ni sizga yuboradi, siz esa yuqoridagi buyruq bilan qo'shasiz.");
+    return;
+  }
+  if (newId === cid) { await tg(chatId, "ℹ️ Bu sizning o'z ID raqamingiz."); return; }
+
+  const mine = await sb("shop_owners",
+    `?chat_id=eq.${cid}&select=shop_id,shop_name`).catch(() => []);
+  if (!mine?.length) {
+    await tg(chatId, "⛔ Bu buyruq faqat do'kon egasi uchun.");
+    return;
+  }
+  let t = mine[0];
+  if (mine.length > 1) {
+    const ctx = await getShopCtx(chatId).catch(() => null);
+    const sel = ctx && ctx.shopId ? mine.find(m => m.shop_id === ctx.shopId) : null;
+    if (!sel) {
+      await tg(chatId,
+        "ℹ️ Sizda bir nechta do'kon bor. Avval /mendokonlarim orqali " +
+        "do'konni tanlang, keyin buyruqni qayta yuboring.");
+      return;
+    }
+    t = sel;
+  }
+
+  let ok = false;
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/shop_owners?on_conflict=chat_id,shop_id`, {
+      method: "POST",
+      headers: {
+        apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+        "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+      },
+      body: JSON.stringify({ chat_id: newId, shop_id: t.shop_id, shop_name: t.shop_name || "MERX" })
+    });
+    ok = r.ok;
+    if (!r.ok) console.error("[egaqoshish] yozilmadi:", r.status, await r.text().catch(()=>""));
+  } catch(e) { console.error("[egaqoshish] xato:", e.message); }
+
+  if (!ok) {
+    await tg(chatId, "⚠️ Qo'shishda xatolik yuz berdi. Birozdan so'ng qayta urinib ko'ring.");
+    return;
+  }
+  await tg(chatId, "✅ <b>" + newId + "</b> endi <b>" +
+    (t.shop_name || t.shop_id) + "</b> do'koniga EGA sifatida ulandi.");
+  // Yangi egaga xabar (u botni allaqachon /start qilgan — havolani bosganda)
+  try {
+    await tg(newId, "✅ Siz <b>" + (t.shop_name || "MERX") +
+      "</b> do'koniga EGA sifatida ulandingiz.\n" +
+      "Endi /hisobot, /balans, /qarzlar buyruqlari sizga ham ishlaydi.");
+  } catch(e) {}
+}
+
+async function cmdMenDokonlarim(chatId) {
+  console.log(`[mendokonlarim] chatId=${chatId} (type=${typeof chatId})`);
+
+  // ⚠️ 2026-08-04: SUPERADMIN UCHUN ALOHIDA RO'YXAT.
+  // Avval SuperAdmin `getShopCtx` ning eng boshida ushlanib qolardi
+  // va do'kon TANLAY OLMASDI — har doim barcha do'kon yig'indisini
+  // ko'rardi. Endi ikki rejim:
+  //   • "Barcha do'konlar" — yig'indi (SuperAdmin nazorati uchun)
+  //   • bitta do'kon — o'sha do'kon ma'lumoti (sinov uchun)
+  // Tanlov `bot_sessions` da saqlanadi, oddiy egadagi kabi.
+  if (OWNER_ID && String(chatId) === String(OWNER_ID)) {
+    const all = await sb("shops", "?select=id,name&order=name");
+    const cur = await sb("bot_sessions",
+      `?chat_id=eq.${chatId}&select=shop_id,shop_name&limit=1`);
+    const curId = cur?.[0]?.shop_id || null;
+
+    let t = "👑 <b>SuperAdmin rejimi</b>\n\n";
+    t += curId
+      ? `Hozir: <b>${cur[0].shop_name || curId}</b>\n\n`
+      : "Hozir: <b>Barcha do'konlar</b> (yig'indi)\n\n";
+    t += "Rejimni tanlang:";
+
+    const btns = [[{ text: (curId ? "" : "✅ ") + "📊 Barcha do'konlar",
+                     callback_data: "sa_all" }]];
+    (all || []).forEach(x => btns.push([{
+      text: (String(x.id) === String(curId) ? "✅ " : "") + "🏪 " + x.name,
+      callback_data: "sa_shop:" + x.id
+    }]));
+
+    await tg(chatId, t, { reply_markup: { inline_keyboard: btns } });
+    return;
+  }
+
+  const ownerShops = await getOwnerShops(chatId);
+  const custShops   = await getCustomerShops(chatId);
+  console.log(`[mendokonlarim] ownerShops=${JSON.stringify(ownerShops)}, custShops=${JSON.stringify(custShops)}`);
+
+  if (!ownerShops.length && !custShops.length) {
+    await tg(chatId, "Siz hali hech qaysi do'konga ulanmagansiz.\n\n/start orqali do'kon tanlang.");
+    return;
+  }
+
+  let txt = "🏪 Sizning do'konlaringiz:\n\n";
+  const btns = [];
+
+  if (ownerShops.length) {
+    txt += "👤 Egasi bo'lgan do'konlar:\n";
+    ownerShops.forEach(s => { txt += `  • ${s.shop_name}\n`; });
+    ownerShops.forEach(s => btns.push([{ text: "📊 " + s.shop_name + " (egasi)", callback_data: "switch_owner:" + s.shop_id }]));
+    txt += "\n";
+  }
+
+  if (custShops.length) {
+    txt += "🛍 Mijoz bo'lgan do'konlar:\n";
+    custShops.forEach(s => { txt += `  • ${s.name}\n`; });
+    custShops.forEach(s => btns.push([{ text: "🧾 " + s.name + " cheklari", callback_data: "switch_cust:" + s.id }]));
+  }
+
+  await tg(chatId, txt, { reply_markup: { inline_keyboard: btns } });
+}
+
+// ── /help ────────────────────────────────────────────────────
+async function cmdHelp(chatId) {
+  const ctx = await getShopCtx(chatId);
+  const isOwner = ctx.isOwner || ctx.isSuperAdmin;
+  const shopName = ctx.shopName || "MERX";
+
+  let txt = `❓ ${shopName} — Bot komandalar\n\n`;
+
+  if (isOwner) {
+    txt += "👤 Do'kon egasi uchun:\n";
+    txt += "/hisobot — Bugungi savdo hisoboti\n";
+    txt += "/balans — Kassa holati (naqd, karta, tushum)\n";
+    txt += "/ombor — Kam qolgan tovarlar\n";
+    txt += "/qarzlar — Muddati o'tgan qarzlar\n";
+    txt += "/barcha_qarzlar — Barcha ochiq qarzlar\n";
+    txt += "/stat — Bu oylik statistika\n";
+    txt += "/naklad — 🤖 AI orqali naklad rasmidan tovar import qilish\n";
+    // 2026-08-04: SuperAdmin buyruqlari — faqat tizim egasiga
+    if (ctx.isSuperAdmin) {
+      txt += "\n👑 Tizim egasi uchun:\n";
+      txt += "/tizim — Do'konlar, server hajmi, moliya\n";
+      txt += "/mendokonlarim — Rejim: barcha do'kon yoki bittasi\n";
+    }
+    txt += "\n📱 Mijoz havolasi:\n";
+    txt += `t.me/merx_savdo_bot?start=${ctx.shopId || ""}`;
+  } else {
+    txt += "🛍 Xaridlar va cheklaringiz:\n";
+    txt += "Har bir xaridingizda chek avtomatik yuboriladi.\n\n";
+    txt += "Qarz va balans holatini do'kondan so'rang.";
+  }
+
+  await tg(chatId, txt);
+}
+
+// ════════════════════════════════════════════════════════════════
+// VERCEL HANDLER
+// ════════════════════════════════════════════════════════════════
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  // ⚠️ 2026-08-04: `Authorization` VA `x-merx-key` QO'SHILDI.
+  // Ilova `app.merx.uz` da, bot esa `merx-rho.vercel.app` da —
+  // ya'ni BOSHQA MANZIL. Brauzer `Authorization` sarlavhali
+  // so'rovdan oldin ruxsat so'raydi (preflight) va ro'yxatda
+  // bo'lmagan sarlavhani TO'SADI.
+  // Busiz chek va guruh xabari "internet bormi?" xatosi bilan
+  // to'xtab qoldi (2026-08-05).
+  res.setHeader("Access-Control-Allow-Headers",
+                "Content-Type, Authorization, x-merx-key");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  // Webhook o'rnatish
+  if (req.method === "GET" && req.query?.setup === "1") {
+    const host = req.headers.host || "merx-rho.vercel.app";
+    const webhookUrl = `https://${host}/api/bot`;
+    const r = await fetch(`https://api.telegram.org/bot${TOKEN}/setWebhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: webhookUrl }),
+    }).then(x => x.json());
+    return res.json({
+      ok: r.ok,
+      message: r.ok ? `✅ Webhook ulandi: ${webhookUrl}` : `❌ ${r.description}`,
+    });
+  }
+
+  // Chek sahifasi (HTML) — mijoz uchun
+  if (req.method === "GET" && req.query?.action === "pay_receipt") {
+    try {
+      const payId = String(req.query.id || "");
+      const shopQ = req.query.shop || null;
+      if (!payId) return res.status(400).send("To'lov ID kerak");
+      const html = await actionRenderPayReceipt(payId, shopQ);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0, private");
+      return res.status(200).send(html);
+    } catch (e) {
+      console.error("pay_receipt xato:", e.message);
+      return res.status(500).send("Xato: " + e.message);
+    }
+  }
+
+  if (req.method === "GET" && req.query?.action === "receipt") {
+    try {
+      const chekId   = String(req.query.id || "");
+      const saleData = req.query.d || null;
+      const shopQ    = req.query.shop || null; // multi-tenant filtr (2026-07)
+      if (!chekId) return res.status(400).send("Chek ID kerak");
+      const html = await actionRenderReceipt(chekId, saleData, shopQ);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(200).send(html);
+    } catch (e) {
+      console.error("receipt xato:", e.message);
+      return res.status(500).send("Xato: " + e.message);
+    }
+  }
+
+  // Ishchilar buyurtma katalogi (HTML) — YANGI
+  if (req.method === "GET" && req.query?.action === "staff_order") {
+    try {
+      let chekId   = String(req.query.id || "");
+      const saleData = req.query.d    || null;
+      let shopId   = req.query.shop || null;
+
+      // Agar to'g'ridan ID kelmagan bo'lsa — bu Telegram Web App orqali
+      // ochilgan, va Web App initData'ni Telegram skripti JS orqali
+      // beradi (server tomonda ko'rinmaydi). Shuning uchun avval bo'sh
+      // sahifa qaytaramiz, u tg.initDataUnsafe.start_param ni o'qib,
+      // shu sahifaga ?id=... bilan qayta yo'naltiradi.
+      if (!chekId) {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0, private");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Surrogate-Control", "no-store");
+        return res.status(200).send(`<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head><body style="background:#F2F0EB;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif">
+<div id="msg" style="color:#888">Yuklanmoqda…</div>
+<script>
+  var tg = window.Telegram.WebApp;
+  tg.ready();
+  var param = tg.initDataUnsafe && tg.initDataUnsafe.start_param;
+  if (param) {
+    // startapp kodlangan edi (xNN — maxsus belgilar uchun) — dekodlaymiz
+    var decoded = param.replace(/x([0-9a-f]{2})/g, function(m, hex) {
+      return String.fromCharCode(parseInt(hex, 16));
+    });
+    var parts = decoded.split("__");
+    var url;
+    if (parts[0] === "PAY") {
+      url = "/api/bot?action=pay_receipt&id=" + encodeURIComponent(parts[1] || "");
+      if (parts[2]) url += "&shop=" + encodeURIComponent(parts[2]);
+    } else if (parts[0] === "CHK") {
+      // Mijoz cheki (2026-07): Telegram ichida ochiladi
+      url = "/api/bot?action=receipt&id=" + encodeURIComponent(parts[1] || "");
+      if (parts[2]) url += "&shop=" + encodeURIComponent(parts[2]);
+    } else {
+      url = "/api/bot?action=staff_order&id=" + encodeURIComponent(parts[0]);
+      if (parts[1]) url += "&shop=" + encodeURIComponent(parts[1]);
+    }
+    window.location.replace(url);
+  } else {
+    document.getElementById("msg").textContent = "⚠️ Buyurtma ID topilmadi.";
+  }
+</script>
+</body></html>`);
+      }
+
+      const html = await actionRenderStaffOrder(chekId, saleData, shopId);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0, private");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("ETag", ""); // ETag asosidagi 304 javoblarni oldini olish
+      res.removeHeader("ETag");
+      res.setHeader("Surrogate-Control", "no-store"); // Vercel CDN/Edge kesh oldini olish
+      return res.status(200).send(html);
+    } catch (e) {
+      console.error("staff_order xato:", e.message);
+      return res.status(500).send("Xato: " + e.message);
+    }
+  }
+
+  // Done state — GET (Supabase orqali, BARCHA omborchilar uchun sinxron)
+  // MUHIM: bu POST-tekshiruvdan OLDIN bo'lishi shart, aks holda GET so'rovlar
+  // hech qachon ishlamaydi (avvalgi bug — shu yerda edi)
+  if (req.method === "GET" && req.query?.action === "get_done") {
+    const chekId = String(req.query?.id || "");
+    try {
+      const rows = await sb("done_items", `?chek_id=eq.${encodeURIComponent(chekId)}&done=eq.true&select=item_idx`);
+      const done = (rows || []).map(r => r.item_idx);
+      return res.status(200).json({ ok: true, done });
+    } catch(e) {
+      console.error("[get_done] xato:", e.message);
+      return res.status(200).json({ ok: true, done: [] });
+    }
+  }
+
+  if (req.method !== "POST") {
+    return res.status(200).json({ ok: true, info: "MERX Bot ishlamoqda" });
+  }
+
+  // MERX dan: mijozga chek yuborish
+  if (req.query?.action === "send_pay_receipt") {
+    let body;
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; }
+    catch { return res.status(400).json({ ok: false, error: "invalid_json" }); }
+    try {
+      const result = await actionSendPayReceipt(body);
+      return res.status(200).json(result);
+    } catch (e) {
+      console.error("send_pay_receipt xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // ⚠️ 2026-08-04: HTTP AMALLARI UCHUN KALIT
+  // ══════════════════════════════════════════════════════════
+  // `api/bot.js` manzili ochiq edi — kim bilsa chaqira olardi:
+  //   send_text        → istalgan chat'ga xabar yuborish
+  //   send_receipt     → soxta chek
+  //   send_staff_notif → omborchi guruhiga soxta buyurtma
+  //   set_done         → tovarni "tayyor" deb belgilash
+  //
+  // BOSQICHMA-BOSQICH: hozir kalit TEKSHIRILADI, lekin TALAB
+  // QILINMAYDI — kalitsiz so'rov ham o'tadi va log yoziladi.
+  // Klient kalit yubora boshlagach va loglarda kalitsiz so'rov
+  // qolmagach, `MERX_BOT_STRICT=1` qo'yiladi va talab qilinadi.
+  // Shunda hech narsa to'satdan to'xtamaydi.
+  // ⚠️ KLIENTDAGI KALIT HIMOYA EMAS — brauzer kodini kim ochsa
+  // ko'radi. Shuning uchun SUPABASE AUTH TOKENI tekshiriladi:
+  // ilovada u allaqachon bor (egasi ham, xodim ham).
+  // Zaxira sifatida `MERX_BOT_KEY` ham qabul qilinadi — u
+  // serverdan serverga chaqiruvlar uchun (SuperAdmin paneli).
+  const _BOT_KEY    = process.env.MERX_BOT_KEY || "";
+  const _BOT_STRICT = process.env.MERX_BOT_STRICT === "1";
+  // ⚠️ `set_done` RO'YXATDA YO'Q: u omborchi sahifasidan (Telegram
+  // mini-app) chaqiriladi, u yerda Supabase sessiyasi bo'lmaydi.
+  // Xavfi past — faqat "tayyor" belgisi qo'yiladi, ma'lumot
+  // o'qilmaydi va xabar yuborilmaydi.
+  const _PROTECTED  = ["send_text","send_receipt","send_pay_receipt",
+                       "send_staff_notif","send_owner_notif"];
+  const _act = req.query?.action || "";
+
+  if (_PROTECTED.includes(_act)) {
+    let _ok = false, _kim = "";
+
+    // 1) Supabase Auth tokeni
+    const _auth = req.headers["authorization"] || "";
+    const _tok  = _auth.startsWith("Bearer ") ? _auth.slice(7) : "";
+    if (_tok) {
+      try {
+        const r = await fetch(`${SB_URL}/auth/v1/user`, {
+          headers: { apikey: SB_KEY, Authorization: `Bearer ${_tok}` }
+        });
+        if (r.ok) {
+          const u = await r.json();
+          if (u?.id) { _ok = true; _kim = u.email || u.id; }
+        }
+      } catch (e) { console.warn("[bot] token tekshiruvi:", e.message); }
+    }
+
+    // 2) Zaxira: server kaliti
+    if (!_ok && _BOT_KEY && req.headers["x-merx-key"] === _BOT_KEY) {
+      _ok = true; _kim = "server";
+    }
+
+    // BOSQICHMA-BOSQICH: hozir rad etilmaydi, faqat log yoziladi.
+    // Klient token yubora boshlagach va loglarda "RUXSATSIZ"
+    // qolmagach, `MERX_BOT_STRICT=1` qo'yiladi.
+    if (!_ok) {
+      if (_BOT_STRICT) {
+        console.warn(`[bot] RAD ETILDI: ${_act}`);
+        return res.status(401).json({ ok: false, error: "Ruxsat yo'q" });
+      }
+      console.warn(`[bot] RUXSATSIZ: ${_act} — hozircha o'tkazildi ` +
+                   `(MERX_BOT_STRICT=1 qo'yilsa rad etiladi)`);
+    }
+  }
+
+  if (req.query?.action === "send_receipt") {
+    let body;
+    try {
+      body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    } catch {
+      return res.status(400).json({ ok: false, error: "invalid_json" });
+    }
+    try {
+      const result = await actionSendReceipt(body);
+      return res.status(200).json(result);
+    } catch (e) {
+      console.error("send_receipt xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
+  // MERX dan: oddiy matn xabar (qarz eslatmalari) — YANGI
+  if (req.query?.action === "send_text") {
+    let body;
+    try {
+      body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    } catch {
+      return res.status(400).json({ ok: false, error: "invalid_json" });
+    }
+    try {
+      const result = await actionSendTextMessage(body);
+      return res.status(200).json(result);
+    } catch (e) {
+      console.error("send_text xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
+  // Done state — SET (Supabase orqali, BARCHA omborchilar uchun sinxron)
+  if (req.method === "POST" && req.query?.action === "set_done") {
+    let body;
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; } catch { body = {}; }
+    const chekId = String(req.query?.id || body?.id || "");
+    const idx2   = parseInt(body?.idx);
+    const val    = body?.val === true || body?.val === "true";
+
+    if (chekId && !isNaN(idx2)) {
+      // ⚠️ 2026-08-08: SESSIYASIZ HIMOYA (§14.C-8).
+      // `set_done` ni oddiy token ro'yxatiga qo'shib bo'lmaydi:
+      // u omborchining Telegram mini-app'idan chaqiriladi, u yerda
+      // Supabase sessiyasi YO'Q — qo'shilsa "Tayyor" tugmasi o'lardi.
+      // Shuning uchun boshqa qo'riqchi: chek raqami HAQIQATAN
+      // mavjudligini bazadan tekshiramiz. Shu bilan tasodifiy yoki
+      // o'ylab topilgan chek raqamlari bilan jadvalni to'ldirib
+      // bo'lmaydi, omborchi oqimi esa avvalgidek ishlaydi.
+      let _chekBor = false;
+      try {
+        const _s = await sb("sales", `?chek_num=eq.${encodeURIComponent(chekId)}&select=chek_num&limit=1`);
+        _chekBor = Array.isArray(_s) && _s.length > 0;
+      } catch(e) { _chekBor = true; /* baza javob bermasa oqimni to'xtatmaymiz */ }
+      if (!_chekBor) {
+        console.warn(`[set_done] mavjud bo'lmagan chek rad etildi: ${chekId}`);
+        return res.status(200).json({ ok: true, done: [] });
+      }
+      try {
+        if (val) {
+          await fetch(`${SB_URL}/rest/v1/done_items?on_conflict=chek_id,item_idx`, {
+            method: "POST",
+            headers: {
+              apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+              "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+            },
+            body: JSON.stringify({ chek_id: chekId, item_idx: idx2, done: true })
+          });
+        } else {
+          await fetch(`${SB_URL}/rest/v1/done_items?chek_id=eq.${encodeURIComponent(chekId)}&item_idx=eq.${idx2}`, {
+            method: "DELETE",
+            headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
+          });
+        }
+      } catch(e) { console.error("[set_done] xato:", e.message); }
+    }
+
+    try {
+      const rows = await sb("done_items", `?chek_id=eq.${encodeURIComponent(chekId)}&done=eq.true&select=item_idx`);
+      const done = (rows || []).map(r => r.item_idx);
+      return res.status(200).json({ ok: true, done });
+    } catch(e) {
+      return res.status(200).json({ ok: true, done: [] });
+    }
+  }
+
+  // MERX dan: ishchilar guruhiga bildirishnoma — YANGI
+  if (req.query?.action === "send_staff_notif") {
+    let body;
+    try {
+      body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    } catch {
+      return res.status(400).json({ ok: false, error: "invalid_json" });
+    }
+    try {
+      const result = await actionSendStaffNotification(body);
+      return res.status(200).json(result);
+    } catch (e) {
+      console.error("send_staff_notif xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+  // 2026-08-03: egasiga xabar (SuperAdmin panelidan)
+  // ⚠️ 2026-08-04 TUZATILDI: `action` o'zgaruvchisi bot.js da YO'Q.
+  // Bu faylda amal `req.query?.action` orqali o'qiladi (yuqoridagi
+  // `send_staff_notif` kabi). Men `auth-v2.js` naqshini ko'chirib
+  // xato yozganman va butun bot yiqilgan:
+  //     ReferenceError: action is not defined
+  // Natijada /start, /mendokonlarim, hisobot ishlamay qolgan.
+  if (req.query?.action === "send_owner_notif") {
+    let body;
+    try {
+      body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    } catch {
+      return res.status(400).json({ ok: false, error: "invalid_json" });
+    }
+    try {
+      const result = await actionSendOwnerNotif(body);
+      return res.status(200).json(result);
+    } catch (e) {
+      console.error("send_owner_notif xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
+
+  let update;
+  try {
+    update = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+  } catch {
+    return res.status(200).json({ ok: false });
+  }
+
+  // Callback tugmalar
+  if (update.callback_query) {
+    const cb = update.callback_query;
+    const chatId = cb.message?.chat?.id;
+    await tgAnswer(cb.id);
+
+    if (chatId) {
+      // Do'kon tanlash callback: "shop:shop_XXXXX"
+      if (cb.data?.startsWith("shop:")) {
+        const shopId = cb.data.slice(5);
+        const ctx = await setShopForUser(chatId, shopId);
+        if (ctx) {
+          await tg(chatId,
+            "✅ " + ctx.shopName + " tanlandi!\n\n" +
+            "Telefon raqamingizni ulashing 👇",
+            {
+              reply_markup: {
+                keyboard: [[{ text: "📱 Raqamni ulashish", request_contact: true }]],
+                resize_keyboard: true, one_time_keyboard: true,
+              },
+            }
+          );
+        }
+      }
+
+      // Egasi sifatida do'kon almashtirish (/mendokonlarim dan)
+      // ⚠️ 2026-08-04: SUPERADMIN REJIM ALMASHTIRISHI.
+      // Ikki rejim: barcha do'kon yig'indisi yoki bitta do'kon.
+      // Tanlov `bot_sessions` da saqlanadi.
+      if (cb.data === "sa_all" || cb.data?.startsWith("sa_shop:")) {
+        if (!OWNER_ID || String(chatId) !== String(OWNER_ID)) {
+          await tgAnswer(cb.id);
+          return res.status(200).json({ ok: true });
+        }
+        const pick = cb.data === "sa_all" ? null : cb.data.slice(8);
+        let nom = "Barcha do'konlar";
+        if (pick) {
+          const sh = await sb("shops", `?id=eq.${pick}&select=name&limit=1`);
+          nom = sh?.[0]?.name || pick;
+        }
+        try {
+          await fetch(`${SB_URL}/rest/v1/bot_sessions?on_conflict=chat_id`, {
+            method: "POST",
+            headers: {
+              apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+              "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+            },
+            body: JSON.stringify({ chat_id: String(chatId), shop_id: pick,
+                                   shop_name: nom, is_owner: true })
+          });
+        } catch (e) { console.warn("sa rejim saqlanmadi:", e.message); }
+
+        _shopCache.delete(String(chatId));   // kesh eskirmasin
+        await tgAnswer(cb.id);
+        await tg(chatId, pick
+          ? `🏪 <b>${nom}</b> tanlandi.\n\nEndi hisobotlar SHU do'kon bo'yicha chiqadi.\n/mendokonlarim — rejimni o'zgartirish`
+          : "📊 <b>Barcha do'konlar</b> rejimi.\n\nHisobotlar yig'indi bo'lib chiqadi.\n/mendokonlarim — rejimni o'zgartirish");
+        return res.status(200).json({ ok: true });
+      }
+
+      if (cb.data?.startsWith("switch_owner:")) {
+        const shopId = cb.data.slice(13);
+        const ctx = await setShopForUser(chatId, shopId);
+        if (ctx) {
+          // shop_owners ga ham yozamiz (allaqachon bo'lishi kerak, lekin tasdiqlaymiz)
+          try {
+            await fetch(`${SB_URL}/rest/v1/shop_owners?on_conflict=chat_id,shop_id`, {
+              method: "POST",
+              headers: {
+                apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+                "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+              },
+              body: JSON.stringify({ chat_id: String(chatId), shop_id: shopId, shop_name: ctx.shopName })
+            });
+          } catch(e) {}
+          // isOwner=true qilib cache yangilaymiz
+          _shopCache.set(String(chatId), { ...ctx, isOwner: true, ts: Date.now() });
+          await tg(chatId,
+            "📊 " + ctx.shopName + " tanlandi (egasi sifatida).\n\n" +
+            "Endi /hisobot, /balans, /qarzlar kabi komandalar shu do'kon uchun ishlaydi."
+          );
+        }
+      }
+
+      // Mijoz sifatida do'kon tanlash — shu do'kondan kelgan cheklarni ko'rsatish
+      if (cb.data?.startsWith("switch_cust:")) {
+        const shopId = cb.data.slice(12);
+        try {
+          const shops = await sb("shops", `?id=eq.${shopId}&select=name&limit=1`);
+          const shopName = shops?.[0]?.name || "Do'kon";
+          const sales = await sb("sales",
+            `?shop_id=eq.${shopId}&select=chek_num,date,total,customer_phone&order=date.desc&limit=10`);
+          // Faqat shu mijozga tegishli (telefon orqali)
+          const custRows = await sb("customers",
+            `?telegram_chat_id=eq.${chatId}&shop_id=eq.${shopId}&select=phone&limit=1`);
+          const myPhone = custRows?.[0]?.phone ? normPhone(custRows[0].phone) : null;
+          const mySales = myPhone
+            ? (sales || []).filter(s => s.customer_phone && normPhone(s.customer_phone) === myPhone)
+            : [];
+
+          if (!mySales.length) {
+            await tg(chatId, `🧾 ${shopName}\n\nHali xaridlar topilmadi.`);
+          } else {
+            let txt = `🧾 ${shopName} — so'ngi xaridlaringiz:\n\n`;
+            mySales.slice(0, 10).forEach(s => {
+              txt += `${s.chek_num || "—"} · ${s.date} · ${fmt(s.total||0)} so'm\n`;
+            });
+            await tg(chatId, txt);
+          }
+        } catch(e) {
+          console.warn("switch_cust xato:", e.message);
+          await tg(chatId, "⚠️ Cheklar topilmadi.");
+        }
+      }
+
+      // Barcha qarzlar
+      if (cb.data === "barcha_qarzlar") {
+        const allowed2 = await isShopOwner(chatId);
+        if (allowed2) await cmdQarzlar(chatId, true);
+      }
+    }
+    return res.status(200).json({ ok: true });
+  }
+
+  // ── Bot guruhga QO'SHILDI (2026-07-30) ────────────────────────
+  // Telegram bot a'zoligi o'zgarganda `my_chat_member` yuboradi. Bu
+  // yangilanish turi standart sozlamada ham keladi — webhook'ni qayta
+  // sozlash SHART EMAS.
+  if (update.my_chat_member) {
+    try {
+      const _mcm    = update.my_chat_member;
+      const _chat   = _mcm.chat || {};
+      const _status = _mcm.new_chat_member?.status;
+      const _isGrp  = _chat.type === "group" || _chat.type === "supergroup";
+      if (_isGrp && (_status === "member" || _status === "administrator") && _helloOnce(_chat.id)) {
+        await sendGroupIdCard(_chat.id, true);
+      }
+    } catch(e) { console.warn("my_chat_member xato:", e.message); }
+    return res.status(200).json({ ok: true });
+  }
+
+  const msg    = update.message;
+  if (!msg) return res.status(200).json({ ok: true });
+
+  const chatId = msg.chat?.id;
+  const text   = (msg.text || "").trim();
+  if (!chatId) return res.status(200).json({ ok: true });
+
+  // Zaxira yo'l: my_chat_member kelmasa xizmat xabaridan bilamiz
+  if (Array.isArray(msg.new_chat_members) && _BOT_ID &&
+      msg.new_chat_members.some(u => String(u.id) === _BOT_ID)) {
+    if (_helloOnce(chatId)) { try { await sendGroupIdCard(chatId, true); } catch(e) {} }
+    return res.status(200).json({ ok: true });
+  }
+
+  if (msg.contact) {
+    await handleContact(chatId, msg.contact);
+    return res.status(200).json({ ok: true });
+  }
+
+  const cmd = text.split(" ")[0].toLowerCase().split("@")[0];
+  if (cmd === "/start") {
+    // Deep link parametrini olamiz: /start shop_XXXXX
+    const param = text.split(" ")[1] || "";
+    await cmdStart(chatId, param);
+    return res.status(200).json({ ok: true });
+  }
+
+  // /id — chat ID sini ko'rsatadi. Bot ALLAQACHON qo'shilgan guruhlar
+  // uchun kerak: ularda "qo'shildi" xabari o'tib ketgan bo'ladi.
+  if (cmd === "/id") {
+    const _t = msg.chat?.type;
+    if (_t === "group" || _t === "supergroup") await sendGroupIdCard(chatId, false);
+    else await tg(chatId, "🆔 Sizning chat ID: <code>" + chatId + "</code>");
+    return res.status(200).json({ ok: true });
+  }
+
+  // /mendokonlarim — egasi tekshiruvisiz, hamma uchun ochiq
+  if (cmd === "/mendokonlarim") {
+    await cmdMenDokonlarim(chatId);
+    return res.status(200).json({ ok: true });
+  }
+
+  // /egaqoshish <ID> — SHERIK-EGANI QO'SHISH (2026-08-09, C-6 davomi).
+  // Havola faqat BIRINCHI egaga ishlaydi; keyingi sheriklarni mavjud
+  // ega O'ZI shu buyruq bilan qo'shadi — administrator kerak emas.
+  if (cmd === "/egaqoshish") {
+    await cmdEgaQoshish(chatId, (text.split(" ")[1] || "").trim());
+    return res.status(200).json({ ok: true });
+  }
+
+  // ── GURUHDA JIM TURISH (2026-07-31) ──────────────────────────
+  // Avval bot GURUHDAGI har xabarga "⛔ Bu komanda faqat do'kon
+  // egasi uchun" deb javob qaytarardi. Xodimlar o'zaro yozganda
+  // ham chiqaverib, ombor guruhini to'ldirardi.
+  // Endi guruhda bot FAQAT o'ziga qaratilgan buyruqqa javob beradi
+  // (/id, /start, /mendokonlarim — ular yuqorida hal qilinadi).
+  // Qolgan hamma narsaga JIM turadi.
+  const _chatType = msg.chat?.type;
+  const _inGroup  = _chatType === "group" || _chatType === "supergroup";
+  if (_inGroup) return res.status(200).json({ ok: true });
+
+  // Shop egasi tekshiruvi (faqat shaxsiy chatda)
+  const allowed = await isShopOwner(chatId);
+  if (!allowed) {
+    await tg(chatId, "⛔ Bu komanda faqat do'kon egasi uchun.\n\n/start — qaytadan boshlash\n/mendokonlarim — do'konlaringiz ro'yxati");
+    return res.status(200).json({ ok: true });
+  }
+
+  // AI-NAKLAD (2026-07): faol sessiya bo'lsa, xabar (rasm/matn) shu
+  // oqimga yo'naltiriladi — /naklad bundan mustasno (qayta boshlash uchun)
+  if (cmd !== "/naklad") {
+    const nkSess = await nkGet(chatId);
+    if (nkSess) {
+      const handled = await handleNakladFlow(chatId, msg, nkSess);
+      if (handled) return res.status(200).json({ ok: true });
+    }
+  }
+
+  switch (cmd) {
+    case "/hisobot":
+    case "/bugun":          await cmdHisobot(chatId);        break;
+    case "/balans":         await cmdBalans(chatId);         break;
+    case "/ombor":          await cmdOmbor(chatId);          break;
+    case "/qarzlar":        await cmdQarzlar(chatId, false); break;
+    case "/barcha_qarzlar": await cmdQarzlar(chatId, true);  break;
+    case "/stat":
+    case "/oylik":          await cmdOylikStat(chatId);      break;
+    case "/naklad":         await cmdNakladStart(chatId);    break;
+    case "/tizim":          await cmdTizim(chatId);          break;
+    case "/help":           await cmdHelp(chatId);           break;
+    default:
+      if (text.startsWith("/")) {
+        await tg(chatId, `❓ Noma'lum komanda: ${cmd}\n\n/help — komandalar ro'yxati`);
+      }
+  }
+
+  return res.status(200).json({ ok: true });
+}
+
+// ── buildReceiptMerx (utils.js dan ko'chirildi) ──
+function buildReceiptMerx(sale, opts, cfg) {
+  const {shopName, staffName, botUser, logo, contact, footer, showStaff, showContact, F} = cfg;
+  const chekNum  = sale.chekNum || ("#" + sale.id);
+  const date     = (sale.date||"").split("-").reverse().join(".");
+  const time     = sale.time || "";
+  const total    = Number(sale.total    || 0);
+  const subtotal = Number(sale.subtotal || total);
+  const paid     = Number(sale.paid     || 0);
+  const remaining= Number(sale.remaining|| 0);
+  const discount = Number(sale.discount || 0);
+  const items    = (sale.items||[]).filter(Boolean);
+  const payType  = sale.payType || "";
+  const payBreakdown = sale.payBreakdown || null;
+  const isUsd    = sale.debtCurrency === "usd" && sale.debtUsd;
+  const debtUsd  = Number(sale.debtUsd || 0);
+  const prevUsd  = Number(sale.prevDebtUsd || 0);
+  const prevUzs  = Number(sale.prevDebtUzs || 0);
+  const note     = sale.note || "";
+  const due      = sale.due  || "";
+  const priceType= sale.priceType || "";
+  const payLabels= {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash"};
+
+  const totalBoxes = items.reduce((a,i) => a + (i.qtyBox||0), 0);
+  const totalDona  = items.reduce((a,i) => a + (i.qty||0), 0);
+
+  // Tovarlar — 2 qator: nom+art / rang+o'lcham+pochka
+  const itemsHtml = items.map((it, idx) => {
+    const isBox  = it.sellMode === "karobka" && it.qtyBox;
+    const art    = it.art ? `<span class="it-art">${it.art}</span>` : "";
+    const sum     = (it.price||0)*(it.qty||0);
+    // Har doim: dona soni × dona narxi = summa
+    const qtyShow = it.qty || 0;       // jami dona
+    const unitShow= it.unit || "dona"; // birlik
+    const pricePer= it.price || 0;     // 1 dona narxi
+    const colorStr= it.color || "";
+    // Pochka bo'lsa qavs ichida pochka soni
+    const pchkNote= isBox && it.qtyBox ? ` (${it.qtyBox} pchk)` : "";
+    // info: rang · o'lcham (agar dona) yoki rang (pochkada o'lcham yo'q)
+    const colorStr2 = it.color || "";
+    // Tovar qatori: Rang  Qty dona/pchk × Narx = Summa
+    const calcStr = `${F(qtyShow)} ${unitShow} × ${F(pricePer)} = ${F(sum)}${pchkNote}`;
+    return `<div class="it">
+      <div class="it-top">
+        <div class="it-num">${idx+1}</div>
+        <div class="it-name">${it.name} ${art}</div>
+        <div class="it-sum">${F(sum)}</div>
+      </div>
+      <div class="it-info">
+        ${colorStr2 ? `<span class="it-color">${colorStr2}</span>` : ""}
+        <span class="it-calc">${calcStr}</span>
+      </div>
+    </div>`;
+  }).join("");
+
+  // To'lov
+  let payHtml = "";
+  if (payType === "aralash" && payBreakdown) {
+    const lblMap = {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma"};
+    payHtml = Object.entries(payBreakdown)
+      .filter(([m,v]) => m !== "qarz" && v > 0)
+      .map(([m,v]) => `<div class="pr"><span>${lblMap[m]||m}</span><span>${F(v)} so'm</span></div>`).join("");
+  } else if (payType !== "qarz") {
+    payHtml = `<div class="pr"><span>${payLabels[payType]||payType}</span><span style="color:#059669;font-weight:700">${F(paid)} so'm</span></div>`;
+  }
+
+  // Qarz bo'limi
+  let debtHtml = "";
+  if (remaining > 0) {
+    const newDebtAmt = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${F(remaining)} so'm`;
+    debtHtml += `<div class="sep-dash" style="margin:6px 0"></div>`;
+    if (isUsd && prevUsd > 0) {
+      debtHtml += `<div class="pr pr-sm"><span>Oldingi qarz</span><span>$${prevUsd.toFixed(2)}</span></div>`;
+      debtHtml += `<div class="pr pr-sm"><span>Yangi qarz</span><span>$${debtUsd.toFixed(2)}</span></div>`;
+      debtHtml += `<div class="pr pr-debt-total"><span>JAMI QARZ</span><span>$${(prevUsd+debtUsd).toFixed(2)} USD</span></div>`;
+    } else if (!isUsd && prevUzs > 0) {
+      debtHtml += `<div class="pr pr-sm"><span>Oldingi qarz</span><span>${F(prevUzs)} so'm</span></div>`;
+      debtHtml += `<div class="pr pr-sm"><span>Yangi qarz</span><span>${F(remaining)} so'm</span></div>`;
+      debtHtml += `<div class="pr pr-debt-total"><span>JAMI QARZ</span><span>${F(prevUzs+remaining)} so'm</span></div>`;
+    } else {
+      debtHtml += `<div class="pr pr-debt"><span>QARZ</span><span>${newDebtAmt}</span></div>`;
+    }
+    if (due) debtHtml += `<div class="pr pr-sm"><span>Muddat</span><span style="color:#dc2626;font-weight:700">${due}</span></div>`;
+  } else {
+    debtHtml = `<div class="paid-ok">✓ To'liq to'landi</div>`;
+  }
+
+  const discHtml = discount > 0
+    ? `<div class="pr" style="color:#dc2626"><span>Chegirma${sale.discountPct ? " -"+sale.discountPct+"%" : ""}</span><span>−${F(discount)} so'm</span></div>` : "";
+
+  const logoHtml = logo
+    ? `<div style="text-align:center;padding:10px 0 4px"><img src="${logo}" style="max-height:55px;max-width:170px;object-fit:contain"></div>` : "";
+
+  return `<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chek ${chekNum}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direction:column;align-items:center;padding:16px 8px}
+.wrap{width:340px;max-width:100%}
+.rc{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(13,27,42,.12)}
+.hd{background:#0D1B2A;padding:14px 18px;text-align:center;color:#fff}
+.hd-name{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;letter-spacing:1.5px}
+.hd-meta{font-size:12px;color:#b8c5d0;margin-top:4px;line-height:1.6;font-weight:500}
+.hd-meta b{color:#E9A500}
+.badge-ulgurji{display:inline-block;background:#E9A500;color:#0D1B2A;font-size:9px;font-weight:800;padding:1px 7px;border-radius:8px;letter-spacing:.5px;margin-top:3px}
+.cust{padding:7px 16px;background:#F0F8FF;border-bottom:1px dashed #C7E3F5;font-size:12px;color:#0D1B2A;display:flex;justify-content:space-between}
+.note-w{padding:6px 16px;background:#FFFBEB;border-bottom:1px dashed #FDE68A;font-size:11.5px;color:#92400E}
+.items-lbl{padding:8px 16px 4px;font-size:10px;font-weight:800;color:#555;letter-spacing:1.5px;text-transform:uppercase}
+.items{padding:0 16px}
+.it{padding:7px 0;border-bottom:1px dashed #E8E5E0}
+.it:last-child{border-bottom:none}
+.it-top{display:flex;align-items:baseline;gap:6px}
+.it-num{font-size:10px;color:#999;font-weight:700;min-width:14px}
+.it-name{flex:1;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#0D1B2A}
+.it-art{font-family:'DM Sans',sans-serif;font-size:10px;color:#6366F1;background:#EEF2FF;padding:1px 6px;border-radius:4px;font-weight:600;margin-left:4px;vertical-align:middle}
+.it-sum{font-family:'Sora',sans-serif;font-size:13px;font-weight:800;color:#0D1B2A;white-space:nowrap}
+.it-info{font-size:12px;color:#374151;margin-top:3px;padding-left:20px;font-weight:500}
+.it-color{color:#374151;font-weight:600;margin-right:8px}.it-calc{color:#111;font-weight:700}
+.tot{margin:0 16px;padding:8px 0;border-top:2px solid #0D1B2A;display:flex;justify-content:space-between;align-items:center}
+.tot-l{font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#0D1B2A}
+.tot-cnt{font-size:11px;color:#555;font-weight:600;margin-top:1px}
+.tot-v{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:#0D1B2A}
+.pay{padding:8px 16px 10px;border-top:1px dashed #ddd}
+.pay-lbl{font-size:10px;font-weight:800;color:#374151;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+.pr{display:flex;justify-content:space-between;font-size:13px;color:#111;padding:3px 0;font-weight:500}
+.pr.pr-sm{font-size:12px;color:#555;font-weight:600}
+.pr.pr-debt{color:#dc2626;font-weight:800;font-size:14px;border-top:1px solid #fca5a5;padding-top:6px;margin-top:2px}
+.pr.pr-debt-total{color:#dc2626;font-weight:800;font-size:16px;border-top:2px solid #dc2626;padding-top:8px;margin-top:4px}
+.sep-dash{border-top:1px dashed #ddd}
+.paid-ok{background:#ECFDF5;color:#059669;font-weight:700;font-size:12px;text-align:center;padding:7px;border-radius:8px;margin-top:4px}
+.ft{padding:10px 16px 14px;text-align:center;border-top:1px dashed #ddd}
+.ft-txt{font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#0D1B2A}
+.ft-sub{font-size:11px;color:#666;margin-top:3px}
+.ft-bot{font-size:11px;color:#229ED9;margin-top:6px}
+.acts{width:340px;max-width:100%;margin:10px 0 0;display:flex;gap:8px}
+.acts button{flex:1;border:none;border-radius:10px;padding:11px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
+.btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #E8E5E0}
+@media print{
+  body{background:#fff;padding:0}
+  .wrap,.rc{width:72mm;max-width:72mm;border-radius:0;box-shadow:none}
+  .acts{display:none}
+  .hd,.hd-meta b{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pr.pr-debt,.pr.pr-debt-total{color:#000!important}
+}
+</style></head><body>
+<div class="wrap">
+  <div class="rc">
+    ${logoHtml}
+    <div class="hd">
+      <div class="hd-name">${shopName.toUpperCase()}</div>
+      <div class="hd-meta">
+        <b>${chekNum}</b> · ${date} · ${time}
+        ${showStaff && staffName && staffName !== "—" ? `<br>${staffName}` : ""}
+        ${showContact && contact ? `<br>${contact}` : ""}
+      </div>
+      ${priceType === "ulgurji" ? `<div class="badge-ulgurji">ULGURJI SAVDO</div>` : ""}
+    </div>
+
+    ${sale.customerName ? `<div class="cust">
+      <span>👤 ${sale.customerName}</span>
+      <span>${sale.customerPhone||""}</span>
+    </div>` : ""}
+
+    ${note ? `<div class="note-w">📝 ${note}</div>` : ""}
+
+    <div class="items-lbl">Mahsulotlar</div>
+    <div class="items">${itemsHtml}</div>
+
+    <div class="tot">
+      <div>
+        <div class="tot-l">JAMI</div>
+        <div class="tot-cnt">${items.length} xil · ${totalBoxes ? totalBoxes + " pochka" : totalDona + " dona"}</div>
+      </div>
+      <div class="tot-v">${F(total)} <span style="font-size:13px;font-weight:600">so'm</span></div>
+    </div>
+
+    <div class="pay">
+      <div class="pay-lbl">To'lov</div>
+      ${discHtml}
+      ${payHtml}
+      ${debtHtml}
+    </div>
+
+    <div class="ft">
+      <div class="ft-txt">${footer || "Rahmat! Yana kutamiz 🙏"}</div>
+      <div class="ft-sub">${shopName} · ${date}</div>
+      ${botUser ? `<div class="ft-bot">@${botUser}</div>` : ""}
+    </div>
+  </div>
+  <div class="acts">
+    <button class="btn-p" onclick="window.print()">🖨 Chop etish</button>
+    <button class="btn-c" onclick="window.close?window.close():history.back()">Yopish</button>
+  </div>
+</div>
+</body></html>`;
+}
+
