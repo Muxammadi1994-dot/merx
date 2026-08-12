@@ -1064,7 +1064,8 @@ function printReceipt(id) {
   const html = buildReceiptHtml(s, {
     shopName, staffName: staffObj?.name || "—",
     botUsername: botUser, receiptUrl,
-    style: chekCfg2.tarixStyle || "merx"
+    // 2026-08-12: eski qiymat kuchga kirmaydi (styleV2 muhri — pos.js dagi izoh)
+    style: (chekCfg2.styleV2 ? (chekCfg2.tarixStyle || "unified") : "unified")
   });
   const w = window.open("","_blank","width=420,height=700");
   if (!w) { toast("Pop-up bloklangan","err"); return; }

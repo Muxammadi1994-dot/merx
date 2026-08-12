@@ -1957,7 +1957,7 @@ function showDebtPaymentReceipt(payment) {
   // Standart "unified" — hech kim tanlamagan bo'lsa AVVALGI chek
   // chiqadi (ishlab turgan do'konlar buzilmasin).
   try {
-    const _qs = cfg.qarzStyle || "unified";
+    const _qs = cfg.styleV2 ? (cfg.qarzStyle || "unified") : "unified";
     if (_qs !== "unified" && typeof buildPayReceiptStyled === "function") {
       let _due = "";
       const _al = payment.allocations || [];

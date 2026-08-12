@@ -365,8 +365,11 @@ function renderEgasi() {
   // ⚠️ 2026-08-12 (TUZATILDI): standart BIRINCHI, eski uslublar ham
   // ro'yxatda — hech biri yo'qolmaydi (365 da "To'liq" tushib qolgandi).
   const CHEK_USLUBLAR = [
+    // "To'liq (eski)" OLIB TASHLANDI: kodda u uchun alohida chizuvchi
+    // yo'q edi — "Yagona" bilan AYNAN bir xil chek berardi (ikkita bir
+    // xil nom chalkashtirardi). Eski `full` qiymati yuklashda
+    // "unified" ga o'giriladi — natija o'zgarmaydi.
     { v:"unified",   l:"Yagona — hozirgi standart" },
-    { v:"full",      l:"To'liq (eski)" },
     { v:"merx",      l:"MERX brend (zamonaviy)" },
     { v:"thermal",   l:"Termal (tor, tejamkor)" },
     { v:"wholesale", l:"Ulgurji (model + $ va so'm)" },
@@ -379,9 +382,14 @@ function renderEgasi() {
       `<option value="${o.v}">${o.l}</option>`).join("");
     el.value = val || "merx";
   };
-  _fillStyle(cePosStyle,   chekCfg.posStyle   || "unified");
-  _fillStyle(ceTarixStyle, chekCfg.tarixStyle || "unified");
-  _fillStyle(ceQarzStyle,  chekCfg.qarzStyle  || "unified");
+  // Eski/o'lik qiymatlar ekranda ham HAQIQATNI ko'rsatsin: styleV2
+  // muhri yo'q bo'lsa chek hozir "unified" da chiziladi — ro'yxat ham
+  // shuni ko'rsatadi (aks holda ega "merx tanlangan" deb o'ylardi).
+  const _sv2 = chekCfg.styleV2 === true;
+  const _norm = v => (!_sv2 || !v || v === "full") ? "unified" : v;
+  _fillStyle(cePosStyle,   _norm(chekCfg.posStyle));
+  _fillStyle(ceTarixStyle, _norm(chekCfg.tarixStyle));
+  _fillStyle(ceQarzStyle,  _norm(chekCfg.qarzStyle));
   try { ceMarkStyle(); } catch (e) {}
 
   // Logo preview
@@ -715,6 +723,8 @@ function saveChekConfig() {
     cfg.posStyle   = _sty("chek-pos-style",   cfg.posStyle);
     cfg.tarixStyle = _sty("chek-tarix-style", cfg.tarixStyle);
     cfg.qarzStyle  = _sty("chek-qarz-style",  cfg.qarzStyle);
+    // ✅ Muhr: shu saqlashdan boshlab tanlov KUCHGA KIRADI.
+    cfg.styleV2 = true;
   }
 
   db.settings.chekConfig = cfg;

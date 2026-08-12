@@ -3314,7 +3314,14 @@ function showReceiptModal(sale) {
       // tanlamagan holda "merx" ko'rinishiga o'tib ketardi.
       // Endi qoida: uslub FAQAT ega ATAYLAB tanlaganda qo'llanadi;
       // tanlanmagan bo'lsa — hozirgi yagona chek (standart) qoladi.
-      style: cfg.posStyle || "unified",
+      // ⚠️ 2026-08-12 (YAKUNIY QOIDA): eski saqlangan uslub qiymatlari
+      // "O'LIK" edi — POS ularni hech qachon qo'llamagan (style umuman
+      // uzatilmasdi), shuning uchun jonli do'konlarda `posStyle:"merx"`
+      // yozilgan bo'lsa ham chek STANDART ko'rinishda chiqardi.
+      // Endi style ulandi, lekin ESKI qiymat kuchga KIRMAYDI: tanlov
+      // faqat ega YANGI ekrandan saqlagach ishlaydi (`styleV2` muhri).
+      // Shu bilan ishlab turgan do'konlar cheki O'ZGARMAYDI.
+      style: (cfg.styleV2 ? (cfg.posStyle || "unified") : "unified"),
       type: sale && sale._preview ? "savat" : "sotuv",
       shopName, staffName: staff ? staff.name : "—",
       logo: cfg.logo, addr: cfg.addr, contact: cfg.showContact ? cfg.contact : "",
