@@ -1590,7 +1590,7 @@ function buildReceiptCompact(sale, opts, cfg) {
   const itemRows = items.map((i,idx) =>
     `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dashed #eee">
       <span style="flex:1;min-width:0;overflow:hidden">${idx+1}. <b>${i.art || i.name}</b>${
-        i.art ? `<span style="color:#888;font-size:11px"> \u00b7 ${i.name}</span>` : ""} <span style="color:#aaa">${
+        i.art ? `<span style="color:#555;font-size:11px"> \u00b7 ${i.name}</span>` : ""} <span style="color:#555">${
         i.variant || [i.color, i.size].filter(Boolean).join(" / ") || ""}</span></span>
       <span style="white-space:nowrap;margin-left:8px;font-weight:700">${i.qty}×${F(i.price)} = ${F(i.price*i.qty)}</span>
     </div>`
@@ -1612,11 +1612,11 @@ body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-co
 .tot{margin:0 12px;padding:7px 0;border-top:2px solid #0D1B2A;display:flex;justify-content:space-between;font-size:14px;font-weight:800;color:#0D1B2A}
 .pay{padding:6px 12px;font-size:11.5px;border-top:1px dashed #ddd}
 .pr{display:flex;justify-content:space-between;padding:2px 0}
-.ok{background:#ECFDF5;color:#059669;font-weight:700;font-size:11px;text-align:center;padding:5px;border-radius:6px;margin-top:4px}
-.debt{color:#dc2626;font-weight:700}
+.ok{background:#fff;color:#000;border:1px solid #000;font-weight:700;font-size:11px;text-align:center;padding:5px;border-radius:6px;margin-top:4px}
+.debt{color:#000;font-weight:800;text-decoration:underline}
 .ft{padding:8px 12px;text-align:center;font-size:11px;color:#000;border-top:1px dashed #ddd}
-.acts{max-width:300px;margin:8px auto 0;display:flex;gap:6px}
-.acts button{flex:1;border:none;border-radius:8px;padding:9px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
+.acts{max-width:none;margin:14px 10px 10px;display:flex;gap:8px}
+.acts button{flex:1;border:none;border-radius:8px;padding:11px 8px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
 .btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #ddd}
 @media print{body{background:#fff;padding:0}.w{border-radius:0;box-shadow:none;width:72mm}.acts{display:none}}
 </style></head><body>
@@ -1639,11 +1639,11 @@ body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-co
     <span>${F(total)} so'm</span>
   </div>
   <div class="pay">
-    ${discount > 0 ? `<div class="pr"><span>Chegirma</span><span style="color:#dc2626">−${F(discount)} so'm</span></div>` : ""}
-    <div class="pr"><span>${payLabels[sale.payType]||sale.payType||"—"}</span><span style="color:#059669;font-weight:700">${F(paid)} so'm</span></div>
+    ${discount > 0 ? `<div class="pr"><span>Chegirma</span><span style="font-weight:700">−${F(discount)} so'm</span></div>` : ""}
+    <div class="pr"><span>${payLabels[sale.payType]||sale.payType||"—"}</span><span style="font-weight:800">${F(paid)} so'm</span></div>
     ${remaining > 0
       ? `<div class="pr debt"><span>Qarz</span><span>${debtAmt}</span></div>
-         ${sale.due ? `<div class="pr" style="font-size:10px;color:#aaa"><span>Muddat</span><span>${sale.due}</span></div>` : ""}`
+         ${sale.due ? `<div class="pr" style="font-size:10px;color:#666"><span>Muddat</span><span>${sale.due}</span></div>` : ""}`
       : `<div class="ok">✓ To'liq to'landi</div>`}
   </div>
   <div class="ft">${footer}<br><span style="font-size:10px">${shopName} · ${date}</span></div>
@@ -1730,10 +1730,10 @@ body{font-family:'DM Sans',Arial,sans-serif;background:#fff;color:#000;
 .sm{font-size:9.5px;opacity:.85}
 .meta{font-size:10px;padding:5px 0;border-bottom:1px solid #000}
 .mrow{display:flex;justify-content:space-between;gap:6px;padding:1px 0}
-table{width:100%;border-collapse:collapse;font-size:10px;margin-top:3px}
-th{border-bottom:1px solid #000;padding:3px 1px;font-size:9px;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:10px;margin-top:5px;border:1px solid #000}
+th{border:1px solid #000;padding:3px 1px;font-size:9px;font-weight:700}
 th .u{display:block;font-size:8px;font-weight:600;opacity:.7}
-td{padding:3px 1px;border-bottom:1px dotted #999;vertical-align:top}
+td{padding:3px 2px;border:1px solid #000;vertical-align:top}
 .c{text-align:center}.r{text-align:right}.l{text-align:left}.b{font-weight:700}
 .sub{font-size:8.5px;opacity:.72;margin-top:1px}
 .tot{border-top:1px solid #000;margin-top:4px;padding-top:4px}
@@ -2024,7 +2024,7 @@ body{font-family:'DM Sans',Arial,sans-serif;background:#fff;color:#000;
 .sm{font-size:10px}
 .meta{font-size:10.5px;margin-bottom:5px}
 .meta div{display:flex;justify-content:space-between;gap:6px}
-table{width:100%;border-collapse:collapse;font-size:10.5px}
+table{width:100%;border-collapse:collapse;font-size:10.5px;border:0}
 th{border-top:1px solid #000;border-bottom:1px solid #000;padding:3px 2px;
    font-size:9.5px;font-weight:700;text-align:center}
 td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
@@ -2134,7 +2134,7 @@ function buildReceiptMerx(sale, opts, cfg) {
       .filter(([m,v]) => m !== "qarz" && v > 0)
       .map(([m,v]) => `<div class="pr"><span>${lblMap[m]||m}</span><span>${F(v)} so'm</span></div>`).join("");
   } else if (payType !== "qarz") {
-    payHtml = `<div class="pr"><span>${payLabels[payType]||payType}</span><span style="color:#059669;font-weight:700">${F(paid)} so'm</span></div>`;
+    payHtml = `<div class="pr"><span>${payLabels[payType]||payType}</span><span style="color:#000;font-weight:700">${F(paid)} so'm</span></div>`;
   }
 
   // Qarz bo'limi
@@ -2153,13 +2153,13 @@ function buildReceiptMerx(sale, opts, cfg) {
     } else {
       debtHtml += `<div class="pr pr-debt"><span>QARZ</span><span>${newDebtAmt}</span></div>`;
     }
-    if (due) debtHtml += `<div class="pr pr-sm"><span>Muddat</span><span style="color:#dc2626;font-weight:700">${due}</span></div>`;
+    if (due) debtHtml += `<div class="pr pr-sm"><span>Muddat</span><span style="color:#000;font-weight:700">${due}</span></div>`;
   } else {
     debtHtml = `<div class="paid-ok">✓ To'liq to'landi</div>`;
   }
 
   const discHtml = discount > 0
-    ? `<div class="pr" style="color:#dc2626"><span>Chegirma${sale.discountPct ? " -"+sale.discountPct+"%" : ""}</span><span>−${F(discount)} so'm</span></div>` : "";
+    ? `<div class="pr" style="color:#000"><span>Chegirma${sale.discountPct ? " -"+sale.discountPct+"%" : ""}</span><span>−${F(discount)} so'm</span></div>` : "";
 
   const logoHtml = logo
     ? `<div style="text-align:center;padding:10px 0 4px"><img src="${logo}" style="max-height:55px;max-width:170px;object-fit:contain"></div>` : "";
@@ -2179,34 +2179,34 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
 .hd-meta b{color:#E9A500}
 .badge-ulgurji{display:inline-block;background:#E9A500;color:#0D1B2A;font-size:9px;font-weight:800;padding:1px 7px;border-radius:8px;letter-spacing:.5px;margin-top:3px}
 .cust{padding:7px 16px;background:#F0F8FF;border-bottom:1px dashed #C7E3F5;font-size:12px;color:#0D1B2A;display:flex;justify-content:space-between}
-.note-w{padding:6px 16px;background:#FFFBEB;border-bottom:1px dashed #FDE68A;font-size:11.5px;color:#92400E}
+.note-w{padding:6px 16px;background:#FFFBEB;border-bottom:1px dashed #FDE68A;font-size:11.5px;color:#000}
 .items-lbl{padding:8px 16px 4px;font-size:10px;font-weight:800;color:#555;letter-spacing:1.5px;text-transform:uppercase}
 .items{padding:0 16px}
 .it{padding:7px 0;border-bottom:1px dashed #E8E5E0}
 .it:last-child{border-bottom:none}
 .it-top{display:flex;align-items:baseline;gap:6px}
-.it-num{font-size:10px;color:#999;font-weight:700;min-width:14px}
+.it-num{font-size:10px;color:#555;font-weight:700;min-width:14px}
 .it-name{flex:1;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#0D1B2A}
-.it-art{font-family:'DM Sans',sans-serif;font-size:10px;color:#6366F1;background:#EEF2FF;padding:1px 6px;border-radius:4px;font-weight:600;margin-left:4px;vertical-align:middle}
+.it-art{font-family:'DM Sans',sans-serif;font-size:10px;color:#000;background:#EEF2FF;padding:1px 6px;border-radius:4px;font-weight:600;margin-left:4px;vertical-align:middle}
 .it-sum{font-family:'Sora',sans-serif;font-size:13px;font-weight:800;color:#0D1B2A;white-space:nowrap}
-.it-info{font-size:12px;color:#374151;margin-top:3px;padding-left:20px;font-weight:500}
-.it-color{color:#374151;font-weight:600;margin-right:8px}.it-calc{color:#111;font-weight:700}
+.it-info{font-size:12px;color:#333;margin-top:3px;padding-left:20px;font-weight:500}
+.it-color{color:#333;font-weight:600;margin-right:8px}.it-calc{color:#111;font-weight:700}
 .tot{margin:0 16px;padding:8px 0;border-top:2px solid #0D1B2A;display:flex;justify-content:space-between;align-items:center}
 .tot-l{font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#0D1B2A}
 .tot-cnt{font-size:11px;color:#555;font-weight:600;margin-top:1px}
 .tot-v{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:#0D1B2A}
 .pay{padding:8px 16px 10px;border-top:1px dashed #ddd}
-.pay-lbl{font-size:10px;font-weight:800;color:#374151;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+.pay-lbl{font-size:10px;font-weight:800;color:#333;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
 .pr{display:flex;justify-content:space-between;font-size:13px;color:#000;padding:3px 0;font-weight:500}
 .pr.pr-sm{font-size:12px;color:#555;font-weight:600}
-.pr.pr-debt{color:#dc2626;font-weight:800;font-size:14px;border-top:1px solid #fca5a5;padding-top:6px;margin-top:2px}
-.pr.pr-debt-total{color:#dc2626;font-weight:800;font-size:16px;border-top:2px solid #dc2626;padding-top:8px;margin-top:4px}
+.pr.pr-debt{color:#000;font-weight:800;font-size:14px;border-top:1px solid #fca5a5;padding-top:6px;margin-top:2px}
+.pr.pr-debt-total{color:#000;font-weight:800;font-size:16px;border-top:2px solid #dc2626;padding-top:8px;margin-top:4px}
 .sep-dash{border-top:1px dashed #ddd}
-.paid-ok{background:#ECFDF5;color:#059669;font-weight:700;font-size:12px;text-align:center;padding:7px;border-radius:8px;margin-top:4px}
+.paid-ok{background:#ECFDF5;color:#000;font-weight:700;font-size:12px;text-align:center;padding:7px;border-radius:8px;margin-top:4px}
 .ft{padding:10px 16px 14px;text-align:center;border-top:1px dashed #ddd}
 .ft-txt{font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#0D1B2A}
-.ft-sub{font-size:11px;color:#666;margin-top:3px}
-.ft-bot{font-size:11px;color:#229ED9;margin-top:6px}
+.ft-sub{font-size:11px;color:#444;margin-top:3px}
+.ft-bot{font-size:11px;color:#000;margin-top:6px}
 .acts{width:340px;max-width:100%;margin:10px 0 0;display:flex;gap:8px}
 .acts button{flex:1;border:none;border-radius:10px;padding:11px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
 .btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #E8E5E0}
