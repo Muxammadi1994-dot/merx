@@ -1247,6 +1247,12 @@ function epConfirmAddColor() {
                  qty: boxes * sizeRange.length, pantone, hex }]
   });
   try { ensureColorBarcodes(db.products[db.products.length-1]); } catch(e) {}
+  // ✅ 2026-08-12: KIRIM YOZUVI (avval YO'Q edi — qoldiq izsiz kirardi)
+  try {
+    const _np = db.products[db.products.length - 1];
+    const _v  = (_np.variants || [])[0];
+    if (_v && _v.qty > 0) _stockMove(_np, _v.color, _v.size, _v.qty, "Yangi rang qo'shildi");
+  } catch (e) {}
   saveDB(); renderKatalog();
   toast(`"${color}" alohida tovar sifatida ochildi (narxlar nusxalandi)`);
   epCloseAddColor();
@@ -4828,7 +4834,13 @@ function epSaveVariativ() {
     if ((p.costUzs || 0) !== costUzsVal) { p.costUzs = costUzsVal; changed++; }
     p.costUsd = costUsd;   // zaxira (eski kod uchun)
     if ((p.ulgurjiNarx || 0) !== ulg) { p.ulgurjiNarx = ulg; changed++; }
-    if (oldTotal !== qty) changed++;
+    // ✅ 2026-08-12: QOLDIQ O'ZGARISHI endi IZ QOLDIRADI (kirim/chiqim +
+    // audit). Avval bu yerda son jimgina qayta yozilardi.
+    if (oldTotal !== qty) {
+      _stockMove(p, (vars[0] || {}).color || "", "", qty - oldTotal,
+                 "Qoldiq tahriri (variativ)");
+      changed++;
+    }
   });
 
   saveDB();
@@ -5220,10 +5232,13 @@ function showProductHistory(sku) {
   (db.auditLog || []).filter(a => a.entity === "product" && a.entityId === sku)
     .forEach(a => {
       ev.push({ ts: new Date(a.ts).getTime() || 0, sana: a.date || "",
-        vaqt: a.time || "", tur: "audit",
-        matn: (a.action === "delete" ? "O'CHIRILDI" : a.action) + " — " +
+        vaqt: a.time || "", tur: (a.action === "inventar" ? "inventar" : "audit"),
+        matn: (a.action === "delete" ? "O'CHIRILDI"
+              : a.action === "inventar"
+                ? "Qoldiq tuzatildi: " + (a.before || "?") + " → " + (a.after || "?") + " dona"
+                : a.action) + " — " +
               (a.actor || "?") + (a.device ? " (" + a.device + ")" : ""),
-        ong: a.before || "" });
+        ong: a.action === "inventar" ? (a.note || "") : (a.before || "") });
     });
 
   ev.sort((a,b) => (a.ts || 0) - (b.ts || 0));
@@ -5239,19 +5254,24 @@ function showProductHistory(sku) {
   // importida qoldiq bilan yaratilgan, (b) kirim yozuvi keyin o'chirilgan
   // yoki tahrirlangan. Buni yashirmaymiz — ochiq ko'rsatamiz, aks holda
   // raqamlar "mos kelmayapti" bo'lib qoladi (jonli: 30 kirim / 33 sotildi).
-  const boshlangich = qoldiq + sotuvJami - kirimJami;
-  if (boshlangich > 0) {
-    ev.unshift({ ts: 0, sana: "", vaqt: "", tur: "boshlangich", n: 0,
-      matn: "Boshlang'ich qoldiq — " + _pd(boshlangich) +
-            " (kirim yozuvisiz: import yoki o'chirilgan kirim)", ong: "" });
+  // ⚠️ 2026-08-12 (2-tahrir): NOM NEYTRAL. Avval "boshlang'ich qoldiq"
+  // deb atalgandi — sababi ANIQLANMAGAN holda nom qo'yish xato edi.
+  // Ma'lum sabablar: (a) inventarizatsiya (endi iz qoladi), (b) import,
+  // (c) o'chirilgan kirim yozuvi.
+  const farq = qoldiq + sotuvJami - kirimJami;
+  if (farq !== 0) {
+    ev.unshift({ ts: 0, sana: "", vaqt: "", tur: "farq", n: 0,
+      matn: "⚠️ Balans farqi: " + _pd(Math.abs(farq)) +
+            (farq > 0 ? " — kirimsiz kelgan" : " — chiqimsiz ketgan") +
+            " (inventarizatsiya, import yoki o'chirilgan yozuv)", ong: "" });
   }
 
   const _ico = { yaratildi:"➕", kirim:"📥", chiqim:"📤",
                  sotuv:"🛒", bekor:"❌", tahrir:"✏️",
-                 audit:"⚖️", qaytarish:"↩️", boshlangich:"📋" };
+                 audit:"⚖️", qaytarish:"↩️", farq:"⚠️", inventar:"📋" };
   const _clr = { yaratildi:"#6B4FBB", kirim:"#0F6E56", chiqim:"#993C1D",
                  sotuv:"#185FA5", bekor:"#A32D2D", tahrir:"#5F5E5A",
-                 audit:"#A32D2D", qaytarish:"#8A6D1F", boshlangich:"#5F5E5A" };
+                 audit:"#A32D2D", qaytarish:"#8A6D1F", farq:"#8A6D1F", inventar:"#5F5E5A" };
 
   $("ph-title").textContent = p.name + " — tarix";
   $("ph-body").innerHTML =
@@ -5259,8 +5279,7 @@ function showProductHistory(sku) {
       ${[["Jami kirim", _pd(kirimJami)],
          ["Sof sotildi", _pd(sotuvJami)],
          ...(qaytJami ? [["Qaytarildi", _pd(qaytJami)]] : []),
-         ...(boshlangich > 0 ? [["Boshlang'ich", _pd(boshlangich)]] : []),
-         ...(boshlangich < 0 ? [["⚠️ Farq", _pd(-boshlangich)]] : []),
+         ...(farq !== 0 ? [["⚠️ Balans farqi", _pd(Math.abs(farq))]] : []),
          ["Hozirgi qoldiq", _pd(qoldiq)],
          ["Voqealar", ev.length + " ta"]].map(([k,v]) =>
         `<div style="background:var(--bg2,#F5F5F3);border-radius:8px;padding:8px 12px;min-width:110px">
@@ -5346,4 +5365,49 @@ function showDeletedProducts() {
       ℹ️ Iz 2026-08-12 dan boshlab yig'iladi (audit). Undan oldin
       o'chirilganlar kunlik zaxiralarda saqlangan.</div>`;
   openModal("prodhist", true);
+}
+
+
+// ═══ QOLDIQ HARAKATINI YOZISH (2026-08-12) ═════════════
+// ILDIZ TASHXISI: tovarga qoldiq kirishning TO'RT yo'li bor edi, lekin
+// faqat IKKITASI ombor yozuvi yaratardi:
+//   ✅ addProduct (yangi tovar)      ✅ confirmImport (Excel/AI import)
+//   ❌ epConfirmAddColor (yangi rang) ❌ epSaveVariativ (qoldiq tahriri)
+// Oqibat: ombor "kirimlar" hisoboti va tovar tarixi CHALA edi — jonli
+// isbot: ABU SAXIY "Bartoni: kirim 0, sotuv 0, qoldiq 180" va B20
+// "Kuylak A4: 210 kirim / 250 qoldiq". Qoldiqning O'ZI to'g'ri edi
+// (u variant.qty da yashaydi), faqat KELIB CHIQISHI yozilmasdi.
+// Endi ikkala yo'l ham shu yordamchi orqali iz qoldiradi.
+function _stockMove(p, color, size, delta, sabab) {
+  try {
+    if (!delta) return;
+    const _rate = (db.settings?.rate || 12800);
+    const _cost = (typeof getCostUzs === "function") ? getCostUzs(p)
+                  : Math.round((p.costUsd || 0) * _rate);
+    if (delta > 0) {
+      if (!db.ombor) db.ombor = [];
+      db.ombor.push({
+        id: nextId(), date: today(),
+        time: (typeof nowTime === "function" ? nowTime() : ""),
+        sku: p.sku, art: p.art || "", productName: p.name,
+        unit: p.unit || "dona", color: color || "", size: size || "",
+        qty: delta, kirimNarxi: _cost,
+        supplier: "", partiya: sabab,
+        boxes: (p.inBox > 1) ? Math.floor(delta / p.inBox) : null
+      });
+    } else {
+      if (!db.chiqimlar) db.chiqimlar = [];
+      db.chiqimlar.push({
+        id: nextId(), date: today(),
+        time: (typeof nowTime === "function" ? nowTime() : ""),
+        productName: p.name, sku: p.sku,
+        color: color || "", size: size || "", qty: -delta,
+        unit: p.unit || "dona", reason: sabab, note: "",
+        costUzs: _cost * (-delta), costUsdEach: p.costUsd || 0
+      });
+    }
+    auditLog("qoldiq", "product", p.sku,
+      p.name + (color ? " · " + color : ""),
+      { before: "", after: (delta > 0 ? "+" : "") + delta + " dona", note: sabab });
+  } catch (e) { /* hisob yozuvi asosiy amalni to'xtatmaydi */ }
 }

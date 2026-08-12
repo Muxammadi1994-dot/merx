@@ -1224,6 +1224,17 @@ function saveInvent2() {
     const v = p.variants.find(x => x.color === color && x.size === size);
     if (!v) return;
     if (v.qty !== actualQty) {
+      // ⚠️ 2026-08-12: INVENTARIZATSIYA ENDI IZ QOLDIRADI. Avval qoldiq
+      // JIMGINA o'zgarardi — na kirim yozuvi, na tarix. Natijada tovar
+      // tarixida "150 kirgan, 165 sotilgan" kabi tushuntirib bo'lmaydigan
+      // farq paydo bo'lardi (jonli misol: Hutik/Qora). Endi har tuzatish
+      // audit'ga yoziladi va tovar tarixida ko'rinadi.
+      try {
+        auditLog("inventar", "product", sku,
+          p.name + " · " + color + (size ? " / " + size : ""),
+          { before: String(v.qty), after: String(actualQty),
+            note: "qoldiq sanash (inventarizatsiya)" });
+      } catch (e) {}
       v.qty = actualQty;
       changed++;
     }
