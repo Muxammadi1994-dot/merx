@@ -5089,3 +5089,118 @@ function fillCatSuggest(type) {
     .map(c => `<option value="${String(c).replace(/"/g, "&quot;")}">`)
     .join("");
 }
+
+
+// ═══ TOVAR TARIXI v1 (2026-08-12) ═════════════════════
+// FAQAT O'QIYDI — hech narsa yozmaydi, o'zgartirmaydi. Mavjud
+// ma'lumotdan (id-vaqtmuhri, ombor, chiqimlar, sotuvlar) tovarning
+// yo'lini tiklaydi: qachon kiritildi, qachon kirim bo'ldi, kimga
+// nechta sotildi, qachon tahrirlandi, qachon qoldiq nolga tushdi.
+// v2 (audit_log bilan) keyinroq: kim kiritdi/tahrirladi/o'chirdi.
+function showProductHistory(sku) {
+  const p = (db.products || []).find(x => x.sku === sku);
+  if (!p) { toast("Tovar topilmadi", "err"); return; }
+
+  const ev = [];   // {ts, sana, vaqt, tur, matn, oʻng}
+  const _d = (dt, tm) => (dt || "") + (tm ? " " + tm : "");
+
+  // 1) Yaratilgan — id vaqt muhridan (§3.14)
+  const _idTs = (() => {
+    const n = parseInt(String(p.id || "").slice(0, 13), 10);
+    return (n > 1600000000000 && n < 4000000000000) ? n : null;
+  })();
+  if (_idTs) {
+    const d = new Date(_idTs);
+    ev.push({ ts: _idTs, sana: d.toISOString().slice(0,10),
+      vaqt: d.toTimeString().slice(0,5), tur: "yaratildi",
+      matn: "Tovar katalogga kiritildi", ong: "" });
+  }
+
+  // 2) KIRIMLAR (ombor)
+  (db.ombor || []).filter(o => o.sku === sku).forEach(o => {
+    ev.push({ ts: new Date(_d(o.date, o.time || "00:00")).getTime() || 0,
+      sana: o.date || "", vaqt: o.time || "",
+      tur: "kirim",
+      matn: "Kirim · " + (o.color || "—") + " · " + (o.qty || 0) + " dona" +
+            (o.supplier ? " · " + o.supplier : "") +
+            (o.partiya ? " (" + o.partiya + ")" : ""),
+      ong: o.kirimNarxi ? fmt(o.kirimNarxi) + " so'm/dona" : "" });
+  });
+
+  // 3) CHIQIMLAR (yozib tashlash / ichki chiqim)
+  (db.chiqimlar || []).filter(c => c.sku === sku).forEach(c => {
+    ev.push({ ts: new Date(_d(c.date, c.time || "00:00")).getTime() || 0,
+      sana: c.date || "", vaqt: c.time || "", tur: "chiqim",
+      matn: "Chiqim · " + (c.color || "—") + " · " + (c.qty || 0) + " dona" +
+            (c.reason ? " · " + c.reason : ""),
+      ong: "" });
+  });
+
+  // 4) SOTUVLAR (cheklar ichidan)
+  (db.sales || []).forEach(sale => {
+    (sale.items || []).forEach(it => {
+      if (it.sku !== sku) return;
+      ev.push({ ts: new Date(_d(sale.date, sale.time || "00:00")).getTime() || 0,
+        sana: sale.date || "", vaqt: sale.time || "",
+        tur: sale.cancelled ? "bekor" : "sotuv",
+        matn: (sale.cancelled ? "BEKOR: " : "") + "Sotuv · " +
+              (it.color || "—") + (it.size ? " / " + it.size : "") +
+              " · " + (it.qty || 0) + " dona · " +
+              (sale.customerName || "Mijozsiz"),
+        ong: (sale.chekNum || "") });
+    });
+  });
+
+  // 5) Oxirgi tahrir
+  if (p.updatedAt) {
+    const t = new Date(p.updatedAt).getTime();
+    if (t) ev.push({ ts: t, sana: String(p.updatedAt).slice(0,10),
+      vaqt: String(p.updatedAt).slice(11,16), tur: "tahrir",
+      matn: "Kartochka oxirgi marta tahrirlandi", ong: "" });
+  }
+
+  ev.sort((a,b) => (a.ts || 0) - (b.ts || 0));
+
+  // Yig'indilar
+  const kirimJami = ev.filter(x => x.tur === "kirim")
+    .reduce((a,x) => a + (parseInt((x.matn.match(/(\d+) dona/)||[])[1]) || 0), 0);
+  const sotuvJami = ev.filter(x => x.tur === "sotuv")
+    .reduce((a,x) => a + (parseInt((x.matn.match(/(\d+) dona/)||[])[1]) || 0), 0);
+  const qoldiq = (p.variants || []).reduce((a,v) => a + (v.qty || 0), 0);
+
+  const _ico = { yaratildi:"➕", kirim:"📥", chiqim:"📤",
+                 sotuv:"🛒", bekor:"❌", tahrir:"✏️" };
+  const _clr = { yaratildi:"#6B4FBB", kirim:"#0F6E56", chiqim:"#993C1D",
+                 sotuv:"#185FA5", bekor:"#A32D2D", tahrir:"#5F5E5A" };
+
+  $("ph-title").textContent = p.name + " — tarix";
+  $("ph-body").innerHTML =
+    `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      ${[["Jami kirim", kirimJami + " dona"],
+         ["Jami sotildi", sotuvJami + " dona"],
+         ["Hozirgi qoldiq", qoldiq + " dona"],
+         ["Voqealar", ev.length + " ta"]].map(([k,v]) =>
+        `<div style="background:var(--bg2,#F5F5F3);border-radius:8px;padding:8px 12px;min-width:110px">
+           <div style="font-size:11px;color:var(--mut)">${k}</div>
+           <div style="font-size:16px;font-weight:600">${v}</div>
+         </div>`).join("")}
+    </div>` +
+    (ev.length ? `<div style="display:flex;flex-direction:column;gap:6px">` +
+      ev.map(x =>
+        `<div style="display:flex;gap:10px;align-items:flex-start;
+                     border-left:3px solid ${_clr[x.tur]||"#ccc"};
+                     background:var(--bg2,#FAFAF8);padding:8px 10px;border-radius:0 8px 8px 0">
+           <div style="font-size:15px">${_ico[x.tur]||"•"}</div>
+           <div style="flex:1;min-width:0">
+             <div style="font-size:13px;font-weight:500">${x.matn}</div>
+             <div style="font-size:11px;color:var(--mut)">${x.sana}${x.vaqt ? " · " + x.vaqt : ""}${
+               x.ong ? " · " + x.ong : ""}</div>
+           </div>
+         </div>`).join("") + `</div>`
+      : `<div style="color:var(--mut);font-size:13px">Bu tovar bo'yicha yozuv topilmadi.</div>`) +
+    `<div style="margin-top:12px;font-size:11px;color:var(--mut)">
+       ℹ️ Tarix qurilmadagi ma'lumotdan chiziladi (sinxron oynasi 365 kun).
+       "Kim qildi" ma'lumoti keyingi bosqichda (audit) qo'shiladi.
+     </div>`;
+  openModal("prodhist", true);
+}

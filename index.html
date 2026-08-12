@@ -3593,11 +3593,25 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
   </div>
 </div>
 
+<!-- MODAL: TOVAR TARIXI (2026-08-12) — FAQAT O'QIYDI -->
+<div class="ov" id="ov-prodhist" onclick="if(event.target===this)closeModal('prodhist')">
+  <div class="modal modal-lg">
+    <button class="m-close" onclick="closeModal('prodhist')"><i class="ti ti-x"></i></button>
+    <h2 id="ph-title">Tovar tarixi</h2>
+    <div id="ph-body" style="max-height:70vh;overflow:auto"></div>
+  </div>
+</div>
+
 <!-- MODAL: EDIT PRODUCT -->
 <div class="ov" id="ov-editprod" onclick="if(event.target===this)closeModal('editprod')">
   <div class="modal modal-lg">
     <button class="m-close" onclick="closeModal('editprod')"><i class="ti ti-x"></i></button>
     <h2 id="ep-title">Mahsulotni tahrirlash</h2>
+    <div style="margin:-6px 0 10px">
+      <button class="btn btn-ghost btn-sm" onclick="showProductHistory(editSku)">
+        <i class="ti ti-history"></i> Tovar tarixi
+      </button>
+    </div>
 
     <div class="r3">
       <div class="fld" style="grid-column:span 2">
@@ -4972,7 +4986,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 <script src="js/cloud.js?v=267"></script>
 <script src="js/dashboard.js?v=157"></script>
 <script src="js/pos.js?v=255"></script>
-<script src="js/katalog.js?v=259"></script>
+<script src="js/katalog.js?v=260"></script>
 <script src="js/ombor.js?v=177"></script>
 <script src="js/mijozlar.js?v=165"></script>
 <script src="js/qarzlar.js?v=210"></script>
@@ -5274,7 +5288,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 350;
+  window.SW_V = 351;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5297,7 +5311,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=350")
+    navigator.serviceWorker.register("/sw.js?v=351")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
