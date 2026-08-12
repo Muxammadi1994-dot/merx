@@ -333,6 +333,8 @@ const _PULL_MARGIN_MS = 45 * 1000;
 //     davom etadi, oraliqda o'zgargan qator o'tkazib yuborilmasin)
 //   · delta — chekinishSIZ, aniq vaqt saqlanadi (delta tez, poyga yo'q)
 function _setLastPull(sid, iso, withMargin) {
+  _syncAliveMark();   // 2026-08-11: pull ham "tirik" belgisi
+
   try {
     if (!iso) return;
     let v = iso;
@@ -508,16 +510,11 @@ async function pullDelta(noRender) {
       const sr = _setRows;
       if (sr.length) {
         const st = sr[0];
-        if (!db.settings) db.settings = {};
-        if (st.staff_group_id)        db.settings.staffGroupId        = st.staff_group_id;
-        if (st.telegram_bot)          db.settings.telegramBotUrl      = st.telegram_bot;
-        if (st.telegram_bot_username) db.settings.telegramBotUsername = st.telegram_bot_username;
-        if (st.eskiz_token)           db.settings.eskizToken          = st.eskiz_token;
-        if (st.eskiz_sender)          db.settings.eskizSender         = st.eskiz_sender;
-        if (st.rate)                  db.settings.rate                = st.rate;
-        if (st.tier)                  db.settings.tier                = st.tier;
-        if (st.exp_tags_kunlik)       db.settings.expTagsKunlik       = st.exp_tags_kunlik; // C-2
-        if (st.exp_tags_oylik)        db.settings.expTagsOylik        = st.exp_tags_oylik;  // C-2
+        // ⚠️ 2026-08-11 ILDIZ-DAVO 2-qismi: avval bu yer sozlamaning
+        // faqat KICHIK qismini (bot/eskiz/kurs/teglar) qo'llardi —
+        // chek dizayni, qulflar, ustunlar delta bilan KELSA HAM tashlab
+        // yuborilardi. Endi to'liq-pull bilan BIR XIL yagona yo'l:
+        applyCloudSettings(st);
         if (st.updated_at && st.updated_at > maxTs) maxTs = st.updated_at;
       }
     } catch(e) { console.warn("delta:settings", e.message); }
@@ -1148,6 +1145,16 @@ async function pushToCloud() {
           low_stock_limit:  db.settings?.lowStockLimit  ?? null,
           pos_pay_blocked:  db.settings?.posPayBlocked  || null,
           pos_staff_locked: db.settings?.posStaffLocked === true,
+          // ⚠️ 2026-08-11 ILDIZ-DAVO (menejer-chek voqeasi): avval bu
+          // qatorda updated_at YO'Q edi — admin nimani o'zgartirmasin,
+          // bulut qatorining "yangilangan vaqti" qimirlamasdi va ishlab
+          // turgan kassalar delta-pull (updated_at > kursor) orqali
+          // sozlamani HECH QACHON olmasdi; sozlamalar faqat QAYTA
+          // KIRISHDAGI to'liq-pull bilan kelardi ("versiya yangilandi,
+          // chek baribir standart" jumbog'ining javobi). Endi har
+          // saqlash muhrlanadi. O'zi yozgan qurilma keyingi deltada
+          // o'z qatorini qaytib oladi — zararsiz, qo'llash idempotent.
+          updated_at: new Date().toISOString(),
         }], 1, "shop_id");
       } catch(e) { console.warn("settings upsert xato:", e.message); }
       }   // _stReady
@@ -1689,6 +1696,7 @@ async function pushToCloud() {
       // v178: muvaffaqiyat endi JIM — kassirni chalg'itmaydi.
       // (Xato bo'lsa toast CHIQADI — bu muhim va qoladi.)
       console.log("✅ Cloud sinxron OK");
+      _syncAliveMark();   // 2026-08-11: alarm uchun "tirik" muhri
       // 2026-07-26: navbatda qolgan o'chirishlar bo'lsa qayta urinamiz
       try {
         if ((db._pendingDeletes || []).length) {
@@ -2259,72 +2267,9 @@ async function pullFromCloud(silent = false, skipRender = false) {
     // Settings
     const { data: setsArr } = await _sb.from("settings").select("*").eq("shop_id", sid).limit(1);
     const sets = setsArr?.[0] || null;
-    if (sets) {
-      // MUHIM: db.shop ni butunlay almashtirmaymiz — type (do'kon turi)
-      // kabi lokal maydonlar saqlanib qolishi kerak
-      db.shop = { ...(db.shop || {}), name: sets.shop_name };
-      // ⚠️ 2026-08-02: BULUTDAGI BO'SH QIYMAT LOKALNI BOSMAYDI.
-      // Avval bulutda kurs yo'q bo'lsa lokalga 12800 yozilardi,
-      // keyin o'sha qaytib bulutga ketardi — haqiqiy kurs
-      // butunlay yo'qolardi. Endi tartib:
-      //   bulutdagi → lokaldagi → standart
-      db.settings.rate           = sets.rate || db.settings.rate || 12800;
-      db.settings.priceCurrency  = sets.price_currency || db.settings.priceCurrency || "uzs";
-      if (sets.shop_type) db.settings.shopType = sets.shop_type;
-      // 2026-07-26: valyuta rejimi SuperAdmin tomonidan belgilanadi —
-      // do'kon egasi o'zgartira olmaydi, faqat bulutdan keladi
-      // 2026-07-26: obuna tarifi — SuperAdmin belgilaydi, do'kon o'qiydi
-      if (sets.tier) {
-        db.settings.tier = sets.tier;
-        try { if (typeof applyTierLock === "function") applyTierLock(); } catch(e) {}
-      }
-      if (sets.currency_mode) {
-        db.settings.currencyMode = sets.currency_mode;
-        // Qat'iy rejim kelgan bo'lsa darhol qo'llaymiz
-        try { if (typeof enforceCurrencyMode === "function") enforceCurrencyMode(); } catch(e) {}
-      }
-      db.settings.showChakana    = sets.show_chakana || false;
-      if (sets.eskiz_token)    db.settings.eskizToken         = sets.eskiz_token;
-      if (sets.eskiz_sender)   db.settings.eskizSender        = sets.eskiz_sender;
-      if (sets.telegram_bot)   db.settings.telegramBotUrl     = sets.telegram_bot;
-      if (sets.telegram_bot_username) db.settings.telegramBotUsername = sets.telegram_bot_username;
-      if (sets.staff_group_id) db.settings.staffGroupId       = sets.staff_group_id;
-      if (sets.loyalty_rate)   db.settings.loyaltyRate        = sets.loyalty_rate;
-      if (sets.loyalty_value)  db.settings.loyaltyValue       = sets.loyalty_value;
-      // Rejim bulutda yo'q bo'lsa — lokaldagini saqlaymiz
-      // 2026-08-03: egasi ismi — POS'da "Akmal (admin)" uchun.
-      // Bo'sh bo'lsa lokaldagi saqlanadi.
-      if (sets.owner_name) db.settings.ownerName = sets.owner_name;
-
-      db.settings.rateMode      = sets.rate_mode
-        ? (sets.rate_mode === "auto" ? "auto" : "manual")
-        : (db.settings.rateMode || "manual");
-      // ⚠️ 2026-08-09: PULL KELGACH KO'RSATKICHLAR HAM YANGILANADI.
-      // Ma'lumot db ga tushardi-yu, tepadagi kurs pilli (tb-rate) va
-      // do'kon nomi (sb-shop) QAYTA CHIZILMASDI — xodim kirganda kurs
-      // va nom "Yangilash" bosilguncha eskicha ko'rinardi ("bir
-      // qurilmada yangilandi, ikkinchisida yo'q" jumbog'ining javobi:
-      // Dashboard chizilgan joyda tasodifan yangilanib qolardi).
-      // Endi shu yerda — sozlamalar qo'llanadigan YAGONA nuqtada (3-qoida).
-      try { if (typeof updateRatePill === "function") updateRatePill(); } catch(e) {}
-      try {
-        const _sbEl = document.getElementById("sb-shop");
-        if (_sbEl && db.shop?.name) _sbEl.textContent = db.shop.name;
-      } catch(e) {}
-      if (sets.rate_updated_at) db.settings.rateUpdatedAt      = sets.rate_updated_at;
-      if (sets.debt_pay_methods_shown) db.settings.debtPayMethodsShown = sets.debt_pay_methods_shown;
-      if (sets.debt_cols)              db.settings.debtCols            = sets.debt_cols;
-      if (sets.unit_tags      != null) db.settings.unitTags      = sets.unit_tags;      // №11a (v186)
-      if (sets.exp_tags_kunlik != null) db.settings.expTagsKunlik = sets.exp_tags_kunlik; // C-2 (2026-08-09)
-      if (sets.exp_tags_oylik  != null) db.settings.expTagsOylik  = sets.exp_tags_oylik;  // C-2
-      if (sets.chek_config    != null) db.settings.chekConfig    = sets.chek_config;    // №12 (v187)
-      if (sets.pack_unit_tags != null) db.settings.packUnitTags  = sets.pack_unit_tags;
-      // v172 (2026-07-10): NULL-himoya bilan — bulutda qiymat hali
-      // bo'lmasa (eski yozuv), lokaldagi mavjud qiymatga TEGILMAYDI.
-      if (sets.low_stock_limit  != null) db.settings.lowStockLimit  = Number(sets.low_stock_limit);
-      if (sets.pos_pay_blocked  != null) db.settings.posPayBlocked  = sets.pos_pay_blocked;
-      if (sets.pos_staff_locked != null) db.settings.posStaffLocked = !!sets.pos_staff_locked;
-    }
+    // ⚠️ 2026-08-11: qo'llash endi CHINDAN yagona nuqtada —
+    // applyCloudSettings() (delta ham AYNAN shu funksiyani chaqiradi).
+    if (sets) applyCloudSettings(sets);
 
     // Chiqimlar
     const chiqData = await _selectAll(() => _sb.from("chiqimlar").select("*").eq("shop_id", sid).order("local_id"), "chiqimlar");
@@ -3479,3 +3424,114 @@ async function syncDiagRefresh() {
       sotuvlar tortiladi, bulutda esa butun tarix turadi.
     </div>`;
 }
+
+
+// ═══ SOZLAMALARNI QO'LLASHNING YAGONA NUQTASI (2026-08-11) ═══════
+// Ildiz-davo: avval to'liq-pull TO'LIQ ro'yxatni, delta esa faqat
+// KICHIK to'plamni qo'llardi — "admin sozladi, xodimda o'zgarmadi"
+// sinfidagi barcha jumboqlarning manbai shu edi (menejer-chek voqeasi,
+// 2026-08-10/11). Endi ikkala yo'l ham AYNAN shu funksiyadan o'tadi.
+// Yangi sozlama qo'shilsa — faqat SHU YERGA yoziladi (§5.6).
+function applyCloudSettings(sets) {
+  if (!sets) return;
+  if (!db.settings) db.settings = {};
+      // MUHIM: db.shop ni butunlay almashtirmaymiz — type (do'kon turi)
+  // kabi lokal maydonlar saqlanib qolishi kerak
+  db.shop = { ...(db.shop || {}), name: sets.shop_name };
+  // ⚠️ 2026-08-02: BULUTDAGI BO'SH QIYMAT LOKALNI BOSMAYDI.
+  // Avval bulutda kurs yo'q bo'lsa lokalga 12800 yozilardi,
+  // keyin o'sha qaytib bulutga ketardi — haqiqiy kurs
+  // butunlay yo'qolardi. Endi tartib:
+  //   bulutdagi → lokaldagi → standart
+  db.settings.rate       = sets.rate || db.settings.rate || 12800;
+  db.settings.priceCurrency  = sets.price_currency || db.settings.priceCurrency || "uzs";
+  if (sets.shop_type) db.settings.shopType = sets.shop_type;
+  // 2026-07-26: valyuta rejimi SuperAdmin tomonidan belgilanadi —
+  // do'kon egasi o'zgartira olmaydi, faqat bulutdan keladi
+  // 2026-07-26: obuna tarifi — SuperAdmin belgilaydi, do'kon o'qiydi
+  if (sets.tier) {
+    db.settings.tier = sets.tier;
+    try { if (typeof applyTierLock === "function") applyTierLock(); } catch(e) {}
+  }
+  if (sets.currency_mode) {
+    db.settings.currencyMode = sets.currency_mode;
+    // Qat'iy rejim kelgan bo'lsa darhol qo'llaymiz
+    try { if (typeof enforceCurrencyMode === "function") enforceCurrencyMode(); } catch(e) {}
+  }
+  db.settings.showChakana    = sets.show_chakana || false;
+  if (sets.eskiz_token)    db.settings.eskizToken     = sets.eskiz_token;
+  if (sets.eskiz_sender)   db.settings.eskizSender    = sets.eskiz_sender;
+  if (sets.telegram_bot)   db.settings.telegramBotUrl     = sets.telegram_bot;
+  if (sets.telegram_bot_username) db.settings.telegramBotUsername = sets.telegram_bot_username;
+  if (sets.staff_group_id) db.settings.staffGroupId       = sets.staff_group_id;
+  if (sets.loyalty_rate)   db.settings.loyaltyRate    = sets.loyalty_rate;
+  if (sets.loyalty_value)  db.settings.loyaltyValue       = sets.loyalty_value;
+  // Rejim bulutda yo'q bo'lsa — lokaldagini saqlaymiz
+  // 2026-08-03: egasi ismi — POS'da "Akmal (admin)" uchun.
+  // Bo'sh bo'lsa lokaldagi saqlanadi.
+  if (sets.owner_name) db.settings.ownerName = sets.owner_name;
+
+  db.settings.rateMode      = sets.rate_mode
+    ? (sets.rate_mode === "auto" ? "auto" : "manual")
+    : (db.settings.rateMode || "manual");
+  // ⚠️ 2026-08-09: PULL KELGACH KO'RSATKICHLAR HAM YANGILANADI.
+  // Ma'lumot db ga tushardi-yu, tepadagi kurs pilli (tb-rate) va
+  // do'kon nomi (sb-shop) QAYTA CHIZILMASDI — xodim kirganda kurs
+  // va nom "Yangilash" bosilguncha eskicha ko'rinardi ("bir
+  // qurilmada yangilandi, ikkinchisida yo'q" jumbog'ining javobi:
+  // Dashboard chizilgan joyda tasodifan yangilanib qolardi).
+  // Endi shu yerda — sozlamalar qo'llanadigan YAGONA nuqtada (3-qoida).
+  try { if (typeof updateRatePill === "function") updateRatePill(); } catch(e) {}
+  try {
+    const _sbEl = document.getElementById("sb-shop");
+    if (_sbEl && db.shop?.name) _sbEl.textContent = db.shop.name;
+  } catch(e) {}
+  if (sets.rate_updated_at) db.settings.rateUpdatedAt      = sets.rate_updated_at;
+  if (sets.debt_pay_methods_shown) db.settings.debtPayMethodsShown = sets.debt_pay_methods_shown;
+  if (sets.debt_cols)      db.settings.debtCols        = sets.debt_cols;
+  if (sets.unit_tags      != null) db.settings.unitTags      = sets.unit_tags;      // №11a (v186)
+  if (sets.exp_tags_kunlik != null) db.settings.expTagsKunlik = sets.exp_tags_kunlik; // C-2 (2026-08-09)
+  if (sets.exp_tags_oylik  != null) db.settings.expTagsOylik  = sets.exp_tags_oylik;  // C-2
+  if (sets.chek_config    != null) db.settings.chekConfig    = sets.chek_config;    // №12 (v187)
+  if (sets.pack_unit_tags != null) db.settings.packUnitTags  = sets.pack_unit_tags;
+  // v172 (2026-07-10): NULL-himoya bilan — bulutda qiymat hali
+  // bo'lmasa (eski yozuv), lokaldagi mavjud qiymatga TEGILMAYDI.
+  if (sets.low_stock_limit  != null) db.settings.lowStockLimit  = Number(sets.low_stock_limit);
+  if (sets.pos_pay_blocked  != null) db.settings.posPayBlocked  = sets.pos_pay_blocked;
+  if (sets.pos_staff_locked != null) db.settings.posStaffLocked = !!sets.pos_staff_locked;
+}
+
+
+// ═══ SINXRON-ALARM (2026-08-11) ═══════════════════════
+// Sabab (jonli voqealar 08-06..08-11): kassaning bulut aloqasi JIM
+// o'lib, yozuvlar (sotuv, to'lov, PIN o'zgarishi) haftalab bitta
+// qurilmada qolib ketdi — hech kim sezmadi (236 lik navbat!). Endi
+// qurilma 12 daqiqadan beri bulut bilan MUVAFFAQIYATLI gaplashmagan
+// bo'lsa — o'chmas QIZIL lenta chiqadi. Bu ogohlantirish, taqiq emas:
+// ish davom etadi, lekin holat endi YASHIRINMAYDI.
+let _syncAliveAt = Date.now();
+function _syncAliveMark() { _syncAliveAt = Date.now(); }
+function _syncAlarmCheck() {
+  try {
+    const DEAD_MS = 12 * 60 * 1000;
+    const dead = (Date.now() - _syncAliveAt) > DEAD_MS &&
+                 (typeof navigator === "undefined" || navigator.onLine !== false);
+    let el = document.getElementById("sync-dead-banner");
+    if (dead) {
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "sync-dead-banner";
+        el.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:99999;" +
+          "background:#C62828;color:#fff;font-weight:800;font-size:13px;" +
+          "padding:10px 14px;text-align:center;box-shadow:0 -2px 10px rgba(0,0,0,.3)";
+        document.body.appendChild(el);
+      }
+      const min = Math.round((Date.now() - _syncAliveAt) / 60000);
+      el.textContent = "⛔ SINXRON UZILGAN — " + min + " daqiqadan beri bulut bilan " +
+        "aloqa yo'q. Yozuvlar FAQAT SHU QURILMADA. Internet/versiyani tekshiring!";
+    } else if (el) {
+      el.remove();
+    }
+  } catch (e) {}
+}
+setInterval(_syncAlarmCheck, 60000);

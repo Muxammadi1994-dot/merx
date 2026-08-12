@@ -646,7 +646,11 @@ function nav(p) {
 // nom to'qnashuvi). Amaldagi yagona nusxa: dashboard.js (saveSetting
 // orqali, bulutga sinxronlanadi). Bu yerda qayta e'lon QILINMASIN!
 function updateRatePill() {
-  $("tb-rate").textContent = fmt(db.settings.rate || 0);
+  // ⚠️ 2026-08-11 (egasining talabi): kurs YUKLANGUNCHA soxta qiymat
+  // (12800/0) KO'RSATILMAYDI — "—" turadi. Aks holda kirishda standart
+  // raqam haqiqiy kursdek ko'rinib, chalg'itardi (jonli voqea: admin
+  // 12800 ni ko'rib qo'lda to'g'rilagan).
+  $("tb-rate").textContent = db.settings?.rate ? fmt(db.settings.rate) : "—";
   // 2026-07-26: valyuta yorlig'i YAGONA manbadan (avval uch faylda
   // uch xil yozilib, tugma goh "SO'M+USD", goh "so'm/USD" ko'rinardi)
   $("tb-cur").textContent = currencyLabel();

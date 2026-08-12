@@ -953,8 +953,26 @@ module.exports = async function handler(req, res) {
       if (!r.ok) return res.status(500).json({ ok: false, error: "Xodim o'qilmadi" });
 
       const row = (rows || []).find(x => phKey(x.phone) === key);
-      if (!row)
-        return res.status(200).json({ ok: false, error: "Telefon yoki PIN noto'g'ri" });
+      if (!row) {
+        // ⚠️ 2026-08-11: TASHXISLI XATO. Avval "Telefon yoki PIN
+        // noto'g'ri" deyilardi — sabab ko'rinmasdi. Endi telefon bo'yicha
+        // alohida qidirib aniq aytamiz. Jonli voqea: PIN o'zgarishi
+        // sinxroni o'lik kassada qolib, telefon/qayta-kirish bulutdagi
+        // ESKI xesh bilan solishtirilib yiqilgan — endi xabar shuni
+        // ochiq aytadi. (Ochiq PIN javobda YO'Q — xavfsizlik o'zgarmas.)
+        try {
+          const r2 = await fetch(
+            `${SB_URL}/rest/v1/staff?select=id,phone&shop_id=eq.${encodeURIComponent(shopId)}`,
+            { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+          const all = r2.ok ? await r2.json() : [];
+          const phoneHit = (all || []).some(x => phKey(x.phone) === key);
+          if (phoneHit)
+            return res.status(200).json({ ok: false,
+              error: "PIN mos kelmadi. Agar PIN yaqinda o'zgartirilgan bo'lsa — o'zgartirgan kassaning internetini/sinxronini tekshiring (qizil lenta), so'ng qayta urinib ko'ring." });
+        } catch (e) {}
+        return res.status(200).json({ ok: false,
+          error: "Bu telefon raqamida xodim topilmadi. Raqamni tekshiring (mamlakat kodi bilan)." });
+      }
 
       // ⚠️ 2026-08-05: XESHNI YOZIB QO'YAMIZ.
       // Xodim birinchi marta kirganda `pin_hash` to'ldiriladi.
