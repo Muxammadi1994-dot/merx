@@ -1529,11 +1529,21 @@ function ceMarkStyle() {
 // ulanish, so'rov yoki pul amali YO'Q \u2014 mavjud oqimlarga tegilmagan.
 // Me'moriy qaror: MERX fiskal chek BOSMAYDI, faqat do'konning fiskal
 // apparatiga ma'lumot uzatadi (keyingi bosqichda) \u2014 mas'uliyat do'konda.
+// \u26a0\ufe0f Belgilar ICHKI SVG (2026-08-12): rasmiy logotiplar internetdan
+// tortilmaydi \u2014 (a) PWA oflaynda ishlashi kerak, (b) brend fayllari
+// huquqiy jihatdan rasmiy manbadan olinishi lozim. Shuning uchun brend
+// RANGIDAGI ixcham belgilar. Rasmiy logotip fayllari bo'lsa \u2014 shu
+// yerdagi `svg` qiymatini almashtirish kifoya.
+function _tsMark(bg, txt, fg) {
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;
+    width:28px;height:28px;border-radius:7px;background:${bg};color:${fg || "#fff"};
+    font-weight:800;font-size:13px;letter-spacing:-.02em;flex:0 0 28px">${txt}</span>`;
+}
 const TS_PAY_SYS = [
-  { k:"payme",  n:"Payme",  ico:"\U0001f4b3", f:["Merchant ID","Kalit (key)"] },
-  { k:"click",  n:"Click",  ico:"\U0001f537", f:["Merchant ID","Service ID","Kalit"] },
-  { k:"paynet", n:"Paynet", ico:"\U0001f7e2", f:["Terminal ID","Kalit"] },
-  { k:"uzum",   n:"Uzum",   ico:"\U0001f7e3", f:["Merchant ID","Kalit"] },
+  { k:"payme",  n:"Payme",  bg:"#00CFC8", txt:"P",  f:["Merchant ID","Kalit (key)"] },
+  { k:"click",  n:"Click",  bg:"#00A3E0", txt:"C",  f:["Merchant ID","Service ID","Kalit"] },
+  { k:"paynet", n:"Paynet", bg:"#00A651", txt:"PN", f:["Terminal ID","Kalit"] },
+  { k:"uzum",   n:"Uzum",   bg:"#7000FF", txt:"U",  f:["Merchant ID","Kalit"] },
 ];
 
 function tsGet() {
@@ -1565,7 +1575,7 @@ function tsRender() {
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
           <input type="checkbox" data-ts="${sys.k}" ${v.enabled ? "checked" : ""}
                  onchange="tsTogglePay('${sys.k}')" style="width:17px;height:17px">
-          <span style="font-size:14px">${sys.ico}</span>
+          ${_tsMark(sys.bg, sys.txt)}
           <span style="font-weight:700;font-size:13px">${sys.n}</span>
         </label>
         <div id="ts-pay-${sys.k}" style="display:${v.enabled ? "flex" : "none"};flex-direction:column;gap:7px">
