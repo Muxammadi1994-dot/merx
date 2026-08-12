@@ -5110,6 +5110,20 @@ function showProductHistory(sku) {
   const p = (db.products || []).find(x => x.sku === sku);
   if (!p) { toast("Tovar topilmadi", "err"); return; }
 
+  // 2026-08-12: sonlar POCHKA + DONA ko'rinishida (§3.3: variant.inBox
+  // ustuvor, p.inBox zaxira). Quti sig'imi 1 bo'lsa faqat dona.
+  const _inBox = (() => {
+    const v0 = (p.variants || [])[0];
+    return parseInt(v0 && v0.inBox) || parseInt(p.inBox) || 1;
+  })();
+  const _pd = (n) => {
+    n = parseInt(n) || 0;
+    if (_inBox <= 1) return n + " dona";
+    const po = Math.floor(n / _inBox), d = n % _inBox;
+    return (po ? po + " pochka" : "") + (po && d ? " " : "") +
+           (d || !po ? d + " dona" : "");
+  };
+
   const ev = [];   // {ts, sana, vaqt, tur, matn, oʻng}
   const _d = (dt, tm) => (dt || "") + (tm ? " " + tm : "");
 
@@ -5129,8 +5143,8 @@ function showProductHistory(sku) {
   (db.ombor || []).filter(o => o.sku === sku).forEach(o => {
     ev.push({ ts: new Date(_d(o.date, o.time || "00:00")).getTime() || 0,
       sana: o.date || "", vaqt: o.time || "",
-      tur: "kirim",
-      matn: "Kirim · " + (o.color || "—") + " · " + (o.qty || 0) + " dona" +
+      tur: "kirim", n: (parseInt(o.qty) || 0),
+      matn: "Kirim · " + (o.color || "—") + " · " + _pd(o.qty) +
             (o.supplier ? " · " + o.supplier : "") +
             (o.partiya ? " (" + o.partiya + ")" : ""),
       ong: o.kirimNarxi ? fmt(o.kirimNarxi) + " so'm/dona" : "" });
@@ -5139,8 +5153,8 @@ function showProductHistory(sku) {
   // 3) CHIQIMLAR (yozib tashlash / ichki chiqim)
   (db.chiqimlar || []).filter(c => c.sku === sku).forEach(c => {
     ev.push({ ts: new Date(_d(c.date, c.time || "00:00")).getTime() || 0,
-      sana: c.date || "", vaqt: c.time || "", tur: "chiqim",
-      matn: "Chiqim · " + (c.color || "—") + " · " + (c.qty || 0) + " dona" +
+      sana: c.date || "", vaqt: c.time || "", tur: "chiqim", n: (parseInt(c.qty) || 0),
+      matn: "Chiqim · " + (c.color || "—") + " · " + _pd(c.qty) +
             (c.reason ? " · " + c.reason : ""),
       ong: "" });
   });
@@ -5151,22 +5165,20 @@ function showProductHistory(sku) {
       if (it.sku !== sku) return;
       ev.push({ ts: new Date(_d(sale.date, sale.time || "00:00")).getTime() || 0,
         sana: sale.date || "", vaqt: sale.time || "",
-        tur: sale.cancelled ? "bekor" : "sotuv",
+        tur: sale.cancelled ? "bekor" : "sotuv", n: (sale.cancelled ? 0 : (parseInt(it.qty) || 0)),
         matn: (sale.cancelled ? "BEKOR: " : "") + "Sotuv · " +
               (it.color || "—") + (it.size ? " / " + it.size : "") +
-              " · " + (it.qty || 0) + " dona · " +
+              " · " + _pd(it.qty) + " · " +
               (sale.customerName || "Mijozsiz"),
+        saleId: sale.id,
         ong: (sale.chekNum || "") });
     });
   });
 
-  // 5) Oxirgi tahrir
-  if (p.updatedAt) {
-    const t = new Date(p.updatedAt).getTime();
-    if (t) ev.push({ ts: t, sana: String(p.updatedAt).slice(0,10),
-      vaqt: String(p.updatedAt).slice(11,16), tur: "tahrir",
-      matn: "Kartochka oxirgi marta tahrirlandi", ong: "" });
-  }
+  // 5) ⚠️ 2026-08-12: "Oxirgi tahrir" OLIB TASHLANDI — ALDAMCHI edi.
+  // `updatedAt` tovar TAHRIRLANGANDA emas, SINXRON paytida qo'yiladi
+  // (cloud.js push ichida) — shu sabab hamma tovarda BIR XIL vaqt
+  // ko'rinardi. Haqiqiy tahrir vaqti audit (v2) bilan keladi.
 
   // 6) AUDIT yozuvlari (v2, 2026-08-12) — "kim qildi"
   (db.auditLog || []).filter(a => a.entity === "product" && a.entityId === sku)
@@ -5181,10 +5193,8 @@ function showProductHistory(sku) {
   ev.sort((a,b) => (a.ts || 0) - (b.ts || 0));
 
   // Yig'indilar
-  const kirimJami = ev.filter(x => x.tur === "kirim")
-    .reduce((a,x) => a + (parseInt((x.matn.match(/(\d+) dona/)||[])[1]) || 0), 0);
-  const sotuvJami = ev.filter(x => x.tur === "sotuv")
-    .reduce((a,x) => a + (parseInt((x.matn.match(/(\d+) dona/)||[])[1]) || 0), 0);
+  const kirimJami = ev.filter(x => x.tur === "kirim").reduce((a,x) => a + (x.n || 0), 0);
+  const sotuvJami = ev.filter(x => x.tur === "sotuv").reduce((a,x) => a + (x.n || 0), 0);
   const qoldiq = (p.variants || []).reduce((a,v) => a + (v.qty || 0), 0);
 
   const _ico = { yaratildi:"➕", kirim:"📥", chiqim:"📤",
@@ -5197,9 +5207,9 @@ function showProductHistory(sku) {
   $("ph-title").textContent = p.name + " — tarix";
   $("ph-body").innerHTML =
     `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-      ${[["Jami kirim", kirimJami + " dona"],
-         ["Jami sotildi", sotuvJami + " dona"],
-         ["Hozirgi qoldiq", qoldiq + " dona"],
+      ${[["Jami kirim", _pd(kirimJami)],
+         ["Jami sotildi", _pd(sotuvJami)],
+         ["Hozirgi qoldiq", _pd(qoldiq)],
          ["Voqealar", ev.length + " ta"]].map(([k,v]) =>
         `<div style="background:var(--bg2,#F5F5F3);border-radius:8px;padding:8px 12px;min-width:110px">
            <div style="font-size:11px;color:var(--mut)">${k}</div>
@@ -5215,7 +5225,10 @@ function showProductHistory(sku) {
            <div style="flex:1;min-width:0">
              <div style="font-size:13px;font-weight:500">${x.matn}</div>
              <div style="font-size:11px;color:var(--mut)">${x.sana}${x.vaqt ? " · " + x.vaqt : ""}${
-               x.ong ? " · " + x.ong : ""}</div>
+               x.ong ? " · " + (x.saleId
+                 ? `<a href="#" onclick="phOpenSale(${x.saleId});return false"
+                      style="color:#185FA5;font-weight:600">${x.ong}</a>`
+                 : x.ong) : ""}</div>
            </div>
          </div>`).join("") + `</div>`
       : `<div style="color:var(--mut);font-size:13px">Bu tovar bo'yicha yozuv topilmadi.</div>`) +
@@ -5224,4 +5237,18 @@ function showProductHistory(sku) {
        "Kim qildi" ma'lumoti keyingi bosqichda (audit) qo'shiladi.
      </div>`;
   openModal("prodhist", true);
+}
+
+
+// 2026-08-12: tarixdagi chek raqamidan sotuv tafsilotiga o'tish.
+// Xavfsiz: mavjud openSaleDetail chaqiriladi, yangi mantiq yo'q.
+function phOpenSale(saleId) {
+  try {
+    closeModal("prodhist");
+    closeModal("editprod");
+    if (typeof nav === "function") nav("tarix");
+    setTimeout(() => {
+      if (typeof openSaleDetail === "function") openSaleDetail(saleId);
+    }, 260);
+  } catch (e) { toast("Sotuvni ochib bo'lmadi", "err"); }
 }
