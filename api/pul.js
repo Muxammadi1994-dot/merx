@@ -442,6 +442,45 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    // ── OMBOR AMALI (5-band, 2026-08-14) ──────────────────────
+    // Kirim, chiqim, rang qo'shish, qoldiq tahriri, inventarizatsiya \u2014
+    // hammasi qoldiqni o'zgartiradi. Sotuvdagi kabi QULF bilan
+    // bajariladi va YANGI QOLDIQ qaytariladi \u2014 kassa uni qo'yadi,
+    // shunda "ikki marta qo'shildi" holati bo'lmaydi.
+    // items[].qty: MUSBAT = ayiriladi, MANFIY = qo'shiladi.
+    if (action === "stock") {
+      const items = Array.isArray(body.items) ? body.items : [];
+      if (!items.length) return res.status(400).json({ ok: false, error: "items kerak" });
+      if (!(await _verify))
+        return res.status(401).json({ ok: false, error: "Token yaroqsiz" });
+
+      const talab = items.map(it => ({
+        sku: String(it.sku || ""), color: it.color || "", size: it.size || "",
+        qty: Number(it.qty) || 0
+      })).filter(x => x.sku && x.qty);
+      if (!talab.length) return res.status(200).json({ ok: true, products: [] });
+
+      const rq = await fetch(`${SB_URL}/rest/v1/rpc/merx_sell`, {
+        method: "POST", headers: H(),
+        body: JSON.stringify({ p_shop: shopId, p_items: talab })
+      });
+      if (!rq.ok) {
+        const t = await rq.text().catch(() => "");
+        return res.status(200).json({ ok: false, error: "Ombor amali bajarilmadi: " + t.slice(0, 120) });
+      }
+      const rj = await rq.json().catch(() => null);
+      if (rj && rj.ok === false)
+        return res.status(200).json({ ok: false, code: "stock", error: "Qoldiq yetmaydi", items: rj.items || [] });
+
+      // Yangi qoldiqni qaytaramiz \u2014 kassa shuni qo'yadi
+      const skus = [...new Set(talab.map(x => x.sku))];
+      const inList = skus.map(x => '"' + x.replace(/"/g, "") + '"').join(",");
+      const prods = await sbAll(
+        `products?shop_id=eq.${encodeURIComponent(shopId)}` +
+        `&sku=in.(${encodeURIComponent(inList)})&select=sku,variants`);
+      return res.status(200).json({ ok: true, products: prods });
+    }
+
     // ── SOZLAMA O'ZGARTIRISH (4-band, 2026-08-14) ─────────────
     // Nima uchun: sozlama qatori BUTUNLAY qayta yozilardi \u2014 qurilma
     // o'z nusxasini yuborganda boshqa kassa yangilagan maydonlar

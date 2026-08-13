@@ -5504,6 +5504,36 @@ function phRestoreProduct(auditId) {
 function _stockMove(p, color, size, delta, sabab) {
   try {
     if (!delta) return;
+    // ✅ 2026-08-14 (5-band): QOLDIQNI SERVER O'ZGARTIRADI (qulf bilan).
+    // Kirim, rang qo'shish, qoldiq tahriri, inventarizatsiya, arxivdan
+    // tiklash — hammasi shu yerdan o'tadi. Server yangi qoldiqni
+    // qaytaradi va kassa AYNAN shuni qo'yadi — "ikki marta qo'shildi"
+    // holati bo'lmaydi (sotuvda shu xato bo'lgan edi).
+    // MUHIM: chaqiruvchi qoldiqni ALLAQACHON o'zgartirgan — shuning
+    // uchun serverga o'zgarish yuboriladi, javob esa haqiqat sifatida
+    // ustiga yoziladi.
+    if (typeof _serverRejimi === "function" && _serverRejimi() &&
+        typeof _serverPay === "function") {
+      _serverPay({
+        action: "stock",
+        items: [{ sku: p.sku, color: color || "", size: size || "",
+                  qty: -delta }]     // manfiy = qo'shiladi, musbat = ayiriladi
+      }).then(r => {
+        if (!r || !r.ok || !Array.isArray(r.products)) return;
+        r.products.forEach(sp => {
+          const lp = (db.products || []).find(x => String(x.sku) === String(sp.sku));
+          if (!lp || !Array.isArray(sp.variants)) return;
+          sp.variants.forEach(sv => {
+            const lv = (lp.variants || []).find(v =>
+              String(v.color || "") === String(sv.color || "") &&
+              String(v.size  || "") === String(sv.size  || ""));
+            if (lv) lv.qty = Number(sv.qty) || 0;   // SERVER haqiqati
+          });
+        });
+        try { saveDB(); } catch (e) {}
+        try { if (typeof renderKatalog === "function") renderKatalog(); } catch (e) {}
+      }).catch(e => console.warn("Serverda qoldiq o'zgarmadi:", e.message));
+    }
     const _rate = (db.settings?.rate || 12800);
     const _cost = (typeof getCostUzs === "function") ? getCostUzs(p)
                   : Math.round((p.costUsd || 0) * _rate);
