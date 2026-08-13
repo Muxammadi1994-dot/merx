@@ -1792,9 +1792,12 @@ async function recordPayment(id, forcedCurrency) {
     // 2026-07-26: Telegram chek — faqat PRO tarifda
     if (typeof sendTelegramPayReceipt === "function" &&
         (typeof canUseBot !== "function" || canUseBot())) {
-      await sendTelegramPayReceipt(clicked.customerId || null, phone, payment);
+      // ⚡ 2026-08-13: KUTILMAYDI — Telegram sekin bo'lsa kassa
+      // "qotib qolgandek" ko'rinardi (jonli shikoyat). Fonda ketadi,
+      // yiqilsa 📮 navbatga tushadi.
+      sendTelegramPayReceipt(clicked.customerId || null, phone, payment);
     } else if (typeof sendTelegramText === "function") {
-      await sendTelegramText(clicked.customerId || null, phone, smsTxt);
+      sendTelegramText(clicked.customerId || null, phone, smsTxt);
     }
   }
 }

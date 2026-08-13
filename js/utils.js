@@ -640,6 +640,15 @@ function getExportList(page, fallback) {
 }
 
 function nav(p) {
+  // ⚡ 2026-08-13: chek qatlami ochiq qolsa navigatsiyani TO'SARDI
+  // ("boshqa oynaga o'tmayapti" — jonli shikoyat). Sahifa almashganda
+  // qoldiq qatlamlar tozalanadi.
+  try {
+    document.getElementById("chek-overlay")?.remove();
+    const _ovr = document.getElementById("ov-receipt");
+    if (_ovr && _ovr.classList.contains("on")) closeModal("receipt");
+  } catch (e) {}
+
   // Rol tekshiruvi — ruxsati yo'q sahifaga o'tmaslik
   if (typeof canAccessPage === "function" && !canAccessPage(p)) {
     toast("Bu sahifaga kirishga ruxsatingiz yo'q", "err");
