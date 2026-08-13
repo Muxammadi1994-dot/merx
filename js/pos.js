@@ -3046,6 +3046,9 @@ async function checkout() {
       if (_sr && _sr.ok && _sr.sale) {
         Object.assign(newSale, _sr.sale);   // server bergan id va chek raqami
         _srvOk = true;
+        // ✅ 2026-08-14 (X18): qoldiqni endi SERVER ayirdi (atomar).
+        // Lokal nusxa ham ayirilgan — ikkalasi mos. Keyingi pull'da
+        // bulutdagi (haqiqiy) qiymat lokalni to'g'rilaydi.
       } else if (_sr && _sr.code === "stock") {
         _qoldiqTikla();   // 🔴 ayirilgan qoldiq QAYTARILADI
         // ✅ C-BOSQICH: QOLDIQ YETMADI — sotuv YOZILMAYDI, SAVAT QOLADI.
