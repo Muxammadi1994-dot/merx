@@ -286,7 +286,55 @@ module.exports = async (req, res) => {
       });
       const chekNum = `CHK-${dp}-${String(mx + 1).padStart(4, "0")}-${devCode}`;
 
-      // 2) Token haqiqiyligi (yozishdan oldin)
+      // 2) \u2705 C-BOSQICH (2026-08-14): TOVAR QOLDIG'INI SERVER TEKSHIRADI.
+      // Sabab (egasining tahlili): savat-taqiqi faqat BITTA qurilma ichida
+      // ishlaydi. 6 dona tovarni ikki kassa alohida savatga solsa,
+      // ikkalasi ham "yetadi" deb o'ylaydi — birinchisi sotgach ikkinchisi
+      // yo'q tovarni sotadi va qoldiq MANFIYGA tushadi.
+      // Endi: yetmasa server YOZMAYDI va aniq aytadi. Kassaning savati
+      // O'CHMAYDI — kassir tovarni kamaytirib qayta yakunlaydi.
+      const _skus = [...new Set((sale.items || []).map(i => String(i.sku || "")).filter(Boolean))];
+      if (_skus.length) {
+        const _inList = _skus.map(x => '"' + x.replace(/"/g, '') + '"').join(",");
+        const prods = await sbAll(
+          `products?shop_id=eq.${encodeURIComponent(shopId)}` +
+          `&sku=in.(${encodeURIComponent(_inList)})&select=sku,name,variants`);
+        const xarita = new Map(prods.map(p => [String(p.sku), p]));
+        const yetmagan = [];
+        // Bir chekda bir tovar bir necha qatorda bo'lishi mumkin — yig'amiz
+        const talab = new Map();
+        (sale.items || []).forEach(it => {
+          const k = String(it.sku || "") + "|" + (it.color || "") + "|" + (it.size || "");
+          talab.set(k, (talab.get(k) || 0) + (Number(it.qty) || 0));
+        });
+        for (const [k, kerak] of talab) {
+          const [sku, color, size] = k.split("|");
+          const p = xarita.get(sku);
+          if (!p) continue;                       // katalogda yo'q — to'smaymiz
+          const vs = Array.isArray(p.variants) ? p.variants : [];
+          const v = vs.find(x => String(x.color || "") === color &&
+                                 String(x.size  || "") === size) ||
+                    vs.find(x => String(x.color || "") === color);
+          if (!v) continue;                       // variant topilmadi — to'smaymiz
+          const bor = Number(v.qty) || 0;
+          if (kerak > bor) {
+            yetmagan.push({
+              sku, nom: p.name || sku,
+              rang: color || "", olcham: size || "",
+              bor, kerak
+            });
+          }
+        }
+        if (yetmagan.length) {
+          return res.status(200).json({
+            ok: false, code: "stock",
+            error: "Qoldiq yetmaydi",
+            items: yetmagan
+          });
+        }
+      }
+
+      // 3) Token haqiqiyligi (yozishdan oldin)
       if (!(await _verify))
         return res.status(401).json({ ok: false, error: "Token yaroqsiz — qayta kiring" });
 

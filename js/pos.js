@@ -3014,6 +3014,19 @@ async function checkout() {
       if (_sr && _sr.ok && _sr.sale) {
         Object.assign(newSale, _sr.sale);   // server bergan id va chek raqami
         _srvOk = true;
+      } else if (_sr && _sr.code === "stock") {
+        // ✅ C-BOSQICH: QOLDIQ YETMADI — sotuv YOZILMAYDI, SAVAT QOLADI.
+        // Boshqa kassa o'sha tovarni sotib yuborgan bo'lishi mumkin.
+        // Kassir savatdagi sonni kamaytirib qayta yakunlaydi.
+        window._checkoutBusy = false;
+        const _r = (_sr.items || []).map(x =>
+          `• ${x.nom}${x.rang ? " · " + x.rang : ""}${x.olcham ? " / " + x.olcham : ""}: ` +
+          `bor ${x.bor} dona, so'ralgan ${x.kerak}`).join("\n");
+        alert("⛔ QOLDIQ YETMAYDI — sotuv yakunlanmadi\n\n" + _r +
+              "\n\nBoshqa kassa bu tovarni sotgan bo'lishi mumkin.\n" +
+              "Savatingiz saqlandi — sonni kamaytirib qayta urinib ko'ring.");
+        toast("⛔ Qoldiq yetmaydi — savat saqlandi", "err");
+        return;                              // savat TEGILMAYDI
       } else if (_sr && _sr.error) {
         console.warn("Sotuv serverga yozilmadi:", _sr.error, "— lokal saqlanadi");
       }
