@@ -260,6 +260,77 @@ module.exports = async (req, res) => {
         ms: Date.now() - _t0 });
     }
 
+    // ── SOTUV (B3, 2026-08-13) ────────────────────────────────
+    // Nima uchun: 13-avgust voqeasi — kassa chek raqamini O'ZI berardi
+    // va sotuvni o'ziga yozardi. Pull kelganda yuborilmagan sotuv
+    // YO'QOLDI, keyingi sotuv esa AYNAN O'SHA raqamni oldi
+    // (CHK-20260813-0009-BK ikki sotuvda). Endi: raqamni SERVER beradi
+    // va sotuvni SERVER yozadi — ikkalasi ham mumkin emas.
+    // ⚠️ Tovar qoldig'i hozircha lokal hisoblanadi (C-bosqich).
+    if (action === "sale") {
+      const sale = body.sale || {};
+      const devCode = String(body.device || "??").slice(0, 4);
+      if (!sale || !Array.isArray(sale.items) || !sale.items.length)
+        return res.status(400).json({ ok: false, error: "Bo'sh sotuv" });
+
+      // 1) CHEK RAQAMI — serverda, to'qnashuvsiz
+      const dp = tashDate().replace(/-/g, "");
+      const kunlik = await sbAll(
+        `sales?shop_id=eq.${encodeURIComponent(shopId)}` +
+        `&date=eq.${tashDate()}&select=chek_num`);
+      let mx = 0;
+      kunlik.forEach(r => {
+        const m = new RegExp("^CHK-" + dp + "-(\\d+)-" + devCode + "$")
+                    .exec(String(r.chek_num || ""));
+        if (m) { const n = parseInt(m[1], 10) || 0; if (n > mx) mx = n; }
+      });
+      const chekNum = `CHK-${dp}-${String(mx + 1).padStart(4, "0")}-${devCode}`;
+
+      // 2) Token haqiqiyligi (yozishdan oldin)
+      if (!(await _verify))
+        return res.status(401).json({ ok: false, error: "Token yaroqsiz — qayta kiring" });
+
+      // 3) YOZISH — id ham serverda
+      const now = Date.now();
+      const items = sale.items.map(({ image, ...rest }) => rest);
+      const d = { ...sale, id: String(now), chekNum, items,
+                  updatedAt: new Date().toISOString(), serverWritten: true };
+      const rec = {
+        shop_id: shopId, id: String(now), chek_num: chekNum,
+        date: sale.date || tashDate(), time: sale.time || tashTime(),
+        price_type: sale.priceType || null, pay_type: sale.payType || null,
+        pay_breakdown: sale.payBreakdown || null,
+        items, total: sale.total || 0, paid: sale.paid || 0,
+        remaining: sale.remaining != null ? sale.remaining : 0,
+        due: sale.due || null,
+        customer_id: sale.customerId || null,
+        customer_name: sale.customerName || null,
+        customer_phone: sale.customerPhone || null,
+        staff_id: sale.staffId || null,
+        status: sale.status || null,
+        debt_currency: sale.debtCurrency || "uzs",
+        debt_usd: sale.debtUsd != null ? sale.debtUsd : null,
+        orig_paid: sale.origPaid != null ? sale.origPaid : (sale.paid || 0),
+        orig_remaining: sale.origRemaining != null ? sale.origRemaining
+                        : (sale.remaining != null ? sale.remaining : 0),
+        orig_debt_usd: sale.origDebtUsd != null ? sale.origDebtUsd : null,
+        ...(sale.discount != null ? { discount: sale.discount } : {}),
+        ...(sale.subtotal != null ? { subtotal: sale.subtotal } : {}),
+        data: d,
+        updated_at: new Date().toISOString()
+      };
+      const w = await fetch(`${SB_URL}/rest/v1/sales`, {
+        method: "POST",
+        headers: { ...H(), Prefer: "return=minimal" },
+        body: JSON.stringify(rec)
+      });
+      if (!w.ok) {
+        const t = await w.text().catch(() => "");
+        return res.status(200).json({ ok: false, error: "Yozib bo'lmadi: " + t.slice(0, 150) });
+      }
+      return res.status(200).json({ ok: true, sale: d });
+    }
+
     // ── QOLDIQNI SO'RASH (oyna ochilganda) ────────────────────
     if (action === "debt") {
       const custId = String(body.customerId || "");

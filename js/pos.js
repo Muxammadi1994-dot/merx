@@ -2997,9 +2997,37 @@ async function checkout() {
     prevDebtUsd: prevDebtUsd > 0 ? prevDebtUsd : null,
     prevDebtUzs: prevDebtUzs > 0 ? prevDebtUzs : null,
   };
+  // ✅ 2026-08-13 (B3): SERVER REJIMIDA sotuvni SERVER yozadi.
+  // Sabab (jonli, 13-avgust): kassa chek raqamini o'zi berardi va
+  // sotuvni o'ziga yozardi — pull kelganda yuborilmagan sotuv YO'QOLDI,
+  // keyingi sotuv esa AYNAN o'sha raqamni oldi (0009 ikki sotuvda).
+  // Endi raqamni ham, yozuvni ham server beradi — ikkalasi mumkin emas.
+  // Aloqa bo'lmasa: avvalgidek lokal yoziladi va ✈ belgi bilan
+  // navbatda turadi (B1/B2) — savdo TO'XTAMAYDI.
+  let _srvOk = false;
+  if (typeof _serverRejimi === "function" && _serverRejimi()) {
+    try {
+      const _sr = await _serverPay({
+        action: "sale", sale: newSale,
+        device: (typeof _devCode === "function" ? _devCode() : "")
+      });
+      if (_sr && _sr.ok && _sr.sale) {
+        Object.assign(newSale, _sr.sale);   // server bergan id va chek raqami
+        _srvOk = true;
+      } else if (_sr && _sr.error) {
+        console.warn("Sotuv serverga yozilmadi:", _sr.error, "— lokal saqlanadi");
+      }
+    } catch (e) {
+      console.warn("Server bilan aloqa yo'q — sotuv lokal saqlanadi:", e.message);
+    }
+  }
   db.sales.push(newSale); saveDB();
   // 2026-07-25: SOTUV — pul mantiqi, darhol bulutga yuboriladi
+  // (server yozgan bo'lsa ham lokal nusxa sinxron bilan moslashadi)
   try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}
+  if (!_srvOk && typeof renderPendingPill === "function") {
+    try { setTimeout(renderPendingPill, 400); } catch (e) {}
+  }
 
   // Sodiqlik balli — avtomatik hisoblanadi (Sozlamalar > Narx bo'limida yoqilsa)
   if (typeof addLoyaltyPoints === "function" && customerId) {
