@@ -891,6 +891,15 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
       .upsert(part.map(p => p[0]), { onConflict: conflict || "id,shop_id", ignoreDuplicates: false });
     if (error) throw error;
     part.forEach(([r, k, j]) => cache.set(k, j));
+    // \u2705 2026-08-13: MUVAFFAQIYATLI YUBORILGAN yozuv DARHOL "bulutda bor"
+    // ro'yxatiga qo'shiladi. Avval `_cloudIds` faqat PULL paytida
+    // yangilanardi \u2014 shu sabab yangi sotuv bulutga chiqqan bo'lsa ham
+    // keyingi pull'gacha "yuborilmagan" bo'lib ko'rinardi (ikkala
+    // qurilmada 📤 1 turib qolishi \u2014 jonli shikoyat).
+    try {
+      if (!_cloudIds[table]) _cloudIds[table] = new Map();
+      part.forEach(([r, k]) => _cloudIds[table].set(String(k), k));
+    } catch (e) {}
     _savePushCache();   // 2026-07-31: sahifa yangilansa ham saqlanadi
   }
   return pend.length;
