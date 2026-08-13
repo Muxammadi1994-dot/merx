@@ -1159,9 +1159,15 @@ async function pushToCloud() {
           ...(db.settings?.loyaltyRate  != null ? { loyalty_rate:  db.settings.loyaltyRate  } : {}),
           ...(db.settings?.loyaltyValue != null ? { loyalty_value: db.settings.loyaltyValue } : {}),
           ...(db.settings?.rateMode ? { rate_mode: db.settings.rateMode } : {}),
-          rate_updated_at: db.settings?.rateUpdatedAt || null,
-          debt_pay_methods_shown: db.settings?.debtPayMethodsShown || null,
-          debt_cols:              db.settings?.debtCols            || null,
+          // ⚠️ 2026-08-14 (4-band): QIYMAT ANIQLANMAGAN bo'lsa maydon
+          // UMUMAN YUBORILMAYDI (§5.3). Avval `|| null` / `=== true`
+          // ishlatilardi — sozlama hali qurilmaga yetmagan bo'lsa
+          // bulutdagi HAQIQIY qiymat null/false bilan bosilardi.
+          // Jonli isbotlar: chek shiori yo'qolishi (10-avgust),
+          // `server_pay` o'z-o'zidan false bo'lib qolishi (14-avgust).
+          ...(db.settings?.rateUpdatedAt != null ? { rate_updated_at: db.settings.rateUpdatedAt } : {}),
+          ...(db.settings?.debtPayMethodsShown != null ? { debt_pay_methods_shown: db.settings.debtPayMethodsShown } : {}),
+          ...(db.settings?.debtCols != null ? { debt_cols: db.settings.debtCols } : {}),
           // ⚠️ 2026-08-09 (C-2): XARAJAT TEGLARI endi sinxron.
           // Bo'sh ro'yxat bulutni BOSMAYDI (§5.3 uslubi) — demak teg
           // O'CHIRISHLAR tarqalmaydi, faqat qo'shilganlar tarqaladi.
@@ -1185,17 +1191,17 @@ async function pushToCloud() {
           // BOSMAYDI \u2014 faqat ANIQ true/false yuboriladi.
           ...(db.settings?.serverPay === true || db.settings?.serverPay === false
               ? { server_pay: db.settings.serverPay } : {}),
-          unit_tags:              db.settings?.unitTags            || null, // №11a (v186)
-          chek_config:            db.settings?.chekConfig          || null, // №12 (v187)
-          pack_unit_tags:         db.settings?.packUnitTags        || null,
+          ...(db.settings?.unitTags != null ? { unit_tags: db.settings.unitTags } : {}), // №11a (v186)
+          ...(db.settings?.chekConfig != null ? { chek_config: db.settings.chekConfig } : {}), // №12 (v187)
+          ...(db.settings?.packUnitTags != null ? { pack_unit_tags: db.settings.packUnitTags } : {}),
           // v172 (2026-07-10): SOZLAMALAR SINXRON SIMMETRIYASI.
           // low_stock_limit — bot Supabase'dan o'qiydi, lekin bu yerdan
           // hech qachon yozilmagan (bot doim standart 5 bilan ishlardi).
           // pos_pay_blocked/pos_staff_locked — POS qulflari avval faqat
           // bitta qurilmada qolardi, endi barcha qurilmalarga o'tadi.
-          low_stock_limit:  db.settings?.lowStockLimit  ?? null,
-          pos_pay_blocked:  db.settings?.posPayBlocked  || null,
-          pos_staff_locked: db.settings?.posStaffLocked === true,
+          ...(db.settings?.lowStockLimit != null ? { low_stock_limit: db.settings.lowStockLimit } : {}),
+          ...(db.settings?.posPayBlocked != null ? { pos_pay_blocked: db.settings.posPayBlocked } : {}),
+          ...(db.settings?.posStaffLocked != null ? { pos_staff_locked: db.settings.posStaffLocked === true } : {}),
           // ⚠️ 2026-08-11 ILDIZ-DAVO (menejer-chek voqeasi): avval bu
           // qatorda updated_at YO'Q edi — admin nimani o'zgartirmasin,
           // bulut qatorining "yangilangan vaqti" qimirlamasdi va ishlab

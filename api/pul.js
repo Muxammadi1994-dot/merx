@@ -442,6 +442,48 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    // ── SOZLAMA O'ZGARTIRISH (4-band, 2026-08-14) ─────────────
+    // Nima uchun: sozlama qatori BUTUNLAY qayta yozilardi \u2014 qurilma
+    // o'z nusxasini yuborganda boshqa kassa yangilagan maydonlar
+    // BOSILIB ketardi (chek shiori yo'qolishi; `server_pay` false
+    // bo'lib qolishi). Endi: server FAQAT berilgan maydonlarni
+    // qulf ostida QO'SHADI (merge), qolganiga tegmaydi.
+    if (action === "settings") {
+      const patch = body.patch && typeof body.patch === "object" ? body.patch : null;
+      if (!patch || !Object.keys(patch).length)
+        return res.status(400).json({ ok: false, error: "patch kerak" });
+      if (!(await _verify))
+        return res.status(401).json({ ok: false, error: "Token yaroqsiz" });
+
+      // Faqat RUXSAT ETILGAN ustunlar (begona maydon yozilmasin)
+      const RUXSAT = new Set([
+        "rate", "rate_mode", "rate_updated_at", "price_currency", "show_chakana",
+        "shop_name", "shop_type", "owner_name",
+        "chek_config", "debt_cols", "debt_pay_methods_shown",
+        "unit_tags", "pack_unit_tags", "exp_tags_kunlik", "exp_tags_oylik",
+        "low_stock_limit", "pos_pay_blocked", "pos_staff_locked",
+        "loyalty_rate", "loyalty_value",
+        "eskiz_token", "eskiz_sender", "telegram_bot", "telegram_bot_username",
+        "staff_group_id", "ext_services", "server_pay"
+      ]);
+      const toza = {};
+      for (const k in patch) if (RUXSAT.has(k)) toza[k] = patch[k];
+      if (!Object.keys(toza).length)
+        return res.status(400).json({ ok: false, error: "Ruxsat etilgan maydon yo'q" });
+      toza.updated_at = new Date().toISOString();
+
+      const w = await fetch(
+        `${SB_URL}/rest/v1/settings?shop_id=eq.${encodeURIComponent(shopId)}`,
+        { method: "PATCH", headers: { ...H(), Prefer: "return=representation" },
+          body: JSON.stringify(toza) });
+      if (!w.ok) {
+        const t = await w.text().catch(() => "");
+        return res.status(200).json({ ok: false, error: "Saqlanmadi: " + t.slice(0, 150) });
+      }
+      const rows = await w.json().catch(() => []);
+      return res.status(200).json({ ok: true, settings: rows[0] || null });
+    }
+
     // ── QOLDIQNI SO'RASH (oyna ochilganda) ────────────────────
     if (action === "debt") {
       const custId = String(body.customerId || "");

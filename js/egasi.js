@@ -100,10 +100,42 @@ function currencyPillText() {
 }
 
 // ── saveSetting — o'zgarmadi ──────────────────────
+// camelCase → bulut ustuni (server merge uchun)
+const _SET_USTUN = {
+  rate: "rate", rateMode: "rate_mode", rateUpdatedAt: "rate_updated_at",
+  priceCurrency: "price_currency", showChakana: "show_chakana",
+  name: "shop_name", shopType: "shop_type", ownerName: "owner_name",
+  chekConfig: "chek_config", debtCols: "debt_cols",
+  debtPayMethodsShown: "debt_pay_methods_shown",
+  unitTags: "unit_tags", packUnitTags: "pack_unit_tags",
+  expTagsKunlik: "exp_tags_kunlik", expTagsOylik: "exp_tags_oylik",
+  lowStockLimit: "low_stock_limit", posPayBlocked: "pos_pay_blocked",
+  posStaffLocked: "pos_staff_locked",
+  loyaltyRate: "loyalty_rate", loyaltyValue: "loyalty_value",
+  eskizToken: "eskiz_token", eskizSender: "eskiz_sender",
+  telegramBotUrl: "telegram_bot", telegramBotUsername: "telegram_bot_username",
+  staffGroupId: "staff_group_id", extServices: "ext_services",
+  serverPay: "server_pay"
+};
+
 function saveSetting(key, val) {
   if (!db.settings) db.settings = {};
   db.settings[key] = val;
   saveDB();
+  // ✅ 2026-08-14 (4-band): SERVER REJIMIDA sozlamani SERVER yozadi —
+  // FAQAT o'zgargan maydonni (merge). Avval butun qator qayta
+  // yozilardi va boshqa kassa yangilagan maydonlar bosilardi
+  // (chek shiori yo'qolishi, `server_pay` false bo'lib qolishi).
+  try {
+    const ustun = _SET_USTUN[key];
+    if (ustun && typeof _serverRejimi === "function" && _serverRejimi() &&
+        typeof _serverPay === "function") {
+      _serverPay({ action: "settings", patch: { [ustun]: val } })
+        .then(r => { if (!r || !r.ok) console.warn("Sozlama serverga yozilmadi:",
+                        (r && r.error) || "?"); })
+        .catch(e => console.warn("Sozlama serverga yozilmadi:", e.message));
+    }
+  } catch (e) {}
   if (key === "eskizToken") {
     // Token qo'lda yangilandi — eski "eskirgan" ogohlantirishni tozalaymiz
     db.settings.eskizTokenExpired = false;
