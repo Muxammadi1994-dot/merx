@@ -58,17 +58,31 @@ async function sbAll(path) {
   return out;
 }
 
-// Foydalanuvchi tokenidan shop_id — kassa boshqa do'konga yoza olmaydi
-async function shopFromToken(token) {
-  if (!token) return null;
+// ⚡ 2026-08-13 TEZLIK: token ikki bosqichda.
+//   (a) shop_id JWT ichidan O'QILADI — tarmoqsiz, darhol (so'rovlarni
+//       shu bilan boshlaymiz);
+//   (b) tokenning HAQIQIYLIGI Supabase'da tekshiriladi — lekin
+//       PARALLEL, so'rovlar bilan bir vaqtda. Yozishdan OLDIN javob
+//       kutiladi: soxta token bilan hech narsa yozilmaydi.
+// Avval (b) ketma-ket edi va har to'lovga ~250-350 ms qo'shardi.
+function shopFromJwt(token) {
+  try {
+    const part = String(token || "").split(".")[1];
+    if (!part) return null;
+    const json = Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString();
+    const d = JSON.parse(json);
+    return (d && d.user_metadata && d.user_metadata.shop_id) || null;
+  } catch (e) { return null; }
+}
+async function verifyToken(token, shopId) {
   try {
     const r = await fetch(`${SB_URL}/auth/v1/user`, {
       headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${token}` }
     });
-    if (!r.ok) return null;
+    if (!r.ok) return false;
     const u = await r.json();
-    return (u && u.user_metadata && u.user_metadata.shop_id) || null;
-  } catch (e) { return null; }
+    return !!(u && u.user_metadata && u.user_metadata.shop_id === shopId);
+  } catch (e) { return false; }
 }
 
 // Sotuvning JORIY qoldig'i — muzlatilgan asl qiymatdan faol
@@ -109,9 +123,11 @@ module.exports = async (req, res) => {
 
   const action = String(body.action || "");
   const token  = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-  const shopId = await shopFromToken(token);
+  const shopId = shopFromJwt(token);
   if (!shopId)
     return res.status(401).json({ ok: false, error: "Token yaroqsiz — qayta kiring" });
+  // Haqiqiylik tekshiruvi PARALLEL boshlanadi, yozishdan oldin kutiladi
+  const _verify = verifyToken(token, shopId);
 
   try {
     // ── QARZ TO'LOVI ──────────────────────────────────────────
@@ -199,6 +215,10 @@ module.exports = async (req, res) => {
         });
         qoldi -= ber;
       }
+
+      // ⚠️ Yozishdan OLDIN token haqiqiyligi tasdiqlanadi
+      if (!(await _verify))
+        return res.status(401).json({ ok: false, error: "Token yaroqsiz — qayta kiring" });
 
       // 5) YOZISH — muhrlar SERVERDA qo'yiladi
       const now = Date.now();

@@ -18,6 +18,14 @@ function _botHeaders() {
 }
 
 async function sendSms(phone, text) {
+  // ⚡ 2026-08-13: SMS SOZLANMAGAN bo'lsa — URINMAYDI ham.
+  // Avval har to'lovda so'rov yuborilib CORS xatosi bilan yiqilardi:
+  // konsol xato bilan to'lardi va kassir kutardi (egasining shikoyati).
+  try {
+    const _tok = db.settings?.eskizToken;
+    if (!_tok) { console.log("ℹ️ SMS sozlanmagan — yuborilmadi"); return { ok: false, skipped: true }; }
+  } catch (e) { return { ok: false, skipped: true }; }
+
   const token = db.settings.eskizToken;
   if (!token) {
     toast("📩 SMS (test) → " + (phone||"mijoz") + " | " + text.slice(0,60) + (text.length>60?"...":""));

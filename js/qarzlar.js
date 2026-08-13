@@ -1775,7 +1775,9 @@ async function recordPayment(id, forcedCurrency) {
       const a = allocations[0];
       smsTxt += a.fullyPaid ? " Qarz to'liq yopildi." : ` ${fmtMoney(a.remainingAfter,a.currency)} qoldi.`;
     }
-    await sendSms(phone, smsTxt);
+    // ⚡ 2026-08-13: SMS KUTILMAYDI — to'lovni sekinlashtirmasin
+    // (sozlanmagan bo'lsa CORS xatosi bilan yiqilardi va kassir kutardi)
+    sendSms(phone, smsTxt);
 
     // Telegram: to'lov cheki (mini-app tugmasi bilan) — v145
     // 2026-07-26: Telegram chek — faqat PRO tarifda
@@ -1845,7 +1847,7 @@ async function sendDebtReminder(id) {
   });
 
   const msg = buildDebtReminderText(cu.name, totalUzs, totalUsd);
-  await sendSms(phone, msg);
+  sendSms(phone, msg);   // ⚡ 2026-08-13: kutilmaydi (SMS sekinlashtirmasin)
   toast(`📲 SMS eslatma yuborildi: ${cu.name}`);
 }
 
@@ -1886,7 +1888,7 @@ function buildDebtReminderText(name, totalUzs, totalUsd) {
 
 async function sendGroupReminder(phone, name, totalUzs, totalUsd) {
   const msg = buildDebtReminderText(name, totalUzs, totalUsd);
-  await sendSms(phone, msg);
+  sendSms(phone, msg);   // ⚡ 2026-08-13: kutilmaydi (SMS sekinlashtirmasin)
   toast(`📲 SMS eslatma yuborildi: ${name}`);
 }
 
