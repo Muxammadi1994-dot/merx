@@ -43,7 +43,14 @@ async function sbAll(path) {
     const sep = path.includes("?") ? "&" : "?";
     const r = await fetch(`${SB_URL}/rest/v1/${path}${sep}limit=1000&offset=${p * 1000}`,
                           { headers: H() });
-    if (!r.ok) break;
+    // \U0001f534 2026-08-13: XATO JIM YUTILMAYDI. Avval `if (!r.ok) break`
+    // edi \u2014 so'rov rad etilsa (masalan mavjud bo'lmagan ustun so'ralsa)
+    // funksiya BO'SH ro'yxat qaytarardi va server "qarz = 0" deb
+    // hisoblardi. Bu \u2014 pul mantiqida eng xavfli xato turi.
+    if (!r.ok) {
+      const t = await r.text().catch(() => "");
+      throw new Error("db " + r.status + ": " + t.slice(0, 200));
+    }
     const rows = await r.json();
     out.push(...rows);
     if (rows.length < 1000) break;
@@ -121,8 +128,11 @@ module.exports = async (req, res) => {
       // ⚡ TEZLIK: (a) `data` JSON tortilmaydi; (b) faqat QARZI BOR
       // sotuvlar; (c) kunlik chek-raqami PARALLEL olinadi.
       const _t0 = Date.now();
+      // \u26a0\ufe0f `cancelled` USTUN EMAS (u data JSON ichida) \u2014 so'rovga
+      // qo'shilsa baza butun so'rovni rad etadi. Bekor qilingan sotuv
+      // `status = "bekor"` bo'ladi, shuni ishlatamiz.
       const SALE_COLS = "id,date,status,remaining,debt_usd,debt_currency," +
-                        "orig_remaining,orig_debt_usd,cancelled";
+                        "orig_remaining,orig_debt_usd";
       const [sales, pays, kunlik] = await Promise.all([
         sbAll(`sales?shop_id=eq.${encodeURIComponent(shopId)}` +
               `&customer_id=eq.${encodeURIComponent(custId)}` +
@@ -134,8 +144,7 @@ module.exports = async (req, res) => {
       ]);
       const ochiq = sales
         .filter(s => {
-          if (s.cancelled === true) return false;
-          if (s.status === "qaytarilgan") return false;
+          if (s.status === "bekor" || s.status === "qaytarilgan") return false;
           const st = saleState(s, pays);
           return cur === "usd" ? st.debtUsd > 0.005 : st.remaining > 0.5;
         })
@@ -239,14 +248,13 @@ module.exports = async (req, res) => {
         sbAll(`sales?shop_id=eq.${encodeURIComponent(shopId)}` +
               `&customer_id=eq.${encodeURIComponent(custId)}` +
               `&or=(remaining.gt.0,debt_usd.gt.0)` +
-              `&select=id,date,status,remaining,debt_usd,debt_currency,orig_remaining,orig_debt_usd,cancelled`),
+              `&select=id,date,status,remaining,debt_usd,debt_currency,orig_remaining,orig_debt_usd`),
         sbAll(`debt_payments?shop_id=eq.${encodeURIComponent(shopId)}` +
               `&customer_id=eq.${encodeURIComponent(custId)}&select=id,amount,currency,data`)
       ]);
       let uzs = 0, usd = 0;
       sales.forEach(s => {
-        if (s.cancelled === true) return;
-        if (s.status === "qaytarilgan") return;
+        if (s.status === "bekor" || s.status === "qaytarilgan") return;
         const st = saleState(s, pays);
         uzs += st.remaining; usd += st.debtUsd;
       });
