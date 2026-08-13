@@ -1454,6 +1454,9 @@ function _serverRejimi() {
 }
 
 async function _serverPay(payload) {
+  // ✅ 2026-08-14: so'rovdan OLDIN kirish kaliti yangiligi tekshiriladi —
+  // eskirgan kalit bilan yuborib rad etilmasin (uzilish ildizi).
+  try { if (typeof ensureFreshToken === "function") await ensureFreshToken(); } catch (e) {}
   const tok = (() => {
     try {
       const raw = localStorage.getItem("merx_sb_session") ||

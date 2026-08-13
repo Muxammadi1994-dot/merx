@@ -1320,12 +1320,15 @@ async function doStaffLogin() {
 // ma'lumoti bilan server so'raladi; muvaffaqiyatda sinxron va
 // sozlamalar (kurs, do'kon nomi) O'ZI yangilanadi — "Yangilash" shart emas.
 let _staffTokRetryBusy = false;
-async function _staffTokenRetry() {
+// `force` — token BOR bo'lsa ham majburan qayta kirish (2026-08-14).
+// Kerak bo'ldi: yangilash rad etilganda token MAVJUD, lekin ESKIRGAN —
+// funksiya "token bor" deb darhol true qaytarardi va tiklash bo'lmasdi.
+async function _staffTokenRetry(force) {
   if (_staffTokRetryBusy) return false;
   try {
     const u = (typeof getAuthUser === "function") ? getAuthUser() : null;
     if (!u || u.staffId == null) return false;              // faqat xodim
-    if (getSupabaseTestSession()?.accessToken) return true; // token bor
+    if (!force && getSupabaseTestSession()?.accessToken) return true; // token bor
     if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
     const st = ((db && db.staff) || []).find(x => String(x.id) === String(u.staffId));
     if (!st || !st.phone || !st.pin) return false;

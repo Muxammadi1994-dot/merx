@@ -91,8 +91,24 @@ async function ensureFreshToken() {
       try { if (_sb && _sb.realtime) _sb.realtime.setAuth(s.accessToken); } catch(e) {}
       console.log("🔄 Kirish kaliti avtomatik yangilandi");
     } else if (r.status === 400 || r.status === 401) {
-      console.warn("❌ Sessiya butunlay eskirgan — chiqib, qayta kiring");
-      if (typeof toast === "function") toast("Sessiya eskirdi — chiqib, qayta kiring", "err");
+      // \U0001f534 2026-08-14 ILDIZ-DAVO: avval faqat OGOHLANTIRARDI va
+      // qurilma "kar" bo'lib qolardi — sotuvlar bulutga chiqmasdi
+      // (ABU SAXIY xodim uzilishi, bir necha marta takrorlangan).
+      // Yangilash rad etilishining odatiy sababi: BIR XODIM IKKI
+      // QURILMADA kirgan — Supabase yangilash kalitini almashtiradi
+      // va ikkinchisiniki kuchdan qoladi.
+      // Endi: xodim bo'lsa — saqlangan telefon+PIN bilan JIMGINA
+      // qayta kirgiziladi (u hech narsa sezmaydi).
+      console.warn("❌ Sessiya eskirgan — avtomatik tiklashga urinamiz");
+      let _tiklandi = false;
+      try {
+        if (typeof _staffTokenRetry === "function") {
+          _tiklandi = await _staffTokenRetry(true);   // majburan
+        }
+      } catch (e) {}
+      if (!_tiklandi && typeof toast === "function")
+        toast("⚠️ Sessiya eskirdi — chiqib, qayta kiring", "err");
+      else if (_tiklandi) console.log("✅ Sessiya avtomatik tiklandi");
     }
   } catch (e) { console.warn("token yangilash xato:", e.message); }
   finally { _refreshBusy = false; }
