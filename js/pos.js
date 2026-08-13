@@ -2902,6 +2902,38 @@ async function checkout() {
   }
   const saleNote = ($("pos-note")||{value:""}).value.trim();
 
+  // 🔴 2026-08-14 KRITIK: QOLDIQ NUSXASI (qaytarish uchun).
+  // Sabab: qoldiq shu yerda ayiriladi, server tekshiruvi esa PASTDA.
+  // Server "qoldiq yetmaydi" deb rad etganda ayirilgan tovar QAYTMAY
+  // qolardi — sotuv bo'lmasa ham qoldiq nolga tushardi (jonli:
+  // Eshak Qora, 14-avgust). Endi rad etilsa AYNAN eski holat tiklanadi.
+  const _qoldiqNusxa = [];
+  try {
+    const _skuSet = new Set(cart.map(c => String(c.sku)));
+    (db.products || []).forEach(p => {
+      if (!_skuSet.has(String(p.sku))) return;
+      _qoldiqNusxa.push({
+        sku: p.sku,
+        variants: (p.variants || []).map(v => ({ color: v.color, size: v.size, qty: v.qty }))
+      });
+    });
+  } catch (e) {}
+  const _qoldiqTikla = () => {
+    try {
+      _qoldiqNusxa.forEach(n => {
+        const p = (db.products || []).find(x => String(x.sku) === String(n.sku));
+        if (!p) return;
+        n.variants.forEach(nv => {
+          const v = (p.variants || []).find(x => x.color === nv.color && x.size === nv.size);
+          if (v) v.qty = nv.qty;
+        });
+      });
+      saveDB();
+      if (typeof renderKatalog === "function") renderKatalog();
+      if (typeof renderPosGrid === "function") renderPosGrid();
+    } catch (e) {}
+  };
+
   // Qoldiqdan ayirish
   cart.forEach(c => {
     const p = db.products.find(x => x.sku === c.sku); if (!p) return;
@@ -3015,13 +3047,30 @@ async function checkout() {
         Object.assign(newSale, _sr.sale);   // server bergan id va chek raqami
         _srvOk = true;
       } else if (_sr && _sr.code === "stock") {
+        _qoldiqTikla();   // 🔴 ayirilgan qoldiq QAYTARILADI
         // ✅ C-BOSQICH: QOLDIQ YETMADI — sotuv YOZILMAYDI, SAVAT QOLADI.
         // Boshqa kassa o'sha tovarni sotib yuborgan bo'lishi mumkin.
         // Kassir savatdagi sonni kamaytirib qayta yakunlaydi.
         window._checkoutBusy = false;
+        // 2026-08-14 (egasining talabi): son POCHKA ko'rinishida —
+        // kassir pochkada o'ylaydi, "13 dona" chalkashtiradi.
+        const _pd = (n, sku) => {
+          const pr = (db.products || []).find(x => String(x.sku) === String(sku));
+          const v0 = pr && (pr.variants || [])[0];
+          const box = (v0 && v0.inBox) || (pr && pr.inBox) || 1;
+          n = parseInt(n) || 0;
+          if (box <= 1) return n + " dona";
+          const po = Math.floor(n / box), d = n % box;
+          let t = "";
+          if (po) t += po + " pch × " + box;
+          if (po && d) t += " + " + d;
+          if (!po && d) t += d;
+          return t + " = " + n + " dona";
+        };
         const _r = (_sr.items || []).map(x =>
-          `• ${x.nom}${x.rang ? " · " + x.rang : ""}${x.olcham ? " / " + x.olcham : ""}: ` +
-          `bor ${x.bor} dona, so'ralgan ${x.kerak}`).join("\n");
+          `• ${x.nom}${x.rang ? " · " + x.rang : ""}${x.olcham ? " / " + x.olcham : ""}\n` +
+          `   BOR: ${_pd(x.bor, x.sku)}\n` +
+          `   SO'RALGAN: ${_pd(x.kerak, x.sku)}`).join("\n\n");
         alert("⛔ QOLDIQ YETMAYDI — sotuv yakunlanmadi\n\n" + _r +
               "\n\nBoshqa kassa bu tovarni sotgan bo'lishi mumkin.\n" +
               "Savatingiz saqlandi — sonni kamaytirib qayta urinib ko'ring.");
