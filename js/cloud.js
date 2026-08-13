@@ -2090,6 +2090,13 @@ async function pullFromCloud(silent = false, skipRender = false) {
       // holda pull har safar inBox=1, barcode=yo'q qilib qo'yardi
       // (aynan shu "ma'lumot o'chish" muammosi edi).
       const _oldBySku = new Map((db.products || []).map(x => [String(x.sku), x]));
+            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+      // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
+      const _pend_products = (() => {
+        const _ids = new Set((prods || []).map(r => String(r.sku)));
+        return (db.products || []).filter(x => x && !_ids.has(String(x.sku))
+          && !_tombstones.has("products:" + String(x.sku)));   // o'chirilgan tirilmasin
+      })();
       db.products = prods.map(p => {
         const old = _oldBySku.get(String(p.sku)) || {};
         // v173 (2026-07-10): BUTUN JSON — bulutda to'liq nusxa ("data")
@@ -2133,6 +2140,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
         colorBarcodes: p.color_barcodes || old.colorBarcodes || null
         };
       });
+      if (_pend_products.length) db.products = db.products.concat(_pend_products);
     }
 
     // Customers
@@ -2140,6 +2148,13 @@ async function pullFromCloud(silent = false, skipRender = false) {
     _cloudIds["customers"] = new Map((custs||[]).map(r => [String(r.id), r.id]));
     if (custs && custs.length > 0) {
       const _oldCust = new Map((db.customers || []).map(x => [String(x.id), x])); // v180
+            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+      // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
+      const _pend_customers = (() => {
+        const _ids = new Set((custs || []).map(r => String(r.id)));
+        return (db.customers || []).filter(x => x && !_ids.has(String(x.id))
+          && !_tombstones.has("customers:" + String(x.id)));   // o'chirilgan tirilmasin
+      })();
       db.customers = custs.map(c => {
         // v174: BUTUN JSON bo'lsa — undan tiklanadi. MUHIM ISTISNO:
         // telegramChatId har doim USTUNDAN olinadi, chunki bot mijoz
@@ -2167,6 +2182,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
         balanceUzs: c.balance_uzs || 0, balanceUsd: c.balance_usd || 0
         };
       });
+      if (_pend_customers.length) db.customers = db.customers.concat(_pend_customers);
     }
 
     // Staff
@@ -2237,6 +2253,17 @@ async function pullFromCloud(silent = false, skipRender = false) {
       // Busiz eski nusxali qurilma bekor qilingan sotuvni yoki
       // eski ombor qoldig'ini tiklab yuborardi.
       const _oldSale = new Map((db.sales || []).map(x => [String(x.id), x]));
+      // \U0001f534 2026-08-13 KRITIK: bulutga YUBORILMAGAN sotuvlar saqlanadi.
+      // Avval `db.sales = salesData.map(...)` lokal ro'yxatni BUTUNLAY
+      // almashtirardi \u2014 push kutayotgan sotuv o'sha lahzada YO'QOLARDI
+      // (jonli isbot: ABU SAXIY 13-avgust, CHK-...-0009-BK). O'chirilgan
+      // yozuvlar (tombstone) esa TIRILMAYDI.
+      const _cloudSaleIds = new Set((salesData || []).map(r => String(r.id)));
+      const _pending = (db.sales || []).filter(x => x && !_cloudSaleIds.has(String(x.id))
+        && !_tombstones.has("sales:" + String(x.id)));
+      if (_pending.length) console.warn("\u26a0\ufe0f Bulutga yetmagan " +
+        _pending.length + " ta sotuv saqlandi:",
+        _pending.map(x => x.chekNum || x.id).join(", "));
       db.sales = salesData.map(s => {
         // v174: BUTUN JSON bo'lsa — undan (subtotal/discount/note ham
         // yo'qolmaydi). Sotuvni faqat mijoz (sayt) yozadi, bot yozmaydi.
@@ -2264,6 +2291,8 @@ async function pullFromCloud(silent = false, skipRender = false) {
         origDebtUsd: s.orig_debt_usd != null ? s.orig_debt_usd : null
         };
       });
+      // 🔴 Bulutga yetmagan sotuvlarni QAYTARAMIZ (yo'qolmasin)
+      if (_pending.length) db.sales = db.sales.concat(_pending);
     }
 
     // Ombor
@@ -2272,6 +2301,13 @@ async function pullFromCloud(silent = false, skipRender = false) {
     if (omborData && omborData.length > 0) {
       // 2026-08-02: vaqt solishtiruvi (sotuvdagi qoida)
       const _oldOm = new Map((db.ombor || []).map(x => [String(x.id), x]));
+            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+      // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
+      const _pend_ombor = (() => {
+        const _ids = new Set((omborData || []).map(r => String(r.id)));
+        return (db.ombor || []).filter(x => x && !_ids.has(String(x.id))
+          && !_tombstones.has("ombor:" + String(x.id)));   // o'chirilgan tirilmasin
+      })();
       db.ombor = omborData.map(o => {
         // v175: BUTUN JSON bo'lsa — undan
         if (o.data && typeof o.data === "object" && !Array.isArray(o.data)) {
@@ -2292,6 +2328,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
         pantone: o.pantone || null, hex: o.hex || null,
         chakana: o.chakana || 0
       });
+      if (_pend_ombor.length) db.ombor = db.ombor.concat(_pend_ombor);
       });
     }
 
@@ -2299,6 +2336,13 @@ async function pullFromCloud(silent = false, skipRender = false) {
     const xarData = await _selectAll(() => _sb.from("xarajatlar").select("*").eq("shop_id", sid).order("local_id"), "xarajatlar");
     _cloudIds["xarajatlar"] = new Map((xarData||[]).map(r => [String(r.id), r.id]));
     if (xarData) {
+            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+      // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
+      const _pend_xarajatlar = (() => {
+        const _ids = new Set((xarData || []).map(r => String(r.id)));
+        return (db.xarajatlar || []).filter(x => x && !_ids.has(String(x.id))
+          && !_tombstones.has("xarajatlar:" + String(x.id)));   // o'chirilgan tirilmasin
+      })();
       db.xarajatlar = xarData.map(x => {
         // v175: BUTUN JSON bo'lsa — undan
         if (x.data && typeof x.data === "object" && !Array.isArray(x.data)) return { ...x.data, id: x.id };
@@ -2312,6 +2356,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
         xarajatType: x.xarajat_type || null,
         forMonth: x.for_month || null
       });
+      if (_pend_xarajatlar.length) db.xarajatlar = db.xarajatlar.concat(_pend_xarajatlar);
       });
     }
 
@@ -2342,6 +2387,13 @@ async function pullFromCloud(silent = false, skipRender = false) {
     const chiqData = await _selectAll(() => _sb.from("chiqimlar").select("*").eq("shop_id", sid).order("local_id"), "chiqimlar");
     _cloudIds["chiqimlar"] = new Map((chiqData||[]).map(r => [String(r.id), r.id]));
     if (chiqData && chiqData.length > 0) {
+            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+      // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
+      const _pend_chiqimlar = (() => {
+        const _ids = new Set((chiqData || []).map(r => String(r.id)));
+        return (db.chiqimlar || []).filter(x => x && !_ids.has(String(x.id))
+          && !_tombstones.has("chiqimlar:" + String(x.id)));   // o'chirilgan tirilmasin
+      })();
       db.chiqimlar = chiqData.map(c => {
         // v175: BUTUN JSON bo'lsa — undan (id konvensiyasi saqlanadi)
         if (c.data && typeof c.data === "object" && !Array.isArray(c.data)) return { ...c.data, id: c.local_id || c.data.id || c.id };
@@ -2359,6 +2411,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
         note:        c.note || "",
         costUzs:     c.cost_uzs || 0
       });
+      if (_pend_chiqimlar.length) db.chiqimlar = db.chiqimlar.concat(_pend_chiqimlar);
       });
     }
 
@@ -2366,6 +2419,13 @@ async function pullFromCloud(silent = false, skipRender = false) {
     const payData = await _selectAll(() => _sb.from("debt_payments").select("*").eq("shop_id", sid).order("created_at"), "debt_payments");
     _cloudIds["debt_payments"] = new Map((payData||[]).map(r => [String(r.id), r.id]));
     if (payData) {
+            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+      // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
+      const _pend_debt_payments = (() => {
+        const _ids = new Set((payData || []).map(r => String(r.id)));
+        return (db.debtPayments || []).filter(x => x && !_ids.has(String(x.id))
+          && !_tombstones.has("debt_payments:" + String(x.id)));   // o'chirilgan tirilmasin
+      })();
       db.debtPayments = payData.map(p => {
         // v174: BUTUN JSON bo'lsa — undan. Bot bu jadvalga yozmaydi.
         if (p.data && typeof p.data === "object" && !Array.isArray(p.data)) {
@@ -2395,12 +2455,20 @@ async function pullFromCloud(silent = false, skipRender = false) {
         leftoverToBalance: !!p.leftover_to_balance
         };
       });
+      if (_pend_debt_payments.length) db.debtPayments = db.debtPayments.concat(_pend_debt_payments);
     }
 
     // Qaytarilgan tovarlar
     const retData = await _selectAll(() => _sb.from("returns").select("*").eq("shop_id", sid).order("created_at"), "returns");
     _cloudIds["returns"] = new Map((retData||[]).map(r => [String(r.id), r.id]));
     if (retData) {
+            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+      // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
+      const _pend_returns = (() => {
+        const _ids = new Set((retData || []).map(r => String(r.id)));
+        return (db.returns || []).filter(x => x && !_ids.has(String(x.id))
+          && !_tombstones.has("returns:" + String(x.id)));   // o'chirilgan tirilmasin
+      })();
       db.returns = retData.map(r => {
         // v175: BUTUN JSON bo'lsa — undan
         if (r.data && typeof r.data === "object" && !Array.isArray(r.data)) return { ...r.data, id: r.id };
@@ -2414,6 +2482,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
         customerName: r.customer_name || null,
         staffId: r.staff_id || null
       });
+      if (_pend_returns.length) db.returns = db.returns.concat(_pend_returns);
       });
     }
 
