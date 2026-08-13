@@ -1441,8 +1441,16 @@ function qzShowUsdHint(id) {
 // eskirgan ma'lumoti bilan noto'g'ri chek yozilishi MUMKIN EMAS.
 // O'chirilsa avvalgi (lokal) tartib qaytadi — orqaga yo'l ochiq.
 function _serverRejimi() {
-  try { return db.settings && db.settings.serverPay === true; }
-  catch (e) { return false; }
+  try {
+    // ⚠️ 2026-08-13 XAVFSIZ TOMONGA OG'ISH: agar do'kon rejimi
+    // ANIQ o'chirilmagan bo'lsa (qiymat yo'q yoki hali yetib kelmagan) —
+    // SERVER yo'li tanlanadi. Sabab: xodim qurilmasiga sozlama
+    // yetmasa, u jimgina LOKAL yozib boshlardi — eng xavfli holat.
+    // Server yo'li har doim xavfsiz: qoldiqni tekshiradi, raqamni
+    // o'zi beradi. Lokal yo'l faqat ATAYLAB o'chirilganda ishlaydi.
+    if (!db.settings) return true;
+    return db.settings.serverPay !== false;
+  } catch (e) { return true; }
 }
 
 async function _serverPay(payload) {

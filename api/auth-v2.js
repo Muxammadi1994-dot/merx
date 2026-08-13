@@ -365,10 +365,30 @@ module.exports = async function handler(req, res) {
   // Ochiq: klient ulanish sozlamalari. Anon kalit ochiq bo'lishi normal —
   // himoya RLS zimmasida. Busiz toza qurilma bulutga ulana olmasdi.
   if (action === "client_config") {
+    // ✅ 2026-08-13: DO'KON REJIMI ham shu yerdan keladi.
+    // Sabab: `server_pay` sozlamasi oddiy sinxron bilan yuborilardi —
+    // xodim qurilmasiga yetmasa u JIMGINA lokal yozib boshlardi
+    // (egasining haqli xavotiri). Endi rejim KIRISH paytida
+    // to'g'ridan-to'g'ri serverdan olinadi — kechikishga bog'liq emas.
+    let _srvPay = null;
+    try {
+      const _sid = String((body && body.shopId) || "");
+      if (_sid) {
+        const r = await fetch(
+          `${SB_URL}/rest/v1/settings?shop_id=eq.${encodeURIComponent(_sid)}` +
+          `&select=server_pay&limit=1`,
+          { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+        if (r.ok) {
+          const j = await r.json();
+          if (j && j[0] && j[0].server_pay != null) _srvPay = j[0].server_pay === true;
+        }
+      }
+    } catch (e) {}
     return res.status(200).json({
       ok: true,
       url: process.env.SUPABASE_URL || "",
-      key: process.env.SUPABASE_KEY || ""
+      key: process.env.SUPABASE_KEY || "",
+      serverPay: _srvPay
     });
   }
 

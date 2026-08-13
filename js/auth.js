@@ -840,9 +840,16 @@ async function doLogin() {
       const _r = await fetch("/api/auth-v2?action=client_config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: "{}"
+        body: JSON.stringify({ shopId: (typeof getCloudShopId === "function" ? getCloudShopId() : "") })
       }); // API faqat POST qabul qiladi (v169 tuzatishi)
       const _cfg = await _r.json();
+      // ✅ 2026-08-13: DO'KON REJIMI serverdan (sinxronga bog'liq emas)
+      try {
+        if (_cfg && _cfg.serverPay != null) {
+          if (!db.settings) db.settings = {};
+          db.settings.serverPay = _cfg.serverPay === true;
+        }
+      } catch (e) {}
       if (_cfg.ok && _cfg.url && _cfg.key) {
         _sbUrl = _cfg.url; _sbKey = _cfg.key;
         // KRITIK (v173, v170 ning qayta tiklanishi): initSupabase kalitlarni
@@ -1105,9 +1112,13 @@ async function ensureCloudKeys() {
     const r = await fetch("/api/auth-v2?action=client_config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: "{}"
+      body: JSON.stringify({ shopId: (typeof getCloudShopId === "function" ? getCloudShopId() : "") })
     });
     const cfg = await r.json();
+    // ✅ 2026-08-13: DO'KON REJIMI serverdan
+    try {
+      if (cfg && cfg.serverPay != null) db.settings.serverPay = cfg.serverPay === true;
+    } catch (e) {}
     if (cfg.ok && cfg.url && cfg.key) {
       db.settings.supabaseUrl = cfg.url;
       db.settings.supabaseKey = cfg.key;
