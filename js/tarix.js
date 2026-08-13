@@ -864,18 +864,22 @@ async function confirmRefund() {
 
   let returnedCount = 0;
   // ✅ 2026-08-14 (3-band): qaytarishda qoldiq SERVERDA ham oshadi
+  // ⚠️ 2026-08-14: ikki marta qaytarish bo'lmasin (yuqoridagi izoh)
+  let _srvRestock2 = false;
   if (typeof _serverRejimi === "function" && _serverRejimi()) {
     try {
-      await _serverPay({
+      const _r = await _serverPay({
         action: "restock",
         items: refundItems.filter(Boolean).map(it => ({
           sku: it.sku, color: it.color || "", size: it.size || "",
           qty: Number(it.qty) || 0
         }))
       });
+      _srvRestock2 = !!(_r && _r.ok);
     } catch (e) { console.warn("Serverda qoldiq qaytarilmadi:", e.message); }
   }
-  refundItems.forEach(item => { if (returnItemToStock(item)) returnedCount++; });
+  if (_srvRestock2) { returnedCount = refundItems.length; }
+  else { refundItems.forEach(item => { if (returnItemToStock(item)) returnedCount++; }); }
 
   // ═══ 2026-07-25: ASL CHEK HIMOYASI ═══
   // s.items va s.total ENDI O'ZGARTIRILMAYDI. Avval qisman qaytarishda
@@ -1356,20 +1360,28 @@ async function openSaleCancel(saleId) {
   // 1) Tovarlarni omborga qaytaramiz
   // ✅ 2026-08-14 (3-band): qoldiq SERVERDA ham qaytariladi (qulf bilan),
   // aks holda bulutdagi qoldiq bekor qilingan sotuvniki bo'lib qolardi.
+  // ⚠️ 2026-08-14 TUZATISH: IKKI MARTA QAYTARISH bo'lardi — server
+  // ham qaytarardi, kassa ham lokal qaytarardi (jonli: 49 → 2 sotildi →
+  // bekor → 51 bo'lib qoldi). Endi: server qaytargan bo'lsa LOKAL
+  // qaytarilmaydi (keyingi pull bulutdagi haqiqiy qiymatni keltiradi).
+  let _srvRestock = false;
   if (typeof _serverRejimi === "function" && _serverRejimi()) {
     try {
-      await _serverPay({
+      const _r = await _serverPay({
         action: "restock",
         items: (s.items || []).filter(Boolean).map(it => ({
           sku: it.sku, color: it.color || "", size: it.size || "",
           qty: Number(it.qty) || 0
         }))
       });
+      _srvRestock = !!(_r && _r.ok);
     } catch (e) { console.warn("Serverda qoldiq qaytarilmadi:", e.message); }
   }
-  (s.items || []).filter(Boolean).forEach(item => {
-    try { returnItemToStock(item); } catch(e) { console.warn("Ombor qaytarish:", e.message); }
-  });
+  if (!_srvRestock) {
+    (s.items || []).filter(Boolean).forEach(item => {
+      try { returnItemToStock(item); } catch(e) { console.warn("Ombor qaytarish:", e.message); }
+    });
+  }
 
   // 2) Sotuvni bekor qilingan deb belgilaymiz
   // ⚖️ AUDIT (2026-08-12): sotuv bekori izi

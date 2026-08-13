@@ -3046,9 +3046,13 @@ async function checkout() {
       if (_sr && _sr.ok && _sr.sale) {
         Object.assign(newSale, _sr.sale);   // server bergan id va chek raqami
         _srvOk = true;
-        // ✅ 2026-08-14 (X18): qoldiqni endi SERVER ayirdi (atomar).
-        // Lokal nusxa ham ayirilgan — ikkalasi mos. Keyingi pull'da
-        // bulutdagi (haqiqiy) qiymat lokalni to'g'rilaydi.
+        // ⚠️ 2026-08-14 TUZATISH: IKKI MARTA AYIRISH bo'lardi —
+        // qoldiq lokalda (yuqorida) ayirilgan, server esa X18 bilan
+        // yana ayirardi. Bulutdagi qiymat ikki barobar kamayardi.
+        // Endi: server ayirgan bo'lsa LOKAL ayirish BEKOR qilinadi
+        // (nusxadan tiklanadi) — haqiqat serverda qoladi va keyingi
+        // pull uni lokalga keltiradi.
+        _qoldiqTikla();
       } else if (_sr && _sr.code === "stock") {
         _qoldiqTikla();   // 🔴 ayirilgan qoldiq QAYTARILADI
         // ✅ C-BOSQICH: QOLDIQ YETMADI — sotuv YOZILMAYDI, SAVAT QOLADI.
