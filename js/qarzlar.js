@@ -1755,7 +1755,16 @@ async function recordPayment(id, forcedCurrency) {
   if (methodBreakdown) {
     methodTxt = " (" + Object.entries(methodBreakdown).map(([m,v]) => `${fmt(v)} so'm ${payMethodLabel(m)}`).join(" + ") + ")";
   }
-  toast(`✅ ${amtDisplay}${methodTxt} qabul qilindi. ${summary}`);
+  // ⚡ 2026-08-13 (egasining talabi): xabar SODDA — chek-darajasidagi
+  // taqsimot (qaysi chekka qancha o'tdi) kassirga kerak emas va uzun
+  // matn ekranni band qilardi. Endi: qancha qabul qilindi + UMUMIY
+  // qarz qancha qoldi. Tafsilot chekda va Qarzlar tarixida bor.
+  {
+    const _qoldi = (payment.debtAfter != null)
+      ? fmtMoney(payment.debtAfter, payCur) : null;
+    toast(`✅ ${amtDisplay}${methodTxt} qabul qilindi` +
+          (_qoldi ? ` · qoldi: ${_qoldi}` : ""));
+  }
 
   // ── Chek modalini ko'rsatish ────────────────────
   if (typeof showDebtPaymentReceipt === "function") {
