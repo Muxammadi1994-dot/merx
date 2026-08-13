@@ -1640,6 +1640,39 @@ async function recordPayment(id, forcedCurrency) {
     // mijoz nima topshirgan bo'lsa, O'SHA ko'rsatiladi.
     amountSom:     payCur === "usd" ? Math.round(totalSom) : null
   };
+  // ✅ 2026-08-13: SERVER REJIMI — yozishdan OLDIN server tasdig'i.
+  // Server bulutdagi haqiqiy qoldiqni tekshiradi; kassa ko'rgani bilan
+  // mos kelmasa RAD ETADI (eskirgan ma'lumot bilan chek yozilmaydi).
+  if (_serverRejimi()) {
+    try {
+      const _sr = await _serverPay({
+        action: "pay", customerId: clicked.customerId,
+        customerName: cu.name, customerPhone: cu.phone,
+        amount: amt, currency: payCur, seenDebt: totalBefore,
+        amountSom: payment.amountSom || null, rate: rate,
+        method: method, methodBreakdown: methodBreakdown,
+        staffId: payment.staffId,
+        device: (typeof _devCode === "function" ? _devCode() : "")
+      });
+      if (!_sr.ok) {
+        window._payBusy = false;
+        if (_sr.code === "stale") {
+          toast("⚠️ Qarz qoldig'i o'zgargan: siz ko'rgan " + fmt(_sr.seen) +
+                ", haqiqiy " + fmt(_sr.actual) + " — qayta ko'ring", "err");
+          try { if (typeof ensureCloudPull === "function") await ensureCloudPull(); } catch (e) {}
+          try { renderDebts(); } catch (e) {}
+        } else {
+          toast("To'lov yozilmadi: " + (_sr.error || "server rad etdi"), "err");
+        }
+        return;
+      }
+      Object.assign(payment, _sr.payment || {});   // server muhrlari
+    } catch (e) {
+      window._payBusy = false;
+      toast("Server bilan aloqa yo'q — to'lov yozilmadi", "err");
+      return;
+    }
+  }
   db.debtPayments = db.debtPayments || [];
   db.debtPayments.push(payment);
 

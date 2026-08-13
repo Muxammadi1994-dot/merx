@@ -530,6 +530,7 @@ function renderAdminXodimlar() {
 
   // 2026-08-12: tashqi xizmatlar paneli
   try { tsRender(); } catch (e) {}
+  try { _loadServerPay(); } catch (e) {}
 
   // Xodimlar ruxsatlari (panel olib tashlandi — null bo'lsa jim o'tadi)
   const permsEl = document.getElementById("adm-staff-perms");
@@ -1632,4 +1633,24 @@ function tsSave() {
     if (typeof cloudSync === "function") { try { cloudSync(); } catch (e) {} }
     toast("\u2705 Tashqi xizmatlar sozlamasi saqlandi");
   } catch (e) { toast("Saqlashda xato: " + e.message, "err"); }
+}
+
+
+// 2026-08-13: server rejimi tugmachasi (A-bosqich)
+function toggleServerPay() {
+  try {
+    const el = document.getElementById("set-server-pay");
+    if (!db.settings) db.settings = {};
+    db.settings.serverPay = !!(el && el.checked);
+    saveDB();
+    toast(db.settings.serverPay
+      ? "\u2705 Server rejimi YOQILDI"
+      : "Server rejimi o'chirildi \u2014 avvalgi tartib");
+  } catch (e) {}
+}
+function _loadServerPay() {
+  try {
+    const el = document.getElementById("set-server-pay");
+    if (el) el.checked = db.settings?.serverPay === true;
+  } catch (e) {}
 }

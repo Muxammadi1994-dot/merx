@@ -2902,6 +2902,21 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
     </div>
 
     <div class="adm-tab-pane" data-tab="cloud" style="display:none">
+      <div class="card" style="grid-column:1/-1">
+        <div class="ch"><h3><i class="ti ti-shield-check"></i> Server rejimi (sinov)</h3></div>
+        <div style="padding:14px 20px;display:flex;flex-direction:column;gap:10px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <input type="checkbox" id="set-server-pay" onchange="toggleServerPay()" style="width:18px;height:18px">
+            <span style="font-weight:600">Qarz to'lovini SERVER yozsin</span>
+          </label>
+          <div style="font-size:12px;color:var(--mut);line-height:1.6">
+            Yoqilsa: to'lovdan oldin server qarz qoldig'ini tekshiradi, chek raqamini
+            o'zi beradi va "edi/qoldi" ni o'zi muhrlaydi — eskirgan ma'lumot bilan
+            noto'g'ri chek yozilishi <b>mumkin emas</b>.<br>
+            Internet bo'lmasa to'lov <b>yozilmaydi</b>. O'chirsangiz avvalgi tartib qaytadi.
+          </div>
+        </div>
+      </div>
       <div class="g2">
         <div class="card">
           <div class="ch"><h3><i class="ti ti-cloud"></i> Supabase ulanish</h3><span class="bg bg-gr" id="cloud-status-badge">Ulanmagan</span></div>
@@ -5196,12 +5211,12 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 <script src="js/katalog.js?v=268"></script>
 <script src="js/ombor.js?v=178"></script>
 <script src="js/mijozlar.js?v=165"></script>
-<script src="js/qarzlar.js?v=213"></script>
+<script src="js/qarzlar.js?v=214"></script>
 <script src="js/tarix.js?v=186"></script>
 <script src="js/hisobot.js?v=154"></script>
 <script src="js/xodimlar.js?v=159"></script>
 <script src="js/moliya.js?v=174"></script>
-<script src="js/egasi.js?v=185"></script>
+<script src="js/egasi.js?v=186"></script>
 <script src="js/portal.js?v=143"></script>
 <script src="js/init.js?v=151"></script>
 <script>
@@ -5495,7 +5510,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 379;
+  window.SW_V = 380;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5518,7 +5533,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=379")
+    navigator.serviceWorker.register("/sw.js?v=380")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
