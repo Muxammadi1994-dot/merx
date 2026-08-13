@@ -67,10 +67,11 @@ async function shopFromToken(token) {
 // Sotuvning JORIY qoldig'i — muzlatilgan asl qiymatdan faol
 // to'lovlar ayiriladi (ilovadagi calcSaleState bilan bir xil mantiq)
 function saleState(sale, pays) {
-  const d = sale.data || {};
-  const isUsd = (d.debtCurrency || sale.debt_currency) === "usd";
-  const origRem = Number(d.origRemaining != null ? d.origRemaining : sale.remaining) || 0;
-  const origUsd = Number(d.origDebtUsd  != null ? d.origDebtUsd  : sale.debt_usd)  || 0;
+  // ⚡ 2026-08-13 TEZLIK: qiymatlar USTUNLARDAN — `data` JSON (ichida
+  // butun tovarlar ro'yxati) endi umuman tortilmaydi.
+  const isUsd = sale.debt_currency === "usd";
+  const origRem = Number(sale.orig_remaining != null ? sale.orig_remaining : sale.remaining) || 0;
+  const origUsd = Number(sale.orig_debt_usd  != null ? sale.orig_debt_usd  : sale.debt_usd)  || 0;
   let paidUzs = 0, paidUsd = 0;
   pays.forEach(p => {
     const pd = p.data || {};
@@ -117,17 +118,24 @@ module.exports = async (req, res) => {
         return res.status(400).json({ ok: false, error: "Mijoz va summa kerak" });
 
       // 1) BULUTDAN haqiqiy holat
-      const [sales, pays] = await Promise.all([
+      // ⚡ TEZLIK: (a) `data` JSON tortilmaydi; (b) faqat QARZI BOR
+      // sotuvlar; (c) kunlik chek-raqami PARALLEL olinadi.
+      const _t0 = Date.now();
+      const SALE_COLS = "id,date,status,remaining,debt_usd,debt_currency," +
+                        "orig_remaining,orig_debt_usd,cancelled";
+      const [sales, pays, kunlik] = await Promise.all([
         sbAll(`sales?shop_id=eq.${encodeURIComponent(shopId)}` +
-              `&customer_id=eq.${encodeURIComponent(custId)}&select=*`),
+              `&customer_id=eq.${encodeURIComponent(custId)}` +
+              `&or=(remaining.gt.0,debt_usd.gt.0)&select=${SALE_COLS}`),
         sbAll(`debt_payments?shop_id=eq.${encodeURIComponent(shopId)}` +
-              `&customer_id=eq.${encodeURIComponent(custId)}&select=*`)
+              `&customer_id=eq.${encodeURIComponent(custId)}&select=id,amount,currency,data`),
+        sbAll(`debt_payments?shop_id=eq.${encodeURIComponent(shopId)}` +
+              `&date=eq.${tashDate()}&select=data`)
       ]);
       const ochiq = sales
         .filter(s => {
-          const d = s.data || {};
-          if (d.cancelled === true || d.cancelled === "true") return false;
-          if ((d.status || s.status) === "qaytarilgan") return false;
+          if (s.cancelled === true) return false;
+          if (s.status === "qaytarilgan") return false;
           const st = saleState(s, pays);
           return cur === "usd" ? st.debtUsd > 0.005 : st.remaining > 0.5;
         })
@@ -157,9 +165,6 @@ module.exports = async (req, res) => {
 
       // 3) CHEK RAQAMI — serverda, to'qnashuvsiz
       const dp = tashDate().replace(/-/g, "");
-      const kunlik = await sbAll(
-        `debt_payments?shop_id=eq.${encodeURIComponent(shopId)}` +
-        `&date=eq.${tashDate()}&select=data`);
       let mx = 0;
       kunlik.forEach(p => {
         const m = /^PAY-\d{8}-(\d+)/.exec(String((p.data || {}).chekNum || ""));
@@ -178,7 +183,7 @@ module.exports = async (req, res) => {
         const after = Math.round((bor - ber) * 100) / 100;
         allocations.push({
           saleId: s.id, saleDate: s.date,
-          chekNum: (s.data || {}).chekNum || ("#" + s.id),
+          chekNum: "#" + s.id,
           amount: Math.round(ber * 100) / 100, currency: cur,
           fullyPaid: after <= (cur === "usd" ? 0.005 : 0.5),
           remainingAfter: after
@@ -222,7 +227,8 @@ module.exports = async (req, res) => {
         const t = await w.text().catch(() => "");
         return res.status(200).json({ ok: false, error: "Yozib bo'lmadi: " + t.slice(0, 150) });
       }
-      return res.status(200).json({ ok: true, payment: rec.data });
+      return res.status(200).json({ ok: true, payment: rec.data,
+        ms: Date.now() - _t0 });
     }
 
     // ── QOLDIQNI SO'RASH (oyna ochilganda) ────────────────────
@@ -231,15 +237,16 @@ module.exports = async (req, res) => {
       if (!custId) return res.status(400).json({ ok: false, error: "customerId kerak" });
       const [sales, pays] = await Promise.all([
         sbAll(`sales?shop_id=eq.${encodeURIComponent(shopId)}` +
-              `&customer_id=eq.${encodeURIComponent(custId)}&select=*`),
+              `&customer_id=eq.${encodeURIComponent(custId)}` +
+              `&or=(remaining.gt.0,debt_usd.gt.0)` +
+              `&select=id,date,status,remaining,debt_usd,debt_currency,orig_remaining,orig_debt_usd,cancelled`),
         sbAll(`debt_payments?shop_id=eq.${encodeURIComponent(shopId)}` +
-              `&customer_id=eq.${encodeURIComponent(custId)}&select=*`)
+              `&customer_id=eq.${encodeURIComponent(custId)}&select=id,amount,currency,data`)
       ]);
       let uzs = 0, usd = 0;
       sales.forEach(s => {
-        const d = s.data || {};
-        if (d.cancelled === true || d.cancelled === "true") return;
-        if ((d.status || s.status) === "qaytarilgan") return;
+        if (s.cancelled === true) return;
+        if (s.status === "qaytarilgan") return;
         const st = saleState(s, pays);
         uzs += st.remaining; usd += st.debtUsd;
       });
