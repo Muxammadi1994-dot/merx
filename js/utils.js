@@ -3194,12 +3194,18 @@ function _tasdiqBelgisi(sale, tur) {
     const jadval = (tur === "qarz") ? "debt_payments" : "sales";
     const kalit  = sale.id;
     if (typeof isRecordSent === "function" && isRecordSent(jadval, kalit)) return "";
-    return `<div style="border:2px dashed #000;padding:6px 8px;margin:6px 0;
-              text-align:center;font-size:11px;font-weight:800;letter-spacing:.03em">
-              \u26a0\ufe0f TASDIQLANMAGAN \u2014 internet yo'q edi<br>
+    // \u26a0\ufe0f 2026-08-13 (egasining talabi): belgi FAQAT EKRANDA \u2014
+    // chop etilganda qog'ozga CHIQMAYDI. Sabab: mijozda "tasdiqlanmagan"
+    // so'zi shubha uyg'otadi, holbuki sotuv haqiqiy va tovar berilgan.
+    // Bu ogohlantirish KASSIR uchun.
+    return `<div class="_noprint-warn" style="border:2px dashed #000;
+              padding:6px 8px;margin:6px 0;text-align:center;font-size:11px;
+              font-weight:800;letter-spacing:.03em">
+              \u26a0\ufe0f Bulutga yuborilmagan \u2014 internet yo'q edi<br>
               <span style="font-weight:600;font-size:10px">
-                Yozuv hali bulutga yetmagan. Aloqa tiklangach o'zi yuboriladi.
+                Aloqa tiklangach o'zi yuboriladi. Qog'ozga chiqmaydi.
               </span>
-            </div>`;
+            </div>
+            <style>@media print{._noprint-warn{display:none !important}}</style>`;
   } catch (e) { return ""; }
 }
