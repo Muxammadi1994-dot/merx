@@ -43,7 +43,7 @@ async function sbAll(path) {
     const sep = path.includes("?") ? "&" : "?";
     const r = await fetch(`${SB_URL}/rest/v1/${path}${sep}limit=1000&offset=${p * 1000}`,
                           { headers: H() });
-    // \U0001f534 2026-08-13: XATO JIM YUTILMAYDI. Avval `if (!r.ok) break`
+    // 🔴 2026-08-13: XATO JIM YUTILMAYDI. Avval `if (!r.ok) break`
     // edi \u2014 so'rov rad etilsa (masalan mavjud bo'lmagan ustun so'ralsa)
     // funksiya BO'SH ro'yxat qaytarardi va server "qarz = 0" deb
     // hisoblardi. Bu \u2014 pul mantiqida eng xavfli xato turi.

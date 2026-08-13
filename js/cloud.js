@@ -2096,7 +2096,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
       // holda pull har safar inBox=1, barcode=yo'q qilib qo'yardi
       // (aynan shu "ma'lumot o'chish" muammosi edi).
       const _oldBySku = new Map((db.products || []).map(x => [String(x.sku), x]));
-            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+            // 🔴 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
       // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
       const _pend_products = (() => {
         const _ids = new Set((prods || []).map(r => String(r.sku)));
@@ -2154,7 +2154,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     _cloudIds["customers"] = new Map((custs||[]).map(r => [String(r.id), r.id]));
     if (custs && custs.length > 0) {
       const _oldCust = new Map((db.customers || []).map(x => [String(x.id), x])); // v180
-            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+            // 🔴 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
       // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
       const _pend_customers = (() => {
         const _ids = new Set((custs || []).map(r => String(r.id)));
@@ -2259,7 +2259,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
       // Busiz eski nusxali qurilma bekor qilingan sotuvni yoki
       // eski ombor qoldig'ini tiklab yuborardi.
       const _oldSale = new Map((db.sales || []).map(x => [String(x.id), x]));
-      // \U0001f534 2026-08-13 KRITIK: bulutga YUBORILMAGAN sotuvlar saqlanadi.
+      // 🔴 2026-08-13 KRITIK: bulutga YUBORILMAGAN sotuvlar saqlanadi.
       // Avval `db.sales = salesData.map(...)` lokal ro'yxatni BUTUNLAY
       // almashtirardi \u2014 push kutayotgan sotuv o'sha lahzada YO'QOLARDI
       // (jonli isbot: ABU SAXIY 13-avgust, CHK-...-0009-BK). O'chirilgan
@@ -2307,7 +2307,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     if (omborData && omborData.length > 0) {
       // 2026-08-02: vaqt solishtiruvi (sotuvdagi qoida)
       const _oldOm = new Map((db.ombor || []).map(x => [String(x.id), x]));
-            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+            // 🔴 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
       // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
       const _pend_ombor = (() => {
         const _ids = new Set((omborData || []).map(r => String(r.id)));
@@ -2342,7 +2342,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     const xarData = await _selectAll(() => _sb.from("xarajatlar").select("*").eq("shop_id", sid).order("local_id"), "xarajatlar");
     _cloudIds["xarajatlar"] = new Map((xarData||[]).map(r => [String(r.id), r.id]));
     if (xarData) {
-            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+            // 🔴 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
       // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
       const _pend_xarajatlar = (() => {
         const _ids = new Set((xarData || []).map(r => String(r.id)));
@@ -2393,7 +2393,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     const chiqData = await _selectAll(() => _sb.from("chiqimlar").select("*").eq("shop_id", sid).order("local_id"), "chiqimlar");
     _cloudIds["chiqimlar"] = new Map((chiqData||[]).map(r => [String(r.id), r.id]));
     if (chiqData && chiqData.length > 0) {
-            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+            // 🔴 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
       // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
       const _pend_chiqimlar = (() => {
         const _ids = new Set((chiqData || []).map(r => String(r.id)));
@@ -2425,7 +2425,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     const payData = await _selectAll(() => _sb.from("debt_payments").select("*").eq("shop_id", sid).order("created_at"), "debt_payments");
     _cloudIds["debt_payments"] = new Map((payData||[]).map(r => [String(r.id), r.id]));
     if (payData) {
-            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+            // 🔴 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
       // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
       const _pend_debt_payments = (() => {
         const _ids = new Set((payData || []).map(r => String(r.id)));
@@ -2468,7 +2468,7 @@ async function pullFromCloud(silent = false, skipRender = false) {
     const retData = await _selectAll(() => _sb.from("returns").select("*").eq("shop_id", sid).order("created_at"), "returns");
     _cloudIds["returns"] = new Map((retData||[]).map(r => [String(r.id), r.id]));
     if (retData) {
-            // \U0001f534 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
+            // 🔴 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
       // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
       const _pend_returns = (() => {
         const _ids = new Set((retData || []).map(r => String(r.id)));
@@ -3751,14 +3751,14 @@ function renderPendingPill() {
         const d = pendingCount();
         const s = Object.entries(d.detail)
           .map(([k, v]) => k + ": " + v).join(", ");
-        toast("\U0001f4e4 Yuborilmagan: " + s +
+        toast("📤 Yuborilmagan: " + s +
               ". Internet tekshiring \u2014 yozuvlar shu qurilmada.", "err");
         try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch (e) {}
       };
       bar.appendChild(el);
     }
     el.style.display = "";
-    el.textContent = "\U0001f4e4 " + p.total;
+    el.textContent = "📤 " + p.total;
     el.title = "Bulutga yuborilmagan yozuvlar \u2014 bosing";
   } catch (e) {}
 }

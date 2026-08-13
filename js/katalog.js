@@ -5415,7 +5415,7 @@ function showDeletedProducts() {
       </div>`;
     }).join("") : "") +
     (eskiList.length ? `<div style="font-size:12px;font-weight:600;color:var(--mut);margin:14px 0 6px">
-        \U0001f553 ESKI DAVR (12-avgustgacha \u2014 nusxasi yo'q)</div>` + eskiList.map(e =>
+        🕓 ESKI DAVR (12-avgustgacha \u2014 nusxasi yo'q)</div>` + eskiList.map(e =>
       `<div style="border-left:3px solid #8A6D1F;background:var(--bg2,#FAFAF8);
                    padding:9px 12px;border-radius:0 8px 8px 0;margin-bottom:6px">
         <div style="font-weight:600;font-size:13.5px">${e.name}</div>
