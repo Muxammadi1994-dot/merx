@@ -1178,7 +1178,13 @@ async function pushToCloud() {
           // uning kech kelgan yozuvi serverning manzarasini ham
           // eskirtiradi (jonli isbot: Shoetest DW+LV, 18:45–18:50).
           // Endi bir marta yoqilsa — hamma qurilmaga tarqaladi.
-          server_pay: db.settings?.serverPay === true,
+          // \u26a0\ufe0f 2026-08-14 TUZATISH: avval `=== true` edi \u2014 sozlama
+          // hali qurilmaga yetmagan bo'lsa ham bulutga FALSE yozilardi
+          // va do'kon jimgina LOKAL rejimga tushardi (ABU SAXIY shunday
+          // o'chib qolgan). \u00a75.3 qoidasi: aniqlanmagan qiymat bulutni
+          // BOSMAYDI \u2014 faqat ANIQ true/false yuboriladi.
+          ...(db.settings?.serverPay === true || db.settings?.serverPay === false
+              ? { server_pay: db.settings.serverPay } : {}),
           unit_tags:              db.settings?.unitTags            || null, // №11a (v186)
           chek_config:            db.settings?.chekConfig          || null, // №12 (v187)
           pack_unit_tags:         db.settings?.packUnitTags        || null,
