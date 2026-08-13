@@ -1455,12 +1455,26 @@ async function _serverPay(payload) {
     } catch (e) { return null; }
   })();
   if (!tok) return { ok: false, error: "Token yo'q — qayta kiring" };
+  // ⏱ 2026-08-13 O'LCHOV: jami vaqt va serverning o'z vaqti alohida.
+  // Farq — tarmoq + Vercel uyg'onishi. Shu bilan sekinlik QAYERDA
+  // ekanini taxmin qilmasdan bilamiz.
+  const _t0 = Date.now();
   const r = await fetch("/api/pul", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
     body: JSON.stringify(payload)
   });
-  return await r.json().catch(() => ({ ok: false, error: "Javob o'qilmadi" }));
+  const j = await r.json().catch(() => ({ ok: false, error: "Javob o'qilmadi" }));
+  const _jami = Date.now() - _t0;
+  try {
+    console.log("⏱ TO'LOV: jami " + _jami + " ms | server " +
+      (j.ms != null ? j.ms + " ms" : "?") +
+      " | tarmoq+uyg'onish " + (j.ms != null ? (_jami - j.ms) : "?") + " ms");
+    if (!db._payMs) db._payMs = [];
+    db._payMs.push({ jami: _jami, server: j.ms || null, vaqt: new Date().toISOString() });
+    if (db._payMs.length > 20) db._payMs = db._payMs.slice(-20);
+  } catch (e) {}
+  return j;
 }
 
 async function recordPayment(id, forcedCurrency) {
@@ -1685,8 +1699,11 @@ async function recordPayment(id, forcedCurrency) {
       if (!_sr.ok) {
         window._payBusy = false;
         if (_sr.code === "stale") {
-          toast("⚠️ Qarz qoldig'i o'zgargan: siz ko'rgan " + fmt(_sr.seen) +
-                ", haqiqiy " + fmt(_sr.actual) + " — qayta ko'ring", "err");
+          // 2026-08-13 (egasining talabi): ogohlantirish UMUMIY qarz
+          // bo'yicha — chek darajasida emas (kassirni chalg'itmasin).
+          toast("⚠️ Mijozning umumiy qarzi o'zgargan: " +
+                fmt(_sr.seen) + " → " + fmt(_sr.actual) +
+                ". Ro'yxat yangilandi — qayta urinib ko'ring", "err");
           try { if (typeof ensureCloudPull === "function") await ensureCloudPull(); } catch (e) {}
           try { renderDebts(); } catch (e) {}
         } else {
