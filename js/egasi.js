@@ -1643,8 +1643,10 @@ function toggleServerPay() {
     if (!db.settings) db.settings = {};
     db.settings.serverPay = !!(el && el.checked);
     saveDB();
+    // ✅ 2026-08-13: DO'KON sozlamasi — darhol bulutga, hamma qurilmaga
+    try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch (e) {}
     toast(db.settings.serverPay
-      ? "\u2705 Server rejimi YOQILDI"
+      ? "\u2705 Server rejimi YOQILDI \u2014 barcha kassalarga tarqaladi"
       : "Server rejimi o'chirildi \u2014 avvalgi tartib");
   } catch (e) {}
 }
