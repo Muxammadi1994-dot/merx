@@ -3695,3 +3695,70 @@ async function _syncAlarmCheck() {
   } catch (e) {}
 }
 setInterval(_syncAlarmCheck, 60000);
+
+
+// \u2550\u2550\u2550 YUBORILMAGAN YOZUVLAR SANOG'I (2026-08-13, B1) \u2550\u2550\u2550\u2550\u2550
+// Bugungi eng katta dard: sotuv soatlab kassada qolib ketdi va HECH
+// KIM bilmadi (ABU SAXIY, CHK-...-0009-BK). Endi ekranda ko'rinadi.
+// Manba: push keshi \u2014 yuborilgan yozuvning "barmoq izi" saqlanadi;
+// keshda yo'q yoki izi boshqacha bo'lgan yozuv = HALI YUBORILMAGAN.
+function pendingCount() {
+  try {
+    const JADVAL = [
+      ["sales",         db.sales],
+      ["debt_payments", db.debtPayments],
+      ["products",      db.products],
+      ["customers",     db.customers],
+      ["ombor",         db.ombor],
+      ["chiqimlar",     db.chiqimlar],
+      ["returns",       db.returns],
+      ["xarajatlar",    db.xarajatlar],
+    ];
+    let n = 0;
+    const det = {};
+    for (const [tbl, rows] of JADVAL) {
+      if (!Array.isArray(rows) || !rows.length) continue;
+      const cache = _pushCache[tbl];
+      if (!cache) { n += rows.length; det[tbl] = rows.length; continue; }
+      let c = 0;
+      for (const r of rows) {
+        const k = String(r && (r.id != null ? r.id : r.sku));
+        if (!cache.has(k)) c++;
+      }
+      if (c) { n += c; det[tbl] = c; }
+    }
+    return { total: n, detail: det };
+  } catch (e) { return { total: 0, detail: {} }; }
+}
+
+// Topbardagi ko'rsatkich \u2014 0 bo'lsa ko'rinmaydi
+function renderPendingPill() {
+  try {
+    const p = pendingCount();
+    let el = document.getElementById("tb-pending");
+    if (!p.total) { if (el) el.style.display = "none"; return; }
+    if (!el) {
+      const bar = document.querySelector("#topbar .tb-right") ||
+                  document.getElementById("topbar");
+      if (!bar) return;
+      el = document.createElement("div");
+      el.id = "tb-pending";
+      el.className = "tb-pill";
+      el.style.cssText = "background:#C62828;color:#fff;font-weight:800;cursor:pointer";
+      el.onclick = () => {
+        const d = pendingCount();
+        const s = Object.entries(d.detail)
+          .map(([k, v]) => k + ": " + v).join(", ");
+        toast("\U0001f4e4 Yuborilmagan: " + s +
+              ". Internet tekshiring \u2014 yozuvlar shu qurilmada.", "err");
+        try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch (e) {}
+      };
+      bar.appendChild(el);
+    }
+    el.style.display = "";
+    el.textContent = "\U0001f4e4 " + p.total;
+    el.title = "Bulutga yuborilmagan yozuvlar \u2014 bosing";
+  } catch (e) {}
+}
+setInterval(renderPendingPill, 15000);
+setTimeout(renderPendingPill, 6000);
