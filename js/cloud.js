@@ -1231,7 +1231,10 @@ async function pushToCloud() {
       // mumkin edi.
       // Muhr FAQAT haqiqatan o'zgargan qatorga bosiladi (`onDirty`),
       // shuning uchun u "oxirgi haqiqiy o'zgarish" vaqtini bildiradi.
-      const _local = { sales: db.sales, ombor: db.ombor, staff: db.staff }[table];
+      // 2026-08-14: xarajatlar ham muhrlanadi — vaqt solishtiruvi
+      // ishlashi uchun (5-band).
+      const _local = { sales: db.sales, ombor: db.ombor, staff: db.staff,
+                       xarajatlar: db.xarajatlar }[table];
       const _stamp = !_local ? null : (row) => {
         // ⚠️ 2026-08-08: MAJBURIY QAYTA YUBORISHDA MUHR YANGILANMAYDI.
         // `forceRepushAll` push keshini tozalaydi — shundan keyin HAR
@@ -2370,9 +2373,20 @@ async function pullFromCloud(silent = false, skipRender = false) {
         return (db.xarajatlar || []).filter(x => x && !_ids.has(String(x.id))
           && !_tombstones.has("xarajatlar:" + String(x.id)));   // o'chirilgan tirilmasin
       })();
+      // ✅ 2026-08-14 (5-band): VAQT HIMOYASI. Avval bulut nusxasi
+      // so'zsiz olinardi — bir kassada tahrirlangan xarajat boshqa
+      // kassaning eski nusxasi bilan bosilardi (tovar/mijozda bu
+      // himoya bor edi, xarajatda YO'Q edi).
+      const _oldXar = new Map((db.xarajatlar || []).map(x => [String(x.id), x]));
       db.xarajatlar = xarData.map(x => {
         // v175: BUTUN JSON bo'lsa — undan
-        if (x.data && typeof x.data === "object" && !Array.isArray(x.data)) return { ...x.data, id: x.id };
+        if (x.data && typeof x.data === "object" && !Array.isArray(x.data)) {
+          const _o  = _oldXar.get(String(x.id)) || {};
+          const _lt = Date.parse(_o.updatedAt || 0) || 0;
+          const _ct = Date.parse(x.data.updatedAt || 0) || 0;
+          if (_lt > _ct) return { ..._o, id: x.id };   // lokal yangiroq
+          return { ...x.data, id: x.id };
+        }
         return ({
         id: x.id, date: x.date, category: x.category,
         amount: x.amount, amountUsd: x.amount_usd || null,
