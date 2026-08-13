@@ -3769,3 +3769,14 @@ try {
   window.addEventListener("online",  () => setTimeout(renderPendingPill, 500));
   window.addEventListener("offline", () => setTimeout(renderPendingPill, 200));
 } catch (e) {}
+
+
+// \u2550\u2550\u2550 YOZUV BULUTGA YETDIMI? (2026-08-13, B2) \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// Chekda "TASDIQLANMAGAN" belgisini ko'rsatish uchun. Manba \u2014 push
+// keshi: yuborilgan yozuvning izi saqlanadi.
+function isRecordSent(table, key) {
+  try {
+    const c = _pushCache[table];
+    return !!(c && c.has(String(key)));
+  } catch (e) { return true; }   // bilolmasak \u2014 bezovta qilmaymiz
+}

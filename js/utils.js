@@ -1506,7 +1506,9 @@ ${!_bFoot.show ? ".ft-thanks{display:none !important}" : ""}
 }
 </style></head><body>
 <div class="wrap">
+  ${_tasdiqBelgisi(sale, opts && opts.type)}
   <div class="rc">
+
 
     ${logoHtml}
     <div class="hd">
@@ -1638,6 +1640,7 @@ body{font-family:'DM Sans',sans-serif;background:#f5f5f5;display:flex;justify-co
   .acts{display:none}}
 </style></head><body>
 <div class="w">
+  ${_tasdiqBelgisi(sale, opts && opts.type)}
   ${logoHtml}
   <div class="hd">
     <div class="hd-n">${shopName.toUpperCase()}</div>
@@ -1761,6 +1764,7 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
 @media print{ @page{size:${W}mm auto;margin:0} body{padding:0} .doc{width:${W}mm} }
 </style></head><body>
 <div class="doc">
+  ${_tasdiqBelgisi(sale, opts && opts.type)}
   <div class="hd">
     <div class="shop">${shopName}</div>
     ${showContact && contact ? `<div class="sm">Tel: ${contact}</div>` : ""}
@@ -1950,7 +1954,8 @@ body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
   .acts{display:none}
 }
 </style></head><body>
-<div class="rc">${rows.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
+<div class="rc">
+  ${_tasdiqBelgisi(sale, opts && opts.type)}${rows.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
 <div class="acts">
   <button class="btn-p" onclick="window.print()">🖨 Chop etish</button>
   <button class="btn-c" onclick="window.close?window.close():history.back()">Yopish</button>
@@ -2065,6 +2070,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
 }
 </style></head><body>
 <div class="doc">
+  ${_tasdiqBelgisi(sale, opts && opts.type)}
   <div class="hd">
     <div class="shop">${shopName}</div>
     ${showContact && contact ? `<div class="sm">${contact}</div>` : ""}
@@ -2242,7 +2248,9 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
 }
 </style></head><body>
 <div class="wrap">
+  ${_tasdiqBelgisi(sale, opts && opts.type)}
   <div class="rc">
+
     ${logoHtml}
     <div class="hd">
       <div class="hd-name">${shopName.toUpperCase()}</div>
@@ -3125,6 +3133,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
 @media print{ @page{size:${W}mm auto;margin:0} body{padding:0} .doc{width:${W}mm} }
 </style></head><body>
 <div class="doc">
+  ${_tasdiqBelgisi(payment, "qarz")}
   <div class="hd">
     <div class="shop">${cfg.shopName || o.shopName || "MERX"}</div>
     ${cfg.showContact && cfg.contact ? `<div class="sm">${cfg.contact}</div>` : ""}
@@ -3172,4 +3181,25 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
   <div class="ft">${cfg.footer || "Rahmat! Yana kutamiz"}</div>
 </div>
 </body></html>`;
+}
+
+
+// \u2550\u2550\u2550 CHEKDAGI "TASDIQLANMAGAN" BELGISI (2026-08-13, B2) \u2550\u2550\u2550
+// Internet yo'q paytda chiqarilgan chekda ochiq yoziladi \u2014 mijoz ham,
+// kassir ham biladi. Yozuv bulutga yetgach belgi o'zi yo'qoladi
+// (chek qayta chop etilsa toza chiqadi).
+function _tasdiqBelgisi(sale, tur) {
+  try {
+    if (!sale) return "";
+    const jadval = (tur === "qarz") ? "debt_payments" : "sales";
+    const kalit  = sale.id;
+    if (typeof isRecordSent === "function" && isRecordSent(jadval, kalit)) return "";
+    return `<div style="border:2px dashed #000;padding:6px 8px;margin:6px 0;
+              text-align:center;font-size:11px;font-weight:800;letter-spacing:.03em">
+              \u26a0\ufe0f TASDIQLANMAGAN \u2014 internet yo'q edi<br>
+              <span style="font-weight:600;font-size:10px">
+                Yozuv hali bulutga yetmagan. Aloqa tiklangach o'zi yuboriladi.
+              </span>
+            </div>`;
+  } catch (e) { return ""; }
 }
