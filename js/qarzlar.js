@@ -1435,6 +1435,34 @@ function qzShowUsdHint(id) {
   if (box) box.value = som > 0 ? (som/rate).toFixed(2) : "";
 }
 
+// ═══ SERVER REJIMI (2026-08-13, A-bosqich) ═══════════════
+// Yoqilsa qarz to'lovini SERVER yozadi: qoldiqni bulutdan tekshiradi,
+// chek raqamini o'zi beradi, "edi/qoldi" ni o'zi muhrlaydi — kassaning
+// eskirgan ma'lumoti bilan noto'g'ri chek yozilishi MUMKIN EMAS.
+// O'chirilsa avvalgi (lokal) tartib qaytadi — orqaga yo'l ochiq.
+function _serverRejimi() {
+  try { return db.settings && db.settings.serverPay === true; }
+  catch (e) { return false; }
+}
+
+async function _serverPay(payload) {
+  const tok = (() => {
+    try {
+      const raw = localStorage.getItem("merx_sb_session") ||
+                  sessionStorage.getItem("merx_sb_session");
+      const d = raw ? JSON.parse(raw) : null;
+      return (d && (d.access_token || d.accessToken)) || null;
+    } catch (e) { return null; }
+  })();
+  if (!tok) return { ok: false, error: "Token yo'q — qayta kiring" };
+  const r = await fetch("/api/pul", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
+    body: JSON.stringify(payload)
+  });
+  return await r.json().catch(() => ({ ok: false, error: "Javob o'qilmadi" }));
+}
+
 async function recordPayment(id, forcedCurrency) {
   // ⚠️ PUL-QALQON A1 (2026-08-12): TAKROR-BOSISH QULFI. Jonli isbot:
   // Nuriddin 17:55/17:59 ($1000×2), Muhammad 04:39/04:43 ($821×2) —
