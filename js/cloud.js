@@ -3706,26 +3706,32 @@ setInterval(_syncAlarmCheck, 60000);
 // keshda yo'q yoki izi boshqacha bo'lgan yozuv = HALI YUBORILMAGAN.
 function pendingCount() {
   try {
+    // \U0001f534 2026-08-13 (TUZATILDI): manba PUSH KESHI emas, `_cloudIds`.
+    // Push keshi faqat SHU QURILMA yuborgan yozuvlarni biladi \u2014 bulutdan
+    // tortib olinganlar unda yo'q, shuning uchun telefon endi kirganda
+    // BUTUN BAZA "yuborilmagan" bo'lib chiqardi (jonli: 735 ta).
+    // `_cloudIds` esa oxirgi pull'da BULUTDA KO'RILGAN yozuvlar \u2014
+    // lokalda bor-u bulutda yo'q = chindan yuborilmagan.
+    if (!_cloudIds || !_cloudIds.sales) return { total: 0, detail: {} };
     const JADVAL = [
-      ["sales",         db.sales],
-      ["debt_payments", db.debtPayments],
-      ["products",      db.products],
-      ["customers",     db.customers],
-      ["ombor",         db.ombor],
-      ["chiqimlar",     db.chiqimlar],
-      ["returns",       db.returns],
-      ["xarajatlar",    db.xarajatlar],
+      ["sales",         db.sales,        "id"],
+      ["debt_payments", db.debtPayments, "id"],
+      ["products",      db.products,     "sku"],
+      ["customers",     db.customers,    "id"],
+      ["ombor",         db.ombor,        "id"],
+      ["chiqimlar",     db.chiqimlar,    "id"],
+      ["returns",       db.returns,      "id"],
     ];
     let n = 0;
     const det = {};
-    for (const [tbl, rows] of JADVAL) {
-      if (!Array.isArray(rows) || !rows.length) continue;
-      const cache = _pushCache[tbl];
-      if (!cache) { n += rows.length; det[tbl] = rows.length; continue; }
+    for (const [tbl, rows, kalit] of JADVAL) {
+      const bulut = _cloudIds[tbl];
+      if (!bulut || !Array.isArray(rows) || !rows.length) continue;
       let c = 0;
       for (const r of rows) {
-        const k = String(r && (r.id != null ? r.id : r.sku));
-        if (!cache.has(k)) c++;
+        if (!r) continue;
+        const k = String(r[kalit] != null ? r[kalit] : r.id);
+        if (!bulut.has(k)) c++;
       }
       if (c) { n += c; det[tbl] = c; }
     }
@@ -3733,10 +3739,33 @@ function pendingCount() {
   } catch (e) { return { total: 0, detail: {} }; }
 }
 
+
 // Topbardagi ko'rsatkich \u2014 0 bo'lsa ko'rinmaydi
 function renderPendingPill() {
   try {
     const p = pendingCount();
+    // \u2705 2026-08-13: YANGI yozuv 20 soniya "yo'lda" hisoblanadi \u2014
+    // sotuv tugagan zahoti belgi chaqnab yo'qolmasin (jonli shikoyat).
+    // Faqat CHINDAN qolib ketganlar ko'rsatiladi.
+    if (p.total > 0) {
+      const chek = Date.now() - 20000;
+      let eskilar = 0;
+      const YANGI = { sales: db.sales, debt_payments: db.debtPayments,
+                      products: db.products, customers: db.customers,
+                      ombor: db.ombor, chiqimlar: db.chiqimlar, returns: db.returns };
+      for (const tbl in p.detail) {
+        const rows = YANGI[tbl] || [];
+        const bulut = _cloudIds[tbl];
+        if (!bulut) continue;
+        for (const r of rows) {
+          const k = String((tbl === "products" ? r.sku : r.id));
+          if (bulut.has(k)) continue;
+          const t = Number(String(r.id || "").slice(0, 13));
+          if (!(t > 1600000000000) || t < chek) eskilar++;
+        }
+      }
+      p.total = eskilar;
+    }
     let el = document.getElementById("tb-pending");
     if (!p.total) { if (el) el.style.display = "none"; return; }
     if (!el) {
