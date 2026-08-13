@@ -2632,6 +2632,8 @@ let _syncTimer = null;
 let _syncPending = false;
 
 function scheduleCloudSync() {
+  // 2026-08-13 (B1): yozuv qo'shilishi bilan ko'rsatkich yangilansin
+  try { setTimeout(renderPendingPill, 300); } catch (e) {}
   if (!_sb) return;
   // v184/v185: suppressed paytdagi chaqiruv — bu PULL ichidagi saveDB
   // (pull o'zi push qilmasligi kerak, aks holda to'liq-push aylanmasi).
@@ -3760,5 +3762,10 @@ function renderPendingPill() {
     el.title = "Bulutga yuborilmagan yozuvlar \u2014 bosing";
   } catch (e) {}
 }
-setInterval(renderPendingPill, 15000);
-setTimeout(renderPendingPill, 6000);
+setInterval(renderPendingPill, 5000);
+setTimeout(renderPendingPill, 1500);
+// Sotuv/to'lovdan keyin DARHOL yangilansin (kutmasdan)
+try {
+  window.addEventListener("online",  () => setTimeout(renderPendingPill, 500));
+  window.addEventListener("offline", () => setTimeout(renderPendingPill, 200));
+} catch (e) {}
