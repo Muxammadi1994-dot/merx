@@ -3191,6 +3191,19 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
 function _tasdiqBelgisi(sale, tur) {
   try {
     if (!sale) return "";
+    // ✅ 2026-08-13 (tuzatish): SERVER YOZGAN bo'lsa — ogohlantirish
+    // KERAK EMAS. Avval faqat push keshiga qaralardi, chek esa keshga
+    // yozilishidan OLDIN chiziladi — shu sabab internet bor paytda ham
+    // "yuborilmagan" deb chiqardi (jonli shikoyat).
+    if (sale.serverWritten === true) return "";
+    // Oflayn navbatda ham emas-u, keshda ham yo'q bo'lsa — shubhali emas:
+    // yozuv hali endi yaratildi. Faqat CHINDAN eski va yuborilmagan
+    // yozuvlar belgilanadi (yaratilganiga 30 soniyadan ko'p).
+    const _yosh = (() => {
+      const t = Number(String(sale.id || "").slice(0, 13));
+      return (t > 1600000000000) ? (Date.now() - t) : 0;
+    })();
+    if (_yosh < 30000) return "";
     const jadval = (tur === "qarz") ? "debt_payments" : "sales";
     const kalit  = sale.id;
     if (typeof isRecordSent === "function" && isRecordSent(jadval, kalit)) return "";
