@@ -370,6 +370,78 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true, sale: d });
     }
 
+    // ── BEKOR QILISH (3-band, 2026-08-14) ─────────────────────
+    // Nima uchun: sotuv SERVERDA yoziladi, bekor qilish esa LOKALDA
+    // edi \u2014 ya'ni "bekor qilingan-qilinmagan" holati kassalar orasida
+    // vaqtincha HAR XIL bo'lardi (Nuriddin voqeasining ildizi:
+    // bir kassada atkaz, bulutda hali faol \u2192 chekda $640 farq).
+    // Endi bekor qilishni ham SERVER yozadi \u2014 holat bitta.
+    if (action === "cancel") {
+      const tur = String(body.tur || "");      // "sale" | "payment"
+      const id  = String(body.id || "");
+      if (!id || !["sale", "payment"].includes(tur))
+        return res.status(400).json({ ok: false, error: "tur va id kerak" });
+      if (!(await _verify))
+        return res.status(401).json({ ok: false, error: "Token yaroqsiz \u2014 qayta kiring" });
+
+      const jadval = tur === "sale" ? "sales" : "debt_payments";
+      const cur = await sbAll(
+        `${jadval}?shop_id=eq.${encodeURIComponent(shopId)}` +
+        `&id=eq.${encodeURIComponent(id)}&select=id,data`);
+      if (!cur.length)
+        return res.status(200).json({ ok: false, error: "Yozuv bulutda topilmadi" });
+
+      const d0 = cur[0].data || {};
+      if (d0.cancelled === true || d0.cancelled === "true")
+        return res.status(200).json({ ok: true, already: true, data: d0 });
+
+      const d = { ...d0,
+        cancelled: true,
+        cancelledAt: tashDate() + " " + tashTime(),
+        cancelledBy: body.by || "",
+        cancelReason: body.reason || "",
+        updatedAt: new Date().toISOString(),
+        serverCancelled: true
+      };
+      const patch = { data: d, updated_at: new Date().toISOString() };
+      if (tur === "sale") { patch.status = "bekor"; patch.remaining = 0; }
+
+      const w = await fetch(
+        `${SB_URL}/rest/v1/${jadval}?shop_id=eq.${encodeURIComponent(shopId)}` +
+        `&id=eq.${encodeURIComponent(id)}`,
+        { method: "PATCH", headers: { ...H(), Prefer: "return=minimal" },
+          body: JSON.stringify(patch) });
+      if (!w.ok) {
+        const t = await w.text().catch(() => "");
+        return res.status(200).json({ ok: false, error: "Bekor qilinmadi: " + t.slice(0, 150) });
+      }
+      return res.status(200).json({ ok: true, data: d });
+    }
+
+    // ── QAYTARISH: tovarni omborga qaytarish (3-band) ─────────
+    // Qaytarishda qoldiq OSHADI \u2014 uni ham server qulf bilan qiladi
+    // (sotuvdagi `merx_sell` ning teskarisi: manfiy son beriladi).
+    if (action === "restock") {
+      const items = Array.isArray(body.items) ? body.items : [];
+      if (!items.length) return res.status(400).json({ ok: false, error: "items kerak" });
+      if (!(await _verify))
+        return res.status(401).json({ ok: false, error: "Token yaroqsiz" });
+      const talab = items.map(it => ({
+        sku: String(it.sku || ""), color: it.color || "", size: it.size || "",
+        qty: -Math.abs(Number(it.qty) || 0)      // MANFIY \u2192 qoldiq oshadi
+      })).filter(x => x.sku && x.qty);
+      if (!talab.length) return res.status(200).json({ ok: true });
+      const rq = await fetch(`${SB_URL}/rest/v1/rpc/merx_sell`, {
+        method: "POST", headers: H(),
+        body: JSON.stringify({ p_shop: shopId, p_items: talab })
+      });
+      if (!rq.ok) {
+        const t = await rq.text().catch(() => "");
+        return res.status(200).json({ ok: false, error: "Qaytarilmadi: " + t.slice(0, 120) });
+      }
+      return res.status(200).json({ ok: true });
+    }
+
     // ── QOLDIQNI SO'RASH (oyna ochilganda) ────────────────────
     if (action === "debt") {
       const custId = String(body.customerId || "");

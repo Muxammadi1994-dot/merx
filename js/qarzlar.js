@@ -2889,7 +2889,7 @@ function openAtkaz(payId) {
   openModal("atkaz");
 }
 
-function confirmAtkaz() {
+async function confirmAtkaz() {
   // Himoya kamari: oyna ochiq qolgan holatda ham amal qo'riqlanadi
   if (typeof requireDo === "function" && !requireDo("qarztarix", "cancel")) return;
   const p = (db.debtPayments||[]).find(x => x.id === _atkazPayId);
@@ -2904,6 +2904,23 @@ function confirmAtkaz() {
       (p.customerName || "") + " · " + (p.amount || 0) + " " + String(p.currency||"").toUpperCase(),
       { before: "faol", after: "atkaz", note: reason });
   } catch (e) {}
+  // ✅ 2026-08-14 (3-band): ATKAZNI SERVER YOZADI — holat bitta bo'lsin
+  if (typeof _serverRejimi === "function" && _serverRejimi()) {
+    try {
+      const _sr = await _serverPay({
+        action: "cancel", tur: "payment", id: p.id,
+        by: u ? (u.name || u.role || "admin") : "admin",
+        reason: reason || ""
+      });
+      if (!_sr || !_sr.ok) {
+        toast("Atkaz qilinmadi: " + ((_sr && _sr.error) || "server javob bermadi"), "err");
+        return;
+      }
+    } catch (e) {
+      toast("Server bilan aloqa yo'q — atkaz qilinmadi", "err");
+      return;
+    }
+  }
   p.cancelled   = true;
   p.cancelledAt = today() + " " + nowTime();
   p.cancelledBy = u ? (u.name || u.role || "admin") : "admin";

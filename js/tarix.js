@@ -817,7 +817,7 @@ function updateRefundTotal() {
   try { updateRefundPayPlan(total); } catch(e) {}
 }
 
-function confirmRefund() {
+async function confirmRefund() {
   const s = db.sales.find(x => x.id === _refundSaleId); if (!s) return;
   const reason     = $("refund-reason")?.value.trim() || "Sabab ko'rsatilmagan";
   const safeItems  = (s.items||[]).filter(Boolean);
@@ -863,6 +863,18 @@ function confirmRefund() {
   if (!confirm(`${fmt(refundTotal)} so'm qaytarilsinmi?\n${refundItems.length} ta tovar omborga qaytadi.`)) return;
 
   let returnedCount = 0;
+  // ✅ 2026-08-14 (3-band): qaytarishda qoldiq SERVERDA ham oshadi
+  if (typeof _serverRejimi === "function" && _serverRejimi()) {
+    try {
+      await _serverPay({
+        action: "restock",
+        items: refundItems.filter(Boolean).map(it => ({
+          sku: it.sku, color: it.color || "", size: it.size || "",
+          qty: Number(it.qty) || 0
+        }))
+      });
+    } catch (e) { console.warn("Serverda qoldiq qaytarilmadi:", e.message); }
+  }
   refundItems.forEach(item => { if (returnItemToStock(item)) returnedCount++; });
 
   // ═══ 2026-07-25: ASL CHEK HIMOYASI ═══
@@ -1300,7 +1312,7 @@ function _canCancelSaleBtn() {
          (typeof permDo !== "function" || permDo("tarix", "cancel"));
 }
 
-function openSaleCancel(saleId) {
+async function openSaleCancel(saleId) {
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("tarix","cancel")) return;
 
@@ -1342,6 +1354,19 @@ function openSaleCancel(saleId) {
   if (!confirm("TASDIQLANG\n\nBu amalni qaytarib bo'lmaydi.\nSotuv barcha hisobotlardan chiqariladi.")) return;
 
   // 1) Tovarlarni omborga qaytaramiz
+  // ✅ 2026-08-14 (3-band): qoldiq SERVERDA ham qaytariladi (qulf bilan),
+  // aks holda bulutdagi qoldiq bekor qilingan sotuvniki bo'lib qolardi.
+  if (typeof _serverRejimi === "function" && _serverRejimi()) {
+    try {
+      await _serverPay({
+        action: "restock",
+        items: (s.items || []).filter(Boolean).map(it => ({
+          sku: it.sku, color: it.color || "", size: it.size || "",
+          qty: Number(it.qty) || 0
+        }))
+      });
+    } catch (e) { console.warn("Serverda qoldiq qaytarilmadi:", e.message); }
+  }
   (s.items || []).filter(Boolean).forEach(item => {
     try { returnItemToStock(item); } catch(e) { console.warn("Ombor qaytarish:", e.message); }
   });
@@ -1353,6 +1378,27 @@ function openSaleCancel(saleId) {
       (s.customerName || "Mijozsiz") + " · " + fmt(s.total || 0),
       { before: "faol", after: "bekor" });
   } catch (e) {}
+  // ✅ 2026-08-14 (3-band): BEKOR QILISHNI SERVER YOZADI.
+  // Sabab: sotuv serverda yozilgan, bekor qilish esa lokalda edi —
+  // "bekor qilingan-qilinmagan" holati kassalar orasida vaqtincha
+  // HAR XIL bo'lardi (Nuriddin voqeasining ildizi).
+  if (typeof _serverRejimi === "function" && _serverRejimi()) {
+    try {
+      const _u = (typeof _authUser !== "undefined" && _authUser) ? _authUser : null;
+      const _sr = await _serverPay({
+        action: "cancel", tur: "sale", id: s.id,
+        by: _u ? (_u.name || _u.role || "admin") : "admin",
+        reason: (typeof _cancelReason !== "undefined" ? _cancelReason : "")
+      });
+      if (!_sr || !_sr.ok) {
+        toast("Bekor qilinmadi: " + ((_sr && _sr.error) || "server javob bermadi"), "err");
+        return;
+      }
+    } catch (e) {
+      toast("Server bilan aloqa yo'q — bekor qilinmadi", "err");
+      return;
+    }
+  }
   s.cancelled     = true;
   s.cancelledAt   = today();
   s.cancelledTime = (typeof nowTime === "function" ? nowTime() : "");
