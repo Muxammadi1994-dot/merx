@@ -1837,24 +1837,17 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
-  <div class="tot">
-    <div class="trow"><span>${items.length} xil \u00b7 ${totalDona} dona${
-      totalBoxes ? " \u00b7 " + totalBoxes + " pchk" : ""}</span><span></span></div>
-    ${discount > 0 ? `<div class="trow"><span>Jami (chegirmasiz)</span><span>${F(subtotal)}</span></div>` : ""}
-    ${discount > 0 ? `<div class="trow"><span>Chegirma</span><b>-${F(discount)}</b></div>` : ""}
-    <div class="trow big"><span>JAMI</span><b>$${D(totalUsd)} / ${F(total)}</b></div>
-    <div class="trow"><span>To'landi (${payLabels[payType]||payType||"\u2014"})</span><b>${F(paid)} so'm</b></div>
-    ${remaining > 0
-      ? `<div class="trow big"><span>QOLDIQ</span><b>${
-           isUsd ? "$" + D(debtUsd) : F(remaining) + " so'm"}</b></div>` +
-        ((_dJ && _dJ.keyin)
-          ? `<div class="trow"><span>Umumiy qarz</span><b>${_dJ.keyin}</b></div>` : "") +
-        (due ? `<div class="trow"><span>Muddat</span><b>${due}</b></div>` : "")
-      : `<div class="trow big"><span>QOLDIQ</span><b>0</b></div>`}
+  ${(() => {
+    // \u2705 2026-08-14: BO'LIMLAR YAGONA TARTIBDA (chekRows)
+    try {
+      const _R = chekRows(sale, cfg, F);
+      const _H = chekRowsHtml(_R, { row:"trow", sep:"", ft:"ft",
+                                    big:"big", total:"tot", debt:"b" });
+      return `<div class="tot">${_H.summary}${_H.payment}${_H.debt}</div>${_H.footer}`;
+    } catch (e) { return ""; }
+  })()}
   </div>
-  <div class="ft">${footer || "Rahmat!"}</div>
-</div>
-</body></html>`;
+  </body></html>`;
 }
 
 function buildReceiptThermal(sale, opts, cfg) {
@@ -1968,14 +1961,19 @@ function buildReceiptThermal(sale, opts, cfg) {
     sale.customerPhone ? ("Tel:   " + sale.customerPhone) : null,
     DA,
     itemLines,
+    // \u2705 2026-08-14: BO'LIMLAR YAGONA TARTIBDA (chekRows) \u2014
+    // yig'indi \u2192 to'lov \u2192 qarz. Tovarlar qismi yuqorida (matnli).
     EQ,
-    lr("Jami (" + (totalBoxes ? totalBoxes+" pchk" : totalDona+" dona") + "):", F(subtotal)+" som"),
-    discount > 0 ? lr("Chegirma" + (sale.discountPct ? " -"+sale.discountPct+"%" : "") + ":", "-"+F(discount)+" som") : null,
-    discount > 0 ? lr("TO'LOV:", F(total)+" som") : null,
-    EQ,
-    payLines(),
-    DA,
-    debtLines(),
+    ...(() => {
+      try {
+        const _R = chekRows(sale, cfg, F);
+        const out = [];
+        _R.summary.forEach(x => out.push(lr(x[0] + ":", x[1])));
+        if (_R.payment.length) { out.push(EQ); _R.payment.forEach(x => out.push(lr(x[0] + ":", x[1]))); }
+        if (_R.debt.length)    { out.push(DA); _R.debt.forEach(x => out.push(lr(x[0] + ":", x[1]))); }
+        return out;
+      } catch (e) { return []; }
+    })(),
     note ? (DA + "\nIzoh: " + note) : null,
     EQ,
     center(footer || "Rahmat! Yana kutamiz"),
@@ -2170,14 +2168,19 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
     </tr></thead>
     <tbody>${itemRows}</tbody>
   </table>
-  <div class="tot">
-    <div class="row"><span>${items.length} xil \u00b7 ${totalDona} dona${
-      totalBoxes ? " \u00b7 " + totalBoxes + " pchk" : ""}</span><span></span></div>
-    ${yakun}
+  ${(() => {
+    // \u2705 2026-08-14: BO'LIMLAR YAGONA TARTIBDA (chekRows) \u2014
+    // meta \u2192 tovarlar \u2192 yig'indi \u2192 to'lov \u2192 qarz \u2192 altbilgi.
+    // Faqat TOVARLAR qismi uslubga xos (yuqoridagi jadval).
+    try {
+      const _R = chekRows(sale, cfg, F);
+      const _H = chekRowsHtml(_R, { row:"row", sep:"", ft:"ft",
+                                    big:"big", total:"tot", debt:"b" });
+      return `<div class="tot">${_H.summary}${_H.payment}${_H.debt}</div>${_H.footer}`;
+    } catch (e) { return ""; }
+  })()}
   </div>
-  <div class="ft">${footer || "Rahmat!"}</div>
-</div>
-</body></html>`;
+  </body></html>`;
 }
 
 function buildReceiptMerx(sale, opts, cfg) {
@@ -2364,19 +2367,20 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
     <div class="items-lbl">Mahsulotlar</div>
     <div class="items">${itemsHtml}</div>
 
-    <div class="tot">
-      <div>
-        <div class="tot-l">JAMI</div>
-        <div class="tot-cnt">${items.length} xil · ${totalBoxes ? totalBoxes + " pochka" : totalDona + " dona"}</div>
-      </div>
-      <div class="tot-v">${F(total)} <span style="font-size:13px;font-weight:600">so'm</span></div>
-    </div>
-
-    <div class="pay">
-      <div class="pay-lbl">To'lov</div>
-      ${discHtml}
-      ${payHtml}
-      ${debtHtml}
+    ${(() => {
+    // \u2705 2026-08-14: BO'LIMLAR YAGONA TARTIBDA (chekRows) \u2014
+    // yig'indi \u2192 to'lov \u2192 qarz. Tovarlar qismi yuqorida, o'z uslubida.
+    try {
+      const _R = chekRows(sale, cfg, F);
+      const _H = chekRowsHtml(_R, { row:"pr", sep:"sep-dash", ft:"ft",
+                                    big:"pr-sm", total:"pr-debt-total", debt:"pr-debt" });
+      return `<div class="tot"><div><div class="tot-l">JAMI</div>` +
+             `<div class="tot-cnt">${items.length} xil \u00b7 ${totalBoxes ? totalBoxes + " pochka" : totalDona + " dona"}</div></div>` +
+             `<div class="tot-v">${F(total)} <span style="font-size:13px;font-weight:600">so'm</span></div></div>` +
+             `<div class="pay"><div class="pay-lbl">To'lov</div>` +
+             _H.summary + _H.payment + _H.debt;
+    } catch (e) { return ""; }
+  })()}
     </div>
 
     <div class="ft">
@@ -3446,4 +3450,101 @@ function chekExtraHtml(cfg, cls) {
     return ex.filter(Boolean).map(t =>
       `<div class="${cls || "ft"}" style="font-size:11px;opacity:.85">${t}</div>`).join("");
   } catch (e) { return ""; }
+}
+
+
+// \u2550\u2550\u2550 CHEK BO'LIMLARI \u2014 YAGONA TARTIB (2026-08-14) \u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// Egasining talabi: BARCHA cheklarda bir xil bo'limlar va bir xil
+// KETMA-KETLIK bo'lsin; faqat TOVARLAR bo'limining tuzilishi uslubga
+// qarab o'zgarsin (jadval, ulgurji ro'yxati, termal matn).
+// Shu funksiya barcha qatorlarni tayyorlab beradi \u2014 har chizuvchi
+// ularni o'z sinflari bilan chizadi. Tartib bir joyda saqlanadi,
+// kelajakda o'zgartirish ham bir joyda bo'ladi.
+//
+// Tartib: META \u2192 (TOVARLAR) \u2192 YIG'INDI \u2192 TO'LOV \u2192 QARZ \u2192 ALTBILGI
+function chekRows(sale, cfg, F) {
+  const f = F || (n => Math.round(Number(n) || 0).toLocaleString("ru-RU"));
+  const c = cfg || {};
+  const items    = (sale.items || []).filter(Boolean);
+  const total    = Number(sale.total || 0);
+  const paid     = Number(sale.paid  || 0);
+  const discount = Number(sale.discount || 0);
+  const subtotal = Number(sale.subtotal || (total + discount));
+  const rate     = Number(sale.rate) || Number(c.rate) ||
+                   (typeof db !== "undefined" && db.settings?.rate) || 0;
+  const PAY = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash" };
+
+  // ── 1) META (chek boshi) ──
+  const meta = [];
+  meta.push(["Sotuv", sale.chekNum || ("#" + sale.id)]);
+  if (c.shopName)                 meta.push(["Do'kon", c.shopName]);
+  meta.push(["Sana", (sale.date || "") + (sale.time ? " " + sale.time : "")]);
+  if (c.showStaff !== false && c.staffName && c.staffName !== "\u2014")
+    meta.push(["Sotuvchi / Kassir", c.staffName]);
+  if (c.showContact !== false && c.contact) meta.push(["Kontaktlar", c.contact]);
+  if (sale.customerName)  meta.push(["Mijoz", sale.customerName]);
+  if (sale.customerPhone) meta.push(["Mijoz raqami", sale.customerPhone]);
+
+  // ── 2) YIG'INDI (tovarlardan keyin) ──
+  const summary = [];
+  let pochka = 0, dona = 0;
+  items.forEach(it => {
+    const q = Number(it.qty) || 0;
+    if (it.sellMode === "karobka" || it.qtyBox) pochka += Number(it.qtyBox || q) || 0;
+    dona += q;
+  });
+  if (pochka > 0) summary.push(["JAMI POCHKA", pochka + " pochka", "big"]);
+  if (discount > 0) {
+    summary.push(["Jami (chegirmasiz)", f(subtotal) + " so'm"]);
+    summary.push(["Umumiy chegirma", "\u2212" + f(discount) + " so'm", "disc"]);
+  }
+  summary.push(["JAMI", f(total) + " so'm",
+                "total", items.length + " xil \u00b7 " + dona + " dona"]);
+
+  // ── 3) TO'LOV ──
+  const payment = [];
+  if (sale.payType) payment.push(["To'lov turi", PAY[sale.payType] || sale.payType]);
+  const pb = sale.payBreakdown || {};
+  if (Number(pb.naqd)    > 0) payment.push(["Naqd pul", f(pb.naqd)    + " so'm"]);
+  if (Number(pb.karta)   > 0) payment.push(["Karta",    f(pb.karta)   + " so'm"]);
+  if (Number(pb.otkazma) > 0) payment.push(["O'tkazma", f(pb.otkazma) + " so'm"]);
+  if (paid > 0) payment.push(["To'landi", f(paid) + " so'm", "ok"]);
+
+  // ── 4) QARZ (yagona manba: debtLines) ──
+  const debt = [];
+  const _fn = (typeof globalThis !== "undefined" && globalThis.debtLines) ||
+              (typeof debtLines === "function" ? debtLines : null);
+  const d = (c.showDebtHistory === false || !_fn) ? null : _fn(sale, { F: f, rate });
+  if (d && d.oldin)    debt.push(["Xariddan oldingi qarz", d.oldin]);
+  if (d && d.qoshildi) debt.push(["Qarzga qo'shildi",      d.qoshildi]);
+  if (d && d.keyin)    debt.push(["Xariddan keyingi qarz", d.keyin, "debt"]);
+  if (sale.due)        debt.push(["To'lov muddati", sale.due, "debt"]);
+
+  // ── 5) ALTBILGI ──
+  const footer = [];
+  if (c.footer) footer.push(c.footer);
+  (Array.isArray(c.extraLines) ? c.extraLines : []).forEach(t => { if (t) footer.push(t); });
+
+  return { meta, summary, payment, debt, footer, pochka, dona };
+}
+
+
+// Qatorlarni HTML ga aylantirish \u2014 uslub o'z sinflarini beradi.
+// `K` = {row, label, val, sep, big, total, disc, ok, debt, ft}
+function chekRowsHtml(R, K) {
+  const k = K || {};
+  const row = (l, v, c, sub) =>
+    `<div class="${k.row || "row"}${c ? " " + (k[c] || c) : ""}">` +
+    `<span class="${k.label || ""}">${l}${sub ? `<br><small style="opacity:.6">${sub}</small>` : ""}</span>` +
+    `<b class="${k.val || ""}">${v}</b></div>`;
+  const sep = k.sep ? `<div class="${k.sep}"></div>` : "";
+  const blok = (arr) => arr.map(x => row(x[0], x[1], x[2], x[3])).join("");
+  return {
+    meta:    blok(R.meta),
+    summary: blok(R.summary),
+    payment: R.payment.length ? sep + blok(R.payment) : "",
+    debt:    R.debt.length    ? sep + blok(R.debt)    : "",
+    footer:  R.footer.map((t, i) =>
+      `<div class="${k.ft || "ft"}"${i ? ' style="font-size:11px;opacity:.8"' : ""}>${t}</div>`).join("")
+  };
 }
