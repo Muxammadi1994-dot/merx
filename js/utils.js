@@ -3406,9 +3406,9 @@ function debtLines(sale, opts) {
   if (yUsd > 0) keyinQ.push("$" + yUsd.toFixed(2));
 
   return {
-    oldin:    oldinQ.join(" \u00b7 "),
+    oldin:    oldinQ.join(" + "),
     qoshildi: qoshildi,
-    keyin:    keyinQ.join(" \u00b7 "),
+    keyin:    keyinQ.join(" + "),
     bor:      (oldinQ.length > 0 || keyinQ.length > 0)
   };
 }
@@ -3439,13 +3439,20 @@ function chekStyleCss(cfg, sel) {
       mono:    "'Courier New',monospace",
       serif:   "Georgia,'Times New Roman',serif"
     };
-    if (cfg.fontFamily && FAM[cfg.fontFamily])
-      out.push(`.doc,.wrap,.rc{font-family:${FAM[cfg.fontFamily]}}`);
+    // \U0001f534 2026-08-15: TERMALGA shrift QO'LLANMAYDI. U bo'shliqlar
+    // bilan ikki tomonlama tekislanadi va faqat MONOSHRIFTDA to'g'ri
+    // chiqadi. Avval "DM Sans" ga almashib, chek chapga yopishib
+    // qolardi (egasining shikoyati, 15-avgust).
+    if (cfg.fontFamily && FAM[cfg.fontFamily] && !(sel && sel._noAlign))
+      out.push(`.doc,.wrap{font-family:${FAM[cfg.fontFamily]}}`);
 
     // 2) UMUMIY O'LCHAM (kichik / normal / katta)
     const SC = { kichik: 0.9, normal: 1, katta: 1.12 };
     const k = SC[cfg.fontScale] || 1;
-    if (k !== 1) out.push(`.doc,.wrap,.rc{font-size:${(13 * k).toFixed(1)}px}`);
+    // Termalda o'lcham ham cheklangan — 40 belgi sig'masa tekislash buziladi
+    if (k !== 1) out.push((sel && sel._noAlign)
+      ? `.doc,.wrap{font-size:${(13 * k).toFixed(1)}px}`
+      : `.doc,.wrap,.rc{font-size:${(13 * k).toFixed(1)}px}`);
 
     // 3) BLOK BO'YICHA: o'lcham, qalin, kursiv, tekislash, ko'rsatish
     for (const key in (sel || {})) {

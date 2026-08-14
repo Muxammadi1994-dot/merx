@@ -16,6 +16,7 @@ function _dStr(d) {
   return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}`;
 }
 
+let _avvalgiTab = null;   // 2026-08-15: bo'lim chindan almashdimi
 function adminTabSwitch(tab) {
   _adminTab = tab;
   // ✅ 2026-08-14: chek namunasi FAQAT o'z bo'limida chizilsin.
@@ -29,17 +30,19 @@ function adminTabSwitch(tab) {
   // Chek bo'limi juda uzun — undan qisqa bo'limga o'tilganda ekran
   // pastda qolib, tepadagi bo'lim tugmalari ko'rinmasdi va surib
   // chiqib bo'lmasdi ("oyna qotib qoldi" — egasining shikoyati).
-  try {
-    // \u26a0\ufe0f Suriladigan konteyner — #pages (#main EMAS). Avval
-    // noto'g'ri elementga qaralgani uchun sahifa tepaga qaytmasdi.
-    ["pages", "main"].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.scrollTop = 0;
-    });
-    document.querySelectorAll("[id^='p-']").forEach(el => { el.scrollTop = 0; });
-    window.scrollTo(0, 0);
-    if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
-  } catch (e) {}
+  // \U0001f534 2026-08-15 ILDIZ-TUZATISH: surish FAQAT bo'lim CHINDAN
+  // almashganda tepaga qaytariladi. Avval har chaqiruvda qaytarilardi —
+  // sinxron kelganda sozlamalar sahifasi qayta chizilib, bu funksiya
+  // O'SHA bo'lim bilan qayta chaqirilardi va ekran TEPAGA sakrardi
+  // (egasining takroriy shikoyati: "chek sozlamalarini ko'ryapman,
+  // bir necha bor tepaga otib yuboradi").
+  if (_avvalgiTab !== tab) {
+    try {
+      const _p = document.getElementById("pages");
+      if (_p) _p.scrollTop = 0;
+    } catch (e) {}
+  }
+  _avvalgiTab = tab;
   try { renderUnitTags(); } catch(e) {} // №11a: birlik chiplar yangilanadi
   document.querySelectorAll(".adm-tab-btn").forEach(b => {
     const on = b.dataset.tab === tab;
