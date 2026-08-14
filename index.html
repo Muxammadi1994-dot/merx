@@ -3184,12 +3184,6 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
             <select id="chek-pos-style"   style="display:none"></select>
             <select id="chek-tarix-style" style="display:none"></select>
 
-                </div>
-              </div>
-
-            </div>
-          </div>
-
           <!-- Tanlangan uslub NAMUNASI — sozlamalar yonida (2026-08-14) -->
           <div style="padding:0 20px 8px">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
@@ -3371,6 +3365,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
               <select id="chek-qarz-style" style="display:none"></select>
             </div>
             </div>
+          </div>
           </div>
 
         </div>
@@ -5484,7 +5479,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 422;
+  window.SW_V = 423;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5507,7 +5502,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=422")
+    navigator.serviceWorker.register("/sw.js?v=423")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
