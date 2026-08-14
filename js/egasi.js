@@ -30,13 +30,15 @@ function adminTabSwitch(tab) {
   // pastda qolib, tepadagi bo'lim tugmalari ko'rinmasdi va surib
   // chiqib bo'lmasdi ("oyna qotib qoldi" — egasining shikoyati).
   try {
-    const _p = document.querySelector(".adm-tab-bar") ||
-               document.getElementById("page-sozlamalar") ||
-               document.getElementById("main");
-    if (_p && _p.scrollIntoView) _p.scrollIntoView({ block: "start" });
-    const _m = document.getElementById("main");
-    if (_m) _m.scrollTop = 0;
+    // \u26a0\ufe0f Suriladigan konteyner — #pages (#main EMAS). Avval
+    // noto'g'ri elementga qaralgani uchun sahifa tepaga qaytmasdi.
+    ["pages", "main"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.scrollTop = 0;
+    });
+    document.querySelectorAll("[id^='p-']").forEach(el => { el.scrollTop = 0; });
     window.scrollTo(0, 0);
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
   } catch (e) {}
   try { renderUnitTags(); } catch(e) {} // №11a: birlik chiplar yangilanadi
   document.querySelectorAll(".adm-tab-btn").forEach(b => {

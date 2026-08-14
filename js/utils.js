@@ -1759,7 +1759,9 @@ function buildReceiptTable(sale, opts, cfg) {
   }).join("");
 
   // \u2705 2026-08-14: IKKALA valyuta (yagona manba)
-  const _dJ = (typeof debtLines === "function") ? debtLines(sale, { F, rate }) : null;
+  let _dJ = (typeof debtLines === "function") ? debtLines(sale, { F, rate }) : null;
+  // ✅ 2026-08-14: "Qarz tarixi" belgilagichi hamma uslubga ta'sir qiladi
+  if (cfg && cfg.showDebtHistory === false) _dJ = null;
   const boshRow = (_dJ && _dJ.oldin)
     ? `<div class="mrow"><span>Oldingi qarz</span><b>${_dJ.oldin}</b></div>` : "";
 
@@ -1788,7 +1790,11 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
           border-bottom:1px dashed #000;padding:3px 0;margin:3px 0}
 .ft{text-align:center;font-size:9.5px;margin-top:6px;border-top:1px dashed #000;padding-top:5px}
 @media print{ @page{size:${W}mm auto;margin:0} body{padding:0} .doc{width:${W}mm} }
-</style></head><body>
+
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shopName:".shop",tagline:".sm",meta:".meta",
+      itemName:".l",itemPrice:".r",total:".tot,.big",
+      debt:".trow",footer:".ft"}) : ""}
+  </style></head><body>
 <div class="doc">
   ${_tasdiqBelgisi(sale, opts && opts.type)}
   ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
@@ -1917,15 +1923,14 @@ function buildReceiptThermal(sale, opts, cfg) {
     // o'zini-o'zi chaqirib cheksiz halqaga tushardi).
     const _fn = (typeof window !== "undefined" && window.debtLines) ||
                 (typeof globalThis !== "undefined" && globalThis.debtLines);
-    const _dT = (typeof _fn === "function") ? _fn(sale, { F }) : null;
+    let _dT = (typeof _fn === "function") ? _fn(sale, { F }) : null;
+  // ✅ 2026-08-14: "Qarz tarixi" belgilagichi hamma uslubga ta'sir qiladi
+  if (cfg && cfg.showDebtHistory === false) _dT = null;
     if (_dT && (_dT.oldin || _dT.keyin)) {
       if (_dT.oldin)    lines.push(lr("  Oldingi qarz:", _dT.oldin));
       if (_dT.qoshildi) lines.push(lr("  Qarzga qo'shildi:", _dT.qoshildi));
       if (_dT.keyin)    lines.push(lr("  JAMI QARZ:", _dT.keyin));
-    } else if (!isUsd && prevUzs > 0) {
-      lines.push(lr("  Oldingi qarz:", F(prevUzs)+" som"));
-      lines.push(lr("  Yangi qarz:", F(remaining)+" som"));
-      lines.push(lr("  JAMI QARZ:", F(prevUzs+remaining)+" som"));
+
     }
     if (due) lines.push(lr("  Muddat:", due));
     return lines.join("\n");
@@ -1992,7 +1997,10 @@ body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
       line-height:1.5;padding:4px 6px}
   .acts{display:none}
 }
-</style></head><body>
+
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shopName:".rc",tagline:".rc",meta:".rc",
+      itemName:".rc",itemPrice:".rc",total:".rc",debt:".rc",footer:".rc"}) : ""}
+  </style></head><body>
 ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
   <div class="rc">
   ${_tasdiqBelgisi(sale, opts && opts.type)}${rows.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
@@ -2061,7 +2069,9 @@ function buildReceiptWholesale(sale, opts, cfg) {
 
   // Oldingi qarz (namunadagi "\u041d\u0430\u0447\u0430\u043b\u044c\u043d\u0430\u044f \u043e\u0441\u0442\u0430\u0442\u043a\u0430")
   // \u2705 2026-08-14: IKKALA valyuta (yagona manba)
-  const _dW = (typeof debtLines === "function") ? debtLines(sale, { F, rate }) : null;
+  let _dW = (typeof debtLines === "function") ? debtLines(sale, { F, rate }) : null;
+  // ✅ 2026-08-14: "Qarz tarixi" belgilagichi hamma uslubga ta'sir qiladi
+  if (cfg && cfg.showDebtHistory === false) _dW = null;
   const boshRow = (_dW && _dW.oldin)
     ? `<div class="row"><span>Oldingi qarz</span><b>${_dW.oldin}</b></div>` : "";
 
@@ -2110,7 +2120,11 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
   body{padding:0}
   .doc{width:${W}mm}
 }
-</style></head><body>
+
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shopName:".shop",tagline:".sm",meta:".meta",
+      itemName:".l",itemPrice:".r",total:".tot,.big",
+      debt:".row",footer:".ft"}) : ""}
+  </style></head><body>
 <div class="doc">
   ${_tasdiqBelgisi(sale, opts && opts.type)}
   ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
@@ -2216,7 +2230,9 @@ function buildReceiptMerx(sale, opts, cfg) {
     debtHtml += `<div class="sep-dash" style="margin:6px 0"></div>`;
     // \u2705 2026-08-14: IKKALA VALYUTA \u2014 yagona manba (debtLines).
     // Avval faqat dollar qarzi ko'rsatilardi, so'm qarzi tushib qolardi.
-    const _dM = (typeof debtLines === "function") ? debtLines(sale, { F }) : null;
+    let _dM = (typeof debtLines === "function") ? debtLines(sale, { F }) : null;
+  // ✅ 2026-08-14: "Qarz tarixi" belgilagichi hamma uslubga ta'sir qiladi
+  if (cfg && cfg.showDebtHistory === false) _dM = null;
     if (_dM && (_dM.oldin || _dM.keyin)) {
       if (_dM.oldin)
         debtHtml += `<div class="pr pr-sm"><span>Oldingi qarz</span><span>${_dM.oldin}</span></div>`;
@@ -2224,10 +2240,7 @@ function buildReceiptMerx(sale, opts, cfg) {
         debtHtml += `<div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>${_dM.qoshildi}</span></div>`;
       if (_dM.keyin)
         debtHtml += `<div class="pr pr-debt-total"><span>JAMI QARZ</span><span>${_dM.keyin}</span></div>`;
-    } else if (!isUsd && prevUzs > 0) {
-      debtHtml += `<div class="pr pr-sm"><span>Oldingi qarz</span><span>${F(prevUzs)} so'm</span></div>`;
-      debtHtml += `<div class="pr pr-sm"><span>Yangi qarz</span><span>${F(remaining)} so'm</span></div>`;
-      debtHtml += `<div class="pr pr-debt-total"><span>JAMI QARZ</span><span>${F(prevUzs+remaining)} so'm</span></div>`;
+
     } else {
       debtHtml += `<div class="pr pr-debt"><span>QARZ</span><span>${newDebtAmt}</span></div>`;
     }
@@ -2297,7 +2310,11 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
   .hd,.hd-meta b{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .pr.pr-debt,.pr.pr-debt-total{color:#000!important}
 }
-</style></head><body>
+
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shopName:".hd-name",tagline:".hd-meta",meta:".cust",
+      itemName:".it-name",itemPrice:".it-calc,.it-sum",total:".tot-v,.tot",
+      debt:".pr-debt,.pr-debt-total,.pr",footer:".ft"}) : ""}
+  </style></head><body>
 <div class="wrap">
   ${_tasdiqBelgisi(sale, opts && opts.type)}
   <div class="rc">
@@ -3338,4 +3355,71 @@ function debtLines(sale, opts) {
     keyin:    keyinQ.join(" \u00b7 "),
     bor:      (oldinQ.length > 0 || keyinQ.length > 0)
   };
+}
+
+
+// \u2550\u2550\u2550 SOZLAMALARNI USLUBLARGA YETKAZISH (2026-08-14) \u2550\u2550\u2550\u2550\u2550
+// Muammo (egasining kuzatuvi): blok o'lchamlari, shrift, sarlavha foni
+// va ikki-valyuta ko'rsatkichi FAQAT "Yagona" chekka ta'sir qilardi \u2014
+// qolgan to'rt uslub ularni umuman O'QIMASDI (audit bilan tasdiqlandi).
+// Bu funksiya har uslub uchun CSS ishlab beradi va uni chizuvchining
+// <style> blokiga qo'shish kifoya.
+//
+// `sel` \u2014 uslubning sinf xaritasi: qaysi blok qaysi CSS selektorga.
+function chekStyleCss(cfg, sel) {
+  try {
+    if (!cfg) return "";
+    const b = cfg.blocks || {};
+    const out = [];
+
+    // 1) SHRIFT OILASI (butun chek)
+    const FAM = {
+      dm:      "'DM Sans',system-ui,sans-serif",
+      inter:   "Inter,system-ui,sans-serif",
+      roboto:  "Roboto,system-ui,sans-serif",
+      mono:    "'Courier New',monospace",
+      serif:   "Georgia,'Times New Roman',serif"
+    };
+    if (cfg.fontFamily && FAM[cfg.fontFamily])
+      out.push(`.doc,.wrap,.rc{font-family:${FAM[cfg.fontFamily]}}`);
+
+    // 2) UMUMIY O'LCHAM (kichik / normal / katta)
+    const SC = { kichik: 0.9, normal: 1, katta: 1.12 };
+    const k = SC[cfg.fontScale] || 1;
+    if (k !== 1) out.push(`.doc,.wrap,.rc{font-size:${(13 * k).toFixed(1)}px}`);
+
+    // 3) BLOK BO'YICHA: o'lcham, qalin, kursiv, tekislash, ko'rsatish
+    for (const key in (sel || {})) {
+      const cssSel = sel[key];
+      const o = b[key];
+      if (!cssSel || !o) continue;
+      const d = [];
+      if (o.size)   d.push(`font-size:${Number(o.size) * k}px`);
+      if (o.bold)   d.push("font-weight:800");
+      if (o.italic) d.push("font-style:italic");
+      if (o.align)  d.push(`text-align:${o.align}`);
+      if (d.length) out.push(`${cssSel}{${d.join(";")} !important}`);
+      if (o.show === false) out.push(`${cssSel}{display:none !important}`);
+    }
+
+    // 4) SARLAVHA FONI (och / to'q)
+    if (cfg.headerStyle === "light")
+      out.push(".hd{background:#fff !important;color:#000 !important}" +
+               ".hd *{color:#000 !important}");
+    else if (cfg.headerStyle === "dark")
+      out.push(".hd{background:#0D1B2A !important;color:#fff !important}" +
+               ".hd *{color:#fff !important}");
+
+    return out.join("\n");
+  } catch (e) { return ""; }
+}
+
+// Chek pastidagi qo'shimcha qatorlar (reklama, ish vaqti) \u2014 hamma uslubga
+function chekExtraHtml(cfg, cls) {
+  try {
+    const ex = cfg && cfg.extraLines;
+    if (!Array.isArray(ex) || !ex.length) return "";
+    return ex.filter(Boolean).map(t =>
+      `<div class="${cls || "ft"}" style="font-size:11px;opacity:.85">${t}</div>`).join("");
+  } catch (e) { return ""; }
 }
