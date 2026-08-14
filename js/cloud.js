@@ -69,7 +69,10 @@ async function ensureFreshToken() {
     if (!raw) return;
     const s = JSON.parse(raw);
     if (!s?.refreshToken) return; // eski sessiya (refreshsiz) — yangilab bo'lmaydi
-    if (s.expiresAt && Date.now() < s.expiresAt - 5 * 60 * 1000) return; // hali yangi
+    // ✅ 2026-08-14 (3-daraja): ERTAROQ yangilanadi — 5 daq o'rniga 15.
+    // Sabab: 5 daqiqa oynasida bir necha amal ketsa, ulardan biri
+    // eskirgan kalit bilan ketib rad etilishi mumkin edi.
+    if (s.expiresAt && Date.now() < s.expiresAt - 15 * 60 * 1000) return; // hali yangi
     const url = db.settings?.supabaseUrl?.trim();
     const key = db.settings?.supabaseKey?.trim();
     if (!url || !key) return;
@@ -1010,6 +1013,13 @@ function _staffNoToken() {
 }
 
 async function pushToCloud() {
+  // \u2705 2026-08-14 (4-daraja): YOZISHDAN OLDIN KALIT TEKSHIRILADI.
+  // Avval kalit faqat ULANISH paytida yangilanardi \u2014 keyin soatlab
+  // tekshirilmasdi. Kalit eskirsa sinxron JIMGINA rad etilardi va
+  // qurilma "kar" bo'lib qolardi (sotuv/to'lov ishlagani bilan
+  // mijoz, tovar, ombor yozuvlari qolib ketardi).
+  try { await ensureFreshToken(); } catch (e) {}
+
   // ⚠️ 2026-07-31: OG'IR JADVALLAR YUKLANGUNCHA YOZMAYMIZ.
   // Tovarlar va mijozlar endi IndexedDB'dan ASINXRON keladi. Agar shu
   // oraliqda push ketsa, bulutga BO'SH ro'yxat yozilib ma'lumot o'chib
@@ -3860,3 +3870,24 @@ function isRecordSent(table, key) {
     return !!(c && c.has(String(key)));
   } catch (e) { return true; }   // bilolmasak \u2014 bezovta qilmaymiz
 }
+
+
+// \u2550\u2550\u2550 TOKEN FONDA YANGILANADI (2026-08-14, 3-daraja) \u2550\u2550\u2550\u2550
+// Avval token faqat AMAL paytida tekshirilardi \u2014 kassa bir soat jim
+// tursa (masalan tushlik), kalit muddati o'tib ketardi va keyingi
+// amal rad etilardi. Endi fonda har 10 daqiqada tekshiriladi:
+// muddat tugashiga 15 daqiqa qolganda o'zi yangilanadi.
+// Shu bilan "kalit o'lgan" holati amalda yuzaga kelmaydi.
+setInterval(() => {
+  try {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    ensureFreshToken();
+  } catch (e) {}
+}, 10 * 60 * 1000);
+// Ilova ochilganda/qaytganda ham darhol tekshiramiz
+try {
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) { try { ensureFreshToken(); } catch (e) {} }
+  });
+  window.addEventListener("online", () => { try { ensureFreshToken(); } catch (e) {} });
+} catch (e) {}

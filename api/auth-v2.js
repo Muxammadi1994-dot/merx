@@ -1075,20 +1075,54 @@ module.exports = async function handler(req, res) {
             },
             body: JSON.stringify({
               email: _mail, password: _pass, email_confirm: true,
-              user_metadata: _meta
+              // 2026-08-14: parol "barmoq izi" — keyingi kirishlarda parol
+              // qayta yozilmasin (aks holda faol sessiyalar bekor bo'ladi)
+              user_metadata: { ..._meta,
+                pin_fp: _crypto.createHash("sha256").update(_pass).digest("hex").slice(0, 16) }
             })
           });
         } else {
-          // 2b) Bor — parol va metama'lumotni yangilaymiz
-          // (PIN yoki do'kon o'zgargan bo'lishi mumkin)
-          await fetch(`${SB_URL}/auth/v1/admin/users/${_u.id}`, {
-            method: "PUT",
-            headers: {
-              apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ password: _pass, user_metadata: _meta })
-          });
+          // 🔴 2026-08-14 ILDIZ-DAVO: XODIM "KAR" BO'LIB QOLISHI.
+          // Avval HAR KIRISHDA parol qayta yozilardi. Supabase esa
+          // parol o'zgarganda o'sha hisobning BARCHA faol sessiyalarini
+          // BEKOR QILADI. Natijada: xodim kompyuterda ishlab turibdi →
+          // o'sha xodim telefonda kiradi → kompyuterdagi sessiya O'LADI
+          // → bir soatdan keyin qurilma jimgina yozolmay qoladi
+          // (ABU SAXIY, bir necha marta takrorlangan).
+          // Adminda bu yo'q: admin kirganda hech narsa qayta yozilmaydi.
+          //
+          // ENDI: parol faqat CHINDAN o'zgarganda yoziladi. Buning
+          // uchun parol "barmoq izi" metama'lumotda saqlanadi.
+          const _pfp = _crypto.createHash("sha256").update(_pass).digest("hex").slice(0, 16);
+          const _oldMeta = (_u && _u.user_metadata) || {};
+          const _metaFarq =
+            _oldMeta.shop_id  !== _meta.shop_id  ||
+            String(_oldMeta.staff_id) !== String(_meta.staff_id) ||
+            _oldMeta.role     !== _meta.role;
+          if (_oldMeta.pin_fp !== _pfp) {
+            // PIN o'zgargan — parol yoziladi (sessiyalar bekor bo'ladi,
+            // bu TO'G'RI: eski PIN bilan kirganlar chiqib ketishi kerak)
+            await fetch(`${SB_URL}/auth/v1/admin/users/${_u.id}`, {
+              method: "PUT",
+              headers: {
+                apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ password: _pass,
+                                     user_metadata: { ..._meta, pin_fp: _pfp } })
+            });
+          } else if (_metaFarq) {
+            // PIN o'sha — faqat ma'lumot yangilanadi (sessiyalar TIRIK qoladi)
+            await fetch(`${SB_URL}/auth/v1/admin/users/${_u.id}`, {
+              method: "PUT",
+              headers: {
+                apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ user_metadata: { ..._meta, pin_fp: _pfp } })
+            });
+          }
+          // Aks holda: HECH NARSA yozilmaydi — sessiyalar tirik qoladi.
         }
 
         // 3) Sessiya olamiz
@@ -1108,8 +1142,48 @@ module.exports = async function handler(req, res) {
             shopId:       row.shop_id
           };
         } else {
-          const _le = await _lr.json().catch(() => ({}));
-          _authWarn = "Sessiya olinmadi: " + (_le.error_description || _lr.status);
+          // \U0001f527 2026-08-14 (2-daraja): O'Z-O'ZINI TUZATISH.
+          // Endi parol har kirishda qayta yozilmaydi (sessiyalar
+          // bekor bo'lmasin uchun) — lekin parol biror sababdan
+          // "adashib" qolsa xodim sessiyasiz qolardi. Shuning uchun:
+          // sessiya olinmasa parolni BIR MARTA qayta yozib, qayta
+          // urinamiz. Shunda ikkala foyda ham qoladi.
+          let _tuzaldi = false;
+          try {
+            const _pfp2 = _crypto.createHash("sha256").update(_pass).digest("hex").slice(0, 16);
+            const _fix = await fetch(`${SB_URL}/auth/v1/admin/users/${_u.id}`, {
+              method: "PUT",
+              headers: {
+                apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ password: _pass,
+                                     user_metadata: { ..._meta, pin_fp: _pfp2 } })
+            });
+            if (_fix.ok) {
+              const _lr2 = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+                method: "POST",
+                headers: { apikey: ANON, "Content-Type": "application/json" },
+                body: JSON.stringify({ email: _mail, password: _pass })
+              });
+              if (_lr2.ok) {
+                const _sd2 = await _lr2.json();
+                _session = {
+                  accessToken:  _sd2.access_token,
+                  refreshToken: _sd2.refresh_token,
+                  expiresAt:    Date.now() + (Number(_sd2.expires_in || 3600) * 1000),
+                  email:        _mail,
+                  shopId:       row.shop_id
+                };
+                _tuzaldi = true;
+                console.log("[staff_login] parol tiklandi — sessiya olindi");
+              }
+            }
+          } catch (e) { console.warn("[staff_login] tuzatish:", e.message); }
+          if (!_tuzaldi) {
+            const _le = await _lr.json().catch(() => ({}));
+            _authWarn = "Sessiya olinmadi: " + (_le.error_description || _lr.status);
+          }
         }
       } catch (e) {
         _authWarn = "Auth: " + e.message;

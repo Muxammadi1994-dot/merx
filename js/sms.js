@@ -13,6 +13,7 @@ function _botHeaders() {
     const t = (typeof getSupabaseTestSession === "function")
       ? getSupabaseTestSession()?.accessToken : null;
     if (t) h["Authorization"] = "Bearer " + t;
+    else console.warn("\u26a0\ufe0f Bot so'rovi TOKENSIZ — STRICT rejimda rad etiladi");
   } catch (e) {}
   return h;
 }

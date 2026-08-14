@@ -2893,9 +2893,20 @@ function _botqHeaders() {
 // (xabar navbatga tushdi). key — takror-himoya kaliti (chek raqami).
 async function botSend(url, bodyObj, key) {
   const body = JSON.stringify(bodyObj);
+  // \U0001f534 2026-08-14: YUBORISHDAN OLDIN KALIT YANGILANADI.
+  // STRICT yoqilgandan keyin bot tokensiz so'rovni RAD ETADI. Xodim
+  // seansida token eskirsa chek JIMGINA yuborilmasdi va 📮 navbatga
+  // tushardi — kassir bilmasdi ("ba'zi mijozlarga chek kelmayapti",
+  // ABU SAXIY 14-avgust). Endi kalit yangilanadi, so'ng yuboriladi.
+  try { if (typeof ensureFreshToken === "function") await ensureFreshToken(); } catch (e) {}
   try {
     const r = await fetch(url, { method: "POST", headers: _botqHeaders(), body });
     if (r.ok) return await r.json().catch(() => ({ ok: true }));
+    // Rad etilgan bo'lsa — sababi ko'rinsin (jim yutilmasin)
+    try {
+      const _t = await r.text();
+      console.warn("\u26d4 Bot rad etdi (" + r.status + "):", String(_t).slice(0, 160));
+    } catch (e) {}
   } catch (e) {}
   const q = _botqLoad();
   if (!(key && q.some(x => x.key === key)) && body.length < 60000) {
