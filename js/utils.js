@@ -2009,9 +2009,14 @@ body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
        eski matn-terminal uslubida edi. Endi tiniq monoshrift, yumshoq
        oraliq va tabiiy rang. Tuzilma o'zgarmagan: chop etishda
        avvalgidek tekis chiqadi. */
-    white-space:pre-wrap;word-break:break-word;
+    /* \u26a0\ufe0f 2026-08-15: satr 40 BELGI. Shrift katta bo'lsa satrlar
+       sig'may O'RALIB ketadi va ikki tomonlama tekislash buziladi
+       (chap tomonga yopishib qoladi \u2014 egasining shikoyati).
+       Endi: oralish YOQ (pre) va shrift 40 belgi bemalol
+       sig'adigan o'lchamda. */
+    white-space:pre;word-break:normal;
     font-family:'JetBrains Mono','SF Mono','Consolas','Courier New',monospace;
-    font-size:12.5px;line-height:1.72;color:#111;letter-spacing:.01em;
+    font-size:11.5px;line-height:1.65;color:#111;letter-spacing:0;
     width:100%;max-width:340px;overflow-x:hidden;
     border-radius:14px;box-shadow:0 2px 14px rgba(0,0,0,.07);
     border:1px solid #ECEAE6}
