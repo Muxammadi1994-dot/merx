@@ -3270,11 +3270,22 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
 .ft{text-align:center;font-size:10px;margin-top:6px;padding-top:5px;
     border-top:1px dashed #000}
 @media print{ @page{size:${W}mm auto;margin:0} body{padding:0} .doc{width:${W}mm} }
-</style></head><body>
+  /* ✅ 2026-08-15: oq fon, qora yozuv — xiralashtirilmagan (egasining talabi) */
+  .doc,.doc *{color:#000}
+  .doc{background:#fff}
+  .sm,.lbl,.calc{opacity:1}
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {
+      shop:".shop", tagline:".sm.tagline", meta:".meta",
+      itemPrice:".calc", total:".big", debt:".qold,.r2", footer:".ft"
+    }) : ""}
+  </style></head><body>
 <div class="doc">
   ${_tasdiqBelgisi(payment, "qarz")}
+  ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
   <div class="hd">
     <div class="shop">${cfg.shopName || o.shopName || "MERX"}</div>
+    ${cfg.tagline ? `<div class="sm tagline">${cfg.tagline}</div>` : ""}
+    ${cfg.addr    ? `<div class="sm addr">${cfg.addr}</div>` : ""}
     ${cfg.showContact && cfg.contact ? `<div class="sm">${cfg.contact}</div>` : ""}
     <div class="sm">TO'LOV CHEKI</div>
   </div>
