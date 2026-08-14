@@ -426,6 +426,7 @@ function renderEgasi() {
   _fillStyle(ceTarixStyle, _norm(chekCfg.tarixStyle));
   _fillStyle(ceQarzStyle,  _norm(chekCfg.qarzStyle));
   try { ceMarkStyle(); } catch (e) {}
+  try { csInitCards(); } catch (e) {}
   try { csLoadStyleOpts(); } catch (e) {}
 
   // Logo preview
@@ -768,11 +769,8 @@ function saveChekConfig() {
     // ✅ USLUB SOZLAMALARI (2026-08-12): faqat TANLANGAN uslub uchun.
     // Bo'sh maydon — umumiy sozlamadan olinadi (kalit o'chiriladi).
     try {
-      // Saqlash ham TANLANGAN BO'LIM uslubi uchun
-      const _sect = (document.getElementById("cs-sect") || {}).value || "sotuv";
-      const _st = (_sect === "qarz" ? cfg.qarzStyle
-                 : _sect === "tarix" ? cfg.tarixStyle
-                 : cfg.posStyle) || "unified";
+      // 2026-08-14: sozlamalar SOTUV uslubiga yoziladi
+      const _st = cfg.posStyle || "unified";
       if (!cfg.perStyle) cfg.perStyle = {};
       const _o = cfg.perStyle[_st] || {};
       const _put = (id, key, num) => {
@@ -1518,10 +1516,9 @@ function csLoadStyleOpts() {
   try {
     const cfg = (db.settings && db.settings.chekConfig) || {};
     // 2026-08-12: panel qaysi BO'LIM uslubini sozlashi — tanlagichdan
-    const sect = (document.getElementById("cs-sect") || {}).value || "sotuv";
-    const selId = sect === "qarz" ? "chek-qarz-style"
-                : sect === "tarix" ? "chek-tarix-style" : "chek-pos-style";
-    const st  = (document.getElementById(selId) || {}).value || "unified";
+    // 2026-08-14: bo'lim tanlagichi OLIB TASHLANDI — sozlamalar doim
+    // SOTUV uslubiga tegishli (u sotuv/savat/tarix/bot uchun bitta).
+    const st = (document.getElementById("chek-pos-style") || {}).value || "unified";
     const NOM = { unified:"Yagona", merx:"MERX brend", thermal:"Termal",
                   wholesale:"Ulgurji", compact:"Ixcham", table:"Jadval" };
     ["cs-opts-name","cs-opts-name2"].forEach(id => {
@@ -1686,5 +1683,94 @@ function _loadServerPay() {
   try {
     const el = document.getElementById("set-server-pay");
     if (el) el.checked = db.settings?.serverPay === true;
+  } catch (e) {}
+}
+
+
+// \u2550\u2550\u2550 CHEK SOZLAMALARI \u2014 YANGI TARTIB (2026-08-14) \u2550\u2550\u2550\u2550\u2550\u2550
+// Egasining talabi: ikkita mustaqil bo'lim, har birida
+// "tanla \u2192 ko'r \u2192 sozla". Sotuv bo'limi BITTA uslubni belgilaydi va
+// u sotuv chekiga, savatga, sotuv tarixiga hamda bot chekiga
+// qo'llanadi. Qarz bo'limi alohida.
+// \u26a0\ufe0f Chizuvchilarga, qaytarish mantiqiga, sinxronga TEGILMAGAN \u2014
+// faqat qaysi tanlov qayerga yozilishi o'zgardi.
+const CS_NOM = { unified:"Yagona", merx:"MERX brend", thermal:"Termal",
+                 wholesale:"Ulgurji", table:"Jadval" };
+
+// 1-bo'lim: sotuv uslubini tanlash (POS va TARIX birga)
+function csPick(style) {
+  try {
+    const pos = document.getElementById("chek-pos-style");
+    const tar = document.getElementById("chek-tarix-style");
+    if (pos) pos.value = style;
+    if (tar) tar.value = style;        // \u2705 tarix ham SHU uslubda
+    document.querySelectorAll("#chek-style-cards .cs-card").forEach(c => {
+      const on = c.dataset.s === style;
+      c.style.border     = on ? "2px solid var(--acc)" : "1.5px solid var(--brd)";
+      c.style.background = on ? "var(--bg2,#FAFAF8)" : "";
+    });
+    ["cs-opts-name", "cs-opts-name2"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = CS_NOM[style] || style;
+    });
+    csLoadStyleOpts();                 // sozlamalar shu uslubniki bo'lsin
+  } catch (e) {}
+}
+
+// 2-bo'lim: qarz chitigi uslubi
+function csPickQarz(style) {
+  try {
+    const el = document.getElementById("chek-qarz-style");
+    if (el) el.value = style;
+    document.querySelectorAll("#cs-qarz-cards .cq-card").forEach(c => {
+      const on = c.dataset.q === style;
+      c.style.border     = on ? "2px solid var(--acc)" : "1.5px solid var(--brd)";
+      c.style.background = on ? "var(--bg2,#FAFAF8)" : "";
+    });
+  } catch (e) {}
+}
+
+// Tanlangan sotuv uslubining namunasi
+function csPreviewCurrent() {
+  const v = (document.getElementById("chek-pos-style") || {}).value || "unified";
+  try { previewChek(v); } catch (e) { toast("Namuna ochilmadi", "err"); }
+}
+
+// Qarz chitigi namunasi
+function previewPayChek() {
+  try {
+    const style = (document.getElementById("chek-qarz-style") || {}).value || "unified";
+    if (typeof buildPayReceiptStyled !== "function") {
+      toast("Namuna hozircha mavjud emas", "err"); return;
+    }
+    const cfg  = (db.settings && db.settings.chekConfig) || {};
+    const rate = db.settings?.rate || 12000;
+    const pay  = {
+      chekNum: "PAY-NAMUNA-0001", date: today(),
+      time: (typeof nowTime === "function" ? nowTime() : "12:00"),
+      customerName: "Namuna mijoz", amount: 100, amountSom: 100 * rate,
+      currency: "usd", rate, method: "naqd",
+      debtBefore: 500, debtAfter: 400
+    };
+    const html = buildPayReceiptStyled(pay, {
+      style, shopName: db.shop?.name || "MERX",
+      staffName: "Kassir",
+      cfg: { ...cfg, shopName: db.shop?.name || "MERX" }
+    });
+    const w = window.open("", "_blank", "width=420,height=700");
+    if (!w) { toast("Pop-up bloklangan", "err"); return; }
+    w.document.write(html); w.document.close(); w.focus();
+  } catch (e) { toast("Namuna xatosi: " + e.message, "err"); }
+}
+
+// Yuklashda kartalarni belgilash
+function csInitCards() {
+  try {
+    const cfg = (db.settings && db.settings.chekConfig) || {};
+    const sv2 = cfg.styleV2 === true;
+    const pos = sv2 ? (cfg.posStyle  || "unified") : "unified";
+    const qrz = sv2 ? (cfg.qarzStyle || "unified") : "unified";
+    csPick(pos);
+    csPickQarz(qrz);
   } catch (e) {}
 }

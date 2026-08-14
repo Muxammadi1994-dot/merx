@@ -3130,146 +3130,80 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 
         <!-- Chek sozlamalari -->
         <div class="card" style="grid-column:1/-1">
-          <!-- CHEK USLUBLARI (2026-08-12: qayta tuzildi — tanlov TEPADA,
-               beshala uslub ko'rinadi, har biriga jonli namuna) -->
-          <div style="grid-column:1/-1;border-top:1.5px dashed var(--brd);padding:16px 20px;margin-top:4px">
-            <div style="display:flex;flex-direction:column;gap:14px">
+          <!-- ══ CHEK USLUBLARI — QAYTA TUZILDI (2026-08-14) ════════
+               Egasining talabi: chalkash tartib o'rniga IKKITA mustaqil
+               bo'lim, har birida "tanla → ko'r → sozla" ketma-ketligi.
+               1-bo'lim SOTUV: sotuv cheki, savat, sotuv tarixi, bot
+               cheki — hammasi BITTA uslubga bo'ysunadi.
+               2-bo'lim QARZ: to'lov chitigi.
+               ⚠️ Chizuvchilarga, qaytarish mantiqiga, sinxronga TEGILMAGAN. -->
+          <div style="grid-column:1/-1;padding:16px 20px">
 
+            <!-- ─── 1-BO'LIM: SOTUV ─── -->
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
               <div>
-                <label style="display:block;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">1. Uslubni tanlang</label>
-                <div style="font-size:11.5px;color:var(--mut);margin-bottom:10px">
-                  Uslub chekning umumiy ko'rinishini belgilaydi. Pastdagi sozlamalar
-                  (shior, matn, shrift, qog'oz) tanlangan uslubga qo'llanadi.
+                <div style="font-size:15px;font-weight:800">1. Sotuv cheki</div>
+                <div style="font-size:11.5px;color:var(--mut);margin-top:2px">
+                  Sotuv, savat, sotuv tarixi va botdagi chek — barchasi shu ko'rinishda
                 </div>
-                <div id="chek-style-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:14px">
-                  <div class="cs-card" data-s="unified" style="border:2px solid var(--acc);border-radius:10px;padding:10px;text-align:center">
-                    <i class="ti ti-check" style="font-size:20px;display:block;margin-bottom:4px"></i>
-                    <div style="font-size:12px;font-weight:700">Yagona</div>
-                    <div style="font-size:10px;color:var(--mut)">Hozirgi standart</div>
-                    <button type="button" onclick="previewChek('unified')" class="btn btn-ghost btn-sm" style="margin-top:6px;font-size:10px">Ko'rish</button>
-                  </div>
-                  <div class="cs-card" data-s="merx" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center">
-                    <i class="ti ti-sparkles" style="font-size:20px;display:block;margin-bottom:4px"></i>
-                    <div style="font-size:12px;font-weight:700">MERX brend</div>
-                    <div style="font-size:10px;color:var(--mut)">To'liq: rasm, QR, batafsil</div>
-                    <button type="button" onclick="previewChek('merx')" class="btn btn-ghost btn-sm" style="margin-top:6px;font-size:10px">Ko'rish</button>
-                  </div>
-                  <div class="cs-card" data-s="thermal" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center">
-                    <i class="ti ti-receipt" style="font-size:20px;display:block;margin-bottom:4px"></i>
-                    <div style="font-size:12px;font-weight:700">Termal</div>
-                    <div style="font-size:10px;color:var(--mut)">Eng kam siyoh, tez</div>
-                    <button type="button" onclick="previewChek('thermal')" class="btn btn-ghost btn-sm" style="margin-top:6px;font-size:10px">Ko'rish</button>
-                  </div>
-                  <div class="cs-card" data-s="wholesale" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center">
-                    <i class="ti ti-list-details" style="font-size:20px;display:block;margin-bottom:4px"></i>
-                    <div style="font-size:12px;font-weight:700">Ulgurji</div>
-                    <div style="font-size:10px;color:var(--mut)">Ro'yxat: model, pochka, $</div>
-                    <button type="button" onclick="previewChek('wholesale')" class="btn btn-ghost btn-sm" style="margin-top:6px;font-size:10px">Ko'rish</button>
-                  </div>
-                  <div class="cs-card" data-s="table" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center">
-                    <i class="ti ti-table" style="font-size:20px;display:block;margin-bottom:4px"></i>
-                    <div style="font-size:12px;font-weight:700">Jadval</div>
-                    <div style="font-size:10px;color:var(--mut)">Kataklangan jadval, $/so'm</div>
-                    <button type="button" onclick="previewChek('table')" class="btn btn-ghost btn-sm" style="margin-top:6px;font-size:10px">Ko'rish</button>
-                  </div>
-                </div>
+              </div>
+              <button class="btn btn-acc" onclick="saveChekConfig()">
+                <i class="ti ti-check"></i> Saqlash
+              </button>
+            </div>
 
-                <!-- 2026-08-12: TANLANGAN USLUB SOZLAMALARI -->
-                <div id="cs-opts" style="border:1.5px solid var(--brd);border-radius:10px;padding:12px 14px;margin-bottom:14px;background:var(--bg2,#FAFAF8)">
-                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-                    <div style="font-size:11.5px;font-weight:700">
-                      <span id="cs-opts-name">Yagona</span> uslubi sozlamalari
-                    </div>
-                    <select id="cs-sect" onchange="csLoadStyleOpts()"
-                      style="font-size:11.5px;padding:4px 8px;border:1.5px solid var(--brd);border-radius:6px;background:#fff">
-                      <option value="sotuv">POS bo'limi</option>
-                      <option value="tarix">Sotuv tarixi</option>
-                      <option value="qarz">Qarzlar</option>
-                    </select>
-                  </div>
-                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
-                    <div class="fld"><label>Qog'oz eni</label>
-                      <select id="cs-paper">
-                        <option value="">Umumiy sozlamadan</option>
-                        <option value="58">58 mm</option>
-                        <option value="72">72 mm</option>
-                        <option value="80">80 mm</option>
-                      </select>
-                    </div>
-                    <div class="fld"><label>Sarlavha foni</label>
-                      <select id="cs-header">
-                        <option value="">Umumiy sozlamadan</option>
-                        <option value="dark">To'q (qora fon)</option>
-                        <option value="light">Oq (bosmaga mos)</option>
-                        <option value="none">Fonsiz</option>
-                      </select>
-                    </div>
-                    <div class="fld"><label>Shrift o'lchami</label>
-                      <select id="cs-font">
-                        <option value="">Umumiy sozlamadan</option>
-                        <option value="small">Kichik</option>
-                        <option value="normal">Odatiy</option>
-                        <option value="large">Katta</option>
-                        <option value="xlarge">Juda katta</option>
-                      </select>
-                    </div>
-                    <div class="fld"><label>Do'kon nomi o'lchami</label>
-                      <select id="cs-b-shop">
-                        <option value="">Umumiy</option>
-                        <option value="16">Kichik (16)</option>
-                        <option value="20">Odatiy (20)</option>
-                        <option value="24">Katta (24)</option>
-                        <option value="28">Juda katta (28)</option>
-                      </select>
-                    </div>
-                    <div class="fld"><label>Tovar nomi o'lchami</label>
-                      <select id="cs-b-item">
-                        <option value="">Umumiy</option>
-                        <option value="11">Kichik (11)</option>
-                        <option value="13">Odatiy (13)</option>
-                        <option value="15">Katta (15)</option>
-                        <option value="17">Juda katta (17)</option>
-                      </select>
-                    </div>
-                    <div class="fld"><label>JAMI o'lchami</label>
-                      <select id="cs-b-total">
-                        <option value="">Umumiy</option>
-                        <option value="16">Kichik (16)</option>
-                        <option value="20">Odatiy (20)</option>
-                        <option value="24">Katta (24)</option>
-                        <option value="28">Juda katta (28)</option>
-                      </select>
-                    </div>
-                    <div class="fld" style="grid-column:1/-1"><label>Pastki matn (faqat shu uslubda)</label>
-                      <input id="cs-footer" placeholder="Umumiy sozlamadan olinadi">
-                    </div>
-                  </div>
-                  <div style="font-size:11px;color:var(--mut);margin-top:8px">
-                    Bo'sh qoldirilgan maydon umumiy sozlamadan olinadi.
-                    Bu yerdagi qiymatlar faqat <b id="cs-opts-name2">Yagona</b> uslubiga ta'sir qiladi
-                    (yuqoridagi bo'lim tanlovi qaysi bo'lim uslubini sozlashni belgilaydi).
-                  </div>
-                </div>
+            <div id="chek-style-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:14px">
+              <div class="cs-card" data-s="unified" style="border:2px solid var(--acc);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPick('unified')">
+                <i class="ti ti-check" style="font-size:20px;display:block;margin-bottom:4px"></i>
+                <div style="font-size:12px;font-weight:700">Yagona</div>
+                <div style="font-size:10px;color:var(--mut)">Hozirgi standart</div>
+              </div>
+              <div class="cs-card" data-s="merx" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPick('merx')">
+                <i class="ti ti-sparkles" style="font-size:20px;display:block;margin-bottom:4px"></i>
+                <div style="font-size:12px;font-weight:700">MERX brend</div>
+                <div style="font-size:10px;color:var(--mut)">To'liq: rasm, batafsil</div>
+              </div>
+              <div class="cs-card" data-s="thermal" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPick('thermal')">
+                <i class="ti ti-receipt" style="font-size:20px;display:block;margin-bottom:4px"></i>
+                <div style="font-size:12px;font-weight:700">Termal</div>
+                <div style="font-size:10px;color:var(--mut)">Eng kam siyoh, tez</div>
+              </div>
+              <div class="cs-card" data-s="wholesale" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPick('wholesale')">
+                <i class="ti ti-list-details" style="font-size:20px;display:block;margin-bottom:4px"></i>
+                <div style="font-size:12px;font-weight:700">Ulgurji</div>
+                <div style="font-size:10px;color:var(--mut)">Model, pochka, $</div>
+              </div>
+              <div class="cs-card" data-s="table" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPick('table')">
+                <i class="ti ti-table" style="font-size:20px;display:block;margin-bottom:4px"></i>
+                <div style="font-size:12px;font-weight:700">Jadval</div>
+                <div style="font-size:10px;color:var(--mut)">Kataklangan, $/so'm</div>
+              </div>
+            </div>
 
-                <label style="display:block;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">2. Qaysi bo'limga qaysi uslub</label>
-                <div class="fld"><label>POS — sotuv tugagach chiqadigan chek</label><select id="chek-pos-style" onchange="ceMarkStyle()"></select></div>
-                <div class="fld"><label>Sotuv tarixi — qayta chop etish</label><select id="chek-tarix-style" onchange="ceMarkStyle()"></select></div>
-                <div class="fld">
-                  <label>Qarzlar — to'lov chitigi</label>
-                  <select id="chek-qarz-style"></select>
-                  <div style="font-size:11px;color:var(--mut);margin-top:4px">
-                    To'lov chitigining o'z ko'rinishi bor: to'langan summa,
-                    hisob (so'm / kurs = $), qarz edi → qoldi.
-                  </div>
+            <!-- Yashirin: eski kod shu maydonlarni o'qiydi (buzilmasin) -->
+            <select id="chek-pos-style"   style="display:none"></select>
+            <select id="chek-tarix-style" style="display:none"></select>
+
                 </div>
               </div>
 
             </div>
           </div>
 
-          <div class="ch">
-            <h3><i class="ti ti-receipt"></i> Chek sozlamalari</h3>
-            <button class="btn btn-acc btn-sm" onclick="saveChekConfig()"><i class="ti ti-check"></i> Saqlash</button>
+          <!-- Tanlangan uslub NAMUNASI — sozlamalar yonida (2026-08-14) -->
+          <div style="padding:0 20px 8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+              <div style="font-size:13px;font-weight:700">
+                <span id="cs-opts-name">Yagona</span> ko'rinishi — namuna va sozlamalar
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="csPreviewCurrent()">
+                <i class="ti ti-eye"></i> Namunani ko'rish
+              </button>
+            </div>
+            <div style="font-size:11.5px;color:var(--mut);margin-top:3px">
+              Quyidagi sozlamalar <b id="cs-opts-name2">Yagona</b> ko'rinishiga qo'llanadi.
+              Bo'sh qoldirilgan maydon umumiy sozlamadan olinadi.
+            </div>
           </div>
           <div style="padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
             <!-- Chap: ko'rinish -->
@@ -3452,6 +3386,41 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
               </div>
             </div>
             <button class="btn btn-acc btn-sm" onclick="saveAdminCreds()" style="width:fit-content"><i class="ti ti-check"></i> Saqlash</button>
+
+            <!-- ─── 2-BO'LIM: QARZ CHEKI (2026-08-14) ─── -->
+            <div style="border-top:1.5px dashed var(--brd);margin-top:18px;padding-top:16px">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+                <div>
+                  <div style="font-size:15px;font-weight:800">2. Qarz to'lovi chitigi</div>
+                  <div style="font-size:11.5px;color:var(--mut);margin-top:2px">
+                    To'lov qabul qilinganda chiqadigan chek. O'z ko'rinishi bor:
+                    to'langan summa, hisob (so'm / kurs = $), qarz edi → qoldi.
+                  </div>
+                </div>
+                <button class="btn btn-ghost btn-sm" onclick="previewPayChek()">
+                  <i class="ti ti-eye"></i> Namunani ko'rish
+                </button>
+              </div>
+              <div id="cs-qarz-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
+                <div class="cq-card" data-q="unified" style="border:2px solid var(--acc);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPickQarz('unified')">
+                  <i class="ti ti-check" style="font-size:20px;display:block;margin-bottom:4px"></i>
+                  <div style="font-size:12px;font-weight:700">Yagona</div>
+                  <div style="font-size:10px;color:var(--mut)">Hozirgi standart</div>
+                </div>
+                <div class="cq-card" data-q="thermal" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPickQarz('thermal')">
+                  <i class="ti ti-receipt" style="font-size:20px;display:block;margin-bottom:4px"></i>
+                  <div style="font-size:12px;font-weight:700">Termal</div>
+                  <div style="font-size:10px;color:var(--mut)">Tor, tejamkor</div>
+                </div>
+                <div class="cq-card" data-q="table" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPickQarz('table')">
+                  <i class="ti ti-table" style="font-size:20px;display:block;margin-bottom:4px"></i>
+                  <div style="font-size:12px;font-weight:700">Jadval</div>
+                  <div style="font-size:10px;color:var(--mut)">So'm va $ ustunda</div>
+                </div>
+              </div>
+              <select id="chek-qarz-style" style="display:none"></select>
+            </div>
+
           </div>
         </div>
         <div class="card">
@@ -5218,7 +5187,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 <script src="js/hisobot.js?v=154"></script>
 <script src="js/xodimlar.js?v=159"></script>
 <script src="js/moliya.js?v=174"></script>
-<script src="js/egasi.js?v=188"></script>
+<script src="js/egasi.js?v=189"></script>
 <script src="js/portal.js?v=143"></script>
 <script src="js/init.js?v=151"></script>
 <script>
@@ -5512,7 +5481,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 412;
+  window.SW_V = 413;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5535,7 +5504,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=412")
+    navigator.serviceWorker.register("/sw.js?v=413")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
