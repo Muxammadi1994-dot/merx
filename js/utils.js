@@ -709,10 +709,13 @@ function updateRatePill() {
   // 12800 haqiqiy kursdek ko'rinaverardi (egasining shikoyati).
   // Endi qoida sodda: 12800 faqat BULUTDAN sozlama kelgandan keyin
   // ko'rsatiladi. Kelmaguncha "—" turadi va o'zi to'ladi.
+  // ✅ 2026-08-14 (egasining talabi): BIRINCHI KIRISHDA "—" tursin.
+  // Kurs faqat BULUTDAN kelgani ANIQ bo'lsa ko'rsatiladi (`_pulledAt`
+  // muhri sozlamalar bulutdan tortilganini bildiradi). Shu bilan eski
+  // yoki soxta qiymat haqiqiy kursdek ko'rinmaydi.
   const _r = db.settings?.rate;
-  const _bulutKeldi = (typeof window !== "undefined" && window._setFresh === true);
-  const _stale = (_r === 12800 && !_bulutKeldi);
-  $("tb-rate").textContent = (_r && !_stale) ? fmt(_r) : "—";
+  const _keldi = !!db.settings?._pulledAt;
+  $("tb-rate").textContent = (_r && _keldi) ? fmt(_r) : "—";
   // 2026-07-26: valyuta yorlig'i YAGONA manbadan (avval uch faylda
   // uch xil yozilib, tugma goh "SO'M+USD", goh "so'm/USD" ko'rinardi)
   $("tb-cur").textContent = currencyLabel();
@@ -1349,7 +1352,16 @@ function buildReceiptHtml(sale, opts) {
 
   let debtHtml = "";
   if (remaining > 0) {
-    if (showDebtHistory && isUsd && prevUsd > 0) {
+    // \u2705 2026-08-14: IKKALA VALYUTA \u2014 yagona manbadan (debtLines)
+    const _dl = (typeof debtLines === "function")
+      ? debtLines(sale, { F, rate: _pcRate }) : null;
+    if (showDebtHistory && _dl && _dl.bor) {
+      debtHtml = `
+        <div class="sep-dash" style="margin:6px 0"></div>
+        ${_dl.oldin ? `<div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>${_dl.oldin}</span></div>` : ""}
+        ${_dl.qoshildi ? `<div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>${_dl.qoshildi}</span></div>` : ""}
+        ${_dl.keyin ? `<div class="pr pr-debt"><span>Xariddan keyingi qarz</span><span>${_dl.keyin}</span></div>` : ""}`;
+    } else if (false && showDebtHistory && isUsd && prevUsd > 0) {
       const tot = prevUsd + debtUsd;
       // 2026-07-25: OLDINGI va KEYINGI qarz — allaqachon USD da QOTGAN,
       // ular turli kurslarda yig'ilgan. Ularni qayta hisoblash MUMKIN EMAS.
@@ -1364,7 +1376,7 @@ function buildReceiptHtml(sale, opts) {
         <div class="pr pr-sm"><span>Xariddan oldingi qarz</span><span>$${prevUsd.toFixed(2)}</span></div>
         <div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>${_added}</span></div>
         <div class="pr pr-debt"><span>Xariddan keyingi qarz</span><span>$${tot.toFixed(2)} USD</span></div>`;
-    } else if (showDebtHistory && !isUsd && prevUzs > 0) {
+    } else if (false && showDebtHistory && !isUsd && prevUzs > 0) {
       // Qarz so'mda yuritiladi — oldingi va keyingi summalar SO'MDA qoladi.
       // Faqat qo'shilayotgan summa yonida joriy kurs bo'yicha USD ko'rsatiladi.
       const _added = FD(remaining);
@@ -1739,9 +1751,10 @@ function buildReceiptTable(sale, opts, cfg) {
     </tr>`;
   }).join("");
 
-  const boshRow = (prevUsd > 0 || prevUzs > 0)
-    ? `<div class="mrow"><span>Boshlang'ich qoldiq</span><b>${
-        prevUsd > 0 ? "$" + D(prevUsd) : F(prevUzs) + " so'm"}</b></div>` : "";
+  // \u2705 2026-08-14: IKKALA valyuta (yagona manba)
+  const _dJ = (typeof debtLines === "function") ? debtLines(sale, { F, rate }) : null;
+  const boshRow = (_dJ && _dJ.oldin)
+    ? `<div class="mrow"><span>Boshlang'ich qoldiq</span><b>${_dJ.oldin}</b></div>` : "";
 
   return `<!DOCTYPE html><html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1802,10 +1815,8 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
     ${remaining > 0
       ? `<div class="trow big"><span>QOLDIQ</span><b>${
            isUsd ? "$" + D(debtUsd) : F(remaining) + " so'm"}</b></div>` +
-        ((isUsd && prevUsd > 0)
-          ? `<div class="trow"><span>Umumiy qarz</span><b>$${D(prevUsd + debtUsd)}</b></div>` : "") +
-        ((!isUsd && prevUzs > 0)
-          ? `<div class="trow"><span>Umumiy qarz</span><b>${F(prevUzs + remaining)} so'm</b></div>` : "") +
+        ((_dJ && _dJ.keyin)
+          ? `<div class="trow"><span>Umumiy qarz</span><b>${_dJ.keyin}</b></div>` : "") +
         (due ? `<div class="trow"><span>Muddat</span><b>${due}</b></div>` : "")
       : `<div class="trow big"><span>QOLDIQ</span><b>0</b></div>`}
   </div>
@@ -1891,10 +1902,17 @@ function buildReceiptThermal(sale, opts, cfg) {
     if (remaining <= 0) return lr("TO'LIQ TO'LANDI", "✓");
     const dAmt = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${F(remaining)} som`;
     const lines = [lr("QARZ:", dAmt)];
-    if (isUsd && prevUsd > 0) {
-      lines.push(lr("  Oldingi qarz:", `$${prevUsd.toFixed(2)}`));
-      lines.push(lr("  Yangi qarz:", `$${debtUsd.toFixed(2)}`));
-      lines.push(lr("  JAMI QARZ:", `$${(prevUsd+debtUsd).toFixed(2)} USD`));
+    // \u2705 2026-08-14: IKKALA VALYUTA \u2014 yagona manba (debtLines)
+    // ⚠️ Termal ichida `debtLines` nomli MAHALLIY funksiya bor —
+    // global yagona manbani `window` orqali chaqiramiz (aks holda
+    // o'zini-o'zi chaqirib cheksiz halqaga tushardi).
+    const _fn = (typeof window !== "undefined" && window.debtLines) ||
+                (typeof globalThis !== "undefined" && globalThis.debtLines);
+    const _dT = (typeof _fn === "function") ? _fn(sale, { F }) : null;
+    if (_dT && (_dT.oldin || _dT.keyin)) {
+      if (_dT.oldin)    lines.push(lr("  Oldingi qarz:", _dT.oldin));
+      if (_dT.qoshildi) lines.push(lr("  Qarzga qo'shildi:", _dT.qoshildi));
+      if (_dT.keyin)    lines.push(lr("  JAMI QARZ:", _dT.keyin));
     } else if (!isUsd && prevUzs > 0) {
       lines.push(lr("  Oldingi qarz:", F(prevUzs)+" som"));
       lines.push(lr("  Yangi qarz:", F(remaining)+" som"));
@@ -2025,9 +2043,10 @@ function buildReceiptWholesale(sale, opts, cfg) {
   }).join("");
 
   // Boshlang'ich qoldiq (namunadagi "\u041d\u0430\u0447\u0430\u043b\u044c\u043d\u0430\u044f \u043e\u0441\u0442\u0430\u0442\u043a\u0430")
-  const boshRow = (prevUsd > 0 || prevUzs > 0)
-    ? `<div class="row"><span>Boshlang'ich qoldiq</span><b>${
-        prevUsd > 0 ? D(prevUsd) : F(prevUzs) + " so'm"}</b></div>` : "";
+  // \u2705 2026-08-14: IKKALA valyuta (yagona manba)
+  const _dW = (typeof debtLines === "function") ? debtLines(sale, { F, rate }) : null;
+  const boshRow = (_dW && _dW.oldin)
+    ? `<div class="row"><span>Boshlang'ich qoldiq</span><b>${_dW.oldin}</b></div>` : "";
 
   // Yakun: Jami / To'landi / Qoldiq
   const yakun =
@@ -2038,10 +2057,8 @@ function buildReceiptWholesale(sale, opts, cfg) {
     (remaining > 0
       ? `<div class="row big"><span>QOLDIQ</span><b>${
           isUsd ? D(debtUsd) : F(remaining) + " so'm"}</b></div>` +
-        ((isUsd && prevUsd > 0)
-          ? `<div class="row"><span>Umumiy qarz</span><b>${D(prevUsd + debtUsd)}</b></div>` : "") +
-        ((!isUsd && prevUzs > 0)
-          ? `<div class="row"><span>Umumiy qarz</span><b>${F(prevUzs + remaining)} so'm</b></div>` : "") +
+        ((_dW && _dW.keyin)
+          ? `<div class="row"><span>Umumiy qarz</span><b>${_dW.keyin}</b></div>` : "") +
         (due ? `<div class="row"><span>Muddat</span><b>${due}</b></div>` : "")
       : `<div class="row big"><span>QOLDIQ</span><b>0</b></div>`);
 
@@ -2177,10 +2194,16 @@ function buildReceiptMerx(sale, opts, cfg) {
   if (remaining > 0) {
     const newDebtAmt = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${F(remaining)} so'm`;
     debtHtml += `<div class="sep-dash" style="margin:6px 0"></div>`;
-    if (isUsd && prevUsd > 0) {
-      debtHtml += `<div class="pr pr-sm"><span>Oldingi qarz</span><span>$${prevUsd.toFixed(2)}</span></div>`;
-      debtHtml += `<div class="pr pr-sm"><span>Yangi qarz</span><span>$${debtUsd.toFixed(2)}</span></div>`;
-      debtHtml += `<div class="pr pr-debt-total"><span>JAMI QARZ</span><span>$${(prevUsd+debtUsd).toFixed(2)} USD</span></div>`;
+    // \u2705 2026-08-14: IKKALA VALYUTA \u2014 yagona manba (debtLines).
+    // Avval faqat dollar qarzi ko'rsatilardi, so'm qarzi tushib qolardi.
+    const _dM = (typeof debtLines === "function") ? debtLines(sale, { F }) : null;
+    if (_dM && (_dM.oldin || _dM.keyin)) {
+      if (_dM.oldin)
+        debtHtml += `<div class="pr pr-sm"><span>Oldingi qarz</span><span>${_dM.oldin}</span></div>`;
+      if (_dM.qoshildi)
+        debtHtml += `<div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>${_dM.qoshildi}</span></div>`;
+      if (_dM.keyin)
+        debtHtml += `<div class="pr pr-debt-total"><span>JAMI QARZ</span><span>${_dM.keyin}</span></div>`;
     } else if (!isUsd && prevUzs > 0) {
       debtHtml += `<div class="pr pr-sm"><span>Oldingi qarz</span><span>${F(prevUzs)} so'm</span></div>`;
       debtHtml += `<div class="pr pr-sm"><span>Yangi qarz</span><span>${F(remaining)} so'm</span></div>`;
@@ -3238,4 +3261,59 @@ function _tasdiqBelgisi(sale, tur) {
             </div>
             <style>@media print{._noprint-warn{display:none !important}}</style>`;
   } catch (e) { return ""; }
+}
+
+
+// \u2550\u2550\u2550 QARZ SATRLARI \u2014 YAGONA MANBA (2026-08-14) \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// Egasining talabi: chekda IKKALA valyutadagi qarz ko'rinsin, faqat
+// qo'shilayotgani emas. Avval har chizuvchida `isUsd ? ... : ...`
+// shohobchasi bor edi \u2014 ikkinchi valyuta TUSHIB QOLARDI (jonli:
+// B20, mijozda 3 500 000 so'm qarz bor-u dollar qo'shilganda chekda
+// so'm qarzi ko'rinmagan \u2014 kassir chalg'igan).
+//
+// QOIDA: nol bo'lmagan valyuta DOIM ko'rsatiladi, nol yashiriladi.
+// Qo'shilayotgan valyuta o'z hisobi bilan ("so'm / kurs = $"),
+// ikkinchi valyuta O'ZGARMASDAN o'tadi.
+//
+// Qaytaradi: { oldin, qoshildi, keyin } \u2014 tayyor matnlar (HTML emas),
+// har chizuvchi o'z uslubida joylashtiradi.
+function debtLines(sale, opts) {
+  const o = opts || {};
+  const F = o.F || (n => Math.round(Number(n) || 0).toLocaleString("ru-RU"));
+  const rate = Number(o.rate) || Number(sale.rate) ||
+               (typeof db !== "undefined" && db.settings?.rate) || 0;
+
+  const isUsd   = sale.debtCurrency === "usd" && Number(sale.debtUsd) > 0;
+  const qoldiq  = Number(sale.remaining) || 0;          // shu xaridda qo'shilgan (so'm)
+  const debtUsd = Number(sale.debtUsd)   || 0;          // shu xaridda qo'shilgan ($)
+  const pUsd    = Number(sale.prevDebtUsd) || 0;        // oldingi $ qarz
+  const pUzs    = Number(sale.prevDebtUzs) || 0;        // oldingi so'm qarz
+
+  // ── OLDINGI QARZ: nol bo'lmaganlari ──
+  const oldinQ = [];
+  if (pUzs > 0) oldinQ.push(F(pUzs) + " so'm");
+  if (pUsd > 0) oldinQ.push("$" + pUsd.toFixed(2));
+
+  // ── QO'SHILDI: faqat shu xarid ──
+  let qoshildi = "";
+  if (qoldiq > 0) {
+    qoshildi = isUsd
+      ? (rate > 0 ? F(qoldiq) + " / " + F(rate) + " = $" + debtUsd.toFixed(2)
+                  : "$" + debtUsd.toFixed(2))
+      : F(qoldiq) + " so'm";
+  }
+
+  // ── KEYINGI QARZ: qo'shilgan valyuta yig'iladi, ikkinchisi o'zgarmaydi ──
+  const keyinQ = [];
+  const yUzs = pUzs + (isUsd ? 0 : qoldiq);
+  const yUsd = pUsd + (isUsd ? debtUsd : 0);
+  if (yUzs > 0) keyinQ.push(F(yUzs) + " so'm");
+  if (yUsd > 0) keyinQ.push("$" + yUsd.toFixed(2));
+
+  return {
+    oldin:    oldinQ.join(" \u00b7 "),
+    qoshildi: qoshildi,
+    keyin:    keyinQ.join(" \u00b7 "),
+    bor:      (oldinQ.length > 0 || keyinQ.length > 0)
+  };
 }
