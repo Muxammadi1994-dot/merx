@@ -3630,20 +3630,27 @@ function chekRefundNote(sale, F, matnli) {
       refs.forEach(r => (r.items || []).forEach(it => {
         if (!it) return;
         const q = Number(it.qty) || 0;
-        out.push("  • " + (it.name || "") + (it.color ? " " + it.color : "") +
-                 (q ? " — " + q : ""));
+        const _r = it.color || it.variant || "";
+        out.push("  • " + (it.name || "") + (_r ? " " + _r : "") +
+                 (it.art ? " " + it.art : "") + (q ? " — " + q : ""));
       }));
       out.push("=".repeat(40));
       return out.join("\n");
     }
     // ✅ 2026-08-15: QAYSI TOVARLAR qaytgani ham yoziladi (egasining
     // talabi — avval faqat summa va chek raqami bor edi).
+    // ✅ 2026-08-15: NOM · RANG · ART — eski yozuvlarda rang `variant`
+    // maydonida saqlangan, shuning uchun ikkalasi ham tekshiriladi.
     const tovarlar = [];
     refs.forEach(r => (r.items || []).forEach(it => {
       if (!it) return;
-      const q = Number(it.qty) || 0;
-      tovarlar.push((it.name || "") + (it.color ? " · " + it.color : "") +
-                    (q ? " — " + q + (it.unit ? " " + it.unit : " dona") : ""));
+      const q    = Number(it.qty) || 0;
+      const rang = it.color || it.variant || "";
+      const art  = it.art || "";
+      tovarlar.push((it.name || "") +
+        (rang ? " · " + rang : "") +
+        (art  ? " · " + art  : "") +
+        (q ? " — " + q + (it.unit ? " " + it.unit : " dona") : ""));
     }));
     return `<div style="margin:8px 0 0;padding:8px 10px;border:1px dashed #B91C1C;
         border-radius:6px;background:#FEF2F2">

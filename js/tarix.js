@@ -904,7 +904,11 @@ async function confirmRefund() {
     no: refundNo, date: today(), time: nowTime(),
     total: refundTotal, reason,
     items: refundItems.map(r => ({
+      // ✅ 2026-08-15: ART va RANG ham saqlanadi — chekdagi qaytarish
+      // ro'yxatida tovarni aniq ko'rsatish uchun (egasining talabi).
       name: r.name, variant: r.variant, qty: r.qty,
+      art: r.art || "", color: r.color || r.variant || "",
+      size: r.size || "", unit: r.unit || "",
       qtyBox: r.qtyBox, price: r.price
     }))
   });
