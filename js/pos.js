@@ -3046,13 +3046,26 @@ async function checkout() {
       if (_sr && _sr.ok && _sr.sale) {
         Object.assign(newSale, _sr.sale);   // server bergan id va chek raqami
         _srvOk = true;
-        // ⚠️ 2026-08-14 TUZATISH: IKKI MARTA AYIRISH bo'lardi —
-        // qoldiq lokalda (yuqorida) ayirilgan, server esa X18 bilan
-        // yana ayirardi. Bulutdagi qiymat ikki barobar kamayardi.
-        // Endi: server ayirgan bo'lsa LOKAL ayirish BEKOR qilinadi
-        // (nusxadan tiklanadi) — haqiqat serverda qoladi va keyingi
-        // pull uni lokalga keltiradi.
-        _qoldiqTikla();
+        // 🔴 2026-08-14 (2-tuzatish): SERVER QIYMATI QO'YILADI.
+        // Avval lokal qoldiq ESKI holatiga tiklanardi — va o'sha eski
+        // son keyingi sinxronda bulutga qaytib yozilib, serverning
+        // ayirgani BEKOR bo'lardi ("tovar ayrilmayapti" — jonli).
+        // Endi server ayirgandan KEYINGI haqiqiy qoldiqni qaytaradi,
+        // kassa aynan shuni qo'yadi — ikkalasi mos, qayta yozish yo'q.
+        try {
+          if (Array.isArray(_sr.products) && _sr.products.length) {
+            _sr.products.forEach(sp => {
+              const lp = (db.products || []).find(x => String(x.sku) === String(sp.sku));
+              if (!lp || !Array.isArray(sp.variants)) return;
+              sp.variants.forEach(sv => {
+                const lv = (lp.variants || []).find(v =>
+                  String(v.color || "") === String(sv.color || "") &&
+                  String(v.size  || "") === String(sv.size  || ""));
+                if (lv) lv.qty = Number(sv.qty) || 0;
+              });
+            });
+          }
+        } catch (e) { console.warn("Server qoldig'i qo'llanmadi:", e.message); }
       } else if (_sr && _sr.code === "stock") {
         _qoldiqTikla();   // 🔴 ayirilgan qoldiq QAYTARILADI
         // ✅ C-BOSQICH: QOLDIQ YETMADI — sotuv YOZILMAYDI, SAVAT QOLADI.

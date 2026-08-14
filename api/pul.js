@@ -367,7 +367,22 @@ module.exports = async (req, res) => {
         const t = await w.text().catch(() => "");
         return res.status(200).json({ ok: false, error: "Yozib bo'lmadi: " + t.slice(0, 150) });
       }
-      return res.status(200).json({ ok: true, sale: d });
+      // \U0001f534 2026-08-14: YANGI QOLDIQ qaytariladi — kassa aynan
+      // shuni qo'yadi. Avval kassa lokal qoldiqni ESKI holatiga
+      // tiklardi va o'sha eski son keyingi sinxronda bulutga qaytib
+      // yozilardi — serverning ayirgani BEKOR bo'lardi
+      // ("katalogdan tovar ayrilmayapti", 14-avgust jonli).
+      let _prods = [];
+      try {
+        const _sk = [...new Set((sale.items || []).map(i => String(i.sku || "")).filter(Boolean))];
+        if (_sk.length) {
+          const _in = _sk.map(x => '"' + x.replace(/"/g, "") + '"').join(",");
+          _prods = await sbAll(
+            `products?shop_id=eq.${encodeURIComponent(shopId)}` +
+            `&sku=in.(${encodeURIComponent(_in)})&select=sku,variants`);
+        }
+      } catch (e) {}
+      return res.status(200).json({ ok: true, sale: d, products: _prods });
     }
 
     // ── BEKOR QILISH (3-band, 2026-08-14) ─────────────────────
