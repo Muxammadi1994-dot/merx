@@ -1150,7 +1150,8 @@ function setPreviewType(t) {
   // (srcdoc bir xil bo'lsa brauzer qayta yuklamaydi).
   // ⚠️ 2026-08-14: srcdoc tozalanmaydi (sahifa sakramasin)
   renderChekPreview();
-  setTimeout(() => { try { renderChekPreview(); } catch (e) {} }, 60);
+  // ⚠️ 2026-08-14: takroriy chizish OLIB TASHLANDI — oyna balandligi
+  // ikki marta o'zgarib, sahifa yuqoriga sakrardi (egasining shikoyati).
 }
 
 // ─── Qadam D (per-type) yordamchilari (2026-07-19) ───
@@ -1298,18 +1299,29 @@ function renderChekPreview() {
     }
     // ✅ 2026-08-14: noyob belgi — mazmun bir xil bo'lsa ham brauzer
     // qayta chizadi (avval "ikki marta bosish kerak" muammosi bor edi).
-    frame.style.minHeight = "300px";
-    frame.srcdoc = (html || "<div style='padding:20px;font-family:sans-serif;color:#999'>Preview mavjud emas</div>") +
-                   "<!--" + Date.now() + "-->";
+    // ✅ 2026-08-14: bir xil mazmun QAYTA chizilmaydi — aks holda
+    // oyna qayta yuklanib, sahifa surilishi buzilardi.
+    const _yangi = html || "<div style='padding:20px;font-family:sans-serif;color:#999'>Preview mavjud emas</div>";
+    if (frame._oxirgi === _yangi) return;    // o'zgarish yo'q
+    frame._oxirgi = _yangi;
+    if (!frame.style.height || frame.style.height === "0px")
+      frame.style.minHeight = "300px";
+    frame.srcdoc = _yangi;
     // 2026-07-19: iframe chek TO'LIQ uzunligiga cho'ziladi (skrollsiz) —
     // o'ng ustun chap sozlamalar balandligича tabiiy egallaydi.
     frame.onload = () => {
       try {
         const doc = frame.contentDocument || frame.contentWindow.document;
         const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
-        // ⚠️ 2026-08-14: balandlik CHEKLANADI — uzun chekda sahifa
-        // juda cho'zilib, bo'lim almashganda ekran qotardi.
-        if (h > 100) frame.style.height = Math.min(h + 10, 760) + "px";
+        // ✅ 2026-08-14: balandlik faqat SEZILARLI o'zgarishda yangilanadi.
+        // Har chizishda o'zgartirilsa sahifa "sakrardi" — surish
+        // joyidan uchib ketardi (egasining shikoyati).
+        const yangi = Math.min(h + 10, 760);
+        const eski  = parseInt(frame.style.height) || 0;
+        if (h > 100 && Math.abs(yangi - eski) > 24) {
+          frame.style.height = yangi + "px";
+          frame.style.minHeight = "";
+        }
       } catch (e) {}
     };
   } catch (e) {
@@ -1927,6 +1939,7 @@ function _csFillFields(style) {
     // tushib, sahifa yuqoriga SAKRARDI (egasining shikoyati).
     // Yangilash `renderChekPreview` ichidagi noyob belgi bilan bo'ladi.
     if (typeof renderChekPreview === "function") renderChekPreview();
-    setTimeout(() => { try { renderChekPreview(); } catch (e) {} }, 60);
+    // ⚠️ 2026-08-14: takroriy chizish OLIB TASHLANDI — oyna balandligi
+  // ikki marta o'zgarib, sahifa yuqoriga sakrardi (egasining shikoyati).
   } catch (e) {}
 }
