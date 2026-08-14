@@ -1791,7 +1791,7 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
 .ft{text-align:center;font-size:9.5px;margin-top:6px;border-top:1px dashed #000;padding-top:5px}
 @media print{ @page{size:${W}mm auto;margin:0} body{padding:0} .doc{width:${W}mm} }
 
-  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shopName:".shop",tagline:".sm",meta:".meta",
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".shop",tagline:".sm",meta:".meta",
       itemName:".l",itemPrice:".r",total:".tot,.big",
       debt:".trow",footer:".ft"}) : ""}
   </style></head><body>
@@ -1970,16 +1970,17 @@ function buildReceiptThermal(sale, opts, cfg) {
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
      display:flex;flex-direction:column;align-items:center;padding:16px 8px}
-.rc{background:#fff;padding:16px 14px;
-    /* ✅ 2026-08-14: uzun satrlar O'RALADI — avval yonga skrol chiqib,
-       chekni surib ko'rishga to'g'ri kelardi (egasining shikoyati). */
+.rc{background:#fff;padding:18px 16px;
+    /* ✅ 2026-08-14: ZAMONAVIY ko'rinish (egasining talabi) — avval
+       eski matn-terminal uslubida edi. Endi tiniq monoshrift, yumshoq
+       oraliq va tabiiy rang. Tuzilma o'zgarmagan: chop etishda
+       avvalgidek tekis chiqadi. */
     white-space:pre-wrap;word-break:break-word;
-    font-size:13.5px;line-height:1.6;color:#000;
-    /* ✅ 2026-08-14: namunada o'ngga chiqib ketardi (ramka 320px,
-       chek 340px edi). Endi ramkaga moslashadi, uzun satrlar esa
-       ichkarida siljiydi — tashqariga chiqmaydi. */
+    font-family:'JetBrains Mono','SF Mono','Consolas','Courier New',monospace;
+    font-size:12.5px;line-height:1.72;color:#111;letter-spacing:.01em;
     width:100%;max-width:340px;overflow-x:hidden;
-    border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+    border-radius:14px;box-shadow:0 2px 14px rgba(0,0,0,.07);
+    border:1px solid #ECEAE6}
 .acts{width:340px;max-width:100%;margin:10px 0 0;display:flex;gap:8px}
 .acts button{flex:1;border:none;border-radius:7px;padding:11px;
              font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
@@ -1998,7 +1999,7 @@ body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
   .acts{display:none}
 }
 
-  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shopName:".rc",tagline:".rc",meta:".rc",
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".rc",tagline:".rc",meta:".rc",
       itemName:".rc",itemPrice:".rc",total:".rc",debt:".rc",footer:".rc"}) : ""}
   </style></head><body>
 ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
@@ -2121,7 +2122,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
   .doc{width:${W}mm}
 }
 
-  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shopName:".shop",tagline:".sm",meta:".meta",
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".shop",tagline:".sm",meta:".meta",
       itemName:".l",itemPrice:".r",total:".tot,.big",
       debt:".row",footer:".ft"}) : ""}
   </style></head><body>
@@ -2311,7 +2312,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
   .pr.pr-debt,.pr.pr-debt-total{color:#000!important}
 }
 
-  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shopName:".hd-name",tagline:".hd-meta",meta:".cust",
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".hd-name",tagline:".hd-meta",meta:".cust",
       itemName:".it-name",itemPrice:".it-calc,.it-sum",total:".tot-v,.tot",
       debt:".pr-debt,.pr-debt-total,.pr",footer:".ft"}) : ""}
   </style></head><body>
