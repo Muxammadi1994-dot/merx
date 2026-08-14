@@ -1160,6 +1160,16 @@ function buildReceiptHtml(sale, opts) {
     addr: chekCfg.addr || "", tagline: chekCfg.tagline || "",
     headerStyle: _hdrStyle, hdrCss: _hdrCss,
     paperWidth: chekCfg.paperWidth || 72,
+    // \U0001f534 2026-08-14 ILDIZ-TUZATISH: bu sozlamalar chizuvchilarga
+    // UMUMAN UZATILMAS EDI — shu sabab blok o'lchamlari, tekislash,
+    // shrift va qo'shimcha matn faqat "Yagona" chekda ishlardi
+    // (egasining takroriy shikoyati). Endi hammasi uzatiladi.
+    blocks:     chekCfg.blocks || null,
+    fontScale:  chekCfg.fontScale  || "normal",
+    fontFamily: chekCfg.fontFamily || "dm",
+    extraLines: chekCfg.extraLines || [],
+    phones:     chekCfg.phones     || [],
+    rate:       (typeof db !== "undefined" && db.settings?.rate) || 0,
     F:n=>Math.round(n||0).toLocaleString("ru-RU")};
   if (style === "compact")   return buildReceiptCompact(sale, opts, _cfg);
   if (style === "table")     return buildReceiptTable(sale, opts, _cfg);
@@ -3475,7 +3485,19 @@ function chekExtraHtml(cfg, cls) {
 //
 // Tartib: META \u2192 (TOVARLAR) \u2192 YIG'INDI \u2192 TO'LOV \u2192 QARZ \u2192 ALTBILGI
 function chekRows(sale, cfg, F) {
-  const f = F || (n => Math.round(Number(n) || 0).toLocaleString("ru-RU"));
+  const _f0 = F || (n => Math.round(Number(n) || 0).toLocaleString("ru-RU"));
+  // \u2705 2026-08-14: IKKI VALYUTA \u2014 barcha uslublarda (egasining talabi).
+  // Avval faqat "Yagona" chekda ishlardi. Yoqilgan bo'lsa har summa
+  // "540 000 / $43.20" ko'rinishida chiqadi.
+  const _rt = Number((cfg && cfg.rate)) ||
+              (typeof db !== "undefined" && db.settings?.rate) || 0;
+  const _dual = (cfg && cfg.dualCurrency !== false) && _rt > 0;
+  const f = (n) => {
+    const som = Math.round(Number(n) || 0);
+    const t = _f0(som);
+    if (!_dual) return t;
+    return t + " / $" + (som / _rt).toFixed(2);
+  };
   const c = cfg || {};
   const items    = (sale.items || []).filter(Boolean);
   const total    = Number(sale.total || 0);

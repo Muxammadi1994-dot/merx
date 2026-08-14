@@ -3408,7 +3408,14 @@ function showReceiptModal(sale) {
   // bir manba), iframe orqali. Aks holda pastdagi eski (sinalgan) modal.
   const _uModal = document.getElementById("rcp-unified-modal");
   const _lModal = document.getElementById("rcp-legacy-modal");
-  const _useUnified = db.settings?.chekConfig?.unifiedSotuv === true
+  // \U0001f534 2026-08-14: YAGONA QURUVCHI ENDI DOIMIY. Avval u ixtiyoriy
+  // tugmaga bog'liq edi — o'chiq bo'lsa POS ESKI chek oynasini
+  // ishlatardi, u esa sozlamalarni (blok o'lchamlari, shrift, ikki
+  // valyuta, tanlangan uslub) UMUMAN o'qimasdi. Egasining takroriy
+  // shikoyati aynan shundan edi: "sozlamalar cheklarga ta'sir qilmayapti".
+  // Endi barcha uslublar tayyor, shuning uchun doimiy yoqilgan.
+  // Zaxira yo'l: `unifiedSotuv === false` deb ATAYLAB o'chirilsa eski oyna.
+  const _useUnified = db.settings?.chekConfig?.unifiedSotuv !== false
                       && typeof buildReceiptHtml === "function";
   if (_uModal && _lModal) {
     _uModal.style.display = _useUnified ? "flex" : "none";
