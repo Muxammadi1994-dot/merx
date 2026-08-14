@@ -1651,9 +1651,19 @@ async function actionSendReceipt(body) {
   if (customerPhone) {
     const rawPhone = normPhone(customerPhone);
     const normalize = p => p.startsWith("998") ? p.slice(3) : p;
-    const all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id${shopFilter}`);
-    console.log(`[sendReceipt] customers count=${all?.length}, searching phone=${rawPhone}`);
-    const match = all.find(c => {
+    // \U0001f534 2026-08-14: avval BUTUN ro'yxat tortilardi — baza bir
+    // marta ko'pi bilan 1000 qator qaytaradi, mijoz 1000 dan keyin
+    // bo'lsa TOPILMASDI (egasining kuzatuvi: "do'kon o'ssa portlaydi").
+    // Endi to'g'ridan-to'g'ri telefon bo'yicha so'raladi.
+    const _tail = normalize(rawPhone).slice(-9);
+    let all = await sb("customers",
+      `?phone=ilike.*${encodeURIComponent(_tail)}*&select=id,local_id,phone,telegram_chat_id${shopFilter}&limit=50`);
+    if (!all || !all.length) {
+      // zaxira yo'l: eski usul (kichik do'konlarda ishlaydi)
+      all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id${shopFilter}&limit=1000`);
+    }
+    console.log(`[sendReceipt] nomzod=${all?.length}, qidirilgan=${rawPhone}`);
+    const match = (all || []).find(c => {
       const cp = normPhone(c.phone || "");
       return cp && normalize(cp) === normalize(rawPhone);
     });
@@ -2614,6 +2624,12 @@ async function actionRenderReceipt(chekId, saleData, shopId) {
     ? _ck.phones.filter(Boolean).join(", ")
     : (_ck.contact || "");
   return buildReceiptHtml(sale, {
+    // ✅ 2026-08-12: BOT CHEKI ham uslub tanlovini biladi.
+    // ⚠️ EHTIYOT: botda faqat `merx` chizuvchisi bor (qolganlari
+    // ilovada). Shuning uchun FAQAT merx uzatiladi — boshqa uslub
+    // tanlangan bo'lsa bot avvalgidek STANDART chekni chizadi
+    // (mavjud funksiya buzilmasin, mijozga chala chek bormasin).
+    style: (_ck.styleV2 && _ck.posStyle === "merx") ? "merx" : "unified",
     shopName,
     logo:    _ck.logo    || null,
     addr:    _ck.addr    || "",
