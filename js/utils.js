@@ -704,8 +704,14 @@ function updateRatePill() {
   // 12800 qolgan — pill uni haqiqiy kursdek ko'rsatib yuborardi
   // (jonli: xodim kirishida). Muhrsiz 12800 = qoldiq deb qaraladi,
   // haqiqiy qiymat pull bilan kelganda o'z-o'zidan almashadi.
+  // ⚠️ 2026-08-14 (3-tahrir): shart ALMASHTIRILDI. Avval "muhri yo'q
+  // 12800" yashirilardi — lekin eski qurilmalarda muhr BOR edi va
+  // 12800 haqiqiy kursdek ko'rinaverardi (egasining shikoyati).
+  // Endi qoida sodda: 12800 faqat BULUTDAN sozlama kelgandan keyin
+  // ko'rsatiladi. Kelmaguncha "—" turadi va o'zi to'ladi.
   const _r = db.settings?.rate;
-  const _stale = (_r === 12800 && !db.settings?.rateUpdatedAt);
+  const _bulutKeldi = (typeof window !== "undefined" && window._setFresh === true);
+  const _stale = (_r === 12800 && !_bulutKeldi);
   $("tb-rate").textContent = (_r && !_stale) ? fmt(_r) : "—";
   // 2026-07-26: valyuta yorlig'i YAGONA manbadan (avval uch faylda
   // uch xil yozilib, tugma goh "SO'M+USD", goh "so'm/USD" ko'rinardi)

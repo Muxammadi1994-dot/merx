@@ -3659,6 +3659,9 @@ function applyCloudSettings(sets) {
   // 2026-08-12: "bulutdan tortilgan" muhri — push qo'riqchisi shunga
   // qaraydi (usiz qurilma sozlamalarni bulutga UMUMAN yozmaydi).
   db.settings._pulledAt = new Date().toISOString();
+  // 2026-08-14: kurs pilli shu belgiga qaraydi — bulutdan sozlama
+  // kelmaguncha 12800 ko'rsatilmaydi ("—" turadi).
+  try { window._setFresh = true; } catch (e) {}
   if (sets.updated_at) db.settings._cloudTs = sets.updated_at;
       // MUHIM: db.shop ni butunlay almashtirmaymiz — type (do'kon turi)
   // kabi lokal maydonlar saqlanib qolishi kerak
