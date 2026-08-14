@@ -87,6 +87,15 @@ function getChekCfg(type) {
     fonts:      pick("fonts", null),
     blocks:     pick("blocks", null), // 2026-07-18 (Qadam D): blok-darajali sozlamalar
     headerStyle: pick("headerStyle", "dark"), // 2026-07-18: banner fon (dark/light/none)
+    // \U0001f534 2026-08-15 ILDIZ-TUZATISH: bu kalitlar YO'Q edi.
+    // POS `cfg.styleV2 ? cfg.posStyle : "unified"` deb so'raydi \u2014
+    // ikkalasi `undefined` bo'lgani uchun HAR DOIM "unified" chiqardi.
+    // Egasi Jadvalni tanlab saqlasa ham (bazada `posStyle:"table"`)
+    // sotuvda Yagona chek chiqardi \u2014 jonli isbot, 15-avgust.
+    styleV2:    c.styleV2 === true,
+    posStyle:   c.posStyle   || "unified",
+    tarixStyle: c.tarixStyle || "unified",
+    qarzStyle:  c.qarzStyle  || "unified",
     _type: type || "sotuv",
     _style: _sty
   };
