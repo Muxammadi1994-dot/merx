@@ -3627,9 +3627,24 @@ function chekRefundNote(sale, F, matnli) {
       const out = ["", "=".repeat(40), "  " + bosh,
                    "  Qaytarilgan: " + f(tot) + " so'm"];
       if (nos) out.push("  Qaytarish cheki: " + nos);
+      refs.forEach(r => (r.items || []).forEach(it => {
+        if (!it) return;
+        const q = Number(it.qty) || 0;
+        out.push("  • " + (it.name || "") + (it.color ? " " + it.color : "") +
+                 (q ? " — " + q : ""));
+      }));
       out.push("=".repeat(40));
       return out.join("\n");
     }
+    // ✅ 2026-08-15: QAYSI TOVARLAR qaytgani ham yoziladi (egasining
+    // talabi — avval faqat summa va chek raqami bor edi).
+    const tovarlar = [];
+    refs.forEach(r => (r.items || []).forEach(it => {
+      if (!it) return;
+      const q = Number(it.qty) || 0;
+      tovarlar.push((it.name || "") + (it.color ? " · " + it.color : "") +
+                    (q ? " — " + q + (it.unit ? " " + it.unit : " dona") : ""));
+    }));
     return `<div style="margin:8px 0 0;padding:8px 10px;border:1px dashed #B91C1C;
         border-radius:6px;background:#FEF2F2">
         <div style="font-size:11.5px;font-weight:800;color:#B91C1C">${bosh}</div>
@@ -3637,6 +3652,9 @@ function chekRefundNote(sale, F, matnli) {
           Qaytarilgan summa: <b>${f(tot)} so'm</b>
           ${nos ? `<br>Qaytarish cheki: <b>${nos}</b>` : ""}
         </div>
+        ${tovarlar.length ? `<div style="font-size:10.5px;color:#000;margin-top:4px;
+          border-top:1px dotted #B91C1C;padding-top:4px">
+          ${tovarlar.map(t => "• " + t).join("<br>")}</div>` : ""}
       </div>`;
   } catch (e) { return ""; }
 }

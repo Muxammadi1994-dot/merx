@@ -1082,7 +1082,14 @@ function printReceipt(id) {
     botUsername: botUser, receiptUrl,
     // 2026-08-12: eski qiymat kuchga kirmaydi (styleV2 muhri — pos.js dagi izoh)
     type: "tarix",   // 2026-08-12: sozlama shu bo'lim bo'yicha olinsin
-    style: (chekCfg2.styleV2 ? (chekCfg2.tarixStyle || "unified") : "unified")
+    // \U0001f534 2026-08-15: MUHRLANGAN uslub USTUVOR (\u00a73.5). Sotuv
+    // paytida qaysi ko'rinishda chizilgan bo'lsa, tarixda ham SHUNDAY
+    // chiqadi. Muhr yo'q (eski sotuvlar) — "unified", ya'ni ular
+    // avvalgidek qoladi. Yangi tanlov faqat YANGI sotuvlarga ta'sir
+    // qiladi (egasining talabi).
+    // ⚠️ Muhr YO'Q bo'lsa — "unified". Eski sotuvlar aynan shu
+    // ko'rinishda chizilgan edi, shuning uchun ular O'ZGARMAYDI.
+    style: (s.chekStyle || "unified")
   });
   const w = window.open("","_blank","width=420,height=700");
   if (!w) { toast("Pop-up bloklangan","err"); return; }

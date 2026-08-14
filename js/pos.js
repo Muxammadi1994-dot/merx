@@ -3103,6 +3103,15 @@ async function checkout() {
       console.warn("Server bilan aloqa yo'q — sotuv lokal saqlanadi:", e.message);
     }
   }
+  // \U0001f534 2026-08-15: CHEK USLUBI MUHRLANADI (\u00a73.5 qoidasi).
+  // Egasining kuzatuvi: uslub almashtirilganda ESKI sotuvlar ham
+  // yangi ko'rinishga o'tib ketardi — holbuki chek sotuv paytida
+  // qanday bo'lgan bo'lsa SHUNDAY qolishi kerak. Endi har sotuvga
+  // o'sha paytdagi uslub yoziladi va tarixda aynan shu ishlatiladi.
+  try {
+    const _c = (typeof getChekCfg === "function") ? getChekCfg("sotuv") : null;
+    newSale.chekStyle = (_c && _c.styleV2 ? (_c.posStyle || "unified") : "unified");
+  } catch (e) { newSale.chekStyle = "unified"; }
   db.sales.push(newSale); saveDB();
   // 2026-07-25: SOTUV — pul mantiqi, darhol bulutga yuboriladi
   // (server yozgan bo'lsa ham lokal nusxa sinxron bilan moslashadi)
