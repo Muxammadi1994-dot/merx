@@ -3447,7 +3447,16 @@ function showReceiptModal(sale) {
       // Endi style ulandi, lekin ESKI qiymat kuchga KIRMAYDI: tanlov
       // faqat ega YANGI ekrandan saqlagach ishlaydi (`styleV2` muhri).
       // Shu bilan ishlab turgan do'konlar cheki O'ZGARMAYDI.
-      style: (cfg.styleV2 ? (cfg.posStyle || "unified") : "unified"),
+      // \U0001f534 2026-08-15: MUHRLANGAN uslub USTUVOR (\u00a73.5).
+      // Bu oyna Sotuv tarixidan ham chaqiriladi — avval JORIY sozlama
+      // olinardi, shuning uchun uslub almashtirilganda ESKI cheklar
+      // ham yangi ko'rinishga o'tib ketardi (egasining kuzatuvi).
+      // Endi: sotuvda muhr bo'lsa — o'sha; yo'q bo'lsa (eski sotuvlar)
+      // "unified"; savat namunasida esa JORIY tanlov (hali sotuv yo'q).
+      style: (sale && sale.chekStyle)
+             || (sale && sale._preview
+                 ? (cfg.styleV2 ? (cfg.posStyle || "unified") : "unified")
+                 : "unified"),
       type: sale && sale._preview ? "savat" : "sotuv",
       shopName, staffName: staff ? staff.name : "—",
       logo: cfg.logo, addr: cfg.addr, contact: cfg.showContact ? cfg.contact : "",
