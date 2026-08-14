@@ -396,8 +396,8 @@ function renderEgasi() {
   if (ceFFam)    ceFFam.value    = chekCfg.fontFamily || "dm";
   const ceHdr = document.getElementById("chek-header-style");
   if (ceHdr)     ceHdr.value     = chekCfg.headerStyle || "dark";
-  const ceUni = document.getElementById("chek-unified-sotuv");
-  if (ceUni)     ceUni.checked   = chekCfg.unifiedSotuv === true;
+  // 2026-08-15: ceUni olib tashlandi (tugma yo'q)
+    // 2026-08-15: "yagona sotuv cheki" tugmasi olib tashlandi (doimiy yoqiq)
   // Qadam D (per-type): har chek turi uchun ALOHIDA blok sozlamalari.
   // _chekBlocksAll = {umumiy:{}, sotuv:{}, qarz:{}, savat:{}}. Joriy tahrir
   // turi _previewType (Sotuv/Qarz/Savat tugmasi bilan almashadi).
@@ -758,7 +758,9 @@ function saveChekConfig() {
   { const v = _rd("chek-font-scale");   if (v !== undefined) cfg.fontScale   = v; }
   { const v = _rd("chek-font-family");  if (v !== undefined) cfg.fontFamily  = v; }
   { const v = _rd("chek-header-style"); if (v !== undefined) cfg.headerStyle = v; }
-  cfg.unifiedSotuv = document.getElementById("chek-unified-sotuv")?.checked === true; // 2026-07-18: yagona sotuv cheki (test)
+  // ⚠️ 2026-08-15: bu qator OLIB TASHLANDI. Tugma yo'q bo'lgani uchun
+  // u har saqlashda `unifiedSotuv: false` yozib, chek quruvchisini
+  // O'CHIRIB qo'yardi — sozlamalar yana chekka ta'sir qilmay qolardi.
   // Qadam D (per-type): avval joriy tahrirni _chekBlocksAll'ga saqlaymiz
   _saveCurrentBlocks();
   const _all = window._chekBlocksAll || {};
@@ -806,7 +808,7 @@ function saveChekConfig() {
     v = _ck("chek-show-contact");       if (v !== undefined) _sc.showContact     = v;
     v = _ck("chek-show-debt-history");  if (v !== undefined) _sc.showDebtHistory = v;
     v = _ck("chek-dual-cur");           if (v !== undefined) _sc.dualCurrency    = v;
-    v = _ck("chek-unified-sotuv");      if (v !== undefined) _sc.unifiedSotuv    = v;
+    // 2026-08-15: "yagona sotuv cheki" tugmasi olib tashlandi (doimiy yoqiq)
   }
   // ⚠️ 2026-08-12: STANDART QIYMAT TANLANGANNI BOSMAYDI (kecha
   // footer matnida topilgan `el?.value || "standart"` kasalining
@@ -1213,6 +1215,13 @@ function _livePreviewCfg() {
     fontScale:  document.getElementById("chek-font-scale")?.value  || "normal",
     fontFamily: document.getElementById("chek-font-family")?.value || "dm",
     headerStyle:  document.getElementById("chek-header-style")?.value || "dark",
+    // ✅ 2026-08-15: namunada ham IKKI VALYUTA sozlamasi hisobga olinsin —
+    // avval bu maydon ro'yxatda yo'q edi, shuning uchun namunada har doim
+    // yoqiq ko'rinardi (haqiqiy chekda esa to'g'ri ishlardi).
+    dualCurrency: document.getElementById("chek-dual-cur")?.checked !== false,
+    fontFamily:   document.getElementById("chek-font-family")?.value || "dm",
+    fontScale:    document.getElementById("chek-font-scale")?.value || "normal",
+    extraLines:   Array.isArray(window._chekExtra) ? window._chekExtra.slice() : [],
     blocks:       (window._chekBlocks && Object.keys(window._chekBlocks).length) ? window._chekBlocks : null, // joriy tur (per-type)
   };
 }
@@ -1805,6 +1814,13 @@ const CS_NOM = { unified:"Yagona", merx:"MERX brend", thermal:"Termal",
 
 // 1-bo'lim: sotuv uslubini tanlash (POS va TARIX birga)
 function csPick(style) {
+  // \U0001f534 2026-08-15: SURISH HOLATI SAQLANADI. Uslub tanlanganda
+  // maydonlar, bloklar va namuna qayta chizilardi — sahifa balandligi
+  // o'zgarib, ekran YUQORIGA sakrardi (egasining takroriy shikoyati).
+  // Sababni qidirish o'rniga holatni saqlab, tiklaymiz — kafolatli.
+  const _sc0 = document.getElementById("pages");
+  const _y0  = _sc0 ? _sc0.scrollTop : 0;
+  const _tikla = () => { try { if (_sc0) _sc0.scrollTop = _y0; } catch (e) {} };
   try {
     // ⚠️ 2026-08-14 TUZATISH: TARTIB muhim. Avval `_csFillFields`
     // chaqirilardi — u namunani chizganda tanlov hali ESKI uslubda
@@ -1826,6 +1842,11 @@ function csPick(style) {
     });
     csLoadStyleOpts();                 // sozlamalar shu uslubniki bo'lsin
   } catch (e) {}
+  // Chizish tugagach surish joyiga qaytariladi (ikki bosqichda —
+  // oyna balandligi keyinroq o'zgarishi mumkin)
+  _tikla();
+  try { requestAnimationFrame(_tikla); } catch (e) {}
+  setTimeout(_tikla, 120);
 }
 
 // 2-bo'lim: qarz chitigi uslubi
@@ -1922,7 +1943,7 @@ function _csFillFields(style) {
     chk("chek-show-contact",      g("showContact",     undefined), true);
     chk("chek-show-debt-history", g("showDebtHistory", undefined), true);
     chk("chek-dual-cur",          g("dualCurrency",    undefined), true);
-    chk("chek-unified-sotuv",     g("unifiedSotuv",    undefined), false);
+    // 2026-08-15: "yagona sotuv cheki" tugmasi olib tashlandi (doimiy yoqiq)
 
     // Blok o'lchamlari — shu uslubniki
     try {

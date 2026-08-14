@@ -2033,7 +2033,8 @@ body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
   .acts{display:none}
 }
 
-  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".rc",tagline:".rc",meta:".rc",
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {_noAlign:true,
+      shop:".rc",tagline:".rc",meta:".rc",
       itemName:".rc",itemPrice:".rc",total:".rc",debt:".rc",footer:".rc"}) : ""}
   </style></head><body>
 ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
@@ -3416,6 +3417,9 @@ function debtLines(sale, opts) {
 // <style> blokiga qo'shish kifoya.
 //
 // `sel` \u2014 uslubning sinf xaritasi: qaysi blok qaysi CSS selektorga.
+// `sel._noAlign` — tekislash qo'llanmasin (Termal uchun: u BITTA matn
+// bloki, shuning uchun bitta blokka "markaz" qo'yilsa BUTUN chek
+// markazlashib qolardi — egasining shikoyati, 15-avgust).
 function chekStyleCss(cfg, sel) {
   try {
     if (!cfg) return "";
@@ -3447,7 +3451,7 @@ function chekStyleCss(cfg, sel) {
       if (o.size)   d.push(`font-size:${Number(o.size) * k}px`);
       if (o.bold)   d.push("font-weight:800");
       if (o.italic) d.push("font-style:italic");
-      if (o.align)  d.push(`text-align:${o.align}`);
+      if (o.align && !(sel && sel._noAlign)) d.push(`text-align:${o.align}`);
       if (d.length) out.push(`${cssSel}{${d.join(";")} !important}`);
       if (o.show === false) out.push(`${cssSel}{display:none !important}`);
     }

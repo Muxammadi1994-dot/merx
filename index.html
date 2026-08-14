@@ -3265,10 +3265,12 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
                 </select>
                 <div style="font-size:11px;color:var(--mut);margin-top:5px;line-height:1.5">Qora fon termal printerda xunuk chiqadi. Bosma uchun "Oq" tavsiya etiladi.</div>
               </div>
-              <div class="fld" style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:9px;padding:12px 14px">
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#1E40AF"><input type="checkbox" id="chek-unified-sotuv" style="width:16px;height:16px;accent-color:var(--acc)"> Yangi yagona sotuv cheki (test)</label>
-                <div style="font-size:11px;color:#3B5BA0;margin-top:6px;line-height:1.5">Yoqilsa, sotuv cheki ham jonli test bilan bir xil ko'rinishda chiqadi. Sinab ko'ring — muammo bo'lsa o'chiring.</div>
-              </div>
+              <!-- ✅ 2026-08-15: "Yangi yagona sotuv cheki (test)" tugmasi OLIB
+                 TASHLANDI. U POS'da yangi chek quruvchisini yoqardi; o'chiq
+                 bo'lsa ESKI oyna ishlatilardi va u sozlamalarni (blok
+                 o'lchamlari, shrift, uslub) UMUMAN o'qimasdi — "sozlamalar
+                 chekka ta'sir qilmayapti" shikoyatining ildizi shu edi.
+                 Endi quruvchi DOIMIY (pos.js: unifiedSotuv !== false). -->
               <!-- 2026-07-26: chekda ikki valyuta ko'rsatish (yoqib/o'chirish) -->
               <div class="fld" style="background:#FFF7ED;border:1px solid #FCD9A8;border-radius:9px;padding:12px 14px;margin-bottom:12px">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#0D1B2A">
@@ -5171,7 +5173,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=171"></script>
-<script src="js/utils.js?v=255"></script>
+<script src="js/utils.js?v=256"></script>
 <script src="js/auth.js?v=209"></script>
 <script src="js/sms.js?v=146"></script>
 <script src="js/cloud.js?v=284"></script>
@@ -5185,7 +5187,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 <script src="js/hisobot.js?v=154"></script>
 <script src="js/xodimlar.js?v=159"></script>
 <script src="js/moliya.js?v=174"></script>
-<script src="js/egasi.js?v=198"></script>
+<script src="js/egasi.js?v=199"></script>
 <script src="js/portal.js?v=143"></script>
 <script src="js/init.js?v=151"></script>
 <script>
@@ -5479,7 +5481,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 427;
+  window.SW_V = 428;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5502,7 +5504,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=427")
+    navigator.serviceWorker.register("/sw.js?v=428")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
