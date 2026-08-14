@@ -1791,6 +1791,7 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
 </style></head><body>
 <div class="doc">
   ${_tasdiqBelgisi(sale, opts && opts.type)}
+  ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
   <div class="hd">
     <div class="shop">${shopName}</div>
     ${showContact && contact ? `<div class="sm">Tel: ${contact}</div>` : ""}
@@ -1992,7 +1993,8 @@ body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
   .acts{display:none}
 }
 </style></head><body>
-<div class="rc">
+${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
+  <div class="rc">
   ${_tasdiqBelgisi(sale, opts && opts.type)}${rows.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
 <div class="acts">
   <button class="btn-p" onclick="window.print()">🖨 Chop etish</button>
@@ -2111,6 +2113,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
 </style></head><body>
 <div class="doc">
   ${_tasdiqBelgisi(sale, opts && opts.type)}
+  ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
   <div class="hd">
     <div class="shop">${shopName}</div>
     ${showContact && contact ? `<div class="sm">${contact}</div>` : ""}

@@ -25,6 +25,19 @@ function adminTabSwitch(tab) {
     const _f = document.getElementById("chek-preview-frame");
     if (_f && tab !== "sms") { _f.srcdoc = ""; _f.style.height = "0px"; }
   } catch (e) {}
+  // \U0001f534 2026-08-14: bo'lim almashganda SAHIFA TEPAGA qaytariladi.
+  // Chek bo'limi juda uzun — undan qisqa bo'limga o'tilganda ekran
+  // pastda qolib, tepadagi bo'lim tugmalari ko'rinmasdi va surib
+  // chiqib bo'lmasdi ("oyna qotib qoldi" — egasining shikoyati).
+  try {
+    const _p = document.querySelector(".adm-tab-bar") ||
+               document.getElementById("page-sozlamalar") ||
+               document.getElementById("main");
+    if (_p && _p.scrollIntoView) _p.scrollIntoView({ block: "start" });
+    const _m = document.getElementById("main");
+    if (_m) _m.scrollTop = 0;
+    window.scrollTo(0, 0);
+  } catch (e) {}
   try { renderUnitTags(); } catch(e) {} // №11a: birlik chiplar yangilanadi
   document.querySelectorAll(".adm-tab-btn").forEach(b => {
     const on = b.dataset.tab === tab;
@@ -731,15 +744,18 @@ function saveChekConfig() {
   const _sc = cfg.perStyle[_st] || {};
   const _rd = (id) => { const el = document.getElementById(id); return el ? el.value : undefined; };
 
-  // ── UMUMIY (do'kon ma'lumotlari) ──
-  { const v = _rd("chek-addr"); if (v !== undefined) cfg.addr = v; }
-
-  // ── USLUB DARAJASIDA (ko'rinish) ──
-  { const v = _rd("chek-tagline");      if (v !== undefined) _sc.tagline    = v; }
-  { const v = _rd("chek-paper");        if (v !== undefined) _sc.paperWidth = parseInt(v) || 72; }
-  { const v = _rd("chek-font-scale");   if (v !== undefined) _sc.fontScale  = v; }
-  { const v = _rd("chek-font-family");  if (v !== undefined) _sc.fontFamily = v; }
-  { const v = _rd("chek-header-style"); if (v !== undefined) _sc.headerStyle = v; }
+  // ✅ 2026-08-14 (egasining talabi) — CHEGARA:
+  //   TEPA BLOK (logo, manzil, shior, qog'oz, shrift, sarlavha foni)
+  //   → UMUMIY: bir o'zgartirish BARCHA 5 ko'rinishga tegadi.
+  //   PAST BLOK (yagona-chek, ikki valyuta, bloklar, telefonlar,
+  //   altbilgi, qo'shimcha matn, ko'rsatish belgilagichlari)
+  //   → HAR USLUB uchun ALOHIDA.
+  { const v = _rd("chek-addr");         if (v !== undefined) cfg.addr        = v; }
+  { const v = _rd("chek-tagline");      if (v !== undefined) cfg.tagline     = v; }
+  { const v = _rd("chek-paper");        if (v !== undefined) cfg.paperWidth  = parseInt(v) || 72; }
+  { const v = _rd("chek-font-scale");   if (v !== undefined) cfg.fontScale   = v; }
+  { const v = _rd("chek-font-family");  if (v !== undefined) cfg.fontFamily  = v; }
+  { const v = _rd("chek-header-style"); if (v !== undefined) cfg.headerStyle = v; }
   cfg.unifiedSotuv = document.getElementById("chek-unified-sotuv")?.checked === true; // 2026-07-18: yagona sotuv cheki (test)
   // Qadam D (per-type): avval joriy tahrirni _chekBlocksAll'ga saqlaymiz
   _saveCurrentBlocks();
@@ -760,9 +776,14 @@ function saveChekConfig() {
   });
   // 2026-07-18 (2-bosqich): telefonlar massivi + qo'shimcha matnlar.
   // Eski "contact" (vergulli) o'rniga phones[]; getChekCfg ikkalasini biladi.
-  cfg.phones = Array.isArray(window._chekPhones) ? window._chekPhones.slice() : [];
-  cfg.contact = cfg.phones.join(", "); // eski maydonlar/bot mosligi uchun ham
-  cfg.extraLines = Array.isArray(window._chekExtra) ? window._chekExtra.slice() : [];
+  // ✅ 2026-08-14: telefonlar va qo'shimcha matn — PAST BLOK, ya'ni
+  // HAR USLUB uchun alohida (egasining talabi).
+  _sc.phones     = Array.isArray(window._chekPhones) ? window._chekPhones.slice() : [];
+  _sc.contact    = _sc.phones.join(", ");
+  _sc.extraLines = Array.isArray(window._chekExtra) ? window._chekExtra.slice() : [];
+  // Moslik: bot va eski oqimlar `cfg.contact` ni o'qiydi
+  if (!cfg.contact) cfg.contact = _sc.contact;
+  if (!Array.isArray(cfg.phones) || !cfg.phones.length) cfg.phones = _sc.phones.slice();
   // ⚠️ 2026-08-12: STANDART MATN FOYDALANUVCHINIKINI BOSMAYDI.
   // Avval `el?.value || "Rahmat! Yana kutamiz"` edi — maydon hali
   // chizilmagan (yoki bo'sh) bo'lsa, standart matn adminning o'z
@@ -1868,6 +1889,16 @@ function _csFillFields(style) {
     set("chek-font-family",  g("fontFamily", "dm"));
     set("chek-header-style", g("headerStyle", "dark"));
     set("chek-footer",       g("footer", "Rahmat! Yana kutamiz \ud83d\ude4f"));
+
+    // Telefonlar va qo'shimcha matn — uslub darajasida (2026-08-14)
+    try {
+      const ph = (o.phones !== undefined) ? o.phones : (c.phones || []);
+      const ex = (o.extraLines !== undefined) ? o.extraLines : (c.extraLines || []);
+      window._chekPhones = Array.isArray(ph) ? ph.slice() : [];
+      window._chekExtra  = Array.isArray(ex) ? ex.slice() : [];
+      if (typeof renderChekPhones === "function") renderChekPhones();
+      if (typeof renderChekExtra  === "function") renderChekExtra();
+    } catch (e) {}
 
     // Belgilagichlar — uslub darajasida (2026-08-14)
     const chk = (id, val, dflt) => { const el = document.getElementById(id);
