@@ -2017,7 +2017,9 @@ body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
     white-space:pre;word-break:normal;
     font-family:'JetBrains Mono','SF Mono','Consolas','Courier New',monospace;
     font-size:11.5px;line-height:1.65;color:#111;letter-spacing:0;
-    width:100%;max-width:340px;overflow-x:hidden;
+    /* ✅ 2026-08-15: blok MATN ENIGA moslashadi va markazda turadi —
+       avval o'ngda katta bo'sh joy qolardi (egasining shikoyati). */
+    width:fit-content;max-width:100%;margin:0 auto;overflow-x:hidden;
     border-radius:14px;box-shadow:0 2px 14px rgba(0,0,0,.07);
     border:1px solid #ECEAE6}
 .acts{width:340px;max-width:100%;margin:10px 0 0;display:flex;gap:8px}
