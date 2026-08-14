@@ -713,17 +713,35 @@ function saveChekConfig() {
   if (!db.settings) db.settings = {};
   const cfg = db.settings.chekConfig || {};
 
-  cfg.addr    = document.getElementById("chek-addr")?.value    || ""; // v145 (№12): manzil
-  cfg.tagline = document.getElementById("chek-tagline")?.value  || ""; // v146: shior
-  cfg.paperWidth = parseInt(document.getElementById("chek-paper")?.value) || 72; // 2026-07-17: qog'oz eni
-  cfg.fontScale  = document.getElementById("chek-font-scale")?.value  || "normal"; // 2026-07-18: tipografiya
-  cfg.fontFamily = document.getElementById("chek-font-family")?.value || "dm";
-  cfg.headerStyle = document.getElementById("chek-header-style")?.value || "dark"; // 2026-07-18: banner foni
+  // \u2705 2026-08-14 (egasining talabi): KO'RINISH sozlamalari TANLANGAN
+  // USLUBGA yoziladi (qog'oz, shrift, fon, shior, matn, bloklar).
+  // DO'KON ma'lumotlari (logo, manzil, telefon) UMUMIY qoladi \u2014 ular
+  // do'konniki, chek turiga bog'liq emas.
+  // \u26a0\ufe0f Element mavjud bo'lsagina o'qiladi \u2014 chizilmagan maydon
+  // eski qiymatni O'CHIRIB yubormasin (\u00a713.32 oilasidagi kasal).
+  const _st = _csStyleNow ? _csStyleNow() : "unified";
+  if (!cfg.perStyle) cfg.perStyle = {};
+  const _sc = cfg.perStyle[_st] || {};
+  const _rd = (id) => { const el = document.getElementById(id); return el ? el.value : undefined; };
+
+  // ── UMUMIY (do'kon ma'lumotlari) ──
+  { const v = _rd("chek-addr"); if (v !== undefined) cfg.addr = v; }
+
+  // ── USLUB DARAJASIDA (ko'rinish) ──
+  { const v = _rd("chek-tagline");      if (v !== undefined) _sc.tagline    = v; }
+  { const v = _rd("chek-paper");        if (v !== undefined) _sc.paperWidth = parseInt(v) || 72; }
+  { const v = _rd("chek-font-scale");   if (v !== undefined) _sc.fontScale  = v; }
+  { const v = _rd("chek-font-family");  if (v !== undefined) _sc.fontFamily = v; }
+  { const v = _rd("chek-header-style"); if (v !== undefined) _sc.headerStyle = v; }
   cfg.unifiedSotuv = document.getElementById("chek-unified-sotuv")?.checked === true; // 2026-07-18: yagona sotuv cheki (test)
   // Qadam D (per-type): avval joriy tahrirni _chekBlocksAll'ga saqlaymiz
   _saveCurrentBlocks();
   const _all = window._chekBlocksAll || {};
-  cfg.blocks = (_all.umumiy && Object.keys(_all.umumiy).length) ? _all.umumiy : null; // umumiy (moslik)
+  // ✅ 2026-08-14: BLOK o'lchamlari ham TANLANGAN USLUBGA yoziladi
+  {
+    const _b = (_all.umumiy && Object.keys(_all.umumiy).length) ? _all.umumiy : null;
+    if (_b) _sc.blocks = _b; else delete _sc.blocks;
+  }
   cfg.perType = cfg.perType || {};
   ["sotuv","qarz","savat"].forEach(t => {
     if (_all[t] && Object.keys(_all[t]).length) {
@@ -745,8 +763,8 @@ function saveChekConfig() {
   // o'qiladi; yo'q bo'lsa avvalgi qiymat saqlanadi.
   {
     const _fEl = document.getElementById("chek-footer");
-    if (_fEl) cfg.footer = _fEl.value;
-    else if (cfg.footer == null) cfg.footer = "Rahmat! Yana kutamiz 🙏";
+    // ✅ 2026-08-14: pastki matn ham USLUBGA tegishli
+    if (_fEl) _sc.footer = _fEl.value;
   }
   cfg.showStaff        = document.getElementById("chek-show-staff")?.checked !== false;
   cfg.showContact      = document.getElementById("chek-show-contact")?.checked !== false;
@@ -803,6 +821,11 @@ function saveChekConfig() {
       else delete cfg.perStyle[_st];
     } catch (e) {}
   }
+
+  // ✅ Uslub sozlamalarini joyiga qo'yamiz (bo'sh bo'lsa kalit o'chadi)
+  if (Object.keys(_sc).length) cfg.perStyle[_st] = _sc;
+  else delete cfg.perStyle[_st];
+  cfg.styleV2 = true;   // tanlov endi KUCHGA kiradi
 
   db.settings.chekConfig = cfg;
   saveDB();
@@ -1111,6 +1134,23 @@ function _loadBlocksForType(type) {
 
 
 // Joriy input qiymatlaridan vaqtinchalik chek-config yig'ish
+// ✅ 2026-08-14: namuna va sozlamalar TANLANGAN USLUB darajasida.
+// Qatlam: uslub sozlamasi (perStyle) > umumiy (chekConfig) > standart.
+// Do'kon ma'lumotlari (logo, manzil, telefon) UMUMIY qoladi — ular
+// do'konniki, chek turiga bog'liq emas.
+function _csStyleNow() {
+  try { return (document.getElementById("chek-pos-style") || {}).value || "unified"; }
+  catch (e) { return "unified"; }
+}
+function _csStyleCfg(base) {
+  try {
+    const c  = (db.settings && db.settings.chekConfig) || {};
+    const st = _csStyleNow();
+    const o  = (c.perStyle && c.perStyle[st]) || {};
+    return { ...base, ...o };
+  } catch (e) { return base; }
+}
+
 function _livePreviewCfg() {
   return {
     logo:       (document.getElementById("chek-logo-preview")?.src || "").startsWith("data:") ? document.getElementById("chek-logo-preview").src : (db.settings?.chekConfig?.logo || ""),
@@ -1199,7 +1239,11 @@ function renderChekPreview() {
       html = _buildDebtReceiptPreview(cfg);
     } else if (typeof buildReceiptHtml === "function") {
       const sale = _previewSampleSale(_previewType);
+      // ✅ 2026-08-14: namuna TANLANGAN USLUBDA chiziladi — karta
+      // bosilganda o'ng tomonda darhol o'sha chek ko'rinadi.
+      const _st = (document.getElementById("chek-pos-style") || {}).value || "unified";
       html = buildReceiptHtml(sale, {
+        style: _st,
         type: _previewType,
         shopName: cfg.shopName, staffName: cfg.staffName || "Sotuvchi",
         logo: cfg.logo, addr: cfg.addr, contact: cfg.showContact ? cfg.contact : "",
@@ -1700,6 +1744,9 @@ const CS_NOM = { unified:"Yagona", merx:"MERX brend", thermal:"Termal",
 // 1-bo'lim: sotuv uslubini tanlash (POS va TARIX birga)
 function csPick(style) {
   try {
+    // ✅ 2026-08-14: uslub almashganda maydonlar O'SHA uslub
+    // sozlamalari bilan to'ladi, namuna esa darhol qayta chiziladi.
+    _csFillFields(style);
     const pos = document.getElementById("chek-pos-style");
     const tar = document.getElementById("chek-tarix-style");
     if (pos) pos.value = style;
@@ -1772,5 +1819,37 @@ function csInitCards() {
     const qrz = sv2 ? (cfg.qarzStyle || "unified") : "unified";
     csPick(pos);
     csPickQarz(qrz);
+  } catch (e) {}
+}
+
+
+// Uslub sozlamalarini maydonlarga tushirish (2026-08-14)
+// Qatlam: uslub (perStyle) > umumiy (chekConfig) > standart.
+function _csFillFields(style) {
+  try {
+    const c  = (db.settings && db.settings.chekConfig) || {};
+    const o  = (c.perStyle && c.perStyle[style]) || {};
+    const g  = (k, dflt) => (o[k] !== undefined ? o[k]
+                          : (c[k] !== undefined ? c[k] : dflt));
+    const set = (id, v) => { const el = document.getElementById(id);
+      if (el && v !== undefined && v !== null) el.value = String(v); };
+
+    set("chek-tagline",      g("tagline", ""));
+    set("chek-paper",        g("paperWidth", 72));
+    set("chek-font-scale",   g("fontScale", "normal"));
+    set("chek-font-family",  g("fontFamily", "dm"));
+    set("chek-header-style", g("headerStyle", "dark"));
+    set("chek-footer",       g("footer", "Rahmat! Yana kutamiz \ud83d\ude4f"));
+
+    // Blok o'lchamlari — shu uslubniki
+    try {
+      const b = o.blocks || c.blocks || {};
+      window._chekBlocks = JSON.parse(JSON.stringify(b));
+      if (!window._chekBlocksAll) window._chekBlocksAll = {};
+      window._chekBlocksAll.umumiy = window._chekBlocks;
+      if (typeof renderChekBlocks === "function") renderChekBlocks();
+    } catch (e) {}
+
+    if (typeof renderChekPreview === "function") renderChekPreview();
   } catch (e) {}
 }
