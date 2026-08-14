@@ -817,7 +817,9 @@ function saveChekConfig() {
   {
     const _sty = (id, eski) => {
       const el = document.getElementById(id);
-      const v  = el && el.value;
+      // \U0001f534 2026-08-15: `dataset.pick` USTUVOR — ro'yxatda variant
+      // bo'lmasa `value` bo'sh qoladi va tanlov yo'qolardi.
+      const v  = (el && (el.dataset.pick || el.value)) || "";
       return v ? v : (eski || "unified");
     };
     cfg.posStyle   = _sty("chek-pos-style",   cfg.posStyle);
@@ -1186,8 +1188,10 @@ function _loadBlocksForType(type) {
 // Do'kon ma'lumotlari (logo, manzil, telefon) UMUMIY qoladi — ular
 // do'konniki, chek turiga bog'liq emas.
 function _csStyleNow() {
-  try { return (document.getElementById("chek-pos-style") || {}).value || "unified"; }
-  catch (e) { return "unified"; }
+  try {
+    const el = document.getElementById("chek-pos-style");
+    return (el && (el.dataset.pick || el.value)) || "unified";
+  } catch (e) { return "unified"; }
 }
 function _csStyleCfg(base) {
   try {
@@ -1826,10 +1830,25 @@ function csPick(style) {
     // chaqirilardi — u namunani chizganda tanlov hali ESKI uslubda
     // turardi va bo'sh/noto'g'ri chek ko'rinardi (jonli shikoyat).
     // Endi: avval uslub yoziladi, keyin maydonlar va namuna.
-    const pos = document.getElementById("chek-pos-style");
-    const tar = document.getElementById("chek-tarix-style");
-    if (pos) pos.value = style;
-    if (tar) tar.value = style;        // tarix ham SHU uslubda
+    // \U0001f534 2026-08-15 ILDIZ-TUZATISH: yashirin ro'yxatlarda VARIANT
+    // yo'q edi — `select.value = "table"` mos variant bo'lmagani uchun
+    // BO'SH qolardi va saqlashda "unified" yozilardi. Natijada egasi
+    // Jadvalni tanlab saqlasa ham sotuvda Jadval chiqmasdi.
+    // Endi tanlov ikki joyda: ro'yxatga variant qo'shiladi VA
+    // `dataset` ga yoziladi (ishonchli manba).
+    const _qoy = (id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (!el.querySelector(`option[value="${style}"]`)) {
+        const o = document.createElement("option");
+        o.value = style; o.textContent = style;
+        el.appendChild(o);
+      }
+      el.value = style;
+      el.dataset.pick = style;          // zaxira manba
+    };
+    _qoy("chek-pos-style");
+    _qoy("chek-tarix-style");           // tarix ham SHU uslubda
     _csFillFields(style);
     document.querySelectorAll("#chek-style-cards .cs-card").forEach(c => {
       const on = c.dataset.s === style;
@@ -1853,7 +1872,15 @@ function csPick(style) {
 function csPickQarz(style) {
   try {
     const el = document.getElementById("chek-qarz-style");
-    if (el) el.value = style;
+    if (el) {
+      if (!el.querySelector(`option[value="${style}"]`)) {
+        const o = document.createElement("option");
+        o.value = style; o.textContent = style;
+        el.appendChild(o);
+      }
+      el.value = style;
+      el.dataset.pick = style;         // zaxira manba (yuqoridagi izoh)
+    }
     document.querySelectorAll("#cs-qarz-cards .cq-card").forEach(c => {
       const on = c.dataset.q === style;
       c.style.border     = on ? "2px solid var(--acc)" : "1.5px solid var(--brd)";
