@@ -1148,10 +1148,7 @@ function setPreviewType(t) {
   // ✅ 2026-08-14: BIR MARTA bosilishi bilan yangilansin. Avval
   // iframe eski mazmun bilan qolib, ikkinchi bosishda yangilanardi
   // (srcdoc bir xil bo'lsa brauzer qayta yuklamaydi).
-  try {
-    const _f = document.getElementById("chek-preview-frame");
-    if (_f) _f.srcdoc = "";
-  } catch (e) {}
+  // ⚠️ 2026-08-14: srcdoc tozalanmaydi (sahifa sakramasin)
   renderChekPreview();
   setTimeout(() => { try { renderChekPreview(); } catch (e) {} }, 60);
 }
@@ -1299,7 +1296,11 @@ function renderChekPreview() {
         _previewCfg: cfg
       });
     }
-    frame.srcdoc = html || "<div style='padding:20px;font-family:sans-serif;color:#999'>Preview mavjud emas</div>";
+    // ✅ 2026-08-14: noyob belgi — mazmun bir xil bo'lsa ham brauzer
+    // qayta chizadi (avval "ikki marta bosish kerak" muammosi bor edi).
+    frame.style.minHeight = "300px";
+    frame.srcdoc = (html || "<div style='padding:20px;font-family:sans-serif;color:#999'>Preview mavjud emas</div>") +
+                   "<!--" + Date.now() + "-->";
     // 2026-07-19: iframe chek TO'LIQ uzunligiga cho'ziladi (skrollsiz) —
     // o'ng ustun chap sozlamalar balandligича tabiiy egallaydi.
     frame.onload = () => {
@@ -1922,10 +1923,9 @@ function _csFillFields(style) {
 
     // ✅ 2026-08-14: namuna BIR MARTA bosishda yangilansin — avval
     // iframe tozalanadi (bir xil mazmun qayta yuklanmasdi).
-    try {
-      const _f = document.getElementById("chek-preview-frame");
-      if (_f) _f.srcdoc = "";
-    } catch (e) {}
+    // ⚠️ 2026-08-14: srcdoc TOZALANMAYDI — oyna balandligi nolga
+    // tushib, sahifa yuqoriga SAKRARDI (egasining shikoyati).
+    // Yangilash `renderChekPreview` ichidagi noyob belgi bilan bo'ladi.
     if (typeof renderChekPreview === "function") renderChekPreview();
     setTimeout(() => { try { renderChekPreview(); } catch (e) {} }, 60);
   } catch (e) {}

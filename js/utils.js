@@ -1825,7 +1825,8 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
     ${showStaff && staffName ? `<div class="mrow"><span>Sotuvchi</span><span>${staffName}</span></div>` : ""}
     <div class="mrow"><span>Chek \u2116</span><b>${chekNum}</b></div>
     <div class="mrow"><span>Sana</span><span>${date} ${time}</span></div>
-    ${boshRow}
+    <!-- ✅ 2026-08-14: "Oldingi qarz" TEPADAN olib tashlandi — u endi
+         pastdagi QARZ bo'limida, yagona tartib bo'yicha -->
   </div>
   <table>
     <thead><tr>
@@ -1977,6 +1978,11 @@ function buildReceiptThermal(sale, opts, cfg) {
     note ? (DA + "\nIzoh: " + note) : null,
     EQ,
     center(footer || "Rahmat! Yana kutamiz"),
+    // ✅ 2026-08-14: qo'shimcha matn qatorlari
+    ...(() => { try {
+      const _R = chekRows(sale, cfg, F);
+      return _R.footer.slice(1).map(t => center(t));
+    } catch (e) { return []; } })(),
     botUser ? center("@" + botUser) : null,
     EQ,
   ].filter(l => l !== null && l !== "").join("\n");
@@ -2160,7 +2166,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
     ${showStaff && staffName ? `<div><span>Sotuvchi</span><span>${staffName}</span></div>` : ""}
     <div><span>Kurs</span><span>${F(rate)}</span></div>
   </div>
-  ${boshRow ? `<div class="meta">${boshRow}</div>` : ""}
+  <!-- ✅ 2026-08-14: "Oldingi qarz" endi pastdagi QARZ bo'limida -->
   <table>
     <thead><tr>
       <th style="width:16px">\u2116</th><th class="l">Model</th>
@@ -2385,6 +2391,12 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
 
     <div class="ft">
       <div class="ft-txt">${footer || "Rahmat! Yana kutamiz 🙏"}</div>
+    ${(() => { try {
+      const _R = chekRows(sale, cfg, F);
+      // ✅ 2026-08-14: qo'shimcha matn qatorlari (reklama, ish vaqti)
+      return _R.footer.slice(1).map(t =>
+        `<div class="ft-sub" style="font-size:11px;opacity:.8">${t}</div>`).join("");
+    } catch (e) { return ""; } })()}
       <div class="ft-sub">${shopName} · ${date}</div>
       ${botUser ? `<div class="ft-bot">@${botUser}</div>` : ""}
     </div>
