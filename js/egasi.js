@@ -18,6 +18,13 @@ function _dStr(d) {
 
 function adminTabSwitch(tab) {
   _adminTab = tab;
+  // ✅ 2026-08-14: chek namunasi FAQAT o'z bo'limida chizilsin.
+  // Boshqa bo'limga o'tganda tozalanadi — og'ir iframe sahifani
+  // sekinlashtirib, "oyna qotib qoldi" holatini keltirardi.
+  try {
+    const _f = document.getElementById("chek-preview-frame");
+    if (_f && tab !== "sms") { _f.srcdoc = ""; _f.style.height = "0px"; }
+  } catch (e) {}
   try { renderUnitTags(); } catch(e) {} // №11a: birlik chiplar yangilanadi
   document.querySelectorAll(".adm-tab-btn").forEach(b => {
     const on = b.dataset.tab === tab;
@@ -766,9 +773,18 @@ function saveChekConfig() {
     // ✅ 2026-08-14: pastki matn ham USLUBGA tegishli
     if (_fEl) _sc.footer = _fEl.value;
   }
-  cfg.showStaff        = document.getElementById("chek-show-staff")?.checked !== false;
-  cfg.showContact      = document.getElementById("chek-show-contact")?.checked !== false;
-  cfg.showDebtHistory  = document.getElementById("chek-show-debt-history")?.checked !== false;
+  // ✅ 2026-08-14 (egasining talabi): belgilagichlar ham TANLANGAN
+  // USLUBGA tegishli — kassir, aloqa, qarz tarixi, ikki valyuta.
+  {
+    const _ck = (id) => { const el = document.getElementById(id);
+      return el ? (el.checked !== false) : undefined; };
+    let v;
+    v = _ck("chek-show-staff");         if (v !== undefined) _sc.showStaff       = v;
+    v = _ck("chek-show-contact");       if (v !== undefined) _sc.showContact     = v;
+    v = _ck("chek-show-debt-history");  if (v !== undefined) _sc.showDebtHistory = v;
+    v = _ck("chek-dual-cur");           if (v !== undefined) _sc.dualCurrency    = v;
+    v = _ck("chek-unified-sotuv");      if (v !== undefined) _sc.unifiedSotuv    = v;
+  }
   // ⚠️ 2026-08-12: STANDART QIYMAT TANLANGANNI BOSMAYDI (kecha
   // footer matnida topilgan `el?.value || "standart"` kasalining
   // o'sha oilasi). Element yo'q yoki ro'yxat hali to'lmagan bo'lsa —
@@ -1267,7 +1283,9 @@ function renderChekPreview() {
       try {
         const doc = frame.contentDocument || frame.contentWindow.document;
         const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
-        if (h > 100) frame.style.height = (h + 10) + "px";
+        // ⚠️ 2026-08-14: balandlik CHEKLANADI — uzun chekda sahifa
+        // juda cho'zilib, bo'lim almashganda ekran qotardi.
+        if (h > 100) frame.style.height = Math.min(h + 10, 760) + "px";
       } catch (e) {}
     };
   } catch (e) {
@@ -1850,6 +1868,15 @@ function _csFillFields(style) {
     set("chek-font-family",  g("fontFamily", "dm"));
     set("chek-header-style", g("headerStyle", "dark"));
     set("chek-footer",       g("footer", "Rahmat! Yana kutamiz \ud83d\ude4f"));
+
+    // Belgilagichlar — uslub darajasida (2026-08-14)
+    const chk = (id, val, dflt) => { const el = document.getElementById(id);
+      if (el) el.checked = (val !== undefined ? val !== false : dflt); };
+    chk("chek-show-staff",        g("showStaff",       undefined), true);
+    chk("chek-show-contact",      g("showContact",     undefined), true);
+    chk("chek-show-debt-history", g("showDebtHistory", undefined), true);
+    chk("chek-dual-cur",          g("dualCurrency",    undefined), true);
+    chk("chek-unified-sotuv",     g("unifiedSotuv",    undefined), false);
 
     // Blok o'lchamlari — shu uslubniki
     try {

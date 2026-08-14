@@ -71,6 +71,9 @@ function getChekCfg(type) {
     })(),
     // Ko'rsatish bayroqlari
     showContact:     pick("showContact", true) !== false,
+    // ✅ 2026-08-14: ikki valyuta ko'rsatkichi ham USLUB darajasida
+    dualCurrency:    pick("dualCurrency", true) !== false,
+    showDebtHistory: pick("showDebtHistory", true) !== false,
     showStaff:       pick("showStaff", true) !== false,
     showDebtHistory: pick("showDebtHistory", true) !== false,
     // Tipografiya (2-bosqich, 2026-07-18)

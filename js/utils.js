@@ -1139,6 +1139,9 @@ function buildReceiptHtml(sale, opts) {
   // uslub o'z QORA fonini chizardi (egasining shikoyati).
   const _cfg = {shopName,staffName,botUser,receiptUrl,logo,contact,footer,
     showStaff,showContact,
+    // ✅ 2026-08-14: bu sozlamalar ham USLUB darajasida (egasining talabi)
+    dualCurrency:    chekCfg.dualCurrency,
+    showDebtHistory: chekCfg.showDebtHistory,
     addr: chekCfg.addr || "", tagline: chekCfg.tagline || "",
     headerStyle: _hdrStyle, hdrCss: _hdrCss,
     paperWidth: chekCfg.paperWidth || 72,
@@ -1203,7 +1206,10 @@ function buildReceiptHtml(sale, opts) {
   // Sotuvda muhrlangan qiymat ustuvor (eski cheklar o'zgarmasin).
   const _dual = (sale.chekDual != null)
     ? !!sale.chekDual
-    : (db.settings?.chekDualCurrency !== false);
+    // ✅ 2026-08-14: USLUB sozlamasi ustun (bo'lmasa umumiy)
+    : (chekCfg && chekCfg.dualCurrency !== undefined
+       ? chekCfg.dualCurrency !== false
+       : (db.settings?.chekDualCurrency !== false));
 
   const FC = n => {
     const som = Math.round(n || 0);
@@ -1755,7 +1761,7 @@ function buildReceiptTable(sale, opts, cfg) {
   // \u2705 2026-08-14: IKKALA valyuta (yagona manba)
   const _dJ = (typeof debtLines === "function") ? debtLines(sale, { F, rate }) : null;
   const boshRow = (_dJ && _dJ.oldin)
-    ? `<div class="mrow"><span>Boshlang'ich qoldiq</span><b>${_dJ.oldin}</b></div>` : "";
+    ? `<div class="mrow"><span>Oldingi qarz</span><b>${_dJ.oldin}</b></div>` : "";
 
   return `<!DOCTYPE html><html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -2051,11 +2057,11 @@ function buildReceiptWholesale(sale, opts, cfg) {
     </tr>`;
   }).join("");
 
-  // Boshlang'ich qoldiq (namunadagi "\u041d\u0430\u0447\u0430\u043b\u044c\u043d\u0430\u044f \u043e\u0441\u0442\u0430\u0442\u043a\u0430")
+  // Oldingi qarz (namunadagi "\u041d\u0430\u0447\u0430\u043b\u044c\u043d\u0430\u044f \u043e\u0441\u0442\u0430\u0442\u043a\u0430")
   // \u2705 2026-08-14: IKKALA valyuta (yagona manba)
   const _dW = (typeof debtLines === "function") ? debtLines(sale, { F, rate }) : null;
   const boshRow = (_dW && _dW.oldin)
-    ? `<div class="row"><span>Boshlang'ich qoldiq</span><b>${_dW.oldin}</b></div>` : "";
+    ? `<div class="row"><span>Oldingi qarz</span><b>${_dW.oldin}</b></div>` : "";
 
   // Yakun: Jami / To'landi / Qoldiq
   const yakun =
