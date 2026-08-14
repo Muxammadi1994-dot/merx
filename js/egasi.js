@@ -1858,6 +1858,13 @@ function _csFillFields(style) {
       if (typeof renderChekBlocks === "function") renderChekBlocks();
     } catch (e) {}
 
+    // ✅ 2026-08-14: namuna BIR MARTA bosishda yangilansin — avval
+    // iframe tozalanadi (bir xil mazmun qayta yuklanmasdi).
+    try {
+      const _f = document.getElementById("chek-preview-frame");
+      if (_f) _f.srcdoc = "";
+    } catch (e) {}
     if (typeof renderChekPreview === "function") renderChekPreview();
+    setTimeout(() => { try { renderChekPreview(); } catch (e) {} }, 60);
   } catch (e) {}
 }

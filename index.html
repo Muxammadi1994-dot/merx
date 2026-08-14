@@ -3205,7 +3205,9 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
               Bo'sh qoldirilgan maydon umumiy sozlamadan olinadi.
             </div>
           </div>
-          <div style="padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+          <!-- 2026-08-14: o'ng ustun (namuna) kengaytirildi — termal chek
+               sig'masdan chetga chiqib ketardi -->
+          <div style="padding:16px 20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,420px);gap:20px;align-items:start">
             <!-- Chap: ko'rinish -->
             <div style="display:flex;flex-direction:column;gap:14px">
               <div class="fld">
@@ -3331,10 +3333,43 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
                 </div>
               </div>
               <div style="display:flex;justify-content:center;background:#E9E7E2;border-radius:12px;padding:14px">
-                <iframe id="chek-preview-frame" style="width:320px;border:none;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:8px" title="Test chek"></iframe>
+                <iframe id="chek-preview-frame" style="width:100%;max-width:380px;border:none;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:8px" title="Test chek"></iframe>
               </div>
               <button type="button" onclick="printChekPreview()" style="background:#0D1B2A;color:#fff;border:none;border-radius:9px;padding:11px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px"><i class="ti ti-printer"></i> Namunani chop etib ko'rish</button>
               <div style="font-size:11px;color:var(--mut);line-height:1.5;text-align:center">Haqiqiy printerда sinov uchun — qog'oz, shrift, joylashuvni tekshiring</div>
+            <!-- ─── 2-BO'LIM: QARZ CHEKI (2026-08-14) ─── -->
+            <div style="border-top:1.5px dashed var(--brd);margin-top:18px;padding-top:16px">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+                <div>
+                  <div style="font-size:15px;font-weight:800">2. Qarz to'lovi chitigi</div>
+                  <div style="font-size:11.5px;color:var(--mut);margin-top:2px">
+                    To'lov qabul qilinganda chiqadigan chek. O'z ko'rinishi bor:
+                    to'langan summa, hisob (so'm / kurs = $), qarz edi → qoldi.
+                  </div>
+                </div>
+                <button class="btn btn-ghost btn-sm" onclick="previewPayChek()">
+                  <i class="ti ti-eye"></i> Namunani ko'rish
+                </button>
+              </div>
+              <div id="cs-qarz-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
+                <div class="cq-card" data-q="unified" style="border:2px solid var(--acc);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPickQarz('unified')">
+                  <i class="ti ti-check" style="font-size:20px;display:block;margin-bottom:4px"></i>
+                  <div style="font-size:12px;font-weight:700">Yagona</div>
+                  <div style="font-size:10px;color:var(--mut)">Hozirgi standart</div>
+                </div>
+                <div class="cq-card" data-q="thermal" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPickQarz('thermal')">
+                  <i class="ti ti-receipt" style="font-size:20px;display:block;margin-bottom:4px"></i>
+                  <div style="font-size:12px;font-weight:700">Termal</div>
+                  <div style="font-size:10px;color:var(--mut)">Tor, tejamkor</div>
+                </div>
+                <div class="cq-card" data-q="table" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPickQarz('table')">
+                  <i class="ti ti-table" style="font-size:20px;display:block;margin-bottom:4px"></i>
+                  <div style="font-size:12px;font-weight:700">Jadval</div>
+                  <div style="font-size:10px;color:var(--mut)">So'm va $ ustunda</div>
+                </div>
+              </div>
+              <select id="chek-qarz-style" style="display:none"></select>
+            </div>
             </div>
           </div>
 
@@ -3387,39 +3422,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
             </div>
             <button class="btn btn-acc btn-sm" onclick="saveAdminCreds()" style="width:fit-content"><i class="ti ti-check"></i> Saqlash</button>
 
-            <!-- ─── 2-BO'LIM: QARZ CHEKI (2026-08-14) ─── -->
-            <div style="border-top:1.5px dashed var(--brd);margin-top:18px;padding-top:16px">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-                <div>
-                  <div style="font-size:15px;font-weight:800">2. Qarz to'lovi chitigi</div>
-                  <div style="font-size:11.5px;color:var(--mut);margin-top:2px">
-                    To'lov qabul qilinganda chiqadigan chek. O'z ko'rinishi bor:
-                    to'langan summa, hisob (so'm / kurs = $), qarz edi → qoldi.
-                  </div>
-                </div>
-                <button class="btn btn-ghost btn-sm" onclick="previewPayChek()">
-                  <i class="ti ti-eye"></i> Namunani ko'rish
-                </button>
-              </div>
-              <div id="cs-qarz-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
-                <div class="cq-card" data-q="unified" style="border:2px solid var(--acc);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPickQarz('unified')">
-                  <i class="ti ti-check" style="font-size:20px;display:block;margin-bottom:4px"></i>
-                  <div style="font-size:12px;font-weight:700">Yagona</div>
-                  <div style="font-size:10px;color:var(--mut)">Hozirgi standart</div>
-                </div>
-                <div class="cq-card" data-q="thermal" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPickQarz('thermal')">
-                  <i class="ti ti-receipt" style="font-size:20px;display:block;margin-bottom:4px"></i>
-                  <div style="font-size:12px;font-weight:700">Termal</div>
-                  <div style="font-size:10px;color:var(--mut)">Tor, tejamkor</div>
-                </div>
-                <div class="cq-card" data-q="table" style="border:1.5px solid var(--brd);border-radius:10px;padding:10px;text-align:center;cursor:pointer" onclick="csPickQarz('table')">
-                  <i class="ti ti-table" style="font-size:20px;display:block;margin-bottom:4px"></i>
-                  <div style="font-size:12px;font-weight:700">Jadval</div>
-                  <div style="font-size:10px;color:var(--mut)">So'm va $ ustunda</div>
-                </div>
-              </div>
-              <select id="chek-qarz-style" style="display:none"></select>
-            </div>
+
 
           </div>
         </div>
@@ -5187,7 +5190,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 <script src="js/hisobot.js?v=154"></script>
 <script src="js/xodimlar.js?v=159"></script>
 <script src="js/moliya.js?v=174"></script>
-<script src="js/egasi.js?v=191"></script>
+<script src="js/egasi.js?v=192"></script>
 <script src="js/portal.js?v=143"></script>
 <script src="js/init.js?v=151"></script>
 <script>
@@ -5481,7 +5484,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 415;
+  window.SW_V = 416;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5504,7 +5507,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=415")
+    navigator.serviceWorker.register("/sw.js?v=416")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
