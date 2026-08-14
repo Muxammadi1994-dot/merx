@@ -442,9 +442,14 @@ function saveDB() {
 // ── Seed ──────────────────────────────────────────
 function seedDB() {
   return {
-    shop:     { name:"MERX Do'koni", type:"ikki" },
+    // ⚠️ 2026-08-14 (egasining talabi): YANGI qurilmada SOXTA qiymat
+    // ko'rsatilmaydi. Avval urug'da "MERX Do'koni" va 12800 turardi —
+    // xodim yangi qurilmada kirganda o'sha ko'rinib, haqiqiy kurs deb
+    // qabul qilinardi (jonli: admin 12800 ni ko'rib qo'lda to'g'rilagan).
+    // Endi bo'sh: bulutdan kelguncha "—" turadi, keyin O'ZI to'ladi.
+    shop:     { name:"", type:"ikki" },
     settings: {
-      rate: 12800, priceCurrency: "uzs",
+      priceCurrency: "uzs",
       supabaseUrl: typeof MERX_SUPABASE_URL !== "undefined" ? MERX_SUPABASE_URL : "",
       supabaseKey: typeof MERX_SUPABASE_KEY !== "undefined" ? MERX_SUPABASE_KEY : "",
       omborCols: {}

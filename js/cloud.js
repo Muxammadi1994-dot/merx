@@ -1140,8 +1140,24 @@ async function pushToCloud() {
           const _cloudTs = _chk?.data?.[0]?.updated_at || null;
           if (_cloudTs && db.settings._cloudTs && _cloudTs > db.settings._cloudTs) {
             console.warn("⏸ Sozlamalar bulutda YANGIROQ — lokal nusxa " +
-                         "yozilmadi (avval pull qilinadi)");
-            try { if (typeof ensureCloudPull === "function") ensureCloudPull(); } catch(e) {}
+                         "yozilmadi (bulutdagisi olinadi)");
+            // \U0001f534 2026-08-14: QULFDAN CHIQISH YO'LI. Avval faqat
+            // "pull qilinadi" deb yozardi, lekin sozlama QO'LLANMASDI —
+            // `_cloudTs` eski qolib, qurilma har safar shu yerda
+            // to'xtardi (jonli: konsolda takror-takror shu xabar,
+            // telefonda esa eski kurs va do'kon nomi turardi).
+            // Endi bulutdagi sozlama DARHOL o'qilib QO'LLANADI.
+            try {
+              const _fresh = await _sb.from("settings").select("*")
+                .eq("shop_id", sid).limit(1);
+              const _row = _fresh?.data?.[0];
+              if (_row && typeof applyCloudSettings === "function") {
+                applyCloudSettings(_row);
+                try { saveDB(); } catch (e) {}
+                try { if (typeof updateRatePill === "function") updateRatePill(); } catch (e) {}
+                console.log("✅ Sozlamalar bulutdan olindi va qo'llandi");
+              }
+            } catch (e) { console.warn("sozlama olinmadi:", e.message); }
             throw new Error("_stSkip");
           }
         } catch (e) { if (e && e.message === "_stSkip") throw e; }

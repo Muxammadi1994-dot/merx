@@ -165,7 +165,8 @@ function renderDashHeader(todayTotal, todayCnt, growth, kassaTushdi, kassaNaqd, 
        </div>` : "";
   el.innerHTML = `
     <div class="dh-left">
-      <div class="dh-greet">${dashGreeting()}, <strong>${db.shop?.name || 'MERX Do\'koni'}</strong></div>
+      <div class="dh-greet">${dashGreeting()}${db.shop?.name && db.shop.name !== "MERX Do'koni"
+        ? ", <strong>" + db.shop.name + "</strong>" : ""}</div>
       <div class="dh-date"><i class="ti ti-calendar" style="font-size:12px;margin-right:4px"></i>${dashDateStr()}</div>
     </div>
     <div class="dh-center">
