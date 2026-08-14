@@ -1713,6 +1713,7 @@ function buildReceiptTable(sale, opts, cfg) {
   const paid     = Number(sale.paid     || 0);
   const remaining= Number(sale.remaining|| 0);
   const discount = Number(sale.discount || 0);
+  const subtotal = Number(sale.subtotal || (total + discount));   // 2026-08-14
   const items    = (sale.items||[]).filter(Boolean);
   const payType  = sale.payType || "";
   const isUsd    = sale.debtCurrency === "usd" && sale.debtUsd;
@@ -1809,6 +1810,7 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
   <div class="tot">
     <div class="trow"><span>${items.length} xil \u00b7 ${totalDona} dona${
       totalBoxes ? " \u00b7 " + totalBoxes + " pchk" : ""}</span><span></span></div>
+    ${discount > 0 ? `<div class="trow"><span>Jami (chegirmasiz)</span><span>${F(subtotal)}</span></div>` : ""}
     ${discount > 0 ? `<div class="trow"><span>Chegirma</span><b>-${F(discount)}</b></div>` : ""}
     <div class="trow big"><span>JAMI</span><b>$${D(totalUsd)} / ${F(total)}</b></div>
     <div class="trow"><span>To'landi (${payLabels[payType]||payType||"\u2014"})</span><b>${F(paid)} so'm</b></div>
@@ -1958,7 +1960,10 @@ body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
      display:flex;flex-direction:column;align-items:center;padding:16px 8px}
 .rc{background:#fff;padding:16px 14px;white-space:pre;
     font-size:13.5px;line-height:1.6;color:#000;
-    width:340px;max-width:100%;
+    /* ✅ 2026-08-14: namunada o'ngga chiqib ketardi (ramka 320px,
+       chek 340px edi). Endi ramkaga moslashadi, uzun satrlar esa
+       ichkarida siljiydi — tashqariga chiqmaydi. */
+    width:100%;max-width:340px;overflow-x:auto;
     border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .acts{width:340px;max-width:100%;margin:10px 0 0;display:flex;gap:8px}
 .acts button{flex:1;border:none;border-radius:7px;padding:11px;
@@ -2009,6 +2014,7 @@ function buildReceiptWholesale(sale, opts, cfg) {
   const paid     = Number(sale.paid     || 0);
   const remaining= Number(sale.remaining|| 0);
   const discount = Number(sale.discount || 0);
+  const subtotal = Number(sale.subtotal || (total + discount));   // 2026-08-14
   const items    = (sale.items||[]).filter(Boolean);
   const payType  = sale.payType || "";
   const isUsd    = sale.debtCurrency === "usd" && sale.debtUsd;
@@ -2052,6 +2058,8 @@ function buildReceiptWholesale(sale, opts, cfg) {
   const yakun =
     `<div class="row big"><span>JAMI</span><b>${F(total)} so'm${
       isUsd || prevUsd > 0 ? " / " + D(total / (rate||1)) : ""}</b></div>` +
+    // ✅ 2026-08-14: chegirmasiz jami — yagona chekdagi kabi
+    (discount > 0 ? `<div class="row"><span>Jami (chegirmasiz)</span><span>${F(subtotal)}</span></div>` : "") +
     (discount > 0 ? `<div class="row"><span>Chegirma</span><b>-${F(discount)}</b></div>` : "") +
     `<div class="row"><span>To'landi (${payLabels[payType]||payType||"\u2014"})</span><b>${F(paid)} so'm</b></div>` +
     (remaining > 0
@@ -2216,8 +2224,10 @@ function buildReceiptMerx(sale, opts, cfg) {
     debtHtml = `<div class="paid-ok">✓ To'liq to'landi</div>`;
   }
 
+  // ✅ 2026-08-14: chegirmasiz jami — yagona chekdagi kabi
   const discHtml = discount > 0
-    ? `<div class="pr" style="color:#000"><span>Chegirma${sale.discountPct ? " -"+sale.discountPct+"%" : ""}</span><span>−${F(discount)} so'm</span></div>` : "";
+    ? `<div class="pr pr-sm"><span>Jami (chegirmasiz)</span><span>${F(subtotal)} so'm</span></div>` +
+      `<div class="pr" style="color:#000"><span>Chegirma${sale.discountPct ? " -"+sale.discountPct+"%" : ""}</span><span>−${F(discount)} so'm</span></div>` : "";
 
   const logoHtml = logo
     ? `<div style="text-align:center;padding:10px 0 4px"><img src="${logo}" style="max-height:55px;max-width:170px;object-fit:contain"></div>` : "";

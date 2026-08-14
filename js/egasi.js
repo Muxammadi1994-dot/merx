@@ -1106,7 +1106,15 @@ function setPreviewType(t) {
     b.classList.toggle("btn-ghost", !on);
   });
   if (typeof _loadBlocksForType === "function") _loadBlocksForType(t);
+  // ✅ 2026-08-14: BIR MARTA bosilishi bilan yangilansin. Avval
+  // iframe eski mazmun bilan qolib, ikkinchi bosishda yangilanardi
+  // (srcdoc bir xil bo'lsa brauzer qayta yuklamaydi).
+  try {
+    const _f = document.getElementById("chek-preview-frame");
+    if (_f) _f.srcdoc = "";
+  } catch (e) {}
   renderChekPreview();
+  setTimeout(() => { try { renderChekPreview(); } catch (e) {} }, 60);
 }
 
 // ─── Qadam D (per-type) yordamchilari (2026-07-19) ───
