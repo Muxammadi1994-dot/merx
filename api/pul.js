@@ -161,6 +161,13 @@ module.exports = async (req, res) => {
       const ochiq = sales
         .filter(s => {
           if (s.status === "bekor" || s.status === "qaytarilgan") return false;
+          // \U0001f534 2026-08-14: SOTUV VALYUTASI bo'yicha ajratiladi.
+          // Avval ajratilmasdi — DOLLAR qarzli sotuvning so'mdagi
+          // qiymati ham so'm-qarzga qo'shilardi. Jonli (B20, Shaboz aka
+          // 8669): 51 900 000 so'm + $2100 → server "77 100 000" dedi
+          // va to'lovni RAD ETDI.
+          const _isU = (s.debt_currency === "usd");
+          if (cur === "usd" ? !_isU : _isU) return false;
           const st = saleState(s, pays);
           return cur === "usd" ? st.debtUsd > 0.005 : st.remaining > 0.5;
         })
@@ -553,8 +560,10 @@ module.exports = async (req, res) => {
       let uzs = 0, usd = 0;
       sales.forEach(s => {
         if (s.status === "bekor" || s.status === "qaytarilgan") return;
+        // 2026-08-14: valyuta bo'yicha ajratiladi (yuqoridagi izoh)
         const st = saleState(s, pays);
-        uzs += st.remaining; usd += st.debtUsd;
+        if (s.debt_currency === "usd") usd += st.debtUsd;
+        else                            uzs += st.remaining;
       });
       return res.status(200).json({ ok: true,
         uzs: Math.round(uzs), usd: Math.round(usd * 100) / 100 });
