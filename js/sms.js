@@ -97,6 +97,16 @@ async function sendTelegramReceipt(customerId, sale, customerPhone) {
     customerId: customerId || null,
     customerPhone: customerPhone || null,
     sale,
+    // ✅ 2026-08-15: chek MATNI ilovada tayyorlanadi — botdagi chek
+    // sotuv cheki bilan bir xil bo'lsin (bo'limlar va tartib bitta
+    // manbadan: chekRows). Bot bu matnni ustuvor deb oladi.
+    receiptText: (() => {
+      try {
+        if (typeof chekTelegramText !== "function") return "";
+        const _c = (typeof getChekCfg === "function") ? getChekCfg("sotuv") : {};
+        return chekTelegramText(sale, _c);
+      } catch (e) { return ""; }
+    })(),
     shopName: db.shop?.name || db.settings?.name || "MERX",
     shopId: _sid,
     // ⚠️ 2026-08-05: MIJOZ GURUHI (ixtiyoriy) — avvalgidek.

@@ -1854,7 +1854,7 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
       const _R = chekRows(sale, cfg, F);
       const _H = chekRowsHtml(_R, { row:"trow", sep:"", ft:"ft",
                                     big:"big", total:"tot", debt:"b" });
-      return `<div class="tot">${_H.summary}${_H.payment}${_H.debt}</div>${_H.footer}`;
+      return `<div class="tot">${_H.summary}${_H.payment}${_H.debt}</div>${(typeof chekRefundNote === "function" ? chekRefundNote(sale, F) : "")}${_H.footer}`;
     } catch (e) { return ""; }
   })()}
   </div>
@@ -1987,6 +1987,7 @@ function buildReceiptThermal(sale, opts, cfg) {
     })(),
     note ? (DA + "\nIzoh: " + note) : null,
     EQ,
+    (typeof chekRefundNote === "function" ? chekRefundNote(sale, F, true) : null),
     center(footer || "Rahmat! Yana kutamiz"),
     // ✅ 2026-08-14: qo'shimcha matn qatorlari
     ...(() => { try {
@@ -2200,7 +2201,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
       const _R = chekRows(sale, cfg, F);
       const _H = chekRowsHtml(_R, { row:"row", sep:"", ft:"ft",
                                     big:"big", total:"tot", debt:"b" });
-      return `<div class="tot">${_H.summary}${_H.payment}${_H.debt}</div>${_H.footer}`;
+      return `<div class="tot">${_H.summary}${_H.payment}${_H.debt}</div>${(typeof chekRefundNote === "function" ? chekRefundNote(sale, F) : "")}${_H.footer}`;
     } catch (e) { return ""; }
   })()}
   </div>
@@ -2402,7 +2403,8 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
              `<div class="tot-cnt">${items.length} xil \u00b7 ${totalBoxes ? totalBoxes + " pochka" : totalDona + " dona"}</div></div>` +
              `<div class="tot-v">${F(total)} <span style="font-size:13px;font-weight:600">so'm</span></div></div>` +
              `<div class="pay"><div class="pay-lbl">To'lov</div>` +
-             _H.summary + _H.payment + _H.debt;
+             _H.summary + _H.payment + _H.debt +
+             (typeof chekRefundNote === "function" ? chekRefundNote(sale, F) : "");
     } catch (e) { return ""; }
   })()}
     </div>
@@ -3604,4 +3606,79 @@ function chekRowsHtml(R, K) {
     footer:  R.footer.map((t, i) =>
       `<div class="${k.ft || "ft"}"${i ? ' style="font-size:11px;opacity:.8"' : ""}>${t}</div>`).join("")
   };
+}
+
+
+// \u2550\u2550\u2550 QAYTARISH OGOHLANTIRISHI \u2014 HAMMA USLUBGA (2026-08-15) \u2550\u2550
+// Egasining kuzatuvi: qaytarish belgisi FAQAT "Yagona" chekda bor edi \u2014
+// boshqa uslub tanlansa mijoz chekda qaytarilganini KO'RMASDI.
+// Asl chek o'zgarmaydi (\u00a73.6), faqat pastiga qizil belgi qo'shiladi.
+function chekRefundNote(sale, F, matnli) {
+  try {
+    const refs = (sale && sale.refunds) || [];
+    if (!refs.length) return "";
+    const f = F || (n => Math.round(Number(n) || 0).toLocaleString("ru-RU"));
+    const tot  = sale.refundedTotal || refs.reduce((a, r) => a + (r.total || 0), 0);
+    const full = sale.status === "qaytarilgan";
+    const nos  = refs.map(r => r.no).filter(Boolean).join(", ");
+    const bosh = full ? "TO'LIQ QAYTARILGAN" : "QISMAN QAYTARILGAN";
+    if (matnli) {
+      // Termal (matnli chek) uchun
+      const out = ["", "=".repeat(40), "  " + bosh,
+                   "  Qaytarilgan: " + f(tot) + " so'm"];
+      if (nos) out.push("  Qaytarish cheki: " + nos);
+      out.push("=".repeat(40));
+      return out.join("\n");
+    }
+    return `<div style="margin:8px 0 0;padding:8px 10px;border:1px dashed #B91C1C;
+        border-radius:6px;background:#FEF2F2">
+        <div style="font-size:11.5px;font-weight:800;color:#B91C1C">${bosh}</div>
+        <div style="font-size:11px;color:#000;margin-top:2px">
+          Qaytarilgan summa: <b>${f(tot)} so'm</b>
+          ${nos ? `<br>Qaytarish cheki: <b>${nos}</b>` : ""}
+        </div>
+      </div>`;
+  } catch (e) { return ""; }
+}
+
+
+// \u2550\u2550\u2550 BOT CHEKI \u2014 SOTUV CHEKI BILAN PARALLEL (2026-08-15) \u2550\u2550
+// Egasining talabi: botdagi chek sotuv cheki bilan BIR XIL bo'lsin \u2014
+// qaysi uslub tanlangan bo'lsa, uning BO'LIMLARI va TARTIBI botga ham
+// o'tsin. Telegram HTML qabul qiladi (CSS emas), shuning uchun ko'rinish
+// emas, MAZMUN va TARTIB birlashtiriladi \u2014 manba bitta: chekRows().
+function chekTelegramText(sale, cfg) {
+  try {
+    const F = n => Math.round(Number(n) || 0).toLocaleString("ru-RU");
+    const c = cfg || (typeof getChekCfg === "function" ? getChekCfg("bot") : {});
+    const R = chekRows(sale, { ...c, rate: (typeof db !== "undefined" && db.settings?.rate) || 0 }, F);
+    const esc = t => String(t == null ? "" : t)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const L = [];
+    L.push("\ud83e\uddfe <b>" + esc(c.shopName || (typeof db !== "undefined" && db.shop?.name) || "MERX") + "</b>");
+    if (c.tagline) L.push("<i>" + esc(c.tagline) + "</i>");
+    L.push("");
+    R.meta.forEach(x => L.push(esc(x[0]) + ": <b>" + esc(x[1]) + "</b>"));
+    L.push("");
+    L.push("\ud83d\udce6 <b>Tovarlar</b>");
+    (sale.items || []).filter(Boolean).forEach((it, i) => {
+      const q = Number(it.qty) || 0;
+      const nomi = esc(it.name || "") + (it.color ? " \u00b7 " + esc(it.color) : "");
+      L.push((i + 1) + ". " + nomi + " \u2014 " + q + " \u00d7 " + F(it.price || 0));
+    });
+    L.push("");
+    R.summary.forEach(x => L.push(esc(x[0]) + ": <b>" + esc(x[1]) + "</b>"));
+    if (R.payment.length) { L.push(""); R.payment.forEach(x => L.push(esc(x[0]) + ": " + esc(x[1]))); }
+    if (R.debt.length)    { L.push(""); R.debt.forEach(x => L.push(esc(x[0]) + ": <b>" + esc(x[1]) + "</b>")); }
+    // Qaytarish belgisi \u2014 sotuv chekidagi kabi
+    const refs = sale.refunds || [];
+    if (refs.length) {
+      const tot = sale.refundedTotal || refs.reduce((a, r) => a + (r.total || 0), 0);
+      L.push("");
+      L.push("\u26a0\ufe0f <b>" + (sale.status === "qaytarilgan" ? "TO'LIQ QAYTARILGAN" : "QISMAN QAYTARILGAN") + "</b>");
+      L.push("Qaytarilgan: <b>" + F(tot) + " so'm</b>");
+    }
+    if (R.footer.length) { L.push(""); R.footer.forEach(t => L.push(esc(t))); }
+    return L.join("\n");
+  } catch (e) { return ""; }
 }

@@ -1690,7 +1690,13 @@ async function actionSendReceipt(body) {
     return { ok: false, sent: false, reason: "no_telegram" };
   }
 
-  const txt = formatReceiptText(sale, shopName || "MERX");
+  // ✅ 2026-08-15: ILOVA YUBORGAN CHEK MATNI USTUVOR. Shu bilan
+  // botdagi chek sotuv cheki BILAN BIR XIL bo'ladi — ega qaysi
+  // uslubni tanlagan bo'lsa, uning bo'limlari va tartibi botga ham
+  // o'tadi (egasining talabi). Matn kelmasa — avvalgi yo'l.
+  const txt = (body && typeof body.receiptText === "string" && body.receiptText.trim())
+    ? body.receiptText.trim()
+    : formatReceiptText(sale, shopName || "MERX");
   const chekId = sale.chekNum || ("ID" + sale.id);
 
   // URL da image (base64) bo'lmasligi kerak — juda katta bo'ladi
