@@ -1958,12 +1958,15 @@ function buildReceiptThermal(sale, opts, cfg) {
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
      display:flex;flex-direction:column;align-items:center;padding:16px 8px}
-.rc{background:#fff;padding:16px 14px;white-space:pre;
+.rc{background:#fff;padding:16px 14px;
+    /* ✅ 2026-08-14: uzun satrlar O'RALADI — avval yonga skrol chiqib,
+       chekni surib ko'rishga to'g'ri kelardi (egasining shikoyati). */
+    white-space:pre-wrap;word-break:break-word;
     font-size:13.5px;line-height:1.6;color:#000;
     /* ✅ 2026-08-14: namunada o'ngga chiqib ketardi (ramka 320px,
        chek 340px edi). Endi ramkaga moslashadi, uzun satrlar esa
        ichkarida siljiydi — tashqariga chiqmaydi. */
-    width:100%;max-width:340px;overflow-x:auto;
+    width:100%;max-width:340px;overflow-x:hidden;
     border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .acts{width:340px;max-width:100%;margin:10px 0 0;display:flex;gap:8px}
 .acts button{flex:1;border:none;border-radius:7px;padding:11px;

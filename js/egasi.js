@@ -1752,13 +1752,15 @@ const CS_NOM = { unified:"Yagona", merx:"MERX brend", thermal:"Termal",
 // 1-bo'lim: sotuv uslubini tanlash (POS va TARIX birga)
 function csPick(style) {
   try {
-    // ✅ 2026-08-14: uslub almashganda maydonlar O'SHA uslub
-    // sozlamalari bilan to'ladi, namuna esa darhol qayta chiziladi.
-    _csFillFields(style);
+    // ⚠️ 2026-08-14 TUZATISH: TARTIB muhim. Avval `_csFillFields`
+    // chaqirilardi — u namunani chizganda tanlov hali ESKI uslubda
+    // turardi va bo'sh/noto'g'ri chek ko'rinardi (jonli shikoyat).
+    // Endi: avval uslub yoziladi, keyin maydonlar va namuna.
     const pos = document.getElementById("chek-pos-style");
     const tar = document.getElementById("chek-tarix-style");
     if (pos) pos.value = style;
-    if (tar) tar.value = style;        // \u2705 tarix ham SHU uslubda
+    if (tar) tar.value = style;        // tarix ham SHU uslubda
+    _csFillFields(style);
     document.querySelectorAll("#chek-style-cards .cs-card").forEach(c => {
       const on = c.dataset.s === style;
       c.style.border     = on ? "2px solid var(--acc)" : "1.5px solid var(--brd)";
