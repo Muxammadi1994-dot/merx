@@ -2629,13 +2629,14 @@ async function actionRenderReceipt(chekId, saleData, shopId) {
   const _ckContact = (Array.isArray(_ck.phones) && _ck.phones.length)
     ? _ck.phones.filter(Boolean).join(", ")
     : (_ck.contact || "");
-  return buildReceiptHtml(sale, {
-    // ✅ 2026-08-12: BOT CHEKI ham uslub tanlovini biladi.
-    // ⚠️ EHTIYOT: botda faqat `merx` chizuvchisi bor (qolganlari
-    // ilovada). Shuning uchun FAQAT merx uzatiladi — boshqa uslub
-    // tanlangan bo'lsa bot avvalgidek STANDART chekni chizadi
-    // (mavjud funksiya buzilmasin, mijozga chala chek bormasin).
-    style: (_ck.styleV2 && _ck.posStyle === "merx") ? "merx" : "unified",
+  // ✅ 2026-08-15: BARCHA USLUBLAR botda ham bor (yuqoriga ko'chirildi).
+  // Uslub tanlovi: sotuvda MUHRLANGAN `chekStyle` ustuvor — eski
+  // cheklar o'z ko'rinishida qoladi (§3.5). Muhr yo'q bo'lsa do'kon
+  // sozlamasi. Avval faqat `merx` uzatilardi, qolganlari standartga
+  // tushib qolardi (egasining kuzatuvi).
+  return buildReceiptStyled(sale, {
+    style: _botChekStyle(sale, _ck),
+    _chekCfg: _ck,
     shopName,
     logo:    _ck.logo    || null,
     addr:    _ck.addr    || "",
@@ -3610,6 +3611,295 @@ export default async function handler(req, res) {
 }
 
 // ── buildReceiptMerx (utils.js dan ko'chirildi) ──
+// ⚠️ 2026-08-15: ESKI `buildReceiptMerx` OLIB TASHLANDI — endi u
+// ilovadan ko'chirilgan yangi nusxa bilan almashtirildi (fayl oxirida).
+// Ikkita bir xil nomli funksiya turgani xavfli edi: JavaScript
+// oxirgisini oladi, lekin o'qiyotgan odam birinchisini ko'radi.
+
+function _tasdiqBelgisi() { return ""; }   // botda kerak emas
+
+function debtLines(sale, opts) {
+  const o = opts || {};
+  const F = o.F || (n => Math.round(Number(n) || 0).toLocaleString("ru-RU"));
+  const rate = Number(o.rate) || Number(sale.rate) ||
+               0 || 0;
+
+  const isUsd   = sale.debtCurrency === "usd" && Number(sale.debtUsd) > 0;
+  const qoldiq  = Number(sale.remaining) || 0;          // shu xaridda qo'shilgan (so'm)
+  const debtUsd = Number(sale.debtUsd)   || 0;          // shu xaridda qo'shilgan ($)
+  const pUsd    = Number(sale.prevDebtUsd) || 0;        // oldingi $ qarz
+  const pUzs    = Number(sale.prevDebtUzs) || 0;        // oldingi so'm qarz
+
+  // ── OLDINGI QARZ: nol bo'lmaganlari ──
+  const oldinQ = [];
+  if (pUzs > 0) oldinQ.push(F(pUzs) + " so'm");
+  if (pUsd > 0) oldinQ.push("$" + pUsd.toFixed(2));
+
+  // ── QO'SHILDI: faqat shu xarid ──
+  let qoshildi = "";
+  if (qoldiq > 0) {
+    qoshildi = isUsd
+      ? (rate > 0 ? F(qoldiq) + " / " + F(rate) + " = $" + debtUsd.toFixed(2)
+                  : "$" + debtUsd.toFixed(2))
+      : F(qoldiq) + " so'm";
+  }
+
+  // ── KEYINGI QARZ: qo'shilgan valyuta yig'iladi, ikkinchisi o'zgarmaydi ──
+  const keyinQ = [];
+  const yUzs = pUzs + (isUsd ? 0 : qoldiq);
+  const yUsd = pUsd + (isUsd ? debtUsd : 0);
+  if (yUzs > 0) keyinQ.push(F(yUzs) + " so'm");
+  if (yUsd > 0) keyinQ.push("$" + yUsd.toFixed(2));
+
+  return {
+    oldin:    oldinQ.join(" + "),
+    qoshildi: qoshildi,
+    keyin:    keyinQ.join(" + "),
+    bor:      (oldinQ.length > 0 || keyinQ.length > 0)
+  };
+}
+
+
+// \u2550\u2550\u2550 SOZLAMALARNI USLUBLARGA YETKAZISH (2026-08-14) \u2550\u2550\u2550\u2550\u2550
+// Muammo (egasining kuzatuvi): blok o'lchamlari, shrift, sarlavha foni
+// va ikki-valyuta ko'rsatkichi FAQAT "Yagona" chekka ta'sir qilardi \u2014
+// qolgan to'rt uslub ularni umuman O'QIMASDI (audit bilan tasdiqlandi).
+// Bu funksiya har uslub uchun CSS ishlab beradi va uni chizuvchining
+// <style> blokiga qo'shish kifoya.
+//
+// `sel` \u2014 uslubning sinf xaritasi: qaysi blok qaysi CSS selektorga.
+// `sel._noAlign` — tekislash qo'llanmasin (Termal uchun: u BITTA matn
+// bloki, shuning uchun bitta blokka "markaz" qo'yilsa BUTUN chek
+// markazlashib qolardi — egasining shikoyati, 15-avgust).
+
+function chekRows(sale, cfg, F) {
+  const _f0 = F || (n => Math.round(Number(n) || 0).toLocaleString("ru-RU"));
+  // \u2705 2026-08-14: IKKI VALYUTA \u2014 barcha uslublarda (egasining talabi).
+  // Avval faqat "Yagona" chekda ishlardi. Yoqilgan bo'lsa har summa
+  // "540 000 / $43.20" ko'rinishida chiqadi.
+  const _rt = Number((cfg && cfg.rate)) ||
+              0 || 0;
+  const _dual = (cfg && cfg.dualCurrency !== false) && _rt > 0;
+  const f = (n) => {
+    const som = Math.round(Number(n) || 0);
+    const t = _f0(som);
+    if (!_dual) return t;
+    return t + " / $" + (som / _rt).toFixed(2);
+  };
+  const c = cfg || {};
+  const items    = (sale.items || []).filter(Boolean);
+  const total    = Number(sale.total || 0);
+  const paid     = Number(sale.paid  || 0);
+  const discount = Number(sale.discount || 0);
+  const subtotal = Number(sale.subtotal || (total + discount));
+  const rate     = Number(sale.rate) || Number(c.rate) ||
+                   0 || 0;
+  const PAY = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash" };
+
+  // ── 1) META (chek boshi) ──
+  const meta = [];
+  meta.push(["Sotuv", sale.chekNum || ("#" + sale.id)]);
+  if (c.shopName)                 meta.push(["Do'kon", c.shopName]);
+  meta.push(["Sana", (sale.date || "") + (sale.time ? " " + sale.time : "")]);
+  if (c.showStaff !== false && c.staffName && c.staffName !== "\u2014")
+    meta.push(["Sotuvchi / Kassir", c.staffName]);
+  if (c.showContact !== false && c.contact) meta.push(["Kontaktlar", c.contact]);
+  if (sale.customerName)  meta.push(["Mijoz", sale.customerName]);
+  if (sale.customerPhone) meta.push(["Mijoz raqami", sale.customerPhone]);
+
+  // ── 2) YIG'INDI (tovarlardan keyin) ──
+  const summary = [];
+  let pochka = 0, dona = 0;
+  items.forEach(it => {
+    const q = Number(it.qty) || 0;
+    if (it.sellMode === "karobka" || it.qtyBox) pochka += Number(it.qtyBox || q) || 0;
+    dona += q;
+  });
+  if (pochka > 0) summary.push(["JAMI POCHKA", pochka + " pochka", "big"]);
+  if (discount > 0) {
+    summary.push(["Jami (chegirmasiz)", f(subtotal) + " so'm"]);
+    summary.push(["Umumiy chegirma", "\u2212" + f(discount) + " so'm", "disc"]);
+  }
+  summary.push(["JAMI", f(total) + " so'm",
+                "total", items.length + " xil \u00b7 " + dona + " dona"]);
+
+  // ── 3) TO'LOV ──
+  const payment = [];
+  if (sale.payType) payment.push(["To'lov turi", PAY[sale.payType] || sale.payType]);
+  const pb = sale.payBreakdown || {};
+  if (Number(pb.naqd)    > 0) payment.push(["Naqd pul", f(pb.naqd)    + " so'm"]);
+  if (Number(pb.karta)   > 0) payment.push(["Karta",    f(pb.karta)   + " so'm"]);
+  if (Number(pb.otkazma) > 0) payment.push(["O'tkazma", f(pb.otkazma) + " so'm"]);
+  if (paid > 0) payment.push(["To'landi", f(paid) + " so'm", "ok"]);
+
+  // ── 4) QARZ (yagona manba: debtLines) ──
+  const debt = [];
+  const _fn = (typeof globalThis !== "undefined" && globalThis.debtLines) ||
+              (typeof debtLines === "function" ? debtLines : null);
+  // \u26a0\ufe0f 2026-08-15: qarz satrlariga ODDIY formatchi beriladi (_f0),
+  // ikki-valyutali EMAS. `debtLines` allaqachon "so'm / kurs = $"
+  // ko'rinishida yozadi — ikki-valyutali formatchi berilsa ustiga yana
+  // "/ $..." qo'shib yuborardi: "10 000 000 / $837.66 / 11 938 / $1.00"
+  // (jonli: Jadval cheki, 15-avgust).
+  const d = (c.showDebtHistory === false || !_fn) ? null : _fn(sale, { F: _f0, rate });
+  if (d && d.oldin)    debt.push(["Xariddan oldingi qarz", d.oldin]);
+  if (d && d.qoshildi) debt.push(["Qarzga qo'shildi",      d.qoshildi]);
+  if (d && d.keyin)    debt.push(["Xariddan keyingi qarz", d.keyin, "debt"]);
+  if (sale.due)        debt.push(["To'lov muddati", sale.due, "debt"]);
+
+  // ── 5) ALTBILGI ──
+  const footer = [];
+  if (c.footer) footer.push(c.footer);
+  (Array.isArray(c.extraLines) ? c.extraLines : []).forEach(t => { if (t) footer.push(t); });
+
+  return { meta, summary, payment, debt, footer, pochka, dona };
+}
+
+
+// Qatorlarni HTML ga aylantirish \u2014 uslub o'z sinflarini beradi.
+// `K` = {row, label, val, sep, big, total, disc, ok, debt, ft}
+
+function chekRowsHtml(R, K) {
+  const k = K || {};
+  const row = (l, v, c, sub) =>
+    `<div class="${k.row || "row"}${c ? " " + (k[c] || c) : ""}">` +
+    `<span class="${k.label || ""}">${l}${sub ? `<br><small style="opacity:.6">${sub}</small>` : ""}</span>` +
+    `<b class="${k.val || ""}">${v}</b></div>`;
+  const sep = k.sep ? `<div class="${k.sep}"></div>` : "";
+  const blok = (arr) => arr.map(x => row(x[0], x[1], x[2], x[3])).join("");
+  return {
+    meta:    blok(R.meta),
+    summary: blok(R.summary),
+    payment: R.payment.length ? sep + blok(R.payment) : "",
+    debt:    R.debt.length    ? sep + blok(R.debt)    : "",
+    footer:  R.footer.map((t, i) =>
+      `<div class="${k.ft || "ft"}"${i ? ' style="font-size:11px;opacity:.8"' : ""}>${t}</div>`).join("")
+  };
+}
+
+
+// \u2550\u2550\u2550 QAYTARISH OGOHLANTIRISHI \u2014 HAMMA USLUBGA (2026-08-15) \u2550\u2550
+// Egasining kuzatuvi: qaytarish belgisi FAQAT "Yagona" chekda bor edi \u2014
+// boshqa uslub tanlansa mijoz chekda qaytarilganini KO'RMASDI.
+// Asl chek o'zgarmaydi (\u00a73.6), faqat pastiga qizil belgi qo'shiladi.
+
+function chekStyleCss(cfg, sel) {
+  try {
+    if (!cfg) return "";
+    const b = cfg.blocks || {};
+    const out = [];
+
+    // 1) SHRIFT OILASI (butun chek)
+    const FAM = {
+      dm:      "'DM Sans',system-ui,sans-serif",
+      inter:   "Inter,system-ui,sans-serif",
+      roboto:  "Roboto,system-ui,sans-serif",
+      mono:    "'Courier New',monospace",
+      serif:   "Georgia,'Times New Roman',serif"
+    };
+    // \U0001f534 2026-08-15: TERMALGA shrift QO'LLANMAYDI. U bo'shliqlar
+    // bilan ikki tomonlama tekislanadi va faqat MONOSHRIFTDA to'g'ri
+    // chiqadi. Avval "DM Sans" ga almashib, chek chapga yopishib
+    // qolardi (egasining shikoyati, 15-avgust).
+    if (cfg.fontFamily && FAM[cfg.fontFamily] && !(sel && sel._noAlign))
+      out.push(`.doc,.wrap{font-family:${FAM[cfg.fontFamily]}}`);
+
+    // 2) UMUMIY O'LCHAM (kichik / normal / katta)
+    const SC = { kichik: 0.9, normal: 1, katta: 1.12 };
+    const k = SC[cfg.fontScale] || 1;
+    // Termalda o'lcham ham cheklangan — 40 belgi sig'masa tekislash buziladi
+    if (k !== 1) out.push((sel && sel._noAlign)
+      ? `.doc,.wrap{font-size:${(13 * k).toFixed(1)}px}`
+      : `.doc,.wrap,.rc{font-size:${(13 * k).toFixed(1)}px}`);
+
+    // 3) BLOK BO'YICHA: o'lcham, qalin, kursiv, tekislash, ko'rsatish
+    for (const key in (sel || {})) {
+      const cssSel = sel[key];
+      const o = b[key];
+      if (!cssSel || !o) continue;
+      const d = [];
+      if (o.size)   d.push(`font-size:${Number(o.size) * k}px`);
+      if (o.bold)   d.push("font-weight:800");
+      if (o.italic) d.push("font-style:italic");
+      if (o.align && !(sel && sel._noAlign)) d.push(`text-align:${o.align}`);
+      if (d.length) out.push(`${cssSel}{${d.join(";")} !important}`);
+      if (o.show === false) out.push(`${cssSel}{display:none !important}`);
+    }
+
+    // 4) SARLAVHA FONI (och / to'q)
+    if (cfg.headerStyle === "light")
+      out.push(".hd{background:#fff !important;color:#000 !important}" +
+               ".hd *{color:#000 !important}");
+    else if (cfg.headerStyle === "dark")
+      out.push(".hd{background:#0D1B2A !important;color:#fff !important}" +
+               ".hd *{color:#fff !important}");
+
+    return out.join("\n");
+  } catch (e) { return ""; }
+}
+
+// Chek pastidagi qo'shimcha qatorlar (reklama, ish vaqti) \u2014 hamma uslubga
+
+function chekRefundNote(sale, F, matnli) {
+  try {
+    const refs = (sale && sale.refunds) || [];
+    if (!refs.length) return "";
+    const f = F || (n => Math.round(Number(n) || 0).toLocaleString("ru-RU"));
+    const tot  = sale.refundedTotal || refs.reduce((a, r) => a + (r.total || 0), 0);
+    const full = sale.status === "qaytarilgan";
+    const nos  = refs.map(r => r.no).filter(Boolean).join(", ");
+    const bosh = full ? "TO'LIQ QAYTARILGAN" : "QISMAN QAYTARILGAN";
+    if (matnli) {
+      // Termal (matnli chek) uchun
+      const out = ["", "=".repeat(40), "  " + bosh,
+                   "  Qaytarilgan: " + f(tot) + " so'm"];
+      if (nos) out.push("  Qaytarish cheki: " + nos);
+      refs.forEach(r => (r.items || []).forEach(it => {
+        if (!it) return;
+        const q = Number(it.qty) || 0;
+        const _r = it.color || it.variant || "";
+        out.push("  • " + (it.name || "") + (_r ? " " + _r : "") +
+                 (it.art ? " " + it.art : "") + (q ? " — " + q : ""));
+      }));
+      out.push("=".repeat(40));
+      return out.join("\n");
+    }
+    // ✅ 2026-08-15: QAYSI TOVARLAR qaytgani ham yoziladi (egasining
+    // talabi — avval faqat summa va chek raqami bor edi).
+    // ✅ 2026-08-15: NOM · RANG · ART — eski yozuvlarda rang `variant`
+    // maydonida saqlangan, shuning uchun ikkalasi ham tekshiriladi.
+    const tovarlar = [];
+    refs.forEach(r => (r.items || []).forEach(it => {
+      if (!it) return;
+      const q    = Number(it.qty) || 0;
+      const rang = it.color || it.variant || "";
+      const art  = it.art || "";
+      tovarlar.push((it.name || "") +
+        (rang ? " · " + rang : "") +
+        (art  ? " · " + art  : "") +
+        (q ? " — " + q + (it.unit ? " " + it.unit : " dona") : ""));
+    }));
+    return `<div style="margin:8px 0 0;padding:8px 10px;border:1px dashed #B91C1C;
+        border-radius:6px;background:#FEF2F2">
+        <div style="font-size:11.5px;font-weight:800;color:#B91C1C">${bosh}</div>
+        <div style="font-size:11px;color:#000;margin-top:2px">
+          Qaytarilgan summa: <b>${f(tot)} so'm</b>
+          ${nos ? `<br>Qaytarish cheki: <b>${nos}</b>` : ""}
+        </div>
+        ${tovarlar.length ? `<div style="font-size:10.5px;color:#000;margin-top:4px;
+          border-top:1px dotted #B91C1C;padding-top:4px">
+          ${tovarlar.map(t => "• " + t).join("<br>")}</div>` : ""}
+      </div>`;
+  } catch (e) { return ""; }
+}
+
+
+// \u2550\u2550\u2550 BOT CHEKI \u2014 SOTUV CHEKI BILAN PARALLEL (2026-08-15) \u2550\u2550
+// Egasining talabi: botdagi chek sotuv cheki bilan BIR XIL bo'lsin \u2014
+// qaysi uslub tanlangan bo'lsa, uning BO'LIMLARI va TARTIBI botga ham
+// o'tsin. Telegram HTML qabul qiladi (CSS emas), shuning uchun ko'rinish
+// emas, MAZMUN va TARTIB birlashtiriladi \u2014 manba bitta: chekRows().
+
 function buildReceiptMerx(sale, opts, cfg) {
   const {shopName, staffName, botUser, logo, contact, footer, showStaff, showContact, F} = cfg;
   const chekNum  = sale.chekNum || ("#" + sale.id);
@@ -3672,7 +3962,7 @@ function buildReceiptMerx(sale, opts, cfg) {
       .filter(([m,v]) => m !== "qarz" && v > 0)
       .map(([m,v]) => `<div class="pr"><span>${lblMap[m]||m}</span><span>${F(v)} so'm</span></div>`).join("");
   } else if (payType !== "qarz") {
-    payHtml = `<div class="pr"><span>${payLabels[payType]||payType}</span><span style="color:#059669;font-weight:700">${F(paid)} so'm</span></div>`;
+    payHtml = `<div class="pr"><span>${payLabels[payType]||payType}</span><span style="color:#000;font-weight:700">${F(paid)} so'm</span></div>`;
   }
 
   // Qarz bo'limi
@@ -3680,24 +3970,31 @@ function buildReceiptMerx(sale, opts, cfg) {
   if (remaining > 0) {
     const newDebtAmt = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${F(remaining)} so'm`;
     debtHtml += `<div class="sep-dash" style="margin:6px 0"></div>`;
-    if (isUsd && prevUsd > 0) {
-      debtHtml += `<div class="pr pr-sm"><span>Oldingi qarz</span><span>$${prevUsd.toFixed(2)}</span></div>`;
-      debtHtml += `<div class="pr pr-sm"><span>Yangi qarz</span><span>$${debtUsd.toFixed(2)}</span></div>`;
-      debtHtml += `<div class="pr pr-debt-total"><span>JAMI QARZ</span><span>$${(prevUsd+debtUsd).toFixed(2)} USD</span></div>`;
-    } else if (!isUsd && prevUzs > 0) {
-      debtHtml += `<div class="pr pr-sm"><span>Oldingi qarz</span><span>${F(prevUzs)} so'm</span></div>`;
-      debtHtml += `<div class="pr pr-sm"><span>Yangi qarz</span><span>${F(remaining)} so'm</span></div>`;
-      debtHtml += `<div class="pr pr-debt-total"><span>JAMI QARZ</span><span>${F(prevUzs+remaining)} so'm</span></div>`;
+    // \u2705 2026-08-14: IKKALA VALYUTA \u2014 yagona manba (debtLines).
+    // Avval faqat dollar qarzi ko'rsatilardi, so'm qarzi tushib qolardi.
+    let _dM = (typeof debtLines === "function") ? debtLines(sale, { F }) : null;
+  // ✅ 2026-08-14: "Qarz tarixi" belgilagichi hamma uslubga ta'sir qiladi
+  if (cfg && cfg.showDebtHistory === false) _dM = null;
+    if (_dM && (_dM.oldin || _dM.keyin)) {
+      if (_dM.oldin)
+        debtHtml += `<div class="pr pr-sm"><span>Oldingi qarz</span><span>${_dM.oldin}</span></div>`;
+      if (_dM.qoshildi)
+        debtHtml += `<div class="pr pr-sm"><span>Qarzga qo'shildi</span><span>${_dM.qoshildi}</span></div>`;
+      if (_dM.keyin)
+        debtHtml += `<div class="pr pr-debt-total"><span>JAMI QARZ</span><span>${_dM.keyin}</span></div>`;
+
     } else {
       debtHtml += `<div class="pr pr-debt"><span>QARZ</span><span>${newDebtAmt}</span></div>`;
     }
-    if (due) debtHtml += `<div class="pr pr-sm"><span>Muddat</span><span style="color:#dc2626;font-weight:700">${due}</span></div>`;
+    if (due) debtHtml += `<div class="pr pr-sm"><span>Muddat</span><span style="color:#000;font-weight:700">${due}</span></div>`;
   } else {
     debtHtml = `<div class="paid-ok">✓ To'liq to'landi</div>`;
   }
 
+  // ✅ 2026-08-14: chegirmasiz jami — yagona chekdagi kabi
   const discHtml = discount > 0
-    ? `<div class="pr" style="color:#dc2626"><span>Chegirma${sale.discountPct ? " -"+sale.discountPct+"%" : ""}</span><span>−${F(discount)} so'm</span></div>` : "";
+    ? `<div class="pr pr-sm"><span>Jami (chegirmasiz)</span><span>${F(subtotal)} so'm</span></div>` +
+      `<div class="pr" style="color:#000"><span>Chegirma${sale.discountPct ? " -"+sale.discountPct+"%" : ""}</span><span>−${F(discount)} so'm</span></div>` : "";
 
   const logoHtml = logo
     ? `<div style="text-align:center;padding:10px 0 4px"><img src="${logo}" style="max-height:55px;max-width:170px;object-fit:contain"></div>` : "";
@@ -3711,56 +4008,64 @@ function buildReceiptMerx(sale, opts, cfg) {
 body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direction:column;align-items:center;padding:16px 8px}
 .wrap{width:340px;max-width:100%}
 .rc{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(13,27,42,.12)}
-.hd{background:#0D1B2A;padding:14px 18px;text-align:center;color:#fff}
+.hd{${cfg.headerStyle === "dark" ? "background:#0D1B2A;color:#fff" : "background:#fff;color:#000;border-bottom:2px solid #000"};padding:14px 18px;text-align:center}
 .hd-name{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;letter-spacing:1.5px}
 .hd-meta{font-size:12px;color:#b8c5d0;margin-top:4px;line-height:1.6;font-weight:500}
 .hd-meta b{color:#E9A500}
 .badge-ulgurji{display:inline-block;background:#E9A500;color:#0D1B2A;font-size:9px;font-weight:800;padding:1px 7px;border-radius:8px;letter-spacing:.5px;margin-top:3px}
 .cust{padding:7px 16px;background:#F0F8FF;border-bottom:1px dashed #C7E3F5;font-size:12px;color:#0D1B2A;display:flex;justify-content:space-between}
-.note-w{padding:6px 16px;background:#FFFBEB;border-bottom:1px dashed #FDE68A;font-size:11.5px;color:#92400E}
+.note-w{padding:6px 16px;background:#FFFBEB;border-bottom:1px dashed #FDE68A;font-size:11.5px;color:#000}
 .items-lbl{padding:8px 16px 4px;font-size:10px;font-weight:800;color:#555;letter-spacing:1.5px;text-transform:uppercase}
 .items{padding:0 16px}
 .it{padding:7px 0;border-bottom:1px dashed #E8E5E0}
 .it:last-child{border-bottom:none}
 .it-top{display:flex;align-items:baseline;gap:6px}
-.it-num{font-size:10px;color:#999;font-weight:700;min-width:14px}
+.it-num{font-size:10px;color:#555;font-weight:700;min-width:14px}
 .it-name{flex:1;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#0D1B2A}
-.it-art{font-family:'DM Sans',sans-serif;font-size:10px;color:#6366F1;background:#EEF2FF;padding:1px 6px;border-radius:4px;font-weight:600;margin-left:4px;vertical-align:middle}
+.it-art{font-family:'DM Sans',sans-serif;font-size:10px;color:#000;background:#EEF2FF;padding:1px 6px;border-radius:4px;font-weight:600;margin-left:4px;vertical-align:middle}
 .it-sum{font-family:'Sora',sans-serif;font-size:13px;font-weight:800;color:#0D1B2A;white-space:nowrap}
-.it-info{font-size:12px;color:#374151;margin-top:3px;padding-left:20px;font-weight:500}
-.it-color{color:#374151;font-weight:600;margin-right:8px}.it-calc{color:#111;font-weight:700}
+.it-info{font-size:12px;color:#333;margin-top:3px;padding-left:20px;font-weight:500}
+.it-color{color:#333;font-weight:600;margin-right:8px}.it-calc{color:#111;font-weight:700}
 .tot{margin:0 16px;padding:8px 0;border-top:2px solid #0D1B2A;display:flex;justify-content:space-between;align-items:center}
 .tot-l{font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#0D1B2A}
 .tot-cnt{font-size:11px;color:#555;font-weight:600;margin-top:1px}
 .tot-v{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:#0D1B2A}
 .pay{padding:8px 16px 10px;border-top:1px dashed #ddd}
-.pay-lbl{font-size:10px;font-weight:800;color:#374151;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
-.pr{display:flex;justify-content:space-between;font-size:13px;color:#111;padding:3px 0;font-weight:500}
+.pay-lbl{font-size:10px;font-weight:800;color:#333;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+.pr{display:flex;justify-content:space-between;font-size:13px;color:#000;padding:3px 0;font-weight:500}
 .pr.pr-sm{font-size:12px;color:#555;font-weight:600}
-.pr.pr-debt{color:#dc2626;font-weight:800;font-size:14px;border-top:1px solid #fca5a5;padding-top:6px;margin-top:2px}
-.pr.pr-debt-total{color:#dc2626;font-weight:800;font-size:16px;border-top:2px solid #dc2626;padding-top:8px;margin-top:4px}
+.pr.pr-debt{color:#000;font-weight:800;font-size:14px;border-top:1px solid #fca5a5;padding-top:6px;margin-top:2px}
+.pr.pr-debt-total{color:#000;font-weight:800;font-size:16px;border-top:2px solid #dc2626;padding-top:8px;margin-top:4px}
 .sep-dash{border-top:1px dashed #ddd}
-.paid-ok{background:#ECFDF5;color:#059669;font-weight:700;font-size:12px;text-align:center;padding:7px;border-radius:8px;margin-top:4px}
+.paid-ok{background:#ECFDF5;color:#000;font-weight:700;font-size:12px;text-align:center;padding:7px;border-radius:8px;margin-top:4px}
 .ft{padding:10px 16px 14px;text-align:center;border-top:1px dashed #ddd}
 .ft-txt{font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#0D1B2A}
-.ft-sub{font-size:11px;color:#666;margin-top:3px}
-.ft-bot{font-size:11px;color:#229ED9;margin-top:6px}
+.ft-sub{font-size:11px;color:#444;margin-top:3px}
+.ft-bot{font-size:11px;color:#000;margin-top:6px}
 .acts{width:340px;max-width:100%;margin:10px 0 0;display:flex;gap:8px}
 .acts button{flex:1;border:none;border-radius:10px;padding:11px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
 .btn-p{background:#0D1B2A;color:#fff}.btn-c{background:#fff;color:#0D1B2A;border:1.5px solid #E8E5E0}
 @media print{
   body{background:#fff;padding:0}
-  .wrap,.rc{width:72mm;max-width:72mm;border-radius:0;box-shadow:none}
+  .wrap,.rc{width:${cfg.paperWidth || 72}mm;max-width:${cfg.paperWidth || 72}mm;border-radius:0;box-shadow:none}
   .acts{display:none}
   .hd,.hd-meta b{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .pr.pr-debt,.pr.pr-debt-total{color:#000!important}
 }
-</style></head><body>
+
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".hd-name",tagline:".hd-meta",meta:".cust",
+      itemName:".it-name",itemPrice:".it-calc,.it-sum",total:".tot-v,.tot",
+      debt:".pr-debt,.pr-debt-total,.pr",footer:".ft"}) : ""}
+  </style></head><body>
 <div class="wrap">
+  ${_tasdiqBelgisi(sale, opts && opts.type)}
   <div class="rc">
+
     ${logoHtml}
     <div class="hd">
       <div class="hd-name">${shopName.toUpperCase()}</div>
+      ${cfg.tagline ? `<div class="hd-meta tagline" style="margin-top:2px">${cfg.tagline}</div>` : ""}
+      ${cfg.addr ? `<div class="hd-meta addr" style="margin-top:1px">${cfg.addr}</div>` : ""}
       <div class="hd-meta">
         <b>${chekNum}</b> · ${date} · ${time}
         ${showStaff && staffName && staffName !== "—" ? `<br>${staffName}` : ""}
@@ -3779,23 +4084,31 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
     <div class="items-lbl">Mahsulotlar</div>
     <div class="items">${itemsHtml}</div>
 
-    <div class="tot">
-      <div>
-        <div class="tot-l">JAMI</div>
-        <div class="tot-cnt">${items.length} xil · ${totalBoxes ? totalBoxes + " pochka" : totalDona + " dona"}</div>
-      </div>
-      <div class="tot-v">${F(total)} <span style="font-size:13px;font-weight:600">so'm</span></div>
-    </div>
-
-    <div class="pay">
-      <div class="pay-lbl">To'lov</div>
-      ${discHtml}
-      ${payHtml}
-      ${debtHtml}
+    ${(() => {
+    // \u2705 2026-08-14: BO'LIMLAR YAGONA TARTIBDA (chekRows) \u2014
+    // yig'indi \u2192 to'lov \u2192 qarz. Tovarlar qismi yuqorida, o'z uslubida.
+    try {
+      const _R = chekRows(sale, cfg, F);
+      const _H = chekRowsHtml(_R, { row:"pr", sep:"sep-dash", ft:"ft",
+                                    big:"pr-sm", total:"pr-debt-total", debt:"pr-debt" });
+      return `<div class="tot"><div><div class="tot-l">JAMI</div>` +
+             `<div class="tot-cnt">${items.length} xil \u00b7 ${totalBoxes ? totalBoxes + " pochka" : totalDona + " dona"}</div></div>` +
+             `<div class="tot-v">${F(total)} <span style="font-size:13px;font-weight:600">so'm</span></div></div>` +
+             `<div class="pay"><div class="pay-lbl">To'lov</div>` +
+             _H.summary + _H.payment + _H.debt +
+             (typeof chekRefundNote === "function" ? chekRefundNote(sale, F) : "");
+    } catch (e) { return ""; }
+  })()}
     </div>
 
     <div class="ft">
       <div class="ft-txt">${footer || "Rahmat! Yana kutamiz 🙏"}</div>
+    ${(() => { try {
+      const _R = chekRows(sale, cfg, F);
+      // ✅ 2026-08-14: qo'shimcha matn qatorlari (reklama, ish vaqti)
+      return _R.footer.slice(1).map(t =>
+        `<div class="ft-sub" style="font-size:11px;opacity:.8">${t}</div>`).join("");
+    } catch (e) { return ""; } })()}
       <div class="ft-sub">${shopName} · ${date}</div>
       ${botUser ? `<div class="ft-bot">@${botUser}</div>` : ""}
     </div>
@@ -3808,3 +4121,548 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
 </body></html>`;
 }
 
+
+// ════════════════════════════════════════════════
+// №9 (v152): QIDIRUV QATORLARI — YAGONA UX
+// Har qidiruvda ✕ (bir bosishda tozalash), POS'dagidek qulay o'lcham,
+// sahifadan chiqilganda avtomatik tozalanish (nav ichidagi guard bilan).
+// pos-q va tarix-q allaqachon o'z ✕ tugmasiga ega — ular faqat
+// avto-tozalash ro'yxatida.
+// ════════════════════════════════════════════════
+const _SEARCH_UX = [
+  { id: "kat-q",   render: () => { if (typeof renderKatalog === "function") renderKatalog(); } },
+  { id: "om-q",    render: () => { if (typeof omSearch === "function") omSearch(); } },
+  { id: "cust-q",  render: () => { if (typeof renderMijozlar === "function") renderMijozlar(); } },
+  { id: "debt-q",  render: () => { if (typeof renderDebts === "function") renderDebts(); } },
+  { id: "qt-q",    render: () => { if (typeof renderQarzlarTarixi === "function") renderQarzlarTarixi(); } },
+  { id: "exp-q",   render: () => { if (typeof renderMoliya === "function") renderMoliya(); } },
+];
+const _SEARCH_PRE = [ // o'z ✕ tugmasi bor maydonlar: [input, tugma, render]
+  { id: "pos-q",   btn: "pos-q-clr",   render: () => { if (typeof posSearch === "function") posSearch(); } },
+  { id: "tarix-q", btn: "tarix-q-clr", render: () => { if (typeof renderTarix === "function") renderTarix(); } },
+];
+
+function buildReceiptThermal(sale, opts, cfg) {
+  const {shopName, staffName, botUser, contact, footer, showStaff, showContact, F} = cfg;
+  const chekNum  = sale.chekNum || ("#" + sale.id);
+  const date     = (sale.date||"").split("-").reverse().join(".");
+  const time     = sale.time || "";
+  const total    = Number(sale.total    || 0);
+  const subtotal = Number(sale.subtotal || total);
+  const paid     = Number(sale.paid     || 0);
+  const remaining= Number(sale.remaining|| 0);
+  const discount = Number(sale.discount || 0);
+  const items    = (sale.items||[]).filter(Boolean);
+  const payType  = sale.payType || "";
+  const payBreakdown = sale.payBreakdown || null;
+  const isUsd    = sale.debtCurrency === "usd" && sale.debtUsd;
+  const debtUsd  = Number(sale.debtUsd  || 0);
+  const prevUsd  = Number(sale.prevDebtUsd || 0);
+  const prevUzs  = Number(sale.prevDebtUzs || 0);
+  const note     = sale.note || "";
+  const due      = sale.due  || "";
+  const priceType= sale.priceType || "";
+  const payLabels= {naqd:"Naqd", karta:"Karta", otkazma:"Otkazma", aralash:"Aralash"};
+  const W = 40;
+  const EQ = "=".repeat(W);
+  const DA = "-".repeat(W);
+
+  const totalBoxes = items.reduce((a,i) => a+(i.qtyBox||0), 0);
+  const totalDona  = items.reduce((a,i) => a+(i.qty||0), 0);
+
+  // Chiziqni markazga
+  const center = (s) => {
+    const sp = Math.max(0, W - s.length);
+    return " ".repeat(Math.floor(sp/2)) + s;
+  };
+  // Ikki ustun
+  const lr = (l, r) => {
+    const lStr = String(l), rStr = String(r);
+    const gap = Math.max(1, W - lStr.length - rStr.length);
+    return lStr + " ".repeat(gap) + rStr;
+  };
+
+  // TOVARLAR — 2 qator
+  // Qator 1: N. Nom [ART]
+  // Qator 2:   Rang  Qty x Narx = Summa
+  const itemLines = items.map((it, i) => {
+    const isBox   = it.sellMode === "karobka" && it.qtyBox;
+    const qty     = it.qty || 0;  // jami dona soni
+    const unit    = it.unit || "dona";
+    const price   = it.price || 0;  // 1 dona narxi
+    const sum     = price * qty;
+    const art     = it.art ? ` [${it.art}]` : "";
+    const color   = it.color || "";
+    // Pochka bo'lsa: "(3 pchk)" ko'rsatamiz
+    const pchkStr = isBox && it.qtyBox ? ` (${it.qtyBox} pchk)` : "";
+
+    const row1 = `${i+1}. ${it.name}${art}${pchkStr}`;
+    const calc  = `${color ? color+"  " : ""}${F(qty)}${unit} x ${F(price)} = ${F(sum)}`;
+    return row1 + "\n   " + calc;
+  }).join("\n" + DA + "\n");
+
+  // TO'LOV
+  const payLines = () => {
+    const lbls = {naqd:"Naqd", karta:"Karta", otkazma:"Otkazma"};
+    if (payType === "aralash" && payBreakdown) {
+      return Object.entries(payBreakdown)
+        .filter(([m,v]) => m !== "qarz" && v > 0)
+        .map(([m,v]) => lr(lbls[m]||m+":", F(v)+" som"))
+        .join("\n");
+    }
+    if (payType !== "qarz") return lr((payLabels[payType]||payType)+":", F(paid)+" som");
+    return "";
+  };
+
+  // QARZ
+  const debtLines = () => {
+    if (remaining <= 0) return lr("TO'LIQ TO'LANDI", "✓");
+    const dAmt = isUsd ? `$${debtUsd.toFixed(2)} USD` : `${F(remaining)} som`;
+    const lines = [lr("QARZ:", dAmt)];
+    // \u2705 2026-08-14: IKKALA VALYUTA \u2014 yagona manba (debtLines)
+    // ⚠️ Termal ichida `debtLines` nomli MAHALLIY funksiya bor —
+    // global yagona manbani `window` orqali chaqiramiz (aks holda
+    // o'zini-o'zi chaqirib cheksiz halqaga tushardi).
+    const _fn = (typeof window !== "undefined" && window.debtLines) ||
+                (typeof globalThis !== "undefined" && globalThis.debtLines);
+    let _dT = (typeof _fn === "function") ? _fn(sale, { F }) : null;
+  // ✅ 2026-08-14: "Qarz tarixi" belgilagichi hamma uslubga ta'sir qiladi
+  if (cfg && cfg.showDebtHistory === false) _dT = null;
+    if (_dT && (_dT.oldin || _dT.keyin)) {
+      if (_dT.oldin)    lines.push(lr("  Oldingi qarz:", _dT.oldin));
+      if (_dT.qoshildi) lines.push(lr("  Qarzga qo'shildi:", _dT.qoshildi));
+      if (_dT.keyin)    lines.push(lr("  JAMI QARZ:", _dT.keyin));
+
+    }
+    if (due) lines.push(lr("  Muddat:", due));
+    return lines.join("\n");
+  };
+
+  const rows = [
+    EQ,
+    center(shopName.toUpperCase()),
+    // ✅ 2026-08-14: shior va manzil — yagona chekdagi kabi
+    cfg.tagline ? center(cfg.tagline) : null,
+    cfg.addr    ? center(cfg.addr)    : null,
+    showContact && contact ? center(contact) : null,
+    priceType === "ulgurji" ? center("[ ULGURJI SAVDO ]") : null,
+    EQ,
+    lr("Chek: " + chekNum, date + " " + time),
+    showStaff && staffName && staffName !== "—" ? ("Kassir: " + staffName) : null,
+    sale.customerName ? ("Mijoz: " + sale.customerName) : null,
+    sale.customerPhone ? ("Tel:   " + sale.customerPhone) : null,
+    DA,
+    itemLines,
+    // \u2705 2026-08-14: BO'LIMLAR YAGONA TARTIBDA (chekRows) \u2014
+    // yig'indi \u2192 to'lov \u2192 qarz. Tovarlar qismi yuqorida (matnli).
+    EQ,
+    ...(() => {
+      try {
+        const _R = chekRows(sale, cfg, F);
+        const out = [];
+        _R.summary.forEach(x => out.push(lr(x[0] + ":", x[1])));
+        if (_R.payment.length) { out.push(EQ); _R.payment.forEach(x => out.push(lr(x[0] + ":", x[1]))); }
+        if (_R.debt.length)    { out.push(DA); _R.debt.forEach(x => out.push(lr(x[0] + ":", x[1]))); }
+        return out;
+      } catch (e) { return []; }
+    })(),
+    note ? (DA + "\nIzoh: " + note) : null,
+    EQ,
+    (typeof chekRefundNote === "function" ? chekRefundNote(sale, F, true) : null),
+    center(footer || "Rahmat! Yana kutamiz"),
+    // ✅ 2026-08-14: qo'shimcha matn qatorlari
+    ...(() => { try {
+      const _R = chekRows(sale, cfg, F);
+      return _R.footer.slice(1).map(t => center(t));
+    } catch (e) { return []; } })(),
+    botUser ? center("@" + botUser) : null,
+    EQ,
+  ].filter(l => l !== null && l !== "").join("\n");
+
+  return `<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chek ${chekNum}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
+     display:flex;flex-direction:column;align-items:center;padding:16px 8px}
+.rc{background:#fff;padding:18px 16px;
+    /* ✅ 2026-08-14: ZAMONAVIY ko'rinish (egasining talabi) — avval
+       eski matn-terminal uslubida edi. Endi tiniq monoshrift, yumshoq
+       oraliq va tabiiy rang. Tuzilma o'zgarmagan: chop etishda
+       avvalgidek tekis chiqadi. */
+    /* \u26a0\ufe0f 2026-08-15: satr 40 BELGI. Shrift katta bo'lsa satrlar
+       sig'may O'RALIB ketadi va ikki tomonlama tekislash buziladi
+       (chap tomonga yopishib qoladi \u2014 egasining shikoyati).
+       Endi: oralish YOQ (pre) va shrift 40 belgi bemalol
+       sig'adigan o'lchamda. */
+    white-space:pre;word-break:normal;
+    font-family:'JetBrains Mono','SF Mono','Consolas','Courier New',monospace;
+    font-size:11.5px;line-height:1.65;color:#111;letter-spacing:0;
+    /* ✅ 2026-08-15: blok MATN ENIGA moslashadi va markazda turadi —
+       avval o'ngda katta bo'sh joy qolardi (egasining shikoyati). */
+    width:fit-content;max-width:100%;margin:0 auto;overflow-x:hidden;
+    border-radius:14px;box-shadow:0 2px 14px rgba(0,0,0,.07);
+    border:1px solid #ECEAE6}
+.acts{width:340px;max-width:100%;margin:10px 0 0;display:flex;gap:8px}
+.acts button{flex:1;border:none;border-radius:7px;padding:11px;
+             font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
+.btn-p{background:#000;color:#fff}
+.btn-c{background:#fff;color:#000;border:1.5px solid #ccc}
+@media print{
+  /* \u2705 2026-08-12: qog'oz eni SOZLAMADAN (avval 72mm qotib qolgandi \u2014
+     58/80 mm tanlansa ham termal chek 72mm da chiqardi). Shrift ham
+     uslub sozlamasiga ergashadi. */
+  @page{size:${cfg.paperWidth || 72}mm auto;margin:0}
+  body{background:#fff;padding:0}
+  .rc{width:${cfg.paperWidth || 72}mm;max-width:${cfg.paperWidth || 72}mm;
+      border-radius:0;box-shadow:none;
+      font-size:${({small:10,normal:11,large:12.5,xlarge:14})[cfg.fontScale] || 11}px;
+      line-height:1.5;padding:4px 6px}
+  .acts{display:none}
+}
+
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {_noAlign:true,
+      shop:".rc",tagline:".rc",meta:".rc",
+      itemName:".rc",itemPrice:".rc",total:".rc",debt:".rc",footer:".rc"}) : ""}
+  </style></head><body>
+${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
+  <div class="rc">
+  ${_tasdiqBelgisi(sale, opts && opts.type)}${rows.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
+<div class="acts">
+  <button class="btn-p" onclick="window.print()">🖨 Chop etish</button>
+  <button class="btn-c" onclick="window.close?window.close():history.back()">Yopish</button>
+</div>
+</body></html>`;
+}
+
+// ════════════════════════════════════════════════
+// WHOLESALE CHEK — Compact ulgurji hujjat
+// B5 format, jadval, imzo joyi
+// ════════════════════════════════════════════════
+
+function buildReceiptWholesale(sale, opts, cfg) {
+  // \u2550\u2550 ULGURJI CHEK (2026-08-12, qayta yozildi) \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+  // Egasining talabi: PDF namunadagi ULGURJI HUJJAT tarkibi, lekin
+  // A4 emas \u2014 TERMAL qog'ozda (58/72/80 mm, sozlamadan). Ranglar,
+  // soyalar, to'q sarlavha YO'Q: faqat OQ FON + QORA YOZUV (printerda
+  // aniq chiqadi va siyoh tejaydi).
+  // Namunadan olingan tarkib: boshlang'ich qoldiq, MODEL (artikul)
+  // ustuni, dona narx va jami IKKI VALYUTADA, oxirida
+  // Jami / To'landi / Qoldiq uch qatori.
+  const {shopName, staffName, contact, footer, showStaff, showContact, F} = cfg;
+  const W        = parseInt(cfg.paperWidth) || 72;
+  const chekNum  = sale.chekNum || ("#" + sale.id);
+  const date     = (sale.date||"").split("-").reverse().join(".");
+  const time     = sale.time || "";
+  const total    = Number(sale.total    || 0);
+  const paid     = Number(sale.paid     || 0);
+  const remaining= Number(sale.remaining|| 0);
+  const discount = Number(sale.discount || 0);
+  const subtotal = Number(sale.subtotal || (total + discount));   // 2026-08-14
+  const items    = (sale.items||[]).filter(Boolean);
+  const payType  = sale.payType || "";
+  const isUsd    = sale.debtCurrency === "usd" && sale.debtUsd;
+  const debtUsd  = Number(sale.debtUsd || 0);
+  const prevUsd  = Number(sale.prevDebtUsd || 0);
+  const prevUzs  = Number(sale.prevDebtUzs || 0);
+  const due      = sale.due  || "";
+  const rate     = Number(sale.rate) || 0 || 12800;
+  const payLabels= {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash"};
+  const D        = n => "$" + (Number(n)||0).toFixed(2);
+
+  const totalDona  = items.reduce((a,i) => a + (i.qty||0), 0);
+  const totalBoxes = items.reduce((a,i) => a + (i.qtyBox||0), 0);
+
+  // Tovar qatorlari: MODEL / soni / dona narx ($ va so'm) / jami
+  const itemRows = items.map((it, idx) => {
+    const isBox   = it.sellMode === "karobka" && it.qtyBox;
+    const model   = it.art || it.name || "\u2014";
+    const rang    = [it.color, isBox ? (it.groupSizes||"") : (it.size||"")]
+                      .filter(Boolean).join(" / ");
+    const qtyShow = isBox ? (it.qtyBox + " pchk (" + (it.qty||0) + ")")
+                          : ((it.qty||0) + " " + (it.unit||"dona"));
+    const perUzs  = Number(it.price||0);
+    const sumUzs  = perUzs * Number(it.qty||0);
+    return `<tr>
+      <td class="c">${idx+1}</td>
+      <td class="l"><b>${model}</b>${rang ? `<div class="sub">${rang}</div>` : ""}</td>
+      <td class="c">${qtyShow}</td>
+      <td class="r">${F(perUzs)}<div class="sub">${D(perUzs / (rate||1))}</div></td>
+      <td class="r b">${F(sumUzs)}<div class="sub">${D(sumUzs / (rate||1))}</div></td>
+    </tr>`;
+  }).join("");
+
+  // Oldingi qarz (namunadagi "\u041d\u0430\u0447\u0430\u043b\u044c\u043d\u0430\u044f \u043e\u0441\u0442\u0430\u0442\u043a\u0430")
+  // \u2705 2026-08-14: IKKALA valyuta (yagona manba)
+  let _dW = (typeof debtLines === "function") ? debtLines(sale, { F, rate }) : null;
+  // ✅ 2026-08-14: "Qarz tarixi" belgilagichi hamma uslubga ta'sir qiladi
+  if (cfg && cfg.showDebtHistory === false) _dW = null;
+  const boshRow = (_dW && _dW.oldin)
+    ? `<div class="row"><span>Oldingi qarz</span><b>${_dW.oldin}</b></div>` : "";
+
+  // Yakun: Jami / To'landi / Qoldiq
+  const yakun =
+    `<div class="row big"><span>JAMI</span><b>${F(total)} so'm${
+      isUsd || prevUsd > 0 ? " / " + D(total / (rate||1)) : ""}</b></div>` +
+    // ✅ 2026-08-14: chegirmasiz jami — yagona chekdagi kabi
+    (discount > 0 ? `<div class="row"><span>Jami (chegirmasiz)</span><span>${F(subtotal)}</span></div>` : "") +
+    (discount > 0 ? `<div class="row"><span>Chegirma</span><b>-${F(discount)}</b></div>` : "") +
+    `<div class="row"><span>To'landi (${payLabels[payType]||payType||"\u2014"})</span><b>${F(paid)} so'm</b></div>` +
+    (remaining > 0
+      ? `<div class="row big"><span>QOLDIQ</span><b>${
+          isUsd ? D(debtUsd) : F(remaining) + " so'm"}</b></div>` +
+        ((_dW && _dW.keyin)
+          ? `<div class="row"><span>Umumiy qarz</span><b>${_dW.keyin}</b></div>` : "") +
+        (due ? `<div class="row"><span>Muddat</span><b>${due}</b></div>` : "")
+      : `<div class="row big"><span>QOLDIQ</span><b>0</b></div>`);
+
+  return `<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ulgurji chek ${chekNum}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',Arial,sans-serif;background:#fff;color:#000;
+     padding:6px;font-size:11.5px;line-height:1.35}
+.doc{width:${W}mm;max-width:${W}mm;margin:0 auto;background:#fff}
+.hd{text-align:center;border-bottom:1px solid #000;padding-bottom:5px;margin-bottom:5px}
+.shop{font-size:15px;font-weight:800;letter-spacing:.02em}
+.sm{font-size:10px}
+.meta{font-size:10.5px;margin-bottom:5px}
+.meta div{display:flex;justify-content:space-between;gap:6px}
+table{width:100%;border-collapse:collapse;font-size:10.5px;border:0}
+th{border-top:1px solid #000;border-bottom:1px solid #000;padding:3px 2px;
+   font-size:9.5px;font-weight:700;text-align:center}
+td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
+.c{text-align:center}.r{text-align:right}.l{text-align:left}.b{font-weight:700}
+.sub{font-size:9px;color:#000;opacity:.75}
+.tot{border-top:1px solid #000;margin-top:5px;padding-top:4px}
+.row{display:flex;justify-content:space-between;gap:8px;padding:1.5px 0;font-size:11px}
+.row.big{font-size:13px;font-weight:800;border-top:1px dashed #000;
+         border-bottom:1px dashed #000;padding:3px 0;margin:3px 0}
+.ft{text-align:center;font-size:10px;margin-top:6px;border-top:1px dashed #000;padding-top:5px}
+@media print{
+  @page{size:${W}mm auto;margin:0}
+  body{padding:0}
+  .doc{width:${W}mm}
+}
+
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".shop",tagline:".sm",meta:".meta",
+      itemName:".l",itemPrice:".r",total:".tot,.big",
+      debt:".row",footer:".ft"}) : ""}
+  </style></head><body>
+<div class="doc">
+  ${_tasdiqBelgisi(sale, opts && opts.type)}
+  ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
+  <div class="hd">
+    <div class="shop">${shopName}</div>
+    ${cfg.tagline ? `<div class="sm tagline">${cfg.tagline}</div>` : ""}
+    ${cfg.addr ? `<div class="sm addr">${cfg.addr}</div>` : ""}
+    ${showContact && contact ? `<div class="sm">${contact}</div>` : ""}
+  </div>
+  <div class="meta">
+    <div><span>Chek</span><b>${chekNum}</b></div>
+    <div><span>Sana</span><span>${date} ${time}</span></div>
+    ${sale.customerName ? `<div><span>Mijoz</span><b>${sale.customerName}</b></div>` : ""}
+    ${showStaff && staffName ? `<div><span>Sotuvchi</span><span>${staffName}</span></div>` : ""}
+    <div><span>Kurs</span><span>${F(rate)}</span></div>
+  </div>
+  <!-- ✅ 2026-08-14: "Oldingi qarz" endi pastdagi QARZ bo'limida -->
+  <table>
+    <thead><tr>
+      <th style="width:16px">\u2116</th><th class="l">Model</th>
+      <th>Soni</th><th class="r">Narx</th><th class="r">Jami</th>
+    </tr></thead>
+    <tbody>${itemRows}</tbody>
+  </table>
+  ${(() => {
+    // \u2705 2026-08-14: BO'LIMLAR YAGONA TARTIBDA (chekRows) \u2014
+    // meta \u2192 tovarlar \u2192 yig'indi \u2192 to'lov \u2192 qarz \u2192 altbilgi.
+    // Faqat TOVARLAR qismi uslubga xos (yuqoridagi jadval).
+    try {
+      const _R = chekRows(sale, cfg, F);
+      const _H = chekRowsHtml(_R, { row:"row", sep:"", ft:"ft",
+                                    big:"big", total:"tot", debt:"b" });
+      return `<div class="tot">${_H.summary}${_H.payment}${_H.debt}</div>${(typeof chekRefundNote === "function" ? chekRefundNote(sale, F) : "")}${_H.footer}`;
+    } catch (e) { return ""; }
+  })()}
+  </div>
+  </body></html>`;
+}
+
+function buildReceiptTable(sale, opts, cfg) {
+  // \u2550\u2550 JADVAL (2026-08-12: PDF namunasi darajasiga chiqarildi) \u2550\u2550
+  // Egasining namunasi (ALEX GIARDINI hujjati) tuzilishi:
+  //   sarlavha + tel + KURS \u2192 mijoz/sotuvchi \u2192 chek \u2116 va sana \u2192
+  //   BOSHLANG'ICH QOLDIQ ($) \u2192 jadval: \u2116 | Model | Soni |
+  //   Narx ($ va so'm) | Jami ($ va so'm) \u2192 ITOGO ikki valyutada \u2192
+  //   To'landi \u2192 QOLDIQ. Oq fon, qora yozuv; eni sozlamadan (58/72/80).
+  const {shopName, staffName, contact, footer, showStaff, showContact, F} = cfg;
+  const W        = parseInt(cfg.paperWidth) || 72;
+  const dark     = (cfg.headerStyle || "dark") === "dark";
+  const chekNum  = sale.chekNum || ("#" + sale.id);
+  const date     = (sale.date||"").split("-").reverse().join(".");
+  const time     = sale.time || "";
+  const total    = Number(sale.total    || 0);
+  const paid     = Number(sale.paid     || 0);
+  const remaining= Number(sale.remaining|| 0);
+  const discount = Number(sale.discount || 0);
+  const subtotal = Number(sale.subtotal || (total + discount));   // 2026-08-14
+  const items    = (sale.items||[]).filter(Boolean);
+  const payType  = sale.payType || "";
+  const isUsd    = sale.debtCurrency === "usd" && sale.debtUsd;
+  const debtUsd  = Number(sale.debtUsd || 0);
+  const prevUsd  = Number(sale.prevDebtUsd || 0);
+  const prevUzs  = Number(sale.prevDebtUzs || 0);
+  const due      = sale.due  || "";
+  const rate     = Number(sale.rate) || 0 || 12800;
+  const payLabels= {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash"};
+  const D  = n => (Number(n)||0).toFixed(2);
+  const hdrCss = dark ? "background:#0D1B2A;color:#fff"
+                      : "background:#fff;color:#000;border-bottom:2px solid #000";
+
+  const totalDona  = items.reduce((a,i) => a + (i.qty||0), 0);
+  const totalBoxes = items.reduce((a,i) => a + (i.qtyBox||0), 0);
+  const totalUsd   = total / (rate || 1);
+
+  const rows = items.map((it, idx) => {
+    const isBox   = it.sellMode === "karobka" && it.qtyBox;
+    const model   = it.art || it.name || "\u2014";
+    const izoh    = [it.color, isBox ? (it.groupSizes||"") : (it.size||"")]
+                      .filter(Boolean).join(" / ");
+    const qtyShow = isBox ? (it.qtyBox + " pchk") : String(it.qty || 0);
+    const qtySub  = isBox ? ((it.qty||0) + " dona") : (it.unit || "dona");
+    const perUzs  = Number(it.price||0);
+    const sumUzs  = perUzs * Number(it.qty||0);
+    // PDF namunasidagi kabi: dona narx $ da yaxlitlanadi, jami esa
+    // O'SHA yaxlitlangan narx \u00d7 soni (aks holda tiyinlarda farq chiqadi).
+    const perUsd  = Math.round((perUzs / (rate||1)) * 100) / 100;
+    return `<tr>
+      <td class="c">${idx+1}</td>
+      <td class="l"><b>${model}</b>${izoh ? `<div class="sub">${izoh}</div>` : ""}</td>
+      <td class="c">${qtyShow}<div class="sub">${qtySub}</div></td>
+      <td class="r">${D(perUsd)}<div class="sub">${F(perUzs)}</div></td>
+      <td class="r b">${D(perUsd * Number(it.qty||0))}<div class="sub">${F(sumUzs)}</div></td>
+    </tr>`;
+  }).join("");
+
+  // \u2705 2026-08-14: IKKALA valyuta (yagona manba)
+  let _dJ = (typeof debtLines === "function") ? debtLines(sale, { F, rate }) : null;
+  // ✅ 2026-08-14: "Qarz tarixi" belgilagichi hamma uslubga ta'sir qiladi
+  if (cfg && cfg.showDebtHistory === false) _dJ = null;
+  const boshRow = (_dJ && _dJ.oldin)
+    ? `<div class="mrow"><span>Oldingi qarz</span><b>${_dJ.oldin}</b></div>` : "";
+
+  return `<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chek ${chekNum}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',Arial,sans-serif;background:#fff;color:#000;
+     padding:6px;font-size:11px;line-height:1.35}
+.doc{width:${W}mm;max-width:${W}mm;margin:0 auto;background:#fff}
+.hd{${hdrCss};padding:9px 10px;text-align:center}
+.shop{font-size:14px;font-weight:800;letter-spacing:.02em}
+.sm{font-size:9.5px;opacity:.85}
+.meta{font-size:10px;padding:5px 0;border-bottom:1px solid #000}
+.mrow{display:flex;justify-content:space-between;gap:6px;padding:1px 0}
+table{width:100%;border-collapse:collapse;font-size:10px;margin-top:5px;border:1px solid #000}
+th{border:1px solid #000;padding:3px 1px;font-size:9px;font-weight:700}
+th .u{display:block;font-size:8px;font-weight:600;opacity:.7}
+td{padding:3px 2px;border:1px solid #000;vertical-align:top}
+.c{text-align:center}.r{text-align:right}.l{text-align:left}.b{font-weight:700}
+.sub{font-size:8.5px;opacity:.72;margin-top:1px}
+.tot{border-top:1px solid #000;margin-top:4px;padding-top:4px}
+.trow{display:flex;justify-content:space-between;gap:8px;padding:1.5px 0;font-size:11px}
+.trow.big{font-size:12.5px;font-weight:800;border-top:1px dashed #000;
+          border-bottom:1px dashed #000;padding:3px 0;margin:3px 0}
+.ft{text-align:center;font-size:9.5px;margin-top:6px;border-top:1px dashed #000;padding-top:5px}
+@media print{ @page{size:${W}mm auto;margin:0} body{padding:0} .doc{width:${W}mm} }
+
+  ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".shop",tagline:".sm",meta:".meta",
+      itemName:".l",itemPrice:".r",total:".tot,.big",
+      debt:".trow",footer:".ft"}) : ""}
+  </style></head><body>
+<div class="doc">
+  ${_tasdiqBelgisi(sale, opts && opts.type)}
+  ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
+  <div class="hd">
+    <div class="shop">${shopName}</div>
+    ${cfg.tagline ? `<div class="sm tagline">${cfg.tagline}</div>` : ""}
+    ${cfg.addr ? `<div class="sm addr">${cfg.addr}</div>` : ""}
+    ${showContact && contact ? `<div class="sm">Tel: ${contact}</div>` : ""}
+    <div class="sm">Kurs: ${F(rate)}</div>
+  </div>
+  <div class="meta">
+    ${sale.customerName ? `<div class="mrow"><span>Mijoz</span><b>${sale.customerName}</b></div>` : ""}
+    ${showStaff && staffName ? `<div class="mrow"><span>Sotuvchi</span><span>${staffName}</span></div>` : ""}
+    <div class="mrow"><span>Chek \u2116</span><b>${chekNum}</b></div>
+    <div class="mrow"><span>Sana</span><span>${date} ${time}</span></div>
+    <!-- ✅ 2026-08-14: "Oldingi qarz" TEPADAN olib tashlandi — u endi
+         pastdagi QARZ bo'limida, yagona tartib bo'yicha -->
+  </div>
+  <table>
+    <thead><tr>
+      <th style="width:14px">\u2116</th>
+      <th class="l">Model</th>
+      <th>Soni</th>
+      <th class="r">Narx<span class="u">$ / so'm</span></th>
+      <th class="r">Jami<span class="u">$ / so'm</span></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  ${(() => {
+    // \u2705 2026-08-14: BO'LIMLAR YAGONA TARTIBDA (chekRows)
+    try {
+      const _R = chekRows(sale, cfg, F);
+      const _H = chekRowsHtml(_R, { row:"trow", sep:"", ft:"ft",
+                                    big:"big", total:"tot", debt:"b" });
+      return `<div class="tot">${_H.summary}${_H.payment}${_H.debt}</div>${(typeof chekRefundNote === "function" ? chekRefundNote(sale, F) : "")}${_H.footer}`;
+    } catch (e) { return ""; }
+  })()}
+  </div>
+  </body></html>`;
+}
+
+// Uslubni tanlash: sotuv muhri > do'kon sozlamasi > standart
+function _botChekStyle(sale, chekCfg) {
+  try {
+    // \u26a0\ufe0f MUHR ustuvor (\u00a73.5). Muhr YO'Q bo'lsa \u2014 "unified":
+    // eski sotuvlar aynan shu ko'rinishda chizilgan edi, shuning
+    // uchun ular O'ZGARMAYDI (ilovadagi qoida bilan bir xil).
+    const s = (sale && (sale.chekStyle || (sale.data && sale.data.chekStyle))) || "";
+    return s || "unified";
+  } catch (e) { return "unified"; }
+}
+
+// Uslub bo'yicha chizish (mavjud `buildReceiptHtml` — "unified")
+function buildReceiptStyled(sale, opts, chekCfg) {
+  chekCfg = chekCfg || (opts && opts._chekCfg) || {};
+  const style = _botChekStyle(sale, chekCfg);
+  if (style === "unified" || !style) return buildReceiptHtml(sale, opts);
+  const c = chekCfg || {};
+  const cfg = {
+    shopName: opts.shopName || "MERX",
+    staffName: opts.staffName || "",
+    logo: opts.logo || c.logo || null,
+    contact: opts.contact || c.contact || "",
+    addr: c.addr || "", tagline: c.tagline || "",
+    footer: opts.footer || c.footer || "Rahmat! Yana kutamiz",
+    showStaff: c.showStaff !== false, showContact: c.showContact !== false,
+    showDebtHistory: c.showDebtHistory !== false,
+    dualCurrency: c.dualCurrency !== false,
+    paperWidth: c.paperWidth || 72,
+    headerStyle: c.headerStyle || "dark",
+    fontScale: c.fontScale || "normal", fontFamily: c.fontFamily || "dm",
+    blocks: c.blocks || null, extraLines: c.extraLines || [],
+    rate: Number(sale.rate) || 0,
+    F: n => Math.round(Number(n) || 0).toLocaleString("ru-RU")
+  };
+  try {
+    if (style === "merx")      return buildReceiptMerx(sale, opts, cfg);
+    if (style === "thermal")   return buildReceiptThermal(sale, opts, cfg);
+    if (style === "wholesale") return buildReceiptWholesale(sale, opts, cfg);
+    if (style === "table")     return buildReceiptTable(sale, opts, cfg);
+  } catch (e) { console.error("[bot] uslub chizishda xato:", e.message); }
+  return buildReceiptHtml(sale, opts);
+}
