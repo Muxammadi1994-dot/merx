@@ -661,6 +661,21 @@ function nav(p) {
   document.querySelectorAll(".ni").forEach(n => n.classList.toggle("on", n.dataset.p === p));
   document.querySelectorAll("[id^='p-']").forEach(el => el.classList.remove("on"));
   const el = $("p-" + p); if (el) el.classList.add("on");
+  // \U0001f534 2026-08-14: SAHIFA ALMASHGANDA SURISH TEPAGA QAYTADI.
+  // Sozlamalar sahifasi juda uzun — undan qisqa sahifaga (Katalog,
+  // Ombor) o'tilganda konteyner PASTDA qolib, ekran bo'sh ko'rinardi
+  // va "o'tmadi, qotib qoldi" degan taassurot tug'ilardi
+  // (egasining shikoyati, Tizim bo'limida ayniqsa sezilardi).
+  try {
+    ["pages", "main"].forEach(id => { const c = document.getElementById(id);
+      if (c) c.scrollTop = 0; });
+    if (el) el.scrollTop = 0;
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+    window.scrollTo(0, 0);
+    // Og'ir chek namunasi boshqa sahifada kerak emas
+    const _pf = document.getElementById("chek-preview-frame");
+    if (_pf && p !== "egasi") { _pf.srcdoc = ""; _pf.style.height = "0px"; }
+  } catch (e) {}
   // v151 (№4): amaldagi sahifa eslab qolinadi — F5'dan keyin init shu yerdan tiklaydi
   if (el) {
     try {
@@ -1800,6 +1815,8 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
   ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
   <div class="hd">
     <div class="shop">${shopName}</div>
+    ${cfg.tagline ? `<div class="sm tagline">${cfg.tagline}</div>` : ""}
+    ${cfg.addr ? `<div class="sm addr">${cfg.addr}</div>` : ""}
     ${showContact && contact ? `<div class="sm">Tel: ${contact}</div>` : ""}
     <div class="sm">Kurs: ${F(rate)}</div>
   </div>
@@ -1939,6 +1956,9 @@ function buildReceiptThermal(sale, opts, cfg) {
   const rows = [
     EQ,
     center(shopName.toUpperCase()),
+    // ✅ 2026-08-14: shior va manzil — yagona chekdagi kabi
+    cfg.tagline ? center(cfg.tagline) : null,
+    cfg.addr    ? center(cfg.addr)    : null,
     showContact && contact ? center(contact) : null,
     priceType === "ulgurji" ? center("[ ULGURJI SAVDO ]") : null,
     EQ,
@@ -2131,8 +2151,9 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
   ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
   <div class="hd">
     <div class="shop">${shopName}</div>
+    ${cfg.tagline ? `<div class="sm tagline">${cfg.tagline}</div>` : ""}
+    ${cfg.addr ? `<div class="sm addr">${cfg.addr}</div>` : ""}
     ${showContact && contact ? `<div class="sm">${contact}</div>` : ""}
-    ${cfg.addr ? `<div class="sm">${cfg.addr}</div>` : ""}
   </div>
   <div class="meta">
     <div><span>Chek</span><b>${chekNum}</b></div>
@@ -2323,6 +2344,8 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
     ${logoHtml}
     <div class="hd">
       <div class="hd-name">${shopName.toUpperCase()}</div>
+      ${cfg.tagline ? `<div class="hd-meta tagline" style="margin-top:2px">${cfg.tagline}</div>` : ""}
+      ${cfg.addr ? `<div class="hd-meta addr" style="margin-top:1px">${cfg.addr}</div>` : ""}
       <div class="hd-meta">
         <b>${chekNum}</b> · ${date} · ${time}
         ${showStaff && staffName && staffName !== "—" ? `<br>${staffName}` : ""}
