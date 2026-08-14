@@ -872,6 +872,19 @@ function saveChekConfig() {
 
   db.settings.chekConfig = cfg;
   saveDB();
+  // ✅ 2026-08-15: chek sozlamalari ham SERVER orqali maydon-merge
+  // bilan yoziladi (14-avgustdagi 4-band mexanizmi). Shu bilan ikki
+  // kassa bir vaqtda sozlama o'zgartirsa biri ikkinchisini bosmaydi
+  // va o'zgarish barcha qurilmalarga tezroq yetadi.
+  try {
+    if (typeof _serverRejimi === "function" && _serverRejimi() &&
+        typeof _serverPay === "function") {
+      _serverPay({ action: "settings", patch: { chek_config: cfg } })
+        .then(r => { if (!r || !r.ok)
+          console.warn("Chek sozlamasi serverga yozilmadi:", (r && r.error) || "?"); })
+        .catch(e => console.warn("Chek sozlamasi serverga yozilmadi:", e.message));
+    }
+  } catch (e) {}
   toast("✅ Chek sozlamalari saqlandi");
 }
 

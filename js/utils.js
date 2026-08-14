@@ -3557,7 +3557,12 @@ function chekRows(sale, cfg, F) {
   const debt = [];
   const _fn = (typeof globalThis !== "undefined" && globalThis.debtLines) ||
               (typeof debtLines === "function" ? debtLines : null);
-  const d = (c.showDebtHistory === false || !_fn) ? null : _fn(sale, { F: f, rate });
+  // \u26a0\ufe0f 2026-08-15: qarz satrlariga ODDIY formatchi beriladi (_f0),
+  // ikki-valyutali EMAS. `debtLines` allaqachon "so'm / kurs = $"
+  // ko'rinishida yozadi — ikki-valyutali formatchi berilsa ustiga yana
+  // "/ $..." qo'shib yuborardi: "10 000 000 / $837.66 / 11 938 / $1.00"
+  // (jonli: Jadval cheki, 15-avgust).
+  const d = (c.showDebtHistory === false || !_fn) ? null : _fn(sale, { F: _f0, rate });
   if (d && d.oldin)    debt.push(["Xariddan oldingi qarz", d.oldin]);
   if (d && d.qoshildi) debt.push(["Qarzga qo'shildi",      d.qoshildi]);
   if (d && d.keyin)    debt.push(["Xariddan keyingi qarz", d.keyin, "debt"]);
