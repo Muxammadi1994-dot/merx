@@ -3781,6 +3781,18 @@ function applyCloudSettings(sets) {
   if (sets.low_stock_limit  != null) db.settings.lowStockLimit  = Number(sets.low_stock_limit);
   if (sets.pos_pay_blocked  != null) db.settings.posPayBlocked  = sets.pos_pay_blocked;
   if (sets.pos_staff_locked != null) db.settings.posStaffLocked = !!sets.pos_staff_locked;
+
+  // \U0001f534 2026-08-15: BULUT SOZLAMASI KELGACH USLUB KARTALARI
+  // QAYTA CHIZILADI. Sahifa ochilganda kartalar LOKAL (eskirgan)
+  // qiymat bilan chiziladi, bulutdagi to'g'ri qiymat esa keyinroq
+  // keladi va ekranda aks etmasdi \u2014 shu sabab tanlangan uslub
+  // "Yagona"ga qaytgandek ko'rinardi (egasining shikoyati).
+  try {
+    const _sp = document.getElementById("p-egasi");
+    if (_sp && _sp.classList.contains("on") && typeof csInitCards === "function") {
+      csInitCards();
+    }
+  } catch (e) {}
 }
 
 

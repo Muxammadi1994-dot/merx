@@ -1398,6 +1398,23 @@ function _bindChekPreviewInputs() {
 // bog'lanmagan edi — "bir joyni tuzatib ikkinchisi eskicha qolishi"
 // xavfi shundan. Endi namuna ham, haqiqiy chek ham bitta manbadan:
 // buildPayReceiptStyled (utils.js).
+// \U0001f534 2026-08-15 TIKLANDI: bu ro'yxat men o'chirgan
+// `_buildDebtReceiptPreview` funksiyasining ICHIDA turgan ekan —
+// funksiya o'chirilgach "_CHEK_BLOCK_DEFS is not defined" xatosi
+// chiqdi va Sozlamalar buzildi (egasining shikoyati).
+// Kalitlar chizuvchidagi nomlar bilan AYNAN bir xil bo'lishi shart
+// (\u00a74: shop, tagline, meta, itemName, itemPrice, total, debt, footer).
+const _CHEK_BLOCK_DEFS = [
+  { key: "shop",      label: "Do'kon nomi (tepa)",        dSize: 20, canHide: false },
+  { key: "tagline",   label: "Shior (do'kon nomi ostida)", dSize: 10, canHide: true  },
+  { key: "meta",      label: "Ma'lumotlar (sotuv/sana/mijoz)", dSize: 12, canHide: true },
+  { key: "itemName",  label: "Tovar nomi",                dSize: 11, canHide: false },
+  { key: "itemPrice", label: "Tovar narxi / hisobi",      dSize: 9,  canHide: false },
+  { key: "total",     label: "JAMI / summalar",           dSize: 20, canHide: false },
+  { key: "debt",      label: "Qarz bo'limi",              dSize: 12, canHide: true  },
+  { key: "footer",    label: "Altbilgi (pastdagi yozuv)", dSize: 13, canHide: true  }
+];
+
 function renderChekBlocks() {
   const box = document.getElementById("chek-blocks-box");
   if (!box) return;
