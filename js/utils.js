@@ -3342,7 +3342,33 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
       shop:".shop", tagline:".sm.tagline", meta:".meta",
       itemPrice:".calc", total:".big", debt:".qold,.r2", footer:".ft"
     }) : ""}
-  </style></head><body>
+  </style>
+  /* \U0001f534 2026-08-15: USLUBLAR CHINDAN FARQ QILSIN.
+     Tekshiruv ko'rsatdi: Termal va Ixcham Yagona bilan AYNAN bir xil
+     chiqardi \u2014 nomi bor, ichi yo'q edi (egasining kuzatuvi).
+     Endi:
+       \u2022 TERMAL  \u2014 monoshrift, tor, ramkasiz (tor qog'oz uchun)
+       \u2022 IXCHAM  \u2014 faqat asosiy: summa, hisob, edi \u2192 qoldi
+                    (sarlavha tafsilotlari va meta qisqaradi) */
+  ${o.style === "thermal" ? `
+    .doc{font-family:'JetBrains Mono','Consolas','Courier New',monospace;
+         font-size:11.5px;line-height:1.55;letter-spacing:0}
+    .hd{border-bottom:1px dashed #000;padding-bottom:6px}
+    .shop{font-size:13px;letter-spacing:.06em}
+    .sec{border:none;border-top:1px dashed #000;border-radius:0;padding:6px 0}
+    .big{font-size:15px}
+    .doc *{border-radius:0 !important}
+  ` : ""}
+  ${o.style === "compact" ? `
+    .hd .sm:not(.addr){display:none}
+    .hd .addr{display:none}
+    .meta div:nth-child(n+3){display:none}
+    .sec{padding:6px 8px}
+    .lbl{font-size:10px}
+    .big{font-size:19px}
+    .doc{font-size:12px}
+  ` : ""}
+</head><body>
 <div class="doc">
   ${_tasdiqBelgisi(payment, "qarz")}
   ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
