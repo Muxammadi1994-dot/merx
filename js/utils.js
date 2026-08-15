@@ -1785,7 +1785,12 @@ function buildReceiptTable(sale, opts, cfg) {
       <td class="c">${idx+1}</td>
       <td class="l"><b>${model}</b>${izoh ? `<div class="sub">${izoh}</div>` : ""}</td>
       <td class="c">${qtyShow}<div class="sub">${qtySub}</div></td>
-      <td class="r">${D(perUsd)}<div class="sub">${F(perUzs)}</div></td>
+      <td class="r">${D(perUsd)}<div class="sub">${(() => {
+        const _b = (typeof chekItemBase === "function") ? chekItemBase(sale, idx, it, _dMap) : null;
+        return (_b && _b > perUzs)
+          ? `<span style="text-decoration:line-through;opacity:.55">${F(_b)}</span> ${F(perUzs)}`
+          : F(perUzs);
+      })()}</div></td>
       <td class="r b">${D(perUsd * Number(it.qty||0))}<div class="sub">${F(sumUzs)}</div></td>
     </tr>`;
   }).join("");
@@ -2123,7 +2128,13 @@ function buildReceiptWholesale(sale, opts, cfg) {
       <td class="c">${idx+1}</td>
       <td class="l"><b>${model}</b>${rang ? `<div class="sub">${rang}</div>` : ""}</td>
       <td class="c">${qtyShow}</td>
-      <td class="r">${F(perUzs)}<div class="sub">${D(perUzs / (rate||1))}</div></td>
+      <td class="r">${(() => {
+        // ✅ 2026-08-15: ASL narx chizib ko'rsatiladi (yagona chekdagi kabi)
+        const _b = (typeof chekItemBase === "function") ? chekItemBase(sale, idx, it, _dMap) : null;
+        return (_b && _b > perUzs)
+          ? `<span style="text-decoration:line-through;opacity:.55;font-size:.85em">${F(_b)}</span><br>${F(perUzs)}`
+          : F(perUzs);
+      })()}<div class="sub">${D(perUzs / (rate||1))}</div></td>
       <td class="r b">${F(sumUzs)}<div class="sub">${D(sumUzs / (rate||1))}</div></td>
     </tr>`;
   }).join("");
@@ -3606,9 +3617,25 @@ function chekRows(sale, cfg, F) {
     dona += q;
   });
   if (pochka > 0) summary.push(["JAMI POCHKA", pochka + " pochka", "big"]);
-  if (discount > 0) {
-    summary.push(["Jami (chegirmasiz)", f(subtotal) + " so'm"]);
-    summary.push(["Umumiy chegirma", "\u2212" + f(discount) + " so'm", "disc"]);
+  // ✅ 2026-08-15: IKKI XIL CHEGIRMA (egasining savoli):
+  //   (a) TOVAR chegirmasi — savatda har tovarga alohida berilgan.
+  //       `basePrice` da asl narx, `price` da pasaytirilgani turadi.
+  //   (b) UMUMIY chegirma — `sale.discount` (butun chekka).
+  // Avval faqat (b) ko'rsatilardi, (a) esa boshqa uslublarda umuman
+  // yo'q edi — yagona chekdagidan farq qilardi.
+  const _itemDisc = items.reduce((a, i) =>
+    a + ((i.basePrice && i.basePrice > (i.price || 0))
+         ? (i.basePrice - i.price) * (i.qty || 1) : 0), 0);
+  const _bazaJami = items.reduce((a, i) =>
+    a + ((i.basePrice || i.price || 0) * (i.qty || 0)), 0);
+
+  if (_itemDisc > 0 || discount > 0) {
+    summary.push(["Jami (chegirmasiz)",
+                  f(_itemDisc > 0 ? _bazaJami : subtotal) + " so'm"]);
+    if (_itemDisc > 0)
+      summary.push(["Tovar chegirmalari", "\u2212" + f(_itemDisc) + " so'm", "disc"]);
+    if (discount > 0)
+      summary.push(["Umumiy chegirma", "\u2212" + f(discount) + " so'm", "disc"]);
   }
   summary.push(["JAMI", f(total) + " so'm",
                 "total", items.length + " xil \u00b7 " + dona + " dona"]);
@@ -3818,4 +3845,19 @@ function chekItemPrice(sale, idx, it, discMap) {
     const d = (discMap || {})[idx] || 0;
     return Math.max(0, p - (d / q));
   } catch (e) { return Number(it.price) || 0; }
+}
+
+// Tovarning ASL narxi (chegirmadan oldingi) \u2014 chekda chizib
+// ko'rsatish uchun. Savatda tovarga chegirma berilgan bo'lsa
+// `basePrice` da asl narx turadi; umumiy chegirma bo'lsa joriy narx.
+// Chegirma yo'q bo'lsa \u2014 null (asl narx ko'rsatilmaydi).
+function chekItemBase(sale, idx, it, discMap) {
+  try {
+    const p = Number(it.price) || 0;
+    const b = Number(it.basePrice) || 0;
+    const d = (discMap || {})[idx] || 0;
+    if (b > p) return b;          // savatdagi tovar chegirmasi
+    if (d > 0) return p;          // umumiy chegirma taqsimlangan
+    return null;
+  } catch (e) { return null; }
 }
