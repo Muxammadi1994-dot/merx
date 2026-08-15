@@ -1762,14 +1762,21 @@ function buildReceiptTable(sale, opts, cfg) {
   const totalBoxes = items.reduce((a,i) => a + (i.qtyBox||0), 0);
   const totalUsd   = total / (rate || 1);
 
+  // ✅ 2026-08-15: chegirma tovar narxiga taqsimlanadi (yagona chekdagi kabi)
+  const _dMap = (typeof chekItemDisc === "function") ? chekItemDisc(sale) : {};
   const rows = items.map((it, idx) => {
     const isBox   = it.sellMode === "karobka" && it.qtyBox;
-    const model   = it.art || it.name || "\u2014";
-    const izoh    = [it.color, isBox ? (it.groupSizes||"") : (it.size||"")]
+    // ✅ 2026-08-15: TOVAR NOMI birinchi. Avval `it.art || it.name` edi —
+    // artikul bo'lsa NOM umuman chiqmasdi, chekda faqat kod ko'rinardi
+    // ("Q.17", "LR-01" — egasining shikoyati).
+    const model   = it.name || it.art || "\u2014";
+    const _artSub = (it.art && it.art !== it.name) ? it.art : "";
+    const izoh    = [_artSub, it.color, isBox ? (it.groupSizes||"") : (it.size||"")]
                       .filter(Boolean).join(" / ");
     const qtyShow = isBox ? (it.qtyBox + " pchk") : String(it.qty || 0);
     const qtySub  = isBox ? ((it.qty||0) + " dona") : (it.unit || "dona");
-    const perUzs  = Number(it.price||0);
+    const perUzs  = (typeof chekItemPrice === "function")
+      ? chekItemPrice(sale, idx, it, _dMap) : Number(it.price||0);
     const sumUzs  = perUzs * Number(it.qty||0);
     // PDF namunasidagi kabi: dona narx $ da yaxlitlanadi, jami esa
     // O'SHA yaxlitlangan narx \u00d7 soni (aks holda tiyinlarda farq chiqadi).
@@ -1816,6 +1823,7 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
 .ft{text-align:center;font-size:9.5px;margin-top:6px;border-top:1px dashed #000;padding-top:5px}
 @media print{ @page{size:${W}mm auto;margin:0} body{padding:0} .doc{width:${W}mm} }
 
+  ${typeof chekPrintFix === "function" ? chekPrintFix() : ""}
   ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".shop",tagline:".sm",meta:".meta",
       itemName:".l",itemPrice:".r",total:".tot,.big",
       debt:".trow",footer:".ft"}) : ""}
@@ -2041,6 +2049,7 @@ body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
   .acts{display:none}
 }
 
+  ${typeof chekPrintFix === "function" ? chekPrintFix() : ""}
   ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {_noAlign:true,
       shop:".rc",tagline:".rc",meta:".rc",
       itemName:".rc",itemPrice:".rc",total:".rc",debt:".rc",footer:".rc"}) : ""}
@@ -2093,14 +2102,22 @@ function buildReceiptWholesale(sale, opts, cfg) {
   const totalBoxes = items.reduce((a,i) => a + (i.qtyBox||0), 0);
 
   // Tovar qatorlari: MODEL / soni / dona narx ($ va so'm) / jami
+  // ✅ 2026-08-15: CHEGIRMA tovar narxiga taqsimlanadi — yagona
+  // chekdagi kabi (avval bu uslublarda chegirma HIS QILINMASDI).
+  const _dMap = (typeof chekItemDisc === "function") ? chekItemDisc(sale) : {};
   const itemRows = items.map((it, idx) => {
     const isBox   = it.sellMode === "karobka" && it.qtyBox;
-    const model   = it.art || it.name || "\u2014";
-    const rang    = [it.color, isBox ? (it.groupSizes||"") : (it.size||"")]
+    // ✅ 2026-08-15: TOVAR NOMI birinchi. Avval `it.art || it.name` edi —
+    // artikul bo'lsa NOM umuman chiqmasdi, chekda faqat kod ko'rinardi
+    // ("Q.17", "LR-01" — egasining shikoyati).
+    const model   = it.name || it.art || "\u2014";
+    const _artSub = (it.art && it.art !== it.name) ? it.art : "";
+    const rang    = [_artSub, it.color, isBox ? (it.groupSizes||"") : (it.size||"")]
                       .filter(Boolean).join(" / ");
     const qtyShow = isBox ? (it.qtyBox + " pchk (" + (it.qty||0) + ")")
                           : ((it.qty||0) + " " + (it.unit||"dona"));
-    const perUzs  = Number(it.price||0);
+    const perUzs  = (typeof chekItemPrice === "function")
+      ? chekItemPrice(sale, idx, it, _dMap) : Number(it.price||0);
     const sumUzs  = perUzs * Number(it.qty||0);
     return `<tr>
       <td class="c">${idx+1}</td>
@@ -2165,6 +2182,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
   .doc{width:${W}mm}
 }
 
+  ${typeof chekPrintFix === "function" ? chekPrintFix() : ""}
   ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".shop",tagline:".sm",meta:".meta",
       itemName:".l",itemPrice:".r",total:".tot,.big",
       debt:".row",footer:".ft"}) : ""}
@@ -2234,10 +2252,14 @@ function buildReceiptMerx(sale, opts, cfg) {
   const totalDona  = items.reduce((a,i) => a + (i.qty||0), 0);
 
   // Tovarlar — 2 qator: nom+art / rang+o'lcham+pochka
+  const _dMapM = (typeof chekItemDisc === "function") ? chekItemDisc(sale) : {};
   const itemsHtml = items.map((it, idx) => {
     const isBox  = it.sellMode === "karobka" && it.qtyBox;
     const art    = it.art ? `<span class="it-art">${it.art}</span>` : "";
-    const sum     = (it.price||0)*(it.qty||0);
+    // ✅ 2026-08-15: chegirma taqsimlangan narx (yagona chekdagi kabi)
+    const _pShow  = (typeof chekItemPrice === "function")
+      ? chekItemPrice(sale, idx, it, _dMapM) : (it.price||0);
+    const sum     = _pShow*(it.qty||0);
     // Har doim: dona soni × dona narxi = summa
     const qtyShow = it.qty || 0;       // jami dona
     const unitShow= it.unit || "dona"; // birlik
@@ -2361,6 +2383,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
   .pr.pr-debt,.pr.pr-debt-total{color:#000!important}
 }
 
+  ${typeof chekPrintFix === "function" ? chekPrintFix() : ""}
   ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".hd-name",tagline:".hd-meta",meta:".cust",
       itemName:".it-name",itemPrice:".it-calc,.it-sum",total:".tot-v,.tot",
       debt:".pr-debt,.pr-debt-total,.pr",footer:".ft"}) : ""}
@@ -3274,6 +3297,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
   .doc,.doc *{color:#000}
   .doc{background:#fff}
   .sm,.lbl,.calc{opacity:1}
+  ${typeof chekPrintFix === "function" ? chekPrintFix() : ""}
   ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {
       shop:".shop", tagline:".sm.tagline", meta:".meta",
       itemPrice:".calc", total:".big", debt:".qold,.r2", footer:".ft"
@@ -3440,6 +3464,29 @@ function debtLines(sale, opts) {
 // `sel._noAlign` — tekislash qo'llanmasin (Termal uchun: u BITTA matn
 // bloki, shuning uchun bitta blokka "markaz" qo'yilsa BUTUN chek
 // markazlashib qolardi — egasining shikoyati, 15-avgust).
+// \U0001f534 2026-08-15: CHOP ETISH TUZATISHLARI (egasining shikoyati)
+//   1) Ikkinchi darajali yozuvlar printerda JUDA XIRA chiqardi \u2014
+//      och kulrang (#555, #888) termal printerda deyarli ko'rinmaydi.
+//      Chop etishda hammasi QORA bo'ladi.
+//   2) Chek o'ng tomondan KESILIB ketardi \u2014 jadval qog'ozdan keng
+//      edi. Endi jadval qog'oz eniga majburan sig'adi.
+function chekPrintFix() {
+  return `
+  @media print {
+    /* Barcha matn QORA \u2014 xira yozuv qolmasin */
+    *, .sub, .sm, .lbl, .calc, .it-art, .it-info, .tot-cnt, .hd-meta,
+    .ft-sub, .meta span, small { color:#000 !important; opacity:1 !important }
+    /* Jadval qog'ozga SIG'ADI \u2014 o'ngdan kesilmasin */
+    table { width:100% !important; table-layout:fixed !important;
+            border-collapse:collapse !important }
+    td, th { word-break:break-word !important; overflow-wrap:anywhere !important;
+             padding-left:2px !important; padding-right:2px !important }
+    .doc, .wrap, .rc { width:100% !important; max-width:100% !important;
+                       margin:0 !important; box-shadow:none !important }
+    body { margin:0 !important; padding:0 !important }
+  }`;
+}
+
 function chekStyleCss(cfg, sel) {
   try {
     if (!cfg) return "";
@@ -3717,4 +3764,58 @@ function chekTelegramText(sale, cfg) {
     if (R.footer.length) { L.push(""); R.footer.forEach(t => L.push(esc(t))); }
     return L.join("\n");
   } catch (e) { return ""; }
+}
+
+
+// \u2550\u2550\u2550 CHEGIRMANI TOVARLARGA TAQSIMLASH (2026-08-15) \u2550\u2550\u2550\u2550\u2550
+// Egasining kuzatuvi: chegirma FAQAT "Yagona" chekda his qilinardi \u2014
+// boshqa uslublarda va bot xabarida tovar narxi chegirmasiz chiqardi.
+// Bu \u2014 yagona chekdagi mantiqning aynan o'zi, umumiy funksiyaga
+// chiqarildi (bir joyda tuzatilsin).
+//
+// Qoida: umumiy chegirma har tovarga FOYDAGA mutanosib taqsimlanadi;
+// foyda bilinmasa (tannarx yo'q) \u2014 narxga mutanosib. Butun sonlarda,
+// qoldiq oxirgi tovarga \u2014 pul yo'qolmaydi.
+// \u26a0\ufe0f Faqat CHEK KO'RINISHI. Summa, foyda, qarz TEGILMAYDI.
+function chekItemDisc(sale) {
+  const map = {};
+  try {
+    const items = (sale.items || []).filter(Boolean);
+    const disc  = Number(sale.discount) || 0;
+    if (!(disc > 0) || !items.length) return map;
+
+    const profits = items.map(i => {
+      const line = (i.price || 0) * (i.qty || 0);
+      const cost = (i.cost != null ? i.cost : 0) * (i.qty || 0);
+      const p = line - cost;
+      return p > 0 ? p : 0;
+    });
+    let weights = profits, totW = profits.reduce((a, b) => a + b, 0);
+    if (totW <= 0) {
+      weights = items.map(i => (i.price || 0) * (i.qty || 0));
+      totW = weights.reduce((a, b) => a + b, 0);
+    }
+    if (totW <= 0) return map;
+
+    let allocated = 0, lastIdx = -1;
+    items.forEach((it, ix) => { if (weights[ix] > 0) lastIdx = ix; });
+    items.forEach((it, ix) => {
+      if (weights[ix] <= 0) { map[ix] = 0; return; }
+      const d = Math.floor(disc * weights[ix] / totW);
+      map[ix] = d; allocated += d;
+    });
+    if (lastIdx >= 0) map[lastIdx] += (disc - allocated);  // qoldiq
+  } catch (e) {}
+  return map;
+}
+
+// Tovarning chekda ko'rsatiladigan DONA narxi (chegirma taqsimlangan)
+function chekItemPrice(sale, idx, it, discMap) {
+  try {
+    const q = Number(it.qty) || 0;
+    const p = Number(it.price) || 0;
+    if (!q) return p;
+    const d = (discMap || {})[idx] || 0;
+    return Math.max(0, p - (d / q));
+  } catch (e) { return Number(it.price) || 0; }
 }
