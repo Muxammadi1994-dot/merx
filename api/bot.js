@@ -4438,7 +4438,7 @@ function buildReceiptWholesale(sale, opts, cfg) {
         // ✅ 2026-08-15: ASL narx chizib ko'rsatiladi (yagona chekdagi kabi)
         const _b = (typeof chekItemBase === "function") ? chekItemBase(sale, idx, it, _dMap) : null;
         return (_b && _b > perUzs)
-          ? `<span style="text-decoration:line-through;color:#666;font-size:.85em">${F(_b)}</span><br>${F(perUzs)}`
+          ? `<span style="text-decoration:line-through;color:#666;font-size:.82em;display:block;line-height:1.15">${F(_b)}</span><span style="display:block">${F(perUzs)}</span>`
           : F(perUzs);
       })()}<div class="sub">${D(perUzs / (rate||1))}</div></td>
       <td class="r b">${F(sumUzs)}<div class="sub">${D(sumUzs / (rate||1))}</div></td>
@@ -4524,8 +4524,8 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
   <!-- ✅ 2026-08-14: "Oldingi qarz" endi pastdagi QARZ bo'limida -->
   <table style="table-layout:fixed;width:100%">
     <thead><tr>
-      <th style="width:6%">\u2116</th><th class="l" style="width:36%">Model</th>
-      <th style="width:14%">Soni</th><th class="r" style="width:22%">Narx</th><th class="r" style="width:22%">Jami</th>
+      <th style="width:5%">\u2116</th><th class="l" style="width:35%">Model</th>
+      <th style="width:15%">Soni</th><th class="r" style="width:23%">Narx</th><th class="r" style="width:22%">Jami</th>
     </tr></thead>
     <tbody>${itemRows}</tbody>
   </table>
@@ -4609,7 +4609,7 @@ function buildReceiptTable(sale, opts, cfg) {
       <td class="r">${D(perUsd)}<div class="sub">${(() => {
         const _b = (typeof chekItemBase === "function") ? chekItemBase(sale, idx, it, _dMap) : null;
         return (_b && _b > perUzs)
-          ? `<span style="text-decoration:line-through;color:#666">${F(_b)}</span> ${F(perUzs)}`
+          ? `<span style="text-decoration:line-through;color:#666;display:block;line-height:1.15">${F(_b)}</span><span style="display:block">${F(perUzs)}</span>`
           : F(perUzs);
       })()}</div></td>
       <td class="r b">${D(perUsd * Number(it.qty||0))}<div class="sub">${F(sumUzs)}</div></td>
@@ -4675,10 +4675,10 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
   </div>
   <table style="table-layout:fixed;width:100%">
     <thead><tr>
-      <th style="width:6%">\u2116</th>
-      <th class="l" style="width:36%">Model</th>
-      <th style="width:14%">Soni</th>
-      <th class="r" style="width:22%">Narx<span class="u">$ / so'm</span></th>
+      <th style="width:5%">\u2116</th>
+      <th class="l" style="width:35%">Model</th>
+      <th style="width:15%">Soni</th>
+      <th class="r" style="width:23%">Narx<span class="u">$ / so'm</span></th>
       <th class="r" style="width:22%">Jami<span class="u">$ / so'm</span></th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -4794,11 +4794,22 @@ function chekPrintFix() {
        shunga moslashadi. */
     @page { size: auto !important; margin: 0 !important }
     html, body { width:auto !important; margin:0 !important; padding:0 !important }
+    /* \u26a0\ufe0f 2026-08-15: enni PRINTER beradi. Egasining o'lchovi:
+       80mm qog'oz \u2014 bosiladigan eni 72.1mm. Hujjat 72mm qilib
+       qotirilgan edi va ramka/ichki bo'shliq bilan birga o'sha 72.1
+       dan OSHIB ketardi \u2014 o'ng ustun qirqilardi. Endi hujjat
+       bosiladigan enning 100% i, ichki bo'shliq esa ENGA KIRADI
+       (box-sizing), ya'ni oshib ketmaydi. */
     .doc, .wrap, .rc {
       width:100% !important; max-width:100% !important;
-      margin:0 !important; padding-left:1mm !important; padding-right:1mm !important;
+      margin:0 !important; padding:0 1mm !important;
       box-shadow:none !important; border:none !important;
       box-sizing:border-box !important }
+    /* Jadval ramkalari ham enga kirsin */
+    table, td, th { box-sizing:border-box !important }
+    /* Chizilgan asl narx AYRIM qatorda \u2014 ustunni kengaytirmasin */
+    td.r s, td.r span[style*="line-through"] {
+      display:block !important; line-height:1.1 !important; font-size:.8em !important }
     table { width:100% !important; table-layout:fixed !important;
             border-collapse:collapse !important }
     td, th { word-break:break-word !important; overflow-wrap:anywhere !important;
