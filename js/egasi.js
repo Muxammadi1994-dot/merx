@@ -1250,6 +1250,8 @@ function _livePreviewCfg() {
 function _previewSampleSale(type) {
   const rate = db.settings?.rate || 12800;
   const base = {
+    // ✅ 2026-08-15: NAMUNA — "Bulutga yuborilmagan" eslatmasi chiqmasin
+    serverWritten: true,
     chekNum: "CHK-NAMUNA-0001",
     date: _dStr(new Date()),
     time: "12:34",
@@ -1843,6 +1845,10 @@ function csPick(style) {
 
 // 2-bo'lim: qarz chitigi uslubi
 function csPickQarz(style) {
+  // \U0001f534 2026-08-15: surish holati saqlanadi (sotuv kartalaridagi kabi)
+  const _sc0 = document.getElementById("pages");
+  const _y0  = _sc0 ? _sc0.scrollTop : 0;
+  const _tikla = () => { try { if (_sc0) _sc0.scrollTop = _y0; } catch (e) {} };
   try {
     const el = document.getElementById("chek-qarz-style");
     if (el) {
@@ -1859,7 +1865,23 @@ function csPickQarz(style) {
       c.style.border     = on ? "2px solid var(--acc)" : "1.5px solid var(--brd)";
       c.style.background = on ? "var(--bg2,#FAFAF8)" : "";
     });
+    // \U0001f534 2026-08-15: NAMUNA QAYTA CHIZILADI va tepadagi tanlov
+    // "Qarz" ga o'tadi. Avval karta bosilganda namuna umuman
+    // yangilanmasdi — tepadagi namuna bilan aloqa uzilgan edi
+    // (egasining kuzatuvi: "bosgan bilan chaqirmayapti").
+    try {
+      if (typeof _previewType !== "undefined") _previewType = "qarz";
+      document.querySelectorAll(".prev-tab").forEach(b => {
+        const on = b.dataset.pt === "qarz";
+        b.classList.toggle("btn-acc", on);
+        b.classList.toggle("btn-ghost", !on);
+      });
+      if (typeof renderChekPreview === "function") renderChekPreview();
+    } catch (e) {}
   } catch (e) {}
+  _tikla();
+  try { requestAnimationFrame(_tikla); } catch (e) {}
+  setTimeout(_tikla, 120);
 }
 
 // Tanlangan sotuv uslubining namunasi
@@ -1977,6 +1999,10 @@ function _previewPayment() {
     currency: "uzs", rate: (db.settings && db.settings.rate) || 0,
     method: "naqd",
     debtBefore: 5000000, debtAfter: 3500000,
-    due: "2026-08-15"
+    due: "2026-08-15",
+    // ✅ 2026-08-15: bu NAMUNA, haqiqiy to'lov emas — shuning uchun
+    // "Bulutga yuborilmagan" ogohlantirishi chiqmasligi kerak
+    // (egasining kuzatuvi: Termal namunasida eslatma turardi).
+    serverWritten: true
   };
 }
