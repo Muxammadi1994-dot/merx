@@ -3517,14 +3517,21 @@ function chekPrintFix(W) {
   // YECHIM: sahifa eni chizuvchi bilan BIR XIL qoladi, hujjat esa
   // undan 4mm TOR \u2014 shunda har qanday drayverda sig'adi.
   const w  = Number(W) || 72;
-  const wd = Math.max(40, w - 4);
+  // Chapga tekislanganda katta zaxira kerak emas — 2mm yetadi.
+  // (4mm edi: markazga qo'yilgani uchun ikki tomondan olinardi.)
+  const wd = Math.max(40, w - 2);
   return `
   @media print {
     @page { size: ${w}mm auto; margin: 0 }
     html, body { width:${w}mm !important; margin:0 !important; padding:0 !important }
     .doc, .wrap, .rc {
       width:${wd}mm !important; max-width:${wd}mm !important;
-      margin:0 auto !important; padding:0 !important;
+      /* \U0001f534 2026-08-15: CHAPGA tekislanadi, MARKAZGA emas.
+         Rasm ko'rsatdi: chapda katta bo'sh joy, o'ngda kesik \u2014
+         yani mazmun ongga surilgan. Sabab: markazga qoyish hujjatni
+         QOG'OZ o'rtasiga qo'yardi, bosiladigan qism esa CHAPDAN
+         boshlanadi. Endi chapga yopishadi \u2014 o'ng chekka chiqmaydi. */
+      margin:0 !important; padding:0 !important;
       box-shadow:none !important; border:none !important;
       box-sizing:border-box !important }
     table { width:100% !important; table-layout:fixed !important;
