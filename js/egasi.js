@@ -1882,18 +1882,18 @@ function csPickQarz(style) {
       c.style.border     = on ? "2px solid var(--acc)" : "1.5px solid var(--brd)";
       c.style.background = on ? "var(--bg2,#FAFAF8)" : "";
     });
-    // \U0001f534 2026-08-15: NAMUNA QAYTA CHIZILADI va tepadagi tanlov
-    // "Qarz" ga o'tadi. Avval karta bosilganda namuna umuman
-    // yangilanmasdi — tepadagi namuna bilan aloqa uzilgan edi
-    // (egasining kuzatuvi: "bosgan bilan chaqirmayapti").
+    // ⚠️ 2026-08-15 TUZATISH: `_previewType` ni bu yerda
+    // O'ZGARTIRMAYMIZ. U UMUMIY o'zgaruvchi va blok sozlamalari
+    // qaysi turga tegishli ekanini ham belgilaydi — qarz kartasi
+    // bosilganda SOTUV sozlamalari ham qarz turiga o'tib ketardi
+    // ("sotuv va qarz cheki aralashdi" — egasining shikoyati).
+    // Namuna faqat FOYDALANUVCHI "Qarz" tugmasini bosganda
+    // qarz turida chiziladi; karta esa faqat uslubni almashtiradi.
     try {
-      if (typeof _previewType !== "undefined") _previewType = "qarz";
-      document.querySelectorAll(".prev-tab").forEach(b => {
-        const on = b.dataset.pt === "qarz";
-        b.classList.toggle("btn-acc", on);
-        b.classList.toggle("btn-ghost", !on);
-      });
-      if (typeof renderChekPreview === "function") renderChekPreview();
+      if (typeof _previewType !== "undefined" && _previewType === "qarz" &&
+          typeof renderChekPreview === "function") {
+        renderChekPreview();
+      }
     } catch (e) {}
   } catch (e) {}
   _tikla();

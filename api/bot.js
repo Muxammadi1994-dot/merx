@@ -1640,7 +1640,24 @@ async function actionRenderPayReceipt(payId, shopId) {
     const _c  = (typeof _ck !== "undefined" ? _ck : {}) || {};
     const _st = (_c.styleV2 === true) ? (_c.qarzStyle || "unified") : "unified";
     if (typeof buildPayReceiptStyled === "function") {
-      return buildPayReceiptStyled(p, {
+      // \U0001f534 2026-08-15: MAYDON NOMLARI MOSLASHTIRILADI.
+      // Baza `debt_before/debt_after/chek_num/...` (pastki chiziq),
+      // chizuvchi esa `debtBefore/debtAfter/chekNum` kutadi \u2014 mos
+      // kelmagani uchun "qarz edi / qoldi" qatorlari CHEKDA
+      // TUSHIB QOLARDI (egasining kuzatuvi).
+      const _p = {
+        ...p,
+        chekNum:      p.chekNum      ?? p.chek_num,
+        customerName: p.customerName ?? p.customer_name,
+        customerPhone:p.customerPhone?? p.customer_phone,
+        amountSom:    p.amountSom    ?? p.amount_som,
+        amountUsd:    p.amountUsd    ?? p.amount_usd,
+        debtBefore:   p.debtBefore   ?? p.debt_before,
+        debtAfter:    p.debtAfter    ?? p.debt_after,
+        methodBreakdown: p.methodBreakdown ?? p.method_breakdown,
+        serverWritten: true
+      };
+      return buildPayReceiptStyled(_p, {
         style: _st,
         shopName,
         staffName: p.staff_name || "",
