@@ -4078,7 +4078,7 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;display:flex;flex-direc
   .pr.pr-debt,.pr.pr-debt-total{color:#000!important}
 }
 
-  ${typeof chekPrintFix === "function" ? chekPrintFix() : ""}
+  ${typeof chekPrintFix === "function" ? chekPrintFix(cfg && cfg.paperWidth) : ""}
   ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".hd-name",tagline:".hd-meta",meta:".cust",
       itemName:".it-name",itemPrice:".it-calc,.it-sum",total:".tot-v,.tot",
       debt:".pr-debt,.pr-debt-total,.pr",footer:".ft"}) : ""}
@@ -4355,7 +4355,7 @@ body{font-family:'Courier New',Courier,monospace;background:#f0f0f0;
   .acts{display:none}
 }
 
-  ${typeof chekPrintFix === "function" ? chekPrintFix() : ""}
+  ${typeof chekPrintFix === "function" ? chekPrintFix(cfg && cfg.paperWidth) : ""}
   ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {_noAlign:true,
       shop:".rc",tagline:".rc",meta:".rc",
       itemName:".rc",itemPrice:".rc",total:".rc",debt:".rc",footer:".rc"}) : ""}
@@ -4438,7 +4438,7 @@ function buildReceiptWholesale(sale, opts, cfg) {
         // ✅ 2026-08-15: ASL narx chizib ko'rsatiladi (yagona chekdagi kabi)
         const _b = (typeof chekItemBase === "function") ? chekItemBase(sale, idx, it, _dMap) : null;
         return (_b && _b > perUzs)
-          ? `<span style="text-decoration:line-through;color:#666;font-size:.82em;display:block;line-height:1.15">${F(_b)}</span><span style="display:block">${F(perUzs)}</span>`
+          ? `<span style="text-decoration:line-through;color:#666;display:block;line-height:1.15">${F(_b)}</span><span style="display:block">${F(perUzs)}</span>`
           : F(perUzs);
       })()}<div class="sub">${D(perUzs / (rate||1))}</div></td>
       <td class="r b">${F(sumUzs)}<div class="sub">${D(sumUzs / (rate||1))}</div></td>
@@ -4499,7 +4499,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
   .doc{width:${W}mm}
 }
 
-  ${typeof chekPrintFix === "function" ? chekPrintFix() : ""}
+  ${typeof chekPrintFix === "function" ? chekPrintFix(cfg && cfg.paperWidth) : ""}
   ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".shop",tagline:".sm",meta:".meta",
       itemName:".l",itemPrice:".r",total:".tot,.big",
       debt:".row",footer:".ft"}) : ""}
@@ -4524,7 +4524,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
   <!-- ✅ 2026-08-14: "Oldingi qarz" endi pastdagi QARZ bo'limida -->
   <table style="table-layout:fixed;width:100%">
     <thead><tr>
-      <th style="width:5%">\u2116</th><th class="l" style="width:35%">Model</th>
+      <th style="width:7%">\u2116</th><th class="l" style="width:33%">Model</th>
       <th style="width:15%">Soni</th><th class="r" style="width:23%">Narx</th><th class="r" style="width:22%">Jami</th>
     </tr></thead>
     <tbody>${itemRows}</tbody>
@@ -4649,7 +4649,7 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
 .ft{text-align:center;font-size:9.5px;margin-top:6px;border-top:1px dashed #000;padding-top:5px}
 @media print{ @page{size:${W}mm auto;margin:0} body{padding:0} .doc{width:${W}mm} }
 
-  ${typeof chekPrintFix === "function" ? chekPrintFix() : ""}
+  ${typeof chekPrintFix === "function" ? chekPrintFix(cfg && cfg.paperWidth) : ""}
   ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".shop",tagline:".sm",meta:".meta",
       itemName:".l",itemPrice:".r",total:".tot,.big",
       debt:".trow",footer:".ft"}) : ""}
@@ -4675,8 +4675,8 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
   </div>
   <table style="table-layout:fixed;width:100%">
     <thead><tr>
-      <th style="width:5%">\u2116</th>
-      <th class="l" style="width:35%">Model</th>
+      <th style="width:7%">\u2116</th>
+      <th class="l" style="width:33%">Model</th>
       <th style="width:15%">Soni</th>
       <th class="r" style="width:23%">Narx<span class="u">$ / so'm</span></th>
       <th class="r" style="width:22%">Jami<span class="u">$ / so'm</span></th>
@@ -4782,42 +4782,39 @@ function chekItemPrice(sale, idx, it, discMap) {
   } catch (e) { return Number(it.price) || 0; }
 }
 
-function chekPrintFix() {
+function chekPrintFix(W) {
+  // \U0001f534 2026-08-15 ILDIZ (uch urinishdan keyin aniqlandi):
+  // Chizuvchida `@page{size:Wmm}` bor edi, men esa `size:auto` qo'ydim.
+  // `auto` \u2014 QOG'OZ enini oladi (80mm), BOSILADIGAN enni emas
+  // (72.1mm). Shuning uchun o'ng ~8mm qirqilardi. Egasining o'lchovi
+  // buni tasdiqladi: printer "80(72.1)".
+  // YECHIM: sahifa eni chizuvchi bilan BIR XIL qoladi, hujjat esa
+  // undan 4mm TOR \u2014 shunda har qanday drayverda sig'adi.
+  const w  = Number(W) || 72;
+  const wd = Math.max(40, w - 4);
   return `
   @media print {
-    /* \U0001f534 2026-08-15 ILDIZ-TUZATISH: O'NGDAN QIRQILISH.
-       Sabab: chizuvchida \`@page{size:\${W}mm}\` va \`.doc{width:\${W}mm}\`
-       QAT'IY yozilgan. Termal printerning BOSILADIGAN eni qog'ozdan
-       kichik (80mm qog'oz \u2192 ~72mm bosiladi), shuning uchun o'ng
-       tomon kesilardi. Endi: sahifa o'lchami PRINTERDAN olinadi
-       (size:auto) va mazmun 100% bo'ladi \u2014 qanday printer bo'lsa
-       shunga moslashadi. */
-    @page { size: auto !important; margin: 0 !important }
-    html, body { width:auto !important; margin:0 !important; padding:0 !important }
-    /* \u26a0\ufe0f 2026-08-15: enni PRINTER beradi. Egasining o'lchovi:
-       80mm qog'oz \u2014 bosiladigan eni 72.1mm. Hujjat 72mm qilib
-       qotirilgan edi va ramka/ichki bo'shliq bilan birga o'sha 72.1
-       dan OSHIB ketardi \u2014 o'ng ustun qirqilardi. Endi hujjat
-       bosiladigan enning 100% i, ichki bo'shliq esa ENGA KIRADI
-       (box-sizing), ya'ni oshib ketmaydi. */
+    @page { size: ${w}mm auto; margin: 0 }
+    html, body { width:${w}mm !important; margin:0 !important; padding:0 !important }
     .doc, .wrap, .rc {
-      width:100% !important; max-width:100% !important;
-      margin:0 !important; padding:0 1mm !important;
+      width:${wd}mm !important; max-width:${wd}mm !important;
+      margin:0 auto !important; padding:0 !important;
       box-shadow:none !important; border:none !important;
       box-sizing:border-box !important }
-    /* Jadval ramkalari ham enga kirsin */
-    table, td, th { box-sizing:border-box !important }
-    /* Chizilgan asl narx AYRIM qatorda \u2014 ustunni kengaytirmasin */
-    td.r s, td.r span[style*="line-through"] {
-      display:block !important; line-height:1.1 !important; font-size:.8em !important }
     table { width:100% !important; table-layout:fixed !important;
             border-collapse:collapse !important }
+    table, td, th { box-sizing:border-box !important }
     td, th { word-break:break-word !important; overflow-wrap:anywhere !important;
              padding-left:1px !important; padding-right:1px !important }
-    /* Narx ustunlari bo'linmasin */
+    /* \u2116 ustuni: ikki xonali raqam BO'LINMASIN */
+    td.c:first-child, th.c:first-child, td:first-child, th:first-child {
+      white-space:nowrap !important; padding:0 !important; text-align:center !important }
     td.r, th.r { white-space:nowrap !important }
-    /* \u26a0\ufe0f BARCHA matn QORA \u2014 termal printer xira rangni bosmaydi.
-       Chizilgan asl narx ham QORA (chiziq o'zi farqni bildiradi). */
+    /* Chizilgan asl narx: AYRIM qatorda, o'lchami yangisiga TENG */
+    td.r s, td.r span[style*="line-through"] {
+      display:block !important; line-height:1.15 !important;
+      font-size:inherit !important; color:#000 !important; opacity:1 !important }
+    /* Barcha matn QORA \u2014 termal printer xira rangni bosmaydi */
     *, .sub, .sm, .lbl, .calc, .it-art, .it-info, .tot-cnt, .hd-meta,
     .ft-sub, .meta span, small, s, del,
     span[style*="line-through"], span[style*="opacity"] {
