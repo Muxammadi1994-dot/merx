@@ -205,6 +205,9 @@ document.querySelectorAll(".ni").forEach(n => n.onclick = () => nav(n.dataset.p)
 
 // vm-qty input listener (modal element)
 document.addEventListener("DOMContentLoaded", () => {
+  // ✅ 2026-08-15: brauzer aralashuvidan himoya — login yozilib
+  // qolishi va "Parolni saqlash?" oynasining oldini oladi.
+  try { if (typeof autofillGuardWatch === "function") autofillGuardWatch(); } catch (e) {}
   const e = $("vm-qty"); if (e) e.addEventListener("input", () => renderVmChips());
 });
 

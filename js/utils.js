@@ -2572,6 +2572,8 @@ function applyInputModes(root) {
   try {
     const scope = root || document;
     scope.querySelectorAll("input:not([data-im])").forEach(el => {
+      // 2026-08-15: soxta himoya juftligi — chetlab o'tiladi
+      if (el.dataset.afFake === "1") return;
       el.dataset.im = "1";
       const t = (el.type || "text").toLowerCase();
       // Tegishli bo'lmagan turlar
@@ -3944,4 +3946,77 @@ function chekItemBase(sale, idx, it, discMap) {
     if (d > 0) return p;          // umumiy chegirma taqsimlangan
     return null;
   } catch (e) { return null; }
+}
+
+
+// \u2550\u2550\u2550 BRAUZER ARALASHUVIDAN HIMOYA (2026-08-15) \u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// Egasining ikki shikoyati, ildizi BITTA \u2014 Chrome maydonlarni
+// "login/parol" deb o'ylaydi:
+//   1) Yangilashdan keyin do'kon LOGINI qaysidir qatorga yozilib
+//      qolardi (avval qidiruv qatorlariga himoya qo'yilgan, lekin
+//      POS to'lov maydonlariga yetmagan);
+//   2) Qarz to'laganda "Parolni saqlash?" oynasi chiqardi \u2014
+//      summani login deb olardi (jonli: "\u0418\u043c\u044f: 100 0000").
+//
+// \u26a0\ufe0f NIMAGA TEGMAYDI: maydon qiymati, `oninput`, hisob-kitob,
+// `datalist` takliflari (rang, kategoriya) va POS skaner dvijoki
+// (`document.activeElement` orqali ishlaydi) \u2014 hammasi o'z holicha.
+// Faqat brauzerning O'Z xotirasidan to'ldirishi to'xtaydi.
+function autofillGuard(root) {
+  try {
+    const box = root || document;
+    const els = box.querySelectorAll("input, textarea");
+    els.forEach(el => {
+      const t = (el.type || "").toLowerCase();
+      if (t === "checkbox" || t === "radio" || t === "file" ||
+          t === "submit" || t === "button" || t === "hidden") return;
+      if (el.dataset.afFake === "1") return;       // soxta juftlik — tegmaymiz
+      if (el.dataset.afGuard === "1") return;      // bir marta yetadi
+      // Parol maydonlari \u2014 brauzer menejeri KERAK bo'lishi mumkin
+      if (t === "password") { el.setAttribute("autocomplete", "new-password"); }
+      else if (!el.getAttribute("autocomplete")) {
+        el.setAttribute("autocomplete", "off");
+      }
+      // Parol menejerlari (LastPass, 1Password, Chrome) uchun belgi
+      el.setAttribute("data-lpignore", "true");
+      el.setAttribute("data-form-type", "other");
+      el.setAttribute("data-1p-ignore", "true");
+      // Noyob nom \u2014 brauzer "bu o'sha maydon" deb tanimaydi
+      if (!el.name) el.name = "f" + Math.random().toString(36).slice(2, 9);
+      el.dataset.afGuard = "1";
+    });
+  } catch (e) {}
+}
+
+// Yangi chizilgan maydonlarga ham avtomat qo'llanadi (POS savati,
+// modallar, jadval qatorlari) \u2014 kuzatuvchi orqali.
+function autofillGuardWatch() {
+  try {
+    // \U0001f512 SOXTA MAYDON: Chrome modal ichida ikkita matn maydoni
+    // ko'rsa "login + parol" deb o'ylab saqlashni taklif qiladi.
+    // Ko'rinmas soxta juftlik qo'ysak — u o'shani oladi va haqiqiy
+    // maydonlarga tegmaydi. Hech qanday ishga aralashmaydi:
+    // `data-af-fake` belgisi bor, tashqarida ko'rinmaydi.
+    if (!document.getElementById("af-fake-user")) {
+      const box = document.createElement("div");
+      box.setAttribute("aria-hidden", "true");
+      box.style.cssText = "position:absolute;left:-9999px;top:-9999px;" +
+                          "width:1px;height:1px;overflow:hidden;opacity:0";
+      box.innerHTML =
+        '<input id="af-fake-user" data-af-fake="1" type="text" tabindex="-1" ' +
+        'autocomplete="username" name="af_user">' +
+        '<input id="af-fake-pass" data-af-fake="1" type="password" tabindex="-1" ' +
+        'autocomplete="current-password" name="af_pass">';
+      document.body.appendChild(box);
+    }
+    autofillGuard(document);
+    const obs = new MutationObserver(muts => {
+      let bor = false;
+      muts.forEach(m => m.addedNodes && m.addedNodes.forEach(n => {
+        if (n.nodeType === 1) bor = true;
+      }));
+      if (bor) autofillGuard(document);
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+  } catch (e) {}
 }
