@@ -1793,7 +1793,7 @@ function buildReceiptTable(sale, opts, cfg) {
       <td class="r">${D(perUsd)}<div class="sub">${(() => {
         const _b = (typeof chekItemBase === "function") ? chekItemBase(sale, idx, it, _dMap) : null;
         return (_b && _b > perUzs)
-          ? `<span style="text-decoration:line-through;opacity:.55">${F(_b)}</span> ${F(perUzs)}`
+          ? `<span style="text-decoration:line-through;color:#666">${F(_b)}</span> ${F(perUzs)}`
           : F(perUzs);
       })()}</div></td>
       <td class="r b">${D(perUsd * Number(it.qty||0))}<div class="sub">${F(sumUzs)}</div></td>
@@ -2142,7 +2142,7 @@ function buildReceiptWholesale(sale, opts, cfg) {
         // ✅ 2026-08-15: ASL narx chizib ko'rsatiladi (yagona chekdagi kabi)
         const _b = (typeof chekItemBase === "function") ? chekItemBase(sale, idx, it, _dMap) : null;
         return (_b && _b > perUzs)
-          ? `<span style="text-decoration:line-through;opacity:.55;font-size:.85em">${F(_b)}</span><br>${F(perUzs)}`
+          ? `<span style="text-decoration:line-through;color:#666;font-size:.85em">${F(_b)}</span><br>${F(perUzs)}`
           : F(perUzs);
       })()}<div class="sub">${D(perUzs / (rate||1))}</div></td>
       <td class="r b">${F(sumUzs)}<div class="sub">${D(sumUzs / (rate||1))}</div></td>
@@ -3494,23 +3494,32 @@ function debtLines(sale, opts) {
 function chekPrintFix() {
   return `
   @media print {
-    /* Barcha matn QORA \u2014 xira yozuv qolmasin */
-    *, .sub, .sm, .lbl, .calc, .it-art, .it-info, .tot-cnt, .hd-meta,
-    .ft-sub, .meta span, small { color:#000 !important; opacity:1 !important }
-    /* Jadval qog'ozga SIG'ADI \u2014 o'ngdan kesilmasin */
+    /* \U0001f534 2026-08-15 ILDIZ-TUZATISH: O'NGDAN QIRQILISH.
+       Sabab: chizuvchida \`@page{size:\${W}mm}\` va \`.doc{width:\${W}mm}\`
+       QAT'IY yozilgan. Termal printerning BOSILADIGAN eni qog'ozdan
+       kichik (80mm qog'oz \u2192 ~72mm bosiladi), shuning uchun o'ng
+       tomon kesilardi. Endi: sahifa o'lchami PRINTERDAN olinadi
+       (size:auto) va mazmun 100% bo'ladi \u2014 qanday printer bo'lsa
+       shunga moslashadi. */
+    @page { size: auto !important; margin: 0 !important }
+    html, body { width:auto !important; margin:0 !important; padding:0 !important }
+    .doc, .wrap, .rc {
+      width:100% !important; max-width:100% !important;
+      margin:0 !important; padding-left:1mm !important; padding-right:1mm !important;
+      box-shadow:none !important; border:none !important;
+      box-sizing:border-box !important }
     table { width:100% !important; table-layout:fixed !important;
             border-collapse:collapse !important }
     td, th { word-break:break-word !important; overflow-wrap:anywhere !important;
-             padding-left:2px !important; padding-right:2px !important }
-    /* \u26a0\ufe0f 2026-08-15: hujjat qog'ozdan 3mm TOR — printerlar chetdan
-       biroz kesadi, shuning uchun o'ng ustun yo'qolardi. */
-    .doc, .wrap, .rc { width:calc(100% - 3mm) !important; max-width:calc(100% - 3mm) !important;
-                       margin:0 auto !important; box-shadow:none !important }
-    /* Narx/jami ustunlari BO'LINMASIN */
-    td.r, th.r { white-space:nowrap !important; font-size:.94em !important }
-    /* Chizilgan asl narx kichikroq — ustunni kengaytirmasin */
-    td.r s, td.r span[style*="line-through"] { font-size:.8em !important; opacity:.7 !important }
-    body { margin:0 !important; padding:0 !important }
+             padding-left:1px !important; padding-right:1px !important }
+    /* Narx ustunlari bo'linmasin */
+    td.r, th.r { white-space:nowrap !important }
+    /* \u26a0\ufe0f BARCHA matn QORA \u2014 termal printer xira rangni bosmaydi.
+       Chizilgan asl narx ham QORA (chiziq o'zi farqni bildiradi). */
+    *, .sub, .sm, .lbl, .calc, .it-art, .it-info, .tot-cnt, .hd-meta,
+    .ft-sub, .meta span, small, s, del,
+    span[style*="line-through"], span[style*="opacity"] {
+      color:#000 !important; opacity:1 !important }
   }`;
 }
 
