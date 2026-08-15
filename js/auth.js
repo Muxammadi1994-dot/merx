@@ -882,10 +882,29 @@ async function doLogin() {
           const _newSid = sbAuthRes.shopId;
           const _curSid = db?.settings?.cloudShopId || null;
           if (_newSid && _curSid && _newSid !== _curSid) {
-            console.log("🔁 Boshqa do'konga kirish — begona kesh tozalanmoqda:", _curSid, "→", _newSid);
+            console.log("\U0001f501 Boshqa do'konga kirish — begona kesh tozalanmoqda:", _curSid, "→", _newSid);
             // Faqat ESKI (begona) do'kon keshini o'chiramiz — yangisi pull bilan keladi
             try { localStorage.removeItem("merx_v5_" + _curSid); } catch(e) {}
             window._loadedDbKey = "merx_v5_" + _newSid;
+
+            // \U0001f534 2026-08-15: XOTIRA HAM TOZALANADI.
+            // Avval faqat KESH o'chirilardi, xotiradagi `db` esa eski
+            // do'kon ma'lumoti bilan qolardi. Yangi do'kon ma'lumoti
+            // yuklanmasdan push ishga tushsa, o'sha eski yozuvlar YANGI
+            // do'kon ID si bilan bulutga yozilardi — 15-avgustda ABU
+            // SAXIY ning 3279 sotuvi, 875 mijozi, 783 xarajati B20 ga
+            // shu yo'l bilan tushgan.
+            // XAVFSIZ: `_dataShopId` bo'sh qoladi, ya'ni push yuqoridagi
+            // egalik tekshiruvidan O'TMAYDI — bo'sh ro'yxat bulutga
+            // yozilib ma'lumot o'chishi MUMKIN EMAS.
+            try {
+              ["sales","products","customers","staff","xarajatlar","chiqimlar",
+               "returns","ombor","suppliers","shifts","debtPayments"].forEach(k => {
+                if (Array.isArray(db[k])) db[k] = [];
+              });
+              if (db.settings) delete db.settings._dataShopId;
+              console.log("\U0001f9f9 Xotira tozalandi — yangi do'kon ma'lumoti pull bilan keladi");
+            } catch(e) { console.warn("xotira tozalash xato:", e.message); }
           }
         } else {
           console.warn("ℹ️ Supabase Auth token olinmadi:", sbAuthRes.error);
@@ -954,7 +973,11 @@ async function doLogin() {
           shopDB = {
             shop: { name: shop.name, type: sets?.shop_type || "ikki" },
             settings: {
-              rate: sets?.rate || 12800, priceCurrency: sets?.price_currency || "uzs",
+              // ⚠️ 2026-08-14: bulutda kurs yo'q bo'lsa 12800 YOZILMAYDI —
+              // avval shu yerda soxta kurs lokalga tushib, ekranda
+              // haqiqiy kursdek ko'rinardi (egasining shikoyati).
+              ...(sets?.rate ? { rate: sets.rate } : {}),
+              priceCurrency: sets?.price_currency || "uzs",
               supabaseUrl: _sbUrl, supabaseKey: _sbKey
             },
             customers:[],products:[],sales:[],staff:[],

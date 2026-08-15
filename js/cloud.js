@@ -1024,6 +1024,31 @@ async function pushToCloud() {
   // Tovarlar va mijozlar endi IndexedDB'dan ASINXRON keladi. Agar shu
   // oraliqda push ketsa, bulutga BO'SH ro'yxat yozilib ma'lumot o'chib
   // ketardi. Bayroq qo'yilgach yozish ochiladi (odatda ~1 soniya).
+  // \U0001f534 2026-08-15: EGALIK TEKSHIRUVI — BEGONA MA'LUMOT YOZILMAYDI.
+  // Xotiradagi ma'lumot qaysi do'konniki (`_dataShopId`) va hozir qaysi
+  // do'konga yozmoqchimiz (`sid`) — mos kelmasa push TO'XTAYDI va
+  // avval to'g'ri ma'lumot yuklanadi. Hech narsa o'chirilmaydi.
+  try {
+    const _sid  = (typeof getCloudShopId === "function") ? getCloudShopId() : null;
+    const _dsid = db.settings && db.settings._dataShopId;
+    // \u26a0\ufe0f Muhr YO'Q bo'lsa — ma'lumot hali yuklanmagan degani.
+    // Bunda ham push to'xtatiladi: aks holda do'kon almashgandan keyin
+    // BO'SH ro'yxat bulutga yozilib, yangi do'kon ma'lumotini o'chirib
+    // yuborishi mumkin edi. Pull tugagach muhr qo'yiladi va push ochiladi.
+    if (_sid && !_dsid && (db.sales || []).length === 0 &&
+        (db.products || []).length === 0) {
+      console.warn("\u23f8 Push kutmoqda: ma'lumot egasi hali aniqlanmagan (pull kerak)");
+      try { pullFromCloud(true); } catch (e) {}
+      return;
+    }
+    if (_sid && _dsid && String(_dsid) !== String(_sid)) {
+      console.warn("\u26d4 Push TO'XTATILDI — xotirada BOSHQA do'kon ma'lumoti:",
+                   _dsid, "\u2192", _sid, "| avval pull qilinadi");
+      try { pullFromCloud(true); } catch (e) {}
+      return;
+    }
+  } catch (e) {}
+
   if (typeof window !== "undefined" && window._heavyHydrated === false) {
     console.log("⏳ Push kutmoqda: ma'lumot hali yuklanmoqda");
     try { scheduleCloudSync(); } catch(e) {}
@@ -2685,6 +2710,13 @@ async function pullFromCloud(silent = false, skipRender = false) {
         });
     } catch(e) { console.warn("kesh tozalash xato:", e.message); }
 
+    // \U0001f534 2026-08-15: MA'LUMOT EGASI MUHRLANADI.
+    // Bu muhr push tomonida tekshiriladi: xotiradagi ma'lumot QAYSI
+    // do'konniki ekanini bildiradi. 15-avgustda ABU SAXIY ma'lumoti
+    // (3279 sotuv, 875 mijoz, 783 xarajat) B20 ga yozilib ketgan edi —
+    // qurilma do'kon almashtirganda xotira eski ma'lumot bilan qolgan,
+    // push esa ustiga YANGI do'kon ID sini bosgan.
+    try { db.settings._dataShopId = sid; } catch (e) {}
     saveDB();
     updateCloudUI(true);
     // v177 (4-BOSQICH): endi dashboardga ULOQTIRILMAYDI. Foydalanuvchi
@@ -3671,7 +3703,10 @@ function applyCloudSettings(sets) {
   // keyin o'sha qaytib bulutga ketardi — haqiqiy kurs
   // butunlay yo'qolardi. Endi tartib:
   //   bulutdagi → lokaldagi → standart
-  db.settings.rate       = sets.rate || db.settings.rate || 12800;
+  // ⚠️ 2026-08-14: 12800 ZAXIRA QIYMATI OLIB TASHLANDI. Bulutda kurs
+  // bo'lmasa lokal qiymat qoladi; u ham bo'lmasa — BO'SH (pill "—"
+  // ko'rsatadi). Soxta kurs hech qachon yozilmaydi.
+  if (sets.rate) db.settings.rate = sets.rate;
   db.settings.priceCurrency  = sets.price_currency || db.settings.priceCurrency || "uzs";
   if (sets.shop_type) db.settings.shopType = sets.shop_type;
   // 2026-07-26: valyuta rejimi SuperAdmin tomonidan belgilanadi —
