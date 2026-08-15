@@ -3958,7 +3958,14 @@ function buildReceiptMerx(sale, opts, cfg) {
     // info: rang · o'lcham (agar dona) yoki rang (pochkada o'lcham yo'q)
     const colorStr2 = it.color || "";
     // Tovar qatori: Rang  Qty dona/pchk × Narx = Summa
-    const calcStr = `${F(qtyShow)} ${unitShow} × ${F(pricePer)} = ${F(sum)}${pchkNote}`;
+    // ✅ 2026-08-15: CHEGIRMA ko'rinadi — asl narx chizib beriladi
+    // (Ulgurji/Jadvaldagi kabi). Avval `pricePer` chegirmasiz edi.
+    const _bM = (typeof chekItemBase === "function")
+      ? chekItemBase(sale, idx, it, _dMapM) : null;
+    const _narxM = (_bM && _bM > _pShow)
+      ? `<s style="color:#666">${F(_bM)}</s> ${F(_pShow)}`
+      : F(_pShow);
+    const calcStr = `${F(qtyShow)} ${unitShow} × ${_narxM} = ${F(sum)}${pchkNote}`;
     return `<div class="it">
       <div class="it-top">
         <div class="it-num">${idx+1}</div>
@@ -4203,6 +4210,8 @@ function buildReceiptThermal(sale, opts, cfg) {
   // TOVARLAR — 2 qator
   // Qator 1: N. Nom [ART]
   // Qator 2:   Rang  Qty x Narx = Summa
+  // ✅ 2026-08-15: chegirma hisobga olinadi (boshqa uslublardagi kabi)
+  const _dMapT = (typeof chekItemDisc === "function") ? chekItemDisc(sale) : {};
   const itemLines = items.map((it, i) => {
     const isBox   = it.sellMode === "karobka" && it.qtyBox;
     const qty     = it.qty || 0;  // jami dona soni
@@ -4215,7 +4224,13 @@ function buildReceiptThermal(sale, opts, cfg) {
     const pchkStr = isBox && it.qtyBox ? ` (${it.qtyBox} pchk)` : "";
 
     const row1 = `${i+1}. ${it.name}${art}${pchkStr}`;
-    const calc  = `${color ? color+"  " : ""}${F(qty)}${unit} x ${F(price)} = ${F(sum)}`;
+    // Chegirmali narx; asl narx qavsda (matnli chekda chizish yo'q)
+    const _pT   = (typeof chekItemPrice === "function")
+      ? Math.round(chekItemPrice(sale, i, it, _dMapT)) : price;
+    const _bT   = (typeof chekItemBase === "function")
+      ? chekItemBase(sale, i, it, _dMapT) : null;
+    const _aslT = (_bT && _bT > _pT) ? ` (asl ${F(_bT)})` : "";
+    const calc  = `${color ? color+"  " : ""}${F(qty)}${unit} x ${F(_pT)}${_aslT} = ${F(_pT * qty)}`;
     return row1 + "\n   " + calc;
   }).join("\n" + DA + "\n");
 
@@ -4502,6 +4517,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
     <div><span>Chek</span><b>${chekNum}</b></div>
     <div><span>Sana</span><span>${date} ${time}</span></div>
     ${sale.customerName ? `<div><span>Mijoz</span><b>${sale.customerName}</b></div>` : ""}
+    ${sale.customerPhone ? `<div><span>Mijoz raqami</span><span>${sale.customerPhone}</span></div>` : ""}
     ${showStaff && staffName ? `<div><span>Sotuvchi</span><span>${staffName}</span></div>` : ""}
     <div><span>Kurs</span><span>${F(rate)}</span></div>
   </div>
@@ -4650,6 +4666,7 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
   </div>
   <div class="meta">
     ${sale.customerName ? `<div class="mrow"><span>Mijoz</span><b>${sale.customerName}</b></div>` : ""}
+    ${sale.customerPhone ? `<div class="mrow"><span>Mijoz raqami</span><span>${sale.customerPhone}</span></div>` : ""}
     ${showStaff && staffName ? `<div class="mrow"><span>Sotuvchi</span><span>${staffName}</span></div>` : ""}
     <div class="mrow"><span>Chek \u2116</span><b>${chekNum}</b></div>
     <div class="mrow"><span>Sana</span><span>${date} ${time}</span></div>
