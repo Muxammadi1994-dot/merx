@@ -763,7 +763,7 @@ function openRefundModal(saleId) {
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:13px">${item.name||"?"}</div>
-        <div style="font-size:12px;color:var(--mut)">${item.variant||""} · ${fmt(item.price||0)} so'm/dona</div>
+        <div style="font-size:12px;color:var(--mut)">${item.variant||""}${item.art ? " · " + item.art : ""} · ${fmt(item.price||0)} so'm/dona</div>
         ${usedRaw > 0 ? `<div style="font-size:11px;color:var(--red)">Avval qaytarilgan: ${usedRaw} ${unitLabel}</div>` : ""}
       </div>
       <!-- Sotilgan: KATAK ko'rinishida, o'zgartirib bo'lmaydi -->
@@ -780,6 +780,18 @@ function openRefundModal(saleId) {
         id="ref-sum-${i}">0 so'm</div>
     </div>`;
   }).join("");
+
+  // ✅ 2026-08-16 (egasining talabi): kassadan qaytariladigan qism
+  // uchun USUL tanlovi — Naqd yoki Karta. Qarzdan qoplanadigan qismga
+  // ta'sir qilmaydi (u pul harakati emas, qarz kamayishi).
+  el.insertAdjacentHTML("beforeend", `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 0 2px">
+      <div style="flex:1;font-size:13px;color:var(--mut)">Kassadan qaytarilsa — usuli:</div>
+      <select id="refund-cash-method" style="font-family:inherit;font-size:14px;font-weight:700;border:1.5px solid var(--brd);border-radius:8px;padding:6px 10px;background:var(--bg)">
+        <option value="naqd" selected>💵 Naqd</option>
+        <option value="karta">💳 Karta</option>
+      </select>
+    </div>`);
 
   const infoEl = $("refund-sale-info");
   if (infoEl) infoEl.innerHTML = `${s.date||""} · ${s.customerName||"Noma'lum"} · ${fmt(s.total||0)} so'm`;
@@ -818,7 +830,20 @@ function updateRefundTotal() {
 }
 
 async function confirmRefund() {
-  const s = db.sales.find(x => x.id === _refundSaleId); if (!s) return;
+  // ⚠️ 2026-08-16 PUL-QALQON: TAKROR-QULF — sotuv (_checkoutBusy) va
+  // to'lovdagi (_payBusy) kabi. Jonli isbot: ABU SAXIY,
+  // CHK-20260815-0001-BK — qaytarish bir daqiqada IKKI marta ishlagan
+  // (QT-260815-01/02-BK): xarajat ham, ombor kirimi ham ikkilangan.
+  // Muddat 4s — ichida serverga murojaat (restock) bor.
+  if (window._refundBusy) {
+    toast("⏳ Avvalgi qaytarish yozilmoqda — bir soniya kuting", "err");
+    return;
+  }
+  window._refundBusy = true;
+  setTimeout(() => { window._refundBusy = false; }, 4000);
+
+  const s = db.sales.find(x => x.id === _refundSaleId);
+  if (!s) { window._refundBusy = false; return; }
   const reason     = $("refund-reason")?.value.trim() || "Sabab ko'rsatilmagan";
   const safeItems  = (s.items||[]).filter(Boolean);
   // ⚠️ 2026-08-08: QAYTARISH ENDI CHEGIRMANI HISOBGA OLADI.
@@ -858,9 +883,9 @@ async function confirmRefund() {
     refundTotal += qty * _p;
   });
 
-  if (hasError) return;
-  if (!refundItems.length) { toast("Kamida 1 ta tovar tanlang","err"); return; }
-  if (!confirm(`${fmt(refundTotal)} so'm qaytarilsinmi?\n${refundItems.length} ta tovar omborga qaytadi.`)) return;
+  if (hasError) { window._refundBusy = false; return; }
+  if (!refundItems.length) { window._refundBusy = false; toast("Kamida 1 ta tovar tanlang","err"); return; }
+  if (!confirm(`${fmt(refundTotal)} so'm qaytarilsinmi?\n${refundItems.length} ta tovar omborga qaytadi.`)) { window._refundBusy = false; return; }
 
   let returnedCount = 0;
   // ✅ 2026-08-14 (3-band): qaytarishda qoldiq SERVERDA ham oshadi
@@ -966,17 +991,23 @@ async function confirmRefund() {
     const t = _custTotals(os.customerId);
     _refundAddDebtPayment(os, o.amount, refundNo, t);
     const after = _stateOf(os);
-    if ((after.remaining || 0) <= 0) os.status = "tolandan";
+    if ((after.remaining || 0) <= 0) {
+      os.status = "tolandan";
+      os.updatedAt = new Date().toISOString(); // sinxron muhri — boshqa kassa bosib ketmasin
+    }
   });
 
   if (plan.fromCash > 0) {
+    // ✅ 2026-08-16 (egasining talabi): usul oynadagi tanlovdan —
+    // Naqd yoki Karta. Kassa/karta hisoblari to'g'ri kamayadi.
+    const _cashMethod = ($("refund-cash-method")?.value === "karta") ? "karta" : "naqd";
     if (!db.xarajatlar) db.xarajatlar = [];
     db.xarajatlar.push({
       id: nextId(),
       date: today(),
       category: "Tovar qaytarish",
       amount: plan.fromCash,
-      method: "naqd",
+      method: _cashMethod,
       recipient: s.customerName || "Mijoz",
       note: `Qaytarish ${refundNo} · chek ${s.chekNum || "#"+s.id}`,
       paidBy: (typeof _expDefaultWho === "function" ? _expDefaultWho() : ""),
@@ -995,6 +1026,13 @@ async function confirmRefund() {
     staffId: s.staffId,
     isFull: isFullRefund
   });
+
+  // ✅ 2026-08-16: SINXRON MUHRI — qaytarish g'olib bo'lsin (§13.42,
+  // to'lov atkazidagi v180 muhri kabi). Muhrsiz ikkinchi kassaning
+  // (masalan FR) navbatdagi push'i ESKI nusxani bulutga yozib,
+  // qaytarish belgisi chekdan YO'QOLARDI — ABU SAXIY voqeasining
+  // ildizi (CHK-20260815-0001-BK, "muhrlanmagan" shikoyati).
+  s.updatedAt = new Date().toISOString();
 
   saveDB();
   closeModal("refund");

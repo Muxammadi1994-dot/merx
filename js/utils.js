@@ -3834,8 +3834,12 @@ function chekRefundNote(sale, F, matnli) {
         if (!it) return;
         const q = Number(it.qty) || 0;
         const _r = it.color || it.variant || "";
+        // ✅ 2026-08-16 (egasining talabi): pochka ham — "2 pochka (10 dona)"
+        const _qb = Number(it.qtyBox) || 0;
+        const _bl = it.unit || "dona";
+        const _mk = q ? (_qb > 0 ? _qb + " pochka (" + q + " " + _bl + ")" : q + " " + _bl) : "";
         out.push("  • " + (it.name || "") + (_r ? " " + _r : "") +
-                 (it.art ? " " + it.art : "") + (q ? " — " + q : ""));
+                 (it.art ? " " + it.art : "") + (_mk ? " — " + _mk : ""));
       }));
       out.push("=".repeat(40));
       return out.join("\n");
@@ -3850,10 +3854,14 @@ function chekRefundNote(sale, F, matnli) {
       const q    = Number(it.qty) || 0;
       const rang = it.color || it.variant || "";
       const art  = it.art || "";
+      // ✅ 2026-08-16 (egasining talabi): pochka ham — "2 pochka (10 dona)"
+      const qb   = Number(it.qtyBox) || 0;
+      const bl   = it.unit || "dona";
+      const mk   = q ? (qb > 0 ? qb + " pochka (" + q + " " + bl + ")" : q + " " + bl) : "";
       tovarlar.push((it.name || "") +
         (rang ? " · " + rang : "") +
         (art  ? " · " + art  : "") +
-        (q ? " — " + q + (it.unit ? " " + it.unit : " dona") : ""));
+        (mk ? " — " + mk : ""));
     }));
     return `<div style="margin:8px 0 0;padding:8px 10px;border:1px dashed #B91C1C;
         border-radius:6px;background:#FEF2F2">
