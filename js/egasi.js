@@ -888,6 +888,7 @@ function saveChekConfig() {
         .catch(e => console.warn("Chek sozlamasi serverga yozilmadi:", e.message));
     }
   } catch (e) {}
+  _csDirty = false;   // saqlandi — endi bulut yangilashi mumkin
   toast("✅ Chek sozlamalari saqlandi");
 }
 
@@ -1810,6 +1811,7 @@ const CS_NOM = { unified:"Yagona", merx:"MERX brend", thermal:"Termal",
 
 // 1-bo'lim: sotuv uslubini tanlash (POS va TARIX birga)
 function csPick(style) {
+  _csDirty = true;   // 2026-08-15: tanlov qilindi — bulut buzmasin
   // \U0001f534 2026-08-15: SURISH HOLATI SAQLANADI. Uslub tanlanganda
   // maydonlar, bloklar va namuna qayta chizilardi — sahifa balandligi
   // o'zgarib, ekran YUQORIGA sakrardi (egasining takroriy shikoyati).
@@ -1862,6 +1864,7 @@ function csPick(style) {
 
 // 2-bo'lim: qarz chitigi uslubi
 function csPickQarz(style) {
+  _csDirty = true;   // 2026-08-15: tanlov qilindi — bulut buzmasin
   // \U0001f534 2026-08-15: surish holati saqlanadi (sotuv kartalaridagi kabi)
   const _sc0 = document.getElementById("pages");
   const _y0  = _sc0 ? _sc0.scrollTop : 0;
@@ -1935,8 +1938,16 @@ function previewPayChek() {
 }
 
 // Yuklashda kartalarni belgilash
-function csInitCards() {
+// \U0001f534 2026-08-15: foydalanuvchi kartani BOSGAN bo'lsa (hali
+// saqlamagan) — bulut sinxroni tanlovni QAYTARIB YUBORMASIN.
+// Kechagi tuzatishda bulut kelganda kartalar qayta chizilardi va
+// tanlangan uslub saqlangan qiymatga qaytardi (egasining shikoyati:
+// "yagonani belgilab saqlasam jadvalga o'tib qolyapti").
+let _csDirty = false;
+
+function csInitCards(force) {
   try {
+    if (_csDirty && !force) return;   // foydalanuvchi tanlovi ustuvor
     const cfg = (db.settings && db.settings.chekConfig) || {};
     const sv2 = cfg.styleV2 === true;
     const pos = sv2 ? (cfg.posStyle  || "unified") : "unified";

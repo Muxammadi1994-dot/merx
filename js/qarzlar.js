@@ -2080,24 +2080,43 @@ function showDebtPaymentReceipt(payment) {
         dueLine: _due,
         cfg: { ...cfg, shopName }
       });
-      const _ov = document.getElementById("ov-receipt");
-      if (_ov) {
-        const _box = _ov.querySelector(".modal") || _ov;
-        _box.innerHTML = `<button class="m-close" onclick="closeModal('receipt')">
-            <i class="ti ti-x"></i></button>
-          <iframe style="width:100%;height:70vh;border:0;background:#fff"
-                  srcdoc="${_html.replace(/"/g, "&quot;")}"></iframe>
-          <div style="display:flex;gap:8px;margin-top:10px">
-            <button class="btn btn-acc" style="flex:1"
-              onclick="const f=this.closest('.modal').querySelector('iframe');
-                       f.contentWindow.focus();f.contentWindow.print()">
-              <i class="ti ti-printer"></i> Chop etish</button>
-          </div>`;
-        openModal("receipt", true);
-        return;
+      // \U0001f534 2026-08-15 ILDIZ-TUZATISH: ALOHIDA OYNA.
+      // Avval qarz cheki SOTUV chekining modaliga (`ov-receipt`)
+      // yozilardi va uning ichini BUTUNLAY almashtirardi
+      // (`_box.innerHTML = ...`). Natijada bir marta qarz to'lovi
+      // qilinsa, sotuv chekining qolipi YO'Q BO'LARDI \u2014 shundan
+      // keyin sotuv cheki ham, tarixdagi chek ham BO'SH chiqardi
+      // (egasining shikoyati: "sotuv va qarz cheki aralashdi",
+      // "qarz tarixida ham chek bo'sh").
+      // Endi qarz cheki O'Z oynasida ochiladi, sotuv modaliga
+      // UMUMAN tegilmaydi.
+      let _po = document.getElementById("ov-payreceipt");
+      if (!_po) {
+        _po = document.createElement("div");
+        _po.id = "ov-payreceipt";
+        _po.className = "ov";
+        _po.innerHTML = '<div class="modal" style="max-width:440px"></div>';
+        document.body.appendChild(_po);
+        _po.addEventListener("click", (e) => {
+          if (e.target === _po) _po.classList.remove("on");
+        });
       }
-      const _w = window.open("", "_blank", "width=420,height=700");
-      if (_w) { _w.document.write(_html); _w.document.close(); _w.focus(); return; }
+      const _box = _po.querySelector(".modal");
+      _box.innerHTML = `
+        <button class="m-close" onclick="document.getElementById('ov-payreceipt').classList.remove('on')">
+          <i class="ti ti-x"></i></button>
+        <iframe id="payrcp-frame" style="width:100%;height:70vh;border:0;background:#fff"
+                srcdoc="${_html.replace(/"/g, "&quot;")}"></iframe>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-acc" style="flex:1" onclick="(function(){
+            try{ const f=document.getElementById('payrcp-frame');
+                 f.contentWindow.focus(); f.contentWindow.print(); }catch(e){}
+          })()"><i class="ti ti-printer"></i> Chop etish</button>
+          <button class="btn btn-ghost" style="flex:1"
+            onclick="document.getElementById('ov-payreceipt').classList.remove('on')">Yopish</button>
+        </div>`;
+      _po.classList.add("on");
+      return;
     }
   } catch (e) { console.warn("qarz cheki uslubi:", e.message); }
   const cur      = payment.currency === "usd" ? "usd" : "uzs";
