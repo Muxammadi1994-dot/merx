@@ -1012,6 +1012,32 @@ function _staffNoToken() {
   } catch(e) { return false; }
 }
 
+// \U0001f534 2026-08-15: EGALIK DARVOZASI — YAGONA NUQTA.
+// Avval tekshiruv faqat `pushToCloud` ichida edi, lekin bulutga
+// yozadigan BOSHQA yo'llar ham bor ekan (`forceRepushAll`,
+// `syncCustomers`) — ular tekshiruvsiz o'tib ketardi va B20 ga
+// ABU SAXIY ma'lumoti QAYTADAN yozildi (15-avgust, ikkinchi marta).
+// Endi hamma yo'l shu darvozadan o'tadi.
+function _egalikTekshir(nimaUchun) {
+  try {
+    const sid  = (typeof getCloudShopId === "function") ? getCloudShopId() : null;
+    const dsid = db.settings && db.settings._dataShopId;
+    if (!sid) return false;
+    if (dsid && String(dsid) !== String(sid)) {
+      console.warn("\u26d4 " + (nimaUchun||"Yozish") + " TO'XTATILDI — xotirada BOSHQA " +
+                   "do'kon ma'lumoti:", dsid, "\u2192", sid);
+      try { pullFromCloud(true); } catch (e) {}
+      return false;
+    }
+    if (!dsid && (db.sales || []).length === 0 && (db.products || []).length === 0) {
+      console.warn("\u23f8 " + (nimaUchun||"Yozish") + " kutmoqda: ma'lumot egasi aniqlanmagan");
+      try { pullFromCloud(true); } catch (e) {}
+      return false;
+    }
+    return true;
+  } catch (e) { return true; }
+}
+
 async function pushToCloud() {
   // \u2705 2026-08-14 (4-daraja): YOZISHDAN OLDIN KALIT TEKSHIRILADI.
   // Avval kalit faqat ULANISH paytida yangilanardi \u2014 keyin soatlab
@@ -1024,30 +1050,7 @@ async function pushToCloud() {
   // Tovarlar va mijozlar endi IndexedDB'dan ASINXRON keladi. Agar shu
   // oraliqda push ketsa, bulutga BO'SH ro'yxat yozilib ma'lumot o'chib
   // ketardi. Bayroq qo'yilgach yozish ochiladi (odatda ~1 soniya).
-  // \U0001f534 2026-08-15: EGALIK TEKSHIRUVI — BEGONA MA'LUMOT YOZILMAYDI.
-  // Xotiradagi ma'lumot qaysi do'konniki (`_dataShopId`) va hozir qaysi
-  // do'konga yozmoqchimiz (`sid`) — mos kelmasa push TO'XTAYDI va
-  // avval to'g'ri ma'lumot yuklanadi. Hech narsa o'chirilmaydi.
-  try {
-    const _sid  = (typeof getCloudShopId === "function") ? getCloudShopId() : null;
-    const _dsid = db.settings && db.settings._dataShopId;
-    // \u26a0\ufe0f Muhr YO'Q bo'lsa — ma'lumot hali yuklanmagan degani.
-    // Bunda ham push to'xtatiladi: aks holda do'kon almashgandan keyin
-    // BO'SH ro'yxat bulutga yozilib, yangi do'kon ma'lumotini o'chirib
-    // yuborishi mumkin edi. Pull tugagach muhr qo'yiladi va push ochiladi.
-    if (_sid && !_dsid && (db.sales || []).length === 0 &&
-        (db.products || []).length === 0) {
-      console.warn("\u23f8 Push kutmoqda: ma'lumot egasi hali aniqlanmagan (pull kerak)");
-      try { pullFromCloud(true); } catch (e) {}
-      return;
-    }
-    if (_sid && _dsid && String(_dsid) !== String(_sid)) {
-      console.warn("\u26d4 Push TO'XTATILDI — xotirada BOSHQA do'kon ma'lumoti:",
-                   _dsid, "\u2192", _sid, "| avval pull qilinadi");
-      try { pullFromCloud(true); } catch (e) {}
-      return;
-    }
-  } catch (e) {}
+  if (!_egalikTekshir("Push")) return;
 
   if (typeof window !== "undefined" && window._heavyHydrated === false) {
     console.log("⏳ Push kutmoqda: ma'lumot hali yuklanmoqda");
@@ -1324,6 +1327,8 @@ async function pushToCloud() {
     // Customers uchun alohida sync — telegram_chat_id ni HECH QACHON o'zgartirmaymiz
     async function syncCustomers(customers) {
       if (!customers || !customers.length) return;
+      // \U0001f534 2026-08-15: egalik darvozasi (bu yo'l ham tekshiruvsiz edi)
+      if (!_egalikTekshir("Mijoz sinxroni")) return;
       // v176: avval hamma qator yig'iladi, keyin faqat o'zgarganlari ketadi
       const custRows = customers.map(c => {
           const row = {
@@ -3535,6 +3540,10 @@ async function reportDeviceStatus(force) {
 async function forceRepushAll() {
   try {
     if (!_sb) { toast("Bulutga ulanish yo'q", "err"); return; }
+    // \U0001f534 2026-08-15: egalik darvozasi (bu yo'l tekshiruvsiz edi)
+    if (!_egalikTekshir("Qayta yuborish")) {
+      toast("Ma'lumot hali yuklanmoqda — biroz kuting", "err"); return;
+    }
     if (!confirm("Barcha ma'lumot bulutga QAYTADAN yuboriladi.\n\n" +
                  "Hech narsa o'chmaydi. Sekin internetda bir necha " +
                  "daqiqa davom etishi mumkin.\n\nDavom etilsinmi?")) return;
