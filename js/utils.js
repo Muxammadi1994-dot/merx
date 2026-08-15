@@ -1771,7 +1771,12 @@ function buildReceiptTable(sale, opts, cfg) {
     // ("Q.17", "LR-01" — egasining shikoyati).
     const model   = it.name || it.art || "\u2014";
     const _artSub = (it.art && it.art !== it.name) ? it.art : "";
-    const izoh    = [_artSub, it.color, isBox ? (it.groupSizes||"") : (it.size||"")]
+    // ✅ 2026-08-15: RANG zaxirasi — savat namunasida rang `variant`
+    // maydonida keladi ("Qora (1 pochka)"), `color` bo'sh bo'lishi
+    // mumkin. Shu sabab savat chekida rang ko'rinmasdi.
+    const _rangY  = it.color ||
+      (it.variant ? String(it.variant).split(" (")[0].split(" / ")[0] : "");
+    const izoh    = [_artSub, _rangY, isBox ? (it.groupSizes||"") : (it.size||"")]
                       .filter(Boolean).join(" / ");
     const qtyShow = isBox ? (it.qtyBox + " pchk") : String(it.qty || 0);
     const qtySub  = isBox ? ((it.qty||0) + " dona") : (it.unit || "dona");
@@ -1853,11 +1858,11 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
   </div>
   <table style="table-layout:fixed;width:100%">
     <thead><tr>
-      <th style="width:7%">\u2116</th>
-      <th class="l" style="width:41%">Model</th>
-      <th style="width:16%">Soni</th>
-      <th class="r" style="width:18%">Narx<span class="u">$ / so'm</span></th>
-      <th class="r" style="width:18%">Jami<span class="u">$ / so'm</span></th>
+      <th style="width:6%">\u2116</th>
+      <th class="l" style="width:36%">Model</th>
+      <th style="width:14%">Soni</th>
+      <th class="r" style="width:22%">Narx<span class="u">$ / so'm</span></th>
+      <th class="r" style="width:22%">Jami<span class="u">$ / so'm</span></th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
@@ -2117,7 +2122,12 @@ function buildReceiptWholesale(sale, opts, cfg) {
     // ("Q.17", "LR-01" — egasining shikoyati).
     const model   = it.name || it.art || "\u2014";
     const _artSub = (it.art && it.art !== it.name) ? it.art : "";
-    const rang    = [_artSub, it.color, isBox ? (it.groupSizes||"") : (it.size||"")]
+    // ✅ 2026-08-15: RANG zaxirasi — savat namunasida rang `variant`
+    // maydonida keladi ("Qora (1 pochka)"), `color` bo'sh bo'lishi
+    // mumkin. Shu sabab savat chekida rang ko'rinmasdi.
+    const _rangY  = it.color ||
+      (it.variant ? String(it.variant).split(" (")[0].split(" / ")[0] : "");
+    const rang    = [_artSub, _rangY, isBox ? (it.groupSizes||"") : (it.size||"")]
                       .filter(Boolean).join(" / ");
     const qtyShow = isBox ? (it.qtyBox + " pchk (" + (it.qty||0) + ")")
                           : ((it.qty||0) + " " + (it.unit||"dona"));
@@ -2217,8 +2227,8 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
   <!-- ✅ 2026-08-14: "Oldingi qarz" endi pastdagi QARZ bo'limida -->
   <table style="table-layout:fixed;width:100%">
     <thead><tr>
-      <th style="width:7%">\u2116</th><th class="l" style="width:41%">Model</th>
-      <th style="width:16%">Soni</th><th class="r" style="width:18%">Narx</th><th class="r" style="width:18%">Jami</th>
+      <th style="width:6%">\u2116</th><th class="l" style="width:36%">Model</th>
+      <th style="width:14%">Soni</th><th class="r" style="width:22%">Narx</th><th class="r" style="width:22%">Jami</th>
     </tr></thead>
     <tbody>${itemRows}</tbody>
   </table>
@@ -3492,8 +3502,14 @@ function chekPrintFix() {
             border-collapse:collapse !important }
     td, th { word-break:break-word !important; overflow-wrap:anywhere !important;
              padding-left:2px !important; padding-right:2px !important }
-    .doc, .wrap, .rc { width:100% !important; max-width:100% !important;
-                       margin:0 !important; box-shadow:none !important }
+    /* \u26a0\ufe0f 2026-08-15: hujjat qog'ozdan 3mm TOR — printerlar chetdan
+       biroz kesadi, shuning uchun o'ng ustun yo'qolardi. */
+    .doc, .wrap, .rc { width:calc(100% - 3mm) !important; max-width:calc(100% - 3mm) !important;
+                       margin:0 auto !important; box-shadow:none !important }
+    /* Narx/jami ustunlari BO'LINMASIN */
+    td.r, th.r { white-space:nowrap !important; font-size:.94em !important }
+    /* Chizilgan asl narx kichikroq — ustunni kengaytirmasin */
+    td.r s, td.r span[style*="line-through"] { font-size:.8em !important; opacity:.7 !important }
     body { margin:0 !important; padding:0 !important }
   }`;
 }
