@@ -1498,11 +1498,33 @@ async function actionSendPayReceipt(body) {
     : `💵 <b>TO'LOV QABUL QILINDI</b>  <code>${payment.chekNum || ("#"+payment.id)}</code>\n`;
   txt += `🏪 ${shopName || "MERX"}\n📅 ${payment.date || ""} ${payment.time || ""}\n`;
   txt += `━━━━━━━━━━━━━━━━━━━\n`;
-  if (payment.debtBefore != null) txt += `Jami qarz edi:  <b>${M(payment.debtBefore)}</b>\n`;
+  // \U0001f534 2026-08-15 (egasining talabi): IKKALA VALYUTA ALOHIDA,
+  // KONVERTATSIYASIZ (\u00a73.1 \u2014 qarz o'z valyutasida qotadi).
+  // Masalan: "$3800.00 + 20 000 000 so'm". Nol valyuta ko'rsatilmaydi.
+  const _ikkiQ = (uzs, usd) => {
+    const p = [];
+    const _u = Number(usd) || 0, _s = Number(uzs) || 0;
+    if (_u > 0) p.push("$" + _u.toFixed(2));
+    if (_s > 0) p.push(_s.toLocaleString("ru-RU") + " so'm");
+    return p.length ? p.join(" + ") : "0";
+  };
+  const _bU = payment.debtBeforeUzs ?? payment.debt_before_uzs;
+  const _bD = payment.debtBeforeUsd ?? payment.debt_before_usd;
+  const _aU = payment.debtAfterUzs  ?? payment.debt_after_uzs;
+  const _aD = payment.debtAfterUsd  ?? payment.debt_after_usd;
+  const _bTxt = (_bU != null || _bD != null) ? _ikkiQ(_bU, _bD) : null;
+  const _aTxt = (_aU != null || _aD != null) ? _ikkiQ(_aU, _aD) : null;
+
+  if (_bTxt != null) txt += `Jami qarz edi:  <b>${_bTxt}</b>\n`;
+  else if (payment.debtBefore != null) txt += `Jami qarz edi:  <b>${M(payment.debtBefore)}</b>\n`;
   txt += _isRef
     ? `Qarzdan kamaydi:  <b>${M(payment.amount)}</b>\n`
     : `To'landi:  <b>${M(payment.amount)}</b>\n${methodTxt}\n`;
-  if (payment.debtAfter != null) {
+  if (_aTxt != null) {
+    txt += (_aTxt !== "0")
+      ? `Qoldi:  <b>${_aTxt}</b>\n`
+      : `Qoldi:  <b>0</b> — qarz to'liq yopildi ✅\n`;
+  } else if (payment.debtAfter != null) {
     txt += payment.debtAfter > 0
       ? `Qoldi:  <b>${M(payment.debtAfter)}</b>\n`
       : `Qoldi:  <b>0</b> — qarz to'liq yopildi ✅\n`;
@@ -1654,6 +1676,10 @@ async function actionRenderPayReceipt(payId, shopId) {
         amountUsd:    p.amountUsd    ?? p.amount_usd,
         debtBefore:   p.debtBefore   ?? p.debt_before,
         debtAfter:    p.debtAfter    ?? p.debt_after,
+        debtBeforeUzs: p.debtBeforeUzs ?? p.debt_before_uzs ?? p.data?.debtBeforeUzs,
+        debtBeforeUsd: p.debtBeforeUsd ?? p.debt_before_usd ?? p.data?.debtBeforeUsd,
+        debtAfterUzs:  p.debtAfterUzs  ?? p.debt_after_uzs  ?? p.data?.debtAfterUzs,
+        debtAfterUsd:  p.debtAfterUsd  ?? p.debt_after_usd  ?? p.data?.debtAfterUsd,
         methodBreakdown: p.methodBreakdown ?? p.method_breakdown,
         serverWritten: true
       };
@@ -4904,6 +4930,27 @@ function buildPayReceiptStyled(payment, opts) {
   const dB = payment.debtBefore, dA = payment.debtAfter;
   const M  = v => (v == null) ? "" : (cur === "usd" ? D(v) : F(v) + " so'm");
 
+  // \U0001f534 2026-08-15 (egasining talabi): IKKALA VALYUTA ALOHIDA,
+  // KONVERTATSIYASIZ. Mijozda so'm VA dollar qarzi bir vaqtda bo'lishi
+  // mumkin \u2014 to'lov bittasini kamaytiradi, ikkinchisi O'Z holicha
+  // qoladi. Masalan: "3800$ + 20 000 000 so'm".
+  // Nol bo'lgan valyuta KO'RSATILMAYDI.
+  // (\u00a73.1: qarz belgilangan valyutada qotadi \u2014 shuning uchun
+  //  umumiy qarzni so'mga aylantirib ko'rsatish NOTO'G'RI edi.)
+  const _ikki = (uzs, usd) => {
+    const p = [];
+    if (Number(usd) > 0) p.push(D(usd));
+    if (Number(uzs) > 0) p.push(F(uzs) + " so'm");
+    return p.length ? p.join(" + ") : "0";
+  };
+  const _bIkki = (payment.debtBeforeUzs != null || payment.debtBeforeUsd != null)
+    ? _ikki(payment.debtBeforeUzs, payment.debtBeforeUsd) : null;
+  const _aIkki = (payment.debtAfterUzs != null || payment.debtAfterUsd != null)
+    ? _ikki(payment.debtAfterUzs, payment.debtAfterUsd) : null;
+  // Muhr bo'lsa ikkala valyuta, bo'lmasa (eski cheklar) avvalgidek
+  const MB = _bIkki != null ? _bIkki : M(dB);
+  const MA = _aIkki != null ? _aIkki : M(dA);
+
   // To'lov usuli
   const payLabels = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash" };
   const mb = payment.methodBreakdown || null;
@@ -5030,9 +5077,9 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
              cur === "usd" ? F(dA * rate) : F(dA)}</b></td><td class="r2"><b>${
              cur === "usd" ? D(dA) : D(dA / (rate || 1))}</b></td></tr>` : ""}
          </table>`
-      : `${dB != null ? `<div class="r"><span>Jami qarz edi</span><b>${M(dB)}</b></div>` : ""}
+      : `${dB != null ? `<div class="r"><span>Jami qarz edi</span><b>${MB}</b></div>` : ""}
          ${dA != null ? `<div class="r qold"><span>${
-           Number(dA) > 0 ? "Qoldi" : "To'liq yopildi"}</span><b>${M(dA)}</b></div>` : ""}`}
+           Number(dA) > 0 ? "Qoldi" : "To'liq yopildi"}</span><b>${MA}</b></div>` : ""}`}
     ${o.dueLine ? `<div class="r"><span>Muddat</span><b>${o.dueLine}</b></div>` : ""}
   </div>
 

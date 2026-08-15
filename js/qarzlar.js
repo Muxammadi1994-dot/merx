@@ -1686,6 +1686,16 @@ async function recordPayment(id, forcedCurrency) {
     // v145: bot xabari va to'lov cheki uchun — edi / qoldi
     debtBefore:    Math.round(totalBefore * 100) / 100,
     debtAfter:     Math.round(Math.max(0, totalBefore - (amt - (leftover > 0 ? leftover : 0))) * 100) / 100,
+    // ✅ 2026-08-15: IKKALA VALYUTA — to'lovdan OLDIN va KEYIN.
+    // Konvertatsiya YO'Q: har qarz o'z valyutasida qoladi (\u00a73.1).
+    // To'lov qaysi valyutada bo'lsa, o'shanisi kamayadi.
+    debtBeforeUzs: Math.round(_boshqaCur.uzs),
+    debtBeforeUsd: Math.round(_boshqaCur.usd * 100) / 100,
+    debtAfterUzs:  Math.round(payCur === "usd" ? _boshqaCur.uzs
+                     : Math.max(0, _boshqaCur.uzs - (amt - (leftover > 0 ? leftover : 0)))),
+    debtAfterUsd:  Math.round((payCur === "usd"
+                     ? Math.max(0, _boshqaCur.usd - (amt - (leftover > 0 ? leftover : 0)))
+                     : _boshqaCur.usd) * 100) / 100,
     rate:          rate, // v179: chek/xabarda "joriy kursda $X" ko'rsatish uchun — TO'LOV PAYTIDAGI kursni saqlaymiz (keyinchalik kurs o'zgarsa ham bu chek o'zgarmaydi)
     // 2026-07-12 (AbuSaxiy №12 aniqlik): KIRITILGAN ASL SO'M AYNAN
     // saqlanadi. Sabab: 3 000 000 so'm -> $234.38 (yaxlitlash) ->

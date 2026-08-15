@@ -3288,6 +3288,27 @@ function buildPayReceiptStyled(payment, opts) {
   const dB = payment.debtBefore, dA = payment.debtAfter;
   const M  = v => (v == null) ? "" : (cur === "usd" ? D(v) : F(v) + " so'm");
 
+  // \U0001f534 2026-08-15 (egasining talabi): IKKALA VALYUTA ALOHIDA,
+  // KONVERTATSIYASIZ. Mijozda so'm VA dollar qarzi bir vaqtda bo'lishi
+  // mumkin \u2014 to'lov bittasini kamaytiradi, ikkinchisi O'Z holicha
+  // qoladi. Masalan: "3800$ + 20 000 000 so'm".
+  // Nol bo'lgan valyuta KO'RSATILMAYDI.
+  // (\u00a73.1: qarz belgilangan valyutada qotadi \u2014 shuning uchun
+  //  umumiy qarzni so'mga aylantirib ko'rsatish NOTO'G'RI edi.)
+  const _ikki = (uzs, usd) => {
+    const p = [];
+    if (Number(usd) > 0) p.push(D(usd));
+    if (Number(uzs) > 0) p.push(F(uzs) + " so'm");
+    return p.length ? p.join(" + ") : "0";
+  };
+  const _bIkki = (payment.debtBeforeUzs != null || payment.debtBeforeUsd != null)
+    ? _ikki(payment.debtBeforeUzs, payment.debtBeforeUsd) : null;
+  const _aIkki = (payment.debtAfterUzs != null || payment.debtAfterUsd != null)
+    ? _ikki(payment.debtAfterUzs, payment.debtAfterUsd) : null;
+  // Muhr bo'lsa ikkala valyuta, bo'lmasa (eski cheklar) avvalgidek
+  const MB = _bIkki != null ? _bIkki : M(dB);
+  const MA = _aIkki != null ? _aIkki : M(dA);
+
   // To'lov usuli
   const payLabels = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash" };
   const mb = payment.methodBreakdown || null;
@@ -3414,9 +3435,9 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
              cur === "usd" ? F(dA * rate) : F(dA)}</b></td><td class="r2"><b>${
              cur === "usd" ? D(dA) : D(dA / (rate || 1))}</b></td></tr>` : ""}
          </table>`
-      : `${dB != null ? `<div class="r"><span>Jami qarz edi</span><b>${M(dB)}</b></div>` : ""}
+      : `${dB != null ? `<div class="r"><span>Jami qarz edi</span><b>${MB}</b></div>` : ""}
          ${dA != null ? `<div class="r qold"><span>${
-           Number(dA) > 0 ? "Qoldi" : "To'liq yopildi"}</span><b>${M(dA)}</b></div>` : ""}`}
+           Number(dA) > 0 ? "Qoldi" : "To'liq yopildi"}</span><b>${MA}</b></div>` : ""}`}
     ${o.dueLine ? `<div class="r"><span>Muddat</span><b>${o.dueLine}</b></div>` : ""}
   </div>
 
