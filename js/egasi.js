@@ -1309,8 +1309,21 @@ function renderChekPreview() {
     // 2026-07-18: har chek turi FARQLI ko'rsatiladi.
     // qarz — to'lov cheki (boshqa struktura) → showDebtPaymentReceipt uslubi.
     // sotuv/savat — buildReceiptHtml (type bilan: savatda to'lov/qarz yo'q).
-    if (_previewType === "qarz" && typeof _buildDebtReceiptPreview === "function") {
-      html = _buildDebtReceiptPreview(cfg);
+    // \U0001f534 2026-08-15: NAMUNA HAQIQIY CHIZUVCHINI ishlatadi.
+    // Avval `_buildDebtReceiptPreview` degan ALOHIDA nusxa chizardi —
+    // u pastdagi uslub tanloviga (qarzStyle) BOG'LANMAGAN edi.
+    // Termal tanlansa ham namunada "yagona" ko'rinardi va qarz
+    // chekiga qilingan tuzatishlar unda aks etmasdi (egasining
+    // kuzatuvi). Endi manba bitta: buildPayReceiptStyled.
+    if (_previewType === "qarz" && typeof buildPayReceiptStyled === "function") {
+      const _qEl = document.getElementById("chek-qarz-style");
+      const _qSt = (_qEl && (_qEl.dataset.pick || _qEl.value)) || "unified";
+      html = buildPayReceiptStyled(_previewPayment(), {
+        style: _qSt,
+        shopName: cfg.shopName,
+        staffName: cfg.staffName || "Sotuvchi",
+        cfg
+      });
     } else if (typeof buildReceiptHtml === "function") {
       const sale = _previewSampleSale(_previewType);
       // ✅ 2026-08-14: namuna TANLANGAN USLUBDA chiziladi — karta
@@ -1378,67 +1391,11 @@ function _bindChekPreviewInputs() {
 // Preview'da qarz turi tanlanganda ishlatiladi — sotuv chekidan FARQLI
 // struktura (To'landi / usul / qarz holati). Joriy sozlamalarni oladi.
 // ═══════════════════════════════════════════════════════════
-function _buildDebtReceiptPreview(cfg) {
-  const F = n => Math.round(n||0).toLocaleString("ru-RU");
-  const sc = ({ small:0.9, large:1.12, xlarge:1.25 })[cfg.fontScale] || (parseFloat(cfg.fontScale) >= 0.7 && parseFloat(cfg.fontScale) <= 1.5 ? parseFloat(cfg.fontScale) : 1);
-  const ff = ({ mono:"'Courier New',monospace", serif:"'Georgia',serif", sans:"'Arial',sans-serif" })[cfg.fontFamily] || "'DM Sans',Arial,sans-serif";
-  const fi = cfg.footerItalic !== false;
-  const logo = cfg.logo, shopName = cfg.shopName || "MERX";
-  const contact = cfg.showContact ? (cfg.contact || "") : "";
-  const extra = Array.isArray(cfg.extraLines) ? cfg.extraLines.filter(Boolean) : [];
-  // 2026-07-19: banner foni preview'da ham (haqiqiy qarz cheki bilan mos)
-  const hs = ["dark","light","none"].includes(cfg.headerStyle) ? cfg.headerStyle : "dark";
-  const hCss = hs === "light" ? "background:#fff;color:#0D1B2A;border-bottom:2px solid #0D1B2A"
-             : hs === "none" ? "background:#fff;color:#0D1B2A" : "background:#0D1B2A;color:#fff";
-  const hSub = hs === "dark" ? "rgba(255,255,255,.85)" : "#667";
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    body{font-family:${ff};margin:0;padding:0;display:flex;justify-content:center;background:#eee}
-    .rc{width:300px;background:#fff;padding:0 0 10px;zoom:${sc}}
-    .logo{text-align:center;padding:8px 6px 4px}.logo img{width:100%;max-height:64px;object-fit:contain}
-    .hd{${hCss};text-align:center;padding:12px 8px}
-    .hd .nm{font-size:17px;font-weight:800;letter-spacing:.03em}.hd .sub{font-size:10.5px;color:${hSub};margin-top:2px}
-    .sec{padding:7px 12px;border-bottom:1px dashed #ddd;font-size:12px}
-    .lbl{font-size:9.5px;color:#777;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
-    .r{display:flex;justify-content:space-between;margin:2px 0}
-    .big{font-size:17px;font-weight:900;color:#0D1B2A;text-align:right}.grn{color:#059669}.red{color:#DC2626}
-    .ft{text-align:center;font-size:10.5px;color:#555;padding:8px 6px 0;font-style:${fi?"italic":"normal"}}
-    </style></head><body><div class="rc">
-    ${logo ? `<div class="logo"><img src="${logo}"></div>` : ""}
-    <div class="hd"><div class="nm">${shopName.toUpperCase()}</div>
-      ${cfg.addr ? `<div class="sub">${cfg.addr}</div>` : ""}
-      ${contact ? `<div class="sub" style="font-weight:700">${contact}</div>` : ""}
-      <div class="sub">${cfg.tagline || "Ulgurji savdo tizimi"}</div></div>
-    <div class="sec"><div class="r"><span style="font-weight:800;font-family:monospace">PAY-NAMUNA-0001</span><span>${_dStr(new Date())}</span></div>
-      <div class="r"><span>Namuna Mijoz</span><span>+998 90 000 00 00</span></div></div>
-    <div class="sec"><div class="lbl">To'landi</div><div class="big grn">${F(1500000)} so'm</div></div>
-    <div class="sec"><div class="lbl">To'lov usuli</div><div class="r"><span>Usul</span><span>Naqd pul</span></div></div>
-    <div class="sec"><div class="lbl">Qarz holati</div>
-      <div class="r"><span>Avvalgi qarz</span><span>${F(5000000)} so'm</span></div>
-      <div class="r"><span>To'landi</span><span>${F(1500000)} so'm</span></div>
-      <div class="r"><span>Qolgan qarz</span><span class="red">${F(3500000)} so'm</span></div>
-      <div class="r"><span>Muddat</span><span style="font-weight:700">${_dStr(new Date())}</span></div></div>
-    <div class="ft">${cfg.footer || "Rahmat! Yana kutamiz 🙏"}</div>
-    ${extra.length ? `<div style="text-align:center;font-size:11px;color:#333;padding:4px 6px">${extra.map(t=>`<div>${t}</div>`).join("")}</div>` : ""}
-    </div></body></html>`;
-}
-
-// ═══════════════════════════════════════════════════════════
-// CHEK BLOK-DARAJALI TAHRIR (2026-07-18, Qadam D-1)
-// Har blok: o'lcham (px), qalin, kursiv, tekislash, ko'rsatish.
-// window._chekBlocks — {name:{size,bold,italic,align,show}}.
-// Saqlash saveChekConfig'da; qo'llash buildReceiptHtml (yagona quruvchi).
-// ═══════════════════════════════════════════════════════════
-const _CHEK_BLOCK_DEFS = [
-  { key: "shop",      label: "Do'kon nomi (tepa)",        dSize: 20, canHide: false },
-  { key: "tagline",   label: "Shior (do'kon nomi ostida)", dSize: 10, canHide: true },
-  { key: "meta",      label: "Ma'lumotlar (sotuv/sana/mijoz)", dSize: 12, canHide: true },
-  { key: "itemName",  label: "Tovar nomi",                dSize: 13, canHide: false },
-  { key: "itemPrice", label: "Tovar narxi / hisobi",      dSize: 11, canHide: false },
-  { key: "total",     label: "JAMI / summalar",           dSize: 20, canHide: false },
-  { key: "debt",      label: "Qarz bo'limi",              dSize: 12, canHide: true },
-  { key: "footer",    label: "Altbilgi (pastdagi yozuv)", dSize: 13, canHide: true },
-];
-
+// ⚠️ 2026-08-15: `_buildDebtReceiptPreview` OLIB TASHLANDI (~4.7 KB).
+// U qarz chekining IKKINCHI nusxasi edi va uslub tanloviga
+// bog'lanmagan edi — "bir joyni tuzatib ikkinchisi eskicha qolishi"
+// xavfi shundan. Endi namuna ham, haqiqiy chek ham bitta manbadan:
+// buildPayReceiptStyled (utils.js).
 function renderChekBlocks() {
   const box = document.getElementById("chek-blocks-box");
   if (!box) return;
@@ -2006,4 +1963,20 @@ function _csFillFields(style) {
     // ⚠️ 2026-08-14: takroriy chizish OLIB TASHLANDI — oyna balandligi
   // ikki marta o'zgarib, sahifa yuqoriga sakrardi (egasining shikoyati).
   } catch (e) {}
+}
+
+
+// Namuna uchun to'lov yozuvi (qarz chiti) \u2014 2026-08-15
+function _previewPayment() {
+  return {
+    chekNum: "PAY-NAMUNA-0001",
+    date: "2026-08-15", time: "12:34",
+    customerName: "Namuna Mijoz",
+    customerPhone: "+998 90 000 00 00",
+    amount: 1500000, amountSom: 1500000,
+    currency: "uzs", rate: (db.settings && db.settings.rate) || 0,
+    method: "naqd",
+    debtBefore: 5000000, debtAfter: 3500000,
+    due: "2026-08-15"
+  };
 }
