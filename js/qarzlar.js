@@ -1577,6 +1577,19 @@ async function recordPayment(id, forcedCurrency) {
     return a + (payCur === "usd" ? (st0.debtUsd || 0) : (st0.remaining || 0));
   }, 0);
 
+  // \U0001f534 2026-08-15 (egasining talabi): IKKALA VALYUTA ALOHIDA.
+  // Mijozda so'm VA dollar qarzi bir vaqtda bo'lishi mumkin. Chekda
+  // ikkalasi O'Z valyutasida ko'rsatiladi, KONVERTATSIYASIZ
+  // (\u00a73.1: qarz belgilangan valyutada qotadi).
+  // Masalan: to'lovdan keyin "3800$ + 20 000 000 so'm".
+  const _boshqaCur = allDebts.reduce((acc, s) => {
+    const st0  = calcSaleState(s);
+    const _isU = s.debtCurrency === "usd" && (st0.debtUsd || 0) > 0;
+    if (_isU) acc.usd += (st0.debtUsd || 0);
+    else      acc.uzs += (st0.remaining || 0);
+    return acc;
+  }, { uzs: 0, usd: 0 });
+
   // 2026-07-11 (AbuSaxiy №5): YAKUNIY ORTIQCHA TO'LOV QULFI —
   // qarzdan ko'p to'lab BO'LMAYDI (yakka, guruh, $ — hamma yo'l shu
   // nuqtadan o'tadi). ESLATMA: avvalgi "ortiqcha -> mijoz balansiga"
