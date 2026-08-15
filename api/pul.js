@@ -425,6 +425,12 @@ module.exports = async (req, res) => {
         updatedAt: new Date().toISOString(),
         serverCancelled: true
       };
+      // ✅ 2026-08-16 (X21 darsi): "bekor" muhri JSON varag'iga HAM.
+      // Avval faqat ustunlarga yozilardi; kassa esa sotuvni JSONdan
+      // o'qiydi va keyingi push'da eski "qarz"ni ustunlarga qaytarib
+      // yozardi — server bilan kassa kelisha olmasdi
+      // (CHK-20260815-0020-DW voqeasi, farq $83.77).
+      if (tur === "sale") { d.status = "bekor"; d.remaining = 0; }
       const patch = { data: d, updated_at: new Date().toISOString() };
       if (tur === "sale") { patch.status = "bekor"; patch.remaining = 0; }
 
