@@ -2060,8 +2060,14 @@ function showDebtPaymentReceipt(payment) {
   // Standart "unified" — hech kim tanlamagan bo'lsa AVVALGI chek
   // chiqadi (ishlab turgan do'konlar buzilmasin).
   try {
+    // \U0001f534 2026-08-15: YAGONA ham SHU chizuvchidan o'tadi.
+    // Avval shart `_qs !== "unified"` edi — ya'ni Yagona tanlangan
+    // bo'lsa (uchala do'konda ham shunday) ESKI usul chaqirilardi.
+    // Natijada namunada bir narsa, chekda boshqa narsa chiqardi va
+    // 4 uslub tizimi amalda ishlamasdi (egasining kuzatuvi).
+    // Endi manba bitta: buildPayReceiptStyled — namuna bilan bir xil.
     const _qs = cfg.styleV2 ? (cfg.qarzStyle || "unified") : "unified";
-    if (_qs !== "unified" && typeof buildPayReceiptStyled === "function") {
+    if (typeof buildPayReceiptStyled === "function") {
       let _due = "";
       const _al = payment.allocations || [];
       if (_al.length === 1) {
