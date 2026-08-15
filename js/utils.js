@@ -1851,13 +1851,13 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
     <!-- ✅ 2026-08-14: "Oldingi qarz" TEPADAN olib tashlandi — u endi
          pastdagi QARZ bo'limida, yagona tartib bo'yicha -->
   </div>
-  <table>
+  <table style="table-layout:fixed;width:100%">
     <thead><tr>
-      <th style="width:14px">\u2116</th>
-      <th class="l">Model</th>
-      <th>Soni</th>
-      <th class="r">Narx<span class="u">$ / so'm</span></th>
-      <th class="r">Jami<span class="u">$ / so'm</span></th>
+      <th style="width:7%">\u2116</th>
+      <th class="l" style="width:41%">Model</th>
+      <th style="width:16%">Soni</th>
+      <th class="r" style="width:18%">Narx<span class="u">$ / so'm</span></th>
+      <th class="r" style="width:18%">Jami<span class="u">$ / so'm</span></th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
@@ -2215,10 +2215,10 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
     <div><span>Kurs</span><span>${F(rate)}</span></div>
   </div>
   <!-- ✅ 2026-08-14: "Oldingi qarz" endi pastdagi QARZ bo'limida -->
-  <table>
+  <table style="table-layout:fixed;width:100%">
     <thead><tr>
-      <th style="width:16px">\u2116</th><th class="l">Model</th>
-      <th>Soni</th><th class="r">Narx</th><th class="r">Jami</th>
+      <th style="width:7%">\u2116</th><th class="l" style="width:41%">Model</th>
+      <th style="width:16%">Soni</th><th class="r" style="width:18%">Narx</th><th class="r" style="width:18%">Jami</th>
     </tr></thead>
     <tbody>${itemRows}</tbody>
   </table>
@@ -3771,10 +3771,26 @@ function chekTelegramText(sale, cfg) {
     R.meta.forEach(x => L.push(esc(x[0]) + ": <b>" + esc(x[1]) + "</b>"));
     L.push("");
     L.push("\ud83d\udce6 <b>Tovarlar</b>");
+    // ✅ 2026-08-15: CHEGIRMA va POCHKA hisobga olinadi — sotuv
+    // chekidagi kabi (egasining kuzatuvi: bot narxni chegirmasiz
+    // yozardi va pochka sonini ko'rsatmasdi).
+    const _dm = (typeof chekItemDisc === "function") ? chekItemDisc(sale) : {};
     (sale.items || []).filter(Boolean).forEach((it, i) => {
-      const q = Number(it.qty) || 0;
-      const nomi = esc(it.name || "") + (it.color ? " \u00b7 " + esc(it.color) : "");
-      L.push((i + 1) + ". " + nomi + " \u2014 " + q + " \u00d7 " + F(it.price || 0));
+      const q  = Number(it.qty) || 0;
+      const px = (typeof chekItemPrice === "function")
+                 ? chekItemPrice(sale, i, it, _dm) : (it.price || 0);
+      const bz = (typeof chekItemBase === "function")
+                 ? chekItemBase(sale, i, it, _dm) : null;
+      const isBox = it.sellMode === "karobka" && it.qtyBox;
+      const soni  = isBox ? (it.qtyBox + " pchk (" + q + " dona)")
+                          : (q + " " + (it.unit || "dona"));
+      const nomi  = esc(it.name || "") +
+                    (it.art && it.art !== it.name ? " \u00b7 " + esc(it.art) : "") +
+                    (it.color ? " \u00b7 " + esc(it.color) : "");
+      const narx  = (bz && bz > px)
+        ? "<s>" + F(bz) + "</s> " + F(px)
+        : F(px);
+      L.push((i + 1) + ". " + nomi + " \u2014 " + soni + " \u00d7 " + narx);
     });
     L.push("");
     R.summary.forEach(x => L.push(esc(x[0]) + ": <b>" + esc(x[1]) + "</b>"));

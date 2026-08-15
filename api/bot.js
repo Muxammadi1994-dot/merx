@@ -4501,10 +4501,10 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
     <div><span>Kurs</span><span>${F(rate)}</span></div>
   </div>
   <!-- ✅ 2026-08-14: "Oldingi qarz" endi pastdagi QARZ bo'limida -->
-  <table>
+  <table style="table-layout:fixed;width:100%">
     <thead><tr>
-      <th style="width:16px">\u2116</th><th class="l">Model</th>
-      <th>Soni</th><th class="r">Narx</th><th class="r">Jami</th>
+      <th style="width:7%">\u2116</th><th class="l" style="width:41%">Model</th>
+      <th style="width:16%">Soni</th><th class="r" style="width:18%">Narx</th><th class="r" style="width:18%">Jami</th>
     </tr></thead>
     <tbody>${itemRows}</tbody>
   </table>
@@ -4646,13 +4646,13 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
     <!-- ✅ 2026-08-14: "Oldingi qarz" TEPADAN olib tashlandi — u endi
          pastdagi QARZ bo'limida, yagona tartib bo'yicha -->
   </div>
-  <table>
+  <table style="table-layout:fixed;width:100%">
     <thead><tr>
-      <th style="width:14px">\u2116</th>
-      <th class="l">Model</th>
-      <th>Soni</th>
-      <th class="r">Narx<span class="u">$ / so'm</span></th>
-      <th class="r">Jami<span class="u">$ / so'm</span></th>
+      <th style="width:7%">\u2116</th>
+      <th class="l" style="width:41%">Model</th>
+      <th style="width:16%">Soni</th>
+      <th class="r" style="width:18%">Narx<span class="u">$ / so'm</span></th>
+      <th class="r" style="width:18%">Jami<span class="u">$ / so'm</span></th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
