@@ -3008,6 +3008,10 @@ setInterval(async () => {
 // Egasi HECH NARSA ko'rmaydi — butunlay fonda ishlaydi.
 // ═══════════════════════════════════════════════════════════════
 async function cloudDailyBackup(sid) {
+  // \U0001f534 2026-08-15: EGALIK DARVOZASI. Bu yo'l ham tekshiruvsiz edi —
+  // butun bazani zaxiraga yozadi — aralashgan ma'lumot zaxiraga tushsa,
+  // keyin tiklanganda QAYTADI.
+  if (!_egalikTekshir("cloudDailyBackup")) return;
   try {
     if (!_sb || !sid) return;
     if (!db || !db.products) return;
@@ -3441,6 +3445,10 @@ function queueCloudDelete(table, keyCol, keyVal) {
 }
 
 async function processPendingDeletes(sid) {
+  // \U0001f534 2026-08-15: EGALIK DARVOZASI. Bu yo'l ham tekshiruvsiz edi —
+  // o'chirish belgilarini yozadi — begona do'kon yozuvini o'chirib
+  // qo'yishi mumkin.
+  if (!_egalikTekshir("processPendingDeletes")) return;
   const q = db._pendingDeletes || [];
   if (!q.length || !_sb || !sid) return 0;
 
