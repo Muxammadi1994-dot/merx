@@ -3355,6 +3355,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
     <div><span>Chek</span><b>${payment.chekNum || ""}</b></div>
     <div><span>Sana</span><span>${payment.date || ""} ${payment.time || ""}</span></div>
     ${payment.customerName ? `<div><span>Mijoz</span><b>${payment.customerName}</b></div>` : ""}
+    ${payment.customerPhone ? `<div><span>Mijoz raqami</span><span>${payment.customerPhone}</span></div>` : ""}
     ${cfg.showStaff && o.staffName ? `<div><span>Qabul qildi</span><span>${o.staffName}</span></div>` : ""}
   </div>
 
@@ -3391,6 +3392,9 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
   </div>
 
   <div class="ft">${cfg.footer || "Rahmat! Yana kutamiz"}</div>
+  ${(Array.isArray(cfg.extraLines) ? cfg.extraLines : [])
+      .filter(Boolean)
+      .map(t => `<div class="ft" style="font-size:11px">${t}</div>`).join("")}
 </div>
 </body></html>`;
 }
