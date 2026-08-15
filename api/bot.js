@@ -4494,7 +4494,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999;vertical-align:top}
          border-bottom:1px dashed #000;padding:3px 0;margin:3px 0}
 .ft{text-align:center;font-size:10px;margin-top:6px;border-top:1px dashed #000;padding-top:5px}
 @media print{
-  @page{size:${W}mm auto;margin:0}
+  @page{margin:0}
   body{padding:0}
   .doc{width:${W}mm}
 }
@@ -4647,7 +4647,7 @@ td{padding:3px 2px;border:1px solid #000;vertical-align:top}
 .trow.big{font-size:12.5px;font-weight:800;border-top:1px dashed #000;
           border-bottom:1px dashed #000;padding:3px 0;margin:3px 0}
 .ft{text-align:center;font-size:9.5px;margin-top:6px;border-top:1px dashed #000;padding-top:5px}
-@media print{ @page{size:${W}mm auto;margin:0} body{padding:0} .doc{width:${W}mm} }
+@media print{ @page{margin:0} body{padding:0} .doc{width:${W}mm} }
 
   ${typeof chekPrintFix === "function" ? chekPrintFix(cfg && cfg.paperWidth) : ""}
   ${typeof chekStyleCss === "function" ? chekStyleCss(cfg, {shop:".shop",tagline:".sm",meta:".meta",
@@ -4796,10 +4796,17 @@ function chekPrintFix(W) {
   const wd = Math.max(40, w - 2);
   return `
   @media print {
-    @page { size: ${w}mm auto; margin: 0 }
-    html, body { width:${w}mm !important; margin:0 !important; padding:0 !important }
+    /* \U0001f534 2026-08-15 (4-urinish, endi ildiz): SAHIFA o'lchami
+       QOG'OZDAN olinadi (size:auto \u2014 80mm), hujjat esa BOSILADIGAN
+       enda (72mm) va CHAPGA yopishadi.
+       Avval sahifa 72mm deb belgilangandi \u2014 drayver uni 80mm
+       qog'ozga KATTALASHTIRIB bosardi (72\u219280 = +11%), shuning uchun
+       o'ng chekka bosiladigan qismdan chiqib ketardi. Endi sahifa =
+       qog'oz, kattalashtirish YO'Q. */
+    @page { size: auto; margin: 0 }
+    html, body { width:auto !important; margin:0 !important; padding:0 !important }
     .doc, .wrap, .rc {
-      width:${wd}mm !important; max-width:${wd}mm !important;
+      width:${w}mm !important; max-width:${w}mm !important;
       /* \U0001f534 2026-08-15: CHAPGA tekislanadi, MARKAZGA emas.
          Rasm ko'rsatdi: chapda katta bo'sh joy, o'ngda kesik \u2014
          yani mazmun ongga surilgan. Sabab: markazga qoyish hujjatni
