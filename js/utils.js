@@ -3342,7 +3342,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
       shop:".shop", tagline:".sm.tagline", meta:".meta",
       itemPrice:".calc", total:".big", debt:".qold,.r2", footer:".ft"
     }) : ""}
-  </style>
+
   /* \U0001f534 2026-08-15: USLUBLAR CHINDAN FARQ QILSIN.
      Tekshiruv ko'rsatdi: Termal va Ixcham Yagona bilan AYNAN bir xil
      chiqardi \u2014 nomi bor, ichi yo'q edi (egasining kuzatuvi).
@@ -3368,7 +3368,8 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
     .big{font-size:19px}
     .doc{font-size:12px}
   ` : ""}
-</head><body>
+  </style>
+  </head><body>
 <div class="doc">
   ${_tasdiqBelgisi(payment, "qarz")}
   ${cfg.logo ? `<div style="text-align:center;padding:6px 0 2px"><img src="${cfg.logo}" style="max-height:44px;max-width:70%;object-fit:contain"></div>` : ""}
