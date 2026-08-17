@@ -137,11 +137,17 @@ function _allStaff() {
   return out;
 }
 
-function authStaffLogin(phone, password) {
+function authStaffLogin(phone, password, pinHash) {
   const key = _phKey(phone);
   const pin = String(password || "").trim();
+  // ✅ 2026-08-16: XESH BILAN HAM SOLISHTIRILADI. C-1 dan keyin sinxron
+  // orqali kelgan xodim yozuvlarida ochiq PIN YO'Q (faqat xesh) — bunday
+  // qurilmada lokal kirish hech qachon o'tmas, hammasi internetga qarab
+  // qolardi. Endi terilgan PIN xeshi (doStaffLogin beradi) ham tekshiriladi.
   const staff = _allStaff().find(s =>
-    _phKey(s.phone) === key && String(s.pin||"").trim() === pin);
+    _phKey(s.phone) === key &&
+    ( String(s.pin||"").trim() === pin ||
+      (pinHash && s.pinHash && String(s.pinHash) === String(pinHash)) ));
   if (!staff) return { ok: false, error: "Telefon yoki PIN noto'g'ri" };
   // Xodim qaysi do'konda ro'yxatdan o'tgan bo'lsa — o'shanga kiradi
   const sid   = staff._sid || getShopId();
@@ -1152,7 +1158,13 @@ async function ensureCloudKeys() {
   return false;
 }
 
+// ✅ 2026-08-16: serverning TASHXISLI xabari (11-avg) shu yerda saqlanadi —
+// avval yutilib ketardi va ekranda doim umumiy "Telefon yoki PIN
+// noto'g'ri" chiqardi (Habibullo voqeasi: sabab ko'rinmadi).
+let _staffCloudErr = null;
+
 async function _staffLoginCloud(phone, pin) {
+  _staffCloudErr = null;
   try {
     const r = await fetch("/api/auth-v2?action=staff_login", {
       method: "POST",
@@ -1160,7 +1172,10 @@ async function _staffLoginCloud(phone, pin) {
       body: JSON.stringify({ phone, pin })
     });
     const j = await r.json();
-    if (!j || !j.ok || !j.staff) return null;
+    if (!j || !j.ok || !j.staff) {
+      _staffCloudErr = (j && j.error) ? String(j.error) : null;
+      return null;
+    }
     console.log("🔑 Xodim bulutdan topildi:", j.staff.name, "·", j.staff.shopName);
     // ⚠️ 2026-08-03: SESSIYA HAM O'TKAZILADI.
     // Server xodim uchun Supabase Auth sessiyasi qaytaradi
@@ -1172,6 +1187,9 @@ async function _staffLoginCloud(phone, pin) {
     return j.staff;
   } catch (e) {
     console.warn("bulutdan xodim qidirish xatosi:", e.message);
+    // ✅ 2026-08-16: internet/server uzilishi ham OCHIQ aytiladi —
+    // "PIN noto'g'ri" deb yolg'on yo'nalishga boshlamaydi.
+    _staffCloudErr = "Server bilan aloqa yo'q — internetni tekshirib qayta urining";
     return null;
   }
 }
@@ -1185,7 +1203,11 @@ async function doStaffLogin() {
   if (_staffLoginBusy) return;
   _staffLoginBusy = true;
   try {
-  let res = authStaffLogin(phone, pin);
+  // ✅ 2026-08-16: terilgan PIN xeshi — lokal xesh-solishtirish uchun
+  // (formula serverniki bilan AYNAN bir xil: cloud.js dagi _pinSha).
+  let _tHash = null;
+  try { if (typeof _pinSha === "function") _tHash = await _pinSha(pin); } catch(e) {}
+  let res = authStaffLogin(phone, pin, _tHash);
   if (!res.ok) {
     showAuthErr("Tekshirilmoqda...", true);
     const cs = await _staffLoginCloud(phone, pin);
@@ -1332,7 +1354,9 @@ async function doStaffLogin() {
       setTimeout(() => { try { checkCurrentShopSubscription(); } catch(e) {} }, 1200);
     }
   } else {
-    showAuthErr(res.error, true);
+    // ✅ 2026-08-16: bulut aniq sabab aytgan bo'lsa — o'sha ko'rsatiladi
+    // ("PIN mos kelmadi...", "xodim topilmadi", "aloqa yo'q").
+    showAuthErr(_staffCloudErr || res.error, true);
   }
   } finally { _staffLoginBusy = false; }
 }

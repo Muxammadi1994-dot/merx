@@ -879,6 +879,12 @@ function saveStaff(id) {
   } else if (d.role !== s.role && !_roleAssignable(d.role)) {
     toast("⛔ Bu rolni berish huquqingiz yo'q", "err"); return;
   }
+  // ✅ 2026-08-16 (Habibullo darsi): YANGI PIN terilgan bo'lsa eski xesh
+  // tozalanadi — push (cloud.js) yangi xeshni O'ZI hisoblab bulutga
+  // yozadi. Busiz PIN o'zgarganda bulutda ESKI xesh qolar va xodim
+  // yangi PIN bilan boshqa qurilmadan kira olmasdi (sweep: 13 xodimdan
+  // 6 tasi xeshsiz — kassadan kirish yopiq edi).
+  if (d.pin) d.pinHash = null;
   // 2026-08-01: PIN maydoni bo'sh qoldirilsa ESKISI saqlanadi —
   // tasodifan o'chirilib, xodim kira olmay qolmasin.
   if (!d.pin && s.pin) d.pin = s.pin;
