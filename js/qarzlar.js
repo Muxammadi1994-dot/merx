@@ -935,7 +935,7 @@ function renderDebtsGrouped(list, rate) {
           <button class="btn btn-sm" onclick="expandDebtGroup('${ids}')"
             style="font-size:11.5px"><i class="ti ti-eye"></i></button>
           ${g.phone && g.phone !== "—" ? `
-            <button class="btn btn-sm" onclick="sendGroupReminder('${g.phone}','${g.name}',${g.totalUzs},${g.totalUsd})"
+            <button class="btn btn-sm" onclick="sendGroupReminder(${g.customerId||"null"},'${g.phone}','${g.name}',${g.totalUzs},${g.totalUsd})"
               style="font-size:11px;color:#856404" title="SMS"><i class="ti ti-message"></i></button>
             <button class="btn btn-sm" onclick="sendGroupReminderBot(${g.customerId||"null"},'${g.phone}','${g.name.replace(/'/g,"\\'")}',${g.totalUzs},${g.totalUsd})"
               style="font-size:11px;color:#0E7490" title="Telegram bot"><i class="ti ti-brand-telegram"></i></button>
@@ -1055,7 +1055,7 @@ function _renderDebtGrid(groups, rate, cols, pagerHtml) {
           title="Cheklarni ko'rish"><i class="ti ti-eye"></i></button>
         ${hasPhone ? `
           <button class="btn btn-ghost btn-icon btn-sm" style="color:#856404" title="SMS eslatma"
-            onclick="sendGroupReminder('${phoneEsc}','${nameEsc}',${g.totalUzs},${g.totalUsd})">
+            onclick="sendGroupReminder(${g.customerId||"null"},'${phoneEsc}','${nameEsc}',${g.totalUzs},${g.totalUsd})">
             <i class="ti ti-message"></i></button>
           <button class="btn btn-ghost btn-icon btn-sm" style="color:#0E7490" title="Telegram bot"
             onclick="sendGroupReminderBot(${g.customerId||"null"},'${phoneEsc}','${nameEsc}',${g.totalUzs},${g.totalUsd})">
@@ -1886,6 +1886,23 @@ async function sendTelegramPayReceipt(customerId, customerPhone, payment) {
 }
 
 
+// ── 2026-08-16 SERVER HAQIQATI — ESLATMA RAQAMI (§3.23) ──────
+// Mijozga ketadigan jami LOKALDAN emas, SERVERDAN olinadi.
+// Jonli isbot (ABU SAXIY, Doston, 07:57): qurilma to'liq yuklanmasidan
+// tugma bosilib, mijozga chala jami (2.3M) ketgan — xuddi shu tugma
+// keyinroq to'g'risini (31.9M) yuborgan. Server javob bermasa
+// (oflayn) — lokal hisob ishlaydi, eslatma bloklanmaydi.
+async function _serverDebtTotals(customerId) {
+  try {
+    if (!customerId) return null;
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return null;
+    if (typeof _serverPay !== "function") return null;
+    const r = await _serverPay({ action: "debt", customerId });
+    if (r && r.ok) return { uzs: Number(r.uzs) || 0, usd: Number(r.usd) || 0 };
+  } catch (e) {}
+  return null;
+}
+
 // ── SMS eslatma (bitta) ───────────────────────────
 async function sendDebtReminder(id) {
   // 2026-08-02: amal darajasidagi ruxsat
@@ -1905,6 +1922,10 @@ async function sendDebtReminder(id) {
     if (x.debtCurrency === "usd" && st.debtUsd) totalUsd += st.debtUsd;
     else totalUzs += st.remaining;
   });
+
+  // ✅ 2026-08-16: server haqiqati (kelsa) lokalni almashtiradi
+  const _srv = await _serverDebtTotals(s.customerId);
+  if (_srv) { totalUzs = _srv.uzs; totalUsd = _srv.usd; }
 
   const msg = buildDebtReminderText(cu.name, totalUzs, totalUsd);
   sendSms(phone, msg);   // ⚡ 2026-08-13: kutilmaydi (SMS sekinlashtirmasin)
@@ -1926,6 +1947,10 @@ async function sendDebtReminderBot(id) {
     else totalUzs += st.remaining;
   });
 
+  // ✅ 2026-08-16: server haqiqati (kelsa) lokalni almashtiradi
+  const _srv = await _serverDebtTotals(s.customerId);
+  if (_srv) { totalUzs = _srv.uzs; totalUsd = _srv.usd; }
+
   const msg = buildDebtReminderText(cu.name, totalUzs, totalUsd);
   await sendTelegramText(s.customerId, cu.phone, msg);
 }
@@ -1946,13 +1971,20 @@ function buildDebtReminderText(name, totalUzs, totalUsd) {
     .replace("{qarz}",  debtTxt);
 }
 
-async function sendGroupReminder(phone, name, totalUzs, totalUsd) {
+// ✅ 2026-08-16: birinchi parametr customerId — server jamini olish uchun
+// (chaqiruv joylari ham yangilandi; bot varianti bilan bir xil imzo).
+async function sendGroupReminder(customerId, phone, name, totalUzs, totalUsd) {
+  const _srv = await _serverDebtTotals(customerId);
+  if (_srv) { totalUzs = _srv.uzs; totalUsd = _srv.usd; }
   const msg = buildDebtReminderText(name, totalUzs, totalUsd);
   sendSms(phone, msg);   // ⚡ 2026-08-13: kutilmaydi (SMS sekinlashtirmasin)
   toast(`📲 SMS eslatma yuborildi: ${name}`);
 }
 
 async function sendGroupReminderBot(customerId, phone, name, totalUzs, totalUsd) {
+  // ✅ 2026-08-16: server haqiqati (kelsa) lokalni almashtiradi
+  const _srv = await _serverDebtTotals(customerId);
+  if (_srv) { totalUzs = _srv.uzs; totalUsd = _srv.usd; }
   const msg = buildDebtReminderText(name, totalUzs, totalUsd);
   await sendTelegramText(customerId, phone, msg);
 }
