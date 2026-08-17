@@ -8,7 +8,7 @@
 // deploy 1
 
 // MUHIM: har push'da bu raqamni +1 qiling — eski kesh avtomat o'chadi.
-const CACHE_VERSION = "merx-v466";
+const CACHE_VERSION = "merx-v467";
 const CACHE_NAME = CACHE_VERSION;
 
 // Boshlang'ich keshlanadigan fayllar (offline'da kamida shular bo'lsin)

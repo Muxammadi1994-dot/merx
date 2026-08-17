@@ -1252,7 +1252,13 @@ async function recordGroupPayment(idsStr, currency, gKey) {
   });
   if (!sameCurSales.length) { toast(`${currency==="usd"?"USD":"So'm"} qarz topilmadi`,"err"); return; }
 
-  const sortedByDate = sameCurSales.slice().sort((a,b) => (a.date||"") < (b.date||"") ? -1 : 1);
+  // ✅ 2026-08-16: SANA TENGLIGI VAQT, KEYIN ID BILAN UZILADI.
+  // Jonli isbot (B20, Abdulboqiy aka): ikkala ESKI qarz bir sanada —
+  // tartib noaniq qolib, to'lov "boshqa" chekka tushardi.
+  const sortedByDate = sameCurSales.slice().sort((a, b) =>
+    String(a.date || "").localeCompare(String(b.date || "")) ||
+    String(a.time || "").localeCompare(String(b.time || "")) ||
+    ((Number(a.id) || 0) - (Number(b.id) || 0)));
   const oldest = sortedByDate[0];
 
   // Vaqtinchalik pay-naqd-<id>/pay-karta-<id>/pay-otkazma-<id> maydonlarini
@@ -1320,8 +1326,12 @@ function findCustomerDebts(s) {
   }
   // Joriy holatni (calcSaleState orqali) tekshirib, hali ham qarzi bor bo'lganlarni qoldiramiz
   const list = candidates.filter(x => calcSaleState(x).remaining > 0.5);
-  // Eng eski sana birinchi (sana bo'sh bo'lsa oxiriga)
-  return list.sort((a, b) => (a.date||"9999") < (b.date||"9999") ? -1 : 1);
+  // Eng eski sana birinchi (sana bo'sh bo'lsa oxiriga).
+  // ✅ 2026-08-16: teng sanada vaqt, keyin id — tartib har doim aniq.
+  return list.sort((a, b) =>
+    String(a.date || "9999").localeCompare(String(b.date || "9999")) ||
+    String(a.time || "").localeCompare(String(b.time || "")) ||
+    ((Number(a.id) || 0) - (Number(b.id) || 0)));
 }
 
 // v144: qarz to'lovida kassir AVTOMAT — joriy foydalanuvchi
@@ -1723,6 +1733,10 @@ async function recordPayment(id, forcedCurrency) {
     try {
       const _sr = await _serverPay({
         action: "pay", customerId: clicked.customerId,
+        // ✅ 2026-08-16: BOSILGAN CHEK serverga ham boradi — taqsimot
+        // avval shu chekka ("guruhlanmagan" ma'no tiklandi). Guruh
+        // to'lovida clicked = eng eski chek, ya'ni FIFO buzilmaydi.
+        saleId: clicked.id,
         customerName: cu.name, customerPhone: cu.phone,
         amount: amt, currency: payCur, seenDebt: totalBefore,
         amountSom: payment.amountSom || null, rate: rate,

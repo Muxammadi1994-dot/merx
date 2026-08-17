@@ -147,7 +147,8 @@ module.exports = async (req, res) => {
       // \u26a0\ufe0f `cancelled` USTUN EMAS (u data JSON ichida) \u2014 so'rovga
       // qo'shilsa baza butun so'rovni rad etadi. Bekor qilingan sotuv
       // `status = "bekor"` bo'ladi, shuni ishlatamiz.
-      const SALE_COLS = "id,date,status,remaining,debt_usd,debt_currency," +
+      // ✅ 2026-08-16: `time` ham olinadi — teng sanani uzish uchun (quyida).
+      const SALE_COLS = "id,date,time,status,remaining,debt_usd,debt_currency," +
                         "orig_remaining,orig_debt_usd";
       const [sales, pays, kunlik] = await Promise.all([
         sbAll(`sales?shop_id=eq.${encodeURIComponent(shopId)}` +
@@ -171,7 +172,23 @@ module.exports = async (req, res) => {
           const st = saleState(s, pays);
           return cur === "usd" ? st.debtUsd > 0.005 : st.remaining > 0.5;
         })
-        .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+        .sort((a, b) =>
+          String(a.date).localeCompare(String(b.date)) ||
+          String(a.time || "").localeCompare(String(b.time || "")) ||
+          ((Number(a.id) || 0) - (Number(b.id) || 0)));
+
+      // ✅ 2026-08-16: BOSILGAN CHEK USTUVOR. Kassa qaysi chek ochilganini
+      // yuboradi (saleId) — taqsimot AVVAL o'sha chekka, ortiqchasi
+      // yuqoridagi tartibda davom etadi. Jonli isbot (B20, Abdulboqiy
+      // aka, 16-avg): ikkala ESKI qarz bir sanada — server "boshqasini"
+      // tanlab, sotuvchi 4 marta urinib 3 tasini atkaz qilgan.
+      // Guruh to'lovida kassa eng eski chekni yuboradi — FIFO saqlanadi.
+      // Eski kassalar saleId yubormaydi — tartib avvalgidek qoladi.
+      const _ck = String(body.saleId || "");
+      if (_ck) {
+        const _ci = ochiq.findIndex(s => String(s.id) === _ck);
+        if (_ci > 0) ochiq.unshift(ochiq.splice(_ci, 1)[0]);
+      }
 
       const haqiqiy = ochiq.reduce((n, s) => {
         const st = saleState(s, pays);
