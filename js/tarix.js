@@ -978,7 +978,7 @@ async function confirmRefund() {
 
   if (plan.fromThisDebt > 0) {
     const t = _custTotals(s.customerId);
-    _refundAddDebtPayment(s, plan.fromThisDebt, refundNo, t);
+    _refundAddDebtPayment(s, plan.fromThisDebt, refundNo, t, _saleQarzKursi(s));
     if (!isFullRefund) {
       const after = _stateOf(s);
       if ((after.remaining || 0) <= 0) s.status = "tolandan";
@@ -1202,6 +1202,24 @@ function refFillAll() {
 // Tartib: 1) shu sotuvdagi qarz  2) mijozning boshqa qarzlari
 //         3) qolgani — kassadan naqd (xarajat sifatida yoziladi)
 // ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-17: SOTUVNING O'Z KURSI — qarz qotgan kurs.
+// Dollar qarzli sotuvda qaytarish qoplamasi BUGUNGI kursda emas,
+// aynan shu kursda hisoblanadi (egasining qoidasi: mol qaytdi =
+// o'sha mol tug'dirgan dollar qarzning o'zi bekor bo'ladi; bugungi
+// kurs faqat PUL harakatida — kassadan qaytishda va boshqa qarzlarni
+// to'lashda qatnashadi). Manba: asl so'm ÷ asl dollar — `sale.rate`
+// server yozgan sotuvlarda bo'sh bo'lishi mumkin (09-avg isboti).
+// Jonli isbot (B20, Abduqodir aka): sotuv kursi 12 100, ertasi
+// ~12 200 — 153,9 mln mol TO'LIQ qaytdi-yu, $105.12 "arvoh" qoldi.
+// Kurs TUSHGAN kunda teskarisi: farq mijozga kassadan ortiqcha
+// chiqib ketardi.
+function _saleQarzKursi(s) {
+  const o = Number(s?.origDebtUsd) || 0;
+  const r = Number(s?.origRemaining) || 0;
+  if (o > 0 && r > 0) return r / o;                 // qarzning o'z kursi
+  return Number(s?.rate) || Number(db.settings?.rate) || 12800;
+}
+
 function _refundPayPlan(sale, total) {
   // 2026-07-25: qarz qoldig'i calcSaleState orqali olinadi (to'lovlarni
   // hisobga oladi). USD qarzda summa DOLLARGA aylantiriladi.
@@ -1213,7 +1231,13 @@ function _refundPayPlan(sale, total) {
 
   // 1) Shu sotuvdagi qarz
   const st = _st(sale);
-  const thisDebt = Math.max(0, st.remaining || 0);
+  // ✅ 2026-08-17: USD qarz SOTUV KURSIDA so'mga baholanadi — aks holda
+  // min() bugungi kurs bilan kesib, kurs tushgan kunda ortiqcha pul
+  // kassaga o'tar, ko'tarilgan kunda arvoh qarz qolardi.
+  const _uT = (sale.debtCurrency === "usd" && (st.debtUsd || 0) > 0);
+  const thisDebt = _uT
+    ? Math.round((st.debtUsd || 0) * _saleQarzKursi(sale))
+    : Math.max(0, st.remaining || 0);
   plan.fromThisDebt = Math.min(thisDebt, left);
   left -= plan.fromThisDebt;
 
@@ -1277,11 +1301,14 @@ function updateRefundPayPlan(total) {
 // Qaytarish hisobidan qarz to'lovi yozuvi (2026-07-25)
 // source="refund" — bu HAQIQIY PUL EMAS, tovar qaytarish hisobidan.
 // Shuning uchun kunlik tushum va kassa hisobiga KIRMAYDI.
-function _refundAddDebtPayment(sale, amountUzs, refundNo, custTotals) {
+function _refundAddDebtPayment(sale, amountUzs, refundNo, custTotals, ownRate) {
   if (!amountUzs || amountUzs <= 0) return;
   if (!db.debtPayments) db.debtPayments = [];
 
-  const rate = Number(sale.rate) || Number(db.settings?.rate) || 12800;
+  // ✅ 2026-08-17: SHU sotuv qoplamasida `ownRate` — qarz qotgan kurs
+  // (_saleQarzKursi) keladi va USTUVOR. Boshqa qarzlarga oqim esa
+  // avvalgidek bugungi kursda (u to'lov harakati — egasining qoidasi).
+  const rate = Number(ownRate) || Number(sale.rate) || Number(db.settings?.rate) || 12800;
 
   // 2026-07-25: QARZ VALYUTASI. Sotuv qarzi dollarda yuritilsa —
   // qaytarilgan tovar qiymati ham DOLLARGA aylantiriladi va chek/xabar
