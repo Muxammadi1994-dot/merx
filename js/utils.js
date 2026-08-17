@@ -247,7 +247,14 @@ function regroupPackages(variants, color, inBox) {
 
 // debtSales: joriy (hisoblangan) qoldig'i bor sotuvlar — db.sales ning o'zi
 // o'zgartirilmaydi, faqat calcSaleState() orqali tekshiriladi.
-const debtSales  = () => db.sales.filter(s => calcSaleState(s).remaining > 0.5);
+// ✅ 2026-08-17: TO'LIQ QAYTARILGAN sotuv RO'YXATGA KIRMAYDI — to'lov
+// yo'li (findCustomerDebts) va server (pul.js) bilan BIR QOIDA.
+// Jonli isbot (B20): qaytarilgan chekning qoplovchi QTQ'si atkaz
+// bo'lsa, "arvoh" qarz kartada qolardi — Nuriddin aka $640,
+// Abduqodir aka $105.12. Karta $44 023,93 derdi, server va chek
+// $43 383,93 — sotuvchi "1000 to'ladim, 1640 kamaydi" deb chalg'irdi.
+const debtSales  = () => db.sales.filter(s =>
+  s.status !== "qaytarilgan" && calcSaleState(s).remaining > 0.5);
 const isOverdue  = s  => s.due && s.due < today();
 
 // ── Qarz to'lov chek raqami ────────────────────
