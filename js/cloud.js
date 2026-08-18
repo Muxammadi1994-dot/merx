@@ -1457,34 +1457,57 @@ async function pushToCloud() {
         // Fetch yiqilsa — o'sha tovarlar bu safar YUBORILMAYDI
         // (keyingi sinxronda qayta uriladi): eski qoldiqni bosishdan
         // ko'ra kechikish xavfsiz.
+        // ⚠️ 2026-08-18 (v290 TUZATISHI — 289 dagi nuqson):
+        // (1) `prodRows` — BUTUN katalog (delta ichkarida ajratiladi),
+        //     shuning uchun so'rov 1000+ SKU bilan ~14 KB URL hosil
+        //     qilardi va server uni RAD ETISHI mumkin edi (414).
+        //     Endi avval DELTA hisoblanadi — faqat haqiqatan
+        //     o'zgargan tovarlar so'raladi (odatda 1-2 ta).
+        // (2) So'rov 150 talik BO'LAKLARGA bo'linadi — uzun URL yo'q.
+        // (3) Bo'lak yiqilsa faqat O'SHA bo'lak tovarlari kechiktiriladi
+        //     (avval BUTUN katalog tashlanardi — katalog umuman
+        //     sinxronlanmay qolish xavfi bor edi).
         try {
-          const _skus = [...new Set(prodRows.map(r => String(r.sku)))]
-            .filter(Boolean);
-          const _need = prodRows.filter(r => {
+          const _c = _pushCache["products"];
+          const _isNew = r => {
+            if (!_c) return true;
+            const k = String(r.id != null ? r.id : r.shop_id);
+            return _c.get(k) !== _fpRow(r);
+          };
+          const _dirty = prodRows.filter(r => {
+            if (!_isNew(r)) return false;                    // o'zgarmagan
             const lp = (db.products || []).find(x => String(x.sku) === String(r.sku));
-            return !(lp && lp._qtyLocal);
+            return !(lp && lp._qtyLocal);                    // ombor o'zgarishi — lokal qoladi
           });
-          if (_need.length && _skus.length) {
-            const { data: _srv, error: _e } = await _sb.from("products")
-              .select("sku,variants").eq("shop_id", sid).in("sku", _skus);
+          const _kechik = new Set();
+          for (let i = 0; i < _dirty.length; i += 150) {
+            const _part = _dirty.slice(i, i + 150);
+            const _skus = [...new Set(_part.map(r => String(r.sku)))].filter(Boolean);
+            if (!_skus.length) continue;
+            let _srv = null, _e = null;
+            try {
+              const _res = await _sb.from("products")
+                .select("sku,variants").eq("shop_id", sid).in("sku", _skus);
+              _srv = _res.data; _e = _res.error;
+            } catch (err) { _e = err; }
             if (!_e && Array.isArray(_srv)) {
               const _map = new Map(_srv.map(x => [String(x.sku), x.variants]));
-              _need.forEach(row => {
+              _part.forEach(row => {
                 const sv = _map.get(String(row.sku));
-                if (!Array.isArray(sv)) return;      // bulutda yo'q — yangi tovar
+                if (!Array.isArray(sv)) return;    // bulutda yo'q — yangi tovar, lokal qoladi
                 row.variants = sv;
                 if (row.data && typeof row.data === "object") row.data.variants = sv;
               });
             } else {
-              // o'qib bo'lmadi — qoldiqli tovarlarni bu safar yubormaymiz
-              prodRows = prodRows.filter(r => {
-                const lp = (db.products || []).find(x => String(x.sku) === String(r.sku));
-                return lp && lp._qtyLocal;
-              });
+              console.warn("[push] qoldiq himoyasi (bo'lak):", _e && _e.message);
+              _part.forEach(r => _kechik.add(String(r.sku)));
             }
           }
+          if (_kechik.size) prodRows = prodRows.filter(r => !_kechik.has(String(r.sku)));
         } catch (e) {
           console.warn("[push] qoldiq himoyasi:", e.message);
+          // Umumiy xato — qoldiqli tovarlar kechiktiriladi (eski qoldiqni
+          // bosishdan ko'ra kechikish xavfsiz), ombor o'zgarishlari ketaveradi.
           prodRows = prodRows.filter(r => {
             const lp = (db.products || []).find(x => String(x.sku) === String(r.sku));
             return lp && lp._qtyLocal;
