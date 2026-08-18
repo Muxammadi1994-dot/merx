@@ -626,6 +626,41 @@ module.exports = async (req, res) => {
         uzs: Math.round(uzs), usd: Math.round(usd * 100) / 100 });
     }
 
+    // ✅ 2026-08-18 (3-teshik, yakuni): YANGI TOVAR RAQAMI SERVERDAN.
+    // Ildiz: SKU qurilmada, KETMA-KET beriladi (`db.seq` + lokal
+    // ro'yxatdan bo'sh raqam qidiriladi). Ikki kassa deyarli bir vaqtda
+    // tovar qo'shsa, IKKALASI HAM bir xil raqamni oladi — push (sku,
+    // shop_id) kaliti bilan yozgani uchun ikkinchisi birinchisini
+    // JIMGINA BOSIB KETADI: tovar ham, qoldig'i ham yo'qoladi
+    // (Shoetest'dagi "12 tovar sir bo'lib yo'qoldi" sinfi).
+    // Endi raqam serverdan olinadi — chek raqamlari qoidasi (§3.14).
+    // `count` bilan bir yo'la bir nechta raqam ajratsa ham bo'ladi
+    // (import/ko'p rang qo'shish uchun).
+    if (action === "next_sku") {
+      if (!(await _verify))
+        return res.status(401).json({ ok: false, error: "Token yaroqsiz" });
+      const pref = String(body.prefix || "").toUpperCase() === "SHOE" ? "SHOE" : "CLTH";
+      const count = Math.min(Math.max(parseInt(body.count) || 1, 1), 200);
+      const rows = await sbAll(
+        `products?shop_id=eq.${encodeURIComponent(shopId)}` +
+        `&sku=like.${encodeURIComponent(pref + "-%")}&select=sku`);
+      let mx = 0;
+      (rows || []).forEach(r => {
+        const m = String(r.sku || "").match(/^[A-Z]+-(\d+)/);
+        if (m) { const n = parseInt(m[1]); if (n > mx) mx = n; }
+      });
+      const band = new Set((rows || []).map(r => String(r.sku)));
+      const skus = [];
+      let n = mx;
+      while (skus.length < count) {
+        n++;
+        const s = `${pref}-${String(n).padStart(3, "0")}`;
+        if (!band.has(s)) skus.push(s);
+        if (n > mx + 5000) break;                 // cheksiz aylanish himoyasi
+      }
+      return res.status(200).json({ ok: true, skus, next: n });
+    }
+
     // ✅ 2026-08-18 (4-paket): KO'P MIJOZ QARZI BIR CHAQIRUVDA.
     // "Barchaga eslatma" avval har mijoz jamini LOKALDAN olardi —
     // qurilma eskirgan bo'lsa yuzlab mijozga noto'g'ri raqam ketardi.

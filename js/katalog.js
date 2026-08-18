@@ -1214,7 +1214,7 @@ function epaCalc() {
   if (lbl) lbl.textContent = from && to ? (from===to?from:`${from}–${to}`) : "";
 }
 
-function epConfirmAddColor() {
+async function epConfirmAddColor() {   // ✅ 2026-08-18: SKU serverdan (async)
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   const color = ($("epa-color")||{value:""}).value.trim();
   if (!color) { toast("Rang nomini kiriting","err"); return; }
@@ -1243,7 +1243,7 @@ function epConfirmAddColor() {
   // B1 (v147): yangi rang SHU tovarga qo'shilmaydi — ALOHIDA TOVAR
   // sifatida ochiladi (narxlar nusxalanadi, keyin mustaqil o'zgaradi)
   // 2026-08-03: SKU noyobligi kafolatlanadi
-  const { id: newId, sku: _newSku3 } = _apNextSku(p.type);
+  const { id: newId, sku: _newSku3 } = await _apNextSkuAsync(p.type, 1);
   db.products.push({
     id: newId,
     sku: _newSku3,
@@ -1709,7 +1709,7 @@ function apMixHint() {
   if (_pv) _pv.textContent = "→ " + mix.map(t => t.size + "×" + t.per).join(", ");
 }
 
-function addProduct() {
+async function addProduct() {   // ✅ 2026-08-18: SKU serverdan (async)
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("katalog","add")) return;
 
@@ -1721,7 +1721,7 @@ function addProduct() {
   // 2026-07-25 (№3): VARIATIV rejim — butunlay alohida oqim.
   // Rang, pochka, narx jadvalda kiritilgani uchun quyidagi
   // tekshiruvlar (rang, pochka) bu yerda o'tkazilmaydi.
-  if (_apVarOn) { apAddVariativ(name); return; }
+  if (_apVarOn) { await apAddVariativ(name); return; }
 
   const color   = ($("ap-color")||{value:""}).value.trim();
   if (!color) { toast("Rang tanlang","err"); return; }
@@ -1824,7 +1824,9 @@ function addProduct() {
   } else {
     const autoBarcode = barcode || genEAN13(db.seq);
     // 2026-08-03: SKU noyobligi kafolatlanadi
-    const { id: newProdId, sku: _newSku2 } = _apNextSku(t);
+    // ✅ 2026-08-18: raqam SERVERDAN (ikki kassa to'qnashuvi yopiladi);
+    // aloqa bo'lmasa lokal yo'l — oflaynda ish to'xtamaydi.
+    const { id: newProdId, sku: _newSku2 } = await _apNextSkuAsync(t, 1);
     db.products.push({
       id: newProdId,
       sku: _newSku2,
@@ -4243,6 +4245,47 @@ function impCurrencyChanged() {
 // yorliqdagi kod bilan mos kelmay qoldi (B20, 187 tovar).
 // Yozuv `id` lari uchun `nextId()` TO'G'RI — u faqat noyoblik
 // uchun. Kod/SKU uchun esa sanoq kerak.
+// ✅ 2026-08-18 (3-teshik yakuni): SKU SERVERDAN OLINADI.
+// Lokal `_apNextSku` ikki kassada BIR XIL raqam berardi va push
+// birini ikkinchisi bilan bosardi (tovar + qoldiq jimgina yo'qolardi).
+// Endi raqam serverdan so'raladi; aloqa/server rejimi bo'lmasa eski
+// lokal yo'l ishlaydi (oflaynda ish to'xtamaydi).
+// `_apSkuZaxira` — serverdan olingan, hali ishlatilmagan raqamlar
+// (ko'p rang qo'shishda bir chaqiruvda bir nechta olinadi).
+let _apSkuZaxira = [];
+async function _apNextSkuAsync(type, count) {
+  const pref = type === "oyoq" ? "SHOE" : "CLTH";
+  const n = Math.max(1, parseInt(count) || 1);
+  try {
+    if (typeof _serverRejimi === "function" && _serverRejimi() &&
+        typeof _serverPay === "function") {
+      const r = await _serverPay({ action: "next_sku", prefix: pref, count: n });
+      if (r && r.ok && Array.isArray(r.skus) && r.skus.length) {
+        // Lokalda band bo'lganlarini tashlaymiz (sinxron kechikkan holat)
+        const band = new Set((db.products || []).map(x => String(x.sku || "")));
+        const toza = r.skus.filter(s => !band.has(s));
+        if (toza.length) {
+          _apSkuZaxira = toza.slice(1);
+          const _id = db.seq++;
+          return { id: _id, sku: toza[0], server: true };
+        }
+      }
+    }
+  } catch (e) { console.warn("[sku] serverdan olinmadi:", e.message); }
+  return { ..._apNextSku(type), server: false };
+}
+// Zaxiradan olish (bir amalda ko'p tovar yaratilganda)
+function _apSkuNavbat(type) {
+  if (_apSkuZaxira.length) {
+    const band = new Set((db.products || []).map(x => String(x.sku || "")));
+    while (_apSkuZaxira.length) {
+      const s = _apSkuZaxira.shift();
+      if (!band.has(s)) return { id: db.seq++, sku: s, server: true };
+    }
+  }
+  return { ..._apNextSku(type), server: false };
+}
+
 function _apNextSku(type) {
   const pref = type === "oyoq" ? "SHOE" : "CLTH";
   const band = new Set((db.products || []).map(x => String(x.sku || "")));
@@ -4273,7 +4316,7 @@ function _apCreateExtraColor(base, cd, batchId) {
   const ulg = cd.ulg > 0 ? Math.round(cd.ulg) : (base.ulgurjiNarx || 0);
 
   // 2026-08-03: SKU noyobligi kafolatlanadi (yuqoridagi izoh)
-  const { id: newId, sku: newSku } = _apNextSku(base.type);
+  const { id: newId, sku: newSku } = _apSkuNavbat(base.type);   // ✅ 2026-08-18
   const prod = {
     id: newId,
     sku: newSku,
@@ -4568,7 +4611,7 @@ function _apVarReset() {
 // ═══ VARIATIV TOVAR QO'SHISH (2026-07-25, №3) ═══
 // Jadvaldagi har rang uchun alohida tovar yaratiladi.
 // Kirim tarixida hammasi BITTA partiya bo'lib ko'rinadi.
-function apAddVariativ(name) {
+async function apAddVariativ(name) {   // ✅ 2026-08-18: SKU zaxirasi serverdan
   if (typeof requireUse === "function" && !requireUse("katalog")) return;
 
   const rows = _apVarReadRows();
@@ -4596,6 +4639,22 @@ function apAddVariativ(name) {
   // Bitta partiya — kirim tarixida bir joyda turadi
   const batchId = "Variativ " + today() +
     (typeof nowTime === "function" ? " " + nowTime() : "");
+
+  // ✅ 2026-08-18: kerakli raqamlar BIR chaqiruvda serverdan olinadi —
+  // har rang uchun alohida so'rov yubormaymiz. Aloqa bo'lmasa
+  // `_apSkuNavbat` lokal yo'lga tushadi.
+  try {
+    const _n = rows.length;
+    if (_n > 0 && typeof _serverRejimi === "function" && _serverRejimi() &&
+        typeof _serverPay === "function") {
+      const _pref = (base.type === "oyoq") ? "SHOE" : "CLTH";
+      const _r = await _serverPay({ action: "next_sku", prefix: _pref, count: _n });
+      if (_r && _r.ok && Array.isArray(_r.skus)) {
+        const _band = new Set((db.products || []).map(x => String(x.sku || "")));
+        _apSkuZaxira = _r.skus.filter(x => !_band.has(x));
+      }
+    }
+  } catch (e) { console.warn("[sku] zaxira olinmadi:", e.message); }
 
   let created = 0;
   rows.forEach(cd => { if (_apCreateExtraColor(base, cd, batchId)) created++; });
