@@ -3097,7 +3097,7 @@ function showImportPreview() {
 }
 
 // ── Import tasdiqlash ─────────────────────────────
-function confirmImport() {
+async function confirmImport() {   // ✅ 2026-08-18: SKU zaxirasi serverdan
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("katalog","import")) return;
 
@@ -3114,6 +3114,26 @@ function confirmImport() {
   const rate    = db.settings?.rate || 12800;
 
   let added = 0, updated = 0, skipped = 0;
+
+  // ✅ 2026-08-18 (3-teshik yakuni): IMPORT RAQAMLARI SERVERDAN.
+  // Avval `IMP-0001` lokal sanoqdan berilardi — ikki kassa bir vaqtda
+  // import qilsa raqamlar ustma-ust tushib, push birini ikkinchisi
+  // bilan bosardi (tovar va qoldiq jimgina yo'qolardi).
+  // Kerakli miqdor BIR chaqiruvda olinadi (server 200 tagacha beradi);
+  // yetmasa yoki aloqa bo'lmasa lokal sanoq zaxira bo'lib qoladi.
+  let _impSku = [];
+  try {
+    const _yangiCh = _importRows.length;
+    if (_yangiCh > 0 && typeof _serverRejimi === "function" && _serverRejimi() &&
+        typeof _serverPay === "function") {
+      const _r = await _serverPay({ action: "next_sku", prefix: "IMP",
+                                    count: Math.min(_yangiCh, 200) });
+      if (_r && _r.ok && Array.isArray(_r.skus)) {
+        const _band = new Set((db.products || []).map(x => String(x.sku || "")));
+        _impSku = _r.skus.filter(x => !_band.has(x));
+      }
+    }
+  } catch (e) { console.warn("[import] SKU zaxirasi olinmadi:", e.message); }
 
   // Avtomatik partiya raqami: P-YYYY-NNN
   const _genPartiyaNum = () => {
@@ -3208,9 +3228,10 @@ function confirmImport() {
       // ⚠️ 2026-08-04: SKU SANOQDAN, id esa `nextId()` dan.
       // Avval ikkalasi bir manbadan edi — `nextId()` vaqt muhri
       // qaytargach SKU "IMP-1785848660110" bo'lib ketardi.
-      const _skuNo    = db.seq++;
       const newProdId = nextId();
-      const sku = `IMP-${String(_skuNo).padStart(4,"0")}`;
+      // ✅ 2026-08-18: avval SERVER zaxirasidan, tugasa lokal sanoqdan
+      let sku = _impSku.shift();
+      if (!sku) sku = `IMP-${String(db.seq++).padStart(4,"0")}`;
       const _bc = colorBarcode || r.barcode || genEAN13(db.seq++);
       const newProd = {
         id: newProdId,

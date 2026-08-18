@@ -639,7 +639,9 @@ module.exports = async (req, res) => {
     if (action === "next_sku") {
       if (!(await _verify))
         return res.status(401).json({ ok: false, error: "Token yaroqsiz" });
-      const pref = String(body.prefix || "").toUpperCase() === "SHOE" ? "SHOE" : "CLTH";
+      // ✅ 2026-08-18: import uchun `IMP` prefiksi ham qo'llab-quvvatlanadi
+      const _pf = String(body.prefix || "").toUpperCase();
+      const pref = (_pf === "SHOE" || _pf === "IMP") ? _pf : "CLTH";
       const count = Math.min(Math.max(parseInt(body.count) || 1, 1), 200);
       const rows = await sbAll(
         `products?shop_id=eq.${encodeURIComponent(shopId)}` +
@@ -654,7 +656,7 @@ module.exports = async (req, res) => {
       let n = mx;
       while (skus.length < count) {
         n++;
-        const s = `${pref}-${String(n).padStart(3, "0")}`;
+        const s = `${pref}-${String(n).padStart(pref === "IMP" ? 4 : 3, "0")}`;
         if (!band.has(s)) skus.push(s);
         if (n > mx + 5000) break;                 // cheksiz aylanish himoyasi
       }
