@@ -1486,10 +1486,67 @@ function formatReceiptText(sale, shopName) {
 
 // ═══ QARZ TO'LOVI CHEKI (2026-07) ═══════════════════════════════
 // Xabar: jami qarz EDI / TO'LANDI / QOLDI + mini-app cheki tugmasi
+// ✅ 2026-08-18: "BIR CHEKKA BIR XABAR" QULFI (dublikat himoyasi).
+// Ilovadagi botSend navbati (utils.js) javob yo'qolganda so'rovni 90
+// soniyada QAYTA yuboradi. So'rov botga yetib, Telegram'ga ketgan-u,
+// faqat JAVOB yo'lda o'lgan bo'lsa — guruh/mijozga IKKI NUSXA tushardi.
+// Endi: yuborishdan OLDIN `bot_sent` jadvalidan 60 daqiqalik muhr
+// tekshiriladi; bor bo'lsa — yubormasdan "ok, sent, dup" qaytadi va
+// navbat tinchiydi. Muvaffaqiyatdan KEYIN muhr qo'yiladi.
+// Qoidalar: (a) tekshiruv yiqilsa — YUBORILADI (fail-open: chek
+// yetib bormasligi dublikatdan qimmatroq); (b) 60 daqiqadan keyin
+// qulf ochiq — qo'lda qayta yuborishlar bloklanmaydi; (c) send_text
+// (eslatmalar) ATAYLAB qulfsiz — ular takror yuborilishi tabiiy;
+// (d) muhrgacha bo'lgan soniyalarda parallel ikki so'rov nazariy
+// o'tishi mumkin — qabul qilingan, kichik xavf.
+// Jadval (bir marta, SQL editorda):
+//   create table if not exists bot_sent(
+//     key text primary key, ts timestamptz not null default now());
+//   alter table bot_sent enable row level security;
+async function _dupLock(kind, shopId, chekNum) {
+  if (!chekNum) return { dup: false, key: null };
+  const key = `${kind}|${shopId || "-"}|${chekNum}`;
+  try {
+    const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const r = await fetch(`${SB_URL}/rest/v1/bot_sent` +
+      `?key=eq.${encodeURIComponent(key)}&ts=gte.${encodeURIComponent(since)}` +
+      `&select=key&limit=1`,
+      { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } });
+    if (r.ok) {
+      const j = await r.json().catch(() => []);
+      if (Array.isArray(j) && j.length) return { dup: true, key };
+    }
+  } catch (e) { console.warn("[dupLock]", e.message); }
+  return { dup: false, key };
+}
+async function _dupMark(key) {
+  if (!key) return;
+  try {
+    await fetch(`${SB_URL}/rest/v1/bot_sent`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+                 "Content-Type": "application/json",
+                 Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ key, ts: new Date().toISOString() })
+    });
+    // Ahyon-ahyonda (2% ehtimol) 48 soatdan eski muhrlar tozalanadi
+    if (Math.random() < 0.02) {
+      const old = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+      fetch(`${SB_URL}/rest/v1/bot_sent?ts=lt.${encodeURIComponent(old)}`,
+        { method: "DELETE",
+          headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
+        .catch(() => {});
+    }
+  } catch (e) { console.warn("[dupMark]", e.message); }
+}
+
 async function actionSendPayReceipt(body) {
   const { customerId, customerPhone, payment, shopName } = body || {};
   if (!payment) return { ok: false, error: "payment majburiy" };
   const shopId = body.shopId || null;
+  // ✅ dublikat qulfi (60 daq) — navbat qayta urganda ikki nusxa tushmasin
+  const _dl = await _dupLock("payrcpt", shopId, payment.chekNum || payment.id);
+  if (_dl.dup) return { ok: true, sent: true, dup: true };
   const shopFilter = shopId ? `&shop_id=eq.${shopId}` : "";
 
   // Mijoz chat_id sini topish (telefon → id tartibida)
@@ -1604,6 +1661,7 @@ async function actionSendPayReceipt(body) {
     }
   } catch (e) { console.warn("[payReceipt] guruh xato:", e.message); }
 
+  await _dupMark(_dl.key);   // ✅ yuborildi — 60 daqiqalik muhr
   return { ok: true, sent: true, groupSent };
 }
 
@@ -1746,6 +1804,9 @@ async function actionSendReceipt(body) {
   // shop_id ni body dan olamiz
   const shopId = body.shopId || body.shop_id || null;
   const shopFilter = shopId ? `&shop_id=eq.${shopId}` : "";
+  // ✅ dublikat qulfi (60 daq) — navbat qayta urganda ikki nusxa tushmasin
+  const _dl = await _dupLock("receipt", shopId, sale.chekNum || sale.chek_num || sale.id);
+  if (_dl.dup) return { ok: true, sent: true, dup: true, groupSent: false };
 
   // 1. Avval telefondan qidiramiz
   if (customerPhone) {
@@ -1849,6 +1910,7 @@ async function actionSendReceipt(body) {
     }
   } catch (e) { console.warn("[sendReceipt] guruh xato:", e.message); }
 
+  await _dupMark(_dl.key);   // ✅ yuborildi — 60 daqiqalik muhr
   return { ok: true, sent: true, groupSent };
 }
 
@@ -1947,6 +2009,11 @@ async function actionSendStaffNotification(body) {
   const sid = shopId || null;
 
   const chekId = sale.chekNum || ("ID" + sale.id);
+  // ✅ dublikat qulfi (60 daq) — navbat qayta urganda guruhga ikki
+  // nusxa tushmasin (472 da guruh xabari navbatga ulandi — bu himoya
+  // usiz javob-yo'qolish holatida omborchi kartani ikki marta ko'rardi).
+  const _dl = await _dupLock("staffnotif", sid, chekId);
+  if (_dl.dup) return { ok: true, sent: true, dup: true };
   const shopN  = shopName || "MERX";
   const items  = sale.items || [];
   const total  = Number(sale.total || 0);
@@ -2030,6 +2097,7 @@ async function actionSendStaffNotification(body) {
     console.error("[staffNotif] tg error:", r.description);
     return { ok: false, reason: "telegram_error", detail: r.description };
   }
+  await _dupMark(_dl.key);   // ✅ yuborildi — 60 daqiqalik muhr
   return { ok: true, sent: true };
 }
 
