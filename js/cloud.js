@@ -1517,8 +1517,22 @@ async function pushToCloud() {
               _part.forEach(row => {
                 const sv = _map.get(String(row.sku));
                 if (!Array.isArray(sv)) return;    // bulutda yo'q — yangi tovar, lokal qoladi
-                row.variants = sv;
-                if (row.data && typeof row.data === "object") row.data.variants = sv;
+                // ✅ 2026-08-18 (v292): TUZILMA LOKALDAN, SONLAR SERVERDAN.
+                // Avval butun ro'yxat serverникi bilan ALMASHTIRILARDI —
+                // shu sabab lokal TUZILMA o'zgarishlari qaytib ketardi:
+                // o'chirilgan rang tirilardi, qo'shilgan o'lcham yo'qolardi.
+                // Endi qatorlar lokalniki (kassir nimani xohlagan bo'lsa),
+                // qoldiq esa serverdan (haqiqat). Serverda bor-u lokalda
+                // yo'q variant — ataylab o'chirilgan, qaytarilmaydi.
+                const _sq = new Map(sv.map(v =>
+                  [String(v.color || "") + "|" + String(v.size || ""), v.qty]));
+                const _merge = (arr) => (arr || []).map(v => {
+                  const k = String(v.color || "") + "|" + String(v.size || "");
+                  return _sq.has(k) ? { ...v, qty: Number(_sq.get(k)) || 0 } : v;
+                });
+                row.variants = _merge(row.variants);
+                if (row.data && typeof row.data === "object")
+                  row.data.variants = _merge(row.data.variants);
               });
             } else {
               console.warn("[push] qoldiq himoyasi (bo'lak):", _e && _e.message);
