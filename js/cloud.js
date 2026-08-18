@@ -895,9 +895,22 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
   }
 
   const chunk = chunkSize || 50;
+  // ✅ 2026-08-18: TARMOQ XATOSIDA QAYTA URINISH (2 marta, 1s va 2s).
+  // Ildiz (B20, 18-avg ertalab): telefonda "Saqlandi, lekin xatolar:
+  // products: TypeError: Load failed" — bitta bo'lak so'rovi uzilgan
+  // (ekran o'chdi / Wi-Fi sekinlashdi) va O'SHA ZAHOTI butun jadval
+  // to'xtardi, tovarlar keyingi sinxrongacha kutib qolardi.
+  // Faqat TARMOQ xatolari qayta uriladi; Postgres xatolari (takror
+  // kalit, RLS, kalit mos emas) darhol otiladi — ular mantiqiy xato
+  // va yashirilmasligi kerak (13-qoida).
+  const _pgXato = e => !!(e && (e.code || e.hint ||
+    /duplicate|constraint|violates|permission|policy|column/i.test(e.message || "")));
+  const _kut = ms => new Promise(r => setTimeout(r, ms));
   for (let i = 0; i < pend.length; i += chunk) {
     const part = pend.slice(i, i + chunk);
-    const { error } = await _sb.from(table)
+    let error = null;
+    for (let urinish = 0; urinish < 3; urinish++) {
+      const _res = await _sb.from(table)
       // ⚠️ 2026-08-08: STANDART KALIT `id` → `id,shop_id`.
       // Bugun asosiy jadvallarning PK'si `(shop_id, id)` ga
       // o'tkazildi (id to'qnashuvi sinfini yopish uchun, §3.14).
@@ -907,7 +920,16 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
       // — ya'ni butun push to'xtardi. Endi standart kalit ham
       // yangi PK bilan bir xil. Alohida kalit berilgan joylar
       // (masalan products → "sku,shop_id") avvalgidek ishlaydi.
-      .upsert(part.map(p => p[0]), { onConflict: conflict || "id,shop_id", ignoreDuplicates: false });
+        .upsert(part.map(p => p[0]), { onConflict: conflict || "id,shop_id", ignoreDuplicates: false });
+      error = _res.error;
+      if (!error) break;
+      if (_pgXato(error)) break;                 // mantiqiy xato — qayta urinmaymiz
+      if (urinish < 2) {
+        console.warn(`[sync] ${table}: tarmoq xatosi, qayta urinish ${urinish + 1}/2 —`,
+                     error.message);
+        await _kut(1000 * (urinish + 1));
+      }
+    }
     if (error) throw error;
     part.forEach(([r, k, j]) => cache.set(k, j));
     // \u2705 2026-08-13: MUVAFFAQIYATLI YUBORILGAN yozuv DARHOL "bulutda bor"
