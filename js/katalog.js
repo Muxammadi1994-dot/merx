@@ -722,24 +722,36 @@ function ppReset(prefix) {
 // ── Mahsulot nusxalash ───────────────────────────
 // Tahrir modalidan nusxalash (v144): tugma qator ichidan modal
 // ichiga ko'chirildi — tasodifiy bosishda katalog ifloslanmasin
-function epDuplicate() {
+async function epDuplicate() {   // ✅ 2026-08-18: SKU serverdan (async)
   if (typeof editSku === "undefined" || !editSku) return;
   if (!confirm("Shu mahsulotdan nusxa olinsinmi? (qoldiqlar 0 bilan)")) return;
-  duplicateProduct(editSku);
+  await duplicateProduct(editSku);
   if (typeof closeModal === "function") closeModal("editprod");
 }
 
-function duplicateProduct(sku, event) {
+async function duplicateProduct(sku, event) {   // ✅ 2026-08-18: SKU serverdan
   if (event) event.stopPropagation();
   const p = db.products.find(x => x.sku === sku);
   if (!p) return;
 
-  // Yangi SKU yaratamiz
-  const newSku = p.sku + "-copy-" + Date.now().toString().slice(-4);
+  // ✅ 2026-08-18 (lokal teshik): raqam SERVERDAN olinadi.
+  // Avval `<sku>-copy-<vaqtning oxirgi 4 raqami>` edi — bu 10 soniyada
+  // bir TAKRORLANADI: ikki kassa bir tovardan shu oraliqda nusxa olsa
+  // SKU ustma-ust tushib, push birini ikkinchisi bilan bosardi
+  // (tovar jimgina yo'qolardi). Aloqa bo'lmasa eski usul zaxira.
+  let newSku, newId;
+  try {
+    const _r = await _apNextSkuAsync(p.type, 1);
+    newSku = _r.sku; newId = _r.id;
+  } catch (e) {
+    newSku = p.sku + "-copy-" + Date.now().toString().slice(-4);
+    newId  = db.seq;
+  }
+  if (!newSku) { newSku = p.sku + "-copy-" + Date.now().toString().slice(-4); newId = db.seq; }
 
   const copy = JSON.parse(JSON.stringify(p)); // deep copy
   copy.sku  = newSku;
-  copy.id   = db.seq;
+  copy.id   = newId;
   copy.name = p.name + " (nusxa)";
   copy.barcode = genEAN13 ? genEAN13(db.seq++) : "";
   // 2026-07-25: rang barcode'lari NUSXALANMAYDI — aks holda ikki xil
