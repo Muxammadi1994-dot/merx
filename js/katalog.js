@@ -4732,6 +4732,56 @@ function epToggleVariativ() {
   if (_epVarOn) epVarRenderTable();
 }
 
+// ✅ 2026-08-18 (egasining talabi): "↓ Barcha qatorlarga" TAHRIR
+// jadvalida ham — qo'shishdagi (apVarFillHint/apVarFillAll) bilan
+// bir xil UX. BIRINCHI qatorga yozilganda katak ostida tugmacha
+// chiqadi; bosilsa qiymat qolgan ranglarga tarqaladi. Shu bilan
+// "faqat kirilgan rang tahrirlanadi" shikoyati ham yopiladi —
+// narx/sig'im/qoldiq bir bosishda butun guruhga ketadi.
+function epVarFillHint(el, field) {
+  const rows = [...document.querySelectorAll("#ep-var-tbody tr")];
+  if (rows.length < 2) return;
+  const tr = el.closest("tr");
+  if (tr !== rows[0]) return;                    // faqat birinchi qator
+  const td = el.parentElement;
+  if (!el.value.trim()) {
+    td.querySelector(".evr-fill-hint")?.remove();
+    return;
+  }
+  let hint = td.querySelector(".evr-fill-hint");
+  if (!hint) {
+    hint = document.createElement("div");
+    hint.className = "evr-fill-hint";
+    hint.style.cssText = "font-size:10.5px;color:#0D1B2A;background:#FFF7ED;" +
+      "border:1px solid #FCD9A8;border-radius:5px;padding:3px 6px;margin-top:3px;" +
+      "cursor:pointer;text-align:center;font-weight:600";
+    hint.onclick = () => { epVarFillAll(field); hint.remove(); };
+    td.appendChild(hint);
+  }
+  hint.textContent = `↓ Barcha qatorlarga (${rows.length - 1} ta)`;
+}
+
+// Birinchi qator qiymatini qolgan ranglarga tarqatamiz
+function epVarFillAll(field) {
+  const cls = { boxes: "evr-boxes", inbox: "evr-inbox", dona: "evr-qty",
+                cost: "evr-cost", ulg: "evr-ulg" }[field];
+  if (!cls) return;
+  const rows = [...document.querySelectorAll("#ep-var-tbody tr")];
+  if (rows.length < 2) return;
+  const val = rows[0].querySelector(`.${cls}`)?.value || "";
+  rows.slice(1).forEach(r => {
+    const el = r.querySelector(`.${cls}`);
+    if (!el) return;
+    el.value = val;
+    // pochka/sig'im/dona o'zaro bog'liq — mavjud qayta-hisob ishlatiladi
+    if (["boxes", "inbox", "dona"].includes(field)) {
+      try { epVarRecalc(el, field); } catch (e) {}
+    }
+  });
+  if (typeof epVarTotals === "function") epVarTotals();
+  toast(`✅ ${rows.length - 1} ta rangga qo'llandi`);
+}
+
 function epVarRenderTable() {
   const tbody = document.getElementById("ep-var-tbody");
   if (!tbody) return;
@@ -4778,20 +4828,20 @@ function epVarRenderTable() {
         </td>
         <td style="padding:4px"><input class="evr-boxes" type="number" min="0" step="1"
           inputmode="numeric" value="${pochka}" style="${inpCss}"
-          oninput="epVarRecalc(this,'boxes')"></td>
+          oninput="epVarRecalc(this,'boxes');epVarFillHint(this,'boxes')"></td>
         <td style="padding:4px"><input class="evr-inbox" type="number" min="1" inputmode="numeric"
-          value="${inBox}" style="${inpCss}" oninput="epVarRecalc(this,'inbox')"></td>
+          value="${inBox}" style="${inpCss}" oninput="epVarRecalc(this,'inbox');epVarFillHint(this,'inbox')"></td>
         <td style="padding:4px">
           <input class="evr-qty" type="number" min="0" inputmode="numeric"
-            value="${qty}" style="${inpCss}" oninput="epVarRecalc(this,'dona')">
+            value="${qty}" style="${inpCss}" oninput="epVarRecalc(this,'dona');epVarFillHint(this,'dona')">
           <div class="evr-hint" style="font-size:10px;color:var(--mut);margin-top:2px">
             ${_rest > 0 ? `${pochka} pch + <span style="color:#B45309">${_rest} dona</span>` : ""}
           </div>
         </td>
         <td style="padding:4px"><input class="evr-cost" type="text" data-price
-          value="${fmt(cost)}" oninput="fmtInput(this)" style="${inpCss}"></td>
+          value="${fmt(cost)}" oninput="fmtInput(this);epVarFillHint(this,'cost')" style="${inpCss}"></td>
         <td style="padding:4px"><input class="evr-ulg" type="text" data-price
-          value="${fmt(pr.ulgurjiNarx || 0)}" oninput="fmtInput(this)" style="${inpCss}"></td>
+          value="${fmt(pr.ulgurjiNarx || 0)}" oninput="fmtInput(this);epVarFillHint(this,'ulg')" style="${inpCss}"></td>
       </tr>`;
   }).join("");
 

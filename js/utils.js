@@ -4104,13 +4104,33 @@ function autofillGuardWatch() {
         'autocomplete="current-password" name="af_pass">';
       document.body.appendChild(box);
     }
+    // ✅ 2026-08-18: ALDOV-MAYDON FAQAT KIRISH EKRANIDA FAOL.
+    // U doimiy yoqiq turganda Chrome uni "login+parol" juftligi deb
+    // bilib, ilova ichida RAQAM terib Enter bosilgan sayin "Parolni
+    // saqlaymi?" oynasini chiqarardi (egasining shikoyati: sonli
+    // amaliyotlarda ko'p joyda). `disabled` parol maydonini brauzer
+    // butunlay e'tiborsiz qoldiradi; kirish ekrani ko'ringandagina
+    // yoqiladi va o'z ishini (autofillni yutish) qilaveradi.
+    const _afDecoyTune = () => {
+      try {
+        const u = document.getElementById("af-fake-user");
+        const p = document.getElementById("af-fake-pass");
+        if (!u || !p) return;
+        const login = ["auth-pass", "auth-pin", "auth-sa-pass", "sa-pass"]
+          .map(id => document.getElementById(id))
+          .some(el => el && el.offsetParent !== null);
+        u.disabled = p.disabled = !login;
+      } catch (e) {}
+    };
+    _afDecoyTune();
+    setInterval(_afDecoyTune, 3000);
     autofillGuard(document);
     const obs = new MutationObserver(muts => {
       let bor = false;
       muts.forEach(m => m.addedNodes && m.addedNodes.forEach(n => {
         if (n.nodeType === 1) bor = true;
       }));
-      if (bor) autofillGuard(document);
+      if (bor) { autofillGuard(document); _afDecoyTune(); }
     });
     obs.observe(document.body, { childList: true, subtree: true });
   } catch (e) {}

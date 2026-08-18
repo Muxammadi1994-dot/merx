@@ -1036,9 +1036,10 @@ function openStaffModal(editId = null) {
           </div>
           <div>
             <label style="${lStyle}">PIN kod <span style="font-size:10px;font-weight:400;text-transform:none">(kirish uchun)</span></label>
-            <input id="as-pin" type="password" maxlength="6" inputmode="numeric"
+            <input id="as-pin" type="text" maxlength="6" inputmode="numeric"
+              autocomplete="off" name="xodim-pin-x" data-lpignore="true"
               placeholder="4-6 raqam" value="${s?.pin||''}"
-              style="${iStyle};letter-spacing:4px"
+              style="${iStyle};letter-spacing:4px;-webkit-text-security:disc"
               onfocus="this.style.borderColor='#E9A500'" onblur="this.style.borderColor='#E5E7EB'">
           </div>
         </div>
