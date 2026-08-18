@@ -269,12 +269,24 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
   // 2026-07-17: kartalar endi DAVR tugmalariga BO'YSUNADI — argumentlar
   // e'tiborga olinmaydi, hamma son dashGetSales/dashGetDateRange'dan
   // (grafiklar bilan BIR manba). Qarz/muddati/ombor — holat, davrsiz.
+  let _dashQarzUsd = 0;   // ✅ 2026-08-18: $ qarz kartada alohida ko'rsatiladi
   {
     const perSales = dashGetSales();
     todayCnt   = perSales.length;
     todayTotal = perSales.reduce((a,s) => a+(s.total||0), 0);
     const dts  = debtSales();
-    totalDebt  = dts.reduce((a,s) => a+s.remaining, 0);
+    // ✅ 2026-08-18: JAMI QARZ — Qarzlar bo'limi bilan BIR FORMULA va
+    // BIR KO'RINISH (so'm + $ alohida). Avval `s.remaining` XOM MAYDONI
+    // yig'ilardi: dollar qarzlar TO'LOVLARI AYIRILMAGAN eski so'm
+    // baholarida kirardi. Jonli isbot (ABU SAXIY, 18-avg): dashboard
+    // 9,65 mlrd derdi, Qarzlar 6,36 mlrd + $154 339 — 3,3 mlrd farq
+    // to'langan dollar to'lovlarining "ko'rinmasligi" edi. Bu bugungi
+    // bot /qarzlar xatosining aynan egizagi.
+    _dashQarzUsd = dts.filter(s => s.debtCurrency === "usd")
+      .reduce((a, s) => a + (calcSaleState(s).debtUsd || 0), 0);
+    totalDebt  = dts
+      .filter(s => !(s.debtCurrency === "usd" && calcSaleState(s).debtUsd > 0))
+      .reduce((a, s) => a + calcSaleState(s).remaining, 0);
     debtCnt    = dts.length;
     overdueCnt = dts.filter(isOverdue).length;
   }
@@ -362,7 +374,10 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
     {
       key: 'qarz',
       icon: 'ti-credit-card', color: '#E07B39',
-      label: 'Jami qarz', val: priceFmt(totalDebt, true),
+      label: 'Jami qarz',
+      // ✅ 2026-08-18: Qarzlar bo'limi bilan BIR ko'rinish — so'm + $
+      val: priceFmt(totalDebt, true) +
+           (_dashQarzUsd > 0 ? ' + ' + fmtUsd(_dashQarzUsd) : ''),
       sub: debtCnt + ' nafar qarzdor', click: "nav('qarzlar')"
     },
     {
@@ -847,12 +862,20 @@ function renderDashDebtTable(debts) {
   const el = $('dash-debt-tbody');
   if (!el) return;
   if (!debts.length) { el.innerHTML = '<tr><td colspan="3" class="empty-td">Qarz yo\'q</td></tr>'; return; }
-  el.innerHTML = debts.slice(0,6).map(s => `
+  // ✅ 2026-08-18: qatorlar ham JONLI hisobda — xom `s.remaining`
+  // dollar qarzlarda to'lovlarsiz eski so'mni ko'rsatardi; endi
+  // so'm qarz jonli qoldiqda, dollar qarz "$" bilan.
+  el.innerHTML = debts.slice(0,6).map(s => {
+    const _st = calcSaleState(s);
+    const _isU = s.debtCurrency === "usd" && (_st.debtUsd || 0) > 0;
+    const _sum = _isU ? fmtUsd(_st.debtUsd) : fmtK(_st.remaining) + " so'm";
+    return `
     <tr>
       <td style="font-weight:600">${s.customerName||s.customer_name||'—'}</td>
-      <td class="num" style="color:#E07B39;font-weight:700">${fmtK(s.remaining)} so'm</td>
+      <td class="num" style="color:#E07B39;font-weight:700">${_sum}</td>
       <td style="font-size:12px;color:${isOverdue(s)?'#E05A5A':'#888'}">${s.due||'—'}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 // ── Valyuta pill (2026-07-09: SOZLAMALAR bilan YAGONA format va
