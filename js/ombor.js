@@ -1236,6 +1236,10 @@ function saveInvent2() {
             note: "qoldiq sanash (inventarizatsiya)" });
       } catch (e) {}
       v.qty = actualQty;
+      // ✅ 2026-08-18: bu o'zgarish LOKAL (ombor hali serverdan
+      // o'tmaydi — 3-teshik). Bayroq push'ga aytadi: bu tovarning
+      // qoldig'ini serverникidan almashtirma, LOKALNI yubor.
+      p._qtyLocal = true;
       changed++;
     }
   });
@@ -1339,6 +1343,7 @@ function confirmChiqim2() {
   const costUzs = getCostUzs(p);
 
   v.qty -= qty;
+  p._qtyLocal = true;   // ✅ 2026-08-18: lokal qoldiq o'zgarishi (yuqoriga qarang)
 
   if (!db.chiqimlar) db.chiqimlar = [];
   db.chiqimlar.push({
@@ -1509,6 +1514,7 @@ function omDeleteKirim(id) {
       if (o.color && v.color !== o.color) return;
       const take = Math.min(v.qty || 0, left);
       v.qty = (v.qty || 0) - take;
+      p._qtyLocal = true;   // ✅ 2026-08-18: lokal qoldiq (push himoyasi)
       left -= take;
     });
   }
@@ -1579,6 +1585,7 @@ function omDeletePartiya(partiya) {
       if (o.color && v.color !== o.color) return;
       const take = Math.min(v.qty || 0, left);
       v.qty = (v.qty || 0) - take;
+      p._qtyLocal = true;   // ✅ 2026-08-18: lokal qoldiq (push himoyasi)
       left -= take;
     });
   });

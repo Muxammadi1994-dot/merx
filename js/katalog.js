@@ -4924,6 +4924,31 @@ function epSaveVariativ() {
   });
 
   saveDB();
+  // ✅ 2026-08-18 (egasi topgan): ASOSIY OYNA MAYDONLARI YANGILANADI.
+  // Ildiz: variativ jadval ham, asosiy oyna ham AYNAN SHU (kirilgan)
+  // tovarga yozadi. Asosiy oyna maydonlari esa oyna OCHILGANDAGI eski
+  // qiymatlarda turardi — keyin "Saqlash" bosilsa `saveEditProduct`
+  // ularni qaytadan yozib, kirilgan rangning tahririni ORQAGA QAYTARARDI.
+  // Natija: 6 rangdan 5 tasi saqlanib, aynan kirilgani qaytardi
+  // (tannarx, ulgurji narx, pochka sig'imi — pulga tegadigan maydonlar).
+  // Endi maydonlar yangi qiymat bilan to'ldiriladi — saqlash tartibi
+  // qanday bo'lishidan qat'i nazar natija bir xil bo'ladi.
+  try {
+    const _cur = (db.products || []).find(x => x.sku === editSku);
+    if (_cur) {
+      if ($("ep-cost")) {
+        $("ep-cost").value = (typeof getCostUzs === "function")
+          ? getCostUzs(_cur) : Math.round(_cur.costUzs || 0);
+      }
+      const _ul = $("ep-ulgurji");
+      if (_ul) {
+        _ul.value = fmt(_cur.ulgurjiNarx || 0);
+        _ul.dataset.raw = String(_cur.ulgurjiNarx || 0);
+      }
+      if ($("ep-inbox")) $("ep-inbox").value = _cur.inBox || 1;
+      if (typeof epUpdateBoxHints === "function") epUpdateBoxHints();
+    }
+  } catch (e) {}
   try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}
   renderKatalog();
   epVarRenderTable();

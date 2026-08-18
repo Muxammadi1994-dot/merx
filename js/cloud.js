@@ -1380,7 +1380,9 @@ async function pushToCloud() {
       // bo'ladi (9-qoida xatosi products uchun tugadi). Ustunlar esa
       // bot (api/bot.js faqat O'QIYDI) va SQL so'rovlar uchun qoladi.
       const _prodData = p => { const c = { ...p };
-        delete c.image; delete c.colorImages; delete c.shop_id; return c; };
+        delete c.image; delete c.colorImages; delete c.shop_id;
+        delete c._qtyLocal;   // ✅ 2026-08-18: ichki bayroq bulutga chiqmaydi
+        return c; };
       // ⚠️⚠️ 2026-08-06: `id` YO'Q TOVARLAR ENDI TASHLANMAYDI.
       // Avval shunday edi: `.filter(p => p.id != null)` — ya'ni `id`
       // maydoni yo'q tovar bulutga UMUMAN yuborilmasdi. Xato ham,
@@ -1408,7 +1410,7 @@ async function pushToCloud() {
         }
       } catch(e) { console.warn("id tiklash:", e.message); }
 
-      const prodRows = (db.products||[])
+      let prodRows = (db.products||[])
         .filter(p => p.id != null)
         .map(p => ({
           shop_id: sid, id: p.id,
@@ -1440,6 +1442,56 @@ async function pushToCloud() {
           data: _prodData(p) // v173: to'liq nusxa (rasmlarsiz)
         }));
       if (prodRows?.length) {
+        // ✅ 2026-08-18 (2-teshik, 1-bosqich): QOLDIQNI PUSH BOSMASIN.
+        // Ildiz: kartochka pushi `variants` (ya'ni QOLDIQ) ni ham
+        // yuboradi. Eskirgan qurilmada faqat NARX tahrir qilinsa ham,
+        // push eski qoldiqni serverga qaytarardi — orada bo'lgan
+        // sotuvlar izsiz yo'qolardi (ombor = pul).
+        // Yechim: yuborishdan oldin serverdagi JORIY qoldiq o'qiladi
+        // va o'sha qo'yiladi. Ataylab qilingan qoldiq tahriri xavf
+        // ostida emas — u `_stockMove` orqali ALLAQACHON serverdan
+        // o'tadi (14-avg) va lokal qiymat server javobiga tenglashadi.
+        // Istisno: ombor kirim/chiqim/inventarizatsiya hali lokal
+        // (3-teshik) — ular `_qtyLocal` bayrog'i bilan belgilanadi va
+        // lokal qoldiq saqlanadi.
+        // Fetch yiqilsa — o'sha tovarlar bu safar YUBORILMAYDI
+        // (keyingi sinxronda qayta uriladi): eski qoldiqni bosishdan
+        // ko'ra kechikish xavfsiz.
+        try {
+          const _skus = [...new Set(prodRows.map(r => String(r.sku)))]
+            .filter(Boolean);
+          const _need = prodRows.filter(r => {
+            const lp = (db.products || []).find(x => String(x.sku) === String(r.sku));
+            return !(lp && lp._qtyLocal);
+          });
+          if (_need.length && _skus.length) {
+            const { data: _srv, error: _e } = await _sb.from("products")
+              .select("sku,variants").eq("shop_id", sid).in("sku", _skus);
+            if (!_e && Array.isArray(_srv)) {
+              const _map = new Map(_srv.map(x => [String(x.sku), x.variants]));
+              _need.forEach(row => {
+                const sv = _map.get(String(row.sku));
+                if (!Array.isArray(sv)) return;      // bulutda yo'q — yangi tovar
+                row.variants = sv;
+                if (row.data && typeof row.data === "object") row.data.variants = sv;
+              });
+            } else {
+              // o'qib bo'lmadi — qoldiqli tovarlarni bu safar yubormaymiz
+              prodRows = prodRows.filter(r => {
+                const lp = (db.products || []).find(x => String(x.sku) === String(r.sku));
+                return lp && lp._qtyLocal;
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("[push] qoldiq himoyasi:", e.message);
+          prodRows = prodRows.filter(r => {
+            const lp = (db.products || []).find(x => String(x.sku) === String(r.sku));
+            return lp && lp._qtyLocal;
+          });
+        }
+      }
+      if (prodRows?.length) {
         // v176: delta — o'zgarmagan tovarlar (ayniqsa katta rasmlilari!)
         // endi qayta-qayta yuborilmaydi. Chunk 20 — rasm katta.
         // v180: o'zgargan tovarga vaqt muhri (lokalga HAM, data'ga HAM)
@@ -1461,6 +1513,16 @@ async function pushToCloud() {
           if (lp) lp.updatedAt = _t;
           if (row.data) row.data.updatedAt = _t;
         });
+        // ✅ 2026-08-18: lokal qoldiq bulutga yetkazildi — bayroq
+        // tushiriladi (keyingi pushlarda yana server qoldig'i asos
+        // bo'ladi). Bayroq faqat "yuborilmagan lokal o'zgarish bor"
+        // degani; ombor serverga o'tgach (3-teshik) butunlay olinadi.
+        try {
+          prodRows.forEach(r => {
+            const lp = (db.products || []).find(x => String(x.sku) === String(r.sku));
+            if (lp && lp._qtyLocal) delete lp._qtyLocal;
+          });
+        } catch (e) {}
       }
     } catch(e) { syncErrors.push("products: " + e.message); console.warn("sync products xato:", e.message); }
 
