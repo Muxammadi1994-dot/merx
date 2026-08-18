@@ -3121,8 +3121,66 @@ async function _botForceRefresh() {
 // Server rejimi o'chiq / aloqa yo'q bo'lsa `false` qaytadi va lokal
 // qiymat o'z holicha qoladi (bayroq bilan pushga chiqadi) — oflayn
 // ish buzilmaydi.
+// Server javobidagi qoldiqni lokalga yozish (yagona joy)
+function _stockApply(products) {
+  (products || []).forEach(sp => {
+    const lp = (db.products || []).find(x => String(x.sku) === String(sp.sku));
+    if (!lp || !Array.isArray(sp.variants)) return;
+    sp.variants.forEach(sv => {
+      const lv = (lp.variants || []).find(v =>
+        String(v.color || "") === String(sv.color || "") &&
+        String(v.size  || "") === String(sv.size  || ""));
+      if (lv) lv.qty = Number(sv.qty) || 0;      // SERVER haqiqati
+    });
+    delete lp._qtyLocal;                          // server bilan tenglashdi
+  });
+  try { saveDB(); } catch (e) {}
+  try { if (typeof renderKatalog === "function") renderKatalog(); } catch (e) {}
+}
+
+// ✅ 2026-08-18: KUTIB-YIG'ADIGAN VARIANT (tahrir maydonlari uchun).
+// Qoldiq maydonlari `oninput` bilan ishlaydi — "150" yozilganda uch
+// marta (1 → 15 → 150) chaqiriladi. Har chaqiruvda serverga so'rov
+// yuborilsa: ortiqcha yuk, va oradagi so'rov yiqilsa hisob chalkashadi.
+// Endi farqlar 0,9 soniya davomida YIG'ILADI va BITTA so'rovda ketadi
+// (bir nechta rang/o'lcham ham bitta so'rovga jamlanadi).
+let _stockQ  = new Map();
+let _stockQT = null;
+function _serverStockQueue(p, color, size, delta) {
+  if (!p || !delta) return;
+  try { p._qtyLocal = true; } catch (e) {}
+  const k = `${p.sku}|${color || ""}|${size || ""}`;
+  const cur = _stockQ.get(k) || { sku: p.sku, color: color || "", size: size || "", delta: 0 };
+  cur.delta += Number(delta) || 0;
+  _stockQ.set(k, cur);
+  clearTimeout(_stockQT);
+  _stockQT = setTimeout(_serverStockFlush, 900);
+}
+async function _serverStockFlush() {
+  const list = [..._stockQ.values()].filter(x => x.delta);
+  _stockQ = new Map();
+  if (!list.length) return;
+  try {
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
+    if (typeof _serverPay !== "function") return;
+    const r = await _serverPay({
+      action: "stock",
+      items: list.map(x => ({ sku: x.sku, color: x.color, size: x.size,
+                              qty: -x.delta }))
+    });
+    if (r && r.ok && Array.isArray(r.products)) _stockApply(r.products);
+    else console.warn("[stock] navbat qo'llanmadi:", r && r.error);
+  } catch (e) { console.warn("[stock] navbat xatosi:", e.message); }
+}
+
 async function _serverStock(p, color, size, delta) {
   if (!p || !delta) return false;
+  // ✅ 2026-08-18: BAYROQ SHU YERDA QO'YILADI — har bir chaqiruvchi
+  // avtomat himoyalanadi. Bayroq push'ga aytadi: bu tovarning qoldig'i
+  // LOKALDA ataylab o'zgargan, uni server nusxasi bilan ALMASHTIRMA.
+  // Server javobi kelgach (pastda) bayroq tushadi — o'shanda lokal
+  // qiymat allaqachon server haqiqatiga teng bo'ladi.
+  try { p._qtyLocal = true; } catch (e) {}
   try {
     if (typeof _serverRejimi !== "function" || !_serverRejimi()) return false;
     if (typeof _serverPay !== "function") return false;
@@ -3132,19 +3190,7 @@ async function _serverStock(p, color, size, delta) {
                 qty: -delta }]   // manfiy = qo'shiladi, musbat = ayiriladi
     });
     if (!r || !r.ok || !Array.isArray(r.products)) return false;
-    r.products.forEach(sp => {
-      const lp = (db.products || []).find(x => String(x.sku) === String(sp.sku));
-      if (!lp || !Array.isArray(sp.variants)) return;
-      sp.variants.forEach(sv => {
-        const lv = (lp.variants || []).find(v =>
-          String(v.color || "") === String(sv.color || "") &&
-          String(v.size  || "") === String(sv.size  || ""));
-        if (lv) lv.qty = Number(sv.qty) || 0;      // SERVER haqiqati
-      });
-      delete lp._qtyLocal;                          // server bilan tenglashdi
-    });
-    try { saveDB(); } catch (e) {}
-    try { if (typeof renderKatalog === "function") renderKatalog(); } catch (e) {}
+    _stockApply(r.products);
     return true;
   } catch (e) {
     console.warn("[stock] serverda qoldiq o'zgarmadi:", e.message);

@@ -1048,7 +1048,14 @@ function epUpdateB2Pochka(color, val) {
   // tushardi" — 14 pochka + 3 dona bo'lgan tovarni 15 pochka qilsa
   // 3 dona YO'QOLARDI. Endi qoldiq o'z holicha qo'shiladi.
   const oldRest = (v.qty || 0) % inBoxEff;
+  const _eskiQ = Number(v.qty) || 0;
   v.qty = pochka * inBoxEff + oldRest;
+  // ✅ 2026-08-18: qo'lda qoldiq tahriri ham SERVERGA (farq bilan).
+  // Avval bu yo'llar serverni chetlab o'tardi — natijada ikki kassa
+  // to'qnashuvida raqam bosilardi, 477-himoyasi esa tahrirni server
+  // nusxasi bilan qaytarib yuborardi (tahrir jimgina yo'qolardi).
+  if (typeof _serverStockQueue === "function")
+    _serverStockQueue(p, color, v.size || "", (Number(v.qty) || 0) - _eskiQ);
   epRenderColorCards(p);
   epUpdateBoxHints();
 }
@@ -1071,7 +1078,11 @@ function epUpdateGroupQty(color, groupIdx, val) {
   // Shu guruhdagi har bir o'lchamning farqini hisoblab, asl variantga qo'shamiz
   g.variants.forEach(gv => {
     const v = p.variants.find(x => x.color === color && x.size === gv.size);
-    if (v) v.qty = v.qty - g.qty + newQty;
+    if (!v) return;
+    const _eskiQ = Number(v.qty) || 0;
+    v.qty = v.qty - g.qty + newQty;
+    if (typeof _serverStockQueue === "function")   // ✅ 2026-08-18: farq serverga
+      _serverStockQueue(p, color, v.size || "", (Number(v.qty) || 0) - _eskiQ);
   });
   epRenderColorCards(p);
   epUpdateInboxDisplay(p);
@@ -1088,7 +1099,13 @@ function epToggleDetail(cardId) {
 function epUpdateAllQty(color, val) {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   const newQty = parseInt(val) || 0;
-  p.variants.forEach(v => { if (v.color === color) v.qty = newQty; });
+  p.variants.forEach(v => {
+    if (v.color !== color) return;
+    const _eskiQ = Number(v.qty) || 0;
+    v.qty = newQty;
+    if (typeof _serverStockQueue === "function")   // ✅ 2026-08-18: farq serverga
+      _serverStockQueue(p, color, v.size || "", newQty - _eskiQ);
+  });
   epRenderColorCards(p);
   epUpdateInboxDisplay(p);
 }
@@ -1096,7 +1113,11 @@ function epUpdateAllQty(color, val) {
 function epUpdateQty(color, size, val) {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   const v = p.variants.find(x => x.color === color && x.size === size);
-  if (v) v.qty = parseInt(val) || 0;
+  if (!v) return;
+  const _eskiQ = Number(v.qty) || 0;
+  v.qty = parseInt(val) || 0;
+  if (typeof _serverStockQueue === "function")     // ✅ 2026-08-18: farq serverga
+    _serverStockQueue(p, color, size || "", (Number(v.qty) || 0) - _eskiQ);
 }
 
 function epUpdateColorField(oldColor, input) {
@@ -1796,7 +1817,11 @@ async function addProduct() {   // ✅ 2026-08-18: SKU serverdan (async)
     // qilsa ham qoldiq bitta joyda yig'iladi)
     newVariants.forEach(nv => {
       const ex = p.variants.find(v => v.color === nv.color);
-      if (ex) { ex.qty += nv.qty; if (pantone) { ex.pantone = pantone; ex.hex = hex; }
+      if (ex) { ex.qty += nv.qty;
+        // ✅ 2026-08-18: mavjud rangga qo'shilgan qoldiq ham serverga
+        if (typeof _serverStock === "function")
+          _serverStock(p, ex.color || "", ex.size || "", Number(nv.qty) || 0);
+        if (pantone) { ex.pantone = pantone; ex.hex = hex; }
         // Fayldagi quti sig'imi variantga yoziladi
         if ((parseInt(r.inbox) || 0) > 0) ex.inBox = parseInt(r.inbox);
                 if (nv.size && nv.size !== "-") ex.size = nv.size; }
@@ -3201,7 +3226,14 @@ async function confirmImport() {   // ✅ 2026-08-18: SKU zaxirasi serverdan
         v.size === r.size
       );
       if (ex) {
-        if (!skipDup) { ex.qty += r.qty; updated++; }
+        if (!skipDup) {
+          ex.qty += r.qty; updated++;
+          // ✅ 2026-08-18: mavjud tovarga IMPORT KIRIMI ham serverga —
+          // aks holda 477-himoyasi kirimni server nusxasi bilan
+          // qaytarib yuborardi (import jimgina yo'qolardi).
+          if (typeof _serverStock === "function")
+            _serverStock(p, ex.color || "", ex.size || "", Number(r.qty) || 0);
+        }
         else skipped++;
         // Mavjud variant uchun ham colorBarcodes to'ldiramiz
         if (!p.colorBarcodes) p.colorBarcodes = {};
@@ -5162,7 +5194,10 @@ function _numFromInput(el) {
 function epUpdateB2Dona(color, val) {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   const v = p.variants.find(x => x.color === color); if (!v) return;
+  const _eskiQ = Number(v.qty) || 0;
   v.qty = Math.max(0, parseInt(val) || 0);
+  if (typeof _serverStockQueue === "function")     // ✅ 2026-08-18: farq serverga
+    _serverStockQueue(p, color, v.size || "", (Number(v.qty) || 0) - _eskiQ);
   epRenderColorCards(p);
 }
 
