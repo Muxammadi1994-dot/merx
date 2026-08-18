@@ -358,6 +358,40 @@ module.exports = async (req, res) => {
       const items = sale.items.map(({ image, ...rest }) => rest);
       const d = { ...sale, id: String(now), chekNum, items,
                   updatedAt: new Date().toISOString(), serverWritten: true };
+
+      // ✅ 2026-08-18 (4-paket): "UMUMIY QARZ" — SERVER MUHRI (§3.27).
+      // Sotuv xabaridagi jami avval KASSADA hisoblanardi — qurilma
+      // chala yuklangan payt mijozga noto'g'ri jami ketardi (Doston
+      // hodisasi sinfi; eslatmalar 468 da yopilgan, sotuv xabari ochiq
+      // edi). Endi server `debt` amalidagi AYNAN o'sha formulada
+      // hisoblab, sotuvga muhrlaydi. Xato bo'lsa sotuv TO'XTAMAYDI —
+      // kassa hisoblagani qoladi (oflayn/zaxira xulqi o'zgarmagan).
+      // Bu nuqta sotuv YOZILISHIDAN OLDIN — yangi chek jami ichiga
+      // qo'shilib ketmaydi.
+      try {
+        const _pdCid = String(sale.customerId || "");
+        const _pdBor = (Number(sale.remaining) || 0) > 0 ||
+                       (Number(sale.debtUsd)   || 0) > 0;
+        if (_pdCid && _pdBor) {
+          const [_pdS, _pdP] = await Promise.all([
+            sbAll(`sales?shop_id=eq.${encodeURIComponent(shopId)}` +
+                  `&customer_id=eq.${encodeURIComponent(_pdCid)}` +
+                  `&or=(remaining.gt.0,debt_usd.gt.0)` +
+                  `&select=id,date,status,remaining,debt_usd,debt_currency,orig_remaining,orig_debt_usd`),
+            sbAll(`debt_payments?shop_id=eq.${encodeURIComponent(shopId)}` +
+                  `&customer_id=eq.${encodeURIComponent(_pdCid)}&select=id,amount,currency,data`)
+          ]);
+          let _pdUzs = 0, _pdUsd = 0;
+          _pdS.forEach(s2 => {
+            if (s2.status === "bekor" || s2.status === "qaytarilgan") return;
+            const st2 = saleState(s2, _pdP);
+            if (s2.debt_currency === "usd") _pdUsd += st2.debtUsd;
+            else                            _pdUzs += st2.remaining;
+          });
+          d.prevDebtUzs = Math.round(_pdUzs);
+          d.prevDebtUsd = Math.round(_pdUsd * 100) / 100;
+        }
+      } catch (e) { console.warn("[pul] prevDebt muhri:", e.message); }
       const rec = {
         shop_id: shopId, id: String(now), chek_num: chekNum,
         date: sale.date || tashDate(), time: sale.time || tashTime(),
@@ -590,6 +624,55 @@ module.exports = async (req, res) => {
       });
       return res.status(200).json({ ok: true,
         uzs: Math.round(uzs), usd: Math.round(usd * 100) / 100 });
+    }
+
+    // ✅ 2026-08-18 (4-paket): KO'P MIJOZ QARZI BIR CHAQIRUVDA.
+    // "Barchaga eslatma" avval har mijoz jamini LOKALDAN olardi —
+    // qurilma eskirgan bo'lsa yuzlab mijozga noto'g'ri raqam ketardi.
+    // Yuzlab alohida `debt` chaqiruvi o'rniga: 80 talik bo'laklarda
+    // 2 ta yalpi so'rov; hisob `debt` amali bilan AYNAN bir xil
+    // (saleState, valyuta ajratilgan, bekor/qaytarilgan tashlanadi).
+    if (action === "debt_bulk") {
+      const ids = Array.isArray(body.customerIds)
+        ? body.customerIds.map(x => String(x || "")).filter(Boolean).slice(0, 500)
+        : [];
+      if (!ids.length)
+        return res.status(400).json({ ok: false, error: "customerIds kerak" });
+      const totals = {};
+      ids.forEach(k => { totals[k] = { uzs: 0, usd: 0 }; });
+      for (let i = 0; i < ids.length; i += 80) {
+        const part = ids.slice(i, i + 80);
+        const inList = encodeURIComponent(
+          "(" + part.map(x => '"' + x.replace(/"/g, "") + '"').join(",") + ")");
+        const [ss, pp] = await Promise.all([
+          sbAll(`sales?shop_id=eq.${encodeURIComponent(shopId)}` +
+                `&customer_id=in.${inList}` +
+                `&or=(remaining.gt.0,debt_usd.gt.0)` +
+                `&select=id,customer_id,date,status,remaining,debt_usd,` +
+                `debt_currency,orig_remaining,orig_debt_usd`),
+          sbAll(`debt_payments?shop_id=eq.${encodeURIComponent(shopId)}` +
+                `&customer_id=in.${inList}&select=id,customer_id,amount,currency,data`)
+        ]);
+        const payByCust = new Map();
+        pp.forEach(p => {
+          const k = String(p.customer_id || "");
+          if (!payByCust.has(k)) payByCust.set(k, []);
+          payByCust.get(k).push(p);
+        });
+        ss.forEach(s2 => {
+          if (s2.status === "bekor" || s2.status === "qaytarilgan") return;
+          const k = String(s2.customer_id || "");
+          if (!totals[k]) return;
+          const st2 = saleState(s2, payByCust.get(k) || []);
+          if (s2.debt_currency === "usd") totals[k].usd += st2.debtUsd;
+          else                            totals[k].uzs += st2.remaining;
+        });
+      }
+      Object.keys(totals).forEach(k => {
+        totals[k].uzs = Math.round(totals[k].uzs);
+        totals[k].usd = Math.round(totals[k].usd * 100) / 100;
+      });
+      return res.status(200).json({ ok: true, totals });
     }
 
     return res.status(400).json({ ok: false, error: "Noma'lum amal: " + action });

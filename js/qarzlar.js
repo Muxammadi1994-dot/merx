@@ -2056,6 +2056,27 @@ async function sendOverdueReminders() {
   const phones = Object.values(byPhone);
   if (!phones.length) { toast("Telefon raqamlari yo'q","err"); return; }
 
+  // ✅ 2026-08-18 (4-paket): JAMLAR SERVERDAN (debt_bulk) — qurilma
+  // eskirgan bo'lsa ham mijozga TO'G'RI raqam ketadi (468 dagi
+  // yakka-eslatma qoidasining ommaviy varianti). Server yiqilsa —
+  // lokal hisob zaxira bo'lib qoladi, yuborish bloklanmaydi.
+  try {
+    if (typeof _serverRejimi === "function" && _serverRejimi()
+        && typeof _serverPay === "function") {
+      const _ids = [...new Set(phones.map(p => String(p.customerId || ""))
+        .filter(Boolean))];
+      if (_ids.length) {
+        const _r = await _serverPay({ action: "debt_bulk", customerIds: _ids });
+        if (_r && _r.ok && _r.totals) {
+          phones.forEach(p => {
+            const t = _r.totals[String(p.customerId || "")];
+            if (t) { p.total = t.uzs; p.totalUsd = t.usd; }
+          });
+        }
+      }
+    }
+  } catch (e) {}
+
   if (!confirm(`${phones.length} ta mijozga SMS eslatma yuborilsinmi?`)) return;
 
   let sent = 0;
@@ -2092,6 +2113,25 @@ async function sendOverdueRemindersBot() {
 
   const phones = Object.values(byPhone);
   if (!phones.length) { toast("Telefon raqamlari yo'q","err"); return; }
+
+  // ✅ 2026-08-18 (4-paket): jamlar serverdan — yuqoridagi SMS
+  // oqimidagi bilan bir xil qoida (debt_bulk, lokal zaxira).
+  try {
+    if (typeof _serverRejimi === "function" && _serverRejimi()
+        && typeof _serverPay === "function") {
+      const _ids = [...new Set(phones.map(p => String(p.customerId || ""))
+        .filter(Boolean))];
+      if (_ids.length) {
+        const _r = await _serverPay({ action: "debt_bulk", customerIds: _ids });
+        if (_r && _r.ok && _r.totals) {
+          phones.forEach(p => {
+            const t = _r.totals[String(p.customerId || "")];
+            if (t) { p.total = t.uzs; p.totalUsd = t.usd; }
+          });
+        }
+      }
+    }
+  } catch (e) {}
 
   if (!confirm(`${phones.length} ta mijozga Telegram orqali eslatma yuborilsinmi?`)) return;
 

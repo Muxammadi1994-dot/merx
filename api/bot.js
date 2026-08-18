@@ -1263,24 +1263,63 @@ async function cmdQarzlar(chatId, barcha = false) {
     // 2026-08-07: sahifalab olinadi — 1000 qator chegarasi (§4.4, №9)
     const debts = await sbAll("sales", query).then(r => r.rows);
 
-    if (!debts.length) {
+    // ✅ 2026-08-18 (4-paket): TO'LOVLAR AYIRILADI + "qaytarilgan"
+    // tashlanadi + valyuta ajratiladi. Avval `remaining` USTUNI
+    // xomligicha yig'ilardi — egaga qarz OSHIRIB ko'rinardi (Doston:
+    // ustunda 29,9 mln, haqiqiy 29,6) va dollar qarzlar so'm-ekvivalent
+    // bilan aralashardi. Endi ilova/serverdagi formula: asl qarz −
+    // shu chekka taqsimlangan faol to'lovlar (pul.js saleState qoidasi).
+    const _payRows = await sbAll("debt_payments", `?select=data${sidFilter}`)
+      .then(r => r.rows).catch(() => []);
+    const _paidBy = new Map();   // saleId -> {uzs, usd}
+    _payRows.forEach(p => {
+      const pd = p.data || {};
+      if (pd.cancelled === true || pd.cancelled === "true") return;
+      (pd.allocations || []).forEach(a => {
+        const k = String(a.saleId);
+        if (!_paidBy.has(k)) _paidBy.set(k, { uzs: 0, usd: 0 });
+        const amt = Number(a.amount) || 0;
+        if (a.currency === "usd") _paidBy.get(k).usd += amt;
+        else                      _paidBy.get(k).uzs += amt;
+      });
+    });
+    let totUzs = 0, totUsd = 0;
+    const rows = [];
+    debts.forEach(s => {
+      if (s.status === "qaytarilgan") return;
+      const paid = _paidBy.get(String(s.id)) || { uzs: 0, usd: 0 };
+      if (s.debt_currency === "usd") {
+        const base = Number(s.orig_debt_usd != null ? s.orig_debt_usd : s.debt_usd) || 0;
+        const q = Math.max(0, base - paid.usd);
+        if (q <= 0.009) return;
+        totUsd += q;
+        rows.push({ ...s, _txt: "$" + q.toFixed(2) });
+      } else {
+        const base = Number(s.orig_remaining != null ? s.orig_remaining : s.remaining) || 0;
+        const q = Math.max(0, base - paid.uzs);
+        if (q <= 0.5) return;
+        totUzs += q;
+        rows.push({ ...s, _txt: fmt(Math.round(q)) + " so'm" });
+      }
+    });
+
+    if (!rows.length) {
       const msg = barcha ? "✅ Hozirda hech qanday qarz yo'q" : "✅ Muddati o'tgan qarz yo'q";
       await tg(chatId, msg);
       return;
     }
 
-    const totalDebt = debts.reduce((a, s) => a + Number(s.remaining || 0), 0);
     const shopName2 = ctx.shopName || "MERX";
     let txt = barcha
-      ? `📋 ${shopName2} — Barcha qarzlar (${debts.length} ta)\n\n`
-      : `🔴 ${shopName2} — Muddati o'tgan (${debts.length} ta)\n\n`;
+      ? `📋 ${shopName2} — Barcha qarzlar (${rows.length} ta)\n\n`
+      : `🔴 ${shopName2} — Muddati o'tgan (${rows.length} ta)\n\n`;
 
-    for (const d of debts.slice(0, 15)) {
+    for (const d of rows.slice(0, 15)) {
       const name  = d.customer_name || "Noma'lum";
       const phone = d.customer_phone || "—";
       txt += `👤 ${name}\n`;
       txt += `   📞 ${phone}\n`;
-      txt += `   💸 ${fmt(d.remaining)} so'm\n`;
+      txt += `   💸 ${d._txt}\n`;
       if (d.due) {
         let overdue = "";
         if (d.due < t) {
@@ -1292,9 +1331,10 @@ async function cmdQarzlar(chatId, barcha = false) {
       txt += "\n";
     }
 
-    if (debts.length > 15) txt += `...va yana ${debts.length - 15} ta\n\n`;
+    if (rows.length > 15) txt += `...va yana ${rows.length - 15} ta\n\n`;
     txt += `─────────────────\n`;
-    txt += `💰 Jami qarz: ${fmt(totalDebt)} so'm`;
+    txt += `💰 Jami qarz: ${fmt(Math.round(totUzs))} so'm` +
+           (totUsd > 0 ? ` + $${totUsd.toFixed(2)}` : ``);
 
     const opts = {};
     if (!barcha) {
