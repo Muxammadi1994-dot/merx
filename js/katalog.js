@@ -771,6 +771,7 @@ async function duplicateProduct(sku, event) {   // ✅ 2026-08-18: SKU serverdan
   setTimeout(() => openEditProduct(newSku), 300);
 }
 
+let _epBaseAt = "";   // ✅ 2026-08-18: tahrir boshlangandagi vaqt muhri
 function openEditProduct(sku) {
   // ✅ 2026-08-18 RUXSAT TESHIGI: OYNA ham qo'riqlanadi. Ichidagi
   // variant-saqlash, rang o'chirish, rasm o'chirish yo'llari himoyasiz
@@ -778,6 +779,10 @@ function openEditProduct(sku) {
   // orqali tovarni baribir tahrirlay olardi (egasi topgan, 18-avg).
   if (typeof requireDo === "function" && !requireDo("katalog","edit")) return;
   const p = db.products.find(x => x.sku === sku); if (!p) return;
+  // ✅ 2026-08-18: QAYSI NUSXA TAHRIRLANAYOTGANI ESLAB QOLINADI.
+  // Saqlashda shu muhr bulutdagi bilan solishtiriladi — oradan boshqa
+  // kassa tahrir qilgan bo'lsa, uning ishi jimgina o'chib ketmasin.
+  _epBaseAt = String(p.updatedAt || "");
   editSku = sku;
   // 2026-07-25: variativ guruh bo'lsa — "Variativ tahrirlash" tugmasi chiqadi
   try { epVarInit(p); } catch(e) {}
@@ -1306,13 +1311,45 @@ async function epConfirmAddColor() {   // ✅ 2026-08-18: SKU serverdan (async)
   toast(`"${color}" qo'shildi`);
 }
 
-function saveEditProduct() {
+async function saveEditProduct() {   // ✅ 2026-08-18: to'qnashuv tekshiruvi (async)
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("katalog","edit")) return;
 
   if (typeof requireUse === "function" && !requireUse("katalog")) return;
 
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
+
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ 2026-08-18: "BOSHQA KASSA YANGILADIMI?" TEKSHIRUVI
+  // ═══════════════════════════════════════════════════════════════
+  // Ildiz: sinxronda BUTUN yozuv g'olib bo'ladi — kimning vaqt muhri
+  // yangiroq bo'lsa, o'shaniki. Ya'ni A nomni, B narxni o'zgartirsa,
+  // keyin saqlagani BIRINCHISINING ISHINI BUTUNLAY O'CHIRADI — na
+  // xato, na ogohlantirish (jimgina yo'qolish).
+  // Endi saqlashdan oldin bulutdagi muhr solishtiriladi. Yangiroq
+  // bo'lsa — kassirdan so'raladi: qayta yuklaymizmi yoki baribir
+  // saqlaymizmi. Qaror ODAMDA qoladi.
+  // Aloqa yo'q / server rejimi o'chiq bo'lsa — tekshiruv o'tkazib
+  // yuboriladi (oflayn ish bloklanmaydi).
+  try {
+    if (typeof cloudProductStamp === "function") {
+      const _cloudAt = await cloudProductStamp(p.sku);
+      if (_cloudAt && _epBaseAt && Date.parse(_cloudAt) > Date.parse(_epBaseAt) + 1000) {
+        const _vaqt = String(_cloudAt).slice(11, 16);
+        const _javob = confirm(
+          `⚠️ Bu tovarni boshqa kassa yangiladi (${_vaqt}).\n\n` +
+          `Saqlasangiz uning o'zgarishlari yo'qolishi mumkin.\n\n` +
+          `OK — baribir saqlayman\n` +
+          `Bekor — oynani yopib, yangi holatni ko'raman`);
+        if (!_javob) {
+          try { if (typeof closeModal === "function") closeModal("editprod"); } catch (e) {}
+          try { if (typeof pullFromCloud === "function") pullFromCloud(true); } catch (e) {}
+          toast("Tovar yangilandi — qaytadan oching", "info");
+          return;
+        }
+      }
+    }
+  } catch (e) { console.warn("[katalog] to'qnashuv tekshiruvi:", e.message); }
   // NARX O'QISH TUZATISHI (v144): fmtInput qiymatni "540 000" ko'rinishida
   // formatlaydi — parseFloat probelda to'xtab 540 qilib yuborardi.
   // _pv: probel/vergulni tozalab, kasrni saqlab o'qiydi.

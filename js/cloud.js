@@ -2246,6 +2246,24 @@ async function ensureCloudPull(tries = 3) {
   return ok();
 }
 
+// ✅ 2026-08-18: BULUTDAGI TOVARNING VAQT MUHRINI O'QISH.
+// Kartochka tahririda "boshqa kassa yangiladimi?" tekshiruvi uchun.
+// Yengil so'rov — faqat bitta qatorning muhri (butun tovar emas).
+// Xato/aloqa yo'q bo'lsa `null` qaytadi va tekshiruv o'tkazib
+// yuboriladi (tahrir bloklanmaydi — oflayn ish buzilmasin).
+async function cloudProductStamp(sku) {
+  try {
+    if (!_sb || !sku) return null;
+    const sid = (typeof getCloudShopId === "function") ? getCloudShopId() : null;
+    if (!sid) return null;
+    const { data, error } = await _sb.from("products")
+      .select("data").eq("shop_id", sid).eq("sku", String(sku)).limit(1);
+    if (error || !Array.isArray(data) || !data.length) return null;
+    const d = data[0] && data[0].data;
+    return (d && typeof d === "object" && d.updatedAt) ? String(d.updatedAt) : null;
+  } catch (e) { return null; }
+}
+
 // ── Supabase → LocalDB ────────────────────────────
 async function pullFromCloud(silent = false, skipRender = false) {
   // v184: silent = muvaffaqiyat toast'lari jim (realtime/zaxira uchun)
