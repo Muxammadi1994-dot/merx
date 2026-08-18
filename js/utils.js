@@ -3108,6 +3108,50 @@ async function _botForceRefresh() {
 }
 // Asosiy yuboruvchi: muvaffaqiyatda javob (obyekt), aks holda null
 // (xabar navbatga tushdi). key — takror-himoya kaliti (chek raqami).
+// ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-18 (3-teshik): QOLDIQNI SERVER O'ZGARTIRADI — DELTA bilan
+// ═══════════════════════════════════════════════════════════════
+// Chaqiruvchi LOKAL qoldiqni allaqachon o'zgartirgan bo'ladi; bu yerda
+// serverga faqat FARQ yuboriladi (qulf ostida qo'llanadi), javobdagi
+// yangi qoldiq esa haqiqat sifatida lokalga yoziladi. Shuning uchun
+// ikki kassa bir vaqtda ombor amali qilsa ham raqamlar QO'SHILADI,
+// biri ikkinchisini bosmaydi ("oxirgisi yutadi" tugaydi).
+// Muvaffaqiyatda `_qtyLocal` bayrog'i tushadi — push endi server
+// qoldig'iga tayanaveradi (cloud.js himoyasi).
+// Server rejimi o'chiq / aloqa yo'q bo'lsa `false` qaytadi va lokal
+// qiymat o'z holicha qoladi (bayroq bilan pushga chiqadi) — oflayn
+// ish buzilmaydi.
+async function _serverStock(p, color, size, delta) {
+  if (!p || !delta) return false;
+  try {
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return false;
+    if (typeof _serverPay !== "function") return false;
+    const r = await _serverPay({
+      action: "stock",
+      items: [{ sku: p.sku, color: color || "", size: size || "",
+                qty: -delta }]   // manfiy = qo'shiladi, musbat = ayiriladi
+    });
+    if (!r || !r.ok || !Array.isArray(r.products)) return false;
+    r.products.forEach(sp => {
+      const lp = (db.products || []).find(x => String(x.sku) === String(sp.sku));
+      if (!lp || !Array.isArray(sp.variants)) return;
+      sp.variants.forEach(sv => {
+        const lv = (lp.variants || []).find(v =>
+          String(v.color || "") === String(sv.color || "") &&
+          String(v.size  || "") === String(sv.size  || ""));
+        if (lv) lv.qty = Number(sv.qty) || 0;      // SERVER haqiqati
+      });
+      delete lp._qtyLocal;                          // server bilan tenglashdi
+    });
+    try { saveDB(); } catch (e) {}
+    try { if (typeof renderKatalog === "function") renderKatalog(); } catch (e) {}
+    return true;
+  } catch (e) {
+    console.warn("[stock] serverda qoldiq o'zgarmadi:", e.message);
+    return false;
+  }
+}
+
 async function botSend(url, bodyObj, key) {
   const body = JSON.stringify(bodyObj);
   // \U0001f534 2026-08-14: YUBORISHDAN OLDIN KALIT YANGILANADI.

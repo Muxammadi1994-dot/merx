@@ -1235,11 +1235,15 @@ function saveInvent2() {
           { before: String(v.qty), after: String(actualQty),
             note: "qoldiq sanash (inventarizatsiya)" });
       } catch (e) {}
+      const _eski = Number(v.qty) || 0;
       v.qty = actualQty;
-      // ✅ 2026-08-18: bu o'zgarish LOKAL (ombor hali serverdan
-      // o'tmaydi — 3-teshik). Bayroq push'ga aytadi: bu tovarning
-      // qoldig'ini serverникidan almashtirma, LOKALNI yubor.
+      // ✅ 2026-08-18 (3-teshik): FARQ SERVERGA yuboriladi — ikki kassa
+      // bir vaqtda sanasa raqamlar bosilmaydi. Bayroq javob kelguncha
+      // (yoki oflaynda) lokal qiymat pushga chiqishini kafolatlaydi;
+      // server javobida `_serverStock` uni o'zi tushiradi.
       p._qtyLocal = true;
+      if (typeof _serverStock === "function")
+        _serverStock(p, color, size, (Number(actualQty) || 0) - _eski);
       changed++;
     }
   });
@@ -1343,7 +1347,9 @@ function confirmChiqim2() {
   const costUzs = getCostUzs(p);
 
   v.qty -= qty;
-  p._qtyLocal = true;   // ✅ 2026-08-18: lokal qoldiq o'zgarishi (yuqoriga qarang)
+  p._qtyLocal = true;   // ✅ 2026-08-18: yuqoriga qarang
+  if (typeof _serverStock === "function")
+    _serverStock(p, v.color || color || "", v.size || "", -qty);
 
   if (!db.chiqimlar) db.chiqimlar = [];
   db.chiqimlar.push({
@@ -1514,7 +1520,9 @@ function omDeleteKirim(id) {
       if (o.color && v.color !== o.color) return;
       const take = Math.min(v.qty || 0, left);
       v.qty = (v.qty || 0) - take;
-      p._qtyLocal = true;   // ✅ 2026-08-18: lokal qoldiq (push himoyasi)
+      p._qtyLocal = true;   // ✅ 2026-08-18: yuqoriga qarang
+      if (take && typeof _serverStock === "function")
+        _serverStock(p, v.color || "", v.size || "", -take);
       left -= take;
     });
   }
@@ -1585,7 +1593,9 @@ function omDeletePartiya(partiya) {
       if (o.color && v.color !== o.color) return;
       const take = Math.min(v.qty || 0, left);
       v.qty = (v.qty || 0) - take;
-      p._qtyLocal = true;   // ✅ 2026-08-18: lokal qoldiq (push himoyasi)
+      p._qtyLocal = true;   // ✅ 2026-08-18: yuqoriga qarang
+      if (take && typeof _serverStock === "function")
+        _serverStock(p, v.color || "", v.size || "", -take);
       left -= take;
     });
   });

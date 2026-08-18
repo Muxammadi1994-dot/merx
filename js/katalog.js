@@ -5602,28 +5602,10 @@ function _stockMove(p, color, size, delta, sabab) {
     // MUHIM: chaqiruvchi qoldiqni ALLAQACHON o'zgartirgan — shuning
     // uchun serverga o'zgarish yuboriladi, javob esa haqiqat sifatida
     // ustiga yoziladi.
-    if (typeof _serverRejimi === "function" && _serverRejimi() &&
-        typeof _serverPay === "function") {
-      _serverPay({
-        action: "stock",
-        items: [{ sku: p.sku, color: color || "", size: size || "",
-                  qty: -delta }]     // manfiy = qo'shiladi, musbat = ayiriladi
-      }).then(r => {
-        if (!r || !r.ok || !Array.isArray(r.products)) return;
-        r.products.forEach(sp => {
-          const lp = (db.products || []).find(x => String(x.sku) === String(sp.sku));
-          if (!lp || !Array.isArray(sp.variants)) return;
-          sp.variants.forEach(sv => {
-            const lv = (lp.variants || []).find(v =>
-              String(v.color || "") === String(sv.color || "") &&
-              String(v.size  || "") === String(sv.size  || ""));
-            if (lv) lv.qty = Number(sv.qty) || 0;   // SERVER haqiqati
-          });
-        });
-        try { saveDB(); } catch (e) {}
-        try { if (typeof renderKatalog === "function") renderKatalog(); } catch (e) {}
-      }).catch(e => console.warn("Serverda qoldiq o'zgarmadi:", e.message));
-    }
+    // ✅ 2026-08-18: yagona o'zak yordamchi (utils.js `_serverStock`) —
+    // avval shu mantiq faqat SHU YERDA edi, ombor amallari esa undan
+    // foydalanmasdi (3-teshik). Endi ikkala tomon bitta yo'ldan yuradi.
+    if (typeof _serverStock === "function") _serverStock(p, color, size, delta);
     const _rate = (db.settings?.rate || 12800);
     const _cost = (typeof getCostUzs === "function") ? getCostUzs(p)
                   : Math.round((p.costUsd || 0) * _rate);
