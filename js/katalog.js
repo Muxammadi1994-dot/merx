@@ -760,6 +760,11 @@ function duplicateProduct(sku, event) {
 }
 
 function openEditProduct(sku) {
+  // ✅ 2026-08-18 RUXSAT TESHIGI: OYNA ham qo'riqlanadi. Ichidagi
+  // variant-saqlash, rang o'chirish, rasm o'chirish yo'llari himoyasiz
+  // edi — xodim "ruxsat yo'q" xabarini ko'rib turib, variant jadvali
+  // orqali tovarni baribir tahrirlay olardi (egasi topgan, 18-avg).
+  if (typeof requireDo === "function" && !requireDo("katalog","edit")) return;
   const p = db.products.find(x => x.sku === sku); if (!p) return;
   editSku = sku;
   // 2026-07-25: variativ guruh bo'lsa — "Variativ tahrirlash" tugmasi chiqadi
@@ -903,6 +908,8 @@ function epLoadColorImage(input, color) {
 }
 
 function epRemoveColorImage(color) {
+  // ✅ 2026-08-18 RUXSAT: darhol saqlaydigan yozish yo'li — qulf.
+  if (typeof requireDo === "function" && !requireDo("katalog","edit")) return;
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   if (p.colorImages) delete p.colorImages[color];
   epRenderColorCards(p);
@@ -1100,6 +1107,8 @@ function epUpdateColorField(oldColor, input) {
 }
 
 function epDeleteColor(color) {
+  // ✅ 2026-08-18 RUXSAT: buzuvchi amal — alohida qulf.
+  if (typeof requireDo === "function" && !requireDo("katalog","edit")) return;
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   const colorCount = [...new Set(p.variants.map(v=>v.color))].length;
   if (colorCount <= 1) { toast("Kamida 1 ta rang qolishi kerak","err"); return; }
@@ -3833,6 +3842,9 @@ function katImgClick(sku, color) {
 }
 
 function katImgSave(sku, color, input) {
+  // ✅ 2026-08-18 RUXSAT: bu yo'l OYNADAN TASHQARIDA (katalog
+  // qatoridan to'g'ridan-to'g'ri) — alohida qulf shart.
+  if (typeof requireDo === "function" && !requireDo("katalog","edit")) { if (input) input.value = ""; return; }
   const file = input.files[0]; if (!file) return;
   // 2026-07-10: 2MB darvozasi OLIB TASHLANDI — u pastdagi SIQISHDAN
   // OLDIN turib, telefon suratlarini (3-8MB) bekorga rad etardi.
@@ -4788,6 +4800,9 @@ function epVarRenderTable() {
 
 // Guruhdagi barcha tovarlarni saqlash
 function epSaveVariativ() {
+  // ✅ 2026-08-18 RUXSAT: bevosita yozish yo'li — oyna qulfiga
+  // qo'shimcha ikkinchi qavat (kelajakda boshqa yo'ldan chaqirilsa ham).
+  if (typeof requireDo === "function" && !requireDo("katalog","edit")) return;
   const rows = [...document.querySelectorAll("#ep-var-tbody tr")];
   if (!rows.length) { toast("Tahrirlanadigan qator yo'q", "err"); return; }
 
