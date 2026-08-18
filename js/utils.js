@@ -3087,6 +3087,25 @@ function _botqHeaders() {
   try { if (typeof _botHeaders === "function") return _botHeaders(); } catch (e) {}
   return { "Content-Type": "application/json" };
 }
+// ✅ 2026-08-18: KALITNI MAJBURAN YANGILASH (401 javobidan keyin).
+// `ensureFreshToken` faqat MUDDAT yaqinlashganda yangilaydi; kalit
+// soat bo'yicha "tirik" turib server tomonda kuchdan qolgan bo'lsa,
+// u hech narsa qilmasdi. Bu yerda muhr "eskirgan" deb belgilanib,
+// yangilash majburlanadi (sessiya qaysi qutida bo'lsa — o'shanda).
+async function _botForceRefresh() {
+  try {
+    const K = "merx_sb_session";
+    let store = null, raw = localStorage.getItem(K);
+    if (raw) store = localStorage;
+    else { raw = sessionStorage.getItem(K); if (raw) store = sessionStorage; }
+    if (raw && store) {
+      const s = JSON.parse(raw);
+      s.expiresAt = 0;
+      store.setItem(K, JSON.stringify(s));
+    }
+    if (typeof ensureFreshToken === "function") await ensureFreshToken();
+  } catch (e) {}
+}
 // Asosiy yuboruvchi: muvaffaqiyatda javob (obyekt), aks holda null
 // (xabar navbatga tushdi). key — takror-himoya kaliti (chek raqami).
 async function botSend(url, bodyObj, key) {
@@ -3097,15 +3116,25 @@ async function botSend(url, bodyObj, key) {
   // tushardi — kassir bilmasdi ("ba'zi mijozlarga chek kelmayapti",
   // ABU SAXIY 14-avgust). Endi kalit yangilanadi, so'ng yuboriladi.
   try { if (typeof ensureFreshToken === "function") await ensureFreshToken(); } catch (e) {}
-  try {
-    const r = await fetch(url, { method: "POST", headers: _botqHeaders(), body });
-    if (r.ok) return await r.json().catch(() => ({ ok: true }));
-    // Rad etilgan bo'lsa — sababi ko'rinsin (jim yutilmasin)
+  // ✅ 2026-08-18: 401 BO'LSA — KALIT MAJBURAN YANGILANIB, BIR MARTA
+  // QAYTA URINILADI. Jonli isbot (B20, 18-avg 11:31): `send_staff_notif`
+  // va `send_receipt` 401 bilan rad etilgan — kalit soat bo'yicha hali
+  // "tirik" edi, lekin server uni kuchdan qoldirgan (odatiy sabab:
+  // bitta xodim ikkinchi qurilmada kirgan). Yuqoridagi yangilash esa
+  // faqat muddat yaqinlashganda ishlaydi — shu bo'shliq yopildi.
+  for (let urinish = 0; urinish < 2; urinish++) {
     try {
-      const _t = await r.text();
-      console.warn("\u26d4 Bot rad etdi (" + r.status + "):", String(_t).slice(0, 160));
+      const r = await fetch(url, { method: "POST", headers: _botqHeaders(), body });
+      if (r.ok) return await r.json().catch(() => ({ ok: true }));
+      // Rad etilgan bo'lsa — sababi ko'rinsin (jim yutilmasin)
+      try {
+        const _t = await r.text();
+        console.warn("\u26d4 Bot rad etdi (" + r.status + "):", String(_t).slice(0, 160));
+      } catch (e) {}
+      if (r.status === 401 && urinish === 0) { await _botForceRefresh(); continue; }
     } catch (e) {}
-  } catch (e) {}
+    break;
+  }
   const q = _botqLoad();
   if (!(key && q.some(x => x.key === key)) && body.length < 60000) {
     q.push({ url, body, key: key || ("k" + Date.now()), ts: Date.now(), tries: 0 });
@@ -3131,6 +3160,9 @@ async function _botqFlush() {
       _botqSave(q.slice(1));
       return;
     }
+    // ✅ 2026-08-18: navbat 401 ga tiqilib qolmasin — kalit yangilanadi,
+    // keyingi aylanishda (90 s) o'zi ketadi.
+    if (r.status === 401) { try { await _botForceRefresh(); } catch (e) {} }
   } catch (e) {}
   it.tries++;
   _botqSave(q);

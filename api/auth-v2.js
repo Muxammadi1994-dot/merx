@@ -729,6 +729,24 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ ok: false, error: "shopId va data kerak" });
       }
 
+      // ⚠️ 2026-08-18 TUZATISH — ESKI EMAIL PATCH'DAN OLDIN O'QILADI.
+      // Avval u pastdagi Auth blokida, PATCH'dan KEYIN o'qilardi. O'sha
+      // paytda `shops` jadvalida allaqachon YANGI email turardi, natijada
+      // "eski === yangi" chiqib, Auth yangilash bloki HECH QACHON
+      // ishlamasdi va ogohlantirish ham yozilmasdi: panel "yangilandi"
+      // derdi, egasi esa yangi login bilan kira olmasdi (jim nuqson).
+      // Topilishi: chakana test do'koni — shops=dona2, auth=dona1.
+      let _eskiEmail = "";
+      if (typeof data.owner_email === "string" && data.owner_email.trim()) {
+        try {
+          const _curR = await fetch(
+            `${SB_URL}/rest/v1/shops?id=eq.${encodeURIComponent(shopId)}&select=owner_email&limit=1`,
+            { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+          const _curJ = _curR.ok ? await _curR.json() : [];
+          _eskiEmail = (_curJ?.[0]?.owner_email || "").toLowerCase();
+        } catch (e) { console.warn("eski email o'qilmadi:", e.message); }
+      }
+
       const updRes = await fetch(
         `${SB_URL}/rest/v1/shops?id=eq.${encodeURIComponent(shopId)}`,
         {
@@ -768,14 +786,12 @@ module.exports = async function handler(req, res) {
       if (typeof data.owner_email === "string" && data.owner_email.trim()) {
         const _yangiEmail = data.owner_email.trim().toLowerCase();
         try {
-          // Do'konning HOZIRGI emailini olamiz — o'zgarganini bilish uchun
-          const _cur = await fetch(
-            `${SB_URL}/rest/v1/shops?id=eq.${encodeURIComponent(shopId)}&select=owner_email&limit=1`,
-            { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
-          const _curJson = _cur.ok ? await _cur.json() : [];
-          const _eskiEmail = (_curJson?.[0]?.owner_email || "").toLowerCase();
-
-          if (_eskiEmail && _eskiEmail !== _yangiEmail) {
+          // Eski email YUQORIDA, PATCH'dan oldin olingan (2026-08-18).
+          // Bu yerda qayta o'qilmaydi — jadvalda endi yangisi turadi.
+          if (!_eskiEmail) {
+            _authWarn = "Do'konning eski logini topilmadi — Auth hisobi " +
+                        "yangilanmadi, egasi eski login bilan kiradi";
+          } else if (_eskiEmail !== _yangiEmail) {
             const _fr = await fetch(`${SB_URL}/auth/v1/admin/users?page=1&per_page=1000`,
               { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
             const _fd = _fr.ok ? await _fr.json() : {};

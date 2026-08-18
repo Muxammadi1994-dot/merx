@@ -191,23 +191,25 @@ async function sendStaffNotification(sale) {
     return null;
   })();
 
-  try {
-    const res = await fetch(botUrl + "?action=send_staff_notif", {
-      method: "POST",
-      headers: _botHeaders(),
-      body: JSON.stringify({
-        sale,
-        shopName:     db.shop?.name || db.settings?.name || "MERX",
-        staffGroupId: staffGroupId,
-        shopId:       shopId
-      })
-    });
-    const data = await res.json();
-    if (data.sent) {
-      toast("📢 Ishchilar guruhiga bildirishnoma yuborildi");
-    }
-  } catch (e) {
-    console.warn("Ishchilar guruhi bildirishnomasi yuborilmadi:", e.message);
+  // ✅ 2026-08-18: `botSend` ORQALI — avval to'g'ridan-to'g'ri `fetch`
+  // edi: kalit rad etilsa (401) xabar JIMGINA YO'QOLARDI, na navbat,
+  // na qayta urinish bo'lardi. Jonli isbot (B20, 18-avg): CHK-0034-DY
+  // (10:25) va CHK-0037-DY (11:31) guruhga tushmagan — Vercel jurnali:
+  // "[bot] RAD ETILDI: send_staff_notif". Endi `botSend`: kalitni
+  // yangilaydi, 401 da majburan qayta uradi, baribir bo'lmasa
+  // NAVBATGA qo'yadi va har 90 soniyada o'zi urinadi.
+  // Kalit = chek raqami → navbatda takror nusxa yig'ilmaydi.
+  const data = await botSend(botUrl + "?action=send_staff_notif", {
+    sale,
+    shopName:     db.shop?.name || db.settings?.name || "MERX",
+    staffGroupId: staffGroupId,
+    shopId:       shopId
+  }, "staffnotif:" + (sale.chekNum || sale.id));
+
+  if (data && data.sent) {
+    toast("📢 Ishchilar guruhiga bildirishnoma yuborildi");
+  } else if (!data) {
+    toast("📮 Guruh xabari navbatda — aloqa tiklanganda o'zi ketadi");
   }
 }
 

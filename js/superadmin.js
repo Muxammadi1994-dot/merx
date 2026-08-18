@@ -1968,6 +1968,12 @@ function saEditSave(id) {
 
   if (!name) { showSaToast("Do'kon nomini kiriting", "err"); return; }
 
+  // ⚠️ 2026-08-18: ESKI LOGIN ESLAB QOLINADI (parol tuzatishi uchun).
+  // Pastda `s.ownerEmail` YANGI login bilan almashadi, parol so'rovi esa
+  // Auth hisobini email bo'yicha qidiradi — o'sha paytda Auth'da hali
+  // eskisi turgan bo'lishi mumkin.
+  const _eskiLogin = (s.ownerEmail || "").trim();
+
   s.name      = name;
   s.ownerName = owner || s.ownerName;
   s.phone     = phone;
@@ -2091,18 +2097,32 @@ function saEditSave(id) {
       } catch(e) {}
     })();
 
-    // Supabase Auth'da ham yangilaymiz
-    fetch("/api/auth-v2?action=update_shop_password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-sa-pass": (sessionStorage.getItem("merx_sa_pass") || localStorage.getItem("merx_sa_pass") || "") },
-      body: JSON.stringify({ email: s.ownerEmail, newPassword: pass })
-    })
-    .then(r => r.json())
-    .then(d => {
-      if (d.ok) console.log("✅ Supabase Auth parol yangilandi");
-      else console.warn("⚠️ Supabase Auth parol yangilanmadi:", d.error);
-    })
-    .catch(e => console.warn("Supabase Auth parol xato:", e.message));
+    // ⚠️ 2026-08-18 TUZATISH — PAROL JIMGINA YO'QOLARDI.
+    // Avval so'rov FAQAT yangi login bilan va `update_shop` bilan BIR
+    // VAQTDA yuborilardi. O'sha lahzada Auth hisobida hali ESKI email
+    // turardi → server 404 "hisob topilmadi" qaytarardi → parol
+    // o'zgarmasdi. Xato esa faqat konsolga yozilardi, ekranda yashil
+    // "saqlandi" chiqardi (login+parol birga o'zgartirilganda).
+    // Endi: avval ESKI login bilan, topilmasa YANGISI bilan urinamiz —
+    // tartibga umuman bog'liq emas. Ikkalasi ham bo'lmasa QIZIL xabar.
+    (async () => {
+      const _nomzodlar = [...new Set([_eskiLogin, s.ownerEmail].filter(Boolean))];
+      let _oxirgiXato = "hisob topilmadi";
+      for (const _em of _nomzodlar) {
+        try {
+          const _r = await fetch("/api/auth-v2?action=update_shop_password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-sa-pass": (sessionStorage.getItem("merx_sa_pass") || localStorage.getItem("merx_sa_pass") || "") },
+            body: JSON.stringify({ email: _em, newPassword: pass })
+          });
+          const _d = await _r.json();
+          if (_d.ok) { console.log("✅ Supabase Auth parol yangilandi:", _em); return; }
+          _oxirgiXato = _d.error || _r.status;
+        } catch (e) { _oxirgiXato = e.message; }
+      }
+      console.warn("⚠️ Supabase Auth parol yangilanmadi:", _oxirgiXato);
+      showSaToast("⚠️ Parol o'zgartirilmadi: " + _oxirgiXato, "err");
+    })();
   }
 }
 
