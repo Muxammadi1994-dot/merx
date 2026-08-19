@@ -56,6 +56,62 @@ function repSales() {
   return statSales().filter(s => s.date >= from && s.date <= to);
 }
 
+// ✅ 2026-08-19: Hisobot ko'rsatkichlarini SERVERDAN olish.
+// Davr o'zgarganda yangi so'rov ketadi; bir xil davr 20 soniya
+// keshlanadi. Xato/oflaynda hech narsa qilinmaydi — lokal qoladi.
+let _rsKesh = { k: "", t: 0, r: null };
+let _rsBusy = null;
+async function _repStatsServer(from, to) {
+  try {
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
+    if (typeof _serverPay   !== "function") return;
+    const kalit = from + "|" + to;
+    if (_rsKesh.r && _rsKesh.k === kalit && (Date.now() - _rsKesh.t) < 20000) {
+      _rsQoy(_rsKesh.r); return;
+    }
+    if (_rsBusy) return;
+    _rsBusy = (async () => {
+      try {
+        const r = await _serverPay({ action: "report_stats", from, to,
+                                     rate: db.settings?.rate || 12800 });
+        if (r && r.ok) { _rsKesh = { k: kalit, t: Date.now(), r }; _rsQoy(r); }
+      } finally { _rsBusy = null; }
+    })();
+    await _rsBusy;
+  } catch (e) { console.warn("[hisobot] server ko'rsatkichlari:", e.message); }
+}
+function _rsQoy(r) {
+  try {
+    const put = (id, txt, rang) => {
+      const el = $(id); if (!el) return;
+      el.textContent = txt;
+      if (rang) el.style.color = rang;
+    };
+    const yashil = "var(--grn)", qizil = "var(--red)";
+    put("rep-cnt",  (r.cnt || 0) + " ta");
+    put("rep-rev",  fmtK(r.rev  || 0) + " so'm");
+    put("rep-paid", fmtK(r.paid || 0) + " so'm");
+    put("rep-debt", fmtK(r.debt || 0) + " so'm");
+    put("rep-cost", fmtK(r.cost || 0) + " so'm");
+    put("rep-profit", fmtK(r.profit || 0) + " so'm",
+        (r.profit >= 0) ? yashil : qizil);
+    put("rep-margin", (r.margin || 0) + "%",
+        r.margin >= 20 ? yashil : r.margin >= 10 ? "#E07B39" : qizil);
+    put("rep-real-profit", fmtK(r.realProfit || 0) + " so'm",
+        (r.realProfit >= 0) ? yashil : qizil);
+    put("rep-real-margin", (r.realMargin || 0) + "%");
+    put("rep-true-net", fmtK(r.trueNet || 0) + " so'm",
+        (r.trueNet >= 0) ? yashil : qizil);
+    put("rep-true-margin", (r.trueMargin || 0) + "%",
+        r.trueMargin >= 15 ? yashil : r.trueMargin >= 5 ? "#E07B39" : qizil);
+    put("rep-expenses",   fmtK(r.expenses  || 0) + " so'm");
+    put("rep-net-profit", fmtK(r.netProfit || 0) + " so'm",
+        (r.netProfit >= 0) ? yashil : qizil);
+    put("rep-net-margin", (r.netMargin || 0) + "%",
+        r.netMargin >= 15 ? yashil : r.netMargin >= 5 ? "#E07B39" : qizil);
+  } catch (e) {}
+}
+
 // ── Asosiy render ─────────────────────────────────
 function renderHisobot() {
   const sales   = repSales();
@@ -183,6 +239,12 @@ function renderHisobot() {
     $("rep-true-margin").textContent = trueMargin + "%";
     $("rep-true-margin").style.color = trueMargin >= 15 ? "var(--grn)" : trueMargin >= 5 ? "#E07B39" : "var(--red)";
   }
+  // ✅ 2026-08-19 (1-bosqich): KO'RSATKICHLAR SERVERDAN YANGILANADI.
+  // Yuqoridagi lokal hisob endi ZAXIRA — u qurilmadagi ro'yxatga
+  // bog'liq, ro'yxat esa chala tortilishi mumkin (19-avg hodisasi).
+  // Server javobi kelgach raqamlar jimgina almashadi; aloqa yo'q
+  // bo'lsa lokal raqam ko'rinib turaveradi (oflayn ish buzilmaydi).
+  _repStatsServer(from, to);
 
   if ($("rep-expenses")) $("rep-expenses").textContent = fmtK(periodExp) + " so'm";
   if ($("rep-net-profit")) {

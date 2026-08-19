@@ -675,6 +675,129 @@ module.exports = async (req, res) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // ✅ 2026-08-19 (1-bosqich): HISOBOT KO'RSATKICHLARI SERVERDAN
+    // ═══════════════════════════════════════════════════════════════
+    // Ildiz: Hisobotning 11 ta ko'rsatkichi lokal `db.sales` va
+    // `db.products` dan hisoblanardi. Ro'yxat chala tortilsa —
+    // foyda, tushum, tannarx JIMGINA yolg'on chiqardi (o'sha "foyda
+    // 60,9M ↔ 160,1M sakrardi" sinfi).
+    // Endi hisob SERVERDA. Formulalar `hisobot.js` bilan AYNAN bir xil:
+    //  · sotuvlar: bekor va eski-qarz tashlanadi (statSales)
+    //  · kassaga tushdi: payBreakdown (naqd+karta+o'tkazma), aks holda
+    //    nasiya=0, qolganda paid + davr qarz to'lovlari (refund emas)
+    //  · tannarx: 1) chekdagi muzlatilgan costUzs, 2) sku bo'yicha
+    //    tovar, 3) nom bo'yicha (aynan shu tartib — 09-avg tuzatishi)
+    //  · realProfit: har chek to'langan ulushiga mutanosib + qarz
+    //    to'lovlaridan grossMargin ulushi
+    //  · xarajatlar: davrdagi jami; sof foyda ikki xil (kassa/haqiqiy)
+    if (action === "report_stats") {
+      const from = String(body.from || "").slice(0, 10);
+      const to   = String(body.to   || "").slice(0, 10);
+      if (!from || !to)
+        return res.status(400).json({ ok: false, error: "from/to kerak" });
+      const rate = Number(body.rate) || 12800;
+
+      const [sales, pays, prods, xars] = await Promise.all([
+        sbAll(`sales?shop_id=eq.${encodeURIComponent(shopId)}` +
+              `&date=gte.${from}&date=lte.${to}` +
+              `&select=id,date,status,total,paid,pay_type,remaining,debt_usd,` +
+              `debt_currency,orig_remaining,orig_debt_usd,items,data`),
+        sbAll(`debt_payments?shop_id=eq.${encodeURIComponent(shopId)}` +
+              `&select=id,date,amount,currency,data`),
+        sbAll(`products?shop_id=eq.${encodeURIComponent(shopId)}` +
+              `&select=sku,name,data`),
+        sbAll(`xarajatlar?shop_id=eq.${encodeURIComponent(shopId)}` +
+              `&date=gte.${from}&date=lte.${to}&select=id,amount`)
+      ]);
+
+      // Tovar xaritalari (tannarx qidirish tartibi uchun)
+      const bySku = new Map(), byName = new Map();
+      (prods || []).forEach(p2 => {
+        const d = (p2.data && typeof p2.data === "object") ? p2.data : {};
+        const cost = (d.costUzs != null && d.costUzs > 0)
+          ? Math.round(d.costUzs)
+          : Math.round((d.costUsd || 0) * rate);
+        if (p2.sku && !bySku.has(String(p2.sku)))   bySku.set(String(p2.sku), cost);
+        const nm = d.name || p2.name;
+        if (nm && !byName.has(String(nm)))          byName.set(String(nm), cost);
+      });
+
+      // Chekdan to'langan summa (payBreakdown qoidasi)
+      const _chekPaid = (s, d) => {
+        const pb = d.payBreakdown;
+        if (pb && (pb.naqd || pb.karta || pb.otkazma))
+          return (pb.naqd || 0) + (pb.karta || 0) + (pb.otkazma || 0);
+        return ((d.payType || s.pay_type) === "nasiya") ? 0 : (Number(s.paid) || 0);
+      };
+
+      let cnt = 0, rev = 0, debt = 0, paid = 0, costTotal = 0,
+          grossProfit = 0, realProfit = 0;
+
+      (sales || []).forEach(s => {
+        const d = (s.data && typeof s.data === "object") ? s.data : {};
+        if (d.cancelled === true || d.cancelled === "true") return;   // statSales
+        if (d.isOldDebt === true) return;
+        cnt++;
+        const total = Number(s.total) || 0;
+        rev += total;
+        const st = saleState(s, pays || []);
+        debt += st.remaining;
+
+        const sPaid = _chekPaid(s, d);
+        paid += sPaid;
+
+        let saleCost = 0;
+        const items = Array.isArray(s.items) ? s.items
+                    : (Array.isArray(d.items) ? d.items : []);
+        items.forEach(it => {
+          const qty = Number(it.qty) || 0;
+          if (Number(it.costUzs) > 0) { saleCost += Number(it.costUzs) * qty; return; }
+          let c = null;
+          if (it.sku && bySku.has(String(it.sku))) c = bySku.get(String(it.sku));
+          if (c == null && it.name && byName.has(String(it.name))) c = byName.get(String(it.name));
+          if (c == null) return;
+          saleCost += c * qty;
+        });
+        costTotal   += saleCost;
+        grossProfit += total - saleCost;
+        const ratio  = total > 0 ? (sPaid / total) : 0;
+        realProfit  += (total - saleCost) * ratio;
+      });
+
+      // Davr qarz to'lovlari (refund manbali HISOBGA KIRMAYDI — cashPays)
+      let debtPaid = 0;
+      (pays || []).forEach(p2 => {
+        const d = (p2.data && typeof p2.data === "object") ? p2.data : {};
+        if (d.cancelled === true || d.cancelled === "true") return;
+        if (d.source === "refund") return;
+        const dt = String(p2.date || "");
+        if (dt < from || dt > to) return;
+        debtPaid += (p2.currency === "usd")
+          ? Math.round((Number(p2.amount) || 0) * rate)
+          : (Number(p2.amount) || 0);
+      });
+      paid += debtPaid;
+      const grossMargin = rev > 0 ? (grossProfit / rev) : 0;
+      realProfit += debtPaid * grossMargin;
+
+      grossProfit = Math.round(grossProfit);
+      realProfit  = Math.round(realProfit);
+      const periodExp = (xars || []).reduce((a, x) => a + (Number(x.amount) || 0), 0);
+
+      return res.status(200).json({ ok: true,
+        cnt, rev: Math.round(rev), debt: Math.round(debt), paid: Math.round(paid),
+        cost: Math.round(costTotal), profit: grossProfit, realProfit,
+        margin:     rev  > 0 ? Math.round(grossProfit / rev  * 100) : 0,
+        realMargin: paid > 0 ? Math.round(realProfit  / paid * 100) : 0,
+        expenses:   Math.round(periodExp),
+        netProfit:  Math.round(realProfit  - periodExp),
+        netMargin:  paid > 0 ? Math.round((realProfit  - periodExp) / paid * 100) : 0,
+        trueNet:    Math.round(grossProfit - periodExp),
+        trueMargin: rev  > 0 ? Math.round((grossProfit - periodExp) / rev * 100) : 0
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // ✅ 2026-08-19: QARZ KO'RSATKICHLARI SERVERDAN (debt_stats)
     // ═══════════════════════════════════════════════════════════════
     // Ildiz (ABU SAXIY, 19-avg videolari): KPI lokal `db.sales` dan
