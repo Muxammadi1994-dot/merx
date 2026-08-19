@@ -3141,7 +3141,18 @@ async function checkout() {
             bor = true;
           }
         });
-        if (bor) { try { p2._qtyLocal = true; } catch (e) {} }
+        // ⚠️ 2026-08-19 (sinov topdi): BU YERDA BAYROQ QO'YILMAYDI.
+        // Avval `p2._qtyLocal = true` edi. Oqibati IKKI MARTA AYIRISH:
+        // push bayroqni ko'rib LOKAL (allaqachon kamaytirilgan) qoldiqni
+        // serverga yozardi, keyin navbat yana delta ayirardi.
+        // Jonli isbot (Shoetest, 19-avg): 245 −5 onlayn −15 oflayn = 225
+        // kutilgan edi, 210 chiqdi (15 ikki marta ketgan).
+        // To'g'ri qoida: oflayn sotuvda qoldiqning YAGONA hakami —
+        // serverdagi delta amali. Push esa server qiymatini oladi
+        // (477-himoya), delta uni kamaytiradi, `_stockApply` natijani
+        // lokalga yozadi. Tartib qanday bo'lishidan qat'i nazar
+        // natija bir xil bo'ladi.
+        if (bor) { try { delete p2._qtyLocal; } catch (e) {} }
       });
       if (_items.length && typeof offStockQueueAdd === "function") {
         offStockQueueAdd({ saleId: String(newSale.id),
