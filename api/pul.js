@@ -765,8 +765,13 @@ module.exports = async (req, res) => {
       // Xarajat — PUL yozuvi: do'kon aralashuvi va ikki marta yozilish
       // to'g'ridan-to'g'ri kassaga ta'sir qiladi.
       // ✅ 2026-08-19 (5-bosqich): `products` ham shu darvozadan.
+      // ✅ 2026-08-19: `ombor` va `chiqimlar` ham shu darvozadan —
+      // qoldiq serverda o'zgaradi-yu, HUJJAT lokal yozilardi. Push
+      // yiqilsa qoldiq o'zgargan, hujjat yo'q (AP-17 tozalashida
+      // aynan shunday "soxta kirim" topilgan edi).
       if (tbl !== "customers" && tbl !== "staff" &&
-          tbl !== "xarajatlar" && tbl !== "products")
+          tbl !== "xarajatlar" && tbl !== "products" &&
+          tbl !== "ombor" && tbl !== "chiqimlar")
         return res.status(400).json({ ok: false, error: "Jadval ruxsat etilmagan" });
       const row = (body.row && typeof body.row === "object") ? { ...body.row } : null;
       if (!row || (!row.id && !row.sku))
@@ -822,7 +827,8 @@ module.exports = async (req, res) => {
               error: "Shu artikul va rangda tovar bor", row: takror });
         }
       }
-      if (!eski && tbl !== "xarajatlar" && tbl !== "products") {
+      if (!eski && tbl !== "xarajatlar" && tbl !== "products" &&
+          tbl !== "ombor" && tbl !== "chiqimlar") {
         const tel = String(row.phone || "").trim();
         const nom = String(row.name  || "").trim().toLowerCase();
         const hammasi = await sbAll(`${tbl}?shop_id=eq.${encodeURIComponent(shopId)}` +
@@ -880,6 +886,39 @@ module.exports = async (req, res) => {
           pantone: data.pantone || null,
           color_name: data.colorName || null,
           hex: data.hex || null,
+          data, updated_at: now
+        };
+      } else if (tbl === "chiqimlar") {
+        // Ustunlar `cloud.js` push xaritasi bilan AYNAN bir xil
+        // (chiqimlar jadvalida `sku`/`size`/`unit` ustunlari yo'q —
+        //  ular `data` ichida saqlanadi)
+        yoz = {
+          shop_id: shopId, id: row.id,
+          date: data.date || null,
+          product_name: data.productName || data.name || null,
+          color: data.color || null,
+          qty: Number(data.qty) || 0,
+          reason: data.reason || null,
+          cost_uzs: data.costUzs != null ? data.costUzs : null,
+          cost_usd_each: data.costUsdEach != null ? data.costUsdEach : null,
+          data, updated_at: now
+        };
+      } else if (tbl === "ombor") {
+        // Ustunlar `cloud.js` push xaritasi bilan bir xil bo'lishi shart
+        yoz = {
+          shop_id: shopId, id: row.id,
+          sku: data.sku || null,
+          product_name: data.productName || data.name || null,
+          unit: data.unit || "dona",
+          color: data.color || null, size: data.size || null,
+          qty: Number(data.qty) || 0,
+          boxes: data.boxes != null ? data.boxes : null,
+          pantone: data.pantone || null, hex: data.hex || null,
+          kirim_narxi: data.kirimNarxi != null ? data.kirimNarxi : null,
+          chakana: data.chakana != null ? data.chakana : null,
+          ulgurji: data.ulgurji != null ? data.ulgurji : null,
+          supplier: data.supplier || null,
+          date: data.date || null,
           data, updated_at: now
         };
       } else if (tbl === "xarajatlar") {

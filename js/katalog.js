@@ -168,7 +168,7 @@ function updateBulkPreview() {
   }
 }
 
-function applyBulkPrice() {
+async function applyBulkPrice() {   // ✅ 2026-08-19: server orqali (async)
   if (typeof requireUse === "function" && !requireUse("katalog")) return;
 
   const pct   = parseFloat(document.getElementById("bulk-pct")?.value) || 0;
@@ -201,6 +201,7 @@ function applyBulkPrice() {
   const rate     = db.settings?.rate || 12800;
   const isUsd    = db.settings?.priceCurrency === "usd";
   let   changed  = 0;
+  const _bulkYangilar = [];   // ✅ 2026-08-19: serverga to'plamli
 
   // rowKey lardan unique sku to'plamini olamiz (bir mahsulotning bir necha rang qatori tanlangan bo'lishi mumkin)
   const uniqueSkus = new Set([..._katSelected].map(k => k.split("::")[0]));
@@ -218,7 +219,33 @@ function applyBulkPrice() {
       p.ulgurjiNarx = Math.round((p.ulgurjiNarx || 0) * multiply / 1000) * 1000;
     }
     changed++;
+    try { p.updatedAt = new Date().toISOString(); _bulkYangilar.push(p); } catch (e) {}
   });
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ 2026-08-19: OMMAVIY NARX SERVERGA (to'plamli)
+  // ═══════════════════════════════════════════════════════════
+  // Avval bu amal yuzlab tovarni LOKAL o'zgartirib, push bilan
+  // jo'natardi va MUHR SOLISHTIRMASDI — ikki kassa bir vaqtda
+  // ishlatsa biri ikkinchisini ogohlantirishsiz bosib ketardi.
+  // Endi server yozadi: do'kon serverda qo'yiladi, QOLDIQ esa
+  // har doim SERVERDAN olinadi (narx amali qoldiqqa tegmaydi).
+  // Aloqa yo'q bo'lsa eski yo'l: lokal + push (ish to'xtamaydi).
+  if (typeof serverSaveBulkProducts === "function" && _bulkYangilar.length) {
+    const _r = await serverSaveBulkProducts(_bulkYangilar);
+    if (_r && _r.ok) {
+      console.log("📤 Ommaviy narx: " + _r.soni + " tovar serverga yozildi");
+      // Server qaytargan qoldiqni lokalga qaytaramiz (sonlar server haqiqati)
+      try {
+        (_r.rows || []).forEach(row => {
+          const lp = db.products.find(x => String(x.sku) === String(row.sku));
+          if (lp && Array.isArray(row.variants)) lp.variants = row.variants;
+        });
+      } catch (e) {}
+    } else {
+      console.warn("📤 Ommaviy narx serverga yozilmadi — lokal saqlandi");
+    }
+  }
 
   saveDB();
   closeModal("bulkprice");
@@ -5159,7 +5186,7 @@ function epVarRenderTable() {
 }
 
 // Guruhdagi barcha tovarlarni saqlash
-function epSaveVariativ() {
+async function epSaveVariativ() {   // ✅ 2026-08-19: server orqali (async)
   // ✅ 2026-08-18 RUXSAT: bevosita yozish yo'li — oyna qulfiga
   // qo'shimcha ikkinchi qavat (kelajakda boshqa yo'ldan chaqirilsa ham).
   if (typeof requireDo === "function" && !requireDo("katalog","edit")) return;
@@ -5169,6 +5196,7 @@ function epSaveVariativ() {
   const rate = db.settings?.rate || 12800;
   const mode = db.settings?.priceCurrency || "uzs";
   let changed = 0;
+  const _varYangilar = [];   // ✅ 2026-08-19: serverga to'plamli
 
   // 2026-07-26: NOLGA TUSHISH HIMOYASI — qoldiq 0 bo'lsa tovar
   // katalog/ombordan yo'qolib qolardi. Endi ogohlantiriladi.
@@ -5231,7 +5259,23 @@ function epSaveVariativ() {
                  "Qoldiq tahriri (variativ)");
       changed++;
     }
+    try { p.updatedAt = new Date().toISOString(); _varYangilar.push(p); } catch (e) {}
   });
+
+  // ✅ 2026-08-19: VARIATIV TAHRIR SERVERGA (to'plamli).
+  // Bu jadval bir amalda bir necha tovarning TANNARX, ULGURJI NARX va
+  // POCHKA SIG'IMINI o'zgartiradi — pulga tegadigan maydonlar. Avval
+  // hammasi lokal ketardi va muhr solishtirilmasdi.
+  // ⚠️ Qoldiq bu yerda `_stockMove` (server yo'li) orqali o'zgaradi;
+  // to'plamli yozuvda esa qoldiq SERVERDAN olinadi — ikki marta
+  // qo'llanmasin. Ya'ni sonni faqat bitta mexanizm boshqaradi.
+  if (typeof serverSaveBulkProducts === "function" && _varYangilar.length) {
+    const _r = await serverSaveBulkProducts(_varYangilar);
+    if (_r && _r.ok)
+      console.log("📤 Variativ tahrir: " + _r.soni + " tovar serverga yozildi");
+    else
+      console.warn("📤 Variativ tahrir serverga yozilmadi — lokal saqlandi");
+  }
 
   saveDB();
   // ✅ 2026-08-18 (egasi topgan): ASOSIY OYNA MAYDONLARI YANGILANADI.
@@ -5922,28 +5966,44 @@ function _stockMove(p, color, size, delta, sabab) {
     const _rate = (db.settings?.rate || 12800);
     const _cost = (typeof getCostUzs === "function") ? getCostUzs(p)
                   : Math.round((p.costUsd || 0) * _rate);
+    // ✅ 2026-08-19: HUJJAT ham SERVERGA yoziladi.
+    // Avval qoldiq serverda o'zgarardi-yu (yuqoridagi `_serverStock`),
+    // KIRIM/CHIQIM YOZUVI esa faqat lokal edi va push bilan ketardi.
+    // Push yiqilsa — qoldiq o'zgargan, hujjat yo'q: ombor tarixi
+    // haqiqatni ko'rsatmaydi (AP-17 tozalashida shunday "soxta kirim"
+    // topilgan edi). Endi ikkalasi ham serverdan o'tadi.
+    // Fon rejimida — sotuv/kirim tezligiga ta'sir qilmaydi.
+    let _hujjat = null, _jadval = "";
     if (delta > 0) {
       if (!db.ombor) db.ombor = [];
-      db.ombor.push({
+      _hujjat = {
         id: nextId(), date: today(),
         time: (typeof nowTime === "function" ? nowTime() : ""),
         sku: p.sku, art: p.art || "", productName: p.name,
         unit: p.unit || "dona", color: color || "", size: size || "",
         qty: delta, kirimNarxi: _cost,
         supplier: "", partiya: sabab,
-        boxes: (p.inBox > 1) ? Math.floor(delta / p.inBox) : null
-      });
+        boxes: (p.inBox > 1) ? Math.floor(delta / p.inBox) : null,
+        updatedAt: new Date().toISOString()
+      };
+      db.ombor.push(_hujjat); _jadval = "ombor";
     } else {
       if (!db.chiqimlar) db.chiqimlar = [];
-      db.chiqimlar.push({
+      _hujjat = {
         id: nextId(), date: today(),
         time: (typeof nowTime === "function" ? nowTime() : ""),
         productName: p.name, sku: p.sku,
         color: color || "", size: size || "", qty: -delta,
         unit: p.unit || "dona", reason: sabab, note: "",
-        costUzs: _cost * (-delta), costUsdEach: p.costUsd || 0
-      });
+        costUzs: _cost * (-delta), costUsdEach: p.costUsd || 0,
+        updatedAt: new Date().toISOString()
+      };
+      db.chiqimlar.push(_hujjat); _jadval = "chiqimlar";
     }
+    try {
+      if (typeof serverSaveRecord === "function" && _hujjat && _jadval)
+        serverSaveRecord(_jadval, _hujjat, null);
+    } catch (e) {}
     auditLog("qoldiq", "product", p.sku,
       p.name + (color ? " · " + color : ""),
       { before: "", after: (delta > 0 ? "+" : "") + delta + " dona", note: sabab });
