@@ -694,15 +694,20 @@ module.exports = async (req, res) => {
       if (!(await _verify))
         return res.status(401).json({ ok: false, error: "Token yaroqsiz" });
       const tbl = String(body.table || "");
-      if (tbl !== "customers" && tbl !== "staff")
+      // ✅ 2026-08-19 (2-bosqich): `xarajatlar` ham shu darvozadan.
+      // Xarajat — PUL yozuvi: do'kon aralashuvi va ikki marta yozilish
+      // to'g'ridan-to'g'ri kassaga ta'sir qiladi.
+      if (tbl !== "customers" && tbl !== "staff" && tbl !== "xarajatlar")
         return res.status(400).json({ ok: false, error: "Jadval ruxsat etilmagan" });
       const row = (body.row && typeof body.row === "object") ? { ...body.row } : null;
       if (!row || !row.id)
         return res.status(400).json({ ok: false, error: "row/id kerak" });
 
       const idQ = `id=eq.${encodeURIComponent(String(row.id))}`;
+      const _sel = (tbl === "xarajatlar") ? "id,amount,date,category,data"
+                                          : "id,name,phone,data";
       const bor = await sbAll(`${tbl}?shop_id=eq.${encodeURIComponent(shopId)}` +
-                              `&${idQ}&select=id,name,phone,data`);
+                              `&${idQ}&select=${_sel}`);
       const eski = (bor && bor[0]) || null;
 
       // (3) Tahrirda to'qnashuv tekshiruvi
@@ -714,8 +719,9 @@ module.exports = async (req, res) => {
             error: "Boshqa qurilma yangilagan", row: eski });
       }
 
-      // (2) Yangi yozuvda takror tekshiruvi
-      if (!eski) {
+      // (2) Yangi yozuvda takror tekshiruvi (xarajatda — o'tkazib
+      //     yuboriladi: bir kunda bir xil summali ikki xarajat TABIIY)
+      if (!eski && tbl !== "xarajatlar") {
         const tel = String(row.phone || "").trim();
         const nom = String(row.name  || "").trim().toLowerCase();
         const hammasi = await sbAll(`${tbl}?shop_id=eq.${encodeURIComponent(shopId)}` +
@@ -734,14 +740,34 @@ module.exports = async (req, res) => {
       const data = (row.data && typeof row.data === "object") ? row.data : row;
       delete data.shop_id;
       data.updatedAt = now;
-      const yoz = {
-        shop_id: shopId,
-        id: row.id,
-        name:  row.name  || data.name  || "",
-        phone: row.phone || data.phone || "",
-        data,
-        updated_at: now
-      };
+      let yoz;
+      if (tbl === "xarajatlar") {
+        // Ustunlar `cloud.js` push xaritasi bilan bir xil bo'lishi shart
+        yoz = {
+          shop_id: shopId, id: row.id,
+          date: data.date, category: data.category,
+          amount: Number(data.amount) || 0,
+          note: data.note || null,
+          recipient: data.recipient || null,
+          paid_by: data.paidBy || null,
+          method: data.method || null,
+          amount_usd: data.amountUsd != null ? data.amountUsd : null,
+          recurring: !!data.recurring,
+          sub_category: data.subCategory || null,
+          xarajat_type: data.xarajatType || null,
+          for_month: data.forMonth || null,
+          data, updated_at: now
+        };
+      } else {
+        yoz = {
+          shop_id: shopId,
+          id: row.id,
+          name:  row.name  || data.name  || "",
+          phone: row.phone || data.phone || "",
+          data,
+          updated_at: now
+        };
+      }
       // Xodimda ochiq PIN bulutga yozilmaydi (C-1 qoidasi)
       if (tbl === "staff") { delete yoz.data.pin; delete yoz.data.pinHash; }
 

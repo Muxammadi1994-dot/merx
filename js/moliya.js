@@ -936,7 +936,7 @@ function _expDefaultWho() {
 }
 
 // ── Xarajat qo'shish ──────────────────────────────
-function addXarajat() {
+async function addXarajat() {   // ✅ 2026-08-19 (2-bosqich): server orqali
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("moliya","add")) return;
 
@@ -1000,6 +1000,15 @@ function addXarajat() {
   };
   if (sumUsd) entry.amountUsd = sumUsd;
   if (recurring) entry.recurring = true;
+  entry.updatedAt = new Date().toISOString();
+  // ✅ 2026-08-19 (2-bosqich): XARAJAT SERVERGA YOZILADI.
+  // Xarajat — PUL yozuvi: do'kon aralashuvi yoki ikki marta yozilishi
+  // to'g'ridan-to'g'ri kassa va sof foydaga ta'sir qiladi. Server
+  // `shop_id` ni O'ZI qo'yadi (token egasidan) — begona do'konga
+  // tushishi mumkin emas. Aloqa yo'q bo'lsa eski yo'l: lokal + push.
+  if (typeof serverSaveRecord === "function") {
+    try { await serverSaveRecord("xarajatlar", entry, null); } catch (e) {}
+  }
   db.xarajatlar.push(entry);
 
   // Takroriy xarajat — keyingi oyga ham qo'shish
@@ -1081,8 +1090,9 @@ function editExp(id) {
   }, 50);
 }
 
-function saveEditExp(id) {
+async function saveEditExp(id) {   // ✅ 2026-08-19: server orqali (async)
   const idx = (db.xarajatlar||[]).findIndex(e => e.id === id); if (idx < 0) return;
+  const _baseAt = (db.xarajatlar[idx] || {}).updatedAt || null;
   const cat      = ($("exp-cat-val")||{value:"Boshqa"}).value;
   const currency = ($("ax-currency")||{value:"uzs"}).value;
   const method   = ($("ax-pay-method")||{value:"naqd"}).value;
@@ -1104,6 +1114,24 @@ function saveEditExp(id) {
 
   db.xarajatlar[idx] = { ...db.xarajatlar[idx], date, category:cat, amount:sum, recipient, paidBy, note, method, recurring };
   if (sumUsd) db.xarajatlar[idx].amountUsd = sumUsd; else delete db.xarajatlar[idx].amountUsd;
+  db.xarajatlar[idx].updatedAt = new Date().toISOString();
+  // ✅ 2026-08-19: serverga yoziladi; boshqa qurilma o'zgartirgan
+  // bo'lsa so'raladi — summa jimgina bosilib ketmasin.
+  if (typeof serverSaveRecord === "function") {
+    const _r = await serverSaveRecord("xarajatlar", db.xarajatlar[idx], _baseAt);
+    if (_r && _r.ok === false && _r.code === "conflict") {
+      const _sv = (_r.row && _r.row.data) || {};
+      if (!confirm("⚠️ Bu xarajatni boshqa qurilma yangilagan" +
+            (_sv.amount ? " (hozirgi summa: " + fmt(_sv.amount) + " so'm)" : "") +
+            ".\n\nOK — baribir saqlayman\nBekor — yangi holatni ko'raman")) {
+        try { if (typeof pullFromCloud === "function") pullFromCloud(true); } catch (e) {}
+        closeModal("addxarajat");
+        toast("Xarajat yangilandi — qaytadan oching", "info");
+        return;
+      }
+      await serverSaveRecord("xarajatlar", db.xarajatlar[idx], null);
+    }
+  }
   saveDB(); renderMoliya(); closeModal("addxarajat");
   toast(`✅ Xarajat yangilandi: ${fmt(sum)} so'm`);
   // Modal sarlavhasini tiklash
