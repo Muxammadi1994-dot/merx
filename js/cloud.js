@@ -2265,9 +2265,15 @@ async function cloudProductStamp(sku) {
 }
 
 // ── Supabase → LocalDB ────────────────────────────
+let _pullRunning = false;   // ✅ 2026-08-19: pull ishlayaptimi (qayta ulanish aralashmasin)
 async function pullFromCloud(silent = false, skipRender = false) {
   // v184: silent = muvaffaqiyat toast'lari jim (realtime/zaxira uchun)
   //       skipRender = ekran qayta chizilmaydi (fon-yangilash uchun)
+  _pullRunning = true;
+  try { return await _pullFromCloudIchki(silent, skipRender); }
+  finally { _pullRunning = false; }
+}
+async function _pullFromCloudIchki(silent = false, skipRender = false) {
   _pushCache = {}; // v176: pull'dan keyin birinchi push to'liq bo'lsin (xavfsizlik)
   if (!_sb) {
     const ok = await initSupabase();
@@ -3000,7 +3006,12 @@ window.addEventListener("online", () => {
   // sezmaydi, chek esa mini-appda bo'sh chiqadi.
   (async () => {
     try {
-      if (!_sb) { const ok = await initSupabase(); if (!ok) return; }
+      // ✅ 2026-08-19: pull yarim yo'lda bo'lsa aralashmaymiz (yuqoriga qarang)
+      if (!_sb && !_pullRunning && !_pullBusy) {
+        const ok = await initSupabase();
+        if (!ok) return;
+      }
+      if (!_sb) return;
       await ensureCloudPull();     // to'siq ochilsin (do'kon mosligi)
       scheduleCloudSync();
       _rtEnsure();
@@ -3017,6 +3028,12 @@ setInterval(() => {
   try {
     if (_sb) return;
     if (navigator && navigator.onLine === false) return;
+    // ⚠️ 2026-08-19 (sinov topdi): PULL ISHLAYOTGANDA TEGILMAYDI.
+    // `initSupabase` yiqilganda `_sb = null` qiladi. Agar shu payt pull
+    // yarim yo'lda bo'lsa, u keyingi qadamda `_sb.from(...)` ga urinib
+    // "Cannot read properties of null (reading 'from')" xatosini beradi
+    // va pull uziladi (ekranda "Yuklash xatosi" chiqadi).
+    if (_pullRunning || _pullBusy) return;
     initSupabase().then(ok => {
       if (!ok) return;
       console.log("🔌 Ulanish tiklandi — navbatdagilar yuboriladi");
