@@ -439,6 +439,106 @@ function debtRemDisplay(s, st) {
           <span style="font-size:10px;color:#aaa;display:block">so'm</span>`;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-19 (4-bosqich · 2-qism): QARZLAR RO'YXATI TO'LDIRILADI
+// ═══════════════════════════════════════════════════════════════
+// Ildiz: KPI serverdan keladi (182 kishi), jadval esa qurilmadagi
+// `db.sales` dan quriladi. Nusxa chala tortilsa — tepada 182,
+// pastda 54 qator: bir ekranda ikki haqiqat (19-avg videolari).
+//
+// NEGA SAHIFALASH EMAS: o'lchov ko'rsatdi — ABU SAXIY da ochiq
+// qarz atigi ~285 ta sotuv (jami 3334 dan). Ya'ni bu yerda hajm
+// muammosi YO'Q, TO'LIQLIK muammosi bor. Sahifalash butun
+// guruhlash/karta/grafik mantiqini qayta yozishni talab qilardi —
+// xavfi yuqori, foydasi kam.
+//
+// YECHIM: bo'lim ochilganda ochiq qarzlar va ularning to'lovlari
+// SERVERDAN o'qiladi va lokal ro'yxatga QO'SHILADI (yo'qolganlari
+// tiklanadi). Shu bilan jadval KPI bilan doim mos bo'ladi.
+//  · Yozish YO'Q — faqat o'qiydi;
+//  · Lokal yozuv YANGIROQ bo'lsa — tegilmaydi (pull qoidasi, v174);
+//  · Xato/oflaynda — jim o'tadi, eski ko'rinish qoladi;
+//  · O'chirish: db.settings.serverLists = false.
+let _dbFullT = 0, _dbFullBusy = false;
+async function _debtEnsureFull() {
+  try {
+    if (db.settings && db.settings.serverLists === false) return;
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
+    if (navigator && navigator.onLine === false) return;
+    if (typeof _sb === "undefined" || !_sb) return;
+    if (_dbFullBusy || (Date.now() - _dbFullT) < 30000) return;
+    _dbFullBusy = true;
+    const sid = getCloudShopId();
+
+    // 1) Ochiq qarzli sotuvlar (yangi indekslardan foydalanadi)
+    const { data: sData, error: sErr } = await _sb.from("sales")
+      .select("*").eq("shop_id", sid).or("remaining.gt.0,debt_usd.gt.0");
+    if (sErr) throw new Error(sErr.message);
+
+    // 2) Shu mijozlarning to'lovlari (holat hisobi uchun shart)
+    const custIds = [...new Set((sData || [])
+      .map(r => r.customer_id).filter(x => x != null))];
+    let pData = [];
+    if (custIds.length) {
+      const { data: pd, error: pErr } = await _sb.from("debt_payments")
+        .select("*").eq("shop_id", sid).in("customer_id", custIds.slice(0, 900));
+      if (pErr) throw new Error(pErr.message);
+      pData = pd || [];
+    }
+
+    // 3) Lokalga qo'shamiz — YANGIROQ lokal yozuvga tegilmaydi
+    const _yangiroqmi = (lok, srvAt) => {
+      const _l = Date.parse((lok && lok.updatedAt) || 0) || 0;
+      const _c = Date.parse(srvAt || 0) || 0;
+      return _l > _c;
+    };
+    let qoshildi = 0, yangilandi = 0;
+
+    const _sMap = new Map((db.sales || []).map(x => [String(x.id), x]));
+    (sData || []).forEach(r => {
+      const obj = (r.data && typeof r.data === "object" && !Array.isArray(r.data))
+        ? { ...r.data, id: r.id }
+        : { id: r.id, chekNum: r.chek_num, date: r.date, time: r.time,
+            staffId: r.staff_id, customerId: r.customer_id,
+            items: r.items || [], total: r.total, paid: r.paid,
+            remaining: r.remaining, due: r.due,
+            customerName: r.customer_name, customerPhone: r.customer_phone,
+            status: r.status, debtCurrency: r.debt_currency,
+            debtUsd: r.debt_usd, note: r.note,
+            origPaid: r.orig_paid != null ? r.orig_paid : r.paid,
+            origRemaining: r.orig_remaining != null ? r.orig_remaining : r.remaining,
+            origDebtUsd: r.orig_debt_usd != null ? r.orig_debt_usd : null };
+      const lok = _sMap.get(String(r.id));
+      if (!lok) { db.sales.push(obj); qoshildi++; return; }
+      if (!_yangiroqmi(lok, obj.updatedAt)) {
+        Object.assign(lok, obj); yangilandi++;
+      }
+    });
+
+    const _pMap = new Map((db.debtPayments || []).map(x => [String(x.id), x]));
+    if (!Array.isArray(db.debtPayments)) db.debtPayments = [];
+    (pData || []).forEach(r => {
+      const obj = (r.data && typeof r.data === "object" && !Array.isArray(r.data))
+        ? { ...r.data, id: r.id }
+        : { id: r.id, customerId: r.customer_id, date: r.date,
+            amount: r.amount, currency: r.currency, chekNum: r.chek_num };
+      const lok = _pMap.get(String(r.id));
+      if (!lok) { db.debtPayments.push(obj); qoshildi++; return; }
+      if (!_yangiroqmi(lok, obj.updatedAt)) Object.assign(lok, obj);
+    });
+
+    _dbFullT = Date.now(); _dbFullBusy = false;
+    if (qoshildi > 0) {
+      console.log("💰 Qarzlar to'ldirildi: +" + qoshildi + " yozuv serverdan");
+      try { saveDB(); } catch (e) {}
+      renderDebts();          // endi jadval KPI bilan mos
+    }
+  } catch (e) {
+    _dbFullBusy = false; _dbFullT = Date.now();
+    console.warn("[qarzlar] to'ldirish:", e.message);
+  }
+}
+
 // ── Render ────────────────────────────────────────
 function renderDebts() {
   // 2026-07-11 (AbuSaxiy №11): saqlangan afzallik bir marta o'qiladi;
@@ -507,6 +607,7 @@ function renderDebts() {
   // vaqt to'liq sanaydi. Javob kelgach raqamlar jimgina almashadi;
   // aloqa yo'q bo'lsa lokal raqam ko'rinib turaveradi (oflayn ish).
   _debtStatsServer();
+  _debtEnsureFull();     // ✅ 2026-08-19: jadval KPI bilan mos bo'lsin
   renderDebtRevenue();
 
   if (debtGrouped) {
