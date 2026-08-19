@@ -675,6 +675,73 @@ module.exports = async (req, res) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // ✅ 2026-08-19: TO'PLAMLI TOVAR YOZUVI (import uchun)
+    // ═══════════════════════════════════════════════════════════════
+    // Excel importda 100+ tovar bir yo'la kiritiladi. Har biri uchun
+    // alohida so'rov yuborilsa kassir kutib qoladi (100 × 300 ms).
+    // Shuning uchun bitta so'rovda hammasi: do'kon SERVERDA qo'yiladi,
+    // qoldiq esa har doim SERVERDAN (kartochka tuzilmasi klientdan).
+    // Takror tekshiruvi YO'Q — import ataylab ommaviy amal, kassir
+    // faylni o'zi tayyorlagan.
+    if (action === "save_bulk_products") {
+      if (!(await _verify))
+        return res.status(401).json({ ok: false, error: "Token yaroqsiz" });
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      if (!rows.length) return res.status(200).json({ ok: true, soni: 0 });
+      if (rows.length > 500)
+        return res.status(400).json({ ok: false, error: "500 tadan ko'p" });
+
+      const skular = rows.map(r => String(r.sku || "")).filter(Boolean);
+      const bor = skular.length
+        ? await sbAll(`products?shop_id=eq.${encodeURIComponent(shopId)}` +
+            `&sku=in.(${skular.map(x => `"${x}"`).join(",")})&select=sku,variants`)
+        : [];
+      const _srvVar = new Map((bor || []).map(x => [String(x.sku), x.variants || []]));
+      const now = new Date().toISOString();
+
+      const yoz = rows.map(r => {
+        const d = (r.data && typeof r.data === "object") ? r.data : r;
+        delete d.image; delete d.colorImages; delete d._qtyLocal; delete d.shop_id;
+        // Qoldiq: mavjud tovarda SERVERNIKI saqlanadi (§3.23)
+        const _srv = _srvVar.get(String(r.sku));
+        if (_srv && _srv.length) {
+          const _m = new Map(_srv.map(v =>
+            [String(v.color || "") + "|" + String(v.size || ""), v.qty]));
+          d.variants = (d.variants || []).map(v => {
+            const k = String(v.color || "") + "|" + String(v.size || "");
+            return _m.has(k) ? { ...v, qty: Number(_m.get(k)) || 0 } : v;
+          });
+        }
+        d.updatedAt = now;
+        return {
+          shop_id: shopId, id: r.id, sku: r.sku,
+          name: d.name || "", category: d.category || null,
+          type: d.type || null, unit: d.unit || "dona",
+          art: d.art || "",
+          cost_usd: d.costUsd || 0, price_uzs: d.priceUzs || 0,
+          ulgurji: d.ulgurjiNarx || 0,
+          variants: d.variants || [],
+          ...(d.inBox != null ? { in_box: d.inBox } : {}),
+          barcode: d.barcode || null,
+          data: d, updated_at: now
+        };
+      });
+
+      const r2 = await fetch(`${SB_URL}/rest/v1/products?on_conflict=sku,shop_id`, {
+        method: "POST",
+        headers: { ...H(), "Content-Type": "application/json",
+                   Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify(yoz)
+      });
+      if (!r2.ok) {
+        const t = await r2.text().catch(() => "");
+        return res.status(200).json({ ok: false, error: t.slice(0, 200) });
+      }
+      const j = await r2.json().catch(() => []);
+      return res.status(200).json({ ok: true, soni: (j || []).length, rows: j });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // ✅ 2026-08-19 (3-bosqich): MIJOZ VA XODIM YOZUVI SERVER ORQALI
     // ═══════════════════════════════════════════════════════════════
     // Ildiz (B20, 18-avg): uch xodim ABU SAXIY dan B20 ga NUSXALANDI —

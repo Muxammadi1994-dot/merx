@@ -3198,6 +3198,28 @@ async function serverSaveRecord(table, row, baseAt, force) {
   }
 }
 
+// ✅ 2026-08-19: TO'PLAMLI tovar yozuvi (import uchun). Bitta so'rovda
+// 500 tagacha. Qaytaradi: {ok:true,soni} yoki null (oflayn — eski yo'l).
+async function serverSaveBulkProducts(rows) {
+  try {
+    if (!Array.isArray(rows) || !rows.length) return null;
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return null;
+    if (typeof _serverPay   !== "function") return null;
+    let jami = 0;
+    // 200 tadan bo'lib yuboramiz — so'rov hajmi cheklangan
+    for (let i = 0; i < rows.length; i += 200) {
+      const _b = rows.slice(i, i + 200);
+      const r = await _serverPay({ action: "save_bulk_products", rows: _b });
+      if (!r || !r.ok) return null;
+      jami += r.soni || 0;
+    }
+    return { ok: true, soni: jami };
+  } catch (e) {
+    console.warn("[import] serverga yozilmadi:", e.message);
+    return null;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // ✅ 2026-08-19: QARZ KO'RSATKICHLARI — YAGONA MANBA (o'zak)
 // ═══════════════════════════════════════════════════════════════

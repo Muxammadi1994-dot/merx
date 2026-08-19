@@ -770,6 +770,16 @@ async function _duplicateProductIchki(sku, event) {   // ✅ 2026-08-18: SKU ser
   // Variantlar qoldig'ini 0 qilamiz
   copy.variants = copy.variants.map(v => ({ ...v, qty: 0 }));
 
+  // ✅ 2026-08-19: nusxa ham SERVER orqali (506 naqshi).
+  // Nomga "(nusxa)" qo'shilgani uchun takror chiqmaydi — lekin
+  // yozuvning O'ZI serverdan o'tadi: do'kon serverda qo'yiladi va
+  // boshqa qurilma bir vaqtda nusxa olsa ikkinchisi ogohlantiriladi.
+  copy.updatedAt = new Date().toISOString();
+  if (typeof serverSaveRecord === "function") {
+    let _r = await serverSaveRecord("products", copy, null);
+    if (_r && _r.ok === false && _r.code === "dup")
+      _r = await serverSaveRecord("products", copy, null, true);
+  }
   db.products.push(copy);
   try { ensureColorBarcodes(copy); } catch(e) {}
   db.seq = (db.seq || 1) + 1;
@@ -1293,7 +1303,7 @@ async function _epConfirmAddColorIchki() {   // ✅ 2026-08-18: SKU serverdan (a
   // sifatida ochiladi (narxlar nusxalanadi, keyin mustaqil o'zgaradi)
   // 2026-08-03: SKU noyobligi kafolatlanadi
   const { id: newId, sku: _newSku3 } = await _apNextSkuAsync(p.type, 1);
-  db.products.push({
+  const _yangiRang = {
     id: newId,
     sku: _newSku3,
     name: p.name, category: p.category, type: p.type, unit: p.unit,
@@ -1301,9 +1311,26 @@ async function _epConfirmAddColorIchki() {   // ✅ 2026-08-18: SKU serverdan (a
     art: p.art || "", barcode: genEAN13(db.seq++),
     costUsd: p.costUsd, priceUzs: p.priceUzs, ulgurjiNarx: p.ulgurjiNarx,
     image: "", createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     variants: [{ color, size: (from === to ? from : from + "-" + to),
                  qty: boxes * sizeRange.length, pantone, hex }]
-  });
+  };
+  // ✅ 2026-08-19: yangi rang ham SERVER orqali (506 naqshi).
+  // Takror = artikul+rang; ya'ni boshqa kassa shu rangni allaqachon
+  // ochgan bo'lsa — kassirdan so'raladi (§3.2: har rang alohida tovar).
+  if (typeof serverSaveRecord === "function") {
+    let _r = await serverSaveRecord("products", _yangiRang, null);
+    if (_r && _r.ok === false && _r.code === "dup") {
+      const _b = _r.row || {};
+      if (!confirm("⚠️ Bu rang allaqachon ochilgan:\n\n" +
+            (_b.name || "") + "  ·  " + (_b.sku || "") + "\n\n" +
+            "OK — baribir yarataman\nBekor — yaratmayman")) {
+        toast("Yaratilmadi", "info"); return;
+      }
+      _r = await serverSaveRecord("products", _yangiRang, null, true);
+    }
+  }
+  db.products.push(_yangiRang);
   try { ensureColorBarcodes(db.products[db.products.length-1]); } catch(e) {}
   // ✅ 2026-08-12: KIRIM YOZUVI (avval YO'Q edi — qoldiq izsiz kirardi)
   try {
@@ -1747,6 +1774,7 @@ function apCalcBoxes() {
 // Konsoldan bir marta: splitColors()  — har qo'shimcha rang alohida
 // tovar bo'ladi (narxlar nusxalanadi, qoldiqlar o'z rangida qoladi).
 function splitColors() {
+  const _splitYangilar = [];   // ✅ 2026-08-19: serverga yuboriladiganlar
   let made = 0;
   const multi = db.products.filter(p =>
     new Set((p.variants||[]).map(v => v.color)).size > 1);
@@ -1761,12 +1789,27 @@ function splitColors() {
         id: newId,
         sku: p.sku + "-" + (++made),
         barcode: (p.colorBarcodes && p.colorBarcodes[c]) || genEAN13(db.seq++),
+        updatedAt: new Date().toISOString(),
         variants: p.variants.filter(v => v.color === c)
       });
       try { ensureColorBarcodes(db.products[db.products.length-1]); } catch(e) {}
+      try { _splitYangilar.push(db.products[db.products.length-1]); } catch(e) {}
     });
     p.variants = p.variants.filter(v => v.color === colors[0]);
   });
+  // ✅ 2026-08-19: ajratilgan tovarlar SERVERGA yoziladi (506 naqshi).
+  // Bu amal ko'p tovar yaratadi, shuning uchun ogohlantirish
+  // ko'rsatilmaydi — `force` bilan to'g'ridan-to'g'ri yoziladi
+  // (kassir ataylab ajratyapti, takror bo'lishi kutilgan holat).
+  // Aloqa yo'q bo'lsa eski yo'l: lokal + push.
+  if (typeof serverSaveRecord === "function" && _splitYangilar.length) {
+    (async () => {
+      for (const _np of _splitYangilar) {
+        try { await serverSaveRecord("products", _np, null, true); } catch (e) {}
+      }
+      console.log("📤 Ajratilgan " + _splitYangilar.length + " tovar serverga yozildi");
+    })();
+  }
   saveDB(); renderKatalog();
   console.log(`✅ ${made} ta yangi tovar ochildi (ranglar ajratildi)`);
   toast(`✅ Ranglar ajratildi: ${made} ta yangi tovar`);
@@ -3267,6 +3310,7 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
   const rate    = db.settings?.rate || 12800;
 
   let added = 0, updated = 0, skipped = 0;
+  const _impYangilar = [];   // ✅ 2026-08-19: serverga to'plamli yuboriladi
 
   // ✅ 2026-08-18 (3-teshik yakuni): IMPORT RAQAMLARI SERVERDAN.
   // Avval `IMP-0001` lokal sanoqdan berilardi — ikki kassa bir vaqtda
@@ -3413,6 +3457,8 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
         variants:    [variant]
       };
       db.products.push(newProd);
+      try { newProd.updatedAt = new Date().toISOString();
+            _impYangilar.push(newProd); } catch (e) {}   // ✅ 2026-08-19
       p = newProd;
       added++;
     }
@@ -3467,6 +3513,21 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
     pp.inBox = maxSizes;
   });
 
+  // ═══════════════════════════════════════════════════════════
+  // ✅ 2026-08-19: IMPORT QILINGAN TOVARLAR SERVERGA (to'plamli)
+  // ═══════════════════════════════════════════════════════════
+  // Har tovar uchun alohida so'rov yuborilsa 100 ta tovar = 100 marta
+  // kutish. Shuning uchun BITTA so'rovda (200 tadan bo'lib) yuboriladi.
+  // Aloqa yo'q bo'lsa eski yo'l: lokal + push (ish to'xtamaydi).
+  if (typeof serverSaveBulkProducts === "function" && _impYangilar.length) {
+    try {
+      const _r = await serverSaveBulkProducts(_impYangilar);
+      if (_r && _r.ok)
+        console.log("📤 Import: " + _r.soni + " tovar serverga yozildi");
+      else
+        console.warn("📤 Import serverga yozilmadi — lokal saqlandi, push bilan ketadi");
+    } catch (e) { console.warn("[import] server:", e.message); }
+  }
   saveDB(); renderKatalog(); if (typeof renderOmbor === "function") renderOmbor(); closeModal("import");
 
   const res = $("import-result");
@@ -4523,6 +4584,15 @@ function _apCreateExtraColor(base, cd, batchId) {
   };
 
   db.products.push(prod);
+  // ✅ 2026-08-19: SERVERGA ham yoziladi (506 naqshi). Bu funksiya
+  // ranglar to'plamidan chaqiriladi (bir amalda bir necha rang) —
+  // shuning uchun ogohlantirishsiz, `force` bilan: kassir ataylab
+  // shu ranglarni ochyapti. Fon rejimida — ekran kutmaydi.
+  try {
+    prod.updatedAt = new Date().toISOString();
+    if (typeof serverSaveRecord === "function")
+      serverSaveRecord("products", prod, null, true);
+  } catch (e) {}
   try { ensureColorBarcodes(prod); } catch(e) {}
 
   // Kirim tarixi — mavjud yozuv tuzilishi bilan AYNAN bir xil maydonlar.
