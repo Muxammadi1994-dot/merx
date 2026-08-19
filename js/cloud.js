@@ -1051,7 +1051,15 @@ function _egalikTekshir(nimaUchun) {
       try { pullFromCloud(true); } catch (e) {}
       return false;
     }
-    if (!dsid && (db.sales || []).length === 0 && (db.products || []).length === 0) {
+    // ⚠️ 2026-08-19 (B20 hodisasi): BELGISIZ MA'LUMOT HAM YOZILMAYDI.
+    // Avval shart faqat "lokal BO'SH bo'lsa" edi — ya'ni ma'lumoti BOR,
+    // lekin egasi NOMA'LUM qurilma push qilaverardi. Aynan shu yo'l
+    // bilan 18-avgust 06:36 da ABU SAXIY ning 3 xodimi B20 ga tushgan
+    // (uchalasi bir soniyada, PIN xeshisiz — ya'ni odam kiritmagan).
+    // Endi: egasi aniqlanmagan bo'lsa push KUTADI, avval pull bo'ladi
+    // (u `_dataShopId` ni qo'yadi), keyingi urinishda o'zi o'tadi.
+    // Ma'lumot yo'qolmaydi — push keshi faqat muvaffaqiyatda yangilanadi.
+    if (!dsid) {
       console.warn("\u23f8 " + (nimaUchun||"Yozish") + " kutmoqda: ma'lumot egasi aniqlanmagan");
       try { pullFromCloud(true); } catch (e) {}
       return false;
@@ -2266,6 +2274,22 @@ async function cloudProductStamp(sku) {
 
 // ── Supabase → LocalDB ────────────────────────────
 let _pullRunning = false;   // ✅ 2026-08-19: pull ishlayaptimi (qayta ulanish aralashmasin)
+// ✅ 2026-08-19: "BULUTGA YETMAGAN YOZUVLARNI SAQLASH" — FAQAT O'Z DO'KONIDA.
+// Bu himoya 13-avgustda qo'yilgan (push kutayotgan sotuv pull paytida
+// yo'qolmasin). Lekin do'kon ALMASHGANDA u begona yozuvlarni ham
+// "yuborilmagan" deb saqlab qolardi: qurilma ABU SAXIY dan B20 ga
+// o'tsa, ABU SAXIY mijozlari B20 ro'yxatida ko'rinib turardi (19-avg
+// shikoyati) va push darvozasi ochilib qolsa bulutga ham yozilardi.
+// Endi: lokal ma'lumot SHU do'konga tegishli bo'lsagina saqlanadi.
+// Boshqa do'konniki bo'lsa — pull toza almashtiradi (yo'qolish yo'q:
+// o'sha yozuvlar O'Z do'konining bulutida turibdi).
+function _ozDokonimi(sid) {
+  try {
+    const dsid = db.settings && db.settings._dataShopId;
+    if (!dsid) return false;                     // egasi noma'lum — saqlamaymiz
+    return String(dsid) === String(sid);
+  } catch (e) { return false; }
+}
 async function pullFromCloud(silent = false, skipRender = false) {
   // v184: silent = muvaffaqiyat toast'lari jim (realtime/zaxira uchun)
   //       skipRender = ekran qayta chizilmaydi (fon-yangilash uchun)
@@ -2387,7 +2411,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         colorBarcodes: p.color_barcodes || old.colorBarcodes || null
         };
       });
-      if (_pend_products.length) db.products = db.products.concat(_pend_products);
+      if (_pend_products.length && _ozDokonimi(sid)) db.products = db.products.concat(_pend_products);   // ✅ 2026-08-19
     }
 
     // Customers
@@ -2429,7 +2453,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         balanceUzs: c.balance_uzs || 0, balanceUsd: c.balance_usd || 0
         };
       });
-      if (_pend_customers.length) db.customers = db.customers.concat(_pend_customers);
+      if (_pend_customers.length && _ozDokonimi(sid)) db.customers = db.customers.concat(_pend_customers);   // ✅ 2026-08-19
     }
 
     // Staff
@@ -2539,7 +2563,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         };
       });
       // 🔴 Bulutga yetmagan sotuvlarni QAYTARAMIZ (yo'qolmasin)
-      if (_pending.length) db.sales = db.sales.concat(_pending);
+      if (_pending.length && _ozDokonimi(sid)) db.sales = db.sales.concat(_pending);   // ✅ 2026-08-19
     }
 
     // Ombor
@@ -2575,7 +2599,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         pantone: o.pantone || null, hex: o.hex || null,
         chakana: o.chakana || 0
       });
-      if (_pend_ombor.length) db.ombor = db.ombor.concat(_pend_ombor);
+      if (_pend_ombor.length && _ozDokonimi(sid)) db.ombor = db.ombor.concat(_pend_ombor);   // ✅ 2026-08-19
       });
     }
 
@@ -2614,7 +2638,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         xarajatType: x.xarajat_type || null,
         forMonth: x.for_month || null
       });
-      if (_pend_xarajatlar.length) db.xarajatlar = db.xarajatlar.concat(_pend_xarajatlar);
+      if (_pend_xarajatlar.length && _ozDokonimi(sid)) db.xarajatlar = db.xarajatlar.concat(_pend_xarajatlar);   // ✅ 2026-08-19
       });
     }
 
@@ -2669,7 +2693,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         note:        c.note || "",
         costUzs:     c.cost_uzs || 0
       });
-      if (_pend_chiqimlar.length) db.chiqimlar = db.chiqimlar.concat(_pend_chiqimlar);
+      if (_pend_chiqimlar.length && _ozDokonimi(sid)) db.chiqimlar = db.chiqimlar.concat(_pend_chiqimlar);   // ✅ 2026-08-19
       });
     }
 
@@ -2713,7 +2737,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         leftoverToBalance: !!p.leftover_to_balance
         };
       });
-      if (_pend_debt_payments.length) db.debtPayments = db.debtPayments.concat(_pend_debt_payments);
+      if (_pend_debt_payments.length && _ozDokonimi(sid)) db.debtPayments = db.debtPayments.concat(_pend_debt_payments);   // ✅ 2026-08-19
     }
 
     // Qaytarilgan tovarlar
@@ -2740,7 +2764,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         customerName: r.customer_name || null,
         staffId: r.staff_id || null
       });
-      if (_pend_returns.length) db.returns = db.returns.concat(_pend_returns);
+      if (_pend_returns.length && _ozDokonimi(sid)) db.returns = db.returns.concat(_pend_returns);   // ✅ 2026-08-19
       });
     }
 
