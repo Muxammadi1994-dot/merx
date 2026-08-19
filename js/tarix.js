@@ -125,6 +125,164 @@ let _txPage = 1;
 function txGoPage(p) { _txPage = p; renderTarix(); pagerScrollTop("p-tarix"); }
 function txResetLimit() { _txPage = 1; }
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-19 (4-bosqich · 1-qism): TARIX RO'YXATI SERVERDAN
+// ═══════════════════════════════════════════════════════════════
+// Ildiz: ro'yxat qurilmadagi 60 kunlik nusxadan o'qirdi. Nusxa
+// chala tortilsa — ro'yxat chala (19-avg videolari: 182 → 54);
+// eski chek esa umuman topilmasdi. Endi saralash, qidiruv va
+// sahifalash SERVERDA (`merx_sales_list`), ekranga faqat joriy
+// sahifaning 50 qatori keladi, KPI esa filtrga mos TO'LIQ to'plam
+// bo'yicha (RPC ichida window-yig'indilar).
+// XAVFSIZLIK QATLAMLARI:
+//  · o'chirish tugmasi: db.settings.serverLists = false → eski yo'l;
+//  · server xatosida — lokal ko'rinish + ogohlantirish (ish to'xtamaydi);
+//  · oflaynda — oxirgi muvaffaqiyatli sahifa keshdan, sanasi bilan;
+//  · eski yo'l TO'LIQ saqlangan (pastdagi filter-zanjir tegilmagan).
+let _txSrv = { key:"", rows:null, jami:0, ag:null, busy:false,
+               err:false, t:0 };
+let _txQTimer = null;
+
+function _txServerMode() {
+  try {
+    if (db.settings && db.settings.serverLists === false) return false;
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return false;
+    if (navigator && navigator.onLine === false) return false;
+    return (typeof _sb !== "undefined") && !!_sb;
+  } catch (e) { return false; }
+}
+
+// Joriy davr filtri → sana oralig'i (serverga yuborish uchun).
+// txPeriodFilter bilan AYNAN bir xil chegaralar.
+function _txRange() {
+  const t = today();
+  if (txPeriod === "today")     return { f: t, to: t };
+  if (txPeriod === "yesterday") { const d = addDays(t, -1); return { f: d, to: d }; }
+  if (txPeriod === "week")      return { f: addDays(t, -6), to: t };
+  if (txPeriod === "month")     return { f: t.slice(0, 7) + "-01", to: t };
+  if (txPeriod === "year")      return { f: t.slice(0, 4) + "-01-01", to: t };
+  if (txPeriod === "custom") {
+    const f  = ($("tx-date-from") || { value: "" }).value;
+    const to = ($("tx-date-to")   || { value: "" }).value;
+    return { f: f || null, to: to || null };
+  }
+  return { f: null, to: null };   // all
+}
+
+function _txKey(q) {
+  const r = _txRange();
+  return [q, r.f || "", r.to || "", txStatus, txStaffId, _txPage].join("|");
+}
+
+// Server qatorini sale obyektiga aylantirish — pull xaritasi bilan
+// AYNAN bir xil qoida (v174: data HOKIM, ustunlar zaxira).
+function _txMapRow(s) {
+  if (s.data && typeof s.data === "object" && !Array.isArray(s.data))
+    return { ...s.data, id: s.id };
+  return {
+    id: s.id, chekNum: s.chek_num, date: s.date, time: s.time,
+    priceType: s.price_type, payType: s.pay_type,
+    payBreakdown: s.pay_breakdown || null,
+    staffId: s.staff_id, customerId: s.customer_id,
+    items: s.items || [], subtotal: s.subtotal, discount: s.discount,
+    total: s.total, paid: s.paid, remaining: s.remaining,
+    due: s.due, customerName: s.customer_name,
+    customerPhone: s.customer_phone, status: s.status,
+    debtCurrency: s.debt_currency, debtUsd: s.debt_usd,
+    note: s.note,
+    origPaid: s.orig_paid != null ? s.orig_paid : s.paid,
+    origRemaining: s.orig_remaining != null ? s.orig_remaining : s.remaining,
+    origDebtUsd: s.orig_debt_usd != null ? s.orig_debt_usd : null
+  };
+}
+
+function _txCacheSave(q) {
+  try {
+    localStorage.setItem("merx_txcache_" + (getCloudShopId() || ""),
+      JSON.stringify({
+        rows: _txSrv.rows, jami: _txSrv.jami, ag: _txSrv.ag,
+        ts: new Date().toISOString().slice(0, 16).replace("T", " ")
+      }));
+  } catch (e) {}
+}
+function _txCacheLoad() {
+  try {
+    const s2 = localStorage.getItem("merx_txcache_" + (getCloudShopId() || ""));
+    return s2 ? JSON.parse(s2) : null;
+  } catch (e) { return null; }
+}
+
+async function _txFetch(qRaw) {
+  const q = String(qRaw == null
+    ? ($("tarix-q") || { value: "" }).value : qRaw).toLowerCase().trim();
+  if (!_txServerMode()) return;
+  const key = _txKey(q);
+  if (_txSrv.busy && _txSrv.key === key) return;
+  // Xatodan keyin o'sha kalitga 30 soniya qayta urinmaymiz —
+  // render↔fetch aylanib qolmasin
+  if (_txSrv.err && _txSrv.key === key && (Date.now() - _txSrv.t) < 30000) return;
+  _txSrv.busy = true; _txSrv.key = key; _txSrv.err = false;
+  try {
+    const r = _txRange();
+    const page = Math.max(1, _txPage);
+    const { data, error } = await _sb.rpc("merx_sales_list", {
+      p_shop:   getCloudShopId(),
+      p_q:      q || null,
+      p_from:   r.f  || null,
+      p_to:     r.to || null,
+      p_status: txStatus  === "all" ? null : txStatus,
+      p_staff:  txStaffId === "all" ? null : String(txStaffId),
+      p_limit:  LIST_PER_PAGE,
+      p_offset: (page - 1) * LIST_PER_PAGE
+    });
+    if (error) throw new Error(error.message);
+    const rows = data || [];
+    const jami = rows.length ? Number(rows[0].jami) || 0 : 0;
+    // Sahifa chegaradan chiqib ketgan bo'lsa — 1-sahifaga qaytamiz
+    if (!rows.length && jami > 0 && page > 1) {
+      _txPage = 1; _txSrv.busy = false; return _txFetch(q);
+    }
+    const ag = rows.length ? {
+      total: +rows[0].agg_total || 0, paid: +rows[0].agg_paid || 0,
+      rem:   +rows[0].agg_rem   || 0, dona: +rows[0].agg_dona || 0,
+      pchka: +rows[0].agg_pchka || 0
+    } : { total: 0, paid: 0, rem: 0, dona: 0, pchka: 0 };
+    _txSrv = { key, rows: rows.map(_txMapRow), jami, ag,
+               busy: false, err: false, t: Date.now() };
+    _txCacheSave(q);
+    renderTarix();
+  } catch (e) {
+    console.warn("[tarix] server ro'yxati:", e.message);
+    _txSrv.busy = false; _txSrv.err = true;
+    _txSrv.rows = null; _txSrv.t = Date.now();
+    renderTarix();
+  }
+}
+function _txFetchDebounced(q) {
+  clearTimeout(_txQTimer);
+  _txQTimer = setTimeout(() => _txFetch(q), 400);
+}
+
+// 60 kunlik oynadan TASHQARIDAGI chek ustida amal (ochish, qaytarish,
+// bekor, to'lov) — sotuv avval qurilmaga olib kelinadi. Keyingi
+// pull'da oyna uni tushirib yuborishi zararsiz: amallar natijasi
+// (returns, to'lov, data.refunds) bulutda saqlanadi.
+async function _txEnsureLocal(id) {
+  let s = (db.sales || []).find(x => String(x.id) === String(id));
+  if (s) return s;
+  const _rowdan = (arr) => (arr || []).find(x => String(x.id) === String(id));
+  s = _rowdan(_txSrv.rows) || _rowdan((_txCacheLoad() || {}).rows);
+  if (!s && _txServerMode()) {
+    try {
+      const { data } = await _sb.from("sales").select("*")
+        .eq("shop_id", getCloudShopId()).eq("id", id).limit(1);
+      if (data && data[0]) s = _txMapRow(data[0]);
+    } catch (e) { console.warn("[tarix] yakka chek:", e.message); }
+  }
+  if (s) { db.sales.push(s); return s; }
+  return null;
+}
+
 // ── Ko'rinish rejimi (2026-08-05) ─────────────────
 // Katalog/ombordagi bilan bir xil uslub. Standart — JADVAL,
 // ya'ni tugma bosilmaguncha hech narsa o'zgarmaydi.
@@ -149,7 +307,34 @@ function renderTarix() {
 
   // 2026-07-25: bekor qilingan sotuvlar ro'yxatda KO'RSATILMAYDI.
   // Yozuv bazada qoladi (sinxron va audit uchun), faqat yashiriladi.
-  let list = (db.sales || []).filter(s => !s.cancelled)
+  // ═══ ✅ 2026-08-19 (4-bosqich): RO'YXAT MANBAI ═══
+  // 1) Server rejimi va joriy kalitga mos sahifa bor — SERVERDAN;
+  // 2) Oflayn va kesh bor — oxirgi muvaffaqiyatli sahifa (belgi bilan);
+  // 3) Aks holda — ESKI LOKAL YO'L (quyida, tegilmagan).
+  let list, _srvUse = false, _srvAg = null, _srvJami = 0, _srvBadge = "";
+  const _srvOn  = _txServerMode();
+  const _srvKey = _srvOn ? _txKey(q) : "";
+  if (_srvOn && _txSrv.rows && _txSrv.key === _srvKey) {
+    list = _txSrv.rows; _srvUse = true;
+    _srvAg = _txSrv.ag; _srvJami = _txSrv.jami;
+  } else {
+    if (_srvOn) {
+      _txFetchDebounced(q);   // javob kelgach renderTarix o'zi qayta chaqiriladi
+      if (_txSrv.err) _srvBadge =
+        "⚠️ Server ro'yxati vaqtincha ishlamadi — qurilmadagi (60 kunlik) ko'rinish";
+    }
+    let _c = null;
+    if (!_srvOn && navigator && navigator.onLine === false &&
+        !(db.settings && db.settings.serverLists === false))
+      _c = _txCacheLoad();
+    if (_c && _c.rows && _c.rows.length) {
+      list = _c.rows; _srvUse = true;
+      _srvAg = _c.ag; _srvJami = _c.jami;
+      _srvBadge = "⚠️ Oflayn — oxirgi yuklangan sahifa (" + (_c.ts || "") + ")";
+    } else {
+      if (navigator && navigator.onLine === false && !_srvBadge)
+        _srvBadge = "⚠️ Oflayn — qurilmadagi (60 kunlik) ro'yxat";
+      list = (db.sales || []).filter(s => !s.cancelled)
     .slice().sort((a,b) => ((a.date||"")+(a.time||"") < (b.date||"")+(b.time||"")) ? 1 : -1).filter(s => { // v154 (№13): aniq yangi-birinchi
     if (!s) return false;
     if (!txPeriodFilter(s)) return false;
@@ -171,6 +356,8 @@ function renderTarix() {
         [i.name, i.art, i.sku, i.color].filter(Boolean).join(" ")).join(" ")
     );
   });
+    }
+  }
 
   // Kassir select yangilash
   const staffSel = $("tx-staff-sel");
@@ -184,11 +371,13 @@ function renderTarix() {
   }
 
   // KPI
-  const total = list.reduce((a, s) => a + (s.total||0), 0);
-  const paid  = list.reduce((a, s) => a + (s.paid ||0), 0);
-  const rem   = list.reduce((a, s) => a + (s.remaining||0), 0);
+  // ✅ 2026-08-19: server rejimida KPI — filtrga mos TO'LIQ to'plamdan
+  // (RPC window-yig'indilari), sahifadagi 50 tadan EMAS.
+  const total = _srvUse && _srvAg ? _srvAg.total : list.reduce((a, s) => a + (s.total||0), 0);
+  const paid  = _srvUse && _srvAg ? _srvAg.paid  : list.reduce((a, s) => a + (s.paid ||0), 0);
+  const rem   = _srvUse && _srvAg ? _srvAg.rem   : list.reduce((a, s) => a + (s.remaining||0), 0);
   // №13: jami pochkalar (faqat pochka rejimidagi tovarlar)
-  const jamiPchka = list.reduce((a, s) =>
+  const jamiPchka = _srvUse && _srvAg ? _srvAg.pchka : list.reduce((a, s) =>
     a + (s.items||[]).filter(Boolean).reduce((b, i) =>
       i.sellMode === "karobka" && i.inBox > 0
         ? b + (i.qtyBox || Math.round((i.qty||0)/(i.inBox||1)))
@@ -200,12 +389,12 @@ function renderTarix() {
   const periodLabel = (periodNames[txPeriod]||"") + (statusNames[txStatus]||"");
   if ($("tx-period-label")) $("tx-period-label").textContent = periodLabel;
 
-  if ($("tx-cnt"))   $("tx-cnt").textContent   = list.length + " ta";
+  if ($("tx-cnt"))   $("tx-cnt").textContent   = (_srvUse ? _srvJami : list.length) + " ta";
   if ($("tx-total")) $("tx-total").textContent = fmt(total) + " so'm";
   if ($("tx-paid"))  $("tx-paid").textContent  = fmt(paid)  + " so'm";
   if ($("tx-rem"))   $("tx-rem").textContent   = fmt(rem)   + " so'm";
   // №13: jami DONA (barcha sotilgan tovarlar bo'yicha)
-  const jamiDona = list.reduce((a, s) =>
+  const jamiDona = _srvUse && _srvAg ? _srvAg.dona : list.reduce((a, s) =>
     a + (s.items||[]).filter(Boolean).reduce((b, i) => b + (i.qty || 0), 0), 0);
   const pchDonaEl = $("tx-pch-dona");
   if (pchDonaEl) pchDonaEl.textContent = jamiDona > 0 ? fmt(jamiDona) + " dona" : "";
@@ -248,7 +437,10 @@ function renderTarix() {
   if (txViewMode === "grid" && !list.length) _renderTxGrid([], cols, "", q);
 
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="10" class="empty-td">
+    tbody.innerHTML = (_srvBadge
+      ? `<tr><td colspan="10" style="background:#FEF3C7;color:#92400E;
+          font-size:12px;font-weight:600;padding:7px 14px">${_srvBadge}</td></tr>` : "") +
+      `<tr><td colspan="10" class="empty-td">
       ${q || txPeriod !== "all" || txStatus !== "all" ? "Filtr bo'yicha sotuv topilmadi" : "Sotuv tarixi bo'sh"}
     </td></tr>`;
     return;
@@ -266,12 +458,17 @@ function renderTarix() {
   // ular o'zgarmadi.
   // 2026-08-02: EKSPORT uchun yakuniy ro'yxat (sahifalashdan OLDIN)
   try { setExportList("tarix", list); } catch(e) {}
-  const _txTotal = list.length;
-  _txPage = clampPage(_txPage, _txTotal);
-  const _txList = pageSlice(list, _txPage);
+  // ✅ 2026-08-19: server rejimida `list` ALLAQACHON joriy sahifa —
+  // qayta kesilmaydi; jami soni serverdan (pager to'g'ri chizilsin).
+  const _txTotal = _srvUse ? _srvJami : list.length;
+  if (!_srvUse) _txPage = clampPage(_txPage, _txTotal);
+  const _txList = _srvUse ? list : pageSlice(list, _txPage);
 
   // Har bir qatorni alohida try/catch bilan render qilamiz
-  let html = "";
+  let html = _srvBadge
+    ? `<tr><td colspan="12" style="background:#FEF3C7;color:#92400E;
+        font-size:12px;font-weight:600;padding:7px 14px">${_srvBadge}</td></tr>`
+    : "";
   _txList.forEach(s => {
     try {
       const isDebt     = s.status === "qarz" && (s.remaining||0) > 0;
@@ -537,8 +734,14 @@ function saleForcePush() {
   toast("🔁 Chek bulutga qayta yuborilmoqda — 20 soniyadan keyin tekshiring");
 }
 
-function openSaleDetail(id) {
-  const s = db.sales.find(x => x.id === id); if (!s) return;
+async function openSaleDetail(id) {   // ✅ 2026-08-19: async (4-bosqich)
+  // Server ro'yxatida 60 kunlik oynadan TASHQARIDAGI chek ham
+  // ko'rinadi — bosilganda avval qurilmaga olib kelinadi.
+  let s = db.sales.find(x => x.id === id || String(x.id) === String(id));
+  if (!s && typeof _txEnsureLocal === "function") {
+    try { s = await _txEnsureLocal(id); } catch (e) {}
+  }
+  if (!s) { toast("Chek topilmadi", "err"); return; }
   _sdSaleId = id;
 
   if ($("sd-cheknum")) $("sd-cheknum").textContent = s.chekNum || `#${s.id}`;
