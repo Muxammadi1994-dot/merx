@@ -500,6 +500,13 @@ function renderDebts() {
   $("st-over").textContent      = overCount + " ta";
   $("st-cnt").textContent       = custCount + " kishi";
   $("debt-count").textContent   = allDebt.length;
+  // ✅ 2026-08-19: KO'RSATKICHLAR SERVERDAN (ildiz davosi).
+  // Yuqoridagi lokal hisob endi ZAXIRA — u qurilmadagi ro'yxatga
+  // bog'liq, ro'yxat esa chala tortilishi mumkin (ABU SAXIY videolari:
+  // 6,29 mlrd → 767 mln, 182 kishi → 54 kishi). Server esa hamma
+  // vaqt to'liq sanaydi. Javob kelgach raqamlar jimgina almashadi;
+  // aloqa yo'q bo'lsa lokal raqam ko'rinib turaveradi (oflayn ish).
+  _debtStatsServer();
   renderDebtRevenue();
 
   if (debtGrouped) {
@@ -547,6 +554,38 @@ function _dgCss() {
       .dg-name{font-size:14px}
     }
   </style>`;
+}
+
+// ✅ 2026-08-19: qarz ko'rsatkichlarini SERVERDAN olish.
+// Natija keshlanadi (20 s) — bo'lim qayta chizilganda ortiqcha
+// so'rov bo'lmasin. Xato/oflaynda hech narsa qilinmaydi: ekranda
+// lokal hisob qoladi.
+let _dsKesh = { t: 0, r: null };
+let _dsBusy = false;
+async function _debtStatsServer() {
+  try {
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
+    if (typeof _serverPay !== "function") return;
+    const now = Date.now();
+    if (_dsKesh.r && (now - _dsKesh.t) < 20000) { _dsQoy(_dsKesh.r); return; }
+    if (_dsBusy) return;
+    _dsBusy = true;
+    let r = null;
+    try { r = await _serverPay({ action: "debt_stats" }); }
+    finally { _dsBusy = false; }
+    if (!r || !r.ok) return;
+    _dsKesh = { t: Date.now(), r };
+    _dsQoy(r);
+  } catch (e) { console.warn("[qarz] server ko'rsatkichlari:", e.message); }
+}
+function _dsQoy(r) {
+  try {
+    if ($("st-total"))  $("st-total").textContent = fmt(r.uzs || 0) + " so'm";
+    if ($("st-total-usd"))
+      $("st-total-usd").textContent = (r.usd > 0) ? fmtUsd(r.usd) : "$0";
+    if ($("st-over"))   $("st-over").textContent  = (r.over || 0) + " ta";
+    if ($("st-cnt"))    $("st-cnt").textContent   = (r.cnt  || 0) + " kishi";
+  } catch (e) {}
 }
 
 // ── Mijoz umumiy qarz kartalar paneli ─────────────

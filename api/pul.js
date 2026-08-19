@@ -674,6 +674,58 @@ module.exports = async (req, res) => {
         uzs: Math.round(uzs), usd: Math.round(usd * 100) / 100 });
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ 2026-08-19: QARZ KO'RSATKICHLARI SERVERDAN (debt_stats)
+    // ═══════════════════════════════════════════════════════════════
+    // Ildiz (ABU SAXIY, 19-avg videolari): KPI lokal `db.sales` dan
+    // hisoblanardi. Pull sahifalab tortadi; sahifa o'rtasida xato
+    // bo'lsa `_selectAll` JIM to'xtab, chala ro'yxat qaytaradi va
+    // lokal nusxa o'sha chala nusxa bilan almashadi. Natijada ekranda
+    // 6,29 mlrd / 182 kishi o'rniga 767 mln / 54 kishi ko'rindi,
+    // keyingi to'liq pull'da o'ziga qaytdi ("har zamon" shikoyati).
+    // Endi to'rtta raqam SERVERDA sanaladi — qurilmadagi ro'yxat
+    // to'liq bo'lishi SHART EMAS. Bu hisobotdagi o'sha sinfning
+    // ildiz davosi (§3.23 SERVER HAQIQAT).
+    // Hisob `debt` amali bilan AYNAN bir xil: saleState, valyuta
+    // ajratilgan, bekor/qaytarilgan tashlanadi.
+    if (action === "debt_stats") {
+      const bugun = new Date(Date.now() + 5 * 3600 * 1000)
+        .toISOString().slice(0, 10);          // Toshkent sanasi
+      const [sales, pays] = await Promise.all([
+        sbAll(`sales?shop_id=eq.${encodeURIComponent(shopId)}` +
+              `&or=(remaining.gt.0,debt_usd.gt.0)` +
+              `&select=id,customer_id,customer_name,date,due,status,` +
+              `remaining,debt_usd,debt_currency,orig_remaining,orig_debt_usd`),
+        sbAll(`debt_payments?shop_id=eq.${encodeURIComponent(shopId)}` +
+              `&select=id,customer_id,amount,currency,data`)
+      ]);
+      const payByCust = new Map();
+      pays.forEach(p2 => {
+        const k = String(p2.customer_id || "");
+        if (!payByCust.has(k)) payByCust.set(k, []);
+        payByCust.get(k).push(p2);
+      });
+      let uzs = 0, usd = 0, over = 0;
+      const custlar = new Set();
+      let soni = 0;
+      sales.forEach(s => {
+        if (s.status === "bekor" || s.status === "qaytarilgan") return;
+        const k  = String(s.customer_id || "");
+        const st = saleState(s, payByCust.get(k) || []);
+        const qoldi = (s.debt_currency === "usd") ? st.debtUsd : st.remaining;
+        if (!(qoldi > 0.009)) return;          // yopilganlar sanalmaydi
+        if (s.debt_currency === "usd") usd += st.debtUsd;
+        else                            uzs += st.remaining;
+        soni++;
+        custlar.add(s.customer_name || k || String(s.id));
+        if (s.due && String(s.due) < bugun) over++;
+      });
+      return res.status(200).json({ ok: true,
+        uzs:  Math.round(uzs),
+        usd:  Math.round(usd * 100) / 100,
+        over, cnt: custlar.size, sales: soni });
+    }
+
     // ✅ 2026-08-18 (3-teshik, yakuni): YANGI TOVAR RAQAMI SERVERDAN.
     // Ildiz: SKU qurilmada, KETMA-KET beriladi (`db.seq` + lokal
     // ro'yxatdan bo'sh raqam qidiriladi). Ikki kassa deyarli bir vaqtda
