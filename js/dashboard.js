@@ -265,6 +265,34 @@ function dashToggleKpi(key, val) {
   saveDB(); dashRenderKpiPanel(); renderDashKpis();
 }
 
+// ✅ 2026-08-19: Dashboard qarz kartalarini SERVER raqamlari bilan
+// yangilaydi (Qarzlar bo'limi bilan bir manba). Aloqa yo'q bo'lsa
+// hech narsa qilinmaydi — ekranda lokal zaxira qoladi.
+async function _dashDebtServer() {
+  try {
+    if (typeof serverDebtStats !== "function") return;
+    const r = await serverDebtStats();
+    if (!r) return;
+    const _qarz = document.querySelector('#dash-kpis .dkpi-card[data-kpi="qarz"]');
+    if (_qarz) {
+      const v = _qarz.querySelector('.dkpi-val');
+      const sb = _qarz.querySelector('.dkpi-sub');
+      if (v) v.textContent = priceFmt(r.uzs || 0, true) +
+        ((r.usd > 0) ? ' + ' + fmtUsd(r.usd) : '');
+      if (sb) sb.textContent = (r.cnt || 0) + ' nafar qarzdor';
+    }
+    const _mud = document.querySelector('#dash-kpis .dkpi-card[data-kpi="muddati"]');
+    if (_mud) {
+      const v = _mud.querySelector('.dkpi-val');
+      const sb = _mud.querySelector('.dkpi-sub');
+      if (v) v.textContent = (r.over || 0) + ' ta';
+      if (sb) sb.innerHTML = (r.over > 0)
+        ? '<span style="color:#E05A5A;font-weight:700">Zudlik bilan!</span>'
+        : 'Hammasi tartibda';
+    }
+  } catch (e) { console.warn("[dashboard] server qarz:", e.message); }
+}
+
 function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
   // 2026-07-17: kartalar endi DAVR tugmalariga BO'YSUNADI — argumentlar
   // e'tiborga olinmaydi, hamma son dashGetSales/dashGetDateRange'dan
@@ -424,10 +452,16 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
 
   const el = $('dash-kpis');
   if (!el) return;
+  // ✅ 2026-08-19: qarz kartalari SERVERDAN yangilanadi (pastda).
+  // Yuqoridagi lokal hisob endi ZAXIRA: u qurilmadagi ro'yxatga
+  // bog'liq, ro'yxat esa chala tortilishi mumkin. Qarzlar bo'limi
+  // bilan MANBA BIR XIL (utils.js `serverDebtStats`) — ikki ekran
+  // hech qachon har xil raqam ko'rsatmaydi.
+  setTimeout(_dashDebtServer, 0);
   el.innerHTML = allCards
     .filter(c => cols[c.key] !== false)
     .map(c => `
-    <div class="dkpi-card" onclick="${c.click}" style="cursor:pointer">
+    <div class="dkpi-card" data-kpi="${c.key}" onclick="${c.click}" style="cursor:pointer">
       <div class="dkpi-top">
         <div class="dkpi-ico" style="background:${c.color}18;color:${c.color}">
           <i class="ti ${c.icon}"></i>

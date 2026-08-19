@@ -560,23 +560,15 @@ function _dgCss() {
 // Natija keshlanadi (20 s) — bo'lim qayta chizilganda ortiqcha
 // so'rov bo'lmasin. Xato/oflaynda hech narsa qilinmaydi: ekranda
 // lokal hisob qoladi.
-let _dsKesh = { t: 0, r: null };
-let _dsBusy = false;
+// ✅ 2026-08-19: manba — o'zakdagi `serverDebtStats` (utils.js).
+// Dashboard ham AYNAN shu funksiyadan oladi: ikki bo'lim hech qachon
+// har xil raqam ko'rsatmaydi (§10.3 yagona manba).
 async function _debtStatsServer() {
   try {
-    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
-    if (typeof _serverPay !== "function") return;
-    const now = Date.now();
-    if (_dsKesh.r && (now - _dsKesh.t) < 20000) { _dsQoy(_dsKesh.r); return; }
-    if (_dsBusy) return;
-    _dsBusy = true;
-    let r = null;
-    try { r = await _serverPay({ action: "debt_stats" }); }
-    finally { _dsBusy = false; }
-    if (!r || !r.ok) return;
-    _dsKesh = { t: Date.now(), r };
-    _dsQoy(r);
-  } catch (e) { console.warn("[qarz] server ko'rsatkichlari:", e.message); }
+    if (typeof serverDebtStats !== "function") return;
+    const r = await serverDebtStats();
+    if (r) _dsQoy(r);
+  } catch (e) {}
 }
 function _dsQoy(r) {
   try {

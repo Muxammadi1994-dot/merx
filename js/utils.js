@@ -3175,6 +3175,40 @@ async function _serverStockFlush() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-19: QARZ KO'RSATKICHLARI — YAGONA MANBA (o'zak)
+// ═══════════════════════════════════════════════════════════════
+// Qarzlar bo'limi ham, Dashboard ham SHU funksiyadan oladi.
+// Sabab: avval har biri LOKAL `db.sales` dan alohida hisoblardi —
+// natijada bir ekranda 6,29 mlrd, ikkinchisida 9,65 mlrd chiqardi
+// (18-avg dashboard hodisasi), lokal ro'yxat chala tortilganda esa
+// ikkalasi ham yolg'on raqam ko'rsatardi (19-avg videolari).
+// Endi hisob SERVERDA, natija 20 soniya keshlanadi va IKKALA bo'lim
+// bir xil raqamni ko'radi (§10.3 — yagona manba qoidasi).
+// Aloqa yo'q bo'lsa `null` qaytadi — chaqiruvchi lokal zaxirani
+// ko'rsatib turaveradi (oflayn ish buzilmaydi).
+let _dstKesh = { t: 0, r: null };
+let _dstBusy = null;
+async function serverDebtStats(force) {
+  try {
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return null;
+    if (typeof _serverPay   !== "function") return null;
+    if (!force && _dstKesh.r && (Date.now() - _dstKesh.t) < 20000) return _dstKesh.r;
+    if (_dstBusy) return await _dstBusy;          // bir vaqtda ikki so'rov bo'lmasin
+    _dstBusy = (async () => {
+      try {
+        const r = await _serverPay({ action: "debt_stats" });
+        if (r && r.ok) { _dstKesh = { t: Date.now(), r }; return r; }
+        return null;
+      } finally { _dstBusy = null; }
+    })();
+    return await _dstBusy;
+  } catch (e) {
+    console.warn("[qarz] server ko'rsatkichlari:", e.message);
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // ✅ 2026-08-18 (2-sessiya): OFLAYN SOTUV QOLDIG'INI TASDIQLASH NAVBATI
 // ═══════════════════════════════════════════════════════════════
 // Internet yo'qda sotuv lokal saqlanadi (chek raqami xavfsiz — unda
