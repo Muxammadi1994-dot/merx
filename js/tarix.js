@@ -726,6 +726,45 @@ function returnItemToStock(item) {
   return true;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-19 (Shermuhammad hodisasi): QAYTARILGANLAR XARITASI
+// ═══════════════════════════════════════════════════════════════
+// Ildiz: eski himoya faqat `s.refunds` ni o'qirdi. Bu maydon sotuv
+// JSONida yashaydi — ikki urinish orasida sinxron (pull) sotuvni
+// bulut nusxasi bilan almashtirsa, u BO'SHAB qoladi va himoya
+// "hech narsa qaytarilmagan" deb o'ylaydi. Jonli isbot (B20,
+// 19-avg): 08:33 da QT-02 yozildi, ekranda ko'rinmadi, 08:36 da
+// AYNAN O'SHA tovarlar YANA qaytarildi — ombor +10 ortiqcha oldi.
+// Endi ikki manba BIRGA o'qiladi: `s.refunds` (tez) va `db.returns`
+// (chidamli hujjatlar — pull o'chirmaydi). Bitta hujjat ikkala
+// manbada bo'lishi mumkin — refundNo bo'yicha DE-DUP qilinadi.
+function _saleReturnedMap(saleId, sale) {
+  const docs = new Map();                       // hujjatNo -> items[]
+  (((sale && sale.refunds) || [])).forEach(r => {
+    if (r) docs.set(String(r.no || r.refundNo || ("s" + docs.size)), r.items || []);
+  });
+  (db.returns || []).forEach(r => {
+    if (!r || String(r.origSaleId || "") !== String(saleId)) return;
+    const no = String(r.refundNo || r.id || ("d" + docs.size));
+    if (!docs.has(no)) docs.set(no, r.items || []);
+  });
+  const m = new Map();
+  docs.forEach(items => (items || []).forEach(it => {
+    if (!it) return;
+    // Kalit: sku bo'lsa aniq (sku|rang|o'lcham), bo'lmasa nom|variant
+    const k = it.sku
+      ? "S:" + it.sku + "|" + (it.color || "") + "|" + (it.size || "")
+      : "N:" + (it.name || "") + "|" + (it.variant || "");
+    m.set(k, (m.get(k) || 0) + (Number(it.qty) || 0));
+  }));
+  return m;
+}
+function _retQtyOf(map, item) {
+  const k1 = "S:" + (item.sku || "") + "|" + (item.color || "") + "|" + (item.size || "");
+  const k2 = "N:" + (item.name || "") + "|" + (item.variant || "");
+  return (item.sku ? (map.get(k1) || 0) : 0) + (map.get(k2) || 0);
+}
+
 function openRefundModal(saleId) {
   // 2026-08-02: amal darajasidagi ruxsat
   if (typeof requireDo === "function" && !requireDo("tarix","ret")) return;
@@ -740,20 +779,16 @@ function openRefundModal(saleId) {
 
   const safeItems = (s.items||[]).filter(Boolean);
 
-  // 2026-07-25: allaqachon qaytarilgan miqdorni hisobga olamiz
-  const already = {};
-  (s.refunds || []).forEach(r =>
-    (r.items || []).forEach(ri => {
-      const k = (ri.name||"") + "|" + (ri.variant||"");
-      already[k] = (already[k] || 0) + (ri.qty || 0);
-    }));
+  // ✅ 2026-08-19: IKKI manbadan (s.refunds ∪ db.returns, de-dup) —
+  // sinxron oralig'ida ham himoya yo'qolmaydi (yuqoridagi izoh).
+  const _retMap = _saleReturnedMap(id, s);
 
   el.innerHTML = safeItems.map((item, i) => {
     const isBox = item.sellMode === "karobka" && item.inBox > 0;
     const unitLabel = isBox ? "pochka" : (item.unit || "dona");
     const soldRaw = isBox ? (item.qtyBox || Math.round(item.qty/item.inBox)) : item.qty;
     // Avval qaytarilgani ayiriladi — ikki marta qaytarib bo'lmasin
-    const usedDona = already[(item.name||"") + "|" + (item.variant||"")] || 0;
+    const usedDona = _retQtyOf(_retMap, item);
     const usedRaw  = isBox ? Math.round(usedDona / (item.inBox||1)) : usedDona;
     const displayMax = Math.max(0, soldRaw - usedRaw);
 
@@ -870,10 +905,15 @@ async function confirmRefund() {
     const isBox  = inp.dataset.isbox === "1";
     const inBox  = parseInt(inp.dataset.inbox) || 1;
     const qty    = isBox ? rawVal * inBox : rawVal; // dona ko'rinishida
-    const maxQty = item.qty || 0;
+    // ✅ 2026-08-19: chegara = sotilgan − ALLAQACHON QAYTARILGAN.
+    // Xarita shu yerda QAYTA hisoblanadi — oyna ochilgach kelgan
+    // sinxron/boshqa qurilma qaytarishi ham hisobga kiradi.
+    const _retC   = _retQtyOf(_saleReturnedMap(_refundSaleId, s), item);
+    const maxQty  = Math.max(0, (item.qty || 0) - _retC);
 
     if (qty > maxQty) {
-      toast(`${item.name}: ${maxQty} ta sotilgan, ${qty} ta qaytara olmaysiz`,"err");
+      toast(`${item.name}: qaytarish mumkin ${maxQty} ta` +
+        (_retC > 0 ? ` (avval ${_retC} ta qaytarilgan)` : ``), "err");
       hasError = true; return;
     }
     // Pochka rejimida qtyBox — foydalanuvchi to'g'ridan-to'g'ri pochka sonini kiritgan

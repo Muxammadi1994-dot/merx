@@ -729,7 +729,10 @@ async function epDuplicate() {   // ✅ 2026-08-18: SKU serverdan (async)
   if (typeof closeModal === "function") closeModal("editprod");
 }
 
-async function duplicateProduct(sku, event) {   // ✅ 2026-08-18: SKU serverdan
+async function duplicateProduct(sku, event) {   // ✅ 2026-08-19: qulf
+  return _katGuard(() => _duplicateProductIchki(sku, event));
+}
+async function _duplicateProductIchki(sku, event) {   // ✅ 2026-08-18: SKU serverdan
   if (event) event.stopPropagation();
   const p = db.products.find(x => x.sku === sku);
   if (!p) return;
@@ -1252,7 +1255,8 @@ function epaCalc() {
   if (lbl) lbl.textContent = from && to ? (from===to?from:`${from}–${to}`) : "";
 }
 
-async function epConfirmAddColor() {   // ✅ 2026-08-18: SKU serverdan (async)
+async function epConfirmAddColor() { return _katGuard(_epConfirmAddColorIchki); }   // ✅ 2026-08-19: qulf
+async function _epConfirmAddColorIchki() {   // ✅ 2026-08-18: SKU serverdan (async)
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   const color = ($("epa-color")||{value:""}).value.trim();
   if (!color) { toast("Rang nomini kiriting","err"); return; }
@@ -1311,7 +1315,8 @@ async function epConfirmAddColor() {   // ✅ 2026-08-18: SKU serverdan (async)
   toast(`"${color}" qo'shildi`);
 }
 
-async function saveEditProduct() {   // ✅ 2026-08-18: to'qnashuv tekshiruvi (async)
+async function saveEditProduct() { return _katGuard(_saveEditProductIchki); }   // ✅ 2026-08-19: qulf
+async function _saveEditProductIchki() {   // ✅ 2026-08-18: to'qnashuv tekshiruvi (async)
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("katalog","edit")) return;
 
@@ -1779,7 +1784,29 @@ function apMixHint() {
   if (_pv) _pv.textContent = "→ " + mix.map(t => t.size + "×" + t.per).join(", ");
 }
 
-async function addProduct() {   // ✅ 2026-08-18: SKU serverdan (async)
+// ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-19 (B20 hodisasi): IKKI BOSISH QULFI — §3.16 sinfi
+// ═══════════════════════════════════════════════════════════════
+// 481 da yaratish ASYNC bo'ldi (SKU serverdan olinadi): tugma
+// bosilgach javob kelguncha bir necha soniya o'tishi mumkin, tugma
+// esa FAOL qolardi, "qo'shildi" xabari faqat oxirida chiqardi.
+// Sekin tarmoqda kassir "ishlamadi" deb yana bosgan/qayta kiritgan —
+// natijada BITTA tovar IKKI karta bo'lib tushgan (AP-17 Polzamok,
+// ikki barcode, 2×30 pochka). Server SKU noyobligi ikkinchisiga
+// BOSHQA raqam bergani uchun ustma-ust yozilmay, ikkala karta ham
+// qolgan. Endi barcha kirituvchi amallar bitta qulf ostida:
+// birinchisi tugamaguncha takror bosishga "⏳ kuting" javobi.
+// Tanalar O'ZGARMAGAN — faqat yupqa o'ram (xavfsizlik qoidasi).
+let _katSaveBusy = false;
+async function _katGuard(fn) {
+  if (_katSaveBusy) { toast("⏳ Saqlanmoqda — kuting...", "err"); return; }
+  _katSaveBusy = true;
+  try { return await fn(); }
+  finally { _katSaveBusy = false; }
+}
+
+async function addProduct() { return _katGuard(_addProductIchki); }
+async function _addProductIchki() {   // ✅ 2026-08-18: SKU serverdan (async)
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("katalog","add")) return;
 
@@ -3171,7 +3198,8 @@ function showImportPreview() {
 }
 
 // ── Import tasdiqlash ─────────────────────────────
-async function confirmImport() {   // ✅ 2026-08-18: SKU zaxirasi serverdan
+async function confirmImport() { return _katGuard(_confirmImportIchki); }   // ✅ 2026-08-19: qulf
+async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverdan
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("katalog","import")) return;
 

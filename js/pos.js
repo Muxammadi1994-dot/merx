@@ -3112,6 +3112,44 @@ async function checkout() {
       console.warn("Server bilan aloqa yo'q — sotuv lokal saqlanadi:", e.message);
     }
   }
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ 2026-08-18 (2-sessiya): OFLAYN SOTUV QOLDIG'I NAVBATGA
+  // ═══════════════════════════════════════════════════════════════
+  // Server yozmagan bo'lsa (aloqa yo'q edi): sotilgan miqdor snapshot
+  // (`_qoldiqNusxa`) bilan joriy qoldiq FARQIDAN aniqlanadi — savat
+  // mantig'i (pochka/dona/guruh) qanday bo'lsa ham natija aniq.
+  // Har tovarga `_qtyLocal` bayrog'i: push lokal ayirmani server
+  // nusxasi bilan QAYTARMASIN (aks holda 477-himoya sotuvni ombor
+  // hisobida "yo'q" qilib qo'yardi). Aloqa qaytgach navbat serverga
+  // qulf ostida tasdiqlatadi (utils.js `_offStockFlush`).
+  if (!_srvOk && typeof _serverRejimi === "function" && _serverRejimi()
+      && (!db.settings || db.settings.offStockConfirm !== false)) {
+    try {
+      const _items = [];
+      _qoldiqNusxa.forEach(n => {
+        const p2 = (db.products || []).find(x => String(x.sku) === String(n.sku));
+        if (!p2) return;
+        let bor = false;
+        n.variants.forEach(nv => {
+          const v2 = (p2.variants || []).find(x =>
+            x.color === nv.color && x.size === nv.size);
+          if (!v2) return;
+          const d = (Number(nv.qty) || 0) - (Number(v2.qty) || 0);   // sotilgani
+          if (d > 0) {
+            _items.push({ sku: p2.sku, color: nv.color || "",
+                          size: nv.size || "", qty: d });
+            bor = true;
+          }
+        });
+        if (bor) { try { p2._qtyLocal = true; } catch (e) {} }
+      });
+      if (_items.length && typeof offStockQueueAdd === "function") {
+        offStockQueueAdd({ saleId: String(newSale.id),
+                           chekNum: newSale.chekNum, items: _items });
+        newSale.stockPending = true;
+      }
+    } catch (e) { console.warn("[offstock] navbatga qo'yilmadi:", e.message); }
+  }
   db.sales.push(newSale); saveDB();
   // 2026-07-25: SOTUV — pul mantiqi, darhol bulutga yuboriladi
   // (server yozgan bo'lsa ham lokal nusxa sinxron bilan moslashadi)

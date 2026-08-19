@@ -1335,7 +1335,8 @@ function buildReceiptHtml(sale, opts) {
   // 2026-07-25: qaytarish eslatmasi — asl chek O'ZGARMAYDI, faqat
   // pastida "qisman qaytarilgan" belgisi va qaytarish cheki raqami turadi.
   let _refundNote = "";
-  const _refs = sale.refunds || [];
+  const _refs = (typeof _chekRefundDocs === "function")
+    ? _chekRefundDocs(sale) : (sale.refunds || []);   // ✅ 2026-08-19
   if (_refs.length) {
     const _rTot = sale.refundedTotal || _refs.reduce((a,r) => a + (r.total||0), 0);
     const _full = sale.status === "qaytarilgan";
@@ -3173,6 +3174,130 @@ async function _serverStockFlush() {
   } catch (e) { console.warn("[stock] navbat xatosi:", e.message); }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-18 (2-sessiya): OFLAYN SOTUV QOLDIG'INI TASDIQLASH NAVBATI
+// ═══════════════════════════════════════════════════════════════
+// Internet yo'qda sotuv lokal saqlanadi (chek raqami xavfsiz — unda
+// qurilma kodi bor), lekin QOLDIQ server tomonda tekshirilmay qolardi.
+// Endi: sotilgan miqdorlar navbatga yoziladi; aloqa qaytgach server
+// qulf ostida ayiradi (`stock` + opKey — takror MUMKIN EMAS).
+// Yetmasa (boshqa kassa sotib bo'lgan) — chek o'z kuchida qoladi,
+// sotuvga QIZIL belgi qo'yiladi va ekranda "inventarizatsiya kerak"
+// lentasi chiqadi. Qaror odamda: sanab, to'g'rilanadi.
+// O'chirish sozlamasi: db.settings.offStockConfirm = false.
+function _offsqLoad() {
+  try { return JSON.parse(localStorage.getItem("merx_offstock_q") || "[]"); }
+  catch (e) { return []; }
+}
+function _offsqSave(q) {
+  try { localStorage.setItem("merx_offstock_q", JSON.stringify(q || [])); } catch (e) {}
+}
+function offStockQueueAdd(entry) {
+  try {
+    const q = _offsqLoad();
+    if (q.some(x => String(x.saleId) === String(entry.saleId))) return;  // takror emas
+    q.push({ ...entry, ts: Date.now() });
+    _offsqSave(q);
+    console.log("📮 Oflayn qoldiq navbatga:", entry.chekNum, entry.items.length + " qator");
+  } catch (e) {}
+}
+let _offsqBusy = false;
+async function _offStockFlush() {
+  if (_offsqBusy) return;
+  if (db && db.settings && db.settings.offStockConfirm === false) return;
+  const q = _offsqLoad();
+  if (!q.length) return;
+  if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
+  if (typeof _serverPay !== "function") return;
+  _offsqBusy = true;
+  try {
+    let ozgardi = false;
+    for (const e of q.slice()) {
+      let r = null;
+      try {
+        r = await _serverPay({ action: "stock", items: e.items,
+                               opKey: "stockq:" + e.saleId });
+      } catch (err) { break; }                       // aloqa yo'q — keyin
+      if (!r) break;
+      const sale = (db.sales || []).find(s => String(s.id) === String(e.saleId));
+      if (r.ok) {
+        if (Array.isArray(r.products) && typeof _stockApply === "function")
+          _stockApply(r.products);                   // server haqiqati + bayroqlar tushadi
+        if (sale) { sale.stockPending = false; sale.stockConfirmed = true; }
+        _offsqSave(_offsqLoad().filter(x => String(x.saleId) !== String(e.saleId)));
+        ozgardi = true;
+        console.log("✅ Oflayn qoldiq tasdiqlandi:", e.chekNum, r.dup ? "(takror edi)" : "");
+      } else if (r.code === "stock") {
+        // Boshqa kassa sotib bo'lgan — chek kuchda, lekin sanash kerak.
+        // Lokal ayirma SAQLANADI (mol jismonan ketgan), bayroq turadi —
+        // push lokal haqiqatni olib chiqadi; inventarizatsiya hal qiladi.
+        if (sale) {
+          sale.stockPending = false;
+          sale.stockMismatch = true;
+          sale.stockMismatchItems = r.items || [];
+        }
+        _offsqSave(_offsqLoad().filter(x => String(x.saleId) !== String(e.saleId)));
+        ozgardi = true;
+        try { toast("⚠️ " + (e.chekNum || "") +
+          ": qoldiq nomuvofiq — inventarizatsiya kerak", "err"); } catch (err) {}
+        console.warn("⚠️ Oflayn qoldiq nomuvofiq:", e.chekNum, r.items);
+      } else {
+        break;                                       // boshqa xato — keyin urinamiz
+      }
+    }
+    if (ozgardi) { try { saveDB(); } catch (e2) {} _offStockBanner(); }
+  } finally { _offsqBusy = false; }
+}
+// Qizil lenta: tasdiqlanmagan nomuvofiqliklar bor ekan — ko'rinib turadi
+function _offStockBanner() {
+  try {
+    const bad = (db.sales || []).filter(s => s.stockMismatch && !s.stockMismatchAck);
+    let el = document.getElementById("merx-offstock-warn");
+    if (!bad.length) { if (el) el.remove(); return; }
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "merx-offstock-warn";
+      el.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:9999;" +
+        "background:#E05A5A;color:#fff;padding:9px 12px;font-size:13px;" +
+        "font-weight:700;display:flex;gap:10px;align-items:center;" +
+        "justify-content:center;box-shadow:0 -2px 10px rgba(0,0,0,.25)";
+      document.body.appendChild(el);
+    }
+    const ro = bad.map(s => "• " + (s.chekNum || s.id) + " — " +
+      (s.stockMismatchItems || []).map(i =>
+        [i.sku, i.color, i.size].filter(Boolean).join("/")).join(", ")).join("\n");
+    el.innerHTML = "";
+    const txt = document.createElement("span");
+    txt.textContent = "⚠️ " + bad.length +
+      " ta oflayn sotuvda qoldiq nomuvofiq — inventarizatsiya kerak";
+    const b1 = document.createElement("button");
+    b1.textContent = "Batafsil";
+    b1.style.cssText = "background:#fff;color:#E05A5A;border:0;border-radius:6px;" +
+      "padding:4px 10px;font-weight:800;cursor:pointer";
+    b1.onclick = () => alert("Qoldiq nomuvofiq cheklar:\n\n" + ro +
+      "\n\nShu tovarlarni sanab, Ombor > Inventarizatsiya orqali to'g'rilang.");
+    const b2 = document.createElement("button");
+    b2.textContent = "✕ Ko'rdim";
+    b2.style.cssText = "background:transparent;color:#fff;border:1.5px solid #fff;" +
+      "border-radius:6px;padding:4px 10px;font-weight:700;cursor:pointer";
+    b2.onclick = () => {
+      if (!confirm("Belgini olib tashlaysizmi? (inventarizatsiya qilingan bo'lsin)")) return;
+      bad.forEach(s => { s.stockMismatchAck = true; });
+      try { saveDB(); } catch (e) {}
+      _offStockBanner();
+    };
+    el.appendChild(txt); el.appendChild(b1); el.appendChild(b2);
+  } catch (e) {}
+}
+try {
+  setTimeout(() => { try { _offStockFlush(); _offStockBanner(); } catch (e) {} }, 8000);
+  setInterval(() => { try { _offStockFlush(); } catch (e) {} }, 90000);
+  setInterval(() => { try { _offStockBanner(); } catch (e) {} }, 30000);
+  window.addEventListener("online", () => {
+    try { setTimeout(_offStockFlush, 2500); } catch (e) {}
+  });
+} catch (e) {}
+
 async function _serverStock(p, color, size, delta) {
   if (!p || !delta) return false;
   // ✅ 2026-08-18: BAYROQ SHU YERDA QO'YILADI — har bir chaqiruvchi
@@ -3945,9 +4070,39 @@ function chekRowsHtml(R, K) {
 // Egasining kuzatuvi: qaytarish belgisi FAQAT "Yagona" chekda bor edi \u2014
 // boshqa uslub tanlansa mijoz chekda qaytarilganini KO'RMASDI.
 // Asl chek o'zgarmaydi (\u00a73.6), faqat pastiga qizil belgi qo'shiladi.
+// ✅ 2026-08-19 (Shermuhammad hodisasi, KO'RINISH ildizi): CHEKDAGI
+// QIZIL BELGI ENDI IKKI MANBADAN. Uchala chiquvchi (yagona chek,
+// uslublar bloki, Telegram matni) faqat `sale.refunds` ni o'qirdi —
+// bu maydon sotuv JSONida yashaydi: qaytarish BOSHQA qurilmada
+// qilinsa yoki sinxron oralig'i to'g'ri kelsa, u BO'SH bo'ladi va
+// kassir chekda hech narsa ko'rmasdi. Aynan shu sabab u "ishlamadi"
+// deb QAYTA qaytargan (B20, 19-avg, QT-02/QT-03). `db.returns` —
+// chidamli hujjatlar, pull o'chirmaydi. refundNo bo'yicha de-dup:
+// bitta hujjat ikkala manbada bo'lsa BIR marta sanaladi.
+function _chekRefundDocs(sale) {
+  try {
+    const docs = new Map();
+    (((sale && sale.refunds) || [])).forEach(r => {
+      if (!r) return;
+      docs.set(String(r.no || ("s" + docs.size)),
+        { no: r.no || "", total: Number(r.total) || 0, items: r.items || [] });
+    });
+    if (typeof db !== "undefined" && Array.isArray(db.returns) && sale) {
+      db.returns.forEach(r => {
+        if (!r || String(r.origSaleId || "") !== String(sale.id)) return;
+        const no = String(r.refundNo || r.id || ("d" + docs.size));
+        if (!docs.has(no))
+          docs.set(no, { no: r.refundNo || "", total: Number(r.total) || 0,
+                         items: r.items || [] });
+      });
+    }
+    return [...docs.values()];
+  } catch (e) { return (sale && sale.refunds) || []; }
+}
+
 function chekRefundNote(sale, F, matnli) {
   try {
-    const refs = (sale && sale.refunds) || [];
+    const refs = _chekRefundDocs(sale);   // ✅ 2026-08-19: ikki manba
     if (!refs.length) return "";
     const f = F || (n => Math.round(Number(n) || 0).toLocaleString("ru-RU"));
     const tot  = sale.refundedTotal || refs.reduce((a, r) => a + (r.total || 0), 0);
@@ -4052,7 +4207,8 @@ function chekTelegramText(sale, cfg) {
     if (R.payment.length) { L.push(""); R.payment.forEach(x => L.push(esc(x[0]) + ": " + esc(x[1]))); }
     if (R.debt.length)    { L.push(""); R.debt.forEach(x => L.push(esc(x[0]) + ": <b>" + esc(x[1]) + "</b>")); }
     // Qaytarish belgisi \u2014 sotuv chekidagi kabi
-    const refs = sale.refunds || [];
+    const refs = (typeof _chekRefundDocs === "function")
+      ? _chekRefundDocs(sale) : (sale.refunds || []);   // ✅ 2026-08-19
     if (refs.length) {
       const tot = sale.refundedTotal || refs.reduce((a, r) => a + (r.total || 0), 0);
       L.push("");

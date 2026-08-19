@@ -539,17 +539,65 @@ module.exports = async (req, res) => {
       })).filter(x => x.sku && x.qty);
       if (!talab.length) return res.status(200).json({ ok: true, products: [] });
 
+      // ✅ 2026-08-18 (2-sessiya): TAKROR-QULF (opKey, ixtiyoriy).
+      // Oflayn sotuv tasdiqlashida javob yo'lda yo'qolsa, navbat qayta
+      // uradi — qulfsiz qoldiq IKKI MARTA ayirilardi. Endi:
+      // 1) avval `bot_sent` ga da'vo yoziladi (ignore-duplicates);
+      // 2) allaqachon bor bo'lsa — merx_sell CHAQIRILMAYDI, joriy
+      //    qoldiq qaytariladi (klient shu bilan tenglashadi);
+      // 3) merx_sell YIQILSA — da'vo O'CHIRILADI (keyingi urinish
+      //    to'silmasin). Jadval yo'q/xato bo'lsa — qulfsiz davom
+      //    (fail-open): tasdiqlash to'xtamasin.
+      const opKey = body.opKey ? String(body.opKey).slice(0, 120) : null;
+      const _lockKey = opKey ? `stockq|${shopId}|${opKey}` : null;
+      let _claimed = false;
+      if (_lockKey) {
+        try {
+          const cr = await fetch(`${SB_URL}/rest/v1/bot_sent`, {
+            method: "POST",
+            headers: { ...H(), "Content-Type": "application/json",
+                       Prefer: "resolution=ignore-duplicates,return=representation" },
+            body: JSON.stringify({ key: _lockKey, ts: new Date().toISOString() })
+          });
+          if (cr.ok) {
+            const cj = await cr.json().catch(() => []);
+            if (Array.isArray(cj)) {
+              if (cj.length > 0) _claimed = true;
+              else {
+                // Da'vo allaqachon bor — bu TAKROR so'rov
+                const _sk = [...new Set(talab.map(x => x.sku))];
+                const _il = _sk.map(x => '"' + x.replace(/"/g, "") + '"').join(",");
+                const prods0 = await sbAll(
+                  `products?shop_id=eq.${encodeURIComponent(shopId)}` +
+                  `&sku=in.(${encodeURIComponent(_il)})&select=sku,variants`);
+                return res.status(200).json({ ok: true, dup: true, products: prods0 });
+              }
+            }
+          }
+        } catch (e) { console.warn("[stock] opKey da'vosi:", e.message); }
+      }
+      const _unclaim = async () => {
+        if (!_lockKey || !_claimed) return;
+        try {
+          await fetch(`${SB_URL}/rest/v1/bot_sent?key=eq.${encodeURIComponent(_lockKey)}`,
+            { method: "DELETE", headers: H() });
+        } catch (e) {}
+      };
+
       const rq = await fetch(`${SB_URL}/rest/v1/rpc/merx_sell`, {
         method: "POST", headers: H(),
         body: JSON.stringify({ p_shop: shopId, p_items: talab })
       });
       if (!rq.ok) {
         const t = await rq.text().catch(() => "");
+        await _unclaim();   // ✅ yiqildi — da'vo ochiladi
         return res.status(200).json({ ok: false, error: "Ombor amali bajarilmadi: " + t.slice(0, 120) });
       }
       const rj = await rq.json().catch(() => null);
-      if (rj && rj.ok === false)
+      if (rj && rj.ok === false) {
+        await _unclaim();   // ✅ qoldiq yetmadi — da'vo ochiladi
         return res.status(200).json({ ok: false, code: "stock", error: "Qoldiq yetmaydi", items: rj.items || [] });
+      }
 
       // Yangi qoldiqni qaytaramiz \u2014 kassa shuni qo'yadi
       const skus = [...new Set(talab.map(x => x.sku))];
