@@ -230,12 +230,41 @@ function updateCloudUI(connected) {
 // Ilova esa buni "bulutda shuncha bor" deb qabul qilardi. Do'kon
 // o'sganda (3000 sotuv, 1500 mijoz) ma'lumot jimgina chala
 // yuklanardi. Endi 1000 talab bo'lib, tugaguncha o'qiladi.
+// ⚠️ 2026-08-19 (ABU SAXIY hodisasi): CHALA RO'YXAT ENDI QAYTMAYDI.
+// Ildiz: sahifa (1000 qator) o'rtasida xato bo'lsa, funksiya JIM
+// to'xtab, o'shangacha yig'ilganini "hammasi" deb qaytarardi. Pull esa
+// lokal ro'yxatni o'sha CHALA nusxa bilan almashtirardi. Natijada
+// Qarzlar bo'limi 6,29 mlrd / 182 kishi o'rniga 767 mln / 54 kishi
+// ko'rsatdi (19-avg videolari), keyingi to'liq pull'da o'ziga qaytdi —
+// "har zamon bunday" shikoyatining sababi shu.
+// Endi: (a) tarmoq xatosida 3 marta qayta uriniladi (1s, 2s);
+//       (b) baribir bo'lmasa XATO OTILADI — chaqiruvchi biladi,
+//           pull o'sha jadvalni ALMASHTIRMAYDI va eski TO'LIQ nusxa
+//           joyida qoladi (ekranda "Yuklash xatosi" ko'rinadi).
+// Qoida: noto'g'ri raqam ko'rsatishdan ko'ra — eski to'g'ri raqam.
 async function _selectAll(build, label) {
   const PAGE = 1000;
   let from = 0, out = [];
+  const _kut = ms => new Promise(r => setTimeout(r, ms));
   for (;;) {
-    const { data, error } = await build().range(from, from + PAGE - 1);
-    if (error) { console.warn(`_selectAll(${label||""}) xato:`, error.message); break; }
+    let data = null, error = null;
+    for (let urinish = 0; urinish < 3; urinish++) {
+      const _r = await build().range(from, from + PAGE - 1);
+      data = _r.data; error = _r.error;
+      if (!error) break;
+      // Postgres xatosi (ustun yo'q, RLS) — qayta urinish foydasiz
+      const _pg = !!(error.code || error.hint);
+      if (_pg) break;
+      if (urinish < 2) {
+        console.warn(`_selectAll(${label||""}) tarmoq xatosi, qayta urinish ` +
+                     `${urinish + 1}/2 —`, error.message);
+        await _kut(1000 * (urinish + 1));
+      }
+    }
+    if (error) {
+      console.error(`_selectAll(${label||""}) YIQILDI:`, error.message);
+      throw new Error((label || "jadval") + ": " + error.message);
+    }
     const rows = data || [];
     out = out.concat(rows);
     if (rows.length < PAGE) break;
@@ -2283,6 +2312,29 @@ let _pullRunning = false;   // ✅ 2026-08-19: pull ishlayaptimi (qayta ulanish 
 // Endi: lokal ma'lumot SHU do'konga tegishli bo'lsagina saqlanadi.
 // Boshqa do'konniki bo'lsa — pull toza almashtiradi (yo'qolish yo'q:
 // o'sha yozuvlar O'Z do'konining bulutida turibdi).
+// ✅ 2026-08-19: KESKIN KAMAYISH QO'RIQCHISI (ikkinchi qavat).
+// `_selectAll` endi xato otadi, lekin chala ro'yxat boshqa sabablardan
+// ham kelishi mumkin (server oynasi noto'g'ri, filtr xatosi, RLS
+// qisman). Shuning uchun almashtirishdan OLDIN son solishtiriladi:
+// bulutdan kelgan ro'yxat lokalnikidan KESKIN kam bo'lsa —
+// almashtirish to'xtaydi, eski to'liq nusxa qoladi.
+// Chegara: lokalning yarmidan kam VA farq 20 qatordan ko'p.
+// (Kichik jadvallarda tabiiy tebranish bo'lishi mumkin, shuning
+// uchun ikkala shart birga.)
+function _keskinKamaymi(nima, bulutSoni, lokalSoni) {
+  try {
+    const b = Number(bulutSoni) || 0, l = Number(lokalSoni) || 0;
+    if (l < 30) return false;                 // kichik ro'yxat — tegilmaydi
+    if (b >= l * 0.5) return false;           // normal tebranish
+    if ((l - b) <= 20) return false;
+    console.error("\u26d4 " + nima + ": bulutdan " + b + " qator keldi, " +
+      "lokalda " + l + " ta bor — CHALA deb hisoblandi, almashtirilmadi");
+    try { toast("\u26a0\ufe0f " + nima + ": ma'lumot to'liq kelmadi — " +
+      "eski nusxa saqlandi", "err"); } catch (e) {}
+    return true;
+  } catch (e) { return false; }
+}
+
 function _ozDokonimi(sid) {
   try {
     const dsid = db.settings && db.settings._dataShopId;
@@ -2354,7 +2406,8 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
     // Products — faqat bu do'kon
     const prods = await _selectAll(() => _sb.from("products").select("*").eq("shop_id", sid), "products");
     _cloudIds["products"] = new Map((prods||[]).map(r => [String(r.sku), r.sku]));
-    if (prods && prods.length > 0) {
+    if (prods && prods.length > 0 &&
+        !_keskinKamaymi("Tovarlar", prods.length, (db.products || []).length)) {
       // v171 (2026-07-10): NULL-HIMOYA — bulutdagi eski yozuvlarda
       // in_box/barcode/pack_unit hali NULL (avval push qilinmagan).
       // Bunday holatda LOKALDAGI mavjud qiymat o'chirilmasin — aks
@@ -2417,7 +2470,8 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
     // Customers
     const custs = await _selectAll(() => _sb.from("customers").select("*").eq("shop_id", sid), "customers");
     _cloudIds["customers"] = new Map((custs||[]).map(r => [String(r.id), r.id]));
-    if (custs && custs.length > 0) {
+    if (custs && custs.length > 0 &&
+        !_keskinKamaymi("Mijozlar", custs.length, (db.customers || []).length)) {
       const _oldCust = new Map((db.customers || []).map(x => [String(x.id), x])); // v180
             // 🔴 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
       // (to'liq pull ularni o'chirib yuborardi \u2014 sotuvdagi kabi).
@@ -2518,7 +2572,8 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
       (salesData||[]).forEach(r => { if (r.updated_at && (!_mx || r.updated_at > _mx)) _mx = r.updated_at; });
       if (_mx) _setLastPull(sid, _mx, true);   // to'liq pull — chekinish bilan
     } catch(e) {}
-    if (salesData && salesData.length > 0) {
+    if (salesData && salesData.length > 0 &&
+        !_keskinKamaymi("Sotuvlar", salesData.length, (db.sales || []).length)) {
       // ⚠️ 2026-08-02: VAQT SOLISHTIRUVI (tovar/mijozdagi qoida).
       // Lokal nusxa buluttagidan YANGIROQ bo'lsa — lokal saqlanadi.
       // Busiz eski nusxali qurilma bekor qilingan sotuvni yoki
@@ -2569,7 +2624,8 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
     // Ombor
     const omborData = await _selectAll(() => _sb.from("ombor").select("*").eq("shop_id", sid).order("local_id"), "ombor");
     _cloudIds["ombor"] = new Map((omborData||[]).map(r => [String(r.id), r.id]));
-    if (omborData && omborData.length > 0) {
+    if (omborData && omborData.length > 0 &&
+        !_keskinKamaymi("Ombor", omborData.length, (db.ombor || []).length)) {
       // 2026-08-02: vaqt solishtiruvi (sotuvdagi qoida)
       const _oldOm = new Map((db.ombor || []).map(x => [String(x.id), x]));
             // 🔴 2026-08-13: bulutga YETMAGAN lokal yozuvlar saqlanadi
