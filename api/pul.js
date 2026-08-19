@@ -675,6 +675,91 @@ module.exports = async (req, res) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // ✅ 2026-08-19 (3-bosqich): MIJOZ VA XODIM YOZUVI SERVER ORQALI
+    // ═══════════════════════════════════════════════════════════════
+    // Ildiz (B20, 18-avg): uch xodim ABU SAXIY dan B20 ga NUSXALANDI —
+    // bir xil id, bir xil ism, bir soniyada, PIN xeshisiz. Klient
+    // pushida do'kon tekshiruvi faqat QURILMADA edi; qurilma esa
+    // do'kon almashganda adashishi mumkin.
+    // Endi yozuv shu darvozadan o'tadi:
+    //  1) `shop_id` SERVERDA qo'yiladi (token egasidan) — begona
+    //     do'konga yozib bo'lmaydi, klient nima yuborishidan qat'i nazar;
+    //  2) YANGI yozuvda takror tekshiriladi (mijoz: telefon/ism,
+    //     xodim: telefon) — ikki kassa bir vaqtda kiritsa ikkilanmaydi;
+    //  3) TAHRIRDA vaqt muhri solishtiriladi — oradan boshqa qurilma
+    //     yangilagan bo'lsa `conflict` qaytadi, oxirgisi jimgina
+    //     yutmaydi (486 dagi kartochka qoidasi).
+    // Ruxsat etilgan jadvallar faqat shu ikkitasi.
+    if (action === "save_record") {
+      if (!(await _verify))
+        return res.status(401).json({ ok: false, error: "Token yaroqsiz" });
+      const tbl = String(body.table || "");
+      if (tbl !== "customers" && tbl !== "staff")
+        return res.status(400).json({ ok: false, error: "Jadval ruxsat etilmagan" });
+      const row = (body.row && typeof body.row === "object") ? { ...body.row } : null;
+      if (!row || !row.id)
+        return res.status(400).json({ ok: false, error: "row/id kerak" });
+
+      const idQ = `id=eq.${encodeURIComponent(String(row.id))}`;
+      const bor = await sbAll(`${tbl}?shop_id=eq.${encodeURIComponent(shopId)}` +
+                              `&${idQ}&select=id,name,phone,data`);
+      const eski = (bor && bor[0]) || null;
+
+      // (3) Tahrirda to'qnashuv tekshiruvi
+      if (eski && body.baseAt) {
+        const _sAt = (eski.data && eski.data.updatedAt) ? Date.parse(eski.data.updatedAt) : 0;
+        const _bAt = Date.parse(body.baseAt) || 0;
+        if (_sAt && _bAt && _sAt > _bAt + 1000)
+          return res.status(200).json({ ok: false, code: "conflict",
+            error: "Boshqa qurilma yangilagan", row: eski });
+      }
+
+      // (2) Yangi yozuvda takror tekshiruvi
+      if (!eski) {
+        const tel = String(row.phone || "").trim();
+        const nom = String(row.name  || "").trim().toLowerCase();
+        const hammasi = await sbAll(`${tbl}?shop_id=eq.${encodeURIComponent(shopId)}` +
+                                    `&select=id,name,phone`);
+        const takror = (hammasi || []).find(x =>
+          (tel && String(x.phone || "").trim() === tel) ||
+          (tbl === "customers" && nom &&
+           String(x.name || "").trim().toLowerCase() === nom));
+        if (takror)
+          return res.status(200).json({ ok: false, code: "dup",
+            error: "Allaqachon ro'yxatda", row: takror });
+      }
+
+      // (1) shop_id SERVERDA — klientnikiga ishonilmaydi
+      const now = new Date().toISOString();
+      const data = (row.data && typeof row.data === "object") ? row.data : row;
+      delete data.shop_id;
+      data.updatedAt = now;
+      const yoz = {
+        shop_id: shopId,
+        id: row.id,
+        name:  row.name  || data.name  || "",
+        phone: row.phone || data.phone || "",
+        data,
+        updated_at: now
+      };
+      // Xodimda ochiq PIN bulutga yozilmaydi (C-1 qoidasi)
+      if (tbl === "staff") { delete yoz.data.pin; delete yoz.data.pinHash; }
+
+      const r = await fetch(`${SB_URL}/rest/v1/${tbl}`, {
+        method: "POST",
+        headers: { ...H(), "Content-Type": "application/json",
+                   Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify(yoz)
+      });
+      if (!r.ok) {
+        const t = await r.text().catch(() => "");
+        return res.status(200).json({ ok: false, error: t.slice(0, 160) });
+      }
+      const j = await r.json().catch(() => []);
+      return res.status(200).json({ ok: true, row: (j && j[0]) || yoz });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // ✅ 2026-08-19 (1-bosqich): HISOBOT KO'RSATKICHLARI SERVERDAN
     // ═══════════════════════════════════════════════════════════════
     // Ildiz: Hisobotning 11 ta ko'rsatkichi lokal `db.sales` va

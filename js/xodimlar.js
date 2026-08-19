@@ -817,7 +817,7 @@ function _resetStaffForm() {
   if (btn) { btn.innerHTML = '<i class="ti ti-check"></i> Saqlash'; btn.onclick = addStaff; }
 }
 
-function addStaff() {
+async function addStaff() {   // ✅ 2026-08-19: server orqali (async)
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("xodimlar","add")) return;
 
@@ -830,7 +830,21 @@ function addStaff() {
   // "Ruxsat berish" huquqi yo'q — galochkalar emas, rol shabloni
   if (typeof permDo === "function" && !permDo("xodimlar","perms"))
     d.perms = _permsFromTemplate(d.role);
-  db.staff.push({ id: nextId(), ...d, paidMonths:[], salaryHistory:[], monthTarget:0 });
+  const _yangi = { id: nextId(), ...d, paidMonths:[], salaryHistory:[],
+                   monthTarget:0, updatedAt: new Date().toISOString() };
+  // ✅ 2026-08-19 (3-bosqich): AVVAL SERVER. Ildiz — 18-avgustda uch
+  // xodim ABU SAXIY dan B20 ga nusxalangan edi (bir xil id, PIN
+  // xeshisiz). Endi do'konni SERVER qo'yadi, takror telefon esa
+  // to'siladi. Aloqa yo'q bo'lsa eski yo'l: lokal + push.
+  if (typeof serverSaveRecord === "function") {
+    const _r = await serverSaveRecord("staff", _yangi, null);
+    if (_r && _r.ok === false && _r.code === "dup") {
+      toast("Bu telefon bilan xodim allaqachon bor (boshqa kassa kiritgan)", "err");
+      return;
+    }
+    if (_r && _r.ok && _r.row && _r.row.id) _yangi.id = _r.row.id;
+  }
+  db.staff.push(_yangi);
   saveDB(); renderXodimlar(); closeStaffModal();
   toast(`\u2705 ${d.name} qo\'shildi`);
   _resetStaffForm();
@@ -860,11 +874,12 @@ function editStaff(id) {
   openStaffModal(id);
 }
 
-function saveStaff(id) {
+async function saveStaff(id) {   // ✅ 2026-08-19: server orqali (async)
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("xodimlar","edit")) return;
 
   const s = db.staff.find(x => x.id === id); if (!s) return;
+  const _baseAt = s.updatedAt || null;   // tahrir boshlangandagi muhr
   // 2026-08-09 RUXSAT AUDITI: teng/yuqori darajaga tegib bo'lmaydi
   if (!_staffCanTouch(s)) {
     toast("⛔ O'zingiz bilan teng yoki yuqori darajadagi xodimni tahrirlab bo'lmaydi", "err");
@@ -892,6 +907,22 @@ function saveStaff(id) {
   // eski qiymat saqlanadi, nolga aylanib ketmasin.
   if (d.maxDiscount === null) d.maxDiscount = s.maxDiscount || 0;
   Object.assign(s, d);
+  s.updatedAt = new Date().toISOString();
+  // ✅ 2026-08-19: serverga yoziladi; boshqa qurilma yangilagan
+  // bo'lsa ogohlantiriladi (ruxsat/maosh jimgina bosilib ketmasin).
+  if (typeof serverSaveRecord === "function") {
+    const _r = await serverSaveRecord("staff", s, _baseAt);
+    if (_r && _r.ok === false && _r.code === "conflict") {
+      if (!confirm("⚠️ Bu xodimni boshqa qurilma yangilagan.\n\n" +
+            "OK — baribir saqlayman\nBekor — yangi holatni ko'raman")) {
+        try { if (typeof pullFromCloud === "function") pullFromCloud(true); } catch (e) {}
+        closeStaffModal();
+        toast("Xodim yangilandi — qaytadan oching", "info");
+        return;
+      }
+      await serverSaveRecord("staff", s, null);
+    }
+  }
   saveDB(); renderXodimlar(); closeStaffModal();
   toast("Xodim ma\'lumotlari yangilandi");
   _resetStaffForm();

@@ -812,12 +812,13 @@ function custCardEdit() {
   openModal("addcust");
 }
 
-function editCustomer(id) {
+async function editCustomer(id) {   // ✅ 2026-08-19: server orqali (async)
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("mijozlar","edit")) return;
 
   const c = db.customers.find(x => x.id === id);
   if (!c) return;
+  const _baseAt = c.updatedAt || null;   // tahrir boshlangandagi muhr
   const newName = ($("ac-name")||{value:""}).value.trim();
   if (!newName) { toast("Ism bo'sh bo'lmasin","err"); return; }
   c.name      = newName;
@@ -842,6 +843,23 @@ function editCustomer(id) {
   // qilardi — eski telefoni bo'lgan qurilma yangi raqamni bosib
   // yozardi va tahrir yo'qolardi (POS qidiruvida topilmasdi).
   c.updatedAt = new Date().toISOString();
+  // ✅ 2026-08-19: serverga yoziladi. Oradan boshqa qurilma
+  // yangilagan bo'lsa — ogohlantiriladi, jimgina bosib ketilmaydi.
+  if (typeof serverSaveRecord === "function") {
+    const _r = await serverSaveRecord("customers", c, _baseAt);
+    if (_r && _r.ok === false && _r.code === "conflict") {
+      const _sv = (_r.row && _r.row.data) || {};
+      if (!confirm("⚠️ Bu mijozni boshqa kassa yangilagan" +
+            (_sv.name ? " (hozirgi nomi: " + _sv.name + ")" : "") + ".\n\n" +
+            "OK — baribir saqlayman\nBekor — yangi holatni ko'raman")) {
+        try { if (typeof pullFromCloud === "function") pullFromCloud(true); } catch (e) {}
+        closeModal("addcust");
+        toast("Mijoz yangilandi — qaytadan oching", "info");
+        return;
+      }
+      await serverSaveRecord("customers", c, null);   // majburiy yozish
+    }
+  }
   saveDB(); renderMijozlar(); closeModal("addcust");
   // 2026-08-02: POS'da shu mijoz tanlangan bo'lsa — kartasi yangilanadi
   try { if (typeof posRefreshCustCard === "function") posRefreshCustCard(); } catch(e) {}
@@ -1144,7 +1162,7 @@ function resetCustForm() {
 }
 function openAddCustomer() { resetCustForm(); openModal("addcust"); }
 
-function addCustomer() {
+async function addCustomer() {   // ✅ 2026-08-19: server orqali (async)
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("qarzlar","old")) return;
 
@@ -1181,6 +1199,18 @@ function addCustomer() {
     loyaltyPoints: 0,
     updatedAt: new Date().toISOString()   // 2026-08-02: sinxron solishtiruvi
   };
+  // ✅ 2026-08-19 (3-bosqich): AVVAL SERVER — takror va do'kon
+  // aralashuvi shu yerda to'siladi. Server javob bermasa (oflayn)
+  // eski yo'l ishlaydi: lokal saqlanadi va push bilan ketadi.
+  if (typeof serverSaveRecord === "function") {
+    const _r = await serverSaveRecord("customers", nc, null);
+    if (_r && _r.ok === false && _r.code === "dup") {
+      toast(`"${(_r.row && _r.row.name) || name}" allaqachon ro'yxatda ` +
+            `(boshqa kassa kiritgan)`, "err");
+      return;
+    }
+    if (_r && _r.ok && _r.row && _r.row.id) nc.id = _r.row.id;
+  }
   db.customers.push(nc);
   saveDB(); renderMijozlar(); closeModal("addcust");
   toast(`✅ "${name}" qo'shildi`);

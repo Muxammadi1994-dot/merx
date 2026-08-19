@@ -3175,6 +3175,27 @@ async function _serverStockFlush() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-19 (3-bosqich): MIJOZ/XODIM YOZUVINI SERVERGA YOZISH
+// ═══════════════════════════════════════════════════════════════
+// Yagona darvoza — `mijozlar.js` ham, `xodimlar.js` ham shu yerdan
+// yuradi (§10.3 yagona manba). Server: do'konni O'ZI qo'yadi,
+// takrorni to'sadi, tahrirda to'qnashuvni aniqlaydi.
+// Qaytaradi: {ok:true,row} · {ok:false,code:"dup"|"conflict",row}
+//            · null (aloqa yo'q — chaqiruvchi lokal yo'ldan ketadi)
+async function serverSaveRecord(table, row, baseAt) {
+  try {
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return null;
+    if (typeof _serverPay   !== "function") return null;
+    const r = await _serverPay({ action: "save_record", table, row, baseAt: baseAt || null });
+    if (!r) return null;
+    return r;
+  } catch (e) {
+    console.warn("[yozuv] serverga yozilmadi:", e.message);
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // ✅ 2026-08-19: QARZ KO'RSATKICHLARI — YAGONA MANBA (o'zak)
 // ═══════════════════════════════════════════════════════════════
 // Qarzlar bo'limi ham, Dashboard ham SHU funksiyadan oladi.
