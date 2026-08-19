@@ -1336,25 +1336,14 @@ async function _saveEditProductIchki() {   // ✅ 2026-08-18: to'qnashuv tekshir
   // saqlaymizmi. Qaror ODAMDA qoladi.
   // Aloqa yo'q / server rejimi o'chiq bo'lsa — tekshiruv o'tkazib
   // yuboriladi (oflayn ish bloklanmaydi).
-  try {
-    if (typeof cloudProductStamp === "function") {
-      const _cloudAt = await cloudProductStamp(p.sku);
-      if (_cloudAt && _epBaseAt && Date.parse(_cloudAt) > Date.parse(_epBaseAt) + 1000) {
-        const _vaqt = String(_cloudAt).slice(11, 16);
-        const _javob = confirm(
-          `⚠️ Bu tovarni boshqa kassa yangiladi (${_vaqt}).\n\n` +
-          `Saqlasangiz uning o'zgarishlari yo'qolishi mumkin.\n\n` +
-          `OK — baribir saqlayman\n` +
-          `Bekor — oynani yopib, yangi holatni ko'raman`);
-        if (!_javob) {
-          try { if (typeof closeModal === "function") closeModal("editprod"); } catch (e) {}
-          try { if (typeof pullFromCloud === "function") pullFromCloud(true); } catch (e) {}
-          toast("Tovar yangilandi — qaytadan oching", "info");
-          return;
-        }
-      }
-    }
-  } catch (e) { console.warn("[katalog] to'qnashuv tekshiruvi:", e.message); }
+  // ⚠️ 2026-08-19 (5-bosqich): TEKSHIRUV SAQLASHDAN KEYINGA KO'CHDI.
+  // 486 da bu yerda faqat OGOHLANTIRISH bor edi: bulutdagi muhr
+  // o'qilib, "boshqa kassa yangiladi" deyilardi — lekin yozuv baribir
+  // lokal ketardi va push oxirida kim yangiroq bo'lsa o'sha yutardi.
+  // Endi hakam SERVER: maydonlar `save_record` orqali yoziladi, u
+  // do'konni o'zi qo'yadi, muhrni solishtiradi va QOLDIQNI SAQLAB
+  // qoladi (qoldiq faqat `stock` orqali o'zgaradi — §3.23).
+  // Tekshiruv pastda, maydonlar o'qilgandan keyin.
   // NARX O'QISH TUZATISHI (v144): fmtInput qiymatni "540 000" ko'rinishida
   // formatlaydi — parseFloat probelda to'xtab 540 qilib yuborardi.
   // _pv: probel/vergulni tozalab, kasrni saqlab o'qiydi.
@@ -1433,6 +1422,31 @@ async function _saveEditProductIchki() {   // ✅ 2026-08-18: to'qnashuv tekshir
   const _scrollY  = _scrollEl.scrollTop;
   const _tblWrap  = document.querySelector("#p-katalog .card:has(table)");
   const _tblScroll = _tblWrap ? _tblWrap.scrollTop : 0;
+
+  // ✅ 2026-08-19 (5-bosqich): KARTOCHKA MAYDONLARI SERVERGA.
+  // Server javobi: ok · conflict (boshqa qurilma yangilagan).
+  // Aloqa yo'q bo'lsa `null` — eski yo'l (lokal + push) ishlaydi.
+  if (typeof serverSaveRecord === "function") {
+    const _r = await serverSaveRecord("products", p, _epBaseAt);
+    if (_r && _r.ok === false && _r.code === "conflict") {
+      if (!confirm("⚠️ Bu tovarni boshqa kassa yangiladi.\n\n" +
+            "Saqlasangiz uning o'zgarishlari yo'qolishi mumkin.\n\n" +
+            "OK — baribir saqlayman\n" +
+            "Bekor — oynani yopib, yangi holatni ko'raman")) {
+        try { if (typeof closeModal === "function") closeModal("editprod"); } catch (e) {}
+        try { if (typeof pullFromCloud === "function") pullFromCloud(true); } catch (e) {}
+        toast("Tovar yangilandi — qaytadan oching", "info");
+        return;
+      }
+      await serverSaveRecord("products", p, null);   // majburiy yozish
+    }
+    // Server javobidagi QOLDIQ lokalga qaytariladi (sonlar server
+    // haqiqati — kartochka tahriri qoldiqqa tegmaydi)
+    try {
+      if (_r && _r.ok && _r.row && Array.isArray(_r.row.variants))
+        p.variants = _r.row.variants;
+    } catch (e) {}
+  }
 
   saveDB();
   try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}

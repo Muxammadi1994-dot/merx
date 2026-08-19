@@ -697,15 +697,21 @@ module.exports = async (req, res) => {
       // ✅ 2026-08-19 (2-bosqich): `xarajatlar` ham shu darvozadan.
       // Xarajat — PUL yozuvi: do'kon aralashuvi va ikki marta yozilish
       // to'g'ridan-to'g'ri kassaga ta'sir qiladi.
-      if (tbl !== "customers" && tbl !== "staff" && tbl !== "xarajatlar")
+      // ✅ 2026-08-19 (5-bosqich): `products` ham shu darvozadan.
+      if (tbl !== "customers" && tbl !== "staff" &&
+          tbl !== "xarajatlar" && tbl !== "products")
         return res.status(400).json({ ok: false, error: "Jadval ruxsat etilmagan" });
       const row = (body.row && typeof body.row === "object") ? { ...body.row } : null;
-      if (!row || !row.id)
+      if (!row || (!row.id && !row.sku))
         return res.status(400).json({ ok: false, error: "row/id kerak" });
 
-      const idQ = `id=eq.${encodeURIComponent(String(row.id))}`;
+      // Tovar kaliti — SKU (id emas): jadval (sku, shop_id) bo'yicha yagona
+      const idQ = (tbl === "products")
+        ? `sku=eq.${encodeURIComponent(String(row.sku))}`
+        : `id=eq.${encodeURIComponent(String(row.id))}`;
       const _sel = (tbl === "xarajatlar") ? "id,amount,date,category,data"
-                                          : "id,name,phone,data";
+                 : (tbl === "products")   ? "id,sku,name,variants,data"
+                 :                          "id,name,phone,data";
       const bor = await sbAll(`${tbl}?shop_id=eq.${encodeURIComponent(shopId)}` +
                               `&${idQ}&select=${_sel}`);
       const eski = (bor && bor[0]) || null;
@@ -721,7 +727,7 @@ module.exports = async (req, res) => {
 
       // (2) Yangi yozuvda takror tekshiruvi (xarajatda — o'tkazib
       //     yuboriladi: bir kunda bir xil summali ikki xarajat TABIIY)
-      if (!eski && tbl !== "xarajatlar") {
+      if (!eski && tbl !== "xarajatlar" && tbl !== "products") {
         const tel = String(row.phone || "").trim();
         const nom = String(row.name  || "").trim().toLowerCase();
         const hammasi = await sbAll(`${tbl}?shop_id=eq.${encodeURIComponent(shopId)}` +
@@ -741,7 +747,47 @@ module.exports = async (req, res) => {
       delete data.shop_id;
       data.updatedAt = now;
       let yoz;
-      if (tbl === "xarajatlar") {
+      if (tbl === "products") {
+        // ✅ 2026-08-19 (5-bosqich): QOLDIQ BU YERDA YOZILMAYDI.
+        // Tovar kartochkasi maydonlari (nom, narx, artikul, barcode)
+        // shu yo'ldan yangilanadi; QOLDIQ esa faqat `stock`/`merx_sell`
+        // orqali o'zgaradi (§3.23). Shuning uchun: TUZILMA klientdan
+        // (rang/o'lcham qatorlari — kassir nimani xohlagan bo'lsa),
+        // SONLAR serverdan (haqiqat). Bu `cloud.js` push himoyasidagi
+        // bilan AYNAN bir xil qoida — ikki joyda ikki xil bo'lmasin.
+        const _srv = Array.isArray(eski && eski.variants) ? eski.variants : [];
+        const _sq  = new Map(_srv.map(v =>
+          [String(v.color || "") + "|" + String(v.size || ""), v.qty]));
+        const _merge = (arr) => (arr || []).map(v => {
+          const k = String(v.color || "") + "|" + String(v.size || "");
+          return _sq.has(k) ? { ...v, qty: Number(_sq.get(k)) || 0 } : v;
+        });
+        const vars = _merge(data.variants);
+        data.variants = vars;
+        delete data.image; delete data.colorImages; delete data._qtyLocal;
+        yoz = {
+          shop_id: shopId,
+          id: (eski && eski.id) || row.id,
+          sku: row.sku || data.sku,
+          name: data.name || row.name || "",
+          category: data.category || null,
+          type: data.type || null,
+          unit: data.unit || "dona",
+          art: data.art || "",
+          cost_usd:  data.costUsd || 0,
+          price_uzs: data.priceUzs || 0,
+          ulgurji:   data.ulgurjiNarx || 0,
+          variants: vars,
+          ...(data.inBox != null ? { in_box: data.inBox } : {}),
+          barcode: data.barcode || null,
+          pack_unit: data.packUnit || null,
+          color_barcodes: data.colorBarcodes || null,
+          pantone: data.pantone || null,
+          color_name: data.colorName || null,
+          hex: data.hex || null,
+          data, updated_at: now
+        };
+      } else if (tbl === "xarajatlar") {
         // Ustunlar `cloud.js` push xaritasi bilan bir xil bo'lishi shart
         yoz = {
           shop_id: shopId, id: row.id,
@@ -771,7 +817,8 @@ module.exports = async (req, res) => {
       // Xodimda ochiq PIN bulutga yozilmaydi (C-1 qoidasi)
       if (tbl === "staff") { delete yoz.data.pin; delete yoz.data.pinHash; }
 
-      const r = await fetch(`${SB_URL}/rest/v1/${tbl}`, {
+      const _konf = (tbl === "products") ? "?on_conflict=sku,shop_id" : "";
+      const r = await fetch(`${SB_URL}/rest/v1/${tbl}${_konf}`, {
         method: "POST",
         headers: { ...H(), "Content-Type": "application/json",
                    Prefer: "resolution=merge-duplicates,return=representation" },
