@@ -469,6 +469,13 @@ async function _debtEnsureFull() {
     if (_dbFullBusy || (Date.now() - _dbFullT) < 30000) return;
     _dbFullBusy = true;
     const sid = getCloudShopId();
+    // ⚠️ IKKI JONLI DO'KON BOR — so'rov ketgandan keyin do'kon
+    // almashtirilishi mumkin (superadmin, ikkinchi oyna). Javob
+    // kelganda QAYTA tekshiriladi (pastda): sid o'zgargan bo'lsa
+    // ma'lumot TASHLANADI. 18-avgustdagi aralashuv aynan shu
+    // sinfdan edi — ikki do'kon bir qurilmada.
+    const _dsid = (db.settings && db.settings._dataShopId) || null;
+    if (_dsid && String(_dsid) !== String(sid)) { _dbFullBusy = false; return; }
 
     // 1) Ochiq qarzli sotuvlar (yangi indekslardan foydalanadi)
     const { data: sData, error: sErr } = await _sb.from("sales")
@@ -484,6 +491,14 @@ async function _debtEnsureFull() {
         .select("*").eq("shop_id", sid).in("customer_id", custIds.slice(0, 900));
       if (pErr) throw new Error(pErr.message);
       pData = pd || [];
+    }
+
+    // ⚠️ DO'KON TEKSHIRUVI — javob kelguncha almashgan bo'lsa tashlaymiz
+    if (String(getCloudShopId()) !== String(sid) ||
+        (db.settings && db.settings._dataShopId &&
+         String(db.settings._dataShopId) !== String(sid))) {
+      console.warn("⛔ Qarzlar to'ldirish bekor: do'kon almashgan");
+      _dbFullBusy = false; return;
     }
 
     // 3) Lokalga qo'shamiz — YANGIROQ lokal yozuvga tegilmaydi

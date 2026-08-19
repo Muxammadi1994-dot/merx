@@ -171,7 +171,10 @@ function _txRange() {
 
 function _txKey(q) {
   const r = _txRange();
-  return [q, r.f || "", r.to || "", txStatus, txStaffId, _txPage].join("|");
+  // ⚠️ IKKI JONLI DO'KON: kalitga do'kon ham kiradi — ABU SAXIY
+  // sahifasi B20 ekranida ko'rinib qolmasin (18-avg aralashuvi sinfi).
+  return [getCloudShopId() || "", q, r.f || "", r.to || "",
+          txStatus, txStaffId, _txPage].join("|");
 }
 
 // Server qatorini sale obyektiga aylantirish — pull xaritasi bilan
@@ -222,6 +225,7 @@ async function _txFetch(qRaw) {
   // render↔fetch aylanib qolmasin
   if (_txSrv.err && _txSrv.key === key && (Date.now() - _txSrv.t) < 30000) return;
   _txSrv.busy = true; _txSrv.key = key; _txSrv.err = false;
+  const _sid0 = getCloudShopId();      // ⚠️ so'rov boshlangandagi do'kon
   try {
     const r = _txRange();
     const page = Math.max(1, _txPage);
@@ -236,6 +240,11 @@ async function _txFetch(qRaw) {
       p_offset: (page - 1) * LIST_PER_PAGE
     });
     if (error) throw new Error(error.message);
+    // ⚠️ Javob kelguncha do'kon almashgan bo'lsa — TASHLAYMIZ
+    if (String(getCloudShopId()) !== String(_sid0)) {
+      console.warn("⛔ Tarix sahifasi bekor: do'kon almashgan");
+      _txSrv.busy = false; _txSrv.rows = null; return;
+    }
     const rows = data || [];
     const jami = rows.length ? Number(rows[0].jami) || 0 : 0;
     // Sahifa chegaradan chiqib ketgan bo'lsa — 1-sahifaga qaytamiz
@@ -274,8 +283,10 @@ async function _txEnsureLocal(id) {
   s = _rowdan(_txSrv.rows) || _rowdan((_txCacheLoad() || {}).rows);
   if (!s && _txServerMode()) {
     try {
+      const _sid0 = getCloudShopId();
       const { data } = await _sb.from("sales").select("*")
-        .eq("shop_id", getCloudShopId()).eq("id", id).limit(1);
+        .eq("shop_id", _sid0).eq("id", id).limit(1);
+      if (String(getCloudShopId()) !== String(_sid0)) return null;   // ⚠️ do'kon almashdi
       if (data && data[0]) s = _txMapRow(data[0]);
     } catch (e) { console.warn("[tarix] yakka chek:", e.message); }
   }
