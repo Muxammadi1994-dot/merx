@@ -65,7 +65,88 @@ function omGetCols() {
   return cols;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-19 (4-bosqich · 5-qism): OMBOR RO'YXATI TO'LDIRILADI
+// ═══════════════════════════════════════════════════════════════
+// Ildiz: qoldiq/kirim/chiqim ro'yxatlari `db.products` va `db.ombor`
+// dan quriladi. Nusxa chala tortilsa — kirim tarixi chala ko'rinadi
+// (inventarizatsiyada yo'qolgan tovar deb o'ylanishi mumkin).
+// Yechim: bo'lim ochilganda ikkala jadval serverdan to'ldiriladi.
+//  · faqat o'qiydi · QOLDIQ SERVERDAN (lokal soni bosib ketmaydi)
+//  · do'kon ikki marta tekshiriladi · 60 soniyada bir marta
+//  · oflaynda jim · o'chirish: db.settings.serverLists = false
+let _omFullT = 0, _omFullBusy = false;
+async function _omEnsureFull() {
+  try {
+    if (db.settings && db.settings.serverLists === false) return;
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
+    if (navigator && navigator.onLine === false) return;
+    if (typeof _sb === "undefined" || !_sb) return;
+    if (_omFullBusy || (Date.now() - _omFullT) < 60000) return;
+    const sid = getCloudShopId();
+    const _dsid = (db.settings && db.settings._dataShopId) || null;
+    if (_dsid && String(_dsid) !== String(sid)) return;
+    _omFullBusy = true;
+
+    const [pRes, oRes] = await Promise.all([
+      _sb.from("products").select("*").eq("shop_id", sid),
+      _sb.from("ombor").select("*").eq("shop_id", sid)
+    ]);
+    if (pRes.error) throw new Error(pRes.error.message);
+    if (oRes.error) throw new Error(oRes.error.message);
+    if (String(getCloudShopId()) !== String(sid)) {
+      console.warn("⛔ Ombor to'ldirish bekor: do'kon almashgan");
+      _omFullBusy = false; return;
+    }
+
+    const _yangiroqmi = (lok, srvAt) =>
+      ((Date.parse((lok && lok.updatedAt) || 0) || 0) > (Date.parse(srvAt || 0) || 0));
+    let qoshildi = 0;
+
+    if (!Array.isArray(db.products)) db.products = [];
+    const _pMap = new Map(db.products.map(x => [String(x.sku || x.id), x]));
+    (pRes.data || []).forEach(r => {
+      const obj = (r.data && typeof r.data === "object" && !Array.isArray(r.data))
+        ? { ...r.data, id: r.id, sku: r.sku }
+        : { id: r.id, sku: r.sku, name: r.name, variants: r.variants || [] };
+      // ⚠️ QOLDIQ — SERVERDAN (§3.23): kartochka tahriri sonni bosmaydi
+      obj.variants = r.variants || obj.variants || [];
+      const lok = _pMap.get(String(r.sku || r.id));
+      if (!lok) { db.products.push(obj); qoshildi++; return; }
+      // Rasm lokalda og'ir saqlanadi — serverda yo'q, o'chirmaymiz
+      const _img = lok.image, _cimg = lok.colorImages;
+      if (!_yangiroqmi(lok, obj.updatedAt)) Object.assign(lok, obj);
+      else lok.variants = obj.variants;          // qoldiq baribir serverdan
+      if (_img && !lok.image) lok.image = _img;
+      if (_cimg && !lok.colorImages) lok.colorImages = _cimg;
+    });
+
+    if (!Array.isArray(db.ombor)) db.ombor = [];
+    const _oMap = new Map(db.ombor.map(x => [String(x.id), x]));
+    (oRes.data || []).forEach(r => {
+      const obj = (r.data && typeof r.data === "object" && !Array.isArray(r.data))
+        ? { ...r.data, id: r.id }
+        : { id: r.id, sku: r.sku, name: r.name, qty: r.qty,
+            date: r.date, type: r.type, supplier: r.supplier };
+      const lok = _oMap.get(String(r.id));
+      if (!lok) { db.ombor.push(obj); qoshildi++; return; }
+      if (!_yangiroqmi(lok, obj.updatedAt)) Object.assign(lok, obj);
+    });
+
+    _omFullT = Date.now(); _omFullBusy = false;
+    if (qoshildi > 0) {
+      console.log("📦 Ombor to'ldirildi: +" + qoshildi + " yozuv serverdan");
+      try { saveDB(); } catch (e) {}
+      renderOmbor();
+    }
+  } catch (e) {
+    _omFullBusy = false; _omFullT = Date.now();
+    console.warn("[ombor] to'ldirish:", e.message);
+  }
+}
+
 function renderOmbor() {
+  _omEnsureFull();   // ✅ 2026-08-19: serverdan to'ldirish
   omRenderKpis();
   if (omActiveTab === "qoldiq")      omRenderQoldiq();
   else if (omActiveTab === "kirim")  omRenderKirim();

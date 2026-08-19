@@ -254,9 +254,70 @@ function setMjView(v) {
   renderMijozlar();
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-19 (4-bosqich · 4-qism): MIJOZLAR RO'YXATI TO'LDIRILADI
+// ═══════════════════════════════════════════════════════════════
+// Ildiz: ro'yxat `db.customers` dan quriladi. Nusxa chala tortilsa —
+// mijoz ro'yxatda ko'rinmaydi (yoki segment/qarz noto'g'ri chiqadi,
+// chunki hisob `db.sales` ga tayanadi).
+// Yechim: bo'lim ochilganda mijozlar SERVERDAN o'qib to'ldiriladi.
+// Sotuvlar bu yerda tortilmaydi — ular Qarzlar/Tarix qatlamlari
+// orqali allaqachon to'ldiriladi (ortiqcha so'rov bo'lmasin).
+//  · faqat o'qiydi · lokal yangiroq bo'lsa tegilmaydi
+//  · do'kon ikki marta tekshiriladi (ikki jonli do'kon)
+//  · 60 soniyada bir marta · oflaynda jim
+//  · o'chirish: db.settings.serverLists = false
+let _mjFullT = 0, _mjFullBusy = false;
+async function _mjEnsureFull() {
+  try {
+    if (db.settings && db.settings.serverLists === false) return;
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
+    if (navigator && navigator.onLine === false) return;
+    if (typeof _sb === "undefined" || !_sb) return;
+    if (_mjFullBusy || (Date.now() - _mjFullT) < 60000) return;
+    const sid = getCloudShopId();
+    const _dsid = (db.settings && db.settings._dataShopId) || null;
+    if (_dsid && String(_dsid) !== String(sid)) return;
+    _mjFullBusy = true;
+
+    const { data, error } = await _sb.from("customers").select("*").eq("shop_id", sid);
+    if (error) throw new Error(error.message);
+    if (String(getCloudShopId()) !== String(sid)) {
+      console.warn("⛔ Mijozlar to'ldirish bekor: do'kon almashgan");
+      _mjFullBusy = false; return;
+    }
+
+    if (!Array.isArray(db.customers)) db.customers = [];
+    const _map = new Map(db.customers.map(x => [String(x.id), x]));
+    let qoshildi = 0;
+    (data || []).forEach(r => {
+      const obj = (r.data && typeof r.data === "object" && !Array.isArray(r.data))
+        ? { ...r.data, id: r.id }
+        : { id: r.id, name: r.name, phone: r.phone };
+      const lok = _map.get(String(r.id));
+      if (!lok) { db.customers.push(obj); qoshildi++; return; }
+      const _l = Date.parse(lok.updatedAt || 0) || 0;
+      const _c = Date.parse(obj.updatedAt || 0) || 0;
+      if (!(_l > _c)) Object.assign(lok, obj);
+    });
+
+    _mjFullT = Date.now(); _mjFullBusy = false;
+    if (qoshildi > 0) {
+      console.log("👥 Mijozlar to'ldirildi: +" + qoshildi + " yozuv serverdan");
+      try { saveDB(); } catch (e) {}
+      try { custStatsClear(); } catch (e) {}
+      renderMijozlar();
+    }
+  } catch (e) {
+    _mjFullBusy = false; _mjFullT = Date.now();
+    console.warn("[mijozlar] to'ldirish:", e.message);
+  }
+}
+
 function renderMijozlar() {
   // 2026-07-31: kesh tozalanadi — sahifa doim yangi ma'lumot ko'rsatsin
   try { custStatsClear(); } catch(e) {}
+  _mjEnsureFull();   // ✅ 2026-08-19: serverdan to'ldirish
   // Tug'ilgan kun eslatmasi — bugun va yaqin 3 kun
   checkBirthdayAlerts();
   const q = ($("cust-q")||{value:""}).value.toLowerCase();

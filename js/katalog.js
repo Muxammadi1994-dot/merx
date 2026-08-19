@@ -349,6 +349,13 @@ function katColsReset() {
 
 // ─────────────────────────────────────────────────────────────
 function renderKatalog() {
+  // ✅ 2026-08-19 (4-bosqich · 6-qism): KATALOG SERVERDAN TO'LDIRILADI.
+  // Manba `ombor.js` dagi `_omEnsureFull` — u tovarlar VA ombor
+  // yozuvlarini birga to'ldiradi (ikki joyda ikki xil so'rov
+  // bo'lmasin). Qoldiq SERVERDAN olinadi, rasm lokalda saqlanadi.
+  // ⚠️ POS ATAYLAB TEGILMAYDI: tovar qidiruvi va savat lokal keshdan
+  // ishlaydi — tez va oflaynda ham ochiladi (kelishilgan qoida).
+  try { if (typeof _omEnsureFull === "function") _omEnsureFull(); } catch (e) {}
   // 2026-07-24 (№9): kod berilmagan ranglarga bir martalik to'ldirish
   try { if (typeof ensureAllColorBarcodes === "function") ensureAllColorBarcodes(); } catch(e) {}
   // 2026-07-25: tannarx so'mga bir martalik o'tkaziladi (migratsiya)

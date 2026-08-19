@@ -267,7 +267,66 @@ function _updateCatFilterOptions(typeFilter) {
     tags.map(t => `<option value="${t}" ${t===curVal?"selected":""}>${t}</option>`).join("");
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-19 (4-bosqich · 7-qism): XARAJATLAR RO'YXATI TO'LDIRILADI
+// ═══════════════════════════════════════════════════════════════
+// Yozish 500 da serverga o'tgan edi, RO'YXAT esa lokal qolgandi —
+// ya'ni boshqa kassa kiritgan xarajat ko'rinmasligi mumkin edi.
+// Endi bo'lim ochilganda serverdan to'ldiriladi.
+//  · faqat o'qiydi · lokal yangiroq bo'lsa tegilmaydi
+//  · do'kon ikki marta tekshiriladi · 60 soniyada bir marta
+let _mlFullT = 0, _mlFullBusy = false;
+async function _mlEnsureFull() {
+  try {
+    if (db.settings && db.settings.serverLists === false) return;
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
+    if (navigator && navigator.onLine === false) return;
+    if (typeof _sb === "undefined" || !_sb) return;
+    if (_mlFullBusy || (Date.now() - _mlFullT) < 60000) return;
+    const sid = getCloudShopId();
+    const _dsid = (db.settings && db.settings._dataShopId) || null;
+    if (_dsid && String(_dsid) !== String(sid)) return;
+    _mlFullBusy = true;
+
+    const { data, error } = await _sb.from("xarajatlar").select("*").eq("shop_id", sid);
+    if (error) throw new Error(error.message);
+    if (String(getCloudShopId()) !== String(sid)) {
+      console.warn("⛔ Xarajatlar to'ldirish bekor: do'kon almashgan");
+      _mlFullBusy = false; return;
+    }
+
+    if (!Array.isArray(db.xarajatlar)) db.xarajatlar = [];
+    const _map = new Map(db.xarajatlar.map(x => [String(x.id), x]));
+    let qoshildi = 0;
+    (data || []).forEach(r => {
+      const obj = (r.data && typeof r.data === "object" && !Array.isArray(r.data))
+        ? { ...r.data, id: r.id }
+        : { id: r.id, date: r.date, category: r.category, amount: r.amount,
+            note: r.note, recipient: r.recipient, paidBy: r.paid_by,
+            method: r.method, amountUsd: r.amount_usd,
+            recurring: r.recurring, subCategory: r.sub_category,
+            xarajatType: r.xarajat_type, forMonth: r.for_month };
+      const lok = _map.get(String(r.id));
+      if (!lok) { db.xarajatlar.push(obj); qoshildi++; return; }
+      const _l = Date.parse(lok.updatedAt || 0) || 0;
+      const _c = Date.parse(obj.updatedAt || 0) || 0;
+      if (!(_l > _c)) Object.assign(lok, obj);
+    });
+
+    _mlFullT = Date.now(); _mlFullBusy = false;
+    if (qoshildi > 0) {
+      console.log("💸 Xarajatlar to'ldirildi: +" + qoshildi + " yozuv serverdan");
+      try { saveDB(); } catch (e) {}
+      renderMoliya();
+    }
+  } catch (e) {
+    _mlFullBusy = false; _mlFullT = Date.now();
+    console.warn("[moliya] to'ldirish:", e.message);
+  }
+}
+
 function renderMoliya() {
+  _mlEnsureFull();   // ✅ 2026-08-19: serverdan to'ldirish
   const { from, to } = molDateRange();
   const rate = db.settings?.rate || 12800;
   const q = ($("exp-q")||{value:""}).value.toLowerCase();

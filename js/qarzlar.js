@@ -502,45 +502,7 @@ async function _debtEnsureFull() {
     }
 
     // 3) Lokalga qo'shamiz — YANGIROQ lokal yozuvga tegilmaydi
-    const _yangiroqmi = (lok, srvAt) => {
-      const _l = Date.parse((lok && lok.updatedAt) || 0) || 0;
-      const _c = Date.parse(srvAt || 0) || 0;
-      return _l > _c;
-    };
-    let qoshildi = 0, yangilandi = 0;
-
-    const _sMap = new Map((db.sales || []).map(x => [String(x.id), x]));
-    (sData || []).forEach(r => {
-      const obj = (r.data && typeof r.data === "object" && !Array.isArray(r.data))
-        ? { ...r.data, id: r.id }
-        : { id: r.id, chekNum: r.chek_num, date: r.date, time: r.time,
-            staffId: r.staff_id, customerId: r.customer_id,
-            items: r.items || [], total: r.total, paid: r.paid,
-            remaining: r.remaining, due: r.due,
-            customerName: r.customer_name, customerPhone: r.customer_phone,
-            status: r.status, debtCurrency: r.debt_currency,
-            debtUsd: r.debt_usd, note: r.note,
-            origPaid: r.orig_paid != null ? r.orig_paid : r.paid,
-            origRemaining: r.orig_remaining != null ? r.orig_remaining : r.remaining,
-            origDebtUsd: r.orig_debt_usd != null ? r.orig_debt_usd : null };
-      const lok = _sMap.get(String(r.id));
-      if (!lok) { db.sales.push(obj); qoshildi++; return; }
-      if (!_yangiroqmi(lok, obj.updatedAt)) {
-        Object.assign(lok, obj); yangilandi++;
-      }
-    });
-
-    const _pMap = new Map((db.debtPayments || []).map(x => [String(x.id), x]));
-    if (!Array.isArray(db.debtPayments)) db.debtPayments = [];
-    (pData || []).forEach(r => {
-      const obj = (r.data && typeof r.data === "object" && !Array.isArray(r.data))
-        ? { ...r.data, id: r.id }
-        : { id: r.id, customerId: r.customer_id, date: r.date,
-            amount: r.amount, currency: r.currency, chekNum: r.chek_num };
-      const lok = _pMap.get(String(r.id));
-      if (!lok) { db.debtPayments.push(obj); qoshildi++; return; }
-      if (!_yangiroqmi(lok, obj.updatedAt)) Object.assign(lok, obj);
-    });
+    const qoshildi = _dbMerge(sData, pData);
 
     _dbFullT = Date.now(); _dbFullBusy = false;
     if (qoshildi > 0) {
@@ -551,6 +513,122 @@ async function _debtEnsureFull() {
   } catch (e) {
     _dbFullBusy = false; _dbFullT = Date.now();
     console.warn("[qarzlar] to'ldirish:", e.message);
+  }
+}
+
+// ✅ 2026-08-19: server qatorlarini lokalga BIRLASHTIRISH — yagona
+// joyda (qarzlar ro'yxati va qarzlar tarixi shundan foydalanadi;
+// ikki joyda ikki xil mantiq bo'lmasin). Qaytaradi: qo'shilganlar soni.
+// Qoida pull bilan bir xil: `data` hokim, lokal YANGIROQ bo'lsa tegilmaydi.
+function _dbMerge(sRows, pRows) {
+  let qoshildi = 0;
+  const _yangiroqmi = (lok, srvAt) =>
+    ((Date.parse((lok && lok.updatedAt) || 0) || 0) > (Date.parse(srvAt || 0) || 0));
+
+  if (!Array.isArray(db.sales)) db.sales = [];
+  const _sMap = new Map(db.sales.map(x => [String(x.id), x]));
+  (sRows || []).forEach(r => {
+    const obj = (r.data && typeof r.data === "object" && !Array.isArray(r.data))
+      ? { ...r.data, id: r.id }
+      : { id: r.id, chekNum: r.chek_num, date: r.date, time: r.time,
+          staffId: r.staff_id, customerId: r.customer_id,
+          items: r.items || [], total: r.total, paid: r.paid,
+          remaining: r.remaining, due: r.due,
+          customerName: r.customer_name, customerPhone: r.customer_phone,
+          status: r.status, debtCurrency: r.debt_currency,
+          debtUsd: r.debt_usd, note: r.note,
+          origPaid: r.orig_paid != null ? r.orig_paid : r.paid,
+          origRemaining: r.orig_remaining != null ? r.orig_remaining : r.remaining,
+          origDebtUsd: r.orig_debt_usd != null ? r.orig_debt_usd : null };
+    const lok = _sMap.get(String(r.id));
+    if (!lok) { db.sales.push(obj); _sMap.set(String(r.id), obj); qoshildi++; return; }
+    if (!_yangiroqmi(lok, obj.updatedAt)) Object.assign(lok, obj);
+  });
+
+  if (!Array.isArray(db.debtPayments)) db.debtPayments = [];
+  const _pMap = new Map(db.debtPayments.map(x => [String(x.id), x]));
+  (pRows || []).forEach(r => {
+    const obj = (r.data && typeof r.data === "object" && !Array.isArray(r.data))
+      ? { ...r.data, id: r.id }
+      : { id: r.id, customerId: r.customer_id, date: r.date,
+          amount: r.amount, currency: r.currency, chekNum: r.chek_num };
+    const lok = _pMap.get(String(r.id));
+    if (!lok) { db.debtPayments.push(obj); _pMap.set(String(r.id), obj); qoshildi++; return; }
+    if (!_yangiroqmi(lok, obj.updatedAt)) Object.assign(lok, obj);
+  });
+  return qoshildi;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-19 (4-bosqich · 3-qism): QARZLAR TARIXI TO'LDIRILADI
+// ═══════════════════════════════════════════════════════════════
+// Farqi: bu bo'lim YOPILGAN qarzlarni ham ko'rsatadi, ya'ni
+// "ochiq qarz" to'ldirishi (2-qism) bu yerga yetmaydi. Shuning
+// uchun TANLANGAN DAVR bo'yicha to'ldiriladi: davrdagi to'lovlar
+// va ular bog'langan cheklar serverdan olinadi.
+// Faqat o'qiydi · do'kon ikki marta tekshiriladi · oflaynda jim.
+let _qtFullKey = "", _qtFullBusy = false;
+async function _qtEnsureFull() {
+  try {
+    if (db.settings && db.settings.serverLists === false) return;
+    if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
+    if (navigator && navigator.onLine === false) return;
+    if (typeof _sb === "undefined" || !_sb) return;
+    const from = ($("qt-date-from") || { value: "" }).value;
+    const to   = ($("qt-date-to")   || { value: "" }).value;
+    const sid  = getCloudShopId();
+    const key  = [sid, from, to].join("|");
+    if (_qtFullBusy || _qtFullKey === key) return;
+    const _dsid = (db.settings && db.settings._dataShopId) || null;
+    if (_dsid && String(_dsid) !== String(sid)) return;
+    _qtFullBusy = true;
+
+    // 1) Davrdagi to'lovlar
+    let pq = _sb.from("debt_payments").select("*").eq("shop_id", sid);
+    if (from) pq = pq.gte("date", from);
+    if (to)   pq = pq.lte("date", to);
+    const { data: pData, error: pErr } = await pq;
+    if (pErr) throw new Error(pErr.message);
+
+    // 2) Shu to'lovlar bog'langan cheklar + davrda sotilgan qarz cheklari
+    const saleIds = new Set();
+    (pData || []).forEach(p2 => {
+      const d = (p2.data && typeof p2.data === "object") ? p2.data : {};
+      (d.allocations || []).forEach(a => { if (a && a.saleId) saleIds.add(String(a.saleId)); });
+      if (d.saleId) saleIds.add(String(d.saleId));
+    });
+    let sData = [];
+    if (saleIds.size) {
+      const { data: sd, error: sErr } = await _sb.from("sales")
+        .select("*").eq("shop_id", sid).in("id", [...saleIds].slice(0, 900));
+      if (sErr) throw new Error(sErr.message);
+      sData = sd || [];
+    }
+    if (from || to) {
+      let sq = _sb.from("sales").select("*").eq("shop_id", sid)
+        .or("remaining.gt.0,debt_usd.gt.0,orig_remaining.gt.0,orig_debt_usd.gt.0");
+      if (from) sq = sq.gte("date", from);
+      if (to)   sq = sq.lte("date", to);
+      const { data: sd2 } = await sq;
+      if (sd2 && sd2.length) sData = sData.concat(sd2);
+    }
+
+    // ⚠️ Do'kon almashgan bo'lsa — tashlaymiz (ikki jonli do'kon)
+    if (String(getCloudShopId()) !== String(sid)) {
+      console.warn("⛔ Qarzlar tarixi to'ldirish bekor: do'kon almashgan");
+      _qtFullBusy = false; return;
+    }
+
+    const qoshildi = _dbMerge(sData, pData);
+    _qtFullKey = key; _qtFullBusy = false;
+    if (qoshildi > 0) {
+      console.log("🧾 Qarzlar tarixi to'ldirildi: +" + qoshildi + " yozuv");
+      try { saveDB(); } catch (e) {}
+      renderQarzlarTarixi();
+    }
+  } catch (e) {
+    _qtFullBusy = false;
+    console.warn("[qarzlar tarixi] to'ldirish:", e.message);
   }
 }
 
@@ -2665,6 +2743,7 @@ function qtHlPeriod(p) {
 
 function renderQarzlarTarixi() {
   if (!_qtInitDone) { _qtInitDone = true; qtSetPeriod("today"); return; } // v166 (№14): birinchi ochilishda Bugun
+  _qtEnsureFull();   // ✅ 2026-08-19: davr bo'yicha serverdan to'ldirish
   if (qtViewMode === "total") { renderQarzlarTarixiTotal(); return; }
   renderQarzlarTarixiSplit();
 }
