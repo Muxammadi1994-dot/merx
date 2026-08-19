@@ -2839,23 +2839,18 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
     // Pull muvaffaqiyatli tugadi — endi push ga ruxsat beriladi
     _cloudPullDone = true;
     _pulledShopId = sid;
-    // ✅ 2026-08-19: TO'SIQ OCHILDI — NAVBATDAGILAR YUBORILSIN.
-    // Push "pull tugashi kerak" to'sig'iga tushsa, `ensureCloudPull()`
-    // chaqirib QAYTIB KETARDI va pull tugagach uni hech kim qayta
-    // turtmasdi (jonli isbot: 19-avg, oflayn sotuv bulutga chiqmadi).
-    // Endi pull yakunida yuborilmagan yozuv bor-yo'qligi tekshirilib,
-    // bo'lsa sinxron rejalashtiriladi.
-    try {
-      setTimeout(() => {
-        try {
-          const p = (typeof pendingCount === "function") ? pendingCount() : null;
-          if (p && p.total > 0) {
-            console.log("📤 Pull tugadi — " + p.total + " ta yuborilmagan yozuv jo'natiladi");
-            scheduleCloudSync();
-          }
-        } catch (e) {}
-      }, 1200);
-    } catch (e) {}
+    // ⛔ 2026-08-19: "PULL TUGAGACH AVTOMAT PUSH" OLIB TASHLANDI.
+    // U 491 da qo'shilgan edi (oflayn sotuv bulutga chiqmasligini
+    // yopish uchun). Lekin B20 da o'sha kuni BUTUN baza qayta
+    // yozilgani aniqlandi (1130 tovar, 704 sotuv bir lahzada) —
+    // pull keshni tozalaydi, shundan keyin HAR qator "o'zgargan"
+    // bo'lib chiqadi va avtomat turtki butun bazani jo'natadi.
+    // Xavf: eskirgan yoki begona do'kon nusxasi bulutdagi ishni
+    // bosib ketishi mumkin. Qayta yoqilishi mumkin, lekin FAQAT
+    // aniq shartlar bilan (do'kon egaligi tasdiqlangan + faqat
+    // haqiqatan yuborilmagan yozuvlar), alohida sessiyada.
+    // Oflayn sotuv baribir yopiq: `online` da qayta ulanish +
+    // 60 soniyalik tiklanish taymeri ishlaydi.
     try { _rtEnsure(); } catch(e) {} // v184: shu do'kon uchun realtime kanalini ochamiz
 
     // 2026-07-20: KUNLIK BULUT ZAXIRA — pull tugab, db to'liq bo'lgach.
