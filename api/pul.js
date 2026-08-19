@@ -727,6 +727,34 @@ module.exports = async (req, res) => {
 
       // (2) Yangi yozuvda takror tekshiruvi (xarajatda — o'tkazib
       //     yuboriladi: bir kunda bir xil summali ikki xarajat TABIIY)
+      // ✅ 2026-08-19: TOVARDA TAKROR — ARTIKUL + RANG bo'yicha.
+      // Nom bo'yicha tekshirib bo'lmaydi: bir nom har xil rangda bo'lishi
+      // TABIIY (§3.2 — har rang alohida tovar). Artikul bo'sh bo'lsa
+      // nom+rang juftligi olinadi.
+      // Ildiz (AP-17, 19-avg): ikki qurilma bir tovarni kiritdi, SKU lar
+      // har xil edi (server bergan), shuning uchun to'qnashuv bo'lmadi —
+      // lekin IKKI KARTA paydo bo'ldi. Endi server bilib turadi.
+      if (!eski && tbl === "products" && body.force !== true) {
+        const _art = String(data.art || "").trim().toLowerCase();
+        const _nom = String(data.name || "").trim().toLowerCase();
+        const _rang = String(((data.variants || [])[0] || {}).color || "")
+                        .trim().toLowerCase();
+        if (_art || _nom) {
+          const hamma = await sbAll(`products?shop_id=eq.${encodeURIComponent(shopId)}` +
+                                    `&select=id,sku,name,art,variants`);
+          const takror = (hamma || []).find(x => {
+            if (String(x.sku) === String(row.sku)) return false;   // o'zi
+            const xr = String(((x.variants || [])[0] || {}).color || "")
+                         .trim().toLowerCase();
+            if (_rang && xr && _rang !== xr) return false;         // rang boshqa
+            if (_art) return String(x.art || "").trim().toLowerCase() === _art;
+            return String(x.name || "").trim().toLowerCase() === _nom;
+          });
+          if (takror)
+            return res.status(200).json({ ok: false, code: "dup",
+              error: "Shu artikul va rangda tovar bor", row: takror });
+        }
+      }
       if (!eski && tbl !== "xarajatlar" && tbl !== "products") {
         const tel = String(row.phone || "").trim();
         const nom = String(row.name  || "").trim().toLowerCase();

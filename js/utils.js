@@ -3182,11 +3182,14 @@ async function _serverStockFlush() {
 // takrorni to'sadi, tahrirda to'qnashuvni aniqlaydi.
 // Qaytaradi: {ok:true,row} · {ok:false,code:"dup"|"conflict",row}
 //            · null (aloqa yo'q — chaqiruvchi lokal yo'ldan ketadi)
-async function serverSaveRecord(table, row, baseAt) {
+async function serverSaveRecord(table, row, baseAt, force) {
   try {
     if (typeof _serverRejimi !== "function" || !_serverRejimi()) return null;
     if (typeof _serverPay   !== "function") return null;
-    const r = await _serverPay({ action: "save_record", table, row, baseAt: baseAt || null });
+    // `force` — takror ogohlantirishidan keyin "baribir yozaman" javobi
+    const r = await _serverPay({ action: "save_record", table, row,
+                                 baseAt: baseAt || null,
+                                 force: force === true });
     if (!r) return null;
     return r;
   } catch (e) {

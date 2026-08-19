@@ -1949,7 +1949,7 @@ async function _addProductIchki() {   // ✅ 2026-08-18: SKU serverdan (async)
     // ✅ 2026-08-18: raqam SERVERDAN (ikki kassa to'qnashuvi yopiladi);
     // aloqa bo'lmasa lokal yo'l — oflaynda ish to'xtamaydi.
     const { id: newProdId, sku: _newSku2 } = await _apNextSkuAsync(t, 1);
-    db.products.push({
+    const _yangiTovar = {
       id: newProdId,
       sku: _newSku2,
       name, category: (($("ap-cat")||{value:""}).value || "").trim(),
@@ -1959,8 +1959,38 @@ async function _addProductIchki() {   // ✅ 2026-08-18: SKU serverdan (async)
       barcode: autoBarcode,
       image: apPendingImage || "",
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       variants: newVariants
-    });
+    };
+    // ═══════════════════════════════════════════════════════════
+    // ✅ 2026-08-19: YANGI TOVAR SERVER ORQALI YOZILADI
+    // ═══════════════════════════════════════════════════════════
+    // Avval SKU serverdan olinardi (18-avg), YOZUVNING O'ZI esa lokal
+    // ketardi. Shuning uchun AP-17 da (19-avg) ikki qurilma bir tovarni
+    // kiritganda SKU lar har xil bo'ldi — to'qnashuv yo'q, lekin IKKI
+    // KARTA paydo bo'ldi. Endi server bilib turadi: artikul+rang
+    // bo'yicha takror bo'lsa — kassirdan so'raladi.
+    // ⚠️ Nom bo'yicha tekshirilmaydi: bir nom har xil rangda TABIIY (§3.2).
+    // Aloqa yo'q bo'lsa eski yo'l ishlaydi — oflaynda ish to'xtamaydi.
+    if (typeof serverSaveRecord === "function") {
+      let _r = await serverSaveRecord("products", _yangiTovar, null);
+      if (_r && _r.ok === false && _r.code === "dup") {
+        const _b = _r.row || {};
+        const _bq = ((_b.variants || [])[0] || {}).qty;
+        if (!confirm("⚠️ Shu artikul va rangda tovar allaqachon bor:\n\n" +
+              (_b.name || "") + (_b.art ? "  ·  " + _b.art : "") +
+              "  ·  " + (_b.sku || "") +
+              (_bq != null ? "\nQoldiq: " + _bq : "") + "\n\n" +
+              "Ehtimol boshqa kassa kiritgan.\n\n" +
+              "OK — baribir YANGI karta yarataman\n" +
+              "Bekor — yaratmayman (mavjudiga kirim qilaman)")) {
+          toast("Yaratilmadi — mavjud tovarga kirim qiling", "info");
+          return;
+        }
+        _r = await serverSaveRecord("products", _yangiTovar, null, true);   // majburiy
+      }
+    }
+    db.products.push(_yangiTovar);
     // 2026-07-24 (№9): yangi tovarning har rangiga alohida barcode
     try { ensureColorBarcodes(db.products[db.products.length-1]); } catch(e) {}
   }
