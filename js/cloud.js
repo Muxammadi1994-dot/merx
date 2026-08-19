@@ -2833,6 +2833,23 @@ async function pullFromCloud(silent = false, skipRender = false) {
     // Pull muvaffaqiyatli tugadi — endi push ga ruxsat beriladi
     _cloudPullDone = true;
     _pulledShopId = sid;
+    // ✅ 2026-08-19: TO'SIQ OCHILDI — NAVBATDAGILAR YUBORILSIN.
+    // Push "pull tugashi kerak" to'sig'iga tushsa, `ensureCloudPull()`
+    // chaqirib QAYTIB KETARDI va pull tugagach uni hech kim qayta
+    // turtmasdi (jonli isbot: 19-avg, oflayn sotuv bulutga chiqmadi).
+    // Endi pull yakunida yuborilmagan yozuv bor-yo'qligi tekshirilib,
+    // bo'lsa sinxron rejalashtiriladi.
+    try {
+      setTimeout(() => {
+        try {
+          const p = (typeof pendingCount === "function") ? pendingCount() : null;
+          if (p && p.total > 0) {
+            console.log("📤 Pull tugadi — " + p.total + " ta yuborilmagan yozuv jo'natiladi");
+            scheduleCloudSync();
+          }
+        } catch (e) {}
+      }, 1200);
+    } catch (e) {}
     try { _rtEnsure(); } catch(e) {} // v184: shu do'kon uchun realtime kanalini ochamiz
 
     // 2026-07-20: KUNLIK BULUT ZAXIRA — pull tugab, db to'liq bo'lgach.
@@ -2974,8 +2991,40 @@ window.addEventListener("online", () => {
   // 2026-08-09: oflayn kirgan xodim uchun avval token tiklanadi —
   // muvaffaqiyatda _staffTokenRetry o'zi push + sozlama pull qiladi.
   try { if (typeof window._staffTokenRetry === "function") window._staffTokenRetry(); } catch(e) {}
-  try { if (_sb) { scheduleCloudSync(); _rtEnsure(); } } catch(e) {} // v184: realtime kanalini ham tiklaymiz
+  // ✅ 2026-08-19: AVVAL QAYTA ULANAMIZ, KEYIN SINXRON.
+  // Ildiz (Shoetest, 19-avg): oflaynda `initSupabase` yiqilib `_sb=null`
+  // qilib qo'yadi. Bu yerda esa shart `if (_sb)` edi — ya'ni internet
+  // qaytganda sinxron UMUMAN rejalashtirilmasdi. Qurilma "jim o'lik"
+  // qolardi: qoldiq (api/pul orqali) va bot xabari ketardi-yu, SOTUVNING
+  // O'ZI bulutga chiqmasdi (CHK-20260819-0001-DW). Kassir hech narsa
+  // sezmaydi, chek esa mini-appda bo'sh chiqadi.
+  (async () => {
+    try {
+      if (!_sb) { const ok = await initSupabase(); if (!ok) return; }
+      await ensureCloudPull();     // to'siq ochilsin (do'kon mosligi)
+      scheduleCloudSync();
+      _rtEnsure();
+    } catch (e) { console.warn("[online] tiklash:", e.message); }
+  })();
 });
+
+// ✅ 2026-08-19: ULANISH YIQILSA — AVTOMAT QAYTA URINISH (60 s).
+// Avval tiklanish faqat `online` hodisasiga bog'liq edi. Wi-Fi ulanib
+// turib tarmoq o'lik bo'lsa (`online` otilmaydi) qurilma soatlab jim
+// qolishi mumkin edi. Endi har daqiqada tekshiriladi: ulanish yo'q,
+// lekin brauzer "onlayn" desa — qayta uriniladi va navbat bo'shatiladi.
+setInterval(() => {
+  try {
+    if (_sb) return;
+    if (navigator && navigator.onLine === false) return;
+    initSupabase().then(ok => {
+      if (!ok) return;
+      console.log("🔌 Ulanish tiklandi — navbatdagilar yuboriladi");
+      ensureCloudPull().then(() => scheduleCloudSync()).catch(() => {});
+      try { _rtEnsure(); } catch (e) {}
+    }).catch(() => {});
+  } catch (e) {}
+}, 60000);
 
 // ═══════════════════════════════════════════════════════════════════
 // REALTIME (2026-07-13, v184) — "signal → mavjud pull" modeli
