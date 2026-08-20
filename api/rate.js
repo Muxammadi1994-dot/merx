@@ -56,22 +56,37 @@ async function nbuOl() {
 // ── 3. bank.uz sahifasidan o'qish (JSON API yo'q) ────────────────
 // Sahifadagi jadvaldan bank nomi + sotuv kursini ajratamiz.
 // Sayt tuzilishi o'zgarsa bu manba jim yiqiladi — qolganlari ishlaydi.
-async function bankUzOl() {
+async function bankUzOl(cbRate) {
   const r = await fetch("https://bank.uz/uz/currency", { headers: UA });
   if (!r.ok) throw new Error("bank.uz: " + r.status);
-  const html = await r.text();
+  let html = await r.text();
 
-  // Yondashuv: avval RAQAM JUFTLARINI topamiz (oluv/sotuv), keyin
-  // ulardan OLDINGI teg ichidagi matndan bank nomini olamiz.
-  // Sabab: sayt tuzilishi (div/td/span) o'zgarsa ham raqam juftligi
-  // qoladi — nomi topilmasa ham kurs olinadi.
+  // ⚠️ 2026-08-20 (jonli xato): tahlilchi SVG ichidagi raqamlarni
+  // olib, kurs 19 193 deb yozgan va bank nomi o'rniga `clip-path`
+  // bo'lagi chiqqan. Shuning uchun AVVAL sahifa tozalanadi.
+  html = html
+    .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ");
+
   const juft = /(1[0-9][\s\u00a0]?[0-9]{3}(?:[.,][0-9]{1,2})?)[^0-9]{1,80}?(1[0-9][\s\u00a0]?[0-9]{3}(?:[.,][0-9]{1,2})?)/g;
   const N = x => parseFloat(String(x).replace(/[\s\u00a0]/g, "").replace(",", "."));
-  const nomOl = (oldMatn) => {
-    const toza = oldMatn.replace(/<[^>]*>/g, "|").replace(/&[a-z]+;/gi, " ");
+
+  // Bank nomi HAQIQIY nomga o'xshashi shart — HTML qoldiqlari rad etiladi
+  const nomToza = (t) => {
+    const toza = t.replace(/<[^>]*>/g, "|").replace(/&[a-z#0-9]+;/gi, " ");
     const bolaklar = toza.split("|").map(x => x.trim())
       .filter(x => /[A-Za-z\u0410-\u044f]{3,}/.test(x));
-    return (bolaklar[bolaklar.length - 1] || "").replace(/\s+/g, " ").slice(0, 40);
+    for (let i = bolaklar.length - 1; i >= 0; i--) {
+      const n = bolaklar[i].replace(/\s+/g, " ").slice(0, 40);
+      if (/[<>=\/{}\[\]]/.test(n)) continue;                 // HTML qoldig'i
+      if (/path|clip|svg|xmlns|href|width|height|fill|http|www/i.test(n)) continue;
+      if (!/^[A-Za-z\u0410-\u044f\u040e\u045e\u049a\u049b\u0492\u0493\u04b2\u04b3]/.test(n)) continue;
+      if (n.length < 3) continue;
+      return n;
+    }
+    return "";
   };
 
   const out = [];
@@ -80,14 +95,20 @@ async function bankUzOl() {
     const a = N(m[1]), b = N(m[2]);
     if (!a || !b) continue;
     const sell = Math.max(a, b), buy = Math.min(a, b);
-    if (sell < 8000 || sell > 30000) continue;          // aql chegarasi
-    if (Math.abs(sell - buy) > sell * 0.15) continue;   // juft emas, tasodif
-    const nom = nomOl(html.slice(Math.max(0, m.index - 150), m.index));
-    if (/markaziy|central|cbu/i.test(nom)) continue;    // MB alohida olinadi
-    out.push({ bank: nom || "Bank", sell, buy });
+    // ✅ ASOSIY HIMOYA: Markaziy Bank kursidan 10% dan ko'p farq
+    // qilgan raqam — kurs EMAS (sahifadagi boshqa son yoki EUR).
+    if (cbRate > 0) {
+      if (Math.abs(sell - cbRate) > cbRate * 0.10) continue;
+      if (Math.abs(buy  - cbRate) > cbRate * 0.10) continue;
+    } else if (sell < 9000 || sell > 20000) continue;
+    if (sell - buy < 0 || sell - buy > sell * 0.08) continue;   // oluv/sotuv juftimi
+    const nom = nomToza(html.slice(Math.max(0, m.index - 200), m.index));
+    if (!nom) continue;                                          // nomi yo'q — ishonmaymiz
+    if (/markaziy|central|cbu/i.test(nom)) continue;
+    out.push({ bank: nom, sell, buy });
     sanoq++;
   }
-  if (!out.length) throw new Error("bank.uz: jadval o'qilmadi");
+  if (!out.length) throw new Error("bank.uz: ishonchli qator topilmadi");
   return out;
 }
 
@@ -111,9 +132,17 @@ export default async function handler(req, res) {
   // ── Tijorat banklari ────────────────────────────────────────────
   const tashxis = [];
   let banklar = [];
+  // ✅ 2026-08-20: MB kursi AVVAL olinadi — u "langar" bo'ladi.
+  // Har bir manbadan kelgan raqam shunga solishtiriladi; 10% dan
+  // ko'p farq qilsa rad etiladi (jonli xato: 19 193 yozilib qolgan).
+  let cbAnchor = 0;
+  try { cbAnchor = (await cbuOl()).rate; } catch (e) {}
   for (const [nom, fn] of [["nbu", nbuOl], ["bank.uz", bankUzOl]]) {
     try {
-      const r = await fn();
+      const r0 = await fn(cbAnchor);
+      const r = (r0 || []).filter(x => !cbAnchor ||
+        (x.sell > 0 && Math.abs(x.sell - cbAnchor) <= cbAnchor * 0.10));
+      if (!r.length) throw new Error("kurslar MB dan juda uzoq");
       banklar = banklar.concat(r);
       tashxis.push({ manba: nom, ok: true, soni: r.length,
                      namuna: r.slice(0, 3) });
@@ -130,8 +159,7 @@ export default async function handler(req, res) {
   });
   banklar = [...xarita.values()].sort((a, b) => b.sell - a.sell);
 
-  let cb = null;
-  try { cb = (await cbuOl()).rate; } catch (e) {}
+  const cb = cbAnchor || null;
 
   if (debug)
     return res.status(200).json({ ok: true, cb, banklar, tashxis });

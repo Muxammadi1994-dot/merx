@@ -90,7 +90,8 @@ function renderRateModeUI() {
       const upd = db.settings?.rateUpdatedAt
         ? new Date(db.settings.rateUpdatedAt).toLocaleString("uz-UZ", {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})
         : "hali yangilanmagan";
-      const _bn = db.settings?.rateBankName || "aniqlanmagan";
+      const _bn = String(db.settings?.rateBankName || "aniqlanmagan")
+        .replace(/[<>&"']/g, "");   // ✅ HTML qoldig'i ekranga chiqmasin
       statusEl.innerHTML = `🏛 <b>${_bn}</b> — eng yuqori sotuv kursi · ${upd}` +
         ` <button class="btn btn-ghost btn-sm" onclick="checkAutoRate(true)" style="margin-left:8px;padding:2px 8px"><i class="ti ti-refresh"></i> Hozir yangilash</button>` +
         `<div id="rate-banks-box" style="margin-top:10px"></div>`;
@@ -123,12 +124,38 @@ async function checkAutoRate(force) {
     const data = await res.json();
     // ── Bank rejimi: ro'yxatdan eng yuqori SOTUV kursi ──
     if (_mode === "bank" && data.ok && Array.isArray(data.banklar)) {
-      db.settings.rateBanksList = data.banklar.slice(0, 30);   // sozlama uchun
+      // Ro'yxatga faqat ISHONCHLI qatorlar (nom to'g'ri, kurs langarga yaqin)
+      db.settings.rateBanksList = data.banklar.filter(b => {
+        if (!b || !(b.sell > 0)) return false;
+        if (/[<>=\/{}\[\]]/.test(b.bank || "")) return false;
+        if (/path|clip|svg|xmlns|href|http/i.test(b.bank || "")) return false;
+        const _l = Number(data.cb) || 0;
+        return !_l || Math.abs(b.sell - _l) <= _l * 0.10;
+      }).slice(0, 30);
       const tanlangan = Array.isArray(db.settings.rateBanks) ? db.settings.rateBanks : [];
       const nomzod = tanlangan.length
         ? data.banklar.filter(b => tanlangan.includes(b.bank))
         : data.banklar;
-      const eng = nomzod.sort((a, b) => b.sell - a.sell)[0];
+      // ✅ 2026-08-20 (jonli xato): IKKINCHI QAVAT HIMOYA.
+      // Server SVG ichidagi raqamni olib 19 193 yozib qo'ygan edi.
+      // Endi klient ham tekshiradi: yangi kurs Markaziy Bank
+      // kursidan (yoki joriy kursdan) 10% dan ko'p farq qilsa —
+      // QABUL QILINMAYDI. Pulga tegadigan raqam jimgina buzilmasin.
+      const _langar = Number(data.cb) || Number(db.settings?.rate) || 0;
+      const _nomOk = (n) => n && !/[<>=\/{}\[\]]/.test(n) &&
+                     !/path|clip|svg|xmlns|href|http/i.test(n);
+      const _ishonchli = nomzod.filter(b =>
+        b && b.sell > 0 && _nomOk(b.bank) &&
+        (!_langar || Math.abs(b.sell - _langar) <= _langar * 0.10));
+      const eng = _ishonchli.sort((a, b) => b.sell - a.sell)[0];
+      if (!eng && nomzod.length) {
+        console.warn("[kurs] banklardan ishonchli qiymat chiqmadi:", nomzod.slice(0, 5));
+        if (force) toast("⚠️ Bank kurslari ishonchsiz — kurs o'zgartirilmadi", "err");
+        // Ro'yxatni ham tozalab qo'yamiz, sozlamada chalkash nom turmasin
+        db.settings.rateBanksList = [];
+        saveDB(); renderRateModeUI();
+        return;
+      }
       if (eng && eng.sell > 0) {
         db.settings.rate = Math.round(eng.sell);
         db.settings.rateBankName = eng.bank;
@@ -194,11 +221,12 @@ function renderRateBanksBox() {
      <div style="display:flex;flex-wrap:wrap;gap:6px;max-height:180px;overflow:auto">` +
     ro.map(b => {
       const on = tan.includes(b.bank);
+      const _nb = String(b.bank || "").replace(/[<>&"']/g, "");
       return `<button onclick="toggleRateBank('${String(b.bank).replace(/'/g, "\\'")}')"
         style="font-size:11.5px;padding:4px 9px;border-radius:8px;cursor:pointer;
         border:1.5px solid ${on ? "#0F6E56" : "var(--brd)"};
         background:${on ? "#dcfce7" : "#fff"};color:${on ? "#0F6E56" : "#444"}">
-        ${on ? "✓ " : ""}${b.bank} · ${fmt(Math.round(b.sell))}</button>`;
+        ${on ? "✓ " : ""}${_nb} · ${fmt(Math.round(b.sell))}</button>`;
     }).join("") + `</div>`;
 }
 
