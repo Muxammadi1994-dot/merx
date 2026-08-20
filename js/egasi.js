@@ -58,7 +58,15 @@ function adminTabSwitch(tab) {
 // HAR DOIM "manual" deb hisoblanadi — mavjud do'konlarning hech
 // birida xatti-harakat o'zgarmaydi, faqat ANIQ ravishda "Avtomatik"
 // tanlangandagina yangi oqim ishga tushadi.
-function getRateMode() { return db.settings?.rateMode === "auto" ? "auto" : "manual"; }
+// ✅ 2026-08-20: UCHINCHI REJIM — "bank" (tijorat banklari).
+// Do'konchi talabi: Markaziy Bank kursi tijorat banklarining SOTUV
+// kursidan past bo'ladi (MB rasmiy o'rtacha kurs e'lon qiladi, oluv/
+// sotuv emas). Endi uchinchi tanlov: belgilangan tijorat banklaridan
+// ENG YUQORI sotuv kursi avtomat olinadi va bank nomi ko'rsatiladi.
+function getRateMode() {
+  const m = db.settings?.rateMode;
+  return (m === "auto" || m === "bank") ? m : "manual";
+}
 
 function renderRateModeUI() {
   const mode = getRateMode();
@@ -76,6 +84,17 @@ function renderRateModeUI() {
         ? new Date(db.settings.rateUpdatedAt).toLocaleString("uz-UZ", {day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})
         : "hali yangilanmagan";
       statusEl.innerHTML = `🏦 Markaziy Bank kursi · oxirgi yangilanish: ${upd} <button class="btn btn-ghost btn-sm" onclick="checkAutoRate(true)" style="margin-left:8px;padding:2px 8px"><i class="ti ti-refresh"></i> Hozir yangilash</button>`;
+    } else if (mode === "bank") {
+      // ✅ 2026-08-20: bank nomi FAQAT sozlamalarda ko'rsatiladi
+      // (yuqori panelda faqat kurs — do'konchi talabi).
+      const upd = db.settings?.rateUpdatedAt
+        ? new Date(db.settings.rateUpdatedAt).toLocaleString("uz-UZ", {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})
+        : "hali yangilanmagan";
+      const _bn = db.settings?.rateBankName || "aniqlanmagan";
+      statusEl.innerHTML = `🏛 <b>${_bn}</b> — eng yuqori sotuv kursi · ${upd}` +
+        ` <button class="btn btn-ghost btn-sm" onclick="checkAutoRate(true)" style="margin-left:8px;padding:2px 8px"><i class="ti ti-refresh"></i> Hozir yangilash</button>` +
+        `<div id="rate-banks-box" style="margin-top:10px"></div>`;
+      try { renderRateBanksBox(); } catch (e) {}
     } else {
       statusEl.textContent = "";
     }
@@ -84,15 +103,58 @@ function renderRateModeUI() {
 
 let _rateCheckBusy = false;
 async function checkAutoRate(force) {
-  if (getRateMode() !== "auto") return;
+  const _mode = getRateMode();
+  if (_mode !== "auto" && _mode !== "bank") return;
   if (_rateCheckBusy) return;
   const today = _dStr(new Date());
   const lastDate = (db.settings?.rateUpdatedAt || "").slice(0,10);
-  if (!force && lastDate === today) return; // bugun allaqachon yangilangan
+  // ✅ Bank rejimida kun davomida ham yangilanadi (banklar kunda bir
+  // necha marta o'zgartiradi) — 30 daqiqada bir marta.
+  if (!force) {
+    if (_mode === "auto" && lastDate === today) return;
+    if (_mode === "bank") {
+      const _oxirgi = Date.parse(db.settings?.rateUpdatedAt || 0) || 0;
+      if (_oxirgi && (Date.now() - _oxirgi) < 30 * 60 * 1000) return;
+    }
+  }
   _rateCheckBusy = true;
   try {
-    const res = await fetch("/api/rate");
+    const res = await fetch(_mode === "bank" ? "/api/rate?mode=banks" : "/api/rate");
     const data = await res.json();
+    // ── Bank rejimi: ro'yxatdan eng yuqori SOTUV kursi ──
+    if (_mode === "bank" && data.ok && Array.isArray(data.banklar)) {
+      db.settings.rateBanksList = data.banklar.slice(0, 30);   // sozlama uchun
+      const tanlangan = Array.isArray(db.settings.rateBanks) ? db.settings.rateBanks : [];
+      const nomzod = tanlangan.length
+        ? data.banklar.filter(b => tanlangan.includes(b.bank))
+        : data.banklar;
+      const eng = nomzod.sort((a, b) => b.sell - a.sell)[0];
+      if (eng && eng.sell > 0) {
+        db.settings.rate = Math.round(eng.sell);
+        db.settings.rateBankName = eng.bank;
+        db.settings.rateUpdatedAt = new Date().toISOString();
+        saveDB();
+        if ($("s-rate")) $("s-rate").value = db.settings.rate;
+        renderRateModeUI();
+        if (typeof updateRatePill === "function") updateRatePill();
+        if (typeof updateCostCurrency === "function") updateCostCurrency();
+        if (typeof pushToCloud === "function") pushToCloud();
+        if (force) toast(`✅ Kurs yangilandi: 1$ = ${fmt(db.settings.rate)} so'm (${eng.bank})`);
+        return;
+      }
+      if (data.fallback && data.rate > 0) {
+        // Tijorat manbalari ishlamadi — MB kursi bilan davom etamiz
+        db.settings.rate = Math.round(data.rate);
+        db.settings.rateBankName = "Markaziy Bank (zaxira)";
+        db.settings.rateUpdatedAt = new Date().toISOString();
+        saveDB(); renderRateModeUI();
+        if (typeof updateRatePill === "function") updateRatePill();
+        if (force) toast("⚠️ Bank kurslari olinmadi — Markaziy Bank kursi qo'yildi", "err");
+        return;
+      }
+      if (force) toast("❌ Bank kurslarini olib bo'lmadi", "err");
+      return;
+    }
     if (data.ok && data.rate > 0) {
       db.settings.rate = Math.round(data.rate);
       db.settings.rateUpdatedAt = new Date().toISOString();
@@ -114,6 +176,42 @@ async function checkAutoRate(force) {
   }
 }
 
+// ✅ 2026-08-20: sozlamalarda banklar ro'yxati — admin qaysi banklarni
+// hisobga olishni belgilaydi. Bo'sh qoldirilsa — HAMMASI (eng yuqorisi).
+function renderRateBanksBox() {
+  const box = document.getElementById("rate-banks-box");
+  if (!box) return;
+  const ro = Array.isArray(db.settings?.rateBanksList) ? db.settings.rateBanksList : [];
+  if (!ro.length) {
+    box.innerHTML = `<div style="font-size:12px;color:#888">
+      Banklar ro'yxati hali olinmagan — "Hozir yangilash" ni bosing.</div>`;
+    return;
+  }
+  const tan = Array.isArray(db.settings?.rateBanks) ? db.settings.rateBanks : [];
+  box.innerHTML =
+    `<div style="font-size:12px;color:#666;margin-bottom:6px">
+       Hisobga olinadigan banklar (hech biri belgilanmasa — hammasi):</div>
+     <div style="display:flex;flex-wrap:wrap;gap:6px;max-height:180px;overflow:auto">` +
+    ro.map(b => {
+      const on = tan.includes(b.bank);
+      return `<button onclick="toggleRateBank('${String(b.bank).replace(/'/g, "\\'")}')"
+        style="font-size:11.5px;padding:4px 9px;border-radius:8px;cursor:pointer;
+        border:1.5px solid ${on ? "#0F6E56" : "var(--brd)"};
+        background:${on ? "#dcfce7" : "#fff"};color:${on ? "#0F6E56" : "#444"}">
+        ${on ? "✓ " : ""}${b.bank} · ${fmt(Math.round(b.sell))}</button>`;
+    }).join("") + `</div>`;
+}
+
+function toggleRateBank(nom) {
+  const tan = Array.isArray(db.settings?.rateBanks) ? [...db.settings.rateBanks] : [];
+  const i = tan.indexOf(nom);
+  if (i >= 0) tan.splice(i, 1); else tan.push(nom);
+  db.settings.rateBanks = tan;
+  saveDB();
+  renderRateBanksBox();
+  checkAutoRate(true);        // tanlov o'zgardi — kursni qayta hisoblaymiz
+}
+
 // ── Valyuta yorlig'i — SOZLAMALAR va yuqori panel uchun YAGONA format,
 // shu bilan ikkalasi HAR DOIM bir xil ko'rinishda bo'ladi ──────────
 function currencyPillText() {
@@ -128,6 +226,7 @@ function currencyPillText() {
 // camelCase → bulut ustuni (server merge uchun)
 const _SET_USTUN = {
   rate: "rate", rateMode: "rate_mode", rateUpdatedAt: "rate_updated_at",
+  rateBanks: "rate_banks", rateBankName: "rate_bank_name",
   priceCurrency: "price_currency", showChakana: "show_chakana",
   name: "shop_name", shopType: "shop_type", ownerName: "owner_name",
   chekConfig: "chek_config", debtCols: "debt_cols",

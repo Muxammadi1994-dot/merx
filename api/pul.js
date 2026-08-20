@@ -675,6 +675,116 @@ module.exports = async (req, res) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // ✅ 2026-08-19: MAOSH TO'LOVI — SERVERDA, TAKROR-QULF BILAN
+    // ═══════════════════════════════════════════════════════════════
+    // Ildiz: `paidMonths` va `salaryHistory` lokal massivga qo'shilardi.
+    // Ikki qurilmada bir oy to'lansa — IKKALASI ham yozilardi va push
+    // ularni birlashtirardi: xodimga bir oy uchun ikki marta maosh.
+    // Endi server tekshiradi: shu xodim + shu oy allaqachon to'langan
+    // bo'lsa RAD etadi (`code:"paid"`), xarajat yozuvi ham yaratilmaydi.
+    // Xarajat va xodim yozuvi BIR AMALDA — biri yozilib ikkinchisi
+    // qolib ketmasin.
+    if (action === "pay_salary") {
+      if (!(await _verify))
+        return res.status(401).json({ ok: false, error: "Token yaroqsiz" });
+      const staffId = String(body.staffId || "");
+      const oy      = String(body.month || "");
+      const summa   = Number(body.amount) || 0;
+      if (!staffId || !oy || summa <= 0)
+        return res.status(400).json({ ok: false, error: "staffId/month/amount kerak" });
+
+      const xod = await sbAll(`staff?shop_id=eq.${encodeURIComponent(shopId)}` +
+                              `&id=eq.${encodeURIComponent(staffId)}&select=id,name,data`);
+      const x0 = (xod && xod[0]) || null;
+      if (!x0) return res.status(200).json({ ok: false, error: "Xodim topilmadi" });
+
+      const d = (x0.data && typeof x0.data === "object") ? x0.data : {};
+      const oylar = Array.isArray(d.paidMonths) ? d.paidMonths : [];
+      const tarix = Array.isArray(d.salaryHistory) ? d.salaryHistory : [];
+
+      // ✅ 2026-08-19 (egasining savoli): MAOSH BO'LIB TO'LANISHI MUMKIN.
+      // Avans, keyin qolgani — bu odatiy amaliyot. Shuning uchun
+      // "bir marta to'langan bo'lsa RAD etish" NOTO'G'RI bo'lardi.
+      // To'g'ri qoida:
+      //  · shu oyga to'langan JAMI summa hisoblanadi;
+      //  · yangi to'lov bilan birga hisoblangan maoshdan OSHSA —
+      //    ogohlantiriladi (`code:"over"`), kassir tasdiqlasa yoziladi;
+      //  · bir daqiqa ichida BIR XIL summa takrorlansa — bu ikki
+      //    bosish yoki ikki qurilma (`code:"dup"`), RAD etiladi.
+      const oyTarix = tarix.filter(h => h && h.month === oy);
+      const tolangan = oyTarix.reduce((a, h) => a + (Number(h.amount) || 0), 0);
+      const kutilgan = Number(body.expected) || 0;
+
+      // Takror-qulf: bir daqiqada bir xil summa
+      const _hozir = Date.now();
+      const takror = oyTarix.find(h => {
+        if (Math.abs((Number(h.amount) || 0) - summa) > 0.5) return false;
+        const _t = Date.parse(h.ts || h.date || 0) || 0;
+        return _t && (_hozir - _t) < 60000;
+      });
+      if (takror && body.force !== true)
+        return res.status(200).json({ ok: false, code: "dup",
+          error: "Bir daqiqa ichida shu summa allaqachon to'langan",
+          row: { name: x0.name, tolangan, avvalgi: oyTarix } });
+
+      // Hisoblangandan oshib ketish
+      if (kutilgan > 0 && (tolangan + summa) > kutilgan + 1 && body.force !== true)
+        return res.status(200).json({ ok: false, code: "over",
+          error: "Hisoblangan maoshdan oshadi",
+          row: { name: x0.name, tolangan, kutilgan,
+                 yangi: summa, avvalgi: oyTarix } });
+
+      const now = new Date().toISOString();
+      const bugun = new Date(Date.now() + 5 * 3600 * 1000).toISOString().slice(0, 10);
+
+      // 1) Xarajat yozuvi
+      const xarId = Number(body.expenseId) || Date.now();
+      const xarD = { id: xarId, date: bugun, category: "Maosh",
+                     amount: summa, recipient: x0.name || "",
+                     paidBy: "kassa", method: body.method || "naqd",
+                     note: body.note || (oy + " oyi maoshi"), updatedAt: now };
+      const r1 = await fetch(`${SB_URL}/rest/v1/xarajatlar`, {
+        method: "POST",
+        headers: { ...H(), "Content-Type": "application/json",
+                   Prefer: "resolution=merge-duplicates" },
+        body: JSON.stringify({ shop_id: shopId, id: xarId, date: bugun,
+          category: "Maosh", amount: summa, recipient: x0.name || "",
+          paid_by: "kassa", method: body.method || "naqd",
+          note: xarD.note, data: xarD, updated_at: now })
+      });
+      if (!r1.ok) {
+        const t = await r1.text().catch(() => "");
+        return res.status(200).json({ ok: false, error: "Xarajat: " + t.slice(0, 120) });
+      }
+
+      // 2) Xodim yozuvi (oy muhri)
+      // ✅ Oy "to'langan" deb belgilanadi FAQAT to'liq yopilganda —
+      // qisman to'lovda ro'yxatda "Qisman" ko'rinishi kerak.
+      const _jami = tolangan + summa;
+      d.paidMonths = (kutilgan > 0 && _jami + 1 < kutilgan)
+        ? oylar.filter(x => x !== oy)          // hali to'liq emas
+        : [...new Set([...oylar, oy])];
+      d.salaryHistory = [...tarix, { month: oy, amount: summa,
+        method: body.method || "naqd", note: xarD.note, date: bugun,
+        ts: now }];
+      d.updatedAt = now;
+      delete d.pin; delete d.pinHash;          // ochiq PIN bulutga yozilmaydi
+      const r2 = await fetch(`${SB_URL}/rest/v1/staff`, {
+        method: "POST",
+        headers: { ...H(), "Content-Type": "application/json",
+                   Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ shop_id: shopId, id: x0.id,
+          name: x0.name, data: d, updated_at: now })
+      });
+      if (!r2.ok) {
+        const t = await r2.text().catch(() => "");
+        return res.status(200).json({ ok: false, error: "Xodim: " + t.slice(0, 120) });
+      }
+      return res.status(200).json({ ok: true, expense: xarD, staffData: d,
+        tolangan: _jami, kutilgan, toliq: !(kutilgan > 0 && _jami + 1 < kutilgan) });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // ✅ 2026-08-19: TO'PLAMLI TOVAR YOZUVI (import uchun)
     // ═══════════════════════════════════════════════════════════════
     // Excel importda 100+ tovar bir yo'la kiritiladi. Har biri uchun

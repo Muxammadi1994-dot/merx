@@ -3538,10 +3538,15 @@ function renderAudit() {
   const NOM = { delete:"Tovar o'chirildi", restore:"Arxivdan tiklandi",
     cancel:"Sotuv bekor qilindi", atkaz:"To'lov atkaz qilindi",
     narx:"Narx o'zgardi", kurs:"Kurs o'zgardi",
-    inventar:"Qoldiq sanaldi", qoldiq:"Qoldiq harakati" };
+    inventar:"Qoldiq sanaldi", qoldiq:"Qoldiq harakati",
+    // ✅ 2026-08-19: TOVAR YARATILISHI. Ildiz — 19-avgust forenzikasida
+    // "bu kartani kim yaratdi?" savoliga javob yo'q edi: audit faqat
+    // tahrir va o'chirishni yozardi. Endi oltala yaratish yo'li ham
+    // yoziladi (qo'lda, rang, nusxa, import, to'plam, ajratish).
+    yaratish:"Tovar yaratildi" };
   const RANG = { delete:"#A32D2D", restore:"#0F6E56", cancel:"#A32D2D",
     atkaz:"#8A6D1F", narx:"#185FA5", kurs:"#6B4FBB",
-    inventar:"#5F5E5A", qoldiq:"#0F6E56" };
+    inventar:"#5F5E5A", qoldiq:"#0F6E56", yaratish:"#0F6E56" };
 
   const st = document.getElementById("au-stat");
   if (st) st.textContent = list.length + " ta yozuv" +

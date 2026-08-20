@@ -2368,6 +2368,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <select id="au-act" onchange="renderAudit()" class="inp" style="min-width:150px">
             <option value="">Barcha amallar</option>
+            <option value="yaratish">Tovar yaratish</option>
             <option value="delete">Tovar o'chirish</option>
             <option value="restore">Tiklash</option>
             <option value="cancel">Sotuv bekori</option>
@@ -2761,7 +2762,8 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
               <label>Kurs turi</label>
               <div class="seg" style="margin-top:6px">
                 <button data-ratemode="manual" onclick="saveSetting('rateMode','manual')">✍️ Qo'lda</button>
-                <button data-ratemode="auto" onclick="saveSetting('rateMode','auto')">🏦 Avtomatik (Markaziy Bank)</button>
+                <button data-ratemode="auto" onclick="saveSetting('rateMode','auto')">🏦 Markaziy Bank</button>
+                <button data-ratemode="bank" onclick="saveSetting('rateMode','bank');checkAutoRate(true)">🏛 Tijorat banki (eng yuqori sotuv)</button>
               </div>
             </div>
             <div class="fld">
@@ -5180,10 +5182,10 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=172"></script>
-<script src="js/utils.js?v=291"></script>
+<script src="js/utils.js?v=292"></script>
 <script src="js/auth.js?v=211"></script>
 <script src="js/sms.js?v=148"></script>
-<script src="js/cloud.js?v=297"></script>
+<script src="js/cloud.js?v=298"></script>
 <script src="js/dashboard.js?v=160"></script>
 <script src="js/pos.js?v=271"></script>
 <script src="js/katalog.js?v=285"></script>
@@ -5192,9 +5194,9 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 <script src="js/qarzlar.js?v=233"></script>
 <script src="js/tarix.js?v=195"></script>
 <script src="js/hisobot.js?v=155"></script>
-<script src="js/xodimlar.js?v=162"></script>
+<script src="js/xodimlar.js?v=163"></script>
 <script src="js/moliya.js?v=176"></script>
-<script src="js/egasi.js?v=207"></script>
+<script src="js/egasi.js?v=208"></script>
 <script src="js/portal.js?v=143"></script>
 <script src="js/init.js?v=152"></script>
 <script>
@@ -5488,7 +5490,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 508;
+  window.SW_V = 509;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5511,7 +5513,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=508")
+    navigator.serviceWorker.register("/sw.js?v=509")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

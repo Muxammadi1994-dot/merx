@@ -1295,6 +1295,10 @@ async function pushToCloud() {
           // Jonli isbotlar: chek shiori yo'qolishi (10-avgust),
           // `server_pay` o'z-o'zidan false bo'lib qolishi (14-avgust).
           ...(db.settings?.rateUpdatedAt != null ? { rate_updated_at: db.settings.rateUpdatedAt } : {}),
+          // ✅ 2026-08-20: tijorat banki rejimi — belgilangan banklar
+          // va joriy manba nomi (SQL: MERX-KURS-USTUNLARI-2026-08-20)
+          ...(db.settings?.rateBanks != null ? { rate_banks: db.settings.rateBanks } : {}),
+          ...(db.settings?.rateBankName != null ? { rate_bank_name: db.settings.rateBankName } : {}),
           ...(db.settings?.debtPayMethodsShown != null ? { debt_pay_methods_shown: db.settings.debtPayMethodsShown } : {}),
           ...(db.settings?.debtCols != null ? { debt_cols: db.settings.debtCols } : {}),
           // ⚠️ 2026-08-09 (C-2): XARAJAT TEGLARI endi sinxron.
@@ -4031,9 +4035,12 @@ function applyCloudSettings(sets) {
   // Bo'sh bo'lsa lokaldagi saqlanadi.
   if (sets.owner_name) db.settings.ownerName = sets.owner_name;
 
+  // ✅ 2026-08-20: uchinchi rejim "bank" (tijorat banklari) qo'shildi
   db.settings.rateMode      = sets.rate_mode
-    ? (sets.rate_mode === "auto" ? "auto" : "manual")
+    ? ((sets.rate_mode === "auto" || sets.rate_mode === "bank") ? sets.rate_mode : "manual")
     : (db.settings.rateMode || "manual");
+  if (sets.rate_banks     != null) db.settings.rateBanks    = sets.rate_banks;
+  if (sets.rate_bank_name != null) db.settings.rateBankName = sets.rate_bank_name;
   // ⚠️ 2026-08-09: PULL KELGACH KO'RSATKICHLAR HAM YANGILANADI.
   // Ma'lumot db ga tushardi-yu, tepadagi kurs pilli (tb-rate) va
   // do'kon nomi (sb-shop) QAYTA CHIZILMASDI — xodim kirganda kurs

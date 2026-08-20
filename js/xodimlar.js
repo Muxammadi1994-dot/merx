@@ -120,32 +120,128 @@ function payStaffSalary(staffId) {
   setTimeout(()=>{ const el=$("sal-sum"); if(el){el.dataset.raw=ms.totalPay; el.select();} },50);
 }
 
-function confirmPaySalary(staffId, month, fullPay) {
+let _salBusy = false;   // ✅ 2026-08-19: ikki bosish qulfi (bir qurilma)
+async function confirmPaySalary(staffId, month, fullPay) {
   const s      = db.staff.find(x => x.id === staffId); if (!s) return;
   const rawSum = getRawVal("sal-sum");
   const method = ($("sal-method")||{value:"naqd"}).value;
   const note   = ($("sal-note")||{value:""}).value || `${month} oyi maoshi`;
   if (!rawSum || rawSum <= 0) { toast("Summani kiriting","err"); return; }
+  if (_salBusy) { toast("⏳ To'lov yuborilmoqda — kuting", "err"); return; }
+  _salBusy = true;
+  try {
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ 2026-08-19: MAOSH SERVER ORQALI (takror-qulf)
+  // ═══════════════════════════════════════════════════════════
+  // Ildiz: `paidMonths` lokal massiv edi. Ikki qurilmada bir oy
+  // to'lansa ikkalasi ham yozilib, push ularni birlashtirardi —
+  // xodimga bir oy uchun IKKI MARTA maosh. Endi server tekshiradi.
+  // Xarajat va xodim yozuvi bir amalda — biri yozilib ikkinchisi
+  // qolib ketmaydi. Aloqa yo'q bo'lsa eski yo'l ishlaydi.
+  const _xarId = nextId();
+  if (typeof _serverRejimi === "function" && _serverRejimi() &&
+      typeof _serverPay === "function") {
+    try {
+      let _r = await _serverPay({ action: "pay_salary",
+        staffId: String(staffId), month, amount: rawSum,
+        method, note, expenseId: _xarId, expected: Number(fullPay) || 0 });
+
+      // ✅ 2026-08-19: MAOSH BO'LIB TO'LANADI (avans + qolgani).
+      // Server ikki holatda so'raydi:
+      //  · "dup"  — bir daqiqada bir xil summa (ikki bosish / ikki
+      //             qurilma) → RAD, chunki bu takror to'lov belgisi;
+      //  · "over" — hisoblangan maoshdan oshadi → kassir tasdiqlasa
+      //             yoziladi (mukofot, avans qaytarish kabi holatlar).
+      if (_r && _r.ok === false && _r.code === "dup") {
+        const _av = (_r.row && _r.row.avvalgi) || [];
+        alert("⛔ Bir daqiqa ichida AYNAN shu summa to'langan.\n\n" +
+          _av.slice(-3).map(h => "· " + h.date + " — " +
+            (typeof fmt === "function" ? fmt(h.amount) : h.amount) + " so'm").join("\n") +
+          "\n\nEhtimol ikki marta bosildi yoki boshqa qurilmadan to'landi.");
+        return;
+      }
+      if (_r && _r.ok === false && _r.code === "over") {
+        const _q = _r.row || {};
+        if (!confirm("⚠️ Hisoblangan maoshdan oshadi\n\n" +
+              "Hisoblangan: " + fmt(_q.kutilgan || 0) + " so'm\n" +
+              "Allaqachon to'langan: " + fmt(_q.tolangan || 0) + " so'm\n" +
+              "Yangi to'lov: " + fmt(_q.yangi || 0) + " so'm\n" +
+              "Jami bo'ladi: " + fmt((_q.tolangan || 0) + (_q.yangi || 0)) + " so'm\n\n" +
+              "OK — baribir to'layman\nBekor — to'lamayman")) {
+          return;
+        }
+        _r = await _serverPay({ action: "pay_salary",
+          staffId: String(staffId), month, amount: rawSum,
+          method, note, expenseId: _xarId,
+          expected: Number(fullPay) || 0, force: true });
+      }
+      if (_r && _r.ok) {
+        // Server yozdi — lokalga AYNAN shu natijani qo'yamiz
+        if (!db.xarajatlar) db.xarajatlar = [];
+        if (_r.expense) db.xarajatlar.push(_r.expense);
+        if (_r.staffData) {
+          s.paidMonths    = _r.staffData.paidMonths || s.paidMonths || [];
+          s.salaryHistory = _r.staffData.salaryHistory || s.salaryHistory || [];
+          s.updatedAt     = _r.staffData.updatedAt;
+        }
+        saveDB();
+        $("salary-modal")?.remove();
+        closeModal("staffdetail");
+        renderXodimlar();
+        toast(`✅ ${s.name}: ${fmt(rawSum)} so'm maosh to'landi` +
+          (_r.toliq === false
+            ? ` · qisman (${fmt(_r.tolangan || 0)} / ${fmt(_r.kutilgan || 0)})`
+            : ""));
+        return;
+      }
+    } catch (e) { console.warn("[maosh] server:", e.message); }
+  }
+
+  // ── ESKI YO'L (oflayn yoki server javob bermadi) ──
   if (!db.xarajatlar) db.xarajatlar = [];
   db.xarajatlar.push({
-    id: nextId(), date: today(), category: "Maosh",
+    id: _xarId, date: today(), category: "Maosh",
     amount: rawSum, recipient: s.name, paidBy: "kassa", method, note
   });
   if (!s.paidMonths) s.paidMonths = [];
-  if (!s.paidMonths.includes(month)) s.paidMonths.push(month);
   if (!s.salaryHistory) s.salaryHistory = [];
-  s.salaryHistory.push({ month, amount: rawSum, method, note, date: today() });
+  s.salaryHistory.push({ month, amount: rawSum, method, note,
+                         date: today(), ts: new Date().toISOString() });
+  // ✅ 2026-08-19: oflayn yo'lda ham AYNAN shu qoida — oy faqat
+  // to'liq yopilganda "to'langan" bo'ladi (server bilan bir xil).
+  const _jamiOfl = salaryPaidSum(staffId, month);
+  const _kutOfl  = Number(fullPay) || 0;
+  if (!(_kutOfl > 0 && _jamiOfl + 1 < _kutOfl)) {
+    if (!s.paidMonths.includes(month)) s.paidMonths.push(month);
+  } else {
+    s.paidMonths = s.paidMonths.filter(x => x !== month);
+  }
+  s.updatedAt = new Date().toISOString();
   saveDB();
   $("salary-modal")?.remove();
   closeModal("staffdetail");
   renderXodimlar();
   toast(`✅ ${s.name}: ${fmt(rawSum)} so'm maosh to'landi`);
+  } finally { _salBusy = false; }
 }
 
+// ✅ 2026-08-19: "To'landi" endi FAQAT to'liq yopilganda.
+// Avval bir marta to'lansa (masalan avans) oy "to'langan" bo'lib
+// qolardi va tugma yo'qolardi — qolgan qismini to'lash imkonsiz edi.
+// Endi `paidMonths` ga oy faqat to'liq yopilganda kiritiladi
+// (serverda ham shunday), qisman holat esa alohida ko'rsatiladi.
 function isSalaryPaid(staffId, month) {
   const s = db.staff.find(x => x.id === staffId);
-  return (s?.paidMonths||[]).includes(month) ||
-    (s?.salaryHistory||[]).some(h => h.month === month);
+  return (s?.paidMonths||[]).includes(month);
+}
+
+// Shu oyga to'langan JAMI summa (qisman to'lovlar yig'indisi)
+function salaryPaidSum(staffId, month) {
+  const s = db.staff.find(x => x.id === staffId);
+  return (s?.salaryHistory||[])
+    .filter(h => h && h.month === month)
+    .reduce((a, h) => a + (Number(h.amount) || 0), 0);
 }
 
 function getSalaryHistory(staffId) {
@@ -274,7 +370,11 @@ function renderStaffTable(from, to) {
         ${paid
           ? `<span class="bg bg-g" style="font-size:11px">✅ To'landi</span>`
           : r.totalPay > 0
-            ? `<button class="btn btn-sm" style="font-size:11px;color:var(--acc);padding:3px 8px" onclick="payStaffSalary(${s.id})">💰 To'lash</button>`
+            ? `<button class="btn btn-sm" style="font-size:11px;color:var(--acc);padding:3px 8px" onclick="payStaffSalary(${s.id})">💰 ${
+                salaryPaidSum(s.id, m) > 0 ? "Qolganini" : "To'lash"}</button>
+               ${salaryPaidSum(s.id, m) > 0
+                 ? `<div style="font-size:10px;color:#E9A500;font-weight:600">
+                      ${fmtK(salaryPaidSum(s.id, m))} to'langan</div>` : ""}`
             : "—"}
       </td>
       <td>
@@ -399,8 +499,13 @@ function openStaffDetail(id) {
           ? `<div style="padding:6px 14px;background:#dcfce7;color:#16a34a;border-radius:8px;font-size:12px;font-weight:600;margin-top:16px">✅ To'landi</div>`
           : `<button class="btn btn-acc btn-sm" onclick="payStaffSalary(${s.id});closeStaffDetail()"
               style="margin-top:16px;white-space:nowrap">
-              💰 To'lash
-            </button>`}
+              ${salaryPaidSum(s.id, today().slice(0,7)) > 0
+                ? `💰 Qolganini to'lash` : `💰 To'lash`}
+            </button>
+            ${salaryPaidSum(s.id, today().slice(0,7)) > 0
+              ? `<div style="font-size:11px;color:#E9A500;font-weight:600;margin-top:6px">
+                   Qisman to'langan: ${fmt(salaryPaidSum(s.id, today().slice(0,7)))} so'm</div>`
+              : ""}`}
       </div>
     </div>
 

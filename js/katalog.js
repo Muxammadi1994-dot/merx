@@ -808,6 +808,10 @@ async function _duplicateProductIchki(sku, event) {   // ✅ 2026-08-18: SKU ser
       _r = await serverSaveRecord("products", copy, null, true);
   }
   db.products.push(copy);
+  try {
+    auditLog("yaratish", "product", copy.sku, copy.name,
+      { after: "nusxa", note: "manba: " + (p.sku || "") });
+  } catch (e) {}
   try { ensureColorBarcodes(copy); } catch(e) {}
   db.seq = (db.seq || 1) + 1;
   saveDB();
@@ -1358,6 +1362,11 @@ async function _epConfirmAddColorIchki() {   // ✅ 2026-08-18: SKU serverdan (a
     }
   }
   db.products.push(_yangiRang);
+  try {
+    auditLog("yaratish", "product", _yangiRang.sku,
+      _yangiRang.name + " · " + color,
+      { after: "yangi rang", note: "rang qo'shildi" });
+  } catch (e) {}
   try { ensureColorBarcodes(db.products[db.products.length-1]); } catch(e) {}
   // ✅ 2026-08-12: KIRIM YOZUVI (avval YO'Q edi — qoldiq izsiz kirardi)
   try {
@@ -1821,6 +1830,11 @@ function splitColors() {
       });
       try { ensureColorBarcodes(db.products[db.products.length-1]); } catch(e) {}
       try { _splitYangilar.push(db.products[db.products.length-1]); } catch(e) {}
+      try {
+        const _sp = db.products[db.products.length-1];
+        auditLog("yaratish", "product", _sp.sku, _sp.name + " · " + c,
+          { after: "ranglar ajratildi", note: "manba: " + (p.sku || "") });
+      } catch (e) {}
     });
     p.variants = p.variants.filter(v => v.color === colors[0]);
   });
@@ -2061,6 +2075,16 @@ async function _addProductIchki() {   // ✅ 2026-08-18: SKU serverdan (async)
       }
     }
     db.products.push(_yangiTovar);
+    // ✅ 2026-08-19: TOVAR YARATILISHI AUDITGA YOZILADI.
+    // Ildiz: 19-avgust forenzikasida "bu kartani kim yaratdi?" savoliga
+    // javob topilmadi — audit faqat tahrir va o'chirishni yozardi.
+    try {
+      auditLog("yaratish", "product", _yangiTovar.sku,
+        _yangiTovar.name + (((_yangiTovar.variants || [])[0] || {}).color
+          ? " · " + _yangiTovar.variants[0].color : ""),
+        { after: "yangi tovar", note: "qo'lda qo'shildi" +
+          (_yangiTovar.art ? " · art " + _yangiTovar.art : "") });
+    } catch (e) {}
     // 2026-07-24 (№9): yangi tovarning har rangiga alohida barcode
     try { ensureColorBarcodes(db.products[db.products.length-1]); } catch(e) {}
   }
@@ -3486,6 +3510,10 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
       db.products.push(newProd);
       try { newProd.updatedAt = new Date().toISOString();
             _impYangilar.push(newProd); } catch (e) {}   // ✅ 2026-08-19
+      try {
+        auditLog("yaratish", "product", newProd.sku, newProd.name,
+          { after: "import", note: "Excel/AI import" });
+      } catch (e) {}
       p = newProd;
       added++;
     }
@@ -4611,6 +4639,11 @@ function _apCreateExtraColor(base, cd, batchId) {
   };
 
   db.products.push(prod);
+  try {
+    auditLog("yaratish", "product", prod.sku,
+      prod.name + " · " + (cd.color || ""),
+      { after: "ranglar to'plami", note: "AP to'plam" });
+  } catch (e) {}
   // ✅ 2026-08-19: SERVERGA ham yoziladi (506 naqshi). Bu funksiya
   // ranglar to'plamidan chaqiriladi (bir amalda bir necha rang) —
   // shuning uchun ogohlantirishsiz, `force` bilan: kassir ataylab
