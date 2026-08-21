@@ -779,10 +779,7 @@ function openResendCheks() {
     return;
   }
   _rsCust = c;
-  const list = (db.sales || [])
-    .filter(s => s && !s.cancelled && String(s.customerId) === String(c.id))
-    .sort((a, b) => ((a.date||"") + (a.time||"") < (b.date||"") + (b.time||"")) ? 1 : -1)
-    .slice(0, 200);
+  _rsFilter = { tur: "all", from: "", to: "" };   // ✅ 2026-08-21: filtrlar
 
   const old = document.getElementById("resend-modal");
   if (old) old.remove();
@@ -795,29 +792,29 @@ function openResendCheks() {
         <div style="font-weight:800;font-size:16px">📤 Cheklarni qayta yuborish</div>
         <div style="font-size:12.5px;color:#666;margin-top:3px">${c.name} · Telegram orqali</div>
       </div>
-      <div style="padding:10px 16px;border-bottom:1px solid var(--brd);display:flex;gap:8px;align-items:center">
+      <!-- ✅ 2026-08-21: FILTRLAR — tur va sana oralig'i -->
+      <div style="padding:10px 16px 6px;border-bottom:1px solid var(--brd)">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
+          <button class="rs-tur btn btn-sm" data-tur="all"        onclick="rsSetTur('all')">Barchasi</button>
+          <button class="rs-tur btn btn-sm" data-tur="tolandan"   onclick="rsSetTur('tolandan')">💵 Sotuv</button>
+          <button class="rs-tur btn btn-sm" data-tur="qarz"       onclick="rsSetTur('qarz')">📕 Qarz</button>
+          <button class="rs-tur btn btn-sm" data-tur="qaytarilgan" onclick="rsSetTur('qaytarilgan')">↩️ Qaytarish</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <input type="date" id="rs-from" class="inp" style="flex:1;min-width:130px;font-size:12.5px;padding:5px 8px"
+                 onchange="rsSetSana()">
+          <span style="color:#aaa;font-size:12px">—</span>
+          <input type="date" id="rs-to" class="inp" style="flex:1;min-width:130px;font-size:12.5px;padding:5px 8px"
+                 onchange="rsSetSana()">
+          <button class="btn btn-ghost btn-sm" onclick="rsClearSana()" style="font-size:11.5px">Tozalash</button>
+        </div>
+      </div>
+      <div style="padding:8px 16px;border-bottom:1px solid var(--brd);display:flex;gap:8px;align-items:center">
         <button class="btn btn-ghost btn-sm" onclick="rsToggleAll(true)">Hammasini belgilash</button>
         <button class="btn btn-ghost btn-sm" onclick="rsToggleAll(false)">Bekor qilish</button>
         <span id="rs-count" style="margin-left:auto;font-size:12px;color:#666"></span>
       </div>
-      <div id="rs-list" style="overflow:auto;padding:8px 16px;flex:1">
-        ${list.length ? list.map(s => {
-          const st = (typeof calcSaleState === "function") ? calcSaleState(s) : { remaining: s.remaining || 0 };
-          const qarz = (st.debtUsd > 0) ? fmtUsd(st.debtUsd) + " USD"
-                     : (st.remaining > 0) ? fmt(st.remaining) + " so'm" : "";
-          return `<label style="display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid #f2f2f2;cursor:pointer">
-            <input type="checkbox" class="rs-chk" value="${s.id}" onchange="rsCount()" style="width:17px;height:17px;flex:none">
-            <div style="flex:1;min-width:0">
-              <div style="font-weight:700;font-size:13px">${s.chekNum || s.id}</div>
-              <div style="font-size:11.5px;color:#777">${s.date || ""} ${s.time || ""} · ${(s.items||[]).length} tovar</div>
-            </div>
-            <div style="text-align:right;flex:none">
-              <div style="font-weight:700;font-size:13px">${fmt(s.total || 0)}</div>
-              ${qarz ? `<div style="font-size:11px;color:var(--red)">Qarz: ${qarz}</div>` : ""}
-            </div>
-          </label>`;
-        }).join("") : `<div style="text-align:center;color:#aaa;padding:24px;font-size:13px">Chek topilmadi</div>`}
-      </div>
+      <div id="rs-list" style="overflow:auto;padding:8px 16px;flex:1"></div>
       <div id="rs-progress" style="display:none;padding:8px 16px;background:#EFF6FF;color:#1D4ED8;font-size:12.5px;font-weight:600"></div>
       <div style="padding:12px 16px;border-top:1px solid var(--brd);display:flex;gap:8px">
         <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('resend-modal').remove()">Yopish</button>
@@ -828,6 +825,74 @@ function openResendCheks() {
     </div>`;
   m.onclick = e => { if (e.target === m && !_rsBusy) m.remove(); };
   document.body.appendChild(m);
+  rsRender();
+}
+
+// ✅ 2026-08-21: ro'yxat filtr bo'yicha qayta chiziladi.
+// Filtr o'zgarganda belgilanganlar tozalanadi — ko'rinmaydigan
+// chek tasodifan yuborilib ketmasin.
+let _rsFilter = { tur: "all", from: "", to: "" };
+
+function rsSetTur(t) { _rsFilter.tur = t; rsRender(); }
+function rsSetSana() {
+  _rsFilter.from = ($("rs-from") || { value: "" }).value;
+  _rsFilter.to   = ($("rs-to")   || { value: "" }).value;
+  rsRender();
+}
+function rsClearSana() {
+  if ($("rs-from")) $("rs-from").value = "";
+  if ($("rs-to"))   $("rs-to").value   = "";
+  _rsFilter.from = ""; _rsFilter.to = "";
+  rsRender();
+}
+
+function rsRender() {
+  const c = _rsCust; if (!c) return;
+  const box = document.getElementById("rs-list"); if (!box) return;
+
+  // Tugmalarni belgilash
+  document.querySelectorAll("#resend-modal .rs-tur").forEach(b => {
+    const on = b.dataset.tur === _rsFilter.tur;
+    b.style.cssText = "font-size:12px;padding:5px 11px;border-radius:8px;cursor:pointer;" +
+      (on ? "background:var(--acc);color:#fff;border:1.5px solid var(--acc);font-weight:700"
+          : "background:#fff;color:#555;border:1.5px solid var(--brd)");
+  });
+
+  let list = (db.sales || [])
+    .filter(s => s && !s.cancelled && String(s.customerId) === String(c.id));
+
+  // Tur bo'yicha
+  if (_rsFilter.tur !== "all")
+    list = list.filter(s => String(s.status || "") === _rsFilter.tur);
+  // Sana oralig'i
+  if (_rsFilter.from) list = list.filter(s => (s.date || "") >= _rsFilter.from);
+  if (_rsFilter.to)   list = list.filter(s => (s.date || "") <= _rsFilter.to);
+
+  list = list
+    .sort((a, b) => ((a.date||"") + (a.time||"") < (b.date||"") + (b.time||"")) ? 1 : -1)
+    .slice(0, 200);
+
+  box.innerHTML = list.length ? list.map(s => {
+    const st = (typeof calcSaleState === "function") ? calcSaleState(s) : { remaining: s.remaining || 0 };
+    const qarz = (st.debtUsd > 0) ? fmtUsd(st.debtUsd) + " USD"
+               : (st.remaining > 0) ? fmt(st.remaining) + " so'm" : "";
+    const belgi = s.status === "qaytarilgan" ? '<span style="color:#888">↩️</span>'
+                : s.status === "qarz"        ? '<span style="color:var(--red)">📕</span>'
+                :                              '<span style="color:var(--grn)">💵</span>';
+    return `<label style="display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid #f2f2f2;cursor:pointer">
+      <input type="checkbox" class="rs-chk" value="${s.id}" onchange="rsCount()" style="width:17px;height:17px;flex:none">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px">${belgi} ${s.chekNum || s.id}</div>
+        <div style="font-size:11.5px;color:#777">${s.date || ""} ${s.time || ""} · ${(s.items||[]).length} tovar</div>
+      </div>
+      <div style="text-align:right;flex:none">
+        <div style="font-weight:700;font-size:13px">${fmt(s.total || 0)}</div>
+        ${qarz ? `<div style="font-size:11px;color:var(--red)">Qarz: ${qarz}</div>` : ""}
+      </div>
+    </label>`;
+  }).join("") : `<div style="text-align:center;color:#aaa;padding:24px;font-size:13px">
+      Filtr bo'yicha chek topilmadi</div>`;
+
   rsCount();
 }
 
