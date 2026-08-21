@@ -197,6 +197,63 @@ export default async function handler(req, res) {
   const debug = String(req.query?.debug || "") === "1";
 
   // ══════════════════════════════════════════════════════════════
+  // 537 — MARKAZIY BANKDA TIJORAT BANK KURSLARI BORMI (`?probe=4`)
+  // ══════════════════════════════════════════════════════════════
+  // Egasining savoli (2026-08-22): "markaziy bankda boshqa banklar
+  // kurslari yo'qmi, shuning API si orqali bila olmaymizmi?"
+  // Bilganimiz: ishlatayotgan CBU manzili FAQAT rasmiy kursni beradi
+  // (bitta qator: Code, Ccy, Rate, Date). Taxmin qilgan
+  // `.../informatsiya-o-kursakh-valyut-kommercheskikh-bankov/` — 404.
+  // Ya'ni "yo'q" emas, MANZILNI TOPA OLMADIM.
+  // Shuning uchun manzilni TAXMIN QILMASDAN topamiz: CBU sahifalaridagi
+  // havolalarni o'qib, "kurs/valyut/bank/api/open-data" so'zlilarini
+  // ajratamiz. bank.uz da aynan shu usul ish berdi.
+  if (String(req.query?.probe || "") === "4") {
+    const SAHIFA = [
+      ["cbu-bosh",     "https://cbu.uz/uz/"],
+      ["cbu-xizmat",   "https://cbu.uz/uz/services/"],
+      ["cbu-arxiv",    "https://cbu.uz/uz/arkhiv-kursov-valyut/"],
+      ["cbu-opendata", "https://cbu.uz/uz/open-data/"],
+    ];
+    const KALIT = /(kurs|valyut|valut|exchange|rate|bank|api|open.?data|json)/i;
+    const havolalar = [];
+    const sahifaHolat = [];
+    for (const [nom, url] of SAHIFA) {
+      try {
+        const r = await fetch(url, { headers: UA });
+        const t = await r.text();
+        sahifaHolat.push({ nom, url, status: r.status, hajm: t.length });
+        if (!r.ok) continue;
+        const hav = (t.match(/(?:href|src)="([^"]{3,160})"/gi) || [])
+          .map(x => x.replace(/^(?:href|src)="/i, "").replace(/"$/, ""))
+          .filter(x => KALIT.test(x))
+          .filter(x => !/\.(css|png|jpe?g|svg|woff2?|ico|gif)/i.test(x));
+        hav.forEach(h => havolalar.push(h));
+      } catch (e) {
+        sahifaHolat.push({ nom, url, xato: String(e.message || e) });
+      }
+    }
+    // Nomzod JSON manzillari — status bilan
+    const NOMZOD = [
+      ["json-usd",     "https://cbu.uz/uz/arkhiv-kursov-valyut/json/USD/"],
+      ["json-hammasi", "https://cbu.uz/uz/arkhiv-kursov-valyut/json/"],
+      ["banklar-1",    "https://cbu.uz/uz/services/bank-rates/json/"],
+      ["banklar-2",    "https://cbu.uz/uz/kurs-valyut-kommercheskikh-bankov/"],
+      ["banklar-3",    "https://cbu.uz/uz/services/kurs-valyut-kommercheskikh-bankov/"],
+      ["opendata",     "https://data.gov.uz/uz/datasets"],
+    ];
+    const nomzodlar = await Promise.all(NOMZOD.map(([n, u]) => _probeOne(n, u)));
+
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json({ ok: true, izoh:
+      "537 · CBU sahifalaridagi kurs/bank/api so'zli havolalar. " +
+      "Tijorat bank kurslari sahifasi shu ro'yxatda ko'rinishi mumkin.",
+      sahifaHolat,
+      havolalar: [...new Set(havolalar)].slice(0, 60),
+      nomzodlar });
+  }
+
+  // ══════════════════════════════════════════════════════════════
   // 536 — BANK SAHIFASI (`?probe=3`) · FAQAT TEKSHIRUV
   // ══════════════════════════════════════════════════════════════
   // `?probe=2` bank.uz tuzilmasini ko'rsatdi:
