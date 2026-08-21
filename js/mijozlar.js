@@ -274,14 +274,31 @@ async function _mjEnsureFull() {
     if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
     if (navigator && navigator.onLine === false) return;
     if (typeof _sb === "undefined" || !_sb) return;
+    // ✅ 521 HIMOYASI: yordamchi `cloud.js` da. U biror sabab bilan
+    // yuklanmagan bo'lsa (yoki eski keshdagi nusxa ishlayotgan
+    // bo'lsa) — bu yer jim chiqadi, ro'yxat lokal holicha qoladi.
+    // Aks holda ReferenceError butun chizishni yiqitardi (514 darsi).
+    if (typeof _faqatKerakli !== "function") return;
     if (_mjFullBusy || (Date.now() - _mjFullT) < 60000) return;
     const sid = getCloudShopId();
     const _dsid = (db.settings && db.settings._dataShopId) || null;
     if (_dsid && String(_dsid) !== String(sid)) return;
     _mjFullBusy = true;
 
-    const { data, error } = await _sb.from("customers").select("*").eq("shop_id", sid);
-    if (error) throw new Error(error.message);
+    // ✅ 521 (2026-08-21): BUTUN JADVAL O'RNIGA — FAQAT KERAKLISI.
+    // Avval bu yerda `customers.select("*")` edi: bo'lim ochilganda butun
+    // jadval `data` JSON'i bilan qaytadan o'qilardi (60 soniyada bir
+    // marta, HAR qurilmadan — 15 ta qurilma). Endi avval faqat
+    // kalitlar (`id` + `updated_at`) o'qiladi, so'ng FAQAT lokalda
+    // yo'q yoki oxirgi to'ldirishdan keyin o'zgargani to'liq olinadi.
+    // To'liqlik kafolati o'zgarmadi. Birlashtirish (merge) mantiqiga
+    // TEGILMADI — u pastda o'z holicha qoladi.
+    const _kerakMap = new Map((db.customers || []).map(x => [String(x.id), x]));
+    const _ker = await _faqatKerakli({ jadval: "customers", sid, kalitUstun: "id",
+                                       lokalMap: _kerakMap, belgi: "mijozlar" });
+    const data = _ker.rows;
+    try { console.log("👥 Mijozlar to'ldirish: " + _ker.tortildi + "/" +
+      _ker.tekshirildi + " qator to'liq o'qildi"); } catch (e) {}
     if (String(getCloudShopId()) !== String(sid)) {
       console.warn("⛔ Mijozlar to'ldirish bekor: do'kon almashgan");
       _mjFullBusy = false; return;
@@ -301,6 +318,10 @@ async function _mjEnsureFull() {
       if (!(_l > _c)) Object.assign(lok, obj);
     });
 
+    // ✅ 521: birlashtirish tugadi — endi belgi yoziladi. Yiqilsa
+    // bu yerga yetib kelinmaydi va belgi eski holida qoladi:
+    // keyingi urinishda o'sha qatorlar qayta o'qiladi.
+    try { _ker.tasdiqla(); } catch (e) {}
     _mjFullT = Date.now(); _mjFullBusy = false;
     if (qoshildi > 0) {
       console.log("👥 Mijozlar to'ldirildi: +" + qoshildi + " yozuv serverdan");

@@ -82,6 +82,11 @@ async function _omEnsureFull() {
     if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
     if (navigator && navigator.onLine === false) return;
     if (typeof _sb === "undefined" || !_sb) return;
+    // ✅ 521 HIMOYASI: yordamchi `cloud.js` da. U biror sabab bilan
+    // yuklanmagan bo'lsa (yoki eski keshdagi nusxa ishlayotgan
+    // bo'lsa) — bu yer jim chiqadi, ro'yxat lokal holicha qoladi.
+    // Aks holda ReferenceError butun chizishni yiqitardi (514 darsi).
+    if (typeof _faqatKerakli !== "function") return;
     if (_omFullBusy || (Date.now() - _omFullT) < 60000) return;
     const sid = getCloudShopId();
     const _dsid = (db.settings && db.settings._dataShopId) || null;
