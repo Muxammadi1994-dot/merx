@@ -196,6 +196,81 @@ export default async function handler(req, res) {
   const mode  = String(req.query?.mode || "");
   const debug = String(req.query?.debug || "") === "1";
 
+  // ══════════════════════════════════════════════════════════════
+  // 535 — CHUQUR NAMUNA (`?probe=2`) · FAQAT TEKSHIRUV
+  // ══════════════════════════════════════════════════════════════
+  // `?probe=1` shuni ko'rsatdi: bank.uz TIRIK (200, 386 KB) va ichida
+  // 18 ta kursga o'xshash raqam bor (11 815…11 850 — MB 11 847 atrofida).
+  // Ya'ni MANBA emas, O'QISH MANTIQI buzilgan.
+  // Lekin probe=1 dagi namuna foydasiz chiqdi: u CSS manzilidagi
+  // `?1712567840422` raqamini "kurs" deb olib, atrofidan `<link>` teglarini
+  // ko'rsatdi. Sabab — raqam oynasi juda keng (10 000–14 000) va atribut
+  // ichidagi raqamlar tozalanmagan.
+  // Bu yerda ikkalasi tuzatildi:
+  //   · `href`/`src`/`data-*` atributlari OLIB TASHLANADI;
+  //   · faqat MB kursidan ±5% ichidagi raqamlar olinadi (langar).
+  // Qo'shimcha: sahifadagi "currency/kurs/valyut" so'zli havolalar ham
+  // qaytariladi — agar sayt o'zining AJAX/JSON manzilidan foydalansa,
+  // regex o'rniga o'shani ishlatgan MA'QUL (mo'rt bo'lmaydi).
+  if (String(req.query?.probe || "") === "2") {
+    let cb = 0;
+    try { cb = (await cbuOl()).rate; } catch (e) {}
+    const out = { ok: true, cb, izoh:
+      "535 · `namunalar` — haqiqiy kurs raqami atrofidagi HTML. " +
+      "Parser aynan shu tuzilma bo'yicha yoziladi. `havolalar` — saytning " +
+      "o'z API manzili bo'lishi mumkin.", bankuz: null, yangi: [] };
+
+    let _xom = "", _st = 0;
+    try {
+      const r = await fetch("https://bank.uz/uz/currency", { headers: UA });
+      _st = r.status; _xom = await r.text();
+    } catch (e) { out.bankuz = { xato: String(e.message || e) }; }
+
+    try {
+      let html = _xom;
+      html = html.replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+                 .replace(/<script[\s\S]*?<\/script>/gi, " ")
+                 .replace(/<style[\s\S]*?<\/style>/gi, " ")
+                 .replace(/<!--[\s\S]*?-->/g, " ")
+                 .replace(/\s(?:href|src|srcset|data-[a-z-]+)="[^"]*"/gi, " ");
+      const re = /1[12][\s\u00a0]?[0-9]{3}(?:[.,][0-9]{1,2})?/g;
+      const joy = []; let m;
+      while ((m = re.exec(html)) !== null && joy.length < 300) {
+        const n = parseFloat(String(m[0]).replace(/[\s\u00a0]/g, "").replace(",", "."));
+        if (cb && Math.abs(n - cb) > cb * 0.05) continue;   // langar
+        joy.push({ n, i: m.index });
+      }
+      out.bankuz = {
+        status: _st, hajm: html.length, topildi: joy.length,
+        raqamlar: joy.slice(0, 20).map(x => x.n),
+        namunalar: joy.slice(0, 3).map(x =>
+          html.slice(Math.max(0, x.i - 500), x.i + 150).replace(/\s+/g, " "))
+      };
+    } catch (e) { out.bankuz = { xato: String(e.message || e) }; }
+
+    // Saytning o'z API manzili bormi — XOM HTML dan havolalarni olamiz
+    // (yuqorida bir marta yuklangan — qayta so'ramaymiz)
+    try {
+      const hav = (_xom.match(/["'\(]([^"'\)\s]{4,120}(?:currency|kurs|valyut|valut|exchange|rate)[^"'\)\s]{0,60})["'\)]/gi) || [])
+        .map(x => x.replace(/^["'\(]|["'\)]$/g, ""))
+        .filter(x => !/\.(css|png|jpg|svg|woff|ico)/i.test(x));
+      out.havolalar = [...new Set(hav)].slice(0, 25);
+    } catch (e) { out.havolalar = ["xato: " + String(e.message || e)]; }
+
+    // Qo'shimcha nomzodlar — MB tijorat banklar sahifasi va boshqalar
+    const QOSHIMCHA = [
+      ["cbu-tijorat", "https://cbu.uz/uz/services/informatsiya-o-kursakh-valyut-kommercheskikh-bankov/"],
+      ["nbu-bosh",    "https://nbu.uz/uz/"],
+      ["bankuz-dollar","https://bank.uz/uz/currency/dollar"],
+      ["kapital-api", "https://kapitalbank.uz/api/exchange-rates"],
+      ["tbc",         "https://tbcbank.uz/uz/exchange-rates"],
+    ];
+    out.yangi = await Promise.all(QOSHIMCHA.map(([n, u]) => _probeOne(n, u)));
+
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json(out);
+  }
+
   // ── 534: MANBA QIDIRUVI — faqat tekshiruv, mantiqqa tegmaydi ──
   if (String(req.query?.probe || "") === "1") {
     const natija = await Promise.all(NOMZODLAR.map(([n, u]) => _probeOne(n, u)));
