@@ -1527,17 +1527,38 @@ async function _saveEditProductIchki() {   // ✅ 2026-08-18: to'qnashuv tekshir
           "   tovar SKU                     : " + (p.sku || "?"));
       }
     } catch (e) {}
+    // ═══════════════════════════════════════════════════════════════
+    // 🔴 533 (2026-08-22): OGOHLANTIRISH OLIB TASHLANDI — SO'RAMASDAN
+    //    SAQLANADI. O'LCHOV ESA QOLADI.
+    // ═══════════════════════════════════════════════════════════════
+    // EGASINING QARORI (2026-08-22, jonli sinovdan keyin):
+    // "tahrir server yo'lida bo'lsa, qaysi kassada tahrirlangani
+    //  qanchalik muhim — baribir keyingisi ustiga tahrirlaydi".
+    //
+    // TAHLIL — bu asosan TO'G'RI:
+    //   · ogohlantirish hech narsani TO'XTATMAYDI, faqat so'raydi;
+    //   · yakka qurilmada foydalanuvchi doim "OK" bosadi — foydasi nol;
+    //   · kartochka tahririni odatda ega/admin qiladi, ikki kassir bir
+    //     vaqtda BIR tovar kartochkasini tahrirlashi kam uchraydi;
+    //   · sotuv bu yo'ldan o'tmaydi (qoldiq alohida — §3.23);
+    //   · 2026-08-22 da soxta ogohlantirish yakka qurilmada TAKROR-TAKROR
+    //     chiqdi va ishni to'sdi (530 va 531 tuzatishlaridan keyin ham).
+    //
+    // NIMA YO'QOTILADI (ochiq yozib qo'yiladi): sinxronda BUTUN yozuv
+    // g'olib bo'ladi. Ya'ni A nomni, B narxni o'zgartirsa — keyin
+    // saqlagani birinchisining ishini jimgina o'chiradi. Endi bu haqda
+    // ogohlantirilmaydi. To'g'ri davo — maydon-maydon birlashtirish
+    // (server tomonda), u alohida ish sifatida rejaga olindi.
+    //
+    // ⚠️ O'LCHOV ATAYLAB QOLDIRILDI (532). Soxta to'qnashuv — ALOMAT:
+    // u `updatedAt` muhri ishonchsizligini ko'rsatadi. O'sha muhr esa
+    // BUTUN sinxronda "kim g'olib" qarorini beradi (`_mergeById`:
+    // `_lt > _ct`). Ya'ni sabab topilmasa, ma'lumot boshqa joyda
+    // JIMGINA bosib ketilishi mumkin — ogohlantirishdan jiddiyroq.
+    // Shuning uchun konsolga yozuv qoladi, foydalanuvchi bezovta
+    // qilinmaydi.
     if (_r && _r.ok === false && _r.code === "conflict") {
-      if (!confirm("⚠️ Bu tovarni boshqa kassa yangiladi.\n\n" +
-            "Saqlasangiz uning o'zgarishlari yo'qolishi mumkin.\n\n" +
-            "OK — baribir saqlayman\n" +
-            "Bekor — oynani yopib, yangi holatni ko'raman")) {
-        try { if (typeof closeModal === "function") closeModal("editprod"); } catch (e) {}
-        try { if (typeof pullFromCloud === "function") pullFromCloud(true); } catch (e) {}
-        toast("Tovar yangilandi — qaytadan oching", "info");
-        return;
-      }
-      _r = await serverSaveRecord("products", p, null);   // majburiy yozish
+      _r = await serverSaveRecord("products", p, null);   // so'ramasdan yoziladi
     }
     // ═══════════════════════════════════════════════════════════════
     // 🔴 530 (2026-08-22): SERVER MUHRI QABUL QILINADI — SOXTA

@@ -1201,6 +1201,17 @@ async function saveEditExp(id) {   // ✅ 2026-08-19: server orqali (async)
     const _r = await serverSaveRecord("xarajatlar", db.xarajatlar[idx], _baseAt);
     if (_r && _r.ok === false && _r.code === "conflict") {
       const _sv = (_r.row && _r.row.data) || {};
+      // 533 (2026-08-22): TO'QNASHUV TAHLILI (faqat o'lchov).
+      // Tovarda shu ogohlantirish YAKKA qurilmada ham soxta chiqdi —
+      // sababi hali topilmagan (`updatedAt` muhri ishonchsiz).
+      // Bu yerda ogohlantirish QOLDIRILDI (soxta chiqqani hali
+      // ko'rilmagan), lekin chiqsa sababi darhol ko'rinsin.
+      try {
+        console.warn("⚠️ TO'QNASHUV TAHLILI (xarajat)\n" +
+          "   taqqoslash nuqtasi : " + (_baseAt || "(BO'SH)") + "\n" +
+          "   bulutdagi muhr     : " + (_sv.updatedAt || "(yo'q)") + "\n" +
+          "   qurilma soati      : " + new Date().toISOString());
+      } catch (e) {}
       if (!confirm("⚠️ Bu xarajatni boshqa qurilma yangilagan" +
             (_sv.amount ? " (hozirgi summa: " + fmt(_sv.amount) + " so'm)" : "") +
             ".\n\nOK — baribir saqlayman\nBekor — yangi holatni ko'raman")) {
