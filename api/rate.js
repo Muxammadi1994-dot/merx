@@ -112,9 +112,102 @@ async function bankUzOl(cbRate) {
   return out;
 }
 
+// ══════════════════════════════════════════════════════════════════
+// 534 (2026-08-22) — MANBA QIDIRUVI (`?probe=1`) · FAQAT TEKSHIRUV
+// ══════════════════════════════════════════════════════════════════
+// NIMA UCHUN: 2026-08-22 da `?mode=banks&debug=1` shuni ko'rsatdi —
+//   nbu     → "NBU: 404"                (manzil endi mavjud emas)
+//   bank.uz → "ishonchli qator topilmadi" (sahifa tuzilishi o'zgargan)
+//   banklar → []
+// Ya'ni tijorat bank kursi UMUMAN ishlamayapti va jimgina Markaziy
+// Bank kursiga tushib qolgan.
+//
+// Yangi manbani YODDAN yozish xato bo'lardi — `nbu.uz` ning 404 bo'lishi
+// aynan shuni ko'rsatdi. Shuning uchun nomzodlarni SERVERNING O'ZI
+// tekshiradi: qaysi manzil javob beradi, JSON mi yoki HTML mi, ichida
+// kursga o'xshash raqamlar bormi va nechta.
+//
+// Bu yerda HECH QANDAY mantiq o'zgarmaydi — mavjud rejimlar tegilmagan.
+// Natijaga qarab keyingi paketda to'g'ri manba ulanadi.
+const NOMZODLAR = [
+  // Ishlayotgani — nazorat namunasi
+  ["cbu-json",      "https://cbu.uz/uz/arkhiv-kursov-valyut/json/USD/"],
+  // NBU — manzil o'zgargan bo'lishi mumkin, bir necha variant
+  ["nbu-eski",      "https://nbu.uz/exchange-rates/json/"],
+  ["nbu-uz",        "https://nbu.uz/uz/exchange-rates/json/"],
+  ["nbu-api",       "https://nbu.uz/api/exchange-rates/json/"],
+  // Agregatorlar
+  ["bankuz-html",   "https://bank.uz/uz/currency"],
+  ["kursuz-html",   "https://kurs.uz/uz"],
+  ["kursuz-api",    "https://kurs.uz/api/v1/kurs"],
+  // Yirik banklar (ochiq API bo'lishi mumkin)
+  ["kapital",       "https://kapitalbank.uz/uz/services/exchange-rates/"],
+  ["hamkor",        "https://hamkorbank.uz/uz/exchange-rates/"],
+  ["infin",         "https://infinbank.com/uz/private/exchange-rates/"],
+];
+
+async function _probeOne(nom, url) {
+  const t0 = Date.now();
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 7000);
+  try {
+    const r = await fetch(url, { headers: UA, signal: ac.signal });
+    const ct = r.headers.get("content-type") || "";
+    const txt = await r.text();
+    const ms = Date.now() - t0;
+    if (!r.ok) return { nom, url, status: r.status, ms, xato: "HTTP " + r.status };
+
+    // JSON mi?
+    let json = null;
+    try { json = JSON.parse(txt); } catch (e) {}
+
+    // Kursga o'xshash raqamlar (11 000–13 000 oralig'i, MB kursi atrofi)
+    const toza = txt.replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+                    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+                    .replace(/<style[\s\S]*?<\/style>/gi, " ");
+    const raqamlar = (toza.match(/1[12][\s\u00a0]?[0-9]{3}(?:[.,][0-9]{1,2})?/g) || [])
+      .map(x => parseFloat(String(x).replace(/[\s\u00a0]/g, "").replace(",", ".")))
+      .filter(n => n >= 10000 && n <= 14000);
+    const noyob = [...new Set(raqamlar)];
+
+    // Birinchi raqam atrofidan namuna — parserni to'g'ri yozish uchun
+    let namuna = "";
+    if (noyob.length) {
+      const i = toza.search(/1[12][\s\u00a0]?[0-9]{3}/);
+      if (i > 0) namuna = toza.slice(Math.max(0, i - 220), i + 120)
+                             .replace(/\s+/g, " ").slice(0, 320);
+    }
+    return { nom, url, status: r.status, ms,
+             tur: json ? "JSON" : (ct.includes("html") ? "HTML" : ct.slice(0, 40)),
+             hajm: txt.length,
+             json_kalitlar: json ? (Array.isArray(json)
+               ? ("massiv[" + json.length + "] · " + Object.keys(json[0] || {}).slice(0, 12).join(","))
+               : Object.keys(json).slice(0, 12).join(",")) : null,
+             kurs_raqamlari: noyob.length,
+             namuna_raqamlar: noyob.slice(0, 8),
+             namuna_matn: namuna };
+  } catch (e) {
+    return { nom, url, ms: Date.now() - t0,
+             xato: (e && e.name === "AbortError") ? "vaqt tugadi (7 s)" : String(e.message || e) };
+  } finally { clearTimeout(timer); }
+}
+
 export default async function handler(req, res) {
   const mode  = String(req.query?.mode || "");
   const debug = String(req.query?.debug || "") === "1";
+
+  // ── 534: MANBA QIDIRUVI — faqat tekshiruv, mantiqqa tegmaydi ──
+  if (String(req.query?.probe || "") === "1") {
+    const natija = await Promise.all(NOMZODLAR.map(([n, u]) => _probeOne(n, u)));
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json({
+      ok: true,
+      izoh: "534 · manba qidiruvi. `kurs_raqamlari` — sahifada topilgan " +
+            "kursga o'xshash noyob raqamlar soni. JSON manbada `json_kalitlar` " +
+            "muhim; HTML manbada `namuna_matn` parser yozish uchun kerak.",
+      natija
+    });
+  }
 
   // ── Standart: Markaziy Bank (eski xatti-harakat — o'zgarmagan) ──
   if (mode !== "banks" && !debug) {
