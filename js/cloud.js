@@ -603,6 +603,46 @@ function _mergeById(arr, rows, keyField) {
 // Qaytaradi: true — delta bajarildi, false — to'liq pull kerak
 let _deltaFailStreak = 0;
 
+// ══════════════════════════════════════════════════════════════
+// 525 (2026-08-22) — QO'RIQCHI QATOR DARAJASIGA TUSHIRILDI
+// ══════════════════════════════════════════════════════════════
+// MUAMMO (2026-08-21 jonli log): delta tortish davomida qurilmada
+// bitta `saveDB()` bo'lsa, TORTILGAN HAMMA MA'LUMOT tashlanardi va
+// belgi (`_setLastPull`) oldinga surilmasdi. Keyingi delta o'shani
+// QAYTA tortardi, ustiga yangilari qo'shilardi:
+//   626 qator → 733 qator → "signaldan ekranga: 36.0 s"
+// Tortish uzayganda o'zgarish bo'lish ehtimoli ham oshadi — ya'ni
+// aylanma o'zini o'zi kuchaytirardi. Kassa band bo'lgan kuni delta
+// deyarli hech qachon bajarilmaydi.
+//
+// NEGA QO'RIQCHI KERAK EDI (olib tashlanmadi): `_mergeById` faqat
+// `updatedAt` MUHRI BOR yozuvni himoya qiladi (`_lt > _ct`). Muhrsiz
+// yozuvda bulut g'olib. Ya'ni tortish paytida o'zgargan MUHRSIZ lokal
+// yozuv bulutdagi eski nusxa bilan bosilishi mumkin edi — 2026-07-31
+// dagi "rasm yo'qoldi" hodisasi aynan shu.
+//
+// TO'G'RI QOIDA — butun paket emas, FAQAT XAVFLI QATOR tashlanadi:
+//   · lokalda YO'Q          → qo'llanadi (hech narsa ustiga yozilmaydi)
+//   · muhri BOR             → `_mergeById` hal qiladi (mavjud qoida)
+//   · muhrsiz, farqi YO'Q   → qo'llanadi (natija o'zgarmaydi)
+//   · muhrsiz, farqi BOR    → TEGILMAYDI ← qo'riqchi himoyasi shu yerda
+// Belgi esa tashlangan eng eski qatordan BIR ZUM oldin to'xtaydi:
+// tashlangani keyingi deltada albatta qaytadi, qolgani qayta tortilmaydi.
+//
+// Natija: himoya bugungidan ANIQROQ, tashlanadigan qator 733 emas —
+// odatda 0-2 ta. Aylanma tuzilishi jihatidan imkonsiz bo'ladi.
+function _deltaFarqBormi(cur, inc) {
+  try {
+    for (const k in inc) {
+      if (k === "updatedAt") continue;       // muhrning o'zi farq sanalmaydi
+      const a = cur[k], b = inc[k];
+      if (a === b) continue;
+      if (JSON.stringify(a) !== JSON.stringify(b)) return true;
+    }
+    return false;
+  } catch (e) { return true; }   // bilolmasak — XAVFSIZ tomon: tegmaymiz
+}
+
 async function pullDelta(noRender) {
   if (!USE_DELTA) return false;
   const sid = getCloudShopId();
@@ -683,7 +723,11 @@ async function pullDelta(noRender) {
         }
         return base;
       });
-      staged.push({ key, rows: mapped, mergeKey: (tbl === "products" ? "sku" : "id"), tbl });
+      // 525: har qatorning SERVER vaqti (`updated_at` USTUNI) yonma-yon
+      // saqlanadi. Kerak, chunki `mapped` ichida u yo'q (u `data` dan
+      // quriladi), belgini xavfsiz surish uchun esa aynan shu vaqt kerak.
+      staged.push({ key, rows: mapped, ats: rows.map(r => r.updated_at || ""),
+                    mergeKey: (tbl === "products" ? "sku" : "id"), tbl });
       incoming += rows.length;
       rows.forEach(r => { if (r.updated_at && r.updated_at > maxTs) maxTs = r.updated_at; });
     }
@@ -707,19 +751,69 @@ async function pullDelta(noRender) {
 
     dels.forEach(d => { if (d.deleted_at && d.deleted_at > maxTs) maxTs = d.deleted_at; });
 
-    // ── QO'RIQCHI 2: so'rov davomida lokal o'zgardimi? ──
+    // ── QO'RIQCHI 2 (525: QATOR DARAJASIDA) ──
+    // Yuqoridagi izohga qarang. Bu yerdan keyin AWAIT yo'q — qo'llash
+    // bitta uzluksiz qadamda ketadi, ya'ni oraliqda hech narsa
+    // o'zgara olmaydi (JavaScript bir oqimli).
     const seq1 = (typeof window !== "undefined" && window._dbMutSeq) || 0;
-    if (seq1 !== seq0 || (typeof _syncPending !== "undefined" && _syncPending)) {
-      _deltaFailStreak++;
-      console.log("↩️ delta bekor qilindi — lokal o'zgarish bor (ma'lumot saqlandi)");
-      return false;                                // HECH NARSA yozilmadi
+    const _lokalOzgardi = (seq1 !== seq0) ||
+                          (typeof _syncPending !== "undefined" && _syncPending);
+
+    if (!incoming && !dels.length) {
+      // Yangi qator yo'q. Lokal o'zgargan bo'lsa ham xavf yo'q —
+      // qo'llanadigan narsaning o'zi yo'q. Belgi bemalol suriladi.
+      _setLastPull(sid, maxTs);
+      return true;
     }
 
-    if (!incoming && !dels.length) { _setLastPull(sid, maxTs); return true; }
+    // Xavfli holatda XAVFLI QATORLARNI ajratamiz (butun paketni emas)
+    let _tashlanganSoni = 0, _engEskiTashlangan = "";
+    if (_lokalOzgardi) {
+      for (const st of staged) {
+        const k = st.mergeKey || "id";
+        const map = new Map((db[st.key] || []).map(x => [String(x[k]), x]));
+        const qol = [], qolAt = [];
+        for (let i = 0; i < st.rows.length; i++) {
+          const r = st.rows[i], at = (st.ats && st.ats[i]) || "";
+          const cur = map.get(String(r[k]));
+          let xavfsiz;
+          if (!cur) xavfsiz = true;                              // lokalda YO'Q
+          // ⚠️ SINOV TOPDI (2026-08-22): bu yerda `Date.parse(x || 0)`
+          // ISHLATIB BO'LMAYDI. `undefined || 0` → `0`, `Date.parse(0)`
+          // esa NaN emas — u "0" matnini YIL deb o'qib 946684800000
+          // (2000-yil) qaytaradi. Ya'ni MUHRSIZ yozuv "muhri bor" deb
+          // hisoblanib, himoyadan chetda qolardi. Endi muhr AVVAL
+          // mavjudligi, keyin haqiqiyligi tekshiriladi.
+          else if (cur.updatedAt && !isNaN(Date.parse(cur.updatedAt))) xavfsiz = true;  // muhri BOR
+          else xavfsiz = !_deltaFarqBormi(cur, r);                // muhrsiz: farqi bormi
+          if (xavfsiz) { qol.push(r); qolAt.push(at); }
+          else {
+            _tashlanganSoni++;
+            if (at && (!_engEskiTashlangan || at < _engEskiTashlangan))
+              _engEskiTashlangan = at;
+          }
+        }
+        st.rows = qol; st.ats = qolAt;
+      }
+      // ⚠️ CHEGARA: juda ko'p qator tashlansa — bu odatiy holat emas.
+      // Bunda taxmin qilmasdan ISHONCHLI yo'lga o'tamiz: to'liq pull.
+      if (_tashlanganSoni > 50) {
+        _deltaFailStreak++;
+        console.log("↩️ delta → to'liq pull: " + _tashlanganSoni +
+                    " qator xavfli (ma'lumot saqlandi)");
+        return false;                              // HECH NARSA yozilmadi
+      }
+      if (_tashlanganSoni) {
+        console.log("🛡 delta: " + _tashlanganSoni +
+                    " qator tegilmadi (lokal nusxa himoyalandi) — " +
+                    "keyingi tortishda qaytadi");
+      }
+    }
 
     // ── QO'LLASH (bitta qadamda) ──
     let changed = 0;
     for (const st of staged) {
+      if (!st.rows.length) continue;
       db[st.key] = _mergeById(db[st.key], st.rows, st.mergeKey);
       changed += st.rows.length;
     }
@@ -737,8 +831,22 @@ async function pullDelta(noRender) {
       }
     }
 
-    _deltaFailStreak = 0;
-    _setLastPull(sid, maxTs);
+    // ── 525: BELGINI XAVFSIZ SURISH ──
+    // Tashlangan qator bo'lsa — belgini undan BIR ZUM (1 ms) oldin
+    // to'xtatamiz. Shunda o'sha qator keyingi deltada ALBATTA qaytadi
+    // (yo'qolmaydi), undan oldingilari esa qayta tortilmaydi.
+    // Tashlangan bo'lmasa — avvalgidek eng katta vaqtga suriladi.
+    let _belgi = maxTs;
+    if (_engEskiTashlangan) {
+      const _t = Date.parse(_engEskiTashlangan);
+      if (!isNaN(_t)) _belgi = new Date(_t - 1).toISOString();
+      // Belgi ORQAGA ketmasin (`since` — hozirgi belgi)
+      if (_belgi < since) _belgi = since;
+    }
+    // Tashlangan qator bo'lsa — bu "to'liq bajarilmadi" hisoblanadi:
+    // 20 martadan keyin ishonchli to'liq pull ishga tushadi.
+    _deltaFailStreak = _tashlanganSoni ? (_deltaFailStreak + 1) : 0;
+    _setLastPull(sid, _belgi);
     if (changed > 0) {
       try { saveDB(); } catch(e) {}
       // Foydalanuvchi band bo'lsa ekranga TEGMAYMIZ — ma'lumot jim
@@ -1410,7 +1518,23 @@ async function pushToCloud() {
               const _row = _fresh?.data?.[0];
               if (_row && typeof applyCloudSettings === "function") {
                 applyCloudSettings(_row);
-                try { saveDB(); } catch (e) {}
+                // 🔴 525 (2026-08-22): `saveDB()` O'RNIGA TO'G'RIDAN YOZISH.
+                // Ildiz: bu yer HAR push'da ishlaydi (log'da o'nlab marta
+                // "⏸ Sozlamalar bulutda YANGIROQ" ↔ "📤 PUSH: settings=1").
+                // `saveDB()` esa ikki nojo'ya ta'sir beradi:
+                //   1) `_dbMutSeq` ni oshiradi → ayni paytda ketayotgan
+                //      delta bekor bo'ladi (36 soniyalik aylanmaning yoqilg'isi);
+                //   2) `scheduleCloudSync()` ni chaqiradi → yana push →
+                //      yana shu yer → aylanma yopiladi.
+                // Bu yerda BULUTDAN kelgan ma'lumot qo'llanmoqda — uni
+                // bulutga qaytarib yuborishning ma'nosi yo'q. Shuning
+                // uchun faqat qurilma xotirasiga yoziladi (mavjud usul,
+                // `_deltaUpsert` da ham shunday).
+                try {
+                  localStorage.setItem(getDBKEY(), JSON.stringify(
+                    (typeof _dbForLocal === "function" ? _dbForLocal() : db)));
+                  if (typeof scheduleHeavySave === "function") scheduleHeavySave();
+                } catch (e) {}
                 try { if (typeof updateRatePill === "function") updateRatePill(); } catch (e) {}
                 console.log("✅ Sozlamalar bulutdan olindi va qo'llandi");
               }

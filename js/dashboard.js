@@ -67,7 +67,14 @@ function dashGetDateRange() {
 
 // ── Asosiy render ──────────────────────────────
 function renderDashboard() {
-  if (typeof checkAutoRate === "function") checkAutoRate(false); // v166: kunlik avtomatik kurs tekshiruvi (faqat 'avtomatik' rejimda, kuniga 1 marta)
+  // 🔴 525 (2026-08-22): KURS TEKSHIRUVI BU YERDAN OLIB TASHLANDI.
+  // Ildiz (2026-08-21 log'idagi chaqiruv zanjiri):
+  //     saveDB ← checkAutoRate ← renderDashboard ← pullDelta
+  // Ya'ni DELTA o'zi dashboardni chizardi, u kurs tekshiruvini ishga
+  // tushirardi, u esa `saveDB()` qilardi — va `_dbMutSeq` o'zgargani
+  // uchun delta O'ZINI-O'ZI bekor qilardi. Ma'lumot tortish sozlama
+  // yozishini keltirib chiqarishi mumkin emas.
+  // Endi kurs alohida taymerda (`egasi.js`) — chizishga bog'liq emas.
   if (!db?.sales) return;
   const t = today();
 

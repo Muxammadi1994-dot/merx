@@ -103,6 +103,22 @@ function renderRateModeUI() {
 }
 
 let _rateCheckBusy = false;
+// ── 525: KURS TEKSHIRUVI O'Z TAYMERIDA ──
+// Avval har `renderDashboard` da chaqirilardi — ya'ni pull/delta ichidan
+// ham. Endi chizishdan mustaqil. Funksiyaning O'Z cheklovlari (avtomatik
+// rejimda kuniga bir marta, bank rejimida 30 daqiqada) o'zgarmadi —
+// bu yer faqat "qachon so'raladi" ni belgilaydi.
+try {
+  setTimeout(function () { try { checkAutoRate(false); } catch (e) {} }, 25000);
+  setInterval(function () {
+    try {
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+      if (typeof document !== "undefined" && document.hidden) return;  // fon oynada bezovta qilmaymiz
+      checkAutoRate(false);
+    } catch (e) {}
+  }, 15 * 60 * 1000);
+} catch (e) {}
+
 async function checkAutoRate(force) {
   const _mode = getRateMode();
   if (_mode !== "auto" && _mode !== "bank") return;
