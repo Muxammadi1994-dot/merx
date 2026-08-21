@@ -1289,6 +1289,21 @@ async function confirmRefund() {
   s.updatedAt = new Date().toISOString();
 
   saveDB();
+  // ⚖️ 528 (2026-08-22): QAYTARISH AUDITGA SUMMA BILAN (§9.1).
+  // Bekor va atkaz allaqachon yozilardi, QAYTARISH esa yozilmasdi —
+  // holbuki u ham kassadan pul chiqishi. `before`/`after`: asl chek
+  // jami va qaytarilgandan keyingi haqiqiy tushum.
+  try {
+    if (typeof auditLog === "function") {
+      auditLog("qaytarish", "sale", refundNo || s.chekNum || s.id,
+        (s.customerName || "Mijozsiz") + " \u00b7 " + fmt(refundTotal || 0) +
+        (isFullRefund ? " (to'liq)" : " (qisman)"),
+        { before: Math.round(Number(s.total) || 0),
+          after: Math.max(0, Math.round((Number(s.total) || 0) - (Number(refundTotal) || 0))),
+          note: "asl chek " + (s.chekNum || s.id) +
+                (reason ? " \u00b7 " + String(reason) : "") });
+    }
+  } catch (e) {}
   closeModal("refund");
   closeModal("saledetail");
   // Filterni "Barchasi" ga qaytaramiz

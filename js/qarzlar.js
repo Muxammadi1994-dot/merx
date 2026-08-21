@@ -1683,6 +1683,18 @@ async function useBalanceForDebt(saleId) {
   db.debtPayments.push(payment);
 
   saveDB();
+  // ⚖️ 528: BALANSDAN TO'LOV ham PUL AMALI — u ham yoziladi.
+  // Bu yo'l alohida funksiyada va oddiy to'lov yo'lidan o'tmaydi,
+  // shuning uchun audit ham alohida qo'yildi.
+  try {
+    if (typeof auditLog === "function") {
+      auditLog("tolov", "payment", payment.chekNum || payment.id,
+        (payment.customerName || "") + " \u00b7 " +
+        fmtMoney(useAmt, isUsd ? "usd" : "uzs") + " (balansdan)",
+        { before: debtAmt, after: Math.max(0, debtAmt - useAmt),
+          note: "balansdan o'tkazildi \u00b7 chek " + (sale.chekNum || sale.id) });
+    }
+  } catch (e) {}
   // 2026-07-25: QARZ TO'LOVI — pul mantiqi, darhol bulutga
   try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}
   toast(`✅ Balansdan ${fmtMoney(useAmt, isUsd?"usd":"uzs")} o'tkazildi`);
@@ -2040,6 +2052,22 @@ async function recordPayment(id, forcedCurrency) {
   db.debtPayments.push(payment);
 
   saveDB();
+  // ⚖️ 528 (2026-08-22): QARZ TO'LOVI AUDITGA SUMMA BILAN (§9.1 · §3.7).
+  // Ildiz — kontekst §3.7: "yo'qolgan to'lovlarni izlaganda audit YAGONA
+  // UMID edi — u faqat atkazlarni yozgani uchun javob bermadi." Audit
+  // bekor va atkazni yozardi, SOTUV va TO'LOVNI esa UMUMAN yozmasdi.
+  // `before`/`after` — to'lovdan OLDINGI va KEYINGI umumiy qarz. Shu ikki
+  // son bilan kelajakda "pul qayerda yo'qoldi" savoliga javob topiladi.
+  // ⚠️ Audit hech qachon to'lovni to'xtatmaydi (utils.js qoidasi).
+  try {
+    if (typeof auditLog === "function") {
+      auditLog("tolov", "payment", payment.chekNum || payment.id,
+        (cu.name || "") + " \u00b7 " + fmtMoney(amt, payCur),
+        { before: payment.debtBefore, after: payment.debtAfter,
+          note: String(method || "") +
+                (payment.amountSom ? " \u00b7 " + fmt(payment.amountSom) + " so'm" : "") });
+    }
+  } catch (e) {}
   // 2026-07-25: QARZ TO'LOVI — pul mantiqi, darhol bulutga
   try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {} renderDebts();
   if (typeof renderQarzlarTarixi === "function") renderQarzlarTarixi();

@@ -3553,6 +3553,9 @@ function renderAudit() {
 
   const NOM = { delete:"Tovar o'chirildi", restore:"Arxivdan tiklandi",
     cancel:"Sotuv bekor qilindi", atkaz:"To'lov atkaz qilindi",
+    // ⚖️ 528: PUL AMALLARI (§9.1). Ilgari audit faqat BEKOR QILISHNI
+    // yozardi — ya'ni pul kirgani emas, chiqqani. Endi uchalasi ham bor.
+    sotuv:"Sotuv qilindi", tolov:"Qarz to'lovi", qaytarish:"Tovar qaytarildi",
     narx:"Narx o'zgardi", kurs:"Kurs o'zgardi",
     inventar:"Qoldiq sanaldi", qoldiq:"Qoldiq harakati",
     // ✅ 2026-08-19: TOVAR YARATILISHI. Ildiz — 19-avgust forenzikasida
@@ -3561,6 +3564,7 @@ function renderAudit() {
     // yoziladi (qo'lda, rang, nusxa, import, to'plam, ajratish).
     yaratish:"Tovar yaratildi" };
   const RANG = { delete:"#A32D2D", restore:"#0F6E56", cancel:"#A32D2D",
+    sotuv:"#0F6E56", tolov:"#0F6E56", qaytarish:"#B45309",   // 528
     atkaz:"#8A6D1F", narx:"#185FA5", kurs:"#6B4FBB",
     inventar:"#5F5E5A", qoldiq:"#0F6E56", yaratish:"#0F6E56" };
 

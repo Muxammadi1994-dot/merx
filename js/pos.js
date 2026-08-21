@@ -3180,6 +3180,26 @@ async function checkout() {
     } catch (e) { console.warn("[offstock] navbatga qo'yilmadi:", e.message); }
   }
   db.sales.push(newSale); saveDB();
+  // ⚖️ 528 (2026-08-22): SOTUV AUDITGA SUMMA BILAN YOZILADI (§9.1).
+  // Ildiz — kontekst §3.7: "2026-08-21 da yo'qolgan to'lovlarni izlaganda
+  // audit YAGONA UMID edi — u faqat atkazlarni yozgani uchun javob
+  // bermadi." Audit bekor va atkazni yozardi, SOTUV va TO'LOVNI esa
+  // umuman yozmasdi. Endi har pul amali iz qoldiradi.
+  // `note` ichida SERVER TASDIQLADIMI degan belgi bor — kelajakda
+  // yozuv yo'qolsa, aynan shu qator "kassa yozgan, server yozmagan"
+  // holatini ko'rsatadi (bugungi forenzikada shu ma'lumot yetmagan).
+  // ⚠️ Audit hech qachon sotuvni to'xtatmaydi — butun tana try/catch da
+  // (`utils.js` auditLog qoidasi), bu yerda ham qo'shimcha qalqon bor.
+  try {
+    if (typeof auditLog === "function") {
+      auditLog("sotuv", "sale", newSale.chekNum || newSale.id,
+        (newSale.customerName || "Mijozsiz") + " · " + fmt(newSale.total || 0),
+        { before: "", after: Math.round(Number(newSale.total) || 0),
+          note: (_srvOk ? "server yozdi" : "\u26a0\ufe0f SERVER YOZMADI \u2014 navbatda") +
+                (Number(newSale.remaining) > 0
+                   ? " \u00b7 qarz " + fmt(newSale.remaining) : "") });
+    }
+  } catch (e) {}
   // 2026-07-25: SOTUV — pul mantiqi, darhol bulutga yuboriladi
   // (server yozgan bo'lsa ham lokal nusxa sinxron bilan moslashadi)
   try { if (typeof flushCloudSync === "function") flushCloudSync(); } catch(e) {}
