@@ -1006,6 +1006,33 @@ function _savePushCache() {
   }, 1500);
 }
 
+// ══════════════════════════════════════════════════════════════
+// 523 (2026-08-21) — PUSH HISOBOTI (faqat o'lchov, mantiq o'zgarmagan)
+// ══════════════════════════════════════════════════════════════
+// Nima uchun: 2026-08-21 log'ida delta HAR SAFAR butun bazani
+// qaytarardi (809 qator = jadvallardagi jami qatorlar soni).
+// Delta belgisi esa "hozir − 45 s" edi — demak o'sha 45 soniya
+// ichida HAMMA qator qaytadan yozilgan. Ya'ni push butun bazani
+// qayta yozyapti. LEKIN NEGA ekani hali ANIQ emas: push keshi
+// tiklanadi (`♻️ Push keshi tiklandi`), barmoq izi esa vaqt
+// muhrini hisobga olmaydi (`_fpRow`) — ikkalasi ham to'g'ri.
+// Taxmin bilan tuzatmaslik uchun (§0.2 A) avval O'LCHAYMIZ:
+// qaysi jadvaldan nechta qator chindan yuborilgani yoziladi.
+// Bu yerda HECH QANDAY mantiq o'zgarmaydi — faqat sanoq.
+let _pushHisobot = null;
+function _pushHisobotBoshla() { _pushHisobot = {}; }
+function _pushHisobotYoz() {
+  try {
+    if (!_pushHisobot) return;
+    const j = Object.entries(_pushHisobot).filter(([, v]) => v > 0);
+    const jami = j.reduce((a, [, v]) => a + v, 0);
+    if (!jami) console.log("📤 PUSH: yangi yozuv yo'q (0 qator) — to'g'ri holat");
+    else console.log("📤 PUSH: " + jami + " qator yuborildi · " +
+      j.map(([k, v]) => k + "=" + v).join(", "));
+  } catch (e) {}
+  _pushHisobot = null;
+}
+
 async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
   if (!rows || !rows.length) return 0;
   const cache = _pushCache[table] || (_pushCache[table] = new Map());
@@ -1021,6 +1048,10 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
       pend.push([r, k, _fpRow(r)]);
     }
   }
+  // 523: o'lchov — bu jadvaldan nechta qator chindan ketyapti
+  try {
+    if (_pushHisobot) _pushHisobot[table] = (_pushHisobot[table] || 0) + pend.length;
+  } catch (e) {}
   if (!pend.length) return 0;
   // v180: muhrlar DARHOL lokalga yoziladi (upsert xato bersa ham) —
   // oflayn tahrir stsenariysida muhr localStorage'da saqlanib qoladi.
@@ -1236,6 +1267,7 @@ function _egalikTekshir(nimaUchun) {
 }
 
 async function pushToCloud() {
+  _pushHisobotBoshla();   // 523: o'lchov boshlandi (mantiqqa tegmaydi)
   // \u2705 2026-08-14 (4-daraja): YOZISHDAN OLDIN KALIT TEKSHIRILADI.
   // Avval kalit faqat ULANISH paytida yangilanardi \u2014 keyin soatlab
   // tekshirilmasdi. Kalit eskirsa sinxron JIMGINA rad etilardi va
@@ -1417,6 +1449,7 @@ async function pushToCloud() {
           // u SuperAdmin boshqaradigan maydon. Aks holda do'kon o'z
           // eski qiymatini qaytarib yozib, SuperAdmin sozlamasini
           // bekor qilardi (12-qoida: server yozadigan ustunlar ustun).
+          sms_enabled:    db.settings?.smsEnabled === true,   // 524
           eskiz_token:    _keepSet(db.settings?.eskizToken, "eskizToken"),
           eskiz_sender:   _keepSet(db.settings?.eskizSender, "eskizSender"),
           telegram_bot:   _keepSet(db.settings?.telegramBotUrl, "telegramBotUrl"),
@@ -2181,6 +2214,7 @@ async function pushToCloud() {
     toast("Xato: " + e.message, "err");
     console.error("Cloud push error:", e);
   }
+  _pushHisobotYoz();      // 523: nechta qator ketgani yoziladi
 }
 
 // ── VERSIYA QO'RIQCHISI (2026-07) ──────────────────────────────
@@ -4224,6 +4258,7 @@ function applyCloudSettings(sets) {
     try { if (typeof enforceCurrencyMode === "function") enforceCurrencyMode(); } catch(e) {}
   }
   db.settings.showChakana    = sets.show_chakana || false;
+  if (sets.sms_enabled != null) db.settings.smsEnabled = sets.sms_enabled === true;  // 524
   if (sets.eskiz_token)    db.settings.eskizToken     = sets.eskiz_token;
   if (sets.eskiz_sender)   db.settings.eskizSender    = sets.eskiz_sender;
   if (sets.telegram_bot)   db.settings.telegramBotUrl     = sets.telegram_bot;

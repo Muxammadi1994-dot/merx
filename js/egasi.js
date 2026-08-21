@@ -776,17 +776,34 @@ function renderAdminXodimlar() {
 
 // ── SMS UI badge yangilash ────────────────────────
 function updateSmsUI() {
-  const token  = db.settings?.eskizToken || "";
-  const badge  = document.getElementById("sms-status-badge");
+  // 524: ko'rinish belgisi HAR DOIM yangilanadi — Sozlamalar oynasi
+  // ochiq bo'lmasa ham (pastdagi `badge` tekshiruvidan OLDIN).
+  try { if (typeof applySmsVisibility === "function") applySmsVisibility(); } catch (e) {}
+
+  const yoq   = (typeof smsYoqilganmi === "function") ? smsYoqilganmi() : false;
+  const token = db.settings?.eskizToken || "";
+
+  // Asosiy tugma va sozlash bloki
+  try {
+    const cb = document.getElementById("s-sms-enabled");
+    if (cb) cb.checked = yoq;
+    const box = document.getElementById("sms-setup");
+    if (box) box.style.display = yoq ? "flex" : "none";
+  } catch (e) {}
+
+  const badge = document.getElementById("sms-status-badge");
   if (!badge) return;
-  if (token && db.settings?.eskizTokenExpired) {
+  if (!yoq) {
+    badge.textContent = "O'chirilgan";
+    badge.className   = "bg bg-gr";
+  } else if (token && db.settings?.eskizTokenExpired) {
     badge.textContent = "⚠️ Token eskirgan — yangilang";
     badge.className   = "bg bg-r";
   } else if (token) {
     badge.textContent = "Ulangan ✅";
     badge.className   = "bg bg-g";
   } else {
-    badge.textContent = "Test rejimi";
+    badge.textContent = "Kalit kutilmoqda";
     badge.className   = "bg bg-gr";
   }
 }

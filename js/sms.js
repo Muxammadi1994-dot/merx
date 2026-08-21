@@ -18,19 +18,76 @@ function _botHeaders() {
   return h;
 }
 
-async function sendSms(phone, text) {
-  // ⚡ 2026-08-13: SMS SOZLANMAGAN bo'lsa — URINMAYDI ham.
-  // Avval har to'lovda so'rov yuborilib CORS xatosi bilan yiqilardi:
-  // konsol xato bilan to'lardi va kassir kutardi (egasining shikoyati).
-  try {
-    const _tok = db.settings?.eskizToken;
-    if (!_tok) { console.log("ℹ️ SMS sozlanmagan — yuborilmadi"); return { ok: false, skipped: true }; }
-  } catch (e) { return { ok: false, skipped: true }; }
+// ══════════════════════════════════════════════════════════════
+// 524 (2026-08-21) — SMS ASOSIY TUGMASI (egasining talabi)
+// ══════════════════════════════════════════════════════════════
+// ILDIZ (2026-08-21 jonli konsol): har sotuv/to'lovda brauzerdan
+// to'g'ridan-to'g'ri `notify.eskiz.uz` ga so'rov ketardi va Eskiz uni
+// CORS bilan rad etardi:
+//   "blocked by CORS policy: No 'Access-Control-Allow-Origin' header"
+// Ya'ni SMS HECH QACHON yetib bormagan, lekin har amalda:
+//   · konsol xato bilan to'lardi;
+//   · Eskizga bekorga so'rov ketardi;
+//   · token brauzerdan ochiq yuborilardi (qurilmaga tegib ko'rgan
+//     odam uni o'qiy oladi).
+// Ustiga — do'konda Telegram bot ishlaydi, ko'p do'konga SMS umuman
+// kerak emas.
+//
+// QARORI (egasi): SMS butun tizimda BITTA TUGMA bilan boshqariladi.
+//   · O'CHIQ (standart) — SMS hech qayerda sezilmaydi: so'rov ketmaydi,
+//     xabar chiqmaydi, tugmalari ham ko'rinmaydi;
+//   · YOQILGAN — Sozlamalarda ko'rsatma chiqadi, do'kon Eskiz kalitini
+//     o'zi kiritadi va shundan keyin ishlay boshlaydi.
+//
+// QO'YILISH JOYI MUHIM: qalqon aynan SHU YERDA, chunki SMS 9 joydan
+// chaqiriladi (pos, qarzlar ×5, mijozlar ×3) va hammasi shu funksiyaga
+// keladi. Bitta joyda yopilsa — hammasi yopiladi, 9 faylga tegilmaydi.
+function smsYoqilganmi() {
+  try { return db.settings?.smsEnabled === true; } catch (e) { return false; }
+}
 
-  const token = db.settings.eskizToken;
+// SMS o'chiq bo'lsa — SMS tugmalari hech qayerda ko'rinmaydi.
+// Usuli: `body` ga `sms-off` belgisi qo'yiladi, `index.html` dagi bitta
+// CSS qoidasi `.sms-only` elementlarni yashiradi. Shu bilan Qarzlar
+// ro'yxati qayta chizilganda ham tugmalar o'zi yashirin qoladi —
+// har chizuvchiga alohida shart qo'shish kerak emas (kam tegish).
+function applySmsVisibility() {
+  try {
+    document.body.classList.toggle("sms-off", !smsYoqilganmi());
+  } catch (e) {}
+}
+
+// Sozlamalardagi asosiy tugma
+function smsToggle(on) {
+  try {
+    if (!db.settings) db.settings = {};
+    db.settings.smsEnabled = !!on;
+    if (typeof saveDB === "function") saveDB();
+    if (typeof scheduleCloudSync === "function") scheduleCloudSync();
+    applySmsVisibility();
+    if (typeof updateSmsUI === "function") updateSmsUI();
+    if (typeof toast === "function") {
+      toast(on ? "SMS bo'limi yoqildi — Eskiz kalitini kiriting"
+               : "SMS bo'limi o'chirildi — hech qayerda ko'rinmaydi");
+    }
+    // Qarzlar ochiq bo'lsa tugmalar darhol yangilansin
+    try { if (typeof renderDebts === "function" &&
+              document.querySelector("#p-qarzlar.on")) renderDebts(); } catch (e) {}
+  } catch (e) { console.warn("[sms] toggle:", e.message); }
+}
+
+async function sendSms(phone, text) {
+  // ── QALQON 1: bo'lim umuman yoqilmagan — JIM chiqamiz ──
+  // Konsolga ham yozilmaydi: o'chiq bo'lsa hech qayerda sezilmasin.
+  if (!smsYoqilganmi()) return { ok: false, skipped: true };
+
+  // ── QALQON 2: yoqilgan, lekin kalit kiritilmagan ──
+  const token = (() => { try { return db.settings?.eskizToken || ""; }
+                         catch (e) { return ""; } })();
   if (!token) {
-    toast("📩 SMS (test) → " + (phone||"mijoz") + " | " + text.slice(0,60) + (text.length>60?"...":""));
-    return;
+    toast("📩 SMS yoqilgan, lekin Eskiz kaliti kiritilmagan — " +
+          "Sozlamalar > SMS bo'limiga qarang", "err");
+    return { ok: false, skipped: true };
   }
   try {
     const clean = (phone||"").replace(/\D/g, "");

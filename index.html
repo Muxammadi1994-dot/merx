@@ -552,6 +552,10 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
   /* Rasm (logotip) bo'lsa — o'z holicha qoladi (qora-oq majburlanmaydi) */
   #ov-receipt img { filter: none !important; }
 }
+
+/* 524: SMS o'chiq bo'lsa — SMS tugmalari hech qayerda ko'rinmaydi.
+   Belgini `applySmsVisibility()` (js/sms.js) qo'yadi/oladi. */
+body.sms-off .sms-only { display: none !important; }
 </style>
 </head>
 <body>
@@ -1738,13 +1742,13 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
               <i class="ti ti-layout-grid"></i>
             </button>
           </div>
-          <button class="btn btn-sm" onclick="sendOverdueReminders()" style="color:var(--red)">
+          <button class="btn btn-sm sms-only" onclick="sendOverdueReminders()" style="color:var(--red)">
             <i class="ti ti-bell"></i> Muddati o'tganlarga SMS
           </button>
           <button class="btn btn-sm" onclick="sendOverdueRemindersBot()" style="color:#0E7490">
             <i class="ti ti-brand-telegram"></i> Bot
           </button>
-          <button class="btn btn-sm" onclick="sendAllDebtorsReminders()" style="color:#856404">
+          <button class="btn btn-sm sms-only" onclick="sendAllDebtorsReminders()" style="color:#856404">
             <i class="ti ti-message-2"></i> Barchaga SMS
           </button>
           <button class="btn btn-sm" onclick="sendAllDebtorsRemindersBot()" style="color:#0E7490">
@@ -3029,12 +3033,40 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
         <div class="card">
           <div class="ch"><h3><i class="ti ti-message"></i> SMS (Eskiz)</h3><span class="bg bg-gr" id="sms-status-badge">Test rejimi</span></div>
           <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
-            <div class="fld"><label>Eskiz API Token</label><input id="s-eskiz-token" type="password" placeholder="Token..." oninput="saveSetting('eskizToken',this.value)"></div>
-            <div class="fld"><label>SMS jo'natuvchi nomi</label><input id="s-eskiz-sender" placeholder="MERX (4-11 belgi)" oninput="saveSetting('eskizSender',this.value)"></div>
-            <button class="btn btn-teal btn-sm" onclick="testSms()" style="width:fit-content"><i class="ti ti-send"></i> Test SMS</button>
-            <div style="background:var(--bg);border-radius:var(--rs);padding:12px 14px;font-size:12.5px;color:var(--mut);line-height:1.7">
-              <strong style="color:var(--ink)">Token olish:</strong> notify.eskiz.uz → Kirish → API → Token olish<br>
-              Token yo'q bo'lsa SMS ekranda ko'rsatiladi (test rejimi).
+
+            <!-- 524: ASOSIY TUGMA — SMS butun tizimda shu yerdan boshqariladi -->
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;
+                        background:var(--bg);border-radius:var(--rs);padding:14px 16px">
+              <div>
+                <div style="font-weight:700;font-size:14px">SMS bo'limini faollashtirish</div>
+                <div style="font-size:12.5px;color:var(--mut);margin-top:3px">
+                  O'chiq bo'lsa SMS hech qayerda ko'rinmaydi va yuborilmaydi.
+                  Do'konda Telegram bot ishlaydi — SMS majburiy emas.
+                </div>
+              </div>
+              <input type="checkbox" id="s-sms-enabled" onchange="smsToggle(this.checked)"
+                style="width:20px;height:20px;accent-color:var(--acc);cursor:pointer;flex:none">
+            </div>
+
+            <!-- Yoqilgandagina ko'rinadi -->
+            <div id="sms-setup" style="display:none;flex-direction:column;gap:14px">
+
+              <div style="background:#FFF8E1;border:1px solid #FFE08A;border-radius:var(--rs);
+                          padding:12px 14px;font-size:12.5px;line-height:1.8;color:var(--ink)">
+                <strong>Qanday ulanadi — 4 qadam:</strong><br>
+                <b>1.</b> <a href="https://notify.eskiz.uz" target="_blank"
+                   rel="noopener" style="color:#0E7490">notify.eskiz.uz</a> saytida hisob oching
+                (do'kon nomiga shartnoma kerak bo'ladi).<br>
+                <b>2.</b> Kirgach: <b>Sozlamalar → API</b> bo'limidan <b>Token</b> oling.<br>
+                <b>3.</b> Eskizdan <b>jo'natuvchi nomini</b> (masalan do'kon nomi) tasdiqlating.<br>
+                <b>4.</b> Ikkalasini quyiga kiriting va <b>Test SMS</b> bilan tekshiring.<br>
+                <span style="color:var(--mut)">Hisobda pul tugasa SMS to'xtaydi — Eskiz balansini
+                kuzatib turing.</span>
+              </div>
+
+              <div class="fld"><label>Eskiz API Token</label><input id="s-eskiz-token" type="password" placeholder="Token..." oninput="saveSetting('eskizToken',this.value)"></div>
+              <div class="fld"><label>SMS jo'natuvchi nomi</label><input id="s-eskiz-sender" placeholder="MERX (4-11 belgi)" oninput="saveSetting('eskizSender',this.value)"></div>
+              <button class="btn btn-teal btn-sm" onclick="testSms()" style="width:fit-content"><i class="ti ti-send"></i> Test SMS</button>
             </div>
           </div>
         </div>
@@ -4463,7 +4495,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
         </div>
         <!-- Tugmalar — ism/tel/toifa ostida, X ga tegmaydigan joyda -->
         <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-          <button id="cc-sms-btn" onclick="custCardSms()" class="btn btn-sm btn-acc" style="padding:5px 12px">
+          <button id="cc-sms-btn" onclick="custCardSms()" class="btn btn-sm btn-acc sms-only" style="padding:5px 12px">
             <i class="ti ti-message"></i> Xabar
           </button>
           <button onclick="custCardEdit()" class="btn btn-sm btn-ghost" style="padding:5px 12px">
@@ -5191,19 +5223,19 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 <script src="js/db.js?v=172"></script>
 <script src="js/utils.js?v=294"></script>
 <script src="js/auth.js?v=212"></script>
-<script src="js/sms.js?v=148"></script>
-<script src="js/cloud.js?v=303"></script>
+<script src="js/sms.js?v=149"></script>
+<script src="js/cloud.js?v=304"></script>
 <script src="js/dashboard.js?v=160"></script>
 <script src="js/pos.js?v=272"></script>
 <script src="js/katalog.js?v=285"></script>
 <script src="js/ombor.js?v=184"></script>
 <script src="js/mijozlar.js?v=170"></script>
-<script src="js/qarzlar.js?v=235"></script>
+<script src="js/qarzlar.js?v=236"></script>
 <script src="js/tarix.js?v=195"></script>
 <script src="js/hisobot.js?v=156"></script>
 <script src="js/xodimlar.js?v=163"></script>
 <script src="js/moliya.js?v=177"></script>
-<script src="js/egasi.js?v=209"></script>
+<script src="js/egasi.js?v=210"></script>
 <script src="js/portal.js?v=143"></script>
 <script src="js/init.js?v=152"></script>
 <script>
@@ -5497,7 +5529,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 522;
+  window.SW_V = 523;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5520,7 +5552,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=522")
+    navigator.serviceWorker.register("/sw.js?v=523")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

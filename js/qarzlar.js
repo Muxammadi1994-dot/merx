@@ -962,7 +962,7 @@ function renderDebtsList(list, rate) {
       <td>
         ${cu.phone && cu.phone !== "—" ? `
           <div style="display:flex;gap:4px">
-            <button class="btn btn-ghost btn-icon btn-sm" onclick="sendDebtReminder(${s.id})" title="SMS" style="color:#856404"><i class="ti ti-message"></i></button>
+            <button class="btn btn-ghost btn-icon btn-sm sms-only" onclick="sendDebtReminder(${s.id})" title="SMS" style="color:#856404"><i class="ti ti-message"></i></button>
             <button class="btn btn-ghost btn-icon btn-sm" onclick="sendDebtReminderBot(${s.id})" title="Bot" style="color:#0E7490"><i class="ti ti-brand-telegram"></i></button>
           </div>` : `<span style="color:#ccc">—</span>`}
       </td>
@@ -1057,7 +1057,7 @@ function _renderDebtListGrid(list, rate, cols, pagerHtml) {
       </div>
 
       ${hasPhone ? `<div class="dg-foot">
-        <button class="btn btn-ghost btn-icon btn-sm" style="color:#856404" title="SMS eslatma"
+        <button class="sms-only btn btn-ghost btn-icon btn-sm" style="color:#856404" title="SMS eslatma"
           onclick="sendDebtReminder(${s.id})"><i class="ti ti-message"></i></button>
         <button class="btn btn-ghost btn-icon btn-sm" style="color:#0E7490" title="Telegram bot"
           onclick="sendDebtReminderBot(${s.id})"><i class="ti ti-brand-telegram"></i></button>
