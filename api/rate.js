@@ -274,6 +274,98 @@ async function bxOl(cbRate) {
   return out;
 }
 
+// ══════════════════════════════════════════════════════════════════
+// 541 (2026-08-22) — KELISHUV QOIDASI: yolg'iz kurs olinmaydi
+// ══════════════════════════════════════════════════════════════════
+// JONLI DALIL (540 quruq sinovi, 2026-08-22):
+//   AVO bank        sotish 12 202.57   ← YOLG'IZ
+//   Garant bank     sotish 11 905
+//   Universal bank  sotish 11 905
+//   ... jami O'N BIR bank 11 905 deydi
+// `11847.16 × 1.03 = 12202.57` — AVO bank kursni MB ± 3% qilib
+// qo'ygan (valyuta almashtirishni xohlamaydigan bank). Bu XATO EMAS,
+// haqiqiy kurs. Lekin "eng yuqorisini ol" qoidasi uni tanlardi va
+// do'kondagi hamma dollarli narx 2,5% ga SHISHARDI.
+// Langar (±3%) uni to'sib qola olmadi — chegaraga aynan tegib o'tdi.
+//
+// QOIDA: eng yuqori kurs olinadi, LEKIN unga YAQIN (0,5%) yana kamida
+// bitta bank bo'lishi shart. Yolg'iz raqam — xato o'qilganmi yoki
+// g'alati kurs qo'ygan bankmi — farqi yo'q, TASHLANADI.
+// Bugungi ma'lumotda natija: 11 905 (11 ta bank tasdiqlaydi).
+// ══════════════════════════════════════════════════════════════════
+// 542 (2026-08-22) — ISHONCHLI BANKLAR RO'YXATI (egasining qarori)
+// ══════════════════════════════════════════════════════════════════
+// Egasi: "yaxshisi eng mashhur 5-6 bankdan qidirsin, shunda AVO kabi
+// banklar ro'yxatga kirmaydi".
+// Bu — qoidaga emas, TUZILISHGA tayangan himoya: g'alati kurs qo'ygan
+// bank umuman hisobga olinmaydi. Kelishuv qoidasi (541) esa ikkinchi
+// qatlam bo'lib qoladi — xato O'QILGAN raqamdan himoya qiladi.
+//
+// Nomlar 540 quruq sinovidagi HAQIQIY nomlardan olindi (taxmin emas):
+//   Kapitalbank · Xalq banki · InFinBank · Aloqabank ·
+//   Orient Finans bank · Universal bank · O'zbekiston Milliy banki
+// Moslash BO'LAK bo'yicha — sayt nomni biroz boshqacha yozsa ham
+// topiladi (masalan "NBU" yoki "Milliy bank").
+const ISHONCHLI = [
+  ["Kapitalbank",           /kapital/i],
+  ["Milliy bank (NBU)",     /milliy|(^|[^a-z])nbu([^a-z]|$)/i],
+  ["Xalq banki",            /xalq/i],
+  ["InFinBank",             /infin/i],
+  ["Aloqabank",             /aloqa/i],
+  ["Orient Finans bank",    /orient/i],
+  ["Universal bank",        /universal/i],
+];
+function _ishonchliMi(nom) {
+  const t = String(nom || "");
+  for (const [yorliq, re] of ISHONCHLI) if (re.test(t)) return yorliq;
+  return null;
+}
+
+function _kelishuvBilanTanla(banklar) {
+  const r = (banklar || []).filter(b => b && b.sell > 0)
+                           .sort((a, b) => b.sell - a.sell);
+  for (let i = 0; i < r.length; i++) {
+    const qollab = r.filter((x, j) => j !== i &&
+      Math.abs(x.sell - r[i].sell) <= r[i].sell * 0.005);
+    if (qollab.length >= 1) {
+      return { tanlangan: r[i], qollab: qollab.length, tashlangan: i,
+               tashlanganlar: r.slice(0, i).map(x => x.bank + " " + x.sell) };
+    }
+  }
+  return null;   // hech biri tasdiqlanmadi — kurs O'ZGARTIRILMAYDI
+}
+
+// Yakuniy tanlov: ISHONCHLI ro'yxat → kelishuv → zaxira o'rta qiymat
+function _kursniTanla(hammaBanklar) {
+  const hamma = (hammaBanklar || []).filter(b => b && b.sell > 0);
+  // 1-qatlam: faqat ishonchli banklar
+  const ishonchli = hamma
+    .map(b => ({ ...b, yorliq: _ishonchliMi(b.bank) }))
+    .filter(b => b.yorliq)
+    .sort((a, b) => b.sell - a.sell);
+
+  if (ishonchli.length < 2) {
+    return { xato: "ishonchli banklardan " + ishonchli.length +
+                   " tasi topildi — kurs o'zgartirilmaydi",
+             ishonchli, hamma_soni: hamma.length };
+  }
+  // 2-qatlam: kelishuv (xato o'qilgan raqamdan himoya)
+  const k = _kelishuvBilanTanla(ishonchli);
+  if (k) {
+    return { tanlangan: k.tanlangan, usul: "kelishuv",
+             qollab: k.qollab, tashlangan: k.tashlanganlar,
+             ishonchli, hamma_soni: hamma.length };
+  }
+  // 3-qatlam: kelishuv bo'lmasa — O'RTA qiymat (yakka chetlashuv ta'sir qilmaydi)
+  const s = ishonchli.map(x => x.sell).sort((a, b) => a - b);
+  const orta = s.length % 2 ? s[(s.length - 1) / 2]
+                            : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
+  const eng = ishonchli.find(x => x.sell === orta) || ishonchli[0];
+  return { tanlangan: { bank: eng.bank, sell: orta, buy: eng.buy },
+           usul: "o'rta qiymat (kelishuv bo'lmadi)",
+           ishonchli, hamma_soni: hamma.length };
+}
+
 export default async function handler(req, res) {
   const mode  = String(req.query?.mode || "");
   const debug = String(req.query?.debug || "") === "1";
@@ -290,8 +382,9 @@ export default async function handler(req, res) {
       "540 · QURUQ SINOV. Parser nima ajratdi — jonli rejim TEGILMAGAN. " +
       "`banklar[0]` eng yuqori sotish kursi bo'lishi kerak.",
       xato, soni: bx ? bx.length : 0,
-      eng_yuqori: bx && bx.length ? bx[0] : null,
-      banklar: bx ? bx.slice(0, 15) : [] });
+      eng_yuqori_xom: bx && bx.length ? bx[0] : null,
+      natija: bx ? _kursniTanla(bx) : null,
+      hamma_banklar: bx ? bx.map(x => x.bank + " · " + x.sell) : [] });
   }
 
   // ══════════════════════════════════════════════════════════════
