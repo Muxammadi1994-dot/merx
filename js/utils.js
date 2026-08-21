@@ -3805,42 +3805,82 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
 }
 
 
-// \u2550\u2550\u2550 CHEKDAGI "TASDIQLANMAGAN" BELGISI (2026-08-13, B2) \u2550\u2550\u2550
-// Internet yo'q paytda chiqarilgan chekda ochiq yoziladi \u2014 mijoz ham,
-// kassir ham biladi. Yozuv bulutga yetgach belgi o'zi yo'qoladi
-// (chek qayta chop etilsa toza chiqadi).
+// ═══ 517 (2026-08-21) — BELGI ENDI KECHIKMAYDI VA QOG'OZDA CHIQADI ═══
+// Ikki nuqson tuzatildi (ikkalasi ham kod dalili bilan):
+//
+// 1) 30 SONIYALIK KO'R NUQTA. Sotuv yakunlangach chek DARHOL ochiladi —
+//    yozuv "yosh" bo'lgani uchun belgi chiqmasdi. Ya'ni oflayn sotuvning
+//    ENG BIRINCHI cheki (mijoz qo'liga ketadigani) toza chiqardi; belgi
+//    faqat keyinroq, tarixdan ochilganda ko'rinardi. Holbuki shu paytda
+//    javob ANIQ ma'lum: server sotuvni yozganda `serverWritten: true`
+//    muhrini qaytaradi (`api/pul.js` — `sale` 408-qator, `pay` 291-qator).
+//    Ya'ni taxmin kerak emas: muhr bor yoki yo'q. Endi SERVER REJIMIDA
+//    muhr yo'q bo'lsa belgi DARHOL chiqadi, 30 soniya kutilmaydi.
+//
+// 2) QOG'OZDA CHIQMASLIGI (§9.1 qarori). 2026-08-13 da belgi ataylab
+//    faqat ekranda qoldirilgan edi ("mijozda shubha uyg'otmasin").
+//    2026-08-20/21 inqirozi shuni ko'rsatdi: tasdiqlanmagan chek mijoz
+//    qo'lida qolsa va yozuv yo'qolsa — HECH QANDAY iz qolmaydi
+//    (§7: 5 usul sinaldi, hech biri summani topmadi). Endi qog'ozda ham
+//    chiqadi. Zaxira yo'l: `db.settings.chekTasdiqPrint === false` —
+//    eski xulq qaytadi (sozlama bilan, yangi deploy kerak emas).
+//
+// ⚠️ ESKI CHEKLAR HIMOYASI: `serverWritten` muhri 2026-08-13 da paydo
+//    bo'lgan; undan oldingi sotuvlarda muhr YO'Q. Ular tarixdan qayta
+//    ochilganda bejiz belgilanmasligi uchun to'rt darvoza qo'yildi.
 function _tasdiqBelgisi(sale, tur) {
   try {
     if (!sale) return "";
-    // ✅ 2026-08-13 (tuzatish): SERVER YOZGAN bo'lsa — ogohlantirish
-    // KERAK EMAS. Avval faqat push keshiga qaralardi, chek esa keshga
-    // yozilishidan OLDIN chiziladi — shu sabab internet bor paytda ham
-    // "yuborilmagan" deb chiqardi (jonli shikoyat).
-    if (sale.serverWritten === true) return "";
-    // Oflayn navbatda ham emas-u, keshda ham yo'q bo'lsa — shubhali emas:
-    // yozuv hali endi yaratildi. Faqat CHINDAN eski va yuborilmagan
-    // yozuvlar belgilanadi (yaratilganiga 30 soniyadan ko'p).
-    const _yosh = (() => {
-      const t = Number(String(sale.id || "").slice(0, 13));
-      return (t > 1600000000000) ? (Date.now() - t) : 0;
-    })();
-    if (_yosh < 30000) return "";
+    // Namuna/savat ko'rinishi — hali sotuv yo'q, belgi ma'nosiz
+    if (sale._preview) return "";
+
     const jadval = (tur === "qarz") ? "debt_payments" : "sales";
-    const kalit  = sale.id;
+    const kalit  = String(sale.id || "");
+
+    // ── DARVOZA 1: SERVER MUHRI BOR — tasdiqlangan ──
+    if (sale.serverWritten === true) return "";
+
+    // ── DARVOZA 2: BULUTDA KO'RILGAN (oxirgi pull'da) — tasdiqlangan ──
+    // Eski (muhrsiz) cheklarni ham, boshqa qurilma yozganini ham qamraydi.
+    try {
+      if (typeof _cloudIds !== "undefined" && _cloudIds && _cloudIds[jadval]
+          && _cloudIds[jadval].has(kalit)) return "";
+    } catch (e) {}
+
+    // ── DARVOZA 3: SHU QURILMA PUSH QILGAN ──
     if (typeof isRecordSent === "function" && isRecordSent(jadval, kalit)) return "";
-    // \u26a0\ufe0f 2026-08-13 (egasining talabi): belgi FAQAT EKRANDA \u2014
-    // chop etilganda qog'ozga CHIQMAYDI. Sabab: mijozda "tasdiqlanmagan"
-    // so'zi shubha uyg'otadi, holbuki sotuv haqiqiy va tovar berilgan.
-    // Bu ogohlantirish KASSIR uchun.
+
+    // ── DARVOZA 4: 2026-08-13 DAN OLDINGI YOZUV (muhr hali yo'q edi) ──
+    const _ts = (() => {
+      const t = Number(kalit.slice(0, 13));
+      return (t > 1600000000000) ? t : 0;
+    })();
+    if (_ts && _ts < 1786561200000) return "";   // 2026-08-13 00:00 Toshkent
+
+    // ── SERVER REJIMI O'CHIQ bo'lsa — ESKI XULQ (30 soniya muhlat) ──
+    // Bunda yozuvni oddiy sinxron yuboradi va "tasdiqlanmagan" degani
+    // noto'g'ri bo'lardi. Xulq 2026-08-13 dagidek qoladi.
+    let _srvRej = false;
+    try { _srvRej = (typeof _serverRejimi === "function") ? _serverRejimi() : false; }
+    catch (e) { _srvRej = false; }
+    if (!_srvRej) {
+      if (!_ts || (Date.now() - _ts) < 30000) return "";
+    }
+
+    // ── BELGI ──
+    const _chop = !(typeof db !== "undefined" && db.settings &&
+                    db.settings.chekTasdiqPrint === false);
     return `<div class="_noprint-warn" style="border:2px dashed #000;
               padding:6px 8px;margin:6px 0;text-align:center;font-size:11px;
               font-weight:800;letter-spacing:.03em">
-              \u26a0\ufe0f Bulutga yuborilmagan \u2014 internet yo'q edi<br>
+              \u26a0\ufe0f TASDIQLANMAGAN \u2014 serverga yozilmagan<br>
               <span style="font-weight:600;font-size:10px">
-                Aloqa tiklangach o'zi yuboriladi. Qog'ozga chiqmaydi.
+                Aloqa tiklangach o'zi yuboriladi va bu belgi yo'qoladi.<br>
+                Chekni qayta chiqaring.
               </span>
-            </div>
-            <style>@media print{._noprint-warn{display:none !important}}</style>`;
+            </div>` +
+            (_chop ? "" :
+            `<style>@media print{._noprint-warn{display:none !important}}</style>`);
   } catch (e) { return ""; }
 }
 
