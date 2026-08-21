@@ -2342,8 +2342,38 @@ function _keskinKamaymi(nima, bulutSoni, lokalSoni) {
 function _ozDokonimi(sid) {
   try {
     const dsid = db.settings && db.settings._dataShopId;
-    if (!dsid) return false;                     // egasi noma'lum — saqlamaymiz
+    // 🔴 2026-08-21 REGRESSIYA TUZATILDI. Avval bu yerda
+    // `if (!dsid) return false` turardi — ya'ni belgi YO'Q bo'lsa
+    // yuborilmagan yozuvlar SAQLANMASDI va pull ularni o'chirardi.
+    // Belgi esa pull OXIRIDA qo'yiladi: yangi kirilgan yoki xotirasi
+    // tozalangan qurilmada BIRINCHI pull oflayn sotuvni yo'q qilardi.
+    // Jonli isbot (21-avg, ABU SAXIY FR telefoni): server yopiq
+    // paytda qilingan sotuv, telefon qayta ochilgach, tarixdan ham
+    // yo'qoldi — bot xabari esa navbatdan ketib bo'lgan edi.
+    // TO'G'RI QOIDA: yozuvni faqat BOSHQA do'konniki ekani
+    // ANIQ bo'lgandagina tashlaymiz. Noma'lum bo'lsa — SAQLAYMIZ
+    // (ma'lumot yo'qotishdan ko'ra ortiqcha saqlash xavfsizroq;
+    //  do'kon aralashuvidan `_egalikTekshir` darvozasi himoya qiladi).
+    if (!dsid) return true;                      // egasi noma'lum — SAQLAYMIZ
     return String(dsid) === String(sid);
+  } catch (e) { return true; }                   // xatoda ham saqlaymiz
+}
+
+// ✅ 2026-08-21 (egasining savoli bo'yicha QO'SHIMCHA HIMOYA):
+// "Egasi noma'lum bo'lsa saqlaymiz" qoidasi bitta-ikkita yuborilmagan
+// sotuv uchun to'g'ri. Lekin agar BUTUN BAZA saqlanmoqchi bo'lsa —
+// bu do'kon aralashuvining belgisi (18-avgust hodisasi sinfi), unda
+// saqlamaymiz. Chegara: 50 yozuv.
+// Ya'ni: kam bo'lsa — ma'lumot yo'qotmaymiz; ko'p bo'lsa — aralashuvga
+// yo'l qo'ymaymiz. Ikkala xavf ham qamrab olinadi.
+function _saqlashXavfsizmi(sid, soni, nima) {
+  try {
+    const dsid = db.settings && db.settings._dataShopId;
+    if (dsid) return String(dsid) === String(sid);   // belgi bor — aniq qaror
+    if (soni <= 50) return true;                     // kam — saqlaymiz
+    console.error("⛔ " + nima + ": egasi noma'lum, " + soni +
+      " ta yozuv saqlanmadi (do'kon aralashuvi xavfi)");
+    return false;
   } catch (e) { return false; }
 }
 async function pullFromCloud(silent = false, skipRender = false) {
@@ -2468,7 +2498,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         colorBarcodes: p.color_barcodes || old.colorBarcodes || null
         };
       });
-      if (_pend_products.length && _ozDokonimi(sid)) db.products = db.products.concat(_pend_products);   // ✅ 2026-08-19
+      if (_pend_products.length && _saqlashXavfsizmi(sid, _pend_products.length, "Tovarlar")) db.products = db.products.concat(_pend_products);   // ✅ 2026-08-19
     }
 
     // Customers
@@ -2511,7 +2541,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         balanceUzs: c.balance_uzs || 0, balanceUsd: c.balance_usd || 0
         };
       });
-      if (_pend_customers.length && _ozDokonimi(sid)) db.customers = db.customers.concat(_pend_customers);   // ✅ 2026-08-19
+      if (_pend_customers.length && _saqlashXavfsizmi(sid, _pend_customers.length, "Mijozlar")) db.customers = db.customers.concat(_pend_customers);   // ✅ 2026-08-19
     }
 
     // Staff
@@ -2622,7 +2652,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         };
       });
       // 🔴 Bulutga yetmagan sotuvlarni QAYTARAMIZ (yo'qolmasin)
-      if (_pending.length && _ozDokonimi(sid)) db.sales = db.sales.concat(_pending);   // ✅ 2026-08-19
+      if (_pending.length && _saqlashXavfsizmi(sid, _pending.length, "Sotuvlar")) db.sales = db.sales.concat(_pending);   // ✅ 2026-08-19
     }
 
     // Ombor
@@ -2659,7 +2689,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         pantone: o.pantone || null, hex: o.hex || null,
         chakana: o.chakana || 0
       });
-      if (_pend_ombor.length && _ozDokonimi(sid)) db.ombor = db.ombor.concat(_pend_ombor);   // ✅ 2026-08-19
+      if (_pend_ombor.length && _saqlashXavfsizmi(sid, _pend_ombor.length, "Ombor")) db.ombor = db.ombor.concat(_pend_ombor);   // ✅ 2026-08-19
       });
     }
 
@@ -2698,7 +2728,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         xarajatType: x.xarajat_type || null,
         forMonth: x.for_month || null
       });
-      if (_pend_xarajatlar.length && _ozDokonimi(sid)) db.xarajatlar = db.xarajatlar.concat(_pend_xarajatlar);   // ✅ 2026-08-19
+      if (_pend_xarajatlar.length && _saqlashXavfsizmi(sid, _pend_xarajatlar.length, "Xarajatlar")) db.xarajatlar = db.xarajatlar.concat(_pend_xarajatlar);   // ✅ 2026-08-19
       });
     }
 
@@ -2753,7 +2783,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         note:        c.note || "",
         costUzs:     c.cost_uzs || 0
       });
-      if (_pend_chiqimlar.length && _ozDokonimi(sid)) db.chiqimlar = db.chiqimlar.concat(_pend_chiqimlar);   // ✅ 2026-08-19
+      if (_pend_chiqimlar.length && _saqlashXavfsizmi(sid, _pend_chiqimlar.length, "Chiqimlar")) db.chiqimlar = db.chiqimlar.concat(_pend_chiqimlar);   // ✅ 2026-08-19
       });
     }
 
@@ -2797,7 +2827,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         leftoverToBalance: !!p.leftover_to_balance
         };
       });
-      if (_pend_debt_payments.length && _ozDokonimi(sid)) db.debtPayments = db.debtPayments.concat(_pend_debt_payments);   // ✅ 2026-08-19
+      if (_pend_debt_payments.length && _saqlashXavfsizmi(sid, _pend_debt_payments.length, "To'lovlar")) db.debtPayments = db.debtPayments.concat(_pend_debt_payments);   // ✅ 2026-08-19
     }
 
     // Qaytarilgan tovarlar
@@ -2824,7 +2854,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
         customerName: r.customer_name || null,
         staffId: r.staff_id || null
       });
-      if (_pend_returns.length && _ozDokonimi(sid)) db.returns = db.returns.concat(_pend_returns);   // ✅ 2026-08-19
+      if (_pend_returns.length && _saqlashXavfsizmi(sid, _pend_returns.length, "Qaytarishlar")) db.returns = db.returns.concat(_pend_returns);   // ✅ 2026-08-19
       });
     }
 
@@ -3103,6 +3133,27 @@ window.addEventListener("online", () => {
 // turib tarmoq o'lik bo'lsa (`online` otilmaydi) qurilma soatlab jim
 // qolishi mumkin edi. Endi har daqiqada tekshiriladi: ulanish yo'q,
 // lekin brauzer "onlayn" desa — qayta uriniladi va navbat bo'shatiladi.
+// ✅ 2026-08-21: YUBORILMAGAN YOZUV O'ZI KETADI (har 2 daqiqada).
+// Ildiz (21-avg): server kvota bilan yopilganda telefonning INTERNETI
+// uzilmagan — shuning uchun `online` hodisasi otilmagan va navbatdagi
+// sotuv hech qachon jo'natilmagan. Endi holatdan qat'i nazar
+// tekshiriladi: yuborilmagan yozuv bo'lsa — sinxron turtiladi.
+// ⚠️ 491 XATOSI TAKRORLANMAYDI: bu yerda "har pull'dan keyin hamma
+// narsani jo'nat" YO'Q. Faqat CHINDAN yuborilmagan yozuv bo'lganda
+// (pendingCount > 0, u `_cloudIds` bilan solishtiradi) ishlaydi.
+setInterval(() => {
+  try {
+    if (!_sb) return;                                   // ulanish yo'q — pastdagi taymer tiklaydi
+    if (navigator && navigator.onLine === false) return;
+    if (_pullRunning || _pullBusy) return;
+    if (!_cloudPullDone) return;                        // hali pull bo'lmagan
+    const p = (typeof pendingCount === "function") ? pendingCount() : null;
+    if (!p || !p.total) return;
+    console.log("📤 " + p.total + " ta yuborilmagan yozuv — qayta jo'natilmoqda");
+    scheduleCloudSync();
+  } catch (e) {}
+}, 120000);
+
 setInterval(() => {
   try {
     if (_sb) return;
