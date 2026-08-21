@@ -197,6 +197,72 @@ export default async function handler(req, res) {
   const debug = String(req.query?.debug || "") === "1";
 
   // ══════════════════════════════════════════════════════════════
+  // 539 — `bankxizmatlari.uz/uz/rates/` TUZILMASI (`?probe=6`)
+  // ══════════════════════════════════════════════════════════════
+  // `?probe=5` natijasi: `bankxizmatlari.uz` (CBU sahifasidan havola
+  // qilingan portal) ichida MB kursidan YUQORI raqamlar bor —
+  // 11 880 · 11 870 · 11 855 (MB 11 847). Bular SOTISH kurslariga
+  // o'xshaydi. Sahifada `/uz/rates/` havolasi ham chiqdi.
+  // Bu — bank.uz dan yaxshiroq nomzod: rasmiyroq, ya'ni tuzilishi
+  // kamroq o'zgaradi.
+  // Bu yerda o'sha sahifaning tuzilmasi olinadi: bank nomi bilan kurs
+  // qanday bog'langan, sotib olish/sotish ajratilganmi, JSON/AJAX
+  // manzili bormi. Shundan keyin parser YOZILADI — qidiruv tugaydi.
+  if (String(req.query?.probe || "") === "6") {
+    let cb = 0;
+    try { cb = (await cbuOl()).rate; } catch (e) {}
+    const MANZIL = [
+      ["rates",      "https://bankxizmatlari.uz/uz/rates/"],
+      ["rates-usd",  "https://bankxizmatlari.uz/uz/rates/?currency=USD"],
+    ];
+    const natija = [];
+    for (const [nom, url] of MANZIL) {
+      try {
+        const r = await fetch(url, { headers: UA });
+        const xom = await r.text();
+        let t = xom.replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+                   .replace(/<style[\s\S]*?<\/style>/gi, " ")
+                   .replace(/<!--[\s\S]*?-->/g, " ")
+                   .replace(/\s(?:href|src|srcset|data-[a-z-]+)="[^"]*"/gi, " ");
+        // JS ichidagi ma'lumot ham qiziq — script'ni ALOHIDA ko'ramiz
+        const skript = (xom.match(/<script[^>]*>([\s\S]{0,4000}?)<\/script>/gi) || [])
+          .filter(x => /1[12][\s\u00a0]?[0-9]{3}/.test(x) &&
+                       /(bank|kurs|rate|usd|sotish)/i.test(x))
+          .slice(0, 2)
+          .map(x => x.replace(/\s+/g, " ").slice(0, 400));
+        t = t.replace(/<script[\s\S]*?<\/script>/gi, " ");
+
+        const re = /1[12][\s\u00a0]?[0-9]{3}(?:[.,][0-9]{1,2})?/g;
+        const joy = []; let m;
+        while ((m = re.exec(t)) !== null && joy.length < 120) {
+          const n = parseFloat(String(m[0]).replace(/[\s\u00a0]/g, "").replace(",", "."));
+          if (cb && Math.abs(n - cb) > cb * 0.06) continue;
+          joy.push({ n, i: m.index });
+        }
+        // AJAX/JSON manzillari
+        const api = [...new Set((xom.match(/["'\(]\/?[a-z0-9_\-\/\.]*(?:api|ajax|json|rates)[a-z0-9_\-\/\.\?=&]{0,60}["'\)]/gi) || [])
+          .map(x => x.replace(/^["'\(]|["'\)]$/g, ""))
+          .filter(x => !/\.(css|png|jpe?g|svg|woff2?|ico)/i.test(x)))].slice(0, 20);
+
+        natija.push({ nom, url, status: r.status, hajm: xom.length,
+          topildi: joy.length,
+          raqamlar: [...new Set(joy.map(x => x.n))].slice(0, 20),
+          sotib_sotish: { sotib: /sotib\s*ol/i.test(t), sotish: /sotish/i.test(t) },
+          api_manzillar: api,
+          skript_namuna: skript,
+          namunalar: joy.slice(0, 4).map(x =>
+            t.slice(Math.max(0, x.i - 420), x.i + 160).replace(/\s+/g, " ")) });
+      } catch (e) {
+        natija.push({ nom, url, xato: String(e.message || e) });
+      }
+    }
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json({ ok: true, cb, izoh:
+      "539 · bankxizmatlari.uz/uz/rates/ tuzilmasi. `namunalar` — parser " +
+      "uchun. `api_manzillar` — JSON bo'lsa regex kerak emas.", natija });
+  }
+
+  // ══════════════════════════════════════════════════════════════
   // 538 — OXIRGI QIDIRUV (`?probe=5`) · RASMIY MANBA IZLARI
   // ══════════════════════════════════════════════════════════════
   // `?probe=4` natijasi: CBU ning rasmiy JSON i FAQAT Markaziy Bank
