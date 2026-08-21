@@ -2278,8 +2278,10 @@ async function ensureCloudPull(tries = 3) {
       if (typeof updateCloudUI === "function") updateCloudUI(true);
       const _pg = document.querySelector(".pg.on");
       if (_pg && typeof nav === "function") {
-        const _p = _pg.id.replace(/^p-/, "");
-        nav(_p === "pos" ? "sotuv" : _p);
+        try {                                    // ✅ 2026-08-21: himoya
+          const _p = _pg.id.replace(/^p-/, "");
+          nav(_p === "pos" ? "sotuv" : _p);
+        } catch (e) { console.warn("[sozlama] chizish:", e.message); }
       }
       if (db?.settings?.rate) console.log("💱 Kurs yuklandi:", db.settings.rate);
     }
@@ -2998,9 +3000,19 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
     // v177 (4-BOSQICH): endi dashboardga ULOQTIRILMAYDI. Foydalanuvchi
     // qaysi sahifada bo'lsa, o'sha sahifaning o'zi qayta chiziladi
     // (nav o'sha sahifaning render funksiyasini chaqiradi).
+    // 🔴 2026-08-21 ILDIZ-DAVO: EKRAN XATOSI PULL'NI YIQITMASIN.
+    // Avval bu chaqiruv himoyasiz edi. Biror chizuvchi funksiya hali
+    // yuklanmagan yoki xato bergan bo'lsa (21-avg: "renderHisobot is
+    // not defined"), pull o'sha yerda UZILARDI — ma'lumot allaqachon
+    // olingan bo'lsa ham EKRANGA CHIQMASDI va Katalog/Ombor/Mijozlar
+    // bo'sh ko'rinardi. Endi chizish alohida himoyada: ma'lumot
+    // baribir qo'llanadi, ekran esa keyingi sahifa almashuvida
+    // o'z-o'zidan tuzaladi.
     if (!skipRender) {
-      const _cur = document.querySelector("[id^='p-'].on")?.id?.slice(2) || "dashboard";
-      nav(_cur);
+      try {
+        const _cur = document.querySelector("[id^='p-'].on")?.id?.slice(2) || "dashboard";
+        nav(_cur);
+      } catch (e) { console.warn("[pull] ekranni chizishda xato:", e.message); }
     }
     if (!silent) toast("✅ Ma'lumotlar yangilandi");
     // Faqat o'qiydigan qurilma ham (egasi telefonida ko'rish) ro'yxatga

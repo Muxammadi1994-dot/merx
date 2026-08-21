@@ -699,11 +699,27 @@ function nav(p) {
   $("ptitle").textContent = T[p] || p;
   // Mobil: sahifa tanlangach sidebar avtomat yopiladi
   if (typeof closeMobSidebar === "function") closeMobSidebar();
-  const fn = { dashboard:renderDashboard, katalog:renderKatalog, ombor:renderOmbor,
-    mijozlar:renderMijozlar, qarzlar:renderDebts, qarztarix:renderQarzlarTarixi, tarix:renderTarix,
-    hisobot:renderHisobot, xodimlar:renderXodimlar, moliya:renderMoliya,
-    portal:renderPortal, egasi:renderEgasi, audit:renderAudit };
-  if (fn[p]) fn[p]();
+  // 🔴 2026-08-21 ILDIZ-DAVO: chizuvchilar NOMI bilan chaqiriladi.
+  // Avval bu yerda `{ hisobot: renderHisobot, ... }` deb TO'G'RIDAN-
+  // TO'G'RI yozilgan edi. Obyekt tuzilayotganda hamma funksiya
+  // MAVJUD bo'lishi shart edi — agar bittasi hali yuklanmagan bo'lsa
+  // (`hisobot.js` skript ro'yxatida `utils.js` dan KEYIN turadi),
+  // "renderHisobot is not defined" xatosi butun `nav()` ni yiqitardi.
+  // U esa pull ichidan chaqiriladi → PULL TO'XTAB QOLARDI va
+  // ma'lumot umuman qo'llanmasdi: Katalog, Ombor, Mijozlar — hammasi
+  // BO'SH ko'rinardi (21-avgust, jonli hodisa).
+  // Endi nomi bo'yicha qidiriladi, yo'q bo'lsa jim o'tkazib yuboriladi.
+  const _fnNom = { dashboard:"renderDashboard", katalog:"renderKatalog",
+    ombor:"renderOmbor", mijozlar:"renderMijozlar", qarzlar:"renderDebts",
+    qarztarix:"renderQarzlarTarixi", tarix:"renderTarix",
+    hisobot:"renderHisobot", xodimlar:"renderXodimlar", moliya:"renderMoliya",
+    portal:"renderPortal", egasi:"renderEgasi", audit:"renderAudit" };
+  try {
+    const _nm = _fnNom[p];
+    const _f  = _nm ? window[_nm] : null;
+    if (typeof _f === "function") _f();
+    else if (_nm) console.warn("[nav] " + _nm + " hali yuklanmagan — o'tkazildi");
+  } catch (e) { console.warn("[nav] chizishda xato:", e.message); }
   if (p === "pos") {
     refreshCustList(); refreshStaffList(); renderPosGrid();
     if (typeof checkDebtAlerts === "function") checkDebtAlerts();
