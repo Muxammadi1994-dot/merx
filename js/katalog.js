@@ -1497,7 +1497,7 @@ async function _saveEditProductIchki() {   // ✅ 2026-08-18: to'qnashuv tekshir
   // Server javobi: ok · conflict (boshqa qurilma yangilagan).
   // Aloqa yo'q bo'lsa `null` — eski yo'l (lokal + push) ishlaydi.
   if (typeof serverSaveRecord === "function") {
-    const _r = await serverSaveRecord("products", p, _epBaseAt);
+    let _r = await serverSaveRecord("products", p, _epBaseAt);
     if (_r && _r.ok === false && _r.code === "conflict") {
       if (!confirm("⚠️ Bu tovarni boshqa kassa yangiladi.\n\n" +
             "Saqlasangiz uning o'zgarishlari yo'qolishi mumkin.\n\n" +
@@ -1508,8 +1508,39 @@ async function _saveEditProductIchki() {   // ✅ 2026-08-18: to'qnashuv tekshir
         toast("Tovar yangilandi — qaytadan oching", "info");
         return;
       }
-      await serverSaveRecord("products", p, null);   // majburiy yozish
+      _r = await serverSaveRecord("products", p, null);   // majburiy yozish
     }
+    // ═══════════════════════════════════════════════════════════════
+    // 🔴 530 (2026-08-22): SERVER MUHRI QABUL QILINADI — SOXTA
+    //    "BOSHQA KASSA YANGILADI" OGOHLANTIRISHI SHUNDAN EDI
+    // ═══════════════════════════════════════════════════════════════
+    // JONLI HODISA: egasi YAKKA qurilmada, sinov do'konida rang/o'lcham
+    // tahrir qilganda "Bu tovarni boshqa kassa yangiladi" chiqdi —
+    // holbuki ikkinchi qurilma umuman ishlatilmagan.
+    //
+    // ILDIZ — IKKI XIL SOAT:
+    //   · yuqorida (`p.updatedAt = new Date()...`) muhrni QURILMA
+    //     soati bilan qo'yamiz;
+    //   · server esa `save_record` da uni O'Z soati bilan qayta yozadi
+    //     (`api/pul.js`: `data.updatedAt = now`).
+    // Server javobda yangi muhrni QAYTARADI (`return=representation`),
+    // lekin klient uni OLMASDI — lokal nusxada qurilma vaqti qolardi.
+    // Keyingi tahrirda `_epBaseAt` o'sha eski (qurilma) vaqti bo'lib
+    // ketardi va server solishtirganda o'zining vaqti YANGIROQ chiqardi:
+    //     `_sAt > _bAt + 1000`  →  "conflict"
+    // Ya'ni qurilma soati serverdan 1 soniyadan ko'proq orqada bo'lsa,
+    // YAKKA qurilmada ham har ikkinchi tahrirda ogohlantirish chiqardi.
+    //
+    // Endi §3.23 (SERVER HAQIQAT) va §3.13 (`updatedAt` — sinxron muhri)
+    // bo'yicha: yozuv muvaffaqiyatli bo'lsa SERVER bergan muhr olinadi.
+    // Shu bilan qurilma soati qanday bo'lishidan qat'i nazar solishtiruv
+    // to'g'ri ishlaydi. To'qnashuv himoyasi O'CHIRILMADI — u endi
+    // faqat CHINDAN boshqa qurilma yozganda ishlaydi.
+    try {
+      const _srvAt = (_r && _r.ok && _r.row &&
+                      ((_r.row.data && _r.row.data.updatedAt) || _r.row.updated_at)) || "";
+      if (_srvAt) { p.updatedAt = _srvAt; _epBaseAt = String(_srvAt); }
+    } catch (e) {}
     // Server javobidagi QOLDIQ lokalga qaytariladi (sonlar server
     // haqiqati — kartochka tahriri qoldiqqa tegmaydi)
     try {
