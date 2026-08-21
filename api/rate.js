@@ -197,6 +197,63 @@ export default async function handler(req, res) {
   const debug = String(req.query?.debug || "") === "1";
 
   // ══════════════════════════════════════════════════════════════
+  // 536 — BANK SAHIFASI (`?probe=3`) · FAQAT TEKSHIRUV
+  // ══════════════════════════════════════════════════════════════
+  // `?probe=2` bank.uz tuzilmasini ko'rsatdi:
+  //   <span class="medium-text"> BANK NOMI </span> ... </div>
+  //   <span class="medium-text green-date"> 11 850 so'm </span>
+  // Ya'ni parser yozsa bo'ladi. LEKIN bitta ANIQLANMAGAN narsa qoldi:
+  // topilgan raqamlarning HAMMASI 11 850 dan past, MB kursi esa 11 847.
+  // Demak bular banklarning SOTIB OLISH kursi bo'lishi mumkin —
+  // egaga esa SOTISH kursi kerak ("eng qimmat sotilayotgan").
+  // Buni tekshirmasdan parser yozilsa, kurs muntazam PAST chiqadi va
+  // bu to'g'ridan-to'g'ri narxlarga ta'sir qiladi.
+  // `?probe=2` dagi `havolalar` har bankning o'z sahifasini ko'rsatdi
+  // (`/uz/currency/bank/nbu`). Shu sahifada ikkala kurs bo'lishi kerak.
+  if (String(req.query?.probe || "") === "3") {
+    let cb = 0;
+    try { cb = (await cbuOl()).rate; } catch (e) {}
+    const MANZIL = [
+      ["nbu-bank",     "https://bank.uz/uz/currency/bank/nbu"],
+      ["asia-alliance","https://bank.uz/uz/currency/bank/asia-alliance-bank"],
+      ["kapitalbank",  "https://bank.uz/uz/currency/bank/kapitalbank"],
+    ];
+    const natija = [];
+    for (const [nom, url] of MANZIL) {
+      try {
+        const r = await fetch(url, { headers: UA });
+        let html = await r.text();
+        html = html.replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+                   .replace(/<script[\s\S]*?<\/script>/gi, " ")
+                   .replace(/<style[\s\S]*?<\/style>/gi, " ")
+                   .replace(/<!--[\s\S]*?-->/g, " ")
+                   .replace(/\s(?:href|src|srcset|data-[a-z-]+)="[^"]*"/gi, " ");
+        const re = /1[12][\s\u00a0]?[0-9]{3}(?:[.,][0-9]{1,2})?/g;
+        const joy = []; let m;
+        while ((m = re.exec(html)) !== null && joy.length < 60) {
+          const n = parseFloat(String(m[0]).replace(/[\s\u00a0]/g, "").replace(",", "."));
+          if (cb && Math.abs(n - cb) > cb * 0.06) continue;
+          joy.push({ n, i: m.index });
+        }
+        natija.push({ nom, url, status: r.status, topildi: joy.length,
+          raqamlar: joy.slice(0, 12).map(x => x.n),
+          // Sotib olish / sotish so'zlari sahifada bormi
+          soz_sotib: /sotib\s*ol|\u043f\u043e\u043a\u0443\u043f|buy/i.test(html),
+          soz_sotish: /sotish|\u043f\u0440\u043e\u0434\u0430\u0436|sell/i.test(html),
+          namunalar: joy.slice(0, 3).map(x =>
+            html.slice(Math.max(0, x.i - 450), x.i + 150).replace(/\s+/g, " ")) });
+      } catch (e) {
+        natija.push({ nom, url, xato: String(e.message || e) });
+      }
+    }
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json({ ok: true, cb, izoh:
+      "536 · bank sahifasida SOTIB OLISH va SOTISH kursi ajratilganmi. " +
+      "`soz_sotib`/`soz_sotish` — sahifada shu so'zlar bormi. " +
+      "`namunalar` — raqam atrofidagi HTML.", natija });
+  }
+
+  // ══════════════════════════════════════════════════════════════
   // 535 — CHUQUR NAMUNA (`?probe=2`) · FAQAT TEKSHIRUV
   // ══════════════════════════════════════════════════════════════
   // `?probe=1` shuni ko'rsatdi: bank.uz TIRIK (200, 386 KB) va ichida
