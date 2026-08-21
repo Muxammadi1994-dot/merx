@@ -197,6 +197,72 @@ export default async function handler(req, res) {
   const debug = String(req.query?.debug || "") === "1";
 
   // ══════════════════════════════════════════════════════════════
+  // 538 — OXIRGI QIDIRUV (`?probe=5`) · RASMIY MANBA IZLARI
+  // ══════════════════════════════════════════════════════════════
+  // `?probe=4` natijasi: CBU ning rasmiy JSON i FAQAT Markaziy Bank
+  // kurslarini beradi (74 valyuta), tijorat banklari YO'Q — uchala
+  // nomzod 404. Lekin havolalar orasida ikki kuchli iz chiqdi:
+  //   · `https://bankxizmatlari.uz/uz/` — CBU sahifasidan havola,
+  //     ya'ni Markaziy Bankning BANK XIZMATLARI portali. Banklarni
+  //     solishtiradigan rasmiy sayt bo'lishi mumkin.
+  //   · `https://cbu.uz/uz/services/open_data/rates/csv/` — ochiq
+  //     ma'lumot, CSV.
+  // Bu OXIRGI qidiruv qadami. Rasmiy manba topilmasa, bank.uz ning
+  // BANK SAHIFALARI yo'lidan boramiz — u yerda "Sotib olish"/"Sotish"
+  // yorliqlari bor (536 tasdiqladi), ya'ni taxmin qilinmaydi.
+  if (String(req.query?.probe || "") === "5") {
+    let cb = 0;
+    try { cb = (await cbuOl()).rate; } catch (e) {}
+    const KALIT = /(kurs|valyut|valut|exchange|rate|dollar|usd)/i;
+    const out = { ok: true, cb, izoh:
+      "538 · rasmiy manba izlari. `havolalar` — kurs/valyuta so'zli " +
+      "manzillar. `kurs_raqamlari` — MB kursi atrofidagi noyob raqamlar.",
+      sahifalar: [] };
+
+    const SAHIFA = [
+      ["bankxizmatlari",  "https://bankxizmatlari.uz/uz/"],
+      ["cbu-csv",         "https://cbu.uz/uz/services/open_data/rates/csv/"],
+      ["cbu-opendata",    "https://cbu.uz/uz/services/open_data/"],
+      ["cbu-statistика",  "https://cbu.uz/uz/statistics/rates/"],
+      ["cbu-almashinuv",  "https://cbu.uz/uz/credit-organizations/banks/exchange-offices/"],
+    ];
+    for (const [nom, url] of SAHIFA) {
+      try {
+        const r = await fetch(url, { headers: UA });
+        const xom = await r.text();
+        let t = xom.replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+                   .replace(/<script[\s\S]*?<\/script>/gi, " ")
+                   .replace(/<style[\s\S]*?<\/style>/gi, " ")
+                   .replace(/\s(?:href|src|srcset|data-[a-z-]+)="[^"]*"/gi, " ");
+        const re = /1[12][\s\u00a0]?[0-9]{3}(?:[.,][0-9]{1,2})?/g;
+        const joy = []; let m;
+        while ((m = re.exec(t)) !== null && joy.length < 60) {
+          const n = parseFloat(String(m[0]).replace(/[\s\u00a0]/g, "").replace(",", "."));
+          if (cb && Math.abs(n - cb) > cb * 0.06) continue;
+          joy.push({ n, i: m.index });
+        }
+        const hav = (xom.match(/(?:href)="([^"]{3,140})"/gi) || [])
+          .map(x => x.replace(/^href="/i, "").replace(/"$/, ""))
+          .filter(x => KALIT.test(x))
+          .filter(x => !/\.(css|png|jpe?g|svg|woff2?|ico|gif)/i.test(x));
+        out.sahifalar.push({ nom, url, status: r.status, hajm: xom.length,
+          tur: (xom.trim()[0] === "{" || xom.trim()[0] === "[") ? "JSON"
+             : (/^[^<]{0,80}[;,]/.test(xom.trim()) ? "CSV(?)" : "HTML"),
+          kurs_raqamlari: [...new Set(joy.map(x => x.n))].slice(0, 14),
+          havolalar: [...new Set(hav)].slice(0, 18),
+          bosh: xom.trim().slice(0, 240).replace(/\s+/g, " "),
+          namuna: joy.length
+            ? t.slice(Math.max(0, joy[0].i - 380), joy[0].i + 140).replace(/\s+/g, " ")
+            : "" });
+      } catch (e) {
+        out.sahifalar.push({ nom, url, xato: String(e.message || e) });
+      }
+    }
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json(out);
+  }
+
+  // ══════════════════════════════════════════════════════════════
   // 537 — MARKAZIY BANKDA TIJORAT BANK KURSLARI BORMI (`?probe=4`)
   // ══════════════════════════════════════════════════════════════
   // Egasining savoli (2026-08-22): "markaziy bankda boshqa banklar
