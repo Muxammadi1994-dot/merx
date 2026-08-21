@@ -547,6 +547,26 @@ const _DELTA_TABLES = [
   // umuman chaqirilmasdi — bir qurilmada qo'shilgan xodim boshqasiga
   // HECH QACHON yetib bormasdi (u tizimga kira olmasdi).
   ["staff",         "staff"],
+
+  // 🔴 527 (2026-08-22): TO'RT JADVAL QO'SHILDI — MAVJUD TESHIK YOPILDI.
+  // Kirish pull'i 14 ta jadvalni tortadi, delta esa faqat 9 tasini.
+  // Farqda qolganlari: returns · chiqimlar · shifts · suppliers
+  // (+ audit_log, u boshqacha tuzilgan — alohida hal qilinadi).
+  //
+  // OQIBATI (bugungi kodda, mening o'zgarishlarimdan OLDIN ham bor edi):
+  // bir kassada QAYTARISH qilinsa, ikkinchi kassa uni faqat KEYINGI
+  // TO'LIQ PULL'da ko'rardi. Ilova kun bo'yi ochiq tursa — soatlab.
+  // Xuddi shunday: pul chiqimi (`chiqimlar`), smena (`shifts`),
+  // ta'minotchi (`suppliers`). Qaytarish va chiqim — PUL yozuvlari.
+  //
+  // Endi ular ham 90 soniyalik delta va realtime signalga tushadi.
+  // YANGI BIRLASHTIRISH KODI YOZILMADI: to'rtalasi ham to'liq pull'da
+  // aynan delta kutgan shaklda o'qiladi (`{...r.data, id: r.id}`),
+  // shuning uchun ro'yxatga qo'shishning o'zi kifoya.
+  ["returns",       "returns"],
+  ["chiqimlar",     "chiqimlar"],
+  ["shifts",        "shifts"],
+  ["suppliers",     "suppliers"],
 ];
 
 // ⚠️ O'CHIRISH KALITI jadval bo'yicha HAR XIL.
@@ -557,6 +577,12 @@ const _DELTA_TABLES = [
 const _DELTA_DEL_KEY = {
   products: "sku", customers: "id", sales: "id",
   ombor: "id", xarajatlar: "id", debt_payments: "id", staff: "id",
+  // 527: `queueCloudDelete("suppliers","id",…)` va
+  // `queueCloudDelete("chiqimlar","id",…)` — ikkalasi ham `id` bilan
+  // o'chiradi (`ombor.js:1072` va `:1174`). `returns`/`shifts` esa
+  // umuman o'chirilmaydi. Standart qiymat ham "id" edi, lekin aniq
+  // yozib qo'yildi — keyingi o'quvchi izlab yurmasin.
+  returns: "id", chiqimlar: "id", shifts: "id", suppliers: "id",
 };
 
 // Tovarlar SKU bo'yicha, qolganlari id bo'yicha birlashtiriladi —
@@ -712,6 +738,16 @@ async function pullDelta(noRender) {
           if (!base.phone && r.phone) base.phone = r.phone;
           if (!base.name  && r.name)  base.name  = r.name;
           if (!base.role  && r.role)  base.role  = r.role;
+        }
+        // 527: CHIQIMLARDA ID BOSHQACHA. To'liq pull shunday o'qiydi:
+        //   { ...c.data, id: c.local_id || c.data.id || c.id }
+        // (`cloud.js` chiqimlar bloki). Push esa `id` ni MATN, `local_id`
+        // ni SON qilib yuboradi. Delta ham AYNAN shu qoidani ishlatishi
+        // shart — aks holda bir xil chiqim ikki xil id bilan ikki marta
+        // ko'rinardi. Boshqa uchtasi (returns/shifts/suppliers) umumiy
+        // qoidaga mos, ularga qoida kerak emas.
+        if (tbl === "chiqimlar") {
+          base.id = r.local_id || (r.data && r.data.id) || r.id;
         }
         if (tbl === "products") {
           const old = (db.products || []).find(x => String(x.sku) === String(r.sku)) || {};
