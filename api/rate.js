@@ -34,83 +34,19 @@ async function cbuOl() {
   if (!rate || rate <= 0) throw new Error("CBU: kurs noto'g'ri");
   return { rate, date: row?.Date || null };
 }
-
-// ── 2. NBU (Milliy bank) — ochiq JSON ────────────────────────────
-async function nbuOl() {
-  const r = await fetch("https://nbu.uz/exchange-rates/json/", { headers: UA });
-  if (!r.ok) throw new Error("NBU: " + r.status);
-  const j = await r.json();
-  const arr = Array.isArray(j) ? j : (j.data || j.result || []);
-  const usd = arr.find(x => (x.code === "USD" || x.title === "USD" ||
-                             x.ccy === "USD" || x.currency === "USD"));
-  if (!usd) throw new Error("NBU: USD topilmadi");
-  // Sotuv maydoni turli nomlarda uchraydi — hammasini sinaymiz
-  const sell = parseFloat(usd.nbu_cell_price ?? usd.cell_price ?? usd.sell ??
-                          usd.sale ?? usd.sell_price ?? usd.nbu_sell);
-  const buy  = parseFloat(usd.nbu_buy_price ?? usd.buy_price ?? usd.buy ??
-                          usd.purchase ?? usd.nbu_buy);
-  if (!sell || sell <= 0) throw new Error("NBU: sotuv kursi yo'q");
-  return [{ bank: "NBU (Milliy bank)", sell, buy: buy || null }];
-}
-
-// ── 3. bank.uz sahifasidan o'qish (JSON API yo'q) ────────────────
-// Sahifadagi jadvaldan bank nomi + sotuv kursini ajratamiz.
-// Sayt tuzilishi o'zgarsa bu manba jim yiqiladi — qolganlari ishlaydi.
-async function bankUzOl(cbRate) {
-  const r = await fetch("https://bank.uz/uz/currency", { headers: UA });
-  if (!r.ok) throw new Error("bank.uz: " + r.status);
-  let html = await r.text();
-
-  // ⚠️ 2026-08-20 (jonli xato): tahlilchi SVG ichidagi raqamlarni
-  // olib, kurs 19 193 deb yozgan va bank nomi o'rniga `clip-path`
-  // bo'lagi chiqqan. Shuning uchun AVVAL sahifa tozalanadi.
-  html = html
-    .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<!--[\s\S]*?-->/g, " ");
-
-  const juft = /(1[0-9][\s\u00a0]?[0-9]{3}(?:[.,][0-9]{1,2})?)[^0-9]{1,80}?(1[0-9][\s\u00a0]?[0-9]{3}(?:[.,][0-9]{1,2})?)/g;
-  const N = x => parseFloat(String(x).replace(/[\s\u00a0]/g, "").replace(",", "."));
-
-  // Bank nomi HAQIQIY nomga o'xshashi shart — HTML qoldiqlari rad etiladi
-  const nomToza = (t) => {
-    const toza = t.replace(/<[^>]*>/g, "|").replace(/&[a-z#0-9]+;/gi, " ");
-    const bolaklar = toza.split("|").map(x => x.trim())
-      .filter(x => /[A-Za-z\u0410-\u044f]{3,}/.test(x));
-    for (let i = bolaklar.length - 1; i >= 0; i--) {
-      const n = bolaklar[i].replace(/\s+/g, " ").slice(0, 40);
-      if (/[<>=\/{}\[\]]/.test(n)) continue;                 // HTML qoldig'i
-      if (/path|clip|svg|xmlns|href|width|height|fill|http|www/i.test(n)) continue;
-      if (!/^[A-Za-z\u0410-\u044f\u040e\u045e\u049a\u049b\u0492\u0493\u04b2\u04b3]/.test(n)) continue;
-      if (n.length < 3) continue;
-      return n;
-    }
-    return "";
-  };
-
-  const out = [];
-  let m, sanoq = 0;
-  while ((m = juft.exec(html)) !== null && sanoq < 80) {
-    const a = N(m[1]), b = N(m[2]);
-    if (!a || !b) continue;
-    const sell = Math.max(a, b), buy = Math.min(a, b);
-    // ✅ ASOSIY HIMOYA: Markaziy Bank kursidan 10% dan ko'p farq
-    // qilgan raqam — kurs EMAS (sahifadagi boshqa son yoki EUR).
-    if (cbRate > 0) {
-      if (Math.abs(sell - cbRate) > cbRate * 0.10) continue;
-      if (Math.abs(buy  - cbRate) > cbRate * 0.10) continue;
-    } else if (sell < 9000 || sell > 20000) continue;
-    if (sell - buy < 0 || sell - buy > sell * 0.08) continue;   // oluv/sotuv juftimi
-    const nom = nomToza(html.slice(Math.max(0, m.index - 200), m.index));
-    if (!nom) continue;                                          // nomi yo'q — ishonmaymiz
-    if (/markaziy|central|cbu/i.test(nom)) continue;
-    out.push({ bank: nom, sell, buy });
-    sanoq++;
-  }
-  if (!out.length) throw new Error("bank.uz: ishonchli qator topilmadi");
-  return out;
-}
+// ══════════════════════════════════════════════════════════════════
+// 543 (2026-08-22) — `nbuOl` va `bankUzOl` OLIB TASHLANDI
+// ══════════════════════════════════════════════════════════════════
+// Ikkalasi ham 2026-08-22 o'lchovida O'LIK chiqdi:
+//   · NBU (`nbu.uz/exchange-rates/json/`) → HTTP 404, uch xil manzil
+//     sinaldi, hammasi 404. Manzil butunlay yo'qolgan.
+//   · bank.uz umumiy ro'yxati → "ishonchli qator topilmadi": sahifa
+//     tuzilmasi o'zgargan. Ustiga u faqat SOTIB OLISH kursini beradi,
+//     bizga esa SOTISH kerak (536 tasdiqladi).
+// Ular o'rniga `bxOl` (bankxizmatlari.uz) ishlatiladi — bitta so'rovda
+// 30 ta bank, yorliqlar matn bilan.
+// Kod SAQLANMADI: ishlamaydigan manba zaxira bo'la olmaydi, noto'g'ri
+// ma'lumot esa ma'lumot yo'qligidan yomonroq. Zaxira — Markaziy Bank.
 
 // ══════════════════════════════════════════════════════════════════
 // 534 (2026-08-22) — MANBA QIDIRUVI (`?probe=1`) · FAQAT TEKSHIRUV
@@ -742,7 +678,20 @@ export default async function handler(req, res) {
   // ko'p farq qilsa rad etiladi (jonli xato: 19 193 yozilib qolgan).
   let cbAnchor = 0;
   try { cbAnchor = (await cbuOl()).rate; } catch (e) {}
-  for (const [nom, fn] of [["nbu", nbuOl], ["bank.uz", bankUzOl]]) {
+  // 🔴 543 (2026-08-22): MANBA ALMASHTIRILDI.
+  // Eski zanjir `[nbu, bank.uz]` ikkalasi ham O'LIK edi (534 o'lchovi):
+  //   · NBU JSON → 404, manzil butunlay yo'qolgan;
+  //   · bank.uz umumiy ro'yxati → tuzilma o'zgargan, "qator topilmadi".
+  // Natijada tijorat rejimi jimgina Markaziy Bank kursiga tushib
+  // qolgan edi — ya'ni bo'lim ishlamas holatda turgan.
+  // Yangi manba: `bankxizmatlari.uz` (CBU sahifasidan havola qilingan
+  // portal) — bitta so'rovda 30 ta bank, "Sotish"/"Sotib olish"
+  // yorliqlari MATN bilan yozilgan (539/540 tasdiqladi).
+  // ⚠️ bank.uz zanjirdan OLIB TASHLANDI: uning umumiy ro'yxati faqat
+  // SOTIB OLISH kursini beradi. Noto'g'ri ma'lumot — ma'lumot yo'qligidan
+  // YOMONROQ, shuning uchun zaxira sifatida ham qoldirilmadi.
+  // Zaxira yo'l — pastdagi Markaziy Bank kursi (o'zgarmagan).
+  for (const [nom, fn] of [["bankxizmatlari", bxOl]]) {
     try {
       const r0 = await fn(cbAnchor);
       const r = (r0 || []).filter(x => !cbAnchor ||
@@ -776,8 +725,32 @@ export default async function handler(req, res) {
       fallback: true, source: "CBU (Markaziy Bank) — tijorat manbalari ishlamadi" });
   }
 
-  res.setHeader("Cache-Control", "s-maxage=900, stale-while-revalidate");
+  // ── 543: TANLOV — ishonchli ro'yxat → kelishuv → o'rta qiymat ──
+  const tanlov = _kursniTanla(banklar);
+  if (!tanlov || !tanlov.tanlangan) {
+    // Ishonchli bank topilmadi yoki kelishuv yo'q — KURS TAXMIN
+    // QILINMAYDI. Markaziy Bank kursi bilan qaytamiz; klientdagi
+    // "sakrash qo'riqchisi" ham shu javobni ko'radi.
+    if (!cb) return res.status(500).json({ ok: false, error: "Manbalar ishlamadi" });
+    return res.status(200).json({ ok: true, rate: cb, cb, banklar: [],
+      fallback: true,
+      sabab: (tanlov && tanlov.xato) || "ishonchli bank topilmadi",
+      source: "CBU (Markaziy Bank) — tijorat kursi tasdiqlanmadi" });
+  }
+
+  // ⚡ 543: KESH 15 → 5 DAQIQA. Egasining talabi: kurs kun davomida
+  // 10 daqiqalik aniqlikda yangilansin. Klient tomonidagi 30 daqiqalik
+  // qo'riqchi ham keyingi paketda qisqartiriladi.
+  res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate");
   return res.status(200).json({ ok: true,
-    rate: banklar[0].sell, bank: banklar[0].bank,
-    cb, banklar, source: "Tijorat banklari (eng yuqori sotuv)" });
+    rate: tanlov.tanlangan.sell,
+    bank: tanlov.tanlangan.bank,
+    buy:  tanlov.tanlangan.buy || null,
+    usul: tanlov.usul,
+    qollab: tanlov.qollab || 0,
+    tashlangan: tanlov.tashlangan || [],
+    hamma_soni: tanlov.hamma_soni,
+    cb,
+    banklar: tanlov.ishonchli,
+    source: "Ishonchli banklar · eng yuqori sotuv (tasdiqlangan)" });
 }
