@@ -466,6 +466,9 @@ async function _debtEnsureFull() {
     if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
     if (navigator && navigator.onLine === false) return;
     if (typeof _sb === "undefined" || !_sb) return;
+    // ✅ 522 HIMOYASI: yordamchi `cloud.js` da. Yuklanmagan bo'lsa jim
+    // chiqamiz — ro'yxat lokal holicha qoladi, chizish yiqilmaydi.
+    if (typeof _faqatKerakli !== "function") return;
     if (_dbFullBusy || (Date.now() - _dbFullT) < 30000) return;
     _dbFullBusy = true;
     const sid = getCloudShopId();
@@ -478,20 +481,48 @@ async function _debtEnsureFull() {
     if (_dsid && String(_dsid) !== String(sid)) { _dbFullBusy = false; return; }
 
     // 1) Ochiq qarzli sotuvlar (yangi indekslardan foydalanadi)
-    const { data: sData, error: sErr } = await _sb.from("sales")
-      .select("*").eq("shop_id", sid).or("remaining.gt.0,debt_usd.gt.0");
-    if (sErr) throw new Error(sErr.message);
+    // ✅ 522 (2026-08-21): BUTUN RO'YXAT O'RNIGA — FAQAT KERAKLISI.
+    // Avval bu yerda ikkita og'ir so'rov bor edi va ular HAR 30
+    // SONIYADA takrorlanardi (Qarzlar bo'limi ochiq turganda), har
+    // qurilmadan: (a) ochiq qarzli sotuvlar `select("*")` — ~285 chek
+    // `items` ro'yxati bilan; (b) o'sha mijozlarning BARCHA to'lovlari
+    // 900 elementli `IN` bilan. Server CPU 95% ning katta qismi shu edi.
+    // Endi avval faqat kalitlar o'qiladi, keyin FAQAT lokalda yo'q yoki
+    // o'zgargani to'liq olinadi. FILTRLAR O'ZGARMADI — aynan o'sha
+    // qatorlar qamrab olinadi, faqat o'qiladigan hajm kichrayadi.
+    const _sMapK = new Map((db.sales || []).map(x => [String(x.id), x]));
+    const sKer = await _faqatKerakli({
+      jadval: "sales", sid, kalitUstun: "id", lokalMap: _sMapK,
+      qoshimcha: "customer_id", markKey: "qarz_sales", belgi: "qarz sotuvlari",
+      filtr: q => q.or("remaining.gt.0,debt_usd.gt.0")
+    });
+    const sData = sKer.rows;
 
     // 2) Shu mijozlarning to'lovlari (holat hisobi uchun shart)
-    const custIds = [...new Set((sData || [])
+    // 🔴 MUHIM (sinov topdi): mijozlar ro'yxati KALITLARDAN olinadi,
+    // `sData` dan EMAS. Sabab: `sData` endi faqat YANGI/o'zgargan
+    // cheklar — odatda BO'SH. Undan mijoz yig'ilsa ro'yxat bo'sh
+    // chiqib, to'lovlar umuman tortilmasdi va qarz ro'yxati buzilardi.
+    // `kalitlar` esa BARCHA ochiq qarzli cheklarni qamraydi — ya'ni
+    // mijozlar to'plami avvalgidek to'liq.
+    const custIds = [...new Set(sKer.kalitlar
       .map(r => r.customer_id).filter(x => x != null))];
-    let pData = [];
+    let pData = [], pKer = null;
     if (custIds.length) {
-      const { data: pd, error: pErr } = await _sb.from("debt_payments")
-        .select("*").eq("shop_id", sid).in("customer_id", custIds.slice(0, 900));
-      if (pErr) throw new Error(pErr.message);
-      pData = pd || [];
+      const _pMapK = new Map((db.debtPayments || []).map(x => [String(x.id), x]));
+      pKer = await _faqatKerakli({
+        jadval: "debt_payments", sid, kalitUstun: "id", lokalMap: _pMapK,
+        markKey: "qarz_pays", belgi: "qarz to'lovlari",
+        filtr: q => q.in("customer_id", custIds.slice(0, 900))
+      });
+      pData = pKer.rows;
     }
+    try {
+      console.log("💰 Qarzlar to'ldirish: chek " + sKer.tortildi + "/" +
+        sKer.tekshirildi + " · to'lov " +
+        (pKer ? pKer.tortildi + "/" + pKer.tekshirildi : "0/0") +
+        " qator to'liq o'qildi");
+    } catch (e) {}
 
     // ⚠️ DO'KON TEKSHIRUVI — javob kelguncha almashgan bo'lsa tashlaymiz
     if (String(getCloudShopId()) !== String(sid) ||
@@ -503,6 +534,11 @@ async function _debtEnsureFull() {
 
     // 3) Lokalga qo'shamiz — YANGIROQ lokal yozuvga tegilmaydi
     const qoshildi = _dbMerge(sData, pData);
+
+    // ✅ 522: birlashtirish tugadi — endi belgi yoziladi. Yuqorida
+    // biror narsa yiqilsa bu yerga yetib kelinmaydi va belgi eski
+    // holida qoladi: keyingi urinishda o'sha qatorlar qayta o'qiladi.
+    try { sKer.tasdiqla(); if (pKer) pKer.tasdiqla(); } catch (e) {}
 
     _dbFullT = Date.now(); _dbFullBusy = false;
     if (qoshildi > 0) {

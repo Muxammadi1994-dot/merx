@@ -351,17 +351,31 @@ function _fillMarkYoz(sid, jadval, iso) {
   } catch (e) {}
 }
 
-async function _faqatKerakli({ jadval, sid, kalitUstun = "id", lokalMap, filtr, belgi }) {
-  const _nom = belgi || jadval;
+// ✅ 522 (2026-08-21) — IKKI QO'SHIMCHA (orqaga to'liq mos):
+//   `markKey`   — belgi kaliti. Bitta jadval IKKI XIL filtr bilan
+//                 o'qilishi mumkin (masalan `sales` — Qarzlarda ochiq
+//                 qarzlar, Tarixda davr bo'yicha). Har biriga O'Z belgisi
+//                 kerak, aks holda biri ikkinchisining belgisini oldinga
+//                 surib, o'zi ko'rmagan qatorni "ko'rilgan" deb hisoblardi.
+//                 Berilmasa — jadval nomi (520/521 belgilari o'z kuchida).
+//   `qoshimcha` — kalitlar so'roviga QO'SHIMCHA ustun. Kerak, chunki
+//                 chaqiruvchi ba'zan to'liq ro'yxatdagi bir ustunga
+//                 tayanadi (Qarzlarda `customer_id`). Shu sabab `kalitlar`
+//                 ham qaytariladi — pastdagi Qarzlar izohiga qarang.
+async function _faqatKerakli({ jadval, sid, kalitUstun = "id", lokalMap,
+                               filtr, belgi, qoshimcha, markKey }) {
+  const _nom  = belgi   || jadval;
+  const _mark = markKey || jadval;
+  const _ust  = kalitUstun + ",updated_at" + (qoshimcha ? "," + qoshimcha : "");
   // ── 1-QADAM: faqat kalitlar (id/sku + updated_at) ──
   const kalitlar = await _selectAll(() => {
-    let q = _sb.from(jadval).select(kalitUstun + ",updated_at").eq("shop_id", sid);
+    let q = _sb.from(jadval).select(_ust).eq("shop_id", sid);
     if (typeof filtr === "function") q = filtr(q);
     return q;
   }, "kalit:" + _nom);
 
   // ── 2-QADAM: kimni to'liq o'qish kerak ──
-  const eskiMark = _fillMarkOl(sid, jadval);
+  const eskiMark = _fillMarkOl(sid, _mark);
   let maxAt = "";
   const kerak = [];
   for (const r of (kalitlar || [])) {
@@ -377,10 +391,11 @@ async function _faqatKerakli({ jadval, sid, kalitUstun = "id", lokalMap, filtr, 
   // Belgi FAQAT chaqiruvchi birlashtirishni tugatgach yoziladi
   // (`tasdiqla()`). Birlashtirish yiqilsa belgi eski holida qoladi va
   // keyingi urinishda o'sha qatorlar qayta o'qiladi — yo'qotish yo'q.
-  const tasdiqla = () => _fillMarkYoz(sid, jadval, maxAt);
+  const tasdiqla = () => _fillMarkYoz(sid, _mark, maxAt);
 
   if (!kerak.length) {
-    return { rows: [], tekshirildi: (kalitlar || []).length, tortildi: 0, tasdiqla };
+    return { rows: [], kalitlar: kalitlar || [],
+             tekshirildi: (kalitlar || []).length, tortildi: 0, tasdiqla };
   }
 
   // ── 3-QADAM: faqat kerakli qatorlar (900 tadan bo'laklab) ──
@@ -392,7 +407,8 @@ async function _faqatKerakli({ jadval, sid, kalitUstun = "id", lokalMap, filtr, 
       "toliq:" + _nom);
     (rows || []).forEach(r => out.push(r));
   }
-  return { rows: out, tekshirildi: (kalitlar || []).length,
+  return { rows: out, kalitlar: kalitlar || [],
+           tekshirildi: (kalitlar || []).length,
            tortildi: out.length, tasdiqla };
 }
 
