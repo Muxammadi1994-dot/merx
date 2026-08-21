@@ -734,7 +734,24 @@ async function pullDelta(noRender) {
         if (tbl === "staff") {
           // Xodimda PIN va telefon o'z ustunlarida ham bor — `data`
           // bo'sh bo'lsa ular yo'qolmasin (kirish shu ikkisiga bog'liq).
-          if (!base.pin   && r.pin)   base.pin   = r.pin;
+          // 🔴 529 (2026-08-22): `pinHash` HAM TIKLANADI — ILGARI YO'Q EDI.
+          // Ildiz: push `data` ichidan `pin` va `pinHash` ni ATAYLAB
+          // o'chiradi (2026-08-09, C-1 xavfsizlik qoidasi) — ular faqat
+          // `pin_hash` USTUNIDA qoladi. TO'LIQ PULL buni biladi va
+          // ustundan tiklaydi. DELTA esa tiklamasdi: xodim delta bilan
+          // kelganda lokal nusxadan `pinHash` YO'QOLARDI.
+          // Ikki oqibati bor edi:
+          //   1) qurilmada PIN tekshiruvi ishlamay qolardi (§9.4 dagi
+          //      "6 xodim PIN qayta saqlash" ro'yxatining sababi shu
+          //      bo'lishi mumkin);
+          //   2) yozuv push qilingandan farq qilardi → qayta yuborilardi
+          //      → bulut vaqti yangilanardi → delta yana qaytarardi:
+          //      2026-08-22 log'idagi "staff=3" aylanmasi aynan shu.
+          // Endi tartib TO'LIQ PULL bilan bir xil (§10.3 — yagona qoida):
+          //   ustun → `data` → LOKAL nusxa.
+          const _oldSt = (db.staff || []).find(x => String(x.id) === String(r.id)) || {};
+          if (!base.pin)     base.pin     = r.pin      || _oldSt.pin     || null;
+          if (!base.pinHash) base.pinHash = r.pin_hash || _oldSt.pinHash || null;
           if (!base.phone && r.phone) base.phone = r.phone;
           if (!base.name  && r.name)  base.name  = r.name;
           if (!base.role  && r.role)  base.role  = r.role;
