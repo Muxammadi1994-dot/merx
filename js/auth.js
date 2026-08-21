@@ -810,12 +810,41 @@ function _subGateDeny(status, btn) {
 // Ya'ni obuna darvozasini butunlay chetlab o'tish yo'li bor edi.
 // Endi: lokal hisob allaqachon bo'lsa — oflayn kirishga ruxsat,
 // bo'lmasa — rad etamiz.
+// ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-20: SERVER UZILISHI ↔ NOTO'G'RI PAROL — FARQLANADI
+// ═══════════════════════════════════════════════════════════════
+// Ildiz (20-avgust hodisasi): Supabase tashkiloti kvotadan oshgani
+// uchun BARCHA so'rovlarni 402 bilan rad etdi. Ilova buni "email yoki
+// parol noto'g'ri" deb ko'rsatdi — kassirlar parolni qayta-qayta
+// terdi, do'konlar ishlamadi. Aslida parol to'g'ri edi, SERVER yopiq
+// edi. Endi holat aniqlanadi va (a) to'g'ri xabar chiqadi,
+// (b) lokal hisob bo'lsa OFLAYN kirishga ruxsat beriladi.
+//
+// Server uzilishi belgilari:
+//   402 — kvota/to'lov · 429 — so'rov ko'p · 5xx — server nosozligi
+//   503 — vaqtincha yopiq · tarmoq xatosi (fetch yiqiladi)
+let _serverUzildi = false;
+function _uzilishBelgisi(status, xatoMatni) {
+  if (status === 402 || status === 429 || status === 503) return true;
+  if (status >= 500 && status < 600) return true;
+  const m = String(xatoMatni || "").toLowerCase();
+  return /failed to fetch|networkerror|load failed|quota|exceeded|restricted|too many/.test(m);
+}
+function _uzilishXabari() {
+  return "🚫 Server vaqtincha javob bermayapti (kvota yoki nosozlik).\n" +
+         "Bu PAROL xatosi EMAS. Internetingiz ishlayotgan bo'lsa — " +
+         "administrator bilan bog'laning: +998 97 770 80 13";
+}
+
 async function _cloudFallbackLogin(email, pass) {
   if (!db?.settings?.adminEmail) {
     console.warn("⛔ Zaxira kirish rad etildi: bulutda do'kon topilmadi, lokal hisob ham yo'q");
     // ⚠️ 2026-08-09 (C-5): MATN TO'G'RILANDI. Bu holatga eng ko'p
     // NOTO'G'RI PAROL olib keladi (parol katta-kichik harfga sezgir,
     // §1) — avvalgi "Do'kon topilmadi" foydalanuvchini chalg'itardi.
+    // ✅ 2026-08-20: server yiqilgani aniqlangan bo'lsa — TO'G'RI xabar
+    if (_serverUzildi)
+      return { ok:false, error: _uzilishXabari() };
     return { ok:false, error:"Email yoki parol noto'g'ri bo'lishi mumkin — parol KATTA-kichik harfga sezgir. Internet aloqasini ham tekshirib, qayta urinib ko'ring yoki administrator bilan bog'laning." };
   }
   return await authLogin(email, pass);
@@ -1171,7 +1200,18 @@ async function _staffLoginCloud(phone, pin) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone, pin })
     });
-    const j = await r.json();
+    const j = await r.json().catch(() => null);
+    // ✅ 2026-08-20: SERVER UZILISHINI ANIQLAYMIZ (20-avg hodisasi).
+    // Kvota tugaganda server 402 qaytardi, ilova esa "PIN noto'g'ri"
+    // deb ko'rsatdi — kassirlar PINni qayta-qayta terdi, do'kon
+    // ishlamadi. Endi: uzilish bo'lsa aniq xabar chiqadi va
+    // xodim LOKAL xesh bilan kira oladi (quyida).
+    if (!r.ok && _uzilishBelgisi(r.status, j && j.error)) {
+      _serverUzildi = true;
+      _staffCloudErr = _uzilishXabari();
+      console.warn("🚫 Xodim kirishi: server uzilishi (holat " + r.status + ")");
+      return null;
+    }
     if (!j || !j.ok || !j.staff) {
       _staffCloudErr = (j && j.error) ? String(j.error) : null;
       return null;
@@ -1453,6 +1493,7 @@ let _sbTokenRefreshTimer = null; // avtomatik yangilash timer
 
 async function authLoginSupabaseTest(email, password) {
   try {
+    // ✅ 2026-08-20: javob holati eslab qolinadi (402/429/5xx = uzilish)
     const res = await fetch("/api/auth-v2?action=login_test", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1475,8 +1516,22 @@ async function authLoginSupabaseTest(email, password) {
     } else {
       console.warn("❌ Supabase kirish xato:", data.error);
     }
+    // ✅ 2026-08-20: server yiqilganini belgilaymiz — pastdagi zaxira
+    // yo'l va xabar shunga qarab tanlanadi
+    try {
+      if (!res.ok && _uzilishBelgisi(res.status, data && data.error)) {
+        _serverUzildi = true;
+        console.warn("🚫 Server uzilishi aniqlandi (holat " + res.status + ")");
+      }
+    } catch (e2) {}
     return data;
   } catch (e) {
+    try {
+      if (_uzilishBelgisi(0, e.message)) {
+        _serverUzildi = true;
+        console.warn("🚫 Server bilan aloqa yo'q:", e.message);
+      }
+    } catch (e2) {}
     console.error("Supabase kirish — tarmoq xatosi:", e.message);
     return { ok: false, error: e.message };
   }
