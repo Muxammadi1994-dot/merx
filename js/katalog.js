@@ -1498,6 +1498,35 @@ async function _saveEditProductIchki() {   // ✅ 2026-08-18: to'qnashuv tekshir
   // Aloqa yo'q bo'lsa `null` — eski yo'l (lokal + push) ishlaydi.
   if (typeof serverSaveRecord === "function") {
     let _r = await serverSaveRecord("products", p, _epBaseAt);
+    // ═══════════════════════════════════════════════════════════════
+    // 532 (2026-08-22) — TO'QNASHUV TAHLILI (faqat o'lchov)
+    // ═══════════════════════════════════════════════════════════════
+    // 530 va 531 da ikki xil yo'l tuzatildi, lekin ogohlantirish jonli
+    // sinovda BARIBIR chiqdi. Ya'ni sabab men o'ylagan ikkala narsa
+    // ham EMAS. Uchinchi marta taxmin qilmayman (§0.2 A) — solishtirilgan
+    // AYNAN SHU uch sonni konsolga chiqaramiz:
+    //   · biz yuborgan taqqoslash nuqtasi (`_epBaseAt`)
+    //   · bulutdagi muhr (server javobda `row` ni qaytaradi)
+    //   · qurilma soati
+    // Uchtasidan sabab bir qarashda ko'rinadi:
+    //   – bulut muhri SERVER vaqtida va oldinda  → soat farqi, muhr olinmagan
+    //   – bulut muhri QURILMA vaqtida va oldinda → boshqa lokal yo'l yozgan
+    //   – `_epBaseAt` bo'sh yoki juda eski      → oyna ochilishida olinmagan
+    // HECH QANDAY MANTIQ O'ZGARMAYDI — faqat yozuv.
+    try {
+      if (_r && _r.ok === false && _r.code === "conflict") {
+        const _bulut = (_r.row && _r.row.data && _r.row.data.updatedAt) || "(yo'q)";
+        const _b = Date.parse(_epBaseAt) || 0, _c = Date.parse(_bulut) || 0;
+        console.warn(
+          "⚠️ TO'QNASHUV TAHLILI (532)\n" +
+          "   taqqoslash nuqtasi (_epBaseAt) : " + (_epBaseAt || "(BO'SH)") + "\n" +
+          "   bulutdagi muhr                : " + _bulut + "\n" +
+          "   farq (bulut − nuqta)          : " + (_b && _c ? (_c - _b) + " ms" : "?") + "\n" +
+          "   lokal tovar p.updatedAt       : " + (p.updatedAt || "(yo'q)") + "\n" +
+          "   qurilma soati (hozir)         : " + new Date().toISOString() + "\n" +
+          "   tovar SKU                     : " + (p.sku || "?"));
+      }
+    } catch (e) {}
     if (_r && _r.ok === false && _r.code === "conflict") {
       if (!confirm("⚠️ Bu tovarni boshqa kassa yangiladi.\n\n" +
             "Saqlasangiz uning o'zgarishlari yo'qolishi mumkin.\n\n" +
@@ -5337,6 +5366,14 @@ async function epSaveVariativ() {   // ✅ 2026-08-19: server orqali (async)
     const _r = await serverSaveBulkProducts(_varYangilar);
     if (_r && _r.ok) {
       console.log("📤 Variativ tahrir: " + _r.soni + " tovar serverga yozildi");
+      // 532: server qanday muhr qaytardi — o'lchov
+      try {
+        const _s0 = (_r.rows && _r.rows[0]) || null;
+        console.log("   532 · server muhri: " +
+          ((_s0 && _s0.data && _s0.data.updatedAt) || "(QAYTMADI)") +
+          " · qurilma soati: " + new Date().toISOString() +
+          " · qatorlar: " + ((_r.rows || []).length));
+      } catch (e) {}
       // ═══════════════════════════════════════════════════════════════
       // 🔴 531 (2026-08-22): SERVER MUHRI QABUL QILINADI (§3.23).
       // ═══════════════════════════════════════════════════════════════
