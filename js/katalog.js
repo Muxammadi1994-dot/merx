@@ -5335,10 +5335,35 @@ async function epSaveVariativ() {   // ✅ 2026-08-19: server orqali (async)
   // qo'llanmasin. Ya'ni sonni faqat bitta mexanizm boshqaradi.
   if (typeof serverSaveBulkProducts === "function" && _varYangilar.length) {
     const _r = await serverSaveBulkProducts(_varYangilar);
-    if (_r && _r.ok)
+    if (_r && _r.ok) {
       console.log("📤 Variativ tahrir: " + _r.soni + " tovar serverga yozildi");
-    else
+      // ═══════════════════════════════════════════════════════════════
+      // 🔴 531 (2026-08-22): SERVER MUHRI QABUL QILINADI (§3.23).
+      // ═══════════════════════════════════════════════════════════════
+      // 530 da AYNAN shu nuqson asosiy oyna yo'lida tuzatilgan edi,
+      // lekin VARIATIV jadval yo'li ochiq qolgan ekan — jonli sinovda
+      // ogohlantirish shundan qaytdi (egasi: "pushdan keyin ham
+      // yo'qolmadi", ekranda "3 ta rang saqlandi" ko'rinib turibdi).
+      // Yuqorida (5326-qator) muhr QURILMA soati bilan qo'yiladi,
+      // server esa uni O'Z soati bilan qayta yozadi
+      // (`api/pul.js` — `d.updatedAt = now`). Lokal nusxa qurilma
+      // vaqtida qolsa, keyingi "Saqlash" da server o'z vaqtini
+      // yangiroq deb topadi va SOXTA to'qnashuv chiqaradi.
+      // Endi server bergan muhr olinadi — ham tovarga, ham ochiq
+      // oynaning taqqoslash nuqtasiga (`_epBaseAt`).
+      try {
+        (_r.rows || []).forEach(sr => {
+          const _at = (sr && sr.data && sr.data.updatedAt) || (sr && sr.updated_at);
+          if (!_at || !sr.sku) return;
+          const lp = (db.products || []).find(x => String(x.sku) === String(sr.sku));
+          if (lp) lp.updatedAt = _at;
+          if (typeof editSku !== "undefined" && String(sr.sku) === String(editSku))
+            _epBaseAt = String(_at);
+        });
+      } catch (e) {}
+    } else {
       console.warn("📤 Variativ tahrir serverga yozilmadi — lokal saqlandi");
+    }
   }
 
   saveDB();

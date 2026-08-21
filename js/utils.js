@@ -3222,14 +3222,25 @@ async function serverSaveBulkProducts(rows) {
     if (typeof _serverRejimi !== "function" || !_serverRejimi()) return null;
     if (typeof _serverPay   !== "function") return null;
     let jami = 0;
+    // 🔴 531 (2026-08-22): SERVER QAYTARGAN QATORLAR SAQLANADI.
+    // Server har yozilgan qatorni `rows` ichida qaytaradi (`api/pul.js`
+    // `save_bulk_products`: `{ok, soni, rows: j}`) va ular ichida
+    // SERVER QO'YGAN `data.updatedAt` bor. Ilgari bu yerda faqat `soni`
+    // olinib, qatorlar TASHLAB YUBORILARDI — chaqiruvchi server muhrini
+    // bila olmasdi va lokal nusxada QURILMA vaqti qolib ketardi.
+    // Oqibati (jonli, 2026-08-22): variativ jadvalda rang saqlangandan
+    // keyin asosiy oynada "Saqlash" bosilsa — YAKKA qurilmada ham
+    // "Bu tovarni boshqa kassa yangiladi" chiqardi.
+    const _qatorlar = [];
     // 200 tadan bo'lib yuboramiz — so'rov hajmi cheklangan
     for (let i = 0; i < rows.length; i += 200) {
       const _b = rows.slice(i, i + 200);
       const r = await _serverPay({ action: "save_bulk_products", rows: _b });
       if (!r || !r.ok) return null;
       jami += r.soni || 0;
+      if (Array.isArray(r.rows)) r.rows.forEach(x => _qatorlar.push(x));
     }
-    return { ok: true, soni: jami };
+    return { ok: true, soni: jami, rows: _qatorlar };
   } catch (e) {
     console.warn("[import] serverga yozilmadi:", e.message);
     return null;
