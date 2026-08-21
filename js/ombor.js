@@ -88,12 +88,29 @@ async function _omEnsureFull() {
     if (_dsid && String(_dsid) !== String(sid)) return;
     _omFullBusy = true;
 
-    const [pRes, oRes] = await Promise.all([
-      _sb.from("products").select("*").eq("shop_id", sid),
-      _sb.from("ombor").select("*").eq("shop_id", sid)
+    // ✅ 519 (2026-08-21): BUTUN JADVAL O'RNIGA — FAQAT KERAKLISI.
+    // Avval bu yerda `products.select("*")` + `ombor.select("*")` edi:
+    // 1130 tovar `variants` JSON'i bilan har 60 soniyada qaytadan
+    // o'qilardi (Katalog VA Ombor — ikkala oyna shu funksiyani
+    // chaqiradi). Endi avval faqat kalitlar (`sku`/`id` + `updated_at`)
+    // o'qiladi, keyin FAQAT lokalda yo'q yoki eskirgani to'liq olinadi.
+    // To'liqlik kafolati o'zgarmadi — birlashtirish mantiqi ham xuddi
+    // avvalgidek (pastda) qoladi.
+    const _pMapK = new Map((db.products || []).map(x => [String(x.sku || x.id), x]));
+    const _oMapK = new Map((db.ombor    || []).map(x => [String(x.id), x]));
+    const [pKer, oKer] = await Promise.all([
+      _faqatKerakli({ jadval: "products", sid, kalitUstun: "sku",
+                      lokalMap: _pMapK, belgi: "tovarlar" }),
+      _faqatKerakli({ jadval: "ombor",    sid, kalitUstun: "id",
+                      lokalMap: _oMapK, belgi: "ombor" })
     ]);
-    if (pRes.error) throw new Error(pRes.error.message);
-    if (oRes.error) throw new Error(oRes.error.message);
+    const pRes = { data: pKer.rows, error: null };
+    const oRes = { data: oKer.rows, error: null };
+    try {
+      console.log("📦 Ombor to'ldirish: tovar " + pKer.tortildi + "/" +
+        pKer.tekshirildi + " · ombor " + oKer.tortildi + "/" + oKer.tekshirildi +
+        " qator to'liq o'qildi");
+    } catch (e) {}
     if (String(getCloudShopId()) !== String(sid)) {
       console.warn("⛔ Ombor to'ldirish bekor: do'kon almashgan");
       _omFullBusy = false; return;

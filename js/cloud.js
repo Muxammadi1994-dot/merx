@@ -274,6 +274,76 @@ async function _selectAll(build, label) {
   return out;
 }
 
+// ══════════════════════════════════════════════════════════════
+// 519 (2026-08-21) — "FAQAT KERAKLISINI TORTISH" (manifest usuli)
+// ══════════════════════════════════════════════════════════════
+// TASHXIS. 2026-08-19 da qo'shilgan "to'ldirish" qatlamlari
+// (`_omEnsureFull`, `_mjEnsureFull`, `_mlEnsureFull`, `_debtEnsureFull`,
+// `_qtEnsureFull`) bo'lim ochilganda BUTUN jadvalni `select("*")`
+// bilan tortadi. Ular TEZLIK uchun emas, TO'LIQLIK uchun qo'shilgan:
+// lokal nusxa chala bo'lsa ro'yxat kam ko'rsatardi. Maqsad to'g'ri,
+// narxi noto'g'ri: 1130 tovar `variants` JSON'i bilan har 60 soniyada,
+// har qurilmadan (15 ta qurilma) qaytadan o'qiladi. Serverda CPU 95% —
+// asosan shundan; 2026-08-20 dagi kvota portlashi ham shu (§5.2-2).
+//
+// NEGA ODDIY DELTA YARAMAYDI. `updated_at > X` sharti faqat
+// O'ZGARGANINI beradi. To'ldirishning vazifasi esa boshqa: lokalda
+// UMUMAN YO'Q, lekin serverda ancha oldin yozilgan qatorni topish.
+// Delta uni hech qachon ko'rmaydi — ya'ni to'liqlik kafolati buzilardi.
+//
+// YECHIM — IKKI QADAM (to'liqlik kafolati saqlanadi):
+//   1) Faqat KALITLAR o'qiladi: `id` + `updated_at`. Bu juda yengil —
+//      tovarda ~40 bayt/qator, to'liq qatorda ~2000 bayt/qator
+//      (`data` va `variants` JSON'lari TOAST'dan o'qilmaydi).
+//   2) Lokal bilan solishtiriladi. Faqat YO'Q yoki ESKIRGAN qatorlar
+//      to'liq o'qiladi. Odatda bu ro'yxat BO'SH bo'ladi — ikkinchi
+//      so'rov umuman yuborilmaydi.
+//
+// Ya'ni natija AVVALGIDEK to'liq, lekin o'qiladigan hajm ~50 barobar
+// kam. Birlashtirish (merge) mantiqiga TEGILMAYDI — u har qatlamda
+// o'z joyida qoladi, bu yerda faqat "qaysi qatorlar kerak" hal bo'ladi.
+//
+// Qaytaradi: { rows, tekshirildi, tortildi }
+//   rows        — to'liq o'qilgan qatorlar (chaqiruvchi o'zi birlashtiradi)
+//   tekshirildi — server jadvalidagi qatorlar soni (kalitlar bo'yicha)
+//   tortildi    — chindan to'liq o'qilgani
+async function _faqatKerakli({ jadval, sid, kalitUstun = "id", lokalMap, filtr, belgi }) {
+  const _nom = belgi || jadval;
+  // ── 1-QADAM: faqat kalitlar ──
+  const kalitlar = await _selectAll(() => {
+    let q = _sb.from(jadval).select(kalitUstun + ",updated_at").eq("shop_id", sid);
+    if (typeof filtr === "function") q = filtr(q);
+    return q;
+  }, "kalit:" + _nom);
+
+  // ── 2-QADAM: lokal bilan solishtirish ──
+  const kerak = [];
+  for (const r of (kalitlar || [])) {
+    const k = String(r[kalitUstun]);
+    if (!k || k === "null" || k === "undefined") continue;
+    const lok = lokalMap.get(k);
+    if (!lok) { kerak.push(k); continue; }           // lokalda YO'Q
+    const lokAt = Date.parse(lok.updatedAt || 0) || 0;
+    const srvAt = Date.parse(r.updated_at   || 0) || 0;
+    if (srvAt > lokAt) kerak.push(k);                // serverda YANGIROQ
+  }
+
+  if (!kerak.length) {
+    return { rows: [], tekshirildi: (kalitlar || []).length, tortildi: 0 };
+  }
+
+  // ── 3-QADAM: faqat kerakli qatorlar (900 tadan bo'laklab) ──
+  const out = [];
+  for (let i = 0; i < kerak.length; i += 900) {
+    const bolak = kerak.slice(i, i + 900);
+    const rows = await _selectAll(() =>
+      _sb.from(jadval).select("*").eq("shop_id", sid).in(kalitUstun, bolak),
+      "toliq:" + _nom);
+    (rows || []).forEach(r => out.push(r));
+  }
+  return { rows: out, tekshirildi: (kalitlar || []).length, tortildi: out.length };
+}
+
 // ── Rasmni DARHOL omborga yuklash (2026-07-31) ────────────────
 // Mavjud `_migrateImagesToStorage` har sinxronda base64 rasmlarni
 // ko'chiradi. Lekin u ko'chirgunicha og'ir base64 KAMIDA BIR MARTA
