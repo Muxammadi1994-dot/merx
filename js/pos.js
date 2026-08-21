@@ -2688,6 +2688,19 @@ async function checkout() {
   }
   if (typeof requireUse === "function" && !requireUse("sotuv")) return;
   _checkoutBusy = true;
+  // 🔴 2026-08-21 ILDIZ-DAVO: TAKROR-KALIT (opKey).
+  // Kassir "o'tmadi" deb qayta bosganda yoki tarmoq so'rovni qayta
+  // yuborganda server IKKINCHI sotuv yaratardi (B20, 20-avg:
+  // CHK-20260820-0024-TE ikki marta, 8 mln ortiqcha).
+  // Endi har savat uchun BITTA kalit beriladi va u savat
+  // yakunlanmaguncha O'ZGARMAYDI. Server shu kalitni ko'rsa yangi
+  // yozuv yaratmaydi — avvalgi chekni qaytaradi.
+  // Kalit savat bilan bog'liq: yangi savat = yangi kalit.
+  try {
+    if (!window._checkoutOpKey)
+      window._checkoutOpKey = "chk-" + Date.now() + "-" +
+        Math.random().toString(36).slice(2, 8);
+  } catch (e) {}
   // Tugmani ham o'chiramiz — kassir bosilmaganini ko'rsin
   const _btn = document.getElementById("pos-checkout-btn")
             || document.querySelector("[onclick*='checkout']");
@@ -3049,9 +3062,14 @@ async function checkout() {
   if (typeof _serverRejimi === "function" && _serverRejimi()) {
     try {
       const _sr = await _serverPay({
-        action: "sale", sale: newSale,
+        action: "sale",
+        sale: { ...newSale, opKey: window._checkoutOpKey || null },
         device: (typeof _devCode === "function" ? _devCode() : "")
       });
+      // Server "bu allaqachon yozilgan" desa — kassirga bildiramiz
+      if (_sr && _sr.ok && _sr.takror) {
+        try { toast("ℹ️ Bu sotuv allaqachon yozilgan — takrorlanmadi", "info"); } catch (e) {}
+      }
       if (_sr && _sr.ok && _sr.sale) {
         Object.assign(newSale, _sr.sale);   // server bergan id va chek raqami
         _srvOk = true;
@@ -3263,6 +3281,12 @@ async function checkout() {
   const _posdue=$("pos-due"); if(_posdue)_posdue.value="";
   setPayMode("full"); setDebtCurrency("usd");
   posPayType = "naqd"; // 2026-07-12: yangi sotuv uchun standartga qaytish
+  // ✅ 2026-08-21: sotuv YAKUNLANDI — takror-kalit bo'shatiladi.
+  // Keyingi savat yangi kalit oladi, ya'ni bu kalit boshqa
+  // ishlatilmaydi. Agar shu yerga yetmasdan xato bo'lsa, kalit
+  // saqlanadi va kassir qayta bosganda AYNAN o'sha kalit ketadi —
+  // server esa dublikat yaratmaydi.
+  try { window._checkoutOpKey = null; } catch (e) {}
   if ($("c-name"))       $("c-name").value       = "";
   if ($("c-phone"))      $("c-phone").value       = "";
   if ($("c-paid"))       $("c-paid").value        = "0";

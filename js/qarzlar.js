@@ -1733,6 +1733,14 @@ async function recordPayment(id, forcedCurrency) {
     return;
   }
   window._payBusy = true;
+  // 🔴 2026-08-21 ILDIZ-DAVO: TAKROR-KALIT (opKey).
+  // Jonli isbot (ABU SAXIY, 16-avg): bitta bosish IKKI yozuv
+  // yaratgan — 74 millisekund farq, bir xil chek raqami. 2,5
+  // soniyalik qulf ushlamagan: ikkala so'rov ham qulfdan OLDIN
+  // ketgan. Endi server kalit bo'yicha to'sadi — ikkinchi so'rov
+  // yangi yozuv yaratmaydi, avvalgisini qaytaradi.
+  const _payOpKey = "pay-" + Date.now() + "-" +
+    Math.random().toString(36).slice(2, 8);
   setTimeout(() => { window._payBusy = false; }, 2500);
 
   // ⚠️ 2026-08-02: KURS YUKLANMAGUNCHA TO'LOV YO'Q.
@@ -1958,6 +1966,7 @@ async function recordPayment(id, forcedCurrency) {
     try {
       const _sr = await _serverPay({
         action: "pay", customerId: clicked.customerId,
+        opKey: _payOpKey,          // ✅ 2026-08-21: takror-kalit
         // ✅ 2026-08-16: BOSILGAN CHEK serverga ham boradi — taqsimot
         // avval shu chekka ("guruhlanmagan" ma'no tiklandi). Guruh
         // to'lovida clicked = eng eski chek, ya'ni FIFO buzilmaydi.

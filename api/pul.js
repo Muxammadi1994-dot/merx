@@ -140,6 +140,26 @@ module.exports = async (req, res) => {
       if (!custId || amount <= 0)
         return res.status(400).json({ ok: false, error: "Mijoz va summa kerak" });
 
+      // 🔴 2026-08-21 ILDIZ-DAVO: TAKROR TO'LOV MUMKIN EMAS (opKey).
+      // Jonli isbot (ABU SAXIY, 16-avg): PAY-20260816-0008-FR ikki
+      // marta yozilgan — bir xil mijoz, bir xil summa, bir xil sotuv,
+      // 74 MILLISEKUND farq bilan. Ya'ni bitta bosish ikki so'rov
+      // yuborgan. Natija: 4,88 mln ikki marta hisoblangan.
+      // Endi kalit bo'yicha tekshiriladi — takror bo'lsa avvalgisi
+      // qaytariladi, yangi yozuv YARATILMAYDI.
+      if (body.opKey) {
+        const _bor = await sbAll(`debt_payments?shop_id=eq.${encodeURIComponent(shopId)}` +
+          `&data->>opKey=eq.${encodeURIComponent(String(body.opKey))}` +
+          `&select=*&limit=1`);
+        if (_bor && _bor[0]) {
+          console.log("[pul] takror to'lov to'xtatildi, opKey:", body.opKey);
+          const _e = _bor[0];
+          const _pay = (_e.data && typeof _e.data === "object")
+            ? { ..._e.data, id: _e.id } : _e;
+          return res.status(200).json({ ok: true, payment: _pay, takror: true });
+        }
+      }
+
       // 1) BULUTDAN haqiqiy holat
       // ⚡ TEZLIK: (a) `data` JSON tortilmaydi; (b) faqat QARZI BOR
       // sotuvlar; (c) kunlik chek-raqami PARALLEL olinadi.
@@ -266,6 +286,7 @@ module.exports = async (req, res) => {
           debtBefore: Math.round(haqiqiy * 100) / 100,
           debtAfter:  Math.round((haqiqiy - amount) * 100) / 100,
           createdTs: now,
+          opKey: body.opKey || null,   // ✅ 2026-08-21: takror-kalit
           updatedAt: new Date().toISOString(),
           serverWritten: true          // kelib chiqishi ko'rinib tursin
         },
@@ -296,6 +317,32 @@ module.exports = async (req, res) => {
       const devCode = String(body.device || "??").slice(0, 4);
       if (!sale || !Array.isArray(sale.items) || !sale.items.length)
         return res.status(400).json({ ok: false, error: "Bo'sh sotuv" });
+
+      // ═══════════════════════════════════════════════════════════
+      // 🔴 2026-08-21 ILDIZ-DAVO: TAKROR SOTUV MUMKIN EMAS (opKey)
+      // ═══════════════════════════════════════════════════════════
+      // Jonli isbot (B20, 20-avg): CHK-20260820-0024-TE ikki marta
+      // yozilgan — bir xil chek, bir xil tarkib, 94 soniya farq.
+      // Kassir "o'tmadi" deb o'ylab qayta bosgan; server esa ikkinchi
+      // so'rovni YANGI sotuv deb qabul qilgan. Natija: 8 mln ortiqcha
+      // tushum va 12 dona tovar ortiqcha ayirilgan.
+      // Endi kassa har yakunlash uchun BITTA `opKey` beradi va
+      // qayta bosishda AYNAN o'sha kalit qaytadi. Server shu kalitli
+      // sotuv borligini tekshiradi — bo'lsa YANGISINI YARATMAYDI,
+      // avvalgisini qaytaradi. Kassir chekni ko'radi, dublikat yo'q.
+      // Tarmoq uzilib qayta yuborilganda ham xuddi shunday ishlaydi.
+      if (sale.opKey) {
+        const _bor = await sbAll(`sales?shop_id=eq.${encodeURIComponent(shopId)}` +
+          `&data->>opKey=eq.${encodeURIComponent(String(sale.opKey))}` +
+          `&select=*&limit=1`);
+        if (_bor && _bor[0]) {
+          console.log("[pul] takror sotuv to'xtatildi, opKey:", sale.opKey);
+          const _e = _bor[0];
+          const _sale = (_e.data && typeof _e.data === "object")
+            ? { ..._e.data, id: _e.id } : _e;
+          return res.status(200).json({ ok: true, sale: _sale, takror: true });
+        }
+      }
 
       // 1) CHEK RAQAMI — serverda, to'qnashuvsiz
       const dp = tashDate().replace(/-/g, "");
@@ -357,6 +404,7 @@ module.exports = async (req, res) => {
       const now = Date.now();
       const items = sale.items.map(({ image, ...rest }) => rest);
       const d = { ...sale, id: String(now), chekNum, items,
+                  opKey: sale.opKey || null,   // ✅ 2026-08-21: takror-kalit
                   updatedAt: new Date().toISOString(), serverWritten: true };
 
       // ✅ 2026-08-18 (4-paket): "UMUMIY QARZ" — SERVER MUHRI (§3.27).
