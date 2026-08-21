@@ -1543,7 +1543,7 @@ async function pushToCloud() {
           }
         } catch (e) { if (e && e.message === "_stSkip") throw e; }
         // v176: settings ham delta orqali — o'zgarmagan bo'lsa yuborilmaydi
-        await _deltaUpsert("settings", [{
+        const _stRow = {
           shop_id:        sid,
           // ⚠️ 2026-08-02: DO'KON NOMI — STANDART QIYMAT YOZILMAYDI.
           // Chiqishda `db` almashadi va `shop.name` "MERX Do'koni"
@@ -1640,7 +1640,22 @@ async function pushToCloud() {
           // saqlash muhrlanadi. O'zi yozgan qurilma keyingi deltada
           // o'z qatorini qaytib oladi — zararsiz, qo'llash idempotent.
           updated_at: new Date().toISOString(),
-        }], 1, "shop_id");
+        };
+        // 🔴 526 (2026-08-22): O'Z YOZUVIMIZNI "BEGONA" DEB O'YLAMAYMIZ.
+        // Ildiz (2026-08-21 log'idagi chaqiruv zanjiri): sozlama
+        // yuborilgandan KEYINGI har push'da "⏸ Sozlamalar bulutda
+        // YANGIROQ" chiqardi va qurilma O'ZI yozgan yozuvni bulutdan
+        // qaytarib o'qib, qayta qo'llardi. Sabab: `_cloudTs` (bulut
+        // nusxasining vaqti) FAQAT `applyCloudSettings` da yangilanardi,
+        // ya'ni tortishda. Yozishdan keyin esa eski qiymatda qolardi —
+        // shuning uchun keyingi tekshiruv doim "bulut yangiroq" derdi.
+        // Endi: yozuv CHINDAN ketgan bo'lsa (`_n > 0`), aynan yuborilgan
+        // vaqt belgi qilib qo'yiladi.
+        // ⚠️ Yozuv KETMAGAN bo'lsa (o'zgarish yo'q, `_n === 0`) belgi
+        // TEGILMAYDI — aks holda boshqa kassa yangilagan sozlamani
+        // "ko'rilgan" deb hisoblab, uni olmay qo'yardik.
+        const _n = await _deltaUpsert("settings", [_stRow], 1, "shop_id");
+        if (_n > 0) { try { db.settings._cloudTs = _stRow.updated_at; } catch (e) {} }
       } catch(e) {
         // "_stSkip" — ataylab to'xtatildi (bulut yangiroq), xato emas
         if (!e || e.message !== "_stSkip") console.warn("settings upsert xato:", e.message);
