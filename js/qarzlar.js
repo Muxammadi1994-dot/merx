@@ -1196,7 +1196,7 @@ function renderDebtsGrouped(list, rate) {
           <button class="btn btn-sm" onclick="expandDebtGroup('${ids}')"
             style="font-size:11.5px"><i class="ti ti-eye"></i></button>
           ${g.phone && g.phone !== "—" ? `
-            <button class="btn btn-sm" onclick="sendGroupReminder(${g.customerId||"null"},'${g.phone}','${g.name}',${g.totalUzs},${g.totalUsd})"
+            <button class="btn btn-sm sms-only" onclick="sendGroupReminder(${g.customerId||"null"},'${g.phone}','${g.name}',${g.totalUzs},${g.totalUsd})"
               style="font-size:11px;color:#856404" title="SMS"><i class="ti ti-message"></i></button>
             <button class="btn btn-sm" onclick="sendGroupReminderBot(${g.customerId||"null"},'${g.phone}','${g.name.replace(/'/g,"\\'")}',${g.totalUzs},${g.totalUsd})"
               style="font-size:11px;color:#0E7490" title="Telegram bot"><i class="ti ti-brand-telegram"></i></button>
@@ -1315,7 +1315,7 @@ function _renderDebtGrid(groups, rate, cols, pagerHtml) {
         <button class="btn btn-ghost btn-icon btn-sm" onclick="expandDebtGroup('${ids}')"
           title="Cheklarni ko'rish"><i class="ti ti-eye"></i></button>
         ${hasPhone ? `
-          <button class="btn btn-ghost btn-icon btn-sm" style="color:#856404" title="SMS eslatma"
+          <button class="btn btn-ghost btn-icon btn-sm sms-only" style="color:#856404" title="SMS eslatma"
             onclick="sendGroupReminder(${g.customerId||"null"},'${phoneEsc}','${nameEsc}',${g.totalUzs},${g.totalUsd})">
             <i class="ti ti-message"></i></button>
           <button class="btn btn-ghost btn-icon btn-sm" style="color:#0E7490" title="Telegram bot"
