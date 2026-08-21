@@ -754,6 +754,135 @@ function openCustCard(id) {
   }
   openModal("custcard");
 }
+// ═══════════════════════════════════════════════════════════════
+// ✅ 2026-08-21: CHEKLARNI BOTGA QAYTA YUBORISH
+// ═══════════════════════════════════════════════════════════════
+// Ehtiyoj: chek PDF sifatida ochilganda iPhone'da "Yuborish" bor,
+// Android'da yo'q (Chrome faqat "PDF saqlash" beradi — bu brauzer
+// cheklovi, kod bilan o'zgartirib bo'lmaydi). Yechim: chekni
+// ILOVADAN emas, BOT orqali qayta yuborish — mijoz Telegramda oladi.
+//
+// XAVFSIZLIK:
+//  · Sotuvga TEGILMAYDI — faqat xabar yuboriladi (o'qish amali);
+//  · Botdagi 60 daqiqalik takror-qulf kuchda: bir soat ichida
+//    ikki marta yuborilmaydi (`bot_sent` jadvali);
+//  · Telegram cheklovi: har chek orasida 1,5 soniya kutiladi —
+//    aks holda bot bloklanadi;
+//  · Bir martada eng ko'pi 30 ta chek (mijozni ko'mib tashlamaslik).
+let _rsCust = null, _rsBusy = false;
+
+function openResendCheks() {
+  const c = db.customers.find(x => x.id === _custCardId);
+  if (!c) return;
+  if (!db.settings?.telegramBotUrl) {
+    toast("Bot sozlanmagan — Sozlamalarda bot manzilini kiriting", "err");
+    return;
+  }
+  _rsCust = c;
+  const list = (db.sales || [])
+    .filter(s => s && !s.cancelled && String(s.customerId) === String(c.id))
+    .sort((a, b) => ((a.date||"") + (a.time||"") < (b.date||"") + (b.time||"")) ? 1 : -1)
+    .slice(0, 200);
+
+  const old = document.getElementById("resend-modal");
+  if (old) old.remove();
+  const m = document.createElement("div");
+  m.className = "modal-bg"; m.id = "resend-modal";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
+  m.innerHTML = `
+    <div style="background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--brd)">
+        <div style="font-weight:800;font-size:16px">📤 Cheklarni qayta yuborish</div>
+        <div style="font-size:12.5px;color:#666;margin-top:3px">${c.name} · Telegram orqali</div>
+      </div>
+      <div style="padding:10px 16px;border-bottom:1px solid var(--brd);display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ghost btn-sm" onclick="rsToggleAll(true)">Hammasini belgilash</button>
+        <button class="btn btn-ghost btn-sm" onclick="rsToggleAll(false)">Bekor qilish</button>
+        <span id="rs-count" style="margin-left:auto;font-size:12px;color:#666"></span>
+      </div>
+      <div id="rs-list" style="overflow:auto;padding:8px 16px;flex:1">
+        ${list.length ? list.map(s => {
+          const st = (typeof calcSaleState === "function") ? calcSaleState(s) : { remaining: s.remaining || 0 };
+          const qarz = (st.debtUsd > 0) ? fmtUsd(st.debtUsd) + " USD"
+                     : (st.remaining > 0) ? fmt(st.remaining) + " so'm" : "";
+          return `<label style="display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid #f2f2f2;cursor:pointer">
+            <input type="checkbox" class="rs-chk" value="${s.id}" onchange="rsCount()" style="width:17px;height:17px;flex:none">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:13px">${s.chekNum || s.id}</div>
+              <div style="font-size:11.5px;color:#777">${s.date || ""} ${s.time || ""} · ${(s.items||[]).length} tovar</div>
+            </div>
+            <div style="text-align:right;flex:none">
+              <div style="font-weight:700;font-size:13px">${fmt(s.total || 0)}</div>
+              ${qarz ? `<div style="font-size:11px;color:var(--red)">Qarz: ${qarz}</div>` : ""}
+            </div>
+          </label>`;
+        }).join("") : `<div style="text-align:center;color:#aaa;padding:24px;font-size:13px">Chek topilmadi</div>`}
+      </div>
+      <div id="rs-progress" style="display:none;padding:8px 16px;background:#EFF6FF;color:#1D4ED8;font-size:12.5px;font-weight:600"></div>
+      <div style="padding:12px 16px;border-top:1px solid var(--brd);display:flex;gap:8px">
+        <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('resend-modal').remove()">Yopish</button>
+        <button class="btn btn-acc" id="rs-send" style="flex:2" onclick="rsSend()">
+          <i class="ti ti-brand-telegram"></i> Yuborish
+        </button>
+      </div>
+    </div>`;
+  m.onclick = e => { if (e.target === m && !_rsBusy) m.remove(); };
+  document.body.appendChild(m);
+  rsCount();
+}
+
+function rsToggleAll(on) {
+  document.querySelectorAll("#resend-modal .rs-chk").forEach(x => { x.checked = on; });
+  rsCount();
+}
+function rsCount() {
+  const n = document.querySelectorAll("#resend-modal .rs-chk:checked").length;
+  const el = document.getElementById("rs-count");
+  if (el) el.textContent = n ? n + " ta belgilandi" : "";
+  const b = document.getElementById("rs-send");
+  if (b) b.disabled = !n || _rsBusy;
+}
+
+async function rsSend() {
+  if (_rsBusy) return;
+  const ids = [...document.querySelectorAll("#resend-modal .rs-chk:checked")].map(x => x.value);
+  if (!ids.length) return;
+  if (ids.length > 30) {
+    alert("⚠️ Bir martada eng ko'pi 30 ta chek yuboriladi.\n\n" +
+          "Siz " + ids.length + " ta belgiladingiz. Iltimos kamroq tanlang.");
+    return;
+  }
+  const c = _rsCust; if (!c) return;
+  if (!confirm(`📤 ${ids.length} ta chek "${c.name}" ga Telegram orqali yuboriladi.\n\n` +
+               `Taxminan ${Math.ceil(ids.length * 1.5)} soniya davom etadi.\n\nDavom etamizmi?`)) return;
+
+  _rsBusy = true;
+  const pr = document.getElementById("rs-progress");
+  const btn = document.getElementById("rs-send");
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader spin"></i> Yuborilmoqda...'; }
+  if (pr) pr.style.display = "block";
+
+  let ok = 0, xato = 0;
+  for (let i = 0; i < ids.length; i++) {
+    const s = (db.sales || []).find(x => String(x.id) === String(ids[i]));
+    if (!s) { xato++; continue; }
+    if (pr) pr.textContent = `⏳ ${i + 1} / ${ids.length} — ${s.chekNum || ""}`;
+    try {
+      if (typeof sendTelegramReceipt === "function") {
+        await sendTelegramReceipt(c.id, s, c.phone);
+        ok++;
+      }
+    } catch (e) { xato++; console.warn("[qayta yuborish]", e.message); }
+    // Telegram cheklovi: bir suhbatga soniyada ~1 xabar
+    if (i < ids.length - 1) await new Promise(r => setTimeout(r, 1500));
+  }
+
+  if (pr) pr.textContent = `✅ ${ok} ta yuborildi` + (xato ? ` · ⚠️ ${xato} tasida xato` : "");
+  if (btn) { btn.innerHTML = '<i class="ti ti-check"></i> Tugadi'; }
+  _rsBusy = false;
+  toast(`✅ ${ok} ta chek yuborildi`, ok ? "ok" : "err");
+}
+
 // ── Kartochkadan SMS ──────────────────────────────
 async function custCardSms() {
   const c = db.customers.find(x => x.id === _custCardId);

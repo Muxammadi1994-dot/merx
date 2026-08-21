@@ -4534,7 +4534,14 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 
     <!-- Xarid tarixi -->
     <div>
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#aaa;letter-spacing:.05em;margin-bottom:10px">Xarid tarixi (oxirgi 10 ta)</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#aaa;letter-spacing:.05em">Xarid tarixi (oxirgi 10 ta)</div>
+        <!-- ✅ 2026-08-21: cheklarni botga qayta yuborish -->
+        <button class="btn btn-sm" style="margin-left:auto;background:#EFF6FF;color:#3B82F6;border:1.5px solid #93C5FD;font-size:11.5px;padding:4px 10px"
+                onclick="openResendCheks()">
+          <i class="ti ti-brand-telegram"></i> Cheklarni yuborish
+        </button>
+      </div>
       <div id="cc-history" style="max-height:260px;overflow-y:auto"></div>
     </div>
   </div>
@@ -5190,7 +5197,7 @@ html,body{overscroll-behavior-y:none;overflow-x:hidden}
 <script src="js/pos.js?v=271"></script>
 <script src="js/katalog.js?v=285"></script>
 <script src="js/ombor.js?v=181"></script>
-<script src="js/mijozlar.js?v=167"></script>
+<script src="js/mijozlar.js?v=168"></script>
 <script src="js/qarzlar.js?v=233"></script>
 <script src="js/tarix.js?v=195"></script>
 <script src="js/hisobot.js?v=155"></script>
@@ -5490,7 +5497,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 512;
+  window.SW_V = 513;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5513,7 +5520,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=512")
+    navigator.serviceWorker.register("/sw.js?v=513")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
