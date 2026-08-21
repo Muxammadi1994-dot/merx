@@ -60,7 +60,16 @@ function repSales() {
 // Davr o'zgarganda yangi so'rov ketadi; bir xil davr 20 soniya
 // keshlanadi. Xato/oflaynda hech narsa qilinmaydi — lokal qoladi.
 let _rsKesh = { k: "", t: 0, r: null };
-let _rsBusy = null;
+// ⚠️ 520 (2026-08-21): NOM O'ZGARTIRILDI (avval `_rsB`+`usy` edi).
+// ILDIZ: aynan shu nom `mijozlar.js:772` da ham `let` bilan eng
+// yuqori darajada e'lon qilingan. Brauzer ikkinchi e'lonni rad etadi
+// ("Identifier has already been declared") va KEYIN yuklanadigan
+// fayl — hisobot.js — BUTUNLAY ishga tushmaydi. Oqibati:
+// `renderHisobot` mavjud bo'lmaydi, Hisobot bo'limi bo'sh ochiladi
+// (514 hodisasining aynan shu sinfi). Jonli konsolda 2026-08-21 da
+// ko'rildi. `mijozlar.js` ga TEGILMADI — u birinchi yuklanadi va
+// ishlab turibdi; faqat shu fayldagi nom o'zgardi.
+let _rsHisBusy = null;
 async function _repStatsServer(from, to) {
   try {
     if (typeof _serverRejimi !== "function" || !_serverRejimi()) return;
@@ -69,15 +78,15 @@ async function _repStatsServer(from, to) {
     if (_rsKesh.r && _rsKesh.k === kalit && (Date.now() - _rsKesh.t) < 20000) {
       _rsQoy(_rsKesh.r); return;
     }
-    if (_rsBusy) return;
-    _rsBusy = (async () => {
+    if (_rsHisBusy) return;
+    _rsHisBusy = (async () => {
       try {
         const r = await _serverPay({ action: "report_stats", from, to,
                                      rate: db.settings?.rate || 12800 });
         if (r && r.ok) { _rsKesh = { k: kalit, t: Date.now(), r }; _rsQoy(r); }
-      } finally { _rsBusy = null; }
+      } finally { _rsHisBusy = null; }
     })();
-    await _rsBusy;
+    await _rsHisBusy;
   } catch (e) { console.warn("[hisobot] server ko'rsatkichlari:", e.message); }
 }
 function _rsQoy(r) {

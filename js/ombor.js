@@ -111,6 +111,8 @@ async function _omEnsureFull() {
         pKer.tekshirildi + " · ombor " + oKer.tortildi + "/" + oKer.tekshirildi +
         " qator to'liq o'qildi");
     } catch (e) {}
+    // ✅ 520: birlashtirish MUVAFFAQIYATLI tugagach belgi yoziladi
+    // (pastda, `_omFullT` bilan bir joyda) — bu yerda emas.
     if (String(getCloudShopId()) !== String(sid)) {
       console.warn("⛔ Ombor to'ldirish bekor: do'kon almashgan");
       _omFullBusy = false; return;
@@ -150,6 +152,10 @@ async function _omEnsureFull() {
       if (!_yangiroqmi(lok, obj.updatedAt)) Object.assign(lok, obj);
     });
 
+    // ✅ 520: birlashtirish tugadi — endi belgini yozamiz. Yiqilsa
+    // (yuqoridagi throw) bu yerga yetib kelinmaydi va belgi eski
+    // holida qoladi: keyingi urinishda o'sha qatorlar qayta o'qiladi.
+    try { pKer.tasdiqla(); oKer.tasdiqla(); } catch (e) {}
     _omFullT = Date.now(); _omFullBusy = false;
     if (qoshildi > 0) {
       console.log("📦 Ombor to'ldirildi: +" + qoshildi + " yozuv serverdan");

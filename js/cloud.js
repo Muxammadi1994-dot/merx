@@ -307,29 +307,80 @@ async function _selectAll(build, label) {
 //   rows        — to'liq o'qilgan qatorlar (chaqiruvchi o'zi birlashtiradi)
 //   tekshirildi — server jadvalidagi qatorlar soni (kalitlar bo'yicha)
 //   tortildi    — chindan to'liq o'qilgani
+// ── 520 TUZATISHI: SOLISHTIRISH BELGISI (jonli log topdi) ──────
+// 519 da lokal `updatedAt` (JSON ichidagi maydon) server `updated_at`
+// USTUNI bilan solishtirilardi. Bu XATO edi — ular ikki xil soat:
+//   · ustun HAR push'da yangilanadi (`cloud.js` ~1347-qator);
+//   · JSON maydoni esa yozuv CHINDAN o'zgarganda, ko'p lokal
+//     yozuvlarda umuman YO'Q.
+// Natijada har qator "serverda yangiroq" chiqardi. 2026-08-21 jonli
+// log buni ochiq ko'rsatdi: `tovar 106/106` — ya'ni hech narsa
+// tejalmadi. Endi lokal `updatedAt` ga UMUMAN tayanilmaydi.
+//
+// YANGI QOIDA — ikki shart:
+//   1) lokalda YO'Q  → to'liq o'qiladi (to'liqlik kafolati);
+//   2) serverda oxirgi to'ldirishdan KEYIN o'zgargan → o'qiladi.
+// Belgi (`mark`) — oxirgi muvaffaqiyatli to'ldirishdagi eng katta
+// `updated_at`. U qurilma soatidan emas, SERVER qiymatidan olinadi
+// (mavjud `_setLastPull` bilan bir xil qoida). Birinchi ishga
+// tushishda belgi yo'q — hammasi o'qiladi, ya'ni bugungi xatti-harakat
+// saqlanadi; ikkinchi martaddan boshlab tejash boshlanadi.
+//
+// Belgi `db.settings` ga EMAS, `localStorage` ga yoziladi — sozlamalar
+// bulutga sinxronlanadi, bu esa qurilmaga xos qiymat.
+function _fillMarkKalit(sid, jadval) { return "merx_fill_" + sid + "_" + jadval; }
+function _fillMarkOl(sid, jadval) {
+  try { return localStorage.getItem(_fillMarkKalit(sid, jadval)) || ""; }
+  catch (e) { return ""; }
+}
+function _fillMarkYoz(sid, jadval, iso) {
+  try {
+    if (!iso) return;
+    // ⚠️ CHEKINISH (`_PULL_MARGIN_MS`) BU YERDA QO'LLANMAYDI — SINOV
+    // TOPDI. Delta tortishda 45 soniyalik chekinish to'g'ri, chunki u
+    // o'qish paytida yozilgan qatorni ushlaydi. Bu yerda esa teskari
+    // ishlaydi: do'kondagi tovarlar odatda BIR VAQTDA yuklangan, ya'ni
+    // ularning `updated_at` i deyarli bir xil. Belgi 45 soniya orqaga
+    // surilsa, HAMMA qator "belgidan keyin o'zgargan" bo'lib chiqadi
+    // va har safar qaytadan o'qiladi — ya'ni tejash umuman bo'lmaydi.
+    // POYGA XAVFI BU YERDA QOPLANGAN: o'qish paytida yozilgan YANGI
+    // qator lokalda bo'lmaydi va 1-shart ("lokalda YO'Q") uni baribir
+    // ushlaydi. Mavjud qatorning o'zgarishi esa 90 soniyalik delta
+    // tortishning ishi — u o'z chekinishi bilan ishlaydi.
+    localStorage.setItem(_fillMarkKalit(sid, jadval), iso);
+  } catch (e) {}
+}
+
 async function _faqatKerakli({ jadval, sid, kalitUstun = "id", lokalMap, filtr, belgi }) {
   const _nom = belgi || jadval;
-  // ── 1-QADAM: faqat kalitlar ──
+  // ── 1-QADAM: faqat kalitlar (id/sku + updated_at) ──
   const kalitlar = await _selectAll(() => {
     let q = _sb.from(jadval).select(kalitUstun + ",updated_at").eq("shop_id", sid);
     if (typeof filtr === "function") q = filtr(q);
     return q;
   }, "kalit:" + _nom);
 
-  // ── 2-QADAM: lokal bilan solishtirish ──
+  // ── 2-QADAM: kimni to'liq o'qish kerak ──
+  const eskiMark = _fillMarkOl(sid, jadval);
+  let maxAt = "";
   const kerak = [];
   for (const r of (kalitlar || [])) {
     const k = String(r[kalitUstun]);
     if (!k || k === "null" || k === "undefined") continue;
-    const lok = lokalMap.get(k);
-    if (!lok) { kerak.push(k); continue; }           // lokalda YO'Q
-    const lokAt = Date.parse(lok.updatedAt || 0) || 0;
-    const srvAt = Date.parse(r.updated_at   || 0) || 0;
-    if (srvAt > lokAt) kerak.push(k);                // serverda YANGIROQ
+    const at = r.updated_at || "";
+    if (at && at > maxAt) maxAt = at;
+    if (!lokalMap.has(k)) { kerak.push(k); continue; }   // lokalda YO'Q
+    if (!eskiMark)        { kerak.push(k); continue; }   // birinchi marta
+    if (at && at > eskiMark) kerak.push(k);              // serverda o'zgargan
   }
 
+  // Belgi FAQAT chaqiruvchi birlashtirishni tugatgach yoziladi
+  // (`tasdiqla()`). Birlashtirish yiqilsa belgi eski holida qoladi va
+  // keyingi urinishda o'sha qatorlar qayta o'qiladi — yo'qotish yo'q.
+  const tasdiqla = () => _fillMarkYoz(sid, jadval, maxAt);
+
   if (!kerak.length) {
-    return { rows: [], tekshirildi: (kalitlar || []).length, tortildi: 0 };
+    return { rows: [], tekshirildi: (kalitlar || []).length, tortildi: 0, tasdiqla };
   }
 
   // ── 3-QADAM: faqat kerakli qatorlar (900 tadan bo'laklab) ──
@@ -341,7 +392,8 @@ async function _faqatKerakli({ jadval, sid, kalitUstun = "id", lokalMap, filtr, 
       "toliq:" + _nom);
     (rows || []).forEach(r => out.push(r));
   }
-  return { rows: out, tekshirildi: (kalitlar || []).length, tortildi: out.length };
+  return { rows: out, tekshirildi: (kalitlar || []).length,
+           tortildi: out.length, tasdiqla };
 }
 
 // ── Rasmni DARHOL omborga yuklash (2026-07-31) ────────────────
