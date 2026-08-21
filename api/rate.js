@@ -192,9 +192,107 @@ async function _probeOne(nom, url) {
   } finally { clearTimeout(timer); }
 }
 
+// ══════════════════════════════════════════════════════════════════
+// 540 (2026-08-22) — bankxizmatlari.uz PARSERI
+// ══════════════════════════════════════════════════════════════════
+// Manba tanlandi (534-539 qidiruvi asosida):
+//   · NBU JSON — 404, manzil yo'qolgan
+//   · CBU JSON/CSV/XML — faqat RASMIY kurs, tijorat banklari yo'q
+//   · kurs.uz, Kapitalbank, Hamkor, TBC, Infin — 403/404/ulanmadi
+//   · bank.uz — ishlaydi, lekin har bank uchun ALOHIDA so'rov kerak
+//   · bankxizmatlari.uz — CBU sahifasidan havola qilingan portal,
+//     BITTA so'rovda hamma bank, yorliqlar MATN bilan yozilgan
+//     ("Sotish" / "Sotib olish"), ustiga sotish bo'yicha SARALASH
+//     manzil orqali beriladi.
+// Shuning uchun asosiy manba — bankxizmatlari.uz.
+//
+// TUZILMA (539 o'lchovidan, taxmin emas):
+//   <div class="js-currency">
+//     <div class="js-currency-type">            ← yashirin bo'lsa display:none
+//       <li><div class="item__params--value">11890 <small>UZS</small></div>
+//           <div class="item__params--label">Sotish</div></li>
+//       <li><div class="item__params--value">11810 ...</div>
+//           <div class="item__params--label">Sotib olish</div></li>
+//
+// ⚠️ YASHIRIN BLOKLAR TASHLANADI: sahifada `display: none` bilan
+// yashirilgan nusxalar bor (naqd/naqdsiz variantlari). Ularni olsak
+// noto'g'ri kurs chiqishi mumkin.
+async function bxOl(cbRate) {
+  const url = "https://bankxizmatlari.uz/uz/rates/?currency=USD" +
+              "&sort_field=sale&sort_method=desc";
+  const r = await fetch(url, { headers: UA });
+  if (!r.ok) throw new Error("bankxizmatlari: " + r.status);
+  let html = await r.text();
+  html = html.replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+             .replace(/<script[\s\S]*?<\/script>/gi, " ")
+             .replace(/<style[\s\S]*?<\/style>/gi, " ")
+             .replace(/<!--[\s\S]*?-->/g, " ");
+
+  const N = x => parseFloat(String(x).replace(/[\s\u00a0]/g, "").replace(",", "."));
+  const out = [];
+  // Har bank bloki `js-currency` bilan boshlanadi
+  const bloklar = html.split(/<div class="js-currency"/i);
+  for (let bi = 1; bi < bloklar.length && out.length < 60; bi++) {
+    const b = bloklar[bi];
+    // KO'RINADIGAN currency-type (yashirin nusxa tashlanadi)
+    const ct = b.match(/<div class="js-currency-type"([^>]*)>([\s\S]{0,1600}?)<\/ul>/i);
+    if (!ct) continue;
+    if (/display\s*:\s*none/i.test(ct[1])) continue;
+    const ich = ct[2];
+
+    // qiymat + yorliq juftlari
+    let sell = 0, buy = 0;
+    const juft = ich.match(/item__params--value"[^>]*>\s*([0-9\s\u00a0.,]{4,12})[\s\S]{0,160}?item__params--label"[^>]*>\s*([^<]{2,24})/gi) || [];
+    for (const j of juft) {
+      const mv = j.match(/item__params--value"[^>]*>\s*([0-9\s\u00a0.,]{4,12})/i);
+      const ml = j.match(/item__params--label"[^>]*>\s*([^<]{2,24})/i);
+      if (!mv || !ml) continue;
+      const n = N(mv[1]); const yorliq = ml[1].trim().toLowerCase();
+      if (!n) continue;
+      if (/^sotish/.test(yorliq)) sell = sell || n;
+      else if (/^sotib/.test(yorliq)) buy = buy || n;
+    }
+    if (!sell) continue;
+
+    // Bank nomi — shu blokdan OLDINGI matndan (eng yaqin haqiqiy nom)
+    const oldin = bloklar.slice(0, bi).join(" ").slice(-2500);
+    let nom = "";
+    const nomzod = (oldin.match(/>([^<>{}\[\]]{3,44})</g) || [])
+      .map(x => x.replace(/^>|<$/g, "").replace(/\s+/g, " ").trim())
+      .filter(x => /[A-Za-z\u0410-\u044f]{3,}/.test(x))
+      .filter(x => !/^\d|UZS|USD|sotish|sotib|yangilanish|vaqti|so'm|filial|batafsil|barcha/i.test(x))
+      .filter(x => !/[<>=\/{}\[\]]/.test(x));
+    if (nomzod.length) nom = nomzod[nomzod.length - 1].slice(0, 40);
+    if (!nom) continue;
+
+    // Langar: MB kursidan uzoq raqam — kurs emas
+    if (cbRate > 0 && Math.abs(sell - cbRate) > cbRate * 0.03) continue;
+    if (buy && (buy > sell || sell - buy > sell * 0.08)) buy = 0;
+    out.push({ bank: nom, sell, buy: buy || null });
+  }
+  if (!out.length) throw new Error("bankxizmatlari: ishonchli qator topilmadi");
+  return out;
+}
+
 export default async function handler(req, res) {
   const mode  = String(req.query?.mode || "");
   const debug = String(req.query?.debug || "") === "1";
+
+  // ── 540: QURUQ SINOV — parser nima ajratganini ko'rsatadi ──
+  // Jonli rejimga HALI ULANMAGAN. Avval natija tekshiriladi.
+  if (String(req.query?.probe || "") === "7") {
+    let cb = 0;
+    try { cb = (await cbuOl()).rate; } catch (e) {}
+    let bx = null, xato = null;
+    try { bx = await bxOl(cb); } catch (e) { xato = String(e.message || e); }
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json({ ok: true, cb, izoh:
+      "540 · QURUQ SINOV. Parser nima ajratdi — jonli rejim TEGILMAGAN. " +
+      "`banklar[0]` eng yuqori sotish kursi bo'lishi kerak.",
+      xato, soni: bx ? bx.length : 0,
+      eng_yuqori: bx && bx.length ? bx[0] : null,
+      banklar: bx ? bx.slice(0, 15) : [] });
+  }
 
   // ══════════════════════════════════════════════════════════════
   // 539 — `bankxizmatlari.uz/uz/rates/` TUZILMASI (`?probe=6`)
