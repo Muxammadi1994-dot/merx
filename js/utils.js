@@ -3198,6 +3198,38 @@ async function _serverStockFlush() {
 // takrorni to'sadi, tahrirda to'qnashuvni aniqlaydi.
 // Qaytaradi: {ok:true,row} · {ok:false,code:"dup"|"conflict",row}
 //            · null (aloqa yo'q — chaqiruvchi lokal yo'ldan ketadi)
+// ══════════════════════════════════════════════════════════════════
+// 🔴 543 (2026-08-22) — SERVER YOZMASA ENDI JIM O'TMAYDI
+// ══════════════════════════════════════════════════════════════════
+// JONLI DALIL (egasi, Shoetest): XODIM roli bilan kiritilgan DONA
+// tovar boshqa qurilmaga UMUMAN yetib bormadi (rasm emas, tovarning
+// O'ZI). Variativ yo'lda tovar kelardi, rasm kelmasdi.
+//
+// ILDIZ — bitta emas, NAQSH. Kodni sanab chiqqanda: `serverSaveRecord`
+// O'N BIR joyda chaqiriladi va BIRORTASI ham "yozildimi?" deb
+// tekshirmaydi — faqat `code === "dup"` (takror) holati qaraladi.
+// Chaqiruv shakli hamma yerda bir xil:
+//     let _r = await serverSaveRecord("products", p, null);
+//     if (_r && _r.ok === false && _r.code === "dup") { ... }
+//     db.products.push(p);          // ← QOLGAN HAMMA XATO JIM O'TADI
+//
+// Xodimda zanjir shunday tugaydi:
+//   · `_serverPay` (qarzlar.js:1751): token yo'q bo'lsa serverga
+//     UMUMAN bormaydi — `{ok:false, error:"Token yo'q — qayta kiring"}`;
+//   · chaqiruvchi buni tekshirmaydi → yozuv faqat lokalga tushadi;
+//   · `pushToCloud` esa `_staffNoToken` bilan to'silgan;
+//   · natijada yozuv HECH QAYERGA chiqmaydi va kassir bilmaydi.
+// Adminda token doim bor — shuning uchun adminda ko'rinmasdi.
+//
+// YECHIM SHU YERDA, chunki o'n bitta chaqiruv joyini o'zgartirish
+// (va birortasini unutish) xavfli. Bu funksiya:
+//   1) muvaffaqiyatsizlikni ANIQ aytadi (kassir biladi);
+//   2) yozuvni SINXRON NAVBATIGA qo'yadi — token tiklangach o'zi ketadi
+//      (`scheduleCloudSync`), ya'ni ma'lumot YO'QOLMAYDI;
+//   3) `dup` va boshqa MANTIQIY javoblarni avvalgidek qaytaradi —
+//      chaqiruvchilarning xulqi o'zgarmaydi.
+let _srvXatoOgoh = 0;   // ogohlantirish toshqini bo'lmasin
+
 async function serverSaveRecord(table, row, baseAt, force) {
   try {
     if (typeof _serverRejimi !== "function" || !_serverRejimi()) return null;
@@ -3206,12 +3238,38 @@ async function serverSaveRecord(table, row, baseAt, force) {
     const r = await _serverPay({ action: "save_record", table, row,
                                  baseAt: baseAt || null,
                                  force: force === true });
-    if (!r) return null;
+    if (!r) { _srvYozilmadi(table, "javob yo'q"); return null; }
+    // `dup`/`conflict` — MANTIQIY javob, xato emas: chaqiruvchi hal qiladi
+    if (r.ok === false && r.code !== "dup" && r.code !== "conflict") {
+      _srvYozilmadi(table, r.error || r.code || "noma'lum");
+    }
     return r;
   } catch (e) {
-    console.warn("[yozuv] serverga yozilmadi:", e.message);
+    _srvYozilmadi(table, e.message);
     return null;
   }
+}
+
+// 543: serverga yozilmagan yozuvni navbatga qo'yadi va bir marta aytadi
+function _srvYozilmadi(table, sabab) {
+  try {
+    console.warn("[yozuv] " + table + " serverga yozilmadi: " + sabab +
+                 " — sinxron navbatiga qo'yildi");
+    // Navbat: token tiklangach yoki internet qaytgach o'zi ketadi
+    if (typeof scheduleCloudSync === "function") scheduleCloudSync();
+    // Xodim tokeni yo'q bo'lsa — darhol tiklashga urinamiz
+    if (typeof window !== "undefined" &&
+        typeof window._staffTokenRetry === "function") window._staffTokenRetry();
+    // Kassirga: 60 soniyada ko'pi bilan bir marta
+    const now = Date.now();
+    if (now - _srvXatoOgoh > 60000) {
+      _srvXatoOgoh = now;
+      if (typeof toast === "function") {
+        toast("⚠️ Yozuv serverga chiqmadi — qurilmada saqlandi. " +
+              "Davom etsa: chiqib qayta kiring", "err");
+      }
+    }
+  } catch (e) {}
 }
 
 // ✅ 2026-08-19: TO'PLAMLI tovar yozuvi (import uchun). Bitta so'rovda
