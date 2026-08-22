@@ -1164,7 +1164,56 @@ module.exports = async function handler(req, res) {
           // "adashib" qolsa xodim sessiyasiz qolardi. Shuning uchun:
           // sessiya olinmasa parolni BIR MARTA qayta yozib, qayta
           // urinamiz. Shunda ikkala foyda ham qoladi.
+          // ═════════════════════════════════════════════════════════
+          // 🔴 547 (2026-08-22): MINA YUMSHATILDI — SABAB AVVAL O'QILADI
+          // ═════════════════════════════════════════════════════════
+          // Supabase qoidasi: hisob PAROLI o'zgartirilsa o'sha hisobning
+          // BARCHA qurilmadagi sessiyalari BEKOR bo'ladi. Yuqoridagi
+          // 14-avg mexanizmi esa kirish HAR QANDAY sababdan yiqilsa
+          // (429 cheklovi, 5xx, tarmoq uzilishi) parolni qayta yozardi —
+          // bitta o'tkinchi xato xodimning HAMMA kassadagi kalitini bir
+          // yo'la o'ldirardi. "Xodim tokeni tez o'ladi, adminniki
+          // o'lmaydi"ning kod tomonidagi asosiy manbai shu edi (admin
+          // hisobiga server hech qachon parol yozmaydi).
+          // ENDI:
+          //   · avval RAD SABABI o'qiladi;
+          //   · o'tkinchi xatoda parolga TEGILMAYDI — 600 ms dan keyin
+          //     BIR marta oddiy qayta urinish (sessiyalar tirik qoladi);
+          //   · parol faqat Supabase ANIQ "invalid credentials/grant/
+          //     password" deganda qayta yoziladi — bu PIN o'zgargan yoki
+          //     eski-formulali hisob holati, aynan davolanishi kerak.
+          const _le = await _lr.json().catch(() => ({}));
+          const _sabab = String(_le.error_description || _le.msg ||
+                                _le.error || "");
+          const _parolXato = _lr.status === 400 &&
+            /invalid/i.test(_sabab + " " + String(_le.error || "")) &&
+            /(credential|grant|password)/i
+              .test(_sabab + " " + String(_le.error || ""));
           let _tuzaldi = false;
+          if (!_parolXato) {
+            // O'tkinchi xato — parolga tegmasdan bir qayta urinish
+            try {
+              await new Promise(rz => setTimeout(rz, 600));
+              const _lr3 = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+                method: "POST",
+                headers: { apikey: ANON, "Content-Type": "application/json" },
+                body: JSON.stringify({ email: _mail, password: _pass })
+              });
+              if (_lr3.ok) {
+                const _sd3 = await _lr3.json();
+                _session = {
+                  accessToken:  _sd3.access_token,
+                  refreshToken: _sd3.refresh_token,
+                  expiresAt:    Date.now() + (Number(_sd3.expires_in || 3600) * 1000),
+                  email:        _mail,
+                  shopId:       row.shop_id
+                };
+                _tuzaldi = true;
+                console.log("[staff_login] o'tkinchi xato (" + _lr.status +
+                            ") — 2-urinishda sessiya olindi, parolga tegilmadi");
+              }
+            } catch (e) {}
+          } else if (_u && _u.id) {
           try {
             const _pfp2 = _crypto.createHash("sha256").update(_pass).digest("hex").slice(0, 16);
             const _fix = await fetch(`${SB_URL}/auth/v1/admin/users/${_u.id}`, {
@@ -1196,9 +1245,9 @@ module.exports = async function handler(req, res) {
               }
             }
           } catch (e) { console.warn("[staff_login] tuzatish:", e.message); }
+          }
           if (!_tuzaldi) {
-            const _le = await _lr.json().catch(() => ({}));
-            _authWarn = "Sessiya olinmadi: " + (_le.error_description || _lr.status);
+            _authWarn = "Sessiya olinmadi: " + (_sabab || _lr.status);
           }
         }
       } catch (e) {
