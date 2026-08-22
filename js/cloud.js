@@ -870,6 +870,31 @@ async function pullDelta(noRender) {
       if (!st.rows.length) continue;
       db[st.key] = _mergeById(db[st.key], st.rows, st.mergeKey);
       changed += st.rows.length;
+      // ═══════════════════════════════════════════════════════════
+      // 🔴 541 (2026-08-22) — DELTA BILAN KELGAN YOZUV HAM
+      //    "BULUTDA BOR" RO'YXATIGA QO'SHILADI
+      // ═══════════════════════════════════════════════════════════
+      // JONLI DALIL (egasi, ekran surati): telefonda tovar kiritildi,
+      // KOMPYUTERDA paydo bo'ldi — lekin kompyuterda qizil "3" chiqdi:
+      // "Yuborilmagan: products: 3. Internet tekshiring — yozuvlar shu
+      // qurilmada." Xabar YOLG'ON edi: o'sha uch tovar bulutda BOR,
+      // kompyuter ularni aynan bulutdan olgan.
+      // ILDIZ: `_cloudIds` (bulutda ko'rilgan yozuvlar ro'yxati) UCH
+      // yo'ldan IKKITASIDA to'ldirilardi — to'liq pull va push (536 da
+      // tuzatilgan). DELTA esa yozuvni `db` ga qo'shar, lekin ro'yxatga
+      // QO'SHMASDI. Natijada delta bilan kelgan har yozuv "yuborilmagan"
+      // bo'lib sanalardi va kassirga yolg'on ogohlantirish chiqardi.
+      // ⚠️ Bu HISOB xatosi — ma'lumot yo'qolishi EMAS.
+      // Kalit jadval bo'yicha (tovarda `sku`) — 536 dagi bilan bir xil.
+      try {
+        const _ck = st.mergeKey ||
+          ((typeof _DELTA_DEL_KEY === "object" && _DELTA_DEL_KEY[st.tbl]) || "id");
+        if (!_cloudIds[st.tbl]) _cloudIds[st.tbl] = new Map();
+        for (const _r of st.rows) {
+          const _v = (_r && _r[_ck] != null) ? _r[_ck] : (_r && _r.id);
+          if (_v != null) _cloudIds[st.tbl].set(String(_v), _v);
+        }
+      } catch (e) {}
     }
     if (dels.length) {
       const byTable = {};
