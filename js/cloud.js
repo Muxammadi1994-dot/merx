@@ -1365,6 +1365,8 @@ async function _uploadOneImage(sid, sku, tag, dataUrl) {
 // Endi bir vaqtda faqat bittasi ishlaydi; ikkinchisi jim chekinadi va
 // keyingi sinxronda davom etadi (rasm yo'qolmaydi).
 let _imgMigrBusy = false;
+// 539: rasmi havolaga aylangan tovarlar — havola bulutga yuborilishi kerak
+const _imgOzgargan = new Set();
 
 async function _migrateImagesToStorage(sid) {
   if (!_sb || !sid) return 0;
@@ -1377,6 +1379,7 @@ async function _migrateImagesToStorage(sid) {
       if (p.image && typeof p.image === "string" && p.image.startsWith("data:image")) {
         p.image = await _uploadOneImage(sid, p.sku, "main", p.image);
         moved++;
+        try { _imgOzgargan.add(p.sku); } catch (e) {}   // 539
       }
       if (p.colorImages && typeof p.colorImages === "object") {
         for (const c of Object.keys(p.colorImages)) {
@@ -1385,6 +1388,7 @@ async function _migrateImagesToStorage(sid) {
           if (v && typeof v === "string" && v.startsWith("data:image")) {
             p.colorImages[c] = await _uploadOneImage(sid, p.sku, "c_" + String(c).replace(/[^\w-]/g, "_"), v);
             moved++;
+            try { _imgOzgargan.add(p.sku); } catch (e) {}   // 539
           }
         }
       }
@@ -1505,6 +1509,40 @@ async function pushToCloud() {
   // Ma'lumot yo'qolmaydi — push keshi faqat muvaffaqiyatda yangilanadi
   // (§5.4); token kelishi bilan hammasi o'zi ketadi (_staffTokenRetry).
   if (_staffNoToken()) {
+    // ═══════════════════════════════════════════════════════════════
+    // 🔴 539 (2026-08-22) — RASM TOKENSIZ HAM KO'CHIRILADI
+    // ═══════════════════════════════════════════════════════════════
+    // JONLI DALIL (egasi, 2026-08-22): xodim roli bilan tovar
+    // kiritilganda TOVAR DARHOL keladi, RASM esa umuman kelmaydi —
+    // Shoetestdagi `TR21` yarim soatdan beri, `KM89` ham shunday.
+    // Admin bilan esa muammo yo'q.
+    // ILDIZ — ikki yo'l:
+    //   · TOVAR `serverSaveRecord` orqali `/api/pul` ga boradi va
+    //     SERVER O'Z KALITI bilan yozadi → xodim tokeni SHART EMAS;
+    //   · RASM esa brauzerdan Storage'ga ko'chiriladi va bu
+    //     `_migrateImagesToStorage` ichida, ya'ni SHU QO'RIQCHIDAN
+    //     PASTDA (1577-qator). Token yo'q bo'lsa kod bu yerdan
+    //     qaytadi va rasm ko'chirish qatoriga YETIB BORMAYDI.
+    // Holbuki Storage siyosatlari `{anon, authenticated}` — ya'ni
+    // rasm yuklash uchun xodim tokeni KERAK EMAS. Bekorga to'silgan.
+    // Endi rasm shu yerda ko'chiriladi: havola lokal yozuvga tushadi
+    // va token tiklangach tovar bilan birga bulutga ketadi.
+    try { await _migrateImagesToStorage(_sid); } catch (e) {}
+    // 539: havola lokalda tayyor — endi uni SERVER YO'LI bilan yuboramiz.
+    // Bu yo'l xodim tokenisiz ham ishlaydi (server o'z kaliti bilan
+    // yozadi), ya'ni rasm push tiklanishini kutmaydi.
+    try {
+      if (_imgOzgargan.size && typeof serverSaveRecord === "function") {
+        const _skus = [..._imgOzgargan].slice(0, 20);
+        for (const _sku of _skus) {
+          const _p = (db.products || []).find(x => String(x.sku) === String(_sku));
+          if (!_p) { _imgOzgargan.delete(_sku); continue; }
+          const _r = await serverSaveRecord("products", _p, null);
+          if (_r && _r.ok) _imgOzgargan.delete(_sku);
+        }
+        console.log("🖼️ " + _skus.length + " ta rasm havolasi serverga yuborildi");
+      }
+    } catch (e) { console.warn("🖼️ havola yuborilmadi:", e.message); }
     console.warn("⏳ Xodim tokeni hali yo'q — push jim kutadi");
     try { if (typeof window._staffTokenRetry === "function") window._staffTokenRetry(); } catch(e) {}
     // ═══════════════════════════════════════════════════════════════

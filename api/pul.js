@@ -1023,8 +1023,38 @@ module.exports = async (req, res) => {
         });
         const vars = _merge(data.variants);
         data.variants = vars;
+        // ═══════════════════════════════════════════════════════════
+        // 🔴 539 (2026-08-22) — RASM HAVOLASI SAQLANADI
+        // ═══════════════════════════════════════════════════════════
+        // JONLI DALIL (egasi): xodim roli bilan kiritilgan tovar
+        // DARHOL keladi, RASM esa umuman kelmaydi (Shoetest `TR21`
+        // yarim soat, `KM89` ham shunday). Adminda muammo yo'q.
+        // ILDIZ — ikki halqa:
+        //   1) Tovar SHU YO'LDAN (server) ketadi, rasm esa bu yerda
+        //      ATAYLAB tashlanardi (pastdagi `delete data.image`);
+        //   2) Rasmni yozadigan ikkinchi yo'l — brauzerdagi
+        //      `pushToCloud` — xodim tokeni yo'q bo'lsa TO'XTAYDI.
+        // Ikkalasi birga: rasm hech qachon bulutga chiqmaydi.
+        // Tashlashning sababi (izohlanmagan) — base64 rasm `data` ni
+        // shishirib yuborishi. Lekin HAVOLA atigi ~150 belgi.
+        // Endi: base64 avvalgidek tashlanadi, HAVOLA esa o'tkaziladi.
+        // ⚠️ Havola bo'lmasa ustun UMUMAN yuborilmaydi — bulutdagi
+        //    mavjud rasm null bilan bosib ketilmasin.
+        const _imgOk = (v) => typeof v === "string" &&
+                              /^https?:\/\//.test(v) && v.length < 600;
+        const _img = _imgOk(data.image) ? data.image : null;
+        let _cimg = null;
+        if (data.colorImages && typeof data.colorImages === "object") {
+          const _t = {};
+          for (const _k of Object.keys(data.colorImages)) {
+            if (_imgOk(data.colorImages[_k])) _t[_k] = data.colorImages[_k];
+          }
+          if (Object.keys(_t).length) _cimg = _t;
+        }
         delete data.image; delete data.colorImages; delete data._qtyLocal;
         yoz = {
+          ...(_img  ? { image: _img } : {}),
+          ...(_cimg ? { color_images: _cimg } : {}),
           shop_id: shopId,
           id: (eski && eski.id) || row.id,
           sku: row.sku || data.sku,
