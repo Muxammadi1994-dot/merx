@@ -972,6 +972,23 @@ module.exports = async (req, res) => {
                               `&${idQ}&select=${_sel}`);
       const eski = (bor && bor[0]) || null;
 
+      // ═══════════════════════════════════════════════════════════
+      // 🔴 545 (2026-08-22): `data` TAYYORLASH TEKSHIRUVLARDAN OLDINGA
+      // ═══════════════════════════════════════════════════════════
+      // Ilgari bu qatorlar pastda — (2) takror-tekshiruvdan KEYIN
+      // turardi. (2) esa `data.art` ni o'qiydi. JavaScript'da `const`
+      // e'lonidan OLDIN o'qib bo'lmaydi — natijada YANGI tovar
+      // `force`siz kelganda server HAR SAFAR
+      //   "Cannot access 'data' before initialization"
+      // bilan yiqilardi (jonli isbot: xodim konsoli, 2026-08-22).
+      // Bitta rangli tovar, "Rang qo'shish" va "Nusxa" aynan shu
+      // yo'ldan yuradi; 19-avgustdagi takror-ogohlantirish esa shu
+      // sabab bir marta ham ishlamagan edi.
+      const now = new Date().toISOString();
+      const data = (row.data && typeof row.data === "object") ? row.data : row;
+      delete data.shop_id;
+      data.updatedAt = now;
+
       // (3) Tahrirda to'qnashuv tekshiruvi
       if (eski && body.baseAt) {
         const _sAt = (eski.data && eski.data.updatedAt) ? Date.parse(eski.data.updatedAt) : 0;
@@ -1027,10 +1044,7 @@ module.exports = async (req, res) => {
       }
 
       // (1) shop_id SERVERDA — klientnikiga ishonilmaydi
-      const now = new Date().toISOString();
-      const data = (row.data && typeof row.data === "object") ? row.data : row;
-      delete data.shop_id;
-      data.updatedAt = now;
+      // (`now` va `data` yuqorida tayyorlanadi — 545-izohga qarang)
       let yoz;
       if (tbl === "products") {
         // ✅ 2026-08-19 (5-bosqich): QOLDIQ BU YERDA YOZILMAYDI.
@@ -1166,14 +1180,36 @@ module.exports = async (req, res) => {
       if (tbl === "staff") { delete yoz.data.pin; delete yoz.data.pinHash; }
 
       const _konf = (tbl === "products") ? "?on_conflict=sku,shop_id" : "";
-      const r = await fetch(`${SB_URL}/rest/v1/${tbl}${_konf}`, {
+      const _postYoz = (b) => fetch(`${SB_URL}/rest/v1/${tbl}${_konf}`, {
         method: "POST",
         headers: { ...H(), "Content-Type": "application/json",
                    Prefer: "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify(yoz)
+        body: JSON.stringify(b)
       });
+      let r = await _postYoz(yoz);
       if (!r.ok) {
-        const t = await r.text().catch(() => "");
+        let t = await r.text().catch(() => "");
+        // ═════════════════════════════════════════════════════════
+        // 🔴 545: YANGI TOVAR "id"SI BAND — SERVER O'ZI TUZATADI
+        // ═════════════════════════════════════════════════════════
+        // Bosh kalit (shop_id, id). Eski qurilmalar id ni kichik
+        // sanoqdan beradi va u do'konda ALLAQACHON band bo'lishi
+        // mumkin — baza "duplicate key ... products_pkey" deb rad
+        // etadi (jonli: 409, 2026-08-22 skrinshot). Upsert kaliti
+        // (sku, shop_id) bo'lgani uchun bu to'qnashuvni o'zi yecha
+        // olmaydi. Endi: server BIR marta vaqt-muhrli id berib qayta
+        // uradi va yozilgan qatorni qaytaradi — klient id ni qabul
+        // qilib oladi (3.33-qoida).
+        if (tbl === "products" && !eski && /products_pkey/.test(t)) {
+          yoz.id = Math.floor(Date.now() / 1000) * 1000 +
+                   Math.floor(Math.random() * 1000);
+          const r2 = await _postYoz(yoz);
+          if (r2.ok) {
+            const j2 = await r2.json().catch(() => []);
+            return res.status(200).json({ ok: true, row: (j2 && j2[0]) || yoz });
+          }
+          t = await r2.text().catch(() => t);
+        }
         return res.status(200).json({ ok: false, error: t.slice(0, 160) });
       }
       const j = await r.json().catch(() => []);

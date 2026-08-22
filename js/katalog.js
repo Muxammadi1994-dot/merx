@@ -782,9 +782,10 @@ async function _duplicateProductIchki(sku, event) {   // ✅ 2026-08-18: SKU ser
     newSku = _r.sku; newId = _r.id;
   } catch (e) {
     newSku = p.sku + "-copy-" + Date.now().toString().slice(-4);
-    newId  = db.seq;
+    newId  = (typeof nextId === "function") ? nextId() : db.seq;   // 545
   }
-  if (!newSku) { newSku = p.sku + "-copy-" + Date.now().toString().slice(-4); newId = db.seq; }
+  if (!newSku) { newSku = p.sku + "-copy-" + Date.now().toString().slice(-4);
+    newId = (typeof nextId === "function") ? nextId() : db.seq; }   // 545
 
   const copy = JSON.parse(JSON.stringify(p)); // deep copy
   copy.sku  = newSku;
@@ -806,6 +807,12 @@ async function _duplicateProductIchki(sku, event) {   // ✅ 2026-08-18: SKU ser
     let _r = await serverSaveRecord("products", copy, null);
     if (_r && _r.ok === false && _r.code === "dup")
       _r = await serverSaveRecord("products", copy, null, true);
+    // 🔴 545 (3.33): server id va vaqt muhri qabul qilinadi (409 davosi)
+    if (_r && _r.ok && _r.row) {
+      if (_r.row.id != null) copy.id = _r.row.id;
+      const _sm = _r.row.data && _r.row.data.updatedAt;
+      if (_sm) copy.updatedAt = _sm;
+    }
   }
   db.products.push(copy);
   try {
@@ -1371,6 +1378,12 @@ async function _epConfirmAddColorIchki() {   // ✅ 2026-08-18: SKU serverdan (a
         toast("Yaratilmadi", "info"); return;
       }
       _r = await serverSaveRecord("products", _yangiRang, null, true);
+    }
+    // 🔴 545 (3.33): server id va vaqt muhri qabul qilinadi (409 davosi)
+    if (_r && _r.ok && _r.row) {
+      if (_r.row.id != null) _yangiRang.id = _r.row.id;
+      const _sm = _r.row.data && _r.row.data.updatedAt;
+      if (_sm) _yangiRang.updatedAt = _sm;
     }
   }
   db.products.push(_yangiRang);
@@ -2165,6 +2178,14 @@ async function _addProductIchki() {   // ✅ 2026-08-18: SKU serverdan (async)
           return;
         }
         _r = await serverSaveRecord("products", _yangiTovar, null, true);   // majburiy
+      }
+      // 🔴 545 (3.33-qoida): SERVER BERGAN id VA VAQT MUHRI QABUL
+      // QILINADI. Aks holda: server 409 da id ni almashtirsa, lokalda
+      // eski (band) id qolib, push o'sha 409 ni qaytadan olaverardi.
+      if (_r && _r.ok && _r.row) {
+        if (_r.row.id != null) _yangiTovar.id = _r.row.id;
+        const _sm = _r.row.data && _r.row.data.updatedAt;
+        if (_sm) _yangiTovar.updatedAt = _sm;
       }
     }
     db.products.push(_yangiTovar);
@@ -4685,7 +4706,12 @@ async function _apNextSkuAsync(type, count) {
         const toza = r.skus.filter(s => !band.has(s));
         if (toza.length) {
           _apSkuZaxira = toza.slice(1);
-          const _id = db.seq++;
+          // 🔴 545 (2026-08-22): id endi VAQT MUHRIDAN (nextId), kichik
+          // sanoqdan emas. Bazada bosh kalit (shop_id, id); sanoq id si
+          // do'konning eski tovarlari band qilgan raqamga tushib, yozuv
+          // 409 "products_pkey" bilan rad etilardi (jonli skrinshot).
+          // SKU raqamiga tegilmagan — u avvalgidek serverdan/sanoqdan.
+          const _id = (typeof nextId === "function") ? nextId() : db.seq++;
           return { id: _id, sku: toza[0], server: true };
         }
       }
@@ -4699,7 +4725,9 @@ function _apSkuNavbat(type) {
     const band = new Set((db.products || []).map(x => String(x.sku || "")));
     while (_apSkuZaxira.length) {
       const s = _apSkuZaxira.shift();
-      if (!band.has(s)) return { id: db.seq++, sku: s, server: true };
+      if (!band.has(s)) return {
+        id: (typeof nextId === "function") ? nextId() : db.seq++,   // 545
+        sku: s, server: true };
     }
   }
   return { ..._apNextSku(type), server: false };
@@ -4710,13 +4738,16 @@ function _apNextSku(type) {
   const band = new Set((db.products || []).map(x => String(x.sku || "")));
   let guard = 0;
   while (guard++ < 10000) {
-    const id  = db.seq++;
-    const sku = `${pref}-${String(id).padStart(3, "0")}`;
-    if (!band.has(sku)) return { id, sku };
+    const n   = db.seq++;                 // SKU raqami — sanoqdan (o'zgarmadi)
+    const sku = `${pref}-${String(n).padStart(3, "0")}`;
+    if (!band.has(sku)) return {
+      id: (typeof nextId === "function") ? nextId() : n,   // 545: id vaqt muhridan
+      sku };
   }
   // Bu yerga yetib kelish deyarli imkonsiz — zaxira yo'l
-  const id = db.seq++;
-  return { id, sku: `${pref}-${id}-${Date.now().toString(36)}` };
+  const n = db.seq++;
+  return { id: (typeof nextId === "function") ? nextId() : n,   // 545
+           sku: `${pref}-${n}-${Date.now().toString(36)}` };
 }
 
 function _apCreateExtraColor(base, cd, batchId) {
@@ -4772,8 +4803,18 @@ function _apCreateExtraColor(base, cd, batchId) {
   // shu ranglarni ochyapti. Fon rejimida — ekran kutmaydi.
   try {
     prod.updatedAt = new Date().toISOString();
-    if (typeof serverSaveRecord === "function")
-      serverSaveRecord("products", prod, null, true);
+    if (typeof serverSaveRecord === "function") {
+      // 🔴 545 (3.33): fon rejimida ham server bergan id va vaqt muhri
+      // qabul qilinadi — band id lokalda qolib 409 aylanmasin.
+      const _sv = serverSaveRecord("products", prod, null, true);
+      if (_sv && _sv.then) _sv.then(_r => {
+        if (_r && _r.ok && _r.row) {
+          if (_r.row.id != null) prod.id = _r.row.id;
+          const _sm = _r.row.data && _r.row.data.updatedAt;
+          if (_sm) prod.updatedAt = _sm;
+        }
+      }).catch(() => {});
+    }
   } catch (e) {}
   try { ensureColorBarcodes(prod); } catch(e) {}
 
@@ -5052,6 +5093,32 @@ async function apAddVariativ(name) {   // ✅ 2026-08-18: SKU zaxirasi serverdan
 
   const bad = rows.find(r => r.boxes <= 0 && r.dona <= 0);
   if (bad) { toast(`"${bad.color}" uchun pochka soni yoki jami donani kiriting`, "err"); return; }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 🔴 545 (2026-08-22): RASMLAR AVVAL YUKLANADI, KEYIN TOVAR
+  // ═══════════════════════════════════════════════════════════════
+  // Poyga davosi. Rasm Storage'ga FONDA yuklanardi (544); kassir
+  // "Saqlash"ni yuklash tugashidan OLDIN bossa, tovar base64 bilan
+  // ketardi — server esa base64 ni ataylab tashlaydi (539) va boshqa
+  // qurilmalarga tovar RASMSIZ borardi. Kech kelgan havola tozalangan
+  // formaga yozilib, bekorga ketardi. Endi: base64 qolgan rasmlar shu
+  // yerda KUTIB yuklanadi (jami 8 soniya chegara). Ulgurmasa yoki
+  // oflaynda — eski yo'l (base64 qoladi, ish to'xtamaydi).
+  const _b64Rows = rows.filter(r =>
+    r.image && String(r.image).startsWith("data:image"));
+  if (_b64Rows.length && typeof uploadImageToStorage === "function" &&
+      (typeof navigator === "undefined" || navigator.onLine !== false)) {
+    toast("🖼️ Rasm yuklanmoqda...", "info");
+    await Promise.race([
+      Promise.allSettled(_b64Rows.map(async r => {
+        try {
+          const u = await uploadImageToStorage(r.image, "var");
+          if (u && u !== r.image) r.image = u;
+        } catch (e) {}
+      })),
+      new Promise(res => setTimeout(res, 8000))
+    ]);
+  }
 
   const t        = currentApType || "oyoq";
   const art      = ($("ap-art")||{value:""}).value.trim();

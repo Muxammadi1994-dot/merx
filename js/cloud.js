@@ -2122,7 +2122,44 @@ async function pushToCloud() {
           });
         } catch (e) {}
       }
-    } catch(e) { syncErrors.push("products: " + e.message); console.warn("sync products xato:", e.message); }
+    } catch(e) { syncErrors.push("products: " + e.message); console.warn("sync products xato:", e.message);
+      // ═══════════════════════════════════════════════════════════
+      // 🔴 545 (2026-08-22): BAND "id" NAVBATNI ABADIY QAMAMASIN
+      // ═══════════════════════════════════════════════════════════
+      // Jonli isbot (skrinshot): yangi tovar sanoqdan olgan id do'konda
+      // band bo'lsa, push HAR sinxronda 409 "products_pkey" olib, o'sha
+      // yozuvni abadiy qayta uraverardi — tovar hech qayerga chiqmasdi
+      // ("Saqlandi, lekin xatolar" toasti ham shu). Endi: aynan shu
+      // xato kelganda, bulutda hali YO'Q (sku bo'yicha) va id si
+      // kichik-sanoqli tovarlarga vaqt-muhrli id beriladi — keyingi
+      // sinxronda o'zlari o'tib ketadi. Bulutdagi MAVJUD yozuvlarga
+      // tegilmaydi (ular sku bo'yicha ro'yxatda bor).
+      try {
+        if (/products_pkey/.test(String(e.message || ""))) {
+          const _known = _cloudIds["products"];
+          let _fixed = 0;
+          (db.products || []).forEach(p => {
+            const _inCloud = _known && typeof _known.has === "function" &&
+                             _known.has(String(p.sku));
+            if (!_inCloud && p.id != null && Number(p.id) < 100000) {
+              p.id = (typeof nextId === "function") ? nextId()
+                     : (Date.now() * 1000 + Math.floor(Math.random() * 1000));
+              _fixed++;
+            }
+          });
+          if (_fixed) {
+            console.warn("♻️ " + _fixed + " ta yangi tovar 'id'si band edi — " +
+                         "vaqt-muhrli id berildi, keyingi sinxronda o'tadi");
+            try {   // 525-uslub: saveDB EMAS (aylanma taqiqi) — yengil yozish
+              localStorage.setItem(getDBKEY(), JSON.stringify(
+                (typeof _dbForLocal === "function" ? _dbForLocal() : db)));
+            } catch (e2) {}
+            try { if (typeof scheduleHeavySave === "function") scheduleHeavySave(); } catch (e2) {}
+            try { if (typeof scheduleCloudSync === "function") scheduleCloudSync(); } catch (e2) {}
+          }
+        }
+      } catch (e2) {}
+    }
 
     try {
       await syncCustomers(db.customers);
