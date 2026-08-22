@@ -1365,6 +1365,61 @@ async function doStaffLogin() {
         _tokWaited = true; // bundan keyin kelgan token — "kech"
       }
     } catch(e) {}
+    // ═══════════════════════════════════════════════════════════════
+    // 🔴 537 (2026-08-22) — TERILGAN PIN LOKALGA SAQLANADI
+    // ═══════════════════════════════════════════════════════════════
+    // ILDIZ (2026-08-22, "xodimlarda doimiy muammo" tekshiruvi):
+    // Xodim tokeni yo'qolganda `_staffTokenRetry` uni QAYTA KIRISH
+    // bilan tiklaydi — buning uchun unga lokal `st.pin` (OCHIQ PIN)
+    // kerak (`auth.js:1421`). Lekin ochiq PIN lokalga FAQAT xodim
+    // birinchi marta BULUT orqali kirganda yozilardi (`!res.ok` shoxi,
+    // `:1268` — u ham "xodim lokalda YO'Q bo'lsa" sharti bilan).
+    // Xodim LOKAL kirsa (16-avgustdan beri XESH bilan ham kirish
+    // mumkin — `authStaffLogin:150`) ochiq PIN saqlanmasdi.
+    //
+    // OQIBATI — aynan egasining shikoyati:
+    //   1) Supabase yangilash kalitini ALMASHTIRADI: bitta xodim
+    //      hisobidan ikkinchi qurilmada kirilsa, birinchisiniki
+    //      kuchdan qoladi (`cloud.js:100-102` da yozilgan). B20 da
+    //      9 qurilma, xodim esa oz — bu MUNTAZAM sodir bo'ladi.
+    //   2) Yangilash 401 beradi → `_staffTokenRetry` chaqiriladi →
+    //      lokal ochiq PIN YO'Q → false qaytaradi.
+    //   3) Token tiklanmaydi → `_staffNoToken()` doim true →
+    //      push JIM KUTADI (`cloud.js:1424`) → yozuvlar qurilmada
+    //      to'planadi, qizil belgi o'smaydi, boshqa kassa ko'rmaydi.
+    // Admin bu yo'ldan o'tmaydi (`authLogin` — email/parol), shuning
+    // uchun adminda muammo chiqmasdi.
+    //
+    // ENDI: kirish QAYSI YO'LDAN bo'lishidan qat'i nazar terilgan PIN
+    // va uning xeshi lokal xodim yozuviga yoziladi. Shu bilan token
+    // istalgan vaqtda O'ZI tiklanadi — xodim admin kabi uzluksiz
+    // ishlaydi.
+    // ⚠️ Ochiq PIN FAQAT shu qurilmada qoladi — bulutga yuborilmaydi
+    //    (push `data` dan `pin`/`pinHash` ni o'chiradi, C-1 qoidasi).
+    try {
+      const _sid  = res.user.shopId;
+      const _dbk  = res.user.dbKey || ("merx_v5_" + _sid);
+      const _stId = String(res.user.staffId);
+      // (a) xotiradagi nusxa — darhol amal qilsin
+      try {
+        if (typeof db === "object" && Array.isArray(db.staff)) {
+          const st = db.staff.find(x => String(x.id) === _stId);
+          if (st) { st.pin = pin; if (_tHash) st.pinHash = _tHash; }
+        }
+      } catch (e) {}
+      // (b) qurilma xotirasi — ilova qayta ochilganda ham qolsin
+      const raw = localStorage.getItem(_dbk);
+      const d = raw ? JSON.parse(raw) : null;
+      if (d && Array.isArray(d.staff)) {
+        const st2 = d.staff.find(x => String(x.id) === _stId);
+        if (st2) {
+          st2.pin = pin;
+          if (_tHash) st2.pinHash = _tHash;
+          localStorage.setItem(_dbk, JSON.stringify(d));
+        }
+      }
+    } catch (e) { console.warn("[auth] PIN lokalga saqlanmadi:", e.message); }
+
     hideLoginScreen();
     toast(`✅ Xush kelibsiz, ${res.user.name}!`);
     applyRoleUI();

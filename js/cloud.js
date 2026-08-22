@@ -93,6 +93,7 @@ async function ensureFreshToken() {
       // aks holda eski token bilan qolib, xabarlar to'xtardi.
       try { if (_sb && _sb.realtime) _sb.realtime.setAuth(s.accessToken); } catch(e) {}
       console.log("🔄 Kirish kaliti avtomatik yangilandi");
+      try { _tokenKutishBoshi = 0; _tokenOgohBerildi = false; } catch (e) {}   // 537
     } else if (r.status === 400 || r.status === 401) {
       // \U0001f534 2026-08-14 ILDIZ-DAVO: avval faqat OGOHLANTIRARDI va
       // qurilma "kar" bo'lib qolardi — sotuvlar bulutga chiqmasdi
@@ -1349,8 +1350,26 @@ async function _uploadOneImage(sid, sku, tag, dataUrl) {
   if (!data || !data.publicUrl) throw new Error("publicUrl olinmadi");
   return data.publicUrl;
 }
+// 🔴 538 (2026-08-22): BIR VAQTDA IKKI MARTA ISHLAMAYDI.
+// JONLI DALIL (`storage.objects`, 2026-08-22 03:07): bitta tovar rasmi
+// bir soniya ichida UCH MARTA yuklangan:
+//   CLTH-1785889645180_main_1787368042181.jpg
+//   CLTH-1785889645180_main_1787368042612.jpg
+//   CLTH-1785889645180_main_1787368042796.jpg
+// Shoetestda ham xuddi shunday (03:27 va 03:28 da bir xil fayllar).
+// SABABI: bu funksiya `pushToCloud` ichida turadi, push esa USTMA-UST
+// ketishi mumkin (log'da ikkita "Cloud sinxron OK" yonma-yon ko'rilgan).
+// Birinchi nusxa `p.image` ni URL ga almashtirguncha ikkinchisi
+// boshlanib bo'ladi va O'SHA base64 ni qaytadan yuklaydi.
+// Zarari: bekorga trafik va Storage joyi (har rasm 80-260 KB).
+// Endi bir vaqtda faqat bittasi ishlaydi; ikkinchisi jim chekinadi va
+// keyingi sinxronda davom etadi (rasm yo'qolmaydi).
+let _imgMigrBusy = false;
+
 async function _migrateImagesToStorage(sid) {
   if (!_sb || !sid) return 0;
+  if (_imgMigrBusy) return 0;          // 538: ustma-ust ishlamasin
+  _imgMigrBusy = true;
   let moved = 0;
   try {
     for (const p of (db.products || [])) {
@@ -1377,6 +1396,7 @@ async function _migrateImagesToStorage(sid) {
     // ko'chganlari URL, qolganlari base64 — ikkalasi ham ishlaydi.)
     console.warn("🖼️ Rasm ko'chirish to'xtadi (keyingi sinxronda davom etadi):", e.message || e);
   }
+  _imgMigrBusy = false;               // 538: qulf bo'shatildi
   if (moved > 0) {
     // Havolalar DARHOL lokalga (13-qoida: saveDB EMAS — aylanma taqiqi).
     // O'zgargan tovarlar delta-push'da o'zi "yangi" deb aniqlanib,
@@ -1405,6 +1425,9 @@ async function _pinSha(pin) {
 
 // ⚠️ 2026-08-09: joriy foydalanuvchi XODIMmi va tokeni yo'qmi?
 // Egasi/SA doim o'z tokeni bilan kiradi — bu tekshiruv faqat xodimga tegadi.
+// 537: token kutish o'lchovi — uzoq kutilsa bir marta ogohlantiriladi
+let _tokenKutishBoshi = 0, _tokenOgohBerildi = false;
+
 function _staffNoToken() {
   try {
     const u = (typeof getAuthUser === "function") ? getAuthUser() : null;
@@ -1484,6 +1507,34 @@ async function pushToCloud() {
   if (_staffNoToken()) {
     console.warn("⏳ Xodim tokeni hali yo'q — push jim kutadi");
     try { if (typeof window._staffTokenRetry === "function") window._staffTokenRetry(); } catch(e) {}
+    // ═══════════════════════════════════════════════════════════════
+    // 🔴 537 (2026-08-22) — UZOQ KUTISH ENDI JIM QOLMAYDI
+    // ═══════════════════════════════════════════════════════════════
+    // Ilgari bu holat BUTUNLAY jim edi: xodimning yozuvlari qurilmada
+    // to'planardi, u esa hech narsa sezmasdi (jonli: B20, "13 ta qizil").
+    // Jimlik ataylab qo'yilgan edi — token odatda bir necha soniyada
+    // keladi va bezovta qilishning ma'nosi yo'q.
+    // LEKIN token UMUMAN kelmaydigan holat ham bor (yangilash kaliti
+    // boshqa qurilmada bekor qilingan + lokal PIN yo'q). O'shanda
+    // kassir soatlab bilmay ishlayveradi.
+    // Endi: 2 daqiqadan ortiq kutilsa — bir marta ochiq aytiladi.
+    // Kassir hech narsa qilmaydi, faqat CHIQIB-KIRSA hammasi tiklanadi.
+    try {
+      if (!_tokenKutishBoshi) _tokenKutishBoshi = Date.now();
+      else if (!_tokenOgohBerildi &&
+               (Date.now() - _tokenKutishBoshi) > 2 * 60 * 1000) {
+        _tokenOgohBerildi = true;
+        const _n = (typeof pendingCount === "function")
+                     ? (pendingCount().total || 0) : 0;
+        if (typeof toast === "function") {
+          toast("⚠️ Yozuvlar bulutga chiqmayapti" +
+                (_n ? " (" + _n + " ta)" : "") +
+                " — tizimdan chiqib qayta kiring", "err");
+        }
+        console.warn("⚠️ Xodim tokeni 2 daqiqadan beri tiklanmadi — " +
+                     "qayta kirish kerak");
+      }
+    } catch (e) {}
     return;
   }
   if (!_cloudPullDone || _pulledShopId !== _sid) {
