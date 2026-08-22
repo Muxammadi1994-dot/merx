@@ -1319,10 +1319,27 @@ module.exports = async (req, res) => {
       const rows = await sbAll(
         `products?shop_id=eq.${encodeURIComponent(shopId)}` +
         `&sku=like.${encodeURIComponent(pref + "-%")}&select=sku`);
-      let mx = 0;
+      // 🔴 535 (2026-08-22): SHISHGAN RAQAMDAN HIMOYA.
+      // Muammo (B20, jonli): bitta tovar SKU si `CLTH-1785846318110`
+      // bo'lib qolgan — bu vaqt muhri (`Date.now()`), sanoq emas.
+      // Bu yer esa HAMMA SKU dan eng kattasini olardi, ya'ni o'sha
+      // bitta buzuq qator butun hisoblagichni ABADIY zaharlagan:
+      // undan keyingi har SKU 13 xonali chiqardi. Natijada bir
+      // partiyada ikki xil SKU paydo bo'lardi — serverdan uzun,
+      // klient zaxirasidan oddiy (`CLTH-2434`).
+      // Klientda bu himoya ALLAQACHON BOR (`cloud.js` `_SEQ_LIMIT`,
+      // `utils.js` `_seqSane` — 100 000 chegarasi), serverda esa
+      // yo'q edi. Endi ikkala tomonda bir xil qoida.
+      // ⚠️ Mavjud SKU lar O'ZGARTIRILMAYDI — ular yorliqlarga bosilgan
+      // bo'lishi mumkin. Faqat YANGI zaharlanish to'xtaydi.
+      const SKU_LIMIT = 1000000;   // 1 mln — hech bir do'konda buncha tovar yo'q
+      let mx = 0, _tashlangan = 0;
       (rows || []).forEach(r => {
         const m = String(r.sku || "").match(/^[A-Z]+-(\d+)/);
-        if (m) { const n = parseInt(m[1]); if (n > mx) mx = n; }
+        if (!m) return;
+        const n = parseInt(m[1]);
+        if (n >= SKU_LIMIT) { _tashlangan++; return; }   // shishgan — sanoqqa kirmaydi
+        if (n > mx) mx = n;
       });
       const band = new Set((rows || []).map(r => String(r.sku)));
       const skus = [];
@@ -1333,7 +1350,8 @@ module.exports = async (req, res) => {
         if (!band.has(s)) skus.push(s);
         if (n > mx + 5000) break;                 // cheksiz aylanish himoyasi
       }
-      return res.status(200).json({ ok: true, skus, next: n });
+      return res.status(200).json({ ok: true, skus, next: n,
+        shishgan: _tashlangan || 0 });   // 535: nechta buzuq SKU tashlandi
     }
 
     // ✅ 2026-08-18 (4-paket): KO'P MIJOZ QARZI BIR CHAQIRUVDA.

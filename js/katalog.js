@@ -1341,7 +1341,19 @@ async function _epConfirmAddColorIchki() {   // ✅ 2026-08-18: SKU serverdan (a
     inBox: sizeRange.length, packUnit: p.packUnit,
     art: p.art || "", barcode: genEAN13(db.seq++),
     costUsd: p.costUsd, priceUzs: p.priceUzs, ulgurjiNarx: p.ulgurjiNarx,
-    image: "", createdAt: new Date().toISOString(),
+    // 🔴 535 (2026-08-22): RASM OTA-TOVARDAN OLINADI — ILGARI BO'SH EDI.
+    // JONLI DALIL (B20, 2026-08-22 SQL tahlili): yangi rang bilan
+    // yaratilgan tovarlarda `image` ustuni BO'SH chiqdi, `data` ichida
+    // ham rasm yo'q edi. Ya'ni rasm sinxronda yo'qolmagan — u UMUMAN
+    // YOZILMAGAN. Naqsh aniq ko'rindi: rasmi yo'q tovarlar soni
+    // "uzun SKU" li tovarlar soni bilan mos tushdi (03:00 → 3 ta tovar,
+    // 3 tasi uzun SKU, 0 tasida rasm), ikkalasi ham AYNAN shu yo'ldan
+    // keladi.
+    // Rasm rang bo'yicha saqlanadi (`colorImages[rang] || image` —
+    // `katalog.js:604` va `:1007` shu tartibda o'qiydi), shuning uchun
+    // avval o'sha rangning rasmi, keyin umumiy rasm olinadi.
+    image: (p.colorImages && p.colorImages[color]) || p.image || "",
+    createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     variants: [{ color, size: (from === to ? from : from + "-" + to),
                  qty: boxes * sizeRange.length, pantone, hex }]
@@ -6062,7 +6074,12 @@ function phRestoreProduct(auditId) {
       type: snap.type || "", unit: snap.unit || "dona", inBox: snap.inBox || 1,
       costUsd: snap.costUsd || 0, costUzs: snap.costUzs || 0,
       ulgurjiNarx: snap.ulgurjiNarx || 0, priceUzs: snap.priceUzs || 0,
-      image: "", createdAt: new Date().toISOString(),
+      // 535: tiklashda ham rasm SAQLANADI (yuqoridagi bilan bir sinf).
+      // `colorBarcodes` allaqachon ko'chirilardi — rasm esa tushib
+      // qolardi, ya'ni tiklangan tovar rasmsiz chiqardi.
+      image: snap.image || "",
+      colorImages: snap.colorImages || {},
+      createdAt: new Date().toISOString(),
       colorBarcodes: snap.colorBarcodes || {},
       variants: (snap.variants || []).map(v => ({
         color: v.color, size: v.size, qty: parseInt(v.qty) || 0,
