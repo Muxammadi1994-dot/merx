@@ -144,7 +144,22 @@ function authStaffLogin(phone, password, pinHash) {
   // orqali kelgan xodim yozuvlarida ochiq PIN YO'Q (faqat xesh) — bunday
   // qurilmada lokal kirish hech qachon o'tmas, hammasi internetga qarab
   // qolardi. Endi terilgan PIN xeshi (doStaffLogin beradi) ham tekshiriladi.
-  const staff = _allStaff().find(s =>
+  // ═══════════════════════════════════════════════════════════════
+  // 🔴 548 (2026-08-22): "LOCAL" TUZOQ YOPILDI
+  // ═══════════════════════════════════════════════════════════════
+  // `_allStaff` eski yagona-do'kon davridagi asos bazani (`merx_v5`)
+  // ham qamrab, undan topilgan xodimga `_sid = "local"` berardi.
+  // Oqibati: kirish MUVAFFAQIYATLI-yu, sessiyada shopId="local" —
+  // `getCloudShopId()` esa "local"ni rad etadi. Qurilma ilova
+  // ICHIDA, lekin buluti BUTUNLAY o'chiq: pull ham, push ham
+  // "Sinxronlash uchun avval tizimga kiring" bilan to'xtaydi.
+  // JONLI DALIL: telefon, 2026-08-22 — chiqib qayta kirilganda ham
+  // tovarlar kelmadi, Yangilash aynan shu xabarni berdi.
+  // Legacy rejim mahsulot bo'ylab o'chirilgan (db.js loadDB,
+  // 4-BOSQICH) — endi lokal qidiruv faqat HAQIQIY do'kon
+  // bazalaridan; topilmasa bulut yo'li o'zi urinadi (u to'g'ri
+  // shopId bilan kirgizadi).
+  const staff = _allStaff().filter(s => s._sid && s._sid !== "local").find(s =>
     _phKey(s.phone) === key &&
     ( String(s.pin||"").trim() === pin ||
       (pinHash && s.pinHash && String(s.pinHash) === String(pinHash)) ));
