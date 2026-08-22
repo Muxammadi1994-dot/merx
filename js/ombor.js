@@ -1257,6 +1257,24 @@ function omImgSave(sku, color, input) {
         p.colorImages[color] = dataUrl;
       } else {
         p.image = dataUrl;
+      // 🔴 544 (2026-08-22): RASM DARHOL STORAGE'GA YUKLANADI.
+      // Sakkizta rasm yo'lidan faqat ikkitasi shunday qilardi; qolganlari
+      // base64 ni qoldirib `_migrateImagesToStorage` ga tayanardi — u esa
+      // `pushToCloud` ichida, push esa xodim tokeniga bog'liq. Zanjir
+      // xodimda uzilardi (2026-08-22: `storage.objects` 60 daqiqada bo'sh,
+      // tovarlarda `image` BO'SH). Endi har yo'l o'zi yuklaydi.
+      try {
+        if (typeof uploadImageToStorage === "function") {
+          uploadImageToStorage(dataUrl, (p.sku || "img") + "_" + color)
+            .then(url => {
+              if (!url || url === dataUrl) return;
+              if (p.colorImages && p.colorImages[color] === dataUrl)
+                p.colorImages[color] = url;
+              if (p.image === dataUrl) p.image = url;
+              try { if (typeof saveDB === "function") saveDB(); } catch (e) {}
+            }).catch(() => {});
+        }
+      } catch (e) {}
       }
       saveDB();
       renderOmbor();

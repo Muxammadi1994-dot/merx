@@ -2906,6 +2906,17 @@ function vcFillAddProductForm(item) {
     if (prev) prev.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover">`;
     const rmBtn = $("ap-img-remove-btn");
     if (rmBtn) rmBtn.style.display = "";
+    // 🔴 544 (2026-08-22): "Ovoz+Rasm" yo'li ham darhol yuklaydi.
+    // Bu yo'l suratni faqat ekranga qo'yardi va Storage'ga
+    // yuklamasdi — boshqa yo'llar bilan bir xil nuqson.
+    try {
+      if (typeof uploadImageToStorage === "function") {
+        uploadImageToStorage(dataUrl, "ovoz").then(url => {
+          if (url && url !== dataUrl && apPendingImage === dataUrl)
+            apPendingImage = url;
+        }).catch(() => {});
+      }
+    } catch (e) {}
   }
 
   if ($("ap-name"))  $("ap-name").value  = item.nom || "";
@@ -4276,6 +4287,24 @@ function katImgSave(sku, color, input) {
         p.colorImages[color] = dataUrl;
       } else {
         p.image = dataUrl;
+      // 🔴 544 (2026-08-22): RASM DARHOL STORAGE'GA YUKLANADI.
+      // Sakkizta rasm yo'lidan faqat ikkitasi shunday qilardi; qolganlari
+      // base64 ni qoldirib `_migrateImagesToStorage` ga tayanardi — u esa
+      // `pushToCloud` ichida, push esa xodim tokeniga bog'liq. Zanjir
+      // xodimda uzilardi (2026-08-22: `storage.objects` 60 daqiqada bo'sh,
+      // tovarlarda `image` BO'SH). Endi har yo'l o'zi yuklaydi.
+      try {
+        if (typeof uploadImageToStorage === "function") {
+          uploadImageToStorage(dataUrl, (p.sku || "img") + "_" + color)
+            .then(url => {
+              if (!url || url === dataUrl) return;
+              if (p.colorImages && p.colorImages[color] === dataUrl)
+                p.colorImages[color] = url;
+              if (p.image === dataUrl) p.image = url;
+              try { if (typeof saveDB === "function") saveDB(); } catch (e) {}
+            }).catch(() => {});
+        }
+      } catch (e) {}
       }
       saveDB();
       renderKatalog();
@@ -5135,6 +5164,23 @@ function apVarImgSave(input) {
       while (dataUrl.length > 400000 && q > 0.55);
 
       _apVarColors[i].image = dataUrl;
+      // 🔴 544 (2026-08-22): RASM DARHOL STORAGE'GA YUKLANADI.
+      // Sakkizta rasm yo'lidan faqat IKKITASI (`apImgSave`,
+      // `epLoadColorImage`) shunday qilardi. Qolganlari base64 ni
+      // qoldirib, `_migrateImagesToStorage` ga tayanardi — u esa
+      // `pushToCloud` ichida, push esa xodim tokeniga bog'liq.
+      // Zanjir uzun va xodimda uzilardi: 2026-08-22 da `storage.objects`
+      // da 60 daqiqada BITTA HAM fayl bo'lmadi, tovarlarda `image`
+      // BO'SH chiqdi. Endi har yo'l o'zi yuklaydi — hech nimaga
+      // bog'liq emas. Ulgurmasa base64 qoladi va eski yo'l ishlaydi.
+      try {
+        if (typeof uploadImageToStorage === "function") {
+          uploadImageToStorage(dataUrl, "var").then(url => {
+            if (url && url !== dataUrl && _apVarColors[i].image === dataUrl)
+              _apVarColors[i].image = url;
+          }).catch(() => {});
+        }
+      } catch (e) {}
       const cell = document.getElementById("vr-img-" + i);
       if (cell) cell.innerHTML =
         `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover">`;
