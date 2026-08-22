@@ -5142,15 +5142,24 @@ async function apAddVariativ(name) {   // ✅ 2026-08-18: SKU zaxirasi serverdan
   // oflaynda — eski yo'l (base64 qoladi, ish to'xtamaydi).
   const _b64Rows = rows.filter(r =>
     r.image && String(r.image).startsWith("data:image"));
+  // 🔴 549: har qator yuklashining VA'DASI saqlanadi — 8 soniyaga
+  // ulgurmasa ham fonda davom etadi va pastda (tovar yaratilgach)
+  // natijasi TOVARNING O'ZIGA biriktiriladi.
+  const _imgVaada = new Map();
   if (_b64Rows.length && typeof uploadImageToStorage === "function" &&
       (typeof navigator === "undefined" || navigator.onLine !== false)) {
     toast("🖼️ Rasm yuklanmoqda...", "info");
     await Promise.race([
-      Promise.allSettled(_b64Rows.map(async r => {
-        try {
-          const u = await uploadImageToStorage(r.image, "var");
-          if (u && u !== r.image) r.image = u;
-        } catch (e) {}
+      Promise.allSettled(_b64Rows.map(r => {
+        const _v = (async () => {
+          try {
+            const u = await uploadImageToStorage(r.image, "var");
+            if (u && u !== r.image) { r.image = u; return u; }
+          } catch (e) {}
+          return null;
+        })();
+        _imgVaada.set(r, _v);
+        return _v;
       })),
       new Promise(res => setTimeout(res, 8000))
     ]);
@@ -5193,9 +5202,47 @@ async function apAddVariativ(name) {   // ✅ 2026-08-18: SKU zaxirasi serverdan
   } catch (e) { console.warn("[sku] zaxira olinmadi:", e.message); }
 
   let created = 0;
-  rows.forEach(cd => { if (_apCreateExtraColor(base, cd, batchId)) created++; });
+  const _juft = [];   // 549: qator ↔ yaratilgan tovar
+  rows.forEach(cd => {
+    const _p = _apCreateExtraColor(base, cd, batchId);
+    if (_p) { created++; _juft.push([cd, _p]); }
+  });
 
   if (!created) { toast("Tovar qo'shilmadi", "err"); return; }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 🔴 549 (2026-08-22): KECH KELGAN RASM ENDI YO'QOLMAYDI
+  // ═══════════════════════════════════════════════════════════════
+  // Jonli keyz (gost komp, sekin tarmoq): 8 soniyada rasm ulgurmadi →
+  // tovar base64 bilan ketdi → server tashladi (539) → bulutda rasm
+  // BO'SH, boshqa qurilmalar rasmsiz ko'rdi. Kech kelgan havola esa
+  // ilgari TOZALANGAN formaga yozilib bekor ketardi.
+  // Endi: yuklash tugashi bilan havola YARATILGAN TOVARGA yoziladi
+  // va serverga darhol yuboriladi; butunlay yuklanolmasa konsolda
+  // ochiq aytiladi (jim yutqazish yo'q). Qurilma ochiq turgan har
+  // holatda rasm oxir-oqibat yetib boradi.
+  try {
+    _juft.forEach(([cd, _p]) => {
+      const _v = _imgVaada.get(cd);
+      if (!_v) return;                       // rasm yo'q yoki boshidan URL
+      _v.then(u => {
+        if (!String(_p.image || "").startsWith("data:image")) return; // allaqachon URL
+        if (!u) {
+          console.warn("🖼️ Rasm yuklanmadi (tarmoq):", _p.sku,
+            "— rasmsiz ketdi; keyingi sinxron o'zi urinadi, bo'lmasa tahrirda qayta qo'ying");
+          return;
+        }
+        _p.image = u;
+        _p.updatedAt = new Date().toISOString();
+        try {
+          if (typeof serverSaveRecord === "function")
+            serverSaveRecord("products", _p, null, true);
+        } catch (e) {}
+        try { saveDB(); } catch (e) {}
+        console.log("🖼️ Kech yuklangan rasm tovarga biriktirildi:", _p.sku);
+      }).catch(() => {});
+    });
+  } catch (e) {}
 
   saveDB();
   closeModal("addprod");
