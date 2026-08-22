@@ -1296,9 +1296,30 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
     // yangilanardi \u2014 shu sabab yangi sotuv bulutga chiqqan bo'lsa ham
     // keyingi pull'gacha "yuborilmagan" bo'lib ko'rinardi (ikkala
     // qurilmada 📤 1 turib qolishi \u2014 jonli shikoyat).
+    // 🔴 536 (2026-08-22): KALIT TO'G'RILANDI — TOVARDA `sku`, `id` EMAS.
+    // JONLI SHIKOYAT: telefonda tovar kiritilganda tepadagi qizil belgi
+    // o'chmasdi — boshqa qurilmaga rasm ham, tovar ham YETIB BORGAN
+    // bo'lsa ham. "Yangilash" bosilgandagina yo'qolardi.
+    // ILDIZ — uchta joyda uch xil kalit:
+    //   · to'liq pull `_cloudIds["products"]` ni  `sku`  bilan quradi;
+    //   · bu yer esa                              `id`   bilan qo'shardi;
+    //   · `pendingCount` esa qidirganda           `sku`  ni ishlatadi.
+    // Ya'ni push MUVAFFAQIYATLI o'tsa ham hisoblagich yozuvni topa
+    // olmasdi va uni "yuborilmagan" deb sanardi. "Yangilash" bosilganda
+    // to'liq pull ro'yxatni `sku` bilan qayta qurardi — shuning uchun
+    // faqat o'shanda o'charidi.
+    // Endi kalit jadval bo'yicha olinadi (`_DELTA_DEL_KEY` — tovarda
+    // "sku", qolganida "id"), ya'ni uchala joyda BIR XIL.
+    // ⚠️ Bu — HISOB xatosi edi, ma'lumot yo'qolishi EMAS: yozuvlar
+    // bulutga chiqib turgan, faqat belgi noto'g'ri turgan.
     try {
       if (!_cloudIds[table]) _cloudIds[table] = new Map();
-      part.forEach(([r, k]) => _cloudIds[table].set(String(k), k));
+      const _ck = (typeof _DELTA_DEL_KEY === "object" &&
+                   _DELTA_DEL_KEY[table]) || "id";
+      part.forEach(([r, k]) => {
+        const _v = (r && r[_ck] != null) ? r[_ck] : k;
+        _cloudIds[table].set(String(_v), _v);
+      });
     } catch (e) {}
     _savePushCache();   // 2026-07-31: sahifa yangilansa ham saqlanadi
   }
