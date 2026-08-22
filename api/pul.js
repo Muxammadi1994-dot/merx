@@ -911,14 +911,39 @@ module.exports = async (req, res) => {
         };
       });
 
-      const r2 = await fetch(`${SB_URL}/rest/v1/products?on_conflict=sku,shop_id`, {
+      const _postBulk = (b) => fetch(`${SB_URL}/rest/v1/products?on_conflict=sku,shop_id`, {
         method: "POST",
         headers: { ...H(), "Content-Type": "application/json",
                    Prefer: "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify(yoz)
+        body: JSON.stringify(b)
       });
+      let r2 = await _postBulk(yoz);
       if (!r2.ok) {
-        const t = await r2.text().catch(() => "");
+        let t = await r2.text().catch(() => "");
+        // ═════════════════════════════════════════════════════════
+        // 🔴 546: BITTA BAND "id" BUTUN PARTIYANI YIQITMASIN
+        // ═════════════════════════════════════════════════════════
+        // Ommaviy yozish ATOMIK: eski (545 gacha) qurilma kichik
+        // sanoq-id yuborsa, bitta band id 200 tagacha qatorning
+        // HAMMASINI 409 bilan qaytarardi. Endi: pkey xatosida YANGI
+        // (sku serverda yo'q) qatorlarga server vaqt-muhrli id berib
+        // BIR marta qayta uriladi — save_record'dagi 545 bilan bir
+        // sinf. Mavjud qatorlar id siga tegilmaydi.
+        if (/products_pkey/.test(t)) {
+          let _oz = 0;
+          const _asos = Math.floor(Date.now() / 1000) * 100000;
+          yoz.forEach(x => {
+            if (!_srvVar.has(String(x.sku))) x.id = _asos + (_oz++);
+          });
+          if (_oz) {
+            const r3 = await _postBulk(yoz);
+            if (r3.ok) {
+              const j3 = await r3.json().catch(() => []);
+              return res.status(200).json({ ok: true, soni: (j3 || []).length, rows: j3 });
+            }
+            t = await r3.text().catch(() => t);
+          }
+        }
         return res.status(200).json({ ok: false, error: t.slice(0, 200) });
       }
       const j = await r2.json().catch(() => []);

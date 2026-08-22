@@ -2134,6 +2134,23 @@ async function _addProductIchki() {   // ✅ 2026-08-18: SKU serverdan (async)
       }
     }
   } else {
+    // 🔴 546: YAKKA YO'LDA HAM RASM AVVAL YUKLANADI (545/B3 varianti).
+    // Yuklash fonda ketardi; kassir tez saqlasa tovar base64 bilan
+    // ketib, server uni tashlar (539) va boshqa qurilmaga RASMSIZ
+    // borardi; kech kelgan havola esa apResetImage'dan keyin bekorga
+    // ketardi. Bitta rasm — kutish odatda 1 soniyadan kam; ulgurmasa
+    // yoki oflaynda — eski yo'l (ish to'xtamaydi).
+    if (apPendingImage && String(apPendingImage).startsWith("data:image") &&
+        typeof uploadImageToStorage === "function" &&
+        (typeof navigator === "undefined" || navigator.onLine !== false)) {
+      try {
+        const _u = await Promise.race([
+          uploadImageToStorage(apPendingImage, "yangi"),
+          new Promise(res => setTimeout(() => res(null), 8000))
+        ]);
+        if (_u && _u !== apPendingImage) apPendingImage = _u;
+      } catch (e) {}
+    }
     const autoBarcode = barcode || genEAN13(db.seq);
     // 2026-08-03: SKU noyobligi kafolatlanadi
     // ✅ 2026-08-18: raqam SERVERDAN (ikki kassa to'qnashuvi yopiladi);
@@ -3702,8 +3719,27 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
   if (typeof serverSaveBulkProducts === "function" && _impYangilar.length) {
     try {
       const _r = await serverSaveBulkProducts(_impYangilar);
-      if (_r && _r.ok)
+      if (_r && _r.ok) {
         console.log("📤 Import: " + _r.soni + " tovar serverga yozildi");
+        // 🔴 546 (3.33): SERVER MUHRI (va id) QABUL QILINADI.
+        // 531 yordamchini qatorlarni qaytaradigan qilgan edi, lekin BU
+        // chaqiruvchi ularni tashlab yuborardi — lokalda qurilma muhri
+        // qolib, keyingi tahrirda YAKKA qurilmada ham soxta "boshqa
+        // kassa yangiladi" chiqishi mumkin edi (531 dagi sinf, import
+        // yo'lida chala qolgani).
+        try {
+          if (Array.isArray(_r.rows) && _r.rows.length) {
+            const _bySku = new Map(_r.rows.map(x => [String(x.sku), x]));
+            _impYangilar.forEach(lp => {
+              const sr = _bySku.get(String(lp.sku));
+              if (!sr) return;
+              if (sr.id != null) lp.id = sr.id;
+              const _sm = sr.data && sr.data.updatedAt;
+              if (_sm) lp.updatedAt = _sm;
+            });
+          }
+        } catch (e) {}
+      }
       else
         console.warn("📤 Import serverga yozilmadi — lokal saqlandi, push bilan ketadi");
     } catch (e) { console.warn("[import] server:", e.message); }
@@ -6200,6 +6236,22 @@ function phRestoreProduct(auditId) {
       note: "Tiklangan (eski SKU: " + snap.sku + ", o'chirilgan: " + (a.date || "") + ")"
     };
     db.products.push(np);
+    // 🔴 546: tiklangan tovar ham SERVER orqali — boshqa yaratish
+    // yo'llari (yakka/rang/nusxa/variativ) bilan bir xil. Avval faqat
+    // push'ga tayanardi: token o'lik xodimda tovar qurilmada kutib
+    // qolardi. Aloqa bo'lmasa eski yo'l (lokal + push) o'z kuchida.
+    try {
+      if (typeof serverSaveRecord === "function") {
+        const _sv = serverSaveRecord("products", np, null, true);
+        if (_sv && _sv.then) _sv.then(_r => {
+          if (_r && _r.ok && _r.row) {
+            if (_r.row.id != null) np.id = _r.row.id;
+            const _sm = _r.row.data && _r.row.data.updatedAt;
+            if (_sm) np.updatedAt = _sm;
+          }
+        }).catch(() => {});
+      }
+    } catch (e) {}
     (np.variants || []).forEach(v => {
       if (v.qty > 0) _stockMove(np, v.color, v.size, v.qty, "Arxivdan tiklandi");
     });
