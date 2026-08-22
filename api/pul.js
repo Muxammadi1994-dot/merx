@@ -857,8 +857,32 @@ module.exports = async (req, res) => {
       const _srvVar = new Map((bor || []).map(x => [String(x.sku), x.variants || []]));
       const now = new Date().toISOString();
 
+      // ═══════════════════════════════════════════════════════════
+      // 🔴 540 (2026-08-22) — OMMAVIY YO'LDA HAM RASM HAVOLASI
+      // ═══════════════════════════════════════════════════════════
+      // 539 da AYNAN shu nuqson `save_record` da tuzatilgan edi, lekin
+      // OMMAVIY yo'l (`save_bulk_products`) e'tibordan chetda qolgan.
+      // Ko'p rangli tovar AYNAN SHU yo'ldan ketadi (§3.2 — har rang
+      // alohida tovar, hammasi bitta so'rovda), shuning uchun 539 dan
+      // keyin ham rasm yetib bormadi (egasi: "ikki xil tovar kiritdim,
+      // tovar tez keldi, rasm kelmadi").
+      // Qoida `save_record` dagi bilan AYNAN bir xil: base64 tashlanadi
+      // (`data` shishmasin), HAVOLA o'tkaziladi (~150 belgi).
+      // Havola bo'lmasa ustun umuman yuborilmaydi — bulutdagi mavjud
+      // rasm null bilan bosib ketilmasin.
+      const _imgOk = (v) => typeof v === "string" &&
+                            /^https?:\/\//.test(v) && v.length < 600;
       const yoz = rows.map(r => {
         const d = (r.data && typeof r.data === "object") ? r.data : r;
+        const _img = _imgOk(d.image) ? d.image : null;
+        let _cimg = null;
+        if (d.colorImages && typeof d.colorImages === "object") {
+          const _t = {};
+          for (const _k of Object.keys(d.colorImages)) {
+            if (_imgOk(d.colorImages[_k])) _t[_k] = d.colorImages[_k];
+          }
+          if (Object.keys(_t).length) _cimg = _t;
+        }
         delete d.image; delete d.colorImages; delete d._qtyLocal; delete d.shop_id;
         // Qoldiq: mavjud tovarda SERVERNIKI saqlanadi (§3.23)
         const _srv = _srvVar.get(String(r.sku));
@@ -872,6 +896,8 @@ module.exports = async (req, res) => {
         }
         d.updatedAt = now;
         return {
+          ...(_img  ? { image: _img } : {}),          // 540
+          ...(_cimg ? { color_images: _cimg } : {}),  // 540
           shop_id: shopId, id: r.id, sku: r.sku,
           name: d.name || "", category: d.category || null,
           type: d.type || null, unit: d.unit || "dona",
