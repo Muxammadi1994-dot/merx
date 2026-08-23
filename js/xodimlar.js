@@ -677,7 +677,9 @@ const PERM_PAGES = [
     see:[ ["kpi","KPI kartalar"], ["dyn","Sotuv dinamikasi"],
           ["cash","Pul oqimi"], ["topProd","Top mahsulotlar"],
           ["topCust","Top mijozlar"], ["staff","Kassirlar"] ],
-    use:[ ["excel","Excel"] ] },
+    // 554 (2026-08-23): "Kunlik hisobot" — PDF (tannarx va foyda ko'rinadi).
+    // Excel bilan bir xil naqsh: `requireDo("hisobot","kunlik")`.
+    use:[ ["excel","Excel"], ["kunlik","Kunlik hisobot (PDF)"] ] },
 
   { key:"moliya", lbl:"Moliya",
     see:[ ["kpi","KPI kartalar"], ["struct","Xarajat tarkibi"],
