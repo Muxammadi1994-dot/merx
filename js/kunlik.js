@@ -42,7 +42,12 @@ function _kunYigish(kun) {
   const chiq = {
     sotuvlar: [], bekor: [], qaytarish: [], tolovlar: [],
     xarajatlar: [], ombor: [], kassirlar: new Map(),
-    mijozlar: new Map(), tovarlar: new Map(), yangiMijoz: 0
+    mijozlar: new Map(), tovarlar: new Map(), yangiMijoz: 0,
+    // 557: TO'LOV TURLARI — dashboard.js:95-130 bilan AYNAN bir qoida
+    naqd: 0, karta: 0, otkazma: 0,      // sotuvdan + qarz to'lovidan
+    sotNaqd: 0, sotKarta: 0, sotOtkazma: 0,
+    qarzNaqd: 0, qarzKarta: 0, qarzOtkazma: 0,
+    usdTolov: 0, usdSom: 0               // USD qarz to'lovi va uning so'mdagi qiymati
   };
   try {
     const xodimNomi = (id) => {
@@ -56,6 +61,19 @@ function _kunYigish(kun) {
       if (s.isOldDebt) return;                       // eski qarz — savdo emas
       if (s.cancelled) { chiq.bekor.push(s); return; }
       chiq.sotuvlar.push(s);
+
+      // 557: to'lov turi — payBreakdown bo'lsa undan, bo'lmasa payType dan
+      const pb = s.payBreakdown;
+      if (pb && (pb.naqd || pb.karta || pb.otkazma)) {
+        chiq.sotNaqd    += Number(pb.naqd)    || 0;
+        chiq.sotKarta   += Number(pb.karta)   || 0;
+        chiq.sotOtkazma += Number(pb.otkazma) || 0;
+      } else if (s.payType !== "nasiya") {
+        const p0 = Number(s.paid) || 0;
+        if (s.payType === "karta")        chiq.sotKarta   += p0;
+        else if (s.payType === "otkazma") chiq.sotOtkazma += p0;
+        else                              chiq.sotNaqd    += p0;
+      }
 
       const k = xodimNomi(s.staffId);
       const kv = chiq.kassirlar.get(k) ||
@@ -91,8 +109,29 @@ function _kunYigish(kun) {
     });
 
     (db.returns || []).forEach(r => { if (r.date === kun) chiq.qaytarish.push(r); });
+    const _rate = (db.settings && db.settings.rate) || 12800;
     (db.debtPayments || []).forEach(p => {
-      if (p.date === kun && !p.cancelled) chiq.tolovlar.push(p);
+      if (p.date !== kun || p.cancelled) return;
+      chiq.tolovlar.push(p);
+      // 557: USD to'lov so'mga o'giriladi (dashboard qoidasi: avval
+      // `amountSom`, u yo'q bo'lsa joriy kurs bilan)
+      const som = Number(p.amountSom) ||
+                  (p.currency === "usd" ? Math.round((Number(p.amount) || 0) * _rate)
+                                        : (Number(p.amount) || 0));
+      if (p.currency === "usd") { chiq.usdTolov += Number(p.amount) || 0; chiq.usdSom += som; }
+      const mb = p.methodBreakdown;
+      const mbBor = mb && Object.keys(mb).some(x => (Number(mb[x]) || 0) > 0);
+      if (mbBor) {
+        chiq.qarzNaqd    += Number(mb.naqd)    || 0;
+        chiq.qarzKarta   += Number(mb.karta)   || 0;
+        chiq.qarzOtkazma += Number(mb.otkazma) || 0;
+      } else {
+        const m = p.method || "naqd";
+        if (m === "karta")        chiq.qarzKarta   += som;
+        else if (m === "otkazma") chiq.qarzOtkazma += som;
+        else if (m === "balans")  { /* balansdan — kassaga pul kirmaydi */ }
+        else                      chiq.qarzNaqd    += som;
+      }
     });
     (db.xarajatlar || []).forEach(x => { if (x.date === kun) chiq.xarajatlar.push(x); });
     (db.ombor || []).forEach(o => { if (o.date === kun) chiq.ombor.push(o); });
@@ -100,6 +139,9 @@ function _kunYigish(kun) {
       const d = String(c.createdAt || c.date || "").slice(0, 10);
       if (d === kun) chiq.yangiMijoz++;
     });
+    chiq.naqd    = chiq.sotNaqd    + chiq.qarzNaqd;
+    chiq.karta   = chiq.sotKarta   + chiq.qarzKarta;
+    chiq.otkazma = chiq.sotOtkazma + chiq.qarzOtkazma;
   } catch (e) { console.warn("[kunlik] yig'ish:", e.message); }
   return chiq;
 }
@@ -114,7 +156,10 @@ function _kunXulosa(kun, r, y) {
     gaplar.push(`Bugun <b>${chek} ta chek</b> yozildi, jami <b>${_kunFmt(jami)} so'm</b> savdo bo'ldi.`);
     const naqd = y.sotuvlar.reduce((a, s) => a + (Number(s.paid) || 0), 0);
     const qarz = y.sotuvlar.reduce((a, s) => a + (Number(s.remaining) || 0), 0);
-    gaplar.push(`Kassaga <b>${_kunFmt(naqd)} so'm</b> tushdi` +
+    const kassa = y.naqd + y.karta + y.otkazma;
+    gaplar.push(`Kassaga <b>${_kunFmt(kassa)} so'm</b> tushdi ` +
+      `(naqd ${_kunFmt(y.naqd)} · karta ${_kunFmt(y.karta)}` +
+      (y.otkazma ? ` · o'tkazma ${_kunFmt(y.otkazma)}` : "") + `)` +
       (qarz > 0 ? `, <b>${_kunFmt(qarz)} so'm</b> nasiyaga berildi.` : "."));
     if (r && r.ok) {
       gaplar.push(`Sof foyda <b>${_kunFmt(r.netProfit || r.trueNet || 0)} so'm</b>` +
@@ -123,11 +168,9 @@ function _kunXulosa(kun, r, y) {
     const kass = [...y.kassirlar.values()].sort((a, b) => b.jami - a.jami)[0];
     if (kass) gaplar.push(`Eng ko'p sotgan: <b>${_kunEsc(kass.nom)}</b> — ${kass.chek} ta chek, ${_kunFmt(kass.jami)} so'm.`);
   }
-  const tolov  = y.tolovlar.reduce((a, p) => a + (p.currency === "usd" ? 0 : Number(p.amount) || 0), 0);
-  const tolovD = y.tolovlar.reduce((a, p) => a + (p.currency === "usd" ? Number(p.amount) || 0 : 0), 0);
-  if (tolov || tolovD) gaplar.push(`Qarz to'lovi: <b>` +
-    (tolovD ? "$" + _kunFmt(tolovD) + (tolov ? " + " : "") : "") +
-    (tolov ? _kunFmt(tolov) + " so'm" : "") + `</b>.`);
+  const qarzJami = y.qarzNaqd + y.qarzKarta + y.qarzOtkazma;
+  if (qarzJami) gaplar.push(`Qarz to'lovi: <b>${_kunFmt(qarzJami)} so'm</b>` +
+    (y.usdTolov ? ` — shundan <b>$${_kunFmt(y.usdTolov)}</b> (${_kunFmt(y.usdSom)} so'm, joriy kurs bo'yicha).` : "."));
   const xar = y.xarajatlar.reduce((a, x) => a + (Number(x.amount) || 0), 0);
   if (xar) gaplar.push(`Xarajat: <b>${_kunFmt(xar)} so'm</b>.`);
 
@@ -224,11 +267,14 @@ ${ogohMatn ? `<div class="xato">⚠️ ${X(ogohMatn)}</div>` : ""}
   ${kpi("Chek soni", y.sotuvlar.length + " ta")}
   ${kpi("Jami savdo", F(jamiSotuv) + " so'm")}
   ${kpi("O'rtacha chek", F(y.sotuvlar.length ? jamiSotuv / y.sotuvlar.length : 0) + " so'm")}
-  ${kpi("Kassaga tushdi", F(jamiNaqd) + " so'm")}
-  ${kpi("Nasiyaga berildi", F(jamiQarz) + " so'm")}
-  ${kpi("Qarz to'lovi",
-        (jamiTolovD ? "$" + F(jamiTolovD) + " + " : "") + F(jamiTolovU) + " so'm",
-        jamiTolovD ? "dollar va so'm alohida" : "")}
+  ${kpi("Kassaga tushdi", F(y.naqd + y.karta + y.otkazma) + " so'm",
+        y.usdSom ? "shundan " + F(y.usdSom) + " so'm — $" + F(y.usdTolov) + " qarz to'lovi" : "sotuv + qarz to'lovi")}
+  ${kpi("Naqd", F(y.naqd) + " so'm", "sotuv " + F(y.sotNaqd) + " + qarz " + F(y.qarzNaqd))}
+  ${kpi("Karta", F(y.karta) + " so'm", "sotuv " + F(y.sotKarta) + " + qarz " + F(y.qarzKarta))}
+  ${kpi("O'tkazma", F(y.otkazma) + " so'm", "sotuv " + F(y.sotOtkazma) + " + qarz " + F(y.qarzOtkazma))}
+  ${kpi("Nasiyaga berildi", F(jamiQarz) + " so'm", "bugun qarzga yozildi")}
+  ${kpi("Qarz to'lovi", F(y.qarzNaqd + y.qarzKarta + y.qarzOtkazma) + " so'm",
+        y.usdTolov ? "shundan $" + F(y.usdTolov) + " = " + F(y.usdSom) + " so'm" : "")}
   ${kpi("Xarajat", F(jamiXar) + " so'm")}
   ${r && r.ok ? kpi("Tannarx", F(r.cost || 0) + " so'm") : ""}
   ${r && r.ok ? kpi("Sof foyda", F(r.netProfit != null ? r.netProfit : (r.trueNet || 0)) + " so'm",
@@ -289,6 +335,8 @@ ${jadval("", ["Tovar", "Rang / o'lcham", "Manba", "Soni"],
   margin) serverda, Hisobot ekrani bilan bir xil usulda hisoblanadi.
   Ro'yxatlar shu qurilmadagi ma'lumotdan olinadi.
   <b>Sof foyda</b> = savdo − tannarx − xarajat.
+  Dollardagi qarz to'lovlari joriy kurs bo'yicha so'mga o'girilib qo'shiladi
+  (Dashboard bilan bir xil qoida).
   Eski qarz yozuvlari (daftardan ko'chirilgan) savdoga qo'shilmaydi.
   <br>MERX · ${X(hozir)}
 </div>
