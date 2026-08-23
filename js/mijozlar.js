@@ -1614,11 +1614,18 @@ function saveOldDebt() {
   // ⚠️ 2026-08-04: RAQAM SANOQDAN, id esa `nextId()` dan.
   // Avval ikkalasi bir manbadan edi — `nextId()` vaqt muhri
   // qaytargach chek raqami "ESKI-1785848660110" bo'lib ketardi.
+  // 🔴 552 (2026-08-23): QURILMA HARFI QO'SHILDI — `ESKI-0007-DY`.
+  // Sabab (raqam-auditi): sanoq LOKAL va sinxronlanmaydi; ikki kassa
+  // eski qarz kiritsa bir xil `ESKI-0007` chiqardi. Chek raqami mijozga
+  // ko'rinadi va qidiruvda ishlatiladi. Endi CHK/PAY/QTQ bilan bir
+  // qoidada (D3): lokal yaratilgan har raqamda qurilma belgisi bo'ladi.
+  // 2026-08-04 qarori KUCHDA: raqam avvalgidek sanoqdan, o'qiladigan.
   const _no = db.seq++;
+  const _dv = (typeof _devCode === "function") ? ("-" + _devCode()) : "";
   const id  = nextId();
   const sale = {
     id,
-    chekNum: "ESKI-" + String(_no).padStart(4, "0"),
+    chekNum: "ESKI-" + String(_no).padStart(4, "0") + _dv,
     date, time: (typeof nowTime === "function" ? nowTime() : ""),
     customerId: c.id, customerName: c.name, customerPhone: c.phone || "",
     staffId: (typeof currentStaffId !== "undefined" ? currentStaffId : null),

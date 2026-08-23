@@ -3660,10 +3660,15 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
       // ⚠️ 2026-08-04: SKU SANOQDAN, id esa `nextId()` dan.
       // Avval ikkalasi bir manbadan edi — `nextId()` vaqt muhri
       // qaytargach SKU "IMP-1785848660110" bo'lib ketardi.
+      // 🔴 552: zaxira SKU ga QURILMA HARFI — `IMP-0001-DY`. Sanoq lokal,
+      // ikki kassa bir vaqtda import qilsa bir xil SKU chiqardi; bulutda
+      // noyoblik (sku, shop_id) — biri ikkinchisini BOSIB ketardi.
+      // Raqam avvalgidek sanoqdan (2026-08-04 qarori kuchda).
       const newProdId = nextId();
       // ✅ 2026-08-18: avval SERVER zaxirasidan, tugasa lokal sanoqdan
       let sku = _impSku.shift();
-      if (!sku) sku = `IMP-${String(db.seq++).padStart(4,"0")}`;
+      if (!sku) sku = `IMP-${String(db.seq++).padStart(4,"0")}` +
+                      ((typeof _devCode === "function") ? "-" + _devCode() : "");
       const _bc = colorBarcode || r.barcode || yangiBarcode();   // 550
       const newProd = {
         id: newProdId,
@@ -4807,10 +4812,20 @@ function _apSkuNavbat(type) {
 function _apNextSku(type) {
   const pref = type === "oyoq" ? "SHOE" : "CLTH";
   const band = new Set((db.products || []).map(x => String(x.sku || "")));
+  // 🔴 552 (2026-08-23): OFLAYN ZAXIRA SKU GA QURILMA HARFI.
+  // Bu yo'l faqat server SKU bermaganda (internet yo'q) ishlaydi.
+  // Sanoq lokal va sinxronlanmaydi — ikki kassa oflaynda bir vaqtda
+  // tovar yaratsa AYNAN bir xil `CLTH-004` chiqardi; bulutda noyoblik
+  // (sku, shop_id) bo'lgani uchun biri ikkinchisini JIMGINA bosardi.
+  // Endi `CLTH-004-DY`: raqam avvalgidek o'qiladi (2026-08-04 qarori),
+  // saralash va yorliq raqami ham o'zgarmaydi (ikkalasi SKU dagi
+  // RAQAMNI oladi, harflarni emas). Server yo'liga TEGILMAGAN —
+  // ulanish bor paytda SKU avvalgidek `CLTH-4412` ko'rinishida.
+  const _dv = (typeof _devCode === "function") ? ("-" + _devCode()) : "";
   let guard = 0;
   while (guard++ < 10000) {
     const n   = db.seq++;                 // SKU raqami — sanoqdan (o'zgarmadi)
-    const sku = `${pref}-${String(n).padStart(3, "0")}`;
+    const sku = `${pref}-${String(n).padStart(3, "0")}${_dv}`;
     if (!band.has(sku)) return {
       id: (typeof nextId === "function") ? nextId() : n,   // 545: id vaqt muhridan
       sku };
@@ -4818,7 +4833,7 @@ function _apNextSku(type) {
   // Bu yerga yetib kelish deyarli imkonsiz — zaxira yo'l
   const n = db.seq++;
   return { id: (typeof nextId === "function") ? nextId() : n,   // 545
-           sku: `${pref}-${n}-${Date.now().toString(36)}` };
+           sku: `${pref}-${n}${_dv}-${Date.now().toString(36)}` };
 }
 
 function _apCreateExtraColor(base, cd, batchId) {
