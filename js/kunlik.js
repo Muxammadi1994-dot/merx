@@ -76,9 +76,16 @@ function _kunYigish(kun) {
       (s.items || []).forEach(it => {
         const nom = (it.name || it.sku || "—") +
                     (it.color ? " · " + it.color : "");
-        const t = chiq.tovarlar.get(nom) || { nom, dona: 0, jami: 0 };
-        t.dona += Number(it.qty) || 0;
-        t.jami += (Number(it.qty) || 0) * (Number(it.price) || 0);
+        const t = chiq.tovarlar.get(nom) ||
+                  { nom, dona: 0, pochka: 0, inBox: 0, jami: 0 };
+        // 556: POCHKA TILIDA — chekda qanday sotilgan bo'lsa shunday
+        // ko'rsatiladi (pos.js:1882 bilan bir qoida: karobka → qtyBox).
+        const dona = Number(it.qty) || 0;
+        t.dona += dona;
+        if (it.sellMode === "karobka" && it.qtyBox) t.pochka += Number(it.qtyBox) || 0;
+        else if (it.inBox > 1) t.pochka += dona / Number(it.inBox);
+        if (!t.inBox && it.inBox > 1) t.inBox = Number(it.inBox);
+        t.jami += dona * (Number(it.price) || 0);
         chiq.tovarlar.set(nom, t);
       });
     });
@@ -116,8 +123,11 @@ function _kunXulosa(kun, r, y) {
     const kass = [...y.kassirlar.values()].sort((a, b) => b.jami - a.jami)[0];
     if (kass) gaplar.push(`Eng ko'p sotgan: <b>${_kunEsc(kass.nom)}</b> — ${kass.chek} ta chek, ${_kunFmt(kass.jami)} so'm.`);
   }
-  const tolov = y.tolovlar.reduce((a, p) => a + (p.currency === "usd" ? 0 : Number(p.amount) || 0), 0);
-  if (tolov) gaplar.push(`Qarz to'lovi: <b>${_kunFmt(tolov)} so'm</b>.`);
+  const tolov  = y.tolovlar.reduce((a, p) => a + (p.currency === "usd" ? 0 : Number(p.amount) || 0), 0);
+  const tolovD = y.tolovlar.reduce((a, p) => a + (p.currency === "usd" ? Number(p.amount) || 0 : 0), 0);
+  if (tolov || tolovD) gaplar.push(`Qarz to'lovi: <b>` +
+    (tolovD ? "$" + _kunFmt(tolovD) + (tolov ? " + " : "") : "") +
+    (tolov ? _kunFmt(tolov) + " so'm" : "") + `</b>.`);
   const xar = y.xarajatlar.reduce((a, x) => a + (Number(x.amount) || 0), 0);
   if (xar) gaplar.push(`Xarajat: <b>${_kunFmt(xar)} so'm</b>.`);
 
@@ -216,7 +226,9 @@ ${ogohMatn ? `<div class="xato">⚠️ ${X(ogohMatn)}</div>` : ""}
   ${kpi("O'rtacha chek", F(y.sotuvlar.length ? jamiSotuv / y.sotuvlar.length : 0) + " so'm")}
   ${kpi("Kassaga tushdi", F(jamiNaqd) + " so'm")}
   ${kpi("Nasiyaga berildi", F(jamiQarz) + " so'm")}
-  ${kpi("Qarz to'lovi", F(jamiTolovU) + " so'm", jamiTolovD ? "+ $" + F(jamiTolovD) : "")}
+  ${kpi("Qarz to'lovi",
+        (jamiTolovD ? "$" + F(jamiTolovD) + " + " : "") + F(jamiTolovU) + " so'm",
+        jamiTolovD ? "dollar va so'm alohida" : "")}
   ${kpi("Xarajat", F(jamiXar) + " so'm")}
   ${r && r.ok ? kpi("Tannarx", F(r.cost || 0) + " so'm") : ""}
   ${r && r.ok ? kpi("Sof foyda", F(r.netProfit != null ? r.netProfit : (r.trueNet || 0)) + " so'm",
@@ -237,13 +249,16 @@ ${jadval("Eng ko'p olganlar", ["Mijoz", "Chek", "Summa"],
   mijozlar.map(m => [X(m.nom), m.chek, F(m.jami)]), "Mijoz biriktirilmagan")}
 
 <h2>Tovarlar</h2>
-${jadval("Eng ko'p sotilgan 10 ta", ["Tovar", "Dona", "Summa"],
-  tovarlar.map(t => [X(t.nom), F(t.dona), F(t.jami)]), "Sotuv bo'lmagan")}
+${jadval("Eng ko'p sotilgan 10 ta", ["Tovar", "Pochka", "Dona", "Summa"],
+  tovarlar.map(t => [X(t.nom),
+    t.pochka ? (Math.round(t.pochka * 10) / 10) + " pch" : "—",
+    F(t.dona), F(t.jami)]), "Sotuv bo'lmagan")}
 
 <h2>Qarz to'lovlari</h2>
 ${jadval("", ["Chek", "Mijoz", "Summa", "Usul"],
   y.tolovlar.map(p => [X(p.chekNum || "—"), X(p.customerName || "—"),
-    F(p.amount) + (p.currency === "usd" ? " $" : ""), X(p.method || "naqd")]),
+    (p.currency === "usd" ? "$" + F(p.amount) : F(p.amount) + " so'm"),
+    X(p.method || "naqd")]),
   "Bu kuni qarz to'lovi bo'lmagan")}
 
 <h2>Xarajatlar</h2>
