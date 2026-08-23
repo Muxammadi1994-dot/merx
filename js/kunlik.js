@@ -46,7 +46,7 @@ function _kunYigish(kun) {
   };
   try {
     const xodimNomi = (id) => {
-      if (!id) return "— (admin)";
+      if (!id) return "Admin (ega)";   // 555: xodim biriktirilmagan sotuv
       const x = (db.staff || []).find(s => String(s.id) === String(id));
       return x ? (x.name || ("#" + id)) : ("#" + id);
     };
@@ -133,7 +133,9 @@ function _kunXulosa(kun, r, y) {
 function _kunHtml(kun, r, y, ogohMatn) {
   const X = _kunEsc, F = _kunFmt;
   const xul = _kunXulosa(kun, r, y);
-  const dok = (db.settings && (db.settings.shopName || db.settings.name)) || "MERX";
+  // 555: do'kon nomi `db.shop.name` da (egasi.js:1121 bilan bir manba)
+  const dok = (db.shop && db.shop.name) ||
+              (db.settings && (db.settings.shopName || db.settings.name)) || "MERX";
   const hozir = (typeof today === "function" ? today() : kun) + " " +
                 (typeof nowTime === "function" ? nowTime() : "");
 
@@ -260,9 +262,12 @@ ${jadval("Qaytarishlar", ["Hujjat", "Chek", "Summa", "Sabab"],
   "Qaytarish yo'q ✔")}
 
 <h2>Ombor harakati</h2>
-${jadval("", ["Tovar", "Turi", "Soni"],
-  y.ombor.slice(0, 30).map(o => [X(o.name || o.sku || "—"),
-    X(o.type || "—"), F(o.qty)]), "Ombor harakati bo'lmagan")}
+${jadval("", ["Tovar", "Rang / o'lcham", "Manba", "Soni"],
+  y.ombor.slice(0, 30).map(o => [
+    X(o.productName || o.name || o.sku || "—"),
+    X([o.color, o.size].filter(Boolean).join(" · ") || "—"),
+    X(o.partiya || o.supplier || "—"),
+    F(o.qty)]), "Ombor harakati bo'lmagan")}
 
 <div class="oxir">
   <b>Raqamlar qanday hisoblangan:</b> pul ko'rsatkichlari (tannarx, foyda,
@@ -309,7 +314,7 @@ async function kunlikHisobot() {
     const t0 = Date.now();
 
     // 4) PUL RAQAMLARI — serverdan (Hisobot ekrani bilan AYNAN bir manba)
-    let r = null;
+    let r = null;   // 555: yarim tun qo'riqchisi qayta yozishi mumkin
     try {
       r = await _serverPay({ action: "report_stats", from: kun, to: kun,
                              rate: (db.settings && db.settings.rate) || 12800 });
@@ -321,7 +326,31 @@ async function kunlikHisobot() {
     }
 
     // 5) RO'YXATLAR — lokal (faqat o'qish)
-    const y = _kunYigish(kun);
+    let y = _kunYigish(kun);
+
+    // ═══════════════════════════════════════════════════════════
+    // 🔴 555: YARIM TUN QO'RIQCHISI
+    // ═══════════════════════════════════════════════════════════
+    // Jonli holat (2026-08-24, 00:33): egasi kun yakunini olmoqchi
+    // bo'ldi, lekin yangi kun boshlangani uchun BO'SH hisobot chiqdi.
+    // Endi: tanlangan kun BUGUN, savdo YO'Q va vaqt 00:00-06:00 orasida
+    // bo'lsa — kechagi kun taklif qilinadi.
+    try {
+      const soat = parseInt(String((typeof nowTime === "function" ? nowTime() : "12:00")).slice(0, 2), 10);
+      const bugunmi = (typeof today === "function") && kun === today();
+      if (bugunmi && !y.sotuvlar.length && soat >= 0 && soat < 6) {
+        const kecha = (typeof addDays === "function") ? addDays(kun, -1) : null;
+        if (kecha && confirm(
+              `Bugun (${kun}) hali savdo yo'q — soat ${soat}:00.\n\n` +
+              `Kechagi kun (${kecha}) uchun hisobot olasizmi?`)) {
+          kun = kecha;
+          const r2 = await _serverPay({ action: "report_stats", from: kun, to: kun,
+                       rate: (db.settings && db.settings.rate) || 12800 });
+          if (r2 && r2.ok) r = r2;
+          y = _kunYigish(kun);
+        }
+      }
+    } catch (e) { console.warn("[kunlik] yarim tun:", e.message); }
 
     // 6) O'ZINI TEKSHIRISH: lokal chek soni ≠ server chek soni → ogohlantirish
     let ogoh = "";
@@ -367,7 +396,8 @@ function _kunChop(html, kun) {
     if (f.contentWindow.document.readyState === "complete") setTimeout(chop, 120);
     else f.onload = () => setTimeout(chop, 120);
     if (typeof toast === "function")
-      toast("📄 Chop etish oynasida \"PDF sifatida saqlash\" ni tanlang", "info");
+      toast("📄 \"PDF sifatida saqlash\" ni tanlang · sahifa sarlavhasi/havolasi " +
+            "chiqmasligi uchun \"Sarlavha va kolontitullar\" belgisini oching", "info");
   } catch (e) {
     console.warn("[kunlik] chop:", e.message);
     try { toast("Chop etish ochilmadi", "err"); } catch (e2) {}
