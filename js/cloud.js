@@ -3480,7 +3480,18 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
     const _SEQ_LIMIT = 100000;
     const _smallIds = [
       ...db.customers.map(c => c.id || 0),
-      ...db.sales.map(x => x.id || 0)
+      ...db.sales.map(x => x.id || 0),
+      // 🔴 550 (2026-08-23): TOVAR SKU RAQAMLARI HAM HISOBGA OLINADI.
+      // Ilgari sanoq faqat sotuv/mijozdan tiklanardi — bo'sh qurilma
+      // katalog ALLAQACHON band qilgan raqamlar ichiga tushib, o'sha
+      // raqamlardan shtrix-kod yasab berdi (B20 falokati, 16-23 avg).
+      // Kod endi sanoqdan olinmaydi (katalog.js 550), lekin oflayn-SKU
+      // va IMP- zaxira yo'llari hali sanoqdan — ular ham banddan
+      // boshlanmasin. Vaqt-muhrli SKU lar (13 xonali) chetlab o'tiladi.
+      ...db.products.map(pp => {
+        const m = String(pp.sku || "").match(/-(\d{1,5})$/);
+        return m ? +m[1] : 0;
+      })
     ].filter(n => n > 0 && n < _SEQ_LIMIT);
     const _smallMax = _smallIds.length ? Math.max(..._smallIds) : 0;
 

@@ -450,6 +450,45 @@ function processBarcode(code) {
     "tovardagi rang kodlari": p ? (p.colorBarcodes || "yo'q") : null,
     "umumiy p.barcode": p ? (p.barcode || "yo'q") : null
   });
+  // ═══════════════════════════════════════════════════════════════
+  // 🔴 550 (2026-08-23): EGIZAK KOD HIMOYASI
+  // ═══════════════════════════════════════════════════════════════
+  // Jonli falokat (B20, 16-23 avg): bitta shtrix-kod IKKI tovarga
+  // tegishli bo'lib qoldi, `find` esa jimgina BIRINCHISINI olardi —
+  // 49 chekka boshqa tovar yozildi. Endi: skanerlangan kod katalogda
+  // BIRDAN ORTIQ tovarga tegishli bo'lsa, savatga JIMGINA
+  // QO'SHILMAYDI — kassirga ikkala nom ochiq aytiladi, u qo'lda
+  // tanlaydi. Egizaklar tozalangach bu himoya o'z-o'zidan jim turadi.
+  if (p) {
+    try {
+      const _n550 = v => String(v == null ? "" : v).toLowerCase().replace(/[^a-z0-9]/g, "");
+      const _q550 = _n550(q);
+      if (_q550.length >= 6) {
+        const _eg = [];
+        for (const prod of db.products) {
+          let mos = false;
+          if (prod.barcode && _n550(prod.barcode) === _q550) mos = true;
+          if (!mos && prod.colorBarcodes) {
+            for (const bc of Object.values(prod.colorBarcodes)) {
+              if (bc && _n550(bc) === _q550) { mos = true; break; }
+            }
+          }
+          if (mos) { _eg.push(prod); if (_eg.length > 2) break; }
+        }
+        if (_eg.length > 1) {
+          const _nomlar = _eg.slice(0, 2)
+            .map(x => `${x.name || ""} (${x.sku})`).join("  va  ");
+          try { posBeep(2); } catch (e) {}
+          toast("⚠️ EGIZAK KOD! Bu shtrix-kod " + _eg.length +
+                " ta tovarda: " + _nomlar +
+                ". Nomini yozib QO'LDA tanlang", "err");
+          console.warn("🔦 SKANER · EGIZAK KOD — savatga qo'shilmadi:", code,
+            "→", _eg.map(x => x.sku).join(", "));
+          return;
+        }
+      }
+    } catch (e) {}
+  }
   if (p) {
     if (SCAN_TRACE) console.log(`🔦 SKANER · topildi: ${Date.now() - _sc0} ms (${matchedBy})`);
     toast("Topildi: " + p.name + (foundColor ? " — " + foundColor : ""), "info");

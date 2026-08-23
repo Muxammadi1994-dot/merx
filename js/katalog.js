@@ -763,6 +763,41 @@ async function epDuplicate() {   // ✅ 2026-08-18: SKU serverdan (async)
   if (typeof closeModal === "function") closeModal("editprod");
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// 🔴 550 (2026-08-23): SHTRIX-KOD ENDI SANOQDAN EMAS
+// ═══════════════════════════════════════════════════════════════════
+// FALOKAT ILDIZI (B20, 16-23 avg: 51 egizak juftlik, 49 chek): kod
+// `genEAN13(db.seq)` dan yasalardi. `db.seq` — bulutga sinxronlanmaydigan
+// QURILMA sanog'i; kirishda esa faqat sotuv/mijoz raqamlaridan tiklanadi
+// (cloud.js) va katalog qayerga yetganini bilmaydi. Bo'sh/yangi qurilma
+// sanoqni orqadan boshlab, ESKI tovarlarning kodini QAYTADAN yasab
+// berdi — skaner ikki tovarni ajrata olmay, cheklarga boshqa tovar
+// yozildi. ENDI ikki qavat himoya:
+//   1) urug' — nextId() (vaqt muhri × 1000 + qurilma kodi): ikki
+//      qurilma hech qachon bir xil son yasay olmaydi;
+//   2) tayyor kod BUTUN katalogdan (umumiy kod + barcha rang kodlari)
+//      tekshiriladi — band bo'lsa yangisi olinadi.
+// `db.seq` ga tegilmaydi — u faqat SKU/hujjat sanog'i bo'lib qoladi.
+function yangiBarcode() {
+  const band = new Set();
+  try {
+    (db.products || []).forEach(pp => {
+      if (pp.barcode) band.add(String(pp.barcode));
+      if (pp.colorBarcodes)
+        Object.values(pp.colorBarcodes).forEach(b => { if (b) band.add(String(b)); });
+    });
+  } catch (e) {}
+  let guard = 0;
+  while (guard++ < 50) {
+    const urug = (typeof nextId === "function")
+      ? nextId()
+      : Date.now() * 1000 + Math.floor(Math.random() * 1000);
+    const bc = genEAN13(urug);
+    if (!band.has(bc)) return bc;
+  }
+  return genEAN13(Date.now() * 1000000 + Math.floor(Math.random() * 1000000));
+}
+
 async function duplicateProduct(sku, event) {   // ✅ 2026-08-19: qulf
   return _katGuard(() => _duplicateProductIchki(sku, event));
 }
@@ -791,7 +826,7 @@ async function _duplicateProductIchki(sku, event) {   // ✅ 2026-08-18: SKU ser
   copy.sku  = newSku;
   copy.id   = newId;
   copy.name = p.name + " (nusxa)";
-  copy.barcode = genEAN13 ? genEAN13(db.seq++) : "";
+  copy.barcode = (typeof yangiBarcode === "function") ? yangiBarcode() : "";   // 550
   // 2026-07-25: rang barcode'lari NUSXALANMAYDI — aks holda ikki xil
   // tovarda bir xil kod bo'lib, skanerlanganda qaysi biri ekani noaniq edi
   copy.colorBarcodes = {};
@@ -1346,7 +1381,7 @@ async function _epConfirmAddColorIchki() {   // ✅ 2026-08-18: SKU serverdan (a
     sku: _newSku3,
     name: p.name, category: p.category, type: p.type, unit: p.unit,
     inBox: sizeRange.length, packUnit: p.packUnit,
-    art: p.art || "", barcode: genEAN13(db.seq++),
+    art: p.art || "", barcode: yangiBarcode(),   // 550
     costUsd: p.costUsd, priceUzs: p.priceUzs, ulgurjiNarx: p.ulgurjiNarx,
     // 🔴 535 (2026-08-22): RASM OTA-TOVARDAN OLINADI — ILGARI BO'SH EDI.
     // JONLI DALIL (B20, 2026-08-22 SQL tahlili): yangi rang bilan
@@ -1930,7 +1965,7 @@ function splitColors() {
         ...JSON.parse(JSON.stringify(p)),
         id: newId,
         sku: p.sku + "-" + (++made),
-        barcode: (p.colorBarcodes && p.colorBarcodes[c]) || genEAN13(db.seq++),
+        barcode: (p.colorBarcodes && p.colorBarcodes[c]) || yangiBarcode(),   // 550
         updatedAt: new Date().toISOString(),
         variants: p.variants.filter(v => v.color === c)
       });
@@ -2151,7 +2186,7 @@ async function _addProductIchki() {   // ✅ 2026-08-18: SKU serverdan (async)
         if (_u && _u !== apPendingImage) apPendingImage = _u;
       } catch (e) {}
     }
-    const autoBarcode = barcode || genEAN13(db.seq);
+    const autoBarcode = barcode || yangiBarcode();   // 550
     // 2026-08-03: SKU noyobligi kafolatlanadi
     // ✅ 2026-08-18: raqam SERVERDAN (ikki kassa to'qnashuvi yopiladi);
     // aloqa bo'lmasa lokal yo'l — oflaynda ish to'xtamaydi.
@@ -3276,7 +3311,7 @@ function parseImportCSV(text) {
       // nom+art+RANG bo'yicha barcode — har xil rang alohida barcode oladi
       const bKey = (nom + "|" + art + "|" + colorRaw).toLowerCase();
       if (!barcodeMap[bKey]) {
-        barcodeMap[bKey] = genEAN13(db.seq++);
+        barcodeMap[bKey] = yangiBarcode();   // 550
       }
       barcode = barcodeMap[bKey];
     }
@@ -3573,7 +3608,7 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
       if (p && p.colorBarcodes && p.colorBarcodes[colorRaw]) {
         colorBarcode = p.colorBarcodes[colorRaw];
       } else {
-        colorBarcode = genEAN13(db.seq++);
+        colorBarcode = yangiBarcode();   // 550
       }
     }
 
@@ -3629,7 +3664,7 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
       // ✅ 2026-08-18: avval SERVER zaxirasidan, tugasa lokal sanoqdan
       let sku = _impSku.shift();
       if (!sku) sku = `IMP-${String(db.seq++).padStart(4,"0")}`;
-      const _bc = colorBarcode || r.barcode || genEAN13(db.seq++);
+      const _bc = colorBarcode || r.barcode || yangiBarcode();   // 550
       const newProd = {
         id: newProdId,
         sku,
@@ -4515,7 +4550,7 @@ function migrateColorBarcodes() {
     p.colorBarcodes = {};
     colors.forEach((clr, i) => {
       // Birinchi rang uchun p.barcode ni ishlat, qolganlariga yangi barcode
-      const bc = i === 0 && p.barcode ? p.barcode : genEAN13(db.seq++);
+      const bc = i === 0 && p.barcode ? p.barcode : yangiBarcode();   // 550
       p.colorBarcodes[clr] = bc;
     });
     fixed++;
@@ -4566,7 +4601,7 @@ function ensureColorBarcodes(p) {
   let changed = false;
   [...new Set(p.variants.map(v => v.color).filter(Boolean))].forEach(color => {
     if (!p.colorBarcodes[color]) {
-      p.colorBarcodes[color] = genEAN13(db.seq++);
+      p.colorBarcodes[color] = yangiBarcode();   // 550
       changed = true;
     }
   });
@@ -4817,7 +4852,7 @@ function _apCreateExtraColor(base, cd, batchId) {
     costUsd: costUsd,
     priceUzs: base.priceUzs || 0,
     ulgurjiNarx: ulg,
-    barcode: (typeof genEAN13 === "function") ? genEAN13(db.seq) : "",
+    barcode: (typeof yangiBarcode === "function") ? yangiBarcode() : "",   // 550
     image: cd.image || base.image || "",   // rangning o'z rasmi ustuvor
     createdAt: new Date().toISOString(),
     variantGroup: batchId || "",      // variativ guruh belgisi
