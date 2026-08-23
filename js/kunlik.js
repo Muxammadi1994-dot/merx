@@ -248,34 +248,35 @@ function _kunHtml(kun, r, y, ogohMatn) {
   @page { size: A4 portrait; margin: 12mm 10mm; }
   * { box-sizing: border-box; }
   body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-         font-size: 11px; color: #1a1a1a; margin: 0; line-height: 1.45; }
+         font-size: 12.5px; color: #111; margin: 0; line-height: 1.5; }
   h1 { font-size: 19px; margin: 0 0 2px; color: #0F2D52; }
-  h2 { font-size: 13px; margin: 16px 0 6px; color: #0F2D52;
+  h2 { font-size: 14.5px; margin: 17px 0 7px; color: #0F2D52;
        border-bottom: 2px solid #0F2D52; padding-bottom: 3px; }
-  h3 { font-size: 12px; margin: 12px 0 5px; color: #333; }
-  .sub { color: #666; font-size: 10px; margin-bottom: 10px; }
+  h3 { font-size: 13px; margin: 13px 0 6px; color: #1F2A36; font-weight: 700; }
+  .sub { color: #40474F; font-size: 11.5px; margin-bottom: 10px; }
   .xul { background: #F3F7FC; border-left: 4px solid #0F2D52;
-         padding: 10px 12px; margin: 10px 0 14px; font-size: 12px; }
+         padding: 11px 13px; margin: 10px 0 14px; font-size: 13px; color: #111; }
   .xul p { margin: 0 0 5px; }
   .ogoh { background: #FFF6E5; border-left: 4px solid #E07B39;
           padding: 8px 12px; margin: 10px 0; font-size: 11px; }
   .xato { background: #FDECEC; border-left: 4px solid #C0392B;
           padding: 8px 12px; margin: 10px 0; font-size: 11px; font-weight: 600; }
   .kpis { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-  .kpi { border: 1px solid #DDE3EA; border-radius: 6px; padding: 7px 9px;
-         min-width: 108px; flex: 1 1 108px; }
-  .kpi-l { font-size: 9px; color: #6B7280; text-transform: uppercase; letter-spacing: .3px; }
-  .kpi-v { font-size: 14px; font-weight: 700; color: #0F2D52; margin-top: 2px; }
-  .kpi-i { font-size: 9px; color: #8A94A0; }
+  .kpi { border: 1px solid #C9D4DF; border-radius: 6px; padding: 8px 10px;
+         min-width: 132px; flex: 1 1 132px; }
+  .kpi-l { font-size: 10.5px; color: #33404D; font-weight: 600;
+           text-transform: uppercase; letter-spacing: .2px; }
+  .kpi-v { font-size: 15px; font-weight: 700; color: #0F2D52; margin-top: 3px; }
+  .kpi-i { font-size: 10.5px; color: #3A4652; line-height: 1.35; margin-top: 2px; }
   table { width: 100%; border-collapse: collapse; margin: 4px 0 10px; }
-  th { background: #0F2D52; color: #fff; font-size: 10px; text-align: left;
-       padding: 5px 6px; font-weight: 600; }
-  td { border-bottom: 1px solid #E8EDF2; padding: 4px 6px; font-size: 10.5px; }
+  th { background: #0F2D52; color: #fff; font-size: 11.5px; text-align: left;
+       padding: 6px 7px; font-weight: 600; }
+  td { border-bottom: 1px solid #DCE3EA; padding: 5px 7px; font-size: 12px; color: #111; }
   td.r, th:not(:first-child) { text-align: right; }
   tbody tr:nth-child(even) { background: #FAFBFC; }
-  .bosh { color: #8A94A0; font-style: italic; font-size: 10.5px; margin: 2px 0 10px; }
+  .bosh { color: #46525E; font-size: 11.5px; margin: 3px 0 10px; }
   .oxir { margin-top: 18px; padding-top: 8px; border-top: 1px solid #DDE3EA;
-          font-size: 9px; color: #8A94A0; }
+          font-size: 10.5px; color: #3A4652; line-height: 1.45; }
   @media print { .noprint { display: none !important; } }
 </style></head><body>
 
