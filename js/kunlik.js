@@ -162,8 +162,11 @@ function _kunXulosa(kun, r, y) {
       (y.otkazma ? ` · o'tkazma ${_kunFmt(y.otkazma)}` : "") + `)` +
       (qarz > 0 ? `, <b>${_kunFmt(qarz)} so'm</b> nasiyaga berildi.` : "."));
     if (r && r.ok) {
+      const ust = (r.cost > 0 && r.profit != null)
+        ? Math.round(r.profit / r.cost * 100) : null;
       gaplar.push(`Sof foyda <b>${_kunFmt(r.netProfit || r.trueNet || 0)} so'm</b>` +
-        (r.netMargin != null ? ` (margin ${r.netMargin}%).` : "."));
+        (r.netMargin != null
+          ? ` (margin ${r.netMargin}%${ust != null ? `, ustama ${ust}%` : ""}).` : "."));
     }
     const kass = [...y.kassirlar.values()].sort((a, b) => b.jami - a.jami)[0];
     if (kass) gaplar.push(`Eng ko'p sotgan: <b>${_kunEsc(kass.nom)}</b> — ${kass.chek} ta chek, ${_kunFmt(kass.jami)} so'm.`);
@@ -278,8 +281,28 @@ ${ogohMatn ? `<div class="xato">⚠️ ${X(ogohMatn)}</div>` : ""}
   ${kpi("Xarajat", F(jamiXar) + " so'm")}
   ${r && r.ok ? kpi("Tannarx", F(r.cost || 0) + " so'm") : ""}
   ${r && r.ok ? kpi("Sof foyda", F(r.netProfit != null ? r.netProfit : (r.trueNet || 0)) + " so'm",
-                    r.netMargin != null ? "margin " + r.netMargin + "%" : "") : ""}
+        (r.netMargin != null ? "margin " + r.netMargin + "%" : "") +
+        (r.cost > 0 && r.profit != null
+          ? " · ustama " + Math.round(r.profit / r.cost * 100) + "%" : "")) : ""}
 </div>
+
+<h3>Kassaga tushgan pul — tafsilot</h3>
+<table>
+  <thead><tr><th>Turi</th><th>Sotuvdan</th><th>Qarz to'lovidan</th><th>Jami</th></tr></thead>
+  <tbody>
+    <tr><td>Naqd</td><td class="r">${F(y.sotNaqd)}</td><td class="r">${F(y.qarzNaqd)}</td><td class="r"><b>${F(y.naqd)}</b></td></tr>
+    <tr><td>Karta</td><td class="r">${F(y.sotKarta)}</td><td class="r">${F(y.qarzKarta)}</td><td class="r"><b>${F(y.karta)}</b></td></tr>
+    <tr><td>O'tkazma</td><td class="r">${F(y.sotOtkazma)}</td><td class="r">${F(y.qarzOtkazma)}</td><td class="r"><b>${F(y.otkazma)}</b></td></tr>
+    <tr style="background:#F3F7FC"><td><b>JAMI</b></td>
+        <td class="r"><b>${F(y.sotNaqd + y.sotKarta + y.sotOtkazma)}</b></td>
+        <td class="r"><b>${F(y.qarzNaqd + y.qarzKarta + y.qarzOtkazma)}</b></td>
+        <td class="r"><b>${F(y.naqd + y.karta + y.otkazma)}</b></td></tr>
+  </tbody>
+</table>
+${y.usdTolov ? `<p class="bosh">Qarz to'lovidagi <b>$${F(y.usdTolov)}</b> joriy kurs bo'yicha
+  <b>${F(y.usdSom)} so'm</b> deb hisoblangan va yuqoridagi jamiga qo'shilgan.</p>` : ""}
+${jamiQarz ? `<p class="bosh">Nasiyaga berilgan <b>${F(jamiQarz)} so'm</b> bu jadvalga KIRMAYDI —
+  u kassaga tushmagan, mijoz qarzi bo'lib yozilgan.</p>` : ""}
 
 <h2>Kassirlar</h2>
 ${jadval("", ["Kassir", "Chek", "Jami savdo", "Kassaga", "Nasiya", "Chegirma"],
@@ -335,6 +358,8 @@ ${jadval("", ["Tovar", "Rang / o'lcham", "Manba", "Soni"],
   margin) serverda, Hisobot ekrani bilan bir xil usulda hisoblanadi.
   Ro'yxatlar shu qurilmadagi ma'lumotdan olinadi.
   <b>Sof foyda</b> = savdo − tannarx − xarajat.
+  <b>Margin</b> = foyda ÷ savdo (savdoning necha foizi foyda).
+  <b>Ustama</b> = foyda ÷ tannarx (tovar ustiga necha foiz qo'yilgan).
   Dollardagi qarz to'lovlari joriy kurs bo'yicha so'mga o'girilib qo'shiladi
   (Dashboard bilan bir xil qoida).
   Eski qarz yozuvlari (daftardan ko'chirilgan) savdoga qo'shilmaydi.
