@@ -64,17 +64,71 @@ const nowTime= () => new Date().toLocaleTimeString("uz-UZ", {hour:"2-digit", min
 // ⚠️ 2026-08-04 tuzatildi: avval 1-99 raqam edi va 52 dan katta
 // bo'lsa harf o'rniga RAQAM qaytarardi. Natijada chek raqami
 // "CHK-20260804-429665" ko'rinishida yopishib ketardi.
+// ═══════════════════════════════════════════════════════════════════
+// 🔴 551 (2026-08-23): QURILMA KODI ENDI KO'R TAVAKKAL EMAS
+// ═══════════════════════════════════════════════════════════════════
+// ILDIZ (raqam-auditi, 2026-08-23): kod 676 variantdan TASODIFIY
+// tanlanardi — do'kondagi boshqa qurilmalarda nima borligini bilmasdan.
+// 9 qurilmada ikkitasi bir xil kod olish ehtimoli ~5%, 12 tada ~9%.
+// To'qnashsa UCH zarba birdan: nextId() bir xil (yozuv jimgina bosiladi,
+// jonli isbot: CHK-20260804-2037 yo'qolgan) · chek raqami bir xil ·
+// to'lov raqami bir xil.
+// ENDI: (1) yangi kod tanlanayotganda LOKAL bazadagi barcha hujjat
+// raqamlaridan (CHK/PAY/QT/QTQ oxiridagi harflar) BAND kodlar yig'ilib,
+// bo'shi olinadi; (2) qurilma birinchi HUJJAT yozguncha "yangi" bayroq
+// bilan yuradi — shu davrda sinxron kod band ekanini ko'rsatsa,
+// _devHeal jimgina almashtiradi (pastda); birinchi hujjatdan keyin kod
+// MUZLAYDI. Ishlab turgan (meros) qurilmalarga bayroq yo'q — ularning
+// kodi HECH QACHON o'zgarmaydi (chek raqamlari chalkashmasin).
+function _devBandlar() {
+  const band = new Set();
+  try {
+    const ol = (arr, f) => (arr || []).forEach(x => {
+      const m = /-([A-Z]{2})$/.exec(String((x && x[f]) || ""));
+      if (m) band.add(m[1]);
+    });
+    ol(db.sales,        "chekNum");
+    ol(db.debtPayments, "chekNum");
+    ol(db.returns,      "refundNo");
+  } catch (e) {}
+  return band;
+}
 function _devCode() {
   try {
     let c = localStorage.getItem("merx_dev_code");
     if (!/^[A-Z]{2}$/.test(c || "")) {
       const A = 65;
-      c = String.fromCharCode(A + Math.floor(Math.random() * 26))
-        + String.fromCharCode(A + Math.floor(Math.random() * 26));
+      const band = _devBandlar();
+      let guard = 0;
+      do {
+        c = String.fromCharCode(A + Math.floor(Math.random() * 26))
+          + String.fromCharCode(A + Math.floor(Math.random() * 26));
+      } while (band.has(c) && ++guard < 200);
       localStorage.setItem("merx_dev_code", c);
+      localStorage.setItem("merx_dev_new", "1");   // 551: hujjatgacha davolash faol
+      console.log("🔤 Qurilma kodi tanlandi:", c, band.size
+        ? "· " + band.size + " ta band kod chetlab o'tildi"
+        : "· band ro'yxat hali bo'sh (birinchi sinxronda tekshiriladi)");
     }
     return c;
   } catch (e) { return "AA"; }
+}
+// 551: sinxrondan keyin chaqiriladi (cloud.js). Qurilma hali birorta
+// hujjat yozmagan bo'lsa-yu, kodi bulutdan kelgan hujjatlarda BAND
+// ko'rinsa — jimgina bo'shiga almashtiradi. Hujjat yozilgan zahoti
+// (_nextDocSeq) kod muzlaydi va bu tekshiruv abadiy o'chadi.
+function _devHeal() {
+  try {
+    if (localStorage.getItem("merx_dev_used") === "1") return;   // muzlagan
+    if (localStorage.getItem("merx_dev_new")  !== "1") return;   // meros qurilma
+    const c = localStorage.getItem("merx_dev_code");
+    if (!/^[A-Z]{2}$/.test(c || "")) return;
+    if (!_devBandlar().has(c)) return;                           // toza
+    localStorage.removeItem("merx_dev_code");
+    const yangi = _devCode();
+    console.warn("🔤 Qurilma kodi band ekan (" + c + ") — hujjat " +
+                 "yozilmasdan oldin yangisiga almashtirildi: " + yangi);
+  } catch (e) {}
 }
 
 // Kod → 0..675 oralig'idagi raqam (`id` uchun)
@@ -270,6 +324,10 @@ function _nextDocSeq(list, field, prefix, pad, datePart) {
     const d   = datePart || today().replace(/-/g, "");
     const dev = (typeof _devCode === "function") ? _devCode() : "AA";
     const re  = new RegExp("^" + prefix + "-" + d + "-(\\d+)-" + dev + "$");
+    try {   // 551: birinchi hujjat raqami berildi — qurilma kodi MUZLAYDI
+      localStorage.setItem("merx_dev_used", "1");
+      localStorage.removeItem("merx_dev_new");
+    } catch (e2) {}
     let mx = 0;
     (list || []).forEach(x => {
       const m = re.exec(String((x && x[field]) || ""));

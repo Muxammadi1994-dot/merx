@@ -987,6 +987,7 @@ async function pullDelta(noRender) {
       }
       console.log(`⚡ Delta: ${changed} ta o'zgarish${noRender ? " (jim)" : ""}`);
     }
+    try { if (typeof _devHeal === "function") _devHeal(); } catch (e2) {}   // 551
     return true;
 
   } catch (e) {
@@ -3502,6 +3503,9 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
     // Pull muvaffaqiyatli tugadi — endi push ga ruxsat beriladi
     _cloudPullDone = true;
     _pulledShopId = sid;
+    // 551: yangi qurilma kodi bulutdan kelgan hujjatlarda band chiqsa —
+    // birinchi hujjat yozilmasidan oldin jimgina almashtiriladi
+    try { if (typeof _devHeal === "function") _devHeal(); } catch (e2) {}
     // ⛔ 2026-08-19: "PULL TUGAGACH AVTOMAT PUSH" OLIB TASHLANDI.
     // U 491 da qo'shilgan edi (oflayn sotuv bulutga chiqmasligini
     // yopish uchun). Lekin B20 da o'sha kuni BUTUN baza qayta
