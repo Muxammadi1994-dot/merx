@@ -592,6 +592,9 @@ function _dbMerge(sRows, pRows) {
     if (!lok) { db.debtPayments.push(obj); _pMap.set(String(r.id), obj); qoshildi++; return; }
     if (!_yangiroqmi(lok, obj.updatedAt)) Object.assign(lok, obj);
   });
+  // 🔴 552: mavjud to'lov JOYIDA yangilandi (uzunlik ham havola ham
+  // o'zgarmaydi) — indeks qo'lda bekor qilinadi
+  try { if (typeof _gspBekor === "function") _gspBekor(); } catch (e) {}
   return qoshildi;
 }
 
@@ -3358,6 +3361,10 @@ async function confirmAtkaz() {
     }
   }
   p.cancelled   = true;
+  // 🔴 552: to'lov indeksi eskirdi — atkazda na uzunlik, na havola
+  // o'zgaradi, shuning uchun QO'LDA bekor qilinadi (busiz atkaz
+  // qilingan to'lov ekranda hali ham "to'langan" bo'lib turardi).
+  try { if (typeof _gspBekor === "function") _gspBekor(); } catch (e) {}
   p.cancelledAt = today() + " " + nowTime();
   p.cancelledBy = u ? (u.name || u.role || "admin") : "admin";
   p.cancelReason = reason;

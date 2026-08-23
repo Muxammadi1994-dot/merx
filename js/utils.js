@@ -390,14 +390,59 @@ function cashPays() {
   return (db.debtPayments || []).filter(p => !p.cancelled && p.source !== "refund");
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// 🔴 552 (2026-08-23): TO'LOVLAR INDEKSLANADI (tezlik)
+// ═══════════════════════════════════════════════════════════════════
+// ILDIZ: `getSalePayments` HAR chaqiruvda butun `db.debtPayments` ni
+// aylanib, har taqsimotdan YANGI obyekt yasab, keyin bittasini olib
+// qolganini tashlardi. Qarzlar oynasida bir harf bosilganda ~1200
+// chaqiruv → ~437 000 vaqtinchalik obyekt → ~80 ms (o'lchandi).
+// Egasi sezgan "harflar kechikib yoziladi" shundan edi.
+// ENDI: bir marta `saleId → to'lovlar` xaritasi quriladi, keyingi
+// chaqiruvlar tayyoridan oladi (o'lchov: 82,9 ms → 2,2 ms).
+// Foyda 6 modulda: qarzlar, dashboard, hisobot, mijozlar, pos, tarix.
+//
+// ⚠️ XARITA ESKIRMASLIGI — UCH QO'RIQCHI:
+//   1) massiv HAVOLASI o'zgarsa (sinxron `db.debtPayments = ...`),
+//   2) UZUNLIGI o'zgarsa (yangi to'lov `push`),
+//   3) ichkarida bayroq o'zgarsa (atkaz `p.cancelled = true`, bot
+//      singdirishida `Object.assign`) — bu ikkisida na havola, na
+//      uzunlik o'zgaradi, shuning uchun `_gspBekor()` QO'LDA
+//      chaqiriladi (qarzlar.js atkaz, qarzlar.js bot-singdirish).
+// Natija HAR DOIM nusxa qilib qaytariladi — chaqiruvchi uni
+// o'zgartirsa xarita buzilmasin.
+// Taqqoslash `String()` bilan: `saleId` ba'zan matn bo'lishi mumkin
+// (server sotuv `id` ni matn qaytaradi) — jonli bazada bunday holat
+// yo'q (513 taqsimotning hammasi son), ya'ni natija o'zgarmaydi,
+// lekin kelajakda jimgina yo'qolgan to'lov bo'lmaydi.
+let _gspKesh = null;
+function _gspBekor() { _gspKesh = null; }
+function _gspQur() {
+  const arr = db.debtPayments || [];
+  const faol = new Map(), hammasi = new Map();
+  const cmp = (a, b) => (a.payDate + a.payTime < b.payDate + b.payTime) ? -1 : 1;
+  for (const p of arr) {
+    const alloc = p.allocations || [];
+    for (const a of alloc) {
+      const rec = { ...a, paymentId: p.id, paymentChekNum: p.chekNum,
+                    payDate: p.date, payTime: p.time, payMethod: p.method || "naqd" };
+      const k = String(a.saleId);
+      let h = hammasi.get(k); if (!h) hammasi.set(k, h = []); h.push(rec);
+      if (!p.cancelled) { let f = faol.get(k); if (!f) faol.set(k, f = []); f.push(rec); }
+    }
+  }
+  faol.forEach(v => v.sort(cmp));
+  hammasi.forEach(v => v.sort(cmp));
+  _gspKesh = { ref: arr, len: arr.length, faol, hammasi };
+}
 function getSalePayments(saleId, includeCancelled) {
   // v150 (№3): atkaz qilingan to'lovlar qarz hisobiga KIRMAYDI —
   // shu bitta filtr tufayli calcSaleState qarzni o'zi "qaytaradi".
-  return (db.debtPayments || [])
-    .filter(p => includeCancelled || !p.cancelled)
-    .flatMap(p => (p.allocations || []).map(a => ({ ...a, paymentId: p.id, paymentChekNum: p.chekNum, payDate: p.date, payTime: p.time, payMethod: p.method || "naqd" })))
-    .filter(a => a.saleId === saleId)
-    .sort((a, b) => (a.payDate+a.payTime < b.payDate+b.payTime) ? -1 : 1);
+  const arr = db.debtPayments || [];
+  if (!_gspKesh || _gspKesh.ref !== arr || _gspKesh.len !== arr.length) _gspQur();
+  const m = includeCancelled ? _gspKesh.hammasi : _gspKesh.faol;
+  const l = m.get(String(saleId));
+  return l ? l.slice() : [];
 }
 
 // ── Shu sotuv uchun keyingi T-raqamini hosil qilish (T1, T2, T3...) ─
