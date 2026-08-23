@@ -171,11 +171,20 @@ function _kunXulosa(kun, r, y) {
     const kassa = y.naqd + y.karta + y.otkazma;
     gaplar.push(`Kassaga <b>${_kunFmt(kassa)} so'm</b> tushdi` +
       (qarz > 0 ? `, <b>${_kunFmt(qarz)} so'm</b> nasiyaga berildi.` : "."));
-    gaplar.push(`Kun oxirida: qo'lda naqd <b>${_kunFmt(y.naqd - y.xarNaqd)} so'm</b>` +
-      `, kartada <b>${_kunFmt(y.karta - y.xarKarta)} so'm</b>` +
-      ((y.otkazma || y.xarOtkazma) ? `, hisobda <b>${_kunFmt(y.otkazma - y.xarOtkazma)} so'm</b>` : "") +
-      ((y.xarNaqd + y.xarKarta + y.xarOtkazma)
-        ? ` (xarajat ${_kunFmt(y.xarNaqd + y.xarKarta + y.xarOtkazma)} so'm ayirilgan).` : "."));
+    // 560: TEPADAGI XULOSADA HAM TO'LIQ ZANJIR — egasining talabi:
+    // "naqdning qaysi qismi qayerdan kelgani, xarajat nimadan ayirilgani".
+    const zanjir = (belgi, nom, sot, qar, xar) => {
+      const qoldi = sot + qar - xar;
+      return `${belgi} <b>${nom}: ${_kunFmt(qoldi)} so'm</b> — ` +
+             `sotuvdan ${_kunFmt(sot)}` +
+             (qar ? ` + qarz to'lovidan ${_kunFmt(qar)}` : ` + qarz to'lovidan 0`) +
+             (xar ? ` − xarajat ${_kunFmt(xar)}` : "") + `.`;
+    };
+    gaplar.push(`<u>Kun oxirida pul qayerda:</u>`);
+    gaplar.push(zanjir("💵", "Qo'lda naqd", y.sotNaqd, y.qarzNaqd, y.xarNaqd));
+    gaplar.push(zanjir("💳", "Kartada", y.sotKarta, y.qarzKarta, y.xarKarta));
+    if (y.sotOtkazma || y.qarzOtkazma || y.xarOtkazma)
+      gaplar.push(zanjir("🏦", "Hisobda (o'tkazma)", y.sotOtkazma, y.qarzOtkazma, y.xarOtkazma));
     if (r && r.ok) {
       const ust = (r.cost > 0 && r.profit != null)
         ? Math.round(r.profit / r.cost * 100) : null;
