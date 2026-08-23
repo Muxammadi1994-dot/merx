@@ -354,9 +354,25 @@ function genPayChekNum() {
 // Avval `db.seq` (lokal sanoq) edi — ikki kassa to'qnashsa bulutda
 // (id,shop_id) upsert BIRINI IKKINCHISI BILAN BOSIB KETARDI —
 // "yo'qolgan to'lov"ning isbotlangan mexanizmlaridan biri.
+// ═══════════════════════════════════════════════════════════════════
+// 🔴 553 (2026-08-23): QURILMA BELGISI QO'SHILDI
+// ═══════════════════════════════════════════════════════════════════
+// Chuqur audit topdi: 12-avgustda vaqt-asosli qilingan, lekin QURILMA
+// raqami qo'shilmagan — holbuki `nextId()` (2026-08-04) da u bor edi.
+// Natijada himoya faqat O'SHA qurilma ichida ishlardi (`_lastPayIdTs`):
+// ikki kassa bir MILLISEKUNDDA to'lov yozsa — id AYNAN bir xil va
+// upsert biri ikkinchisini jimgina bosardi. Ehtimoli kichik, oqibati
+// og'ir (yo'qolgan to'lov). Endi `nextId` bilan bir xil shakl:
+//   sekund × 1000 + qurilma raqami (0…675)
+// Ikki qurilma bir soniyada ham har xil id oladi; bir qurilmada
+// ketma-ket chaqiruvlar +1000 bilan oldinga suriladi.
+// Eski id lar (o'tmishdagi millisekundlar) bilan urishmaydi — yangi
+// id doim JORIY soniyadan, ya'ni kattaroq.
 let _lastPayIdTs = 0;
 function payNewId() {
-  let t = Date.now();
+  let t = (typeof nextId === "function")
+    ? nextId()                          // 553: vaqt + qurilma
+    : Date.now();                       // zaxira (nextId yo'q bo'lsa)
   if (t <= _lastPayIdTs) t = _lastPayIdTs + 1;
   _lastPayIdTs = t;
   return t;

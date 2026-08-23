@@ -37,6 +37,47 @@ const TZ = 5 * 60;
 const tashDate = () => new Date(Date.now() + TZ * 60000).toISOString().slice(0, 10);
 const tashTime = () => new Date(Date.now() + TZ * 60000).toISOString().slice(11, 16);
 
+// ═══════════════════════════════════════════════════════════════════
+// 🔴 553 (2026-08-23): SERVER `id` LARI ALOHIDA YO'LAKDA
+// ═══════════════════════════════════════════════════════════════════
+// ILDIZ (chuqur audit, 2026-08-23): klient `nextId()` = sekund×1000 +
+// QURILMA raqami (0…675); server esa `Date.now()` = sekund×1000 +
+// MILLISEKUND (0…999). Ikkalasi BIR raqam maydonida — server o'sha
+// soniyaning 110-ms ida yozsa, qurilma indeksi 110 bo'lgan kassaning
+// o'sha soniyadagi yozuvi bilan id si AYNAN teng bo'lardi.
+// Bosh kalit (shop_id, id) + push `upsert(merge-duplicates)` — ya'ni
+// biri ikkinchisini JIMGINA bosib ketardi (sotuv yoki to'lov yo'qoladi).
+// Jonli zarar TOPILMADI (chek zanjirida uzilish yo'q) — bu profilaktika.
+// ENDI: server faqat 700…999 slotlarida yozadi, klient esa 0…675 da —
+// matematik jihatdan kesishmaydi. Slot band bo'lsa (bir soniyada ikki
+// server yozuvi, ehtimoli ~1/300) AYLANMA qayta urinish: 999 dan keyin
+// 700 ga qaytadi, ya'ni hech qachon klient yo'lagiga o'tmaydi.
+const _LANE_LO = 700, _LANE_N = 300;   // 700…999
+function _serverId(urinish) {
+  const sek  = Math.floor(Date.now() / 1000) * 1000;
+  const slot = _LANE_LO + ((Math.floor(Math.random() * _LANE_N) + (urinish || 0)) % _LANE_N);
+  return String(sek + slot);
+}
+// Insert qilib, id band bo'lsa (23505 / duplicate key) yangi slot bilan
+// qayta uradi. Boshqa har qanday xato — darhol qaytariladi (yashirilmaydi).
+async function _insertYangiId(jadval, recTayyor, maxUrinish) {
+  let oxirgiXato = "";
+  for (let u = 0; u < (maxUrinish || 5); u++) {
+    const rec = recTayyor(_serverId(u));
+    const w = await fetch(`${SB_URL}/rest/v1/${jadval}`, {
+      method: "POST",
+      headers: { ...H(), Prefer: "return=minimal" },
+      body: JSON.stringify(rec)
+    });
+    if (w.ok) return { ok: true, rec };
+    const t = await w.text().catch(() => "");
+    oxirgiXato = t;
+    if (!/23505|duplicate key/i.test(t)) return { ok: false, error: t };
+    console.log("[pul] " + jadval + ": id band edi, yangi slot bilan qayta urinish #" + (u + 2));
+  }
+  return { ok: false, error: oxirgiXato };
+}
+
 async function sbAll(path) {
   const out = [];
   for (let p = 0; p < 30; p++) {
@@ -266,12 +307,13 @@ module.exports = async (req, res) => {
 
       // 5) YOZISH — muhrlar SERVERDA qo'yiladi
       const now = Date.now();
+      // 553: `id` YO'LAKDAN (700-999) — klient bilan kesishmasin
       const rec = {
-        id: String(now), shop_id: shopId, customer_id: custId,
+        id: null, shop_id: shopId, customer_id: custId,
         date: tashDate(), amount: Math.round(amount * 100) / 100,
         currency: cur,
         data: {
-          id: String(now), chekNum,
+          id: null, chekNum,
           date: tashDate(), time: tashTime(),
           customerId: custId, customerName: body.customerName || "",
           customerPhone: body.customerPhone || "",
@@ -292,14 +334,13 @@ module.exports = async (req, res) => {
         },
         updated_at: new Date().toISOString()
       };
-      const w = await fetch(`${SB_URL}/rest/v1/debt_payments`, {
-        method: "POST",
-        headers: { ...H(), Prefer: "return=minimal" },
-        body: JSON.stringify(rec)
+      // 553: yo'lakdagi id bilan yoziladi; band bo'lsa yangi slot
+      const _yz = await _insertYangiId("debt_payments", (id) => {
+        rec.id = id; rec.data.id = id; return rec;
       });
-      if (!w.ok) {
-        const t = await w.text().catch(() => "");
-        return res.status(200).json({ ok: false, error: "Yozib bo'lmadi: " + t.slice(0, 150) });
+      if (!_yz.ok) {
+        return res.status(200).json({ ok: false,
+          error: "Yozib bo'lmadi: " + String(_yz.error || "").slice(0, 150) });
       }
       return res.status(200).json({ ok: true, payment: rec.data,
         ms: Date.now() - _t0 });
@@ -403,7 +444,7 @@ module.exports = async (req, res) => {
       // 3) YOZISH — id ham serverda
       const now = Date.now();
       const items = sale.items.map(({ image, ...rest }) => rest);
-      const d = { ...sale, id: String(now), chekNum, items,
+      const d = { ...sale, id: null, chekNum, items,   // 553: id pastda yo'lakdan
                   opKey: sale.opKey || null,   // ✅ 2026-08-21: takror-kalit
                   updatedAt: new Date().toISOString(), serverWritten: true };
 
@@ -441,7 +482,7 @@ module.exports = async (req, res) => {
         }
       } catch (e) { console.warn("[pul] prevDebt muhri:", e.message); }
       const rec = {
-        shop_id: shopId, id: String(now), chek_num: chekNum,
+        shop_id: shopId, id: null, chek_num: chekNum,   // 553
         date: sale.date || tashDate(), time: sale.time || tashTime(),
         price_type: sale.priceType || null, pay_type: sale.payType || null,
         pay_breakdown: sale.payBreakdown || null,
@@ -464,14 +505,13 @@ module.exports = async (req, res) => {
         data: d,
         updated_at: new Date().toISOString()
       };
-      const w = await fetch(`${SB_URL}/rest/v1/sales`, {
-        method: "POST",
-        headers: { ...H(), Prefer: "return=minimal" },
-        body: JSON.stringify(rec)
+      // 553: yo'lakdagi id bilan yoziladi; slot band bo'lsa yangisi
+      const _yzS = await _insertYangiId("sales", (id) => {
+        rec.id = id; d.id = id; return rec;
       });
-      if (!w.ok) {
-        const t = await w.text().catch(() => "");
-        return res.status(200).json({ ok: false, error: "Yozib bo'lmadi: " + t.slice(0, 150) });
+      if (!_yzS.ok) {
+        return res.status(200).json({ ok: false,
+          error: "Yozib bo'lmadi: " + String(_yzS.error || "").slice(0, 150) });
       }
       // \U0001f534 2026-08-14: YANGI QOLDIQ qaytariladi — kassa aynan
       // shuni qo'yadi. Avval kassa lokal qoldiqni ESKI holatiga
