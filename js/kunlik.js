@@ -47,7 +47,11 @@ function _kunYigish(kun) {
     naqd: 0, karta: 0, otkazma: 0,      // sotuvdan + qarz to'lovidan
     sotNaqd: 0, sotKarta: 0, sotOtkazma: 0,
     qarzNaqd: 0, qarzKarta: 0, qarzOtkazma: 0,
-    usdTolov: 0, usdSom: 0               // USD qarz to'lovi va uning so'mdagi qiymati
+    usdTolov: 0, usdSom: 0,              // USD qarz to'lovi va uning so'mdagi qiymati
+    // 559: XARAJAT ham to'lov turi bo'yicha (dashboard.js:128 qoidasi:
+    // `x.method || "naqd"`). Sotuvchi uchun eng muhim savol —
+    // "bugun qo'limda qancha pul qoldi".
+    xarNaqd: 0, xarKarta: 0, xarOtkazma: 0
   };
   try {
     const xodimNomi = (id) => {
@@ -133,7 +137,15 @@ function _kunYigish(kun) {
         else                      chiq.qarzNaqd    += som;
       }
     });
-    (db.xarajatlar || []).forEach(x => { if (x.date === kun) chiq.xarajatlar.push(x); });
+    (db.xarajatlar || []).forEach(x => {
+      if (x.date !== kun) return;
+      chiq.xarajatlar.push(x);
+      const m = x.method || "naqd";              // 559
+      const sm = Number(x.amount) || 0;
+      if (m === "karta")        chiq.xarKarta   += sm;
+      else if (m === "otkazma") chiq.xarOtkazma += sm;
+      else                      chiq.xarNaqd    += sm;
+    });
     (db.ombor || []).forEach(o => { if (o.date === kun) chiq.ombor.push(o); });
     (db.customers || []).forEach(c => {
       const d = String(c.createdAt || c.date || "").slice(0, 10);
@@ -157,10 +169,13 @@ function _kunXulosa(kun, r, y) {
     const naqd = y.sotuvlar.reduce((a, s) => a + (Number(s.paid) || 0), 0);
     const qarz = y.sotuvlar.reduce((a, s) => a + (Number(s.remaining) || 0), 0);
     const kassa = y.naqd + y.karta + y.otkazma;
-    gaplar.push(`Kassaga <b>${_kunFmt(kassa)} so'm</b> tushdi ` +
-      `(naqd ${_kunFmt(y.naqd)} · karta ${_kunFmt(y.karta)}` +
-      (y.otkazma ? ` · o'tkazma ${_kunFmt(y.otkazma)}` : "") + `)` +
+    gaplar.push(`Kassaga <b>${_kunFmt(kassa)} so'm</b> tushdi` +
       (qarz > 0 ? `, <b>${_kunFmt(qarz)} so'm</b> nasiyaga berildi.` : "."));
+    gaplar.push(`Kun oxirida: qo'lda naqd <b>${_kunFmt(y.naqd - y.xarNaqd)} so'm</b>` +
+      `, kartada <b>${_kunFmt(y.karta - y.xarKarta)} so'm</b>` +
+      ((y.otkazma || y.xarOtkazma) ? `, hisobda <b>${_kunFmt(y.otkazma - y.xarOtkazma)} so'm</b>` : "") +
+      ((y.xarNaqd + y.xarKarta + y.xarOtkazma)
+        ? ` (xarajat ${_kunFmt(y.xarNaqd + y.xarKarta + y.xarOtkazma)} so'm ayirilgan).` : "."));
     if (r && r.ok) {
       const ust = (r.cost > 0 && r.profit != null)
         ? Math.round(r.profit / r.cost * 100) : null;
@@ -271,10 +286,18 @@ ${ogohMatn ? `<div class="xato">⚠️ ${X(ogohMatn)}</div>` : ""}
   ${kpi("Jami savdo", F(jamiSotuv) + " so'm")}
   ${kpi("O'rtacha chek", F(y.sotuvlar.length ? jamiSotuv / y.sotuvlar.length : 0) + " so'm")}
   ${kpi("Kassaga tushdi", F(y.naqd + y.karta + y.otkazma) + " so'm",
-        y.usdSom ? "shundan " + F(y.usdSom) + " so'm — $" + F(y.usdTolov) + " qarz to'lovi" : "sotuv + qarz to'lovi")}
-  ${kpi("Naqd", F(y.naqd) + " so'm", "sotuv " + F(y.sotNaqd) + " + qarz " + F(y.qarzNaqd))}
-  ${kpi("Karta", F(y.karta) + " so'm", "sotuv " + F(y.sotKarta) + " + qarz " + F(y.qarzKarta))}
-  ${kpi("O'tkazma", F(y.otkazma) + " so'm", "sotuv " + F(y.sotOtkazma) + " + qarz " + F(y.qarzOtkazma))}
+        "sotuvdan " + F(y.sotNaqd + y.sotKarta + y.sotOtkazma) +
+        " + qarz to'lovidan " + F(y.qarzNaqd + y.qarzKarta + y.qarzOtkazma) +
+        (y.usdSom ? " (shundan $" + F(y.usdTolov) + " = " + F(y.usdSom) + " so'm)" : ""))}
+  ${kpi("💵 Qo'lda naqd qoldi", F(y.naqd - y.xarNaqd) + " so'm",
+        "sotuvdan " + F(y.sotNaqd) + " + qarzdan " + F(y.qarzNaqd) +
+        (y.xarNaqd ? " − xarajat " + F(y.xarNaqd) : ""))}
+  ${kpi("💳 Kartaga tushdi", F(y.karta - y.xarKarta) + " so'm",
+        "sotuvdan " + F(y.sotKarta) + " + qarzdan " + F(y.qarzKarta) +
+        (y.xarKarta ? " − xarajat " + F(y.xarKarta) : ""))}
+  ${(y.otkazma || y.xarOtkazma) ? kpi("🏦 Hisobga o'tkazma", F(y.otkazma - y.xarOtkazma) + " so'm",
+        "sotuvdan " + F(y.sotOtkazma) + " + qarzdan " + F(y.qarzOtkazma) +
+        (y.xarOtkazma ? " − xarajat " + F(y.xarOtkazma) : "")) : ""}
   ${kpi("Nasiyaga berildi", F(jamiQarz) + " so'm", "bugun qarzga yozildi")}
   ${kpi("Qarz to'lovi", F(y.qarzNaqd + y.qarzKarta + y.qarzOtkazma) + " so'm",
         y.usdTolov ? "shundan $" + F(y.usdTolov) + " = " + F(y.usdSom) + " so'm" : "")}
@@ -288,15 +311,22 @@ ${ogohMatn ? `<div class="xato">⚠️ ${X(ogohMatn)}</div>` : ""}
 
 <h3>Kassaga tushgan pul — tafsilot</h3>
 <table>
-  <thead><tr><th>Turi</th><th>Sotuvdan</th><th>Qarz to'lovidan</th><th>Jami</th></tr></thead>
+  <thead><tr><th>Turi</th><th>Sotuvdan</th><th>Qarz to'lovidan</th><th>Xarajat</th><th>QOLDI</th></tr></thead>
   <tbody>
-    <tr><td>Naqd</td><td class="r">${F(y.sotNaqd)}</td><td class="r">${F(y.qarzNaqd)}</td><td class="r"><b>${F(y.naqd)}</b></td></tr>
-    <tr><td>Karta</td><td class="r">${F(y.sotKarta)}</td><td class="r">${F(y.qarzKarta)}</td><td class="r"><b>${F(y.karta)}</b></td></tr>
-    <tr><td>O'tkazma</td><td class="r">${F(y.sotOtkazma)}</td><td class="r">${F(y.qarzOtkazma)}</td><td class="r"><b>${F(y.otkazma)}</b></td></tr>
+    <tr><td>💵 Naqd</td><td class="r">${F(y.sotNaqd)}</td><td class="r">${F(y.qarzNaqd)}</td>
+        <td class="r">${y.xarNaqd ? "−" + F(y.xarNaqd) : "—"}</td>
+        <td class="r"><b>${F(y.naqd - y.xarNaqd)}</b></td></tr>
+    <tr><td>💳 Karta</td><td class="r">${F(y.sotKarta)}</td><td class="r">${F(y.qarzKarta)}</td>
+        <td class="r">${y.xarKarta ? "−" + F(y.xarKarta) : "—"}</td>
+        <td class="r"><b>${F(y.karta - y.xarKarta)}</b></td></tr>
+    <tr><td>🏦 O'tkazma</td><td class="r">${F(y.sotOtkazma)}</td><td class="r">${F(y.qarzOtkazma)}</td>
+        <td class="r">${y.xarOtkazma ? "−" + F(y.xarOtkazma) : "—"}</td>
+        <td class="r"><b>${F(y.otkazma - y.xarOtkazma)}</b></td></tr>
     <tr style="background:#F3F7FC"><td><b>JAMI</b></td>
         <td class="r"><b>${F(y.sotNaqd + y.sotKarta + y.sotOtkazma)}</b></td>
         <td class="r"><b>${F(y.qarzNaqd + y.qarzKarta + y.qarzOtkazma)}</b></td>
-        <td class="r"><b>${F(y.naqd + y.karta + y.otkazma)}</b></td></tr>
+        <td class="r"><b>${(y.xarNaqd + y.xarKarta + y.xarOtkazma) ? "−" + F(y.xarNaqd + y.xarKarta + y.xarOtkazma) : "—"}</b></td>
+        <td class="r"><b>${F(y.naqd + y.karta + y.otkazma - y.xarNaqd - y.xarKarta - y.xarOtkazma)}</b></td></tr>
   </tbody>
 </table>
 ${y.usdTolov ? `<p class="bosh">Qarz to'lovidagi <b>$${F(y.usdTolov)}</b> joriy kurs bo'yicha
@@ -360,6 +390,8 @@ ${jadval("", ["Tovar", "Rang / o'lcham", "Manba", "Soni"],
   <b>Sof foyda</b> = savdo − tannarx − xarajat.
   <b>Margin</b> = foyda ÷ savdo (savdoning necha foizi foyda).
   <b>Ustama</b> = foyda ÷ tannarx (tovar ustiga necha foiz qo'yilgan).
+  <b>QOLDI</b> ustuni = sotuvdan + qarz to'lovidan − o'sha usuldagi xarajat
+  (naqd xarajat naqddan, karta xarajati kartadan ayiriladi).
   Dollardagi qarz to'lovlari joriy kurs bo'yicha so'mga o'girilib qo'shiladi
   (Dashboard bilan bir xil qoida).
   Eski qarz yozuvlari (daftardan ko'chirilgan) savdoga qo'shilmaydi.
