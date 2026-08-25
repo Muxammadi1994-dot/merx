@@ -1499,15 +1499,62 @@ module.exports = async (req, res) => {
         if (n > mx) mx = n;
       });
       const band = new Set((rows || []).map(r => String(r.sku)));
+
+      // ═══════════════════════════════════════════════════════════
+      // 🔴 563 (2026-08-25): SKU SANOG'I ORQAGA QAYTMAYDI
+      // ═══════════════════════════════════════════════════════════
+      // ILDIZ (jonli, ABU SAXIY 2026-08-24): SKU "mavjud tovarlar
+      // orasidan eng katta + 1" bilan berilardi. O'chirilgan tovar
+      // jadvaldan BUTUNLAY ketadi (`.delete()`), ya'ni uning raqami
+      // BO'SHAB QOLADI. Oxirgi tovarlar o'chirilsa sanoq ORQAGA
+      // qaytardi va yangi tovarga eski raqam berilardi.
+      // Oqibat: o'chirilganlar daftari (`deleted_records`) SKU bo'yicha
+      // ishlaydi — u begunoh YANGI tovarni har sinxronda o'ldirardi.
+      // Alomat: tovar bazada bor, hamma qurilmada goh ko'rinib, goh
+      // yo'qoladi (SHOE-17236 Fioroni Blue, SHOE-17239 Gray).
+      // Ikkinchi zarar: bosilgan yorliqdagi SKU boshqa tovarga o'tib
+      // ketardi, tarixda bir raqam ikki tovarga tegishli bo'lardi.
+      //
+      // ENDI: sanoq `sku_counters` jadvalida saqlanadi va faqat
+      // OLDINGA yuradi. O'chirish unga umuman ta'sir qilmaydi.
+      // Atomik band qilish (`rpc` yoki upsert+returning) — ikki kassa
+      // bir vaqtda so'rasa ham bir xil raqam bermaydi.
+      // ZAXIRA: jadval yo'q yoki xato bo'lsa — ESKI usul ishlaydi,
+      // ya'ni eng yomon holatda bugungi holat qoladi, ish to'xtamaydi.
+      let _bosh = null;              // shu chaqiruvda band qilingan birinchi raqam
+      try {
+        const _cr = await fetch(`${SB_URL}/rest/v1/rpc/merx_next_sku`, {
+          method: "POST",
+          headers: { ...H(), "Content-Type": "application/json" },
+          body: JSON.stringify({ p_shop: shopId, p_prefix: pref,
+                                 p_count: count, p_min: mx })
+        });
+        if (_cr.ok) {
+          const _j = await _cr.json();
+          const _v = Array.isArray(_j) ? _j[0] : _j;
+          const _n = parseInt(_v && (_v.first_no ?? _v));
+          if (Number.isFinite(_n) && _n > 0) _bosh = _n;
+        } else {
+          console.log("[next_sku] sanoq jadvali javob bermadi (" + _cr.status +
+                      ") — eski usul bilan davom etamiz");
+        }
+      } catch (e) {
+        console.log("[next_sku] sanoq jadvali xatosi: " + e.message +
+                    " — eski usul bilan davom etamiz");
+      }
+
       const skus = [];
-      let n = mx;
+      let n = (_bosh != null) ? (_bosh - 1) : mx;
+      const _chek = n + 5000;
       while (skus.length < count) {
         n++;
         const s = `${pref}-${String(n).padStart(pref === "IMP" ? 4 : 3, "0")}`;
+        // Band bo'lsa o'tkazib yuboriladi (eski tovar bilan urishmasin)
         if (!band.has(s)) skus.push(s);
-        if (n > mx + 5000) break;                 // cheksiz aylanish himoyasi
+        if (n > _chek) break;                 // cheksiz aylanish himoyasi
       }
       return res.status(200).json({ ok: true, skus, next: n,
+        sanoq: (_bosh != null) ? "jadval" : "eski",   // 563: qaysi yo'l ishladi
         shishgan: _tashlangan || 0 });   // 535: nechta buzuq SKU tashlandi
     }
 
