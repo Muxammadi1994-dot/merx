@@ -539,6 +539,38 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ ok: false, error: "shopId kerak" });
       }
 
+      // ✅ 565 (2026-08-26): 12800 O'LDI.
+      //  · MAVJUD do'konning kursi HECH QACHON bosilmaydi — kursi bor
+      //    bo'lsa `rate` maydoni umuman yuborilmaydi (merge-duplicates
+      //    uni tegmay o'tadi). Avval har create_shop jonli kursni 12800
+      //    bilan bosib qo'yishi mumkin edi.
+      //  · Kursi yo'q YANGI do'konga Markaziy Bank kursi tortiladi
+      //    (api/rate.js dagi sinalgan manba, iyuldan beri jonda).
+      //  · CBU javob bermasa — kurs bo'sh qoladi, do'kon yaratish
+      //    BARIBIR tugaydi, admin birinchi kirishda kiritadi.
+      let _rateField = {};
+      try {
+        const _sChk = await fetch(
+          `${SB_URL}/rest/v1/settings?shop_id=eq.${encodeURIComponent(shopId)}&select=rate&limit=1`,
+          { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+        const _sRows = await _sChk.json().catch(() => null);
+        const _aniq  = Array.isArray(_sRows);   // so'rov muvaffaqiyatli bo'ldimi
+        const _kursBor = _aniq && _sRows.length > 0 &&
+                         _sRows[0] && _sRows[0].rate != null && Number(_sRows[0].rate) > 0;
+        // CBU faqat ANIQ "kurs yo'q" holatda tortiladi; tekshiruv
+        // xato bersa — hech narsa yuborilmaydi (mavjudni bosmaslik afzal)
+        if (_aniq && !_kursBor) {
+          const _cr = await fetch("https://cbu.uz/en/arkhiv-kursov-valyut/json/USD/",
+            { headers: { "User-Agent": "Mozilla/5.0 (MERX savdo tizimi)" } });
+          const _cd = await _cr.json();
+          const _row = Array.isArray(_cd)
+            ? (_cd.find(x => x && (x.Ccy === "USD" || x.CcyNm_EN === "US Dollar")) || _cd[0])
+            : _cd;
+          const _cb = parseFloat(_row && _row.Rate);
+          if (_cb > 0) _rateField = { rate: Math.round(_cb) };
+        }
+      } catch (e) { console.error("565 CBU kursi olinmadi:", e.message); }
+
       // Avval bu email bilan hisob borligini tekshiramiz (to'g'ri endpoint)
       const checkRes = await fetch(
         `${SB_URL}/auth/v1/admin/users?page=1&per_page=1000`,
@@ -598,7 +630,7 @@ module.exports = async function handler(req, res) {
           body: JSON.stringify({
             shop_id: shopId,
             shop_name: shopName || "MERX Do'koni",
-            rate: 12800,
+            ..._rateField,   // ✅ 565: 12800 o'rniga — mavjudga tegilmaydi, yangiga CBU
             // 2026-07-26: valyuta rejimi va tarif SuperAdmin belgilaganidek
             price_currency: (_cmode === "usd") ? "usd" : "uzs",
             currency_mode: _cmode,
@@ -670,7 +702,7 @@ module.exports = async function handler(req, res) {
         body: JSON.stringify({
           shop_id: shopId,
           shop_name: shopName || "MERX Do'koni",
-          rate: 12800,
+          ..._rateField,   // ✅ 565: 12800 o'rniga — mavjudga tegilmaydi, yangiga CBU
           price_currency: "uzs",
           shop_type: shopType || "ikki"
         })

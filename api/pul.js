@@ -1305,7 +1305,18 @@ module.exports = async (req, res) => {
       const to   = String(body.to   || "").slice(0, 10);
       if (!from || !to)
         return res.status(400).json({ ok: false, error: "from/to kerak" });
-      const rate = Number(body.rate) || 12800;
+      // ✅ 565 (2026-08-26): 12800 zaxirasi o'ldi. Tartib: kassa
+      // yuborgan kurs → do'kon sozlamasi → topilmasa HALOL XATO
+      // (yolg'on kurs bilan foyda hisoblangandan ko'ra to'xtash yaxshi).
+      let rate = Number(body.rate) || 0;
+      if (!rate) {
+        try {
+          const _st = await sbAll(`settings?shop_id=eq.${encodeURIComponent(shopId)}&select=rate&limit=1`);
+          rate = Number(_st && _st[0] && _st[0].rate) || 0;
+        } catch (e) {}
+      }
+      if (!rate) return res.status(400).json({ ok: false,
+        error: "kurs kiritilmagan — sozlamalarda dollar kursini kiriting" });
 
       const [sales, pays, prods, xars] = await Promise.all([
         sbAll(`sales?shop_id=eq.${encodeURIComponent(shopId)}` +

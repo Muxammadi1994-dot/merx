@@ -1129,7 +1129,7 @@ async function cmdBalans(chatId) {
       sid ? sb("settings", `?shop_id=eq.${sid}&limit=1`) : sb("settings", `?limit=1`),
     ]);
 
-    const rate    = Number(sets[0]?.rate || 12800);
+    const rate    = Number(sets[0]?.rate) || 0;   // ✅ 565: 12800 zaxirasi o'ldi — kurs faqat do'kon sozlamasidan
     const naqd    = sales.filter(s => s.pay_type === "naqd").reduce((a, s) => a + Number(s.paid || 0), 0);
     const karta   = sales.filter(s => s.pay_type === "karta").reduce((a, s) => a + Number(s.paid || 0), 0);
     const otkazma = sales.filter(s => s.pay_type === "otkazma").reduce((a, s) => a + Number(s.paid || 0), 0);
@@ -1154,7 +1154,7 @@ async function cmdBalans(chatId) {
     txt += `📤 Xarajat: ${fmt(xar)} so'm\n`;
     txt += `─────────────────\n`;
     txt += `✨ Tushum − xarajat: ${fmt(foyda)} so'm\n`;
-    txt += `   ≈ $${(foyda / rate).toFixed(2)}\n`;
+    if (rate > 0) txt += `   ≈ $${(foyda / rate).toFixed(2)}\n`;   // ✅ 565: kurssiz — satr yo'q
     if (nasiya > 0) {
       txt += `\n🔴 Bugun nasiyaga: ${fmt(nasiya)} so'm`;
     } else {
@@ -1577,11 +1577,11 @@ async function actionSendPayReceipt(body) {
   // to'langanini (naqd/karta) aniq ko'rsin.
   let methodTxt;
   if (payment.methodBreakdown) {
-    const rate = payment.rate || 12800;
+    const rate = Number(payment.rate) || Number(payment.data && payment.data.rate) || 0;   // ✅ 565: 12800 o'ldi
     const parts = Object.entries(payment.methodBreakdown).map(([m,v]) => `${F(v)} so'm ${PM_LBL[m]||m}`);
     const totalSom = Object.values(payment.methodBreakdown).reduce((a,v)=>a+v,0);
     methodTxt = parts.join(" + ") + ` = Jami ${F(totalSom)} so'm`;
-    if (payment.currency === "usd") methodTxt += ` (joriy kursda $${(totalSom/rate).toFixed(2)})`;
+    if (payment.currency === "usd" && rate > 0) methodTxt += ` (joriy kursda $${(totalSom/rate).toFixed(2)})`;   // ✅ 565
   } else if (payment.source === "refund") {
     // 2026-07-25: tovar qaytarish hisobidan yopilgan qarz — haqiqiy pul emas
     methodTxt = `Tovar qaytarish hisobidan${payment.refundNo ? " (" + payment.refundNo + ")" : ""}`;
@@ -1679,11 +1679,11 @@ function buildPayReceiptHtml(p, shopName, ck) {
   const mb = p.method_breakdown || p.methodBreakdown || null;
   let methodTxt = methodL;
   if (mb) {
-    const rate = p.rate || 12800;
+    const rate = Number(p.rate) || Number(p.data && p.data.rate) || 0;   // ✅ 565: 12800 o'ldi
     const totalSom = Object.values(mb).reduce((a,v)=>a+(v||0),0);
     methodTxt = Object.entries(mb).map(([m,v]) => `${F(v)} so'm ${PM_LBL[m]||m}`).join(" + ");
     methodTxt += ` = ${F(totalSom)} so'm`;
-    if (p.currency === "usd") methodTxt += ` (kurs: $${(totalSom/rate).toFixed(2)})`;
+    if (p.currency === "usd" && rate > 0) methodTxt += ` (kurs: $${(totalSom/rate).toFixed(2)})`;   // ✅ 565
   }
   const rows = alloc.map(a => `
     <tr><td class="c"><code>${a.chekNum||""}</code></td>
@@ -1746,10 +1746,11 @@ async function actionRenderPayReceipt(payId, shopId) {
   let shopName = "MERX";
   try {
     const _sf = (shopId || p?.shop_id) ? `&shop_id=eq.${encodeURIComponent(shopId || p.shop_id)}` : "";
-    const sets = await sb("settings", `?limit=1&select=shop_name,chek_config${_sf}`);
+    const sets = await sb("settings", `?limit=1&select=shop_name,chek_config,rate${_sf}`);
     shopName = sets?.[0]?.shop_name || "MERX";
     var _ck = sets?.[0]?.chek_config || {}; // 2026-07-17: logo/manzil/telefon/shior
-  } catch { var _ck = {}; }
+    var _sr565 = Number(sets?.[0]?.rate) || 0;   // ✅ 565: do'kon kursi — chizuvchiga zaxira
+  } catch { var _ck = {}; var _sr565 = 0; }
   if (!p) return `<!DOCTYPE html><html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#F2F0EB;color:#888">To'lov topilmadi (biroz kutib, qayta oching)</body></html>`;
   // \u2705 2026-08-15: MINI-APP CHEKI TANLANGAN USLUBDA (egasining talabi).
   // Telegram XABARI botniki qoladi (u yaxshi ishlangan va Telegram
@@ -1765,25 +1766,34 @@ async function actionRenderPayReceipt(payId, shopId) {
       // chizuvchi esa `debtBefore/debtAfter/chekNum` kutadi \u2014 mos
       // kelmagani uchun "qarz edi / qoldi" qatorlari CHEKDA
       // TUSHIB QOLARDI (egasining kuzatuvi).
+      // ✅ 565 (2026-08-26): ICHKI VARAQ (data) ZAXIRA YO'LI. Server
+      // to'lovni ikki bosqichda yozadi: avval data to'liq, ustunlar esa
+      // kassa push'idan keyin to'ladi. O'sha oynada chek ochilsa ustunlar
+      // bo'sh chiqardi (jonli: PAY-20260826-0005-AY — bo'sh chek va
+      // yolg'on 12800 kurs). Endi yetishmagan maydon data'dan olinadi.
       const _p = {
         ...p,
-        chekNum:      p.chekNum      ?? p.chek_num,
-        customerName: p.customerName ?? p.customer_name,
-        customerPhone:p.customerPhone?? p.customer_phone,
-        amountSom:    p.amountSom    ?? p.amount_som,
-        amountUsd:    p.amountUsd    ?? p.amount_usd,
-        debtBefore:   p.debtBefore   ?? p.debt_before,
-        debtAfter:    p.debtAfter    ?? p.debt_after,
+        chekNum:      p.chekNum      ?? p.chek_num      ?? p.data?.chekNum,
+        time:         p.time                            ?? p.data?.time,
+        method:       p.method                          ?? p.data?.method,
+        rate:         p.rate                            ?? p.data?.rate,
+        customerName: p.customerName ?? p.customer_name ?? p.data?.customerName,
+        customerPhone:p.customerPhone?? p.customer_phone?? p.data?.customerPhone,
+        amountSom:    p.amountSom    ?? p.amount_som    ?? p.data?.amountSom,
+        amountUsd:    p.amountUsd    ?? p.amount_usd    ?? p.data?.amountUsd,
+        debtBefore:   p.debtBefore   ?? p.debt_before   ?? p.data?.debtBefore,
+        debtAfter:    p.debtAfter    ?? p.debt_after    ?? p.data?.debtAfter,
         debtBeforeUzs: p.debtBeforeUzs ?? p.debt_before_uzs ?? p.data?.debtBeforeUzs,
         debtBeforeUsd: p.debtBeforeUsd ?? p.debt_before_usd ?? p.data?.debtBeforeUsd,
         debtAfterUzs:  p.debtAfterUzs  ?? p.debt_after_uzs  ?? p.data?.debtAfterUzs,
         debtAfterUsd:  p.debtAfterUsd  ?? p.debt_after_usd  ?? p.data?.debtAfterUsd,
-        methodBreakdown: p.methodBreakdown ?? p.method_breakdown,
+        methodBreakdown: p.methodBreakdown ?? p.method_breakdown ?? p.data?.methodBreakdown,
         serverWritten: true
       };
       return buildPayReceiptStyled(_p, {
         style: _st,
         shopName,
+        settingsRate: (typeof _sr565 !== "undefined" ? _sr565 : 0),   // ✅ 565
         staffName: p.staff_name || "",
         cfg: { ...(_c || {}), shopName }
       });
@@ -2766,10 +2776,11 @@ async function actionRenderReceipt(chekId, saleData, shopId) {
 
   try {
     const _sf = (shopId || sale?.shop_id) ? `&shop_id=eq.${encodeURIComponent(shopId || sale.shop_id)}` : "";
-    const sets = await sb("settings", `?limit=1&select=shop_name,chek_config${_sf}`);
+    const sets = await sb("settings", `?limit=1&select=shop_name,chek_config,rate${_sf}`);
     shopName = sets?.[0]?.shop_name || "MERX";
     var _ck = sets?.[0]?.chek_config || {}; // 2026-07-17: SHU funksiya o'z sozlamasini oladi (ReferenceError tuzatildi)
-  } catch { var _ck = {}; }
+    var _sr565s = Number(sets?.[0]?.rate) || 0;   // ✅ 565
+  } catch { var _ck = {}; var _sr565s = 0; }
   if (typeof _ck === "undefined") var _ck = {};
 
   if (!sale) {
@@ -2806,6 +2817,7 @@ async function actionRenderReceipt(chekId, saleData, shopId) {
     style: _botChekStyle(sale, _ck),
     _chekCfg: _ck,
     shopName,
+    settingsRate: (typeof _sr565s !== "undefined" ? _sr565s : 0),   // ✅ 565
     logo:    _ck.logo    || null,
     addr:    _ck.addr    || "",
     contact: (_ck.showContact !== false ? _ckContact : "") || "",
@@ -4576,7 +4588,10 @@ function buildReceiptWholesale(sale, opts, cfg) {
   const prevUsd  = Number(sale.prevDebtUsd || 0);
   const prevUzs  = Number(sale.prevDebtUzs || 0);
   const due      = sale.due  || "";
-  const rate     = Number(sale.rate) || 0 || 12800;
+  const rate     = Number(sale.rate) || Number(opts && opts.settingsRate) || 0;   // ✅ 565: 12800 o'ldi
+  // ✅ 565: bu uslub $/so'm ikki ustunli — kurs yo'q bo'lsa yolg'on
+  // raqam chizmaymiz, yagona uslubga qaytamiz (u kurssiz ham to'g'ri).
+  if (!(rate > 0)) return buildReceiptHtml(sale, opts);
   const payLabels= {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash"};
   const D        = n => "$" + (Number(n)||0).toFixed(2);
 
@@ -4744,7 +4759,9 @@ function buildReceiptTable(sale, opts, cfg) {
   const prevUsd  = Number(sale.prevDebtUsd || 0);
   const prevUzs  = Number(sale.prevDebtUzs || 0);
   const due      = sale.due  || "";
-  const rate     = Number(sale.rate) || 0 || 12800;
+  const rate     = Number(sale.rate) || Number(opts && opts.settingsRate) || 0;   // ✅ 565: 12800 o'ldi
+  // ✅ 565: $ birinchi ustun — kurssiz yagona uslubga qaytamiz.
+  if (!(rate > 0)) return buildReceiptHtml(sale, opts);
   const payLabels= {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash"};
   const D  = n => (Number(n)||0).toFixed(2);
   const hdrCss = dark ? "background:#0D1B2A;color:#fff"
@@ -4901,7 +4918,7 @@ function buildReceiptStyled(sale, opts, chekCfg) {
     headerStyle: c.headerStyle || "dark",
     fontScale: c.fontScale || "normal", fontFamily: c.fontFamily || "dm",
     blocks: c.blocks || null, extraLines: c.extraLines || [],
-    rate: Number(sale.rate) || 0,
+    rate: Number(sale.rate) || Number(opts && opts.settingsRate) || 0,   // ✅ 565
     F: n => Math.round(Number(n) || 0).toLocaleString("ru-RU")
   };
   try {
@@ -5032,13 +5049,14 @@ function buildPayReceiptStyled(payment, opts) {
   const D     = n => "$" + (Number(n) || 0).toFixed(2);
 
   const cur   = payment.currency === "usd" ? "usd" : "uzs";
-  const rate  = Number(payment.rate) || 0 || 12800;
+  const rate  = Number(payment.rate) || Number(payment.data && payment.data.rate) || Number(o.settingsRate) || 0;   // ✅ 565: 12800 o'ldi
   const somAmt = Number(payment.amountSom) ||
-                 (cur === "usd" ? Math.round(Number(payment.amount || 0) * rate) : Number(payment.amount || 0));
+                 (cur === "usd" ? (rate > 0 ? Math.round(Number(payment.amount || 0) * rate) : 0)
+                                : Number(payment.amount || 0));   // ✅ 565
 
   // To'landi qatori + OCHIQ HISOB (egasining talabi)
   const paidMain = cur === "usd" ? D(payment.amount) : F(payment.amount) + " so'm";
-  const hisobLine = (cur === "usd" && somAmt)
+  const hisobLine = (cur === "usd" && somAmt && rate > 0)   // ✅ 565
     ? F(somAmt) + " / " + F(rate) + " = " + D(payment.amount)
     : "";
 
@@ -5082,7 +5100,7 @@ function buildPayReceiptStyled(payment, opts) {
   const bodyFs = ixcham ? "11px" : "12px";
 
   // Jadval uslubi: ikki valyuta ustunda
-  const jadval = (style === "table");
+  const jadval = (style === "table") && rate > 0;   // ✅ 565
 
   return `<!DOCTYPE html><html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -5171,7 +5189,7 @@ td{padding:3px 2px;border-bottom:1px dotted #999}
     <div class="lbl">To'landi</div>
     <div class="big">${paidMain}</div>
     ${hisobLine ? `<div class="calc">${hisobLine}</div>` : ""}
-    ${cur === "usd" ? `<div class="calc">Kurs: ${F(rate)} so'm</div>` : ""}
+    ${cur === "usd" && rate > 0 ? `<div class="calc">Kurs: ${F(rate)} so'm</div>` : ""}
   </div>
 
   <div class="sec">
