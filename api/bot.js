@@ -2820,6 +2820,22 @@ async function actionRenderReceipt(chekId, saleData, shopId) {
   // cheklar o'z ko'rinishida qoladi (§3.5). Muhr yo'q bo'lsa do'kon
   // sozlamasi. Avval faqat `merx` uzatilardi, qolganlari standartga
   // tushib qolardi (egasining kuzatuvi).
+  // ✅ QP-1 (2026-08-26): qizil eslatma uchun PUL XULOSASI — refundNo
+  // bo'yicha QTQ va xarajat yozuvlari. FAQAT O'QISH; shop filtri MAJBURIY
+  // (MINA-1 darsi). Xato bo'lsa — eslatma pul satrsiz, chek baribir chiqadi.
+  try {
+    const _shp = shopId || sale?.shop_id;
+    const _nos = (sale?.refunds || []).map(r => r && r.no).filter(Boolean);
+    if (sale && _shp && _nos.length) {
+      const _orP = _nos.map(n => `data->>refundNo.eq.${encodeURIComponent(n)}`).join(",");
+      const [_pz, _xz] = await Promise.all([
+        sb("debt_payments", `?select=amount,currency,data&shop_id=eq.${_shp}&data->>source=eq.refund&or=(${_orP})`),
+        sb("xarajatlar", `?select=amount,method,data&shop_id=eq.${_shp}&or=(${_orP})`)
+      ]);
+      const _plB = _refundPulYig(sale.refunds, _pz, _xz);
+      if (_plB) sale._refPul = _plB;
+    }
+  } catch (e) { console.warn("[receipt] pul xulosasi:", e.message); }
   return buildReceiptStyled(sale, {
     style: _botChekStyle(sale, _ck),
     _chekCfg: _ck,
@@ -4041,6 +4057,65 @@ function chekStyleCss(cfg, sel) {
 }
 
 // Chek pastidagi qo'shimcha qatorlar (reklama, ish vaqti) \u2014 hamma uslubga
+// ═══ ✅ QP-1 (2026-08-26): QAYTARISH PUL XULOSASI — yagona yig'uvchi ═══
+// Qizil eslatma uchun refundNo bo'yicha MAVJUD yozuvlar o'qiladi:
+// QTQ to'lovlari (qarzdan qoplangan qism + o'sha paytdagi jami qarz)
+// va "Tovar qaytarish" xarajati (kassadan qaytarilgan qism).
+// FAQAT O'QIYDI — pul mantiqiga tegmaydi; xato → null (eslatma
+// avvalgidek chiqadi). Egizak: utils.js ↔ bot.js (C8) — BIR XIL.
+function _refundPulYig(refs, pays, xars) {
+  try {
+    const nos = new Set((refs || []).map(r => r && r.no).filter(Boolean));
+    if (!nos.size) return null;
+    let bU=null,bD=null,aU=null,aD=null,qU=0,qD=0,qSom=0,kSum=0,kMet="";
+    (pays || []).forEach(p => {
+      const d = p && (p.data || p);
+      if (!d || d.source !== "refund" || !nos.has(d.refundNo)) return;
+      const cur = d.currency || p.currency || "uzs";
+      const am  = Number(d.amount != null ? d.amount : p.amount) || 0;
+      const bf  = Number(d.debtBefore), af = Number(d.debtAfter);
+      if (cur === "usd") {
+        qD += am; qSom += Number(d.amountSom) || 0;
+        if (!isNaN(bf)) bD = (bD == null) ? bf : Math.max(bD, bf);
+        if (!isNaN(af)) aD = (aD == null) ? af : Math.min(aD, af);
+      } else {
+        qU += am; qSom += am;
+        if (!isNaN(bf)) bU = (bU == null) ? bf : Math.max(bU, bf);
+        if (!isNaN(af)) aU = (aU == null) ? af : Math.min(aU, af);
+      }
+    });
+    (xars || []).forEach(x => {
+      const d = x && (x.data || x);
+      if (!d || !nos.has(d.refundNo)) return;
+      kSum += Number(x.amount != null ? x.amount : d.amount) || 0;
+      if (!kMet) kMet = ((x.method || d.method) === "karta") ? "Karta" : "Naqd";
+    });
+    if (qU<=0 && qD<=0 && kSum<=0) return null;
+    return { bU,bD,aU,aD,qU,qD,qSom,kSum,kMet };
+  } catch (e) { return null; }
+}
+// Xulosani [nom, qiymat] satrlarga aylantiradi — hamma chizuvchi
+// (HTML, termal, Telegram matni) BIR XIL satrlarni ishlatadi.
+function _refundPulSatrlar(pl, f) {
+  const S = [];
+  if (!pl) return S;
+  const iq = (u, d) => { const p=[]; const _d=Number(d)||0, _u=Number(u)||0;
+    if (_d>0) p.push("$"+_d.toFixed(2)); if (_u>0) p.push(f(_u)+" so'm");
+    return p.length ? p.join(" + ") : "0"; };
+  if (pl.bU!=null || pl.bD!=null) S.push(["Qaytarishdan oldingi qarz", iq(pl.bU,pl.bD)]);
+  if (pl.qU>0 || pl.qD>0) {
+    let v = iq(pl.qU,pl.qD);
+    if (pl.qD>0 && pl.qU<=0 && pl.qSom>0) v += " (≈ "+f(pl.qSom)+" so'm)";
+    S.push(["Qarzdan qoplandi", v]);
+  }
+  if (pl.aU!=null || pl.aD!=null) {
+    const v = iq(pl.aU,pl.aD);
+    S.push(["Qaytarishdan keyingi qarz", v === "0" ? "0 — qarz yo'q" : v]);
+  }
+  if (pl.kSum>0) S.push(["Kassadan qaytarildi ("+(pl.kMet||"Naqd")+")", f(pl.kSum)+" so'm"]);
+  return S;
+}
+
 function chekRefundNote(sale, F, matnli) {
   try {
     const refs = (sale && sale.refunds) || [];
@@ -4050,11 +4125,18 @@ function chekRefundNote(sale, F, matnli) {
     const full = sale.status === "qaytarilgan";
     const nos  = refs.map(r => r.no).filter(Boolean).join(", ");
     const bosh = full ? "TO'LIQ QAYTARILGAN" : "QISMAN QAYTARILGAN";
+    // ✅ QP-1: pul xulosasi — botda oldindan yuklangan (sale._refPul),
+    // kassada lokal bazadan yig'iladi. Topilmasa — satrlar shunchaki yo'q.
+    const _pl = (sale && sale._refPul) ||
+      ((typeof db !== "undefined" && db)
+        ? _refundPulYig(refs, db.debtPayments, db.xarajatlar) : null);
+    const pulSatr = _refundPulSatrlar(_pl, f);
     if (matnli) {
       // Termal (matnli chek) uchun
       const out = ["", "=".repeat(40), "  " + bosh,
                    "  Qaytarilgan: " + f(tot) + " so'm"];
       if (nos) out.push("  Qaytarish cheki: " + nos);
+      pulSatr.forEach(([k, v]) => out.push("  " + k + ": " + v));   // ✅ QP-1
       refs.forEach(r => (r.items || []).forEach(it => {
         if (!it) return;
         const q = Number(it.qty) || 0;
@@ -4094,6 +4176,7 @@ function chekRefundNote(sale, F, matnli) {
         <div style="font-size:11px;color:#000;margin-top:2px">
           Qaytarilgan summa: <b>${f(tot)} so'm</b>
           ${nos ? `<br>Qaytarish cheki: <b>${nos}</b>` : ""}
+          ${pulSatr.map(([k, v]) => `<br>${k}: <b>${v}</b>`).join("")}
         </div>
         ${tovarlar.length ? `<div style="font-size:10.5px;color:#000;margin-top:4px;
           border-top:1px dotted #B91C1C;padding-top:4px">

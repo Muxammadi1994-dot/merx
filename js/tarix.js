@@ -1194,16 +1194,12 @@ async function confirmRefund() {
   s.refundedTotal = (s.refundedTotal || 0) + refundTotal;
 
   const isFullRefund = s.refundedTotal >= (s.total || 0);
-  if (isFullRefund) {
-    s.status = "qaytarilgan";
-    s.refundDate = today();
-    s.refundReason = reason;
-    s.refundTotal = s.refundedTotal;
-    s.remaining = 0;
-  } else {
-    s.refundDate = today();
-    s.refundNote = `Qisman qaytarilgan: ${fmt(s.refundedTotal)} so'm · ${refundNo}`;
-  }
+  // ✅ QP-1 (2026-08-26): HOLAT BELGISI PASTGA KO'ChIRILDI (pul
+  // qoplashdan KEYINGA — pastda, returns yozuvidan oldin). Sabab:
+  // `_custTotals` "qaytarilgan" cheklarni tashlab ketadi — belgi
+  // avval qo'yilsa, TO'LIQ qaytarishda "oldingi qarz" chekning O'Z
+  // qarzisiz yozilardi va mijozga yolg'on "qarz to'liq yopildi ✅"
+  // ketardi (jonli: Abduqodir aka 17-avg, Muhammadali aka 23-avg).
 
   // ═══ 2026-07-25 (B): PULNI QOPLASH ═══
   // Tartib: shu sotuv qarzi → boshqa qarzlar → kassadan naqd.
@@ -1268,6 +1264,19 @@ async function confirmRefund() {
       xarajatType: "kunlik",
       refundNo
     });
+  }
+
+  // ✅ QP-1: holat va qaytarish belgilari — pul qoplashdan KEYIN
+  // (yuqoridagi 1196-izohga qarang). Mazmun o'zgarmagan, faqat o'rni.
+  if (isFullRefund) {
+    s.status = "qaytarilgan";
+    s.refundDate = today();
+    s.refundReason = reason;
+    s.refundTotal = s.refundedTotal;
+    s.remaining = 0;
+  } else {
+    s.refundDate = today();
+    s.refundNote = `Qisman qaytarilgan: ${fmt(s.refundedTotal)} so'm · ${refundNo}`;
   }
 
   if (!db.returns) db.returns = [];
@@ -1630,15 +1639,13 @@ function _refundAddDebtPayment(sale, amountUzs, refundNo, custTotals, ownRate) {
 
   db.debtPayments.push(payment);
 
-  // Mijozga Telegram orqali chek (oddiy qarz to'lovi kabi)
-  try {
-    const _cust = (db.customers || []).find(c => c.id === sale.customerId);
-    if (typeof sendTelegramPayReceipt === "function" &&
-        (typeof canUseBot !== "function" || canUseBot()) &&
-        (sale.customerId || _cust?.phone)) {
-      sendTelegramPayReceipt(sale.customerId || null, _cust?.phone || null, payment);
-    }
-  } catch(e) { console.warn("Qaytarish cheki botga yuborilmadi:", e.message); }
+  // ✅ QP-1 (2026-08-26, egasining qarori — A varianti): QAYTARISH
+  // QTQ XABARI BOTGA YUBORILMAYDI. Qaytarishdan keyin ASL SOTUV ChEKI
+  // baribir qayta yuboriladi va unda boyitilgan qizil eslatma bor
+  // (pul xulosasi bilan). Har yopilgan chek uchun alohida QTQ xabari
+  // mijozni chalg'itardi (3 chek yopilsa 4 ta xabar kelardi).
+  // YOZUVNING O'ZI to'liq saqlanadi: pul hisobi, QTQ raqami,
+  // debtBefore/After — eslatma aynan shulardan o'qiydi.
 }
 
 
