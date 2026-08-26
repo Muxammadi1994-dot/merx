@@ -1126,7 +1126,8 @@ async function cmdBalans(chatId) {
     const [sales, xarajat, sets] = await Promise.all([
       sb("sales", `?date=eq.${t}&status=neq.bekor${sidFilter}`),
       sb("xarajatlar", `?date=eq.${t}${sidFilter}`),
-      sid ? sb("settings", `?shop_id=eq.${sid}&limit=1`) : sb("settings", `?limit=1`),
+      sid ? sb("settings", `?shop_id=eq.${sid}&limit=1`)
+          : Promise.resolve([]),   // ✅ MINA-1 (2026-08-26): do'kon noma'lum — BEGONA do'kon kursi olinmaydi (avval bazadagi birinchi do'kon tushardi)
     ]);
 
     const rate    = Number(sets[0]?.rate) || 0;   // ✅ 565: 12800 zaxirasi o'ldi — kurs faqat do'kon sozlamasidan
@@ -1193,7 +1194,7 @@ async function cmdOmbor(chatId) {
     // (settings.low_stock_limit); bo'lmasa ENV/5 zaxirasi
     let lowLimit = LOW_LIMIT;
     try {
-      const st = await sb("settings", `?select=low_stock_limit${sid ? `&shop_id=eq.${sid}` : ""}&limit=1`);
+      const st = sid ? await sb("settings", `?select=low_stock_limit&shop_id=eq.${sid}&limit=1`) : [];   // ✅ MINA-1: do'kon noma'lum — begona chegara emas, ENV/5 zaxirasi
       if (st?.[0]?.low_stock_limit != null && Number(st[0].low_stock_limit) > 0)
         lowLimit = Number(st[0].low_stock_limit);
     } catch {}
@@ -1746,7 +1747,8 @@ async function actionRenderPayReceipt(payId, shopId) {
   let shopName = "MERX";
   try {
     const _sf = (shopId || p?.shop_id) ? `&shop_id=eq.${encodeURIComponent(shopId || p.shop_id)}` : "";
-    const sets = await sb("settings", `?limit=1&select=shop_name,chek_config,rate${_sf}`);
+    // ✅ MINA-1: do'kon noma'lum — sozlama SO'RALMAYDI (begona nom/logo/kurs chiqmasin)
+    const sets = _sf ? await sb("settings", `?limit=1&select=shop_name,chek_config,rate${_sf}`) : [];
     shopName = sets?.[0]?.shop_name || "MERX";
     var _ck = sets?.[0]?.chek_config || {}; // 2026-07-17: logo/manzil/telefon/shior
     var _sr565 = Number(sets?.[0]?.rate) || 0;   // ✅ 565: do'kon kursi — chizuvchiga zaxira
@@ -2435,11 +2437,15 @@ async function actionRenderStaffOrder(chekId, saleData, shopId) {
   }
 
   try {
-    const setsQ = sid
-      ? `?shop_id=eq.${sid}&select=shop_name&limit=1`
-      : `?limit=1&select=shop_name`;
-    const sets = await sb("settings", setsQ);
-    shopName = sets?.[0]?.shop_name || "MERX";
+    // ✅ MINA-1 (2026-08-26): avval do'kon noma'lum bo'lsa `?limit=1`
+    // bazadagi BIRINChI do'kon nomini olardi. Endi: havolada kelmasa —
+    // topilgan chekning O'Z do'konidan; u ham bo'lmasa — "MERX".
+    const _s3 = sid || sale?.shop_id;
+    if (_s3) {
+      const sets = await sb("settings",
+        `?shop_id=eq.${encodeURIComponent(_s3)}&select=shop_name&limit=1`);
+      shopName = sets?.[0]?.shop_name || "MERX";
+    }
   } catch {}
 
   // items dagi sku lar bo'yicha products dan art va rasm olish
@@ -2776,7 +2782,8 @@ async function actionRenderReceipt(chekId, saleData, shopId) {
 
   try {
     const _sf = (shopId || sale?.shop_id) ? `&shop_id=eq.${encodeURIComponent(shopId || sale.shop_id)}` : "";
-    const sets = await sb("settings", `?limit=1&select=shop_name,chek_config,rate${_sf}`);
+    // ✅ MINA-1: do'kon noma'lum — sozlama SO'RALMAYDI (begona nom/logo/kurs chiqmasin)
+    const sets = _sf ? await sb("settings", `?limit=1&select=shop_name,chek_config,rate${_sf}`) : [];
     shopName = sets?.[0]?.shop_name || "MERX";
     var _ck = sets?.[0]?.chek_config || {}; // 2026-07-17: SHU funksiya o'z sozlamasini oladi (ReferenceError tuzatildi)
     var _sr565s = Number(sets?.[0]?.rate) || 0;   // ✅ 565
