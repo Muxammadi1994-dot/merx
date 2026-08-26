@@ -571,7 +571,10 @@ module.exports = async (req, res) => {
       // (CHK-20260815-0020-DW voqeasi, farq $83.77).
       if (tur === "sale") { d.status = "bekor"; d.remaining = 0; }
       const patch = { data: d, updated_at: new Date().toISOString() };
-      if (tur === "sale") { patch.status = "bekor"; patch.remaining = 0; }
+      // ✅ 564 (2026-08-25): dollar ustuni ham tozalanadi. JSONdagi
+      // tarixiy qiymatga ATAYLAB tegilmaydi (chek tarixida ko'rinsin);
+      // ustunni cloud.js dagi 564-qo'riqchi ham 0 da ushlab turadi.
+      if (tur === "sale") { patch.status = "bekor"; patch.remaining = 0; patch.debt_usd = 0; }
 
       const w = await fetch(
         `${SB_URL}/rest/v1/${jadval}?shop_id=eq.${encodeURIComponent(shopId)}` +

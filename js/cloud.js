@@ -2267,7 +2267,13 @@ async function pushToCloud() {
         staff_id: s.staffId || null,
         ...(s.status ? { status: s.status } : {}),
         debt_currency: s.debtCurrency || "uzs",
-        debt_usd: s.debtUsd != null ? s.debtUsd : null,
+        // ✅ 564 (2026-08-25): BEKOR CHEKDA DOLLAR USTUNI DOIM 0.
+        // Sabab: bekorda server ustunni tozalaydi-yu, kassadagi eski
+        // nusxa keyingi TO'LIQ push'da o'lik dollar qarzni qaytarib
+        // yozardi (jonli: CHK-20260825-0041-BK, $4265). JSON (data)
+        // ichida tarixiy qiymat saqlanaveradi — faqat ustun 0.
+        debt_usd: (s.cancelled || s.status === "bekor") ? 0
+                  : (s.debtUsd != null ? s.debtUsd : null),
         // Asl (o'zgarmas) qiymatlar — qarz to'lovlari bularga tegmaydi.
         // Bularsiz calcSaleState() boshqa qurilmada noto'g'ri ishlaydi.
         orig_paid: s.origPaid != null ? s.origPaid : (s.paid || 0),
