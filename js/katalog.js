@@ -198,7 +198,7 @@ async function applyBulkPrice() {   // ✅ 2026-08-19: server orqali (async)
       "Eslatma: tovarning BARCHA ranglari uchun narx o'zgaradi.\n\nDavom etasizmi?"
   )) return;
 
-  const rate     = db.settings?.rate || 12800;
+  const rate     = kursOl();
   const isUsd    = db.settings?.priceCurrency === "usd";
   let   changed  = 0;
   const _bulkYangilar = [];   // ✅ 2026-08-19: serverga to'plamli
@@ -390,7 +390,7 @@ function renderKatalog() {
   try { if (typeof migrateVariantInBox === "function") migrateVariantInBox(); } catch(e) {}
 
   const q    = ($("kat-q")||{value:""}).value.toLowerCase();
-  const rate = db.settings.rate || 12800;
+  const rate = kursOl();
   const showChakana = db.settings.showChakana || false;
   const katCols = katGetCols();
   const shopType = typeof getShopType === "function" ? getShopType() : (db.settings?.shopType || "ikki");
@@ -425,7 +425,7 @@ function renderKatalog() {
 
   // Saralash
   if (katSortBy) {
-    const rate = db.settings.rate || 12800;
+    const rate = kursOl();
     ps.sort((a, b) => {
       let va, vb;
       if (katSortBy === "name")  { va = a.name;         vb = b.name; }
@@ -888,7 +888,7 @@ function openEditProduct(sku) {
   // 2026-07-25: tannarx HAR DOIM SO'MDA ko'rsatiladi va kiritiladi
   $("ep-cost").value = (typeof getCostUzs === "function")
     ? getCostUzs(p)
-    : Math.round((p.costUsd || 0) * (db.settings?.rate || 12800));
+    : Math.round((p.costUsd || 0) * kursOl());
   $("ep-price").value           = p.priceUzs;
   {
     // 2026-07-26: ulgurji narx HAR DOIM SO'MDA ko'rsatiladi va
@@ -1491,7 +1491,7 @@ async function _saveEditProductIchki() {   // ✅ 2026-08-18: to'qnashuv tekshir
   // Tannarx: input qiymati joriy valyuta rejimida, bazaga har doim USD saqlanadi
   {
     const cur1  = db.settings?.priceCurrency || "uzs";
-    const rate1 = db.settings?.rate || 12800;
+    const rate1 = kursOl();
     const raw   = _pv("ep-cost");
     // 2026-07-25: TANNARX SO'MDA. Yaxlitlash drifti muammosi ham
     // shu bilan yo'qoladi — aylantirish umuman bo'lmaydi.
@@ -2071,7 +2071,7 @@ async function _addProductIchki() {   // ✅ 2026-08-18: SKU serverdan (async)
 
   const t       = currentApType || "oyoq";
   const costRaw = getRawVal("ap-cost"); // v169: endi vergul-formatlangan (fmtInput/priceInputHandler)
-  const rate1   = db.settings?.rate || 12800;
+  const rate1   = kursOl();
   // 2026-07-25: TANNARX HAR DOIM SO'MDA kiritiladi va so'mda saqlanadi.
   // Tizim valyutasi qanday bo'lishidan qat'i nazar — kurs o'zgarganda
   // tovar narxi O'ZGARMAYDI.
@@ -2258,7 +2258,7 @@ async function _addProductIchki() {   // ✅ 2026-08-18: SKU serverdan (async)
   // v174 (№8): QO'LDA qo'shish ham KIRIM TARIXIGA yoziladi (avval faqat
   // Excel/AI-import yozardi — shuning uchun tab "ishlamayapti" ko'rinardi).
   // Ikkala tarmoq uchun ham: yangi tovar va mavjudga qo'shish.
-  const _rate = (db.settings?.rate || 12800);
+  const _rate = kursOl();
   newVariants.forEach(nv => {
     if (!nv.qty || nv.qty <= 0) return;
     db.ombor.push({
@@ -2572,7 +2572,7 @@ function exportKatalogExcel() {
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("katalog","excel")) return;
 
-  const rate = db.settings.rate || 12800;
+  const rate = kursOl();
   const fields = apGetFields();
   const shopType = typeof getShopType === "function" ? getShopType() : "ikki";
 
@@ -2722,7 +2722,7 @@ function _showBoxHint(hintId, donaUzs, inBox) {
 }
 
 function apUpdateBoxHints() {
-  const rate   = db.settings?.rate || 12800;
+  const rate   = kursOl();
   const cur    = db.settings?.priceCurrency || "uzs";
   const inBox  = parseInt(($("ap-inbox")||{value:0}).value) ||
                  parseInt(($("ap-inbox-calc")||{value:0}).value) || 0;
@@ -2735,7 +2735,7 @@ function apUpdateBoxHints() {
 }
 
 function epUpdateBoxHints() {
-  const rate    = db.settings?.rate || 12800;
+  const rate    = kursOl();
   const cur     = db.settings?.priceCurrency || "uzs";
   const inBox   = parseInt(($("ep-inbox")||{value:0}).value) || 0;
   const costRaw = getRawVal("ep-cost"); // v169
@@ -2750,7 +2750,7 @@ function epUpdateBoxHints() {
 // ── Tannarx valyutasini yangilash ─────────────────
 function updateCostCurrency() {
   const cur  = db.settings?.priceCurrency || "uzs";
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const isUsd  = cur === "usd";
   const isBoth = cur === "both";
 
@@ -3008,7 +3008,7 @@ function vcFillAddProductForm(item) {
     try { apDonaChanged(); } catch(e) {}
   }
 
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   // 2026-07-26: tannarx HAR DOIM SO'MDA (AI ham so'mda beradi)
   if ($("ap-cost") && item.tannarx_som > 0) {
     $("ap-cost").value = item.tannarx_som;
@@ -3331,7 +3331,7 @@ function parseImportCSV(text) {
     // Avval "1000 dan katta bo'lsa so'm" degan taxmin bor edi — qimmat
     // USD tovar ($1200) so'm deb o'qilib, narx 13000 barobar buzilardi.
     // Endi foydalanuvchi oynada aniq tanlaydi; qatordagi "$" ustuvor.
-    const rate = db.settings?.rate || 12800;
+    const rate = kursOl();
     // 2026-07-25: import HAR DOIM SO'MDA — valyuta tanlovi olib tashlandi
     const _impCur = "uzs";
 
@@ -3343,7 +3343,7 @@ function parseImportCSV(text) {
       if (num <= 0) return 0;
       // "$" bo'lsa — qator darajasida USD (tanlovdan ustun)
       if (hasDollar) return num;
-      return _impCur === "usd" ? num : (rate > 0 ? num / rate : 0);
+      return _impCur === "usd" ? num : (rate > 0 ? num / (rate || Infinity) : 0);
     };
     const _toUzs = (raw) => {
       const txt = String(raw || "").trim();
@@ -3444,9 +3444,9 @@ function impDonaChanged(i) {
 // v154: Tannarx (so'm ko'rinishida tahrirlanadi, ichida costUsd saqlanadi)
 function impSetCost(i, inputEl) {
   fmtInput(inputEl);
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const som = parseInt(inputEl.dataset.raw) || 0;
-  if (_importRows[i]) _importRows[i].costUsd = som / rate;
+  if (_importRows[i]) _importRows[i].costUsd = som / (rate || Infinity);
 }
 
 // v154: Sotuv (ulgurji) narxi — to'g'ridan-to'g'ri so'mda saqlanadi
@@ -3461,7 +3461,7 @@ function showImportPreview() {
   const prev = $("import-preview"); if (prev) prev.style.display = "block";
   const lbl  = $("import-preview-lbl");
   if (lbl) lbl.textContent = `${_importRows.length} ta qator — har birini tekshiring, xato bo'lsa ustiga bosib tuzating:`;
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
 
   const head = $("import-preview-head");
   if (head) head.innerHTML = `<tr>${["Nom","ART","Rang","O'lcham","Pochka","1 pochkada","Jami dona","Tannarx (so'm)","Sotuv narxi (so'm)"].map(h =>
@@ -3535,7 +3535,7 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
   console.log("📥 Import boshlandi:", _importRows.map(r =>
     `${r.nom}/${r.color}: ${r.qty} dona, pochkada ${r.inbox}`).join(" | "));
   const skipDup = $("import-skip-dup")?.checked ?? true;
-  const rate    = db.settings?.rate || 12800;
+  const rate    = kursOl();
 
   let added = 0, updated = 0, skipped = 0;
   const _impYangilar = [];   // ✅ 2026-08-19: serverga to'plamli yuboriladi
@@ -4131,7 +4131,7 @@ function buildLabel(p, v, opts) {
   // Katta (asosiy) qator: chakana yoqiq bo'lsa — chakana; bo'lmasa ulgurji
   const mainUzs    = chakanaOn ? chakanaUzs : (ulgOn ? ulgUzs : 0);
   // USD ham xuddi shu asosiy narxdan (avval fallback aralashmasidan edi)
-  const priceUsd   = (mainUzs > 0 && rate > 0) ? (mainUzs / rate).toFixed(2) : "";
+  const priceUsd   = (mainUzs > 0 && rate > 0) ? (mainUzs / (rate || Infinity)).toFixed(2) : "";
   // Ikkalasi ham yoqiq bo'lsa: katta qator = chakana, kichik qator = ulgurji
   const mainLine = mainUzs > 0 ? `<div class="nm-price-main">${fmt(mainUzs)} so'm</div>` : "";
   const ulgLine  = (chakanaOn && ulgOn) ? `<div class="nm-price-ulg">Ulgurji: ${fmt(ulgUzs)}</div>` : "";
@@ -4847,7 +4847,7 @@ function _apNextSku(type) {
 function _apCreateExtraColor(base, cd, batchId) {
   if (!base || !cd || !cd.color) return null;
 
-  const rate  = db.settings?.rate || 12800;
+  const rate  = kursOl();
   const inBox = cd.inbox > 0 ? cd.inbox : (base.inBox || 1);
   // 2026-07-26: JAMI DONA yozilgan bo'lsa u ustuvor (ochilgan qoldiq bilan)
   const qty   = (cd.dona > 0) ? cd.dona : ((cd.boxes || 0) * inBox);
@@ -4856,7 +4856,7 @@ function _apCreateExtraColor(base, cd, batchId) {
   // qat'i nazar). Avval "both" rejimda kiritilgan raqam DOLLAR deb
   // qabul qilinardi va 300 000 → 3 615 000 000 bo'lib ketardi.
   const costUzsVal = cd.cost > 0 ? Math.round(cd.cost) : (base.costUzs || 0);
-  const costUsd    = rate > 0 ? (costUzsVal / rate) : 0;   // eski kod uchun zaxira
+  const costUsd    = rate > 0 ? (costUzsVal / (rate || Infinity)) : 0;   // eski kod uchun zaxira
   const ulg = cd.ulg > 0 ? Math.round(cd.ulg) : (base.ulgurjiNarx || 0);
 
   // 2026-08-03: SKU noyobligi kafolatlanadi (yuqoridagi izoh)
@@ -5506,7 +5506,7 @@ function epVarRenderTable() {
   const grp = _epVarGroup(cur);
   if (!grp.length) { tbody.innerHTML = ""; return; }
 
-  const rate   = db.settings?.rate || 12800;
+  const rate   = kursOl();
   const mode   = db.settings?.priceCurrency || "uzs";
   const inpCss = "width:100%;font-family:inherit;font-size:12.5px;border:1px solid var(--brd);" +
                  "border-radius:6px;padding:6px 8px;box-sizing:border-box";
@@ -5573,7 +5573,7 @@ async function epSaveVariativ() {   // ✅ 2026-08-19: server orqali (async)
   const rows = [...document.querySelectorAll("#ep-var-tbody tr")];
   if (!rows.length) { toast("Tahrirlanadigan qator yo'q", "err"); return; }
 
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const mode = db.settings?.priceCurrency || "uzs";
   let changed = 0;
   const _varYangilar = [];   // ✅ 2026-08-19: serverga to'plamli
@@ -5605,7 +5605,7 @@ async function epSaveVariativ() {   // ✅ 2026-08-19: server orqali (async)
     // 2026-07-26: TANNARX SO'MDA — kiritilgan raqam to'g'ridan-to'g'ri
     // so'm (avval "both" rejimda dollar deb qabul qilinardi)
     const costUzsVal = Math.round(cost);
-    const costUsd    = rate > 0 ? (costUzsVal / rate) : 0;
+    const costUsd    = rate > 0 ? (costUzsVal / (rate || Infinity)) : 0;
 
     // Qoldiq — variantlar bo'yicha taqsimlanadi (bittadan ko'p bo'lsa nisbatan)
     const vars = p.variants || [];
@@ -6397,7 +6397,7 @@ function _stockMove(p, color, size, delta, sabab) {
     // avval shu mantiq faqat SHU YERDA edi, ombor amallari esa undan
     // foydalanmasdi (3-teshik). Endi ikkala tomon bitta yo'ldan yuradi.
     if (typeof _serverStock === "function") _serverStock(p, color, size, delta);
-    const _rate = (db.settings?.rate || 12800);
+    const _rate = kursOl();
     const _cost = (typeof getCostUzs === "function") ? getCostUzs(p)
                   : Math.round((p.costUsd || 0) * _rate);
     // ✅ 2026-08-19: HUJJAT ham SERVERGA yoziladi.

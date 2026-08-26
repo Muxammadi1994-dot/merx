@@ -1486,7 +1486,7 @@ function _saleQarzKursi(s) {
   const o = Number(s?.origDebtUsd) || 0;
   const r = Number(s?.origRemaining) || 0;
   if (o > 0 && r > 0) return r / o;                 // qarzning o'z kursi
-  return Number(s?.rate) || Number(db.settings?.rate) || 12800;
+  return Number(s?.rate) || kursOl();   // ✅ 566b
 }
 
 function _refundPayPlan(sale, total) {
@@ -1545,7 +1545,7 @@ function updateRefundPayPlan(total) {
 
   const p = _refundPayPlan(s, total);
   // 2026-07-25: qarz dollarda yuritilsa — summalar so'm / $ ko'rinishida
-  const _rate  = Number(s.rate) || Number(db.settings?.rate) || 12800;
+  const _rate  = Number(s.rate) || kursOl();   // ✅ 566b
   const _isUsd = s.debtCurrency === "usd";
   const M = v => _isUsd
     ? `${fmt(v)} so'm / $${(v / _rate).toFixed(2)}`
@@ -1577,13 +1577,13 @@ function _refundAddDebtPayment(sale, amountUzs, refundNo, custTotals, ownRate) {
   // ✅ 2026-08-17: SHU sotuv qoplamasida `ownRate` — qarz qotgan kurs
   // (_saleQarzKursi) keladi va USTUVOR. Boshqa qarzlarga oqim esa
   // avvalgidek bugungi kursda (u to'lov harakati — egasining qoidasi).
-  const rate = Number(ownRate) || Number(sale.rate) || Number(db.settings?.rate) || 12800;
+  const rate = Number(ownRate) || Number(sale.rate) || kursOl();   // ✅ 566b
 
   // 2026-07-25: QARZ VALYUTASI. Sotuv qarzi dollarda yuritilsa —
   // qaytarilgan tovar qiymati ham DOLLARGA aylantiriladi va chek/xabar
   // dollarda chiqadi (mijoz va sotuvchi chalg'imasin).
   const isUsdDebt = sale.debtCurrency === "usd";
-  const amount   = isUsdDebt ? +(amountUzs / rate).toFixed(2) : amountUzs;
+  const amount   = isUsdDebt ? +(amountUzs / (rate || Infinity)).toFixed(2) : amountUzs;
   const currency = isUsdDebt ? "usd" : "uzs";
 
   const before = isUsdDebt ? (custTotals?.usd || 0) : (custTotals?.uzs || 0);

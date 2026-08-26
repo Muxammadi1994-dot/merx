@@ -28,7 +28,7 @@ function dashDateStr() {
 }
 
 function priceFmt(uzs, forceSom) {
-  const r = db.settings?.rate || 12800;
+  const r = kursOl();
   const u = !forceSom && db.settings?.priceCurrency === 'usd';
   if (u) return (uzs/r).toFixed(0) + ' $';
   return fmtK(uzs) + " so'm";
@@ -91,7 +91,7 @@ function renderDashboard() {
   const overdueList = debts.filter(isOverdue);
 
   // Kassaga tushdi — payBreakdown + debtPayments (nasiyasiz)
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   // 2026-07-17: kassa/naqd ko'rsatkichlari DAVR tugmalariga bo'ysunadi
   const _perSales = dashGetSales();
   const _pr = dashGetDateRange();
@@ -330,7 +330,7 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
   const avgCheck = todayCnt ? Math.round(todayTotal / todayCnt) : 0;
 
   // Kassaga tushdi — davr bo'yicha
-  const _rate = db.settings?.rate || 12800;
+  const _rate = kursOl();
   const _pr2  = dashGetDateRange();
   let kassaTushdiKpi = 0;
   dashGetSales().forEach(s => {
@@ -724,7 +724,7 @@ function renderDashPriceType() {
   // 2026-07-25: qaytarish hisobidagi qarz to'lovi "naqd" bo'lib ko'rinardi
   const payments = cashPays().filter(p => p.date >= from && p.date <= to);
 
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const toUzs = p => p.currency === 'usd' ? p.amount * rate : p.amount;
   const methodColors = { naqd:'#36B48C', karta:'#4C9BE8', otkazma:'#8B5CF6', balans:'#E9A500' };
   const methodLabels = { naqd:'Naqd', karta:'Karta', otkazma:"O'tkazma", balans:'Balansdan' };
@@ -925,7 +925,7 @@ function updateDashCurrencyPill() {
   // Qat'iy rejim bo'lsa sozlamani majburlaymiz
   try { if (typeof enforceCurrencyMode === "function") enforceCurrencyMode(); } catch(e) {}
   const el = $('tb-rate');
-  if (el) el.textContent = (db.settings?.rate || 12800).toLocaleString('ru-RU');
+  if (el) el.textContent = kursOl() > 0 ? kursOl().toLocaleString('ru-RU') : "—";   // ✅ 566b
   const cur = $('tb-cur');
   const c = db.settings?.priceCurrency || 'uzs';
   if (cur) cur.textContent = (typeof currencyLabel === "function")

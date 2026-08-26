@@ -749,7 +749,7 @@ function omRenderKamQoldiq() {
         </tr></thead>
         <tbody>
           ${rows.length ? rows.map(({p, v, minQty}) => {
-            const rate = db.settings?.rate || 12800;
+            const rate = kursOl();
             const costUzs = getCostUzs(p);
             const status = v.qty === 0
               ? '<span class="bg bg-r">🚫 Tugagan</span>'
@@ -1470,7 +1470,7 @@ function confirmChiqim2() {
   if (!v) { toast("O'lchamni tanlang", "err"); return; }
   if (v.qty < qty) { toast(`Faqat ${v.qty} ta mavjud`, "err"); return; }
 
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const costUzs = getCostUzs(p);
 
   v.qty -= qty;

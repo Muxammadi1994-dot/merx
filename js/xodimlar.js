@@ -28,7 +28,7 @@ function staffStats(staffId, from, to) {
   const staff    = db.staff.find(s => s.id === staffId);
   const bonusPct = staff?.bonusPct || 0;
   const salary   = staff?.salary   || 0;
-  const rate     = db.settings?.rate || 12800;
+  const rate     = kursOl();
 
   const total    = sales.reduce((a, s) => a + (s.total||0), 0);
   const returned = sales.filter(s => s.status === "qaytarilgan").length;

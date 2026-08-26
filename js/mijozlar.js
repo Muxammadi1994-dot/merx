@@ -115,7 +115,7 @@ function custSegment(st, c) {
   // Yangi: birinchi xarid 30 kun ichida
   // Qarzli: joriy qarzi bor
   // Oddiy: qolganlari
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const totalUzs = st.totalBuy + (st.totalDebtUsd||0)*rate;
 
   if (c.debtLimit && (st.totalDebt + (st.totalDebtUsd||0)*rate) >= c.debtLimit)
@@ -203,7 +203,7 @@ function _custStatsCalc(custId) {
   const debtPayments = activePays().filter(p => allSales.some(s => s.id === p.saleId));
   const debtPayCount = debtPayments.length;
   const debtPaidSum  = debtPayments.reduce((a,p)=>a+(p.currency==="usd"
-    ?Math.round(p.amount*(db.settings?.rate||12800)):(p.amount||0)),0);
+    ?Math.round(p.amount*kursOl()):(p.amount||0)),0);
 
   const daysSinceLastBuy = lastSale?.date
     ? Math.round((new Date() - new Date(lastSale.date)) / 86400000)
@@ -369,8 +369,8 @@ function renderMijozlar() {
       if (_custSortKey === "totalBuy"){ va = sa.totalBuy;  vb = sb.totalBuy; }
       if (_custSortKey === "avgCheck"){ va = sa.avgCheck;  vb = sb.avgCheck; }
       if (_custSortKey === "debt")    {
-        va = (sa.totalDebt||0) + (sa.totalDebtUsd||0)*(db.settings?.rate||12800);
-        vb = (sb.totalDebt||0) + (sb.totalDebtUsd||0)*(db.settings?.rate||12800);
+        va = (sa.totalDebt||0) + (sa.totalDebtUsd||0)*kursOl();
+        vb = (sb.totalDebt||0) + (sb.totalDebtUsd||0)*kursOl();
       }
       if (_custSortKey === "lastDate"){ va = sa.lastDate||""; vb = sb.lastDate||""; }
       if (typeof va === "string") return _custSortAsc ? va.localeCompare(vb,"uz") : vb.localeCompare(va,"uz");
@@ -382,7 +382,7 @@ function renderMijozlar() {
 
   // KPI
   const all = db.customers;
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const ulg  = all.filter(c => c.type === "ulgurji").length;
   const chak = all.filter(c => c.type === "chakana").length;
   const debtCount = all.filter(c => { const st=custStats(c.id); return st.totalDebt>0||st.totalDebtUsd>0; }).length;
@@ -437,7 +437,7 @@ function renderMijozlar() {
   $("mijozlar-body").innerHTML = list.length ? pageSlice(list, _mjPage).map(c => {
     const st  = custStats(c.id);
     const seg = custSegment(st, c);
-    const limitWarn = c.debtLimit && (st.totalDebt+(st.totalDebtUsd||0)*(db.settings?.rate||12800)) >= c.debtLimit * 0.8;
+    const limitWarn = c.debtLimit && (st.totalDebt+(st.totalDebtUsd||0)*kursOl()) >= c.debtLimit * 0.8;
     return `<tr style="cursor:pointer${limitWarn?' background:#FFF7F7':''}" onclick="openCustCard(${c.id})">
       <td onclick="event.stopPropagation()" style="width:36px">
         <input type="checkbox" data-cust-check="${c.id}" ${_selectedCusts.has(c.id)?"checked":""}
@@ -474,7 +474,7 @@ function renderMijozlar() {
       </td>` : ""}
       ${cols.debtLimit ? `<td class="num" style="font-size:12px">
         ${c.debtLimit ? (() => {
-          const cur = st.totalDebt+(st.totalDebtUsd||0)*(db.settings?.rate||12800);
+          const cur = st.totalDebt+(st.totalDebtUsd||0)*kursOl();
           const pct = Math.min(100,Math.round(cur/c.debtLimit*100));
           const color = pct>=100?"var(--red)":pct>=80?"#E9A500":"var(--mut)";
           return `<div style="color:${color};font-weight:600">${fmtK(c.debtLimit)} so'm</div>
@@ -551,7 +551,7 @@ function _renderMjGrid(list, cols, pagerHtml, q) {
     }
   </style>`;
 
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
 
   const cards = list.map(c => {
     const st  = custStats(c.id);
@@ -634,7 +634,7 @@ function openCustCard(id) {
 
   const st   = custStats(id);
   const seg  = custSegment(st, c);
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
 
   if ($("cc-name"))  $("cc-name").textContent  = c.name;
   if ($("cc-phone")) $("cc-phone").innerHTML   = c.phone
@@ -1337,7 +1337,7 @@ function exportMijozlarExcel() {
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("mijozlar","excel")) return;
 
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const rows = [["Ism","Telefon","Qo'shimcha tel","Turi","Kompaniya","Manzil/Izoh",
     "Muhim qayд","Manba","Tug'ilgan kun","Sotuvlar","Jami xarid","O'rtacha chek",
     "Oxirgi xarid","Joriy qarz (so'm)","Joriy qarz (USD)","Segment","Qarz limiti","Sodiqlik ballari"]];
@@ -1409,7 +1409,7 @@ function checkBirthdayAlerts() {
 function addLoyaltyPoints(customerId, saleTotal) {
   const rate = db.settings?.loyaltyRate; // 0 yoki undefined = o'chirilgan
   if (!rate || rate <= 0 || !customerId) return 0;
-  const pts = Math.floor(saleTotal / rate);
+  const pts = Math.floor(saleTotal / (rate || Infinity));
   if (pts <= 0) return 0;
   const c = (db.customers||[]).find(x => x.id === customerId);
   if (!c) return 0;
@@ -1574,12 +1574,12 @@ function odAmtInput(el) {
   }
   const hint = $("od-hint");
   if (!hint) return;
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const val = parseFloat(String(el.dataset.raw || el.value).replace(/[^\d.]/g,"")) || 0;
   hint.textContent = val > 0
     ? (cur === "usd"
         ? `≈ ${fmt(Math.round(val * rate))} so'm (kurs ${fmt(rate)})`
-        : `≈ $${(val / rate).toFixed(2)} (kurs ${fmt(rate)})`)
+        : `≈ $${(val / (rate || Infinity)).toFixed(2)} (kurs ${fmt(rate)})`)
     : "";
 }
 
@@ -1597,7 +1597,7 @@ function saveOldDebt() {
   const val  = parseFloat(String(el?.dataset?.raw || el?.value || "").replace(/[^\d.]/g,"")) || 0;
   if (val <= 0) { toast("Qarz summasini kiriting", "err"); return; }
 
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const date = ($("od-date")||{value:""}).value || today();
   const due  = ($("od-due") ||{value:""}).value || "";
   const note = ($("od-note")||{value:""}).value.trim();

@@ -483,7 +483,7 @@ function calcSaleState(sale) {
   const payments = getSalePayments(sale.id);
   const extraPaidUzs = payments.filter(p => p.currency !== "usd").reduce((a,p) => a+(p.amount||0), 0);
   const extraPaidUsd = payments.filter(p => p.currency === "usd").reduce((a,p) => a+(p.amount||0), 0);
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
 
   const isUsdDebt = sale.debtCurrency === "usd" && sale.origDebtUsd != null;
   let currentPaid, currentRemaining, currentDebtUsd, currentStatus;
@@ -1369,7 +1369,7 @@ function buildReceiptHtml(sale, opts) {
   // o'zgarsa, ESKI CHEK O'ZGARMAYDI. Eski sotuvlarda (maydon yo'q) joriy
   // sozlamaga tayanamiz — ular uchun boshqa manba yo'q.
   const _pcMode = sale.priceCurrency || db.settings?.priceCurrency || "uzs";
-  const _pcRate = Number(sale.rate) || Number(db.settings?.rate) || 12800;
+  const _pcRate = Number(sale.rate) || kursOl();   // ✅ 566b
   // ═══ 2026-07-26: CHEK HAR DOIM IKKI VALYUTADA ═══
   // Barcha qatorlar (tovar narxi, chegirma, jami, to'lov) ikkala
   // valyutada ko'rsatiladi. Faqat TARTIB rejimga qarab o'zgaradi:
@@ -1905,7 +1905,7 @@ function buildReceiptTable(sale, opts, cfg) {
   const prevUsd  = Number(sale.prevDebtUsd || 0);
   const prevUzs  = Number(sale.prevDebtUzs || 0);
   const due      = sale.due  || "";
-  const rate     = Number(sale.rate) || (typeof db !== "undefined" && db.settings?.rate) || 12800;
+  const rate     = Number(sale.rate) || kursOl();   // ✅ 566b
   const payLabels= {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash"};
   const D  = n => (Number(n)||0).toFixed(2);
   const hdrCss = dark ? "background:#0D1B2A;color:#fff"
@@ -2266,7 +2266,7 @@ function buildReceiptWholesale(sale, opts, cfg) {
   const prevUsd  = Number(sale.prevDebtUsd || 0);
   const prevUzs  = Number(sale.prevDebtUzs || 0);
   const due      = sale.due  || "";
-  const rate     = Number(sale.rate) || (typeof db !== "undefined" && db.settings?.rate) || 12800;
+  const rate     = Number(sale.rate) || kursOl();   // ✅ 566b
   const payLabels= {naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", aralash:"Aralash"};
   const D        = n => "$" + (Number(n)||0).toFixed(2);
 
@@ -2827,14 +2827,14 @@ function getCostUzs(p) {
   if (!p) return 0;
   if (p.costUzs != null && p.costUzs > 0) return Math.round(p.costUzs);
   // Eski tovar: USD dan joriy kurs bo'yicha (migratsiyadan keyin bo'lmaydi)
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   return Math.round((p.costUsd || 0) * rate);
 }
 
 // Ko'rsatish uchun USD ekvivalenti (joriy kurs bo'yicha — faqat ko'rinish)
 function getCostUsdView(p) {
-  const rate = db.settings?.rate || 12800;
-  return rate > 0 ? (getCostUzs(p) / rate) : 0;
+  const rate = kursOl();
+  return rate > 0 ? (getCostUzs(p) / (rate || Infinity)) : 0;
 }
 
 // Bir martalik migratsiya: costUsd → costUzs
@@ -2853,7 +2853,7 @@ function migrateVariantInBox() {
 }
 
 function migrateCostToUzs() {
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   let n = 0;
   (db.products || []).forEach(p => {
     if (p.costUzs == null && (p.costUsd || 0) > 0) {
@@ -3831,7 +3831,7 @@ function buildPayReceiptStyled(payment, opts) {
   const D     = n => "$" + (Number(n) || 0).toFixed(2);
 
   const cur   = payment.currency === "usd" ? "usd" : "uzs";
-  const rate  = Number(payment.rate) || (typeof db !== "undefined" && db.settings?.rate) || 12800;
+  const rate  = Number(payment.rate) || kursOl();   // ✅ 566b
   const somAmt = Number(payment.amountSom) ||
                  (cur === "usd" ? Math.round(Number(payment.amount || 0) * rate) : Number(payment.amount || 0));
 

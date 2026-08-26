@@ -113,7 +113,7 @@ function _kunYigish(kun) {
     });
 
     (db.returns || []).forEach(r => { if (r.date === kun) chiq.qaytarish.push(r); });
-    const _rate = (db.settings && db.settings.rate) || 12800;
+    const _rate = kursOl();
     (db.debtPayments || []).forEach(p => {
       if (p.date !== kun || p.cancelled) return;
       chiq.tolovlar.push(p);

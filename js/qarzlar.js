@@ -225,7 +225,7 @@ function renderDebtRevenue() {
   const { from, to } = getDebtRevenueRange();
   const payments = activePays().filter(p => p.date >= from && p.date <= to);
 
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const toUzs = p => p.currency === "usd" ? p.amount * rate : p.amount;
 
   const total = payments.reduce((a,p) => a + toUzs(p), 0);
@@ -308,7 +308,7 @@ function renderDebtTrendChart() {
   const canvas = $("debt-trend-chart");
   if (!canvas || typeof Chart === "undefined") return;
 
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const now = new Date();
 
   // Davrga qarab nuqtalar ro'yxatini hosil qilamiz — har doim JORIY davrni
@@ -685,7 +685,7 @@ function renderDebts() {
   if (_gbtn) { _gbtn.style.background = debtGrouped ? "#0D1B2A" : "";
                _gbtn.style.color      = debtGrouped ? "#fff" : ""; }
   const q    = ($("debt-q")||{value:""}).value.toLowerCase();
-  const rate = db.settings.rate || 12800;
+  const rate = kursOl();
   const thisMonth = today().slice(0, 7);
 
   let list = debtSales();
@@ -841,8 +841,8 @@ function renderDebtCustCards() {
   let gList = Object.values(groups).sort((a, b) => {
     if (a.anyOverdue && !b.anyOverdue) return -1;
     if (!a.anyOverdue && b.anyOverdue)  return 1;
-    return (b.totalUzs + b.totalUsd*(db.settings?.rate||12800)) -
-           (a.totalUzs + a.totalUsd*(db.settings?.rate||12800));
+    return (b.totalUzs + b.totalUsd*kursOl()) -
+           (a.totalUzs + a.totalUsd*kursOl());
   });
 
   // Qidiruv mos kelganda mijoz ro'yxatini filtrlaymiz (faqat ko'rsatish uchun,
@@ -930,7 +930,7 @@ function renderDebtsList(list, rate) {
       <td>
         <div style="display:flex;flex-direction:column;gap:6px;min-width:120px">
           ${debtPayMethodInputs(s.id, isUsd, null,
-            isUsd ? Math.round((st.debtUsd||0) * (db.settings?.rate||12800))
+            isUsd ? Math.round((st.debtUsd||0) * kursOl())
                   : Math.round(st.remaining||0))}
           ${(() => {
             if (!s.customerId) return "";
@@ -1143,7 +1143,7 @@ function renderDebtsGrouped(list, rate) {
       <td class="num" style="font-weight:600">${g.sales.length}</td>
       <td class="num">
         ${g.totalUzs > 0 ? `<div style="font-weight:800;color:var(--red);font-size:14px">${fmt(g.totalUzs)} so'm</div>
-          <div style="font-size:10.5px;color:#999;font-weight:600">≈ $${(g.totalUzs/rate).toFixed(2)}</div>` : ""}
+          <div style="font-size:10.5px;color:#999;font-weight:600">≈ $${(g.totalUzs/(rate || Infinity)).toFixed(2)}</div>` : ""}
         ${g.totalUsd > 0 ? `<div style="font-weight:800;color:#1B4F72;font-size:14px">$${g.totalUsd.toFixed(2)} USD</div>
           <div style="font-size:10.5px;color:#999;font-weight:600">≈ ${fmt(Math.round(g.totalUsd*rate))} so'm</div>` : ""}
         ${!g.totalUzs && !g.totalUsd ? `<span style="color:#ccc">—</span>` : ""}
@@ -1159,7 +1159,7 @@ function renderDebtsGrouped(list, rate) {
       <td>
         <div style="display:flex;flex-direction:column;gap:6px;min-width:120px">
           ${g.totalUzs > 0 ? `<div>${debtPayMethodInputs(gKey + "-uzs", false, null, Math.round(g.totalUzs))}</div>` : ""}
-          ${g.totalUsd > 0 ? `<div>${debtPayMethodInputs(gKey + "-usd", true, null, Math.round(g.totalUsd * (db.settings?.rate||12800)))}</div>` : ""}
+          ${g.totalUsd > 0 ? `<div>${debtPayMethodInputs(gKey + "-usd", true, null, Math.round(g.totalUsd * kursOl()))}</div>` : ""}
         </div>
       </td>
       <td>
@@ -1301,7 +1301,7 @@ function _renderDebtGrid(groups, rate, cols, pagerHtml) {
       <div class="dg-sums">
         ${g.totalUzs > 0 ? `<div>
           <div class="dg-uzs">${fmt(g.totalUzs)} so'm</div>
-          <div class="dg-eq">≈ $${(g.totalUzs/rate).toFixed(2)}</div></div>` : ""}
+          <div class="dg-eq">≈ $${(g.totalUzs/(rate || Infinity)).toFixed(2)}</div></div>` : ""}
         ${g.totalUsd > 0 ? `<div>
           <div class="dg-usd">$${g.totalUsd.toFixed(2)}</div>
           <div class="dg-eq">≈ ${fmt(Math.round(g.totalUsd*rate))} so'm</div></div>` : ""}
@@ -1349,7 +1349,7 @@ function fmtPayBoth(amount, currency, rate, exactSom) {
   // eski (muhrsiz) to'lovlarda kurs bilan taxminiy hisoblanadi.
   const som = (exactSom != null && exactSom > 0)
     ? exactSom
-    : Math.round((amount||0) * (rate || db.settings?.rate || 12800));
+    : Math.round((amount||0) * (rate || kursOl()));
   return `${fmt(som)} so'm / $${amount}`;
 }
 
@@ -1409,7 +1409,7 @@ function qzMaxSomFor(idKey) {
   const s = db.sales.find(x => x.id === num);
   if (!s) return null;
   const st = calcSaleState(s);
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   return (s.debtCurrency === "usd" && st.debtUsd > 0)
     ? Math.round(st.debtUsd * rate)
     : Math.round(st.remaining || 0);
@@ -1437,7 +1437,7 @@ function qzClampPay(idKey, method) {
 // Dollor katakchasiga to'g'ridan-to'g'ri kiritilganda — Naqd qatorini
 // shu summaning so'mdagi ekvivalenti bilan to'ldiradi
 function qzUsdBoxToSom(idKey) {
-  const rate = db.settings.rate || 12800;
+  const rate = kursOl();
   const el = $("pay-usdbox-" + idKey);
   if (!el) return;
   let usdVal = parseFloat((el.value||"").replace(/[\s,]/g,"").replace(",",".")) || 0;
@@ -1482,10 +1482,10 @@ function toggleDebtPayMethod(key, val) {
 function qzShowGroupUsdHint(gKey) {
   const el = $("gpay-usdhint-" + gKey);
   if (!el) return;
-  const rate = db.settings.rate || 12800;
+  const rate = kursOl();
   const raw = ($("gpay-" + gKey + "-usd") || {value:""}).value.trim();
   const som = parseFloat(raw.replace(/[\s,]/g,"")) || 0;
-  el.textContent = som > 0 ? `≈ $${(som/rate).toFixed(2)}` : "";
+  el.textContent = som > 0 ? `≈ $${(som/(rate || Infinity)).toFixed(2)}` : "";
 }
 
 async function recordGroupPayment(idsStr, currency, gKey) {
@@ -1569,7 +1569,7 @@ function expandDebtGroup(idsStr) {
   const ids = idsStr.split(",").map(Number);
   // Filter by these sale IDs
   const list = debtSales().filter(s => ids.includes(s.id));
-  const rate = db.settings.rate || 12800;
+  const rate = kursOl();
   renderDebtsList(list, rate);
 }
 
@@ -1709,7 +1709,7 @@ async function useBalanceForDebt(saleId) {
 // jonli "≈ $X.XX" ko'rsatkichi — konvertatsiya to'g'riligini oldindan
 // ko'rsatib beradi (qo'lda kalkulyator shart emas).
 function qzShowUsdHint(id) {
-  const rate = db.settings.rate || 12800;
+  const rate = kursOl();
   // v176: endi 3 ta maydon (naqd/karta/o'tkazma) yig'indisi to'g'ridan-
   // to'g'ri "$ Dollor" KATAKCHASIGA yoziladi (avval faqat o'qish uchun
   // kichik matn edi, endi tahrirlanadigan maydonning o'zi)
@@ -1718,7 +1718,7 @@ function qzShowUsdHint(id) {
     return a + (parseFloat(raw.replace(/[\s,]/g,"")) || 0);
   }, 0);
   const box = $("pay-usdbox-" + id);
-  if (box) box.value = som > 0 ? (som/rate).toFixed(2) : "";
+  if (box) box.value = som > 0 ? (som/(rate || Infinity)).toFixed(2) : "";
 }
 
 // ═══ SERVER REJIMI (2026-08-13, A-bosqich) ═══════════════
@@ -1809,7 +1809,7 @@ async function recordPayment(id, forcedCurrency) {
   if (typeof requireUse === "function" && !requireUse("qarzlar")) return;
 
   const clicked = db.sales.find(x => x.id === id); if (!clicked) return;
-  const rate    = db.settings.rate || 12800;
+  const rate    = kursOl();
   const clickedState = calcSaleState(clicked);
   const payCur  = forcedCurrency || ((clicked.debtCurrency === "usd" && clickedState.debtUsd > 0) ? "usd" : "uzs");
 
@@ -1846,7 +1846,7 @@ async function recordPayment(id, forcedCurrency) {
   }
 
   if (totalSom <= 0) { toast("Summani kiriting","err"); return; }
-  const amt = payCur === "usd" ? Math.round((totalSom / rate) * 100) / 100 : totalSom;
+  const amt = payCur === "usd" ? Math.round((totalSom / (rate || Infinity)) * 100) / 100 : totalSom;
   const _staffId = parseInt(($("pay-staff-"+id)||{value:""}).value)||null;
 
   // Mijozning shu valyutadagi barcha ochiq qarzlari, sotuv sanasi bo'yicha (eng eski birinchi)
@@ -2530,7 +2530,7 @@ function showDebtPaymentReceipt(payment) {
     }
   } catch (e) { console.warn("qarz cheki uslubi:", e.message); }
   const cur      = payment.currency === "usd" ? "usd" : "uzs";
-  const rate     = payment.rate || db.settings?.rate || 12800;
+  const rate     = payment.rate || kursOl();
   const F        = n => Math.round(n||0).toLocaleString("ru-RU");
 
   // To'landi qatori
@@ -2827,7 +2827,7 @@ function renderQarzlarTarixi() {
 function renderQarzlarTarixiSplit() {
   const el = $("qt-list"); if (!el) return;
   const q = ($("qt-q")||{value:""}).value.toLowerCase();
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
 
   // Faqat qarzga sotilgan cheklar (debtCurrency/debtUsd yoki remaining > 0 bo'lgan tarix)
   const isUsdSale = s => s.debtCurrency === "usd";
@@ -3245,7 +3245,7 @@ function exportQarzTarixiExcel() {
   }
 
   // Split rejimi — har bir chek bitta qator, boshlang'ich/joriy qarz bilan
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const isUsdSale = s => s.debtCurrency === "usd";
   const getOrigDebt = s => {
     if (isUsdSale(s)) {

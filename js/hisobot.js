@@ -124,7 +124,7 @@ function _rsQoy(r) {
 // ── Asosiy render ─────────────────────────────────
 function renderHisobot() {
   const sales   = repSales();
-  const rate    = db.settings?.rate || 12800;
+  const rate    = kursOl();
   const { from, to } = repDateRange();
 
   // KPI
@@ -342,7 +342,7 @@ function renderRepPayChart(sales) {
   if (_repPayChart) { _repPayChart.destroy(); _repPayChart = null; }
   const legEl = $("rep-pay-legend");
 
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const methods = { naqd:0, karta:0, nasiya:0 };
   sales.forEach(s => {
     const amt = s.total || 0;
@@ -448,7 +448,7 @@ function renderRepCustomers(sales) {
 function renderRepPriceType(sales) {
   const el = $("rep-pricetype"); if (!el) return;
   const { from, to } = repDateRange();
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
 
   // 2026-07-25: qaytarish hisobidan yopilgan qarz to'lov USULI emas
   const payments = cashPays().filter(p => p.date >= from && p.date <= to);
@@ -662,7 +662,7 @@ function renderRepTurnover(sales) {
   const el = $("rep-turnover"); if (!el) return;
   const { from, to } = repDateRange();
   const days = Math.max(1, Math.round((new Date(to) - new Date(from)) / 86400000) + 1);
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
 
   // Sotilgan miqdor (davr ichida)
   const soldQty = {};
@@ -815,7 +815,7 @@ function renderRepCustomerSegment(sales) {
 // ══════════════════════════════════════════════════
 function renderRepStaff(sales) {
   const el = $("rep-staff"); if (!el) return;
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const { from, to } = repDateRange();
 
   const staffMap = {};
@@ -890,7 +890,7 @@ function exportHisobotExcel() {
   // 1. Asosiy sotuv tarixi
   const { from, to } = repDateRange();
   const sales = repSales();
-  const rate  = db.settings?.rate || 12800;
+  const rate  = kursOl();
 
   const rows = [["Sana","Vaqt","Kassir","Mijoz","Telefon","Mahsulotlar","Jami","To'landi","Qarz","To'lov turi","Narx turi","Holat"]];
   sales.forEach(s => {
@@ -937,7 +937,7 @@ function exportHisobotStaffExcel() {
   // 3. Kassirlar tahlili
   const { from, to } = repDateRange();
   const sales = repSales();
-  const rate  = db.settings?.rate || 12800;
+  const rate  = kursOl();
 
   const staffMap = {};
   sales.forEach(s => {
@@ -995,7 +995,7 @@ function exportHisobotTurnoverExcel() {
   // 5. Tovar aylanmasi + ombor qiymati
   const { from, to } = repDateRange();
   const sales = repSales();
-  const rate  = db.settings?.rate || 12800;
+  const rate  = kursOl();
   const days  = Math.max(1, Math.round((new Date(to)-new Date(from))/86400000)+1);
 
   const soldQty={};

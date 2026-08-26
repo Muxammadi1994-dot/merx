@@ -1522,7 +1522,7 @@ function renderCart() {
   // v186 (№7): hisoblagich POCHKA tilida — pochka tovarlar qtyBox bilan
   // sanaladi (avval 10 pochka "240 ta" bo'lib ko'rinardi), dona tovarlar donada
   const count    = cart.reduce((a, c) => a + (c.sellMode === "karobka" && c.qtyBox ? c.qtyBox : c.qty), 0);
-  const rate     = db.settings.rate || 12800;
+  const rate     = kursOl();
 
   $("cart-cnt").textContent = cart.length ? count + " ta" : "bo'sh";
   if ($("cart-items-count")) $("cart-items-count").textContent = cart.length ? count + " ta" : "0 ta";
@@ -1542,7 +1542,7 @@ function renderCart() {
   // USD ekvivalent
   const usdEl = $("cart-total-usd");
   if (usdEl) {
-    usdEl.textContent = total > 0 ? `≈ $${(total/rate).toFixed(0)}` : "";
+    usdEl.textContent = total > 0 ? `≈ $${(total/(rate || Infinity)).toFixed(0)}` : "";
   }
 
   if (!cart.length) {
@@ -2379,7 +2379,7 @@ function updateRem() {
   const subtotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
   const discount = calcDiscount(subtotal);
   const total    = subtotal - discount;
-  const rate     = db.settings?.rate || 12800;
+  const rate     = kursOl();
 
   // Yangi panel: naqd+karta+otkazma to'langan, qarz = qolgan
   const _pN = getRawVal("pay-naqd");
@@ -2400,7 +2400,7 @@ function updateRem() {
   }
 
   if ($("rem-view")) $("rem-view").textContent = posDebtCurrency === "usd"
-    ? "$" + (remUzs / rate).toFixed(2)
+    ? "$" + (remUzs / (rate || Infinity)).toFixed(2)
     : fmt(remUzs) + " so'm";
 }
 
@@ -3074,7 +3074,7 @@ async function checkout() {
       packGroup: c.packGroup != null ? c.packGroup : null,
       groupSizes: c.groupSizes || null,
       price: c.price, basePrice: c.basePrice || null, // v195: chekda chizilgan eski narx
-      cost: (c.costUzs || Math.round((c.costUsd || 0) * (db.settings?.rate || 12800))) || null, // 2026-07-25: so'mda muzlaganI tannarx (so'mda) — chekda foydaga mutanosib chegirma uchun; MIJOZGA KO'RINMAYDI
+      cost: (c.costUzs || Math.round((c.costUsd || 0) * kursOl())) || null, // 2026-07-25: so'mda muzlaganI tannarx (so'mda) — chekda foydaga mutanosib chegirma uchun; MIJOZGA KO'RINMAYDI
       unit: c.unit,
       image: c.image || null,
       barcode: c.barcode || null

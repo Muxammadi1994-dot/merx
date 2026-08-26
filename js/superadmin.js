@@ -1468,7 +1468,8 @@ async function saAddShop() {
   const shopDB = {
     shop: { name, type: shopType },
     settings: {
-      rate: 12800, priceCurrency: "uzs",
+      // ✅ 566b: kurs urug'i O'CHIRILDI — yangi do'kon kursi bulutdan (565 CBU) keladi
+      priceCurrency: "uzs",
       shopType: shopType,
       cloudShopId: shopId,
       adminEmail: loginEmail, adminPass: await saSha256(pass), modules,
@@ -2279,7 +2280,7 @@ function saGetShopStats(shop) {
     const raw = localStorage.getItem(shop.dbKey); if (!raw) return null;
     const sdb = JSON.parse(raw);
     const sales=sdb.sales||[], custs=sdb.customers||[], prods=sdb.products||[];
-    const rate = sdb.settings?.rate || 12800;
+    const rate = Number(sdb.settings?.rate) || 0;   // ✅ 566b: o'sha do'konning o'z kursi, taxmin yo'q
     const totalRev  = sales.reduce((a,s)=>a+(s.paid||0),0);
     const totalDebt = sales.filter(s=>s.remaining>0).reduce((a,s)=>a+(s.remaining||0),0);
     const totalStock= prods.reduce((a,p)=>a+p.variants.reduce((b,v)=>b+(v.qty||0),0),0);

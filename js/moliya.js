@@ -349,7 +349,7 @@ async function _mlEnsureFull() {
 function renderMoliya() {
   _mlEnsureFull();   // ✅ 2026-08-19: serverdan to'ldirish
   const { from, to } = molDateRange();
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const q = ($("exp-q")||{value:""}).value.toLowerCase();
 
   const periodSales = statSales().filter(s => s.date >= from && s.date <= to);
@@ -657,7 +657,7 @@ function renderFlowBars(kirim, chiqim, realProfit, netProfit, periodCost) {
 
   // O'tgan davr bilan taqqos
   const { from, to } = molDateRange();
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const daysDiff = Math.max(1, Math.round((new Date(to)-new Date(from))/86400000)+1);
   const prevTo   = new Date(from); prevTo.setDate(prevTo.getDate()-1);
   const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate()-daysDiff+1);
@@ -784,7 +784,7 @@ function renderMolTrendChart() {
   const el = $("mol-trend-chart"); if (!el || typeof Chart === "undefined") return;
   if (_molTrendChart) { _molTrendChart.destroy(); _molTrendChart = null; }
 
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const now  = new Date();
   const t    = _dStr(now);
 
@@ -1045,7 +1045,7 @@ async function addXarajat() {   // ✅ 2026-08-19 (2-bosqich): server orqali
     return ($("ax-who")||{value:""}).value;
   })();
   const recurring= ($("ax-recurring")||{checked:false}).checked;
-  const rate     = db.settings?.rate || 12800;
+  const rate     = kursOl();
 
   // Summa — agar USD bo'lsa, so'mga ham aylantiramiz
   const rawSum = getRawVal("ax-sum");
@@ -1180,7 +1180,7 @@ async function saveEditExp(id) {   // ✅ 2026-08-19: server orqali (async)
   const note     = ($("ax-note")||{value:""}).value.trim();
   const paidBy   = ($("ax-who")||{value:""}).value;
   const recurring= ($("ax-recurring")||{checked:false}).checked;
-  const rate     = db.settings?.rate || 12800;
+  const rate     = kursOl();
   const rawSum   = getRawVal("ax-sum");
   const sum      = currency === "usd" ? Math.round(rawSum * rate) : rawSum;
   const sumUsd   = currency === "usd" ? rawSum : null;
@@ -1584,7 +1584,7 @@ function initExpModal() {
 
 function renderKassaBalances() {
   const el = $("mol-kassa-balances"); if (!el) return;
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
 
   if (!(db.staff||[]).length) {
     el.innerHTML = `<div style="color:var(--mut);font-size:13px;text-align:center;padding:12px">Xodimlar yo'q</div>`;
@@ -1685,7 +1685,7 @@ function confirmStartShift(staffId) {
 function openCloseShift(staffId) {
   const s = (db.staff||[]).find(x => x.id == staffId); if (!s) return;
   const shift = (db.shifts||[]).find(sh => sh.staffId == staffId && !sh.closeTime); if (!shift) return;
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
 
   // Smena davomidagi sotuv hisoblash
   const shiftSales = statSales().filter(s => s.staffId == staffId && s.date >= shift.openDate);

@@ -260,7 +260,7 @@ function toggleRateBank(nom) {
 // shu bilan ikkalasi HAR DOIM bir xil ko'rinishda bo'ladi ──────────
 function currencyPillText() {
   const cur  = db.settings?.priceCurrency || "uzs";
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const lbl  = (typeof currencyLabel === "function") ? currencyLabel(cur)
     : (cur === "usd" ? "USD" : cur === "both" ? "SO'M+USD" : "SO'M");
   return `${lbl} (1$=${fmt(rate)})`;
@@ -474,7 +474,7 @@ function renderEgasi() {
   }
 
   // ── NARX TAB ──
-  if ($("s-rate")) $("s-rate").value = db.settings?.rate || 12800;
+  if ($("s-rate")) $("s-rate").value = kursOl() || "";   // ✅ 566b: bo'sh bo'lsa bo'sh tursin
   const cur = db.settings?.priceCurrency || "uzs";
   document.querySelectorAll("[data-c]").forEach(b => b.classList.toggle("on", b.dataset.c === cur));
   renderRateModeUI(); // v166: Qo'lda/Avtomatik holatini ham ko'rsatamiz
@@ -1409,7 +1409,7 @@ function _livePreviewCfg() {
 
 // Namuna (soxta) sotuv — preview uchun
 function _previewSampleSale(type) {
-  const rate = db.settings?.rate || 12800;
+  const rate = kursOl();
   const base = {
     // ✅ 2026-08-15: NAMUNA — "Bulutga yuborilmagan" eslatmasi chiqmasin
     serverWritten: true,
@@ -1427,7 +1427,7 @@ function _previewSampleSale(type) {
   };
   if (type === "qarz") {
     const _c  = db.settings?.priceCurrency || "uzs";
-    const _r  = db.settings?.rate || 12800;
+    const _r  = kursOl();
     const _ds = (_c === "uzs")
       ? { prevDebtUzs: 3000000, debtCurrency: "uzs" }
       : { prevDebtUsd: +(3000000 / _r).toFixed(2),
@@ -1443,7 +1443,7 @@ function _previewSampleSale(type) {
   // 2026-07-25: namuna JORIY valyuta rejimiga moslashadi — foydalanuvchi
   // o'z sozlamasiga mos ko'rinishni ko'rsin (avval har doim so'm edi).
   const _cur  = db.settings?.priceCurrency || "uzs";
-  const _rate = db.settings?.rate || 12800;
+  const _rate = kursOl();
   const _debtSample = (_cur === "uzs")
     ? { prevDebtUzs: 3000000, debtCurrency: "uzs" }
     : { prevDebtUsd: +(3000000 / _rate).toFixed(2),

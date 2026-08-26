@@ -430,7 +430,7 @@ async function confirmBooking(id) {
     const p = (db.products||[]).find(x => x.sku === bron.sku);
     if (p) {
       const priceType = db.settings?.priceCurrency || "uzs";
-      const rate = db.settings?.rate || 12800;
+      const rate = kursOl();
       const narx = bron.color && p.ulgurjiNarx ? p.ulgurjiNarx : (p.priceUzs || 0);
 
       // ⚠️ 2026-08-10: JONLI SAVATGA to'g'ridan-to'g'ri (bir oynadamiz).

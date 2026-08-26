@@ -2778,7 +2778,7 @@ body.sms-off .sms-only { display: none !important; }
               <label>1 USD = ? so'm</label>
               <div style="display:flex;align-items:center;gap:10px">
                 <!-- 2026-07-25: har harfda saqlash chalg'itardi — endi "Saqlash" tugmasi -->
-                <input id="s-rate" type="number" step="50" placeholder="12800"
+                <input id="s-rate" type="number" step="50" placeholder="dollar kursi"
                   oninput="rateInputChanged()" onkeydown="if(event.key==='Enter')saveRateManual()"
                   style="flex:1;font-size:20px;font-weight:800;text-align:center">
                 <span style="font-size:14px;color:var(--mut);white-space:nowrap">so'm / $</span>
@@ -5225,23 +5225,23 @@ body.sms-off .sms-only { display: none !important; }
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=172"></script>
-<script src="js/utils.js?v=301"></script>
+<script src="js/utils.js?v=302"></script>
 <script src="js/auth.js?v=214"></script>
 <script src="js/sms.js?v=149"></script>
 <script src="js/cloud.js?v=317"></script>
-<script src="js/dashboard.js?v=161"></script>
-<script src="js/pos.js?v=275"></script>
-<script src="js/katalog.js?v=298"></script>
-<script src="js/ombor.js?v=185"></script>
-<script src="js/mijozlar.js?v=172"></script>
-<script src="js/qarzlar.js?v=239"></script>
-<script src="js/tarix.js?v=196"></script>
-<script src="js/hisobot.js?v=157"></script>
-<script src="js/kunlik.js?v=9"></script>
-<script src="js/xodimlar.js?v=164"></script>
-<script src="js/moliya.js?v=178"></script>
-<script src="js/egasi.js?v=211"></script>
-<script src="js/portal.js?v=143"></script>
+<script src="js/dashboard.js?v=162"></script>
+<script src="js/pos.js?v=276"></script>
+<script src="js/katalog.js?v=299"></script>
+<script src="js/ombor.js?v=186"></script>
+<script src="js/mijozlar.js?v=173"></script>
+<script src="js/qarzlar.js?v=240"></script>
+<script src="js/tarix.js?v=197"></script>
+<script src="js/hisobot.js?v=158"></script>
+<script src="js/kunlik.js?v=10"></script>
+<script src="js/xodimlar.js?v=165"></script>
+<script src="js/moliya.js?v=179"></script>
+<script src="js/egasi.js?v=212"></script>
+<script src="js/portal.js?v=144"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -5437,7 +5437,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
-<script src="js/superadmin.js?v=231"></script>
+<script src="js/superadmin.js?v=232"></script>
 
 <!-- PWA (2026-07-20): Service Worker ro'yxatdan o'tkazish -->
 <script>
@@ -5534,7 +5534,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 563;
+  window.SW_V = 564;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5557,7 +5557,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=563")
+    navigator.serviceWorker.register("/sw.js?v=564")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
