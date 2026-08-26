@@ -985,6 +985,12 @@ async function pullDelta(noRender) {
         console.log("⏱ SINXRON · manba: " +
           staged.map(x => x.tbl + "=" + x.rows.length).join(", "));
       }
+      // ✅ TK-1 (2026-08-26): yangi sotuv/qaytarish keldi — Sotuv
+      // tarixi sahifa keshi bekor (ochiq ro'yxat eski suratda qolmasin)
+      try {
+        if ((staged || []).some(x => (x.tbl === "sales" || x.tbl === "returns") && x.rows.length) &&
+            typeof tarixKeshBekor === "function") tarixKeshBekor();
+      } catch (e3) {}
       console.log(`⚡ Delta: ${changed} ta o'zgarish${noRender ? " (jim)" : ""}`);
     }
     try { if (typeof _devHeal === "function") _devHeal(); } catch (e2) {}   // 551

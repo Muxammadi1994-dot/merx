@@ -139,6 +139,22 @@ function txResetLimit() { _txPage = 1; }
 //  · server xatosida — lokal ko'rinish + ogohlantirish (ish to'xtamaydi);
 //  · oflaynda — oxirgi muvaffaqiyatli sahifa keshdan, sanasi bilan;
 //  · eski yo'l TO'LIQ saqlangan (pastdagi filter-zanjir tegilmagan).
+// ✅ TK-1 (2026-08-26): SAHIFA KEShINI BEKOR QILISh. Egasining
+// shikoyati: "sotuv obnovitdan keyingina chiqadi". Sabab: quyidagi
+// kesh hech qayerdan bekor qilinmasdi — sinxron yangi sotuv olib
+// kelsa ham ochiq ro'yxat eski suratda qolardi. Endi: (1) sinxron
+// sales/returns keltirganda, (2) kassaning o'z sotuvida, (3) bekor/
+// qaytarishda — kalit buziladi; sahifa ochiq bo'lsa darhol qayta
+// chiziladi (_txFetch o'zi yangisini tortadi).
+function tarixKeshBekor() {
+  try {
+    _txSrv.key = ""; _txSrv.rows = null;
+    const _pg = document.getElementById("p-tarix");
+    if (_pg && _pg.classList.contains("on") &&
+        typeof renderTarix === "function") renderTarix();
+  } catch (e) {}
+}
+
 let _txSrv = { key:"", rows:null, jami:0, ag:null, busy:false,
                err:false, t:0 };
 let _txQTimer = null;
@@ -1319,6 +1335,7 @@ async function confirmRefund() {
   txStatus = "all";
   document.querySelectorAll(".tx-status-btn").forEach(b =>
     b.classList.toggle("on", b.dataset.s === "all"));
+  tarixKeshBekor();   // ✅ TK-1: server-kesh ham yangilansin
   renderTarix();
   toast(isFullRefund
     ? `✅ To'liq qaytarildi: ${fmt(refundTotal)} so'm. ${returnedCount} ta tovar omborga qaytdi.`
@@ -1779,6 +1796,7 @@ async function openSaleCancel(saleId) {
 
   saveDB();
   try { if (typeof flushCloudSync === "function") flushCloudSync(true); } catch(e) {}
+  tarixKeshBekor();   // ✅ TK-1
   renderTarix();
   if (typeof renderKatalog === "function") renderKatalog();
   toast(`Sotuv bekor qilindi — ${itemCnt} ta tovar omborga qaytdi`, "info");

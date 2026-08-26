@@ -3228,6 +3228,7 @@ async function checkout() {
     } catch (e) { console.warn("[offstock] navbatga qo'yilmadi:", e.message); }
   }
   db.sales.push(newSale); saveDB();
+  try { if (typeof tarixKeshBekor === "function") tarixKeshBekor(); } catch (e) {}   // ✅ TK-1
   // ⚖️ 528 (2026-08-22): SOTUV AUDITGA SUMMA BILAN YOZILADI (§9.1).
   // Ildiz — kontekst §3.7: "2026-08-21 da yo'qolgan to'lovlarni izlaganda
   // audit YAGONA UMID edi — u faqat atkazlarni yozgani uchun javob
