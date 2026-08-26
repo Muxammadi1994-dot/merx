@@ -4453,22 +4453,31 @@ function _refundPulYig(refs, pays, xars) {
   try {
     const nos = new Set((refs || []).map(r => r && r.no).filter(Boolean));
     if (!nos.size) return null;
-    let bU=null,bD=null,aU=null,aD=null,qU=0,qD=0,qSom=0,kSum=0,kMet="";
+    let bU=null,bD=null,aU=null,aD=null,qU=0,qD=0,somU=0,kSum=0,kMet="";
+    let qRate=0, qRateBir=true;
+    const mx=(o,v)=>(o==null?v:Math.max(o,v)), mn=(o,v)=>(o==null?v:Math.min(o,v));
     (pays || []).forEach(p => {
       const d = p && (p.data || p);
       if (!d || d.source !== "refund" || !nos.has(d.refundNo)) return;
       const cur = d.currency || p.currency || "uzs";
       const am  = Number(d.amount != null ? d.amount : p.amount) || 0;
-      const bf  = Number(d.debtBefore), af = Number(d.debtAfter);
-      if (cur === "usd") {
-        qD += am; qSom += Number(d.amountSom) || 0;
-        if (!isNaN(bf)) bD = (bD == null) ? bf : Math.max(bD, bf);
-        if (!isNaN(af)) aD = (aD == null) ? af : Math.min(aD, af);
+      // ✅ QP-2: yangi yozuvlarda IKKALA valyuta muhri bor — ustuvor;
+      // eski yozuvlarda faqat o'z valyutasi (halol: borini ko'rsatamiz).
+      const bfU=Number(d.debtBeforeUzs), bfD=Number(d.debtBeforeUsd);
+      const afU=Number(d.debtAfterUzs),  afD=Number(d.debtAfterUsd);
+      if (!isNaN(bfU) || !isNaN(bfD)) {
+        if (!isNaN(bfU)) bU=mx(bU,bfU);  if (!isNaN(bfD)) bD=mx(bD,bfD);
+        if (!isNaN(afU)) aU=mn(aU,afU);  if (!isNaN(afD)) aD=mn(aD,afD);
       } else {
-        qU += am; qSom += am;
-        if (!isNaN(bf)) bU = (bU == null) ? bf : Math.max(bU, bf);
-        if (!isNaN(af)) aU = (aU == null) ? af : Math.min(aU, af);
+        const bf=Number(d.debtBefore), af=Number(d.debtAfter);
+        if (cur === "usd") { if(!isNaN(bf)) bD=mx(bD,bf); if(!isNaN(af)) aD=mn(aD,af); }
+        else               { if(!isNaN(bf)) bU=mx(bU,bf); if(!isNaN(af)) aU=mn(aU,af); }
       }
+      if (cur === "usd") {
+        qD += am; somU += Number(d.amountSom) || 0;
+        const r = Number(d.rate) || 0;
+        if (r > 0) { if (qRate > 0 && Math.abs(qRate - r) > 1) qRateBir = false; qRate = r; }
+      } else qU += am;
     });
     (xars || []).forEach(x => {
       const d = x && (x.data || x);
@@ -4476,8 +4485,9 @@ function _refundPulYig(refs, pays, xars) {
       kSum += Number(x.amount != null ? x.amount : d.amount) || 0;
       if (!kMet) kMet = ((x.method || d.method) === "karta") ? "Karta" : "Naqd";
     });
+    if (!qRateBir) qRate = 0;   // kurslar har xil — bo'lish ko'rsatilmaydi
     if (qU<=0 && qD<=0 && kSum<=0) return null;
-    return { bU,bD,aU,aD,qU,qD,qSom,kSum,kMet };
+    return { bU,bD,aU,aD,qU,qD,somU,qRate,kSum,kMet };
   } catch (e) { return null; }
 }
 // Xulosani [nom, qiymat] satrlarga aylantiradi — hamma chizuvchi
@@ -4490,8 +4500,15 @@ function _refundPulSatrlar(pl, f) {
     return p.length ? p.join(" + ") : "0"; };
   if (pl.bU!=null || pl.bD!=null) S.push(["Qaytarishdan oldingi qarz", iq(pl.bU,pl.bD)]);
   if (pl.qU>0 || pl.qD>0) {
-    let v = iq(pl.qU,pl.qD);
-    if (pl.qD>0 && pl.qU<=0 && pl.qSom>0) v += " (≈ "+f(pl.qSom)+" so'm)";
+    // ✅ QP-2: sotuv chekidagi uslub — "12 000 000 / 11 779 = $1018.76".
+    // Kurs — QTQ yozuvidagi qotgan kurs; har xil bo'lsa bo'lish yozilmaydi.
+    let v;
+    if (pl.qD > 0) {
+      v = (pl.somU > 0
+            ? f(pl.somU) + (pl.qRate > 0 ? " / " + f(pl.qRate) : "") + " = "
+            : "") + "$" + pl.qD.toFixed(2);
+      if (pl.qU > 0) v += " + " + f(pl.qU) + " so'm";
+    } else v = f(pl.qU) + " so'm";
     S.push(["Qarzdan qoplandi", v]);
   }
   if (pl.aU!=null || pl.aD!=null) {

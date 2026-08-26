@@ -1620,6 +1620,14 @@ function _refundAddDebtPayment(sale, amountUzs, refundNo, custTotals, ownRate) {
     refundNo,
     debtBefore: before,
     debtAfter:  after,
+    // ✅ QP-2 (2026-08-26, egasining talabi): IKKALA VALYUTA MUHRLANADI
+    // (oddiy to'lovdagi debtBeforeUzs/Usd kabi) — eslatma va bot mijoz
+    // qarzini TO'LIQ ko'rsata olsin. Boshqa valyuta bu QTQ bilan
+    // o'zgarmaydi, shuning uchun after=before o'sha valyutada.
+    debtBeforeUzs: Math.round(custTotals?.uzs || 0),
+    debtBeforeUsd: Math.round((custTotals?.usd || 0) * 100) / 100,
+    debtAfterUzs:  isUsdDebt ? Math.round(custTotals?.uzs || 0) : after,
+    debtAfterUsd:  isUsdDebt ? after : Math.round((custTotals?.usd || 0) * 100) / 100,
     note: `Tovar qaytarish hisobidan (${refundNo})`,
     // ⚠️ 2026-07-25: allocation ICHIDA ham currency bo'lishi SHART —
     // calcSaleState qarzni shu maydondan aniqlaydi. U bo'lmasa USD
