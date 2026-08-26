@@ -1352,6 +1352,26 @@ async function cmdQarzlar(chatId, barcha = false) {
 }
 
 // ── Mijozga chek yuborish ──────────────────────────────────────
+// ✅ QP-3 (2026-08-26): QAYTARISH PUL XULOSASINI YUKLASh — yagona yo'l.
+// `refundNo` bo'yicha QTQ to'lovi va "Tovar qaytarish" xarajatini
+// o'qiydi (SOF O'QISH). Do'kon filtri MAJBURIY (MINA-1 darsi).
+// Natija `sale._refPul` ga qo'yiladi — chizuvchilar shundan oladi.
+async function _refPulYukla(sale, shopId) {
+  try {
+    const _shp = shopId || sale?.shop_id;
+    const _nos = (sale?.refunds || []).map(r => r && r.no).filter(Boolean);
+    if (!sale || !_shp || !_nos.length) return null;
+    const _orP = _nos.map(n => `data->>refundNo.eq.${encodeURIComponent(n)}`).join(",");
+    const [_pz, _xz] = await Promise.all([
+      sb("debt_payments", `?select=amount,currency,data&shop_id=eq.${_shp}&data->>source=eq.refund&or=(${_orP})`),
+      sb("xarajatlar",    `?select=amount,method,data&shop_id=eq.${_shp}&or=(${_orP})`)
+    ]);
+    const _pl = _refundPulYig(sale.refunds, _pz, _xz);
+    if (_pl) sale._refPul = _pl;
+    return _pl;
+  } catch (e) { console.warn("[refund] pul xulosasi:", e.message); return null; }
+}
+
 function formatReceiptText(sale, shopName) {
   const payLabels = { naqd: "Naqd", karta: "Karta", otkazma: "O'tkazma", aralash: "Aralash" };
   // ⚠️ 2026-08-05 TUZATILDI: e'lonlar `isUsd` dan OLDIN bo'lishi
@@ -1382,6 +1402,13 @@ function formatReceiptText(sale, shopName) {
       _refTxt = `\n<b>${sale.status === "qaytarilgan"
         ? "🔴 TO'LIQ QAYTARILGAN" : "🟠 QISMAN QAYTARILGAN"}</b>\n`;
       _refTxt += `Qaytarilgan: <b>${fmt(_rTot)} so'm</b>\n`;
+      // ✅ QP-3: pul xulosasi — chekdagi bilan BIR XIL satrlar
+      // (`_refPulYukla` xabar yuborishdan oldin to'ldiradi).
+      try {
+        _refundPulSatrlar(sale && sale._refPul, fmt).forEach(([k, v]) => {
+          _refTxt += `${k}: <b>${v}</b>\n`;
+        });
+      } catch (e) {}
       _rf.forEach(r => (r.items || []).forEach(it => {
         const q = it.qtyBox ? `${it.qtyBox} pochka` : `${it.qty || 0} dona`;
         _refTxt += `  ▫️ ${it.name || ""}${it.variant ? " (" + it.variant + ")" : ""} — ${q}\n`;
@@ -1867,6 +1894,9 @@ async function actionSendReceipt(body) {
   // botdagi chek sotuv cheki BILAN BIR XIL bo'ladi — ega qaysi
   // uslubni tanlagan bo'lsa, uning bo'limlari va tartibi botga ham
   // o'tadi (egasining talabi). Matn kelmasa — avvalgi yo'l.
+  // ✅ QP-3: matn yasashdan OLDIN qaytarish pul xulosasi yuklanadi
+  // (xabar chekdagi kabi to'liq bo'lsin). Xato bo'lsa — avvalgidek.
+  try { await _refPulYukla(sale, shopId || sale?.shop_id); } catch (e) {}
   const txt = (body && typeof body.receiptText === "string" && body.receiptText.trim())
     ? body.receiptText.trim()
     : formatReceiptText(sale, shopName || "MERX");
@@ -2630,6 +2660,14 @@ function buildReceiptHtml(sale, opts) {
           ${_nos ? `<div style="font-size:11px;color:#333;margin-top:2px">
             Hujjat: ${_nos}</div>` : ""}
           ${(() => {
+            // ✅ QP-3: pul xulosasi standart (unified) chekda ham.
+            // Manba — `actionRenderReceipt` da oldindan yuklangan `_refPul`.
+            try {
+              return _refundPulSatrlar(s && s._refPul, F).map(([k, v]) =>
+                `<div style="font-size:11px;color:#000;margin-top:2px">${k}: <b>${v}</b></div>`).join("");
+            } catch (e) { return ""; }
+          })()}
+          ${(() => {
             // ⚠️ 2026-08-05: QAYSI TOVAR QAYTARILGANI.
             // `refunds[].items` da nom, variant, miqdor va narx
             // saqlanadi (tarix.js) — lekin chekda ko'rsatilmasdi.
@@ -2823,19 +2861,7 @@ async function actionRenderReceipt(chekId, saleData, shopId) {
   // ✅ QP-1 (2026-08-26): qizil eslatma uchun PUL XULOSASI — refundNo
   // bo'yicha QTQ va xarajat yozuvlari. FAQAT O'QISH; shop filtri MAJBURIY
   // (MINA-1 darsi). Xato bo'lsa — eslatma pul satrsiz, chek baribir chiqadi.
-  try {
-    const _shp = shopId || sale?.shop_id;
-    const _nos = (sale?.refunds || []).map(r => r && r.no).filter(Boolean);
-    if (sale && _shp && _nos.length) {
-      const _orP = _nos.map(n => `data->>refundNo.eq.${encodeURIComponent(n)}`).join(",");
-      const [_pz, _xz] = await Promise.all([
-        sb("debt_payments", `?select=amount,currency,data&shop_id=eq.${_shp}&data->>source=eq.refund&or=(${_orP})`),
-        sb("xarajatlar", `?select=amount,method,data&shop_id=eq.${_shp}&or=(${_orP})`)
-      ]);
-      const _plB = _refundPulYig(sale.refunds, _pz, _xz);
-      if (_plB) sale._refPul = _plB;
-    }
-  } catch (e) { console.warn("[receipt] pul xulosasi:", e.message); }
+  await _refPulYukla(sale, shopId || sale?.shop_id);   // ✅ QP-3: yagona yo'l
   return buildReceiptStyled(sale, {
     style: _botChekStyle(sale, _ck),
     _chekCfg: _ck,

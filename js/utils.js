@@ -1497,6 +1497,16 @@ function buildReceiptHtml(sale, opts) {
         </div>
         ${_nos ? `<div style="font-size:10.5px;color:#000;margin-top:1px">
           Qaytarish cheki: ${_nos}</div>` : ""}
+        ${(() => {
+          // ✅ QP-3: PUL XULOSASI standart (unified) chekda ham.
+          // Avval faqat uslub muhrlangan cheklarda chiqardi — muhrsiz
+          // eski cheklar (jonli: 42 ta) pul satrlarisiz qolardi.
+          try {
+            const _p = _refundPulYig(_refs, db.debtPayments, db.xarajatlar);
+            return _refundPulSatrlar(_p, F).map(([k, v]) =>
+              `<div style="font-size:10.5px;color:#000;margin-top:1px">${k}: <b>${v}</b></div>`).join("");
+          } catch (e) { return ""; }
+        })()}
       </div>`;
   }
 

@@ -1236,8 +1236,18 @@ async function confirmRefund() {
     (db.sales || []).forEach(x => {
       if (!cid || x.customerId !== cid || x.status === "qaytarilgan") return;
       const st = _stateOf(x);
-      uzs += Math.max(0, st.remaining || 0);
-      usd += Math.max(0, st.debtUsd  || 0);
+      // ✅ QP-3 (2026-08-26): HAR QARZ FAQAT O'Z VALYUTASIDA sanaladi.
+      // Avval ikkalasiga ham qo'shilardi, `calcSaleState` esa dollar
+      // qarzda `remaining` ni SO'M EKVIVALENTI qilib qaytaradi — ya'ni
+      // bitta qarz ikki marta chiqardi. Jonli iz (Sevara, Shoetest):
+      // $84.90 qarz chekda "$84.90 + 1 000 037 so'm" bo'lib ko'rindi
+      // (84.90 × 11 779 = 1 000 037). Namuna: `qarzlar.js` oddiy to'lov
+      // yo'li (2026-08-15) — u allaqachon shunday ishlaydi.
+      if (x.debtCurrency === "usd" && (st.debtUsd || 0) > 0) {
+        usd += st.debtUsd;
+      } else {
+        uzs += Math.max(0, st.remaining || 0);
+      }
     });
     return { uzs, usd };
   };
