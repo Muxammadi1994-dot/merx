@@ -447,7 +447,7 @@ async function kunlikHisobot() {
     let r = null;   // 555: yarim tun qo'riqchisi qayta yozishi mumkin
     try {
       r = await _serverPay({ action: "report_stats", from: kun, to: kun,
-                             rate: (db.settings && db.settings.rate) || 12800 });
+                             rate: (kursOl() > 0 ? kursOl() : undefined) });   // ✅ 566a
     } catch (e) { console.warn("[kunlik] server:", e.message); }
     if (!r || !r.ok) {
       if (typeof toast === "function")
@@ -475,7 +475,7 @@ async function kunlikHisobot() {
               `Kechagi kun (${kecha}) uchun hisobot olasizmi?`)) {
           kun = kecha;
           const r2 = await _serverPay({ action: "report_stats", from: kun, to: kun,
-                       rate: (db.settings && db.settings.rate) || 12800 });
+                       rate: (kursOl() > 0 ? kursOl() : undefined) });   // ✅ 566a
           if (r2 && r2.ok) r = r2;
           y = _kunYigish(kun);
         }

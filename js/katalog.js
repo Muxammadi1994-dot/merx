@@ -3576,6 +3576,14 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
   };
   const importPartiya = _genPartiyaNum();
 
+  // ✅ 566a: KURSSIZ TANNARX YOZILMAYDI. Dollar tannarxli qator bor-u
+  // kurs hali kelmagan bo'lsa — avval 12800 bilan soxta so'm tannarx
+  // muhrlanardi (foyda hisobiga oqardi). Endi import halol to'xtaydi.
+  if ((_importRows || []).some(r => Number(r.costUsd) > 0) && !(kursOl() > 0)) {
+    toast("Dollar kursi hali yuklanmadi — bir necha soniya kutib, importni qayta bosing", "err");
+    return;
+  }
+
   _importRows.forEach(r => {
     // Mavjud mahsulotni topish (nom + art bo'yicha)
     // B1 (v152): har rang = alohida tovar, ARTIKUL ham hisobga olinadi.
@@ -3645,7 +3653,7 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
         if (r.art && !p.art)   p.art         = r.art;
         if (r.costUsd > 0) {
           p.costUsd = r.costUsd;
-          p.costUzs = Math.round(r.costUsd * (db.settings?.rate || 12800));
+          p.costUzs = Math.round(r.costUsd * kursOl());   // ✅ 566a
         }
         if (r.ulg  > 0)        p.ulgurjiNarx = r.ulg;
         // colorBarcodes yangilash
@@ -3682,7 +3690,7 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
         barcode:     _bc,
         colorBarcodes: { [colorRaw]: _bc },
         // 2026-07-25: tannarx so'mda muzlaydi
-        costUzs:     Math.round((r.costUsd || 0) * (db.settings?.rate || 12800)),
+        costUzs:     Math.round((r.costUsd || 0) * kursOl()),   // ✅ 566a
         costUsd:     r.costUsd || 0,
         priceUzs:    0,
         ulgurjiNarx: r.ulg || 0,
@@ -4009,7 +4017,7 @@ function _nmOpts() {
     showBarc: $c("nm-barcode-chk")?.checked !== false,
     showSku:  $c("nm-sku")?.checked || false,
     showUlg:  $c("nm-ulg")?.checked !== false,
-    rate:     db.settings.rate || 12800,
+    rate:     kursOl(),   // ✅ 566a: kurssiz — yorliqda USD qatori chizilmaydi
     shopName: db.shop?.name || "MERX"
   };
 }

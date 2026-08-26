@@ -2982,6 +2982,19 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
       suppliers:    db.suppliers    || []
     };
 
+    // ✅ 566a: KURS BIRINChI. Yangi qurilmada sozlamalar og'ir
+    // tortishning OXIRIDA kelardi (~18 s) — o'sha oynada USD
+    // hisob-kitoblar kurssiz qolardi. Endi og'ir ishdan oldin
+    // bitta yengil so'rov bilan faqat kurs olinadi.
+    if (!(Number(db.settings && db.settings.rate) > 0)) {
+      try {
+        const { data: _k1 } = await _sb.from("settings").select("rate")
+          .eq("shop_id", sid).limit(1);
+        const _r1 = Number(_k1 && _k1[0] && _k1[0].rate) || 0;
+        if (_r1 > 0) { db.settings = db.settings || {}; db.settings.rate = _r1; }
+      } catch (e) { console.warn("kurs-birinchi:", e.message); }
+    }
+
     // Products — faqat bu do'kon
     const prods = await _selectAll(() => _sb.from("products").select("*").eq("shop_id", sid), "products");
     _cloudIds["products"] = new Map((prods||[]).map(r => [String(r.sku), r.sku]));

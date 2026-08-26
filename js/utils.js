@@ -520,6 +520,16 @@ function priceDisplay(priceUzs) {
 }
 
 let toastT;
+// ═══ ✅ 566a (2026-08-26): KURS — YAGONA MANBA ═══════════════════
+// Qoida: dollar kursi FAQAT do'kon sozlamasidan olinadi. Yo'q bo'lsa
+// 0 qaytadi — TAXMIN YO'Q (12800 kabi soxta zaxira TAQIQ).
+// Chaqiruvchi 0 ko'rsa: ko'rsatishda "—", pul amalida to'xtab
+// "kurs yuklanmadi" deydi. Qolgan eski `|| 12800` zaxiralari 566b/c
+// sessiyalarida shu funksiyaga almashtiriladi.
+function kursOl() {
+  return Number(typeof db !== "undefined" && db.settings && db.settings.rate) || 0;
+}
+
 function toast(msg, type = "ok") {
   const icons = { ok:"ti-check", err:"ti-alert-circle", info:"ti-info-circle" };
   $("toast-ico").className = "ti " + (icons[type] || "ti-check");

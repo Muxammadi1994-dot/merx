@@ -2892,7 +2892,13 @@ async function checkout() {
         return;
       }
 
-      if (posDebtCurrency === "usd" && rem > 0) debtUsd = parseFloat((rem/(db.settings.rate||12800)).toFixed(2));
+      if (posDebtCurrency === "usd" && rem > 0) {
+        // ✅ 566a: KURSSIZ TAXMIN YO'Q. Avval kurs kelmagan oynada
+        // 12800 bilan bo'linib, XATO dollar qarz chekka muhrlanardi.
+        const _k = kursOl();
+        if (!(_k > 0)) { toast("Dollar kursi hali yuklanmadi — bir necha soniya kutib, qayta urining", "err"); return; }
+        debtUsd = parseFloat((rem / _k).toFixed(2));
+      }
       posPayMode = "part";
     }
     // payBreakdown faqat naqd to'lovlar (qarz alohida saqlanadi)
@@ -2911,7 +2917,10 @@ async function checkout() {
     rem     = Math.max(0, total - paid);
     status  = rem > 0 ? "qarz" : "tolandan";
     if (posDebtCurrency === "usd" && rem > 0) {
-      debtUsd = parseFloat((rem / (db.settings.rate||12800)).toFixed(2));
+      // ✅ 566a: KURSSIZ TAXMIN YO'Q (yuqoridagi shox bilan bir xil).
+      const _k2 = kursOl();
+      if (!(_k2 > 0)) { toast("Dollar kursi hali yuklanmadi — bir necha soniya kutib, qayta urining", "err"); return; }
+      debtUsd = parseFloat((rem / _k2).toFixed(2));
     }
 
   } else if (posPayType === "aralash") {

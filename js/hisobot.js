@@ -82,7 +82,7 @@ async function _repStatsServer(from, to) {
     _rsHisBusy = (async () => {
       try {
         const r = await _serverPay({ action: "report_stats", from, to,
-                                     rate: db.settings?.rate || 12800 });
+                                     rate: (kursOl() > 0 ? kursOl() : undefined) });   // ✅ 566a
         if (r && r.ok) { _rsKesh = { k: kalit, t: Date.now(), r }; _rsQoy(r); }
       } finally { _rsHisBusy = null; }
     })();
