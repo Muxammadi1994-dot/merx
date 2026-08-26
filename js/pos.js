@@ -2440,6 +2440,31 @@ function posRefreshCustCard() {
   } catch (e) {}
 }
 
+// ═══ ✅ MQ-1 (2026-08-26): MIJOZ QIDIRUVI — yordamchilar ═══
+// Sabab (egasi topdi): "Oybek" deb qidirilganda "Oybek aka chiroqchi"
+// chiqmasdi. Uchta ildiz: (1) mos kelganlar 8 tada KESILARDI, tartib
+// esa eskidan yangiga edi — ro'yxat oxiridagi mijoz ko'rinmasdi;
+// (2) ko'p so'zli so'rov BITTA BO'LAK sifatida izlanardi ("oybek
+// chiroqchi" ≠ "Oybek aka chiroqchi"); (3) izohdagi ikkinchi telefon
+// raqam sifatida solishtirilmasdi. Bonus: ismsiz yozuv butun
+// qidiruvni yiqitardi (`c.name.toLowerCase()` — null'da xato).
+function _mqNorm(s) {
+  return String(s || "").toLowerCase()
+    .replace(/[\u2018\u2019\u02bb\u02bc\u0060\u00b4']/g, "'")   // har xil apostroflar → bitta
+    .replace(/\s+/g, " ").trim();
+}
+function _mqRaqam(s) { return String(s || "").replace(/\D/g, ""); }
+
+// Mos daraja: kichik son = yuqorida turadi.
+function _mqBall(nom, telR, izoh, so_z, butun, butunR) {
+  if (butun && nom.startsWith(butun)) return 0;                    // ism aynan shundan boshlanadi
+  if (butun && (" " + nom).includes(" " + butun)) return 1;        // biror so'z shundan boshlanadi
+  if (butun && nom.includes(butun)) return 2;                      // ism ichida
+  if (so_z.every(t => nom.includes(t))) return 3;                  // hamma so'z ismda (tartibsiz)
+  if (butunR.length >= 2 && telR.includes(butunR)) return 4;       // telefon
+  return 5;                                                        // izoh yoki aralash
+}
+
 function custSearch(q) {
   const dd = $("cust-dropdown"); if (!dd) return;
   const clearBtn = $("cust-clear-btn");
@@ -2449,18 +2474,33 @@ function custSearch(q) {
 
   if (!val) { dd.style.display = "none"; return; }
 
-  const ql = val.toLowerCase();
-  const qlDigits = ql.replace(/\D/g,""); // faqat raqamlar
-  const found = db.customers.filter(c => {
-    if (c.name.toLowerCase().includes(ql)) return true;
-    // Telefon bo'yicha: faqat raqamlar kiritilgan bo'lsa va kamida 2 ta raqam bo'lsa
-    if (qlDigits.length >= 2) {
-      const phoneDigits = (c.phone||"").replace(/\D/g,"");
-      if (phoneDigits && phoneDigits.includes(qlDigits)) return true;
-    }
-    if ((c.note||"").toLowerCase().includes(ql)) return true;
-    return false;
-  }).slice(0, 8);
+  // ✅ MQ-1: so'rov so'zlarga bo'linadi; HAR SO'Z topilishi kerak
+  // (tartibi muhim emas). Raqamli so'z telefon/izohdagi raqamlarga ham
+  // solishtiriladi — "oybek 2102" kabi aralash so'rov ham ishlaydi.
+  const ql     = _mqNorm(val);
+  const qlR    = _mqRaqam(val);
+  const so_zlar = ql.split(" ").filter(Boolean);
+
+  const _mos = [];
+  (db.customers || []).forEach(c => {
+    const nom  = _mqNorm(c.name);            // ismsiz yozuvda "" — xato bermaydi
+    const izoh = _mqNorm(c.note);
+    const telR = _mqRaqam(c.phone) + " " + _mqRaqam(c.note);   // izohdagi 2-raqam ham
+    const hay  = nom + " " + izoh;
+    const barchasi = so_zlar.every(t => {
+      if (hay.includes(t)) return true;
+      const tR = _mqRaqam(t);
+      return tR.length >= 2 && telR.includes(tR);
+    });
+    if (!barchasi) return;
+    _mos.push({ c, ball: _mqBall(nom, telR, izoh, so_zlar, ql, qlR) });
+  });
+
+  _mos.sort((a, b) => a.ball - b.ball ||
+                      _mqNorm(a.c.name).localeCompare(_mqNorm(b.c.name)));
+  const CHEK = 20;                       // avval 8 edi — shu sabab mijoz "yo'qolardi"
+  const qoldi = Math.max(0, _mos.length - CHEK);
+  const found = _mos.slice(0, CHEK).map(o => o.c);
 
   if (!found.length) {
     dd.style.display = "block";
@@ -2486,6 +2526,12 @@ function custSearch(q) {
       + Yangi mijoz sifatida qo'shish
     </div>`;
 
+  // ✅ MQ-1: kesilgan bo'lsa — jim qolmaydi, sonini aytadi
+  const moreHtml = qoldi > 0 ? `
+    <div style="padding:7px 14px;font-size:11.5px;color:var(--mut);background:var(--bg);border-top:1px solid var(--brd)">
+      yana ${qoldi} ta mos mijoz bor — ism yoki raqamni to'liqroq yozing
+    </div>` : "";
+
   dd.style.display = "block";
   dd.innerHTML = found.map(c => {
     const debts = db.sales.filter(s => s.customerId===c.id && s.status!=="qaytarilgan")
@@ -2506,7 +2552,7 @@ function custSearch(q) {
       </div>
       <i class="ti ti-chevron-right" style="font-size:14px;color:#bbb"></i>
     </div>`;
-  }).join("") + addNewHtml;
+  }).join("") + moreHtml + addNewHtml;
 }
 
 function custSelect(id) {
