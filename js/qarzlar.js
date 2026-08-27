@@ -847,9 +847,27 @@ function renderDebtCustCards() {
 
   // Qidiruv mos kelganda mijoz ro'yxatini filtrlaymiz (faqat ko'rsatish uchun,
   // jami statistika hali ham barcha qarzlardan hisoblanadi)
-  if (q) gList = gList.filter(g =>
-    g.name.toLowerCase().includes(q) || (g.phone||"").includes(q)
-  );
+  // ✅ QQ-1 (2026-08-27): QIDIRUV AQLLI QILINDI — POS'dagi (MQ-1)
+  // naqsh bo'yicha. Uch kamchilik tuzatildi:
+  //  1) ko'p so'zli so'rov BITTA BO'LAK sifatida izlanardi
+  //     ("oybek chiroqchi" ≠ "Oybek aka chiroqchi");
+  //  2) telefon RAQAMGA AJRATILMAS edi — "+998 90 123-45-67"
+  //     yozilgan mijoz "901234567" deb qidirilganda topilmasdi;
+  //  3) ismsiz guruh bo'lsa `g.name.toLowerCase()` butun qidiruvni
+  //     yiqitardi. Endi bo'sh nom xavfsiz.
+  if (q) {
+    const _qR  = q.replace(/\D/g, "");
+    const _soz = q.split(/\s+/).filter(Boolean);
+    gList = gList.filter(g => {
+      const nom  = String(g.name || "").toLowerCase();
+      const telR = String(g.phone || "").replace(/\D/g, "");
+      return _soz.every(t => {
+        if (nom.includes(t)) return true;
+        const tR = t.replace(/\D/g, "");
+        return tR.length >= 2 && telR.includes(tR);
+      }) || (_qR.length >= 2 && telR.includes(_qR));
+    });
+  }
 
   if (!debtGrouped) { el.style.display = "none"; return; }
   if (!gList.length) {
