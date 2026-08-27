@@ -68,6 +68,28 @@ function getRateMode() {
   return (m === "auto" || m === "bank") ? m : "manual";
 }
 
+// ✅ K2a (2026-08-27): AVTO-KURS SERVER ORQALI HAM YOZILADI.
+// Ildiz (jonli, Shoetest 16:09-16:20): avto-yangilash faqat lokalga
+// yozardi; har qanday sozlama server orqali yozilgach bulut muhri
+// yangi bo'lib, taqqoslagich (cloud.js "bulutda YANGIROQ") birinchi
+// avto-urinishni BEKOR qilardi — kurs bir o'zgarib eski qiymatga
+// qaytardi. Endi avto-yozuv ham qo'lda saqlash yo'lidan yuradi:
+// server-merge FAQAT rate/rate_updated_at ustunlarini yangilaydi,
+// boshqa maydonlarga tegmaydi (server oq ro'yxati bilan tekshirilgan).
+// Server rejimi bo'lmasa — hozirgidek qoladi (ikkinchi urinish davosi).
+function _rateServerYoz() {
+  try {
+    if (typeof _serverRejimi === "function" && _serverRejimi() &&
+        typeof _serverPay === "function") {
+      _serverPay({ action: "settings", patch: {
+        rate: db.settings.rate,
+        rate_updated_at: db.settings.rateUpdatedAt || new Date().toISOString()
+      }}).then(r => { if (!r || !r.ok) console.warn("Avto-kurs serverga yozilmadi:", (r && r.error) || "?"); })
+        .catch(e => console.warn("Avto-kurs serverga yozilmadi:", e.message));
+    }
+  } catch (e) {}
+}
+
 function renderRateModeUI() {
   const mode = getRateMode();
   document.querySelectorAll('[data-ratemode]').forEach(b =>
@@ -177,6 +199,7 @@ async function checkAutoRate(force) {
         db.settings.rateBankName = eng.bank;
         db.settings.rateUpdatedAt = new Date().toISOString();
         saveDB();
+        _rateServerYoz();   // ✅ K2a
         if ($("s-rate")) $("s-rate").value = db.settings.rate;
         renderRateModeUI();
         if (typeof updateRatePill === "function") updateRatePill();
@@ -190,7 +213,7 @@ async function checkAutoRate(force) {
         db.settings.rate = Math.round(data.rate);
         db.settings.rateBankName = "Markaziy Bank (zaxira)";
         db.settings.rateUpdatedAt = new Date().toISOString();
-        saveDB(); renderRateModeUI();
+        saveDB(); _rateServerYoz(); renderRateModeUI();   // ✅ K2a
         if (typeof updateRatePill === "function") updateRatePill();
         if (force) toast("⚠️ Bank kurslari olinmadi — Markaziy Bank kursi qo'yildi", "err");
         return;
@@ -202,6 +225,7 @@ async function checkAutoRate(force) {
       db.settings.rate = Math.round(data.rate);
       db.settings.rateUpdatedAt = new Date().toISOString();
       saveDB();
+      _rateServerYoz();   // ✅ K2a
       if ($("s-rate")) $("s-rate").value = db.settings.rate;
       renderRateModeUI();
       if (typeof updateRatePill === "function") updateRatePill();
