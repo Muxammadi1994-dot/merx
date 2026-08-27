@@ -1648,6 +1648,28 @@ function saveRateManual() {
   if (val < 1000 || val > 100000) {
     if (!confirm(`Kurs ${fmt(val)} so'm — bu to'g'rimi?`)) return;
   }
+  // ✅ K1 (2026-08-27): SAKRASH QO'RIQCHISI. Kurs endi yagona
+  // manbadan (566) — ya'ni bitta xato bosish butun tizimga
+  // tarqaladi: USD-qarz cheklar, foyda, mijoz cheki. Haqiqiy kurs
+  // bir kunda 1,5% dan ko'p sakramaydi; undan katta farq — tasdiq
+  // bilan. Birinchi kiritishda (eski qiymat yo'q) so'ralmaydi.
+  // Avto rejimlarga (MB/bank) TEGILMAGAN — ularda o'z 10% langari
+  // bor (2026-08-20) va dialog chiqarib bo'lmaydi.
+  const _esk = Number(db.settings?.rate) || 0;
+  if (_esk > 0) {
+    const _farq = Math.abs(val - _esk) / _esk;
+    if (_farq > 0.015) {
+      const _f = (_farq * 100).toFixed(1);
+      if (!confirm(`⚠️ Kurs ${fmt(_esk)} → ${fmt(val)} so'm ` +
+                   `(${val > _esk ? "+" : "−"}${_f}%).\n\n` +
+                   `Haqiqiy kurs bir kunda bunchalik sakramaydi.\n` +
+                   `Rostdan shu qiymatni saqlaymizmi?`)) {
+        inp.value = _esk;            // eski qiymat qaytadi
+        rateInputChanged();
+        return;
+      }
+    }
+  }
   // Qo'lda o'zgartirilsa rejim ham "manual" ga o'tadi
   if (db.settings?.rateMode !== "manual") {
     saveSetting("rateMode", "manual");
