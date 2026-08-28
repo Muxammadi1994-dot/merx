@@ -1863,10 +1863,21 @@ async function actionSendReceipt(body) {
       all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id${shopFilter}&limit=1000`);
     }
     console.log(`[sendReceipt] nomzod=${all?.length}, qidirilgan=${rawPhone}`);
-    const match = (all || []).find(c => {
+    // ✅ TG-3 (2026-08-28): NUSXALAR ORASIDAN TO'G'RISI TANLANADI.
+    // Avval BIRINCHI mos qator olinardi; bir telefon ikki qatorda
+    // bo'lsa (ikki do'kon yoki dublikat) va birinchisida ulanish
+    // bo'lmasa — "chat yo'q" deb chiqib ketilardi, holbuki ikkinchi
+    // qatorda ulanish bor edi. Tartib: (1) shu do'kon + ulanishi bor,
+    // (2) ulanishi bor, (3) shu do'kon, (4) birinchi mos.
+    const _mos = (all || []).filter(c => {
       const cp = normPhone(c.phone || "");
       return cp && normalize(cp) === normalize(rawPhone);
     });
+    const _shu = c => !shopId || String(c.shop_id || shopId) === String(shopId);
+    const match = _mos.find(c => _shu(c) && c.telegram_chat_id)
+               || _mos.find(c => c.telegram_chat_id && _shu(c))
+               || _mos.find(c => _shu(c))
+               || _mos[0];
     console.log(`[sendReceipt] phone match:`, match
       ? `id=${match.id} local_id=${match.local_id} chat_id=${match.telegram_chat_id}`
       : "topilmadi");
@@ -1886,7 +1897,15 @@ async function actionSendReceipt(body) {
 
   console.log(`[sendReceipt] chatId=${chatId}`);
 
-  if (!chatId) {
+  // ✅ TG-2 (2026-08-28): GURUH ShAXSIY ChATDAN AJRATILDI.
+  // Avval bu yerda funksiya TO'XTARDI — mijozda shaxsiy ulanish
+  // bo'lmasa, mijoz GURUHIGA ham chek bormasdi (guruh bloki pastda
+  // turadi). B20 usuli aynan guruhga tayanadi: 19 guruhdan 13 tasida
+  // shaxsiy ulanish yo'q edi — ya'ni 13 mijoz chekni umuman olmagan.
+  // Endi: chat bo'lsa mijozga (avvalgidek), guruh bo'lsa guruhga;
+  // ikkalasi ham bo'lmasa — avvalgidek "yuborilmadi" qaytadi.
+  const _gidBor = /^-?\d{5,}$/.test(String(body.groupId || "").trim());
+  if (!chatId && !_gidBor) {
     return { ok: false, sent: false, reason: "no_telegram" };
   }
 
@@ -1916,14 +1935,17 @@ async function actionSendReceipt(body) {
   const _rpEnc = _rp.replace(/[^a-zA-Z0-9_]/g, m => "x" + m.charCodeAt(0).toString(16));
   const receiptUrl = `https://t.me/${BOT_USERNAME}/ombor?startapp=${_rpEnc}`;
 
-  const r = await tg(chatId, txt, {
-    reply_markup: {
-      inline_keyboard: [[{ text: "📄 Chekni ko'rish", url: receiptUrl }]],
-    },
-  });
-
-  if (!r.ok) {
-    return { ok: false, sent: false, reason: "telegram_error", detail: r.description };
+  // ✅ TG-2: mijozga — faqat shaxsiy ulanish bo'lsa (avvalgidek).
+  // Ulanish yo'q, guruh bor holatda bu qadam o'tkazib yuboriladi.
+  let custSent = false, _err = null;
+  if (chatId) {
+    const r = await tg(chatId, txt, {
+      reply_markup: {
+        inline_keyboard: [[{ text: "📄 Chekni ko'rish", url: receiptUrl }]],
+      },
+    });
+    custSent = !!r.ok;
+    if (!r.ok) _err = r.description;
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -1952,8 +1974,14 @@ async function actionSendReceipt(body) {
     }
   } catch (e) { console.warn("[sendReceipt] guruh xato:", e.message); }
 
+  // ✅ TG-2: muhr — KAMIDA BITTA manzilga yetgan bo'lsa. Aks holda
+  // muhr qo'yilmaydi va navbat qayta urinishi mumkin (to'g'ri holat).
+  if (!custSent && !groupSent) {
+    return { ok: false, sent: false,
+             reason: chatId ? "telegram_error" : "no_telegram", detail: _err };
+  }
   await _dupMark(_dl.key);   // ✅ yuborildi — 60 daqiqalik muhr
-  return { ok: true, sent: true, groupSent };
+  return { ok: true, sent: custSent, groupSent };
 }
 
 // ════════════════════════════════════════════════════════════════

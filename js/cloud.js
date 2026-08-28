@@ -1915,7 +1915,21 @@ async function pushToCloud() {
           if (c.source !== undefined)        row.source         = c.source || null;
           if (c.debtLimit !== undefined)     row.debt_limit     = c.debtLimit || null;
           if (c.loyaltyPoints !== undefined)   row.loyalty_points   = c.loyaltyPoints || 0;
-          if (c.telegramChatId !== undefined)  row.telegram_chat_id = c.telegramChatId || null;
+          // ✅ TG-1 (2026-08-28): ULANISh HECh QAChON O'ChIRILMAYDI.
+          // Yuqoridagi izoh "telegram_chat_id ni HECh QAChON
+          // o'zgartirmaymiz" deydi, amal esa teskari edi: lokal nusxada
+          // qiymat `null` bo'lsa ham yuborilib, bot yozgan ulanishni
+          // supurardi. Ketma-ketlik: mijoz botga ulanadi → bot bazaga
+          // yozadi → kassada eski nusxa (null) turibdi → keyingi push
+          // uni bosadi → mijozga chek kelmay qoladi.
+          // Jonli iz (28-avg, B20): Nuriddin aka 12:13 da chek OLGAN
+          // (muhr faqat haqiqiy yuborishdan keyin qo'yiladi), 19:53
+          // dagi ommaviy yozuvdan keyin ulanishi bo'sh. Bot hech qachon
+          // o'chirmaydi (kod bilan tekshirilgan) — demak kassa o'chirgan.
+          // Endi: faqat QIYMAT bo'lganda yoziladi; bo'sh bo'lsa ustunga
+          // umuman tegilmaydi (bulutdagisi saqlanadi, §3.13 muhr qoidasi
+          // buzilmaydi — klient ulanishni baribir USTUNDAN o'qiydi).
+          if (c.telegramChatId) row.telegram_chat_id = c.telegramChatId;
           // v174 (2026-07-10): BUTUN JSON — mijoz to'liq nusxada ham
           // saqlanadi. Kelajakda yangi maydon qo'shilsa, mapping'siz
           // ham avtomatik sinxron bo'ladi.
