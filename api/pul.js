@@ -1318,7 +1318,7 @@ module.exports = async (req, res) => {
       if (!rate) return res.status(400).json({ ok: false,
         error: "kurs kiritilmagan — sozlamalarda dollar kursini kiriting" });
 
-      const [sales, pays, prods, xars] = await Promise.all([
+      const [sales, pays, prods, xars, rets] = await Promise.all([
         sbAll(`sales?shop_id=eq.${encodeURIComponent(shopId)}` +
               `&date=gte.${from}&date=lte.${to}` +
               `&select=id,date,status,total,paid,pay_type,remaining,debt_usd,` +
@@ -1328,7 +1328,10 @@ module.exports = async (req, res) => {
         sbAll(`products?shop_id=eq.${encodeURIComponent(shopId)}` +
               `&select=sku,name,data`),
         sbAll(`xarajatlar?shop_id=eq.${encodeURIComponent(shopId)}` +
-              `&date=gte.${from}&date=lte.${to}&select=id,amount`)
+              `&date=gte.${from}&date=lte.${to}&select=id,amount,category`),
+        // ✅ QH-1: davr qaytarishlari (sana data ichida)
+        sbAll(`returns?shop_id=eq.${encodeURIComponent(shopId)}` +
+              `&data->>date=gte.${from}&data->>date=lte.${to}&select=id,data`)
       ]);
 
       // Tovar xaritalari (tannarx qidirish tartibi uchun)
@@ -1385,6 +1388,46 @@ module.exports = async (req, res) => {
         realProfit  += (total - saleCost) * ratio;
       });
 
+      // ✅ QH-1 (2026-08-29): QAYTARIShLAR FOYDANI BUZMASIN —
+      // js/hisobot.js dagi EGIZAK formula (batafsil izoh o'sha yerda).
+      // Shart: asl sotuvi shu do'konda mavjud qaytarishgina olinadi
+      // (Bilz-import yetimlari chetda). rev/costTotal/grossProfit shu
+      // yerda tuzatiladi — pastdagi grossMargin va foizlar avtomatik
+      // to'g'ri chiqadi.
+      let refR = 0, refC = 0;
+      {
+        const _dRets = [];
+        const _origSet = new Set();
+        (rets || []).forEach(r2 => {
+          const d2 = (r2.data && typeof r2.data === "object") ? r2.data : {};
+          const oc = String(d2.origChekNum || "").trim();
+          if (!oc || !/^[A-Za-z0-9_-]+$/.test(oc)) return;
+          _dRets.push(d2); _origSet.add(oc);
+        });
+        let _borSet = new Set();
+        if (_origSet.size) {
+          const _srows = await sbAll(`sales?shop_id=eq.${encodeURIComponent(shopId)}` +
+            `&chek_num=in.(${[..._origSet].join(",")})&select=chek_num`);
+          _borSet = new Set((_srows || []).map(x => String(x.chek_num)));
+        }
+        _dRets.forEach(d2 => {
+          if (!_borSet.has(String(d2.origChekNum))) return;
+          refR += Number(d2.total) || 0;
+          (Array.isArray(d2.items) ? d2.items : []).forEach(it => {
+            const q = Number(it.qty) || 0;
+            let c = Number(it.cost) || 0;
+            if (!c) {
+              if (it.sku && bySku.has(String(it.sku))) c = bySku.get(String(it.sku));
+              else if (it.name && byName.has(String(it.name))) c = byName.get(String(it.name));
+            }
+            refC += c * q;
+          });
+        });
+      }
+      rev         -= refR;
+      costTotal   -= refC;
+      grossProfit -= (refR - refC);
+
       // Davr qarz to'lovlari (refund manbali HISOBGA KIRMAYDI — cashPays)
       let debtPaid = 0;
       (pays || []).forEach(p2 => {
@@ -1404,6 +1447,10 @@ module.exports = async (req, res) => {
       grossProfit = Math.round(grossProfit);
       realProfit  = Math.round(realProfit);
       const periodExp = (xars || []).reduce((a, x) => a + (Number(x.amount) || 0), 0);
+      // ✅ QH-1: "Tovar qaytarish" — kassa harakati; faqat trueNet dan chiqadi
+      const refExp = (xars || [])
+        .filter(x => x.category === "Tovar qaytarish")
+        .reduce((a, x) => a + (Number(x.amount) || 0), 0);
 
       return res.status(200).json({ ok: true,
         cnt, rev: Math.round(rev), debt: Math.round(debt), paid: Math.round(paid),
@@ -1413,8 +1460,8 @@ module.exports = async (req, res) => {
         expenses:   Math.round(periodExp),
         netProfit:  Math.round(realProfit  - periodExp),
         netMargin:  paid > 0 ? Math.round((realProfit  - periodExp) / paid * 100) : 0,
-        trueNet:    Math.round(grossProfit - periodExp),
-        trueMargin: rev  > 0 ? Math.round((grossProfit - periodExp) / rev * 100) : 0
+        trueNet:    Math.round(grossProfit - (periodExp - refExp)),
+        trueMargin: rev  > 0 ? Math.round((grossProfit - (periodExp - refExp)) / rev * 100) : 0
       });
     }
 

@@ -127,9 +127,49 @@ function renderHisobot() {
   const rate    = kursOl();
   const { from, to } = repDateRange();
 
+  // ✅ QH-1 (2026-08-29): QAYTARIShLAR FOYDANI BUZMASIN.
+  // Ildiz: tushum/foyda TO'LIQ sotuvlardan sanaladi (statSales
+  // qaytarilganlarni chiqarmaydi, s.total kamaymaydi), kassadan
+  // qaytgan pul esa "Tovar qaytarish" XARAJATI bo'lib ayirilardi.
+  // O'lchov (2026-08): naqd qaytarishda foyda tovar TANNARXIGA kam,
+  // qarzdan qoplanganda MARJAGA ko'p ko'rinardi (B20 avgust: +254 mln
+  // shishgan). Endi: tushumdan qaytarilgan summa (R), tannarxdan
+  // qaytarilgan tovar tannarxi (C) ayiriladi; "Tovar qaytarish"
+  // xarajati esa faqat "Haqiqiy sof foyda"dan chiqadi. KASSA
+  // ko'rinishi (netProfit, Xarajatlar kartasi) ATAYLAB o'zgarmaydi —
+  // pul kassadan chiqqani fakt.
+  // ShART: faqat ASL SOTUVI shu bazada mavjud qaytarish hisobga
+  // olinadi — Bilz-import yetimlari (iyul) o'z-o'zidan chetda,
+  // "sehrli sana" kerak emas (egasi bilan kelishilgan, 29-avg).
+  // ⚠️ EGIZAK: aynan shu formula api/pul.js `report_stats` da ham —
+  // biri o'zgarsa ikkinchisi ham, aks holda raqam ekranda "sakraydi".
+  let refR = 0, refC = 0;
+  {
+    const _chekBor = new Set((db.sales||[]).map(s => s.chekNum).filter(Boolean));
+    (db.returns || []).forEach(rt => {
+      if (!rt || (rt.date||"") < from || (rt.date||"") > to) return;
+      if (!rt.origChekNum || !_chekBor.has(rt.origChekNum)) return;
+      refR += Number(rt.total) || 0;
+      (rt.items || []).forEach(it => {
+        const q = Number(it.qty) || 0;
+        let c = Number(it.cost) || 0;              // chekda muzlatilgan tannarx
+        if (!c) {                                   // eski yozuv zaxirasi
+          let p = null;
+          if (it.sku) p = (db.products||[]).find(x => x.sku === it.sku);
+          if (!p && it.name) p = (db.products||[]).find(x => x.name === it.name);
+          if (p) c = getCostUzs(p);
+        }
+        refC += c * q;
+      });
+    });
+  }
+  const refExp = (db.xarajatlar||[])
+    .filter(x => x.date >= from && x.date <= to && x.category === "Tovar qaytarish")
+    .reduce((a, x) => a + (x.amount||0), 0);
+
   // KPI
   const cnt  = sales.length;
-  const rev  = sales.reduce((a, s) => a + (s.total||0), 0);
+  let rev  = sales.reduce((a, s) => a + (s.total||0), 0);
   const debt = sales.reduce((a, s) => a + calcSaleState(s).remaining, 0);
 
   // Kassaga tushdi — moliya bilan BIR XIL mantiq:
@@ -188,6 +228,12 @@ function renderHisobot() {
     const paidRatio = s.total>0 ? sPaid/s.total : 0;
     realProfit += ((s.total||0) - saleCost) * paidRatio;
   });
+  // ✅ QH-1: sof ko'rsatkichlar — qaytarishlar ayirilgan holda.
+  // (Quyidagi grossMargin, marja foizlari, grafiklar avtomatik
+  // tuzatilgan qiymatlardan chiqadi.)
+  rev         -= refR;
+  costTotal   -= refC;
+  grossProfit -= (refR - refC);
   // Qarz to'lovlaridan foyda ulushi
   const grossMargin = (rev > 0) ? grossProfit/rev : 0;
   realProfit += debtPaid * grossMargin;
@@ -237,7 +283,8 @@ function renderHisobot() {
   //    Avval bunday karta YO'Q edi — barcha foyda kartalari faqat
   //    kassaga tushgan pulni ko'rsatardi, shu bois qarzga ketgan
   //    savdoning foydasi hech qayerda ko'rinmasdi.
-  const trueNet    = grossProfit - periodExp;
+  // ✅ QH-1: "Tovar qaytarish" — kassa harakati, foyda xarajati EMAS
+  const trueNet    = grossProfit - (periodExp - refExp);
   const trueMargin = rev > 0 ? Math.round(trueNet / rev * 100) : 0;
 
   if ($("rep-true-net")) {
