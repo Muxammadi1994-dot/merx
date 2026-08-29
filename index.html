@@ -4610,9 +4610,15 @@ body.sms-off .sms-only { display: none !important; }
     </div>
 
 <div style="display:flex;justify-content:space-between;align-items:center;
-      padding:10px 0;border-top:2px solid var(--brd);margin-bottom:12px">
+      padding:10px 0 4px;border-top:2px solid var(--brd)">
       <span style="font-weight:700">Qaytarish summasi:</span>
       <span id="refund-total" style="font-size:18px;font-weight:800;color:var(--red)">0 so'm</span>
+    </div>
+    <!-- ✅ QO-1: nechta tovar tanlangani -->
+    <div style="display:flex;justify-content:space-between;align-items:center;
+      padding:0 0 8px;margin-bottom:12px;font-size:12.5px;color:var(--mut)">
+      <span>Tanlandi:</span>
+      <span id="ref-count" style="font-weight:700">—</span>
     </div>
 
     <div class="fld" style="margin-bottom:14px">
@@ -5234,8 +5240,8 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/katalog.js?v=299"></script>
 <script src="js/ombor.js?v=186"></script>
 <script src="js/mijozlar.js?v=173"></script>
-<script src="js/qarzlar.js?v=241"></script>
-<script src="js/tarix.js?v=199"></script>
+<script src="js/qarzlar.js?v=242"></script>
+<script src="js/tarix.js?v=200"></script>
 <script src="js/hisobot.js?v=158"></script>
 <script src="js/kunlik.js?v=10"></script>
 <script src="js/xodimlar.js?v=165"></script>
@@ -5534,7 +5540,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 571;
+  window.SW_V = 572;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5557,7 +5563,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=571")
+    navigator.serviceWorker.register("/sw.js?v=572")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

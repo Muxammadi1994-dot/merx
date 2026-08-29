@@ -1013,7 +1013,21 @@ function openRefundModal(saleId) {
   // sinxron oralig'ida ham himoya yo'qolmaydi (yuqoridagi izoh).
   const _retMap = _saleReturnedMap(id, s);
 
-  el.innerHTML = safeItems.map((item, i) => {
+  // ✅ QO-1 (2026-08-29): QIDIRUV — 50 pochkali chekda kerakli
+  // tovarni topish og'irlashgani uchun (egasining talabi). Qatorlar
+  // QAYTA QURILMAYDI: `ref-qty-№` indekslari pul hisobiga
+  // (`updateRefundTotal`, `confirmRefund`) bog'langan — mos
+  // kelmaganlari faqat YASHIRILADI (display:none). Yashiringan
+  // qatordagi kiritilgan son hisobda QOLAVERADI (ataylab).
+  // 5 tagacha qatorli chekda panel ko'rsatilmaydi — keraksiz.
+  const _refQid = safeItems.length > 5
+    ? `<div style="margin-bottom:8px"><input type="text" id="ref-search"
+        placeholder="🔍 Nomi, artikul yoki rang bo'yicha qidirish"
+        oninput="refFilterRows(this.value)" autocomplete="off"
+        style="width:100%;padding:9px 12px;border:1.5px solid var(--brd);
+        border-radius:10px;font-size:14px;font-family:inherit"></div>`
+    : "";
+  el.innerHTML = _refQid + safeItems.map((item, i) => {
     const isBox = item.sellMode === "karobka" && item.inBox > 0;
     const unitLabel = isBox ? "pochka" : (item.unit || "dona");
     const soldRaw = isBox ? (item.qtyBox || Math.round(item.qty/item.inBox)) : item.qty;
@@ -1025,7 +1039,9 @@ function openRefundModal(saleId) {
     const cellCss = "width:70px;font-family:inherit;font-size:14px;font-weight:700;" +
       "text-align:center;border:1.5px solid var(--brd);border-radius:8px;padding:6px 8px";
 
-    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
+    const _hay = String((item.name||"") + " " + (item.variant||"") + " " +
+      (item.art||"")).toLowerCase().replace(/["'\u02bc\u2019]/g, "");
+    return `<div data-ref-hay="${_hay}" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:13px">${item.name||"?"}</div>
         <div style="font-size:12px;color:var(--mut)">${item.variant||""}${item.art ? " · " + item.art : ""} · ${fmt(item.price||0)} so'm/dona</div>
@@ -1065,6 +1081,20 @@ function openRefundModal(saleId) {
   openModal("refund");
 }
 
+// ✅ QO-1 (2026-08-29): qaytarish oynasi qidiruvi. So'zma-so'z:
+// yozilgan har so'z nom/rang/artikulning birida topilishi kerak
+// (tartib muhim emas — MQ-1 naqshi, soddalashtirilgan). Apostrof
+// belgilari tenglashtiriladi ("o'" = "o’"). Qatorlar yashiriladi,
+// O'ChIRILMAYDI — indekslar pul hisobiga bog'langan.
+function refFilterRows(q) {
+  const soz = String(q || "").toLowerCase()
+    .replace(/["'\u02bc\u2019]/g, "").split(/\s+/).filter(Boolean);
+  document.querySelectorAll("#refund-items [data-ref-hay]").forEach(d => {
+    d.style.display = soz.every(t => (d.dataset.refHay || "").includes(t))
+      ? "" : "none";
+  });
+}
+
 function updateRefundTotal() {
   const s = db.sales.find(x => x.id === _refundSaleId); if (!s) return;
   const safeItems = (s.items||[]).filter(Boolean);
@@ -1076,12 +1106,14 @@ function updateRefundTotal() {
     ? spreadSaleDiscount({ items: safeItems, discount: Number(s.discount || 0) })
     : safeItems.map(it => ({ ...it, effPrice: Number(it.price || 0) }));
   let total = 0;
+  let _selPch = 0, _selDona = 0;   // ✅ QO-1: tanlangan miqdor
   safeItems.forEach((item, i) => {
     const inp = $(`ref-qty-${i}`); if (!inp) return;
     const rawVal = parseInt(inp.value) || 0;
     const isBox  = inp.dataset.isbox === "1";
     const inBox  = parseInt(inp.dataset.inbox) || 1;
     const qtyDona = isBox ? rawVal * inBox : rawVal;
+    if (rawVal > 0) { _selDona += qtyDona; if (isBox) _selPch += rawVal; }
     const _p = Number((_eff[i] && _eff[i].effPrice) != null ? _eff[i].effPrice : (item.price || 0));
     const sum = qtyDona * _p;
     total += sum;
@@ -1090,6 +1122,11 @@ function updateRefundTotal() {
   });
   const el = $("refund-total");
   if (el) el.textContent = fmt(total) + " so'm";
+  // ✅ QO-1: "Tanlandi: 6 pch (30 dona)" — egasining talabi.
+  const cEl = $("ref-count");
+  if (cEl) cEl.textContent = _selDona > 0
+    ? (_selPch > 0 ? `${_selPch} pch (${fmt(_selDona)} dona)` : `${fmt(_selDona)} dona`)
+    : "—";
   // 2026-07-25: pul qanday qoplanishi darhol ko'rsatiladi
   try { updateRefundPayPlan(total); } catch(e) {}
 }

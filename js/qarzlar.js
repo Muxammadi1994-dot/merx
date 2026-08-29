@@ -24,7 +24,14 @@ function _dStr(d) {
   return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}`;
 }
 
-function dbGoPage(p) { _dbPage = p; renderQarzlar(); pagerScrollTop("p-qarzlar"); }
+// ✅ QV-1 (2026-08-29): SAHIFA TUGMASI TUZATILDI. Avval bu yerda
+// `renderQarzlar()` chaqirilardi — bunday funksiya loyihada MAVJUD
+// EMAS (grep: 0 ta ta'rif). Tugma bosilganda `_dbPage` o'zgarib,
+// chaqiruv xato bilan uzilardi: ro'yxat qayta chizilmasdi (egasi:
+// "2 ni bossa ekran yangilanmaydi"), keyingi biror render'da esa
+// ro'yxat birdan boshqa sahifaga "sakrab" qolardi. Qarzdorlar
+// ro'yxatini chizuvchi haqiqiy funksiya — `renderDebts()`.
+function dbGoPage(p) { _dbPage = p; renderDebts(); pagerScrollTop("p-qarzlar"); }
 function dbResetPage() { _dbPage = 1; }
 
 // ── Ko'rinish rejimi (2026-08-06) ─────────────────
