@@ -188,7 +188,13 @@ function _kunXulosa(kun, r, y) {
     if (r && r.ok) {
       const ust = (r.cost > 0 && r.profit != null)
         ? Math.round(r.profit / r.cost * 100) : null;
-      gaplar.push(`Sof foyda <b>${_kunFmt(r.netProfit || r.trueNet || 0)} so'm</b>` +
+      // ✅ QH-1 (2026-08-29): kun xulosasidagi "Sof foyda" endi
+      // HAQIQIY model (trueNet) — Hisobot sarlavhasi bilan bir xil:
+      // qaytarilgan tovar marjasi foydada qolmaydi, kassadan qaytgan
+      // pul esa foydani ikki marta kamaytirmaydi. Kassa zanjiri
+      // ("Qo'lda naqd … − xarajat") yuqorida ALOHIDA va to'liq
+      // ko'rinishda qoladi. `??` ataylab: trueNet=0 ham haqiqiy javob.
+      gaplar.push(`Sof foyda <b>${_kunFmt((r.trueNet ?? r.netProfit) || 0)} so'm</b>` +
         (r.netMargin != null
           ? ` (margin ${r.netMargin}%${ust != null ? `, ustama ${ust}%` : ""}).` : "."));
     }

@@ -417,6 +417,35 @@ function renderMoliya() {
   const sotuv       = sotuvTushum + qarzTushum;
   const chiqim      = periodExps.reduce((a, x) => a + (x.amount||0), 0);
 
+  // ✅ QH-1 (2026-08-29): QAYTARIShLAR FOYDANI BUZMASIN — hisobot.js
+  // va api/pul.js dagi EGIZAK formulaning Moliya nusxasi (batafsil
+  // izoh hisobot.js da). Bu yerda faqat FOYDA ko'rsatkichlari
+  // tuzatiladi: brutto foydadan qaytarilgan marja (R−C), tannarx
+  // ustunidan C ayiriladi. KASSA tomonlari — `chiqim`, `netProfit`,
+  // `balans`, kirim zanjirlari — ATAYLAB tegilmaydi: pul kassadan
+  // chiqqani fakt. Shart: asl sotuvi shu bazada mavjud qaytarishgina
+  // olinadi (Bilz-import yetimlari chetda).
+  let refR = 0, refC = 0;
+  {
+    const _chekBor = new Set((db.sales||[]).map(s => s.chekNum).filter(Boolean));
+    (db.returns || []).forEach(rt => {
+      if (!rt || (rt.date||"") < from || (rt.date||"") > to) return;
+      if (!rt.origChekNum || !_chekBor.has(rt.origChekNum)) return;
+      refR += Number(rt.total) || 0;
+      (rt.items || []).forEach(it => {
+        const q = Number(it.qty) || 0;
+        let c = Number(it.cost) || 0;
+        if (!c) {
+          let p = null;
+          if (it.sku) p = (db.products||[]).find(x => x.sku === it.sku);
+          if (!p && it.name) p = (db.products||[]).find(x => x.name === it.name);
+          if (p) c = getCostUzs(p);
+        }
+        refC += c * q;
+      });
+    });
+  }
+
   // Tannarx va foyda — hisobot bilan bir xil mantiq
   // grossProfit = barcha sotuv (nasiya ham) − tannarx (to'g'ri iqtisodiy ko'rsatkich)
   // realProfit  = kassaga tushgan foyda (checkout to'lovi + qarz to'lovidan ulush)
@@ -438,12 +467,19 @@ function renderMoliya() {
     const paidRatio = s.total>0 ? sPaid/s.total : 0;
     realProfit += ((s.total||0) - saleCost) * paidRatio;
   });
+  // ✅ QH-1: foyda ko'rsatkichlari — qaytarishlar ayirilgan holda.
+  periodCost  -= refC;
+  grossProfit -= (refR - refC);
   // Qarz to'lovlaridan kelgan foyda ulushi (tannarx allaqachon checkout da hisoblangan)
-  const grossMargin = grossProfit / (periodSales.reduce((a,s)=>a+(s.total||0),0)||1);
+  // ✅ QH-1: marja bazasi ham toza tushumdan (rev − R)
+  const grossMargin = grossProfit /
+    ((periodSales.reduce((a,s)=>a+(s.total||0),0) - refR) || 1);
   realProfit += qarzTushum * grossMargin;
   realProfit = Math.round(realProfit);
   grossProfit = Math.round(grossProfit);
 
+  // ✅ QH-1: netProfit — KASSA ko'rinishi, ataylab to'liq chiqim bilan
+  // (qaytarish xarajati ham ichida): "qo'lda qancha qoldi" savoli.
   const netProfit = realProfit - chiqim;
 
   // Yetkazuvchi qarzi
