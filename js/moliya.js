@@ -592,6 +592,7 @@ function renderMoliya() {
         ${cols.date      ? `<td style="font-size:12.5px;white-space:nowrap;font-weight:600">${x.date||"—"}</td>` : ""}
         ${cols.cat ? `<td>
           <span class="bg" style="font-size:12px;background:${color}18;color:${color}">${icon} ${x.category||"—"}</span>
+          ${x.category==="Tovar qaytarish"?`<span class="bg" title="Qaytarilgan pul — foyda xarajati emas, kassa harakati. Foyda hisobida qaytarish tushum/tannarxdan ayiriladi (QH-1)" style="font-size:10px;background:#8881;color:var(--mut);margin-left:4px;font-weight:700">kassa harakati</span>`:""}
           ${x.subCategory?`<span style="font-size:11px;color:#6B7280;margin-left:4px">→ ${x.subCategory}</span>`:""}
           ${x.xarajatType==="oylik"?`<span style="font-size:10px;color:#8B5CF6;background:#EEF2FF;padding:2px 6px;border-radius:10px;margin-left:4px;font-weight:700">oylik</span>`:""}
           ${x.forMonth?`<div style="font-size:11px;color:#9CA3AF;margin-top:2px">${x.forMonth} oy uchun</div>`:""}

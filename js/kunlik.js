@@ -378,7 +378,11 @@ ${jadval("", ["Chek", "Mijoz", "Summa", "Usul"],
 
 <h2>Xarajatlar</h2>
 ${jadval("", ["Izoh", "Turi", "Summa"],
-  y.xarajatlar.map(x => [X(x.note || x.name || "—"), X(x.type || x.category || "—"), F(x.amount)]),
+  // ✅ QH-1 (6-qadam): "Tovar qaytarish" — kassa harakati yorlig'i
+  y.xarajatlar.map(x => [X(x.note || x.name || "—"),
+    X((x.type || x.category || "—") +
+      (x.category === "Tovar qaytarish" ? " · kassa harakati" : "")),
+    F(x.amount)]),
   "Xarajat yozilmagan")}
 
 <h2>⚠️ Bekor qilingan va qaytarilganlar</h2>
