@@ -298,6 +298,88 @@ async function tgAnswer(callbackId) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ OT-1 (2026-08-29) — OMBOR OQIMI: "Tayyorlandi" / "Yuborildi"
+// Omborchi mini-app'da hamma tovarni belgilagach guruhga xabar
+// yuboradi; guruh xabari ostidagi tugma bilan "mijozga yuborildi"
+// tasdiqlanadi (bosgan odam ismi Telegramdan olinadi). Holat
+// `order_status` jadvalida (bot xizmat kaliti bilan yozadi,
+// klientga yopiq). Takrorlardan `bot_sent` qulfi himoya qiladi:
+// ordready|... va ordsent|...
+// ═══════════════════════════════════════════════════════════════
+function _ordItemQty(it) {
+  const isBox = it && it.sellMode === "karobka" && Number(it.inBox) > 0;
+  return { box: isBox ? (Number(it.qtyBox) || 0) : 0,
+           dona: isBox ? 0 : (Number(it.qty) || 0) };
+}
+function _ordFmtQty(box, dona) {
+  if (box && dona) return box + " pochka + " + dona + " dona";
+  if (box) return box + " pochka";
+  return dona + " dona";
+}
+async function _ordLoad(shopId, chekId) {
+  const sF = shopId ? `&shop_id=eq.${encodeURIComponent(shopId)}` : "";
+  const rows = await sb("sales",
+    `?chek_num=eq.${encodeURIComponent(chekId)}${sF}&select=chek_num,customer_name,data&limit=1`);
+  const row = rows?.[0]; if (!row) return null;
+  const d = (row.data && typeof row.data === "object") ? row.data : {};
+  const items = Array.isArray(d.items) ? d.items : [];
+  const done = await sb("done_items",
+    `?chek_id=eq.${encodeURIComponent(chekId)}&select=item_idx`);
+  const doneSet = new Set((done || []).map(x => Number(x.item_idx)));
+  let fBox = 0, fDona = 0, tBox = 0, tDona = 0;
+  const missing = [];
+  items.forEach((it, i) => {
+    const q = _ordItemQty(it);
+    tBox += q.box; tDona += q.dona;
+    if (doneSet.has(i)) { fBox += q.box; fDona += q.dona; }
+    else missing.push({
+      name: it.name || "—",
+      variant: it.variant || it.color || "",
+      art: it.art || it.sku || "",
+      qty: _ordFmtQty(q.box, q.dona) });
+  });
+  return { chekId, customer: row.customer_name || d.customerName || "Mijoz",
+           totalTur: items.length, foundTur: items.length - missing.length,
+           fBox, fDona, tBox, tDona, missing };
+}
+async function _ordStatusUp(shopId, chekId, patch) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/order_status?on_conflict=shop_id,chek_id`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify([{ shop_id: shopId || "", chek_id: chekId, ...patch }])
+    });
+  } catch (e) { console.warn("[OT-1] order_status:", e.message); }
+}
+async function _ordFinalizeSent(shopId, chekId, ism, comment, groupChatId) {
+  const _dl = await _dupLock("ordsent", shopId, chekId);
+  if (_dl.dup) return { ok: true, dup: true };
+  const o = await _ordLoad(shopId, chekId);
+  if (!o) return { ok: false, error: "chek topilmadi" };
+  let gid = groupChatId;
+  if (!gid && shopId) {
+    const st = await sb("settings",
+      `?shop_id=eq.${encodeURIComponent(shopId)}&select=staff_group_id&limit=1`);
+    gid = st?.[0]?.staff_group_id || null;
+  }
+  if (!gid) return { ok: false, error: "guruh sozlanmagan" };
+  let txt = (comment && String(comment).trim())
+    ? `🚚 <b>${o.customer}</b> yuki MIJOZGA YUBORILDI.\n📝 ${String(comment).trim()}\n👤 Yuboruvchi: <b>${ism}</b>`
+    : `🚚 <b>${o.customer}</b>ning <b>${_ordFmtQty(o.fBox, o.fDona)}</b> yuki MIJOZGA YUBORILDI.\n👤 Yuboruvchi: <b>${ism}</b>`;
+  if (o.missing.length)
+    txt += `\n\n⚠️ ${o.totalTur} turdan ${o.missing.length} tasi topilmagan edi — chekdan qaytarilgan deb hisoblanadi.`;
+  const r = await tg(gid, txt);
+  if (!r.ok) return { ok: false, error: r.description };
+  await _ordStatusUp(shopId, chekId, { sent_by: ism,
+    sent_at: new Date().toISOString(), comment: (comment || "").trim() || null,
+    found: o.foundTur, total: o.totalTur });
+  await _dupMark(_dl.key);
+  return { ok: true };
+}
+
 // Supabase GET
 async function sb(table, query = "") {
   const url = `${SB_URL}/rest/v1/${table}${query}`;
@@ -905,9 +987,17 @@ async function handleContact(chatId, contact) {
       try {
         const shops = await sb("shops", "?active=eq.true&select=id,name&order=name");
         if (shops?.length > 1) {
-          const btns = shops.map(s => [{ text: "🏪 " + s.name, callback_data: "shop:" + s.id }]);
+          // ✅ TG-2b (2026-08-29): ULAShILGAN RAQAM YO'QOLMAYDI.
+          // Avval kontakt do'kon tanlashdan OLDIN kelsa tashlab
+          // yuborilar, tanlovdan keyin mijozdan YANA ulashish
+          // so'ralardi (Mirhakim hodisasi — ikki marta ulashgan).
+          // Endi raqam tugmaning o'zida ketadi (callback_data:
+          // shop:<id>|p:<raqam> — 64 bayt chegarasiga sig'adi),
+          // tanlov bosilishi bilan avtomatik bog'lanadi.
+          const btns = shops.map(s => [{ text: "🏪 " + s.name,
+            callback_data: "shop:" + s.id + "|p:" + rawPhone }]);
           await tg(chatId,
-            "🟡 Avval qaysi do'kondan xarid qilganingizni tanlang:",
+            "🟡 Raqamingiz qabul qilindi. Qaysi do'kondan xarid qilgansiz?",
             { reply_markup: { inline_keyboard: btns } }
           );
           return;
@@ -939,9 +1029,13 @@ async function handleContact(chatId, contact) {
     if (!match) {
       console.log(`[handleContact] topilmadi: ${rawPhone}`);
       // Global qidiruv o'chirildi — har do'kon faqat o'z mijozlarini ko'radi
+      // ✅ TG-2b: aniqroq yo'l-yo'riq — eng ko'p sabab: kartada
+      // BOShQA raqam yozilgan (Telegram raqami ≠ kartadagi raqam).
       await tg(chatId,
-        "⚠️ Raqamingiz bizning mijozlar bazasida topilmadi.\n\n" +
-        "Birinchi xaridingizdan so'ng avtomatik bog'lanadi. Iltimos, do'konda xarid qiling.",
+        "⚠️ Bu raqam mijozlar ro'yxatida topilmadi.\n\n" +
+        "Ehtimol kartangizga boshqa raqam yozilgan. Sotuvchiga\n" +
+        "Telegram raqamingizni ayting — kartaga qo'shib qo'yishadi,\n" +
+        "so'ng «Raqamni ulashish»ni qaytadan bosasiz.",
         { reply_markup: { remove_keyboard: true } }
       );
       return;
@@ -1582,11 +1676,19 @@ async function actionSendPayReceipt(body) {
   if (customerPhone) {
     const rawPhone = normPhone(customerPhone);
     const normalize = p => p.startsWith("998") ? p.slice(3) : p;
-    const all = await sb("customers", `?select=id,local_id,phone,telegram_chat_id${shopFilter}`);
-    const match = (all||[]).find(c => {
+    const all = await sb("customers", `?select=id,local_id,phone,shop_id,telegram_chat_id${shopFilter}`);
+    // ✅ TG-2b (2026-08-29): nusxalardan TO'G'RISI tanlanadi (TG-3
+    // naqshi — sotuv chekidagi bilan bir xil): (1) shu do'kon+ulanish,
+    // (2) ulanish bor, (3) birinchi mos. Avval BIRINChI mos olinardi —
+    // ulanishsiz nusxa chiqsa to'lov cheki yo'qolardi.
+    const _mos = (all||[]).filter(c => {
       const cp = normPhone(c.phone || "");
       return cp && normalize(cp) === normalize(rawPhone);
     });
+    const _shu = c => !shopId || String(c.shop_id || shopId) === String(shopId);
+    const match = _mos.find(c => _shu(c) && c.telegram_chat_id)
+               || _mos.find(c => c.telegram_chat_id)
+               || _mos[0];
     if (match?.telegram_chat_id) chatId = match.telegram_chat_id;
   }
   if (!chatId && customerId) {
@@ -1594,7 +1696,13 @@ async function actionSendPayReceipt(body) {
       `?or=(id.eq.${customerId},local_id.eq.${customerId})&select=telegram_chat_id${shopFilter}`);
     if (rows?.[0]?.telegram_chat_id) chatId = rows[0].telegram_chat_id;
   }
-  if (!chatId) return { ok: true, sent: false, reason: "no_chat_id" };
+  // ✅ TG-2b: GURUH ShAXSIY ChATDAN AJRATILDI (TG-2 naqshi). Avval
+  // chat topilmasa funksiya ShU YERDA to'xtardi — guruh bloki pastda
+  // qolib, "guruhi bor, ulanishi yo'q" mijoz (Abdulhamid sinfi) to'lov
+  // chekini UMUMAN olmasdi. `ok:true` ham yolg'on edi — endi halol.
+  const _gidBor = /^-?\d{5,}$/.test(String(body.groupId || "").trim());
+  if (!chatId && !_gidBor)
+    return { ok: false, sent: false, reason: "no_chat_id" };
 
   const F = n => Math.round(n||0).toLocaleString("ru-RU");
   const M = n => payment.currency === "usd" ? ("$" + (Math.round((n||0)*100)/100).toFixed(2)) : (F(n) + " so'm");
@@ -1668,10 +1776,16 @@ async function actionSendPayReceipt(body) {
   const _ppEnc = _pp.replace(/[^a-zA-Z0-9_]/g, m => "x" + m.charCodeAt(0).toString(16));
   const payUrl = `https://t.me/${BOT_USERNAME}/ombor?startapp=${_ppEnc}`;
 
-  const r = await tg(chatId, txt, {
-    reply_markup: { inline_keyboard: [[{ text: "🧾 To'lov chekini ko'rish", url: payUrl }]] },
-  });
-  if (!r.ok) return { ok: false, sent: false, reason: "telegram_error", detail: r.description };
+  // ✅ TG-2b: mijozga — faqat shaxsiy ulanish bo'lsa; xato guruhga
+  // yuborishni to'xtatmaydi.
+  let custSent = false, _err = null;
+  if (chatId) {
+    const r = await tg(chatId, txt, {
+      reply_markup: { inline_keyboard: [[{ text: "🧾 To'lov chekini ko'rish", url: payUrl }]] },
+    });
+    custSent = !!r.ok;
+    if (!r.ok) _err = r.description;
+  }
 
   // ⚠️ 2026-08-05: MIJOZ GURUHIGA HAM — sotuv chekidagi kabi.
   // Avval faqat SOTUV cheki guruhga borardi, qarz to'lovi esa
@@ -1689,8 +1803,13 @@ async function actionSendPayReceipt(body) {
     }
   } catch (e) { console.warn("[payReceipt] guruh xato:", e.message); }
 
+  // ✅ TG-2b: muhr — KAMIDA BITTA manzilga yetganda; aks holda
+  // qo'yilmaydi (navbat qayta urinishi mumkin — to'g'ri holat).
+  if (!custSent && !groupSent)
+    return { ok: false, sent: false,
+             reason: chatId ? "telegram_error" : "no_chat_id", detail: _err };
   await _dupMark(_dl.key);   // ✅ yuborildi — 60 daqiqalik muhr
-  return { ok: true, sent: true, groupSent };
+  return { ok: true, sent: custSent, groupSent };
 }
 
 // To'lov cheki sahifasi (mini-app ichida ochiladi)
@@ -2172,7 +2291,7 @@ async function actionSendStaffNotification(body) {
 }
 
 // ── Ishchilar uchun buyurtma katalogi (HTML sahifa) ─────────────
-function buildStaffOrderHtml(sale, shopName) {
+function buildStaffOrderHtml(sale, shopName, shopId2) {
   const chekId    = sale.chekNum || sale.chek_num || ("#" + sale.id);
   const date      = sale.date || "";
   const time      = sale.time || "";
@@ -2380,10 +2499,20 @@ ${cardsHtml}
 
 <div class="footer">@${BOT_USERNAME} · ${shopName}</div>
 
+<!-- ✅ OT-1: yakuniy tasdiq tugmasi -->
+<div style="position:sticky;bottom:0;background:#fff;border-top:2px solid #eee;
+     padding:10px 12px;z-index:50">
+  <button id="ord-ready" onclick="ordReady()"
+    style="width:100%;padding:13px;border:none;border-radius:10px;
+           background:#E9A500;color:#fff;font-weight:800;font-size:14px">
+    ✅ Tayyorlandi — guruhga xabar</button>
+</div>
+
 <script>
 // Tayyor belgilash — server orqali REAL-TIME
 var doneItems = {};
 var CHEK_ID   = "${chekId}";
+var SHOP_ID   = "${shopId2 || ""}";   // ✅ OT-1
 var TOTAL_TUR2 = ${totalTur};
 var API_BASE  = window.location.origin + "/api/bot";
 
@@ -2441,6 +2570,37 @@ function fetchDone() {
     }).catch(function(){});
 }
 setInterval(fetchDone, 2000); // 2 soniyada bir — tezroq sinxronlash
+
+// ✅ OT-1: "Tayyorlandi" — guruhga xabar. Bosuvchi ismi Telegram
+// WebApp'dan (initDataUnsafe.user). Qisman holatda ham bosiladi —
+// server topilmaganlar ro'yxatini o'zi tuzadi.
+var _ordBusy = false;
+function ordReady() {
+  if (_ordBusy) return; _ordBusy = true;
+  var b = document.getElementById('ord-ready');
+  if (b) { b.disabled = true; b.textContent = '⏳ Yuborilmoqda...'; }
+  var u = (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe
+           && Telegram.WebApp.initDataUnsafe.user) || {};
+  var ism = ((u.first_name || '') + ' ' + (u.last_name || '')).trim()
+            || (u.username ? '@' + u.username : 'Omborchi');
+  fetch(API_BASE + '?action=order_ready', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: CHEK_ID, shopId: SHOP_ID, ism: ism })
+  }).then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!b) return;
+      if (d && (d.ok || d.dup)) {
+        b.textContent = d.dup ? '✅ Allaqachon yuborilgan' : '✅ Guruhga xabar ketdi';
+      } else {
+        b.textContent = '⚠️ ' + ((d && d.error) || 'Xato') + ' — qayta bosing';
+        b.disabled = false; _ordBusy = false;
+      }
+    })
+    .catch(function(){
+      if (b) { b.textContent = '⚠️ Internet xatosi — qayta bosing'; b.disabled = false; }
+      _ordBusy = false;
+    });
+}
 
 // Lightbox
 function openLb(src){document.getElementById('lb-img').src=src;document.getElementById('lb').classList.add('open');document.body.style.overflow='hidden';}
@@ -2540,7 +2700,7 @@ async function actionRenderStaffOrder(chekId, saleData, shopId) {
       </body></html>`;
   }
 
-  return buildStaffOrderHtml(sale, shopName);
+  return buildStaffOrderHtml(sale, shopName, sid);   // ✅ OT-1: shop sahifaga
 }
 
 // ── Chek sahifasi (HTML, Print/PDF uchun) ──────────────────────
@@ -3368,6 +3528,10 @@ export default async function handler(req, res) {
       // Mijoz cheki (2026-07): Telegram ichida ochiladi
       url = "/api/bot?action=receipt&id=" + encodeURIComponent(parts[1] || "");
       if (parts[2]) url += "&shop=" + encodeURIComponent(parts[2]);
+    } else if (parts[0] === "OC") {
+      // ✅ OT-1: izoh sahifasi
+      url = "/api/bot?action=order_comment&id=" + encodeURIComponent(parts[1] || "");
+      if (parts[2]) url += "&shop=" + encodeURIComponent(parts[2]);
     } else {
       url = "/api/bot?action=staff_order&id=" + encodeURIComponent(parts[0]);
       if (parts[1]) url += "&shop=" + encodeURIComponent(parts[1]);
@@ -3527,6 +3691,119 @@ export default async function handler(req, res) {
   }
 
   // Done state — SET (Supabase orqali, BARCHA omborchilar uchun sinxron)
+  // ═══ ✅ OT-1: "Tayyorlandi" — guruhga xabar (mini-app'dan) ═══
+  // Himoya set_done uslubida: chek bazada mavjudligini _ordLoad
+  // tekshiradi; ordready qulfi ikki marta bosishdan saqlaydi.
+  if (req.method === "POST" && req.query?.action === "order_ready") {
+    let body;
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; } catch { body = {}; }
+    const chekId = String(req.query?.id || body?.id || "");
+    const shopId = String(body?.shopId || "") || null;
+    const ism    = String(body?.ism || "Omborchi").slice(0, 64);
+    if (!chekId) return res.status(200).json({ ok: false, error: "id yo'q" });
+    const _dl = await _dupLock("ordready", shopId, chekId);
+    if (_dl.dup) return res.status(200).json({ ok: true, dup: true });
+    const o = await _ordLoad(shopId, chekId);
+    if (!o) return res.status(200).json({ ok: false, error: "chek topilmadi" });
+    let gid = null;
+    if (shopId) {
+      const st = await sb("settings",
+        `?shop_id=eq.${encodeURIComponent(shopId)}&select=staff_group_id&limit=1`);
+      gid = st?.[0]?.staff_group_id || null;
+    }
+    if (!gid) return res.status(200).json({ ok: false, error: "guruh sozlanmagan" });
+    let txt;
+    if (!o.missing.length) {
+      txt = `📦 <b>${o.customer}</b>ning jami <b>${_ordFmtQty(o.tBox, o.tDona)}</b> ` +
+            `(${o.totalTur} tur) tovarlari yuborishga TAYYORLANDI.\n` +
+            `👷 Tayyorlovchi: <b>${ism}</b>`;
+    } else {
+      txt = `📦 <b>${o.customer}</b> buyurtmasi: ${o.totalTur} turdan ` +
+            `<b>${o.foundTur} tasi topildi</b>, <b>${o.missing.length} tasi TOPILMADI</b>:\n` +
+            o.missing.slice(0, 15).map(m =>
+              `— ${m.name}${m.variant ? " · " + m.variant : ""}` +
+              `${m.art ? " · " + m.art : ""} (${m.qty})`).join("\n") +
+            (o.missing.length > 15 ? `\n…yana ${o.missing.length - 15} tur` : "") +
+            `\n👷 Tayyorlovchi: <b>${ism}</b>\n\n` +
+            `Kassir topilmaganlarni chekdan qaytargach, «Mijozga yuborildi»ni ` +
+            `bosing — son qayta sanaladi.`;
+    }
+    const _cb = `ords|${shopId || ""}|${chekId}`;
+    const _oc = ("OC__" + chekId + (shopId ? "__" + shopId : ""))
+      .replace(/[^a-zA-Z0-9_]/g, m => "x" + m.charCodeAt(0).toString(16));
+    const r = await tg(gid, txt, { reply_markup: { inline_keyboard: [
+      [{ text: "🚚 Mijozga yuborildi", callback_data: _cb }],
+      [{ text: "📝 Izoh bilan yuborildi",
+         url: `https://t.me/${BOT_USERNAME}/ombor?startapp=${_oc}` }]
+    ]}});
+    if (!r.ok) return res.status(200).json({ ok: false, error: r.description });
+    await _ordStatusUp(shopId, chekId, { ready_by: ism,
+      ready_at: new Date().toISOString(), found: o.foundTur, total: o.totalTur });
+    await _dupMark(_dl.key);
+    return res.status(200).json({ ok: true, missing: o.missing.length });
+  }
+
+  // ═══ ✅ OT-1: izoh bilan "yuborildi" (izoh sahifasidan) ═══
+  if (req.method === "POST" && req.query?.action === "order_sent") {
+    let body;
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; } catch { body = {}; }
+    const chekId  = String(body?.id || "");
+    const shopId  = String(body?.shopId || "") || null;
+    const ism     = String(body?.ism || "Xodim").slice(0, 64);
+    const comment = String(body?.comment || "").slice(0, 300);
+    if (!chekId) return res.status(200).json({ ok: false, error: "id yo'q" });
+    const out = await _ordFinalizeSent(shopId, chekId, ism, comment, null);
+    return res.status(200).json(out);
+  }
+
+  // ═══ ✅ OT-1: izoh sahifasi (mini-app) ═══
+  if (req.method === "GET" && req.query?.action === "order_comment") {
+    const chekId = String(req.query?.id || "");
+    const shopId = String(req.query?.shop || "");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).send(`<!doctype html><html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>body{font-family:system-ui;margin:0;padding:18px;background:#f6f6f6}
+.card{background:#fff;border-radius:14px;padding:16px}
+textarea{width:100%;min-height:110px;border:1.5px solid #ddd;border-radius:10px;
+padding:10px;font-size:14px;font-family:inherit;box-sizing:border-box}
+button{width:100%;margin-top:12px;padding:13px;border:none;border-radius:10px;
+background:#E9A500;color:#fff;font-weight:800;font-size:14px}</style></head><body>
+<div class="card">
+  <div style="font-weight:800;font-size:15px;margin-bottom:4px">📝 Izoh bilan yuborildi</div>
+  <div style="font-size:12.5px;color:#777;margin-bottom:10px">Chek: ${chekId}</div>
+  <textarea id="izoh" placeholder="Izoh (ixtiyoriy) — masalan: haydovchi Akmal aka, 2 qop alohida"></textarea>
+  <button id="yb" onclick="yubor()">🚚 Mijozga yuborildi deb belgilash</button>
+  <div id="msg" style="margin-top:10px;font-size:13px;color:#666"></div>
+</div>
+<script>
+var tw = window.Telegram && Telegram.WebApp; if (tw) tw.ready();
+function yubor(){
+  var b=document.getElementById('yb'); b.disabled=true; b.textContent='⏳ Yuborilmoqda...';
+  var u=(tw && tw.initDataUnsafe && tw.initDataUnsafe.user)||{};
+  var ism=((u.first_name||'')+' '+(u.last_name||'')).trim()||(u.username?'@'+u.username:'Xodim');
+  fetch('/api/bot?action=order_sent',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:${JSON.stringify(chekId)},shopId:${JSON.stringify(shopId)},
+      ism:ism,comment:document.getElementById('izoh').value})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d&&(d.ok||d.dup)){
+      b.textContent = d.dup?'✅ Allaqachon belgilangan':'✅ Guruhga xabar ketdi';
+      document.getElementById('msg').textContent='Oynani yopishingiz mumkin.';
+      if(tw) setTimeout(function(){ tw.close(); }, 900);
+    } else {
+      b.textContent='🚚 Mijozga yuborildi deb belgilash'; b.disabled=false;
+      document.getElementById('msg').textContent='⚠️ '+((d&&d.error)||'Xato');
+    }
+  }).catch(function(){ b.disabled=false;
+    document.getElementById('msg').textContent='⚠️ Internet xatosi'; });
+}
+</script></body></html>`);
+  }
+
   if (req.method === "POST" && req.query?.action === "set_done") {
     let body;
     try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; } catch { body = {}; }
@@ -3635,10 +3912,43 @@ export default async function handler(req, res) {
 
     if (chatId) {
       // Do'kon tanlash callback: "shop:shop_XXXXX"
+      // ✅ OT-1: guruhdagi "Mijozga yuborildi" tugmasi. Bosgan
+      // odamning ismi callback'dan (cb.from) — aynan egasi so'ragan
+      // "guruhdagi Telegram ismi". Takror bosish — ordsent qulfi.
+      if (cb.data?.startsWith("ords|")) {
+        const _p = cb.data.split("|");
+        const _oShop = _p[1] || null, _oChek = _p[2] || "";
+        const _f = cb.from || {};
+        const _ism = ((_f.first_name || "") + " " + (_f.last_name || "")).trim()
+                     || (_f.username ? "@" + _f.username : "Xodim");
+        const out = await _ordFinalizeSent(_oShop, _oChek, _ism, "", chatId);
+        if (out && out.ok && !out.dup) {
+          // tugmalarni olib tashlash — qayta bosilmasin
+          try {
+            await fetch(`https://api.telegram.org/bot${TOKEN}/editMessageReplyMarkup`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: chatId,
+                message_id: cb.message?.message_id,
+                reply_markup: { inline_keyboard: [] } })
+            });
+          } catch (e) {}
+        }
+        return res.status(200).json({ ok: true });
+      }
+
       if (cb.data?.startsWith("shop:")) {
-        const shopId = cb.data.slice(5);
+        // ✅ TG-2b: "shop:<id>" YOKI "shop:<id>|p:<raqam>" — ikkinchi
+        // shaklda ulashilgan raqam ham keladi: tanlov bosilishi bilan
+        // avtomatik bog'lanadi, qayta ulashish SO'RALMAYDI.
+        const _raw   = cb.data.slice(5);
+        const _pi    = _raw.indexOf("|p:");
+        const shopId = _pi >= 0 ? _raw.slice(0, _pi) : _raw;
+        const _tel   = _pi >= 0 ? _raw.slice(_pi + 3) : "";
         const ctx = await setShopForUser(chatId, shopId);
-        if (ctx) {
+        if (ctx && _tel) {
+          await tg(chatId, "✅ " + ctx.shopName + " tanlandi!");
+          await handleContact(chatId, { phone_number: _tel });
+        } else if (ctx) {
           await tg(chatId,
             "✅ " + ctx.shopName + " tanlandi!\n\n" +
             "Telefon raqamingizni ulashing 👇",

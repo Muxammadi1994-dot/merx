@@ -800,7 +800,8 @@ function openResendCheks() {
     return;
   }
   _rsCust = c;
-  _rsFilter = { tur: "all", from: "", to: "" };   // ✅ 2026-08-21: filtrlar
+  _rsFilter = { tur: "all", from: "", to: "", q: "" };   // ✅ RS-1: + qidiruv
+  _rsSel = new Set();                                    // ✅ RS-1: toza tanlov
 
   const old = document.getElementById("resend-modal");
   if (old) old.remove();
@@ -829,6 +830,11 @@ function openResendCheks() {
                  onchange="rsSetSana()">
           <button class="btn btn-ghost btn-sm" onclick="rsClearSana()" style="font-size:11.5px">Tozalash</button>
         </div>
+        <!-- ✅ RS-1: chek raqami/summa/sana bo'yicha qidiruv -->
+        <input type="text" id="rs-q" class="inp"
+               placeholder="🔍 Chek raqami, summa yoki sana bo'yicha qidirish"
+               oninput="rsSetQ(this.value)" autocomplete="off"
+               style="width:100%;margin-top:8px;font-size:12.5px;padding:6px 10px">
       </div>
       <div style="padding:8px 16px;border-bottom:1px solid var(--brd);display:flex;gap:8px;align-items:center">
         <button class="btn btn-ghost btn-sm" onclick="rsToggleAll(true)">Hammasini belgilash</button>
@@ -849,12 +855,15 @@ function openResendCheks() {
   rsRender();
 }
 
-// ✅ 2026-08-21: ro'yxat filtr bo'yicha qayta chiziladi.
-// Filtr o'zgarganda belgilanganlar tozalanadi — ko'rinmaydigan
-// chek tasodifan yuborilib ketmasin.
-let _rsFilter = { tur: "all", from: "", to: "" };
+// ✅ RS-1 (2026-08-29): tanlov endi `_rsSel` TO'PLAMIDA saqlanadi —
+// filtr/qidiruv almashganda YO'QOLMAYDI (avval tozalanardi).
+// Xavfsizlik saqlangan: ko'rinmayotgan-belgilanganlar soni
+// "N tasi filtrda yashirin" deb OChIQ ko'rsatiladi (rsCount).
+let _rsFilter = { tur: "all", from: "", to: "", q: "" };
+let _rsSel = new Set();
 
 function rsSetTur(t) { _rsFilter.tur = t; rsRender(); }
+function rsSetQ(v)   { _rsFilter.q = String(v || "").trim().toLowerCase(); rsRender(); }
 function rsSetSana() {
   _rsFilter.from = ($("rs-from") || { value: "" }).value;
   _rsFilter.to   = ($("rs-to")   || { value: "" }).value;
@@ -888,6 +897,15 @@ function rsRender() {
   // Sana oralig'i
   if (_rsFilter.from) list = list.filter(s => (s.date || "") >= _rsFilter.from);
   if (_rsFilter.to)   list = list.filter(s => (s.date || "") <= _rsFilter.to);
+  // ✅ RS-1: so'zma-so'z qidiruv (chek raqami / summa / sana)
+  if (_rsFilter.q) {
+    const _soz = _rsFilter.q.split(/\s+/).filter(Boolean);
+    list = list.filter(s => {
+      const hay = String((s.chekNum || s.id || "") + " " + (s.date || "") + " " +
+                         (s.total || 0)).toLowerCase();
+      return _soz.every(t => hay.includes(t));
+    });
+  }
 
   list = list
     .sort((a, b) => ((a.date||"") + (a.time||"") < (b.date||"") + (b.time||"")) ? 1 : -1)
@@ -901,7 +919,7 @@ function rsRender() {
                 : s.status === "qarz"        ? '<span style="color:var(--red)">📕</span>'
                 :                              '<span style="color:var(--grn)">💵</span>';
     return `<label style="display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid #f2f2f2;cursor:pointer">
-      <input type="checkbox" class="rs-chk" value="${s.id}" onchange="rsCount()" style="width:17px;height:17px;flex:none">
+      <input type="checkbox" class="rs-chk" value="${s.id}" ${_rsSel.has(String(s.id)) ? "checked" : ""} onchange="rsChk(this)" style="width:17px;height:17px;flex:none">
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:13px">${belgi} ${s.chekNum || s.id}</div>
         <div style="font-size:11.5px;color:#777">${s.date || ""} ${s.time || ""} · ${(s.items||[]).length} tovar</div>
@@ -917,21 +935,35 @@ function rsRender() {
   rsCount();
 }
 
+// ✅ RS-1: belgilash Set orqali — render'lar osha saqlanadi
+function rsChk(el) {
+  const id = String(el.value);
+  if (el.checked) _rsSel.add(id); else _rsSel.delete(id);
+  rsCount();
+}
 function rsToggleAll(on) {
-  document.querySelectorAll("#resend-modal .rs-chk").forEach(x => { x.checked = on; });
+  document.querySelectorAll("#resend-modal .rs-chk").forEach(x => {
+    x.checked = on;
+    const id = String(x.value);
+    if (on) _rsSel.add(id); else _rsSel.delete(id);
+  });
   rsCount();
 }
 function rsCount() {
-  const n = document.querySelectorAll("#resend-modal .rs-chk:checked").length;
+  const n   = _rsSel.size;
+  const vis = document.querySelectorAll("#resend-modal .rs-chk:checked").length;
+  const hid = n - vis;   // filtr ortida qolgan belgilanganlar
   const el = document.getElementById("rs-count");
-  if (el) el.textContent = n ? n + " ta belgilandi" : "";
+  if (el) el.textContent = n
+    ? n + " ta belgilandi" + (hid > 0 ? ` (${hid} tasi filtrda yashirin)` : "")
+    : "";
   const b = document.getElementById("rs-send");
   if (b) b.disabled = !n || _rsBusy;
 }
 
 async function rsSend() {
   if (_rsBusy) return;
-  const ids = [...document.querySelectorAll("#resend-modal .rs-chk:checked")].map(x => x.value);
+  const ids = [..._rsSel];                       // ✅ RS-1: Set'dan (yashirinlar ham)
   if (!ids.length) return;
   if (ids.length > 30) {
     alert("⚠️ Bir martada eng ko'pi 30 ta chek yuboriladi.\n\n" +
@@ -939,6 +971,36 @@ async function rsSend() {
     return;
   }
   const c = _rsCust; if (!c) return;
+
+  // ✅ RS-1: ULANISh OLDINDAN TEKShIRILADI. Kartada chat ham, guruh
+  // ham ko'rinmasa — ehtimol hammasi rad bo'ladi (avval bu holat
+  // "✅ yuborildi" deb yolg'on ko'rsatilardi). Lokal nusxa eskirgan
+  // bo'lishi mumkin, shuning uchun QAT'IY blok emas — ogohlantirish.
+  const _chat  = String(c.telegramChatId || "").trim();
+  const _gid   = String(c.groupId || "").trim();
+  const _gidOk = /^-?\d{5,}$/.test(_gid);
+  if (!_chat && !_gidOk) {
+    if (!confirm("🔌 " + c.name + " kartasida bot ulanishi ham, Telegram guruhi ham ko'rinmayapti.\n\n" +
+                 "Chek yetib bormasligi mumkin (aniq javobni server beradi).\n" +
+                 "Baribir urinib ko'raymi?")) return;
+  }
+
+  // ✅ RS-1: ESKI ChEK TO'SIG'I — 14 kundan eski chek tasodifan
+  // ketmasin. Chegara ataylab 14 kun: jonli hodisalar 17 va 28 kunlik
+  // cheklar bilan bo'lgan (17123-BK, ESKI-4091) — 30 kunlik chegara
+  // ularni o'tkazib yuborardi; 1-2 kunlik oddiy qayta-yuborishlar esa
+  // ogohlantirishsiz o'taveradi.
+  const _chegara = new Date(Date.now() - 14 * 24 * 3600 * 1000)
+    .toISOString().slice(0, 10);
+  const _eskilar = ids
+    .map(id => (db.sales || []).find(x => String(x.id) === String(id)))
+    .filter(s => s && s.date && s.date < _chegara);
+  if (_eskilar.length) {
+    const _engEski = _eskilar.map(s => s.date).sort()[0];
+    if (!confirm(`⚠️ Tanlangan ${ids.length} chekdan ${_eskilar.length} tasi 14 KUNDAN ESKI ` +
+                 `(eng eskisi: ${_engEski}).\n\nMijozga eski sanali chek boradi. Rostdan yuborasizmi?`)) return;
+  }
+
   if (!confirm(`📤 ${ids.length} ta chek "${c.name}" ga Telegram orqali yuboriladi.\n\n` +
                `Taxminan ${Math.ceil(ids.length * 1.5)} soniya davom etadi.\n\nDavom etamizmi?`)) return;
 
@@ -948,25 +1010,39 @@ async function rsSend() {
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader spin"></i> Yuborilmoqda...'; }
   if (pr) pr.style.display = "block";
 
-  let ok = 0, xato = 0;
+  // ✅ RS-1: HAQIQIY SANOQ — har chekning taqdiri alohida sanaladi.
+  // Avval hamma urinish ko'r-ko'rona "ok" edi; endi server javobi
+  // o'qiladi: dup (1-soat qulfi) / queued (navbat) / sent / no_telegram.
+  let ok = 0, qulf = 0, navbat = 0, ulanmagan = 0, xato = 0;
   for (let i = 0; i < ids.length; i++) {
     const s = (db.sales || []).find(x => String(x.id) === String(ids[i]));
     if (!s) { xato++; continue; }
     if (pr) pr.textContent = `⏳ ${i + 1} / ${ids.length} — ${s.chekNum || ""}`;
     try {
       if (typeof sendTelegramReceipt === "function") {
-        await sendTelegramReceipt(c.id, s, c.phone);
-        ok++;
-      }
+        const r = await sendTelegramReceipt(c.id, s, c.phone, { silent: true });
+        if (r && r.dup)                          qulf++;
+        else if (r && r.queued)                  navbat++;
+        else if (r && r.sent)                    ok++;
+        else if (r && r.reason === "no_telegram") ulanmagan++;
+        else                                     xato++;
+      } else xato++;
     } catch (e) { xato++; console.warn("[qayta yuborish]", e.message); }
     // Telegram cheklovi: bir suhbatga soniyada ~1 xabar
-    if (i < ids.length - 1) await new Promise(r => setTimeout(r, 1500));
+    if (i < ids.length - 1) await new Promise(r2 => setTimeout(r2, 1500));
   }
 
-  if (pr) pr.textContent = `✅ ${ok} ta yuborildi` + (xato ? ` · ⚠️ ${xato} tasida xato` : "");
+  const _q = [];
+  if (ok)        _q.push(`✅ ${ok} yuborildi`);
+  if (qulf)      _q.push(`⏳ ${qulf} — 1 soat ichida allaqachon yuborilgan`);
+  if (navbat)    _q.push(`📮 ${navbat} navbatda`);
+  if (ulanmagan) _q.push(`🔌 ${ulanmagan} — ulanish topilmadi`);
+  if (xato)      _q.push(`⚠️ ${xato} xato`);
+  const _xul = _q.length ? _q.join(" · ") : "Hech narsa yuborilmadi";
+  if (pr) pr.textContent = _xul;
   if (btn) { btn.innerHTML = '<i class="ti ti-check"></i> Tugadi'; }
   _rsBusy = false;
-  toast(`✅ ${ok} ta chek yuborildi`, ok ? "ok" : "err");
+  toast(_xul, ok ? "ok" : "info");
 }
 
 // ── Kartochkadan SMS ──────────────────────────────

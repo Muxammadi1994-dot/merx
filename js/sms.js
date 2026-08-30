@@ -131,9 +131,19 @@ async function testSms() {
 // Telegram bot orqali mijozga chek yuborish
 // ================================================
 
-async function sendTelegramReceipt(customerId, sale, customerPhone) {
+async function sendTelegramReceipt(customerId, sale, customerPhone, opts) {
+  // ✅ RS-1 (2026-08-29): NATIJA ENDI QAYTARILADI — chaqiruvchi
+  // chekning haqiqiy taqdirini bilsin (yuborildi / 1-soat qulfi /
+  // navbatga tushdi / ulanmagan). Avval funksiya hech narsa
+  // qaytarmasdi va ommaviy qayta-yuborish "✅ N ta yuborildi" deb
+  // YOLG'ON sanardi. `opts.silent` — ichki toast'larni o'chiradi
+  // (30 chekda 30 toast chiqmasin). Eski chaqiruvchilar (pos:3321,
+  // tarix:1401) 3 argument bilan chaqiradi — ular uchun xatti-
+  // harakat AYNAN AVVALGIDEK (C2 tekshirilgan).
+  opts = opts || {};
   const botUrl = db.settings?.telegramBotUrl;
-  if (!botUrl || (!customerId && !customerPhone)) return;
+  if (!botUrl || (!customerId && !customerPhone))
+    return { ok: false, sent: false, reason: "no_bot_or_customer" };
 
   // shopId: cloudShopId yoki session dan — "local" bo'lmasligi kerak
   const _sid = (() => {
@@ -179,14 +189,16 @@ async function sendTelegramReceipt(customerId, sale, customerPhone) {
   const data = await botSend(botUrl + "?action=send_receipt", _payload,
     "chk-" + (sale?.chekNum || sale?.id || Date.now()));
   if (!data) {
-    toast("📮 Chek navbatga qo'yildi — internet qaytishi bilan o'zi yuboriladi");
-    return;
+    if (!opts.silent)
+      toast("📮 Chek navbatga qo'yildi — internet qaytishi bilan o'zi yuboriladi");
+    return { ok: true, sent: false, queued: true };   // ✅ RS-1
   }
-  if (data.sent) {
+  if (data.sent && !opts.silent) {
     toast(data.groupSent
       ? "📨 Chek mijozga va guruhga yuborildi"
       : "📨 Chek mijozga Telegram orqali yuborildi");
   }
+  return data;   // ✅ RS-1: dup/sent/reason/groupSent chaqiruvchiga ochiq
 }
 
 // ================================================
