@@ -423,6 +423,41 @@ async function _menuEga(chatId) {
   await _dupMark(_dl.key);
 }
 
+// ═══ ✅ OT-1b (2026-09-05): JAVOB-KLAVIATURA (yozish maydoni
+// tepasidagi katta tugmalar — egasi so'ragan zamonaviy ko'rinish).
+// Tugma bosilganda Telegram uning MATNINI yuboradi; _kbCmd o'sha
+// matnni tegishli buyruqqa aylantiradi. Himoya O'ZGARMAGAN: matn
+// buyruqqa aylangach, avvalgi isShopOwner qulfi ishlayveradi —
+// mijoz ega-tugmasining matnini qo'lda yozsa ham "⛔ faqat egasi"
+// javobini oladi. Guruhlarda ham avvalgidek jim.
+const _KB_XARITA = {
+  "hisobot": "/hisobot",  "balans": "/balans",   "ombor": "/ombor",
+  "qarzlar": "/qarzlar",  "oylik": "/oylik",     "naklad": "/naklad",
+  "do'konlarim": "/mendokonlarim", "dokonlarim": "/mendokonlarim",
+  "komandalar": "/help",  "yordam": "/yordam",
+};
+function _kbCmd(text) {
+  // emoji/belgilarni olib tashlab, sof so'zni xaritadan izlaymiz
+  const soz = String(text || "").toLowerCase()
+    .replace(/[^a-z’'ʼ]/g, "").replace(/[’ʼ]/g, "'").trim();
+  return _KB_XARITA[soz] || null;
+}
+const _KB_EGA = { keyboard: [
+  [{ text: "📊 Hisobot" }, { text: "💰 Balans" }],
+  [{ text: "📦 Ombor" },   { text: "💳 Qarzlar" }],
+  [{ text: "📈 Oylik" },   { text: "🧾 Naklad" }],
+  [{ text: "🏪 Do'konlarim" }, { text: "ℹ️ Komandalar" }],
+], resize_keyboard: true, is_persistent: true };
+const _KB_MIJOZ = { keyboard: [
+  [{ text: "ℹ️ Yordam" }],
+], resize_keyboard: true, is_persistent: true };
+async function _kbEgaYubor(chatId) {
+  const _dl = await _dupLock("kbadm", String(chatId), "v1");
+  if (_dl.dup) return;
+  await tg(chatId, "⌨️ Tez tugmalar yoqildi — pastda:", { reply_markup: _KB_EGA });
+  await _dupMark(_dl.key);
+}
+
 // Supabase GET
 async function sb(table, query = "") {
   const url = `${SB_URL}/rest/v1/${table}${query}`;
@@ -1133,7 +1168,7 @@ async function handleContact(chatId, contact) {
     await tg(chatId,
       `✅ Rahmat, ${match.name}!\n\n` +
       "Endi har bir xaridingiz uchun chek shu yerga avtomatik keladi. 🧾",
-      { reply_markup: { remove_keyboard: true } }
+      { reply_markup: _KB_MIJOZ }   // ✅ OT-1b: "Yordam" tugmasi qoladi
     );
   } catch (e) {
     console.error("[handleContact] xato:", e.message);
@@ -4148,7 +4183,14 @@ function yubor(){
     return res.status(200).json({ ok: true });
   }
 
-  const cmd = text.split(" ")[0].toLowerCase().split("@")[0];
+  let cmd = text.split(" ")[0].toLowerCase().split("@")[0];
+  // ✅ OT-1b: javob-klaviatura tugmasi bosilgan bo'lsa — buyruqqa
+  // aylantiramiz ("📊 Hisobot" → /hisobot). Guruh-jimlik va
+  // isShopOwner qulfi PASTDA avvalgidek ishlaydi.
+  if (!cmd.startsWith("/")) {
+    const _kb = _kbCmd(text);
+    if (_kb) cmd = _kb;
+  }
   if (cmd === "/start") {
     // Deep link parametrini olamiz: /start shop_XXXXX
     const param = text.split(" ")[1] || "";
@@ -4176,7 +4218,8 @@ function yubor(){
       "• Qaytarish bo'lsa — yangilangan chekni yuboradi\n\n" +
       "🔗 Ulanish: /start → do'konni tanlang → raqamingizni ulashing.\n" +
       "Raqamingiz topilmasa — sotuvchiga Telegram raqamingizni ayting.\n\n" +
-      "Savollar bo'lsa — xarid qilgan do'koningizga murojaat qiling.");
+      "Savollar bo'lsa — xarid qilgan do'koningizga murojaat qiling.",
+      { reply_markup: _KB_MIJOZ });   // ✅ OT-1b
     return res.status(200).json({ ok: true });
   }
 
@@ -4213,6 +4256,7 @@ function yubor(){
   }
 
   _menuEga(chatId).catch(() => {});   // ✅ OT-1a: ega chatiga to'liq menyu
+  _kbEgaYubor(chatId).catch(() => {}); // ✅ OT-1b: tez tugmalar (soatiga 1 marta)
 
   // AI-NAKLAD (2026-07): faol sessiya bo'lsa, xabar (rasm/matn) shu
   // oqimga yo'naltiriladi — /naklad bundan mustasno (qayta boshlash uchun)
