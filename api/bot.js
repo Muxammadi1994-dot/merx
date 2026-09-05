@@ -380,6 +380,49 @@ async function _ordFinalizeSent(shopId, chekId, ism, comment, groupChatId) {
   return { ok: true };
 }
 
+// ═══ ✅ OT-1a (2026-09-01): ChAP-PAST "☰ Menyu" TUGMASI ═══
+// Telegram'ning setMyCommands API'si: buyruqlar ro'yxati o'rnatilsa,
+// tugma o'zi paydo bo'ladi. Ikki daraja: (1) hamma shaxsiy chatlar —
+// mijoz to'plami; (2) ega chati — to'liq to'plam (isShopOwner'dan
+// O'TGANDAN keyingina, ya'ni begonaga hech qachon o'rnatilmaydi).
+// O'rnatish o'z-o'zidan: /start da umumiy, ega buyrug'ida — egalik.
+// bot_sent quli (60 daq) — API'ga ortiqcha urilmasin. Buyruqlarning
+// o'zi avvalgidek himoyada: menyu faqat KO'RSATADI, ruxsat bermaydi.
+async function _setMenu(scope, commands) {
+  try {
+    await fetch(`https://api.telegram.org/bot${TOKEN}/setMyCommands`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scope, commands }),
+    });
+  } catch (e) { console.warn("[OT-1a] setMenu:", e.message); }
+}
+async function _menuMijoz() {
+  const _dl = await _dupLock("menudef", "all", "v1");
+  if (_dl.dup) return;
+  await _setMenu({ type: "all_private_chats" }, [
+    { command: "start",  description: "Boshlash / do'konga ulanish" },
+    { command: "yordam", description: "Yordam" },
+  ]);
+  await _dupMark(_dl.key);
+}
+async function _menuEga(chatId) {
+  const _dl = await _dupLock("menuadm", String(chatId), "v1");
+  if (_dl.dup) return;
+  await _setMenu({ type: "chat", chat_id: chatId }, [
+    { command: "hisobot",        description: "Bugungi hisobot" },
+    { command: "balans",         description: "Bugungi balans" },
+    { command: "ombor",          description: "Ombor holati" },
+    { command: "qarzlar",        description: "Qarzdorlar" },
+    { command: "barcha_qarzlar", description: "Barcha qarzdorlar" },
+    { command: "oylik",          description: "Oylik statistika" },
+    { command: "naklad",         description: "AI naklad kiritish" },
+    { command: "mendokonlarim",  description: "Do'konlarim" },
+    { command: "tizim",          description: "Tizim holati" },
+    { command: "help",           description: "Barcha komandalar" },
+  ]);
+  await _dupMark(_dl.key);
+}
+
 // Supabase GET
 async function sb(table, query = "") {
   const url = `${SB_URL}/rest/v1/${table}${query}`;
@@ -2356,6 +2399,7 @@ function buildStaffOrderHtml(sale, shopName, shopId2) {
 <html lang="uz"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes">
+<script src="https://telegram.org/js/telegram-web-app.js"></script><!-- ✅ OT-1a: bosuvchi ismi uchun -->
 <title>${chekId}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:wght@400;600;700&display=swap');
@@ -2571,6 +2615,7 @@ function fetchDone() {
 }
 setInterval(fetchDone, 2000); // 2 soniyada bir — tezroq sinxronlash
 
+if (window.Telegram && Telegram.WebApp) { try { Telegram.WebApp.ready(); } catch(e){} }  // ✅ OT-1a
 // ✅ OT-1: "Tayyorlandi" — guruhga xabar. Bosuvchi ismi Telegram
 // WebApp'dan (initDataUnsafe.user). Qisman holatda ham bosiladi —
 // server topilmaganlar ro'yxatini o'zi tuzadi.
@@ -3536,7 +3581,13 @@ export default async function handler(req, res) {
       url = "/api/bot?action=staff_order&id=" + encodeURIComponent(parts[0]);
       if (parts[1]) url += "&shop=" + encodeURIComponent(parts[1]);
     }
-    window.location.replace(url);
+    // ✅ OT-1a (2026-09-01): TELEGRAM KIMLIK XEShI SAQLAB UZATILADI.
+    // WebApp foydalanuvchi ma'lumotini faqat BIRINChI sahifaga, manzil
+    // xeshi (#tgWebAppData...) orqali beradi. Oddiy replace() xeshni
+    // tashlab ketardi — buyurtma sahifasida initDataUnsafe.user bo'sh
+    // qolib, "Tayyorlovchi: Omborchi" chiqayotgan edi (egasi topdi).
+    // Chek sahifalari (PAY/ChK) xeshni o'qimaydi — ularga zararsiz.
+    window.location.replace(url + (window.location.hash || ""));
   } else {
     document.getElementById("msg").textContent = "⚠️ Buyurtma ID topilmadi.";
   }
@@ -4102,6 +4153,7 @@ function yubor(){
     // Deep link parametrini olamiz: /start shop_XXXXX
     const param = text.split(" ")[1] || "";
     await cmdStart(chatId, param);
+    _menuMijoz().catch(() => {});   // ✅ OT-1a: "☰ Menyu" (kutilmaydi)
     return res.status(200).json({ ok: true });
   }
 
@@ -4111,6 +4163,20 @@ function yubor(){
     const _t = msg.chat?.type;
     if (_t === "group" || _t === "supergroup") await sendGroupIdCard(chatId, false);
     else await tg(chatId, "🆔 Sizning chat ID: <code>" + chatId + "</code>");
+    return res.status(200).json({ ok: true });
+  }
+
+  // ✅ OT-1a: /yordam — MIJOZLAR uchun (ega-qulfidan oldin turadi;
+  // /help esa qulf ichida qoladi — unda do'kon buyruqlari bor).
+  if (cmd === "/yordam") {
+    await tg(chatId,
+      "ℹ️ <b>MERX bot nima qiladi?</b>\n\n" +
+      "• Xaridingizdan so'ng chekni shu yerga yuboradi\n" +
+      "• Qarz to'lovi chekini yuboradi\n" +
+      "• Qaytarish bo'lsa — yangilangan chekni yuboradi\n\n" +
+      "🔗 Ulanish: /start → do'konni tanlang → raqamingizni ulashing.\n" +
+      "Raqamingiz topilmasa — sotuvchiga Telegram raqamingizni ayting.\n\n" +
+      "Savollar bo'lsa — xarid qilgan do'koningizga murojaat qiling.");
     return res.status(200).json({ ok: true });
   }
 
@@ -4145,6 +4211,8 @@ function yubor(){
     await tg(chatId, "⛔ Bu komanda faqat do'kon egasi uchun.\n\n/start — qaytadan boshlash\n/mendokonlarim — do'konlaringiz ro'yxati");
     return res.status(200).json({ ok: true });
   }
+
+  _menuEga(chatId).catch(() => {});   // ✅ OT-1a: ega chatiga to'liq menyu
 
   // AI-NAKLAD (2026-07): faol sessiya bo'lsa, xabar (rasm/matn) shu
   // oqimga yo'naltiriladi — /naklad bundan mustasno (qayta boshlash uchun)
