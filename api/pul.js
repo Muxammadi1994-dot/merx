@@ -1668,6 +1668,61 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true, totals });
     }
 
+    // ── ✅ XD-3: QORA QUTI QABULI ──────────────────────────────
+    // Yozish faqat token tasdig'idan keyin; hamma maydon QATTIQ
+    // qisqartiriladi (spam/urinishdan himoya); shop_id JWT'dan —
+    // begona do'kon nomidan yozib bo'lmaydi.
+    if (action === "device_log") {
+      if (!(await _verify))
+        return res.status(401).json({ ok: false, error: "Token yaroqsiz" });
+      const dev = String(body.device || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 4);
+      const lines = Array.isArray(body.lines)
+        ? body.lines.slice(-120).map(x => String(x).slice(0, 300))
+        : [];
+      const row = {
+        shop_id: shopId,
+        device: dev,
+        sw: parseInt(body.sw) || 0,
+        reason: String(body.reason || "").slice(0, 64),
+        extra: String(body.extra || "").slice(0, 300),
+        ua: String(body.ua || "").slice(0, 200),
+        standalone: !!body.standalone,
+        usage_b: Math.max(0, parseInt(body.usage) || 0),
+        quota_b: Math.max(0, parseInt(body.quota) || 0),
+        lines,
+      };
+      try {
+        const r = await fetch(`${SB_URL}/rest/v1/device_logs`, {
+          method: "POST",
+          headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+            "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify([row]),
+        });
+        return res.status(200).json({ ok: r.ok });
+      } catch (e) { return res.status(200).json({ ok: false }); }
+    }
+    // ── ✅ XD-3: TALAB-BAYROG'I ────────────────────────────────
+    if (action === "log_flag") {
+      if (!(await _verify))
+        return res.status(401).json({ ok: false, error: "Token yaroqsiz" });
+      const dev = String(body.device || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 4);
+      try {
+        const rows = await sbAll(
+          `device_log_req?shop_id=eq.${encodeURIComponent(shopId)}` +
+          `&device=eq.${encodeURIComponent(dev)}&done_at=is.null&select=id&limit=1`);
+        if (rows && rows.length) {
+          await fetch(`${SB_URL}/rest/v1/device_log_req?id=eq.${rows[0].id}`, {
+            method: "PATCH",
+            headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+              "Content-Type": "application/json", Prefer: "return=minimal" },
+            body: JSON.stringify({ done_at: new Date().toISOString() }),
+          });
+          return res.status(200).json({ ok: true, send: true });
+        }
+        return res.status(200).json({ ok: true, send: false });
+      } catch (e) { return res.status(200).json({ ok: true, send: false }); }
+    }
+
     return res.status(400).json({ ok: false, error: "Noma'lum amal: " + action });
   } catch (e) {
     console.error("[pul]", action, e.message);

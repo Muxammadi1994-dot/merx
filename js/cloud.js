@@ -4915,3 +4915,60 @@ try {
   });
   window.addEventListener("online", () => { try { ensureFreshToken(); } catch (e) {} });
 } catch (e) {}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ XD-3 (2026-09-05) — QORA QUTI YUBORUVChISI.
+// _qqHodisa(sabab, izoh): jiddiy hodisada tashxis paketini serverga
+// yuboradi (device_logs). Har sabab uchun 10 daqiqada 1 martadan
+// ko'p emas. Hammasi try/catch — o'zi yiqilsa ham ilova sezmaydi.
+// Talab-bayrog'i: ochilishdan ~8s keyin bir marta so'raladi —
+// superadmin bazaga so'rov qo'ygan bo'lsa, qurilma buferini yuboradi.
+window._qqSongi = window._qqSongi || {};
+window._qqHodisa = async function (sabab, izoh) {
+  try {
+    const now = Date.now();
+    if (window._qqSongi[sabab] && now - window._qqSongi[sabab] < 10 * 60 * 1000) return;
+    window._qqSongi[sabab] = now;
+    await window._qqJonat(sabab, izoh);
+  } catch (e) {}
+};
+window._qqJonat = async function (sabab, izoh) {
+  try {
+    if (typeof _serverPay !== "function") return;
+    let est = null;
+    try {
+      est = (navigator.storage && navigator.storage.estimate)
+        ? await navigator.storage.estimate() : null;
+    } catch (e) {}
+    const r = await _serverPay({
+      action: "device_log",
+      device: (typeof _devCode === "function" ? _devCode() : "") || "",
+      sw: window.SW_V || 0,
+      reason: String(sabab || "").slice(0, 64),
+      extra: String(izoh || "").slice(0, 300),
+      ua: String(navigator.userAgent || "").slice(0, 200),
+      standalone: !!(window.matchMedia &&
+        matchMedia("(display-mode: standalone)").matches) || !!navigator.standalone,
+      usage: (est && est.usage) || 0,
+      quota: (est && est.quota) || 0,
+      lines: (window._qqBuf || []).slice(-120),
+    });
+    const L = (window._qqOrig && window._qqOrig.log) || console.log;
+    L("[XD-3] qora quti:", r && r.ok ? "yuborildi ✓" : (r && r.error) || "yuborilmadi");
+  } catch (e) {}
+};
+(function () {
+  function tek() {
+    try {
+      if (typeof _serverPay !== "function") return;
+      _serverPay({
+        action: "log_flag",
+        device: (typeof _devCode === "function" ? _devCode() : "") || "",
+      }).then(r => {
+        if (r && r.ok && r.send) window._qqJonat("talab", "");
+      }).catch(() => {});
+    } catch (e) {}
+  }
+  if (document.readyState === "complete") setTimeout(tek, 8000);
+  else window.addEventListener("load", () => setTimeout(tek, 8000));
+})();

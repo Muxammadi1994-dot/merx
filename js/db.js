@@ -241,7 +241,9 @@ function idbOpen() {
         if (!d.objectStoreNames.contains(IDB_STORE)) d.createObjectStore(IDB_STORE);
       };
       rq.onsuccess = () => { _idb = rq.result; _idbOk = true; res(_idb); };
-      rq.onerror   = () => { console.warn("IndexedDB ochilmadi — localStorage'da davom etamiz"); res(null); };
+      rq.onerror   = () => { console.warn("IndexedDB ochilmadi — localStorage'da davom etamiz");
+        try { window._qqHodisa && window._qqHodisa("idb_ochilmadi", String(rq.error || "")); } catch (e9) {}
+        res(null); };   // ✅ XD-3
       rq.onblocked = () => res(null);
     } catch(e) { res(null); }
   });
@@ -325,6 +327,7 @@ async function migrateHeavyToIdb() {
   }
   if (!ok) {
     console.warn("⚠️ IndexedDB tasdiqlanmadi — localStorage'da davom etamiz");
+    try { window._qqHodisa && window._qqHodisa("idb_tasdiqlanmadi", ""); } catch (e9) {}   // ✅ XD-3
     _idbVerified = false;
     return;
   }
@@ -351,6 +354,7 @@ async function flushHeavy() {
     if (!ok) {
       // Yozib bo'lmadi — localStorage'ga qaytamiz, ma'lumot yo'qolmasin
       console.error("❌ IndexedDB yozmadi — localStorage'ga qaytildi");
+      try { window._qqHodisa && window._qqHodisa("idb_yozmadi", ""); } catch (e9) {}   // ✅ XD-3
       _idbVerified = false;
       try { saveDB(); } catch(e) {}
       return;
@@ -439,6 +443,7 @@ function saveDB() {
       console.error("❌ localStorage saqlash xatosi:", e3.message);
       if (Date.now() - _saveFailAt > 60000 && typeof toast === "function") {
         _saveFailAt = Date.now();
+        try { window._qqHodisa && window._qqHodisa("ls_toldi", e3 && e3.message); } catch (e9) {}   // ✅ XD-3
         toast("⚠️ Qurilma xotirasi to'ldi — ma'lumot bulutga saqlanmoqda. " +
               "Internetni uzmang va MERX ni yopishdan oldin sinxron tugashini kuting", "err");
       }

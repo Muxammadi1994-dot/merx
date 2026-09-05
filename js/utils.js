@@ -4824,3 +4824,45 @@ function autofillGuardWatch() {
     obs.observe(document.body, { childList: true, subtree: true });
   } catch (e) {}
 }
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ XD-3 (2026-09-05) — "QORA QUTI": konsolning oxirgi 300 satri
+// XOTIRADA aylanma buferda saqlanadi. Maqsad: B20-iPhone "xotira
+// to'ldi" sinfidagi hodisada telefon O'ZI hisobot yuborsin (kassir
+// bezovta qilinmaydi). Xavfsizlik: bufer FAQAT xotirada (sandiq/
+// cho'ntak buzilgan rejimda ham ishlaydi, o'zi bosim qo'shmaydi);
+// satr ≤300 belgi, jami ≤300 satr (~90KB shift); rekursiya
+// qo'riqchisi bor; asl console saqlanadi (window._qqOrig).
+(function () {
+  if (window._qqTayyor) return;
+  window._qqTayyor = true;
+  const MAXL = 300, MAXS = 300;
+  const buf = [];
+  window._qqBuf = buf;
+  const orig = {
+    log:   console.log.bind(console),
+    warn:  console.warn.bind(console),
+    error: console.error.bind(console),
+  };
+  window._qqOrig = orig;
+  let _ich = false;                       // rekursiyadan himoya
+  function push(lvl, args) {
+    if (_ich) return;
+    _ich = true;
+    try {
+      const t = new Date(Date.now() + 5 * 3600 * 1000)
+        .toISOString().slice(11, 19);     // Toshkent HH:MM:SS
+      let s = args.map(a => {
+        try { return typeof a === "string" ? a : JSON.stringify(a); }
+        catch (e) { return String(a); }
+      }).join(" ");
+      if (s.length > MAXS) s = s.slice(0, MAXS) + "…";
+      buf.push(t + " " + lvl + " " + s);
+      if (buf.length > MAXL) buf.splice(0, buf.length - MAXL);
+    } catch (e) {}
+    _ich = false;
+  }
+  console.warn  = function () { push("W", [...arguments]); orig.warn(...arguments); };
+  console.error = function () { push("E", [...arguments]); orig.error(...arguments); };
+  window._qqYoz = m => push("I", [m]);    // muhim voqealarni qo'lda yozish
+})();
