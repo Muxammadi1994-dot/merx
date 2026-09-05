@@ -447,15 +447,54 @@ const _KB_EGA = { keyboard: [
   [{ text: "📦 Ombor" },   { text: "💳 Qarzlar" }],
   [{ text: "📈 Oylik" },   { text: "🧾 Naklad" }],
   [{ text: "🏪 Do'konlarim" }, { text: "ℹ️ Komandalar" }],
-], resize_keyboard: true, is_persistent: true };
+], resize_keyboard: true };  // ✅ OT-1c: is_persistent OLINDI — shunda
+// yozuv qatorida ▦ yashirish/ochish tugmasi chiqadi (egasi so'radi)
 const _KB_MIJOZ = { keyboard: [
   [{ text: "ℹ️ Yordam" }],
-], resize_keyboard: true, is_persistent: true };
+], resize_keyboard: true };  // ✅ OT-1c: ▦ tugmasi uchun
+// ✅ OT-1c: BIR-MARTALIK belgi — _dupLock'dan farqi: 60 daqiqadan
+// keyin ham QAYTARILMAYDI (bot_sent'da kalit bor-yo'qligi tekshiriladi,
+// vaqtga qaralmaydi). Panel bir marta yuboriladi, xolos.
+async function _onceEver(kind, a) {
+  const key = `${kind}|${a}`;
+  try {
+    const r = await sb("bot_sent", `?key=eq.${encodeURIComponent(key)}&select=key&limit=1`);
+    if (r && r.length) return false;
+  } catch (e) {}
+  await _dupMark(key);
+  return true;
+}
 async function _kbEgaYubor(chatId) {
-  const _dl = await _dupLock("kbadm", String(chatId), "v1");
-  if (_dl.dup) return;
-  await tg(chatId, "⌨️ Tez tugmalar yoqildi — pastda:", { reply_markup: _KB_EGA });
-  await _dupMark(_dl.key);
+  if (!(await _onceEver("kbv1ega", String(chatId)))) return;
+  await tg(chatId,
+    "⌨️ <b>Yangilik:</b> pastda tez tugmalar paneli.\n" +
+    "Yashirish/ochish — yozuv qatoridagi ▦ belgisi.",
+    { reply_markup: _KB_EGA });
+}
+// ✅ OT-1c: mijozga panel — keyingi cheki bilan BIR MARTA (so'rovsiz)
+async function _kbMijozOnce(chatId) {
+  try {
+    if (!(await _onceEver("kbv1mij", String(chatId)))) return;
+    await tg(chatId,
+      "⌨️ Pastdagi ℹ️ Yordam tugmasi orqali bot haqida ma'lumot olishingiz mumkin.",
+      { reply_markup: _KB_MIJOZ });
+  } catch (e) {}
+}
+// ✅ OT-1c: EGALARGA SO'ROVSIZ tarqatish — deploydan keyingi birinchi
+// faollikda BIR MARTA: shop_owners dagi hamma chat + superadmin.
+// Ro'yxatda yo'q eski ega bo'lsa — u birinchi buyrug'idayoq oladi
+// (_kbEgaYubor gate-nuqtasi), hech kim start bosishi shart emas.
+async function _kbBroadcast() {
+  try {
+    if (!(await _onceEver("kbv1", "broadcast"))) return;
+    const rows = await sb("shop_owners", "?select=chat_id");
+    const set = new Set((rows || []).map(r => String(r.chat_id)).filter(Boolean));
+    if (OWNER_ID) set.add(String(OWNER_ID));
+    for (const cid of set) {
+      await _kbEgaYubor(cid);
+      await new Promise(r => setTimeout(r, 150));
+    }
+  } catch (e) { console.warn("[OT-1c] broadcast:", e.message); }
 }
 
 // Supabase GET
@@ -1862,6 +1901,7 @@ async function actionSendPayReceipt(body) {
       reply_markup: { inline_keyboard: [[{ text: "🧾 To'lov chekini ko'rish", url: payUrl }]] },
     });
     custSent = !!r.ok;
+    if (custSent) _kbMijozOnce(chatId).catch(() => {});   // ✅ OT-1c
     if (!r.ok) _err = r.description;
   }
 
@@ -2142,6 +2182,7 @@ async function actionSendReceipt(body) {
       },
     });
     custSent = !!r.ok;
+    if (custSent) _kbMijozOnce(chatId).catch(() => {});   // ✅ OT-1c
     if (!r.ok) _err = r.description;
   }
 
@@ -4164,6 +4205,7 @@ function yubor(){
     return res.status(200).json({ ok: true });
   }
 
+  _kbBroadcast().catch(() => {});   // ✅ OT-1c: bir-martalik tarqatish
   const msg    = update.message;
   if (!msg) return res.status(200).json({ ok: true });
 
