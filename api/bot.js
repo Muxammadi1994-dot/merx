@@ -435,6 +435,7 @@ const _KB_XARITA = {
   "qarzlar": "/qarzlar",  "oylik": "/oylik",     "naklad": "/naklad",
   "do'konlarim": "/mendokonlarim", "dokonlarim": "/mendokonlarim",
   "komandalar": "/help",  "yordam": "/yordam",
+  "cheklarim": "/cheklarim", "qarzim": "/qarzim",   // ✅ OT-2
 };
 function _kbCmd(text) {
   // emoji/belgilarni olib tashlab, sof so'zni xaritadan izlaymiz
@@ -450,6 +451,7 @@ const _KB_EGA = { keyboard: [
 ], resize_keyboard: true };  // ✅ OT-1c: is_persistent OLINDI — shunda
 // yozuv qatorida ▦ yashirish/ochish tugmasi chiqadi (egasi so'radi)
 const _KB_MIJOZ = { keyboard: [
+  [{ text: "🧾 Cheklarim" }, { text: "💳 Qarzim" }],   // ✅ OT-2
   [{ text: "ℹ️ Yordam" }],
 ], resize_keyboard: true };  // ✅ OT-1c: ▦ tugmasi uchun
 // ✅ OT-1c: BIR-MARTALIK belgi — _dupLock'dan farqi: 60 daqiqadan
@@ -495,6 +497,174 @@ async function _kbBroadcast() {
       await new Promise(r => setTimeout(r, 150));
     }
   } catch (e) { console.warn("[OT-1c] broadcast:", e.message); }
+}
+
+// ═══ ✅ OT-2 (2026-09-05): MIJOZ BO'LIMI — /cheklarim + 📅 kalendar
+// + /qarzim. Hammasi FAQAT O'QIYDI va faqat shaxsiy chatda ishlaydi;
+// ma'lumot faqat shu chat_id ga bog'langan mijoz qatorlaridan olinadi
+// (chat_id ni Telegram beradi — soxtalab bo'lmaydi). Holat saqlanmaydi:
+// tanlovlar callback ichida ketadi (ck|...), 64-bayt chegarasi ichida.
+async function tgEdit(chatId, messageId, text, extra = {}) {
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${TOKEN}/editMessageText`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId,
+        text, parse_mode: "HTML", ...extra }),
+    });
+    return await r.json().catch(() => ({}));
+  } catch (e) { return { ok: false }; }
+}
+async function _ckCust(chatId, shopId) {
+  const f = shopId ? `&shop_id=eq.${encodeURIComponent(shopId)}` : "";
+  return await sb("customers",
+    `?telegram_chat_id=eq.${chatId}${f}&select=id,shop_id,name&limit=6`) || [];
+}
+async function _ckShopNom(ids) {
+  const map = {};
+  try {
+    const inL = [...new Set(ids)].filter(x => /^[A-Za-z0-9_]+$/.test(x)).join(",");
+    if (!inL) return map;
+    const rows = await sb("shops", `?id=in.(${inL})&select=id,name`);
+    (rows || []).forEach(r2 => { map[String(r2.id)] = r2.name || "Do'kon"; });
+  } catch (e) {}
+  return map;
+}
+function _ckUrl(kind, id2, shop) {
+  const raw = `${kind}__${id2}${shop ? "__" + shop : ""}`;
+  const enc = raw.replace(/[^a-zA-Z0-9_]/g, m => "x" + m.charCodeAt(0).toString(16));
+  return `https://t.me/${BOT_USERNAME}/ombor?startapp=${enc}`;
+}
+const _CK_TUR = { s: "🧾 Sotuv", p: "💵 To'lov",
+                  r: "↩️ Qaytarish", a: "📋 Hammasi" };
+function _ckTurKb(shop) {
+  return { inline_keyboard: [
+    [{ text: _CK_TUR.s, callback_data: `ck|t|s|${shop}` },
+     { text: _CK_TUR.p, callback_data: `ck|t|p|${shop}` }],
+    [{ text: _CK_TUR.r, callback_data: `ck|t|r|${shop}` },
+     { text: _CK_TUR.a, callback_data: `ck|t|a|${shop}` }],
+  ]};
+}
+function _ckDavrKb(t, shop) {
+  return { inline_keyboard: [
+    [{ text: "Bugun",  callback_data: `ck|d|${t}|0|${shop}` },
+     { text: "7 kun",  callback_data: `ck|d|${t}|7|${shop}` }],
+    [{ text: "30 kun", callback_data: `ck|d|${t}|30|${shop}` },
+     { text: "📅 Aniq sana", callback_data: `ck|c|${t}|${today().slice(0,7).replace("-","")}|${shop}` }],
+    [{ text: "◀ Tur", callback_data: `ck|s|${shop}` }],
+  ]};
+}
+function _ckYmShift(ym, k) {
+  let y = +ym.slice(0, 4), m = +ym.slice(4, 6) + k;
+  if (m < 1)  { m = 12; y--; }
+  if (m > 12) { m = 1;  y++; }
+  return `${y}${String(m).padStart(2, "0")}`;
+}
+function _ckOyKb(t, ym, shop) {
+  const y = +ym.slice(0, 4), m = +ym.slice(4, 6);
+  const OY = ["Yanvar","Fevral","Mart","Aprel","May","Iyun",
+              "Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
+  const dow  = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7; // Du=0
+  const kun  = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const rows = [[
+    { text: "‹", callback_data: `ck|c|${t}|${_ckYmShift(ym, -1)}|${shop}` },
+    { text: `${OY[m - 1]} ${y}`, callback_data: "ck|x" },
+    { text: "›", callback_data: `ck|c|${t}|${_ckYmShift(ym, 1)}|${shop}` },
+  ], ["Du","Se","Ch","Pa","Ju","Sh","Ya"].map(d2 => ({ text: d2, callback_data: "ck|x" }))];
+  let line = [];
+  for (let i = 0; i < dow; i++) line.push({ text: "·", callback_data: "ck|x" });
+  for (let d2 = 1; d2 <= kun; d2++) {
+    line.push({ text: String(d2),
+      callback_data: `ck|g|${t}|${ym}${String(d2).padStart(2, "0")}|${shop}` });
+    if (line.length === 7) { rows.push(line); line = []; }
+  }
+  if (line.length) {
+    while (line.length < 7) line.push({ text: "·", callback_data: "ck|x" });
+    rows.push(line);
+  }
+  rows.push([{ text: "◀ Davr", callback_data: `ck|t|${t}|${shop}` }]);
+  return { inline_keyboard: rows };
+}
+function _ckOraliq(dTok) {
+  const t2 = today();
+  if (/^\d{8}$/.test(dTok)) {
+    const d2 = `${dTok.slice(0,4)}-${dTok.slice(4,6)}-${dTok.slice(6,8)}`;
+    return { from: d2, to: d2, nom: d2 };
+  }
+  const kun = dTok === "0" ? 0 : (dTok === "7" ? 6 : 29);
+  const f = new Date(Date.now() + TZ_OFFSET_MIN * 60000 - kun * 86400000)
+    .toISOString().slice(0, 10);
+  return { from: f, to: t2, nom: dTok === "0" ? "Bugun" : `Oxirgi ${kun + 1} kun` };
+}
+async function _ckList(chatId, shop, t, dTok, page) {
+  const rows = await _ckCust(chatId, shop);
+  const c = rows[0];
+  if (!c) return { text: "⚠️ Bu do'konda ulanish topilmadi. /start", kb: null };
+  const { from, to, nom } = _ckOraliq(dTok);
+  const el = [];
+  try {
+    if (t === "s" || t === "a") {
+      const r2 = await sb("sales",
+        `?shop_id=eq.${encodeURIComponent(shop)}&customer_id=eq.${encodeURIComponent(c.id)}` +
+        `&date=gte.${from}&date=lte.${to}` +
+        `&select=chek_num,date,time,total,data&order=date.desc,time.desc&limit=80`);
+      (r2 || []).forEach(s2 => {
+        if (String(s2.data?.cancelled) === "true") return;
+        el.push({ tur: "🧾", date: s2.date, time: s2.time || "",
+          kod: s2.chek_num || "—", sum: fmt(s2.total || 0) + " so'm",
+          url: _ckUrl("CHK", s2.chek_num, shop) });
+      });
+    }
+    if (t === "p" || t === "a") {
+      const r2 = await sb("debt_payments",
+        `?shop_id=eq.${encodeURIComponent(shop)}&customer_id=eq.${encodeURIComponent(c.id)}` +
+        `&date=gte.${from}&date=lte.${to}` +
+        `&select=id,date,amount,currency,data&order=date.desc&limit=80`);
+      (r2 || []).forEach(p2 => {
+        if (String(p2.data?.cancelled) === "true") return;
+        const sum = p2.currency === "usd"
+          ? "$" + Number(p2.amount || 0).toFixed(2)
+          : fmt(p2.amount || 0) + " so'm";
+        el.push({ tur: "💵", date: p2.date, time: p2.data?.time || "",
+          kod: p2.data?.chekNum || ("ID" + p2.id), sum,
+          url: _ckUrl("PAY", p2.id, shop) });
+      });
+    }
+    if (t === "r" || t === "a") {
+      const r2 = await sb("returns",
+        `?shop_id=eq.${encodeURIComponent(shop)}&data->>customerId=eq.${encodeURIComponent(c.id)}` +
+        `&data->>date=gte.${from}&data->>date=lte.${to}` +
+        `&select=data&order=created_at.desc&limit=50`);
+      (r2 || []).forEach(x2 => {
+        const d2 = x2.data || {};
+        el.push({ tur: "↩️", date: d2.date, time: d2.time || "",
+          kod: d2.refundNo || d2.origChekNum || "—",
+          sum: fmt(d2.total || 0) + " so'm",
+          url: d2.origChekNum ? _ckUrl("CHK", d2.origChekNum, shop) : null });
+      });
+    }
+  } catch (e) { console.warn("[OT-2] list:", e.message); }
+  el.sort((a2, b2) => (b2.date + (b2.time||"")).localeCompare(a2.date + (a2.time||"")));
+  const PER = 8, jami = el.length, sah = Math.max(1, Math.ceil(jami / PER));
+  const p2 = Math.min(Math.max(1, page), sah);
+  const bo2 = el.slice((p2 - 1) * PER, p2 * PER);
+  let text = `${_CK_TUR[t]} · <b>${nom}</b>\n`;
+  if (!jami) text += "\nBu davrda chek topilmadi.";
+  else {
+    text += `Jami: <b>${jami}</b> ta` + (sah > 1 ? ` · ${p2}/${sah}-sahifa` : "") + "\n\n";
+    bo2.forEach(x2 => {
+      text += `${x2.tur} <i>${x2.date}</i> · ${x2.kod} · <b>${x2.sum}</b>\n`;
+    });
+  }
+  const kb = [];
+  bo2.forEach(x2 => {
+    if (x2.url) kb.push([{ text: `🔎 ${x2.kod}`, url: x2.url }]);
+  });
+  const nav = [];
+  if (p2 > 1)   nav.push({ text: "‹ Oldingi", callback_data: `ck|l|${t}|${dTok}|${p2-1}|${shop}` });
+  nav.push({ text: "◀ Davr", callback_data: `ck|t|${t}|${shop}` });
+  if (p2 < sah) nav.push({ text: "Keyingi ›", callback_data: `ck|l|${t}|${dTok}|${p2+1}|${shop}` });
+  kb.push(nav);
+  return { text, kb: { inline_keyboard: kb } };
 }
 
 // Supabase GET
@@ -4039,6 +4209,38 @@ function yubor(){
 
     if (chatId) {
       // Do'kon tanlash callback: "shop:shop_XXXXX"
+      // ✅ OT-2: mijoz "cheklarim" navigatsiyasi (ck|...). Xabar
+      // TAHRIRLANADI — chat ifloslanmaydi. Faqat shaxsiy chatda.
+      if (cb.data?.startsWith("ck|")) {
+        if (cb.message?.chat?.type !== "private")
+          return res.status(200).json({ ok: true });
+        const P = cb.data.split("|");
+        const op = P[1] || "", mid = cb.message?.message_id;
+        try {
+          if (op === "x") { /* bezak tugmasi */ }
+          else if (op === "s") {
+            await tgEdit(chatId, mid, "🧾 Qaysi cheklar kerak?",
+              { reply_markup: _ckTurKb(P[2] || "") });
+          } else if (op === "t") {
+            await tgEdit(chatId, mid,
+              `${_CK_TUR[P[2]] || ""}\n📅 Qaysi davr?`,
+              { reply_markup: _ckDavrKb(P[2], P[3] || "") });
+          } else if (op === "c") {
+            await tgEdit(chatId, mid, "📅 Sanani tanlang:",
+              { reply_markup: _ckOyKb(P[2], P[3], P[4] || "") });
+          } else if (op === "d" || op === "g") {
+            const r3 = await _ckList(chatId, P[4] || "", P[2], P[3], 1);
+            await tgEdit(chatId, mid, r3.text,
+              r3.kb ? { reply_markup: r3.kb } : {});
+          } else if (op === "l") {
+            const r3 = await _ckList(chatId, P[5] || "", P[2], P[3], parseInt(P[4]) || 1);
+            await tgEdit(chatId, mid, r3.text,
+              r3.kb ? { reply_markup: r3.kb } : {});
+          }
+        } catch (e) { console.warn("[OT-2] ck:", e.message); }
+        return res.status(200).json({ ok: true });
+      }
+
       // ✅ OT-1: guruhdagi "Mijozga yuborildi" tugmasi. Bosgan
       // odamning ismi callback'dan (cb.from) — aynan egasi so'ragan
       // "guruhdagi Telegram ismi". Takror bosish — ordsent qulfi.
@@ -4262,6 +4464,83 @@ function yubor(){
       "Raqamingiz topilmasa — sotuvchiga Telegram raqamingizni ayting.\n\n" +
       "Savollar bo'lsa — xarid qilgan do'koningizga murojaat qiling.",
       { reply_markup: _KB_MIJOZ });   // ✅ OT-1b
+    return res.status(200).json({ ok: true });
+  }
+
+  // ✅ OT-2: /cheklarim — MIJOZ o'z cheklarini ko'radi (tur → davr →
+  // ro'yxat, 📅 kalendar bilan). Faqat shaxsiy chat; ma'lumot faqat
+  // shu chat_id ga bog'langan mijoz qatorlaridan.
+  if (cmd === "/cheklarim") {
+    if (msg.chat?.type !== "private") return res.status(200).json({ ok: true });
+    const rows = await _ckCust(chatId);
+    if (!rows.length) {
+      await tg(chatId,
+        "⚠️ Siz hali botga ulanmagansiz.\n/start → do'konni tanlang → raqamingizni ulashing.",
+        { reply_markup: _KB_MIJOZ });
+      return res.status(200).json({ ok: true });
+    }
+    const shopIds = [...new Set(rows.map(r2 => String(r2.shop_id)))];
+    if (shopIds.length > 1) {
+      const nom = await _ckShopNom(shopIds);
+      await tg(chatId, "🏪 Qaysi do'kon cheklarini ko'ramiz?", {
+        reply_markup: { inline_keyboard:
+          shopIds.map(s2 => [{ text: "🏪 " + (nom[s2] || s2),
+                               callback_data: `ck|s|${s2}` }]) } });
+    } else {
+      await tg(chatId, "🧾 Qaysi cheklar kerak?",
+        { reply_markup: _ckTurKb(shopIds[0]) });
+    }
+    return res.status(200).json({ ok: true });
+  }
+
+  // ✅ OT-2: /qarzim — joriy qarz (har valyuta ALOHIDA, 3.49-qoida:
+  // so'm va $ hech qachon qo'shilmaydi) + oxirgi 3 to'lov. Bir nechta
+  // do'konga ulangan bo'lsa — har biri alohida blokda.
+  if (cmd === "/qarzim") {
+    if (msg.chat?.type !== "private") return res.status(200).json({ ok: true });
+    const rows = await _ckCust(chatId);
+    if (!rows.length) {
+      await tg(chatId,
+        "⚠️ Siz hali botga ulanmagansiz.\n/start → do'konni tanlang → raqamingizni ulashing.",
+        { reply_markup: _KB_MIJOZ });
+      return res.status(200).json({ ok: true });
+    }
+    const nom = await _ckShopNom(rows.map(r2 => String(r2.shop_id)));
+    let txt = "💳 <b>Qarz holatingiz</b>\n";
+    for (const c2 of rows.slice(0, 4)) {
+      txt += `\n🏪 <b>${nom[String(c2.shop_id)] || c2.shop_id}</b>\n`;
+      try {
+        const ss = await sb("sales",
+          `?shop_id=eq.${encodeURIComponent(c2.shop_id)}&customer_id=eq.${encodeURIComponent(c2.id)}` +
+          `&select=remaining,debt_usd,debt_currency,data&limit=1000`);
+        let som = 0, usd = 0;
+        (ss || []).forEach(s2 => {
+          if (String(s2.data?.cancelled) === "true") return;
+          if (s2.debt_currency === "usd") usd += Number(s2.debt_usd) || 0;
+          else som += Number(s2.remaining) || 0;
+        });
+        const q2 = [];
+        if (som > 0.5) q2.push(`<b>${fmt(som)} so'm</b>`);
+        if (usd > 0.005) q2.push(`<b>$${usd.toFixed(2)}</b>`);
+        txt += q2.length ? `Qarz: ${q2.join(" + ")}\n` : "Qarz yo'q ✅\n";
+        const pp2 = await sb("debt_payments",
+          `?shop_id=eq.${encodeURIComponent(c2.shop_id)}&customer_id=eq.${encodeURIComponent(c2.id)}` +
+          `&select=date,amount,currency,data&order=date.desc&limit=8`);
+        const oxirgi = (pp2 || [])
+          .filter(p3 => String(p3.data?.cancelled) !== "true").slice(0, 3);
+        if (oxirgi.length) {
+          txt += "Oxirgi to'lovlar:\n";
+          oxirgi.forEach(p3 => {
+            const s3 = p3.currency === "usd"
+              ? "$" + Number(p3.amount || 0).toFixed(2)
+              : fmt(p3.amount || 0) + " so'm";
+            const bel = p3.data?.source === "refund" ? " (qaytarishdan)" : "";
+            txt += `• ${p3.date} — ${s3}${bel}\n`;
+          });
+        }
+      } catch (e) { txt += "⚠️ Ma'lumot olinmadi\n"; }
+    }
+    await tg(chatId, txt, { reply_markup: _KB_MIJOZ });
     return res.status(200).json({ ok: true });
   }
 
