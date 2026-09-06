@@ -549,12 +549,14 @@ STU.band = false;    // bir vaqtda bitta so'rov
 // `ensureFreshToken` yangilaydi. Avval faqat localStorage qaralgan edi.
 async function _stuTok() {
   try { if (typeof ensureFreshToken === "function") await ensureFreshToken(); } catch (e) {}
+  // ⚠️ Maydon nomi IKKI xil bo'lishi mumkin: access_token yoki
+  // accessToken (qarzlar.js:_serverPay naqshi — AYNAN o'sha ifoda).
+  // Faqat birinchisiga qaraganim uchun "Token yaroqsiz" chiqqan edi.
   try {
     const K = "merx_sb_session";
     const raw = localStorage.getItem(K) || sessionStorage.getItem(K);
-    if (!raw) return null;
-    const s = JSON.parse(raw);
-    return s.access_token || (s.session && s.session.access_token) || null;
+    const d = raw ? JSON.parse(raw) : null;
+    return (d && (d.access_token || d.accessToken)) || null;
   } catch (e) { return null; }
 }
 async function stuAI(amal, qosh) {
@@ -563,6 +565,7 @@ async function stuAI(amal, qosh) {
   stuHolat(amal === "fon" ? "✂️ Fon tozalanmoqda…" : "🏞 Sahna tayyorlanmoqda…");
   try {
     const tok = await _stuTok();
+    if (!tok) { stuHolat(""); toast("Kirish kaliti topilmadi — sahifani yangilang", "err"); return null; }
     const r = await fetch("/api/reklama", {
       method: "POST",
       headers: { "Content-Type": "application/json",
