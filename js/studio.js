@@ -121,6 +121,19 @@ const STU_SHAB = [
     ],
   },
   {
+    id:"model", nom:"Modelda", uchun:"Kiyim — to'liq kadr (modelli surat)",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:.5, y:.5, w:1, h:1, anchor:"center", moda:"cover" },
+      { tur:"matn", manba:"nom", x:.06, y:.815, o:.055, vazn:800, rang:"c", max:.86 },
+      { tur:"matn", manba:"tafsilot", x:.06, y:.862, o:.026, vazn:600, rang:"d", max:.86 },
+      { tur:"narx", x:.06, y:.945, o:.105, vazn:900, rang:"b" },
+      { tur:"belgi", manba:"yorliq", x:.94, y:.05, o:.030, anchor:"right",
+        fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:.94, y:.975, o:.020, rang:"d", anchor:"right" },
+    ],
+  },
+  {
     id:"chegirma", nom:"Chegirma", uchun:"Aksiya — eski narx chizilgan",
     qatlamlar:[
       { tur:"fon", rang:"a" },
@@ -255,11 +268,10 @@ function stManba(m) {
   switch (m) {
     case "nom":       return t.nom || "Tovar nomi";
     case "tafsilot": {
-      const q = [];
-      if (t.art)    q.push("ART " + t.art);
-      if (t.rang)   q.push(t.rang);
-      if (t.olcham) q.push(t.olcham);
-      return q.join("  ·  ");
+      // ✅ S4b: bo'sh qiymatlar tashlanadi — jonlida "qora · ·"
+      // ko'rinishida ortiqcha ajratkichlar chiqib qolgan edi.
+      return [t.art ? "ART " + t.art : "", t.rang || "", t.olcham || ""]
+        .map(x => String(x).trim()).filter(Boolean).join("  ·  ");
     }
     case "yorliq":    return STU.yorliq || "";
     case "muddat":    return STU.muddat || "";
@@ -349,7 +361,11 @@ function stChiz(cvs, fmt, opt) {
             break;
           }
           const im = STU.img, z = STU.imgAdj.zoom || 1;
-          const k = Math.min(bw / im.width, bh / im.height) * z;
+          // ✅ S4b: "cover" — rasm maydonni TO'LIQ to'ldiradi (modelli
+          // kadrda surat kichkina karta bo'lib qolmasin — jonli kuzatuv).
+          const k = (L.moda === "cover"
+            ? Math.max(bw / im.width, bh / im.height)
+            : Math.min(bw / im.width, bh / im.height)) * z;
           const dw = im.width * k, dh = im.height * k;
           const dx = bx + (bw - dw) / 2 + (STU.imgAdj.dx || 0) * W;
           const dy = by + (bh - dh) / 2 + (STU.imgAdj.dy || 0) * H;
@@ -366,10 +382,13 @@ function stChiz(cvs, fmt, opt) {
             ctx.beginPath(); ctx.arc(sx, sy, dw * .42, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
           }
-          ctx.drawImage(im, dx, dy, dw, dh);
+          if (L.moda === "cover") {          // ✅ S4b: ortiqchasi kesiladi
+            ctx.save(); ctx.beginPath(); ctx.rect(bx, by, bw, bh); ctx.clip();
+            ctx.drawImage(im, dx, dy, dw, dh); ctx.restore();
+          } else ctx.drawImage(im, dx, dy, dw, dh);
           // ✅ S2: AKS (reflection) — sahna ustida tovar "polga qo'ngan"
           // ko'rinadi. Pastga tomon so'nadi, shaffofligi past.
-          if (STU.fon && STU.aks !== false) {
+          if (STU.fon && STU.aks !== false && L.moda !== "cover") {
             try {
               const t = document.createElement("canvas");
               t.width = Math.max(2, Math.round(dw));
@@ -403,7 +422,7 @@ function stChiz(cvs, fmt, opt) {
           }
           // ✅ S1: MATN KONTRASTI — sahna foni ustida narx/nom
           // yo'qolmasin: pastdan yumshoq to'q qatlam.
-          if (STU.fon) {
+          if (STU.fon || L.moda === "cover") {
             const g2 = ctx.createLinearGradient(0, H * .58, 0, H);
             g2.addColorStop(0, "rgba(0,0,0,0)");
             g2.addColorStop(1, "rgba(0,0,0,.55)");
@@ -627,7 +646,10 @@ function stuTanla(sku) {
     nom: p.name || "",
     art: p.art || p.sku || "",
     rang: ranglar.slice(0, 2).join(", "),
-    olcham: olch.length > 1 ? (olch[0] + "-" + olch[olch.length - 1]) : (olch[0] || ""),
+    olcham: (() => {                      // ✅ S4b
+      const a = olch.map(x => String(x).trim()).filter(Boolean);
+      return a.length > 1 ? a[0] + "-" + a[a.length - 1] : (a[0] || "");
+    })(),
     narx: Number(p.ulgurjiNarx || p.priceUzs) || 0,
     kat: String(p.category || p.type || ""),   // ✅ S1: sahna tanlash uchun
   };
@@ -1030,7 +1052,16 @@ async function stuKiydir(jins) {
     STU.fon = null;              // natijada o'z foni bor
     STU.soya = false;            // to'liq kadr — soya/aks kerak emas
     STU.aiNamoyish = true;       // belgisi chiqadi
+    STU.shab = "model";          // ✅ S4b: to'liq kadr uslubi
+    STU.variants = [
+      { shab: "model",    pal: STU.avtoPal ? "auto" : "navy" },
+      { shab: "model",    pal: "qora" },
+      { shab: "sarlavha", pal: "amber" },
+      { shab: "katalog",  pal: "oq" },
+    ];
+    STU.tanlanganV = 0;
+    stuVariantChiz();
+    renderStudio();
     toast("Modelda tayyor", "ok");
-    stChiz();
   } catch (e) { toast("Natija ochilmadi", "err"); }
 }
