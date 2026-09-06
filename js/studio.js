@@ -1528,12 +1528,12 @@ function renderStudio() {
   if (!STU._limitOlindi) {
     STU._limitOlindi = true;
     stuSevTikla();                                   // ✅ B1
-    stuLimit(); stuModellar(); stuLogoTikla(); stuShriftYukla();
+    stuLimit(); stuModellar(); stuLogoTikla(); stuShriftYukla(); stuFonlar();
   }
 }
 function stuShab(id) { STU.shab = id; renderStudio(); }
 function stuPanel(id) {                            // ✅ D1: panel almashish
-  ["shablon","tovar","surat","ai","brend","tarqat"].forEach(k => {
+  ["shablon","tovar","surat","fon","ai","brend","tarqat"].forEach(k => {
     const p = document.getElementById("stu-p-" + k);
     if (p) p.style.display = k === id ? "block" : "none";
     const b = document.getElementById("stu-r-" + k);
@@ -2402,4 +2402,99 @@ function stuBrauzer() {
     if (c) { try { stChiz(c, { w: 320, h: 400 }, { shab: s.id, pal: STU.pal }); }
              catch (e) {} }
   });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ C1 (2026-09-06) — FON KUTUBXONASI (umumiy, fasllar bo'yicha)
+// ═══════════════════════════════════════════════════════════════
+// Uch sinf uchun fonlar: TOVAR (modelsiz), MODEL kadri va REAL
+// XODIM kadri. Har fon bir marta yaratiladi va hamma do'konga
+// umumiy — shuning uchun ikkinchi marta BEPUL va bir zumda keladi.
+// Odam kadri uchun: "Shaxsni ajratish" → fon almashtiriladi
+// (yuzga tegilmaydi — faqat kesib olinadi).
+STU.fonSinf = "tovar";
+STU.fonMavsum = "hamma";
+STU.fonRoyxat = [];
+STU.fonKesh = {};
+
+const STU_MAVSUM = [
+  { id:"hamma",  nom:"Hammasi" },
+  { id:"qish",   nom:"❄ Qish" },
+  { id:"bahor",  nom:"🌸 Bahor" },
+  { id:"yoz",    nom:"☀ Yoz" },
+  { id:"kuz",    nom:"🍂 Kuz" },
+  { id:"bayram", nom:"🎆 Bayram" },
+];
+const STU_FSINF = [
+  { id:"tovar", nom:"Tovar" },
+  { id:"model", nom:"Model" },
+  { id:"real",  nom:"Real xodim" },
+];
+
+async function stuFonlar() {
+  const d = await stuAI("fonlar", { sinf: STU.fonSinf, mavsum: STU.fonMavsum });
+  if (!d) return;
+  STU.fonRoyxat = d.royxat || [];
+  stuFonChiz();
+}
+function stuFonSinf(v)   { STU.fonSinf = v; stuFonlar(); }
+function stuFonMavsum(v) { STU.fonMavsum = v; stuFonlar(); }
+function stuFonChiz() {
+  const s1 = document.getElementById("stu-fsinf");
+  if (s1) s1.innerHTML = STU_FSINF.map(x =>
+    `<button class="stu-chip${x.id === STU.fonSinf ? " on" : ""}"
+      onclick="stuFonSinf('${x.id}')">${x.nom}</button>`).join("");
+  const s2 = document.getElementById("stu-fmavsum");
+  if (s2) s2.innerHTML = STU_MAVSUM.map(x =>
+    `<button class="stu-chip${x.id === STU.fonMavsum ? " on" : ""}"
+      onclick="stuFonMavsum('${x.id}')">${x.nom}</button>`).join("");
+  const el = document.getElementById("stu-fonlar");
+  if (!el) return;
+  if (!STU.fonRoyxat.length) {
+    el.innerHTML = `<div style="padding:14px;text-align:center;color:#8A8578;font-size:12.5px">
+      Bu bo'limda fon yo'q</div>`;
+    return;
+  }
+  el.innerHTML = STU.fonRoyxat.map(f => `
+    <button class="stu-fon" onclick="stuFonTanla('${f.id}')" title="${f.nom}">
+      ${f.url ? `<img src="${f.url}" loading="lazy" alt="${f.nom}">`
+              : `<div class="stu-fon-bosh">✨ yaratiladi</div>`}
+      <span>${f.nom}</span>
+    </button>`).join("");
+}
+async function stuFonTanla(fid) {
+  if (STU.fonKesh[fid]) {                    // sessiyada allaqachon olingan
+    STU.fon = STU.fonKesh[fid]; stChiz(); stuVariantChiz();
+    toast("Fon qo'yildi", "ok"); return;
+  }
+  stuHolat("🏞 Fon olinmoqda…");
+  const d = await stuAI("fon_ol", { fon: fid });
+  stuHolat("");
+  if (!d) return;
+  try {
+    const im = await _stuImg(d.image);
+    STU.fon = im; STU.fonKesh[fid] = im;
+    stChiz(); stuVariantChiz();
+    toast(d.kesh ? "Fon qo'yildi" : "Yangi fon yaratildi", "ok");
+    stuFonlar();                              // ro'yxatdagi namoyish yangilansin
+  } catch (e) { toast("Fon ochilmadi", "err"); }
+}
+// ✅ C1: odam kadridan shaxsni ajratish (yuzga tegilmaydi)
+async function stuShaxsAjrat() {
+  if (!STU.img) { toast("Avval surat yuklang", "err"); return; }
+  if (!STU.asl) STU.asl = STU.img;
+  stuHolat("✂️ Shaxs ajratilmoqda…");
+  const c = document.createElement("canvas");
+  const k = Math.min(1, 1400 / Math.max(STU.img.width, STU.img.height));
+  c.width = Math.round(STU.img.width * k); c.height = Math.round(STU.img.height * k);
+  c.getContext("2d").drawImage(STU.img, 0, 0, c.width, c.height);
+  const d = await stuAI("shaxs", { image: c.toDataURL("image/jpeg", 0.92) });
+  stuHolat("");
+  if (!d) return;
+  try {
+    STU.img = _stuTrim(await _stuImg(d.image));
+    STU.soya = true; STU.aks = true;
+    stChiz(); stuVariantChiz();
+    toast("Shaxs ajratildi — endi fon tanlang", "ok");
+  } catch (e) { toast("Natija ochilmadi", "err"); }
 }

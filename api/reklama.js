@@ -265,6 +265,154 @@ async function modelSaqla(shopId, jins, url, seed) {
   } catch (e) {}
 }
 
+// ═══ ✅ C1 (2026-09-06) — UMUMIY FON KUTUBXONASI ═══
+// Fonda TOVAR YO'Q — shuning uchun fon universal: bir marta
+// yaratiladi va HAMMA do'konga umumiy bo'ladi (bazada saqlanadi).
+// Uch sinf: tovar · model · real xodim. Fasllar bo'yicha.
+// Xarajat: 70 fon = bir martalik ~$3, keyin hamma uchun bepul.
+const FON_KATALOG = [
+  { id:"t01", sinf:"tovar", kat:"studiya", mavsum:"hamma", nom:"Oq podium",
+    buyruq:"seamless white studio sweep with a low round podium, crisp softbox light, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t02", sinf:"tovar", kat:"studiya", mavsum:"hamma", nom:"Kulrang gradient",
+    buyruq:"smooth grey studio gradient backdrop with a soft floor line, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t03", sinf:"tovar", kat:"studiya", mavsum:"hamma", nom:"Qora premium",
+    buyruq:"deep black studio backdrop with a single soft top light and glossy floor, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t04", sinf:"tovar", kat:"studiya", mavsum:"hamma", nom:"Marmar",
+    buyruq:"white marble surface with soft beige wall, elegant diffused light, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t05", sinf:"tovar", kat:"studiya", mavsum:"hamma", nom:"Beton",
+    buyruq:"grey micro cement wall and floor, minimal architectural light, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t06", sinf:"tovar", kat:"studiya", mavsum:"hamma", nom:"Yog'och",
+    buyruq:"light oak wooden surface with warm beige wall, window daylight, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t07", sinf:"tovar", kat:"abstrakt", mavsum:"hamma", nom:"Pastel to'lqin",
+    buyruq:"soft pastel gradient waves, smooth and clean, studio lighting, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t08", sinf:"tovar", kat:"abstrakt", mavsum:"hamma", nom:"Shisha",
+    buyruq:"frosted glass shelf with soft colour gradient behind, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t09", sinf:"tovar", kat:"abstrakt", mavsum:"hamma", nom:"Qum",
+    buyruq:"warm sand coloured backdrop with a soft dune curve, golden light, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t10", sinf:"tovar", kat:"tabiat", mavsum:"kuz", nom:"Kuzgi barglar",
+    buyruq:"autumn leaves on a wooden table, warm golden hour light, blurred background, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t11", sinf:"tovar", kat:"tabiat", mavsum:"qish", nom:"Qor",
+    buyruq:"fresh snow surface with soft blue winter light and bokeh, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t12", sinf:"tovar", kat:"tabiat", mavsum:"bahor", nom:"Bahor gullari",
+    buyruq:"soft spring blossom branches, pastel background, airy daylight, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t13", sinf:"tovar", kat:"tabiat", mavsum:"yoz", nom:"Yozgi soya",
+    buyruq:"bright summer light with palm leaf shadows on a warm wall, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t14", sinf:"tovar", kat:"abstrakt", mavsum:"bayram", nom:"Yangi yil",
+    buyruq:"festive deep blue backdrop with warm golden bokeh lights, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t15", sinf:"tovar", kat:"abstrakt", mavsum:"bayram", nom:"Navro'z",
+    buyruq:"fresh green and gold festive backdrop with soft floral pattern hints, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"t16", sinf:"tovar", kat:"abstrakt", mavsum:"bayram", nom:"Chegirma",
+    buyruq:"bold red and white dynamic backdrop, energetic, sale mood, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m01", sinf:"model", kat:"studiya", mavsum:"hamma", nom:"Studiya oq",
+    buyruq:"full height seamless white studio backdrop for fashion photography, soft even light, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m02", sinf:"model", kat:"studiya", mavsum:"hamma", nom:"Studiya kulrang",
+    buyruq:"full height grey seamless fashion studio backdrop with soft shadow, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m03", sinf:"model", kat:"studiya", mavsum:"hamma", nom:"To'q fon",
+    buyruq:"dark charcoal fashion studio backdrop with dramatic side light, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m04", sinf:"model", kat:"interyer", mavsum:"hamma", nom:"Minimal xona",
+    buyruq:"minimal interior with warm plaster wall, wooden floor, tall window daylight, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m05", sinf:"model", kat:"interyer", mavsum:"hamma", nom:"Loft",
+    buyruq:"industrial loft interior with brick wall and large windows, soft daylight, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m06", sinf:"model", kat:"interyer", mavsum:"hamma", nom:"Kafe",
+    buyruq:"cosy blurred cafe interior, warm bokeh, shallow depth of field, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m07", sinf:"model", kat:"kocha", mavsum:"hamma", nom:"Ko'cha",
+    buyruq:"blurred european street at golden hour, soft bokeh, shallow depth of field, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m08", sinf:"model", kat:"kocha", mavsum:"hamma", nom:"Shahar",
+    buyruq:"modern city plaza with glass buildings, soft overcast light, blurred, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m09", sinf:"model", kat:"tabiat", mavsum:"kuz", nom:"Kuzgi xiyobon",
+    buyruq:"autumn park alley with golden leaves, warm light, blurred background, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m10", sinf:"model", kat:"tabiat", mavsum:"qish", nom:"Qishki ko'cha",
+    buyruq:"winter street with soft snow and warm shop lights, blurred bokeh, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m11", sinf:"model", kat:"tabiat", mavsum:"bahor", nom:"Bahor bog'i",
+    buyruq:"spring garden with blossom trees, fresh pastel light, blurred, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m12", sinf:"model", kat:"tabiat", mavsum:"yoz", nom:"Yozgi sohil",
+    buyruq:"summer seaside promenade with warm light, blurred background, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m13", sinf:"model", kat:"interyer", mavsum:"bayram", nom:"Bayram xonasi",
+    buyruq:"festive interior with warm string lights and elegant decor, blurred, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"m14", sinf:"model", kat:"abstrakt", mavsum:"hamma", nom:"Rangli fon",
+    buyruq:"solid pastel colour backdrop with subtle vignette, fashion studio, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"r01", sinf:"real", kat:"interyer", mavsum:"hamma", nom:"Do'kon ichi",
+    buyruq:"modern clothing shop interior, soft warm light, blurred racks in background, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"r02", sinf:"real", kat:"interyer", mavsum:"hamma", nom:"Oq devor",
+    buyruq:"clean white wall with soft natural window light and gentle shadow, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"r03", sinf:"real", kat:"interyer", mavsum:"hamma", nom:"Neytral",
+    buyruq:"warm neutral studio corner with soft gradient light, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"r04", sinf:"real", kat:"kocha", mavsum:"hamma", nom:"Ko'cha oqshom",
+    buyruq:"evening city street with warm bokeh lights, blurred, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"r05", sinf:"real", kat:"kocha", mavsum:"hamma", nom:"Devor grafiti",
+    buyruq:"urban textured wall, soft daylight, muted colours, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"r06", sinf:"real", kat:"tabiat", mavsum:"kuz", nom:"Kuz parki",
+    buyruq:"autumn park with warm golden leaves, soft blurred background, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"r07", sinf:"real", kat:"tabiat", mavsum:"qish", nom:"Qishki oqshom",
+    buyruq:"winter evening street with soft snow and warm lights, blurred, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"r08", sinf:"real", kat:"tabiat", mavsum:"bahor", nom:"Bahor ko'chasi",
+    buyruq:"spring street with blossom trees, fresh light, blurred, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"r09", sinf:"real", kat:"tabiat", mavsum:"yoz", nom:"Yozgi bog'",
+    buyruq:"summer green park with warm sunlight through leaves, blurred, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"r10", sinf:"real", kat:"interyer", mavsum:"bayram", nom:"Bayram bezagi",
+    buyruq:"festive interior with elegant decoration and warm bokeh, blurred, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"r11", sinf:"real", kat:"abstrakt", mavsum:"hamma", nom:"Yumshoq gradient",
+    buyruq:"smooth two tone soft gradient backdrop, portrait friendly, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+  { id:"r12", sinf:"real", kat:"studiya", mavsum:"hamma", nom:"Portret studiya",
+    buyruq:"professional portrait studio backdrop, soft key light, subtle vignette, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+];
+async function fonRoyxat(sinf, mavsum) {
+  try {
+    let q = `?select=id,sinf,kat,mavsum,nom,url&order=id`;
+    if (sinf)  q += `&sinf=eq.${encodeURIComponent(sinf)}`;
+    const r = await fetch(`${SB_URL}/rest/v1/studio_fon` + q, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+    const bor = await r.json().catch(() => []);
+    const xarita = {};
+    (bor || []).forEach(x => { xarita[x.id] = x; });
+    // katalogda bor-u, bazada yo'q bo'lganlarini ham qaytaramiz (url: null)
+    return FON_KATALOG
+      .filter(f => (!sinf || f.sinf === sinf) &&
+                   (!mavsum || mavsum === "hamma" || f.mavsum === mavsum || f.mavsum === "hamma"))
+      .map(f => ({ id: f.id, sinf: f.sinf, kat: f.kat, mavsum: f.mavsum,
+                   nom: f.nom, url: (xarita[f.id] || {}).url || null }));
+  } catch (e) { return []; }
+}
+async function fonYarat(fid) {
+  const f = FON_KATALOG.find(x => x.id === fid);
+  if (!f) return { ok: false, error: "Fon topilmadi" };
+  try {                                    // allaqachon bormi
+    const r0 = await fetch(`${SB_URL}/rest/v1/studio_fon?id=eq.${encodeURIComponent(fid)}&select=url&limit=1`,
+      { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+    const j0 = await r0.json().catch(() => []);
+    if (j0 && j0[0] && j0[0].url) return { ok: true, url: j0[0].url, kesh: true };
+  } catch (e) {}
+  let url = null, xato = "";
+  try {
+    const j = await falRun(M_SAHNA, {
+      prompt: f.buyruq,
+      image_size: f.sinf === "tovar" ? "square_hd" : "portrait_16_9",
+      num_images: 1, sync_mode: false }, 52000);
+    url = falRasm(j);
+  } catch (e) { xato = e.message; }
+  if (!url) return { ok: false, error: xato || "Fon chiqmadi" };
+  try {
+    await fetch(`${SB_URL}/rest/v1/studio_fon?on_conflict=id`, {
+      method: "POST",
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify([{ id: f.id, sinf: f.sinf, kat: f.kat, mavsum: f.mavsum,
+        nom: f.nom, buyruq: f.buyruq, url, yaratilgan: new Date().toISOString() }]),
+    });
+  } catch (e) {}
+  return { ok: true, url };
+}
+// Rasmni SERVER orqali olib berish: canvas "iflos" bo'lmasin
+// (tashqi havoladan to'g'ridan olingan rasm bilan yuklab olish ishlamaydi).
+async function fonData(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("fon yuklanmadi " + r.status);
+  const b = Buffer.from(await r.arrayBuffer());
+  const tur = r.headers.get("content-type") || "image/png";
+  return `data:${tur};base64,${b.toString("base64")}`;
+}
+
 // ═══════════════════════════════════════════════════════════════
 module.exports = async (req, res) => {
   if (req.method !== "POST")
@@ -501,6 +649,58 @@ module.exports = async (req, res) => {
     const n = await oySarfi(shopId);
     return res.status(200).json({ ok: true, image: chiq, jins,
       sarf: n, chegara: (await chegaraOl(shopId)).chegara });
+  }
+
+  // ── ✅ C1: FON KUTUBXONASI ──
+  if (amal === "fonlar") {
+    const r = await fonRoyxat(body.sinf || null, body.mavsum || null);
+    return res.status(200).json({ ok: true, royxat: r });
+  }
+  // Fonni olish: yo'q bo'lsa YARATILADI (bir marta, hamma uchun),
+  // so'ng data URI qilib qaytariladi.
+  if (amal === "fon_ol") {
+    const fid = String(body.fon || "");
+    const y = await fonYarat(fid);
+    if (!y.ok) return res.status(200).json(y);
+    try {
+      const data = await fonData(y.url);
+      // sanoq (qaysi fon mashhur)
+      try {
+        await fetch(`${SB_URL}/rest/v1/rpc/`, { method: "HEAD" }).catch(() => {});
+      } catch (e) {}
+      if (!y.kesh) await jurnal(shopId, "fonkutub", "fal", M_SAHNA, true, fid);
+      return res.status(200).json({ ok: true, image: data, kesh: !!y.kesh });
+    } catch (e) {
+      return res.status(200).json({ ok: false, error: e.message });
+    }
+  }
+  // ✅ C1: ShAXSNI AJRATISh — model yoki real xodim kadridan odamni
+  // kesib olish (portret rejimi), so'ng tanlangan fonga qo'yiladi.
+  if (amal === "shaxs") {
+    const rasm = String(body.image || "");
+    if (!/^data:image\//.test(rasm))
+      return res.status(200).json({ ok: false, error: "Rasm yuborilmadi" });
+    const [n0, ch0] = await Promise.all([oySarfi(shopId), chegaraOl(shopId)]);
+    if (n0 >= ch0.chegara)
+      return res.status(200).json({ ok: false, limit: true,
+        error: `Bu oydagi ${ch0.chegara} kredit tugadi.` });
+    let chiq = null, xato = "";
+    try {
+      const j = await falRun(M_FON, { image_url: rasm, output_format: "png",
+        model: "General Use (Heavy)", sync_mode: true }, 52000);
+      chiq = falRasm(j);
+    } catch (e) { xato = e.message; }
+    if (!chiq) {
+      try {
+        const j2 = await falRun(M_FON2, { image_url: rasm, sync_mode: true }, 45000);
+        chiq = falRasm(j2);
+      } catch (e) { xato += " | " + e.message; }
+    }
+    await jurnal(shopId, "shaxs", "fal", M_FON, !!chiq, chiq ? "" : xato);
+    if (!chiq) return res.status(200).json({ ok: false, error: xato || "Ajratilmadi" });
+    const n = await oySarfi(shopId);
+    return res.status(200).json({ ok: true, image: chiq, sarf: n,
+      chegara: (await chegaraOl(shopId)).chegara });
   }
 
   // ✅ S3: sahna ro'yxati (klient tugmalar chizishi uchun)

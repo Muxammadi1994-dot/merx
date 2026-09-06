@@ -1212,6 +1212,15 @@ body.sms-off .sms-only { display: none !important; }
         color:rgba(255,255,255,.55);text-shadow:0 1px 3px rgba(0,0,0,.5);font-style:normal}
       #p-studio .stu-sh-sev.on{color:var(--amb)}
 
+      #p-studio #stu-fonlar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:9px}
+      #p-studio .stu-fon{border:none;background:none;padding:0;cursor:pointer}
+      #p-studio .stu-fon img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:9px;
+        border:2px solid transparent;display:block;background:#EFEDE8}
+      #p-studio .stu-fon:hover img{border-color:var(--amb)}
+      #p-studio .stu-fon-bosh{width:100%;aspect-ratio:1/1;border-radius:9px;background:#F1EFEA;
+        display:grid;place-items:center;color:#9AA3AE;font-size:10px;border:1.5px dashed #DAD6CE}
+      #p-studio .stu-fon span{display:block;font-size:9.5px;color:#8A8578;margin-top:3px;
+        text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       #p-studio .st-row{display:flex;gap:7px;flex-wrap:wrap}
       #p-studio .st-row button{flex:1;min-width:84px;border:1.5px solid var(--ln);
         background:#fff;border-radius:11px;padding:9px;font-family:inherit;
@@ -1269,6 +1278,7 @@ body.sms-off .sms-only { display: none !important; }
         <button id="stu-r-shablon" class="on" onclick="stuPanel('shablon')"><i>▦</i>Shablon</button>
         <button id="stu-r-tovar" onclick="stuPanel('tovar')"><i>◈</i>Tovar</button>
         <button id="stu-r-surat" onclick="stuPanel('surat')"><i>◎</i>Surat</button>
+        <button id="stu-r-fon" onclick="stuPanel('fon')"><i>▣</i>Fon</button>
         <button id="stu-r-ai" onclick="stuPanel('ai')"><i>✦</i>AI</button>
         <button id="stu-r-brend" onclick="stuPanel('brend')"><i>◐</i>Brend</button>
         <button id="stu-r-tarqat" onclick="stuPanel('tarqat')"><i>➤</i>Tarqatish</button>
@@ -1329,6 +1339,22 @@ body.sms-off .sms-only { display: none !important; }
           <button onclick="stuAsliga()" style="width:100%;margin-top:7px;padding:8px;
             border:none;background:none;color:#8A8578;font-family:inherit;font-size:12px;
             cursor:pointer;text-decoration:underline">Asl suratga qaytish</button>
+        </div>
+
+        <!-- ✅ C1: FON KUTUBXONASI -->
+        <div id="stu-p-fon" style="display:none">
+          <h4>FON KUTUBXONASI</h4>
+          <div id="stu-fsinf"></div>
+          <div id="stu-fmavsum" style="margin-top:6px"></div>
+          <div id="stu-fonlar"></div>
+          <div class="st-hint">Fonlar hamma do'konga umumiy — bir marta
+            yaratiladi, keyin bir zumda va bepul keladi.</div>
+          <h4 style="margin-top:15px">ODAM KADRI UCHUN</h4>
+          <button onclick="stuShaxsAjrat()" style="width:100%;padding:10px;
+            border:1.5px solid var(--ln);background:#fff;border-radius:11px;
+            font-family:inherit;font-size:12.5px;cursor:pointer">✂️ Shaxsni ajratish</button>
+          <div class="st-hint">Model yoki xodim kadridan odam kesib olinadi
+            (yuzga tegilmaydi), so'ng yuqoridan fon tanlaysiz — fasllarga mos.</div>
         </div>
 
         <!-- AI -->
@@ -5514,7 +5540,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=16"></script>
+<script src="js/studio.js?v=17"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -5807,7 +5833,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 596;
+  window.SW_V = 597;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5830,7 +5856,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=596")
+    navigator.serviceWorker.register("/sw.js?v=597")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
