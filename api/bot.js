@@ -549,7 +549,8 @@ function _ckDavrKb(t, shop) {
     [{ text: "Bugun",  callback_data: `ck|d|${t}|0|${shop}` },
      { text: "7 kun",  callback_data: `ck|d|${t}|7|${shop}` }],
     [{ text: "30 kun", callback_data: `ck|d|${t}|30|${shop}` },
-     { text: "📅 Aniq sana", callback_data: `ck|c|${t}|${today().slice(0,7).replace("-","")}|${shop}` }],
+     { text: "📋 Barchasi", callback_data: `ck|d|${t}|all|${shop}` }],   // ✅ OT-2b
+    [{ text: "📅 Aniq sana", callback_data: `ck|c|${t}|${today().slice(0,7).replace("-","")}|${shop}` }],
     [{ text: "◀ Tur", callback_data: `ck|s|${shop}` }],
   ]};
 }
@@ -590,6 +591,8 @@ function _ckOraliq(dTok) {
     const d2 = `${dTok.slice(0,4)}-${dTok.slice(4,6)}-${dTok.slice(6,8)}`;
     return { from: d2, to: d2, nom: d2 };
   }
+  if (dTok === "all")
+    return { from: "2000-01-01", to: t2, nom: "Barchasi" };   // ✅ OT-2b
   const kun = dTok === "0" ? 0 : (dTok === "7" ? 6 : 29);
   const f = new Date(Date.now() + TZ_OFFSET_MIN * 60000 - kun * 86400000)
     .toISOString().slice(0, 10);
@@ -611,6 +614,7 @@ async function _ckList(chatId, shop, t, dTok, page) {
         if (String(s2.data?.cancelled) === "true") return;
         el.push({ tur: "🧾", date: s2.date, time: s2.time || "",
           kod: s2.chek_num || "—", sum: fmt(s2.total || 0) + " so'm",
+          sSom: Number(s2.total) || 0, sUsd: 0,   // ✅ OT-2b
           url: _ckUrl("CHK", s2.chek_num, shop) });
       });
     }
@@ -626,6 +630,8 @@ async function _ckList(chatId, shop, t, dTok, page) {
           : fmt(p2.amount || 0) + " so'm";
         el.push({ tur: "💵", date: p2.date, time: p2.data?.time || "",
           kod: p2.data?.chekNum || ("ID" + p2.id), sum,
+          sSom: p2.currency === "usd" ? 0 : (Number(p2.amount) || 0),   // ✅ OT-2b
+          sUsd: p2.currency === "usd" ? (Number(p2.amount) || 0) : 0,
           url: _ckUrl("PAY", p2.id, shop) });
       });
     }
@@ -639,6 +645,7 @@ async function _ckList(chatId, shop, t, dTok, page) {
         el.push({ tur: "↩️", date: d2.date, time: d2.time || "",
           kod: d2.refundNo || d2.origChekNum || "—",
           sum: fmt(d2.total || 0) + " so'm",
+          sSom: Number(d2.total) || 0, sUsd: 0,   // ✅ OT-2b
           url: d2.origChekNum ? _ckUrl("CHK", d2.origChekNum, shop) : null });
       });
     }
@@ -650,7 +657,16 @@ async function _ckList(chatId, shop, t, dTok, page) {
   let text = `${_CK_TUR[t]} · <b>${nom}</b>\n`;
   if (!jami) text += "\nBu davrda chek topilmadi.";
   else {
-    text += `Jami: <b>${jami}</b> ta` + (sah > 1 ? ` · ${p2}/${sah}-sahifa` : "") + "\n\n";
+    // ✅ OT-2b: umumiy summa (egasi taklifi) — ro'yxatdagi hamma
+    // elementning o'z summasi yig'indisi, valyutalar alohida (3.49).
+    let _uSom = 0, _uUsd = 0;
+    el.forEach(x3 => { _uSom += x3.sSom || 0; _uUsd += x3.sUsd || 0; });
+    const _uQ = [];
+    if (_uSom > 0.5)  _uQ.push(`<b>${fmt(Math.round(_uSom))} so'm</b>`);
+    if (_uUsd > 0.009) _uQ.push(`<b>$${_uUsd.toFixed(2)}</b>`);
+    text += `Jami: <b>${jami}</b> ta` + (sah > 1 ? ` · ${p2}/${sah}-sahifa` : "");
+    if (_uQ.length) text += ` · Umumiy: ${_uQ.join(" + ")}`;
+    text += "\n\n";
     bo2.forEach(x2 => {
       text += `${x2.tur} <i>${x2.date}</i> · ${x2.kod} · <b>${x2.sum}</b>\n`;
     });
@@ -995,6 +1011,16 @@ async function cmdNakladStart(chatId) {
 async function handleNakladFlow(chatId, msg, sess) {
   const text = (msg.text || "").trim();
   if (text === "/bekor") { await nkClear(chatId); await tg(chatId, "❌ Bekor qilindi."); return true; }
+
+  // ✅ OT-2b (2026-09-06): BUYRUQ VA TUGMA SESSIYANI YUTMAYDI.
+  // Jonli hodisa (ABU, 6-sen): admin bir marta Naklad'ni bosib qo'ygan,
+  // sessiya ochiq qolgan — shundan keyin HAMMA tugma ("Balans",
+  // "Qarzlar"...) va boshqa /buyruqlar shu yerda yutilib, "Naklad
+  // rasmini yuboring" javobini olardi. Endi: matn boshqa buyruq yoki
+  // klaviatura tugmasi bo'lsa — routerga QAYTARILADI (false), sessiya
+  // esa ochiq qolaveradi (/bekor yoki /tayyor bilan yopiladi).
+  const _map = (typeof _kbCmd === "function") ? _kbCmd(text) : null;
+  if (_map || (text.startsWith("/") && text !== "/tayyor")) return false;
 
   if (sess.step === "collecting") {
     const isImg = msg.photo?.length || (msg.document && (msg.document.mime_type || "").startsWith("image/"));
@@ -4506,35 +4532,81 @@ function yubor(){
       return res.status(200).json({ ok: true });
     }
     const nom = await _ckShopNom(rows.map(r2 => String(r2.shop_id)));
+    const _t = today();
     let txt = "💳 <b>Qarz holatingiz</b>\n";
     for (const c2 of rows.slice(0, 4)) {
       txt += `\n🏪 <b>${nom[String(c2.shop_id)] || c2.shop_id}</b>\n`;
       try {
+        // ✅ OT-2b (2026-09-06): XOM USTUN EMAS — ISBOTLANGAN FORMULA.
+        // Jonli xato: mijoz 2 mln qarzini yopgan, /qarzim esa 2 mln deb
+        // ko'rsatgan — chunki `remaining` MUZLATILGAN ASL qarz (3.5-
+        // qoida), to'lovlar undan ayirilmaydi. Davo — cmdQarzlar'dagi
+        // 18-avg formulasining EGIZAGI: asl qarz − shu chekka
+        // taqsimlangan faol to'lovlar (bekorlar chetda, "qaytarilgan"
+        // chetda, valyutalar ALOHIDA — 3.49).
         const ss = await sb("sales",
-          `?shop_id=eq.${encodeURIComponent(c2.shop_id)}&customer_id=eq.${encodeURIComponent(c2.id)}` +
-          `&select=remaining,debt_usd,debt_currency,data&limit=1000`);
-        let som = 0, usd = 0;
+          `?shop_id=eq.${encodeURIComponent(c2.shop_id)}` +
+          `&customer_id=eq.${encodeURIComponent(c2.id)}` +
+          `&or=(remaining.gt.0,debt_usd.gt.0)&status=neq.bekor` +
+          `&select=id,status,debt_currency,remaining,debt_usd,` +
+          `orig_remaining,orig_debt_usd,due,cancelled:data->>cancelled&limit=800`);
+        const pp2 = await sb("debt_payments",
+          `?shop_id=eq.${encodeURIComponent(c2.shop_id)}` +
+          `&customer_id=eq.${encodeURIComponent(c2.id)}` +
+          `&select=date,amount,currency,data&order=date.desc&limit=1000`);
+        const _paidBy = new Map();
+        (pp2 || []).forEach(p3 => {
+          const pd = p3.data || {};
+          if (pd.cancelled === true || pd.cancelled === "true") return;
+          (pd.allocations || []).forEach(a2 => {
+            const k = String(a2.saleId);
+            if (!_paidBy.has(k)) _paidBy.set(k, { uzs: 0, usd: 0 });
+            const amt = Number(a2.amount) || 0;
+            if (a2.currency === "usd") _paidBy.get(k).usd += amt;
+            else                       _paidBy.get(k).uzs += amt;
+          });
+        });
+        let som = 0, usd = 0, engYaqin = null;
         (ss || []).forEach(s2 => {
-          if (String(s2.data?.cancelled) === "true") return;
-          if (s2.debt_currency === "usd") usd += Number(s2.debt_usd) || 0;
-          else som += Number(s2.remaining) || 0;
+          if (s2.status === "qaytarilgan") return;
+          if (String(s2.cancelled) === "true") return;
+          const paid = _paidBy.get(String(s2.id)) || { uzs: 0, usd: 0 };
+          let q = 0;
+          if (s2.debt_currency === "usd") {
+            const base = Number(s2.orig_debt_usd != null ? s2.orig_debt_usd : s2.debt_usd) || 0;
+            q = Math.max(0, base - paid.usd);
+            if (q > 0.009) usd += q;
+          } else {
+            const base = Number(s2.orig_remaining != null ? s2.orig_remaining : s2.remaining) || 0;
+            q = Math.max(0, base - paid.uzs);
+            if (q > 0.5) som += q;
+          }
+          if (q > 0.5 || (s2.debt_currency === "usd" && q > 0.009)) {
+            if (s2.due && (!engYaqin || s2.due < engYaqin)) engYaqin = s2.due;
+          }
         });
         const q2 = [];
-        if (som > 0.5) q2.push(`<b>${fmt(som)} so'm</b>`);
-        if (usd > 0.005) q2.push(`<b>$${usd.toFixed(2)}</b>`);
+        if (som > 0.5)  q2.push(`<b>${fmt(Math.round(som))} so'm</b>`);
+        if (usd > 0.009) q2.push(`<b>$${usd.toFixed(2)}</b>`);
         txt += q2.length ? `Qarz: ${q2.join(" + ")}\n` : "Qarz yo'q ✅\n";
-        const pp2 = await sb("debt_payments",
-          `?shop_id=eq.${encodeURIComponent(c2.shop_id)}&customer_id=eq.${encodeURIComponent(c2.id)}` +
-          `&select=date,amount,currency,data&order=date.desc&limit=8`);
+        // ✅ OT-2b: eng yaqin to'lov muddati (egasi so'radi)
+        if (q2.length && engYaqin) {
+          let bel = "";
+          if (engYaqin < _t) {
+            const kun = Math.floor((new Date(_t) - new Date(engYaqin)) / 86400000);
+            bel = ` ⚠️ (${kun} kun kechikkan)`;
+          }
+          txt += `📅 To'lov muddati: <b>${engYaqin}</b>${bel}\n`;
+        }
         const oxirgi = (pp2 || [])
-          .filter(p3 => String(p3.data?.cancelled) !== "true").slice(0, 3);
+          .filter(p3 => String((p3.data || {}).cancelled) !== "true").slice(0, 3);
         if (oxirgi.length) {
           txt += "Oxirgi to'lovlar:\n";
           oxirgi.forEach(p3 => {
             const s3 = p3.currency === "usd"
               ? "$" + Number(p3.amount || 0).toFixed(2)
               : fmt(p3.amount || 0) + " so'm";
-            const bel = p3.data?.source === "refund" ? " (qaytarishdan)" : "";
+            const bel = (p3.data || {}).source === "refund" ? " (qaytarishdan)" : "";
             txt += `• ${p3.date} — ${s3}${bel}\n`;
           });
         }
@@ -4543,7 +4615,6 @@ function yubor(){
     await tg(chatId, txt, { reply_markup: _KB_MIJOZ });
     return res.status(200).json({ ok: true });
   }
-
   // /mendokonlarim — egasi tekshiruvisiz, hamma uchun ochiq
   if (cmd === "/mendokonlarim") {
     await cmdMenDokonlarim(chatId);
