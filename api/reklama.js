@@ -130,19 +130,74 @@ async function geminiSahna(matn) {
   return `data:${d.mimeType || d.mime_type || "image/png"};base64,${d.data}`;
 }
 
-// ── Sahna buyruqlari (tovarsiz — faqat FON) ────────────────────
-const SAHNALAR = {
-  studiya: "Professional product photography backdrop, seamless studio " +
-    "sweep, soft warm gradient from light beige to soft grey, subtle " +
-    "floor reflection line, no objects, no text, no people, clean, " +
-    "high resolution, square composition",
-  tabiiy: "Minimal natural product backdrop, soft daylight from a window, " +
-    "warm neutral wall with gentle shadow, light wooden surface at the " +
-    "bottom, no objects, no text, no people, photographic, square",
-  bayram: "Festive seasonal product backdrop, deep rich color gradient, " +
-    "soft bokeh lights in the background, elegant and premium, no objects, " +
-    "no text, no people, square composition",
+// ═══ ✅ S3 (2026-09-06) — AQLLI SAHNA KUTUBXONASI ═══
+// Sahna endi UMUMIY emas: kategoriya, TOVAR RANGI va MAVSUM'dan
+// buyruq quriladi. Har kategoriyada bir necha sahna — tizim
+// tasodifiy tanlaydi, ya'ni bir do'konning reklamalari bir-biriga
+// o'xshab qolmaydi. Yangi sahna qo'shish = bitta qator (kod emas).
+//
+// QAT'IY QOIDA: buyruqda TOVAR YO'Q — faqat fon generatsiya qilinadi
+// ("no products, no objects"), tovar brauzerda ustiga qo'yiladi.
+const SAHNA_QOIDA = ", empty scene, no products, no objects, no text, " +
+  "no people, no hands, photorealistic, professional product photography " +
+  "backdrop, high resolution, centered composition, soft natural shadows";
+
+const SAHNA_KUTUB = {
+  oyoq: [
+    { id: "podium",  nom: "Oq podium",     p: "seamless white studio sweep with a low round podium, crisp soft light from the top left" },
+    { id: "tosh",    nom: "Tosh plita",    p: "dark polished concrete surface, moody side light, subtle haze in the background" },
+    { id: "qum",     nom: "Qum",           p: "warm sand coloured seamless backdrop with a soft dune curve, golden hour light" },
+    { id: "yogoch",  nom: "Yog'och stol",  p: "light oak wooden surface with a soft beige wall behind, daylight from a window" },
+    { id: "beton",   nom: "Beton",         p: "grey micro cement wall and floor, minimal architectural light" },
+    { id: "shisha",  nom: "Shisha",        p: "glossy reflective glass shelf with a gradient studio background" },
+  ],
+  kiyim: [
+    { id: "interyer",nom: "Interyer",      p: "minimal interior corner, warm plaster wall, wooden floor, soft daylight from a tall window" },
+    { id: "mato",    nom: "Mato fon",      p: "draped linen fabric backdrop in warm neutral tone, gentle folds, studio softbox light" },
+    { id: "kafe",    nom: "Kafe",          p: "blurred cosy cafe interior background, warm bokeh, shallow depth of field" },
+    { id: "kocha",   nom: "Ko'cha",        p: "blurred european street background at golden hour, soft bokeh, shallow depth of field" },
+    { id: "studiya", nom: "Studiya",       p: "seamless studio backdrop in soft grey with a smooth gradient and floor line" },
+    { id: "sof",     nom: "Sof rang",      p: "solid pastel colour backdrop with subtle vignette and soft floor shadow" },
+  ],
+  sumka: [
+    { id: "marmar",  nom: "Marmar",        p: "white marble surface with a soft beige background, elegant soft light" },
+    { id: "charm",   nom: "To'q fon",      p: "deep chocolate brown seamless backdrop, warm directional light" },
+    { id: "podium",  nom: "Podium",        p: "minimal stone podium with a neutral gradient background" },
+  ],
+  umumiy: [
+    { id: "studiya", nom: "Studiya",       p: "seamless neutral studio sweep, soft gradient, gentle floor reflection line" },
+    { id: "tabiiy",  nom: "Tabiiy",        p: "warm neutral wall with soft daylight and a light wooden surface" },
+    { id: "gradient",nom: "Gradient",      p: "smooth two tone colour gradient backdrop, clean and modern" },
+  ],
 };
+
+// Mavsum — Toshkent oyiga qarab (buyruqqa kayfiyat qo'shadi)
+function mavsumIzoh() {
+  const oy = new Date(Date.now() + 5 * 3600 * 1000).getUTCMonth() + 1;
+  if (oy === 12 || oy === 1)  return ", winter mood, cool soft light, subtle festive bokeh in the far background";
+  if (oy === 2)               return ", late winter mood, clean cool light";
+  if (oy === 3)               return ", early spring mood, fresh light, soft warm tones";
+  if (oy >= 4 && oy <= 5)     return ", spring mood, bright airy daylight";
+  if (oy >= 6 && oy <= 8)     return ", summer mood, bright sunlight, crisp shadows";
+  return ", autumn mood, warm golden light, soft long shadows";
+}
+// Tovar rangiga MOS fon (kontrast bo'lsin — tovar yo'qolmasin)
+function rangIzoh(hex) {
+  const h = String(hex || "").replace("#", "");
+  if (h.length !== 6) return "";
+  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+  const yorq = (0.2126*r + 0.7152*g + 0.0722*b) / 255;
+  if (yorq < 0.30) return ", light and airy background so the dark product stands out";
+  if (yorq > 0.72) return ", medium toned background so the light product stands out";
+  return ", background tone clearly different from mid grey";
+}
+function sahnaBuyruq(kat, sahnaId, rang) {
+  const ro = SAHNA_KUTUB[kat] || SAHNA_KUTUB.umumiy;
+  const s = (sahnaId && ro.find(x => x.id === sahnaId))
+    || ro[Math.floor(Math.random() * ro.length)];
+  return { id: s.id, nom: s.nom,
+    matn: s.p + rangIzoh(rang) + mavsumIzoh() + SAHNA_QOIDA };
+}
 
 // ═══════════════════════════════════════════════════════════════
 module.exports = async (req, res) => {
@@ -217,8 +272,10 @@ module.exports = async (req, res) => {
 
   // ── sahna: TOVARSIZ fon generatsiyasi ──
   if (amal === "sahna") {
-    const tur = SAHNALAR[body.sahna] ? body.sahna : "studiya";
-    const matn = SAHNALAR[tur];
+    // ✅ S3: kategoriya + rang + mavsum → buyruq
+    const kat = SAHNA_KUTUB[body.kat] ? body.kat : "umumiy";
+    const s = sahnaBuyruq(kat, body.sahna, body.rang);
+    const tur = s.id, matn = s.matn;
     let chiq = null, xato = "", prov = "fal", model = M_SAHNA;
     try {
       const j = await falRun(M_SAHNA, { prompt: matn, image_size: "square_hd",
@@ -229,11 +286,18 @@ module.exports = async (req, res) => {
       try { chiq = await geminiSahna(matn); prov = "gemini"; model = G_IMG; }
       catch (e) { xato += " | " + e.message; }
     }
-    await jurnal(shopId, "sahna:" + tur, prov, model, !!chiq, chiq ? "" : xato);
+    await jurnal(shopId, "sahna:" + kat + ":" + tur, prov, model, !!chiq, chiq ? "" : xato);
     if (!chiq) return res.status(200).json({ ok: false, error: xato || "Sahna chiqmadi" });
     const n = await oySarfi(shopId);
     return res.status(200).json({ ok: true, image: chiq, sahna: tur,
-      sarf: n, chegara: OYLIK_BEPUL });
+      sahnaNom: s.nom, kat, sarf: n, chegara: OYLIK_BEPUL });
+  }
+
+  // ✅ S3: sahna ro'yxati (klient tugmalar chizishi uchun)
+  if (amal === "sahnalar") {
+    const kat = SAHNA_KUTUB[body.kat] ? body.kat : "umumiy";
+    return res.status(200).json({ ok: true, kat,
+      royxat: SAHNA_KUTUB[kat].map(s => ({ id: s.id, nom: s.nom })) });
   }
 
   return res.status(400).json({ ok: false, error: "Noma'lum amal: " + amal });

@@ -1252,9 +1252,7 @@ body.sms-off .sms-only { display: none !important; }
             <span id="stu-sarf" style="margin-left:auto;font-weight:600;font-size:11px;color:#8A8578"></span></h4>
           <div class="st-ai">
             <button onclick="stuFonTozala()">✂️ Fon</button>
-            <button onclick="stuSahna('studiya')">Studiya</button>
-            <button onclick="stuSahna('tabiiy')">Tabiiy</button>
-            <button onclick="stuSahna('bayram')">Bayram</button>
+            <button onclick="stuBoshqaSahna()">🏞 Boshqa sahna</button>
           </div>
           <div id="stu-shab" style="margin-top:11px"></div>
           <div id="stu-pal" style="margin-top:4px"></div>
@@ -5392,7 +5390,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=5"></script>
+<script src="js/studio.js?v=6"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -5685,7 +5683,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 585;
+  window.SW_V = 586;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5708,7 +5706,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=585")
+    navigator.serviceWorker.register("/sw.js?v=586")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

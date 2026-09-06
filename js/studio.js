@@ -750,15 +750,36 @@ async function stuFonTozala(jim) {
   } catch (e) { stuHolat(""); if (!jim) toast("Natija ochilmadi", "err"); return false; }
 }
 // Sahna — fon generatsiyasi (tovarsiz), tovar ustiga qo'yiladi
-async function stuSahna(tur, jim) {
-  const d = await stuAI("sahna", { sahna: tur });
+// ✅ S3: sahna endi KATEGORIYA + TOVAR RANGI + MAVSUM bo'yicha
+// quriladi (buyruq serverda). `sahnaId` berilmasa — server o'zi
+// tanlaydi, ya'ni har safar boshqa fon chiqadi.
+// Kesh: bir sessiyada bir xil sahna qayta so'ralmaydi (pul tejaladi).
+STU.sahnaKesh = {};
+async function stuSahna(sahnaId, jim) {
+  const kat  = stuKatTanla();
+  const rang = (STU.avtoPal && STU.avtoPal.b) || "";
+  const kalit = kat + "|" + (sahnaId || "avto");
+  if (sahnaId && STU.sahnaKesh[kat + "|" + sahnaId]) {
+    STU.fon = STU.sahnaKesh[kat + "|" + sahnaId];
+    if (!jim) { stuHolat(""); stChiz(); }
+    return true;
+  }
+  const d = await stuAI("sahna", { kat, sahna: sahnaId || null, rang });
   if (!d) return false;
   try {
     STU.fon = await _stuImg(d.image);
-    if (!jim) { stuHolat(""); toast("Sahna tayyor", "ok"); stChiz(); }
+    if (d.sahna) STU.sahnaKesh[kat + "|" + d.sahna] = STU.fon;
+    STU.sahnaNom = d.sahnaNom || "";
+    if (!jim) {
+      stuHolat("");
+      toast("Sahna: " + (d.sahnaNom || "tayyor"), "ok");
+      stChiz();
+    }
     return true;
   } catch (e) { stuHolat(""); if (!jim) toast("Sahna ochilmadi", "err"); return false; }
 }
+// Boshqa sahna — o'sha kategoriyadan yangisi
+function stuBoshqaSahna() { stuSahna(null, false); }
 function stuAsliga() {
   if (STU.asl) STU.img = STU.asl;
   STU.fon = null;
@@ -846,18 +867,20 @@ function stuPalitraChiqar(im) {
 }
 
 // ── Kategoriyaga mos sahna
-function stuSahnaTanla() {
+function stuKatTanla() {
   const t = ((STU.tovar && (STU.tovar.kat + " " + STU.tovar.nom)) || "").toLowerCase();
   const bor = a => a.some(w => t.includes(w));
   // ⚠️ TARTIB MUHIM: "Oyoq kiyim" ichida "kiyim" so'zi bor —
   // shuning uchun OYOQ KIYIM birinchi tekshiriladi (stend xatosi, 6-sen).
+  // ✅ S3: natija — SAHNA KUTUBXONASINING kategoriyasi (server
+  // shundan mos sahnani tanlaydi va buyruqni o'zi quradi).
   if (bor(["oyoq", "krossovka", "botinka", "tufli", "shippak", "sandal",
-           "poyabzal", "ked", "sneaker"])) return "studiya";
-  if (bor(["sumka", "aksessuar", "kamar", "ryukzak"])) return "studiya";
-  if (bor(["qish", "kurtka", "sviter", "palto", "yangi yil"])) return "bayram";
+           "poyabzal", "ked", "sneaker"])) return "oyoq";
+  if (bor(["sumka", "ryukzak", "kamar", "aksessuar", "hamyon"])) return "sumka";
   if (bor(["ko'ylak", "koylak", "shim", "kiyim", "kostyum", "futbolka",
-           "shortik", "yubka"])) return "tabiiy";
-  return "studiya";
+           "palto", "kurtka", "sviter", "shortik", "yubka", "kofta"]))
+    return "kiyim";
+  return "umumiy";
 }
 
 // ── Olti variant (uslub × palitra)
@@ -883,9 +906,9 @@ async function stuReklamaYasa() {
     if (!STU.asl) STU.asl = STU.img;
     stuHolat("1/3 · Tovar fondan ajratilmoqda…");
     await stuFonTozala(true);
+    STU.avtoPal = stuPalitraChiqar(STU.img);   // ✅ S3: rang sahnadan OLDIN
     stuHolat("2/3 · Sahna tanlanmoqda…");
-    STU.avtoPal = stuPalitraChiqar(STU.img);
-    await stuSahna(stuSahnaTanla(), true);
+    await stuSahna(null, true);      // ✅ S3: server o'zi tanlaydi
     stuHolat("3/3 · Variantlar chizilmoqda…");
     STU.variants = stuVariantlar();
     STU.tanlanganV = 0;
