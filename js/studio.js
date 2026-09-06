@@ -713,9 +713,19 @@ async function stuAI(amal, qosh) {
       body: JSON.stringify(Object.assign({ action: amal }, qosh || {})),
     });
     const d = await r.json().catch(() => null);
-    if (!d || !d.ok) {
+    if (!d) {
+      // ⚠️ JSON kelmadi — server javob bermadi yoki vaqt tugadi
+      // (jonli hodisa 6-sen: vercel.json da maxDuration 15 soniya edi,
+      // try-on esa 5-17 soniya oladi → platforma HTML xato qaytardi).
       stuHolat("");
-      toast((d && d.error) || "Xato", "err");
+      toast(r.status === 504 || r.status === 502
+        ? "Server javob bermadi (vaqt tugadi) — qayta urinib ko'ring"
+        : "Server xatosi: " + r.status, "err");
+      return null;
+    }
+    if (!d.ok) {
+      stuHolat("");
+      toast(d.error || ("Xato (" + r.status + ")"), "err");
       if (d && (d.sarf != null)) stuSarf(d.sarf, d.chegara);
       return null;
     }

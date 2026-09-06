@@ -1,5 +1,6 @@
 {
   "functions": {
+    "api/reklama.js": { "maxDuration": 60 },
     "api/**/*.js": { "maxDuration": 15 }
   },
   "regions": ["sin1"]

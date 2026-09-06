@@ -303,7 +303,7 @@ module.exports = async (req, res) => {
     for (const m of [M_FON, M_FON2]) {
       try {
         const j = await falRun(m, { image_url: rasm, output_format: "png",
-          sync_mode: true }, 70000);
+          sync_mode: true }, 52000);   // ✅ vercel maxDuration=60 ichida
         chiq = falRasm(j);
         if (chiq) { await jurnal(shopId, "fon", "fal", m, true, ""); break; }
       } catch (e) { xato = e.message; }
@@ -325,7 +325,7 @@ module.exports = async (req, res) => {
     let chiq = null, xato = "", prov = "fal", model = M_SAHNA;
     try {
       const j = await falRun(M_SAHNA, { prompt: matn, image_size: "square_hd",
-        num_images: 1, sync_mode: true }, 60000);
+        num_images: 1, sync_mode: true }, 46000);
       chiq = falRasm(j);
     } catch (e) { xato = e.message; }
     if (!chiq && GEMINI_KEY) {                       // zaxira yo'l
@@ -359,7 +359,7 @@ module.exports = async (req, res) => {
       // sync_mode: FALSE — havola qaytadi (bazaga havola yoziladi,
       // og'ir base64 emas: rasm ombori 51% to'lgan).
       const j = await falRun(M_SAHNA, { prompt: matn, image_size: "portrait_16_9",
-        num_images: 1, seed, sync_mode: false }, 90000);
+        num_images: 1, seed, sync_mode: false }, 52000);
       url = falRasm(j);
     } catch (e) { xato = e.message; }
     await jurnal(shopId, "model:" + jins, "fal", M_SAHNA, !!url, url ? "" : xato);
@@ -393,7 +393,7 @@ module.exports = async (req, res) => {
         category: "auto", mode: "balanced", garment_photo_type: "auto",
         num_samples: 1, segmentation_free: true,
         output_format: "png", sync_mode: true,
-      }, 90000);
+      }, 52000);
       chiq = falRasm(j);
     } catch (e) { xato = e.message; }
     await jurnal(shopId, "kiydir:" + jins, "fal", M_TRYON, !!chiq, chiq ? "" : xato);
