@@ -262,6 +262,14 @@ function stChiz(cvs, fmt) {
           break;
 
         case "rasm": {
+          // ✅ 1-bosqich: sahna foni (agar tanlangan bo'lsa) — TOVAR
+          // OSTIGA to'liq kadr bo'lib chiziladi, tovarga tegilmaydi.
+          if (STU.fon) {
+            const f = STU.fon;
+            const kf = Math.max(W / f.width, H / f.height);
+            ctx.drawImage(f, (W - f.width * kf) / 2, (H - f.height * kf) / 2,
+              f.width * kf, f.height * kf);
+          }
           const bw = L.w * W, bh = L.h * H;
           const bx = (L.anchor === "center" ? L.x * W - bw / 2 : L.x * W);
           const by = (L.anchor === "center" ? L.y * H - bh / 2 : L.y * H);
@@ -441,6 +449,7 @@ function renderStudio() {
   const yr = document.getElementById("stu-yorliq");
   if (yr && yr.value !== STU.yorliq) yr.value = STU.yorliq;
   stChiz();
+  if (!STU._limitOlindi) { STU._limitOlindi = true; stuLimit(); }
 }
 function stuShab(id) { STU.shab = id; renderStudio(); }
 function stuPal(id)  { STU.pal  = id; renderStudio(); }
@@ -521,4 +530,117 @@ function stuYukla(hammasi) {
   if (typeof toast === "function")
     toast(hammasi ? "4 format yuklanmoqda" : "Rasm yuklanmoqda", "ok");
   stChiz();   // ko'rinishni joriy formatga qaytarish
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ 1-BOSQICh (2026-09-06) — AI QATLAMI: fon va sahna
+// ═══════════════════════════════════════════════════════════════
+// QOIDA: tovar pikseli generativ AI'dan O'TMAYDI.
+//   · "Fonni tozalash" — segmentatsiya (kesish), qayta chizish emas;
+//   · "Sahna" — fon TOVARSIZ generatsiya qilinadi, tovar ustiga
+//     shu yerda (brauzerda) qo'yiladi.
+// Asl surat doim saqlanadi — "Asliga qaytar" bir bosishda.
+STU.asl = null;      // birinchi yuklangan surat (Image)
+STU.fon = null;      // sahna rasmi (Image) yoki null
+STU.band = false;    // bir vaqtda bitta so'rov
+
+// ✅ Token — YAGONA joydan. Sessiya localStorage YOKI sessionStorage
+// da bo'lishi mumkin (utils.js:3255 naqshi), muddati yaqin bo'lsa
+// `ensureFreshToken` yangilaydi. Avval faqat localStorage qaralgan edi.
+async function _stuTok() {
+  try { if (typeof ensureFreshToken === "function") await ensureFreshToken(); } catch (e) {}
+  try {
+    const K = "merx_sb_session";
+    const raw = localStorage.getItem(K) || sessionStorage.getItem(K);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    return s.access_token || (s.session && s.session.access_token) || null;
+  } catch (e) { return null; }
+}
+async function stuAI(amal, qosh) {
+  if (STU.band) { toast("Oldingi amal tugashini kuting", "err"); return null; }
+  STU.band = true;
+  stuHolat(amal === "fon" ? "✂️ Fon tozalanmoqda…" : "🏞 Sahna tayyorlanmoqda…");
+  try {
+    const tok = await _stuTok();
+    const r = await fetch("/api/reklama", {
+      method: "POST",
+      headers: { "Content-Type": "application/json",
+                 Authorization: "Bearer " + (tok || "") },
+      body: JSON.stringify(Object.assign({ action: amal }, qosh || {})),
+    });
+    const d = await r.json().catch(() => null);
+    if (!d || !d.ok) {
+      stuHolat("");
+      toast((d && d.error) || "Xato", "err");
+      if (d && (d.sarf != null)) stuSarf(d.sarf, d.chegara);
+      return null;
+    }
+    if (d.sarf != null) stuSarf(d.sarf, d.chegara);
+    return d;
+  } catch (e) {
+    stuHolat(""); toast("Internet xatosi", "err"); return null;
+  } finally { STU.band = false; }
+}
+function stuHolat(m) {
+  const el = document.getElementById("stu-holat");
+  if (el) { el.textContent = m || ""; el.style.display = m ? "block" : "none"; }
+}
+function stuSarf(n, ch) {
+  const el = document.getElementById("stu-sarf");
+  if (el) el.textContent = `Bu oyda: ${n}/${ch}`;
+}
+function _stuImg(src) {
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = () => rej(new Error("rasm ochilmadi"));
+    im.crossOrigin = "anonymous";
+    im.src = src;
+  });
+}
+// Fonni tozalash — tovar shaffof PNG bo'lib qaytadi
+async function stuFonTozala() {
+  if (!STU.img) { toast("Avval surat yuklang", "err"); return; }
+  if (!STU.asl) STU.asl = STU.img;
+  // kichraytirib yuboramiz (tezlik + hajm)
+  const c = document.createElement("canvas");
+  const k = Math.min(1, 1400 / Math.max(STU.img.width, STU.img.height));
+  c.width = Math.round(STU.img.width * k); c.height = Math.round(STU.img.height * k);
+  c.getContext("2d").drawImage(STU.img, 0, 0, c.width, c.height);
+  const d = await stuAI("fon", { image: c.toDataURL("image/jpeg", 0.9) });
+  if (!d) return;
+  try {
+    STU.img = await _stuImg(d.image);
+    stuHolat(""); toast("Fon tozalandi", "ok"); stChiz();
+  } catch (e) { stuHolat(""); toast("Natija ochilmadi", "err"); }
+}
+// Sahna — fon generatsiyasi (tovarsiz), tovar ustiga qo'yiladi
+async function stuSahna(tur) {
+  const d = await stuAI("sahna", { sahna: tur });
+  if (!d) return;
+  try {
+    STU.fon = await _stuImg(d.image);
+    stuHolat(""); toast("Sahna tayyor", "ok"); stChiz();
+  } catch (e) { stuHolat(""); toast("Sahna ochilmadi", "err"); }
+}
+function stuAsliga() {
+  if (STU.asl) STU.img = STU.asl;
+  STU.fon = null;
+  toast("Asl suratga qaytdi", "ok");
+  stChiz();
+}
+// oylik hisobni yangilash (sahifa ochilganda)
+async function stuLimit() {
+  const d = await (async () => {
+    try {
+      const tok = await _stuTok();
+      const r = await fetch("/api/reklama", { method: "POST",
+        headers: { "Content-Type": "application/json",
+                   Authorization: "Bearer " + (tok || "") },
+        body: JSON.stringify({ action: "limit" }) });
+      return await r.json().catch(() => null);
+    } catch (e) { return null; }
+  })();
+  if (d && d.ok) stuSarf(d.sarf, d.chegara);
 }

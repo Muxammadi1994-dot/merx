@@ -1198,15 +1198,32 @@ body.sms-off .sms-only { display: none !important; }
           </label>
         </div>
 
+        <!-- ✅ 1-bosqich: AI qatlami -->
         <div class="stu-card">
-          <h4>3 · Uslub</h4>
+          <h4>3 · Studiya ko'rinishi <span id="stu-sarf" style="float:right;font-weight:600;font-size:11px;color:var(--mut)"></span></h4>
+          <button onclick="stuFonTozala()" style="width:100%;padding:10px;border:1.5px solid var(--brd);background:#fff;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✂️ Fonni tozalash</button>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button onclick="stuSahna('studiya')" class="stu-chip" style="flex:1;margin:0">Studiya</button>
+            <button onclick="stuSahna('tabiiy')"  class="stu-chip" style="flex:1;margin:0">Tabiiy</button>
+            <button onclick="stuSahna('bayram')"  class="stu-chip" style="flex:1;margin:0">Bayram</button>
+          </div>
+          <button onclick="stuAsliga()" style="width:100%;margin-top:8px;padding:8px;border:none;background:none;color:var(--mut);font-family:inherit;font-size:12px;cursor:pointer;text-decoration:underline">Asliga qaytar</button>
+          <div id="stu-holat" style="display:none;margin-top:8px;font-size:12.5px;color:var(--acc);font-weight:700"></div>
+          <div style="font-size:11px;color:var(--mut);margin-top:7px;line-height:1.45">
+            Tovar rasmiga qayta chizish qo'llanmaydi — faqat fon ajratiladi
+            yoki yangi fon quriladi.
+          </div>
+        </div>
+
+        <div class="stu-card">
+          <h4>4 · Uslub</h4>
           <div id="stu-shab"></div>
           <h4 style="margin-top:12px">Rang</h4>
           <div id="stu-pal"></div>
         </div>
 
         <div class="stu-card">
-          <h4>4 · Matn</h4>
+          <h4>5 · Matn</h4>
           <input id="stu-yorliq" class="inp" placeholder="Yozuv (YANGI KELDI, -30%, QISHKI TO'PLAM)"
                  oninput="stuYorliq(this.value)" maxlength="28"
                  style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid var(--brd);border-radius:10px;font-family:inherit;font-size:13.5px">
@@ -5341,7 +5358,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=1"></script>
+<script src="js/studio.js?v=2"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -5634,7 +5651,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 581;
+  window.SW_V = 582;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5657,7 +5674,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=581")
+    navigator.serviceWorker.register("/sw.js?v=582")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
