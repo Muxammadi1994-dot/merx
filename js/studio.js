@@ -2520,16 +2520,26 @@ function stuQidir(q, elId) {
   el.style.display = mos.length ? "block" : "none";
   // ✅ OQ: tovar RANGLARI bilan — egasi: "kodda bir necha rang bor,
   // qidiruvda ranglar bilan chiqsin, men tanlayman"
+  // ✅ egasi: qidiruvda RASM, RANG va NARX ko'rinsin
   el.innerHTML = mos.map(p => {
     const sk = String(p.sku).replace(/'/g, "\\'");
     const ranglar = [...new Set((p.variants || []).map(v => v.color).filter(Boolean))];
     const ci = p.colorImages || {};
-    const chips = ranglar.length > 1 ? `<div class="stu-ranglar">` + ranglar.map(r =>
+    const asosiyRasm = Object.values(ci)[0] || p.image || "";
+    const chips = ranglar.length ? `<div class="stu-ranglar">` + ranglar.map(r =>
       `<button onclick="event.stopPropagation();stuTanla('${sk}','${String(r).replace(/'/g, "\\'")}')">` +
       (ci[r] ? `<img src="${ci[r]}" alt="">` : "") + `${r}</button>`).join("") + `</div>` : "";
+    const narx = Number(p.ulgurjiNarx || p.priceUzs) || 0;
     return `<div class="stu-row" onclick="stuTanla('${sk}')">
-       <b>${(p.name || "—")}</b>
-       <span>${p.art ? "ART " + p.art : ""} ${p.priceUzs ? "· " + stSon(p.priceUzs) + " so'm" : ""}</span>
+       <div style="display:flex;gap:10px;align-items:center">
+         ${asosiyRasm ? `<img src="${asosiyRasm}" loading="lazy" alt=""
+             style="width:46px;height:46px;object-fit:cover;border-radius:9px;background:#F1EFEA;flex:0 0 46px">`
+           : `<div style="width:46px;height:46px;border-radius:9px;background:#F1EFEA;flex:0 0 46px;display:grid;place-items:center;color:#B0B6BE;font-size:11px">yo'q</div>`}
+         <div style="flex:1;min-width:0">
+           <b>${(p.name || "—")}</b>
+           <span>${p.art ? "ART " + p.art : ""}${ranglar.length ? " · " + ranglar.length + " rang" : ""}${narx ? " · " + stSon(narx) + " so'm" : ""}</span>
+         </div>
+       </div>
        ${chips}</div>`;
   }).join("");
 }
@@ -3989,7 +3999,16 @@ function _kiyimTuri(t) {
            "tolstovk", "hoodie", "rubashk", "polo"]))                       return "tops";
   if (bor(["krossovka", "botinka", "tufli", "oyoq", "poyabzal", "ked", "sandal"])) return "shoes";
   if (bor(["soat", "sumka", "kamar", "ko'zoynak", "kozoynak", "taqinchoq", "zargar", "hamyon", "ryukzak"])) return "aksessuar";
+  // ✅ jonli hodisa (GRUFA): nomda tur yo'q, toifasi "Kiyim" — "auto"
+  // yuborilsa model butun kiyimni almashtirib yuboradi. Kiyim uchun
+  // standart — UST. (Do'konchi Pro rejimda o'zgartira oladi.)
+  const kat = _uz((t && t.kat) || "").toLowerCase();
+  if (kat.includes("kiyim") || kat.includes("odezh") || kat.includes("cloth")) return "tops";
   return "auto";
+}
+// Rasm sifati tekshiruvi: kiydirish uchun kamida 600px kerak
+function _rasmKichikmi(im) {
+  return !!(im && Math.max(im.width || 0, im.height || 0) < 600);
 }
 
 // ── rasm manbai
@@ -4135,6 +4154,12 @@ async function stuKiydirOqim() {
   if (!hamma.length) { toast("Kiydiriladigan tovar yo'q", "err"); return; }
   const aks = [];
   let shaxsData = shaxsmi ? _stuTayyor(STU.shaxs, 1200) : null;
+  const kichik = hamma.filter(x => _rasmKichikmi(x.img));
+  if (kichik.length) {
+    toast(kichik.map(x => x.tovar.nom).join(", ") + " — rasmi kichik (" +
+      Math.max(kichik[0].img.width, kichik[0].img.height) + "px). Galereyadan kattaroq " +
+      "surat yuklasangiz natija ancha yaxshi bo'ladi", "err");
+  }
   for (let n = 0; n < hamma.length; n++) {
     const x = hamma[n];
     const tahrir = x.turi === "shoes" || x.turi === "aksessuar";
