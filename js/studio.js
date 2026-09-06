@@ -1710,10 +1710,12 @@ async function stuFonTozala(jim) {
   if (!STU.asl) STU.asl = STU.img;
   // kichraytirib yuboramiz (tezlik + hajm)
   const c = document.createElement("canvas");
-  const k = Math.min(1, 1400 / Math.max(STU.img.width, STU.img.height));
+  // ✅ Yuklama: 1200px va 0.85 sifat — odatda 150-300 KB (fal uchun
+  // yetarli), Vercel tanasi chegarasidan ancha past.
+  const k = Math.min(1, 1200 / Math.max(STU.img.width, STU.img.height));
   c.width = Math.round(STU.img.width * k); c.height = Math.round(STU.img.height * k);
   c.getContext("2d").drawImage(STU.img, 0, 0, c.width, c.height);
-  const d = await stuAI("fon", { image: c.toDataURL("image/jpeg", 0.9) });
+  const d = await stuAI("fon", { image: c.toDataURL("image/jpeg", 0.85) });
   if (!d) return false;
   try {
     const _raw = await _stuImg(d.image);
@@ -1989,12 +1991,12 @@ async function stuKiydir(jins) {
   // kiyim rasmi — asl (kesilmagan) yoki joriy holat, kichraytirilgan
   const c = document.createElement("canvas");
   const src = STU.asl || STU.img;
-  const k = Math.min(1, 1200 / Math.max(src.width, src.height));
+  const k = Math.min(1, 1100 / Math.max(src.width, src.height));
   c.width = Math.round(src.width * k); c.height = Math.round(src.height * k);
   const cx = c.getContext("2d");
   cx.fillStyle = "#FFFFFF"; cx.fillRect(0, 0, c.width, c.height);  // shaffofsiz
   cx.drawImage(src, 0, 0, c.width, c.height);
-  const d = await stuAI("kiydir", { jins, image: c.toDataURL("image/jpeg", 0.92) });
+  const d = await stuAI("kiydir", { jins, image: c.toDataURL("image/jpeg", 0.86) });
   stuHolat("");
   if (!d) return;
   try {
@@ -2248,7 +2250,7 @@ async function stuKanalga(video) {
   try {
     const c = document.createElement("canvas");
     stChiz(c, stFmt());
-    const data = c.toDataURL("image/png");
+    const data = c.toDataURL("image/jpeg", 0.92);   // ✅ yuklama: PNG emas
     const d = await stuAI("kanalga", { image: data, matn: _stuIzoh() });
     if (d && d.ok) toast("Kanalga yuborildi ✅", "ok");
   } finally {
@@ -2485,10 +2487,10 @@ async function stuShaxsAjrat() {
   if (!STU.asl) STU.asl = STU.img;
   stuHolat("✂️ Shaxs ajratilmoqda…");
   const c = document.createElement("canvas");
-  const k = Math.min(1, 1400 / Math.max(STU.img.width, STU.img.height));
+  const k = Math.min(1, 1200 / Math.max(STU.img.width, STU.img.height));
   c.width = Math.round(STU.img.width * k); c.height = Math.round(STU.img.height * k);
   c.getContext("2d").drawImage(STU.img, 0, 0, c.width, c.height);
-  const d = await stuAI("shaxs", { image: c.toDataURL("image/jpeg", 0.92) });
+  const d = await stuAI("shaxs", { image: c.toDataURL("image/jpeg", 0.85) });
   stuHolat("");
   if (!d) return;
   try {

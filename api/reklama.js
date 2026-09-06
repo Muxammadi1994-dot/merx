@@ -42,7 +42,10 @@ const TG_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;      // ✅ S8: kanalga yubo
 // ✅ S7: AMAL OG'IRLIGI — hamma amal bir xil emas.
 // Banner va video — BEPUL (brauzerda chiziladi, AI yo'q).
 const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kanal: 0 };
-const MAX_KB      = 6000;   // kirish rasmi (base64) chegarasi
+// ⚠️ Vercel so'rov tanasi chegarasi ~4.5 MB. Undan katta rasm
+// PLATFORMA darajasida rad etiladi (413) va bizning tushunarli
+// xatomiz o'rniga tushunarsiz javob chiqadi. Shuning uchun 3.6 MB.
+const MAX_KB      = 3600;
 
 // ── Auth (pul.js naqshi) ───────────────────────────────────────
 function shopFromJwt(token) {
@@ -409,6 +412,8 @@ async function fonData(url) {
   const r = await fetch(url);
   if (!r.ok) throw new Error("fon yuklanmadi " + r.status);
   const b = Buffer.from(await r.arrayBuffer());
+  // ✅ yuklama nazorati: fon 6 MB dan katta bo'lsa qaytarilmaydi
+  if (b.length > 6 * 1024 * 1024) throw new Error("fon juda katta");
   const tur = r.headers.get("content-type") || "image/png";
   return `data:${tur};base64,${b.toString("base64")}`;
 }
@@ -486,7 +491,7 @@ module.exports = async (req, res) => {
     try {
       const b64 = rasm.split(",")[1] || "";
       const buf = Buffer.from(b64, "base64");
-      if (buf.length > 9 * 1024 * 1024)
+      if (buf.length > 4 * 1024 * 1024)
         return res.status(200).json({ ok: false, error: "Fayl juda katta (9 MB dan ortiq)" });
       const fd = new FormData();
       fd.append("chat_id", kanal);
