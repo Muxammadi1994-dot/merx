@@ -2518,17 +2518,29 @@ function stuQidir(q, elId) {
     return q.split(/\s+/).every(t => hay.includes(t));
   }).slice(0, 12);
   el.style.display = mos.length ? "block" : "none";
-  el.innerHTML = mos.map(p =>
-    `<div class="stu-row" onclick="stuTanla('${String(p.sku).replace(/'/g, "\\'")}')">
+  // ✅ OQ: tovar RANGLARI bilan — egasi: "kodda bir necha rang bor,
+  // qidiruvda ranglar bilan chiqsin, men tanlayman"
+  el.innerHTML = mos.map(p => {
+    const sk = String(p.sku).replace(/'/g, "\\'");
+    const ranglar = [...new Set((p.variants || []).map(v => v.color).filter(Boolean))];
+    const ci = p.colorImages || {};
+    const chips = ranglar.length > 1 ? `<div class="stu-ranglar">` + ranglar.map(r =>
+      `<button onclick="event.stopPropagation();stuTanla('${sk}','${String(r).replace(/'/g, "\\'")}')">` +
+      (ci[r] ? `<img src="${ci[r]}" alt="">` : "") + `${r}</button>`).join("") + `</div>` : "";
+    return `<div class="stu-row" onclick="stuTanla('${sk}')">
        <b>${(p.name || "—")}</b>
        <span>${p.art ? "ART " + p.art : ""} ${p.priceUzs ? "· " + stSon(p.priceUzs) + " so'm" : ""}</span>
-     </div>`).join("");
+       ${chips}</div>`;
+  }).join("");
 }
-function stuTanla(sku) {
+function stuTanla(sku, rang) {
   const manba = (typeof visProds === "function" ? visProds() : (db.products || []));
   const p = manba.find(x => String(x.sku) === String(sku));
   if (!p) return;
-  const ranglar = [...new Set((p.variants || []).map(v => v.color).filter(Boolean))];
+  // ✅ OQ: tanlangan rang — faqat o'sha, va o'sha rangning rasmi
+  const ranglar = rang ? [rang]
+    : [...new Set((p.variants || []).map(v => v.color).filter(Boolean))];
+  STU.tanlanganRang = rang || "";
   const olch    = [...new Set((p.variants || []).map(v => v.size).filter(Boolean))];
   STU.tovar = {
     nom: p.name || "",
@@ -3983,7 +3995,9 @@ function _kiyimTuri(t) {
 // ── rasm manbai
 async function stuKatalogRasm() {
   const t = STU.tovarXom;
-  const u = t && ((t.colorImages && Object.values(t.colorImages)[0]) || t.image);
+  const ci = (t && t.colorImages) || {};
+  const u = t && ((STU.tanlanganRang && ci[STU.tanlanganRang]) ||
+                  Object.values(ci)[0] || t.image);   // ✅ OQ: rang rasmi
   if (!u) { toast("Bu tovarda rasm biriktirilmagan — galereyadan yuklang", "err"); return false; }
   stuHolat("Katalog rasmi olinmoqda…");
   const d = await stuAI("rasm_ol", { url: u });
@@ -4113,17 +4127,24 @@ async function stuKiydirOqim() {
   // kiyimlar ro'yxati: asosiy tovar + qo'shimchalar; TARTIB: past → ust → libos
   const royxat = [{ tovar: STU.tovar, img: STU.asl || STU.img, turi: _kiyimTuri(STU.tovar) }]
     .concat(STU.turi === "kop" ? STU.qoshimcha.filter(x => x.img) : []);
-  const tartib = { bottoms: 1, tops: 2, "one-pieces": 2, shoes: 3, auto: 2, aksessuar: 9 };
-  const kiyim = royxat.filter(x => x.turi !== "aksessuar")
-    .sort((a, b) => tartib[a.turi] - tartib[b.turi]);
-  const aks = royxat.filter(x => x.turi === "aksessuar");
-  if (!kiyim.length) { toast("Kiydiriladigan kiyim yo'q", "err"); return; }
+  // ✅ OQ: IKKI YO'L. Kiyim (ust/past/libos) — kiydirish modeli;
+  // oyoq kiyim va aksessuar — TAHRIR modeli (odam + tovar rasmi).
+  // Tartib: past → ust → libos → oyoq kiyim → soat/sumka.
+  const tartib = { bottoms: 1, tops: 2, "one-pieces": 2, auto: 2, shoes: 4, aksessuar: 5 };
+  const hamma = royxat.slice().sort((a, b) => tartib[a.turi] - tartib[b.turi]);
+  if (!hamma.length) { toast("Kiydiriladigan tovar yo'q", "err"); return; }
+  const aks = [];
   let shaxsData = shaxsmi ? _stuTayyor(STU.shaxs, 1200) : null;
-  for (let n = 0; n < kiyim.length; n++) {
-    const x = kiyim[n];
-    stuHolat(`👗 ${n + 1}/${kiyim.length} · ${x.tovar.nom} (${x.turi}) kiydirilmoqda…`);
-    const d = await stuAI("kiydir", { jins, model_image: shaxsData || undefined,
-      image: _stuTayyor(x.img, 1100), turi: x.turi === "shoes" ? "auto" : x.turi });
+  for (let n = 0; n < hamma.length; n++) {
+    const x = hamma[n];
+    const tahrir = x.turi === "shoes" || x.turi === "aksessuar";
+    const nomi = _uz(x.tovar.nom).toLowerCase();
+    const aksTur = x.turi !== "aksessuar" ? x.turi
+      : (nomi.includes("soat") ? "soat" : (nomi.includes("sumka") || nomi.includes("ryukzak")) ? "sumka" : "aksessuar");
+    stuHolat(`${tahrir ? "👟" : "👗"} ${n + 1}/${hamma.length} · ${x.tovar.nom}…`);
+    const d = await stuAI(tahrir ? "kiydir_edit" : "kiydir", {
+      jins, model_image: shaxsData || undefined,
+      image: _stuTayyor(x.img, 1100), turi: aksTur });
     if (!d) { stuHolat(""); return; }
     shaxsData = d.image;
   }

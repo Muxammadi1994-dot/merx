@@ -35,13 +35,19 @@ const M_SAHNA = process.env.STUDIO_M_SAHNA || "fal-ai/flux/schnell";
 // (fal.run/fal-ai/fashn/tryon/v1.6 · model_image + garment_image ·
 //  864x1296 · $0.075/generatsiya · 5-17 soniya).
 const M_TRYON = process.env.STUDIO_M_TRYON || "fal-ai/fashn/tryon/v1.6";
+// ✅ OQ (2026-09-07): OYOQ KIYIM va AKSESSUAR uchun — kiydirish modeli
+// ularni BILMAYDI (jonli hodisa: krossovka berilganda butunlay boshqa
+// odam chizildi). Bular uchun ko'p-rasmli TAHRIR modeli: odam rasmi +
+// tovar rasmi + "faqat oyoq kiyimni almashtir" buyrug'i.
+// Hujjat: fal.run/fal-ai/nano-banana-2/edit · prompt + image_urls[].
+const M_EDIT  = process.env.STUDIO_M_EDIT  || "fal-ai/nano-banana-2/edit";
 const G_IMG   = "gemini-2.5-flash-image";                // Gemini zaxira
 
 const OYLIK_BEPUL = parseInt(process.env.STUDIO_LIMIT) || 10;
 const TG_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;      // ✅ S8: kanalga yuborish
 // ✅ S7: AMAL OG'IRLIGI — hamma amal bir xil emas.
 // Banner va video — BEPUL (brauzerda chiziladi, AI yo'q).
-const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kanal: 0 };
+const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kiydir_edit: 3, kanal: 0 };
 // ⚠️ Vercel so'rov tanasi chegarasi ~4.5 MB. Undan katta rasm
 // PLATFORMA darajasida rad etiladi (413) va bizning tushunarli
 // xatomiz o'rniga tushunarsiz javob chiqadi. Shuning uchun 3.6 MB.
@@ -804,6 +810,43 @@ module.exports = async (req, res) => {
     const n = await oySarfi(shopId);
     return res.status(200).json({ ok: true, image: chiq, sarf: n,
       chegara: (await chegaraOl(shopId)).chegara });
+  }
+
+  // ── ✅ OQ: OYOQ KIYIM / AKSESSUAR — tahrir modeli bilan ──
+  if (amal === "kiydir_edit") {
+    const shaxs = String(body.model_image || ""), tovar = String(body.image || "");
+    if (!/^data:image\//.test(tovar)) return res.status(200).json({ ok: false, error: "Tovar rasmi yo'q" });
+    if (tovar.length + shaxs.length > MAX_KB * 1024)
+      return res.status(200).json({ ok: false, error: "Rasmlar juda katta" });
+    const [n0, ch0] = await Promise.all([oySarfi(shopId), chegaraOl(shopId)]);
+    if (n0 >= ch0.chegara)
+      return res.status(200).json({ ok: false, limit: true, error: `Bu oydagi ${ch0.chegara} kredit tugadi.` });
+    let shaxsRasm = /^data:image\//.test(shaxs) || /^https?:\/\//.test(shaxs) ? shaxs : "";
+    if (!shaxsRasm) {
+      const m = await modelOl(shopId, body.jins === "ayol" ? "ayol" : "erkak");
+      if (!m || !m.url) return res.status(200).json({ ok: false, model_yoq: true, error: "Model yo'q" });
+      shaxsRasm = m.url;
+    }
+    const tur = String(body.turi || "shoes");
+    const nima = tur === "shoes" ? "footwear (shoes)" :
+                 tur === "soat"  ? "wrist watch" :
+                 tur === "sumka" ? "bag" : "accessory";
+    const matn =
+      `Edit the first image (the person). Replace ONLY the person's ${nima} with the exact ` +
+      `product shown in the second image. Keep the product's design, colour, material, ` +
+      `logo and shape exactly as in the second image. Do NOT change the person's face, ` +
+      `hair, skin, body, pose, clothing or the background in any way. Photorealistic, ` +
+      `natural lighting and shadows matching the original photo.`;
+    let chiq = null, xato = "";
+    try {
+      const j = await falRun(M_EDIT, { prompt: matn, image_urls: [shaxsRasm, tovar],
+        num_images: 1, aspect_ratio: "auto", output_format: "png", sync_mode: true }, 52000);
+      chiq = falRasm(j);
+    } catch (e) { xato = e.message; }
+    await jurnal(shopId, "kiydir_edit:" + tur, "fal", M_EDIT, !!chiq, chiq ? "" : xato);
+    if (!chiq) return res.status(200).json({ ok: false, error: xato || "Tahrir chiqmadi" });
+    const n = await oySarfi(shopId);
+    return res.status(200).json({ ok: true, image: chiq, sarf: n, chegara: ch0.chegara });
   }
 
   // ✅ S3: sahna ro'yxati (klient tugmalar chizishi uchun)
