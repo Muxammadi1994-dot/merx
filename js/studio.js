@@ -209,6 +209,20 @@ const STU_SHAB = [
     ],
   },
   {
+    id:"modelaks", nom:"Model + aksessuar", kat:["model","real"],
+    uchun:"Modelli kadr, burchakda aksessuar (soat, sumka)",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:.5, y:.5, w:1, h:1, anchor:"center", moda:"cover" },
+      { tur:"panel", x:.62, y:.06, w:.32, h:.30, rang:"c", alfa:.92, radius:.03 },
+      { tur:"rasm2", x:.78, y:.21, w:.28, h:.26, anchor:"center" },
+      { tur:"matn", manba:"nom", x:.06, y:.83, o:.052, vazn:800, rang:"c", max:.86, soya:true },
+      { tur:"matn", manba:"tafsilot", x:.06, y:.875, o:.024, vazn:600, rang:"d", max:.86 },
+      { tur:"narx", x:.06, y:.95, o:.10, vazn:900, rang:"b" },
+      { tur:"logo", x:.94, y:.975, o:.020, rang:"d", anchor:"right" },
+    ],
+  },
+  {
     id:"model", nom:"Modelda", uchun:"Kiyim — to'liq kadr (modelli surat)", kat:["model"],
     qatlamlar:[
       { tur:"fon", rang:"a" },
@@ -2492,8 +2506,8 @@ function stuBelgi(on){ STU.belgi = !!on; stChiz(); }
 function stuZoom(v)  { STU.imgAdj.zoom = Number(v) || 1; stChiz(); }
 
 // tovar qidirish (faqat o'qiydi)
-function stuQidir(q) {
-  const el = document.getElementById("stu-natija");
+function stuQidir(q, elId) {
+  const el = document.getElementById(elId || "stu-natija");
   if (!el) return;
   q = String(q || "").trim().toLowerCase();
   if (!q) { el.innerHTML = ""; el.style.display = "none"; return; }
@@ -2530,7 +2544,10 @@ function stuTanla(sku) {
   };
   const q = document.getElementById("stu-q");   if (q) q.value = "";
   const n = document.getElementById("stu-natija"); if (n) { n.innerHTML = ""; n.style.display = "none"; }
+  STU.tovarXom = p;                                  // ✅ USTA: rasm manbai uchun
+  STU.variants = []; STU.fon = null; STU.aiNamoyish = false;
   renderStudio();
+  if (STU.rejim !== "pro" && STU.rasmManba === "katalog") stuKatalogRasm();
 }
 // telefon surati
 function stuRasm(inp) {
@@ -2903,7 +2920,11 @@ async function stuReklamaYasa() {
       return;
     }
     STU.yorliq = stuAvtoYorliq();
-    // ✅ ODDIY: odam kadri bo'lsa — shaxs ajratiladi, real fon qo'yiladi
+    // ═══ ✅ USTA: REKLAMA TURI bo'yicha ═══
+    if (STU.turi === "real" || STU.turi === "model" || STU.turi === "kop") {
+      await stuKiydirOqim();
+      return;
+    }
     if (STU.odamKadri) {
       stuHolat("1/3 · Shaxs ajratilmoqda…");
       await stuShaxsAjrat(true);
@@ -3881,30 +3902,7 @@ function stuRejim(r) {
   _stuLS("merx_studio_rejim", r);
   if (r === "pro") renderStudio(); else stuOddiyChiz();
 }
-function stuOddiyChiz() {
-  // oxirgi qo'shilgan tovarlar — bir bosishda tanlash
-  const el = document.getElementById("stu-od-tovarlar");
-  if (el) {
-    const manba = (typeof visProds === "function" ? visProds() : (db.products || []))
-      .slice().sort((a, b) => (new Date(b.createdAt || 0)) - (new Date(a.createdAt || 0)))
-      .slice(0, 8);
-    el.innerHTML = manba.map(p => {
-      const on = STU.tovar && String(STU.tovar.art) === String(p.art || p.sku);
-      const rasm = (p.colorImages && Object.values(p.colorImages)[0]) || p.image || "";
-      return `<button class="stu-od-tov${on ? " on" : ""}"
-        onclick="stuTanla('${String(p.sku).replace(/'/g, "\\'")}');stuOddiyChiz()">
-        ${rasm ? `<img src="${rasm}" loading="lazy" alt="">` : `<i>◈</i>`}
-        <span>${p.name || "—"}</span></button>`;
-    }).join("") || `<div class="st-hint">Katalogda tovar yo'q</div>`;
-  }
-  const t = document.getElementById("stu-od-tovar");
-  if (t) t.textContent = STU.tovar ? "✓ " + STU.tovar.nom : "Tovarni tanlang";
-  const s2 = document.getElementById("stu-od-surat");
-  if (s2) s2.textContent = STU.img ? "✓ Surat tayyor" : "📷 Suratga oling";
-  const g = document.getElementById("stu-od-go");
-  if (g) g.disabled = !(STU.tovar && STU.img);
-  stuNatijaKorsat(!!STU.variants.length);
-}
+function stuOddiyChiz() { stuUstaChiz(); }
 function stuOdamKadri(on) { STU.odamKadri = !!on; }
 function stuNatijaKorsat(bor) {
   const n = document.getElementById("stu-od-natija");
@@ -3937,4 +3935,215 @@ async function stuYana() {
 async function stuBoshqaFon() {
   const ok2 = await stuFonAvto(STU.real ? "real" : "tovar", true);
   if (ok2) { stuNatijaKorsat(true); stuVariantChiz(); toast("Fon: " + STU.fonNom, "ok"); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ USTA (2026-09-07) — EGASINING OQIMI: to'rt reklama turi
+// ═══════════════════════════════════════════════════════════════
+// Do'konchi: tovar (qidiruv) → rasm manbai → REKLAMA TURI → kerakli
+// rasmlar → ✨ → kanalga. Qolgan hamma qarorni AI/tizim qiladi.
+//
+// Turlar:
+//   tovar — tovarning o'zi chiroyli (bezakli) fonda
+//   real  — real shaxsga kiydirish (yuz va gavda o'zgarmaydi)
+//   model — do'konning AI-modeliga kiydirish
+//   kop   — bir shaxs/modelga BIR NEChA tovar (ko'ylak, shim, oyoq kiyim, soat)
+//
+// "Ishtonni boshga kiydirmaslik": tizim avval tovar NIMA ekanini
+// katalog nomi/toifasidan aniqlaydi (_kiyimTuri) va kiydirish
+// modeliga aniq turini uzatadi (tops / bottoms / one-pieces).
+STU.turi = "tovar";
+STU.rasmManba = "katalog";        // katalog · galereya · kamera
+STU.qoshimcha = [];               // kop: [{tovar, img, turi}]
+STU.modelJins = "erkak";
+
+const STU_TURLAR = [
+  { id:"tovar", nom:"Tovarning o'zi",        izoh:"Chiroyli sahnada, ma'lumotlar bilan", ik:"👟" },
+  { id:"real",  nom:"Real shaxsga kiydirish", izoh:"Xodim yoki mijoz surati. Yuz va gavda o'zgarmaydi", ik:"🧍" },
+  { id:"model", nom:"AI-modelga kiydirish",   izoh:"Do'koningizning o'z modeli", ik:"👤" },
+  { id:"kop",   nom:"Bir nechta tovar",       izoh:"Ko'ylak + shim + oyoq kiyim + soat — bitta kadrda", ik:"🧥" },
+];
+
+// Tovar nima? — kiydirish uchun ANIQ tur (katalogdan, taxmin emas)
+function _kiyimTuri(t) {
+  // ✅ o'zbek shakllari: "koʼylagi", "shimlar", "kurtkasi" — apostrof
+  // normalizatsiyasi (_uz) + O'ZAK bo'yicha moslashtirish
+  const n = _uz((t && (t.kat + " " + t.nom)) || "").toLowerCase();
+  const bor = a => a.some(w => n.includes(w));
+  if (bor(["libos", "sarafan", "kombinezon", "xalat", "plat"]))            return "one-pieces";
+  if (bor(["shim", "jins", "yubka", "shortik", "bryuk", "ishton", "losin"]))  return "bottoms";
+  if (bor(["ko'ylak", "ko'ylag", "koylak", "koylag", "futbolk", "sviter",
+           "kofta", "kurtk", "palto", "pidjak", "jaket", "bluzk",
+           "tolstovk", "hoodie", "rubashk", "polo"]))                       return "tops";
+  if (bor(["krossovka", "botinka", "tufli", "oyoq", "poyabzal", "ked", "sandal"])) return "shoes";
+  if (bor(["soat", "sumka", "kamar", "ko'zoynak", "kozoynak", "taqinchoq", "zargar", "hamyon", "ryukzak"])) return "aksessuar";
+  return "auto";
+}
+
+// ── rasm manbai
+async function stuKatalogRasm() {
+  const t = STU.tovarXom;
+  const u = t && ((t.colorImages && Object.values(t.colorImages)[0]) || t.image);
+  if (!u) { toast("Bu tovarda rasm biriktirilmagan — galereyadan yuklang", "err"); return false; }
+  stuHolat("Katalog rasmi olinmoqda…");
+  const d = await stuAI("rasm_ol", { url: u });
+  stuHolat("");
+  if (!d) return false;
+  try {
+    const im = await _stuImg(d.image);
+    STU.img = im; STU.asl = im; STU.rasmlar[0] = im; STU.asosiy = 0;
+    STU.fokus = { x: .5, y: .38 };
+    stuUstaChiz(); return true;
+  } catch (e) { toast("Rasm ochilmadi", "err"); return false; }
+}
+function stuManba(m) {
+  STU.rasmManba = m;
+  if (m === "katalog") stuKatalogRasm();
+  stuUstaChiz();
+}
+function stuTuri(id) {
+  STU.turi = id;
+  STU.real = (id === "real"); STU.odamKadri = false;
+  stuUstaChiz();
+}
+function stuModelJins(j) { STU.modelJins = j; stuUstaChiz(); }
+
+// ── qo'shimcha tovarlar (kop)
+function stuQoshQidir(q) {
+  const el = document.getElementById("stu-qosh-natija");
+  if (!el) return;
+  q = String(q || "").trim().toLowerCase();
+  if (!q) { el.innerHTML = ""; el.style.display = "none"; return; }
+  const manba = (typeof visProds === "function" ? visProds() : (db.products || []));
+  const mos = manba.filter(p => ((p.name || "") + " " + (p.sku || "") + " " + (p.art || ""))
+    .toLowerCase().indexOf(q) >= 0).slice(0, 8);
+  el.style.display = mos.length ? "block" : "none";
+  el.innerHTML = mos.map(p => `<div class="stu-row" onclick="stuQoshTanla('${String(p.sku).replace(/'/g, "\\'")}')">
+    <b>${p.name || "—"}</b><span>${p.art ? "ART " + p.art : ""}</span></div>`).join("");
+}
+async function stuQoshTanla(sku) {
+  const manba = (typeof visProds === "function" ? visProds() : (db.products || []));
+  const p = manba.find(x => String(x.sku) === String(sku));
+  if (!p) return;
+  const t = { nom: p.name || "", art: p.art || p.sku, kat: String(p.category || ""),
+              narx: Number(p.ulgurjiNarx || p.priceUzs) || 0 };
+  const q = { tovar: t, img: null, turi: _kiyimTuri(t) };
+  const u = (p.colorImages && Object.values(p.colorImages)[0]) || p.image;
+  if (u) {
+    const d = await stuAI("rasm_ol", { url: u });
+    if (d) { try { q.img = await _stuImg(d.image); } catch (e) {} }
+  }
+  STU.qoshimcha.push(q);
+  const qi = document.getElementById("stu-qosh-q"); if (qi) qi.value = "";
+  const n = document.getElementById("stu-qosh-natija"); if (n) n.style.display = "none";
+  stuUstaChiz();
+}
+function stuQoshRasm(inp, i) {
+  const f = inp && inp.files && inp.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = e => { const im = new Image();
+    im.onload = () => { STU.qoshimcha[i].img = im; stuUstaChiz(); }; im.src = e.target.result; };
+  r.readAsDataURL(f);
+}
+function stuQoshOchir(i) { STU.qoshimcha.splice(i, 1); stuUstaChiz(); }
+
+// ── USTA ekrani
+function stuUstaChiz() {
+  const T = STU.tovar;
+  const q = (id, h) => { const e = document.getElementById(id); if (e) e.innerHTML = h; };
+  q("stu-od-tovar", T ? "✓ " + T.nom + (T.art ? " · " + T.art : "") : "Tovarni tanlang");
+  // rasm manbai
+  const bor = !!(STU.tovarXom && ((STU.tovarXom.colorImages && Object.keys(STU.tovarXom.colorImages).length) || STU.tovarXom.image));
+  q("stu-od-manba", T ? `
+    <div class="st-od-manbalar">
+      <button class="${STU.rasmManba === "katalog" ? "on" : ""}${bor ? "" : " yoq"}" onclick="stuManba('katalog')">🖼 Katalog rasmi</button>
+      <label class="${STU.rasmManba === "galereya" ? "on" : ""}">📁 Galereyadan
+        <input type="file" accept="image/*" onchange="STU.rasmManba='galereya';stuRasm(this);setTimeout(stuUstaChiz,400)" style="display:none"></label>
+      <label class="${STU.rasmManba === "kamera" ? "on" : ""}">📷 Suratga olish
+        <input type="file" accept="image/*" capture="environment" onchange="STU.rasmManba='kamera';stuRasm(this);setTimeout(stuUstaChiz,400)" style="display:none"></label>
+    </div>
+    <div class="st-hint">${STU.img ? "✓ Tovar rasmi tayyor" : (bor ? "" : "Bu tovarda katalog rasmi yo'q — galereyadan yoki kameradan oling")}</div>` : "");
+  // reklama turi
+  q("stu-od-turlar", STU_TURLAR.map(t => `
+    <button class="st-od-tur${t.id === STU.turi ? " on" : ""}" onclick="stuTuri('${t.id}')">
+      <i>${t.ik}</i><b>${t.nom}</b><span>${t.izoh}</span></button>`).join(""));
+  // turga qarab kerakli rasmlar
+  let k = "";
+  if (STU.turi === "real" || (STU.turi === "kop" && STU.modelJins === "shaxs")) {
+    k += `<div class="st-od-t" style="font-size:13px">Shaxs surati</div>
+      <div id="stu-shaxs"></div>`;
+  }
+  if (STU.turi === "model" || STU.turi === "kop") {
+    k += `<div class="st-od-t" style="font-size:13px;margin-top:${k ? 10 : 0}px">Kimga kiydiriladi</div>
+      <div class="st-od-manbalar">
+        ${STU.turi === "kop" ? `<button class="${STU.modelJins === "shaxs" ? "on" : ""}" onclick="stuModelJins('shaxs')">🧍 Real shaxs</button>` : ""}
+        <button class="${STU.modelJins === "erkak" ? "on" : ""}" onclick="stuModelJins('erkak')">Erkak model</button>
+        <button class="${STU.modelJins === "ayol" ? "on" : ""}" onclick="stuModelJins('ayol')">Ayol model</button>
+      </div>
+      <div id="stu-modellar" style="display:flex;gap:9px;margin-top:8px"></div>`;
+  }
+  if (STU.turi === "kop") {
+    k += `<div class="st-od-t" style="font-size:13px;margin-top:10px">Qo'shimcha tovarlar</div>
+      <input id="stu-qosh-q" class="st-inp" placeholder="🔍 Katalogdan qo'shish (shim, oyoq kiyim, soat…)"
+             oninput="stuQoshQidir(this.value)" autocomplete="off" style="margin-top:6px">
+      <div id="stu-qosh-natija" style="display:none;max-height:180px;overflow:auto;border:1px solid var(--ln);border-radius:11px;margin-top:6px;background:#fff"></div>
+      <div class="st-od-qosh">` +
+      STU.qoshimcha.map((x, i) => `<div class="st-od-qosh-el">
+        ${x.img ? `<img src="${x.img.src || ""}" alt="">` : `<label>+ rasm<input type="file" accept="image/*" onchange="stuQoshRasm(this,${i})" style="display:none"></label>`}
+        <b>${x.tovar.nom}</b><em>${({tops:"ust", bottoms:"past", "one-pieces":"libos", shoes:"oyoq kiyim", aksessuar:"aksessuar", auto:"?"})[x.turi]}</em>
+        <i onclick="stuQoshOchir(${i})">×</i></div>`).join("") + `</div>`;
+  }
+  q("stu-od-kerak", k);
+  if (k.indexOf('id="stu-shaxs"') >= 0) stuSlotChiz();
+  if (k.indexOf('id="stu-modellar"') >= 0) stuModelChiz();
+  const g = document.getElementById("stu-od-go");
+  if (g) {
+    let tayyor = !!(T && STU.img);
+    if (STU.turi === "real") tayyor = tayyor && !!STU.shaxs;
+    if (STU.turi === "kop" && STU.modelJins === "shaxs") tayyor = tayyor && !!STU.shaxs;
+    g.disabled = !tayyor;
+  }
+  stuNatijaKorsat(!!STU.variants.length);
+}
+
+// ── KIYDIRISh OQIMI (real / model / kop) — AI tovarni tahlil qiladi
+async function stuKiydirOqim() {
+  const shaxsmi = STU.turi === "real" || (STU.turi === "kop" && STU.modelJins === "shaxs");
+  const jins = STU.modelJins === "ayol" ? "ayol" : "erkak";
+  // kiyimlar ro'yxati: asosiy tovar + qo'shimchalar; TARTIB: past → ust → libos
+  const royxat = [{ tovar: STU.tovar, img: STU.asl || STU.img, turi: _kiyimTuri(STU.tovar) }]
+    .concat(STU.turi === "kop" ? STU.qoshimcha.filter(x => x.img) : []);
+  const tartib = { bottoms: 1, tops: 2, "one-pieces": 2, shoes: 3, auto: 2, aksessuar: 9 };
+  const kiyim = royxat.filter(x => x.turi !== "aksessuar")
+    .sort((a, b) => tartib[a.turi] - tartib[b.turi]);
+  const aks = royxat.filter(x => x.turi === "aksessuar");
+  if (!kiyim.length) { toast("Kiydiriladigan kiyim yo'q", "err"); return; }
+  let shaxsData = shaxsmi ? _stuTayyor(STU.shaxs, 1200) : null;
+  for (let n = 0; n < kiyim.length; n++) {
+    const x = kiyim[n];
+    stuHolat(`👗 ${n + 1}/${kiyim.length} · ${x.tovar.nom} (${x.turi}) kiydirilmoqda…`);
+    const d = await stuAI("kiydir", { jins, model_image: shaxsData || undefined,
+      image: _stuTayyor(x.img, 1100), turi: x.turi === "shoes" ? "auto" : x.turi });
+    if (!d) { stuHolat(""); return; }
+    shaxsData = d.image;
+  }
+  STU.img = await _stuImg(shaxsData);
+  STU.rasmlar[1] = aks[0] ? aks[0].img : null;   // aksessuar — kollaj slotida
+  STU.aiNamoyish = !shaxsmi; STU.real = shaxsmi;
+  STU.avtoPal = stuPalitraChiqar(STU.img);
+  // ✅ AI fon: shahar/bino/interyer, mavsumga mos (egasining talabi)
+  stuHolat("Fon tanlanmoqda…");
+  const fonBor = await stuFonAvto(shaxsmi ? "real" : "model", true);
+  if (fonBor) {
+    // odam kesib olinib, yangi fonga qo'yiladi (yuz/gavda o'zgarmaydi)
+    await stuShaxsAjrat(true);
+    STU.soya = true; STU.aks = false;
+  } else { STU.fon = null; STU.soya = false; }
+  STU.variants = stuVariantlar();
+  if (aks.length && STU_SHAB.some(s => s.id === "modelaks"))
+    STU.variants.unshift({ shab: "modelaks", pal: STU.avtoPal ? "auto" : "navy" });
+  STU.tanlanganV = 0;
+  const v = STU.variants[0]; STU.shab = v.shab; STU.pal = v.pal;
+  stuHolat(""); stuVariantChiz(); renderStudio(); stuNatijaKorsat(true);
+  toast((kiyim.length > 1 ? kiyim.length + " ta kiyim kiydirildi" : "Tayyor"), "ok");
 }

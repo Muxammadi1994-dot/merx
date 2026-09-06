@@ -708,6 +708,18 @@ module.exports = async (req, res) => {
       sarf: n, chegara: (await chegaraOl(shopId)).chegara });
   }
 
+  // ── ✅ TUR (2026-09-07): KATALOG RASMINI OLISh ──
+  // Tovarning o'z rasmi (Supabase storage) canvas'ga to'g'ridan
+  // yuklansa "iflos" bo'ladi — server orqali data qilib beramiz.
+  // Faqat O'Z omborimizdan (SUPABASE_URL) ruxsat.
+  if (amal === "rasm_ol") {
+    const u = String(body.url || "");
+    if (!/^https?:\/\//.test(u) || u.indexOf(String(SB_URL).replace(/^https?:\/\//, "")) < 0)
+      return res.status(200).json({ ok: false, error: "Faqat o'z omboridagi rasm" });
+    try { return res.status(200).json({ ok: true, image: await fonData(u) }); }
+    catch (e) { return res.status(200).json({ ok: false, error: e.message }); }
+  }
+
   // ── ✅ ODDIY (2026-09-07): AVTO-FON — tizim o'zi tanlaydi ──
   // Do'konchi hech narsa tanlamaydi: kategoriya + mavsumga mos BEZAKLI
   // sahna (pampas, marmar, yog'och...) yoki odam kadri uchun real fon
@@ -719,6 +731,12 @@ module.exports = async (req, res) => {
     let ro = FON_KATALOG.filter(f => f.sinf === sinf &&
       (sinf === "tovar" ? f.kat === "bezak" : true) &&
       (f.mavsum === mavsum || f.mavsum === "hamma"));
+    // ✅ TUR: odam kadri uchun ko'cha/shahar/interyer afzal (egasi: "shahar
+    // yoki bino foni"), studiya fonlari kamroq
+    if (sinf !== "tovar" && body.uslub !== "studiya") {
+      const sh = ro.filter(f => f.kat === "kocha" || f.kat === "interyer" || f.kat === "tabiat");
+      if (sh.length) ro = sh;
+    }
     // mavsumiylarni afzal ko'ramiz (3 tadan 1 tasi mavsumiy bo'lsin)
     const mavs = ro.filter(f => f.mavsum === mavsum);
     if (mavs.length && Math.random() < .45) ro = mavs;

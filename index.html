@@ -1180,6 +1180,30 @@ body.sms-off .sms-only { display: none !important; }
         background:#F1EFEA;border-radius:8px;color:#9AA3AE;font-style:normal;font-size:20px}
       #p-studio .stu-od-tov span{display:block;font-size:10.5px;margin-top:5px;overflow:hidden;
         text-overflow:ellipsis;white-space:nowrap}
+      #p-studio .st-od-manbalar{display:flex;gap:7px;flex-wrap:wrap}
+      #p-studio .st-od-manbalar button,#p-studio .st-od-manbalar label{flex:1;min-width:110px;
+        border:1.5px solid var(--ln);background:#fff;border-radius:11px;padding:10px 8px;
+        font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;text-align:center}
+      #p-studio .st-od-manbalar .on{border-color:var(--amb);background:#FFF8E8}
+      #p-studio .st-od-manbalar .yoq{opacity:.45}
+      #p-studio .st-od-turlar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+      #p-studio .st-od-tur{border:1.5px solid var(--ln);background:#fff;border-radius:14px;
+        padding:12px;text-align:left;cursor:pointer;font-family:inherit}
+      #p-studio .st-od-tur.on{border-color:var(--amb);background:#FFF8E8}
+      #p-studio .st-od-tur i{font-style:normal;font-size:20px;display:block;margin-bottom:5px}
+      #p-studio .st-od-tur b{display:block;font-size:13px}
+      #p-studio .st-od-tur span{display:block;font-size:11px;color:#8A8578;margin-top:3px;line-height:1.4}
+      #p-studio .st-od-qosh{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:8px}
+      #p-studio .st-od-qosh-el{position:relative;text-align:center;font-size:10.5px}
+      #p-studio .st-od-qosh-el img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:9px;display:block;background:#F1EFEA}
+      #p-studio .st-od-qosh-el label{display:grid;place-items:center;width:100%;aspect-ratio:1/1;
+        border-radius:9px;border:1.5px dashed #D8D4CC;color:#9AA3AE;cursor:pointer;font-size:11px}
+      #p-studio .st-od-qosh-el b{display:block;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      #p-studio .st-od-qosh-el em{display:block;font-style:normal;color:#8A8578;font-size:9.5px}
+      #p-studio .st-od-qosh-el i{position:absolute;top:3px;right:5px;background:rgba(0,0,0,.55);color:#fff;
+        width:17px;height:17px;border-radius:50%;font-size:12px;line-height:17px;cursor:pointer;font-style:normal}
+      @media(max-width:520px){#p-studio .st-od-turlar{grid-template-columns:1fr}
+        #p-studio .st-od-qosh{grid-template-columns:repeat(3,1fr)}}
       #p-studio .st-od-surat{display:grid;place-items:center;min-height:86px;border-radius:14px;
         border:2px dashed #D8D4CC;background:#FCFBF9;cursor:pointer;font-size:15px;font-weight:800}
       #p-studio .st-od-check{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12.5px}
@@ -1344,35 +1368,38 @@ body.sms-off .sms-only { display: none !important; }
       <div class="st-od-sarl">
         <div>
           <h3>Tovaringizni reklama qiling</h3>
-          <p>Tovarni tanlang, suratga oling, tugmani bosing — tayyor.</p>
+          <p>Tovar → reklama turi → kerakli rasm → tugma. Qolganini tizim qiladi.</p>
         </div>
         <button class="st-od-pro" onclick="stuRejim('pro')">Pro rejim →</button>
       </div>
 
+      <!-- 1 · TOVAR (qidiruv) + RASM MANBAI -->
       <div class="st-od-qadam">
         <div class="st-od-n">1</div>
         <div style="flex:1">
           <div id="stu-od-tovar" class="st-od-t">Tovarni tanlang</div>
-          <div id="stu-od-tovarlar" class="st-od-tovlar"></div>
-          <button onclick="stuRejim('pro');stuPanel('tovar')" style="margin-top:9px;border:none;
-            background:none;color:#8A8578;font-family:inherit;font-size:12px;cursor:pointer;
-            text-decoration:underline">Boshqa tovarni qidirish</button>
+          <input id="stu-q" class="st-inp" placeholder="🔍 Nom, artikul yoki barcode"
+                 oninput="stuQidir(this.value)" autocomplete="off" style="margin-top:8px">
+          <div id="stu-natija" style="display:none;max-height:230px;overflow:auto;
+               border:1px solid var(--ln);border-radius:11px;margin-top:6px;background:#fff"></div>
+          <div id="stu-od-manba" style="margin-top:10px"></div>
         </div>
       </div>
 
+      <!-- 2 · REKLAMA TURI -->
       <div class="st-od-qadam">
         <div class="st-od-n">2</div>
         <div style="flex:1">
-          <label class="st-od-surat">
-            <span id="stu-od-surat">📷 Suratga oling</span>
-            <input type="file" accept="image/*" capture="environment"
-                   onchange="stuRasm(this);setTimeout(stuOddiyChiz,400)" style="display:none">
-          </label>
-          <label class="st-od-check">
-            <input type="checkbox" onchange="stuOdamKadri(this.checked)">
-            Bu kadrda odam bor (xodim / model)
-          </label>
-          <div class="st-hint">Bir rangli fon, deraza yorug'ligi — qolganini tizim qiladi.</div>
+          <div class="st-od-t">Reklama turi</div>
+          <div id="stu-od-turlar" class="st-od-turlar"></div>
+        </div>
+      </div>
+
+      <!-- 3 · KERAKLI RASMLAR (turga qarab) -->
+      <div class="st-od-qadam">
+        <div class="st-od-n">3</div>
+        <div style="flex:1">
+          <div id="stu-od-kerak"><div class="st-hint" style="margin:0">Bu tur uchun qo'shimcha rasm kerak emas.</div></div>
         </div>
       </div>
 
@@ -1437,9 +1464,9 @@ body.sms-off .sms-only { display: none !important; }
         <!-- TOVAR -->
         <div id="stu-p-tovar" style="display:none">
           <h4>TOVAR</h4>
-          <input id="stu-q" class="st-inp" placeholder="Nom, artikul yoki barcode"
-                 oninput="stuQidir(this.value)" autocomplete="off">
-          <div id="stu-natija" style="display:none;max-height:230px;overflow:auto;
+          <input id="stu-q2" class="st-inp" placeholder="Nom, artikul yoki barcode"
+                 oninput="stuQidir(this.value, 'stu-natija2')" autocomplete="off">
+          <div id="stu-natija2" style="display:none;max-height:230px;overflow:auto;
                border:1px solid var(--ln);border-radius:11px;margin-top:8px;background:#fff"></div>
           <div id="stu-tovar-nom" style="margin-top:9px;font-size:12.5px;color:#6B7480;font-weight:700">Tovar tanlanmagan</div>
           <h4 style="margin-top:14px">YOZUV</h4>
@@ -5697,7 +5724,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=25"></script>
+<script src="js/studio.js?v=26"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -5990,7 +6017,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 605;
+  window.SW_V = 606;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -6013,7 +6040,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=605")
+    navigator.serviceWorker.register("/sw.js?v=606")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
