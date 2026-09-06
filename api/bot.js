@@ -761,6 +761,164 @@ async function _pulIchki(payload) {
   } catch (e) { return null; }
 }
 
+// ═══ ✅ OT-5 (2026-09-06): KUNLIK — TIZIM PDF EGIZAGI ═══
+// Maydonlar kunlik.js dan AYNAN: payBreakdown/payType+paid (63-80),
+// staffId→kassir jadvali (83-101), methodBreakdown/method+amountSom,
+// "balans kassaga kirmaydi" (128-150), xarajat method (152-159).
+async function _khHisob(shop, sana) {
+  const F = encodeURIComponent(shop);
+  const d = { soni:0, aylanma:0, cheg:0, qayt:0,
+    sotNaqd:0, sotKarta:0, sotOtkazma:0,
+    qarzNaqd:0, qarzKarta:0, qarzOtkazma:0,
+    tSom:0, tUsd:0, tSoni:0,
+    qSom:0, qUsd:0, qSoni:0,
+    xJami:0, xQayt:0,
+    kassirlar:[], xarRo:[], bekorRo:[], qaytRo:[] };
+  // xodim nomlari
+  const _xn = {};
+  try {
+    const stf = await sb("staff", `?shop_id=eq.${F}&select=id,local_id,name&limit=400`);
+    (stf||[]).forEach(x => {
+      if (x.local_id != null) _xn[String(x.local_id)] = x.name;
+      if (x.id != null)       _xn[String(x.id)]       = x.name;
+    });
+  } catch (e) {}
+  const nomi = id => _xn[String(id)] || ("#" + (id ?? "?"));
+  // ── sotuvlar ──
+  try {
+    const ss = await sb("sales",
+      `?shop_id=eq.${F}&date=eq.${sana}` +
+      `&select=chek_num,total,discount,remaining,orig_remaining,` +
+      `orig_debt_usd,debt_currency,status,data&limit=600`);
+    const kMap = new Map();
+    (ss||[]).forEach(r => {
+      const sd = r.data || {};
+      if (sd.isOldDebt) return;                       // eski qarz — savdo emas
+      if (String(sd.cancelled) === "true") {
+        d.bekorRo.push({ chek: r.chek_num || "—",
+          kassir: nomi(sd.staffId), summa: Number(r.total)||0,
+          sabab: String(sd.cancelReason || sd.reason || "—").slice(0,40) });
+        return;
+      }
+      d.soni++; d.aylanma += Number(r.total)||0;
+      if (r.status === "qaytarilgan") d.qayt++;
+      const pb = sd.payBreakdown;
+      if (pb && ((Number(pb.naqd)||0) || (Number(pb.karta)||0) || (Number(pb.otkazma)||0))) {
+        d.sotNaqd    += Number(pb.naqd)    || 0;
+        d.sotKarta   += Number(pb.karta)   || 0;
+        d.sotOtkazma += Number(pb.otkazma) || 0;
+      } else if (sd.payType !== "nasiya") {
+        const p0 = Number(sd.paid) || 0;
+        if (sd.payType === "karta")        d.sotKarta   += p0;
+        else if (sd.payType === "otkazma") d.sotOtkazma += p0;
+        else                               d.sotNaqd    += p0;
+      }
+      // qarzga berilgan (asl qarz qismi)
+      if (r.debt_currency === "usd") {
+        const q = Number(r.orig_debt_usd) || 0;
+        if (q > 0.009) { d.qUsd += q; d.qSoni++; }
+      } else {
+        const q = Number(r.orig_remaining != null ? r.orig_remaining : r.remaining) || 0;
+        if (q > 0.5) { d.qSom += q; d.qSoni++; }
+      }
+      // kassir jadvali (kunlik.js 83-101 egizagi)
+      const kn = nomi(sd.staffId);
+      const kv = kMap.get(kn) ||
+        { nom: kn, chek:0, jami:0, kassaga:0, nasiya:0, chegirma:0 };
+      kv.chek++;
+      kv.jami    += Number(r.total)||0;
+      kv.kassaga += Number(sd.paid)||0;
+      kv.nasiya  += Number(r.orig_remaining != null ? r.orig_remaining : r.remaining)||0;
+      let c1 = Number(r.discount)||0;
+      (sd.items||[]).forEach(it => {
+        const b = Number(it.basePrice)||0, n = Number(it.price)||0;
+        if (b > n && n >= 0) c1 += (b - n) * (Number(it.qty)||0);
+      });
+      kv.chegirma += c1; d.cheg += c1;
+      kMap.set(kn, kv);
+    });
+    d.kassirlar = [...kMap.values()].sort((a,b)=>b.jami-a.jami);
+  } catch (e) {}
+  // ── qarz to'lovlari ──
+  try {
+    const pp = await sb("debt_payments",
+      `?shop_id=eq.${F}&date=eq.${sana}&select=amount,currency,data&limit=800`);
+    (pp||[]).forEach(p => {
+      const pd = p.data || {};
+      if (String(pd.cancelled) === "true") return;
+      d.tSoni++;
+      const som = Number(pd.amountSom) ||
+        (p.currency === "usd" ? 0 : (Number(p.amount)||0));
+      if (p.currency === "usd") d.tUsd += Number(p.amount)||0;
+      d.tSom += som;
+      const mb = pd.methodBreakdown;
+      const mbBor = mb && Object.keys(mb).some(x => (Number(mb[x])||0) > 0);
+      if (mbBor) {
+        d.qarzNaqd    += Number(mb.naqd)    || 0;
+        d.qarzKarta   += Number(mb.karta)   || 0;
+        d.qarzOtkazma += Number(mb.otkazma) || 0;
+      } else {
+        const m = pd.method || "naqd";
+        if (m === "karta")        d.qarzKarta   += som;
+        else if (m === "otkazma") d.qarzOtkazma += som;
+        else if (m === "balans")  { /* balansdan — kassaga kirmaydi */ }
+        else                      d.qarzNaqd    += som;
+      }
+    });
+  } catch (e) {}
+  // ── xarajatlar ──
+  try {
+    const xs = await sb("xarajatlar",
+      `?shop_id=eq.${F}&date=eq.${sana}&select=amount,category,data&limit=800`);
+    (xs||[]).forEach(x => {
+      const a2 = Number(x.amount)||0;
+      d.xJami += a2;
+      if (x.category === "Tovar qaytarish") d.xQayt += a2;
+      d.xarRo.push({ nom: String((x.data||{}).note || x.category || "—").slice(0,34),
+                     summa: a2 });
+    });
+    d.xarRo.sort((a,b)=>b.summa-a.summa);
+    d.xarRo = d.xarRo.slice(0, 8);
+  } catch (e) {}
+  // ── qaytarishlar ro'yxati ──
+  try {
+    const rr = await sb("returns",
+      `?shop_id=eq.${F}&data->>date=eq.${sana}&select=data&limit=50`);
+    (rr||[]).forEach(x => {
+      const rd = x.data || {};
+      d.qaytRo.push({ hujjat: rd.refundNo || "—",
+        chek: rd.origChekNum || "—", summa: Number(rd.total)||0,
+        sabab: String(rd.reason || "—").slice(0, 30) });
+    });
+  } catch (e) {}
+  d.naqd    = d.sotNaqd    + d.qarzNaqd;
+  d.karta   = d.sotKarta   + d.qarzKarta;
+  d.otkazma = d.sotOtkazma + d.qarzOtkazma;
+  return d;
+}
+function _khMatn(nom, sana, d, st) {
+  const s = st && st.ok !== false ? st : null;
+  let t = `🗓 <b>${nom}</b> — ${sana}\n`;
+  t += `🧾 Sotuvlar: <b>${d.soni}</b> ta · Aylanma: <b>${fmt(d.aylanma)}</b> so'm\n`;
+  t += `💵 Naqd: <b>${fmt(d.naqd)}</b> · 💳 Karta: <b>${fmt(d.karta)}</b> · 🏦 O'tkazma: <b>${fmt(d.otkazma)}</b>\n`;
+  const tl = [];
+  if (d.tSom > 0.5)  tl.push(`<b>${fmt(d.tSom)}</b> so'm`);
+  if (d.tUsd > 0.009) tl.push(`<b>$${d.tUsd.toFixed(2)}</b>`);
+  t += `🤝 Qarz to'lovlari: ${tl.join(" + ") || "0"} · ${d.tSoni} ta\n`;
+  const ql = [];
+  if (d.qSom > 0.5)  ql.push(`<b>${fmt(d.qSom)}</b> so'm`);
+  if (d.qUsd > 0.009) ql.push(`<b>$${d.qUsd.toFixed(2)}</b>`);
+  t += `📇 Qarzga berildi: ${ql.join(" + ") || "0"} · ${d.qSoni} chek\n`;
+  t += `💸 Xarajat: <b>${fmt(d.xJami)}</b> so'm` +
+       (d.xQayt > 0.5 ? ` (shundan qaytarish ${fmt(d.xQayt)} — kassa harakati)` : "") + `\n`;
+  t += `🏷 Chegirma: <b>${fmt(d.cheg)}</b> so'm · ↩️ Qaytarish: ${d.qayt} ta\n`;
+  if (s && s.trueNet != null)
+    t += `✅ Haqiqiy sof foyda: <b>${fmt(s.trueNet)}</b> so'm\n`;
+  if (d.kassirlar.length)
+    t += `👥 Kassirlar: ${d.kassirlar.length} ta — jadval mini-app'da`;
+  return t;
+}
+
 // Supabase GET
 async function sb(table, query = "") {
   const url = `${SB_URL}/rest/v1/${table}${query}`;
@@ -4118,6 +4276,11 @@ function yukla(){
     if (s.netProfit != null)
       h += card("Kassa foydasi (to'liq xarajat bilan)", fmt(s.netProfit) + " so'm");
     if (s.exp != null) h += card("Xarajat", fmt(s.exp) + " so'm");
+    // ✅ OT-5: tushum taqsimoti (naqd/karta/oʼtkazma — sotuv+qarz)
+    h += '<div class="row">' +
+         card("Naqd", fmt(d.naqd) + " soʼm") +
+         card("Karta", fmt(d.karta) + " soʼm") + '</div>';
+    h += card("Oʼtkazma", fmt(d.otkazma) + " soʼm");
     var pl = [];
     if ((d.tSom||0) > 0.5)  pl.push(fmt(d.tSom) + " soʼm");
     if ((d.tUsd||0) > 0.009) pl.push("$" + (Number(d.tUsd)||0).toFixed(2));
@@ -4137,6 +4300,36 @@ function yukla(){
     h += '<div class="row">' +
          card("Chegirma (2 tur)", fmt(d.cheg) + " soʼm") +
          card("Qaytarishlar", fmt(d.qayt) + " ta") + '</div>';
+    // ✅ OT-5: kassirlar jadvali (PDF ustunlari bilan bir xil)
+    if (d.kassirlar && d.kassirlar.length) {
+      h += '<div class="card"><div class="k">Kassirlar</div>' +
+           '<table style="width:100%;border-collapse:collapse;' +
+           'font-size:12px;margin-top:6px">' +
+           '<tr style="color:#8a8a8e;text-align:left">' +
+           '<th>Kassir</th><th>Chek</th><th>Savdo</th>' +
+           '<th>Kassaga</th><th>Nasiya</th><th>Cheg.</th></tr>';
+      d.kassirlar.forEach(function (kk) {
+        h += '<tr><td>' + kk.nom + '</td><td>' + kk.chek + '</td><td>' +
+             fmt(kk.jami) + '</td><td>' + fmt(kk.kassaga) + '</td><td>' +
+             fmt(kk.nasiya) + '</td><td>' + fmt(kk.chegirma) + '</td></tr>';
+      });
+      h += '</table></div>';
+    }
+    function roy(sar, arr, f2) {
+      if (!arr || !arr.length) return;
+      h += '<div class="card"><div class="k">' + sar + '</div>' +
+           '<div style="font-size:12.5px;margin-top:6px">';
+      arr.forEach(function (x2) { h += f2(x2) + '<br>'; });
+      h += '</div></div>';
+    }
+    roy("Xarajatlar", d.xarRo, function (x2) {
+      return x2.nom + " — <b>" + fmt(x2.summa) + "</b>"; });
+    roy("Bekor qilingan cheklar", d.bekorRo, function (x2) {
+      return x2.chek + " · " + x2.kassir + " · <b>" +
+             fmt(x2.summa) + "</b> · " + x2.sabab; });
+    roy("Qaytarishlar", d.qaytRo, function (x2) {
+      return x2.hujjat + " · " + x2.chek + " · <b>" +
+             fmt(x2.summa) + "</b> · " + x2.sabab; });
     if (!d.ichki)
       // ✅ OT-3b: sahifa-JS satrlarida apostrof ishlatilmaydi (server
       // shabloni uni pishirib skriptni sindirardi; qoidaga yozildi).
@@ -4347,71 +4540,11 @@ function yubor(){
     if (!ega) return res.status(200).json({ ok: false, error: "Ruxsat yo'q — bu do'kon egasi emassiz" });
     const st = await _pulIchki({ action: "report_stats", from: sana, to: sana, shopId: shop });
     const okStat = !!(st && st.ok !== false && !st.error);
-    // Qo'shimcha sanoqlar — chegirma KH-1 EGIZAGI (pos.js:1519 birligi)
-    let soni = 0, aylanma = 0, cheg = 0, qayt = 0;
-    try {
-      const ss = await sb("sales",
-        `?shop_id=eq.${encodeURIComponent(shop)}&date=eq.${sana}` +
-        `&select=total,status,discount,data&limit=600`);
-      (ss || []).forEach(s2 => {
-        if (String(s2.data?.cancelled) === "true") return;
-        soni++; aylanma += Number(s2.total) || 0;
-        if (s2.status === "qaytarilgan") qayt++;
-        let c1 = Number(s2.discount) || 0;
-        (s2.data?.items || []).forEach(it => {
-          const b = Number(it.basePrice) || 0, n = Number(it.price) || 0;
-          if (b > n && n >= 0) c1 += (b - n) * (Number(it.qty) || 0);
-        });
-        cheg += c1;
-      });
-    } catch (e) {}
-    // ✅ OT-4 (2026-09-06): TIZIM KUNLIGI BILAN YAQINLAShTIRISh —
-    // egasi "ancha kam" dedi. Uch blok, hammasi sxemasi ANIQ ma'lum
-    // jadvallardan (report_stats bilan bir xil ustunlar):
-    //  · qarz to'lovlari (undirilgan) — debt_payments, bekorlarsiz;
-    //  · qarzga berilgan — shu kun sotuvlarining asl qarz qismi;
-    //  · xarajat — jami + ichida "Tovar qaytarish" (kassa harakati,
-    //    QH-1 tili bilan) alohida ko'rsatiladi.
-    let tSom = 0, tUsd = 0, tSoni = 0;
-    try {
-      const pp = await sb("debt_payments",
-        `?shop_id=eq.${encodeURIComponent(shop)}&date=eq.${sana}` +
-        `&select=amount,currency,data&limit=800`);
-      (pp || []).forEach(p2 => {
-        const d2 = p2.data || {};
-        if (String(d2.cancelled) === "true") return;
-        tSoni++;
-        if (p2.currency === "usd") tUsd += Number(p2.amount) || 0;
-        else                       tSom += Number(p2.amount) || 0;
-      });
-    } catch (e) {}
-    let qSom = 0, qUsd = 0, qSoni = 0;
-    try {
-      const qs = await sb("sales",
-        `?shop_id=eq.${encodeURIComponent(shop)}&date=eq.${sana}` +
-        `&or=(orig_remaining.gt.0,orig_debt_usd.gt.0)` +
-        `&select=orig_remaining,orig_debt_usd,debt_currency,data&limit=600`);
-      (qs || []).forEach(s3 => {
-        if (String(s3.data?.cancelled) === "true") return;
-        qSoni++;
-        if (s3.debt_currency === "usd") qUsd += Number(s3.orig_debt_usd) || 0;
-        else                            qSom += Number(s3.orig_remaining) || 0;
-      });
-    } catch (e) {}
-    let xJami = 0, xQayt = 0;
-    try {
-      const xs = await sb("xarajatlar",
-        `?shop_id=eq.${encodeURIComponent(shop)}&date=eq.${sana}` +
-        `&select=amount,category&limit=800`);
-      (xs || []).forEach(x2 => {
-        const a2 = Number(x2.amount) || 0;
-        xJami += a2;
-        if (x2.category === "Tovar qaytarish") xQayt += a2;
-      });
-    } catch (e) {}
+    // ✅ OT-5: butun hisob endi _khHisob'da (PDF-egizak) — matn-xulosa
+    // va mini-app BIR manbadan oziqlanadi.
+    const d = await _khHisob(shop, sana);
     return res.status(200).json({ ok: true, sana, ichki: okStat,
-      stat: okStat ? st : null, soni, aylanma, cheg, qayt,
-      tSom, tUsd, tSoni, qSom, qUsd, qSoni, xJami, xQayt });
+      stat: okStat ? st : null, ...d });
   }
 
   // ═══ ✅ OT-1: "Tayyorlandi" — guruhga xabar (mini-app'dan) ═══
@@ -4588,6 +4721,36 @@ function yubor(){
 
     if (chatId) {
       // Do'kon tanlash callback: "shop:shop_XXXXX"
+      // ✅ OT-5: 🗓 Kunlik — matn-xulosa + "To'liq" tugmasi
+      if (cb.data?.startsWith("kh|")) {
+        const _shop = cb.data.slice(3);
+        let ega = false;
+        try {
+          const r0 = await sb("shop_owners",
+            `?chat_id=eq.${cb.from?.id}&shop_id=eq.${encodeURIComponent(_shop)}&select=chat_id&limit=1`);
+          ega = !!(r0 && r0.length);
+        } catch (e) {}
+        if (!ega) {
+          try {
+            const c0 = await getShopCtx(cb.from?.id);
+            ega = !!(c0 && String(c0.shopId) === _shop && c0.isOwner);
+          } catch (e) {}
+        }
+        if (!ega) return res.status(200).json({ ok: true });
+        const sana = today();
+        const st = await _pulIchki({ action: "report_stats",
+          from: sana, to: sana, shopId: _shop });
+        const d  = await _khHisob(_shop, sana);
+        const nm = await _ckShopNom([_shop]);
+        const oc = ("KH__" + _shop).replace(/[^a-zA-Z0-9_]/g,
+          m => "x" + m.charCodeAt(0).toString(16));
+        await tg(chatId, _khMatn(nm[_shop] || _shop, sana, d, st), {
+          reply_markup: { inline_keyboard: [[
+            { text: "🔎 To'liq hisobot (mini-app)",
+              url: `https://t.me/${BOT_USERNAME}/ombor?startapp=${oc}` }]] } });
+        return res.status(200).json({ ok: true });
+      }
+
       // ✅ OT-2: mijoz "cheklarim" navigatsiyasi (ck|...). Xabar
       // TAHRIRLANADI — chat ifloslanmaydi. Faqat shaxsiy chatda.
       if (cb.data?.startsWith("ck|")) {
@@ -5019,12 +5182,11 @@ function yubor(){
       return res.status(200).json({ ok: true });
     }
     const nom = await _ckShopNom(ids);
-    const btns = ids.slice(0, 6).map(s2 => {
-      const oc = ("KH__" + s2).replace(/[^a-zA-Z0-9_]/g,
-        m => "x" + m.charCodeAt(0).toString(16));
-      return [{ text: "🗓 " + (nom[s2] || s2),
-        url: `https://t.me/${BOT_USERNAME}/ombor?startapp=${oc}` }];
-    });
+    // ✅ OT-5: tugma endi CALLBACK — bosilganda avval MATN-XULOSA
+    // chatga tushadi (egasi: "tashqarida yozuv ko'rinishida tursin"),
+    // mini-app esa xulosa ostidagi "To'liq" tugmasidan ochiladi.
+    const btns = ids.slice(0, 6).map(s2 =>
+      [{ text: "🗓 " + (nom[s2] || s2), callback_data: `kh|${s2}` }]);
     await tg(chatId,
       ids.length > 1
         ? "🗓 Kunlik hisobot — do'konni tanlang:"
