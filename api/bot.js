@@ -1646,7 +1646,7 @@ async function cmdOmbor(chatId) {
     // kam/nol qoldiq soni — keyin eng kam qolganlar (10 ta).
     let turlar = 0, dona = 0, pochka = 0, qiymat = 0;
     let kamTur = 0, nolTur = 0;
-    const low = [];
+    const _top = [];   // ✅ OT-2d: eng qimmat zaxira uchun
     for (const p of products) {
       const d = (p.data && typeof p.data === "object") ? { ...p, ...p.data } : p;
       const vars = Array.isArray(d.variants) ? d.variants : [];
@@ -1654,47 +1654,46 @@ async function cmdOmbor(chatId) {
       for (const v of vars) {
         const q = Number(v.qty || 0);
         pQold += q;
-        if (q <= lowLimit) {
-          low.push({ name: d.name, color: v.color || "",
-                     size: v.size || "", qty: q });
-        }
       }
       turlar++;
-      dona += pQold;
-      if (d.sellMode === "karobka" && Number(d.inBox) > 0)
-        pochka += pQold / Number(d.inBox);
+      // ✅ OT-2d: TIZIMDAGIDEK — to'liq pochkalar alohida, siniq
+      // qoldiq va dona-tovarlar DONADA (regroupPackages mantig'i).
+      if (d.sellMode === "karobka" && Number(d.inBox) > 0) {
+        const ib = Number(d.inBox);
+        pochka += Math.floor(pQold / ib);
+        dona   += pQold % ib;
+      } else {
+        dona += pQold;
+      }
       let c1 = Number(d.costUzs) || 0;
       if (!c1 && Number(d.costUsd) > 0 && _rate > 0)
         c1 = Number(d.costUsd) * _rate;
-      qiymat += c1 * pQold;
+      const _v1 = c1 * pQold;
+      qiymat += _v1;
+      if (_v1 > 0) _top.push({ name: d.name, v: _v1 });   // ✅ OT-2d
       if (pQold <= 0) nolTur++;
       else if (pQold <= lowLimit) kamTur++;
     }
 
     let txt = `📦 <b>Ombor — umumiy kartina</b>\n\n`;
     txt += `Turlar: <b>${fmt(turlar)}</b> ta tovar\n`;
-    txt += `Qoldiq: <b>${fmt(Math.round(dona))} dona</b>`;
-    if (pochka > 0)
-      txt += ` (≈ <b>${fmt(Math.round(pochka))} pochka</b> karobkali)`;
-    txt += `\n`;
+    const _qq = [];
+    if (pochka > 0) _qq.push(`<b>${fmt(pochka)} pochka</b>`);
+    if (Math.round(dona) > 0) _qq.push(`<b>${fmt(Math.round(dona))} dona</b>`);
+    txt += `Qoldiq: ${_qq.join(" + ") || "<b>0</b>"}\n`;
     if (qiymat > 0)
       txt += `Qiymati (tannarxda): <b>${fmt(Math.round(qiymat))} so'm</b>\n`;
     txt += `⚠️ Kam qoldiq (≤${lowLimit}): <b>${kamTur}</b> tur\n`;
     txt += `🔴 Nol qoldiq: <b>${nolTur}</b> tur\n`;
 
-    low.sort((a, b) => a.qty - b.qty);
-    if (low.length) {
-      txt += `\nEng kam qolganlar:\n`;
-      for (const item of low.slice(0, 10)) {
-        const emoji = item.qty === 0 ? "🔴" : item.qty <= 2 ? "🟠" : "🟡";
-        txt += `${emoji} ${item.name}`;
-        if (item.color) txt += ` / ${item.color}`;
-        if (item.size)  txt += ` / ${item.size}`;
-        txt += ` — ${item.qty} dona\n`;
-      }
-      if (low.length > 10) txt += `…va yana ${low.length - 10} ta variant\n`;
-    } else {
-      txt += `\n✅ Hamma tovar yetarli\n`;
+    // ✅ OT-2d: nomma-nom ro'yxat SHART EMAS (egasi) — faqat sonlar
+    // yuqorida; qo'shimcha qiziq: eng qimmat zaxira TOP-3.
+    if (_top.length) {
+      _top.sort((a, b) => b.v - a.v);
+      txt += `\n💎 Eng qimmat zaxira:\n`;
+      _top.slice(0, 3).forEach(x2 => {
+        txt += `• ${x2.name} — <b>${fmt(Math.round(x2.v))} so'm</b>\n`;
+      });
     }
 
     await tg(chatId, txt);

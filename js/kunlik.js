@@ -86,7 +86,18 @@ function _kunYigish(kun) {
       kv.jami    += Number(s.total) || 0;
       kv.naqd    += Number(s.paid)  || 0;
       kv.qarz    += Number(s.remaining) || 0;
-      kv.chegirma += Number(s.discount) || 0;
+      // ✅ KH-1 (2026-09-06): ChEGIRMA IKKI XIL bo'ladi — (1) checkout
+      // chegirmasi (s.discount) va (2) TOVAR NARXINI PASAYTIRISh
+      // (item.price < item.basePrice — kassir kelishib tushiradi, POS
+      // chizib-tashlangan narx bilan ko'rsatadi). Avval faqat (1)
+      // sanalardi — egasi topdi. Birlik-asos subtotal bilan BIR XIL:
+      // narxlar dona uchun, farq × qty (pos.js:1519 egizagi).
+      let _cheg = Number(s.discount) || 0;
+      (s.items || []).forEach(it => {
+        const b = Number(it.basePrice) || 0, n = Number(it.price) || 0;
+        if (b > n && n >= 0) _cheg += (b - n) * (Number(it.qty) || 0);
+      });
+      kv.chegirma += _cheg;
       chiq.kassirlar.set(k, kv);
 
       if (s.customerName) {
