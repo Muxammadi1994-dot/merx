@@ -121,6 +121,57 @@ const STU_SHAB = [
     ],
   },
   {
+    id:"afisha", nom:"Afisha", kat:["oyoq","sumka","umumiy"],
+    uchun:"Naqshli fon, doira maska, muhr-stiker",
+    qatlamlar:[
+      { tur:"gradient", rang:"a", rang2:"d", burchak:120 },
+      { tur:"naqsh", naqsh:"suzani", rang:"c", alfa:.10, zich:.055 },
+      { tur:"rasm", x:.5, y:.44, w:.72, h:.50, anchor:"center", maska:"doira" },
+      { tur:"ramka", uslub:"burchak", rang:"b", chet:.05, qalin:.005 },
+      { tur:"sticker", manba:"yorliq", shakl:"muhr", x:.80, y:.20, r:.115,
+        fonRang:"b", matnRang:"a", burchak:-12 },
+      { tur:"matn", manba:"nom", x:.5, y:.79, o:.052, vazn:800, rang:"c",
+        anchor:"center", max:.82, katta:true },
+      { tur:"matn", manba:"tafsilot", x:.5, y:.835, o:.024, vazn:600, rang:"d",
+        anchor:"center", max:.8 },
+      { tur:"narx", x:.5, y:.93, o:.10, vazn:900, rang:"b", anchor:"center" },
+      { tur:"logo", x:.94, y:.975, o:.020, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"kollaj", nom:"Kollaj", kat:["kiyim","sumka","umumiy"],
+    uchun:"Ikki tovar bir kadrda, mesh fon",
+    qatlamlar:[
+      { tur:"mesh", rang:"a", rang2:"b", kuch:.45 },
+      { tur:"rasm", x:.36, y:.42, w:.56, h:.48, anchor:"center", maska:"yumaloq", radius:.06 },
+      { tur:"rasm2", x:.74, y:.60, w:.36, h:.30, anchor:"center" },
+      { tur:"panel", x:.06, y:.80, w:.88, h:.145, rang:"c", alfa:.92, radius:.035 },
+      { tur:"matn", manba:"nom", x:.10, y:.855, o:.044, vazn:800, rang:"a", max:.62 },
+      { tur:"matn", manba:"tafsilot", x:.10, y:.895, o:.022, vazn:600, rang:"a", max:.62 },
+      { tur:"narx", x:.90, y:.885, o:.058, vazn:900, rang:"a", anchor:"right" },
+      { tur:"lenta", manba:"yorliq", tomon:"ong", y:.10, en:.34, qalin:.062,
+        o:.028, fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:.06, y:.975, o:.020, rang:"c" },
+    ],
+  },
+  {
+    id:"premium", nom:"Premium", kat:["kiyim","sumka"],
+    uchun:"To'q fon, nur, arch maska, ikki chiziqli ramka",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"naqsh", naqsh:"chiziq", rang:"b", alfa:.07, zich:.06 },
+      { tur:"rasm", x:.5, y:.46, w:.66, h:.56, anchor:"center", maska:"arch" },
+      { tur:"nur", kuch:.13, siljish:-.15 },
+      { tur:"ramka", uslub:"ikki", rang:"b", chet:.035, qalin:.0035, oraliq:.010 },
+      { tur:"ikonka", ikona:"yulduz", x:.5, y:.80, r:.026, rang:"b" },
+      { tur:"matn", manba:"nom", x:.5, y:.865, o:.048, vazn:800, rang:"c",
+        anchor:"center", max:.78, katta:true, soya:true },
+      { tur:"narx", x:.5, y:.935, o:.085, vazn:900, rang:"b", anchor:"center" },
+      { tur:"textura", alfa:.045, rang:"c" },
+      { tur:"logo", x:.94, y:.978, o:.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
     id:"kadr", nom:"Kadr", uchun:"Real shaxs — to'liq kadr, pastda yozuv",
     qatlamlar:[
       { tur:"fon", rang:"a" },
@@ -324,6 +375,94 @@ function stManba(m) {
   }
 }
 
+// ═══ ✅ A1 (2026-09-06) — ShAKL VA EFFEKT YORDAMChILARI ═══
+// Bularsiz shablon "matn + to'rtburchak"dan nariga o'tmaydi.
+// Hammasi KOD bilan chiziladi: xarajat 0, cheksiz takrorlanadi.
+function _yumT(ctx, x, y, w, h, r) {          // yumaloq to'rtburchak
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function _yulduz(ctx, cx, cy, r, uch, ich) {   // yulduz / muhr shakli
+  ctx.beginPath();
+  const n = uch * 2;
+  for (let i = 0; i < n; i++) {
+    const a = (Math.PI * 2 * i) / n - Math.PI / 2;
+    const rr = i % 2 ? r * ich : r;
+    const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+}
+function _blob(ctx, cx, cy, r) {               // yumshoq "tomchi" shakl
+  ctx.beginPath();
+  const n = 8;
+  for (let i = 0; i <= n; i++) {
+    const a = (Math.PI * 2 * i) / n;
+    const rr = r * (i % 2 ? .88 : 1.06);
+    const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+    if (!i) ctx.moveTo(x, y);
+    else {
+      const a0 = (Math.PI * 2 * (i - .5)) / n;
+      ctx.quadraticCurveTo(cx + Math.cos(a0) * r * 1.14,
+                           cy + Math.sin(a0) * r * 1.14, x, y);
+    }
+  }
+  ctx.closePath();
+}
+function _arch(ctx, x, y, w, h) {              // yuqorisi yarim doira (arch)
+  ctx.beginPath();
+  ctx.moveTo(x, y + h);
+  ctx.lineTo(x, y + w / 2);
+  ctx.arc(x + w / 2, y + w / 2, w / 2, Math.PI, 0);
+  ctx.lineTo(x + w, y + h);
+  ctx.closePath();
+}
+// Naqsh: kod bilan chiziladigan fon bezaklari (AI'siz, cheksiz)
+function _naqsh(ctx, W, H, tur, rang, zich, alfa) {
+  ctx.save();
+  ctx.globalAlpha = alfa == null ? .12 : alfa;
+  ctx.fillStyle = rang; ctx.strokeStyle = rang;
+  const q = Math.max(18, W * (zich || .045));
+  if (tur === "nuqta") {
+    for (let y = q / 2; y < H; y += q)
+      for (let x = q / 2; x < W; x += q) {
+        ctx.beginPath(); ctx.arc(x, y, q * .09, 0, Math.PI * 2); ctx.fill();
+      }
+  } else if (tur === "katak") {
+    ctx.lineWidth = Math.max(1, W * .0015);
+    for (let x = 0; x < W; x += q) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += q) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  } else if (tur === "chiziq") {
+    ctx.lineWidth = Math.max(1, W * .006);
+    for (let x = -H; x < W; x += q) {
+      ctx.beginPath(); ctx.moveTo(x, H); ctx.lineTo(x + H, 0); ctx.stroke();
+    }
+  } else if (tur === "shevron") {
+    ctx.lineWidth = Math.max(1, W * .005);
+    for (let y = 0; y < H + q; y += q)
+      for (let x = 0; x < W + q; x += q) {
+        ctx.beginPath(); ctx.moveTo(x, y + q * .5);
+        ctx.lineTo(x + q * .5, y); ctx.lineTo(x + q, y + q * .5); ctx.stroke();
+      }
+  } else if (tur === "suzani") {
+    // ✅ O'ZBEK NAQShI — bizning ustunligimiz: chet shablonlarda yo'q
+    for (let y = q; y < H + q; y += q * 1.7)
+      for (let x = q; x < W + q; x += q * 1.7) {
+        _yulduz(ctx, x, y, q * .42, 8, .45); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, q * .13, 0, Math.PI * 2);
+        ctx.globalCompositeOperation = "destination-out"; ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
+      }
+  }
+  ctx.restore();
+}
+
 // ── ChIZUVChI (retseptni o'qiydi) ──────────────────────────────
 function stChiz(cvs, fmt, opt) {
   // ✅ S1: `opt` — {shab, pal} bo'lsa O'ShA variant chiziladi
@@ -357,7 +496,11 @@ function stChiz(cvs, fmt, opt) {
     if (AN) {
       const t = AN.t;
       if (L.tur === "rasm") { _a = _ea(t / .12); _sc = 1 + .085 * t; }
-      else if (L.tur === "fon" || L.tur === "blok" || L.tur === "burchak") { _a = 1; }
+      // ✅ A1: FON SINFIDAGI qatlamlar animatsiyada DOIM ko'rinadi
+      // (gradient, mesh, naqsh, textura, ramka, nur ham fon hisoblanadi —
+      //  stend 0-kadrda bo'sh kadr ushlab qoldi).
+      else if (["fon","blok","burchak","gradient","mesh","naqsh","textura",
+                "ramka","nur","panel"].indexOf(L.tur) >= 0) { _a = 1; }
       else {
         const bosh = .18 + _qi * .09;         // har element 0.09 kechikadi
         const l = _ea((t - bosh) / .16);
@@ -378,10 +521,201 @@ function stChiz(cvs, fmt, opt) {
           ctx.fillRect(0, 0, W, H);
           break;
 
-        case "blok":
+        case "blok": {
           ctx.fillStyle = stRang(P, L.rang);
-          ctx.fillRect(L.x * W, L.y * H, L.w * W, L.h * H);
+          if (L.radius) { _yumT(ctx, L.x * W, L.y * H, L.w * W, L.h * H, L.radius * W); ctx.fill(); }
+          else ctx.fillRect(L.x * W, L.y * H, L.w * W, L.h * H);
           break;
+        }
+
+        // ✅ A1: GRADIENT FON — burchak va to'xtash nuqtalari bilan
+        case "gradient": {
+          const a = (L.burchak || 90) * Math.PI / 180;
+          const g = ctx.createLinearGradient(
+            W / 2 - Math.cos(a) * W / 2, H / 2 - Math.sin(a) * H / 2,
+            W / 2 + Math.cos(a) * W / 2, H / 2 + Math.sin(a) * H / 2);
+          g.addColorStop(0, stRang(P, L.rang || "a"));
+          if (L.orta) g.addColorStop(.5, stRang(P, L.orta));
+          g.addColorStop(1, stRang(P, L.rang2 || "b"));
+          ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+          break;
+        }
+
+        // ✅ A1: MESH — yumshoq rangli dog'lar (zamonaviy fon)
+        case "mesh": {
+          ctx.fillStyle = stRang(P, L.rang || "a");
+          ctx.fillRect(0, 0, W, H);
+          const dogl = [[.22, .18, "b"], [.78, .30, L.rang2 || "d"],
+                        [.35, .82, "b"], [.85, .78, L.rang2 || "d"]];
+          dogl.forEach(([x, y, r]) => {
+            const g = ctx.createRadialGradient(x * W, y * H, 0, x * W, y * H, W * .55);
+            g.addColorStop(0, stRang(P, r));
+            g.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.save(); ctx.globalAlpha = L.kuch || .5;
+            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
+          });
+          break;
+        }
+
+        // ✅ A1: NAQSh — nuqta, katak, chiziq, shevron, SUZANI
+        case "naqsh":
+          _naqsh(ctx, W, H, L.naqsh || "nuqta", stRang(P, L.rang || "c"),
+                 L.zich, L.alfa);
+          break;
+
+        // ✅ A1: TEXTURA — qog'oz/shovqin (rasm "yassi" ko'rinmasin)
+        case "textura": {
+          ctx.save(); ctx.globalAlpha = L.alfa || .05;
+          ctx.fillStyle = stRang(P, L.rang || "c");
+          const q = Math.max(2, W * .004);
+          for (let i = 0; i < W * H / (q * q * 26); i++) {
+            ctx.fillRect(Math.random() * W, Math.random() * H, q, q);
+          }
+          ctx.restore();
+          break;
+        }
+
+        // ✅ A1: RAMKA — ichki chiziq / ikki chiziq / burchaklar
+        case "ramka": {
+          const m = (L.chet || .045) * W;
+          ctx.strokeStyle = stRang(P, L.rang || "b");
+          ctx.lineWidth = (L.qalin || .004) * W;
+          if (L.uslub === "burchak") {
+            const u = (L.uzunlik || .10) * W;
+            [[m, m, 1, 1], [W - m, m, -1, 1], [m, H - m, 1, -1], [W - m, H - m, -1, -1]]
+              .forEach(([x, y, sx, sy]) => {
+                ctx.beginPath();
+                ctx.moveTo(x, y + sy * u); ctx.lineTo(x, y); ctx.lineTo(x + sx * u, y);
+                ctx.stroke();
+              });
+          } else {
+            ctx.strokeRect(m, m, W - m * 2, H - m * 2);
+            if (L.uslub === "ikki") {
+              const m2 = m + (L.oraliq || .012) * W;
+              ctx.lineWidth = ctx.lineWidth * .55;
+              ctx.strokeRect(m2, m2, W - m2 * 2, H - m2 * 2);
+            }
+          }
+          break;
+        }
+
+        // ✅ A1: BURChAK LENTASI ("YANGI", "-30%")
+        case "lenta": {
+          const matn = stManba(L.manba) || L.matn || "";
+          if (!matn) break;
+          const en = (L.en || .30) * W;
+          ctx.save();
+          const ong = L.tomon !== "chap";
+          ctx.translate(ong ? W : 0, 0);
+          ctx.rotate((ong ? 45 : -45) * Math.PI / 180);
+          ctx.fillStyle = stRang(P, L.fonRang || "b");
+          ctx.fillRect(-en, (L.y || .10) * H, en * 2, (L.qalin || .075) * H);
+          ctx.fillStyle = stRang(P, L.matnRang || "a");
+          const pz = (L.o || .032) * W;
+          ctx.font = `800 ${pz}px ${STU_SHRIFT}`;
+          ctx.textAlign = "center";
+          ctx.fillText(matn.toUpperCase(), 0,
+                       (L.y || .10) * H + (L.qalin || .075) * H * .68);
+          ctx.textAlign = "left";
+          ctx.restore();
+          break;
+        }
+
+        // ✅ A1: STIKER — doira / yulduz / muhr, ichida matn
+        case "sticker": {
+          const matn = stManba(L.manba) || L.matn || "";
+          const r = (L.r || .11) * W, cx = L.x * W, cy = _sz(L.y, F) * H;
+          ctx.save();
+          if (L.burchak) { ctx.translate(cx, cy); ctx.rotate(L.burchak * Math.PI / 180);
+                           ctx.translate(-cx, -cy); }
+          ctx.fillStyle = stRang(P, L.fonRang || "b");
+          if (L.shakl === "yulduz")      { _yulduz(ctx, cx, cy, r, L.uch || 12, .82); ctx.fill(); }
+          else if (L.shakl === "muhr")   { _yulduz(ctx, cx, cy, r, L.uch || 20, .93); ctx.fill(); }
+          else if (L.shakl === "blob")   { _blob(ctx, cx, cy, r); ctx.fill(); }
+          else { ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); }
+          if (matn) {
+            ctx.fillStyle = stRang(P, L.matnRang || "a");
+            let pz = stFit(ctx, matn, r * 1.5, r * .46, 900);
+            ctx.textAlign = "center";
+            ctx.font = `900 ${pz}px ${STU_SHRIFT}`;
+            ctx.fillText(matn, cx, cy + pz * .34);
+            ctx.textAlign = "left";
+          }
+          ctx.restore();
+          break;
+        }
+
+        // ✅ A1: IKONKA — kod bilan chiziladigan belgilar
+        case "ikonka": {
+          const r = (L.r || .035) * W, cx = L.x * W, cy = _sz(L.y, F) * H;
+          ctx.save();
+          ctx.strokeStyle = stRang(P, L.rang || "b");
+          ctx.fillStyle = stRang(P, L.rang || "b");
+          ctx.lineWidth = r * .22; ctx.lineCap = "round"; ctx.lineJoin = "round";
+          const ik = L.ikona || "yulduz";
+          if (ik === "yulduz") { _yulduz(ctx, cx, cy, r, 5, .45); ctx.fill(); }
+          else if (ik === "belgi") {                       // ✓
+            ctx.beginPath(); ctx.moveTo(cx - r * .6, cy);
+            ctx.lineTo(cx - r * .1, cy + r * .5); ctx.lineTo(cx + r * .65, cy - r * .5);
+            ctx.stroke();
+          } else if (ik === "yorliq") {                    // narx yorlig'i
+            ctx.beginPath();
+            ctx.moveTo(cx - r, cy - r * .5); ctx.lineTo(cx + r * .3, cy - r * .5);
+            ctx.lineTo(cx + r, cy); ctx.lineTo(cx + r * .3, cy + r * .5);
+            ctx.lineTo(cx - r, cy + r * .5); ctx.closePath(); ctx.stroke();
+          } else if (ik === "yuk") {                       // yetkazish
+            ctx.strokeRect(cx - r, cy - r * .55, r * 1.2, r * 1.1);
+            ctx.beginPath(); ctx.moveTo(cx + r * .2, cy - r * .1);
+            ctx.lineTo(cx + r * .75, cy - r * .1); ctx.lineTo(cx + r, cy + r * .25);
+            ctx.lineTo(cx + r, cy + r * .55); ctx.lineTo(cx + r * .2, cy + r * .55);
+            ctx.closePath(); ctx.stroke();
+          } else if (ik === "olov") {
+            _blob(ctx, cx, cy, r * .8); ctx.fill();
+          }
+          ctx.restore();
+          break;
+        }
+
+        // ✅ A1: PANEL — matn ostidagi yumaloq fon
+        case "panel": {
+          ctx.save();
+          ctx.globalAlpha = L.alfa == null ? 1 : L.alfa;
+          ctx.fillStyle = stRang(P, L.rang || "a");
+          _yumT(ctx, L.x * W, _sz(L.y, F) * H, L.w * W, L.h * H,
+                (L.radius == null ? .03 : L.radius) * W);
+          ctx.fill();
+          ctx.restore();
+          break;
+        }
+
+        // ✅ A1: NUR — yorug'lik chizig'i (premium ko'rinish)
+        case "nur": {
+          const g = ctx.createLinearGradient(0, 0, W, H);
+          g.addColorStop(0, "rgba(255,255,255,0)");
+          g.addColorStop(.45, "rgba(255,255,255," + (L.kuch || .16) + ")");
+          g.addColorStop(.55, "rgba(255,255,255,0)");
+          ctx.save(); ctx.translate(W * (L.siljish || 0), 0);
+          ctx.fillStyle = g; ctx.fillRect(-W, -H, W * 3, H * 3); ctx.restore();
+          break;
+        }
+
+        // ✅ A1: IKKINChI RASM — kollaj (2-3 tovar bir kadrda)
+        case "rasm2": {
+          const im2 = STU.img2;
+          const bw = L.w * W, bh = L.h * H;
+          const bx = (L.anchor === "center" ? L.x * W - bw / 2 : L.x * W);
+          const by = (L.anchor === "center" ? L.y * H - bh / 2 : L.y * H);
+          if (!im2) {
+            ctx.save(); ctx.globalAlpha = .14;
+            ctx.fillStyle = stRang(P, "d");
+            _yumT(ctx, bx, by, bw, bh, bw * .06); ctx.fill(); ctx.restore();
+            break;
+          }
+          const k2 = Math.min(bw / im2.width, bh / im2.height);
+          const dw2 = im2.width * k2, dh2 = im2.height * k2;
+          ctx.drawImage(im2, bx + (bw - dw2) / 2, by + (bh - dh2) / 2, dw2, dh2);
+          break;
+        }
 
         case "burchak": {   // diagonal kesim
           ctx.fillStyle = stRang(P, L.rang);
@@ -458,8 +792,16 @@ function stChiz(cvs, fmt, opt) {
             ctx.beginPath(); ctx.arc(sx, sy, dw * .42, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
           }
-          if (L.moda === "cover") {          // ✅ S4b: ortiqchasi kesiladi
-            ctx.save(); ctx.beginPath(); ctx.rect(bx, by, bw, bh); ctx.clip();
+          // ✅ A1: MASKA — doira / arch / yumaloq to'rtburchak / blob
+          if (L.maska || L.moda === "cover") {
+            ctx.save(); ctx.beginPath();
+            if (L.maska === "doira")
+              ctx.arc(bx + bw / 2, by + bh / 2, Math.min(bw, bh) / 2, 0, Math.PI * 2);
+            else if (L.maska === "arch") _arch(ctx, bx, by, bw, bh);
+            else if (L.maska === "blob") _blob(ctx, bx + bw / 2, by + bh / 2, Math.min(bw, bh) / 2);
+            else if (L.maska === "yumaloq") _yumT(ctx, bx, by, bw, bh, bw * (L.radius || .08));
+            else ctx.rect(bx, by, bw, bh);
+            ctx.clip();
             ctx.drawImage(im, dx, dy, dw, dh); ctx.restore();
           } else ctx.drawImage(im, dx, dy, dw, dh);
           // ✅ S2: AKS (reflection) — sahna ustida tovar "polga qo'ngan"
@@ -508,8 +850,9 @@ function stChiz(cvs, fmt, opt) {
         }
 
         case "matn": {
-          const matn = stManba(L.manba);
+          let matn = stManba(L.manba);
           if (!matn) break;
+          if (L.katta) matn = matn.toUpperCase();          // ✅ A1
           const maxW = (L.max || .9) * W;
           let px = stFit(ctx, matn, maxW, L.o * W, L.vazn || 700);
           const qatorlar = stWrap(ctx, matn, maxW, px, L.vazn || 700, L.satr || 1);
@@ -525,6 +868,11 @@ function stChiz(cvs, fmt, opt) {
           ctx.textAlign = L.anchor === "right" ? "right"
                         : L.anchor === "center" ? "center" : "left";
           ctx.save();
+          // ✅ A1: matn effektlari — soya (fon ustida o'qilishi uchun)
+          if (L.soya) {
+            ctx.shadowColor = "rgba(0,0,0,.45)";
+            ctx.shadowBlur = px * .35; ctx.shadowOffsetY = px * .06;
+          }
           if (L.burchak) {
             ctx.translate(L.x * W, L.y * H);
             ctx.rotate(L.burchak * Math.PI / 180);
