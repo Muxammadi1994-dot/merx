@@ -1512,6 +1512,74 @@ const STU_SHAB = [
       { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
     ],
   },
+
+  // ═══ ✅ FOTOSAHNA (2026-09-06) — bezakli sahna uchun ═══
+  {
+    id:"fs01", nom:"Fotosahna 1", kat:["oyoq","kiyim","sumka","umumiy"],
+    uchun:"Sahna hukmron, matn kam — katalog uslubi",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.6, w:0.8, h:0.52, anchor:"center" },
+      { tur:"matn", manba:"nom", x:0.07, y:0.905, o:0.034, vazn:700, rang:"c", max:0.7, soya:true },
+      { tur:"narx", x:0.07, y:0.955, o:0.052700000000000004, vazn:900, rang:"c" },
+      { tur:"logo", x:0.93, y:0.965, o:0.017, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"fs02", nom:"Fotosahna 2", kat:["oyoq","kiyim","sumka","umumiy"],
+    uchun:"Sahna hukmron, matn kam — katalog uslubi",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.58, w:0.8, h:0.52, anchor:"center" },
+      { tur:"matn", manba:"nom", x:0.93, y:0.905, o:0.03, vazn:700, rang:"c", max:0.7, soya:true, anchor:"right" },
+      { tur:"narx", x:0.93, y:0.955, o:0.0465, vazn:900, rang:"c", anchor:"right" },
+      { tur:"logo", x:0.93, y:0.965, o:0.016, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"fs03", nom:"Fotosahna 3", kat:["oyoq","kiyim","sumka","umumiy"],
+    uchun:"Sahna hukmron, matn kam — katalog uslubi",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.62, w:0.8, h:0.52, anchor:"center" },
+      { tur:"matn", manba:"nom", x:0.5, y:0.905, o:0.036, vazn:700, rang:"c", max:0.7, soya:true, anchor:"center" },
+      { tur:"narx", x:0.5, y:0.955, o:0.055799999999999995, vazn:900, rang:"c", anchor:"center" },
+      { tur:"logo", x:0.93, y:0.965, o:0.017, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"fs04", nom:"Fotosahna 4", kat:["oyoq","kiyim","sumka","umumiy"],
+    uchun:"Sahna hukmron, matn kam — katalog uslubi",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.57, w:0.8, h:0.52, anchor:"center" },
+      { tur:"matn", manba:"nom", x:0.07, y:0.905, o:0.028, vazn:700, rang:"c", max:0.7, soya:true },
+      { tur:"narx", x:0.07, y:0.955, o:0.0434, vazn:900, rang:"c" },
+      { tur:"logo", x:0.93, y:0.965, o:0.015, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"fs05", nom:"Fotosahna 5", kat:["oyoq","kiyim","sumka","umumiy"],
+    uchun:"Sahna + kichik narx qopqasi",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.58, w:0.82, h:0.54, anchor:"center" },
+      { tur:"narx", x:0.93, y:0.93, o:0.052, vazn:900, rang:"a", qopqa:"b", qopqaMatn:"a", anchor:"right" },
+      { tur:"matn", manba:"nom", x:0.07, y:0.935, o:0.03, vazn:700, rang:"c", max:0.5, soya:true },
+      { tur:"logo", x:0.5, y:0.975, o:0.016, rang:"d", anchor:"center" },
+    ],
+  },
+  {
+    id:"fs06", nom:"Fotosahna 6", kat:["oyoq","kiyim","sumka","umumiy"],
+    uchun:"Sahna + kichik narx qopqasi",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.58, w:0.82, h:0.54, anchor:"center" },
+      { tur:"narx", x:0.07, y:0.93, o:0.052, vazn:900, rang:"a", qopqa:"b", qopqaMatn:"a" },
+      { tur:"matn", manba:"nom", x:0.93, y:0.935, o:0.03, vazn:700, rang:"c", max:0.5, soya:true, anchor:"right" },
+      { tur:"logo", x:0.5, y:0.975, o:0.016, rang:"d", anchor:"center" },
+    ],
+  },
 ];
 
 // ── Holat ──────────────────────────────────────────────────────

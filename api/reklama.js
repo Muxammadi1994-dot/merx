@@ -358,6 +358,44 @@ const FON_KATALOG = [
     buyruq:"smooth two tone soft gradient backdrop, portrait friendly, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
   { id:"r12", sinf:"real", kat:"studiya", mavsum:"hamma", nom:"Portret studiya",
     buyruq:"professional portrait studio backdrop, soft key light, subtle vignette, empty scene, no products, no objects, no people, no text, photorealistic, professional photography backdrop, high resolution" },
+
+  // ═══ ✅ BEZAKLI SAHNALAR (2026-09-06) ═══
+  // Egasi namuna ko'rsatdi: pampas gullari, yog'och stol, iliq devor.
+  // Bu sinfda REKVIZIT ATAYLAB bor (vaza, gul, kitob, mato), lekin
+  // TOVAR YO'Q — tovar keyin brauzerda ustiga qo'yiladi va uning
+  // pikseliga hech qachon tegilmaydi.
+  { id:"b01", sinf:"tovar", kat:"bezak", mavsum:"hamma", nom:"Pampas va yog'och",
+    buyruq:"warm beige wall, light wooden round table in the lower third, a glass vase with dried pampas grass behind, soft warm side light, cosy premium mood, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b02", sinf:"tovar", kat:"bezak", mavsum:"hamma", nom:"Quruq gullar",
+    buyruq:"soft taupe wall, light oak table surface, dried flowers in a ceramic vase to the side, gentle shadows, minimal styling, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b03", sinf:"tovar", kat:"bezak", mavsum:"hamma", nom:"Marmar va o'simlik",
+    buyruq:"white marble surface, soft grey wall, a small green plant in a stone pot at the side, bright diffused daylight, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b04", sinf:"tovar", kat:"bezak", mavsum:"hamma", nom:"Tosh va mato",
+    buyruq:"dark stone slab surface, draped linen fabric behind, moody warm light from the side, luxury editorial mood, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b05", sinf:"tovar", kat:"bezak", mavsum:"hamma", nom:"Deraza yorug'ligi",
+    buyruq:"light wooden table by a window, soft white curtain, warm morning sunlight and long soft shadows, airy scandinavian mood, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b06", sinf:"tovar", kat:"bezak", mavsum:"hamma", nom:"Kitob va shamchiroq",
+    buyruq:"warm wooden desk, stacked books and a small candle at the side, cosy amber light, blurred background, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b07", sinf:"tovar", kat:"bezak", mavsum:"hamma", nom:"Beton podium",
+    buyruq:"grey concrete podium in the lower third, soft gradient studio wall, one dried branch at the side, minimal gallery mood, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b08", sinf:"tovar", kat:"bezak", mavsum:"hamma", nom:"Charm va latun",
+    buyruq:"dark brown leather surface, brass tray at the side, warm dramatic light, premium boutique mood, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b09", sinf:"tovar", kat:"bezak", mavsum:"kuz", nom:"Kuzgi stol",
+    buyruq:"wooden table with a few autumn leaves and a warm knit fabric at the side, golden hour light through a window, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b10", sinf:"tovar", kat:"bezak", mavsum:"kuz", nom:"Kashtan va mato",
+    buyruq:"warm terracotta wall, wooden surface, dried leaves and chestnuts to the side, soft autumn light, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b11", sinf:"tovar", kat:"bezak", mavsum:"qish", nom:"Qishki stol",
+    buyruq:"white wooden surface, soft knitted wool fabric and pine branch at the side, cool winter daylight, calm mood, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b12", sinf:"tovar", kat:"bezak", mavsum:"qish", nom:"Bayram bezagi",
+    buyruq:"dark green surface with warm string lights bokeh behind, small pine branch and golden ornament at the side, festive evening mood, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b13", sinf:"tovar", kat:"bezak", mavsum:"bahor", nom:"Bahor gullari",
+    buyruq:"light wooden table, fresh blossom branch in a glass vase behind, soft pastel light, fresh spring mood, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b14", sinf:"tovar", kat:"bezak", mavsum:"bahor", nom:"Yashil o'simlik",
+    buyruq:"light stone surface, fresh green leaves and a small vase behind, bright airy daylight, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b15", sinf:"tovar", kat:"bezak", mavsum:"yoz", nom:"Yozgi soya",
+    buyruq:"sunlit warm wall with palm leaf shadows, light wooden surface, bright summer light, vivid mood, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
+  { id:"b16", sinf:"tovar", kat:"bezak", mavsum:"yoz", nom:"Sohil",
+    buyruq:"light sand coloured surface with a few smooth stones and dried grass, warm bright daylight, relaxed summer mood, empty product staging area in the front, no products, no shoes, no bags, no clothing, no people, no text, photorealistic interior product photography, shallow depth of field, soft natural light, vertical composition, clear flat surface in the lower third where a product will be placed" },
 ];
 async function fonRoyxat(sinf, mavsum) {
   try {
