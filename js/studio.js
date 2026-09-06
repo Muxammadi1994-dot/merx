@@ -656,6 +656,424 @@ const STU_SHAB = [
       { tur:"logo", x:0.06, y:0.975, o:0.019, rang:"d" },
     ],
   },
+
+  // ═══ ✅ B3 (2026-09-06) — KIYIM TO'PLAMI (30 shablon) ═══
+  {
+    id:"ki01", nom:"Lookbook 1", kat:["kiyim","model"],
+    uchun:"To'liq kadr, pastda yozuv",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.5, w:1, h:1, anchor:"center", moda:"cover" },
+      { tur:"matn", manba:"nom", x:0.06, y:0.82, o:0.055, vazn:800, rang:"c", max:0.86, katta:true, soya:true },
+      { tur:"matn", manba:"tafsilot", x:0.06, y:0.865, o:0.024, vazn:600, rang:"d", max:0.86 },
+      { tur:"narx", x:0.06, y:0.945, o:0.1, vazn:900, rang:"b" },
+      { tur:"belgi", manba:"yorliq", x:0.93, y:0.05, o:0.028, anchor:"right", fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki02", nom:"Lookbook 2", kat:["kiyim","model"],
+    uchun:"To'liq kadr, pastda yozuv",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.5, w:1, h:1, anchor:"center", moda:"cover" },
+      { tur:"matn", manba:"nom", x:0.5, y:0.8, o:0.05, vazn:800, rang:"c", max:0.86, katta:true, soya:true, anchor:"center" },
+      { tur:"matn", manba:"tafsilot", x:0.5, y:0.8450000000000001, o:0.024, vazn:600, rang:"d", max:0.86, anchor:"center" },
+      { tur:"narx", x:0.5, y:0.945, o:0.1, vazn:900, rang:"b", anchor:"center" },
+      { tur:"belgi", manba:"yorliq", x:0.93, y:0.05, o:0.028, anchor:"right", fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki03", nom:"Lookbook 3", kat:["kiyim","model"],
+    uchun:"To'liq kadr, pastda yozuv",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.5, w:1, h:1, anchor:"center", moda:"cover" },
+      { tur:"matn", manba:"nom", x:0.06, y:0.86, o:0.048, vazn:800, rang:"c", max:0.86, katta:true, soya:true },
+      { tur:"matn", manba:"tafsilot", x:0.06, y:0.905, o:0.024, vazn:600, rang:"d", max:0.86 },
+      { tur:"narx", x:0.06, y:0.945, o:0.1, vazn:900, rang:"b" },
+      { tur:"belgi", manba:"yorliq", x:0.93, y:0.05, o:0.028, anchor:"right", fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki04", nom:"Lookbook 4", kat:["kiyim","model"],
+    uchun:"To'liq kadr, pastda yozuv",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.5, w:1, h:1, anchor:"center", moda:"cover" },
+      { tur:"matn", manba:"nom", x:0.5, y:0.78, o:0.058, vazn:800, rang:"c", max:0.86, katta:true, soya:true, anchor:"center" },
+      { tur:"matn", manba:"tafsilot", x:0.5, y:0.8250000000000001, o:0.024, vazn:600, rang:"d", max:0.86, anchor:"center" },
+      { tur:"narx", x:0.5, y:0.945, o:0.1, vazn:900, rang:"b", anchor:"center" },
+      { tur:"belgi", manba:"yorliq", x:0.93, y:0.05, o:0.028, anchor:"right", fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki05", nom:"Editorial 1", kat:["kiyim","umumiy"],
+    uchun:"Jurnal uslubi, bo'lingan kadr",
+    qatlamlar:[
+      { tur:"fon", rang:"c" },
+      { tur:"burchak", rang:"a", balandlik:0.58, qiya:0.06 },
+      { tur:"rasm", x:0.5, y:0.44, w:0.72, h:0.6, anchor:"center" },
+      { tur:"matn", manba:"yorliq", x:0.06, y:0.1, o:0.052, vazn:900, rang:"c", max:0.6, satr:2, katta:true },
+      { tur:"matn", manba:"nom", x:0.06, y:0.86, o:0.044, vazn:800, rang:"a", max:0.6 },
+      { tur:"matn", manba:"tafsilot", x:0.06, y:0.9, o:0.023, vazn:600, rang:"d", max:0.6 },
+      { tur:"narx", x:0.94, y:0.895, o:0.062, vazn:900, rang:"a", anchor:"right" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki06", nom:"Editorial 2", kat:["kiyim","umumiy"],
+    uchun:"Jurnal uslubi, bo'lingan kadr",
+    qatlamlar:[
+      { tur:"fon", rang:"c" },
+      { tur:"burchak", rang:"a", balandlik:0.5, qiya:-0.1 },
+      { tur:"rasm", x:0.5, y:0.44, w:0.72, h:0.6, anchor:"center", maska:"yumaloq" },
+      { tur:"matn", manba:"yorliq", x:0.06, y:0.1, o:0.052, vazn:900, rang:"c", max:0.6, satr:2, katta:true },
+      { tur:"matn", manba:"nom", x:0.06, y:0.86, o:0.044, vazn:800, rang:"a", max:0.6 },
+      { tur:"matn", manba:"tafsilot", x:0.06, y:0.9, o:0.023, vazn:600, rang:"d", max:0.6 },
+      { tur:"narx", x:0.94, y:0.895, o:0.062, vazn:900, rang:"a", anchor:"right" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki07", nom:"Editorial 3", kat:["kiyim","umumiy"],
+    uchun:"Jurnal uslubi, bo'lingan kadr",
+    qatlamlar:[
+      { tur:"fon", rang:"c" },
+      { tur:"burchak", rang:"a", balandlik:0.64, qiya:0.1 },
+      { tur:"rasm", x:0.5, y:0.44, w:0.72, h:0.6, anchor:"center", maska:"arch" },
+      { tur:"matn", manba:"yorliq", x:0.06, y:0.1, o:0.052, vazn:900, rang:"c", max:0.6, satr:2, katta:true },
+      { tur:"matn", manba:"nom", x:0.06, y:0.86, o:0.044, vazn:800, rang:"a", max:0.6 },
+      { tur:"matn", manba:"tafsilot", x:0.06, y:0.9, o:0.023, vazn:600, rang:"d", max:0.6 },
+      { tur:"narx", x:0.94, y:0.895, o:0.062, vazn:900, rang:"a", anchor:"right" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki08", nom:"Editorial 4", kat:["kiyim","umumiy"],
+    uchun:"Jurnal uslubi, bo'lingan kadr",
+    qatlamlar:[
+      { tur:"fon", rang:"c" },
+      { tur:"burchak", rang:"a", balandlik:0.46, qiya:0 },
+      { tur:"rasm", x:0.5, y:0.44, w:0.72, h:0.6, anchor:"center", maska:"doira" },
+      { tur:"matn", manba:"yorliq", x:0.06, y:0.1, o:0.052, vazn:900, rang:"c", max:0.6, satr:2, katta:true },
+      { tur:"matn", manba:"nom", x:0.06, y:0.86, o:0.044, vazn:800, rang:"a", max:0.6 },
+      { tur:"matn", manba:"tafsilot", x:0.06, y:0.9, o:0.023, vazn:600, rang:"d", max:0.6 },
+      { tur:"narx", x:0.94, y:0.895, o:0.062, vazn:900, rang:"a", anchor:"right" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki09", nom:"To'plam 1", kat:["kiyim","umumiy"],
+    uchun:"Mavsumiy to'plam e'loni",
+    qatlamlar:[
+      { tur:"gradient", rang:"a", rang2:"d", burchak:150 },
+      { tur:"naqsh", naqsh:"suzani", rang:"c", alfa:0.09, zich:0.05 },
+      { tur:"matn", manba:"yorliq", x:0.5, y:0.13, o:0.085, vazn:900, rang:"c", anchor:"center", max:0.86, satr:2, katta:true },
+      { tur:"rasm", x:0.5, y:0.6, w:0.8, h:0.52, anchor:"center" },
+      { tur:"ramka", uslub:"ikki", rang:"b", chet:0.04, qalin:0.004, oraliq:0.012 },
+      { tur:"matn", manba:"nom", x:0.5, y:0.9, o:0.036, vazn:700, rang:"d", anchor:"center", max:0.7 },
+      { tur:"narx", x:0.5, y:0.955, o:0.058, vazn:900, rang:"b", anchor:"center" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki10", nom:"To'plam 2", kat:["kiyim","umumiy"],
+    uchun:"Mavsumiy to'plam e'loni",
+    qatlamlar:[
+      { tur:"gradient", rang:"a", rang2:"d", burchak:150 },
+      { tur:"naqsh", naqsh:"chiziq", rang:"c", alfa:0.09, zich:0.05 },
+      { tur:"matn", manba:"yorliq", x:0.5, y:0.13, o:0.085, vazn:900, rang:"c", anchor:"center", max:0.86, satr:2, katta:true },
+      { tur:"rasm", x:0.5, y:0.6, w:0.8, h:0.52, anchor:"center" },
+      { tur:"matn", manba:"nom", x:0.5, y:0.9, o:0.036, vazn:700, rang:"d", anchor:"center", max:0.7 },
+      { tur:"narx", x:0.5, y:0.955, o:0.058, vazn:900, rang:"b", anchor:"center" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki11", nom:"To'plam 3", kat:["kiyim","umumiy"],
+    uchun:"Mavsumiy to'plam e'loni",
+    qatlamlar:[
+      { tur:"gradient", rang:"a", rang2:"d", burchak:150 },
+      { tur:"naqsh", naqsh:"nuqta", rang:"c", alfa:0.09, zich:0.05 },
+      { tur:"matn", manba:"yorliq", x:0.5, y:0.13, o:0.085, vazn:900, rang:"c", anchor:"center", max:0.86, satr:2, katta:true },
+      { tur:"rasm", x:0.5, y:0.6, w:0.8, h:0.52, anchor:"center" },
+      { tur:"ramka", uslub:"burchak", rang:"b", chet:0.04, qalin:0.004, oraliq:0.012 },
+      { tur:"matn", manba:"nom", x:0.5, y:0.9, o:0.036, vazn:700, rang:"d", anchor:"center", max:0.7 },
+      { tur:"narx", x:0.5, y:0.955, o:0.058, vazn:900, rang:"b", anchor:"center" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki12", nom:"To'plam 4", kat:["kiyim","umumiy"],
+    uchun:"Mavsumiy to'plam e'loni",
+    qatlamlar:[
+      { tur:"gradient", rang:"a", rang2:"d", burchak:150 },
+      { tur:"naqsh", naqsh:"shevron", rang:"c", alfa:0.09, zich:0.05 },
+      { tur:"matn", manba:"yorliq", x:0.5, y:0.13, o:0.085, vazn:900, rang:"c", anchor:"center", max:0.86, satr:2, katta:true },
+      { tur:"rasm", x:0.5, y:0.6, w:0.8, h:0.52, anchor:"center" },
+      { tur:"matn", manba:"nom", x:0.5, y:0.9, o:0.036, vazn:700, rang:"d", anchor:"center", max:0.7 },
+      { tur:"narx", x:0.5, y:0.955, o:0.058, vazn:900, rang:"b", anchor:"center" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki13", nom:"Lookbook kollaj 1", kat:["kiyim","umumiy"],
+    uchun:"Ikki kiyim bir kadrda",
+    qatlamlar:[
+      { tur:"mesh", rang:"a", rang2:"b", kuch:0.42 },
+      { tur:"rasm", x:0.35, y:0.44, w:0.56, h:0.62, anchor:"center", maska:"yumaloq", radius:0.06 },
+      { tur:"rasm2", x:0.76, y:0.6, w:0.34, h:0.34, anchor:"center" },
+      { tur:"panel", x:0.06, y:0.8, w:0.88, h:0.15, rang:"c", alfa:0.93, radius:0.035 },
+      { tur:"matn", manba:"nom", x:0.1, y:0.855, o:0.042, vazn:800, rang:"a", max:0.58 },
+      { tur:"matn", manba:"tafsilot", x:0.1, y:0.895, o:0.021, vazn:600, rang:"a", max:0.58 },
+      { tur:"narx", x:0.9, y:0.885, o:0.052, vazn:900, rang:"a", anchor:"right" },
+      { tur:"lenta", manba:"yorliq", tomon:"ong", y:0.09, en:0.32, qalin:0.06, o:0.027, fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:0.06, y:0.975, o:0.019, rang:"d" },
+    ],
+  },
+  {
+    id:"ki14", nom:"Lookbook kollaj 2", kat:["kiyim","umumiy"],
+    uchun:"Ikki kiyim bir kadrda",
+    qatlamlar:[
+      { tur:"mesh", rang:"a", rang2:"b", kuch:0.42 },
+      { tur:"rasm", x:0.35, y:0.44, w:0.56, h:0.62, anchor:"center", maska:"doira", radius:0.06 },
+      { tur:"rasm2", x:0.72, y:0.6, w:0.34, h:0.34, anchor:"center" },
+      { tur:"panel", x:0.06, y:0.8, w:0.88, h:0.15, rang:"c", alfa:0.93, radius:0.035 },
+      { tur:"matn", manba:"nom", x:0.1, y:0.855, o:0.042, vazn:800, rang:"a", max:0.58 },
+      { tur:"matn", manba:"tafsilot", x:0.1, y:0.895, o:0.021, vazn:600, rang:"a", max:0.58 },
+      { tur:"narx", x:0.9, y:0.885, o:0.052, vazn:900, rang:"a", anchor:"right" },
+      { tur:"lenta", manba:"yorliq", tomon:"ong", y:0.09, en:0.32, qalin:0.06, o:0.027, fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:0.06, y:0.975, o:0.019, rang:"d" },
+    ],
+  },
+  {
+    id:"ki15", nom:"Lookbook kollaj 3", kat:["kiyim","umumiy"],
+    uchun:"Ikki kiyim bir kadrda",
+    qatlamlar:[
+      { tur:"mesh", rang:"a", rang2:"b", kuch:0.42 },
+      { tur:"rasm", x:0.35, y:0.44, w:0.56, h:0.62, anchor:"center" },
+      { tur:"rasm2", x:0.8, y:0.6, w:0.34, h:0.34, anchor:"center" },
+      { tur:"panel", x:0.06, y:0.8, w:0.88, h:0.15, rang:"c", alfa:0.93, radius:0.035 },
+      { tur:"matn", manba:"nom", x:0.1, y:0.855, o:0.042, vazn:800, rang:"a", max:0.58 },
+      { tur:"matn", manba:"tafsilot", x:0.1, y:0.895, o:0.021, vazn:600, rang:"a", max:0.58 },
+      { tur:"narx", x:0.9, y:0.885, o:0.052, vazn:900, rang:"a", anchor:"right" },
+      { tur:"lenta", manba:"yorliq", tomon:"ong", y:0.09, en:0.32, qalin:0.06, o:0.027, fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:0.06, y:0.975, o:0.019, rang:"d" },
+    ],
+  },
+  {
+    id:"ki16", nom:"Lookbook kollaj 4", kat:["kiyim","umumiy"],
+    uchun:"Ikki kiyim bir kadrda",
+    qatlamlar:[
+      { tur:"mesh", rang:"a", rang2:"b", kuch:0.42 },
+      { tur:"rasm", x:0.35, y:0.44, w:0.56, h:0.62, anchor:"center", maska:"blob", radius:0.06 },
+      { tur:"rasm2", x:0.68, y:0.6, w:0.34, h:0.34, anchor:"center" },
+      { tur:"panel", x:0.06, y:0.8, w:0.88, h:0.15, rang:"c", alfa:0.93, radius:0.035 },
+      { tur:"matn", manba:"nom", x:0.1, y:0.855, o:0.042, vazn:800, rang:"a", max:0.58 },
+      { tur:"matn", manba:"tafsilot", x:0.1, y:0.895, o:0.021, vazn:600, rang:"a", max:0.58 },
+      { tur:"narx", x:0.9, y:0.885, o:0.052, vazn:900, rang:"a", anchor:"right" },
+      { tur:"lenta", manba:"yorliq", tomon:"ong", y:0.09, en:0.32, qalin:0.06, o:0.027, fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:0.06, y:0.975, o:0.019, rang:"d" },
+    ],
+  },
+  {
+    id:"ki17", nom:"Narx urg'uli 1", kat:["kiyim"],
+    uchun:"Narx birinchi o'rinda",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"naqsh", naqsh:"katak", rang:"c", alfa:0.06, zich:0.045 },
+      { tur:"rasm", x:0.5, y:0.44, w:0.76, h:0.54, anchor:"center" },
+      { tur:"ikonka", ikona:"yorliq", x:0.1, y:0.815, r:0.028, rang:"b" },
+      { tur:"matn", manba:"nom", x:0.18, y:0.825, o:0.04, vazn:800, rang:"c", max:0.72 },
+      { tur:"narx", x:0.06, y:0.93, o:0.075, vazn:900, rang:"a", qopqa:"b", qopqaMatn:"a" },
+      { tur:"matn", manba:"tafsilot", x:0.94, y:0.875, o:0.023, vazn:600, rang:"d", anchor:"right", max:0.5 },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki18", nom:"Narx urg'uli 2", kat:["kiyim"],
+    uchun:"Narx birinchi o'rinda",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"naqsh", naqsh:"katak", rang:"c", alfa:0.06, zich:0.045 },
+      { tur:"rasm", x:0.5, y:0.44, w:0.76, h:0.54, anchor:"center" },
+      { tur:"ikonka", ikona:"belgi", x:0.1, y:0.815, r:0.028, rang:"b" },
+      { tur:"matn", manba:"nom", x:0.18, y:0.825, o:0.04, vazn:800, rang:"c", max:0.72 },
+      { tur:"narx", x:0.06, y:0.94, o:0.115, vazn:900, rang:"b" },
+      { tur:"matn", manba:"tafsilot", x:0.94, y:0.875, o:0.023, vazn:600, rang:"d", anchor:"right", max:0.5 },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki19", nom:"Narx urg'uli 3", kat:["kiyim"],
+    uchun:"Narx birinchi o'rinda",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"naqsh", naqsh:"katak", rang:"c", alfa:0.06, zich:0.045 },
+      { tur:"rasm", x:0.5, y:0.44, w:0.76, h:0.54, anchor:"center" },
+      { tur:"ikonka", ikona:"olov", x:0.1, y:0.815, r:0.028, rang:"b" },
+      { tur:"matn", manba:"nom", x:0.18, y:0.825, o:0.04, vazn:800, rang:"c", max:0.72 },
+      { tur:"narx", x:0.06, y:0.93, o:0.075, vazn:900, rang:"a", qopqa:"b", qopqaMatn:"a" },
+      { tur:"matn", manba:"tafsilot", x:0.94, y:0.875, o:0.023, vazn:600, rang:"d", anchor:"right", max:0.5 },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki20", nom:"Narx urg'uli 4", kat:["kiyim"],
+    uchun:"Narx birinchi o'rinda",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"naqsh", naqsh:"katak", rang:"c", alfa:0.06, zich:0.045 },
+      { tur:"rasm", x:0.5, y:0.44, w:0.76, h:0.54, anchor:"center" },
+      { tur:"ikonka", ikona:"yulduz", x:0.1, y:0.815, r:0.028, rang:"b" },
+      { tur:"matn", manba:"nom", x:0.18, y:0.825, o:0.04, vazn:800, rang:"c", max:0.72 },
+      { tur:"narx", x:0.06, y:0.94, o:0.115, vazn:900, rang:"b" },
+      { tur:"matn", manba:"tafsilot", x:0.94, y:0.875, o:0.023, vazn:600, rang:"d", anchor:"right", max:0.5 },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki21", nom:"Xodim kadri 1", kat:["kiyim","real"],
+    uchun:"Real shaxs — tabiiy kadr",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.5, w:1, h:1, anchor:"center", moda:"cover" },
+      { tur:"panel", x:0.05, y:0.78, w:0.62, h:0.115, rang:"b", alfa:0.92, radius:0.03 },
+      { tur:"matn", manba:"nom", x:0.08, y:0.8500000000000001, o:0.042, vazn:800, rang:"a", max:0.56, soya:false },
+      { tur:"narx", x:0.94, y:0.94, o:0.085, vazn:900, rang:"b", anchor:"right" },
+      { tur:"matn", manba:"dokon", x:0.06, y:0.955, o:0.024, vazn:700, rang:"c", max:0.5, soya:true },
+      { tur:"belgi", manba:"yorliq", x:0.93, y:0.05, o:0.028, anchor:"right", fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:0.06, y:0.975, o:0.019, rang:"d" },
+    ],
+  },
+  {
+    id:"ki22", nom:"Xodim kadri 2", kat:["kiyim","real"],
+    uchun:"Real shaxs — tabiiy kadr",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.5, w:1, h:1, anchor:"center", moda:"cover" },
+      { tur:"matn", manba:"nom", x:0.08, y:0.89, o:0.042, vazn:800, rang:"c", max:0.56, soya:true },
+      { tur:"narx", x:0.94, y:0.94, o:0.085, vazn:900, rang:"b", anchor:"right" },
+      { tur:"matn", manba:"dokon", x:0.06, y:0.955, o:0.024, vazn:700, rang:"c", max:0.5, soya:true },
+      { tur:"belgi", manba:"yorliq", x:0.93, y:0.05, o:0.028, anchor:"right", fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:0.06, y:0.975, o:0.019, rang:"d" },
+    ],
+  },
+  {
+    id:"ki23", nom:"Xodim kadri 3", kat:["kiyim","real"],
+    uchun:"Real shaxs — tabiiy kadr",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.5, w:1, h:1, anchor:"center", moda:"cover" },
+      { tur:"panel", x:0.05, y:0.76, w:0.62, h:0.115, rang:"b", alfa:0.92, radius:0.03 },
+      { tur:"matn", manba:"nom", x:0.08, y:0.8300000000000001, o:0.042, vazn:800, rang:"a", max:0.56, soya:false },
+      { tur:"narx", x:0.94, y:0.94, o:0.085, vazn:900, rang:"b", anchor:"right" },
+      { tur:"matn", manba:"dokon", x:0.06, y:0.955, o:0.024, vazn:700, rang:"c", max:0.5, soya:true },
+      { tur:"belgi", manba:"yorliq", x:0.93, y:0.05, o:0.028, anchor:"right", fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:0.06, y:0.975, o:0.019, rang:"d" },
+    ],
+  },
+  {
+    id:"ki24", nom:"Xodim kadri 4", kat:["kiyim","real"],
+    uchun:"Real shaxs — tabiiy kadr",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:0.5, y:0.5, w:1, h:1, anchor:"center", moda:"cover" },
+      { tur:"matn", manba:"nom", x:0.08, y:0.91, o:0.042, vazn:800, rang:"c", max:0.56, soya:true },
+      { tur:"narx", x:0.94, y:0.94, o:0.085, vazn:900, rang:"b", anchor:"right" },
+      { tur:"matn", manba:"dokon", x:0.06, y:0.955, o:0.024, vazn:700, rang:"c", max:0.5, soya:true },
+      { tur:"belgi", manba:"yorliq", x:0.93, y:0.05, o:0.028, anchor:"right", fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:0.06, y:0.975, o:0.019, rang:"d" },
+    ],
+  },
+  {
+    id:"ki25", nom:"Nafis 1", kat:["kiyim"],
+    uchun:"Premium kiyim uchun",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"naqsh", naqsh:"suzani", rang:"b", alfa:0.06, zich:0.07 },
+      { tur:"rasm", x:0.5, y:0.44, w:0.62, h:0.58, anchor:"center", maska:"arch", radius:0.08 },
+      { tur:"nur", kuch:0.12, siljish:-0.1 },
+      { tur:"ramka", uslub:"ikki", rang:"b", chet:0.035, qalin:0.003, oraliq:0.01 },
+      { tur:"matn", manba:"nom", x:0.5, y:0.85, o:0.044, vazn:800, rang:"c", anchor:"center", max:0.76, katta:true },
+      { tur:"narx", x:0.5, y:0.925, o:0.078, vazn:900, rang:"b", anchor:"center" },
+      { tur:"textura", alfa:0.035, rang:"c" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki26", nom:"Nafis 2", kat:["kiyim"],
+    uchun:"Premium kiyim uchun",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"naqsh", naqsh:"suzani", rang:"b", alfa:0.06, zich:0.07 },
+      { tur:"rasm", x:0.5, y:0.44, w:0.62, h:0.58, anchor:"center", maska:"yumaloq", radius:0.08 },
+      { tur:"nur", kuch:0.16, siljish:-0.1 },
+      { tur:"ramka", uslub:"ikki", rang:"b", chet:0.035, qalin:0.003, oraliq:0.01 },
+      { tur:"matn", manba:"nom", x:0.5, y:0.85, o:0.044, vazn:800, rang:"c", anchor:"center", max:0.76, katta:true },
+      { tur:"narx", x:0.5, y:0.925, o:0.078, vazn:900, rang:"b", anchor:"center" },
+      { tur:"textura", alfa:0.035, rang:"c" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki27", nom:"Nafis 3", kat:["kiyim"],
+    uchun:"Premium kiyim uchun",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"naqsh", naqsh:"suzani", rang:"b", alfa:0.06, zich:0.07 },
+      { tur:"rasm", x:0.5, y:0.44, w:0.62, h:0.58, anchor:"center", maska:"doira", radius:0.08 },
+      { tur:"nur", kuch:0.09, siljish:-0.1 },
+      { tur:"ramka", uslub:"ikki", rang:"b", chet:0.035, qalin:0.003, oraliq:0.01 },
+      { tur:"matn", manba:"nom", x:0.5, y:0.85, o:0.044, vazn:800, rang:"c", anchor:"center", max:0.76, katta:true },
+      { tur:"narx", x:0.5, y:0.925, o:0.078, vazn:900, rang:"b", anchor:"center" },
+      { tur:"textura", alfa:0.035, rang:"c" },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki28", nom:"Kiyim chegirma 1", kat:["kiyim","umumiy"],
+    uchun:"Aksiya — katta stiker",
+    qatlamlar:[
+      { tur:"gradient", rang:"a", rang2:"b", burchak:100 },
+      { tur:"rasm", x:0.5, y:0.46, w:0.74, h:0.52, anchor:"center" },
+      { tur:"sticker", manba:"yorliq", shakl:"muhr", x:0.22, y:0.2, r:0.135, fonRang:"c", matnRang:"a", burchak:-12 },
+      { tur:"matn", manba:"eskiNarx", x:0.06, y:0.85, o:0.03, vazn:700, rang:"d", chizilgan:true, max:0.45 },
+      { tur:"narx", x:0.06, y:0.93, o:0.11, vazn:900, rang:"c" },
+      { tur:"matn", manba:"muddat", x:0.94, y:0.9, o:0.023, vazn:700, rang:"d", anchor:"right", max:0.42 },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki29", nom:"Kiyim chegirma 2", kat:["kiyim","umumiy"],
+    uchun:"Aksiya — katta stiker",
+    qatlamlar:[
+      { tur:"gradient", rang:"a", rang2:"b", burchak:100 },
+      { tur:"rasm", x:0.5, y:0.46, w:0.74, h:0.52, anchor:"center" },
+      { tur:"sticker", manba:"yorliq", shakl:"yulduz", x:0.22, y:0.2, r:0.135, fonRang:"c", matnRang:"a", burchak:10 },
+      { tur:"matn", manba:"eskiNarx", x:0.06, y:0.85, o:0.03, vazn:700, rang:"d", chizilgan:true, max:0.45 },
+      { tur:"narx", x:0.06, y:0.93, o:0.11, vazn:900, rang:"c" },
+      { tur:"matn", manba:"muddat", x:0.94, y:0.9, o:0.023, vazn:700, rang:"d", anchor:"right", max:0.42 },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"ki30", nom:"Kiyim chegirma 3", kat:["kiyim","umumiy"],
+    uchun:"Aksiya — katta stiker",
+    qatlamlar:[
+      { tur:"gradient", rang:"a", rang2:"b", burchak:100 },
+      { tur:"rasm", x:0.5, y:0.46, w:0.74, h:0.52, anchor:"center" },
+      { tur:"sticker", manba:"yorliq", shakl:"blob", x:0.22, y:0.2, r:0.135, fonRang:"c", matnRang:"a", burchak:0 },
+      { tur:"matn", manba:"eskiNarx", x:0.06, y:0.85, o:0.03, vazn:700, rang:"d", chizilgan:true, max:0.45 },
+      { tur:"narx", x:0.06, y:0.93, o:0.11, vazn:900, rang:"c" },
+      { tur:"matn", manba:"muddat", x:0.94, y:0.9, o:0.023, vazn:700, rang:"d", anchor:"right", max:0.42 },
+      { tur:"logo", x:0.94, y:0.975, o:0.019, rang:"d", anchor:"right" },
+    ],
+  },
 ];
 
 // ── Holat ──────────────────────────────────────────────────────
@@ -1528,7 +1946,8 @@ function renderStudio() {
   if (!STU._limitOlindi) {
     STU._limitOlindi = true;
     stuSevTikla();                                   // ✅ B1
-    stuLimit(); stuModellar(); stuLogoTikla(); stuShriftYukla(); stuFonlar();
+    stuLimit(); stuModellar(); stuLogoTikla(); stuShriftYukla();
+    stuFonlar(); stuKodFonChiz();
   }
 }
 function stuShab(id) { STU.shab = id; renderStudio(); }
@@ -2474,7 +2893,7 @@ async function stuFonlar() {
   stuFonChiz();
 }
 function stuFonSinf(v)   { STU.fonSinf = v; stuFonlar(); }
-function stuFonMavsum(v) { STU.fonMavsum = v; stuFonlar(); }
+function stuFonMavsum(v) { STU.fonMavsum = v; stuFonlar(); stuKodFonChiz(); }
 function stuFonChiz() {
   const s1 = document.getElementById("stu-fsinf");
   if (s1) s1.innerHTML = STU_FSINF.map(x =>
@@ -2556,3 +2975,133 @@ async function stuShaxsAjrat() {
     };
   } catch (e) {}
 })();
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ C2 (2026-09-06) — KOD-FONLAR (AI'siz, bir zumda, cheksiz)
+// ═══════════════════════════════════════════════════════════════
+// Bu fonlar generatsiya qilinmaydi — BRAUZERDA chiziladi:
+// xarajat 0, kutish 0, internet shart emas. Mavsumga bo'lingan.
+// AI-fonlar (C1) fotografik sahna kerak bo'lganda ishlatiladi;
+// bular esa toza, zamonaviy va bir zumda.
+const _KF = {                       // mavsum ranglari
+  qish:   ["#0B1E33","#1C3A5E","#7FB2D9","#E8F1F8"],
+  bahor:  ["#F7E9F0","#E9C0D4","#9BD1B0","#FFFFFF"],
+  yoz:    ["#0F5C52","#19A08A","#FFD166","#FFFFFF"],
+  kuz:    ["#3A2416","#8C5A2B","#E0A458","#F5E9DA"],
+  bayram: ["#1A0B2E","#4C1D95","#F2A20C","#FFFFFF"],
+  neytral:["#0D1B2A","#31465E","#F2A20C","#F1EFEA"],
+};
+function _kfGrad(ctx, W, H, c1, c2, burchak) {
+  const a = (burchak || 120) * Math.PI / 180;
+  const g = ctx.createLinearGradient(
+    W/2 - Math.cos(a)*W/2, H/2 - Math.sin(a)*H/2,
+    W/2 + Math.cos(a)*W/2, H/2 + Math.sin(a)*H/2);
+  g.addColorStop(0, c1); g.addColorStop(1, c2);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+function _kfMesh(ctx, W, H, r) {
+  ctx.fillStyle = r[0]; ctx.fillRect(0, 0, W, H);
+  [[.2,.22,r[1]],[.8,.28,r[2]],[.3,.8,r[2]],[.85,.78,r[1]]].forEach(([x,y,c])=>{
+    const g = ctx.createRadialGradient(x*W, y*H, 0, x*W, y*H, W*.6);
+    g.addColorStop(0, c); g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.save(); ctx.globalAlpha = .55; ctx.fillStyle = g;
+    ctx.fillRect(0,0,W,H); ctx.restore();
+  });
+}
+function _kfPodium(ctx, W, H, r) {
+  _kfGrad(ctx, W, H, r[3], r[1], 90);
+  ctx.fillStyle = r[0]; ctx.globalAlpha = .10;
+  ctx.beginPath(); ctx.ellipse(W*.5, H*.72, W*.42, H*.06, 0, 0, Math.PI*2); ctx.fill();
+  ctx.globalAlpha = 1;
+  const g = ctx.createLinearGradient(0, H*.70, 0, H);
+  g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.14)");
+  ctx.fillStyle = g; ctx.fillRect(0, H*.70, W, H*.30);
+}
+function _kfHalqa(ctx, W, H, r) {
+  ctx.fillStyle = r[0]; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle = r[2]; ctx.globalAlpha = .25;
+  for (let i = 1; i <= 6; i++) {
+    ctx.lineWidth = W*.004;
+    ctx.beginPath(); ctx.arc(W*.5, H*.46, W*.12*i, 0, Math.PI*2); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+function _kfYoy(ctx, W, H, r) {          // katta yoy (arch)
+  _kfGrad(ctx, W, H, r[3], r[1], 200);
+  ctx.fillStyle = r[2]; ctx.globalAlpha = .9;
+  ctx.beginPath();
+  ctx.moveTo(W*.14, H*.86); ctx.lineTo(W*.14, H*.42);
+  ctx.arc(W*.5, H*.42, W*.36, Math.PI, 0);
+  ctx.lineTo(W*.86, H*.86); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+function _kfChiziq(ctx, W, H, r) {
+  ctx.fillStyle = r[0]; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = r[1]; ctx.globalAlpha = .5;
+  const q = W*.085;
+  for (let x = -H; x < W; x += q*2) {
+    ctx.save(); ctx.translate(x, 0); ctx.rotate(-18*Math.PI/180);
+    ctx.fillRect(0, -H*.2, q, H*1.6); ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+function _kfSuzani(ctx, W, H, r) {
+  _kfGrad(ctx, W, H, r[0], r[1], 140);
+  ctx.fillStyle = r[2]; ctx.globalAlpha = .16;
+  const q = W*.16;
+  for (let y = q*.6; y < H+q; y += q*1.35)
+    for (let x = q*.6; x < W+q; x += q*1.35) {
+      _yulduz(ctx, x, y, q*.34, 8, .45); ctx.fill();
+    }
+  ctx.globalAlpha = 1;
+}
+function _kfNuqta(ctx, W, H, r) {
+  _kfGrad(ctx, W, H, r[3], r[1], 60);
+  ctx.fillStyle = r[0]; ctx.globalAlpha = .14;
+  const q = W*.055;
+  for (let y = q; y < H; y += q) for (let x = q; x < W; x += q) {
+    ctx.beginPath(); ctx.arc(x, y, q*.10, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+const STU_KODFON = [];
+[["neytral","Neytral"],["qish","Qish"],["bahor","Bahor"],
+ ["yoz","Yoz"],["kuz","Kuz"],["bayram","Bayram"]].forEach(([m, nom]) => {
+  const r = _KF[m];
+  STU_KODFON.push(
+    { id: m+"_grad",  mavsum:m, nom:nom+" · gradient", chiz:(c,W,H)=>_kfGrad(c,W,H,r[0],r[1],130) },
+    { id: m+"_mesh",  mavsum:m, nom:nom+" · mesh",     chiz:(c,W,H)=>_kfMesh(c,W,H,r) },
+    { id: m+"_podium",mavsum:m, nom:nom+" · podium",   chiz:(c,W,H)=>_kfPodium(c,W,H,r) },
+    { id: m+"_yoy",   mavsum:m, nom:nom+" · yoy",      chiz:(c,W,H)=>_kfYoy(c,W,H,r) },
+    { id: m+"_suzani",mavsum:m, nom:nom+" · suzani",   chiz:(c,W,H)=>_kfSuzani(c,W,H,r) },
+    { id: m+"_halqa", mavsum:m, nom:nom+" · halqa",    chiz:(c,W,H)=>_kfHalqa(c,W,H,r) },
+    { id: m+"_chiziq",mavsum:m, nom:nom+" · chiziq",   chiz:(c,W,H)=>_kfChiziq(c,W,H,r) },
+    { id: m+"_nuqta", mavsum:m, nom:nom+" · nuqta",    chiz:(c,W,H)=>_kfNuqta(c,W,H,r) });
+});
+// Kod-fonni qo'llash: bir zumda, so'rovsiz
+function stuKodFon(id) {
+  const f = STU_KODFON.find(x => x.id === id);
+  if (!f) return;
+  const c = document.createElement("canvas");
+  c.width = 1200; c.height = 1500;
+  try { f.chiz(c.getContext("2d"), c.width, c.height); } catch (e) { return; }
+  STU.fon = c; stChiz(); stuVariantChiz();
+  toast(f.nom, "ok");
+}
+function stuKodFonChiz() {
+  const el = document.getElementById("stu-kodfon");
+  if (!el) return;
+  const r = STU.fonMavsum === "hamma"
+    ? STU_KODFON : STU_KODFON.filter(f => f.mavsum === STU.fonMavsum ||
+        (STU.fonMavsum === "hamma"));
+  const ro = r.length ? r : STU_KODFON.filter(f => f.mavsum === "neytral");
+  el.innerHTML = ro.map(f =>
+    `<button class="stu-fon" onclick="stuKodFon('${f.id}')" title="${f.nom}">
+       <canvas id="stu-kf-${f.id}" width="112" height="112"></canvas>
+       <span>${f.nom.split(" · ")[1] || f.nom}</span>
+     </button>`).join("");
+  ro.forEach(f => {
+    const c = document.getElementById("stu-kf-" + f.id);
+    if (c) { try { f.chiz(c.getContext("2d"), c.width, c.height); } catch (e) {} }
+  });
+}

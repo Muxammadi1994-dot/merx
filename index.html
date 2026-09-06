@@ -1212,6 +1212,10 @@ body.sms-off .sms-only { display: none !important; }
         color:rgba(255,255,255,.55);text-shadow:0 1px 3px rgba(0,0,0,.5);font-style:normal}
       #p-studio .stu-sh-sev.on{color:var(--amb)}
 
+      #p-studio #stu-kodfon{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-top:8px}
+      #p-studio #stu-kodfon canvas{width:100%;aspect-ratio:1/1;border-radius:8px;
+        border:2px solid transparent;display:block}
+      #p-studio #stu-kodfon .stu-fon:hover canvas{border-color:var(--amb)}
       #p-studio #stu-fonlar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:9px}
       #p-studio .stu-fon{border:none;background:none;padding:0;cursor:pointer}
       #p-studio .stu-fon img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:9px;
@@ -1347,6 +1351,8 @@ body.sms-off .sms-only { display: none !important; }
           <div id="stu-fsinf"></div>
           <div id="stu-fmavsum" style="margin-top:6px"></div>
           <div id="stu-fonlar"></div>
+          <h4 style="margin-top:14px">TEZ FONLAR <span style="font-weight:600;color:#8A8578">· bir zumda</span></h4>
+          <div id="stu-kodfon"></div>
           <div class="st-hint">Fonlar hamma do'konga umumiy — bir marta
             yaratiladi, keyin bir zumda va bepul keladi.</div>
           <h4 style="margin-top:15px">ODAM KADRI UCHUN</h4>
@@ -5540,7 +5546,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=19"></script>
+<script src="js/studio.js?v=20"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -5833,7 +5839,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 599;
+  window.SW_V = 600;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5856,7 +5862,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=599")
+    navigator.serviceWorker.register("/sw.js?v=600")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
