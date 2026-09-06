@@ -1673,7 +1673,13 @@ async function cmdOmbor(chatId) {
     }
 
         const sidFilter = sid ? `&shop_id=eq.${sid}` : "";
-    const products = await sb("products", `?order=name${sidFilter}`);
+    // ✅ OT-4 (2026-09-06): SAHIFALAB O'QISh — sb() bir so'rovda eng
+    // ko'pi 1000 qator beradi; ABU 2800+ tovar bilan bot faqat birinchi
+    // mingtasini sanab, tizim KPI'sidan kam chiqarayotgan edi (jonli
+    // aybnoma: "Turlar: 1 000"). sbAll hamma sahifani yig'adi.
+    const _pr = await sbAll("products", `?order=name${sidFilter}`);
+    const products = _pr.rows;
+    if (_pr.capped) console.warn("[ombor] products 20 000 chegarasiga urildi");
 
     // MULTI-TENANT (2026-07): chegara do'konning O'Z sozlamasidan
     // (settings.low_stock_limit); bo'lmasa ENV/5 zaxirasi
@@ -4112,8 +4118,24 @@ function yukla(){
     if (s.netProfit != null)
       h += card("Kassa foydasi (to'liq xarajat bilan)", fmt(s.netProfit) + " so'm");
     if (s.exp != null) h += card("Xarajat", fmt(s.exp) + " so'm");
+    var pl = [];
+    if ((d.tSom||0) > 0.5)  pl.push(fmt(d.tSom) + " soʼm");
+    if ((d.tUsd||0) > 0.009) pl.push("$" + (Number(d.tUsd)||0).toFixed(2));
+    h += card("Qarz toʼlovlari (undirildi)",
+              (pl.join(" + ") || "0 soʼm") +
+              (d.tSoni ? " · " + d.tSoni + " ta" : ""));
+    var ql = [];
+    if ((d.qSom||0) > 0.5)  ql.push(fmt(d.qSom) + " soʼm");
+    if ((d.qUsd||0) > 0.009) ql.push("$" + (Number(d.qUsd)||0).toFixed(2));
+    h += card("Qarzga berildi",
+              (ql.join(" + ") || "0 soʼm") +
+              (d.qSoni ? " · " + d.qSoni + " chek" : ""));
+    h += card("Xarajat (kassa)", fmt(d.xJami) + " soʼm" +
+              ((d.xQayt||0) > 0.5
+                ? " · shundan qaytarish: " + fmt(d.xQayt) + " (kassa harakati)"
+                : ""));
     h += '<div class="row">' +
-         card("Chegirma (2 tur)", fmt(d.cheg) + " so'm") +
+         card("Chegirma (2 tur)", fmt(d.cheg) + " soʼm") +
          card("Qaytarishlar", fmt(d.qayt) + " ta") + '</div>';
     if (!d.ichki)
       // ✅ OT-3b: sahifa-JS satrlarida apostrof ishlatilmaydi (server
@@ -4343,8 +4365,53 @@ function yubor(){
         cheg += c1;
       });
     } catch (e) {}
+    // ✅ OT-4 (2026-09-06): TIZIM KUNLIGI BILAN YAQINLAShTIRISh —
+    // egasi "ancha kam" dedi. Uch blok, hammasi sxemasi ANIQ ma'lum
+    // jadvallardan (report_stats bilan bir xil ustunlar):
+    //  · qarz to'lovlari (undirilgan) — debt_payments, bekorlarsiz;
+    //  · qarzga berilgan — shu kun sotuvlarining asl qarz qismi;
+    //  · xarajat — jami + ichida "Tovar qaytarish" (kassa harakati,
+    //    QH-1 tili bilan) alohida ko'rsatiladi.
+    let tSom = 0, tUsd = 0, tSoni = 0;
+    try {
+      const pp = await sb("debt_payments",
+        `?shop_id=eq.${encodeURIComponent(shop)}&date=eq.${sana}` +
+        `&select=amount,currency,data&limit=800`);
+      (pp || []).forEach(p2 => {
+        const d2 = p2.data || {};
+        if (String(d2.cancelled) === "true") return;
+        tSoni++;
+        if (p2.currency === "usd") tUsd += Number(p2.amount) || 0;
+        else                       tSom += Number(p2.amount) || 0;
+      });
+    } catch (e) {}
+    let qSom = 0, qUsd = 0, qSoni = 0;
+    try {
+      const qs = await sb("sales",
+        `?shop_id=eq.${encodeURIComponent(shop)}&date=eq.${sana}` +
+        `&or=(orig_remaining.gt.0,orig_debt_usd.gt.0)` +
+        `&select=orig_remaining,orig_debt_usd,debt_currency,data&limit=600`);
+      (qs || []).forEach(s3 => {
+        if (String(s3.data?.cancelled) === "true") return;
+        qSoni++;
+        if (s3.debt_currency === "usd") qUsd += Number(s3.orig_debt_usd) || 0;
+        else                            qSom += Number(s3.orig_remaining) || 0;
+      });
+    } catch (e) {}
+    let xJami = 0, xQayt = 0;
+    try {
+      const xs = await sb("xarajatlar",
+        `?shop_id=eq.${encodeURIComponent(shop)}&date=eq.${sana}` +
+        `&select=amount,category&limit=800`);
+      (xs || []).forEach(x2 => {
+        const a2 = Number(x2.amount) || 0;
+        xJami += a2;
+        if (x2.category === "Tovar qaytarish") xQayt += a2;
+      });
+    } catch (e) {}
     return res.status(200).json({ ok: true, sana, ichki: okStat,
-      stat: okStat ? st : null, soni, aylanma, cheg, qayt });
+      stat: okStat ? st : null, soni, aylanma, cheg, qayt,
+      tSom, tUsd, tSoni, qSom, qUsd, qSoni, xJami, xQayt });
   }
 
   // ═══ ✅ OT-1: "Tayyorlandi" — guruhga xabar (mini-app'dan) ═══
