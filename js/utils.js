@@ -824,7 +824,8 @@ function nav(p) {
   const T = { dashboard:"Dashboard", pos:"Sotuv (POS)", katalog:"Katalog", ombor:"Ombor",
     mijozlar:"Mijozlar", qarzlar:"Qarzlar", qarztarix:"Qarzlar tarixi", tarix:"Sotuv tarixi",
     hisobot:"Hisobot va tahlil", xodimlar:"Xodimlar", moliya:"Moliya",
-    portal:"Mijoz portali", egasi:"Egasi / Sozlamalar" };
+    portal:"Mijoz portali", egasi:"Egasi / Sozlamalar",
+    studio:"Studio — reklama" };   // ✅ Studio
   $("ptitle").textContent = T[p] || p;
   // Mobil: sahifa tanlangach sidebar avtomat yopiladi
   if (typeof closeMobSidebar === "function") closeMobSidebar();
@@ -842,7 +843,8 @@ function nav(p) {
     ombor:"renderOmbor", mijozlar:"renderMijozlar", qarzlar:"renderDebts",
     qarztarix:"renderQarzlarTarixi", tarix:"renderTarix",
     hisobot:"renderHisobot", xodimlar:"renderXodimlar", moliya:"renderMoliya",
-    portal:"renderPortal", egasi:"renderEgasi", audit:"renderAudit" };
+    portal:"renderPortal", egasi:"renderEgasi", audit:"renderAudit",
+    studio:"renderStudio" };   // ✅ Studio (2026-09-06)
   try {
     const _nm = _fnNom[p];
     const _f  = _nm ? window[_nm] : null;
