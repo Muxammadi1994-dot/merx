@@ -1743,7 +1743,11 @@ async function stuSahna(sahnaId, jim) {
   if (!d) return false;
   try {
     STU.fon = await _stuImg(d.image);
-    if (d.sahna) STU.sahnaKesh[kat + "|" + d.sahna] = STU.fon;
+    if (d.sahna) {                                   // ✅ XOTIRA: 4 ta
+      const _sk = Object.keys(STU.sahnaKesh);
+      if (_sk.length >= 4) delete STU.sahnaKesh[_sk[0]];
+      STU.sahnaKesh[kat + "|" + d.sahna] = STU.fon;
+    }
     STU.sahnaNom = d.sahnaNom || "";
     if (!jim) {
       stuHolat("");
@@ -1928,12 +1932,12 @@ function stuVariantChiz() {
   if (!STU.variants.length) { el.innerHTML = ""; return; }
   el.innerHTML = STU.variants.map((v, i) =>
     `<button class="stu-vr${i === STU.tanlanganV ? " on" : ""}" onclick="stuVariantTanla(${i})">
-       <canvas id="stu-vc${i}" width="360" height="450"></canvas>
+       <canvas id="stu-vc${i}" width="180" height="225"></canvas>
        <span>${(STU_SHAB.find(s => s.id === v.shab) || {}).nom || ""}</span>
      </button>`).join("");
   STU.variants.forEach((v, i) => {
     const c = document.getElementById("stu-vc" + i);
-    if (c) stChiz(c, { w: 360, h: 450 }, v);
+    if (c) stChiz(c, { w: 180, h: 225 }, v);
   });
 }
 function stuVariantTanla(i) {
@@ -2275,6 +2279,32 @@ function stuTipoChiz() {
 function stuTipo(id) { STU.tipo = id; renderStudio(); stuVariantChiz(); }
 
 // ── Logotip: yuklash, kichraytirish, saqlash
+// ═══ ✅ XOTIRA QO'RIQChISI (2026-09-06) ═══
+// DZ-iPhone saboqi: cho'ntak (localStorage) to'lsa butun ilova
+// "xotira to'ldi" holatiga tushadi. Shuning uchun Studio:
+//   · qurilmaga FAQAT ikki narsa yozadi (logotip va sevimlilar);
+//   · har yozuvdan oldin HAJM tekshiriladi;
+//   · kvota xatosi bo'lsa — o'zining eski kalitlarini tozalab,
+//     bir marta qayta uriniladi, bo'lmasa xotirada ishlayveradi.
+const STU_LS_MAX = 90 * 1024;              // bitta kalit uchun chegara
+function _stuLS(kalit, qiymat) {
+  try {
+    if (String(qiymat).length > STU_LS_MAX) return false;
+    localStorage.setItem(kalit, qiymat);
+    return true;
+  } catch (e) {
+    try {                                   // o'z eski izlarini tozalash
+      Object.keys(localStorage).forEach(k => {
+        if (k.indexOf("merx_studio_") === 0 && k !== kalit) localStorage.removeItem(k);
+      });
+      localStorage.setItem(kalit, qiymat);
+      return true;
+    } catch (e2) {
+      console.warn("[studio] qurilma xotirasi to'la — xotirada davom etamiz");
+      return false;
+    }
+  }
+}
 function _stuLogoKalit() {
   return "merx_studio_logo_" + ((window.db && db.shopId) || "x");
 }
@@ -2286,15 +2316,19 @@ function stuLogo(inp) {
     const im = new Image();
     im.onload = () => {
       try {
-        const k = Math.min(1, 256 / Math.max(im.width, im.height));
+        // ✅ XOTIRA: 200px yetarli (reklamada logotip kichik chiqadi).
+        // Avval PNG (shaffoflik saqlanadi); og'ir bo'lsa JPEG ga o'tamiz.
+        const k = Math.min(1, 200 / Math.max(im.width, im.height));
         const c = document.createElement("canvas");
         c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
         c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
-        const data = c.toDataURL("image/png");
+        let data = c.toDataURL("image/png");
+        if (data.length > STU_LS_MAX) data = c.toDataURL("image/jpeg", 0.85);
         STU.brend.logoImg = c;
-        try { localStorage.setItem(_stuLogoKalit(), data); } catch (e2) {}
+        const saqlandi = _stuLS(_stuLogoKalit(), data);
         stChiz(); stuVariantChiz();
-        toast("Logotip saqlandi", "ok");
+        toast(saqlandi ? "Logotip saqlandi"
+                       : "Logotip qo'llandi (qurilmada saqlanmadi — xotira to'la)", "ok");
       } catch (e3) { toast("Logotip qo'shilmadi", "err"); }
     };
     im.src = e.target.result;
@@ -2354,7 +2388,7 @@ function stuSev(id, ev) {
   if (ev) { ev.stopPropagation(); ev.preventDefault(); }
   const i = STU.sevimli.indexOf(id);
   if (i >= 0) STU.sevimli.splice(i, 1); else STU.sevimli.push(id);
-  try { localStorage.setItem(_sevKalit(), JSON.stringify(STU.sevimli)); } catch (e) {}
+  _stuLS(_sevKalit(), JSON.stringify(STU.sevimli));   // ✅ XOTIRA
   stuBrauzer();
 }
 function stuKat(id)   { STU.katFiltr = id; stuBrauzer(); }
@@ -2393,7 +2427,7 @@ function stuBrauzer() {
   }
   el.innerHTML = r.map(s => `
     <button class="stu-sh${s.id === STU.shab ? " on" : ""}" onclick="stuShab('${s.id}')">
-      <canvas id="stu-sc-${s.id}" width="320" height="400"></canvas>
+      <canvas id="stu-sc-${s.id}" width="164" height="205"></canvas>
       <span class="stu-sh-nom">${s.nom}</span>
       <i class="stu-sh-sev${STU.sevimli.indexOf(s.id) >= 0 ? " on" : ""}"
          onclick="stuSev('${s.id}', event)">★</i>
@@ -2401,7 +2435,7 @@ function stuBrauzer() {
   // jonli namoyish — har kartaga o'z shabloni, joriy palitrada
   r.forEach(s => {
     const c = document.getElementById("stu-sc-" + s.id);
-    if (c) { try { stChiz(c, { w: 320, h: 400 }, { shab: s.id, pal: STU.pal }); }
+    if (c) { try { stChiz(c, { w: 164, h: 205 }, { shab: s.id, pal: STU.pal }); }
              catch (e) {} }
   });
 }
@@ -2475,7 +2509,11 @@ async function stuFonTanla(fid) {
   if (!d) return;
   try {
     const im = await _stuImg(d.image);
-    STU.fon = im; STU.fonKesh[fid] = im;
+    STU.fon = im;
+    // ✅ XOTIRA: keshda eng ko'pi 6 ta fon (har biri ~4-8 MB RAM)
+    const _fk = Object.keys(STU.fonKesh);
+    if (_fk.length >= 6) delete STU.fonKesh[_fk[0]];
+    STU.fonKesh[fid] = im;
     stChiz(); stuVariantChiz();
     toast(d.kesh ? "Fon qo'yildi" : "Yangi fon yaratildi", "ok");
     stuFonlar();                              // ro'yxatdagi namoyish yangilansin
@@ -2500,3 +2538,21 @@ async function stuShaxsAjrat() {
     toast("Shaxs ajratildi — endi fon tanlang", "ok");
   } catch (e) { toast("Natija ochilmadi", "err"); }
 }
+
+// ✅ XOTIRA: boshqa sahifaga o'tilganda og'ir rasmlar bo'shatiladi
+// (telefonda Studio ochiq qolgani uchun kassa sekinlashmasin).
+(function () {
+  try {
+    const asl = window.nav;
+    if (typeof asl !== "function" || window._stuNavUlandi) return;
+    window._stuNavUlandi = true;
+    window.nav = function (p) {
+      if (p !== "studio" && STU && STU._limitOlindi) {
+        STU.fonKesh = {}; STU.sahnaKesh = {};
+        STU.img2 = null;
+        if (STU.asl && STU.asl !== STU.img) STU.asl = null;
+      }
+      return asl.apply(this, arguments);
+    };
+  } catch (e) {}
+})();
