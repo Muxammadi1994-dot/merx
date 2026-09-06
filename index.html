@@ -1158,7 +1158,25 @@ body.sms-off .sms-only { display: none !important; }
     <style>
       #p-studio{--stg:#0A1018;--stg2:#141E30;--amb:#F2A20C;--vio:#7C5CFF;
         --ln:#E6E2DA;--mut2:#8A93A6;--pnl:#FBFAF8}
-      /* ✅ ODDIY REJIM */
+      /* ✅ ODDIY REJIM — boyitilgan ko'rinish */
+      #p-studio #stu-oddiy{max-width:760px}
+      #p-studio .st-od-sarl{position:relative;overflow:hidden}
+      #p-studio .st-od-sarl:before{content:"";position:absolute;right:-60px;top:-80px;width:260px;height:260px;
+        border-radius:50%;background:radial-gradient(circle,rgba(242,162,12,.35),rgba(242,162,12,0) 70%)}
+      #p-studio .st-od-sarl:after{content:"✨";position:absolute;right:130px;bottom:-4px;font-size:64px;opacity:.14}
+      #p-studio .st-od-qadam{box-shadow:0 2px 12px rgba(13,27,42,.05);transition:box-shadow .2s}
+      #p-studio .st-od-qadam:hover{box-shadow:0 6px 22px rgba(13,27,42,.10)}
+      #p-studio .st-od-n{background:linear-gradient(135deg,#0A1018,#2A3D5C);box-shadow:0 3px 8px rgba(10,16,24,.25)}
+      #p-studio .st-od-tur{transition:transform .15s,box-shadow .15s}
+      #p-studio .st-od-tur:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(13,27,42,.12)}
+      #p-studio .st-od-tur i{font-size:26px;width:44px;height:44px;border-radius:12px;background:#F5F3EE;
+        display:grid;place-items:center;margin-bottom:8px}
+      #p-studio .st-od-tur.on i{background:var(--amb)}
+      #p-studio .st-od-go{background:linear-gradient(135deg,#FFB627,#F2A20C);letter-spacing:-.2px;
+        transition:transform .15s,box-shadow .15s}
+      #p-studio .st-od-go:not(:disabled):hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(242,162,12,.45)}
+      #p-studio .st-od-sahna{background:radial-gradient(120% 80% at 50% 0%,#1B2A44 0%,#0A1018 60%)}
+      #p-studio .st-od-manbalar .on,#p-studio .st-od-tur.on{box-shadow:inset 0 0 0 1px var(--amb)}
       #p-studio .st-od-sarl{display:flex;align-items:flex-start;gap:12px;
         background:linear-gradient(105deg,var(--stg) 0%,var(--stg2) 80%,#20304D 100%);
         border-radius:18px;padding:18px 20px;margin-bottom:14px;color:#fff}
@@ -1381,7 +1399,16 @@ body.sms-off .sms-only { display: none !important; }
           <h3>Tovaringizni reklama qiling</h3>
           <p>Tovar → reklama turi → kerakli rasm → tugma. Qolganini tizim qiladi.</p>
         </div>
-        <button class="st-od-pro" onclick="stuRejim('pro')">Pro rejim →</button>
+        <div style="margin-left:auto;display:flex;gap:7px">
+          <button class="st-od-pro" onclick="stuSozlamaOch()">⚙ Sozlamalar</button>
+          <button class="st-od-pro" onclick="stuRejim('pro')">Pro rejim →</button>
+        </div>
+      </div>
+
+      <!-- ✅ sozlamalar: kanal, Instagram, brend (panellar shu yerga ko'chadi) -->
+      <div id="stu-od-sozlama" style="display:none" class="st-od-qadam">
+        <div class="st-od-n">⚙</div>
+        <div style="flex:1" id="stu-od-sozlama-ichi"></div>
       </div>
 
       <!-- 1 · TOVAR (qidiruv) + RASM MANBAI -->
@@ -1561,6 +1588,7 @@ body.sms-off .sms-only { display: none !important; }
             doim o'sha shaxs chiqadi — reklamalaringiz yuzidan tanilib qoladi.</div>
         </div>
 
+        <div id="stu-p-tarqat-uy">
         <!-- BREND -->
         <div id="stu-p-brend" style="display:none">
           <h4>BREND</h4>
@@ -1606,6 +1634,7 @@ body.sms-off .sms-only { display: none !important; }
           <div class="st-hint">Instagram avto-post keyingi bosqichda ulanadi —
             hozir tanlovingiz saqlanadi.</div>
         </div>
+        </div><!-- /stu-p-tarqat-uy -->
       </div>
 
       <div class="st-stage">
@@ -5735,7 +5764,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=28"></script>
+<script src="js/studio.js?v=29"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -6028,7 +6057,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 609;
+  window.SW_V = 610;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -6051,7 +6080,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=609")
+    navigator.serviceWorker.register("/sw.js?v=610")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

@@ -140,6 +140,36 @@ async function falRun(model, input, ms) {
     return j;
   } finally { clearTimeout(t); }
 }
+// ═══ ✅ NAVBAT (2026-09-07) — "This operation was aborted" davosi ═══
+// Kiydirish/tahrir/model ba'zan 60 soniyadan uzoq (fal navbati). Vercel
+// funksiyasi 60 s da uziladi. Endi uzun amallar NAVBATGA topshiriladi:
+// server darhol `request_id` qaytaradi, klient har 2.5 s da holatni
+// so'raydi, tayyor bo'lgach natija olinadi. Funksiya uzoq ushlanmaydi.
+async function falSubmit(model, input) {
+  if (!FAL_KEY) throw new Error("FAL_KEY sozlanmagan");
+  const r = await fetch(`https://queue.fal.run/${model}`, {
+    method: "POST",
+    headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.request_id) throw new Error(`fal navbat ${r.status}: ` +
+    String(j && (j.detail || j.error || j.message) || "").slice(0, 160));
+  return { request_id: j.request_id, status_url: j.status_url, response_url: j.response_url };
+}
+function _falUrlOk(u) { return /^https:\/\/queue\.fal\.run\//.test(String(u || "")); }
+async function falHolat(status_url) {
+  const r = await fetch(status_url, { headers: { Authorization: `Key ${FAL_KEY}` } });
+  const j = await r.json().catch(() => ({}));
+  return { status: j.status || "?", navbat: j.queue_position };
+}
+async function falNatija(response_url) {
+  const r = await fetch(response_url, { headers: { Authorization: `Key ${FAL_KEY}` } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error("fal natija " + r.status + ": " +
+    String(j && (j.detail || j.error) || "").slice(0, 120));
+  return j;
+}
 function falRasm(j) {
   if (!j) return null;
   if (j.image && j.image.url) return j.image.url;
@@ -696,22 +726,20 @@ module.exports = async (req, res) => {
           error: "Avval " + jins + " modelini yarating yoki xodim suratini yuklang" });
       shaxsRasm = m.url;
     }
-    let chiq = null, xato = "";
+    // ✅ NAVBAT: darhol topshirib, request_id qaytaramiz
     try {
-      const j = await falRun(M_TRYON, {
+      const q = await falSubmit(M_TRYON, {
         model_image: shaxsRasm, garment_image: kiyim,
-        category: String(body.turi || "auto"),      // ✅ KK: tepa/past/oyoq
+        category: String(body.turi || "auto"),
         mode: "balanced", garment_photo_type: "auto",
-        num_samples: 1, segmentation_free: true,
-        output_format: "png", sync_mode: true,
-      }, 52000);
-      chiq = falRasm(j);
-    } catch (e) { xato = e.message; }
-    await jurnal(shopId, "kiydir:" + jins, "fal", M_TRYON, !!chiq, chiq ? "" : xato);
-    if (!chiq) return res.status(200).json({ ok: false, error: xato || "Kiydirish chiqmadi" });
-    const n = await oySarfi(shopId);
-    return res.status(200).json({ ok: true, image: chiq, jins,
-      sarf: n, chegara: (await chegaraOl(shopId)).chegara });
+        num_samples: 1, segmentation_free: true, output_format: "png",
+      });
+      return res.status(200).json({ ok: true, navbat: true, amal: "kiydir:" + jins,
+        model: M_TRYON, status_url: q.status_url, response_url: q.response_url });
+    } catch (e) {
+      await jurnal(shopId, "kiydir:" + jins, "fal", M_TRYON, false, e.message);
+      return res.status(200).json({ ok: false, error: e.message });
+    }
   }
 
   // ── ✅ TUR (2026-09-07): KATALOG RASMINI OLISh ──
@@ -812,6 +840,30 @@ module.exports = async (req, res) => {
       chegara: (await chegaraOl(shopId)).chegara });
   }
 
+  // ── ✅ NAVBAT: holatni so'rash va natijani olish ──
+  if (amal === "fal_holat") {
+    const su = String(body.status_url || ""), ru = String(body.response_url || "");
+    if (!_falUrlOk(su) || !_falUrlOk(ru))
+      return res.status(200).json({ ok: false, error: "Navbat manzili yaroqsiz" });
+    try {
+      const h = await falHolat(su);
+      if (h.status !== "COMPLETED")
+        return res.status(200).json({ ok: true, navbat: true, holat: h.status, pozitsiya: h.navbat });
+      const j = await falNatija(ru);
+      const url = falRasm(j);
+      if (!url) throw new Error("natijada rasm yo'q");
+      const data = /^data:/.test(url) ? url : await fonData(url);
+      const nomi = String(body.amal || "navbat");
+      await jurnal(shopId, nomi, "fal", String(body.model || ""), true, "");
+      const n = await oySarfi(shopId);
+      return res.status(200).json({ ok: true, image: data, sarf: n,
+        chegara: (await chegaraOl(shopId)).chegara });
+    } catch (e) {
+      await jurnal(shopId, String(body.amal || "navbat"), "fal", String(body.model || ""), false, e.message);
+      return res.status(200).json({ ok: false, error: e.message });
+    }
+  }
+
   // ── ✅ OQ: OYOQ KIYIM / AKSESSUAR — tahrir modeli bilan ──
   if (amal === "kiydir_edit") {
     const shaxs = String(body.model_image || ""), tovar = String(body.image || "");
@@ -837,16 +889,15 @@ module.exports = async (req, res) => {
       `logo and shape exactly as in the second image. Do NOT change the person's face, ` +
       `hair, skin, body, pose, clothing or the background in any way. Photorealistic, ` +
       `natural lighting and shadows matching the original photo.`;
-    let chiq = null, xato = "";
-    try {
-      const j = await falRun(M_EDIT, { prompt: matn, image_urls: [shaxsRasm, tovar],
-        num_images: 1, aspect_ratio: "auto", output_format: "png", sync_mode: true }, 52000);
-      chiq = falRasm(j);
-    } catch (e) { xato = e.message; }
-    await jurnal(shopId, "kiydir_edit:" + tur, "fal", M_EDIT, !!chiq, chiq ? "" : xato);
-    if (!chiq) return res.status(200).json({ ok: false, error: xato || "Tahrir chiqmadi" });
-    const n = await oySarfi(shopId);
-    return res.status(200).json({ ok: true, image: chiq, sarf: n, chegara: ch0.chegara });
+    try {                                          // ✅ NAVBAT
+      const q = await falSubmit(M_EDIT, { prompt: matn, image_urls: [shaxsRasm, tovar],
+        num_images: 1, aspect_ratio: "auto", output_format: "png" });
+      return res.status(200).json({ ok: true, navbat: true, amal: "kiydir_edit:" + tur,
+        model: M_EDIT, status_url: q.status_url, response_url: q.response_url });
+    } catch (e) {
+      await jurnal(shopId, "kiydir_edit:" + tur, "fal", M_EDIT, false, e.message);
+      return res.status(200).json({ ok: false, error: e.message });
+    }
   }
 
   // ✅ S3: sahna ro'yxati (klient tugmalar chizishi uchun)

@@ -2474,6 +2474,7 @@ function renderStudio() {
     const od = document.getElementById("stu-oddiy"), pr = document.getElementById("stu-pro");
     if (od) od.style.display = r === "pro" ? "none" : "block";
     if (pr) pr.style.display = r === "pro" ? "block" : "none";
+    if (r === "pro") stuSozlamaJoyla("pro");
   }
   stuOddiyChiz();
   if (!STU._limitOlindi) {
@@ -2672,10 +2673,45 @@ async function stuAI(amal, qosh) {
       return null;
     }
     if (d.sarf != null) stuSarf(d.sarf, d.chegara);
+    // ✅ NAVBAT: server request_id qaytardi — tayyor bo'lguncha kutamiz
+    if (d.navbat && d.status_url) return await _stuNavbat(d, tok);
     return d;
   } catch (e) {
     stuHolat(""); toast("Internet xatosi", "err"); return null;
   } finally { STU.band = false; }
+}
+async function _stuNavbat(q, tok) {
+  const t0 = Date.now();
+  let oldingiHolat = "";
+  while (Date.now() - t0 < 4 * 60 * 1000) {          // eng ko'pi 4 daqiqa
+    await new Promise(r => setTimeout(r, 2500));
+    let d = null;
+    try {
+      const r = await fetch("/api/reklama", { method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + (tok || "") },
+        body: JSON.stringify({ action: "fal_holat", status_url: q.status_url,
+          response_url: q.response_url, amal: q.amal, model: q.model }) });
+      d = await r.json().catch(() => null);
+    } catch (e) { continue; }
+    if (!d) continue;
+    if (!d.ok) { stuHolat(""); toast(d.error || "Xato", "err"); return null; }
+    if (d.navbat) {
+      const h = d.holat === "IN_QUEUE" ? "navbatda" + (d.pozitsiya != null ? " (" + d.pozitsiya + ")" : "")
+              : d.holat === "IN_PROGRESS" ? "ishlanmoqda" : d.holat;
+      if (h !== oldingiHolat) { stuHolatQosh(h); oldingiHolat = h; }
+      continue;
+    }
+    if (d.sarf != null) stuSarf(d.sarf, d.chegara);
+    return d;
+  }
+  stuHolat(""); toast("AI juda uzoq javob bermadi — qayta urinib ko'ring", "err");
+  return null;
+}
+function stuHolatQosh(q) {
+  const el = document.getElementById("stu-holat");
+  if (!el) return;
+  const asos = (el.textContent || "").split(" — ")[0];
+  el.textContent = asos + " — " + q; el.style.display = "block";
 }
 function stuHolat(m) {
   const el = document.getElementById("stu-holat");
@@ -3915,12 +3951,30 @@ async function stuFonAvto(sinf, jim) {
     return true;
   } catch (e) { return false; }
 }
+// ✅ Sozlamalar (kanal, Instagram, brend) ODDIY rejimda ham — panel
+// elementlari DOM'da ko'chiriladi (id lar takrorlanmaydi).
+function stuSozlamaJoyla(r) {
+  const uy = document.getElementById(r === "pro" ? "stu-p-tarqat-uy" : "stu-od-sozlama-ichi");
+  if (!uy) return;
+  ["stu-p-tarqat", "stu-p-brend"].forEach(id => {
+    const p = document.getElementById(id);
+    if (p && p.parentNode !== uy) { uy.appendChild(p); }
+    if (p) p.style.display = r === "pro" ? "none" : "block";
+  });
+}
+function stuSozlamaOch() {
+  const b = document.getElementById("stu-od-sozlama");
+  if (!b) return;
+  b.style.display = b.style.display === "none" ? "block" : "none";
+  if (b.style.display === "block") stuSozlamaJoyla("oddiy");
+}
 function stuRejim(r) {
   STU.rejim = r;
   const od = document.getElementById("stu-oddiy");
   const pr = document.getElementById("stu-pro");
   if (od) od.style.display = r === "pro" ? "none" : "block";
   if (pr) pr.style.display = r === "pro" ? "block" : "none";
+  stuSozlamaJoyla(r);
   _stuLS("merx_studio_rejim", r);
   if (r === "pro") renderStudio(); else stuOddiyChiz();
 }
