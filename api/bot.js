@@ -411,8 +411,7 @@ async function _menuEga(chatId) {
   const _dl = await _dupLock("menuadm", String(chatId), "v1");
   if (_dl.dup) return;
   await _setMenu({ type: "chat", chat_id: chatId }, [
-    { command: "hisobot",        description: "Bugungi hisobot" },
-    { command: "kunlik",         description: "Kunlik hisobot (mini-app)" },
+    { command: "hisobot",        description: "Kunlik hisobot (matn + mini-app)" },
     { command: "balans",         description: "Bugungi balans" },
     { command: "ombor",          description: "Ombor holati" },
     { command: "qarzlar",        description: "Qarzdorlar" },
@@ -451,7 +450,6 @@ const _KB_EGA = { keyboard: [
   [{ text: "📊 Hisobot" }, { text: "💰 Balans" }],
   [{ text: "📦 Ombor" },   { text: "💳 Qarzlar" }],
   [{ text: "📈 Oylik" },   { text: "🧾 Naklad" }],
-  [{ text: "🗓 Kunlik hisobot" }],                    // ✅ OT-3
   [{ text: "🏪 Do'konlarim" }, { text: "ℹ️ Komandalar" }],
 ], resize_keyboard: true };  // ✅ OT-1c: is_persistent OLINDI — shunda
 // yozuv qatorida ▦ yashirish/ochish tugmasi chiqadi (egasi so'radi)
@@ -475,9 +473,10 @@ async function _kbEgaYubor(chatId) {
   // ✅ OT-3a: PANEL TARKIBI O'ZGARSA KALIT HAM OShIRILADI (C3 ning
   // klaviatura ko'rinishi) — aks holda eski panel muzlab qoladi
   // (jonli hodisa: 🗓 Kunlik tugmasi chiqmadi). kbv1 → kbv2.
-  if (!(await _onceEver("kbv2ega", String(chatId)))) return;
+  if (!(await _onceEver("kbv3ega", String(chatId)))) return;   // ✅ OT-7
   await tg(chatId,
-    "⌨️ <b>Panel yangilandi:</b> 🗓 Kunlik hisobot tugmasi qo'shildi.\n" +
+    "⌨️ <b>Panel ixchamlashdi:</b> 📊 Hisobot endi to'liq kunlik — " +
+    "Kecha/7 kun/Bu oy davrlari va mini-app bilan.\n" +
     "Yashirish/ochish — yozuv qatoridagi ▦ belgisi.",
     { reply_markup: _KB_EGA });
 }
@@ -496,7 +495,7 @@ async function _kbMijozOnce(chatId) {
 // (_kbEgaYubor gate-nuqtasi), hech kim start bosishi shart emas.
 async function _kbBroadcast() {
   try {
-    if (!(await _onceEver("kbv2", "broadcast"))) return;   // ✅ OT-3a
+    if (!(await _onceEver("kbv3", "broadcast"))) return;   // ✅ OT-7
     const rows = await sb("shop_owners", "?select=chat_id");
     const set = new Set((rows || []).map(r => String(r.chat_id)).filter(Boolean));
     if (OWNER_ID) set.add(String(OWNER_ID));
@@ -941,6 +940,38 @@ async function _khHisob(shop, from, to) {
   d.karta   = d.sotKarta   + d.qarzKarta;
   d.otkazma = d.sotOtkazma + d.qarzOtkazma;
   return d;
+}
+// ✅ OT-7: XULOSA-YADRO — /hisobot to'g'ridan chaqiradi (bitta
+// do'konli ega uchun bir zumda), kh| callback ham shu yerdan.
+async function _khYubor(chatId, fromId, shop, tok) {
+  let ega = false;
+  try {
+    const r0 = await sb("shop_owners",
+      `?chat_id=eq.${fromId}&shop_id=eq.${encodeURIComponent(shop)}&select=chat_id&limit=1`);
+    ega = !!(r0 && r0.length);
+  } catch (e) {}
+  if (!ega) {
+    try {
+      const c0 = await getShopCtx(fromId);
+      ega = !!(c0 && String(c0.shopId) === shop && c0.isOwner);
+    } catch (e) {}
+  }
+  if (!ega) return;
+  const _o = _khOraliq(tok);
+  const st = await _pulIchki({ action: "report_stats",
+    from: _o.from, to: _o.to, shopId: shop });
+  const d  = await _khHisob(shop, _o.from, _o.to);
+  const nm = await _ckShopNom([shop]);
+  const oc = ("KH__" + shop).replace(/[^a-zA-Z0-9_]/g,
+    m => "x" + m.charCodeAt(0).toString(16));
+  await tg(chatId, _khMatn(nm[shop] || shop, _o.nom, d, st), {
+    reply_markup: { inline_keyboard: [
+      [{ text: "🔎 To'liq hisobot (mini-app)",
+         url: `https://t.me/${BOT_USERNAME}/ombor?startapp=${oc}` }],
+      [{ text: "Kecha",  callback_data: `kh|${shop}|1` },
+       { text: "7 kun",  callback_data: `kh|${shop}|7` },
+       { text: "Bu oy",  callback_data: `kh|${shop}|oy` }],
+    ] } });
 }
 function _khMatn(nom, sana, d, st) {
   const s = st && st.ok !== false ? st : null;
@@ -4825,38 +4856,9 @@ function yubor(){
       // Do'kon tanlash callback: "shop:shop_XXXXX"
       // ✅ OT-5: 🗓 Kunlik — matn-xulosa + "To'liq" tugmasi
       if (cb.data?.startsWith("kh|")) {
-        // ✅ OT-6: "kh|<shop>" yoki "kh|<shop>|<davr>" (0/1/7/oy)
+        // ✅ OT-6/7: "kh|<shop>|<davr>" — yadro _khYubor'da
         const _p2 = cb.data.slice(3).split("|");
-        const _shop = _p2[0], _tok = _p2[1] || "0";
-        let ega = false;
-        try {
-          const r0 = await sb("shop_owners",
-            `?chat_id=eq.${cb.from?.id}&shop_id=eq.${encodeURIComponent(_shop)}&select=chat_id&limit=1`);
-          ega = !!(r0 && r0.length);
-        } catch (e) {}
-        if (!ega) {
-          try {
-            const c0 = await getShopCtx(cb.from?.id);
-            ega = !!(c0 && String(c0.shopId) === _shop && c0.isOwner);
-          } catch (e) {}
-        }
-        if (!ega) return res.status(200).json({ ok: true });
-        const _o = _khOraliq(_tok);
-        const st = await _pulIchki({ action: "report_stats",
-          from: _o.from, to: _o.to, shopId: _shop });
-        const d  = await _khHisob(_shop, _o.from, _o.to);
-        const nm = await _ckShopNom([_shop]);
-        const oc = ("KH__" + _shop).replace(/[^a-zA-Z0-9_]/g,
-          m => "x" + m.charCodeAt(0).toString(16));
-        await tg(chatId, _khMatn(nm[_shop] || _shop, _o.nom, d, st), {
-          reply_markup: { inline_keyboard: [
-            [{ text: "🔎 To'liq hisobot (mini-app)",
-               url: `https://t.me/${BOT_USERNAME}/ombor?startapp=${oc}` }],
-            // ✅ OT-6: tez-davrlar — xulosa shu chatning o'zida
-            [{ text: "Kecha",  callback_data: `kh|${_shop}|1` },
-             { text: "7 kun",  callback_data: `kh|${_shop}|7` },
-             { text: "Bu oy",  callback_data: `kh|${_shop}|oy` }],
-          ] } });
+        await _khYubor(chatId, cb.from?.id, _p2[0], _p2[1] || "0");
         return res.status(200).json({ ok: true });
       }
 
@@ -5274,8 +5276,10 @@ function yubor(){
   _menuEga(chatId).catch(() => {});   // ✅ OT-1a: ega chatiga to'liq menyu
   _kbEgaYubor(chatId).catch(() => {}); // ✅ OT-1b: tez tugmalar (soatiga 1 marta)
 
-  // ✅ OT-3: /kunlik — kunlik hisobot mini-app havolasi (faqat ega;
-  // darvoza yuqorida allaqachon o'tilgan).
+  // ✅ OT-7: ESKI 📊 Hisobot ham YANGI oqimga — ikki tugma
+  // chalkashligi tugadi; eski matn-tarmoq pastda zaxira bo'lib qoladi.
+  if (cmd === "/hisobot") cmd = "/kunlik";
+  // ✅ OT-3: /kunlik — kunlik hisobot (faqat ega; darvoza o'tilgan).
   if (cmd === "/kunlik") {
     let ids = [];
     try {
@@ -5288,6 +5292,12 @@ function yubor(){
     }
     if (!ids.length) {
       await tg(chatId, "⚠️ Do'kon topilmadi.");
+      return res.status(200).json({ ok: true });
+    }
+    // ✅ OT-7: bitta do'kon — tanlovsiz DARHOL xulosa (eski tugma
+    // tezligi, yangi mazmun).
+    if (ids.length === 1) {
+      await _khYubor(chatId, chatId, ids[0], "0");
       return res.status(200).json({ ok: true });
     }
     const nom = await _ckShopNom(ids);
