@@ -156,7 +156,10 @@ function stRang(pal, k) {
   if (String(k).charAt(0) === "#") return k;
   return pal[k] || "#000";
 }
-function stPal() { return STU_PAL.find(p => p.id === STU.pal) || STU_PAL[0]; }
+function stPal() {
+  if (STU.pal === "auto" && STU.avtoPal) return STU.avtoPal;   // ✅ S1
+  return STU_PAL.find(p => p.id === STU.pal) || STU_PAL[0];
+}
 function stShab() { return STU_SHAB.find(s => s.id === STU.shab) || STU_SHAB[0]; }
 function stFmt()  { return STU_FMT.find(f => f.id === STU.fmt)  || STU_FMT[0]; }
 function stSon(n) {
@@ -219,8 +222,17 @@ function stManba(m) {
 }
 
 // ── ChIZUVChI (retseptni o'qiydi) ──────────────────────────────
-function stChiz(cvs, fmt) {
-  const F = fmt || stFmt(), P = stPal(), S = stShab();
+function stChiz(cvs, fmt, opt) {
+  // ✅ S1: `opt` — {shab, pal} bo'lsa O'ShA variant chiziladi
+  // (galereyadagi 6 namuna shu bilan quriladi), aks holda joriy holat.
+  const F = fmt || stFmt();
+  const S = (opt && opt.shab)
+    ? (STU_SHAB.find(x => x.id === opt.shab) || stShab()) : stShab();
+  const P = (opt && opt.pal)
+    ? (typeof opt.pal === "object" ? opt.pal
+       : (opt.pal === "auto" && STU.avtoPal ? STU.avtoPal
+          : (STU_PAL.find(x => x.id === opt.pal) || stPal())))
+    : stPal();
   const c = cvs || document.getElementById("stu-cvs");
   if (!c) return;
   c.width = F.w; c.height = F.h;
@@ -287,9 +299,30 @@ function stChiz(cvs, fmt) {
           const im = STU.img, z = STU.imgAdj.zoom || 1;
           const k = Math.min(bw / im.width, bh / im.height) * z;
           const dw = im.width * k, dh = im.height * k;
-          ctx.drawImage(im,
-            bx + (bw - dw) / 2 + (STU.imgAdj.dx || 0) * W,
-            by + (bh - dh) / 2 + (STU.imgAdj.dy || 0) * H, dw, dh);
+          const dx = bx + (bw - dw) / 2 + (STU.imgAdj.dx || 0) * W;
+          const dy = by + (bh - dh) / 2 + (STU.imgAdj.dy || 0) * H;
+          // ✅ S1: YERGA TUShISh SOYASI — kesilgan tovar "havoda
+          // osilib" qolmasin (jonli kuzatuv, 6-sen). Kod bilan chiziladi.
+          if (STU.soya !== false) {
+            const sx = dx + dw / 2, sy = dy + dh * .985;
+            const g = ctx.createRadialGradient(sx, sy, dw * .04, sx, sy, dw * .42);
+            g.addColorStop(0, "rgba(0,0,0,.40)");
+            g.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.save(); ctx.translate(sx, sy); ctx.scale(1, .19);
+            ctx.translate(-sx, -sy);
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(sx, sy, dw * .42, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+          }
+          ctx.drawImage(im, dx, dy, dw, dh);
+          // ✅ S1: MATN KONTRASTI — sahna foni ustida narx/nom
+          // yo'qolmasin: pastdan yumshoq to'q qatlam.
+          if (STU.fon) {
+            const g2 = ctx.createLinearGradient(0, H * .58, 0, H);
+            g2.addColorStop(0, "rgba(0,0,0,0)");
+            g2.addColorStop(1, "rgba(0,0,0,.55)");
+            ctx.fillStyle = g2; ctx.fillRect(0, H * .58, W, H * .42);
+          }
           break;
         }
 
@@ -490,6 +523,7 @@ function stuTanla(sku) {
     rang: ranglar.slice(0, 2).join(", "),
     olcham: olch.length > 1 ? (olch[0] + "-" + olch[olch.length - 1]) : (olch[0] || ""),
     narx: Number(p.ulgurjiNarx || p.priceUzs) || 0,
+    kat: String(p.category || p.type || ""),   // ✅ S1: sahna tanlash uchun
   };
   const q = document.getElementById("stu-q");   if (q) q.value = "";
   const n = document.getElementById("stu-natija"); if (n) { n.innerHTML = ""; n.style.display = "none"; }
@@ -603,8 +637,8 @@ function _stuImg(src) {
   });
 }
 // Fonni tozalash — tovar shaffof PNG bo'lib qaytadi
-async function stuFonTozala() {
-  if (!STU.img) { toast("Avval surat yuklang", "err"); return; }
+async function stuFonTozala(jim) {
+  if (!STU.img) { if (!jim) toast("Avval surat yuklang", "err"); return false; }
   if (!STU.asl) STU.asl = STU.img;
   // kichraytirib yuboramiz (tezlik + hajm)
   const c = document.createElement("canvas");
@@ -612,20 +646,22 @@ async function stuFonTozala() {
   c.width = Math.round(STU.img.width * k); c.height = Math.round(STU.img.height * k);
   c.getContext("2d").drawImage(STU.img, 0, 0, c.width, c.height);
   const d = await stuAI("fon", { image: c.toDataURL("image/jpeg", 0.9) });
-  if (!d) return;
+  if (!d) return false;
   try {
     STU.img = await _stuImg(d.image);
-    stuHolat(""); toast("Fon tozalandi", "ok"); stChiz();
-  } catch (e) { stuHolat(""); toast("Natija ochilmadi", "err"); }
+    if (!jim) { stuHolat(""); toast("Fon tozalandi", "ok"); stChiz(); }
+    return true;
+  } catch (e) { stuHolat(""); if (!jim) toast("Natija ochilmadi", "err"); return false; }
 }
 // Sahna — fon generatsiyasi (tovarsiz), tovar ustiga qo'yiladi
-async function stuSahna(tur) {
+async function stuSahna(tur, jim) {
   const d = await stuAI("sahna", { sahna: tur });
-  if (!d) return;
+  if (!d) return false;
   try {
     STU.fon = await _stuImg(d.image);
-    stuHolat(""); toast("Sahna tayyor", "ok"); stChiz();
-  } catch (e) { stuHolat(""); toast("Sahna ochilmadi", "err"); }
+    if (!jim) { stuHolat(""); toast("Sahna tayyor", "ok"); stChiz(); }
+    return true;
+  } catch (e) { stuHolat(""); if (!jim) toast("Sahna ochilmadi", "err"); return false; }
 }
 function stuAsliga() {
   if (STU.asl) STU.img = STU.asl;
@@ -646,4 +682,148 @@ async function stuLimit() {
     } catch (e) { return null; }
   })();
   if (d && d.ok) stuSarf(d.sarf, d.chegara);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ S1 (2026-09-06) — AVTO-REJIM: "rasm yukladi → to'plam oldi"
+// ═══════════════════════════════════════════════════════════════
+// Foydalanuvchi FAQAT tovarni tanlaydi va surat yuklaydi. Qolganini
+// tizim qiladi: fonni ajratadi → suratdan RANG PALITRASINI chiqaradi
+// → kategoriyaga mos SAHNA tanlaydi → 6 ta tayyor variant chizadi.
+// AI faqat IKKI marta chaqiriladi (kesish + sahna) — qolgan hamma
+// ish brauzerda, xarajatsiz.
+STU.avtoPal  = null;    // suratdan chiqarilgan palitra
+STU.variants = [];      // [{shab, pal}]
+STU.tanlanganV = 0;
+
+// ── Suratdan palitra: hukmron rangni topib, unga MOS to'plam quriladi
+function _hsl(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60)       { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else              { r = c; b = x; }
+  const q = v => ("0" + Math.round((v + m) * 255).toString(16)).slice(-2);
+  return "#" + q(r) + q(g) + q(b);
+}
+function stuPalitraChiqar(im) {
+  try {
+    const n = 48, c = document.createElement("canvas");
+    c.width = n; c.height = n;
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(im, 0, 0, n, n);
+    const d = ctx.getImageData(0, 0, n, n).data;
+    let r = 0, g = 0, b = 0, k = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 128) continue;                    // shaffof joy
+      const mx = Math.max(d[i], d[i+1], d[i+2]), mn = Math.min(d[i], d[i+1], d[i+2]);
+      if (mx > 244 && mn > 244) continue;              // oq
+      if (mx < 14) continue;                           // qora
+      r += d[i]; g += d[i+1]; b += d[i+2]; k++;
+    }
+    if (!k) return null;
+    r /= k; g /= k; b /= k;
+    // RGB → HSL (faqat rang burchagi kerak)
+    const R = r/255, G = g/255, B = b/255;
+    const mx = Math.max(R,G,B), mn = Math.min(R,G,B), dl = mx - mn;
+    let h = 0;
+    if (dl) {
+      if (mx === R)      h = 60 * (((G - B) / dl) % 6);
+      else if (mx === G) h = 60 * ((B - R) / dl + 2);
+      else               h = 60 * ((R - G) / dl + 4);
+    }
+    const l = (mx + mn) / 2;
+    const sat = dl ? dl / (1 - Math.abs(2 * l - 1)) : 0;
+    return {
+      id: "auto", nom: "Suratdan",
+      a: _hsl(h, Math.min(sat, .34), .11),             // to'q fon
+      b: _hsl(h + 180, .74, .56),                      // qarama-qarshi urg'u
+      c: "#FFFFFF",
+      d: _hsl(h, .16, .74),
+    };
+  } catch (e) { return null; }
+}
+
+// ── Kategoriyaga mos sahna
+function stuSahnaTanla() {
+  const t = ((STU.tovar && (STU.tovar.kat + " " + STU.tovar.nom)) || "").toLowerCase();
+  const bor = a => a.some(w => t.includes(w));
+  // ⚠️ TARTIB MUHIM: "Oyoq kiyim" ichida "kiyim" so'zi bor —
+  // shuning uchun OYOQ KIYIM birinchi tekshiriladi (stend xatosi, 6-sen).
+  if (bor(["oyoq", "krossovka", "botinka", "tufli", "shippak", "sandal",
+           "poyabzal", "ked", "sneaker"])) return "studiya";
+  if (bor(["sumka", "aksessuar", "kamar", "ryukzak"])) return "studiya";
+  if (bor(["qish", "kurtka", "sviter", "palto", "yangi yil"])) return "bayram";
+  if (bor(["ko'ylak", "koylak", "shim", "kiyim", "kostyum", "futbolka",
+           "shortik", "yubka"])) return "tabiiy";
+  return "studiya";
+}
+
+// ── Olti variant (uslub × palitra)
+function stuVariantlar() {
+  const A = STU.avtoPal ? "auto" : "navy";
+  return [
+    { shab: "narx",     pal: A },
+    { shab: "sarlavha", pal: "amber" },
+    { shab: "lenta",    pal: "qogoz" },
+    { shab: "burchak",  pal: A },
+    { shab: "katalog",  pal: "oq" },
+    { shab: "chegirma", pal: "qizil" },
+  ];
+}
+
+// ── ASOSIY: bir bosishda hammasi
+async function stuReklamaYasa() {
+  if (!STU.tovar) { toast("Avval tovarni tanlang", "err"); return; }
+  if (!STU.img)   { toast("Surat yuklang", "err"); return; }
+  const b = document.getElementById("stu-avto");
+  if (b) { b.disabled = true; b.textContent = "⏳ Tayyorlanmoqda…"; }
+  try {
+    if (!STU.asl) STU.asl = STU.img;
+    stuHolat("1/3 · Tovar fondan ajratilmoqda…");
+    await stuFonTozala(true);
+    stuHolat("2/3 · Sahna tanlanmoqda…");
+    STU.avtoPal = stuPalitraChiqar(STU.img);
+    await stuSahna(stuSahnaTanla(), true);
+    stuHolat("3/3 · Variantlar chizilmoqda…");
+    STU.variants = stuVariantlar();
+    STU.tanlanganV = 0;
+    stuVariantChiz();
+    const v = STU.variants[0];
+    STU.shab = v.shab; STU.pal = v.pal;
+    renderStudio();
+    stuHolat("");
+    toast("6 ta variant tayyor — yoqqanini tanlang", "ok");
+  } catch (e) {
+    stuHolat(""); toast("Xato: " + e.message, "err");
+  } finally {
+    if (b) { b.disabled = false; b.textContent = "✨ Reklama yasa"; }
+  }
+}
+
+// ── Galereya
+function stuVariantChiz() {
+  const el = document.getElementById("stu-variants");
+  if (!el) return;
+  if (!STU.variants.length) { el.innerHTML = ""; return; }
+  el.innerHTML = STU.variants.map((v, i) =>
+    `<button class="stu-vr${i === STU.tanlanganV ? " on" : ""}" onclick="stuVariantTanla(${i})">
+       <canvas id="stu-vc${i}" width="360" height="450"></canvas>
+       <span>${(STU_SHAB.find(s => s.id === v.shab) || {}).nom || ""}</span>
+     </button>`).join("");
+  STU.variants.forEach((v, i) => {
+    const c = document.getElementById("stu-vc" + i);
+    if (c) stChiz(c, { w: 360, h: 450 }, v);
+  });
+}
+function stuVariantTanla(i) {
+  const v = STU.variants[i]; if (!v) return;
+  STU.tanlanganV = i; STU.shab = v.shab; STU.pal = v.pal;
+  renderStudio();
+  stuVariantChiz();
 }

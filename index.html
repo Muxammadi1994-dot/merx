@@ -1151,102 +1151,136 @@ body.sms-off .sms-only { display: none !important; }
 
   <!-- KATALOG -->
   <!-- ═══ ✅ STUDIO (2026-09-06) — reklama shablon dvigateli ═══
-       Butun mantiq js/studio.js da. Bu yerda faqat qolip.
-       Sahifa FAQAT O'QIYDI: katalogdan nom/narx/artikul oladi. -->
+       Mantiq: js/studio.js · Server (AI): api/reklama.js
+       Ko'rinish ATAYLAB alohida: qora "sahna" + amber urg'u —
+       bu ijod maydoni, hisob jadvali emas. Uslublar `#p-studio`
+       ichida yopiq (ilovaning qolgan qismiga tarqalmaydi). -->
   <div class="pg" id="p-studio">
     <style>
-      .stu-wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
-      .stu-left{flex:1 1 320px;min-width:300px;max-width:430px}
-      .stu-right{flex:1 1 320px;display:flex;flex-direction:column;align-items:center;gap:10px}
-      .stu-card{background:#fff;border:1px solid var(--brd);border-radius:14px;padding:14px;margin-bottom:12px}
-      .stu-card h4{margin:0 0 9px;font-size:13px;letter-spacing:.2px}
-      .stu-chip{padding:6px 11px;border-radius:8px;border:1.5px solid var(--brd);background:#fff;
-        font-size:12.5px;font-family:inherit;cursor:pointer;margin:0 6px 6px 0}
-      .stu-chip.on{background:#0D1B2A;color:#fff;border-color:#0D1B2A}
-      .stu-pal{display:inline-flex;border:2px solid var(--brd);border-radius:8px;overflow:hidden;
-        width:52px;height:26px;padding:0;margin:0 6px 6px 0;cursor:pointer;background:none}
-      .stu-pal.on{border-color:#0D1B2A}
-      .stu-pal i{flex:1;display:block}
-      .stu-row{padding:8px 10px;border-bottom:1px solid var(--brd);cursor:pointer;font-size:13px}
-      .stu-row:hover{background:#FFFBF0}
-      .stu-row b{display:block;font-weight:700}
-      .stu-row span{font-size:11.5px;color:var(--mut)}
-      #stu-cvs{max-width:100%;max-height:62vh;border-radius:12px;box-shadow:0 2px 14px rgba(13,27,42,.14)}
+      #p-studio{--stg:#0B1220;--stg2:#141E33;--amb:#F2A20C;--vio:#7C5CFF;
+        --ln:#E4E0D8;--mut2:#8A93A6}
+      #p-studio .st-hero{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+        background:linear-gradient(100deg,var(--stg) 0%,var(--stg2) 100%);
+        border-radius:20px;padding:18px 20px;margin-bottom:16px;color:#fff}
+      #p-studio .st-hero h3{margin:0;font-size:20px;letter-spacing:-.4px;font-weight:800}
+      #p-studio .st-hero p{margin:3px 0 0;font-size:12.5px;color:#9FB0C9;max-width:46ch;line-height:1.5}
+      #p-studio .st-go{margin-left:auto;background:var(--amb);color:#0B1220;border:none;
+        border-radius:14px;padding:14px 22px;font-family:inherit;font-weight:800;
+        font-size:15px;cursor:pointer;box-shadow:0 6px 18px rgba(242,162,12,.35)}
+      #p-studio .st-go:disabled{opacity:.6;cursor:default;box-shadow:none}
+      #p-studio .st-grid{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+      #p-studio .st-col{flex:1 1 300px;min-width:290px;max-width:400px}
+      #p-studio .st-stage{flex:1 1 380px;background:var(--stg);border-radius:20px;
+        padding:16px;display:flex;flex-direction:column;align-items:center;gap:12px}
+      #p-studio .st-card{background:#fff;border:1px solid var(--ln);border-radius:16px;
+        padding:14px 15px;margin-bottom:12px}
+      #p-studio .st-card h4{margin:0 0 10px;font-size:12px;font-weight:800;
+        letter-spacing:.6px;color:#6B7480;display:flex;align-items:center;gap:7px}
+      #p-studio .st-card h4 i.n{width:20px;height:20px;border-radius:7px;background:#0B1220;
+        color:#fff;font-style:normal;font-size:11px;display:grid;place-items:center;font-weight:800}
+      #p-studio .st-inp{width:100%;box-sizing:border-box;padding:11px 13px;
+        border:1.5px solid var(--ln);border-radius:12px;font-family:inherit;font-size:13.5px;background:#FCFBF9}
+      #p-studio .st-inp:focus{outline:none;border-color:var(--amb)}
+      #p-studio .stu-chip{padding:7px 12px;border-radius:999px;border:1.5px solid var(--ln);
+        background:#fff;font-size:12.5px;font-family:inherit;cursor:pointer;margin:0 6px 6px 0}
+      #p-studio .stu-chip.on{background:#0B1220;color:#fff;border-color:#0B1220}
+      #p-studio .stu-pal{display:inline-flex;border:2px solid var(--ln);border-radius:9px;
+        overflow:hidden;width:50px;height:26px;padding:0;margin:0 6px 6px 0;cursor:pointer;background:none}
+      #p-studio .stu-pal.on{border-color:#0B1220}
+      #p-studio .stu-pal i{flex:1;display:block}
+      #p-studio .stu-row{padding:9px 11px;border-bottom:1px solid var(--ln);cursor:pointer;font-size:13px}
+      #p-studio .stu-row:hover{background:#FFF8E8}
+      #p-studio .stu-row b{display:block;font-weight:700}
+      #p-studio .stu-row span{font-size:11.5px;color:#8A8578}
+      #p-studio #stu-cvs{max-width:100%;max-height:56vh;border-radius:14px;
+        box-shadow:0 10px 34px rgba(0,0,0,.45)}
+      #p-studio .st-fmt button{background:rgba(255,255,255,.08);color:#C9D4E5;border:none;
+        border-radius:999px;padding:7px 13px;font-size:12px;font-family:inherit;
+        cursor:pointer;margin:0 5px 0 0}
+      #p-studio .st-fmt button.on{background:#fff;color:#0B1220;font-weight:700}
+      #p-studio .st-act{display:flex;gap:9px;flex-wrap:wrap;justify-content:center}
+      #p-studio .st-act button{border:none;border-radius:12px;padding:11px 17px;
+        font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer}
+      #p-studio .st-b1{background:#fff;color:#0B1220}
+      #p-studio .st-b2{background:var(--amb);color:#0B1220;font-weight:800}
+      #p-studio .st-ai{display:flex;gap:7px;flex-wrap:wrap}
+      #p-studio .st-ai button{flex:1;min-width:88px;border:1.5px solid var(--ln);background:#fff;
+        border-radius:11px;padding:9px;font-family:inherit;font-size:12.5px;cursor:pointer}
+      #p-studio .st-ai button:hover{border-color:var(--vio);color:var(--vio)}
+      #p-studio .st-vars{display:flex;gap:10px;overflow-x:auto;width:100%;padding:2px 0 6px}
+      #p-studio .stu-vr{flex:0 0 108px;background:none;border:none;padding:0;cursor:pointer}
+      #p-studio .stu-vr canvas{width:108px;height:135px;border-radius:10px;
+        border:2.5px solid transparent;background:#fff;object-fit:cover}
+      #p-studio .stu-vr.on canvas{border-color:var(--amb)}
+      #p-studio .stu-vr span{display:block;font-size:10.5px;color:#8FA0B8;margin-top:4px}
+      #p-studio .st-hint{font-size:11.5px;color:#8A8578;line-height:1.5;margin-top:8px}
+      #p-studio #stu-holat{color:var(--amb);font-weight:700;font-size:13px}
+      @media(max-width:860px){#p-studio .st-col{max-width:none}}
     </style>
-    <div class="stu-wrap">
-      <div class="stu-left">
-        <div class="stu-card">
-          <h4>1 · Tovarni tanlang</h4>
-          <input id="stu-q" class="inp" placeholder="Nom, artikul yoki barcode"
-                 oninput="stuQidir(this.value)" autocomplete="off"
-                 style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid var(--brd);border-radius:10px;font-family:inherit;font-size:13.5px">
-          <div id="stu-natija" style="display:none;max-height:220px;overflow:auto;border:1px solid var(--brd);border-radius:10px;margin-top:8px"></div>
-          <div id="stu-tovar-nom" style="margin-top:9px;font-size:12.5px;color:var(--mut);font-weight:700">Tovar tanlanmagan</div>
+
+    <div class="st-hero">
+      <div>
+        <h3>Tovar suratidan reklama</h3>
+        <p>Tovarni tanlang, suratga oling — qolganini tizim qiladi:
+           fonni ajratadi, sahna quradi va olti tayyor variant chizadi.</p>
+      </div>
+      <button class="st-go" id="stu-avto" onclick="stuReklamaYasa()">✨ Reklama yasa</button>
+    </div>
+
+    <div class="st-grid">
+      <div class="st-col">
+        <div class="st-card">
+          <h4><i class="n">1</i> Tovar</h4>
+          <input id="stu-q" class="st-inp" placeholder="Nom, artikul yoki barcode"
+                 oninput="stuQidir(this.value)" autocomplete="off">
+          <div id="stu-natija" style="display:none;max-height:210px;overflow:auto;border:1px solid var(--ln);border-radius:12px;margin-top:8px"></div>
+          <div id="stu-tovar-nom" style="margin-top:9px;font-size:12.5px;color:#6B7480;font-weight:700">Tovar tanlanmagan</div>
         </div>
 
-        <div class="stu-card">
-          <h4>2 · Surat</h4>
-          <input type="file" accept="image/*" capture="environment" onchange="stuRasm(this)"
-                 style="font-size:12.5px;width:100%">
-          <div style="font-size:11.5px;color:var(--mut);margin-top:7px;line-height:1.5">
-            Telefonda oling: bir rangli devor yoki oq mato fonida, deraza yonida —
-            quyoshga qarshi emas. Tovar kadr o'rtasida tursin.
-          </div>
-          <label style="display:block;margin-top:9px;font-size:12px;color:var(--mut)">Kattalik
-            <input type="range" min="0.6" max="1.8" step="0.02" value="1"
-                   oninput="stuZoom(this.value)" style="width:100%">
+        <div class="st-card">
+          <h4><i class="n">2</i> Surat</h4>
+          <input type="file" accept="image/*" capture="environment" onchange="stuRasm(this)" style="font-size:12.5px;width:100%">
+          <div class="st-hint">Bir rangli devor yoki oq mato fonida, deraza yonida —
+            quyoshga qarshi emas. Tovar kadr o'rtasida tursin.</div>
+          <label style="display:block;margin-top:9px;font-size:12px;color:#6B7480">Kattalik
+            <input type="range" min="0.6" max="1.8" step="0.02" value="1" oninput="stuZoom(this.value)" style="width:100%">
           </label>
         </div>
 
-        <!-- ✅ 1-bosqich: AI qatlami -->
-        <div class="stu-card">
-          <h4>3 · Studiya ko'rinishi <span id="stu-sarf" style="float:right;font-weight:600;font-size:11px;color:var(--mut)"></span></h4>
-          <button onclick="stuFonTozala()" style="width:100%;padding:10px;border:1.5px solid var(--brd);background:#fff;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✂️ Fonni tozalash</button>
-          <div style="display:flex;gap:6px;margin-top:8px">
-            <button onclick="stuSahna('studiya')" class="stu-chip" style="flex:1;margin:0">Studiya</button>
-            <button onclick="stuSahna('tabiiy')"  class="stu-chip" style="flex:1;margin:0">Tabiiy</button>
-            <button onclick="stuSahna('bayram')"  class="stu-chip" style="flex:1;margin:0">Bayram</button>
+        <div class="st-card">
+          <h4><i class="n">3</i> Qo'lda sozlash
+            <span id="stu-sarf" style="margin-left:auto;font-weight:600;font-size:11px;color:#8A8578"></span></h4>
+          <div class="st-ai">
+            <button onclick="stuFonTozala()">✂️ Fon</button>
+            <button onclick="stuSahna('studiya')">Studiya</button>
+            <button onclick="stuSahna('tabiiy')">Tabiiy</button>
+            <button onclick="stuSahna('bayram')">Bayram</button>
           </div>
-          <button onclick="stuAsliga()" style="width:100%;margin-top:8px;padding:8px;border:none;background:none;color:var(--mut);font-family:inherit;font-size:12px;cursor:pointer;text-decoration:underline">Asliga qaytar</button>
-          <div id="stu-holat" style="display:none;margin-top:8px;font-size:12.5px;color:var(--acc);font-weight:700"></div>
-          <div style="font-size:11px;color:var(--mut);margin-top:7px;line-height:1.45">
-            Tovar rasmiga qayta chizish qo'llanmaydi — faqat fon ajratiladi
-            yoki yangi fon quriladi.
-          </div>
-        </div>
-
-        <div class="stu-card">
-          <h4>4 · Uslub</h4>
-          <div id="stu-shab"></div>
-          <h4 style="margin-top:12px">Rang</h4>
-          <div id="stu-pal"></div>
-        </div>
-
-        <div class="stu-card">
-          <h4>5 · Matn</h4>
-          <input id="stu-yorliq" class="inp" placeholder="Yozuv (YANGI KELDI, -30%, QISHKI TO'PLAM)"
-                 oninput="stuYorliq(this.value)" maxlength="28"
-                 style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid var(--brd);border-radius:10px;font-family:inherit;font-size:13.5px">
-          <label style="display:block;margin-top:9px;font-size:12.5px">
+          <div id="stu-shab" style="margin-top:11px"></div>
+          <div id="stu-pal" style="margin-top:4px"></div>
+          <input id="stu-yorliq" class="st-inp" style="margin-top:8px"
+                 placeholder="Yozuv: YANGI KELDI, −30%, QIShKI TO'PLAM"
+                 oninput="stuYorliq(this.value)" maxlength="28">
+          <label style="display:block;margin-top:8px;font-size:12.5px">
             <input type="checkbox" checked onchange="stuNarx(this.checked)"> Narx ko'rsatilsin</label>
-          <label style="display:block;margin-top:5px;font-size:12.5px">
+          <label style="display:block;margin-top:4px;font-size:12.5px">
             <input type="checkbox" checked onchange="stuBelgi(this.checked)"> merx.uz belgisi</label>
+          <button onclick="stuAsliga()" style="width:100%;margin-top:9px;padding:7px;border:none;background:none;color:#8A8578;font-family:inherit;font-size:12px;cursor:pointer;text-decoration:underline">Asl suratga qaytish</button>
         </div>
       </div>
 
-      <div class="stu-right">
-        <div id="stu-fmt" style="align-self:flex-start"></div>
+      <div class="st-stage">
+        <div id="stu-fmt" class="st-fmt" style="align-self:flex-start"></div>
         <canvas id="stu-cvs" width="1080" height="1350"></canvas>
-        <div style="display:flex;gap:9px;flex-wrap:wrap;justify-content:center">
-          <button class="btn" onclick="stuYukla(false)"
-            style="background:#0D1B2A;color:#fff;border:none;border-radius:10px;padding:11px 18px;font-family:inherit;font-weight:700;font-size:13.5px">
-            Shu formatni yuklash</button>
-          <button class="btn" onclick="stuYukla(true)"
-            style="background:#F2A20C;color:#0D1B2A;border:none;border-radius:10px;padding:11px 18px;font-family:inherit;font-weight:800;font-size:13.5px">
-            4 formatni birdan</button>
+        <div id="stu-holat" style="display:none"></div>
+        <div id="stu-variants" class="st-vars"></div>
+        <div class="st-act">
+          <button class="st-b1" onclick="stuYukla(false)">Shu formatni yuklash</button>
+          <button class="st-b2" onclick="stuYukla(true)">4 formatni birdan</button>
         </div>
-        <div style="font-size:11.5px;color:var(--mut);text-align:center;max-width:340px;line-height:1.5">
-          Tayyor rasm saqlanmaydi — to'g'ridan telefoningizga tushadi.
+        <div style="font-size:11.5px;color:#7C879C;text-align:center;max-width:330px;line-height:1.5">
+          Tovar rasmi qayta chizilmaydi — faqat fon ajratiladi yoki yangi fon quriladi.
+          Tayyor rasm saqlanmaydi.
         </div>
       </div>
     </div>
@@ -5358,7 +5392,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=3"></script>
+<script src="js/studio.js?v=4"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -5651,7 +5685,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 583;
+  window.SW_V = 584;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5674,7 +5708,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=583")
+    navigator.serviceWorker.register("/sw.js?v=584")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
