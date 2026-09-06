@@ -2457,6 +2457,12 @@ function renderStudio() {
   }
 }
 function stuShab(id) { STU.shab = id; renderStudio(); }
+// ✅ D2: og'ir qayta chizishni kechiktirish (rang/shrift tez bosilganda)
+let _stuTaymer = null;
+function _stuKech(fn, ms) {
+  clearTimeout(_stuTaymer);
+  _stuTaymer = setTimeout(fn, ms == null ? 130 : ms);
+}
 function stuPanel(id) {                            // ✅ D1: panel almashish
   ["shablon","tovar","surat","fon","ai","brend","tarqat"].forEach(k => {
     const p = document.getElementById("stu-p-" + k);
@@ -2465,7 +2471,7 @@ function stuPanel(id) {                            // ✅ D1: panel almashish
     if (b) b.classList.toggle("on", k === id);
   });
 }
-function stuPal(id)  { STU.pal  = id; renderStudio(); }
+function stuPal(id)  { STU.pal = id; stChiz(); _stuKech(renderStudio); }
 function stuFmt(id)  { STU.fmt  = id; renderStudio(); }
 function stuYorliq(v){ STU.yorliq = String(v || "").slice(0, 28); stChiz(); }
 function stuNarx(on) { STU.narxKorsat = !!on; stChiz(); }
@@ -2860,9 +2866,11 @@ function stuVariantChiz() {
        <canvas id="stu-vc${i}" width="180" height="225"></canvas>
        <span>${(STU_SHAB.find(s => s.id === v.shab) || {}).nom || ""}</span>
      </button>`).join("");
+  const _imz = _stuImzo();                           // ✅ D2: keraksiz chizish yo'q
   STU.variants.forEach((v, i) => {
     const c = document.getElementById("stu-vc" + i);
-    if (c) stChiz(c, { w: 180, h: 225 }, v);
+    if (!c || c.dataset.sig === _imz + i) return;
+    try { stChiz(c, { w: 180, h: 225 }, v); c.dataset.sig = _imz + i; } catch (e) {}
   });
 }
 function stuVariantTanla(i) {
@@ -3201,7 +3209,8 @@ function stuTipoChiz() {
     `<button class="stu-chip${t.id === STU.tipo ? " on" : ""}"
        onclick="stuTipo('${t.id}')">${t.nom}</button>`).join("");
 }
-function stuTipo(id) { STU.tipo = id; renderStudio(); stuVariantChiz(); }
+function stuTipo(id) { STU.tipo = id; stChiz();
+  _stuKech(() => { renderStudio(); stuVariantChiz(); }); }
 
 // ── Logotip: yuklash, kichraytirish, saqlash
 // ═══ ✅ XOTIRA QO'RIQChISI (2026-09-06) ═══
@@ -3354,17 +3363,39 @@ function stuBrauzer() {
   }
   el.innerHTML = r.map(s => `
     <button class="stu-sh${s.id === STU.shab ? " on" : ""}" onclick="stuShab('${s.id}')">
-      <canvas id="stu-sc-${s.id}" width="164" height="205"></canvas>
+      <canvas id="stu-sc-${s.id}" width="164" height="205" data-sh="${s.id}"></canvas>
       <span class="stu-sh-nom">${s.nom}</span>
       <i class="stu-sh-sev${STU.sevimli.indexOf(s.id) >= 0 ? " on" : ""}"
          onclick="stuSev('${s.id}', event)">★</i>
     </button>`).join("");
-  // jonli namoyish — har kartaga o'z shabloni, joriy palitrada
-  r.forEach(s => {
-    const c = document.getElementById("stu-sc-" + s.id);
-    if (c) { try { stChiz(c, { w: 164, h: 205 }, { shab: s.id, pal: STU.pal }); }
-             catch (e) {} }
-  });
+  _stuNamoyish(el);                                  // ✅ D2
+}
+
+// ✅ D2 (2026-09-06): NAMOYIShLAR KO'RINGANDA ChIZILADI.
+// 103 shablonni birdan chizish telefonni bir necha soniyaga qotiradi.
+// Endi faqat ekranda ko'ringan kartalar chiziladi (IntersectionObserver),
+// va bir xil holat ikkinchi marta chizilmaydi (imzo keshi).
+function _stuImzo() {
+  return [STU.pal, STU.tipo, STU.real ? "r" : "",
+          (STU.tovar && STU.tovar.art) || "", STU.img ? "i" : "",
+          STU.fon ? "f" : ""].join("|");
+}
+function _stuNamoyish(el) {
+  const imzo = _stuImzo();
+  const chiz = c => {
+    if (!c || c.dataset.sig === imzo) return;
+    try {
+      stChiz(c, { w: +c.width, h: +c.height }, { shab: c.dataset.sh, pal: STU.pal });
+      c.dataset.sig = imzo;
+    } catch (e) {}
+  };
+  const kartalar = [].slice.call(el.querySelectorAll("canvas[data-sh]"));
+  if (!window.IntersectionObserver) { kartalar.slice(0, 12).forEach(chiz); return; }
+  if (el._kuzat) el._kuzat.disconnect();
+  el._kuzat = new IntersectionObserver(lar => {
+    lar.forEach(x => { if (x.isIntersecting) chiz(x.target); });
+  }, { rootMargin: "220px" });
+  kartalar.forEach(c => el._kuzat.observe(c));
 }
 
 // ═══════════════════════════════════════════════════════════════

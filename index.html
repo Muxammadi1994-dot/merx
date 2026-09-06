@@ -1257,10 +1257,26 @@ body.sms-off .sms-only { display: none !important; }
       #p-studio .stu-vr.on canvas{border-color:var(--amb)}
       #p-studio .stu-vr span{display:block;font-size:10px;color:#8FA0B8;margin-top:3px}
       #p-studio #stu-holat{color:var(--amb);font-weight:700;font-size:12.5px}
+      /* ✅ D2: TELEFON KO'RINISHI — sahna birinchi, keyin boshqaruv */
       @media(max-width:900px){
         #p-studio .st-app{flex-wrap:wrap}
-        #p-studio .st-rail{flex-direction:row;flex:1 1 100%;overflow-x:auto}
-        #p-studio .st-pan{max-width:none;flex:1 1 100%;max-height:none}
+        #p-studio .st-stage{order:1;flex:1 1 100%;padding:11px;border-radius:16px}
+        #p-studio .st-rail{order:2;flex-direction:row;flex:1 1 100%;overflow-x:auto;
+          padding-bottom:2px;gap:5px}
+        #p-studio .st-rail button{flex:0 0 62px}
+        #p-studio .st-pan{order:3;max-width:none;flex:1 1 100%;max-height:none;padding:12px}
+        #p-studio #stu-cvs{max-height:46vh}
+        #p-studio .st-top{padding:12px 14px;border-radius:16px}
+        #p-studio .st-top h3{font-size:17px}
+        #p-studio .st-go{margin-left:0;width:100%;margin-top:8px}
+        #p-studio .st-cip{width:100%}
+        #p-studio #stu-brauzer{grid-template-columns:1fr 1fr 1fr}
+        #p-studio #stu-kodfon{grid-template-columns:1fr 1fr 1fr 1fr}
+        #p-studio .st-act button{flex:1 1 46%;padding:11px 8px}
+      }
+      @media(max-width:520px){
+        #p-studio #stu-brauzer{grid-template-columns:1fr 1fr}
+        #p-studio #stu-fonlar{grid-template-columns:1fr 1fr}
       }
     </style>
 
@@ -1431,7 +1447,8 @@ body.sms-off .sms-only { display: none !important; }
         <div id="stu-holat" style="display:none"></div>
         <div id="stu-variants" class="st-vars"></div>
         <div class="st-act">
-          <button class="st-b2" onclick="stuYukla(true)">4 formatni birdan</button>
+          <button class="st-b2" id="stu-toplam" onclick="stuToplam(false)">⬇ To'plam</button>
+          <button class="st-b1" onclick="stuToplam(true)">⬇ To'plam + video</button>
           <button class="st-b1" onclick="stuYukla(false)">Shu format</button>
           <button class="st-b1" id="stu-video" onclick="stuVideo()">🎬 Video</button>
           <button class="st-b1" id="stu-kanal-yubor" onclick="stuKanalga()">📢 Kanalga</button>
@@ -5546,7 +5563,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=22"></script>
+<script src="js/studio.js?v=23"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -5839,7 +5856,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 602;
+  window.SW_V = 603;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5862,7 +5879,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=602")
+    navigator.serviceWorker.register("/sw.js?v=603")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
