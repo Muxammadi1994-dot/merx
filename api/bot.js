@@ -1650,24 +1650,31 @@ async function cmdOmbor(chatId) {
     for (const p of products) {
       const d = (p.data && typeof p.data === "object") ? { ...p, ...p.data } : p;
       const vars = Array.isArray(d.variants) ? d.variants : [];
-      // ✅ OT-2e (2026-09-06): KPI-KARTA BILAN BIR XIL — VARIANT
-      // darajasida: to'liq pochkalar + OChILGAN pochkalar soni + JAMI
-      // dona ("4754 pochka · 90 ta ochilgan · 24 345 dona" ko'rinishi).
-      // Jonlida pochka 0 chiqqan edi — sabab: maydon nomlari har xil
-      // kelishi mumkin (sellMode/sell_mode, inBox/in_box, variant
-      // darajasida ham) — endi chidamli o'qiladi.
-      const _sm  = d.sellMode || d.sell_mode || "";
-      const _ibP = Number(d.inBox || d.in_box) || 0;
+      // ✅ OT-2f (2026-09-06): KPI-KARTANING SATRMA-SATR EGIZAGI
+      // (ombor.js:214-231). Oldingi ikki urinish xatosi:
+      //  · men sellMode shart qilgandim — KPI TEKShIRMAYDI;
+      //  · KPI RANG darajasida sanaydi: rang ichida Σqty ÷ sig'im
+      //    (variantdagi inBox USTUVOR, bo'lmasa tovarniki, u ham
+      //    bo'lmasa 1 — KPI'dagi "|| 1" bilan aynan);
+      //  · "ochilgan" — rang-guruh boshiga BITTA (90 ta ochilgan).
+      // Maydonlar chidamli (inBox/in_box) — qaysi nomda kelsa ham.
+      const _pIb = parseInt(d.inBox ?? d.in_box) || 1;
+      const _byColor = {};
       let pQold = 0;
       for (const v of vars) {
         const q = Number(v.qty || 0);
         pQold += q;
-        const ib = _ibP || Number(v.inBox || v.in_box) || 0;
-        if (_sm === "karobka" && ib > 0) {
-          pochka += Math.floor(q / ib);
-          if (q % ib > 0) ochilgan++;
-        }
+        const c = v.color || "—";
+        if (!_byColor[c])
+          _byColor[c] = { qty: 0, ib: parseInt(v.inBox ?? v.in_box) || _pIb };
+        _byColor[c].qty += q;
       }
+      Object.values(_byColor).forEach(({ qty, ib }) => {
+        const _ib2 = ib > 0 ? ib : 1;
+        const full = Math.floor(qty / _ib2);
+        pochka += full;
+        if (qty - full * _ib2 > 0) ochilgan++;
+      });
       turlar++;
       dona += pQold;   // JAMI dona — KPI'dagidek
       let c1 = Number(d.costUzs) || 0;
