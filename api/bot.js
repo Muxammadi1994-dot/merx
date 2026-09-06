@@ -765,8 +765,29 @@ async function _pulIchki(payload) {
 // Maydonlar kunlik.js dan AYNAN: payBreakdown/payType+paid (63-80),
 // staffId→kassir jadvali (83-101), methodBreakdown/method+amountSom,
 // "balans kassaga kirmaydi" (128-150), xarajat method (152-159).
-async function _khHisob(shop, sana) {
+function _khOraliq(tok) {
+  // ✅ OT-6: tez-davrlar — 0=bugun, 1=kecha, 7=hafta, oy=shu oy
+  const t = today();
+  if (tok === "1") {
+    const k = new Date(Date.now() + 5*3600000 - 86400000)
+      .toISOString().slice(0, 10);
+    return { from: k, to: k, nom: "Kecha (" + k + ")" };
+  }
+  if (tok === "7") {
+    const f = new Date(Date.now() + 5*3600000 - 6*86400000)
+      .toISOString().slice(0, 10);
+    return { from: f, to: t, nom: "Oxirgi 7 kun" };
+  }
+  if (tok === "oy")
+    return { from: t.slice(0, 8) + "01", to: t, nom: "Bu oy" };
+  return { from: t, to: t, nom: t };
+}
+async function _khHisob(shop, from, to) {
   const F = encodeURIComponent(shop);
+  // ✅ OT-6: DAVR — bir kun bo'lsa eq, bo'lmasa gte/lte oraliq.
+  const DF = from === to
+    ? `&date=eq.${from}`
+    : `&date=gte.${from}&date=lte.${to}`;
   const d = { soni:0, aylanma:0, cheg:0, qayt:0,
     sotNaqd:0, sotKarta:0, sotOtkazma:0,
     qarzNaqd:0, qarzKarta:0, qarzOtkazma:0,
@@ -787,9 +808,9 @@ async function _khHisob(shop, sana) {
   // ── sotuvlar ──
   try {
     const ss = await sb("sales",
-      `?shop_id=eq.${F}&date=eq.${sana}` +
+      `?shop_id=eq.${F}${DF}` +
       `&select=chek_num,total,discount,remaining,orig_remaining,` +
-      `orig_debt_usd,debt_currency,status,data&limit=600`);
+      `orig_debt_usd,debt_currency,status,data&limit=2500`);
     const kMap = new Map();
     (ss||[]).forEach(r => {
       const sd = r.data || {};
@@ -842,7 +863,7 @@ async function _khHisob(shop, sana) {
   // ── qarz to'lovlari ──
   try {
     const pp = await sb("debt_payments",
-      `?shop_id=eq.${F}&date=eq.${sana}&select=amount,currency,data&limit=800`);
+      `?shop_id=eq.${F}${DF}&select=amount,currency,data&limit=2500`);
     (pp||[]).forEach(p => {
       const pd = p.data || {};
       if (String(pd.cancelled) === "true") return;
@@ -869,7 +890,7 @@ async function _khHisob(shop, sana) {
   // ── xarajatlar ──
   try {
     const xs = await sb("xarajatlar",
-      `?shop_id=eq.${F}&date=eq.${sana}&select=amount,category,data&limit=800`);
+      `?shop_id=eq.${F}${DF}&select=amount,category,data&limit=2000`);
     (xs||[]).forEach(x => {
       const a2 = Number(x.amount)||0;
       d.xJami += a2;
@@ -883,12 +904,37 @@ async function _khHisob(shop, sana) {
   // ── qaytarishlar ro'yxati ──
   try {
     const rr = await sb("returns",
-      `?shop_id=eq.${F}&data->>date=eq.${sana}&select=data&limit=50`);
+      `?shop_id=eq.${F}` + (from === to
+        ? `&data->>date=eq.${from}`
+        : `&data->>date=gte.${from}&data->>date=lte.${to}`) +
+      `&select=data&limit=300`);
     (rr||[]).forEach(x => {
       const rd = x.data || {};
       d.qaytRo.push({ hujjat: rd.refundNo || "—",
         chek: rd.origChekNum || "—", summa: Number(rd.total)||0,
         sabab: String(rd.reason || "—").slice(0, 30) });
+    });
+  } catch (e) {}
+  // ✅ OT-6: YANGI MIJOZLAR (davr ichida ochilgan kartalar)
+  try {
+    const t1 = new Date(new Date(to + "T00:00:00Z").getTime() + 86400000)
+      .toISOString().slice(0, 10);
+    const nc = await sb("customers",
+      `?shop_id=eq.${F}&created_at=gte.${from}&created_at=lt.${t1}` +
+      `&select=id&limit=3000`);
+    d.yangiMijoz = (nc || []).length;
+  } catch (e) { d.yangiMijoz = 0; }
+  // ✅ OT-6: OMBOR KIRIMI (dona + tannarx summasi) — maydonlar
+  // data ichidan (qty, kirimNarxi — kunlik.js 161/204 egizagi)
+  d.kirDona = 0; d.kirSumma = 0;
+  try {
+    const om = await sb("ombor",
+      `?shop_id=eq.${F}${DF}&select=data&limit=2000`);
+    (om || []).forEach(o => {
+      const od = o.data || {};
+      const q = Number(od.qty) || 0;
+      d.kirDona  += q;
+      d.kirSumma += (Number(od.kirimNarxi) || 0) * q;
     });
   } catch (e) {}
   d.naqd    = d.sotNaqd    + d.qarzNaqd;
@@ -914,6 +960,10 @@ function _khMatn(nom, sana, d, st) {
   t += `🏷 Chegirma: <b>${fmt(d.cheg)}</b> so'm · ↩️ Qaytarish: ${d.qayt} ta\n`;
   if (s && s.trueNet != null)
     t += `✅ Haqiqiy sof foyda: <b>${fmt(s.trueNet)}</b> so'm\n`;
+  if (d.yangiMijoz)
+    t += `🆕 Yangi mijozlar: <b>${d.yangiMijoz}</b> ta\n`;
+  if (d.kirDona)
+    t += `📥 Ombor kirimi: <b>${fmt(d.kirDona)}</b> dona · <b>${fmt(d.kirSumma)}</b> so'm\n`;
   if (d.kassirlar.length)
     t += `👥 Kassirlar: ${d.kassirlar.length} ta — jadval mini-app'da`;
   return t;
@@ -4207,12 +4257,22 @@ input[type=date]{border:1.5px solid #ddd;border-radius:10px;padding:8px;font-siz
 .err{background:#ffecec;color:#b3261e;border-radius:12px;padding:12px;margin:10px 0;font-size:13.5px}
 .g{color:#0a7d33}.r{color:#b3261e}
 #ld{text-align:center;padding:26px;color:#8a8a8e}
+.chip{border:1.5px solid #ddd;background:#fff;border-radius:999px;
+padding:6px 12px;font-size:12.5px;font-family:inherit}
+.chip.on{background:#1c1c1e;color:#fff;border-color:#1c1c1e}
 </style></head><body>
 <div class="top">
   <button class="nav" onclick="siljit(-1)">‹</button>
-  <input type="date" id="sana" onchange="yukla()">
+  <input type="date" id="sana" onchange="kunTanla()">
   <button class="nav" onclick="siljit(1)">›</button>
   <b style="text-align:right" id="ttl">Kunlik</b>
+</div>
+<!-- ✅ OT-6: tez-davrlar -->
+<div style="display:flex;gap:6px;padding:8px 12px 0;flex-wrap:wrap">
+  <button class="chip" id="ch0"  onclick="davr(0)">Bugun</button>
+  <button class="chip" id="ch1"  onclick="davr(1)">Kecha</button>
+  <button class="chip" id="ch7"  onclick="davr(7)">7 kun</button>
+  <button class="chip" id="choy" onclick="davr(30)">Bu oy</button>
 </div>
 <div class="wrap">
   <div id="ld">⏳ Yuklanmoqda…</div>
@@ -4224,11 +4284,40 @@ var tw = window.Telegram && Telegram.WebApp; if (tw) tw.ready();
 var SHOP = ${JSON.stringify(shop)};
 function tsh(){ return new Date(Date.now() + 5*3600*1000).toISOString().slice(0,10); }
 document.getElementById("sana").value = tsh();
+var FROM = tsh(), TO = tsh();
+function chipOn(id){
+  ["ch0","ch1","ch7","choy"].forEach(function(x){
+    var e = document.getElementById(x);
+    if (e) e.className = "chip" + (x===id ? " on" : "");
+  });
+}
+function kunTanla(){
+  var v = document.getElementById("sana").value || tsh();
+  FROM = v; TO = v; chipOn(v===tsh() ? "ch0" : "");
+  yukla();
+}
 function siljit(k){
   var el = document.getElementById("sana");
   var d = new Date((el.value || tsh()) + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + k);
   el.value = d.toISOString().slice(0,10);
+  kunTanla();
+}
+function davr(k){
+  var t = tsh();
+  if (k === 0){ FROM = t; TO = t; chipOn("ch0"); }
+  else if (k === 1){
+    var kd = new Date(Date.now() + 5*3600000 - 86400000)
+      .toISOString().slice(0,10);
+    FROM = kd; TO = kd; chipOn("ch1");
+  } else if (k === 7){
+    FROM = new Date(Date.now() + 5*3600000 - 6*86400000)
+      .toISOString().slice(0,10);
+    TO = t; chipOn("ch7");
+  } else {
+    FROM = t.slice(0,8) + "01"; TO = t; chipOn("choy");
+  }
+  document.getElementById("sana").value = TO;
   yukla();
 }
 function fmt(n){
@@ -4252,7 +4341,7 @@ function yukla(){
   fetch("/api/bot?action=kunlik_data", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ shop: SHOP,
-      sana: document.getElementById("sana").value,
+      from: FROM, to: TO,
       initData: (tw && tw.initData) || "" })
   }).then(function(r){ return r.json(); }).then(function(d){
     ld.style.display = "none"; out.style.display = "block";
@@ -4262,6 +4351,9 @@ function yukla(){
       return;
     }
     var s = d.stat || {}, h = "";
+    var ttl = document.getElementById("ttl");
+    if (ttl) ttl.textContent = (d.from === d.to)
+      ? d.from : (d.from + " → " + d.to);   // ✅ OT-6
     h += '<div class="row">' +
          card("Sotuvlar", fmt(d.soni) + " ta") +
          card("Aylanma", fmt(d.aylanma) + " so'm") + '</div>';
@@ -4293,6 +4385,12 @@ function yukla(){
     h += card("Qarzga berildi",
               (ql.join(" + ") || "0 soʼm") +
               (d.qSoni ? " · " + d.qSoni + " chek" : ""));
+    // ✅ OT-6: yangi ikki karta (tizim kunligi bilan tenglashish)
+    h += '<div class="row">' +
+         card("Yangi mijozlar", fmt(d.yangiMijoz||0) + " ta") +
+         card("Ombor kirimi", fmt(d.kirDona||0) + " dona") + '</div>';
+    if ((d.kirSumma||0) > 0.5)
+      h += card("Kirim summasi (tannarxda)", fmt(d.kirSumma) + " soʼm");
     h += card("Xarajat (kassa)", fmt(d.xJami) + " soʼm" +
               ((d.xQayt||0) > 0.5
                 ? " · shundan qaytarish: " + fmt(d.xQayt) + " (kassa harakati)"
@@ -4342,6 +4440,7 @@ function yukla(){
     ld.textContent = "⚠️ Internet xatosi";
   });
 }
+chipOn("ch0");
 yukla();
 </script></body></html>`);
   }
@@ -4522,7 +4621,11 @@ function yubor(){
     if (!user || !user.id)
       return res.status(200).json({ ok: false, error: "Imzo yaroqsiz — sahifani Telegram ichida oching" });
     const shop = String(body?.shop || "");
-    const sana = (String(body?.sana || "").match(/^\d{4}-\d{2}-\d{2}$/) || [today()])[0];
+    const _rx = /^\d{4}-\d{2}-\d{2}$/;
+    const sana = (String(body?.sana || "").match(_rx) || [today()])[0];
+    // ✅ OT-6: davr — from/to kelsa oraliq, kelmasa bitta kun
+    const from = (String(body?.from || "").match(_rx) || [sana])[0];
+    const to   = (String(body?.to   || "").match(_rx) || [sana])[0];
     if (!shop) return res.status(200).json({ ok: false, error: "do'kon yo'q" });
     // Egalik: shop_owners → bo'lmasa sessiya (birinchi-ega holati)
     let ega = false;
@@ -4538,12 +4641,11 @@ function yubor(){
       } catch (e) {}
     }
     if (!ega) return res.status(200).json({ ok: false, error: "Ruxsat yo'q — bu do'kon egasi emassiz" });
-    const st = await _pulIchki({ action: "report_stats", from: sana, to: sana, shopId: shop });
+    const st = await _pulIchki({ action: "report_stats", from, to, shopId: shop });
     const okStat = !!(st && st.ok !== false && !st.error);
-    // ✅ OT-5: butun hisob endi _khHisob'da (PDF-egizak) — matn-xulosa
-    // va mini-app BIR manbadan oziqlanadi.
-    const d = await _khHisob(shop, sana);
-    return res.status(200).json({ ok: true, sana, ichki: okStat,
+    // ✅ OT-5/6: butun hisob _khHisob'da (PDF-egizak, davrli)
+    const d = await _khHisob(shop, from, to);
+    return res.status(200).json({ ok: true, sana, from, to, ichki: okStat,
       stat: okStat ? st : null, ...d });
   }
 
@@ -4723,7 +4825,9 @@ function yubor(){
       // Do'kon tanlash callback: "shop:shop_XXXXX"
       // ✅ OT-5: 🗓 Kunlik — matn-xulosa + "To'liq" tugmasi
       if (cb.data?.startsWith("kh|")) {
-        const _shop = cb.data.slice(3);
+        // ✅ OT-6: "kh|<shop>" yoki "kh|<shop>|<davr>" (0/1/7/oy)
+        const _p2 = cb.data.slice(3).split("|");
+        const _shop = _p2[0], _tok = _p2[1] || "0";
         let ega = false;
         try {
           const r0 = await sb("shop_owners",
@@ -4737,17 +4841,22 @@ function yubor(){
           } catch (e) {}
         }
         if (!ega) return res.status(200).json({ ok: true });
-        const sana = today();
+        const _o = _khOraliq(_tok);
         const st = await _pulIchki({ action: "report_stats",
-          from: sana, to: sana, shopId: _shop });
-        const d  = await _khHisob(_shop, sana);
+          from: _o.from, to: _o.to, shopId: _shop });
+        const d  = await _khHisob(_shop, _o.from, _o.to);
         const nm = await _ckShopNom([_shop]);
         const oc = ("KH__" + _shop).replace(/[^a-zA-Z0-9_]/g,
           m => "x" + m.charCodeAt(0).toString(16));
-        await tg(chatId, _khMatn(nm[_shop] || _shop, sana, d, st), {
-          reply_markup: { inline_keyboard: [[
-            { text: "🔎 To'liq hisobot (mini-app)",
-              url: `https://t.me/${BOT_USERNAME}/ombor?startapp=${oc}` }]] } });
+        await tg(chatId, _khMatn(nm[_shop] || _shop, _o.nom, d, st), {
+          reply_markup: { inline_keyboard: [
+            [{ text: "🔎 To'liq hisobot (mini-app)",
+               url: `https://t.me/${BOT_USERNAME}/ombor?startapp=${oc}` }],
+            // ✅ OT-6: tez-davrlar — xulosa shu chatning o'zida
+            [{ text: "Kecha",  callback_data: `kh|${_shop}|1` },
+             { text: "7 kun",  callback_data: `kh|${_shop}|7` },
+             { text: "Bu oy",  callback_data: `kh|${_shop}|oy` }],
+          ] } });
         return res.status(200).json({ ok: true });
       }
 
