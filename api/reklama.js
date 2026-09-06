@@ -86,7 +86,8 @@ async function sozlamaOl(shopId) {
   try {
     const r = await fetch(`${SB_URL}/rest/v1/studio_sozlama` +
       `?shop_id=eq.${encodeURIComponent(shopId)}` +
-      `&select=kanal_id,kanal_nom,ig_rejim,ig_user,oylik_kredit&limit=1`, {
+      `&select=kanal_id,kanal_nom,ig_rejim,ig_user,oylik_kredit,` +
+      `dokon_nom,tel,brend_rang,brend_rang2,shrift&limit=1`, {
       headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
     const j = await r.json().catch(() => []);
     return (j && j[0]) || {};
@@ -297,6 +298,14 @@ module.exports = async (req, res) => {
       kanal_nom: String(body.kanal_nom || "").trim().slice(0, 80) || null,
       ig_rejim:  body.ig_rejim === "merx" ? "merx" : "ozi",
       ig_user:   String(body.ig_user || "").replace(/^@/, "").trim().slice(0, 60) || null,
+      // ✅ A2: brend to'plami
+      dokon_nom:  String(body.dokon_nom || "").trim().slice(0, 60) || null,
+      tel:        String(body.tel || "").trim().slice(0, 30) || null,
+      brend_rang: /^#[0-9a-fA-F]{6}$/.test(String(body.brend_rang || ""))
+                    ? body.brend_rang : null,
+      brend_rang2:/^#[0-9a-fA-F]{6}$/.test(String(body.brend_rang2 || ""))
+                    ? body.brend_rang2 : null,
+      shrift:     String(body.shrift || "").trim().slice(0, 24) || null,
       updated_at: new Date().toISOString(),
     };
     try {

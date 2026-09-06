@@ -1295,6 +1295,31 @@ body.sms-off .sms-only { display: none !important; }
             <input type="checkbox" checked onchange="stuBelgi(this.checked)"> merx.uz belgisi</label>
           <button onclick="stuAsliga()" style="width:100%;margin-top:9px;padding:7px;border:none;background:none;color:#8A8578;font-family:inherit;font-size:12px;cursor:pointer;text-decoration:underline">Asl suratga qaytish</button>
         </div>
+        <!-- ✅ A2: brend to'plami -->
+        <div class="st-card">
+          <h4><i class="n">5</i> Brend</h4>
+          <input id="stu-dokon" class="st-inp" placeholder="Do'kon nomi">
+          <input id="stu-tel" class="st-inp" style="margin-top:7px" placeholder="Telefon">
+          <div style="display:flex;gap:8px;align-items:center;margin-top:9px">
+            <label style="font-size:12px;color:#6B7480;flex:1">Asosiy rang
+              <input id="stu-rang1" type="color" value="#0D1B2A"
+                     style="width:100%;height:32px;border:1.5px solid var(--ln);border-radius:8px;background:#fff"></label>
+            <label style="font-size:12px;color:#6B7480;flex:1">Urg'u rang
+              <input id="stu-rang2" type="color" value="#F2A20C"
+                     style="width:100%;height:32px;border:1.5px solid var(--ln);border-radius:8px;background:#fff"></label>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:9px">
+            <input type="file" accept="image/*" onchange="stuLogo(this)" style="font-size:11.5px;flex:1">
+            <button onclick="stuLogoOchir()" style="border:1.5px solid var(--ln);background:#fff;
+              border-radius:9px;padding:6px 10px;font-family:inherit;font-size:11.5px;cursor:pointer">O'chirish</button>
+          </div>
+          <div style="font-size:11.5px;font-weight:800;letter-spacing:.5px;color:#6B7480;margin:11px 0 7px">
+            TIPOGRAFIKA</div>
+          <div id="stu-tipo"></div>
+          <div class="st-hint">Logotip qurilmangizda saqlanadi. Ranglar va shrift
+            saqlangach hamma reklamaga o'zi tushadi.</div>
+        </div>
+
         <!-- ✅ S8: do'konning reklama kanali va Instagram -->
         <div class="st-card">
           <h4><i class="n">6</i> Tarqatish</h4>
@@ -5444,7 +5469,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=13"></script>
+<script src="js/studio.js?v=14"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -5737,7 +5762,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 593;
+  window.SW_V = 594;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5760,7 +5785,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=593")
+    navigator.serviceWorker.register("/sw.js?v=594")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

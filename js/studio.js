@@ -241,6 +241,8 @@ const STU_SHAB = [
 // ── Holat ──────────────────────────────────────────────────────
 const STU = {
   shab: "narx", pal: "navy", fmt: "post",
+  tipo: "kuchli",              // ✅ A2: tipografika juftligi
+  brend: {},                   // ✅ A2: dokon_nom, tel, brend_rang, logo
   real: false,                 // ✅ S6: real shaxs rejimi (AI yuzga tegmaydi)
   fokus: { x: .5, y: .38 },    // ✅ S6: kadrlash nuqtasi (yuz odatda tepada)
   tovar: null,          // {nom, art, rang, olcham, narx}
@@ -259,7 +261,14 @@ function stRang(pal, k) {
   if (String(k).charAt(0) === "#") return k;
   return pal[k] || "#000";
 }
+function stBrendPal() {                       // ✅ A2
+  const b = STU.brend || {};
+  if (!b.brend_rang) return null;
+  return { id:"brend", nom:"Brend", a: b.brend_rang,
+           b: b.brend_rang2 || "#FFFFFF", c:"#FFFFFF", d:"#D8DCE3" };
+}
 function stPal() {
+  if (STU.pal === "brend") { const p = stBrendPal(); if (p) return p; }   // ✅ A2
   if (STU.pal === "auto" && STU.avtoPal) return STU.avtoPal;   // ✅ S1
   return STU_PAL.find(p => p.id === STU.pal) || STU_PAL[0];
 }
@@ -275,18 +284,20 @@ function stSon(n) {
   return o;
 }
 // matnni kenglikka sig'dirish (shriftni kichraytiradi)
-function stFit(ctx, matn, maxW, px, vazn) {
+function stFit(ctx, matn, maxW, px, vazn, fam) {
+  fam = fam || (STU_TIPO[0].d + "," + STU_ZAX);
   let p = px;
   while (p > 8) {
-    ctx.font = `${vazn} ${p}px ${STU_SHRIFT}`;
+    ctx.font = `${vazn} ${p}px ${fam}`;
     if (ctx.measureText(matn).width <= maxW) break;
     p -= Math.max(1, Math.round(p * 0.04));
   }
   return p;
 }
 // ikki satrga bo'lish
-function stWrap(ctx, matn, maxW, px, vazn, satr) {
-  ctx.font = `${vazn} ${px}px ${STU_SHRIFT}`;
+function stWrap(ctx, matn, maxW, px, vazn, satr, fam) {
+  fam = fam || (STU_TIPO[0].d + "," + STU_ZAX);
+  ctx.font = `${vazn} ${px}px ${fam}`;
   if (satr < 2 || ctx.measureText(matn).width <= maxW) return [matn];
   const soz = String(matn).split(/\s+/), qatorlar = [];
   let joriy = "";
@@ -350,20 +361,51 @@ function _sz(y, F) {
   const t = uzun ? .10 : .025, b = uzun ? .86 : .975;
   return Math.min(Math.max(y, t), b);
 }
+// ═══ ✅ A2 (2026-09-06) — TIPOGRAFIKA JUFTLIKLARI ═══
+// Har juftlikda: sarlavha shrifti + matn shrifti + harflar orasi +
+// katta harf qoidasi. Shablon o'zgarmaydi, TIPOGRAFIKA o'zgaradi —
+// shu tufayli bitta layout bir necha xil "kayfiyatda" chiqadi.
+// Hammasi ochiq litsenziyali (Google Fonts) — huquqi toza.
+const STU_TIPO = [
+  { id:"kuchli",   nom:"Kuchli",    d:'"Archivo Black"',      b:'"Manrope"',       tr:-.02, katta:false },
+  { id:"zamon",    nom:"Zamonaviy", d:'"Space Grotesk"',      b:'"Space Grotesk"', tr:-.01, katta:false },
+  { id:"nafis",    nom:"Nafis",     d:'"Playfair Display"',   b:'"Manrope"',       tr:0,    katta:false },
+  { id:"baland",   nom:"Baland",    d:'"Oswald"',             b:'"Rubik"',         tr:.02,  katta:true  },
+  { id:"yumshoq",  nom:"Yumshoq",   d:'"Rubik"',              b:'"Rubik"',         tr:0,    katta:false },
+  { id:"jasur",    nom:"Jasur",     d:'"Unbounded"',          b:'"Manrope"',       tr:-.01, katta:true  },
+];
+const STU_ZAX = 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+function stTipo() { return STU_TIPO.find(t => t.id === STU.tipo) || STU_TIPO[0]; }
+// Qatlam roliga qarab shrift: sarlavha va narx — display, qolgani — matn
+function _fam(L) {
+  const T = stTipo();
+  const disp = L.shrift === "body" ? false
+    : (L.shrift === "disp" || L.manba === "nom" || L.tur === "narx" ||
+       L.tur === "sticker" || (L.vazn || 700) >= 800);
+  return (disp ? T.d : T.b) + "," + STU_ZAX;
+}
+// ✅ A2: O'ZBEK BELGILARI — ʻ va ʼ hamma shriftda yo'q; oddiy
+// apostrofga aylantiramiz, shunda "tofu" kvadrat chiqmaydi.
+function _uz(s) {
+  return String(s == null ? "" : s)
+    .replace(/[\u02bb\u02bc\u2018\u2019\u0060\u00b4]/g, "'");
+}
 const STU_SHRIFT = '"Inter","Archivo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
 
 // manba → matn
 function stManba(m) {
   const t = STU.tovar || {};
   switch (m) {
-    case "nom":       return t.nom || "Tovar nomi";
+    case "nom":       return _uz(t.nom || "Tovar nomi");
     case "tafsilot": {
       // ✅ S4b: bo'sh qiymatlar tashlanadi — jonlida "qora · ·"
       // ko'rinishida ortiqcha ajratkichlar chiqib qolgan edi.
       return [t.art ? "ART " + t.art : "", t.rang || "", t.olcham || ""]
-        .map(x => String(x).trim()).filter(Boolean).join("  ·  ");
+        .map(x => _uz(x).trim()).filter(Boolean).join("  ·  ");
     }
-    case "yorliq":    return STU.yorliq || "";
+    case "yorliq":    return _uz(STU.yorliq || "");
+    case "tel":       return _uz((STU.brend && STU.brend.tel) || "");
+    case "dokon":     return _uz((STU.brend && STU.brend.dokon_nom) || "");
     case "muddat":    return STU.muddat || "";
     case "eskiNarx":  return STU.eskiNarx ? stSon(STU.eskiNarx) + " so'm" : "";
     case "narxQisqa": {
@@ -472,7 +514,8 @@ function stChiz(cvs, fmt, opt) {
     ? (STU_SHAB.find(x => x.id === opt.shab) || stShab()) : stShab();
   const P = (opt && opt.pal)
     ? (typeof opt.pal === "object" ? opt.pal
-       : (opt.pal === "auto" && STU.avtoPal ? STU.avtoPal
+       : (opt.pal === "brend" && stBrendPal() ? stBrendPal()
+          : opt.pal === "auto" && STU.avtoPal ? STU.avtoPal
           : (STU_PAL.find(x => x.id === opt.pal) || stPal())))
     : stPal();
   const c = cvs || document.getElementById("stu-cvs");
@@ -612,7 +655,7 @@ function stChiz(cvs, fmt, opt) {
           ctx.fillRect(-en, (L.y || .10) * H, en * 2, (L.qalin || .075) * H);
           ctx.fillStyle = stRang(P, L.matnRang || "a");
           const pz = (L.o || .032) * W;
-          ctx.font = `800 ${pz}px ${STU_SHRIFT}`;
+          ctx.font = `800 ${pz}px ${_fam(L)}`;
           ctx.textAlign = "center";
           ctx.fillText(matn.toUpperCase(), 0,
                        (L.y || .10) * H + (L.qalin || .075) * H * .68);
@@ -637,7 +680,7 @@ function stChiz(cvs, fmt, opt) {
             ctx.fillStyle = stRang(P, L.matnRang || "a");
             let pz = stFit(ctx, matn, r * 1.5, r * .46, 900);
             ctx.textAlign = "center";
-            ctx.font = `900 ${pz}px ${STU_SHRIFT}`;
+            ctx.font = `900 ${pz}px ${_fam(L)}`;
             ctx.fillText(matn, cx, cy + pz * .34);
             ctx.textAlign = "left";
           }
@@ -752,7 +795,7 @@ function stChiz(cvs, fmt, opt) {
             ctx.fillRect(bx, by, bw, bh);
             ctx.globalAlpha = 1;
             ctx.fillStyle = stRang(P, "d");
-            ctx.font = `600 ${Math.round(W * .028)}px ${STU_SHRIFT}`;
+            ctx.font = `600 ${Math.round(W * .028)}px ${_fam(L)}`;
             ctx.textAlign = "center";
             ctx.fillText("Tovar surati", bx + bw / 2, by + bh / 2);
             ctx.textAlign = "left";
@@ -852,10 +895,10 @@ function stChiz(cvs, fmt, opt) {
         case "matn": {
           let matn = stManba(L.manba);
           if (!matn) break;
-          if (L.katta) matn = matn.toUpperCase();          // ✅ A1
+          if (L.katta || stTipo().katta) matn = matn.toUpperCase();   // ✅ A1/A2
           const maxW = (L.max || .9) * W;
-          let px = stFit(ctx, matn, maxW, L.o * W, L.vazn || 700);
-          const qatorlar = stWrap(ctx, matn, maxW, px, L.vazn || 700, L.satr || 1);
+          let px = stFit(ctx, matn, maxW, L.o * W, L.vazn || 700, _fam(L));
+          const qatorlar = stWrap(ctx, matn, maxW, px, L.vazn || 700, L.satr || 1, _fam(L));
           // ✅ S2: xavfsiz zona + fon ustida avtomatik rang
           const _yy0 = _sz(L.y, F) * H;
           let _rang = stRang(P, L.rang);
@@ -876,11 +919,11 @@ function stChiz(cvs, fmt, opt) {
           if (L.burchak) {
             ctx.translate(L.x * W, L.y * H);
             ctx.rotate(L.burchak * Math.PI / 180);
-            ctx.font = `${L.vazn || 700} ${px}px ${STU_SHRIFT}`;
+            ctx.font = `${L.vazn || 700} ${px}px ${_fam(L)}`;
             ctx.fillText(matn, 0, 0);
           } else {
             qatorlar.forEach((q, i) => {
-              ctx.font = `${L.vazn || 700} ${px}px ${STU_SHRIFT}`;
+              ctx.font = `${L.vazn || 700} ${px}px ${_fam(L)}`;
               const yy = _yy0 + i * px * 1.06;
               ctx.fillText(q, L.x * W, yy);
               if (L.chizilgan) {
@@ -901,9 +944,9 @@ function stChiz(cvs, fmt, opt) {
           if (!n) break;
           const matn = stSon(n);
           let px = L.o * W;
-          ctx.font = `${L.vazn || 900} ${px}px ${STU_SHRIFT}`;
+          ctx.font = `${L.vazn || 900} ${px}px ${_fam(L)}`;
           const wSom = px * .30;
-          px = stFit(ctx, matn, W * .86 - wSom, px, L.vazn || 900);
+          px = stFit(ctx, matn, W * .86 - wSom, px, L.vazn || 900, _fam(L));
           const wMatn = ctx.measureText(matn).width;
           let x = L.x * W;
           if (L.anchor === "right") x = L.x * W - wMatn - wSom * 1.2;
@@ -928,9 +971,9 @@ function stChiz(cvs, fmt, opt) {
           }
           const _ny = _sz(L.y, F) * H;   // ✅ S2: xavfsiz zona
           if (_sc !== 1) px = px * _sc;  // ✅ S5: narx "portlashi"
-          ctx.font = `${L.vazn || 900} ${px}px ${STU_SHRIFT}`;
+          ctx.font = `${L.vazn || 900} ${px}px ${_fam(L)}`;
           ctx.fillText(matn, x, _ny);
-          ctx.font = `700 ${px * .30}px ${STU_SHRIFT}`;
+          ctx.font = `700 ${px * .30}px ${_fam(L)}`;
           ctx.fillText(" so'm", x + wMatn + px * .06, _ny);
           break;
         }
@@ -939,7 +982,7 @@ function stChiz(cvs, fmt, opt) {
           const matn = stManba(L.manba);
           if (!matn) break;
           const px = L.o * W, pad = px * .42;
-          ctx.font = `800 ${px}px ${STU_SHRIFT}`;
+          ctx.font = `800 ${px}px ${_fam(L)}`;
           const wMatn = ctx.measureText(matn).width;
           const bw = wMatn + pad * 2, bh = px * 1.72;
           const bx = L.anchor === "right" ? L.x * W - bw : L.x * W;
@@ -965,14 +1008,27 @@ function stChiz(cvs, fmt, opt) {
           const matn = stManba(L.manba);
           if (matn) {
             ctx.fillStyle = stRang(P, L.matnRang || "a");
-            let px = stFit(ctx, matn, r * 1.6, r * .52, 900);
+            let px = stFit(ctx, matn, r * 1.6, r * .52, 900, _fam(L));
             ctx.textAlign = "center";
-            ctx.font = `900 ${px}px ${STU_SHRIFT}`;
+            ctx.font = `900 ${px}px ${_fam(L)}`;
             ctx.fillText(matn, cx, cy + px * .18);
-            ctx.font = `700 ${r * .20}px ${STU_SHRIFT}`;
+            ctx.font = `700 ${r * .20}px ${_fam(L)}`;
             ctx.fillText("so'm", cx, cy + px * .18 + r * .34);
             ctx.textAlign = "left";
           }
+          break;
+        }
+
+        // ✅ A2: BREND LOGOTIPI (yuklangan bo'lsa) — matn o'rniga rasm
+        case "brendlogo": {
+          const lg = STU.brend && STU.brend.logoImg;
+          if (!lg) break;
+          const h2 = (L.o || .05) * W;
+          const w2 = h2 * (lg.width / lg.height || 1);
+          const x2 = L.anchor === "right" ? L.x * W - w2 : L.x * W;
+          ctx.save(); ctx.globalAlpha = L.alfa == null ? .95 : L.alfa;
+          ctx.drawImage(lg, x2, _sz(L.y, F) * H - h2, w2, h2);
+          ctx.restore();
           break;
         }
 
@@ -980,7 +1036,7 @@ function stChiz(cvs, fmt, opt) {
           // ✅ S4: AI-modelli natijada halollik belgisi
           if (STU.aiNamoyish) {
             const pz = W * .022, pad = pz * .5;
-            ctx.font = `700 ${pz}px ${STU_SHRIFT}`;
+            ctx.font = `700 ${pz}px ${_fam(L)}`;
             const t2 = "AI namoyish";
             const w2 = ctx.measureText(t2).width;
             ctx.fillStyle = "rgba(0,0,0,.42)";
@@ -992,7 +1048,7 @@ function stChiz(cvs, fmt, opt) {
           const px = L.o * W;
           ctx.fillStyle = stRang(P, L.rang);
           ctx.globalAlpha = .8;
-          ctx.font = `700 ${px}px ${STU_SHRIFT}`;
+          ctx.font = `700 ${px}px ${_fam(L)}`;
           ctx.textAlign = L.anchor === "right" ? "right" : "left";
           ctx.fillText("merx.uz", L.x * W, _sz(L.y, F) * H);   // ✅ S2
           ctx.textAlign = "left"; ctx.globalAlpha = 1;
@@ -1034,7 +1090,11 @@ function renderStudio() {
   const yr = document.getElementById("stu-yorliq");
   if (yr && yr.value !== STU.yorliq) yr.value = STU.yorliq;
   stChiz();
-  if (!STU._limitOlindi) { STU._limitOlindi = true; stuLimit(); stuModellar(); }
+  stuTipoChiz();                                     // ✅ A2
+  if (!STU._limitOlindi) {
+    STU._limitOlindi = true;
+    stuLimit(); stuModellar(); stuLogoTikla(); stuShriftYukla();
+  }
 }
 function stuShab(id) { STU.shab = id; renderStudio(); }
 function stuPal(id)  { STU.pal  = id; renderStudio(); }
@@ -1273,7 +1333,10 @@ async function stuLimit() {
     stuSarf(d.sarf, d.chegara);
     if (d.sozlama) {                                  // ✅ S8
       STU.sozlama = Object.assign(STU.sozlama, d.sozlama);
-      stuSozlamaChiz();
+      STU.brend = Object.assign(STU.brend || {}, d.sozlama);   // ✅ A2
+      if (d.sozlama.shrift &&
+          STU_TIPO.some(t => t.id === d.sozlama.shrift)) STU.tipo = d.sozlama.shrift;
+      stuSozlamaChiz(); stuTipoChiz(); stChiz();
     }
   }
 }
@@ -1696,6 +1759,10 @@ function stuSozlamaChiz() {
   q("stu-kanal", STU.sozlama.kanal_id || "");
   q("stu-kanal-nom", STU.sozlama.kanal_nom || "");
   q("stu-ig", STU.sozlama.ig_user || "");
+  q("stu-dokon", STU.sozlama.dokon_nom || "");     // ✅ A2
+  q("stu-tel", STU.sozlama.tel || "");
+  q("stu-rang1", STU.sozlama.brend_rang || "#0D1B2A");
+  q("stu-rang2", STU.sozlama.brend_rang2 || "#F2A20C");
   const r = document.getElementById("stu-ig-rejim");
   if (r) r.value = STU.sozlama.ig_rejim || "ozi";
 }
@@ -1706,6 +1773,11 @@ async function stuSozlamaSaqla() {
     kanal_nom: v("stu-kanal-nom"),
     ig_user:   v("stu-ig"),
     ig_rejim:  v("stu-ig-rejim"),
+    dokon_nom:   v("stu-dokon"),           // ✅ A2
+    tel:         v("stu-tel"),
+    brend_rang:  v("stu-rang1"),
+    brend_rang2: v("stu-rang2"),
+    shrift:      STU.tipo,
   });
   if (!d) return;
   STU.sozlama = d.sozlama || STU.sozlama;
@@ -1739,4 +1811,76 @@ async function stuKanalga(video) {
   } finally {
     if (b) { b.disabled = false; b.textContent = "📢 Kanalga yuborish"; }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ A2 (2026-09-06) — ShRIFT VA BREND TO'PLAMI
+// ═══════════════════════════════════════════════════════════════
+// Do'kon bir marta kiritadi: nomi, telefoni, firma ranglari,
+// logotipi va yoqqan tipografikasi — keyin HAMMA reklamaga o'zi
+// tushadi. Logotip qurilmada saqlanadi (256px, ~20-60 KB):
+// bazaga og'ir rasm yozilmaydi (rasm ombori 51% to'lgan).
+function stuTipoChiz() {
+  const el = document.getElementById("stu-tipo");
+  if (!el) return;
+  el.innerHTML = STU_TIPO.map(t =>
+    `<button class="stu-chip${t.id === STU.tipo ? " on" : ""}"
+       onclick="stuTipo('${t.id}')">${t.nom}</button>`).join("");
+}
+function stuTipo(id) { STU.tipo = id; renderStudio(); stuVariantChiz(); }
+
+// ── Logotip: yuklash, kichraytirish, saqlash
+function _stuLogoKalit() {
+  return "merx_studio_logo_" + ((window.db && db.shopId) || "x");
+}
+function stuLogo(inp) {
+  const f = inp && inp.files && inp.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    const im = new Image();
+    im.onload = () => {
+      try {
+        const k = Math.min(1, 256 / Math.max(im.width, im.height));
+        const c = document.createElement("canvas");
+        c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+        c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+        const data = c.toDataURL("image/png");
+        STU.brend.logoImg = c;
+        try { localStorage.setItem(_stuLogoKalit(), data); } catch (e2) {}
+        stChiz(); stuVariantChiz();
+        toast("Logotip saqlandi", "ok");
+      } catch (e3) { toast("Logotip qo'shilmadi", "err"); }
+    };
+    im.src = e.target.result;
+  };
+  r.readAsDataURL(f);
+}
+function stuLogoTikla() {
+  try {
+    const d = localStorage.getItem(_stuLogoKalit());
+    if (!d) return;
+    const im = new Image();
+    im.onload = () => { STU.brend.logoImg = im; stChiz(); };
+    im.src = d;
+  } catch (e) {}
+}
+function stuLogoOchir() {
+  STU.brend.logoImg = null;
+  try { localStorage.removeItem(_stuLogoKalit()); } catch (e) {}
+  stChiz(); toast("Logotip o'chirildi", "ok");
+}
+
+// ── Shriftlarni yuklab, so'ng qayta chizish (canvas tayyor shriftni
+//    oladi — aks holda birinchi chizishda zaxira shrift chiqadi)
+function stuShriftYukla() {
+  try {
+    if (!document.fonts || !document.fonts.load) return;
+    const p = [];
+    STU_TIPO.forEach(t => {
+      p.push(document.fonts.load(`900 48px ${t.d}`));
+      p.push(document.fonts.load(`700 24px ${t.b}`));
+    });
+    Promise.all(p).then(() => { stChiz(); stuVariantChiz(); }).catch(() => {});
+  } catch (e) {}
 }
