@@ -305,7 +305,32 @@ function stChiz(cvs, fmt, opt) {
   ctx.clearRect(0, 0, W, H);
   ctx.textBaseline = "alphabetic";
 
+  // ✅ S5: ANIMATSIYA — `STU._anim` o'rnatilgan bo'lsa har qatlam
+  // o'z vaqtida chiqadi (video yozishda). Bo'sh bo'lsa — oddiy chizish,
+  // ya'ni rasm rejimida hech narsa o'zgarmaydi.
+  const AN = STU._anim;                       // {t: 0..1} yoki null
+  const _ea = x => 1 - Math.pow(1 - Math.min(Math.max(x, 0), 1), 3);  // yumshoq
+  let _qi = 0;
+
   S.qatlamlar.forEach(L => {
+    // qatlamning "chiqish" payti: rasm birinchi, matnlar ketma-ket
+    let _a = 1, _dy = 0, _sc = 1;
+    if (AN) {
+      const t = AN.t;
+      if (L.tur === "rasm") { _a = _ea(t / .12); _sc = 1 + .085 * t; }
+      else if (L.tur === "fon" || L.tur === "blok" || L.tur === "burchak") { _a = 1; }
+      else {
+        const bosh = .18 + _qi * .09;         // har element 0.09 kechikadi
+        const l = _ea((t - bosh) / .16);
+        _a = l; _dy = (1 - l) * (L.o || .03) * H * .5;
+        if (L.tur === "narx") _sc = 1 + .18 * (1 - _ea((t - bosh) / .22));
+        _qi++;
+      }
+      if (_a <= 0.001) return;                // hali chiqmagan
+    }
+    ctx.globalAlpha = _a;
+    ctx.save();
+    if (_dy) ctx.translate(0, _dy);
     try {
       switch (L.tur) {
 
@@ -365,7 +390,7 @@ function stChiz(cvs, fmt, opt) {
           // kadrda surat kichkina karta bo'lib qolmasin — jonli kuzatuv).
           const k = (L.moda === "cover"
             ? Math.max(bw / im.width, bh / im.height)
-            : Math.min(bw / im.width, bh / im.height)) * z;
+            : Math.min(bw / im.width, bh / im.height)) * z * _sc;   // ✅ S5
           const dw = im.width * k, dh = im.height * k;
           const dx = bx + (bw - dw) / 2 + (STU.imgAdj.dx || 0) * W;
           const dy = by + (bh - dh) / 2 + (STU.imgAdj.dy || 0) * H;
@@ -503,6 +528,7 @@ function stChiz(cvs, fmt, opt) {
             ctx.fillStyle = stRang(P, L.rang);
           }
           const _ny = _sz(L.y, F) * H;   // ✅ S2: xavfsiz zona
+          if (_sc !== 1) px = px * _sc;  // ✅ S5: narx "portlashi"
           ctx.font = `${L.vazn || 900} ${px}px ${STU_SHRIFT}`;
           ctx.fillText(matn, x, _ny);
           ctx.font = `700 ${px * .30}px ${STU_SHRIFT}`;
@@ -575,6 +601,8 @@ function stChiz(cvs, fmt, opt) {
         }
       }
     } catch (e) { console.warn("[studio] qatlam:", L.tur, e.message); }
+    ctx.restore();
+    ctx.globalAlpha = 1;
   });
 }
 
@@ -1064,4 +1092,86 @@ async function stuKiydir(jins) {
     renderStudio();
     toast("Modelda tayyor", "ok");
   } catch (e) { toast("Natija ochilmadi", "err"); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ S5 (2026-09-06) — VIDEO REKLAMA (kod-animatsiya, xarajat 0)
+// ═══════════════════════════════════════════════════════════════
+// Tayyor bannerdan 8 soniyalik klip: rasm sekin yaqinlashadi
+// (Ken Burns), matnlar ketma-ket chiqadi, narx "portlaydi".
+// genAI ISHLATILMAYDI — hammasi brauzerda chiziladi va yoziladi:
+// xarajat nol, natija har safar bir xil, internet kutilmaydi.
+//
+// Format: brauzer qo'llab-quvvatlaydigan eng yaxshisi tanlanadi
+// (mp4 bo'lsa mp4, aks holda webm — Telegram ikkalasini ham oladi).
+STU.videoDavom = 8000;   // ms
+
+function _stuMime() {
+  const r = ["video/mp4;codecs=avc1.42E01E", "video/mp4",
+             "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+  for (const m of r) {
+    try { if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m; }
+    catch (e) {}
+  }
+  return "";
+}
+async function stuVideo() {
+  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
+    toast("Bu brauzer video yozishni qo'llamaydi — Chrome yoki Safari'da oching", "err");
+    return;
+  }
+  if (!STU.img) { toast("Avval surat yuklang", "err"); return; }
+  const mime = _stuMime();
+  if (!mime) { toast("Video format topilmadi", "err"); return; }
+
+  const F0 = stFmt();
+  // O'lcham: tezlik uchun eni 720-864 (sifat yetarli, telefon uzmaydi)
+  const en = F0.h / F0.w > 1.4 ? 720 : 864;
+  const F = { w: en, h: Math.round(en * F0.h / F0.w) };
+  const c = document.createElement("canvas");
+  c.width = F.w; c.height = F.h;
+
+  const btn = document.getElementById("stu-video");
+  if (btn) { btn.disabled = true; btn.textContent = "⏺ Yozilmoqda…"; }
+
+  let rec, parcha = [];
+  try {
+    const oqim = c.captureStream(30);
+    rec = new MediaRecorder(oqim, { mimeType: mime, videoBitsPerSecond: 5500000 });
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = "🎬 Video"; }
+    toast("Yozib bo'lmadi: " + e.message, "err"); return;
+  }
+  rec.ondataavailable = e => { if (e.data && e.data.size) parcha.push(e.data); };
+
+  const tugadi = new Promise(res => { rec.onstop = res; });
+  rec.start(100);
+  const t0 = performance.now();
+  await new Promise(res => {
+    function kadr() {
+      const o = Math.min(1, (performance.now() - t0) / STU.videoDavom);
+      STU._anim = { t: o };
+      try { stChiz(c, F); } catch (e) {}
+      if (btn) btn.textContent = "⏺ " + Math.round(o * 100) + "%";
+      if (o < 1) requestAnimationFrame(kadr);
+      else res();
+    }
+    requestAnimationFrame(kadr);
+  });
+  STU._anim = null;
+  stChiz();                       // ekranni oddiy holatga qaytarish
+  try { rec.stop(); } catch (e) {}
+  await tugadi;
+
+  const blob = new Blob(parcha, { type: mime });
+  const ken = mime.indexOf("mp4") >= 0 ? "mp4" : "webm";
+  const nom = ((STU.tovar && STU.tovar.art) || "reklama") + "-" + STU.shab +
+              "-" + F0.id + "." + ken;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = nom;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+
+  if (btn) { btn.disabled = false; btn.textContent = "🎬 Video"; }
+  toast("Video tayyor: " + Math.round(blob.size / 1024) + " KB", "ok");
 }
