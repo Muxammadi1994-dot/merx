@@ -1644,27 +1644,32 @@ async function cmdOmbor(chatId) {
     // Avval faqat kam-qoldiq ro'yxati edi. Endi: jami tur/dona/pochka,
     // ombor qiymati (TANNARXDA: costUzs, bo'lmasa costUsd×kurs),
     // kam/nol qoldiq soni — keyin eng kam qolganlar (10 ta).
-    let turlar = 0, dona = 0, pochka = 0, qiymat = 0;
+    let turlar = 0, dona = 0, pochka = 0, ochilgan = 0, qiymat = 0;
     let kamTur = 0, nolTur = 0;
     const _top = [];   // ✅ OT-2d: eng qimmat zaxira uchun
     for (const p of products) {
       const d = (p.data && typeof p.data === "object") ? { ...p, ...p.data } : p;
       const vars = Array.isArray(d.variants) ? d.variants : [];
+      // ✅ OT-2e (2026-09-06): KPI-KARTA BILAN BIR XIL — VARIANT
+      // darajasida: to'liq pochkalar + OChILGAN pochkalar soni + JAMI
+      // dona ("4754 pochka · 90 ta ochilgan · 24 345 dona" ko'rinishi).
+      // Jonlida pochka 0 chiqqan edi — sabab: maydon nomlari har xil
+      // kelishi mumkin (sellMode/sell_mode, inBox/in_box, variant
+      // darajasida ham) — endi chidamli o'qiladi.
+      const _sm  = d.sellMode || d.sell_mode || "";
+      const _ibP = Number(d.inBox || d.in_box) || 0;
       let pQold = 0;
       for (const v of vars) {
         const q = Number(v.qty || 0);
         pQold += q;
+        const ib = _ibP || Number(v.inBox || v.in_box) || 0;
+        if (_sm === "karobka" && ib > 0) {
+          pochka += Math.floor(q / ib);
+          if (q % ib > 0) ochilgan++;
+        }
       }
       turlar++;
-      // ✅ OT-2d: TIZIMDAGIDEK — to'liq pochkalar alohida, siniq
-      // qoldiq va dona-tovarlar DONADA (regroupPackages mantig'i).
-      if (d.sellMode === "karobka" && Number(d.inBox) > 0) {
-        const ib = Number(d.inBox);
-        pochka += Math.floor(pQold / ib);
-        dona   += pQold % ib;
-      } else {
-        dona += pQold;
-      }
+      dona += pQold;   // JAMI dona — KPI'dagidek
       let c1 = Number(d.costUzs) || 0;
       if (!c1 && Number(d.costUsd) > 0 && _rate > 0)
         c1 = Number(d.costUsd) * _rate;
@@ -1677,10 +1682,9 @@ async function cmdOmbor(chatId) {
 
     let txt = `📦 <b>Ombor — umumiy kartina</b>\n\n`;
     txt += `Turlar: <b>${fmt(turlar)}</b> ta tovar\n`;
-    const _qq = [];
-    if (pochka > 0) _qq.push(`<b>${fmt(pochka)} pochka</b>`);
-    if (Math.round(dona) > 0) _qq.push(`<b>${fmt(Math.round(dona))} dona</b>`);
-    txt += `Qoldiq: ${_qq.join(" + ") || "<b>0</b>"}\n`;
+    txt += `Qoldiq: <b>${fmt(pochka)} pochka</b> · ` +
+           `<b>${fmt(ochilgan)}</b> ochilgan · ` +
+           `<b>${fmt(Math.round(dona))} dona</b>\n`;
     if (qiymat > 0)
       txt += `Qiymati (tannarxda): <b>${fmt(Math.round(qiymat))} so'm</b>\n`;
     txt += `⚠️ Kam qoldiq (≤${lowLimit}): <b>${kamTur}</b> tur\n`;
