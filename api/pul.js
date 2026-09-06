@@ -163,12 +163,27 @@ module.exports = async (req, res) => {
   catch (e) { return res.status(400).json({ ok: false, error: "invalid_json" }); }
 
   const action = String(body.action || "");
+  // ✅ OT-3 (2026-09-06): IChKI KALIT — server-serverga tor yo'lak.
+  // Bot (alohida deploy) kunlik mini-app raqamlarini AYNAN shu
+  // fayldagi report_stats'dan oladi — QH-1 formulasi uchinchi
+  // nusxada yashamaydi (olti-nusxa saboqi). Shartlar: (1) ikkala
+  // loyihada bir xil MERX_INTERNAL_KEY muhiti; kalit yo'q — yo'lak
+  // O'LIK; (2) FAQAT report_stats — pul yozadigan amallarga bu
+  // eshik hech qachon ochilmaydi; (3) taqqoslash vaqt-mustaqil.
+  let _ichki = false;
+  try {
+    const _ik = process.env.MERX_INTERNAL_KEY || "";
+    const _ih = String(req.headers["x-merx-ichki"] || "");
+    _ichki = !!(_ik && _ih.length === _ik.length &&
+      require("crypto").timingSafeEqual(Buffer.from(_ih), Buffer.from(_ik)) &&
+      action === "report_stats");
+  } catch (e) { _ichki = false; }
   const token  = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-  const shopId = shopFromJwt(token);
+  const shopId = _ichki ? String(body.shopId || "") : shopFromJwt(token);
   if (!shopId)
     return res.status(401).json({ ok: false, error: "Token yaroqsiz — qayta kiring" });
   // Haqiqiylik tekshiruvi PARALLEL boshlanadi, yozishdan oldin kutiladi
-  const _verify = verifyToken(token, shopId);
+  const _verify = _ichki ? Promise.resolve(true) : verifyToken(token, shopId);
 
   try {
     // ── QARZ TO'LOVI ──────────────────────────────────────────

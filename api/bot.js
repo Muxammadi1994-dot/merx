@@ -3,6 +3,8 @@
 // ════════════════════════════════════════════════════════════════
 
 const TOKEN        = process.env.TELEGRAM_BOT_TOKEN;
+const crypto       = require("crypto");                       // ✅ OT-3
+const PUL_URL      = process.env.PUL_URL || "https://app.merx.uz/api/pul"; // ✅ OT-3
 
 // ── GURUH ID SI (2026-07-30) ──────────────────────────────────
 // Bot o'zining raqamli ID si. Token "<bot_id>:<hash>" ko'rinishida,
@@ -410,6 +412,7 @@ async function _menuEga(chatId) {
   if (_dl.dup) return;
   await _setMenu({ type: "chat", chat_id: chatId }, [
     { command: "hisobot",        description: "Bugungi hisobot" },
+    { command: "kunlik",         description: "Kunlik hisobot (mini-app)" },
     { command: "balans",         description: "Bugungi balans" },
     { command: "ombor",          description: "Ombor holati" },
     { command: "qarzlar",        description: "Qarzdorlar" },
@@ -435,6 +438,7 @@ const _KB_XARITA = {
   "qarzlar": "/qarzlar",  "oylik": "/oylik",     "naklad": "/naklad",
   "do'konlarim": "/mendokonlarim", "dokonlarim": "/mendokonlarim",
   "komandalar": "/help",  "yordam": "/yordam",
+  "kunlikhisobot": "/kunlik", "kunlik": "/kunlik",   // ✅ OT-3
   "cheklarim": "/cheklarim", "qarzim": "/qarzim",   // ✅ OT-2
 };
 function _kbCmd(text) {
@@ -447,6 +451,7 @@ const _KB_EGA = { keyboard: [
   [{ text: "📊 Hisobot" }, { text: "💰 Balans" }],
   [{ text: "📦 Ombor" },   { text: "💳 Qarzlar" }],
   [{ text: "📈 Oylik" },   { text: "🧾 Naklad" }],
+  [{ text: "🗓 Kunlik hisobot" }],                    // ✅ OT-3
   [{ text: "🏪 Do'konlarim" }, { text: "ℹ️ Komandalar" }],
 ], resize_keyboard: true };  // ✅ OT-1c: is_persistent OLINDI — shunda
 // yozuv qatorida ▦ yashirish/ochish tugmasi chiqadi (egasi so'radi)
@@ -714,6 +719,43 @@ async function _ckList(chatId, shop, t, dTok, page) {
   if (p2 < sah) nav.push({ text: "Keyingi ›", callback_data: `ck|l|${t}|${dTok}|${p2+1}|${shop}` });
   kb.push(nav);
   return { text, kb: { inline_keyboard: kb } };
+}
+
+// ═══ ✅ OT-3 (2026-09-06): KUNLIK HISOBOT MINI-APP ═══
+// _twaCheck: Telegram WebApp `initData` IMZOSI tekshiriladi (rasmiy
+// sxema: secret = HMAC_SHA256("WebAppData", BOT_TOKEN); keyin
+// maydonlar saralanib HMAC hex hash bilan solishtiriladi). Yaroqli
+// bo'lsa user qaytadi — sahifa ma'lumotini FAQAT haqiqiy Telegram
+// ochilishi oladi; havolani brauzerga ko'chirib yoki soxta user
+// yozib kirib bo'lmaydi. Muddat: 24 soat.
+function _twaCheck(initData) {
+  try {
+    if (!initData || !TOKEN) return null;
+    const p = new URLSearchParams(String(initData));
+    const hash = p.get("hash");
+    if (!hash) return null;
+    p.delete("hash");
+    const dcs = [...p.entries()].map(([k, v]) => k + "=" + v).sort().join("\n");
+    const secret = crypto.createHmac("sha256", "WebAppData").update(TOKEN).digest();
+    const calc = crypto.createHmac("sha256", secret).update(dcs).digest("hex");
+    if (calc !== hash) return null;
+    const auth = Number(p.get("auth_date") || 0);
+    if (!auth || (Date.now() / 1000 - auth) > 86400) return null;
+    return JSON.parse(p.get("user") || "null");
+  } catch (e) { return null; }
+}
+// Ichki yo'lak orqali pul.js report_stats — raqamlar Hisobot bilan
+// BIR manbadan (QH-1 egizagi o'sha yerda yashaydi).
+async function _pulIchki(payload) {
+  try {
+    const r = await fetch(PUL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json",
+        "x-merx-ichki": process.env.MERX_INTERNAL_KEY || "" },
+      body: JSON.stringify(payload),
+    });
+    return await r.json().catch(() => null);
+  } catch (e) { return null; }
 }
 
 // Supabase GET
@@ -3915,6 +3957,9 @@ export default async function handler(req, res) {
       // Mijoz cheki (2026-07): Telegram ichida ochiladi
       url = "/api/bot?action=receipt&id=" + encodeURIComponent(parts[1] || "");
       if (parts[2]) url += "&shop=" + encodeURIComponent(parts[2]);
+    } else if (parts[0] === "KH") {
+      // ✅ OT-3: kunlik hisobot mini-app
+      url = "/api/bot?action=kunlik_app&shop=" + encodeURIComponent(parts[1] || "");
     } else if (parts[0] === "OC") {
       // ✅ OT-1: izoh sahifasi
       url = "/api/bot?action=order_comment&id=" + encodeURIComponent(parts[1] || "");
@@ -4084,6 +4129,151 @@ export default async function handler(req, res) {
   }
 
   // Done state — SET (Supabase orqali, BARCHA omborchilar uchun sinxron)
+  // ═══ ✅ OT-3: KUNLIK HISOBOT — sahifa ═══
+  if (req.method === "GET" && req.query?.action === "kunlik_app") {
+    const shop = String(req.query?.shop || "");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).send(`<!doctype html><html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body{font-family:system-ui;margin:0;background:#f4f4f6;color:#1c1c1e}
+.top{position:sticky;top:0;background:#fff;padding:12px 14px;border-bottom:1px solid #e6e6ea;display:flex;gap:8px;align-items:center}
+.top b{font-size:15px;flex:1}
+.nav{width:38px;height:38px;border:none;border-radius:10px;background:#f0f0f3;font-size:17px}
+input[type=date]{border:1.5px solid #ddd;border-radius:10px;padding:8px;font-size:14px;font-family:inherit;background:#fff}
+.wrap{padding:12px}
+.card{background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.k{font-size:12px;color:#8a8a8e;text-transform:uppercase;letter-spacing:.3px}
+.v{font-size:19px;font-weight:800;margin-top:2px}
+.row{display:flex;gap:10px}.row .card{flex:1;margin-bottom:10px}
+.mut{color:#8a8a8e;font-size:12.5px;text-align:center;padding:6px 0 14px}
+.err{background:#ffecec;color:#b3261e;border-radius:12px;padding:12px;margin:10px 0;font-size:13.5px}
+.g{color:#0a7d33}.r{color:#b3261e}
+#ld{text-align:center;padding:26px;color:#8a8a8e}
+</style></head><body>
+<div class="top">
+  <button class="nav" onclick="siljit(-1)">‹</button>
+  <input type="date" id="sana" onchange="yukla()">
+  <button class="nav" onclick="siljit(1)">›</button>
+  <b style="text-align:right" id="ttl">Kunlik</b>
+</div>
+<div class="wrap">
+  <div id="ld">⏳ Yuklanmoqda…</div>
+  <div id="out" style="display:none"></div>
+  <div class="mut">Raqamlar tizimdagi Hisobot bilan BIR manbadan (server).</div>
+</div>
+<script>
+var tw = window.Telegram && Telegram.WebApp; if (tw) tw.ready();
+var SHOP = ${JSON.stringify(shop)};
+function tsh(){ return new Date(Date.now() + 5*3600*1000).toISOString().slice(0,10); }
+document.getElementById("sana").value = tsh();
+function siljit(k){
+  var el = document.getElementById("sana");
+  var d = new Date((el.value || tsh()) + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + k);
+  el.value = d.toISOString().slice(0,10);
+  yukla();
+}
+function fmt(n){ n = Math.round(Number(n)||0);
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
+function card(k,v,cls){ return '<div class="card"><div class="k">'+k+
+  '</div><div class="v '+(cls||"")+'">'+v+'</div></div>'; }
+function yukla(){
+  var ld = document.getElementById("ld"), out = document.getElementById("out");
+  ld.style.display = "block"; out.style.display = "none";
+  fetch("/api/bot?action=kunlik_data", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ shop: SHOP,
+      sana: document.getElementById("sana").value,
+      initData: (tw && tw.initData) || "" })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    ld.style.display = "none"; out.style.display = "block";
+    if (!d || !d.ok) {
+      out.innerHTML = '<div class="err">⚠️ ' +
+        ((d && d.error) || "Ma'lumot olinmadi") + '</div>';
+      return;
+    }
+    var s = d.stat || {}, h = "";
+    h += '<div class="row">' +
+         card("Sotuvlar", fmt(d.soni) + " ta") +
+         card("Aylanma", fmt(d.aylanma) + " so'm") + '</div>';
+    if (s.rev != null || s.cost != null)
+      h += '<div class="row">' +
+           card("Sof tushum", fmt(s.rev) + " so'm") +
+           card("Tannarx", fmt(s.cost) + " so'm") + '</div>';
+    if (s.profit != null) h += card("Brutto foyda", fmt(s.profit) + " so'm");
+    if (s.trueNet != null)
+      h += card("Haqiqiy sof foyda", fmt(s.trueNet) + " so'm",
+                (Number(s.trueNet)||0) >= 0 ? "g" : "r");
+    if (s.netProfit != null)
+      h += card("Kassa foydasi (to'liq xarajat bilan)", fmt(s.netProfit) + " so'm");
+    if (s.exp != null) h += card("Xarajat", fmt(s.exp) + " so'm");
+    h += '<div class="row">' +
+         card("Chegirma (2 tur)", fmt(d.cheg) + " so'm") +
+         card("Qaytarishlar", fmt(d.qayt) + " ta") + '</div>';
+    if (!d.ichki)
+      h += '<div class="err">ℹ️ Server hisoboti kelmadi — ' +
+           'MERX_INTERNAL_KEY ikkala loyihada o\'rnatilganini tekshiring. ' +
+           'Yuqoridagi sanoq/aylanma/chegirma to\'g\'ri.</div>';
+    out.innerHTML = h;
+  }).catch(function(){
+    ld.textContent = "⚠️ Internet xatosi";
+  });
+}
+yukla();
+</script></body></html>`);
+  }
+
+  // ═══ ✅ OT-3: KUNLIK HISOBOT — ma'lumot (imzo + egalik tekshiruvi) ═══
+  if (req.method === "POST" && req.query?.action === "kunlik_data") {
+    let body;
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; } catch { body = {}; }
+    const user = _twaCheck(String(body?.initData || ""));
+    if (!user || !user.id)
+      return res.status(200).json({ ok: false, error: "Imzo yaroqsiz — sahifani Telegram ichida oching" });
+    const shop = String(body?.shop || "");
+    const sana = (String(body?.sana || "").match(/^\d{4}-\d{2}-\d{2}$/) || [today()])[0];
+    if (!shop) return res.status(200).json({ ok: false, error: "do'kon yo'q" });
+    // Egalik: shop_owners → bo'lmasa sessiya (birinchi-ega holati)
+    let ega = false;
+    try {
+      const r0 = await sb("shop_owners",
+        `?chat_id=eq.${user.id}&shop_id=eq.${encodeURIComponent(shop)}&select=chat_id&limit=1`);
+      ega = !!(r0 && r0.length);
+    } catch (e) {}
+    if (!ega) {
+      try {
+        const c0 = await getShopCtx(user.id);
+        ega = !!(c0 && String(c0.shopId) === shop && c0.isOwner);
+      } catch (e) {}
+    }
+    if (!ega) return res.status(200).json({ ok: false, error: "Ruxsat yo'q — bu do'kon egasi emassiz" });
+    const st = await _pulIchki({ action: "report_stats", from: sana, to: sana, shopId: shop });
+    const okStat = !!(st && st.ok !== false && !st.error);
+    // Qo'shimcha sanoqlar — chegirma KH-1 EGIZAGI (pos.js:1519 birligi)
+    let soni = 0, aylanma = 0, cheg = 0, qayt = 0;
+    try {
+      const ss = await sb("sales",
+        `?shop_id=eq.${encodeURIComponent(shop)}&date=eq.${sana}` +
+        `&select=total,status,discount,data&limit=600`);
+      (ss || []).forEach(s2 => {
+        if (String(s2.data?.cancelled) === "true") return;
+        soni++; aylanma += Number(s2.total) || 0;
+        if (s2.status === "qaytarilgan") qayt++;
+        let c1 = Number(s2.discount) || 0;
+        (s2.data?.items || []).forEach(it => {
+          const b = Number(it.basePrice) || 0, n = Number(it.price) || 0;
+          if (b > n && n >= 0) c1 += (b - n) * (Number(it.qty) || 0);
+        });
+        cheg += c1;
+      });
+    } catch (e) {}
+    return res.status(200).json({ ok: true, sana, ichki: okStat,
+      stat: okStat ? st : null, soni, aylanma, cheg, qayt });
+  }
+
   // ═══ ✅ OT-1: "Tayyorlandi" — guruhga xabar (mini-app'dan) ═══
   // Himoya set_done uslubida: chek bazada mavjudligini _ordLoad
   // tekshiradi; ordready qulfi ikki marta bosishdan saqlaydi.
@@ -4718,6 +4908,37 @@ function yubor(){
 
   _menuEga(chatId).catch(() => {});   // ✅ OT-1a: ega chatiga to'liq menyu
   _kbEgaYubor(chatId).catch(() => {}); // ✅ OT-1b: tez tugmalar (soatiga 1 marta)
+
+  // ✅ OT-3: /kunlik — kunlik hisobot mini-app havolasi (faqat ega;
+  // darvoza yuqorida allaqachon o'tilgan).
+  if (cmd === "/kunlik") {
+    let ids = [];
+    try {
+      const r0 = await sb("shop_owners", `?chat_id=eq.${chatId}&select=shop_id`);
+      ids = [...new Set((r0 || []).map(r2 => String(r2.shop_id)))];
+    } catch (e) {}
+    if (!ids.length) {
+      const c0 = await getShopCtx(chatId);
+      if (c0?.shopId) ids = [String(c0.shopId)];
+    }
+    if (!ids.length) {
+      await tg(chatId, "⚠️ Do'kon topilmadi.");
+      return res.status(200).json({ ok: true });
+    }
+    const nom = await _ckShopNom(ids);
+    const btns = ids.slice(0, 6).map(s2 => {
+      const oc = ("KH__" + s2).replace(/[^a-zA-Z0-9_]/g,
+        m => "x" + m.charCodeAt(0).toString(16));
+      return [{ text: "🗓 " + (nom[s2] || s2),
+        url: `https://t.me/${BOT_USERNAME}/ombor?startapp=${oc}` }];
+    });
+    await tg(chatId,
+      ids.length > 1
+        ? "🗓 Kunlik hisobot — do'konni tanlang:"
+        : "🗓 Kunlik hisobot — ochish:",
+      { reply_markup: { inline_keyboard: btns } });
+    return res.status(200).json({ ok: true });
+  }
 
   // AI-NAKLAD (2026-07): faol sessiya bo'lsa, xabar (rasm/matn) shu
   // oqimga yo'naltiriladi — /naklad bundan mustasno (qayta boshlash uchun)
