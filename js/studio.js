@@ -2453,6 +2453,15 @@ function renderStudio() {
   if (yr && yr.value !== STU.yorliq) yr.value = STU.yorliq;
   stChiz();
   stuTipoChiz();                                     // ✅ A2
+  if (!STU.rejim) {                                  // ✅ ODDIY: standart
+    let r = "oddiy";
+    try { r = localStorage.getItem("merx_studio_rejim") || "oddiy"; } catch (e) {}
+    STU.rejim = r;
+    const od = document.getElementById("stu-oddiy"), pr = document.getElementById("stu-pro");
+    if (od) od.style.display = r === "pro" ? "none" : "block";
+    if (pr) pr.style.display = r === "pro" ? "block" : "none";
+  }
+  stuOddiyChiz();
   if (!STU._limitOlindi) {
     STU._limitOlindi = true;
     stuSevTikla();                                   // ✅ B1
@@ -2477,7 +2486,7 @@ function stuPanel(id) {                            // ✅ D1: panel almashish
 }
 function stuPal(id)  { STU.pal = id; stChiz(); _stuKech(renderStudio); }
 function stuFmt(id)  { STU.fmt  = id; renderStudio(); }
-function stuYorliq(v){ STU.yorliq = String(v || "").slice(0, 28); stChiz(); }
+function stuYorliq(v){ STU.yorliq = String(v || "").slice(0, 28); STU.yorliqQolda = !!STU.yorliq; stChiz(); }
 function stuNarx(on) { STU.narxKorsat = !!on; stChiz(); }
 function stuBelgi(on){ STU.belgi = !!on; stChiz(); }
 function stuZoom(v)  { STU.imgAdj.zoom = Number(v) || 1; stChiz(); }
@@ -2517,6 +2526,7 @@ function stuTanla(sku) {
     })(),
     narx: Number(p.ulgurjiNarx || p.priceUzs) || 0,
     kat: String(p.category || p.type || ""),   // ✅ S1: sahna tanlash uchun
+    createdAt: p.createdAt || null,            // ✅ ODDIY: "yangi keldi" uchun
   };
   const q = document.getElementById("stu-q");   if (q) q.value = "";
   const n = document.getElementById("stu-natija"); if (n) { n.innerHTML = ""; n.style.display = "none"; }
@@ -2804,6 +2814,9 @@ function stuKatTanla() {
   // shuning uchun OYOQ KIYIM birinchi tekshiriladi (stend xatosi, 6-sen).
   // ✅ S3: natija — SAHNA KUTUBXONASINING kategoriyasi (server
   // shundan mos sahnani tanlaydi va buyruqni o'zi quradi).
+  // ✅ ODDIY: bolalar va sport — avval (ular ichida "kurtka"/"krossovka" bo'ladi)
+  if (bor(["bolalar", "bola ", "bolajon", "kids", "детск"])) return "bolalar";
+  if (bor(["sport", "fitnes", "trenirovka", "futbol", "yoga"])) return "sport";
   if (bor(["oyoq", "krossovka", "botinka", "tufli", "shippak", "sandal",
            "poyabzal", "ked", "sneaker"])) return "oyoq";
   if (bor(["sumka", "ryukzak", "kamar", "aksessuar", "hamyon"])) return "sumka";
@@ -2814,16 +2827,60 @@ function stuKatTanla() {
 }
 
 // ── Olti variant (uslub × palitra)
-function stuVariantlar() {
+// ✅ ODDIY (2026-09-07): variantlar endi 109 shablonlik KUTUBXONADAN,
+// tovar KATEGORIYASI bo'yicha va har biri BOShQA arxetipdan (bir xil
+// ko'rinishdagi 6 ta emas). Avval eski 6 shablon qattiq yozilgan edi —
+// kutubxona umuman ishlatilmasdi (egasining haqli e'tirozi).
+function _stuArxetip(id) { return String(id).replace(/\d+$/, ""); }
+function stuVariantlar(oldingi) {
+  const kat = stuKatTanla();
+  const sinf = STU.real ? "real" : (STU.aiNamoyish ? "model" : null);
+  // ✅ tartib: o'z kategoriyasi (2) > umumiy (1); bolalar/sport shablonlari
+  // faqat o'z kategoriyasida (stend: krossovkaga "Bolalar" tushib qolgan edi)
+  const daraja = s => {
+    const k = s.kat || [];
+    if (sinf) return k.indexOf(sinf) >= 0 ? 2 : 0;
+    if (k.indexOf("real") >= 0 || k.indexOf("model") >= 0) return 0;
+    if (k.indexOf(kat) >= 0) return 2;
+    if ((k.indexOf("bolalar") >= 0 || k.indexOf("sport") >= 0) && kat !== "bolalar" && kat !== "sport") return 0;
+    return k.indexOf("umumiy") >= 0 ? 1 : 0;
+  };
+  let ro = STU_SHAB.filter(s => daraja(s) > 0);
+  ro.sort((a, b) => daraja(b) - daraja(a) ||
+    ((b.id.indexOf("fs") === 0) - (a.id.indexOf("fs") === 0)));
   const A = STU.avtoPal ? "auto" : "navy";
-  return [
-    { shab: "narx",     pal: A },
-    { shab: "sarlavha", pal: "amber" },
-    { shab: "lenta",    pal: "qogoz" },
-    { shab: "burchak",  pal: A },
-    { shab: "katalog",  pal: "oq" },
-    { shab: "chegirma", pal: "qizil" },
-  ];
+  const B = stBrendPal() ? "brend" : "qogoz";
+  const pallar = [A, "oq", B, A, "qora", "amber"];
+  const tanlangan = [], arx = {};
+  const eski = new Set((oldingi || []).map(v => v.shab));
+  // aralashtirib, har arxetipdan bittadan
+  // daraja ichida aralashtiriladi (2-lar avval, keyin 1-lar)
+  const ar = ro.filter(x => daraja(x) === 2).sort(() => Math.random() - .5)
+    .concat(ro.filter(x => daraja(x) === 1).sort(() => Math.random() - .5));
+  for (const s of ar) {
+    const a = _stuArxetip(s.id);
+    if (arx[a] || eski.has(s.id)) continue;
+    arx[a] = 1; tanlangan.push(s);
+    if (tanlangan.length >= 6) break;
+  }
+  for (const s of ar) {                        // yetmasa — to'ldiramiz
+    if (tanlangan.length >= 6) break;
+    if (tanlangan.indexOf(s) < 0) tanlangan.push(s);
+  }
+  return tanlangan.map((s, i) => ({ shab: s.id, pal: pallar[i % pallar.length] }));
+}
+// ✅ ODDIY: yorliq matni holatdan kelib chiqadi
+function stuAvtoYorliq() {
+  if (STU.yorliqQolda) return STU.yorliq;
+  const t = STU.tovar || {};
+  if (STU.eskiNarx && STU.eskiNarx > (t.narx || 0)) return "CHEGIRMA";
+  const yaratilgan = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+  if (yaratilgan && Date.now() - yaratilgan < 14 * 86400000) return "YANGI KELDI";
+  const oy = new Date().getMonth() + 1;
+  if (oy === 12 || oy <= 2) return "QISHKI TO'PLAM";
+  if (oy <= 5) return "BAHOR TO'PLAMI";
+  if (oy <= 8) return "YOZGI TO'PLAM";
+  return "KUZGI TO'PLAM";
 }
 
 // ── ASOSIY: bir bosishda hammasi
@@ -2845,11 +2902,24 @@ async function stuReklamaYasa() {
       toast("To'plam tayyor — AI ishlatilmadi", "ok");
       return;
     }
-    stuHolat("1/3 · Tovar fondan ajratilmoqda…");
-    await stuFonTozala(true);
-    STU.avtoPal = stuPalitraChiqar(STU.img);   // ✅ S3: rang sahnadan OLDIN
-    stuHolat("2/3 · Sahna tanlanmoqda…");
-    await stuSahna(null, true);      // ✅ S3: server o'zi tanlaydi
+    STU.yorliq = stuAvtoYorliq();
+    // ✅ ODDIY: odam kadri bo'lsa — shaxs ajratiladi, real fon qo'yiladi
+    if (STU.odamKadri) {
+      stuHolat("1/3 · Shaxs ajratilmoqda…");
+      await stuShaxsAjrat(true);
+      STU.avtoPal = stuPalitraChiqar(STU.img);
+      stuHolat("2/3 · Fon tanlanmoqda…");
+      await stuFonAvto("real", true);
+      STU.real = true; STU.soya = true; STU.aks = false;
+    } else {
+      stuHolat("1/3 · Tovar fondan ajratilmoqda…");
+      await stuFonTozala(true);
+      STU.avtoPal = stuPalitraChiqar(STU.img);
+      stuHolat("2/3 · Bezakli sahna tanlanmoqda…");
+      // ✅ ODDIY: bezakli (pampas, marmar, yog'och) — tabiiy ko'rinish
+      const bo = await stuFonAvto("tovar", true);
+      if (!bo) await stuSahna(null, true);   // zaxira
+    }
     stuHolat("3/3 · Variantlar chizilmoqda…");
     STU.variants = stuVariantlar();
     STU.tanlanganV = 0;
@@ -2859,6 +2929,7 @@ async function stuReklamaYasa() {
     renderStudio();
     stuHolat("");
     toast("6 ta variant tayyor — yoqqanini tanlang", "ok");
+    stuNatijaKorsat(true);                          // ✅ ODDIY
   } catch (e) {
     stuHolat(""); toast("Xato: " + e.message, "err");
   } finally {
@@ -3488,8 +3559,8 @@ async function stuFonTanla(fid) {
   } catch (e) { toast("Fon ochilmadi", "err"); }
 }
 // ✅ C1: odam kadridan shaxsni ajratish (yuzga tegilmaydi)
-async function stuShaxsAjrat() {
-  if (!STU.img) { toast("Avval surat yuklang", "err"); return; }
+async function stuShaxsAjrat(jim) {
+  if (!STU.img) { if (!jim) toast("Avval surat yuklang", "err"); return false; }
   if (!STU.asl) STU.asl = STU.img;
   stuHolat("✂️ Shaxs ajratilmoqda…");
   const c = document.createElement("canvas");
@@ -3502,9 +3573,9 @@ async function stuShaxsAjrat() {
   try {
     STU.img = _stuTrim(await _stuImg(d.image));
     STU.soya = true; STU.aks = true;
-    stChiz(); stuVariantChiz();
-    toast("Shaxs ajratildi — endi fon tanlang", "ok");
-  } catch (e) { toast("Natija ochilmadi", "err"); }
+    if (!jim) { stChiz(); stuVariantChiz(); toast("Shaxs ajratildi — endi fon tanlang", "ok"); }
+    return true;
+  } catch (e) { if (!jim) toast("Natija ochilmadi", "err"); return false; }
 }
 
 // ✅ XOTIRA: boshqa sahifaga o'tilganda og'ir rasmlar bo'shatiladi
@@ -3785,3 +3856,85 @@ async function stuKiydirKop(manba) {
 // kiyim turini belgilash (aniqroq natija uchun)
 STU.kiyimTuri = {};
 function stuKiyimTuri(i, v) { STU.kiyimTuri[i] = v; }
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ ODDIY REJIM (2026-09-07) — do'konchi uchun, SMM-chi uchun emas
+// ═══════════════════════════════════════════════════════════════
+// Uch harakat: tovar → surat → ✨. Qolgan hamma narsa yashirin.
+// Natija ekranida ham uch tugma: Kanalga · Yuklab olish · Yana.
+// "Pro" — ustaxona (7 panel) faqat xohlaganlar uchun.
+async function stuFonAvto(sinf, jim) {
+  const d = await stuAI("fon_avto", { sinf, oldingi: STU.fonId || "" });
+  if (!d) return false;
+  try {
+    STU.fon = await _stuImg(d.image); STU.fonId = d.fon; STU.fonNom = d.nom || "";
+    if (!jim) { stChiz(); stuVariantChiz(); toast("Fon: " + STU.fonNom, "ok"); }
+    return true;
+  } catch (e) { return false; }
+}
+function stuRejim(r) {
+  STU.rejim = r;
+  const od = document.getElementById("stu-oddiy");
+  const pr = document.getElementById("stu-pro");
+  if (od) od.style.display = r === "pro" ? "none" : "block";
+  if (pr) pr.style.display = r === "pro" ? "block" : "none";
+  _stuLS("merx_studio_rejim", r);
+  if (r === "pro") renderStudio(); else stuOddiyChiz();
+}
+function stuOddiyChiz() {
+  // oxirgi qo'shilgan tovarlar — bir bosishda tanlash
+  const el = document.getElementById("stu-od-tovarlar");
+  if (el) {
+    const manba = (typeof visProds === "function" ? visProds() : (db.products || []))
+      .slice().sort((a, b) => (new Date(b.createdAt || 0)) - (new Date(a.createdAt || 0)))
+      .slice(0, 8);
+    el.innerHTML = manba.map(p => {
+      const on = STU.tovar && String(STU.tovar.art) === String(p.art || p.sku);
+      const rasm = (p.colorImages && Object.values(p.colorImages)[0]) || p.image || "";
+      return `<button class="stu-od-tov${on ? " on" : ""}"
+        onclick="stuTanla('${String(p.sku).replace(/'/g, "\\'")}');stuOddiyChiz()">
+        ${rasm ? `<img src="${rasm}" loading="lazy" alt="">` : `<i>◈</i>`}
+        <span>${p.name || "—"}</span></button>`;
+    }).join("") || `<div class="st-hint">Katalogda tovar yo'q</div>`;
+  }
+  const t = document.getElementById("stu-od-tovar");
+  if (t) t.textContent = STU.tovar ? "✓ " + STU.tovar.nom : "Tovarni tanlang";
+  const s2 = document.getElementById("stu-od-surat");
+  if (s2) s2.textContent = STU.img ? "✓ Surat tayyor" : "📷 Suratga oling";
+  const g = document.getElementById("stu-od-go");
+  if (g) g.disabled = !(STU.tovar && STU.img);
+  stuNatijaKorsat(!!STU.variants.length);
+}
+function stuOdamKadri(on) { STU.odamKadri = !!on; }
+function stuNatijaKorsat(bor) {
+  const n = document.getElementById("stu-od-natija");
+  if (!n) return;
+  n.style.display = bor ? "block" : "none";
+  if (!bor) return;
+  const c = document.getElementById("stu-od-cvs");
+  if (c) stChiz(c, stFmt());
+  const v = document.getElementById("stu-od-variants");
+  if (v) {
+    v.innerHTML = STU.variants.map((x, i) =>
+      `<button class="stu-vr${i === STU.tanlanganV ? " on" : ""}" onclick="stuVariantTanla(${i});stuNatijaKorsat(true)">
+         <canvas id="stu-ovc${i}" width="180" height="225"></canvas></button>`).join("");
+    STU.variants.forEach((x, i) => {
+      const cc = document.getElementById("stu-ovc" + i);
+      if (cc) { try { stChiz(cc, { w: 180, h: 225 }, x); } catch (e) {} }
+    });
+  }
+  const f = document.getElementById("stu-od-fmt");
+  if (f) f.innerHTML = STU_FMT.map(x =>
+    `<button class="${x.id === STU.fmt ? "on" : ""}" onclick="stuFmt('${x.id}');stuNatijaKorsat(true)">${x.nom}</button>`).join("");
+}
+async function stuYana() {
+  STU.variants = stuVariantlar(STU.variants);
+  STU.tanlanganV = 0;
+  const v = STU.variants[0]; STU.shab = v.shab; STU.pal = v.pal;
+  stuVariantChiz(); stuNatijaKorsat(true);
+  toast("Yana 6 ta variant", "ok");
+}
+async function stuBoshqaFon() {
+  const ok2 = await stuFonAvto(STU.real ? "real" : "tovar", true);
+  if (ok2) { stuNatijaKorsat(true); stuVariantChiz(); toast("Fon: " + STU.fonNom, "ok"); }
+}

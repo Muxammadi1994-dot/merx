@@ -708,6 +708,34 @@ module.exports = async (req, res) => {
       sarf: n, chegara: (await chegaraOl(shopId)).chegara });
   }
 
+  // ── ✅ ODDIY (2026-09-07): AVTO-FON — tizim o'zi tanlaydi ──
+  // Do'konchi hech narsa tanlamaydi: kategoriya + mavsumga mos BEZAKLI
+  // sahna (pampas, marmar, yog'och...) yoki odam kadri uchun real fon
+  // tasodifiy olinadi, yo'q bo'lsa yaratiladi (bir marta, hamma uchun).
+  if (amal === "fon_avto") {
+    const sinf = body.sinf === "real" ? "real" : body.sinf === "model" ? "model" : "tovar";
+    const oy = new Date(Date.now() + 5 * 3600 * 1000).getUTCMonth() + 1;
+    const mavsum = (oy === 12 || oy <= 2) ? "qish" : oy <= 5 ? "bahor" : oy <= 8 ? "yoz" : "kuz";
+    let ro = FON_KATALOG.filter(f => f.sinf === sinf &&
+      (sinf === "tovar" ? f.kat === "bezak" : true) &&
+      (f.mavsum === mavsum || f.mavsum === "hamma"));
+    // mavsumiylarni afzal ko'ramiz (3 tadan 1 tasi mavsumiy bo'lsin)
+    const mavs = ro.filter(f => f.mavsum === mavsum);
+    if (mavs.length && Math.random() < .45) ro = mavs;
+    if (!ro.length) ro = FON_KATALOG.filter(f => f.sinf === sinf);
+    const oldingi = String(body.oldingi || "");
+    const tanlov = ro.filter(f => f.id !== oldingi);
+    const f = (tanlov.length ? tanlov : ro)[Math.floor(Math.random() * (tanlov.length || ro.length))];
+    if (!f) return res.status(200).json({ ok: false, error: "Fon topilmadi" });
+    const y = await fonYarat(f.id);
+    if (!y.ok) return res.status(200).json(y);
+    try {
+      const data = await fonData(y.url);
+      if (!y.kesh) await jurnal(shopId, "fonkutub", "fal", M_SAHNA, true, f.id);
+      return res.status(200).json({ ok: true, image: data, fon: f.id, nom: f.nom, kesh: !!y.kesh });
+    } catch (e) { return res.status(200).json({ ok: false, error: e.message }); }
+  }
+
   // ── ✅ C1: FON KUTUBXONASI ──
   if (amal === "fonlar") {
     const r = await fonRoyxat(body.sinf || null, body.mavsum || null);
