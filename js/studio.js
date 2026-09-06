@@ -1586,6 +1586,9 @@ const STU_SHAB = [
 const STU = {
   shab: "narx", pal: "navy", fmt: "post",
   tipo: "kuchli",              // ✅ A2: tipografika juftligi
+  rasmlar: [],                 // ✅ KK: tovar suratlari (4 slotgacha)
+  shaxs: null,                 // ✅ KK: xodim/model surati (o'zimizniki)
+  asosiy: 0,                   // qaysi slot asosiy rasm
   katFiltr: "hammasi",         // ✅ B1: shablon brauzeri filtri
   qidiruv: "",                 // ✅ B1: shablon qidiruvi
   sevimli: [],                 // ✅ B1: sevimli shablonlar
@@ -2091,7 +2094,8 @@ function stChiz(cvs, fmt, opt) {
 
         // ✅ A1: IKKINChI RASM — kollaj (2-3 tovar bir kadrda)
         case "rasm2": {
-          const im2 = STU.img2;
+          // ✅ KK: slot bo'yicha (2-3-4 tovar kollajda)
+          const im2 = STU.rasmlar[(L.slot != null ? L.slot : 1)] || STU.img2;
           const bw = L.w * W, bh = L.h * H;
           const bx = (L.anchor === "center" ? L.x * W - bw / 2 : L.x * W);
           const by = (L.anchor === "center" ? L.y * H - bh / 2 : L.y * H);
@@ -2453,7 +2457,7 @@ function renderStudio() {
     STU._limitOlindi = true;
     stuSevTikla();                                   // ✅ B1
     stuLimit(); stuModellar(); stuLogoTikla(); stuShriftYukla();
-    stuFonlar(); stuKodFonChiz();
+    stuFonlar(); stuKodFonChiz(); stuSlotChiz();
   }
 }
 function stuShab(id) { STU.shab = id; renderStudio(); }
@@ -2525,7 +2529,13 @@ function stuRasm(inp) {
   const r = new FileReader();
   r.onload = e => {
     const im = new Image();
-    im.onload = () => { STU.img = im; STU.imgAdj = { zoom:1, dx:0, dy:0 }; stChiz(); };
+    im.onload = () => {                                // ✅ KK: slotga ham
+      STU.img = im; STU.asl = im; STU.imgAdj = { zoom:1, dx:0, dy:0 };
+      STU.fokus = { x: .5, y: .38 };
+      STU.rasmlar[STU.asosiy || 0] = im;
+      if (typeof stuSlotChiz === "function") stuSlotChiz();
+      stChiz();
+    };
     im.onerror = () => toast("Rasm ochilmadi", "err");
     im.src = e.target.result;
   };
@@ -3644,3 +3654,134 @@ function stuKodFonChiz() {
     if (c) { try { f.chiz(c.getContext("2d"), c.width, c.height); } catch (e) {} }
   });
 }
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ KK (2026-09-06) — KO'P SURAT VA XODIM KADRI
+// ═══════════════════════════════════════════════════════════════
+// Avval bitta rasm sloti bor edi — shu sabab (a) do'kon O'Z XODIMI
+// suratini yuklay olmasdi, (b) kollaj uchun ikkinchi tovar yo'q edi,
+// (c) bir modelga bir necha kiyimni birga kiydirib bo'lmasdi.
+// Endi: 4 ta TOVAR sloti + alohida ShAXS sloti (xodim yoki model).
+// Ketma-ket kiydirish: shim → ko'ylak → oyoq kiyim (har biri
+// oldingi natija ustiga qo'yiladi).
+function stuRasmSlot(inp, i) {
+  const f = inp && inp.files && inp.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    const im = new Image();
+    im.onload = () => {
+      STU.rasmlar[i] = im;
+      if (i === STU.asosiy || !STU.img) { STU.img = im; STU.asl = im; STU.asosiy = i; }
+      STU.fokus = { x: .5, y: .38 };
+      stuSlotChiz(); stChiz(); stuVariantChiz();
+    };
+    im.onerror = () => toast("Rasm ochilmadi", "err");
+    im.src = e.target.result;
+  };
+  r.readAsDataURL(f);
+}
+function stuAsosiy(i) {
+  if (!STU.rasmlar[i]) return;
+  STU.asosiy = i; STU.img = STU.rasmlar[i]; STU.asl = STU.rasmlar[i];
+  stuSlotChiz(); stChiz(); stuVariantChiz();
+}
+function stuSlotOchir(i) {
+  STU.rasmlar[i] = null;
+  if (STU.asosiy === i) {
+    const j = STU.rasmlar.findIndex(x => x);
+    if (j >= 0) stuAsosiy(j); else { STU.img = null; STU.asl = null; }
+  }
+  stuSlotChiz(); stChiz(); stuVariantChiz();
+}
+function stuShaxsRasm(inp) {
+  const f = inp && inp.files && inp.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    const im = new Image();
+    im.onload = () => { STU.shaxs = im; stuSlotChiz();
+      toast("Xodim surati qo'shildi — endi kiyimlarni tanlang", "ok"); };
+    im.src = e.target.result;
+  };
+  r.readAsDataURL(f);
+}
+function stuSlotChiz() {
+  const el = document.getElementById("stu-slotlar");
+  if (el) {
+    let h = "";
+    for (let i = 0; i < 4; i++) {
+      const im = STU.rasmlar[i];
+      h += `<div class="stu-slot${i === STU.asosiy && im ? " on" : ""}">
+        ${im ? `<img src="${im.src || ""}" onclick="stuAsosiy(${i})" alt="">
+                <b onclick="stuSlotOchir(${i})">\u00d7</b>`
+             : `<label>+<input type="file" accept="image/*" capture="environment"
+                   onchange="stuRasmSlot(this, ${i})" style="display:none"></label>`}
+        <span>${i === 0 ? "asosiy" : (i + 1) + "-tovar"}</span></div>`;
+    }
+    el.innerHTML = h;
+  }
+  const sh = document.getElementById("stu-shaxs");
+  if (sh) sh.innerHTML = STU.shaxs
+    ? `<img src="${STU.shaxs.src || ""}" alt="">
+       <button onclick="STU.shaxs=null;stuSlotChiz()">O'chirish</button>`
+    : `<label class="stu-yukla">\U0001f9cd Xodim yoki model suratini yuklash
+         <input type="file" accept="image/*" onchange="stuShaxsRasm(this)" style="display:none"></label>`;
+}
+
+// ── Rasmni yuborishga tayyorlash (kichraytirib, oq fon bilan)
+function _stuTayyor(im, maxOlcham, oqFon) {
+  const c = document.createElement("canvas");
+  const k = Math.min(1, (maxOlcham || 1100) / Math.max(im.width, im.height));
+  c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+  const x = c.getContext("2d");
+  if (oqFon !== false) { x.fillStyle = "#FFFFFF"; x.fillRect(0, 0, c.width, c.height); }
+  x.drawImage(im, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.86);
+}
+
+// ── ✅ KO'P KIYIMNI KETMA-KET KIYDIRISH
+// Har kiyim alohida so'rov: natija keyingisiga shaxs bo'lib uzatiladi.
+// Shu tufayli shim + ko'ylak + oyoq kiyim bitta kadrda chiqadi.
+async function stuKiydirKop(manba) {
+  const tanlangan = STU.rasmlar.map((im, i) => im ? i : -1).filter(i => i >= 0);
+  if (!tanlangan.length) { toast("Avval kiyim suratlarini yuklang", "err"); return; }
+  if (manba === "shaxs" && !STU.shaxs) {
+    toast("Xodim suratini yuklang yoki AI-modelni tanlang", "err"); return;
+  }
+  const b = document.getElementById("stu-kiydir-kop");
+  if (b) { b.disabled = true; }
+  let shaxsData = manba === "shaxs" ? _stuTayyor(STU.shaxs, 1200) : null;
+  const jins = manba === "ayol" ? "ayol" : "erkak";
+  try {
+    for (let n = 0; n < tanlangan.length; n++) {
+      const i = tanlangan[n];
+      stuHolat(`\U0001f457 ${n + 1}/${tanlangan.length} kiyim kiydirilmoqda\u2026`);
+      const d = await stuAI("kiydir", {
+        jins,
+        model_image: shaxsData || undefined,
+        image: _stuTayyor(STU.rasmlar[i], 1100),
+        turi: (STU.kiyimTuri && STU.kiyimTuri[i]) || "auto",
+      });
+      if (!d) { stuHolat(""); return; }
+      shaxsData = d.image;                       // natija — keyingi qadamga
+    }
+    STU.img = await _stuImg(shaxsData);
+    STU.fon = null; STU.soya = false; STU.aiNamoyish = (manba !== "shaxs");
+    STU.shab = "model";
+    STU.variants = [
+      { shab: "model",   pal: STU.avtoPal ? "auto" : "navy" },
+      { shab: "kadr",    pal: "qora" },
+      { shab: "ki01",    pal: "amber" },
+      { shab: "katalog", pal: "oq" },
+    ];
+    STU.tanlanganV = 0;
+    stuHolat(""); stuVariantChiz(); renderStudio();
+    toast(tanlangan.length + " ta kiyim kiydirildi", "ok");
+  } catch (e) {
+    stuHolat(""); toast("Xato: " + e.message, "err");
+  } finally { if (b) b.disabled = false; }
+}
+// kiyim turini belgilash (aniqroq natija uchun)
+STU.kiyimTuri = {};
+function stuKiyimTuri(i, v) { STU.kiyimTuri[i] = v; }

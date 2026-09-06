@@ -673,15 +673,29 @@ module.exports = async (req, res) => {
     if (n0 >= ch0.chegara)
       return res.status(200).json({ ok: false, limit: true,
         error: `Bu oydagi ${ch0.chegara} kredit tugadi.` });
-    const m = await modelOl(shopId, jins);
-    if (!m || !m.url)
-      return res.status(200).json({ ok: false, model_yoq: true,
-        error: "Avval " + jins + " modelini yarating" });
+    // ✅ KK (2026-09-06): shaxs surati IKKI manbadan bo'lishi mumkin:
+    //   (a) do'konning O'Z XODIMI — klient data URI yuboradi;
+    //   (b) do'konning AI-modeli — bazadagi havola.
+    // Ketma-ket kiydirishda oldingi natija keyingi so'rovga shaxs
+    // sifatida uzatiladi (shim → ko'ylak → oyoq kiyim).
+    let shaxsRasm = String(body.model_image || "");
+    if (shaxsRasm && !/^data:image\//.test(shaxsRasm) && !/^https?:\/\//.test(shaxsRasm))
+      shaxsRasm = "";
+    if (shaxsRasm && shaxsRasm.length > MAX_KB * 1024)
+      return res.status(200).json({ ok: false, error: "Shaxs surati juda katta" });
+    if (!shaxsRasm) {
+      const m = await modelOl(shopId, jins);
+      if (!m || !m.url)
+        return res.status(200).json({ ok: false, model_yoq: true,
+          error: "Avval " + jins + " modelini yarating yoki xodim suratini yuklang" });
+      shaxsRasm = m.url;
+    }
     let chiq = null, xato = "";
     try {
       const j = await falRun(M_TRYON, {
-        model_image: m.url, garment_image: kiyim,
-        category: "auto", mode: "balanced", garment_photo_type: "auto",
+        model_image: shaxsRasm, garment_image: kiyim,
+        category: String(body.turi || "auto"),      // ✅ KK: tepa/past/oyoq
+        mode: "balanced", garment_photo_type: "auto",
         num_samples: 1, segmentation_free: true,
         output_format: "png", sync_mode: true,
       }, 52000);

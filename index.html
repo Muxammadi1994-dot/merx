@@ -1230,6 +1230,25 @@ body.sms-off .sms-only { display: none !important; }
         background:#fff;border-radius:11px;padding:9px;font-family:inherit;
         font-size:12.5px;cursor:pointer}
       #p-studio .st-row button:hover{border-color:var(--vio);color:var(--vio)}
+      #p-studio #stu-slotlar{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:7px}
+      #p-studio .stu-slot{position:relative;text-align:center}
+      #p-studio .stu-slot img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;
+        border:2.5px solid transparent;background:#F1EFEA;cursor:pointer;display:block}
+      #p-studio .stu-slot.on img{border-color:var(--amb)}
+      #p-studio .stu-slot label{display:grid;place-items:center;width:100%;aspect-ratio:1/1;
+        border-radius:10px;border:1.5px dashed #D8D4CC;background:#fff;color:#9AA3AE;
+        font-size:19px;cursor:pointer}
+      #p-studio .stu-slot b{position:absolute;top:3px;right:5px;background:rgba(0,0,0,.55);
+        color:#fff;width:17px;height:17px;border-radius:50%;font-size:12px;line-height:17px;
+        cursor:pointer}
+      #p-studio .stu-slot span{display:block;font-size:9.5px;color:#8A8578;margin-top:3px}
+      #p-studio #stu-shaxs img{width:100%;max-height:150px;object-fit:cover;border-radius:12px;
+        background:#F1EFEA;display:block}
+      #p-studio #stu-shaxs button{width:100%;margin-top:6px;border:1.5px solid var(--ln);
+        background:#fff;border-radius:9px;padding:7px;font-family:inherit;font-size:11.5px;cursor:pointer}
+      #p-studio .stu-yukla{display:grid;place-items:center;width:100%;min-height:78px;
+        border-radius:12px;border:1.5px dashed #D8D4CC;background:#fff;color:#6B7480;
+        font-size:12.5px;cursor:pointer;text-align:center;padding:10px}
       #p-studio .st-mod{flex:1;text-align:center;font-size:11.5px}
       #p-studio .st-mod img{width:100%;height:92px;object-fit:cover;border-radius:10px;background:#F1EFEA}
       #p-studio .st-mod-bosh{height:92px;border-radius:10px;background:#F1EFEA;
@@ -1338,11 +1357,15 @@ body.sms-off .sms-only { display: none !important; }
 
         <!-- SURAT -->
         <div id="stu-p-surat" style="display:none">
-          <h4>SURAT</h4>
-          <input type="file" accept="image/*" capture="environment" onchange="stuRasm(this)"
-                 style="font-size:12.5px;width:100%">
-          <div class="st-hint">Bir rangli devor yoki oq mato fonida, deraza yonida —
-            quyoshga qarshi emas. Tovar kadr o'rtasida tursin.</div>
+          <h4>TOVAR SURATLARI · 4 tagacha</h4>
+          <div id="stu-slotlar"></div>
+          <div class="st-hint">Birinchi slot — asosiy tovar. Qolganlari kollaj
+            uchun yoki modelga birga kiydirish uchun (shim, ko'ylak, oyoq kiyim).
+            Rasmga bosib asosiyni almashtirasiz.</div>
+          <h4 style="margin-top:15px">XODIM YOKI MODEL SURATI</h4>
+          <div id="stu-shaxs"></div>
+          <div class="st-hint">O'z xodimingiz kadri bo'lsa yuklang — kiyimlar
+            aynan unga kiydiriladi (yuz o'zgarmaydi). Bo'lmasa AI-modelingiz ishlatiladi.</div>
           <label style="display:block;margin-top:10px;font-size:12px;color:#6B7480">Kattalik
             <input type="range" min="0.6" max="1.8" step="0.02" value="1"
                    oninput="stuZoom(this.value)" style="width:100%"></label>
@@ -1388,7 +1411,16 @@ body.sms-off .sms-only { display: none !important; }
           </div>
           <div class="st-hint">Tovar rasmiga qayta chizish qo'llanmaydi — faqat
             fon ajratiladi yoki yangi fon quriladi.</div>
-          <h4 style="margin-top:15px">KIYIMNI MODELGA KIYDIRISH</h4>
+          <h4 style="margin-top:15px">KIYIMLARNI KIYDIRISH</h4>
+          <div class="st-hint" style="margin-top:0">Yuklangan tovar suratlari
+            <b>ketma-ket</b> kiydiriladi: shim → ko'ylak → oyoq kiyim.
+            Har kiyim 3 kredit.</div>
+          <div class="st-row" style="margin-top:8px">
+            <button id="stu-kiydir-kop" onclick="stuKiydirKop('shaxs')">🧍 O'z xodimimga</button>
+            <button onclick="stuKiydirKop('erkak')">Erkak modelga</button>
+            <button onclick="stuKiydirKop('ayol')">Ayol modelga</button>
+          </div>
+          <h4 style="margin-top:14px">AI-MODELLAR</h4>
           <div id="stu-modellar" style="display:flex;gap:9px"></div>
           <div class="st-hint">Model do'koningizga bir marta yaratiladi va keyin
             doim o'sha shaxs chiqadi — reklamalaringiz yuzidan tanilib qoladi.</div>
@@ -5563,7 +5595,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=23"></script>
+<script src="js/studio.js?v=24"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -5856,7 +5888,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 603;
+  window.SW_V = 604;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5879,7 +5911,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=603")
+    navigator.serviceWorker.register("/sw.js?v=604")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
