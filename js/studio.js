@@ -842,7 +842,7 @@ function stuHolat(m) {
 }
 function stuSarf(n, ch) {
   const el = document.getElementById("stu-sarf");
-  if (el) el.textContent = `Bu oyda: ${n}/${ch}`;
+  if (el) el.textContent = `Bu oyda: ${n}/${ch} kredit`;   // ✅ S7
 }
 function _stuImg(src) {
   return new Promise((res, rej) => {
@@ -921,7 +921,13 @@ async function stuLimit() {
       return await r.json().catch(() => null);
     } catch (e) { return null; }
   })();
-  if (d && d.ok) stuSarf(d.sarf, d.chegara);
+  if (d && d.ok) {
+    stuSarf(d.sarf, d.chegara);
+    if (d.sozlama) {                                  // ✅ S8
+      STU.sozlama = Object.assign(STU.sozlama, d.sozlama);
+      stuSozlamaChiz();
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1324,4 +1330,65 @@ function stuRangTuzat() {
     stChiz(); stuVariantChiz();
     toast("Rang va yorug'lik tuzatildi", "ok");
   } catch (e) { toast("Tuzatib bo'lmadi", "err"); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ S7 + S8 (2026-09-06) — KREDIT VA DO'KON KANALI
+// ═══════════════════════════════════════════════════════════════
+// · Kredit: banner va video BEPUL (brauzerda chiziladi), AI fon va
+//   sahna 1, model va kiydirish 3 kredit. Hisob serverda.
+// · Har do'konning O'Z Telegram reklama kanali: bir marta ID
+//   kiritiladi, keyin tayyor reklama bir bosishda kanalga chiqadi.
+// · Instagram: hozircha REJIM tanlanadi (o'zi yuritadi / MERX
+//   yuritadi) — avto-post keyingi bosqichda (Meta tasdig'i kerak).
+STU.sozlama = { kanal_id: "", kanal_nom: "", ig_rejim: "ozi", ig_user: "" };
+
+function stuSozlamaChiz() {
+  const q = (id, v) => { const e = document.getElementById(id); if (e && v != null) e.value = v; };
+  q("stu-kanal", STU.sozlama.kanal_id || "");
+  q("stu-kanal-nom", STU.sozlama.kanal_nom || "");
+  q("stu-ig", STU.sozlama.ig_user || "");
+  const r = document.getElementById("stu-ig-rejim");
+  if (r) r.value = STU.sozlama.ig_rejim || "ozi";
+}
+async function stuSozlamaSaqla() {
+  const v = id => (document.getElementById(id) || {}).value || "";
+  const d = await stuAI("sozlama_saqla", {
+    kanal_id:  v("stu-kanal"),
+    kanal_nom: v("stu-kanal-nom"),
+    ig_user:   v("stu-ig"),
+    ig_rejim:  v("stu-ig-rejim"),
+  });
+  if (!d) return;
+  STU.sozlama = d.sozlama || STU.sozlama;
+  toast("Sozlama saqlandi", "ok");
+}
+
+// ── Tayyor reklamani do'kon kanaliga yuborish
+function _stuIzoh() {
+  const t = STU.tovar || {};
+  const q = [];
+  if (t.nom) q.push("<b>" + t.nom + "</b>");
+  const tf = [t.art ? "ART " + t.art : "", t.rang || "", t.olcham || ""]
+    .filter(Boolean).join(" · ");
+  if (tf) q.push(tf);
+  if (STU.narxKorsat && t.narx) q.push("💰 " + stSon(t.narx) + " so'm");
+  if (STU.yorliq) q.push("✨ " + STU.yorliq);
+  return q.join("\n");
+}
+async function stuKanalga(video) {
+  if (!STU.sozlama.kanal_id) {
+    toast("Avval kanal ID sini kiriting va saqlang", "err"); return;
+  }
+  const b = document.getElementById("stu-kanal-yubor");
+  if (b) { b.disabled = true; b.textContent = "⏳ Yuborilmoqda…"; }
+  try {
+    const c = document.createElement("canvas");
+    stChiz(c, stFmt());
+    const data = c.toDataURL("image/png");
+    const d = await stuAI("kanalga", { image: data, matn: _stuIzoh() });
+    if (d && d.ok) toast("Kanalga yuborildi ✅", "ok");
+  } finally {
+    if (b) { b.disabled = false; b.textContent = "📢 Kanalga yuborish"; }
+  }
 }

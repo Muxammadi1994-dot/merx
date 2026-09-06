@@ -38,6 +38,10 @@ const M_TRYON = process.env.STUDIO_M_TRYON || "fal-ai/fashn/tryon/v1.6";
 const G_IMG   = "gemini-2.5-flash-image";                // Gemini zaxira
 
 const OYLIK_BEPUL = parseInt(process.env.STUDIO_LIMIT) || 10;
+const TG_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;      // ✅ S8: kanalga yuborish
+// ✅ S7: AMAL OG'IRLIGI — hamma amal bir xil emas.
+// Banner va video — BEPUL (brauzerda chiziladi, AI yo'q).
+const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kanal: 0 };
 const MAX_KB      = 6000;   // kirish rasmi (base64) chegarasi
 
 // ── Auth (pul.js naqshi) ───────────────────────────────────────
@@ -66,27 +70,42 @@ function oyBoshi() {
   const t = new Date(Date.now() + 5 * 3600 * 1000);      // Toshkent
   return t.toISOString().slice(0, 8) + "01";
 }
+// ✅ S7: oylik sarf — KREDIT yig'indisi (satr soni emas)
 async function oySarfi(shopId) {
   try {
     const r = await fetch(`${SB_URL}/rest/v1/studio_log` +
       `?shop_id=eq.${encodeURIComponent(shopId)}` +
-      `&created_at=gte.${oyBoshi()}&select=id`, {
-      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
-        Prefer: "count=exact", Range: "0-0" }
-    });
-    const cr = r.headers.get("content-range") || "";
-    const n = parseInt(String(cr).split("/")[1]);
-    return isNaN(n) ? 0 : n;
+      `&created_at=gte.${oyBoshi()}&ok=eq.true&select=kredit`, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+    const j = await r.json().catch(() => []);
+    return (j || []).reduce((a, x) => a + (Number(x.kredit) || 1), 0);
   } catch (e) { return 0; }
+}
+// ✅ S7/S8: do'kon sozlamasi (kanal, IG, chegara)
+async function sozlamaOl(shopId) {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/studio_sozlama` +
+      `?shop_id=eq.${encodeURIComponent(shopId)}` +
+      `&select=kanal_id,kanal_nom,ig_rejim,ig_user,oylik_kredit&limit=1`, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+    const j = await r.json().catch(() => []);
+    return (j && j[0]) || {};
+  } catch (e) { return {}; }
+}
+async function chegaraOl(shopId) {
+  const s = await sozlamaOl(shopId);
+  return { chegara: Number(s.oylik_kredit) || OYLIK_BEPUL, sozlama: s };
 }
 async function jurnal(shopId, amal, provayder, model, ok, izoh) {
   try {
+    const bosh = String(amal).split(":")[0];
     await fetch(`${SB_URL}/rest/v1/studio_log`, {
       method: "POST",
       headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
         "Content-Type": "application/json", Prefer: "return=minimal" },
       body: JSON.stringify([{ shop_id: shopId, amal, provayder, model,
-        ok: !!ok, izoh: String(izoh || "").slice(0, 200) }]),
+        ok: !!ok, kredit: (KREDIT[bosh] != null ? KREDIT[bosh] : 1),   // ✅ S7
+        izoh: String(izoh || "").slice(0, 200) }]),
     });
   } catch (e) {}
 }
@@ -264,9 +283,81 @@ module.exports = async (req, res) => {
 
   // ── limit ──
   if (amal === "limit") {
-    const n = await oySarfi(shopId);
-    return res.status(200).json({ ok: true, sarf: n, chegara: OYLIK_BEPUL,
-      fal: !!FAL_KEY, gemini: !!GEMINI_KEY });
+    const [n, ch] = await Promise.all([oySarfi(shopId), chegaraOl(shopId)]);
+    return res.status(200).json({ ok: true, sarf: n, chegara: ch.chegara,
+      sozlama: ch.sozlama, narx: KREDIT,
+      fal: !!FAL_KEY, gemini: !!GEMINI_KEY, tg: !!TG_TOKEN });
+  }
+
+  // ── ✅ S8: DO'KON SOZLAMASI — reklama kanali va Instagram ──
+  if (amal === "sozlama_saqla") {
+    const qator = {
+      shop_id: shopId,
+      kanal_id:  String(body.kanal_id  || "").trim().slice(0, 40) || null,
+      kanal_nom: String(body.kanal_nom || "").trim().slice(0, 80) || null,
+      ig_rejim:  body.ig_rejim === "merx" ? "merx" : "ozi",
+      ig_user:   String(body.ig_user || "").replace(/^@/, "").trim().slice(0, 60) || null,
+      updated_at: new Date().toISOString(),
+    };
+    try {
+      await fetch(`${SB_URL}/rest/v1/studio_sozlama?on_conflict=shop_id`, {
+        method: "POST",
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify([qator]),
+      });
+      return res.status(200).json({ ok: true, sozlama: qator });
+    } catch (e) { return res.status(200).json({ ok: false, error: e.message }); }
+  }
+
+  // ── ✅ S8: REKLAMANI KANALGA YUBORISh ──
+  // Do'konning O'Z reklama kanaliga bot orqali chiqadi. Bot kanalga
+  // ADMIN qilib qo'shilgan bo'lishi shart — aks holda Telegram aniq
+  // xato qaytaradi va biz uni to'g'ridan ko'rsatamiz.
+  if (amal === "kanalga") {
+    if (!TG_TOKEN)
+      return res.status(200).json({ ok: false, error: "Bot tokeni sozlanmagan" });
+    const s = await sozlamaOl(shopId);
+    const kanal = String(body.kanal_id || s.kanal_id || "").trim();
+    if (!kanal)
+      return res.status(200).json({ ok: false, error: "Kanal ID kiritilmagan" });
+    const rasm = String(body.image || "");
+    if (!/^data:(image|video)\//.test(rasm))
+      return res.status(200).json({ ok: false, error: "Fayl yuborilmadi" });
+    const video = rasm.indexOf("data:video") === 0;
+    try {
+      const b64 = rasm.split(",")[1] || "";
+      const buf = Buffer.from(b64, "base64");
+      if (buf.length > 9 * 1024 * 1024)
+        return res.status(200).json({ ok: false, error: "Fayl juda katta (9 MB dan ortiq)" });
+      const fd = new FormData();
+      fd.append("chat_id", kanal);
+      const izoh = String(body.matn || "").slice(0, 900);
+      if (izoh) { fd.append("caption", izoh); fd.append("parse_mode", "HTML"); }
+      fd.append(video ? "video" : "photo",
+        new Blob([buf], { type: video ? "video/mp4" : "image/png" }),
+        video ? "reklama.mp4" : "reklama.png");
+      const r = await fetch(
+        `https://api.telegram.org/bot${TG_TOKEN}/${video ? "sendVideo" : "sendPhoto"}`,
+        { method: "POST", body: fd });
+      const j = await r.json().catch(() => ({}));
+      if (!j.ok) {
+        const d = String(j.description || "").toLowerCase();
+        let izohli = j.description || "Yuborilmadi";
+        if (d.includes("chat not found"))
+          izohli = "Kanal topilmadi — ID xato yoki bot kanalga qo'shilmagan";
+        else if (d.includes("not enough rights") || d.includes("administrator"))
+          izohli = "Botga kanalda ADMIN huquqi berilmagan";
+        await jurnal(shopId, "kanal", "telegram", "sendPhoto", false, izohli);
+        return res.status(200).json({ ok: false, error: izohli });
+      }
+      await jurnal(shopId, "kanal", "telegram",
+        video ? "sendVideo" : "sendPhoto", true, "");
+      return res.status(200).json({ ok: true });
+    } catch (e) {
+      return res.status(200).json({ ok: false, error: e.message });
+    }
   }
 
   // ── sinov (kalit ishlayaptimi) ──
@@ -283,12 +374,12 @@ module.exports = async (req, res) => {
 
   // ── chegara (yozadigan amallardan oldin) ──
   if (amal === "fon" || amal === "sahna") {
-    const n = await oySarfi(shopId);
-    if (n >= OYLIK_BEPUL)
+    const [n, ch] = await Promise.all([oySarfi(shopId), chegaraOl(shopId)]);
+    if (n >= ch.chegara)
       return res.status(200).json({ ok: false, limit: true, sarf: n,
-        chegara: OYLIK_BEPUL,
-        error: `Bu oyda ${OYLIK_BEPUL} ta bepul generatsiya tugadi. ` +
-               `Keyingi oy yangilanadi.` });
+        chegara: ch.chegara,
+        error: `Bu oydagi ${ch.chegara} kredit tugadi. Keyingi oy yangilanadi ` +
+               `yoki tarifni ko'taring.` });
   }
 
   // ── fon: tovarni kesib olish (segmentatsiya) ──
@@ -313,7 +404,7 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: false, error: xato || "Fon tozalanmadi" });
     }
     const n = await oySarfi(shopId);
-    return res.status(200).json({ ok: true, image: chiq, sarf: n, chegara: OYLIK_BEPUL });
+    return res.status(200).json({ ok: true, image: chiq, sarf: n, chegara: (await chegaraOl(shopId)).chegara });
   }
 
   // ── sahna: TOVARSIZ fon generatsiyasi ──
@@ -336,7 +427,7 @@ module.exports = async (req, res) => {
     if (!chiq) return res.status(200).json({ ok: false, error: xato || "Sahna chiqmadi" });
     const n = await oySarfi(shopId);
     return res.status(200).json({ ok: true, image: chiq, sahna: tur,
-      sahnaNom: s.nom, kat, sarf: n, chegara: OYLIK_BEPUL });
+      sahnaNom: s.nom, kat, sarf: n, chegara: (await chegaraOl(shopId)).chegara });
   }
 
   // ── ✅ S4: do'kon modellari ro'yxati ──
@@ -348,10 +439,10 @@ module.exports = async (req, res) => {
   // ── ✅ S4: model yaratish (do'kon boshiga bir marta) ──
   if (amal === "model_yarat") {
     const jins = body.jins === "ayol" ? "ayol" : "erkak";
-    const n0 = await oySarfi(shopId);
-    if (n0 >= OYLIK_BEPUL)
+    const [n0, ch0] = await Promise.all([oySarfi(shopId), chegaraOl(shopId)]);
+    if (n0 >= ch0.chegara)
       return res.status(200).json({ ok: false, limit: true,
-        error: `Bu oyda ${OYLIK_BEPUL} ta bepul generatsiya tugadi.` });
+        error: `Bu oydagi ${ch0.chegara} kredit tugadi.` });
     const seed = parseInt(body.seed) || Math.floor(Math.random() * 1e9);
     const matn = MODEL_BUYRUQ[jins] + MODEL_QOIDA;
     let url = null, xato = "";
@@ -367,7 +458,7 @@ module.exports = async (req, res) => {
     await modelSaqla(shopId, jins, url, seed);
     const n = await oySarfi(shopId);
     return res.status(200).json({ ok: true, jins, url, seed,
-      sarf: n, chegara: OYLIK_BEPUL });
+      sarf: n, chegara: (await chegaraOl(shopId)).chegara });
   }
 
   // ── ✅ S4: kiyimni modelga kiydirish ──
@@ -378,10 +469,10 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: false, error: "Kiyim rasmi yuborilmadi" });
     if (kiyim.length > MAX_KB * 1024)
       return res.status(200).json({ ok: false, error: "Rasm juda katta" });
-    const n0 = await oySarfi(shopId);
-    if (n0 >= OYLIK_BEPUL)
+    const [n0, ch0] = await Promise.all([oySarfi(shopId), chegaraOl(shopId)]);
+    if (n0 >= ch0.chegara)
       return res.status(200).json({ ok: false, limit: true,
-        error: `Bu oyda ${OYLIK_BEPUL} ta bepul generatsiya tugadi.` });
+        error: `Bu oydagi ${ch0.chegara} kredit tugadi.` });
     const m = await modelOl(shopId, jins);
     if (!m || !m.url)
       return res.status(200).json({ ok: false, model_yoq: true,
@@ -400,7 +491,7 @@ module.exports = async (req, res) => {
     if (!chiq) return res.status(200).json({ ok: false, error: xato || "Kiydirish chiqmadi" });
     const n = await oySarfi(shopId);
     return res.status(200).json({ ok: true, image: chiq, jins,
-      sarf: n, chegara: OYLIK_BEPUL });
+      sarf: n, chegara: (await chegaraOl(shopId)).chegara });
   }
 
   // ✅ S3: sahna ro'yxati (klient tugmalar chizishi uchun)
