@@ -413,9 +413,18 @@ function saveDB() {
     // 1-BOSQICH: begona/eski zaxira kalitlarini tozalab, joy bo'shatamiz
     try {
       const keys = Object.keys(localStorage);
+      // ✅ XD-2 (2026-09-06): BEGONA-DO'KON BAZALARI ham supuriladi.
+      // Jonli isbot (DZ-iPhone, qora quti): ikkala qutqaruv bosqichi
+      // ham yiqilgan — cho'ntakda tozalagich TEGMAYDIGAN katta yuk
+      // bor edi. `merx_db_<boshqa do'kon>` — qurilma qachondir boshqa
+      // do'konga kirgan bo'lsa qoladigan to'liq nusxa; hammasi bulutda
+      // bor, meros nusxani tashlash XAVFSIZ. Joriy do'kon kaliti
+      // (`key`) ALBATTA tegilmaydi.
       keys.forEach(k => {
-        // merx zaxira nusxalari (eskilari) va begona kalitlar
-        if (k.startsWith("merx_lbak_") || (!k.startsWith("merx_") && !k.startsWith("supabase") && !k.startsWith("sb-"))) {
+        // merx zaxira nusxalari, BEGONA-DO'KON bazalari va begona kalitlar
+        if (k.startsWith("merx_lbak_") ||
+            (k.startsWith("merx_db_") && k !== key) ||
+            (!k.startsWith("merx_") && !k.startsWith("supabase") && !k.startsWith("sb-"))) {
           try { localStorage.removeItem(k); } catch(e2) {}
         }
       });
@@ -443,7 +452,17 @@ function saveDB() {
       console.error("❌ localStorage saqlash xatosi:", e3.message);
       if (Date.now() - _saveFailAt > 60000 && typeof toast === "function") {
         _saveFailAt = Date.now();
-        try { window._qqHodisa && window._qqHodisa("ls_toldi", e3 && e3.message); } catch (e9) {}   // ✅ XD-3
+        // ✅ XD-2: hisobotga ENG KATTA 5 KALIT (nomi:hajmi) ham kiradi —
+        // keyingi safar "kim to'ldirgan" savoli darrov yopiladi.
+        let _xar = "";
+        try {
+          _xar = Object.keys(localStorage)
+            .map(k2 => ({ k: k2, s: (localStorage.getItem(k2) || "").length }))
+            .sort((a2, b2) => b2.s - a2.s).slice(0, 5)
+            .map(x2 => x2.k + ":" + Math.round(x2.s / 1024) + "K").join(" | ");
+        } catch (e8) {}
+        try { window._qqHodisa && window._qqHodisa("ls_toldi",
+          ((e3 && e3.message) || "") + " · " + _xar); } catch (e9) {}   // ✅ XD-3
         toast("⚠️ Qurilma xotirasi to'ldi — ma'lumot bulutga saqlanmoqda. " +
               "Internetni uzmang va MERX ni yopishdan oldin sinxron tugashini kuting", "err");
       }
