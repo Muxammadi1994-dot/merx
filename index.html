@@ -1150,157 +1150,208 @@ body.sms-off .sms-only { display: none !important; }
   </div>
 
   <!-- KATALOG -->
-  <!-- ═══ ✅ STUDIO (2026-09-06) — reklama shablon dvigateli ═══
-       Mantiq: js/studio.js · Server (AI): api/reklama.js
-       Ko'rinish ATAYLAB alohida: qora "sahna" + amber urg'u —
-       bu ijod maydoni, hisob jadvali emas. Uslublar `#p-studio`
-       ichida yopiq (ilovaning qolgan qismiga tarqalmaydi). -->
+  <!-- ═══ ✅ STUDIO — reklama ustaxonasi (D1 redizayn, 2026-09-06) ═══
+       Uch qismli ish maydoni: chapda ikonli rels, o'rtada panel,
+       o'ngda qora SAHNA. Bu — hisob jadvali emas, IJOD maydoni.
+       Mantiq: js/studio.js · Server (AI): api/reklama.js -->
   <div class="pg" id="p-studio">
     <style>
-      #p-studio{--stg:#0B1220;--stg2:#141E33;--amb:#F2A20C;--vio:#7C5CFF;
-        --ln:#E4E0D8;--mut2:#8A93A6}
-      #p-studio .st-hero{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-        background:linear-gradient(100deg,var(--stg) 0%,var(--stg2) 100%);
-        border-radius:20px;padding:18px 20px;margin-bottom:16px;color:#fff}
-      #p-studio .st-hero h3{margin:0;font-size:20px;letter-spacing:-.4px;font-weight:800}
-      #p-studio .st-hero p{margin:3px 0 0;font-size:12.5px;color:#9FB0C9;max-width:46ch;line-height:1.5}
-      #p-studio .st-go{margin-left:auto;background:var(--amb);color:#0B1220;border:none;
-        border-radius:14px;padding:14px 22px;font-family:inherit;font-weight:800;
-        font-size:15px;cursor:pointer;box-shadow:0 6px 18px rgba(242,162,12,.35)}
-      #p-studio .st-go:disabled{opacity:.6;cursor:default;box-shadow:none}
-      #p-studio .st-grid{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
-      #p-studio .st-col{flex:1 1 300px;min-width:290px;max-width:400px}
-      #p-studio .st-stage{flex:1 1 380px;background:var(--stg);border-radius:20px;
-        padding:16px;display:flex;flex-direction:column;align-items:center;gap:12px}
-      #p-studio .st-card{background:#fff;border:1px solid var(--ln);border-radius:16px;
-        padding:14px 15px;margin-bottom:12px}
-      #p-studio .st-card h4{margin:0 0 10px;font-size:12px;font-weight:800;
-        letter-spacing:.6px;color:#6B7480;display:flex;align-items:center;gap:7px}
-      #p-studio .st-card h4 i.n{width:20px;height:20px;border-radius:7px;background:#0B1220;
-        color:#fff;font-style:normal;font-size:11px;display:grid;place-items:center;font-weight:800}
-      #p-studio .st-inp{width:100%;box-sizing:border-box;padding:11px 13px;
-        border:1.5px solid var(--ln);border-radius:12px;font-family:inherit;font-size:13.5px;background:#FCFBF9}
+      #p-studio{--stg:#0A1018;--stg2:#141E30;--amb:#F2A20C;--vio:#7C5CFF;
+        --ln:#E6E2DA;--mut2:#8A93A6;--pnl:#FBFAF8}
+      #p-studio .st-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+        background:linear-gradient(105deg,var(--stg) 0%,var(--stg2) 78%,#20304D 100%);
+        border-radius:18px;padding:14px 18px;margin-bottom:14px;color:#fff}
+      #p-studio .st-top h3{margin:0;font-size:19px;font-weight:800;letter-spacing:-.3px}
+      #p-studio .st-top .sub{font-size:12px;color:#93A6C4;margin-top:2px}
+      #p-studio .st-cip{display:flex;gap:7px;margin-left:6px;flex-wrap:wrap}
+      #p-studio .st-cip span{background:rgba(255,255,255,.10);border-radius:999px;
+        padding:5px 11px;font-size:11.5px;color:#C9D6EA}
+      #p-studio .st-cip span.ok{background:rgba(242,162,12,.22);color:#FFD98A}
+      #p-studio .st-go{margin-left:auto;background:var(--amb);color:#0A1018;border:none;
+        border-radius:13px;padding:13px 20px;font-family:inherit;font-weight:800;
+        font-size:14.5px;cursor:pointer;box-shadow:0 6px 20px rgba(242,162,12,.32)}
+      #p-studio .st-go:disabled{opacity:.6;box-shadow:none;cursor:default}
+
+      #p-studio .st-app{display:flex;gap:12px;align-items:flex-start}
+      #p-studio .st-rail{display:flex;flex-direction:column;gap:6px;flex:0 0 62px}
+      #p-studio .st-rail button{width:62px;height:58px;border:1.5px solid var(--ln);
+        background:#fff;border-radius:14px;font-family:inherit;font-size:10.5px;
+        color:#6B7480;cursor:pointer;display:flex;flex-direction:column;
+        align-items:center;justify-content:center;gap:3px;line-height:1}
+      #p-studio .st-rail button i{font-size:17px;font-style:normal}
+      #p-studio .st-rail button.on{background:#0A1018;color:#fff;border-color:#0A1018}
+      #p-studio .st-pan{flex:1 1 300px;min-width:280px;max-width:360px;
+        background:var(--pnl);border:1px solid var(--ln);border-radius:18px;
+        padding:14px;max-height:78vh;overflow:auto}
+      #p-studio .st-pan h4{margin:0 0 10px;font-size:12px;font-weight:800;
+        letter-spacing:.6px;color:#6B7480}
+      #p-studio .st-stage{flex:1 1 400px;background:var(--stg);border-radius:20px;
+        padding:14px;display:flex;flex-direction:column;align-items:center;gap:11px}
+
+      #p-studio .st-inp{width:100%;box-sizing:border-box;padding:10px 12px;
+        border:1.5px solid var(--ln);border-radius:11px;font-family:inherit;
+        font-size:13.5px;background:#fff}
       #p-studio .st-inp:focus{outline:none;border-color:var(--amb)}
-      #p-studio .stu-chip{padding:7px 12px;border-radius:999px;border:1.5px solid var(--ln);
-        background:#fff;font-size:12.5px;font-family:inherit;cursor:pointer;margin:0 6px 6px 0}
-      #p-studio .stu-chip.on{background:#0B1220;color:#fff;border-color:#0B1220}
+      #p-studio .stu-chip{padding:6px 11px;border-radius:999px;border:1.5px solid var(--ln);
+        background:#fff;font-size:12px;font-family:inherit;cursor:pointer;margin:0 5px 5px 0}
+      #p-studio .stu-chip.on{background:#0A1018;color:#fff;border-color:#0A1018}
       #p-studio .stu-pal{display:inline-flex;border:2px solid var(--ln);border-radius:9px;
-        overflow:hidden;width:50px;height:26px;padding:0;margin:0 6px 6px 0;cursor:pointer;background:none}
-      #p-studio .stu-pal.on{border-color:#0B1220}
+        overflow:hidden;width:48px;height:25px;padding:0;margin:0 5px 5px 0;cursor:pointer;background:none}
+      #p-studio .stu-pal.on{border-color:#0A1018}
       #p-studio .stu-pal i{flex:1;display:block}
-      #p-studio .stu-row{padding:9px 11px;border-bottom:1px solid var(--ln);cursor:pointer;font-size:13px}
-      #p-studio .stu-row:hover{background:#FFF8E8}
-      #p-studio .stu-row b{display:block;font-weight:700}
-      #p-studio .stu-row span{font-size:11.5px;color:#8A8578}
-      #p-studio #stu-cvs{max-width:100%;max-height:56vh;border-radius:14px;
-        box-shadow:0 10px 34px rgba(0,0,0,.45)}
-      #p-studio .st-fmt button{background:rgba(255,255,255,.08);color:#C9D4E5;border:none;
-        border-radius:999px;padding:7px 13px;font-size:12px;font-family:inherit;
-        cursor:pointer;margin:0 5px 0 0}
-      #p-studio .st-fmt button.on{background:#fff;color:#0B1220;font-weight:700}
-      #p-studio .st-act{display:flex;gap:9px;flex-wrap:wrap;justify-content:center}
-      #p-studio .st-act button{border:none;border-radius:12px;padding:11px 17px;
-        font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer}
-      #p-studio .st-b1{background:#fff;color:#0B1220}
-      #p-studio .st-b2{background:var(--amb);color:#0B1220;font-weight:800}
-      #p-studio .st-ai{display:flex;gap:7px;flex-wrap:wrap}
-      #p-studio .st-ai button{flex:1;min-width:88px;border:1.5px solid var(--ln);background:#fff;
-        border-radius:11px;padding:9px;font-family:inherit;font-size:12.5px;cursor:pointer}
-      #p-studio .st-ai button:hover{border-color:var(--vio);color:var(--vio)}
-      #p-studio .st-vars{display:flex;gap:10px;overflow-x:auto;width:100%;padding:2px 0 6px}
-      #p-studio .stu-vr{flex:0 0 108px;background:none;border:none;padding:0;cursor:pointer}
-      #p-studio .stu-vr canvas{width:108px;height:135px;border-radius:10px;
-        border:2.5px solid transparent;background:#fff;object-fit:cover}
-      #p-studio .stu-vr.on canvas{border-color:var(--amb)}
-      #p-studio .stu-vr span{display:block;font-size:10.5px;color:#8FA0B8;margin-top:4px}
+
+      /* ✅ B1: shablon brauzeri */
+      #p-studio #stu-brauzer{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+      #p-studio .stu-sh{position:relative;border:none;background:none;padding:0;cursor:pointer}
+      #p-studio .stu-sh canvas{width:100%;aspect-ratio:4/5;border-radius:11px;
+        border:2.5px solid transparent;background:#fff;display:block;object-fit:cover}
+      #p-studio .stu-sh.on canvas{border-color:var(--amb)}
+      #p-studio .stu-sh-nom{display:block;font-size:11px;color:#6B7480;margin-top:4px;
+        text-align:center}
+      #p-studio .stu-sh-sev{position:absolute;top:6px;right:7px;font-size:14px;
+        color:rgba(255,255,255,.55);text-shadow:0 1px 3px rgba(0,0,0,.5);font-style:normal}
+      #p-studio .stu-sh-sev.on{color:var(--amb)}
+
+      #p-studio .st-row{display:flex;gap:7px;flex-wrap:wrap}
+      #p-studio .st-row button{flex:1;min-width:84px;border:1.5px solid var(--ln);
+        background:#fff;border-radius:11px;padding:9px;font-family:inherit;
+        font-size:12.5px;cursor:pointer}
+      #p-studio .st-row button:hover{border-color:var(--vio);color:var(--vio)}
       #p-studio .st-mod{flex:1;text-align:center;font-size:11.5px}
-      #p-studio .st-mod img{width:100%;height:96px;object-fit:cover;border-radius:10px;background:#F3F1EC}
-      #p-studio .st-mod-bosh{height:96px;border-radius:10px;background:#F3F1EC;
+      #p-studio .st-mod img{width:100%;height:92px;object-fit:cover;border-radius:10px;background:#F1EFEA}
+      #p-studio .st-mod-bosh{height:92px;border-radius:10px;background:#F1EFEA;
         display:grid;place-items:center;color:#9AA3AE;font-size:11px}
-      #p-studio .st-mod b{display:block;margin:5px 0 4px;font-size:11.5px}
+      #p-studio .st-mod b{display:block;margin:5px 0 4px}
       #p-studio .st-mod button{width:100%;border:1.5px solid var(--ln);background:#fff;
         border-radius:9px;padding:6px;font-family:inherit;font-size:11.5px;cursor:pointer}
-      #p-studio .st-mod button:hover{border-color:var(--vio);color:var(--vio)}
       #p-studio .st-hint{font-size:11.5px;color:#8A8578;line-height:1.5;margin-top:8px}
-      #p-studio #stu-holat{color:var(--amb);font-weight:700;font-size:13px}
-      @media(max-width:860px){#p-studio .st-col{max-width:none}}
+
+      #p-studio #stu-cvs{max-width:100%;max-height:58vh;border-radius:14px;
+        box-shadow:0 14px 40px rgba(0,0,0,.5);cursor:crosshair}
+      #p-studio .st-fmt button{background:rgba(255,255,255,.09);color:#BFCCE0;border:none;
+        border-radius:999px;padding:6px 12px;font-size:11.5px;font-family:inherit;
+        cursor:pointer;margin:0 4px 0 0}
+      #p-studio .st-fmt button.on{background:#fff;color:#0A1018;font-weight:700}
+      #p-studio .st-act{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+      #p-studio .st-act button{border:none;border-radius:12px;padding:10px 15px;
+        font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
+      #p-studio .st-b1{background:rgba(255,255,255,.12);color:#fff}
+      #p-studio .st-b2{background:var(--amb);color:#0A1018;font-weight:800}
+      #p-studio .st-vars{display:flex;gap:9px;overflow-x:auto;width:100%;padding:2px 0 4px}
+      #p-studio .stu-vr{flex:0 0 96px;background:none;border:none;padding:0;cursor:pointer}
+      #p-studio .stu-vr canvas{width:96px;height:120px;border-radius:9px;
+        border:2.5px solid transparent;background:#fff}
+      #p-studio .stu-vr.on canvas{border-color:var(--amb)}
+      #p-studio .stu-vr span{display:block;font-size:10px;color:#8FA0B8;margin-top:3px}
+      #p-studio #stu-holat{color:var(--amb);font-weight:700;font-size:12.5px}
+      @media(max-width:900px){
+        #p-studio .st-app{flex-wrap:wrap}
+        #p-studio .st-rail{flex-direction:row;flex:1 1 100%;overflow-x:auto}
+        #p-studio .st-pan{max-width:none;flex:1 1 100%;max-height:none}
+      }
     </style>
 
-    <div class="st-hero">
+    <div class="st-top">
       <div>
-        <h3>Tovar suratidan reklama</h3>
-        <p>Tovarni tanlang, suratga oling — qolganini tizim qiladi:
-           fonni ajratadi, sahna quradi va olti tayyor variant chizadi.</p>
+        <h3>Reklama ustaxonasi</h3>
+        <div class="sub">Tovarni tanlang va suratga oling — qolganini tizim qiladi</div>
+      </div>
+      <div class="st-cip">
+        <span id="stu-cip-tovar">Tovar tanlanmagan</span>
+        <span id="stu-cip-surat">Surat yo'q</span>
+        <span id="stu-sarf"></span>
       </div>
       <button class="st-go" id="stu-avto" onclick="stuReklamaYasa()">✨ Reklama yasa</button>
     </div>
 
-    <div class="st-grid">
-      <div class="st-col">
-        <div class="st-card">
-          <h4><i class="n">1</i> Tovar</h4>
+    <div class="st-app">
+      <div class="st-rail">
+        <button id="stu-r-shablon" class="on" onclick="stuPanel('shablon')"><i>▦</i>Shablon</button>
+        <button id="stu-r-tovar" onclick="stuPanel('tovar')"><i>◈</i>Tovar</button>
+        <button id="stu-r-surat" onclick="stuPanel('surat')"><i>◎</i>Surat</button>
+        <button id="stu-r-ai" onclick="stuPanel('ai')"><i>✦</i>AI</button>
+        <button id="stu-r-brend" onclick="stuPanel('brend')"><i>◐</i>Brend</button>
+        <button id="stu-r-tarqat" onclick="stuPanel('tarqat')"><i>➤</i>Tarqatish</button>
+      </div>
+
+      <div class="st-pan">
+        <!-- SHABLON -->
+        <div id="stu-p-shablon">
+          <h4>SHABLON KUTUBXONASI</h4>
+          <input class="st-inp" placeholder="🔍 Shablon qidirish"
+                 oninput="stuQidiruv(this.value)">
+          <div id="stu-katlar" style="margin-top:9px"></div>
+          <div id="stu-brauzer"></div>
+          <h4 style="margin-top:14px">RANG</h4>
+          <div id="stu-pal"></div>
+          <h4 style="margin-top:12px">TIPOGRAFIKA</h4>
+          <div id="stu-tipo"></div>
+        </div>
+
+        <!-- TOVAR -->
+        <div id="stu-p-tovar" style="display:none">
+          <h4>TOVAR</h4>
           <input id="stu-q" class="st-inp" placeholder="Nom, artikul yoki barcode"
                  oninput="stuQidir(this.value)" autocomplete="off">
-          <div id="stu-natija" style="display:none;max-height:210px;overflow:auto;border:1px solid var(--ln);border-radius:12px;margin-top:8px"></div>
+          <div id="stu-natija" style="display:none;max-height:230px;overflow:auto;
+               border:1px solid var(--ln);border-radius:11px;margin-top:8px;background:#fff"></div>
           <div id="stu-tovar-nom" style="margin-top:9px;font-size:12.5px;color:#6B7480;font-weight:700">Tovar tanlanmagan</div>
+          <h4 style="margin-top:14px">YOZUV</h4>
+          <input id="stu-yorliq" class="st-inp"
+                 placeholder="YANGI KELDI, −30%, QIShKI TO'PLAM"
+                 oninput="stuYorliq(this.value)" maxlength="28">
+          <label style="display:block;margin-top:9px;font-size:12.5px">
+            <input type="checkbox" checked onchange="stuNarx(this.checked)"> Narx ko'rsatilsin</label>
+          <label style="display:block;margin-top:5px;font-size:12.5px">
+            <input type="checkbox" checked onchange="stuBelgi(this.checked)"> merx.uz belgisi</label>
         </div>
 
-        <div class="st-card">
-          <h4><i class="n">2</i> Surat</h4>
-          <input type="file" accept="image/*" capture="environment" onchange="stuRasm(this)" style="font-size:12.5px;width:100%">
+        <!-- SURAT -->
+        <div id="stu-p-surat" style="display:none">
+          <h4>SURAT</h4>
+          <input type="file" accept="image/*" capture="environment" onchange="stuRasm(this)"
+                 style="font-size:12.5px;width:100%">
           <div class="st-hint">Bir rangli devor yoki oq mato fonida, deraza yonida —
             quyoshga qarshi emas. Tovar kadr o'rtasida tursin.</div>
-          <label style="display:block;margin-top:9px;font-size:12px;color:#6B7480">Kattalik
-            <input type="range" min="0.6" max="1.8" step="0.02" value="1" oninput="stuZoom(this.value)" style="width:100%">
-          </label>
+          <label style="display:block;margin-top:10px;font-size:12px;color:#6B7480">Kattalik
+            <input type="range" min="0.6" max="1.8" step="0.02" value="1"
+                   oninput="stuZoom(this.value)" style="width:100%"></label>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:11px;
+                        padding:9px 11px;border:1.5px solid var(--ln);border-radius:11px;
+                        font-size:12.5px;font-weight:700;cursor:pointer;background:#fff">
+            <input type="checkbox" onchange="stuReal(this.checked)">
+            🧍 Real shaxs (xodim kadri)</label>
+          <div class="st-hint">Bu rejimda AI ishlatilmaydi — yuzga tegilmaydi.
+            Sahna ustiga bosib kadr markazini belgilang.</div>
+          <button onclick="stuRangTuzat()" style="width:100%;margin-top:9px;padding:9px;
+            border:1.5px solid var(--ln);background:#fff;border-radius:11px;
+            font-family:inherit;font-size:12.5px;cursor:pointer">🌞 Rang va yorug'likni tuzatish</button>
+          <button onclick="stuAsliga()" style="width:100%;margin-top:7px;padding:8px;
+            border:none;background:none;color:#8A8578;font-family:inherit;font-size:12px;
+            cursor:pointer;text-decoration:underline">Asl suratga qaytish</button>
         </div>
 
-        <div class="st-card">
-          <h4><i class="n">3</i> Qo'lda sozlash
-            <span id="stu-sarf" style="margin-left:auto;font-weight:600;font-size:11px;color:#8A8578"></span></h4>
-          <div class="st-ai">
+        <!-- AI -->
+        <div id="stu-p-ai" style="display:none">
+          <h4>STUDIYA KO'RINISHI</h4>
+          <div class="st-row">
             <button onclick="stuFonTozala()">✂️ Fon</button>
             <button onclick="stuBoshqaSahna()">🏞 Boshqa sahna</button>
           </div>
-          <!-- ✅ S6: real shaxs rejimi -->
-          <label style="display:flex;align-items:center;gap:8px;margin-top:11px;
-                        padding:9px 11px;border:1.5px solid var(--ln);border-radius:11px;
-                        font-size:12.5px;font-weight:700;cursor:pointer">
-            <input type="checkbox" onchange="stuReal(this.checked)">
-            🧍 Real shaxs (xodim / mobilograf kadri)
-          </label>
-          <div class="st-hint">Bu rejimda AI umuman ishlatilmaydi — yuzga
-            tegilmaydi. Faqat kadrlash, rang tuzatish va shablon.
-            Namoyish ustiga bosib kadr markazini belgilang.</div>
-          <button onclick="stuRangTuzat()" style="width:100%;margin-top:8px;padding:9px;
-            border:1.5px solid var(--ln);background:#fff;border-radius:11px;
-            font-family:inherit;font-size:12.5px;cursor:pointer">🌞 Rang va yorug'likni tuzatish</button>
-
-          <!-- ✅ S4: do'konning o'z modeli -->
-          <div style="margin-top:12px;border-top:1px solid var(--ln);padding-top:11px">
-            <div style="font-size:11.5px;font-weight:800;letter-spacing:.5px;color:#6B7480;margin-bottom:8px">
-              KIYIMNI MODELGA KIYDIRISH</div>
-            <div id="stu-modellar" style="display:flex;gap:9px"></div>
-            <div class="st-hint">Model do'koningizga bir marta yaratiladi va
-              keyin doim o'sha shaxs chiqadi — reklamalaringiz yuzidan tanilib qoladi.</div>
-          </div>
-          <div id="stu-shab" style="margin-top:11px"></div>
-          <div id="stu-pal" style="margin-top:4px"></div>
-          <input id="stu-yorliq" class="st-inp" style="margin-top:8px"
-                 placeholder="Yozuv: YANGI KELDI, −30%, QIShKI TO'PLAM"
-                 oninput="stuYorliq(this.value)" maxlength="28">
-          <label style="display:block;margin-top:8px;font-size:12.5px">
-            <input type="checkbox" checked onchange="stuNarx(this.checked)"> Narx ko'rsatilsin</label>
-          <label style="display:block;margin-top:4px;font-size:12.5px">
-            <input type="checkbox" checked onchange="stuBelgi(this.checked)"> merx.uz belgisi</label>
-          <button onclick="stuAsliga()" style="width:100%;margin-top:9px;padding:7px;border:none;background:none;color:#8A8578;font-family:inherit;font-size:12px;cursor:pointer;text-decoration:underline">Asl suratga qaytish</button>
+          <div class="st-hint">Tovar rasmiga qayta chizish qo'llanmaydi — faqat
+            fon ajratiladi yoki yangi fon quriladi.</div>
+          <h4 style="margin-top:15px">KIYIMNI MODELGA KIYDIRISH</h4>
+          <div id="stu-modellar" style="display:flex;gap:9px"></div>
+          <div class="st-hint">Model do'koningizga bir marta yaratiladi va keyin
+            doim o'sha shaxs chiqadi — reklamalaringiz yuzidan tanilib qoladi.</div>
         </div>
-        <!-- ✅ A2: brend to'plami -->
-        <div class="st-card">
-          <h4><i class="n">5</i> Brend</h4>
+
+        <!-- BREND -->
+        <div id="stu-p-brend" style="display:none">
+          <h4>BREND</h4>
           <input id="stu-dokon" class="st-inp" placeholder="Do'kon nomi">
           <input id="stu-tel" class="st-inp" style="margin-top:7px" placeholder="Telefon">
-          <div style="display:flex;gap:8px;align-items:center;margin-top:9px">
+          <div style="display:flex;gap:8px;margin-top:9px">
             <label style="font-size:12px;color:#6B7480;flex:1">Asosiy rang
               <input id="stu-rang1" type="color" value="#0D1B2A"
                      style="width:100%;height:32px;border:1.5px solid var(--ln);border-radius:8px;background:#fff"></label>
@@ -1313,31 +1364,29 @@ body.sms-off .sms-only { display: none !important; }
             <button onclick="stuLogoOchir()" style="border:1.5px solid var(--ln);background:#fff;
               border-radius:9px;padding:6px 10px;font-family:inherit;font-size:11.5px;cursor:pointer">O'chirish</button>
           </div>
-          <div style="font-size:11.5px;font-weight:800;letter-spacing:.5px;color:#6B7480;margin:11px 0 7px">
-            TIPOGRAFIKA</div>
-          <div id="stu-tipo"></div>
-          <div class="st-hint">Logotip qurilmangizda saqlanadi. Ranglar va shrift
-            saqlangach hamma reklamaga o'zi tushadi.</div>
+          <button onclick="stuSozlamaSaqla()" style="width:100%;margin-top:10px;padding:10px;
+            border:none;background:#0A1018;color:#fff;border-radius:11px;
+            font-family:inherit;font-weight:700;font-size:12.5px;cursor:pointer">Saqlash</button>
+          <div class="st-hint">Logotip qurilmangizda saqlanadi. Ranglar, nom va
+            telefon saqlangach hamma reklamaga o'zi tushadi.</div>
         </div>
 
-        <!-- ✅ S8: do'konning reklama kanali va Instagram -->
-        <div class="st-card">
-          <h4><i class="n">6</i> Tarqatish</h4>
+        <!-- TARQATISH -->
+        <div id="stu-p-tarqat" style="display:none">
+          <h4>REKLAMA KANALI</h4>
           <input id="stu-kanal" class="st-inp" placeholder="Telegram kanal ID (-100…)">
           <input id="stu-kanal-nom" class="st-inp" style="margin-top:7px"
                  placeholder="Kanal nomi (ixtiyoriy)">
-          <div class="st-hint">Botni kanalga <b>admin</b> qilib qo'shing, so'ng
-            kanal ID sini shu yerga yozing. Shundan keyin tayyor reklama bir
-            bosishda kanalga chiqadi.</div>
-          <div style="display:flex;gap:7px;margin-top:9px">
-            <select id="stu-ig-rejim" class="st-inp" style="flex:0 0 46%">
-              <option value="ozi">Instagram: o'zim yuritaman</option>
-              <option value="merx">Instagram: MERX yuritsin</option>
-            </select>
-            <input id="stu-ig" class="st-inp" style="flex:1" placeholder="@sahifangiz">
-          </div>
-          <button onclick="stuSozlamaSaqla()" style="width:100%;margin-top:9px;padding:9px;
-            border:none;background:#0B1220;color:#fff;border-radius:11px;
+          <div class="st-hint">Botni kanalga <b>admin</b> qilib qo'shing, so'ng ID sini
+            shu yerga yozing. Keyin tayyor reklama bir bosishda kanalga chiqadi.</div>
+          <h4 style="margin-top:15px">INSTAGRAM</h4>
+          <select id="stu-ig-rejim" class="st-inp">
+            <option value="ozi">O'zim yuritaman</option>
+            <option value="merx">MERX yuritsin</option>
+          </select>
+          <input id="stu-ig" class="st-inp" style="margin-top:7px" placeholder="@sahifangiz">
+          <button onclick="stuSozlamaSaqla()" style="width:100%;margin-top:10px;padding:10px;
+            border:none;background:#0A1018;color:#fff;border-radius:11px;
             font-family:inherit;font-weight:700;font-size:12.5px;cursor:pointer">Saqlash</button>
           <div class="st-hint">Instagram avto-post keyingi bosqichda ulanadi —
             hozir tanlovingiz saqlanadi.</div>
@@ -1346,18 +1395,14 @@ body.sms-off .sms-only { display: none !important; }
 
       <div class="st-stage">
         <div id="stu-fmt" class="st-fmt" style="align-self:flex-start"></div>
-        <canvas id="stu-cvs" width="1080" height="1350" onclick="stuFokus(event)" style="cursor:crosshair"></canvas>
+        <canvas id="stu-cvs" width="1080" height="1350" onclick="stuFokus(event)"></canvas>
         <div id="stu-holat" style="display:none"></div>
         <div id="stu-variants" class="st-vars"></div>
         <div class="st-act">
-          <button class="st-b1" onclick="stuYukla(false)">Shu formatni yuklash</button>
           <button class="st-b2" onclick="stuYukla(true)">4 formatni birdan</button>
+          <button class="st-b1" onclick="stuYukla(false)">Shu format</button>
           <button class="st-b1" id="stu-video" onclick="stuVideo()">🎬 Video</button>
-          <button class="st-b1" id="stu-kanal-yubor" onclick="stuKanalga()">📢 Kanalga yuborish</button>
-        </div>
-        <div style="font-size:11.5px;color:#7C879C;text-align:center;max-width:330px;line-height:1.5">
-          Tovar rasmi qayta chizilmaydi — faqat fon ajratiladi yoki yangi fon quriladi.
-          Tayyor rasm saqlanmaydi. Video 8 soniya, joriy format va uslubda yoziladi.
+          <button class="st-b1" id="stu-kanal-yubor" onclick="stuKanalga()">📢 Kanalga</button>
         </div>
       </div>
     </div>
@@ -5469,7 +5514,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=14"></script>
+<script src="js/studio.js?v=15"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -5762,7 +5807,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 594;
+  window.SW_V = 595;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5785,7 +5830,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=594")
+    navigator.serviceWorker.register("/sw.js?v=595")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

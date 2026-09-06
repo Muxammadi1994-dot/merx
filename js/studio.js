@@ -51,7 +51,7 @@ const STU_FMT = [
 // `rang` — palitradagi kalit: "a" | "b" | "c" | "d" yoki to'g'ridan hex.
 const STU_SHAB = [
   {
-    id:"narx", nom:"Katta narx", uchun:"Ulgurji — narx birinchi",
+    id:"narx", nom:"Katta narx", uchun:"Ulgurji — narx birinchi", kat:["oyoq","kiyim","sumka","umumiy"],
     qatlamlar:[
       { tur:"fon", rang:"a" },
       { tur:"matn", manba:"nom", x:.06, y:.055, o:.042, vazn:800, rang:"c", max:.88 },
@@ -64,7 +64,7 @@ const STU_SHAB = [
     ],
   },
   {
-    id:"lenta", nom:"Yon lenta", uchun:"Kiyim — tovar katta ko'rinadi",
+    id:"lenta", nom:"Yon lenta", uchun:"Kiyim — tovar katta ko'rinadi", kat:["kiyim","umumiy"],
     qatlamlar:[
       { tur:"fon", rang:"a" },
       { tur:"blok", x:0, y:0, w:.13, h:1, rang:"b" },
@@ -79,7 +79,7 @@ const STU_SHAB = [
     ],
   },
   {
-    id:"sarlavha", nom:"Sarlavha", uchun:"To'plam va mavsum e'loni",
+    id:"sarlavha", nom:"Sarlavha", uchun:"To'plam va mavsum e'loni", kat:["umumiy","kiyim","oyoq"],
     qatlamlar:[
       { tur:"fon", rang:"a" },
       { tur:"matn", manba:"yorliq", x:.06, y:.10, o:.105, vazn:900, rang:"c",
@@ -92,7 +92,7 @@ const STU_SHAB = [
     ],
   },
   {
-    id:"burchak", nom:"Diagonal", uchun:"E'lon va narx bir kadrda",
+    id:"burchak", nom:"Diagonal", uchun:"E'lon va narx bir kadrda", kat:["oyoq","umumiy"],
     qatlamlar:[
       { tur:"fon", rang:"a" },
       { tur:"burchak", rang:"b", balandlik:.44, qiya:.10 },
@@ -106,7 +106,7 @@ const STU_SHAB = [
     ],
   },
   {
-    id:"katalog", nom:"Katalog", uchun:"Ulgurji xaridor — hamma ma'lumot",
+    id:"katalog", nom:"Katalog", uchun:"Ulgurji xaridor — hamma ma'lumot", kat:["oyoq","kiyim","sumka","umumiy"],
     qatlamlar:[
       { tur:"fon", rang:"a" },
       { tur:"rasm", x:.5, y:.40, w:.74, h:.50, anchor:"center" },
@@ -172,7 +172,7 @@ const STU_SHAB = [
     ],
   },
   {
-    id:"kadr", nom:"Kadr", uchun:"Real shaxs — to'liq kadr, pastda yozuv",
+    id:"kadr", nom:"Kadr", uchun:"Real shaxs — to'liq kadr, pastda yozuv", kat:["real"],
     qatlamlar:[
       { tur:"fon", rang:"a" },
       { tur:"rasm", x:.5, y:.5, w:1, h:1, anchor:"center", moda:"cover" },
@@ -185,7 +185,7 @@ const STU_SHAB = [
     ],
   },
   {
-    id:"yonkadr", nom:"Yon yozuv", uchun:"Real shaxs — yon lentali",
+    id:"yonkadr", nom:"Yon yozuv", uchun:"Real shaxs — yon lentali", kat:["real"],
     qatlamlar:[
       { tur:"fon", rang:"a" },
       { tur:"rasm", x:.5, y:.5, w:1, h:1, anchor:"center", moda:"cover" },
@@ -197,7 +197,7 @@ const STU_SHAB = [
     ],
   },
   {
-    id:"sokin", nom:"Sokin", uchun:"Real shaxs — minimal, faqat narx",
+    id:"sokin", nom:"Sokin", uchun:"Real shaxs — minimal, faqat narx", kat:["real"],
     qatlamlar:[
       { tur:"fon", rang:"a" },
       { tur:"rasm", x:.5, y:.5, w:1, h:1, anchor:"center", moda:"cover" },
@@ -209,7 +209,7 @@ const STU_SHAB = [
     ],
   },
   {
-    id:"model", nom:"Modelda", uchun:"Kiyim — to'liq kadr (modelli surat)",
+    id:"model", nom:"Modelda", uchun:"Kiyim — to'liq kadr (modelli surat)", kat:["model"],
     qatlamlar:[
       { tur:"fon", rang:"a" },
       { tur:"rasm", x:.5, y:.5, w:1, h:1, anchor:"center", moda:"cover" },
@@ -222,7 +222,7 @@ const STU_SHAB = [
     ],
   },
   {
-    id:"chegirma", nom:"Chegirma", uchun:"Aksiya — eski narx chizilgan",
+    id:"chegirma", nom:"Chegirma", uchun:"Aksiya — eski narx chizilgan", kat:["umumiy","oyoq","kiyim"],
     qatlamlar:[
       { tur:"fon", rang:"a" },
       { tur:"belgi", manba:"yorliq", x:.06, y:.07, o:.055, fonRang:"b",
@@ -242,6 +242,9 @@ const STU_SHAB = [
 const STU = {
   shab: "narx", pal: "navy", fmt: "post",
   tipo: "kuchli",              // ✅ A2: tipografika juftligi
+  katFiltr: "hammasi",         // ✅ B1: shablon brauzeri filtri
+  qidiruv: "",                 // ✅ B1: shablon qidiruvi
+  sevimli: [],                 // ✅ B1: sevimli shablonlar
   brend: {},                   // ✅ A2: dokon_nom, tel, brend_rang, logo
   real: false,                 // ✅ S6: real shaxs rejimi (AI yuzga tegmaydi)
   fokus: { x: .5, y: .38 },    // ✅ S6: kadrlash nuqtasi (yuz odatda tepada)
@@ -1066,13 +1069,12 @@ function renderStudio() {
   try { const t = document.getElementById("ptitle");
         if (t) t.textContent = "Studio — reklama"; } catch (e) {}
   // shablon lentasi
-  const sh = document.getElementById("stu-shab");
-  if (sh) sh.innerHTML = STU_SHAB.map(s =>
-    `<button class="stu-chip${s.id === STU.shab ? " on" : ""}" onclick="stuShab('${s.id}')">
-       ${s.nom}</button>`).join("");
+  stuBrauzer();                                      // ✅ B1
   // palitra lentasi
   const pl = document.getElementById("stu-pal");
-  if (pl) pl.innerHTML = STU_PAL.map(p =>
+  const _bp = stBrendPal();                          // ✅ A2/D1
+  const _plRoy = _bp ? [_bp].concat(STU_PAL) : STU_PAL.slice();
+  if (pl) pl.innerHTML = _plRoy.map(p =>
     `<button class="stu-pal${p.id === STU.pal ? " on" : ""}" title="${p.nom}"
        onclick="stuPal('${p.id}')">
        <i style="background:${p.a}"></i><i style="background:${p.b}"></i><i style="background:${p.c}"></i>
@@ -1087,16 +1089,37 @@ function renderStudio() {
   if (tv) tv.textContent = STU.tovar
     ? (STU.tovar.nom + (STU.tovar.art ? " · ART " + STU.tovar.art : ""))
     : "Tovar tanlanmagan";
+  // ✅ D1: tepadagi holat chiplari
+  const c1 = document.getElementById("stu-cip-tovar");
+  if (c1) {
+    c1.textContent = STU.tovar ? ("✓ " + STU.tovar.nom) : "Tovar tanlanmagan";
+    c1.className = STU.tovar ? "ok" : "";
+  }
+  const c2 = document.getElementById("stu-cip-surat");
+  if (c2) {
+    c2.textContent = STU.img ? (STU.real ? "✓ Real shaxs kadri" : "✓ Surat yuklandi")
+                             : "Surat yo'q";
+    c2.className = STU.img ? "ok" : "";
+  }
   const yr = document.getElementById("stu-yorliq");
   if (yr && yr.value !== STU.yorliq) yr.value = STU.yorliq;
   stChiz();
   stuTipoChiz();                                     // ✅ A2
   if (!STU._limitOlindi) {
     STU._limitOlindi = true;
+    stuSevTikla();                                   // ✅ B1
     stuLimit(); stuModellar(); stuLogoTikla(); stuShriftYukla();
   }
 }
 function stuShab(id) { STU.shab = id; renderStudio(); }
+function stuPanel(id) {                            // ✅ D1: panel almashish
+  ["shablon","tovar","surat","ai","brend","tarqat"].forEach(k => {
+    const p = document.getElementById("stu-p-" + k);
+    if (p) p.style.display = k === id ? "block" : "none";
+    const b = document.getElementById("stu-r-" + k);
+    if (b) b.classList.toggle("on", k === id);
+  });
+}
 function stuPal(id)  { STU.pal  = id; renderStudio(); }
 function stuFmt(id)  { STU.fmt  = id; renderStudio(); }
 function stuYorliq(v){ STU.yorliq = String(v || "").slice(0, 28); stChiz(); }
@@ -1883,4 +1906,80 @@ function stuShriftYukla() {
     });
     Promise.all(p).then(() => { stChiz(); stuVariantChiz(); }).catch(() => {});
   } catch (e) {}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ B1 (2026-09-06) — ShABLON BRAUZERI
+// ═══════════════════════════════════════════════════════════════
+// Shablonlar endi RO'YXAT emas, KATALOG: kategoriya tablari,
+// qidiruv, sevimlilar va JONLI namoyish (har kartada tovaringiz
+// bilan chizilgan haqiqiy natija ko'rinadi).
+const STU_KAT = [
+  { id:"hammasi", nom:"Hammasi" },
+  { id:"oyoq",    nom:"Oyoq kiyim" },
+  { id:"kiyim",   nom:"Kiyim" },
+  { id:"sumka",   nom:"Sumka · aksessuar" },
+  { id:"real",    nom:"Real shaxs" },
+  { id:"model",   nom:"Modelli" },
+  { id:"sevimli", nom:"★ Sevimli" },
+];
+function _sevKalit() { return "merx_studio_sev"; }
+function stuSevTikla() {
+  try { STU.sevimli = JSON.parse(localStorage.getItem(_sevKalit()) || "[]"); }
+  catch (e) { STU.sevimli = []; }
+}
+function stuSev(id, ev) {
+  if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+  const i = STU.sevimli.indexOf(id);
+  if (i >= 0) STU.sevimli.splice(i, 1); else STU.sevimli.push(id);
+  try { localStorage.setItem(_sevKalit(), JSON.stringify(STU.sevimli)); } catch (e) {}
+  stuBrauzer();
+}
+function stuKat(id)   { STU.katFiltr = id; stuBrauzer(); }
+function stuQidiruv(v){ STU.qidiruv = String(v || "").trim().toLowerCase(); stuBrauzer(); }
+
+function _shabRoyxat() {
+  let r = STU_SHAB.slice();
+  const f = STU.katFiltr;
+  if (f === "sevimli")      r = r.filter(s => STU.sevimli.indexOf(s.id) >= 0);
+  else if (f !== "hammasi") r = r.filter(s => (s.kat || []).indexOf(f) >= 0);
+  if (STU.qidiruv) {
+    r = r.filter(s => ((s.nom || "") + " " + (s.uchun || "")).toLowerCase()
+      .indexOf(STU.qidiruv) >= 0);
+  }
+  // sevimlilar tepada
+  return r.sort((a, b) =>
+    (STU.sevimli.indexOf(b.id) >= 0) - (STU.sevimli.indexOf(a.id) >= 0));
+}
+function stuBrauzer() {
+  const tab = document.getElementById("stu-katlar");
+  if (tab) tab.innerHTML = STU_KAT.map(k => {
+    const n = k.id === "hammasi" ? STU_SHAB.length
+      : k.id === "sevimli" ? STU.sevimli.length
+      : STU_SHAB.filter(s => (s.kat || []).indexOf(k.id) >= 0).length;
+    return `<button class="stu-chip${k.id === STU.katFiltr ? " on" : ""}"
+      onclick="stuKat('${k.id}')">${k.nom} <b style="opacity:.55">${n}</b></button>`;
+  }).join("");
+
+  const el = document.getElementById("stu-brauzer");
+  if (!el) return;
+  const r = _shabRoyxat();
+  if (!r.length) {
+    el.innerHTML = `<div style="padding:18px;text-align:center;color:#8A8578;font-size:12.5px">
+      Bu bo'limda shablon yo'q</div>`;
+    return;
+  }
+  el.innerHTML = r.map(s => `
+    <button class="stu-sh${s.id === STU.shab ? " on" : ""}" onclick="stuShab('${s.id}')">
+      <canvas id="stu-sc-${s.id}" width="320" height="400"></canvas>
+      <span class="stu-sh-nom">${s.nom}</span>
+      <i class="stu-sh-sev${STU.sevimli.indexOf(s.id) >= 0 ? " on" : ""}"
+         onclick="stuSev('${s.id}', event)">★</i>
+    </button>`).join("");
+  // jonli namoyish — har kartaga o'z shabloni, joriy palitrada
+  r.forEach(s => {
+    const c = document.getElementById("stu-sc-" + s.id);
+    if (c) { try { stChiz(c, { w: 320, h: 400 }, { shab: s.id, pal: STU.pal }); }
+             catch (e) {} }
+  });
 }
