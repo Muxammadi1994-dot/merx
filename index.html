@@ -1213,6 +1213,14 @@ body.sms-off .sms-only { display: none !important; }
         border:2.5px solid transparent;background:#fff;object-fit:cover}
       #p-studio .stu-vr.on canvas{border-color:var(--amb)}
       #p-studio .stu-vr span{display:block;font-size:10.5px;color:#8FA0B8;margin-top:4px}
+      #p-studio .st-mod{flex:1;text-align:center;font-size:11.5px}
+      #p-studio .st-mod img{width:100%;height:96px;object-fit:cover;border-radius:10px;background:#F3F1EC}
+      #p-studio .st-mod-bosh{height:96px;border-radius:10px;background:#F3F1EC;
+        display:grid;place-items:center;color:#9AA3AE;font-size:11px}
+      #p-studio .st-mod b{display:block;margin:5px 0 4px;font-size:11.5px}
+      #p-studio .st-mod button{width:100%;border:1.5px solid var(--ln);background:#fff;
+        border-radius:9px;padding:6px;font-family:inherit;font-size:11.5px;cursor:pointer}
+      #p-studio .st-mod button:hover{border-color:var(--vio);color:var(--vio)}
       #p-studio .st-hint{font-size:11.5px;color:#8A8578;line-height:1.5;margin-top:8px}
       #p-studio #stu-holat{color:var(--amb);font-weight:700;font-size:13px}
       @media(max-width:860px){#p-studio .st-col{max-width:none}}
@@ -1253,6 +1261,14 @@ body.sms-off .sms-only { display: none !important; }
           <div class="st-ai">
             <button onclick="stuFonTozala()">✂️ Fon</button>
             <button onclick="stuBoshqaSahna()">🏞 Boshqa sahna</button>
+          </div>
+          <!-- ✅ S4: do'konning o'z modeli -->
+          <div style="margin-top:12px;border-top:1px solid var(--ln);padding-top:11px">
+            <div style="font-size:11.5px;font-weight:800;letter-spacing:.5px;color:#6B7480;margin-bottom:8px">
+              KIYIMNI MODELGA KIYDIRISH</div>
+            <div id="stu-modellar" style="display:flex;gap:9px"></div>
+            <div class="st-hint">Model do'koningizga bir marta yaratiladi va
+              keyin doim o'sha shaxs chiqadi — reklamalaringiz yuzidan tanilib qoladi.</div>
           </div>
           <div id="stu-shab" style="margin-top:11px"></div>
           <div id="stu-pal" style="margin-top:4px"></div>
@@ -5390,7 +5406,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=6"></script>
+<script src="js/studio.js?v=7"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -5683,7 +5699,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 586;
+  window.SW_V = 587;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5706,7 +5722,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=586")
+    navigator.serviceWorker.register("/sw.js?v=587")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

@@ -31,6 +31,10 @@ const GEMINI_KEY  = process.env.GEMINI_API_KEY;          // naklad kaliti (zaxir
 const M_FON   = process.env.STUDIO_M_FON   || "fal-ai/birefnet/v2";
 const M_FON2  = "fal-ai/imageutils/rembg";               // zaxira
 const M_SAHNA = process.env.STUDIO_M_SAHNA || "fal-ai/flux/schnell";
+// ✅ S4: kiyimni modelga kiydirish — hujjat bilan tasdiqlangan
+// (fal.run/fal-ai/fashn/tryon/v1.6 · model_image + garment_image ·
+//  864x1296 · $0.075/generatsiya · 5-17 soniya).
+const M_TRYON = process.env.STUDIO_M_TRYON || "fal-ai/fashn/tryon/v1.6";
 const G_IMG   = "gemini-2.5-flash-image";                // Gemini zaxira
 
 const OYLIK_BEPUL = parseInt(process.env.STUDIO_LIMIT) || 10;
@@ -199,6 +203,48 @@ function sahnaBuyruq(kat, sahnaId, rang) {
     matn: s.p + rangIzoh(rang) + mavsumIzoh() + SAHNA_QOIDA };
 }
 
+// ═══ ✅ S4 (2026-09-06) — DO'KONNING O'Z MODELI ═══
+// Egasining talabi: har do'konga O'Z modeli (bir erkak, bir ayol).
+// Bir marta yaratiladi, `studio_models` ga yoziladi va KEYIN DOIM
+// o'sha shaxs ishlatiladi — do'konning reklamalari yuzidan tanilib
+// qoladi. `seed` saqlanadi: havola eskirsa ham AYNAN o'sha odam
+// qayta yaratiladi (seed + buyruq = bir xil shaxs).
+const MODEL_BUYRUQ = {
+  erkak: "full body studio photograph of a young Central Asian man, " +
+    "Uzbek features, short dark hair, calm friendly face, athletic slim " +
+    "build, standing straight facing the camera, arms relaxed at the sides, " +
+    "wearing a plain fitted white t-shirt and plain dark trousers",
+  ayol: "full body studio photograph of a young Central Asian woman, " +
+    "Uzbek features, dark hair tied back, calm friendly face, slim build, " +
+    "standing straight facing the camera, arms relaxed at the sides, " +
+    "wearing a plain fitted white top and plain dark trousers",
+};
+const MODEL_QOIDA = ", plain light grey seamless studio background, soft even " +
+  "studio lighting, sharp focus, natural skin texture, photorealistic, " +
+  "full body from head to shoes, vertical composition, no text, no logo";
+
+async function modelOl(shopId, jins) {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/studio_models` +
+      `?shop_id=eq.${encodeURIComponent(shopId)}&jins=eq.${encodeURIComponent(jins)}` +
+      `&select=jins,url,seed&limit=1`, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+    const j = await r.json().catch(() => []);
+    return (j && j[0]) || null;
+  } catch (e) { return null; }
+}
+async function modelSaqla(shopId, jins, url, seed) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/studio_models?on_conflict=shop_id,jins`, {
+      method: "POST",
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify([{ shop_id: shopId, jins, url, seed }]),
+    });
+  } catch (e) {}
+}
+
 // ═══════════════════════════════════════════════════════════════
 module.exports = async (req, res) => {
   if (req.method !== "POST")
@@ -291,6 +337,70 @@ module.exports = async (req, res) => {
     const n = await oySarfi(shopId);
     return res.status(200).json({ ok: true, image: chiq, sahna: tur,
       sahnaNom: s.nom, kat, sarf: n, chegara: OYLIK_BEPUL });
+  }
+
+  // ── ✅ S4: do'kon modellari ro'yxati ──
+  if (amal === "modellar") {
+    const [e, a] = await Promise.all([modelOl(shopId, "erkak"), modelOl(shopId, "ayol")]);
+    return res.status(200).json({ ok: true, erkak: e, ayol: a });
+  }
+
+  // ── ✅ S4: model yaratish (do'kon boshiga bir marta) ──
+  if (amal === "model_yarat") {
+    const jins = body.jins === "ayol" ? "ayol" : "erkak";
+    const n0 = await oySarfi(shopId);
+    if (n0 >= OYLIK_BEPUL)
+      return res.status(200).json({ ok: false, limit: true,
+        error: `Bu oyda ${OYLIK_BEPUL} ta bepul generatsiya tugadi.` });
+    const seed = parseInt(body.seed) || Math.floor(Math.random() * 1e9);
+    const matn = MODEL_BUYRUQ[jins] + MODEL_QOIDA;
+    let url = null, xato = "";
+    try {
+      // sync_mode: FALSE — havola qaytadi (bazaga havola yoziladi,
+      // og'ir base64 emas: rasm ombori 51% to'lgan).
+      const j = await falRun(M_SAHNA, { prompt: matn, image_size: "portrait_16_9",
+        num_images: 1, seed, sync_mode: false }, 90000);
+      url = falRasm(j);
+    } catch (e) { xato = e.message; }
+    await jurnal(shopId, "model:" + jins, "fal", M_SAHNA, !!url, url ? "" : xato);
+    if (!url) return res.status(200).json({ ok: false, error: xato || "Model chiqmadi" });
+    await modelSaqla(shopId, jins, url, seed);
+    const n = await oySarfi(shopId);
+    return res.status(200).json({ ok: true, jins, url, seed,
+      sarf: n, chegara: OYLIK_BEPUL });
+  }
+
+  // ── ✅ S4: kiyimni modelga kiydirish ──
+  if (amal === "kiydir") {
+    const jins = body.jins === "ayol" ? "ayol" : "erkak";
+    const kiyim = String(body.image || "");
+    if (!/^data:image\//.test(kiyim) && !/^https?:\/\//.test(kiyim))
+      return res.status(200).json({ ok: false, error: "Kiyim rasmi yuborilmadi" });
+    if (kiyim.length > MAX_KB * 1024)
+      return res.status(200).json({ ok: false, error: "Rasm juda katta" });
+    const n0 = await oySarfi(shopId);
+    if (n0 >= OYLIK_BEPUL)
+      return res.status(200).json({ ok: false, limit: true,
+        error: `Bu oyda ${OYLIK_BEPUL} ta bepul generatsiya tugadi.` });
+    const m = await modelOl(shopId, jins);
+    if (!m || !m.url)
+      return res.status(200).json({ ok: false, model_yoq: true,
+        error: "Avval " + jins + " modelini yarating" });
+    let chiq = null, xato = "";
+    try {
+      const j = await falRun(M_TRYON, {
+        model_image: m.url, garment_image: kiyim,
+        category: "auto", mode: "balanced", garment_photo_type: "auto",
+        num_samples: 1, segmentation_free: true,
+        output_format: "png", sync_mode: true,
+      }, 90000);
+      chiq = falRasm(j);
+    } catch (e) { xato = e.message; }
+    await jurnal(shopId, "kiydir:" + jins, "fal", M_TRYON, !!chiq, chiq ? "" : xato);
+    if (!chiq) return res.status(200).json({ ok: false, error: xato || "Kiydirish chiqmadi" });
+    const n = await oySarfi(shopId);
+    return res.status(200).json({ ok: true, image: chiq, jins,
+      sarf: n, chegara: OYLIK_BEPUL });
   }
 
   // ✅ S3: sahna ro'yxati (klient tugmalar chizishi uchun)

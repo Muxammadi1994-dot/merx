@@ -533,6 +533,17 @@ function stChiz(cvs, fmt, opt) {
         }
 
         case "logo": {
+          // ✅ S4: AI-modelli natijada halollik belgisi
+          if (STU.aiNamoyish) {
+            const pz = W * .022, pad = pz * .5;
+            ctx.font = `700 ${pz}px ${STU_SHRIFT}`;
+            const t2 = "AI namoyish";
+            const w2 = ctx.measureText(t2).width;
+            ctx.fillStyle = "rgba(0,0,0,.42)";
+            ctx.fillRect(W * .04 - pad, H * .955 - pz, w2 + pad * 2, pz * 1.6);
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillText(t2, W * .04, H * .955 + pz * .18);
+          }
           if (!STU.belgi) break;
           const px = L.o * W;
           ctx.fillStyle = stRang(P, L.rang);
@@ -577,7 +588,7 @@ function renderStudio() {
   const yr = document.getElementById("stu-yorliq");
   if (yr && yr.value !== STU.yorliq) yr.value = STU.yorliq;
   stChiz();
-  if (!STU._limitOlindi) { STU._limitOlindi = true; stuLimit(); }
+  if (!STU._limitOlindi) { STU._limitOlindi = true; stuLimit(); stuModellar(); }
 }
 function stuShab(id) { STU.shab = id; renderStudio(); }
 function stuPal(id)  { STU.pal  = id; renderStudio(); }
@@ -783,6 +794,7 @@ function stuBoshqaSahna() { stuSahna(null, false); }
 function stuAsliga() {
   if (STU.asl) STU.img = STU.asl;
   STU.fon = null;
+  STU.aiNamoyish = false; STU.soya = true;   // ✅ S4
   toast("Asl suratga qaytdi", "ok");
   stChiz();
 }
@@ -945,4 +957,70 @@ function stuVariantTanla(i) {
   STU.tanlanganV = i; STU.shab = v.shab; STU.pal = v.pal;
   renderStudio();
   stuVariantChiz();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ S4 (2026-09-06) — DO'KONNING O'Z MODELI + KIYDIRISH
+// ═══════════════════════════════════════════════════════════════
+// Har do'konga bitta erkak va bitta ayol model. Bir marta yaratiladi,
+// keyin DOIM o'sha shaxs — do'kon reklamalari yuzidan tanilib qoladi.
+// Natijaga "AI namoyish" belgisi qo'yiladi (halollik qoidasi).
+STU.modellar = { erkak: null, ayol: null };
+STU.aiNamoyish = false;
+
+async function stuModellar() {
+  const d = await stuAI("modellar", {});
+  if (!d) return;
+  STU.modellar.erkak = d.erkak || null;
+  STU.modellar.ayol  = d.ayol  || null;
+  stuModelChiz();
+}
+function stuModelChiz() {
+  const el = document.getElementById("stu-modellar");
+  if (!el) return;
+  el.innerHTML = ["erkak", "ayol"].map(j => {
+    const m = STU.modellar[j];
+    return `<div class="st-mod">
+      ${m && m.url
+        ? `<img src="${m.url}" alt="${j}">`
+        : `<div class="st-mod-bosh">Model yo'q</div>`}
+      <b>${j === "erkak" ? "Erkak" : "Ayol"}</b>
+      ${m && m.url
+        ? `<button onclick="stuKiydir('${j}')">Kiydirish</button>`
+        : `<button onclick="stuModelYarat('${j}')">Yaratish</button>`}
+    </div>`;
+  }).join("");
+}
+async function stuModelYarat(jins) {
+  stuHolat("🧑 Model yaratilmoqda (bir martalik)…");
+  const d = await stuAI("model_yarat", { jins });
+  stuHolat("");
+  if (!d) return;
+  STU.modellar[jins] = { jins, url: d.url, seed: d.seed };
+  stuModelChiz();
+  toast((jins === "ayol" ? "Ayol" : "Erkak") + " modeli tayyor", "ok");
+}
+async function stuKiydir(jins) {
+  if (!STU.img) { toast("Avval kiyim suratini yuklang", "err"); return; }
+  if (!STU.asl) STU.asl = STU.img;
+  stuHolat("👗 Kiyim modelga kiydirilmoqda…");
+  // kiyim rasmi — asl (kesilmagan) yoki joriy holat, kichraytirilgan
+  const c = document.createElement("canvas");
+  const src = STU.asl || STU.img;
+  const k = Math.min(1, 1200 / Math.max(src.width, src.height));
+  c.width = Math.round(src.width * k); c.height = Math.round(src.height * k);
+  const cx = c.getContext("2d");
+  cx.fillStyle = "#FFFFFF"; cx.fillRect(0, 0, c.width, c.height);  // shaffofsiz
+  cx.drawImage(src, 0, 0, c.width, c.height);
+  const d = await stuAI("kiydir", { jins, image: c.toDataURL("image/jpeg", 0.92) });
+  stuHolat("");
+  if (!d) return;
+  try {
+    STU.img = await _stuImg(d.image);
+    STU.fon = null;              // natijada o'z foni bor
+    STU.soya = false;            // to'liq kadr — soya/aks kerak emas
+    STU.aiNamoyish = true;       // belgisi chiqadi
+    toast("Modelda tayyor", "ok");
+    stChiz();
+  } catch (e) { toast("Natija ochilmadi", "err"); }
 }
