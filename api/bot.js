@@ -4067,8 +4067,19 @@ function siljit(k){
   el.value = d.toISOString().slice(0,10);
   yukla();
 }
-function fmt(n){ n = Math.round(Number(n)||0);
-  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
+function fmt(n){
+  // ✅ OT-3b: ming-ajratkich REGEXSIZ — shablon-pishirish qavatlari
+  // regexdagi teskari-chiziqlarni yeb, ajratkich ishlamay qolgan edi.
+  n = Math.round(Number(n)||0);
+  if (n < 0) return "-" + fmt(-n);
+  var t = String(n), o = "", c = 0;
+  for (var i = t.length - 1; i >= 0; i--) {
+    o = t.charAt(i) + o;
+    c++;
+    if (c % 3 === 0 && i > 0) o = " " + o;
+  }
+  return o;
+}
 function card(k,v,cls){ return '<div class="card"><div class="k">'+k+
   '</div><div class="v '+(cls||"")+'">'+v+'</div></div>'; }
 function yukla(){
@@ -4105,9 +4116,12 @@ function yukla(){
          card("Chegirma (2 tur)", fmt(d.cheg) + " so'm") +
          card("Qaytarishlar", fmt(d.qayt) + " ta") + '</div>';
     if (!d.ichki)
+      // ✅ OT-3b: sahifa-JS satrlarida apostrof ishlatilmaydi (server
+      // shabloni uni pishirib skriptni sindirardi; qoidaga yozildi).
       h += '<div class="err">ℹ️ Server hisoboti kelmadi — ' +
-           'MERX_INTERNAL_KEY ikkala loyihada o\'rnatilganini tekshiring. ' +
-           'Yuqoridagi sanoq/aylanma/chegirma to\'g\'ri.</div>';
+           'MERX_INTERNAL_KEY kalitini tekshiring (Vercel → ' +
+           'Environment Variables, keyin Redeploy). Yuqoridagi sanoq, ' +
+           'aylanma va chegirma esa ishonchli.</div>';
     out.innerHTML = h;
   }).catch(function(){
     ld.textContent = "⚠️ Internet xatosi";
