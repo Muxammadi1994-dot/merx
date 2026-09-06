@@ -195,6 +195,58 @@ function stWrap(ctx, matn, maxW, px, vazn, satr) {
   if (joriy) qatorlar.push(joriy);
   return qatorlar.slice(0, satr);
 }
+// ═══ ✅ S2 (2026-09-06) — SIFAT QATLAMI (hammasi KOD, AI'siz) ═══
+// · _stuTrim  — fon kesilgandan keyin qolgan SHAFFOF chekkalarni
+//   olib tashlaydi. Busiz tovar kadrda kichkina bo'lib qolardi.
+// · _lum      — matn ORTIDAGI yorqinlikni o'lchaydi → matn rangi
+//   avtomatik oq yoki to'q bo'ladi (har fonda o'qiladi).
+// · _sz       — XAVFSIZ ZONA: Stories (9:16) da tepa/past qismini
+//   Telegram va Instagram tugmalari yopadi — matn u yerga tushmaydi.
+function _stuTrim(im) {
+  try {
+    const c = document.createElement("canvas");
+    c.width = im.width; c.height = im.height;
+    const x = c.getContext("2d", { willReadFrequently: true });
+    x.drawImage(im, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height).data;
+    let x0 = c.width, y0 = c.height, x1 = 0, y1 = 0, bor = false;
+    for (let y = 0; y < c.height; y++) {
+      for (let xx = 0; xx < c.width; xx++) {
+        if (d[(y * c.width + xx) * 4 + 3] > 12) {
+          bor = true;
+          if (xx < x0) x0 = xx; if (xx > x1) x1 = xx;
+          if (y  < y0) y0 = y;  if (y  > y1) y1 = y;
+        }
+      }
+    }
+    if (!bor || x1 <= x0 || y1 <= y0) return im;
+    const pad = Math.round(Math.max(x1 - x0, y1 - y0) * .02);
+    x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad);
+    x1 = Math.min(c.width  - 1, x1 + pad);
+    y1 = Math.min(c.height - 1, y1 + pad);
+    const o = document.createElement("canvas");
+    o.width = x1 - x0 + 1; o.height = y1 - y0 + 1;
+    o.getContext("2d").drawImage(c, x0, y0, o.width, o.height, 0, 0, o.width, o.height);
+    return o;                       // canvas ham drawImage uchun yaroqli
+  } catch (e) { return im; }
+}
+function _lum(ctx, x, y, w, h) {
+  try {
+    x = Math.max(0, Math.round(x)); y = Math.max(0, Math.round(y));
+    w = Math.max(2, Math.round(w)); h = Math.max(2, Math.round(h));
+    const d = ctx.getImageData(x, y, w, h).data;
+    let s = 0, k = 0;
+    for (let i = 0; i < d.length; i += 4 * 9) {
+      s += (0.2126 * d[i] + 0.7152 * d[i+1] + 0.0722 * d[i+2]); k++;
+    }
+    return k ? s / k / 255 : .5;
+  } catch (e) { return .5; }
+}
+function _sz(y, F) {
+  const uzun = F.h / F.w > 1.5;          // 9:16 — Stories
+  const t = uzun ? .10 : .025, b = uzun ? .86 : .975;
+  return Math.min(Math.max(y, t), b);
+}
 const STU_SHRIFT = '"Inter","Archivo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
 
 // manba → matn
@@ -315,6 +367,40 @@ function stChiz(cvs, fmt, opt) {
             ctx.restore();
           }
           ctx.drawImage(im, dx, dy, dw, dh);
+          // ✅ S2: AKS (reflection) — sahna ustida tovar "polga qo'ngan"
+          // ko'rinadi. Pastga tomon so'nadi, shaffofligi past.
+          if (STU.fon && STU.aks !== false) {
+            try {
+              const t = document.createElement("canvas");
+              t.width = Math.max(2, Math.round(dw));
+              t.height = Math.max(2, Math.round(dh * .34));
+              const tx = t.getContext("2d");
+              tx.save(); tx.scale(1, -1);
+              tx.drawImage(im, 0, -dh, dw, dh);
+              tx.restore();
+              tx.globalCompositeOperation = "destination-in";
+              const gm = tx.createLinearGradient(0, 0, 0, t.height);
+              gm.addColorStop(0, "rgba(0,0,0,.30)");
+              gm.addColorStop(1, "rgba(0,0,0,0)");
+              tx.fillStyle = gm; tx.fillRect(0, 0, t.width, t.height);
+              ctx.drawImage(t, dx, dy + dh - 1, dw, t.height);
+            } catch (e) {}
+          }
+          // ✅ S2: RANG BIRLAShTIRISh — tovar va sahna bir yorug'likda
+          // ko'rinsin: butun kadrga juda yengil issiq qatlam + vinetka.
+          // Alfa past (.07) — tovar rangi sezilarli o'zgarmaydi.
+          if (STU.fon && STU.grade !== false) {
+            ctx.save();
+            ctx.globalCompositeOperation = "soft-light";
+            ctx.globalAlpha = .07;
+            ctx.fillStyle = "#FFB347"; ctx.fillRect(0, 0, W, H);
+            ctx.restore();
+            const vg = ctx.createRadialGradient(W/2, H*.46, Math.min(W,H)*.28,
+                                                W/2, H*.5,  Math.max(W,H)*.72);
+            vg.addColorStop(0, "rgba(0,0,0,0)");
+            vg.addColorStop(1, "rgba(0,0,0,.28)");
+            ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+          }
           // ✅ S1: MATN KONTRASTI — sahna foni ustida narx/nom
           // yo'qolmasin: pastdan yumshoq to'q qatlam.
           if (STU.fon) {
@@ -332,7 +418,15 @@ function stChiz(cvs, fmt, opt) {
           const maxW = (L.max || .9) * W;
           let px = stFit(ctx, matn, maxW, L.o * W, L.vazn || 700);
           const qatorlar = stWrap(ctx, matn, maxW, px, L.vazn || 700, L.satr || 1);
-          ctx.fillStyle = stRang(P, L.rang);
+          // ✅ S2: xavfsiz zona + fon ustida avtomatik rang
+          const _yy0 = _sz(L.y, F) * H;
+          let _rang = stRang(P, L.rang);
+          if (STU.fon) {
+            const _l = _lum(ctx, (L.anchor === "right" ? L.x * W - maxW : L.x * W),
+                            _yy0 - px, maxW, px * 1.2);
+            _rang = _l > .62 ? "#0B1220" : "#FFFFFF";
+          }
+          ctx.fillStyle = _rang;
           ctx.textAlign = L.anchor === "right" ? "right"
                         : L.anchor === "center" ? "center" : "left";
           ctx.save();
@@ -344,7 +438,7 @@ function stChiz(cvs, fmt, opt) {
           } else {
             qatorlar.forEach((q, i) => {
               ctx.font = `${L.vazn || 700} ${px}px ${STU_SHRIFT}`;
-              const yy = L.y * H + i * px * 1.06;
+              const yy = _yy0 + i * px * 1.06;
               ctx.fillText(q, L.x * W, yy);
               if (L.chizilgan) {
                 const w2 = ctx.measureText(q).width;
@@ -375,7 +469,7 @@ function stChiz(cvs, fmt, opt) {
             ctx.fillStyle = stRang(P, L.qopqa);
             const bw = wMatn + wSom * 1.2 + pad * 2, bh = px * 1.5;
             const bx = L.anchor === "right" ? L.x * W - bw : L.x * W;
-            const by = L.y * H - bh * .78;
+            const by = _sz(L.y, F) * H - bh * .78;   // ✅ S2
             const r = bh / 2;
             ctx.beginPath();
             ctx.moveTo(bx + r, by);
@@ -389,10 +483,11 @@ function stChiz(cvs, fmt, opt) {
           } else {
             ctx.fillStyle = stRang(P, L.rang);
           }
+          const _ny = _sz(L.y, F) * H;   // ✅ S2: xavfsiz zona
           ctx.font = `${L.vazn || 900} ${px}px ${STU_SHRIFT}`;
-          ctx.fillText(matn, x, L.y * H);
+          ctx.fillText(matn, x, _ny);
           ctx.font = `700 ${px * .30}px ${STU_SHRIFT}`;
-          ctx.fillText(" so'm", x + wMatn + px * .06, L.y * H);
+          ctx.fillText(" so'm", x + wMatn + px * .06, _ny);
           break;
         }
 
@@ -404,7 +499,7 @@ function stChiz(cvs, fmt, opt) {
           const wMatn = ctx.measureText(matn).width;
           const bw = wMatn + pad * 2, bh = px * 1.72;
           const bx = L.anchor === "right" ? L.x * W - bw : L.x * W;
-          const by = L.y * H;
+          const by = _sz(L.y, F) * H;   // ✅ S2
           ctx.save();
           if (L.burchak) {
             ctx.translate(bx + bw / 2, by + bh / 2);
@@ -444,7 +539,7 @@ function stChiz(cvs, fmt, opt) {
           ctx.globalAlpha = .8;
           ctx.font = `700 ${px}px ${STU_SHRIFT}`;
           ctx.textAlign = L.anchor === "right" ? "right" : "left";
-          ctx.fillText("merx.uz", L.x * W, L.y * H);
+          ctx.fillText("merx.uz", L.x * W, _sz(L.y, F) * H);   // ✅ S2
           ctx.textAlign = "left"; ctx.globalAlpha = 1;
           break;
         }
@@ -648,7 +743,8 @@ async function stuFonTozala(jim) {
   const d = await stuAI("fon", { image: c.toDataURL("image/jpeg", 0.9) });
   if (!d) return false;
   try {
-    STU.img = await _stuImg(d.image);
+    const _raw = await _stuImg(d.image);
+    STU.img = _stuTrim(_raw);        // ✅ S2: shaffof chekkalar kesiladi
     if (!jim) { stuHolat(""); toast("Fon tozalandi", "ok"); stChiz(); }
     return true;
   } catch (e) { stuHolat(""); if (!jim) toast("Natija ochilmadi", "err"); return false; }
