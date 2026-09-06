@@ -4866,3 +4866,16 @@ function autofillGuardWatch() {
   console.error = function () { push("E", [...arguments]); orig.error(...arguments); };
   window._qqYoz = m => push("I", [m]);    // muhim voqealarni qo'lda yozish
 })();
+
+// ═══ ✅ KF-1 (2026-09-06): KATEGORIYA RO'YXATI — Katalog va Ombor
+// filtri uchun YAGONA quruvchi (C10: ikki nusxa bo'lmasin). Bo'sh/
+// probelli qiymatlar tashlanadi, alifbo tartibida qaytadi.
+function toifaRoyxati(ps) {
+  const s = new Set();
+  (ps || []).forEach(p => {
+    const c = String(p.category || "").trim();
+    if (c) s.add(c);
+  });
+  return [...s].sort((a, b) => a.localeCompare(b, "uz"));
+}
+

@@ -1204,6 +1204,11 @@ body.sms-off .sms-only { display: none !important; }
         <input autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" class="srch-inp" id="kat-q" placeholder="Qidirish, ART, SKU, barcode..."
             onkeydown="if(event.key==='Enter'){event.preventDefault();this.select();}" oninput="renderKatalog()" style="width:100%;box-sizing:border-box;font-size:15px;padding:12px 16px;border:2px solid #C8C2B8;border-radius:12px;background:#fff;font-family:inherit;outline:none">
       </div>
+      <!-- ✅ KF-1: toifa filtri -->
+      <div style="margin-top:8px">
+        <select id="kat-toifa" onchange="katSetToifa(this.value)"
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:10px;border:1.5px solid var(--brd);font-size:13.5px;font-family:inherit;background:#fff"></select>
+      </div>
       </div>
 
       <!-- Status tab filtrlari (Billz uslubida) -->
@@ -1355,6 +1360,8 @@ body.sms-off .sms-only { display: none !important; }
     <div id="om-tab-qoldiq" class="card" style="overflow:hidden">
       <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--brd);flex-wrap:wrap">
         <span style="font-size:12px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Filtr:</span>
+        <select data-viewok id="om-toifa" onchange="omSetToifa(this.value)"
+          style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--brd);font-size:12px;font-family:inherit;background:#fff;max-width:46%"></select>
         <button data-viewok class="om-filter-btn on" data-f="all" onclick="omSetFilter('all')">Barchasi</button>
         <button data-viewok class="om-filter-btn" data-f="low" onclick="omSetFilter('low')">
           <i class="ti ti-alert-triangle" style="font-size:12px"></i> Kam qoldiq (≤5)
@@ -5231,14 +5238,14 @@ body.sms-off .sms-only { display: none !important; }
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=174"></script>
-<script src="js/utils.js?v=305"></script>
+<script src="js/utils.js?v=306"></script>
 <script src="js/auth.js?v=214"></script>
 <script src="js/sms.js?v=150"></script>
 <script src="js/cloud.js?v=320"></script>
 <script src="js/dashboard.js?v=162"></script>
 <script src="js/pos.js?v=278"></script>
-<script src="js/katalog.js?v=299"></script>
-<script src="js/ombor.js?v=186"></script>
+<script src="js/katalog.js?v=300"></script>
+<script src="js/ombor.js?v=187"></script>
 <script src="js/mijozlar.js?v=174"></script>
 <script src="js/qarzlar.js?v=242"></script>
 <script src="js/tarix.js?v=200"></script>
@@ -5540,7 +5547,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 579;
+  window.SW_V = 580;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5563,7 +5570,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=579")
+    navigator.serviceWorker.register("/sw.js?v=580")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

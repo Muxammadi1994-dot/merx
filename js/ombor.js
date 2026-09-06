@@ -5,6 +5,29 @@
 
 let omActiveTab   = "qoldiq";
 let omStockFilter = "all";
+// ✅ KF-1: toifa filtri (Katalog bilan bir xil naqsh, indeks-qiymat)
+let omCatFilter = "all";
+let _omToifalar = [];
+function omToifaTolvir(vp) {
+  const el = document.getElementById("om-toifa");
+  if (!el) return;
+  _omToifalar = typeof toifaRoyxati === "function" ? toifaRoyxati(vp) : [];
+  let h = '<option value="all">🏷 Barcha toifalar</option>';
+  _omToifalar.forEach((c, i) => {
+    h += `<option value="i:${i}">${c.replace(/</g, "‹")}</option>`;
+  });
+  h += '<option value="__none">— Toifasiz</option>';
+  el.innerHTML = h;
+  const idx = _omToifalar.indexOf(omCatFilter);
+  el.value = omCatFilter === "all" ? "all"
+    : (omCatFilter === "__none" ? "__none" : (idx >= 0 ? "i:" + idx : "all"));
+}
+function omSetToifa(v) {
+  omCatFilter = v === "all" ? "all"
+    : v === "__none" ? "__none"
+    : (_omToifalar[parseInt(v.slice(2))] ?? "all");
+  renderOmbor();
+}
 
 // ── Ustunlar sozlash (Katalogdagi kabi to'liq) ────
 const OM_ALL_COLS = [
@@ -339,7 +362,12 @@ function omRenderQoldiq() {
   const showChakana = db.settings.showChakana || false;
   const cols = omGetCols();
 
-  const vp = typeof visProds === "function" ? visProds() : db.products;
+  const vp0 = typeof visProds === "function" ? visProds() : db.products;
+  omToifaTolvir(vp0);   // ✅ KF-1
+  const vp = omCatFilter === "all" ? vp0
+    : vp0.filter(p => omCatFilter === "__none"
+        ? !String(p.category || "").trim()
+        : p.category === omCatFilter);   // ✅ KF-1
   let rows = [];
   vp.forEach(p => {
     const colors = [...new Set(p.variants.map(v => v.color))];

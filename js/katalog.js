@@ -38,6 +38,35 @@ function katGoPage(p) {
   document.getElementById("p-katalog")?.scrollIntoView({behavior:"smooth",block:"start"});
 }
 
+// ═══ ✅ KF-1 (2026-09-06): TOIFA-TANLAGICh (Katalog) ═══
+// Qiymatlar INDEKS orqali — kategoriya nomida qo'shtirnoq/apostrof
+// bo'lsa ham attribut buzilmaydi (OT-3b saboqi).
+let _katToifalar = [];
+function katToifaTolvir() {
+  const el = document.getElementById("kat-toifa");
+  if (!el) return;
+  _katToifalar = typeof toifaRoyxati === "function"
+    ? toifaRoyxati(typeof visProds === "function" ? visProds() : db.products)
+    : [];
+  let h = '<option value="all">🏷 Barcha toifalar</option>';
+  _katToifalar.forEach((c, i) => {
+    h += `<option value="i:${i}">${c.replace(/</g, "‹")}</option>`;
+  });
+  h += '<option value="__none">— Toifasiz</option>';
+  el.innerHTML = h;
+  // joriy holatni aks ettirish (karta-teg bosilgan bo'lsa ham)
+  const idx = _katToifalar.indexOf(katCatFilter);
+  el.value = katCatFilter === "all" || katCatFilter === "oyoq" || katCatFilter === "kiyim"
+    ? "all" : (katCatFilter === "__none" ? "__none" : (idx >= 0 ? "i:" + idx : "all"));
+}
+function katSetToifa(v) {
+  katCatFilter = v === "all" ? "all"
+    : v === "__none" ? "__none"
+    : (_katToifalar[parseInt(v.slice(2))] ?? "all");
+  katPage = 1;
+  renderKatalog();
+}
+
 // ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan
 function setKatCat(c) {
   katCatFilter = c;
@@ -405,6 +434,7 @@ function renderKatalog() {
   // 2026-08-02: KO'P PARAMETRLI qidiruv (utils.js → srchMatcher).
   // "c1 krossovka" — har bir so'z biror maydonda topilishi shart.
   // Rang barcode'lari ham qidiriladi (etiketkada shu kod chop etiladi).
+  katToifaTolvir();   // ✅ KF-1: tanlagich har renderda yangilanadi
   const _km = typeof srchMatcher === "function" ? srchMatcher(q) : null;
   let ps = visProds().filter(p =>
     !q || (_km
@@ -416,6 +446,7 @@ function renderKatalog() {
   // katCatFilter endi faqat kategoriya bo'yicha — tur esa visProds() orqali
   if (katCatFilter === "oyoq")  ps = ps.filter(p => p.type === "oyoq");
   else if (katCatFilter === "kiyim") ps = ps.filter(p => p.type === "kiyim");
+  else if (katCatFilter === "__none") ps = ps.filter(p => !String(p.category||"").trim());   // ✅ KF-1
   else if (katCatFilter !== "all")   ps = ps.filter(p => p.category === katCatFilter);
 
   // Status filtri
