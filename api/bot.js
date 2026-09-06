@@ -472,9 +472,12 @@ async function _onceEver(kind, a) {
   return true;
 }
 async function _kbEgaYubor(chatId) {
-  if (!(await _onceEver("kbv1ega", String(chatId)))) return;
+  // ✅ OT-3a: PANEL TARKIBI O'ZGARSA KALIT HAM OShIRILADI (C3 ning
+  // klaviatura ko'rinishi) — aks holda eski panel muzlab qoladi
+  // (jonli hodisa: 🗓 Kunlik tugmasi chiqmadi). kbv1 → kbv2.
+  if (!(await _onceEver("kbv2ega", String(chatId)))) return;
   await tg(chatId,
-    "⌨️ <b>Yangilik:</b> pastda tez tugmalar paneli.\n" +
+    "⌨️ <b>Panel yangilandi:</b> 🗓 Kunlik hisobot tugmasi qo'shildi.\n" +
     "Yashirish/ochish — yozuv qatoridagi ▦ belgisi.",
     { reply_markup: _KB_EGA });
 }
@@ -493,7 +496,7 @@ async function _kbMijozOnce(chatId) {
 // (_kbEgaYubor gate-nuqtasi), hech kim start bosishi shart emas.
 async function _kbBroadcast() {
   try {
-    if (!(await _onceEver("kbv1", "broadcast"))) return;
+    if (!(await _onceEver("kbv2", "broadcast"))) return;   // ✅ OT-3a
     const rows = await sb("shop_owners", "?select=chat_id");
     const set = new Set((rows || []).map(r => String(r.chat_id)).filter(Boolean));
     if (OWNER_ID) set.add(String(OWNER_ID));
@@ -4012,6 +4015,158 @@ export default async function handler(req, res) {
     }
   }
 
+  // ✅ OT-3a (2026-09-06): GET-SAHIFALAR DARVOZADAN OLDIN TURADI.
+  // Jonli hodisa: kunlik mini-app (va OT-1 "izoh" sahifasi ham!)
+  // pastda qolib, "MERX Bot ishlamoqda" JSON'i ochilardi — darvoza
+  // ulargacha yetkazmasdi. Qoida: har yangi GET-sahifa ShU YERDAN
+  // yuqoriga qo'yiladi.
+  // ═══ ✅ OT-3: KUNLIK HISOBOT — sahifa ═══
+  if (req.method === "GET" && req.query?.action === "kunlik_app") {
+    const shop = String(req.query?.shop || "");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).send(`<!doctype html><html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body{font-family:system-ui;margin:0;background:#f4f4f6;color:#1c1c1e}
+.top{position:sticky;top:0;background:#fff;padding:12px 14px;border-bottom:1px solid #e6e6ea;display:flex;gap:8px;align-items:center}
+.top b{font-size:15px;flex:1}
+.nav{width:38px;height:38px;border:none;border-radius:10px;background:#f0f0f3;font-size:17px}
+input[type=date]{border:1.5px solid #ddd;border-radius:10px;padding:8px;font-size:14px;font-family:inherit;background:#fff}
+.wrap{padding:12px}
+.card{background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.k{font-size:12px;color:#8a8a8e;text-transform:uppercase;letter-spacing:.3px}
+.v{font-size:19px;font-weight:800;margin-top:2px}
+.row{display:flex;gap:10px}.row .card{flex:1;margin-bottom:10px}
+.mut{color:#8a8a8e;font-size:12.5px;text-align:center;padding:6px 0 14px}
+.err{background:#ffecec;color:#b3261e;border-radius:12px;padding:12px;margin:10px 0;font-size:13.5px}
+.g{color:#0a7d33}.r{color:#b3261e}
+#ld{text-align:center;padding:26px;color:#8a8a8e}
+</style></head><body>
+<div class="top">
+  <button class="nav" onclick="siljit(-1)">‹</button>
+  <input type="date" id="sana" onchange="yukla()">
+  <button class="nav" onclick="siljit(1)">›</button>
+  <b style="text-align:right" id="ttl">Kunlik</b>
+</div>
+<div class="wrap">
+  <div id="ld">⏳ Yuklanmoqda…</div>
+  <div id="out" style="display:none"></div>
+  <div class="mut">Raqamlar tizimdagi Hisobot bilan BIR manbadan (server).</div>
+</div>
+<script>
+var tw = window.Telegram && Telegram.WebApp; if (tw) tw.ready();
+var SHOP = ${JSON.stringify(shop)};
+function tsh(){ return new Date(Date.now() + 5*3600*1000).toISOString().slice(0,10); }
+document.getElementById("sana").value = tsh();
+function siljit(k){
+  var el = document.getElementById("sana");
+  var d = new Date((el.value || tsh()) + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + k);
+  el.value = d.toISOString().slice(0,10);
+  yukla();
+}
+function fmt(n){ n = Math.round(Number(n)||0);
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
+function card(k,v,cls){ return '<div class="card"><div class="k">'+k+
+  '</div><div class="v '+(cls||"")+'">'+v+'</div></div>'; }
+function yukla(){
+  var ld = document.getElementById("ld"), out = document.getElementById("out");
+  ld.style.display = "block"; out.style.display = "none";
+  fetch("/api/bot?action=kunlik_data", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ shop: SHOP,
+      sana: document.getElementById("sana").value,
+      initData: (tw && tw.initData) || "" })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    ld.style.display = "none"; out.style.display = "block";
+    if (!d || !d.ok) {
+      out.innerHTML = '<div class="err">⚠️ ' +
+        ((d && d.error) || "Ma'lumot olinmadi") + '</div>';
+      return;
+    }
+    var s = d.stat || {}, h = "";
+    h += '<div class="row">' +
+         card("Sotuvlar", fmt(d.soni) + " ta") +
+         card("Aylanma", fmt(d.aylanma) + " so'm") + '</div>';
+    if (s.rev != null || s.cost != null)
+      h += '<div class="row">' +
+           card("Sof tushum", fmt(s.rev) + " so'm") +
+           card("Tannarx", fmt(s.cost) + " so'm") + '</div>';
+    if (s.profit != null) h += card("Brutto foyda", fmt(s.profit) + " so'm");
+    if (s.trueNet != null)
+      h += card("Haqiqiy sof foyda", fmt(s.trueNet) + " so'm",
+                (Number(s.trueNet)||0) >= 0 ? "g" : "r");
+    if (s.netProfit != null)
+      h += card("Kassa foydasi (to'liq xarajat bilan)", fmt(s.netProfit) + " so'm");
+    if (s.exp != null) h += card("Xarajat", fmt(s.exp) + " so'm");
+    h += '<div class="row">' +
+         card("Chegirma (2 tur)", fmt(d.cheg) + " so'm") +
+         card("Qaytarishlar", fmt(d.qayt) + " ta") + '</div>';
+    if (!d.ichki)
+      h += '<div class="err">ℹ️ Server hisoboti kelmadi — ' +
+           'MERX_INTERNAL_KEY ikkala loyihada o\'rnatilganini tekshiring. ' +
+           'Yuqoridagi sanoq/aylanma/chegirma to\'g\'ri.</div>';
+    out.innerHTML = h;
+  }).catch(function(){
+    ld.textContent = "⚠️ Internet xatosi";
+  });
+}
+yukla();
+</script></body></html>`);
+  }
+
+
+  // ═══ ✅ OT-1: izoh sahifasi (mini-app) ═══
+  if (req.method === "GET" && req.query?.action === "order_comment") {
+    const chekId = String(req.query?.id || "");
+    const shopId = String(req.query?.shop || "");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).send(`<!doctype html><html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>body{font-family:system-ui;margin:0;padding:18px;background:#f6f6f6}
+.card{background:#fff;border-radius:14px;padding:16px}
+textarea{width:100%;min-height:110px;border:1.5px solid #ddd;border-radius:10px;
+padding:10px;font-size:14px;font-family:inherit;box-sizing:border-box}
+button{width:100%;margin-top:12px;padding:13px;border:none;border-radius:10px;
+background:#E9A500;color:#fff;font-weight:800;font-size:14px}</style></head><body>
+<div class="card">
+  <div style="font-weight:800;font-size:15px;margin-bottom:4px">📝 Izoh bilan yuborildi</div>
+  <div style="font-size:12.5px;color:#777;margin-bottom:10px">Chek: ${chekId}</div>
+  <textarea id="izoh" placeholder="Izoh (ixtiyoriy) — masalan: haydovchi Akmal aka, 2 qop alohida"></textarea>
+  <button id="yb" onclick="yubor()">🚚 Mijozga yuborildi deb belgilash</button>
+  <div id="msg" style="margin-top:10px;font-size:13px;color:#666"></div>
+</div>
+<script>
+var tw = window.Telegram && Telegram.WebApp; if (tw) tw.ready();
+function yubor(){
+  var b=document.getElementById('yb'); b.disabled=true; b.textContent='⏳ Yuborilmoqda...';
+  var u=(tw && tw.initDataUnsafe && tw.initDataUnsafe.user)||{};
+  var ism=((u.first_name||'')+' '+(u.last_name||'')).trim()||(u.username?'@'+u.username:'Xodim');
+  fetch('/api/bot?action=order_sent',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:${JSON.stringify(chekId)},shopId:${JSON.stringify(shopId)},
+      ism:ism,comment:document.getElementById('izoh').value})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d&&(d.ok||d.dup)){
+      b.textContent = d.dup?'✅ Allaqachon belgilangan':'✅ Guruhga xabar ketdi';
+      document.getElementById('msg').textContent='Oynani yopishingiz mumkin.';
+      if(tw) setTimeout(function(){ tw.close(); }, 900);
+    } else {
+      b.textContent='🚚 Mijozga yuborildi deb belgilash'; b.disabled=false;
+      document.getElementById('msg').textContent='⚠️ '+((d&&d.error)||'Xato');
+    }
+  }).catch(function(){ b.disabled=false;
+    document.getElementById('msg').textContent='⚠️ Internet xatosi'; });
+}
+</script></body></html>`);
+  }
+
+
   if (req.method !== "POST") {
     return res.status(200).json({ ok: true, info: "MERX Bot ishlamoqda" });
   }
@@ -4129,102 +4284,6 @@ export default async function handler(req, res) {
   }
 
   // Done state — SET (Supabase orqali, BARCHA omborchilar uchun sinxron)
-  // ═══ ✅ OT-3: KUNLIK HISOBOT — sahifa ═══
-  if (req.method === "GET" && req.query?.action === "kunlik_app") {
-    const shop = String(req.query?.shop || "");
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Cache-Control", "no-store");
-    return res.status(200).send(`<!doctype html><html><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-body{font-family:system-ui;margin:0;background:#f4f4f6;color:#1c1c1e}
-.top{position:sticky;top:0;background:#fff;padding:12px 14px;border-bottom:1px solid #e6e6ea;display:flex;gap:8px;align-items:center}
-.top b{font-size:15px;flex:1}
-.nav{width:38px;height:38px;border:none;border-radius:10px;background:#f0f0f3;font-size:17px}
-input[type=date]{border:1.5px solid #ddd;border-radius:10px;padding:8px;font-size:14px;font-family:inherit;background:#fff}
-.wrap{padding:12px}
-.card{background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:10px}
-.k{font-size:12px;color:#8a8a8e;text-transform:uppercase;letter-spacing:.3px}
-.v{font-size:19px;font-weight:800;margin-top:2px}
-.row{display:flex;gap:10px}.row .card{flex:1;margin-bottom:10px}
-.mut{color:#8a8a8e;font-size:12.5px;text-align:center;padding:6px 0 14px}
-.err{background:#ffecec;color:#b3261e;border-radius:12px;padding:12px;margin:10px 0;font-size:13.5px}
-.g{color:#0a7d33}.r{color:#b3261e}
-#ld{text-align:center;padding:26px;color:#8a8a8e}
-</style></head><body>
-<div class="top">
-  <button class="nav" onclick="siljit(-1)">‹</button>
-  <input type="date" id="sana" onchange="yukla()">
-  <button class="nav" onclick="siljit(1)">›</button>
-  <b style="text-align:right" id="ttl">Kunlik</b>
-</div>
-<div class="wrap">
-  <div id="ld">⏳ Yuklanmoqda…</div>
-  <div id="out" style="display:none"></div>
-  <div class="mut">Raqamlar tizimdagi Hisobot bilan BIR manbadan (server).</div>
-</div>
-<script>
-var tw = window.Telegram && Telegram.WebApp; if (tw) tw.ready();
-var SHOP = ${JSON.stringify(shop)};
-function tsh(){ return new Date(Date.now() + 5*3600*1000).toISOString().slice(0,10); }
-document.getElementById("sana").value = tsh();
-function siljit(k){
-  var el = document.getElementById("sana");
-  var d = new Date((el.value || tsh()) + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + k);
-  el.value = d.toISOString().slice(0,10);
-  yukla();
-}
-function fmt(n){ n = Math.round(Number(n)||0);
-  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
-function card(k,v,cls){ return '<div class="card"><div class="k">'+k+
-  '</div><div class="v '+(cls||"")+'">'+v+'</div></div>'; }
-function yukla(){
-  var ld = document.getElementById("ld"), out = document.getElementById("out");
-  ld.style.display = "block"; out.style.display = "none";
-  fetch("/api/bot?action=kunlik_data", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ shop: SHOP,
-      sana: document.getElementById("sana").value,
-      initData: (tw && tw.initData) || "" })
-  }).then(function(r){ return r.json(); }).then(function(d){
-    ld.style.display = "none"; out.style.display = "block";
-    if (!d || !d.ok) {
-      out.innerHTML = '<div class="err">⚠️ ' +
-        ((d && d.error) || "Ma'lumot olinmadi") + '</div>';
-      return;
-    }
-    var s = d.stat || {}, h = "";
-    h += '<div class="row">' +
-         card("Sotuvlar", fmt(d.soni) + " ta") +
-         card("Aylanma", fmt(d.aylanma) + " so'm") + '</div>';
-    if (s.rev != null || s.cost != null)
-      h += '<div class="row">' +
-           card("Sof tushum", fmt(s.rev) + " so'm") +
-           card("Tannarx", fmt(s.cost) + " so'm") + '</div>';
-    if (s.profit != null) h += card("Brutto foyda", fmt(s.profit) + " so'm");
-    if (s.trueNet != null)
-      h += card("Haqiqiy sof foyda", fmt(s.trueNet) + " so'm",
-                (Number(s.trueNet)||0) >= 0 ? "g" : "r");
-    if (s.netProfit != null)
-      h += card("Kassa foydasi (to'liq xarajat bilan)", fmt(s.netProfit) + " so'm");
-    if (s.exp != null) h += card("Xarajat", fmt(s.exp) + " so'm");
-    h += '<div class="row">' +
-         card("Chegirma (2 tur)", fmt(d.cheg) + " so'm") +
-         card("Qaytarishlar", fmt(d.qayt) + " ta") + '</div>';
-    if (!d.ichki)
-      h += '<div class="err">ℹ️ Server hisoboti kelmadi — ' +
-           'MERX_INTERNAL_KEY ikkala loyihada o\'rnatilganini tekshiring. ' +
-           'Yuqoridagi sanoq/aylanma/chegirma to\'g\'ri.</div>';
-    out.innerHTML = h;
-  }).catch(function(){
-    ld.textContent = "⚠️ Internet xatosi";
-  });
-}
-yukla();
-</script></body></html>`);
-  }
 
   // ═══ ✅ OT-3: KUNLIK HISOBOT — ma'lumot (imzo + egalik tekshiruvi) ═══
   if (req.method === "POST" && req.query?.action === "kunlik_data") {
@@ -4339,53 +4398,6 @@ yukla();
     return res.status(200).json(out);
   }
 
-  // ═══ ✅ OT-1: izoh sahifasi (mini-app) ═══
-  if (req.method === "GET" && req.query?.action === "order_comment") {
-    const chekId = String(req.query?.id || "");
-    const shopId = String(req.query?.shop || "");
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Cache-Control", "no-store");
-    return res.status(200).send(`<!doctype html><html><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>body{font-family:system-ui;margin:0;padding:18px;background:#f6f6f6}
-.card{background:#fff;border-radius:14px;padding:16px}
-textarea{width:100%;min-height:110px;border:1.5px solid #ddd;border-radius:10px;
-padding:10px;font-size:14px;font-family:inherit;box-sizing:border-box}
-button{width:100%;margin-top:12px;padding:13px;border:none;border-radius:10px;
-background:#E9A500;color:#fff;font-weight:800;font-size:14px}</style></head><body>
-<div class="card">
-  <div style="font-weight:800;font-size:15px;margin-bottom:4px">📝 Izoh bilan yuborildi</div>
-  <div style="font-size:12.5px;color:#777;margin-bottom:10px">Chek: ${chekId}</div>
-  <textarea id="izoh" placeholder="Izoh (ixtiyoriy) — masalan: haydovchi Akmal aka, 2 qop alohida"></textarea>
-  <button id="yb" onclick="yubor()">🚚 Mijozga yuborildi deb belgilash</button>
-  <div id="msg" style="margin-top:10px;font-size:13px;color:#666"></div>
-</div>
-<script>
-var tw = window.Telegram && Telegram.WebApp; if (tw) tw.ready();
-function yubor(){
-  var b=document.getElementById('yb'); b.disabled=true; b.textContent='⏳ Yuborilmoqda...';
-  var u=(tw && tw.initDataUnsafe && tw.initDataUnsafe.user)||{};
-  var ism=((u.first_name||'')+' '+(u.last_name||'')).trim()||(u.username?'@'+u.username:'Xodim');
-  fetch('/api/bot?action=order_sent',{method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({id:${JSON.stringify(chekId)},shopId:${JSON.stringify(shopId)},
-      ism:ism,comment:document.getElementById('izoh').value})})
-  .then(function(r){return r.json();})
-  .then(function(d){
-    if(d&&(d.ok||d.dup)){
-      b.textContent = d.dup?'✅ Allaqachon belgilangan':'✅ Guruhga xabar ketdi';
-      document.getElementById('msg').textContent='Oynani yopishingiz mumkin.';
-      if(tw) setTimeout(function(){ tw.close(); }, 900);
-    } else {
-      b.textContent='🚚 Mijozga yuborildi deb belgilash'; b.disabled=false;
-      document.getElementById('msg').textContent='⚠️ '+((d&&d.error)||'Xato');
-    }
-  }).catch(function(){ b.disabled=false;
-    document.getElementById('msg').textContent='⚠️ Internet xatosi'; });
-}
-</script></body></html>`);
-  }
 
   if (req.method === "POST" && req.query?.action === "set_done") {
     let body;
