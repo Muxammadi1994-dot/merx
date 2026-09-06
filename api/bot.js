@@ -598,6 +598,39 @@ function _ckOraliq(dTok) {
     .toISOString().slice(0, 10);
   return { from: f, to: t2, nom: dTok === "0" ? "Bugun" : `Oxirgi ${kun + 1} kun` };
 }
+// ✅ OT-2c (2026-09-06): TO'LOVLARNI MIJOZ TILIDA KO'RSATISh.
+// Qaytarish qarzni yopganda har chekka ALOHIDA QTQ-yozuv tug'iladi
+// (tarix.js:1683, source:"refund") — ro'yxatda 6 mayda bo'lak bo'lib
+// chiqardi. Endi: PAY-lar (mijoz o'zi to'lagan) alohida qoladi,
+// refund-bo'laklar refundNo bo'yicha BITTA "↩️ qaytarishdan"
+// qatoriga yig'iladi; valyutalar alohida (3.49). Bekorlar chetda.
+function _ckPayGuruh(rows) {
+  const out = [], g = new Map();
+  (rows || []).forEach(p => {
+    const d = p.data || {};
+    if (String(d.cancelled) === "true") return;
+    const som = p.currency === "usd" ? 0 : (Number(p.amount) || 0);
+    const usd = p.currency === "usd" ? (Number(p.amount) || 0) : 0;
+    if (d.source === "refund") {
+      const k = String(d.refundNo || ("R" + p.date));
+      if (!g.has(k)) g.set(k, { date: p.date, time: d.time || "",
+        kod: d.refundNo || "Qaytarish", som: 0, usd: 0, refund: true });
+      const x = g.get(k);
+      x.som += som; x.usd += usd;
+      if ((p.date + (d.time || "")) > (x.date + x.time)) {
+        x.date = p.date; x.time = d.time || "";
+      }
+    } else {
+      out.push({ date: p.date, time: d.time || "",
+        kod: d.chekNum || ("ID" + p.id), som, usd, refund: false, id: p.id });
+    }
+  });
+  g.forEach(v => out.push(v));
+  out.sort((a, b) =>
+    (b.date + (b.time || "")).localeCompare(a.date + (a.time || "")));
+  return out;
+}
+
 async function _ckList(chatId, shop, t, dTok, page) {
   const rows = await _ckCust(chatId, shop);
   const c = rows[0];
@@ -623,16 +656,16 @@ async function _ckList(chatId, shop, t, dTok, page) {
         `?shop_id=eq.${encodeURIComponent(shop)}&customer_id=eq.${encodeURIComponent(c.id)}` +
         `&date=gte.${from}&date=lte.${to}` +
         `&select=id,date,amount,currency,data&order=date.desc&limit=80`);
-      (r2 || []).forEach(p2 => {
-        if (String(p2.data?.cancelled) === "true") return;
-        const sum = p2.currency === "usd"
-          ? "$" + Number(p2.amount || 0).toFixed(2)
-          : fmt(p2.amount || 0) + " so'm";
-        el.push({ tur: "💵", date: p2.date, time: p2.data?.time || "",
-          kod: p2.data?.chekNum || ("ID" + p2.id), sum,
-          sSom: p2.currency === "usd" ? 0 : (Number(p2.amount) || 0),   // ✅ OT-2b
-          sUsd: p2.currency === "usd" ? (Number(p2.amount) || 0) : 0,
-          url: _ckUrl("PAY", p2.id, shop) });
+      // ✅ OT-2c: bo'laklar yig'ilgan ko'rinishda (izoh yuqorida)
+      _ckPayGuruh(r2).forEach(g2 => {
+        const _q2 = [];
+        if (g2.som > 0.5)   _q2.push(fmt(Math.round(g2.som)) + " so'm");
+        if (g2.usd > 0.009) _q2.push("$" + g2.usd.toFixed(2));
+        el.push({ tur: "💵", date: g2.date, time: g2.time,
+          kod: g2.refund ? ("↩️ " + g2.kod) : g2.kod,
+          sum: (_q2.join(" + ") || "0") + (g2.refund ? " (qaytarishdan)" : ""),
+          sSom: g2.som, sUsd: g2.usd,
+          url: g2.refund ? null : _ckUrl("PAY", g2.id, shop) });
       });
     }
     if (t === "r" || t === "a") {
@@ -1599,43 +1632,70 @@ async function cmdOmbor(chatId) {
 
     // MULTI-TENANT (2026-07): chegara do'konning O'Z sozlamasidan
     // (settings.low_stock_limit); bo'lmasa ENV/5 zaxirasi
-    let lowLimit = LOW_LIMIT;
+    let lowLimit = LOW_LIMIT, _rate = 0;   // ✅ OT-2c: kurs — qiymat uchun
     try {
-      const st = sid ? await sb("settings", `?select=low_stock_limit&shop_id=eq.${sid}&limit=1`) : [];   // ✅ MINA-1: do'kon noma'lum — begona chegara emas, ENV/5 zaxirasi
+      const st = sid ? await sb("settings", `?select=low_stock_limit,rate&shop_id=eq.${sid}&limit=1`) : [];   // ✅ MINA-1: do'kon noma'lum — begona chegara emas, ENV/5 zaxirasi
       if (st?.[0]?.low_stock_limit != null && Number(st[0].low_stock_limit) > 0)
         lowLimit = Number(st[0].low_stock_limit);
+      _rate = Number(st?.[0]?.rate) || 0;
     } catch {}
 
+    // ✅ OT-2c (2026-09-06): EGAGA TO'LIQ KARTINA (egasi so'radi).
+    // Avval faqat kam-qoldiq ro'yxati edi. Endi: jami tur/dona/pochka,
+    // ombor qiymati (TANNARXDA: costUzs, bo'lmasa costUsd×kurs),
+    // kam/nol qoldiq soni — keyin eng kam qolganlar (10 ta).
+    let turlar = 0, dona = 0, pochka = 0, qiymat = 0;
+    let kamTur = 0, nolTur = 0;
     const low = [];
     for (const p of products) {
-      for (const v of (p.variants || [])) {
-        if (Number(v.qty || 0) <= lowLimit) {
-          low.push({
-            name: p.name,
-            color: v.color || "",
-            size: v.size || "",
-            qty: Number(v.qty || 0),
-          });
+      const d = (p.data && typeof p.data === "object") ? { ...p, ...p.data } : p;
+      const vars = Array.isArray(d.variants) ? d.variants : [];
+      let pQold = 0;
+      for (const v of vars) {
+        const q = Number(v.qty || 0);
+        pQold += q;
+        if (q <= lowLimit) {
+          low.push({ name: d.name, color: v.color || "",
+                     size: v.size || "", qty: q });
         }
       }
+      turlar++;
+      dona += pQold;
+      if (d.sellMode === "karobka" && Number(d.inBox) > 0)
+        pochka += pQold / Number(d.inBox);
+      let c1 = Number(d.costUzs) || 0;
+      if (!c1 && Number(d.costUsd) > 0 && _rate > 0)
+        c1 = Number(d.costUsd) * _rate;
+      qiymat += c1 * pQold;
+      if (pQold <= 0) nolTur++;
+      else if (pQold <= lowLimit) kamTur++;
     }
 
-    if (!low.length) {
-      await tg(chatId, `📦 Ombor holati\n\n✅ Barcha tovarlar yetarli (>${lowLimit} dona)`);
-      return;
-    }
+    let txt = `📦 <b>Ombor — umumiy kartina</b>\n\n`;
+    txt += `Turlar: <b>${fmt(turlar)}</b> ta tovar\n`;
+    txt += `Qoldiq: <b>${fmt(Math.round(dona))} dona</b>`;
+    if (pochka > 0)
+      txt += ` (≈ <b>${fmt(Math.round(pochka))} pochka</b> karobkali)`;
+    txt += `\n`;
+    if (qiymat > 0)
+      txt += `Qiymati (tannarxda): <b>${fmt(Math.round(qiymat))} so'm</b>\n`;
+    txt += `⚠️ Kam qoldiq (≤${lowLimit}): <b>${kamTur}</b> tur\n`;
+    txt += `🔴 Nol qoldiq: <b>${nolTur}</b> tur\n`;
 
-    let txt = `📦 Kam qolgan tovarlar (≤${lowLimit} dona)\n`;
-    txt += `Jami: ${low.length} ta variant\n\n`;
-
-    for (const item of low.slice(0, 25)) {
-      const emoji = item.qty === 0 ? "🔴" : item.qty <= 2 ? "🟠" : "🟡";
-      txt += `${emoji} ${item.name}`;
-      if (item.color) txt += ` / ${item.color}`;
-      if (item.size)  txt += ` / ${item.size}`;
-      txt += ` — ${item.qty} dona\n`;
+    low.sort((a, b) => a.qty - b.qty);
+    if (low.length) {
+      txt += `\nEng kam qolganlar:\n`;
+      for (const item of low.slice(0, 10)) {
+        const emoji = item.qty === 0 ? "🔴" : item.qty <= 2 ? "🟠" : "🟡";
+        txt += `${emoji} ${item.name}`;
+        if (item.color) txt += ` / ${item.color}`;
+        if (item.size)  txt += ` / ${item.size}`;
+        txt += ` — ${item.qty} dona\n`;
+      }
+      if (low.length > 10) txt += `…va yana ${low.length - 10} ta variant\n`;
+    } else {
+      txt += `\n✅ Hamma tovar yetarli\n`;
     }
-    if (low.length > 25) txt += `\n...va yana ${low.length - 25} ta`;
 
     await tg(chatId, txt);
   } catch (e) {
@@ -4598,16 +4658,15 @@ function yubor(){
           }
           txt += `📅 To'lov muddati: <b>${engYaqin}</b>${bel}\n`;
         }
-        const oxirgi = (pp2 || [])
-          .filter(p3 => String((p3.data || {}).cancelled) !== "true").slice(0, 3);
+        const oxirgi = _ckPayGuruh(pp2).slice(0, 3);   // ✅ OT-2c
         if (oxirgi.length) {
           txt += "Oxirgi to'lovlar:\n";
-          oxirgi.forEach(p3 => {
-            const s3 = p3.currency === "usd"
-              ? "$" + Number(p3.amount || 0).toFixed(2)
-              : fmt(p3.amount || 0) + " so'm";
-            const bel = (p3.data || {}).source === "refund" ? " (qaytarishdan)" : "";
-            txt += `• ${p3.date} — ${s3}${bel}\n`;
+          oxirgi.forEach(g3 => {
+            const _q3 = [];
+            if (g3.som > 0.5)   _q3.push(fmt(Math.round(g3.som)) + " so'm");
+            if (g3.usd > 0.009) _q3.push("$" + g3.usd.toFixed(2));
+            txt += `• ${g3.date} — ${_q3.join(" + ") || "0"}` +
+                   `${g3.refund ? " (qaytarishdan)" : ""}\n`;
           });
         }
       } catch (e) { txt += "⚠️ Ma'lumot olinmadi\n"; }
