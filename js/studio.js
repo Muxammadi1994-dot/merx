@@ -121,6 +121,43 @@ const STU_SHAB = [
     ],
   },
   {
+    id:"kadr", nom:"Kadr", uchun:"Real shaxs — to'liq kadr, pastda yozuv",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:.5, y:.5, w:1, h:1, anchor:"center", moda:"cover" },
+      { tur:"matn", manba:"nom", x:.06, y:.83, o:.058, vazn:800, rang:"c", max:.86 },
+      { tur:"matn", manba:"tafsilot", x:.06, y:.876, o:.026, vazn:600, rang:"d", max:.86 },
+      { tur:"narx", x:.06, y:.95, o:.105, vazn:900, rang:"b" },
+      { tur:"belgi", manba:"yorliq", x:.94, y:.05, o:.030, anchor:"right",
+        fonRang:"b", matnRang:"a" },
+      { tur:"logo", x:.94, y:.975, o:.020, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"yonkadr", nom:"Yon yozuv", uchun:"Real shaxs — yon lentali",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:.5, y:.5, w:1, h:1, anchor:"center", moda:"cover" },
+      { tur:"blok", x:0, y:.72, w:.62, h:.10, rang:"b" },
+      { tur:"matn", manba:"nom", x:.04, y:.79, o:.046, vazn:800, rang:"a", max:.55 },
+      { tur:"narx", x:.04, y:.90, o:.095, vazn:900, rang:"c" },
+      { tur:"matn", manba:"tafsilot", x:.04, y:.945, o:.024, vazn:600, rang:"d", max:.6 },
+      { tur:"logo", x:.94, y:.975, o:.020, rang:"d", anchor:"right" },
+    ],
+  },
+  {
+    id:"sokin", nom:"Sokin", uchun:"Real shaxs — minimal, faqat narx",
+    qatlamlar:[
+      { tur:"fon", rang:"a" },
+      { tur:"rasm", x:.5, y:.5, w:1, h:1, anchor:"center", moda:"cover" },
+      { tur:"matn", manba:"nom", x:.5, y:.09, o:.040, vazn:700, rang:"c",
+        anchor:"center", max:.8 },
+      { tur:"narx", x:.94, y:.94, o:.075, vazn:900, rang:"a", anchor:"right",
+        qopqa:"b", qopqaMatn:"a" },
+      { tur:"logo", x:.06, y:.955, o:.020, rang:"d" },
+    ],
+  },
+  {
     id:"model", nom:"Modelda", uchun:"Kiyim — to'liq kadr (modelli surat)",
     qatlamlar:[
       { tur:"fon", rang:"a" },
@@ -153,6 +190,8 @@ const STU_SHAB = [
 // ── Holat ──────────────────────────────────────────────────────
 const STU = {
   shab: "narx", pal: "navy", fmt: "post",
+  real: false,                 // ✅ S6: real shaxs rejimi (AI yuzga tegmaydi)
+  fokus: { x: .5, y: .38 },    // ✅ S6: kadrlash nuqtasi (yuz odatda tepada)
   tovar: null,          // {nom, art, rang, olcham, narx}
   img: null,            // Image (telefonda olingan surat)
   imgAdj: { zoom: 1, dx: 0, dy: 0 },
@@ -392,8 +431,20 @@ function stChiz(cvs, fmt, opt) {
             ? Math.max(bw / im.width, bh / im.height)
             : Math.min(bw / im.width, bh / im.height)) * z * _sc;   // ✅ S5
           const dw = im.width * k, dh = im.height * k;
-          const dx = bx + (bw - dw) / 2 + (STU.imgAdj.dx || 0) * W;
-          const dy = by + (bh - dh) / 2 + (STU.imgAdj.dy || 0) * H;
+          let dx = bx + (bw - dw) / 2 + (STU.imgAdj.dx || 0) * W;
+          let dy = by + (bh - dh) / 2 + (STU.imgAdj.dy || 0) * H;
+          // ✅ S6: FOKUS — to'liq kadrda (cover) surat FOKUS NUQTASI
+          // bo'yicha joylashadi. Shu tufayli bitta kadrdan 9:16, 4:5,
+          // 1:1 va 16:9 chiqarilganda BOSh KESILMAYDI. Fokusni
+          // namoyish ustiga bosib o'zgartirish mumkin.
+          if (L.moda === "cover") {
+            const fx = (STU.fokus && STU.fokus.x) || .5;
+            const fy = (STU.fokus && STU.fokus.y) || .38;
+            dx = bx + bw * .5  - dw * fx;
+            dy = by + bh * .46 - dh * fy;
+            dx = Math.min(bx, Math.max(bx + bw - dw, dx));
+            dy = Math.min(by, Math.max(by + bh - dh, dy));
+          }
           // ✅ S1: YERGA TUShISh SOYASI — kesilgan tovar "havoda
           // osilib" qolmasin (jonli kuzatuv, 6-sen). Kod bilan chiziladi.
           if (STU.soya !== false) {
@@ -976,6 +1027,17 @@ async function stuReklamaYasa() {
   if (b) { b.disabled = true; b.textContent = "⏳ Tayyorlanmoqda…"; }
   try {
     if (!STU.asl) STU.asl = STU.img;
+    // ✅ S6: REAL ShAXS rejimida AI UMUMAN chaqirilmaydi — rang
+    // tuzatiladi va variantlar darhol chiziladi (xarajat 0, kutish yo'q).
+    if (STU.real) {
+      stuHolat("Rang va kadr sozlanmoqda…");
+      STU.avtoPal = stuPalitraChiqar(STU.img);
+      stuRangTuzat();
+      stuReal(true);
+      stuHolat("");
+      toast("To'plam tayyor — AI ishlatilmadi", "ok");
+      return;
+    }
     stuHolat("1/3 · Tovar fondan ajratilmoqda…");
     await stuFonTozala(true);
     STU.avtoPal = stuPalitraChiqar(STU.img);   // ✅ S3: rang sahnadan OLDIN
@@ -1174,4 +1236,92 @@ async function stuVideo() {
 
   if (btn) { btn.disabled = false; btn.textContent = "🎬 Video"; }
   toast("Video tayyor: " + Math.round(blob.size / 1024) + " KB", "ok");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ S6 (2026-09-06) — REAL ShAXS TO'PLAMI (mobilograf kadri)
+// ═══════════════════════════════════════════════════════════════
+// Do'kon xodimi yoki mobilograf tushirgan kadr yuklanadi.
+// QAT'IY QOIDA: YUZGA VA GAVDAGA AI TEGMAYDI. Faqat:
+//   · kadrlash (fokus nuqtasi bo'yicha, bosh kesilmaydi),
+//   · rang va yorug'lik tuzatish (KOD bilan, histogramma cho'zish),
+//   · shablon, matn va formatlar.
+// Ya'ni bu yo'lda AI UMUMAN chaqirilmaydi — xarajat nol, natija
+// bir zumda. Mobilograf ishi almashtirilmaydi, TUGATILADI.
+function stuReal(on) {
+  STU.real = !!on;
+  if (STU.real) {
+    STU.fon = null; STU.soya = false; STU.aks = false; STU.aiNamoyish = false;
+    if (["kadr", "yonkadr", "sokin"].indexOf(STU.shab) < 0) STU.shab = "kadr";
+    STU.variants = [
+      { shab: "kadr",    pal: STU.avtoPal ? "auto" : "navy" },
+      { shab: "sokin",   pal: "qora" },
+      { shab: "yonkadr", pal: "amber" },
+      { shab: "kadr",    pal: "qizil" },
+    ];
+    STU.tanlanganV = 0;
+    stuVariantChiz();
+  } else {
+    STU.soya = true; STU.aks = true;
+  }
+  renderStudio();
+  toast(STU.real ? "Real shaxs rejimi — AI yuzga tegmaydi"
+                 : "Oddiy rejim", "ok");
+}
+
+// ── Fokus: namoyish ustiga bosilsa — kadrlash nuqtasi o'sha yerga
+function stuFokus(ev) {
+  const c = document.getElementById("stu-cvs");
+  if (!c) return;
+  const r = c.getBoundingClientRect();
+  STU.fokus = {
+    x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)),
+    y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)),
+  };
+  stChiz(); stuVariantChiz();
+}
+
+// ── Rang va yorug'lik tuzatish (KOD, AI'siz)
+// Histogramma cho'zish: eng to'q va eng och nuqtalar bo'yicha
+// kontrast tiklanadi + yengil to'yinganlik. Telefon kadrlaridagi
+// "xira/sarg'ish" ko'rinishni tabiiy holatga qaytaradi.
+function stuRangTuzat() {
+  if (!STU.img) { toast("Avval surat yuklang", "err"); return; }
+  try {
+    if (!STU.asl) STU.asl = STU.img;
+    const im = STU.img;
+    const c = document.createElement("canvas");
+    c.width = im.width; c.height = im.height;
+    const x = c.getContext("2d", { willReadFrequently: true });
+    x.drawImage(im, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height);
+    const p = d.data;
+    // 1) yorqinlik chegaralari (2% va 98%)
+    const hist = new Uint32Array(256);
+    for (let i = 0; i < p.length; i += 4 * 7) {
+      const y = (p[i] * 0.2126 + p[i+1] * 0.7152 + p[i+2] * 0.0722) | 0;
+      hist[y]++;
+    }
+    let jami = 0; for (let i = 0; i < 256; i++) jami += hist[i];
+    const past = jami * .02, yuq = jami * .98;
+    let s = 0, lo = 0, hi = 255;
+    for (let i = 0; i < 256; i++) { s += hist[i]; if (s >= past) { lo = i; break; } }
+    s = 0;
+    for (let i = 0; i < 256; i++) { s += hist[i]; if (s >= yuq) { hi = i; break; } }
+    if (hi - lo < 24) { lo = 0; hi = 255; }
+    const k = 255 / (hi - lo);
+    // 2) qo'llash + yengil to'yinganlik
+    for (let i = 0; i < p.length; i += 4) {
+      let r = (p[i] - lo) * k, g = (p[i+1] - lo) * k, b = (p[i+2] - lo) * k;
+      const y = r * .2126 + g * .7152 + b * .0722;
+      r = y + (r - y) * 1.10; g = y + (g - y) * 1.10; b = y + (b - y) * 1.10;
+      p[i]   = r < 0 ? 0 : r > 255 ? 255 : r;
+      p[i+1] = g < 0 ? 0 : g > 255 ? 255 : g;
+      p[i+2] = b < 0 ? 0 : b > 255 ? 255 : b;
+    }
+    x.putImageData(d, 0, 0);
+    STU.img = c;                       // canvas ham chizishga yaroqli
+    stChiz(); stuVariantChiz();
+    toast("Rang va yorug'lik tuzatildi", "ok");
+  } catch (e) { toast("Tuzatib bo'lmadi", "err"); }
 }

@@ -1262,6 +1262,20 @@ body.sms-off .sms-only { display: none !important; }
             <button onclick="stuFonTozala()">✂️ Fon</button>
             <button onclick="stuBoshqaSahna()">🏞 Boshqa sahna</button>
           </div>
+          <!-- ✅ S6: real shaxs rejimi -->
+          <label style="display:flex;align-items:center;gap:8px;margin-top:11px;
+                        padding:9px 11px;border:1.5px solid var(--ln);border-radius:11px;
+                        font-size:12.5px;font-weight:700;cursor:pointer">
+            <input type="checkbox" onchange="stuReal(this.checked)">
+            🧍 Real shaxs (xodim / mobilograf kadri)
+          </label>
+          <div class="st-hint">Bu rejimda AI umuman ishlatilmaydi — yuzga
+            tegilmaydi. Faqat kadrlash, rang tuzatish va shablon.
+            Namoyish ustiga bosib kadr markazini belgilang.</div>
+          <button onclick="stuRangTuzat()" style="width:100%;margin-top:8px;padding:9px;
+            border:1.5px solid var(--ln);background:#fff;border-radius:11px;
+            font-family:inherit;font-size:12.5px;cursor:pointer">🌞 Rang va yorug'likni tuzatish</button>
+
           <!-- ✅ S4: do'konning o'z modeli -->
           <div style="margin-top:12px;border-top:1px solid var(--ln);padding-top:11px">
             <div style="font-size:11.5px;font-weight:800;letter-spacing:.5px;color:#6B7480;margin-bottom:8px">
@@ -1285,7 +1299,7 @@ body.sms-off .sms-only { display: none !important; }
 
       <div class="st-stage">
         <div id="stu-fmt" class="st-fmt" style="align-self:flex-start"></div>
-        <canvas id="stu-cvs" width="1080" height="1350"></canvas>
+        <canvas id="stu-cvs" width="1080" height="1350" onclick="stuFokus(event)" style="cursor:crosshair"></canvas>
         <div id="stu-holat" style="display:none"></div>
         <div id="stu-variants" class="st-vars"></div>
         <div class="st-act">
@@ -5407,7 +5421,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=10"></script>
+<script src="js/studio.js?v=11"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -5700,7 +5714,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 590;
+  window.SW_V = 591;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -5723,7 +5737,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=590")
+    navigator.serviceWorker.register("/sw.js?v=591")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
