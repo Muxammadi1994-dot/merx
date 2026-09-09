@@ -2899,6 +2899,11 @@ body.sms-off .sms-only { display: none !important; }
                   title="Tovar tahrirlari ro'yxatini yuklab olish">
             <i class="ti ti-file-spreadsheet"></i> Tahrirlar (CSV)
           </button>
+          <!-- ✅ TH-2: sana oralig'i — ro'yxat ham, CSV ham bo'ysunadi -->
+          <input type="date" id="au-d1" onchange="renderAudit()" class="inp"
+                 title="Boshlanish sanasi" style="min-width:130px">
+          <input type="date" id="au-d2" onchange="renderAudit()" class="inp"
+                 title="Tugash sanasi" style="min-width:130px">
           <select id="au-act" onchange="renderAudit()" class="inp" style="min-width:150px">
             <option value="">Barcha amallar</option>
             <option value="yaratish">Tovar yaratish</option>
@@ -5757,13 +5762,13 @@ body.sms-off .sms-only { display: none !important; }
 </div><!-- /#app yopilishi -->
 
 <script src="js/db.js?v=174"></script>
-<script src="js/utils.js?v=307"></script>
+<script src="js/utils.js?v=308"></script>
 <script src="js/auth.js?v=214"></script>
 <script src="js/sms.js?v=150"></script>
 <script src="js/cloud.js?v=320"></script>
 <script src="js/dashboard.js?v=162"></script>
 <script src="js/pos.js?v=281"></script>
-<script src="js/katalog.js?v=301"></script>
+<script src="js/katalog.js?v=302"></script>
 <script src="js/ombor.js?v=187"></script>
 <script src="js/mijozlar.js?v=175"></script>
 <script src="js/qarzlar.js?v=242"></script>
@@ -6069,7 +6074,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 614;
+  window.SW_V = 615;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -6092,7 +6097,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=614")
+    navigator.serviceWorker.register("/sw.js?v=615")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

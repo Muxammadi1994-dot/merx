@@ -6564,11 +6564,19 @@ function _stockMove(p, color, size, delta, sabab) {
 // 2 pochka edi, 10 qilindi". Manba: auditLog (tahrir + inventar).
 // Excel o'zbek harflarini to'g'ri ochishi uchun BOM qo'yiladi.
 function tahrirCsvYukla() {
-  const rows = (db.auditLog || [])
+  // ✅ TH-2: manba — Audit sahifasida KO'RINAYOTGAN ro'yxat (sana,
+  // xodim, qidiruv, amal filtrlari qo'llangan holda). Sahifa hali
+  // chizilmagan bo'lsa — to'liq jurnal (zaxira).
+  const asos = (Array.isArray(window._auRoyxat)) ? window._auRoyxat
+                                                 : (db.auditLog || []);
+  const rows = asos
     .filter(a => a.entity === "product" &&
                  (a.action === "tahrir" || a.action === "inventar"))
     .sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
-  if (!rows.length) { toast("Tahrir yozuvi hali yo'q", "err"); return; }
+  if (!rows.length) {
+    toast("Filtrga mos tahrir yozuvi yo'q — sana/filtrlarni kengaytiring", "err");
+    return;
+  }
   const H = ["Sana", "Vaqt", "Kim", "Qurilma", "Tovar · rang/o'lcham", "Turi",
              "Eski (dona)", "Yangi (dona)", "Farq (dona)",
              "Eski → Yangi (pochka)", "Izoh"];

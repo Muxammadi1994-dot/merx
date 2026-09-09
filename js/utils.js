@@ -3754,12 +3754,21 @@ function renderAudit() {
   const fAct   = (document.getElementById("au-act")   || {}).value || "";
   const fActor = (document.getElementById("au-actor") || {}).value || "";
   const q      = ((document.getElementById("au-q")    || {}).value || "").toLowerCase().trim();
+  // ✅ TH-2 (2026-09-09): SANA ORALIG'I. x.date "YYYY-MM-DD" — satr
+  // taqqoslash to'g'ri ishlaydi. Bo'sh qoldirilsa — chegara yo'q.
+  const d1 = (document.getElementById("au-d1") || {}).value || "";
+  const d2 = (document.getElementById("au-d2") || {}).value || "";
 
   const list = all.filter(x =>
     (!fAct   || x.action === fAct) &&
     (!fActor || x.actor  === fActor) &&
+    (!d1 || String(x.date || "") >= d1) &&
+    (!d2 || String(x.date || "") <= d2) &&
     (!q || (String(x.label||"") + " " + String(x.entityId||"") + " " +
             String(x.actor||"") + " " + String(x.note||"")).toLowerCase().includes(q)));
+  // ✅ TH-2: CSV tugmasi AYNAN ko'rinayotgan ro'yxatni oladi —
+  // "eksport filtrga bo'ysunsin" (egasining talabi).
+  try { window._auRoyxat = list; } catch (e) {}
 
   const NOM = { delete:"Tovar o'chirildi", restore:"Arxivdan tiklandi",
     cancel:"Sotuv bekor qilindi", atkaz:"To'lov atkaz qilindi",
