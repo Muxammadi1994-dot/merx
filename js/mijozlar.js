@@ -841,6 +841,8 @@ function openResendCheks() {
         <button class="btn btn-ghost btn-sm" onclick="rsToggleAll(false)">Bekor qilish</button>
         <span id="rs-count" style="margin-left:auto;font-size:12px;color:#666"></span>
       </div>
+      <div id="rs-link" style="padding:7px 16px;border-bottom:1px solid var(--brd);
+           font-size:12px;color:#555">⏳ Ulanish tekshirilmoqda…</div>
       <div id="rs-list" style="overflow:auto;padding:8px 16px;flex:1"></div>
       <div id="rs-progress" style="display:none;padding:8px 16px;background:#EFF6FF;color:#1D4ED8;font-size:12.5px;font-weight:600"></div>
       <div style="padding:12px 16px;border-top:1px solid var(--brd);display:flex;gap:8px">
@@ -853,6 +855,58 @@ function openResendCheks() {
   m.onclick = e => { if (e.target === m && !_rsBusy) m.remove(); };
   document.body.appendChild(m);
   rsRender();
+  rsUlanish(c);                                     // ✅ TG-4
+}
+
+// ✅ TG-4: serverdan JONLI holat — chat ishlaydimi, guruh ishlaydimi.
+// (typing-test: mijozga hech qanday xabar tushmaydi.)
+async function rsUlanish(c) {
+  const el = document.getElementById("rs-link");
+  if (!el) return;
+  try {
+    const botUrl = db.settings?.telegramBotUrl;
+    const r = await fetch(botUrl + "?action=link_check", {
+      method: "POST", headers: _botHeaders(),
+      body: JSON.stringify({ customerId: c.id, customerPhone: c.phone,
+        shopId: db.settings?.cloudShopId || null,
+        groupId: c.groupId || null, deep: true }) });
+    const d = await r.json().catch(() => null);
+    if (!d || d.ok === false) { el.textContent = "⚠️ Holat aniqlanmadi"; return; }
+    if (!d.found) { el.innerHTML = "🔌 Serverda bu mijoz topilmadi (telefonni tekshiring)"; return; }
+    const qism = [];
+    if (d.chat_id) {
+      qism.push(d.chat && d.chat.ok === false
+        ? (String(d.chat.desc || "").toLowerCase().includes("blocked")
+            ? "🚫 Shaxsiy chat: mijoz botni <b>bloklagan</b>"
+            : "⚠️ Shaxsiy chat ishlamayapti: " + (d.chat.desc || ""))
+        : "✅ Shaxsiy chat faol");
+    } else qism.push("🔌 Shaxsiy ulanish yo'q");
+    if (d.group_id) {
+      qism.push(d.group && d.group.ok === false
+        ? "⚠️ Guruh ishlamayapti (" + (d.group.desc || "") + ") — bot guruhda a'zomi?"
+        : "✅ Guruh faol");
+    }
+    let h = qism.join(" · ");
+    const muammo = (!d.chat_id || (d.chat && d.chat.ok === false));
+    if (muammo && c.phone && db.settings?.telegramBotUsername) {
+      const link = "https://t.me/" + String(db.settings.telegramBotUsername).replace(/^@/, "");
+      h += ` — <a href="#" onclick="rsHavolaSms('${String(c.id)}');return false"
+             style="color:#1D4ED8;font-weight:700">📨 ulanish havolasini SMS qilish</a>`;
+      el.dataset.link = link;
+    }
+    el.innerHTML = h;
+  } catch (e) { el.textContent = "⚠️ Holat aniqlanmadi (internet?)"; }
+}
+async function rsHavolaSms(cid) {
+  const c = (db.customers || []).find(x => String(x.id) === String(cid));
+  const el = document.getElementById("rs-link");
+  const link = (el && el.dataset.link) || "";
+  if (!c || !c.phone || !link) return;
+  const shopName = db.shop?.name || db.settings?.shopName || "MERX";
+  const matn = `${shopName}: cheklaringizni Telegramda olish uchun botga ulaning: ${link} — "Start" bosib, raqamingizni ulashing.`;
+  if (confirm(`📨 ${c.phone} raqamiga ulanish havolasi SMS qilinsinmi?`)) {
+    await sendSms(c.phone, matn);
+  }
 }
 
 // ✅ RS-1 (2026-08-29): tanlov endi `_rsSel` TO'PLAMIDA saqlanadi —
@@ -1013,7 +1067,20 @@ async function rsSend() {
   // ✅ RS-1: HAQIQIY SANOQ — har chekning taqdiri alohida sanaladi.
   // Avval hamma urinish ko'r-ko'rona "ok" edi; endi server javobi
   // o'qiladi: dup (1-soat qulfi) / queued (navbat) / sent / no_telegram.
+  // ✅ TG-4 (2026-09-07): HAR ChEKNING SABABI OChIQ. Jonli hodisa
+  // (Otabek aka LEGENDA): ulanish bor, yuborish yiqilgan, ilovada
+  // faqat "xato" — sabab server javobida bor edi, biz tashlab
+  // yuborardik. Endi har muvaffaqiyatsiz chek ro'yxatda sababi bilan.
+  const _sabab = r => {
+    if (!r) return "server javob bermadi";
+    if (r.reason === "blocked")        return "🚫 mijoz botni bloklagan — havolani qayta yuboring";
+    if (r.reason === "chat_not_found") return "⚠️ eski ulanish (chat topilmadi) — qayta ulansin";
+    if (r.reason === "no_telegram")    return "🔌 ulanish topilmadi";
+    if (r.reason === "telegram_error") return "⚠️ Telegram: " + (r.detail || "noma'lum xato");
+    return r.error || "noma'lum xato";
+  };
   let ok = 0, qulf = 0, navbat = 0, ulanmagan = 0, xato = 0;
+  const yiqilgan = [], guruhOgoh = [];
   for (let i = 0; i < ids.length; i++) {
     const s = (db.sales || []).find(x => String(x.id) === String(ids[i]));
     if (!s) { xato++; continue; }
@@ -1023,11 +1090,21 @@ async function rsSend() {
         const r = await sendTelegramReceipt(c.id, s, c.phone, { silent: true });
         if (r && r.dup)                          qulf++;
         else if (r && r.queued)                  navbat++;
-        else if (r && r.sent)                    ok++;
-        else if (r && r.reason === "no_telegram") ulanmagan++;
-        else                                     xato++;
+        else if (r && r.sent) {
+          ok++;
+          if (r.groupErr) guruhOgoh.push(r.groupErr);      // guruhga bormagan
+        }
+        else if (r && r.reason === "no_telegram") {
+          ulanmagan++;
+          yiqilgan.push({ chek: s.chekNum || s.id, sabab: _sabab(r) });
+        }
+        else {
+          xato++;
+          yiqilgan.push({ chek: s.chekNum || s.id, sabab: _sabab(r) });
+        }
       } else xato++;
-    } catch (e) { xato++; console.warn("[qayta yuborish]", e.message); }
+    } catch (e) { xato++; yiqilgan.push({ chek: s.chekNum || s.id, sabab: e.message });
+                  console.warn("[qayta yuborish]", e.message); }
     // Telegram cheklovi: bir suhbatga soniyada ~1 xabar
     if (i < ids.length - 1) await new Promise(r2 => setTimeout(r2, 1500));
   }
@@ -1039,7 +1116,21 @@ async function rsSend() {
   if (ulanmagan) _q.push(`🔌 ${ulanmagan} — ulanish topilmadi`);
   if (xato)      _q.push(`⚠️ ${xato} xato`);
   const _xul = _q.length ? _q.join(" · ") : "Hech narsa yuborilmadi";
-  if (pr) pr.textContent = _xul;
+  if (pr) {
+    // ✅ TG-4: yiqilganlar SABABI bilan ro'yxatda — endi ko'r xato yo'q
+    let h = _xul;
+    if (yiqilgan.length) {
+      h += "<div style='margin-top:6px;padding-top:6px;border-top:1px dashed #93B4E8'>" +
+        yiqilgan.slice(0, 10).map(x =>
+          `<div style="font-size:11.5px">• <b>${x.chek}</b> — ${x.sabab}</div>`).join("") +
+        (yiqilgan.length > 10 ? `<div style="font-size:11px;color:#666">… yana ${yiqilgan.length - 10} ta</div>` : "") +
+        "</div>";
+    }
+    if (guruhOgoh.length) {
+      h += `<div style="font-size:11px;color:#8a6d00;margin-top:4px">⚠️ Guruhga bormadi: ${guruhOgoh[0]}</div>`;
+    }
+    pr.innerHTML = h;
+  }
   if (btn) { btn.innerHTML = '<i class="ti ti-check"></i> Tugadi'; }
   _rsBusy = false;
   toast(_xul, ok ? "ok" : "info");
@@ -1732,4 +1823,75 @@ function saveOldDebt() {
   if (typeof renderMijozlar === "function") renderMijozlar();
   if (typeof renderDebts === "function") renderDebts();
   toast(`✅ ${c.name}: ${_txt} qarz qo'shildi`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ TG-4 (2026-09-07) — BOT ULANISH AUDITI (ommaviy)
+// ═══════════════════════════════════════════════════════════════
+// "Bunday mijozlar yagona emas" — egasining talabi. Ulanishi BOR
+// hamma mijoz typing-test bilan tekshiriladi (mijozga xabar
+// TUShMAYDI). Natija: bloklaganlar / eski chatlar / ishlamayotgan
+// guruhlar ro'yxati. FAQAT O'QIYDI — bazaga yozilmaydi.
+async function ulanishAudit() {
+  const botUrl = db.settings?.telegramBotUrl;
+  if (!botUrl) { toast("Bot sozlanmagan", "err"); return; }
+  const royxat = (db.customers || []).filter(c =>
+    c && (c.telegramChatId || c.groupId));
+  if (!royxat.length) { toast("Ulangan mijoz topilmadi", "err"); return; }
+  if (!confirm(`🔌 ${royxat.length} ta ulangan mijoz tekshiriladi ` +
+    `(mijozlarga hech qanday xabar bormaydi).\nTaxminan ` +
+    `${Math.ceil(royxat.length * 0.35)} soniya. Boshlaymi?`)) return;
+
+  const old = document.getElementById("ulanish-audit"); if (old) old.remove();
+  const m = document.createElement("div");
+  m.id = "ulanish-audit";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
+  m.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--brd)">
+      <div style="font-weight:800;font-size:16px">🔌 Bot ulanish auditi</div>
+      <div id="ua-pr" style="font-size:12.5px;color:#666;margin-top:3px">Boshlanyapti…</div>
+    </div>
+    <div id="ua-list" style="overflow:auto;padding:8px 16px;flex:1;font-size:13px"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--brd)">
+      <button class="btn btn-acc" style="width:100%" onclick="document.getElementById('ulanish-audit').remove()">Yopish</button>
+    </div></div>`;
+  document.body.appendChild(m);
+  const pr = document.getElementById("ua-pr"), box = document.getElementById("ua-list");
+  const muammo = [];
+  let sog = 0;
+  for (let i = 0; i < royxat.length; i++) {
+    const c = royxat[i];
+    if (!document.getElementById("ulanish-audit")) return;   // yopilgan
+    pr.textContent = `⏳ ${i + 1} / ${royxat.length} — ${c.name || ""}`;
+    try {
+      const r = await fetch(botUrl + "?action=link_check", {
+        method: "POST", headers: _botHeaders(),
+        body: JSON.stringify({ customerId: c.id, customerPhone: c.phone,
+          shopId: db.settings?.cloudShopId || null,
+          groupId: c.groupId || null, deep: true }) });
+      const d = await r.json().catch(() => null);
+      let holat = null;
+      if (!d || d.ok === false)      holat = "server javob bermadi";
+      else if (!d.found)             holat = "serverda topilmadi";
+      else {
+        const chatYomon  = d.chat_id && d.chat && d.chat.ok === false;
+        const chatYoq    = !d.chat_id;
+        const guruhYomon = d.group_id && d.group && d.group.ok === false;
+        if (chatYomon) holat = String(d.chat.desc || "").toLowerCase().includes("blocked")
+          ? "🚫 botni bloklagan" : "⚠️ chat ishlamayapti: " + (d.chat.desc || "");
+        else if (chatYoq && guruhYomon) holat = "⚠️ faqat guruh bor, u ham ishlamayapti";
+        else if (guruhYomon) holat = "✅ chat faol · ⚠️ guruh ishlamayapti";
+      }
+      if (holat) {
+        muammo.push({ c, holat });
+        box.innerHTML += `<div style="padding:6px 0;border-bottom:1px solid #f2f2f2">
+          <b>${c.name || "—"}</b> <span style="color:#888;font-size:11.5px">${c.phone || ""}</span><br>
+          <span style="font-size:12px">${holat}</span></div>`;
+      } else sog++;
+    } catch (e) {}
+    await new Promise(r2 => setTimeout(r2, 250));
+  }
+  pr.textContent = `Tugadi: ✅ ${sog} sog'lom · ⚠️ ${muammo.length} muammoli`;
+  if (!muammo.length) box.innerHTML =
+    `<div style="text-align:center;color:#2E7D32;padding:22px">✅ Hamma ulanish sog'lom</div>`;
 }

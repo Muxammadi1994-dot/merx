@@ -1993,6 +1993,10 @@ body.sms-off .sms-only { display: none !important; }
   <div class="pg" id="p-mijozlar">
     <!-- KPI -->
     <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+      <!-- ✅ TG-4: hamma ulangan mijozni tekshirish (xabar bormaydi) -->
+      <button class="btn btn-ghost btn-sm" onclick="ulanishAudit()" title="Bot ulanishlarini tekshirish">
+        <i class="ti ti-plug-connected"></i> Ulanish auditi
+      </button>
       <button class="btn btn-ghost btn-sm" onclick="openCustKpiSettings()" title="KPI kartalarni sozlash">
         <i class="ti ti-settings"></i> Kartalarni sozlash
       </button>
@@ -5752,10 +5756,10 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/sms.js?v=150"></script>
 <script src="js/cloud.js?v=320"></script>
 <script src="js/dashboard.js?v=162"></script>
-<script src="js/pos.js?v=278"></script>
+<script src="js/pos.js?v=279"></script>
 <script src="js/katalog.js?v=300"></script>
 <script src="js/ombor.js?v=187"></script>
-<script src="js/mijozlar.js?v=174"></script>
+<script src="js/mijozlar.js?v=175"></script>
 <script src="js/qarzlar.js?v=242"></script>
 <script src="js/tarix.js?v=200"></script>
 <script src="js/hisobot.js?v=159"></script>
@@ -5799,6 +5803,8 @@ document.addEventListener('DOMContentLoaded', () => {
     <iframe id="rcp-unified-frame" style="width:100%;flex:1;min-height:60vh;border:none;background:#fff" title="Chek"></iframe>
     <div style="display:flex;gap:8px;padding:12px;background:#F8F7F4;border-top:1px solid #E8E5E0">
       <button onclick="printUnifiedReceipt()" style="flex:1;background:#0D1B2A;color:#fff;border:none;border-radius:9px;padding:11px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-printer"></i> Chop etish</button>
+      <!-- ✅ UL-1 (2026-09-07): Android/iPhone — tizim ulashuv oynasi -->
+      <button onclick="shareReceipt()" style="flex:1;background:#229ED9;color:#fff;border:none;border-radius:9px;padding:11px;font-weight:700;cursor:pointer;font-family:inherit"><i class="ti ti-share-3"></i> Ulashish</button>
       <button onclick="closeReceipt()" style="background:#eee;border:none;border-radius:9px;padding:11px 18px;font-weight:600;cursor:pointer;font-family:inherit">Yopish</button>
     </div>
   </div>
@@ -6057,7 +6063,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 610;
+  window.SW_V = 611;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -6080,7 +6086,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=610")
+    navigator.serviceWorker.register("/sw.js?v=611")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

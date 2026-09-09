@@ -230,6 +230,19 @@ function sbShop(table, shopId, query = "") {
 }
 
 // Telegram xabar yuborish
+// ✅ TG-4: bloklanganini XABAR YUBORMASDAN tekshirish. sendChatAction
+// "yozmoqda…" belgisi — mijozga xabar tushmaydi; bloklangan bo'lsa
+// Telegram 403 qaytaradi. Audit va karta holati shu bilan ishlaydi.
+async function tgAction(chatId) {
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${TOKEN}/sendChatAction`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action: "typing" }) });
+    const j = await r.json().catch(() => ({}));
+    if (j.ok) return { ok: true };
+    return { ok: false, desc: j.description || ("HTTP " + r.status) };
+  } catch (e) { return { ok: false, desc: e.message }; }
+}
 async function tg(chatId, text, extra = {}) {
   const body = { chat_id: chatId, text, parse_mode: "HTML", ...extra };
   const res = await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
@@ -2751,8 +2764,8 @@ async function actionSendReceipt(body) {
   //
   // ⚠️ MIJOZGA YUBORISH OQIMI TEGILMAGAN — u yuqorida tugadi va
   // natijasi shu yerda o'zgarmaydi. Guruhga yuborish QO'SHIMCHA:
-  // xato bo'lsa jimgina o'tkaziladi, mijoz cheki baribir ketgan.
-  let groupSent = false;
+  // xato bo'lsa endi SABABI javobga chiqadi (TG-4), mijoz oqimi o'zgarmagan.
+  let groupSent = false, groupErr = null;
   try {
     const gid = String(body.groupId || "").trim();
     // Faqat haqiqiy Telegram guruh ID (manfiy, 5+ raqam)
@@ -2763,19 +2776,30 @@ async function actionSendReceipt(body) {
         },
       });
       groupSent = !!gr.ok;
-      if (!gr.ok) console.warn(`[sendReceipt] guruhga yuborilmadi (${gid}):`,
-                               gr.description);
+      if (!gr.ok) {
+        groupErr = gr.description || "guruh xatosi";   // ✅ TG-4
+        console.warn(`[sendReceipt] guruhga yuborilmadi (${gid}):`, groupErr);
+      }
     }
-  } catch (e) { console.warn("[sendReceipt] guruh xato:", e.message); }
+  } catch (e) { groupErr = e.message; console.warn("[sendReceipt] guruh xato:", e.message); }
 
   // ✅ TG-2: muhr — KAMIDA BITTA manzilga yetgan bo'lsa. Aks holda
   // muhr qo'yilmaydi va navbat qayta urinishi mumkin (to'g'ri holat).
   if (!custSent && !groupSent) {
-    return { ok: false, sent: false,
-             reason: chatId ? "telegram_error" : "no_telegram", detail: _err };
+    // ✅ TG-4 (2026-09-07): SABAB KODLANADI — ilova aniq ko'rsatsin.
+    // Jonli hodisa (Otabek aka LEGENDA): ulanish bor edi, yuborish
+    // yiqilgan, ilovada faqat "xato" ko'ringan — sabab shu yerda
+    // yutilardi. blocked = mijoz botni bloklagan/to'xtatgan;
+    // chat_not_found = eski chat_id.
+    const d = String(_err || "").toLowerCase();
+    const reason = !chatId ? "no_telegram"
+      : d.includes("blocked") || d.includes("deactivated") ? "blocked"
+      : d.includes("chat not found") ? "chat_not_found"
+      : "telegram_error";
+    return { ok: false, sent: false, reason, detail: _err, groupErr };
   }
   await _dupMark(_dl.key);   // ✅ yuborildi — 60 daqiqalik muhr
-  return { ok: true, sent: custSent, groupSent };
+  return { ok: true, sent: custSent, groupSent, groupErr, detail: _err };
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -4570,7 +4594,7 @@ function yubor(){
   // Xavfi past — faqat "tayyor" belgisi qo'yiladi, ma'lumot
   // o'qilmaydi va xabar yuborilmaydi.
   const _PROTECTED  = ["send_text","send_receipt","send_pay_receipt",
-                       "send_staff_notif","send_owner_notif"];
+                       "send_staff_notif","send_owner_notif","link_check"];
   const _act = req.query?.action || "";
 
   if (_PROTECTED.includes(_act)) {
@@ -4623,6 +4647,46 @@ function yubor(){
       console.error("send_receipt xato:", e.message);
       return res.status(500).json({ ok: false, error: e.message });
     }
+  }
+
+  // ═══ ✅ TG-4 (2026-09-07): ULANISH HOLATI (bitta mijoz) ═══
+  // Chek yubormasdan javob beradi: qator topildimi, chat_id/guruh
+  // bormi, va (deep=true) ular JONLI ishlaydimi (typing-test, mijozga
+  // xabar tushmaydi). Ommaviy audit shu amalni ketma-ket chaqiradi.
+  if (req.query?.action === "link_check") {
+    let body;
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; }
+    catch { return res.status(400).json({ ok: false, error: "invalid_json" }); }
+    const shopId = body?.shopId || null;
+    const shopFilter = shopId ? `&shop_id=eq.${shopId}` : "";
+    let row = null;
+    try {
+      if (body?.customerId) {
+        const r1 = await sb("customers",
+          `?local_id=eq.${encodeURIComponent(body.customerId)}` +
+          `&select=id,local_id,name,phone,telegram_chat_id,data${shopFilter}&limit=1`);
+        row = r1?.[0] || null;
+      }
+      if (!row && body?.customerPhone) {
+        const tail = String(body.customerPhone).replace(/\D/g, "").slice(-9);
+        if (tail.length === 9) {
+          const r2 = await sb("customers",
+            `?phone=ilike.*${encodeURIComponent(tail)}*` +
+            `&select=id,local_id,name,phone,telegram_chat_id,data${shopFilter}&limit=5`);
+          row = (r2 || []).find(c => c.telegram_chat_id) || r2?.[0] || null;
+        }
+      }
+    } catch (e) { return res.status(200).json({ ok: false, error: e.message }); }
+    if (!row) return res.status(200).json({ ok: true, found: false });
+    const gidRaw = String((row.data && row.data.groupId) || body?.groupId || "").trim();
+    const gid = /^-?\d{5,}$/.test(gidRaw) ? gidRaw : null;
+    const out = { ok: true, found: true, name: row.name, phone: row.phone,
+      chat_id: row.telegram_chat_id || null, group_id: gid };
+    if (body?.deep) {
+      if (out.chat_id) out.chat = await tgAction(out.chat_id);
+      if (gid)         out.group = await tgAction(gid);
+    }
+    return res.status(200).json(out);
   }
 
   // MERX dan: oddiy matn xabar (qarz eslatmalari) — YANGI

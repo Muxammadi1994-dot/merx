@@ -3864,6 +3864,7 @@ function showReceiptModal(sale) {
   const botUrl  = db.settings?.telegramBotUrl || "";
   const chekId  = sale.chekNum || ("ID" + sale.id);
   const rcpUrl  = botUrl ? `${botUrl}?action=receipt&id=${encodeURIComponent(chekId)}` : "";
+  window._lastRcpUrl = rcpUrl || "";                 // ✅ UL-1: ulashish uchun
 
   // Rahmat yozuvi — BOSMADA KO'RINADI (alohida element)
   const rcpThanks = $("rcp-thanks");
@@ -3890,6 +3891,40 @@ function showReceiptModal(sale) {
   }
 
   openModal("receipt");
+}
+
+// ═══ ✅ UL-1 (2026-09-07) — ChEKNI ULAShISh (Android/iPhone) ═══
+// Ehtiyoj: Android'da chekni WhatsApp/Telegramga yuborish imkoni yo'q
+// edi (faqat chop etish). Endi tizim ulashuv oynasi ochiladi; matn —
+// botdagi chek bilan BIR XIL manbadan (chekTelegramText), + PDF havola.
+// Ulashuv yo'q qurilmada (eski brauzer) matn buferga ko'chiriladi.
+async function shareReceipt() {
+  if (!_lastSale) { toast("Chek topilmadi", "err"); return; }
+  let matn = "";
+  try {
+    const cfg = (typeof getChekCfg === "function") ? getChekCfg("sotuv") : {};
+    matn = (typeof chekTelegramText === "function")
+      ? chekTelegramText(_lastSale, cfg) : "";
+  } catch (e) {}
+  if (!matn) {
+    const s = _lastSale;
+    matn = (db.shop?.name || "MERX") + "\nChek: " + (s.chekNum || s.id) +
+      "\nSana: " + (s.date || "") + " " + (s.time || "") +
+      "\nJami: " + fmt(s.total || 0) + " so'm";
+  }
+  // Telegram HTML teglarini olib tashlaymiz (ulashuvda oddiy matn)
+  matn = matn.replace(/<[^>]+>/g, "");
+  if (window._lastRcpUrl) matn += "\n\n📄 Chek: " + window._lastRcpUrl;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Chek " + (_lastSale.chekNum || ""), text: matn });
+      return;
+    } catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  try {
+    await navigator.clipboard.writeText(matn);
+    toast("📋 Chek matni nusxalandi — istalgan joyga tashlang", "ok");
+  } catch (e) { toast("Ulashib bo'lmadi", "err"); }
 }
 
 function closeReceipt() {
