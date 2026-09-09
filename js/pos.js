@@ -3863,7 +3863,12 @@ function showReceiptModal(sale) {
   const botUser = (db.settings?.telegramBotUsername || "").replace(/^@/,"");
   const botUrl  = db.settings?.telegramBotUrl || "";
   const chekId  = sale.chekNum || ("ID" + sale.id);
-  const rcpUrl  = botUrl ? `${botUrl}?action=receipt&id=${encodeURIComponent(chekId)}` : "";
+  // ✅ UL-3: shop parametri MAJBURIY — bot bir nechta do'konga xizmat
+  // qiladi, busiz chek boshqa do'kondan qidirilishi mumkin (server
+  // buni 2026-07 dan qabul qiladi, biz yubormasdik).
+  const _shp = db.settings?.cloudShopId || "";
+  const rcpUrl  = botUrl ? `${botUrl}?action=receipt&id=${encodeURIComponent(chekId)}` +
+                           (_shp ? `&shop=${encodeURIComponent(_shp)}` : "") : "";
   window._lastRcpUrl = rcpUrl || "";                 // ✅ UL-1: ulashish uchun
 
   // Rahmat yozuvi — BOSMADA KO'RINADI (alohida element)
@@ -3914,17 +3919,81 @@ async function shareReceipt() {
   }
   // Telegram HTML teglarini olib tashlaymiz (ulashuvda oddiy matn)
   matn = matn.replace(/<[^>]+>/g, "");
-  if (window._lastRcpUrl) matn += "\n\n📄 Chek: " + window._lastRcpUrl;
-  if (navigator.share) {
+  const _hv = _chekHavola();                        // ✅ UL-3
+  if (_hv) matn += "\n\n📄 Chek: " + _hv;
+  // ✅ UL-2 (2026-09-09): TELEFON — tizim oynasi (Telegram/WhatsApp
+  // ro'yxatda chiqadi). KOMPYUTER — tizim oynasi faqat Store
+  // ilovalarini ko'rsatadi (jonli sinovda OneNote/Outlook chiqdi),
+  // shuning uchun kompyuterga TO'G'RIDAN-TO'G'RI tanlov beramiz.
+  const _tel = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (_tel && navigator.share) {
     try {
       await navigator.share({ title: "Chek " + (_lastSale.chekNum || ""), text: matn });
       return;
     } catch (e) { if (e && e.name === "AbortError") return; }
   }
-  try {
-    await navigator.clipboard.writeText(matn);
-    toast("📋 Chek matni nusxalandi — istalgan joyga tashlang", "ok");
-  } catch (e) { toast("Ulashib bo'lmadi", "err"); }
+  _ulTanlov(matn);
+}
+
+// ✅ UL-3 (2026-09-09): chek havolasi — bosilgan paytda, uch qavat:
+//   1) telegramBotUrl bo'lsa — veb-chek sahifasi (+shop parametri);
+//   2) bo'lmasa, bot username bo'lsa — Telegram mini-ilova havolasi
+//      (server yuboradigan bilan AYNAN bir xil qoidada kodlanadi);
+//   3) ikkalasi ham yo'q — havolasiz, faqat matn.
+// Jonli sabab: Shoetest'da telegramBotUrl bo'sh — havola umuman
+// chiqmagan; endi username zaxirasi ishlaydi.
+function _chekHavola() {
+  if (!_lastSale) return "";
+  const chekId = _lastSale.chekNum || ("ID" + _lastSale.id);
+  const shp = db.settings?.cloudShopId || "";
+  const botUrl = db.settings?.telegramBotUrl || "";
+  if (botUrl) {
+    return `${botUrl}?action=receipt&id=${encodeURIComponent(chekId)}` +
+           (shp ? `&shop=${encodeURIComponent(shp)}` : "");
+  }
+  const user = String(db.settings?.telegramBotUsername || "").replace(/^@/, "");
+  if (user) {
+    const _rp = `CHK__${chekId}${shp ? "__" + shp : ""}`;
+    const _rpEnc = _rp.replace(/[^a-zA-Z0-9_]/g,
+      m => "x" + m.charCodeAt(0).toString(16));
+    return `https://t.me/${user}/ombor?startapp=${_rpEnc}`;
+  }
+  return "";
+}
+
+// Kompyuter uchun ulashuv tanlovi: Telegram · WhatsApp · Nusxalash
+function _ulTanlov(matn) {
+  const old = document.getElementById("ul-tanlov"); if (old) old.remove();
+  const m = document.createElement("div");
+  m.id = "ul-tanlov";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px";
+  m.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:340px;width:100%;padding:18px;font-family:inherit">
+    <div style="font-weight:800;font-size:16px;margin-bottom:12px;text-align:center">Chekni ulashish</div>
+    <button id="ul-tg" style="width:100%;background:#229ED9;color:#fff;border:none;border-radius:11px;padding:12px;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px;margin-bottom:8px">Telegram</button>
+    <button id="ul-wa" style="width:100%;background:#25D366;color:#fff;border:none;border-radius:11px;padding:12px;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px;margin-bottom:8px">WhatsApp</button>
+    <button id="ul-cp" style="width:100%;background:#F0EDE8;color:#0D1B2A;border:none;border-radius:11px;padding:12px;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px;margin-bottom:8px">📋 Matnni nusxalash</button>
+    <button onclick="document.getElementById('ul-tanlov').remove()" style="width:100%;background:none;border:none;color:#8A8578;padding:8px;cursor:pointer;font-family:inherit;font-size:13px">Bekor</button>
+  </div>`;
+  m.onclick = e => { if (e.target === m) m.remove(); };
+  document.body.appendChild(m);
+  const yop = () => m.remove();
+  // Telegram: havola alohida maydonda ketadi (t.me/share talabi),
+  // matn esa xabar sifatida — mijoz tanlagan chatga tushadi.
+  document.getElementById("ul-tg").onclick = () => {
+    const url = "https://t.me/share/url?url=" +
+      encodeURIComponent(_chekHavola() || "https://app.merx.uz") +
+      "&text=" + encodeURIComponent(matn);
+    window.open(url, "_blank"); yop();
+  };
+  document.getElementById("ul-wa").onclick = () => {
+    window.open("https://wa.me/?text=" + encodeURIComponent(matn), "_blank"); yop();
+  };
+  document.getElementById("ul-cp").onclick = async () => {
+    try { await navigator.clipboard.writeText(matn);
+          toast("📋 Nusxalandi", "ok"); }
+    catch (e) { toast("Nusxalab bo'lmadi", "err"); }
+    yop();
+  };
 }
 
 function closeReceipt() {
