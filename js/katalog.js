@@ -4,6 +4,67 @@
 // ================================================
 
 let editSku = null;
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ TH-1 (2026-09-09) — TOVAR TAHRIRI IZI
+// ═══════════════════════════════════════════════════════════════
+// Jonli muammo (egasi): katalogda qoldiq tahrirlanadi (2 pochka →
+// 10 pochka), lekin tovar tarixida faqat sababsiz "balans farqi"
+// qoladi, auditda esa hech narsa. Sabab: beshta qty-tahrir funksiyasi
+// serverga farqni yuboradi-yu, auditLog yozmaydi (inventarizatsiya
+// yozadi — katalog tahriri yozmasdi).
+// Yechim: panel ochilganda har rang/o'lchamning ASL soni suratga
+// olinadi; SAQLAShDA farq bo'lgan har variantga BITTA auditLog
+// ("tahrir") yoziladi — klaviatura har bosishida emas.
+// Mavjud oqimga tegilmaydi: qty yozuvi va server navbati o'z holicha.
+let _thAsl = new Map();          // "color|size" → asl dona
+let _thSku = null;
+function _thSurat(p) {
+  _thAsl = new Map(); _thSku = p ? p.sku : null;
+  if (p) (p.variants || []).forEach(v =>
+    _thAsl.set((v.color || "") + "|" + (v.size || ""), Number(v.qty) || 0));
+}
+function _thFlush(sabab) {
+  try {
+    if (!_thSku) return;
+    const p = (db.products || []).find(x => x.sku === _thSku);
+    if (p) {
+      const bor = new Set();
+      (p.variants || []).forEach(v => {
+        const k = (v.color || "") + "|" + (v.size || "");
+        bor.add(k);
+        const eski = _thAsl.has(k) ? _thAsl.get(k) : 0;   // yangi variant → 0 dan
+        const yangi = Number(v.qty) || 0;
+        if (eski === yangi) return;
+        auditLog("tahrir", "product", p.sku,
+          p.name + " · " + (v.color || "—") + (v.size ? " / " + v.size : ""),
+          { before: String(eski), after: String(yangi),
+            note: sabab || "katalogda qo'lda tahrir" });
+      });
+      // tahrir davomida O'ChIRILGAN rang/o'lcham ham iz qoldiradi
+      _thAsl.forEach((eski, k) => {
+        if (bor.has(k) || !eski) return;
+        const [c, sz] = k.split("|");
+        auditLog("tahrir", "product", p.sku,
+          p.name + " · " + (c || "—") + (sz ? " / " + sz : ""),
+          { before: String(eski), after: "0",
+            note: "rang/o'lcham o'chirildi" });
+      });
+    }
+  } catch (e) {}
+  _thAsl = new Map(); _thSku = null;
+}
+// Panel X bilan yopilganda ham iz yoziladi: qoldiq tahriri jonli
+// (oninput) qo'llanadi, "Saqlash"siz chiqish ham haqiqiy o'zgarish.
+(function () {
+  if (window._thCloseUlandi) return; window._thCloseUlandi = true;
+  const asl = window.closeModal;
+  if (typeof asl !== "function") return;
+  window.closeModal = function (id) {
+    if (id === "editprod") { try { _thFlush(); } catch (e) {} }
+    return asl.apply(this, arguments);
+  };
+})();
 let katLowFilter = false;
 let katCatFilter = "all"; // "all" | "oyoq" | "kiyim" | category name
 let katSortBy      = "date";  // v171 (№5): standart — kiritilgan sana, YANGI TEPADA
@@ -908,6 +969,7 @@ function openEditProduct(sku) {
   // kassa tahrir qilgan bo'lsa, uning ishi jimgina o'chib ketmasin.
   _epBaseAt = String(p.updatedAt || "");
   editSku = sku;
+  _thSurat(p);                                       // ✅ TH-1: asl sonlar
   // 2026-07-25: variativ guruh bo'lsa — "Variativ tahrirlash" tugmasi chiqadi
   try { epVarInit(p); } catch(e) {}
   // 2026-07-26: kategoriya takliflari (erkin teg)
@@ -1709,6 +1771,8 @@ async function _saveEditProductIchki() {   // ✅ 2026-08-18: to'qnashuv tekshir
     });
   });
 
+  _thFlush();                                        // ✅ TH-1: tahrir izi
+  _thSurat(p);   // panel ochiq qoladi — keyingi tahrirlar uchun yangi asos
   toast(`"${p.name}" saqlandi`);
 }
 
@@ -6144,17 +6208,23 @@ function showProductHistory(sku, vp) {
     .forEach(a => {
       ev.push({ ts: new Date(a.ts).getTime() || 0, sana: a.date || "",
         vaqt: a.time || "",
-        tur: (a.action === "inventar" || a.action === "narx") ? "inventar" : "audit",
+        tur: a.action === "tahrir" ? "tahrir"
+           : (a.action === "inventar" || a.action === "narx") ? "inventar" : "audit",
         matn: (a.action === "delete" ? "O'CHIRILDI"
               : a.action === "narx"
                 ? (a.label || "").split(" · ").slice(-1)[0] + ": " +
                   fmt(Number(a.before) || 0) + " → " + fmt(Number(a.after) || 0)
               : a.action === "restore" ? "ARXIVDAN TIKLANDI"
+              : a.action === "tahrir"
+                ? "Qoldiq tahriri: " + (a.before || "0") + " → " + (a.after || "0") +
+                  " dona (" + (((Number(a.after) || 0) - (Number(a.before) || 0)) > 0 ? "+" : "") +
+                  ((Number(a.after) || 0) - (Number(a.before) || 0)) + ")"
               : a.action === "inventar"
                 ? "Qoldiq tuzatildi: " + (a.before || "?") + " → " + (a.after || "?") + " dona"
                 : a.action) + " — " +
               (a.actor || "?") + (a.device ? " (" + a.device + ")" : ""),
-        ong: a.action === "inventar" ? (a.note || "") : (a.before || "") });
+        ong: (a.action === "inventar" || a.action === "tahrir")
+               ? (a.note || "") : (a.before || "") });
     });
 
   ev.sort((a,b) => (a.ts || 0) - (b.ts || 0));
@@ -6174,12 +6244,24 @@ function showProductHistory(sku, vp) {
   // deb atalgandi — sababi ANIQLANMAGAN holda nom qo'yish xato edi.
   // Ma'lum sabablar: (a) inventarizatsiya (endi iz qoladi), (b) import,
   // (c) o'chirilgan kirim yozuvi.
+  // ✅ TH-1 (2026-09-09): FARQ IKKIGA BO'LINADI. Tahrir va
+  // inventarizatsiya yozuvlari endi farqni IZOHLAYDI — ogohlantirish
+  // faqat IZOHSIZ qoldiqqa chiqadi (jonli shikoyat: "farq bor,
+  // qayerdan kelgani noma'lum").
+  const izohJami = (db.auditLog || [])
+    .filter(a => a.entity === "product" && a.entityId === sku &&
+                 (a.action === "tahrir" || a.action === "inventar"))
+    .reduce((s, a) => s + ((Number(a.after) || 0) - (Number(a.before) || 0)), 0);
   const farq = qoldiq + sotuvJami - kirimJami;
-  if (farq !== 0) {
+  const izohsiz = farq - izohJami;
+  if (izohsiz !== 0) {
     ev.unshift({ ts: 0, sana: "", vaqt: "", tur: "farq", n: 0,
-      matn: "⚠️ Balans farqi: " + _pd(Math.abs(farq)) +
-            (farq > 0 ? " — kirimsiz kelgan" : " — chiqimsiz ketgan") +
-            " (inventarizatsiya, import yoki o'chirilgan yozuv)", ong: "" });
+      matn: "⚠️ Izohsiz balans farqi: " + _pd(Math.abs(izohsiz)) +
+            (izohsiz > 0 ? " — kirimsiz kelgan" : " — chiqimsiz ketgan") +
+            " (import yoki o'chirilgan yozuv)" +
+            (izohJami ? " · tahrir/inventar bilan izohlangan: " +
+              (izohJami > 0 ? "+" : "−") + _pd(Math.abs(izohJami)) : ""),
+      ong: "" });
   }
 
   const _ico = { yaratildi:"➕", kirim:"📥", chiqim:"📤",
@@ -6195,7 +6277,9 @@ function showProductHistory(sku, vp) {
       ${[["Jami kirim", _pd(kirimJami)],
          ["Sof sotildi", _pd(sotuvJami)],
          ...(qaytJami ? [["Qaytarildi", _pd(qaytJami)]] : []),
-         ...(farq !== 0 ? [["⚠️ Balans farqi", _pd(Math.abs(farq))]] : []),
+         ...(izohJami !== 0 ? [["✏️ Tahrir/inventar",
+              (izohJami > 0 ? "+" : "−") + _pd(Math.abs(izohJami))]] : []),
+         ...(izohsiz !== 0 ? [["⚠️ Izohsiz farq", _pd(Math.abs(izohsiz))]] : []),
          ["Hozirgi qoldiq", _pd(qoldiq)],
          ["Voqealar", ev.length + " ta"]].map(([k,v]) =>
         `<div style="background:var(--bg2,#F5F5F3);border-radius:8px;padding:8px 12px;min-width:110px">
@@ -6473,4 +6557,43 @@ function _stockMove(p, color, size, delta, sabab) {
       p.name + (color ? " · " + color : ""),
       { before: "", after: (delta > 0 ? "+" : "") + delta + " dona", note: sabab });
   } catch (e) { /* hisob yozuvi asosiy amalni to'xtatmaydi */ }
+}
+
+// ═══ ✅ TH-1: TOVAR TAHRIRLARI — EXCEL (CSV) ═══
+// Egasi so'radi: "qaysi tovar qaysi rangi qanday tahrirlandi —
+// 2 pochka edi, 10 qilindi". Manba: auditLog (tahrir + inventar).
+// Excel o'zbek harflarini to'g'ri ochishi uchun BOM qo'yiladi.
+function tahrirCsvYukla() {
+  const rows = (db.auditLog || [])
+    .filter(a => a.entity === "product" &&
+                 (a.action === "tahrir" || a.action === "inventar"))
+    .sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
+  if (!rows.length) { toast("Tahrir yozuvi hali yo'q", "err"); return; }
+  const H = ["Sana", "Vaqt", "Kim", "Qurilma", "Tovar · rang/o'lcham", "Turi",
+             "Eski (dona)", "Yangi (dona)", "Farq (dona)",
+             "Eski → Yangi (pochka)", "Izoh"];
+  const line = a => {
+    const p = (db.products || []).find(x => String(x.sku) === String(a.entityId));
+    const ib = p && Number(p.inBox) > 1 ? Number(p.inBox) : 0;
+    const e = Number(a.before) || 0, y = Number(a.after) || 0;
+    const pk = ib
+      ? `${Math.floor(e / ib)}p${e % ib ? " " + (e % ib) + "d" : ""} → ` +
+        `${Math.floor(y / ib)}p${y % ib ? " " + (y % ib) + "d" : ""}`
+      : "";
+    return [a.date || "", a.time || "", a.actor || "", a.device || "",
+            a.label || "", a.action === "tahrir" ? "tahrir" : "inventarizatsiya",
+            e, y, (y - e > 0 ? "+" : "") + (y - e), pk, a.note || ""];
+  };
+  const csv = "sep=;\r\n" + [H, ...rows.map(line)].map(r =>
+    r.map(c => { const t = String(c == null ? "" : c);
+      return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; }).join(";")
+  ).join("\r\n");
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "merx_tovar_tahrirlari_" +
+    (typeof today === "function" ? today() : "") + ".csv";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }

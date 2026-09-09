@@ -2894,6 +2894,11 @@ body.sms-off .sms-only { display: none !important; }
       <div class="ch">
         <h3><i class="ti ti-scale"></i>Audit — amallar izi</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <!-- ✅ TH-1: qaysi tovar qanday tahrirlangani — Excel'ga -->
+          <button class="btn btn-ghost btn-sm" onclick="tahrirCsvYukla()"
+                  title="Tovar tahrirlari ro'yxatini yuklab olish">
+            <i class="ti ti-file-spreadsheet"></i> Tahrirlar (CSV)
+          </button>
           <select id="au-act" onchange="renderAudit()" class="inp" style="min-width:150px">
             <option value="">Barcha amallar</option>
             <option value="yaratish">Tovar yaratish</option>
@@ -2902,6 +2907,7 @@ body.sms-off .sms-only { display: none !important; }
             <option value="cancel">Sotuv bekori</option>
             <option value="atkaz">To'lov atkazi</option>
             <option value="narx">Narx o'zgarishi</option>
+            <option value="tahrir">Qoldiq tahriri</option>
             <option value="kurs">Kurs o'zgarishi</option>
             <option value="inventar">Qoldiq sanash</option>
             <option value="qoldiq">Qoldiq harakati</option>
@@ -5757,7 +5763,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/cloud.js?v=320"></script>
 <script src="js/dashboard.js?v=162"></script>
 <script src="js/pos.js?v=281"></script>
-<script src="js/katalog.js?v=300"></script>
+<script src="js/katalog.js?v=301"></script>
 <script src="js/ombor.js?v=187"></script>
 <script src="js/mijozlar.js?v=175"></script>
 <script src="js/qarzlar.js?v=242"></script>
@@ -6063,7 +6069,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 613;
+  window.SW_V = 614;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -6086,7 +6092,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=613")
+    navigator.serviceWorker.register("/sw.js?v=614")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
