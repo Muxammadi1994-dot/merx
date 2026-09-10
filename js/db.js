@@ -256,9 +256,11 @@ function idbPut(key, val) {
       const tx = d.transaction(IDB_STORE, "readwrite");
       tx.objectStore(IDB_STORE).put(val, key);
       tx.oncomplete = () => res(true);
-      tx.onerror    = () => res(false);
-      tx.onabort    = () => res(false);
-    } catch(e) { res(false); }
+      // ✅ XD-4c (2026-09-10): xato NOMI saqlanadi — avval jimgina
+      // yutilardi, qora quti "idb_yozmadi" ni sababsiz yuborardi.
+      tx.onerror    = () => { try { window._idbXato = String((tx.error && (tx.error.name + ": " + tx.error.message)) || "tx.onerror"); } catch (e9) {} res(false); };
+      tx.onabort    = () => { try { window._idbXato = String((tx.error && (tx.error.name + ": " + tx.error.message)) || "tx.onabort"); } catch (e9) {} res(false); };
+    } catch(e) { try { window._idbXato = String((e && (e.name + ": " + e.message)) || e || "put-exception"); } catch (e9) {} res(false); }
   }));
 }
 
@@ -315,19 +317,19 @@ async function hydrateHeavy() {
 // ── Bir martalik ko'chirish (tasdiqlash bilan) ──
 async function migrateHeavyToIdb() {
   if (!USE_IDB || _idbVerified) return;
-  let ok = true, moved = 0;
+  let ok = true, moved = 0, _mSabab = "";
   for (const t of IDB_TABLES) {
     const arr = Array.isArray(db[t]) ? db[t] : [];
     const w = await idbPut(_idbKey(t), arr);
-    if (!w) { ok = false; break; }
+    if (!w) { ok = false; _mSabab = t + " · " + (window._idbXato || "yozuv"); break; }
     // TASDIQLASH: qayta o'qib, uzunligi mos kelishini tekshiramiz
     const back = await idbGet(_idbKey(t));
-    if (!Array.isArray(back) || back.length !== arr.length) { ok = false; break; }
+    if (!Array.isArray(back) || back.length !== arr.length) { ok = false; _mSabab = t + " · tasdiq mos kelmadi"; break; }
     moved += arr.length;
   }
   if (!ok) {
     console.warn("⚠️ IndexedDB tasdiqlanmadi — localStorage'da davom etamiz");
-    try { window._qqHodisa && window._qqHodisa("idb_tasdiqlanmadi", ""); } catch (e9) {}   // ✅ XD-3
+    try { window._qqHodisa && window._qqHodisa("idb_tasdiqlanmadi", _mSabab); } catch (e9) {}   // ✅ XD-3 + XD-4c
     _idbVerified = false;
     return;
   }
@@ -354,7 +356,8 @@ async function flushHeavy() {
     if (!ok) {
       // Yozib bo'lmadi — localStorage'ga qaytamiz, ma'lumot yo'qolmasin
       console.error("❌ IndexedDB yozmadi — localStorage'ga qaytildi");
-      try { window._qqHodisa && window._qqHodisa("idb_yozmadi", ""); } catch (e9) {}   // ✅ XD-3
+      try { window._qqHodisa && window._qqHodisa("idb_yozmadi",
+        t + " · " + (window._idbXato || "")); } catch (e9) {}   // ✅ XD-3 + XD-4c: qaysi jadval, qanday xato
       _idbVerified = false;
       try { saveDB(); } catch(e) {}
       return;
@@ -412,22 +415,30 @@ function saveDB() {
 
     // 1-BOSQICH: begona/eski zaxira kalitlarini tozalab, joy bo'shatamiz
     try {
-      const keys = Object.keys(localStorage);
-      // ✅ XD-2 (2026-09-06): BEGONA-DO'KON BAZALARI ham supuriladi.
-      // Jonli isbot (DZ-iPhone, qora quti): ikkala qutqaruv bosqichi
-      // ham yiqilgan — cho'ntakda tozalagich TEGMAYDIGAN katta yuk
-      // bor edi. `merx_db_<boshqa do'kon>` — qurilma qachondir boshqa
-      // do'konga kirgan bo'lsa qoladigan to'liq nusxa; hammasi bulutda
-      // bor, meros nusxani tashlash XAVFSIZ. Joriy do'kon kaliti
-      // (`key`) ALBATTA tegilmaydi.
-      keys.forEach(k => {
-        // merx zaxira nusxalari, BEGONA-DO'KON bazalari va begona kalitlar
-        if (k.startsWith("merx_lbak_") ||
-            (k.startsWith("merx_db_") && k !== key) ||
-            (!k.startsWith("merx_") && !k.startsWith("supabase") && !k.startsWith("sb-"))) {
-          try { localStorage.removeItem(k); } catch(e2) {}
-        }
+      // ✅ XD-4b/4c (2026-09-10): tozalagich TO'G'RI manzillarga qaratildi.
+      // Jonli isbot (CI/DZ/GT/GU/UC qora qutilari): XD-2 dagi qoida
+      // `merx_db_` prefiksiga otilgan edi — ilova esa bazani `merx_v5_`
+      // nomi bilan saqlaydi (166-qator), ya'ni u qoida hech narsani
+      // supurmasdi. Endi: begona-do'kon bazalari (merx_v5_*), egasiz
+      // sinxron izi (merx_pushfp_*_x — kirishdan oldin yozilgan chiqindi,
+      // CI/DZ da 97-124K!), begona-do'kon pushfp/txcache izlari ham
+      // supuriladi. Joriy do'kon kalitlari va sessiyaga TEGILMAYDI.
+      const sid = key.replace(/^merx_v5_?/, "");   // joriy do'kon belgisi ("" = local rejim)
+      Object.keys(localStorage).forEach(k => {
+        let sup = false;
+        if (k.startsWith("merx_lbak_")) sup = true;
+        else if (k.startsWith("merx_db_") && k !== key) sup = true;
+        else if (sid && k.startsWith("merx_v5_") && k !== key) sup = true;
+        else if (k.startsWith("merx_pushfp_") && k.endsWith("_x")) sup = true;
+        else if (sid && (k.startsWith("merx_pushfp_") || k.startsWith("merx_txcache_"))
+                 && k.indexOf("shop_") >= 0 && k.indexOf(sid) < 0) sup = true;
+        else if (!k.startsWith("merx_") && !k.startsWith("supabase") && !k.startsWith("sb-")) sup = true;
+        if (sup) { try { localStorage.removeItem(k); } catch(e2) {} }
       });
+      // ✅ XD-4b: yozishdan OLDIN eski nusxa olib tashlanadi — Safari
+      // yozish payti eski+yangi ni birga sanashi mumkin (cho'qqi yuk).
+      // RAM'da to'liq nusxa turibdi, bulut esa haqiqat manbai (3.23).
+      try { localStorage.removeItem(key); } catch(e2) {}
       localStorage.setItem(key, JSON.stringify(_dbForLocal(), _noImg)); // qayta urinish
       console.log("✅ Xotira tozalandi — ma'lumot saqlandi");
       if (typeof scheduleCloudSync === "function") scheduleCloudSync();
@@ -439,11 +450,20 @@ function saveDB() {
     // bulutda to'liq saqlanadi, qurilmaga esa oxirgi 365 kun tortiladi
     // (§4.2), shuning uchun bu yerda eskilarini tashlash xavfsiz.
     try {
-      const lite = _dbForLocal();
-      if (Array.isArray(lite.sales) && lite.sales.length > 200)
-        lite.sales = lite.sales.slice(-200);
+      // ✅ XD-4b MUHIM TUZATISH: avval `lite = _dbForLocal()` sandiq-buzuq
+      // rejimda `db` ning O'ZI edi — pastdagi kesish RAMdagi sotuvlarni HAM
+      // 200 taga qisqartirardi. POS qarzni db.sales dan hisoblaydi
+      // (pos.js:2537) — iPhone'larda "ba'zi mijozlarda qarz ko'rinmaydi"
+      // ning bevosita sababi shu edi. Endi kesish FAQAT NUSXADA; RAM va
+      // ekran to'liq qoladi. products/customers ataylab kesilmaydi
+      // (skaner va qarz ko'rsatish ularsiz ishlamaydi).
+      const lite = Object.assign({}, _dbForLocal());
+      ["sales", "debtPayments", "chiqimlar", "xarajatlar", "ombor"].forEach(t9 => {
+        if (Array.isArray(lite[t9]) && lite[t9].length > 200) lite[t9] = lite[t9].slice(-200);
+      });
+      try { window._qqYoz && window._qqYoz("ls trim: tarix 200 (faqat lokal nusxa)"); } catch (e9) {}
       localStorage.setItem(key, JSON.stringify(lite, _noImg));
-      console.log("✅ Eski sotuvlar lokal keshdan chiqarildi — ma'lumot saqlandi (bulutda to'liq)");
+      console.log("✅ Eski tarix lokal keshdan chiqarildi — ma'lumot saqlandi (bulutda to'liq)");
       if (typeof scheduleCloudSync === "function") scheduleCloudSync();
       return;
     } catch(e3) {
@@ -454,15 +474,17 @@ function saveDB() {
         _saveFailAt = Date.now();
         // ✅ XD-2: hisobotga ENG KATTA 5 KALIT (nomi:hajmi) ham kiradi —
         // keyingi safar "kim to'ldirgan" savoli darrov yopiladi.
-        let _xar = "";
+        let _xar = "", _jami = 0, _urin = 0;
         try {
           _xar = Object.keys(localStorage)
-            .map(k2 => ({ k: k2, s: (localStorage.getItem(k2) || "").length }))
+            .map(k2 => { const s2 = (localStorage.getItem(k2) || "").length; _jami += s2; return { k: k2, s: s2 }; })
             .sort((a2, b2) => b2.s - a2.s).slice(0, 5)
             .map(x2 => x2.k + ":" + Math.round(x2.s / 1024) + "K").join(" | ");
         } catch (e8) {}
+        try { _urin = JSON.stringify(_dbForLocal(), _noImg).length; } catch (e8) {}
         try { window._qqHodisa && window._qqHodisa("ls_toldi",
-          ((e3 && e3.message) || "") + " · " + _xar); } catch (e9) {}   // ✅ XD-3
+          ((e3 && e3.message) || "") + " · jami:" + Math.round(_jami / 1024) +
+          "K · urinish:" + Math.round(_urin / 1024) + "K · " + _xar); } catch (e9) {}   // ✅ XD-3 + XD-4c
         toast("⚠️ Qurilma xotirasi to'ldi — ma'lumot bulutga saqlanmoqda. " +
               "Internetni uzmang va MERX ni yopishdan oldin sinxron tugashini kuting", "err");
       }
