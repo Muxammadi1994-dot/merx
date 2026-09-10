@@ -1255,6 +1255,63 @@ function custCardEdit() {
   openModal("addcust");
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ DBL-1 (2026-09-09) — DUBLIKAT OGOHLANTIRIShI (to'siq EMAS)
+// ═══════════════════════════════════════════════════════════════
+// Jonli dalil: B20 da 18 ta dublikat karta (617 mijoz / 569 noyob
+// raqam) — kassir nomni sal boshqacha yozib YANGI karta ochgan.
+// Egasining qarori: ikkala holda ham FAQAT OGOHLANTIRISh, chunki
+// ba'zi mijozlar ATAYLAB ko'p kartali (bir nechta magazin yuritadi).
+// XAVFSIZLIK: faqat confirm(); hech narsa yozilmaydi; xato bo'lsa
+// saqlash TO'SILMAYDI (fail-open try/catch).
+function _tel9(t) { return String(t || "").replace(/\D/g, "").slice(-9); }
+function _nomKalit(n) {
+  return String(n || "").toLowerCase()
+    .replace(/[ʻʼ'`´\-_.,()]/g, " ")
+    .replace(/[^a-zа-яёў ]/g, "")
+    .replace(/\s+/g, " ").trim();
+}
+function mijozDublikatOgoh(nom, tel, tel2, oziId) {
+  try {
+    const ro = (db.customers || []).filter(c =>
+      c && String(c.id) !== String(oziId || ""));
+    const t9 = _tel9(tel), t92 = _tel9(tel2);
+    // 1-daraja: TELEFON bir xil — eng kuchli belgi
+    if (t9.length === 9 || t92.length === 9) {
+      const tp = ro.find(c => {
+        const a = _tel9(c.phone), b = _tel9(c.phone2);
+        return (t9.length === 9  && (a === t9  || b === t9)) ||
+               (t92.length === 9 && (a === t92 || b === t92));
+      });
+      if (tp) {
+        return { ok: confirm(
+          `⚠️ Bu raqam bilan mijoz BOR:\n` +
+          `"${tp.name || ""}" · ${tp.phone || ""}\n\n` +
+          `Haqiqatan YANGI karta ochilsinmi?\n` +
+          `• OK — ha, bu boshqa karta (ataylab)\n` +
+          `• Bekor — yo'q, o'sha mijozning kartasini tahrirlayman`) };
+      }
+    }
+    // 2-daraja: NOM bir xil (imlo farqi tekislanadi)
+    const nk = _nomKalit(nom);
+    if (nk.length >= 5) {
+      const np = ro.find(c => _nomKalit(c.name) === nk);
+      if (np) {
+        return { ok: confirm(
+          `⚠️ Bu nomda mijoz BOR:\n` +
+          `"${np.name || ""}" · ${np.phone || "raqamsiz"}\n\n` +
+          `Agar bu O'ShA mijoz bo'lsa — qayta qo'shmang:\n` +
+          `"Bekor" bosib, kerakli kartani TAHRIRLANG.\n` +
+          `Boshqa odam bo'lsa — OK (ismga farq qo'shish tavsiya etiladi).`) };
+      }
+    }
+    return { ok: true };
+  } catch (e) {
+    console.warn("[dublikat ogoh]", e.message);
+    return { ok: true };            // xato saqlashni hech qachon to'smaydi
+  }
+}
+
 async function editCustomer(id) {   // ✅ 2026-08-19: server orqali (async)
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("mijozlar","edit")) return;
@@ -1264,6 +1321,14 @@ async function editCustomer(id) {   // ✅ 2026-08-19: server orqali (async)
   const _baseAt = c.updatedAt || null;   // tahrir boshlangandagi muhr
   const newName = ($("ac-name")||{value:""}).value.trim();
   if (!newName) { toast("Ism bo'sh bo'lmasin","err"); return; }
+  // ✅ DBL-1: kartaga YOZIShDAN OLDIN so'raladi ("Bekor" bosilsa
+  // xotirada hech narsa o'zgarmagan bo'ladi). O'zi solishtiruvdan
+  // mustasno (oziId = id).
+  {
+    const _yT  = phoneFullVal("ac-phone")  || ($("ac-phone") ||{value:""}).value.trim();
+    const _yT2 = phoneFullVal("ac-phone2") || ($("ac-phone2")||{value:""}).value.trim();
+    if (!mijozDublikatOgoh(newName, _yT, _yT2, id).ok) return;
+  }
   c.name      = newName;
   c.phone     = phoneFullVal("ac-phone") || ($("ac-phone")||{value:""}).value.trim();
   c.phone2    = phoneFullVal("ac-phone2") || ($("ac-phone2")||{value:""}).value.trim();
@@ -1653,6 +1718,10 @@ async function addCustomer() {   // ✅ 2026-08-19: server orqali (async)
     loyaltyPoints: 0,
     updatedAt: new Date().toISOString()   // 2026-08-02: sinxron solishtiruvi
   };
+  // ✅ DBL-1: dublikat ogohlantirishi (server tekshiruvidan oldin —
+  // savol mahalliy ro'yxatga qaraydi, internetga muhtoj emas)
+  if (!mijozDublikatOgoh(nc.name, nc.phone, nc.phone2, null).ok) return;
+
   // ✅ 2026-08-19 (3-bosqich): AVVAL SERVER — takror va do'kon
   // aralashuvi shu yerda to'siladi. Server javob bermasa (oflayn)
   // eski yo'l ishlaydi: lokal saqlanadi va push bilan ketadi.

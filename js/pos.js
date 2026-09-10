@@ -2634,6 +2634,9 @@ function custQuickSave() {
     note:  ($("ac-note")||{value:""}).value.trim(),
     updatedAt: new Date().toISOString()   // 2026-08-02: sinxron solishtiruvi
   };
+  // ✅ DBL-1 (2026-09-09): dublikat ogohlantirishi (to'siq emas)
+  if (typeof mijozDublikatOgoh === "function" &&
+      !mijozDublikatOgoh(nc.name, nc.phone, "", null).ok) return;
   db.customers.push(nc);
   saveDB();
   closeModal("addcust");
@@ -2861,12 +2864,24 @@ async function checkout() {
       customerId = ex.id; cName = ex.name; cPhone = ex.phone || phoneTyped;
       if (!ex.phone && phoneTyped) { ex.phone = phoneTyped; ex.updatedAt = new Date().toISOString(); }
     } else {
-      // 2026-08-04: noyob raqam (yuqoridagi izoh)
-      const nc = { id:nextId(), name:nameTyped, phone:phoneTyped,
-        type: posPriceType==="ulgurji"?"ulgurji":"chakana", note:"POS orqali qo'shildi",
-        updatedAt: new Date().toISOString() };   // 2026-08-02: sinxron solishtiruvi
-      db.customers.push(nc);
-      customerId = nc.id; cName = nc.name; cPhone = nc.phone;
+      // ✅ DBL-1 (2026-09-09): shu RAQAMLI mijoz bormi? Kassir nomni
+      // sal boshqacha yozsa yangi karta ochilib dublikat tug'ilardi
+      // (B20 da 18 ta shu yo'l bilan). Endi so'raladi; "Bekor"
+      // bosilsa — avvalgidek yangi karta (hech narsa o'zgarmaydi).
+      const _t9 = String(phoneTyped || "").replace(/\D/g, "").slice(-9);
+      const _tp = _t9.length === 9 ? (db.customers || []).find(x =>
+        String((x && x.phone) || "").replace(/\D/g, "").slice(-9) === _t9) : null;
+      if (_tp && confirm(`⚠️ Bu raqam bilan mijoz bor: "${_tp.name}".\n` +
+            `Chek O'ShA mijozga yozilsinmi?\n(Bekor — yangi karta ochiladi.)`)) {
+        customerId = _tp.id; cName = _tp.name; cPhone = _tp.phone || phoneTyped;
+      } else {
+        // 2026-08-04: noyob raqam (yuqoridagi izoh)
+        const nc = { id:nextId(), name:nameTyped, phone:phoneTyped,
+          type: posPriceType==="ulgurji"?"ulgurji":"chakana", note:"POS orqali qo'shildi",
+          updatedAt: new Date().toISOString() };   // 2026-08-02: sinxron solishtiruvi
+        db.customers.push(nc);
+        customerId = nc.id; cName = nc.name; cPhone = nc.phone;
+      }
     }
   }
 
