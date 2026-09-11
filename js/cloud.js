@@ -1254,7 +1254,8 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
     /* 2026-07-31: og'ir jadvallar IndexedDB'da — localStorage'ga
                    YENGIL nusxa yoziladi (aks holda sotuvlar u yerda
                    qolib, 5 MB chegarasi qaytarardi) */
-    localStorage.setItem(getDBKEY(), JSON.stringify((typeof _dbForLocal === "function" ? _dbForLocal() : db)));
+    if (typeof _choYoz === "function") _choYoz(false);   /* ✅ XD-4e: yagona eshik, narvon bilan; sinxron qayta rejalashtirilmaydi */
+                  else localStorage.setItem(getDBKEY(), JSON.stringify((typeof _dbForLocal === "function" ? _dbForLocal() : db)));
     if (typeof scheduleHeavySave === "function") scheduleHeavySave();
   } catch(e) {} }
   // ══════════════════════════════════════════════════════════════
@@ -1441,7 +1442,8 @@ async function _migrateImagesToStorage(sid) {
       /* 2026-07-31: og'ir jadvallar IndexedDB'da — localStorage'ga
                    YENGIL nusxa yoziladi (aks holda sotuvlar u yerda
                    qolib, 5 MB chegarasi qaytarardi) */
-      localStorage.setItem(getDBKEY(), JSON.stringify((typeof _dbForLocal === "function" ? _dbForLocal() : db)));
+      if (typeof _choYoz === "function") _choYoz(false);   /* ✅ XD-4e: yagona eshik, narvon bilan; sinxron qayta rejalashtirilmaydi */
+                  else localStorage.setItem(getDBKEY(), JSON.stringify((typeof _dbForLocal === "function" ? _dbForLocal() : db)));
       if (typeof scheduleHeavySave === "function") scheduleHeavySave();
     } catch (e) {}
     console.log("🖼️ " + moved + " ta rasm Storage'ga ko'chirildi (URL)");
@@ -1726,8 +1728,8 @@ async function pushToCloud() {
                 // uchun faqat qurilma xotirasiga yoziladi (mavjud usul,
                 // `_deltaUpsert` da ham shunday).
                 try {
-                  localStorage.setItem(getDBKEY(), JSON.stringify(
-                    (typeof _dbForLocal === "function" ? _dbForLocal() : db)));
+                  if (typeof _choYoz === "function") _choYoz(false);   /* ✅ XD-4e: yagona eshik, narvon bilan; sinxron qayta rejalashtirilmaydi */
+                  else localStorage.setItem(getDBKEY(), JSON.stringify((typeof _dbForLocal === "function" ? _dbForLocal() : db)));
                   if (typeof scheduleHeavySave === "function") scheduleHeavySave();
                 } catch (e) {}
                 try { if (typeof updateRatePill === "function") updateRatePill(); } catch (e) {}
@@ -2172,8 +2174,8 @@ async function pushToCloud() {
             console.warn("♻️ " + _fixed + " ta yangi tovar 'id'si band edi — " +
                          "vaqt-muhrli id berildi, keyingi sinxronda o'tadi");
             try {   // 525-uslub: saveDB EMAS (aylanma taqiqi) — yengil yozish
-              localStorage.setItem(getDBKEY(), JSON.stringify(
-                (typeof _dbForLocal === "function" ? _dbForLocal() : db)));
+              if (typeof _choYoz === "function") _choYoz(false);   /* ✅ XD-4e: yagona eshik, narvon bilan; sinxron qayta rejalashtirilmaydi */
+                  else localStorage.setItem(getDBKEY(), JSON.stringify((typeof _dbForLocal === "function" ? _dbForLocal() : db)));
             } catch (e2) {}
             try { if (typeof scheduleHeavySave === "function") scheduleHeavySave(); } catch (e2) {}
             try { if (typeof scheduleCloudSync === "function") scheduleCloudSync(); } catch (e2) {}
@@ -2595,7 +2597,8 @@ async function pushToCloud() {
       /* 2026-07-31: og'ir jadvallar IndexedDB'da — localStorage'ga
                    YENGIL nusxa yoziladi (aks holda sotuvlar u yerda
                    qolib, 5 MB chegarasi qaytarardi) */
-      localStorage.setItem(getDBKEY(), JSON.stringify((typeof _dbForLocal === "function" ? _dbForLocal() : db)));
+      if (typeof _choYoz === "function") _choYoz(false);   /* ✅ XD-4e: yagona eshik, narvon bilan; sinxron qayta rejalashtirilmaydi */
+                  else localStorage.setItem(getDBKEY(), JSON.stringify((typeof _dbForLocal === "function" ? _dbForLocal() : db)));
       if (typeof scheduleHeavySave === "function") scheduleHeavySave();
     } catch(e) {}
     if (typeof adminRefreshSyncStats === "function") adminRefreshSyncStats();

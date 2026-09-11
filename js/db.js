@@ -229,6 +229,9 @@ window._heavyHydrated = false;
 window._productsHydrated = false;
 
 let _idb = null, _idbOk = false, _idbVerified = false;
+// ✅ XD-4d (2026-09-11): ko'chirish oynasi bayroqlari — bu oynada cho'ntak
+// yozuvi KEChIKTIRILADI (o'lchov: to'liq baza 8,3 mln belgi, cho'ntak 2,6 mln).
+let _migrating = false, _migT = 0, _saveKutildi = false;
 
 function idbOpen() {
   if (!USE_IDB || !window.indexedDB) return Promise.resolve(null);
@@ -317,6 +320,7 @@ async function hydrateHeavy() {
 // ── Bir martalik ko'chirish (tasdiqlash bilan) ──
 async function migrateHeavyToIdb() {
   if (!USE_IDB || _idbVerified) return;
+  _migrating = true; _migT = Date.now();               // ✅ XD-4d: oyna ochildi
   let ok = true, moved = 0, _mSabab = "";
   for (const t of IDB_TABLES) {
     const arr = Array.isArray(db[t]) ? db[t] : [];
@@ -331,9 +335,12 @@ async function migrateHeavyToIdb() {
     console.warn("⚠️ IndexedDB tasdiqlanmadi — localStorage'da davom etamiz");
     try { window._qqHodisa && window._qqHodisa("idb_tasdiqlanmadi", _mSabab); } catch (e9) {}   // ✅ XD-3 + XD-4c
     _idbVerified = false;
+    _migrating = false;                                  // ✅ XD-4d: oyna yopildi (yiqilib)
+    if (_saveKutildi) { _saveKutildi = false; try { saveDB(); } catch (e) {} }   // kechikkan yozuv oddiy yo'ldan
     return;
   }
   _idbVerified = true;   // shundan keyingina localStorage yengillashadi
+  _migrating = false; _saveKutildi = false;            // ✅ XD-4d: oyna yopildi — pastdagi saveDB yengil yozadi
   console.log("✅ Og'ir jadvallar IndexedDB'ga ko'chdi:", moved, "yozuv");
   try { saveDB(); } catch(e) {}   // localStorage'ni yengil holatda qayta yozamiz
 }
@@ -387,7 +394,6 @@ function _dbForLocal() {
 }
 
 function saveDB() {
-  const key = getDBKEY();
   // 2026-07-31: LOKAL O'ZGARISH HISOBLAGICHI.
   // Delta sinxron buni ishlatadi: so'rov yuborishdan oldin va javobni
   // qo'llashdan OLDIN solishtiriladi. Oraliqda biror narsa o'zgargan
@@ -395,20 +401,27 @@ function saveDB() {
   // rasm yo'qolishi" kabi holat imkonsiz bo'ladi.
   try { window._dbMutSeq = (window._dbMutSeq || 0) + 1; } catch(e) {}
   scheduleHeavySave();
-  // ⚠️ 2026-08-08: RASMLAR localStorage'GA UMUMAN YOZILMAYDI.
-  // Avval saveDB() har safar rasmlar bilan yozishga urinardi va
-  // faqat SIG'MAGACH ularsiz qayta yozardi. Katta do'konda (ABU
-  // SAXIY: 895 tovar) bu har saqlashda ~5 MB chegarani urish, keyin
-  // ikki bosqichli qutqaruv va foydalanuvchiga qo'rqinchli
-  // ogohlantirish demakdi — jonli holatda ko'rildi.
-  // Rasmlar Supabase Storage'da saqlanadi (§6) va bulutdan
-  // yuklanadi, ya'ni ularni qurilma xotirasida saqlashning ma'nosi
-  // yo'q. Endi ular boshidanoq chiqarib tashlanadi: saqlash tez,
-  // xotira bosimi yo'qoladi, rasmlar avvalgidek ko'rinaveradi.
+  _choYoz(true);
+}
+
+// ✅ XD-4e (2026-09-11): CHO'NTAK YOZUVI — YAGONA EShIK.
+// saveDB() ham, cloud.js'dagi sinxron yozuvlari ham shu yerdan o'tadi:
+// qutqaruv narvoni (tozalagich → eski nusxa → kesilgan nusxa → eskisini
+// qaytarish) hammasiga birdek ishlaydi. `sinx=false` — sinxronni qayta
+// rejalashtirmaydi (cloud.js: "saveDB EMAS — aylanma taqiqi").
+function _choYoz(sinx) {
+  const key = getDBKEY();
+  // ⚠️ 2026-08-08: RASMLAR localStorage'GA UMUMAN YOZILMAYDI (Supabase
+  // Storage'da; bulutdan yuklanadi). Boshidanoq chiqarib tashlanadi.
   const _noImg = (k, v) =>
     (k === "image" || k === "colorImages" || k === "photo") ? undefined : v;
+  // ✅ XD-4d: sandiqqa ko'chirish oynasida cho'ntakka TO'LIQ baza urilmasin —
+  // yozuv kechiktiriladi (RAM to'liq), ko'chirish tugagach bitta yengil yozuv.
+  // 20 s qo'riqchi: ko'chirish osilib qolsa oddiy yo'lga qaytadi.
+  if (USE_IDB && _migrating && Date.now() - _migT < 20000) { _saveKutildi = true; return; }
   try { localStorage.setItem(key, JSON.stringify(_dbForLocal(), _noImg)); }
   catch(e) {
+    let _eski = null, _qaytdi = false;                  // ✅ XD-4f
     // 2026-07-20: XOTIRA TO'LSA — AVTOMAT TIKLANISH (localStorage deyarli
     // hech qachon to'lmaydi). Ikki bosqichli qutqaruv:
     console.warn("localStorage to'ldi — avtomat tozalash boshlandi:", e.message);
@@ -438,10 +451,11 @@ function saveDB() {
       // ✅ XD-4b: yozishdan OLDIN eski nusxa olib tashlanadi — Safari
       // yozish payti eski+yangi ni birga sanashi mumkin (cho'qqi yuk).
       // RAM'da to'liq nusxa turibdi, bulut esa haqiqat manbai (3.23).
+      try { _eski = localStorage.getItem(key); } catch (e2) {}   // ✅ XD-4f: avval xotirada tutamiz
       try { localStorage.removeItem(key); } catch(e2) {}
       localStorage.setItem(key, JSON.stringify(_dbForLocal(), _noImg)); // qayta urinish
       console.log("✅ Xotira tozalandi — ma'lumot saqlandi");
-      if (typeof scheduleCloudSync === "function") scheduleCloudSync();
+      if (sinx && typeof scheduleCloudSync === "function") scheduleCloudSync();
       return;
     } catch(e2) { /* hali to'la — 2-bosqichga */ }
 
@@ -464,11 +478,15 @@ function saveDB() {
       try { window._qqYoz && window._qqYoz("ls trim: tarix 200 (faqat lokal nusxa)"); } catch (e9) {}
       localStorage.setItem(key, JSON.stringify(lite, _noImg));
       console.log("✅ Eski tarix lokal keshdan chiqarildi — ma'lumot saqlandi (bulutda to'liq)");
-      if (typeof scheduleCloudSync === "function") scheduleCloudSync();
+      if (sinx && typeof scheduleCloudSync === "function") scheduleCloudSync();
       return;
     } catch(e3) {
       // Eng oxirgi holat: bunda ham sig'madi (juda kam ehtimol)
       mem = db;
+      // ✅ XD-4f: hamma urinish yiqildi — eski (eskirgan, lekin butun) nusxa
+      // qaytariladi; u avval sig'gan edi, chiqindi supurilgach yana sig'adi.
+      // Cho'ntak bo'sh qolmaydi: sozlamalar/xodimlar/audit butun turadi.
+      if (_eski) { try { localStorage.setItem(key, _eski); _qaytdi = true; } catch (e4) {} }
       console.error("❌ localStorage saqlash xatosi:", e3.message);
       if (Date.now() - _saveFailAt > 60000 && typeof toast === "function") {
         _saveFailAt = Date.now();
@@ -484,7 +502,7 @@ function saveDB() {
         try { _urin = JSON.stringify(_dbForLocal(), _noImg).length; } catch (e8) {}
         try { window._qqHodisa && window._qqHodisa("ls_toldi",
           ((e3 && e3.message) || "") + " · jami:" + Math.round(_jami / 1024) +
-          "K · urinish:" + Math.round(_urin / 1024) + "K · " + _xar); } catch (e9) {}   // ✅ XD-3 + XD-4c
+          "K · urinish:" + Math.round(_urin / 1024) + "K" + (_qaytdi ? " · eski nusxa qaytarildi" : "") + " · " + _xar); } catch (e9) {}   // ✅ XD-3 + XD-4c
         toast("⚠️ Qurilma xotirasi to'ldi — ma'lumot bulutga saqlanmoqda. " +
               "Internetni uzmang va MERX ni yopishdan oldin sinxron tugashini kuting", "err");
       }
