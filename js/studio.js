@@ -2468,8 +2468,7 @@ function renderStudio() {
   stChiz();
   stuTipoChiz();                                     // ✅ A2
   if (!STU.rejim) {                                  // ✅ ODDIY: standart
-    let r = "oddiy";
-    try { r = localStorage.getItem("merx_studio_rejim") || "oddiy"; } catch (e) {}
+    let r = "oddiy";                                 // ✅ V2 oyna: pro rejim oynadan olib tashlandi (DOM yashirin qoladi)
     STU.rejim = r;
     const od = document.getElementById("stu-oddiy"), pr = document.getElementById("stu-pro");
     if (od) od.style.display = r === "pro" ? "none" : "block";
@@ -2585,6 +2584,7 @@ function stuRasm(inp) {
       STU.rasmlar[STU.asosiy || 0] = im;
       if (typeof stuSlotChiz === "function") stuSlotChiz();
       stChiz();
+      if (typeof stuUstaChiz === "function") stuUstaChiz();   // ✅ V2: sahna darhol yangilanadi
     };
     im.onerror = () => toast("Rasm ochilmadi", "err");
     im.src = e.target.result;
@@ -4083,9 +4083,9 @@ async function stuKatalogRasm() {
     stuUstaChiz(); return true;
   } catch (e) { toast("Rasm ochilmadi", "err"); return false; }
 }
-function stuManba(m) {
+async function stuManba(m) {                       // ✅ V2: katalog rasmi kelguncha kutiladi — sahna eskirmasin
   STU.rasmManba = m;
-  if (m === "katalog") stuKatalogRasm();
+  if (m === "katalog") { try { await stuKatalogRasm(); } catch (e) {} }
   stuUstaChiz();
 }
 function stuTuri(id) {
@@ -4138,7 +4138,7 @@ function stuQoshOchir(i) { STU.qoshimcha.splice(i, 1); stuUstaChiz(); }
 function stuUstaChiz() {
   const T = STU.tovar;
   const q = (id, h) => { const e = document.getElementById(id); if (e) e.innerHTML = h; };
-  q("stu-od-tovar", T ? "✓ " + T.nom + (T.art ? " · " + T.art : "") : "Tovarni tanlang");
+  stuTovarKarta();                                   // ✅ V2: tovar kartasi (rasm, narx, ranglar)
   // rasm manbai
   const bor = !!(STU.tovarXom && ((STU.tovarXom.colorImages && Object.keys(STU.tovarXom.colorImages).length) || STU.tovarXom.image));
   q("stu-od-manba", T ? `
@@ -4181,6 +4181,7 @@ function stuUstaChiz() {
         <i onclick="stuQoshOchir(${i})">×</i></div>`).join("") + `</div>`;
   }
   q("stu-od-kerak", k);
+  stuSahnaChiz();                                    // ✅ V2: katta sahna + surat tekshiruvi
   if (k.indexOf('id="stu-shaxs"') >= 0) stuSlotChiz();
   if (k.indexOf('id="stu-modellar"') >= 0) stuModelChiz();
   const g = document.getElementById("stu-od-go");
@@ -4189,6 +4190,10 @@ function stuUstaChiz() {
     if (STU.turi === "real") tayyor = tayyor && !!STU.shaxs;
     if (STU.turi === "kop" && STU.modelJins === "shaxs") tayyor = tayyor && !!STU.shaxs;
     g.disabled = !tayyor;
+    const iz = document.getElementById("stu-od-kredit-izoh");
+    if (iz) iz.textContent = tayyor
+      ? ({ tovar: "1 kredit", real: "3 kredit", model: "3 kredit", kop: "3 kredit" })[STU.turi] || ""
+      : (!T ? "Avval tovarni tanlang" : "Surat tanlang");
   }
   stuNatijaKorsat(!!STU.variants.length);
 }
@@ -4246,4 +4251,74 @@ async function stuKiydirOqim() {
   const v = STU.variants[0]; STU.shab = v.shab; STU.pal = v.pal;
   stuHolat(""); stuVariantChiz(); renderStudio(); stuNatijaKorsat(true);
   toast((kiyim.length > 1 ? kiyim.length + " ta kiyim kiydirildi" : "Tayyor"), "ok");
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ STUDIO V2 OYNASI (2026-09-11) — uch zona: tovar · sahna · sozlash
+// Dvigatel (stChiz, stuReklamaYasa, stuKanalga…) o'zgarmagan; bu faqat qobiq.
+// ═══════════════════════════════════════════════════════════════
+function stuTovarKarta() {
+  const el = document.getElementById("stu-od-tovar");
+  if (!el) return;
+  const T = STU.tovar, p = STU.tovarXom;
+  if (!T) { el.className = "v2-karta bosh"; el.textContent = "Tovarni tanlang — nom, artikul yoki shtrix-kod bilan qidiring"; return; }
+  const ci = (p && p.colorImages) || {};
+  const rasm = (STU.tanlanganRang && ci[STU.tanlanganRang]) || Object.values(ci)[0] || (p && p.image) || "";
+  const ranglar = p ? [...new Set((p.variants || []).map(v => v.color).filter(Boolean))] : [];
+  const sk = p ? String(p.sku).replace(/'/g, "\\'") : "";
+  el.className = "v2-karta";
+  el.innerHTML = (rasm ? `<img src="${rasm}" alt="">` : "") + `<div class="t"><b>${T.nom || "—"}</b>
+    <span>${T.art ? "ART " + T.art : ""}${T.narx ? " · " + stSon(T.narx) + " so'm" : ""}${T.olcham ? " · " + T.olcham : ""}</span>` +
+    (ranglar.length > 1 ? `<div class="v2-ranglar">` + ranglar.map(r => {
+      const rr = String(r).replace(/'/g, "\\'");
+      return `<button class="${r === STU.tanlanganRang ? "on" : ""}" onclick="stuTanla('${sk}','${rr}')">` +
+        (ci[r] ? `<img src="${ci[r]}" alt="">` : "") + `${r}</button>`; }).join("") + `</div>` : "") + `</div>`;
+}
+
+// Mahalliy surat tekshiruvi (AI'siz): o'lcham va yorug'lik. Chuqur hukm — Studio v2 rejissyori.
+function stuSuratHukm(im) {
+  const w = im.naturalWidth || im.width || 0, h = im.naturalHeight || im.height || 0;
+  const r = { ogoh: false, sarl: "Surat yaroqli", band: [] };
+  if (Math.max(w, h) < 800) { r.ogoh = true; r.sarl = "Surat kichik — natija xira chiqadi"; r.band.push(`Hozir ${w}×${h} px; kamida 1000 px bo'lsin (galereyadan asl suratni yuklang)`); }
+  try {
+    const c = document.createElement("canvas"); c.width = 48; c.height = 48;
+    const x = c.getContext("2d"); x.drawImage(im, 0, 0, 48, 48);
+    const d = x.getImageData(0, 0, 48, 48).data; let s = 0;
+    for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const y = s / (d.length / 4);
+    if (y < 70)  { r.ogoh = true; r.sarl = "Surat qorong'i"; r.band.push("Deraza yoniga o'ting yoki chiroq yoqing — qorong'i suratni tizim tuzata olmaydi"); }
+    if (y > 228) { r.ogoh = true; r.sarl = "Surat oqarib ketgan"; r.band.push("Quyoshga qarshi olmang, yorug'likni kamaytiring"); }
+  } catch (e) {}
+  if (!r.ogoh) {
+    r.band.push(({ tovar: "Fon tovar turiga mos sahnaga almashtiriladi, tovar pikseli o'zgarmaydi",
+                   real:  "Yuz va gavda o'zgarmaydi — faqat kiyim kiydiriladi",
+                   model: "Do'kon modeliga kiydiriladi — natijada «AI namoyish» belgisi bo'ladi",
+                   kop:   "Tovarlar ketma-ket kiydiriladi: past → ust → oyoq kiyim → aksessuar" })[STU.turi] || "");
+    r.band.push("Qo'l, birka va qisqichlar kadrda bo'lsa — olib tashlanadi");
+  }
+  return r;
+}
+
+function stuSahnaChiz() {
+  const img = document.getElementById("stu-sahna-img"), bosh = document.getElementById("stu-sahna-bosh"),
+        hk = document.getElementById("stu-hukm");
+  if (!img || !bosh || !hk) return;
+  const im = STU.img;
+  if (!im || !im.src) {
+    img.style.display = "none"; hk.style.display = "none"; bosh.style.display = "block";
+    bosh.textContent = STU.tovar ? "Surat tanlang: katalogdan, galereyadan yoki kameradan"
+                                 : "Avval tovarni tanlang, keyin surat: katalogdan, galereyadan yoki kameradan";
+    return;
+  }
+  if (img.src !== im.src) img.src = im.src;
+  img.style.display = "block"; bosh.style.display = "none";
+  const h = stuSuratHukm(im);
+  hk.className = "v2-hukm" + (h.ogoh ? " ogoh" : "");
+  hk.innerHTML = `<b><i></i>${h.sarl}</b>` + (h.band.length ? `<ul>${h.band.map(t => `<li>${t}</li>`).join("")}</ul>` : "");
+  hk.style.display = "block";
+  // sozlash qutichalari holatni aks ettirsin
+  const n = document.getElementById("stu-narx-v2");  if (n) n.checked = !!STU.narxKorsat;
+  const b = document.getElementById("stu-belgi-v2"); if (b) b.checked = !!STU.belgi;
+  const y = document.getElementById("stu-yorliq-v2"); if (y && y.value !== (STU.yorliq || "") && !STU.yorliqQolda) y.value = STU.yorliq || "";
 }

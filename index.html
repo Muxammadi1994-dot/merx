@@ -1393,70 +1393,138 @@ body.sms-off .sms-only { display: none !important; }
 
     <!-- ═══ ✅ ODDIY REJIM (2026-09-07) — do'konchi uchun ═══
          Uch harakat: tovar → surat → ✨. Boshqa hech narsa ko'rinmaydi. -->
-    <div id="stu-oddiy">
-      <div class="st-od-sarl">
-        <div>
-          <h3>Tovaringizni reklama qiling</h3>
-          <p>Tovar → reklama turi → kerakli rasm → tugma. Qolganini tizim qiladi.</p>
-        </div>
-        <div style="margin-left:auto;display:flex;gap:7px">
-          <button class="st-od-pro" onclick="stuSozlamaOch()">⚙ Sozlamalar</button>
-          <button class="st-od-pro" onclick="stuRejim('pro')">Pro rejim →</button>
+    <style id="stu-v2-css">
+      #p-studio #stu-oddiy.stv2{--v2ok:#1F7A4D;--v2sand:#F1EFEA}
+      #p-studio .stv2 h4{margin:0 0 10px;font-size:14px;font-weight:600}
+      #p-studio .stv2 .v2-top{display:flex;align-items:center;gap:14px;padding:4px 0 14px;border-bottom:1px solid var(--ln);margin-bottom:16px}
+      #p-studio .stv2 .v2-top h3{margin:0;font-size:19px}
+      #p-studio .stv2 .v2-top .v2-kredit{margin-left:auto;display:flex;gap:16px;align-items:center;font-size:13.5px;color:var(--mut2)}
+      #p-studio .stv2 .v2-lnk{background:none;border:0;padding:0;color:var(--mut2);border-bottom:1px solid var(--ln);cursor:pointer;font-size:13.5px}
+      #p-studio .stv2 .v2-grid{display:grid;grid-template-columns:262px minmax(0,1fr) 280px;gap:22px;align-items:start}
+      #p-studio .stv2 .v2-l,#p-studio .stv2 .v2-r{background:#fff;border:1px solid var(--ln);border-radius:16px;padding:16px}
+      #p-studio .stv2 .v2-karta{margin-top:12px;border:1px solid var(--ln);border-radius:14px;overflow:hidden;color:var(--mut2);font-size:14px}
+      #p-studio .stv2 .v2-karta.bosh{padding:14px}
+      #p-studio .stv2 .v2-karta img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;background:var(--v2sand)}
+      #p-studio .stv2 .v2-karta .t{padding:11px 12px;color:var(--ink,#0A1018)}
+      #p-studio .stv2 .v2-karta .t b{display:block;font-size:15px;line-height:1.3}
+      #p-studio .stv2 .v2-karta .t span{display:block;color:var(--mut2);font-size:13px;margin-top:2px}
+      #p-studio .stv2 .v2-ranglar{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+      #p-studio .stv2 .v2-ranglar button{display:flex;align-items:center;gap:6px;border:1px solid var(--ln);background:#fff;border-radius:999px;padding:3px 10px 3px 4px;font-size:12.5px;cursor:pointer}
+      #p-studio .stv2 .v2-ranglar button img{width:18px;height:18px;border-radius:50%;object-fit:cover;aspect-ratio:1}
+      #p-studio .stv2 .v2-ranglar button.on{border-color:#0A1018;box-shadow:inset 0 0 0 1px #0A1018}
+      #p-studio .stv2 .v2-c{display:flex;flex-direction:column;gap:14px;min-width:0}
+      #p-studio .stv2 .v2-bosh{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+      #p-studio .stv2 .v2-bosh h4{margin:0}
+      #p-studio #stu-oddiy.stv2 .st-od-manbalar{display:inline-flex;border:1px solid var(--ln);border-radius:10px;background:#fff;padding:3px;gap:0;flex-wrap:nowrap}
+      #p-studio #stu-oddiy.stv2 .st-od-manbalar button,#p-studio #stu-oddiy.stv2 .st-od-manbalar label{flex:0 0 auto;min-width:0;border:0;background:transparent;padding:6px 12px;border-radius:8px;color:var(--mut2);font-size:13.5px;cursor:pointer;box-shadow:none}
+      #p-studio #stu-oddiy.stv2 .st-od-manbalar .on{background:#141E30;color:#fff;box-shadow:none}
+      #p-studio #stu-oddiy.stv2 .st-od-manbalar .yoq{opacity:.4}
+      #p-studio .stv2 .v2-sahna{position:relative;background:var(--v2sand);border-radius:18px;overflow:hidden;aspect-ratio:4/5;max-height:620px;width:100%;max-width:520px;margin:0 auto;display:grid;place-items:center}
+      #p-studio .stv2 .v2-sahna>img{width:100%;height:100%;object-fit:contain;display:block}
+      #p-studio .stv2 .v2-sahna>canvas{width:100%;height:100%;object-fit:contain;display:block}
+      #p-studio .stv2 .v2-bosh-matn{color:var(--mut2);font-size:14px;text-align:center;padding:20px;max-width:260px}
+      #p-studio .stv2 .v2-hukm{position:absolute;left:12px;right:12px;bottom:12px;background:rgba(255,255,255,.94);border-radius:13px;padding:11px 13px;box-shadow:0 8px 26px rgba(10,16,24,.16);text-align:left}
+      #p-studio .stv2 .v2-hukm b{display:flex;align-items:center;gap:8px;font-size:14px}
+      #p-studio .stv2 .v2-hukm b i{width:10px;height:10px;border-radius:50%;background:var(--v2ok);flex:0 0 10px}
+      #p-studio .stv2 .v2-hukm.ogoh b i{background:var(--amb)}
+      #p-studio .stv2 .v2-hukm ul{margin:6px 0 0;padding-left:17px;font-size:13px;color:#3a4352}
+      #p-studio #stu-oddiy.stv2 .st-od-turlar{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;max-width:520px;margin:0 auto;width:100%}
+      #p-studio #stu-oddiy.stv2 .st-od-tur{border:1px solid var(--ln);background:#fff;border-radius:13px;padding:11px 11px 10px;text-align:left;cursor:pointer;line-height:1.3;display:block}
+      #p-studio #stu-oddiy.stv2 .st-od-tur i{display:none}
+      #p-studio #stu-oddiy.stv2 .st-od-tur b{display:block;font-size:13.5px}
+      #p-studio #stu-oddiy.stv2 .st-od-tur span{display:block;color:var(--mut2);font-size:12px;margin-top:3px}
+      #p-studio #stu-oddiy.stv2 .st-od-tur.on{border-color:#0A1018;box-shadow:inset 0 0 0 1px #0A1018}
+      #p-studio .stv2 #stu-od-kerak{max-width:520px;margin:0 auto;width:100%}
+      #p-studio .stv2 .v2-holat{max-width:520px;margin:0 auto;width:100%;background:#FFF8E8;border:1px solid #F2D9A0;border-radius:11px;padding:9px 12px;font-size:13.5px}
+      #p-studio .stv2 .v2-cta{max-width:520px;margin:0 auto;width:100%;display:flex;align-items:center;gap:14px}
+      #p-studio .stv2 .v2-cta button{flex:1;background:var(--amb);border:0;border-radius:14px;padding:15px 18px;font-size:16px;font-weight:600;cursor:pointer;color:#0A1018}
+      #p-studio .stv2 .v2-cta button:disabled{opacity:.45;cursor:default}
+      #p-studio .stv2 .v2-cta small{color:var(--mut2);white-space:nowrap}
+      #p-studio .stv2 #stu-od-natija{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--ln);padding-top:16px;margin-top:6px}
+      #p-studio .stv2 .v2-seg{display:inline-flex;border:1px solid var(--ln);border-radius:10px;background:#fff;padding:3px}
+      #p-studio .stv2 .v2-seg button{border:0;background:transparent;padding:6px 12px;border-radius:8px;cursor:pointer;color:var(--mut2);font-size:13.5px}
+      #p-studio .stv2 .v2-seg button.on{background:#141E30;color:#fff}
+      #p-studio .stv2 .v2-thumbs{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;max-width:520px;margin:0 auto;width:100%}
+      #p-studio .stv2 .v2-thumbs .stu-vr{border:2px solid transparent;border-radius:10px;padding:0;overflow:hidden;background:var(--v2sand);cursor:pointer;aspect-ratio:4/5;width:100%}
+      #p-studio .stv2 .v2-thumbs .stu-vr canvas{width:100%;height:100%;display:block}
+      #p-studio .stv2 .v2-thumbs .stu-vr.on{border-color:#0A1018}
+      #p-studio .stv2 .v2-amal{max-width:520px;margin:0 auto;width:100%;display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 1fr;gap:8px}
+      #p-studio .stv2 .v2-amal button{display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--ln);background:#fff;border-radius:12px;padding:11px 8px;cursor:pointer;font-size:13.5px}
+      #p-studio .stv2 .v2-amal button.asosiy{background:var(--amb);border-color:var(--amb);font-weight:600}
+      #p-studio .stv2 .v2-amal svg{width:16px;height:16px;flex:0 0 16px}
+      #p-studio .stv2 .v2-r label{display:block;font-size:13.5px;color:var(--mut2);margin-top:12px}
+      #p-studio .stv2 .v2-r label .st-inp{margin-top:5px}
+      #p-studio .stv2 .v2-sw{display:flex!important;align-items:center;justify-content:space-between;color:#0A1018!important;padding:6px 0;border-bottom:1px solid var(--ln)}
+      #p-studio .stv2 .v2-sw input{width:18px;height:18px;accent-color:#1F7A4D}
+      #p-studio .stv2 .v2-eslat{color:var(--mut2);font-size:13px;line-height:1.45;margin:14px 0 0}
+      @media (max-width:980px){
+        #p-studio .stv2 .v2-grid{grid-template-columns:1fr}
+        #p-studio #stu-oddiy.stv2 .st-od-turlar{grid-template-columns:1fr 1fr}
+        #p-studio .stv2 .v2-thumbs{grid-template-columns:repeat(3,1fr)}
+        #p-studio .stv2 .v2-amal{grid-template-columns:1fr 1fr}
+      }
+    </style>
+    <div id="stu-oddiy" class="stv2">
+      <div class="v2-top">
+        <h3>Studio</h3>
+        <div class="v2-kredit">
+          <span id="stu-sarf"></span>
+          <button class="v2-lnk" onclick="stuSozlamaOch()">Kanal va brend sozlamalari</button>
         </div>
       </div>
 
-      <!-- ✅ sozlamalar: kanal, Instagram, brend (panellar shu yerga ko'chadi) -->
-      <div id="stu-od-sozlama" style="display:none" class="st-od-qadam">
-        <div class="st-od-n">⚙</div>
-        <div style="flex:1" id="stu-od-sozlama-ichi"></div>
-      </div>
-
-      <!-- 1 · TOVAR (qidiruv) + RASM MANBAI -->
-      <div class="st-od-qadam">
-        <div class="st-od-n">1</div>
-        <div style="flex:1">
-          <div id="stu-od-tovar" class="st-od-t">Tovarni tanlang</div>
-          <input id="stu-q" class="st-inp" placeholder="🔍 Nom, artikul yoki barcode"
-                 oninput="stuQidir(this.value)" autocomplete="off" style="margin-top:8px">
-          <div id="stu-natija" style="display:none;max-height:230px;overflow:auto;
+      <div class="v2-grid">
+        <aside class="v2-l">
+          <h4>Tovar</h4>
+          <input id="stu-q" class="st-inp" placeholder="Nom, artikul yoki shtrix-kod"
+                 oninput="stuQidir(this.value)" autocomplete="off">
+          <div id="stu-natija" style="display:none;max-height:260px;overflow:auto;
                border:1px solid var(--ln);border-radius:11px;margin-top:6px;background:#fff"></div>
-          <div id="stu-od-manba" style="margin-top:10px"></div>
-        </div>
-      </div>
+          <div id="stu-od-tovar" class="v2-karta bosh">Tovarni tanlang — nom, artikul yoki shtrix-kod bilan qidiring</div>
+        </aside>
 
-      <!-- 2 · REKLAMA TURI -->
-      <div class="st-od-qadam">
-        <div class="st-od-n">2</div>
-        <div style="flex:1">
-          <div class="st-od-t">Reklama turi</div>
+        <section class="v2-c">
+          <div class="v2-bosh"><h4>Surat</h4><div id="stu-od-manba"></div></div>
+          <div id="stu-sahna" class="v2-sahna">
+            <img id="stu-sahna-img" alt="" style="display:none">
+            <div id="stu-sahna-bosh" class="v2-bosh-matn">Avval tovarni tanlang, keyin surat: katalogdan, galereyadan yoki kameradan</div>
+            <div id="stu-hukm" class="v2-hukm" style="display:none"></div>
+          </div>
+
+          <h4 style="margin:4px auto 0;max-width:520px;width:100%">Kimda ko'rsatamiz</h4>
           <div id="stu-od-turlar" class="st-od-turlar"></div>
-        </div>
-      </div>
+          <div id="stu-od-kerak"></div>
+          <div id="stu-holat" class="v2-holat" style="display:none"></div>
 
-      <!-- 3 · KERAKLI RASMLAR (turga qarab) -->
-      <div class="st-od-qadam">
-        <div class="st-od-n">3</div>
-        <div style="flex:1">
-          <div id="stu-od-kerak"><div class="st-hint" style="margin:0">Bu tur uchun qo'shimcha rasm kerak emas.</div></div>
-        </div>
-      </div>
+          <div class="v2-cta">
+            <button id="stu-od-go" onclick="stuReklamaYasa()" disabled>Reklama yasa</button>
+            <small id="stu-od-kredit-izoh">Tovar va surat tanlangach faollashadi</small>
+          </div>
 
-      <button id="stu-od-go" class="st-od-go" onclick="stuReklamaYasa()" disabled>
-        ✨ Reklama yasa</button>
+          <div id="stu-od-natija" style="display:none">
+            <div class="v2-bosh"><h4>Natija</h4><div id="stu-od-fmt" class="v2-seg"></div></div>
+            <div class="v2-sahna"><canvas id="stu-od-cvs" width="1080" height="1350"></canvas></div>
+            <div id="stu-od-variants" class="v2-thumbs"></div>
+            <div class="v2-amal">
+              <button class="asosiy" onclick="stuKanalga()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/></svg>Kanalga yuborish</button>
+              <button onclick="stuYukla(false)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>Yuklab olish</button>
+              <button onclick="stuYana()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>Yana 6 ta</button>
+              <button onclick="stuBoshqaFon()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="9" cy="9" r="1.5"/></svg>Boshqa fon</button>
+              <button onclick="stuVideo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg>Video</button>
+            </div>
+          </div>
+        </section>
 
-      <div id="stu-od-natija" style="display:none">
-        <div class="st-od-sahna">
-          <div id="stu-od-fmt" class="st-fmt"></div>
-          <canvas id="stu-od-cvs" width="1080" height="1350"></canvas>
-          <div id="stu-od-variants" class="st-vars"></div>
-        </div>
-        <div class="st-od-amal">
-          <button class="st-b2" onclick="stuKanalga()">📢 Kanalga yuborish</button>
-          <button class="st-b1" onclick="stuToplam(false)">⬇ Yuklab olish</button>
-          <button class="st-b1" onclick="stuYana()">🔄 Yana 6 ta</button>
-          <button class="st-b1" onclick="stuBoshqaFon()">🏞 Boshqa fon</button>
-          <button class="st-b1" onclick="stuVideo()">🎬 Video</button>
-        </div>
+        <aside class="v2-r">
+          <h4>Sozlash</h4>
+          <label>Sarlavha (ixtiyoriy)
+            <input id="stu-yorliq-v2" class="st-inp" maxlength="28" placeholder="Yangi keldi, −20%, Qishki to'plam"
+                   oninput="stuYorliq(this.value)" autocomplete="off"></label>
+          <label class="v2-sw"><span>Narxni ko'rsatish</span><input id="stu-narx-v2" type="checkbox" onchange="stuNarx(this.checked)"></label>
+          <label class="v2-sw"><span>MERX belgisi</span><input id="stu-belgi-v2" type="checkbox" onchange="stuBelgi(this.checked)"></label>
+          <div id="stu-od-sozlama" style="display:none;margin-top:12px"><div id="stu-od-sozlama-ichi"></div></div>
+          <p class="v2-eslat">Hammasi ixtiyoriy. Hech narsaga tegmasangiz ham standart sozlamalar yaxshi natija beradi.</p>
+        </aside>
       </div>
     </div>
 
@@ -1469,7 +1537,7 @@ body.sms-off .sms-only { display: none !important; }
       <div class="st-cip">
         <span id="stu-cip-tovar">Tovar tanlanmagan</span>
         <span id="stu-cip-surat">Surat yo'q</span>
-        <span id="stu-sarf"></span>
+        <span id="stu-sarf-pro"></span>
       </div>
       <button class="st-go" id="stu-avto" onclick="stuReklamaYasa()">✨ Reklama yasa</button>
     </div>
@@ -1640,11 +1708,11 @@ body.sms-off .sms-only { display: none !important; }
       <div class="st-stage">
         <div id="stu-fmt" class="st-fmt" style="align-self:flex-start"></div>
         <canvas id="stu-cvs" width="1080" height="1350" onclick="stuFokus(event)"></canvas>
-        <div id="stu-holat" style="display:none"></div>
+        <div id="stu-holat-pro" style="display:none"></div>
         <div id="stu-variants" class="st-vars"></div>
         <div class="st-act">
-          <button class="st-b2" id="stu-toplam" onclick="stuToplam(false)">⬇ To'plam</button>
-          <button class="st-b1" onclick="stuToplam(true)">⬇ To'plam + video</button>
+          <button class="st-b2" id="stu-toplam" onclick="stuYukla(false)">⬇ To'plam</button>
+          <button class="st-b1" onclick="stuYukla(true)">⬇ To'plam + video</button>
           <button class="st-b1" onclick="stuYukla(false)">Shu format</button>
           <button class="st-b1" id="stu-video" onclick="stuVideo()">🎬 Video</button>
           <button class="st-b1" id="stu-kanal-yubor" onclick="stuKanalga()">📢 Kanalga</button>
@@ -5779,7 +5847,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=181"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=29"></script>
+<script src="js/studio.js?v=30"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -6074,7 +6142,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 617;
+  window.SW_V = 618;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -6097,7 +6165,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=617")
+    navigator.serviceWorker.register("/sw.js?v=618")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
