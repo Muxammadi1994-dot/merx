@@ -280,6 +280,90 @@ function idbGet(key) {
 
 const _idbKey = t => getDBKEY() + "::" + t;
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ XD-4a (2026-09-11): SANDIQQA BO'LAK-BO'LAB YOZISH.
+// Sabab (qora quti, o'lchangan): iPhone Safari bitta ULKAN yozuvni
+// (minglab sotuv/tovar bir massivda) vaqti-vaqti rad etadi → idb_yozmadi →
+// "sandiq buzuq" rejimi. Endi har jadval 250 talik bo'laklarda + kichik
+// MANIFEST (bo'laklar soni, yozuvlar soni, muhr). BITTA tranzaksiyada:
+// bo'laklar → ortiqcha eski bo'laklar o'chadi → manifest → eski yaxlit
+// yozuv o'chadi. Tranzaksiya yiqilsa hech narsa o'zgarmaydi (atomar).
+// O'qish: manifest → bo'laklar; manifest yo'q → eski yaxlit yozuv
+// (eski format DOIM o'qiladi). Son mos kelmasa → undefined + hisobot,
+// hydrate qo'riqchisi to'liq tortishga o'tkazadi.
+// ═══════════════════════════════════════════════════════════════
+const IDB_BOLAK = 250;
+const _idbMan = t => _idbKey(t) + "::m";
+const _idbBol = (t, i) => _idbKey(t) + "::c" + i;
+
+function idbPutTable(t, arr) {
+  return idbOpen().then(async d => {
+    if (!d) return false;
+    if (!Array.isArray(arr)) arr = [];
+    let eskiN = 0;
+    try { const m = await idbGet(_idbMan(t)); if (m && typeof m.n === "number") eskiN = m.n; } catch (e) {}
+    return new Promise(res => {
+      let tx = null;
+      try {
+        tx = d.transaction(IDB_STORE, "readwrite");
+        const st = tx.objectStore(IDB_STORE);
+        const n = Math.ceil(arr.length / IDB_BOLAK);
+        for (let i = 0; i < n; i++) st.put(arr.slice(i * IDB_BOLAK, (i + 1) * IDB_BOLAK), _idbBol(t, i));
+        for (let i = n; i < eskiN; i++) st.delete(_idbBol(t, i));      // qisqargan jadval — ortiqcha bo'laklar
+        st.put({ v: 1, n: n, count: arr.length, ts: Date.now() }, _idbMan(t));
+        st.delete(_idbKey(t));                                          // eski yaxlit yozuv (ko'chirish tugadi)
+        tx.oncomplete = () => res(true);
+        tx.onerror = () => { try { window._idbXato = String((tx.error && (tx.error.name + ": " + tx.error.message)) || "tx.onerror"); } catch (e9) {} res(false); };
+        tx.onabort = () => { try { window._idbXato = String((tx.error && (tx.error.name + ": " + tx.error.message)) || "tx.onabort"); } catch (e9) {} res(false); };
+      } catch (e) {
+        try { window._idbXato = String((e && (e.name + ": " + e.message)) || e || "put-exception"); } catch (e9) {}
+        try { if (tx) tx.abort(); } catch (e8) {}                        // yarim yozuv qolmasin
+        res(false);
+      }
+    });
+  });
+}
+
+function idbGetTable(t) {
+  return idbOpen().then(d => new Promise(res => {
+    if (!d) return res(undefined);
+    try {
+      const st = d.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE);
+      const rm = st.get(_idbMan(t));
+      rm.onsuccess = () => {
+        const m = rm.result;
+        if (!m || typeof m.n !== "number") {                            // manifest yo'q → eski format
+          const rl = st.get(_idbKey(t));
+          rl.onsuccess = () => res(rl.result);
+          rl.onerror = () => res(undefined);
+          return;
+        }
+        if (m.n === 0) return res([]);
+        const parts = new Array(m.n); let left = m.n, bad = false;
+        const fin = () => {
+          if (bad) {
+            try { window._qqHodisa && window._qqHodisa("idb_bolak_yoq", t + " · " + m.n + " bo'lak"); } catch (e9) {}
+            return res(undefined);
+          }
+          const out = [];
+          for (let i = 0; i < m.n; i++) for (let j = 0; j < parts[i].length; j++) out.push(parts[i][j]);
+          if (out.length !== m.count) {
+            try { window._qqHodisa && window._qqHodisa("idb_manifest_mos_emas", t + " · kutilgan " + m.count + ", keldi " + out.length); } catch (e9) {}
+            return res(undefined);
+          }
+          res(out);
+        };
+        for (let i = 0; i < m.n; i++) {
+          const r = st.get(_idbBol(t, i));
+          r.onsuccess = () => { parts[i] = Array.isArray(r.result) ? r.result : null; if (!parts[i]) bad = true; if (--left === 0) fin(); };
+          r.onerror   = () => { bad = true; if (--left === 0) fin(); };
+        }
+      };
+      rm.onerror = () => res(undefined);
+    } catch (e) { res(undefined); }
+  }));
+}
+
 // ── Og'ir jadvallarni IndexedDB'dan yuklash ──
 // init() va kirishdan keyin chaqiriladi. localStorage'da bu jadvallar
 // bo'lsa (birinchi marta yoki eski qurilma) — ular USTUN, chunki
@@ -288,22 +372,23 @@ async function hydrateHeavy() {
   if (!USE_IDB) { window._productsHydrated = true; window._heavyHydrated = true; return false; }
   const d = await idbOpen();
   if (!d) { window._productsHydrated = true; window._heavyHydrated = true; return false; }   // eski yo'l ishlaydi
-  let loaded = 0;
+  let loaded = 0, _jadvalBor = 0, _jadvalYoq = 0;   // ✅ XD-4a: nechta jadval keldi / o'qilmadi
   // ⚠️ 2026-08-09: `products` BIRINCHI o'qiladi (skaner faqat shunga
   // muhtoj) va o'qib bo'linishi bilan _productsHydrated ochiladi —
   // qolgan og'ir jadvallar (yillik sotuvlar!) fonda davom etaveradi.
   const order = ["products", ...IDB_TABLES.filter(t => t !== "products")];
   for (const t of order) {
     try {
-      const v = await idbGet(_idbKey(t));
+      const v = await idbGetTable(t);
       if (Array.isArray(v)) {
+        _jadvalBor++;
         // localStorage'da ham bor va u BO'SH EMAS bo'lsa — hali
         // ko'chirilmagan, uni yo'qotmaymiz
         const cur = db[t];
         if (Array.isArray(cur) && cur.length > v.length) { /* pastdagi bayroqqa tushamiz */ }
         else { db[t] = v; loaded += v.length; }
-      }
-    } catch(e) {}
+      } else _jadvalYoq++;                          // ✅ XD-4a: kutilgan jadval o'qilmadi
+    } catch(e) { _jadvalYoq++; }
     if (t === "products") {
       window._productsHydrated = true;   // skaner yo'li shu zahoti ochiq
       // Navbatda kutayotgan skan bo'lsa — uni kuzatuvchi interval
@@ -311,6 +396,20 @@ async function hydrateHeavy() {
     }
   }
   if (loaded) console.log("💾 IndexedDB'dan yuklandi:", loaded, "yozuv");
+  // ✅ XD-4a QO'RIQCHI (2026-09-11): cho'ntak nusxasi "og'irlar sandiqda"
+  // (_heavyInIdb) desa-yu BIRORTA kutilgan jadval o'qilmasa — sandiq
+  // tozalangan / bo'lak o'qilmadi / eski kodga qaytilgan. Delta kursori
+  // tozalanadi: keyingi tortish TO'LIQ bo'ladi, jadvallar bo'sh qolmaydi
+  // (avval kassir qo'lda "Bulutdan qaytadan yuklash" bosmaguncha bo'sh turardi).
+  if (_jadvalYoq && db && db._heavyInIdb) {
+    try {
+      const sid = (db.settings && db.settings.cloudShopId && db.settings.cloudShopId !== "local")
+        ? db.settings.cloudShopId : getShopId();
+      if (sid && sid !== "local") localStorage.removeItem("merx_lastpull_" + sid);
+    } catch (e) {}
+    console.warn("♻️ Sandiq bo'sh keldi — delta kursori tozalandi, to'liq tortish");
+    try { window._qqHodisa && window._qqHodisa("idb_bosh_toliq_tortish", ""); } catch (e9) {}
+  }
   // Ko'chirilmagan bo'lsa — hozir ko'chiramiz
   await migrateHeavyToIdb();
   window._heavyHydrated = true;      // endi bulutga yozish mumkin
@@ -324,10 +423,10 @@ async function migrateHeavyToIdb() {
   let ok = true, moved = 0, _mSabab = "";
   for (const t of IDB_TABLES) {
     const arr = Array.isArray(db[t]) ? db[t] : [];
-    const w = await idbPut(_idbKey(t), arr);
+    const w = await idbPutTable(t, arr);                 // ✅ XD-4a: bo'laklab
     if (!w) { ok = false; _mSabab = t + " · " + (window._idbXato || "yozuv"); break; }
     // TASDIQLASH: qayta o'qib, uzunligi mos kelishini tekshiramiz
-    const back = await idbGet(_idbKey(t));
+    const back = await idbGetTable(t);                    // ✅ XD-4a
     if (!Array.isArray(back) || back.length !== arr.length) { ok = false; _mSabab = t + " · tasdiq mos kelmadi"; break; }
     moved += arr.length;
   }
@@ -359,7 +458,7 @@ async function flushHeavy() {
   _idbDirty = false;
   for (const t of IDB_TABLES) {
     const arr = Array.isArray(db[t]) ? db[t] : [];
-    const ok = await idbPut(_idbKey(t), arr);
+    const ok = await idbPutTable(t, arr);                // ✅ XD-4a: bo'laklab
     if (!ok) {
       // Yozib bo'lmadi — localStorage'ga qaytamiz, ma'lumot yo'qolmasin
       console.error("❌ IndexedDB yozmadi — localStorage'ga qaytildi");
