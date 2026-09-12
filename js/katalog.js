@@ -3805,6 +3805,11 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
       const newProd = {
         id: newProdId,
         sku,
+        // ✅ IMP-4 (2026-09-12): import qilingan tovarlar BIR GURUH — partiya
+        // raqami bilan. Shunda tahrir oynasida "Variativ tahrirlash — birga
+        // kiritilgan ranglar" paneli import uchun ham chiqadi (avval faqat
+        // variativ kiritish bu belgini yozardi). Excel va AI-naklad — bir yo'l.
+        variantGroup: importPartiya,
         name:        r.nom,
         category:    r.cat || "Qabul qilingan",
         type:        r.type === "kiyim" ? "kiyim" : "oyoq",
