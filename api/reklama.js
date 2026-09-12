@@ -47,7 +47,7 @@ const OYLIK_BEPUL = parseInt(process.env.STUDIO_LIMIT) || 10;
 const TG_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;      // ✅ S8: kanalga yuborish
 // ✅ S7: AMAL OG'IRLIGI — hamma amal bir xil emas.
 // Banner va video — BEPUL (brauzerda chiziladi, AI yo'q).
-const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kiydir_edit: 3, kanal: 0, joylashtir: 2,
+const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kiydir_edit: 3, kanal: 0, joylashtir: 2, muhit: 3,
                  ai_hukm: 0, ai_matn: 0, ai_solishtir: 1 };   // ✅ v2: rejissyor amallari
 
 // ═══════════════════════════════════════════════════════════════
@@ -784,7 +784,13 @@ module.exports = async (req, res) => {
       "KIYIMDA G'IJIM bormi va qayerda (yeng, bel, etak, yoqa). " +
       "Eslatma: tovar pikseli AI dan o'tmaydi, shuning uchun g'ijim, chang va iflos joyni FAQAT qayta suratga olish tuzatadi — " +
       "shuni aniq maslahat qilib yoz (masalan: dazmollab, deraza yonida, 3/4 burchakdan qayta oling).\n" +
-      "2) SAHNA RETSEPTINI YOZ — 9 band, yuqoridagi qonunlar bo'yicha. Tayanch yuzasiz javob NOTO'G'RI hisoblanadi.\n" +
+      (/^(real|model|kop)$/.test(turi)
+        ? "2) MUHIT RETSEPTINI YOZ — 9 band. Bu reklamada tovar ODAMDA bo'ladi (kiydiriladi), sahna esa odam turadigan yoki YURAYOTGAN joy: " +
+          "'yuza' — odam turgan yer (ko'cha, zina pog'onasi, kafe oldi, park yo'lakchasi, ofis koridori); " +
+          "'kamera' — TOVARGA qaratilgan kadrlash (oyoq kiyim: tizzadan pastga, past nuqtadan; ust kiyim: bo'yindan belgacha; sumka: yelka-bel; soat: bilak); " +
+          "'chuqurlik' — orqa fon xira, odam yumshoq, TOVAR o'tkir. Odam kameraga tik qarab turmasin: harakat (yurayotgan, zinadan chiqayotgan, burilayotgan). " +
+          "'buyruq' — English: the ENVIRONMENT for a person wearing the product (place, ground, light, depth, mood); no description of the person.\n"
+        : "2) SAHNA RETSEPTINI YOZ — 9 band, yuqoridagi qonunlar bo'yicha. Tayanch yuzasiz javob NOTO'G'RI hisoblanadi.\n") +
       "Bu safargi yo'nalish: uslub — " + x.uslub + " · yorug'lik — " + x.nur + " · tayanch yuza — " + x.yuza + ". " +
       "Agar bu yo'nalish tovarga yoki suratdagi yorug'likka mos kelmasa — eng yaqinini o'zing tanla.\n\n" +
       "Faqat shu JSON: {\"tovar_turi\":\"oyoq kiyim|ust kiyim|past kiyim|libos|aksessuar — SURATGA qarab\"," +
@@ -847,8 +853,14 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: false, limit: true, sarf: n0, chegara: ch0.chegara, error: `Bu oydagi ${ch0.chegara} kredit tugadi.` });
     const asl = _dataUri(body.asl, 1400), nat = _dataUri(body.natija, 1400);
     if (!asl || asl.xato || !nat || nat.xato) return res.status(200).json({ ok: false, error: "Ikkala rasm kerak (asl va natija), 1,4 MB gacha" });
+    // ✅ 633: 15 bandli tekshiruv (bilim ro'yxati §7) + farq QAYERDA + og'irligi
     const savol = "Birinchi rasm — ASL tovar surati. Ikkinchi rasm — AI yasagan reklama. Tovar (kiyim/oyoq kiyim/aksessuar) ikkinchi rasmda ASL bilan bir xilmi? " +
-      "Tekshir: rang va tus, shakl va silu, TAG (oyoq kiyimda: qalin/yupqa, rezina/charm), tugmalar va zamok, naqsh/tikuv, logotip va yozuvlar, cho'ntaklar. Fon, yorug'lik, poza, kadr — E'TIBORGA OLINMAYDI. " +
+      "15 band: 1 rang va tus · 2 shakl va silu · 3 TAG (oyoq kiyim: qalin/yupqa, rezina/charm) · 4 tugma va zamok · 5 naqsh va tikuv · 6 logotip va yozuv · 7 cho'ntaklar · " +
+      "8 MATERIAL fakturasi (teri plastikka aylanmaganmi) · 9 o'lcham nisbati (poshna, yeng, etak) · 10 bog'ich, tasma, zanjir, ilgak · 11 yoqa turi · " +
+      "12 naqsh yo'nalishi va o'lchami · 13 chok va qirralar (qo'shimcha chok paydo bo'lganmi) · 14 rang soni (ikki rangli bir rangga aylanganmi) · 15 TOVAR KO'RINADIMI — kadrda to'liq va asosiy obyektmi. " +
+      "Fon, yorug'lik, poza, odam, kadr burchagi — E'TIBORGA OLINMAYDI. " +
+      "Har farqni shunday yoz: [og'irlik: kichik|sezilarli|qabul qilib bo'lmaydi] QAYERDA (masalan: o'ng poyabzal tashqi tomoni) — NIMA. " +
+      "'mos' faqat sezilarli yoki qabul qilib bo'lmaydigan farq YO'Q bo'lsa true. " +
       "Tovar:\n" + _tovarMatn(body.tovar) +
       "\nFaqat shu JSON: {\"mos\":true|false,\"ishonch\":0-100,\"farqlar\":[\"aniq farq, o'zbekcha, 3 tagacha\"],\"tavsiya\":\"qabul|qayta|rad\"}";
     let hukm = null, xato = "", tok = {};
@@ -1301,6 +1313,46 @@ module.exports = async (req, res) => {
         model: M_EDIT, status_url: q.status_url, response_url: q.response_url });
     } catch (e) {
       await jurnal(shopId, "joylashtir", "fal", M_EDIT, false, e.message);
+      return res.status(200).json({ ok: false, error: e.message });
+    }
+  }
+
+  // ── ✅ 633 · MUHIT — kiydirilgan odamning FONINI rejissyor muhitiga
+  // almashtiradi (bilim ro'yxati §4.3-4.4). Odam, tovar, poza — daxlsiz;
+  // faqat fon, yer, yorug'lik. Natija klientda tekshiruvdan o'tadi;
+  // tovar o'zgargan bo'lsa — muhitsiz natija qoladi. ──
+  if (amal === "muhit") {
+    const odam = String(body.image || "");
+    if (!/^data:image\//.test(odam))
+      return res.status(200).json({ ok: false, error: "Odam rasmi yuborilmadi" });
+    if (odam.length > MAX_KB * 1024)
+      return res.status(200).json({ ok: false, error: "Rasm juda katta" });
+    const [n0, ch0] = await Promise.all([oySarfi(shopId), chegaraOl(shopId)]);
+    if (n0 >= ch0.chegara)
+      return res.status(200).json({ ok: false, limit: true, error: `Bu oydagi ${ch0.chegara} kredit tugadi.` });
+    const S = body.sahna || {};
+    const b = k => String(S[k] || "").replace(/\s+/g, " ").trim().slice(0, 140);
+    const tur = String(body.turi || "");
+    const kadr = tur === "shoes" ? "Camera low, near ground level, so the footwear is the main subject. " :
+                 tur === "aksessuar" ? "Camera at waist level, the accessory clearly visible. " : "";
+    const matn =
+      `Edit this photo of a person. Replace ONLY the background and the ground with this environment: ` +
+      `${b("joy") || "a quiet city street"}. The person stands on ${b("yuza") || "the pavement"}, ` +
+      `feet in natural contact with the ground, with a soft contact shadow. ` +
+      `Lighting: ${b("yoruglik") || "soft natural light"} — the same light now falls on the person, ` +
+      `so their shadows and highlights match the new scene. ` +
+      `Background: ${b("chuqurlik") || "softly blurred"}, shallow depth of field; the person and especially the worn product stay sharp. ` +
+      (b("palitra") ? `Colour mood: ${b("palitra")}. ` : "") + kadr +
+      `CRITICAL: do NOT change the person — face, hair, skin, body, pose, hands — and do NOT change any clothing ` +
+      `or the product they wear: same colour, shape, logo, laces, material. Keep the framing. ` +
+      `No text, no other people, no added objects. Photorealistic, high resolution.`;
+    try {
+      const q = await falSubmit(M_EDIT, { prompt: matn, image_urls: [odam],
+        num_images: 1, aspect_ratio: "auto", output_format: "png" });
+      return res.status(200).json({ ok: true, navbat: true, amal: "muhit",
+        model: M_EDIT, status_url: q.status_url, response_url: q.response_url });
+    } catch (e) {
+      await jurnal(shopId, "muhit", "fal", M_EDIT, false, e.message);
       return res.status(200).json({ ok: false, error: e.message });
     }
   }

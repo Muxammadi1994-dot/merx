@@ -2642,7 +2642,7 @@ function stuTanla(sku, rang) {
   const q = document.getElementById("stu-q");   if (q) q.value = "";
   const n = document.getElementById("stu-natija"); if (n) { n.innerHTML = ""; n.style.display = "none"; }
   STU.tovarXom = p;                                  // ✅ USTA: rasm manbai uchun
-  STU.variants = []; STU.fon = null; STU.aiNamoyish = false; STU.foto = false;
+  STU.variants = []; STU.fon = null; STU.aiNamoyish = false; STU.foto = false; STU.muhit = false;
   renderStudio();
   if (STU.rejim !== "pro" && STU.rasmManba === "katalog") stuKatalogRasm();
 }
@@ -3198,6 +3198,7 @@ async function stuKiydir(jins) {
   if (!d) return;
   try {
     STU.img = await _stuImg(d.image);
+    await stuMuhit(tur);         // ✅ 633: rejissyor muhiti (tekshiruv bilan)
     STU.fon = null;              // natijada o'z foni bor
     STU.soya = false;            // to'liq kadr — soya/aks kerak emas
     STU.aiNamoyish = true;       // belgisi chiqadi
@@ -4150,11 +4151,18 @@ const STU_TURLAR = [
 // atrofini saqlaydi; ilgari doim yuzga (.38) qo'yilardi — oyoq kiyim
 // reklamasida oyoqlar kesilib, tovar KO'RINMASDI (egasi: "biror marta
 // ham juft chiqmadi"). Bilim ro'yxati 4.2: oyoq kiyim → beldan pastga.
+// ✅ 632: FOKUS + YAQINLAShTIRISh. Faqat fokus yetmadi — poyabzal kadr
+// chetida kichik qoldi (tekshiruvchi: "asosiy tovar sifatida shim
+// ko'rinadi"). Endi "cover" kadr TOVAR ATROFIGA yaqinlashadi:
+// oyoq kiyim → beldan pastga, 2x; aksessuar → 1.5x; ust kiyim → 1x.
 function _stuFokusTur(tur) {
-  if (tur === "shoes")     return { x: .5, y: .86 };
-  if (tur === "bottoms")   return { x: .5, y: .66 };
-  if (tur === "aksessuar") return { x: .5, y: .58 };
-  return { x: .5, y: .38 };                    // ust kiyim, libos — yuz+ko'krak
+  let f;
+  if      (tur === "shoes")     f = { x: .5, y: .92, zoom: 2.0 };
+  else if (tur === "bottoms")   f = { x: .5, y: .68, zoom: 1.25 };
+  else if (tur === "aksessuar") f = { x: .5, y: .58, zoom: 1.5 };
+  else                          f = { x: .5, y: .38, zoom: 1 };   // ust kiyim, libos
+  STU.imgAdj = { zoom: f.zoom, dx: 0, dy: 0 };   // yangi suratda o'zi tiklanadi (2657)
+  return { x: f.x, y: f.y };
 }
 
 // ✅ 631: JOYLASHTIR — tovarni sahnaga AI qo'yadi (o'rta yo'l).
@@ -4189,6 +4197,29 @@ async function stuJoylashtir() {
   STU.img = im; STU.foto = true;
   STU.fon = null; STU.soya = false; STU.aks = false; STU.aiNamoyish = false;
   STU.fokus = { x: .5, y: .5 };
+  return true;
+}
+
+// ✅ 633: MUHIT — kiydirilgan odamning foni rejissyor muhitiga (bilim §4.3).
+// Tovar tekshiruvdan o'tmasa — muhitsiz natija qoladi (hech narsa yo'qolmaydi).
+async function stuMuhit(tur) {
+  const h = STU.aiHukm;
+  if (!h || !h.sahna || !(h.sahna.joy || h.sahna.yuza)) return false;
+  const src = STU.img; if (!src) return false;
+  stuHolat("Rejissyor muhiti qo'yilmoqda (AI)…");
+  const d = await stuAI("muhit", { image: _stuTayyor(src, 1200), sahna: h.sahna, turi: tur || "" });
+  if (!d || !d.image) return false;
+  let im; try { im = await _stuImg(d.image); } catch (e) { return false; }
+  stuHolat("Rejissyor tovarni tekshirmoqda…");
+  const t = await stuAiChaqir("ai_solishtir", { asl: _stuTayyor(STU.asl || src, 900),
+    natija: _stuTayyor(im, 900), tovar: _stuAiTovar() });
+  if (!t || !t.ok || !t.hukm) { toast("Tekshiruv ishlamadi — muhitsiz natija qoldi", "err"); return false; }
+  STU.aiMos = t.hukm;
+  if (!t.hukm.mos) {
+    toast("Muhitda tovar o'zgardi (" + (t.hukm.farqlar[0] || "farq") + ") — muhitsiz natija qoldi", "err");
+    return false;
+  }
+  STU.img = im; STU.muhit = true;
   return true;
 }
 
@@ -4260,8 +4291,16 @@ async function stuManba(m) {                       // ✅ V2: katalog rasmi kelg
   stuUstaChiz();
 }
 function stuTuri(id) {
+  const eskiOdam = /^(real|model|kop)$/.test(STU.turi || "tovar");
   STU.turi = id;
   STU.real = (id === "real"); STU.odamKadri = false;
+  // ✅ 633: odamli ↔ tovarli sinf o'zgarsa rejissyor QAYTA chaqiriladi —
+  // odamli reklamada u SAHNA emas, MUHIT yozadi (odam turadigan joy).
+  const yangiOdam = /^(real|model|kop)$/.test(id);
+  if (eskiOdam !== yangiOdam && STU.img) {
+    STU._aiHukmSrc = ""; STU.aiHukm = null; STU._aiHukmXato = "";
+    const hk = document.getElementById("stu-hukm"); if (hk) _stuHukmChiz(STU.img, hk);
+  }
   stuUstaChiz();
 }
 function stuModelJins(j) { STU.modelJins = j; stuUstaChiz(); }
@@ -4410,6 +4449,7 @@ async function stuKiydirOqim() {
     shaxsData = d.image;
   }
   STU.img = await _stuImg(shaxsData);
+  await stuMuhit(hamma[0].turi);                 // ✅ 633: rejissyor muhiti (tekshiruv bilan)
   STU.rasmlar[1] = aks[0] ? aks[0].img : null;   // aksessuar — kollaj slotida
   STU.aiNamoyish = !shaxsmi; STU.real = shaxsmi;
   STU.fokus = _stuFokusTur(hamma[0].turi);       // ✅ 631: kadr TOVARGA qaraydi
