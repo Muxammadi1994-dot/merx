@@ -243,7 +243,17 @@ function idbOpen() {
         const d = rq.result;
         if (!d.objectStoreNames.contains(IDB_STORE)) d.createObjectStore(IDB_STORE);
       };
-      rq.onsuccess = () => { _idb = rq.result; _idbOk = true; res(_idb); };
+      rq.onsuccess = () => {
+        _idb = rq.result; _idbOk = true;
+        // ✅ XD-4h (2026-09-12): ULANISH YOPILSA — o'lik ulanish saqlanmaydi.
+        // iOS Safari fonga o'tganda/qulfda ulanishni o'zi yopadi; avval `_idb`
+        // o'lik qolib, har tranzaksiya InvalidStateError bilan yiqilardi.
+        try {
+          _idb.onclose = () => { if (_idb === rq.result) _idb = null; try { window._qqYoz && window._qqYoz("idb: ulanish yopildi (onclose)"); } catch (e9) {} };
+          _idb.onversionchange = () => { try { rq.result.close(); } catch (e8) {} if (_idb === rq.result) _idb = null; };
+        } catch (e7) {}
+        res(_idb);
+      };
       rq.onerror   = () => { console.warn("IndexedDB ochilmadi — localStorage'da davom etamiz");
         try { window._qqHodisa && window._qqHodisa("idb_ochilmadi", String(rq.error || "")); } catch (e9) {}
         res(null); };   // ✅ XD-3
@@ -318,12 +328,33 @@ function _idbTx(d, fn) {                 // bitta kichik readwrite tranzaksiya
       tx.onabort  = () => { try { if (!window._idbXato) window._idbXato = String((tx.error && (tx.error.name + ": " + tx.error.message)) || "tx.onabort"); } catch (e9) {} res(false); };
     } catch (e) {
       try { window._idbXato = String((e && (e.name + ": " + e.message)) || e || "tx-exception"); } catch (e9) {}
+      // ✅ XD-4h: transaction() ning o'zi tashladi = ulanish yopiq (InvalidStateError).
+      // Ulanish unutiladi — keyingi idbOpen() yangidan ochadi.
+      if (e && e.name === "InvalidStateError" && _idb === d) _idb = null;
       try { if (tx) tx.abort(); } catch (e8) {}
       res(false);
     }
   });
 }
 function _idbBolKey(t, m, i) { return (m && m.gen) ? _idbBolG(t, m.gen, i) : _idbBol(t, i); }
+
+// ✅ XD-4h (2026-09-12): FAQAT O'ZGARGAN BO'LAKLAR.
+// Har jadvalning bo'lak xeshlari XOTIRADA (sessiya) saqlanadi. Keyingi
+// yozishda: xesh o'zgarmagan bo'lak sandiqqa TEGILMAYDI. O'zgargan bo'laklar
+// ≤3 ta bo'lsa — hammasi (+ manifest) BITTA kichik atomar tranzaksiyada,
+// o'sha avlod ichida (in-place). Ko'p bo'lsa (yoki xesh keshi yo'q/ishonchsiz)
+// — avvalgi avlodli to'liq yozuv. Sabab: har saqlashda 7 jadval × barcha
+// bo'laklar (60+ tranzaksiya) yozilardi — iPhone'da uzilish ehtimoli va
+// sekinlik shundan. Kesh faqat MUVAFFAQIYATLI yozuvdan keyin to'ldiriladi;
+// har qanday yiqilishda o'chiriladi (keyingi yozuv to'liq bo'ladi).
+const _idbXesh = {};                          // t → { gen, n, count, h:[...] }
+const IDB_OZGARGAN_MAX = 3;
+function _xeshStr(s) {                        // FNV-1a, 32 bit + uzunlik
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0).toString(36) + "." + s.length;
+}
+function _idbXeshTozala(t) { try { delete _idbXesh[t]; } catch (e) {} }
 
 function idbPutTable(t, arr) {
   return idbOpen().then(async d => {
@@ -332,11 +363,41 @@ function idbPutTable(t, arr) {
     try { window._idbXato = ""; } catch (e9) {}
     let eski = null;
     try { const m = await idbGet(_idbMan(t)); if (m && typeof m.n === "number") eski = m; } catch (e) {}
-    const gen = ((eski && eski.gen) || 0) + 1;
     const n = Math.ceil(arr.length / IDB_BOLAK);
+    // ── XD-4h: o'zgargan bo'laklar yo'li ──
+    const bolXesh = new Array(n), bolLar = new Array(n);
+    for (let i = 0; i < n; i++) {
+      bolLar[i] = arr.slice(i * IDB_BOLAK, (i + 1) * IDB_BOLAK);
+      let js = ""; try { js = JSON.stringify(bolLar[i]); } catch (e) { js = "?" + Math.random(); }
+      bolXesh[i] = _xeshStr(js);
+    }
+    const kesh = _idbXesh[t];
+    if (kesh && eski && eski.gen && kesh.gen === eski.gen && kesh.n === eski.n && kesh.count === eski.count) {
+      const ozg = [];                                       // yozilishi kerak bo'lgan bo'laklar
+      for (let i = 0; i < n; i++) if (i >= kesh.n || kesh.h[i] !== bolXesh[i]) ozg.push(i);
+      const och = [];                                       // ortiqcha eski bo'laklar
+      for (let j = n; j < kesh.n; j++) och.push(j);
+      if (!ozg.length && !och.length && arr.length === kesh.count) return true;   // hech narsa o'zgarmagan
+      if (ozg.length + och.length <= IDB_OZGARGAN_MAX) {
+        const g = eski.gen;
+        const ok = await _idbTx(d, st => {
+          const rqs = [];
+          ozg.forEach(i => rqs.push(st.put(bolLar[i], _idbBolG(t, g, i))));
+          och.forEach(j => rqs.push(st.delete(_idbBolG(t, g, j))));
+          rqs.push(st.put({ v: 2, gen: g, n: n, count: arr.length, ts: Date.now() }, _idbMan(t)));
+          return rqs;
+        });
+        if (ok) { _idbXesh[t] = { gen: g, n: n, count: arr.length, h: bolXesh }; return true; }
+        _idbXeshTozala(t);                                   // holat noma'lum → keyingisi to'liq
+        return false;
+      }
+    }
+    // ── avvalgi avlodli TO'LIQ yozuv (XD-4g) ──
+    _idbXeshTozala(t);
+    const gen = ((eski && eski.gen) || 0) + 1;
     // 1) yangi avlod bo'laklari — har biri alohida tranzaksiyada
     for (let i = 0; i < n; i++) {
-      const bol = arr.slice(i * IDB_BOLAK, (i + 1) * IDB_BOLAK);
+      const bol = bolLar[i];
       const w = await _idbTx(d, st => [st.put(bol, _idbBolG(t, gen, i))]);
       if (!w) {                                              // yiqildi — yarim yozilganlarni tozalab, eski avlodni qoldiramiz
         for (let j = 0; j <= i; j++) { try { await _idbTx(d, st => [st.delete(_idbBolG(t, gen, j))]); } catch (e) {} }
@@ -353,6 +414,7 @@ function idbPutTable(t, arr) {
     if (eski && eski.n) {
       for (let j = 0; j < eski.n; j++) { try { await _idbTx(d, st => [st.delete(_idbBolKey(t, eski, j))]); } catch (e) {} }
     }
+    _idbXesh[t] = { gen: gen, n: n, count: arr.length, h: bolXesh };   // ✅ XD-4h: kesh
     return true;
   });
 }
@@ -486,27 +548,71 @@ function scheduleHeavySave() {
   _idbTimer = setTimeout(flushHeavy, 200);
 }
 
+// ✅ XD-4h (2026-09-12): UZILISH ≠ BUZILISH.
+// Jonli sabab (CI/DZ, 2026-09-12 kun bo'yi): iOS Safari fonga o'tganda
+// sandiq ulanishini yopadi → bitta tranzaksiya uziladi (tx.onabort /
+// InvalidStateError). Avval BITTA uzilish → `_idbVerified=false` sessiya
+// oxirigacha → har saqlash 8,4 mln belgini cho'ntakka urardi → "xotira
+// to'ldi" toasti (ma'lumot butun, 4f). Endi:
+//   • flush QULFI — ikki flush bir vaqtda yurmaydi (200 ms taymer +
+//     visibilitychange poygasi — bir avlodga ikki yozuvchi);
+//   • yiqilsa: ulanish unutiladi, 3 s · 6 s · 9 s dan keyin 3 martagacha
+//     QAYTA URINISH; shu vaqtda verified TUSHIRILMAYDI (cho'ntak yengil);
+//   • 3 urinish ham yiqilsa — "sandiq sust" rejimi: har 30 s fonda urinadi,
+//     hisobot bir marta (`idb_sust`); tiklansa `idb_tiklandi`;
+//   • ekran qaytganda (visible) navbatdagi yozuv darhol yuriladi.
+let _idbFlushing = false, _idbUrinish = 0, _idbQaytaT = null, _idbSust = false;
+const IDB_QAYTA_MAX = 3;
+const _idbQaytaMs = () => (typeof window._idbQaytaMs === "number" ? window._idbQaytaMs : 3000);
+const _idbSustMs  = () => (typeof window._idbSustMs  === "number" ? window._idbSustMs  : 30000);
+function _idbQaytaReja(ms) {
+  clearTimeout(_idbQaytaT);
+  _idbQaytaT = setTimeout(() => { _idbQaytaT = null; try { flushHeavy(); } catch (e) {} }, ms);
+}
+
 async function flushHeavy() {
   if (!USE_IDB || !_idbVerified || !_idbDirty) return;
+  if (_idbFlushing) return;                            // qulf: tugagach _idbDirty qayta ko'riladi
+  _idbFlushing = true;
   _idbDirty = false;
-  for (const t of IDB_TABLES) {
-    const arr = Array.isArray(db[t]) ? db[t] : [];
-    const ok = await idbPutTable(t, arr);                // ✅ XD-4a: bo'laklab
-    if (!ok) {
-      // Yozib bo'lmadi — localStorage'ga qaytamiz, ma'lumot yo'qolmasin
-      console.error("❌ IndexedDB yozmadi — localStorage'ga qaytildi");
-      try { window._qqHodisa && window._qqHodisa("idb_yozmadi",
-        t + " · " + (window._idbXato || "")); } catch (e9) {}   // ✅ XD-3 + XD-4c: qaysi jadval, qanday xato
-      _idbVerified = false;
-      try { saveDB(); } catch(e) {}
-      return;
+  let xato = "";
+  try {
+    for (const t of IDB_TABLES) {
+      const arr = Array.isArray(db[t]) ? db[t] : [];
+      const ok = await idbPutTable(t, arr);              // ✅ XD-4a/4h: bo'laklab, faqat o'zgargani
+      if (!ok) { xato = t + " · " + (window._idbXato || ""); break; }
     }
+  } catch (e) { xato = "exception · " + ((e && e.message) || e); }
+  _idbFlushing = false;
+  if (!xato) {
+    if (_idbUrinish || _idbSust) {
+      try { window._qqHodisa && window._qqHodisa("idb_tiklandi", (_idbSust ? "sust rejimdan" : "urinish " + _idbUrinish)); } catch (e9) {}
+    }
+    _idbUrinish = 0; _idbSust = false;
+    if (_idbDirty) _idbQaytaReja(50);                    // flush paytida yana o'zgargan bo'lsa
+    return;
   }
+  // Yiqildi — ma'lumot RAMda butun; sandiqda eski avlod daxlsiz (4g)
+  _idbDirty = true;
+  IDB_TABLES.forEach(_idbXeshTozala);                    // holat noma'lum → keyingisi to'liq
+  _idb = null;                                           // ulanish yangidan ochiladi
+  _idbUrinish++;
+  try { window._qqYoz && window._qqYoz("idb uzildi: " + xato + " · urinish " + _idbUrinish); } catch (e9) {}
+  if (_idbUrinish <= IDB_QAYTA_MAX) { _idbQaytaReja(_idbQaytaMs() * _idbUrinish); return; }
+  if (!_idbSust) {
+    _idbSust = true;
+    console.error("❌ IndexedDB " + IDB_QAYTA_MAX + " urinishda yozmadi — sust rejim (fonda davom)");
+    try { window._qqHodisa && window._qqHodisa("idb_sust", xato); } catch (e9) {}   // ✅ XD-4h (avval: idb_yozmadi + to'liq cho'ntak)
+  }
+  _idbUrinish = IDB_QAYTA_MAX;                           // sust rejimda har 30 s
+  _idbQaytaReja(_idbSustMs());
 }
 
 // Sahifa yopilishida yoki fonga o'tganda darhol yozamiz
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") { try { flushHeavy(); } catch(e) {} }
+  // ✅ XD-4h: ekran qaytdi — kutayotgan yozuv darhol (uzilgan bo'lsa ham)
+  if (document.visibilityState === "visible" && _idbDirty) { try { _idbQaytaReja(300); } catch (e) {} }
 });
 window.addEventListener("beforeunload", () => { try { flushHeavy(); } catch(e) {} });
 
