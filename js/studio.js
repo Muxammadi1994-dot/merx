@@ -2642,7 +2642,7 @@ function stuTanla(sku, rang) {
   const q = document.getElementById("stu-q");   if (q) q.value = "";
   const n = document.getElementById("stu-natija"); if (n) { n.innerHTML = ""; n.style.display = "none"; }
   STU.tovarXom = p;                                  // ✅ USTA: rasm manbai uchun
-  STU.variants = []; STU.fon = null; STU.aiNamoyish = false;
+  STU.variants = []; STU.fon = null; STU.aiNamoyish = false; STU.foto = false;
   renderStudio();
   if (STU.rejim !== "pro" && STU.rasmManba === "katalog") stuKatalogRasm();
 }
@@ -2864,7 +2864,7 @@ function stuBoshqaSahna() { stuSahna(null, false); }
 function stuAsliga() {
   if (STU.asl) STU.img = STU.asl;
   STU.fon = null;
-  STU.aiNamoyish = false; STU.soya = true;   // ✅ S4
+  STU.aiNamoyish = false; STU.soya = true; STU.foto = false;   // ✅ S4
   toast("Asl suratga qaytdi", "ok");
   stChiz();
 }
@@ -2991,7 +2991,7 @@ function stuKatTanla() {
 function _stuArxetip(id) { return String(id).replace(/\d+$/, ""); }
 function stuVariantlar(oldingi) {
   const kat = stuKatTanla();
-  const sinf = STU.real ? "real" : (STU.aiNamoyish ? "model" : null);
+  const sinf = (STU.real || STU.foto) ? "real" : (STU.aiNamoyish ? "model" : null);   // ✅ 631: foto = to'liq kadr
   // ✅ tartib: o'z kategoriyasi (2) > umumiy (1); bolalar/sport shablonlari
   // faqat o'z kategoriyasida (stend: krossovkaga "Bolalar" tushib qolgan edi)
   const daraja = s => {
@@ -3076,10 +3076,19 @@ async function stuReklamaYasa() {
       stuHolat("1/3 · Tovar fondan ajratilmoqda…");
       await stuFonTozala(true);
       STU.avtoPal = stuPalitraChiqar(STU.img);
-      stuHolat("2/3 · Bezakli sahna tanlanmoqda…");
-      // ✅ ODDIY: bezakli (pampas, marmar, yog'och) — tabiiy ko'rinish
-      const bo = await stuFonAvto("tovar", true);
-      if (!bo) await stuSahna(null, true);   // zaxira
+      // ✅ 631: TARTIB O'ZGARDI. Ilgari birinchi KUTUBXONA foni olinardi
+      // (pampas, marmar) — rejissyor sahnasi faqat zaxira edi, ya'ni uning
+      // retsepti hech qachon ishlatilmasdi. Endi: (1) AI joylashtirish +
+      // tekshiruv → (2) rejissyor sahnasi + brauzer → (3) kutubxona (zaxira).
+      await _stuAiKut(15000);
+      const foto = await stuJoylashtir();
+      if (!foto) {
+        stuHolat("2/3 · Sahna yasalmoqda…");
+        let bo = false;
+        if (STU.aiHukm && STU.aiHukm.sahna && STU.aiHukm.sahna.buyruq) bo = await stuSahna(null, true);
+        if (!bo) bo = await stuFonAvto("tovar", true);   // zaxira: kutubxona
+        if (!bo) await stuSahna(null, true);
+      }
     }
     stuHolat("3/3 · Variantlar chizilmoqda…");
     STU.variants = stuVariantlar();
@@ -3192,6 +3201,7 @@ async function stuKiydir(jins) {
     STU.fon = null;              // natijada o'z foni bor
     STU.soya = false;            // to'liq kadr — soya/aks kerak emas
     STU.aiNamoyish = true;       // belgisi chiqadi
+    STU.fokus = _stuFokusTur(tur);   // ✅ 631: kadr TOVARGA qaraydi
     STU.shab = "model";          // ✅ S4b: to'liq kadr uslubi
     STU.variants = [
       { shab: "model",    pal: STU.avtoPal ? "auto" : "navy" },
@@ -4136,6 +4146,52 @@ const STU_TURLAR = [
 // ✅ 3-bosqich (studio 33): REJISSYOR ANIQLAGAN TUR. Katalog matni
 // emas, SURAT hal qiladi. Ishonchi "past" bo'lsa ishlatilmaydi —
 // unda eski yo'l (katalog matni) qoladi.
+// ✅ 631: KADR FOKUSI TOVAR TURIGA QARAB. "cover" kadr fokus nuqtasi
+// atrofini saqlaydi; ilgari doim yuzga (.38) qo'yilardi — oyoq kiyim
+// reklamasida oyoqlar kesilib, tovar KO'RINMASDI (egasi: "biror marta
+// ham juft chiqmadi"). Bilim ro'yxati 4.2: oyoq kiyim → beldan pastga.
+function _stuFokusTur(tur) {
+  if (tur === "shoes")     return { x: .5, y: .86 };
+  if (tur === "bottoms")   return { x: .5, y: .66 };
+  if (tur === "aksessuar") return { x: .5, y: .58 };
+  return { x: .5, y: .38 };                    // ust kiyim, libos — yuz+ko'krak
+}
+
+// ✅ 631: JOYLASHTIR — tovarni sahnaga AI qo'yadi (o'rta yo'l).
+// 3.54 yangi shaklda: taqiq emas, TEKSHIRUV. Natija asl bilan solishtiriladi;
+// mos bo'lsa — to'liq kadrli foto (yuza, soya, yorug'lik bitta kadrda);
+// mos bo'lmasa — false, chaqiruvchi eski yo'lga (kesish + fon) qaytadi.
+async function stuJoylashtir() {
+  const h = STU.aiHukm;
+  if (!h || !h.sahna || !(h.sahna.joy || h.sahna.yuza)) return false;
+  const src = STU.img; if (!src) return false;
+  const c = document.createElement("canvas");
+  const k = Math.min(1, 1100 / Math.max(src.width, src.height));
+  c.width = Math.round(src.width * k); c.height = Math.round(src.height * k);
+  const cx = c.getContext("2d");
+  cx.fillStyle = "#FFFFFF"; cx.fillRect(0, 0, c.width, c.height);   // shaffofsiz
+  cx.drawImage(src, 0, 0, c.width, c.height);
+  stuHolat("2/3 · Tovar sahnaga qo'yilmoqda (AI)…");
+  const d = await stuAI("joylashtir", { image: c.toDataURL("image/jpeg", 0.88),
+    sahna: h.sahna, joylashuv: h.joylashuv || {} });
+  if (!d || !d.image) return false;
+  let im; try { im = await _stuImg(d.image); } catch (e) { return false; }
+  // TEKSHIRUV — asl bilan (1 kredit). Mos bo'lmasa — rad, eski yo'l.
+  stuHolat("2/3 · Rejissyor natijani asl bilan solishtirmoqda…");
+  const t = await stuAiChaqir("ai_solishtir", { asl: _stuTayyor(STU.asl || STU.img, 900),
+    natija: _stuTayyor(im, 900), tovar: _stuAiTovar() });
+  if (!t || !t.ok || !t.hukm) { toast("Tekshiruv ishlamadi — oddiy yo'l bilan davom", "err"); return false; }
+  STU.aiMos = t.hukm;
+  if (!t.hukm.mos) {
+    toast("AI tovarni o'zgartirib qo'ydi (" + (t.hukm.farqlar[0] || "farq bor") + ") — oddiy yo'lga qaytildi", "err");
+    return false;
+  }
+  STU.img = im; STU.foto = true;
+  STU.fon = null; STU.soya = false; STU.aks = false; STU.aiNamoyish = false;
+  STU.fokus = { x: .5, y: .5 };
+  return true;
+}
+
 // ✅ 628: REJISSYORNI KUTISH. Uning javobi 5-15 s keladi; foydalanuvchi
 // undan oldin tugmani bossa, tur katalog matnidan olinardi (GRUFA yana
 // "ust" bo'lardi). Endi so'rov yo'lda bo'lsa 15 s gacha kutiladi.
@@ -4356,6 +4412,7 @@ async function stuKiydirOqim() {
   STU.img = await _stuImg(shaxsData);
   STU.rasmlar[1] = aks[0] ? aks[0].img : null;   // aksessuar — kollaj slotida
   STU.aiNamoyish = !shaxsmi; STU.real = shaxsmi;
+  STU.fokus = _stuFokusTur(hamma[0].turi);       // ✅ 631: kadr TOVARGA qaraydi
   STU.avtoPal = stuPalitraChiqar(STU.img);
   // ✅ AI fon: shahar/bino/interyer, mavsumga mos (egasining talabi)
   stuHolat("Fon tanlanmoqda…");
@@ -4548,7 +4605,13 @@ async function stuAiNatija() {
   // 2) natija aslga mosmi — faqat AI tovarga tekkan turlarda (1 kredit)
   if (!nh) return;
   const tur = STU.turi || "tovar";
-  if (tur === "tovar") { nh.style.display = "block"; nh.className = "v2-holat ok"; nh.textContent = "Tovar pikseli o'zgarmagan — kesish va fon, tekshiruv shart emas"; return; }
+  if (tur === "tovar") {
+    nh.style.display = "block"; nh.className = "v2-holat ok";
+    nh.textContent = (STU.foto && STU.aiMos)
+      ? "Tekshirildi: AI sahnaga qo'ydi, tovar aslga mos (ishonch " + STU.aiMos.ishonch + "%)"
+      : "Tovar pikseli o'zgarmagan — kesish va fon, tekshiruv shart emas";
+    return;
+  }
   if (!STU.img || !STU.img.src) return;
   nh.style.display = "block"; nh.className = "v2-holat"; nh.textContent = "Rejissyor natijani asl bilan solishtirmoqda…";
   let natija = "";

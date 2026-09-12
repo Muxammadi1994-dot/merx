@@ -47,7 +47,7 @@ const OYLIK_BEPUL = parseInt(process.env.STUDIO_LIMIT) || 10;
 const TG_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;      // ✅ S8: kanalga yuborish
 // ✅ S7: AMAL OG'IRLIGI — hamma amal bir xil emas.
 // Banner va video — BEPUL (brauzerda chiziladi, AI yo'q).
-const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kiydir_edit: 3, kanal: 0,
+const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kiydir_edit: 3, kanal: 0, joylashtir: 2,
                  ai_hukm: 0, ai_matn: 0, ai_solishtir: 1 };   // ✅ v2: rejissyor amallari
 
 // ═══════════════════════════════════════════════════════════════
@@ -1247,7 +1247,11 @@ module.exports = async (req, res) => {
       `product shown in the second image. Keep the product's design, colour, material, ` +
       `logo and shape exactly as in the second image. Do NOT change the person's face, ` +
       `hair, skin, body, pose, clothing or the background in any way. Photorealistic, ` +
-      `natural lighting and shadows matching the original photo.`;
+      `natural lighting and shadows matching the original photo.` +
+      // ✅ 631: oyoq kiyim — JUFTLIK va oyoqlar kadrdan chiqmasin (egasi:
+      // "biror marta ham juft yaratmadi"; natija kadri oyoqni kesib yuborardi)
+      (tur === "shoes" ? ` The person wears the PAIR — both shoes fully visible on both feet, ` +
+        `laced and worn naturally. Keep the full frame including the feet; do not crop or zoom.` : "");
     try {                                          // ✅ NAVBAT
       const q = await falSubmit(M_EDIT, { prompt: matn, image_urls: [shaxsRasm, tovar],
         num_images: 1, aspect_ratio: "auto", output_format: "png" });
@@ -1255,6 +1259,48 @@ module.exports = async (req, res) => {
         model: M_EDIT, status_url: q.status_url, response_url: q.response_url });
     } catch (e) {
       await jurnal(shopId, "kiydir_edit:" + tur, "fal", M_EDIT, false, e.message);
+      return res.status(200).json({ ok: false, error: e.message });
+    }
+  }
+
+  // ── ✅ 631 · JOYLASHTIR — tovarni sahnaga AI qo'yadi (o'rta yo'l, 3.54 ning
+  // yangi shakli: taqiq emas — TEKSHIRUV). Tahrir modeli tovar suratini oladi
+  // va rejissyor sahnasiga qo'yadi: yuza, kontakt soyasi, yorug'lik bitta
+  // kadrda. Natija klientda `ai_solishtir` dan o'tadi; mos bo'lmasa klient
+  // eski yo'lga (kesish + fon + brauzer) qaytadi. ──
+  if (amal === "joylashtir") {
+    const tovar = String(body.image || "");
+    if (!/^data:image\//.test(tovar))
+      return res.status(200).json({ ok: false, error: "Tovar rasmi yuborilmadi" });
+    if (tovar.length > MAX_KB * 1024)
+      return res.status(200).json({ ok: false, error: "Rasm juda katta" });
+    const [n0, ch0] = await Promise.all([oySarfi(shopId), chegaraOl(shopId)]);
+    if (n0 >= ch0.chegara)
+      return res.status(200).json({ ok: false, limit: true, error: `Bu oydagi ${ch0.chegara} kredit tugadi.` });
+    const S = body.sahna || {}, J = _joylashuv(body.joylashuv, S);
+    const b = k => String(S[k] || "").replace(/\s+/g, " ").trim().slice(0, 140);
+    const matn =
+      `Create a photorealistic product advertisement photograph. ` +
+      `Place the EXACT product from the input image into this scene: ${b("joy") || "a clean modern setting"}. ` +
+      `The product rests directly on ${b("yuza") || "a flat surface"}, located about ${J.gorizont}% up from the bottom of the frame, ` +
+      `with a natural soft contact shadow where it touches the surface. ` +
+      `Lighting: ${b("yoruglik") || "soft natural light"}, the same light falls on the product and the scene. ` +
+      (b("kamera") ? `Camera: ${b("kamera")}. ` : "") +
+      `Background: ${b("chuqurlik") || "softly blurred"}, shallow depth of field, product in sharp focus. ` +
+      (b("rekvizit") && !/^(yo'q|yoq|none|no)$/i.test(b("rekvizit")) ? `Props: ${b("rekvizit")}, small and to the side. ` : `No props. `) +
+      (b("palitra") ? `Colour palette: ${b("palitra")}. ` : "") +
+      `The product fills about ${J.foiz}% of the frame height, centred around ${J.markaz_x}% from the left. ` +
+      `CRITICAL: the product must stay EXACTLY as in the input image — same colour, shape, sole, laces, ` +
+      `stitching, logo, proportions and material texture. Do not redesign, recolour, restyle or add anything ` +
+      `to the product. If the input shows a pair, keep the pair. ` +
+      `No text, no letters, no people, no hands, no other products. Vertical portrait composition, high resolution.`;
+    try {                                          // NAVBAT — kiydir_edit bilan bir xil
+      const q = await falSubmit(M_EDIT, { prompt: matn, image_urls: [tovar],
+        num_images: 1, aspect_ratio: "4:5", output_format: "png" });
+      return res.status(200).json({ ok: true, navbat: true, amal: "joylashtir",
+        model: M_EDIT, status_url: q.status_url, response_url: q.response_url });
+    } catch (e) {
+      await jurnal(shopId, "joylashtir", "fal", M_EDIT, false, e.message);
       return res.status(200).json({ ok: false, error: e.message });
     }
   }
