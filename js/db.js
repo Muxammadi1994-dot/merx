@@ -296,31 +296,64 @@ const IDB_BOLAK = 250;
 const _idbMan = t => _idbKey(t) + "::m";
 const _idbBol = (t, i) => _idbKey(t) + "::c" + i;
 
+// ✅ XD-4g (2026-09-12): AVLODLI BO'LAKLAR — har bo'lak ALOHIDA kichik
+// tranzaksiyada. Jonli sabab (CI, 620): "idb_yozmadi · sales · tx.onerror" —
+// Safari bitta katta tranzaksiyani (minglab sotuv bo'laklari birga) rad etdi.
+// Atomarlik avlod (gen) bilan: yangi bo'laklar YANGI avlod kalitlarida
+// yoziladi; oxirida bitta kichik tranzaksiya manifestni yangi avlodga
+// buradi (va eski yaxlit yozuvni o'chiradi). Yiqilsa — eski avlod daxlsiz,
+// yarim yozilgan yangi bo'laklar tozalanadi. Eski manifest (v1) o'qiladi.
+const _idbBolG = (t, g, i) => _idbKey(t) + "::g" + g + "::c" + i;
+function _idbTx(d, fn) {                 // bitta kichik readwrite tranzaksiya
+  return new Promise(res => {
+    let tx = null;
+    try {
+      tx = d.transaction(IDB_STORE, "readwrite");
+      const st = tx.objectStore(IDB_STORE);
+      const rqs = fn(st) || [];
+      rqs.forEach(rq => { if (rq && "onerror" in rq) rq.onerror = () => {
+        try { window._idbXato = String((rq.error && (rq.error.name + ": " + rq.error.message)) || "rq.onerror"); } catch (e9) {} }; });
+      tx.oncomplete = () => res(true);
+      tx.onerror = () => { try { if (!window._idbXato) window._idbXato = String((tx.error && (tx.error.name + ": " + tx.error.message)) || "tx.onerror"); } catch (e9) {} res(false); };
+      tx.onabort  = () => { try { if (!window._idbXato) window._idbXato = String((tx.error && (tx.error.name + ": " + tx.error.message)) || "tx.onabort"); } catch (e9) {} res(false); };
+    } catch (e) {
+      try { window._idbXato = String((e && (e.name + ": " + e.message)) || e || "tx-exception"); } catch (e9) {}
+      try { if (tx) tx.abort(); } catch (e8) {}
+      res(false);
+    }
+  });
+}
+function _idbBolKey(t, m, i) { return (m && m.gen) ? _idbBolG(t, m.gen, i) : _idbBol(t, i); }
+
 function idbPutTable(t, arr) {
   return idbOpen().then(async d => {
     if (!d) return false;
     if (!Array.isArray(arr)) arr = [];
-    let eskiN = 0;
-    try { const m = await idbGet(_idbMan(t)); if (m && typeof m.n === "number") eskiN = m.n; } catch (e) {}
-    return new Promise(res => {
-      let tx = null;
-      try {
-        tx = d.transaction(IDB_STORE, "readwrite");
-        const st = tx.objectStore(IDB_STORE);
-        const n = Math.ceil(arr.length / IDB_BOLAK);
-        for (let i = 0; i < n; i++) st.put(arr.slice(i * IDB_BOLAK, (i + 1) * IDB_BOLAK), _idbBol(t, i));
-        for (let i = n; i < eskiN; i++) st.delete(_idbBol(t, i));      // qisqargan jadval — ortiqcha bo'laklar
-        st.put({ v: 1, n: n, count: arr.length, ts: Date.now() }, _idbMan(t));
-        st.delete(_idbKey(t));                                          // eski yaxlit yozuv (ko'chirish tugadi)
-        tx.oncomplete = () => res(true);
-        tx.onerror = () => { try { window._idbXato = String((tx.error && (tx.error.name + ": " + tx.error.message)) || "tx.onerror"); } catch (e9) {} res(false); };
-        tx.onabort = () => { try { window._idbXato = String((tx.error && (tx.error.name + ": " + tx.error.message)) || "tx.onabort"); } catch (e9) {} res(false); };
-      } catch (e) {
-        try { window._idbXato = String((e && (e.name + ": " + e.message)) || e || "put-exception"); } catch (e9) {}
-        try { if (tx) tx.abort(); } catch (e8) {}                        // yarim yozuv qolmasin
-        res(false);
+    try { window._idbXato = ""; } catch (e9) {}
+    let eski = null;
+    try { const m = await idbGet(_idbMan(t)); if (m && typeof m.n === "number") eski = m; } catch (e) {}
+    const gen = ((eski && eski.gen) || 0) + 1;
+    const n = Math.ceil(arr.length / IDB_BOLAK);
+    // 1) yangi avlod bo'laklari — har biri alohida tranzaksiyada
+    for (let i = 0; i < n; i++) {
+      const bol = arr.slice(i * IDB_BOLAK, (i + 1) * IDB_BOLAK);
+      const w = await _idbTx(d, st => [st.put(bol, _idbBolG(t, gen, i))]);
+      if (!w) {                                              // yiqildi — yarim yozilganlarni tozalab, eski avlodni qoldiramiz
+        for (let j = 0; j <= i; j++) { try { await _idbTx(d, st => [st.delete(_idbBolG(t, gen, j))]); } catch (e) {} }
+        return false;
       }
-    });
+    }
+    // 2) manifestni yangi avlodga burish + eski yaxlit yozuvni o'chirish (bitta kichik tranzaksiya)
+    const m2 = await _idbTx(d, st => [st.put({ v: 2, gen: gen, n: n, count: arr.length, ts: Date.now() }, _idbMan(t)), st.delete(_idbKey(t))]);
+    if (!m2) {
+      for (let j = 0; j < n; j++) { try { await _idbTx(d, st => [st.delete(_idbBolG(t, gen, j))]); } catch (e) {} }
+      return false;
+    }
+    // 3) eski avlod bo'laklarini tozalash (yiqilsa zarar yo'q — etim bo'laklar)
+    if (eski && eski.n) {
+      for (let j = 0; j < eski.n; j++) { try { await _idbTx(d, st => [st.delete(_idbBolKey(t, eski, j))]); } catch (e) {} }
+    }
+    return true;
   });
 }
 
@@ -342,7 +375,7 @@ function idbGetTable(t) {
         const parts = new Array(m.n); let left = m.n, bad = false;
         const fin = () => {
           if (bad) {
-            try { window._qqHodisa && window._qqHodisa("idb_bolak_yoq", t + " · " + m.n + " bo'lak"); } catch (e9) {}
+            try { window._qqHodisa && window._qqHodisa("idb_bolak_yoq", t + " · " + m.n + " bo'lak · gen " + (m.gen || 1)); } catch (e9) {}
             return res(undefined);
           }
           const out = [];
@@ -354,7 +387,7 @@ function idbGetTable(t) {
           res(out);
         };
         for (let i = 0; i < m.n; i++) {
-          const r = st.get(_idbBol(t, i));
+          const r = st.get(_idbBolKey(t, m, i));                        // v2: avlod kaliti · v1: eski kalit
           r.onsuccess = () => { parts[i] = Array.isArray(r.result) ? r.result : null; if (!parts[i]) bad = true; if (--left === 0) fin(); };
           r.onerror   = () => { bad = true; if (--left === 0) fin(); };
         }
