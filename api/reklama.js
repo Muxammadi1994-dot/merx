@@ -47,7 +47,68 @@ const OYLIK_BEPUL = parseInt(process.env.STUDIO_LIMIT) || 10;
 const TG_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;      // ✅ S8: kanalga yuborish
 // ✅ S7: AMAL OG'IRLIGI — hamma amal bir xil emas.
 // Banner va video — BEPUL (brauzerda chiziladi, AI yo'q).
-const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kiydir_edit: 3, kanal: 0 };
+const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kiydir_edit: 3, kanal: 0,
+                 ai_hukm: 0, ai_matn: 0, ai_solishtir: 1 };   // ✅ v2: rejissyor amallari
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ STUDIO v2 "IKKI MIYA" (2026-09-12) — Claude-REJISSYOR
+// Rassom (fal.ai) rasm yasaydi; rejissyor (Claude) suratni baholaydi,
+// sahna buyrug'ini yozadi, natijani ASL bilan solishtiradi, uz/ru matn
+// yozadi. Kalit FAQAT serverda (3.57). Har chaqiruv studio_log'ga.
+// Model nomlari ENV orqali almashtiriladi (kod o'zgarmaydi).
+// ═══════════════════════════════════════════════════════════════
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
+const M_AI      = process.env.STUDIO_AI_MODEL      || "claude-sonnet-5";    // matn, surat hukmi
+const M_AI_HUKM = process.env.STUDIO_AI_MODEL_HUKM || "claude-fable-5-1";   // "natija aslga mosmi" (qimmat, aniq)
+
+function _dataUri(str, maxKb) {
+  const m = /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/.exec(String(str || ""));
+  if (!m) return null;
+  if (m[2].length > (maxKb || MAX_KB) * 1024) return { xato: "rasm juda katta" };
+  return { media: m[1], data: m[2] };
+}
+async function claudeChaqir(model, system, content, maxTok, ms) {
+  if (!ANTHROPIC_KEY) throw new Error("AI kaliti sozlanmagan (Vercel ENV: ANTHROPIC_API_KEY)");
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms || 40000);
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST", signal: ctl.signal,
+      headers: { "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model, max_tokens: maxTok || 900, system, messages: [{ role: "user", content }] }),
+    });
+    const j = await r.json().catch(() => null);
+    if (!r.ok) {
+      const msg = (j && j.error && j.error.message) || ("HTTP " + r.status);
+      if (r.status === 401) throw new Error("AI kaliti yaroqsiz yoki muddati tugagan — Console'da yangilang");
+      if (r.status === 402 || /credit|balance|billing/i.test(msg)) throw new Error("AI balansi tugagan — Console'da to'ldiring");
+      if (r.status === 429) throw new Error("AI band (limit) — biroz kutib qayta urining");
+      if (r.status === 404 && /model/i.test(msg)) throw new Error("AI modeli topilmadi: " + model);
+      throw new Error("AI xatosi: " + String(msg).slice(0, 160));
+    }
+    const text = (j.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+    return { text, usage: j.usage || {} };
+  } catch (e) {
+    if (e && e.name === "AbortError") throw new Error("AI javob bermadi (vaqt tugadi)");
+    throw e;
+  } finally { clearTimeout(t); }
+}
+function _jsonAjrat(t) {
+  const s = String(t || "").replace(/```json|```/g, "").trim();
+  const a = s.indexOf("{"), b = s.lastIndexOf("}");
+  if (a < 0 || b < a) throw new Error("AI javobi JSON emas");
+  return JSON.parse(s.slice(a, b + 1));
+}
+function _tovarMatn(t) {
+  t = t || {};
+  return ["Nomi: " + (t.nom || "—"), t.art ? "Artikul: " + t.art : "", t.kat ? "Toifa: " + t.kat : "",
+          t.rang ? "Rang: " + t.rang : "", t.narx ? "Narx: " + t.narx + " so'm" : "", t.olcham ? "O'lchamlar: " + t.olcham : ""]
+         .filter(Boolean).join("\n");
+}
+const REJISSYOR = `Sen MERX Studio rejissyorisan — O'zbekistondagi kiyim va oyoq kiyim do'konlari uchun reklama suratlarini baholaysan va yo'naltirasan.
+Uslub-DNK (referenslar asosida): iliq neytral ranglar (bej, jigarrang, to'q ko'k, kulrang), tabiiy fakturalar (yog'och, shuvoq devor, zig'ir), bir tomondan yumshoq deraza nuri, fon xiralashgan, rekvizit ko'pi bilan ikkita (pampas o'ti, shisha vaza, kitob), suratda matn yo'q. Oyoq kiyim — 3/4 rakursdan, pastroq nuqtadan; kiyim — ilgichda yoki odamda. Tovar kadrning 50-60% ini egallaydi.
+QAT'IY QOIDA: tovarning o'zi (rang, shakl, tag, tugma, naqsh, logotip) hech qachon o'zgartirilmaydi — faqat fon, soya, kadrlash, tozalash (qo'l, birka, qisqich, qog'oz olib tashlanadi).
+Javob tili — o'zbek (lotin, to'g'ri apostrof: o', g'). Faqat so'ralgan JSON ni qaytar, boshqa hech narsa yozma.`;
+
 // ⚠️ Vercel so'rov tanasi chegarasi ~4.5 MB. Undan katta rasm
 // PLATFORMA darajasida rad etiladi (413) va bizning tushunarli
 // xatomiz o'rniga tushunarsiz javob chiqadi. Shuning uchun 3.6 MB.
@@ -514,7 +575,79 @@ module.exports = async (req, res) => {
     const [n, ch] = await Promise.all([oySarfi(shopId), chegaraOl(shopId)]);
     return res.status(200).json({ ok: true, sarf: n, chegara: ch.chegara,
       sozlama: ch.sozlama, narx: KREDIT,
-      fal: !!FAL_KEY, gemini: !!GEMINI_KEY, tg: !!TG_TOKEN });
+      fal: !!FAL_KEY, gemini: !!GEMINI_KEY, tg: !!TG_TOKEN, ai: !!ANTHROPIC_KEY });   // ✅ v2
+  }
+
+  // ── ✅ v2: REJISSYOR — surat hukmi + sahna retsepti ──
+  if (amal === "ai_hukm") {
+    const im = _dataUri(body.image, 1600);
+    if (!im || im.xato) return res.status(200).json({ ok: false, error: im && im.xato ? im.xato : "Rasm yuborilmadi" });
+    const tovar = body.tovar || {}, turi = String(body.turi || "tovar");
+    const savol = "Tovar:\n" + _tovarMatn(tovar) + "\nReklama turi: " + turi +
+      "\n\nSuratni bahola. Kirishda ko'ringan kamchiliklar (qo'l, birka, qisqich, mo'yna gilam, javon foni, qog'oz, qiyshiqlik, qorong'ilik, kichik o'lcham) va nima qilinishini ayt. " +
+      "Faqat shu JSON: {\"yaroqli\":true|false,\"daraja\":1-5,\"sarlavha\":\"8 so'zgacha qisqa hukm\",\"bandlar\":[\"3 tagacha aniq amal/maslahat\"]," +
+      "\"kesish\":{\"qol\":bool,\"birka\":bool,\"burchak\":gradus_soni},\"sahna\":{\"buyruq\":\"English prompt for the BACKGROUND ONLY: no product, no text, no people, photorealistic, warm neutral, soft window light, matching this product's category\"},\"tur_taklif\":\"tovar|real|model|kop\"}";
+    let hukm = null, xato = "", tok = {};
+    try {
+      const r = await claudeChaqir(M_AI, REJISSYOR, [
+        { type: "image", source: { type: "base64", media_type: im.media, data: im.data } },
+        { type: "text", text: savol }], 700, 40000);
+      tok = r.usage; hukm = _jsonAjrat(r.text);
+      hukm.yaroqli = !!hukm.yaroqli; hukm.daraja = Math.max(1, Math.min(5, Number(hukm.daraja) || 3));
+      hukm.sarlavha = String(hukm.sarlavha || "").slice(0, 80);
+      hukm.bandlar = Array.isArray(hukm.bandlar) ? hukm.bandlar.slice(0, 3).map(x => String(x).slice(0, 140)) : [];
+      hukm.sahna = { buyruq: String((hukm.sahna && hukm.sahna.buyruq) || "").slice(0, 600) };
+    } catch (e) { xato = e.message; }
+    await jurnal(shopId, "ai_hukm", "anthropic", M_AI, !xato, xato || ("in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0)));
+    if (xato) return res.status(200).json({ ok: false, error: xato });
+    return res.status(200).json({ ok: true, hukm });
+  }
+
+  // ── ✅ v2: REJISSYOR — uz/ru post matni ──
+  if (amal === "ai_matn") {
+    const tovar = body.tovar || {}, til = String(body.til || "ikkalasi");
+    const savol = "Tovar:\n" + _tovarMatn(tovar) + "\nReklama turi: " + String(body.turi || "tovar") +
+      (body.sahna ? "\nSahna: " + String(body.sahna).slice(0, 80) : "") + (body.sarlavha ? "\nDo'kon sarlavhasi: " + String(body.sarlavha).slice(0, 40) : "") +
+      "\n\nInstagram/Telegram uchun post matni yoz: 2-4 jumla, samimiy va aniq, narx faqat berilgan bo'lsa, oxirida \"buyurtma — xabar yozing\" ma'nosidagi chaqiriq, emoji ko'pi bilan bitta. " +
+      "Faqat shu JSON: {\"uz\":{\"sarlavha\":\"\",\"matn\":\"\",\"heshteg\":[\"#..\"]},\"ru\":{\"sarlavha\":\"\",\"matn\":\"\",\"heshteg\":[\"#..\"]}}" +
+      (til === "uz" ? " (ru bo'sh qolsin)" : til === "ru" ? " (uz bo'sh qolsin)" : "");
+    let matn = null, xato = "", tok = {};
+    try {
+      const r = await claudeChaqir(M_AI, REJISSYOR, [{ type: "text", text: savol }], 700, 30000);
+      tok = r.usage; matn = _jsonAjrat(r.text);
+      for (const k of ["uz", "ru"]) { const o = matn[k] || {}; matn[k] = { sarlavha: String(o.sarlavha || "").slice(0, 80), matn: String(o.matn || "").slice(0, 600),
+        heshteg: (Array.isArray(o.heshteg) ? o.heshteg : []).slice(0, 8).map(x => String(x).slice(0, 30)) }; }
+    } catch (e) { xato = e.message; }
+    await jurnal(shopId, "ai_matn", "anthropic", M_AI, !xato, xato || ("in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0)));
+    if (xato) return res.status(200).json({ ok: false, error: xato });
+    return res.status(200).json({ ok: true, matn });
+  }
+
+  // ── ✅ v2: REJISSYOR — natija ASL tovarga mosmi (2-rasm sinfi xatosini ushlaydi) ──
+  if (amal === "ai_solishtir") {
+    const [n0, ch0] = await Promise.all([oySarfi(shopId), chegaraOl(shopId)]);
+    if (n0 >= ch0.chegara)
+      return res.status(200).json({ ok: false, limit: true, sarf: n0, chegara: ch0.chegara, error: `Bu oydagi ${ch0.chegara} kredit tugadi.` });
+    const asl = _dataUri(body.asl, 1400), nat = _dataUri(body.natija, 1400);
+    if (!asl || asl.xato || !nat || nat.xato) return res.status(200).json({ ok: false, error: "Ikkala rasm kerak (asl va natija), 1,4 MB gacha" });
+    const savol = "Birinchi rasm — ASL tovar surati. Ikkinchi rasm — AI yasagan reklama. Tovar (kiyim/oyoq kiyim/aksessuar) ikkinchi rasmda ASL bilan bir xilmi? " +
+      "Tekshir: rang va tus, shakl va silu, TAG (oyoq kiyimda: qalin/yupqa, rezina/charm), tugmalar va zamok, naqsh/tikuv, logotip va yozuvlar, cho'ntaklar. Fon, yorug'lik, poza, kadr — E'TIBORGA OLINMAYDI. " +
+      "Tovar:\n" + _tovarMatn(body.tovar) +
+      "\nFaqat shu JSON: {\"mos\":true|false,\"ishonch\":0-100,\"farqlar\":[\"aniq farq, o'zbekcha, 3 tagacha\"],\"tavsiya\":\"qabul|qayta|rad\"}";
+    let hukm = null, xato = "", tok = {};
+    try {
+      const r = await claudeChaqir(M_AI_HUKM, REJISSYOR, [
+        { type: "image", source: { type: "base64", media_type: asl.media, data: asl.data } },
+        { type: "image", source: { type: "base64", media_type: nat.media, data: nat.data } },
+        { type: "text", text: savol }], 500, 45000);
+      tok = r.usage; hukm = _jsonAjrat(r.text);
+      hukm = { mos: !!hukm.mos, ishonch: Math.max(0, Math.min(100, Number(hukm.ishonch) || 0)),
+        farqlar: (Array.isArray(hukm.farqlar) ? hukm.farqlar : []).slice(0, 3).map(x => String(x).slice(0, 120)),
+        tavsiya: ["qabul", "qayta", "rad"].includes(hukm.tavsiya) ? hukm.tavsiya : (hukm.mos ? "qabul" : "qayta") };
+    } catch (e) { xato = e.message; }
+    await jurnal(shopId, "ai_solishtir", "anthropic", M_AI_HUKM, !xato, xato || ("in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0)));
+    if (xato) return res.status(200).json({ ok: false, error: xato });
+    return res.status(200).json({ ok: true, hukm });
   }
 
   // ── ✅ S8: DO'KON SOZLAMASI — reklama kanali va Instagram ──
@@ -648,7 +781,10 @@ module.exports = async (req, res) => {
     // ✅ S3: kategoriya + rang + mavsum → buyruq
     const kat = SAHNA_KUTUB[body.kat] ? body.kat : "umumiy";
     const s = sahnaBuyruq(kat, body.sahna, body.rang);
-    const tur = s.id, matn = s.matn;
+    const tur = s.id;
+    // ✅ v2: rejissyor buyrug'i bo'lsa — u ishlatiladi (faqat FON: tovar/matn/odam yo'q)
+    const aiB = String(body.ai_buyruq || "").replace(/\s+/g, " ").trim().slice(0, 600);
+    const matn = aiB ? (aiB + ". Background only, no product, no text, no people, photorealistic.") : s.matn;
     let chiq = null, xato = "", prov = "fal", model = M_SAHNA;
     try {
       const j = await falRun(M_SAHNA, { prompt: matn, image_size: "square_hd",

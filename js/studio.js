@@ -2765,7 +2765,8 @@ async function stuSahna(sahnaId, jim) {
     if (!jim) { stuHolat(""); stChiz(); }
     return true;
   }
-  const d = await stuAI("sahna", { kat, sahna: sahnaId || null, rang });
+  const d = await stuAI("sahna", { kat, sahna: sahnaId || null, rang,
+    ai_buyruq: (STU.aiHukm && STU.aiHukm.sahna && STU.aiHukm.sahna.buyruq) || undefined });   // ✅ v2
   if (!d) return false;
   try {
     STU.fon = await _stuImg(d.image);
@@ -3348,7 +3349,7 @@ async function stuKanalga(video) {
     const c = document.createElement("canvas");
     stChiz(c, stFmt());
     const data = c.toDataURL("image/jpeg", 0.92);   // ✅ yuklama: PNG emas
-    const d = await stuAI("kanalga", { image: data, matn: _stuIzoh() });
+    const d = await stuAI("kanalga", { image: data, matn: _stuAiMatnTayyor() || _stuIzoh() });   // ✅ v2
     if (d && d.ok) toast("Kanalga yuborildi ✅", "ok");
   } finally {
     if (b) { b.disabled = false; b.textContent = "📢 Kanalga yuborish"; }
@@ -4000,6 +4001,7 @@ function stuNatijaKorsat(bor) {
   const f = document.getElementById("stu-od-fmt");
   if (f) f.innerHTML = STU_FMT.map(x =>
     `<button class="${x.id === STU.fmt ? "on" : ""}" onclick="stuFmt('${x.id}');stuNatijaKorsat(true)">${x.nom}</button>`).join("");
+  stuAiNatija();                                       // ✅ v2: matn + "aslga mosmi" (har yangi to'plamga bir marta)
 }
 async function stuYana() {
   STU.variants = stuVariantlar(STU.variants);
@@ -4313,12 +4315,111 @@ function stuSahnaChiz() {
   }
   if (img.src !== im.src) img.src = im.src;
   img.style.display = "block"; bosh.style.display = "none";
-  const h = stuSuratHukm(im);
-  hk.className = "v2-hukm" + (h.ogoh ? " ogoh" : "");
-  hk.innerHTML = `<b><i></i>${h.sarl}</b>` + (h.band.length ? `<ul>${h.band.map(t => `<li>${t}</li>`).join("")}</ul>` : "");
+  _stuHukmChiz(im, hk);                                // ✅ v2: rejissyor bo'lsa — u, bo'lmasa mahalliy
   hk.style.display = "block";
   // sozlash qutichalari holatni aks ettirsin
   const n = document.getElementById("stu-narx-v2");  if (n) n.checked = !!STU.narxKorsat;
   const b = document.getElementById("stu-belgi-v2"); if (b) b.checked = !!STU.belgi;
   const y = document.getElementById("stu-yorliq-v2"); if (y && y.value !== (STU.yorliq || "") && !STU.yorliqQolda) y.value = STU.yorliq || "";
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ STUDIO v2 "IKKI MIYA" (2026-09-12) — REJISSYOR (Claude) klient tomoni
+// Rassom (fal.ai) rasm yasaydi; rejissyor suratni baholaydi, sahna
+// buyrug'ini beradi, natijani ASL bilan solishtiradi, uz/ru matn yozadi.
+// Xatolar YUTILMAYDI — kartada sababi bilan ko'rinadi (B8/3.60).
+// ═══════════════════════════════════════════════════════════════
+function _stuAiEsc(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]); }
+async function stuAiChaqir(amal, qosh) {             // band-qulfsiz: fon ishi, kassirni to'xtatmaydi
+  try {
+    const tok = await _stuTok();
+    if (!tok) return { ok: false, error: "Kirish kaliti topilmadi — sahifani yangilang" };
+    const r = await fetch("/api/reklama", { method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
+      body: JSON.stringify(Object.assign({ action: amal }, qosh || {})) });
+    const d = await r.json().catch(() => null);
+    return d || { ok: false, error: "Server javob bermadi (" + r.status + ")" };
+  } catch (e) { return { ok: false, error: e.message || "tarmoq xatosi" }; }
+}
+function _stuAiTovar() {
+  const t = STU.tovar || {}, p = STU.tovarXom || {};
+  return { nom: t.nom || "", art: t.art || "", rang: STU.tanlanganRang || t.rang || "",
+           narx: STU.narxKorsat && t.narx ? stSon(t.narx) : "", olcham: t.olcham || "",
+           kat: p.category || p.kategoriya || p.kat || "" };
+}
+function _stuHukmChiz(im, hk) {
+  const ai = STU.aiHukm && STU._aiHukmSrc === im.src ? STU.aiHukm : null;
+  if (ai) {
+    hk.className = "v2-hukm" + (ai.yaroqli ? "" : " ogoh");
+    hk.innerHTML = `<b><i></i>${_stuAiEsc(ai.sarlavha || "Rejissyor hukmi")}</b>` +
+      (ai.bandlar && ai.bandlar.length ? `<ul>${ai.bandlar.map(t => `<li>${_stuAiEsc(t)}</li>`).join("")}</ul>` : "") +
+      `<div class="v2-ai">Rejissyor · daraja ${ai.daraja || "—"}/5</div>`;
+    return;
+  }
+  const h = stuSuratHukm(im);
+  hk.className = "v2-hukm" + (h.ogoh ? " ogoh" : "");
+  hk.innerHTML = `<b><i></i>${_stuAiEsc(h.sarl)}</b>` + (h.band.length ? `<ul>${h.band.map(t => `<li>${_stuAiEsc(t)}</li>`).join("")}</ul>` : "") +
+    `<div class="v2-ai" id="stu-ai-holat">${STU._aiHukmXato && STU._aiHukmSrc === im.src ? "AI tekshiruvi: " + _stuAiEsc(STU._aiHukmXato) : "Rejissyor ko'rmoqda…"}</div>`;
+  if (!STU._aiHukmXato || STU._aiHukmSrc !== im.src) stuAiHukm(im);
+}
+async function stuAiHukm(im) {
+  if (!im || !im.src || !STU.tovar) return;
+  if (STU._aiHukmSrc === im.src && (STU.aiHukm || STU._aiBand)) return;   // shu surat uchun allaqachon
+  STU._aiHukmSrc = im.src; STU.aiHukm = null; STU._aiHukmXato = ""; STU._aiBand = true;
+  const src = im.src;
+  const d = await stuAiChaqir("ai_hukm", { image: _stuTayyor(im, 900), tovar: _stuAiTovar(), turi: STU.turi || "tovar" });
+  STU._aiBand = false;
+  if (STU._aiHukmSrc !== src) return;                 // surat almashgan — eskirgan javob
+  if (!d || !d.ok) { STU._aiHukmXato = (d && d.error) || "xato"; }
+  else STU.aiHukm = d.hukm;
+  const hk = document.getElementById("stu-hukm");
+  if (hk && STU.img && STU.img.src === src) _stuHukmChiz(STU.img, hk);
+}
+function _stuAiMatnTayyor() {
+  const m = STU.aiMatn; if (!m) return "";
+  const q = [_stuIzoh()];
+  for (const k of ["uz", "ru"]) { const o = m[k]; if (o && o.matn) q.push((o.sarlavha ? o.sarlavha + "\n" : "") + o.matn + (o.heshteg && o.heshteg.length ? "\n" + o.heshteg.join(" ") : "")); }
+  return q.filter(Boolean).join("\n\n").slice(0, 880);
+}
+async function stuAiNatija() {
+  if (!STU.variants || !STU.variants.length) return;
+  if (STU._aiNatijaId === STU.variants) return;       // shu to'plam uchun bajarilgan
+  STU._aiNatijaId = STU.variants; STU.aiMatn = null; STU.aiMos = null;
+  const mb = document.getElementById("stu-matn"), nh = document.getElementById("stu-natija-hukm");
+  if (mb) { mb.style.display = "block"; mb.innerHTML = `<div class="v2-ai">Matn yozilmoqda…</div>`; }
+  // 1) matn
+  stuAiChaqir("ai_matn", { tovar: _stuAiTovar(), turi: STU.turi || "tovar", sahna: STU.fonNom || "", sarlavha: STU.yorliq || "" }).then(d => {
+    if (!mb) return;
+    if (!d || !d.ok) { mb.innerHTML = `<div class="v2-ai xato">Matn: ${_stuAiEsc((d && d.error) || "xato")}</div>`; return; }
+    STU.aiMatn = d.matn;
+    const uz = d.matn.uz || {}, ru = d.matn.ru || {};
+    const blok = (o, t) => o.matn ? `<div class="v2-matn-b" data-til="${t}"><p>${_stuAiEsc(o.matn)}</p>` +
+      (o.heshteg && o.heshteg.length ? `<div class="v2-ai">${_stuAiEsc(o.heshteg.join(" "))}</div>` : "") + `</div>` : "";
+    mb.innerHTML = `<div class="v2-matn-bosh"><b>Post matni</b><button class="v2-lnk" onclick="stuAiMatnNusxa()">Nusxalash</button></div>` + blok(uz, "uz") + blok(ru, "ru") +
+      `<div class="v2-ai">Matn kanalga post bilan birga ketadi</div>`;
+  });
+  // 2) natija aslga mosmi — faqat AI tovarga tekkan turlarda (1 kredit)
+  if (!nh) return;
+  const tur = STU.turi || "tovar";
+  if (tur === "tovar") { nh.style.display = "block"; nh.className = "v2-holat ok"; nh.textContent = "Tovar pikseli o'zgarmagan — kesish va fon, tekshiruv shart emas"; return; }
+  if (!STU.img || !STU.img.src) return;
+  nh.style.display = "block"; nh.className = "v2-holat"; nh.textContent = "Rejissyor natijani asl bilan solishtirmoqda…";
+  let natija = "";
+  try { const c = document.getElementById("stu-od-cvs"); const k = Math.min(1, 900 / Math.max(c.width, c.height));
+        const c2 = document.createElement("canvas"); c2.width = Math.round(c.width * k); c2.height = Math.round(c.height * k);
+        c2.getContext("2d").drawImage(c, 0, 0, c2.width, c2.height); natija = c2.toDataURL("image/jpeg", 0.85); } catch (e) {}
+  const d = await stuAiChaqir("ai_solishtir", { asl: _stuTayyor(STU.img, 900), natija, tovar: _stuAiTovar() });
+  if (STU._aiNatijaId !== STU.variants) return;
+  if (!d || !d.ok) { nh.className = "v2-holat xato"; nh.textContent = "Tekshiruv: " + ((d && d.error) || "xato"); return; }
+  STU.aiMos = d.hukm;
+  nh.className = "v2-holat " + (d.hukm.mos ? "ok" : "xato");
+  nh.innerHTML = d.hukm.mos
+    ? `Tekshirildi: tovar aslga mos (ishonch ${d.hukm.ishonch}%)`
+    : `<b>Diqqat: tovar aslga mos emas</b> (ishonch ${d.hukm.ishonch}%)` + (d.hukm.farqlar.length ? `<ul>${d.hukm.farqlar.map(t => `<li>${_stuAiEsc(t)}</li>`).join("")}</ul>` : "") +
+      `<div class="v2-ai">Tavsiya: ${d.hukm.tavsiya === "rad" ? "yubormang — qayta yasang" : "«Yana 6 ta» yoki boshqa surat bilan qayta urining"}</div>`;
+}
+function stuAiMatnNusxa() {
+  const t = _stuAiMatnTayyor().replace(/<[^>]+>/g, "");
+  try { navigator.clipboard.writeText(t); toast("Matn nusxalandi", "ok"); } catch (e) { toast("Nusxalab bo'lmadi", "err"); }
 }
