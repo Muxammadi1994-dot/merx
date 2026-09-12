@@ -67,22 +67,25 @@ function _dataUri(str, maxKb) {
   if (m[2].length > (maxKb || MAX_KB) * 1024) return { xato: "rasm juda katta" };
   return { media: m[1], data: m[2] };
 }
-// ✅ v2.5 (2026-09-12) — JSON MAJBURIY. `prefill` berilsa javob assistant
-// navbatida "{" bilan BOShLAB qo'yiladi: model muqaddima, tahlil yoki
-// izoh yoza olmaydi — to'g'ridan-to'g'ri JSON davom etadi.
-// Sabab: rejissyor "AI javobi JSON emas" bilan yiqildi — tahlil matni
-// yozib, token tugaguncha JSONga yetmagan. stop_reason ham qaytadi:
-// "max_tokens" bo'lsa — javob kesilgan, buni jurnal ko'rsatadi.
-async function claudeChaqir(model, system, content, maxTok, ms, prefill) {
+// ✅ v2.6 (2026-09-12) — JSON SXEMA BILAN MAJBURIY (output_config.format).
+// Tarix: v2.5 da "{" bilan boshlab qo'yish (prefill) sinaldi — jonli
+// xato: "This model does not support assistant message prefill".
+// Endi rasmiy yo'l: so'rovga JSON sxemasi beriladi, API javobni shu
+// sxemaga MAJBURAN moslaydi (grammatika bilan) — muqaddima, izoh,
+// yaroqsiz JSON chiqmaydi. Hujjat: platform.claude.com/docs/en/
+// build-with-claude/structured-outputs (Sonnet 5, Fable 5.1 — qo'llanadi).
+// Cheklov: har maydon `required`, `additionalProperties:false`, union yo'q.
+// stop_reason qaytadi: "max_tokens" = javob kesilgan (jurnalga tushadi).
+async function claudeChaqir(model, system, content, maxTok, ms, sxema) {
   if (!ANTHROPIC_KEY) throw new Error("AI kaliti sozlanmagan (Vercel ENV: ANTHROPIC_API_KEY)");
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms || 40000);
   try {
-    const messages = [{ role: "user", content }];
-    if (prefill) messages.push({ role: "assistant", content: prefill });
+    const tana = { model, max_tokens: maxTok || 900, system, messages: [{ role: "user", content }] };
+    if (sxema) tana.output_config = { format: { type: "json_schema", schema: sxema } };
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", signal: ctl.signal,
       headers: { "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model, max_tokens: maxTok || 900, system, messages }),
+      body: JSON.stringify(tana),
     });
     const j = await r.json().catch(() => null);
     if (!r.ok) {
@@ -93,7 +96,7 @@ async function claudeChaqir(model, system, content, maxTok, ms, prefill) {
       if (r.status === 404 && /model/i.test(msg)) throw new Error("AI modeli topilmadi: " + model);
       throw new Error("AI xatosi: " + String(msg).slice(0, 160));
     }
-    const text = (prefill || "") + (j.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+    const text = (j.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
     return { text, usage: j.usage || {}, stop: j.stop_reason || "" };
   } catch (e) {
     if (e && e.name === "AbortError") throw new Error("AI javob bermadi (vaqt tugadi)");
@@ -153,6 +156,29 @@ function _tovarMatn(t) {
 // natijada TEKSHIRUV amalida model javobni uzun boshlab yubordi va
 // 500 token chegarasida kesildi → "AI javobi JSON emas". Endi tekshiruv
 // va matn o'z qisqa buyruqlaridan ishlaydi; sahna qonunlari faqat hukmda.
+// ✅ v2.6 — JSON SXEMALARI. Maydon nomlari normalizatorlar bilan bir xil.
+// Hamma maydon required (API limiti: ixtiyoriy maydon qimmat), union yo'q.
+const S_STR = { type: "string" }, S_INT = { type: "integer" }, S_BOOL = { type: "boolean" };
+const S_STRLIST = { type: "array", items: S_STR };
+const _obj = (p) => ({ type: "object", properties: p, required: Object.keys(p), additionalProperties: false });
+const HUKM_SXEMA = _obj({
+  tovar_turi: { type: "string", enum: ["oyoq kiyim", "ust kiyim", "past kiyim", "libos", "aksessuar"] },
+  ishonch:    { type: "string", enum: ["yuqori", "o'rta", "past"] },
+  yaroqli: S_BOOL, daraja: S_INT, sarlavha: S_STR, bandlar: S_STRLIST,
+  sahna: _obj({ joy: S_STR, yuza: S_STR, balandlik: S_STR, yoruglik: S_STR, kamera: S_STR,
+                chuqurlik: S_STR, rekvizit: S_STR, palitra: S_STR, buyruq: S_STR }),
+  joylashuv: _obj({ foiz: S_INT, markaz_x: S_INT, gorizont: S_INT,
+                    soya_yon: { type: "string", enum: ["chap", "ong", "past"] }, soya_kuch: S_INT }),
+});
+const TEKSHIR_SXEMA = _obj({
+  mos: S_BOOL, ishonch: S_INT, farqlar: S_STRLIST,
+  tavsiya: { type: "string", enum: ["qabul", "qayta", "rad"] },
+});
+const MATN_SXEMA = _obj({
+  uz: _obj({ sarlavha: S_STR, matn: S_STR, heshteg: S_STRLIST }),
+  ru: _obj({ sarlavha: S_STR, matn: S_STR, heshteg: S_STRLIST }),
+});
+
 const REJ_TEKSHIR = `Sen MERX Studio nazoratchisisan. Ikki rasm beriladi: ASL tovar surati va AI yasagan reklama. Vazifang bitta — tovarning O'ZI ikkalasida bir xilmi, shuni aniqlash.
 Fon, yorug'lik, poza, kadr, soya — BAHOLANMAYDI. Faqat tovar: rang, shakl, tag, tugma, zamok, naqsh, tikuv, logotip, cho'ntak, material fakturasi.
 Javob qisqa va faqat so'ralgan JSON bo'lsin — izoh, muqaddima, tushuntirish yozma. Farqlar o'zbekcha (lotin, apostrof: o', g').`;
@@ -776,7 +802,7 @@ module.exports = async (req, res) => {
     try {
       const r = await claudeChaqir(M_AI, REJISSYOR, [
         { type: "image", source: { type: "base64", media_type: im.media, data: im.data } },
-        { type: "text", text: savol }], 1600, 40000, "{");   // ✅ v2.5: prefill + 1600
+        { type: "text", text: savol }], 1600, 40000, HUKM_SXEMA);   // ✅ v2.6: sxema
       tok = Object.assign({}, r.usage, { stop: r.stop }); hukm = _jsonAjrat(r.text);
       hukm.yaroqli = !!hukm.yaroqli; hukm.daraja = Math.max(1, Math.min(5, Number(hukm.daraja) || 3));
       hukm.tovar_turi = _tovarTuri(hukm.tovar_turi);            // ✅ 3-bosqich
@@ -804,7 +830,7 @@ module.exports = async (req, res) => {
       (til === "uz" ? " (ru bo'sh qolsin)" : til === "ru" ? " (uz bo'sh qolsin)" : "");
     let matn = null, xato = "", tok = {};
     try {
-      const r = await claudeChaqir(M_AI, REJ_MATN, [{ type: "text", text: savol }], 900, 30000, "{");
+      const r = await claudeChaqir(M_AI, REJ_MATN, [{ type: "text", text: savol }], 900, 30000, MATN_SXEMA);
       tok = r.usage; matn = _jsonAjrat(r.text);
       for (const k of ["uz", "ru"]) { const o = matn[k] || {}; matn[k] = { sarlavha: String(o.sarlavha || "").slice(0, 80), matn: String(o.matn || "").slice(0, 600),
         heshteg: (Array.isArray(o.heshteg) ? o.heshteg : []).slice(0, 8).map(x => String(x).slice(0, 30)) }; }
@@ -830,7 +856,7 @@ module.exports = async (req, res) => {
       const r = await claudeChaqir(M_AI_HUKM, REJ_TEKSHIR, [
         { type: "image", source: { type: "base64", media_type: asl.media, data: asl.data } },
         { type: "image", source: { type: "base64", media_type: nat.media, data: nat.data } },
-        { type: "text", text: savol }], 900, 45000, "{");   // ✅ v2.5: prefill
+        { type: "text", text: savol }], 900, 45000, TEKSHIR_SXEMA);   // ✅ v2.6: sxema
       tok = r.usage; hukm = _jsonAjrat(r.text);
       hukm = { mos: !!hukm.mos, ishonch: Math.max(0, Math.min(100, Number(hukm.ishonch) || 0)),
         farqlar: (Array.isArray(hukm.farqlar) ? hukm.farqlar : []).slice(0, 3).map(x => String(x).slice(0, 120)),
