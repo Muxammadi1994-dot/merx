@@ -5449,7 +5449,7 @@ body.sms-off .sms-only { display: none !important; }
       <div style="margin-top:10px;display:flex;gap:8px;align-items:center" id="import-options">
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
           <input type="checkbox" id="import-skip-dup" checked style="cursor:pointer">
-          Mavjud mahsulotlarga yangi variant qo'sh (duplikat o'tkazib yubor)
+          Bazada bor tovar/rangni O'TKAZIB YUBOR (son qo'shilmaydi) — belgi olib tashlansa, son mavjud qoldiqqa QO'ShILADI
         </label>
 
         <!-- 2026-07-26: miqdor kiritishning ikki usuli -->
@@ -5836,7 +5836,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/cloud.js?v=321"></script>
 <script src="js/dashboard.js?v=162"></script>
 <script src="js/pos.js?v=282"></script>
-<script src="js/katalog.js?v=302"></script>
+<script src="js/katalog.js?v=303"></script>
 <script src="js/ombor.js?v=187"></script>
 <script src="js/mijozlar.js?v=176"></script>
 <script src="js/qarzlar.js?v=242"></script>
@@ -6142,7 +6142,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 620;
+  window.SW_V = 621;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -6165,7 +6165,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=620")
+    navigator.serviceWorker.register("/sw.js?v=621")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

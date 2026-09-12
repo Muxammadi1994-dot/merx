@@ -3455,7 +3455,12 @@ function parseImportCSV(text) {
 
     // Ulgurji narx SO'MDA saqlanadi — avval valyuta umuman tekshirilmasdi
     const ulgVal = cols.ulg >= 0 ? _toUzs(vals[cols.ulg] || "0") : 0;
-    const typeVal = cols.type >= 0 ? (vals[cols.type]?.trim() || "oyoq") : "oyoq";
+    // ✅ IMP-1 (2026-09-12): "Turi" ustuni yo'q bo'lsa DO'KON TURI olinadi.
+    // Sabab: B20 (kiyim) da 15 rangli svitr "oyoq" bo'lib tushib, katalogda
+    // ko'rinmadi. Shablon kiyim do'konga bu ustunni bermaydi — avval doim "oyoq".
+    const _dokonTuri = (typeof getShopType === "function" ? getShopType() : "") || "";
+    const _defTur = (_dokonTuri === "kiyim" || _dokonTuri === "oyoq") ? _dokonTuri : "oyoq";
+    const typeVal = cols.type >= 0 ? (vals[cols.type]?.trim() || _defTur) : _defTur;
     const catVal  = cols.cat  >= 0 ? (vals[cols.cat]?.trim()  || "Qabul qilingan") : "Qabul qilingan";
     const unitVal = normalizeUnit(cols.unit >= 0 ? vals[cols.unit] : ""); // №11a: ro'yxatda yo'q -> dona
 
@@ -3679,6 +3684,26 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
     return;
   }
 
+  // ✅ IMP-3 (2026-09-12): katakcha OLIB TASHLANGAN bo'lsa, mavjud rangga son
+  // QO'ShILADI — avval bu jimgina bo'lardi (ZP-21: ikkinchi import sonni
+  // ikkilantirdi). Endi nechta qatorga son qo'shilishi aytilib, tasdiq so'raladi.
+  if (!skipDup) {
+    const _mavjudSoni = _importRows.filter(r => {
+      const _cm = x => (x.variants || []).some(v =>
+        (v.color || "").toLowerCase() === (r.color || "").toLowerCase() && v.size === r.size);
+      return (db.products || []).some(x =>
+        (x.name || "").toLowerCase() === (r.nom || "").toLowerCase() && _cm(x) &&
+        (r.art ? (x.art||"").toLowerCase() === r.art.toLowerCase() : !(x.art||"").trim()));
+    }).length;
+    if (_mavjudSoni > 0 &&
+        !confirm(`⚠️ ${_mavjudSoni} ta qator bazada MAVJUD tovarga to'g'ri keladi.\n` +
+                 `Katakcha olib tashlangani uchun ularning SONI mavjud qoldiqqa QO'ShILADI ` +
+                 `(takror import bo'lsa qoldiq ikkilanadi).\n\nDavom etilsinmi?`)) {
+      toast("Import bekor qilindi", "err");
+      return;
+    }
+  }
+
   _importRows.forEach(r => {
     // Mavjud mahsulotni topish (nom + art bo'yicha)
     // B1 (v152): har rang = alohida tovar, ARTIKUL ham hisobga olinadi.
@@ -3698,6 +3723,10 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
     const variant = { color: r.color, size: r.size, qty: r.qty,
       inBox: parseInt(r.inbox) || 1,
       pantone: r.pantone, hex: r.hex || "#888888" };
+    // ✅ IMP-2 (2026-09-12): kirim yozuvi FAQAT son haqiqatan kirganda.
+    // Avval o'tkazib yuborilgan (skipped) qatorga ham kirim yozilardi —
+    // Ombor tarixida soxta ikkinchi kirim ko'rinardi (ZP-21).
+    let _kirimYoz = false;
 
     // Rang barcode — nom+art+rang bo'yicha
     const colorRaw = r.color || "Standart";
@@ -3730,7 +3759,7 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
       );
       if (ex) {
         if (!skipDup) {
-          ex.qty += r.qty; updated++;
+          ex.qty += r.qty; updated++; _kirimYoz = true;
           // ✅ 2026-08-18: mavjud tovarga IMPORT KIRIMI ham serverga —
           // aks holda 477-himoyasi kirimni server nusxasi bilan
           // qaytarib yuborardi (import jimgina yo'qolardi).
@@ -3744,7 +3773,7 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
           p.colorBarcodes[colorRaw] = colorBarcode;
         }
       } else {
-        p.variants.push(variant);
+        p.variants.push(variant); _kirimYoz = true;
         if (r.art && !p.art)   p.art         = r.art;
         if (r.costUsd > 0) {
           p.costUsd = r.costUsd;
@@ -3800,11 +3829,11 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
           { after: "import", note: "Excel/AI import" });
       } catch (e) {}
       p = newProd;
-      added++;
+      added++; _kirimYoz = true;
     }
 
-    // Ombor kirim yozuvi (har bir qator uchun)
-    if (r.qty > 0) {
+    // Ombor kirim yozuvi — faqat son haqiqatan kirgan qatorga (IMP-2)
+    if (r.qty > 0 && _kirimYoz) {
       db.ombor.push({
         id:          nextId(),
         date:        today(),
