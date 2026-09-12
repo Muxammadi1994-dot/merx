@@ -94,9 +94,42 @@ async function claudeChaqir(model, system, content, maxTok, ms) {
 }
 function _jsonAjrat(t) {
   const s = String(t || "").replace(/```json|```/g, "").trim();
-  const a = s.indexOf("{"), b = s.lastIndexOf("}");
-  if (a < 0 || b < a) throw new Error("AI javobi JSON emas");
-  return JSON.parse(s.slice(a, b + 1));
+  const a = s.indexOf("{");
+  if (a < 0) throw new Error("AI javobi JSON emas");
+  const b = s.lastIndexOf("}");
+  if (b > a) {
+    try { return JSON.parse(s.slice(a, b + 1)); } catch (e) { /* pastda tiklashga urinamiz */ }
+  }
+  // ✅ v2.4: KESILGAN JAVOBNI TIKLASH. Model token chegarasiga urilsa
+  // yopuvchi qavs yo'qoladi va butun javob behuda ketardi. Endi oxirgi
+  // tugallangan maydongacha kesib, qavslar yopiladi. Tiklab bo'lmasa —
+  // o'sha eski xato qaytadi (jim yutish yo'q, B8).
+  let q = s.slice(a);
+  const yop = bol => {
+    let ochiq = 0, kv = 0, ichida = false, qoch = false;
+    for (const c of bol) {
+      if (qoch) { qoch = false; continue; }
+      if (c === "\\") { qoch = true; continue; }
+      if (c === '"') { ichida = !ichida; continue; }
+      if (ichida) continue;
+      if (c === "{") ochiq++; else if (c === "}") ochiq--;
+      else if (c === "[") kv++; else if (c === "]") kv--;
+    }
+    if (ichida || ochiq < 0 || kv < 0) return null;
+    try { return JSON.parse(bol + "]".repeat(kv) + "}".repeat(ochiq)); } catch (e) { return null; }
+  };
+  for (let i = q.length - 1; i > 0; i--) {
+    const ch = q[i];
+    if (ch !== "}" && ch !== "]" && ch !== '"' && !/[0-9a-z]/i.test(ch)) continue;
+    const bol = q.slice(0, i + 1);
+    let r = yop(bol);                              // avval butunicha
+    if (r) return r;
+    if (ch === '"' || /[0-9a-z]/i.test(ch)) {      // chala maydon — tashlaymiz
+      const v = bol.lastIndexOf(",");
+      if (v > 0) { r = yop(bol.slice(0, v)); if (r) return r; }
+    }
+  }
+  throw new Error("AI javobi JSON emas");
 }
 function _tovarMatn(t) {
   t = t || {};
@@ -104,6 +137,21 @@ function _tovarMatn(t) {
           t.rang ? "Rang: " + t.rang : "", t.narx ? "Narx: " + t.narx + " so'm" : "", t.olcham ? "O'lchamlar: " + t.olcham : ""]
          .filter(Boolean).join("\n");
 }
+// ✅ v2.4 (2026-09-12) — HAR AMALGA O'Z BUYRUG'I.
+// Xato tarixi: REJISSYOR buyrug'i uchala amalga (hukm, matn, tekshiruv)
+// berilardi. v2.1-2.3 da u uzaydi (9 sahna qonuni + "tovarni tanish"),
+// natijada TEKSHIRUV amalida model javobni uzun boshlab yubordi va
+// 500 token chegarasida kesildi → "AI javobi JSON emas". Endi tekshiruv
+// va matn o'z qisqa buyruqlaridan ishlaydi; sahna qonunlari faqat hukmda.
+const REJ_TEKSHIR = `Sen MERX Studio nazoratchisisan. Ikki rasm beriladi: ASL tovar surati va AI yasagan reklama. Vazifang bitta — tovarning O'ZI ikkalasida bir xilmi, shuni aniqlash.
+Fon, yorug'lik, poza, kadr, soya — BAHOLANMAYDI. Faqat tovar: rang, shakl, tag, tugma, zamok, naqsh, tikuv, logotip, cho'ntak, material fakturasi.
+Javob qisqa va faqat so'ralgan JSON bo'lsin — izoh, muqaddima, tushuntirish yozma. Farqlar o'zbekcha (lotin, apostrof: o', g').`;
+
+const REJ_MATN = `Sen MERX Studio matn yozuvchisisan — O'zbekistondagi do'konlar uchun Instagram va Telegram posti yozasan.
+Til: tabiiy o'zbekcha (lotin, to'g'ri apostrof: o', g') va tabiiy ruscha. Ruscha matn tarjima emas — ruschada boshqacha yoziladi.
+Har safar boshqa boshlanish; "Yangi kelgan" kabi shablon iboralarni takrorlama. Narx faqat berilgan bo'lsa yoziladi.
+Faqat so'ralgan JSON ni qaytar, boshqa hech narsa yozma.`;
+
 // ✅ v2.1 (2026-09-12) — REJISSYOR QONUNLARI.
 // Eski matnda uslub QOTIRIB yozilgan edi ("iliq neytral, pampas o'ti,
 // shisha vaza") — shuning uchun har reklama bir xil chiqardi. Endi
@@ -746,7 +794,7 @@ module.exports = async (req, res) => {
       (til === "uz" ? " (ru bo'sh qolsin)" : til === "ru" ? " (uz bo'sh qolsin)" : "");
     let matn = null, xato = "", tok = {};
     try {
-      const r = await claudeChaqir(M_AI, REJISSYOR, [{ type: "text", text: savol }], 700, 30000);
+      const r = await claudeChaqir(M_AI, REJ_MATN, [{ type: "text", text: savol }], 700, 30000);
       tok = r.usage; matn = _jsonAjrat(r.text);
       for (const k of ["uz", "ru"]) { const o = matn[k] || {}; matn[k] = { sarlavha: String(o.sarlavha || "").slice(0, 80), matn: String(o.matn || "").slice(0, 600),
         heshteg: (Array.isArray(o.heshteg) ? o.heshteg : []).slice(0, 8).map(x => String(x).slice(0, 30)) }; }
@@ -769,10 +817,10 @@ module.exports = async (req, res) => {
       "\nFaqat shu JSON: {\"mos\":true|false,\"ishonch\":0-100,\"farqlar\":[\"aniq farq, o'zbekcha, 3 tagacha\"],\"tavsiya\":\"qabul|qayta|rad\"}";
     let hukm = null, xato = "", tok = {};
     try {
-      const r = await claudeChaqir(M_AI_HUKM, REJISSYOR, [
+      const r = await claudeChaqir(M_AI_HUKM, REJ_TEKSHIR, [
         { type: "image", source: { type: "base64", media_type: asl.media, data: asl.data } },
         { type: "image", source: { type: "base64", media_type: nat.media, data: nat.data } },
-        { type: "text", text: savol }], 500, 45000);
+        { type: "text", text: savol }], 900, 45000);   // ✅ v2.4: 500 kam edi — javob kesilardi
       tok = r.usage; hukm = _jsonAjrat(r.text);
       hukm = { mos: !!hukm.mos, ishonch: Math.max(0, Math.min(100, Number(hukm.ishonch) || 0)),
         farqlar: (Array.isArray(hukm.farqlar) ? hukm.farqlar : []).slice(0, 3).map(x => String(x).slice(0, 120)),
