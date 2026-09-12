@@ -3083,7 +3083,7 @@ body.sms-off .sms-only { display: none !important; }
         <div class="sv num" id="mol-gross" style="color:#E9A500">0</div></div>
       <div class="stb" data-mkpi="net" style="position:relative;border-top:3px solid var(--grn)">
         <button class="kpi-hide-btn" onclick="hideMolKpi('net')"><i class="ti ti-eye-off"></i></button>
-        <div class="sl">Sof foyda<span style="font-size:10px;font-weight:400;color:#bbb;display:block">(−xarajat)</span></div>
+        <div class="sl">Sof foyda (kassa)<span style="font-size:10px;font-weight:400;color:#bbb;display:block">qo'lga tekkan pul − xarajat · nasiya kirmaydi</span></div>
         <div class="sv num" id="mol-profit" style="color:var(--grn)">0</div></div>
       <div class="stb" data-mkpi="supdebt" style="position:relative;border-top:3px solid var(--red)">
         <button class="kpi-hide-btn" onclick="hideMolKpi('supdebt')"><i class="ti ti-eye-off"></i></button>
@@ -5855,7 +5855,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/hisobot.js?v=159"></script>
 <script src="js/kunlik.js?v=13"></script>
 <script src="js/xodimlar.js?v=165"></script>
-<script src="js/moliya.js?v=181"></script>
+<script src="js/moliya.js?v=182"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
 <script src="js/studio.js?v=31"></script>
@@ -6153,7 +6153,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 624;
+  window.SW_V = 625;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -6176,7 +6176,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=624")
+    navigator.serviceWorker.register("/sw.js?v=625")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

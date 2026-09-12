@@ -69,7 +69,7 @@ const MOL_KPI_LABELS = {
   qarz:    "Qarz tushumi",
   exp:     "Xarajatlar (davr)",
   gross:   "Brutto foyda (nasiya bilan)",
-  net:     "Sof foyda",
+  net:     "Sof foyda (kassa)",
   supdebt: "Yetkazuvchi qarzi",
   usd:     "USD tushum",
   cnt:     "Xarajatlar soni"
@@ -453,7 +453,15 @@ function renderMoliya() {
   periodSales.forEach(s => {
     let saleCost = 0;
     (s.items||[]).forEach(i => {
-      const p = (db.products||[]).find(x => x.name === i.name);
+      // ✅ MF-1 (2026-09-12): tannarx HISOBOT bilan bir xil uch bosqichda:
+      // chekda muzlatilgan tannarx → sku → nom. Avval faqat NOM bo'yicha
+      // edi — nom=brend katalogda (ABU SAXIY) birinchi topilgan rangning
+      // tannarxi olinib, brutto/sof foyda hisobotdan farq qilardi
+      // (hisobotda 2026-07-31/08-09 da tuzatilgan, bu nusxa unutilgan — C10).
+      if (i.costUzs > 0) { saleCost += i.costUzs * (i.qty||0); return; }
+      let p = null;
+      if (i.sku) p = (db.products||[]).find(x => x.sku === i.sku);
+      if (!p)    p = (db.products||[]).find(x => x.name === i.name);
       if (p) saleCost += getCostUzs(p) * (i.qty||0);
     });
     periodCost  += saleCost;
@@ -768,7 +776,7 @@ function renderFlowBars(kirim, chiqim, realProfit, netProfit, periodCost) {
         background:${netProfit>=0?"#F0FDF4":"#FEF2F2"};
         border:1.5px solid ${netProfit>=0?"#BBF7D0":"#FECACA"}">
         <div style="font-size:11px;color:${netProfit>=0?"var(--grn)":"var(--red)"};font-weight:700;margin-bottom:3px">
-          ${netProfit>=0?"✅":"⚠️"} Sof foyda
+          ${netProfit>=0?"✅":"⚠️"} Sof foyda (kassa)
           <span style="font-weight:400;color:#aaa"> (xarajat ham ayirilgan)</span>
         </div>
         <div style="font-size:15px;font-weight:900;color:${netProfit>=0?"var(--grn)":"var(--red)"}">
@@ -899,7 +907,7 @@ function renderMolTrendChart() {
         { label:"Jami sotuv",    data:jamiData,   backgroundColor:"#4C9BE840", borderColor:"#4C9BE8", borderWidth:1.5, borderRadius:3 },
         { label:"Kassaga tushdi",data:kassaData,  backgroundColor:"#36B48C80", borderColor:"#36B48C", borderWidth:1.5, borderRadius:3 },
         { label:"Xarajatlar",    data:chiqimData, backgroundColor:"#E05A5A80", borderColor:"#E05A5A", borderWidth:1.5, borderRadius:3 },
-        { label:"Sof foyda", data:foydaData, type:"line", borderColor:"#E9A500",
+        { label:"Sof foyda (kassa)", data:foydaData, type:"line", borderColor:"#E9A500",
           backgroundColor:"transparent", borderWidth:2, pointRadius:3, pointBackgroundColor:"#E9A500" }
       ]
     },
