@@ -104,10 +104,76 @@ function _tovarMatn(t) {
           t.rang ? "Rang: " + t.rang : "", t.narx ? "Narx: " + t.narx + " so'm" : "", t.olcham ? "O'lchamlar: " + t.olcham : ""]
          .filter(Boolean).join("\n");
 }
-const REJISSYOR = `Sen MERX Studio rejissyorisan — O'zbekistondagi kiyim va oyoq kiyim do'konlari uchun reklama suratlarini baholaysan va yo'naltirasan.
-Uslub-DNK (referenslar asosida): iliq neytral ranglar (bej, jigarrang, to'q ko'k, kulrang), tabiiy fakturalar (yog'och, shuvoq devor, zig'ir), bir tomondan yumshoq deraza nuri, fon xiralashgan, rekvizit ko'pi bilan ikkita (pampas o'ti, shisha vaza, kitob), suratda matn yo'q. Oyoq kiyim — 3/4 rakursdan, pastroq nuqtadan; kiyim — ilgichda yoki odamda. Tovar kadrning 50-60% ini egallaydi.
-QAT'IY QOIDA: tovarning o'zi (rang, shakl, tag, tugma, naqsh, logotip) hech qachon o'zgartirilmaydi — faqat fon, soya, kadrlash, tozalash (qo'l, birka, qisqich, qog'oz olib tashlanadi).
-Javob tili — o'zbek (lotin, to'g'ri apostrof: o', g'). Faqat so'ralgan JSON ni qaytar, boshqa hech narsa yozma.`;
+// ✅ v2.1 (2026-09-12) — REJISSYOR QONUNLARI.
+// Eski matnda uslub QOTIRIB yozilgan edi ("iliq neytral, pampas o'ti,
+// shisha vaza") — shuning uchun har reklama bir xil chiqardi. Endi
+// uslub yo'q, QONUN bor; xilma-xillikni har chaqiruvda _xilma() beradi.
+// Eng muhim yangilik — TAYANCH QONUNI (tovar havoda qolmasligi uchun).
+const REJISSYOR = `Sen MERX Studio rejissyorisan — O'zbekistondagi kiyim, oyoq kiyim va aksessuar do'konlari uchun reklama sahnalarini yozasan.
+
+ISHLASH USULI: tovar surati generativ AI dan O'TMAYDI — u kesib olinadi va brauzerda sahna ustiga qo'yiladi. Sen yozadigan sahna buyrug'i FAQAT fon uchun: unda tovarning o'zi ham, odam ham, matn ham bo'lmaydi.
+
+SAHNA QONUNLARI — har buyruqda bajariladi:
+1. TAYANCH. Sahnada tovar qo'yiladigan aniq YUZA bo'lishi SHART: zina pog'onasi, beton to'sin, yog'och stol, tosh yoki marmar tokcha, gilam chekkasi, qum, asfalt, g'isht qirrasi, mato burmasi, skameyka, quti. Yuzasiz fon = tovar havoda qolgandek ko'rinadi — bu eng katta xato.
+2. YUZA JOYI. Yuza kadrning pastki yarmida, gorizontal yoki yengil perspektivada; uning o'rta qismi BO'SH qolsin — tovar aynan o'sha yerga qo'yiladi.
+3. YORUG'LIK BIRLIGI. Fon yorug'ligi tovar suratidagi yorug'lik bilan bir tomondan bo'lsin; soyalar shunga mos yo'nalishda tushsin.
+4. RAKURS. Tovar 3/4 yoki yon tomondan olingan bo'lsa — kamera ko'z darajasidan pastroq; ustdan olingan bo'lsa — sahna ham ustdan.
+5. KONTRAST. Fon tovar rangidan aniq farq qilsin: och tovarga to'qroq fon, to'q tovarga ochroq fon. Aks holda tovar fonga singib ketadi.
+6. CHUQURLIK. Orqa plan yumshoq xira (f/2.0-f/2.8 hissi), oldingi yuza o'tkir.
+7. REKVIZIT ko'pi bilan 2 ta, tovardan kichik, chekkada — yoki umuman yo'q.
+8. MATN YO'Q: sahnada harf, raqam, logotip, brend belgisi bo'lmaydi.
+9. XILMA-XILLIK. Har safar boshqa joy, boshqa yuza, boshqa yorug'lik. Oldingi sahnani takrorlama, "neytral studiya" ga qaytaverma.
+
+MAHALLIY KONTEKST: O'zbekiston muhiti chet klişesidan yaqinroq — shuvoq devor, pishiq g'isht, chinor soyasi, choyxona supasi, eski shahar ko'chasi, zamonaviy metro, biznes-markaz oynasi. Fasl kayfiyati ham hisobga olinadi.
+
+TOVAR DAXLSIZ: rang, shakl, tag, tugma, tikuv, naqsh, logotip, o'lcham nisbati hech qachon o'zgarmaydi. Sen faqat fon, yorug'lik, kadrlash va tozalash haqida gapirasan.
+
+Javob tili: hukm maydonlari — o'zbekcha (lotin, to'g'ri apostrof: o', g'); sahna buyrug'i ("buyruq") — INGLIZCHA, chunki uni rasm modeli o'qiydi.
+Faqat so'ralgan JSON ni qaytar, boshqa hech narsa yozma.`;
+
+// ✅ v2.1 — XILMA-XILLIK URUG'I. Rejissyorga har chaqiruvda boshqa
+// yo'nalish beriladi, aks holda u har safar eng "xavfsiz" sahnani
+// (neytral studiya) yozadi. Tovarga mos kelmasa — o'zi almashtiradi.
+const V_USLUB = [
+  "studiya — toza, minimal, sokin fon",
+  "hayotiy — ko'cha, uy, kafe, tabiiy muhit",
+  "atmosfera — kuchli rang, qattiq soya, dramatik yorug'lik",
+];
+const V_NUR = [
+  "ertalabki yumshoq nur", "oltin soat (quyosh botishi)",
+  "bulutli kunning tekis nuri", "deraza panjarasidan tushgan chiziqli nur",
+  "oqshom shahar chiroqlari", "studiya softbox nuri",
+  "yon tomondan qattiq nur", "iliq lampa nuri",
+];
+const V_YUZA = [
+  "beton zina pog'onasi", "yog'och stol yoki taxta", "tosh yoki marmar tokcha",
+  "asfalt yoki yo'lakcha", "g'isht devor qirrasi", "mato yoki gilam burmasi",
+  "qum yoki tuproq", "metall yoki shisha tokcha", "yog'och skameyka",
+];
+function _xilma() {
+  const r = a => a[Math.floor(Math.random() * a.length)];
+  return { uslub: r(V_USLUB), nur: r(V_NUR), yuza: r(V_YUZA) };
+}
+
+// ✅ v2.1 — SAHNA RETSEPTI. 9 band tozalanadi. Rejissyor "buyruq" ni
+// yozmasa yoki tayanch yuzani unutsa — bandlardan o'zimiz yig'amiz,
+// shunda klientga BORIB TUSHADIGAN matn hech qachon bo'sh qolmaydi.
+function _sahnaRetsept(s, x) {
+  s = s || {};
+  const b = k => String(s[k] || "").replace(/\s+/g, " ").trim().slice(0, 120);
+  const joy = b("joy"), yuza = b("yuza") || (x && x.yuza) || "",
+        bal = b("balandlik"), nur = b("yoruglik") || (x && x.nur) || "",
+        kam = b("kamera"), chuq = b("chuqurlik"), rek = b("rekvizit"), pal = b("palitra");
+  let buyruq = String(s.buyruq || "").replace(/\s+/g, " ").trim();
+  if (!buyruq) {
+    buyruq = [joy, yuza + (bal ? " (" + bal + ")" : ""), nur, kam, chuq,
+              rek && !/^(yo'q|yoq|none|no)$/i.test(rek) ? rek : "", pal]
+             .filter(Boolean).join(", ");
+  }
+  return { joy, yuza, balandlik: bal, yoruglik: nur, kamera: kam,
+           chuqurlik: chuq, rekvizit: rek, palitra: pal,
+           buyruq: buyruq.slice(0, 600) };
+}
 
 // ⚠️ Vercel so'rov tanasi chegarasi ~4.5 MB. Undan katta rasm
 // PLATFORMA darajasida rad etiladi (413) va bizning tushunarli
@@ -583,20 +649,35 @@ module.exports = async (req, res) => {
     const im = _dataUri(body.image, 1600);
     if (!im || im.xato) return res.status(200).json({ ok: false, error: im && im.xato ? im.xato : "Rasm yuborilmadi" });
     const tovar = body.tovar || {}, turi = String(body.turi || "tovar");
+    const x = _xilma();                                  // ✅ v2.1 xilma-xillik urug'i
     const savol = "Tovar:\n" + _tovarMatn(tovar) + "\nReklama turi: " + turi +
-      "\n\nSuratni bahola. Kirishda ko'ringan kamchiliklar (qo'l, birka, qisqich, mo'yna gilam, javon foni, qog'oz, qiyshiqlik, qorong'ilik, kichik o'lcham) va nima qilinishini ayt. " +
-      "Faqat shu JSON: {\"yaroqli\":true|false,\"daraja\":1-5,\"sarlavha\":\"8 so'zgacha qisqa hukm\",\"bandlar\":[\"3 tagacha aniq amal/maslahat\"]," +
-      "\"kesish\":{\"qol\":bool,\"birka\":bool,\"burchak\":gradus_soni},\"sahna\":{\"buyruq\":\"English prompt for the BACKGROUND ONLY: no product, no text, no people, photorealistic, warm neutral, soft window light, matching this product's category\"},\"tur_taklif\":\"tovar|real|model|kop\"}";
+      "\n\n1) SURATNI BAHOLA. Tekshir: yorug'lik va soya · fokus (qimirlaganmi) · rakurs · kadr to'liqmi · " +
+      "ortiqcha narsalar (qo'l, birka, qisqich, qog'oz, javon, gilam, oyna aksi, sim) · qiyshiqlik · chang va iz · " +
+      "MATERIAL (teri, zamsh, lak, trikotaj, jinsi, shoyi, paxta, jun, rezina, to'r) va unga mos yorug'lik · " +
+      "KIYIMDA G'IJIM bormi va qayerda (yeng, bel, etak, yoqa). " +
+      "Eslatma: tovar pikseli AI dan o'tmaydi, shuning uchun g'ijim, chang va iflos joyni FAQAT qayta suratga olish tuzatadi — " +
+      "shuni aniq maslahat qilib yoz (masalan: dazmollab, deraza yonida, 3/4 burchakdan qayta oling).\n" +
+      "2) SAHNA RETSEPTINI YOZ — 9 band, yuqoridagi qonunlar bo'yicha. Tayanch yuzasiz javob NOTO'G'RI hisoblanadi.\n" +
+      "Bu safargi yo'nalish: uslub — " + x.uslub + " · yorug'lik — " + x.nur + " · tayanch yuza — " + x.yuza + ". " +
+      "Agar bu yo'nalish tovarga yoki suratdagi yorug'likka mos kelmasa — eng yaqinini o'zing tanla.\n\n" +
+      "Faqat shu JSON: {\"yaroqli\":true|false,\"daraja\":1-5,\"sarlavha\":\"8 so'zgacha qisqa hukm\"," +
+      "\"bandlar\":[\"3 tagacha aniq maslahat — material va g'ijim bo'lsa shu yerda\"]," +
+      "\"sahna\":{\"joy\":\"qayerda\",\"yuza\":\"tovar nimaning ustida turadi\",\"balandlik\":\"yuza kadrning pastdan necha foizida\"," +
+      "\"yoruglik\":\"yo'nalish va turi\",\"kamera\":\"balandlik va linza\",\"chuqurlik\":\"orqada nima, qanchalik xira\"," +
+      "\"rekvizit\":\"0-2 ta yoki yo'q\",\"palitra\":\"3 rang\"," +
+      "\"buyruq\":\"English prompt, 40-70 words, built from these bands: place, the support surface and its height in frame, light direction and quality, camera height and lens, background depth, props, colour palette. Background only: no product, no people, no text.\"}}";
     let hukm = null, xato = "", tok = {};
     try {
       const r = await claudeChaqir(M_AI, REJISSYOR, [
         { type: "image", source: { type: "base64", media_type: im.media, data: im.data } },
-        { type: "text", text: savol }], 700, 40000);
+        { type: "text", text: savol }], 1000, 40000);
       tok = r.usage; hukm = _jsonAjrat(r.text);
       hukm.yaroqli = !!hukm.yaroqli; hukm.daraja = Math.max(1, Math.min(5, Number(hukm.daraja) || 3));
       hukm.sarlavha = String(hukm.sarlavha || "").slice(0, 80);
       hukm.bandlar = Array.isArray(hukm.bandlar) ? hukm.bandlar.slice(0, 3).map(x => String(x).slice(0, 140)) : [];
-      hukm.sahna = { buyruq: String((hukm.sahna && hukm.sahna.buyruq) || "").slice(0, 600) };
+      // ✅ v2.1: 9 band saqlanadi; "buyruq" kelmasa — bandlardan YIG'ILADI,
+      // ya'ni klient har doim ishlaydigan matn oladi (eski shartnoma buzilmaydi).
+      hukm.sahna = _sahnaRetsept(hukm.sahna, x);
     } catch (e) { xato = e.message; }
     await jurnal(shopId, "ai_hukm", "anthropic", M_AI, !xato, xato || ("in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0)));
     if (xato) return res.status(200).json({ ok: false, error: xato });
@@ -784,7 +865,13 @@ module.exports = async (req, res) => {
     const tur = s.id;
     // ✅ v2: rejissyor buyrug'i bo'lsa — u ishlatiladi (faqat FON: tovar/matn/odam yo'q)
     const aiB = String(body.ai_buyruq || "").replace(/\s+/g, " ").trim().slice(0, 600);
-    const matn = aiB ? (aiB + ". Background only, no product, no text, no people, photorealistic.") : s.matn;
+    // ✅ v2.1: yuza KO'RINSIN va uning o'rtasi BO'SH qolsin — aks holda
+    // rassom yuzani kadrdan chiqarib yuboradi yoki ustiga narsa qo'yadi,
+    // natijada tovar havoda qolgandek ko'rinadi.
+    const matn = aiB ? (aiB + ". The described support surface must be clearly " +
+      "visible in the lower half of the frame, well lit, and completely empty — " +
+      "nothing placed or standing on it. Background only: no product, no people, " +
+      "no hands, no text, no logo. Photorealistic, high resolution.") : s.matn;
     let chiq = null, xato = "", prov = "fal", model = M_SAHNA;
     try {
       const j = await falRun(M_SAHNA, { prompt: matn, image_size: "square_hd",
