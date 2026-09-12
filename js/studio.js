@@ -1821,6 +1821,45 @@ function _blob(ctx, cx, cy, r) {               // yumshoq "tomchi" shakl
   }
   ctx.closePath();
 }
+// ✅ 2-bosqich (studio 32): KO'RINADIGAN CHEGARA. Kesilgan tovar
+// rasmining atrofida shaffof bo'sh joy qoladi va u ham "rasm" deb
+// o'lchanardi — shu sabab tovar kadrda kichik va "uzoqda" ko'rinardi.
+// Bu funksiya haqiqiy chegarani (0..1 kasrda) topadi va rasmda keshlaydi.
+// Xato bo'lsa (masalan canvas "iflos" bo'lsa) — null, eski yo'l ishlaydi.
+function _stuQirq(im) {
+  if (!im) return null;
+  if (im._qirq !== undefined) return im._qirq;
+  try {
+    const n = 200;
+    const c = document.createElement("canvas");
+    c.width = n; c.height = n;
+    const x = c.getContext("2d");
+    x.drawImage(im, 0, 0, n, n);
+    const d = x.getImageData(0, 0, n, n).data;
+    let x0 = n, y0 = n, x1 = -1, y1 = -1;
+    for (let yy = 0; yy < n; yy++) {
+      for (let xx = 0; xx < n; xx++) {
+        if (d[(yy * n + xx) * 4 + 3] > 12) {
+          if (xx < x0) x0 = xx; if (xx > x1) x1 = xx;
+          if (yy < y0) y0 = yy; if (yy > y1) y1 = yy;
+        }
+      }
+    }
+    let q = null;
+    if (x1 >= 0) {
+      q = { x: x0 / n, y: y0 / n, w: (x1 - x0 + 1) / n, h: (y1 - y0 + 1) / n };
+      if (q.w > .97 && q.h > .97) q = null;       // chekka yo'q — foyda yo'q
+    }
+    im._qirq = q; return q;
+  } catch (e) { im._qirq = null; return null; }
+}
+
+// ✅ 2-bosqich: rejissyor joylashuvi FAQAT sahna rejimida ishlaydi
+// (fon rasmi bor). Shablon rejimida 110 shablonning o'z tartibi qoladi.
+function _stuJoy() {
+  return (STU.fon && STU.aiHukm && STU.aiHukm.joylashuv) ? STU.aiHukm.joylashuv : null;
+}
+
 function _arch(ctx, x, y, w, h) {              // yuqorisi yarim doira (arch)
   ctx.beginPath();
   ctx.moveTo(x, y + h);
@@ -2172,9 +2211,30 @@ function stChiz(cvs, fmt, opt) {
           const k = (L.moda === "cover"
             ? Math.max(bw / im.width, bh / im.height)
             : Math.min(bw / im.width, bh / im.height)) * z * _sc;   // ✅ S5
-          const dw = im.width * k, dh = im.height * k;
+          let dw = im.width * k, dh = im.height * k;
           let dx = bx + (bw - dw) / 2 + (STU.imgAdj.dx || 0) * W;
           let dy = by + (bh - dh) / 2 + (STU.imgAdj.dy || 0) * H;
+          // ✅ 2-bosqich: SAHNA REJIMIDA JOYLASHUVNI REJISSYOR BELGILAYDI.
+          // Tovar shablon qutisiga emas, sahnadagi YUZA CHIZIG'IGA qo'yiladi
+          // va o'lcham ko'rinadigan qism bo'yicha hisoblanadi (shaffof
+          // chekka sanalmaydi). Shablon rejimi va "cover" tegilmaydi.
+          const JJ = (L.moda !== "cover") ? _stuJoy() : null;
+          const qq = JJ ? (_stuQirq(im) || { x: 0, y: 0, w: 1, h: 1 }) : null;
+          if (JJ && qq) {
+            const kk = (JJ.foiz / 100) * H / (im.height * qq.h) * z * _sc;
+            dw = im.width * kk; dh = im.height * kk;
+            const gy = H * (1 - JJ.gorizont / 100);        // yuza chizig'i
+            dx = W * (JJ.markaz_x / 100) - (qq.x + qq.w / 2) * dw
+                 + (STU.imgAdj.dx || 0) * W;
+            dy = gy - (qq.y + qq.h) * dh + (STU.imgAdj.dy || 0) * H;
+            // kadrdan chiqib ketmasin: ko'rinadigan qism ichkarida qolsin
+            const vx = dx + qq.x * dw, vy = dy + qq.y * dh;
+            const vw = qq.w * dw, vh = qq.h * dh;
+            if (vx < W * .02) dx += W * .02 - vx;
+            if (vx + vw > W * .98) dx -= (vx + vw) - W * .98;
+            if (vy < H * .03) dy += H * .03 - vy;
+            if (vy + vh > H * .99) dy -= (vy + vh) - H * .99;
+          }
           // ✅ S6: FOKUS — to'liq kadrda (cover) surat FOKUS NUQTASI
           // bo'yicha joylashadi. Shu tufayli bitta kadrdan 9:16, 4:5,
           // 1:1 va 16:9 chiqarilganda BOSh KESILMAYDI. Fokusni
@@ -2189,15 +2249,27 @@ function stChiz(cvs, fmt, opt) {
           }
           // ✅ S1: YERGA TUShISh SOYASI — kesilgan tovar "havoda
           // osilib" qolmasin (jonli kuzatuv, 6-sen). Kod bilan chiziladi.
+          // ✅ 2-bosqich: soya endi KO'RINADIGAN tovar tagiga tushadi
+          // (shaffof chekka emas), yo'nalish va qattiqlik rejissyordan.
           if (STU.soya !== false) {
-            const sx = dx + dw / 2, sy = dy + dh * .985;
-            const g = ctx.createRadialGradient(sx, sy, dw * .04, sx, sy, dw * .42);
-            g.addColorStop(0, "rgba(0,0,0,.40)");
+            const sq = qq || _stuQirq(im);
+            const vw0 = sq ? sq.w * dw : dw;
+            const sx0 = sq ? dx + (sq.x + sq.w / 2) * dw : dx + dw / 2;
+            const sy0 = sq ? dy + (sq.y + sq.h) * dh : dy + dh * .985;
+            const kuch = JJ ? Math.max(1, Math.min(10, JJ.soya_kuch || 6)) : 6;
+            const yon  = JJ ? JJ.soya_yon : "past";
+            const sx = sx0 + vw0 * (yon === "chap" ? -.16 : yon === "ong" ? .16 : 0);
+            const sy = sy0 - vw0 * .012;
+            const rad = vw0 * (.50 - kuch * .018);       // qattiq nur = tor soya
+            const toq = .22 + kuch * .035;               // qattiq nur = to'q soya
+            const g = ctx.createRadialGradient(sx, sy, rad * .10, sx, sy, rad);
+            g.addColorStop(0, "rgba(0,0,0," + toq.toFixed(2) + ")");
             g.addColorStop(1, "rgba(0,0,0,0)");
-            ctx.save(); ctx.translate(sx, sy); ctx.scale(1, .19);
+            ctx.save(); ctx.translate(sx, sy);
+            ctx.scale(1, .17 + (10 - kuch) * .006);
             ctx.translate(-sx, -sy);
             ctx.fillStyle = g;
-            ctx.beginPath(); ctx.arc(sx, sy, dw * .42, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(sx, sy, rad, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
           }
           // ✅ A1: MASKA — doira / arch / yumaloq to'rtburchak / blob
@@ -2214,7 +2286,10 @@ function stChiz(cvs, fmt, opt) {
           } else ctx.drawImage(im, dx, dy, dw, dh);
           // ✅ S2: AKS (reflection) — sahna ustida tovar "polga qo'ngan"
           // ko'rinadi. Pastga tomon so'nadi, shaffofligi past.
-          if (STU.fon && STU.aks !== false && L.moda !== "cover") {
+          // ✅ 2-bosqich: rejissyor joylashuvi ishlaganda aks CHIZILMAYDI —
+          // beton zina yoki asfalt aks bermaydi, u yerda kontakt soyasi
+          // to'g'ri javob. Aks faqat eski (shablon) yo'lda qoladi.
+          if (STU.fon && STU.aks !== false && L.moda !== "cover" && !JJ) {
             try {
               const t = document.createElement("canvas");
               t.width = Math.max(2, Math.round(dw));

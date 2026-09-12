@@ -158,6 +158,31 @@ function _xilma() {
 // ✅ v2.1 — SAHNA RETSEPTI. 9 band tozalanadi. Rejissyor "buyruq" ni
 // yozmasa yoki tayanch yuzani unutsa — bandlardan o'zimiz yig'amiz,
 // shunda klientga BORIB TUSHADIGAN matn hech qachon bo'sh qolmaydi.
+// ✅ 2-bosqich (v2.2) — JOYLASHUV. Rejissyor tovarning kattaligini,
+// markazini va yuza chizig'ini beradi; brauzer shuni bajaradi.
+// Har qiymat chegaraga solinadi — noto'g'ri raqam kadrni buzmasin.
+function _joylashuv(j, sahna) {
+  j = j || {};
+  const n = (v, min, max, zax) => {
+    const x = parseFloat(String(v).replace(/[^0-9.\-]/g, ""));
+    return (isFinite(x) && x >= min && x <= max) ? Math.round(x) : zax;
+  };
+  // gorizont kelmasa — sahnadagi "balandlik" bandidan olinadi (bir xil narsa)
+  let gz = n(j.gorizont, 5, 80, null);
+  if (gz === null) gz = n(sahna && sahna.balandlik, 5, 80, 32);
+  let yon = String(j.soya_yon || "past").toLowerCase().trim();
+  if (/^(chap|left)$/.test(yon)) yon = "chap";
+  else if (/^(o'ng|ong|right)$/.test(yon)) yon = "ong";
+  else yon = "past";
+  return {
+    foiz:     n(j.foiz, 25, 85, 60),
+    markaz_x: n(j.markaz_x, 10, 90, 50),
+    gorizont: gz,
+    soya_yon: yon,
+    soya_kuch: n(j.soya_kuch, 1, 10, 6),
+  };
+}
+
 function _sahnaRetsept(s, x) {
   s = s || {};
   const b = k => String(s[k] || "").replace(/\s+/g, " ").trim().slice(0, 120);
@@ -665,7 +690,10 @@ module.exports = async (req, res) => {
       "\"sahna\":{\"joy\":\"qayerda\",\"yuza\":\"tovar nimaning ustida turadi\",\"balandlik\":\"yuza kadrning pastdan necha foizida\"," +
       "\"yoruglik\":\"yo'nalish va turi\",\"kamera\":\"balandlik va linza\",\"chuqurlik\":\"orqada nima, qanchalik xira\"," +
       "\"rekvizit\":\"0-2 ta yoki yo'q\",\"palitra\":\"3 rang\"," +
-      "\"buyruq\":\"English prompt, 40-70 words, built from these bands: place, the support surface and its height in frame, light direction and quality, camera height and lens, background depth, props, colour palette. Background only: no product, no people, no text.\"}}";
+      "\"buyruq\":\"English prompt, 40-70 words, built from these bands: place, the support surface and its height in frame, light direction and quality, camera height and lens, background depth, props, colour palette. Background only: no product, no people, no text.\"}," +
+      "\"joylashuv\":{\"foiz\":\"tovar kadr balandligining necha foizini egallasin, 50-70\"," +
+      "\"markaz_x\":\"tovar markazi chapdan, foiz 0-100\",\"gorizont\":\"yuza chizig'i pastdan, foiz 0-100 — tovarning TAGI shu chiziqqa qo'yiladi\"," +
+      "\"soya_yon\":\"chap|ong|past — yorug'likka teskari tomon\",\"soya_kuch\":\"1-10, qattiq yorug'likda katta\"}}";
     let hukm = null, xato = "", tok = {};
     try {
       const r = await claudeChaqir(M_AI, REJISSYOR, [
@@ -678,6 +706,7 @@ module.exports = async (req, res) => {
       // ✅ v2.1: 9 band saqlanadi; "buyruq" kelmasa — bandlardan YIG'ILADI,
       // ya'ni klient har doim ishlaydigan matn oladi (eski shartnoma buzilmaydi).
       hukm.sahna = _sahnaRetsept(hukm.sahna, x);
+      hukm.joylashuv = _joylashuv(hukm.joylashuv, hukm.sahna);   // ✅ 2-bosqich
     } catch (e) { xato = e.message; }
     await jurnal(shopId, "ai_hukm", "anthropic", M_AI, !xato, xato || ("in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0)));
     if (xato) return res.status(200).json({ ok: false, error: xato });
