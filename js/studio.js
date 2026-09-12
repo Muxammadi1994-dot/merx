@@ -2968,6 +2968,12 @@ function stuKatTanla() {
   // ✅ ODDIY: bolalar va sport — avval (ular ichida "kurtka"/"krossovka" bo'ladi)
   if (bor(["bolalar", "bola ", "bolajon", "kids", "детск"])) return "bolalar";
   if (bor(["sport", "fitnes", "trenirovka", "futbol", "yoga"])) return "sport";
+  // ✅ 3-bosqich: shu yerdan boshlab REJISSYOR turi ustun — u suratni
+  // ko'rgan, matn esa yanglishishi mumkin (GRUFA: nomda tur yo'q edi).
+  // "bolalar" va "sport" yuqorida qoldi: ular tovar turi emas, kimga
+  // mo'ljallangani — buni rejissyor emas, katalog biladi.
+  const _ai = _AI_KAT[_stuAiTur()];
+  if (_ai) return _ai;
   if (bor(["oyoq", "krossovka", "botinka", "tufli", "shippak", "sandal",
            "poyabzal", "ked", "sneaker"])) return "oyoq";
   if (bor(["sumka", "ryukzak", "kamar", "aksessuar", "hamyon"])) return "sumka";
@@ -4118,6 +4124,19 @@ const STU_TURLAR = [
 ];
 
 // Tovar nima? — kiydirish uchun ANIQ tur (katalogdan, taxmin emas)
+// ✅ 3-bosqich (studio 33): REJISSYOR ANIQLAGAN TUR. Katalog matni
+// emas, SURAT hal qiladi. Ishonchi "past" bo'lsa ishlatilmaydi —
+// unda eski yo'l (katalog matni) qoladi.
+function _stuAiTur() {
+  const h = STU.aiHukm;
+  if (!h || !h.tovar_turi) return "";
+  if (h.ishonch === "past") return "";
+  return h.tovar_turi;
+}
+// rejissyor turi → sahna kutubxonasining kategoriyasi
+const _AI_KAT = { shoes: "oyoq", aksessuar: "sumka", tops: "kiyim",
+                  bottoms: "kiyim", "one-pieces": "kiyim" };
+
 function _kiyimTuri(t) {
   // ✅ o'zbek shakllari: "koʼylagi", "shimlar", "kurtkasi" — apostrof
   // normalizatsiyasi (_uz) + O'ZAK bo'yicha moslashtirish
@@ -4280,7 +4299,12 @@ async function stuKiydirOqim() {
   const shaxsmi = STU.turi === "real" || (STU.turi === "kop" && STU.modelJins === "shaxs");
   const jins = STU.modelJins === "ayol" ? "ayol" : "erkak";
   // kiyimlar ro'yxati: asosiy tovar + qo'shimchalar; TARTIB: past → ust → libos
-  const royxat = [{ tovar: STU.tovar, img: STU.asl || STU.img, turi: _kiyimTuri(STU.tovar) }]
+  // ✅ 3-bosqich: ASOSIY tovarning turini REJISSYOR aniqlaydi (suratga
+  // qarab). Katalog matni faqat zaxira — rejissyor javob bermasa yoki
+  // ishonchi past bo'lsa. Qo'shimcha tovarlar (kop) katalogdan qoladi:
+  // rejissyor ularning suratini ko'rmagan.
+  const royxat = [{ tovar: STU.tovar, img: STU.asl || STU.img,
+                    turi: _stuAiTur() || _kiyimTuri(STU.tovar) }]
     .concat(STU.turi === "kop" ? STU.qoshimcha.filter(x => x.img) : []);
   // ✅ OQ: IKKI YO'L. Kiyim (ust/past/libos) — kiydirish modeli;
   // oyoq kiyim va aksessuar — TAHRIR modeli (odam + tovar rasmi).
@@ -4435,8 +4459,35 @@ function _stuHukmChiz(im, hk) {
   const h = stuSuratHukm(im);
   hk.className = "v2-hukm" + (h.ogoh ? " ogoh" : "");
   hk.innerHTML = `<b><i></i>${_stuAiEsc(h.sarl)}</b>` + (h.band.length ? `<ul>${h.band.map(t => `<li>${_stuAiEsc(t)}</li>`).join("")}</ul>` : "") +
+    _stuRejIzoh() +
     `<div class="v2-ai" id="stu-ai-holat">${STU._aiHukmXato && STU._aiHukmSrc === im.src ? "AI tekshiruvi: " + _stuAiEsc(STU._aiHukmXato) : "Rejissyor ko'rmoqda…"}</div>`;
   if (!STU._aiHukmXato || STU._aiHukmSrc !== im.src) stuAiHukm(im);
+}
+// ✅ 3-bosqich: REJISSYOR NIMA DEDI — kartada ko'rinadi. Shusiz biz
+// ko'r ishlaymiz: natija yomon chiqsa, rejissyor yomon yozganmi yoki
+// rassom bajarmaganmi — bilib bo'lmaydi.
+const _TUR_NOM = { shoes: "oyoq kiyim", tops: "ust kiyim", bottoms: "past kiyim",
+                   "one-pieces": "libos", aksessuar: "aksessuar", auto: "aniqlanmagan" };
+function _stuRejIzoh() {
+  const h = STU.aiHukm; if (!h) return "";
+  const q = [];
+  if (h.tovar_turi) {
+    const kat = _kiyimTuri(STU.tovar || {});
+    const nom = _TUR_NOM[h.tovar_turi] || h.tovar_turi;
+    let s = "Rejissyor: <b>" + _stuAiEsc(nom) + "</b>";
+    if (h.ishonch === "past") s += " (ishonchi past — katalogdan olindi)";
+    else if (kat !== h.tovar_turi)
+      s += " · katalogda: " + _stuAiEsc(_TUR_NOM[kat] || kat) + " → rejissyor tanlandi";
+    q.push(s);
+  }
+  const s = h.sahna || {};
+  if (s.joy || s.yuza) {
+    const J = h.joylashuv || {};
+    q.push("Sahna: " + _stuAiEsc([s.joy, s.yuza].filter(Boolean).join(" · ")) +
+      (J.gorizont ? " · yuza pastdan " + J.gorizont + "%" : "") +
+      (J.foiz ? " · tovar " + J.foiz + "%" : ""));
+  }
+  return q.length ? `<div class="v2-ai" style="opacity:.85">${q.join("<br>")}</div>` : "";
 }
 async function stuAiHukm(im) {
   if (!im || !im.src || !STU.tovar) return;

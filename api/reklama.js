@@ -113,6 +113,8 @@ const REJISSYOR = `Sen MERX Studio rejissyorisan — O'zbekistondagi kiyim, oyoq
 
 ISHLASH USULI: tovar surati generativ AI dan O'TMAYDI — u kesib olinadi va brauzerda sahna ustiga qo'yiladi. Sen yozadigan sahna buyrug'i FAQAT fon uchun: unda tovarning o'zi ham, odam ham, matn ham bo'lmaydi.
 
+BIRINCHI VAZIFA — TOVARNI TANISH. Suratga qarab tovar nima ekanini O'ZING aniqlaysan: oyoq kiyim · ust kiyim · past kiyim · libos · aksessuar. Katalogdagi nom va toifa NOTO'G'RI bo'lishi mumkin (nom brend bo'lishi mumkin, toifa umumiy yozilgan bo'lishi mumkin) — shuning uchun HAL QILUVCHI narsa surat. Ishonching past bo'lsa buni ochiq ayt. Bu qaror muhim: tovar noto'g'ri tanilsa, odamga kiydirishda butunlay boshqa narsa chiziladi.
+
 SAHNA QONUNLARI — har buyruqda bajariladi:
 1. TAYANCH. Sahnada tovar qo'yiladigan aniq YUZA bo'lishi SHART: zina pog'onasi, beton to'sin, yog'och stol, tosh yoki marmar tokcha, gilam chekkasi, qum, asfalt, g'isht qirrasi, mato burmasi, skameyka, quti. Yuzasiz fon = tovar havoda qolgandek ko'rinadi — bu eng katta xato.
 2. YUZA JOYI. Yuza kadrning pastki yarmida, gorizontal yoki yengil perspektivada; uning o'rta qismi BO'SH qolsin — tovar aynan o'sha yerga qo'yiladi.
@@ -161,6 +163,22 @@ function _xilma() {
 // ✅ 2-bosqich (v2.2) — JOYLASHUV. Rejissyor tovarning kattaligini,
 // markazini va yuza chizig'ini beradi; brauzer shuni bajaradi.
 // Har qiymat chegaraga solinadi — noto'g'ri raqam kadrni buzmasin.
+// ✅ 3-bosqich (v2.3) — TOVAR TURI. Rejissyor suratga qarab aytadi;
+// bu qiymat kiydirish yo'lini (kiyim modeli / tahrir modeli) va sahna
+// kategoriyasini belgilaydi. Ilgari faqat katalog matni hal qilardi —
+// GRUFA hodisasi: nomda "krossovka" yo'q → oyoq kiyim "ko'ylak" deb
+// yuborilgan, natijada odamga ko'ylak kiydirilgan, tovar yo'qolgan.
+function _tovarTuri(v) {
+  const s = String(v || "").toLowerCase();
+  if (!s) return "";
+  if (/shoe|oyoq|krossovka|botinka|tufli|poyabzal|ked|sandal|shippak|sneaker/.test(s)) return "shoes";
+  if (/one-?piece|libos|ko'ylak-libos|sarafan|kombinezon|xalat|plat|dress/.test(s)) return "one-pieces";
+  if (/bottom|past|shim|jins|yubka|short|bryuk|ishton|losin|trouser|pant/.test(s)) return "bottoms";
+  if (/top|ust|ko'ylak|koylak|futbolka|sviter|kofta|kurtka|palto|pidjak|jaket|bluzka|tolstovka|hoodie|shirt/.test(s)) return "tops";
+  if (/aksessuar|sumka|soat|kamar|ko'zoynak|hamyon|ryukzak|zargar|taqinchoq|watch|bag|belt/.test(s)) return "aksessuar";
+  return "";
+}
+
 function _joylashuv(j, sahna) {
   j = j || {};
   const n = (v, min, max, zax) => {
@@ -685,7 +703,9 @@ module.exports = async (req, res) => {
       "2) SAHNA RETSEPTINI YOZ — 9 band, yuqoridagi qonunlar bo'yicha. Tayanch yuzasiz javob NOTO'G'RI hisoblanadi.\n" +
       "Bu safargi yo'nalish: uslub — " + x.uslub + " · yorug'lik — " + x.nur + " · tayanch yuza — " + x.yuza + ". " +
       "Agar bu yo'nalish tovarga yoki suratdagi yorug'likka mos kelmasa — eng yaqinini o'zing tanla.\n\n" +
-      "Faqat shu JSON: {\"yaroqli\":true|false,\"daraja\":1-5,\"sarlavha\":\"8 so'zgacha qisqa hukm\"," +
+      "Faqat shu JSON: {\"tovar_turi\":\"oyoq kiyim|ust kiyim|past kiyim|libos|aksessuar — SURATGA qarab\"," +
+      "\"ishonch\":\"yuqori|o'rta|past\"," +
+      "\"yaroqli\":true|false,\"daraja\":1-5,\"sarlavha\":\"8 so'zgacha qisqa hukm\"," +
       "\"bandlar\":[\"3 tagacha aniq maslahat — material va g'ijim bo'lsa shu yerda\"]," +
       "\"sahna\":{\"joy\":\"qayerda\",\"yuza\":\"tovar nimaning ustida turadi\",\"balandlik\":\"yuza kadrning pastdan necha foizida\"," +
       "\"yoruglik\":\"yo'nalish va turi\",\"kamera\":\"balandlik va linza\",\"chuqurlik\":\"orqada nima, qanchalik xira\"," +
@@ -701,6 +721,9 @@ module.exports = async (req, res) => {
         { type: "text", text: savol }], 1000, 40000);
       tok = r.usage; hukm = _jsonAjrat(r.text);
       hukm.yaroqli = !!hukm.yaroqli; hukm.daraja = Math.max(1, Math.min(5, Number(hukm.daraja) || 3));
+      hukm.tovar_turi = _tovarTuri(hukm.tovar_turi);            // ✅ 3-bosqich
+      hukm.ishonch = /past|low/.test(String(hukm.ishonch || "")) ? "past"
+                   : /o'rta|orta|mid|medium/.test(String(hukm.ishonch || "")) ? "orta" : "yuqori";
       hukm.sarlavha = String(hukm.sarlavha || "").slice(0, 80);
       hukm.bandlar = Array.isArray(hukm.bandlar) ? hukm.bandlar.slice(0, 3).map(x => String(x).slice(0, 140)) : [];
       // ✅ v2.1: 9 band saqlanadi; "buyruq" kelmasa — bandlardan YIG'ILADI,
