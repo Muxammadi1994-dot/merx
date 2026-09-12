@@ -3175,7 +3175,16 @@ async function stuKiydir(jins) {
   const cx = c.getContext("2d");
   cx.fillStyle = "#FFFFFF"; cx.fillRect(0, 0, c.width, c.height);  // shaffofsiz
   cx.drawImage(src, 0, 0, c.width, c.height);
-  const d = await stuAI("kiydir", { jins, image: c.toDataURL("image/jpeg", 0.86) });
+  // ✅ 628: IKKINCHI EShIK YOPILDI. Bu tugma tovar turini yubormas edi —
+  // server "auto" deb kiydirish modeliga berardi, oyoq kiyim futbolkaga
+  // aylanardi. Endi "Reklama yasa" bilan bir xil yo'l: rejissyor turi
+  // (kutib), oyoq kiyim/aksessuar → tahrir modeli.
+  await _stuAiKut(15000);
+  const tur = _stuAiTur() || _kiyimTuri(STU.tovar || {});
+  const tahrir = tur === "shoes" || tur === "aksessuar";
+  stuHolat(tahrir ? "👟 Tovar modelga qo'yilmoqda…" : "👗 Kiyim modelga kiydirilmoqda…");
+  const d = await stuAI(tahrir ? "kiydir_edit" : "kiydir",
+    { jins, image: c.toDataURL("image/jpeg", 0.86), turi: tur });
   stuHolat("");
   if (!d) return;
   try {
@@ -4127,6 +4136,16 @@ const STU_TURLAR = [
 // ✅ 3-bosqich (studio 33): REJISSYOR ANIQLAGAN TUR. Katalog matni
 // emas, SURAT hal qiladi. Ishonchi "past" bo'lsa ishlatilmaydi —
 // unda eski yo'l (katalog matni) qoladi.
+// ✅ 628: REJISSYORNI KUTISH. Uning javobi 5-15 s keladi; foydalanuvchi
+// undan oldin tugmani bossa, tur katalog matnidan olinardi (GRUFA yana
+// "ust" bo'lardi). Endi so'rov yo'lda bo'lsa 15 s gacha kutiladi.
+async function _stuAiKut(ms) {
+  const t0 = Date.now();
+  while (STU._aiBand && Date.now() - t0 < (ms || 15000)) {
+    stuHolat("Rejissyor tovarni aniqlamoqda…");
+    await new Promise(r => setTimeout(r, 300));
+  }
+}
 function _stuAiTur() {
   const h = STU.aiHukm;
   if (!h || !h.tovar_turi) return "";
@@ -4296,6 +4315,7 @@ function stuUstaChiz() {
 
 // ── KIYDIRISh OQIMI (real / model / kop) — AI tovarni tahlil qiladi
 async function stuKiydirOqim() {
+  await _stuAiKut(15000);                              // ✅ 628: rejissyor kutiladi
   const shaxsmi = STU.turi === "real" || (STU.turi === "kop" && STU.modelJins === "shaxs");
   const jins = STU.modelJins === "ayol" ? "ayol" : "erkak";
   // kiyimlar ro'yxati: asosiy tovar + qo'shimchalar; TARTIB: past → ust → libos
@@ -4453,13 +4473,13 @@ function _stuHukmChiz(im, hk) {
     hk.className = "v2-hukm" + (ai.yaroqli ? "" : " ogoh");
     hk.innerHTML = `<b><i></i>${_stuAiEsc(ai.sarlavha || "Rejissyor hukmi")}</b>` +
       (ai.bandlar && ai.bandlar.length ? `<ul>${ai.bandlar.map(t => `<li>${_stuAiEsc(t)}</li>`).join("")}</ul>` : "") +
+      _stuRejIzoh() +                                   // ✅ 3-bosqich (628: to'g'ri shoxga ko'chdi)
       `<div class="v2-ai">Rejissyor · daraja ${ai.daraja || "—"}/5</div>`;
     return;
   }
   const h = stuSuratHukm(im);
   hk.className = "v2-hukm" + (h.ogoh ? " ogoh" : "");
   hk.innerHTML = `<b><i></i>${_stuAiEsc(h.sarl)}</b>` + (h.band.length ? `<ul>${h.band.map(t => `<li>${_stuAiEsc(t)}</li>`).join("")}</ul>` : "") +
-    _stuRejIzoh() +
     `<div class="v2-ai" id="stu-ai-holat">${STU._aiHukmXato && STU._aiHukmSrc === im.src ? "AI tekshiruvi: " + _stuAiEsc(STU._aiHukmXato) : "Rejissyor ko'rmoqda…"}</div>`;
   if (!STU._aiHukmXato || STU._aiHukmSrc !== im.src) stuAiHukm(im);
 }
