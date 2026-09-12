@@ -67,14 +67,22 @@ function _dataUri(str, maxKb) {
   if (m[2].length > (maxKb || MAX_KB) * 1024) return { xato: "rasm juda katta" };
   return { media: m[1], data: m[2] };
 }
-async function claudeChaqir(model, system, content, maxTok, ms) {
+// ✅ v2.5 (2026-09-12) — JSON MAJBURIY. `prefill` berilsa javob assistant
+// navbatida "{" bilan BOShLAB qo'yiladi: model muqaddima, tahlil yoki
+// izoh yoza olmaydi — to'g'ridan-to'g'ri JSON davom etadi.
+// Sabab: rejissyor "AI javobi JSON emas" bilan yiqildi — tahlil matni
+// yozib, token tugaguncha JSONga yetmagan. stop_reason ham qaytadi:
+// "max_tokens" bo'lsa — javob kesilgan, buni jurnal ko'rsatadi.
+async function claudeChaqir(model, system, content, maxTok, ms, prefill) {
   if (!ANTHROPIC_KEY) throw new Error("AI kaliti sozlanmagan (Vercel ENV: ANTHROPIC_API_KEY)");
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms || 40000);
   try {
+    const messages = [{ role: "user", content }];
+    if (prefill) messages.push({ role: "assistant", content: prefill });
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", signal: ctl.signal,
       headers: { "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model, max_tokens: maxTok || 900, system, messages: [{ role: "user", content }] }),
+      body: JSON.stringify({ model, max_tokens: maxTok || 900, system, messages }),
     });
     const j = await r.json().catch(() => null);
     if (!r.ok) {
@@ -85,8 +93,8 @@ async function claudeChaqir(model, system, content, maxTok, ms) {
       if (r.status === 404 && /model/i.test(msg)) throw new Error("AI modeli topilmadi: " + model);
       throw new Error("AI xatosi: " + String(msg).slice(0, 160));
     }
-    const text = (j.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
-    return { text, usage: j.usage || {} };
+    const text = (prefill || "") + (j.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+    return { text, usage: j.usage || {}, stop: j.stop_reason || "" };
   } catch (e) {
     if (e && e.name === "AbortError") throw new Error("AI javob bermadi (vaqt tugadi)");
     throw e;
@@ -95,7 +103,9 @@ async function claudeChaqir(model, system, content, maxTok, ms) {
 function _jsonAjrat(t) {
   const s = String(t || "").replace(/```json|```/g, "").trim();
   const a = s.indexOf("{");
-  if (a < 0) throw new Error("AI javobi JSON emas");
+  // ✅ v2.5: sabab ko'rinsin — javobning boshi xatoga qo'shiladi (B8)
+  const izi = () => " · javob: \u00ab" + s.replace(/\s+/g, " ").slice(0, 140) + (s.length > 140 ? "\u2026" : "") + "\u00bb";
+  if (a < 0) throw new Error("AI javobi JSON emas" + izi());
   const b = s.lastIndexOf("}");
   if (b > a) {
     try { return JSON.parse(s.slice(a, b + 1)); } catch (e) { /* pastda tiklashga urinamiz */ }
@@ -129,7 +139,7 @@ function _jsonAjrat(t) {
       if (v > 0) { r = yop(bol.slice(0, v)); if (r) return r; }
     }
   }
-  throw new Error("AI javobi JSON emas");
+  throw new Error("AI javobi JSON emas (kesilgan)" + izi());
 }
 function _tovarMatn(t) {
   t = t || {};
@@ -766,8 +776,8 @@ module.exports = async (req, res) => {
     try {
       const r = await claudeChaqir(M_AI, REJISSYOR, [
         { type: "image", source: { type: "base64", media_type: im.media, data: im.data } },
-        { type: "text", text: savol }], 1000, 40000);
-      tok = r.usage; hukm = _jsonAjrat(r.text);
+        { type: "text", text: savol }], 1600, 40000, "{");   // ✅ v2.5: prefill + 1600
+      tok = Object.assign({}, r.usage, { stop: r.stop }); hukm = _jsonAjrat(r.text);
       hukm.yaroqli = !!hukm.yaroqli; hukm.daraja = Math.max(1, Math.min(5, Number(hukm.daraja) || 3));
       hukm.tovar_turi = _tovarTuri(hukm.tovar_turi);            // ✅ 3-bosqich
       hukm.ishonch = /past|low/.test(String(hukm.ishonch || "")) ? "past"
@@ -779,7 +789,7 @@ module.exports = async (req, res) => {
       hukm.sahna = _sahnaRetsept(hukm.sahna, x);
       hukm.joylashuv = _joylashuv(hukm.joylashuv, hukm.sahna);   // ✅ 2-bosqich
     } catch (e) { xato = e.message; }
-    await jurnal(shopId, "ai_hukm", "anthropic", M_AI, !xato, xato || ("in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0)));
+    await jurnal(shopId, "ai_hukm", "anthropic", M_AI, !xato, (xato || ("in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0))) + (tok.stop ? " · " + tok.stop : ""));
     if (xato) return res.status(200).json({ ok: false, error: xato });
     return res.status(200).json({ ok: true, hukm });
   }
@@ -794,7 +804,7 @@ module.exports = async (req, res) => {
       (til === "uz" ? " (ru bo'sh qolsin)" : til === "ru" ? " (uz bo'sh qolsin)" : "");
     let matn = null, xato = "", tok = {};
     try {
-      const r = await claudeChaqir(M_AI, REJ_MATN, [{ type: "text", text: savol }], 700, 30000);
+      const r = await claudeChaqir(M_AI, REJ_MATN, [{ type: "text", text: savol }], 900, 30000, "{");
       tok = r.usage; matn = _jsonAjrat(r.text);
       for (const k of ["uz", "ru"]) { const o = matn[k] || {}; matn[k] = { sarlavha: String(o.sarlavha || "").slice(0, 80), matn: String(o.matn || "").slice(0, 600),
         heshteg: (Array.isArray(o.heshteg) ? o.heshteg : []).slice(0, 8).map(x => String(x).slice(0, 30)) }; }
@@ -820,7 +830,7 @@ module.exports = async (req, res) => {
       const r = await claudeChaqir(M_AI_HUKM, REJ_TEKSHIR, [
         { type: "image", source: { type: "base64", media_type: asl.media, data: asl.data } },
         { type: "image", source: { type: "base64", media_type: nat.media, data: nat.data } },
-        { type: "text", text: savol }], 900, 45000);   // ✅ v2.4: 500 kam edi — javob kesilardi
+        { type: "text", text: savol }], 900, 45000, "{");   // ✅ v2.5: prefill
       tok = r.usage; hukm = _jsonAjrat(r.text);
       hukm = { mos: !!hukm.mos, ishonch: Math.max(0, Math.min(100, Number(hukm.ishonch) || 0)),
         farqlar: (Array.isArray(hukm.farqlar) ? hukm.farqlar : []).slice(0, 3).map(x => String(x).slice(0, 120)),

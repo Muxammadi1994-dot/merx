@@ -4555,7 +4555,10 @@ async function stuAiNatija() {
   try { const c = document.getElementById("stu-od-cvs"); const k = Math.min(1, 900 / Math.max(c.width, c.height));
         const c2 = document.createElement("canvas"); c2.width = Math.round(c.width * k); c2.height = Math.round(c.height * k);
         c2.getContext("2d").drawImage(c, 0, 0, c2.width, c2.height); natija = c2.toDataURL("image/jpeg", 0.85); } catch (e) {}
-  const d = await stuAiChaqir("ai_solishtir", { asl: _stuTayyor(STU.img, 900), natija, tovar: _stuAiTovar() });
+  // ✅ 629: ASL surat — STU.asl. Kiydirishdan keyin STU.img = NATIJA, ya'ni
+  // tekshiruvchi natijani o'zi bilan solishtirib "mos 88%" derdi (tovar
+  // rasmda yo'q bo'lsa ham). Endi haqiqiy asl bilan.
+  const d = await stuAiChaqir("ai_solishtir", { asl: _stuTayyor(STU.asl || STU.img, 900), natija, tovar: _stuAiTovar() });
   if (STU._aiNatijaId !== STU.variants) return;
   if (!d || !d.ok) { nh.className = "v2-holat xato"; nh.textContent = "Tekshiruv: " + ((d && d.error) || "xato"); return; }
   STU.aiMos = d.hukm;
