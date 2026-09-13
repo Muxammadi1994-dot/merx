@@ -873,6 +873,33 @@ module.exports = async (req, res) => {
     // faqat fon almashadi — u yerda "tovar kadrda asosiy obyektmi" deb
     // so'rash NOTO'G'RI (to'liq bo'yli kadrda tovar har doim kichik).
     // 633 da shu sabab muhit deyarli har safar rad etilardi.
+    // ✅ 636: KADR REJIMI — "tovar kadrda ko'rinyaptimi" (sifat qiyosi emas).
+    // Sabab: 632 da kadr qo'lda yaqinlashtirilgandi va odamli kadrda tovar
+    // butunlay chiqib ketdi. Qo'lda raqam ishlamaydi — ko'z bilan tekshiriladi.
+    if (String(body.rejim || "") === "kadr") {
+      const savolK = "Birinchi rasm — ASL tovar. Ikkinchi rasm — tayyor reklama kadri. " +
+        "Bitta savol: shu tovar reklama kadrida KO'RINYAPTIMI va tanib bo'ladimi? " +
+        "'mos' = tovar kadrda to'liq yoki deyarli to'liq ko'rinadi va kadrning asosiy mavzusi. " +
+        "'mos' EMAS = tovar kadrdan chiqib ketgan, kesilgan, juda kichik yoki umuman yo'q. " +
+        "Rang, sifat, material — bu yerda tekshirilmaydi. Farqda QISQA yoz: kadrda nima ko'rinyapti. " +
+        "Tovar: " + _tovarMatn(body.tovar || {});
+      try {
+        const r = await claudeChaqir(M_AI_HUKM, REJ_TEKSHIR, [
+          { type: "image", source: { type: "base64", media_type: asl.media, data: asl.data } },
+          { type: "image", source: { type: "base64", media_type: nat.media, data: nat.data } },
+          { type: "text", text: savolK }], 500, 40000, TEKSHIR_SXEMA);
+        const hh = _jsonAjrat(r.text);
+        await jurnal(shopId, "ai_solishtir:kadr", "anthropic", M_AI_HUKM, true,
+          "in " + (r.usage.input_tokens || 0) + " out " + (r.usage.output_tokens || 0));
+        return res.status(200).json({ ok: true, hukm: {
+          mos: !!hh.mos, ishonch: Math.max(0, Math.min(100, Number(hh.ishonch) || 0)),
+          farqlar: Array.isArray(hh.farqlar) ? hh.farqlar.slice(0, 3).map(z => String(z).slice(0, 140)) : [],
+          tavsiya: String(hh.tavsiya || "qabul") } });
+      } catch (e) {
+        await jurnal(shopId, "ai_solishtir:kadr", "anthropic", M_AI_HUKM, false, e.message);
+        return res.status(200).json({ ok: false, error: e.message });
+      }
+    }
     if (String(body.rejim || "") === "muhit") {
       const savolM = "Ikkala rasmda ham AYNI ODAM va ayni kiyim bor. Birinchi — muhit qo'yilishidan OLDIN, ikkinchi — KEYIN. " +
         "Faqat bitta savol: odam kiygan TOVAR o'zgardimi? Tekshir: rang, shakl, tag, tugma, zamok, naqsh, tikuv, logotip, bog'ich, material fakturasi. " +

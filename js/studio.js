@@ -2655,7 +2655,7 @@ function stuTanla(sku, rang) {
   const q = document.getElementById("stu-q");   if (q) q.value = "";
   const n = document.getElementById("stu-natija"); if (n) { n.innerHTML = ""; n.style.display = "none"; }
   STU.tovarXom = p;                                  // ✅ USTA: rasm manbai uchun
-  STU.variants = []; STU.fon = null; STU.aiNamoyish = false; STU.foto = false; STU.muhit = false; STU.muhitRad = "";
+  STU.variants = []; STU.fon = null; STU.aiNamoyish = false; STU.foto = false; STU.muhit = false; STU.muhitRad = ""; STU.kadrOgoh = ""; STU._kadrTur = "";
   renderStudio();
   if (STU.rejim !== "pro" && STU.rasmManba === "katalog") stuKatalogRasm();
 }
@@ -3228,6 +3228,7 @@ async function stuKiydir(jins) {
     STU.soya = false;            // to'liq kadr — soya/aks kerak emas
     STU.aiNamoyish = true;       // belgisi chiqadi
     STU.fokus = _stuFokusTur(tur);   // ✅ 631: kadr TOVARGA qaraydi
+    STU._kadrTur = tur;              // ✅ 636
     STU.shab = "model";          // ✅ S4b: to'liq kadr uslubi
     STU.variants = [
       { shab: "model",    pal: STU.avtoPal ? "auto" : "navy" },
@@ -4199,14 +4200,55 @@ function _fotoRejim() {
 // chetida kichik qoldi (tekshiruvchi: "asosiy tovar sifatida shim
 // ko'rinadi"). Endi "cover" kadr TOVAR ATROFIGA yaqinlashadi:
 // oyoq kiyim → beldan pastga, 2x; aksessuar → 1.5x; ust kiyim → 1x.
+// ⚠️ 636 SABOQ: 632 da bu yerda qo'lda zoom 2.0 va fokus .92 qo'yilgandi.
+// 635 rasmni to'liq kadrga majburlagach ikkisi ustma-ust tushdi va kadrda
+// FAQAT SHIM qoldi — tovar butunlay chiqib ketdi. Qo'lda qo'yilgan raqam
+// ishlamaydi: har suratda odam boshqa joyda turadi. Endi qiymatlar
+// EHTIYOTKOR, kadrni esa TEKSHIRUVCHI boshqaradi (_stuKadrTekshir).
 function _stuFokusTur(tur) {
   let f;
-  if      (tur === "shoes")     f = { x: .5, y: .92, zoom: 2.0 };
-  else if (tur === "bottoms")   f = { x: .5, y: .68, zoom: 1.25 };
-  else if (tur === "aksessuar") f = { x: .5, y: .58, zoom: 1.5 };
+  if      (tur === "shoes")     f = { x: .5, y: .80, zoom: 1.25 };
+  else if (tur === "bottoms")   f = { x: .5, y: .64, zoom: 1.10 };
+  else if (tur === "aksessuar") f = { x: .5, y: .55, zoom: 1.15 };
   else                          f = { x: .5, y: .38, zoom: 1 };   // ust kiyim, libos
-  STU.imgAdj = { zoom: f.zoom, dx: 0, dy: 0 };   // yangi suratda o'zi tiklanadi (2657)
+  STU.imgAdj = { zoom: f.zoom, dx: 0, dy: 0 };
   return { x: f.x, y: f.y };
+}
+
+// ✅ 636: ekrandagi natija kadrining kichik nusxasi (tekshiruv uchun)
+function _stuKadrRasm() {
+  try {
+    const el = document.getElementById("stu-natija");
+    const c = el && el.querySelector("canvas");
+    if (!c || !c.width) return null;
+    const k = Math.min(1, 900 / Math.max(c.width, c.height));
+    const t = document.createElement("canvas");
+    t.width = Math.round(c.width * k); t.height = Math.round(c.height * k);
+    t.getContext("2d").drawImage(c, 0, 0, t.width, t.height);
+    return t.toDataURL("image/jpeg", 0.85);
+  } catch (e) { return null; }
+}
+
+// ✅ 636: KADRNI TEKSHIRUVCHI BOSHQARADI. Natija chizilgach rejissyordan
+// so'raladi: tovar kadrda ko'rinadimi. Ko'rinmasa — yaqinlashtirish
+// bosqichma-bosqich kamaytiriladi va fokus markazga suriladi. Ikki
+// urinish, keyin ogoh. Qo'lda raqam yozish o'rniga — ko'z bilan tekshirish.
+async function _stuKadrTekshir(tur) {
+  if (!_fotoRejim()) return;
+  if (tur !== "shoes" && tur !== "aksessuar" && tur !== "bottoms") return;
+  for (let urinish = 0; urinish < 2; urinish++) {
+    const kadr = _stuKadrRasm();
+    if (!kadr) return;
+    const t = await stuAiChaqir("ai_solishtir", { rejim: "kadr",
+      asl: _stuTayyor(STU.asl || STU.img, 900), natija: kadr, tovar: _stuAiTovar() });
+    if (!t || !t.ok || !t.hukm || t.hukm.mos) return;
+    const z = STU.imgAdj.zoom || 1;
+    if (z <= 1.01) { STU.kadrOgoh = t.hukm.farqlar[0] || "tovar kadrda ko'rinmayapti"; return; }
+    STU.imgAdj.zoom = Math.max(1, z - .15);
+    STU.fokus = { x: .5, y: Math.max(.5, ((STU.fokus && STU.fokus.y) || .8) - .08) };
+    stuHolat("Kadr to'g'rilanmoqda — tovar ko'rinmayapti…");
+    stChiz();
+  }
 }
 
 // ✅ 631: JOYLASHTIR — tovarni sahnaga AI qo'yadi (o'rta yo'l).
@@ -4502,6 +4544,7 @@ async function stuKiydirOqim() {
   STU.rasmlar[1] = aks[0] ? aks[0].img : null;   // aksessuar — kollaj slotida
   STU.aiNamoyish = !shaxsmi; STU.real = shaxsmi;
   STU.fokus = _stuFokusTur(hamma[0].turi);       // ✅ 631: kadr TOVARGA qaraydi
+  STU._kadrTur = hamma[0].turi;                  // ✅ 636: chizilgach tekshiriladi
   STU.avtoPal = stuPalitraChiqar(STU.img);
   // ✅ AI fon: shahar/bino/interyer, mavsumga mos (egasining talabi)
   stuHolat("Fon tanlanmoqda…");
@@ -4682,6 +4725,7 @@ async function stuAiNatija() {
   if (!STU.variants || !STU.variants.length) return;
   if (STU._aiNatijaId === STU.variants) return;       // shu to'plam uchun bajarilgan
   STU._aiNatijaId = STU.variants; STU.aiMatn = null; STU.aiMos = null;
+  if (STU._kadrTur) { const _t = STU._kadrTur; STU._kadrTur = ""; _stuKadrTekshir(_t); }   // ✅ 636
   const mb = document.getElementById("stu-matn"), nh = document.getElementById("stu-natija-hukm");
   if (mb) { mb.style.display = "block"; mb.innerHTML = `<div class="v2-ai">Matn yozilmoqda…</div>`; }
   // 1) matn
@@ -4699,6 +4743,11 @@ async function stuAiNatija() {
   if (!nh) return;
   const tur = STU.turi || "tovar";
   // ✅ 634: muhit rad etilgan bo'lsa — SABABI ko'rinsin (B8), toast o'tib ketadi
+  if (STU.kadrOgoh) {                       // ✅ 636
+    nh.style.display = "block"; nh.className = "v2-holat ogoh";
+    nh.textContent = "Kadr: " + STU.kadrOgoh + " — «Yana 6 ta» bilan boshqa variantni ko'ring";
+    return;
+  }
   if (STU.muhitRad && tur !== "tovar") {
     nh.style.display = "block"; nh.className = "v2-holat ogoh";
     nh.textContent = "Muhit qo'yilmadi: " + STU.muhitRad + " — kiydirilgan natija qoldi";
