@@ -1963,11 +1963,18 @@ function stChiz(cvs, fmt, opt) {
       switch (L.tur) {
 
         case "fon":
+          // ✅ 635: foto rejimida tekis rangli fon CHIZILMAYDI — ustiga
+          // baribir rasm to'liq tushadi; chizilsa chekkada rangli ramka
+          // bo'lib qolish xavfi bor (egasi: "ramkali fonlarni supurish").
+          if (_fotoRejim()) break;
           ctx.fillStyle = stRang(P, L.rang);
           ctx.fillRect(0, 0, W, H);
           break;
 
         case "blok": {
+          // ✅ 635: foto rejimida KATTA rangli maydon chizilmaydi (ramka
+          // effekti). Matn ostidagi kichik panellar (≤18%) qoladi.
+          if (_fotoRejim() && (L.w || 0) * (L.h || 0) > .18) break;
           ctx.fillStyle = stRang(P, L.rang);
           if (L.radius) { _yumT(ctx, L.x * W, L.y * H, L.w * W, L.h * H, L.radius * W); ctx.fill(); }
           else ctx.fillRect(L.x * W, L.y * H, L.w * W, L.h * H);
@@ -2191,9 +2198,15 @@ function stChiz(cvs, fmt, opt) {
             ctx.drawImage(f, (W - f.width * kf) / 2, (H - f.height * kf) / 2,
               f.width * kf, f.height * kf);
           }
-          const bw = L.w * W, bh = L.h * H;
-          const bx = (L.anchor === "center" ? L.x * W - bw / 2 : L.x * W);
-          const by = (L.anchor === "center" ? L.y * H - bh / 2 : L.y * H);
+          // ✅ 635: FOTO REJIMIDA RASM HAR DOIM TO'LIQ KADR. Shablon rasmni
+          // kichik qutiga qamagan bo'lsa ham, natija tayyor foto bo'lsa
+          // (AI joylashtirgan / kiydirilgan / muhit qo'yilgan) u chekkadan
+          // chekkagacha chiziladi. Sahna rejimida (fon bor) qo'llanmaydi —
+          // u yerda o'lchamni rejissyor belgilaydi.
+          const _toliq = _fotoRejim() && !STU.fon;
+          let bw = _toliq ? W : L.w * W, bh = _toliq ? H : L.h * H;
+          let bx = _toliq ? 0 : (L.anchor === "center" ? L.x * W - bw / 2 : L.x * W);
+          let by = _toliq ? 0 : (L.anchor === "center" ? L.y * H - bh / 2 : L.y * H);
           if (!STU.img) {                     // rasm hali yo'q — o'rinbosar
             ctx.fillStyle = stRang(P, "d"); ctx.globalAlpha = .18;
             ctx.fillRect(bx, by, bw, bh);
@@ -2208,7 +2221,7 @@ function stChiz(cvs, fmt, opt) {
           const im = STU.img, z = STU.imgAdj.zoom || 1;
           // ✅ S4b: "cover" — rasm maydonni TO'LIQ to'ldiradi (modelli
           // kadrda surat kichkina karta bo'lib qolmasin — jonli kuzatuv).
-          const k = (L.moda === "cover"
+          const k = ((L.moda === "cover" || _toliq)
             ? Math.max(bw / im.width, bh / im.height)
             : Math.min(bw / im.width, bh / im.height)) * z * _sc;   // ✅ S5
           let dw = im.width * k, dh = im.height * k;
@@ -2989,6 +3002,14 @@ function stuKatTanla() {
 // ko'rinishdagi 6 ta emas). Avval eski 6 shablon qattiq yozilgan edi —
 // kutubxona umuman ishlatilmasdi (egasining haqli e'tirozi).
 function _stuArxetip(id) { return String(id).replace(/\d+$/, ""); }
+// ✅ 635: shablon sifati — rasm kadrning kamida 45% ini olsin
+function _shabSifat(s) {
+  const L = (s.qatlamlar || []).find(x => x.tur === "rasm");
+  if (!L) return true;                      // rasmsiz (matnli) shablon
+  if (L.moda === "cover") return true;      // to'liq kadr
+  return (L.w || 0) * (L.h || 0) >= .45;
+}
+
 function stuVariantlar(oldingi) {
   const kat = stuKatTanla();
   const sinf = (STU.real || STU.foto) ? "real" : (STU.aiNamoyish ? "model" : null);   // ✅ 631: foto = to'liq kadr
@@ -3002,7 +3023,11 @@ function stuVariantlar(oldingi) {
     if ((k.indexOf("bolalar") >= 0 || k.indexOf("sport") >= 0) && kat !== "bolalar" && kat !== "sport") return 0;
     return k.indexOf("umumiy") >= 0 ? 1 : 0;
   };
-  let ro = STU_SHAB.filter(s => daraja(s) > 0);
+  // ✅ 635: SIFAT DARVOZASI — rasmni kadrning yarmidan kam joyga qamaydigan
+  // shablonlar tanlovdan CHIQARILDI. Sabab: bizning o'z qoidamiz — tovar
+  // kadrning 55-65% ini egallasin; 35% lik quti unga zid va aynan
+  // "uzoqdagi kichik tovar" hissini berardi.
+  let ro = STU_SHAB.filter(s => daraja(s) > 0 && _shabSifat(s));
   ro.sort((a, b) => daraja(b) - daraja(a) ||
     ((b.id.indexOf("fs") === 0) - (a.id.indexOf("fs") === 0)));
   const A = STU.avtoPal ? "auto" : "navy";
@@ -4112,6 +4137,17 @@ async function stuYana() {
   toast("Yana 6 ta variant", "ok");
 }
 async function stuBoshqaFon() {
+  // ✅ 635: fon endi REJISSYOR yo'lidan (egasi qarori). Kutubxona (pampas,
+  // marmar) — faqat rejissyor javob bermaganda zaxira.
+  const h = STU.aiHukm;
+  if (h && h.sahna && (h.sahna.joy || h.sahna.yuza) && !STU.real && !STU.aiNamoyish) {
+    if (await stuJoylashtir()) {
+      stuNatijaKorsat(true); stuVariantChiz(); toast("Yangi sahna tayyor", "ok"); return;
+    }
+    if (await stuSahna(null, true)) {
+      stuNatijaKorsat(true); stuVariantChiz(); toast("Fon: rejissyor sahnasi", "ok"); return;
+    }
+  }
   const ok2 = await stuFonAvto(STU.real ? "real" : "tovar", true);
   if (ok2) { stuNatijaKorsat(true); stuVariantChiz(); toast("Fon: " + STU.fonNom, "ok"); }
 }
@@ -4147,6 +4183,14 @@ const STU_TURLAR = [
 // ✅ 3-bosqich (studio 33): REJISSYOR ANIQLAGAN TUR. Katalog matni
 // emas, SURAT hal qiladi. Ishonchi "past" bo'lsa ishlatilmaydi —
 // unda eski yo'l (katalog matni) qoladi.
+// ✅ 635: FOTO REJIMI — natija tayyor FOTOGRAFIYA (AI sahnaga qo'ygan,
+// odamga kiydirilgan yoki muhit qo'yilgan). Bunday natija ramkaga
+// qamalmaydi: tekis rangli fon va katta rangli maydonlar chizilmaydi,
+// rasm chekkadan chekkagacha ketadi.
+function _fotoRejim() {
+  return !!(STU.foto || STU.real || STU.muhit || STU.aiNamoyish);
+}
+
 // ✅ 631: KADR FOKUSI TOVAR TURIGA QARAB. "cover" kadr fokus nuqtasi
 // atrofini saqlaydi; ilgari doim yuzga (.38) qo'yilardi — oyoq kiyim
 // reklamasida oyoqlar kesilib, tovar KO'RINMASDI (egasi: "biror marta
