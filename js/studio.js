@@ -2642,7 +2642,7 @@ function stuTanla(sku, rang) {
   const q = document.getElementById("stu-q");   if (q) q.value = "";
   const n = document.getElementById("stu-natija"); if (n) { n.innerHTML = ""; n.style.display = "none"; }
   STU.tovarXom = p;                                  // ✅ USTA: rasm manbai uchun
-  STU.variants = []; STU.fon = null; STU.aiNamoyish = false; STU.foto = false; STU.muhit = false;
+  STU.variants = []; STU.fon = null; STU.aiNamoyish = false; STU.foto = false; STU.muhit = false; STU.muhitRad = "";
   renderStudio();
   if (STU.rejim !== "pro" && STU.rasmManba === "katalog") stuKatalogRasm();
 }
@@ -4207,19 +4207,24 @@ async function stuMuhit(tur) {
   if (!h || !h.sahna || !(h.sahna.joy || h.sahna.yuza)) return false;
   const src = STU.img; if (!src) return false;
   stuHolat("Rejissyor muhiti qo'yilmoqda (AI)…");
-  const d = await stuAI("muhit", { image: _stuTayyor(src, 1200), sahna: h.sahna, turi: tur || "" });
+  const d = await stuAI("muhit", { image: _stuTayyor(src, 1200), sahna: h.sahna,
+    turi: tur || "", poza: h.poza || "", neytral: h.neytral || "" });   // ✅ 634
   if (!d || !d.image) return false;
   let im; try { im = await _stuImg(d.image); } catch (e) { return false; }
   stuHolat("Rejissyor tovarni tekshirmoqda…");
-  const t = await stuAiChaqir("ai_solishtir", { asl: _stuTayyor(STU.asl || src, 900),
-    natija: _stuTayyor(im, 900), tovar: _stuAiTovar() });
+  // ✅ 634: tekshiruv OLDIN ↔ KEYIN. 633 da muhitli kadr ASL TOVAR SURATI
+  // bilan solishtirilardi — to'liq bo'yli kadrda tovar kichik bo'lgani uchun
+  // tekshiruv deyarli har safar rad etardi va muhit tashlab yuborilardi.
+  const t = await stuAiChaqir("ai_solishtir", { rejim: "muhit",
+    asl: _stuTayyor(src, 900), natija: _stuTayyor(im, 900), tovar: _stuAiTovar() });
   if (!t || !t.ok || !t.hukm) { toast("Tekshiruv ishlamadi — muhitsiz natija qoldi", "err"); return false; }
   STU.aiMos = t.hukm;
   if (!t.hukm.mos) {
-    toast("Muhitda tovar o'zgardi (" + (t.hukm.farqlar[0] || "farq") + ") — muhitsiz natija qoldi", "err");
+    STU.muhitRad = t.hukm.farqlar[0] || "tovar o'zgardi";
+    toast("Muhitda tovar o'zgardi (" + STU.muhitRad + ") — muhitsiz natija qoldi", "err");
     return false;
   }
-  STU.img = im; STU.muhit = true;
+  STU.img = im; STU.muhit = true; STU.muhitRad = "";
   return true;
 }
 
@@ -4597,6 +4602,10 @@ function _stuRejIzoh() {
       s += " · katalogda: " + _stuAiEsc(_TUR_NOM[kat] || kat) + " → rejissyor tanlandi";
     q.push(s);
   }
+  if (h.poza) q.push("Poza: " + _stuAiEsc(h.poza));                       // ✅ 634
+  if (h.uslub_ogoh && h.uslub_ogoh.length)                                 // ✅ 634
+    q.push("⚠️ Uslub: " + h.uslub_ogoh.map(z => _stuAiEsc(z)).join(" · ") +
+           (h.neytral ? " → " + _stuAiEsc(h.neytral) : ""));
   const s = h.sahna || {};
   if (s.joy || s.yuza) {
     const J = h.joylashuv || {};
@@ -4645,6 +4654,11 @@ async function stuAiNatija() {
   // 2) natija aslga mosmi — faqat AI tovarga tekkan turlarda (1 kredit)
   if (!nh) return;
   const tur = STU.turi || "tovar";
+  // ✅ 634: muhit rad etilgan bo'lsa — SABABI ko'rinsin (B8), toast o'tib ketadi
+  if (STU.muhitRad && tur !== "tovar") {
+    nh.style.display = "block"; nh.className = "v2-holat ogoh";
+    nh.textContent = "Muhit qo'yilmadi: " + STU.muhitRad + " — kiydirilgan natija qoldi";
+  }
   if (tur === "tovar") {
     nh.style.display = "block"; nh.className = "v2-holat ok";
     nh.textContent = (STU.foto && STU.aiMos)

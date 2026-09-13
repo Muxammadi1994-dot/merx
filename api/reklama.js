@@ -167,6 +167,7 @@ const HUKM_SXEMA = _obj({
   yaroqli: S_BOOL, daraja: S_INT, sarlavha: S_STR, bandlar: S_STRLIST,
   sahna: _obj({ joy: S_STR, yuza: S_STR, balandlik: S_STR, yoruglik: S_STR, kamera: S_STR,
                 chuqurlik: S_STR, rekvizit: S_STR, palitra: S_STR, buyruq: S_STR }),
+  poza: S_STR, uslub_ogoh: S_STRLIST, neytral: S_STR,   // ✅ 634 (odamli turlar)
   joylashuv: _obj({ foiz: S_INT, markaz_x: S_INT, gorizont: S_INT,
                     soya_yon: { type: "string", enum: ["chap", "ong", "past"] }, soya_kuch: S_INT }),
 });
@@ -789,8 +790,19 @@ module.exports = async (req, res) => {
           "'yuza' — odam turgan yer (ko'cha, zina pog'onasi, kafe oldi, park yo'lakchasi, ofis koridori); " +
           "'kamera' — TOVARGA qaratilgan kadrlash (oyoq kiyim: tizzadan pastga, past nuqtadan; ust kiyim: bo'yindan belgacha; sumka: yelka-bel; soat: bilak); " +
           "'chuqurlik' — orqa fon xira, odam yumshoq, TOVAR o'tkir. Odam kameraga tik qarab turmasin: harakat (yurayotgan, zinadan chiqayotgan, burilayotgan). " +
-          "'buyruq' — English: the ENVIRONMENT for a person wearing the product (place, ground, light, depth, mood); no description of the person.\n"
-        : "2) SAHNA RETSEPTINI YOZ — 9 band, yuqoridagi qonunlar bo'yicha. Tayanch yuzasiz javob NOTO'G'RI hisoblanadi.\n") +
+          "'buyruq' — English: the ENVIRONMENT for a person wearing the product (place, ground, light, depth, mood); no description of the person.\n" +
+          "3) POZA yoz ('poza'): odam nima qilayotgan bo'lsin — tik turish EMAS. Tovarga qarab: " +
+          "oyoq kiyim — qadam tashlayotgan, zinadan chiqayotgan, bog'ich bog'layotgan, devorga suyangan; " +
+          "ust kiyim — 3/4 burilgan, qo'l cho'ntakda, yoqani ushlagan, yengni shimarayotgan; " +
+          "libos — aylanayotgan, yon profil, o'tirgan; sumka — tasmani yelkaga olayotgan, qo'lda yon tomonda; " +
+          "soat — bilak ko'rinadigan harakat. Yuz kameradan biroz chetga qarasin. Qisqa, bitta jumla.\n" +
+          "4) USLUB MUVOFIQLIGI ('uslub_ogoh'): suratdagi odamning BOShQA kiyimlari shu tovarga mos keladimi — " +
+          "fasl (qishki palto + shippak = xato), uslub (klassik tufli + sport shim), rang (3 tadan ortiq kuchli rang), " +
+          "daraja (bayram libosi + eskirgan krossovka), yosh. Mos kelmasa qisqa ogoh yoz, kelsa bo'sh ro'yxat. " +
+          "Agar tuzatish mumkin bo'lsa 'neytral' ga YOZ: qaysi kiyimni qaysi neytral rangga o'zgartirish kerak " +
+          "(masalan: shimni to'q ko'kka o'zgartir). Tuzatish shart bo'lmasa 'neytral' bo'sh.\n"
+        : "2) SAHNA RETSEPTINI YOZ — 9 band, yuqoridagi qonunlar bo'yicha. Tayanch yuzasiz javob NOTO'G'RI hisoblanadi. " +
+          "'poza', 'uslub_ogoh', 'neytral' maydonlari bu turda BO'SH qoladi.\n") +
       "Bu safargi yo'nalish: uslub — " + x.uslub + " · yorug'lik — " + x.nur + " · tayanch yuza — " + x.yuza + ". " +
       "Agar bu yo'nalish tovarga yoki suratdagi yorug'likka mos kelmasa — eng yaqinini o'zing tanla.\n\n" +
       "Faqat shu JSON: {\"tovar_turi\":\"oyoq kiyim|ust kiyim|past kiyim|libos|aksessuar — SURATGA qarab\"," +
@@ -820,6 +832,10 @@ module.exports = async (req, res) => {
       // ya'ni klient har doim ishlaydigan matn oladi (eski shartnoma buzilmaydi).
       hukm.sahna = _sahnaRetsept(hukm.sahna, x);
       hukm.joylashuv = _joylashuv(hukm.joylashuv, hukm.sahna);   // ✅ 2-bosqich
+      hukm.poza = String(hukm.poza || "").replace(/\s+/g, " ").trim().slice(0, 160);   // ✅ 634
+      hukm.neytral = String(hukm.neytral || "").replace(/\s+/g, " ").trim().slice(0, 160);
+      hukm.uslub_ogoh = Array.isArray(hukm.uslub_ogoh)
+        ? hukm.uslub_ogoh.slice(0, 3).map(z => String(z).slice(0, 140)).filter(Boolean) : [];
     } catch (e) { xato = e.message; }
     await jurnal(shopId, "ai_hukm", "anthropic", M_AI, !xato, (xato || ("in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0))) + (tok.stop ? " · " + tok.stop : ""));
     if (xato) return res.status(200).json({ ok: false, error: xato });
@@ -853,6 +869,33 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: false, limit: true, sarf: n0, chegara: ch0.chegara, error: `Bu oydagi ${ch0.chegara} kredit tugadi.` });
     const asl = _dataUri(body.asl, 1400), nat = _dataUri(body.natija, 1400);
     if (!asl || asl.xato || !nat || nat.xato) return res.status(200).json({ ok: false, error: "Ikkala rasm kerak (asl va natija), 1,4 MB gacha" });
+    // ✅ 634: MUHIT REJIMI. Muhit qadamida ikki rasmda ham AYNI kadr bo'ladi,
+    // faqat fon almashadi — u yerda "tovar kadrda asosiy obyektmi" deb
+    // so'rash NOTO'G'RI (to'liq bo'yli kadrda tovar har doim kichik).
+    // 633 da shu sabab muhit deyarli har safar rad etilardi.
+    if (String(body.rejim || "") === "muhit") {
+      const savolM = "Ikkala rasmda ham AYNI ODAM va ayni kiyim bor. Birinchi — muhit qo'yilishidan OLDIN, ikkinchi — KEYIN. " +
+        "Faqat bitta savol: odam kiygan TOVAR o'zgardimi? Tekshir: rang, shakl, tag, tugma, zamok, naqsh, tikuv, logotip, bog'ich, material fakturasi. " +
+        "Fon, joy, yorug'lik, soya, poza, kadr, odamning boshqa kiyimlari — ATAYLAB o'zgartirilgan, ular farq qilishi NORMAL, ular haqida yozma. " +
+        "Odamning yuzi yoki tanasi o'zgargan bo'lsa — buni farq deb yoz. " +
+        "'mos' = tovar o'zgarmagan. Har farq: [og'irlik] QAYERDA — NIMA. Tovar: " + _tovarMatn(body.tovar || {});
+      try {
+        const r = await claudeChaqir(M_AI_HUKM, REJ_TEKSHIR, [
+          { type: "image", source: { type: "base64", media_type: asl.media, data: asl.data } },
+          { type: "image", source: { type: "base64", media_type: nat.media, data: nat.data } },
+          { type: "text", text: savolM }], 900, 45000, TEKSHIR_SXEMA);
+        const hh = _jsonAjrat(r.text);
+        await jurnal(shopId, "ai_solishtir:muhit", "anthropic", M_AI_HUKM, true,
+          "in " + (r.usage.input_tokens || 0) + " out " + (r.usage.output_tokens || 0));
+        return res.status(200).json({ ok: true, hukm: {
+          mos: !!hh.mos, ishonch: Math.max(0, Math.min(100, Number(hh.ishonch) || 0)),
+          farqlar: Array.isArray(hh.farqlar) ? hh.farqlar.slice(0, 6).map(z => String(z).slice(0, 160)) : [],
+          tavsiya: String(hh.tavsiya || "qabul") } });
+      } catch (e) {
+        await jurnal(shopId, "ai_solishtir:muhit", "anthropic", M_AI_HUKM, false, e.message);
+        return res.status(200).json({ ok: false, error: e.message });
+      }
+    }
     // ✅ 633: 15 bandli tekshiruv (bilim ro'yxati §7) + farq QAYERDA + og'irligi
     const savol = "Birinchi rasm — ASL tovar surati. Ikkinchi rasm — AI yasagan reklama. Tovar (kiyim/oyoq kiyim/aksessuar) ikkinchi rasmda ASL bilan bir xilmi? " +
       "15 band: 1 rang va tus · 2 shakl va silu · 3 TAG (oyoq kiyim: qalin/yupqa, rezina/charm) · 4 tugma va zamok · 5 naqsh va tikuv · 6 logotip va yozuv · 7 cho'ntaklar · " +
@@ -1333,6 +1376,8 @@ module.exports = async (req, res) => {
     const S = body.sahna || {};
     const b = k => String(S[k] || "").replace(/\s+/g, " ").trim().slice(0, 140);
     const tur = String(body.turi || "");
+    const poza = String(body.poza || "").replace(/\s+/g, " ").trim().slice(0, 160);
+    const neytral = String(body.neytral || "").replace(/\s+/g, " ").trim().slice(0, 160);
     const kadr = tur === "shoes" ? "Camera low, near ground level, so the footwear is the main subject. " :
                  tur === "aksessuar" ? "Camera at waist level, the accessory clearly visible. " : "";
     const matn =
@@ -1343,8 +1388,15 @@ module.exports = async (req, res) => {
       `so their shadows and highlights match the new scene. ` +
       `Background: ${b("chuqurlik") || "softly blurred"}, shallow depth of field; the person and especially the worn product stay sharp. ` +
       (b("palitra") ? `Colour mood: ${b("palitra")}. ` : "") + kadr +
-      `CRITICAL: do NOT change the person — face, hair, skin, body, pose, hands — and do NOT change any clothing ` +
-      `or the product they wear: same colour, shape, logo, laces, material. Keep the framing. ` +
+      // ✅ 634: POZA — odam tik turmasin (bilim §4.4/§5.2). Yuz, tana, teri,
+      // soch va TOVAR daxlsiz; faqat gavda holati o'zgaradi.
+      (poza ? `Change the person's pose to: ${poza}. Keep the same face, same identity, same body shape, ` +
+              `same skin tone and hair. The pose must look natural and the worn product must stay fully visible. ` : "") +
+      // ✅ 634: NEYTRALLASh — rejissyor uslub nomuvofiqligini topsa, faqat
+      // SHU qismni o'zgartirishga ruxsat (masalan: shimni to'q ko'kka).
+      (neytral ? `One allowed wardrobe change: ${neytral}. Change nothing else. ` : "") +
+      `CRITICAL: do NOT change the person's face, hair, skin, body shape or hands, and do NOT change ` +
+      `the product they wear: same colour, shape, logo, laces, stitching, material. Keep the framing and crop. ` +
       `No text, no other people, no added objects. Photorealistic, high resolution.`;
     try {
       const q = await falSubmit(M_EDIT, { prompt: matn, image_urls: [odam],
