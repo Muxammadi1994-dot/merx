@@ -3974,10 +3974,22 @@ function _rtEnsure() {
 
 // ZAXIRA: har 90 soniyada JIM, ekranSIZ pull — realtime signal biror sabab
 // bilan yetib kelmasa ham ma'lumot to'g'ri qoladi (ekran keyingi harakatda yangilanadi).
+// ✅ ZX-1 (2026-09-14): zaxira tortish MOSLASHUVCHAN.
+// Jonli ulanish (realtime) SOG' bo'lsa — o'zgarish 1-3 s da signal bilan
+// keladi, zaxira tortish faqat "ehtiyot" — u 5 daqiqada bir yetadi.
+// Jonli ulanish YO'Q bo'lsa (uzilgan, hali ulanmagan) — avvalgidek 90 s.
+// Hech qanday amal kechikmaydi: kechikish faqat realtime uzilganda va u
+// holda 90 s qoladi (RT-2 esa 15 s da qayta ulaydi).
+// Sabab: har kassa kuniga 9 so'rov × 960 = 8 640 bo'sh so'rov yuborardi —
+// SY-1 dan keyin serverdagi eng katta "foydasiz" son shu edi.
+const ZX_JONLI_MS = 5 * 60 * 1000;
+let _zxOxirgi = 0;
 setInterval(async () => {
   try {
     // S8: zaxira tortish nega o'tkazib yuborilyapti — sababi
     if (!_sb || !getCloudShopId() || !_cloudPullDone) return;
+    const _rtSog = !!(_rtChannel && _rtSubscribedSid === getCloudShopId());
+    if (_rtSog && Date.now() - _zxOxirgi < ZX_JONLI_MS) return;   // ZX-1: jonli sog' — 5 daqiqada bir
     if (_pullBusy || _syncPending) {
       if (SYNC_TRACE) console.log("⏱ SINXRON · 90s zaxira o'tkazildi: " +
         (_syncPending ? "yuborilmagan o'zgarish bor" : "boshqa tortish ketyapti"));
@@ -3988,7 +4000,8 @@ setInterval(async () => {
     // 2026-07-31: zaxira ham delta bilan — fon so'rovi yengil bo'lsin
     try {
       await pullSmart(true, true);                    // JIM + ekransiz (fon)
-      _trLog("90s zaxira tortish", _trMs(_tz));
+      _zxOxirgi = Date.now();                         // ZX-1
+      _trLog((_rtSog ? "5 daq" : "90s") + " zaxira tortish", _trMs(_tz));
     }
     catch (e) { console.warn("zaxira pull xato:", e.message); }
     finally { _syncSuppressed = false; _pullBusy = false; }
