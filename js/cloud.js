@@ -3791,6 +3791,8 @@ setInterval(() => {
 // ═══════════════════════════════════════════════════════════════════
 const _RT_TABLES = ['products','sales','customers','staff','ombor','xarajatlar',
   'debt_payments','shifts','settings','suppliers','returns','chiqimlar','deleted_records'];
+const _RT_QAYTA_MS = 15000;   // RT-2: uzilgan kanal shuncha vaqtdan keyin qayta uriniladi
+let _rtQaytaT = null;
 let _rtChannel = null;
 let _rtSubscribedSid = null;
 let _rtPullTimer = null;
@@ -3916,7 +3918,16 @@ function _rtEnsure() {
   });
   ch.subscribe(status => {
     console.log("🔔 realtime:", status);
-    if (status === "SUBSCRIBED") _rtSubscribedSid = sid;
+    if (status === "SUBSCRIBED") { _rtSubscribedSid = sid; clearTimeout(_rtQaytaT); _rtQaytaT = null; return; }
+    // ✅ RT-2 (2026-09-14): UZILSA QAYTA ULANADI. Avval `_rtChannel` o'lik
+    // holda qolib, `_rtEnsure` "allaqachon ulangan" deb chiqib ketardi —
+    // kassa faqat 90 s zaxira tortishga qolardi (2026-09-14: jonli
+    // do'konlardan bironta obuna yo'q edi). Endi 15 s dan keyin yangidan.
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+      try { if (_rtChannel === ch) { _sb.removeChannel(ch); _rtChannel = null; _rtSubscribedSid = null; } } catch (e) {}
+      clearTimeout(_rtQaytaT);
+      _rtQaytaT = setTimeout(() => { _rtQaytaT = null; try { _rtEnsure(); } catch (e) {} }, _RT_QAYTA_MS);
+    }
   });
   _rtChannel = ch;
 }
