@@ -1611,7 +1611,11 @@ async function pushToCloud() {
   }
   if (!_cloudPullDone || _pulledShopId !== _sid) {
     console.warn("Cloud push kutmoqda: AYNAN SHU do'kon uchun pull tugashi kerak (do'kon almashgan bo'lishi mumkin)");
-    if (typeof ensureCloudPull === "function") ensureCloudPull();
+    // ✅ SY-2 (2026-09-14): yozuv YUBORILMADI — bayroq qaytariladi, tortish
+    // tugagach navbat o'z-o'zidan yuboriladi (120 s qo'riqchi va pull oxiri).
+    // Avval bayroq o'chib qolar, yozuv 2 daqiqagacha himoyasiz turardi.
+    try { _syncPending = true; } catch (e) {}
+    if (typeof ensureCloudPull === "function") ensureCloudPull().then(() => { try { scheduleCloudSync(); } catch (e) {} }).catch(() => {});
     return;
   }
   // 2026-07-19: BO'SH-DB HIMOYASI (push darajasida ham).

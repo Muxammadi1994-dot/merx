@@ -746,7 +746,14 @@ function _choYoz(sinx) {
       }
     }
   }
-  if (typeof scheduleCloudSync === "function") scheduleCloudSync();
+  // ✅ SY-1 (2026-09-14): `sinx === false` bo'lsa sinxron REJALANMAYDI.
+  // Sabab: XD-4e (619) da cloud.js ichidagi 5 yozuv `_choYoz(false)` ga
+  // o'tkazildi, lekin bu funksiya `sinx` ni tekshirmasdi — har push oxirida
+  // yana sinxron rejalanib, ~1 soniyalik CHEKSIZ AYLANMA hosil bo'ldi:
+  // push → _choYoz(false) → scheduleCloudSync → 700 ms → push → ... Har ochiq
+  // oynada sekundiga 1 bo'sh so'rov (settings) — 2026-09-11…13 server yuki
+  // va "kutayotgan yozuv" bayrog'ining doim `true` qolishi shundan.
+  if (sinx !== false && typeof scheduleCloudSync === "function") scheduleCloudSync();
 }
 
 // ── EAN-13 ────────────────────────────────────────
