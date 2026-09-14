@@ -610,6 +610,16 @@ function defaultPageForRole(user) {
 // bu qiyin. Bu tugma o'sha ishni bajaradi: kutayotgan o'zgarishlarni
 // bulutga yuboradi, eski keshni tozalaydi, service worker'ni
 // yangilaydi va sahifani qayta yuklaydi.
+// ✅ UI-1: ilovaning o'zi (yangi versiya faollashganda) qayta yuklashi —
+// avval kutayotgan yozuv yuboriladi (3 s gacha), keyin savolsiz qayta yuklanadi.
+async function appOzReload(sabab) {
+  try { console.log("♻️ qayta yuklash:", sabab || ""); } catch (e) {}
+  try {
+    if (typeof flushCloudSync === "function")
+      await Promise.race([flushCloudSync(true), new Promise(r => setTimeout(r, 3000))]);
+  } catch (e) {}
+  try { window._merxOzReload = true; location.reload(); } catch (e) {}
+}
 async function appHardReload() {
   try { toast("Yangilanmoqda..."); } catch(e) {}
 
@@ -650,7 +660,12 @@ async function appHardReload() {
 
   // 4) Qayta yuklash. index.html Vercel'da no-cache, kesh esa
   //    yuqorida tozalandi — shuning uchun yangi kod keladi.
-  setTimeout(() => { try { location.reload(); } catch(e) {} }, 250);
+  // ✅ UI-1 (2026-09-14): ILOVANING O'Z qayta yuklashi — brauzer savolisiz.
+  // Kutayotgan yozuv yuqorida yuborildi; lekin push tugagach `_choYoz`
+  // navbatdagi sinxronni rejalashtirib bayroqni yana yoqardi, va 250 ms
+  // ichida brauzer "Перезагрузить сайт?" deb so'rardi (stendda 3/3 holatda
+  // takrorlandi). Belgi qo'riqchiga "bu men" deydi; F5/oyna yopish avvalgidek.
+  setTimeout(() => { try { window._merxOzReload = true; location.reload(); } catch(e) {} }, 250);
 }
 
 

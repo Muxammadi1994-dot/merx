@@ -3741,6 +3741,7 @@ document.addEventListener("visibilitychange", () => {
 
 // F5 / tab yopish — yuborilmagan o'zgarish bo'lsa ogohlantiramiz
 window.addEventListener("beforeunload", (e) => {
+  if (window._merxOzReload) return;   // ✅ UI-1: ilovaning o'z qayta yuklashi — savolsiz
   if (!_syncPending) return;
   flushCloudSync();                 // ulgursa yuboriladi
   e.preventDefault();
