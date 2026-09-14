@@ -3152,8 +3152,8 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
           const _ct = Date.parse(c.data.updatedAt || 0) || 0;
           if (_lt > _ct) return { ..._oc, id: c.id,
             telegramChatId: c.telegram_chat_id || _oc.telegramChatId || null };
-          return { ...c.data, id: c.id,
-            telegramChatId: c.telegram_chat_id || null };
+          return _srvMark({ ...c.data, id: c.id,
+            telegramChatId: c.telegram_chat_id || null });
         }
         // ZAXIRA YO'L (data hali yo'q) — avvalgi mapping o'zgarishsiz
         return {
@@ -3185,8 +3185,8 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
           // PIN bulutda bo'sh bo'lsa lokaldagi saqlanadi (2026-08-01)
           if (_lt > _ct) return { ..._o, id: s.id, pin: s.pin || _o.pin || null,
             pinHash: s.pin_hash || _o.pinHash || null };
-          return { ...s.data, id: s.id, pin: s.data.pin || s.pin || _o.pin || null,
-            pinHash: s.pin_hash || s.data.pinHash || _o.pinHash || null };
+          return _srvMark({ ...s.data, id: s.id, pin: s.data.pin || s.pin || _o.pin || null,
+            pinHash: s.pin_hash || s.data.pinHash || _o.pinHash || null });
         }
         // 2026-08-01: bulutdagi PIN bo'sh bo'lsa LOKALDAGINI saqlaymiz
         const _oldSt = (db.staff || []).find(x => String(x.id) === String(s.id)) || {};
@@ -3393,7 +3393,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
       })();
       db.chiqimlar = chiqData.map(c => {
         // v175: BUTUN JSON bo'lsa — undan (id konvensiyasi saqlanadi)
-        if (c.data && typeof c.data === "object" && !Array.isArray(c.data)) return { ...c.data, id: c.local_id || c.data.id || c.id };
+        if (c.data && typeof c.data === "object" && !Array.isArray(c.data)) return _srvMark({ ...c.data, id: c.local_id || c.data.id || c.id });
         return ({
         id:          c.local_id || c.id,
         date:        c.date,
@@ -3426,7 +3426,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
       db.debtPayments = payData.map(p => {
         // v174: BUTUN JSON bo'lsa — undan. Bot bu jadvalga yozmaydi.
         if (p.data && typeof p.data === "object" && !Array.isArray(p.data)) {
-          return { ...p.data, id: p.id };
+          return _srvMark({ ...p.data, id: p.id });
         }
         // ZAXIRA YO'L (data hali yo'q) — avvalgi mapping o'zgarishsiz
         return {
@@ -3468,7 +3468,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
       })();
       db.returns = retData.map(r => {
         // v175: BUTUN JSON bo'lsa — undan
-        if (r.data && typeof r.data === "object" && !Array.isArray(r.data)) return { ...r.data, id: r.id };
+        if (r.data && typeof r.data === "object" && !Array.isArray(r.data)) return _srvMark({ ...r.data, id: r.id });
         return ({
         id: r.id, date: r.date, time: r.time || null,
         origSaleId: r.orig_sale_id || null,
@@ -3489,7 +3489,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
     if (shiftData) {
       db.shifts = shiftData.map(sh => {
         // v175: BUTUN JSON bo'lsa — undan
-        if (sh.data && typeof sh.data === "object" && !Array.isArray(sh.data)) return { ...sh.data, id: sh.id };
+        if (sh.data && typeof sh.data === "object" && !Array.isArray(sh.data)) return _srvMark({ ...sh.data, id: sh.id });
         return ({
         id: sh.id, staffId: sh.staff_id || null,
         openTime: sh.open_time || null,
@@ -3509,7 +3509,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
     if (supData) {
       db.suppliers = supData.map(s => {
         // v175: BUTUN JSON bo'lsa — undan
-        if (s.data && typeof s.data === "object" && !Array.isArray(s.data)) return { ...s.data, id: s.id };
+        if (s.data && typeof s.data === "object" && !Array.isArray(s.data)) return _srvMark({ ...s.data, id: s.id });
         return ({
         id: s.id, name: s.name || "", phone: s.phone || "", note: s.note || ""
         });
