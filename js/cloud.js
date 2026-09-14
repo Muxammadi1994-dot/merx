@@ -731,7 +731,7 @@ async function pullDelta(noRender) {
       // bilan bir xil tartib: rasm o'z ustunidan olinadi va lokal
       // nusxa bilan himoyalanadi (_keepImg / _keepColorImgs).
       const mapped = rows.map(r => {
-        const base = { ...r.data, id: r.id };
+        const base = _srvMark({ ...r.data, id: r.id });   // ✅ SY-3: bulut belgisi
         if (tbl === "staff") {
           // Xodimda PIN va telefon o'z ustunlarida ham bor — `data`
           // bo'sh bo'lsa ular yo'qolmasin (kirish shu ikkisiga bog'liq).
@@ -1166,10 +1166,31 @@ function _fpRow(r) {
   try {
     const c = JSON.parse(JSON.stringify(r));
     delete c.updated_at;
-    if (c.data && typeof c.data === "object") delete c.data.updatedAt;
+    if (c.data && typeof c.data === "object") { delete c.data.updatedAt; delete c.data._srvFp; }   // SY-3
     return _fp(JSON.stringify(c));
   } catch (e) { return _fp(JSON.stringify(r)); }
 }
+// ✅ SY-3 (2026-09-14): "BULUT BILAN BIR XIL" BELGISI.
+// Bulutdan kelgan har yozuvga uning MAZMUN barmoq izi (`_srvFp`) qo'yiladi.
+// Push paytida: kesh topilmasa-yu mazmun hali o'sha barmoq iziga teng bo'lsa —
+// yozuv bulut bilan bir xil, YUBORILMAYDI va MUHR BOSILMAYDI. Har qanday
+// lokal o'zgarish (sotuv, tahrir, bekor) barmoq izini buzadi → yuboriladi.
+// Sabab: har tortishda push keshi tozalanardi (`_pushCache = {}`) → hamma
+// qator "o'zgargan" → hammasiga YANGI muhr → hammasi qayta yozilardi:
+// 15 soatda 6 392 sotuv yozuvi (100 sotuvga), va eski nusxa yangi muhr bilan
+// boshqa kassa ishini bosardi ("o'chirilgan sotuv tirildi" sinfi —
+// 2026-08-08 CHK-3301-EG bilan bir ildiz; u faqat forceRepushAll uchun
+// tuzatilgan, oddiy tortish uchun emas).
+function _fpData(o) {
+  try {
+    const c = JSON.parse(JSON.stringify(o));
+    delete c.updatedAt; delete c._srvFp; delete c.shop_id;
+    delete c.image; delete c.colorImages; delete c.photo;
+    if (Array.isArray(c.items)) c.items = c.items.map(it => { if (it && typeof it === "object") { const {image, ...rest} = it; return rest; } return it; });
+    return _fp(JSON.stringify(c));
+  } catch (e) { return null; }
+}
+function _srvMark(o) { try { if (o && typeof o === "object") o._srvFp = _fpData(o); } catch (e) {} return o; }
 // 2026-08-02: kalitga FORMAT raqami qo'shildi. Barmoq izi hisoblash
 // usuli o'zgarganda eski kesh mos kelmay qoladi va HAMMA yozuv
 // "o'zgargan" bo'lib chiqadi — bir marta to'liq qayta yozish bo'ladi.
@@ -1218,11 +1239,14 @@ function _pushHisobotBoshla() { _pushHisobot = {}; }
 function _pushHisobotYoz() {
   try {
     if (!_pushHisobot) return;
-    const j = Object.entries(_pushHisobot).filter(([, v]) => v > 0);
+    const j = Object.entries(_pushHisobot).filter(([k, v]) => v > 0 && k[0] !== "~");
     const jami = j.reduce((a, [, v]) => a + v, 0);
-    if (!jami) console.log("📤 PUSH: yangi yozuv yo'q (0 qator) — to'g'ri holat");
+    const tk = Object.entries(_pushHisobot).filter(([k, v]) => v > 0 && k[0] === "~");   // SY-3: bulut bilan bir xil — yuborilmadi
+    const tkJami = tk.reduce((a, [, v]) => a + v, 0);
+    const tkTxt = tkJami ? " · bulut bilan bir xil (yuborilmadi): " + tkJami : "";
+    if (!jami) console.log("📤 PUSH: yangi yozuv yo'q (0 qator) — to'g'ri holat" + tkTxt);
     else console.log("📤 PUSH: " + jami + " qator yuborildi · " +
-      j.map(([k, v]) => k + "=" + v).join(", "));
+      j.map(([k, v]) => k + "=" + v).join(", ") + tkTxt);
   } catch (e) {}
   _pushHisobot = null;
 }
@@ -1235,6 +1259,13 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
     const k = String(r.id != null ? r.id : r.shop_id);
     const j0 = _fpRow(r);
     if (cache.get(k) !== j0) {
+      // ✅ SY-3: bulutdan kelgan va o'zgarmagan yozuv — yuborilmaydi, muhr bosilmaydi
+      if (!window._forceRepushing &&        // qo'lda "hammasini qayta yubor" — belgi e'tiborga olinmaydi
+          r.data && typeof r.data === "object" && r.data._srvFp && r.data._srvFp === _fpData(r.data)) {
+        cache.set(k, j0);
+        try { if (_pushHisobot) _pushHisobot["~" + table] = (_pushHisobot["~" + table] || 0) + 1; } catch (e) {}
+        continue;
+      }
       // v180: VAQT MUHRI — o'zgargan yozuvga muhr onDirty ichida
       // bosiladi (MUHRDAN KEYINGI JSON keshga yoziladi, aks holda
       // har push "o'zgargan" deb hisoblab abadiy aylanardi)
@@ -1313,7 +1344,13 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
       // — ya'ni butun push to'xtardi. Endi standart kalit ham
       // yangi PK bilan bir xil. Alohida kalit berilgan joylar
       // (masalan products → "sku,shop_id") avvalgidek ishlaydi.
-        .upsert(part.map(p => p[0]), { onConflict: conflict || "id,shop_id", ignoreDuplicates: false });
+        .upsert(part.map(p => {                       // ✅ SY-3: `_srvFp` bulutga ketmaydi
+          const row = p[0];
+          if (row && row.data && typeof row.data === "object" && "_srvFp" in row.data) {
+            const { _srvFp, ...d } = row.data; return { ...row, data: d };
+          }
+          return row;
+        }), { onConflict: conflict || "id,shop_id", ignoreDuplicates: false });
       error = _res.error;
       if (!error) break;
       if (_pgXato(error)) break;                 // mantiqiy xato — qayta urinmaymiz
@@ -2956,7 +2993,10 @@ async function pullFromCloud(silent = false, skipRender = false) {
   finally { _pullRunning = false; }
 }
 async function _pullFromCloudIchki(silent = false, skipRender = false) {
-  _pushCache = {}; // v176: pull'dan keyin birinchi push to'liq bo'lsin (xavfsizlik)
+  // ✅ SY-3: kesh endi TOZALANMAYDI. Avval har tortishdan keyin hamma qator
+  // qayta yuborilib, yangi muhr olardi (yuk + "tirilish" xavfi). Xavfsizlik
+  // `_srvFp` bilan: faqat bulut bilan AYNAN bir xil yozuv yuborilmaydi.
+  // Qo'lda to'liq qayta yuborish (forceRepushAll) o'z joyida.
   if (!_sb) {
     const ok = await initSupabase();
     if (!ok) { toast("Avval ulaning","err"); return; }
@@ -3217,7 +3257,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
           const _lt = Date.parse(_o.updatedAt || 0) || 0;
           const _ct = Date.parse(s.data.updatedAt || 0) || 0;
           if (_lt > _ct) return { ..._o, id: s.id };      // lokal yangiroq
-          return { ...s.data, id: s.id };
+          return _srvMark({ ...s.data, id: s.id });       // ✅ SY-3
         }
         // ZAXIRA YO'L (data hali yo'q) — avvalgi mapping o'zgarishsiz
         return {
@@ -3261,7 +3301,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
           const _lt = Date.parse(_o.updatedAt || 0) || 0;
           const _ct = Date.parse(o.data.updatedAt || 0) || 0;
           if (_lt > _ct) return { ..._o, id: o.id };      // lokal yangiroq
-          return { ...o.data, id: o.id };
+          return _srvMark({ ...o.data, id: o.id });       // ✅ SY-3
         }
         return ({
         id: o.id, date: o.date, sku: o.sku,
@@ -3301,7 +3341,7 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
           const _lt = Date.parse(_o.updatedAt || 0) || 0;
           const _ct = Date.parse(x.data.updatedAt || 0) || 0;
           if (_lt > _ct) return { ..._o, id: x.id };   // lokal yangiroq
-          return { ...x.data, id: x.id };
+          return _srvMark({ ...x.data, id: x.id });    // ✅ SY-3
         }
         return ({
         id: x.id, date: x.date, category: x.category,
