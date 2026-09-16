@@ -213,7 +213,7 @@ Faqat so'ralgan JSON ni qaytar, boshqa hech narsa yozma.`;
 // ✅ v2.1 (2026-09-12) — REJISSYOR QONUNLARI.
 // Eski matnda uslub QOTIRIB yozilgan edi ("iliq neytral, pampas o'ti,
 // shisha vaza") — shuning uchun har reklama bir xil chiqardi. Endi
-// uslub yo'q, QONUN bor; xilma-xillikni har chaqiruvda _xilma() beradi.
+// uslub yo'q, QONUN bor; xilma-xillikni har chaqiruvda _ijod() beradi (646).
 // Eng muhim yangilik — TAYANCH QONUNI (tovar havoda qolmasligi uchun).
 const REJISSYOR = `Sen MERX Studio bosh art-direktorisan — O'zbekistondagi do'konlar uchun reklama suratlarini SAHNALASHTIRASAN.
 
@@ -255,69 +255,91 @@ Faqat so'ralgan JSON ni qaytar.`;
 // ✅ v2.1 — XILMA-XILLIK URUG'I. Rejissyorga har chaqiruvda boshqa
 // yo'nalish beriladi, aks holda u har safar eng "xavfsiz" sahnani
 // (neytral studiya) yozadi. Tovarga mos kelmasa — o'zi almashtiradi.
-const V_USLUB = [
-  "studiya — toza, minimal, sokin fon",
-  "hayotiy — ko'cha, uy, kafe, tabiiy muhit",
-  "atmosfera — kuchli rang, qattiq soya, dramatik yorug'lik",
+// ✅ 646 — IJODIY DVIGATEL. Sabab: 641 da savol qayta yozilganda xilma-xillik
+// urug'i savolga qo'shilmay qolgan — rejissyor hech qanday yo'nalish olmadi va
+// har safar "eski shahar ko'chasi" yozdi. Egasi: "kuzatuvchilar birxillikdan
+// tez zerikadi". Endi har chaqiruvda OLTI o'q bo'yicha tasodifiy yo'nalish
+// beriladi va u TOVAR TURIGA qarab tanlanadi.
+const I_JANR = [
+  "studiya minimalizmi — toza yuza, bitta yorug'lik, ortiqcha narsa yo'q",
+  "ko'cha reportaji — tirik lahza, tasodifiy kadr hissi",
+  "tahririy drama — qattiq soya, kuchli kontrast, jurnal muqovasi kayfiyati",
+  "retro plyonka — dona, iliq tus, 90-yillar reklamasi hissi",
+  "yuqori moda — grafik kompozitsiya, kutilmagan burchak",
+  "tabiat va organik — yog'och, tosh, o't, tabiiy nur",
+  "sport va harakat — muzlatilgan lahza, kuch hissi",
+  "uy jimjitligi — sokin xona, parda nuri, kundalik hayot",
+  "sanoat xomligi — beton, metall, quvur, qo'pol yuza",
+  "mahalliy bozor iliqligi — rang, mato, gavjumlik (xira)",
+  "tungi neon — rangli chiroq aksi, nam asfalt",
+  "suv va aks — ko'lmak, oyna, sayqal yuza aksidan foydalanish",
+  "ustdan grafik kadr — tartib, simmetriya, bo'sh joy",
+  "makro faktura — material qahramon, juda yaqin kadr",
 ];
-const V_NUR = [
-  "ertalabki yumshoq nur", "oltin soat (quyosh botishi)",
-  "bulutli kunning tekis nuri", "deraza panjarasidan tushgan chiziqli nur",
-  "oqshom shahar chiroqlari", "studiya softbox nuri",
-  "yon tomondan qattiq nur", "iliq lampa nuri",
+const I_VAQT = [
+  "tong tumani, sovuq yumshoq nur", "erta tong, uzun yumshoq soyalar",
+  "tush oldi, toza va tekis nur", "peshin, qattiq nur va aniq soya",
+  "bulutli kun, soyasiz tekis nur", "oltin soat, iliq yon nur",
+  "ko'k soat, quyoshdan keyingi salqin nur", "oqshom, shahar chiroqlari yonadi",
+  "tun, neon va ko'cha chiroqlari", "deraza nuri, ichkarida",
+  "iliq lampa, kechki xona", "studiya softboxi, boshqariladigan nur",
 ];
-const V_YUZA = [
-  "beton zina pog'onasi", "yog'och stol yoki taxta", "tosh yoki marmar tokcha",
-  "asfalt yoki yo'lakcha", "g'isht devor qirrasi", "mato yoki gilam burmasi",
-  "qum yoki tuproq", "metall yoki shisha tokcha", "yog'och skameyka",
-];
-function _xilma() {
+const I_FASL = ["bahor — yangi barg, gullar, yengil havo",
+  "yoz — yorqin nur, issiq havo, soya izlash",
+  "kuz — oltin barglar, iliq tuslar, salqin havo",
+  "qish — qor, sovuq nur, iliq kiyim", "yomg'irdan keyin — nam yuza va aks"];
+const I_RANG = ["iliq tuproq ranglari", "sovuq kulrang-ko'k", "deyarli monoxrom",
+  "pastel va yumshoq", "to'q fon va kuchli kontrast", "oq ustiga oq, nozik",
+  "kuzgi oltin va jigarrang", "neon binafsha-ko'k"];
+const I_KAMERA = ["35mm, past nuqtadan, keng sahna", "50mm, ko'z darajasida, tabiiy",
+  "85mm, siqilgan fon, tovar ajralib turadi", "100mm makro, faktura",
+  "ustdan tik kadr", "yerga juda yaqin, past nuqta",
+  "oyna yoki ko'zgu aksi orqali", "old planda xira element (ramka effekti)",
+  "yengil harakat izi (panning)", "uzoq fokus, kuchli siqilish"];
+// dunyo — TOVAR TURIGA qarab
+const I_DUNYO = {
+  shoes: ["sport maydonchasi chizig'i", "skeytpark beton yoyi", "basketbol maydoni",
+    "avtomobil salonidan chiqayotgan oyoq", "velosiped pedali yonida", "yugurish yo'lakchasi",
+    "qumli plyaj chizig'i", "yog'och piristan", "o'tloq, ertalabki shudring",
+    "tog' so'qmog'i, mayda tosh", "metro eskalatori", "vokzal perroni",
+    "tom ustidagi teras", "basseyn chekkasi, nam kafel", "kutubxona narvoni",
+    "galereya poli, oq devor", "muzlagan ko'lmak, qor", "avtoturargoh chizig'i",
+    "kafe oldidagi stul ostida", "zinapoya spirali", "gilam chekkasi, uy ichi",
+    "stadion o'rindiqlari orasida"],
+  tops: ["tom ustidagi teras, shahar manzarasi", "san'at galereyasi, oq devor",
+    "issiqxona, o'simliklar orasida", "kutubxona javonlari", "mehmonxona koridori",
+    "vintaj avtomobil yonida", "kafe derazasi, ichkaridan", "spiral zinapoya",
+    "parda nuri tushgan xona", "oynali studiya, aks", "kuzgi park xiyoboni",
+    "qorli ko'cha, iliq lampa", "dengiz bo'yi taxta yo'lakchasi", "ofis shisha devori",
+    "sahna orqasi, kiyimlar orasida", "gulchi do'koni", "kitob do'koni",
+    "poyezd perroni", "ko'prik ustida, shamol", "universitet hovlisi"],
+  bottoms: null, "one-pieces": null,
+  aksessuar: ["marmar tokcha, tong nuri", "kafe stoli, qahva yonida", "taksi orqa o'rindig'i",
+    "ochiq chamadon ustida", "kitoblar ustida", "zanjirda osilgan", "ofis stoli, hujjatlar",
+    "mehmonxona krovati", "baxmal yuza, makro", "suv tomchilari bilan tosh",
+    "qorong'i fon, bitta yorug'lik chizig'i", "kostyum yengi yonida", "bozor devori",
+    "shisha vitrina ichida"],
+  bolalar: ["yumshoq gilam, pastel", "yog'och o'yinchoq bloklar", "quyoshli bolalar xonasi",
+    "bog'cha stoli", "o'yin maydonchasi", "chodir ichida", "ko'rpacha ustida", "gulli maysazor"],
+  umumiy: ["shuvoq devor, chinor soyasi", "choyxona supasi", "ganch naqsh yonida",
+    "zamonaviy kvartira", "biznes-markaz oldi", "yog'och ustaxona stoli",
+    "eski g'isht ombor", "oq studiya fon", "bozor ustuni", "tarixiy darvoza yonida"],
+};
+// oxirgi paytda ko'p ishlatilgan — ijodiy o'q nomlamasa, TAQIQ
+const I_KLISHE = ["eski shahar tor ko'chasi", "g'ishtli devor", "toshko'cha",
+  "beton zina pog'onasi", "yomg'irdan keyingi asfalt"];
+
+function _ijod(tur) {
   const r = a => a[Math.floor(Math.random() * a.length)];
-  return { uslub: r(V_USLUB), nur: r(V_NUR), yuza: r(V_YUZA) };
-}
-
-// ✅ v2.1 — SAHNA RETSEPTI. 9 band tozalanadi. Rejissyor "buyruq" ni
-// yozmasa yoki tayanch yuzani unutsa — bandlardan o'zimiz yig'amiz,
-// shunda klientga BORIB TUSHADIGAN matn hech qachon bo'sh qolmaydi.
-// ✅ 2-bosqich (v2.2) — JOYLASHUV. Rejissyor tovarning kattaligini,
-// markazini va yuza chizig'ini beradi; brauzer shuni bajaradi.
-// Har qiymat chegaraga solinadi — noto'g'ri raqam kadrni buzmasin.
-// ✅ 3-bosqich (v2.3) — TOVAR TURI. Rejissyor suratga qarab aytadi;
-// bu qiymat kiydirish yo'lini (kiyim modeli / tahrir modeli) va sahna
-// kategoriyasini belgilaydi. Ilgari faqat katalog matni hal qilardi —
-// GRUFA hodisasi: nomda "krossovka" yo'q → oyoq kiyim "ko'ylak" deb
-// yuborilgan, natijada odamga ko'ylak kiydirilgan, tovar yo'qolgan.
-function _tovarTuri(v) {
-  const s = String(v || "").toLowerCase();
-  if (!s) return "";
-  if (/shoe|oyoq|krossovka|botinka|tufli|poyabzal|ked|sandal|shippak|sneaker/.test(s)) return "shoes";
-  if (/one-?piece|libos|ko'ylak-libos|sarafan|kombinezon|xalat|plat|dress/.test(s)) return "one-pieces";
-  if (/bottom|past|shim|jins|yubka|short|bryuk|ishton|losin|trouser|pant/.test(s)) return "bottoms";
-  if (/top|ust|ko'ylak|koylak|futbolka|sviter|kofta|kurtka|palto|pidjak|jaket|bluzka|tolstovka|hoodie|shirt/.test(s)) return "tops";
-  if (/aksessuar|sumka|soat|kamar|ko'zoynak|hamyon|ryukzak|zargar|taqinchoq|watch|bag|belt/.test(s)) return "aksessuar";
-  return "";
-}
-
-function _joylashuv(j, sahna) {
-  j = j || {};
-  const n = (v, min, max, zax) => {
-    const x = parseFloat(String(v).replace(/[^0-9.\-]/g, ""));
-    return (isFinite(x) && x >= min && x <= max) ? Math.round(x) : zax;
-  };
-  // gorizont kelmasa — sahnadagi "balandlik" bandidan olinadi (bir xil narsa)
-  let gz = n(j.gorizont, 5, 80, null);
-  if (gz === null) gz = n(sahna && sahna.balandlik, 5, 80, 32);
-  let yon = String(j.soya_yon || "past").toLowerCase().trim();
-  if (/^(chap|left)$/.test(yon)) yon = "chap";
-  else if (/^(o'ng|ong|right)$/.test(yon)) yon = "ong";
-  else yon = "past";
-  return {
-    foiz:     n(j.foiz, 25, 85, 60),
-    markaz_x: n(j.markaz_x, 10, 90, 50),
-    gorizont: gz,
-    soya_yon: yon,
-    soya_kuch: n(j.soya_kuch, 1, 10, 6),
-  };
+  const k = (tur === "shoes") ? "shoes"
+          : (tur === "aksessuar") ? "aksessuar"
+          : (tur === "tops" || tur === "bottoms" || tur === "one-pieces") ? "tops"
+          : "umumiy";
+  const dunyo = I_DUNYO[k] || I_DUNYO.umumiy;
+  // yarim hollarda umumiy (mahalliy) dunyodan — aralashib tursin
+  const ro = Math.random() < .7 ? dunyo : I_DUNYO.umumiy;
+  return { janr: r(I_JANR), vaqt: r(I_VAQT), fasl: r(I_FASL),
+           rang: r(I_RANG), kamera: r(I_KAMERA), dunyo: r(ro) };
 }
 
 function _sahnaRetsept(r, x) {
@@ -325,7 +347,7 @@ function _sahnaRetsept(r, x) {
   const b = (k, n) => String(r[k] || "").replace(/\s+/g, " ").trim().slice(0, n || 120);
   const yon = ["hayot_tarzi","qahramon","tahririy","makro","flat_lay","ugc","aksiya"]
     .includes(r.yondashuv) ? r.yondashuv : "";
-  const joy = b("joy"), yuza = b("yuza") || (x && x.yuza) || "";
+  const joy = b("joy"), yuza = b("yuza") || (x && x.dunyo) || "";
   // ✅ 641: brif 1400 belgigacha (ilgari 600 edi — rassom uchun juda qisqa)
   let buyruq = String(r.buyruq || "").replace(/\s+/g, " ").trim();
   if (!buyruq) buyruq = [joy, yuza, b("kadr"), b("yoruglik"), b("palitra")].filter(Boolean).join(", ");
@@ -858,7 +880,7 @@ module.exports = async (req, res) => {
     const im = _dataUri(body.image, 1600);
     if (!im || im.xato) return res.status(200).json({ ok: false, error: im && im.xato ? im.xato : "Rasm yuborilmadi" });
     const tovar = body.tovar || {}, turi = String(body.turi || "tovar");
-    const x = _xilma();                                  // ✅ v2.1 xilma-xillik urug'i
+    const x = _ijod(_tovarTuri(String(tovar.kat || "") + " " + String(tovar.nom || "")));   // ✅ 646
     const savol = "Tovar:\n" + _tovarMatn(tovar) + "\nReklama turi: " + turi +
       "\n\n1) SURATNI BAHOLA. Tekshir: yorug'lik va soya · fokus (qimirlaganmi) · rakurs · kadr to'liqmi · " +
       "ortiqcha narsalar (qo'l, birka, qisqich, qog'oz, javon, gilam, oyna aksi, sim) · qiyshiqlik · chang va iz · " +
@@ -872,11 +894,23 @@ module.exports = async (req, res) => {
           "'buyruq' — English: the ENVIRONMENT for a person wearing the product; do not describe the person.\n" +
           "3) POZA ('poza'): tik turish EMAS — yurayotgan, zinadan chiqayotgan, burilayotgan, bog'ich bog'layotgan. Yuz kameradan chetga. Bitta jumla.\n" +
           "4) USLUB MUVOFIQLIGI ('uslub_ogoh'): odamning boshqa kiyimlari tovarga mos keladimi — fasl, uslub, rang, daraja, yosh. " +
-          "Mos kelmasa qisqa ogoh; tuzatish mumkin bo'lsa 'neytral' ga yoz (masalan: shimni to'q ko'kka).\n"
+          "Mos kelmasa qisqa ogoh; tuzatish mumkin bo'lsa 'neytral' ga yoz (masalan: shimni to'q ko'kka).\n" +
+          "\nBU SAFARGI IJODIY O'Q: janr — " + x.janr + "; vaqt — " + x.vaqt + "; fasl — " + x.fasl +
+          "; rang — " + x.rang + "; kamera — " + x.kamera + "; dunyo — " + x.dunyo + ". " +
+          "Muhit shu o'qdan kelib chiqsin. Klişe taqiq: " + I_KLISHE.join(" · ") + ".\n"
         : "2) TOVARNI O'RGAN va YONDAShUV tanla ('yondashuv' + 'sabab'). Oyoq kiyim/kiyimda hayot_tarzi ko'pincha kuchliroq — sukut bo'yicha 'qahramon' tanlama.\n" +
           "3) TO'LIQ SURATGA OLISh BRIFINI YOZ ('buyruq', inglizcha, 700-1400 belgi) — yuqoridagi 10 bandli tuzilma bo'yicha. " +
           "Rassom BUTUNLAY YANGI kadr chizadi, shuning uchun rakurs, juftlik, poza, obyektiv, yorug'lik sxemasi, kompozitsiya — hammasi senga bog'liq.\n" +
           "4) Qisqa maydonlar: 'joy' (qayerda), 'yuza' (tovar nimaning ustida yoki kimda), 'balandlik' (yuza pastdan necha foiz), 'kadr', 'yoruglik', 'palitra'.\n" +
+          // ✅ 646: IJODIY O'Q — bu qator 641 da tushib qolgandi va rejissyor
+          // hech qanday yo'nalish olmay, har safar bir xil sahna yozardi.
+          "\nBU SAFARGI IJODIY O'Q (oltita o'q, tasodifiy tanlangan):\n" +
+          "· janr: " + x.janr + "\n· vaqt va yorug'lik: " + x.vaqt + "\n· fasl: " + x.fasl +
+          "\n· rang kayfiyati: " + x.rang + "\n· kamera: " + x.kamera + "\n· dunyo: " + x.dunyo + "\n" +
+          "Shu o'qni ASOS qil — sahna, yorug'lik va kadr shundan kelib chiqsin. " +
+          "Tovarga mutlaqo mos kelmasa (masalan qishki etikka plyaj) eng yaqin variantni o'zing tanla va sababini 'sabab' ga yoz. " +
+          "⚠️ Quyidagilar oxirgi paytda haddan tashqari ko'p ishlatildi — ijodiy o'q ularni nomlamasa, ISHLATMA: " +
+          I_KLISHE.join(" · ") + ".\n" +
           "'poza', 'uslub_ogoh', 'neytral' — faqat odamli kadrda to'ldiriladi.\n") +
       "Faqat shu JSON: {\"tovar_turi\":\"oyoq kiyim|ust kiyim|past kiyim|libos|aksessuar — SURATGA qarab\"," +
       "\"ishonch\":\"yuqori|o'rta|past\"," +
