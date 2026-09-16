@@ -342,6 +342,39 @@ function _ijod(tur) {
            rang: r(I_RANG), kamera: r(I_KAMERA), dunyo: r(ro) };
 }
 
+function _tovarTuri(v) {
+  const s = String(v || "").toLowerCase();
+  if (!s) return "";
+  if (/shoe|oyoq|krossovka|botinka|tufli|poyabzal|ked|sandal|shippak|sneaker/.test(s)) return "shoes";
+  if (/one-?piece|libos|ko'ylak-libos|sarafan|kombinezon|xalat|plat|dress/.test(s)) return "one-pieces";
+  if (/bottom|past|shim|jins|yubka|short|bryuk|ishton|losin|trouser|pant/.test(s)) return "bottoms";
+  if (/top|ust|ko'ylak|koylak|futbolka|sviter|kofta|kurtka|palto|pidjak|jaket|bluzka|tolstovka|hoodie|shirt/.test(s)) return "tops";
+  if (/aksessuar|sumka|soat|kamar|ko'zoynak|hamyon|ryukzak|zargar|taqinchoq|watch|bag|belt/.test(s)) return "aksessuar";
+  return "";
+}
+
+function _joylashuv(j, sahna) {
+  j = j || {};
+  const n = (v, min, max, zax) => {
+    const x = parseFloat(String(v).replace(/[^0-9.\-]/g, ""));
+    return (isFinite(x) && x >= min && x <= max) ? Math.round(x) : zax;
+  };
+  // gorizont kelmasa — sahnadagi "balandlik" bandidan olinadi (bir xil narsa)
+  let gz = n(j.gorizont, 5, 80, null);
+  if (gz === null) gz = n(sahna && sahna.balandlik, 5, 80, 32);
+  let yon = String(j.soya_yon || "past").toLowerCase().trim();
+  if (/^(chap|left)$/.test(yon)) yon = "chap";
+  else if (/^(o'ng|ong|right)$/.test(yon)) yon = "ong";
+  else yon = "past";
+  return {
+    foiz:     n(j.foiz, 25, 85, 60),
+    markaz_x: n(j.markaz_x, 10, 90, 50),
+    gorizont: gz,
+    soya_yon: yon,
+    soya_kuch: n(j.soya_kuch, 1, 10, 6),
+  };
+}
+
 function _sahnaRetsept(r, x) {
   r = r || {};
   const b = (k, n) => String(r[k] || "").replace(/\s+/g, " ").trim().slice(0, n || 120);
