@@ -76,6 +76,9 @@ function _dataUri(str, maxKb) {
   if (m[2].length > (maxKb || MAX_KB) * 1024) return { xato: "rasm juda katta" };
   return { media: m[1], data: m[2] };
 }
+// ⚠️ 640: token chegarasi oshgach VAQT chegarasi ham yetmay qoldi —
+// rejissyor endi 2 200 token yozadi va 40 s ga sig'maydi (jonli xato,
+// 16-sen 13:48). 52 s ga oshirildi; Vercel funksiya devori 60 s.
 // ⚠️ 638 SABOQ: chegara javob uzunligiga qarab yangilanadi. Rejissyorga
 // poza, uslub ogohi va 9 bandli sahna qo'shilgach javob 1319 tokenga
 // yetdi, chegara esa 1600 edi — uch urinishdan IKKITASI "max_tokens"
@@ -882,7 +885,7 @@ module.exports = async (req, res) => {
     try {
       const r = await claudeChaqir(M_AI, REJISSYOR, [
         { type: "image", source: { type: "base64", media_type: im.media, data: im.data } },
-        { type: "text", text: savol }], 3000, 40000, HUKM_SXEMA);   // ✅ 638: 1600 kam edi — javob kesilardi
+        { type: "text", text: savol }], 3000, 52000, HUKM_SXEMA);   // ✅ 640: 40 s ham kam edi (jonli: 13:48 vaqt tugadi)
       tok = Object.assign({}, r.usage, { stop: r.stop }); hukm = _jsonAjrat(r.text);
       hukm.yaroqli = !!hukm.yaroqli; hukm.daraja = Math.max(1, Math.min(5, Number(hukm.daraja) || 3));
       hukm.tovar_turi = _tovarTuri(hukm.tovar_turi);            // ✅ 3-bosqich
