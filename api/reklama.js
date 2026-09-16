@@ -76,6 +76,10 @@ function _dataUri(str, maxKb) {
   if (m[2].length > (maxKb || MAX_KB) * 1024) return { xato: "rasm juda katta" };
   return { media: m[1], data: m[2] };
 }
+// ⚠️ 638 SABOQ: chegara javob uzunligiga qarab yangilanadi. Rejissyorga
+// poza, uslub ogohi va 9 bandli sahna qo'shilgach javob 1319 tokenga
+// yetdi, chegara esa 1600 edi — uch urinishdan IKKITASI "max_tokens"
+// bilan kesildi (jonli jurnal, 16-sen 13:24 va 13:25). Endi 3000.
 // ✅ v2.6 (2026-09-12) — JSON SXEMA BILAN MAJBURIY (output_config.format).
 // Tarix: v2.5 da "{" bilan boshlab qo'yish (prefill) sinaldi — jonli
 // xato: "This model does not support assistant message prefill".
@@ -878,7 +882,7 @@ module.exports = async (req, res) => {
     try {
       const r = await claudeChaqir(M_AI, REJISSYOR, [
         { type: "image", source: { type: "base64", media_type: im.media, data: im.data } },
-        { type: "text", text: savol }], 1600, 40000, HUKM_SXEMA);   // ✅ v2.6: sxema
+        { type: "text", text: savol }], 3000, 40000, HUKM_SXEMA);   // ✅ 638: 1600 kam edi — javob kesilardi
       tok = Object.assign({}, r.usage, { stop: r.stop }); hukm = _jsonAjrat(r.text);
       hukm.yaroqli = !!hukm.yaroqli; hukm.daraja = Math.max(1, Math.min(5, Number(hukm.daraja) || 3));
       hukm.tovar_turi = _tovarTuri(hukm.tovar_turi);            // ✅ 3-bosqich
