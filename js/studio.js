@@ -2780,7 +2780,7 @@ async function _stuNavbat(q, tok) {
   const t0 = Date.now();
   let oldingiHolat = "";
   while (Date.now() - t0 < 4 * 60 * 1000) {          // eng ko'pi 4 daqiqa
-    await new Promise(r => setTimeout(r, 2500));
+    await new Promise(r => setTimeout(r, 1200));   // ✅ 650: 2500 -> 1200 ms
     let d = null;
     try {
       const r = await fetch("/api/reklama", { method: "POST",
@@ -3114,6 +3114,25 @@ function stuAvtoYorliq() {
 }
 
 // ── ASOSIY: bir bosishda hammasi
+// ✅ 650: MATN PARALLEL. Post matni rasmga bog'liq emas (faqat tovar,
+// tur va sarlavha kerak) — endi u reklama boshlanishi bilan yo'lga
+// chiqadi va rasm tayyor bo'lgunga qadar allaqachon kelib turadi.
+// Ilgari u eng oxirida, hamma narsadan keyin so'ralardi (~15 s qo'shardi).
+function _stuMatnOldin() {
+  if (!STU.tovar) return;
+  const kalit = (STU.tovar.sku || STU.tovar.art || "") + "|" + (STU.turi || "") + "|" + (STU.yorliq || "") +
+                "|" + (STU.mtNom ? 1 : 0) + (STU.mtNarx ? 1 : 0) + (STU.mtArt ? 1 : 0);
+  if (STU._matnKalit === kalit && (STU._matnVada || STU.aiMatn)) return;   // shu to'plam uchun bor
+  STU._matnKalit = kalit; STU.aiMatn = null;
+  const t = STU.tovar || {};
+  STU._matnVada = stuAiChaqir("ai_matn", {
+    tovar: _stuAiTovar(), turi: STU.turi || "tovar",
+    sahna: STU.fonNom || "", sarlavha: STU.yorliq || "",
+    narx: STU.mtNarx && t.narx ? stSon(t.narx) : "",
+    mt_nom: !!STU.mtNom, mt_art: !!STU.mtArt,
+  }).catch(() => null);
+}
+
 async function stuReklamaYasa() {
   if (!STU.tovar) { toast("Avval tovarni tanlang", "err"); return; }
   if (!STU.img)   { toast("Surat yuklang", "err"); return; }
@@ -3121,6 +3140,7 @@ async function stuReklamaYasa() {
   if (b) { b.disabled = true; b.textContent = "⏳ Tayyorlanmoqda…"; }
   try {
     if (!STU.asl) STU.asl = STU.img;
+    _stuMatnOldin();                   // ✅ 650: matn parallel yo'lga chiqadi
     // ✅ S6: REAL ShAXS rejimida AI UMUMAN chaqirilmaydi — rang
     // tuzatiladi va variantlar darhol chiziladi (xarajat 0, kutish yo'q).
     if (STU.real) {
@@ -4307,7 +4327,10 @@ function _stuKadrRasm() {
 // urinish, keyin ogoh. Qo'lda raqam yozish o'rniga — ko'z bilan tekshirish.
 async function _stuKadrTekshir(tur) {
   if (!_fotoRejim()) return;
-  if (tur !== "shoes" && tur !== "aksessuar" && tur !== "bottoms") return;
+  // ✅ 650: faqat oyoq kiyim va aksessuarda. Kiyimda kadr yuz-ko'krak
+  // bo'ladi va tovar har doim ko'rinadi — u yerda tekshiruv 20 s ni
+  // behuda sarflardi.
+  if (tur !== "shoes" && tur !== "aksessuar") return;
   for (let urinish = 0; urinish < 2; urinish++) {
     const kadr = _stuKadrRasm();
     if (!kadr) return;
@@ -4388,7 +4411,7 @@ async function stuMuhit(tur) {
   if (!h || !h.sahna || !(h.sahna.joy || h.sahna.yuza)) return false;
   const src = STU.img; if (!src) return false;
   stuHolat("Rejissyor muhiti qo'yilmoqda", 90);
-  const d = await stuAI("muhit", { image: _stuTayyor(src, 1200), sahna: h.sahna,
+  const d = await stuAI("muhit", { image: _stuTayyor(src, 1000), sahna: h.sahna,   // ✅ 650: 1200 -> 1000
     turi: tur || "", poza: h.poza || "", neytral: h.neytral || "" });   // ✅ 634
   if (!d || !d.image) return false;
   let im; try { im = await _stuImg(d.image); } catch (e) { return false; }
@@ -4844,7 +4867,9 @@ async function stuAiNatija() {
   const mb = document.getElementById("stu-matn"), nh = document.getElementById("stu-natija-hukm");
   if (mb) { mb.style.display = "block"; mb.innerHTML = `<div class="v2-ai">Matn yozilmoqda…</div>`; }
   // 1) matn
-  stuAiChaqir("ai_matn", { tovar: _stuAiTovar(), turi: STU.turi || "tovar", sahna: STU.fonNom || "", sarlavha: STU.yorliq || "" }).then(d => {
+  // ✅ 650: matn allaqachon yo'lda (yoki kelgan) — qayta so'ralmaydi
+  _stuMatnOldin();
+  (STU._matnVada || Promise.resolve(null)).then(d => {
     if (!mb) return;
     if (!d || !d.ok) { mb.innerHTML = `<div class="v2-ai xato">Matn: ${_stuAiEsc((d && d.error) || "xato")}</div>`; return; }
     STU.aiMatn = d.matn;

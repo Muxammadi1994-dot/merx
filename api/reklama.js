@@ -1621,12 +1621,22 @@ module.exports = async (req, res) => {
     const neytral = String(body.neytral || "").replace(/\s+/g, " ").trim().slice(0, 160);
     const kadr = tur === "shoes" ? "Camera low, near ground level, so the footwear is the main subject. " :
                  tur === "aksessuar" ? "Camera at waist level, the accessory clearly visible. " : "";
+    // ✅ 650: REJISSYOR BRIFI ISHLATILADI. Ilgari faqat qisqa maydonlardan
+    // (joy, yuza, yorug'lik) buyruq yig'ilardi va rejissyorning to'liq
+    // muhit brifi ("buyruq") TAShLAB YUBORILARDI — natijada muhit zaif
+    // chiqib, model studiya fonini saqlab qolardi (jonli: AI-model kadri
+    // bo'm-bo'sh kulrang fonda chiqdi).
+    const brif = String(S.buyruq || "").replace(/\s+/g, " ").trim().slice(0, 1400);
     const matn =
-      `Edit this photo of a person. Replace ONLY the background and the ground with this environment: ` +
-      `${b("joy") || "a quiet city street"}. The person stands on ${b("yuza") || "the pavement"}, ` +
-      `feet in natural contact with the ground, with a soft contact shadow. ` +
-      `Lighting: ${b("yoruglik") || "soft natural light"} — the same light now falls on the person, ` +
-      `so their shadows and highlights match the new scene. ` +
+      `Edit this photo of a person. Replace ONLY the background and the ground with a real environment.\n\n` +
+      `ENVIRONMENT BRIEF:\n` + (brif ||
+        (`${b("joy") || "a quiet city street"}; the person stands on ${b("yuza") || "the pavement"}; ` +
+         `lighting: ${b("yoruglik") || "soft natural light"}`)) + `\n\n` +
+      `The background must be a REAL place with depth — never a plain studio backdrop, never a flat grey or ` +
+      `white wall, never an empty seamless background. Buildings, street, interior, nature — something with ` +
+      `distance and detail behind the person.\n` +
+      `The person's feet are in natural contact with the ground, with a soft contact shadow. ` +
+      `The same light now falls on the person, so their shadows and highlights match the new scene. ` +
       // ✅ 644: `chuqurlik` 641 da sxemadan chiqarilgan — endi `kadr` dan
       // olinadi, bo'sh bo'lsa xavfsiz sukut. Ilgari bu yerda har doim
       // sukut ishlatilib, rejissyorning kadrlash ko'rsatmasi yo'qolardi.
