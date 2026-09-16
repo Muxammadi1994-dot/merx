@@ -946,6 +946,40 @@ module.exports = async (req, res) => {
     // faqat fon almashadi — u yerda "tovar kadrda asosiy obyektmi" deb
     // so'rash NOTO'G'RI (to'liq bo'yli kadrda tovar har doim kichik).
     // 633 da shu sabab muhit deyarli har safar rad etilardi.
+    // ✅ 642: YANGI SURAT REJIMI. 641 da rassom endi BUTUNLAY YANGI kadr
+    // chizadi — burchak, yorug'lik, kadr ataylab boshqa. Eski 15 bandli
+    // tekshiruv esa piksel darajasida solishtirardi va yangi yo'lni HAR
+    // SAFAR rad etardi (jonli: 16-sen, "AI tovarni o'zgartirib qo'ydi").
+    // Bu yerda savol boshqacha: MIJOZ buni o'sha tovar deb taniydimi?
+    if (String(body.rejim || "") === "yangi") {
+      const savolY = "Birinchi rasm — tovarning ASL surati (do'kon telefonda olgan). " +
+        "Ikkinchi rasm — SHU tovarning professional reklama uchun QAYTA olingan surati. " +
+        "Burchak, kadr, yorug'lik, fon, tovar holati ATAYLAB boshqacha — bular farq emas, buni yozma. " +
+        "Yagona savol: mijoz ikkinchi rasmda AYNI SHU tovarni taniydimi? " +
+        "Faqat MODELNI o'zgartiradigan farqlarni yoz: asosiy rang boshqa · siluet/shakl boshqa · " +
+        "tag turi yoki qalinligi boshqa · logotip yo'q, qo'shilgan yoki boshqa joyda · " +
+        "bog'ich turi boshqa (ip ↔ tasma) · material boshqa (teri ↔ zamsh ↔ mato) · " +
+        "tugma/zamok soni boshqa · naqsh boshqa · qo'shimcha element qo'shilgan. " +
+        "Yorug'likdan kelib chiqqan tus farqi, aks, soya, faktura o'tkirligi — FARQ EMAS. " +
+        "'mos' = mijoz uni o'sha tovar deb taniydi. Har farq: [og'irlik] QAYERDA — NIMA. Tovar: " +
+        _tovarMatn(body.tovar || {});
+      try {
+        const r = await claudeChaqir(M_AI_HUKM, REJ_TEKSHIR, [
+          { type: "image", source: { type: "base64", media_type: asl.media, data: asl.data } },
+          { type: "image", source: { type: "base64", media_type: nat.media, data: nat.data } },
+          { type: "text", text: savolY }], 700, 45000, TEKSHIR_SXEMA);
+        const hh = _jsonAjrat(r.text);
+        const h2 = { mos: !!hh.mos, ishonch: Math.max(0, Math.min(100, Number(hh.ishonch) || 0)),
+          farqlar: Array.isArray(hh.farqlar) ? hh.farqlar.slice(0, 4).map(z => String(z).slice(0, 150)) : [],
+          tavsiya: String(hh.tavsiya || "qabul") };
+        await jurnal(shopId, "ai_solishtir:yangi", "anthropic", M_AI_HUKM, true,
+          (h2.mos ? "MOS" : "MOS EMAS") + " " + h2.ishonch + "% · " + (h2.farqlar[0] || "farq yo'q"));
+        return res.status(200).json({ ok: true, hukm: h2 });
+      } catch (e) {
+        await jurnal(shopId, "ai_solishtir:yangi", "anthropic", M_AI_HUKM, false, e.message);
+        return res.status(200).json({ ok: false, error: e.message });
+      }
+    }
     // ✅ 636: KADR REJIMI — "tovar kadrda ko'rinyaptimi" (sifat qiyosi emas).
     // Sabab: 632 da kadr qo'lda yaqinlashtirilgandi va odamli kadrda tovar
     // butunlay chiqib ketdi. Qo'lda raqam ishlamaydi — ko'z bilan tekshiriladi.
@@ -1460,6 +1494,10 @@ module.exports = async (req, res) => {
       "Create a completely NEW professional advertising photograph of the product shown in the reference image. " +
       "Do not copy the reference framing, angle or lighting — the reference is only there to define WHAT the product is. " +
       "Re-photograph it properly, as a commercial photographer would.\n\n" +
+      (String(body.tuzat || "").trim()
+        ? "PREVIOUS ATTEMPT WAS REJECTED. The product was rendered incorrectly: " +
+          String(body.tuzat).replace(/\s+/g, " ").trim().slice(0, 300) +
+          ". Fix exactly this while keeping everything else in the brief.\n\n" : "") +
       "ART DIRECTION:\n" + (brif || (
         "A natural, modern lifestyle shot of the product in an everyday city setting, soft directional daylight, " +
         "shallow depth of field, product sharp and dominant in frame.")) + "\n\n" +
@@ -1472,6 +1510,10 @@ module.exports = async (req, res) => {
       "material texture and proportions. Do not restyle, recolour, simplify or add anything to the product.\n" +
       "FRAME: the product occupies about " + J.foiz + "% of the frame height and is the sharpest, most contrasted " +
       "element in the image. Everything else falls away in soft focus.\n" +
+      // ✅ 642: TOZALASh — namunadagi do'kon buyumlari yangi kadrga o'tmasin
+      "CLEAN UP: the reference may contain shop items that must NOT appear in the new photograph — " +
+      "shoe trees or wooden lasts inside the shoe, paper stuffing, price tags, barcode labels, hands or fingers, " +
+      "hangers, clips, cardboard, shop shelves. The product must look worn-ready and empty inside.\n" +
       "FORBIDDEN: no text, no letters, no numbers, no price tags, no watermarks, no borders or frames, no collage, " +
       "no duplicated product, no other brand logos, no flat colour panels. Photorealistic, high resolution.";
     try {                                          // NAVBAT — kiydir_edit bilan bir xil

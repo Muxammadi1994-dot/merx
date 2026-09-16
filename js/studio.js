@@ -4273,15 +4273,35 @@ async function stuJoylashtir() {
     turi: _stuAiTur() || _kiyimTuri(STU.tovar || {}), tovar_turi: (h.tovar_turi || "") });
   if (!d || !d.image) return false;
   let im; try { im = await _stuImg(d.image); } catch (e) { return false; }
-  // TEKSHIRUV — asl bilan (1 kredit). Mos bo'lmasa — rad, eski yo'l.
-  stuHolat("2/3 · Rejissyor natijani asl bilan solishtirmoqda…");
-  const t = await stuAiChaqir("ai_solishtir", { asl: _stuTayyor(STU.asl || STU.img, 900),
-    natija: _stuTayyor(im, 900), tovar: _stuAiTovar() });
+  // ✅ 642: TEKSHIRUV "yangi" REJIMIDA. Bu yerda natija QAYTA OLINGAN surat —
+  // burchak, yorug'lik, kadr ataylab boshqa. Eski (15 bandli, piksel
+  // darajasidagi) tekshiruv yangi yo'lni har safar rad etardi va zaxira
+  // yo'l ishlardi; egasi ekranda hech qanday o'zgarish sezmadi.
+  stuHolat("2/3 · Rejissyor natijani tekshirmoqda…");
+  const t = await stuAiChaqir("ai_solishtir", { rejim: "yangi",
+    asl: _stuTayyor(STU.asl || STU.img, 900), natija: _stuTayyor(im, 900), tovar: _stuAiTovar() });
   if (!t || !t.ok || !t.hukm) { toast("Tekshiruv ishlamadi — oddiy yo'l bilan davom", "err"); return false; }
   STU.aiMos = t.hukm;
   if (!t.hukm.mos) {
-    toast("AI tovarni o'zgartirib qo'ydi (" + (t.hukm.farqlar[0] || "farq bor") + ") — oddiy yo'lga qaytildi", "err");
-    return false;
+    // ✅ 642: BIR MARTA QAYTA URINISh — rejissyor topilgan farqni buyruqqa
+    // qo'shadi va rassom shuni to'g'rilab qaytadan chizadi. Shundan keyin
+    // ham mos bo'lmasa — eski (xavfsiz) yo'l.
+    const farq = (t.hukm.farqlar || []).slice(0, 2).join("; ") || "tovar o'zgargan";
+    stuHolat("2/3 · Farq topildi, qayta olinmoqda…");
+    const d2 = await stuAI("joylashtir", { image: c.toDataURL("image/jpeg", 0.88),
+      sahna: h.sahna, joylashuv: h.joylashuv || {},
+      turi: _stuAiTur() || _kiyimTuri(STU.tovar || {}), tovar_turi: (h.tovar_turi || ""),
+      tuzat: farq });
+    let im2 = null;
+    if (d2 && d2.image) { try { im2 = await _stuImg(d2.image); } catch (e) {} }
+    if (!im2) { toast("AI tovarni o'zgartirdi (" + farq + ") — oddiy yo'lga qaytildi", "err"); return false; }
+    const t2 = await stuAiChaqir("ai_solishtir", { rejim: "yangi",
+      asl: _stuTayyor(STU.asl || STU.img, 900), natija: _stuTayyor(im2, 900), tovar: _stuAiTovar() });
+    if (!t2 || !t2.ok || !t2.hukm || !t2.hukm.mos) {
+      toast("AI tovarni o'zgartirdi (" + farq + ") — oddiy yo'lga qaytildi", "err");
+      return false;
+    }
+    STU.aiMos = t2.hukm; im = im2;
   }
   STU.img = im; STU.foto = true;
   STU.fon = null; STU.soya = false; STU.aks = false; STU.aiNamoyish = false;
