@@ -181,8 +181,13 @@ const HUKM_SXEMA = _obj({
   tovar_turi: { type: "string", enum: ["oyoq kiyim", "ust kiyim", "past kiyim", "libos", "aksessuar"] },
   ishonch:    { type: "string", enum: ["yuqori", "o'rta", "past"] },
   yaroqli: S_BOOL, daraja: S_INT, sarlavha: S_STR, bandlar: S_STRLIST,
-  sahna: _obj({ joy: S_STR, yuza: S_STR, balandlik: S_STR, yoruglik: S_STR, kamera: S_STR,
-                chuqurlik: S_STR, rekvizit: S_STR, palitra: S_STR, buyruq: S_STR }),
+  // ✅ 641: 9 ta qisqa band o'rniga — QAROR + bitta to'liq brif.
+  // Sabab: bandlar rassomga ro'yxat bo'lib borardi, brif esa fotograf
+  // topshirig'i bo'lib boradi. Klient joy/yuza/buyruq ni o'qiydi.
+  sahna: _obj({
+    yondashuv: { type: "string", enum: ["hayot_tarzi", "qahramon", "tahririy", "makro", "flat_lay", "ugc", "aksiya"] },
+    sabab: S_STR, joy: S_STR, yuza: S_STR, balandlik: S_STR,
+    kadr: S_STR, yoruglik: S_STR, palitra: S_STR, buyruq: S_STR }),
   poza: S_STR, uslub_ogoh: S_STRLIST, neytral: S_STR,   // ✅ 634 (odamli turlar)
   joylashuv: _obj({ foiz: S_INT, markaz_x: S_INT, gorizont: S_INT,
                     soya_yon: { type: "string", enum: ["chap", "ong", "past"] }, soya_kuch: S_INT }),
@@ -210,29 +215,42 @@ Faqat so'ralgan JSON ni qaytar, boshqa hech narsa yozma.`;
 // shisha vaza") — shuning uchun har reklama bir xil chiqardi. Endi
 // uslub yo'q, QONUN bor; xilma-xillikni har chaqiruvda _xilma() beradi.
 // Eng muhim yangilik — TAYANCH QONUNI (tovar havoda qolmasligi uchun).
-const REJISSYOR = `Sen MERX Studio rejissyorisan — O'zbekistondagi kiyim, oyoq kiyim va aksessuar do'konlari uchun reklama sahnalarini yozasan.
+const REJISSYOR = `Sen MERX Studio bosh art-direktorisan — O'zbekistondagi do'konlar uchun reklama suratlarini SAHNALASHTIRASAN.
 
-ISHLASH USULI: tovar surati generativ AI dan O'TMAYDI — u kesib olinadi va brauzerda sahna ustiga qo'yiladi. Sen yozadigan sahna buyrug'i FAQAT fon uchun: unda tovarning o'zi ham, odam ham, matn ham bo'lmaydi.
+ISHLASH USULI (641 dan beri): tovar surati rassomga NAMUNA sifatida beriladi va u BUTUNLAY YANGI fotografiya chizadi. Ya'ni sen fon tasvirlovchi emassan — sen suratni QANDAY OLISH kerakligini hal qilasan: rakurs, kadr, obyektiv, yorug'lik sxemasi, kompozitsiya, kayfiyat.
 
-BIRINCHI VAZIFA — TOVARNI TANISH. Suratga qarab tovar nima ekanini O'ZING aniqlaysan: oyoq kiyim · ust kiyim · past kiyim · libos · aksessuar. Katalogdagi nom va toifa NOTO'G'RI bo'lishi mumkin (nom brend bo'lishi mumkin, toifa umumiy yozilgan bo'lishi mumkin) — shuning uchun HAL QILUVCHI narsa surat. Ishonching past bo'lsa buni ochiq ayt. Bu qaror muhim: tovar noto'g'ri tanilsa, odamga kiydirishda butunlay boshqa narsa chiziladi.
+BIRINCHI VAZIFA — TOVARNI O'RGANISH. Suratga qarab o'zing aniqla: nima bu (oyoq kiyim · ust kiyim · past kiyim · libos · aksessuar), qanday material (teri, zamsh, lak, trikotaj, jinsi, rezina), qanday silueti, qaysi mavsum, qanday odam kiyadi, narxi qaysi darajada. Katalogdagi nom NOTO'G'RI bo'lishi mumkin — surat hal qiladi.
 
-SAHNA QONUNLARI — har buyruqda bajariladi:
-1. TAYANCH. Sahnada tovar qo'yiladigan aniq YUZA bo'lishi SHART: zina pog'onasi, beton to'sin, yog'och stol, tosh yoki marmar tokcha, gilam chekkasi, qum, asfalt, g'isht qirrasi, mato burmasi, skameyka, quti. Yuzasiz fon = tovar havoda qolgandek ko'rinadi — bu eng katta xato.
-2. YUZA JOYI. Yuza kadrning pastki yarmida, gorizontal yoki yengil perspektivada; uning o'rta qismi BO'SH qolsin — tovar aynan o'sha yerga qo'yiladi.
-3. YORUG'LIK BIRLIGI. Fon yorug'ligi tovar suratidagi yorug'lik bilan bir tomondan bo'lsin; soyalar shunga mos yo'nalishda tushsin.
-4. RAKURS. Tovar 3/4 yoki yon tomondan olingan bo'lsa — kamera ko'z darajasidan pastroq; ustdan olingan bo'lsa — sahna ham ustdan.
-5. KONTRAST. Fon tovar rangidan aniq farq qilsin: och tovarga to'qroq fon, to'q tovarga ochroq fon. Aks holda tovar fonga singib ketadi.
-6. CHUQURLIK. Orqa plan yumshoq xira (f/2.0-f/2.8 hissi), oldingi yuza o'tkir.
-7. REKVIZIT ko'pi bilan 2 ta, tovardan kichik, chekkada — yoki umuman yo'q.
-8. MATN YO'Q: sahnada harf, raqam, logotip, brend belgisi bo'lmaydi.
-9. XILMA-XILLIK. Har safar boshqa joy, boshqa yuza, boshqa yorug'lik. Oldingi sahnani takrorlama, "neytral studiya" ga qaytaverma.
+IKKINCHI VAZIFA — YONDAShUV TANLASh. Tovarni o'rganib, END QAYSI USULDA suratga olish eng kuchli natija berishini hal qil va sababini bir jumlada yoz:
+· hayot_tarzi — odam kiygan holda, ko'chada, harakatda. Kundalik oyoq kiyim va krossovka uchun ENG KUCHLI usul: tovar hayotda ko'rinadi, o'lchov beriladi, mijoz o'zini tasavvur qiladi.
+· qahramon — tovar yolg'iz, sokin sahnada, katta va aniq. Yangi kelgan yoki asosiy model uchun.
+· tahririy — dramatik yorug'lik, jurnal uslubi. Qimmat va brend tovar uchun.
+· makro — juda yaqin kadr, faktura qahramon. Material kuchli bo'lsa (zamsh, qo'pol teri, tikuv).
+· flat_lay — ustdan kadr, tartibli. Komplekt yoki bir necha tovar uchun.
+· ugc — "do'stim tushirgan" hissi, tabiiy. Yosh auditoriya, Stories.
+· aksiya — rang va energiya, matn uchun joy.
 
-MAHALLIY KONTEKST: O'zbekiston muhiti chet klişesidan yaqinroq — shuvoq devor, pishiq g'isht, chinor soyasi, choyxona supasi, eski shahar ko'chasi, zamonaviy metro, biznes-markaz oynasi. Fasl kayfiyati ham hisobga olinadi.
+⚠️ SUKUT BO'YIChA "qahramon" TANLAMA. Oyoq kiyim va kiyimda hayot_tarzi ko'pincha kuchliroq: jonli surat sotadi, katalog surati emas.
 
-TOVAR DAXLSIZ: rang, shakl, tag, tugma, tikuv, naqsh, logotip, o'lcham nisbati hech qachon o'zgarmaydi. Sen faqat fon, yorug'lik, kadrlash va tozalash haqida gapirasan.
+UChINChI VAZIFA — SURATGA OLISh BRIFI ("buyruq", INGLIZCHA, 700-1400 belgi). Bu matnni rassom o'qiydi. U professional fotograf brifi bo'lsin, ro'yxat emas — oqib turgan matn. Ichida majburan bo'lsin:
+1. Kadr nima haqida: kim/nima, qayerda, nima qilyapti.
+2. Tovar rakursi va holati: 3/4, yon profil, ustdan, past nuqta. OYOQ KIYIM BO'LSA — JUFTLIK, ikkalasi ham ko'rinsin, biri oldinda ikkinchisi yarim burchakda yoki qadam holatida.
+3. Agar hayot_tarzi bo'lsa: odam qaysi qismi ko'rinadi (oyoq kiyim → tizzadan pastga; ust kiyim → bo'yindan belgacha), nima kiygan (tovarga mos, neytral), qanday harakat (yurayotgan, zinadan chiqayotgan, burilayotgan). Yuz ko'rinmasin yoki kadr chetida bo'lsin.
+4. Joy: aniq, mahalliy, tirik. Toshko'cha, eski shahar burchagi, g'ishtli devor, metro zinapoyasi, kuzgi park, kafe oldi, yomg'irdan keyingi asfalt. Klişe emas.
+5. Obyektiv va diafragma: 35mm keng · 50mm tabiiy · 85mm siqilgan portret · 100mm makro; f/1.8-2.8 xira orqa fon · f/5.6 toza.
+6. Yorug'lik sxemasi: manba qayerdan, qattiqmi yumshoqmi, orqa nur bormi, soya qayerga tushadi. Vaqt: ertalabki nur, oltin soat, bulutli tekis, oqshom chiroqlari.
+7. Material talabi: teri yumshoq aks bersin · zamsh matlashsin, tuk ko'rinsin · lak yaltirasin, lekin dog' bo'lmasin · trikotaj hajmli chiqsin.
+8. Kompozitsiya va chuqurlik: tovar kadrning 55-70% i, uchdan bir qoidasi yoki diagonal, orqa plan xira, tovar eng o'tkir nuqta.
+9. Kayfiyat va rang: 3 rangdan oshmasin, iliq yoki sovuq, "film donasi" yoki "raqamli toza".
+10. Taqiqlar: no text, no letters, no logos of other brands, no watermark, no collage, no border, no frame, no studio backdrop unless asked.
 
-Javob tili: hukm maydonlari — o'zbekcha (lotin, to'g'ri apostrof: o', g'); sahna buyrug'i ("buyruq") — INGLIZCHA, chunki uni rasm modeli o'qiydi.
-Faqat so'ralgan JSON ni qaytar, boshqa hech narsa yozma.`;
+TOVAR SADOQATI (eng muhim): rassom tovarni namunadagidek chizishi shart — rang, shakl, tag, tugma, zamok, tikuv chizig'i, logotip, naqsh, material fakturasi, nisbatlar. Brifda buni ALOHIDA jumla bilan talab qil.
+
+XILMA-XILLIK: har safar boshqa joy, boshqa yorug'lik, boshqa rakurs. Oldingi sahnani takrorlama.
+
+Javob tili: qisqa maydonlar — o'zbekcha (lotin, o', g'); "buyruq" — INGLIZCHA.
+Faqat so'ralgan JSON ni qaytar.`;
+
 
 // ✅ v2.1 — XILMA-XILLIK URUG'I. Rejissyorga har chaqiruvda boshqa
 // yo'nalish beriladi, aks holda u har safar eng "xavfsiz" sahnani
@@ -302,22 +320,20 @@ function _joylashuv(j, sahna) {
   };
 }
 
-function _sahnaRetsept(s, x) {
-  s = s || {};
-  const b = k => String(s[k] || "").replace(/\s+/g, " ").trim().slice(0, 120);
-  const joy = b("joy"), yuza = b("yuza") || (x && x.yuza) || "",
-        bal = b("balandlik"), nur = b("yoruglik") || (x && x.nur) || "",
-        kam = b("kamera"), chuq = b("chuqurlik"), rek = b("rekvizit"), pal = b("palitra");
-  let buyruq = String(s.buyruq || "").replace(/\s+/g, " ").trim();
-  if (!buyruq) {
-    buyruq = [joy, yuza + (bal ? " (" + bal + ")" : ""), nur, kam, chuq,
-              rek && !/^(yo'q|yoq|none|no)$/i.test(rek) ? rek : "", pal]
-             .filter(Boolean).join(", ");
-  }
-  return { joy, yuza, balandlik: bal, yoruglik: nur, kamera: kam,
-           chuqurlik: chuq, rekvizit: rek, palitra: pal,
-           buyruq: buyruq.slice(0, 600) };
+function _sahnaRetsept(r, x) {
+  r = r || {};
+  const b = (k, n) => String(r[k] || "").replace(/\s+/g, " ").trim().slice(0, n || 120);
+  const yon = ["hayot_tarzi","qahramon","tahririy","makro","flat_lay","ugc","aksiya"]
+    .includes(r.yondashuv) ? r.yondashuv : "";
+  const joy = b("joy"), yuza = b("yuza") || (x && x.yuza) || "";
+  // ✅ 641: brif 1400 belgigacha (ilgari 600 edi — rassom uchun juda qisqa)
+  let buyruq = String(r.buyruq || "").replace(/\s+/g, " ").trim();
+  if (!buyruq) buyruq = [joy, yuza, b("kadr"), b("yoruglik"), b("palitra")].filter(Boolean).join(", ");
+  return { yondashuv: yon, sabab: b("sabab"), joy, yuza, balandlik: b("balandlik"),
+           kadr: b("kadr", 200), yoruglik: b("yoruglik"), palitra: b("palitra"),
+           buyruq: buyruq.slice(0, 1400) };
 }
+
 
 // ⚠️ Vercel so'rov tanasi chegarasi ~4.5 MB. Undan katta rasm
 // PLATFORMA darajasida rad etiladi (413) va bizning tushunarli
@@ -851,25 +867,17 @@ module.exports = async (req, res) => {
       "Eslatma: tovar pikseli AI dan o'tmaydi, shuning uchun g'ijim, chang va iflos joyni FAQAT qayta suratga olish tuzatadi — " +
       "shuni aniq maslahat qilib yoz (masalan: dazmollab, deraza yonida, 3/4 burchakdan qayta oling).\n" +
       (/^(real|model|kop)$/.test(turi)
-        ? "2) MUHIT RETSEPTINI YOZ — 9 band. Bu reklamada tovar ODAMDA bo'ladi (kiydiriladi), sahna esa odam turadigan yoki YURAYOTGAN joy: " +
-          "'yuza' — odam turgan yer (ko'cha, zina pog'onasi, kafe oldi, park yo'lakchasi, ofis koridori); " +
-          "'kamera' — TOVARGA qaratilgan kadrlash (oyoq kiyim: tizzadan pastga, past nuqtadan; ust kiyim: bo'yindan belgacha; sumka: yelka-bel; soat: bilak); " +
-          "'chuqurlik' — orqa fon xira, odam yumshoq, TOVAR o'tkir. Odam kameraga tik qarab turmasin: harakat (yurayotgan, zinadan chiqayotgan, burilayotgan). " +
-          "'buyruq' — English: the ENVIRONMENT for a person wearing the product (place, ground, light, depth, mood); no description of the person.\n" +
-          "3) POZA yoz ('poza'): odam nima qilayotgan bo'lsin — tik turish EMAS. Tovarga qarab: " +
-          "oyoq kiyim — qadam tashlayotgan, zinadan chiqayotgan, bog'ich bog'layotgan, devorga suyangan; " +
-          "ust kiyim — 3/4 burilgan, qo'l cho'ntakda, yoqani ushlagan, yengni shimarayotgan; " +
-          "libos — aylanayotgan, yon profil, o'tirgan; sumka — tasmani yelkaga olayotgan, qo'lda yon tomonda; " +
-          "soat — bilak ko'rinadigan harakat. Yuz kameradan biroz chetga qarasin. Qisqa, bitta jumla.\n" +
-          "4) USLUB MUVOFIQLIGI ('uslub_ogoh'): suratdagi odamning BOShQA kiyimlari shu tovarga mos keladimi — " +
-          "fasl (qishki palto + shippak = xato), uslub (klassik tufli + sport shim), rang (3 tadan ortiq kuchli rang), " +
-          "daraja (bayram libosi + eskirgan krossovka), yosh. Mos kelmasa qisqa ogoh yoz, kelsa bo'sh ro'yxat. " +
-          "Agar tuzatish mumkin bo'lsa 'neytral' ga YOZ: qaysi kiyimni qaysi neytral rangga o'zgartirish kerak " +
-          "(masalan: shimni to'q ko'kka o'zgartir). Tuzatish shart bo'lmasa 'neytral' bo'sh.\n"
-        : "2) SAHNA RETSEPTINI YOZ — 9 band, yuqoridagi qonunlar bo'yicha. Tayanch yuzasiz javob NOTO'G'RI hisoblanadi. " +
-          "'poza', 'uslub_ogoh', 'neytral' maydonlari bu turda BO'SH qoladi.\n") +
-      "Bu safargi yo'nalish: uslub — " + x.uslub + " · yorug'lik — " + x.nur + " · tayanch yuza — " + x.yuza + ". " +
-      "Agar bu yo'nalish tovarga yoki suratdagi yorug'likka mos kelmasa — eng yaqinini o'zing tanla.\n\n" +
+        ? "2) MUHIT BRIFINI YOZ. Tovar ODAMDA bo'ladi (kiydiriladi), sen esa odam turgan/yurgan MUHITni yozasan: joy, yer, yorug'lik, chuqurlik. " +
+          "'kadr' — TOVARGA qaratilgan kadrlash (oyoq kiyim: tizzadan pastga, past nuqtadan; ust kiyim: bo'yindan belgacha). " +
+          "'buyruq' — English: the ENVIRONMENT for a person wearing the product; do not describe the person.\n" +
+          "3) POZA ('poza'): tik turish EMAS — yurayotgan, zinadan chiqayotgan, burilayotgan, bog'ich bog'layotgan. Yuz kameradan chetga. Bitta jumla.\n" +
+          "4) USLUB MUVOFIQLIGI ('uslub_ogoh'): odamning boshqa kiyimlari tovarga mos keladimi — fasl, uslub, rang, daraja, yosh. " +
+          "Mos kelmasa qisqa ogoh; tuzatish mumkin bo'lsa 'neytral' ga yoz (masalan: shimni to'q ko'kka).\n"
+        : "2) TOVARNI O'RGAN va YONDAShUV tanla ('yondashuv' + 'sabab'). Oyoq kiyim/kiyimda hayot_tarzi ko'pincha kuchliroq — sukut bo'yicha 'qahramon' tanlama.\n" +
+          "3) TO'LIQ SURATGA OLISh BRIFINI YOZ ('buyruq', inglizcha, 700-1400 belgi) — yuqoridagi 10 bandli tuzilma bo'yicha. " +
+          "Rassom BUTUNLAY YANGI kadr chizadi, shuning uchun rakurs, juftlik, poza, obyektiv, yorug'lik sxemasi, kompozitsiya — hammasi senga bog'liq.\n" +
+          "4) Qisqa maydonlar: 'joy' (qayerda), 'yuza' (tovar nimaning ustida yoki kimda), 'balandlik' (yuza pastdan necha foiz), 'kadr', 'yoruglik', 'palitra'.\n" +
+          "'poza', 'uslub_ogoh', 'neytral' — faqat odamli kadrda to'ldiriladi.\n") +
       "Faqat shu JSON: {\"tovar_turi\":\"oyoq kiyim|ust kiyim|past kiyim|libos|aksessuar — SURATGA qarab\"," +
       "\"ishonch\":\"yuqori|o'rta|past\"," +
       "\"yaroqli\":true|false,\"daraja\":1-5,\"sarlavha\":\"8 so'zgacha qisqa hukm\"," +
@@ -1439,22 +1447,33 @@ module.exports = async (req, res) => {
     if (n0 >= ch0.chegara)
       return res.status(200).json({ ok: false, limit: true, error: `Bu oydagi ${ch0.chegara} kredit tugadi.` });
     const S = body.sahna || {}, J = _joylashuv(body.joylashuv, S);
-    const b = k => String(S[k] || "").replace(/\s+/g, " ").trim().slice(0, 140);
+    const b = k => String(S[k] || "").replace(/\s+/g, " ").trim();
+    const brif = String(S.buyruq || "").replace(/\s+/g, " ").trim().slice(0, 1400);
+    const tur = String(body.turi || "") || _tovarTuri(body.tovar_turi || "");
+    // ✅ 641 — "YOPIShTIRISh" DAN "SURATGA OLISh" GA.
+    // Eski buyruq: "shu tovarni shu sahnaga QO'Y" → tahrir modeli kesilgan
+    // rasmni fonga yopishtirardi: qiyshiqlik, bitta poyabzal, yorug'lik
+    // mos emas, chuqurlik yo'q. Endi: namunadagi tovar bilan BUTUNLAY
+    // YANGI fotografiya. Rakurs, juftlik, poza, kadr — rejissyor brifidan.
+    // Himoya — tovar sadoqati bandi + klientdagi tekshiruv darvozasi.
     const matn =
-      `Create a photorealistic product advertisement photograph. ` +
-      `Place the EXACT product from the input image into this scene: ${b("joy") || "a clean modern setting"}. ` +
-      `The product rests directly on ${b("yuza") || "a flat surface"}, located about ${J.gorizont}% up from the bottom of the frame, ` +
-      `with a natural soft contact shadow where it touches the surface. ` +
-      `Lighting: ${b("yoruglik") || "soft natural light"}, the same light falls on the product and the scene. ` +
-      (b("kamera") ? `Camera: ${b("kamera")}. ` : "") +
-      `Background: ${b("chuqurlik") || "softly blurred"}, shallow depth of field, product in sharp focus. ` +
-      (b("rekvizit") && !/^(yo'q|yoq|none|no)$/i.test(b("rekvizit")) ? `Props: ${b("rekvizit")}, small and to the side. ` : `No props. `) +
-      (b("palitra") ? `Colour palette: ${b("palitra")}. ` : "") +
-      `The product fills about ${J.foiz}% of the frame height, centred around ${J.markaz_x}% from the left. ` +
-      `CRITICAL: the product must stay EXACTLY as in the input image — same colour, shape, sole, laces, ` +
-      `stitching, logo, proportions and material texture. Do not redesign, recolour, restyle or add anything ` +
-      `to the product. If the input shows a pair, keep the pair. ` +
-      `No text, no letters, no people, no hands, no other products. Vertical portrait composition, high resolution.`;
+      "Create a completely NEW professional advertising photograph of the product shown in the reference image. " +
+      "Do not copy the reference framing, angle or lighting — the reference is only there to define WHAT the product is. " +
+      "Re-photograph it properly, as a commercial photographer would.\n\n" +
+      "ART DIRECTION:\n" + (brif || (
+        "A natural, modern lifestyle shot of the product in an everyday city setting, soft directional daylight, " +
+        "shallow depth of field, product sharp and dominant in frame.")) + "\n\n" +
+      (tur === "shoes"
+        ? "FOOTWEAR: show the PAIR, both shoes visible and correctly oriented, standing on a real surface with " +
+          "natural contact shadows. Never a single shoe floating. "
+        : "") +
+      "PRODUCT FIDELITY — this is the strictest requirement: the product must match the reference EXACTLY in " +
+      "colour, shape, silhouette, sole, laces, buttons, zips, stitching lines, logo and its placement, pattern, " +
+      "material texture and proportions. Do not restyle, recolour, simplify or add anything to the product.\n" +
+      "FRAME: the product occupies about " + J.foiz + "% of the frame height and is the sharpest, most contrasted " +
+      "element in the image. Everything else falls away in soft focus.\n" +
+      "FORBIDDEN: no text, no letters, no numbers, no price tags, no watermarks, no borders or frames, no collage, " +
+      "no duplicated product, no other brand logos, no flat colour panels. Photorealistic, high resolution.";
     try {                                          // NAVBAT — kiydir_edit bilan bir xil
       const q = await falSubmit(M_JOY, _falPar(M_JOY,                    // ✅ 637
         { prompt: matn, rasmlar: [tovar], nisbat: "4:5" }));

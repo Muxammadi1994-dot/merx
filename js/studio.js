@@ -4265,9 +4265,12 @@ async function stuJoylashtir() {
   const cx = c.getContext("2d");
   cx.fillStyle = "#FFFFFF"; cx.fillRect(0, 0, c.width, c.height);   // shaffofsiz
   cx.drawImage(src, 0, 0, c.width, c.height);
-  stuHolat("2/3 · Tovar sahnaga qo'yilmoqda (AI)…");
+  // ✅ 641: TUR yuboriladi — juftlik talabi oyoq kiyimga yetib borsin
+  // (ilgari yuborilmasdi va server "shoes" ekanini bilmasdi).
+  stuHolat("2/3 · Rejissyor suratga olmoqda (AI)…");
   const d = await stuAI("joylashtir", { image: c.toDataURL("image/jpeg", 0.88),
-    sahna: h.sahna, joylashuv: h.joylashuv || {} });
+    sahna: h.sahna, joylashuv: h.joylashuv || {},
+    turi: _stuAiTur() || _kiyimTuri(STU.tovar || {}), tovar_turi: (h.tovar_turi || "") });
   if (!d || !d.image) return false;
   let im; try { im = await _stuImg(d.image); } catch (e) { return false; }
   // TEKSHIRUV — asl bilan (1 kredit). Mos bo'lmasa — rad, eski yo'l.
@@ -4689,6 +4692,13 @@ function _stuRejIzoh() {
       s += " · katalogda: " + _stuAiEsc(_TUR_NOM[kat] || kat) + " → rejissyor tanlandi";
     q.push(s);
   }
+  // ✅ 641: rejissyor QAROR qabul qilganini ko'rsatamiz — yondashuv va sababi
+  const _YON = { hayot_tarzi: "hayot tarzi", qahramon: "qahramon tovar",
+                 tahririy: "tahririy", makro: "makro/detal", flat_lay: "flat-lay",
+                 ugc: "UGC/tabiiy", aksiya: "aksiya" };
+  if (h.sahna && h.sahna.yondashuv)
+    q.push("Yondashuv: <b>" + _stuAiEsc(_YON[h.sahna.yondashuv] || h.sahna.yondashuv) + "</b>" +
+           (h.sahna.sabab ? " — " + _stuAiEsc(h.sahna.sabab) : ""));
   if (h.poza) q.push("Poza: " + _stuAiEsc(h.poza));                       // ✅ 634
   if (h.uslub_ogoh && h.uslub_ogoh.length)                                 // ✅ 634
     q.push("⚠️ Uslub: " + h.uslub_ogoh.map(z => _stuAiEsc(z)).join(" · ") +
