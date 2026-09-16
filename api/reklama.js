@@ -987,7 +987,14 @@ module.exports = async (req, res) => {
     const tovar = body.tovar || {}, til = String(body.til || "ikkalasi");
     const savol = "Tovar:\n" + _tovarMatn(tovar) + "\nReklama turi: " + String(body.turi || "tovar") +
       (body.sahna ? "\nSahna: " + String(body.sahna).slice(0, 80) : "") + (body.sarlavha ? "\nDo'kon sarlavhasi: " + String(body.sarlavha).slice(0, 40) : "") +
-      "\n\nInstagram/Telegram uchun post matni yoz: 2-4 jumla, samimiy va aniq, narx faqat berilgan bo'lsa, oxirida \"buyurtma — xabar yozing\" ma'nosidagi chaqiriq, emoji ko'pi bilan bitta. " +
+      "\n\nInstagram/Telegram uchun post matni yoz: 2-4 jumla, samimiy va aniq, oxirida \"buyurtma — xabar yozing\" ma'nosidagi chaqiriq, emoji ko'pi bilan bitta. " +
+      // ✅ 648: MATNDA NIMA BO'LISHINI EGASI GALOCHKA BILAN BELGILAYDI.
+      // Rasm ustida ko'rsatilmagan ma'lumot matnga tushishi mumkin, lekin
+      // faqat ruxsat berilgan bo'lsa. Ruxsat yo'q bo'lsa — umuman yozilmaydi.
+      "MATNGA KIRITISH RUXSATLARI (qat'iy): " +
+      (body.mt_nom === false ? "tovar NOMINI yozma. " : "tovar nomini yoz. ") +
+      (String(body.narx || "") ? "narxni yoz (" + String(body.narx).slice(0, 20) + " so'm). " : "NARXNI umuman yozma — raqam ham, taxmin ham. ") +
+      (body.mt_art === false ? "artikul va rang kodini yozma. " : "artikul va rangni yoz. ") + " " +
       "Faqat shu JSON: {\"uz\":{\"sarlavha\":\"\",\"matn\":\"\",\"heshteg\":[\"#..\"]},\"ru\":{\"sarlavha\":\"\",\"matn\":\"\",\"heshteg\":[\"#..\"]}}" +
       (til === "uz" ? " (ru bo'sh qolsin)" : til === "ru" ? " (uz bo'sh qolsin)" : "");
     let matn = null, xato = "", tok = {};

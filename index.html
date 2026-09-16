@@ -1491,6 +1491,12 @@ body.sms-off .sms-only { display: none !important; }
       #p-studio .stv2 .v2-matn-bosh{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
       #p-studio .stv2 .v2-matn-b{padding:8px 0;border-top:1px solid var(--ln)}
       #p-studio .stv2 .v2-matn-b p{margin:0;font-size:14px;line-height:1.5;white-space:pre-wrap}
+      #p-studio .stv2 .v2-guruh{font-size:12px;font-weight:600;color:var(--mut2);margin:14px 0 6px;
+        text-transform:uppercase;letter-spacing:.4px}
+      #p-studio .stv2 .v2-guruh:first-of-type{margin-top:10px}
+      #p-studio .stv2 .stu-vr-yana{width:100%;background:#fff;border:1px solid var(--ln);border-radius:12px;
+        padding:11px 14px;font-family:inherit;font-size:13.5px;color:var(--mut2);cursor:pointer}
+      #p-studio .stv2 .stu-vr-yana:hover{border-color:#0A1018;color:#0A1018}
       #p-studio .stv2 .v2-eslat{color:var(--mut2);font-size:13px;line-height:1.45;margin:14px 0 0}
       @media (max-width:980px){
         #p-studio .stv2 .v2-grid{grid-template-columns:1fr}
@@ -1557,8 +1563,18 @@ body.sms-off .sms-only { display: none !important; }
           <label>Sarlavha (ixtiyoriy)
             <input id="stu-yorliq-v2" class="st-inp" maxlength="28" placeholder="Yangi keldi, −20%, Qishki to'plam"
                    oninput="stuYorliq(this.value)" autocomplete="off"></label>
-          <label class="v2-sw"><span>Narxni ko'rsatish</span><input id="stu-narx-v2" type="checkbox" onchange="stuNarx(this.checked)"></label>
+          <!-- ✅ 648: rasm ustidagi har bir yozuv alohida galochka bilan -->
+          <div class="v2-guruh">Rasm ustida ko'rinsin</div>
+          <label class="v2-sw"><span>Tovar nomi</span><input id="stu-ko-nom" type="checkbox" onchange="stuKoNom(this.checked)"></label>
+          <label class="v2-sw"><span>Narx</span><input id="stu-narx-v2" type="checkbox" onchange="stuNarx(this.checked)"></label>
+          <label class="v2-sw"><span>Artikul va rang</span><input id="stu-ko-art" type="checkbox" onchange="stuKoArt(this.checked)"></label>
+          <label class="v2-sw"><span>Sarlavha yorlig'i</span><input id="stu-ko-yorliq" type="checkbox" onchange="stuKoYorliq(this.checked)"></label>
           <label class="v2-sw"><span>MERX belgisi</span><input id="stu-belgi-v2" type="checkbox" onchange="stuBelgi(this.checked)"></label>
+          <!-- ✅ 648: rasmda ko'rsatilmagan ma'lumot post MATNIGA qo'shilishi mumkin -->
+          <div class="v2-guruh">Post matnida bo'lsin</div>
+          <label class="v2-sw"><span>Tovar nomi</span><input id="stu-mt-nom" type="checkbox" onchange="stuMtNom(this.checked)"></label>
+          <label class="v2-sw"><span>Narx</span><input id="stu-mt-narx" type="checkbox" onchange="stuMtNarx(this.checked)"></label>
+          <label class="v2-sw"><span>Artikul va rang</span><input id="stu-mt-art" type="checkbox" onchange="stuMtArt(this.checked)"></label>
           <div id="stu-od-sozlama" style="display:none;margin-top:12px"><div id="stu-od-sozlama-ichi"></div></div>
           <p class="v2-eslat">Hammasi ixtiyoriy. Hech narsaga tegmasangiz ham standart sozlamalar yaxshi natija beradi.</p>
         </aside>
@@ -5884,7 +5900,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=182"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=44"></script>
+<script src="js/studio.js?v=45"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -6179,7 +6195,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 645;
+  window.SW_V = 646;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -6202,7 +6218,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=645")
+    navigator.serviceWorker.register("/sw.js?v=646")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

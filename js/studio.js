@@ -2346,6 +2346,10 @@ function stChiz(cvs, fmt, opt) {
         }
 
         case "matn": {
+          // ✅ 648: galochka yopiq bo'lsa — bu yozuv umuman chizilmaydi
+          if (L.manba === "nom" && STU.koNom === false) break;
+          if (L.manba === "tafsilot" && STU.koArt === false) break;
+          if (L.manba === "yorliq" && STU.koYorliq === false) break;
           let matn = stManba(L.manba);
           if (!matn) break;
           if (L.katta || stTipo().katta) matn = matn.toUpperCase();   // ✅ A1/A2
@@ -2591,6 +2595,10 @@ function stuFmt(id)  { STU.fmt  = id; renderStudio(); }
 function stuYorliq(v){ STU.yorliq = String(v || "").slice(0, 28); STU.yorliqQolda = !!STU.yorliq; stChiz(); }
 function stuNarx(on) { STU.narxKorsat = !!on; stChiz(); }
 function stuBelgi(on){ STU.belgi = !!on; stChiz(); }
+// ✅ 648: rasm ustidagi HAR BIR yozuv galochka bilan boshqariladi.
+function stuKoNom(on)   { STU.koNom = !!on; stChiz(); }
+function stuKoArt(on)   { STU.koArt = !!on; stChiz(); }
+function stuKoYorliq(on){ STU.koYorliq = !!on; stChiz(); }
 function stuZoom(v)  { STU.imgAdj.zoom = Number(v) || 1; stChiz(); }
 
 // tovar qidirish (faqat o'qiydi)
@@ -2801,9 +2809,30 @@ function stuHolatQosh(q) {
   const asos = (el.textContent || "").split(" — ")[0];
   el.textContent = asos + " — " + q; el.style.display = "block";
 }
-function stuHolat(m) {
+// ✅ 648: KUTISH SOATI. Egasi: "shunchaki qotgandek emas, soniya sanasin".
+// Uzoq amallarda (rejissyor, rassom, tekshiruv) matn yonida o'tgan vaqt
+// sanaladi va taxminiy muddat ko'rsatiladi.
+let _stuSoat = null, _stuSoatT0 = 0, _stuSoatM = "", _stuSoatKut = 0;
+function _stuSoatYoz() {
   const el = document.getElementById("stu-holat");
-  if (el) { el.textContent = m || ""; el.style.display = m ? "block" : "none"; }
+  if (!el) return;
+  const o = Math.round((Date.now() - _stuSoatT0) / 1000);
+  const q = o < 60 ? o + " s" : Math.floor(o / 60) + " daq " + (o % 60) + " s";
+  let qol = "";
+  if (_stuSoatKut > o) {
+    const r = _stuSoatKut - o;
+    qol = " · taxminan " + (r < 60 ? r + " s" : Math.ceil(r / 60) + " daq") + " qoldi";
+  } else if (_stuSoatKut) qol = " · yakunlanmoqda";
+  el.textContent = _stuSoatM + " — " + q + qol;
+  el.style.display = "block";
+}
+function stuHolat(m, kut) {
+  const el = document.getElementById("stu-holat");
+  if (_stuSoat) { clearInterval(_stuSoat); _stuSoat = null; }
+  if (!m) { if (el) { el.textContent = ""; el.style.display = "none"; } return; }
+  _stuSoatM = m; _stuSoatT0 = Date.now(); _stuSoatKut = Number(kut) || 0;
+  _stuSoatYoz();
+  _stuSoat = setInterval(_stuSoatYoz, 1000);
 }
 function stuSarf(n, ch) {
   const el = document.getElementById("stu-sarf");
@@ -3091,14 +3120,14 @@ async function stuReklamaYasa() {
       return;
     }
     if (STU.odamKadri) {
-      stuHolat("1/3 · Shaxs ajratilmoqda…");
+      stuHolat("Shaxs ajratilmoqda", 20);
       await stuShaxsAjrat(true);
       STU.avtoPal = stuPalitraChiqar(STU.img);
-      stuHolat("2/3 · Fon tanlanmoqda…");
+      stuHolat("Fon tanlanmoqda", 45);
       await stuFonAvto("real", true);
       STU.real = true; STU.soya = true; STU.aks = false;
     } else {
-      stuHolat("1/3 · Tovar fondan ajratilmoqda…");
+      stuHolat("Tovar fondan ajratilmoqda", 20);
       await stuFonTozala(true);
       STU.avtoPal = stuPalitraChiqar(STU.img);
       // ✅ 631: TARTIB O'ZGARDI. Ilgari birinchi KUTUBXONA foni olinardi
@@ -3108,15 +3137,15 @@ async function stuReklamaYasa() {
       await _stuAiKut(15000);
       const foto = await stuJoylashtir();
       if (!foto) {
-        stuHolat("2/3 · Sahna yasalmoqda…");
+        stuHolat("Sahna yasalmoqda", 60);
         let bo = false;
         if (STU.aiHukm && STU.aiHukm.sahna && STU.aiHukm.sahna.buyruq) bo = await stuSahna(null, true);
         if (!bo) bo = await stuFonAvto("tovar", true);   // zaxira: kutubxona
         if (!bo) await stuSahna(null, true);
       }
     }
-    stuHolat("3/3 · Variantlar chizilmoqda…");
-    STU.variants = stuVariantlar();
+    stuHolat("Variantlar chizilmoqda", 5);
+    STU.variants = stuVariantlar(); STU.hammaV = false;   // ✅ 648
     STU.tanlanganV = 0;
     stuVariantChiz();
     const v = STU.variants[0];
@@ -3133,10 +3162,20 @@ async function stuReklamaYasa() {
 }
 
 // ── Galereya
+// ✅ 648: BITTA NATIJA. Egasi: "6 nusxa shart emas". Oltita variant
+// bir-biridan deyarli farq qilmaydi — faqat matn joylashuvi boshqacha.
+// Endi sukut bo'yicha faqat tanlangani ko'rsatiladi; qolganini
+// "Boshqa ko'rinishlar" tugmasi ochadi (chizish ham o'shanda bo'ladi).
 function stuVariantChiz() {
   const el = document.getElementById("stu-variants");
   if (!el) return;
   if (!STU.variants.length) { el.innerHTML = ""; return; }
+  const kop = STU.variants.length > 1;
+  if (!STU.hammaV && kop) {
+    el.innerHTML = `<button class="stu-vr-yana" onclick="stuHammaVariant()">
+        Boshqa ko'rinishlar (${STU.variants.length - 1})</button>`;
+    return;
+  }
   el.innerHTML = STU.variants.map((v, i) =>
     `<button class="stu-vr${i === STU.tanlanganV ? " on" : ""}" onclick="stuVariantTanla(${i})">
        <canvas id="stu-vc${i}" width="180" height="225"></canvas>
@@ -3149,6 +3188,7 @@ function stuVariantChiz() {
     try { stChiz(c, { w: 180, h: 225 }, v); c.dataset.sig = _imz + i; } catch (e) {}
   });
 }
+function stuHammaVariant() { STU.hammaV = true; stuVariantChiz(); }
 function stuVariantTanla(i) {
   const v = STU.variants[i]; if (!v) return;
   STU.tanlanganV = i; STU.shab = v.shab; STU.pal = v.pal;
@@ -4169,6 +4209,11 @@ async function stuBoshqaFon() {
 // katalog nomi/toifasidan aniqlaydi (_kiyimTuri) va kiydirish
 // modeliga aniq turini uzatadi (tops / bottoms / one-pieces).
 STU.turi = "tovar";
+// ✅ 648: rasm ustida ko'rinadiganlar (sukut: nom va sarlavha bor, artikul yo'q)
+STU.koNom = true; STU.koArt = false; STU.koYorliq = true;
+// ✅ 648: post matniga qo'shish ruxsatlari (sukut: nom bor, narx yo'q)
+STU.mtNom = true; STU.mtNarx = false; STU.mtArt = false;
+STU.hammaV = false;                  // ✅ 648: variant lentasi ochilganmi
 STU.rasmManba = "katalog";        // katalog · galereya · kamera
 STU.qoshimcha = [];               // kop: [{tovar, img, turi}]
 STU.modelJins = "erkak";
@@ -4246,7 +4291,7 @@ async function _stuKadrTekshir(tur) {
     if (z <= 1.01) { STU.kadrOgoh = t.hukm.farqlar[0] || "tovar kadrda ko'rinmayapti"; return; }
     STU.imgAdj.zoom = Math.max(1, z - .15);
     STU.fokus = { x: .5, y: Math.max(.5, ((STU.fokus && STU.fokus.y) || .8) - .08) };
-    stuHolat("Kadr to'g'rilanmoqda — tovar ko'rinmayapti…");
+    stuHolat("Kadr to'g'rilanmoqda", 25);
     stChiz();
   }
 }
@@ -4267,7 +4312,7 @@ async function stuJoylashtir() {
   cx.drawImage(src, 0, 0, c.width, c.height);
   // ✅ 641: TUR yuboriladi — juftlik talabi oyoq kiyimga yetib borsin
   // (ilgari yuborilmasdi va server "shoes" ekanini bilmasdi).
-  stuHolat("2/3 · Rejissyor suratga olmoqda (AI)…");
+  stuHolat("Rejissyor suratga olmoqda", 120);
   const d = await stuAI("joylashtir", { image: c.toDataURL("image/jpeg", 0.88),
     sahna: h.sahna, joylashuv: h.joylashuv || {},
     turi: _stuAiTur() || _kiyimTuri(STU.tovar || {}), tovar_turi: (h.tovar_turi || "") });
@@ -4277,7 +4322,7 @@ async function stuJoylashtir() {
   // burchak, yorug'lik, kadr ataylab boshqa. Eski (15 bandli, piksel
   // darajasidagi) tekshiruv yangi yo'lni har safar rad etardi va zaxira
   // yo'l ishlardi; egasi ekranda hech qanday o'zgarish sezmadi.
-  stuHolat("2/3 · Rejissyor natijani tekshirmoqda…");
+  stuHolat("Rejissyor natijani tekshirmoqda", 25);
   const t = await stuAiChaqir("ai_solishtir", { rejim: "yangi",
     asl: _stuTayyor(STU.asl || STU.img, 900), natija: _stuTayyor(im, 900), tovar: _stuAiTovar() });
   if (!t || !t.ok || !t.hukm) { toast("Tekshiruv ishlamadi — oddiy yo'l bilan davom", "err"); return false; }
@@ -4287,7 +4332,7 @@ async function stuJoylashtir() {
     // qo'shadi va rassom shuni to'g'rilab qaytadan chizadi. Shundan keyin
     // ham mos bo'lmasa — eski (xavfsiz) yo'l.
     const farq = (t.hukm.farqlar || []).slice(0, 2).join("; ") || "tovar o'zgargan";
-    stuHolat("2/3 · Farq topildi, qayta olinmoqda…");
+    stuHolat("Farq topildi — qayta olinmoqda", 120);
     const d2 = await stuAI("joylashtir", { image: c.toDataURL("image/jpeg", 0.88),
       sahna: h.sahna, joylashuv: h.joylashuv || {},
       turi: _stuAiTur() || _kiyimTuri(STU.tovar || {}), tovar_turi: (h.tovar_turi || ""),
@@ -4315,12 +4360,12 @@ async function stuMuhit(tur) {
   const h = STU.aiHukm;
   if (!h || !h.sahna || !(h.sahna.joy || h.sahna.yuza)) return false;
   const src = STU.img; if (!src) return false;
-  stuHolat("Rejissyor muhiti qo'yilmoqda (AI)…");
+  stuHolat("Rejissyor muhiti qo'yilmoqda", 90);
   const d = await stuAI("muhit", { image: _stuTayyor(src, 1200), sahna: h.sahna,
     turi: tur || "", poza: h.poza || "", neytral: h.neytral || "" });   // ✅ 634
   if (!d || !d.image) return false;
   let im; try { im = await _stuImg(d.image); } catch (e) { return false; }
-  stuHolat("Rejissyor tovarni tekshirmoqda…");
+  stuHolat("Rejissyor tovarni tekshirmoqda", 25);
   // ✅ 634: tekshiruv OLDIN ↔ KEYIN. 633 da muhitli kadr ASL TOVAR SURATI
   // bilan solishtirilardi — to'liq bo'yli kadrda tovar kichik bo'lgani uchun
   // tekshiruv deyarli har safar rad etardi va muhit tashlab yuborilardi.
@@ -4343,7 +4388,7 @@ async function stuMuhit(tur) {
 async function _stuAiKut(ms) {
   const t0 = Date.now();
   while (STU._aiBand && Date.now() - t0 < (ms || 15000)) {
-    stuHolat("Rejissyor tovarni aniqlamoqda…");
+    stuHolat("Rejissyor tovarni o'rganmoqda", 20);
     await new Promise(r => setTimeout(r, 300));
   }
 }
@@ -4555,7 +4600,7 @@ async function stuKiydirOqim() {
     const nomi = _uz(x.tovar.nom).toLowerCase();
     const aksTur = x.turi !== "aksessuar" ? x.turi
       : (nomi.includes("soat") ? "soat" : (nomi.includes("sumka") || nomi.includes("ryukzak")) ? "sumka" : "aksessuar");
-    stuHolat(`${tahrir ? "👟" : "👗"} ${n + 1}/${hamma.length} · ${x.tovar.nom}…`);
+    stuHolat(`${tahrir ? "👟" : "👗"} ${n + 1}/${hamma.length} · ${x.tovar.nom} kiydirilmoqda`, 90);
     const d = await stuAI(tahrir ? "kiydir_edit" : "kiydir", {
       jins, model_image: shaxsData || undefined,
       image: _stuTayyor(x.img, 1100), turi: aksTur });
@@ -4576,7 +4621,7 @@ async function stuKiydirOqim() {
   if (muhitBor) {
     STU.fon = null; STU.soya = false; STU.aks = false;   // natijada o'z foni bor
   } else {
-    stuHolat("Fon tanlanmoqda…");
+    stuHolat("Fon tanlanmoqda", 45);
     const fonBor = await stuFonAvto(shaxsmi ? "real" : "model", true);
     if (fonBor) {
       // odam kesib olinib, yangi fonga qo'yiladi (yuz/gavda o'zgarmaydi)
@@ -4584,7 +4629,7 @@ async function stuKiydirOqim() {
       STU.soya = true; STU.aks = false;
     } else { STU.fon = null; STU.soya = false; }
   }
-  STU.variants = stuVariantlar();
+  STU.variants = stuVariantlar(); STU.hammaV = false;   // ✅ 648
   if (aks.length && STU_SHAB.some(s => s.id === "modelaks"))
     STU.variants.unshift({ shab: "modelaks", pal: STU.avtoPal ? "auto" : "navy" });
   STU.tanlanganV = 0;
@@ -4658,6 +4703,10 @@ function stuSahnaChiz() {
   // sozlash qutichalari holatni aks ettirsin
   const n = document.getElementById("stu-narx-v2");  if (n) n.checked = !!STU.narxKorsat;
   const b = document.getElementById("stu-belgi-v2"); if (b) b.checked = !!STU.belgi;
+  // ✅ 648: yangi galochkalar holati
+  [["stu-ko-nom", "koNom"], ["stu-ko-art", "koArt"], ["stu-ko-yorliq", "koYorliq"],
+   ["stu-mt-nom", "mtNom"], ["stu-mt-narx", "mtNarx"], ["stu-mt-art", "mtArt"]]
+    .forEach(([id, k]) => { const e = document.getElementById(id); if (e) e.checked = !!STU[k]; });
   const y = document.getElementById("stu-yorliq-v2"); if (y && y.value !== (STU.yorliq || "") && !STU.yorliqQolda) y.value = STU.yorliq || "";
 }
 
@@ -4683,7 +4732,8 @@ async function stuAiChaqir(amal, qosh) {             // band-qulfsiz: fon ishi, 
 function _stuAiTovar() {
   const t = STU.tovar || {}, p = STU.tovarXom || {};
   return { nom: t.nom || "", art: t.art || "", rang: STU.tanlanganRang || t.rang || "",
-           narx: STU.narxKorsat && t.narx ? stSon(t.narx) : "", olcham: t.olcham || "",
+           narx: STU.mtNarx && t.narx ? stSon(t.narx) : "", olcham: t.olcham || "",
+           mt_nom: !!STU.mtNom, mt_art: !!STU.mtArt,
            kat: p.category || p.kategoriya || p.kat || "" };
 }
 function _stuHukmChiz(im, hk) {
