@@ -1553,7 +1553,11 @@ module.exports = async (req, res) => {
       `feet in natural contact with the ground, with a soft contact shadow. ` +
       `Lighting: ${b("yoruglik") || "soft natural light"} — the same light now falls on the person, ` +
       `so their shadows and highlights match the new scene. ` +
-      `Background: ${b("chuqurlik") || "softly blurred"}, shallow depth of field; the person and especially the worn product stay sharp. ` +
+      // ✅ 644: `chuqurlik` 641 da sxemadan chiqarilgan — endi `kadr` dan
+      // olinadi, bo'sh bo'lsa xavfsiz sukut. Ilgari bu yerda har doim
+      // sukut ishlatilib, rejissyorning kadrlash ko'rsatmasi yo'qolardi.
+      `Background: softly blurred, shallow depth of field; the person and especially the worn product stay sharp. ` +
+      (b("kadr") ? `Framing: ${b("kadr")}. ` : "") +
       (b("palitra") ? `Colour mood: ${b("palitra")}. ` : "") + kadr +
       // ✅ 634: POZA — odam tik turmasin (bilim §4.4/§5.2). Yuz, tana, teri,
       // soch va TOVAR daxlsiz; faqat gavda holati o'zgaradi.

@@ -4563,20 +4563,27 @@ async function stuKiydirOqim() {
     shaxsData = d.image;
   }
   STU.img = await _stuImg(shaxsData);
-  await stuMuhit(hamma[0].turi);                 // ✅ 633: rejissyor muhiti (tekshiruv bilan)
+  const muhitBor = await stuMuhit(hamma[0].turi);   // ✅ 633: rejissyor muhiti
   STU.rasmlar[1] = aks[0] ? aks[0].img : null;   // aksessuar — kollaj slotida
   STU.aiNamoyish = !shaxsmi; STU.real = shaxsmi;
   STU.fokus = _stuFokusTur(hamma[0].turi);       // ✅ 631: kadr TOVARGA qaraydi
   STU._kadrTur = hamma[0].turi;                  // ✅ 636: chizilgach tekshiriladi
   STU.avtoPal = stuPalitraChiqar(STU.img);
-  // ✅ AI fon: shahar/bino/interyer, mavsumga mos (egasining talabi)
-  stuHolat("Fon tanlanmoqda…");
-  const fonBor = await stuFonAvto(shaxsmi ? "real" : "model", true);
-  if (fonBor) {
-    // odam kesib olinib, yangi fonga qo'yiladi (yuz/gavda o'zgarmaydi)
-    await stuShaxsAjrat(true);
-    STU.soya = true; STU.aks = false;
-  } else { STU.fon = null; STU.soya = false; }
+  // ✅ 644: MUHIT QO'YILGAN BO'LSA — KUTUBXONA FONI BOSMASIN.
+  // 633 da muhit qadami qo'shilgandi, lekin undan keyin darhol kutubxona
+  // foni olinib, odam kesib olinib o'sha fonga qo'yilardi — ya'ni rejissyor
+  // muhiti har safar ustidan bosib ketilardi. Uchala odamli tur zarar ko'rgan.
+  if (muhitBor) {
+    STU.fon = null; STU.soya = false; STU.aks = false;   // natijada o'z foni bor
+  } else {
+    stuHolat("Fon tanlanmoqda…");
+    const fonBor = await stuFonAvto(shaxsmi ? "real" : "model", true);
+    if (fonBor) {
+      // odam kesib olinib, yangi fonga qo'yiladi (yuz/gavda o'zgarmaydi)
+      await stuShaxsAjrat(true);
+      STU.soya = true; STU.aks = false;
+    } else { STU.fon = null; STU.soya = false; }
+  }
   STU.variants = stuVariantlar();
   if (aks.length && STU_SHAB.some(s => s.id === "modelaks"))
     STU.variants.unshift({ shab: "modelaks", pal: STU.avtoPal ? "auto" : "navy" });
