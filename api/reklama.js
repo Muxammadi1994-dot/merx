@@ -41,6 +41,15 @@ const M_TRYON = process.env.STUDIO_M_TRYON || "fal-ai/fashn/tryon/v1.6";
 // tovar rasmi + "faqat oyoq kiyimni almashtir" buyrug'i.
 // Hujjat: fal.run/fal-ai/nano-banana-2/edit · prompt + image_urls[].
 const M_EDIT  = process.env.STUDIO_M_EDIT  || "fal-ai/nano-banana-2/edit";
+// ✅ 637: HAR BOSQICHGA ALOHIDA ENV. Bo'sh bo'lsa — eski model (M_EDIT),
+// ya'ni hech narsa o'zgarmaydi. Model almashtirish uchun push kerak emas.
+// Tavsiya (16-sen): JOY → openai/gpt-image-2.5/sunburst/edit (fazoviy mantiq)
+//                   MUHIT → nano-banana (yuz barqarorligi)
+//                   SAHNA → openai/gpt-image-2.5/flare/text-to-image
+const M_JOY   = process.env.STUDIO_M_JOY   || M_EDIT;   // tovarni sahnaga qo'yish
+const M_MUHIT = process.env.STUDIO_M_MUHIT || M_EDIT;   // odamning foni
+const M_KIYD  = process.env.STUDIO_M_KIYD  || M_EDIT;   // oyoq kiyim kiydirish
+const SIFAT   = process.env.STUDIO_SIFAT   || "high";   // low|medium|high|xhigh|max
 const G_IMG   = "gemini-2.5-flash-image";                // Gemini zaxira
 
 const OYLIK_BEPUL = parseInt(process.env.STUDIO_LIMIT) || 10;
@@ -400,6 +409,57 @@ async function falRun(model, input, ms) {
 // funksiyasi 60 s da uziladi. Endi uzun amallar NAVBATGA topshiriladi:
 // server darhol `request_id` qaytaradi, klient har 2.5 s da holatni
 // so'raydi, tayyor bo'lgach natija olinadi. Funksiya uzoq ushlanmaydi.
+// ✅ 637 — MODEL MOSLAShTIRGIChI.
+// Har model oilasi boshqa parametr kutadi. Biz bitta "umumiy" to'plam
+// bilan ishlaymiz, moslashtirgich uni model oilasiga tarjima qiladi.
+//   umumiy: { prompt, rasmlar[], nisbat, sifat }
+//   nano-banana / flux → aspect_ratio · num_images · output_format
+//   openai/gpt-image   → image_size (WxH yoki "auto") · quality · background
+// GPT o'lchov qoidasi (fal hujjati): tomonlar 16 ga bo'linsin, hech bir
+// tomon 3840 dan oshmasin, jami piksel 655 360 … 8 294 400 oralig'ida.
+const _GPT_OLCH = {
+  "1:1":  "1024x1024",    // 1 048 576 px
+  "4:5":  "1024x1280",    // 1 310 720 px
+  "9:16": "864x1536",     // 1 327 104 px
+  "16:9": "1536x864",
+  "auto": "auto",
+};
+function _gptMi(model) { return /^openai\/gpt-image/.test(String(model || "")); }
+
+function _falPar(model, u) {
+  const nisbat = String(u.nisbat || "auto");
+  const rasmlar = Array.isArray(u.rasmlar) ? u.rasmlar.filter(Boolean) : [];
+  if (_gptMi(model)) {
+    const p = {
+      prompt: u.prompt,
+      image_size: _GPT_OLCH[nisbat] || "auto",
+      quality: String(u.sifat || SIFAT),
+      background: u.shaffof ? "transparent" : "auto",
+      num_images: 1,
+      output_format: "png",
+    };
+    if (rasmlar.length) p.image_urls = rasmlar;      // tahrir manzili
+    return p;
+  }
+  // eski oila (nano-banana, flux, boshqalar) — hozirgi shakl
+  const p = { prompt: u.prompt, num_images: 1, output_format: "png" };
+  if (nisbat !== "auto" || rasmlar.length) p.aspect_ratio = nisbat;
+  if (rasmlar.length) p.image_urls = rasmlar;
+  return p;
+}
+
+// ✅ 637: SAHNA (matndan rasm) uchun moslashtirgich. Flux nomli o'lchamlar
+// ("square_hd", "portrait_16_9") GPT da yo'q — ular pikselga aylantiriladi.
+const _FLUX_OLCH = { square_hd: "1024x1024", portrait_16_9: "864x1536",
+                     portrait_4_3: "1024x1280", landscape_16_9: "1536x864" };
+function _falSahna(model, prompt, olcham) {
+  if (_gptMi(model)) {
+    return { prompt, image_size: _FLUX_OLCH[olcham] || "1024x1024",
+             quality: SIFAT, background: "auto", num_images: 1, output_format: "png" };
+  }
+  return { prompt, image_size: olcham, num_images: 1, sync_mode: false };
+}
+
 async function falSubmit(model, input) {
   if (!FAL_KEY) throw new Error("FAL_KEY sozlanmagan");
   const r = await fetch(`https://queue.fal.run/${model}`, {
@@ -716,10 +776,8 @@ async function fonYarat(fid) {
   } catch (e) {}
   let url = null, xato = "";
   try {
-    const j = await falRun(M_SAHNA, {
-      prompt: f.buyruq,
-      image_size: f.sinf === "tovar" ? "square_hd" : "portrait_16_9",
-      num_images: 1, sync_mode: false }, 52000);
+    const j = await falRun(M_SAHNA, _falSahna(M_SAHNA, f.buyruq,        // ✅ 637
+      f.sinf === "tovar" ? "square_hd" : "portrait_16_9"), 52000);
     url = falRasm(j);
   } catch (e) { xato = e.message; }
   if (!url) return { ok: false, error: xato || "Fon chiqmadi" };
@@ -1092,8 +1150,9 @@ module.exports = async (req, res) => {
       "no hands, no text, no logo. Photorealistic, high resolution.") : s.matn;
     let chiq = null, xato = "", prov = "fal", model = M_SAHNA;
     try {
-      const j = await falRun(M_SAHNA, { prompt: matn, image_size: "square_hd",
-        num_images: 1, sync_mode: true }, 46000);
+      const j = await falRun(M_SAHNA,                                    // ✅ 637
+        Object.assign(_falSahna(M_SAHNA, matn, "square_hd"),
+                      _gptMi(M_SAHNA) ? {} : { sync_mode: true }), 46000);
       chiq = falRasm(j);
     } catch (e) { xato = e.message; }
     if (!chiq && GEMINI_KEY) {                       // zaxira yo'l
@@ -1126,8 +1185,9 @@ module.exports = async (req, res) => {
     try {
       // sync_mode: FALSE — havola qaytadi (bazaga havola yoziladi,
       // og'ir base64 emas: rasm ombori 51% to'lgan).
-      const j = await falRun(M_SAHNA, { prompt: matn, image_size: "portrait_16_9",
-        num_images: 1, seed, sync_mode: false }, 52000);
+      const j = await falRun(M_SAHNA,                                    // ✅ 637
+        Object.assign(_falSahna(M_SAHNA, matn, "portrait_16_9"),
+                      _gptMi(M_SAHNA) ? {} : { seed }), 52000);
       url = falRasm(j);
     } catch (e) { xato = e.message; }
     await jurnal(shopId, "model:" + jins, "fal", M_SAHNA, !!url, url ? "" : xato);
@@ -1335,12 +1395,12 @@ module.exports = async (req, res) => {
       (tur === "shoes" ? ` The person wears the PAIR — both shoes fully visible on both feet, ` +
         `laced and worn naturally. Keep the full frame including the feet; do not crop or zoom.` : "");
     try {                                          // ✅ NAVBAT
-      const q = await falSubmit(M_EDIT, { prompt: matn, image_urls: [shaxsRasm, tovar],
-        num_images: 1, aspect_ratio: "auto", output_format: "png" });
+      const q = await falSubmit(M_KIYD, _falPar(M_KIYD,                  // ✅ 637
+        { prompt: matn, rasmlar: [shaxsRasm, tovar], nisbat: "auto" }));
       return res.status(200).json({ ok: true, navbat: true, amal: "kiydir_edit:" + tur,
-        model: M_EDIT, status_url: q.status_url, response_url: q.response_url });
+        model: M_KIYD, status_url: q.status_url, response_url: q.response_url });
     } catch (e) {
-      await jurnal(shopId, "kiydir_edit:" + tur, "fal", M_EDIT, false, e.message);
+      await jurnal(shopId, "kiydir_edit:" + tur, "fal", M_KIYD, false, e.message);
       return res.status(200).json({ ok: false, error: e.message });
     }
   }
@@ -1377,12 +1437,12 @@ module.exports = async (req, res) => {
       `to the product. If the input shows a pair, keep the pair. ` +
       `No text, no letters, no people, no hands, no other products. Vertical portrait composition, high resolution.`;
     try {                                          // NAVBAT — kiydir_edit bilan bir xil
-      const q = await falSubmit(M_EDIT, { prompt: matn, image_urls: [tovar],
-        num_images: 1, aspect_ratio: "4:5", output_format: "png" });
+      const q = await falSubmit(M_JOY, _falPar(M_JOY,                    // ✅ 637
+        { prompt: matn, rasmlar: [tovar], nisbat: "4:5" }));
       return res.status(200).json({ ok: true, navbat: true, amal: "joylashtir",
-        model: M_EDIT, status_url: q.status_url, response_url: q.response_url });
+        model: M_JOY, status_url: q.status_url, response_url: q.response_url });
     } catch (e) {
-      await jurnal(shopId, "joylashtir", "fal", M_EDIT, false, e.message);
+      await jurnal(shopId, "joylashtir", "fal", M_JOY, false, e.message);
       return res.status(200).json({ ok: false, error: e.message });
     }
   }
@@ -1426,12 +1486,12 @@ module.exports = async (req, res) => {
       `the product they wear: same colour, shape, logo, laces, stitching, material. Keep the framing and crop. ` +
       `No text, no other people, no added objects. Photorealistic, high resolution.`;
     try {
-      const q = await falSubmit(M_EDIT, { prompt: matn, image_urls: [odam],
-        num_images: 1, aspect_ratio: "auto", output_format: "png" });
+      const q = await falSubmit(M_MUHIT, _falPar(M_MUHIT,                // ✅ 637
+        { prompt: matn, rasmlar: [odam], nisbat: "auto" }));
       return res.status(200).json({ ok: true, navbat: true, amal: "muhit",
-        model: M_EDIT, status_url: q.status_url, response_url: q.response_url });
+        model: M_MUHIT, status_url: q.status_url, response_url: q.response_url });
     } catch (e) {
-      await jurnal(shopId, "muhit", "fal", M_EDIT, false, e.message);
+      await jurnal(shopId, "muhit", "fal", M_MUHIT, false, e.message);
       return res.status(200).json({ ok: false, error: e.message });
     }
   }
