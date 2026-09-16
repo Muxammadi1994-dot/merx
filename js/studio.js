@@ -2809,6 +2809,25 @@ function stuHolatQosh(q) {
   const asos = (el.textContent || "").split(" — ")[0];
   el.textContent = asos + " — " + q; el.style.display = "block";
 }
+// ✅ 649: HUKM KARTASIDAGI SOAT. "Rejissyor ko'rmoqda…" qotgan matn edi —
+// egasi 15-20 soniya nima bo'layotganini bilmasdi. Endi shu yerda ham
+// soniya sanaladi va taxminiy muddat ko'rsatiladi.
+let _stuHS = null, _stuHS0 = 0;
+function _stuHukmSoat(boshla) {
+  if (_stuHS) { clearInterval(_stuHS); _stuHS = null; }
+  if (!boshla) return;
+  _stuHS0 = Date.now();
+  const yoz = () => {
+    const el = document.getElementById("stu-ai-holat");
+    if (!el) { clearInterval(_stuHS); _stuHS = null; return; }
+    const o = Math.round((Date.now() - _stuHS0) / 1000);
+    const r = 20 - o;
+    el.textContent = "Rejissyor tovarni o'rganmoqda — " + o + " s" +
+      (r > 0 ? " · taxminan " + r + " s qoldi" : " · yakunlanmoqda");
+  };
+  yoz(); _stuHS = setInterval(yoz, 1000);
+}
+
 // ✅ 648: KUTISH SOATI. Egasi: "shunchaki qotgandek emas, soniya sanasin".
 // Uzoq amallarda (rejissyor, rassom, tekshiruv) matn yonida o'tgan vaqt
 // sanaladi va taxminiy muddat ko'rsatiladi.
@@ -3188,7 +3207,7 @@ function stuVariantChiz() {
     try { stChiz(c, { w: 180, h: 225 }, v); c.dataset.sig = _imz + i; } catch (e) {}
   });
 }
-function stuHammaVariant() { STU.hammaV = true; stuVariantChiz(); }
+function stuHammaVariant() { STU.hammaV = true; stuVariantChiz(); stuNatijaKorsat(true); }
 function stuVariantTanla(i) {
   const v = STU.variants[i]; if (!v) return;
   STU.tanlanganV = i; STU.shab = v.shab; STU.pal = v.pal;
@@ -4155,15 +4174,23 @@ function stuNatijaKorsat(bor) {
   if (!bor) return;
   const c = document.getElementById("stu-od-cvs");
   if (c) stChiz(c, stFmt());
+  // ✅ 649: BITTA NATIJA — ikkinchi lenta. 648 da faqat `stuVariantChiz`
+  // tuzatilgandi, jonli oyna esa SHU yerdan chizadi (C10: nusxa sanalmagan).
   const v = document.getElementById("stu-od-variants");
   if (v) {
-    v.innerHTML = STU.variants.map((x, i) =>
-      `<button class="stu-vr${i === STU.tanlanganV ? " on" : ""}" onclick="stuVariantTanla(${i});stuNatijaKorsat(true)">
-         <canvas id="stu-ovc${i}" width="180" height="225"></canvas></button>`).join("");
-    STU.variants.forEach((x, i) => {
-      const cc = document.getElementById("stu-ovc" + i);
-      if (cc) { try { stChiz(cc, { w: 180, h: 225 }, x); } catch (e) {} }
-    });
+    const kop = STU.variants.length > 1;
+    if (!STU.hammaV && kop) {
+      v.innerHTML = `<button class="stu-vr-yana" onclick="stuHammaVariant()">
+          Boshqa ko'rinishlar (${STU.variants.length - 1})</button>`;
+    } else {
+      v.innerHTML = STU.variants.map((x, i) =>
+        `<button class="stu-vr${i === STU.tanlanganV ? " on" : ""}" onclick="stuVariantTanla(${i});stuNatijaKorsat(true)">
+           <canvas id="stu-ovc${i}" width="180" height="225"></canvas></button>`).join("");
+      STU.variants.forEach((x, i) => {
+        const cc = document.getElementById("stu-ovc" + i);
+        if (cc) { try { stChiz(cc, { w: 180, h: 225 }, x); } catch (e) {} }
+      });
+    }
   }
   const f = document.getElementById("stu-od-fmt");
   if (f) f.innerHTML = STU_FMT.map(x =>
@@ -4750,7 +4777,7 @@ function _stuHukmChiz(im, hk) {
   hk.className = "v2-hukm" + (h.ogoh ? " ogoh" : "");
   hk.innerHTML = `<b><i></i>${_stuAiEsc(h.sarl)}</b>` + (h.band.length ? `<ul>${h.band.map(t => `<li>${_stuAiEsc(t)}</li>`).join("")}</ul>` : "") +
     `<div class="v2-ai" id="stu-ai-holat">${STU._aiHukmXato && STU._aiHukmSrc === im.src ? "AI tekshiruvi: " + _stuAiEsc(STU._aiHukmXato) : "Rejissyor ko'rmoqda…"}</div>`;
-  if (!STU._aiHukmXato || STU._aiHukmSrc !== im.src) stuAiHukm(im);
+  if (!STU._aiHukmXato || STU._aiHukmSrc !== im.src) { _stuHukmSoat(true); stuAiHukm(im); }
 }
 // ✅ 3-bosqich: REJISSYOR NIMA DEDI — kartada ko'rinadi. Shusiz biz
 // ko'r ishlaymiz: natija yomon chiqsa, rejissyor yomon yozganmi yoki
@@ -4796,6 +4823,7 @@ async function stuAiHukm(im) {
   const src = im.src;
   const d = await stuAiChaqir("ai_hukm", { image: _stuTayyor(im, 900), tovar: _stuAiTovar(), turi: STU.turi || "tovar" });
   STU._aiBand = false;
+  _stuHukmSoat(false);                                // ✅ 649: soat to'xtaydi
   if (STU._aiHukmSrc !== src) return;                 // surat almashgan — eskirgan javob
   if (!d || !d.ok) { STU._aiHukmXato = (d && d.error) || "xato"; }
   else STU.aiHukm = d.hukm;
