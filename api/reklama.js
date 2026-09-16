@@ -1006,7 +1006,14 @@ module.exports = async (req, res) => {
         farqlar: (Array.isArray(hukm.farqlar) ? hukm.farqlar : []).slice(0, 3).map(x => String(x).slice(0, 120)),
         tavsiya: ["qabul", "qayta", "rad"].includes(hukm.tavsiya) ? hukm.tavsiya : (hukm.mos ? "qabul" : "qayta") };
     } catch (e) { xato = e.message; }
-    await jurnal(shopId, "ai_solishtir", "anthropic", M_AI_HUKM, !xato, xato || ("in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0)));
+    // ✅ 639: HUKM JURNALGA. Ilgari faqat token yozilardi; natija rad
+    // etilganda sababi ekrandagi toastda o'tib ketardi va tahlil qilib
+    // bo'lmasdi. Endi: mos/emas · ishonch · birinchi farq.
+    await jurnal(shopId, "ai_solishtir", "anthropic", M_AI_HUKM, !xato,
+      xato || ((hukm && hukm.mos ? "MOS" : "MOS EMAS") +
+        " " + ((hukm && hukm.ishonch) || 0) + "% · " +
+        ((hukm && hukm.farqlar && hukm.farqlar[0]) || "farq yo'q") +
+        " · in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0)).slice(0, 200));
     if (xato) return res.status(200).json({ ok: false, error: xato });
     return res.status(200).json({ ok: true, hukm });
   }
@@ -1159,11 +1166,16 @@ module.exports = async (req, res) => {
                       _gptMi(M_SAHNA) ? {} : { sync_mode: true }), 46000);
       chiq = falRasm(j);
     } catch (e) { xato = e.message; }
+    const falXato = xato;                            // ✅ 639: fal sababi saqlanadi
     if (!chiq && GEMINI_KEY) {                       // zaxira yo'l
       try { chiq = await geminiSahna(matn); prov = "gemini"; model = G_IMG; }
       catch (e) { xato += " | " + e.message; }
     }
-    await jurnal(shopId, "sahna:" + kat + ":" + tur, prov, model, !!chiq, chiq ? "" : xato);
+    // ✅ 639 (B8): zaxira yo'l QUTQARSA HAM asosiy model xatosi yozilsin.
+    // Ilgari Gemini ishlagach `izoh` bo'sh qolardi va fal nega yiqilgani
+    // butunlay ko'rinmasdi (jonli holat: 16-sen 13:32 va 13:40).
+    await jurnal(shopId, "sahna:" + kat + ":" + tur, prov, model, !!chiq,
+      chiq ? (falXato ? ("zaxira · fal: " + String(falXato).slice(0, 150)) : "") : xato);
     if (!chiq) return res.status(200).json({ ok: false, error: xato || "Sahna chiqmadi" });
     const n = await oySarfi(shopId);
     return res.status(200).json({ ok: true, image: chiq, sahna: tur,
