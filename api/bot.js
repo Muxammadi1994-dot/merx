@@ -3269,7 +3269,17 @@ function fetchDone() {
       }
     }).catch(function(){});
 }
-setInterval(fetchDone, 2000); // 2 soniyada bir — tezroq sinxronlash
+// ✅ A3 (2026-09-18): FON OYNADA SO'RASH TO'XTAYDI. Sahifa ko'rinmayotganda
+// (telefon uxlab yotgan, boshqa ilova ochiq) har 2 s da serverga so'rov ketardi —
+// kuniga ~20 000 so'rov, 167 ta o'zgarish uchun (pg_stat_statements, 16-sen).
+// Ko'ringan zahoti darhol yangilanadi va yana 2 s da davom etadi.
+var _fdT = null;
+function _fdStart() { if (_fdT) return; _fdT = setInterval(fetchDone, 2000); }
+function _fdStop()  { if (_fdT) { clearInterval(_fdT); _fdT = null; } }
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) { _fdStop(); } else { fetchDone(); _fdStart(); }
+});
+if (!document.hidden) _fdStart();
 
 if (window.Telegram && Telegram.WebApp) { try { Telegram.WebApp.ready(); } catch(e){} }  // ✅ OT-1a
 // ✅ OT-1: "Tayyorlandi" — guruhga xabar. Bosuvchi ismi Telegram
