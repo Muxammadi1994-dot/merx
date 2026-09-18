@@ -2238,9 +2238,14 @@ body.sms-off .sms-only { display: none !important; }
       <div style="display:flex;flex-direction:column">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;height:28px">
           <span style="font-size:11.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px">Ko'rsatkichlar</span>
-          <button class="btn btn-ghost btn-sm" onclick="openDebtKpiSettings()" title="Panellarni sozlash">
-            <i class="ti ti-settings"></i>
-          </button>
+          <span style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm admin-only" onclick="exportDebtsCsv()" title="Excel (CSV) — faqat admin">
+              <i class="ti ti-download"></i>
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="openDebtKpiSettings()" title="Panellarni sozlash">
+              <i class="ti ti-settings"></i>
+            </button>
+          </span>
         </div>
         <div id="debt-kpi-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1">
           <div class="stb" data-kpi="total" style="position:relative">
@@ -5892,7 +5897,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/katalog.js?v=303"></script>
 <script src="js/ombor.js?v=187"></script>
 <script src="js/mijozlar.js?v=176"></script>
-<script src="js/qarzlar.js?v=242"></script>
+<script src="js/qarzlar.js?v=243"></script>
 <script src="js/tarix.js?v=200"></script>
 <script src="js/hisobot.js?v=159"></script>
 <script src="js/kunlik.js?v=13"></script>
@@ -6195,7 +6200,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 649;
+  window.SW_V = 650;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -6218,7 +6223,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=649")
+    navigator.serviceWorker.register("/sw.js?v=650")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

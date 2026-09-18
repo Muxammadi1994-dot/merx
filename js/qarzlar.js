@@ -3404,3 +3404,75 @@ async function confirmAtkaz() {
   if (typeof renderDebtRevenue === "function") renderDebtRevenue();
   toast(`✅ To'lov atkaz qilindi — ${fmtPayBoth(p.amount, p.currency, p.rate, p.amountSom)} qarz qoldig'iga qaytdi`);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ QE-1 (2026-09-18): QARZLAR EKSPORTI — Excel (CSV), FAQAT ADMIN.
+// Har mijoz bo'yicha: so'm qarzi, dollar qarzi, cheklar soni, eng eski
+// qarz, oxirgi sotuv, oxirgi to'lov, botga ulanganmi.
+// Hisob — ilovaning O'Z formulasi (`debtSales` + `calcSaleState`): asl qarz
+// minus shu chekka bog'langan faol to'lovlar, har valyuta alohida. Sotuv
+// qatoridagi `remaining`/`debtUsd` ustunlariga QARALMAYDI (ular surat).
+// 2026-09-18 da SQL bilan ilova jamisi solishtirildi — bir xil.
+// Faqat o'qiydi: bazaga, sotuvga, to'lovga tegmaydi.
+// ═══════════════════════════════════════════════════════════════
+function exportDebtsCsv() {
+  if (typeof hasRole === "function" && !hasRole("admin")) {
+    toast("Faqat admin uchun", "err"); return;
+  }
+  const sales = (typeof debtSales === "function") ? debtSales() : [];
+  if (!sales.length) { toast("Ochiq qarz yo'q", "info"); return; }
+
+  const custById = new Map((db.customers || []).map(c => [String(c.id), c]));
+  const g = new Map();                                   // customerId → yig'ma
+  for (const s of sales) {
+    const st = calcSaleState(s);
+    const isUsd = s.debtCurrency === "usd" && s.origDebtUsd != null;
+    const k = String(s.customerId || "");
+    let r = g.get(k);
+    if (!r) {
+      const c = custById.get(k) || {};
+      r = { id: k,
+            nom: c.name || s.customerName || "(nomsiz)",
+            tel: c.phone || s.customerPhone || "",
+            som: 0, usd: 0, chek: 0, engEski: null, oxSotuv: null, oxTolov: null,
+            bot: !!((c.telegramChatId && String(c.telegramChatId).trim()) || c.groupId) };
+      g.set(k, r);
+    }
+    if (isUsd) r.usd += st.debtUsd || 0; else r.som += st.remaining || 0;
+    r.chek += 1;
+    if (s.date && (!r.engEski || s.date < r.engEski)) r.engEski = s.date;
+  }
+  // oxirgi sotuv (bekor/qaytarilgan emas) va oxirgi faol to'lov
+  for (const s of (db.sales || [])) {
+    if (!s || s.cancelled || s.status === "bekor" || s.status === "qaytarilgan") continue;
+    const r = g.get(String(s.customerId || "")); if (!r) continue;
+    if (s.date && (!r.oxSotuv || s.date > r.oxSotuv)) r.oxSotuv = s.date;
+  }
+  for (const p of (db.debtPayments || [])) {
+    if (!p || p.cancelled) continue;
+    const r = g.get(String(p.customerId || "")); if (!r) continue;
+    if (p.date && (!r.oxTolov || p.date > r.oxTolov)) r.oxTolov = p.date;
+  }
+
+  const rows = [...g.values()].sort((a, b) => (b.usd - a.usd) || (b.som - a.som));
+  const H = ["Mijoz", "Telefon", "Qarz so'm", "Qarz USD", "Cheklar", "Eng eski qarz",
+             "Oxirgi sotuv", "Oxirgi to'lov", "Botga ulangan"];
+  const line = r => [r.nom, r.tel, Math.round(r.som), r.usd.toFixed(2), r.chek,
+                     r.engEski || "", r.oxSotuv || "", r.oxTolov || "", r.bot ? "ha" : "yo'q"];
+  const jamiSom = rows.reduce((a, r) => a + r.som, 0), jamiUsd = rows.reduce((a, r) => a + r.usd, 0);
+  const all = [H, ...rows.map(line),
+               ["JAMI (" + rows.length + " mijoz)", "", Math.round(jamiSom), jamiUsd.toFixed(2), sales.length, "", "", "", ""]];
+  const csv = "sep=;\r\n" + all.map(r =>
+    r.map(c => { const t = String(c == null ? "" : c);
+      return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; }).join(";")
+  ).join("\r\n");
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "merx_qarzlar_" + (typeof today === "function" ? today() : "") + ".csv";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  try { toast(rows.length + " mijoz · " + fmt(Math.round(jamiSom)) + " so'm · $" + jamiUsd.toFixed(2), "ok"); } catch (e) {}
+  return csv;   // stend uchun
+}
