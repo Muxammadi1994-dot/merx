@@ -259,7 +259,9 @@ async function _selectAll(build, label) {
       if (urinish < 2) {
         console.warn(`_selectAll(${label||""}) tarmoq xatosi, qayta urinish ` +
                      `${urinish + 1}/2 —`, error.message);
-        await _kut(1000 * (urinish + 1));
+        // ✅ A2 (2026-09-17): oraliqqa tasodifiy 0–1 s — hamma kassa bir
+        // soniyada qayta urmasin (Supabase, 16-sen). Faqat XATO bo'lganda.
+        await _kut(1000 * (urinish + 1) + Math.floor(Math.random() * 1001));
       }
     }
     if (error) {
@@ -1357,7 +1359,9 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
       if (urinish < 2) {
         console.warn(`[sync] ${table}: tarmoq xatosi, qayta urinish ${urinish + 1}/2 —`,
                      error.message);
-        await _kut(1000 * (urinish + 1));
+        // ✅ A2 (2026-09-17): oraliqqa tasodifiy 0–1 s — hamma kassa bir
+        // soniyada qayta urmasin (Supabase, 16-sen). Faqat XATO bo'lganda.
+        await _kut(1000 * (urinish + 1) + Math.floor(Math.random() * 1001));
       }
     }
     if (error) throw error;
@@ -3832,7 +3836,13 @@ setInterval(() => {
 // ═══════════════════════════════════════════════════════════════════
 const _RT_TABLES = ['products','sales','customers','staff','ombor','xarajatlar',
   'debt_payments','shifts','settings','suppliers','returns','chiqimlar','deleted_records'];
-const _RT_QAYTA_MS = 15000;   // RT-2: uzilgan kanal shuncha vaqtdan keyin qayta uriniladi
+// ✅ A1 (2026-09-17): qayta ulanish qat'iy 15 s emas — TASODIFIY 10–20 s.
+// Sabab: Supabase javobi (16-sen) — "bir vaqtda qayta urinishlar qisqa
+// uzilishni uzoq uzilishga aylantiradi". Qat'iy 15 s bilan hamma kassa
+// bir soniyada birdan uriladi; tasodifiy oraliq ularni 10 soniyaga yoyadi.
+// Normal ishda bu kod umuman ishlamaydi — faqat ulanish UZILGANDA.
+const _RT_QAYTA_MS = 15000;   // RT-2: o'rtacha; haqiqiy = _rtQaytaMs()
+const _rtQaytaMs = () => _RT_QAYTA_MS - 5000 + Math.floor(Math.random() * 10001);   // 10 000–20 000 ms
 let _rtQaytaT = null;
 let _rtChannel = null;
 let _rtSubscribedSid = null;
@@ -3967,7 +3977,7 @@ function _rtEnsure() {
     if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
       try { if (_rtChannel === ch) { _sb.removeChannel(ch); _rtChannel = null; _rtSubscribedSid = null; } } catch (e) {}
       clearTimeout(_rtQaytaT);
-      _rtQaytaT = setTimeout(() => { _rtQaytaT = null; try { _rtEnsure(); } catch (e) {} }, _RT_QAYTA_MS);
+      _rtQaytaT = setTimeout(() => { _rtQaytaT = null; try { _rtEnsure(); } catch (e) {} }, _rtQaytaMs());   // A1
     }
   });
   _rtChannel = ch;
