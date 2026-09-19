@@ -2,8 +2,9 @@ name: Supabase Kunlik Zaxira
 
 on:
   schedule:
-    # Har kecha soat 00:00 (UTC) da — O'zbekiston vaqti bilan 05:00
-    - cron: '0 0 * * *'
+    # ✅ A4 (2026-09-18): kuniga 3 marta — O'zbekiston vaqti 05:00, 12:00, 19:00
+    # (UTC 00:00, 07:00, 14:00). Yo'qotish oynasi 24 soatdan ~7 soatga tushadi.
+    - cron: '0 0,7,14 * * *'
   workflow_dispatch:
     # Qo'lda ham ishga tushirish mumkin (GitHub → Actions → Run workflow)
 
@@ -14,23 +15,51 @@ jobs:
       - name: Zaxira papkasini yaratish
         run: mkdir -p backup
 
-      - name: Jadvallarni CSV formatda yuklab olish
+      - name: Jadvallarni CSV formatda yuklab olish (sahifalab, chegarasiz)
         env:
           SB_URL: ${{ secrets.SUPABASE_URL }}
           SB_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          DATE=$(date +%Y-%m-%d)
-          TABLES="products sales customers staff ombor xarajatlar debt_payments returns shifts suppliers settings shops"
+          set -e
+          DATE=$(date +%Y-%m-%d_%H%M)
+          # ✅ A4: 4 jadval qo'shildi — chiqimlar, audit_log, deleted_records, device_logs
+          # (avval zaxirada YO'Q edi: chiqimlar va o'chirish izlari tiklanmas edi)
+          TABLES="products sales customers staff ombor xarajatlar debt_payments returns shifts suppliers settings shops chiqimlar audit_log deleted_records device_logs"
+          PAGE=1000
 
           for TABLE in $TABLES; do
-            echo "Yuklanmoqda: $TABLE"
-            curl -s \
-              -H "apikey: $SB_KEY" \
-              -H "Authorization: Bearer $SB_KEY" \
-              -H "Accept: text/csv" \
-              "$SB_URL/rest/v1/$TABLE?select=*" \
-              -o "backup/${DATE}_${TABLE}.csv"
-            echo "✅ $TABLE saqlandi"
+            OUT="backup/${DATE}_${TABLE}.csv"
+            : > "$OUT"
+            OFFSET=0
+            TOTAL=0
+            while true; do
+              # ✅ A4: avval `select=*` chegarasiz edi — Supabase 1 000 qatordan
+              # ko'pini QAYTARMAYDI, ya'ni katta jadvallar (sales) chala saqlanardi.
+              # Endi 1 000 talik sahifalar bilan oxirigacha o'qiladi.
+              PAGE_FILE=$(mktemp)
+              HTTP=$(curl -s -w "%{http_code}" \
+                -H "apikey: $SB_KEY" \
+                -H "Authorization: Bearer $SB_KEY" \
+                -H "Accept: text/csv" \
+                "$SB_URL/rest/v1/$TABLE?select=*&limit=$PAGE&offset=$OFFSET" \
+                -o "$PAGE_FILE")
+              if [ "$HTTP" != "200" ]; then
+                echo "❌ $TABLE: HTTP $HTTP (offset $OFFSET)"; head -c 300 "$PAGE_FILE"; echo
+                rm -f "$PAGE_FILE"; exit 1
+              fi
+              LINES=$(wc -l < "$PAGE_FILE")
+              ROWS=$(( LINES > 0 ? LINES - 1 : 0 ))
+              if [ "$OFFSET" -eq 0 ]; then
+                cat "$PAGE_FILE" >> "$OUT"                 # birinchi sahifa: sarlavha bilan
+              else
+                tail -n +2 "$PAGE_FILE" >> "$OUT"          # keyingilari: sarlavhasiz
+              fi
+              rm -f "$PAGE_FILE"
+              TOTAL=$(( TOTAL + ROWS ))
+              if [ "$ROWS" -lt "$PAGE" ]; then break; fi
+              OFFSET=$(( OFFSET + PAGE ))
+            done
+            echo "✅ $TABLE: $TOTAL qator"
           done
 
       - name: Zaxira natijasini tekshirish
@@ -39,6 +68,11 @@ jobs:
           ls -lh backup/
           echo "=== Jami hajm ==="
           du -sh backup/
+          echo "=== Qator sonlari (sarlavhasiz) ==="
+          for f in backup/*.csv; do
+            n=$(( $(wc -l < "$f") - 1 )); [ "$n" -lt 0 ] && n=0
+            printf "%-45s %8d\n" "$(basename "$f")" "$n"
+          done
 
       - name: Zaxirani GitHub'ga saqlash (Artifact)
         uses: actions/upload-artifact@v4
