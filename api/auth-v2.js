@@ -1407,9 +1407,15 @@ module.exports = async function handler(req, res) {
     // ══════════════════════════════════════════════════════════
   // SERVER HAJMI (2026-08-03)
   // ══════════════════════════════════════════════════════════
-  // Baza va rasm hajmini qaytaradi. Bepul rejada baza 500 MB,
-  // Storage 1 GB — chegaraga yaqinlashganini SEZMAY QOLMASLIK
-  // uchun SuperAdmin panelida ko'rsatiladi.
+  // Baza va rasm hajmini qaytaradi — chegaraga yaqinlashganini SEZMAY
+  // QOLMASLIK uchun SuperAdmin panelida foiz bilan ko'rsatiladi.
+  // ✅ SA-2 (2026-09-19): chegaralar PRO rejaga mos — baza 8 GB, Storage
+  // 100 GB (Supabase Usage sahifasi: "Storage Size 0,544 / 100 GB").
+  // Avval bepul reja raqamlari (500 MB / 1 GB) qotib yozilgan edi —
+  // panel bazani 45%, rasmlarni 54% "to'lgan" deb ko'rsatardi; haqiqat
+  // 2,8% va 0,5%. Studio'dagi "reklama saqlanmaydi, ombor 51%" qarori
+  // shu noto'g'ri raqamga asoslangan edi. Reja o'zgarsa ENV bilan
+  // (MERX_DB_LIMIT_GB, MERX_IMG_LIMIT_GB) kod tegilmasdan to'g'rilanadi.
   // Hajm REST orqali olinmaydi — `sa_db_stats()` Postgres
   // funksiyasi kerak (SA3-HAJM.sql bilan yaratiladi).
   if (action === "server_stats") {
@@ -1476,8 +1482,8 @@ module.exports = async function handler(req, res) {
         tables:      db?.tables || [],
         img_bytes:   imgBytes,
         img_count:   imgCount,
-        db_limit:    500 * 1024 * 1024,    // bepul reja: 500 MB
-        img_limit:  1024 * 1024 * 1024     // bepul reja: 1 GB
+        db_limit:   (Number(process.env.MERX_DB_LIMIT_GB)  || 8)   * 1024 * 1024 * 1024,   // PRO: 8 GB
+        img_limit:  (Number(process.env.MERX_IMG_LIMIT_GB) || 100) * 1024 * 1024 * 1024    // PRO: 100 GB
       });
     } catch (e) {
       return res.status(500).json({ ok: false, error: e.message });
