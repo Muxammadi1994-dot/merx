@@ -23,44 +23,59 @@ jobs:
           set -e
           DATE=$(date +%Y-%m-%d_%H%M)
           # ✅ A4: 4 jadval qo'shildi — chiqimlar, audit_log, deleted_records, device_logs
-          # (avval zaxirada YO'Q edi: chiqimlar va o'chirish izlari tiklanmas edi)
           TABLES="products sales customers staff ombor xarajatlar debt_payments returns shifts suppliers settings shops chiqimlar audit_log deleted_records device_logs"
           PAGE=1000
+          SUMMARY=""
 
           for TABLE in $TABLES; do
             OUT="backup/${DATE}_${TABLE}.csv"
             : > "$OUT"
             OFFSET=0
-            TOTAL=0
+            TOTAL=""
             while true; do
-              # ✅ A4: avval `select=*` chegarasiz edi — Supabase 1 000 qatordan
-              # ko'pini QAYTARMAYDI, ya'ni katta jadvallar (sales) chala saqlanardi.
-              # Endi 1 000 talik sahifalar bilan oxirigacha o'qiladi.
-              PAGE_FILE=$(mktemp)
-              HTTP=$(curl -s -w "%{http_code}" \
+              # ✅ A4-b (2026-09-19): sahifa oxiri `Content-Range` SARLAVHASIDAN
+              # aniqlanadi (masalan `0-999/10234`), qator sanashdan EMAS.
+              # Sabab: oxirgi qatorda yangi qator belgisi yo'q — `wc -l` 1 000 ni
+              # 999 deb sanardi va sahifalash birinchi sahifadayoq to'xtardi
+              # (19-sen jonli: sales/products/customers/ombor 999 da qolgan).
+              # Sarlavha aniq son beradi va matn ichidagi yangi qatorlardan
+              # ta'sirlanmaydi.
+              PAGE_FILE=$(mktemp); HDR_FILE=$(mktemp)
+              END=$(( OFFSET + PAGE - 1 ))
+              HTTP=$(curl -s -w "%{http_code}" -D "$HDR_FILE" \
                 -H "apikey: $SB_KEY" \
                 -H "Authorization: Bearer $SB_KEY" \
                 -H "Accept: text/csv" \
-                "$SB_URL/rest/v1/$TABLE?select=*&limit=$PAGE&offset=$OFFSET" \
+                -H "Range-Unit: items" \
+                -H "Range: ${OFFSET}-${END}" \
+                -H "Prefer: count=exact" \
+                "$SB_URL/rest/v1/$TABLE?select=*" \
                 -o "$PAGE_FILE")
-              if [ "$HTTP" != "200" ]; then
+              if [ "$HTTP" != "200" ] && [ "$HTTP" != "206" ]; then
                 echo "❌ $TABLE: HTTP $HTTP (offset $OFFSET)"; head -c 300 "$PAGE_FILE"; echo
-                rm -f "$PAGE_FILE"; exit 1
+                rm -f "$PAGE_FILE" "$HDR_FILE"; exit 1
               fi
-              LINES=$(wc -l < "$PAGE_FILE")
-              ROWS=$(( LINES > 0 ? LINES - 1 : 0 ))
+              CR=$(grep -i '^content-range:' "$HDR_FILE" | tr -d '\r' | awk '{print $2}')
+              if [ -z "$CR" ]; then
+                echo "❌ $TABLE: Content-Range sarlavhasi yo'q — zaxira ishonchsiz"
+                rm -f "$PAGE_FILE" "$HDR_FILE"; exit 1
+              fi
+              TOTAL=${CR#*/}
               if [ "$OFFSET" -eq 0 ]; then
-                cat "$PAGE_FILE" >> "$OUT"                 # birinchi sahifa: sarlavha bilan
+                cat "$PAGE_FILE" >> "$OUT"                # birinchi sahifa: sarlavha bilan
               else
-                tail -n +2 "$PAGE_FILE" >> "$OUT"          # keyingilari: sarlavhasiz
+                tail -n +2 "$PAGE_FILE" >> "$OUT"         # keyingilari: sarlavhasiz
               fi
-              rm -f "$PAGE_FILE"
-              TOTAL=$(( TOTAL + ROWS ))
-              if [ "$ROWS" -lt "$PAGE" ]; then break; fi
+              # oxirgi qatorda yangi qator belgisi bo'lmasligi mumkin — qo'shamiz
+              [ -s "$OUT" ] && [ "$(tail -c 1 "$OUT" | wc -l)" -eq 0 ] && echo "" >> "$OUT"
+              rm -f "$PAGE_FILE" "$HDR_FILE"
               OFFSET=$(( OFFSET + PAGE ))
+              if [ "$TOTAL" = "*" ] || [ "$OFFSET" -ge "$TOTAL" ]; then break; fi
             done
-            echo "✅ $TABLE: $TOTAL qator"
+            echo "✅ $TABLE: $TOTAL qator (serverdan)"
+            SUMMARY="${SUMMARY}${TABLE}=${TOTAL} "
           done
+          echo "$SUMMARY" > backup/_jami.txt
 
       - name: Zaxira natijasini tekshirish
         run: |
@@ -68,9 +83,11 @@ jobs:
           ls -lh backup/
           echo "=== Jami hajm ==="
           du -sh backup/
-          echo "=== Qator sonlari (sarlavhasiz) ==="
+          echo "=== Serverdagi qator sonlari ==="
+          cat backup/_jami.txt | tr ' ' '\n' | grep -v '^$'
+          echo "=== Fayldagi qator sonlari (taxminiy — matn ichida yangi qator bo'lishi mumkin) ==="
           for f in backup/*.csv; do
-            n=$(( $(wc -l < "$f") - 1 )); [ "$n" -lt 0 ] && n=0
+            n=$(( $(grep -c '' "$f") - 1 )); [ "$n" -lt 0 ] && n=0
             printf "%-45s %8d\n" "$(basename "$f")" "$n"
           done
 
