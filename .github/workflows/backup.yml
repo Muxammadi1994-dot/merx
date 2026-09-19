@@ -2,9 +2,12 @@ name: Supabase Kunlik Zaxira
 
 on:
   schedule:
-    # ✅ A4 (2026-09-18): kuniga 3 marta — O'zbekiston vaqti 05:00, 12:00, 19:00
-    # (UTC 00:00, 07:00, 14:00). Yo'qotish oynasi 24 soatdan ~7 soatga tushadi.
-    - cron: '0 0,7,14 * * *'
+    # ✅ A4-c (2026-09-19): kuniga 2 marta, DO'KONLAR YOPIQ PAYTDA —
+    # O'zbekiston vaqti 22:00 va 03:00 (UTC 17:00 va 22:00).
+    # Sabab: to'liq zaxira ~9 daqiqa davom etadi (sales 31 MB) va shu vaqtda
+    # bazaning eshigidan katta o'qishlar o'tadi. Ish vaqtida bu kassada
+    # sekinlik bo'lib sezilardi. Egasi qarori: 22:00 (kun yakuni) + 03:00.
+    - cron: '0 17,22 * * *'
   workflow_dispatch:
     # Qo'lda ham ishga tushirish mumkin (GitHub → Actions → Run workflow)
 
