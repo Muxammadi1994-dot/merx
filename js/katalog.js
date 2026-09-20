@@ -3805,11 +3805,15 @@ async function _confirmImportIchki() {   // ✅ 2026-08-18: SKU zaxirasi serverd
       const newProd = {
         id: newProdId,
         sku,
-        // ✅ IMP-4 (2026-09-12): import qilingan tovarlar BIR GURUH — partiya
-        // raqami bilan. Shunda tahrir oynasida "Variativ tahrirlash — birga
-        // kiritilgan ranglar" paneli import uchun ham chiqadi (avval faqat
-        // variativ kiritish bu belgini yozardi). Excel va AI-naklad — bir yo'l.
-        variantGroup: importPartiya,
+        // ✅ IMP-4 (2026-09-12): import qilingan tovarlar guruh belgisi bilan —
+        // tahrir oynasida "Variativ tahrirlash — birga kiritilgan ranglar"
+        // paneli import uchun ham chiqadi.
+        // ✅ IMP-5 (2026-09-20): guruh = PARTIYA + ARTIKUL (art bo'lmasa nom).
+        // Avval faqat partiya edi — bitta nakladda bir necha xil tovar bo'ladi
+        // (jonli: P-2026-014 da 22 xil tovar), panel esa hammasini "shu
+        // tovarning ranglari" deb ko'rsatardi. Endi variativ kiritishdagi kabi:
+        // bitta guruh = bitta tovarning ranglari.
+        variantGroup: importPartiya + " · " + ((r.art || "").trim() || (r.nom || "").trim()),
         name:        r.nom,
         category:    r.cat || "Qabul qilingan",
         type:        r.type === "kiyim" ? "kiyim" : "oyoq",
