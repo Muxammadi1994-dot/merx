@@ -4796,10 +4796,11 @@ body.sms-off .sms-only { display: none !important; }
 </div>
 
 <!-- MODAL: INVENTARIZATSIYA v2 -->
-<div class="ov" id="ov-invent2" onclick="if(event.target===this)closeModal('invent2')">
+<div class="ov" id="ov-invent2" onclick="if(event.target===this)inv2Yop()">
   <div class="modal modal-lg">
-    <button class="m-close" onclick="closeModal('invent2')"><i class="ti ti-x"></i></button>
-    <h2><i class="ti ti-clipboard-check" style="margin-right:8px"></i>Inventarizatsiya</h2>
+    <button class="m-close" onclick="inv2Yop()"><i class="ti ti-x"></i></button>
+    <h2><i class="ti ti-clipboard-check" style="margin-right:8px"></i>Inventarizatsiya
+      <span id="inv2-count" style="font-size:12px;font-weight:600;color:var(--teal);margin-left:10px"></span></h2>
     <p style="font-size:12.5px;color:var(--mut);margin-bottom:14px">
       Har bir mahsulot qoldig'ini real hisobga solishtiring. Farq bo'lsa, tizim avtomatik tuzatadi.
     </p>
@@ -4826,7 +4827,7 @@ body.sms-off .sms-only { display: none !important; }
       <button class="btn btn-acc" style="flex:1" onclick="saveInvent2()">
         <i class="ti ti-check"></i> Saqlash va tuzatish
       </button>
-      <button class="btn btn-ghost" onclick="closeModal('invent2')">Bekor</button>
+      <button class="btn btn-ghost" onclick="inv2Yop()">Bekor</button>
     </div>
   </div>
 </div>
@@ -5895,7 +5896,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/dashboard.js?v=163"></script>
 <script src="js/pos.js?v=282"></script>
 <script src="js/katalog.js?v=306"></script>
-<script src="js/ombor.js?v=189"></script>
+<script src="js/ombor.js?v=190"></script>
 <script src="js/mijozlar.js?v=176"></script>
 <script src="js/qarzlar.js?v=244"></script>
 <script src="js/tarix.js?v=200"></script>
@@ -6200,7 +6201,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 656;
+  window.SW_V = 657;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -6223,7 +6224,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=656")
+    navigator.serviceWorker.register("/sw.js?v=657")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

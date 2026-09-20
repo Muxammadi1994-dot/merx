@@ -1344,8 +1344,40 @@ function openInvent2() {
   // 2026-08-02: amal darajasidagi ruxsat (4-bosqich)
   if (typeof requireDo === "function" && !requireDo("ombor","inv")) return;
 
+  _inv2Vals = new Map(); _inv2Limit = _INV2_CHUNK;   // ✅ INV-1: yangi sanash sessiyasi
+  const _q = $("inv2-q"); if (_q) _q.value = "";
   openModal("invent2");
   renderInvent2();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ INV-1 (2026-09-21): KIRITILGAN SONLAR XOTIRADA + BO'LIB CHIZISH.
+// Avval sonlar faqat <input> da yashardi: qidiruvga bir harf yozilsa butun
+// jadval qayta chizilib HAMMASI YO'QOLARDI; saqlash faqat EKRANDAGI
+// qatorlarni olardi (filtrlab boshqasiga o'tilsa avvalgilari tushib qolardi);
+// 3 200 tovar × ranglar ≈ 6 400 qator birdan chizilardi.
+// Endi: `_inv2Vals` (sku::rang::o'lcham → son) — qayta chizishda inputga
+// qaytariladi; saqlash XOTIRADAN (sessiyada kiritilganlarning hammasi);
+// ro'yxat 200 tadan, pastda "Yana ko'rsatish". Audit izi va serverga delta
+// (12-avg, 18-avg) — o'zgarishsiz.
+// ═══════════════════════════════════════════════════════════════
+let _inv2Vals = new Map();
+const _INV2_CHUNK = 200;
+let _inv2Limit = _INV2_CHUNK;
+function inv2Kalit(sku, color, size) { return sku + "::" + (color || "") + "::" + (size || ""); }
+function inv2Yana() { _inv2Limit += _INV2_CHUNK; renderInvent2(); }
+function inv2Kiritilgan() { let n = 0; _inv2Vals.forEach(v => { if (v !== "") n++; }); return n; }
+function _inv2Sanoq() {
+  const el = $("inv2-count"); if (!el) return;
+  const n = inv2Kiritilgan();
+  el.textContent = n ? ("Kiritilgan: " + n + " ta") : "";
+}
+// Yopishdan oldin: saqlanmagan sonlar bo'lsa — so'raladi
+function inv2Yop() {
+  const n = inv2Kiritilgan();
+  if (n > 0 && !confirm("Kiritilgan " + n + " ta son SAQLANMAGAN. Baribir yopilsinmi?")) return;
+  _inv2Vals = new Map();
+  closeModal("invent2");
 }
 
 function renderInvent2() {
@@ -1360,24 +1392,36 @@ function renderInvent2() {
   });
 
   const el = $("inv2-body"); if (!el) return;
-  el.innerHTML = rows.length ? rows.map((r, i) => `
+  const _jami = rows.length;                                            // INV-1
+  const _rows = rows.slice(0, _inv2Limit);
+  const _esc = (t) => String(t == null ? "" : t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+  el.innerHTML = _rows.length ? _rows.map((r, i) => {
+    const k = inv2Kalit(r.sku, r.color, r.size);
+    const v = _inv2Vals.has(k) ? _inv2Vals.get(k) : "";                 // INV-1: xotiradan
+    return `
     <tr>
-      <td style="padding:7px 10px;font-size:13px;font-weight:600">${r.name}</td>
-      <td style="padding:7px 10px;font-size:12.5px;color:var(--mut)">${r.color} / ${r.size}</td>
+      <td style="padding:7px 10px;font-size:13px;font-weight:600">${_esc(r.name)}</td>
+      <td style="padding:7px 10px;font-size:12.5px;color:var(--mut)">${_esc(r.color)} / ${_esc(r.size)}</td>
       <td style="padding:7px 10px;text-align:right;font-size:13px">${r.systemQty}</td>
       <td style="padding:7px 10px;text-align:right">
-        <input type="number" min="0" placeholder="${r.systemQty}" data-inv2="${r.sku}::${r.color}::${r.size}"
+        <input type="number" min="0" placeholder="${r.systemQty}" data-inv2="${_esc(k)}" value="${_esc(v)}"
           oninput="inv2CalcDiff(this)"
           style="width:64px;text-align:right;border:1px solid var(--brd);border-radius:6px;padding:3px 6px;font-size:13px">
       </td>
       <td style="padding:7px 10px;text-align:right;font-size:12.5px;font-weight:700" id="inv2-diff-${i}">—</td>
-    </tr>`).join("") : `<tr><td colspan="5" class="empty-td">Mahsulot topilmadi</td></tr>`;
+    </tr>`; }).join("") : `<tr><td colspan="5" class="empty-td">Mahsulot topilmadi</td></tr>`;
+  if (_jami > _rows.length) {                                           // INV-1: yana ko'rsatish
+    el.innerHTML += `<tr><td colspan="5" style="text-align:center;padding:10px">
+      <button class="btn btn-ghost btn-sm" onclick="inv2Yana()">Yana ${Math.min(_INV2_CHUNK, _jami - _rows.length)} ta ko'rsatish (${_rows.length} / ${_jami})</button></td></tr>`;
+  }
 
   // data-row-idx larni saqlash uchun inputlarga index biriktiramiz
-  el.querySelectorAll("[data-inv2]").forEach((inp, i) => inp.dataset.rowIdx = i);
+  el.querySelectorAll("[data-inv2]").forEach((inp, i) => { inp.dataset.rowIdx = i; if (inp.value !== "") inv2CalcDiff(inp); });
+  _inv2Sanoq();
 }
 
 function inv2CalcDiff(input) {
+  try { _inv2Vals.set(input.dataset.inv2, input.value); _inv2Sanoq(); } catch (e) {}   // INV-1
   const idx = input.dataset.rowIdx;
   const sysQty = parseInt(input.placeholder) || 0;
   const actualQty = input.value === "" ? null : parseInt(input.value) || 0;
@@ -1390,7 +1434,11 @@ function inv2CalcDiff(input) {
 }
 
 function saveInvent2() {
-  const inputs = document.querySelectorAll("[data-inv2]");
+  // ✅ INV-1: ekrandagi inputlar emas — sessiyada KIRITILGAN hammasi (xotira).
+  // Ekranda hozir ko'rinmayotgan (qidiruv bilan yashirilgan / keyingi bo'lakdagi)
+  // qatorlar ham saqlanadi. Bo'sh qoldirilganlar (o'chirilgan) o'tkaziladi.
+  const inputs = [];
+  _inv2Vals.forEach((val, key) => { if (val !== "" && val != null) inputs.push({ value: String(val), dataset: { inv2: key } }); });
   let changed = 0;
 
   inputs.forEach(inp => {
@@ -1429,6 +1477,7 @@ function saveInvent2() {
   if (changed === 0) { toast("O'zgarish yo'q", "info"); return; }
 
   saveDB();
+  _inv2Vals = new Map();                                                 // INV-1: sessiya tugadi
   closeModal("invent2");
   renderOmbor();
   if (typeof renderKatalog === "function") renderKatalog();
