@@ -105,7 +105,7 @@ function renderDashboard() {
     }
   });
   cashPays().filter(p => p.date >= _pr.from && p.date <= _pr.to).forEach(p => {
-    todayKassa += p.currency === "usd" ? Math.round(p.amount * rate) : (p.amount||0);
+    todayKassa += tolovSom(p);   // KR-1
   });
 
   // №16 (v145): KASSA NAQD ko'rsatkichlari.
@@ -119,7 +119,7 @@ function renderDashboard() {
     else if (s.payType === "naqd") kassaNaqd += (s.paid || 0);
   });
   cashPays().filter(p => p.date >= _pr.from && p.date <= _pr.to).forEach(p => {
-    const somAmt = p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * rate) : (p.amount || 0));
+    const somAmt = tolovSom(p);   // KR-1
     const mb = p.methodBreakdown;
     const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
     if (mbHas) kassaNaqd += (mb.naqd || 0);
@@ -339,7 +339,7 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
     else kassaTushdiKpi += s.payType === "nasiya" ? 0 : (s.paid||0);
   });
   cashPays().filter(p => p.date >= _pr2.from && p.date <= _pr2.to).forEach(p => {
-    kassaTushdiKpi += p.currency === "usd" ? Math.round(p.amount*_rate) : (p.amount||0);
+    kassaTushdiKpi += tolovSom(p);   // KR-1
   });
 
   // №16 (v145): KASSA NAQD ko'rsatkichlari.
@@ -354,7 +354,7 @@ function renderDashKpis(todayCnt, todayTotal, totalDebt, debtCnt, overdueCnt) {
     else if (s.payType === "karta") kartaTushum += (s.paid || 0);
   });
   cashPays().filter(p => p.date >= _pr2.from && p.date <= _pr2.to).forEach(p => {
-    const somAmt = p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * _rate) : (p.amount || 0));
+    const somAmt = tolovSom(p);   // KR-1
     const mb = p.methodBreakdown;
     const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
     if (mbHas) { kassaNaqd += (mb.naqd || 0); kartaTushum += (mb.karta || 0); }
@@ -725,7 +725,7 @@ function renderDashPriceType() {
   const payments = cashPays().filter(p => p.date >= from && p.date <= to);
 
   const rate = kursOl();
-  const toUzs = p => p.currency === 'usd' ? p.amount * rate : p.amount;
+  const toUzs = p => tolovSom(p);   // KR-1
   const methodColors = { naqd:'#36B48C', karta:'#4C9BE8', otkazma:'#8B5CF6', balans:'#E9A500' };
   const methodLabels = { naqd:'Naqd', karta:'Karta', otkazma:"O'tkazma", balans:'Balansdan' };
 
@@ -734,7 +734,7 @@ function renderDashPriceType() {
     // v147 (audit): ARALASH to'lov usullarga BO'LINADI (methodBreakdown,
     // so'mda saqlanadi) — endi doira "Naqd"i KPI "Naqd tushdi" bilan mos.
     // amountSom (v165) — kiritilgan asl so'm, yaxlitlash adashuvi yo'q.
-    const somAmt = p.amountSom || (p.currency === 'usd' ? Math.round((p.amount||0) * rate) : (p.amount || 0));
+    const somAmt = tolovSom(p);   // KR-1
     const mb = p.methodBreakdown;
     const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
     if (mbHas) {

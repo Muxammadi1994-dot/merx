@@ -406,6 +406,23 @@ function cashPays() {
   return (db.debtPayments || []).filter(p => !p.cancelled && p.source !== "refund");
 }
 
+// ✅ KR-1 (2026-09-20): QARZ TO'LOVINING SO'M QIYMATI — YAGONA MANBA.
+// Tartib: `amountSom` (kassir kiritgan ASL so'm, 2026-07-12 dan yoziladi)
+//   → `amount × p.rate` (to'lov paytida yozilgan kurs)
+//   → `amount × kursOl()` (ikkalasi ham yo'q — eski/muhrsiz to'lov).
+// Sabab: hisobotlarda 15 joyda har xil formula edi (Hisobot/Moliya bugungi
+// kurs bilan, Dashboard/Kunlik amountSom bilan) — kurs o'zgarganda o'tgan
+// oylar tushumi Hisobotda o'zgarib, Dashboard bilan farq berardi.
+// Faqat TO'LANGAN pul uchun. Ochiq (to'lanmagan) qarz — kursOl() bilan,
+// bu funksiyaga kirmaydi. B20 da 20-sen holati: 419 to'lov, muhrsiz 0.
+function tolovSom(p) {
+  if (!p) return 0;
+  if (p.currency !== "usd") return Number(p.amount) || 0;
+  if (p.amountSom != null && Number(p.amountSom) > 0) return Math.round(Number(p.amountSom));
+  const r = (p.rate != null && Number(p.rate) > 0) ? Number(p.rate) : (typeof kursOl === "function" ? kursOl() : 0);
+  return Math.round((Number(p.amount) || 0) * r);
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // 🔴 552 (2026-08-23): TO'LOVLAR INDEKSLANADI (tezlik)
 // ═══════════════════════════════════════════════════════════════════

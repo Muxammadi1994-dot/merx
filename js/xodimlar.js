@@ -43,7 +43,7 @@ function staffStats(staffId, from, to) {
   // ✅ XD-1 (2026-09-20): "kassa tushdi" — refund-to'lov pul emas (`cashPays`).
   const debtPaid = cashPays().filter(p =>
     sales.some(s => s.id === p.saleId) && p.date >= from && p.date <= to
-  ).reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
+  ).reduce((a,p)=>a+tolovSom(p),0);   // KR-1
   kassaTushdi += debtPaid;
 
   // Qarz ulushi

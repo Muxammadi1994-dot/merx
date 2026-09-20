@@ -378,7 +378,7 @@ function renderMoliya() {
   periodDebtPays.forEach(p => {
     // v158 (audit): ARALASH endi usullarga bo'linadi (avval butun summa
     // NAQDGA yozilardi — karta qismi ham!). amountSom — aniq so'm.
-    const amt = (p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * rate) : (p.amount || 0)));
+    const amt = tolovSom(p);   // KR-1
     if (p.currency === "usd") usdQarzTushum += p.amount;
     const mb = p.methodBreakdown;
     const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
@@ -504,7 +504,7 @@ function renderMoliya() {
   // ✅ MOL-1 (2026-09-20): balans — KASSA ko'rsatkichi, refund-to'lov pul emas
   // (`cashPays`, 2026-07-25 qoidasi). Avval `activePays` (qarz hisobi) edi.
   const allDebtPaid = cashPays().reduce((a,p) =>
-    a + (p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)), 0);
+    a + tolovSom(p), 0);   // KR-1
   const allExp  = (db.xarajatlar||[]).reduce((a,x)=>a+(x.amount||0),0);
   const balans  = allSotuvPaid + allDebtPaid - allExp;
 
@@ -718,7 +718,7 @@ function renderFlowBars(kirim, chiqim, realProfit, netProfit, periodCost) {
     else prevKirim+=s.payType==="nasiya"?0:(s.paid||0);
   });
   prevKirim += cashPays().filter(p=>p.date>=pf&&p.date<=pt)
-    .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
+    .reduce((a,p)=>a+tolovSom(p),0);   // KR-1
   const prevChiqim = (db.xarajatlar||[]).filter(x=>x.date>=pf&&x.date<=pt)
     .reduce((a,x)=>a+(x.amount||0),0);
 
@@ -886,7 +886,7 @@ function renderMolTrendChart() {
       jami+=(s.total||0);
     });
     const qarz=cashPays().filter(p=>p.date>=from&&p.date<=to)
-      .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
+      .reduce((a,p)=>a+tolovSom(p),0);   // KR-1
     return { kassa:Math.round((sotuv+qarz)/1000000*10)/10, jami:Math.round(jami/1000000*10)/10 };
   };
 
@@ -1751,7 +1751,7 @@ function openCloseShift(staffId) {
       const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
       if (mbHas) return a + (mb.naqd || 0);
       if ((p.method||"naqd") !== "naqd") return a;
-      return a + (p.amountSom || (p.currency === "usd" ? Math.round((p.amount||0) * rate) : (p.amount || 0)));
+      return a + tolovSom(p);   // KR-1
     }, 0);
   // Xarajatlar (naqd, shu kassir)
   const expCash = (db.xarajatlar||[])

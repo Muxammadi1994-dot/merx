@@ -135,9 +135,7 @@ function _kunYigish(kun) {
       chiq.tolovlar.push(p);
       // 557: USD to'lov so'mga o'giriladi (dashboard qoidasi: avval
       // `amountSom`, u yo'q bo'lsa joriy kurs bilan)
-      const som = Number(p.amountSom) ||
-                  (p.currency === "usd" ? Math.round((Number(p.amount) || 0) * _rate)
-                                        : (Number(p.amount) || 0));
+      const som = tolovSom(p);   // KR-1
       if (p.currency === "usd") { chiq.usdTolov += Number(p.amount) || 0; chiq.usdSom += som; }
       const mb = p.methodBreakdown;
       const mbBor = mb && Object.keys(mb).some(x => (Number(mb[x]) || 0) > 0);

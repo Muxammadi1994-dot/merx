@@ -185,7 +185,7 @@ function renderHisobot() {
   });
   // 2026-07-25: qaytarish hisobidan yopilgan qarz TUSHUM emas
   const debtPaid = cashPays().filter(p=>p.date>=from&&p.date<=to)
-    .reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
+    .reduce((a,p)=>a+tolovSom(p),0);   // KR-1
   paid += debtPaid;
 
   // Foyda hisoblash
@@ -499,7 +499,7 @@ function renderRepPriceType(sales) {
 
   // 2026-07-25: qaytarish hisobidan yopilgan qarz to'lov USULI emas
   const payments = cashPays().filter(p => p.date >= from && p.date <= to);
-  const toUzs = p => p.currency==="usd" ? p.amount*rate : p.amount;
+  const toUzs = p => tolovSom(p);   // KR-1
   const methodColors = { naqd:"#36B48C", karta:"#4C9BE8", otkazma:"#8B5CF6", balans:"#E9A500" };
   const methodLabels = { naqd:"💵 Naqd", karta:"💳 Karta", otkazma:"🏦 O'tkazma", balans:"💰 Balansdan" };
 
@@ -508,7 +508,7 @@ function renderRepPriceType(sales) {
     // v145 (audit): ARALASH to'lov usullarga BO'LINADI (methodBreakdown,
     // so'mda saqlanadi) — endi doira "Naqd"i KPI "Naqd tushdi" bilan mos.
     // amountSom (v165) — kiritilgan asl so'm, yaxlitlash adashuvi yo'q.
-    const somAmt = p.amountSom || (p.currency === 'usd' ? Math.round((p.amount||0) * rate) : (p.amount || 0));
+    const somAmt = tolovSom(p);   // KR-1
     const mb = p.methodBreakdown;
     const mbHas = mb && Object.keys(mb).some(k => (mb[k]||0) > 0);
     if (mbHas) {
@@ -889,8 +889,7 @@ function renderRepStaff(sales) {
   debtPays.forEach(p => {
     const sale = (db.sales||[]).find(s=>s.id===p.saleId); if(!sale) return;
     const name = (db.staff||[]).find(x=>x.id===sale.staffId)?.name||"Noma'lum";
-    if (staffMap[name]) staffMap[name].kassaTushdi +=
-      p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0);
+    if (staffMap[name]) staffMap[name].kassaTushdi += tolovSom(p);   // KR-1
   });
 
   const sorted = Object.entries(staffMap).sort((a,b)=>b[1].kassaTushdi-a[1].kassaTushdi);
