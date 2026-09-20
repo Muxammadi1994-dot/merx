@@ -957,6 +957,56 @@ async function _duplicateProductIchki(sku, event) {   // ✅ 2026-08-18: SKU ser
 }
 
 let _epBaseAt = "";   // ✅ 2026-08-18: tahrir boshlangandagi vaqt muhri
+let _epBaseSnap = null;   // ✅ KT-1: tahrir boshlangandagi kartochka nusxasi
+
+// ✅ KT-1 (2026-09-20): TO'QNASHUVDA MAYDON-MAYDON BIRLASHTIRISH.
+// Server "boshqa qurilma yangilagan" desa, u JORIY kartochkani ham qaytaradi
+// (`row`). Avval kassa uni tashlab, o'zinikini butunligicha majburan yozardi —
+// boshqa kassaning narx/nom o'zgarishi jimgina o'chardi (30 kunda 6 marta bir
+// tovar ikki qurilmadan tahrirlangan). Endi: tahrir boshlangandagi nusxa bilan
+// solishtirib FAQAT O'ZGARTIRILGAN maydonlar joriy kartochka ustiga qo'yiladi.
+// Ikkalasi bir maydonni o'zgartirsa — keyingisi g'olib (egasi, 2026-08-22).
+// Qoldiq (variants[].qty) serverda alohida himoyalangan — bu yerga kirmaydi.
+const _KT_TEG_MAYDONLAR = ["id","sku","updatedAt","_srvFp","_qtyLocal","shop_id","createdAt"];
+// Bo'sh qiymatlar teng: undefined ≡ null ≡ "" ≡ {} ≡ [] — saqlash paytida
+// maydonlar normallashtiriladi (barcode ""→undefined, image null, colorBarcodes {}),
+// ular haqiqiy o'zgarish EMAS. Aks holda "image: null" boshqa kassa qo'ygan
+// rasmni o'chirardi (stendda topildi, 2026-09-20).
+function _ktNorm(v) {
+  if (v === undefined || v === null || v === "") return null;
+  if (Array.isArray(v)) return v.length ? JSON.stringify(v) : null;
+  if (typeof v === "object") {                    // bo'sh qiymatli kalitlar tashlanadi ({qora:""} ≡ {})
+    const o = {}; Object.keys(v).sort().forEach(k => { const n = _ktNorm(v[k]); if (n !== null) o[k] = n; });
+    return Object.keys(o).length ? JSON.stringify(o) : null;
+  }
+  if (typeof v === "number") return Number.isFinite(v) ? String(v) : null;
+  return String(v);
+}
+function _ktBirlashtir(snap, hozir, joriy) {
+  if (!snap || !joriy || typeof joriy !== "object") return null;
+  const natija = JSON.parse(JSON.stringify(joriy));
+  const ozgargan = [];
+  const kalitlar = new Set([...Object.keys(snap), ...Object.keys(hozir)]);
+  // Tannarx — bitta mantiqiy maydon (costUsd + costUzs): saqlash costUzs ni
+  // costUsd×kurs dan qayta hisoblaydi; kiritilgan tannarx o'zgarmagan bo'lsa
+  // ikkalasi ham "o'zgarmagan" (aks holda eski costUzs boshqa kassaning yangi
+  // tannarxini yopardi — getCostUzs costUzs ni afzal ko'radi).
+  const _snapCostUzs = (snap.costUzs != null && snap.costUzs > 0) ? Math.round(snap.costUzs)
+                     : Math.round((snap.costUsd || 0) * (typeof kursOl === "function" ? kursOl() : 0));
+  const _tannarxOzgardi = Math.round(hozir.costUzs || 0) !== _snapCostUzs;
+  for (const k of kalitlar) {
+    if (_KT_TEG_MAYDONLAR.includes(k)) continue;
+    if (k === "costUsd" || k === "costUzs") { if (_tannarxOzgardi) { natija[k] = hozir[k]; ozgargan.push(k); } continue; }
+    if (_ktNorm(snap[k]) !== _ktNorm(hozir[k])) { natija[k] = hozir[k]; ozgargan.push(k); }
+  }
+  natija.id = hozir.id; natija.sku = hozir.sku;
+  // `variants` (ranglar/o'lchamlar + QOLDIQ) — har doim LOKALDAN: qoldiqni
+  // POS lokalda yechadi va u bulutga yetmagan bo'lishi mumkin; server esa
+  // saqlashda o'z qoldig'ini baribir himoya qiladi (qty merge). Bugungi
+  // xatti-harakat bilan bir xil — bu yerda o'zgarish kiritilmaydi.
+  natija.variants = hozir.variants;
+  return { natija, ozgargan };
+}
 function openEditProduct(sku) {
   // ✅ 2026-08-18 RUXSAT TESHIGI: OYNA ham qo'riqlanadi. Ichidagi
   // variant-saqlash, rang o'chirish, rasm o'chirish yo'llari himoyasiz
@@ -968,6 +1018,10 @@ function openEditProduct(sku) {
   // Saqlashda shu muhr bulutdagi bilan solishtiriladi — oradan boshqa
   // kassa tahrir qilgan bo'lsa, uning ishi jimgina o'chib ketmasin.
   _epBaseAt = String(p.updatedAt || "");
+  // ✅ KT-1 (2026-09-20): tahrir boshlangandagi kartochkaning TO'LIQ nusxasi.
+  // Saqlashda to'qnashuv chiqsa, "men nimani o'zgartirdim" shu nusxa bilan
+  // solishtirib aniqlanadi (pastda `_ktBirlashtir`).
+  try { _epBaseSnap = JSON.parse(JSON.stringify(p)); } catch (e) { _epBaseSnap = null; }
   editSku = sku;
   _thSurat(p);                                       // ✅ TH-1: asl sonlar
   // 2026-07-25: variativ guruh bo'lsa — "Variativ tahrirlash" tugmasi chiqadi
@@ -1711,7 +1765,21 @@ async function _saveEditProductIchki() {   // ✅ 2026-08-18: to'qnashuv tekshir
     // Shuning uchun konsolga yozuv qoladi, foydalanuvchi bezovta
     // qilinmaydi.
     if (_r && _r.ok === false && _r.code === "conflict") {
-      _r = await serverSaveRecord("products", p, null);   // so'ramasdan yoziladi
+      // ✅ KT-1: joriy kartochka ustiga faqat o'zgartirilgan maydonlar
+      const _joriy = (_r.row && _r.row.data && typeof _r.row.data === "object") ? _r.row.data
+                   : (_r.row && typeof _r.row === "object" ? _r.row : null);
+      const _b = _ktBirlashtir(_epBaseSnap, p, _joriy);
+      if (_b && _b.natija) {
+        console.warn("KT-1: to'qnashuv → birlashtirildi, o'zgargan maydonlar:", _b.ozgargan.join(", ") || "(yo'q)");
+        try { auditLog("tahrir", "product", p.sku, p.name + " · to'qnashuv birlashtirildi",
+          { note: "KT-1: " + (_b.ozgargan.join(", ") || "o'zgarish yo'q") }); } catch (e) {}
+        Object.assign(p, _b.natija);                   // lokal nusxa ham joriy + o'zimizniki
+        _r = await serverSaveRecord("products", p, String((_joriy && _joriy.updatedAt) || ""));
+        if (_r && _r.ok === false && _r.code === "conflict")
+          _r = await serverSaveRecord("products", p, null);   // 0,1 s ichida yana kimdir yozgan — majburan (avvalgidek)
+      } else {
+        _r = await serverSaveRecord("products", p, null);   // nusxa yo'q — avvalgidek majburan
+      }
     }
     // ═══════════════════════════════════════════════════════════════
     // 🔴 530 (2026-08-22): SERVER MUHRI QABUL QILINADI — SOXTA
