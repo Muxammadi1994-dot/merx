@@ -40,7 +40,8 @@ function staffStats(staffId, from, to) {
     if (pb && (pb.naqd||pb.karta||pb.otkazma)) kassaTushdi += (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
     else kassaTushdi += s.payType==="nasiya" ? 0 : (s.paid||0);
   });
-  const debtPaid = activePays().filter(p =>
+  // ✅ XD-1 (2026-09-20): "kassa tushdi" — refund-to'lov pul emas (`cashPays`).
+  const debtPaid = cashPays().filter(p =>
     sales.some(s => s.id === p.saleId) && p.date >= from && p.date <= to
   ).reduce((a,p)=>a+(p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)),0);
   kassaTushdi += debtPaid;

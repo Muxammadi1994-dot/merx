@@ -501,7 +501,9 @@ function renderMoliya() {
       return a + (pb.naqd||0)+(pb.karta||0)+(pb.otkazma||0);
     return a + (s.payType==="nasiya"?0:(s.paid||0));
   }, 0);
-  const allDebtPaid = activePays().reduce((a,p) =>
+  // ✅ MOL-1 (2026-09-20): balans — KASSA ko'rsatkichi, refund-to'lov pul emas
+  // (`cashPays`, 2026-07-25 qoidasi). Avval `activePays` (qarz hisobi) edi.
+  const allDebtPaid = cashPays().reduce((a,p) =>
     a + (p.currency==="usd"?Math.round(p.amount*rate):(p.amount||0)), 0);
   const allExp  = (db.xarajatlar||[]).reduce((a,x)=>a+(x.amount||0),0);
   const balans  = allSotuvPaid + allDebtPaid - allExp;

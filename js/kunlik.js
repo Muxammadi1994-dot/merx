@@ -127,6 +127,11 @@ function _kunYigish(kun) {
     const _rate = kursOl();
     (db.debtPayments || []).forEach(p => {
       if (p.date !== kun || p.cancelled) return;
+      // ✅ KN-1 (2026-09-20): qaytarish hisobidan yopilgan qarz (source="refund",
+      // QTQ) HAQIQIY PUL EMAS — kassaga/tushumga kirmaydi. Dashboard va Hisobot
+      // bilan bir xil qoida (`cashPays()`, 2026-07-25). Jonli: 20-sen B20 da
+      // 2 ta refund-to'lov 9 300 000 so'm Kunlikda "naqd" bo'lib ko'ringan.
+      if (p.source === "refund") return;
       chiq.tolovlar.push(p);
       // 557: USD to'lov so'mga o'giriladi (dashboard qoidasi: avval
       // `amountSom`, u yo'q bo'lsa joriy kurs bilan)
