@@ -728,6 +728,11 @@ function _renderOmGrid(list, cols, pagerHtml, q) {
 }
 
 // ── Kam qoldiq tab ───────────────────────────────
+// ✅ PG-2a (2026-09-20): KAM QOLDIQ SAHIFALANADI (50 tadan). Sanoq (0 ta / kritik)
+// va Excel eksporti to'liq ro'yxatdan — faqat CHIZISH sahifalanadi. Chegara
+// (threshold) o'zgarsa sahifa 1 ga qaytadi.
+let _omKamPage = 1, _omKamKey = "";
+function omKamGoPage(p) { _omKamPage = p; omRenderKamQoldiq(); pagerScrollTop("p-ombor"); }
 function omRenderKamQoldiq() {
   const el = $("om-tab-kam");
   if (!el) return;
@@ -743,6 +748,9 @@ function omRenderKamQoldiq() {
     });
   });
   rows.sort((a,b) => a.v.qty - b.v.qty);
+  const _kamJami = rows.length;                                                      // PG-2a
+  { const _k = String(threshold); if (_k !== _omKamKey) { _omKamKey = _k; _omKamPage = 1; } }
+  const _kamRows = (typeof pageSlice === "function") ? (_omKamPage = clampPage(_omKamPage, _kamJami), pageSlice(rows, _omKamPage)) : rows;
 
   const zeros    = rows.filter(r => r.v.qty === 0).length;
   const criticals = rows.filter(r => r.v.qty > 0 && r.v.qty <= 2).length;
@@ -776,7 +784,7 @@ function omRenderKamQoldiq() {
           <th></th>
         </tr></thead>
         <tbody>
-          ${rows.length ? rows.map(({p, v, minQty}) => {
+          ${_kamRows.length ? _kamRows.map(({p, v, minQty}) => {
             const rate = kursOl();
             const costUzs = getCostUzs(p);
             const status = v.qty === 0
@@ -812,6 +820,7 @@ function omRenderKamQoldiq() {
               </td>
             </tr>`;
           }).join('') : '<tr><td colspan="8" class="empty-td" style="color:var(--grn)">✅ Barcha tovarlar yetarli</td></tr>'}
+          ${_kamJami > 0 && typeof pagerRow === "function" ? pagerRow(8, _kamJami, _omKamPage, "omKamGoPage", "qator") : ""}
         </tbody>
       </table>
     </div>`;

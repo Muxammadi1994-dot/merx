@@ -3128,6 +3128,12 @@ function renderCustPayHistory() {
 // Har bir TO'LOV HARAKATI (db.debtPayments yozuvi) bitta qator —
 // taqsimlanmagan, asl summa. Mijoz "300 to'laganman" desa, shu yerda
 // bitta qatorda topiladi, ichida qaysi cheklarga bo'lingani ko'rinadi.
+// ✅ PG-2c (2026-09-20): QARZLAR TARIXI (umumiy rejim) SAHIFALANADI (50 tadan).
+// Jami summalar, statistika va Excel eksporti to'liq ro'yxatdan — faqat
+// CHIZISH sahifalanadi. Davr/qidiruv o'zgarsa sahifa 1 ga qaytadi.
+// Ro'yxat jadval emas — pagerRow (<tr>) kichik jadvalga o'ralib chiqariladi.
+let _qtTotPage = 1, _qtTotKey = "";
+function qtTotGoPage(p) { _qtTotPage = p; renderQarzlarTarixiTotal(); try { pagerScrollTop("p-qarztarix"); } catch (e) {} }
 function renderQarzlarTarixiTotal() {
   const el = $("qt-list"); if (!el) return;
   const q = ($("qt-q")||{value:""}).value.toLowerCase();
@@ -3178,7 +3184,10 @@ function renderQarzlarTarixiTotal() {
     return;
   }
 
-  el.innerHTML = payments.map(p => {
+  const _qtJami = payments.length;                                              // PG-2c
+  { const _k = [q, dateFrom, dateTo].join("|"); if (_k !== _qtTotKey) { _qtTotKey = _k; _qtTotPage = 1; } }
+  const _qtRows = (typeof pageSlice === "function") ? (_qtTotPage = clampPage(_qtTotPage, _qtJami), pageSlice(payments, _qtTotPage)) : payments;
+  el.innerHTML = _qtRows.map(p => {
     const allocs = p.allocations || [];
     const allocHtml = allocs.length ? `
       <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--brd);display:flex;flex-direction:column;gap:4px">
@@ -3221,6 +3230,8 @@ function renderQarzlarTarixiTotal() {
       ${allocHtml}
     </div>`;
   }).join("");
+  if (_qtJami > 0 && typeof pagerRow === "function")                           // PG-2c
+    el.innerHTML += `<table style="width:100%"><tbody>${pagerRow(1, _qtJami, _qtTotPage, "qtTotGoPage", "to'lov")}</tbody></table>`;
 }
 
 function qtToggleExpand(saleId) {

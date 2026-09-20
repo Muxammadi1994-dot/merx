@@ -4034,6 +4034,12 @@ function openNarxnoma() {
   }, 30);
 }
 
+// ✅ PG-2b (2026-09-20): NARXNOMA RO'YXATI SAHIFALANADI (50 tadan). Tanlov JS
+// xotirasida (`_narxnomaSelected`) — sahifa almashsa yo'qolmaydi; "Hammasini
+// tanlash" bazadan yuradi, ekrandan emas. Qidiruv o'zgarsa sahifa 1 ga qaytadi.
+// Ro'yxat jadval emas — pagerRow (<tr>) kichik jadvalga o'ralib chiqariladi.
+let _nmPage = 1, _nmQidiruvKey = "";
+function nmGoPage(p) { _nmPage = p; renderNarxnomaList(); try { pagerScrollTop("nm-list"); } catch (e) {} }
 function renderNarxnomaList() {
   const el = document.getElementById("nm-list");
   if (!el) return;
@@ -4071,7 +4077,10 @@ function renderNarxnomaList() {
     });
   });
 
-  el.innerHTML = rows.map(({p, color, dona, pochka, sizes}) => {
+  const _nmJami = rows.length;                                                  // PG-2b
+  if (q !== _nmQidiruvKey) { _nmQidiruvKey = q; _nmPage = 1; }
+  const _nmRows = (typeof pageSlice === "function") ? (_nmPage = clampPage(_nmPage, _nmJami), pageSlice(rows, _nmPage)) : rows;
+  el.innerHTML = _nmRows.map(({p, color, dona, pochka, sizes}) => {
     const key = p.sku + "::" + color;
     const sel = _narxnomaSelected.has(key);
     const art = p.art ? ` <span style="color:var(--mut)">${p.art}</span>` : "";
@@ -4091,6 +4100,8 @@ function renderNarxnomaList() {
     </label>`;
   }).join("") || `<div style="text-align:center;padding:20px;color:var(--mut)">
       Qoldiqli mahsulot yo'q</div>`;
+  if (_nmJami > 0 && typeof pagerRow === "function")                             // PG-2b
+    el.innerHTML += `<table style="width:100%"><tbody>${pagerRow(1, _nmJami, _nmPage, "nmGoPage", "tovar")}</tbody></table>`;
   updateNmCount();
 }
 
