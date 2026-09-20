@@ -893,10 +893,21 @@ function omSetKirimFilter(f) {
   omRenderKirim();
 }
 
+// ✅ OM-1 (2026-09-20): KIRIM TARIXI SAHIFALANADI (50 tadan, mavjud
+// pageSlice/pagerRow bilan — Qarzlar/Mijozlar kabi). Avval butun ro'yxat
+// birdan chizilardi: B20 da 3 308 yozuv → telefonda 2-5 s qotish.
+// Filtr, qidiruv, partiya yoki "pochka bo'yicha" katakchasi o'zgarsa —
+// sahifa o'zi 1 ga qaytadi (kalit solishtirish; chaqiruvchilarga tegilmadi).
+// Jami/KPI hisoblari to'liq ro'yxatdan — faqat CHIZISH sahifalanadi.
+let _omKirimPage = 1, _omKirimKey = "";
+function omKirimGoPage(p) { _omKirimPage = p; omRenderKirim(); pagerScrollTop("p-ombor"); }
+
 function omRenderKirim() {
   renderPartiyaFilter();
   const q = ($("om-q")||{value:""}).value.toLowerCase();
   const byPochka = $("om-by-pochka")?.checked !== false;
+  const _key = [q, omKirimFilter, _omPartiyaFilter, byPochka].join("|");   // OM-1
+  if (_key !== _omKirimKey) { _omKirimKey = _key; _omKirimPage = 1; }
 
   let list = db.ombor.filter(o =>
     !q || o.productName.toLowerCase().includes(q) ||
@@ -937,6 +948,8 @@ function omRenderKirim() {
   }
 
   const el = $("ombor-body"); if (!el) return;
+  const _jami = rows.length;                                            // OM-1
+  if (typeof pageSlice === "function") { _omKirimPage = clampPage(_omKirimPage, _jami); rows = pageSlice(rows, _omKirimPage); }
   el.innerHTML = rows.length ? rows.map(o => {
     const isPochka = byPochka;
     const sizesStr = isPochka && o.sizes?.length
@@ -987,6 +1000,7 @@ function omRenderKirim() {
       </td>
     </tr>`;
   }).join("") : `<tr><td colspan="13" class="empty-td">Kirim yo'q</td></tr>`;
+  if (_jami > 0 && typeof pagerRow === "function") el.innerHTML += pagerRow(13, _jami, _omKirimPage, "omKirimGoPage", "qator");   // OM-1
 }
 
 function omRenderSuppliers() {
