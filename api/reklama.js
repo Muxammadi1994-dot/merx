@@ -341,7 +341,7 @@ UChINChI VAZIFA — SURATGA OLISh BRIFI ("buyruq", INGLIZCHA, 700-1400 belgi). B
 9. Kayfiyat va rang: 3 rangdan oshmasin, iliq yoki sovuq, "film donasi" yoki "raqamli toza".
 10. Taqiqlar: no text, no letters, no logos of other brands, no watermark, no collage, no border, no frame, no studio backdrop unless asked.
 
-TOVAR PASPORTI ("pasport", 5-8 band, INGLIZCHA): shu tovarni BOShQA shunga o'xshash tovarlardan ajratib turadigan ANIQ ko'rinadigan belgilar. Umumiy so'z emas ("chiroyli", "sifatli"), faqat ko'z bilan tekshiriladigan narsa: material fakturasi (pebbled leather, smooth suede), har qism rangi (grey suede heel tab, white cupsole), logotip/yorliq va uning JOYI (woven label on tongue reading "..."), taglik turi va qalinligi, bog'ich turi va rangi, metall qismlar, tikuv chiziqlari. Bu ro'yxat rassomga "ALBATTA saqlansin" deb beriladi va tekshiruvchi aynan shu bo'yicha tekshiradi.
+TOVAR PASPORTI ("pasport", 5-8 band, INGLIZCHA): shu tovarni BOShQA shunga o'xshash tovarlardan ajratib turadigan ANIQ ko'rinadigan belgilar. Umumiy so'z emas ("chiroyli", "sifatli"), faqat ko'z bilan tekshiriladigan narsa: material fakturasi (pebbled leather, smooth suede), har qism rangi (grey suede heel tab, white cupsole), logotip/yorliq va uning JOYI (woven label on tongue reading "..."), taglik turi va qalinligi, bog'ich turi va rangi, metall qismlar, tikuv chiziqlari. Ranglarni ANIQ nomla ("light grey", "navy", "ivory", "tan") — taxminiy "off-white" yoki "light" emas; har qism rangini alohida ayt. Sabab: GRUFA tovonidagi kulrang zamsh "off-white" deb yozilgach, rassom uni bej qilib chizdi. Bu ro'yxat rassomga "ALBATTA saqlansin" deb beriladi va tekshiruvchi aynan shu bo'yicha tekshiradi.
 
 TOVAR SADOQATI (eng muhim): rassom tovarni namunadagidek chizishi shart — rang, shakl, tag, tugma, zamok, tikuv chizig'i, logotip, naqsh, material fakturasi, nisbatlar. Brifda buni ALOHIDA jumla bilan talab qil.
 
@@ -1034,9 +1034,16 @@ module.exports = async (req, res) => {
       "shuni aniq maslahat qilib yoz (masalan: dazmollab, deraza yonida, 3/4 burchakdan qayta oling).\n" +
       (/^(real|model|kop)$/.test(turi)
         ? "2) MUHIT BRIFINI YOZ. Tovar ODAMDA bo'ladi (kiydiriladi), sen esa odam turgan/yurgan MUHITni yozasan: joy, yer, yorug'lik, chuqurlik. " +
-          "'kadr' — TOVARGA qaratilgan kadrlash (oyoq kiyim: tizzadan pastga, past nuqtadan; ust kiyim: bo'yindan belgacha). " +
+          // ✅ 662: REAL SHAXS — tanib bo'linishi kerak. Egasi: "real shaxsga
+          // kiydirishning asosiy mantig'i — yuzi ham ko'rinishi". Ilgari oyoq
+          // kiyimda "tizzadan pastga" yozilib, xodim oyoqlargacha kesilardi.
+          (turi === "real"
+            ? "'kadr' — REAL SHAXS: bu do'konning haqiqiy xodimi yoki mijozi, uni TANISH kerak. Kadr surat qanday bo'lsa shunday qoladi: butun odam, yuzi bo'lsa ko'rinib turadi. Tovarga yaqinlashtirma. "
+            : "'kadr' — TOVARGA qaratilgan kadrlash (oyoq kiyim: tizzadan pastga, past nuqtadan; ust kiyim: bo'yindan belgacha). ") +
           "'buyruq' — English: the ENVIRONMENT for a person wearing the product; do not describe the person.\n" +
-          "3) POZA ('poza'): tik turish EMAS — yurayotgan, zinadan chiqayotgan, burilayotgan, bog'ich bog'layotgan. Yuz kameradan chetga. Bitta jumla.\n" +
+          (turi === "real"
+            ? "3) POZA ('poza'): BO'SH qoldir — bu haqiqiy odam, uning holati va gavdasi o'zgartirilmaydi.\n"
+            : "3) POZA ('poza'): tik turish EMAS — yurayotgan, zinadan chiqayotgan, burilayotgan, bog'ich bog'layotgan. Yuz kameradan chetga. Bitta jumla.\n") +
           "4) USLUB MUVOFIQLIGI ('uslub_ogoh'): odamning boshqa kiyimlari tovarga mos keladimi — fasl, uslub, rang, daraja, yosh. " +
           "Mos kelmasa qisqa ogoh; tuzatish mumkin bo'lsa 'neytral' ga yoz (masalan: shimni to'q ko'kka).\n" +
           "\nBU SAFARGI IJODIY O'Q: janr — " + x.janr + "; vaqt — " + x.vaqt + "; fasl — " + x.fasl +
@@ -1742,8 +1749,17 @@ module.exports = async (req, res) => {
     const tur = String(body.turi || "");
     const poza = String(body.poza || "").replace(/\s+/g, " ").trim().slice(0, 160);
     const neytral = String(body.neytral || "").replace(/\s+/g, " ").trim().slice(0, 160);
-    const kadr = tur === "shoes" ? "Camera low, near ground level, so the footwear is the main subject. " :
+    // ✅ 662: REAL SHAXS — kadr, kamera va poza surat qanday bo'lsa shunday.
+    const real = body.real === true;
+    const kadr = real ? "" :
+                 tur === "shoes" ? "Camera low, near ground level, so the footwear is the main subject. " :
                  tur === "aksessuar" ? "Camera at waist level, the accessory clearly visible. " : "";
+    const realMatn = real
+      ? "REAL PERSON — this is a real employee or customer and must stay recognisable. Keep the SAME framing, crop " +
+        "and camera angle as the source photo: the whole person stays in frame, do not zoom in on the product. " +
+        "If the face is visible in the source photo it must remain fully visible, unchanged and uncropped. " +
+        "Keep the person's exact pose. Ignore any camera height or framing mentioned in the brief. "
+      : "";
     // ✅ 650: REJISSYOR BRIFI ISHLATILADI. Ilgari faqat qisqa maydonlardan
     // (joy, yuza, yorug'lik) buyruq yig'ilardi va rejissyorning to'liq
     // muhit brifi ("buyruq") TAShLAB YUBORILARDI — natijada muhit zaif
@@ -1764,11 +1780,11 @@ module.exports = async (req, res) => {
       // olinadi, bo'sh bo'lsa xavfsiz sukut. Ilgari bu yerda har doim
       // sukut ishlatilib, rejissyorning kadrlash ko'rsatmasi yo'qolardi.
       `Background: softly blurred, shallow depth of field; the person and especially the worn product stay sharp. ` +
-      (b("kadr") ? `Framing: ${b("kadr")}. ` : "") +
+      (real ? realMatn : (b("kadr") ? `Framing: ${b("kadr")}. ` : "")) +
       (b("palitra") ? `Colour mood: ${b("palitra")}. ` : "") + kadr +
       // ✅ 634: POZA — odam tik turmasin (bilim §4.4/§5.2). Yuz, tana, teri,
       // soch va TOVAR daxlsiz; faqat gavda holati o'zgaradi.
-      (poza ? `Change the person's pose to: ${poza}. Keep the same face, same identity, same body shape, ` +
+      (poza && !real ? `Change the person's pose to: ${poza}. Keep the same face, same identity, same body shape, ` +
               `same skin tone and hair. The pose must look natural and the worn product must stay fully visible. ` : "") +
       // ✅ 634: NEYTRALLASh — rejissyor uslub nomuvofiqligini topsa, faqat
       // SHU qismni o'zgartirishga ruxsat (masalan: shimni to'q ko'kka).

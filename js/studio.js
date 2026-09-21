@@ -1974,7 +1974,12 @@ function stChiz(cvs, fmt, opt) {
         case "blok": {
           // ✅ 635: foto rejimida KATTA rangli maydon chizilmaydi (ramka
           // effekti). Matn ostidagi kichik panellar (≤18%) qoladi.
-          if (_fotoRejim() && (L.w || 0) * (L.h || 0) > .18) break;
+          // ✅ 662: foto rejimida HECH QANDAY blok yo'q (635 da faqat 18% dan
+          // kattasi o'chirilgandi). yonkadr shablonidagi 6% lik ko'k blok nom
+          // va narx o'chirilganda yolg'iz qolib, kadrda ma'nosiz to'rtburchak
+          // bo'lib turardi. Egasi uchinchi marta: "bu uslub kerak emas".
+          // Matnni pastki gradient va avtomatik kontrast o'qitadi.
+          if (_fotoRejim()) break;
           ctx.fillStyle = stRang(P, L.rang);
           if (L.radius) { _yumT(ctx, L.x * W, L.y * H, L.w * W, L.h * H, L.radius * W); ctx.fill(); }
           else ctx.fillRect(L.x * W, L.y * H, L.w * W, L.h * H);
@@ -4494,7 +4499,10 @@ async function stuMuhit(tur) {
   const src = STU.img; if (!src) return false;
   stuHolat("Rejissyor muhiti qo'yilmoqda", 90);
   const d = await stuAI("muhit", { image: _stuTayyor(src, 1000), sahna: h.sahna,   // ✅ 650: 1200 -> 1000
-    turi: tur || "", poza: h.poza || "", neytral: h.neytral || "",
+    turi: tur || "", neytral: h.neytral || "",
+    // ✅ 662: real shaxsda poza YUBORILMAYDI va kadr o'zgarmaydi (server ham tekshiradi)
+    poza: _stuRealmi() ? "" : (h.poza || ""),
+    real: _stuRealmi(),
     pasport: h.pasport || [] });   // ✅ 634 · 652 pasport
   if (!d || !d.image) return false;
   let im; try { im = await _stuImg(d.image); } catch (e) { return false; }
@@ -4522,6 +4530,9 @@ async function stuMuhit(tur) {
 // muhit tekshiruvi esa "oldin ↔ keyin" ni solishtirgani uchun o'tkazib
 // yubordi — ikkalasida ham xato poyabzal bor edi. Yakuniy tekshiruv esa
 // faqat ogohlantirardi. Natija: noto'g'ri tovar reklama bo'lib chiqdi.
+function _stuRealmi() {                              // ✅ 662
+  return STU.turi === "real" || (STU.turi === "kop" && STU.modelJins === "shaxs");
+}
 async function _stuKiydirDarvoza(natijaData) {
   const h = STU.aiHukm || {};
   let im; try { im = await _stuImg(natijaData); } catch (e) { return { ok: true }; }
@@ -4531,7 +4542,13 @@ async function _stuKiydirDarvoza(natijaData) {
     tovar: _stuAiTovar(), pasport: h.pasport || [] });
   if (!t || !t.ok || !t.hukm) return { ok: true, tekshirilmadi: true };   // ko'r qabul emas — pastda yozamiz
   STU.aiMos = t.hukm;
-  return { ok: !!t.hukm.mos, farq: (t.hukm.farqlar || []).slice(0, 2).join("; ") };
+  // ✅ 662: CHEGARA 85%. Jonli: real shaxsda tovon kulrang zamsh o'rniga bej,
+  // o'ng poyabzal silliq bo'lib chiqdi — tekshiruvchi baribir "mos, 72%"
+  // dedi. Past ishonchli "mos" endi rad hisoblanadi va qayta kiydiriladi.
+  const ish = Number(t.hukm.ishonch) || 0;
+  const farq = (t.hukm.farqlar || []).slice(0, 2).join("; ");
+  if (t.hukm.mos && ish >= 85) return { ok: true, farq };
+  return { ok: false, farq: farq || ("tekshiruvchi ishonchi past (" + ish + "%) — pasportdagi har belgini aniq saqla") };
 }
 
 // ✅ 628: REJISSYORNI KUTISH. Uning javobi 5-15 s keladi; foydalanuvchi
@@ -4799,8 +4816,10 @@ async function stuKiydirOqim() {
   const muhitBor = await stuMuhit(hamma[0].turi);   // ✅ 633: rejissyor muhiti
   STU.rasmlar[1] = aks[0] ? aks[0].img : null;   // aksessuar — kollaj slotida
   STU.aiNamoyish = !shaxsmi; STU.real = shaxsmi;
-  STU.fokus = _stuFokusTur(hamma[0].turi);       // ✅ 631: kadr TOVARGA qaraydi
-  STU._kadrTur = hamma[0].turi;                  // ✅ 636: chizilgach tekshiriladi
+  // ✅ 662: REAL SHAXS — kadr tovarga emas, odamga: yuz kesilmaydi, yaqinlashtirish yo'q
+  if (shaxsmi) { STU.fokus = { x: .5, y: .40 }; STU.imgAdj = { zoom: 1, dx: 0, dy: 0 }; }
+  else STU.fokus = _stuFokusTur(hamma[0].turi);   // ✅ 631: kadr TOVARGA qaraydi
+  STU._kadrTur = shaxsmi ? "" : hamma[0].turi;   // ✅ 636 · 662: real shaxsda kadr o'zgarmaydi
   STU.avtoPal = stuPalitraChiqar(STU.img);
   // ✅ 644: MUHIT QO'YILGAN BO'LSA — KUTUBXONA FONI BOSMASIN.
   // 633 da muhit qadami qo'shilgandi, lekin undan keyin darhol kutubxona
