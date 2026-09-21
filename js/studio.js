@@ -3334,15 +3334,16 @@ async function stuKiydir(jins) {
   stuHolat(tahrir ? "👟 Tovar modelga qo'yilmoqda…" : "👗 Kiyim modelga kiydirilmoqda…");
   const par = { jins, image: c.toDataURL("image/jpeg", 0.86), turi: tur,
                 pasport: (STU.aiHukm && STU.aiHukm.pasport) || [],          // ✅ 652
-                foto_turi: (STU.aiHukm && STU.aiHukm.foto_turi) || "auto" }; // ✅ 665
-  let d = await stuAI(tahrir ? "kiydir_edit" : "kiydir", par);
+                foto_turi: (STU.aiHukm && STU.aiHukm.foto_turi) || "auto",  // ✅ 665
+                tuzatish: (STU.aiHukm && STU.aiHukm.tuzatish) || "" };       // ✅ 666
+  let d = await stuAI("kiydir_edit", par);                                   // ✅ 666: asosiy — aniq rassom
   stuHolat("");
   if (!d) return;
   // ✅ 652: shu yerda ham darvoza (kiydirishning ikkinchi nusxasi — C10)
   let dv = await _stuKiydirDarvoza(d.image);
   if (!dv.ok) {
     stuHolat("Tovar o'zgardi — qayta kiydirilmoqda", 90);
-    const d2 = await stuAI("kiydir_edit", Object.assign({}, par, { tuzat: dv.farq }));   // ✅ 665: eskalatsiya
+    const d2 = await stuAI(tahrir ? "kiydir_edit" : "kiydir", Object.assign({}, par, { tuzat: dv.farq }));   // ✅ 666: boshqa yondashuv
     stuHolat("");
     if (d2 && d2.image) { dv = await _stuKiydirDarvoza(d2.image); if (dv.ok) d = d2; }
     if (!dv.ok) { toast("Kiydirishda tovar o'zgardi (" + (dv.farq || "farq bor") + ") — natija qabul qilinmadi", "err"); return; }
@@ -4465,7 +4466,8 @@ async function stuJoylashtir() {
     pasport: h.pasport || [] });   // ✅ 652
   if (!t || !t.ok || !t.hukm) { toast("Tekshiruv ishlamadi — oddiy yo'l bilan davom", "err"); return false; }
   STU.aiMos = t.hukm;
-  if (!t.hukm.mos) {
+  // ✅ 666: rad faqat ANIQ SABAB bilan — sababsiz "mos emas" qayta urinishni ko'r qiladi
+  if (!t.hukm.mos && (t.hukm.farqlar || []).length) {
     // ✅ 642: BIR MARTA QAYTA URINISh — rejissyor topilgan farqni buyruqqa
     // qo'shadi va rassom shuni to'g'rilab qaytadan chizadi. Shundan keyin
     // ham mos bo'lmasa — eski (xavfsiz) yo'l.
@@ -4516,8 +4518,8 @@ async function stuMuhit(tur) {
     asl: _stuTayyor(src, 900), natija: _stuTayyor(im, 900), tovar: _stuAiTovar() });
   if (!t || !t.ok || !t.hukm) { toast("Tekshiruv ishlamadi — muhitsiz natija qoldi", "err"); return false; }
   STU.aiMos = t.hukm;
-  if (!t.hukm.mos) {
-    STU.muhitRad = t.hukm.farqlar[0] || "tovar o'zgardi";
+  if (!t.hukm.mos && (t.hukm.farqlar || []).length) {   // ✅ 666: sababsiz rad yo'q
+    STU.muhitRad = t.hukm.farqlar[0];
     toast("Muhitda tovar o'zgardi (" + STU.muhitRad + ") — muhitsiz natija qoldi", "err");
     return false;
   }
@@ -4573,19 +4575,26 @@ function _stuRealmi() {                              // ✅ 662
 async function _stuKiydirDarvoza(natijaData) {
   const h = STU.aiHukm || {};
   let im; try { im = await _stuImg(natijaData); } catch (e) { return { ok: true }; }
-  stuHolat("Rejissyor kiydirilgan tovarni tekshirmoqda", 25);
-  const t = await stuAiChaqir("ai_solishtir", { rejim: "yangi",
-    asl: _stuTayyor(STU.asl || STU.img, 900), natija: _stuTayyor(im, 900),
-    tovar: _stuAiTovar(), pasport: h.pasport || [] });
+  stuHolat("Rejissyor tovar modeli va yuzni tekshirmoqda", 25);
+  // ✅ 666: KIYDIRISH NAZORATCHISI — faqat ikki savol: tovar modeli va yuz.
+  // Real shaxsda asl surat ham boradi — yuz BIRINCHI MARTA tekshiriladi.
+  const par = { rejim: "kiydir", asl: _stuTayyor(STU.asl || STU.img, 900), natija: _stuTayyor(im, 900),
+                tovar: _stuAiTovar(), pasport: h.pasport || [] };
+  if (_stuRealmi() && STU.shaxs) par.shaxs = _stuTayyor(STU.shaxs, 800);
+  const t = await stuAiChaqir("ai_solishtir", par);
   if (!t || !t.ok || !t.hukm) return { ok: true, tekshirilmadi: true };   // ko'r qabul emas — pastda yozamiz
   STU.aiMos = t.hukm;
-  // ✅ 662: CHEGARA 85%. Jonli: real shaxsda tovon kulrang zamsh o'rniga bej,
-  // o'ng poyabzal silliq bo'lib chiqdi — tekshiruvchi baribir "mos, 72%"
-  // dedi. Past ishonchli "mos" endi rad hisoblanadi va qayta kiydiriladi.
+  // ✅ 666: RAD FAQAT ANIQ SABAB BILAN. 662 dagi "85% dan past mos = rad"
+  // qoidasi bekor: "ishonch" ma'nosi noaniq edi va jonlida 7% bilan, BIRORTA
+  // sababsiz rad chiqdi — qayta urinish ham ko'r bo'ldi. Endi ishonch — hukmga
+  // ishonch; rad = model yoki yuz o'zgargan + sabab aytilgan + ishonch ≥ 70.
   const ish = Number(t.hukm.ishonch) || 0;
-  const farq = (t.hukm.farqlar || []).slice(0, 2).join("; ");
-  if (t.hukm.mos && ish >= 85) return { ok: true, farq };
-  return { ok: false, farq: farq || ("tekshiruvchi ishonchi past (" + ish + "%) — pasportdagi har belgini aniq saqla") };
+  const sabab = String(t.hukm.sabab || (t.hukm.farqlar || [])[0] || "").trim();
+  const rad = !t.hukm.mos && !!sabab && ish >= 70;
+  STU._kiydirHukm = { tovar: t.hukm.tovar_mos !== false, yuz: t.hukm.yuz_mos !== false,
+                      yuzTek: !!t.hukm.yuz_tekshirildi, sabab, ish };
+  if (!rad) return { ok: true, farq: sabab, shubha: !t.hukm.mos };
+  return { ok: false, farq: sabab, yuz: t.hukm.yuz_mos === false };
 }
 
 // ✅ 628: REJISSYORNI KUTISH. Uning javobi 5-15 s keladi; foydalanuvchi
@@ -4849,12 +4858,18 @@ async function stuKiydirOqim() {
     const aksTur = x.turi !== "aksessuar" ? x.turi
       : (nomi.includes("soat") ? "soat" : (nomi.includes("sumka") || nomi.includes("ryukzak")) ? "sumka" : "aksessuar");
     stuHolat(`${tahrir ? "👟" : "👗"} ${n + 1}/${hamma.length} · ${x.tovar.nom} kiydirilmoqda`, 90);
-    const asosiy = (n === 0);
+    const asosiy = (x === royxat[0]);   // ✅ 666: saralash tartibi o'zgartirsa ham asl asosiy tovar
     const par = { jins, model_image: shaxsData || undefined,
       image: _stuTayyor(x.img, 1100), turi: aksTur,
       pasport: asosiy ? ((STU.aiHukm && STU.aiHukm.pasport) || []) : [],     // ✅ 652
-      foto_turi: asosiy ? ((STU.aiHukm && STU.aiHukm.foto_turi) || "auto") : "auto" };   // ✅ 665
-    let d = await stuAI(tahrir ? "kiydir_edit" : "kiydir", par);
+      foto_turi: asosiy ? ((STU.aiHukm && STU.aiHukm.foto_turi) || "auto") : "auto",   // ✅ 665
+      tuzatish: asosiy ? ((STU.aiHukm && STU.aiHukm.tuzatish) || "") : "" };             // ✅ 666
+    // ✅ 666: ASOSIY tovar — DOIM aniq rassom (Nano Banana), kiyimda ham: egasi
+    // ilovada aynan shu model bilan muammosiz kiydirgan; u pasport va tuzatish
+    // brifini tushunadi. Kiyim modeli (fashn) — zaxira yondashuv. Qo'shimcha
+    // kiyimlar (kop) kiyim modelida qoladi: u odam piksellarini ko'proq saqlaydi.
+    const birinchi = (asosiy || tahrir) ? "kiydir_edit" : "kiydir";
+    let d = await stuAI(birinchi, par);
     if (!d) { stuHolat(""); return; }
     // ✅ 652: ASOSIY tovar uchun darvoza — mos bo'lmasa bir marta qayta
     if (asosiy) {
@@ -4864,9 +4879,11 @@ async function stuKiydirOqim() {
         // qayta urinishi aynan nusxa edi (jonli: ikkala urinishda ham tik yoqa
         // qaytarma bo'ldi, 6 kredit bekor ketdi). Qayta urinish endi DOIM
         // buyruq tushunadigan rassomga: pasport + tekshiruvchi topgan farq bilan.
-        stuHolat(tahrir ? "Tovar o'zgardi — qayta kiydirilmoqda"
-                        : "Kiyim detallari buzildi — aniq rassom bilan qayta kiydirilmoqda", 90);
-        const d2 = await stuAI("kiydir_edit", Object.assign({}, par, { tuzat: dv.farq }));
+        // ✅ 666: qayta urinish — kiyimda BOShQA yondashuv (kiyim modeli, sifat
+        // rejimi); oyoq kiyim/aksessuarda — o'sha rassom, aniq farq bilan.
+        const ikkinchi = tahrir ? "kiydir_edit" : "kiydir";
+        stuHolat((dv.yuz ? "Yuz o'zgardi" : "Tovar modeli o'zgardi") + " — boshqa yo'l bilan qayta kiydirilmoqda", 90);
+        const d2 = await stuAI(ikkinchi, Object.assign({}, par, { tuzat: dv.farq }));
         if (d2 && d2.image) { dv = await _stuKiydirDarvoza(d2.image); if (dv.ok) d = d2; }
       }
       if (!dv.ok) {

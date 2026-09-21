@@ -114,7 +114,7 @@ async function geminiChaqir(model, system, content, maxTok, ms, sxema, _qayta) {
     ? { inlineData: { mimeType: c.source.media_type, data: c.source.data } }
     : { text: String(c.text || "") });
   // tekshiruvchi — aniq (past harorat); rejissyor va matn — ijodiy
-  const temp = system === REJ_TEKSHIR ? 0.2 : (system === REJ_MATN ? 0.9 : 0.8);
+  const temp = (system === REJ_TEKSHIR || system === REJ_KIYDIR) ? 0.2 : (system === REJ_MATN ? 0.9 : 0.8);
   const gc = { temperature: temp,
                // Gemini 3.x o'ylaydi — o'ylash tokenlari ham shu chegaraga
                // kiradi; tor chegara Claude'dagi "max_tokens" kesilishini
@@ -288,6 +288,7 @@ const HUKM_SXEMA = _obj({
   poza: S_STR, uslub_ogoh: S_STRLIST, neytral: S_STR,   // ✅ 634 (odamli turlar)
   pasport: S_STRLIST,                                     // ✅ 652: tovarni tanitadigan belgilar
   foto_turi: { type: "string", enum: ["model", "flat-lay", "auto"] },   // ✅ 665
+  tuzatish: S_STR,                                        // ✅ 666: rassomga TUZATISH brifi
   // ✅ 663: SHAXS TAHLILI — rejissyor endi xodim suratini ham KO'RADI.
   shaxs: _obj({ bor: S_BOOL, qamrov: S_STR, yuz: S_BOOL, yetarli: S_BOOL,
                 kiyim: S_STR, kombinatsiya: S_STR, tavsiya: S_STR, pastki: S_STR }),   // ✅ 664: pastki
@@ -298,11 +299,18 @@ const TEKSHIR_SXEMA = _obj({
   mos: S_BOOL, ishonch: S_INT, farqlar: S_STRLIST,
   tavsiya: { type: "string", enum: ["qabul", "qayta", "rad"] },
 });
+// ✅ 666: KIYDIRISH TEKSHIRUVI — faqat IKKI savol (egasi qoidasi): tovar
+// modeli o'zgarmadimi, yuz o'zgarmadimi. "ishonch" — HUKMGA ishonch.
+const KIYDIR_SXEMA = _obj({ tovar_mos: S_BOOL, yuz_mos: S_BOOL, sabab: S_STR, ishonch: S_INT });
 const MATN_SXEMA = _obj({
   uz: _obj({ sarlavha: S_STR, matn: S_STR, heshteg: S_STRLIST }),
   ru: _obj({ sarlavha: S_STR, matn: S_STR, heshteg: S_STRLIST }),
 });
 
+// ✅ 666: KIYDIRISH NAZORATCHISI — alohida buyruq (3.73). Egasi: "tekshiruv
+// juda ko'p narsani tekshiradi; yuz va tovar modeli o'zgarmasin, g'ijim va
+// joylashuvni rassom o'zi to'g'rilasin".
+const REJ_KIYDIR = `Sen MERX Studio nazoratchisisan: tovar odamga KIYDIRILGAN reklamani tekshirasan. Faqat IKKI narsa muhim — tovarning MODELI o'zgarmaganmi va odamning YUZI o'zgarmaganmi. Kiyim tanada qanday o'tirgani, g'ijim, burma, poza, yorug'lik, fon — sening ishing EMAS, rassom ularni tuzatadi. Aniq sabab ayta olmasang — mos deb hisobla. Javob faqat so'ralgan JSON, o'zbekcha (lotin, apostrof: o', g').`;
 const REJ_TEKSHIR = `Sen MERX Studio nazoratchisisan. Ikki rasm beriladi: ASL tovar surati va AI yasagan reklama. Vazifang bitta — tovarning O'ZI ikkalasida bir xilmi, shuni aniqlash.
 Fon, yorug'lik, poza, kadr, soya — BAHOLANMAYDI. Faqat tovar: rang, shakl, tag, tugma, zamok, naqsh, tikuv, logotip, cho'ntak, material fakturasi.
 Javob qisqa va faqat so'ralgan JSON bo'lsin — izoh, muqaddima, tushuntirish yozma. Farqlar o'zbekcha (lotin, apostrof: o', g').`;
@@ -348,7 +356,9 @@ UChINChI VAZIFA — SURATGA OLISh BRIFI ("buyruq", INGLIZCHA, 700-1400 belgi). B
 
 TOVAR SURATI TURI ("foto_turi"): kiyim tovar suratida ODAMGA kiyilgan bo'lsa "model"; ilgichda, manekenda yoki tekis yoyilgan bo'lsa "flat-lay"; kiyim bo'lmasa yoki aniq emas — "auto".
 
-TOVAR PASPORTI ("pasport", 5-8 band, INGLIZCHA): shu tovarni BOShQA shunga o'xshash tovarlardan ajratib turadigan ANIQ ko'rinadigan belgilar. Umumiy so'z emas ("chiroyli", "sifatli"), faqat ko'z bilan tekshiriladigan narsa: material fakturasi (pebbled leather, smooth suede), har qism rangi (grey suede heel tab, white cupsole), logotip/yorliq va uning JOYI (woven label on tongue reading "..."), taglik turi va qalinligi, bog'ich turi va rangi, metall qismlar, tikuv chiziqlari. Ranglarni ANIQ nomla ("light grey", "navy", "ivory", "tan") — taxminiy "off-white" yoki "light" emas; har qism rangini alohida ayt. Sabab: GRUFA tovonidagi kulrang zamsh "off-white" deb yozilgach, rassom uni bej qilib chizdi. Bu ro'yxat rassomga "ALBATTA saqlansin" deb beriladi va tekshiruvchi aynan shu bo'yicha tekshiradi.
+TUZATISH BRIFI ("tuzatish", INGLIZCHA, 1-3 jumla): rassom kiydirganda nimani O'ZI tuzatsin — g'ijimni dazmollash (lekin to'kilish burmalari va fakturani saqlab), kiyim tanaga tabiiy o'tirishi, ilgich, qo'l, birka, qisqich, do'kon foni va javonlarni olib tashlash. Tekshiruvchi bularni jazolamaydi — rassom tuzatadi.
+
+TOVAR PASPORTI ("pasport", 5-8 band, INGLIZCHA): BIRINCHI 3 BAND — modelni belgilaydigan ASOSIY belgilar (masalan: tik yoqa, ikki xil material, zamok turi, taglik turi); ular o'zgarsa bu boshqa model. Qolganlari ikkinchi darajali detallar. shu tovarni BOShQA shunga o'xshash tovarlardan ajratib turadigan ANIQ ko'rinadigan belgilar. Umumiy so'z emas ("chiroyli", "sifatli"), faqat ko'z bilan tekshiriladigan narsa: material fakturasi (pebbled leather, smooth suede), har qism rangi (grey suede heel tab, white cupsole), logotip/yorliq va uning JOYI (woven label on tongue reading "..."), taglik turi va qalinligi, bog'ich turi va rangi, metall qismlar, tikuv chiziqlari. Ranglarni ANIQ nomla ("light grey", "navy", "ivory", "tan") — taxminiy "off-white" yoki "light" emas; har qism rangini alohida ayt. Sabab: GRUFA tovonidagi kulrang zamsh "off-white" deb yozilgach, rassom uni bej qilib chizdi. Bu ro'yxat rassomga "ALBATTA saqlansin" deb beriladi va tekshiruvchi aynan shu bo'yicha tekshiradi.
 
 TOVAR SADOQATI (eng muhim): rassom tovarni namunadagidek chizishi shart — rang, shakl, tag, tugma, zamok, tikuv chizig'i, logotip, naqsh, material fakturasi, nisbatlar. Brifda buni ALOHIDA jumla bilan talab qil.
 
@@ -1128,6 +1138,7 @@ module.exports = async (req, res) => {
         if (!shx) hukm.uslub_ogoh = [];     // ko'rilmagan odam haqida ogoh YO'Q
       }
       hukm.foto_turi = /^(model|flat-lay)$/.test(String(hukm.foto_turi || "")) ? hukm.foto_turi : "auto";   // ✅ 665
+      hukm.tuzatish = String(hukm.tuzatish || "").replace(/\s+/g, " ").trim().slice(0, 400);          // ✅ 666
       hukm.pasport = Array.isArray(hukm.pasport)                                          // ✅ 652
         ? hukm.pasport.slice(0, 8).map(z => String(z).replace(/\s+/g, " ").trim().slice(0, 120)).filter(Boolean) : [];
       hukm.neytral = String(hukm.neytral || "").replace(/\s+/g, " ").trim().slice(0, 160);
@@ -1182,6 +1193,49 @@ module.exports = async (req, res) => {
     // tekshiruv esa piksel darajasida solishtirardi va yangi yo'lni HAR
     // SAFAR rad etardi (jonli: 16-sen, "AI tovarni o'zgartirib qo'ydi").
     // Bu yerda savol boshqacha: MIJOZ buni o'sha tovar deb taniydimi?
+    // ── ✅ 666: KIYDIRISH REJIMI — faqat ikki savol: tovar MODELI va YUZ ──
+    if (String(body.rejim || "") === "kiydir") {
+      const shx0 = body.shaxs ? _dataUri(body.shaxs, 1200) : null;
+      const shx = shx0 && !shx0.xato ? shx0 : null;
+      const pas = Array.isArray(body.pasport) ? body.pasport.slice(0, 3) : [];
+      const savolK =
+        "1-rasm — TOVAR (do'kon surati: ilgichda, qo'lda yoki tekis turgan bo'lishi mumkin). " +
+        "2-rasm — AI yasagan reklama: shu tovar ODAMGA KIYDIRILGAN. " +
+        (shx ? "3-rasm — o'sha odamning ASL surati. " : "") +
+        "Faqat IKKI savolga javob ber.\n" +
+        "1) tovar_mos — 2-rasmdagi tovar AYNI SHU MODELmi? Faqat modelni belgilaydigan narsalarga qara: tovar turi, bichimi " +
+        "(masalan bomber ↔ kostyum), yoqa TURI (tik ↔ qaytarma), asosiy rang(lar) va rang zonalari, material turlari va panellar, " +
+        "logotip yoki yorliq, qadama turi (zamok ↔ tugma), oyoq kiyimda taglik va bog'ich turi. " +
+        (pas.length ? "ASOSIY belgilar: " + pas.map((z, i) => (i + 1) + ") " + String(z).slice(0, 120)).join("; ") + ". " : "") +
+        "FARQ EMAS — bularni hisobga olma: g'ijim, burma, kiyim tanada qanday o'tirgani, yeng va etak holati, zamok ochiq yoki yopiq, " +
+        "yorug'lik va soya tufayli tus farqi, faktura o'tkirligi, burchak, poza, fon, hamda poza yoki qo'l bilan YOPILIB qolgan belgilar " +
+        "(ko'rinmagan belgi — farq emas).\n" +
+        "2) yuz_mos — " + (shx ? "2-rasmdagi odam 3-rasmdagi bilan AYNI odammi: yuz tuzilishi, soch, teri rangi? Ifoda, burilish, yorug'lik — farq emas."
+                              : "3-rasm yo'q — true yoz.") + "\n" +
+        "'sabab' — biror javob false bo'lsa MAJBURIY: qaysi belgi qanday o'zgargan, bitta jumla. Hammasi true bo'lsa bo'sh. " +
+        "'ishonch' — O'Z HUKMINGGA qanchalik ishonchingiz, 0-100. Tovar: " + _tovarMatn(body.tovar || {});
+      try {
+        const kont = [
+          { type: "image", source: { type: "base64", media_type: asl.media, data: asl.data } },
+          { type: "image", source: { type: "base64", media_type: nat.media, data: nat.data } }];
+        if (shx) kont.push({ type: "image", source: { type: "base64", media_type: shx.media, data: shx.data } });
+        kont.push({ type: "text", text: savolK });
+        const r = await aiChaqir(M_AI_HUKM, REJ_KIYDIR, kont, 700, 45000, KIYDIR_SXEMA);
+        const hh = _jsonAjrat(r.text);
+        const tm = hh.tovar_mos !== false, ym = shx ? hh.yuz_mos !== false : true;
+        const sabab = String(hh.sabab || "").replace(/\s+/g, " ").trim().slice(0, 200);
+        const ish = Math.max(0, Math.min(100, Number(hh.ishonch) || 0));
+        const h2 = { mos: tm && ym, tovar_mos: tm, yuz_mos: ym, yuz_tekshirildi: !!shx, sabab, ishonch: ish,
+                     farqlar: sabab ? [sabab] : [], tavsiya: (tm && ym) ? "qabul" : "qayta" };
+        await jurnal(shopId, "ai_solishtir:kiydir", r.prov || "ai", r.model || M_AI_HUKM, true,
+          (h2.mos ? "MOS" : "MOS EMAS") + " " + ish + "% · tovar " + (tm ? "✓" : "✗") +
+          " · yuz " + (shx ? (ym ? "✓" : "✗") : "—") + " · " + (sabab || "sabab yo'q"));
+        return res.status(200).json({ ok: true, hukm: h2 });
+      } catch (e) {
+        await jurnal(shopId, "ai_solishtir:kiydir", "ai", AI_PROV === "gemini" ? M_GEM : M_AI_HUKM, false, e.message);
+        return res.status(200).json({ ok: false, error: e.message });
+      }
+    }
     if (String(body.rejim || "") === "yangi") {
       const savolY = "Birinchi rasm — tovarning ASL surati (do'kon telefonda olgan). " +
         "Ikkinchi rasm — SHU tovarning professional reklama uchun QAYTA olingan surati. " +
@@ -1738,6 +1792,8 @@ module.exports = async (req, res) => {
       `Edit the first image (the person). Replace ONLY the person's ${nima} with the exact ` +
       `product shown in the second image. Keep the product's design, colour, material, ` +
       `logo and shape exactly as in the second image. ` + _pasportMatn(body.pasport) +
+      // ✅ 666: rejissyorning TUZATISH brifi — g'ijim, o'tirish, ortiqcha narsa rassomning ishi
+      (String(body.tuzatish || "").trim() ? `While doing this, also fix: ${String(body.tuzatish).replace(/\s+/g, " ").trim().slice(0, 400)}. ` : "") +
       `Do NOT substitute a similar-looking generic product. Do NOT change the person's face, ` +
       `hair, skin, body, pose, their other clothing or the background in any way. Photorealistic, ` +
       (/^(tops|bottoms|one-pieces)$/.test(tur)
