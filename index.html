@@ -1389,7 +1389,155 @@ body.sms-off .sms-only { display: none !important; }
         #p-studio #stu-brauzer{grid-template-columns:1fr 1fr}
         #p-studio #stu-fonlar{grid-template-columns:1fr 1fr}
       }
-    </style>
+    
+      /* ═══════════════════════════════════════════════════════════════
+         ✅ 661 — STUDIO ISH STOLI. Egasi: "2015 yil saytiga o'xshaydi,
+         tartibsiz, AI tahlili rasm ustida, o'ngda bo'sh joy". Sabablar:
+         butun oyna 760px ga qamalgan edi, ichki bloklar yana 520px ga,
+         hukm kartasi rasm ustiga yopishtirilgan edi. Endi: ekran to'liq,
+         uch zona, sahifa aylanmaydi (kassa sahifasi naqshi), rasm ochiq.
+         ═══════════════════════════════════════════════════════════════ */
+      @media(min-width:1100px){
+        #p-studio.pg.on{display:flex;flex-direction:column;padding:0;flex:1;min-height:0;overflow-y:auto}
+        #p-studio #stu-oddiy.sx{flex:1;min-height:600px}
+      }
+      #p-studio #stu-oddiy.stv2.sx{max-width:none;margin:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;
+        background:#E9ECEF;color:#10192B;--sx-ink:#10192B;--sx-ln:#D5DAE0;--sx-mut:#566070;--sx-ac:#F2A413;--sx-ok:#1B6E45}
+      @media(max-width:1099px){#p-studio #stu-oddiy.stv2.sx{border-radius:16px;overflow:hidden;border:1px solid var(--sx-ln)}}
+
+      /* sarlavha va bosqichlar */
+      #p-studio .sx .sx-top{display:flex;align-items:center;gap:20px;padding:0 24px;min-height:60px;background:#fff;border-bottom:1px solid var(--sx-ln)}
+      #p-studio .sx .sx-top h3{margin:0;font-family:"Sora",inherit;font-size:19px;font-weight:700;min-width:120px}
+      #p-studio .sx .sx-qadam{list-style:none;margin:0 auto;padding:0;display:flex;align-items:center;gap:10px}
+      #p-studio .sx .sx-qadam li{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--sx-mut)}
+      #p-studio .sx .sx-qadam li i{font-style:normal;width:24px;height:24px;box-sizing:border-box;border-radius:50%;border:1.5px solid #B9C0CA;
+        display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+      #p-studio .sx .sx-qadam li.tay{color:var(--sx-ink)}
+      #p-studio .sx .sx-qadam li.tay i{background:var(--sx-ink);border-color:var(--sx-ink);color:#fff}
+      #p-studio .sx .sx-qadam li.hoz{color:var(--sx-ink);font-weight:700}
+      #p-studio .sx .sx-qadam li.hoz i{border:2px solid var(--sx-ac);background:#FFF6E3;color:var(--sx-ink)}
+      #p-studio .sx .sx-qadam .sx-chiz{width:36px;height:2px;background:var(--sx-ln);gap:0}
+      #p-studio .sx .sx-qadam .sx-chiz.tay{background:var(--sx-ink)}
+      #p-studio .sx .v2-kredit{margin-left:0;display:flex;align-items:center;gap:14px;font-size:13px;color:var(--sx-mut)}
+      #p-studio .sx .sx-btn2{height:38px;padding:0 14px;border:1px solid var(--sx-ln);border-radius:10px;background:#fff;
+        color:var(--sx-ink);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+      #p-studio .sx .sx-btn2:hover{border-color:var(--sx-ink)}
+      @media(max-width:1099px){#p-studio .sx .sx-qadam span{display:none}#p-studio .sx .sx-qadam .sx-chiz{width:18px}}
+
+      /* uch zona */
+      #p-studio .sx .sx-ish{display:grid;grid-template-columns:300px minmax(0,1fr) 360px;min-height:0}
+      @media(max-width:1280px) and (min-width:1100px){#p-studio .sx .sx-ish{grid-template-columns:280px minmax(0,1fr) 320px}}
+      @media(max-width:1099px){#p-studio .sx .sx-ish{grid-template-columns:1fr}}
+
+      /* chap: tovar va tur */
+      #p-studio .sx .sx-l{background:#fff;border-right:1px solid var(--sx-ln);padding:18px 20px;overflow-y:auto;
+        display:flex;flex-direction:column;gap:18px;min-height:0}
+      #p-studio .sx .sx-blok{display:flex;flex-direction:column;gap:10px}
+      #p-studio .sx .sx-blok+.sx-blok{border-top:1px solid #E3E7EC;padding-top:18px}
+      #p-studio .sx .sx-blok h4{display:flex;align-items:center;gap:10px;margin:0;font-size:15px;font-weight:700}
+      #p-studio .sx .sx-n{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--sx-ink);color:#fff;
+        font-size:12px;display:inline-flex;align-items:center;justify-content:center}
+      #p-studio .sx .sx-lbl{display:block;font-size:12px;font-weight:600;color:var(--sx-mut);margin-bottom:6px}
+      #p-studio .sx .st-inp{height:42px;border-radius:10px;border-color:var(--sx-ln)}
+      #p-studio .sx .sx-l .v2-karta{margin-top:0;border-radius:12px;border-color:var(--sx-ln)}
+      #p-studio .sx .sx-l .v2-karta:not(.bosh){display:flex;align-items:center;gap:12px;padding:10px}
+      #p-studio .sx .sx-l .v2-karta:not(.bosh)>img{width:64px;height:80px;aspect-ratio:auto;border-radius:8px;flex-shrink:0}
+      #p-studio .sx .sx-l .v2-karta .t{padding:0;min-width:0}
+      #p-studio .sx .sx-l .v2-karta.bosh{font-size:13px;line-height:1.45}
+      /* manba tugmalari — to'liq kenglikdagi segment */
+      #p-studio #stu-oddiy.sx .st-od-manbalar{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;width:100%;box-sizing:border-box;
+        gap:3px;padding:3px;background:#EEF0F3;border:0;border-radius:10px}
+      #p-studio #stu-oddiy.sx .st-od-manbalar>*{display:flex;align-items:center;justify-content:center;gap:6px;height:36px;border:0;
+        border-radius:8px;background:transparent;color:var(--sx-ink);font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
+      #p-studio #stu-oddiy.sx .st-od-manbalar>.on{background:var(--sx-ink);color:#fff;font-weight:600}
+      #p-studio #stu-oddiy.sx .st-od-manbalar>.yoq{opacity:.45}
+      #p-studio #stu-oddiy.sx .st-od-manbalar svg{width:15px;height:15px;flex-shrink:0}
+      #p-studio .sx .st-hint{font-size:12px;color:var(--sx-ok);margin-top:6px}
+      /* reklama turlari — ro'yxat */
+      #p-studio #stu-oddiy.stv2.sx .st-od-turlar{grid-template-columns:1fr;gap:6px;max-width:none;margin:0}
+      #p-studio #stu-oddiy.stv2.sx .st-od-tur{display:grid;grid-template-columns:22px 1fr;column-gap:10px;row-gap:1px;align-items:center;
+        text-align:left;padding:10px 12px;border:1px solid var(--sx-ln);border-radius:10px;background:#fff;min-height:56px;box-sizing:border-box}
+      #p-studio #stu-oddiy.stv2.sx .st-od-tur i{grid-row:1 / 3;font-style:normal;color:var(--sx-mut);display:flex;align-items:center}
+      #p-studio #stu-oddiy.stv2.sx .st-od-tur i svg{width:20px;height:20px}
+      #p-studio #stu-oddiy.stv2.sx .st-od-tur b{font-size:14px;font-weight:600;color:var(--sx-ink)}
+      #p-studio #stu-oddiy.stv2.sx .st-od-tur span{font-size:12px;color:var(--sx-mut);margin:0;line-height:1.35}
+      #p-studio #stu-oddiy.stv2.sx .st-od-tur:hover{border-color:#9AA3B0}
+      #p-studio #stu-oddiy.stv2.sx .st-od-tur.on{border:2px solid var(--sx-ink);padding:9px 11px;background:#F5F7FA}
+      #p-studio #stu-oddiy.stv2.sx .st-od-tur.on i{color:var(--sx-ink)}
+      #p-studio .sx #stu-od-kerak{max-width:none;margin:0}
+      #p-studio .sx #stu-od-kerak:empty{display:none}
+
+      /* o'rta: kanvas */
+      #p-studio .sx .sx-c{display:flex;flex-direction:column;gap:12px;padding:18px 24px;min-height:0;min-width:0}
+      #p-studio .sx .sx-well{position:relative;flex:1;min-height:0;aspect-ratio:auto;max-height:none;width:100%;box-sizing:border-box;
+        border-radius:16px;overflow:hidden;padding:20px;display:flex;align-items:center;justify-content:center;
+        background-color:#DCE0E5;background-image:radial-gradient(#C3C9D1 1px,transparent 1px);background-size:18px 18px}
+      #p-studio .sx .sx-well img,#p-studio .sx .sx-well canvas{max-width:100%;max-height:100%;width:auto;height:auto;
+        object-fit:contain;border-radius:10px;box-shadow:0 18px 44px rgba(16,25,43,.20);background:#fff}
+      #p-studio #stu-oddiy.sx #stu-od-cvs{max-height:100%;max-width:100%}   /* eski 60vh cheklovi (2 ID) bosiladi */
+      #p-studio .sx .v2-bosh-matn{max-width:300px;font-size:14px;line-height:1.5;color:var(--sx-mut)}
+      #p-studio .sx #stu-od-natija{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
+      #p-studio .sx.sx-natija #stu-sahna{display:none}
+      #p-studio .sx .sx-nbosh{display:flex;justify-content:center}
+      #p-studio .sx .sx-nbosh .v2-seg{margin:0}
+      #p-studio .sx .v2-thumbs{max-width:none;margin:0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+      #p-studio .sx .v2-thumbs .stu-vr{width:64px}
+      #p-studio .sx .v2-thumbs .stu-vr-yana{width:auto;padding:9px 16px;border-radius:10px}
+      @media(max-width:1099px){#p-studio .sx .sx-well{flex:none;aspect-ratio:4/5;max-height:72vh}}
+
+      /* o'ng: rejissyor · ko'rinish · matn */
+      #p-studio .sx .sx-r{background:#fff;border-left:1px solid var(--sx-ln);display:flex;flex-direction:column;min-height:0}
+      #p-studio .sx .sx-tabs{display:flex;gap:22px;padding:0 20px;height:48px;flex-shrink:0;border-bottom:1px solid #E3E7EC}
+      #p-studio .sx .sx-tabs button{border:0;background:none;padding:0;font:inherit;font-size:14px;font-weight:500;color:var(--sx-mut);cursor:pointer}
+      #p-studio .sx .sx-tabs button:hover{color:var(--sx-ink)}
+      #p-studio .sx[data-panel="rejissyor"] .sx-tabs [data-t="rejissyor"],
+      #p-studio .sx[data-panel="korinish"] .sx-tabs [data-t="korinish"],
+      #p-studio .sx[data-panel="matn"] .sx-tabs [data-t="matn"]{color:var(--sx-ink);font-weight:700;box-shadow:inset 0 -2px 0 var(--sx-ink)}
+      #p-studio .sx .sx-p{display:none;padding:16px 20px 20px;overflow-y:auto;flex:1;min-height:0}
+      #p-studio .sx[data-panel="rejissyor"] .sx-p[data-p="rejissyor"],
+      #p-studio .sx[data-panel="korinish"] .sx-p[data-p="korinish"],
+      #p-studio .sx[data-panel="matn"] .sx-p[data-p="matn"]{display:block}
+      #p-studio .sx .sx-bosh-p{margin:4px 0 0;font-size:13px;line-height:1.55;color:var(--sx-mut)}
+      #p-studio .sx #stu-hukm:not([style*="none"])~.sx-bosh-p,
+      #p-studio .sx #stu-matn:not([style*="none"])~.sx-bosh-p{display:none}
+      /* hukm — endi rasm ustida EMAS, panelda (645 dagi cheklovlar olib tashlanadi) */
+      #p-studio #stu-oddiy.sx #stu-hukm{position:static;left:auto;right:auto;bottom:auto;max-height:none;overflow:visible;
+        background:transparent;box-shadow:none;padding:0;border-radius:0;font-size:13.5px;line-height:1.55}
+      #p-studio #stu-oddiy.sx #stu-hukm b{font-size:14.5px}
+      #p-studio #stu-oddiy.sx #stu-hukm ul{margin:8px 0 0;padding-left:18px}
+      #p-studio #stu-oddiy.sx #stu-hukm li{margin:4px 0}
+      #p-studio #stu-oddiy.sx #stu-hukm .v2-ai{margin-top:12px;padding:12px 14px;background:#F5F7FA;border-radius:12px;font-size:13px;line-height:1.6}
+      /* tovar pasporti — to'qima yorliq ko'rinishida */
+      #p-studio .sx .sx-pas{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+      #p-studio .sx .sx-yorliq{font-size:12px;font-weight:600;color:#3A3326;background:#F6F3EC;border:1px solid #CFC7B6;
+        outline:1px dashed #B3AA96;outline-offset:-4px;border-radius:3px;padding:7px 11px;line-height:1.2}
+      #p-studio .sx .sx-inp-l{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:var(--sx-mut)}
+      #p-studio .sx .v2-guruh{text-transform:none;letter-spacing:0;font-size:13px;color:var(--sx-ink);font-weight:700;margin:18px 0 4px}
+      #p-studio .sx .v2-sw{min-height:38px}
+      #p-studio .sx .sx-p .v2-matn,#p-studio .sx .sx-p .v2-holat{max-width:none;margin:0 0 12px}
+
+      /* pastki panel — asosiy tugma doim ko'rinadi */
+      #p-studio .sx .sx-bar{display:flex;align-items:center;gap:14px;padding:12px 24px;min-height:72px;box-sizing:border-box;
+        background:#fff;border-top:1px solid var(--sx-ln)}
+      @media(max-width:1099px){#p-studio .sx .sx-bar{position:sticky;bottom:0;z-index:5;flex-wrap:wrap}}
+      #p-studio .sx .sx-bar #stu-holat{max-width:none;margin:0;flex:1;min-width:0;background:transparent;border:0;padding:0;
+        font-size:13px;font-weight:600;color:var(--sx-ink);display:flex;align-items:center;gap:8px}
+      #p-studio .sx .sx-bar #stu-holat::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--sx-ac);flex-shrink:0}
+      #p-studio .sx .sx-bar #stu-holat.ok::before{background:var(--sx-ok)}
+      #p-studio .sx #stu-od-kredit-izoh{margin-left:auto;font-size:13px;color:var(--sx-mut)}
+      #p-studio .sx .sx-amal{display:none;gap:8px;align-items:center}
+      #p-studio .sx.sx-natija .sx-amal{display:flex}
+      #p-studio .sx .sx-amal button{display:flex;align-items:center;gap:7px;height:44px;padding:0 14px;border:1px solid var(--sx-ln);
+        border-radius:12px;background:#fff;color:var(--sx-ink);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+      #p-studio .sx .sx-amal button:hover{border-color:var(--sx-ink)}
+      #p-studio .sx .sx-amal button svg{width:16px;height:16px}
+      #p-studio .sx .sx-amal button.asosiy{background:var(--sx-ac);border-color:var(--sx-ac);font-weight:800}
+      #p-studio .sx #stu-od-go{height:48px;padding:0 30px;border:0;border-radius:12px;background:var(--sx-ac);color:var(--sx-ink);
+        font:inherit;font-size:15px;font-weight:800;cursor:pointer;flex-shrink:0}
+      #p-studio .sx #stu-od-go:disabled{opacity:.45;cursor:not-allowed}
+      #p-studio .sx.sx-natija #stu-od-go{background:#fff;border:1px solid var(--sx-ln);font-size:14px;font-weight:600;height:44px;padding:0 18px}
+      #p-studio .sx button:focus-visible,#p-studio .sx input:focus-visible,#p-studio .sx label:focus-within{outline:2px solid var(--sx-ink);outline-offset:2px}
+</style>
 
     <!-- ═══ ✅ ODDIY REJIM (2026-09-07) — do'konchi uchun ═══
          Uch harakat: tovar → surat → ✨. Boshqa hech narsa ko'rinmaydi. -->
@@ -1505,80 +1653,104 @@ body.sms-off .sms-only { display: none !important; }
         #p-studio .stv2 .v2-amal{grid-template-columns:1fr 1fr}
       }
     </style>
-    <div id="stu-oddiy" class="stv2">
-      <div class="v2-top">
+    <div id="stu-oddiy" class="stv2 sx" data-panel="rejissyor">
+      <!-- ✅ 661: YANGI ISH STOLI — ekran uch zonaga to'liq bo'linadi, sahifa
+           aylanmaydi, rasm hech narsa bilan yopilmaydi, asosiy tugma doim
+           ko'rinadi. Barcha 32 ta ID saqlangan — studio.js ular orqali yozadi. -->
+      <header class="sx-top">
         <h3>Studio</h3>
+        <ol class="sx-qadam" id="sx-qadam" aria-label="Bosqichlar">
+          <li data-q="1"><i>1</i><span>Tovar</span></li>
+          <li class="sx-chiz" data-c="1" aria-hidden="true"></li>
+          <li data-q="2"><i>2</i><span>Kimda ko'rsatamiz</span></li>
+          <li class="sx-chiz" data-c="2" aria-hidden="true"></li>
+          <li data-q="3"><i>3</i><span>Natija</span></li>
+        </ol>
         <div class="v2-kredit">
           <span id="stu-sarf"></span>
-          <button class="v2-lnk" onclick="stuSozlamaOch()">Kanal va brend sozlamalari</button>
+          <button class="sx-btn2" onclick="stuSozlamaOch()">Kanal va brend</button>
         </div>
-      </div>
+      </header>
 
-      <div class="v2-grid">
-        <aside class="v2-l">
-          <h4>Tovar</h4>
-          <input id="stu-q" class="st-inp" placeholder="Nom, artikul yoki shtrix-kod"
-                 oninput="stuQidir(this.value)" autocomplete="off">
-          <div id="stu-natija" style="display:none;max-height:260px;overflow:auto;
-               border:1px solid var(--ln);border-radius:11px;margin-top:6px;background:#fff"></div>
-          <div id="stu-od-tovar" class="v2-karta bosh">Tovarni tanlang — nom, artikul yoki shtrix-kod bilan qidiring</div>
+      <div class="sx-ish">
+        <aside class="sx-l" aria-label="Tovar va reklama turi">
+          <section class="sx-blok">
+            <h4><i class="sx-n">1</i>Tovar</h4>
+            <input id="stu-q" class="st-inp" placeholder="Nom, artikul yoki shtrix-kod"
+                   oninput="stuQidir(this.value)" autocomplete="off" aria-label="Tovarni qidirish">
+            <div id="stu-natija" style="display:none;max-height:260px;overflow:auto;
+                 border:1px solid var(--ln);border-radius:11px;margin-top:6px;background:#fff"></div>
+            <div id="stu-od-tovar" class="v2-karta bosh">Tovarni tanlang — nom, artikul yoki shtrix-kod bilan qidiring</div>
+            <div class="sx-manba"><span class="sx-lbl">Surat qayerdan</span><div id="stu-od-manba"></div></div>
+          </section>
+          <section class="sx-blok">
+            <h4><i class="sx-n">2</i>Kimda ko'rsatamiz</h4>
+            <div id="stu-od-turlar" class="st-od-turlar"></div>
+            <div id="stu-od-kerak"></div>
+          </section>
         </aside>
 
-        <section class="v2-c">
-          <div class="v2-bosh"><h4>Surat</h4><div id="stu-od-manba"></div></div>
-          <div id="stu-sahna" class="v2-sahna">
-            <img id="stu-sahna-img" alt="" style="display:none">
+        <main class="sx-c" aria-label="Kanvas">
+          <div id="stu-sahna" class="v2-sahna sx-well">
+            <img id="stu-sahna-img" alt="Tovar surati" style="display:none">
             <div id="stu-sahna-bosh" class="v2-bosh-matn">Avval tovarni tanlang, keyin surat: katalogdan, galereyadan yoki kameradan</div>
-            <div id="stu-hukm" class="v2-hukm" style="display:none"></div>
           </div>
-
-          <h4 style="margin:4px auto 0;max-width:520px;width:100%">Kimda ko'rsatamiz</h4>
-          <div id="stu-od-turlar" class="st-od-turlar"></div>
-          <div id="stu-od-kerak"></div>
-          <div id="stu-holat" class="v2-holat" style="display:none"></div>
-
-          <div class="v2-cta">
-            <button id="stu-od-go" onclick="stuReklamaYasa()" disabled>Reklama yasa</button>
-            <small id="stu-od-kredit-izoh">Tovar va surat tanlangach faollashadi</small>
-          </div>
-
           <div id="stu-od-natija" style="display:none">
-            <div class="v2-bosh"><h4>Natija</h4><div id="stu-od-fmt" class="v2-seg"></div></div>
-            <div class="v2-sahna"><canvas id="stu-od-cvs" width="1080" height="1350"></canvas></div>
+            <div class="sx-nbosh"><div id="stu-od-fmt" class="v2-seg"></div></div>
+            <div class="v2-sahna sx-well"><canvas id="stu-od-cvs" width="1080" height="1350"></canvas></div>
             <div id="stu-od-variants" class="v2-thumbs"></div>
-            <div class="v2-amal">
-              <button class="asosiy" onclick="stuKanalga()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/></svg>Kanalga yuborish</button>
-              <button onclick="stuYukla(false)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>Yuklab olish</button>
-              <button onclick="stuYana()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>Yana 6 ta</button>
-              <button onclick="stuBoshqaFon()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="9" cy="9" r="1.5"/></svg>Boshqa fon</button>
-              <button onclick="stuVideo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg>Video</button>
-            </div>
+          </div>
+        </main>
+
+        <aside class="sx-r" aria-label="Rejissyor, ko'rinish va matn">
+          <div class="sx-tabs" role="tablist">
+            <button type="button" role="tab" data-t="rejissyor" onclick="stuPanel('rejissyor')">Rejissyor</button>
+            <button type="button" role="tab" data-t="korinish" onclick="stuPanel('korinish')">Ko'rinish</button>
+            <button type="button" role="tab" data-t="matn" onclick="stuPanel('matn')">Matn</button>
+          </div>
+          <div class="sx-p" data-p="rejissyor" role="tabpanel">
+            <div id="stu-hukm" class="v2-hukm" style="display:none"></div>
+            <p class="sx-bosh-p">Surat tanlanganda rejissyor tovarni o'rganadi va shu yerda kadr rejasini yozadi: qaysi yondashuv, qanday sahna, nimalar albatta saqlanadi.</p>
+          </div>
+          <div class="sx-p" data-p="korinish" role="tabpanel">
+            <label class="sx-inp-l">Sarlavha yorlig'i
+              <input id="stu-yorliq-v2" class="st-inp" maxlength="28" placeholder="Yangi keldi, −20%, Qishki to'plam"
+                     oninput="stuYorliq(this.value)" autocomplete="off"></label>
+            <!-- ✅ 648: rasm ustidagi har bir yozuv alohida galochka bilan -->
+            <div class="v2-guruh">Rasm ustida ko'rinsin</div>
+            <label class="v2-sw"><span>Tovar nomi</span><input id="stu-ko-nom" type="checkbox" onchange="stuKoNom(this.checked)"></label>
+            <label class="v2-sw"><span>Narx</span><input id="stu-narx-v2" type="checkbox" onchange="stuNarx(this.checked)"></label>
+            <label class="v2-sw"><span>Artikul va rang</span><input id="stu-ko-art" type="checkbox" onchange="stuKoArt(this.checked)"></label>
+            <label class="v2-sw"><span>Sarlavha yorlig'i</span><input id="stu-ko-yorliq" type="checkbox" onchange="stuKoYorliq(this.checked)"></label>
+            <label class="v2-sw"><span>MERX belgisi</span><input id="stu-belgi-v2" type="checkbox" onchange="stuBelgi(this.checked)"></label>
+            <!-- ✅ 648: rasmda ko'rsatilmagan ma'lumot post MATNIGA qo'shilishi mumkin -->
+            <div class="v2-guruh">Post matnida bo'lsin</div>
+            <label class="v2-sw"><span>Tovar nomi</span><input id="stu-mt-nom" type="checkbox" onchange="stuMtNom(this.checked)"></label>
+            <label class="v2-sw"><span>Narx</span><input id="stu-mt-narx" type="checkbox" onchange="stuMtNarx(this.checked)"></label>
+            <label class="v2-sw"><span>Artikul va rang</span><input id="stu-mt-art" type="checkbox" onchange="stuMtArt(this.checked)"></label>
+            <div id="stu-od-sozlama" style="display:none;margin-top:12px"><div id="stu-od-sozlama-ichi"></div></div>
+            <p class="v2-eslat">Hammasi ixtiyoriy. Hech narsaga tegmasangiz ham standart sozlamalar yaxshi natija beradi.</p>
+          </div>
+          <div class="sx-p" data-p="matn" role="tabpanel">
             <div id="stu-natija-hukm" class="v2-holat" style="display:none"></div>
             <div id="stu-matn" class="v2-matn" style="display:none"></div>
+            <p class="sx-bosh-p">Reklama yasalgach post matni o'zbek va rus tilida shu yerda paydo bo'ladi.</p>
           </div>
-        </section>
-
-        <aside class="v2-r">
-          <h4>Sozlash</h4>
-          <label>Sarlavha (ixtiyoriy)
-            <input id="stu-yorliq-v2" class="st-inp" maxlength="28" placeholder="Yangi keldi, −20%, Qishki to'plam"
-                   oninput="stuYorliq(this.value)" autocomplete="off"></label>
-          <!-- ✅ 648: rasm ustidagi har bir yozuv alohida galochka bilan -->
-          <div class="v2-guruh">Rasm ustida ko'rinsin</div>
-          <label class="v2-sw"><span>Tovar nomi</span><input id="stu-ko-nom" type="checkbox" onchange="stuKoNom(this.checked)"></label>
-          <label class="v2-sw"><span>Narx</span><input id="stu-narx-v2" type="checkbox" onchange="stuNarx(this.checked)"></label>
-          <label class="v2-sw"><span>Artikul va rang</span><input id="stu-ko-art" type="checkbox" onchange="stuKoArt(this.checked)"></label>
-          <label class="v2-sw"><span>Sarlavha yorlig'i</span><input id="stu-ko-yorliq" type="checkbox" onchange="stuKoYorliq(this.checked)"></label>
-          <label class="v2-sw"><span>MERX belgisi</span><input id="stu-belgi-v2" type="checkbox" onchange="stuBelgi(this.checked)"></label>
-          <!-- ✅ 648: rasmda ko'rsatilmagan ma'lumot post MATNIGA qo'shilishi mumkin -->
-          <div class="v2-guruh">Post matnida bo'lsin</div>
-          <label class="v2-sw"><span>Tovar nomi</span><input id="stu-mt-nom" type="checkbox" onchange="stuMtNom(this.checked)"></label>
-          <label class="v2-sw"><span>Narx</span><input id="stu-mt-narx" type="checkbox" onchange="stuMtNarx(this.checked)"></label>
-          <label class="v2-sw"><span>Artikul va rang</span><input id="stu-mt-art" type="checkbox" onchange="stuMtArt(this.checked)"></label>
-          <div id="stu-od-sozlama" style="display:none;margin-top:12px"><div id="stu-od-sozlama-ichi"></div></div>
-          <p class="v2-eslat">Hammasi ixtiyoriy. Hech narsaga tegmasangiz ham standart sozlamalar yaxshi natija beradi.</p>
         </aside>
       </div>
+
+      <footer class="sx-bar">
+        <div id="stu-holat" class="v2-holat" style="display:none"></div>
+        <small id="stu-od-kredit-izoh">Tovar va surat tanlangach faollashadi</small>
+        <div class="sx-amal">
+          <button onclick="stuYukla(false)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>Yuklab olish</button>
+          <button onclick="stuYana()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>Yana 6 ta</button>
+          <button onclick="stuBoshqaFon()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="9" cy="9" r="1.5"/></svg>Boshqa fon</button>
+          <button onclick="stuVideo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg>Video</button>
+          <button class="asosiy" onclick="stuKanalga()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/></svg>Kanalga yuborish</button>
+        </div>
+        <button id="stu-od-go" onclick="stuReklamaYasa()" disabled>Reklama yasa</button>
+      </footer>
     </div>
 
     <div id="stu-pro" style="display:none">
@@ -5906,7 +6078,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/moliya.js?v=184"></script>
 <script src="js/egasi.js?v=214"></script>
 <script src="js/portal.js?v=144"></script>
-<script src="js/studio.js?v=50"></script>
+<script src="js/studio.js?v=51"></script>
 <script src="js/init.js?v=152"></script>
 <script>
 // Sidebar guruhlarni yashirish/ochish
@@ -6201,7 +6373,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 660;
+  window.SW_V = 661;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -6224,7 +6396,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=660")
+    navigator.serviceWorker.register("/sw.js?v=661")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)

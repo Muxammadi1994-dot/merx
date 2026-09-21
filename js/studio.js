@@ -2582,7 +2582,7 @@ function renderStudio() {
     let r = "oddiy";                                 // ✅ V2 oyna: pro rejim oynadan olib tashlandi (DOM yashirin qoladi)
     STU.rejim = r;
     const od = document.getElementById("stu-oddiy"), pr = document.getElementById("stu-pro");
-    if (od) od.style.display = r === "pro" ? "none" : "block";
+    if (od) od.style.display = r === "pro" ? "none" : "";   // ✅ 661: "" — CSS grid ishlasin
     if (pr) pr.style.display = r === "pro" ? "block" : "none";
     if (r === "pro") stuSozlamaJoyla("pro");
   }
@@ -2618,6 +2618,13 @@ function stuBelgi(on){ STU.belgi = !!on; stChiz(); }
 function stuKoNom(on)   { STU.koNom = !!on; stChiz(); }
 function stuKoArt(on)   { STU.koArt = !!on; stChiz(); }
 function stuKoYorliq(on){ STU.koYorliq = !!on; stChiz(); }
+// ✅ 661: POST MATNI RUXSATLARI — 648 da e'lon qilingan, lekin qayta
+// kiritishda tushib qolgan edi: HTML galochkalar mavjud bo'lmagan
+// funksiyani chaqirardi va jimgina ishlamasdi. Keyingi matn yozilganda
+// qo'llanadi (mavjud matn qayta so'ralmaydi — har bosish kredit sarflardi).
+function stuMtNom(on)  { STU.mtNom = !!on; }
+function stuMtNarx(on) { STU.mtNarx = !!on; }
+function stuMtArt(on)  { STU.mtArt = !!on; }
 function stuZoom(v)  { STU.imgAdj.zoom = Number(v) || 1; stChiz(); }
 
 // tovar qidirish (faqat o'qiydi)
@@ -2826,7 +2833,7 @@ function stuHolatQosh(q) {
   const el = document.getElementById("stu-holat");
   if (!el) return;
   const asos = (el.textContent || "").split(" — ")[0];
-  el.textContent = asos + " — " + q; el.style.display = "block";
+  el.textContent = asos + " — " + q; el.style.display = "";   // ✅ 661
 }
 // ✅ 649: HUKM KARTASIDAGI SOAT. "Rejissyor ko'rmoqda…" qotgan matn edi —
 // egasi 15-20 soniya nima bo'layotganini bilmasdi. Endi shu yerda ham
@@ -2862,7 +2869,7 @@ function _stuSoatYoz() {
     qol = " · taxminan " + (r < 60 ? r + " s" : Math.ceil(r / 60) + " daq") + " qoldi";
   } else if (_stuSoatKut) qol = " · yakunlanmoqda";
   el.textContent = _stuSoatM + " — " + q + qol;
-  el.style.display = "block";
+  el.style.display = "";                             // ✅ 661
 }
 function stuHolat(m, kut) {
   const el = document.getElementById("stu-holat");
@@ -4216,7 +4223,7 @@ function stuRejim(r) {
   STU.rejim = r;
   const od = document.getElementById("stu-oddiy");
   const pr = document.getElementById("stu-pro");
-  if (od) od.style.display = r === "pro" ? "none" : "block";
+  if (od) od.style.display = r === "pro" ? "none" : "";   // ✅ 661: "" — CSS grid ishlasin
   if (pr) pr.style.display = r === "pro" ? "block" : "none";
   stuSozlamaJoyla(r);
   _stuLS("merx_studio_rejim", r);
@@ -4224,10 +4231,45 @@ function stuRejim(r) {
 }
 function stuOddiyChiz() { stuUstaChiz(); }
 function stuOdamKadri(on) { STU.odamKadri = !!on; }
+// ✅ 661: o'ng panel yorliqlari (Rejissyor · Ko'rinish · Matn)
+function stuPanel(nom) {
+  const od = document.getElementById("stu-oddiy");
+  if (!od) return;
+  od.dataset.panel = nom;
+  od.querySelectorAll(".sx-tabs [data-t]").forEach(b => b.setAttribute("aria-selected", b.dataset.t === nom ? "true" : "false"));
+}
+// ✅ 661: tepadagi bosqichlar — holatdan hisoblanadi, qo'lda emas
+function _sxQadam() {
+  const ol = document.getElementById("sx-qadam");
+  if (!ol) return;
+  const shaxsKerak = STU.turi === "real" || (STU.turi === "kop" && STU.modelJins === "shaxs");
+  const q1 = !!(STU.tovar && STU.img);
+  const q2 = q1 && (!shaxsKerak || !!STU.shaxs);
+  const q3 = !!(STU.variants && STU.variants.length);
+  const hol = { 1: q1, 2: q2, 3: q3 };
+  const hoz = !q1 ? 1 : (!q2 ? 2 : (!q3 ? 3 : 0));
+  ol.querySelectorAll("[data-q]").forEach(li => {
+    const k = +li.dataset.q;
+    li.classList.toggle("tay", !!hol[k]); li.classList.toggle("hoz", k === hoz);
+    if (k === hoz) li.setAttribute("aria-current", "step"); else li.removeAttribute("aria-current");
+    const i = li.querySelector("i"); if (i) i.textContent = hol[k] ? "✓" : String(k);
+  });
+  ol.querySelectorAll("[data-c]").forEach(c => c.classList.toggle("tay", !!hol[+c.dataset.c]));
+}
+
 function stuNatijaKorsat(bor) {
   const n = document.getElementById("stu-od-natija");
   if (!n) return;
-  n.style.display = bor ? "block" : "none";
+  n.style.display = bor ? "" : "none";               // ✅ 661: CSS flex ishlasin
+  // ✅ 661: natija bor — kanvas natijani ko'rsatadi, panel "Matn" ga o'tadi (bir marta)
+  const od = document.getElementById("stu-oddiy");
+  if (od) {
+    const oldin = od.classList.contains("sx-natija");
+    od.classList.toggle("sx-natija", !!bor);
+    if (bor && !oldin) stuPanel("matn");
+    if (!bor && oldin) stuPanel("rejissyor");
+  }
+  _sxQadam();
   if (!bor) return;
   const c = document.getElementById("stu-od-cvs");
   if (c) stChiz(c, stFmt());
@@ -4303,10 +4345,10 @@ STU.qoshimcha = [];               // kop: [{tovar, img, turi}]
 STU.modelJins = "erkak";
 
 const STU_TURLAR = [
-  { id:"tovar", nom:"Tovarning o'zi",        izoh:"Chiroyli sahnada, ma'lumotlar bilan", ik:"👟" },
-  { id:"real",  nom:"Real shaxsga kiydirish", izoh:"Xodim yoki mijoz surati. Yuz va gavda o'zgarmaydi", ik:"🧍" },
-  { id:"model", nom:"AI-modelga kiydirish",   izoh:"Do'koningizning o'z modeli", ik:"👤" },
-  { id:"kop",   nom:"Bir nechta tovar",       izoh:"Ko'ylak + shim + oyoq kiyim + soat — bitta kadrda", ik:"🧥" },
+  { id:"tovar", nom:"Tovarning o'zi",        izoh:"Chiroyli sahnada, ma'lumotlar bilan", ik:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>' },
+  { id:"real",  nom:"Real shaxsga kiydirish", izoh:"Xodim yoki mijoz surati. Yuz va gavda o'zgarmaydi", ik:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>' },
+  { id:"model", nom:"AI-modelga kiydirish",   izoh:"Do'koningizning o'z modeli", ik:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="7" r="4"/><path d="M2 21v-1a6 6 0 0 1 6-6h3"/><path d="m18 13 1.2 2.3 2.3 1.2-2.3 1.2L18 20l-1.2-2.3-2.3-1.2 2.3-1.2z"/></svg>' },
+  { id:"kop",   nom:"Bir nechta tovar",       izoh:"Ko'ylak + shim + oyoq kiyim + soat — bitta kadrda", ik:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>' },
 ];
 
 // Tovar nima? — kiydirish uchun ANIQ tur (katalogdan, taxmin emas)
@@ -4627,10 +4669,10 @@ function stuUstaChiz() {
   const bor = !!(STU.tovarXom && ((STU.tovarXom.colorImages && Object.keys(STU.tovarXom.colorImages).length) || STU.tovarXom.image));
   q("stu-od-manba", T ? `
     <div class="st-od-manbalar">
-      <button class="${STU.rasmManba === "katalog" ? "on" : ""}${bor ? "" : " yoq"}" onclick="stuManba('katalog')">🖼 Katalog rasmi</button>
-      <label class="${STU.rasmManba === "galereya" ? "on" : ""}">📁 Galereyadan
+      <button class="${STU.rasmManba === "katalog" ? "on" : ""}${bor ? "" : " yoq"}" onclick="stuManba('katalog')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Katalog</button>
+      <label class="${STU.rasmManba === "galereya" ? "on" : ""}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Galereya
         <input type="file" accept="image/*" onchange="STU.rasmManba='galereya';stuRasm(this);setTimeout(stuUstaChiz,400)" style="display:none"></label>
-      <label class="${STU.rasmManba === "kamera" ? "on" : ""}">📷 Suratga olish
+      <label class="${STU.rasmManba === "kamera" ? "on" : ""}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Kamera
         <input type="file" accept="image/*" capture="environment" onchange="STU.rasmManba='kamera';stuRasm(this);setTimeout(stuUstaChiz,400)" style="display:none"></label>
     </div>
     <div class="st-hint">${STU.img ? "✓ Tovar rasmi tayyor" : (bor ? "" : "Bu tovarda katalog rasmi yo'q — galereyadan yoki kameradan oling")}</div>` : "");
@@ -4647,7 +4689,7 @@ function stuUstaChiz() {
   if (STU.turi === "model" || STU.turi === "kop") {
     k += `<div class="st-od-t" style="font-size:13px;margin-top:${k ? 10 : 0}px">Kimga kiydiriladi</div>
       <div class="st-od-manbalar">
-        ${STU.turi === "kop" ? `<button class="${STU.modelJins === "shaxs" ? "on" : ""}" onclick="stuModelJins('shaxs')">🧍 Real shaxs</button>` : ""}
+        ${STU.turi === "kop" ? `<button class="${STU.modelJins === "shaxs" ? "on" : ""}" onclick="stuModelJins('shaxs')">Real shaxs</button>` : ""}
         <button class="${STU.modelJins === "erkak" ? "on" : ""}" onclick="stuModelJins('erkak')">Erkak model</button>
         <button class="${STU.modelJins === "ayol" ? "on" : ""}" onclick="stuModelJins('ayol')">Ayol model</button>
       </div>
@@ -4933,7 +4975,11 @@ function _stuRejIzoh() {
       (J.gorizont ? " · yuza pastdan " + J.gorizont + "%" : "") +
       (J.foiz ? " · tovar " + J.foiz + "%" : ""));
   }
-  return q.length ? `<div class="v2-ai" style="opacity:.85">${q.join("<br>")}</div>` : "";
+  // ✅ 661: TOVAR PASPORTI endi ko'rinadi — rassom aynan shularni saqlaydi
+  const pas = Array.isArray(h.pasport) && h.pasport.length
+    ? `<div style="margin-top:12px;font-size:12.5px;color:#566070">Tovar pasporti — rassom shularni saqlaydi</div>
+       <div class="sx-pas">${h.pasport.map(z => `<span class="sx-yorliq">${_stuAiEsc(z)}</span>`).join("")}</div>` : "";
+  return (q.length ? `<div class="v2-ai">${q.join("<br>")}</div>` : "") + pas;
 }
 async function stuAiHukm(im) {
   if (!im || !im.src || !STU.tovar) return;
