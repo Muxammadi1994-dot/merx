@@ -76,6 +76,102 @@ function _dataUri(str, maxKb) {
   if (m[2].length > (maxKb || MAX_KB) * 1024) return { xato: "rasm juda katta" };
   return { media: m[1], data: m[2] };
 }
+// ═══════════════════════════════════════════════════════════════
+// ✅ 651 — GEMINI REJISSYOR. Egasi qarori (16-sen): Claude balansi
+// tugagan, rejissyor, tekshiruvchi va matn yozuvchi GEMINI'da ishlaydi.
+// Kalit — mavjud GEMINI_API_KEY (naklad o'qish uchun ham ishlatiladi —
+// kvota UMUMIY, 429 xatosi aniq aytiladi).
+// Hujjat: ai.google.dev/api/generate-content — model "gemini-3.8-flash",
+// generationConfig.responseMimeType + responseSchema (turlar kichik harf).
+// ═══════════════════════════════════════════════════════════════
+const M_GEM      = process.env.STUDIO_GEMINI_MODEL || "gemini-3.8-flash";
+const M_GEM_ZAX  = "gemini-2.5-flash";            // 3.8 topilmasa (404)
+// provayder: "gemini" (sukut, kalit bo'lsa) · "claude" · "avto" (Claude → Gemini)
+const AI_PROV    = String(process.env.STUDIO_AI_PROVIDER || (GEMINI_KEY ? "gemini" : "claude")).toLowerCase();
+
+// JSON sxemani Gemini shakliga: additionalProperties qo'llanmaydi — olib
+// tashlanadi; maydonlar tartibi propertyOrdering bilan saqlanadi.
+function _gemSxema(s) {
+  if (!s || typeof s !== "object") return s;
+  if (Array.isArray(s)) return s.map(_gemSxema);
+  const o = {};
+  for (const [k, v] of Object.entries(s)) {
+    if (k === "additionalProperties") continue;
+    if (k === "properties") {
+      o.properties = {};
+      for (const [pk, pv] of Object.entries(v)) o.properties[pk] = _gemSxema(pv);
+      o.propertyOrdering = Object.keys(v);
+    } else if (k === "items") o.items = _gemSxema(v);
+    else o[k] = v;
+  }
+  return o;
+}
+
+async function geminiChaqir(model, system, content, maxTok, ms, sxema, _qayta) {
+  if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY sozlanmagan");
+  const parts = content.map(c => c.type === "image"
+    ? { inlineData: { mimeType: c.source.media_type, data: c.source.data } }
+    : { text: String(c.text || "") });
+  // tekshiruvchi — aniq (past harorat); rejissyor va matn — ijodiy
+  const temp = system === REJ_TEKSHIR ? 0.2 : (system === REJ_MATN ? 0.9 : 0.8);
+  const gc = { temperature: temp,
+               // Gemini 3.x o'ylaydi — o'ylash tokenlari ham shu chegaraga
+               // kiradi; tor chegara Claude'dagi "max_tokens" kesilishini
+               // takrorlardi. Shuning uchun keng.
+               maxOutputTokens: Math.max(8192, maxTok || 0) };
+  if (sxema) { gc.responseMimeType = "application/json"; gc.responseSchema = _gemSxema(sxema); }
+  const tana = { systemInstruction: { parts: [{ text: system }] },
+                 contents: [{ role: "user", parts }], generationConfig: gc };
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms || 45000);
+  try {
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      { method: "POST", signal: ctl.signal,
+        headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
+        body: JSON.stringify(tana) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const m = String((j.error && j.error.message) || "").slice(0, 140);
+      if (r.status === 404 && !_qayta && model !== M_GEM_ZAX)
+        return geminiChaqir(M_GEM_ZAX, system, content, maxTok, ms, sxema, true);
+      if (r.status === 429) throw new Error("Gemini kvotasi tugadi (naklad bilan umumiy kalit) — birozdan keyin urinib ko'ring");
+      if (r.status === 403 || r.status === 401) throw new Error("Gemini kaliti yaroqsiz yoki ruxsat yo'q");
+      if (r.status >= 500) throw new Error("Gemini serveri javob bermadi (" + r.status + ")");
+      throw new Error("Gemini xatosi " + r.status + (m ? ": " + m : ""));
+    }
+    const c0 = (j.candidates || [])[0] || {};
+    if (c0.finishReason === "SAFETY" || (j.promptFeedback && j.promptFeedback.blockReason))
+      throw new Error("Gemini xavfsizlik filtri to'xtatdi");
+    const text = ((c0.content || {}).parts || [])
+      .filter(p => p.text && !p.thought).map(p => p.text).join("");
+    const u = j.usageMetadata || {};
+    return { text, stop: String(c0.finishReason || "").toLowerCase(),
+             prov: "gemini", model,
+             usage: { input_tokens: u.promptTokenCount || 0,
+                      output_tokens: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0) } };
+  } catch (e) {
+    if (e.name === "AbortError") throw new Error("Gemini javob bermadi (vaqt tugadi)");
+    throw e;
+  } finally { clearTimeout(t); }
+}
+
+// Yagona kirish: provayder ENV bo'yicha, "avto" da Claude yiqilsa Gemini.
+async function aiChaqir(model, system, content, maxTok, ms, sxema) {
+  if (AI_PROV === "gemini" || /^gemini/i.test(model))
+    return geminiChaqir(/^gemini/i.test(model) ? model : M_GEM, system, content, maxTok, ms, sxema);
+  try {
+    const r = await claudeChaqir(model, system, content, maxTok, ms, sxema);
+    r.prov = "anthropic"; r.model = model; return r;
+  } catch (e) {
+    if (AI_PROV === "avto" && GEMINI_KEY) {
+      const r = await geminiChaqir(M_GEM, system, content, maxTok, ms, sxema);
+      r.zaxira = "claude: " + String(e.message).slice(0, 60);
+      return r;
+    }
+    throw e;
+  }
+}
+
 // ⚠️ 640: token chegarasi oshgach VAQT chegarasi ham yetmay qoldi —
 // rejissyor endi 2 200 token yozadi va 40 s ga sig'maydi (jonli xato,
 // 16-sen 13:48). 52 s ga oshirildi; Vercel funksiya devori 60 s.
@@ -905,7 +1001,8 @@ module.exports = async (req, res) => {
     const [n, ch] = await Promise.all([oySarfi(shopId), chegaraOl(shopId)]);
     return res.status(200).json({ ok: true, sarf: n, chegara: ch.chegara,
       sozlama: ch.sozlama, narx: KREDIT,
-      fal: !!FAL_KEY, gemini: !!GEMINI_KEY, tg: !!TG_TOKEN, ai: !!ANTHROPIC_KEY });   // ✅ v2
+      fal: !!FAL_KEY, gemini: !!GEMINI_KEY, tg: !!TG_TOKEN, ai: !!ANTHROPIC_KEY,
+      rejissyor: AI_PROV === "gemini" ? M_GEM : M_AI });   // ✅ 651: kim rejissyorlik qilyapti
   }
 
   // ── ✅ v2: REJISSYOR — surat hukmi + sahna retsepti ──
@@ -958,10 +1055,10 @@ module.exports = async (req, res) => {
       "\"soya_yon\":\"chap|ong|past — yorug'likka teskari tomon\",\"soya_kuch\":\"1-10, qattiq yorug'likda katta\"}}";
     let hukm = null, xato = "", tok = {};
     try {
-      const r = await claudeChaqir(M_AI, REJISSYOR, [
+      const r = await aiChaqir(M_AI, REJISSYOR, [
         { type: "image", source: { type: "base64", media_type: im.media, data: im.data } },
         { type: "text", text: savol }], 3000, 52000, HUKM_SXEMA);   // ✅ 640: 40 s ham kam edi (jonli: 13:48 vaqt tugadi)
-      tok = Object.assign({}, r.usage, { stop: r.stop }); hukm = _jsonAjrat(r.text);
+      tok = Object.assign({}, r.usage, { stop: r.stop, prov: r.prov, model: r.model, zaxira: r.zaxira }); hukm = _jsonAjrat(r.text);
       hukm.yaroqli = !!hukm.yaroqli; hukm.daraja = Math.max(1, Math.min(5, Number(hukm.daraja) || 3));
       hukm.tovar_turi = _tovarTuri(hukm.tovar_turi);            // ✅ 3-bosqich
       hukm.ishonch = /past|low/.test(String(hukm.ishonch || "")) ? "past"
@@ -977,7 +1074,7 @@ module.exports = async (req, res) => {
       hukm.uslub_ogoh = Array.isArray(hukm.uslub_ogoh)
         ? hukm.uslub_ogoh.slice(0, 3).map(z => String(z).slice(0, 140)).filter(Boolean) : [];
     } catch (e) { xato = e.message; }
-    await jurnal(shopId, "ai_hukm", "anthropic", M_AI, !xato, (xato || ("in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0))) + (tok.stop ? " · " + tok.stop : ""));
+    await jurnal(shopId, "ai_hukm", tok.prov || "ai", tok.model || M_AI, !xato, (xato || ("in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0))) + (tok.stop ? " · " + tok.stop : ""));
     if (xato) return res.status(200).json({ ok: false, error: xato });
     return res.status(200).json({ ok: true, hukm });
   }
@@ -999,12 +1096,12 @@ module.exports = async (req, res) => {
       (til === "uz" ? " (ru bo'sh qolsin)" : til === "ru" ? " (uz bo'sh qolsin)" : "");
     let matn = null, xato = "", tok = {};
     try {
-      const r = await claudeChaqir(M_AI, REJ_MATN, [{ type: "text", text: savol }], 900, 30000, MATN_SXEMA);
-      tok = r.usage; matn = _jsonAjrat(r.text);
+      const r = await aiChaqir(M_AI, REJ_MATN, [{ type: "text", text: savol }], 900, 30000, MATN_SXEMA);
+      tok = Object.assign({}, r.usage, { prov: r.prov, model: r.model }); matn = _jsonAjrat(r.text);
       for (const k of ["uz", "ru"]) { const o = matn[k] || {}; matn[k] = { sarlavha: String(o.sarlavha || "").slice(0, 80), matn: String(o.matn || "").slice(0, 600),
         heshteg: (Array.isArray(o.heshteg) ? o.heshteg : []).slice(0, 8).map(x => String(x).slice(0, 30)) }; }
     } catch (e) { xato = e.message; }
-    await jurnal(shopId, "ai_matn", "anthropic", M_AI, !xato, xato || ("in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0)));
+    await jurnal(shopId, "ai_matn", tok.prov || "ai", tok.model || M_AI, !xato, xato || ("in " + (tok.input_tokens || 0) + " out " + (tok.output_tokens || 0)));
     if (xato) return res.status(200).json({ ok: false, error: xato });
     return res.status(200).json({ ok: true, matn });
   }
@@ -1038,7 +1135,7 @@ module.exports = async (req, res) => {
         "'mos' = mijoz uni o'sha tovar deb taniydi. Har farq: [og'irlik] QAYERDA — NIMA. Tovar: " +
         _tovarMatn(body.tovar || {});
       try {
-        const r = await claudeChaqir(M_AI_HUKM, REJ_TEKSHIR, [
+        const r = await aiChaqir(M_AI_HUKM, REJ_TEKSHIR, [
           { type: "image", source: { type: "base64", media_type: asl.media, data: asl.data } },
           { type: "image", source: { type: "base64", media_type: nat.media, data: nat.data } },
           { type: "text", text: savolY }], 700, 45000, TEKSHIR_SXEMA);
@@ -1046,11 +1143,11 @@ module.exports = async (req, res) => {
         const h2 = { mos: !!hh.mos, ishonch: Math.max(0, Math.min(100, Number(hh.ishonch) || 0)),
           farqlar: Array.isArray(hh.farqlar) ? hh.farqlar.slice(0, 4).map(z => String(z).slice(0, 150)) : [],
           tavsiya: String(hh.tavsiya || "qabul") };
-        await jurnal(shopId, "ai_solishtir:yangi", "anthropic", M_AI_HUKM, true,
+        await jurnal(shopId, "ai_solishtir:yangi", r.prov || "ai", r.model || M_AI_HUKM, true,
           (h2.mos ? "MOS" : "MOS EMAS") + " " + h2.ishonch + "% · " + (h2.farqlar[0] || "farq yo'q"));
         return res.status(200).json({ ok: true, hukm: h2 });
       } catch (e) {
-        await jurnal(shopId, "ai_solishtir:yangi", "anthropic", M_AI_HUKM, false, e.message);
+        await jurnal(shopId, "ai_solishtir:yangi", "ai", AI_PROV === "gemini" ? M_GEM : M_AI_HUKM, false, e.message);
         return res.status(200).json({ ok: false, error: e.message });
       }
     }
@@ -1065,19 +1162,19 @@ module.exports = async (req, res) => {
         "Rang, sifat, material — bu yerda tekshirilmaydi. Farqda QISQA yoz: kadrda nima ko'rinyapti. " +
         "Tovar: " + _tovarMatn(body.tovar || {});
       try {
-        const r = await claudeChaqir(M_AI_HUKM, REJ_TEKSHIR, [
+        const r = await aiChaqir(M_AI_HUKM, REJ_TEKSHIR, [
           { type: "image", source: { type: "base64", media_type: asl.media, data: asl.data } },
           { type: "image", source: { type: "base64", media_type: nat.media, data: nat.data } },
           { type: "text", text: savolK }], 500, 40000, TEKSHIR_SXEMA);
         const hh = _jsonAjrat(r.text);
-        await jurnal(shopId, "ai_solishtir:kadr", "anthropic", M_AI_HUKM, true,
+        await jurnal(shopId, "ai_solishtir:kadr", r.prov || "ai", r.model || M_AI_HUKM, true,
           "in " + (r.usage.input_tokens || 0) + " out " + (r.usage.output_tokens || 0));
         return res.status(200).json({ ok: true, hukm: {
           mos: !!hh.mos, ishonch: Math.max(0, Math.min(100, Number(hh.ishonch) || 0)),
           farqlar: Array.isArray(hh.farqlar) ? hh.farqlar.slice(0, 3).map(z => String(z).slice(0, 140)) : [],
           tavsiya: String(hh.tavsiya || "qabul") } });
       } catch (e) {
-        await jurnal(shopId, "ai_solishtir:kadr", "anthropic", M_AI_HUKM, false, e.message);
+        await jurnal(shopId, "ai_solishtir:kadr", "ai", AI_PROV === "gemini" ? M_GEM : M_AI_HUKM, false, e.message);
         return res.status(200).json({ ok: false, error: e.message });
       }
     }
@@ -1088,19 +1185,19 @@ module.exports = async (req, res) => {
         "Odamning yuzi yoki tanasi o'zgargan bo'lsa — buni farq deb yoz. " +
         "'mos' = tovar o'zgarmagan. Har farq: [og'irlik] QAYERDA — NIMA. Tovar: " + _tovarMatn(body.tovar || {});
       try {
-        const r = await claudeChaqir(M_AI_HUKM, REJ_TEKSHIR, [
+        const r = await aiChaqir(M_AI_HUKM, REJ_TEKSHIR, [
           { type: "image", source: { type: "base64", media_type: asl.media, data: asl.data } },
           { type: "image", source: { type: "base64", media_type: nat.media, data: nat.data } },
           { type: "text", text: savolM }], 900, 45000, TEKSHIR_SXEMA);
         const hh = _jsonAjrat(r.text);
-        await jurnal(shopId, "ai_solishtir:muhit", "anthropic", M_AI_HUKM, true,
+        await jurnal(shopId, "ai_solishtir:muhit", r.prov || "ai", r.model || M_AI_HUKM, true,
           "in " + (r.usage.input_tokens || 0) + " out " + (r.usage.output_tokens || 0));
         return res.status(200).json({ ok: true, hukm: {
           mos: !!hh.mos, ishonch: Math.max(0, Math.min(100, Number(hh.ishonch) || 0)),
           farqlar: Array.isArray(hh.farqlar) ? hh.farqlar.slice(0, 6).map(z => String(z).slice(0, 160)) : [],
           tavsiya: String(hh.tavsiya || "qabul") } });
       } catch (e) {
-        await jurnal(shopId, "ai_solishtir:muhit", "anthropic", M_AI_HUKM, false, e.message);
+        await jurnal(shopId, "ai_solishtir:muhit", "ai", AI_PROV === "gemini" ? M_GEM : M_AI_HUKM, false, e.message);
         return res.status(200).json({ ok: false, error: e.message });
       }
     }
@@ -1116,11 +1213,11 @@ module.exports = async (req, res) => {
       "\nFaqat shu JSON: {\"mos\":true|false,\"ishonch\":0-100,\"farqlar\":[\"aniq farq, o'zbekcha, 3 tagacha\"],\"tavsiya\":\"qabul|qayta|rad\"}";
     let hukm = null, xato = "", tok = {};
     try {
-      const r = await claudeChaqir(M_AI_HUKM, REJ_TEKSHIR, [
+      const r = await aiChaqir(M_AI_HUKM, REJ_TEKSHIR, [
         { type: "image", source: { type: "base64", media_type: asl.media, data: asl.data } },
         { type: "image", source: { type: "base64", media_type: nat.media, data: nat.data } },
         { type: "text", text: savol }], 900, 45000, TEKSHIR_SXEMA);   // ✅ v2.6: sxema
-      tok = r.usage; hukm = _jsonAjrat(r.text);
+      tok = Object.assign({}, r.usage, { prov: r.prov, model: r.model }); hukm = _jsonAjrat(r.text);
       hukm = { mos: !!hukm.mos, ishonch: Math.max(0, Math.min(100, Number(hukm.ishonch) || 0)),
         farqlar: (Array.isArray(hukm.farqlar) ? hukm.farqlar : []).slice(0, 3).map(x => String(x).slice(0, 120)),
         tavsiya: ["qabul", "qayta", "rad"].includes(hukm.tavsiya) ? hukm.tavsiya : (hukm.mos ? "qabul" : "qayta") };
@@ -1128,7 +1225,7 @@ module.exports = async (req, res) => {
     // ✅ 639: HUKM JURNALGA. Ilgari faqat token yozilardi; natija rad
     // etilganda sababi ekrandagi toastda o'tib ketardi va tahlil qilib
     // bo'lmasdi. Endi: mos/emas · ishonch · birinchi farq.
-    await jurnal(shopId, "ai_solishtir", "anthropic", M_AI_HUKM, !xato,
+    await jurnal(shopId, "ai_solishtir", tok.prov || "ai", tok.model || M_AI_HUKM, !xato,
       xato || ((hukm && hukm.mos ? "MOS" : "MOS EMAS") +
         " " + ((hukm && hukm.ishonch) || 0) + "% · " +
         ((hukm && hukm.farqlar && hukm.farqlar[0]) || "farq yo'q") +
