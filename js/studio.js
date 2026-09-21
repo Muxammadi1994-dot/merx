@@ -4107,7 +4107,8 @@ function stuShaxsRasm(inp) {
     // surat ko'rinib turardi, lekin "Reklama yasa" kulrang qolib, yonida
     // "Surat tanlang" yozilardi va kiydirish boshlanmasdi.
     im.onload = () => { STU.shaxs = im; stuSlotChiz(); stuUstaChiz();
-      toast("Xodim surati qo'shildi", "ok"); };
+      if (_stuRealmi()) _stuRejQayta();              // ✅ 663: rejissyor xodimni ham ko'radi
+      toast("Xodim surati qo'shildi — rejissyor tahlil qilmoqda", "ok"); };
     im.src = e.target.result;
   };
   r.readAsDataURL(f);
@@ -4130,8 +4131,8 @@ function stuSlotChiz() {
   const sh = document.getElementById("stu-shaxs");
   if (sh) sh.innerHTML = STU.shaxs
     ? `<img src="${STU.shaxs.src || ""}" alt="">
-       <button onclick="STU.shaxs=null;stuSlotChiz()">O'chirish</button>`
-    : `<label class="stu-yukla">\U0001f9cd Xodim yoki model suratini yuklash
+       <button onclick="STU.shaxs=null;stuSlotChiz();stuUstaChiz();_stuRejQayta()">O'chirish</button>`
+    : `<label class="stu-yukla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:18px;height:18px"><circle cx="12" cy="7" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>Xodim yoki mijoz suratini yuklang — bo'ydan, yuzi ko'rinadigan
          <input type="file" accept="image/*" onchange="stuShaxsRasm(this)" style="display:none"></label>`;
 }
 
@@ -4530,6 +4531,13 @@ async function stuMuhit(tur) {
 // muhit tekshiruvi esa "oldin ↔ keyin" ni solishtirgani uchun o'tkazib
 // yubordi — ikkalasida ham xato poyabzal bor edi. Yakuniy tekshiruv esa
 // faqat ogohlantirardi. Natija: noto'g'ri tovar reklama bo'lib chiqdi.
+// ✅ 663: xodim surati almashsa (yoki o'chirilsa) rejissyor QAYTA o'ylaydi
+function _stuRejQayta() {
+  STU._aiHukmSrc = ""; STU.aiHukm = null; STU._aiHukmXato = ""; STU._aiBand = false;
+  STU._aiHukmNo = (STU._aiHukmNo || 0) + 1;           // yo'ldagi eski javob tashlanadi
+  const hk = document.getElementById("stu-hukm");
+  if (hk && STU.img) _stuHukmChiz(STU.img, hk);
+}
 function _stuRealmi() {                              // ✅ 662
   return STU.turi === "real" || (STU.turi === "kop" && STU.modelJins === "shaxs");
 }
@@ -4754,7 +4762,17 @@ async function stuKiydirOqim() {
     toast("Avval xodim yoki mijoz suratini yuklang — kimga kiydirishni bilishim kerak", "err");
     return;
   }
-  await _stuAiKut(15000);                              // ✅ 628: rejissyor kutiladi
+  // ✅ 663: real shaxsda rejissyor IKKI rasmni o'rganadi — ko'proq kutiladi
+  await _stuAiKut(shaxsmi ? 40000 : 15000);           // ✅ 628: rejissyor kutiladi
+  // ✅ 663: rejissyor "bu surat bilan kiydirib bo'lmaydi" desa — kredit
+  // sarflashdan OLDIN so'raladi (masalan, oyoq kiyim uchun oyoqlar kadrda yo'q)
+  const _sh = STU.aiHukm && STU.aiHukm.shaxs;
+  if (shaxsmi && _sh && _sh.bor && _sh.yetarli === false) {
+    const dav = window.confirm("Rejissyor: bu surat bilan kiydirish qiyin.\n" +
+      (_sh.tavsiya || "Tovar kiyiladigan joy suratda to'liq ko'rinmaydi.") +
+      "\n\nBaribir davom etasizmi? (Boshqa surat yuklash uchun — Bekor qilish)");
+    if (!dav) { stuHolat(""); stuPanel("rejissyor"); return; }
+  }
   const jins = STU.modelJins === "ayol" ? "ayol" : "erkak";
   // kiyimlar ro'yxati: asosiy tovar + qo'shimchalar; TARTIB: past → ust → libos
   // ✅ 3-bosqich: ASOSIY tovarning turini REJISSYOR aniqlaydi (suratga
@@ -4998,14 +5016,35 @@ function _stuRejIzoh() {
   const pas = Array.isArray(h.pasport) && h.pasport.length
     ? `<div style="margin-top:12px;font-size:12.5px;color:#566070">Tovar pasporti — rassom shularni saqlaydi</div>
        <div class="sx-pas">${h.pasport.map(z => `<span class="sx-yorliq">${_stuAiEsc(z)}</span>`).join("")}</div>` : "";
-  return (q.length ? `<div class="v2-ai">${q.join("<br>")}</div>` : "") + pas;
+  // ✅ 663: SHAXS TAHLILI — rejissyor xodim suratini ko'rgan bo'lsa
+  let shx = "";
+  const S = h.shaxs;
+  if (S && S.bor) {
+    const qator = (k, v) => v ? `<div style="display:grid;grid-template-columns:92px 1fr;gap:10px;margin-top:6px">
+        <span style="color:#566070">${k}</span><span>${_stuAiEsc(v)}</span></div>` : "";
+    shx = `<div style="margin-top:14px;padding-top:12px;border-top:1px solid #E3E7EC">
+        <div style="font-weight:700;font-size:13.5px">Xodim surati tahlili</div>
+        ${qator("Surat", S.qamrov)}${qator("Yuz", S.yuz ? "ko'rinadi" : "ko'rinmaydi")}
+        ${qator("Hozirgi kiyim", S.kiyim)}${qator("Kombinatsiya", S.kombinatsiya)}
+        ${S.yetarli === false ? `<div style="margin-top:10px;padding:10px 12px;background:#FFF0D6;border:1px solid #EFCB8C;border-radius:10px;color:#5E3300">
+            <b>Bu surat bilan kiydirish qiyin.</b> ${_stuAiEsc(S.tavsiya || "Tovar kiyiladigan joy suratda to'liq ko'rinmaydi.")}</div>` : ""}
+      </div>`;
+  }
+  return (q.length ? `<div class="v2-ai">${q.join("<br>")}</div>` : "") + pas + shx;
 }
 async function stuAiHukm(im) {
   if (!im || !im.src || !STU.tovar) return;
   if (STU._aiHukmSrc === im.src && (STU.aiHukm || STU._aiBand)) return;   // shu surat uchun allaqachon
   STU._aiHukmSrc = im.src; STU.aiHukm = null; STU._aiHukmXato = ""; STU._aiBand = true;
   const src = im.src;
-  const d = await stuAiChaqir("ai_hukm", { image: _stuTayyor(im, 900), tovar: _stuAiTovar(), turi: STU.turi || "tovar" });
+  // ✅ 663: real shaxsda XODIM SURATI ham boradi — rejissyor uni stilist
+  // sifatida tahlil qiladi (qamrov, yuz, kiyimlar, kombinatsiya). Token:
+  // xodim surati almashsa, eski (suratsiz) javob tashlab yuboriladi.
+  const no = STU._aiHukmNo = (STU._aiHukmNo || 0) + 1;
+  const par = { image: _stuTayyor(im, 900), tovar: _stuAiTovar(), turi: STU.turi || "tovar" };
+  if (_stuRealmi() && STU.shaxs) par.shaxs = _stuTayyor(STU.shaxs, 900);
+  const d = await stuAiChaqir("ai_hukm", par);
+  if (no !== STU._aiHukmNo) return;                   // yangiroq so'rov bor — bu eskirgan
   STU._aiBand = false;
   _stuHukmSoat(false);                                // ✅ 649: soat to'xtaydi
   if (STU._aiHukmSrc !== src) return;                 // surat almashgan — eskirgan javob

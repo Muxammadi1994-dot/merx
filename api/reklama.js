@@ -286,6 +286,9 @@ const HUKM_SXEMA = _obj({
     kadr: S_STR, yoruglik: S_STR, palitra: S_STR, buyruq: S_STR }),
   poza: S_STR, uslub_ogoh: S_STRLIST, neytral: S_STR,   // ✅ 634 (odamli turlar)
   pasport: S_STRLIST,                                     // ✅ 652: tovarni tanitadigan belgilar
+  // ✅ 663: SHAXS TAHLILI — rejissyor endi xodim suratini ham KO'RADI.
+  shaxs: _obj({ bor: S_BOOL, qamrov: S_STR, yuz: S_BOOL, yetarli: S_BOOL,
+                kiyim: S_STR, kombinatsiya: S_STR, tavsiya: S_STR }),
   joylashuv: _obj({ foiz: S_INT, markaz_x: S_INT, gorizont: S_INT,
                     soya_yon: { type: "string", enum: ["chap", "ong", "past"] }, soya_kuch: S_INT }),
 });
@@ -1024,6 +1027,9 @@ module.exports = async (req, res) => {
     const im = _dataUri(body.image, 1600);
     if (!im || im.xato) return res.status(200).json({ ok: false, error: im && im.xato ? im.xato : "Rasm yuborilmadi" });
     const tovar = body.tovar || {}, turi = String(body.turi || "tovar");
+    // ✅ 663: xodim surati (faqat odamli turlarda, bo'lsa)
+    const shx0 = /^(real|kop)$/.test(turi) && body.shaxs ? _dataUri(body.shaxs, 1400) : null;
+    const shx = shx0 && !shx0.xato ? shx0 : null;
     const x = _ijod(_tovarTuri(String(tovar.kat || "") + " " + String(tovar.nom || "")));   // ✅ 646
     const savol = "Tovar:\n" + _tovarMatn(tovar) + "\nReklama turi: " + turi +
       "\n\n1) SURATNI BAHOLA. Tekshir: yorug'lik va soya · fokus (qimirlaganmi) · rakurs · kadr to'liqmi · " +
@@ -1044,7 +1050,14 @@ module.exports = async (req, res) => {
           (turi === "real"
             ? "3) POZA ('poza'): BO'SH qoldir — bu haqiqiy odam, uning holati va gavdasi o'zgartirilmaydi.\n"
             : "3) POZA ('poza'): tik turish EMAS — yurayotgan, zinadan chiqayotgan, burilayotgan, bog'ich bog'layotgan. Yuz kameradan chetga. Bitta jumla.\n") +
-          "4) USLUB MUVOFIQLIGI ('uslub_ogoh'): odamning boshqa kiyimlari tovarga mos keladimi — fasl, uslub, rang, daraja, yosh. " +
+          (shx
+            ? "5) SHAXS TAHLILI ('shaxs') — 2-RASMni stilist ko'zi bilan o'rgan: bor=true; 'qamrov' — surat odamning qaysi qismini oladi " +
+              "(to'liq bo'y / tizzadan yuqori / beldan yuqori / faqat oyoq); 'yuz' — yuz to'liq ko'rinadimi; 'yetarli' — tovar kiyiladigan " +
+              "tana qismi suratda TO'LIQ bormi (oyoq kiyim → oyoq va tovonlar; shim → beldan to'piqqacha; ust kiyim → yelka va tana); " +
+              "'kiyim' — hozir ustidagi kiyimlar, faqat ko'ringanlari; 'kombinatsiya' — shu tovar bilan birga nima kiyilsa eng yaxshi ko'rinadi " +
+              "(bir-ikki jumla, stilist maslahati); 'tavsiya' — yetarli bo'lmasa, qanday surat kerakligi (masalan: bo'ydan, oyoqlari ko'rinsin).\n"
+            : "5) SHAXS: 'shaxs' ning bor=false, qolgan maydonlari bo'sh.\n") +
+          "4) USLUB MUVOFIQLIGI ('uslub_ogoh'): " + (shx ? "FAQAT 2-RASMda KO'RINGAN kiyimlar asosida — taxmin qilma. " : "odam surati yo'q — BO'SH qoldir, taxmin qilma. ") + "odamning boshqa kiyimlari tovarga mos keladimi — fasl, uslub, rang, daraja, yosh. " +
           "Mos kelmasa qisqa ogoh; tuzatish mumkin bo'lsa 'neytral' ga yoz (masalan: shimni to'q ko'kka).\n" +
           "\nBU SAFARGI IJODIY O'Q: janr — " + x.janr + "; vaqt — " + x.vaqt + "; fasl — " + x.fasl +
           "; rang — " + x.rang + "; kamera — " + x.kamera + "; dunyo — " + x.dunyo + ". " +
@@ -1076,9 +1089,18 @@ module.exports = async (req, res) => {
       "\"soya_yon\":\"chap|ong|past — yorug'likka teskari tomon\",\"soya_kuch\":\"1-10, qattiq yorug'likda katta\"}}";
     let hukm = null, xato = "", tok = {};
     try {
-      const r = await aiChaqir(M_AI, REJISSYOR, [
-        { type: "image", source: { type: "base64", media_type: im.media, data: im.data } },
-        { type: "text", text: savol }], 3000, 52000, HUKM_SXEMA);   // ✅ 640: 40 s ham kam edi (jonli: 13:48 vaqt tugadi)
+      // ✅ 663: REAL SHAXSDA XODIM SURATI HAM YUBORILADI. Ilgari rejissyor
+      // faqat tovarni ko'rardi, lekin kartaga "xodimdagi sport shim mos emas"
+      // deb yozardi — ko'rmagan narsani o'ylab topardi (egasi topdi).
+      const kont = shx
+        ? [{ type: "text", text: "1-RASM — TOVAR:" },
+           { type: "image", source: { type: "base64", media_type: im.media, data: im.data } },
+           { type: "text", text: "2-RASM — TOVAR KIYDIRILADIGAN ODAM (do'kon xodimi yoki mijoz):" },
+           { type: "image", source: { type: "base64", media_type: shx.media, data: shx.data } },
+           { type: "text", text: savol }]
+        : [{ type: "image", source: { type: "base64", media_type: im.media, data: im.data } },
+           { type: "text", text: savol }];
+      const r = await aiChaqir(M_AI, REJISSYOR, kont, 3000, 52000, HUKM_SXEMA);   // ✅ 640: 40 s ham kam edi (jonli: 13:48 vaqt tugadi)
       tok = Object.assign({}, r.usage, { stop: r.stop, prov: r.prov, model: r.model, zaxira: r.zaxira }); hukm = _jsonAjrat(r.text);
       hukm.yaroqli = !!hukm.yaroqli; hukm.daraja = Math.max(1, Math.min(5, Number(hukm.daraja) || 3));
       hukm.tovar_turi = _tovarTuri(hukm.tovar_turi);            // ✅ 3-bosqich
@@ -1091,6 +1113,14 @@ module.exports = async (req, res) => {
       hukm.sahna = _sahnaRetsept(hukm.sahna, x);
       hukm.joylashuv = _joylashuv(hukm.joylashuv, hukm.sahna);   // ✅ 2-bosqich
       hukm.poza = String(hukm.poza || "").replace(/\s+/g, " ").trim().slice(0, 160);   // ✅ 634
+      {                                                                                     // ✅ 663
+        const S0 = (hukm.shaxs && typeof hukm.shaxs === "object") ? hukm.shaxs : {};
+        const t = (v, n) => String(v || "").replace(/\s+/g, " ").trim().slice(0, n);
+        hukm.shaxs = shx ? { bor: true, qamrov: t(S0.qamrov, 80), yuz: !!S0.yuz, yetarli: S0.yetarli !== false,
+                             kiyim: t(S0.kiyim, 200), kombinatsiya: t(S0.kombinatsiya, 300), tavsiya: t(S0.tavsiya, 200) }
+                         : { bor: false };
+        if (!shx) hukm.uslub_ogoh = [];     // ko'rilmagan odam haqida ogoh YO'Q
+      }
       hukm.pasport = Array.isArray(hukm.pasport)                                          // ✅ 652
         ? hukm.pasport.slice(0, 8).map(z => String(z).replace(/\s+/g, " ").trim().slice(0, 120)).filter(Boolean) : [];
       hukm.neytral = String(hukm.neytral || "").replace(/\s+/g, " ").trim().slice(0, 160);
