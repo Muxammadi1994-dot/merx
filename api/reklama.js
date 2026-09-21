@@ -285,6 +285,7 @@ const HUKM_SXEMA = _obj({
     sabab: S_STR, joy: S_STR, yuza: S_STR, balandlik: S_STR,
     kadr: S_STR, yoruglik: S_STR, palitra: S_STR, buyruq: S_STR }),
   poza: S_STR, uslub_ogoh: S_STRLIST, neytral: S_STR,   // ✅ 634 (odamli turlar)
+  pasport: S_STRLIST,                                     // ✅ 652: tovarni tanitadigan belgilar
   joylashuv: _obj({ foiz: S_INT, markaz_x: S_INT, gorizont: S_INT,
                     soya_yon: { type: "string", enum: ["chap", "ong", "past"] }, soya_kuch: S_INT }),
 });
@@ -339,6 +340,8 @@ UChINChI VAZIFA — SURATGA OLISh BRIFI ("buyruq", INGLIZCHA, 700-1400 belgi). B
 8. Kompozitsiya va chuqurlik: tovar kadrning 55-70% i, uchdan bir qoidasi yoki diagonal, orqa plan xira, tovar eng o'tkir nuqta.
 9. Kayfiyat va rang: 3 rangdan oshmasin, iliq yoki sovuq, "film donasi" yoki "raqamli toza".
 10. Taqiqlar: no text, no letters, no logos of other brands, no watermark, no collage, no border, no frame, no studio backdrop unless asked.
+
+TOVAR PASPORTI ("pasport", 5-8 band, INGLIZCHA): shu tovarni BOShQA shunga o'xshash tovarlardan ajratib turadigan ANIQ ko'rinadigan belgilar. Umumiy so'z emas ("chiroyli", "sifatli"), faqat ko'z bilan tekshiriladigan narsa: material fakturasi (pebbled leather, smooth suede), har qism rangi (grey suede heel tab, white cupsole), logotip/yorliq va uning JOYI (woven label on tongue reading "..."), taglik turi va qalinligi, bog'ich turi va rangi, metall qismlar, tikuv chiziqlari. Bu ro'yxat rassomga "ALBATTA saqlansin" deb beriladi va tekshiruvchi aynan shu bo'yicha tekshiradi.
 
 TOVAR SADOQATI (eng muhim): rassom tovarni namunadagidek chizishi shart — rang, shakl, tag, tugma, zamok, tikuv chizig'i, logotip, naqsh, material fakturasi, nisbatlar. Brifda buni ALOHIDA jumla bilan talab qil.
 
@@ -436,6 +439,17 @@ function _ijod(tur) {
   const ro = Math.random() < .7 ? dunyo : I_DUNYO.umumiy;
   return { janr: r(I_JANR), vaqt: r(I_VAQT), fasl: r(I_FASL),
            rang: r(I_RANG), kamera: r(I_KAMERA), dunyo: r(ro) };
+}
+
+// ✅ 652: TOVAR PASPORTI → rassom buyrug'i. Kiydirish (nano-banana) GRUFA
+// ni boshqa "shunga o'xshash" krossovkaga almashtirdi: donador teri →
+// silliq, kulrang zamsh tovon → jigarrang, yorliq yo'qoldi. Rassom
+// "shu tovar" deganda umumiy tushunardi — endi nimani saqlashni aniq biladi.
+function _pasportMatn(p) {
+  const a = Array.isArray(p) ? p.map(z => String(z).replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 8) : [];
+  if (!a.length) return "";
+  return "MUST PRESERVE — these features identify this exact product and must be clearly visible " +
+    "and unchanged: " + a.map((z, i) => (i + 1) + ") " + z).join("; ") + ". ";
 }
 
 function _tovarTuri(v) {
@@ -1070,6 +1084,8 @@ module.exports = async (req, res) => {
       hukm.sahna = _sahnaRetsept(hukm.sahna, x);
       hukm.joylashuv = _joylashuv(hukm.joylashuv, hukm.sahna);   // ✅ 2-bosqich
       hukm.poza = String(hukm.poza || "").replace(/\s+/g, " ").trim().slice(0, 160);   // ✅ 634
+      hukm.pasport = Array.isArray(hukm.pasport)                                          // ✅ 652
+        ? hukm.pasport.slice(0, 8).map(z => String(z).replace(/\s+/g, " ").trim().slice(0, 120)).filter(Boolean) : [];
       hukm.neytral = String(hukm.neytral || "").replace(/\s+/g, " ").trim().slice(0, 160);
       hukm.uslub_ogoh = Array.isArray(hukm.uslub_ogoh)
         ? hukm.uslub_ogoh.slice(0, 3).map(z => String(z).slice(0, 140)).filter(Boolean) : [];
@@ -1132,6 +1148,11 @@ module.exports = async (req, res) => {
         "bog'ich turi boshqa (ip ↔ tasma) · material boshqa (teri ↔ zamsh ↔ mato) · " +
         "tugma/zamok soni boshqa · naqsh boshqa · qo'shimcha element qo'shilgan. " +
         "Yorug'likdan kelib chiqqan tus farqi, aks, soya, faktura o'tkirligi — FARQ EMAS. " +
+        // ✅ 652: pasport — tekshiruvchi aynan shu belgilarni izlaydi
+        (Array.isArray(body.pasport) && body.pasport.length
+          ? "TOVAR PASPORTI — bu belgilarning HAR BIRI ikkinchi rasmda bormi, alohida tekshir: " +
+            body.pasport.slice(0, 8).map((z, i) => (i + 1) + ") " + String(z).slice(0, 120)).join("; ") +
+            ". Bittasi yo'q yoki boshqacha bo'lsa — bu 'sezilarli' farq. " : "") +
         "'mos' = mijoz uni o'sha tovar deb taniydi. Har farq: [og'irlik] QAYERDA — NIMA. Tovar: " +
         _tovarMatn(body.tovar || {});
       try {
@@ -1617,9 +1638,13 @@ module.exports = async (req, res) => {
                  tur === "soat"  ? "wrist watch" :
                  tur === "sumka" ? "bag" : "accessory";
     const matn =
+      // ✅ 652: pasport va oldingi urinishdagi farq buyruqqa kiradi
+      (String(body.tuzat || "").trim()
+        ? `PREVIOUS ATTEMPT WAS REJECTED — the product was rendered wrongly: ${String(body.tuzat).replace(/\s+/g, " ").trim().slice(0, 300)}. Fix exactly this. ` : "") +
       `Edit the first image (the person). Replace ONLY the person's ${nima} with the exact ` +
       `product shown in the second image. Keep the product's design, colour, material, ` +
-      `logo and shape exactly as in the second image. Do NOT change the person's face, ` +
+      `logo and shape exactly as in the second image. ` + _pasportMatn(body.pasport) +
+      `Do NOT substitute a similar-looking generic product. Do NOT change the person's face, ` +
       `hair, skin, body, pose, clothing or the background in any way. Photorealistic, ` +
       `natural lighting and shadows matching the original photo.` +
       // ✅ 631: oyoq kiyim — JUFTLIK va oyoqlar kadrdan chiqmasin (egasi:
@@ -1676,6 +1701,7 @@ module.exports = async (req, res) => {
         ? "FOOTWEAR: show the PAIR, both shoes visible and correctly oriented, standing on a real surface with " +
           "natural contact shadows. Never a single shoe floating. "
         : "") +
+      _pasportMatn(body.pasport) +                                   // ✅ 652
       "PRODUCT FIDELITY — this is the strictest requirement: the product must match the reference EXACTLY in " +
       "colour, shape, silhouette, sole, laces, buttons, zips, stitching lines, logo and its placement, pattern, " +
       "material texture and proportions. Do not restyle, recolour, simplify or add anything to the product.\n" +
@@ -1747,6 +1773,7 @@ module.exports = async (req, res) => {
       // ✅ 634: NEYTRALLASh — rejissyor uslub nomuvofiqligini topsa, faqat
       // SHU qismni o'zgartirishga ruxsat (masalan: shimni to'q ko'kka).
       (neytral ? `One allowed wardrobe change: ${neytral}. Change nothing else. ` : "") +
+      _pasportMatn(body.pasport) +                                   // ✅ 652
       `CRITICAL: do NOT change the person's face, hair, skin, body shape or hands, and do NOT change ` +
       `the product they wear: same colour, shape, logo, laces, stitching, material. Keep the framing and crop. ` +
       `No text, no other people, no added objects. Photorealistic, high resolution.`;

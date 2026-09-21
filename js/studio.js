@@ -2030,6 +2030,7 @@ function stChiz(cvs, fmt, opt) {
 
         // ✅ A1: RAMKA — ichki chiziq / ikki chiziq / burchaklar
         case "ramka": {
+          if (_fotoRejim()) break;           // ✅ 652: foto rejimida ramka yo'q
           const m = (L.chet || .045) * W;
           ctx.strokeStyle = stRang(P, L.rang || "b");
           ctx.lineWidth = (L.qalin || .004) * W;
@@ -2131,6 +2132,12 @@ function stChiz(cvs, fmt, opt) {
 
         // ✅ A1: PANEL — matn ostidagi yumaloq fon
         case "panel": {
+          // ✅ 652: foto rejimida PANEL CHIZILMAYDI. `modelaks` shablonida
+          // o'ng yuqorida kontentsiz 32%×30% rangli kvadrat bor edi — egasi:
+          // "tovar yonida umuman aloqasi yo'q rang, bu uslub kerak emas".
+          // 635 filtri uni ushlamagan (u faqat 18% dan katta blokni o'chirardi).
+          // Matn o'qilishini endi pastki gradient va avtomatik kontrast ta'minlaydi.
+          if (_fotoRejim()) break;
           ctx.save();
           ctx.globalAlpha = L.alfa == null ? 1 : L.alfa;
           ctx.fillStyle = stRang(P, L.rang || "a");
@@ -2336,11 +2343,15 @@ function stChiz(cvs, fmt, opt) {
           }
           // ✅ S1: MATN KONTRASTI — sahna foni ustida narx/nom
           // yo'qolmasin: pastdan yumshoq to'q qatlam.
-          if (STU.fon || L.moda === "cover") {
-            const g2 = ctx.createLinearGradient(0, H * .58, 0, H);
+          // ✅ 652: foto rejimida ham — ilgari faqat "cover" shablonda chizilardi,
+          // foto esa boshqa shablonda to'liq kadrga majburlanganda gradient
+          // yo'q edi va "300 000" to'q suratga singib ketardi.
+          if (STU.fon || L.moda === "cover" || _toliq) {
+            const g2 = ctx.createLinearGradient(0, H * .55, 0, H);
             g2.addColorStop(0, "rgba(0,0,0,0)");
-            g2.addColorStop(1, "rgba(0,0,0,.55)");
-            ctx.fillStyle = g2; ctx.fillRect(0, H * .58, W, H * .42);
+            g2.addColorStop(.55, "rgba(0,0,0,.30)");
+            g2.addColorStop(1, "rgba(0,0,0,.62)");
+            ctx.fillStyle = g2; ctx.fillRect(0, H * .55, W, H * .45);
           }
           break;
         }
@@ -2359,7 +2370,10 @@ function stChiz(cvs, fmt, opt) {
           // ✅ S2: xavfsiz zona + fon ustida avtomatik rang
           const _yy0 = _sz(L.y, F) * H;
           let _rang = stRang(P, L.rang);
-          if (STU.fon) {
+          // ✅ 652: avtomatik kontrast FOTO rejimida ham. Ilgari faqat sahna
+          // (STU.fon) bo'lganda ishlardi; foto natijada STU.fon bo'sh, matn
+          // palitra rangida (to'q ko'k) to'q suratga tushib o'qilmasdi.
+          if (STU.fon || _fotoRejim()) {
             const _l = _lum(ctx, (L.anchor === "right" ? L.x * W - maxW : L.x * W),
                             _yy0 - px, maxW, px * 1.2);
             _rang = _l > .62 ? "#0B1220" : "#FFFFFF";
@@ -2424,7 +2438,9 @@ function stChiz(cvs, fmt, opt) {
             x = bx + pad;
             ctx.fillStyle = stRang(P, L.qopqaMatn || "a");
           } else {
-            ctx.fillStyle = stRang(P, L.rang);
+            // ✅ 652: foto ustida qopqasiz narx har doim OQ — palitra rangi
+            // (to'q ko'k) to'q suratga singib ketardi ("300 000" o'qilmasdi)
+            ctx.fillStyle = _fotoRejim() ? "#FFFFFF" : stRang(P, L.rang);
           }
           const _ny = _sz(L.y, F) * H;   // ✅ S2: xavfsiz zona
           if (_sc !== 1) px = px * _sc;  // ✅ S5: narx "portlashi"
@@ -2496,10 +2512,13 @@ function stChiz(cvs, fmt, opt) {
             ctx.font = `700 ${pz}px ${_fam(L)}`;
             const t2 = "AI namoyish";
             const w2 = ctx.measureText(t2).width;
+            // ✅ 652: pastki chap burchakdan YUQORI chapga — narx va nom
+            // ko'pincha pastda turadi va yozuv ularning ustiga tushardi.
+            const ay = H * .045 + pz;
             ctx.fillStyle = "rgba(0,0,0,.42)";
-            ctx.fillRect(W * .04 - pad, H * .955 - pz, w2 + pad * 2, pz * 1.6);
+            ctx.fillRect(W * .04 - pad, ay - pz, w2 + pad * 2, pz * 1.6);
             ctx.fillStyle = "#FFFFFF";
-            ctx.fillText(t2, W * .04, H * .955 + pz * .18);
+            ctx.fillText(t2, W * .04, ay + pz * .18);
           }
           if (!STU.belgi) break;
           const px = L.o * W;
@@ -3296,10 +3315,20 @@ async function stuKiydir(jins) {
   const tur = _stuAiTur() || _kiyimTuri(STU.tovar || {});
   const tahrir = tur === "shoes" || tur === "aksessuar";
   stuHolat(tahrir ? "👟 Tovar modelga qo'yilmoqda…" : "👗 Kiyim modelga kiydirilmoqda…");
-  const d = await stuAI(tahrir ? "kiydir_edit" : "kiydir",
-    { jins, image: c.toDataURL("image/jpeg", 0.86), turi: tur });
+  const par = { jins, image: c.toDataURL("image/jpeg", 0.86), turi: tur,
+                pasport: (STU.aiHukm && STU.aiHukm.pasport) || [] };        // ✅ 652
+  let d = await stuAI(tahrir ? "kiydir_edit" : "kiydir", par);
   stuHolat("");
   if (!d) return;
+  // ✅ 652: shu yerda ham darvoza (kiydirishning ikkinchi nusxasi — C10)
+  let dv = await _stuKiydirDarvoza(d.image);
+  if (!dv.ok) {
+    stuHolat("Tovar o'zgardi — qayta kiydirilmoqda", 90);
+    const d2 = await stuAI(tahrir ? "kiydir_edit" : "kiydir", Object.assign({}, par, { tuzat: dv.farq }));
+    stuHolat("");
+    if (d2 && d2.image) { dv = await _stuKiydirDarvoza(d2.image); if (dv.ok) d = d2; }
+    if (!dv.ok) { toast("Kiydirishda tovar o'zgardi (" + (dv.farq || "farq bor") + ") — natija qabul qilinmadi", "err"); return; }
+  }
   try {
     STU.img = await _stuImg(d.image);
     await stuMuhit(tur);         // ✅ 633: rejissyor muhiti (tekshiruv bilan)
@@ -4365,7 +4394,8 @@ async function stuJoylashtir() {
   stuHolat("Rejissyor suratga olmoqda", 120);
   const d = await stuAI("joylashtir", { image: c.toDataURL("image/jpeg", 0.88),
     sahna: h.sahna, joylashuv: h.joylashuv || {},
-    turi: _stuAiTur() || _kiyimTuri(STU.tovar || {}), tovar_turi: (h.tovar_turi || "") });
+    turi: _stuAiTur() || _kiyimTuri(STU.tovar || {}), tovar_turi: (h.tovar_turi || ""),
+    pasport: h.pasport || [] });   // ✅ 652
   if (!d || !d.image) return false;
   let im; try { im = await _stuImg(d.image); } catch (e) { return false; }
   // ✅ 642: TEKSHIRUV "yangi" REJIMIDA. Bu yerda natija QAYTA OLINGAN surat —
@@ -4374,7 +4404,8 @@ async function stuJoylashtir() {
   // yo'l ishlardi; egasi ekranda hech qanday o'zgarish sezmadi.
   stuHolat("Rejissyor natijani tekshirmoqda", 25);
   const t = await stuAiChaqir("ai_solishtir", { rejim: "yangi",
-    asl: _stuTayyor(STU.asl || STU.img, 900), natija: _stuTayyor(im, 900), tovar: _stuAiTovar() });
+    asl: _stuTayyor(STU.asl || STU.img, 900), natija: _stuTayyor(im, 900), tovar: _stuAiTovar(),
+    pasport: h.pasport || [] });   // ✅ 652
   if (!t || !t.ok || !t.hukm) { toast("Tekshiruv ishlamadi — oddiy yo'l bilan davom", "err"); return false; }
   STU.aiMos = t.hukm;
   if (!t.hukm.mos) {
@@ -4386,12 +4417,13 @@ async function stuJoylashtir() {
     const d2 = await stuAI("joylashtir", { image: c.toDataURL("image/jpeg", 0.88),
       sahna: h.sahna, joylashuv: h.joylashuv || {},
       turi: _stuAiTur() || _kiyimTuri(STU.tovar || {}), tovar_turi: (h.tovar_turi || ""),
-      tuzat: farq });
+      tuzat: farq, pasport: h.pasport || [] });   // ✅ 652
     let im2 = null;
     if (d2 && d2.image) { try { im2 = await _stuImg(d2.image); } catch (e) {} }
     if (!im2) { toast("AI tovarni o'zgartirdi (" + farq + ") — oddiy yo'lga qaytildi", "err"); return false; }
     const t2 = await stuAiChaqir("ai_solishtir", { rejim: "yangi",
-      asl: _stuTayyor(STU.asl || STU.img, 900), natija: _stuTayyor(im2, 900), tovar: _stuAiTovar() });
+      asl: _stuTayyor(STU.asl || STU.img, 900), natija: _stuTayyor(im2, 900), tovar: _stuAiTovar(),
+      pasport: h.pasport || [] });   // ✅ 652
     if (!t2 || !t2.ok || !t2.hukm || !t2.hukm.mos) {
       toast("AI tovarni o'zgartirdi (" + farq + ") — oddiy yo'lga qaytildi", "err");
       return false;
@@ -4412,7 +4444,8 @@ async function stuMuhit(tur) {
   const src = STU.img; if (!src) return false;
   stuHolat("Rejissyor muhiti qo'yilmoqda", 90);
   const d = await stuAI("muhit", { image: _stuTayyor(src, 1000), sahna: h.sahna,   // ✅ 650: 1200 -> 1000
-    turi: tur || "", poza: h.poza || "", neytral: h.neytral || "" });   // ✅ 634
+    turi: tur || "", poza: h.poza || "", neytral: h.neytral || "",
+    pasport: h.pasport || [] });   // ✅ 634 · 652 pasport
   if (!d || !d.image) return false;
   let im; try { im = await _stuImg(d.image); } catch (e) { return false; }
   stuHolat("Rejissyor tovarni tekshirmoqda", 25);
@@ -4430,6 +4463,25 @@ async function stuMuhit(tur) {
   }
   STU.img = im; STU.muhit = true; STU.muhitRad = "";
   return true;
+}
+
+// ✅ 652: KIYDIRISH DARVOZASI. Kiydirishdan keyin natija ASL tovar bilan
+// solishtiriladi ("yangi" rejim + tovar pasporti). Ilgari bu yerda
+// tekshiruv YO'Q edi: nano-banana GRUFA ni boshqa krossovkaga almashtirdi
+// (donador → silliq teri, kulrang → jigarrang tovon, yorliq yo'qoldi),
+// muhit tekshiruvi esa "oldin ↔ keyin" ni solishtirgani uchun o'tkazib
+// yubordi — ikkalasida ham xato poyabzal bor edi. Yakuniy tekshiruv esa
+// faqat ogohlantirardi. Natija: noto'g'ri tovar reklama bo'lib chiqdi.
+async function _stuKiydirDarvoza(natijaData) {
+  const h = STU.aiHukm || {};
+  let im; try { im = await _stuImg(natijaData); } catch (e) { return { ok: true }; }
+  stuHolat("Rejissyor kiydirilgan tovarni tekshirmoqda", 25);
+  const t = await stuAiChaqir("ai_solishtir", { rejim: "yangi",
+    asl: _stuTayyor(STU.asl || STU.img, 900), natija: _stuTayyor(im, 900),
+    tovar: _stuAiTovar(), pasport: h.pasport || [] });
+  if (!t || !t.ok || !t.hukm) return { ok: true, tekshirilmadi: true };   // ko'r qabul emas — pastda yozamiz
+  STU.aiMos = t.hukm;
+  return { ok: !!t.hukm.mos, farq: (t.hukm.farqlar || []).slice(0, 2).join("; ") };
 }
 
 // ✅ 628: REJISSYORNI KUTISH. Uning javobi 5-15 s keladi; foydalanuvchi
@@ -4651,10 +4703,31 @@ async function stuKiydirOqim() {
     const aksTur = x.turi !== "aksessuar" ? x.turi
       : (nomi.includes("soat") ? "soat" : (nomi.includes("sumka") || nomi.includes("ryukzak")) ? "sumka" : "aksessuar");
     stuHolat(`${tahrir ? "👟" : "👗"} ${n + 1}/${hamma.length} · ${x.tovar.nom} kiydirilmoqda`, 90);
-    const d = await stuAI(tahrir ? "kiydir_edit" : "kiydir", {
-      jins, model_image: shaxsData || undefined,
-      image: _stuTayyor(x.img, 1100), turi: aksTur });
+    const asosiy = (n === 0);
+    const par = { jins, model_image: shaxsData || undefined,
+      image: _stuTayyor(x.img, 1100), turi: aksTur,
+      pasport: asosiy ? ((STU.aiHukm && STU.aiHukm.pasport) || []) : [] };   // ✅ 652
+    let d = await stuAI(tahrir ? "kiydir_edit" : "kiydir", par);
     if (!d) { stuHolat(""); return; }
+    // ✅ 652: ASOSIY tovar uchun darvoza — mos bo'lmasa bir marta qayta
+    if (asosiy) {
+      let dv = await _stuKiydirDarvoza(d.image);
+      if (!dv.ok) {
+        stuHolat("Tovar o'zgardi — qayta kiydirilmoqda", 90);
+        const d2 = await stuAI(tahrir ? "kiydir_edit" : "kiydir", Object.assign({}, par, { tuzat: dv.farq }));
+        if (d2 && d2.image) { dv = await _stuKiydirDarvoza(d2.image); if (dv.ok) d = d2; }
+      }
+      if (!dv.ok) {
+        // noto'g'ri tovar reklama bo'lib CHIQMAYDI — tovarning o'zi yasaladi
+        stuHolat("");
+        toast("Kiydirishda tovar o'zgardi (" + (dv.farq || "farq bor") + ") — tovarning o'zi reklamasi yasalmoqda", "err");
+        STU._kiydirRad = dv.farq || "tovar o'zgardi";
+        STU.aiNamoyish = false;
+        stuTuri("tovar");                // rejissyor TOVAR uchun yangi sahna yozadi
+        await stuReklamaYasa();          // tovar yo'li _stuAiKut bilan uni kutadi
+        return;
+      }
+    }
     shaxsData = d.image;
   }
   STU.img = await _stuImg(shaxsData);
