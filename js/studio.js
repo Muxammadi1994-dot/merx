@@ -3333,7 +3333,8 @@ async function stuKiydir(jins) {
   const tahrir = tur === "shoes" || tur === "aksessuar";
   stuHolat(tahrir ? "👟 Tovar modelga qo'yilmoqda…" : "👗 Kiyim modelga kiydirilmoqda…");
   const par = { jins, image: c.toDataURL("image/jpeg", 0.86), turi: tur,
-                pasport: (STU.aiHukm && STU.aiHukm.pasport) || [] };        // ✅ 652
+                pasport: (STU.aiHukm && STU.aiHukm.pasport) || [],          // ✅ 652
+                foto_turi: (STU.aiHukm && STU.aiHukm.foto_turi) || "auto" }; // ✅ 665
   let d = await stuAI(tahrir ? "kiydir_edit" : "kiydir", par);
   stuHolat("");
   if (!d) return;
@@ -3341,7 +3342,7 @@ async function stuKiydir(jins) {
   let dv = await _stuKiydirDarvoza(d.image);
   if (!dv.ok) {
     stuHolat("Tovar o'zgardi — qayta kiydirilmoqda", 90);
-    const d2 = await stuAI(tahrir ? "kiydir_edit" : "kiydir", Object.assign({}, par, { tuzat: dv.farq }));
+    const d2 = await stuAI("kiydir_edit", Object.assign({}, par, { tuzat: dv.farq }));   // ✅ 665: eskalatsiya
     stuHolat("");
     if (d2 && d2.image) { dv = await _stuKiydirDarvoza(d2.image); if (dv.ok) d = d2; }
     if (!dv.ok) { toast("Kiydirishda tovar o'zgardi (" + (dv.farq || "farq bor") + ") — natija qabul qilinmadi", "err"); return; }
@@ -4851,15 +4852,21 @@ async function stuKiydirOqim() {
     const asosiy = (n === 0);
     const par = { jins, model_image: shaxsData || undefined,
       image: _stuTayyor(x.img, 1100), turi: aksTur,
-      pasport: asosiy ? ((STU.aiHukm && STU.aiHukm.pasport) || []) : [] };   // ✅ 652
+      pasport: asosiy ? ((STU.aiHukm && STU.aiHukm.pasport) || []) : [],     // ✅ 652
+      foto_turi: asosiy ? ((STU.aiHukm && STU.aiHukm.foto_turi) || "auto") : "auto" };   // ✅ 665
     let d = await stuAI(tahrir ? "kiydir_edit" : "kiydir", par);
     if (!d) { stuHolat(""); return; }
     // ✅ 652: ASOSIY tovar uchun darvoza — mos bo'lmasa bir marta qayta
     if (asosiy) {
       let dv = await _stuKiydirDarvoza(d.image);
       if (!dv.ok) {
-        stuHolat("Tovar o'zgardi — qayta kiydirilmoqda", 90);
-        const d2 = await stuAI(tahrir ? "kiydir_edit" : "kiydir", Object.assign({}, par, { tuzat: dv.farq }));
+        // ✅ 665: ESKALATSIYA. Kiyim modeli buyruq qabul qilmaydi — uning
+        // qayta urinishi aynan nusxa edi (jonli: ikkala urinishda ham tik yoqa
+        // qaytarma bo'ldi, 6 kredit bekor ketdi). Qayta urinish endi DOIM
+        // buyruq tushunadigan rassomga: pasport + tekshiruvchi topgan farq bilan.
+        stuHolat(tahrir ? "Tovar o'zgardi — qayta kiydirilmoqda"
+                        : "Kiyim detallari buzildi — aniq rassom bilan qayta kiydirilmoqda", 90);
+        const d2 = await stuAI("kiydir_edit", Object.assign({}, par, { tuzat: dv.farq }));
         if (d2 && d2.image) { dv = await _stuKiydirDarvoza(d2.image); if (dv.ok) d = d2; }
       }
       if (!dv.ok) {

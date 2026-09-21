@@ -287,6 +287,7 @@ const HUKM_SXEMA = _obj({
     kadr: S_STR, yoruglik: S_STR, palitra: S_STR, buyruq: S_STR }),
   poza: S_STR, uslub_ogoh: S_STRLIST, neytral: S_STR,   // ✅ 634 (odamli turlar)
   pasport: S_STRLIST,                                     // ✅ 652: tovarni tanitadigan belgilar
+  foto_turi: { type: "string", enum: ["model", "flat-lay", "auto"] },   // ✅ 665
   // ✅ 663: SHAXS TAHLILI — rejissyor endi xodim suratini ham KO'RADI.
   shaxs: _obj({ bor: S_BOOL, qamrov: S_STR, yuz: S_BOOL, yetarli: S_BOOL,
                 kiyim: S_STR, kombinatsiya: S_STR, tavsiya: S_STR, pastki: S_STR }),   // ✅ 664: pastki
@@ -344,6 +345,8 @@ UChINChI VAZIFA — SURATGA OLISh BRIFI ("buyruq", INGLIZCHA, 700-1400 belgi). B
 8. Kompozitsiya va chuqurlik: tovar kadrning 55-70% i, uchdan bir qoidasi yoki diagonal, orqa plan xira, tovar eng o'tkir nuqta.
 9. Kayfiyat va rang: 3 rangdan oshmasin, iliq yoki sovuq, "film donasi" yoki "raqamli toza".
 10. Taqiqlar: no text, no letters, no logos of other brands, no watermark, no collage, no border, no frame, no studio backdrop unless asked.
+
+TOVAR SURATI TURI ("foto_turi"): kiyim tovar suratida ODAMGA kiyilgan bo'lsa "model"; ilgichda, manekenda yoki tekis yoyilgan bo'lsa "flat-lay"; kiyim bo'lmasa yoki aniq emas — "auto".
 
 TOVAR PASPORTI ("pasport", 5-8 band, INGLIZCHA): shu tovarni BOShQA shunga o'xshash tovarlardan ajratib turadigan ANIQ ko'rinadigan belgilar. Umumiy so'z emas ("chiroyli", "sifatli"), faqat ko'z bilan tekshiriladigan narsa: material fakturasi (pebbled leather, smooth suede), har qism rangi (grey suede heel tab, white cupsole), logotip/yorliq va uning JOYI (woven label on tongue reading "..."), taglik turi va qalinligi, bog'ich turi va rangi, metall qismlar, tikuv chiziqlari. Ranglarni ANIQ nomla ("light grey", "navy", "ivory", "tan") — taxminiy "off-white" yoki "light" emas; har qism rangini alohida ayt. Sabab: GRUFA tovonidagi kulrang zamsh "off-white" deb yozilgach, rassom uni bej qilib chizdi. Bu ro'yxat rassomga "ALBATTA saqlansin" deb beriladi va tekshiruvchi aynan shu bo'yicha tekshiradi.
 
@@ -1124,6 +1127,7 @@ module.exports = async (req, res) => {
                          : { bor: false };
         if (!shx) hukm.uslub_ogoh = [];     // ko'rilmagan odam haqida ogoh YO'Q
       }
+      hukm.foto_turi = /^(model|flat-lay)$/.test(String(hukm.foto_turi || "")) ? hukm.foto_turi : "auto";   // ✅ 665
       hukm.pasport = Array.isArray(hukm.pasport)                                          // ✅ 652
         ? hukm.pasport.slice(0, 8).map(z => String(z).replace(/\s+/g, " ").trim().slice(0, 120)).filter(Boolean) : [];
       hukm.neytral = String(hukm.neytral || "").replace(/\s+/g, " ").trim().slice(0, 160);
@@ -1525,7 +1529,13 @@ module.exports = async (req, res) => {
       const q = await falSubmit(M_TRYON, {
         model_image: shaxsRasm, garment_image: kiyim,
         category: String(body.turi || "auto"),
-        mode: "balanced", garment_photo_type: "auto",
+        // ✅ 665: "quality" — hujjat: asl kiyimni aniqroq tiklaydi, odamni
+        // yaxshiroq saqlaydi (~19 s, narx bir xil). Jonli: "balanced" da tik
+        // yoqa qaytarma yoqaga aylandi, yelkadagi to'qima panel yo'qoldi.
+        mode: "quality",
+        // ✅ 665: rejissyor tovar suratini ko'rib aytadi: odamda (model) yoki
+        // ilgichda / tekis yoyilgan (flat-lay). "auto" — faqat bilmasa.
+        garment_photo_type: /^(model|flat-lay)$/.test(String(body.foto_turi || "")) ? String(body.foto_turi) : "auto",
         num_samples: 1, segmentation_free: true, output_format: "png",
       });
       return res.status(200).json({ ok: true, navbat: true, amal: "kiydir:" + jins,
@@ -1712,9 +1722,15 @@ module.exports = async (req, res) => {
       shaxsRasm = m.url;
     }
     const tur = String(body.turi || "shoes");
+    // ✅ 665: KIYIM HAM. Kiyim modeli buyruq qabul qilmaydi — detal buzilsa
+    // uning qayta urinishi aynan nusxa bo'lardi. Endi qayta urinish shu
+    // rassomga pasport va aniq farq bilan keladi.
     const nima = tur === "shoes" ? "footwear (shoes)" :
                  tur === "soat"  ? "wrist watch" :
-                 tur === "sumka" ? "bag" : "accessory";
+                 tur === "sumka" ? "bag" :
+                 tur === "tops"  ? "upper-body garment (jacket, top or shirt)" :
+                 tur === "bottoms" ? "lower-body garment (trousers or skirt)" :
+                 tur === "one-pieces" ? "full outfit (dress or one-piece)" : "accessory";
     const matn =
       // ✅ 652: pasport va oldingi urinishdagi farq buyruqqa kiradi
       (String(body.tuzat || "").trim()
@@ -1723,7 +1739,10 @@ module.exports = async (req, res) => {
       `product shown in the second image. Keep the product's design, colour, material, ` +
       `logo and shape exactly as in the second image. ` + _pasportMatn(body.pasport) +
       `Do NOT substitute a similar-looking generic product. Do NOT change the person's face, ` +
-      `hair, skin, body, pose, clothing or the background in any way. Photorealistic, ` +
+      `hair, skin, body, pose, their other clothing or the background in any way. Photorealistic, ` +
+      (/^(tops|bottoms|one-pieces)$/.test(tur)
+        ? `The garment must fit the body naturally with realistic folds, keeping its exact cut, collar shape, ` +
+          `seams, panels, knit or fabric texture and every colour zone as in the reference. ` : "") +
       `natural lighting and shadows matching the original photo.` +
       // ✅ 631: oyoq kiyim — JUFTLIK va oyoqlar kadrdan chiqmasin (egasi:
       // "biror marta ham juft yaratmadi"; natija kadri oyoqni kesib yuborardi)
