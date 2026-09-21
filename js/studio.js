@@ -3162,7 +3162,12 @@ async function stuReklamaYasa() {
     _stuMatnOldin();                   // ✅ 650: matn parallel yo'lga chiqadi
     // ✅ S6: REAL ShAXS rejimida AI UMUMAN chaqirilmaydi — rang
     // tuzatiladi va variantlar darhol chiziladi (xarajat 0, kutish yo'q).
-    if (STU.real) {
+    // ⚠️ 659: bu blok ESKI ma'no uchun (surat allaqachon odam kiygan).
+    // "Real shaxsga KIYDIRISH" turida u kiydirish yo'lini to'sib qo'yardi:
+    // rangni tuzatib, eski oynaga chizib, "tayyor" derdi — yangi oynada
+    // esa hech narsa o'zgarmasdi va egasi 6 daqiqa kutdi (jurnalda
+    // birorta ham server so'rovi yo'q edi). Endi faqat eski yo'lda.
+    if (STU.real && STU.turi !== "real" && STU.turi !== "kop") {
       stuHolat("Rang va kadr sozlanmoqda…");
       STU.avtoPal = stuPalitraChiqar(STU.img);
       stuRangTuzat();
@@ -4489,10 +4494,15 @@ async function _stuKiydirDarvoza(natijaData) {
 // "ust" bo'lardi). Endi so'rov yo'lda bo'lsa 15 s gacha kutiladi.
 async function _stuAiKut(ms) {
   const t0 = Date.now();
+  // ✅ 659: holat bir marta yoziladi (har 300 ms da qayta yozilsa soat
+  // har safar 0 dan boshlanardi) va chiqishda tozalanadi — aks holda
+  // chaqiruvchi erta qaytsa soat abadiy yurib, "o'ylanyapti" ko'rinardi.
+  let yozildi = false;
   while (STU._aiBand && Date.now() - t0 < (ms || 15000)) {
-    stuHolat("Rejissyor tovarni o'rganmoqda", 20);
+    if (!yozildi) { stuHolat("Rejissyor tovarni o'rganmoqda", 20); yozildi = true; }
     await new Promise(r => setTimeout(r, 300));
   }
+  if (yozildi) stuHolat("");
 }
 function _stuAiTur() {
   const h = STU.aiHukm;
@@ -4671,8 +4681,15 @@ function stuUstaChiz() {
 
 // ── KIYDIRISh OQIMI (real / model / kop) — AI tovarni tahlil qiladi
 async function stuKiydirOqim() {
-  await _stuAiKut(15000);                              // ✅ 628: rejissyor kutiladi
   const shaxsmi = STU.turi === "real" || (STU.turi === "kop" && STU.modelJins === "shaxs");
+  // ✅ 659: xodim surati SHART. Ilgari tekshirilmasdi — surat bo'lmasa
+  // server jimgina AI-modelni olib, unga kiydirib qo'yardi.
+  if (shaxsmi && !STU.shaxs) {
+    stuHolat("");
+    toast("Avval xodim yoki mijoz suratini yuklang — kimga kiydirishni bilishim kerak", "err");
+    return;
+  }
+  await _stuAiKut(15000);                              // ✅ 628: rejissyor kutiladi
   const jins = STU.modelJins === "ayol" ? "ayol" : "erkak";
   // kiyimlar ro'yxati: asosiy tovar + qo'shimchalar; TARTIB: past → ust → libos
   // ✅ 3-bosqich: ASOSIY tovarning turini REJISSYOR aniqlaydi (suratga
