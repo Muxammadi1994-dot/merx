@@ -4091,8 +4091,11 @@ function stuShaxsRasm(inp) {
   const r = new FileReader();
   r.onload = e => {
     const im = new Image();
-    im.onload = () => { STU.shaxs = im; stuSlotChiz();
-      toast("Xodim surati qo'shildi — endi kiyimlarni tanlang", "ok"); };
+    // ✅ 660: tugma holati QAYTA hisoblansin. Ilgari faqat slot chizilardi —
+    // surat ko'rinib turardi, lekin "Reklama yasa" kulrang qolib, yonida
+    // "Surat tanlang" yozilardi va kiydirish boshlanmasdi.
+    im.onload = () => { STU.shaxs = im; stuSlotChiz(); stuUstaChiz();
+      toast("Xodim surati qo'shildi", "ok"); };
     im.src = e.target.result;
   };
   r.readAsDataURL(f);
@@ -4674,7 +4677,10 @@ function stuUstaChiz() {
     const iz = document.getElementById("stu-od-kredit-izoh");
     if (iz) iz.textContent = tayyor
       ? ({ tovar: "1 kredit", real: "3 kredit", model: "3 kredit", kop: "3 kredit" })[STU.turi] || ""
-      : (!T ? "Avval tovarni tanlang" : "Surat tanlang");
+      : (!T ? "Avval tovarni tanlang"
+         : (!STU.img ? "Tovar suratini tanlang"
+         : ((STU.turi === "real" || (STU.turi === "kop" && STU.modelJins === "shaxs")) && !STU.shaxs
+            ? "Xodim suratini yuklang" : "Surat tanlang")));
   }
   stuNatijaKorsat(!!STU.variants.length);
 }
