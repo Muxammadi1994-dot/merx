@@ -4531,6 +4531,34 @@ async function stuMuhit(tur) {
 // muhit tekshiruvi esa "oldin ↔ keyin" ni solishtirgani uchun o'tkazib
 // yubordi — ikkalasida ham xato poyabzal bor edi. Yakuniy tekshiruv esa
 // faqat ogohlantirardi. Natija: noto'g'ri tovar reklama bo'lib chiqdi.
+// ✅ 664: TO'LDIRISH. Xodim surati beldan olingan bo'lsa — 9:16 kanvas
+// tepasiga qo'yiladi (rejissyor aytgan qamrovga qarab: bel ~50%, son ~60%,
+// tizza ~72% balandlik), qolgani kulrang; rassom kulrangni to'ldiradi.
+function _stuToldirUlush(qamrov) {
+  const q = String(qamrov || "").toLowerCase();
+  if (/tizza/.test(q)) return .72;
+  if (/son/.test(q)) return .60;
+  if (/bel/.test(q)) return .50;
+  if (/ko'krak|yelka|yuz|bosh/.test(q)) return .36;
+  return .55;
+}
+async function _stuToldir(im, h, tur) {
+  const S = (h && h.shaxs) || {};
+  const W = 900, H = 1600;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d");
+  x.fillStyle = "#808080"; x.fillRect(0, 0, W, H);
+  const nw = im.naturalWidth || im.width, nh = im.naturalHeight || im.height;
+  if (!nw || !nh) return null;
+  let dh = Math.round(H * _stuToldirUlush(S.qamrov)), dw = Math.round(dh * nw / nh);
+  if (dw > W) { dw = W; dh = Math.round(W * nh / nw); }
+  x.drawImage(im, Math.round((W - dw) / 2), 0, dw, dh);
+  stuHolat("AI xodimning yetishmayotgan qismini chizmoqda", 90);
+  const d = await stuAI("toldir", { image: c.toDataURL("image/jpeg", 0.88),
+    qamrov: S.qamrov || "", pastki: S.pastki || "", turi: tur || "" });
+  return d && d.image ? d.image : null;
+}
+
 // ✅ 663: xodim surati almashsa (yoki o'chirilsa) rejissyor QAYTA o'ylaydi
 function _stuRejQayta() {
   STU._aiHukmSrc = ""; STU.aiHukm = null; STU._aiHukmXato = ""; STU._aiBand = false;
@@ -4767,11 +4795,27 @@ async function stuKiydirOqim() {
   // ✅ 663: rejissyor "bu surat bilan kiydirib bo'lmaydi" desa — kredit
   // sarflashdan OLDIN so'raladi (masalan, oyoq kiyim uchun oyoqlar kadrda yo'q)
   const _sh = STU.aiHukm && STU.aiHukm.shaxs;
+  let toldirData = null; STU._toldirildi = false;
   if (shaxsmi && _sh && _sh.bor && _sh.yetarli === false) {
-    const dav = window.confirm("Rejissyor: bu surat bilan kiydirish qiyin.\n" +
-      (_sh.tavsiya || "Tovar kiyiladigan joy suratda to'liq ko'rinmaydi.") +
-      "\n\nBaribir davom etasizmi? (Boshqa surat yuklash uchun — Bekor qilish)");
-    if (!dav) { stuHolat(""); stuPanel("rejissyor"); return; }
+    // ✅ 664: pastki qism yetishmasa (oyoq kiyim, shim) — AI o'zi chizib
+    // to'ldirishni TAKLIF qiladi. Egasining roziligi bilan: oyoqlar haqiqiy
+    // emas, chizilgan bo'ladi, shuning uchun natijada "AI namoyish" belgisi.
+    const tur0 = _stuAiTur() || _kiyimTuri(STU.tovar || {});
+    if (tur0 === "shoes" || tur0 === "bottoms") {
+      const ha = window.confirm("Rejissyor: " + (_sh.tavsiya || "suratda tovar kiyiladigan joy yo'q.") +
+        "\n\nAI xodimning " + (tur0 === "shoes" ? "oyoqlarini" : "pastki qismini") + " o'zi chizib to'ldirsinmi?" +
+        "\n\nOK — AI to'ldiradi (+3 kredit, reklamada «AI namoyish» belgisi bo'ladi)" +
+        "\nBekor qilish — boshqa surat yuklayman");
+      if (!ha) { stuHolat(""); stuPanel("rejissyor"); return; }
+      toldirData = await _stuToldir(STU.shaxs, STU.aiHukm, tur0);
+      if (!toldirData) { stuHolat(""); toast("AI to'ldira olmadi — to'liq bo'y surat yuklang", "err"); return; }
+      STU._toldirildi = true;
+    } else {
+      const dav = window.confirm("Rejissyor: bu surat bilan kiydirish qiyin.\n" +
+        (_sh.tavsiya || "Tovar kiyiladigan joy suratda to'liq ko'rinmaydi.") +
+        "\n\nBaribir davom etasizmi? (Boshqa surat yuklash uchun — Bekor qilish)");
+      if (!dav) { stuHolat(""); stuPanel("rejissyor"); return; }
+    }
   }
   const jins = STU.modelJins === "ayol" ? "ayol" : "erkak";
   // kiyimlar ro'yxati: asosiy tovar + qo'shimchalar; TARTIB: past → ust → libos
@@ -4790,6 +4834,7 @@ async function stuKiydirOqim() {
   if (!hamma.length) { toast("Kiydiriladigan tovar yo'q", "err"); return; }
   const aks = [];
   let shaxsData = shaxsmi ? _stuTayyor(STU.shaxs, 1200) : null;
+  if (toldirData) shaxsData = toldirData;            // ✅ 664: AI to'ldirgan to'liq bo'y
   const kichik = hamma.filter(x => _rasmKichikmi(x.img));
   if (kichik.length) {
     toast(kichik.map(x => x.tovar.nom).join(", ") + " — rasmi kichik (" +
@@ -4833,7 +4878,8 @@ async function stuKiydirOqim() {
   STU.img = await _stuImg(shaxsData);
   const muhitBor = await stuMuhit(hamma[0].turi);   // ✅ 633: rejissyor muhiti
   STU.rasmlar[1] = aks[0] ? aks[0].img : null;   // aksessuar — kollaj slotida
-  STU.aiNamoyish = !shaxsmi; STU.real = shaxsmi;
+  STU.aiNamoyish = !shaxsmi || !!STU._toldirildi;   // ✅ 664: chizilgan oyoq — halol belgi
+  STU.real = shaxsmi;
   // ✅ 662: REAL SHAXS — kadr tovarga emas, odamga: yuz kesilmaydi, yaqinlashtirish yo'q
   if (shaxsmi) { STU.fokus = { x: .5, y: .40 }; STU.imgAdj = { zoom: 1, dx: 0, dy: 0 }; }
   else STU.fokus = _stuFokusTur(hamma[0].turi);   // ✅ 631: kadr TOVARGA qaraydi
@@ -5027,7 +5073,8 @@ function _stuRejIzoh() {
         ${qator("Surat", S.qamrov)}${qator("Yuz", S.yuz ? "ko'rinadi" : "ko'rinmaydi")}
         ${qator("Hozirgi kiyim", S.kiyim)}${qator("Kombinatsiya", S.kombinatsiya)}
         ${S.yetarli === false ? `<div style="margin-top:10px;padding:10px 12px;background:#FFF0D6;border:1px solid #EFCB8C;border-radius:10px;color:#5E3300">
-            <b>Bu surat bilan kiydirish qiyin.</b> ${_stuAiEsc(S.tavsiya || "Tovar kiyiladigan joy suratda to'liq ko'rinmaydi.")}</div>` : ""}
+            <b>Bu surat bilan kiydirish qiyin.</b> ${_stuAiEsc(S.tavsiya || "Tovar kiyiladigan joy suratda to'liq ko'rinmaydi.")}
+            <div style="margin-top:6px">Ikki yo'l bor: to'liq bo'y surat yuklang yoki "Reklama yasa" ni bosing — AI yetishmayotgan qismni o'zi chizib to'ldirishni taklif qiladi.</div></div>` : ""}
       </div>`;
   }
   return (q.length ? `<div class="v2-ai">${q.join("<br>")}</div>` : "") + pas + shx;

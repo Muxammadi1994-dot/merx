@@ -49,6 +49,7 @@ const M_EDIT  = process.env.STUDIO_M_EDIT  || "fal-ai/nano-banana-2/edit";
 const M_JOY   = process.env.STUDIO_M_JOY   || M_EDIT;   // tovarni sahnaga qo'yish
 const M_MUHIT = process.env.STUDIO_M_MUHIT || M_EDIT;   // odamning foni
 const M_KIYD  = process.env.STUDIO_M_KIYD  || M_EDIT;   // oyoq kiyim kiydirish
+const M_TOLDIR = process.env.STUDIO_M_TOLDIR || M_EDIT; // ✅ 664: yetishmayotgan qismni chizish
 const SIFAT   = process.env.STUDIO_SIFAT   || "high";   // low|medium|high|xhigh|max
 const G_IMG   = "gemini-2.5-flash-image";                // Gemini zaxira
 
@@ -56,7 +57,7 @@ const OYLIK_BEPUL = parseInt(process.env.STUDIO_LIMIT) || 10;
 const TG_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;      // ✅ S8: kanalga yuborish
 // ✅ S7: AMAL OG'IRLIGI — hamma amal bir xil emas.
 // Banner va video — BEPUL (brauzerda chiziladi, AI yo'q).
-const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kiydir_edit: 3, kanal: 0, joylashtir: 2, muhit: 3,
+const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kiydir_edit: 3, toldir: 3, kanal: 0, joylashtir: 2, muhit: 3,
                  ai_hukm: 0, ai_matn: 0, ai_solishtir: 1 };   // ✅ v2: rejissyor amallari
 
 // ═══════════════════════════════════════════════════════════════
@@ -288,7 +289,7 @@ const HUKM_SXEMA = _obj({
   pasport: S_STRLIST,                                     // ✅ 652: tovarni tanitadigan belgilar
   // ✅ 663: SHAXS TAHLILI — rejissyor endi xodim suratini ham KO'RADI.
   shaxs: _obj({ bor: S_BOOL, qamrov: S_STR, yuz: S_BOOL, yetarli: S_BOOL,
-                kiyim: S_STR, kombinatsiya: S_STR, tavsiya: S_STR }),
+                kiyim: S_STR, kombinatsiya: S_STR, tavsiya: S_STR, pastki: S_STR }),   // ✅ 664: pastki
   joylashuv: _obj({ foiz: S_INT, markaz_x: S_INT, gorizont: S_INT,
                     soya_yon: { type: "string", enum: ["chap", "ong", "past"] }, soya_kuch: S_INT }),
 });
@@ -1055,7 +1056,8 @@ module.exports = async (req, res) => {
               "(to'liq bo'y / tizzadan yuqori / beldan yuqori / faqat oyoq); 'yuz' — yuz to'liq ko'rinadimi; 'yetarli' — tovar kiyiladigan " +
               "tana qismi suratda TO'LIQ bormi (oyoq kiyim → oyoq va tovonlar; shim → beldan to'piqqacha; ust kiyim → yelka va tana); " +
               "'kiyim' — hozir ustidagi kiyimlar, faqat ko'ringanlari; 'kombinatsiya' — shu tovar bilan birga nima kiyilsa eng yaxshi ko'rinadi " +
-              "(bir-ikki jumla, stilist maslahati); 'tavsiya' — yetarli bo'lmasa, qanday surat kerakligi (masalan: bo'ydan, oyoqlari ko'rinsin).\n"
+              "(bir-ikki jumla, stilist maslahati); 'tavsiya' — yetarli bo'lmasa, qanday surat kerakligi (masalan: bo'ydan, oyoqlari ko'rinsin); " +
+              "'pastki' — INGLIZCHA, suratda ko'rinmagan pastki qism chizilsa unga kiydiriladigan kiyim, kombinatsiyangdan (masalan: dark navy slim chinos, ankle length). Surat yetarli bo'lsa bo'sh.\n"
             : "5) SHAXS: 'shaxs' ning bor=false, qolgan maydonlari bo'sh.\n") +
           "4) USLUB MUVOFIQLIGI ('uslub_ogoh'): " + (shx ? "FAQAT 2-RASMda KO'RINGAN kiyimlar asosida — taxmin qilma. " : "odam surati yo'q — BO'SH qoldir, taxmin qilma. ") + "odamning boshqa kiyimlari tovarga mos keladimi — fasl, uslub, rang, daraja, yosh. " +
           "Mos kelmasa qisqa ogoh; tuzatish mumkin bo'lsa 'neytral' ga yoz (masalan: shimni to'q ko'kka).\n" +
@@ -1117,7 +1119,8 @@ module.exports = async (req, res) => {
         const S0 = (hukm.shaxs && typeof hukm.shaxs === "object") ? hukm.shaxs : {};
         const t = (v, n) => String(v || "").replace(/\s+/g, " ").trim().slice(0, n);
         hukm.shaxs = shx ? { bor: true, qamrov: t(S0.qamrov, 80), yuz: !!S0.yuz, yetarli: S0.yetarli !== false,
-                             kiyim: t(S0.kiyim, 200), kombinatsiya: t(S0.kombinatsiya, 300), tavsiya: t(S0.tavsiya, 200) }
+                             kiyim: t(S0.kiyim, 200), kombinatsiya: t(S0.kombinatsiya, 300), tavsiya: t(S0.tavsiya, 200),
+                             pastki: t(S0.pastki, 160) }
                          : { bor: false };
         if (!shx) hukm.uslub_ogoh = [];     // ko'rilmagan odam haqida ogoh YO'Q
       }
@@ -1651,6 +1654,44 @@ module.exports = async (req, res) => {
         chegara: (await chegaraOl(shopId)).chegara });
     } catch (e) {
       await jurnal(shopId, String(body.amal || "navbat"), "fal", String(body.model || ""), false, e.message);
+      return res.status(200).json({ ok: false, error: e.message });
+    }
+  }
+
+  // ── ✅ 664 · TO'LDIRISH — xodim surati beldan olingan bo'lsa, AI uning
+  // yetishmayotgan pastki qismini (son, oyoq, tovon) chizadi. Klient suratni
+  // baland kanvasning tepasiga qo'yib, qolganini kulrang qoldiradi; rassom
+  // kulrang joyni to'ldiradi ("auto" nisbat — kanvas shakli saqlanadi).
+  // Egasi: "shunday holatlarda AI o'zi yechim bersa". Natija "AI namoyish"
+  // belgisi bilan chiqadi — oyoqlar haqiqiy emas, chizilgan. ──
+  if (amal === "toldir") {
+    const odam = String(body.image || "");
+    if (!/^data:image\//.test(odam)) return res.status(200).json({ ok: false, error: "Xodim surati yuborilmadi" });
+    if (odam.length > MAX_KB * 1024) return res.status(200).json({ ok: false, error: "Rasm juda katta" });
+    const [n0, ch0] = await Promise.all([oySarfi(shopId), chegaraOl(shopId)]);
+    if (n0 >= ch0.chegara)
+      return res.status(200).json({ ok: false, limit: true, error: `Bu oydagi ${ch0.chegara} kredit tugadi.` });
+    const t = (v, n) => String(v || "").replace(/\s+/g, " ").trim().slice(0, n);
+    const qamrov = t(body.qamrov, 80), pastki = t(body.pastki, 160) || "plain dark trousers that match the outfit";
+    const oyoqKiyim = String(body.turi || "") === "shoes";
+    const matn =
+      `This is a photo of a REAL person (a shop employee or customer). The person is visible only ` +
+      `${qamrov ? "down to the " + qamrov : "partially"}; the flat grey areas of the image are EMPTY canvas that must be filled. ` +
+      `Extend the photo naturally into the grey areas: complete the SAME person's body to full length — hips, legs and ` +
+      `both feet standing on the ground — with correct human proportions that match the visible upper body, and continue ` +
+      `the same background, floor, lighting, colour grading and camera perspective seamlessly. ` +
+      `Lower-body clothing: ${pastki}. ` +
+      (oyoqKiyim ? `Feet: simple plain dark shoes (they will be replaced by the advertised product in the next step). `
+                 : `Feet: simple shoes that suit the outfit. `) +
+      `The existing non-grey part of the photo must stay EXACTLY as it is — face, hair, eyewear, clothing and hands untouched; ` +
+      `do not move, resize or redraw the person's upper body. No visible seam or boundary between the original and the extended ` +
+      `area, no grey left anywhere. Photorealistic.`;
+    try {
+      const q = await falSubmit(M_TOLDIR, _falPar(M_TOLDIR, { prompt: matn, rasmlar: [odam], nisbat: "auto" }));
+      return res.status(200).json({ ok: true, navbat: true, amal: "toldir", model: M_TOLDIR,
+        status_url: q.status_url, response_url: q.response_url });
+    } catch (e) {
+      await jurnal(shopId, "toldir", "fal", M_TOLDIR, false, e.message);
       return res.status(200).json({ ok: false, error: e.message });
     }
   }
