@@ -2471,9 +2471,13 @@ function stChiz(cvs, fmt, opt) {
             ctx.rotate(L.burchak * Math.PI / 180);
             ctx.translate(-(bx + bw / 2), -(by + bh / 2));
           }
-          ctx.fillStyle = stRang(P, L.fonRang || "b");
+          // ✅ 667: foto rejimida yorliq NEYTRAL siyohda. Jonli: bej kurtka ustida
+          // ko'k quti chiqdi — rang palitradan olinadi va tovarga bog'liq emas
+          // (qaysi rasmdan olingani tekshirilmagan). Egasi: "tovarga aloqasi yo'q
+          // rang kerak emas".
+          ctx.fillStyle = _fotoRejim() ? "#10192B" : stRang(P, L.fonRang || "b");
           ctx.fillRect(bx, by, bw, bh);
-          ctx.fillStyle = stRang(P, L.matnRang || "a");
+          ctx.fillStyle = _fotoRejim() ? "#FFFFFF" : stRang(P, L.matnRang || "a");
           ctx.fillText(matn, bx + pad, by + bh * .72);
           ctx.restore();
           break;
@@ -3149,10 +3153,30 @@ function stuAvtoYorliq() {
 // tur va sarlavha kerak) — endi u reklama boshlanishi bilan yo'lga
 // chiqadi va rasm tayyor bo'lgunga qadar allaqachon kelib turadi.
 // Ilgari u eng oxirida, hamma narsadan keyin so'ralardi (~15 s qo'shardi).
+// ✅ 667: katalog turi suratdagi tovarga zidmi (xodim katalogdan bir tovarni
+// tanlab, galereyadan boshqasining suratini yuklashi mumkin)
+function _stuTurZid() {
+  const h = STU.aiHukm; if (!h || !h.tovar_turi || h.ishonch === "past") return false;
+  const katStr = String(((STU.tovarXom || {}).category) || ((STU.tovar || {}).kat) || "").trim();
+  if (!katStr) return false;                          // katalogda tur yozilmagan — zid emas
+  const kat = _kiyimTuri(STU.tovar || {});
+  return !!kat && kat !== h.tovar_turi;
+}
+function _stuRejMatnga() {
+  const h = STU.aiHukm, t = STU.tovar || {};
+  if (!h || !h.tovar_turi) return null;
+  const kk = h.komplekt || [];
+  return { tovar_turi: h.tovar_turi, belgilar: (h.pasport || []).slice(0, 5), ziddiyat: _stuTurZid(), obraz: h.obraz || "",
+           komplekt: STU.turi === "kop"
+             ? [{ nom: t.nom || "", tur: h.tovar_turi }].concat((STU.qoshimcha || []).filter(q => q.img).slice(0, 3)
+                 .map((q, i) => ({ nom: (q.tovar && q.tovar.nom) || "", tur: ((kk.find(k => k.nomer === i + 2) || {}).tovar_turi) || q.turi })))
+             : [] };
+}
 function _stuMatnOldin() {
   if (!STU.tovar) return;
   const kalit = (STU.tovar.sku || STU.tovar.art || "") + "|" + (STU.turi || "") + "|" + (STU.yorliq || "") +
-                "|" + (STU.mtNom ? 1 : 0) + (STU.mtNarx ? 1 : 0) + (STU.mtArt ? 1 : 0);
+                "|" + (STU.mtNom ? 1 : 0) + (STU.mtNarx ? 1 : 0) + (STU.mtArt ? 1 : 0) +
+                "|" + (STU.aiHukm ? (STU._aiHukmNo || 0) : "x") + "|" + (STU.qoshimcha || []).length;   // ✅ 667
   if (STU._matnKalit === kalit && (STU._matnVada || STU.aiMatn)) return;   // shu to'plam uchun bor
   STU._matnKalit = kalit; STU.aiMatn = null;
   const t = STU.tovar || {};
@@ -3161,6 +3185,7 @@ function _stuMatnOldin() {
     sahna: STU.fonNom || "", sarlavha: STU.yorliq || "",
     narx: STU.mtNarx && t.narx ? stSon(t.narx) : "",
     mt_nom: !!STU.mtNom, mt_art: !!STU.mtArt,
+    rej: _stuRejMatnga(),                             // ✅ 667: rejissyor ko'rgani — haqiqat
   }).catch(() => null);
 }
 
@@ -4572,7 +4597,7 @@ function _stuRejQayta() {
 function _stuRealmi() {                              // ✅ 662
   return STU.turi === "real" || (STU.turi === "kop" && STU.modelJins === "shaxs");
 }
-async function _stuKiydirDarvoza(natijaData) {
+async function _stuKiydirDarvoza(natijaData, aslar) {
   const h = STU.aiHukm || {};
   let im; try { im = await _stuImg(natijaData); } catch (e) { return { ok: true }; }
   stuHolat("Rejissyor tovar modeli va yuzni tekshirmoqda", 25);
@@ -4581,6 +4606,7 @@ async function _stuKiydirDarvoza(natijaData) {
   const par = { rejim: "kiydir", asl: _stuTayyor(STU.asl || STU.img, 900), natija: _stuTayyor(im, 900),
                 tovar: _stuAiTovar(), pasport: h.pasport || [] };
   if (_stuRealmi() && STU.shaxs) par.shaxs = _stuTayyor(STU.shaxs, 800);
+  if (Array.isArray(aslar) && aslar.length) par.aslar = aslar.slice(0, 3).map(im => _stuTayyor(im, 700));   // ✅ 667
   const t = await stuAiChaqir("ai_solishtir", par);
   if (!t || !t.ok || !t.hukm) return { ok: true, tekshirilmadi: true };   // ko'r qabul emas — pastda yozamiz
   STU.aiMos = t.hukm;
@@ -4710,6 +4736,7 @@ async function stuQoshTanla(sku) {
     if (d) { try { q.img = await _stuImg(d.image); } catch (e) {} }
   }
   STU.qoshimcha.push(q);
+  if (STU.turi === "kop") setTimeout(_stuRejQayta, 0);   // ✅ 667: komplekt o'zgardi
   const qi = document.getElementById("stu-qosh-q"); if (qi) qi.value = "";
   const n = document.getElementById("stu-qosh-natija"); if (n) n.style.display = "none";
   stuUstaChiz();
@@ -4721,7 +4748,7 @@ function stuQoshRasm(inp, i) {
     im.onload = () => { STU.qoshimcha[i].img = im; stuUstaChiz(); }; im.src = e.target.result; };
   r.readAsDataURL(f);
 }
-function stuQoshOchir(i) { STU.qoshimcha.splice(i, 1); stuUstaChiz(); }
+function stuQoshOchir(i) { STU.qoshimcha.splice(i, 1); stuUstaChiz(); if (STU.turi === "kop") _stuRejQayta(); }   // ✅ 667
 
 // ── USTA ekrani
 function stuUstaChiz() {
@@ -4831,11 +4858,19 @@ async function stuKiydirOqim() {
   // kiyimlar ro'yxati: asosiy tovar + qo'shimchalar; TARTIB: past → ust → libos
   // ✅ 3-bosqich: ASOSIY tovarning turini REJISSYOR aniqlaydi (suratga
   // qarab). Katalog matni faqat zaxira — rejissyor javob bermasa yoki
-  // ishonchi past bo'lsa. Qo'shimcha tovarlar (kop) katalogdan qoladi:
-  // rejissyor ularning suratini ko'rmagan.
+  // ishonchi past bo'lsa. ✅ 667: qo'shimcha tovarlar ham — rejissyor endi
+  // ularning suratini ko'radi (komplekt tahlili).
   const royxat = [{ tovar: STU.tovar, img: STU.asl || STU.img,
                     turi: _stuAiTur() || _kiyimTuri(STU.tovar) }]
     .concat(STU.turi === "kop" ? STU.qoshimcha.filter(x => x.img) : []);
+  if (STU.turi === "kop") {
+    const kk = (STU.aiHukm && STU.aiHukm.komplekt) || [];
+    royxat.forEach((x, i) => {
+      if (i === 0) return;
+      const k = kk.find(z => z.nomer === i + 1);
+      if (k && k.tovar_turi) x.turi = k.tovar_turi;
+    });
+  }
   // ✅ OQ: IKKI YO'L. Kiyim (ust/past/libos) — kiydirish modeli;
   // oyoq kiyim va aksessuar — TAHRIR modeli (odam + tovar rasmi).
   // Tartib: past → ust → libos → oyoq kiyim → soat/sumka.
@@ -4851,7 +4886,31 @@ async function stuKiydirOqim() {
       Math.max(kichik[0].img.width, kichik[0].img.height) + "px). Galereyadan kattaroq " +
       "surat yuklasangiz natija ancha yaxshi bo'ladi", "err");
   }
-  for (let n = 0; n < hamma.length; n++) {
+  // ✅ 667: KOMPLEKT — hamma tovar BITTA kadrda (rassom 14 tagacha rasm oladi).
+  // Ketma-ket kiydirishda har qadam odamni va oldingi kiyimlarni biroz
+  // o'zgartirardi, vaqt va kredit N marta ketardi. Bitta kadr tekshiruvdan
+  // o'tmasa — eski ketma-ket usul zaxira bo'lib qoladi.
+  let komplektOk = false;
+  if (STU.turi === "kop" && royxat.length > 1) {
+    const h = STU.aiHukm || {}, kk = h.komplekt || [];
+    const tovarlar = royxat.map((x, i) => ({ image: _stuTayyor(x.img, 1000), turi: x.turi,
+      pasport: i === 0 ? (h.pasport || []).slice(0, 5) : ((kk.find(k => k.nomer === i + 1) || {}).pasport || []) }));
+    const kp = { jins, model_image: shaxsData || undefined, tovarlar, tuzatish: h.tuzatish || "" };
+    stuHolat("Butun komplekt bitta kadrda kiydirilmoqda", 100);
+    let dk = await stuAI("kiydir_komplekt", kp);
+    if (dk && dk.image) {
+      const aslar = royxat.slice(1).map(x => x.img);
+      let dv = await _stuKiydirDarvoza(dk.image, aslar);
+      if (!dv.ok) {
+        stuHolat("Komplektda " + (dv.yuz ? "yuz" : "tovar") + " o'zgardi — qayta kiydirilmoqda", 100);
+        const dk2 = await stuAI("kiydir_komplekt", Object.assign({}, kp, { tuzat: dv.farq }));
+        if (dk2 && dk2.image) { dv = await _stuKiydirDarvoza(dk2.image, aslar); if (dv.ok) dk = dk2; }
+      }
+      if (dv.ok) { shaxsData = dk.image; komplektOk = true; }
+      else toast("Bitta kadrda chiqmadi (" + (dv.farq || "farq bor") + ") — tovarlar birma-bir kiydiriladi", "err");
+    }
+  }
+  if (!komplektOk) for (let n = 0; n < hamma.length; n++) {
     const x = hamma[n];
     const tahrir = x.turi === "shoes" || x.turi === "aksessuar";
     const nomi = _uz(x.tovar.nom).toLowerCase();
@@ -5101,7 +5160,18 @@ function _stuRejIzoh() {
             <div style="margin-top:6px">Ikki yo'l bor: to'liq bo'y surat yuklang yoki "Reklama yasa" ni bosing — AI yetishmayotgan qismni o'zi chizib to'ldirishni taklif qiladi.</div></div>` : ""}
       </div>`;
   }
-  return (q.length ? `<div class="v2-ai">${q.join("<br>")}</div>` : "") + pas + shx;
+  // ✅ 667: katalog suratga zid — aniq ogohlantirish
+  const zid = _stuTurZid() ? `<div style="margin-top:12px;padding:10px 12px;background:#FFF0D6;border:1px solid #EFCB8C;border-radius:10px;color:#5E3300">
+      <b>Katalog va surat mos emas.</b> Katalogda — ${_stuAiEsc(_TUR_NOM[_kiyimTuri(STU.tovar || {})] || "boshqa tur")}, suratda —
+      ${_stuAiEsc(_TUR_NOM[h.tovar_turi] || h.tovar_turi)}. Reklama va post matni SURAT bo'yicha yasaladi; tovar kartochkasini tekshiring.</div>` : "";
+  // ✅ 667: komplekt obrazi va mos kelmaydigan juftliklar
+  const kom = (STU.turi === "kop" && (h.obraz || (h.uygunlik || []).length))
+    ? `<div style="margin-top:14px;padding-top:12px;border-top:1px solid #E3E7EC">
+        <div style="font-weight:700;font-size:13.5px">Komplekt obrazi</div>
+        ${h.obraz ? `<div style="margin-top:6px">${_stuAiEsc(h.obraz)}</div>` : ""}
+        ${(h.uygunlik || []).length ? `<div style="margin-top:8px;color:#5E3300">Mos kelmaydi: ${h.uygunlik.map(_stuAiEsc).join("; ")}</div>` : ""}
+      </div>` : "";
+  return (q.length ? `<div class="v2-ai">${q.join("<br>")}</div>` : "") + zid + pas + shx + kom;
 }
 async function stuAiHukm(im) {
   if (!im || !im.src || !STU.tovar) return;
@@ -5114,6 +5184,9 @@ async function stuAiHukm(im) {
   const no = STU._aiHukmNo = (STU._aiHukmNo || 0) + 1;
   const par = { image: _stuTayyor(im, 900), tovar: _stuAiTovar(), turi: STU.turi || "tovar" };
   if (_stuRealmi() && STU.shaxs) par.shaxs = _stuTayyor(STU.shaxs, 900);
+  // ✅ 667: "bir nechta tovar" — rejissyor qo'shimcha tovarlarni ham ko'radi
+  if (STU.turi === "kop") par.qoshimcha = (STU.qoshimcha || []).filter(q => q.img).slice(0, 3)
+    .map(q => ({ image: _stuTayyor(q.img, 700), nom: (q.tovar && q.tovar.nom) || "" }));
   const d = await stuAiChaqir("ai_hukm", par);
   if (no !== STU._aiHukmNo) return;                   // yangiroq so'rov bor — bu eskirgan
   STU._aiBand = false;
@@ -5179,15 +5252,27 @@ async function stuAiNatija() {
   // ✅ 629: ASL surat — STU.asl. Kiydirishdan keyin STU.img = NATIJA, ya'ni
   // tekshiruvchi natijani o'zi bilan solishtirib "mos 88%" derdi (tovar
   // rasmda yo'q bo'lsa ham). Endi haqiqiy asl bilan.
-  const d = await stuAiChaqir("ai_solishtir", { asl: _stuTayyor(STU.asl || STU.img, 900), natija, tovar: _stuAiTovar() });
+  // ✅ 667: yakuniy tekshiruv ham 666 qoidasida — odamli turlarda faqat tovar
+  // modeli va yuz (eski 15 bandli savol g'ijim uchun ham "diqqat" berardi)
+  const pk = { asl: _stuTayyor(STU.asl || STU.img, 900), natija, tovar: _stuAiTovar() };
+  if (tur !== "tovar") {
+    pk.rejim = "kiydir"; pk.pasport = (STU.aiHukm && STU.aiHukm.pasport) || [];
+    if (_stuRealmi() && STU.shaxs) pk.shaxs = _stuTayyor(STU.shaxs, 800);
+    if (tur === "kop") pk.aslar = (STU.qoshimcha || []).filter(q => q.img).slice(0, 3).map(q => _stuTayyor(q.img, 700));
+  }
+  const d = await stuAiChaqir("ai_solishtir", pk);
   if (STU._aiNatijaId !== STU.variants) return;
   if (!d || !d.ok) { nh.className = "v2-holat xato"; nh.textContent = "Tekshiruv: " + ((d && d.error) || "xato"); return; }
   STU.aiMos = d.hukm;
-  nh.className = "v2-holat " + (d.hukm.mos ? "ok" : "xato");
-  nh.innerHTML = d.hukm.mos
-    ? `Tekshirildi: tovar aslga mos (ishonch ${d.hukm.ishonch}%)`
-    : `<b>Diqqat: tovar aslga mos emas</b> (ishonch ${d.hukm.ishonch}%)` + (d.hukm.farqlar.length ? `<ul>${d.hukm.farqlar.map(t => `<li>${_stuAiEsc(t)}</li>`).join("")}</ul>` : "") +
-      `<div class="v2-ai">Tavsiya: ${d.hukm.tavsiya === "rad" ? "yubormang — qayta yasang" : "«Yana 6 ta» yoki boshqa surat bilan qayta urining"}</div>`;
+  // ✅ 667: 666 qoidasi — "diqqat" faqat aniq sabab va ishonch ≥ 70 bilan
+  const hk = d.hukm, fr = hk.farqlar || [];
+  const rad = !hk.mos && fr.length > 0 && (Number(hk.ishonch) || 0) >= 70;
+  nh.className = "v2-holat " + (rad ? "xato" : "ok");
+  nh.innerHTML = !rad
+    ? (tur === "tovar" ? `Tekshirildi: tovar aslga mos (ishonch ${hk.ishonch}%)`
+                       : "Tekshirildi: tovar modeli" + (hk.yuz_tekshirildi ? " va yuz" : "") + " saqlangan")
+    : `<b>Diqqat:</b> ${_stuAiEsc(fr[0])}` + (fr.length > 1 ? `<ul>${fr.slice(1).map(t => `<li>${_stuAiEsc(t)}</li>`).join("")}</ul>` : "") +
+      `<div class="v2-ai">Tavsiya: ${hk.tavsiya === "rad" ? "yubormang — qayta yasang" : "«Yana 6 ta» yoki boshqa surat bilan qayta urining"}</div>`;
 }
 function stuAiMatnNusxa() {
   const t = _stuAiMatnTayyor().replace(/<[^>]+>/g, "");

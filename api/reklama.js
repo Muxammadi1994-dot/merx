@@ -57,7 +57,7 @@ const OYLIK_BEPUL = parseInt(process.env.STUDIO_LIMIT) || 10;
 const TG_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;      // ✅ S8: kanalga yuborish
 // ✅ S7: AMAL OG'IRLIGI — hamma amal bir xil emas.
 // Banner va video — BEPUL (brauzerda chiziladi, AI yo'q).
-const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kiydir_edit: 3, toldir: 3, kanal: 0, joylashtir: 2, muhit: 3,
+const KREDIT = { fon: 1, sahna: 1, model: 3, kiydir: 3, kiydir_edit: 3, toldir: 3, kiydir_komplekt: 3, kanal: 0, joylashtir: 2, muhit: 3,
                  ai_hukm: 0, ai_matn: 0, ai_solishtir: 1 };   // ✅ v2: rejissyor amallari
 
 // ═══════════════════════════════════════════════════════════════
@@ -289,6 +289,9 @@ const HUKM_SXEMA = _obj({
   pasport: S_STRLIST,                                     // ✅ 652: tovarni tanitadigan belgilar
   foto_turi: { type: "string", enum: ["model", "flat-lay", "auto"] },   // ✅ 665
   tuzatish: S_STR,                                        // ✅ 666: rassomga TUZATISH brifi
+  // ✅ 667: KOMPLEKT — "bir nechta tovar"da rejissyor HAR tovarni suratdan o'rganadi
+  komplekt: { type: "array", items: _obj({ nomer: S_INT, tovar_turi: { type: "string", enum: ["oyoq kiyim", "ust kiyim", "past kiyim", "libos", "aksessuar"] }, pasport: S_STRLIST }) },
+  obraz: S_STR, uygunlik: S_STRLIST,
   // ✅ 663: SHAXS TAHLILI — rejissyor endi xodim suratini ham KO'RADI.
   shaxs: _obj({ bor: S_BOOL, qamrov: S_STR, yuz: S_BOOL, yetarli: S_BOOL,
                 kiyim: S_STR, kombinatsiya: S_STR, tavsiya: S_STR, pastki: S_STR }),   // ✅ 664: pastki
@@ -1044,6 +1047,10 @@ module.exports = async (req, res) => {
     // ✅ 663: xodim surati (faqat odamli turlarda, bo'lsa)
     const shx0 = /^(real|kop)$/.test(turi) && body.shaxs ? _dataUri(body.shaxs, 1400) : null;
     const shx = shx0 && !shx0.xato ? shx0 : null;
+    // ✅ 667: komplektning qo'shimcha tovarlari (3 tagacha) — rejissyor ularni ham ko'radi
+    const qosh = turi === "kop" && Array.isArray(body.qoshimcha)
+      ? body.qoshimcha.slice(0, 3).map(q => ({ im: _dataUri(q && q.image, 1000), nom: String((q && q.nom) || "").slice(0, 60) }))
+          .filter(q => q.im && !q.im.xato) : [];
     const x = _ijod(_tovarTuri(String(tovar.kat || "") + " " + String(tovar.nom || "")));   // ✅ 646
     const savol = "Tovar:\n" + _tovarMatn(tovar) + "\nReklama turi: " + turi +
       "\n\n1) SURATNI BAHOLA. Tekshir: yorug'lik va soya · fokus (qimirlaganmi) · rakurs · kadr to'liqmi · " +
@@ -1065,14 +1072,14 @@ module.exports = async (req, res) => {
             ? "3) POZA ('poza'): BO'SH qoldir — bu haqiqiy odam, uning holati va gavdasi o'zgartirilmaydi.\n"
             : "3) POZA ('poza'): tik turish EMAS — yurayotgan, zinadan chiqayotgan, burilayotgan, bog'ich bog'layotgan. Yuz kameradan chetga. Bitta jumla.\n") +
           (shx
-            ? "5) SHAXS TAHLILI ('shaxs') — 2-RASMni stilist ko'zi bilan o'rgan: bor=true; 'qamrov' — surat odamning qaysi qismini oladi " +
+            ? "5) SHAXS TAHLILI ('shaxs') — ODAM SURATIni stilist ko'zi bilan o'rgan: bor=true; 'qamrov' — surat odamning qaysi qismini oladi " +
               "(to'liq bo'y / tizzadan yuqori / beldan yuqori / faqat oyoq); 'yuz' — yuz to'liq ko'rinadimi; 'yetarli' — tovar kiyiladigan " +
               "tana qismi suratda TO'LIQ bormi (oyoq kiyim → oyoq va tovonlar; shim → beldan to'piqqacha; ust kiyim → yelka va tana); " +
               "'kiyim' — hozir ustidagi kiyimlar, faqat ko'ringanlari; 'kombinatsiya' — shu tovar bilan birga nima kiyilsa eng yaxshi ko'rinadi " +
               "(bir-ikki jumla, stilist maslahati); 'tavsiya' — yetarli bo'lmasa, qanday surat kerakligi (masalan: bo'ydan, oyoqlari ko'rinsin); " +
               "'pastki' — INGLIZCHA, suratda ko'rinmagan pastki qism chizilsa unga kiydiriladigan kiyim, kombinatsiyangdan (masalan: dark navy slim chinos, ankle length). Surat yetarli bo'lsa bo'sh.\n"
             : "5) SHAXS: 'shaxs' ning bor=false, qolgan maydonlari bo'sh.\n") +
-          "4) USLUB MUVOFIQLIGI ('uslub_ogoh'): " + (shx ? "FAQAT 2-RASMda KO'RINGAN kiyimlar asosida — taxmin qilma. " : "odam surati yo'q — BO'SH qoldir, taxmin qilma. ") + "odamning boshqa kiyimlari tovarga mos keladimi — fasl, uslub, rang, daraja, yosh. " +
+          "4) USLUB MUVOFIQLIGI ('uslub_ogoh'): " + (shx ? "FAQAT ODAM SURATIda KO'RINGAN kiyimlar asosida — taxmin qilma. " : "odam surati yo'q — BO'SH qoldir, taxmin qilma. ") + "odamning boshqa kiyimlari tovarga mos keladimi — fasl, uslub, rang, daraja, yosh. " +
           "Mos kelmasa qisqa ogoh; tuzatish mumkin bo'lsa 'neytral' ga yoz (masalan: shimni to'q ko'kka).\n" +
           "\nBU SAFARGI IJODIY O'Q: janr — " + x.janr + "; vaqt — " + x.vaqt + "; fasl — " + x.fasl +
           "; rang — " + x.rang + "; kamera — " + x.kamera + "; dunyo — " + x.dunyo + ". " +
@@ -1107,14 +1114,23 @@ module.exports = async (req, res) => {
       // ✅ 663: REAL SHAXSDA XODIM SURATI HAM YUBORILADI. Ilgari rejissyor
       // faqat tovarni ko'rardi, lekin kartaga "xodimdagi sport shim mos emas"
       // deb yozardi — ko'rmagan narsani o'ylab topardi (egasi topdi).
-      const kont = shx
-        ? [{ type: "text", text: "1-RASM — TOVAR:" },
-           { type: "image", source: { type: "base64", media_type: im.media, data: im.data } },
-           { type: "text", text: "2-RASM — TOVAR KIYDIRILADIGAN ODAM (do'kon xodimi yoki mijoz):" },
-           { type: "image", source: { type: "base64", media_type: shx.media, data: shx.data } },
-           { type: "text", text: savol }]
-        : [{ type: "image", source: { type: "base64", media_type: im.media, data: im.data } },
-           { type: "text", text: savol }];
+      // ✅ 667: har rasm oldidan nomi — tovar(lar), keyin odam
+      const kont = [{ type: "text", text: "1-RASM — ASOSIY TOVAR:" },
+                    { type: "image", source: { type: "base64", media_type: im.media, data: im.data } }];
+      qosh.forEach((q, i) => {
+        kont.push({ type: "text", text: (i + 2) + "-RASM — QO'SHIMCHA TOVAR: " + q.nom });
+        kont.push({ type: "image", source: { type: "base64", media_type: q.im.media, data: q.im.data } });
+      });
+      if (shx) {
+        kont.push({ type: "text", text: "ODAM SURATI — tovar kiydiriladigan odam (do'kon xodimi yoki mijoz):" });
+        kont.push({ type: "image", source: { type: "base64", media_type: shx.media, data: shx.data } });
+      }
+      kont.push({ type: "text", text: savol + (qosh.length
+        ? "\n6) KOMPLEKT ('komplekt'): HAR qo'shimcha tovar uchun bitta yozuv — 'nomer' (rasm raqami: 2, 3, 4), 'tovar_turi' (SURATDAN, " +
+          "katalogdan emas), 'pasport' (3 ta ASOSIY belgi, inglizcha, ranglar aniq). 'obraz' — butun obraz qanday ko'rinadi: ranglar va " +
+          "uslub uyg'unligi, qaysi tovar diqqat markazida (1-2 jumla, o'zbekcha). 'uygunlik' — bir-biriga mos kelmaydigan juftliklar " +
+          "(fasl, uslub, rang), bo'lmasa bo'sh."
+        : "\n'komplekt' — bo'sh massiv; 'obraz' va 'uygunlik' — bo'sh.") });
       const r = await aiChaqir(M_AI, REJISSYOR, kont, 3000, 52000, HUKM_SXEMA);   // ✅ 640: 40 s ham kam edi (jonli: 13:48 vaqt tugadi)
       tok = Object.assign({}, r.usage, { stop: r.stop, prov: r.prov, model: r.model, zaxira: r.zaxira }); hukm = _jsonAjrat(r.text);
       hukm.yaroqli = !!hukm.yaroqli; hukm.daraja = Math.max(1, Math.min(5, Number(hukm.daraja) || 3));
@@ -1139,6 +1155,12 @@ module.exports = async (req, res) => {
       }
       hukm.foto_turi = /^(model|flat-lay)$/.test(String(hukm.foto_turi || "")) ? hukm.foto_turi : "auto";   // ✅ 665
       hukm.tuzatish = String(hukm.tuzatish || "").replace(/\s+/g, " ").trim().slice(0, 400);          // ✅ 666
+      hukm.komplekt = qosh.length && Array.isArray(hukm.komplekt)                                       // ✅ 667
+        ? hukm.komplekt.slice(0, 3).map(k => ({ nomer: Number(k && k.nomer) || 0, tovar_turi: _tovarTuri(k && k.tovar_turi),
+            pasport: (Array.isArray(k && k.pasport) ? k.pasport : []).slice(0, 3).map(z => String(z).slice(0, 120)) }))
+            .filter(k => k.nomer >= 2 && k.nomer <= 4) : [];
+      hukm.obraz = qosh.length ? String(hukm.obraz || "").replace(/\s+/g, " ").trim().slice(0, 300) : "";
+      hukm.uygunlik = qosh.length && Array.isArray(hukm.uygunlik) ? hukm.uygunlik.slice(0, 4).map(z => String(z).slice(0, 160)) : [];
       hukm.pasport = Array.isArray(hukm.pasport)                                          // ✅ 652
         ? hukm.pasport.slice(0, 8).map(z => String(z).replace(/\s+/g, " ").trim().slice(0, 120)).filter(Boolean) : [];
       hukm.neytral = String(hukm.neytral || "").replace(/\s+/g, " ").trim().slice(0, 160);
@@ -1153,7 +1175,23 @@ module.exports = async (req, res) => {
   // ── ✅ v2: REJISSYOR — uz/ru post matni ──
   if (amal === "ai_matn") {
     const tovar = body.tovar || {}, til = String(body.til || "ikkalasi");
-    const savol = "Tovar:\n" + _tovarMatn(tovar) + "\nReklama turi: " + String(body.turi || "tovar") +
+    // ✅ 667: MATN SURATGA ISHONADI. Egasi katalogdan poyabzal tanlab, galereyadan
+    // kurtka surati yukladi — matn "qulay poyabzal, 39–44 o'lchamlar" deb yozdi:
+    // matn yozuvchi faqat katalogni ko'rardi. Endi rejissyor ko'rgani — haqiqat.
+    const rej = (body.rej && typeof body.rej === "object") ? body.rej : null;
+    const TURNOM = { shoes: "oyoq kiyim", tops: "ust kiyim", bottoms: "shim yoki yubka", "one-pieces": "libos", aksessuar: "aksessuar" };
+    const tovarM = rej && rej.ziddiyat ? Object.assign({}, tovar, { olcham: "", kat: "" }) : tovar;
+    const belg = rej && Array.isArray(rej.belgilar) ? rej.belgilar.slice(0, 5).map(z => String(z).slice(0, 100)) : [];
+    const kmp = rej && Array.isArray(rej.komplekt) ? rej.komplekt.slice(0, 4) : [];
+    const rejMatn = rej && TURNOM[rej.tovar_turi]
+      ? "\nSURATDAGI TOVAR — rejissyor ko'rdi, bu HAQIQAT: turi — " + TURNOM[rej.tovar_turi] +
+        (belg.length ? "; ko'rinadigan belgilari — " + belg.join("; ") : "") + ". Tovar turini FAQAT shunga ko'ra yoz." +
+        (rej.ziddiyat ? " DIQQAT: katalogdagi kategoriya va o'lchamlar suratdagi tovarga TEGISHLI EMAS — ularni ishlatma, o'lcham yozma." : "") +
+        (kmp.length ? "\nBu KOMPLEKT reklamasi — tovarlar: " +
+          kmp.map(k => String(k.nom || "").slice(0, 40) + (TURNOM[k.tur] ? " (" + TURNOM[k.tur] + ")" : "")).join(", ") +
+          (rej.obraz ? ". Obraz: " + String(rej.obraz).slice(0, 300) : "") + ". Matn butun obrazni sotsin, har tovarni qisqa tilga olsin." : "")
+      : "";
+    const savol = "Tovar:\n" + _tovarMatn(tovarM) + rejMatn + "\nReklama turi: " + String(body.turi || "tovar") +
       (body.sahna ? "\nSahna: " + String(body.sahna).slice(0, 80) : "") + (body.sarlavha ? "\nDo'kon sarlavhasi: " + String(body.sarlavha).slice(0, 40) : "") +
       "\n\nInstagram/Telegram uchun post matni yoz: 2-4 jumla, samimiy va aniq, oxirida \"buyurtma — xabar yozing\" ma'nosidagi chaqiriq, emoji ko'pi bilan bitta. " +
       // ✅ 648: MATNDA NIMA BO'LISHINI EGASI GALOCHKA BILAN BELGILAYDI.
@@ -1198,11 +1236,15 @@ module.exports = async (req, res) => {
       const shx0 = body.shaxs ? _dataUri(body.shaxs, 1200) : null;
       const shx = shx0 && !shx0.xato ? shx0 : null;
       const pas = Array.isArray(body.pasport) ? body.pasport.slice(0, 3) : [];
+      // ✅ 667: komplektda qo'shimcha tovarlar ham tekshiriladi
+      const aslar = (Array.isArray(body.aslar) ? body.aslar : []).slice(0, 3).map(a => _dataUri(a, 1000)).filter(a => a && !a.xato);
       const savolK =
         "1-rasm — TOVAR (do'kon surati: ilgichda, qo'lda yoki tekis turgan bo'lishi mumkin). " +
         "2-rasm — AI yasagan reklama: shu tovar ODAMGA KIYDIRILGAN. " +
         (shx ? "3-rasm — o'sha odamning ASL surati. " : "") +
         "Faqat IKKI savolga javob ber.\n" +
+        (aslar.length ? "KOMPLEKT: natijada asosiy tovardan tashqari " + aslar.length + " ta QO'SHIMCHA TOVAR ham kiyilgan — ularning asl " +
+          "rasmlari eng oxirida, nomlangan. tovar_mos — HAMMA tovarlar o'z modelidami; false bo'lsa 'sabab' da QAYSI tovar ekanini ayt.\n" : "") +
         "1) tovar_mos — 2-rasmdagi tovar AYNI SHU MODELmi? Faqat modelni belgilaydigan narsalarga qara: tovar turi, bichimi " +
         "(masalan bomber ↔ kostyum), yoqa TURI (tik ↔ qaytarma), asosiy rang(lar) va rang zonalari, material turlari va panellar, " +
         "logotip yoki yorliq, qadama turi (zamok ↔ tugma), oyoq kiyimda taglik va bog'ich turi. " +
@@ -1219,6 +1261,10 @@ module.exports = async (req, res) => {
           { type: "image", source: { type: "base64", media_type: asl.media, data: asl.data } },
           { type: "image", source: { type: "base64", media_type: nat.media, data: nat.data } }];
         if (shx) kont.push({ type: "image", source: { type: "base64", media_type: shx.media, data: shx.data } });
+        aslar.forEach((a, i) => {
+          kont.push({ type: "text", text: "QO'SHIMCHA TOVAR " + (i + 1) + " (asl rasmi):" });
+          kont.push({ type: "image", source: { type: "base64", media_type: a.media, data: a.data } });
+        });
         kont.push({ type: "text", text: savolK });
         const r = await aiChaqir(M_AI_HUKM, REJ_KIYDIR, kont, 700, 45000, KIYDIR_SXEMA);
         const hh = _jsonAjrat(r.text);
@@ -1718,6 +1764,49 @@ module.exports = async (req, res) => {
         chegara: (await chegaraOl(shopId)).chegara });
     } catch (e) {
       await jurnal(shopId, String(body.amal || "navbat"), "fal", String(body.model || ""), false, e.message);
+      return res.status(200).json({ ok: false, error: e.message });
+    }
+  }
+
+  // ── ✅ 667 · KOMPLEKT — hamma tovar BITTA kadrda. Rassom 14 tagacha rasm
+  // qabul qiladi (fal hujjati). Ilgari kiyimlar birma-bir kiydirilardi: har
+  // qadamda odam va oldingi kiyimlar biroz o'zgarardi, vaqt va kredit N marta
+  // ketardi. Egasi ilovada hammasini bir so'rovda kiydiradi — endi bizda ham. ──
+  if (amal === "kiydir_komplekt") {
+    const shaxs = String(body.model_image || "");
+    const tv = (Array.isArray(body.tovarlar) ? body.tovarlar : []).slice(0, 4)
+      .filter(t => t && /^data:image\//.test(String(t.image || "")));
+    if (tv.length < 2) return res.status(200).json({ ok: false, error: "Komplekt uchun kamida 2 ta tovar kerak" });
+    const jami = tv.reduce((n, t) => n + String(t.image).length, 0) + shaxs.length;
+    if (jami > MAX_KB * 1024) return res.status(200).json({ ok: false, error: "Rasmlar juda katta" });
+    const [n0, ch0] = await Promise.all([oySarfi(shopId), chegaraOl(shopId)]);
+    if (n0 >= ch0.chegara)
+      return res.status(200).json({ ok: false, limit: true, error: `Bu oydagi ${ch0.chegara} kredit tugadi.` });
+    let shaxsRasm = /^data:image\//.test(shaxs) || /^https?:\/\//.test(shaxs) ? shaxs : "";
+    if (!shaxsRasm) {
+      const m = await modelOl(shopId, body.jins === "ayol" ? "ayol" : "erkak");
+      if (!m || !m.url) return res.status(200).json({ ok: false, model_yoq: true, error: "Model yo'q" });
+      shaxsRasm = m.url;
+    }
+    const NOM = { shoes: "footwear", tops: "upper-body garment", bottoms: "trousers or skirt",
+                  "one-pieces": "dress or one-piece", aksessuar: "accessory", soat: "wrist watch", sumka: "bag" };
+    const t = (v, n) => String(v || "").replace(/\s+/g, " ").trim().slice(0, n);
+    const royxat = tv.map((x, i) => `Image ${i + 2} — ${NOM[x.turi] || "item"}` +
+      (Array.isArray(x.pasport) && x.pasport.length ? ` (must keep: ${x.pasport.slice(0, 4).map(z => t(z, 90)).join("; ")})` : ""));
+    const matn =
+      (t(body.tuzat, 300) ? `PREVIOUS ATTEMPT WAS REJECTED — ${t(body.tuzat, 300)}. Fix exactly this. ` : "") +
+      `Image 1 is the person. Dress this person in ALL of the following items at once, in one photo: ${royxat.join("; ")}. ` +
+      `Each item must keep its exact design as in its own reference image — cut, collar type, colours and colour zones, panels, ` +
+      `logos, fastening, sole. Layer them naturally (outerwear over tops, trousers and shoes as worn). Do NOT substitute similar ` +
+      `generic items. Do NOT change the person's face, hair, skin, body or pose. ` +
+      (t(body.tuzatish, 400) ? `While doing this, also fix: ${t(body.tuzatish, 400)}. ` : "") +
+      `Photorealistic, natural lighting matching the original photo. Keep the full frame including the feet; do not crop or zoom.`;
+    try {
+      const q = await falSubmit(M_KIYD, _falPar(M_KIYD, { prompt: matn, rasmlar: [shaxsRasm, ...tv.map(x => x.image)], nisbat: "auto" }));
+      return res.status(200).json({ ok: true, navbat: true, amal: "kiydir_komplekt", model: M_KIYD,
+        status_url: q.status_url, response_url: q.response_url });
+    } catch (e) {
+      await jurnal(shopId, "kiydir_komplekt", "fal", M_KIYD, false, e.message);
       return res.status(200).json({ ok: false, error: e.message });
     }
   }
