@@ -1131,18 +1131,21 @@ function updateRefundTotal() {
   try { updateRefundPayPlan(total); } catch(e) {}
 }
 
+// ✅ PQ-1 (2026-09-22): qaytarish qulfi ham so'rov tugaguncha (avval 4 s taymer).
+// `_pqQulfBilan` — qarzlar.js da. Qaytarishda server takror-kaliti (opKey) YO'Q —
+// bu qulf hozircha yagona himoya; server kaliti alohida (jadval kerak).
 async function confirmRefund() {
+  if (typeof _pqQulfBilan !== "function") return _confirmRefundIchki();   // ehtiyot: o'rov yo'q bo'lsa avvalgidek
+  return _pqQulfBilan("_refundBusy", 'button[onclick="confirmRefund()"]',
+    "⏳ Avvalgi qaytarish yozilmoqda — kuting", () => _confirmRefundIchki());
+}
+async function _confirmRefundIchki() {
   // ⚠️ 2026-08-16 PUL-QALQON: TAKROR-QULF — sotuv (_checkoutBusy) va
   // to'lovdagi (_payBusy) kabi. Jonli isbot: ABU SAXIY,
   // CHK-20260815-0001-BK — qaytarish bir daqiqada IKKI marta ishlagan
   // (QT-260815-01/02-BK): xarajat ham, ombor kirimi ham ikkilangan.
   // Muddat 4s — ichida serverga murojaat (restock) bor.
-  if (window._refundBusy) {
-    toast("⏳ Avvalgi qaytarish yozilmoqda — bir soniya kuting", "err");
-    return;
-  }
-  window._refundBusy = true;
-  setTimeout(() => { window._refundBusy = false; }, 4000);
+  // (qulf — `confirmRefund` o'rovida, PQ-1)
 
   const s = db.sales.find(x => x.id === _refundSaleId);
   if (!s) { window._refundBusy = false; return; }

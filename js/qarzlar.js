@@ -1646,13 +1646,12 @@ function _qarzStaffOpts() {
 // ── To'lov qabul qilish (ko'p qarzga avtomatik taqsimlash) ──
 // ── Mijoz balansidan qarzga o'tkazish (qo'lda, sotuvchi tanlaganda) ─
 async function useBalanceForDebt(saleId) {
-  // ⚠️ PUL-QALQON A1: balans-o'tkazishga ham xuddi shu qulf.
-  if (window._payBusy) {
-    toast("⏳ Avvalgi amal yozilmoqda — bir soniya kuting", "err");
-    return;
-  }
-  window._payBusy = true;
-  setTimeout(() => { window._payBusy = false; }, 2500);
+  return _pqQulfBilan("_payBusy",
+    'button[onclick^="recordPayment("], button[onclick^="useBalanceForDebt("]',
+    "⏳ Avvalgi amal yozilmoqda — kuting", () => _useBalanceForDebtIchki(saleId));
+}
+async function _useBalanceForDebtIchki(saleId) {
+  // (qulf — `useBalanceForDebt` o'rovida, PQ-1)
 
   // ⚠️ 2026-08-02: KURS YUKLANMAGUNCHA TO'LOV YO'Q.
   // Xodim kirganda sozlamalar bo'sh bo'ladi va standart kurs
@@ -1799,16 +1798,38 @@ async function _serverPay(payload) {
   return j;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ PQ-1 (2026-09-22): PUL QULFI — TAYMER EMAS, SO'ROV TUGAGUNChA.
+// Avval `_payBusy` 2 500 ms taymer bilan ochilardi. Jonli: 22-sen B20,
+// Mironshayx aka — ikki bosish 2 505 ms farq bilan, server 2,5 s dan sekin
+// javob berdi: taymer ochilgan, lokal takror tekshiruvi (to'lov hali
+// ro'yxatda yo'q) topmagan, opKey har bosishda yangi → $2 679,83 IKKI marta,
+// kassa 31,9 mln shishgan. Endi qulf sotuvdagi model bilan (`_checkoutBusy`):
+// so'rov tugaguncha (muvaffaqiyat/xato/istisno — `finally`), tugmalar o'chadi,
+// 30 s xavfsizlik chegarasi (server qotsa abadiy qulf bo'lmasin).
+// Ichki funksiya (`_recordPaymentIchki`) o'zgarmagan — faqat o'z qulf
+// satrlari olib tashlandi; uning 15 chiqish nuqtasi `finally` bilan yopiladi.
+// ═══════════════════════════════════════════════════════════════
+const _PQ_XAVFSIZ_MS = 60000;   // Vercel funksiya muddati (60 s) bilan teng — undan uzoq so'rov baribir xato bilan tugaydi
+function _pqTugmalar(sel, off) {
+  try { document.querySelectorAll(sel).forEach(b => { b.disabled = !!off; b.style.opacity = off ? ".6" : ""; }); } catch (e) {}
+}
+async function _pqQulfBilan(bayroq, sel, xabar, ish) {
+  if (window[bayroq]) { toast(xabar, "err"); return; }
+  window[bayroq] = true;
+  const _t = setTimeout(() => { window[bayroq] = false; _pqTugmalar(sel, false); }, _PQ_XAVFSIZ_MS);
+  _pqTugmalar(sel, true);
+  try { return await ish(); }
+  finally { clearTimeout(_t); window[bayroq] = false; _pqTugmalar(sel, false); }
+}
 async function recordPayment(id, forcedCurrency) {
-  // ⚠️ PUL-QALQON A1 (2026-08-12): TAKROR-BOSISH QULFI. Jonli isbot:
-  // Nuriddin 17:55/17:59 ($1000×2), Muhammad 04:39/04:43 ($821×2) —
-  // tugma ketma-ket bosilib bir to'lov IKKI marta yozilgan. Sotuvda
-  // bunday qulf bor edi (_checkoutBusy), pul-amallarda YO'Q edi.
-  if (window._payBusy) {
-    toast("⏳ Avvalgi to'lov yozilmoqda — bir soniya kuting", "err");
-    return;
-  }
-  window._payBusy = true;
+  return _pqQulfBilan("_payBusy",
+    'button[onclick^="recordPayment("], button[onclick^="useBalanceForDebt("], button[onclick^="payGroup"], button[onclick^="recordGroupPayment"]',
+    "⏳ Avvalgi to'lov yozilmoqda — kuting", () => _recordPaymentIchki(id, forcedCurrency));
+}
+
+async function _recordPaymentIchki(id, forcedCurrency) {
+  // (qulf — yuqoridagi `recordPayment` o'rovida, PQ-1)
   // 🔴 2026-08-21 ILDIZ-DAVO: TAKROR-KALIT (opKey).
   // Jonli isbot (ABU SAXIY, 16-avg): bitta bosish IKKI yozuv
   // yaratgan — 74 millisekund farq, bir xil chek raqami. 2,5
@@ -1817,7 +1838,6 @@ async function recordPayment(id, forcedCurrency) {
   // yangi yozuv yaratmaydi, avvalgisini qaytaradi.
   const _payOpKey = "pay-" + Date.now() + "-" +
     Math.random().toString(36).slice(2, 8);
-  setTimeout(() => { window._payBusy = false; }, 2500);
 
   // ⚠️ 2026-08-02: KURS YUKLANMAGUNCHA TO'LOV YO'Q.
   // Xodim kirganda sozlamalar bo'sh bo'ladi va standart kurs
