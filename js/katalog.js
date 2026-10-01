@@ -1206,7 +1206,7 @@ function epRenderColorCards(p) {
         </div>
         <input type="file" id="${colorImgId}" accept="image/*" style="display:none" onchange="epLoadColorImage(this,'${jsEsc(color)}')">
         <input value="${color}" data-epcolor="${color}" data-field="color"
-          oninput="epUpdateColorField('${jsEsc(color)}',this)"
+          onchange="epUpdateColorField('${jsEsc(color)}',this)"
           style="font-weight:700;font-size:13.5px;border:none;background:transparent;flex:1;padding:2px 0">
         <span style="font-size:11px;color:#555">${pantone}</span>
         <span style="font-size:10.5px;color:#555">Jami: ${totalQty} dona</span>
@@ -1377,11 +1377,36 @@ function epUpdateQty(color, size, val) {
     _serverStockQueue(p, color, size || "", (Number(v.qty) || 0) - _eskiQ);
 }
 
+// ✅ KAT-2a (2026-09-29): RANG NOMI BITTA HARF BO'LIB QOLARDI.
+// Avval `oninput` — har harfda chaqirilardi, `oldColor` esa oynani
+// ochgandagi nom: birinchi harf "Qora"→"Q" qilardi, ikkinchi harfda
+// "Qora" endi yo'q — o'zgarish to'xtardi (jonli: B20, 29-sen).
+// Endi: (1) `onchange` — yozib bo'lgach BIR marta; (2) rangga bog'langan
+// RASM (`colorImages`) va SHTRIX-KOD (`colorBarcodes`) kalitlari ham
+// yangi nomga ko'chadi — aks holda saqlashdagi `ensureColorBarcodes`
+// yangi nomga YANGI kod yaratardi (11-qoida, egizak kod sinfi);
+// (3) kartalar qayta chiziladi — tugmalar yangi nom bilan ishlaydi.
 function epUpdateColorField(oldColor, input) {
   const p = db.products.find(x => x.sku === editSku); if (!p) return;
   const newColor = input.value.trim();
-  if (!newColor || newColor === oldColor) return;
+  if (!newColor) { input.value = oldColor; return; }        // bo'sh nom yo'q
+  if (newColor === oldColor) return;
+  if (p.variants.some(v => v.color === newColor)) {          // shu nom bor
+    toast(`"${newColor}" rangi bu tovarda allaqachon bor`, "err");
+    input.value = oldColor; return;
+  }
   p.variants.forEach(v => { if (v.color === oldColor) v.color = newColor; });
+  const _has = (o, k) => o && Object.prototype.hasOwnProperty.call(o, k);
+  if (_has(p.colorImages, oldColor)) {
+    p.colorImages[newColor] = p.colorImages[oldColor];
+    delete p.colorImages[oldColor];
+  }
+  if (_has(p.colorBarcodes, oldColor)) {
+    p.colorBarcodes[newColor] = p.colorBarcodes[oldColor];
+    delete p.colorBarcodes[oldColor];
+  }
+  epRenderColorCards(p);
+  toast(`Rang nomi: "${oldColor}" → "${newColor}" (saqlashni bosing)`, "info");
 }
 
 function epDeleteColor(color) {
