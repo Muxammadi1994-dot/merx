@@ -1404,6 +1404,38 @@ async function _confirmRefundIchki() {
       sendTelegramReceipt(s.customerId, s, s.customerPhone);
     }
   } catch (e) { console.warn("qaytarish cheki yuborilmadi:", e.message); }
+
+  // ✅ BK-2 (2026-10-05): QAYTARISH — OMBORCHIGA XABAR. Avval omborchi
+  // hech narsa bilmasdi: karta "yig'ilsin" holida qolardi. Endi server
+  // (`refund_notify`) kartani qayta yasab tahrirlaydi (qaytarilganlar
+  // chiziladi) + reply. Qaytarilgan tovarlar so'rovning o'zida —
+  // sinxron kutilmaydi. `botSend` — oflaynda navbat.
+  try {
+    const _bu  = db.settings?.telegramBotUrl;
+    const _sg  = db.settings?.staffGroupId;
+    if (_bu && _sg && typeof botSend === "function") {
+      const _sid = (db.settings?.cloudShopId && db.settings.cloudShopId !== "local")
+        ? db.settings.cloudShopId
+        : (typeof getShopId === "function" && getShopId() !== "local" ? getShopId() : null);
+      botSend(_bu + "?action=refund_notify", {
+        shopId: _sid, chekNum: s.chekNum || null, refundNo,
+        isFull: !!isFullRefund, staffGroupId: _sg,
+        items: refundItems.map(r => ({ name: r.name, variant: r.variant || "",
+          color: r.color || r.variant || "", size: r.size || "", unit: r.unit || "",
+          qty: Number(r.qty) || 0, qtyBox: r.qtyBox || 0 })),
+        sale: { chekNum: s.chekNum, date: s.date, time: s.time, total: s.total,
+          customerName: s.customerName || "", customerPhone: s.customerPhone || "",
+          items: (s.items || []).map(it => ({ name: it.name, color: it.color || "",
+            size: it.size || "", unit: it.unit || "", qty: it.qty, qtyBox: it.qtyBox || 0,
+            inBox: it.inBox || 0 })), refunds: s.refunds || [], status: s.status },
+      }, "rfd-" + refundNo).then(r => {
+        if (r && r.dup) {}
+        else if (r && r.sent) toast("📨 Qaytarish xabari omborchiga yuborildi");
+        else if (r === null) toast("📮 Qaytarish xabari navbatga qo'yildi — internet qaytishi bilan ketadi");
+        else toast("⚠️ Omborchiga qaytarish xabari yuborilmadi: " + ((r && (r.reason || r.error)) || "noma'lum"), "err");
+      }).catch(() => {});
+    }
+  } catch (e) {}
 }
 
 // ⚠️ ISHLATILMAYDI (2026-06 audit) — hech qayerdan chaqirilmaydi, kelajakda tozalash uchun belgilangan

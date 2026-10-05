@@ -408,13 +408,27 @@ async function _ordLoad(shopId, chekId) {
     `?chek_num=eq.${encodeURIComponent(chekId)}${sF}&select=chek_num,customer_name,data&limit=1`);
   const row = rows?.[0]; if (!row) return null;
   const d = (row.data && typeof row.data === "object") ? row.data : {};
-  const items = Array.isArray(d.items) ? d.items : [];
+  const items0 = Array.isArray(d.items) ? d.items : [];
+  // ✅ BK-2: to'liq qaytarilgan tovar hisobga kirmaydi, qisman — qolgan soni.
+  // INDEKS SAQLANADI (done_items asl indeks bilan): qaytarilgan — `_qaytdi`
+  // belgisi bilan qoladi, pastda sanalmaydi.
+  const _rm = _refMap(d.refunds);
+  const items = items0.map(it => {
+    if (!it) return it;
+    const qq = Math.min(Number(it.qty) || 0, _rm.get(_refKalit(it)) || 0);
+    if (!qq) return it;
+    const qol = (Number(it.qty) || 0) - qq;
+    if (qol <= 0) return { ...it, _qaytdi: true };
+    const inBox = Number(it.inBox) || 0;
+    return { ...it, qty: qol, qtyBox: inBox > 0 && it.qtyBox ? Math.floor(qol / inBox) : it.qtyBox };
+  });
   const done = await sb("done_items",
     `?chek_id=eq.${encodeURIComponent(chekId)}&select=item_idx`);
   const doneSet = new Set((done || []).map(x => Number(x.item_idx)));
   let fBox = 0, fDona = 0, tBox = 0, tDona = 0;
   const missing = [];
   items.forEach((it, i) => {
+    if (!it || it._qaytdi) return;   // ✅ BK-2: qaytarilgan — sanalmaydi
     const q = _ordItemQty(it);
     tBox += q.box; tDona += q.dona;
     if (doneSet.has(i)) { fBox += q.box; fDona += q.dona; }
@@ -424,8 +438,9 @@ async function _ordLoad(shopId, chekId) {
       art: it.art || it.sku || "",
       qty: _ordFmtQty(q.box, q.dona) });
   });
+  const faolTur = items.filter(it => it && !it._qaytdi).length;   // ✅ BK-2
   return { chekId, customer: row.customer_name || d.customerName || "Mijoz",
-           totalTur: items.length, foundTur: items.length - missing.length,
+           totalTur: faolTur, foundTur: faolTur - missing.length,
            fBox, fDona, tBox, tDona, missing };
 }
 async function _ordStatusUp(shopId, chekId, patch) {
@@ -2986,6 +3001,149 @@ async function actionSendOwnerNotif(body) {
   return { ok: true, sent: sent > 0, count: sent, total: chats.length };
 }
 
+// ✅ BK-2: omborchi kartasi matni. qayt = {map: Map(kalit→qaytarilgan dona),
+// toliq: bool, refundNo} — bo'lsa qaytarilgan qatorlar chiziladi.
+function _refKalit(it) {
+  return (it.name || "") + "|" + (it.color || it.variant || "") + "|" + (it.size || "");
+}
+function _refMap(refunds) {
+  const m = new Map();
+  (Array.isArray(refunds) ? refunds : []).forEach(r =>
+    (Array.isArray(r.items) ? r.items : []).forEach(it => {
+      const k = _refKalit(it); m.set(k, (m.get(k) || 0) + (Number(it.qty) || 0));
+    }));
+  return m;
+}
+function _staffKartaMatn(sale, chekId, qayt) {
+  const items  = sale.items || [];
+  const total  = Number(sale.total || 0);
+  const custName  = sale.customerName  || sale.customer_name  || "";
+  const custPhone = sale.customerPhone || sale.customer_phone || "";
+  const qm = qayt && qayt.map ? qayt.map : null;
+  const toliq = !!(qayt && qayt.toliq);
+
+  let txt = toliq
+    ? `❌ <b>TO'LIQ QAYTARILDI — YIG'ILMASIN</b>  <code>${chekId}</code>\n`
+    : qm ? `↩️ <b>QISMAN QAYTARILGAN</b>  <code>${chekId}</code>\n`
+         : `🆕 <b>YANGI BUYURTMA</b>  <code>${chekId}</code>\n`;
+  txt += `📅 ${sale.date || ""} ${sale.time || ""}\n`;
+  if (custName)  txt += `\n👤 <b>${custName}</b>`;
+  if (custPhone) txt += `  📞 ${custPhone}`;
+  txt += `\n`;
+  if (total > 0) txt += `💰 <b>Jami: ${fmt(total)} so'm</b>\n`;
+
+  const totalBoxesTxt = items.reduce((a, it) => a + (it.qtyBox || 0), 0);
+  const totalDonaTxt  = items.reduce((a, it) => a + (it.qty || 0), 0);
+  txt += `\n📦 <b>${items.length} xil tovar · ${totalBoxesTxt || totalDonaTxt} ${totalBoxesTxt ? "pochka" : "dona"}</b>\n`;
+  txt += `━━━━━━━━━━━━━━━━━━━\n`;
+
+  // IXCHAM FORMAT (2026-07): har tovar — bitta qator, ko'pi bilan 6 ta;
+  // to'liq tafsilot "Batafsil" sahifasida (rasm, artikul, belgilash)
+  const MAX_LINES = 6;
+  items.slice(0, MAX_LINES).forEach(it => {
+    const qtyTxt = it.qtyBox
+      ? `${it.qtyBox} pochka`
+      : `${it.qty} ${it.unit || "dona"}`;
+    const extras = [it.color, it.size].filter(Boolean).join(" · ");
+    const qq = qm ? Math.min(Number(it.qty) || 0, qm.get(_refKalit(it)) || 0) : 0;
+    if (qq > 0 && qq >= (Number(it.qty) || 0)) {
+      txt += `<s>🔸 ${it.name} — ${qtyTxt}${extras ? ` (${extras})` : ""}</s> ↩️ qaytarildi\n`;
+    } else if (qq > 0) {
+      const qolgan = (Number(it.qty) || 0) - qq;
+      const qolTxt = it.qtyBox && Number(it.inBox) > 0
+        ? `${Math.floor(qolgan / Number(it.inBox))} pochka` : `${qolgan} ${it.unit || "dona"}`;
+      txt += `🔸 <b>${it.name}</b> — <s>${qtyTxt}</s> → <b>${qolTxt}</b>${extras ? ` (${extras})` : ""} ↩️ ${qq} qaytdi\n`;
+    } else {
+      txt += `🔸 <b>${it.name}</b> — <b>${qtyTxt}</b>${extras ? ` (${extras})` : ""}\n`;
+    }
+  });
+  if (items.length > MAX_LINES) {
+    txt += `<i>…yana ${items.length - MAX_LINES} tovar — "Batafsil" da</i>\n`;
+  }
+  txt += `━━━━━━━━━━━━━━━━━━━`;
+  if (qm && !toliq) txt += `\n<i>Chizilgan tovarlar kassada qaytarilgan — yig'ilmaydi / omborga qabul qilinadi.</i>`;
+  if (toliq) txt += `\n<i>Butun buyurtma kassada qaytarilgan. Hech narsa yig'ilmaydi.</i>`;
+  return txt;
+}
+
+// ════════════════════════════════════════════════════════════════
+// ✅ BK-2 (2026-10-05) — QAYTARISHDA OMBORCHIGA XABAR.
+// Avval qaytarish mijozga yangilangan chek yuborardi, omborchiga
+// HECh NARSA — karta "yig'ilsin" holida qolardi (qisman qaytarishda
+// ortiqcha yig'iladi, to'liqda — butun buyurtma). Endi: qaytarilgan
+// tovarlar so'rovning o'zida keladi (send_staff_notif sotuvni qanday
+// ishonib olsa, shunday — kalit bilan himoyalangan), baza KUTILMAYDI
+// (sinxron 1–3 s kechikadi, omborchi shu vaqtda yig'ishi mumkin).
+// Karta jurnaldagi raqam bilan qayta yasalib tahrirlanadi + reply.
+// ════════════════════════════════════════════════════════════════
+async function actionRefundNotify(body) {
+  const { shopId, chekNum, refundNo, items, isFull, staffGroupId, sale: saleBody } = body || {};
+  const chek = String(chekNum || "").trim();
+  if (!chek || !refundNo) return { ok: false, error: "chekNum va refundNo majburiy" };
+  const sid = shopId || null;
+  const sF  = sid ? `&shop_id=eq.${encodeURIComponent(sid)}` : "";
+  const _dl = await _dupLock("rfd", sid, refundNo);
+  if (_dl.dup) return { ok: true, sent: true, dup: true };
+
+  // Sotuv: bazadan (eng to'liq), bo'lmasa so'rovdagi nusxa
+  let sale = null;
+  try {
+    const rows = await sb("sales", `?chek_num=eq.${encodeURIComponent(chek)}${sF}&select=chek_num,customer_name,customer_phone,date,time,total,status,data&limit=1`);
+    const row = rows?.[0];
+    if (row) sale = { ...row, ...((row.data && typeof row.data === "object") ? row.data : {}) };
+  } catch (e) { console.warn("[refundNotify] sale:", e.message); }
+  if (!sale && saleBody) sale = saleBody;
+  if (!sale) return { ok: false, sent: false, reason: "not_found" };
+
+  // Qaytarilgan tovarlar: bazadagi refunds ∪ so'rovdagi (so'rovdagisi hali
+  // bazaga yetmagan bo'lishi mumkin — refundNo bo'yicha takrorlanmaydi)
+  const refs = Array.isArray(sale.refunds) ? sale.refunds.slice() : [];
+  if (!refs.some(r => r.no === refundNo) && Array.isArray(items))
+    refs.push({ no: refundNo, items });
+  const map = _refMap(refs);
+  const toliq = !!isFull || sale.status === "qaytarilgan";
+  const buItems = Array.isArray(items) ? items : [];
+
+  const kartaMatn = _staffKartaMatn(sale, chek, { map, toliq, refundNo });
+  let replyMatn = `↩️ <b>Qaytarish ${refundNo}</b> — <code>${chek}</code>\n` +
+    (toliq ? `❌ <b>Buyurtma TO'LIQ qaytarildi — yig'ilmasin.</b>\n` : `<b>${buItems.length} tovar qaytdi:</b>\n`);
+  buItems.slice(0, 15).forEach(it => {
+    const q = it.qtyBox ? `${it.qtyBox} pochka` : `${it.qty} ${it.unit || "dona"}`;
+    const ex = [it.color || it.variant, it.size].filter(Boolean).join(" · ");
+    replyMatn += `• ${it.name} — ${q}${ex ? ` (${ex})` : ""}\n`;
+  });
+  if (buItems.length > 15) replyMatn += `…yana ${buItems.length - 15}\n`;
+  replyMatn += `<i>Yig'ilmagan bo'lsa — chizilganlar yig'ilmaydi; jo'natilgan bo'lsa — omborga qabul qiling.</i>`;
+
+  // Jurnaldan omborchi kartasi
+  let jr = [];
+  try {
+    jr = await sb("bot_jurnal", `?chek=eq.${encodeURIComponent(chek)}&kind=eq.staffnotif${sF}&group_ok=eq.true&select=group_id,group_msg_id,foto&order=ts.desc&limit=3`) || [];
+  } catch (e) { console.warn("[refundNotify] jurnal:", e.message); }
+  const j = jr.find(x => x.group_id && x.group_msg_id);
+  const gid = (j && j.group_id) || staffGroupId || null;
+  if (!gid) return { ok: true, sent: false, reason: "no_group_id" };
+
+  let tahrir = 0, yangi = 0, xato = [];
+  if (j) {
+    const kb = toliq ? { inline_keyboard: [] } : undefined;   // qisman: "Batafsil" tugmasi qoladi
+    const r = j.foto
+      ? await tgEditCaption(j.group_id, j.group_msg_id, kartaMatn, kb ? { reply_markup: kb } : {})
+      : await tgEdit(j.group_id, j.group_msg_id, kartaMatn, kb ? { reply_markup: kb } : {});
+    if (r && r.ok) tahrir++; else xato.push((r && r.description) || "edit xato");
+    const rr = await tg(j.group_id, replyMatn, { reply_to_message_id: j.group_msg_id });
+    if (rr.ok) yangi++; else xato.push(rr.description || "reply xato");
+  } else {
+    const rr = await tg(gid, replyMatn);
+    if (rr.ok) yangi++; else xato.push(rr.description || "send xato");
+  }
+  await _dupMark(_dl.key);
+  await _botJurnal({ shopId: sid, kind: "refund", chek: chek + "|" + refundNo, groupId: gid,
+    custOk: false, groupOk: tahrir + yangi > 0, reason: xato.length ? "partial" : null,
+    detail: xato.join(" | ") || null, qism: tahrir + yangi });
+  return { ok: true, sent: tahrir + yangi > 0, tahrir, yangi, xato };
+}
+
 async function actionSendStaffNotification(body) {
   const { sale, shopName, staffGroupId, shopId } = body || {};
   if (!sale) return { ok: false, error: "sale majburiy" };
@@ -3019,32 +3177,10 @@ async function actionSendStaffNotification(body) {
   // mijoz to'lashi kerak bo'lgan oxirgi qiymat (pos.js: total =
   // subtotal - discount). To'langan/qarz kabi boshqa pul
   // ma'lumotlari avvalgidek yozilmaydi.
-  let txt = `🆕 <b>YANGI BUYURTMA</b>  <code>${chekId}</code>\n`;
-  txt += `📅 ${sale.date || ""} ${sale.time || ""}\n`;
-  if (custName)  txt += `\n👤 <b>${custName}</b>`;
-  if (custPhone) txt += `  📞 ${custPhone}`;
-  txt += `\n`;
-  if (total > 0) txt += `💰 <b>Jami: ${fmt(total)} so'm</b>\n`;
-
-  const totalBoxesTxt = items.reduce((a, it) => a + (it.qtyBox || 0), 0);
-  const totalDonaTxt  = items.reduce((a, it) => a + (it.qty || 0), 0);
-  txt += `\n📦 <b>${items.length} xil tovar · ${totalBoxesTxt || totalDonaTxt} ${totalBoxesTxt ? "pochka" : "dona"}</b>\n`;
-  txt += `━━━━━━━━━━━━━━━━━━━\n`;
-
-  // IXCHAM FORMAT (2026-07): har tovar — bitta qator, ko'pi bilan 6 ta;
-  // to'liq tafsilot "Batafsil" sahifasida (rasm, artikul, belgilash)
-  const MAX_LINES = 6;
-  items.slice(0, MAX_LINES).forEach(it => {
-    const qtyTxt = it.qtyBox
-      ? `${it.qtyBox} pochka`
-      : `${it.qty} ${it.unit || "dona"}`;
-    const extras = [it.color, it.size].filter(Boolean).join(" · ");
-    txt += `🔸 <b>${it.name}</b> — <b>${qtyTxt}</b>${extras ? ` (${extras})` : ""}\n`;
-  });
-  if (items.length > MAX_LINES) {
-    txt += `<i>…yana ${items.length - MAX_LINES} tovar — "Batafsil" da</i>\n`;
-  }
-  txt += `━━━━━━━━━━━━━━━━━━━`;
+  // ✅ BK-2 (2026-10-05): karta matni alohida funksiyada — qaytarishda
+  // o'sha karta qayta yasalib tahrirlanadi. Sog'lom sotuvda matn AYNAN
+  // avvalgidek (stend: eski/yangi matn bir xil).
+  const txt = _staffKartaMatn(sale, chekId);
 
   // "Batafsil ko'rish" — Telegram Web App orqali (BotFather: /newapp, short_name=ombor)
   // startapp parametri orqali chekId+shopId uzatiladi (Telegram faqat
@@ -3210,6 +3346,8 @@ async function actionCancelNotify(body) {
 function buildStaffOrderHtml(sale, shopName, shopId2) {
   const chekId    = sale.chekNum || sale.chek_num || ("#" + sale.id);
   const _bekor    = String(sale.cancelled) === "true" || sale.status === "bekor";   // ✅ BK-1
+  const _refMapS  = _refMap(sale.refunds);                                          // ✅ BK-2
+  const _toliqQ   = !_bekor && sale.status === "qaytarilgan";
   const date      = sale.date || "";
   const time      = sale.time || "";
   const items     = (sale.items || []).filter(Boolean);
@@ -3223,7 +3361,11 @@ function buildStaffOrderHtml(sale, shopName, shopId2) {
 
   // Jami pochkalar (barcha itemlar)
   const totalBoxes = items.reduce((a, it) => a + (it.qtyBox || 0), 0);
-  const totalTur   = items.length;
+  // ✅ BK-2: to'liq qaytarilgan tovar "tayyor" hisobiga kirmaydi
+  const totalTur   = items.filter(it => {
+    const qq = Math.min(Number(it.qty) || 0, _refMapS.get(_refKalit(it)) || 0);
+    return !(qq > 0 && qq >= (Number(it.qty) || 0));
+  }).length;
 
   const payLabels = { naqd:"Naqd", karta:"Karta", otkazma:"O'tkazma", nasiya:"Nasiya", aralash:"Aralash" };
 
@@ -3248,13 +3390,24 @@ function buildStaffOrderHtml(sale, shopName, shopId2) {
     const qtyLabel = qtyBox
       ? `${qtyBox} pochka / ${it.qty} ${unit}`
       : `${it.qty} ${unit}`;
+    // ✅ BK-2: qaytarilgan dona — kartada chiziladi, belgilash yopiq
+    const _qq   = Math.min(Number(it.qty) || 0, _refMapS.get(_refKalit(it)) || 0);
+    const _qTol = _qq > 0 && _qq >= (Number(it.qty) || 0);
+    const _qol  = (Number(it.qty) || 0) - _qq;
+    const _qolTxt = qtyBox && Number(it.inBox) > 0
+      ? `${Math.floor(_qol / Number(it.inBox))} pochka` : `${_qol} ${unit}`;
+    const _qBadge = _qTol
+      ? `<span class="qty-badge" style="background:#9CA3AF;text-decoration:line-through">×${qtyBox || it.qty} ${qtyBox ? "pochka" : unit}</span><span class="qty-badge" style="background:#C62828">↩️ QAYTARILDI</span>`
+      : _qq > 0
+        ? `<span class="qty-badge" style="background:#9CA3AF;text-decoration:line-through">×${qtyBox || it.qty}</span><span class="qty-badge">×${_qolTxt}</span><span class="qty-badge" style="background:#C62828">↩️ ${_qq} qaytdi</span>`
+        : `<span class="qty-badge">×${qtyBox || it.qty} ${qtyBox ? "pochka" : unit}</span>`;
 
     return `
-<div class="card" id="card-${idx}">
+<div class="card${_qTol ? " refunded" : ""}" id="card-${idx}"${_qTol ? ` data-refunded="1"` : ""}>
   ${imgHtml ? `<div class="card-img-wrap">${imgHtml}<div class="card-done-overlay" id="done-${idx}">✅ TAYYOR</div></div>` : `<div class="card-done-bar" id="done-${idx}" style="display:none">✅ TAYYOR</div>`}
   <div class="card-body">
     <div class="qty-row">
-      <span class="qty-badge">×${qtyBox || it.qty} ${qtyBox ? "pochka" : unit}</span>
+      ${_qBadge}
     </div>
     <div class="card-name">${it.name}</div>
     <div class="card-attrs">
@@ -3263,9 +3416,11 @@ function buildStaffOrderHtml(sale, shopName, shopId2) {
       ${art ? `<div class="attr-row"><span class="attr-k k-a">A</span><span class="attr-v code">${art}</span></div>` : ""}
     </div>
   </div>
-  <button class="done-btn" onclick="toggleDone(${idx},null)" id="dbtn-${idx}">
+  ${_qTol
+    ? `<div class="done-btn" style="background:#E5E7EB;color:#6B7280;cursor:default">↩️ Qaytarilgan — yig'ilmaydi</div>`
+    : `<button class="done-btn" onclick="toggleDone(${idx},null)" id="dbtn-${idx}">
     Tayyor belgilash
-  </button>
+  </button>`}
 </div>`;
   }).join("");
 
@@ -3275,6 +3430,7 @@ function buildStaffOrderHtml(sale, shopName, shopId2) {
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes">
 <script src="https://telegram.org/js/telegram-web-app.js"></script><!-- ✅ OT-1a: bosuvchi ismi uchun -->
 <title>${chekId}</title>
+<style>.card.refunded{opacity:.55;filter:grayscale(.6)} .card.refunded .card-name{text-decoration:line-through}</style>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:wght@400;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
@@ -3380,6 +3536,9 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
   <div class="hdr-id">${chekId}</div>
   <div class="hdr-sub">📅 ${date} ${time}</div>
 </div>
+${_toliqQ ? `<div id="qayt-banner" style="margin:12px 14px 0;padding:14px 16px;background:#C62828;color:#fff;border-radius:12px;font-weight:800;font-size:17px;line-height:1.35;text-align:center">
+  ↩️ BUYURTMA TO'LIQ QAYTARILGAN<br><span style="font-weight:600;font-size:14px">Tovarlar YIG'ILMAYDI. Belgilash yopiq.</span>
+</div>` : ""}
 ${_bekor ? `<div id="bekor-banner" style="margin:12px 14px 0;padding:14px 16px;background:#C62828;color:#fff;border-radius:12px;font-weight:800;font-size:17px;line-height:1.35;text-align:center">
   ❌ BU SOTUV BEKOR QILINGAN<br><span style="font-weight:600;font-size:14px">Tovarlar YIG'ILMAYDI va jo'natilmaydi. Belgilash yopiq.</span>
 </div>` : ""}
@@ -3434,17 +3593,19 @@ ${cardsHtml}
 var doneItems = {};
 var CHEK_ID   = "${chekId}";
 var SHOP_ID   = "${shopId2 || ""}";   // ✅ OT-1
-var BEKOR     = ${_bekor ? "true" : "false"};   // ✅ BK-1
+var BEKOR     = ${(_bekor || _toliqQ) ? "true" : "false"};   // ✅ BK-1 · BK-2 (to'liq qaytarilgan ham)
 var TOTAL_TUR2 = ${totalTur};
 var API_BASE  = window.location.origin + "/api/bot";
 
 function applyDone() {
   var total = ${totalTur};
+  var N = ${items.length};   // ✅ BK-2: indeks bo'yicha hamma karta, hisob faqat faollar
   var cnt = 0;
-  for (var i = 0; i < total; i++) {
+  for (var i = 0; i < N; i++) {
     var card    = document.getElementById('card-' + i);
     var overlay = document.getElementById('done-' + i);
     var btn     = document.getElementById('dbtn-' + i);
+    if (card && card.getAttribute('data-refunded') === '1') continue;   // qaytarilgan — sanalmaydi
     var done    = !!doneItems[i];
     if (done) cnt++;
     if (card)    card.classList.toggle('done', done);
@@ -3595,8 +3756,13 @@ async function actionRenderStaffOrder(chekId, saleData, shopId) {
     try {
       const _ck = sale.chekNum || sale.chek_num;
       const _sf = sid ? `&shop_id=eq.${encodeURIComponent(sid)}` : "";
-      const _r  = _ck ? await sb("sales", `?chek_num=eq.${encodeURIComponent(_ck)}${_sf}&select=status,cancelled:data->>cancelled&limit=1`) : [];
+      const _r  = _ck ? await sb("sales", `?chek_num=eq.${encodeURIComponent(_ck)}${_sf}&select=status,cancelled:data->>cancelled,refunds:data->refunds&limit=1`) : [];
       if (_r?.[0] && (String(_r[0].cancelled) === "true" || _r[0].status === "bekor")) sale.cancelled = true;
+      // ✅ BK-2: qaytarishlar ham har doim bazadan
+      if (_r?.[0]) {
+        if (Array.isArray(_r[0].refunds)) sale.refunds = _r[0].refunds;
+        if (_r[0].status === "qaytarilgan") sale.status = "qaytarilgan";
+      }
     } catch (e) { console.warn("[staffOrder] bekor tekshiruvi:", e.message); }
   }
 
@@ -4835,7 +5001,7 @@ function yubor(){
   // Xavfi past — faqat "tayyor" belgisi qo'yiladi, ma'lumot
   // o'qilmaydi va xabar yuborilmaydi.
   const _PROTECTED  = ["send_text","send_receipt","send_pay_receipt",
-                       "send_staff_notif","send_owner_notif","link_check","cancel_notify"];
+                       "send_staff_notif","send_owner_notif","link_check","cancel_notify","refund_notify"];
   const _act = req.query?.action || "";
 
   if (_PROTECTED.includes(_act)) {
@@ -4888,6 +5054,19 @@ function yubor(){
       return res.status(200).json(result);
     } catch (e) {
       console.error("send_pay_receipt xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
+  // ✅ BK-2: qaytarish — omborchi kartasi tahriri + reply
+  if (req.query?.action === "refund_notify") {
+    let body;
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; } catch { body = {}; }
+    try {
+      const result = await actionRefundNotify(body);
+      return res.status(200).json(result);
+    } catch (e) {
+      console.error("refund_notify xato:", e.message);
       return res.status(500).json({ ok: false, error: e.message });
     }
   }
