@@ -3014,6 +3014,17 @@ function _refMap(refunds) {
     }));
   return m;
 }
+function _staffKartaTugma(chekId, sid) {
+  // "Batafsil ko'rish" — Telegram Web App orqali (BotFather: /newapp, short_name=ombor)
+  // startapp parametri orqali chekId+shopId uzatiladi (Telegram faqat
+  // harf/raqam/pastki chiziqcha qabul qiladi, shuning uchun maxsus kodlaymiz)
+  const startParam  = sid ? `${chekId}__${sid}` : chekId;
+  const startParamEnc = startParam.replace(/[^a-zA-Z0-9_]/g, m => "x" + m.charCodeAt(0).toString(16));
+  const catalogUrl  = `https://t.me/${BOT_USERNAME}/ombor?startapp=${startParamEnc}`;
+  return { inline_keyboard: [[
+    { text: "📋 Batafsil ko'rish — tovarlarni belgilash", url: catalogUrl }
+  ]] };
+}
 function _staffKartaMatn(sale, chekId, qayt) {
   const items  = sale.items || [];
   const total  = Number(sale.total || 0);
@@ -3052,7 +3063,9 @@ function _staffKartaMatn(sale, chekId, qayt) {
       const qolgan = (Number(it.qty) || 0) - qq;
       const qolTxt = it.qtyBox && Number(it.inBox) > 0
         ? `${Math.floor(qolgan / Number(it.inBox))} pochka` : `${qolgan} ${it.unit || "dona"}`;
-      txt += `🔸 <b>${it.name}</b> — <s>${qtyTxt}</s> → <b>${qolTxt}</b>${extras ? ` (${extras})` : ""} ↩️ ${qq} qaytdi\n`;
+      const qqTxt = it.qtyBox && Number(it.inBox) > 0 && qq % Number(it.inBox) === 0
+        ? `${qq / Number(it.inBox)} pochka` : `${qq} ${it.unit || "dona"}`;
+      txt += `🔸 <b>${it.name}</b> — <s>${qtyTxt}</s> → <b>${qolTxt}</b>${extras ? ` (${extras})` : ""} ↩️ ${qqTxt} qaytdi\n`;
     } else {
       txt += `🔸 <b>${it.name}</b> — <b>${qtyTxt}</b>${extras ? ` (${extras})` : ""}\n`;
     }
@@ -3126,10 +3139,13 @@ async function actionRefundNotify(body) {
 
   let tahrir = 0, yangi = 0, xato = [];
   if (j) {
-    const kb = toliq ? { inline_keyboard: [] } : undefined;   // qisman: "Batafsil" tugmasi qoladi
+    // ✅ BK-2b (2026-10-05): Telegram tahrirda `reply_markup` kelmasa tugmani
+    // OLIB TAShLAYDI (jonli: qisman qaytarishda "Batafsil" yo'qoldi — omborchi
+    // nima yig'ishni ko'rolmay qoldi). Qisman — tugma QAYTA yuboriladi; to'liq — bo'sh.
+    const kb = toliq ? { inline_keyboard: [] } : _staffKartaTugma(chek, sid);
     const r = j.foto
-      ? await tgEditCaption(j.group_id, j.group_msg_id, kartaMatn, kb ? { reply_markup: kb } : {})
-      : await tgEdit(j.group_id, j.group_msg_id, kartaMatn, kb ? { reply_markup: kb } : {});
+      ? await tgEditCaption(j.group_id, j.group_msg_id, kartaMatn, { reply_markup: kb })
+      : await tgEdit(j.group_id, j.group_msg_id, kartaMatn, { reply_markup: kb });
     if (r && r.ok) tahrir++; else xato.push((r && r.description) || "edit xato");
     const rr = await tg(j.group_id, replyMatn, { reply_to_message_id: j.group_msg_id });
     if (rr.ok) yangi++; else xato.push(rr.description || "reply xato");
@@ -3185,15 +3201,8 @@ async function actionSendStaffNotification(body) {
   // "Batafsil ko'rish" — Telegram Web App orqali (BotFather: /newapp, short_name=ombor)
   // startapp parametri orqali chekId+shopId uzatiladi (Telegram faqat
   // harf/raqam/pastki chiziqcha qabul qiladi, shuning uchun maxsus kodlaymiz)
-  const startParam  = sid ? `${chekId}__${sid}` : chekId;
-  const startParamEnc = startParam.replace(/[^a-zA-Z0-9_]/g, m => "x" + m.charCodeAt(0).toString(16));
-  const catalogUrl  = `https://t.me/${BOT_USERNAME}/ombor?startapp=${startParamEnc}`;
-
-  const replyMarkup = {
-    inline_keyboard: [[
-      { text: "📋 Batafsil ko'rish — tovarlarni belgilash", url: catalogUrl }
-    ]],
-  };
+  // ✅ BK-2b: tugma funksiyada — qaytarish tahririda qayta yuboriladi
+  const replyMarkup = _staffKartaTugma(chekId, sid);
 
   // ESLATMA: agar 2+ xil tovar bo'lsa, faqat 1 ta rasm yuborish chalkashtiradi
   // (qaysi rasm qaysi tovarga tegishli ekani noaniq bo'ladi).
