@@ -4809,20 +4809,6 @@ function yubor(){
     return res.status(200).json({ ok: true, info: "MERX Bot ishlamoqda" });
   }
 
-  // MERX dan: mijozga chek yuborish
-  if (req.query?.action === "send_pay_receipt") {
-    let body;
-    try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; }
-    catch { return res.status(400).json({ ok: false, error: "invalid_json" }); }
-    try {
-      const result = await actionSendPayReceipt(body);
-      return res.status(200).json(result);
-    } catch (e) {
-      console.error("send_pay_receipt xato:", e.message);
-      return res.status(500).json({ ok: false, error: e.message });
-    }
-  }
-
   // ══════════════════════════════════════════════════════════
   // ⚠️ 2026-08-04: HTTP AMALLARI UCHUN KALIT
   // ══════════════════════════════════════════════════════════
@@ -4885,6 +4871,24 @@ function yubor(){
       }
       console.warn(`[bot] RUXSATSIZ: ${_act} — hozircha o'tkazildi ` +
                    `(MERX_BOT_STRICT=1 qo'yilsa rad etiladi)`);
+    }
+  }
+
+  // MERX dan: mijozga TO'LOV cheki yuborish.
+  // ✅ SP-1 (2026-10-05): bu blok avval kalit tekshiruvidan OLDIN turardi —
+  // `_PROTECTED` ro'yxatida bo'lsa ham amalda kalitsiz o'tardi (kim bot
+  // manzilini bilsa, istalgan mijozga soxta "to'lov cheki" chiqara olardi).
+  // Endi tekshiruvdan KEYIN — `send_receipt` bilan bir xil yo'l.
+  if (req.query?.action === "send_pay_receipt") {
+    let body;
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; }
+    catch { return res.status(400).json({ ok: false, error: "invalid_json" }); }
+    try {
+      const result = await actionSendPayReceipt(body);
+      return res.status(200).json(result);
+    } catch (e) {
+      console.error("send_pay_receipt xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
     }
   }
 
