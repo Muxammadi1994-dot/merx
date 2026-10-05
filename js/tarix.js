@@ -1850,4 +1850,32 @@ async function openSaleCancel(saleId) {
   renderTarix();
   if (typeof renderKatalog === "function") renderKatalog();
   toast(`Sotuv bekor qilindi — ${itemCnt} ta tovar omborga qaytdi`, "info");
+
+  // ✅ BK-1 (2026-10-05): BEKOR — BOTGA XABAR. Avval bekor qilish botga
+  // hech narsa yubormasdi: omborchi guruhidagi karta "yig'ilsin" holida
+  // qolardi, mijoz/guruhdagi chek "haqiqiy" bo'lib turardi. Endi server
+  // (`cancel_notify`) o'sha xabarlarni qizil kartaga almashtiradi.
+  // `botSend` orqali — internet yo'q bo'lsa navbatga tushadi, yo'qolmaydi.
+  // Serverga yozuv yuqorida tugagan (aks holda bu yerga kelmaydi).
+  try {
+    const _bu = db.settings?.telegramBotUrl;
+    if (_bu && typeof botSend === "function") {
+      const _c   = (db.customers || []).find(x => String(x.id) === String(s.customerId));
+      const _sid = (db.settings?.cloudShopId && db.settings.cloudShopId !== "local")
+        ? db.settings.cloudShopId
+        : (typeof getShopId === "function" && getShopId() !== "local" ? getShopId() : null);
+      botSend(_bu + "?action=cancel_notify", {
+        shopId: _sid, chekNum: s.chekNum || null, saleId: s.id,
+        customerId: s.customerId || null, customerPhone: s.customerPhone || _c?.phone || null,
+        groupId: (_c && /^-?\d{5,}$/.test(String(_c.groupId || "").trim())) ? String(_c.groupId).trim() : null,
+        staffGroupId: db.settings?.staffGroupId || null,
+        shopName: db.shop?.name || db.settings?.name || "MERX",
+      }, "cxl-" + (s.chekNum || s.id)).then(r => {
+        if (r && r.dup) {}                       // navbat takrori — jim
+        else if (r && r.sent) toast("📨 Bekor xabari omborchi va mijozga yuborildi");
+        else if (r === null) toast("📮 Bekor xabari navbatga qo'yildi — internet qaytishi bilan ketadi");
+        else toast("⚠️ Bekor xabari yuborilmadi: " + ((r && (r.reason || r.error)) || "noma'lum"), "err");
+      }).catch(() => {});
+    }
+  } catch (e) {}
 }

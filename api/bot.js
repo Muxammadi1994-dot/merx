@@ -277,13 +277,15 @@ function tgBolakla(text) {
 async function tgLong(chatId, text, extra = {}) {
   const parts = tgBolakla(text);
   let last = { ok: false, description: "bo'sh matn" };
+  let firstMid = null;   // ✅ BK-1: birinchi bo'lak raqami — keyin tahrir uchun
   for (let i = 0; i < parts.length; i++) {
     const oxirgi = i === parts.length - 1;
     const sarl = parts.length > 1 ? `(${i + 1}/${parts.length})\n` : "";
     last = await tg(chatId, sarl + parts[i], oxirgi ? extra : {});
-    if (!last.ok) return { ...last, qism: i + 1, qismlar: parts.length };
+    if (!last.ok) return { ...last, qism: i + 1, qismlar: parts.length, msg_id: firstMid };
+    if (firstMid == null) firstMid = last.result?.message_id || null;
   }
-  return { ...last, qismlar: parts.length };
+  return { ...last, qismlar: parts.length, msg_id: firstMid };
 }
 
 // ✅ BX-1: BOT JURNALI — har chek urinishi natijasi bilan yoziladi.
@@ -306,6 +308,8 @@ async function _botJurnal(o) {
         reason: o.reason ? String(o.reason).slice(0, 40) : null,
         detail: o.detail ? String(o.detail).slice(0, 200) : null,
         uzunlik: o.uzunlik || null, qism: o.qism || null,
+        msg_id: o.msgId || null, group_msg_id: o.groupMsgId || null,   // ✅ BK-1
+        foto: !!o.foto,
       }),
     });
   } catch (e) { console.warn("[botJurnal]", e.message); }
@@ -2825,7 +2829,7 @@ async function actionSendReceipt(body) {
   // ✅ TG-2: mijozga — faqat shaxsiy ulanish bo'lsa (avvalgidek).
   // Ulanish yo'q, guruh bor holatda bu qadam o'tkazib yuboriladi.
   let custSent = false, _err = null;
-  let _qism = 0;
+  let _qism = 0, _custMid = null, _grpMid = null;   // ✅ BK-1
   if (chatId) {
     const r = await tgLong(chatId, txt, {    // ✅ BX-1: uzun bo'lsa bo'laklab
       reply_markup: {
@@ -2834,7 +2838,7 @@ async function actionSendReceipt(body) {
     });
     custSent = !!r.ok;
     _qism = r.qismlar || 1;
-    if (custSent) _kbMijozOnce(chatId).catch(() => {});   // ✅ OT-1c
+    if (custSent) { _custMid = r.msg_id || null; _kbMijozOnce(chatId).catch(() => {}); }   // ✅ OT-1c · BK-1
     if (!r.ok) _err = r.description;
   }
 
@@ -2859,6 +2863,7 @@ async function actionSendReceipt(body) {
         },
       });
       groupSent = !!gr.ok;
+      if (groupSent) _grpMid = gr.msg_id || null;   // ✅ BK-1
       if (!_qism) _qism = gr.qismlar || 1;
       if (!gr.ok) {
         groupErr = gr.description || "guruh xatosi";   // ✅ TG-4
@@ -2894,7 +2899,7 @@ async function actionSendReceipt(body) {
   await _botJurnal({ shopId, kind: "receipt", chek: _dupChek, chatId,
     groupId: body.groupId, custOk: custSent, groupOk: groupSent,
     reason: groupErr ? "group_error" : null, detail: groupErr || _err,
-    uzunlik: txt.length, qism: _qism });
+    uzunlik: txt.length, qism: _qism, msgId: _custMid, groupMsgId: _grpMid });
   return { ok: true, sent: custSent, groupSent, groupErr, detail: _err };
 }
 
@@ -3062,13 +3067,14 @@ async function actionSendStaffNotification(body) {
     ? (items[0].image && (items[0].image.startsWith("http") || items[0].image.startsWith("data:image")) ? items[0].image : null)
     : null;
 
-  let r;
+  let r, _foto = false;   // ✅ BK-1: rasmli xabar caption bilan tahrirlanadi
   if (singleImg) {
     let caption = txt;
     if (caption.length > 1000) {
       caption = caption.slice(0, 980) + "\n\n…(to'liq ma'lumot \"Batafsil\" da)";
     }
     r = await tgPhoto(groupId, singleImg, caption, { reply_markup: replyMarkup });
+    _foto = !!r.ok;
     if (!r.ok) {
       console.warn("[staffNotif] rasm bilan yuborish muvaffaqiyatsiz, matn bilan urinib ko'ramiz:", r.description);
       r = await tg(groupId, txt, { reply_markup: replyMarkup });
@@ -3079,15 +3085,131 @@ async function actionSendStaffNotification(body) {
 
   if (!r.ok) {
     console.error("[staffNotif] tg error:", r.description);
+    await _botJurnal({ shopId: sid, kind: "staffnotif", chek: chekId, groupId,
+      custOk: false, groupOk: false, reason: "telegram_error", detail: r.description, uzunlik: txt.length });
     return { ok: false, reason: "telegram_error", detail: r.description };
   }
   await _dupMark(_dl.key);   // ✅ yuborildi — 60 daqiqalik muhr
-  return { ok: true, sent: true };
+  // ✅ BK-1: xabar raqami saqlanadi — bekorda shu karta tahrirlanadi
+  await _botJurnal({ shopId: sid, kind: "staffnotif", chek: chekId, groupId,
+    custOk: false, groupOk: true, uzunlik: txt.length, qism: 1,
+    groupMsgId: r.result?.message_id || null, foto: _foto });
+  return { ok: true, sent: true, msg_id: r.result?.message_id || null };
+}
+
+// ════════════════════════════════════════════════════════════════
+// ✅ BK-1 (2026-10-05) — SOTUV BEKOR QILINGANDA XABAR.
+// Avval bekor qilish botga HECh NARSA yubormasdi: omborchi guruhidagi
+// karta "yig'ilsin" holida qolardi (omborchi bekor sotuv tovarini
+// yig'ib jo'natishi mumkin — qoldiq kassada allaqachon qaytarilgan),
+// mijoz/guruhdagi chek esa "haqiqiy" bo'lib turardi.
+// Endi: jurnaldan (bot_jurnal.msg_id) shu chekning hamma xabari
+// topiladi → har biri qisqa QIZIL kartaga ALMAShTIRILADI (tugma
+// olib tashlanadi; rasmli xabar — caption orqali) → ustiga reply
+// bilan qisqa xabar (tahrir bildirishnoma bermaydi, reply beradi).
+// Eski (raqamsiz) xabarlar uchun — faqat yangi xabar.
+// Bazada `cancelled` hali kelmagan bo'lsa — retry (503), navbat 90 s
+// dan keyin yana uradi; ko'r xabar yuborilmaydi.
+// ════════════════════════════════════════════════════════════════
+async function tgEditCaption(chatId, messageId, caption, extra = {}) {
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${TOKEN}/editMessageCaption`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId,
+        caption, parse_mode: "HTML", ...extra }),
+    });
+    return await r.json().catch(() => ({}));
+  } catch (e) { return { ok: false, description: e.message }; }
+}
+async function actionCancelNotify(body) {
+  const { shopId, chekNum, customerId, customerPhone, groupId, staffGroupId, shopName } = body || {};
+  const chek = String(chekNum || "").trim();
+  if (!chek) return { ok: false, error: "chekNum majburiy" };
+  const sid = shopId || null;
+  const sF  = sid ? `&shop_id=eq.${encodeURIComponent(sid)}` : "";
+
+  // 1. Bazada haqiqatan bekormi (kassa serverga yozib bo'lganidan keyin chaqiradi;
+  //    sinxron kechiksa — retry, taxmin emas)
+  const rows = await sb("sales", `?chek_num=eq.${encodeURIComponent(chek)}${sF}&select=chek_num,customer_name,date,time,total,status,data&limit=1`);
+  const row = rows?.[0];
+  if (!row) return { ok: false, sent: false, reason: "not_found" };
+  const d = (row.data && typeof row.data === "object") ? row.data : {};
+  const bekor = String(d.cancelled) === "true" || row.status === "bekor";
+  if (!bekor) return { ok: false, sent: false, reason: "not_cancelled_yet", retry: true };
+
+  const _dl = await _dupLock("cxl", sid, chek);
+  if (_dl.dup) return { ok: true, sent: true, dup: true };
+
+  const mijoz = row.customer_name || d.customerName || "Mijoz";
+  const sana  = `${row.date || d.date || ""} ${row.time || d.time || ""}`.trim();
+  const jami  = Number(row.total ?? d.total ?? 0).toLocaleString("ru-RU").replace(/,/g, " ");
+  const omborMatn = `❌ <b>BEKOR QILINDI — YIG'ILMASIN</b>\n\n🧾 <b>${chek}</b>\n👤 ${mijoz}\n📅 ${sana}\n\n<i>Bu buyurtma kassada bekor qilingan. Tovarlar yig'ilmaydi va jo'natilmaydi.</i>`;
+  const mijozMatn = `❌ <b>BU CHEK BEKOR QILINDI</b>\n\n🧾 <b>${chek}</b>\n📅 ${sana}\n💰 ${jami} so'm\n\n<i>${shopName || "Do'kon"}: bu sotuv bekor qilingan, chek kuchda emas. Savol bo'lsa do'konga murojaat qiling.</i>`;
+  const replyOmbor = `❌ ${chek} — BEKOR QILINDI, yig'ilmasin`;
+  const replyMijoz = `❌ ${chek} cheki bekor qilindi`;
+
+  // 2. Jurnaldan shu chekning yuborilgan xabarlari (receipt: CHK yoki CHK|r1; staffnotif: CHK)
+  let jr = [];
+  try {
+    jr = await sb("bot_jurnal", `?chek=like.${encodeURIComponent(chek)}*${sF}&select=kind,chat_id,group_id,msg_id,group_msg_id,foto&order=ts.desc&limit=30`) || [];
+  } catch (e) { console.warn("[cancelNotify] jurnal:", e.message); }
+
+  // 3. Tahrir nishonlari: (chat, msg_id, foto, matn) — takrorsiz
+  const seen = new Set(); const nishon = [];
+  const qosh = (chat, mid, foto, matn, reply) => {
+    if (!chat || !mid) return; const k = chat + ":" + mid;
+    if (seen.has(k)) return; seen.add(k); nishon.push({ chat, mid, foto, matn, reply });
+  };
+  for (const j of jr) {
+    if (j.kind === "staffnotif") qosh(j.group_id, j.group_msg_id, j.foto, omborMatn, replyOmbor);
+    if (j.kind === "receipt") {
+      qosh(j.chat_id, j.msg_id, false, mijozMatn, replyMijoz);
+      qosh(j.group_id, j.group_msg_id, false, mijozMatn, replyMijoz);
+    }
+  }
+  let tahrir = 0, yangi = 0, xato = [];
+  for (const n of nishon) {
+    const r = n.foto
+      ? await tgEditCaption(n.chat, n.mid, n.matn, { reply_markup: { inline_keyboard: [] } })
+      : await tgEdit(n.chat, n.mid, n.matn, { reply_markup: { inline_keyboard: [] } });
+    if (r && r.ok) tahrir++; else xato.push((r && r.description) || "edit xato");
+    const rr = await tg(n.chat, n.reply, { reply_to_message_id: n.mid });
+    if (!rr.ok) xato.push(rr.description || "reply xato");
+  }
+
+  // 4. Raqamsiz joylar (eski xabar yoki jurnal yo'q) — yangi xabar
+  const tahrirlangan = new Set(nishon.map(n => String(n.chat)));
+  const yangiNishon = [];
+  if (staffGroupId && !tahrirlangan.has(String(staffGroupId))) yangiNishon.push([staffGroupId, omborMatn]);
+  if (groupId && /^-?\d{5,}$/.test(String(groupId)) && !tahrirlangan.has(String(groupId))) yangiNishon.push([groupId, mijozMatn]);
+  let chatId = null;
+  try {
+    const cF = sid ? `&shop_id=eq.${encodeURIComponent(sid)}` : "";
+    const cs = customerId ? await sb("customers", `?id=eq.${encodeURIComponent(customerId)}&select=telegram_chat_id${cF}`) : [];
+    chatId = cs?.[0]?.telegram_chat_id || null;
+    if (!chatId && customerPhone) {
+      const ph = String(customerPhone).replace(/\D/g, "").slice(-9);
+      const c2 = ph ? await sb("customers", `?phone=like.*${ph}&select=telegram_chat_id${cF}&limit=1`) : [];
+      chatId = c2?.[0]?.telegram_chat_id || null;
+    }
+  } catch (e) {}
+  if (chatId && !tahrirlangan.has(String(chatId))) yangiNishon.push([chatId, mijozMatn]);
+  for (const [chat, matn] of yangiNishon) {
+    const r = await tg(chat, matn);
+    if (r.ok) yangi++; else xato.push(r.description || "send xato");
+  }
+
+  await _dupMark(_dl.key);
+  await _botJurnal({ shopId: sid, kind: "cancel", chek, chatId, groupId,
+    custOk: tahrir + yangi > 0, groupOk: false,
+    reason: xato.length ? "partial" : null, detail: xato.join(" | ") || null, qism: tahrir + yangi });
+  return { ok: true, sent: tahrir + yangi > 0, tahrir, yangi, xato };
 }
 
 // ── Ishchilar uchun buyurtma katalogi (HTML sahifa) ─────────────
 function buildStaffOrderHtml(sale, shopName, shopId2) {
   const chekId    = sale.chekNum || sale.chek_num || ("#" + sale.id);
+  const _bekor    = String(sale.cancelled) === "true" || sale.status === "bekor";   // ✅ BK-1
   const date      = sale.date || "";
   const time      = sale.time || "";
   const items     = (sale.items || []).filter(Boolean);
@@ -3258,6 +3380,9 @@ body{font-family:'DM Sans',sans-serif;background:#F2F0EB;padding-bottom:40px;-we
   <div class="hdr-id">${chekId}</div>
   <div class="hdr-sub">📅 ${date} ${time}</div>
 </div>
+${_bekor ? `<div id="bekor-banner" style="margin:12px 14px 0;padding:14px 16px;background:#C62828;color:#fff;border-radius:12px;font-weight:800;font-size:17px;line-height:1.35;text-align:center">
+  ❌ BU SOTUV BEKOR QILINGAN<br><span style="font-weight:600;font-size:14px">Tovarlar YIG'ILMAYDI va jo'natilmaydi. Belgilash yopiq.</span>
+</div>` : ""}
 
 <div class="chips">
   <div class="chip"><b>${totalTur}</b> xil tovar</div>
@@ -3309,6 +3434,7 @@ ${cardsHtml}
 var doneItems = {};
 var CHEK_ID   = "${chekId}";
 var SHOP_ID   = "${shopId2 || ""}";   // ✅ OT-1
+var BEKOR     = ${_bekor ? "true" : "false"};   // ✅ BK-1
 var TOTAL_TUR2 = ${totalTur};
 var API_BASE  = window.location.origin + "/api/bot";
 
@@ -3343,6 +3469,7 @@ function applyDone() {
 }
 
 function toggleDone(idx) {
+  if (BEKOR) { alert("❌ Bu sotuv bekor qilingan — tovarlar yig'ilmaydi."); return; }   // ✅ BK-1
   doneItems[idx] = !doneItems[idx];
   applyDone();
   fetch(API_BASE + '?action=set_done&id=' + encodeURIComponent(CHEK_ID), {
@@ -3383,6 +3510,7 @@ if (window.Telegram && Telegram.WebApp) { try { Telegram.WebApp.ready(); } catch
 // server topilmaganlar ro'yxatini o'zi tuzadi.
 var _ordBusy = false;
 function ordReady() {
+  if (BEKOR) { alert("❌ Bu sotuv bekor qilingan — tayyorlab bo'lmaydi."); return; }   // ✅ BK-1
   if (_ordBusy) return; _ordBusy = true;
   var b = document.getElementById('ord-ready');
   if (b) { b.disabled = true; b.textContent = '⏳ Yuborilmoqda...'; }
@@ -3459,6 +3587,17 @@ async function actionRenderStaffOrder(chekId, saleData, shopId) {
     // basePrice, rate, payBreakdown, subtotal...) faqat data jsonb'da —
     // ustunlar bilan birlashtiramiz, aks holda PDF chek to'liq bo'lmaydi
     if (sale && sale.data && typeof sale.data === "object") sale = { ...sale, ...sale.data };
+  }
+  // ✅ BK-1: BEKOR HOLATI HAR DOIM BAZADAN — havoladagi (`d=`) nusxa eski
+  // bo'lishi mumkin. Bekor sotuv kartasi omborchiga "yig'ilsin" bo'lib
+  // ko'rinmasin.
+  if (sale) {
+    try {
+      const _ck = sale.chekNum || sale.chek_num;
+      const _sf = sid ? `&shop_id=eq.${encodeURIComponent(sid)}` : "";
+      const _r  = _ck ? await sb("sales", `?chek_num=eq.${encodeURIComponent(_ck)}${_sf}&select=status,cancelled:data->>cancelled&limit=1`) : [];
+      if (_r?.[0] && (String(_r[0].cancelled) === "true" || _r[0].status === "bekor")) sale.cancelled = true;
+    } catch (e) { console.warn("[staffOrder] bekor tekshiruvi:", e.message); }
   }
 
   try {
@@ -3637,6 +3776,15 @@ function buildReceiptHtml(sale, opts) {
   // Klient chekida qaytarilgan sotuv ochiq belgilanadi, botda esa
   // UMUMAN ko'rinmasdi — mijoz qaytarib bergan tovar chekda
   // hech qanday izsiz qolardi.
+  // ✅ BK-1 (2026-10-05): BEKOR QILINGAN SOTUV CHEKI — sahifa haqiqiy
+  // chek bo'lib ochilmasin. Bekor belgisi bazadagi cancelled/status dan.
+  const _bekorChek = String(s.cancelled) === "true" || s.status === "bekor";
+  const _bekorNote = _bekorChek ? `
+        <div style="margin:8px 0;padding:10px;border:2px solid #B91C1C;border-radius:6px;
+          background:#FEE2E2;color:#7F1D1D;text-align:center;font-weight:800;font-size:15px">
+          ❌ BU CHEK BEKOR QILINGAN<br>
+          <span style="font-weight:500;font-size:12px">Sotuv kassada bekor qilingan — chek kuchda emas${s.cancelledAt ? " · " + s.cancelledAt + (s.cancelledTime ? " " + s.cancelledTime : "") : ""}</span>
+        </div>` : "";
   let _refundNote = "";
   try {
     const _refs = Array.isArray(s.refunds) ? s.refunds : [];
@@ -3746,7 +3894,7 @@ body{font-family:${opts.fontFamily || "'DM Sans',Arial,sans-serif"};background:#
   s{text-decoration-thickness:1.6px}
   .r,.r.sm,.meta,.itc,.itn{font-size:13.5px !important}
 }
-</style></head><body><div>
+</style></head><body><div>${_bekorNote}
 <div class="rc">
   ${cfg.logo ? `<div class="logo"><img src="${cfg.logo}"></div>` : ""}
   <div class="hd">
@@ -3774,6 +3922,7 @@ body{font-family:${opts.fontFamily || "'DM Sans',Arial,sans-serif"};background:#
   ${paid > 0 ? `<div class="r"><span>To'landi</span><span style="font-weight:700">${FC(paid)}</span></div>` : ""}
   ${debtHtml}
   ${_refundNote}
+  ${_bekorNote}
   <div class="ft">${cfg.footer}</div>
   ${(Array.isArray(opts.extraLines) && opts.extraLines.length) ? `<div style="text-align:center;font-size:12px;color:#000;padding:2px 8px 4px">${opts.extraLines.filter(Boolean).map(t=>`<div>${t}</div>`).join("")}</div>` : ""}
   <div class="ft2">${cfg.shopName} · ${date}</div>
@@ -4700,7 +4849,7 @@ function yubor(){
   // Xavfi past — faqat "tayyor" belgisi qo'yiladi, ma'lumot
   // o'qilmaydi va xabar yuborilmaydi.
   const _PROTECTED  = ["send_text","send_receipt","send_pay_receipt",
-                       "send_staff_notif","send_owner_notif","link_check"];
+                       "send_staff_notif","send_owner_notif","link_check","cancel_notify"];
   const _act = req.query?.action || "";
 
   if (_PROTECTED.includes(_act)) {
@@ -4736,6 +4885,19 @@ function yubor(){
       }
       console.warn(`[bot] RUXSATSIZ: ${_act} — hozircha o'tkazildi ` +
                    `(MERX_BOT_STRICT=1 qo'yilsa rad etiladi)`);
+    }
+  }
+
+  // ✅ BK-1: sotuv bekor — xabarlarni qizil kartaga almashtirish
+  if (req.query?.action === "cancel_notify") {
+    let body;
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body; } catch { body = {}; }
+    try {
+      const result = await actionCancelNotify(body);
+      return res.status(result && result.retry ? 503 : 200).json(result);
+    } catch (e) {
+      console.error("cancel_notify xato:", e.message);
+      return res.status(500).json({ ok: false, error: e.message });
     }
   }
 
@@ -4933,11 +5095,17 @@ function yubor(){
       // mavjudligini bazadan tekshiramiz. Shu bilan tasodifiy yoki
       // o'ylab topilgan chek raqamlari bilan jadvalni to'ldirib
       // bo'lmaydi, omborchi oqimi esa avvalgidek ishlaydi.
-      let _chekBor = false;
+      let _chekBor = false, _chekBekor = false;
       try {
-        const _s = await sb("sales", `?chek_num=eq.${encodeURIComponent(chekId)}&select=chek_num&limit=1`);
+        const _s = await sb("sales", `?chek_num=eq.${encodeURIComponent(chekId)}&select=chek_num,status,cancelled:data->>cancelled&limit=1`);
         _chekBor = Array.isArray(_s) && _s.length > 0;
+        // ✅ BK-1: bekor sotuvga belgilash serverda ham yopiq
+        _chekBekor = _chekBor && (String(_s[0].cancelled) === "true" || _s[0].status === "bekor");
       } catch(e) { _chekBor = true; /* baza javob bermasa oqimni to'xtatmaymiz */ }
+      if (_chekBekor) {
+        console.warn(`[set_done] bekor sotuv rad etildi: ${chekId}`);
+        return res.status(200).json({ ok: false, error: "Sotuv bekor qilingan", bekor: true });
+      }
       if (!_chekBor) {
         console.warn(`[set_done] mavjud bo'lmagan chek rad etildi: ${chekId}`);
         return res.status(200).json({ ok: true, done: [] });
