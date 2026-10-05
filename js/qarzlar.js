@@ -2226,7 +2226,9 @@ async function sendTelegramPayReceipt(customerId, customerPhone, payment) {
     toast("📮 To'lov cheki navbatga qo'yildi — internet qaytishi bilan o'zi yuboriladi");
     return;
   }
-  if (data.sent) toast(data.groupSent
+  // ✅ BX-1 (2026-10-01): natija yashil YOKI qizil — jim emas (sms.js)
+  if (typeof _chekNatijaToast === "function") _chekNatijaToast("To'lov cheki", data);
+  else if (data.sent) toast(data.groupSent
     ? "📨 To'lov cheki mijozga va guruhga yuborildi"
     : "📨 To'lov cheki Telegram orqali yuborildi");
 }

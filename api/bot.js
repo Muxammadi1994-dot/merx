@@ -253,6 +253,72 @@ async function tg(chatId, text, extra = {}) {
   return res.json();
 }
 
+// ✅ BX-1 (2026-10-01): UZUN XABAR BO'LAKLARGA BO'LINADI.
+// Telegram bitta xabarni 4 096 belgidan uzun bo'lsa "message is too
+// long" bilan rad etadi. Jonli: B20 da 30 kunda 15 ta katta chek
+// (4 333…11 631 belgi, 57–197 tovar) mijozga HAM, guruhga HAM
+// bormagan; ilova jim qolgan (To'lqin aka 102 tovar, Dilmurod aka
+// 197 tovar). Endi matn qator chegarasidan bo'linadi (har qator
+// o'z teglarini yopadi — chekTelegramText shunday yasaydi), tugma
+// OXIRGI bo'lakda. Natija: hammasi ketsa — oxirgi javob (ok:true);
+// birortasi yiqilsa — o'sha javob (ok:false, description).
+const TG_BOLAK = 3900;
+function tgBolakla(text) {
+  const t = String(text || "");
+  if (t.length <= TG_BOLAK) return [t];
+  const out = []; let cur = "";
+  for (const line of t.split("\n")) {
+    if (cur && (cur.length + 1 + line.length) > TG_BOLAK) { out.push(cur); cur = ""; }
+    cur = cur ? cur + "\n" + line : line;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+async function tgLong(chatId, text, extra = {}) {
+  const parts = tgBolakla(text);
+  let last = { ok: false, description: "bo'sh matn" };
+  for (let i = 0; i < parts.length; i++) {
+    const oxirgi = i === parts.length - 1;
+    const sarl = parts.length > 1 ? `(${i + 1}/${parts.length})\n` : "";
+    last = await tg(chatId, sarl + parts[i], oxirgi ? extra : {});
+    if (!last.ok) return { ...last, qism: i + 1, qismlar: parts.length };
+  }
+  return { ...last, qismlar: parts.length };
+}
+
+// ✅ BX-1: BOT JURNALI — har chek urinishi natijasi bilan yoziladi.
+// Sabab: bot yuborolmagan hodisa hech qayerga yozilmasdi (`bot_sent`
+// faqat YETGANDA muhrlanadi) — "nega bormadi" 10 ta SQL bilan
+// izlanardi. Endi bitta so'rov: `select * from bot_jurnal where chek=…`.
+// Best-effort: jurnal yiqilsa chek yuborish to'xtamaydi.
+async function _botJurnal(o) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/bot_jurnal`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+                 "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({
+        shop_id: o.shopId || null, kind: o.kind || "receipt",
+        chek: String(o.chek || "").slice(0, 64),
+        chat_id: o.chatId ? String(o.chatId) : null,
+        group_id: o.groupId ? String(o.groupId) : null,
+        cust_ok: !!o.custOk, group_ok: !!o.groupOk,
+        reason: o.reason ? String(o.reason).slice(0, 40) : null,
+        detail: o.detail ? String(o.detail).slice(0, 200) : null,
+        uzunlik: o.uzunlik || null, qism: o.qism || null,
+      }),
+    });
+  } catch (e) { console.warn("[botJurnal]", e.message); }
+}
+// Telegram xatosi VAQTINCHALIKMI (qayta urinsa o'tadi) — 429/5xx/tarmoq
+function _tgVaqtincha(desc) {
+  const d = String(desc || "").toLowerCase();
+  return d.includes("too many requests") || d.includes("retry after")
+      || d.includes("internal server error") || d.includes("bad gateway")
+      || d.includes("gateway timeout") || d.includes("fetch failed")
+      || d.includes("econnreset") || d.includes("etimedout");
+}
+
 // Rasm + matn (caption) bilan yuborish — guruhga buyurtma rasmi uchun
 // photoSrc: http(s) URL YOKI base64 data-url (data:image/...;base64,...)
 async function tgPhoto(chatId, photoSrc, caption, extra = {}) {
@@ -2492,10 +2558,17 @@ async function actionSendPayReceipt(body) {
 
   // ✅ TG-2b: muhr — KAMIDA BITTA manzilga yetganda; aks holda
   // qo'yilmaydi (navbat qayta urinishi mumkin — to'g'ri holat).
-  if (!custSent && !groupSent)
+  if (!custSent && !groupSent) {
+    await _botJurnal({ shopId, kind: "payrcpt", chek: payment.chekNum || payment.id,
+      chatId, groupId: body.groupId, custOk: false, groupOk: false,
+      reason: chatId ? "telegram_error" : "no_chat_id", detail: _err, uzunlik: txt.length });
     return { ok: false, sent: false,
              reason: chatId ? "telegram_error" : "no_chat_id", detail: _err };
+  }
   await _dupMark(_dl.key);   // ✅ yuborildi — 60 daqiqalik muhr
+  await _botJurnal({ shopId, kind: "payrcpt", chek: payment.chekNum || payment.id,
+    chatId, groupId: body.groupId, custOk: custSent, groupOk: groupSent,
+    reason: null, detail: _err, uzunlik: txt.length });
   return { ok: true, sent: custSent, groupSent };
 }
 
@@ -2650,7 +2723,15 @@ async function actionSendReceipt(body) {
   const shopId = body.shopId || body.shop_id || null;
   const shopFilter = shopId ? `&shop_id=eq.${shopId}` : "";
   // ✅ dublikat qulfi (60 daq) — navbat qayta urganda ikki nusxa tushmasin
-  const _dl = await _dupLock("receipt", shopId, sale.chekNum || sale.chek_num || sale.id);
+  // ✅ BX-3 (2026-10-01): QAYTARISH ChEKI — ALOHIDA QULF KALITI.
+  // Avval kalit = chek raqami; sotuvdan 60 daqiqa ichida qaytarish
+  // qilinsa qayta yuborilgan chek "takror" deb TAShLANARDI, ilovaga esa
+  // sent:true qaytardi (yashil toast). Jonli: 30 kunda 22 ta shunday
+  // qaytarish. Endi kalitga qaytarishlar soni qo'shiladi (|r1, |r2…);
+  // asl chekning takror himoyasi o'zgarmaydi.
+  const _rN = Array.isArray(sale.refunds) ? sale.refunds.length : 0;
+  const _dupChek = (sale.chekNum || sale.chek_num || sale.id) + (_rN ? "|r" + _rN : "");
+  const _dl = await _dupLock("receipt", shopId, _dupChek);
   if (_dl.dup) return { ok: true, sent: true, dup: true, groupSent: false };
 
   // 1. Avval telefondan qidiramiz
@@ -2744,13 +2825,15 @@ async function actionSendReceipt(body) {
   // ✅ TG-2: mijozga — faqat shaxsiy ulanish bo'lsa (avvalgidek).
   // Ulanish yo'q, guruh bor holatda bu qadam o'tkazib yuboriladi.
   let custSent = false, _err = null;
+  let _qism = 0;
   if (chatId) {
-    const r = await tg(chatId, txt, {
+    const r = await tgLong(chatId, txt, {    // ✅ BX-1: uzun bo'lsa bo'laklab
       reply_markup: {
         inline_keyboard: [[{ text: "📄 Chekni ko'rish", url: receiptUrl }]],
       },
     });
     custSent = !!r.ok;
+    _qism = r.qismlar || 1;
     if (custSent) _kbMijozOnce(chatId).catch(() => {});   // ✅ OT-1c
     if (!r.ok) _err = r.description;
   }
@@ -2770,12 +2853,13 @@ async function actionSendReceipt(body) {
     const gid = String(body.groupId || "").trim();
     // Faqat haqiqiy Telegram guruh ID (manfiy, 5+ raqam)
     if (/^-?\d{5,}$/.test(gid) && String(gid) !== String(chatId)) {
-      const gr = await tg(gid, txt, {
+      const gr = await tgLong(gid, txt, {    // ✅ BX-1: uzun bo'lsa bo'laklab
         reply_markup: {
           inline_keyboard: [[{ text: "📄 Chekni ko'rish", url: receiptUrl }]],
         },
       });
       groupSent = !!gr.ok;
+      if (!_qism) _qism = gr.qismlar || 1;
       if (!gr.ok) {
         groupErr = gr.description || "guruh xatosi";   // ✅ TG-4
         console.warn(`[sendReceipt] guruhga yuborilmadi (${gid}):`, groupErr);
@@ -2795,10 +2879,22 @@ async function actionSendReceipt(body) {
     const reason = !chatId ? "no_telegram"
       : d.includes("blocked") || d.includes("deactivated") ? "blocked"
       : d.includes("chat not found") ? "chat_not_found"
+      : d.includes("too long") ? "too_long"
       : "telegram_error";
-    return { ok: false, sent: false, reason, detail: _err, groupErr };
+    // ✅ BX-1: vaqtinchalik xato (429/5xx/tarmoq) — ilova navbati qayta
+    // urinsin (o'ram 503 qaytaradi). Doimiy xato — qayta urinilmaydi.
+    const retry = reason === "telegram_error" &&
+      (_tgVaqtincha(_err) || (!chatId && _tgVaqtincha(groupErr)));
+    await _botJurnal({ shopId, kind: "receipt", chek: _dupChek, chatId,
+      groupId: body.groupId, custOk: false, groupOk: false, reason,
+      detail: _err || groupErr, uzunlik: txt.length, qism: _qism });
+    return { ok: false, sent: false, reason, detail: _err, groupErr, retry };
   }
   await _dupMark(_dl.key);   // ✅ yuborildi — 60 daqiqalik muhr
+  await _botJurnal({ shopId, kind: "receipt", chek: _dupChek, chatId,
+    groupId: body.groupId, custOk: custSent, groupOk: groupSent,
+    reason: groupErr ? "group_error" : null, detail: groupErr || _err,
+    uzunlik: txt.length, qism: _qism });
   return { ok: true, sent: custSent, groupSent, groupErr, detail: _err };
 }
 
@@ -4652,7 +4748,8 @@ function yubor(){
     }
     try {
       const result = await actionSendReceipt(body);
-      return res.status(200).json(result);
+      // ✅ BX-1: vaqtinchalik xato — 503, ilova navbati (r.ok=false) qayta uradi
+      return res.status(result && result.retry ? 503 : 200).json(result);
     } catch (e) {
       console.error("send_receipt xato:", e.message);
       return res.status(500).json({ ok: false, error: e.message });

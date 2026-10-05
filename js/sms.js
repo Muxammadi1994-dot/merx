@@ -186,19 +186,51 @@ async function sendTelegramReceipt(customerId, sale, customerPhone, opts) {
       } catch (e) { return null; }
     })()
   };
+  // ✅ BX-3 (2026-10-01): navbat kaliti — qaytarishlar soni bilan.
+  // Avval kalit = chek raqami: sotuv cheki navbatda turganida qaytarish
+  // qilinsa, qaytarish nusxasi navbatga KIRMASDI (kalit band). Server
+  // qulfi ham shu kalit mantiqida (bot.js BX-3).
+  const _rN = Array.isArray(sale?.refunds) ? sale.refunds.length : 0;
   const data = await botSend(botUrl + "?action=send_receipt", _payload,
-    "chk-" + (sale?.chekNum || sale?.id || Date.now()));
+    "chk-" + (sale?.chekNum || sale?.id || Date.now()) + (_rN ? "-r" + _rN : ""));
   if (!data) {
     if (!opts.silent)
       toast("📮 Chek navbatga qo'yildi — internet qaytishi bilan o'zi yuboriladi");
     return { ok: true, sent: false, queued: true };   // ✅ RS-1
   }
-  if (data.sent && !opts.silent) {
-    toast(data.groupSent
-      ? "📨 Chek mijozga va guruhga yuborildi"
-      : "📨 Chek mijozga Telegram orqali yuborildi");
-  }
+  if (!opts.silent) _chekNatijaToast("Chek", data);   // ✅ BX-1
   return data;   // ✅ RS-1: dup/sent/reason/groupSent chaqiruvchiga ochiq
+}
+
+// ✅ BX-1 (2026-10-01): YUBORISH NATIJASI — YAShIL YOKI QIZIL, JIM EMAS.
+// Avval toast faqat `sent` bo'lganda chiqardi; Telegram rad etsa (uzun
+// chek, bloklangan, guruh xatosi) kassir HECh NARSA ko'rmasdi. Jonli:
+// B20, 30 kunda 15 ta katta chek jim yo'qolgan. Bitta funksiya — sotuv
+// cheki (sms.js) va to'lov cheki (qarzlar.js) ikkalasi shuni chaqiradi.
+function _chekNatijaToast(nom, data) {
+  try {
+    const SABAB = {
+      too_long: "xabar juda uzun", blocked: "mijoz botni bloklagan",
+      chat_not_found: "eski ulanish (chat topilmadi)",
+      no_telegram: "mijozda Telegram ulanishi yo'q", no_chat_id: "mijozda Telegram ulanishi yo'q",
+      telegram_error: "Telegram xatosi"
+    };
+    if (data.dup) return;                       // navbat takrori — jim, to'g'ri
+    if (!data.sent && !data.groupSent) {
+      toast("❌ " + nom + " Telegram'ga YUBORILMADI: " +
+            (SABAB[data.reason] || data.reason || "noma'lum") +
+            (data.detail ? " · " + String(data.detail).slice(0, 60) : ""), "err");
+      return;
+    }
+    if (data.groupErr) {
+      toast("⚠️ " + nom + " mijozga ketdi, GURUHGA bormadi: " +
+            String(data.groupErr).slice(0, 80), "err");
+      return;
+    }
+    toast(data.groupSent
+      ? "📨 " + nom + " mijozga va guruhga yuborildi"
+      : "📨 " + nom + " mijozga Telegram orqali yuborildi");
+  } catch (e) {}
 }
 
 // ================================================
