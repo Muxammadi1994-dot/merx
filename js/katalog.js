@@ -1118,12 +1118,14 @@ function epUpdateInboxDisplay(p, initial) {
 }
 
 // Rang bo'yicha rasm yuklash (har rang o'z rasmiga ega bo'ladi)
-function epLoadColorImage(input, color) {
-  const file = input.files[0]; if (!file) return;
-  if (file.size > 15 * 1024 * 1024) { toast("Fayl juda katta (15MB+) — bu rasm emasga o'xshaydi","err"); return; }  // 2026-07-24: 5MB darvozasi OLIB TASHLANDI — u SIQISHDAN oldin turib
-  // telefon suratlarini (3-8MB) bekorga rad etardi. Siqish baribir
-  // rasmni ~50-150KB ga tushiradi.
-
+// ✅ VR-1 (2026-10-10): RASM SIQISH — YAGONA JOY. Avval aynan shu
+// 12 qator `epLoadColorImage` va `epLoadImage` da ikki nusxa edi
+// (C10); endi uchala yo'l (rang rasmi, asosiy rasm, variativ jadval)
+// shuni chaqiradi — xulq AYNAN avvalgidek: 15 MB darvoza, 400 px,
+// 150 KB gacha JPEG. `cb(dataUrl)` — tayyor base64.
+function _rasmSiqib(file, cb) {
+  if (!file) return;
+  if (file.size > 15 * 1024 * 1024) { toast("Fayl juda katta (15MB+) — bu rasm emasga o'xshaydi","err"); return; }
   const reader = new FileReader();
   reader.onload = function(e) {
     const img = new Image();
@@ -1132,15 +1134,23 @@ function epLoadColorImage(input, color) {
       let w = img.width, h = img.height;
       if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
       else       { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
-
       const canvas = document.createElement("canvas");
       canvas.width = w; canvas.height = h;
       canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-
       let q = 0.82, dataUrl;
       do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
       while (dataUrl.length > 150000 && q > 0.25);
+      try { cb(dataUrl); } catch (e) { console.warn("rasm:", e.message); }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
 
+function epLoadColorImage(input, color) {
+  const file = input.files[0]; if (!file) return;
+  // ✅ VR-1: siqish `_rasmSiqib` da (15 MB darvoza, 400 px, 150 KB) — avvalgidek
+  _rasmSiqib(file, function(dataUrl) {
       const p = db.products.find(x => x.sku === editSku); if (!p) return;
       if (!p.colorImages) p.colorImages = {};
       p.colorImages[color] = dataUrl;      // darhol ko'rinsin
@@ -1158,10 +1168,7 @@ function epLoadColorImage(input, color) {
           }
         }).catch(() => {});
       }
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  });
 }
 
 function epRemoveColorImage(color) {
@@ -2847,29 +2854,8 @@ function exportKatalogExcel() {
 // ── Tovar rasmi funksiyalari ───────────────────
 function epLoadImage(input) {
   const file = input.files[0]; if (!file) return;
-  if (file.size > 15 * 1024 * 1024) { toast("Fayl juda katta (15MB+) — bu rasm emasga o'xshaydi","err"); return; }  // 2026-07-24: 5MB darvozasi OLIB TASHLANDI — u SIQISHDAN oldin turib
-  // telefon suratlarini (3-8MB) bekorga rad etardi. Siqish baribir
-  // rasmni ~50-150KB ga tushiradi.
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      // 400x400 ga siqish
-      const MAX = 400;
-      let w = img.width, h = img.height;
-      if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
-      else       { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = w; canvas.height = h;
-      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-
-      // Sifatni kamaytirish (300KB gacha)
-      let q = 0.82, dataUrl;
-      do { dataUrl = canvas.toDataURL("image/jpeg", q); q -= 0.08; }
-      while (dataUrl.length > 150000 && q > 0.25);
-
+  // ✅ VR-1: siqish `_rasmSiqib` da — avvalgidek
+  _rasmSiqib(file, function(dataUrl) {
       // UI yangilash
       if ($("ep-img-preview"))     { $("ep-img-preview").src = dataUrl; $("ep-img-preview").style.display = "block"; }
       if ($("ep-img-placeholder")) $("ep-img-placeholder").style.display = "none";
@@ -2885,10 +2871,7 @@ function epLoadImage(input) {
 
       const kb = Math.round(dataUrl.length * 0.75 / 1024);
       toast(`✅ Rasm yuklandi (${kb}KB)`);
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  });
 }
 
 function epRemoveImage() {
@@ -5770,10 +5753,15 @@ function epVarRenderTable() {
       <tr data-sku="${pr.sku}" style="border-top:1px solid var(--brd);
         ${isCurrent ? "background:#FFFBF0" : ""}">
         <td style="padding:4px;text-align:center">
-          <div style="width:32px;height:32px;border-radius:6px;border:1px solid var(--brd);
+          <!-- ✅ VR-1: katak bosilsa rasm yuklanadi (har rang — o'z tovari) -->
+          <input type="file" accept="image/*" style="display:none" id="evr-img-${jsEsc(pr.sku).replace(/[^a-zA-Z0-9_-]/g,"_")}"
+            onchange="epVarLoadImage(this,'${jsEsc(pr.sku)}')">
+          <div id="evr-imgbox-${jsEsc(pr.sku).replace(/[^a-zA-Z0-9_-]/g,"_")}" title="Rasm yuklash"
+            onclick="document.getElementById('evr-img-${jsEsc(pr.sku).replace(/[^a-zA-Z0-9_-]/g,"_")}').click()"
+            style="width:32px;height:32px;border-radius:6px;border:1px solid var(--brd);cursor:pointer;
             overflow:hidden;background:var(--bg);display:flex;align-items:center;justify-content:center">
             ${pr.image ? `<img src="${pr.image}" style="width:100%;height:100%;object-fit:cover">`
-                       : `<i class="ti ti-photo" style="font-size:13px;color:#ccc"></i>`}
+                       : `<i class="ti ti-camera-plus" style="font-size:14px;color:#9CA3AF"></i>`}
           </div>
         </td>
         <td style="padding:5px 8px;white-space:nowrap">
@@ -5960,6 +5948,41 @@ async function epSaveVariativ() {   // ✅ 2026-08-19: server orqali (async)
 }
 
 // Pochka yoki "pochkada nechta" o'zgarganda DONA qayta hisoblanadi
+// ✅ VR-1 (2026-10-10): VARIATIV TAHRIR JADVALIDA RASM YUKLASH.
+// Avval katak faqat ko'rsatardi — variativ/import bilan kirgan 6 rangli
+// partiyaga rasm qo'yish uchun 6 tovarni alohida ochish kerak edi.
+// Endi qatordagi tovar (`sku`) uchun: asosiy `image` + shu rang
+// `colorImages[rang]` — oddiy tahrir oynasi (epLoadColorImage) bilan
+// BIR XIL natija; siqish `_rasmSiqib`, ombor `uploadImageToStorage`,
+// saqlash `saveDB` — o'sha zanjir. Bulutga IMG-2 bilan ketadi.
+// "Barcha qatorlarga" ATAYLAB yo'q — ranglar har xil.
+function epVarLoadImage(input, sku) {
+  const file = input.files[0]; if (!file) return;
+  const p = (db.products || []).find(x => x.sku === sku);
+  if (!p) { toast("Tovar topilmadi", "err"); return; }
+  const color = ((p.variants || [])[0] || {}).color || "";
+  _rasmSiqib(file, function(dataUrl) {
+    p.image = dataUrl;                                   // asosiy rasm (jadval katagi shuni ko'rsatadi)
+    if (color) { if (!p.colorImages) p.colorImages = {}; p.colorImages[color] = dataUrl; }
+    saveDB();
+    const box = document.getElementById("evr-imgbox-" + String(sku).replace(/[^a-zA-Z0-9_-]/g, "_"));
+    if (box) box.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover">`;
+    // joriy tovar bo'lsa — oddiy oynadagi rang kartalari ham yangilansin
+    if (sku === editSku) { try { epRenderColorCards(p); } catch (e) {} }
+    toast(`✅ ${color || p.name}: rasm yuklandi`);
+    if (typeof uploadImageToStorage === "function") {
+      uploadImageToStorage(dataUrl, `${p.sku}_${color || "asosiy"}`).then(url => {
+        if (url && url !== dataUrl) {
+          if (p.image === dataUrl) p.image = url;
+          if (color && p.colorImages && p.colorImages[color] === dataUrl) p.colorImages[color] = url;
+          saveDB();
+        }
+      }).catch(() => {});
+    }
+    input.value = "";                                    // bir xil faylni qayta tanlash mumkin
+  });
+}
+
 function epVarRecalc(inp, changed) {
   const tr = inp.closest("tr");
   if (!tr) return;
