@@ -3413,8 +3413,8 @@ async function serverSaveRecord(table, row, baseAt, force) {
     // beradi; bazaning `data` ustuniga tushsa — u yerda ma'nosiz, SQL va
     // auditni chalg'itadi. Sinxron yo'lida allaqachon olib tashlanadi
     // (cloud.js `_deltaUpsert`), bu — ikkinchi, server yo'li.
-    const _tozaRow = (row && typeof row === "object" && "_srvFp" in row)
-      ? (() => { const { _srvFp, ...q } = row; return q; })() : row;
+    const _tozaRow = (row && typeof row === "object" && ("_srvFp" in row || "_srvImgFp" in row))
+      ? (() => { const { _srvFp, _srvImgFp, ...q } = row; return q; })() : row;   // IMG-2
     const r = await _serverPay({ action: "save_record", table, row: _tozaRow,
                                  baseAt: baseAt || null,
                                  force: force === true });
@@ -3473,7 +3473,7 @@ async function serverSaveBulkProducts(rows) {
     // 200 tadan bo'lib yuboramiz — so'rov hajmi cheklangan
     for (let i = 0; i < rows.length; i += 200) {
       const _b = rows.slice(i, i + 200).map(x =>                     // ✅ SY-3b
-        (x && typeof x === "object" && "_srvFp" in x) ? (() => { const { _srvFp, ...q } = x; return q; })() : x);
+        (x && typeof x === "object" && ("_srvFp" in x || "_srvImgFp" in x)) ? (() => { const { _srvFp, _srvImgFp, ...q } = x; return q; })() : x);   // IMG-2
       const r = await _serverPay({ action: "save_bulk_products", rows: _b });
       if (!r || !r.ok) return null;
       jami += r.soni || 0;

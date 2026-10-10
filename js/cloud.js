@@ -776,6 +776,7 @@ async function pullDelta(noRender) {
           base.colorImages = _keepColorImgs(r.color_images, old.colorImages);
           base.variants    = (r.data.variants && r.data.variants.length)
                              ? r.data.variants : (r.variants || []);
+          _srvImgMark(base, r.image, r.color_images);   // ✅ IMG-2: bulutdagi rasm holati izi
         }
         return base;
       });
@@ -1168,7 +1169,7 @@ function _fpRow(r) {
   try {
     const c = JSON.parse(JSON.stringify(r));
     delete c.updated_at;
-    if (c.data && typeof c.data === "object") { delete c.data.updatedAt; delete c.data._srvFp; }   // SY-3
+    if (c.data && typeof c.data === "object") { delete c.data.updatedAt; delete c.data._srvFp; delete c.data._srvImgFp; }   // SY-3 · IMG-2
     return _fp(JSON.stringify(c));
   } catch (e) { return _fp(JSON.stringify(r)); }
 }
@@ -1186,13 +1187,36 @@ function _fpRow(r) {
 function _fpData(o) {
   try {
     const c = JSON.parse(JSON.stringify(o));
-    delete c.updatedAt; delete c._srvFp; delete c.shop_id;
+    delete c.updatedAt; delete c._srvFp; delete c._srvImgFp; delete c.shop_id;   // IMG-2
     delete c.image; delete c.colorImages; delete c.photo;
     if (Array.isArray(c.items)) c.items = c.items.map(it => { if (it && typeof it === "object") { const {image, ...rest} = it; return rest; } return it; });
     return _fp(JSON.stringify(c));
   } catch (e) { return null; }
 }
 function _srvMark(o) { try { if (o && typeof o === "object") o._srvFp = _fpData(o); } catch (e) {} return o; }
+// ✅ IMG-2 (2026-10-10): RASM IZI. `_fpData` rasmlarni ATAYLAB tashlab
+// yuboradi (og'ir base64 izga kirmasin) — shuning uchun FAQAT rasm
+// yuklangan tovar SY-3 ga "o'zgarmagan" ko'rinib, bulutga KETMASDI
+// (jonli: B20, 10-okt — rasm boshqa kassaga yetmaydi; faqat sotuv yoki
+// narx o'zgarsa "tasodifan" ketardi). Endi rasm havolalarining o'z
+// qisqa izi (`_srvImgFp`) tortishda saqlanadi; push paytida u farq
+// qilsa — SY-3 o'tkazib yubormaydi. Base64 ham, havola ham — faqat
+// uzunlik+xesh, og'irlik yo'q.
+function _imgFp(image, colorImages) {
+  try {
+    const ci = colorImages && typeof colorImages === "object"
+      ? Object.keys(colorImages).sort().map(k => k + "=" + _fp(String(colorImages[k] || ""))).join(",") : "";
+    return _fp(String(image || "")) + "|" + ci;
+  } catch (e) { return null; }
+}
+// Belgi BULUTDAGI haqiqiy holatdan (ustunlar) qo'yiladi — `_keepImg`
+// bilan saqlangan LOKAL rasmdan emas. Shunda lokalda bor-u bulutda yo'q
+// rasm "farq" bo'lib ko'rinadi va keyingi push uni bulutga qaytaradi
+// (aralash-versiya stendi 6-band).
+function _srvImgMark(o, cloudImage, cloudColorImages) {
+  try { if (o && typeof o === "object") o._srvImgFp = _imgFp(cloudImage, cloudColorImages); } catch (e) {}
+  return o;
+}
 // 2026-08-02: kalitga FORMAT raqami qo'shildi. Barmoq izi hisoblash
 // usuli o'zgarganda eski kesh mos kelmay qoladi va HAMMA yozuv
 // "o'zgargan" bo'lib chiqadi — bir marta to'liq qayta yozish bo'ladi.
@@ -1263,7 +1287,9 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
     if (cache.get(k) !== j0) {
       // ✅ SY-3: bulutdan kelgan va o'zgarmagan yozuv — yuborilmaydi, muhr bosilmaydi
       if (!window._forceRepushing &&        // qo'lda "hammasini qayta yubor" — belgi e'tiborga olinmaydi
-          r.data && typeof r.data === "object" && r.data._srvFp && r.data._srvFp === _fpData(r.data)) {
+          r.data && typeof r.data === "object" && r.data._srvFp && r.data._srvFp === _fpData(r.data) &&
+          // ✅ IMG-2: rasm o'zgargan bo'lsa — "o'zgarmagan" emas
+          !(table === "products" && r.data._srvImgFp && r.data._srvImgFp !== _imgFp(r.image, r.color_images))) {
         cache.set(k, j0);
         try { if (_pushHisobot) _pushHisobot["~" + table] = (_pushHisobot["~" + table] || 0) + 1; } catch (e) {}
         continue;
@@ -1348,8 +1374,8 @@ async function _deltaUpsert(table, rows, chunkSize, conflict, onDirty) {
       // (masalan products → "sku,shop_id") avvalgidek ishlaydi.
         .upsert(part.map(p => {                       // ✅ SY-3: `_srvFp` bulutga ketmaydi
           const row = p[0];
-          if (row && row.data && typeof row.data === "object" && "_srvFp" in row.data) {
-            const { _srvFp, ...d } = row.data; return { ...row, data: d };
+          if (row && row.data && typeof row.data === "object" && ("_srvFp" in row.data || "_srvImgFp" in row.data)) {
+            const { _srvFp, _srvImgFp, ...d } = row.data; return { ...row, data: d };   // IMG-2
           }
           return row;
         }), { onConflict: conflict || "id,shop_id", ignoreDuplicates: false });
@@ -3098,12 +3124,12 @@ async function _pullFromCloudIchki(silent = false, skipRender = false) {
           const _locT = Date.parse(old.updatedAt || 0) || 0;
           const _cldT = Date.parse(p.data.updatedAt || 0) || 0;
           if (_locT > _cldT) return { ...old, shop_id: sid, id: p.id };
-          return { ...p.data,
+          return _srvImgMark({ ...p.data,   // ✅ IMG-2
             shop_id: sid, id: p.id, sku: p.sku,
             image: _keepImg(p.image, old.image),
             colorImages: _keepColorImgs(p.color_images, old.colorImages),
             variants: (p.data.variants && p.data.variants.length ? p.data.variants : (p.variants || []))
-          };
+          }, p.image, p.color_images);
         }
         // ZAXIRA YO'L (data hali yo'q — eski yozuvlar): v171/v172
         // mapping NULL-himoya bilan, O'ZGARISHSIZ.
