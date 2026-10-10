@@ -1,4 +1,4 @@
-// MERX akt.js | v1 | 2026-10-10 | AKT-1 — Solishtirma akt (mijoz bo'yicha)
+// MERX akt.js | v2 | 2026-10-10 | AKT-1b — qaytarish to'lovlari aktga kiradi
 // ═══════════════════════════════════════════════════════════════
 // ALOHIDA FAYL (egasi qarori, 10-okt): yangi mustaqil imkoniyat
 // mavjud fayllarga tegmasdan. `qarzlar.js` dan KEYIN yuklanadi —
@@ -37,8 +37,14 @@ function aktMalumot(customerName, customerPhone) {
              qarz, qoldi: Math.max(0, qoldi), otgan: !!(s.due && s.due < t),
              kun: s.due ? Math.round((Date.parse(t) - Date.parse(s.due)) / 86400000) : null };
   }).filter(c => c.qoldi > 0.005);
+  // ✅ AKT-1b (2026-10-10): qaytarishdan kelgan to'lovlarda (`source=refund`,
+  // tarix.js 1718) `customerPhone` YO'Q — ism+tel bilan topilmasdi; aktda
+  // jami to'langan qoldiqdan $1 008 kam ko'rinardi (Akrom aka, 15:57).
+  // Endi: mijoz `customerId` bo'yicha HAM topiladi (namuna sotuvdan).
+  const _cid = namuna && namuna.customerId != null ? String(namuna.customerId) : null;
   const tolovlar = activePays()
-    .filter(p => p.customerName === customerName && p.customerPhone === customerPhone)
+    .filter(p => (p.customerName === customerName && (p.customerPhone || "") === (customerPhone || ""))
+              || (_cid && p.customerId != null && String(p.customerId) === _cid))
     .map(p => ({ sana: p.date || "", vaqt: p.time || "", chek: p.chekNum || p.refundNo || ("#" + p.id),
                  usul: p.source === "refund" ? "qaytarish" : (p.method || "naqd"), cur: p.currency === "usd" ? "usd" : "uzs", summa: Number(p.amount || 0) }))
     .sort((a, b) => (a.sana + a.vaqt).localeCompare(b.sana + b.vaqt));

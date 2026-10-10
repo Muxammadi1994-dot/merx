@@ -6082,7 +6082,7 @@ body.sms-off .sms-only { display: none !important; }
 <script src="js/ombor.js?v=190"></script>
 <script src="js/mijozlar.js?v=176"></script>
 <script src="js/qarzlar.js?v=246"></script>
-<script src="js/akt.js?v=1"></script>   <!-- ✅ AKT-1: alohida modul, qarzlar.js dan keyin -->
+<script src="js/akt.js?v=2"></script>   <!-- ✅ AKT-1: alohida modul, qarzlar.js dan keyin -->
 <script src="js/tarix.js?v=203"></script>
 <script src="js/hisobot.js?v=160"></script>
 <script src="js/kunlik.js?v=15"></script>
@@ -6385,7 +6385,7 @@ if ("serviceWorker" in navigator) {
     } catch (e) {}
   })();
 
-  window.SW_V = 676;
+  window.SW_V = 677;
 
   // ⚠️ 2026-08-08: VERSIYA YORLIG'I — JONLI QIYMAT.
   // Avval Tizim sahifasida "2026-07 (v179)" deb QO'LDA yozilgan matn
@@ -6408,7 +6408,7 @@ if ("serviceWorker" in navigator) {
   })();
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=676")
+    navigator.serviceWorker.register("/sw.js?v=677")
       .then((reg) => {
         console.log("✅ Service Worker o'rnatildi (offline tayyor)");
         // Yangi versiya topilsa — darhol faollashtiramiz (yangilanish muammosi yo'q)
