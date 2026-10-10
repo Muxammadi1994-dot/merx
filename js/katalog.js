@@ -5753,15 +5753,23 @@ function epVarRenderTable() {
       <tr data-sku="${pr.sku}" style="border-top:1px solid var(--brd);
         ${isCurrent ? "background:#FFFBF0" : ""}">
         <td style="padding:4px;text-align:center">
-          <!-- ✅ VR-1: katak bosilsa rasm yuklanadi (har rang — o'z tovari) -->
+          <!-- ✅ VR-1: katak = galereya; 📷 = kamera (capture) — asosiy rasm oynasi (index.html
+               ep-img-input / ep-img-cam-hidden) bilan BIR XIL ikki yo'l. VR-1b (egasi, 10-okt 12:24) -->
           <input type="file" accept="image/*" style="display:none" id="evr-img-${jsEsc(pr.sku).replace(/[^a-zA-Z0-9_-]/g,"_")}"
             onchange="epVarLoadImage(this,'${jsEsc(pr.sku)}')">
-          <div id="evr-imgbox-${jsEsc(pr.sku).replace(/[^a-zA-Z0-9_-]/g,"_")}" title="Rasm yuklash"
-            onclick="document.getElementById('evr-img-${jsEsc(pr.sku).replace(/[^a-zA-Z0-9_-]/g,"_")}').click()"
-            style="width:32px;height:32px;border-radius:6px;border:1px solid var(--brd);cursor:pointer;
-            overflow:hidden;background:var(--bg);display:flex;align-items:center;justify-content:center">
-            ${pr.image ? `<img src="${pr.image}" style="width:100%;height:100%;object-fit:cover">`
-                       : `<i class="ti ti-camera-plus" style="font-size:14px;color:#9CA3AF"></i>`}
+          <input type="file" accept="image/*" capture="environment" style="display:none" id="evr-cam-${jsEsc(pr.sku).replace(/[^a-zA-Z0-9_-]/g,"_")}"
+            onchange="epVarLoadImage(this,'${jsEsc(pr.sku)}')">
+          <div style="display:flex;align-items:center;gap:3px;justify-content:center">
+            <div id="evr-imgbox-${jsEsc(pr.sku).replace(/[^a-zA-Z0-9_-]/g,"_")}" title="Galereyadan"
+              onclick="document.getElementById('evr-img-${jsEsc(pr.sku).replace(/[^a-zA-Z0-9_-]/g,"_")}').click()"
+              style="width:32px;height:32px;border-radius:6px;border:1px solid var(--brd);cursor:pointer;
+              overflow:hidden;background:var(--bg);display:flex;align-items:center;justify-content:center">
+              ${pr.image ? `<img src="${pr.image}" style="width:100%;height:100%;object-fit:cover">`
+                         : `<i class="ti ti-photo" style="font-size:14px;color:#9CA3AF"></i>`}
+            </div>
+            <div title="Suratga olish" onclick="document.getElementById('evr-cam-${jsEsc(pr.sku).replace(/[^a-zA-Z0-9_-]/g,"_")}').click()"
+              style="width:22px;height:32px;border-radius:6px;border:1px solid var(--brd);cursor:pointer;background:#0D1B2A;color:#fff;
+              display:flex;align-items:center;justify-content:center"><i class="ti ti-camera" style="font-size:12px"></i></div>
           </div>
         </td>
         <td style="padding:5px 8px;white-space:nowrap">
