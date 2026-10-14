@@ -3072,8 +3072,15 @@ function _staffKartaMatn(sale, chekId, qayt) {
   // ✅ BK-3: `qayt.refs` (qaytarish yozuvlari) → qator-qator taqsimot
   const qm = qayt && Array.isArray(qayt.refs) ? _refTaqsim(items, qayt.refs) : null;
   const toliq = !!(qayt && qayt.toliq);
+  // ✅ BK-4 (2026-10-14): BEKOR rejimi — qizil sarlavha, hamma qator chizilgan,
+  // tovar ro'yxati va "Batafsil" tugmasi QOLADI (egasining talabi: "qaysi
+  // tovarlar bor edi" savoliga javob kerak; BK-1 qisqa karta bilan tugmani
+  // olib tashlagan edi — noqulay bo'ldi).
+  const bekor = !!(qayt && qayt.bekor);
 
-  let txt = toliq
+  let txt = bekor
+    ? `❌ <b>BEKOR QILINDI — YIG'ILMASIN</b>  <code>${chekId}</code>\n`
+    : toliq
     ? `❌ <b>TO'LIQ QAYTARILDI — YIG'ILMASIN</b>  <code>${chekId}</code>\n`
     : qm ? `↩️ <b>QISMAN QAYTARILGAN</b>  <code>${chekId}</code>\n`
          : `🆕 <b>YANGI BUYURTMA</b>  <code>${chekId}</code>\n`;
@@ -3097,7 +3104,9 @@ function _staffKartaMatn(sale, chekId, qayt) {
       : `${it.qty} ${it.unit || "dona"}`;
     const extras = [it.color, it.size].filter(Boolean).join(" · ");
     const qq = qm ? Math.min(Number(it.qty) || 0, qm[_i] || 0) : 0;
-    if (qq > 0 && qq >= (Number(it.qty) || 0)) {
+    if (bekor) {   // ✅ BK-4: hammasi chizilgan
+      txt += `<s>🔸 ${it.name} — ${qtyTxt}${extras ? ` (${extras})` : ""}</s>\n`;
+    } else if (qq > 0 && qq >= (Number(it.qty) || 0)) {
       txt += `<s>🔸 ${it.name} — ${qtyTxt}${extras ? ` (${extras})` : ""}</s> ↩️ qaytarildi\n`;
     } else if (qq > 0) {
       const qolgan = (Number(it.qty) || 0) - qq;
@@ -3114,8 +3123,9 @@ function _staffKartaMatn(sale, chekId, qayt) {
     txt += `<i>…yana ${items.length - MAX_LINES} tovar — "Batafsil" da</i>\n`;
   }
   txt += `━━━━━━━━━━━━━━━━━━━`;
-  if (qm && !toliq) txt += `\n<i>Chizilgan tovarlar kassada qaytarilgan — yig'ilmaydi / omborga qabul qilinadi.</i>`;
-  if (toliq) txt += `\n<i>Butun buyurtma kassada qaytarilgan. Hech narsa yig'ilmaydi.</i>`;
+  if (bekor) txt += `\n<i>Bu buyurtma kassada BEKOR qilingan. Tovarlar yig'ilmaydi va jo'natilmaydi. Ro'yxat — "Batafsil" da.</i>`;   // ✅ BK-4
+  else if (qm && !toliq) txt += `\n<i>Chizilgan tovarlar kassada qaytarilgan — yig'ilmaydi / omborga qabul qilinadi.</i>`;
+  else if (toliq) txt += `\n<i>Butun buyurtma kassada qaytarilgan. Hech narsa yig'ilmaydi.</i>`;
   return txt;
 }
 
@@ -3327,7 +3337,9 @@ async function actionCancelNotify(body) {
   const mijoz = row.customer_name || d.customerName || "Mijoz";
   const sana  = `${row.date || d.date || ""} ${row.time || d.time || ""}`.trim();
   const jami  = Number(row.total ?? d.total ?? 0).toLocaleString("ru-RU").replace(/,/g, " ");
-  const omborMatn = `❌ <b>BEKOR QILINDI — YIG'ILMASIN</b>\n\n🧾 <b>${chek}</b>\n👤 ${mijoz}\n📅 ${sana}\n\n<i>Bu buyurtma kassada bekor qilingan. Tovarlar yig'ilmaydi va jo'natilmaydi.</i>`;
+  // ✅ BK-4: omborchi kartasi — to'liq karta (ro'yxat chizilgan) + "Batafsil" tugmasi qoladi
+  const omborMatn = _staffKartaMatn({ ...row, ...d }, chek, { bekor: true });
+  const omborTugma = _staffKartaTugma(chek, sid);
   const mijozMatn = `❌ <b>BU CHEK BEKOR QILINDI</b>\n\n🧾 <b>${chek}</b>\n📅 ${sana}\n💰 ${jami} so'm\n\n<i>${shopName || "Do'kon"}: bu sotuv bekor qilingan, chek kuchda emas. Savol bo'lsa do'konga murojaat qiling.</i>`;
   const replyOmbor = `❌ ${chek} — BEKOR QILINDI, yig'ilmasin`;
   const replyMijoz = `❌ ${chek} cheki bekor qilindi`;
@@ -3340,12 +3352,12 @@ async function actionCancelNotify(body) {
 
   // 3. Tahrir nishonlari: (chat, msg_id, foto, matn) — takrorsiz
   const seen = new Set(); const nishon = [];
-  const qosh = (chat, mid, foto, matn, reply) => {
+  const qosh = (chat, mid, foto, matn, reply, tugma) => {
     if (!chat || !mid) return; const k = chat + ":" + mid;
-    if (seen.has(k)) return; seen.add(k); nishon.push({ chat, mid, foto, matn, reply });
+    if (seen.has(k)) return; seen.add(k); nishon.push({ chat, mid, foto, matn, reply, tugma });
   };
   for (const j of jr) {
-    if (j.kind === "staffnotif") qosh(j.group_id, j.group_msg_id, j.foto, omborMatn, replyOmbor);
+    if (j.kind === "staffnotif") qosh(j.group_id, j.group_msg_id, j.foto, omborMatn, replyOmbor, omborTugma);   // ✅ BK-4
     if (j.kind === "receipt") {
       qosh(j.chat_id, j.msg_id, false, mijozMatn, replyMijoz);
       qosh(j.group_id, j.group_msg_id, false, mijozMatn, replyMijoz);
@@ -3353,9 +3365,10 @@ async function actionCancelNotify(body) {
   }
   let tahrir = 0, yangi = 0, xato = [];
   for (const n of nishon) {
+    const _rm = n.tugma ? n.tugma : { inline_keyboard: [] };   // ✅ BK-4: omborchida tugma qoladi, mijozda yo'q
     const r = n.foto
-      ? await tgEditCaption(n.chat, n.mid, n.matn, { reply_markup: { inline_keyboard: [] } })
-      : await tgEdit(n.chat, n.mid, n.matn, { reply_markup: { inline_keyboard: [] } });
+      ? await tgEditCaption(n.chat, n.mid, n.matn, { reply_markup: _rm })
+      : await tgEdit(n.chat, n.mid, n.matn, { reply_markup: _rm });
     if (r && r.ok) tahrir++; else xato.push((r && r.description) || "edit xato");
     const rr = await tg(n.chat, n.reply, { reply_to_message_id: n.mid });
     if (!rr.ok) xato.push(rr.description || "reply xato");
@@ -3364,7 +3377,7 @@ async function actionCancelNotify(body) {
   // 4. Raqamsiz joylar (eski xabar yoki jurnal yo'q) — yangi xabar
   const tahrirlangan = new Set(nishon.map(n => String(n.chat)));
   const yangiNishon = [];
-  if (staffGroupId && !tahrirlangan.has(String(staffGroupId))) yangiNishon.push([staffGroupId, omborMatn]);
+  if (staffGroupId && !tahrirlangan.has(String(staffGroupId))) yangiNishon.push([staffGroupId, omborMatn, omborTugma]);   // ✅ BK-4
   if (groupId && /^-?\d{5,}$/.test(String(groupId)) && !tahrirlangan.has(String(groupId))) yangiNishon.push([groupId, mijozMatn]);
   let chatId = null;
   try {
@@ -3378,8 +3391,8 @@ async function actionCancelNotify(body) {
     }
   } catch (e) {}
   if (chatId && !tahrirlangan.has(String(chatId))) yangiNishon.push([chatId, mijozMatn]);
-  for (const [chat, matn] of yangiNishon) {
-    const r = await tg(chat, matn);
+  for (const [chat, matn, tugma] of yangiNishon) {
+    const r = await tg(chat, matn, tugma ? { reply_markup: tugma } : undefined);   // ✅ BK-4
     if (r.ok) yangi++; else xato.push(r.description || "send xato");
   }
 
