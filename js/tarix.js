@@ -1422,12 +1422,13 @@ async function _confirmRefundIchki() {
         isFull: !!isFullRefund, staffGroupId: _sg,
         items: refundItems.map(r => ({ name: r.name, variant: r.variant || "",
           color: r.color || r.variant || "", size: r.size || "", unit: r.unit || "",
+          art: r.art || "",                                   // ✅ BK-3: bot artikul bilan ajratadi
           qty: Number(r.qty) || 0, qtyBox: r.qtyBox || 0 })),
         sale: { chekNum: s.chekNum, date: s.date, time: s.time, total: s.total,
           customerName: s.customerName || "", customerPhone: s.customerPhone || "",
           items: (s.items || []).map(it => ({ name: it.name, color: it.color || "",
             size: it.size || "", unit: it.unit || "", qty: it.qty, qtyBox: it.qtyBox || 0,
-            inBox: it.inBox || 0 })), refunds: s.refunds || [], status: s.status },
+            inBox: it.inBox || 0, art: it.art || "" })), refunds: s.refunds || [], status: s.status },   // ✅ BK-3
       }, "rfd-" + refundNo).then(r => {
         if (r && r.dup) {}
         else if (r && r.sent) toast("📨 Qaytarish xabari omborchiga yuborildi");

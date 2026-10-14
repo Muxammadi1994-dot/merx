@@ -412,10 +412,10 @@ async function _ordLoad(shopId, chekId) {
   // ✅ BK-2: to'liq qaytarilgan tovar hisobga kirmaydi, qisman — qolgan soni.
   // INDEKS SAQLANADI (done_items asl indeks bilan): qaytarilgan — `_qaytdi`
   // belgisi bilan qoladi, pastda sanalmaydi.
-  const _rm = _refMap(d.refunds);
-  const items = items0.map(it => {
+  const _rq = _refTaqsim(items0, d.refunds);   // ✅ BK-3: qator-qator taqsimot
+  const items = items0.map((it, _i) => {
     if (!it) return it;
-    const qq = Math.min(Number(it.qty) || 0, _rm.get(_refKalit(it)) || 0);
+    const qq = Math.min(Number(it.qty) || 0, _rq[_i] || 0);
     if (!qq) return it;
     const qol = (Number(it.qty) || 0) - qq;
     if (qol <= 0) return { ...it, _qaytdi: true };
@@ -3014,6 +3014,45 @@ function _refMap(refunds) {
     }));
   return m;
 }
+// ✅ BK-3 (2026-10-14): QAYTARILGAN SON CHEK QATORLARIGA TAQSIMLANADI.
+// Avval `_refMap` nom|rang|o'lcham bo'yicha YIG'INDI berardi va har mos
+// qator o'sha yig'indini olardi: bir nomli ikki qator (ikki xil artikul
+// yoki bir artikul ikki marta) bo'lsa — biri qaytsa IKKALASI chizilardi
+// (jonli: ABU SAXIY CHK-20261014-0004-BK, Fioroni Navy ×2, 1 qaytgan).
+// Endi: qaytarish yozuvidagi har tovar uchun qatorlar KETMA-KET to'ldiriladi
+// (birinchi qator to'yguncha, qolgani keyingisiga). ARTIKUL hisobga
+// olinadi: ikkala tomonda art bo'lib farq qilsa — mos EMAS; art bo'lmasa
+// (eski yozuvlar) — avvalgidek nom|rang|o'lcham. Natija: items bilan bir
+// xil uzunlikdagi massiv, har indeksda shu qatordan qaytgan dona.
+function _refTaqsim(items, refunds) {
+  const list = Array.isArray(items) ? items : [];
+  const arr  = list.map(() => 0);
+  const refItems = [];
+  (Array.isArray(refunds) ? refunds : []).forEach(r =>
+    (Array.isArray(r.items) ? r.items : []).forEach(it => { if (it) refItems.push(it); }));
+  refItems.forEach(ri => {
+    let left = Number(ri.qty) || 0;
+    if (left <= 0) return;
+    const rk = _refKalit(ri);
+    const ra = String(ri.art || "").trim();
+    // 1-o'tish: artikul aniq mos · 2-o'tish: artikulsiz (bir tomonda art yo'q)
+    for (const pass of [1, 2]) {
+      for (let i = 0; i < list.length && left > 0; i++) {
+        const it = list[i];
+        if (!it || _refKalit(it) !== rk) continue;
+        const ia = String(it.art || "").trim();
+        if (pass === 1 && !(ra && ia && ra === ia)) continue;
+        if (pass === 2 && ra && ia) continue;          // ikkalasida art bor — 1-o'tishda hal bo'lgan
+        const cap = Math.max(0, (Number(it.qty) || 0) - arr[i]);
+        if (!cap) continue;
+        const take = Math.min(cap, left);
+        arr[i] += take; left -= take;
+      }
+      if (left <= 0) break;
+    }
+  });
+  return arr;
+}
 function _staffKartaTugma(chekId, sid) {
   // "Batafsil ko'rish" — Telegram Web App orqali (BotFather: /newapp, short_name=ombor)
   // startapp parametri orqali chekId+shopId uzatiladi (Telegram faqat
@@ -3030,7 +3069,8 @@ function _staffKartaMatn(sale, chekId, qayt) {
   const total  = Number(sale.total || 0);
   const custName  = sale.customerName  || sale.customer_name  || "";
   const custPhone = sale.customerPhone || sale.customer_phone || "";
-  const qm = qayt && qayt.map ? qayt.map : null;
+  // ✅ BK-3: `qayt.refs` (qaytarish yozuvlari) → qator-qator taqsimot
+  const qm = qayt && Array.isArray(qayt.refs) ? _refTaqsim(items, qayt.refs) : null;
   const toliq = !!(qayt && qayt.toliq);
 
   let txt = toliq
@@ -3051,12 +3091,12 @@ function _staffKartaMatn(sale, chekId, qayt) {
   // IXCHAM FORMAT (2026-07): har tovar — bitta qator, ko'pi bilan 6 ta;
   // to'liq tafsilot "Batafsil" sahifasida (rasm, artikul, belgilash)
   const MAX_LINES = 6;
-  items.slice(0, MAX_LINES).forEach(it => {
+  items.slice(0, MAX_LINES).forEach((it, _i) => {
     const qtyTxt = it.qtyBox
       ? `${it.qtyBox} pochka`
       : `${it.qty} ${it.unit || "dona"}`;
     const extras = [it.color, it.size].filter(Boolean).join(" · ");
-    const qq = qm ? Math.min(Number(it.qty) || 0, qm.get(_refKalit(it)) || 0) : 0;
+    const qq = qm ? Math.min(Number(it.qty) || 0, qm[_i] || 0) : 0;
     if (qq > 0 && qq >= (Number(it.qty) || 0)) {
       txt += `<s>🔸 ${it.name} — ${qtyTxt}${extras ? ` (${extras})` : ""}</s> ↩️ qaytarildi\n`;
     } else if (qq > 0) {
@@ -3113,11 +3153,10 @@ async function actionRefundNotify(body) {
   const refs = Array.isArray(sale.refunds) ? sale.refunds.slice() : [];
   if (!refs.some(r => r.no === refundNo) && Array.isArray(items))
     refs.push({ no: refundNo, items });
-  const map = _refMap(refs);
   const toliq = !!isFull || sale.status === "qaytarilgan";
   const buItems = Array.isArray(items) ? items : [];
 
-  const kartaMatn = _staffKartaMatn(sale, chek, { map, toliq, refundNo });
+  const kartaMatn = _staffKartaMatn(sale, chek, { refs, toliq, refundNo });   // ✅ BK-3
   let replyMatn = `↩️ <b>Qaytarish ${refundNo}</b> — <code>${chek}</code>\n` +
     (toliq ? `❌ <b>Buyurtma TO'LIQ qaytarildi — yig'ilmasin.</b>\n` : `<b>${buItems.length} tovar qaytdi:</b>\n`);
   buItems.slice(0, 15).forEach(it => {
@@ -3355,7 +3394,7 @@ async function actionCancelNotify(body) {
 function buildStaffOrderHtml(sale, shopName, shopId2) {
   const chekId    = sale.chekNum || sale.chek_num || ("#" + sale.id);
   const _bekor    = String(sale.cancelled) === "true" || sale.status === "bekor";   // ✅ BK-1
-  const _refMapS  = _refMap(sale.refunds);                                          // ✅ BK-2
+  const _rqS      = _refTaqsim((sale.items || []).filter(Boolean), sale.refunds);   // ✅ BK-3
   const _toliqQ   = !_bekor && sale.status === "qaytarilgan";
   const date      = sale.date || "";
   const time      = sale.time || "";
@@ -3371,8 +3410,8 @@ function buildStaffOrderHtml(sale, shopName, shopId2) {
   // Jami pochkalar (barcha itemlar)
   const totalBoxes = items.reduce((a, it) => a + (it.qtyBox || 0), 0);
   // ✅ BK-2: to'liq qaytarilgan tovar "tayyor" hisobiga kirmaydi
-  const totalTur   = items.filter(it => {
-    const qq = Math.min(Number(it.qty) || 0, _refMapS.get(_refKalit(it)) || 0);
+  const totalTur   = items.filter((it, _i) => {
+    const qq = Math.min(Number(it.qty) || 0, _rqS[_i] || 0);
     return !(qq > 0 && qq >= (Number(it.qty) || 0));
   }).length;
 
@@ -3400,7 +3439,7 @@ function buildStaffOrderHtml(sale, shopName, shopId2) {
       ? `${qtyBox} pochka / ${it.qty} ${unit}`
       : `${it.qty} ${unit}`;
     // ✅ BK-2: qaytarilgan dona — kartada chiziladi, belgilash yopiq
-    const _qq   = Math.min(Number(it.qty) || 0, _refMapS.get(_refKalit(it)) || 0);
+    const _qq   = Math.min(Number(it.qty) || 0, _rqS[idx] || 0);
     const _qTol = _qq > 0 && _qq >= (Number(it.qty) || 0);
     const _qol  = (Number(it.qty) || 0) - _qq;
     const _qolTxt = qtyBox && Number(it.inBox) > 0
